@@ -667,12 +667,33 @@ let (|IsInRefType|_|) (com: Compiler) =
         | _ -> None
     | _ -> None
 
-let (|HasReferenceEquality|_|) (com: Compiler) (t: Type) =
+let (|IsReferenceType|_|) (com: Compiler) (t: Type) =
     match t with
+    | Measure _
+    | MetaType
+    | Unit
+    | Boolean
+    | Char
+    | Number _ -> None
+
     | Any
+    | Regex
+    | String
     | LambdaType _
     | DelegateType _ -> Some t
-    | Nullable(_, false) -> Some t
+
+    | Array _
+    | List _ -> Some t
+
+    | Nullable(_, isStruct)
+    | Option(_, isStruct)
+    | Tuple(_, isStruct)
+    | AnonymousRecordType(_, _, isStruct) ->
+        if isStruct then
+            None
+        else
+            Some t
+
     | GenericParam(_name, _isMeasure, constraints) ->
         let isNullable = constraints |> List.contains Fable.Constraint.IsNullable
         let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
@@ -681,6 +702,52 @@ let (|HasReferenceEquality|_|) (com: Compiler) (t: Type) =
             Some t
         else
             None
+
+    | DeclaredType(entRef, _) ->
+        let ent = com.GetEntity(entRef)
+
+        if ent.IsValueType then
+            None
+        else
+            Some t
+
+let rec (|HasReferenceEquality|_|) (com: Compiler) (t: Type) =
+    match t with
+    | Measure _
+    | MetaType
+    | Unit
+    | Boolean
+    | Char
+    | Number _ -> None
+
+    | Any
+    | Regex
+    | String
+    | LambdaType _
+    | DelegateType _ -> Some t
+
+    | Array _
+    | List _ -> None
+
+    | Nullable(genArg, isStruct) ->
+        if isStruct then
+            None
+        else
+            (|HasReferenceEquality|_|) com genArg
+
+    | Option _
+    | Tuple _
+    | AnonymousRecordType _ -> None
+
+    | GenericParam(_name, _isMeasure, constraints) ->
+        let isNullable = constraints |> List.contains Fable.Constraint.IsNullable
+        let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
+
+        if isNullable || isReferenceType then
+            Some t
+        else
+            None
+
     | DeclaredType(entRef, _) ->
         let ent = com.GetEntity(entRef)
 
@@ -688,7 +755,6 @@ let (|HasReferenceEquality|_|) (com: Compiler) (t: Type) =
             None
         else
             Some t
-    | _ -> None
 
 let (|ListLiteral|_|) expr =
     let rec untail t acc =

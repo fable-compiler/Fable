@@ -643,7 +643,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclGuid -> Helper.LibValue(com, "Guid", "empty", t)
     | Builtin(BclKeyValuePair(k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
     // | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
-    | HasReferenceEquality com _ -> Null t |> makeValue None
+    | IsReferenceType com _ -> Null t |> makeValue None
     | _ -> Helper.LibCall(com, "Native", "getZero", t, [])
 
 let getOne (com: ICompiler) (ctx: Context) (t: Type) =

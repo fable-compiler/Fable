@@ -79,18 +79,18 @@ type Person =
     { First: string
       Last: string }
 
-// [<Fact>]
-// let ``Lists of nullable records works`` () =
-//     let args: (Person | null) list =
-//         [
-//             { First = "A"; Last = "B" }
-//             null
-//             { First = "C"; Last = "D" }
-//             { First = "E"; Last = "F" }
-//             null
-//         ]
-//     let nullCount = args |> List.filter isNull |> List.length
-//     nullCount |> equal 2
+[<Fact>]
+let ``Lists of nullable records works`` () =
+    let args: (Person | null) list =
+        [
+            { First = "A"; Last = "B" }
+            null
+            { First = "C"; Last = "D" }
+            { First = "E"; Last = "F" }
+            null
+        ]
+    let nullCount = args |> List.filter isNull |> List.length
+    nullCount |> equal 2
 
 [<Fact>]
 let ``Lists of nullable strings works`` () =
