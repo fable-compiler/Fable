@@ -3199,22 +3199,31 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
     ]
 
 // Helper function to extract initial value from getter body
-let getInitialValue com ctx (getterMemb: Fable.MemberDecl) wrapInLambda (fallback: Expression) =
+// Returns (value, isFactory) where isFactory indicates if the value is a lambda function
+let getInitialValue
+    com
+    ctx
+    (getterMemb: Fable.MemberDecl)
+    (wrapInLambda: bool)
+    (fallback: Expression)
+    : (Expression * bool)
+    =
     match getterMemb.Body with
     | Fable.Value(kind, r) ->
-        // Use transformValue for literal values
-        transformValue com ctx r kind |> fst
+        // Use transformValue for literal values - never wrapped
+        let value = transformValue com ctx r kind |> fst
+        value, false
     | _ ->
         // Try to transform the expression
         try
             let expr, _ = com.TransformAsExpr(ctx, getterMemb.Body)
 
             if wrapInLambda then
-                Expression.lambda (Arguments.arguments [], expr)
+                Expression.lambda (Arguments.arguments [], expr), true
             else
-                expr
+                expr, false
         with _ ->
-            fallback
+            fallback, false
 
 
 // Process a single static property and return (property assignment, extra statements)
@@ -3239,8 +3248,14 @@ let transformStaticProperty
             propName |> Naming.toStaticPropertyNaming
 
     // Create generic StaticProperty with type parameter for better type inference
-    let makeStaticProperty (propType: Fable.Type) args =
-        let staticPropertyBase = libValue com ctx "util" "StaticProperty"
+    let makeStaticProperty (propType: Fable.Type) args isFactory =
+        let className =
+            if isFactory then
+                "StaticLazyProperty"
+            else
+                "StaticProperty"
+
+        let staticPropertyClass = libValue com ctx "util" className
 
         // Check if the property type references the current class (forward reference needed)
         let typeAnnotation =
@@ -3254,7 +3269,7 @@ let transformStaticProperty
                 ta
 
         let genericStaticProperty =
-            Expression.subscript (staticPropertyBase, typeAnnotation)
+            Expression.subscript (staticPropertyClass, typeAnnotation)
 
         Expression.call (genericStaticProperty, args)
 
@@ -3275,8 +3290,10 @@ let transformStaticProperty
     match getter, setter with
     | Some getterMemb, None ->
         // Read-only property
-        let initialValue = getInitialValue com ctx getterMemb true Expression.none
-        let propExpr = makeStaticProperty getterMemb.Body.Type [ initialValue ]
+        let initialValue, isFactory =
+            getInitialValue com ctx getterMemb true Expression.none
+
+        let propExpr = makeStaticProperty getterMemb.Body.Type [ initialValue ] isFactory
         Some(propertyName, propExpr), extraStatements
 
     | Some getterMemb, Some setterMemb ->
@@ -3285,7 +3302,7 @@ let transformStaticProperty
             getMemberArgsAndBody com ctx (Attached true) false setterMemb.Args setterMemb.Body
 
         let fallback = Util.getDefaultValueForType com ctx getterMemb.Body.Type
-        let initialValue = getInitialValue com ctx getterMemb true fallback
+        let initialValue, isFactory = getInitialValue com ctx getterMemb true fallback
 
         // Check if setter has custom logic beyond simple assignment
         let hasCustomSetter =
@@ -3303,12 +3320,12 @@ let transformStaticProperty
             let setterFuncName = $"_{name}_{propertyName}_setter"
 
             let propExpr =
-                makeStaticProperty getterMemb.Body.Type [ initialValue; Expression.name setterFuncName ]
+                makeStaticProperty getterMemb.Body.Type [ initialValue; Expression.name setterFuncName ] isFactory
 
             Some(propertyName, propExpr), extraStatements @ [ setterFunc ]
         else
             // Simple setter, no custom function needed - just use the descriptor
-            let propExpr = makeStaticProperty getterMemb.Body.Type [ initialValue ]
+            let propExpr = makeStaticProperty getterMemb.Body.Type [ initialValue ] isFactory
             Some(propertyName, propExpr), extraStatements
 
     | None, Some setterMemb ->
@@ -3330,7 +3347,7 @@ let transformStaticProperty
             | _ -> Fable.Any
 
         let propExpr =
-            makeStaticProperty propertyType [ Expression.none; Expression.name setterFuncName ]
+            makeStaticProperty propertyType [ Expression.none; Expression.name setterFuncName ] false
 
         Some(propertyName, propExpr), extraStatements @ [ setterFunc ]
 

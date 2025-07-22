@@ -2704,66 +2704,91 @@ def get_platform() -> PlatformID:
     return PlatformID.Other
 
 
-class StaticProperty[T]:
-    """Static property descriptor.
+class StaticPropertyBase[T](ABC):
+    """Base class for static property descriptors."""
 
-    This is a descriptor that can be used to define static properties on
-    a class. Supports lazy initialization with factory functions.
-    """
+    __slots__ = "name", "setter_func"
 
-    __slots__ = "_initialized", "factory", "name", "setter_func", "value"
-
-    def __init__(
-        self, initial_value_or_factory: T | Callable[[], T], setter_func: Callable[[T], None] | None = None
-    ) -> None:
-        if callable(initial_value_or_factory):
-            # Factory function for lazy initialization
-            self.factory: Callable[[], T] | None = initial_value_or_factory
-            self.value: T | None = None
-            self._initialized = False
-        else:
-            # Direct value
-            self.value = initial_value_or_factory
-            self.factory = None
-            self._initialized = True
+    def __init__(self, setter_func: Callable[[T], None] | None = None) -> None:
         self.setter_func = setter_func
-        self.name = None  # Will be set by __set_name__ if available
+        self.name: str | None = None  # Will be set by __set_name__ if available
 
+    @abstractmethod
     def __get__(self, instance: Any, owner: Any) -> T:
-        if self.factory is not None:
-            # Factory-based property - always call factory, never cache
-            self.value = self.factory()
-        elif not self._initialized:
-            # Direct value property that hasn't been initialized yet
-            self._initialized = True
-        return self.value  # type: ignore
+        """Get the property value."""
+        pass
 
     def __set__(self, instance: Any, value: T) -> None:
+        """Set the property value."""
         if self.setter_func:
             self.setter_func(value)
+        self._set_value(value)
 
-        if self.factory is None:
-            # Direct value property - cache the value
-            self.value = value
-            self._initialized = True
-        # For factory-based properties, don't cache - let the factory handle value retrieval
+    @abstractmethod
+    def _set_value(self, value: T) -> None:
+        """Internal method to store the value."""
+        pass
 
     def __set_name__(self, owner: type, name: str) -> None:
         """Called when the descriptor is assigned to a class attribute"""
         self.name = name
 
 
+class StaticProperty[T](StaticPropertyBase[T]):
+    """Static property descriptor for direct values with caching.
+
+    This descriptor caches the value and is suitable for static properties
+    that hold a single value that can be updated.
+    """
+
+    __slots__ = "_initialized", "value"
+
+    def __init__(self, initial_value: T, setter_func: Callable[[T], None] | None = None) -> None:
+        super().__init__(setter_func)
+        self.value: T = initial_value
+        self._initialized: bool = True
+
+    def __get__(self, instance: Any, owner: Any) -> T:
+        return self.value
+
+    def _set_value(self, value: T) -> None:
+        """Cache the value."""
+        self.value = value
+
+
+class StaticLazyProperty[T](StaticPropertyBase[T]):
+    """Static property descriptor for factory-based lazy initialization.
+
+    This descriptor calls the factory function each time the property is accessed,
+    making it suitable for computed properties or properties that should always
+    return fresh values.
+    """
+
+    __slots__ = ("factory",)
+
+    def __init__(self, factory: Callable[[], T], setter_func: Callable[[T], None] | None = None) -> None:
+        super().__init__(setter_func)
+        self.factory: Callable[[], T] = factory
+
+    def __get__(self, instance: Any, owner: Any) -> T:
+        return self.factory()
+
+    def _set_value(self, value: T) -> None:
+        """Factory-based properties don't cache values."""
+        pass  # The factory handles value retrieval
+
+
 class StaticPropertyMeta(type):
     """Metaclass that enables StaticProperty descriptors to work with class-level assignment."""
 
     def __setattr__(cls, name: str, value: Any) -> None:
-        # Check if the attribute exists and is a StaticProperty
+        # Check if the attribute exists and is a StaticPropertyBase
         # Use dict lookup instead of getattr to avoid triggering descriptors
-        if hasattr(cls, "__dict__") and name in cls.__dict__:
+        if name in getattr(cls, "__dict__", {}):
             existing_attr = cls.__dict__[name]
-            if isinstance(existing_attr, StaticProperty):
+            if isinstance(existing_attr, StaticPropertyBase):
                 # Call the descriptor's __set__ method instead of replacing it
-                attr = cast(StaticProperty[Any], existing_attr)
+                attr = cast(StaticPropertyBase[Any], existing_attr)
                 attr.__set__(cls, value)
                 return
 
@@ -2771,8 +2796,8 @@ class StaticPropertyMeta(type):
         for base in cls.__mro__[1:]:  # Skip self
             if hasattr(base, "__dict__") and name in base.__dict__:
                 existing_attr = base.__dict__[name]
-                if isinstance(existing_attr, StaticProperty):
-                    attr = cast(StaticProperty[Any], existing_attr)
+                if isinstance(existing_attr, StaticPropertyBase):
+                    attr = cast(StaticPropertyBase[Any], existing_attr)
                     attr.__set__(cls, value)
                     return
 
@@ -2783,7 +2808,9 @@ class StaticPropertyMeta(type):
 __all__ = [
     "ObjectRef",
     "PlatformID",
+    "StaticLazyProperty",
     "StaticProperty",
+    "StaticPropertyBase",
     "StaticPropertyMeta",
     "array_hash",
     "copy_to_array",
