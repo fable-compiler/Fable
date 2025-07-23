@@ -2,32 +2,79 @@ namespace Fable.Core
 
 open System
 
+/// <summary>
+/// Specifies case transformation rules.
+/// </summary>
 type CaseRules =
+    /// <summary>
+    /// No transformation is applied.
+    /// <example>
+    /// <c>FooBar</c> -> <c>FooBar</c>
+    /// </example>
+    /// </summary>
     | None = 0
-    /// FooBar -> fooBar
+    /// <summary>
+    /// First character is lowercased.
+    /// <example>
+    /// <c>FooBar</c> -> <c>fooBar</c>
+    /// </example>
+    /// </summary>
     | LowerFirst = 1
-    /// FooBar -> foo_bar
+    /// <summary>
+    /// Underscores are used as a separator. All characters are lowercased.
+    /// <example>
+    /// <c>FooBar</c> -> <c>foo_bar</c>
+    /// </example>
+    /// </summary>
     | SnakeCase = 2
-    /// FooBar -> FOO_BAR
+    /// <summary>
+    /// Underscores are used as a separator. All characters are uppercased.
+    /// <example>
+    /// <c>FooBar</c> -> <c>FOO_BAR</c>
+    /// </example>
+    /// </summary>
     | SnakeCaseAllCaps = 3
-    /// FooBar -> foo-bar
+    /// <summary>
+    /// Hyphens are used as a separator. All characters are lowercased.
+    /// <example>
+    /// <c>FooBar</c> -> <c>foo-bar</c>
+    /// </example>
+    /// </summary>
     | KebabCase = 4
-    /// FooBar -> foobar
+    /// <summary>
+    /// All characters are lowercased.
+    /// <example>
+    /// <c>FooBar</c> -> <c>foobar</c>
+    /// </example>
+    /// </summary>
     | LowerAll = 5
 
-/// Used on interfaces to mangle member names. This allows overloading and prevents conflicts
+/// <summary>
+/// Used on interfaces to mangle member names. This allows overloading and prevents conflicts with
 /// other interfaces, but will make interop with native code more difficult.
+/// </summary>
 type MangleAttribute(mangle: bool) =
     inherit Attribute()
     new() = MangleAttribute(true)
 
-/// Used on a class to attach all members, useful when you want to use the class from JS.
+/// <summary>
+/// Used on a class to attach all members without mangling.
+/// </summary>
+/// <remarks>
+/// Be aware that overloads won't work.
+/// </remarks>
 [<AttributeUsage(AttributeTargets.Class)>]
 type AttachMembersAttribute() =
     inherit Attribute()
 
-/// Used for erased union types and to ignore modules in JS compilation.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#erase-attribute
+/// <summary>
+/// Used for erased union types, erasing default constructors, and to ignore modules in Fable compilation.
+/// </summary>
+/// <remarks>
+/// <para>When placed on unions, the union code is erased, leaving the underlying fields as raw values</para>
+/// <para>When used on <c>class</c> type declarations, member bindings etc, it will erase any associated
+/// target code relating to the construction, reflection, and the definition itself.</para>
+/// </remarks>
 type EraseAttribute() =
     inherit Attribute()
     new(caseRules: CaseRules) = EraseAttribute()
@@ -38,7 +85,12 @@ type TypeScriptTaggedUnionAttribute(tagName: string, caseRules: CaseRules) =
 
     new(tagName: string) = TypeScriptTaggedUnionAttribute(tagName, CaseRules.LowerFirst)
 
-/// Used in place of `CompiledNameAttribute` if the target is not a string.
+/// <summary>
+/// Used in place of <c>CompiledNameAttribute</c> if the target is not a string.
+/// </summary>
+/// <remarks>
+/// Accepts <c>Enum</c>, <c>int</c>, <c>float</c> or <c>bool</c>.
+/// </remarks>
 type CompiledValueAttribute private () =
     inherit Attribute()
     new(value: int) = CompiledValueAttribute()
@@ -46,31 +98,60 @@ type CompiledValueAttribute private () =
     new(value: bool) = CompiledValueAttribute()
     new(value: Enum) = CompiledValueAttribute()
 
-/// The module, type, function... is globally accessible in JS.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#type-safety-with-imports-and-interfaces
+/// <summary>
+/// The value (module, type, function...) is globally accessible in the target runtime.
+/// </summary>
+/// <remarks>
+/// Global accessibility means that no imports are required to use the decorated value
+/// in the target runtime.
+/// </remarks>
 type GlobalAttribute() =
     inherit Attribute()
     new(name: string) = GlobalAttribute()
 
+/// <summary>
 /// References to the module, type, function... will be replaced by import statements.
-/// Use `[<Import("default", "my-package")>] to import the default member.
-/// Use `[<Import("*", "my-package")>] to import the whole package.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#type-safety-with-imports-and-interfaces
+/// </summary>
+/// <remarks>
+/// Example selectors:
+/// <para><c>[&lt;Import("default", "my-package")>]</c></para>
+/// <para><c>[&lt;Import("*", "my-package")>]</c></para>
+/// <para><c>[&lt;Import("nested.import", "my-package")>]</c></para>
+/// </remarks>
 type ImportAttribute(selector: string, from: string) =
     inherit Attribute()
 
-/// Takes the member name from the value it decorates
+/// <summary>
+/// Imports the decorated value, by name, from the given source.
+/// <example>
+/// <code lang="fsharp">
+/// [&lt;Import("Test","TestLibrary")>]
+/// let test value = value
+/// // SAME AS
+/// [&lt;ImportMember("TestLibrary")>]
+/// let Test value = value
+/// </code>
+/// </example>
+/// </summary>
 type ImportMemberAttribute(from: string) =
     inherit Attribute()
 
-/// Same as `Import("default", "my-package")`
+/// <summary>
+/// Same as <c>[&lt;Import("default", "my-package")>]</c>.
+/// </summary>
 type ImportDefaultAttribute(from: string) =
     inherit Attribute()
 
-/// Same as `Import("*", "my-package")`
+/// <summary>
+/// Same as <c>[&lt;Import("*", "my-package")>]</c>
+/// </summary>
 type ImportAllAttribute(from: string) =
     inherit Attribute()
 
+/// <summary>
+/// In supporting target languages, explicitly declares the decorated member
+/// as the default export for the file.
+/// </summary>
 type ExportDefaultAttribute() =
     inherit Attribute()
 
