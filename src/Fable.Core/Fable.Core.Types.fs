@@ -22,31 +22,31 @@ type CaseRules =
     | LowerFirst = 1
     /// <summary>
     /// Underscores are used as a separator. All characters are lowercased.
-    /// </summary>
     /// <example>
     /// <c>FooBar</c> -> <c>foo_bar</c>
     /// </example>
+    /// </summary>
     | SnakeCase = 2
     /// <summary>
     /// Underscores are used as a separator. All characters are uppercased.
-    /// </summary>
     /// <example>
     /// <c>FooBar</c> -> <c>FOO_BAR</c>
     /// </example>
+    /// </summary>
     | SnakeCaseAllCaps = 3
     /// <summary>
     /// Hyphens are used as a separator. All characters are lowercased.
-    /// </summary>
     /// <example>
     /// <c>FooBar</c> -> <c>foo-bar</c>
     /// </example>
+    /// </summary>
     | KebabCase = 4
     /// <summary>
     /// All characters are lowercased.
-    /// </summary>
     /// <example>
     /// <c>FooBar</c> -> <c>foobar</c>
     /// </example>
+    /// </summary>
     | LowerAll = 5
 
 /// <summary>
@@ -123,7 +123,6 @@ type ImportAttribute(selector: string, from: string) =
 
 /// <summary>
 /// Imports the decorated value, by name, from the given source.
-/// </summary>
 /// <example>
 /// <code lang="fsharp">
 /// [&lt;Import("Test","TestLibrary")>]
@@ -133,6 +132,7 @@ type ImportAttribute(selector: string, from: string) =
 /// let Test value = value
 /// </code>
 /// </example>
+/// </summary>
 type ImportMemberAttribute(from: string) =
     inherit Attribute()
 
