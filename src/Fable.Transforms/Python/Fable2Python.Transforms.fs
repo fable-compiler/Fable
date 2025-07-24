@@ -1069,6 +1069,21 @@ let rec transformIfStatement (com: IPythonCompiler) ctx r ret guardExpr thenStmn
 
         stmts @ stmts' @ stmts'' @ [ ifStatement ]
 
+// Helper function to determine if a field access is for a static property backing field
+let isPropertyBackingField (com: IPythonCompiler) (typ: Fable.Type) (fieldName: string) =
+    match typ with
+    | Fable.DeclaredType(entityRef, _) when fieldName.EndsWith("@", System.StringComparison.Ordinal) ->
+        match com.TryGetEntity entityRef with
+        | Some ent ->
+            ent.MembersFunctionsAndValues
+            |> Seq.exists (fun memb ->
+                memb.IsInstance
+                && (memb.IsGetter || memb.IsSetter)
+                && $"{memb.DisplayName}@" = fieldName
+            )
+        | None -> true
+    | _ -> false
+
 let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
     // printfn "transformGet: %A" kind
     // printfn "transformGet: %A" (fableExpr.Type)
@@ -1092,17 +1107,21 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
             | _ -> fableExpr.Type
 
         let fieldName =
-            match narrowedType with
-            | Fable.AnonymousRecordType _ -> i.Name // Use the field name as is for anonymous records
-            | Fable.DeclaredType(entityRef, _) ->
-                // Only apply naming convention for user-defined F# Records (not built-in F# Core types)
-                match com.TryGetEntity entityRef with
-                | Some ent when shouldUseRecordFieldNamingForRef entityRef ent ->
-                    i.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
-                | _ -> i.Name |> Naming.toPythonNaming // Fallback to Python naming for other types
-            | _ ->
-                // Fallback to snake case for other types
-                i.Name |> Naming.toPythonNaming // |> Helpers.clean
+            // Check once if this is a property backing field
+            if isPropertyBackingField com narrowedType i.Name then
+                // Use property backing field naming for all backing fields
+                i.Name |> Naming.toPropertyBackingFieldNaming
+            else
+                // Use appropriate naming based on type
+                match narrowedType with
+                | Fable.AnonymousRecordType _ -> i.Name // Use the field name as is for anonymous records
+                | Fable.DeclaredType(entityRef, _) ->
+                    // Only apply naming convention for user-defined F# Records (not built-in F# Core types)
+                    match com.TryGetEntity entityRef with
+                    | Some ent when shouldUseRecordFieldNamingForRef entityRef ent ->
+                        i.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                    | _ -> i.Name |> Naming.toPythonNaming // Fallback to Python naming for other types
+                | _ -> i.Name |> Naming.toPythonNaming |> Helpers.clean
 
         let fableExpr =
             match fableExpr with
@@ -1161,6 +1180,7 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
 
 let transformSet (com: IPythonCompiler) ctx range fableExpr typ (value: Fable.Expr) kind =
     // Normal handling for all assignments - StaticPropertyMeta will handle static properties
+    //printfn "transformSet: %A" kind
     let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
 
     let value, stmts' =
@@ -1180,38 +1200,20 @@ let transformSet (com: IPythonCompiler) ctx range fableExpr typ (value: Fable.Ex
                 | Fable.IdentExpr ident -> getNarrowedType ctx ident
                 | _ -> fableExpr.Type
 
-            // Check if this is a static property backing field assignment
-            // Only apply special naming to static properties, not regular static fields
-            let isStaticPropertyBackingField =
-                match fableExpr with
-                | Fable.IdentExpr ident ->
-                    // Be more conservative - only apply to backing fields ending with @ that are likely property backing fields
-                    // We can identify these by checking if this looks like a property backing field pattern:
-                    // 1. Class identifier (starts with uppercase)
-                    // 2. Field name ends with @ (backing field marker)
-                    // 3. Field name (without @) starts with uppercase (property naming convention)
-                    ident.Name.Length > 0
-                    && System.Char.IsUpper(ident.Name.[0])
-                    && fieldName.EndsWith("@", System.StringComparison.Ordinal)
-                    && (let baseFieldName = fieldName.Substring(0, fieldName.Length - 1)
-                        baseFieldName.Length > 0 && System.Char.IsUpper(baseFieldName.[0]))
-                | _ -> false
-
             let finalFieldName =
-                match narrowedType with
-                | Fable.DeclaredType(entityRef, _) ->
-                    match com.TryGetEntity entityRef with
-                    | Some ent when shouldUseRecordFieldNamingForRef entityRef ent ->
-                        fieldName |> Naming.toRecordFieldSnakeCase |> Helpers.clean
-                    | Some ent when isStaticPropertyBackingField ->
-                        // Use static property naming for static property backing field assignments
-                        fieldName |> Naming.toStaticPropertyNaming
-                    | _ -> fieldName |> Naming.toPythonNaming
-                | _ ->
-                    if isStaticPropertyBackingField then
-                        fieldName |> Naming.toStaticPropertyNaming
-                    else
-                        fieldName |> Naming.toPythonNaming
+                // Check once if this is a property backing field
+                if isPropertyBackingField com narrowedType fieldName then
+                    // Use property backing field naming for all backing fields
+                    fieldName |> Naming.toPropertyBackingFieldNaming
+                else
+                    // Use appropriate naming based on type
+                    match narrowedType with
+                    | Fable.DeclaredType(entityRef, _) ->
+                        match com.TryGetEntity entityRef with
+                        | Some ent when shouldUseRecordFieldNamingForRef entityRef ent ->
+                            fieldName |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                        | _ -> fieldName |> Naming.toPythonNaming
+                    | _ -> fieldName |> Naming.toPropertyNaming
 
             let cleanFieldName = finalFieldName |> Helpers.clean
             get com ctx None expr cleanFieldName false, []
@@ -2770,46 +2772,46 @@ let generateStaticPropertySetter
     // Why: Without this, setter does "User.Name = value" → triggers metaclass → calls setter → infinite loop!
     // How: Replace "ClassName.PropertyName = value" with "ClassName.PropertyName_0040 = value" (backing field)
     //      This bypasses the metaclass and descriptor, preventing recursion
-    let transformedBody =
-        setterBody
-        |> List.map (fun stmt ->
-            match stmt with
-            | Statement.Assign {
-                                   Targets = [ Expression.Attribute {
-                                                                        Value = Expression.Name {
-                                                                                                    Id = Identifier className_
-                                                                                                }
-                                                                        Attr = Identifier propName
-                                                                    } as target ]
-                                   Value = value
-                               } when className_ = className && propName = propertyName ->
-                // Replace property assignment with backing field assignment
-                let backingFieldName = $"{propertyName}_0040" // Use backing field naming convention
+    // let transformedBody =
+    //     setterBody
+    //     |> List.map (fun stmt ->
+    //         match stmt with
+    //         | Statement.Assign {
+    //                                Targets = [ Expression.Attribute {
+    //                                                                     Value = Expression.Name {
+    //                                                                                                 Id = Identifier className_
+    //                                                                                             }
+    //                                                                     Attr = Identifier propName
+    //                                                                 } as target ]
+    //                                Value = value
+    //                            } when className_ = className && propName = propertyName ->
+    //             // Replace property assignment with backing field assignment
+    //             let backingFieldName = $"{propertyName}_0040" // Use backing field naming convention
 
-                let backingFieldTarget =
-                    Expression.attribute (Expression.name className_, Identifier backingFieldName)
+    //             let backingFieldTarget =
+    //                 Expression.attribute (Expression.name className_, Identifier backingFieldName)
 
-                Statement.assign ([ backingFieldTarget ], value)
-            | _ -> stmt
-        )
+    //             Statement.assign ([ backingFieldTarget ], value)
+    //         | _ -> stmt
+    //     )
 
     // Filter out any remaining assignments to backing fields that start with underscore
-    let filteredBody =
-        transformedBody
-        |> List.filter (fun stmt ->
-            match stmt with
-            | Statement.Assign {
-                                   Targets = [ Expression.Attribute {
-                                                                        Value = Expression.Name {
-                                                                                                    Id = Identifier className_
-                                                                                                }
-                                                                        Attr = Identifier field
-                                                                    } ]
-                               } when className_ = className && field.StartsWith("_") -> false // Remove backing field assignments
-            | _ -> true
-        )
+    //let filteredBody =
+    //    transformedBody
+    // |> List.filter (fun stmt ->
+    //     match stmt with
+    //     | Statement.Assign {
+    //                            Targets = [ Expression.Attribute {
+    //                                                                 Value = Expression.Name {
+    //                                                                                             Id = Identifier className_
+    //                                                                                         }
+    //                                                                 Attr = Identifier field
+    //                                                             } ]
+    //                        } when className_ = className && field.StartsWith("_") -> false // Remove backing field assignments
+    //     | _ -> true
+    // )
 
-    Statement.functionDef (functionNameIdent, setterArgs, body = filteredBody)
+    Statement.functionDef (functionNameIdent, setterArgs, body = setterBody)
 
 // Check if a class needs StaticProperty descriptor (has static properties)
 let classHasStaticProperties (members: Fable.MemberDecl list) (com: IPythonCompiler) : bool =
@@ -2849,10 +2851,10 @@ let transformAttachedProperty
 
         // Apply the same naming convention as record fields for record types
         let propertyName =
-            if shouldUseRecordFieldNaming ent then
-                memb.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
-            else
-                memb.Name |> Naming.toPythonNaming
+            //if shouldUseRecordFieldNaming ent then
+            //    memb.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+            //else
+            memb.Name |> Naming.toPropertyNaming
 
         let key = com.GetIdentifier(ctx, propertyName)
 
@@ -3028,6 +3030,8 @@ let transformClassWithCompilerGeneratedConstructor
                     let fieldName =
                         if shouldUseRecordFieldNaming ent then
                             field.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                        elif isPropertyBackingField com field.FieldType field.Name then
+                            field.Name |> Naming.toPropertyBackingFieldNaming
                         else
                             field.Name |> Naming.toPythonNaming
 
@@ -3199,34 +3203,54 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
     ]
 
 // Helper function to extract initial value from getter body
-// Returns (value, isFactory) where isFactory indicates if the value is a lambda function
+// Returns (value, isFactory, externalFields) where isFactory indicates if the value is a lambda function
+// and externalFields contains field names that need to be added as class attributes
 let getInitialValue
     com
     ctx
+    (className: string)
     (getterMemb: Fable.MemberDecl)
     (wrapInLambda: bool)
     (fallback: Expression)
-    : (Expression * bool)
+    : (Expression * bool * string list)
     =
     match getterMemb.Body with
     | Fable.Value(kind, r) ->
         // Use transformValue for literal values - never wrapped
         let value = transformValue com ctx r kind |> fst
-        value, false
+        value, false, []
+    | Fable.Get(Fable.IdentExpr _, Fable.FieldGet fieldInfo, _, _) when fieldInfo.Name.EndsWith("@") ->
+        // For @ fields (backing fields), use fallback value directly instead of lambda reference
+        // The static constructor will set the actual value
+        fallback, false, []
+    | Fable.Get(Fable.IdentExpr identExpr, Fable.FieldGet fieldInfo, _, _) when identExpr.Name = className ->
+        // For external field references (like backing_field), create lambda and note the field
+        let classNameExpr = Expression.name identExpr.Name
+        let originalFieldName = fieldInfo.Name
+        // Apply Python naming convention transformation to match setter/static constructor
+        let transformedFieldName = originalFieldName |> Naming.toPythonNaming
+
+        let fieldAccess =
+            Expression.attribute (classNameExpr, Identifier transformedFieldName)
+
+        if wrapInLambda then
+            Expression.lambda (Arguments.arguments [], fieldAccess), true, [ transformedFieldName ]
+        else
+            fieldAccess, false, [ transformedFieldName ]
     | _ ->
-        // Try to transform the expression
+        // For other expressions, try to transform
         try
             let expr, _ = com.TransformAsExpr(ctx, getterMemb.Body)
 
             if wrapInLambda then
-                Expression.lambda (Arguments.arguments [], expr), true
+                Expression.lambda (Arguments.arguments [], expr), true, []
             else
-                expr, false
+                expr, false, []
         with _ ->
-            fallback, false
+            fallback, false, []
 
 
-// Process a single static property and return (property assignment, extra statements)
+// Process a single static property and return (property assignment, extra statements, external field declarations)
 let transformStaticProperty
     (com: IPythonCompiler)
     (ctx: Context)
@@ -3241,11 +3265,12 @@ let transformStaticProperty
     let setter =
         members |> List.tryFind (fun m -> (com.GetMember(m.MemberRef)).IsSetter)
 
+    // printfn "transformStaticProperty: %A" propName
     let propertyName =
         if shouldUseRecordFieldNaming ent then
             propName |> Naming.toRecordFieldSnakeCase |> Helpers.clean
         else
-            propName |> Naming.toStaticPropertyNaming
+            propName |> Naming.toPropertyNaming
 
     // Create generic StaticProperty with type parameter for better type inference
     let makeStaticProperty (propType: Fable.Type) args isFactory =
@@ -3273,28 +3298,31 @@ let transformStaticProperty
 
         Expression.call (genericStaticProperty, args)
 
-    // Generate backing field declaration with type annotation for Pylance
-    // Use simple default values to avoid circular dependencies
-    let backingFieldDeclaration =
-        match getter with
-        | Some getterMemb ->
-            let backingFieldName = $"{propertyName}_0040"
-            let typeAnnotation, _ = Annotation.typeAnnotation com ctx None getterMemb.Body.Type
-            let safeDefaultValue = Util.getDefaultValueForType com ctx getterMemb.Body.Type
-            Some(Statement.assign (Expression.name backingFieldName, typeAnnotation, safeDefaultValue))
-        | None -> None
+    // StaticProperty descriptors handle their own storage - no separate backing fields needed
 
-    // Collect backing field declaration for Pylance type checking
-    let extraStatements = backingFieldDeclaration |> Option.toList
+    // Helper function to generate external field declarations
+    let generateExternalFieldDeclarations (externalFields: string list) =
+        externalFields
+        |> List.map (fun fieldName ->
+            let fieldType = Expression.name "str" // Default to str type for external fields
+            let defaultValue = Expression.stringConstant ""
+            Statement.assign (Expression.name fieldName, fieldType, defaultValue)
+        )
 
     match getter, setter with
     | Some getterMemb, None ->
         // Read-only property
-        let initialValue, isFactory =
-            getInitialValue com ctx getterMemb true Expression.none
+        let fallback = Util.getDefaultValueForType com ctx getterMemb.Body.Type
+
+        let initialValue, isFactory, externalFields =
+            getInitialValue com ctx name getterMemb true fallback
 
         let propExpr = makeStaticProperty getterMemb.Body.Type [ initialValue ] isFactory
-        Some(propertyName, propExpr), extraStatements
+
+        // Generate class attribute declarations for external fields
+        let externalFieldDeclarations = generateExternalFieldDeclarations externalFields
+
+        Some(propertyName, propExpr), externalFieldDeclarations
 
     | Some getterMemb, Some setterMemb ->
         // Property with both getter and setter
@@ -3302,15 +3330,24 @@ let transformStaticProperty
             getMemberArgsAndBody com ctx (Attached true) false setterMemb.Args setterMemb.Body
 
         let fallback = Util.getDefaultValueForType com ctx getterMemb.Body.Type
-        let initialValue, isFactory = getInitialValue com ctx getterMemb true fallback
 
-        // Check if setter has custom logic beyond simple assignment
+        let initialValue, isFactory, externalFields =
+            getInitialValue com ctx name getterMemb true fallback
+
+        // Check if setter has custom logic beyond simple assignment to the property itself
+        // For simple properties, we don't need setter functions since StaticProperty handles storage
         let hasCustomSetter =
-            setterBody.Length > 1
-            || setterBody.Length = 1
-               && match setterBody.[0] with
-                  | Statement.Assign _ -> false // Simple assignment
-                  | _ -> true // Has other logic (validation, printing, etc.)
+            match setterBody with
+            | [ Statement.Global { Names = [] }
+                Statement.Assign {
+                                     Targets = [ Expression.Attribute {
+                                                                          Value = Expression.Name {
+                                                                                                      Id = Identifier className_
+                                                                                                  }
+                                                                          Attr = Identifier propName_
+                                                                      } ]
+                                 } ] when className_ = name && propName_ = propertyName -> false // Simple assignment to the property itself - no custom setter needed
+            | _ -> true // Has custom logic, multiple statements, or assigns to different fields
 
         if hasCustomSetter then
             // Generate setter function for complex setters
@@ -3322,11 +3359,18 @@ let transformStaticProperty
             let propExpr =
                 makeStaticProperty getterMemb.Body.Type [ initialValue; Expression.name setterFuncName ] isFactory
 
-            Some(propertyName, propExpr), extraStatements @ [ setterFunc ]
+            // Generate class attribute declarations for external fields
+            let externalFieldDeclarations = generateExternalFieldDeclarations externalFields
+
+            Some(propertyName, propExpr), [ setterFunc ] @ externalFieldDeclarations
         else
             // Simple setter, no custom function needed - just use the descriptor
             let propExpr = makeStaticProperty getterMemb.Body.Type [ initialValue ] isFactory
-            Some(propertyName, propExpr), extraStatements
+
+            // Generate class attribute declarations for external fields
+            let externalFieldDeclarations = generateExternalFieldDeclarations externalFields
+
+            Some(propertyName, propExpr), externalFieldDeclarations
 
     | None, Some setterMemb ->
         // Setter-only property (unusual but possible)
@@ -3349,11 +3393,11 @@ let transformStaticProperty
         let propExpr =
             makeStaticProperty propertyType [ Expression.none; Expression.name setterFuncName ] false
 
-        Some(propertyName, propExpr), extraStatements @ [ setterFunc ]
+        Some(propertyName, propExpr), [ setterFunc ]
 
     | None, None ->
         // Should not happen
-        None, extraStatements
+        None, []
 
 // Extract static properties handling into its own function
 let transformStaticProperties (com: IPythonCompiler) (ctx: Context) (decl: Fable.ClassDecl) (ent: Fable.Entity) =
@@ -3366,7 +3410,7 @@ let transformStaticProperties (com: IPythonCompiler) (ctx: Context) (decl: Fable
         )
 
     if List.isEmpty staticPropMembers then
-        Map.empty, []
+        [], [], []
     else
         // Group static properties by name
         let groupedProps =
@@ -3386,7 +3430,29 @@ let transformStaticProperties (com: IPythonCompiler) (ctx: Context) (decl: Fable
 
             extraStatements |> List.iter propStatements.Add
 
-        Map.ofSeq propMap, List.ofSeq propStatements
+        let allStatements = List.ofSeq propStatements
+
+        // Separate external field declarations (for class body) from setter functions (for module level)
+        let backingFieldDeclarations, setterFunctions =
+            allStatements
+            |> List.partition (fun stmt ->
+                match stmt with
+                | Statement.AnnAssign _ -> true // External field declarations go in class body
+                | Statement.FunctionDef _ -> false // Setter functions go at module level
+                | _ -> false
+            )
+
+        // Add static property declarations to class members
+        let staticPropertyDeclarations =
+            propMap
+            |> Seq.toList
+            |> List.map (fun (propName, propExpr) ->
+                // Use the computed expression (factory function or value)
+                Statement.assign ([ Expression.name propName ], propExpr)
+            )
+
+        // Return: (classMembers, setterFunctions, backingFieldDeclarations)
+        staticPropertyDeclarations, setterFunctions, backingFieldDeclarations
 
 let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration) =
     // printfn "transformDeclaration: %A" decl
@@ -3466,27 +3532,8 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
                 )
 
             // Handle static properties separately using descriptors
-            let staticProperties, staticPropertyStatements =
+            let staticPropertyDeclarations, setterFunctions, backingFieldDeclarations =
                 transformStaticProperties com ctx decl ent
-
-            // Separate backing field declarations (for class body) from setter functions (for module level)
-            let backingFieldDeclarations, setterFunctions =
-                staticPropertyStatements
-                |> List.partition (fun stmt ->
-                    match stmt with
-                    | Statement.Assign _ -> true // Backing field declarations go in class body
-                    | Statement.FunctionDef _ -> false // Setter functions go at module level
-                    | _ -> false
-                )
-
-            // Add static property declarations to class members
-            let staticPropertyDeclarations =
-                staticProperties
-                |> Map.toList
-                |> List.map (fun (propName, propExpr) ->
-                    // Use the computed expression (factory function or value)
-                    Statement.assign ([ Expression.name propName ], propExpr)
-                )
 
             let allClassMembers =
                 classMembers @ backingFieldDeclarations @ staticPropertyDeclarations

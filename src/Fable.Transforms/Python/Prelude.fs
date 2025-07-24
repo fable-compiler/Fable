@@ -259,7 +259,7 @@ module Naming =
 
     /// Convert name to Python naming convention.
     /// Removes @ suffixes and applies standard Python naming rules.
-    let toStaticPropertyNaming (name: string) =
+    let toPropertyNaming (name: string) =
         let pythonName = toPythonNaming name
         // Remove @ suffix
         let cleanName =
@@ -269,3 +269,5 @@ module Naming =
                 pythonName
         // Apply standard sanitization
         sanitizeIdent pyBuiltins.Contains cleanName Naming.NoMemberPart
+
+    let toPropertyBackingFieldNaming (name: string) = $"_{toPropertyNaming name}"
