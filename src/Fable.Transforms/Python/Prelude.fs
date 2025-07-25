@@ -262,13 +262,10 @@ module Naming =
     let toPropertyNaming (name: string) =
         let pythonName = toPythonNaming name
         // Remove @ suffix
-        let cleanName =
-            if pythonName.EndsWith("@", StringComparison.Ordinal) then
-                pythonName.Substring(0, pythonName.Length - 1)
-            else
-                pythonName
-        // Apply standard sanitization
-        sanitizeIdent pyBuiltins.Contains cleanName Naming.NoMemberPart
+        if pythonName.EndsWith("@", StringComparison.Ordinal) then
+            pythonName.Substring(0, pythonName.Length - 1)
+        else
+            pythonName
 
     let toPropertyBackingFieldNaming (name: string) =
         let propertyName =

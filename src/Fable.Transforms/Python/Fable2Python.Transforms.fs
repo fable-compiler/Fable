@@ -1069,20 +1069,6 @@ let rec transformIfStatement (com: IPythonCompiler) ctx r ret guardExpr thenStmn
 
         stmts @ stmts' @ stmts'' @ [ ifStatement ]
 
-// Helper function to determine if a field access is for a static property backing field
-let isPropertyBackingField (com: IPythonCompiler) (typ: Fable.Type) (fieldName: string) =
-    match typ with
-    | Fable.DeclaredType(entityRef, _) when fieldName.EndsWith("@", System.StringComparison.Ordinal) ->
-        match com.TryGetEntity entityRef with
-        | Some ent ->
-            ent.MembersFunctionsAndValues
-            |> Seq.exists (fun memb ->
-                memb.IsInstance
-                && (memb.IsGetter || memb.IsSetter)
-                && $"%s{memb.DisplayName}@" = fieldName
-            )
-        | None -> true
-    | _ -> false
 
 let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) kind =
     // printfn "transformGet: %A" kind
@@ -1106,22 +1092,7 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
             | Fable.IdentExpr ident -> getNarrowedType ctx ident
             | _ -> fableExpr.Type
 
-        let fieldName =
-            // Check once if this is a property backing field
-            if isPropertyBackingField com narrowedType i.Name then
-                // Use property backing field naming for all backing fields
-                i.Name |> Naming.toPropertyBackingFieldNaming
-            else
-                // Use appropriate naming based on type
-                match narrowedType with
-                | Fable.AnonymousRecordType _ -> i.Name // Use the field name as is for anonymous records
-                | Fable.DeclaredType(entityRef, _) ->
-                    // Only apply naming convention for user-defined F# Records (not built-in F# Core types)
-                    match com.TryGetEntity entityRef with
-                    | Some ent when shouldUseRecordFieldNamingForRef entityRef ent ->
-                        i.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
-                    | _ -> i.Name |> Naming.toPythonNaming // Fallback to Python naming for other types
-                | _ -> i.Name |> Naming.toPythonNaming |> Helpers.clean
+        let fieldName = Util.applyFieldNaming com narrowedType i.Name true
 
         let fableExpr =
             match fableExpr with
@@ -1200,21 +1171,7 @@ let transformSet (com: IPythonCompiler) ctx range fableExpr typ (value: Fable.Ex
                 | Fable.IdentExpr ident -> getNarrowedType ctx ident
                 | _ -> fableExpr.Type
 
-            let finalFieldName =
-                // Check once if this is a property backing field
-                if isPropertyBackingField com narrowedType fieldName then
-                    // Use property backing field naming for all backing fields
-                    fieldName |> Naming.toPropertyBackingFieldNaming
-                else
-                    // Use appropriate naming based on type
-                    match narrowedType with
-                    | Fable.DeclaredType(entityRef, _) ->
-                        match com.TryGetEntity entityRef with
-                        | Some ent when shouldUseRecordFieldNamingForRef entityRef ent ->
-                            fieldName |> Naming.toRecordFieldSnakeCase |> Helpers.clean
-                        | _ -> fieldName |> Naming.toPythonNaming
-                    | _ -> fieldName |> Naming.toPropertyNaming
-
+            let finalFieldName = Util.applyFieldNaming com narrowedType fieldName false
             let cleanFieldName = finalFieldName |> Helpers.clean
             get com ctx None expr cleanFieldName false, []
 
@@ -3030,10 +2987,11 @@ let transformClassWithCompilerGeneratedConstructor
                     let fieldName =
                         if shouldUseRecordFieldNaming ent then
                             field.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
-                        elif isPropertyBackingField com field.FieldType field.Name then
-                            field.Name |> Naming.toPropertyBackingFieldNaming
                         else
-                            field.Name |> Naming.toPythonNaming
+                            match Util.getFieldNamingKind com field.FieldType field.Name with
+                            | InstancePropertyBacking -> field.Name |> Naming.toPropertyBackingFieldNaming
+                            | StaticProperty -> field.Name |> Naming.toPropertyNaming
+                            | RegularField -> field.Name |> Naming.toPythonNaming
 
                     let left = get com ctx None thisExpr fieldName false
                     let right = args[i] |> wrapIntExpression field.FieldType
@@ -3666,7 +3624,7 @@ let transformFile (com: IPythonCompiler) (file: Fable.File) =
             NarrowedTypes = Map.empty
         }
 
-    // printfn "file: %A" file.Declarations
+    //printfn "file: %A" file.Declarations
     let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
 
     let rootComment =

@@ -90,6 +90,42 @@ module Util =
         ent.IsFSharpRecord
         && not (entityRef.FullName.StartsWith("Microsoft.FSharp.Core"))
 
+    // Helper function to determine the kind of field access for proper naming
+    let getFieldNamingKind (com: IPythonCompiler) (typ: Fable.Type) (fieldName: string) : FieldNamingKind =
+        match typ with
+        | Fable.DeclaredType(entityRef, _) when fieldName.EndsWith("@", System.StringComparison.Ordinal) ->
+            match com.TryGetEntity entityRef with
+            | Some ent ->
+                ent.MembersFunctionsAndValues
+                |> Seq.tryFind (fun memb -> (memb.IsGetter || memb.IsSetter) && $"%s{memb.DisplayName}@" = fieldName)
+                |> function
+                    | Some memb when memb.IsInstance -> InstancePropertyBacking
+                    | Some _ -> StaticProperty
+                    | None -> RegularField
+            | None -> InstancePropertyBacking // Conservative fallback for unknown entities
+        | _ -> RegularField
+
+    // Helper function to apply the appropriate naming convention based on field type and naming kind
+    let applyFieldNaming
+        (com: IPythonCompiler)
+        (narrowedType: Fable.Type)
+        (fieldName: string)
+        (handleAnonymousRecords: bool)
+        =
+        match getFieldNamingKind com narrowedType fieldName with
+        | InstancePropertyBacking -> fieldName |> Naming.toPropertyBackingFieldNaming
+        | StaticProperty -> fieldName |> Naming.toPropertyNaming
+        | RegularField ->
+            match narrowedType with
+            | Fable.AnonymousRecordType _ when handleAnonymousRecords -> fieldName // Use the field name as is for anonymous records
+            | Fable.DeclaredType(entityRef, _) ->
+                // Only apply naming convention for user-defined F# Records (not built-in F# Core types)
+                match com.TryGetEntity entityRef with
+                | Some ent when shouldUseRecordFieldNamingForRef entityRef ent ->
+                    fieldName |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                | _ -> fieldName |> Naming.toPythonNaming // Fallback to Python naming for other types
+            | _ -> fieldName |> Naming.toPropertyNaming
+
     type NamedTailCallOpportunity(com: IPythonCompiler, ctx, name, args: Fable.Ident list) =
         // Capture the current argument values to prevent delayed references from getting corrupted,
         // for that we use block-scoped ES2015 variable declarations. See #681, #1859
