@@ -31,6 +31,7 @@ type MemberKind =
     | Attached of isStatic: bool
 
 // Represents different kinds of field access for proper naming convention selection
+[<Struct>]
 type FieldNamingKind =
     | RegularField
     | InstancePropertyBacking

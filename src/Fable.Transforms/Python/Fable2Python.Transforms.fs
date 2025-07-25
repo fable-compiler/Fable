@@ -3392,12 +3392,12 @@ let transformStaticProperties (com: IPythonCompiler) (ctx: Context) (decl: Fable
 
         let allStatements = List.ofSeq propStatements
 
-        // Separate external field declarations (for class body) from setter functions (for module level)
+        // Separate backing field declarations (for class body) from setter functions (for module level)
         let backingFieldDeclarations, setterFunctions =
             allStatements
             |> List.partition (fun stmt ->
                 match stmt with
-                | Statement.AnnAssign _ -> true // External field declarations go in class body
+                | Statement.AnnAssign _ -> true // Backing field declarations go in class body
                 | Statement.FunctionDef _ -> false // Setter functions go at module level
                 | _ -> false
             )
