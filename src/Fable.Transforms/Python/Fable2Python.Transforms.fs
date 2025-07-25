@@ -480,7 +480,7 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
         // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
         let values = (ofInt tag) :: values
         Expression.call (consRef, values, ?loc = r), stmts @ stmts'
-    | _ -> failwith $"transformValue: value {value} not supported!"
+    | _ -> failwith $"transformValue: value %A{value} not supported!"
 
 let extractBaseExprFromBaseCall (com: IPythonCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
     // printfn "extractBaseExprFromBaseCall: %A" (baseCall, baseType)
@@ -582,7 +582,7 @@ let transformObjectExpr
 
                 [ makeMethod memb.Name false memb.Args memb.Body decorators ]
             elif not memb.IsMangled && info.IsSetter then
-                let decorators = [ Expression.name $"{memb.Name}.setter" ]
+                let decorators = [ Expression.name $"%s{memb.Name}.setter" ]
 
                 [ makeMethod memb.Name false memb.Args memb.Body decorators ]
             elif info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
@@ -1079,7 +1079,7 @@ let isPropertyBackingField (com: IPythonCompiler) (typ: Fable.Type) (fieldName: 
             |> Seq.exists (fun memb ->
                 memb.IsInstance
                 && (memb.IsGetter || memb.IsSetter)
-                && $"{memb.DisplayName}@" = fieldName
+                && $"%s{memb.DisplayName}@" = fieldName
             )
         | None -> true
     | _ -> false
@@ -1903,7 +1903,7 @@ let transformAsSlice (com: IPythonCompiler) ctx expr (info: Fable.CallInfo) : Ex
             | [ lower ] -> Expression.slice (lower = lower)
             | [ Expression.Name { Id = Identifier "None" }; upper ] -> Expression.slice (upper = upper)
             | [ lower; upper ] -> Expression.slice (lower = lower, upper = upper)
-            | _ -> failwith $"Array slice with {args.Length} not supported"
+            | _ -> failwith $"Array slice with %d{args.Length} not supported"
 
         return! Expression.subscript (left, slice), stmts
     }
@@ -2747,7 +2747,7 @@ let nameFromKey (com: IPythonCompiler) (ctx: Context) key =
     match key with
     | Expression.Name { Id = ident } -> ident
     | Expression.Constant(value = StringLiteral name) -> com.GetIdentifier(ctx, name)
-    | name -> failwith $"Not a valid name: {name}"
+    | name -> failwith $"Not a valid name: %A{name}"
 
 let generateStaticPropertySetter
     (com: IPythonCompiler)
@@ -2758,14 +2758,14 @@ let generateStaticPropertySetter
     (args: Arguments)
     : Statement
     =
-    let functionName = $"_{className}_{propertyName}_setter"
+    let functionName = $"_%s{className}_%s{propertyName}_setter"
     let functionNameIdent = com.GetIdentifier(ctx, functionName)
 
     // Create setter function with just the value parameter (remove 'self' for static)
     let setterArgs =
         match args.Args with
-        | _self :: valueArg :: [] -> Arguments.arguments [ valueArg ]
-        | valueArg :: [] -> Arguments.arguments [ valueArg ]
+        | [ _self; valueArg ] -> Arguments.arguments [ valueArg ]
+        | [ valueArg ] -> Arguments.arguments [ valueArg ]
         | _ -> Arguments.arguments [ Arg.arg "value" ]
 
     // Transform setter body to prevent infinite recursion
@@ -2843,7 +2843,7 @@ let transformAttachedProperty
                 if isGetter then
                     Expression.name "property"
                 else
-                    Expression.name $"{memb.Name}.setter"
+                    Expression.name $"%s{memb.Name}.setter"
             ]
 
         let args, body, returnType =
@@ -3139,7 +3139,7 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
                         if memb.IsValue || memb.IsGetter then
                             Expression.name "property"
                         if memb.IsSetter then
-                            Expression.name $"{name}.setter"
+                            Expression.name $"%s{name}.setter"
 
                         abstractMethod
                     ] // Must be after @property
@@ -3155,7 +3155,7 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
                                 for m, pg in parameterGroup |> Seq.indexed do
                                     let ta, _ = Annotation.typeAnnotation com ctx None pg.Type
 
-                                    Arg.arg (pg.Name |> Option.defaultValue $"__arg{n + m}", annotation = ta)
+                                    Arg.arg (pg.Name |> Option.defaultValue $"__arg%d{n + m}", annotation = ta)
                         ]
 
                     Arguments.arguments args
@@ -3354,7 +3354,7 @@ let transformStaticProperty
             let setterFunc =
                 generateStaticPropertySetter com ctx name propertyName setterBody setterArgs
 
-            let setterFuncName = $"_{name}_{propertyName}_setter"
+            let setterFuncName = $"_%s{name}_%s{propertyName}_setter"
 
             let propExpr =
                 makeStaticProperty getterMemb.Body.Type [ initialValue; Expression.name setterFuncName ] isFactory
@@ -3380,7 +3380,7 @@ let transformStaticProperty
         let setterFunc =
             generateStaticPropertySetter com ctx name propertyName setterBody setterArgs
 
-        let setterFuncName = $"_{name}_{propertyName}_setter"
+        let setterFuncName = $"_%s{name}_%s{propertyName}_setter"
 
         // For setter-only properties, we need to get the type from somewhere
         // Use the setter's value parameter type

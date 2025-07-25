@@ -270,4 +270,6 @@ module Naming =
         // Apply standard sanitization
         sanitizeIdent pyBuiltins.Contains cleanName Naming.NoMemberPart
 
-    let toPropertyBackingFieldNaming (name: string) = $"_{toPropertyNaming name}"
+    let toPropertyBackingFieldNaming (name: string) =
+        let propertyName = name |> toPropertyNaming
+        $"_{Naming.applyCaseRule CaseRules.SnakeCase propertyName}"
