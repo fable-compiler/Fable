@@ -2470,17 +2470,7 @@ module Util =
             let callInfo = { callInfo with ThisArg = None }
             let info = getAbstractMemberInfo com entity memb
 
-            // Python do not support static getters traditionally, but with our StaticProperty descriptor pattern they do
-            // Allow static properties to use field access syntax when using descriptors
-            let isPythonStaticMemberWithoutDescriptor =
-                com.Options.Language = Python && not memb.IsInstanceMember && false // Disable for now to enable descriptor pattern
-
-            if
-                not info.isMangled
-                && info.isGetter
-                && not isPythonStaticMemberWithoutDescriptor
-                && not (com.Options.Language = Rust)
-            then
+            if not info.isMangled && info.isGetter && not (com.Options.Language = Rust) then
                 // Set the field as maybe calculated so it's not displaced by beta reduction
                 let kind =
                     Fable.FieldInfo.Create(
