@@ -1,34 +1,34 @@
 {
-  "type": "module",
-  "name": "@fable-org/fable-compiler-js",
-  "private": false,
-  "version": "2.0.0-beta.1",
-  "main": "index.js",
-  "bin": {
-    "fable": "index.js"
-  },
-  "description": "Fable compiler",
-  "keywords": [
-    "fable",
-    "fsharp",
-    "F#"
-  ],
-  "author": "Alfonso Garcia-Caro",
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/fable-compiler/Fable.git"
-  },
-  "bugs": {
-    "url": "https://github.com/fable-compiler/Fable/issues"
-  },
-  "homepage": "https://github.com/fable-compiler/Fable#readme",
-  "dependencies": {
-    "@fable-org/fable-metadata": "^1.0.0",
-    "@fable-org/fable-standalone": "^1.4.0"
-  },
-  "devDependencies": {
-    "esbuild": "^0.19.5",
-    "rollup": "^4.2.0"
-  }
+    "type": "module",
+    "name": "@fable-org/fable-compiler-js",
+    "private": false,
+    "version": "2.0.0-beta.1",
+    "main": "index.js",
+    "bin": {
+        "fable": "index.js"
+    },
+    "description": "Fable compiler",
+    "keywords": [
+        "fable",
+        "fsharp",
+        "F#"
+    ],
+    "author": "Alfonso Garcia-Caro",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/fable-compiler/Fable.git"
+    },
+    "bugs": {
+        "url": "https://github.com/fable-compiler/Fable/issues"
+    },
+    "homepage": "https://github.com/fable-compiler/Fable#readme",
+    "dependencies": {
+        "@fable-org/fable-metadata": "^1.0.0",
+        "@fable-org/fable-standalone": "^1.4.0"
+    },
+    "devDependencies": {
+        "esbuild": "^0.19.5",
+        "rollup": "^4.2.0"
+    }
 }
