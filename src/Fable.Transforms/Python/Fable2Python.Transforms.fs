@@ -3219,7 +3219,9 @@ let getInitialValue
         // Use transformValue for literal values - never wrapped
         let value = transformValue com ctx r kind |> fst
         value, false, []
-    | Fable.Get(Fable.IdentExpr _, Fable.FieldGet fieldInfo, _, _) when fieldInfo.Name.EndsWith("@") ->
+    | Fable.Get(Fable.IdentExpr _, Fable.FieldGet fieldInfo, _, _) when
+        fieldInfo.Name.EndsWith("@", System.StringComparison.Ordinal)
+        ->
         // For @ fields (backing fields), use fallback value directly instead of lambda reference
         // The static constructor will set the actual value
         fallback, false, []

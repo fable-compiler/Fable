@@ -271,5 +271,9 @@ module Naming =
         sanitizeIdent pyBuiltins.Contains cleanName Naming.NoMemberPart
 
     let toPropertyBackingFieldNaming (name: string) =
-        let propertyName = name |> toPropertyNaming
-        $"_{Naming.applyCaseRule CaseRules.SnakeCase propertyName}"
+        let propertyName =
+            name
+            |> toPropertyNaming
+            |> fun name -> Naming.applyCaseRule CaseRules.SnakeCase name
+
+        $"_%s{propertyName}"
