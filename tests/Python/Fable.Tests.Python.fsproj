@@ -51,6 +51,7 @@
     <Compile Include="TestMap.fs" />
     <Compile Include="MiscTestsHelper.fs" />
     <Compile Include="TestMisc.fs" />
+    <Compile Include="TestNullness.fs" />
     <Compile Include="TestRegex.fs" />
     <Compile Include="TestSet.fs" />
     <Compile Include="TestSystemIO.fs" />

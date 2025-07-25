@@ -251,13 +251,26 @@ module Naming =
         )
 
     let sanitizeIdent conflicts (name: string) part =
-        let name =
-            if name.EndsWith("@", StringComparison.Ordinal) then
-                $"_{name.Substring(0, name.Length - 1)}"
-            else
-                name
         // Replace Forbidden Chars
         buildName sanitizeIdentForbiddenChars name part
         |> checkPyKeywords
         // Check if it already exists
         |> preventConflicts conflicts
+
+    /// Convert name to Python naming convention.
+    /// Removes @ suffixes and applies standard Python naming rules.
+    let toPropertyNaming (name: string) =
+        let pythonName = toPythonNaming name
+        // Remove @ suffix
+        if pythonName.EndsWith("@", StringComparison.Ordinal) then
+            pythonName.Substring(0, pythonName.Length - 1)
+        else
+            pythonName
+
+    let toPropertyBackingFieldNaming (name: string) =
+        let propertyName =
+            name
+            |> toPropertyNaming
+            |> fun name -> Naming.applyCaseRule CaseRules.SnakeCase name
+
+        $"_%s{propertyName}"

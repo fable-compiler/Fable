@@ -549,14 +549,13 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | Char
     | String
     | Number _
+    | Nullable _
     | MetaType ->
-        let op =
-            if equal then
-                BinaryEqual
-            else
-                BinaryUnequal
+        if equal then
+            makeBinOp r Boolean left right BinaryEqual
+        else
+            makeBinOp r Boolean left right BinaryUnequal
 
-        makeBinOp r Boolean left right op
     // Use BinaryEquals for MetaType to have a change of optimization in FableTransforms.operationReduction
     // We will call Reflection.equals in the Fable2Babel step
     //| MetaType -> Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
@@ -967,6 +966,7 @@ let emptyGuid () =
 
 let rec defaultof (com: ICompiler) (ctx: Context) r t =
     match t with
+    | Nullable _ -> Value(Null t, r)
     // Non-struct tuples default to null
     | Tuple(args, true) -> NewTuple(args |> List.map (defaultof com ctx r), true) |> makeValue None
     | Boolean
@@ -1742,13 +1742,13 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Join", None, _ ->
         let methName =
             match i.SignatureArgTypes with
-            | [ _; Array _; Number _; Number _ ] -> "joinWithIndices"
+            | [ _; MaybeNullable(Array _); Number _; Number _ ] -> "joinWithIndices"
             | _ -> "join"
 
         Helper.LibCall(com, "String", methName, t, args, ?loc = r) |> Some
     | "Concat", None, _ ->
         match i.SignatureArgTypes with
-        | [ Array _ | IEnumerable ] ->
+        | [ MaybeNullable(Array _) | MaybeNullable(IEnumerable) ] ->
             Helper.LibCall(com, "String", "join", t, ((makeStrConst "") :: args), ?loc = r)
             |> Some
         | _ ->
@@ -2296,8 +2296,7 @@ let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr o
 let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", None -> List.tryHead args
-    // | "get_Value", Some c -> Get(c, OptionValue, t, r) |> Some // Get(OptionValue) doesn't do a null check
-    | "get_Value", Some c -> Helper.LibCall(com, "Option", "value", t, [ c ], ?loc = r) |> Some
+    | "get_Value", Some c -> Helper.LibCall(com, "Option", "nonNullValue", t, [ c ], ?loc = r) |> Some
     | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
     | _ -> None
 

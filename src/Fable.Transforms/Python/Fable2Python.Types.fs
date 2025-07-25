@@ -30,6 +30,13 @@ type MemberKind =
     | NonAttached of funcName: string
     | Attached of isStatic: bool
 
+// Represents different kinds of field access for proper naming convention selection
+[<Struct>]
+type FieldNamingKind =
+    | RegularField
+    | InstancePropertyBacking
+    | StaticProperty
+
 type UsedNames =
     {
         RootScope: HashSet<string>

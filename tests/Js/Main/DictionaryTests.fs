@@ -12,7 +12,7 @@ type MyRecord = { a: int }
 
 type R = { i: int; s: string }
 
-type Table<'K,'V when 'K:equality> () =
+type Table<'K, 'V when 'K: equality and 'K: not null> () =
 
     let dic = new Dictionary<'K,'V>()
 
@@ -23,6 +23,7 @@ type Table<'K,'V when 'K:equality> () =
         addKeyValue key value
 
     member _.Dic = dic
+
 let tests =
   testList "Dictionaries" [
     testCase "Dictionary KeyValuePattern works" <| fun () -> // See #509

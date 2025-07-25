@@ -83,7 +83,7 @@ type MutableMap<'Key, 'Value when 'Key: equality>
     // Native JS Map (used for primitive keys) doesn't work with `JSON.stringify` but
     // let's add `toJSON` for consistency with the types within fable-library.
     interface Fable.Core.IJsonSerializable with
-        member this.toJSON() = Helpers.arrayFrom (this) |> box
+        member this.toJSON() = Helpers.arrayFrom (this)
 
 
     interface System.Collections.IEnumerable with

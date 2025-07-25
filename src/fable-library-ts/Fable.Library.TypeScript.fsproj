@@ -2,6 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <WarningsAsErrors>FS3261</WarningsAsErrors>
     <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
     <!-- <DefineConstants>$(DefineConstants);FX_NO_BIGINT</DefineConstants> -->
   </PropertyGroup>
@@ -15,11 +17,6 @@
     <!-- <Compile Include="BigInt.fs" /> -->
     <!-- <Compile Include="BigInt/q.fsi"/> -->
     <!-- <Compile Include="BigInt/q.fs"/> -->
-    <Compile Include="SystemException.fs" />
-    <Compile Include="System.Text.fs" />
-    <Compile Include="System.Collections.Generic.fs" />
-    <Compile Include="FSharp.Collections.fs" />
-    <Compile Include="FSharp.Core.fs" />
     <Compile Include="Native.fs" />
     <Compile Include="MutableMap.fs" />
     <Compile Include="MutableSet.fs" />
@@ -33,7 +30,12 @@
     <Compile Include="Random.fs" />
     <Compile Include="Set.fs" />
     <Compile Include="Map.fs" />
+    <Compile Include="FSharp.Collections.fs" />
+    <Compile Include="FSharp.Core.fs" />
     <Compile Include="FSharp.Core.CompilerServices.fs" />
+    <Compile Include="System.Collections.Generic.fs" />
+    <Compile Include="System.Text.fs" />
+    <Compile Include="SystemException.fs" />
     <TypeScriptCompile Include="Async.ts" />
     <TypeScriptCompile Include="AsyncBuilder.ts" />
     <TypeScriptCompile Include="BitConverter.ts" />

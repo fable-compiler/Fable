@@ -545,7 +545,9 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | Boolean
     | Char
     | String
-    | Number _ ->
+    | Number _
+    | Nullable _
+    | MetaType ->
         let op =
             if equal then
                 BinaryEqual
@@ -799,6 +801,7 @@ let emptyGuid () =
 
 let rec defaultof com ctx r t =
     match t with
+    | Nullable _ -> Value(Null t, r)
     | Tuple(args, true) -> NewTuple(args |> List.map (defaultof com ctx r), true) |> makeValue None
     | Boolean
     | Number _
@@ -1084,8 +1087,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Strings
     | ("PrintFormatToString" | "PrintFormatToStringThen" | "PrintFormat" | "PrintFormatLine" | "PrintFormatToError" | "PrintFormatLineToError" | "PrintFormatThen" | "PrintFormatToStringThenFail" | "PrintFormatToStringBuilder" | "PrintFormatToStringBuilderThen"), // bprintf
       _ -> fsFormat com ctx r t i thisArg args
-    | ("Failure" | "FailurePattern" | "LazyPattern" | "NullArg" | "Using" | "NullArgCheck"), _ ->
-        fsharpModule com ctx r t i thisArg args
+    | ("Failure" | "FailurePattern" | "LazyPattern" | "NullArg" | "Using"), _ -> fsharpModule com ctx r t i thisArg args
+    | ("IsNull" | "IsNotNull" | "IsNullV" | "NonNull" | "NonNullV" | "NullMatchPattern" | "NullValueMatchPattern" | "NonNullQuickPattern" | "NonNullQuickValuePattern" | "WithNull" | "WithNullV" | "NullV" | "NullArgCheck"),
+      _ -> fsharpModule com ctx r t i thisArg args
     | "Lock", _ ->
         Helper.LibCall(com, "util", "lock", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -1221,7 +1225,6 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         |> Some
     | (Operators.inequality | "Neq"), [ left; right ] -> equals com ctx r false left right |> Some
     | (Operators.equality | "Eq"), [ left; right ] -> equals com ctx r true left right |> Some
-    | "IsNull", [ arg ] -> nullCheck r true arg |> Some
     | "Hash", [ arg ] -> structuralHash com r arg |> Some
     // Comparison
     | "Compare", [ left; right ] -> compare com ctx r left right |> Some
@@ -1484,13 +1487,13 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Join", None, _ ->
         let methName =
             match i.SignatureArgTypes with
-            | [ _; Array _; Number _; Number _ ] -> "join_with_indices"
+            | [ _; MaybeNullable(Array _); Number _; Number _ ] -> "join_with_indices"
             | _ -> "join"
 
         Helper.LibCall(com, "string", methName, t, args, ?loc = r) |> Some
     | "Concat", None, _ ->
         match i.SignatureArgTypes with
-        | [ Array _ | IEnumerable ] ->
+        | [ MaybeNullable(Array _) | MaybeNullable(IEnumerable) ] ->
             Helper.LibCall(com, "string", "join", t, ((makeStrConst "") :: args), ?loc = r)
             |> Some
         | _ ->
@@ -2467,6 +2470,7 @@ let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option)
     | "Hash", [ arg ] -> structuralHash com r arg |> Some
     | "Equals", [ arg1; arg2 ] -> equals com ctx r true arg1 arg2 |> Some
     | "Compare", [ arg1; arg2 ] -> compare com ctx r arg1 arg2 |> Some
+    | "NonNull", [ arg ] -> arg |> Some
     | _ -> None
 
 let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

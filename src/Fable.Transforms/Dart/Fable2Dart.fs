@@ -194,6 +194,9 @@ module Util =
         let tup = List.length genArgs |> getTupleTypeIdent com ctx
         Type.reference (tup, genArgs)
 
+    let transformNullableType com ctx genArg =
+        transformType com ctx genArg |> Nullable
+
     let transformOptionType com ctx genArg =
         let genArg = transformType com ctx genArg
 
@@ -215,7 +218,6 @@ module Util =
         | Types.array, _ -> List Dynamic
         | "System.Tuple`1", _ -> transformTupleType com ctx genArgs
         | Types.valueType, _ -> Object
-        | Types.nullable, [ genArg ]
         | "Fable.Core.Dart.DartNullable`1", [ genArg ] -> Nullable genArg
         | Types.regexGroup, _ -> Nullable String
         | Types.regexMatch, _ -> makeTypeRefFromName "Match" []
@@ -650,6 +652,7 @@ module Util =
             | BigInt
             | NativeInt
             | UNativeInt -> Dynamic // TODO
+        | Fable.Nullable(genArg, _isStruct) -> transformNullableType com ctx genArg
         | Fable.Option(genArg, _isStruct) -> transformOptionType com ctx genArg
         | Fable.Array(TransformType com ctx genArg, _) -> List genArg
         | Fable.List(TransformType com ctx genArg) -> Type.reference (getFSharpListTypeIdent com ctx, [ genArg ])

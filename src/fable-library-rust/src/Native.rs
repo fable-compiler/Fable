@@ -149,7 +149,7 @@ pub mod Native_ {
     }
 
     #[inline]
-    pub fn is_null<T: NullableRef>(o: T) -> bool {
+    pub fn is_null<T: NullableRef>(o: &T) -> bool {
         o.is_null()
     }
 
@@ -445,7 +445,7 @@ pub mod Native_ {
     }
 
     pub fn ofObj<T: Clone + NullableRef + 'static>(value: T) -> Option<T> {
-        if is_null(value.clone()) {
+        if is_null(&value) {
             None::<T>
         } else {
             Some(value)

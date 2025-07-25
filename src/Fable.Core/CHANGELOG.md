@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [JS/TS] Fix #3533: Add `emitJsTopDirectivePrologue` supports (by @MangelMaxime)
 * [JS/TS] Fix #3533: Add `emitJsDirectivePrologue` supports (by @MangelMaxime)
+* [All] Improve xml doc comments (by @shayanhabibi)
 
 ### Changed
 

@@ -805,6 +805,7 @@ let rec convertTypeRef (com: IPhpCompiler) (t: Fable.Type) =
                 Namespace = Some "FSharpList"
                 Class = None
             }
+    | Fable.Nullable(t, _)
     | Fable.Option(t, _) ->
         ExType
             {
