@@ -193,11 +193,33 @@ module PrinterExtensions =
             // Print type parameters if any (Python 3.12+ syntax)
             printer.PrintTypeParams(cd.TypeParams)
 
-            match cd.Bases with
-            | [] -> ()
-            | xs ->
+            // Print bases and keywords (like metaclass=StaticPropertyMeta)
+            let hasBases = not (List.isEmpty cd.Bases)
+            let hasKeywords = not (List.isEmpty cd.Keywords)
+
+            if hasBases || hasKeywords then
                 printer.Print("(")
-                printer.PrintCommaSeparatedList(xs)
+
+                // Print bases first
+                if hasBases then
+                    printer.PrintCommaSeparatedList(cd.Bases)
+
+                // Print keywords after bases (if both exist, separate with comma)
+                if hasKeywords then
+                    if hasBases then
+                        printer.Print(", ")
+
+                    cd.Keywords
+                    |> List.iteri (fun i kw ->
+                        if i > 0 then
+                            printer.Print(", ")
+
+                        let (Identifier name) = kw.Arg
+                        printer.Print(name)
+                        printer.Print("=")
+                        printer.Print(kw.Value)
+                    )
+
                 printer.Print(")")
 
             printer.Print(":")

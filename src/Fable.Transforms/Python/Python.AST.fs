@@ -382,7 +382,7 @@ type ClassDef =
     {
         Name: Identifier
         Bases: Expression list
-        Keyword: Keyword list
+        Keywords: Keyword list
         Body: Statement list
         DecoratorList: Expression list
         TypeParams: TypeParam list
@@ -947,7 +947,7 @@ module PythonExtensions =
             {
                 Name = name
                 Bases = defaultArg bases []
-                Keyword = defaultArg keywords []
+                Keywords = defaultArg keywords []
                 Body = defaultArg body []
                 DecoratorList = defaultArg decoratorList []
                 TypeParams = defaultArg typeParams []

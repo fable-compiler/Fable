@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Python] Fixed static properties and are now translated as Python class attributes (by @dbrattli)
 * [Python] Fixed DateTime with DateTimeKind generates proper enum reference (#3689) (by @dbrattli)
 * [Python] Fixed Dictionary KeyValuePair enumeration when casting to IEnumerable (#3771) (by @dbrattli)
 * [Python] Fixed `createEmpty<T>` for interfaces using `SimpleNamespace` with type casting (#3604) (by @dbrattli)

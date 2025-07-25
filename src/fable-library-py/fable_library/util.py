@@ -2702,3 +2702,144 @@ def get_platform() -> PlatformID:
         return PlatformID.MacOSX
 
     return PlatformID.Other
+
+
+class StaticPropertyBase[T](ABC):
+    """Base class for static property descriptors."""
+
+    __slots__ = "name", "setter_func"
+
+    def __init__(self, setter_func: Callable[[T], None] | None = None) -> None:
+        self.setter_func = setter_func
+        self.name: str | None = None  # Will be set by __set_name__ if available
+
+    @abstractmethod
+    def __get__(self, instance: Any, owner: Any) -> T:
+        """Get the property value."""
+        pass
+
+    def __set__(self, instance: Any, value: T) -> None:
+        """Set the property value."""
+        if self.setter_func:
+            self.setter_func(value)
+        self._set_value(value)
+
+    @abstractmethod
+    def _set_value(self, value: T) -> None:
+        """Internal method to store the value."""
+        pass
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        """Called when the descriptor is assigned to a class attribute"""
+        self.name = name
+
+
+class StaticProperty[T](StaticPropertyBase[T]):
+    """Static property descriptor for direct values with caching.
+
+    This descriptor caches the value and is suitable for static properties
+    that hold a single value that can be updated.
+    """
+
+    __slots__ = "_initialized", "value"
+
+    def __init__(self, initial_value: T, setter_func: Callable[[T], None] | None = None) -> None:
+        super().__init__(setter_func)
+        self.value: T = initial_value
+        self._initialized: bool = True
+
+    def __get__(self, instance: Any, owner: Any) -> T:
+        return self.value
+
+    def _set_value(self, value: T) -> None:
+        """Cache the value."""
+        self.value = value
+
+
+class StaticLazyProperty[T](StaticPropertyBase[T]):
+    """Static property descriptor for factory-based lazy initialization.
+
+    This descriptor calls the factory function each time the property is accessed,
+    making it suitable for computed properties or properties that should always
+    return fresh values.
+    """
+
+    __slots__ = ("factory",)
+
+    def __init__(self, factory: Callable[[], T], setter_func: Callable[[T], None] | None = None) -> None:
+        super().__init__(setter_func)
+        self.factory: Callable[[], T] = factory
+
+    def __get__(self, instance: Any, owner: Any) -> T:
+        return self.factory()
+
+    def _set_value(self, value: T) -> None:
+        """Factory-based properties don't cache values."""
+        pass  # The factory handles value retrieval
+
+
+class StaticPropertyMeta(type):
+    """Metaclass that enables StaticProperty descriptors to work with class-level assignment."""
+
+    def __setattr__(cls, name: str, value: Any) -> None:
+        # Check if the attribute exists and is a StaticPropertyBase
+        # Use dict lookup instead of getattr to avoid triggering descriptors
+        if name in getattr(cls, "__dict__", {}):
+            existing_attr = cls.__dict__[name]
+            if isinstance(existing_attr, StaticPropertyBase):
+                # Call the descriptor's __set__ method instead of replacing it
+                attr = cast(StaticPropertyBase[Any], existing_attr)
+                attr.__set__(cls, value)
+                return
+
+        # Check parent classes for the attribute
+        for base in cls.__mro__[1:]:  # Skip self
+            if hasattr(base, "__dict__") and name in base.__dict__:
+                existing_attr = base.__dict__[name]
+                if isinstance(existing_attr, StaticPropertyBase):
+                    attr = cast(StaticPropertyBase[Any], existing_attr)
+                    attr.__set__(cls, value)
+                    return
+
+        # Normal attribute assignment
+        super().__setattr__(name, value)
+
+
+__all__ = [
+    "ObjectRef",
+    "PlatformID",
+    "StaticLazyProperty",
+    "StaticProperty",
+    "StaticPropertyBase",
+    "StaticPropertyMeta",
+    "array_hash",
+    "copy_to_array",
+    "curry2",
+    "curry3",
+    "curry4",
+    "curry5",
+    "curry6",
+    "curry7",
+    "curry8",
+    "curry9",
+    "curry10",
+    "escape_data_string",
+    "escape_uri_string",
+    "get_platform",
+    "identity_hash",
+    "ignore",
+    "number_hash",
+    "physical_hash",
+    "randint",
+    "round",
+    "uncurry2",
+    "uncurry3",
+    "uncurry4",
+    "uncurry5",
+    "uncurry6",
+    "uncurry7",
+    "uncurry8",
+    "uncurry9",
+    "uncurry10",
+    "unescape_data_string",
+]
