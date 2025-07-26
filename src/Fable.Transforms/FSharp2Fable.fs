@@ -923,9 +923,10 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
                 return Fable.Unresolved(e, typ, r)
             | None ->
-                match tryFindWitness ctx argTypes flags.IsInstance traitName with
+                let sourceTypes = List.map (makeType ctx.GenericArgs) sourceTypes
+
+                match tryFindWitnessWithSourceTypes ctx sourceTypes argTypes flags.IsInstance traitName with
                 | None ->
-                    let sourceTypes = List.map (makeType ctx.GenericArgs) sourceTypes
                     return transformTraitCall com ctx r typ sourceTypes traitName flags.IsInstance argTypes argExprs
                 | Some w ->
                     let callInfo = makeCallInfo None argExprs argTypes
@@ -2454,11 +2455,10 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
 
             let argExprs = argExprs |> List.map (resolveInlineExpr com ctx info)
 
-            match tryFindWitness ctx argTypes isInstance traitName with
-            | None ->
-                let sourceTypes = sourceTypes |> List.map (resolveInlineType ctx.GenericArgs)
+            let sourceTypes = sourceTypes |> List.map (resolveInlineType ctx.GenericArgs)
 
-                transformTraitCall com ctx r t sourceTypes traitName isInstance argTypes argExprs
+            match tryFindWitnessWithSourceTypes ctx sourceTypes argTypes isInstance traitName with
+            | None -> transformTraitCall com ctx r t sourceTypes traitName isInstance argTypes argExprs
             | Some w ->
                 // As witnesses come from the context, idents may be duplicated, see #2855
                 let info =
