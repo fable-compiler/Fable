@@ -45,6 +45,7 @@ type OutputType =
     | Library
     | Exe
 
+open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Symbols
 open Fable.AST
 
@@ -67,6 +68,7 @@ type Compiler =
     abstract OutputDir: string option
     abstract OutputType: OutputType
     abstract ProjectFile: string
+    abstract ProjectOptions: FSharpProjectOptions
     abstract SourceFiles: string[]
     abstract Options: CompilerOptions
     abstract Plugins: CompilerPlugins

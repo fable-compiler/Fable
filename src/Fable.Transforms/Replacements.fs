@@ -119,7 +119,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
     let getter = Delegate([], value, None, Tags.empty)
 
     let setter =
-        let v = makeUniqueIdent ctx t "v"
+        let v = makeUniqueIdent com ctx t "v"
 
         Delegate([ v ], Set(value, ValueSet, t, IdentExpr v, None), None, Tags.empty)
 
@@ -130,7 +130,7 @@ let makeRefFromMutableField com ctx r t callee key =
         Delegate([], Get(callee, FieldInfo.Create(key, isMutable = true), t, r), None, Tags.empty)
 
     let setter =
-        let v = makeUniqueIdent ctx t "v"
+        let v = makeUniqueIdent com ctx t "v"
 
         Delegate([ v ], Set(callee, FieldSet(key), t, IdentExpr v, r), None, Tags.empty)
 
@@ -145,7 +145,7 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
         Delegate([], value, None, Tags.empty)
 
     let setter =
-        let v = makeUniqueIdent ctx t "v"
+        let v = makeUniqueIdent com ctx t "v"
         let args = [ IdentExpr v ]
 
         let info = makeCallInfo None args [ t; Boolean ]
@@ -613,8 +613,8 @@ and booleanCompare (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
         makeEqOp r comparison (makeIntConst 0) op
 
 and makeComparerFunction (com: ICompiler) ctx typArg =
-    let x = makeUniqueIdent ctx typArg "x"
-    let y = makeUniqueIdent ctx typArg "y"
+    let x = makeUniqueIdent com ctx typArg "x"
+    let y = makeUniqueIdent com ctx typArg "y"
     let body = compare com ctx None (IdentExpr x) (IdentExpr y)
 
     Delegate([ x; y ], body, None, Tags.empty)
@@ -623,15 +623,15 @@ and makeComparer (com: ICompiler) ctx typArg =
     objExpr [ "Compare", makeComparerFunction com ctx typArg ]
 
 and makeEqualityFunction (com: ICompiler) ctx typArg =
-    let x = makeUniqueIdent ctx typArg "x"
-    let y = makeUniqueIdent ctx typArg "y"
+    let x = makeUniqueIdent com ctx typArg "x"
+    let y = makeUniqueIdent com ctx typArg "y"
     let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
 
     Delegate([ x; y ], body, None, Tags.empty)
 
 let makeEqualityComparer (com: ICompiler) ctx typArg =
-    let x = makeUniqueIdent ctx typArg "x"
-    let y = makeUniqueIdent ctx typArg "y"
+    let x = makeUniqueIdent com ctx typArg "x"
+    let y = makeUniqueIdent com ctx typArg "y"
 
     objExpr
         [
@@ -696,8 +696,8 @@ let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     | _ -> makeIntConst 1
 
 let makeAddFunction (com: ICompiler) ctx t =
-    let x = makeUniqueIdent ctx t "x"
-    let y = makeUniqueIdent ctx t "y"
+    let x = makeUniqueIdent com ctx t "x"
+    let y = makeUniqueIdent com ctx t "y"
 
     let body = applyOp com ctx None t Operators.addition [ IdentExpr x; IdentExpr y ]
 
@@ -712,8 +712,8 @@ let makeGenericAdder (com: ICompiler) ctx t =
 
 let makeGenericAverager (com: ICompiler) ctx t =
     let divideFn =
-        let x = makeUniqueIdent ctx t "x"
-        let i = makeUniqueIdent ctx (Int32.Number) "i"
+        let x = makeUniqueIdent com ctx t "x"
+        let i = makeUniqueIdent com ctx (Int32.Number) "i"
 
         let body = applyOp com ctx None t Operators.divideByInt [ IdentExpr x; IdentExpr i ]
 
@@ -1214,19 +1214,6 @@ let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 
     Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
     |> Some
-
-// TODO: This is likely broken
-let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
-    let memberName = Naming.sanitizeIdentForbiddenChars memberName
-    let entityName = Naming.sanitizeIdentForbiddenChars entityName
-
-    let name, memberPart =
-        match entityName, isStatic with
-        | "", _ -> memberName, Naming.NoMemberPart
-        | _, true -> entityName, Naming.StaticMemberPart(memberName, overloadSuffix)
-        | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
-
-    Naming.buildNameWithoutSanitation name memberPart |> Naming.checkJsKeywords
 
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with

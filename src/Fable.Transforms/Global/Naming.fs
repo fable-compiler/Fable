@@ -50,7 +50,10 @@ module Naming =
     let isInFableModules (file: string) =
         file.Split([| '\\'; '/' |]) |> Array.exists ((=) fableModules)
 
-    let isIdentChar index (c: char) =
+    let isRustIdentChar index (c: char) =
+        c = '_' || Char.IsLetter(c) || index > 0 && Char.IsDigit(c)
+
+    let isDartIdentChar index (c: char) =
         let code = int c
 
         c = '_'
@@ -59,11 +62,19 @@ module Naming =
         || (97 <= code && code <= 122) // A-Z
         // Digits are not allowed in first position, see #1397
         || (index > 0 && 48 <= code && code <= 57) // 0-9
-        || match Compiler.Language with
-           | Dart -> false
-           | _ -> Char.IsLetter c
 
-    let hasIdentForbiddenChars (ident: string) =
+    let isJsIdentChar index (c: char) =
+        let code = int c
+
+        c = '_'
+        || c = '$'
+        || (65 <= code && code <= 90) // a-z
+        || (97 <= code && code <= 122) // A-Z
+        // Digits are not allowed in first position, see #1397
+        || (index > 0 && 48 <= code && code <= 57) // 0-9
+        || Char.IsLetter c
+
+    let hasIdentForbiddenChars isIdentChar (ident: string) =
         let mutable found = false
 
         for i = 0 to ident.Length - 1 do
@@ -71,8 +82,8 @@ module Naming =
 
         found
 
-    let sanitizeIdentForbiddenCharsWith replace (ident: string) =
-        if hasIdentForbiddenChars ident then
+    let sanitizeIdentForbiddenCharsWith isIdentChar replaceChar (ident: string) =
+        if hasIdentForbiddenChars isIdentChar ident then
             Seq.init
                 ident.Length
                 (fun i ->
@@ -81,15 +92,37 @@ module Naming =
                     if isIdentChar i c then
                         string<char> c
                     else
-                        replace c
+                        replaceChar c
                 )
             |> String.Concat
         else
             ident
 
-    let sanitizeIdentForbiddenChars (ident: string) =
-        ident
-        |> sanitizeIdentForbiddenCharsWith (fun c -> "$" + String.Format("{0:X}", int c).PadLeft(4, '0'))
+    let replaceCharRust =
+        function
+        | '_'
+        | ' '
+        | '`'
+        | '.'
+        | '\''
+        | '\"' -> "_"
+        | c when Char.IsLetterOrDigit(c) -> string c
+        | c -> String.Format(@"_{0:x4}", int c)
+
+    let replaceCharDart c =
+        "$" + String.Format("{0:X}", int c).PadLeft(4, '0')
+
+    let replaceCharJs c =
+        "$" + String.Format("{0:X}", int c).PadLeft(4, '0')
+
+    let sanitizeRustIdentForbiddenChars (ident: string) =
+        ident |> sanitizeIdentForbiddenCharsWith isRustIdentChar replaceCharRust
+
+    let sanitizeDartIdentForbiddenChars (ident: string) =
+        ident |> sanitizeIdentForbiddenCharsWith isDartIdentChar replaceCharDart
+
+    let sanitizeJsIdentForbiddenChars (ident: string) =
+        ident |> sanitizeIdentForbiddenCharsWith isJsIdentChar replaceCharJs
 
     let replaceRegex (pattern: string) (value: string) (input: string) = Regex.Replace(input, pattern, value)
 
@@ -441,9 +474,23 @@ module Naming =
         else
             name
 
-    let sanitizeIdent conflicts name part =
+    let sanitizeRustIdent conflicts name part =
         // Replace Forbidden Chars
-        buildName sanitizeIdentForbiddenChars name part
+        buildName sanitizeRustIdentForbiddenChars name part
+        // |> checkRustKeywords // Rust keywords replaced later
+        // Check if it already exists
+        |> preventConflicts conflicts
+
+    let sanitizeDartIdent conflicts name part =
+        // Replace Forbidden Chars
+        buildName sanitizeDartIdentForbiddenChars name part
+        |> checkJsKeywords // TODO: checkDartKeywords
+        // Check if it already exists
+        |> preventConflicts conflicts
+
+    let sanitizeJsIdent conflicts name part =
+        // Replace Forbidden Chars
+        buildName sanitizeJsIdentForbiddenChars name part
         |> checkJsKeywords
         // Check if it already exists
         |> preventConflicts conflicts

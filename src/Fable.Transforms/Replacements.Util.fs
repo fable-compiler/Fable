@@ -172,8 +172,8 @@ type NumberKind with
 
     member this.Number = Number(this, NumberInfo.Empty)
 
-let makeUniqueIdent ctx t name =
-    FSharp2Fable.Helpers.getIdentUniqueName ctx name |> makeTypedIdent t
+let makeUniqueIdent com ctx t name =
+    FSharp2Fable.Helpers.getIdentUniqueName com ctx name |> makeTypedIdent t
 
 let withTag tag =
     function
@@ -500,11 +500,11 @@ let compose (com: ICompiler) ctx r t (f1: Expr) (f2: Expr) =
         | LambdaType(_, interType) -> interType
         | _ -> Any
 
-    let arg = makeUniqueIdent ctx argType "arg"
+    let arg = makeUniqueIdent com ctx argType "arg"
     // Eagerly evaluate and capture the value of the functions, see #2851
     // If possible, the bindings will be optimized away in FableTransforms
-    let capturedFun1Var = makeUniqueIdent ctx f1.Type "f1"
-    let capturedFun2Var = makeUniqueIdent ctx f2.Type "f2"
+    let capturedFun1Var = makeUniqueIdent com ctx f1.Type "f1"
+    let capturedFun2Var = makeUniqueIdent com ctx f2.Type "f2"
 
     let argExpr =
         match argType with

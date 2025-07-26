@@ -605,7 +605,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
         //     let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
         //     let byrefType = makeType ctx.GenericArgs (List.last membArgs).Type
         //     let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
-        //     let tupleIdent = getIdentUniqueName ctx "tuple" |> makeIdent
+        //     let tupleIdent = getIdentUniqueName com ctx "tuple" |> makeIdent
         //     let tupleIdentExpr = Fable.IdentExpr tupleIdent
         //     let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
         //     let identExpr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 1, tupleType, None)
@@ -622,7 +622,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
         //     let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
         //     let byrefType = makeType ctx.GenericArgs (List.last membArgs).Type
         //     let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
-        //     let tupleIdent = getIdentUniqueName ctx "tuple" |> makeIdent
+        //     let tupleIdent = getIdentUniqueName com ctx "tuple" |> makeIdent
         //     let tupleIdentExpr = Fable.IdentExpr tupleIdent
         //     let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
         //     let identExpr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 1, tupleType, None)
@@ -656,7 +656,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
         //     let genArgs = ownerGenArgs @ membGenArgs |> Seq.map (makeType ctx.GenericArgs)
         //     let byrefType = makeType ctx.GenericArgs (List.last membArgs).Type
         //     let tupleType = [Fable.Boolean; byrefType] |> Fable.Tuple
-        //     let tupleIdent = getIdentUniqueName ctx "tuple" |> makeIdent
+        //     let tupleIdent = getIdentUniqueName com ctx "tuple" |> makeIdent
         //     let tupleIdentExpr = Fable.IdentExpr tupleIdent
         //     let tupleExpr = makeCallFrom com ctx None tupleType genArgs callee args memb
         //     let id1Expr = Fable.Get(tupleIdentExpr, Fable.TupleIndex 0, tupleType, None)
@@ -790,7 +790,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
         | FSharpExprPatterns.DefaultValue(FableType com ctx typ) ->
             let r = makeRangeFrom fsExpr
 
-            match Compiler.Language with
+            match com.Options.Language with
             // In Dart we don't want the compiler to pass default values other than null to [<Optional>] args
             | Dart -> return Fable.Value(Fable.Null typ, r)
             | _ -> return Replacements.Api.defaultof com ctx r typ
@@ -837,11 +837,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                             if not id.IsMutable then
                                 bindings, value :: tupleValues
                             else
-                                let i = getIdentUniqueName ctx id.Name |> makeTypedIdent id.Type
+                                let i = getIdentUniqueName com ctx id.Name |> makeTypedIdent id.Type
 
                                 (i, value) :: bindings, (Fable.IdentExpr i) :: tupleValues
                         | value ->
-                            let i = getIdentUniqueName ctx "matchValue" |> makeTypedIdent value.Type
+                            let i = getIdentUniqueName com ctx "matchValue" |> makeTypedIdent value.Type
 
                             (i, value) :: bindings, (Fable.IdentExpr i) :: tupleValues
                     )
@@ -1291,7 +1291,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
         | FSharpExprPatterns.ObjectExpr(objType, baseCall, overrides, otherOverrides) ->
             match ctx.EnclosingMember with
             | Some m when m.IsImplicitConstructor ->
-                let thisArg = getIdentUniqueName ctx "_this" |> makeIdent
+                let thisArg = getIdentUniqueName com ctx "_this" |> makeIdent
                 let thisValue = Fable.Value(Fable.ThisValue Fable.Any, None)
                 let ctx = { ctx with BoundConstructorThis = Some thisArg }
 
@@ -1793,24 +1793,23 @@ let private transformMemberFunctionOrValue
     (body: FSharpExpr)
     =
     let name, _ = getMemberDeclarationName com memb
+    let attributes = memb.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
 
-    memb.Attributes
-    |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
-    |> function
-        | ImportAtt(selector, path) ->
-            let selector =
-                if selector = Naming.placeholder then
-                    getMemberDisplayName memb
-                else
-                    selector
-
-            let typ = makeType Map.empty memb.FullType
-            transformImportValue com None typ name memb selector path
-        | _ ->
-            if isModuleValueForDeclarations memb then
-                transformMemberValue com ctx name memb body
+    match com, attributes with
+    | ImportAtt(selector, path) ->
+        let selector =
+            if selector = Naming.placeholder then
+                getMemberDisplayName memb
             else
-                transformMemberFunction com ctx name memb args body
+                selector
+
+        let typ = makeType Map.empty memb.FullType
+        transformImportValue com None typ name memb selector path
+    | _ ->
+        if isModuleValueForDeclarations memb then
+            transformMemberValue com ctx name memb body
+        else
+            transformMemberFunction com ctx name memb args body
 
 let private transformImplementedSignature
     (com: FableCompiler)
@@ -1865,7 +1864,7 @@ let private transformExplicitlyAttachedMember
     let entFullName = declaringEntity.FullName
 
     let name, isMangled =
-        match Compiler.Language with
+        match (com :> Compiler).Options.Language with
         | Rust -> getMemberDeclarationName com memb |> fst, true
         | _ -> FsMemberFunctionOrValue.CompiledName(memb), false
 
@@ -1925,7 +1924,10 @@ let private transformMemberDecl
     // for Rust, retain inlined functions that have [<CompiledName("...")>] attribute
     elif
         isInline memb
-        && not (Compiler.Language = Rust && (hasAttrib Atts.compiledName memb.Attributes))
+        && not (
+            (com :> Compiler).Options.Language = Rust
+            && (hasAttrib Atts.compiledName memb.Attributes)
+        )
     then
         []
     elif memb.IsImplicitConstructor then
@@ -2044,8 +2046,8 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
 
                 if
                     (isErasedOrStringEnumEntity ent
-                     && Compiler.Language <> TypeScript
-                     && Compiler.Language <> Python)
+                     && (com :> Compiler).Options.Language <> TypeScript
+                     && (com :> Compiler).Options.Language <> Python)
                     || isGlobalOrImportedEntity ent
                 then
                     []
@@ -2609,7 +2611,7 @@ type FableCompiler(com: Compiler) =
         // reduction, so we try to eliminate it here.
         bindings
         |> List.filter (fun (i, v) ->
-            if ctx.CapturedBindings.Contains(i.Name) && canHaveSideEffects v then
+            if ctx.CapturedBindings.Contains(i.Name) && canHaveSideEffects com v then
                 if isIdentUsed i.Name resolved then
                     $"Inlined argument {i.Name} is being captured but is also used somewhere else. "
                     + "There's a risk of double evaluation."
@@ -2644,6 +2646,7 @@ type FableCompiler(com: Compiler) =
         member _.OutputDir = com.OutputDir
         member _.OutputType = com.OutputType
         member _.ProjectFile = com.ProjectFile
+        member _.ProjectOptions = com.ProjectOptions
         member _.SourceFiles = com.SourceFiles
         member _.IncrementCounter() = com.IncrementCounter()
         member _.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction

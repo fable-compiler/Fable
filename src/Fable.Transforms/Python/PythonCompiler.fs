@@ -121,6 +121,7 @@ type PythonCompiler(com: Compiler) =
         member _.OutputDir = com.OutputDir
         member _.OutputType = com.OutputType
         member _.ProjectFile = com.ProjectFile
+        member _.ProjectOptions = com.ProjectOptions
         member _.SourceFiles = com.SourceFiles
         member _.IncrementCounter() = com.IncrementCounter()
 

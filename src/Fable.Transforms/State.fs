@@ -307,6 +307,7 @@ type CompilerImpl
         member _.OutputDir = outDir
         member _.OutputType = outType
         member _.ProjectFile = project.ProjectFile
+        member _.ProjectOptions = project.ProjectOptions
         member _.SourceFiles = project.ProjectOptions.SourceFiles
 
         member _.IncrementCounter() =

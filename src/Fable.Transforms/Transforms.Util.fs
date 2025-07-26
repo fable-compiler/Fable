@@ -853,15 +853,15 @@ module AST =
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     // This is mainly used for inlining so a computation or a reference to a mutable value are understood
     // as a side effects too (because we don't want to duplicate or change the order of execution)
-    let rec canHaveSideEffects =
+    let rec canHaveSideEffects (com: Compiler) =
         function
         | Import _ -> false
         | Lambda _
         | Delegate _ -> false
         | TypeCast(e, _) ->
-            match Compiler.Language with
+            match com.Options.Language with
             | JavaScript
-            | Python -> canHaveSideEffects e
+            | Python -> canHaveSideEffects com e
             | _ -> true
         | Value(value, _) ->
             match value with
@@ -877,15 +877,15 @@ module AST =
             | RegexConstant _ -> false
             | NewList(None, _)
             | NewOption(None, _, _) -> false
-            | NewOption(Some e, _, _) -> canHaveSideEffects e
-            | NewList(Some(h, t), _) -> canHaveSideEffects h || canHaveSideEffects t
+            | NewOption(Some e, _, _) -> canHaveSideEffects com e
+            | NewList(Some(h, t), _) -> canHaveSideEffects com h || canHaveSideEffects com t
             | StringTemplate(_, _, exprs)
             | NewTuple(exprs, _)
-            | NewUnion(exprs, _, _, _) -> List.exists canHaveSideEffects exprs
+            | NewUnion(exprs, _, _, _) -> List.exists (canHaveSideEffects com) exprs
             | NewArray(newKind, _, kind) ->
                 match kind, newKind with
-                | ImmutableArray, ArrayFrom expr -> canHaveSideEffects expr
-                | ImmutableArray, ArrayValues exprs -> List.exists canHaveSideEffects exprs
+                | ImmutableArray, ArrayFrom expr -> canHaveSideEffects com expr
+                | ImmutableArray, ArrayValues exprs -> List.exists (canHaveSideEffects com) exprs
                 | _, ArrayAlloc _
                 | _, ArrayValues [] -> false
                 | _ -> true
@@ -895,21 +895,21 @@ module AST =
         | Get(e, kind, _, _) ->
             match kind with
             | OptionValue ->
-                match Compiler.Language with
-                | Dart -> canHaveSideEffects e
+                match com.Options.Language with
+                | Dart -> canHaveSideEffects com e
                 // Other languages include a runtime check for options
                 | _ -> true
             | ListHead
             | ListTail
             | TupleIndex _
-            | UnionTag -> canHaveSideEffects e
+            | UnionTag -> canHaveSideEffects com e
             // Don't move union field getters after union case test in case TypeScript complains
-            | UnionField _ -> Compiler.Language = TypeScript || canHaveSideEffects e
+            | UnionField _ -> com.Options.Language = TypeScript || canHaveSideEffects com e
             | FieldGet info ->
                 if info.CanHaveSideEffects then
                     true
                 else
-                    canHaveSideEffects e
+                    canHaveSideEffects com e
             | ExprGet _ -> true
         | _ -> true
 

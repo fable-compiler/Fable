@@ -1039,7 +1039,7 @@ module Util =
     let getUniqueNameInRootScope (ctx: Context) name =
         let name =
             (name, Naming.NoMemberPart)
-            ||> Naming.sanitizeIdent (fun name ->
+            ||> Naming.sanitizeJsIdent (fun name ->
                 ctx.UsedNames.RootScope.Contains(name)
                 || ctx.UsedNames.DeclarationScopes.Contains(name)
             )
@@ -1050,7 +1050,7 @@ module Util =
     let getUniqueNameInDeclarationScope (ctx: Context) name =
         let name =
             (name, Naming.NoMemberPart)
-            ||> Naming.sanitizeIdent (fun name ->
+            ||> Naming.sanitizeJsIdent (fun name ->
                 ctx.UsedNames.RootScope.Contains(name)
                 || ctx.UsedNames.CurrentDeclarationScope.Contains(name)
             )
@@ -1148,7 +1148,7 @@ module Util =
         | "ToString" -> Expression.identifier ("toString"), false
         | n when n.StartsWith("Symbol.", StringComparison.Ordinal) ->
             Expression.memberExpression (Expression.identifier ("Symbol"), Expression.identifier (n[7..]), false), true
-        | n when Naming.hasIdentForbiddenChars n -> Expression.stringLiteral (n), computeStrings
+        | n when Naming.hasIdentForbiddenChars Naming.isJsIdentChar n -> Expression.stringLiteral (n), computeStrings
         | n -> Expression.identifier (n |> sanitizeMemberName), false
 
     let memberFromName (memberName: string) : Expression * bool =
@@ -1768,7 +1768,7 @@ module Util =
             ||> List.fold (fun compileAsClass (memb, info) ->
                 compileAsClass
                 || (not memb.IsMangled
-                    && (info.IsSetter || (info.IsGetter && canHaveSideEffects memb.Body)))
+                    && (info.IsSetter || (info.IsGetter && canHaveSideEffects com memb.Body)))
             )
 
         let members =
@@ -2671,7 +2671,7 @@ but thanks to the optimisation done below we get
             defaultCase |> Option.map (transformAsStatements com ctx returnStrategy)
 
         match cases, defaultCase with
-        | [||], Some defaultCase when not (canHaveSideEffects evalExpr) -> defaultCase
+        | [||], Some defaultCase when not (canHaveSideEffects com evalExpr) -> defaultCase
         | cases, Some defaultCase ->
             let cases =
                 Array.append
@@ -2699,7 +2699,7 @@ but thanks to the optimisation done below we get
             let bindings, replacements =
                 (([], Map.empty), identsAndValues)
                 ||> List.fold (fun (bindings, replacements) (ident, expr) ->
-                    if canHaveSideEffects expr then
+                    if canHaveSideEffects com expr then
                         (ident, expr) :: bindings, replacements
                     else
                         bindings, Map.add ident.Name expr replacements
@@ -3363,7 +3363,7 @@ but thanks to the optimisation done below we get
         |> asModuleDeclaration info.IsPublic
 
     let sanitizeName fieldName =
-        fieldName |> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
+        fieldName |> Naming.sanitizeJsIdentForbiddenChars |> Naming.checkJsKeywords
 
     let getEntityFieldsAsIdents (ent: Fable.Entity) =
         ent.FSharpFields
@@ -4371,7 +4371,7 @@ but thanks to the optimisation done below we get
                     []
             | ent ->
                 if FSharp2Fable.Util.isPojoDefinedByConsArgsEntity ent then
-                    if Compiler.Language = TypeScript then
+                    if com.Options.Language = TypeScript then
                         transformPojoDefinedByConsArgsToInterface com ctx ent decl
                     else
                         []
@@ -4562,6 +4562,7 @@ module Compiler =
             member _.OutputDir = com.OutputDir
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
+            member _.ProjectOptions = com.ProjectOptions
             member _.SourceFiles = com.SourceFiles
             member _.IncrementCounter() = com.IncrementCounter()
 
