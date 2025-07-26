@@ -2210,7 +2210,7 @@ module Util =
         ctx
         kind
         (genParams: Fable.GenericParam list)
-        (paramGroups: Fable.Parameter list list)
+        (info: Fable.MemberFunctionOrValue)
         (args: Fable.Ident list)
         (body: Fable.Expr)
         =
@@ -2232,18 +2232,22 @@ module Util =
 
         let args, body, returnType = transformFunction com ctx funcName args body
 
+        let parameters = List.concat info.CurriedParameterGroups
+
+        let argsWithParams (args: Ident list) =
+            List.zip args parameters
+            |> List.map (fun (a, p) ->
+                let defVal = p.DefaultValue |> Option.map (transformAndCaptureExpr com ctx >> snd)
+
+                FunctionArg(a, isOptional = p.IsOptional, isNamed = p.IsNamed, ?defaultValue = defVal)
+            )
+
         let args =
-            let parameters = List.concat paramGroups
-
-            if List.sameLength args parameters then
-                List.zip args parameters
-                |> List.map (fun (a, p) ->
-                    let defVal = p.DefaultValue |> Option.map (transformAndCaptureExpr com ctx >> snd)
-
-                    FunctionArg(a, isOptional = p.IsOptional, isNamed = p.IsNamed, ?defaultValue = defVal)
-                )
-            else
-                args |> List.map FunctionArg
+            match args with
+            | thisArg :: args when info.IsInstance && List.sameLength args parameters ->
+                (FunctionArg(thisArg)) :: (argsWithParams args)
+            | args when List.sameLength args parameters -> argsWithParams args
+            | _ -> args |> List.map FunctionArg
 
         args, body, returnType
 
@@ -2262,14 +2266,7 @@ module Util =
         let entAndMembGenParams = getEntityAndMemberArgs com info
 
         let args, body, returnType =
-            getMemberArgsAndBody
-                com
-                ctx
-                (NonAttached memb.Name)
-                entAndMembGenParams
-                info.CurriedParameterGroups
-                memb.Args
-                memb.Body
+            getMemberArgsAndBody com ctx (NonAttached memb.Name) entAndMembGenParams info memb.Args memb.Body
 
         let isEntryPoint =
             info.Attributes |> Seq.exists (fun att -> att.Entity.FullName = Atts.entryPoint)
@@ -2738,14 +2735,7 @@ module Util =
             let entAndMembGenParams = getEntityAndMemberArgs com info
 
             let args, body, returnType =
-                getMemberArgsAndBody
-                    com
-                    ctx
-                    (Attached isStatic)
-                    entAndMembGenParams
-                    info.CurriedParameterGroups
-                    memb.Args
-                    memb.Body
+                getMemberArgsAndBody com ctx (Attached isStatic) entAndMembGenParams info memb.Args memb.Body
 
             let kind, name =
                 match abstractFullName with
@@ -2806,14 +2796,7 @@ module Util =
                 let entGenParams = classEnt.GenericParameters
 
                 let consArgs, consBody, _ =
-                    getMemberArgsAndBody
-                        com
-                        ctx
-                        ClassConstructor
-                        entGenParams
-                        consInfo.CurriedParameterGroups
-                        cons.Args
-                        cons.Body
+                    getMemberArgsAndBody com ctx ClassConstructor entGenParams consInfo cons.Args cons.Body
 
                 // Analyze the constructor body to see if we can assign fields
                 // directly and prevent declaring them as late final

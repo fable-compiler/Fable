@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [TS/Dart] Fixed optional parameter types (by @ncave)
+
 ## 5.0.0-alpha.14 - 2025-07-25
 
 ### Added
