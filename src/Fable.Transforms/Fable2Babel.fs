@@ -1380,6 +1380,29 @@ module Util =
 
         let parameters = List.concat info.CurriedParameterGroups
 
+        let argsWithParams (args: Fable.Ident list) =
+            List.zip args parameters
+            |> List.map (fun (a, p) ->
+                match p.Name with
+                | Some name when p.IsNamed && a.Name <> name ->
+                    $"Argument {name} is marked as named but conflicts with another name in scope"
+                    |> addWarning com [] a.Range
+                | _ -> ()
+
+                let a =
+                    if p.IsOptional then
+                        { a with Type = unwrapOptionalType a.Type }
+                    else
+                        a
+
+                a,
+                ParameterFlags(
+                    isNamed = p.IsNamed,
+                    isOptional = (p.IsOptional && com.IsTypeScript),
+                    ?defVal = (p.DefaultValue |> Option.map (transformAsExpr com ctx))
+                )
+            )
+
         let argsWithFlags =
             match args with
             | [] -> []
@@ -1389,29 +1412,9 @@ module Util =
                 let args = args |> List.map (fun a -> a, ParameterFlags())
                 args @ [ lastArg, ParameterFlags(isSpread = true) ]
 
-            | args when List.sameLength args parameters ->
-                List.zip args parameters
-                |> List.map (fun (a, p) ->
-                    match p.Name with
-                    | Some name when p.IsNamed && a.Name <> name ->
-                        $"Argument {name} is marked as named but conflicts with another name in scope"
-                        |> addWarning com [] a.Range
-                    | _ -> ()
-
-                    let a =
-                        if p.IsOptional then
-                            { a with Type = unwrapOptionalType a.Type }
-                        else
-                            a
-
-                    a,
-                    ParameterFlags(
-                        isNamed = p.IsNamed,
-                        isOptional = (p.IsOptional && com.IsTypeScript),
-                        ?defVal = (p.DefaultValue |> Option.map (transformAsExpr com ctx))
-                    )
-                )
-
+            | thisArg :: args when info.IsInstance && List.sameLength args parameters ->
+                (thisArg, ParameterFlags()) :: (argsWithParams args)
+            | args when List.sameLength args parameters -> argsWithParams args
             | _ -> args |> List.map (fun a -> a, ParameterFlags())
 
         let args, body, returnType, typeParamDecl =
