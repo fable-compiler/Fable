@@ -98,8 +98,8 @@ module Naming =
         else
             ident
 
-    let replaceCharRust =
-        function
+    let replaceCharRust (c: char) =
+        match c with
         | '_'
         | ' '
         | '`'
@@ -109,10 +109,10 @@ module Naming =
         | c when Char.IsLetterOrDigit(c) -> string c
         | c -> String.Format(@"_{0:x4}", int c)
 
-    let replaceCharDart c =
+    let replaceCharDart (c: char) =
         "$" + String.Format("{0:X}", int c).PadLeft(4, '0')
 
-    let replaceCharJs c =
+    let replaceCharJs (c: char) =
         "$" + String.Format("{0:X}", int c).PadLeft(4, '0')
 
     let sanitizeRustIdentForbiddenChars (ident: string) =
