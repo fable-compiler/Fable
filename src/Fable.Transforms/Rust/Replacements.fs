@@ -108,8 +108,8 @@ let makeLibModuleCall com r t (i: CallInfo) moduleName memberName (thisArg: Expr
 let makeGlobalIdent (ident: string, memb: string, typ: Type) =
     makeTypedIdentExpr typ (ident + "::" + memb)
 
-let makeUniqueIdent ctx t name =
-    FSharp2Fable.Helpers.getIdentUniqueName ctx name |> makeTypedIdent t
+let makeUniqueIdent com ctx t name =
+    FSharp2Fable.Helpers.getIdentUniqueName com ctx name |> makeTypedIdent t
 
 let makeDecimal com r t (x: decimal) =
     let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
@@ -553,8 +553,8 @@ let applyCompareOp (com: ICompiler) (ctx: Context) r t opName (left: Expr) (righ
     | _ -> booleanCompare com ctx r left right op
 
 // let makeComparerFunction (com: ICompiler) ctx typArg =
-//     let x = makeUniqueIdent ctx typArg "x"
-//     let y = makeUniqueIdent ctx typArg "y"
+//     let x = makeUniqueIdent com ctx typArg "x"
+//     let y = makeUniqueIdent com ctx typArg "y"
 //     let body = compare com ctx None (IdentExpr x) (IdentExpr y)
 //     Delegate([x; y], body, None, Tags.empty)
 
@@ -562,8 +562,8 @@ let applyCompareOp (com: ICompiler) (ctx: Context) r t opName (left: Expr) (righ
 //     objExpr ["Compare", makeComparerFunction com ctx typArg]
 
 // let makeEqualityFunction (com: ICompiler) ctx typArg =
-//     let x = makeUniqueIdent ctx typArg "x"
-//     let y = makeUniqueIdent ctx typArg "y"
+//     let x = makeUniqueIdent com ctx typArg "x"
+//     let y = makeUniqueIdent com ctx typArg "y"
 //     let body = equals com ctx None (IdentExpr x) (IdentExpr y)
 //     Delegate([x; y], body, None, Tags.empty)
 
@@ -656,8 +656,8 @@ let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     | _ -> makeIntConst 1
 
 let makeAddFunction (com: ICompiler) ctx t =
-    let x = makeUniqueIdent ctx t "x"
-    let y = makeUniqueIdent ctx t "y"
+    let x = makeUniqueIdent com ctx t "x"
+    let y = makeUniqueIdent com ctx t "y"
 
     let body = applyOp com ctx None t Operators.addition [ IdentExpr x; IdentExpr y ]
 
@@ -671,8 +671,8 @@ let makeAddFunction (com: ICompiler) ctx t =
 
 // let makeGenericAverager (com: ICompiler) ctx t =
 //     let divideFn =
-//         let x = makeUniqueIdent ctx t "x"
-//         let i = makeUniqueIdent ctx (Int32.Number) "i"
+//         let x = makeUniqueIdent com ctx t "x"
+//         let i = makeUniqueIdent com ctx (Int32.Number) "i"
 //         let body = applyOp com ctx None t Operators.divideByInt [IdentExpr x; IdentExpr i]
 //         Delegate([x; i], body, None, Tags.empty)
 //     objExpr [
@@ -808,17 +808,6 @@ let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 
     Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, ?loc = r)
     |> Some
-
-// // TODO: This is likely broken
-// let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
-//     let memberName = Naming.sanitizeIdentForbiddenChars memberName
-//     let entityName = Naming.sanitizeIdentForbiddenChars entityName
-//     let name, memberPart =
-//         match entityName, isStatic with
-//         | "", _ -> memberName, Naming.NoMemberPart
-//         | _, true -> entityName, Naming.StaticMemberPart(memberName, overloadSuffix)
-//         | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
-//     Naming.buildNameWithoutSanitation name memberPart |> Naming.checkJsKeywords
 
 let makeRustFormatString interpolated (fmt: string) =
     let pattern1 = @"([^%]?)%([0+\- ]*)(\*|\d+)?(\.\d+)?(\w)"

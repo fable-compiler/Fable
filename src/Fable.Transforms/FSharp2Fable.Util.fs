@@ -642,18 +642,7 @@ module Helpers =
                 name
 
         if name |> String.exists (fun c -> not (c = '_' || Char.IsLetterOrDigit(c))) then
-            name
-            |> String.collect (
-                function
-                | '_'
-                | ' '
-                | '`'
-                | '.'
-                | '\''
-                | '\"' -> "_"
-                | c when Char.IsLetterOrDigit(c) -> string c
-                | c -> String.Format(@"_{0:x4}", int c)
-            )
+            name |> String.collect Naming.replaceCharRust
         else
             name
 
@@ -680,8 +669,9 @@ module Helpers =
         let sanitizedName =
             match com.Options.Language with
             | Python -> Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
-            | Rust -> entityName |> cleanNameAsRustIdentifier
-            | _ -> Naming.sanitizeIdent (fun _ -> false) name part
+            | Rust -> (entityName |> cleanNameAsRustIdentifier)
+            | Dart -> Naming.sanitizeDartIdent (fun _ -> false) name part
+            | _ -> Naming.sanitizeJsIdent (fun _ -> false) name part
 
         sanitizedName
 
@@ -761,7 +751,8 @@ module Helpers =
 
                 Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
             | Rust -> Naming.buildNameWithoutSanitation name part
-            | _ -> Naming.sanitizeIdent (fun _ -> false) name part
+            | Dart -> Naming.sanitizeDartIdent (fun _ -> false) name part
+            | _ -> Naming.sanitizeJsIdent (fun _ -> false) name part
 
         let hasOverloadSuffix = not (String.IsNullOrEmpty(part.OverloadSuffix))
         sanitizedName, hasOverloadSuffix
@@ -777,8 +768,15 @@ module Helpers =
         ctx.UsedNamesInRootScope.Contains name
         || ctx.UsedNamesInDeclarationScope.Contains name
 
-    let getIdentUniqueName (ctx: Context) name =
-        let name = (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent (isUsedName ctx)
+    let getIdentUniqueName (com: Compiler) (ctx: Context) name =
+        let sanitizeIdent =
+            match com.Options.Language with
+            | Python -> Fable.Py.Naming.sanitizeIdent
+            | Dart -> Naming.sanitizeDartIdent
+            | Rust -> Naming.sanitizeRustIdent
+            | _ -> Naming.sanitizeJsIdent
+
+        let name = (name, Naming.NoMemberPart) ||> sanitizeIdent (isUsedName ctx)
 
         ctx.UsedNamesInDeclarationScope.Add(name) |> ignore
         name
@@ -802,8 +800,8 @@ module Helpers =
         // (Note: the non-abbreviated type of inref and outref is byref)
         value.IsValue && not value.IsMemberThisValue && isByRefType value.FullType
 
-    let tryFindAttrib fullName (atts: FSharpAttribute seq) =
-        atts
+    let tryFindAttrib fullName (attributes: FSharpAttribute seq) =
+        attributes
         |> Seq.tryPick (fun att ->
             match (nonAbbreviatedDefinition att.AttributeType).TryFullName with
             | Some fullName2 ->
@@ -1055,8 +1053,8 @@ module Helpers =
                     |> Option.defaultValue (DiscriminatedUnion(tdef, typ.GenericArguments))
         )
 
-    let tryGetFieldTag (memb: FSharpMemberOrFunctionOrValue) =
-        if Compiler.Language = Dart && hasAttrib Atts.dartIsConst memb.Attributes then
+    let tryGetFieldTag (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
+        if com.Options.Language = Dart && hasAttrib Atts.dartIsConst memb.Attributes then
             Some "const"
         else
             None
@@ -1759,8 +1757,9 @@ module Identifiers =
                     (fun name -> isUsedName ctx name || Fable.Py.Naming.pyBuiltins.Contains name)
                     name
                     part
-            | Rust -> Naming.sanitizeIdent (isUsedName ctx) (name |> cleanNameAsRustIdentifier) part
-            | _ -> Naming.sanitizeIdent (isUsedName ctx) name part
+            | Rust -> Naming.sanitizeRustIdent (isUsedName ctx) (name |> cleanNameAsRustIdentifier) part
+            | Dart -> Naming.sanitizeDartIdent (isUsedName ctx) name part
+            | _ -> Naming.sanitizeJsIdent (isUsedName ctx) name part
 
         let isMutable =
             match com.Options.Language with
@@ -1969,7 +1968,7 @@ module Util =
             Path.Combine(Path.GetDirectoryName(file), path)
             |> Path.getRelativePath com.CurrentFile
 
-    let (|GlobalAtt|ImportAtt|NoGlobalNorImport|) (atts: Fable.Attribute seq) =
+    let (|GlobalAtt|ImportAtt|NoGlobalNorImport|) (com: Compiler, atts: Fable.Attribute seq) =
         let (|AttFullName|) (att: Fable.Attribute) = att.Entity.FullName, att
 
         atts
@@ -1977,7 +1976,7 @@ module Util =
             function
             // Disable import of the type decorated by Pojo Attribute unless we are targeting TypeScript
             // See https://github.com/fable-compiler/Fable/issues/4075
-            | AttFullName(Atts.pojoDefinedByConsArgs, att) when Compiler.Language <> TypeScript ->
+            | AttFullName(Atts.pojoDefinedByConsArgs, att) when com.Options.Language <> TypeScript ->
                 match att.ConstructorArgs with
                 | [ :? string as customName ] -> GlobalAtt(Some customName) |> Some
                 | _ -> GlobalAtt(None) |> Some
@@ -2000,28 +1999,28 @@ module Util =
 
     /// Function used to check if calls must be replaced by global idents or direct imports
     let tryGlobalOrImportedMember (com: Compiler) typ (memb: FSharpMemberOrFunctionOrValue) =
-        memb.Attributes
-        |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
-        |> function
-            | GlobalAtt(Some customName) -> makeTypedIdent typ customName |> Fable.IdentExpr |> Some
-            | GlobalAtt None -> getMemberDisplayName memb |> makeTypedIdent typ |> Fable.IdentExpr |> Some
-            | ImportAtt(selector, path) ->
-                let selector =
-                    if selector = Naming.placeholder then
-                        getMemberDisplayName memb
-                    else
-                        selector
+        let attributes = memb.Attributes |> Seq.map (fun x -> FsAtt(x) :> Fable.Attribute)
 
-                let path =
-                    match Path.isRelativePath path, memb.DeclaringEntity with
-                    | true, Some e ->
-                        FsEnt.Ref(e).SourcePath
-                        |> Option.map (fixImportedRelativePath com path)
-                        |> Option.defaultValue path
-                    | _ -> path
+        match com, attributes with
+        | GlobalAtt(Some customName) -> makeTypedIdent typ customName |> Fable.IdentExpr |> Some
+        | GlobalAtt None -> getMemberDisplayName memb |> makeTypedIdent typ |> Fable.IdentExpr |> Some
+        | ImportAtt(selector, path) ->
+            let selector =
+                if selector = Naming.placeholder then
+                    getMemberDisplayName memb
+                else
+                    selector
 
-                makeImportUserGenerated None typ selector path |> Some
-            | _ -> None
+            let path =
+                match Path.isRelativePath path, memb.DeclaringEntity with
+                | true, Some e ->
+                    FsEnt.Ref(e).SourcePath
+                    |> Option.map (fixImportedRelativePath com path)
+                    |> Option.defaultValue path
+                | _ -> path
+
+            makeImportUserGenerated None typ selector path |> Some
+        | _ -> None
 
     let tryGlobalOrImportedAttributes (com: Compiler) (entRef: Fable.EntityRef) (attributes: Fable.Attribute seq) =
         let globalRef customName =
@@ -2030,7 +2029,7 @@ module Util =
             |> Fable.IdentExpr
             |> Some
 
-        match attributes with
+        match com, attributes with
         | _ when entRef.FullName.StartsWith("Fable.Core.JS.", StringComparison.Ordinal) -> globalRef None
         | GlobalAtt customName -> globalRef customName
         | ImportAtt(selector, path) ->
@@ -2477,7 +2476,7 @@ module Util =
                         info.name,
                         fieldType = (memb.ReturnParameter.Type |> makeType Map.empty),
                         maybeCalculated = true,
-                        ?tag = tryGetFieldTag memb
+                        ?tag = tryGetFieldTag com memb
                     )
 
                 Fable.Get(callee, kind, typ, r)
@@ -2671,7 +2670,7 @@ module Util =
                         Fable.FieldInfo.Create(
                             getMemberDisplayName memb,
                             maybeCalculated = true,
-                            ?tag = tryGetFieldTag memb
+                            ?tag = tryGetFieldTag com memb
                         )
 
                     Fable.Get(moduleOrClassExpr, kind, typ, r) |> Some

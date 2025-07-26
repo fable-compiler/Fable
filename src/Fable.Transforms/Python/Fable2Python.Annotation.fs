@@ -414,7 +414,7 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
             let name = Helpers.removeNamespace ent.FullName
 
             // If the interface is imported then it's erased and we need to add the actual imports
-            match ent.Attributes with
+            match com, ent.Attributes with
             | FSharp2Fable.Util.ImportAtt(name, importPath) -> com.GetImportExpr(ctx, importPath, name) |> ignore
             | _ ->
                 match entRef.SourcePath with

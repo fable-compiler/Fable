@@ -262,6 +262,7 @@ module Util =
     /// Should this be done in FSharp2Fable step?
     let sanitizeMember (name: string) =
         Naming.sanitizeIdentForbiddenCharsWith
+            Naming.isDartIdentChar
             (function
             | '@' -> "$"
             | _ -> "_")
@@ -270,7 +271,7 @@ module Util =
     let getUniqueNameInRootScope (ctx: Context) name =
         let name =
             (name, Naming.NoMemberPart)
-            ||> Naming.sanitizeIdent (fun name ->
+            ||> Naming.sanitizeDartIdent (fun name ->
                 ctx.UsedNames.RootScope.Contains(name)
                 || ctx.UsedNames.DeclarationScopes.Contains(name)
             )
@@ -281,7 +282,7 @@ module Util =
     let getUniqueNameInDeclarationScope (ctx: Context) name =
         let name =
             (name, Naming.NoMemberPart)
-            ||> Naming.sanitizeIdent (fun name ->
+            ||> Naming.sanitizeDartIdent (fun name ->
                 ctx.UsedNames.RootScope.Contains(name)
                 || ctx.UsedNames.CurrentDeclarationScope.Contains(name)
             )
@@ -1601,7 +1602,7 @@ module Util =
             let bindings, replacements =
                 (([], Map.empty), identsAndValues)
                 ||> List.fold (fun (bindings, replacements) (ident, expr) ->
-                    if canHaveSideEffects expr then
+                    if canHaveSideEffects com expr then
                         (ident, expr) :: bindings, replacements
                     else
                         bindings, Map.add ident.Name expr replacements
@@ -3074,6 +3075,7 @@ module Compiler =
             member _.OutputDir = com.OutputDir
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
+            member _.ProjectOptions = com.ProjectOptions
             member _.SourceFiles = com.SourceFiles
             member _.IncrementCounter() = com.IncrementCounter()
 

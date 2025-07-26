@@ -228,14 +228,14 @@ let noSideEffectBeforeIdent identName expr =
 
     findIdentOrSideEffect expr && not sideEffect
 
-let canInlineArg identName value body =
+let canInlineArg com identName value body =
     match value with
     | Value((Null _ | UnitConstant | TypeInfo _ | BoolConstant _ | NumberConstant _ | CharConstant _), _) -> true
     | Value(StringConstant s, _) -> s.Length < 100
     | _ ->
         let refCount = countReferencesUntil 2 identName body
 
-        (refCount <= 1 && not (canHaveSideEffects value))
+        (refCount <= 1 && not (canHaveSideEffects com value))
         // If it can have side effects, make sure is at least referenced once so the expression is not erased
         || (refCount = 1
             && noSideEffectBeforeIdent identName body
@@ -307,7 +307,7 @@ module private Transforms =
             match value with
             | Import(i, _, _) -> i.IsCompilerGenerated
             | Call(callee, info, _, _) when List.isEmpty info.Args && List.contains "value" info.Tags ->
-                canInlineArg ident.Name callee letBody
+                canInlineArg com ident.Name callee letBody
             // Replace non-recursive lambda bindings
             | NestedLambda(_args, lambdaBody, _name) ->
                 match lambdaBody with
@@ -315,14 +315,14 @@ module private Transforms =
                 // Check the lambda doesn't reference itself recursively
                 | _ ->
                     countReferencesUntil 1 ident.Name lambdaBody = 0
-                    && canInlineArg ident.Name value letBody
+                    && canInlineArg com ident.Name value letBody
                     // If we inline the lambda Fable2Rust doesn't have
                     // a chance to clone the mutable ident
                     && (if com.Options.Language = Rust then
                             referencesMutableIdent lambdaBody |> not
                         else
                             true)
-            | _ -> canInlineArg ident.Name value letBody
+            | _ -> canInlineArg com ident.Name value letBody
 
         if canInlineBinding then
             let value =
