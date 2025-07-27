@@ -1241,6 +1241,15 @@ module Util =
             |> Seq.map (fun (id, value) ->
                 let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx id.Type value
 
+                let value =
+                    if com.IsTypeScript && Option.isNone value then
+                        // initialize un-initialized variables to "undefined as any"
+                        let expr = Expression.Undefined(?loc = None)
+                        let ta = makeTypeAnnotation com ctx Fable.Type.Any
+                        AsExpression(expr, ta) |> Some
+                    else
+                        value
+
                 VariableDeclarator.variableDeclarator (
                     id.Name,
                     ?annotation = ta,

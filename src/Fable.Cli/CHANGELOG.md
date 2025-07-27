@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [TS/Dart] Fixed optional parameter types (by @ncave)
+* [TS] Initialize un-initialized variables (by @ncave)
 
 ## 5.0.0-alpha.14 - 2025-07-25
 
