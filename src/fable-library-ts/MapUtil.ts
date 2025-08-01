@@ -1,4 +1,4 @@
-import { equals, IMap, IMapOrWeakMap, ISet } from "./Util.js";
+import { Exception, equals, IMap, IMapOrWeakMap, ISet } from "./Util.js";
 import { FSharpRef, Union } from "./Types.js";
 
 const CaseRules = {
@@ -39,7 +39,7 @@ export function keyValueList(fields: Iterable<any>, caseRule = CaseRules.None) {
   const definedCaseRule = caseRule;
 
   function fail(kvPair: any) {
-    throw new Error("Cannot infer key and value of " + String(kvPair));
+    throw new Exception("Cannot infer key and value of " + String(kvPair));
   }
   function assign(key: string, caseRule: number, value: any) {
     key = changeCase(key, caseRule);
@@ -117,7 +117,7 @@ export function tryAddToDict<K, V>(dict: IMapOrWeakMap<K, V>, k: K, v: V) {
 
 export function addToDict<K, V>(dict: IMapOrWeakMap<K, V>, k: K, v: V) {
   if (dict.has(k)) {
-    throw new Error("An item with the same key has already been added. Key: " + k);
+    throw new Exception("An item with the same key has already been added. Key: " + k);
   }
   dict.set(k, v);
 }
@@ -126,7 +126,7 @@ export function getItemFromDict<K, V>(map: IMap<K, V>, key: K) {
   if (map.has(key)) {
     return map.get(key) as V;
   } else {
-    throw new Error(`The given key '${key}' was not present in the dictionary.`);
+    throw new Exception(`The given key '${key}' was not present in the dictionary.`);
   }
 }
 

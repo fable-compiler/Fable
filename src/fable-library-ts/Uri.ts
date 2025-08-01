@@ -1,4 +1,5 @@
 import { FSharpRef, Result } from "./Types.js";
+import { Exception } from "./Util.js";
 
 export const enum UriKind {
   RelativeOrAbsolute = 0,
@@ -104,7 +105,7 @@ export class Uri {
       case "ok":
         return result.value;
       case "error":
-        throw new Error(result.error);
+        throw new Exception(result.error);
       default:
         const never: never = result;
         return never;
@@ -156,7 +157,7 @@ export class Uri {
       case UriKind.Absolute:
         return this.uri.value;
       case UriKind.Relative:
-        throw new Error("This operation is not supported for a relative URI.");
+        throw new Exception("This operation is not supported for a relative URI.");
       default:
         const never: never = this.uri;
         return never;

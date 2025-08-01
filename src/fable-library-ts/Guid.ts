@@ -1,5 +1,6 @@
 import { trim } from "./String.js";
 import { FSharpRef } from "./Types.js";
+import { Exception } from "./Util.js";
 
 // RFC 4122 compliant. From https://stackoverflow.com/a/13653180/3922220
 // const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -23,7 +24,7 @@ export function toString(str: string, format?: string, _provider?: any) {
       case "X":
         return str.replace(guidHexCaptures, "{0x$1,0x$3,0x$5,{0x$6,0x$7,0x$8,0x$9,0x$10,0x$11,0x$12,0x$13}}");
       default:
-        throw new Error("Unrecognized Guid print format");
+        throw new Exception("Unrecognized Guid print format");
     }
   }
   else {
@@ -49,7 +50,7 @@ export function parse(str: string): string {
     return hyphenateGuid(wsTrimAndLowered.replace(/[\{\},]|0x/g, ''));
   }
   else {
-    throw new Error("Guid should contain 32 digits with 4 dashes: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
+    throw new Exception("Guid should contain 32 digits with 4 dashes: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx");
   }
 }
 
@@ -125,7 +126,7 @@ export function guidToArray(s: string): number[] {
 /** Convert UUID byte array into a string */
 export function arrayToGuid(buf: ArrayLike<number>) {
   if (buf.length !== 16) {
-    throw new Error("Byte array for GUID must be exactly 16 bytes long");
+    throw new Exception("Byte array for GUID must be exactly 16 bytes long");
   }
   if (!_convertMapsInitialized) {
     initConvertMaps();

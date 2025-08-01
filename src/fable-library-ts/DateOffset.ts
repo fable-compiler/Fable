@@ -16,7 +16,7 @@
 import { int64, fromFloat64, toFloat64 } from "./BigInt.js";
 import DateTime, { create as createDate, dateOffsetToString, daysInMonth, parseRaw, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Date.js";
 import { FSharpRef } from "./Types.js";
-import { compareDates, DateKind, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
+import { Exception, compareDates, DateKind, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
 
 export default function DateTimeOffset(value: number, offset?: number) {
   checkOffsetInRange(offset);
@@ -32,10 +32,10 @@ export function offset(value: IDateTimeOffset): number {
 function checkOffsetInRange(offset?: number) {
   if (offset != null && offset !== 0) {
     if (offset % 60000 !== 0) {
-      throw new Error("Offset must be specified in whole minutes.");
+      throw new Exception("Offset must be specified in whole minutes.");
     }
     if (Math.abs(offset / 3600000) > 14) {
-      throw new Error("Offset must be within plus or minus 14 hours.");
+      throw new Exception("Offset must be within plus or minus 14 hours.");
     }
   }
 }
@@ -45,7 +45,7 @@ export function fromDate(date: IDateTime, offset?: number) {
   switch (date.kind) {
     case DateKind.UTC:
       if(offset != null && offset !== 0) {
-        throw new Error("The UTC Offset for Utc DateTime instances must be 0.");
+        throw new Exception("The UTC Offset for Utc DateTime instances must be 0.");
       }
       offset2 = 0;
       break;
@@ -53,7 +53,7 @@ export function fromDate(date: IDateTime, offset?: number) {
     case DateKind.Local:
       offset2 = date.getTimezoneOffset() * -60_000;
       if(offset != null && offset !== offset2) {
-        throw new Error("The UTC Offset of the local dateTime parameter does not match the offset argument.");
+        throw new Exception("The UTC Offset of the local dateTime parameter does not match the offset argument.");
       }
 
       break;
@@ -145,7 +145,7 @@ export function create(
   }
   const dateValue = date.getTime();
   if (isNaN(dateValue)) {
-    throw new Error("The parameters describe an unrepresentable Date");
+    throw new Exception("The parameters describe an unrepresentable Date");
   }
   return DateTimeOffset(dateValue, offset);
 }

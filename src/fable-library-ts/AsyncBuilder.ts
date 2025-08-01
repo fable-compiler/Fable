@@ -1,5 +1,4 @@
-import { ensureErrorOrException } from './Types.js';
-import { IDisposable } from "./Util.js";
+import { Exception, ensureErrorOrException, IDisposable } from "./Util.js";
 
 export interface AsyncReplyChannel<Reply> {
   reply(value: Reply): void
@@ -9,8 +8,8 @@ export type Continuation<T> = (x: T) => void;
 
 export type Continuations<T> = [
   Continuation<T>,
-  Continuation<Error>,
-  Continuation<OperationCanceledError>
+  Continuation<Exception>,
+  Continuation<OperationCanceledException>
 ];
 
 export class CancellationToken implements IDisposable {
@@ -53,10 +52,10 @@ export class CancellationToken implements IDisposable {
   }
 }
 
-export class OperationCanceledError extends Error {
+export class OperationCanceledException extends Exception {
   constructor() {
     super("The operation was canceled");
-    Object.setPrototypeOf(this, OperationCanceledError.prototype);
+    // Object.setPrototypeOf(this, OperationCanceledException.prototype);
   }
 }
 
@@ -79,8 +78,8 @@ export class Trampoline {
 
 export interface IAsyncContext<T> {
   onSuccess: Continuation<T>;
-  onError: Continuation<Error>;
-  onCancel: Continuation<OperationCanceledError>;
+  onError: Continuation<Exception>;
+  onCancel: Continuation<OperationCanceledException>;
 
   cancelToken: CancellationToken;
   trampoline: Trampoline;
@@ -91,7 +90,7 @@ export type Async<T> = (x: IAsyncContext<T>) => void;
 export function protectedCont<T>(f: Async<T>) {
   return (ctx: IAsyncContext<T>) => {
     if (ctx.cancelToken.isCancelled) {
-      ctx.onCancel(new OperationCanceledError());
+      ctx.onCancel(new OperationCanceledException());
     } else if (ctx.trampoline.incrementAndCheck()) {
       ctx.trampoline.hijack(() => {
         try {

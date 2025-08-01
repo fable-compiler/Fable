@@ -50,6 +50,28 @@ export interface ICollection<T> extends Iterable<T> {
   Remove(item: T): boolean;
 }
 
+// Exception is intentionally not derived from Error, for performance reasons (see #2160)
+export class Exception {
+  public message: string;
+
+  constructor(public msg?: string) {
+    this.message = msg ?? "";
+  }
+}
+
+export function isException(x: any) {
+  return x instanceof Exception || x instanceof Error;
+}
+
+export function isPromise(x: any) {
+  return x instanceof Promise;
+}
+
+export function ensureErrorOrException(e: any): any {
+  // Exceptionally admitting promises as errors for compatibility with React.suspense (see #3298)
+  return (isException(e) || isPromise(e)) ? e : new Exception(String(e));
+}
+
 export function isArrayLike<T>(x: T | ArrayLike<T> | Iterable<T>): x is T[] {
   return Array.isArray(x) || ArrayBuffer.isView(x);
 }
@@ -138,7 +160,7 @@ export class Enumerator<T> implements IEnumerator<T> {
     return !cur.done;
   }
   public ["System.Collections.IEnumerator.Reset"]() {
-    throw new Error("JS iterators cannot be reset");
+    throw new Exception("JS iterators cannot be reset");
   }
   public Dispose() {
     return;
@@ -230,7 +252,7 @@ export function comparerFromEqualityComparer<T>(comparer: IEqualityComparer<T>):
 
 export function assertEqual<T>(actual: T, expected: T, msg?: string): void {
   if (!equals(actual, expected)) {
-    throw Object.assign(new Error(msg || `Expected: ${expected} - Actual: ${actual}`), {
+    throw Object.assign(new Exception(msg || `Expected: ${expected} - Actual: ${actual}`), {
       actual,
       expected,
     });
@@ -239,7 +261,7 @@ export function assertEqual<T>(actual: T, expected: T, msg?: string): void {
 
 export function assertNotEqual<T>(actual: T, expected: T, msg?: string): void {
   if (equals(actual, expected)) {
-    throw Object.assign(new Error(msg || `Expected: ${expected} - Actual: ${actual}`), {
+    throw Object.assign(new Exception(msg || `Expected: ${expected} - Actual: ${actual}`), {
       actual,
       expected,
     });
