@@ -2514,7 +2514,8 @@ but thanks to the optimisation done below we get
                 getExpr range (getExpr None expr (Expression.stringLiteral ("fields"))) (ofInt info.FieldIndex)
 
             if com.IsTypeScript then
-                AsExpression(expr, makeTypeAnnotation com ctx Fable.Type.Any)
+                let ta = FableTransforms.uncurryType typ |> makeTypeAnnotation com ctx
+                AsExpression(expr, ta)
             else
                 expr
 
