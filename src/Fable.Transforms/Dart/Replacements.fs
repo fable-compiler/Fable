@@ -2624,30 +2624,12 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
             | Number(UInt64, _) -> "getBytesUInt64"
             | x -> FableError $"Unsupported type in BitConverter.GetBytes(): %A{x}" |> raise
 
-        Helper.LibCall(
-            com,
-            "BitConverter",
-            memberName,
-            Boolean,
-            args,
-            i.SignatureArgTypes,
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+        Helper.LibCall(com, "BitConverter", memberName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | _ ->
         let memberName = Naming.lowerFirst i.CompiledName
 
-        Helper.LibCall(
-            com,
-            "BitConverter",
-            memberName,
-            Boolean,
-            args,
-            i.SignatureArgTypes,
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+        Helper.LibCall(com, "BitConverter", memberName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
 
 let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =

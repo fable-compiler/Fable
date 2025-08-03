@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [All] Fix all `BitConverter` return types (by @ncave)
+* [TS] Don't cast union case types to `any` (by @ncave)
+* [JS/TS] Fix Dictionary.ICollection.Remove (by @ncave)
 * [TS/Dart] Fixed optional parameter types (by @ncave)
 * [TS] Initialize un-initialized variables (by @ncave)
 
