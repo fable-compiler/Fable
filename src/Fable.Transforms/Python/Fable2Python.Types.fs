@@ -37,6 +37,34 @@ type FieldNamingKind =
     | InstancePropertyBacking
     | StaticProperty
 
+
+/// Represents different styles of Python class generation
+[<RequireQualifiedAccess>]
+type ClassStyle =
+    | Properties
+    | Attributes
+
+/// Represents the parameters for the Python class attribute
+type ClassAttributes =
+    {
+        Style: ClassStyle
+        Init: bool
+        Slots: bool
+        Frozen: bool
+        Repr: bool
+        Eq: bool
+    }
+
+    static member Default =
+        {
+            Style = ClassStyle.Properties
+            Init = true
+            Slots = false
+            Frozen = false
+            Repr = false
+            Eq = false
+        }
+
 type UsedNames =
     {
         RootScope: HashSet<string>

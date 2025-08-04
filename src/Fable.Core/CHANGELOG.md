@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Python] Added `ClassAttributes` attribute to control Python class generation (@dbrattli)
+
 ## 5.0.0-beta.1 - 2025-07-25
 
 ### Added
