@@ -97,7 +97,7 @@ module Util =
                 :? bool as frozenParam
                 :? bool as reprParam
                 :? bool as eqParam ] ->
-                { defaultParams with
+                {
                     Style = parseClassStyle styleParam
                     Init = initParam
                     Slots = slotsParam

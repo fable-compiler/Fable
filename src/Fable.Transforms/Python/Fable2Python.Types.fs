@@ -40,6 +40,7 @@ type FieldNamingKind =
 
 /// Represents different styles of Python class generation
 [<RequireQualifiedAccess>]
+[<Struct>]
 type ClassStyle =
     | Properties
     | Attributes
