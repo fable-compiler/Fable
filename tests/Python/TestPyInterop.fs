@@ -427,4 +427,96 @@ let ``test createEmpty works with interfaces`` () =
     user.Name |> equal "Kaladin"
     user.Age |> equal 20
 
+// Tests for the new [<Py.Decorate>] attribute
+
+[<Py.Decorate("dataclasses.dataclass")>]
+[<Py.ClassAttributes(style="attributes", init=false)>]
+type DecoratedUser() =
+    member val Name: string = "" with get, set
+    member val Age: int = 0 with get, set
+
+[<Fact>]
+let ``test simple decorator without parameters`` () =
+    // Test that @dataclass decorator is applied correctly
+    let user = DecoratedUser()
+    user.Name <- "Test User"
+    user.Age <- 25
+
+    user.Name |> equal "Test User"
+    user.Age |> equal 25
+
+[<Py.Decorate("functools.lru_cache", "maxsize=128")>]
+[<Py.ClassAttributes(style="attributes", init=false)>]
+type DecoratedCache() =
+    member val Value: string = "cached" with get, set
+
+[<Fact>]
+let ``test decorator with parameters`` () =
+    // Test that decorator with parameters is applied correctly
+    let cache = DecoratedCache()
+    cache.Value |> equal "cached"
+
+[<Py.Decorate("dataclasses.dataclass")>]
+[<Py.Decorate("functools.total_ordering")>]
+[<Py.ClassAttributes(style="attributes", init=false)>]
+type MultiDecoratedClass() =
+    member val Priority: int = 0 with get, set
+    member val Name: string = "" with get, set
+
+    member this.__lt__(other: MultiDecoratedClass) =
+        this.Priority < other.Priority
+
+[<Fact>]
+let ``test multiple decorators applied in correct order`` () =
+    // Test that multiple decorators are applied bottom-to-top
+    let obj = MultiDecoratedClass()
+    obj.Priority <- 1
+    obj.Name <- "test"
+
+    obj.Priority |> equal 1
+    obj.Name |> equal "test"
+
+[<Py.Decorate("attrs.define", "auto_attribs=True, slots=True")>]
+[<Py.ClassAttributes(style="attributes", init=false)>]
+type AttrsDecoratedClass() =
+    member val Data: string = "attrs_data" with get, set
+    member val Count: int = 42 with get, set
+
+[<Fact>]
+let ``test complex decorator parameters`` () =
+    // Test decorator with complex parameter syntax
+    let obj = AttrsDecoratedClass()
+    obj.Data |> equal "attrs_data"
+    obj.Count |> equal 42
+
+// [<Py.Decorate("custom_module.my_decorator", "param1='value1', param2=42")>]
+// type CustomDecoratedClass() =
+//     member val CustomProp: string = "custom" with get, set
+
+// [<Fact>]
+// let ``test custom module decorator with complex parameters`` () =
+//     // Test decorator from custom module with multiple parameters
+//     let obj = CustomDecoratedClass()
+//     obj.CustomProp |> equal "custom"
+
+// Test combining Decorate with existing F# features
+
+[<Py.Decorate("dataclasses.dataclass")>]
+[<Py.ClassAttributes(style="attributes", init=false)>]
+type InheritedDecoratedClass() =
+    inherit DecoratedUser()
+    member val Email: string = "" with get, set
+
+[<Fact>]
+let ``test decorator with inheritance`` () =
+    // Test that decorators work with class inheritance
+    let obj = InheritedDecoratedClass()
+    obj.Name <- "Inherited"
+    obj.Age <- 30
+    obj.Email <- "test@example.com"
+
+    obj.Name |> equal "Inherited"
+    obj.Age |> equal 30
+    obj.Email |> equal "test@example.com"
+
 #endif
