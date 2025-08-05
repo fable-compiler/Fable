@@ -1725,6 +1725,68 @@ module TypeHelpers =
             && listEquals (typeEquals false) argTypes w.ArgTypes
         )
 
+    // Enhanced version that handles multiple witnesses for the same trait
+    // by using source type information to pick the correct one
+    let tryFindWitnessWithSourceTypes (ctx: Context) sourceTypes argTypes isInstance traitName =
+        let matchingWitnesses =
+            ctx.Witnesses
+            |> List.filter (fun w ->
+                w.TraitName = traitName
+                && w.IsInstance = isInstance
+                && listEquals (typeEquals false) argTypes w.ArgTypes
+            )
+
+        match matchingWitnesses with
+        | [] -> None
+        | [ single ] -> Some single
+        | multiple ->
+            // Multiple witnesses for the same trait - need to pick the right one
+            // based on which generic parameter is being resolved
+            match sourceTypes with
+            | [ sourceType ] ->
+                // First, resolve the source type in case it's a generic parameter
+                // that needs to be mapped to a concrete type
+                let resolvedSourceType =
+                    match sourceType with
+                    | Fable.GenericParam(name, _, _) ->
+                        // Check if this generic parameter has been mapped to a concrete type
+                        match Map.tryFind name ctx.GenericArgs with
+                        | Some concreteType -> concreteType
+                        | None -> sourceType
+                    | _ -> sourceType
+
+                // Now find which witness to use based on the resolved source type
+                match resolvedSourceType with
+                | Fable.GenericParam(name, isMeasure, _) ->
+                    // For generic parameters, find their position in the original function signature
+                    let genParamNames = ctx.GenericArgs |> Map.toList |> List.map fst
+                    let genParamPosition = genParamNames |> List.tryFindIndex ((=) name)
+
+                    match genParamPosition with
+                    | Some idx when idx < List.length multiple ->
+                        // Witnesses are provided in order corresponding to generic parameters
+                        List.tryItem idx multiple
+                    | _ -> List.tryHead multiple
+
+                | Fable.DeclaredType(entity, _) ->
+                    // Find the position of this entity type in the generic arguments
+                    let genArgPosition =
+                        ctx.GenericArgs
+                        |> Map.toList
+                        |> List.tryFindIndex (fun (_, argType) ->
+                            match argType with
+                            | Fable.DeclaredType(e, _) -> e.FullName = entity.FullName
+                            | _ -> false
+                        )
+
+                    match genArgPosition with
+                    | Some idx when idx < List.length multiple ->
+                        // Witnesses are provided in order corresponding to generic parameters
+                        List.tryItem idx multiple
+                    | _ -> List.tryHead multiple
+                | _ -> List.tryHead multiple
+            | _ -> List.tryHead multiple
+
 module Identifiers =
     open Helpers
     open TypeHelpers
@@ -2702,9 +2764,27 @@ module Util =
 
         let genArgs = List.zipSafe inExpr.GenericArgs info.GenericArgs |> Map
 
+        // For nested inline functions, we need to preserve the outer context's generic args
+        // and resolve any references through them
+        let resolveTypeWithOuterContext (typ: Fable.Type) =
+            match typ with
+            | Fable.GenericParam(name, _, _) ->
+                // If this generic parameter is mapped in the outer context, use that
+                match Map.tryFind name ctx.GenericArgs with
+                | Some resolvedType -> resolvedType
+                | None -> typ
+            | _ -> typ
+
+        // Create the composed generic args by resolving through the outer context
+        let composedGenArgs =
+            genArgs
+            |> Map.map (fun _ typ -> resolveTypeWithOuterContext typ)
+            // Also preserve any generic args from the outer context that aren't overridden
+            |> Map.fold (fun acc k v -> Map.add k v acc) ctx.GenericArgs
+
         let ctx =
             { ctx with
-                GenericArgs = genArgs
+                GenericArgs = composedGenArgs
                 InlinePath =
                     {
                         ToFile = inExpr.FileName
