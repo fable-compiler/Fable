@@ -2552,6 +2552,11 @@ let declareClassType
         else
             []
 
+    // Generate custom decorators from [<Decorate>] attributes
+    let customDecorators =
+        let decoratorInfos = Util.getDecoratorInfo ent.Attributes
+        Util.generateDecorators com ctx decoratorInfos
+
     stmts
     @ [
         Statement.classDef (
@@ -2559,7 +2564,8 @@ let declareClassType
             body = classBody,
             bases = bases @ interfaces,
             typeParams = typeParams,
-            keywords = keywords
+            keywords = keywords,
+            decoratorList = customDecorators
         )
     ]
 

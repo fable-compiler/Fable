@@ -37,6 +37,13 @@ type FieldNamingKind =
     | InstancePropertyBacking
     | StaticProperty
 
+/// Represents a Python decorator extracted from F# attributes
+type DecoratorInfo =
+    {
+        Decorator: string
+        Parameters: string
+    }
+
 type UsedNames =
     {
         RootScope: HashSet<string>

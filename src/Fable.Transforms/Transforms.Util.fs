@@ -122,7 +122,7 @@ module Atts =
     let pyReflectedDecorator = "Fable.Core.Py.ReflectedDecoratorAttribute" // typeof<Fable.Core.Py.ReflectedDecoratorAttribute>.FullName
 
     [<Literal>]
-    let pyMemberNaming = "Fable.Core.Py.MemberNamingAttribute" // typeof<Fable.Core.Py.MemberNamingAttribute>.FullName
+    let pyDecorate = "Fable.Core.Py.DecorateAttribute" // typeof<Fable.Core.Py.DecorateAttribute>.FullName
 
     [<Literal>]
     let dartIsConst = "Fable.Core.Dart.IsConstAttribute" // typeof<Fable.Core.Dart.IsConstAttribute>.FullName
