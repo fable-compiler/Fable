@@ -42,6 +42,33 @@ module Util =
         || hasAttribute Atts.emitIndexer atts
         || hasAttribute Atts.emitProperty atts
 
+    let hasPythonClassAttribute (atts: Fable.Attribute seq) =
+        hasAttribute Atts.pyClassAttributes atts
+
+    let parseClassStyle (styleStr: string) =
+        match styleStr with
+        | "attributes" -> ClassStyle.Attributes
+        | "properties" -> ClassStyle.Properties
+        | _ -> ClassStyle.Properties // Default to Properties for unknown values
+
+    let getPythonClassParameters (atts: Fable.Attribute seq) =
+        let defaultParams = ClassAttributes.Default
+
+        atts
+        |> Seq.tryFind (fun att -> att.Entity.FullName = Atts.pyClassAttributes)
+        |> Option.map (fun att ->
+            // Extract parameters from the attribute constructor arguments
+            match att.ConstructorArgs with
+            | [] -> defaultParams
+            | [ :? string as styleParam ] -> { defaultParams with Style = parseClassStyle styleParam }
+            | [ :? string as styleParam; :? bool as initParam ] ->
+                {
+                    Style = parseClassStyle styleParam
+                    Init = initParam
+                }
+            | _ -> defaultParams // Fallback for unexpected parameter combinations
+        )
+        |> Option.defaultValue defaultParams
 
     /// Parses a decorator string to extract module and function/class name
     let parseDecorator (decorator: string) =
@@ -484,6 +511,36 @@ module Util =
         | Fable.DeclaredType(ent, _) -> Expression.none
         | _ -> Expression.none
 
+    /// Extract initialization value from constructor body by looking for backing field assignments
+    let tryExtractInitializationValueFromConstructor
+        (com: IPythonCompiler)
+        (ctx: Context)
+        (constructorBody: Fable.Expr)
+        (propertyName: string)
+        : (Expression * Statement list) option
+        =
+        let backingFieldName = propertyName + "@"
+
+        let rec findAssignment expr =
+            match expr with
+            | Fable.Sequential exprs -> exprs |> List.tryPick findAssignment
+            | Fable.Set(_, Fable.FieldSet fieldName, _, value, _) when fieldName = backingFieldName ->
+                let expr, stmts = com.TransformAsExpr(ctx, value)
+                Some(expr, stmts)
+            | Fable.Set(Fable.Get(_, Fable.FieldGet { Name = fieldName }, _, _), Fable.FieldSet fieldName2, _, value, _) when
+                fieldName = backingFieldName
+                ->
+                let expr, stmts = com.TransformAsExpr(ctx, value)
+                Some(expr, stmts)
+            | Fable.Set(Fable.Get(_, Fable.FieldGet { Name = fieldName }, _, _), Fable.ValueSet, _, value, _) when
+                fieldName = backingFieldName
+                ->
+                let expr, stmts = com.TransformAsExpr(ctx, value)
+                Some(expr, stmts)
+            | _ -> None
+
+        findAssignment constructorBody
+
     let makeClassConstructor
         (args: Arguments)
         (isOptional: bool)
@@ -493,7 +550,7 @@ module Util =
         body
         =
         // printfn "makeClassConstructor: %A" (args.Args, body)
-        let name = Identifier("__init__")
+        let name = Identifier "__init__"
         let self = Arg.arg "self"
 
         let args_ =

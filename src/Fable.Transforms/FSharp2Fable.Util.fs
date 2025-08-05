@@ -2106,6 +2106,7 @@ module Util =
             // Should we make sure the attribute is not an alias?
             match att.AttributeType.TryFullName with
             | Some Atts.attachMembers -> true
+            | Some Atts.pyClassAttributes -> true
             | _ -> false
         ))
 

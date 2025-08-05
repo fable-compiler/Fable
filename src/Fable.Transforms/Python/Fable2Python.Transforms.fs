@@ -2460,6 +2460,9 @@ let declareClassType
     (baseExpr: Expression option)
     (classMembers: Statement list)
     slotMembers
+    (classAttributes: ClassAttributes option)
+    (attachedMembers: Fable.MemberDecl list)
+    (extractedInitialValues: (string * Fable.MemberDecl * Expression) list)
     =
     // printfn "declareClassType: %A" consBody
     let generics = makeEntityTypeParamDecl com ctx ent
@@ -2471,13 +2474,62 @@ let declareClassType
         else
             None
 
-    let classCons = makeClassConstructor consArgs isOptional fieldTypes com ctx consBody
+
+    // Generate class constructor if init is enabled
+    let classCons =
+        match classAttributes with
+        | Some parms when not parms.Init -> [] // Skip constructor when init=false
+        | _ -> makeClassConstructor consArgs isOptional fieldTypes com ctx consBody
 
     let classFields = slotMembers // TODO: annotations
+
+    // Generate class attributes if using attributes style
+    let classAttributes =
+        match classAttributes with
+        | Some parms when parms.Style = ClassStyle.Attributes ->
+            // Generate class attributes for attached members (deduplicate by property name)
+            ent.MembersFunctionsAndValues
+            |> Seq.filter (fun memb -> memb.IsInstance && (memb.IsGetter || memb.IsSetter))
+            |> Seq.groupBy (fun memb -> memb.DisplayName)
+            |> Seq.map (fun (propertyName, members) ->
+                // Use the getter's return type for the class attribute type annotation
+                let getter = members |> Seq.find (fun memb -> memb.IsGetter)
+                let ta, _ = Annotation.typeAnnotation com ctx None getter.ReturnParameter.Type
+
+                if parms.Init then
+                    // For attributes style with init, class attributes should only have type annotations
+                    // Default values are handled by the constructor parameters
+                    Statement.annAssign (Expression.name (propertyName |> Naming.toPropertyNaming), annotation = ta)
+                else
+                    // For attributes style with init=false, class attributes should have initial values
+                    // Use the extracted initial values from the constructor body
+                    // printfn "Looking for extracted initial value for property: %s" propertyName
+                    let defaultValue =
+                        extractedInitialValues
+                        |> List.tryFind (fun (propName, _getterMemb, _defaultValue) ->
+                            propName = (propertyName |> Naming.toPropertyNaming)
+                        )
+                        |> function
+                            | Some(_propName, _getterMemb, defaultValue) ->
+                                // printfn "Found extracted initial value for %s: %A" propertyName defaultValue
+                                defaultValue
+                            | None ->
+                                // printfn "No extracted initial value found for %s, using type default" propertyName
+                                Util.getDefaultValueForType com ctx getter.ReturnParameter.Type
+
+                    Statement.annAssign (
+                        Expression.name (propertyName |> Naming.toPropertyNaming),
+                        annotation = ta,
+                        value = defaultValue
+                    )
+            )
+            |> List.ofSeq
+        | _ -> []
+
     let classMembers = classCons @ classMembers
 
     let classBody =
-        let body = [ yield! classFields; yield! classMembers ]
+        let body = [ yield! classFields; yield! classAttributes; yield! classMembers ]
 
         match body with
         | [] -> [ Statement.ellipsis ]
@@ -2594,6 +2646,9 @@ let declareType
     (consBody: Statement list)
     (baseExpr: Expression option)
     (classMembers: Statement list)
+    (pythonClassParams: ClassAttributes option)
+    (attachedMembers: Fable.MemberDecl list)
+    (extractedInitialValues: (string * Fable.MemberDecl * Expression) list)
     : Statement list
     =
     let slotMembers = createSlotsForRecordType com ctx ent
@@ -2602,7 +2657,21 @@ let declareType
         match ent.IsFSharpRecord with
         | true ->
             declareDataClassType com ctx ent entName consArgs isOptional consBody baseExpr classMembers slotMembers
-        | false -> declareClassType com ctx ent entName consArgs isOptional consBody baseExpr classMembers slotMembers
+        | false ->
+            declareClassType
+                com
+                ctx
+                ent
+                entName
+                consArgs
+                isOptional
+                consBody
+                baseExpr
+                classMembers
+                slotMembers
+                pythonClassParams
+                attachedMembers
+                extractedInitialValues
 
     let reflectionDeclaration, stmts =
         let ta = fableModuleAnnotation com ctx "Reflection" "TypeInfo" []
@@ -2790,6 +2859,7 @@ let transformAttachedProperty
     (ent: Fable.Entity)
     (info: Fable.MemberFunctionOrValue)
     (memb: Fable.MemberDecl)
+    (pythonClassParams: ClassAttributes option)
     =
     let isStatic = not info.IsInstance
     let isGetter = info.IsGetter
@@ -2800,42 +2870,53 @@ let transformAttachedProperty
         // They will be processed at the class level
         []
     else
-        // Instance properties use the traditional approach
-        let decorators =
-            [
-                if isGetter then
-                    Expression.name "property"
-                else
-                    Expression.name $"%s{memb.Name}.setter"
-            ]
+        // Check if we should use attributes style
+        let useAttributesStyle =
+            match pythonClassParams with
+            | Some parms when parms.Style = ClassStyle.Attributes -> true
+            | _ -> false
 
-        let args, body, returnType =
-            getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
+        if useAttributesStyle then
+            // For attributes style, we don't generate property methods
+            // The attributes will be handled at the class level
+            []
+        else
+            // Instance properties use the traditional approach (properties style)
+            let decorators =
+                [
+                    if isGetter then
+                        Expression.name "property"
+                    else
+                        Expression.name $"%s{memb.Name}.setter"
+                ]
 
-        // Apply the same naming convention as record fields for record types
-        let propertyName =
-            //if shouldUseRecordFieldNaming ent then
-            //    memb.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
-            //else
-            memb.Name |> Naming.toPropertyNaming
+            let args, body, returnType =
+                getMemberArgsAndBody com ctx (Attached isStatic) false memb.Args memb.Body
 
-        let key = com.GetIdentifier(ctx, propertyName)
+            // Apply the same naming convention as record fields for record types
+            let propertyName =
+                //if shouldUseRecordFieldNaming ent then
+                //    memb.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                //else
+                memb.Name |> Naming.toPropertyNaming
 
-        let self = Arg.arg "self"
-        let arguments = { args with Args = self :: args.Args }
+            let key = com.GetIdentifier(ctx, propertyName)
 
-        let typeParams =
-            calculateTypeParams com ctx info arguments returnType memb.Body.Type
+            let self = Arg.arg "self"
+            let arguments = { args with Args = self :: args.Args }
 
-        Statement.functionDef (
-            key,
-            arguments,
-            body = body,
-            decoratorList = decorators,
-            returns = returnType,
-            typeParams = typeParams
-        )
-        |> List.singleton
+            let typeParams =
+                calculateTypeParams com ctx info arguments returnType memb.Body.Type
+
+            Statement.functionDef (
+                key,
+                arguments,
+                body = body,
+                decoratorList = decorators,
+                returns = returnType,
+                typeParams = typeParams
+            )
+            |> List.singleton
 
 let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
     // printfn "transformAttachedMethod: %A" memb
@@ -2955,7 +3036,7 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
     let baseExpr = libValue com ctx "types" "Union" |> Some
     let classMembers = List.append [ cases ] classMembers
 
-    declareType com ctx ent entName args isOptional body baseExpr classMembers
+    declareType com ctx ent entName args isOptional body baseExpr classMembers None [] []
 
 let transformClassWithCompilerGeneratedConstructor
     (com: IPythonCompiler)
@@ -2963,6 +3044,7 @@ let transformClassWithCompilerGeneratedConstructor
     (ent: Fable.Entity)
     (entName: string)
     classMembers
+    (classAttributes: ClassAttributes)
     =
     // printfn "transformClassWithCompilerGeneratedConstructor"
     let fieldIds = getEntityFieldsAsIdents com ent
@@ -2987,23 +3069,38 @@ let transformClassWithCompilerGeneratedConstructor
             if Option.isSome baseExpr then
                 yield callSuperAsStatement []
 
-            yield!
-                ent.FSharpFields
-                |> List.collecti (fun i field ->
-                    let fieldName =
-                        if shouldUseRecordFieldNaming ent then
-                            field.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
-                        else
-                            match Util.getFieldNamingKind com field.FieldType field.Name with
-                            | InstancePropertyBacking -> field.Name |> Naming.toPropertyBackingFieldNaming
-                            | StaticProperty -> field.Name |> Naming.toPropertyNaming
-                            | RegularField -> field.Name |> Naming.toPythonNaming
+            // For attributes style, use direct attribute names and proper parameter handling
+            if classAttributes.Style = ClassStyle.Attributes then
+                yield!
+                    ent.FSharpFields
+                    |> List.collect (fun field ->
+                        let fieldName = field.Name |> Naming.toPropertyNaming
+                        let left = get com ctx None thisExpr fieldName false
+                        // For attributes style, use the property name as the argument name
+                        let argName = field.Name |> Naming.toPropertyNaming
+                        let right = Expression.name argName |> wrapIntExpression field.FieldType
 
-                    let left = get com ctx None thisExpr fieldName false
-                    let right = args[i] |> wrapIntExpression field.FieldType
+                        // Always assign the parameter value to the attribute
+                        assign None left right |> exprAsStatement ctx
+                    )
+            else
+                yield!
+                    ent.FSharpFields
+                    |> List.collecti (fun i field ->
+                        let fieldName =
+                            if shouldUseRecordFieldNaming ent then
+                                field.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                            else
+                                match Util.getFieldNamingKind com field.FieldType field.Name with
+                                | InstancePropertyBacking -> field.Name |> Naming.toPropertyBackingFieldNaming
+                                | StaticProperty -> field.Name |> Naming.toPropertyNaming
+                                | RegularField -> field.Name |> Naming.toPythonNaming
 
-                    assign None left right |> exprAsStatement ctx
-                )
+                        let left = get com ctx None thisExpr fieldName false
+                        let right = args[i] |> wrapIntExpression field.FieldType
+
+                        assign None left right |> exprAsStatement ctx
+                    )
         ]
 
     let args =
@@ -3014,7 +3111,7 @@ let transformClassWithCompilerGeneratedConstructor
         )
         |> (fun args -> Arguments.arguments (args = args))
 
-    declareType com ctx ent entName args isOptional body baseExpr classMembers
+    declareType com ctx ent entName args isOptional body baseExpr classMembers (Some classAttributes) [] []
 
 let transformClassWithPrimaryConstructor
     (com: IPythonCompiler)
@@ -3022,15 +3119,82 @@ let transformClassWithPrimaryConstructor
     (classDecl: Fable.ClassDecl)
     (classMembers: Statement list)
     (cons: Fable.MemberDecl)
+    (classAttributes: ClassAttributes)
     =
-    // printfn "transformClassWithPrimaryConstructor: %A" classDecl
+    // printfn "transformClassWithPrimaryConstructor: %A" classDecl.Name
+    // printfn "PythonClass params: style=%A, init=%b" classAttributes.Style classAttributes.Init
     let classEnt = com.GetEntity(classDecl.Entity)
     let classIdent = Expression.name (com.GetIdentifier(ctx, classDecl.Name))
 
-    let consArgs, consBody, _returnType =
-        let info = com.GetMember(cons.MemberRef)
+    // Extract initial values from constructor body for both init=true and init=false cases
+    let getterMembers =
+        if classAttributes.Style = ClassStyle.Attributes then
+            classDecl.AttachedMembers
+            |> List.filter (fun memb ->
+                let info = com.GetMember(memb.MemberRef)
+                info.IsGetter
+            )
+        else
+            []
 
-        getMemberArgsAndBody com ctx ClassConstructor info.HasSpread cons.Args cons.Body
+    let extractedInitialValues, stmts =
+        if classAttributes.Style = ClassStyle.Attributes then
+            getterMembers
+            |> List.map (fun getterMemb ->
+                // printfn "Extracting default value for property %s" (getterMemb.Name |> Naming.toPropertyNaming)
+                let propertyName = getterMemb.Name |> Naming.toPropertyNaming
+
+                let extracted =
+                    Util.tryExtractInitializationValueFromConstructor com ctx cons.Body propertyName
+
+                let result, stmts =
+                    extracted
+                    |> Option.defaultWith (fun () ->
+                        // printfn "Using type default for property %s" propertyName
+                        Util.getDefaultValueForType com ctx getterMemb.Body.Type, []
+                    )
+                // printfn "Final default value for %s: %A" propertyName result
+                (propertyName, getterMemb, result), stmts
+            )
+            |> List.unzip
+            // Flatten the list of statements generated from the property extractions
+            |> fun (extractedInitialValues, stmts) -> extractedInitialValues, List.concat stmts
+        else
+            [], []
+
+    let consArgs, consBody, _returnType =
+        if classAttributes.Style = ClassStyle.Attributes then
+            if classAttributes.Init then
+                // For attributes style with init=true, generate new constructor with property names
+                let propertyArgs =
+                    let args =
+                        extractedInitialValues
+                        |> List.map (fun (propertyName, getterMemb, _defaultValue) ->
+                            let ta, _ = Annotation.typeAnnotation com ctx None getterMemb.Body.Type
+                            Arg.arg (propertyName, annotation = ta)
+                        )
+
+                    let defaults =
+                        extractedInitialValues
+                        |> List.map (fun (_propertyName, _getterMemb, defaultValue) -> defaultValue)
+
+                    Arguments.arguments (args = args, defaults = defaults)
+
+                let propertyBody =
+                    extractedInitialValues
+                    |> List.collect (fun (propertyName, _getterMemb, _defaultValue) ->
+                        let left = get com ctx None thisExpr propertyName false
+                        let right = Expression.name propertyName
+                        assign None left right |> exprAsStatement ctx
+                    )
+
+                propertyArgs, propertyBody, Expression.none
+            else
+                // For attributes style with init=false, no constructor arguments or body
+                Arguments.empty, [], Expression.none
+        else
+            let info = com.GetMember(cons.MemberRef)
+            getMemberArgsAndBody com ctx ClassConstructor info.HasSpread cons.Args cons.Body
 
     let isOptional = Helpers.isOptional (cons.Args |> Array.ofList)
 
@@ -3044,11 +3208,16 @@ let transformClassWithPrimaryConstructor
         makeGenericTypeAnnotation' com ctx classDecl.Name (genParams |> List.ofSeq) (Some availableGenerics)
 
     let exposedCons =
-        let argExprs = consArgs.Args |> List.map (fun p -> Expression.identifier p.Arg)
+        if classAttributes.Style = ClassStyle.Attributes && not classAttributes.Init then
+            // For attributes style with init=false, don't generate an exposed constructor
+            // since there's no __init__ method to call
+            []
+        else
+            let argExprs = consArgs.Args |> List.map (fun p -> Expression.identifier p.Arg)
 
-        let exposedConsBody = Expression.call (classIdent, argExprs)
-        let name = com.GetIdentifier(ctx, cons.Name)
-        makeFunction name (consArgs, exposedConsBody, [], returnType)
+            let exposedConsBody = Expression.call (classIdent, argExprs)
+            let name = com.GetIdentifier(ctx, cons.Name)
+            [ makeFunction name (consArgs, exposedConsBody, [], returnType) ]
 
     let baseExpr, consBody =
         classDecl.BaseCall
@@ -3067,8 +3236,22 @@ let transformClassWithPrimaryConstructor
         |> Option.defaultValue (None, consBody)
 
     [
-        yield! declareType com ctx classEnt classDecl.Name consArgs isOptional consBody baseExpr classMembers
-        exposedCons
+        yield! stmts
+        yield!
+            declareType
+                com
+                ctx
+                classEnt
+                classDecl.Name
+                consArgs
+                isOptional
+                consBody
+                baseExpr
+                classMembers
+                (Some classAttributes)
+                classDecl.AttachedMembers
+                extractedInitialValues
+        yield! exposedCons
     ]
 
 let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_classDecl: Fable.ClassDecl) =
@@ -3481,6 +3664,17 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
                 let anyType = com.GetImportExpr(ctx, "typing", "Any")
                 [ Statement.assign ([ name ], anyType) ]
         else
+            // Check for PythonClass attribute and extract parameters
+            let classAttributes =
+                if hasPythonClassAttribute ent.Attributes then
+                    getPythonClassParameters ent.Attributes
+                else
+                    ClassAttributes.Default
+
+            // Raise error if classAttributes.Style is ClassStyle.Properties and classAttributes.Init is false
+            if classAttributes.Style = ClassStyle.Properties && not classAttributes.Init then
+                failwithf "ClassAttributes.Init must be true when ClassAttributes.Style is ClassStyle.Properties"
+
             let classMembers =
                 decl.AttachedMembers
                 |> List.collect (fun memb ->
@@ -3492,7 +3686,7 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
                             |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
 
                         if not memb.IsMangled && (info.IsGetter || info.IsSetter) then
-                            transformAttachedProperty com ctx ent info memb
+                            transformAttachedProperty com ctx ent info memb (Some classAttributes)
                         else
                             transformAttachedMethod com ctx info memb
                 )
@@ -3516,12 +3710,12 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
                 withCurrentScope ctx cons.UsedNames
                 <| fun ctx ->
                     let classStmts =
-                        transformClassWithPrimaryConstructor com ctx decl allClassMembers cons
+                        transformClassWithPrimaryConstructor com ctx decl allClassMembers cons classAttributes
 
                     allStatements @ classStmts
             | _, None ->
                 let classStmts =
-                    transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name allClassMembers
+                    transformClassWithCompilerGeneratedConstructor com ctx ent decl.Name allClassMembers classAttributes
 
                 allStatements @ classStmts
 
@@ -3630,7 +3824,7 @@ let transformFile (com: IPythonCompiler) (file: Fable.File) =
             NarrowedTypes = Map.empty
         }
 
-    //printfn "file: %A" file.Declarations
+    // printfn "file: %A" file.Declarations
     let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
 
     let rootComment =

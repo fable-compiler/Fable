@@ -44,6 +44,27 @@ type DecoratorInfo =
         Parameters: string
     }
 
+
+/// Represents different styles of Python class generation
+[<RequireQualifiedAccess>]
+[<Struct>]
+type ClassStyle =
+    | Properties
+    | Attributes
+
+/// Represents the parameters for the Python class attribute
+type ClassAttributes =
+    {
+        Style: ClassStyle
+        Init: bool
+    }
+
+    static member Default =
+        {
+            Style = ClassStyle.Properties
+            Init = true
+        }
+
 type UsedNames =
     {
         RootScope: HashSet<string>
