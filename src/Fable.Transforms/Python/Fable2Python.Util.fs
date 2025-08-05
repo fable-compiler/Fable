@@ -62,48 +62,9 @@ module Util =
             | [] -> defaultParams
             | [ :? string as styleParam ] -> { defaultParams with Style = parseClassStyle styleParam }
             | [ :? string as styleParam; :? bool as initParam ] ->
-                { defaultParams with
-                    Style = parseClassStyle styleParam
-                    Init = initParam
-                }
-            | [ :? string as styleParam; :? bool as initParam; :? bool as slotsParam ] ->
-                { defaultParams with
-                    Style = parseClassStyle styleParam
-                    Init = initParam
-                    Slots = slotsParam
-                }
-            | [ :? string as styleParam; :? bool as initParam; :? bool as slotsParam; :? bool as frozenParam ] ->
-                { defaultParams with
-                    Style = parseClassStyle styleParam
-                    Init = initParam
-                    Slots = slotsParam
-                    Frozen = frozenParam
-                }
-            | [ :? string as styleParam
-                :? bool as initParam
-                :? bool as slotsParam
-                :? bool as frozenParam
-                :? bool as reprParam ] ->
-                { defaultParams with
-                    Style = parseClassStyle styleParam
-                    Init = initParam
-                    Slots = slotsParam
-                    Frozen = frozenParam
-                    Repr = reprParam
-                }
-            | [ :? string as styleParam
-                :? bool as initParam
-                :? bool as slotsParam
-                :? bool as frozenParam
-                :? bool as reprParam
-                :? bool as eqParam ] ->
                 {
                     Style = parseClassStyle styleParam
                     Init = initParam
-                    Slots = slotsParam
-                    Frozen = frozenParam
-                    Repr = reprParam
-                    Eq = eqParam
                 }
             | _ -> defaultParams // Fallback for unexpected parameter combinations
         )

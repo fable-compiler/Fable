@@ -43,14 +43,6 @@ module Py =
 
         new(style: string, init: bool) = ClassAttributes()
 
-        new(style: string, init: bool, slots: bool) = ClassAttributes()
-
-        new(style: string, init: bool, slots: bool, frozen: bool) = ClassAttributes()
-
-        new(style: string, init: bool, slots: bool, frozen: bool, repr: bool) = ClassAttributes()
-
-        new(style: string, init: bool, slots: bool, frozen: bool, repr: bool, eq: bool) = ClassAttributes()
-
     // Hack because currently Fable doesn't keep information about spread for anonymous functions
     [<Emit("lambda *args: $0(args)")>]
     let argsFunc (fn: obj[] -> obj) : Callable = nativeOnly

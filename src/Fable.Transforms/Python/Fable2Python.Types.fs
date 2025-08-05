@@ -50,20 +50,12 @@ type ClassAttributes =
     {
         Style: ClassStyle
         Init: bool
-        Slots: bool
-        Frozen: bool
-        Repr: bool
-        Eq: bool
     }
 
     static member Default =
         {
             Style = ClassStyle.Properties
             Init = true
-            Slots = false
-            Frozen = false
-            Repr = false
-            Eq = false
         }
 
 type UsedNames =
