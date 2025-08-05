@@ -987,6 +987,15 @@ module PythonExtensions =
             }
             |> AsyncFunctionDef
 
+        static member annAssign(target, ?value, ?annotation, ?simple) : Statement =
+            {
+                AnnAssign.Target = target
+                Value = value
+                Annotation = annotation |> Option.defaultValue (Expression.none)
+                Simple = defaultArg simple false
+            }
+            |> AnnAssign
+
         static member assign(targets, value, ?typeComment) : Statement =
             {
                 Targets = targets
