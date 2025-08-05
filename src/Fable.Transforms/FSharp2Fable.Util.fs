@@ -2365,10 +2365,12 @@ module Util =
             | "System.IObserver`1"
             | Types.ienumerableGeneric
             // These are used for injections
+            | Types.icomparer
             | Types.icomparerGeneric
-            | Types.iequalityComparerGeneric -> false
-            | Types.icomparable -> false
-            | Types.icomparableGeneric -> com.Options.Language <> Dart
+            | Types.iequalityComparer
+            | Types.iequalityComparerGeneric
+            | Types.icomparable
+            | Types.icomparableGeneric -> false
             | _ -> true
         // Don't mangle abstract classes in Fable.Core.JS and Fable.Core.Py namespaces
         | Some fullName when fullName.StartsWithAny("Fable.Core.JS.", "Fable.Core.Py.") -> false

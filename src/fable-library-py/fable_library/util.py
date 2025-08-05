@@ -121,13 +121,13 @@ class IEquatable(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def __hash__(self) -> int:
+    def __hash__(self) -> int32:
         raise NotImplementedError
 
 
 class IComparable(IEquatable, Protocol):
     @abstractmethod
-    def __cmp__(self, __other: Any) -> int:
+    def __cmp__(self, __other: Any) -> int32:
         raise NotImplementedError
 
     @abstractmethod
@@ -137,7 +137,7 @@ class IComparable(IEquatable, Protocol):
 
 class IComparable_1[T_in](IEquatable, Protocol):
     @abstractmethod
-    def __cmp__(self, __other: T_in) -> int:
+    def __cmp__(self, __other: T_in) -> int32:
         raise NotImplementedError
 
     @abstractmethod
@@ -151,9 +151,9 @@ class IComparer(Protocol):
     https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.icomparer-1
     """
 
-    @property
     @abstractmethod
-    def Compare[T_in](self) -> Callable[[T_in, T_in], int]: ...
+    def Compare[T_in](self, x: Any = None, y: Any = None) -> int32:
+        raise NotImplementedError
 
 
 class IComparer_1[T_in](Protocol):
@@ -162,31 +162,27 @@ class IComparer_1[T_in](Protocol):
     https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.icomparer-1
     """
 
-    @property
     @abstractmethod
-    def Compare(self) -> Callable[[T_in, T_in], int]: ...
+    def Compare(self, __x: T_in, __y: T_in) -> int32:
+        raise NotImplementedError
 
 
-class IEqualityComparer[T_in](Protocol):
-    def Equals(self, __x: T_in, __y: T_in) -> bool:
-        return self.System_Collections_IEqualityComparer_Equals541DA560(__x, __y)
-
-    def GetHashCode(self) -> int32:
-        return self.System_Collections_IEqualityComparer_GetHashCode4E60E31B()
-
+class IEqualityComparer(Protocol):
     @abstractmethod
-    def System_Collections_IEqualityComparer_Equals541DA560(self, x: Any = None, y: Any = None) -> bool:
+    def Equals(self, x: Any = None, y: Any = None) -> bool:
         raise NotImplementedError
 
     @abstractmethod
-    def System_Collections_IEqualityComparer_GetHashCode4E60E31B(self, x_1: Any = None) -> int32:
+    def GetHashCode(self, x_1: Any = None) -> int32:
         raise NotImplementedError
 
 
 class IEqualityComparer_1[T_in](Protocol):
+    @abstractmethod
     def Equals(self, __x: T_in, __y: T_in) -> bool:
         raise NotImplementedError
 
+    @abstractmethod
     def GetHashCode(self) -> int32:
         raise NotImplementedError
 
@@ -194,16 +190,16 @@ class IEqualityComparer_1[T_in](Protocol):
 class IStructuralEquatable(Protocol):
     @abstractmethod
     def Equals(self, other: Any, comparer: IEqualityComparer) -> bool:
-        return NotImplemented
+        return NotImplementedError
 
     @abstractmethod
-    def __hash__(self) -> int:
+    def __hash__(self) -> int32:
         raise NotImplementedError
 
 
 class IStructuralComparable(Protocol):
     @abstractmethod
-    def __cmp__(self, other: Any, comparer: IComparer) -> int:
+    def __cmp__(self, other: Any, comparer: IComparer) -> int32:
         raise NotImplementedError
 
 
