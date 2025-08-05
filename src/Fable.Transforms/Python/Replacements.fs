@@ -2193,6 +2193,25 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
             | NativeInt
             | UNativeInt -> None
         | _ -> None
+    | None, ("FromString" | "FromInt32" | "op_Implicit") as (_, meth) ->
+        let inline toBigIntConstant bi =
+            NumberConstant(NumberValue.BigInt bi, NumberInfo.Empty) |> makeValue r |> Some
+
+        match args with
+        | [ Value(StringConstant value, _) ] when meth = "FromString" ->
+            System.Numerics.BigInteger.Parse value |> toBigIntConstant
+        | [ Value(NumberConstant(NumberValue.Int32 value, _), _) ] -> bigint value |> toBigIntConstant
+        | [ Value(NumberConstant(NumberValue.Int64 value, _), _) ] when meth = "op_Implicit" ->
+            bigint value |> toBigIntConstant
+        | _ ->
+            let methodName =
+                if meth = "op_Implicit" then
+                    "fromInt32"
+                else
+                    Naming.lowerFirst meth
+
+            Helper.LibCall(com, "BigInt", methodName, t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
     | None, "DivRem" ->
         Helper.LibCall(com, "big_int", "divRem", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some

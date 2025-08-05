@@ -427,7 +427,33 @@ let ``test createEmpty works with interfaces`` () =
     user.Name |> equal "Kaladin"
     user.Age |> equal 20
 
-// Tests for the new [<Py.Decorate>] attribute
+// Test for Pydantic compatible classes
+
+[<Erase>]
+type Field<'T> = 'T
+
+[<Import("Field", "pydantic")>]
+let Field (description: string): Field<'T> = nativeOnly
+
+[<Import("BaseModel", "pydantic")>]
+type BaseModel () = class end
+
+// Test PythonClass attribute with attributes style
+[<Py.ClassAttributes(style="attributes", init=false)>]
+type PydanticUser() =
+    inherit BaseModel()
+    member val Name: Field<string> = Field("Name") with get, set
+    member val Age: bigint = 10I with get, set
+    member val Email: string option = None with get, set
+
+[<Fact>]
+let ``test PydanticUser`` () =
+    let user = PydanticUser()
+    user.Name <- "Test User"
+    user.Age <- 25
+    user.Email <- Some "test@example.com"
+
+    user.Name |> equal "Test User"
 
 [<Py.Decorate("dataclasses.dataclass")>]
 [<Py.ClassAttributes(style="attributes", init=false)>]
@@ -488,16 +514,6 @@ let ``test complex decorator parameters`` () =
     let obj = AttrsDecoratedClass()
     obj.Data |> equal "attrs_data"
     obj.Count |> equal 42
-
-// [<Py.Decorate("custom_module.my_decorator", "param1='value1', param2=42")>]
-// type CustomDecoratedClass() =
-//     member val CustomProp: string = "custom" with get, set
-
-// [<Fact>]
-// let ``test custom module decorator with complex parameters`` () =
-//     // Test decorator from custom module with multiple parameters
-//     let obj = CustomDecoratedClass()
-//     obj.CustomProp |> equal "custom"
 
 // Test combining Decorate with existing F# features
 
