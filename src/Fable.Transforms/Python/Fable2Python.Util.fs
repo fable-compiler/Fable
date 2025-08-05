@@ -56,26 +56,25 @@ module Util =
     /// Extracts decorator information from entity attributes
     let getDecoratorInfo (atts: Fable.Attribute seq) =
         atts
-        |> Seq.filter (fun att -> att.Entity.FullName = Atts.pyDecorate)
-        |> Seq.map (fun att ->
-            match att.ConstructorArgs with
-            | [ :? string as decorator ] ->
-                {
-                    Decorator = decorator
-                    Parameters = ""
-                }
-            | [ :? string as decorator; :? string as parameters ] ->
-                {
-                    Decorator = decorator
-                    Parameters = parameters
-                }
-            | _ ->
-                {
-                    Decorator = ""
-                    Parameters = ""
-                } // Invalid decorator
+        |> Seq.choose (fun att ->
+            if att.Entity.FullName = Atts.pyDecorate then
+                match att.ConstructorArgs with
+                | [ :? string as decorator ] ->
+                    Some
+                        {
+                            Decorator = decorator
+                            Parameters = ""
+                        }
+                | [ :? string as decorator; :? string as parameters ] ->
+                    Some
+                        {
+                            Decorator = decorator
+                            Parameters = parameters
+                        }
+                | _ -> None // Invalid decorator
+            else
+                None
         )
-        |> Seq.filter (fun info -> info.Decorator <> "") // Filter out invalid ones
         |> Seq.rev // Reverse to get correct application order (bottom to top)
         |> Seq.toList
 
@@ -90,14 +89,14 @@ module Util =
                 | Some module_ -> com.GetImportExpr(ctx, module_, functionName)
                 | None -> Expression.name functionName
 
-            if String.IsNullOrEmpty(info.Parameters) then
+            if String.IsNullOrEmpty info.Parameters then
                 // Simple decorator without parameters: @decorator
                 decoratorExpr
             else
                 // Decorator with parameters: @decorator(param1=value1, param2=value2)
                 // For parameters, we emit the full decorator call as raw Python code
                 // This preserves exact parameter syntax for maximum flexibility
-                Expression.emit ($"{info.Decorator}({info.Parameters})", [])
+                Expression.emit ($"%s{functionName}(%s{info.Parameters})", [])
         )
 
     let getIdentifier (_com: IPythonCompiler) (_ctx: Context) (name: string) =
@@ -604,7 +603,7 @@ module Helpers =
             else
                 ""
 
-        Identifier($"{name}{deliminator}{idx}")
+        Identifier($"%s{name}%s{deliminator}%i{idx}")
 
     /// Replaces all '$' and `.`with '_'
     let clean (name: string) =
