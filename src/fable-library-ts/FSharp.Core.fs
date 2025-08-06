@@ -6,14 +6,14 @@ module LanguagePrimitives =
 
     let GenericEqualityComparer =
         { new System.Collections.IEqualityComparer with
-            override __.Equals(x: obj, y: obj) = LanguagePrimitives.GenericEquality x y
+            override __.Equals(x: objnull, y: objnull) = LanguagePrimitives.GenericEquality x y
 
             override __.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
         }
 
     let GenericEqualityERComparer =
         { new System.Collections.IEqualityComparer with
-            override __.Equals(x: obj, y: obj) =
+            override __.Equals(x: objnull, y: objnull) =
                 LanguagePrimitives.GenericEqualityER x y
 
             override __.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
