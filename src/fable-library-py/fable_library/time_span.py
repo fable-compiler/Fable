@@ -4,7 +4,7 @@ import re
 from math import ceil, floor, fmod
 from typing import Any
 
-from .types import FSharpRef, int64
+from .types import FloatTypes, FSharpRef, IntegerTypes, float64
 from .util import pad_left_and_right_with_zeros, pad_with_zeros
 
 
@@ -15,12 +15,12 @@ class TimeSpan(int):
 
 
 def create(
-    days: float = 0,
-    hours: float | None = None,
-    minutes: float | None = None,
-    seconds: float | None = None,
-    milliseconds: float | None = None,
-    microseconds: float | None = None,
+    days: float64 = float64(0),
+    hours: float64 | None = None,
+    minutes: float64 | None = None,
+    seconds: float64 | None = None,
+    milliseconds: float64 | None = None,
+    microseconds: float64 | None = None,
 ) -> TimeSpan:
     match (days, hours, minutes, seconds, milliseconds, microseconds):
         # ticks constructor
@@ -31,91 +31,126 @@ def create(
             seconds = minutes
             minutes = hours
             hours = days
-            days = 0
+            days = float64(0)
         # others constructor follows the correct order of arguments
         case _:
             pass
 
     return TimeSpan(
-        days * 864000000000
-        + (hours or 0) * 36000000000
-        + (minutes or 0) * 600000000
-        + (seconds or 0) * 10000000
-        + (milliseconds or 0) * 10000
-        + (microseconds or 0) * 10
+        float(days) * 864000000000
+        + float(hours or 0) * 36000000000
+        + float(minutes or 0) * 600000000
+        + float(seconds or 0) * 10000000
+        + float(milliseconds or 0) * 10000
+        + float(microseconds or 0) * 10
     )
 
 
-def total_nanoseconds(ts: TimeSpan) -> float:
+def total_nanoseconds(ts: TimeSpan) -> float64:
     # We store timespan as the Tick value so nanoseconds step is 100
-    return ts * 100
+    return float64(ts) * 100
 
 
-def total_microseconds(ts: TimeSpan) -> float:
-    return ts / 10
+def total_microseconds(ts: TimeSpan) -> float64:
+    return float64(ts) / 10
 
 
-def total_milliseconds(ts: TimeSpan) -> float:
-    return ts / 10000
+def total_milliseconds(ts: TimeSpan) -> float64:
+    return float64(ts) / 10000
 
 
-def total_seconds(ts: TimeSpan) -> float:
-    return ts / 10000000
+def total_seconds(ts: TimeSpan) -> float64:
+    return float64(ts) / 10000000
 
 
-def total_minutes(ts: TimeSpan) -> float:
-    return ts / 600000000
+def total_minutes(ts: TimeSpan) -> float64:
+    return float64(ts) / 600000000
 
 
-def total_hours(ts: TimeSpan) -> float:
-    return ts / 36000000000
+def total_hours(ts: TimeSpan) -> float64:
+    return float64(ts) / 36000000000
 
 
-def total_days(ts: TimeSpan) -> float:
-    return ts / 864000000000
+def total_days(ts: TimeSpan) -> float64:
+    return float64(ts) / 864000000000
 
 
-def from_microseconds(micros: int64 | float) -> TimeSpan:
-    return create(0, 0, 0, 0, 0, micros)
+def from_microseconds(micros: IntegerTypes | FloatTypes) -> TimeSpan:
+    return create(float64(0), float64(0), float64(0), float64(0), float64(0), float64(micros))
 
 
-def from_milliseconds(msecs: int64 | float, mc: int64 | None = None) -> TimeSpan:
-    return create(0, 0, 0, 0, msecs, mc)
+def from_milliseconds(msecs: IntegerTypes | FloatTypes, mc: int | None = None) -> TimeSpan:
+    return create(
+        float64(0),
+        float64(0),
+        float64(0),
+        float64(0),
+        float64(msecs),
+        float64(mc) if mc is not None else float64(0),
+    )
 
 
 def from_ticks(ticks: int) -> TimeSpan:
-    return create(ticks)
+    return create(float64(ticks))
 
 
-def from_seconds(s: int64 | float, ms: int64 | None = None, mc: int64 | None = None) -> TimeSpan:
-    return create(0, 0, 0, s, ms or 0, mc or 0)
+def from_seconds(s: IntegerTypes | FloatTypes, ms: int | None = None, mc: int | None = None) -> TimeSpan:
+    return create(
+        float64(0),
+        float64(0),
+        float64(0),
+        float64(s),
+        float64(ms) if ms is not None else float64(0),
+        float64(mc) if mc is not None else float64(0),
+    )
 
 
 def from_minutes(
-    m: int64 | float, s: int64 | None = None, ms: int64 | None = None, mc: int64 | None = None
+    m: IntegerTypes | FloatTypes, s: int | None = None, ms: int | None = None, mc: int | None = None
 ) -> TimeSpan:
-    return create(0, 0, m or 0, s or 0, ms or 0, mc or 0)
+    return create(
+        float64(0),
+        float64(0),
+        float64(m),
+        float64(s) if s is not None else float64(0),
+        float64(ms) if ms is not None else float64(0),
+        float64(mc) if mc is not None else float64(0),
+    )
 
 
 def from_hours(
-    h: int | float,
-    m: int64 | None = None,
-    s: int64 | None = None,
-    ms: int64 | None = None,
-    mc: int64 | None = None,
+    h: IntegerTypes | FloatTypes,
+    m: int | None = None,
+    s: int | None = None,
+    ms: int | None = None,
+    mc: int | None = None,
 ) -> TimeSpan:
-    return create(0, h, m or 0, s or 0, ms or 0, mc or 0)
+    return create(
+        float64(0),
+        float64(h),
+        float64(m) if m is not None else float64(0),
+        float64(s) if s is not None else float64(0),
+        float64(ms) if ms is not None else float64(0),
+        float64(mc) if mc is not None else float64(0),
+    )
 
 
 def from_days(
-    d: int | float,
+    d: IntegerTypes | FloatTypes,
     h: int | None = None,
-    m: int64 | None = None,
-    s: int64 | None = None,
-    ms: int64 | None = None,
-    mc: int64 | None = None,
+    m: int | None = None,
+    s: int | None = None,
+    ms: int | None = None,
+    mc: int | None = None,
 ) -> TimeSpan:
-    return create(d, h or 0, m or 0, s or 0, ms or 0, mc or 0)
+    return create(
+        float64(d),
+        float64(h) if h is not None else float64(0),
+        float64(m) if m is not None else float64(0),
+        float64(s) if s is not None else float64(0),
+        float64(ms) if ms is not None else float64(0),
+        float64(mc) if mc is not None else float64(0),
+    )
 
 
 def ticks(ts: TimeSpan) -> int:
@@ -212,7 +247,7 @@ def parse(string: str, _: Any | None = None) -> TimeSpan:
         try:
             d = int(string)
         except Exception:
-            raise Exception("String '%s' was not recognized as a valid TimeSpan." % string)
+            raise Exception(f"String '{string}' was not recognized as a valid TimeSpan.")
         return from_days(d)
     if first_colon > 0:  # process time part
         r = _time_span_parse_regex.match(string)
@@ -246,9 +281,9 @@ def parse(string: str, _: Any | None = None) -> TimeSpan:
                     case 7:
                         ms = int(g_8) / 10000
                     case _:
-                        raise Exception("String '%s' was not recognized as a valid TimeSpan." % string)
-            return multiply(create(d, h, m, s, ms), sign)
-    raise Exception("String '%s' was not recognized as a valid TimeSpan." % string)
+                        raise Exception(f"String '{string}' was not recognized as a valid TimeSpan.")
+            return multiply(create(float64(d), float64(h), float64(m), float64(s), float64(ms)), sign)
+    raise Exception(f"String '{string}' was not recognized as a valid TimeSpan.")
 
 
 def try_parse(
@@ -269,30 +304,39 @@ def try_parse(
     return True
 
 
+def to_milliseconds(value: int | TimeSpan) -> float:
+    """Convert either an int (milliseconds) or TimeSpan to milliseconds as float."""
+    if isinstance(value, TimeSpan):
+        return float(total_milliseconds(value))
+    else:
+        return float(value)
+
+
 __all__ = [
+    "add",
     "create",
-    "total_microseconds",
-    "total_milliseconds",
-    "total_seconds",
-    "total_minutes",
-    "total_hours",
-    "total_days",
-    "from_ticks",
+    "divide",
+    "duration",
+    "from_hours",
     "from_microseconds",
     "from_milliseconds",
-    "from_hours",
     "from_minutes",
     "from_seconds",
-    "negate",
-    "duration",
-    "total_seconds",
-    "total_days",
-    "total_minutes",
-    "total_hours",
-    "add",
-    "subtract",
-    "divide",
+    "from_ticks",
     "multiply",
+    "negate",
     "parse",
+    "subtract",
+    "to_milliseconds",
+    "total_days",
+    "total_days",
+    "total_hours",
+    "total_hours",
+    "total_microseconds",
+    "total_milliseconds",
+    "total_minutes",
+    "total_minutes",
+    "total_seconds",
+    "total_seconds",
     "try_parse",
 ]

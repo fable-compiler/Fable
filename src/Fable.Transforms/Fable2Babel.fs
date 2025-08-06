@@ -75,6 +75,10 @@ type IBabelCompiler =
 
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
 
+    abstract SaveTopDirectivePrologue: string -> unit
+
+    abstract GetAllAllTopDirectivesPrologue: unit -> string seq
+
 module Lib =
 
     let libCall (com: IBabelCompiler) ctx r moduleName memberName genArgs args =
@@ -330,6 +334,7 @@ module Reflection =
         | Fable.LambdaType(argType, returnType) -> genericTypeInfo "lambda" [ argType; returnType ]
         | Fable.DelegateType(argTypes, returnType) -> genericTypeInfo "delegate" [ yield! argTypes; yield returnType ]
         | Fable.Tuple(genArgs, _) -> genericTypeInfo "tuple" genArgs
+        | Fable.Nullable(genArg, isStruct) -> transformTypeInfoFor purpose com ctx r genMap genArg
         | Fable.Option(genArg, _) -> genericTypeInfo "option" [ genArg ]
         | Fable.Array(genArg, _) -> genericTypeInfo "array" [ genArg ]
         | Fable.List genArg -> genericTypeInfo "list" [ genArg ]
@@ -491,6 +496,7 @@ module Reflection =
         | Fable.MetaType -> jsInstanceof (libValue com ctx "Reflection" "TypeInfo") expr
         | Fable.Option _ -> warnAndEvalToFalse "options" // TODO
         | Fable.GenericParam _ -> warnAndEvalToFalse "generic parameters"
+        | Fable.Nullable(genArg, _isStruct) -> transformTypeTest com ctx range expr genArg
         | Fable.DeclaredType(ent, genArgs) ->
             match ent.FullName with
             | Types.idisposable ->
@@ -605,6 +611,7 @@ module Annotation =
         | Fable.Regex -> makeAliasTypeAnnotation com ctx "RegExp"
         | Fable.Number(BigInt, _) -> makeAliasTypeAnnotation com ctx "bigint"
         | Fable.Number(kind, _) -> makeNumericTypeAnnotation com ctx kind
+        | Fable.Nullable(genArg, _) -> makeNullableTypeAnnotation com ctx genArg
         | Fable.Option(genArg, _) -> makeOptionTypeAnnotation com ctx genArg
         | Fable.Tuple(genArgs, _) -> makeTupleTypeAnnotation com ctx genArgs
         | Fable.Array(genArg, kind) -> makeArrayTypeAnnotation com ctx genArg kind
@@ -689,7 +696,7 @@ module Annotation =
         makeFableLibImportTypeAnnotation com ctx [] moduleName typeName
 
     let makeNullableTypeAnnotation com ctx genArg =
-        makeFableLibImportTypeAnnotation com ctx [ genArg ] "Option" "Nullable"
+        makeFableLibImportTypeAnnotation com ctx [ genArg ] "Util" "Nullable"
 
     let makeOptionTypeAnnotation com ctx genArg =
         makeFableLibImportTypeAnnotation com ctx [ genArg ] "Option" "Option"
@@ -877,8 +884,6 @@ module Annotation =
 
     let makeEntityTypeAnnotation com ctx genArgs (ent: Fable.Entity) =
         match genArgs, ent with
-        | [ genArg ], EntFullName Types.nullable -> makeNullableTypeAnnotation com ctx genArg
-
         | _, Patterns.Try (tryNativeOrFableLibraryInterface com ctx genArgs) ta -> ta
 
         | _, Patterns.Try (Lib.tryJsConstructorFor Annotation com ctx) entRef ->
@@ -1034,7 +1039,7 @@ module Util =
     let getUniqueNameInRootScope (ctx: Context) name =
         let name =
             (name, Naming.NoMemberPart)
-            ||> Naming.sanitizeIdent (fun name ->
+            ||> Naming.sanitizeJsIdent (fun name ->
                 ctx.UsedNames.RootScope.Contains(name)
                 || ctx.UsedNames.DeclarationScopes.Contains(name)
             )
@@ -1045,7 +1050,7 @@ module Util =
     let getUniqueNameInDeclarationScope (ctx: Context) name =
         let name =
             (name, Naming.NoMemberPart)
-            ||> Naming.sanitizeIdent (fun name ->
+            ||> Naming.sanitizeJsIdent (fun name ->
                 ctx.UsedNames.RootScope.Contains(name)
                 || ctx.UsedNames.CurrentDeclarationScope.Contains(name)
             )
@@ -1143,7 +1148,7 @@ module Util =
         | "ToString" -> Expression.identifier ("toString"), false
         | n when n.StartsWith("Symbol.", StringComparison.Ordinal) ->
             Expression.memberExpression (Expression.identifier ("Symbol"), Expression.identifier (n[7..]), false), true
-        | n when Naming.hasIdentForbiddenChars n -> Expression.stringLiteral (n), computeStrings
+        | n when Naming.hasIdentForbiddenChars Naming.isJsIdentChar n -> Expression.stringLiteral (n), computeStrings
         | n -> Expression.identifier (n |> sanitizeMemberName), false
 
     let memberFromName (memberName: string) : Expression * bool =
@@ -1235,6 +1240,15 @@ module Util =
             |> Seq.distinctBy (fun (id, _) -> id.Name)
             |> Seq.map (fun (id, value) ->
                 let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx id.Type value
+
+                let value =
+                    if com.IsTypeScript && Option.isNone value then
+                        // initialize un-initialized variables to "undefined as any"
+                        let expr = Expression.Undefined(?loc = None)
+                        let ta = makeTypeAnnotation com ctx Fable.Type.Any
+                        AsExpression(expr, ta) |> Some
+                    else
+                        value
 
                 VariableDeclarator.variableDeclarator (
                     id.Name,
@@ -1375,6 +1389,29 @@ module Util =
 
         let parameters = List.concat info.CurriedParameterGroups
 
+        let argsWithParams (args: Fable.Ident list) =
+            List.zip args parameters
+            |> List.map (fun (a, p) ->
+                match p.Name with
+                | Some name when p.IsNamed && a.Name <> name ->
+                    $"Argument {name} is marked as named but conflicts with another name in scope"
+                    |> addWarning com [] a.Range
+                | _ -> ()
+
+                let a =
+                    if p.IsOptional then
+                        { a with Type = unwrapOptionalType a.Type }
+                    else
+                        a
+
+                a,
+                ParameterFlags(
+                    isNamed = p.IsNamed,
+                    isOptional = (p.IsOptional && com.IsTypeScript),
+                    ?defVal = (p.DefaultValue |> Option.map (transformAsExpr com ctx))
+                )
+            )
+
         let argsWithFlags =
             match args with
             | [] -> []
@@ -1384,29 +1421,9 @@ module Util =
                 let args = args |> List.map (fun a -> a, ParameterFlags())
                 args @ [ lastArg, ParameterFlags(isSpread = true) ]
 
-            | args when List.sameLength args parameters ->
-                List.zip args parameters
-                |> List.map (fun (a, p) ->
-                    match p.Name with
-                    | Some name when p.IsNamed && a.Name <> name ->
-                        $"Argument {name} is marked as named but conflicts with another name in scope"
-                        |> addWarning com [] a.Range
-                    | _ -> ()
-
-                    let a =
-                        if p.IsOptional then
-                            { a with Type = unwrapOptionalType a.Type }
-                        else
-                            a
-
-                    a,
-                    ParameterFlags(
-                        isNamed = p.IsNamed,
-                        isOptional = (p.IsOptional && com.IsTypeScript),
-                        ?defVal = (p.DefaultValue |> Option.map (transformAsExpr com ctx))
-                    )
-                )
-
+            | thisArg :: args when info.IsInstance && List.sameLength args parameters ->
+                (thisArg, ParameterFlags()) :: (argsWithParams args)
+            | args when List.sameLength args parameters -> argsWithParams args
             | _ -> args |> List.map (fun a -> a, ParameterFlags())
 
         let args, body, returnType, typeParamDecl =
@@ -1763,7 +1780,7 @@ module Util =
             ||> List.fold (fun compileAsClass (memb, info) ->
                 compileAsClass
                 || (not memb.IsMangled
-                    && (info.IsSetter || (info.IsGetter && canHaveSideEffects memb.Body)))
+                    && (info.IsSetter || (info.IsGetter && canHaveSideEffects com memb.Body)))
             )
 
         let members =
@@ -1974,6 +1991,16 @@ module Util =
                 | Fable.Value(Fable.Null _, _), e
                 | e, Fable.Value(Fable.Null _, _) ->
                     com.TransformAsExpr(ctx, e) |> makeNullCheck range (op = BinaryEqual)
+                | ExprType(Fable.Nullable _), ExprType(Fable.Nullable _) ->
+                    Replacements.Util.Helper.LibCall(
+                        com,
+                        "Util",
+                        "nullableEquals",
+                        Fable.Boolean,
+                        [ e1; e2 ],
+                        ?loc = range
+                    )
+                    |> transformAsExpr com ctx
                 | ExprType(Fable.MetaType), _ ->
                     let e =
                         Replacements.Util.Helper.LibCall(
@@ -2002,26 +2029,32 @@ module Util =
             Expression.logicalExpression (left, op, right, ?loc = range)
 
     let transformEmit (com: IBabelCompiler) ctx range (info: Fable.EmitInfo) =
-        let macro = stripImports com ctx range info.Macro
-        let info = info.CallInfo
+        match info.CallInfo.Tags with
+        | Fable.Tags.Contains "topDirectiveProloge" ->
+            com.SaveTopDirectivePrologue(info.Macro)
+            // Return empty sequence expression so it can be erased at print time
+            Expression.sequenceExpression ([||])
+        | _ ->
+            let macro = stripImports com ctx range info.Macro
+            let info = info.CallInfo
 
-        let thisArg =
-            info.ThisArg
-            |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
-            |> Option.toList
+            let thisArg =
+                info.ThisArg
+                |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
+                |> Option.toList
 
-        info.MemberRef
-        |> Option.bind com.TryGetMember
-        |> transformCallArgs com ctx info
-        |> List.append thisArg
-        |> emitExpression range macro
+            info.MemberRef
+            |> Option.bind com.TryGetMember
+            |> transformCallArgs com ctx info
+            |> List.append thisArg
+            |> emitExpression range macro
 
     let transformJsxProps (com: IBabelCompiler) props =
         (Some([], []), props)
         ||> List.fold (fun propsAndChildren prop ->
             match propsAndChildren, prop with
             | None, _ -> None
-            | Some(props, children), Fable.Value(Fable.NewTuple([ StringConst key; value ], _), _) ->
+            | Some(props, children), MaybeCasted(Fable.Value(Fable.NewTuple([ StringConst key; value ], _), _)) ->
                 if key = "children" then
                     match value with
                     | Replacements.Util.ArrayOrListLiteral(children, _) -> Some(props, children)
@@ -2033,6 +2066,112 @@ module Util =
 
                 None
         )
+
+    module Jsx =
+
+        (***
+
+For JSX, we want to rewrite the default output in order to remove all the code coming from list CEs
+
+By default, this code
+
+```fs
+Html.div
+    [
+        yield! [
+            Html.div "Test 1"
+            Html.div "Test 2"
+        ]
+    ]
+```
+
+generates something like
+
+```jsx
+<div>
+    {toList(delay(() => [<div>
+        Test 1
+    </div>, <div>
+        Test 2
+    </div>]))}
+</div>;
+```
+
+but thanks to the optimisation done below we get
+
+```jsx
+<div>
+    <div>
+        Test 1
+    </div>
+    <div>
+        Test 2
+    </div>
+</div>
+```
+
+        Initial implementation of this optimiser comes from https://github.com/shayanhabibi/Partas.Solid/blob/master/Partas.Solid.FablePlugin/Plugin.fs
+
+        ***)
+
+        // Check if the provided expression is equal to the expected identiferText (as a string)
+        let rec (|IdentifierIs|_|) (identifierText: string) expression =
+            match expression with
+            | Expression.Identifier(Identifier(currentCallerText, _)) when identifierText = currentCallerText -> Some()
+            | _ -> None
+
+        // Make it easy to check if we are calling the expected function
+        and (|CalledExpression|_|) (callerText: string) value =
+            match value with
+            | CallExpression(IdentifierIs callerText, UnrollerFromArray exprs, _, _) -> Some exprs
+            | _ -> None
+
+        and (|UnrollerFromSingleton|) (expr: Expression) : Expression list =
+            [ expr ]
+            |> function
+                | Unroller exprs -> exprs
+
+        and (|UnrollerFromArray|) (arrayExpr: Expression array) : Expression list =
+            arrayExpr
+            |> Array.toList
+            |> function
+                | Unroller exprs -> exprs
+
+        and (|Unroller|): Expression list -> Expression list =
+            function
+            | [] -> []
+            | expr :: Unroller rest ->
+                match expr with
+                | CalledExpression "toList" exprs -> exprs @ rest
+                | CalledExpression "delay" exprs -> exprs @ rest
+                | ArrowFunctionExpression([||],
+                                          BlockStatement [| ReturnStatement(ArrayExpression(UnrollerFromArray exprs, _),
+                                                                            _) |],
+                                          _,
+                                          _,
+                                          _) -> exprs @ rest
+                | ArrowFunctionExpression([||],
+                                          BlockStatement [| ReturnStatement(UnrollerFromSingleton exprs, _) |],
+                                          _,
+                                          _,
+                                          _) -> exprs @ rest
+                | CalledExpression "append" exprs -> exprs @ rest
+                | CalledExpression "singleton" exprs -> exprs @ rest
+                | CalledExpression "empty" _ -> [ Expression.nullLiteral () ] @ rest
+                // Note: Should we guard this unwrapper by checking that all the elements in the array are JsxElements?
+                | ArrayExpression(UnrollerFromArray exprs, _) -> exprs @ rest
+                | ConditionalExpression(testExpr, UnrollerFromSingleton thenExprs, UnrollerFromSingleton elseExprs, loc) ->
+                    ConditionalExpression(
+                        testExpr,
+                        SequenceExpression(thenExprs |> List.toArray, None),
+                        SequenceExpression(elseExprs |> List.toArray, None),
+                        loc
+                    )
+                    :: rest
+                | expr ->
+                    // Tips 💡
+                    // If a pattern is not optimized, you can put a debug point here to capture it
+                    expr :: rest
 
     let transformJsxEl (com: IBabelCompiler) ctx componentOrTag props =
         match transformJsxProps com props with
@@ -2047,6 +2186,12 @@ module Util =
                     // Because of call optimizations, it may happen a list has been transformed to an array in JS
                     | [ ArrayExpression(children, _) ] -> Array.toList children
                     | children -> children
+                // Optimize AST, removing F# CEs from the output (see documentation in the JSX module)
+                |> List.map (fun child ->
+                    match child with
+                    | Jsx.UnrollerFromSingleton expr -> expr
+                )
+                |> List.concat
 
             let props =
                 props |> List.rev |> List.map (fun (k, v) -> k, transformAsExpr com ctx v)
@@ -2369,7 +2514,8 @@ module Util =
                 getExpr range (getExpr None expr (Expression.stringLiteral ("fields"))) (ofInt info.FieldIndex)
 
             if com.IsTypeScript then
-                AsExpression(expr, makeTypeAnnotation com ctx Fable.Type.Any)
+                let ta = FableTransforms.uncurryType typ |> makeTypeAnnotation com ctx
+                AsExpression(expr, ta)
             else
                 expr
 
@@ -2538,7 +2684,7 @@ module Util =
             defaultCase |> Option.map (transformAsStatements com ctx returnStrategy)
 
         match cases, defaultCase with
-        | [||], Some defaultCase when not (canHaveSideEffects evalExpr) -> defaultCase
+        | [||], Some defaultCase when not (canHaveSideEffects com evalExpr) -> defaultCase
         | cases, Some defaultCase ->
             let cases =
                 Array.append
@@ -2566,7 +2712,7 @@ module Util =
             let bindings, replacements =
                 (([], Map.empty), identsAndValues)
                 ||> List.fold (fun (bindings, replacements) (ident, expr) ->
-                    if canHaveSideEffects expr then
+                    if canHaveSideEffects com expr then
                         (ident, expr) :: bindings, replacements
                     else
                         bindings, Map.add ident.Name expr replacements
@@ -3234,7 +3380,7 @@ module Util =
         |> asModuleDeclaration info.IsPublic
 
     let sanitizeName fieldName =
-        fieldName |> Naming.sanitizeIdentForbiddenChars |> Naming.checkJsKeywords
+        fieldName |> Naming.sanitizeJsIdentForbiddenChars |> Naming.checkJsKeywords
 
     let getEntityFieldsAsIdents (ent: Fable.Entity) =
         ent.FSharpFields
@@ -4242,7 +4388,7 @@ module Util =
                     []
             | ent ->
                 if FSharp2Fable.Util.isPojoDefinedByConsArgsEntity ent then
-                    if Compiler.Language = TypeScript then
+                    if com.Options.Language = TypeScript then
                         transformPojoDefinedByConsArgsToInterface com ctx ent decl
                     else
                         []
@@ -4326,6 +4472,11 @@ module Util =
         )
         |> fun staticImports -> [ yield! staticImports; yield! statefulImports ]
 
+    let transformDirectivesPrologue (directives: string seq) =
+        directives
+        |> Seq.map (DirectivePrologue >> DirectivePrologueDeclaration)
+        |> Seq.toList
+
     let getIdentForImport (com: IBabelCompiler) (ctx: Context) noMangle (path: string) (selector: string) =
         if System.String.IsNullOrEmpty selector then
             selector, None
@@ -4364,6 +4515,7 @@ module Compiler =
     type BabelCompiler(com: Compiler) =
         let onlyOnceWarnings = HashSet<string>()
         let imports = Dictionary<string, Import>()
+        let topDirectivesPrologue = HashSet<string>()
         let isTypeScript = com.Options.Language = TypeScript
 
         interface IBabelCompiler with
@@ -4414,6 +4566,11 @@ module Compiler =
             member bcom.TransformImport(ctx, selector, path) =
                 transformImport bcom ctx None selector path
 
+            member _.SaveTopDirectivePrologue(text: string) =
+                topDirectivesPrologue.Add text |> ignore
+
+            member _.GetAllAllTopDirectivesPrologue() = topDirectivesPrologue |> Seq.cast
+
         interface Compiler with
             member _.Options = com.Options
             member _.Plugins = com.Plugins
@@ -4422,6 +4579,7 @@ module Compiler =
             member _.OutputDir = com.OutputDir
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
+            member _.ProjectOptions = com.ProjectOptions
             member _.SourceFiles = com.SourceFiles
             member _.IncrementCounter() = com.IncrementCounter()
 
@@ -4472,6 +4630,9 @@ module Compiler =
 
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
 
+        let topDirectivesPrologue =
+            com.GetAllAllTopDirectivesPrologue() |> transformDirectivesPrologue
+
         let importDecls = com.GetAllImports() |> transformImports
-        let body = importDecls @ rootDecls |> List.toArray
+        let body = topDirectivesPrologue @ importDecls @ rootDecls |> List.toArray
         Program(body)

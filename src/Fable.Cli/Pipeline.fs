@@ -212,10 +212,10 @@ module Python =
         let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
         let sourcePath = com.CurrentFile
 
-        let buildPackages =
+        let bundleLibrary =
             match cliArgs.FableLibraryPath with
-            | Some Py.Naming.sitePackages -> true
-            | _ -> false
+            | Some path when path.ToLowerInvariant() = Py.Naming.fableLibPyPI -> false
+            | _ -> true
 
         // Everything within the Fable hidden directory will be compiled as Library. We do this since the files there will be
         // compiled as part of the main project which might be a program (Exe) or library (Library).
@@ -245,26 +245,18 @@ module Python =
 
             member _.MakeImportPath(path) =
                 let relativePath parts =
-                    let path =
-                        let mutable i = -1
-
-                        parts
-                        |> Array.choose (fun part ->
-                            i <- i + 1
-
-                            if part = "." || part = ".." then
-                                None
-                            elif i = parts.Length - 1 then
-                                Some(normalizeFileName part)
-                            else
-                                part.Replace(".", "_") |> Some // Do not lowercase dir names. See #3079
-                        )
-                        |> String.concat "."
-
-                    if isLibrary then
-                        "." + path
-                    else
-                        path
+                    parts
+                    |> Array.mapi (fun i part ->
+                        match part with
+                        | "." when isLibrary -> Some ""
+                        | ".." when isLibrary -> Some "."
+                        | "."
+                        | ".." -> None
+                        | _ when i = parts.Length - 1 -> Some(normalizeFileName part)
+                        | _ -> Some(part.Replace(".", "_")) // Do not lowercase dir names. See #3079
+                    )
+                    |> Array.choose id
+                    |> String.concat "."
 
                 let packagePath parts =
                     let mutable i = -1
@@ -280,8 +272,6 @@ module Python =
                                 None
                         elif part = ".." then
                             None
-                        elif part = Py.Naming.sitePackages then
-                            Some("fable_library")
                         elif part = Naming.fableModules && (not isLibrary) then
                             None
                         elif i = parts.Length - 1 then
@@ -308,8 +298,8 @@ module Python =
 
                         let parts = resolvedPath.Split('/')
 
-                        match buildPackages with
-                        | true -> packagePath parts
+                        match bundleLibrary with
+                        | false -> packagePath parts
                         | _ -> relativePath parts
                 else
                     path
@@ -339,7 +329,7 @@ module Python =
             let python =
                 FSharp2Fable.Compiler.transformFile com
                 |> FableTransforms.transformFile com
-                |> Fable2Python.Compiler.transformFile com
+                |> Python.Compiler.transformFile com
 
             if not (isSilent || PythonPrinter.isEmpty python) then
                 let writer = new PythonFileWriter(com, cliArgs, pathResolver, outPath)

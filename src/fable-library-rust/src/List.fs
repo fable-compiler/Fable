@@ -331,22 +331,22 @@ let filter (predicate: 'T -> bool) (xs: 'T list) =
     )
 
 let map (mapping: 'T -> 'U) (xs: 'T list) =
-    let gen xs =
+    let generator xs =
         if isEmpty xs then
             None
         else
             Some(mapping (head xs), tail xs)
 
-    unfold gen xs
+    unfold generator xs
 
 let mapIndexed (mapping: int -> 'T -> 'U) (xs: 'T list) =
-    let gen (i, xs) =
+    let generator (i, xs) =
         if isEmpty xs then
             None
         else
             Some(mapping i (head xs), (i + 1, tail xs))
 
-    unfold gen (0, xs)
+    unfold generator (0, xs)
 
 let collect (mapping: 'T -> 'U list) (xs: 'T list) =
     let mutable root = None
@@ -372,36 +372,36 @@ let collect (mapping: 'T -> 'U list) (xs: 'T list) =
 let indexed (xs: 'T list) = mapIndexed (fun i x -> (i, x)) xs
 
 let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
-    let gen (xs, ys) =
+    let generator (xs, ys) =
         if (isEmpty xs) || (isEmpty ys) then
             None
         else
             Some(mapping (head xs) (head ys), (tail xs, tail ys))
 
-    unfold gen (xs, ys)
+    unfold generator (xs, ys)
 
 let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: 'T1 list) (ys: 'T2 list) =
-    let gen (i, xs, ys) =
+    let generator (i, xs, ys) =
         if (isEmpty xs) || (isEmpty ys) then
             None
         else
             Some(mapping i (head xs) (head ys), (i + 1, tail xs, tail ys))
 
-    unfold gen (0, xs, ys)
+    unfold generator (0, xs, ys)
 
 let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: 'T1 list) (ys: 'T2 list) (zs: 'T3 list) =
-    let gen (xs, ys, zs) =
+    let generator (xs, ys, zs) =
         if (isEmpty xs) || (isEmpty ys) || (isEmpty zs) then
             None
         else
             Some(mapping (head xs) (head ys) (head zs), (tail xs, tail ys, tail zs))
 
-    unfold gen (xs, ys, zs)
+    unfold generator (xs, ys, zs)
 
 let mapFold (mapping: 'State -> 'T -> 'U * 'State) (state: 'State) (xs: 'T list) =
     let mutable acc = state
 
-    let gen xs =
+    let generator xs =
         if isEmpty xs then
             None
         else
@@ -409,7 +409,7 @@ let mapFold (mapping: 'State -> 'T -> 'U * 'State) (state: 'State) (xs: 'T list)
             acc <- snd m
             Some(fst m, tail xs)
 
-    unfold gen xs, acc
+    unfold generator xs, acc
 
 let mapFoldBack (mapping: 'T -> 'State -> 'U * 'State) (xs: 'T list) (state: 'State) =
     let mutable ys = empty ()
@@ -504,13 +504,13 @@ let item index (xs: 'T list) = // xs.root(n)
     | Some x -> x
 
 let initialize count (initializer: int -> 'T) =
-    let gen i =
+    let generator i =
         if i < count then
             Some(initializer i, i + 1)
         else
             None
 
-    unfold gen 0
+    unfold generator 0
 
 let pairwise (xs: 'T list) =
     xs |> toArray |> Array.pairwise |> ofArray
@@ -721,7 +721,7 @@ let take count (xs: 'T list) =
     if count < 0 then
         invalidArg "count" SR.inputMustBeNonNegative
 
-    let gen (i, xs: 'T list) =
+    let generator (i, xs: 'T list) =
         if i > 0 then
             if isEmpty xs then
                 invalidArg "list" SR.notEnoughElements
@@ -730,25 +730,25 @@ let take count (xs: 'T list) =
         else
             None
 
-    unfold gen (count, xs)
+    unfold generator (count, xs)
 
 let takeWhile (predicate: 'T -> bool) (xs: 'T list) =
-    let gen xs =
+    let generator xs =
         if not (isEmpty xs) && (predicate (head xs)) then
             Some(head xs, tail xs)
         else
             None
 
-    unfold gen xs
+    unfold generator xs
 
 let truncate count (xs: 'T list) =
-    let gen (i, xs: 'T list) =
+    let generator (i, xs: 'T list) =
         if i > 0 && not (isEmpty xs) then
             Some(head xs, (i - 1, tail xs))
         else
             None
 
-    unfold gen (count, xs)
+    unfold generator (count, xs)
 
 let getSlice (lower: int option) (upper: int option) (xs: 'T list) =
     match lower, upper with
@@ -817,7 +817,7 @@ let distinct<'T when 'T: equality> (xs: 'T list) : 'T list =
     let hashSet = System.Collections.Generic.HashSet<'T>()
     xs |> filter (fun x -> hashSet.Add(x))
 
-let distinctBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list) : 'T list =
+let distinctBy<'T, 'Key when 'Key: equality and 'Key: not null> (projection: 'T -> 'Key) (xs: 'T list) : 'T list =
     let hashSet = System.Collections.Generic.HashSet<'Key>()
     xs |> filter (fun x -> hashSet.Add(projection x))
 
@@ -825,7 +825,11 @@ let except<'T when 'T: equality> (itemsToExclude: seq<'T>) (xs: 'T list) : 'T li
     let hashSet = System.Collections.Generic.HashSet<'T>(itemsToExclude)
     xs |> filter (fun x -> hashSet.Add(x))
 
-let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list) : ('Key * int) list =
+let countBy<'T, 'Key when 'Key: equality and 'Key: not null>
+    (projection: 'T -> 'Key)
+    (xs: 'T list)
+    : ('Key * int) list
+    =
     let dict = System.Collections.Generic.Dictionary<'Key, int>()
     let keys = ResizeArray<'Key>()
 
@@ -842,7 +846,11 @@ let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list)
 
     keys |> asArray |> Array.map (fun key -> key, dict[key]) |> ofArray
 
-let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T list) : ('Key * 'T list) list =
+let groupBy<'T, 'Key when 'Key: equality and 'Key: not null>
+    (projection: 'T -> 'Key)
+    (xs: 'T list)
+    : ('Key * 'T list) list
+    =
     let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
     let keys = ResizeArray<'Key>()
 

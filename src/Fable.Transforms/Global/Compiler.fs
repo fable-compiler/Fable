@@ -2,10 +2,10 @@ namespace Fable
 
 module Literals =
     [<Literal>]
-    let VERSION = "5.0.0-alpha.12"
+    let VERSION = "5.0.0-alpha.14"
 
     [<Literal>]
-    let JS_LIBRARY_VERSION = "2.0.0-beta.3"
+    let JS_LIBRARY_VERSION = "2.0.0-beta.4"
 
 type CompilerOptionsHelper =
     static member Make
@@ -45,6 +45,7 @@ type OutputType =
     | Library
     | Exe
 
+open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Symbols
 open Fable.AST
 
@@ -67,6 +68,7 @@ type Compiler =
     abstract OutputDir: string option
     abstract OutputType: OutputType
     abstract ProjectFile: string
+    abstract ProjectOptions: FSharpProjectOptions
     abstract SourceFiles: string[]
     abstract Options: CompilerOptions
     abstract Plugins: CompilerPlugins
@@ -124,15 +126,20 @@ module CompilerExt =
             false
 
     let private coreAssemblyNames = set Metadata.coreAssemblies
-    let mutable private _lang = JavaScript
+
+    let mutable private _language = JavaScript
+    let mutable private _checkNulls = false
 
     type Compiler with
 
         static member CoreAssemblyNames = coreAssemblyNames
 
-        static member Language = _lang
-        /// Use this only once at the start of the program
-        static member SetLanguageUnsafe lang = _lang <- lang
+        static member Language = _language
+        static member CheckNulls = _checkNulls
+
+        /// Set these only once at the start of the program
+        static member SetLanguageUnsafe language = _language <- language
+        static member SetCheckNullsUnsafe enabled = _checkNulls <- enabled
 
         member com.GetEntity(entityRef: Fable.EntityRef) =
             match com.TryGetEntity(entityRef) with

@@ -4,6 +4,8 @@ open System
 open Fable.Tests.Util
 open Util.Testing
 
+#nowarn "3370" // Silence deprecation warnings for incr/decr
+
 let [<Literal>] posLiteral = 5
 let [<Literal>] negLiteral = -345
 let notALiteral = 5

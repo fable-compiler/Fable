@@ -27,6 +27,7 @@
     <Compile Include="../Js/Main/Util/Util3.fs" />
     <Compile Include="../../tests_external/Util3.fs" />
     <Compile Include="../Js/Main/Util/UtilTests.fs" />
+    <Compile Include="../Js/Main/Global.fs" />
     <Compile Include="../Js/Main/ApplicativeTests.fs" />
     <Compile Include="../Js/Main/ArithmeticTests.fs" />
     <Compile Include="../Js/Main/ArrayTests.fs" />
@@ -47,12 +48,13 @@
     <Compile Include="../Js/Main/HashSetTests.fs" />
     <!-- <Compile Include="../Js/Main/ImportTests.fs" /> -->
     <!-- <Compile Include="../Js/Main/JsInteropTests.fs" /> -->
-     <Compile Include="LiteTsInteropTests.fs" />
+    <!-- <Compile Include="../Js/Main/ListCollectorTests.fs" /> -->
     <Compile Include="../Js/Main/ListTests.fs" />
     <Compile Include="../Js/Main/MapTests.fs" />
     <Compile Include="../Js/Main/MiscTestsHelper.fs" />
     <Compile Include="../Js/Main/MiscTests.fs" />
     <Compile Include="../Js/Main/NestedAndRecursivePatternTests.fs" />
+    <Compile Include="../Js/Main/NullnessTests.fs" />
     <Compile Include="../Js/Main/ObservableTests.fs" />
     <Compile Include="../Js/Main/OptionTests.fs" />
     <Compile Include="../Js/Main/QueueTests.fs" />
@@ -74,6 +76,7 @@
     <Compile Include="../Js/Main/TypeTests.fs" />
     <Compile Include="../Js/Main/UnionTypeTests.fs" />
     <Compile Include="../Js/Main/UriTests.fs" />
+    <Compile Include="LiteTsInteropTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

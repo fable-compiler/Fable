@@ -33,16 +33,13 @@ EventDelegate = Delegate[_T] | DotNetDelegate[_T]
 
 class IDelegateEvent(Generic[_T_co], Protocol):
     @abstractmethod
-    def AddHandler(self, d: DotNetDelegate[_T]) -> None:
-        ...
+    def AddHandler(self, d: DotNetDelegate[_T]) -> None: ...
 
     @abstractmethod
-    def RemoveHandler(self, d: DotNetDelegate[_T]) -> None:
-        ...
+    def RemoveHandler(self, d: DotNetDelegate[_T]) -> None: ...
 
 
-class IEvent_2(IObservable[_Args], IDelegateEvent[_Delegate], Protocol):
-    ...
+class IEvent_2(IObservable[_Args], IDelegateEvent[_Delegate], Protocol): ...
 
 
 IEvent = IEvent_2[_T, _T]
@@ -60,12 +57,10 @@ class Event(IEvent[_T]):
         return self
 
     @overload
-    def Trigger(self, value: _T) -> None:
-        ...
+    def Trigger(self, value: _T) -> None: ...
 
     @overload
-    def Trigger(self, sender: Any, value: _T) -> None:
-        ...
+    def Trigger(self, sender: Any, value: _T) -> None: ...
 
     def Trigger(self, sender_or_value: Any, value_or_undefined: _T | None = None) -> None:
         if value_or_undefined is None:
@@ -122,7 +117,7 @@ def add(callback: Delegate[_T], source_event: IEvent[_T]) -> None:
 def choose(chooser: Callable[[_T], _U | None], source_event: IEvent[_T]) -> IEvent[_U]:
     ev = Event[_U]()
 
-    def callback(t):
+    def callback(t: _T) -> None:
         u = chooser(t)
         if u is not None:
             ev.Trigger(value(u))
@@ -142,7 +137,7 @@ def map(mapping: Callable[[_T], _U], source_event: IEvent[_T]) -> IEvent[_U]:
 def merge(event1: IEvent[_T], event2: IEvent[_T]) -> IEvent[_T]:
     ev = Event[_T]()
 
-    def fn(t):
+    def fn(t: Delegate[_T]):
         ev.Trigger(t)
 
     add(fn, event1)
@@ -179,7 +174,7 @@ def scan(
     return map(lambda t: collector(state, t), source_event)
 
 
-def split(splitter: Callable[[_T], FSharpChoice_2[_U, _V]], source_event: IEvent[_T]) -> list[IEvent[_U | _V]]:
+def split(splitter: Callable[[_T], FSharpChoice_2[_U, _V]], source_event: IEvent[_T]) -> list[IEvent[Any]]:
     return [
         choose(lambda t: Choice_tryValueIfChoice1Of2(splitter(t)), source_event),
         choose(lambda t: Choice_tryValueIfChoice2Of2(splitter(t)), source_event),

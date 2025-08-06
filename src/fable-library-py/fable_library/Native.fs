@@ -3,35 +3,32 @@ module Native
 // Disables warn:1204 raised by use of LanguagePrimitives.ErrorStrings.*
 #nowarn "1204"
 
-open System.Collections.Generic
 open Fable.Core
 open Fable.Core.PyInterop
 
+[<Import("FSharpCons", ".array_")>]
 [<AllowNullLiteral>]
-type Cons<'T> =
-    [<Emit("$0([0]*$1)")>]
-    abstract Allocate: len: int -> 'T[]
+type Cons<'T>() =
+    [<Emit("$0.allocate($1)")>]
+    member _.Allocate(len: int) = nativeOnly
+
 
 module Helpers =
-    [<Emit("list($0)")>]
-    let arrayFrom (xs: 'T seq) : 'T[] = nativeOnly
+    let arrayFrom (xs: 'T seq) : 'T[] = Array.ofSeq xs
 
-    [<Emit("[None]*$0")>]
-    let allocateArray (len: int) : 'T[] = nativeOnly
+    let allocateArray (len: int) : 'T[] =
+        Array.create len Unchecked.defaultof<'T>
 
     [<Emit("[x for i, x in enumerate(list($0)+[0]*($1-len($0))) if i < $1]")>]
     let allocateArrayFrom (xs: 'T[]) (len: int) : 'T[] = nativeOnly
 
     let allocateArrayFromCons (cons: Cons<'T>) (len: int) : 'T[] =
         if isNull cons then
-            Py.Array.Create(len)
+            Cons().Allocate(len)
         else
             cons.Allocate(len)
 
-    let inline isDynamicArrayImpl arr = Py.Array.isArray arr
-
-    // let inline typedArraySetImpl (target: obj) (source: obj) (offset: int): unit =
-    //     !!target?set(source, offset)
+    //let inline isDynamicArrayImpl arr = Py.Array.isArray arr
 
     [<Emit("$0+$1")>]
     let concatImpl (array1: 'T[]) (arrays: 'T[] seq) : 'T[] = nativeOnly

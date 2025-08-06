@@ -778,7 +778,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
     let getter = Delegate([], value, None, Tags.empty)
 
     let setter =
-        let v = makeUniqueIdent ctx t "v"
+        let v = makeUniqueIdent com ctx t "v"
 
         Delegate([ v ], Set(value, ValueSet, t, IdentExpr v, None), None, Tags.empty)
 
@@ -789,7 +789,7 @@ let makeRefFromMutableField com ctx r t callee key =
         Delegate([], Get(callee, FieldInfo.Create(key, isMutable = true), t, r), None, Tags.empty)
 
     let setter =
-        let v = makeUniqueIdent ctx t "v"
+        let v = makeUniqueIdent com ctx t "v"
 
         Delegate([ v ], Set(callee, FieldSet(key), t, IdentExpr v, r), None, Tags.empty)
 
@@ -803,7 +803,7 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
         Delegate([], value, None, Tags.empty)
 
     let setter =
-        let v = makeUniqueIdent ctx t "v"
+        let v = makeUniqueIdent com ctx t "v"
 
         let args = [ IdentExpr v; makeBoolConst true ]
 
@@ -854,19 +854,6 @@ let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 
     Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
     |> Some
-
-// TODO: This is likely broken
-let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
-    let memberName = Naming.sanitizeIdentForbiddenChars memberName
-    let entityName = Naming.sanitizeIdentForbiddenChars entityName
-
-    let name, memberPart =
-        match entityName, isStatic with
-        | "", _ -> memberName, Naming.NoMemberPart
-        | _, true -> entityName, Naming.StaticMemberPart(memberName, overloadSuffix)
-        | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
-
-    Naming.buildNameWithoutSanitation name memberPart |> Naming.checkJsKeywords
 
 let printJsTaggedTemplate
     (str: string)
@@ -2017,7 +2004,7 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
     | "IsSome", [ c ] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [ c ] -> Test(c, OptionTest false, r) |> Some
     | "DefaultValue", [ defValue; option ] -> defaultValue com ctx r t defValue option
-    | ("ToArray" | "ToList" | "OfNullable" | "ToNullable" | "Count" | "Contains" | "ForAll" | "Iterate" | "OrElse" | "DefaultWith" | "OrElseWith" | "Exists" | "Flatten" | "Fold" | "FoldBack" | "Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth),
+    | ("ToArray" | "ToList" | "OfNullable" | "ToNullable" | "OfObj" | "ToObj" | "Count" | "Contains" | "ForAll" | "Iterate" | "OrElse" | "DefaultWith" | "OrElseWith" | "Exists" | "Flatten" | "Fold" | "FoldBack" | "Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth),
       args ->
         Helper.LibCall(
             com,
@@ -2030,7 +2017,6 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
             ?loc = r
         )
         |> Some
-    //    | ("OfObj" | "ToObj"), _ ->
     | _ -> None
 
 let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2584,6 +2570,7 @@ let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option)
     | "Compare", [ arg1; arg2 ] ->
         Helper.LibCall(com, "Util", "compareDynamic", t, [ arg1; arg2 ], ?loc = r)
         |> Some
+    | "NonNull", [ arg ] -> arg |> Some
     | _ -> None
 
 let enums (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -2637,30 +2624,12 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
             | Number(UInt64, _) -> "getBytesUInt64"
             | x -> FableError $"Unsupported type in BitConverter.GetBytes(): %A{x}" |> raise
 
-        Helper.LibCall(
-            com,
-            "BitConverter",
-            memberName,
-            Boolean,
-            args,
-            i.SignatureArgTypes,
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+        Helper.LibCall(com, "BitConverter", memberName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | _ ->
         let memberName = Naming.lowerFirst i.CompiledName
 
-        Helper.LibCall(
-            com,
-            "BitConverter",
-            memberName,
-            Boolean,
-            args,
-            i.SignatureArgTypes,
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+        Helper.LibCall(com, "BitConverter", memberName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
 
 let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =

@@ -1,31 +1,33 @@
 import os
-from typing import Awaitable
+from collections.abc import Awaitable
+
+from .array_ import Array
 
 
 def read_all_text(file_name: str) -> str:
-    with open(file_name, "r") as f:
+    with open(file_name) as f:
         return f.read()
 
 
 def read_all_text_async(file_name: str) -> Awaitable[str]:
     async def read_all_text_async():
-        with open(file_name, "r") as f:
+        with open(file_name) as f:
             return f.read()
 
     return read_all_text_async()
 
 
-def read_all_lines(file_name: str) -> list[str]:
-    with open(file_name, "r") as f:
-        return [line.strip("\n") for line in f.readlines()]
+def read_all_lines(file_name: str) -> Array[str]:
+    with open(file_name) as f:
+        return Array[str]([line.strip("\n") for line in f.readlines()])
 
 
-def read_all_lines_async(file_name: str) -> Awaitable[list[str]]:
-    async def read_all_lines_async():
-        with open(file_name, "r") as f:
-            return [line.strip("\n") for line in f.readlines()]
+def read_all_lines_async(file_name: str) -> Awaitable[Array[str]]:
+    async def _read_all_lines_async():
+        with open(file_name) as f:
+            return Array[str]([line.strip("\n") for line in f.readlines()])
 
-    return read_all_lines_async()
+    return _read_all_lines_async()
 
 
 def read_all_bytes(file_name: str) -> bytes:

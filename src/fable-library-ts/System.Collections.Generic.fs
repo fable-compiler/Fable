@@ -1,6 +1,6 @@
 namespace System.Collections.Generic
 
-type Comparer<'T when 'T: comparison>(comparison: 'T -> 'T -> int) =
+type Comparer<'T when 'T: comparison and 'T: null>(comparison: 'T -> 'T -> int) =
 
     static member Default = Comparer<'T>(LanguagePrimitives.GenericComparison)
 
@@ -9,9 +9,14 @@ type Comparer<'T when 'T: comparison>(comparison: 'T -> 'T -> int) =
     member _.Compare(x, y) = comparison x y
 
     interface IComparer<'T> with
-        member _.Compare(x, y) = comparison x y
+        member _.Compare(x, y) =
+            match x, y with
+            | null, null -> 0
+            | null, y -> -1
+            | x, null -> 1
+            | x, y -> comparison x y
 
-type EqualityComparer<'T when 'T: equality>(equals: 'T -> 'T -> bool, getHashCode: 'T -> int) =
+type EqualityComparer<'T when 'T: equality and 'T: null>(equals: 'T -> 'T -> bool, getHashCode: 'T -> int) =
 
     static member Default =
         EqualityComparer<'T>(LanguagePrimitives.GenericEquality, LanguagePrimitives.GenericHash)
@@ -20,10 +25,17 @@ type EqualityComparer<'T when 'T: equality>(equals: 'T -> 'T -> bool, getHashCod
         EqualityComparer<'T>(equals, getHashCode)
 
     member _.Equals(x, y) = equals x y
+
     member _.GetHashCode(x) = getHashCode x
 
     interface IEqualityComparer<'T> with
-        member _.Equals(x, y) = equals x y
+        member _.Equals(x, y) =
+            match x, y with
+            | null, null -> true
+            | null, y -> false
+            | x, null -> false
+            | x, y -> equals x y
+
         member _.GetHashCode(x) = getHashCode x
 
 type Stack<'T> private (initialContents, initialCount) =

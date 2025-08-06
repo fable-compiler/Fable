@@ -735,9 +735,6 @@ module TypeInfo =
         let importName = getLibraryImportName com ctx moduleName typeName
         transformGenericType com ctx genArgs importName
 
-    let transformNullableType com ctx genArg : Rust.Ty =
-        transformImportType com ctx [ genArg ] "Native" "Nullable"
-
     let transformBigIntType com ctx : Rust.Ty =
         transformImportType com ctx [] "BigInt" "bigint"
 
@@ -798,10 +795,16 @@ module TypeInfo =
     let transformThreadType com ctx : Rust.Ty =
         transformImportType com ctx [] "Thread" "Thread"
 
-    let transformTupleType com ctx isStruct genArgs : Rust.Ty =
+    let transformTupleType com ctx _isStruct genArgs : Rust.Ty =
         genArgs |> List.map (transformType com ctx) |> mkTupleTy
 
-    let transformOptionType com ctx genArg : Rust.Ty =
+    let transformNullableType com ctx isStruct genArg : Rust.Ty =
+        if isStruct then
+            transformImportType com ctx [ genArg ] "Native" "Nullable"
+        else
+            transformType com ctx genArg // nullable reference types are transparent
+
+    let transformOptionType com ctx _isStruct genArg : Rust.Ty =
         transformGenericType com ctx [ genArg ] (rawIdent "Option")
 
     let transformClosureType com ctx argTypes returnType : Rust.Ty =
@@ -956,6 +959,11 @@ module TypeInfo =
         | Fable.Operation(Fable.Unary(UnaryOperator.UnaryAddressOf, e), _, _, _) -> true
         | _ -> false
 
+    let isNullableValueType (com: IRustCompiler) =
+        function
+        | Fable.Nullable(_, true) -> true
+        | _ -> false
+
     let isByRefType (com: IRustCompiler) =
         function
         | Replacements.Util.IsByRefType com _ -> true
@@ -991,17 +999,17 @@ module TypeInfo =
            && not (Set.contains name ctx.ScopedEntityGenArgs)
            && not (Set.contains name ctx.ScopedMemberGenArgs)
 
-    let isNullableReferenceType com ctx constraints =
-        let isNullable = constraints |> List.contains Fable.Constraint.IsNullable
-        let isNotNullable = constraints |> List.contains Fable.Constraint.IsNotNullable
-        let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
-        isNullable || isNotNullable && isReferenceType
+    // let isNullableReferenceType com ctx constraints =
+    //     let isNullable = constraints |> List.contains Fable.Constraint.IsNullable
+    //     let isNotNullable = constraints |> List.contains Fable.Constraint.IsNotNullable
+    //     let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
+    //     isNullable || isNotNullable && isReferenceType
 
     let transformGenericParamType com ctx name isMeasure constraints : Rust.Ty =
-        // if isNullableReferenceType com ctx constraints then
-        //     // primitiveType name |> makeNullableTy com ctx
-        //     primitiveType name |> makeLrcPtrTy com ctx
-        // elif
+        // if Compiler.CheckNulls && isNullableReferenceType com ctx constraints then
+        //     primitiveType name |> makeNullableTy com ctx
+        //     // primitiveType name |> makeLrcPtrTy com ctx
+        // else
         if isInferredGenericParam com ctx name isMeasure then
             mkInferTy () // mkNeverTy ()
         else
@@ -1053,12 +1061,12 @@ module TypeInfo =
             | Fable.GenericParam(name, isMeasure, constraints) ->
                 transformGenericParamType com ctx name isMeasure constraints
             | Fable.Tuple(genArgs, isStruct) -> transformTupleType com ctx isStruct genArgs
-            | Fable.Option(genArg, _isStruct) -> transformOptionType com ctx genArg
+            | Fable.Nullable(genArg, isStruct) -> transformNullableType com ctx isStruct genArg
+            | Fable.Option(genArg, isStruct) -> transformOptionType com ctx isStruct genArg
             | Fable.Array(genArg, _kind) -> transformArrayType com ctx genArg
             | Fable.List genArg -> transformListType com ctx genArg
             | Fable.Regex -> transformRegexType com ctx
             | Fable.AnonymousRecordType(fieldNames, genArgs, isStruct) -> transformTupleType com ctx isStruct genArgs
-            | Replacements.Util.IsEntity (Types.nullable) (entRef, [ genArg ]) -> transformNullableType com ctx genArg
 
             // interfaces implemented as the type itself
             | Replacements.Util.IsEntity (Types.iset) (entRef, [ genArg ]) -> transformHashSetType com ctx genArg
@@ -1735,7 +1743,7 @@ module Util =
         makeLibCall com ctx None "String" "fromString" [ value ]
 
     let makeNullCheck com ctx (value: Rust.Expr) =
-        makeLibCall com ctx None "Native" "is_null" [ value ]
+        makeLibCall com ctx None "Native" "is_null" [ value |> mkAddrOfExpr ]
 
     let makeNull com ctx (typ: Fable.Type) =
         let typ =
@@ -2025,7 +2033,7 @@ module Util =
             | MaybeCasted(Fable.IdentExpr ident) -> isRefScoped ctx ident.Name
             | _ -> false
 
-        let targetIsRef = ctx.IsParamByRefPreferred
+        let targetIsRef = ctx.IsParamByRefPreferred //&& not implCopy
         // || Option.exists (isByRefType com) tOpt
         // || isAddrOfExpr e
 
@@ -2055,13 +2063,13 @@ module Util =
             let ctx = { ctx with IsParamByRefPreferred = false }
             com.TransformExpr(ctx, e)
 
-        match implCopy, implClone, sourceIsRef, targetIsRef, mustClone, isUnreachable with
-        | _, _, false, true, _, false -> expr |> mkAddrOfExpr
-        | _, _, true, true, _, false -> expr
-        | _, _, true, false, _, false -> expr |> makeClone
-        | false, true, _, false, true, false -> expr |> makeClone
+        match sourceIsRef, targetIsRef, implCopy, implClone, mustClone, isUnreachable with
+        | true, true, _, _, _, false -> expr
+        | false, true, _, _, _, false -> expr |> mkAddrOfExpr
+        | true, false, _, _, _, false -> expr |> makeClone
+        | false, false, false, true, true, false -> expr |> makeClone
         | _ -> expr
-    // |> BLOCK_COMMENT_SUFFIX (sprintf implCopy: %b, "implClone: %b, sourceIsRef; %b, targetIsRef: %b, isOnlyRef: %b (%i), isUnreachable: %b" implCopy implClone sourceIsRef targetIsRef isOnlyRef isUnreachable varAttrs.UsageCount)
+    // |> BLOCK_COMMENT_SUFFIX (sprintf "sourceIsRef: %b, targetIsRef: %b, implCopy: %b, implClone: %b, mustClone: %b, isUnreachable: %b" sourceIsRef targetIsRef implCopy implClone mustClone isUnreachable)
 
 
     // let extractBaseExprFromBaseCall (com: IRustCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
@@ -2354,15 +2362,12 @@ module Util =
 
         let isByRefPreferred =
             membOpt
-            |> Option.map (fun memberInfo ->
-                memberInfo.Attributes
-                |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef)
-            )
+            |> Option.map (fun memb -> memb.Attributes |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef))
             |> Option.defaultValue false
 
         let argParams =
             membOpt
-            |> Option.map (fun memberInfo -> memberInfo.CurriedParameterGroups |> List.concat)
+            |> Option.map (fun memb -> memb.CurriedParameterGroups |> List.concat)
             |> Option.defaultValue []
 
         let ctx =
@@ -2791,34 +2796,47 @@ module Util =
         exprs |> List.map (transformAsStmt com ctx) |> mkStmtBlockExpr
 
     let transformIfThenElse (com: IRustCompiler) ctx range guard thenBody elseBody =
-        // match canTransformDecisionTreeAsSwitch guard thenBody elseBody with
-        // | Some(evalExpr, cases, defaultCase) ->
-        //     transformSwitch com ctx evalExpr cases (Some defaultCase)
-        // | _ ->
-        let guardExpr =
-            match guard with
-            | Fable.Test(expr, Fable.TypeTest typ, r) -> transformTypeTest com ctx r true typ expr
-            | Fable.Test(expr, Fable.OptionTest isSome, r) -> makeOptionTest com ctx r isSome expr
-            | Fable.Test(expr, Fable.UnionCaseTest tag, r) -> makeUnionCaseTest com ctx r tag expr
-            | _ -> transformLeaveContext com ctx None guard
-
-        let thenExpr =
-            let ctx =
-                match guard with
-                // | Fable.Test(Fable.IdentExpr ident, Fable.OptionTest _, _)
-                | Fable.Test(Fable.IdentExpr ident, Fable.UnionCaseTest _, _) ->
-                    // add scoped ident to ctx for thenBody
-                    let usages = calcIdentUsages [ ident ] [ thenBody ]
-                    getScopedIdentCtx com ctx ident true false false false usages
-                | _ -> ctx
-
-            transformLeaveContext com ctx None thenBody
-
-        match elseBody with
-        | Fable.Value(Fable.UnitConstant, _) -> mkIfThenExpr guardExpr thenExpr // ?loc=range)
-        | _ ->
+        // transform null checks for nullable value types
+        match guard with
+        | Fable.Test(Fable.IdentExpr ident, Fable.OptionTest false, r) when isNullableValueType com ident.Type ->
+            let value = transformIdentGet com ctx r ident
+            let pat = makeUnionCasePat (rawIdent "Some") [ makeFullNameIdentPat ident.Name ]
+            let letExpr = mkLetExpr pat value
+            let thenExpr = transformLeaveContext com ctx None thenBody
             let elseExpr = transformLeaveContext com ctx None elseBody
-            mkIfThenElseExpr guardExpr thenExpr elseExpr // ?loc=range)
+
+            match thenBody with
+            | Fable.Value(Fable.UnitConstant, _) -> mkIfThenExpr letExpr elseExpr // ?loc=range)
+            | _ -> mkIfThenElseExpr letExpr elseExpr thenExpr // ?loc=range)
+        | _ ->
+            // match canTransformDecisionTreeAsSwitch guard thenBody elseBody with
+            // | Some(evalExpr, cases, defaultCase) ->
+            //     transformSwitch com ctx evalExpr cases (Some defaultCase)
+            // | _ ->
+            let guardExpr =
+                match guard with
+                | Fable.Test(expr, Fable.TypeTest typ, r) -> transformTypeTest com ctx r true typ expr
+                | Fable.Test(expr, Fable.OptionTest isSome, r) -> makeOptionTest com ctx r isSome expr
+                | Fable.Test(expr, Fable.UnionCaseTest tag, r) -> makeUnionCaseTest com ctx r tag expr
+                | _ -> transformLeaveContext com ctx None guard
+
+            let thenExpr =
+                let ctx =
+                    match guard with
+                    // | Fable.Test(Fable.IdentExpr ident, Fable.OptionTest _, _)
+                    | Fable.Test(Fable.IdentExpr ident, Fable.UnionCaseTest _, _) ->
+                        // add scoped ident to ctx for thenBody
+                        let usages = calcIdentUsages [ ident ] [ thenBody ]
+                        getScopedIdentCtx com ctx ident true false false false usages
+                    | _ -> ctx
+
+                transformLeaveContext com ctx None thenBody
+
+            match elseBody with
+            | Fable.Value(Fable.UnitConstant, _) -> mkIfThenExpr guardExpr thenExpr // ?loc=range)
+            | _ ->
+                let elseExpr = transformLeaveContext com ctx None elseBody
+                mkIfThenElseExpr guardExpr thenExpr elseExpr // ?loc=range)
 
     let transformWhileLoop (com: IRustCompiler) ctx range guard body =
         let guardExpr = transformExpr com ctx guard
@@ -3133,7 +3151,7 @@ module Util =
             let bindings, replacements =
                 (([], Map.empty), identsAndValues)
                 ||> List.fold (fun (bindings, replacements) (ident, expr) ->
-                    if canHaveSideEffects expr then
+                    if canHaveSideEffects com expr then
                         (ident, expr) :: bindings, replacements
                     else
                         bindings, Map.add ident.Name expr replacements
@@ -3923,7 +3941,7 @@ module Util =
             | Fable.Constraint.IsNullable -> [ makeImportBound com ctx "Native" "NullableRef" ]
             | Fable.Constraint.IsNotNullable -> []
             | Fable.Constraint.IsValueType -> []
-            | Fable.Constraint.IsReferenceType -> []
+            | Fable.Constraint.IsReferenceType -> [ makeImportBound com ctx "Native" "NullableRef" ]
             | Fable.Constraint.HasDefaultConstructor -> []
             | Fable.Constraint.HasAllowsRefStruct -> []
             | Fable.Constraint.HasComparison -> [ makeRawBound "PartialOrd" ]
@@ -4855,17 +4873,6 @@ module Util =
         let implItem = memberItems |> makeTraitImpl com ctx entName genArgs ofTrait
         [ implItem ]
 
-    // let objectMemberNames =
-    //     set
-    //         [
-    //             // "Equals"
-    //             // "GetHashCode"
-    //             // "MemberwiseClone"
-    //             // "ReferenceEquals"
-    //             "GetType"
-    //             "ToString"
-    //         ]
-
     let findInterfaceGenArgs (com: IRustCompiler) (ent: Fable.Entity) (ifcEntRef: Fable.EntityRef) =
         let ifcOpt =
             ent.AllInterfaces
@@ -5353,6 +5360,7 @@ module Compiler =
             member _.OutputDir = com.OutputDir
             member _.OutputType = com.OutputType
             member _.ProjectFile = com.ProjectFile
+            member _.ProjectOptions = com.ProjectOptions
             member _.SourceFiles = com.SourceFiles
             member _.IncrementCounter() = com.IncrementCounter()
             member _.IsPrecompilingInlineFunction = com.IsPrecompilingInlineFunction
@@ -5416,6 +5424,7 @@ module Compiler =
                     mkInnerAttr "allow" [ "non_camel_case_types" ]
                     mkInnerAttr "allow" [ "non_snake_case" ]
                     mkInnerAttr "allow" [ "non_upper_case_globals" ]
+                    mkInnerAttr "allow" [ "unexpected_cfgs" ]
                     mkInnerAttr "allow" [ "unreachable_code" ]
                     mkInnerAttr "allow" [ "unused_attributes" ]
                     mkInnerAttr "allow" [ "unused_imports" ]

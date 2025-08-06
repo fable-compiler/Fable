@@ -57,3 +57,24 @@ let ``test Struct anonymous records structural equality works`` () =
     a = b |> equal true
     a = c |> equal false
     b = c |> equal false
+
+[<Fact>]
+let ``test Anonymous records field access with camelCase names`` () =
+    let ar = {| someName = "foo"; anotherField = 42 |}
+    ar.someName |> equal "foo"
+    ar.anotherField |> equal 42
+
+type ItemWithAnonRecord<'T> = { Content: 'T }
+
+[<Fact>]
+let ``test Anonymous records in Maps work`` () =
+    // This reproduces the original issue #3869 where anonymous records
+    // inside regular records used as Map keys would fail comparison
+    let items = [3 .. 5] |> List.map (fun i -> { Content = {| Id = i; Name = $"Name:{i}" |} })
+    let m = items |> List.map (fun a -> a, a) |> Map.ofList
+    let value = m |> Map.tryFind items.Head
+
+    // Verify the map operation succeeded and we can retrieve values
+    value.IsSome |> equal true
+    value.Value.Content.Id |> equal 3
+    value.Value.Content.Name |> equal "Name:3"

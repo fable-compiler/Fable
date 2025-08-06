@@ -12,13 +12,16 @@
     "prebuild-cli-js": "npm run clean && FABLE=fable-cli npm run build-lib-ts",
     "build-cli-js": "npm run fable-cli -- bench-compiler.fsproj --outDir ./out-node --fableLib ./out-lib-js",
     "postbuild-cli-js": "npm run rollup-bundle",
+    "prebuild-cli-ts": "npm run clean && FABLE=fable-cli npm run build-lib-ts",
+    "build-cli-ts": "npm run fable-cli -- bench-compiler.fsproj --outDir ./out-ts --fableLib ./out-lib-ts --lang TypeScript --exclude Fable.Core",
+    "postbuild-cli-ts": "cp tsconfig.json out-ts && npm run tsc -- -p ./out-ts --outDir ./out-js",
     "build-cli-rust": "npm run fable-cli -- bench-compiler.fsproj --outDir ./out-rust --lang Rust --noCache",
 
     "fable": "dotnet run -c Release --project bench-compiler.fsproj",
     "prebuild-js": "npm run clean && FABLE=fable npm run build-lib-ts",
     "prebuild-ts": "npm run clean && FABLE=fable npm run build-lib-ts",
     "build-js": "npm run fable -- bench-compiler.fsproj --outDir ./out-node --fableLib ./out-lib-js",
-    "build-ts": "npm run fable -- bench-compiler.fsproj --outDir ./out-ts --fableLib ./out-lib-ts --lang TypeScript",
+    "build-ts": "npm run fable -- bench-compiler.fsproj --outDir ./out-ts --fableLib ./out-lib-ts --lang TypeScript --exclude Fable.Core",
     "build-rust": "npm run fable -- bench-compiler.fsproj --outDir ./out-rust --lang Rust",
     "build-opt": "npm run build-js -- --optimize",
     "postbuild-js": "npm run rollup-bundle",
@@ -34,7 +37,7 @@
 
     "publish-native": "cd src && dotnet publish -c Release -r linux-x64 & echo \u001B[35m Needs PublishAot enabled in project!",
     "prefable-native": "npm run publish-native",
-    "fable-native": "./bin/Release/net8.0/linux-x64/native/bench-compiler",
+    "fable-native": "./bin/Release/net9.0/linux-x64/native/bench-compiler",
     "prebuild-native-js": "FABLE=fable-native npm run build-lib-ts",
     "build-native-js": "npm run fable-native -- bench-compiler.fsproj --outDir ./out-node --fableLib ./out-lib-js",
     "build-test-native-js": "npm run fable-native -- ../../../../../fable-test/fable-test.fsproj --outDir ./out-test",
@@ -42,7 +45,7 @@
 
     "publish-wasm": "cd src && dotnet publish -c Release /p:RunAOTCompilation=true /p:RuntimeIdentifier=browser-wasm",
     "prefable-wasm": "npm run publish-wasm",
-    "fable-wasm": "node ./bin/Release/net8.0/browser-wasm/AppBundle/main.mjs",
+    "fable-wasm": "node ./bin/Release/net9.0/browser-wasm/AppBundle/main.mjs",
     "prebuild-wasm-js": "FABLE=fable-wasm npm run build-lib-ts",
     "build-wasm-js": "npm run fable-wasm -- bench-compiler.fsproj --outDir ./out-node --fableLib ./out-lib-js",
 
@@ -87,9 +90,10 @@
     "webpack": "node ../../../../node_modules/webpack-cli/bin/cli.js",
     "splitter": "node ../../../../node_modules/fable-splitter/dist/cli",
 
+    "ultra": "ultra profile -- bin\\Release\\net9.0\\bench-compiler.exe bench-compiler.fsproj --outDir ./out-node2 --benchmark",
     "perf": "perf record -q -e cpu-clock -F 99 -g -- node --perf-basic-prof --interpreted-frames-native-stack dist/bundle.js bench-compiler.fsproj --outDir ./out-node2 --benchmark",
     "perf-es": "perf record -q -e cpu-clock -F 99 -g -- node --perf-basic-prof --interpreted-frames-native-stack ./out-node/app.js bench-compiler.fsproj --outDir ./out-node2 --benchmark",
-    "perf-native": "perf record -q -e cpu-clock -F 997 -g -- ./bin/Release/net8.0/linux-x64/native/bench-compiler bench-compiler.fsproj --outDir ./out-node2 --benchmark",
+    "perf-native": "perf record -q -e cpu-clock -F 997 -g -- ./bin/Release/net9.0/linux-x64/native/bench-compiler bench-compiler.fsproj --outDir ./out-node2 --benchmark",
     "perf-report": "perf report -n --stdio -g srcline -s dso,sym,srcline --inline > perf-report.log",
     "perf-script": "perf script -F +pid > perf-script.perf",
     "profile": "node --prof out-node/app.js bench-compiler.fsproj --outDir ./out-node2 --benchmark",
@@ -100,11 +104,11 @@
     "speedscope": "speedscope profile.v8log.json",
     "flamegraph": "perf script | ../../../../../FlameGraph/stackcollapse-perf.pl | ../../../../../FlameGraph/flamegraph.pl > perf.svg",
     "trace-node": "node --trace-deopt out-node/app.js bench-compiler.fsproj --outDir ./out-node2 > deopt.log",
-    "trace-rust": "dotnet trace collect --duration 00:00:03:00 --format speedscope -- dotnet ./bin/Release/net8.0/bench-compiler.dll bench-compiler.fsproj --outDir ./out-rust2 --fableLib ./out-lib-rust --lang Rust",
-    "trace-rust-tests": "dotnet trace collect --duration 00:00:01:00 --format speedscope -- dotnet ./bin/Release/net8.0/bench-compiler.dll ../../../../tests/Rust/Fable.Tests.Rust.fsproj --outDir ./out-tests-rust --fableLib ./out-lib-rust --lang Rust",
-    "heaptrack-native": "heaptrack ./bin/Release/net8.0/linux-x64/native/bench-compiler bench-compiler.fsproj --outDir ./out-node2 --benchmark",
+    "trace-rust": "dotnet trace collect --duration 00:00:03:00 --format speedscope -- dotnet ./bin/Release/net9.0/bench-compiler.dll bench-compiler.fsproj --outDir ./out-rust2 --fableLib ./out-lib-rust --lang Rust",
+    "trace-rust-tests": "dotnet trace collect --duration 00:00:01:00 --format speedscope -- dotnet ./bin/Release/net9.0/bench-compiler.dll ../../../../tests/Rust/Fable.Tests.Rust.fsproj --outDir ./out-tests-rust --fableLib ./out-lib-rust --lang Rust",
+    "heaptrack-native": "heaptrack ./bin/Release/net9.0/linux-x64/native/bench-compiler bench-compiler.fsproj --outDir ./out-node2 --benchmark",
     "heaptrack-print": "heaptrack_print heaptrack.*.gz -F heap_alloc.log",
     "heaptrack-flamegraph": "../../../../../FlameGraph/flamegraph.pl --title \"heaptrack: allocations\" --colors mem --countname allocations < heap_alloc.log > heap_alloc.svg",
-    "coz": "coz run --- ./bin/Release/net8.0/linux-x64/native/bench-compiler bench-compiler.fsproj --outDir ./out-node2 --benchmark"
+    "coz": "coz run --- ./bin/Release/net9.0/linux-x64/native/bench-compiler bench-compiler.fsproj --outDir ./out-node2 --benchmark"
   }
 }

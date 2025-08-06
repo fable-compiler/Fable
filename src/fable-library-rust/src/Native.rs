@@ -149,7 +149,7 @@ pub mod Native_ {
     }
 
     #[inline]
-    pub fn is_null<T: NullableRef>(o: T) -> bool {
+    pub fn is_null<T: NullableRef>(o: &T) -> bool {
         o.is_null()
     }
 
@@ -173,19 +173,11 @@ pub mod Native_ {
     }
 
     pub fn min<T: PartialOrd>(x: T, y: T) -> T {
-        if x < y {
-            x
-        } else {
-            y
-        }
+        if x < y { x } else { y }
     }
 
     pub fn max<T: PartialOrd>(x: T, y: T) -> T {
-        if x > y {
-            x
-        } else {
-            y
-        }
+        if x > y { x } else { y }
     }
 
     pub fn equals<T: PartialEq>(x: T, y: T) -> bool {
@@ -453,7 +445,7 @@ pub mod Native_ {
     }
 
     pub fn ofObj<T: Clone + NullableRef + 'static>(value: T) -> Option<T> {
-        if is_null(value.clone()) {
+        if is_null(&value) {
             None::<T>
         } else {
             Some(value)

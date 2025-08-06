@@ -1,21 +1,41 @@
-[tool.poetry]
+[project]
 name = "Fable"
 version = "4.3.0"
 description = "Fable"
-authors = ["Alfonso Garcia-Caro <@alfonsogcnunez>", "Dag Brattli <dag@brattli.net>"]
-license = "MIT License"
-readme = "README.md"
-homepage = "https://fable.io"
-packages = [
-    { include = "temp/fable-library-py/fable_library", from = "." },
+authors = [
+    { name = "Alfonso Garcia-Caro" },
+    { name = "Dag Brattli", email = "dag@brattli.net" },
 ]
-[tool.poetry.dependencies]
-python = ">= 3.10, < 4.0"
-python-dateutil = "^2.9.0"
+requires-python = ">= 3.12, < 4.0"
+readme = "README.md"
+license = "MIT"
+dependencies = ["python-dateutil>=2.9.0,<3"]
 
-[tool.poetry.dev-dependencies]
-pytest = "^8.1.1"
-ruff = "^0.3.4"
+[project.urls]
+Homepage = "https://fable.io"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5,<9",
+    "ruff>=0.11.6,<0.12",
+    "maturin>=1.8.3,<2",
+    "dunamai>=1.23.1,<2",
+    "pydantic>=2.11.7",
+    "attrs>=25.3.0",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["./temp/fable-library-py/fable_library"]
+
+[tool.hatch.build.targets.wheel]
+include = ["./temp/fable-library-py/fable_library"]
+
+[tool.hatch.build.targets.wheel.sources]
+"./temp/fable-library-py/fable_library" = "temp/fable-library-py/fable_library"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.pyright]
 reportMissingTypeStubs = false
@@ -33,15 +53,15 @@ reportConstantRedefinition = true
 reportOverlappingOverload = true
 reportInconsistentConstructor = true
 reportImplicitStringConcatenation = true
-pythonVersion = "3.10"
+pythonVersion = "3.12"
 typeCheckingMode = "strict"
 
 [tool.ruff]
 # Keep in sync with .pre-commit-config.yaml
 line-length = 120
 lint.ignore = []
-target-version = "py310"
 lint.select = ["E", "W",  "F", "I", "T", "RUF", "TID", "UP"]
+target-version = "py312"
 include =["*.py"]
 
 [tool.ruff.lint.pydocstyle]
@@ -52,11 +72,7 @@ lines-after-imports = 2
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-pythonpath = "temp/tests/Python"
+pythonpath = ["temp/tests/Python", "."]
 testpaths = [
     "temp/tests/Python",
 ]
-
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"

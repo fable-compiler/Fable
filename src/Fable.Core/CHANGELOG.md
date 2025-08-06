@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Python] Added `Decorate` attribute to add Python decorators to classes (by @dbrattli)
+* [Python] Added `ClassAttributes` attribute to control Python class generation (@dbrattli)
+
+## 5.0.0-beta.1 - 2025-07-25
+
+### Added
+
+* [JS/TS] Fix #3533: Add `emitJsTopDirectivePrologue` supports (by @MangelMaxime)
+* [JS/TS] Fix #3533: Add `emitJsDirectivePrologue` supports (by @MangelMaxime)
+* [All] Improve xml doc comments (by @shayanhabibi)
+
+### Changed
+
+* Enforce Fable.Core to dependes on FSharp.Core >= 4.7.2 (by @PierreYvesR)
+
 ## 4.5.0 - 2025-03-03
 
 ### Added

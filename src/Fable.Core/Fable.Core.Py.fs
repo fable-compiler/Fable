@@ -27,24 +27,44 @@ module Py =
 
         abstract Decorate: fn: Callable * info: Reflection.MethodInfo -> Callable
 
-    [<AllowNullLiteral>]
-    type ArrayConstructor =
-        [<Emit "$0([None]*$1...)">]
-        abstract Create: size: int -> 'T[]
+    /// <summary>
+    /// Adds Python decorators to generated classes, enabling integration with Python
+    /// frameworks like dataclasses, attrs, functools, and any other decorator-based
+    /// libraries.
+    /// </summary>
+    /// <remarks>
+    /// <para>The [&lt;Decorate&gt;] attribute is purely for Python interop and does NOT
+    /// affect F# compilation behavior.</para>
+    /// <para>Multiple [&lt;Decorate&gt;] attributes are applied in reverse order
+    /// (bottom to top), following Python's standard decorator stacking behavior.</para>
+    /// <para>Examples:</para>
+    /// <para>[&lt;Decorate("dataclasses.dataclass")&gt;] - Simple decorator</para>
+    /// <para>[&lt;Decorate("functools.lru_cache", "maxsize=128")&gt;] - Decorator with
+    /// parameters</para>
+    /// </remarks>
+    [<AttributeUsage(AttributeTargets.Class, AllowMultiple = true)>]
+    type DecorateAttribute(decorator: string) =
+        inherit Attribute()
 
-        [<Emit "isinstance($1, list)">]
-        abstract isArray: arg: obj -> bool
+        new(decorator: string, parameters: string) = DecorateAttribute(decorator)
 
-        abstract from: arg: obj -> 'T[]
+        member val Decorator: string = decorator with get, set
+        member val Parameters: string = "" with get, set
 
-    and [<AllowNullLiteral>] ArrayBuffer =
-        abstract byteLength: int
+    /// Used on a class to provide Python-specific control over how F# types are transpiled to Python classes.
+    /// This attribute implies member attachment (similar to AttachMembers) while offering Python-specific parameters.
+    /// </summary>
+    /// <remarks>
+    /// <para>When placed on a class, all members are attached without mangling (like AttachMembers).</para>
+    /// <para>Additional Python-specific parameters control the generated Python class style and features.</para>
+    /// </remarks>
+    [<AttributeUsage(AttributeTargets.Class)>]
+    type ClassAttributes() =
+        inherit Attribute()
 
-        [<Emit("$0[$1:$1+$2]")>]
-        abstract slice: ``begin``: int * ?``end``: int -> ArrayBuffer
+        new(style: string) = ClassAttributes()
 
-    [<Emit("list")>]
-    let Array: ArrayConstructor = nativeOnly
+        new(style: string, init: bool) = ClassAttributes()
 
     // Hack because currently Fable doesn't keep information about spread for anonymous functions
     [<Emit("lambda *args: $0(args)")>]

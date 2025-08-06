@@ -981,7 +981,7 @@ let distinct<'T when 'T: equality> (xs: 'T[]) : 'T[] =
     let hashSet = System.Collections.Generic.HashSet<'T>()
     xs |> filter (fun x -> hashSet.Add(x))
 
-let distinctBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T[]) : 'T[] =
+let distinctBy<'T, 'Key when 'Key: equality and 'Key: not null> (projection: 'T -> 'Key) (xs: 'T[]) : 'T[] =
     let hashSet = System.Collections.Generic.HashSet<'Key>()
     xs |> filter (fun x -> hashSet.Add(projection x))
 
@@ -989,7 +989,7 @@ let except<'T when 'T: equality> (itemsToExclude: seq<'T>) (xs: 'T[]) : 'T[] =
     let hashSet = System.Collections.Generic.HashSet<'T>(itemsToExclude)
     xs |> filter (fun x -> hashSet.Add(x))
 
-let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T[]) : ('Key * int)[] =
+let countBy<'T, 'Key when 'Key: equality and 'Key: not null> (projection: 'T -> 'Key) (xs: 'T[]) : ('Key * int)[] =
     let dict = System.Collections.Generic.Dictionary<'Key, int>()
     let keys = ResizeArray<'Key>()
 
@@ -1004,7 +1004,7 @@ let countBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T[]) : 
 
     keys |> asArray |> map (fun key -> key, dict[key])
 
-let groupBy<'T, 'Key when 'Key: equality> (projection: 'T -> 'Key) (xs: 'T[]) : ('Key * 'T[])[] =
+let groupBy<'T, 'Key when 'Key: equality and 'Key: not null> (projection: 'T -> 'Key) (xs: 'T[]) : ('Key * 'T[])[] =
     let dict = System.Collections.Generic.Dictionary<'Key, ResizeArray<'T>>()
     let keys = ResizeArray<'Key>()
 

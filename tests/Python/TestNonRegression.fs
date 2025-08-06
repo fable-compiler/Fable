@@ -180,3 +180,55 @@ let ``test custom equality and hashcode works`` () =
 let ``test class name casing`` () =
     let x = Issue3811.flowchartDirection.tb' ()
     equal Issue3811.FlowchartDirection.TB x
+
+module Issue3972 =
+    type IInterface =
+        abstract member LOL : int
+
+[<Fact>]
+let ``test with interfaces does not not lead to incorrect pattern matching`` () =
+    let sideEffect () = ()
+    let typeMatchSomeBoxedObject (o:obj) =
+        match o with
+        | :? int -> 1
+        | :? Issue3972.IInterface ->
+            sideEffect () // To avoid any code optimizations
+            2
+        | _ -> 3
+
+    equal (typeMatchSomeBoxedObject "lol") 3
+
+module Issue3986 =
+    // We don't need a test for this, just that the generated
+    // Python code is valid and doesn't throw an error when
+    // interpreted.
+    type FieldFnCreator<'b, 'c> =
+        abstract eval<'a> : string -> ('c -> 'a)
+
+module Issue4125 =
+    let none () : unit option =
+        None
+
+[<Fact>]
+let ``test issue 4125`` () =
+    let x = Issue4125.none ()
+    equal None x
+
+module Issue3912 =
+    type X() =
+        let mutable _disposed = false
+
+        member this.IsDisposed = _disposed
+
+        interface System.IDisposable with
+            member this.Dispose() =
+                _disposed <- true
+
+[<Fact>]
+let ``test issue 3912`` () =
+    let x = new Issue3912.X()
+
+    let () =
+        use x = x
+        ()
+    equal x.IsDisposed true

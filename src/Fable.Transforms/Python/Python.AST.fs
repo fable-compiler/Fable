@@ -1,11 +1,51 @@
 // Python AST based on https://docs.python.org/3/library/ast.html. Currently uses records instead of tagged unions to
 // better match with the Python AST docs.
-namespace rec Fable.AST.Python
+namespace rec Fable.Transforms.Python.AST
 
 // fsharplint:disable MemberNames InterfaceNames
 
 open Fable.AST
-open Fable.AST.Python
+open Fable.Transforms.Python.AST
+
+/// Type parameters introduced in Python 3.12 (PEP 695)
+type TypeParam =
+    | TypeVar of TypeVarParam
+    | ParamSpec of ParamSpecParam
+    | TypeVarTuple of TypeVarTupleParam
+
+/// TypeVar type parameter with optional bound and default value
+type TypeVarParam =
+    {
+        Name: Identifier
+        Bound: Expression option
+        DefaultValue: Expression option
+        Loc: SourceLocation option
+    }
+
+/// ParamSpec type parameter for parameter specifications
+type ParamSpecParam =
+    {
+        Name: Identifier
+        DefaultValue: Expression option
+        Loc: SourceLocation option
+    }
+
+/// TypeVarTuple type parameter for variable-length tuple types
+type TypeVarTupleParam =
+    {
+        Name: Identifier
+        DefaultValue: Expression option
+        Loc: SourceLocation option
+    }
+
+/// Type alias statement introduced in Python 3.12 (PEP 695)
+type TypeAlias =
+    {
+        Name: Expression
+        TypeParams: TypeParam list
+        Value: Expression
+        Loc: SourceLocation option
+    }
 
 /// https://docs.python.org/3/library/ast.html#expressions
 type Expression =
@@ -120,6 +160,7 @@ type Statement =
     | ClassDef of ClassDef
     | AsyncFor of AsyncFor
     | AnnAssign of AnnAssign
+    | TypeAlias of TypeAlias
     | ImportFrom of ImportFrom
     | FunctionDef of FunctionDef
     | AsyncFunctionDef of AsyncFunctionDef
@@ -151,7 +192,7 @@ type Alias =
     }
 
 /// A single except clause. type is the exception type it will match, typically a Name node (or None for a catch-all
-/// except: clause). name is a raw string for the name to hold the exception, or None if the clause doesn’t have as foo.
+/// except: clause). name is a raw string for the name to hold the exception, or None if the clause doesn't have as foo.
 /// body is a list of nodes.
 type ExceptHandler =
     {
@@ -173,7 +214,7 @@ type Try =
     }
 
 /// A single context manager in a with block. context_expr is the context manager, often a Call node. optional_vars is a
-/// Name, Tuple or List for the as foo part, or None if that isn’t used.
+/// Name, Tuple or List for the as foo part, or None if that isn't used.
 type WithItem =
     {
         ContextExpr: Expression
@@ -305,7 +346,7 @@ type While =
 ///
 /// - name is a raw string for the class name
 /// - bases is a list of nodes for explicitly specified base classes.
-/// - keywords is a list of keyword nodes, principally for ‘metaclass’. Other keywords will be passed to the metaclass,
+/// - keywords is a list of keyword nodes, principally for 'metaclass'. Other keywords will be passed to the metaclass,
 ///   as per PEP-3115.
 /// - starargs and kwargs are each a single node, as in a function call. starargs will be expanded to join the list of
 ///   base classes, and kwargs will be passed to the metaclass.
@@ -341,15 +382,16 @@ type ClassDef =
     {
         Name: Identifier
         Bases: Expression list
-        Keyword: Keyword list
+        Keywords: Keyword list
         Body: Statement list
         DecoratorList: Expression list
+        TypeParams: TypeParam list
         Loc: SourceLocation option
     }
 
 /// An if statement. test holds a single node, such as a Compare node. body and orelse each hold a list of nodes.
 ///
-/// elif clauses don’t have a special representation in the AST, but rather appear as extra If nodes within the orelse
+/// elif clauses don't have a special representation in the AST, but rather appear as extra If nodes within the orelse
 /// section of the previous one.
 ///
 /// ```py
@@ -430,6 +472,7 @@ type FunctionDef =
         Returns: Expression option
         TypeComment: string option
         Comment: string option
+        TypeParams: TypeParam list
     }
 
 /// global and nonlocal statements. names is a list of raw strings.
@@ -491,9 +534,10 @@ type AsyncFunctionDef =
         Returns: Expression option
         TypeComment: string option
         Comment: string option
+        TypeParams: TypeParam list
     }
 
-    static member Create(name, args, body, decoratorList, ?returns, ?typeComment, ?comment) =
+    static member Create(name, args, body, decoratorList, ?returns, ?typeComment, ?comment, ?typeParams) =
         {
             Name = name
             Args = args
@@ -502,6 +546,7 @@ type AsyncFunctionDef =
             Returns = returns
             TypeComment = typeComment
             Comment = comment
+            TypeParams = defaultArg typeParams []
         }
 
 /// An import statement. names is a list of alias nodes.
@@ -526,7 +571,7 @@ type Assert =
         Msg: Expression option
     }
 
-/// Represents from x import y. module is a raw string of the ‘from’ name, without any leading dots, or None for
+/// Represents from x import y. module is a raw string of the 'from' name, without any leading dots, or None for
 /// statements such as from . import foo. level is an integer holding the level of the relative import (0 means absolute
 /// import).
 ///
@@ -798,7 +843,7 @@ type Tuple =
 ///```
 type List = { Elements: Expression list }
 
-/// A set. elts holds a list of nodes representing the set’s elements.
+/// A set. elts holds a list of nodes representing the set's elements.
 ///
 /// ```py
 /// >>> print(ast.dump(ast.parse('{1, 2, 3}', mode='eval'), indent=4))
@@ -898,18 +943,22 @@ module PythonExtensions =
             }
             |> With
 
-        static member classDef(name, ?bases, ?keywords, ?body, ?decoratorList, ?loc) : Statement =
+        static member classDef(name, ?bases, ?keywords, ?body, ?decoratorList, ?typeParams, ?loc) : Statement =
             {
                 Name = name
                 Bases = defaultArg bases []
-                Keyword = defaultArg keywords []
+                Keywords = defaultArg keywords []
                 Body = defaultArg body []
                 DecoratorList = defaultArg decoratorList []
+                TypeParams = defaultArg typeParams []
                 Loc = loc
             }
             |> ClassDef
 
-        static member functionDef(name, args, body, ?decoratorList, ?returns, ?typeComment, ?comment) : Statement =
+        static member functionDef
+            (name, args, body, ?decoratorList, ?returns, ?typeComment, ?comment, ?typeParams)
+            : Statement
+            =
             {
                 FunctionDef.Name = name
                 Args = args
@@ -918,10 +967,14 @@ module PythonExtensions =
                 Returns = returns
                 TypeComment = typeComment
                 Comment = comment
+                TypeParams = defaultArg typeParams []
             }
             |> FunctionDef
 
-        static member asyncFunctionDef(name, args, body, ?decoratorList, ?returns, ?typeComment, ?comment) : Statement =
+        static member asyncFunctionDef
+            (name, args, body, ?decoratorList, ?returns, ?typeComment, ?comment, ?typeParams)
+            : Statement
+            =
             {
                 AsyncFunctionDef.Name = name
                 Args = args
@@ -930,8 +983,18 @@ module PythonExtensions =
                 Returns = returns
                 TypeComment = typeComment
                 Comment = comment
+                TypeParams = defaultArg typeParams []
             }
             |> AsyncFunctionDef
+
+        static member annAssign(target, ?value, ?annotation, ?simple) : Statement =
+            {
+                AnnAssign.Target = target
+                Value = value
+                Annotation = annotation |> Option.defaultValue (Expression.none)
+                Simple = defaultArg simple false
+            }
+            |> AnnAssign
 
         static member assign(targets, value, ?typeComment) : Statement =
             {
@@ -981,6 +1044,15 @@ module PythonExtensions =
             NonLocal.Create ids |> Statement.NonLocal
 
         static member global'(ids) = Global.Create ids |> Statement.Global
+
+        static member typeAlias(name, value, ?typeParams, ?loc) : Statement =
+            {
+                Name = name
+                TypeParams = defaultArg typeParams []
+                Value = value
+                Loc = loc
+            }
+            |> TypeAlias
 
     type Expression with
 
@@ -1309,3 +1381,30 @@ module PythonExtensions =
     type Expr with
 
         static member expr(value) : Expr = { Value = value }
+
+    type TypeParam with
+
+        static member typeVar(name, ?bound, ?defaultValue, ?loc) : TypeParam =
+            {
+                TypeVarParam.Name = name
+                Bound = bound
+                DefaultValue = defaultValue
+                Loc = loc
+            }
+            |> TypeVar
+
+        static member paramSpec(name, ?defaultValue, ?loc) : TypeParam =
+            {
+                ParamSpecParam.Name = name
+                DefaultValue = defaultValue
+                Loc = loc
+            }
+            |> ParamSpec
+
+        static member typeVarTuple(name, ?defaultValue, ?loc) : TypeParam =
+            {
+                TypeVarTupleParam.Name = name
+                DefaultValue = defaultValue
+                Loc = loc
+            }
+            |> TypeVarTuple

@@ -1,57 +1,24 @@
 from __future__ import annotations
 
-import array
 from abc import abstractmethod
-from collections.abc import Callable, Iterable, MutableSequence
+from collections.abc import Iterable
 from typing import (
     Any,
-    Generic,
-    TypeVar,
+    TypeAlias,
     cast,
 )
 
-from .util import Array, IComparable, compare
-
-
-_T = TypeVar("_T")
-
-
-class FSharpRef(Generic[_T]):
-    __slots__ = "getter", "setter"
-
-    def __init__(
-        self,
-        contents_or_getter: None | (_T | Callable[[], _T]),
-        setter: Callable[[_T], None] | None = None,
-    ) -> None:
-        contents = cast(_T, contents_or_getter)
-
-        def set_contents(value: _T):
-            nonlocal contents
-            contents = value
-
-        if callable(setter):
-            self.getter = cast(Callable[[], _T], contents_or_getter)
-            self.setter = setter
-        else:
-            self.getter = lambda: contents
-            self.setter = set_contents
-
-    @property
-    def contents(self) -> _T:
-        return self.getter()
-
-    @contents.setter
-    def contents(self, v: _T) -> None:
-        self.setter(v)
+from .array_ import Array
+from .core import FSharpRef, byte, float32, float64, int8, int16, int32, int64, sbyte, uint8, uint16, uint32, uint64
+from .util import IComparable, compare
 
 
 class Union(IComparable):
-    __slots__ = "tag", "fields"
+    __slots__: tuple[str, ...] = ("fields", "tag")
 
-    def __init__(self):
-        self.tag: int
-        self.fields: Array[Any] = []
+    def __init__(self) -> None:
+        self.tag: int32
+        self.fields: Array[Any] = Array[Any]()
 
     @staticmethod
     @abstractmethod
@@ -84,9 +51,13 @@ class Union(IComparable):
     def __repr__(self) -> str:
         return str(self)
 
+    def GetHashCode(self) -> int32:
+        return int32(hash((self.tag, *self.fields)))
+
     def __hash__(self) -> int:
-        hashes = map(hash, self.fields)
-        return hash((hash(self.tag), *hashes))
+        # hashes = map(hash, self.fields)
+        # return hash((hash(self.tag), *hashes))
+        return int(self.GetHashCode())
 
     def __eq__(self, other: Any) -> bool:
         if self is other:
@@ -122,40 +93,35 @@ def record_compare_to(self: Record, other: Record) -> int:
     if self is other:
         return 0
 
-    def compare_values(self_value: Any, other_value: Any) -> int:
-        match (self_value, other_value):
-            case (None, None):
-                return 0
-            case (None, _):
-                return -1
-            case (_, None):
-                return 1
-            # Check for custom equality
-            case (self_value, other_value) if self_value == other_value:
-                return 0
-            case (self_value, other_value) if self_value < other_value:
-                return -1
-            case (self_value, other_value) if self_value > other_value:
-                return 1
-            case _:
-                return 0
+    # Check if the record has a custom __eq__ method (not inherited from Record)
+    # If so, use it for equality-based comparison instead of field-by-field
+    self_eq_method = getattr(type(self), "__eq__", None)
+    record_eq_method = getattr(Record, "__eq__", None)
 
+    if self_eq_method and self_eq_method != record_eq_method:
+        # Record has custom equality, use it for comparison
+        if self == other:
+            return 0
+        # For custom equality, we can't determine ordering, so use identity comparison
+        return -1 if id(self) < id(other) else 1
+
+    # Default field-by-field comparison for records without custom equality
     if hasattr(self, "__dict__") and self.__dict__:
         for name in self.__dict__.keys():
-            result = compare_values(self.__dict__[name], other.__dict__[name])
+            result = compare(self.__dict__[name], other.__dict__[name])
             if result != 0:
                 return result
 
     elif hasattr(self, "__slots__") and self.__slots__:
         for name in self.__slots__:
-            result = compare_values(getattr(self, name), getattr(other, name))
+            result = compare(getattr(self, name), getattr(other, name))
             if result != 0:
                 return result
 
     return 0
 
 
-def record_equals(self: _T, other: _T) -> bool:
+def record_equals[T](self: T, other: T) -> bool:
     if self is other:
         return True
 
@@ -181,10 +147,10 @@ def record_get_hashcode(self: Record) -> int:
 
 
 class Record(IComparable):
-    __slots__: list[str]
+    __slots__: list[str] = []
 
-    def GetHashCode(self) -> int:
-        return record_get_hashcode(self)
+    def GetHashCode(self) -> int32:
+        return int32(record_get_hashcode(self))
 
     def Equals(self, other: Record) -> bool:
         return record_equals(self, other)
@@ -205,7 +171,7 @@ class Record(IComparable):
         return self.Equals(other)
 
     def __hash__(self) -> int:
-        return record_get_hashcode(self)
+        return int(self.GetHashCode())
 
 
 class Attribute: ...
@@ -228,18 +194,16 @@ def seq_to_string(self: Iterable[Any]) -> str:
     return str + "]"
 
 
-def to_string(x: Iterable[Any] | Any, call_stack: int = 0) -> str:
-    if x is not None:
-        if isinstance(x, float) and int(x) == x:
+def to_string(x: object | None, call_stack: int = 0) -> str:
+    match x:
+        case float() if int(x) == x:
             return str(int(x))
-
-        if isinstance(x, bool):
+        case bool():
             return str(x).lower()
-
-        if isinstance(x, Iterable) and not hasattr(x, "__str__"):
-            return seq_to_string(x)
-
-    return str(x)
+        case Iterable() if not hasattr(cast(Iterable[Any], x), "__str__"):
+            return seq_to_string(cast(Iterable[Any], x))
+        case _:
+            return str(x)
 
 
 class FSharpException(Exception, IComparable):
@@ -277,7 +241,7 @@ class FSharpException(Exception, IComparable):
             else:
                 return True
 
-        return super().__lt__(other)
+        return False
 
     def __hash__(self) -> int:
         return hash(self.Data0)
@@ -296,75 +260,8 @@ class char(int):
     __slots__ = ()
 
 
-class int8(int):
-    __slots__ = ()
-
-
-class int16(int):
-    __slots__ = ()
-
-
-class int32(int):
-    __slots__ = ()
-
-
-class int64(int):
-    __slots__ = ()
-
-
-class uint8(int):
-    __slots__ = ()
-
-
-class uint16(int):
-    __slots__ = ()
-
-
-class uint32(int):
-    __slots__ = ()
-
-
-class uint64(int):
-    __slots__ = ()
-
-
-class float32(float):
-    __slots__ = ()
-
-
-float = float  # use native float for float64
-
-
-def Int8Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("b", lst)
-
-
-def Uint8Array(lst: list[int]) -> MutableSequence[int]:
-    return bytearray(lst)
-
-
-def Int16Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("h", lst)
-
-
-def Uint16Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("H", lst)
-
-
-def Int32Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("i", lst)
-
-
-def Uint32Array(lst: list[int]) -> MutableSequence[int]:
-    return array.array("I", lst)
-
-
-def Float32Array(lst: list[float]) -> MutableSequence[float]:
-    return array.array("f", lst)
-
-
-def Float64Array(lst: list[float]) -> MutableSequence[float]:
-    return array.array("d", lst)
+IntegerTypes: TypeAlias = int | byte | sbyte | int16 | uint16 | int32 | uint32 | int64 | uint64
+FloatTypes: TypeAlias = float | float32 | float64
 
 
 def is_exception(x: Any):
@@ -372,30 +269,27 @@ def is_exception(x: Any):
 
 
 __all__ = [
-    "Attribute",
     "Array",
-    "is_exception",
-    "char",
-    "int8",
-    "uint8",
-    "int16",
-    "uint16",
-    "int32",
-    "uint32",
-    "int64",
-    "uint64",
-    "Int8Array",
-    "Uint8Array",
-    "Int16Array",
-    "Uint16Array",
-    "Int32Array",
-    "Uint32Array",
-    "Float32Array",
-    "Float64Array",
+    "Attribute",
     "FSharpException",
     "FSharpRef",
-    "Record",
+    "FloatTypes",
+    "IntegerTypes",
+    "Union",
+    "byte",
+    "char",
+    "float32",
+    "float64",
+    "int8",
+    "int16",
+    "int32",
+    "int64",
+    "is_exception",
+    "sbyte",
     "seq_to_string",
     "to_string",
-    "Union",
+    "uint8",
+    "uint16",
+    "uint32",
+    "uint64",
 ]

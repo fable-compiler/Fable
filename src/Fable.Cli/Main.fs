@@ -140,24 +140,11 @@ module private Util =
                         .Substring(outDir.Length, absPath.Length - outDir.Length - fileName.Length)
                         .Trim([| '/'; '\\' |])
                         .Split([| '/'; '\\' |])
-
-                let modules =
-                    match Array.toList modules, cliArgs.FableLibraryPath with
-                    | Naming.fableModules :: package :: modules, Some Py.Naming.sitePackages ->
-                        // When building packages we generate Python snake_case module within the kebab-case package
-                        let packageModule = package.Replace("-", "_")
-                        // Make sure all modules (subdirs) we create within outDir are lower case (PEP8)
-                        let modules = modules |> List.map (fun m -> m.ToLowerInvariant())
-
-                        Naming.fableModules :: package :: packageModule :: modules
-                    | modules, _ ->
-                        modules
-                        |> List.map (fun m ->
-                            match m with
-                            | "." -> ""
-                            | m -> m.Replace(".", "_")
-                        )
-                    |> List.toArray
+                    |> Array.map (fun m ->
+                        match m with
+                        | "." -> ""
+                        | m -> m.Replace(".", "_")
+                    )
                     |> IO.Path.Join
 
                 let fileName = fileName |> Pipeline.Python.getTargetPath cliArgs
@@ -220,7 +207,6 @@ module private Util =
         }
 
 module FileWatcherUtil =
-    // TODO: Fail gracefully if we don't find a common dir (or try to find outlier paths somehow)
     let getCommonBaseDir (files: string list) =
         let withTrailingSep d =
             $"%s{d}%c{IO.Path.DirectorySeparatorChar}"
@@ -255,8 +241,25 @@ module FileWatcherUtil =
                     then
                         dir
                     else
-                        match IO.Path.GetDirectoryName(dir) with
-                        | null -> failwith "No common base dir, please run again with --verbose option and report"
+                        match IO.Path.GetDirectoryName(dir) with // 'dir' is empty string ?
+                        | null ->
+                            let badPaths =
+                                restDirs
+                                |> List.filter (fun d ->
+                                    not ((withTrailingSep d).StartsWith(dir', StringComparison.Ordinal))
+                                )
+                                |> List.truncate 20
+
+                            [
+                                "Fable is trying to find a common base directory for all files and projects referenced."
+                                $"But '%s{dir'}' is not a common base directory for these source paths:"
+                                for d in badPaths do
+                                    $"    - {d}"
+                                "If you think this is a bug, please run again with --verbose option and report."
+                            ]
+                            |> String.concat Environment.NewLine
+                            |> failwith
+
                         | dir -> getCommonDir dir
 
                 getCommonDir dir
@@ -734,7 +737,7 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
             let fableProj =
                 Project.From(
                     projCracked.ProjectFile,
-                    projCracked.ProjectOptions.SourceFiles,
+                    projCracked.ProjectOptions,
                     [],
                     assemblies,
                     Log.log,

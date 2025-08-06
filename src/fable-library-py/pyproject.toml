@@ -1,18 +1,46 @@
-[tool.poetry]
+[project]
 name = "fable-library"
-version = "0.9.0"
+version = "0.0.0"
 description = "Fable library for Python"
-authors = ["Dag Brattli <dag@brattli.net>"]
-license = "MIT License"
+authors = [
+    { name = "Dag Brattli", email = "dag@brattli.net" }
+]
+requires-python = ">= 3.10, < 4.0"
 readme = "README.md"
-homepage = "https://fable.io"
+license = "MIT License"
 
-[tool.poetry.dependencies]
-python = ">= 3.10, < 4.0"
+[project.urls]
+Homepage = "https://fable.io"
 
-[tool.poetry.dev-dependencies]
-pytest = "^7.2.0"
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5,<9",
+    "maturin>=1.8.3,<2",
+    "hypothesis>=6.131.9,<7",
+    "pytest-benchmark>=5.1.0,<6",
+    "pyright>=1.1.401,<2",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["./fable_library"]
+
+[tool.hatch.build.targets.wheel]
+include = ["./fable_library"]
+
+[tool.hatch.build.targets.wheel.sources]
+"./fable_library" = "fable_library"
+
+[tool.maturin]
+python-source = "fable_library"
+features = ["pyo3/extension-module"]
+module-name = "core._core"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+pythonpath = "."
+testpaths = ["tests", "tests-benchmark"]
+addopts = "--benchmark-columns=min,max,mean,stddev,iqr"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling", "maturin>=1.5,<2.0"]
+build-backend = "maturin"

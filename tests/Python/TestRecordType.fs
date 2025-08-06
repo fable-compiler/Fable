@@ -182,3 +182,12 @@ let ``test Record equality when it has optional field`` () =
     equal true (a = b)
     equal false (a = c)
     equal false (c = b)
+
+type CasingRecord =
+    { firstName: string; FirstName: string }
+
+[<Fact>]
+let ``test Record with both camel-case and pascal-case fields don't conflict`` () =
+    let x = { firstName = "John"; FirstName = "Jane" }
+    equal "John" x.firstName
+    equal "Jane" x.FirstName

@@ -1,7 +1,7 @@
 pub mod ListExt {
     // use core::ops::Deref;
-    use crate::List_::{cons, empty, reverse, List};
-    use crate::Native_::{seq_to_iter, Vec};
+    use crate::List_::{cons, empty, isEmpty, reverse, List};
+    use crate::Native_::{seq_to_iter, NullableRef, Vec};
     use crate::Seq_::ofList;
 
     impl<T: Clone> List<T> {
@@ -14,6 +14,18 @@ pub mod ListExt {
         pub fn into_iter(&self) -> impl Iterator<Item = T> {
             let s = ofList(self.clone());
             seq_to_iter(s)
+        }
+    }
+
+    impl<T: Clone> NullableRef for List<T> {
+        #[inline]
+        fn null() -> Self {
+            empty()
+        }
+
+        #[inline]
+        fn is_null(&self) -> bool {
+            isEmpty(self.clone())
         }
     }
 
@@ -63,8 +75,8 @@ pub mod ListExt {
 }
 
 pub mod SetExt {
-    use crate::Native_::{make_compare, seq_to_iter, Func2, Vec};
-    use crate::Set_::{add, compareTo, empty, equals, toSeq, Set};
+    use crate::Native_::{make_compare, seq_to_iter, Func2, NullableRef, Vec};
+    use crate::Set_::{add, compareTo, empty, equals, isEmpty, toSeq, Set};
     use core::cmp::Ordering;
     use core::hash::{Hash, Hasher};
 
@@ -78,6 +90,18 @@ pub mod SetExt {
         pub fn into_iter(&self) -> impl Iterator<Item = T> {
             let s = toSeq(self.clone());
             seq_to_iter(s)
+        }
+    }
+
+    impl<T: Clone> NullableRef for Set<T> {
+        #[inline]
+        fn null() -> Self {
+            empty()
+        }
+
+        #[inline]
+        fn is_null(&self) -> bool {
+            isEmpty(self.clone())
         }
     }
 
@@ -146,8 +170,8 @@ pub mod SetExt {
 }
 
 pub mod MapExt {
-    use crate::Map_::{add, compareTo, empty, equals, iterate, toSeq, Map};
-    use crate::Native_::{make_compare, seq_to_iter, Func2, Vec};
+    use crate::Map_::{add, compareTo, empty, equals, isEmpty, iterate, toSeq, Map};
+    use crate::Native_::{make_compare, seq_to_iter, Func2, NullableRef, Vec};
     use core::cmp::Ordering;
     use core::hash::{Hash, Hasher};
 
@@ -161,6 +185,18 @@ pub mod MapExt {
         pub fn into_iter(&self) -> impl Iterator<Item = (K, V)> {
             let s = toSeq(self.clone());
             seq_to_iter(s).map(|kvp| kvp.as_ref().clone())
+        }
+    }
+
+    impl<K: Clone + PartialOrd, V: Clone> NullableRef for Map<K, V> {
+        #[inline]
+        fn null() -> Self {
+            empty()
+        }
+
+        #[inline]
+        fn is_null(&self) -> bool {
+            isEmpty(self.clone())
         }
     }
 

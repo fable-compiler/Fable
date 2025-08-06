@@ -131,7 +131,7 @@ jobs:
     strategy:
       matrix:
         platform: [ubuntu-latest, windows-latest]
-        python-version: ["3.10", 3.11, 3.12]
+        python-version: [3.12, 3.13]
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -145,17 +145,15 @@ jobs:
       - name: Setup dotnet tools
         run: dotnet tool restore
 
-      # - name: Check F# formatting (fantomas)
-      #   run: dotnet fantomas src/Fable.Transforms/Python --check
-
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install poetry
+      - name: Install uv
         run: |
-          pip install poetry
+          pipx install uv
+          pipx install maturin
 
       - name: Fable Library - Python (linux)
         if: matrix.platform == 'ubuntu-latest'
@@ -192,9 +190,7 @@ jobs:
       uses: actions/setup-node@v2.4.1
 
     - name: Setup Rust toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
+      uses: dtolnay/rust-toolchain@stable
 
     - name: Fable Library - Rust
       run: ./build.sh fable-library --rust
@@ -224,6 +220,15 @@ jobs:
   analyzers:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        project: [
+          'src/Fable.AST/Fable.AST.fsproj',
+          'src/Fable.Transforms/Rust/AST/Rust.AST.fsproj',
+          'src/Fable.Transforms/Fable.Transforms.fsproj',
+          'src/Fable.Compiler/Fable.Compiler.fsproj'
+          ]
+
     steps:
     - uses: actions/checkout@v4
 
@@ -238,23 +243,12 @@ jobs:
     - name: Build solution
       run: dotnet build -c Release Fable.sln
 
-    - name: Run analyzers for Fable.AST
-      run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.AST/Fable.AST.fsproj
-      continue-on-error: true
-
-    - name: Run analyzers for Rust.AST
-      run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Transforms/Rust/AST/Rust.AST.fsproj
-      continue-on-error: true
-
-    - name: Run analyzers Fable.Transforms
-      run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Transforms/Fable.Transforms.fsproj
-      continue-on-error: true
-
-    - name: Run analyzers Fable.Compiler
-      run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Compiler/Fable.Compiler.fsproj
+    - name: Run analyzers for ${{ matrix.project }}
+      run: dotnet msbuild /t:AnalyzeFSharpProject ${{ matrix.project }}
       continue-on-error: true
 
     - name: Upload SARIF files
       uses: github/codeql-action/upload-sarif@v3
       with:
           sarif_file: src/reports
+          category: ${{ matrix.project }}

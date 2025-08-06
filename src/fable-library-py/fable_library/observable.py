@@ -5,9 +5,9 @@ from collections.abc import Callable
 from typing import Any, Generic, Protocol, TypeVar
 
 from .choice import (
-    Choice_tryValueIfChoice1Of2,  # type: ignore
-    Choice_tryValueIfChoice2Of2,  # type: ignore
-    FSharpChoice_2,  # type: ignore
+    Choice_tryValueIfChoice1Of2,
+    Choice_tryValueIfChoice2Of2,
+    FSharpChoice_2,
 )
 from .option import value
 from .util import IDisposable
@@ -17,22 +17,20 @@ _T = TypeVar("_T")
 _T_co = TypeVar("_T_co", covariant=True)
 _T_contra = TypeVar("_T_contra", contravariant=True)
 _U = TypeVar("_U")
+_V = TypeVar("_V")
 
 
 class IObserver(Protocol, Generic[_T_contra]):
     __slots__ = ()
 
     @abstractmethod
-    def OnNext(self, __value: _T_contra) -> None:
-        ...
+    def OnNext(self, __value: _T_contra) -> None: ...
 
     @abstractmethod
-    def OnError(self, __error: Exception) -> None:
-        ...
+    def OnError(self, __error: Exception) -> None: ...
 
     @abstractmethod
-    def OnCompleted(self) -> None:
-        ...
+    def OnCompleted(self) -> None: ...
 
 
 def _noop(__arg: Any = None) -> None:
@@ -40,7 +38,7 @@ def _noop(__arg: Any = None) -> None:
 
 
 class Observer(IObserver[_T]):
-    __slots__ = "_on_error", "_on_next", "_on_completed"
+    __slots__ = "_on_completed", "_on_error", "_on_next"
 
     def __init__(
         self,
@@ -66,8 +64,7 @@ class IObservable(Protocol, Generic[_T_co]):
     __slots__ = ()
 
     @abstractmethod
-    def Subscribe(self, __obs: IObserver[_T_co]) -> IDisposable:
-        ...
+    def Subscribe(self, __obs: IObserver[_T_co]) -> IDisposable: ...
 
 
 class Observable(IObservable[_T]):
@@ -219,7 +216,9 @@ def scan(collector: Callable[[_U, _T], _U], state: _U, source: IObservable[_T]) 
     return Observable(subscribe)
 
 
-def split(splitter: Callable[[_T], FSharpChoice_2], source: IObservable[_T]) -> tuple[IObservable[_T], IObservable[_T]]:
+def split(
+    splitter: Callable[[_T], FSharpChoice_2[_U, _V]], source: IObservable[_T]
+) -> tuple[IObservable[_U], IObservable[_V]]:
     return (
         choose(lambda v: Choice_tryValueIfChoice1Of2(splitter(v)), source),
         choose(lambda v: Choice_tryValueIfChoice2Of2(splitter(v)), source),

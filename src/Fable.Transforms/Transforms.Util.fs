@@ -122,6 +122,12 @@ module Atts =
     let pyReflectedDecorator = "Fable.Core.Py.ReflectedDecoratorAttribute" // typeof<Fable.Core.Py.ReflectedDecoratorAttribute>.FullName
 
     [<Literal>]
+    let pyDecorate = "Fable.Core.Py.DecorateAttribute" // typeof<Fable.Core.Py.DecorateAttribute>.FullName
+
+    [<Literal>]
+    let pyClassAttributes = "Fable.Core.Py.ClassAttributes" // typeof<Fable.Core.Py.ClassAttributes>.FullName
+
+    [<Literal>]
     let dartIsConst = "Fable.Core.Dart.IsConstAttribute" // typeof<Fable.Core.Dart.IsConstAttribute>.FullName
 
     [<Literal>]
@@ -787,10 +793,15 @@ module AST =
         | TypeCast(MaybeCasted e, _) -> e
         | e -> e
 
-    let (|MaybeOption|) e =
-        match e with
-        | Option(e, _) -> e
-        | e -> e
+    let (|MaybeNullable|) =
+        function
+        | Nullable(t, false) -> t
+        | t -> t
+
+    let (|MaybeOption|) =
+        function
+        | Option(t, _) -> t
+        | t -> t
 
     /// Try to uncurry lambdas at compile time in dynamic assignments
     let (|MaybeLambdaUncurriedAtCompileTime|) =
@@ -845,15 +856,15 @@ module AST =
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     // This is mainly used for inlining so a computation or a reference to a mutable value are understood
     // as a side effects too (because we don't want to duplicate or change the order of execution)
-    let rec canHaveSideEffects =
+    let rec canHaveSideEffects (com: Compiler) =
         function
         | Import _ -> false
         | Lambda _
         | Delegate _ -> false
         | TypeCast(e, _) ->
-            match Compiler.Language with
+            match com.Options.Language with
             | JavaScript
-            | Python -> canHaveSideEffects e
+            | Python -> canHaveSideEffects com e
             | _ -> true
         | Value(value, _) ->
             match value with
@@ -869,15 +880,15 @@ module AST =
             | RegexConstant _ -> false
             | NewList(None, _)
             | NewOption(None, _, _) -> false
-            | NewOption(Some e, _, _) -> canHaveSideEffects e
-            | NewList(Some(h, t), _) -> canHaveSideEffects h || canHaveSideEffects t
+            | NewOption(Some e, _, _) -> canHaveSideEffects com e
+            | NewList(Some(h, t), _) -> canHaveSideEffects com h || canHaveSideEffects com t
             | StringTemplate(_, _, exprs)
             | NewTuple(exprs, _)
-            | NewUnion(exprs, _, _, _) -> List.exists canHaveSideEffects exprs
+            | NewUnion(exprs, _, _, _) -> List.exists (canHaveSideEffects com) exprs
             | NewArray(newKind, _, kind) ->
                 match kind, newKind with
-                | ImmutableArray, ArrayFrom expr -> canHaveSideEffects expr
-                | ImmutableArray, ArrayValues exprs -> List.exists canHaveSideEffects exprs
+                | ImmutableArray, ArrayFrom expr -> canHaveSideEffects com expr
+                | ImmutableArray, ArrayValues exprs -> List.exists (canHaveSideEffects com) exprs
                 | _, ArrayAlloc _
                 | _, ArrayValues [] -> false
                 | _ -> true
@@ -887,21 +898,21 @@ module AST =
         | Get(e, kind, _, _) ->
             match kind with
             | OptionValue ->
-                match Compiler.Language with
-                | Dart -> canHaveSideEffects e
+                match com.Options.Language with
+                | Dart -> canHaveSideEffects com e
                 // Other languages include a runtime check for options
                 | _ -> true
             | ListHead
             | ListTail
             | TupleIndex _
-            | UnionTag -> canHaveSideEffects e
+            | UnionTag -> canHaveSideEffects com e
             // Don't move union field getters after union case test in case TypeScript complains
-            | UnionField _ -> Compiler.Language = TypeScript || canHaveSideEffects e
+            | UnionField _ -> com.Options.Language = TypeScript || canHaveSideEffects com e
             | FieldGet info ->
                 if info.CanHaveSideEffects then
                     true
                 else
-                    canHaveSideEffects e
+                    canHaveSideEffects com e
             | ExprGet _ -> true
         | _ -> true
 
@@ -995,6 +1006,9 @@ module AST =
 
     let makeArray elementType arrExprs =
         NewArray(ArrayValues arrExprs, elementType, MutableArray) |> makeValue None
+
+    let makeArrayFrom elementType (expr: Expr) =
+        NewArray(ArrayFrom expr, elementType, MutableArray) |> makeValue None
 
     let makeArrayWithRange r elementType arrExprs =
         NewArray(ArrayValues arrExprs, elementType, MutableArray) |> makeValue r
@@ -1332,6 +1346,7 @@ module AST =
         | String, String
         | Regex, Regex -> true
         | Number(kind1, info1), Number(kind2, info2) -> kind1 = kind2 && info1 = info2
+        | Nullable(t1, isStruct1), Nullable(t2, isStruct2) -> isStruct1 = isStruct2 && typeEquals strict t1 t2
         | Option(t1, isStruct1), Option(t2, isStruct2) -> isStruct1 = isStruct2 && typeEquals strict t1 t2
         | Array(t1, kind1), Array(t2, kind2) -> kind1 = kind2 && typeEquals strict t1 t2
         | List t1, List t2 -> typeEquals strict t1 t2
@@ -1446,6 +1461,15 @@ module AST =
                 $"System.{isStruct}Tuple`{genArgsLength}[{genArgs}]"
         | Array(gen, _kind) -> // TODO: Check kind
             (getTypeFullName prettify gen) + "[]"
+
+        | Nullable(gen, isStruct) ->
+            let gen = getTypeFullName prettify gen
+
+            if isStruct then
+                $"System.Nullable<{gen}>"
+            else
+                $"{gen} | null"
+
         | Option(gen, isStruct) ->
             let gen = getTypeFullName prettify gen
 

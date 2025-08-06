@@ -119,7 +119,7 @@ let makeRefFromMutableValue com ctx r t (value: Expr) =
     let getter = Delegate([], value, None, Tags.empty)
 
     let setter =
-        let v = makeUniqueIdent ctx t "v"
+        let v = makeUniqueIdent com ctx t "v"
 
         Delegate([ v ], Set(value, ValueSet, t, IdentExpr v, None), None, Tags.empty)
 
@@ -130,7 +130,7 @@ let makeRefFromMutableField com ctx r t callee key =
         Delegate([], Get(callee, FieldInfo.Create(key, isMutable = true), t, r), None, Tags.empty)
 
     let setter =
-        let v = makeUniqueIdent ctx t "v"
+        let v = makeUniqueIdent com ctx t "v"
 
         Delegate([ v ], Set(callee, FieldSet(key), t, IdentExpr v, r), None, Tags.empty)
 
@@ -145,7 +145,7 @@ let makeRefFromMutableFunc com ctx r t (value: Expr) =
         Delegate([], value, None, Tags.empty)
 
     let setter =
-        let v = makeUniqueIdent ctx t "v"
+        let v = makeUniqueIdent com ctx t "v"
         let args = [ IdentExpr v ]
 
         let info = makeCallInfo None args [ t; Boolean ]
@@ -549,14 +549,13 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | Char
     | String
     | Number _
+    | Nullable _
     | MetaType ->
-        let op =
-            if equal then
-                BinaryEqual
-            else
-                BinaryUnequal
+        if equal then
+            makeBinOp r Boolean left right BinaryEqual
+        else
+            makeBinOp r Boolean left right BinaryUnequal
 
-        makeBinOp r Boolean left right op
     // Use BinaryEquals for MetaType to have a change of optimization in FableTransforms.operationReduction
     // We will call Reflection.equals in the Fable2Babel step
     //| MetaType -> Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
@@ -614,8 +613,8 @@ and booleanCompare (com: ICompiler) ctx r (left: Expr) (right: Expr) op =
         makeEqOp r comparison (makeIntConst 0) op
 
 and makeComparerFunction (com: ICompiler) ctx typArg =
-    let x = makeUniqueIdent ctx typArg "x"
-    let y = makeUniqueIdent ctx typArg "y"
+    let x = makeUniqueIdent com ctx typArg "x"
+    let y = makeUniqueIdent com ctx typArg "y"
     let body = compare com ctx None (IdentExpr x) (IdentExpr y)
 
     Delegate([ x; y ], body, None, Tags.empty)
@@ -624,15 +623,15 @@ and makeComparer (com: ICompiler) ctx typArg =
     objExpr [ "Compare", makeComparerFunction com ctx typArg ]
 
 and makeEqualityFunction (com: ICompiler) ctx typArg =
-    let x = makeUniqueIdent ctx typArg "x"
-    let y = makeUniqueIdent ctx typArg "y"
+    let x = makeUniqueIdent com ctx typArg "x"
+    let y = makeUniqueIdent com ctx typArg "y"
     let body = equals com ctx None true (IdentExpr x) (IdentExpr y)
 
     Delegate([ x; y ], body, None, Tags.empty)
 
 let makeEqualityComparer (com: ICompiler) ctx typArg =
-    let x = makeUniqueIdent ctx typArg "x"
-    let y = makeUniqueIdent ctx typArg "y"
+    let x = makeUniqueIdent com ctx typArg "x"
+    let y = makeUniqueIdent com ctx typArg "y"
 
     objExpr
         [
@@ -697,8 +696,8 @@ let getOne (com: ICompiler) (ctx: Context) (t: Type) =
     | _ -> makeIntConst 1
 
 let makeAddFunction (com: ICompiler) ctx t =
-    let x = makeUniqueIdent ctx t "x"
-    let y = makeUniqueIdent ctx t "y"
+    let x = makeUniqueIdent com ctx t "x"
+    let y = makeUniqueIdent com ctx t "y"
 
     let body = applyOp com ctx None t Operators.addition [ IdentExpr x; IdentExpr y ]
 
@@ -713,8 +712,8 @@ let makeGenericAdder (com: ICompiler) ctx t =
 
 let makeGenericAverager (com: ICompiler) ctx t =
     let divideFn =
-        let x = makeUniqueIdent ctx t "x"
-        let i = makeUniqueIdent ctx (Int32.Number) "i"
+        let x = makeUniqueIdent com ctx t "x"
+        let i = makeUniqueIdent com ctx (Int32.Number) "i"
 
         let body = applyOp com ctx None t Operators.divideByInt [ IdentExpr x; IdentExpr i ]
 
@@ -967,6 +966,7 @@ let emptyGuid () =
 
 let rec defaultof (com: ICompiler) (ctx: Context) r t =
     match t with
+    | Nullable _ -> Value(Null t, r)
     // Non-struct tuples default to null
     | Tuple(args, true) -> NewTuple(args |> List.map (defaultof com ctx r), true) |> makeValue None
     | Boolean
@@ -1052,6 +1052,9 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "importDynamic", [ path ] ->
             let path = fixDynamicImportPath path
             Helper.GlobalCall("import", t, [ path ], ?loc = r) |> Some
+        | "emitJsTopDirectivePrologue", [ StringConst arg ] ->
+            "\"" + arg + "\"" |> emit r t [] false |> withTag "topDirectiveProloge" |> Some
+        | "emitJsDirectivePrologue", [ StringConst arg ] -> "\"" + arg + "\"" |> emit r t [] false |> Some
         | "importValueDynamic", [ MaybeInScope ctx arg ] ->
             let dynamicImport selector path apply =
                 let path = fixDynamicImportPath path
@@ -1211,19 +1214,6 @@ let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 
     Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
     |> Some
-
-// TODO: This is likely broken
-let getPrecompiledLibMangledName entityName memberName overloadSuffix isStatic =
-    let memberName = Naming.sanitizeIdentForbiddenChars memberName
-    let entityName = Naming.sanitizeIdentForbiddenChars entityName
-
-    let name, memberPart =
-        match entityName, isStatic with
-        | "", _ -> memberName, Naming.NoMemberPart
-        | _, true -> entityName, Naming.StaticMemberPart(memberName, overloadSuffix)
-        | _, false -> entityName, Naming.InstanceMemberPart(memberName, overloadSuffix)
-
-    Naming.buildNameWithoutSanitation name memberPart |> Naming.checkJsKeywords
 
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -1739,13 +1729,13 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Join", None, _ ->
         let methName =
             match i.SignatureArgTypes with
-            | [ _; Array _; Number _; Number _ ] -> "joinWithIndices"
+            | [ _; MaybeNullable(Array _); Number _; Number _ ] -> "joinWithIndices"
             | _ -> "join"
 
         Helper.LibCall(com, "String", methName, t, args, ?loc = r) |> Some
     | "Concat", None, _ ->
         match i.SignatureArgTypes with
-        | [ Array _ | IEnumerable ] ->
+        | [ MaybeNullable(Array _) | MaybeNullable(IEnumerable) ] ->
             Helper.LibCall(com, "String", "join", t, ((makeStrConst "") :: args), ?loc = r)
             |> Some
         | _ ->
@@ -2293,8 +2283,7 @@ let results (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Expr o
 let nullables (com: ICompiler) (_: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", None -> List.tryHead args
-    // | "get_Value", Some c -> Get(c, OptionValue, t, r) |> Some // Get(OptionValue) doesn't do a null check
-    | "get_Value", Some c -> Helper.LibCall(com, "Option", "value", t, [ c ], ?loc = r) |> Some
+    | "get_Value", Some c -> Helper.LibCall(com, "Option", "nonNullValue", t, [ c ], ?loc = r) |> Some
     | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
     | _ -> None
 
@@ -3038,7 +3027,7 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
             | x -> FableError $"Unsupported type in BitConverter.GetBytes(): %A{x}" |> raise
 
         let expr =
-            Helper.LibCall(com, "BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc = r)
+            Helper.LibCall(com, "BitConverter", memberName, t, args, i.SignatureArgTypes, ?loc = r)
 
         if com.Options.TypedArrays then
             expr |> Some
@@ -3047,7 +3036,7 @@ let bitConvert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option
     | _ ->
         let memberName = Naming.lowerFirst i.CompiledName
 
-        Helper.LibCall(com, "BitConverter", memberName, Boolean, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "BitConverter", memberName, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
 
 let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =

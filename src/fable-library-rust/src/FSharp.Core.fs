@@ -1,20 +1,24 @@
 namespace FSharp.Core
 
 module LanguagePrimitives =
-    let GenericEqualityComparer =
-        { new System.Collections.IEqualityComparer with
-            override __.Equals(x: obj, y: obj) = LanguagePrimitives.GenericEquality x y
 
-            override __.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
-        }
+    // let GenericEquality<'T> (x: 'T) (y: 'T) : bool =
+    //     System.Collections.Generic.EqualityComparer<'T>.Default.Equals(x, y)
 
-    let GenericEqualityERComparer =
-        { new System.Collections.IEqualityComparer with
-            override __.Equals(x: obj, y: obj) =
-                LanguagePrimitives.GenericEqualityER x y
+    // let GenericEqualityIntrinsic<'T> (x: 'T) (y: 'T) : bool =
+    //     System.Collections.Generic.EqualityComparer<'T>.Default.Equals(x, y)
 
-            override __.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
-        }
+    // let GenericComparison<'T> (x: 'T) (y: 'T) : int =
+    //     System.Collections.Generic.Comparer<'T>.Default.Compare(x, y)
+
+    // let GenericComparisonIntrinsic<'T> (x: 'T) (y: 'T) : int =
+    //     System.Collections.Generic.Comparer<'T>.Default.Compare(x, y)
+
+    let GenericEqualityComparer<'T when 'T: equality> =
+        FSharp.Collections.HashIdentity.Structural<'T>
+
+    let GenericEqualityERComparer<'T when 'T: equality> =
+        FSharp.Collections.HashIdentity.Structural<'T>
 
     let FastGenericComparer<'T when 'T: comparison> =
         FSharp.Collections.ComparisonIdentity.Structural<'T>
@@ -51,13 +55,13 @@ module Operators =
     let lock _lockObj action = action () // no locking, just invoke
 
     [<CompiledName("IsNull")>]
-    let isNull (value: 'T) =
+    let isNull (value: 'T when 'T: null) =
         match value with
         | null -> true
         | _ -> false
 
     [<CompiledName("IsNotNull")>]
-    let isNotNull (value: 'T) =
+    let isNotNull (value: 'T when 'T: null) =
         match value with
         | null -> false
         | _ -> true
@@ -66,7 +70,7 @@ module Operators =
     let isNullV (value: System.Nullable<'T>) = not value.HasValue
 
     [<CompiledName("NonNull")>]
-    let nonNull (value: 'T) =
+    let nonNull (value: 'T when 'T: null) =
         match value with
         | null -> raise (System.NullReferenceException())
         | _ -> value
@@ -79,20 +83,20 @@ module Operators =
             raise (System.NullReferenceException())
 
     [<CompiledName("NullMatchPattern")>]
-    let (|Null|NonNull|) (value: 'T) =
+    let (|Null|NonNull|) (value: 'T when 'T: null) =
         match value with
         | null -> Null()
-        | _ -> NonNull value
+        | _ -> NonNull(value)
 
     [<CompiledName("NullValueMatchPattern")>]
     let (|NullV|NonNullV|) (value: System.Nullable<'T>) =
         if value.HasValue then
-            NonNullV value.Value
+            NonNullV(value.Value)
         else
             NullV()
 
     [<CompiledName("NonNullQuickPattern")>]
-    let (|NonNullQuick|) (value: 'T) =
+    let (|NonNullQuick|) (value: 'T when 'T: null) =
         match value with
         | null -> raise (System.NullReferenceException())
         | _ -> value
@@ -105,7 +109,7 @@ module Operators =
             raise (System.NullReferenceException())
 
     [<CompiledName("WithNull")>]
-    let withNull (value: 'T) : 'T = value
+    let withNull (value: 'T when 'T: null) = value
 
     [<CompiledName("WithNullV")>]
     let withNullV (value: 'T) : System.Nullable<'T> = System.Nullable<'T>(value)
@@ -115,7 +119,7 @@ module Operators =
         System.Nullable<'T>()
 
     [<CompiledName("NullArgCheck")>]
-    let nullArgCheck (argumentName: string) (value: 'T) =
+    let nullArgCheck (argumentName: string) (value: 'T when 'T: null) =
         match value with
         | null -> raise (new System.ArgumentNullException(argumentName))
         | _ -> value

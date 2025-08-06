@@ -1385,6 +1385,64 @@ let ``test attached static getters works`` () =
     let result = FooWithAttachedMembers.Foo.Bar
     result |> equal 42
 
+// Test class for static properties regression test
+[<AttachMembers>]
+type StaticPropertiesTestClass() =
+    // Static backing field must come before members
+    static let mutable backingField = "BackingValue"
+
+    // Auto-properties with different types - these caused the backing field scoping issue
+    static member val IntProperty: int = 42 with get, set
+    static member val StringProperty: string = "DefaultValue" with get, set
+    static member val BoolProperty: bool = true with get, set
+    static member val FloatProperty: float = 3.14 with get, set
+
+    // Explicit static property with custom logic
+    static member ExplicitProperty
+        with get() = 100
+        and set(value) =
+            if value < 0 then failwith "Value must be positive"
+
+    // Mixed explicit property with backing storage - this also had scoping issues
+    static member CustomProperty
+        with get() = backingField
+        and set(value: string) = backingField <- value.ToUpper()
+
+    // Read-only explicit property
+    static member ReadOnlyProperty
+        with get() = "ReadOnlyValue"
+
+[<Fact>]
+let ``test static properties work correctly`` () =
+    // Test auto-properties (these had the backing field scoping bug)
+    StaticPropertiesTestClass.IntProperty |> equal 42
+    StaticPropertiesTestClass.StringProperty |> equal "DefaultValue"
+    StaticPropertiesTestClass.BoolProperty |> equal true
+    StaticPropertiesTestClass.FloatProperty |> equal 3.14
+
+    // Test setting auto-properties
+    StaticPropertiesTestClass.IntProperty <- 123
+    StaticPropertiesTestClass.StringProperty <- "NewValue"
+    StaticPropertiesTestClass.BoolProperty <- false
+
+    // Verify changes
+    StaticPropertiesTestClass.IntProperty |> equal 123
+    StaticPropertiesTestClass.StringProperty |> equal "NewValue"
+    StaticPropertiesTestClass.BoolProperty |> equal false
+
+    // Test explicit property
+    StaticPropertiesTestClass.ExplicitProperty |> equal 100
+
+    // Test custom property with backing field - this also had scoping issues
+    StaticPropertiesTestClass.CustomProperty |> equal "BackingValue"
+    StaticPropertiesTestClass.CustomProperty <- "lowercase"
+    StaticPropertiesTestClass.CustomProperty |> equal "LOWERCASE"
+
+    // Test read-only explicit property
+    StaticPropertiesTestClass.ReadOnlyProperty |> equal "ReadOnlyValue"
+
+
+
 [<Fact>]
 let ``test nullArgCheck don't throw exception if argument is not null`` () =
     let expected = "hello"

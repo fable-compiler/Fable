@@ -83,7 +83,7 @@ type MutableMap<'Key, 'Value when 'Key: equality>
     // Native JS Map (used for primitive keys) doesn't work with `JSON.stringify` but
     // let's add `toJSON` for consistency with the types within fable-library.
     interface Fable.Core.IJsonSerializable with
-        member this.toJSON() = Helpers.arrayFrom (this) |> box
+        member this.toJSON() = Helpers.arrayFrom (this)
 
 
     interface System.Collections.IEnumerable with
@@ -102,7 +102,7 @@ type MutableMap<'Key, 'Value when 'Key: equality>
 
         member this.Contains(item: KeyValuePair<'Key, 'Value>) : bool =
             match this.TryFind item.Key with
-            | Some p when Unchecked.equals p.Value item.Value -> true
+            | Some pair when Unchecked.equals pair.Value item.Value -> true
             | _ -> false
 
         member this.CopyTo(array: KeyValuePair<'Key, 'Value>[], arrayIndex: int) : unit =
@@ -113,11 +113,7 @@ type MutableMap<'Key, 'Value when 'Key: equality>
 
         member this.Remove(item: KeyValuePair<'Key, 'Value>) : bool =
             match this.TryFind item.Key with
-            | Some pair ->
-                if Unchecked.equals pair.Value item.Value then
-                    this.Remove(item.Key) |> ignore
-
-                true
+            | Some pair when Unchecked.equals pair.Value item.Value -> this.Remove(item.Key)
             | _ -> false
 
     interface IDictionary<'Key, 'Value> with

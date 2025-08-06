@@ -1,0 +1,22 @@
+[package]
+name = "fable-library-core"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/fable-compiler/fable"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "_core"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.24.2", features = ["extension-module", "chrono"] }
+byteorder = "1.5.0"
+chrono = "0.4.40"
+regex = "1.10"
+
+[features]
+# must be enabled when building with `cargo build`, maturin enables this automatically
+extension-module = ["pyo3/extension-module"]

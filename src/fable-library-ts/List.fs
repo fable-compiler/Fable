@@ -76,20 +76,23 @@ type LinkedList<'T> =
         if obj.ReferenceEquals(xs, other) then
             true
         else
-            let ys = other :?> 'T list
+            match other with
+            | :? LinkedList<'T> as ys ->
 
-            let rec loop (xs: 'T list) (ys: 'T list) =
-                match xs.tail, ys.tail with
-                | None, None -> true
-                | None, Some _ -> false
-                | Some _, None -> false
-                | Some xt, Some yt ->
-                    if Unchecked.equals xs.head ys.head then
-                        loop xt yt
-                    else
-                        false
+                let rec loop (xs: 'T list) (ys: 'T list) =
+                    match xs.tail, ys.tail with
+                    | None, None -> true
+                    | None, Some _ -> false
+                    | Some _, None -> false
+                    | Some xt, Some yt ->
+                        if Unchecked.equals xs.head ys.head then
+                            loop xt yt
+                        else
+                            false
 
-            loop xs ys
+                loop xs ys
+
+            | _ -> false
 
     override xs.GetHashCode() =
         let inline combineHash i x y = (x <<< 1) + y + 631 * i
@@ -107,26 +110,29 @@ type LinkedList<'T> =
         loop 0 0 xs
 
     interface IJsonSerializable with
-        member this.toJSON() = Helpers.arrayFrom (this) |> box
+        member this.toJSON() = Helpers.arrayFrom (this)
 
     interface System.IComparable with
         member xs.CompareTo(other: obj) =
-            let ys = other :?> 'T list
+            match other with
+            | :? LinkedList<'T> as ys ->
 
-            let rec loop (xs: 'T list) (ys: 'T list) =
-                match xs.tail, ys.tail with
-                | None, None -> 0
-                | None, Some _ -> -1
-                | Some _, None -> 1
-                | Some xt, Some yt ->
-                    let c = Unchecked.compare xs.head ys.head
+                let rec loop (xs: 'T list) (ys: 'T list) =
+                    match xs.tail, ys.tail with
+                    | None, None -> 0
+                    | None, Some _ -> -1
+                    | Some _, None -> 1
+                    | Some xt, Some yt ->
+                        let c = Unchecked.compare xs.head ys.head
 
-                    if c = 0 then
-                        loop xt yt
-                    else
-                        c
+                        if c = 0 then
+                            loop xt yt
+                        else
+                            c
 
-            loop xs ys
+                loop xs ys
+
+            | _ -> 1
 
     interface System.Collections.Generic.IEnumerable<'T> with
         member xs.GetEnumerator() : System.Collections.Generic.IEnumerator<'T> =
@@ -642,13 +648,13 @@ let sortWith (comparer: 'T -> 'T -> int) (xs: 'T list) =
     arr |> ofArray
 
 let sort (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
-    sortWith (fun x y -> comparer.Compare(x, y)) xs
+    sortWith (fun (x: 'T) (y: 'T) -> comparer.Compare(x, y)) xs
 
 let sortBy (projection: 'T -> 'U) (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'U>) =
     sortWith (fun x y -> comparer.Compare(projection x, projection y)) xs
 
 let sortDescending (xs: 'T list) ([<Inject>] comparer: System.Collections.Generic.IComparer<'T>) =
-    sortWith (fun x y -> comparer.Compare(x, y) * -1) xs
+    sortWith (fun (x: 'T) (y: 'T) -> comparer.Compare(x, y) * -1) xs
 
 let sortByDescending
     (projection: 'T -> 'U)

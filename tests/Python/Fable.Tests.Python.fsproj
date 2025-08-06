@@ -16,6 +16,8 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="FSharp.UMX" Version="1.1.0" />
+    <PackageReference Include="Thoth.Json.Python" Version="0.5.1" />
+    <PackageReference Include="Fable.Python" Version="4.6.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
@@ -37,6 +39,7 @@
     <Compile Include="TestCustomOperators.fs" />
     <Compile Include="TestConvert.fs" />
     <Compile Include="TestDateTime.fs" />
+    <Compile Include="TestDateTimeOffset.fs" />
     <Compile Include="TestDictionary.fs" />
     <Compile Include="TestEnum.fs" />
     <Compile Include="TestEnumerable.fs" />
@@ -48,6 +51,7 @@
     <Compile Include="TestMap.fs" />
     <Compile Include="MiscTestsHelper.fs" />
     <Compile Include="TestMisc.fs" />
+    <Compile Include="TestNullness.fs" />
     <Compile Include="TestRegex.fs" />
     <Compile Include="TestSet.fs" />
     <Compile Include="TestSystemIO.fs" />
@@ -63,6 +67,7 @@
     <Compile Include="TestStack.fs" />
     <Compile Include="TestString.fs" />
     <Compile Include="TestSudoku.fs" />
+    <Compile Include="TestDependencyImport.fs" />
     <Compile Include="TestTailCall.fs" />
     <Compile Include="TestTimeSpan.fs" />
     <Compile Include="TestTask.fs" />

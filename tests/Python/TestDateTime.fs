@@ -1002,6 +1002,33 @@ let ``test DateTime constructor works with Microseconds`` () =
     d.Year + d.Month + d.Day + d.Hour + d.Minute + d.Second + d.Millisecond |> equal 2078
     d.Ticks |> equal 635398294210020030L
 
+[<Fact>]
+let ``test DateTime constructor with DateTimeKind generates proper enum reference`` () =
+    // This test validates the fix for issue #3689
+    // DateTime constructors with DateTimeKind should generate DateKind enum references
+    // instead of literal integers in the Python output
+    let dateUtc = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
+    let dateLocal = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Local)
+    let dateUnspecified = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Unspecified)
+
+    // Verify the DateTimeKind is preserved correctly
+    dateUtc.Kind |> equal DateTimeKind.Utc
+    dateLocal.Kind |> equal DateTimeKind.Local
+    dateUnspecified.Kind |> equal DateTimeKind.Unspecified
+
+    // Test 8-argument constructor as well
+    let dateUtc8 = DateTime(2014, 10, 9, 13, 23, 30, 234, 567, DateTimeKind.Utc)
+    dateUtc8.Kind |> equal DateTimeKind.Utc
+
+    // Verify date components are correct
+    dateUtc.Year |> equal 2014
+    dateUtc.Month |> equal 10
+    dateUtc.Day |> equal 9
+    dateUtc.Hour |> equal 13
+    dateUtc.Minute |> equal 23
+    dateUtc.Second |> equal 30
+    dateUtc.Millisecond |> equal 234
+
 // Disabled: It seems that there a loss of precision somewhere
 // Can be revisited later
 // [<Fact>]

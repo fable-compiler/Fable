@@ -662,7 +662,7 @@ let copyDirIfDoesNotExist replaceFsprojExt (source: string) (target: string) =
     if File.isDirectoryEmpty target then
         copyDir replaceFsprojExt source target
 
-let getFableLibraryPath (opts: CrackerOptions) =
+let getFableLibraryPath (opts: CrackerOptions) (shouldCopy: bool) =
     let buildDir, libDir =
         match opts.FableOptions.Language, opts.FableLib with
         | Dart, None -> "fable-library-dart", "fable_library"
@@ -671,7 +671,7 @@ let getFableLibraryPath (opts: CrackerOptions) =
         | Php, None -> "fable-library-php", "fable-library-php"
         | JavaScript, None -> "fable-library-js", $"fable-library-js.%s{Literals.VERSION}"
         | Python, None -> "fable-library-py/fable_library", "fable_library"
-        | Python, Some Py.Naming.sitePackages -> "fable-library-py", "fable-library"
+        | Python, Some Py.Naming.fableLibPyPI -> "fable-library-py", "fable_library"
         | _, Some path ->
             if path.StartsWith("./", StringComparison.Ordinal) then
                 "", Path.normalizeFullPath path
@@ -700,7 +700,9 @@ let getFableLibraryPath (opts: CrackerOptions) =
 
         let fableLibraryTarget = IO.Path.Combine(opts.FableModulesDir, libDir)
         // Always overwrite fable-library in case it has been updated, see #3208
-        copyDir false fableLibrarySource fableLibraryTarget
+        if shouldCopy then
+            copyDir false fableLibrarySource fableLibraryTarget
+
         Path.normalizeFullPath fableLibraryTarget
 
 let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage list) =
@@ -718,7 +720,7 @@ let copyFableLibraryAndPackageSources (opts: CrackerOptions) (pkgs: FablePackage
             { pkg with FsprojPath = IO.Path.Combine(targetDir, fsprojFile) }
         )
 
-    getFableLibraryPath opts, pkgRefs
+    getFableLibraryPath opts true, pkgRefs
 
 // Separate handling for Python. Use plain lowercase package names without dots or version info.
 let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePackage list) =
@@ -728,22 +730,21 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
             let sourceDir = IO.Path.GetDirectoryName(pkg.FsprojPath)
 
             let targetDir =
-                match opts.FableLib with
-                | Some Py.Naming.sitePackages ->
-                    let name = Naming.applyCaseRule Core.CaseRules.KebabCase pkg.Id
+                let name = Naming.applyCaseRule Core.CaseRules.SnakeCase pkg.Id
 
-                    IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "-"))
-                | _ ->
-                    let name = Naming.applyCaseRule Core.CaseRules.SnakeCase pkg.Id
-
-                    IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "_").Replace("-", "_"))
+                IO.Path.Combine(opts.FableModulesDir, name.Replace(".", "_").Replace("-", "_"))
 
             copyDirIfDoesNotExist false sourceDir targetDir
 
             { pkg with FsprojPath = IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)) }
         )
 
-    getFableLibraryPath opts, pkgRefs
+    let shouldCopy =
+        match opts.FableLib with
+        | Some path when path.ToLowerInvariant() = Py.Naming.fableLibPyPI -> false
+        | _ -> true
+
+    getFableLibraryPath opts shouldCopy, pkgRefs
 
 // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it
 let removeFilesInObjFolder (sourceFiles: string[]) =

@@ -240,3 +240,37 @@ let ``test Dictionary.Delete works with tuples as keys`` () =
     my_dict.ContainsKey((0,0)) |> equal true
     my_dict.Remove((0,0)) |> equal true
     my_dict.ContainsKey((0,0)) |> equal false
+
+[<Fact>]
+let ``test Dictionary enumeration to KeyValuePair arrays and lists works`` () =
+    let dic = Dictionary<string, int>()
+    dic.["one"] <- 1
+    dic.["two"] <- 2
+    dic.["three"] <- 3
+
+    // Test Seq.toArray - this was broken before the fix
+    let arrayResult = dic |> Seq.toArray
+    arrayResult.Length |> equal 3
+
+    // Test that we get proper KeyValuePair objects, not just keys
+    let firstKvp = arrayResult.[0]
+    firstKvp.Key |> String.length |> equal (String.length firstKvp.Key) // Key should be a proper string
+    firstKvp.Value |> (fun v -> v > 0) |> equal true // Value should be a proper integer
+
+    // Test specific key-value pair access
+    let oneKvp = arrayResult |> Array.find (fun kvp -> kvp.Key = "one")
+    oneKvp.Key |> equal "one"
+    oneKvp.Value |> equal 1
+
+    // Test Seq.toList - this should still work as before
+    let listResult = dic |> Seq.toList
+    listResult.Length |> equal 3
+
+    let oneKvpFromList = listResult |> List.find (fun kvp -> kvp.Key = "one")
+    oneKvpFromList.Key |> equal "one"
+    oneKvpFromList.Value |> equal 1
+
+    // Test that both array and list contain the same key-value pairs
+    let arrayKeys = arrayResult |> Array.map (fun kvp -> kvp.Key) |> Array.sort
+    let listKeys = listResult |> List.map (fun kvp -> kvp.Key) |> List.sort |> List.toArray
+    arrayKeys |> equal listKeys

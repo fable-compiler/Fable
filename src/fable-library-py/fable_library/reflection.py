@@ -5,9 +5,9 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
-from .types import FSharpRef, Record
+from .types import Array, FSharpRef, IntegerTypes, Record
 from .types import Union as FsUnion
-from .util import Array, combine_hash_codes, equal_arrays_with
+from .util import combine_hash_codes, equal_arrays_with
 
 
 Constructor = Callable[..., Any]
@@ -87,7 +87,7 @@ def lambda_type(argType: TypeInfo, returnType: TypeInfo):
 
 
 def delegate_type(*generics: TypeInfo) -> TypeInfo:
-    return TypeInfo("System.Func`%d" % len(generics), list(generics))
+    return TypeInfo(f"System.Func`{len(generics)}", list(generics))
 
 
 def record_type(
@@ -163,8 +163,8 @@ def get_generic_type_definition(t: TypeInfo):
     return t if t.generics is None else TypeInfo(t.fullname, list(map(lambda _: obj_type, t.generics)))
 
 
-def get_generics(t: TypeInfo) -> list[TypeInfo]:
-    return t.generics if t.generics else []
+def get_generics(t: TypeInfo) -> Array[TypeInfo]:
+    return Array[TypeInfo](t.generics) if t.generics else Array[TypeInfo]()
 
 
 def make_generic_type(t: TypeInfo, generics: list[TypeInfo]) -> TypeInfo:
@@ -245,13 +245,13 @@ def is_instance_of_type(t: TypeInfo, o: Any) -> bool:
     if isinstance(o, str):
         return t.fullname == string_type.fullname
 
-    if isinstance(o, int | float):
+    if isinstance(o, IntegerTypes | float):
         return is_erased_to_number(t)
 
     if callable(o):
         return is_function(t)
 
-    return t.construct is not None and isinstance(o, t.construct)
+    return t.construct is not None and isinstance(o, t.construct)  # type: ignore
 
 
 def is_record(t: Any) -> bool:
@@ -282,16 +282,16 @@ def get_enum_underlying_type(t: TypeInfo):
     return t.generics[0] if t.generics else None
 
 
-def get_enum_values(t: TypeInfo) -> list[int]:
+def get_enum_values(t: TypeInfo) -> Array[int]:
     if is_enum(t) and t.enum_cases is not None:
-        return [int(kv[1]) for kv in t.enum_cases]
+        return Array[int]([int(kv[1]) for kv in t.enum_cases])
     else:
         raise ValueError(f"{t.fullname} is not an enum type")
 
 
-def get_enum_names(t: TypeInfo) -> list[str]:
+def get_enum_names(t: TypeInfo) -> Array[str]:
     if is_enum(t) and t.enum_cases is not None:
-        return [str(kv[0]) for kv in t.enum_cases]
+        return Array[str]([str(kv[0]) for kv in t.enum_cases])
     else:
         raise ValueError(f"{t.fullname} is not an enum type")
 
@@ -315,17 +315,17 @@ def get_enum_case(t: TypeInfo, v: int | str) -> EnumCase:
     return ("", v)
 
 
-def get_tuple_elements(t: TypeInfo) -> list[TypeInfo]:
+def get_tuple_elements(t: TypeInfo) -> Array[TypeInfo]:
     if is_tuple(t) and t.generics is not None:
-        return t.generics
+        return Array[TypeInfo](t.generics)
     else:
         raise ValueError(f"{t.fullname} is not a tuple type")
 
 
-def get_function_elements(t: TypeInfo) -> list[TypeInfo]:
+def get_function_elements(t: TypeInfo) -> Array[TypeInfo]:
     if is_function(t) and t.generics is not None:
         gen = t.generics
-        return [gen[0], gen[1]]
+        return Array[TypeInfo]([gen[0], gen[1]])
     else:
         raise ValueError(f"{t.fullname} is not an F# function type")
 
@@ -357,24 +357,24 @@ def is_enum_defined(t: TypeInfo, v: str | int) -> bool:
         kv = get_enum_case(t, v)
         return kv[0] is not None and kv[0] != ""
     except Exception:
-        # Supress error
+        # Suppress error
         pass
 
     return False
 
 
-def get_record_elements(t: TypeInfo) -> list[FieldInfo]:
+def get_record_elements(t: TypeInfo) -> Array[FieldInfo]:
     if t.fields is not None:
-        return t.fields()
+        return Array[FieldInfo](t.fields())
     else:
         raise ValueError(f"{t.fullname} is not an F# record type")
 
 
-def get_record_fields(v: Any) -> list[str]:
+def get_record_fields(v: Any) -> Array[str]:
     if isinstance(v, dict):
-        return list(cast(dict[str, Any], v).values())
+        return Array[str](cast(dict[str, Any], v).values())
 
-    return [getattr(v, k) for k in v.__slots__]
+    return Array[str]([getattr(v, k) for k in v.__slots__])
 
 
 def get_record_field(v: Any, field: FieldInfo) -> Any:
@@ -387,7 +387,7 @@ def get_record_field(v: Any, field: FieldInfo) -> Any:
 
 
 def get_tuple_fields(v: tuple[Any, ...]) -> Array[Any]:
-    return list(v)
+    return Array[Any](v)
 
 
 def get_tuple_field(v: tuple[Any, ...], i: int) -> Any:
@@ -423,24 +423,24 @@ def make_union(uci: CaseInfo, values: list[Any]) -> Any:
     return uci.declaringType.construct(uci.tag, *values) if uci.declaringType.construct else {}
 
 
-def get_union_cases(t: TypeInfo) -> list[CaseInfo]:
+def get_union_cases(t: TypeInfo) -> Array[CaseInfo]:
     if t.cases and callable(t.cases):
-        return t.cases()
+        return Array[CaseInfo](t.cases())
     else:
         raise ValueError(f"{t.fullname} is not an F# union type")
 
 
-def get_union_fields(v: Any, t: TypeInfo) -> list[Any]:
+def get_union_fields(v: Any, t: TypeInfo) -> Array[Any]:
     cases = get_union_cases(t)
     case_ = cases[v.tag]
     if not case_:
         raise ValueError(f"Cannot find case {v.name} in union type")
 
-    return [case_, list(v.fields)]
+    return Array[Any]([case_, list(v.fields)])
 
 
-def get_union_case_fields(uci: CaseInfo) -> list[FieldInfo]:
-    return uci.fields if uci.fields else []
+def get_union_case_fields(uci: CaseInfo) -> Array[FieldInfo]:
+    return Array[FieldInfo](uci.fields) if uci.fields else Array[FieldInfo]()
 
 
 def assert_union(x: Any) -> None:

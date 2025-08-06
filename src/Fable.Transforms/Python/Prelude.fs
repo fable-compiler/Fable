@@ -8,25 +8,50 @@ module Naming =
     open System.Text.RegularExpressions
 
     [<Literal>]
-    let sitePackages = "site-packages"
+    let fableLibPyPI = "fable-library"
 
     let lowerFirst (s: string) =
-        s.Substring(0, 1).ToLowerInvariant() + s.Substring(1)
+        if String.IsNullOrEmpty(s) then
+            s
+        else
+            s.Substring(0, 1).ToLowerInvariant() + s.Substring(1)
 
     let upperFirst (s: string) =
-        s.Substring(0, 1).ToUpperInvariant() + s.Substring(1)
+        if String.IsNullOrEmpty(s) then
+            s
+        else
+            s.Substring(0, 1).ToUpperInvariant() + s.Substring(1)
+
+    let toCamelCase (name: string) =
+        Naming.applyCaseRule CaseRules.LowerFirst name
 
     let toSnakeCase (name: string) =
+        Naming.applyCaseRule CaseRules.SnakeCase name
+
+    /// Convert F# record field name to snake_case with special handling for camelCase/PascalCase conflicts.
+    /// - If the name is PascalCase, convert to snake_case without suffix.
+    /// - If the name is camelCase, convert to snake_case and add '_' suffix to avoid conflict with PascalCase.
+    let toRecordFieldSnakeCase (name: string) =
+        let snakeCase = Naming.applyCaseRule CaseRules.SnakeCase name
+
+        if name.Length > 0 && Char.IsLower(name.[0]) then
+            snakeCase + "_"
+        else
+            snakeCase
+
+    let toPascalCase (name: string) = upperFirst name
+
+    /// Convert name to Python naming convention.
+    /// - If the name starts with a lowercase letter, convert it to snake_case.
+    /// - If the name starts with an uppercase letter, preserve case as is.
+    let toPythonNaming (name: string) =
         if name.Length > 0 && Char.IsLower(name.[0]) then
             Naming.applyCaseRule CaseRules.SnakeCase name
         else
             name
 
     let cleanNameAsPyIdentifier (name: string) =
-        if name = ".ctor" then
-            "_ctor"
-        else
-            name.Replace('.', '_').Replace('`', '_')
+        name.Replace('.', '_').Replace('`', '_')
 
     let pyKeywords =
         // https://docs.python.org/3/reference/lexical_analysis.html#keywords
@@ -226,13 +251,26 @@ module Naming =
         )
 
     let sanitizeIdent conflicts (name: string) part =
-        let name =
-            if name.EndsWith("@", StringComparison.Ordinal) then
-                $"_{name.Substring(0, name.Length - 1)}"
-            else
-                name
         // Replace Forbidden Chars
         buildName sanitizeIdentForbiddenChars name part
         |> checkPyKeywords
         // Check if it already exists
         |> preventConflicts conflicts
+
+    /// Convert name to Python naming convention.
+    /// Removes @ suffixes and applies standard Python naming rules.
+    let toPropertyNaming (name: string) =
+        let pythonName = toPythonNaming name
+        // Remove @ suffix
+        if pythonName.EndsWith("@", StringComparison.Ordinal) then
+            pythonName.Substring(0, pythonName.Length - 1)
+        else
+            pythonName
+
+    let toPropertyBackingFieldNaming (name: string) =
+        let propertyName =
+            name
+            |> toPropertyNaming
+            |> fun name -> Naming.applyCaseRule CaseRules.SnakeCase name
+
+        $"_%s{propertyName}"

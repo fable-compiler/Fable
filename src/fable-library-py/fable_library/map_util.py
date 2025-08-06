@@ -12,7 +12,7 @@ from typing import (
 )
 
 from .types import FSharpRef, Union
-from .util import Array
+from .util import Array, ISet
 
 
 _K = TypeVar("_K")
@@ -54,14 +54,14 @@ def change_case(string: str, case_rule: CaseRules) -> str:
 
 if TYPE_CHECKING:
 
-    class FSharpMap(dict[_K, _V]):
-        ...
+    class FSharpMap(dict[_K, _V]): ...
 
 else:
     from .map import FSharpMap
 
 
-def add_to_set(v: _V, st: set[_V]) -> bool:
+def add_to_set(v: object, st: ISet[object]) -> bool:
+    """Add to set-like object - returns True if added, False if already present."""
     if v in st:
         return False
 

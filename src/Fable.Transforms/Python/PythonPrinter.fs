@@ -5,11 +5,28 @@ open System
 
 open Fable
 open Fable.AST
-open Fable.AST.Python
+open Fable.Transforms.Python.AST
 open Fable.Transforms.Printer
 
 module PrinterExtensions =
     type Printer with
+
+        /// Print type parameters if any (Python 3.12+ syntax)
+        member printer.PrintTypeParams(typeParams: TypeParam list) =
+            if not (List.isEmpty typeParams) then
+                printer.Print("[")
+
+                let typeParamNames =
+                    typeParams
+                    |> List.map (fun tp ->
+                        match tp with
+                        | TypeVar tv -> tv.Name
+                        | ParamSpec ps -> ps.Name
+                        | TypeVarTuple tvt -> tvt.Name
+                    )
+
+                printer.PrintCommaSeparatedList(typeParamNames)
+                printer.Print("]")
 
         member printer.Print(stmt: Statement) =
             match stmt with
@@ -32,6 +49,7 @@ module PrinterExtensions =
             | For st -> printer.Print(st)
             | Try st -> printer.Print(st)
             | If st -> printer.Print(st)
+            | TypeAlias st -> printer.Print st
             | Pass -> printer.Print("pass")
             | Break -> printer.Print("break")
             | Continue -> printer.Print("continue")
@@ -44,11 +62,11 @@ module PrinterExtensions =
                 printer.Print(handler)
 
             if node.OrElse.Length > 0 then
-                printer.Print("else: ")
+                printer.Print("else:")
                 printer.PrintBlock(node.OrElse)
 
             if node.FinalBody.Length > 0 then
-                printer.Print("finally: ")
+                printer.Print("finally:")
                 printer.PrintBlock(node.FinalBody)
 
         member printer.Print(arg: Arg) =
@@ -172,11 +190,36 @@ module PrinterExtensions =
             printer.Print("class ", ?loc = cd.Loc)
             printer.Print(name)
 
-            match cd.Bases with
-            | [] -> ()
-            | xs ->
+            // Print type parameters if any (Python 3.12+ syntax)
+            printer.PrintTypeParams(cd.TypeParams)
+
+            // Print bases and keywords (like metaclass=StaticPropertyMeta)
+            let hasBases = not (List.isEmpty cd.Bases)
+            let hasKeywords = not (List.isEmpty cd.Keywords)
+
+            if hasBases || hasKeywords then
                 printer.Print("(")
-                printer.PrintCommaSeparatedList(xs)
+
+                // Print bases first
+                if hasBases then
+                    printer.PrintCommaSeparatedList(cd.Bases)
+
+                // Print keywords after bases (if both exist, separate with comma)
+                if hasKeywords then
+                    if hasBases then
+                        printer.Print(", ")
+
+                    cd.Keywords
+                    |> List.iteri (fun i kw ->
+                        if i > 0 then
+                            printer.Print(", ")
+
+                        let (Identifier name) = kw.Arg
+                        printer.Print(name)
+                        printer.Print("=")
+                        printer.Print(kw.Value)
+                    )
+
                 printer.Print(")")
 
             printer.Print(":")
@@ -205,7 +248,7 @@ module PrinterExtensions =
                     printer.PrintBlock(body)
                     printElse els
                 | xs ->
-                    printer.Print("else: ")
+                    printer.Print("else:")
                     printer.PrintBlock(xs)
 
 
@@ -227,7 +270,12 @@ module PrinterExtensions =
                 func.Returns,
                 func.DecoratorList,
                 ?comment = func.Comment,
-                isDeclaration = true
+                isDeclaration = true,
+                ?typeParams =
+                    (if List.isEmpty func.TypeParams then
+                         None
+                     else
+                         Some func.TypeParams)
             )
 
             printer.PrintNewLine()
@@ -241,7 +289,12 @@ module PrinterExtensions =
                 func.DecoratorList,
                 ?comment = func.Comment,
                 isDeclaration = true,
-                isAsync = true
+                isAsync = true,
+                ?typeParams =
+                    (if List.isEmpty func.TypeParams then
+                         None
+                     else
+                         Some func.TypeParams)
             )
 
             printer.PrintNewLine()
@@ -287,6 +340,16 @@ module PrinterExtensions =
         member printer.Print(node: Return) =
             printer.Print("return ")
             printer.PrintOptional(node.Value)
+
+        member printer.Print(ta: TypeAlias) =
+            printer.Print("type ", ?loc = ta.Loc)
+            printer.Print(ta.Name)
+
+            // Print type parameters if any (Python 3.12+ syntax)
+            printer.PrintTypeParams(ta.TypeParams)
+
+            printer.Print(" = ")
+            printer.Print(ta.Value)
 
         member printer.Print(node: Attribute) =
             printer.Print(node.Value)
@@ -757,7 +820,8 @@ module PrinterExtensions =
                 decoratorList: Expression list,
                 ?comment: string,
                 ?isDeclaration,
-                ?isAsync
+                ?isAsync,
+                ?typeParams: TypeParam list
             )
             =
             for deco in decoratorList do
@@ -771,6 +835,12 @@ module PrinterExtensions =
 
             printer.Print("def ")
             printer.PrintOptional(id)
+
+            // Print type parameters if any (Python 3.12+ syntax)
+            match typeParams with
+            | Some typeParamList -> printer.PrintTypeParams(typeParamList)
+            | None -> ()
+
             printer.Print("(")
             printer.Print(args)
             printer.Print(")")
@@ -813,6 +883,7 @@ module PrinterExtensions =
             | Call _
             | List _
             | Subscript _
+            | Emit { Args = [] } // Emit with no args looks ok without parens
             | Attribute _ -> printer.Print(expr)
             | _ -> printer.WithParens(expr)
 

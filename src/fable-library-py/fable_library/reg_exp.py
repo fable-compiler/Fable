@@ -4,6 +4,8 @@ import re
 from collections.abc import Callable, Iterator
 from re import Match, Pattern
 
+from .types import IntegerTypes
+
 
 MatchEvaluator = Callable[[Match[str]], str]
 
@@ -20,7 +22,7 @@ class GroupCollection:
         return len(self.groups)
 
     def __getitem__(self, key: int | str) -> str | None:
-        if isinstance(key, int):
+        if isinstance(key, IntegerTypes):
             return self.groups[key]
         else:
             return self.named_groups.get(key)
@@ -123,15 +125,15 @@ def get_item(groups: GroupCollection, index: str | int) -> str | None:
 
 
 __all__ = [
+    "create",
     "escape",
+    "get_item",
+    "groups",
     "is_match",
     "match",
     "matches",
-    "create",
     "options",
     "replace",
     "split",
     "unescape",
-    "groups",
-    "get_item",
 ]
