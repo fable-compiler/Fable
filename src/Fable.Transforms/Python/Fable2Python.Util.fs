@@ -102,7 +102,6 @@ module Util =
             else
                 None
         )
-        |> Seq.rev // Reverse to get correct application order (bottom to top)
         |> Seq.toList
 
     /// Generates Python decorator expressions from DecoratorInfo
