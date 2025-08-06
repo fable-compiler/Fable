@@ -397,6 +397,7 @@ module TypeInfo =
         | Fable.Char -> true
         // | Fable.Number(BigInt, _) -> false
         | Fable.Number _ -> true
+        | Fable.Nullable(_, isStruct) -> isStruct
         | Fable.Option(_, isStruct) -> isStruct
         | Fable.Tuple(_, isStruct) -> isStruct
         | Fable.AnonymousRecordType(_, _, isStruct) -> isStruct
@@ -407,6 +408,7 @@ module TypeInfo =
 
     let isTypeOfType (com: IRustCompiler) isTypeOf isEntityOf entNames typ =
         match typ with
+        | Fable.Nullable(genArg, _) -> isTypeOf com entNames genArg
         | Fable.Option(genArg, _) -> isTypeOf com entNames genArg
         | Fable.Array(genArg, _) -> isTypeOf com entNames genArg
         | Fable.List genArg -> isTypeOf com entNames genArg
@@ -466,6 +468,7 @@ module TypeInfo =
     //     | Fable.String
     //     | Fable.Regex
     //     | Fable.List _ -> false
+    //     | Fable.Nullable(_, isStruct) when not isStruct -> false
     //     | Fable.Option(_, isStruct) when not isStruct -> false
     //     | Fable.Tuple(_, isStruct) when not isStruct -> false
     //     | Fable.AnonymousRecordType(_, _, isStruct) when not isStruct -> false
@@ -802,7 +805,7 @@ module TypeInfo =
         if isStruct then
             transformImportType com ctx [ genArg ] "Native" "Nullable"
         else
-            transformType com ctx genArg // nullable reference types are transparent
+            transformType com ctx genArg // nullable reference types are erased
 
     let transformOptionType com ctx _isStruct genArg : Rust.Ty =
         transformGenericType com ctx [ genArg ] (rawIdent "Option")
