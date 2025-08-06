@@ -122,6 +122,9 @@ module Atts =
     let pyReflectedDecorator = "Fable.Core.Py.ReflectedDecoratorAttribute" // typeof<Fable.Core.Py.ReflectedDecoratorAttribute>.FullName
 
     [<Literal>]
+    let pyDecorate = "Fable.Core.Py.DecorateAttribute" // typeof<Fable.Core.Py.DecorateAttribute>.FullName
+
+    [<Literal>]
     let pyClassAttributes = "Fable.Core.Py.ClassAttributes" // typeof<Fable.Core.Py.ClassAttributes>.FullName
 
     [<Literal>]

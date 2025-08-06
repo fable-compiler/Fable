@@ -37,6 +37,13 @@ type FieldNamingKind =
     | InstancePropertyBacking
     | StaticProperty
 
+/// Represents a Python decorator extracted from F# attributes
+type DecoratorInfo =
+    {
+        Decorator: string
+        Parameters: string
+    }
+
 
 /// Represents different styles of Python class generation
 [<RequireQualifiedAccess>]

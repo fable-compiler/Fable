@@ -20,6 +20,8 @@ dev = [
     "ruff>=0.11.6,<0.12",
     "maturin>=1.8.3,<2",
     "dunamai>=1.23.1,<2",
+    "pydantic>=2.11.7",
+    "attrs>=25.3.0",
 ]
 
 [tool.hatch.build.targets.sdist]

@@ -2604,6 +2604,11 @@ let declareClassType
         else
             []
 
+    // Generate custom decorators from [<Decorate>] attributes
+    let customDecorators =
+        let decoratorInfos = Util.getDecoratorInfo ent.Attributes
+        Util.generateDecorators com ctx decoratorInfos
+
     stmts
     @ [
         Statement.classDef (
@@ -2611,7 +2616,8 @@ let declareClassType
             body = classBody,
             bases = bases @ interfaces,
             typeParams = typeParams,
-            keywords = keywords
+            keywords = keywords,
+            decoratorList = customDecorators
         )
     ]
 
@@ -2793,49 +2799,6 @@ let generateStaticPropertySetter
         | [ _self; valueArg ] -> Arguments.arguments [ valueArg ]
         | [ valueArg ] -> Arguments.arguments [ valueArg ]
         | _ -> Arguments.arguments [ Arg.arg "value" ]
-
-    // Transform setter body to prevent infinite recursion
-    // Why: Without this, setter does "User.Name = value" → triggers metaclass → calls setter → infinite loop!
-    // How: Replace "ClassName.PropertyName = value" with "ClassName.PropertyName_0040 = value" (backing field)
-    //      This bypasses the metaclass and descriptor, preventing recursion
-    // let transformedBody =
-    //     setterBody
-    //     |> List.map (fun stmt ->
-    //         match stmt with
-    //         | Statement.Assign {
-    //                                Targets = [ Expression.Attribute {
-    //                                                                     Value = Expression.Name {
-    //                                                                                                 Id = Identifier className_
-    //                                                                                             }
-    //                                                                     Attr = Identifier propName
-    //                                                                 } as target ]
-    //                                Value = value
-    //                            } when className_ = className && propName = propertyName ->
-    //             // Replace property assignment with backing field assignment
-    //             let backingFieldName = $"{propertyName}_0040" // Use backing field naming convention
-
-    //             let backingFieldTarget =
-    //                 Expression.attribute (Expression.name className_, Identifier backingFieldName)
-
-    //             Statement.assign ([ backingFieldTarget ], value)
-    //         | _ -> stmt
-    //     )
-
-    // Filter out any remaining assignments to backing fields that start with underscore
-    //let filteredBody =
-    //    transformedBody
-    // |> List.filter (fun stmt ->
-    //     match stmt with
-    //     | Statement.Assign {
-    //                            Targets = [ Expression.Attribute {
-    //                                                                 Value = Expression.Name {
-    //                                                                                             Id = Identifier className_
-    //                                                                                         }
-    //                                                                 Attr = Identifier field
-    //                                                             } ]
-    //                        } when className_ = className && field.StartsWith("_") -> false // Remove backing field assignments
-    //     | _ -> true
-    // )
 
     Statement.functionDef (functionNameIdent, setterArgs, body = setterBody)
 

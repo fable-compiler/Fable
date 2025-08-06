@@ -427,4 +427,112 @@ let ``test createEmpty works with interfaces`` () =
     user.Name |> equal "Kaladin"
     user.Age |> equal 20
 
+// Test for Pydantic compatible classes
+
+[<Erase>]
+type Field<'T> = 'T
+
+[<Import("Field", "pydantic")>]
+let Field (description: string): Field<'T> = nativeOnly
+
+[<Import("BaseModel", "pydantic")>]
+type BaseModel () = class end
+
+// Test PythonClass attribute with attributes style
+[<Py.ClassAttributes(style="attributes", init=false)>]
+type PydanticUser() =
+    inherit BaseModel()
+    member val Name: Field<string> = Field("Name") with get, set
+    member val Age: bigint = 10I with get, set
+    member val Email: string option = None with get, set
+
+[<Fact>]
+let ``test PydanticUser`` () =
+    let user = PydanticUser()
+    user.Name <- "Test User"
+    user.Age <- 25
+    user.Email <- Some "test@example.com"
+
+    user.Name |> equal "Test User"
+
+[<Py.Decorate("dataclasses.dataclass")>]
+[<Py.ClassAttributes(style="attributes", init=false)>]
+type DecoratedUser() =
+    member val Name: string = "" with get, set
+    member val Age: int = 0 with get, set
+
+[<Fact>]
+let ``test simple decorator without parameters`` () =
+    // Test that @dataclass decorator is applied correctly
+    let user = DecoratedUser()
+    user.Name <- "Test User"
+    user.Age <- 25
+
+    user.Name |> equal "Test User"
+    user.Age |> equal 25
+
+[<Py.Decorate("functools.lru_cache", "maxsize=128")>]
+[<Py.ClassAttributes(style="attributes", init=false)>]
+type DecoratedCache() =
+    member val Value: string = "cached" with get, set
+
+[<Fact>]
+let ``test decorator with parameters`` () =
+    // Test that decorator with parameters is applied correctly
+    let cache = DecoratedCache()
+    cache.Value |> equal "cached"
+
+[<Py.Decorate("dataclasses.dataclass")>]
+[<Py.Decorate("functools.total_ordering")>]
+[<Py.ClassAttributes(style="attributes", init=false)>]
+type MultiDecoratedClass() =
+    member val Priority: int = 0 with get, set
+    member val Name: string = "" with get, set
+
+    member this.__lt__(other: MultiDecoratedClass) =
+        this.Priority < other.Priority
+
+[<Fact>]
+let ``test multiple decorators applied in correct order`` () =
+    // Test that multiple decorators are applied bottom-to-top
+    let obj = MultiDecoratedClass()
+    obj.Priority <- 1
+    obj.Name <- "test"
+
+    obj.Priority |> equal 1
+    obj.Name |> equal "test"
+
+[<Py.Decorate("attrs.define", "auto_attribs=True, slots=True")>]
+[<Py.ClassAttributes(style="attributes", init=false)>]
+type AttrsDecoratedClass() =
+    member val Data: string = "attrs_data" with get, set
+    member val Count: int = 42 with get, set
+
+[<Fact>]
+let ``test complex decorator parameters`` () =
+    // Test decorator with complex parameter syntax
+    let obj = AttrsDecoratedClass()
+    obj.Data |> equal "attrs_data"
+    obj.Count |> equal 42
+
+// Test combining Decorate with existing F# features
+
+[<Py.Decorate("dataclasses.dataclass")>]
+[<Py.ClassAttributes(style="attributes", init=false)>]
+type InheritedDecoratedClass() =
+    inherit DecoratedUser()
+    member val Email: string = "" with get, set
+
+[<Fact>]
+let ``test decorator with inheritance`` () =
+    // Test that decorators work with class inheritance
+    let obj = InheritedDecoratedClass()
+    obj.Name <- "Inherited"
+    obj.Age <- 30
+    obj.Email <- "test@example.com"
+
+    obj.Name |> equal "Inherited"
+    obj.Age |> equal 30
+    obj.Email |> equal "test@example.com"
+
 #endif

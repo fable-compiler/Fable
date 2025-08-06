@@ -28,6 +28,29 @@ module Py =
         abstract Decorate: fn: Callable * info: Reflection.MethodInfo -> Callable
 
     /// <summary>
+    /// Adds Python decorators to generated classes, enabling integration with Python
+    /// frameworks like dataclasses, attrs, functools, and any other decorator-based
+    /// libraries.
+    /// </summary>
+    /// <remarks>
+    /// <para>The [&lt;Decorate&gt;] attribute is purely for Python interop and does NOT
+    /// affect F# compilation behavior.</para>
+    /// <para>Multiple [&lt;Decorate&gt;] attributes are applied in reverse order
+    /// (bottom to top), following Python's standard decorator stacking behavior.</para>
+    /// <para>Examples:</para>
+    /// <para>[&lt;Decorate("dataclasses.dataclass")&gt;] - Simple decorator</para>
+    /// <para>[&lt;Decorate("functools.lru_cache", "maxsize=128")&gt;] - Decorator with
+    /// parameters</para>
+    /// </remarks>
+    [<AttributeUsage(AttributeTargets.Class, AllowMultiple = true)>]
+    type DecorateAttribute(decorator: string) =
+        inherit Attribute()
+
+        new(decorator: string, parameters: string) = DecorateAttribute(decorator)
+
+        member val Decorator: string = decorator with get, set
+        member val Parameters: string = "" with get, set
+
     /// Used on a class to provide Python-specific control over how F# types are transpiled to Python classes.
     /// This attribute implies member attachment (similar to AttachMembers) while offering Python-specific parameters.
     /// </summary>
