@@ -1,5 +1,5 @@
 import { FSharpRef, Record, Union } from "./Types.js";
-import { combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Util.js";
+import { Exception, combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Util.js";
 import Decimal from "./Decimal.js";
 
 export type FieldInfo = [string, TypeInfo];
@@ -290,7 +290,7 @@ export function getEnumValues(t: TypeInfo): number[] {
   if (isEnum(t) && t.enumCases != null) {
     return t.enumCases.map((kv) => kv[1]);
   } else {
-    throw new Error(`${t.fullname} is not an enum type`);
+    throw new Exception(`${t.fullname} is not an enum type`);
   }
 }
 
@@ -298,7 +298,7 @@ export function getEnumNames(t: TypeInfo): string[] {
   if (isEnum(t) && t.enumCases != null) {
     return t.enumCases.map((kv) => kv[0]);
   } else {
-    throw new Error(`${t.fullname} is not an enum type`);
+    throw new Exception(`${t.fullname} is not an enum type`);
   }
 }
 
@@ -310,7 +310,7 @@ function getEnumCase(t: TypeInfo, v: number | string): EnumCase {
           return kv;
         }
       }
-      throw new Error(`'${v}' was not found in ${t.fullname}`);
+      throw new Exception(`'${v}' was not found in ${t.fullname}`);
     } else {
       for (const kv of t.enumCases) {
         if (kv[1] === v) {
@@ -321,7 +321,7 @@ function getEnumCase(t: TypeInfo, v: number | string): EnumCase {
       return ["", v];
     }
   } else {
-    throw new Error(`${t.fullname} is not an enum type`);
+    throw new Exception(`${t.fullname} is not an enum type`);
   }
 }
 
@@ -360,7 +360,7 @@ export function getUnionCases(t: TypeInfo): CaseInfo[] {
   if (t.cases != null) {
     return t.cases();
   } else {
-    throw new Error(`${t.fullname} is not an F# union type`);
+    throw new Exception(`${t.fullname} is not an F# union type`);
   }
 }
 
@@ -368,7 +368,7 @@ export function getRecordElements(t: TypeInfo): FieldInfo[] {
   if (t.fields != null) {
     return t.fields();
   } else {
-    throw new Error(`${t.fullname} is not an F# record type`);
+    throw new Exception(`${t.fullname} is not an F# record type`);
   }
 }
 
@@ -376,7 +376,7 @@ export function getTupleElements(t: TypeInfo): TypeInfo[] {
   if (isTuple(t) && t.generics != null) {
     return t.generics;
   } else {
-    throw new Error(`${t.fullname} is not a tuple type`);
+    throw new Exception(`${t.fullname} is not a tuple type`);
   }
 }
 
@@ -385,7 +385,7 @@ export function getFunctionElements(t: TypeInfo): [TypeInfo, TypeInfo] {
     const gen = t.generics;
     return [gen[0], gen[1]];
   } else {
-    throw new Error(`${t.fullname} is not an F# function type`);
+    throw new Exception(`${t.fullname} is not an F# function type`);
   }
 }
 
@@ -412,7 +412,7 @@ export function getUnionFields(v: any, t: TypeInfo): [CaseInfo, any[]] {
   const cases = getUnionCases(t);
   const case_ = cases[v.tag];
   if (case_ == null) {
-    throw new Error(`Cannot find case ${v.name} in union type`);
+    throw new Exception(`Cannot find case ${v.name} in union type`);
   }
   return [case_, v.fields];
 }
@@ -443,7 +443,7 @@ export function getTupleField(v: any, i: number): any {
 export function makeUnion(uci: CaseInfo, values: any[]): any {
   const expectedLength = (uci.fields || []).length;
   if (values.length !== expectedLength) {
-    throw new Error(`Expected an array of length ${expectedLength} but got ${values.length}`);
+    throw new Exception(`Expected an array of length ${expectedLength} but got ${values.length}`);
   }
   const construct = uci.declaringType.construct;
   if (construct == null) {
@@ -461,7 +461,7 @@ export function makeUnion(uci: CaseInfo, values: any[]): any {
 export function makeRecord(t: TypeInfo, values: any[]): any {
   const fields = getRecordElements(t);
   if (fields.length !== values.length) {
-    throw new Error(`Expected an array of length ${fields.length} but got ${values.length}`);
+    throw new Exception(`Expected an array of length ${fields.length} but got ${values.length}`);
   }
   return t.construct != null
     ? new t.construct(...values)
@@ -506,7 +506,7 @@ export function createInstance(t: TypeInfo, consArgs?: any[]): any {
         // Even though char is a value type, it's erased to string, and Unchecked.defaultof<char> is null
         return null;
       default:
-        throw new Error(`Cannot access constructor of ${t.fullname}`);
+        throw new Exception(`Cannot access constructor of ${t.fullname}`);
     }
   }
 }
@@ -519,7 +519,7 @@ export function getValue(propertyInfo: PropertyInfo, v: any): any {
 
 function assertUnion(x: any) {
   if (!(x instanceof Union)) {
-    throw new Error(`Value is not an F# union type`);
+    throw new Exception(`Value is not an F# union type`);
   }
 }
 

@@ -70,8 +70,8 @@ let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
         | BigInt -> None
     | _ -> None
 
-let error msg =
-    Helper.ConstructorCall(makeIdentExpr "Error", Any, [ msg ])
+let error com msg =
+    Helper.LibCall(com, "Util", "Exception", Any, [ msg ], isConstructor = true)
 
 let coreModFor =
     function
@@ -930,7 +930,7 @@ let tryEntityIdent (com: Compiler) entFullName =
     // | BuiltinDefinition FSharpSet _ -> fail "Set" // TODO:
     // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
     | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
-    | Types.exception_ -> makeIdentExpr "Error" |> Some
+    | Types.exception_ -> makeImportLib com Any "Exception" "Util" |> Some
     | Types.systemException -> makeImportLib com Any "SystemException" "SystemException" |> Some
     | Types.timeoutException -> makeImportLib com Any "TimeoutException" "SystemException" |> Some
     | Types.attribute -> makeImportLib com Any "Attribute" "Types" |> Some
@@ -1011,7 +1011,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | path -> path
 
     match i.DeclaringEntityFullName, i.CompiledName with
-    | _, UniversalFableCoreHelpers com ctx r t i args error expr -> Some expr
+    | _, UniversalFableCoreHelpers com ctx r t i args (error com) expr -> Some expr
 
     // Extensions
     | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc = r) |> Some
@@ -1334,10 +1334,10 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
       _ -> fsharpModule com ctx r t i thisArg args
     // Exceptions
     | "FailWith", [ msg ]
-    | "InvalidOp", [ msg ] -> makeThrow r t (error msg) |> Some
+    | "InvalidOp", [ msg ] -> makeThrow r t (error com msg) |> Some
     | "InvalidArg", [ argName; msg ] ->
         let msg = add (add msg (str "\\nParameter name: ")) argName
-        makeThrow r t (error msg) |> Some
+        makeThrow r t (error com msg) |> Some
     | "Raise", [ arg ] -> makeThrow r t arg |> Some
     | "Reraise", _ ->
         match ctx.CaughtException with
@@ -1346,7 +1346,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             "`reraise` used in context where caught exception is not available, please report"
             |> addError com ctx.InlinePath r
 
-            makeThrow r t (error (str "")) |> Some
+            makeThrow r t (error com (str "")) |> Some
     // Math functions
     // TODO: optimize square pow: x * x
     | "Pow", _
@@ -2957,7 +2957,9 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Helper.ConstructorCall(makeIdentExpr "Error", t, args, ?loc = r) |> Some
+    | ".ctor", _ ->
+        Helper.LibCall(com, "Util", "Exception", Any, args, isConstructor = true)
+        |> Some
     | "get_Message", Some e -> getFieldWith r t e "message" |> Some
     | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
     | _ -> None
@@ -4304,7 +4306,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
 
 let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
-    | Types.exception_ -> Some(makeImportLib com Any "Exception" "Types", args)
+    | Types.exception_ -> Some(makeImportLib com Any "Exception" "Util", args)
     | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)
     | fullName when
         fullName.StartsWith("Fable.Core.", StringComparison.Ordinal)

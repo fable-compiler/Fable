@@ -2,6 +2,7 @@ import { toString as dateToString } from "./Date.js";
 import { compare as numericCompare, isNumeric, isIntegral, multiply, Numeric, toExponential, toFixed, toHex, toPrecision } from "./Numeric.js";
 import { escape } from "./RegExp.js";
 import { toString } from "./Types.js";
+import { Exception } from "./Util.js";
 
 const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\*|\d+)?(?:\.(\d+))?(\w)/g;
 const interpolateRegExp = /(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)/g;
@@ -51,7 +52,7 @@ export function compare(...args: any[]): number {
     case 5: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), false);
     case 6: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), args[5]);
     case 7: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), args[5] === true);
-    default: throw new Error("String.compare: Unsupported number of parameters");
+    default: throw new Exception("String.compare: Unsupported number of parameters");
   }
 }
 
@@ -89,14 +90,14 @@ export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
   }
   const startIndex = (args.length > 0) ? args[0] : 0;
   if (startIndex < 0) {
-    throw new Error("Start index cannot be negative");
+    throw new Exception("Start index cannot be negative");
   }
   const length = (args.length > 1) ? args[1] : str.length - startIndex;
   if (length < 0) {
-    throw new Error("Length cannot be negative");
+    throw new Exception("Length cannot be negative");
   }
   if (startIndex + length > str.length) {
-    throw new Error("Invalid startIndex and length");
+    throw new Exception("Invalid startIndex and length");
   }
   const endIndex = startIndex + length
   const anyOfAsStr = "".concat.apply("", anyOf);
@@ -166,7 +167,7 @@ export function toText(arg: IPrintfFormat | string) {
 
 export function toFail(arg: IPrintfFormat | string) {
   return continuePrint((x: string) => {
-    throw new Error(x);
+    throw new Exception(x);
   }, arg);
 }
 
@@ -246,7 +247,7 @@ function createPrinter(cont: (...args: any[]) => any, _strParts: string[], _matc
       }
       else if (padLength === "*") {
         if (arg < 0) {
-          throw new Error("Non-negative number required");
+          throw new Exception("Non-negative number required");
         }
         padArg = arg;
         continue;
@@ -320,7 +321,7 @@ export function format(str: string | object, ...args: any[]) {
 
   return str2.replace(formatRegExp, (_, idx: number, padLength, format, precision, pattern) => {
     if (idx < 0 || idx >= args.length) {
-      throw new Error("Index must be greater or equal to zero and less than the arguments' length.")
+      throw new Exception("Index must be greater or equal to zero and less than the arguments' length.")
     }
     let rep = args[idx];
     let parts;
@@ -329,7 +330,7 @@ export function format(str: string | object, ...args: any[]) {
       switch (format) {
         case "b": case "B":
           if (!isIntegral(rep)) {
-            throw new Error("Format specifier was invalid.");
+            throw new Exception("Format specifier was invalid.");
           }
           rep = (rep >>> 0).toString(2).replace(/^0+/, "").padStart(precision || 1, "0");
           break;
@@ -348,7 +349,7 @@ export function format(str: string | object, ...args: any[]) {
           break;
         case "d": case "D":
           if (!isIntegral(rep)) {
-            throw new Error("Format specifier was invalid.");
+            throw new Exception("Format specifier was invalid.");
           }
           rep = String(rep);
           if (precision != null) {
@@ -388,10 +389,10 @@ export function format(str: string | object, ...args: any[]) {
           rep = thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0") + " %";
           break;
         case "r": case "R":
-          throw new Error("The round-trip format is not supported by Fable");
+          throw new Exception("The round-trip format is not supported by Fable");
         case "x": case "X":
           if (!isIntegral(rep)) {
-            throw new Error("Format specifier was invalid.");
+            throw new Exception("Format specifier was invalid.");
           }
           precision = precision != null ? precision : 2;
           rep = padLeft(toHex(rep), precision, "0");
@@ -403,7 +404,7 @@ export function format(str: string | object, ...args: any[]) {
           // If we have format and were not able to handle it throw
           // See: https://learn.microsoft.com/en-us/dotnet/standard/base-types/standard-numeric-format-strings#standard-format-specifiers
           if (format) {
-            throw new Error("Format specifier was invalid.");
+            throw new Exception("Format specifier was invalid.");
           }
 
           if (pattern) {
@@ -461,7 +462,7 @@ export function format(str: string | object, ...args: any[]) {
 
 export function initialize(n: number, f: (i: number) => string) {
   if (n < 0) {
-    throw new Error("String length must be non-negative");
+    throw new Exception("String length must be non-negative");
   }
   const xs = new Array(n);
   for (let i = 0; i < n; i++) {
@@ -472,7 +473,7 @@ export function initialize(n: number, f: (i: number) => string) {
 
 export function insert(str: string, startIndex: number, value: string) {
   if (startIndex < 0 || startIndex > str.length) {
-    throw new Error("startIndex is negative or greater than the length of this instance.");
+    throw new Exception("startIndex is negative or greater than the length of this instance.");
   }
   return str.substring(0, startIndex) + value + str.substring(startIndex);
 }
@@ -500,13 +501,13 @@ export function join<T>(delimiter: string, xs: Iterable<T>): string {
 export function joinWithIndices(delimiter: string, xs: string[], startIndex: number, count: number) {
   const endIndexPlusOne = startIndex + count;
   if (endIndexPlusOne > xs.length) {
-    throw new Error("Index and count must refer to a location within the buffer.");
+    throw new Exception("Index and count must refer to a location within the buffer.");
   }
   return xs.slice(startIndex, endIndexPlusOne).join(delimiter);
 }
 
 function notSupported(name: string): never {
-  throw new Error("The environment doesn't support '" + name + "', please use a polyfill.");
+  throw new Exception("The environment doesn't support '" + name + "', please use a polyfill.");
 }
 
 export function toBase64String(inArray: ArrayLike<number>) {
@@ -545,10 +546,10 @@ export function padRight(str: string, len: number, ch?: string) {
 
 export function remove(str: string, startIndex: number, count?: number) {
   if (startIndex >= str.length) {
-    throw new Error("startIndex must be less than length of string");
+    throw new Exception("startIndex must be less than length of string");
   }
   if (typeof count === "number" && (startIndex + count) > str.length) {
-    throw new Error("Index and count must refer to a location within the string.");
+    throw new Exception("Index and count must refer to a location within the string.");
   }
   return str.slice(0, startIndex) + (typeof count === "number" ? str.substr(startIndex + count) : "");
 }
@@ -563,7 +564,7 @@ export function replicate(n: number, x: string) {
 
 export function getCharAtIndex(input: string, index: number) {
   if (index < 0 || index >= input.length) {
-    throw new Error("Index was outside the bounds of the array.");
+    throw new Exception("Index was outside the bounds of the array.");
   }
   return input[index];
 }
@@ -572,7 +573,7 @@ export function split(str: string, splitters: string[], count?: number, options?
   count = typeof count === "number" ? count : undefined;
   options = typeof options === "number" ? options : 0;
   if (count && count < 0) {
-    throw new Error("Count cannot be less than zero");
+    throw new Exception("Count cannot be less than zero");
   }
   if (count === 0) {
     return [];
@@ -643,7 +644,7 @@ export function filter(pred: (char: string) => boolean, x: string) {
 
 export function substring(str: string, startIndex: number, length?: number) {
   if ((startIndex + (length || 0) > str.length)) {
-    throw new Error("Invalid startIndex and/or length");
+    throw new Exception("Invalid startIndex and/or length");
   }
   return length != null ? str.substr(startIndex, length) : str.substr(startIndex);
 }

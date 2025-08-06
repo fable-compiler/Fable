@@ -66,7 +66,7 @@ let error (com: ICompiler) msg =
     | Python -> Py.Replacements.error msg
     | Rust -> Rust.Replacements.error msg
     | Dart -> Dart.Replacements.error msg
-    | _ -> JS.Replacements.error msg
+    | _ -> JS.Replacements.error com msg
 
 let defaultof (com: ICompiler) ctx r typ =
     match com.Options.Language with

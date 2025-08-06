@@ -1,7 +1,7 @@
 import { FSharpRef } from "./Types.js";
 import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } from "./Int32.js";
 import { decimal, fromParts, truncate } from "./Decimal.js";
-import { bigintHash } from "./Util.js";
+import { Exception, bigintHash } from "./Util.js";
 
 const isBigEndian = false;
 
@@ -138,7 +138,7 @@ export function toIntN(bits: number, x: bigint, signed: boolean): bigint {
     let higher_bits = abs(x) >> BigInt(bits);
     if (higher_bits !== 0n) {
         const s = signed ? "a signed" : "an unsigned";
-        throw new Error(`Value was either too large or too small for ${s} ${bits}-bit integer.`);
+        throw new Exception(`Value was either too large or too small for ${s} ${bits}-bit integer.`);
     }
     return signed ? BigInt.asIntN(bits, x) : BigInt.asUintN(bits, x);
 }
@@ -338,7 +338,7 @@ function toSignedBytes(x: bigint, isBigEndian: boolean): Uint8Array {
 
 function fromSignedBytes(bytes: ArrayLike<uint8>, isBigEndian: boolean) {
     if (bytes == null) {
-        throw new Error("bytes is null");
+        throw new Exception("bytes is null");
     }
     const len = bytes.length;
     const first = isBigEndian ? 0 : len - 1;

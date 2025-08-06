@@ -10,7 +10,7 @@
 
 import { int64, toInt64, toFloat64 } from "./BigInt.js";
 import { FSharpRef } from "./Types.js";
-import { compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
+import { Exception, compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
 
 export type OffsetInMinutes = number;
 export type Offset = "Z" | OffsetInMinutes | null;
@@ -75,7 +75,7 @@ function parseQuotedString(format: string, pos: number): [string, number] {
         result += format[pos];
       } else {
         // This means that '\' is the last character in the string.
-        throw new Error("Invalid string format");
+        throw new Exception("Invalid string format");
       }
     } else {
       result += currentChar;
@@ -84,7 +84,7 @@ function parseQuotedString(format: string, pos: number): [string, number] {
 
   if (!foundQuote) {
     // We could not find the matching quote
-    throw new Error(`Invalid string format could not find matching quote for ${quoteChar}`);
+    throw new Exception(`Invalid string format could not find matching quote for ${quoteChar}`);
   }
 
   return [result, pos - beginPos + 1];
@@ -336,7 +336,7 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
           cursorPos += 2;
           result += dateToStringWithCustomFormat(localizedDate, String.fromCharCode(nextChar), utc);
         } else {
-          throw new Error("Invalid format string");
+          throw new Exception("Invalid format string");
         }
         break;
       case "\\":
@@ -345,7 +345,7 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
           cursorPos += 2;
           result += String.fromCharCode(nextChar2);
         } else {
-          throw new Error("Invalid format string");
+          throw new Exception("Invalid format string");
         }
         break;
       default:
@@ -413,7 +413,7 @@ function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
       case "T": return dateToString_T(toUniversalTime(d));
       case "t": return dateToString_t(toUniversalTime(d));
       case "O": case "o": return dateToISOStringWithOffset(d, (date.offset ?? 0));
-      default: throw new Error("Unrecognized Date print format");
+      default: throw new Exception("Unrecognized Date print format");
     }
   } else {
     return dateToStringWithCustomFormat(d, format, true);
@@ -457,7 +457,7 @@ function dateToStringWithKind(date: IDateTime, format?: string) {
       case "O": case "o":
         return dateToISOString(date, utc);
       default:
-        throw new Error("Unrecognized Date print format");
+        throw new Exception("Unrecognized Date print format");
     }
   } else {
     return dateToStringWithCustomFormat(date, format, utc);
@@ -516,7 +516,7 @@ export function maxValue() {
 
 export function parseRaw(input: string): [Date, Offset] {
   function fail() {
-    throw new Error(`The string is not a valid Date: ${input}`);
+    throw new Exception(`The string is not a valid Date: ${input}`);
   }
 
   if (input == null || input.trim() === "") {
@@ -623,7 +623,7 @@ export function create(
   }
   const dateValue = date.getTime();
   if (isNaN(dateValue)) {
-    throw new Error("The parameters describe an unrepresentable Date.");
+    throw new Exception("The parameters describe an unrepresentable Date.");
   }
   return DateTime(dateValue, kind);
 }

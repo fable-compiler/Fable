@@ -1,4 +1,5 @@
 import { FSharpRef } from "./Types.js";
+import { Exception } from "./Util.js";
 
 export type int8 = number;
 export type uint8 = number;
@@ -51,7 +52,7 @@ function getRange(unsigned: boolean, bitsize: number): [number, number] {
     case 8: return unsigned ? [0, 255] : [-128, 127];
     case 16: return unsigned ? [0, 65535] : [-32768, 32767];
     case 32: return unsigned ? [0, 4294967295] : [-2147483648, 2147483647];
-    default: throw new Error("Invalid bit size.");
+    default: throw new Exception("Invalid bit size.");
   }
 }
 
@@ -62,7 +63,7 @@ function getInvalidDigits(radix: number): RegExp {
     case 10: return /[^0-9]/;
     case 16: return /[^0-9a-fA-F]/;
     default:
-      throw new Error("Invalid Base.");
+      throw new Exception("Invalid Base.");
   }
 }
 
@@ -118,7 +119,7 @@ export function parse(str: string, style: number, unsigned: boolean, bitsize: nu
       }
     }
   }
-  throw new Error(`The input string ${str} was not in a correct format.`);
+  throw new Exception(`The input string ${str} was not in a correct format.`);
 }
 
 export function tryParse(str: string, style: number, unsigned: boolean, bitsize: number, defValue: FSharpRef<number>): boolean {

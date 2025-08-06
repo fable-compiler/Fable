@@ -1,6 +1,6 @@
 import { FSharpRef } from "./Types.js";
 import { DateTime, getTicks, dayOfYear as Date_dayOfYear, year as Date_year, month as Date_month, day as Date_day, daysInMonth as Date_daysInMonth, ticksToUnixEpochMilliseconds } from "./Date.js";
-import { IDateTime, DateKind, padWithZeros } from "./Util.js";
+import { Exception, IDateTime, DateKind, padWithZeros } from "./Util.js";
 
 export function fromUnixMilliseconds(value: number) {
   return DateTime(value, DateKind.UTC);
@@ -63,7 +63,7 @@ export function toDateTime(d: IDateTime, time: number, kind = DateKind.Unspecifi
 
 export function toString(d: IDateTime, format = "d", _provider?: any) {
   if (["d", "o", "O"].indexOf(format) === -1) {
-    throw new Error("Custom formats are not supported");
+    throw new Exception("Custom formats are not supported");
   }
 
   const y = padWithZeros(year(d), 4);
@@ -75,7 +75,7 @@ export function toString(d: IDateTime, format = "d", _provider?: any) {
 
 export function parse(str: string) {
   function fail(): IDateTime {
-    throw new Error(`String '${str}' was not recognized as a valid DateOnly.`);
+    throw new Exception(`String '${str}' was not recognized as a valid DateOnly.`);
   }
 
   // Allowed separators: . , / -

@@ -4,6 +4,7 @@ import { startImmediate } from "./Async.js";
 import { Async } from "./AsyncBuilder.js";
 import { Continuation, Continuations } from "./AsyncBuilder.js";
 import { CancellationToken } from "./AsyncBuilder.js";
+import { Exception } from "./Util.js";
 
 class QueueCell<Msg> {
   public value: Msg;
@@ -79,7 +80,7 @@ export function startInstance<Msg>($this: MailboxProcessor<Msg>) {
 export function receive<Msg>($this: MailboxProcessor<Msg>) {
   return fromContinuations((conts: Continuations<Msg>) => {
     if ($this.continuation) {
-      throw new Error("Receive can only be called once!");
+      throw new Exception("Receive can only be called once!");
     }
     $this.continuation = conts[0];
     __processEvents($this);

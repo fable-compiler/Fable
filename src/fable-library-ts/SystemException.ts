@@ -1,4 +1,4 @@
-import { Exception } from "./Types.js";
+import { Exception } from "./Util.js";
 
 export class SystemException extends Exception {
 }

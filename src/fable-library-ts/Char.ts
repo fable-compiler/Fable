@@ -1,4 +1,5 @@
 import * as Unicode from "./Unicode.13.0.0.js";
+import { Exception } from "./Util.js";
 
 export type char = string;
 
@@ -108,7 +109,7 @@ function charCodeAt(s: string, index: number) {
   if (index >= 0 && index < s.length) {
     return s.charCodeAt(index);
   } else {
-    throw new Error("Index out of range.");
+    throw new Exception("Index out of range.");
   }
 }
 
@@ -217,6 +218,6 @@ export function parse(input: string) {
   if (input.length === 1) {
     return input[0];
   } else {
-    throw new Error("String must be exactly one character long.");
+    throw new Exception("String must be exactly one character long.");
   }
 }
