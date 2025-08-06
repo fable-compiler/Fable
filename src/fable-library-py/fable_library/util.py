@@ -190,7 +190,7 @@ class IEqualityComparer_1[T_in](Protocol):
 class IStructuralEquatable(Protocol):
     @abstractmethod
     def Equals(self, other: Any, comparer: IEqualityComparer) -> bool:
-        return NotImplementedError
+        raise NotImplementedError
 
     @abstractmethod
     def __hash__(self) -> int32:
