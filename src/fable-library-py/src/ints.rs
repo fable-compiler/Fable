@@ -356,6 +356,13 @@ macro_rules! integer_variant {
                 Ok($name(self.0.wrapping_neg()))
             }
 
+            /// Unary plus operator.
+            ///
+            /// Returns the value unchanged.
+            pub fn __pos__(&self) -> PyResult<$name> {
+                Ok($name(self.0))
+            }
+
             /// Convert the integer to a byte array.
             ///
             /// # Arguments
