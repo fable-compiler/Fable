@@ -1,4 +1,4 @@
-from typing import Any, SupportsFloat, SupportsInt
+from typing import Any, Literal, SupportsFloat, SupportsInt, overload
 
 from .core._core import get_range_64 as get_range
 from .core._core import parse_int64 as parse
@@ -129,6 +129,14 @@ def from_number(value: SupportsInt, unsigned: bool) -> int64:
 
 def to_number(value: SupportsFloat) -> float64:
     return float64(value)
+
+
+@overload
+def from_integer(value: int, unsigned: Literal[True], kind: int) -> uint64: ...
+
+
+@overload
+def from_integer(value: int, unsigned: Literal[False], kind: int) -> int64: ...
 
 
 def from_integer(value: int, unsigned: bool | None = None, kind: int | None = None) -> int64 | uint64:
