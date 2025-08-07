@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import functools
 import platform
 import random
@@ -116,13 +117,9 @@ class AnonymousDisposable(IDisposable):
 
 
 class IEquatable(Protocol):
-    @abstractmethod
-    def __eq__(self, other: Any) -> bool:
-        raise NotImplementedError
+    def __eq__(self, other: Any) -> bool: ...
 
-    @abstractmethod
-    def __hash__(self) -> int32:
-        raise NotImplementedError
+    def __hash__(self) -> int32: ...
 
 
 class IComparable(IEquatable, Protocol):
@@ -2672,7 +2669,7 @@ def ignore(a: Any = None) -> None:
 
 
 def copy_to_array[T](src: Array[T], srci: int, trg: Array[T], trgi: int, cnt: int) -> None:
-    for i in range(0, cnt, 1):
+    for i in builtins.range(0, cnt, 1):
         trg[trgi + i] = src[srci + i]
 
 
@@ -2801,6 +2798,26 @@ class StaticPropertyMeta(type):
         super().__setattr__(name, value)
 
 
+def range(start: int, stop: int, step: int = 1) -> Iterable[int32]:
+    """Range function that returns an iterable of int32 values.
+
+    This function handles the difference between F# and Python range semantics:
+    - F# ranges are inclusive (include the end value)
+    - Python ranges are exclusive (exclude the end value)
+
+    The function automatically adjusts the stop value to match F# semantics.
+    """
+    # Adjust stop value to be inclusive (F# semantics) by adding step direction
+    if step > 0:
+        # For positive step, we want to include the stop value
+        adjusted_stop = stop + 1
+    else:
+        # For negative step, we want to include the stop value
+        adjusted_stop = stop - 1
+
+    return map(lambda x: int32(x), builtins.range(start, adjusted_stop, step))
+
+
 __all__ = [
     "ObjectRef",
     "PlatformID",
@@ -2827,6 +2844,7 @@ __all__ = [
     "number_hash",
     "physical_hash",
     "randint",
+    "range",
     "round",
     "uncurry2",
     "uncurry3",

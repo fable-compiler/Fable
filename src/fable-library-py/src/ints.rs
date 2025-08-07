@@ -221,6 +221,52 @@ macro_rules! integer_variant {
 
         #[pymethods]
         impl $name {
+            #[classattr]
+            const ZERO: $name = $name(0 as $type);
+
+            #[classattr]
+            const ONE: $name = $name(1 as $type);
+
+            #[classattr]
+            const TWO: $name = $name(2 as $type);
+
+            #[classattr]
+
+            const THREE: $name = $name(3 as $type);
+
+            #[classattr]
+            const FOUR: $name = $name(4 as $type);
+
+            #[classattr]
+            const FIVE: $name = $name(5 as $type);
+
+            #[classattr]
+            const SIX: $name = $name(6 as $type);
+
+            #[classattr]
+            const SEVEN: $name = $name(7 as $type);
+
+            #[classattr]
+            const EIGHT: $name = $name(8 as $type);
+
+            #[classattr]
+            const NINE: $name = $name(9 as $type);
+
+            #[classattr]
+            const TEN: $name = $name(10 as $type);
+
+            #[classattr]
+            const SIXTEEN: $name = $name(16 as $type);
+
+            #[classattr]
+            const THIRTY_TWO: $name = $name(32 as $type);
+
+            #[classattr]
+            const SIXTY_FOUR: $name = $name(64 as $type);
+
+            #[classattr]
+            const NEG_ONE: $name = $name((-1i8) as $type);
+
             /// Create a new integer instance from various numeric types.
             ///
             /// This constructor supports conversion from:
@@ -308,6 +354,13 @@ macro_rules! integer_variant {
             /// For unsigned types, this performs two's complement negation.
             pub fn __neg__(&self) -> PyResult<$name> {
                 Ok($name(self.0.wrapping_neg()))
+            }
+
+            /// Unary plus operator.
+            ///
+            /// Returns the value unchanged.
+            pub fn __pos__(&self) -> PyResult<$name> {
+                Ok($name(self.0))
             }
 
             /// Convert the integer to a byte array.

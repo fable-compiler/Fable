@@ -1,4 +1,4 @@
-from typing import Literal, TypeAlias, TypeVar
+from typing import Literal
 
 from ._core import (
     Int8,
@@ -17,10 +17,10 @@ from ._core import (
 )
 
 
-_T = TypeVar("_T")
+# Note: We don't use type aliases here because since we use the types as
+# functions
 
-# Type aliases for the built-in types
-Array: TypeAlias = array.FSharpArray[_T]
+Array = array.FSharpArray
 ArrayType = Literal[
     "Int8",
     "UInt8",
@@ -35,20 +35,20 @@ ArrayType = Literal[
     "String",
     "Generic",
 ]
-FSharpRef: TypeAlias = types.FSharpRef[_T]
+FSharpRef = types.FSharpRef
 
-byte: TypeAlias = UInt8
-sbyte: TypeAlias = Int8
-uint8: TypeAlias = UInt8
-int8: TypeAlias = Int8
-int16: TypeAlias = Int16
-uint16: TypeAlias = UInt16
-int32: TypeAlias = Int32
-uint32: TypeAlias = UInt32
-int64: TypeAlias = Int64
-uint64: TypeAlias = UInt64
-float32: TypeAlias = floats.Float32
-float64: TypeAlias = floats.Float64
+byte = UInt8
+sbyte = Int8
+uint8 = UInt8
+int8 = Int8
+int16 = Int16
+uint16 = UInt16
+int32 = Int32
+uint32 = UInt32
+int64 = Int64
+uint64 = UInt64
+float32 = floats.Float32
+float64 = floats.Float64
 
 __all__: list[str] = [
     "ArrayType",
