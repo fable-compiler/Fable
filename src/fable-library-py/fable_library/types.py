@@ -4,7 +4,6 @@ from abc import abstractmethod
 from collections.abc import Iterable
 from typing import (
     Any,
-    TypeAlias,
     cast,
 )
 
@@ -155,7 +154,7 @@ class Record(IComparable):
     def Equals(self, other: Record) -> bool:
         return record_equals(self, other)
 
-    def __cmp__(self, other: Record) -> int:
+    def __cmp__(self, other: Record) -> int32:
         return record_compare_to(self, other)
 
     def __str__(self) -> str:
@@ -196,7 +195,7 @@ def seq_to_string(self: Iterable[Any]) -> str:
 
 def to_string(x: object | None, call_stack: int = 0) -> str:
     match x:
-        case float() if int(x) == x:
+        case float() if int(x) == x:  # type: ignore[no-untyped-call]
             return str(int(x))
         case bool():
             return str(x).lower()
@@ -260,8 +259,9 @@ class char(int):
     __slots__ = ()
 
 
-IntegerTypes: TypeAlias = int | byte | sbyte | int16 | uint16 | int32 | uint32 | int64 | uint64
-FloatTypes: TypeAlias = float | float32 | float64
+# We don't use type aliases here because since we need to do isinstance checks
+IntegerTypes = int | byte | sbyte | int16 | uint16 | int32 | uint32 | int64 | uint64
+FloatTypes = float | float32 | float64
 
 
 def is_exception(x: Any):

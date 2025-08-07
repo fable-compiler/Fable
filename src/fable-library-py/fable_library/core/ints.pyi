@@ -1,6 +1,6 @@
 """Stub file for Fable integer types."""
 
-from typing import Any, Protocol, Self, SupportsFloat, SupportsInt, final
+from typing import Any, ClassVar, Protocol, Self, SupportsFloat, SupportsInt, final
 
 class NumericInts(Protocol):
     """Protocol for Integer types"""
@@ -44,30 +44,149 @@ class NumericInts(Protocol):
     def __abs__(self) -> Self: ...
 
 @final
-class UInt8(NumericInts): ...
+class UInt8(NumericInts):
+    ZERO: ClassVar[UInt8]
+    ONE: ClassVar[UInt8]
+    TWO: ClassVar[UInt8]
+    THREE: ClassVar[UInt8]
+    FOUR: ClassVar[UInt8]
+    FIVE: ClassVar[UInt8]
+    SIX: ClassVar[UInt8]
+    SEVEN: ClassVar[UInt8]
+    EIGHT: ClassVar[UInt8]
+    NINE: ClassVar[UInt8]
+    TEN: ClassVar[UInt8]
+    SIXTEEN: ClassVar[UInt8]
+    THIRTY_TWO: ClassVar[UInt8]
+    SIXTY_FOUR: ClassVar[UInt8]
+    NEG_ONE: ClassVar[UInt8]
 
 @final
-class Int8(NumericInts): ...
+class Int8(NumericInts):
+    ZERO: ClassVar[Int8]
+    ONE: ClassVar[Int8]
+    TWO: ClassVar[Int8]
+    THREE: ClassVar[Int8]
+    FOUR: ClassVar[Int8]
+    FIVE: ClassVar[Int8]
+    SIX: ClassVar[Int8]
+    SEVEN: ClassVar[Int8]
+    EIGHT: ClassVar[Int8]
+    NINE: ClassVar[Int8]
+    TEN: ClassVar[Int8]
+    SIXTEEN: ClassVar[Int8]
+    THIRTY_TWO: ClassVar[Int8]
+    SIXTY_FOUR: ClassVar[Int8]
+    NEG_ONE: ClassVar[Int8]
 
 @final
-class UInt16(NumericInts): ...
+class UInt16(NumericInts):
+    ZERO: ClassVar[UInt16]
+    ONE: ClassVar[UInt16]
+    TWO: ClassVar[UInt16]
+    THREE: ClassVar[UInt16]
+    FOUR: ClassVar[UInt16]
+    FIVE: ClassVar[UInt16]
+    SIX: ClassVar[UInt16]
+    SEVEN: ClassVar[UInt16]
+    EIGHT: ClassVar[UInt16]
+    NINE: ClassVar[UInt16]
+    TEN: ClassVar[UInt16]
+    SIXTEEN: ClassVar[UInt16]
+    THIRTY_TWO: ClassVar[UInt16]
+    SIXTY_FOUR: ClassVar[UInt16]
+    NEG_ONE: ClassVar[UInt16]
 
 @final
-class Int16(NumericInts): ...
+class Int16(NumericInts):
+    ZERO: ClassVar[Int16]
+    ONE: ClassVar[Int16]
+    TWO: ClassVar[Int16]
+    THREE: ClassVar[Int16]
+    FOUR: ClassVar[Int16]
+    FIVE: ClassVar[Int16]
+    SIX: ClassVar[Int16]
+    SEVEN: ClassVar[Int16]
+    EIGHT: ClassVar[Int16]
+    NINE: ClassVar[Int16]
+    TEN: ClassVar[Int16]
+    SIXTEEN: ClassVar[Int16]
+    THIRTY_TWO: ClassVar[Int16]
+    SIXTY_FOUR: ClassVar[Int16]
+    NEG_ONE: ClassVar[Int16]
 
 @final
-class UInt32(NumericInts): ...
+class UInt32(NumericInts):
+    ZERO: ClassVar[UInt32]
+    ONE: ClassVar[UInt32]
+    TWO: ClassVar[UInt32]
+    THREE: ClassVar[UInt32]
+    FOUR: ClassVar[UInt32]
+    FIVE: ClassVar[UInt32]
+    SIX: ClassVar[UInt32]
+    SEVEN: ClassVar[UInt32]
+    EIGHT: ClassVar[UInt32]
+    NINE: ClassVar[UInt32]
+    TEN: ClassVar[UInt32]
+    SIXTEEN: ClassVar[UInt32]
+    THIRTY_TWO: ClassVar[UInt32]
+    SIXTY_FOUR: ClassVar[UInt32]
+    NEG_ONE: ClassVar[UInt32]
 
 @final
 class Int32(NumericInts, int):
     # Note that this is not really a subclass of int
-    ...
+    ZERO: ClassVar[Int32]
+    ONE: ClassVar[Int32]
+    TWO: ClassVar[Int32]
+    THREE: ClassVar[Int32]
+    FOUR: ClassVar[Int32]
+    FIVE: ClassVar[Int32]
+    SIX: ClassVar[Int32]
+    SEVEN: ClassVar[Int32]
+    EIGHT: ClassVar[Int32]
+    NINE: ClassVar[Int32]
+    TEN: ClassVar[Int32]
+    SIXTEEN: ClassVar[Int32]
+    THIRTY_TWO: ClassVar[Int32]
+    SIXTY_FOUR: ClassVar[Int32]
+    NEG_ONE: ClassVar[Int32]
 
 @final
-class UInt64(NumericInts): ...
+class UInt64(NumericInts):
+    ZERO: ClassVar[UInt64]
+    ONE: ClassVar[UInt64]
+    TWO: ClassVar[UInt64]
+    THREE: ClassVar[UInt64]
+    FOUR: ClassVar[UInt64]
+    FIVE: ClassVar[UInt64]
+    SIX: ClassVar[UInt64]
+    SEVEN: ClassVar[UInt64]
+    EIGHT: ClassVar[UInt64]
+    NINE: ClassVar[UInt64]
+    TEN: ClassVar[UInt64]
+    SIXTEEN: ClassVar[UInt64]
+    THIRTY_TWO: ClassVar[UInt64]
+    SIXTY_FOUR: ClassVar[UInt64]
+    NEG_ONE: ClassVar[UInt64]
 
 @final
-class Int64(NumericInts): ...
+class Int64(NumericInts):
+    ZERO: ClassVar[Int64]
+    ONE: ClassVar[Int64]
+    TWO: ClassVar[Int64]
+    THREE: ClassVar[Int64]
+    FOUR: ClassVar[Int64]
+    FIVE: ClassVar[Int64]
+    SIX: ClassVar[Int64]
+    SEVEN: ClassVar[Int64]
+    EIGHT: ClassVar[Int64]
+    NINE: ClassVar[Int64]
+    TEN: ClassVar[Int64]
+    SIXTEEN: ClassVar[Int64]
+    THIRTY_TWO: ClassVar[Int64]
+    SIXTY_FOUR: ClassVar[Int64]
+    NEG_ONE: ClassVar[Int64]
 
 # Integer parsing functions with F#-compatible semantics
 def parse_int32(

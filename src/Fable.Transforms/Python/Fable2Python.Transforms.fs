@@ -478,7 +478,7 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
 
         let consRef, stmts' = ent |> pyConstructor com ctx
         // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
-        let values = (ofInt tag) :: values
+        let values = ofInt com ctx tag :: values
         Expression.call (consRef, values, ?loc = r), stmts @ stmts'
     | _ -> failwith $"transformValue: value %A{value} not supported!"
 
@@ -565,6 +565,18 @@ let transformObjectExpr
 
         Statement.functionDef (name, args, body, decorators, returns = returnType)
 
+    /// Transform a callable property (delegate) into a method statement
+    let transformCallableProperty (memb: Fable.ObjectExprMember) (args: Fable.Ident list) (body: Fable.Expr) =
+        // Transform the function directly without treating first arg as 'this'
+        let args, body, returnType =
+            Annotation.transformFunctionWithAnnotations com ctx None args body
+
+        let name = com.GetIdentifier(ctx, Naming.toPythonNaming memb.Name)
+        let self = Arg.arg "self"
+        let args = { args with Args = self :: args.Args }
+
+        Statement.functionDef (name, args, body, [], returns = returnType)
+
     let interfaces, stmts =
         match typ with
         | Fable.Any -> [], [] // Don't inherit from Any
@@ -578,9 +590,14 @@ let transformObjectExpr
             let info = com.GetMember(memb.MemberRef)
 
             if not memb.IsMangled && (info.IsGetter || info.IsValue) then
-                let decorators = [ Expression.name "property" ]
-
-                [ makeMethod memb.Name false memb.Args memb.Body decorators ]
+                match memb.Body with
+                | Fable.Delegate(args, body, _, _) ->
+                    // Transform callable property into method
+                    [ transformCallableProperty memb args body ]
+                | _ ->
+                    // Regular property
+                    let decorators = [ Expression.name "property" ]
+                    [ makeMethod memb.Name false memb.Args memb.Body decorators ]
             elif not memb.IsMangled && info.IsSetter then
                 let decorators = [ Expression.name $"%s{memb.Name}.setter" ]
 
@@ -1126,7 +1143,7 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
         // TODO: Check the erased expressions don't have side effects?
         | Fable.Value(Fable.NewTuple(exprs, _), _) -> com.TransformAsExpr(ctx, List.item index exprs)
         | TransformExpr com ctx (expr, stmts) ->
-            let expr, stmts' = getExpr com ctx range expr (ofInt index)
+            let expr, stmts' = getExpr com ctx range expr (ofInt com ctx index)
             expr, stmts @ stmts'
 
     | Fable.OptionValue ->
@@ -1145,7 +1162,7 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
         Expression.withStmts {
             let! baseExpr = com.TransformAsExpr(ctx, fableExpr)
             let! fieldsExpr = getExpr com ctx range baseExpr (Expression.stringConstant "fields")
-            let! finalExpr = getExpr com ctx range fieldsExpr (ofInt i.FieldIndex)
+            let! finalExpr = getExpr com ctx range fieldsExpr (ofInt com ctx i.FieldIndex)
             return finalExpr
         }
 
@@ -1239,7 +1256,7 @@ let transformTest (com: IPythonCompiler) ctx range kind expr : Expression * Stat
             expr, stmts
 
     | Fable.UnionCaseTest tag ->
-        let expected = ofInt tag
+        let expected = ofInt com ctx tag
         let actual, stmts = getUnionExprTag com ctx None expr
 
         Expression.compare (actual, [ Eq ], [ expected ], ?loc = range), stmts
@@ -1410,7 +1427,7 @@ let transformDecisionTreeSuccessAsStatements
             )
 
         let targetAssignment =
-            assign None (targetId |> Expression.name) (ofInt targetIndex)
+            assign None (targetId |> Expression.name) (ofInt com ctx targetIndex)
             |> exprAsStatement ctx
 
         targetAssignment @ assignments
@@ -2109,20 +2126,15 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
                     body,
                     isUp,
                     _range) ->
-        let limit, step =
-            if isUp then
-                let limit = Expression.binOp (limit, Add, Expression.intConstant 1) // Python `range` has exclusive end.
+        let step =
+            Expression.intConstant (
+                if isUp then
+                    1
+                else
+                    -1
+            )
 
-                limit, 1
-            else
-                let limit = Expression.binOp (limit, Sub, Expression.intConstant 1) // Python `range` has exclusive end.
-
-                limit, -1
-
-        let step = Expression.intConstant step
-
-        let iter =
-            Expression.call (Expression.name (Identifier "range"), args = [ start; limit; step ])
+        let iter = libCall com ctx None "util" "range" [ start; limit; step ]
 
         let body = transformBlock com ctx None body
         let target = com.GetIdentifierAsExpr(ctx, var.Name)
@@ -3688,7 +3700,6 @@ let transformExports (_com: IPythonCompiler) _ctx (exports: HashSet<string>) =
     | [] -> []
     | _ ->
         let all = Expression.name "__all__"
-
         let names = exports |> List.map Expression.stringConstant |> Expression.list
 
         [ Statement.assign ([ all ], names) ]

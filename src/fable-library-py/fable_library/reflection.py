@@ -5,7 +5,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
-from .types import Array, FSharpRef, IntegerTypes, Record
+from .types import Array, FSharpRef, IntegerTypes, Record, Union, int32
 from .types import Union as FsUnion
 from .util import combine_hash_codes, equal_arrays_with
 
@@ -50,7 +50,7 @@ class TypeInfo:
         return equals(self, other)
 
     def __hash__(self) -> int:
-        hashes = list(map(hash, self.generics if self.generics else []))
+        hashes: list[int] = [int32(hash(x)) for x in self.generics or []]
         hashes.append(hash(self.fullname))
         return combine_hash_codes(hashes)
 
@@ -411,7 +411,7 @@ def make_record(t: TypeInfo, values: list[Any]) -> dict[str, Any]:
     return functools.reduce(reducer, enumerate(fields), initial)
 
 
-def make_tuple(values: list[Any], _t: TypeInfo) -> tuple[Any, ...]:
+def make_tuple[T](values: Array[T], _t: TypeInfo) -> tuple[T, ...]:
     return tuple(values)
 
 
@@ -430,13 +430,11 @@ def get_union_cases(t: TypeInfo) -> Array[CaseInfo]:
         raise ValueError(f"{t.fullname} is not an F# union type")
 
 
-def get_union_fields(v: Any, t: TypeInfo) -> Array[Any]:
-    cases = get_union_cases(t)
-    case_ = cases[v.tag]
-    if not case_:
-        raise ValueError(f"Cannot find case {v.name} in union type")
+def get_union_fields(v: Union, t: TypeInfo) -> tuple[CaseInfo, Array[Any]]:
+    cases: Array[CaseInfo] = get_union_cases(t)
+    case: CaseInfo = cases[v.tag]
 
-    return Array[Any]([case_, list(v.fields)])
+    return (case, Array[Any](v.fields))
 
 
 def get_union_case_fields(uci: CaseInfo) -> Array[FieldInfo]:
