@@ -6,7 +6,7 @@ import platform
 import random
 import re
 import weakref
-from abc import ABC, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from collections.abc import (
     Callable,
     Iterable,
@@ -56,8 +56,9 @@ class ObjectDisposedException(Exception):
 class IDisposable(ABC):
     """IDisposable interface.
 
-    Note currently not a protocol since it also impmelents resource
-    management and needs to be inherited from.
+    Note: IDisposable is currently not a protocol since it also
+    implements resource management and thus cannot use static subtyping
+    and needs to be inherited from.
     """
 
     __slots__ = ()
@@ -2771,8 +2772,13 @@ class StaticLazyProperty[T](StaticPropertyBase[T]):
         pass  # The factory handles value retrieval
 
 
-class StaticPropertyMeta(type):
-    """Metaclass that enables StaticProperty descriptors to work with class-level assignment."""
+class StaticPropertyMeta(ABCMeta):
+    """Metaclass that enables StaticProperty descriptors to work with class-level
+    assignment.
+
+    Note: We inherit from ABCMeta to be compatible when combined with classes that also
+    inherit from ABC, such as IDisposable.
+    """
 
     def __setattr__(cls, name: str, value: Any) -> None:
         # Check if the attribute exists and is a StaticPropertyBase
