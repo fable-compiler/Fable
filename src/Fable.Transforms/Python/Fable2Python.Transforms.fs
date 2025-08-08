@@ -478,7 +478,7 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
 
         let consRef, stmts' = ent |> pyConstructor com ctx
         // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
-        let values = (ofInt tag) :: values
+        let values = ofInt com ctx tag :: values
         Expression.call (consRef, values, ?loc = r), stmts @ stmts'
     | _ -> failwith $"transformValue: value %A{value} not supported!"
 
@@ -565,6 +565,18 @@ let transformObjectExpr
 
         Statement.functionDef (name, args, body, decorators, returns = returnType)
 
+    /// Transform a callable property (delegate) into a method statement
+    let transformCallableProperty (memb: Fable.ObjectExprMember) (args: Fable.Ident list) (body: Fable.Expr) =
+        // Transform the function directly without treating first arg as 'this'
+        let args, body, returnType =
+            Annotation.transformFunctionWithAnnotations com ctx None args body
+
+        let name = com.GetIdentifier(ctx, Naming.toPythonNaming memb.Name)
+        let self = Arg.arg "self"
+        let args = { args with Args = self :: args.Args }
+
+        Statement.functionDef (name, args, body, [], returns = returnType)
+
     let interfaces, stmts =
         match typ with
         | Fable.Any -> [], [] // Don't inherit from Any
@@ -578,9 +590,14 @@ let transformObjectExpr
             let info = com.GetMember(memb.MemberRef)
 
             if not memb.IsMangled && (info.IsGetter || info.IsValue) then
-                let decorators = [ Expression.name "property" ]
-
-                [ makeMethod memb.Name false memb.Args memb.Body decorators ]
+                match memb.Body with
+                | Fable.Delegate(args, body, _, _) ->
+                    // Transform callable property into method
+                    [ transformCallableProperty memb args body ]
+                | _ ->
+                    // Regular property
+                    let decorators = [ Expression.name "property" ]
+                    [ makeMethod memb.Name false memb.Args memb.Body decorators ]
             elif not memb.IsMangled && info.IsSetter then
                 let decorators = [ Expression.name $"%s{memb.Name}.setter" ]
 
@@ -1126,7 +1143,7 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
         // TODO: Check the erased expressions don't have side effects?
         | Fable.Value(Fable.NewTuple(exprs, _), _) -> com.TransformAsExpr(ctx, List.item index exprs)
         | TransformExpr com ctx (expr, stmts) ->
-            let expr, stmts' = getExpr com ctx range expr (ofInt index)
+            let expr, stmts' = getExpr com ctx range expr (ofInt com ctx index)
             expr, stmts @ stmts'
 
     | Fable.OptionValue ->
@@ -1145,7 +1162,7 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
         Expression.withStmts {
             let! baseExpr = com.TransformAsExpr(ctx, fableExpr)
             let! fieldsExpr = getExpr com ctx range baseExpr (Expression.stringConstant "fields")
-            let! finalExpr = getExpr com ctx range fieldsExpr (ofInt i.FieldIndex)
+            let! finalExpr = getExpr com ctx range fieldsExpr (ofInt com ctx i.FieldIndex)
             return finalExpr
         }
 
@@ -1239,7 +1256,7 @@ let transformTest (com: IPythonCompiler) ctx range kind expr : Expression * Stat
             expr, stmts
 
     | Fable.UnionCaseTest tag ->
-        let expected = ofInt tag
+        let expected = ofInt com ctx tag
         let actual, stmts = getUnionExprTag com ctx None expr
 
         Expression.compare (actual, [ Eq ], [ expected ], ?loc = range), stmts
@@ -1410,7 +1427,7 @@ let transformDecisionTreeSuccessAsStatements
             )
 
         let targetAssignment =
-            assign None (targetId |> Expression.name) (ofInt targetIndex)
+            assign None (targetId |> Expression.name) (ofInt com ctx targetIndex)
             |> exprAsStatement ctx
 
         targetAssignment @ assignments
@@ -2109,20 +2126,15 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
                     body,
                     isUp,
                     _range) ->
-        let limit, step =
-            if isUp then
-                let limit = Expression.binOp (limit, Add, Expression.intConstant 1) // Python `range` has exclusive end.
+        let step =
+            Expression.intConstant (
+                if isUp then
+                    1
+                else
+                    -1
+            )
 
-                limit, 1
-            else
-                let limit = Expression.binOp (limit, Sub, Expression.intConstant 1) // Python `range` has exclusive end.
-
-                limit, -1
-
-        let step = Expression.intConstant step
-
-        let iter =
-            Expression.call (Expression.name (Identifier "range"), args = [ start; limit; step ])
+        let iter = libCall com ctx None "util" "range" [ start; limit; step ]
 
         let body = transformBlock com ctx None body
         let target = com.GetIdentifierAsExpr(ctx, var.Name)
@@ -2449,6 +2461,55 @@ let declareDataClassType
         Statement.classDef (name, body = classBody, decoratorList = decorators, bases = bases, typeParams = typeParams)
     ]
 
+let transformClassAttributes
+    (com: IPythonCompiler)
+    (ctx: Context)
+    (ent: Fable.Entity)
+    (classAttributes: ClassAttributes option)
+    (extractedInitialValues: (string * Fable.MemberDecl * Expression) list)
+    : Statement list
+    =
+    match classAttributes with
+    | Some parms when parms.Style = ClassStyle.Attributes ->
+        // Generate class attributes for attached members (deduplicate by property name)
+        ent.MembersFunctionsAndValues
+        |> Seq.filter (fun memb -> memb.IsInstance && (memb.IsGetter || memb.IsSetter))
+        |> Seq.groupBy (fun memb -> memb.DisplayName)
+        |> Seq.map (fun (propertyName, members) ->
+            // Use the getter's return type for the class attribute type annotation
+            let getter = members |> Seq.find (fun memb -> memb.IsGetter)
+            let ta, _ = Annotation.typeAnnotation com ctx None getter.ReturnParameter.Type
+
+            if parms.Init then
+                // For attributes style with init, class attributes should only have type annotations
+                // Default values are handled by the constructor parameters
+                Statement.annAssign (Expression.name (propertyName |> Naming.toPropertyNaming), annotation = ta)
+            else
+                // For attributes style with init=false, class attributes should have initial values
+                // Use the extracted initial values from the constructor body
+                // printfn "Looking for extracted initial value for property: %s" propertyName
+                let defaultValue =
+                    extractedInitialValues
+                    |> List.tryFind (fun (propName, _getterMemb, _defaultValue) ->
+                        propName = (propertyName |> Naming.toPropertyNaming)
+                    )
+                    |> function
+                        | Some(_propName, _getterMemb, defaultValue) ->
+                            // printfn "Found extracted initial value for %s: %A" propertyName defaultValue
+                            defaultValue
+                        | None ->
+                            // printfn "No extracted initial value found for %s, using type default" propertyName
+                            Util.getDefaultValueForType com ctx getter.ReturnParameter.Type
+
+                Statement.annAssign (
+                    Expression.name (propertyName |> Naming.toPropertyNaming),
+                    annotation = ta,
+                    value = defaultValue
+                )
+        )
+        |> List.ofSeq
+    | _ -> []
+
 let declareClassType
     (com: IPythonCompiler)
     (ctx: Context)
@@ -2474,7 +2535,6 @@ let declareClassType
         else
             None
 
-
     // Generate class constructor if init is enabled
     let classCons =
         match classAttributes with
@@ -2485,46 +2545,7 @@ let declareClassType
 
     // Generate class attributes if using attributes style
     let classAttributes =
-        match classAttributes with
-        | Some parms when parms.Style = ClassStyle.Attributes ->
-            // Generate class attributes for attached members (deduplicate by property name)
-            ent.MembersFunctionsAndValues
-            |> Seq.filter (fun memb -> memb.IsInstance && (memb.IsGetter || memb.IsSetter))
-            |> Seq.groupBy (fun memb -> memb.DisplayName)
-            |> Seq.map (fun (propertyName, members) ->
-                // Use the getter's return type for the class attribute type annotation
-                let getter = members |> Seq.find (fun memb -> memb.IsGetter)
-                let ta, _ = Annotation.typeAnnotation com ctx None getter.ReturnParameter.Type
-
-                if parms.Init then
-                    // For attributes style with init, class attributes should only have type annotations
-                    // Default values are handled by the constructor parameters
-                    Statement.annAssign (Expression.name (propertyName |> Naming.toPropertyNaming), annotation = ta)
-                else
-                    // For attributes style with init=false, class attributes should have initial values
-                    // Use the extracted initial values from the constructor body
-                    // printfn "Looking for extracted initial value for property: %s" propertyName
-                    let defaultValue =
-                        extractedInitialValues
-                        |> List.tryFind (fun (propName, _getterMemb, _defaultValue) ->
-                            propName = (propertyName |> Naming.toPropertyNaming)
-                        )
-                        |> function
-                            | Some(_propName, _getterMemb, defaultValue) ->
-                                // printfn "Found extracted initial value for %s: %A" propertyName defaultValue
-                                defaultValue
-                            | None ->
-                                // printfn "No extracted initial value found for %s, using type default" propertyName
-                                Util.getDefaultValueForType com ctx getter.ReturnParameter.Type
-
-                    Statement.annAssign (
-                        Expression.name (propertyName |> Naming.toPropertyNaming),
-                        annotation = ta,
-                        value = defaultValue
-                    )
-            )
-            |> List.ofSeq
-        | _ -> []
+        transformClassAttributes com ctx ent classAttributes extractedInitialValues
 
     let classMembers = classCons @ classMembers
 
@@ -2534,7 +2555,6 @@ let declareClassType
         match body with
         | [] -> [ Statement.ellipsis ]
         | _ -> body
-
 
     let interfaces, stmts =
         // We only use a few interfaces as base classes. The rest is handled as Python protocols (PEP 544) to avoid a massive
@@ -2591,14 +2611,15 @@ let declareClassType
             false
         else
             // Get the original member declarations from the entity
-            let members = ent.MembersFunctionsAndValues |> Seq.toList
+            let members = ent.MembersFunctionsAndValues
 
             members
-            |> List.exists (fun info -> not info.IsInstance && (info.IsGetter || info.IsSetter))
+            |> Seq.exists (fun info -> not info.IsInstance && (info.IsGetter || info.IsSetter))
 
-    // Add metaclass if the class has static properties
     let keywords =
-        if hasStaticProperties then
+        // Add metaclass if the class has static properties but only if the class is
+        // decorated with [<AttachMembers>]
+        if hasStaticProperties && hasAttribute Atts.attachMembers ent.Attributes then
             let staticPropertyMetaExpr = libValue com ctx "util" "StaticPropertyMeta"
             [ Keyword.keyword (Identifier "metaclass", staticPropertyMetaExpr) ]
         else
@@ -2687,7 +2708,6 @@ let declareType
         let generics = genArgs |> Array.mapToList (identAsExpr com ctx)
 
         let body, stmts = transformReflectionInfo com ctx None ent generics
-
         let expr, stmts' = makeFunctionExpression com ctx None (args, body, [], ta)
 
         let name =
@@ -3307,8 +3327,10 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
     ]
 
 // Helper function to extract initial value from getter body
-// Returns (value, isFactory, externalFields) where isFactory indicates if the value is a lambda function
-// and externalFields contains field names that need to be added as class attributes
+// Returns (value, isFactory, externalFields, stmts) where isFactory indicates if the value is a lambda function,
+// externalFields contains field names that need to be added as class attributes
+// and stmts contains statements (e.g., local function declarations) from closurd that need lifted out of the
+// to the nearest enclosing scope.
 let getInitialValue
     com
     ctx
@@ -3316,19 +3338,19 @@ let getInitialValue
     (getterMemb: Fable.MemberDecl)
     (wrapInLambda: bool)
     (fallback: Expression)
-    : (Expression * bool * string list)
+    : (Expression * bool * string list * Statement list)
     =
     match getterMemb.Body with
     | Fable.Value(kind, r) ->
         // Use transformValue for literal values - never wrapped
-        let value = transformValue com ctx r kind |> fst
-        value, false, []
+        let value, stmts = transformValue com ctx r kind
+        value, false, [], stmts
     | Fable.Get(Fable.IdentExpr _, Fable.FieldGet fieldInfo, _, _) when
         fieldInfo.Name.EndsWith("@", System.StringComparison.Ordinal)
         ->
         // For @ fields (backing fields), use fallback value directly instead of lambda reference
         // The static constructor will set the actual value
-        fallback, false, []
+        fallback, false, [], []
     | Fable.Get(Fable.IdentExpr identExpr, Fable.FieldGet fieldInfo, _, _) when identExpr.Name = className ->
         // For external field references (like backing_field), create lambda and note the field
         let classNameExpr = Expression.name identExpr.Name
@@ -3340,20 +3362,20 @@ let getInitialValue
             Expression.attribute (classNameExpr, Identifier transformedFieldName)
 
         if wrapInLambda then
-            Expression.lambda (Arguments.arguments [], fieldAccess), true, [ transformedFieldName ]
+            Expression.lambda (Arguments.arguments [], fieldAccess), true, [ transformedFieldName ], []
         else
-            fieldAccess, false, [ transformedFieldName ]
+            fieldAccess, false, [ transformedFieldName ], []
     | _ ->
         // For other expressions, try to transform
         try
-            let expr, _ = com.TransformAsExpr(ctx, getterMemb.Body)
+            let expr, stmts = com.TransformAsExpr(ctx, getterMemb.Body)
 
             if wrapInLambda then
-                Expression.lambda (Arguments.arguments [], expr), true, []
+                Expression.lambda (Arguments.arguments [], expr), true, [], stmts
             else
-                expr, false, []
+                expr, false, [], stmts
         with _ ->
-            fallback, false, []
+            fallback, false, [], []
 
 
 // Process a single static property and return (property assignment, extra statements, external field declarations)
@@ -3420,7 +3442,7 @@ let transformStaticProperty
         // Read-only property
         let fallback = Util.getDefaultValueForType com ctx getterMemb.Body.Type
 
-        let initialValue, isFactory, externalFields =
+        let initialValue, isFactory, externalFields, initialValueStmts =
             getInitialValue com ctx name getterMemb true fallback
 
         let propExpr = makeStaticProperty getterMemb.Body.Type [ initialValue ] isFactory
@@ -3428,7 +3450,7 @@ let transformStaticProperty
         // Generate class attribute declarations for external fields
         let externalFieldDeclarations = generateExternalFieldDeclarations externalFields
 
-        Some(propertyName, propExpr), externalFieldDeclarations
+        Some(propertyName, propExpr), initialValueStmts @ externalFieldDeclarations
 
     | Some getterMemb, Some setterMemb ->
         // Property with both getter and setter
@@ -3437,7 +3459,7 @@ let transformStaticProperty
 
         let fallback = Util.getDefaultValueForType com ctx getterMemb.Body.Type
 
-        let initialValue, isFactory, externalFields =
+        let initialValue, isFactory, externalFields, initialValueStmts =
             getInitialValue com ctx name getterMemb true fallback
 
         // Check if setter has custom logic beyond simple assignment to the property itself
@@ -3468,7 +3490,7 @@ let transformStaticProperty
             // Generate class attribute declarations for external fields
             let externalFieldDeclarations = generateExternalFieldDeclarations externalFields
 
-            Some(propertyName, propExpr), [ setterFunc ] @ externalFieldDeclarations
+            Some(propertyName, propExpr), initialValueStmts @ [ setterFunc ] @ externalFieldDeclarations
         else
             // Simple setter, no custom function needed - just use the descriptor
             let propExpr = makeStaticProperty getterMemb.Body.Type [ initialValue ] isFactory
@@ -3476,7 +3498,7 @@ let transformStaticProperty
             // Generate class attribute declarations for external fields
             let externalFieldDeclarations = generateExternalFieldDeclarations externalFields
 
-            Some(propertyName, propExpr), externalFieldDeclarations
+            Some(propertyName, propExpr), initialValueStmts @ externalFieldDeclarations
 
     | None, Some setterMemb ->
         // Setter-only property (unusual but possible)
@@ -3688,7 +3710,6 @@ let transformExports (_com: IPythonCompiler) _ctx (exports: HashSet<string>) =
     | [] -> []
     | _ ->
         let all = Expression.name "__all__"
-
         let names = exports |> List.map Expression.stringConstant |> Expression.list
 
         [ Statement.assign ([ all ], names) ]

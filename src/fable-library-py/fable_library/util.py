@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import builtins
 import functools
 import platform
 import random
 import re
 import weakref
-from abc import ABC, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from collections.abc import (
     Callable,
     Iterable,
@@ -55,8 +56,9 @@ class ObjectDisposedException(Exception):
 class IDisposable(ABC):
     """IDisposable interface.
 
-    Note currently not a protocol since it also impmelents resource
-    management and needs to be inherited from.
+    Note: IDisposable is currently not a protocol since it also
+    implements resource management and thus cannot use static subtyping
+    and needs to be inherited from.
     """
 
     __slots__ = ()
@@ -116,13 +118,9 @@ class AnonymousDisposable(IDisposable):
 
 
 class IEquatable(Protocol):
-    @abstractmethod
-    def __eq__(self, other: Any) -> bool:
-        raise NotImplementedError
+    def __eq__(self, other: Any) -> bool: ...
 
-    @abstractmethod
-    def __hash__(self) -> int32:
-        raise NotImplementedError
+    def __hash__(self) -> int32: ...
 
 
 class IComparable(IEquatable, Protocol):
@@ -2672,7 +2670,7 @@ def ignore(a: Any = None) -> None:
 
 
 def copy_to_array[T](src: Array[T], srci: int, trg: Array[T], trgi: int, cnt: int) -> None:
-    for i in range(0, cnt, 1):
+    for i in builtins.range(0, cnt, 1):
         trg[trgi + i] = src[srci + i]
 
 
@@ -2774,8 +2772,13 @@ class StaticLazyProperty[T](StaticPropertyBase[T]):
         pass  # The factory handles value retrieval
 
 
-class StaticPropertyMeta(type):
-    """Metaclass that enables StaticProperty descriptors to work with class-level assignment."""
+class StaticPropertyMeta(ABCMeta):
+    """Metaclass that enables StaticProperty descriptors to work with class-level
+    assignment.
+
+    Note: We inherit from ABCMeta to be compatible when combined with classes that also
+    inherit from ABC, such as IDisposable.
+    """
 
     def __setattr__(cls, name: str, value: Any) -> None:
         # Check if the attribute exists and is a StaticPropertyBase
@@ -2799,6 +2802,26 @@ class StaticPropertyMeta(type):
 
         # Normal attribute assignment
         super().__setattr__(name, value)
+
+
+def range(start: int, stop: int, step: int = 1) -> Iterable[int32]:
+    """Range function that returns an iterable of int32 values.
+
+    This function handles the difference between F# and Python range semantics:
+    - F# ranges are inclusive (include the end value)
+    - Python ranges are exclusive (exclude the end value)
+
+    The function automatically adjusts the stop value to match F# semantics.
+    """
+    # Adjust stop value to be inclusive (F# semantics) by adding step direction
+    if step > 0:
+        # For positive step, we want to include the stop value
+        adjusted_stop = stop + 1
+    else:
+        # For negative step, we want to include the stop value
+        adjusted_stop = stop - 1
+
+    return map(lambda x: int32(x), builtins.range(start, adjusted_stop, step))
 
 
 __all__ = [
@@ -2827,6 +2850,7 @@ __all__ = [
     "number_hash",
     "physical_hash",
     "randint",
+    "range",
     "round",
     "uncurry2",
     "uncurry3",

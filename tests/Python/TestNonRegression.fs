@@ -1,5 +1,6 @@
 module Fable.Tests.NonRegression
 
+open System
 open Fable.Core
 open Util.Testing
 
@@ -232,3 +233,35 @@ let ``test issue 3912`` () =
         use x = x
         ()
     equal x.IsDisposed true
+
+[<AttachMembers>]
+type Disposable(cancel) =
+    let mutable isDisposed = 0
+
+    interface IDisposable with
+        member this.Dispose() =
+            if isDisposed = 0 then
+                isDisposed <- 1
+                cancel ()
+
+    static member Create(cancel) : IDisposable = new Disposable(cancel) :> IDisposable
+
+    static member Empty: IDisposable =
+        let cancel () = ()
+
+        new Disposable(cancel) :> IDisposable
+
+    static member Composite(disposables: IDisposable seq) : IDisposable =
+        let cancel () =
+            for d in disposables do
+                d.Dispose()
+
+        new Disposable(cancel) :> IDisposable
+
+// Test that attached static properties works when inheriting from IDisposable
+// Note much to test here other than making sure the generated Pythoncode is valid
+// and that it doesn't throw an error when interpreted.
+[<Fact>]
+let ``test static properties works when inheriting from IDisposable`` () =
+    let d: IDisposable = Disposable.Empty
+    d.Dispose()

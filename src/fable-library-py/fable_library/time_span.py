@@ -4,7 +4,7 @@ import re
 from math import ceil, floor, fmod
 from typing import Any
 
-from .types import FloatTypes, FSharpRef, IntegerTypes, float64
+from .types import FloatTypes, FSharpRef, IntegerTypes, float64, int32
 from .util import pad_left_and_right_with_zeros, pad_with_zeros
 
 
@@ -79,7 +79,7 @@ def from_microseconds(micros: IntegerTypes | FloatTypes) -> TimeSpan:
     return create(float64(0), float64(0), float64(0), float64(0), float64(0), float64(micros))
 
 
-def from_milliseconds(msecs: IntegerTypes | FloatTypes, mc: int | None = None) -> TimeSpan:
+def from_milliseconds(msecs: IntegerTypes | FloatTypes, mc: int32 | None = None) -> TimeSpan:
     return create(
         float64(0),
         float64(0),
@@ -90,11 +90,11 @@ def from_milliseconds(msecs: IntegerTypes | FloatTypes, mc: int | None = None) -
     )
 
 
-def from_ticks(ticks: int) -> TimeSpan:
+def from_ticks(ticks: int32) -> TimeSpan:
     return create(float64(ticks))
 
 
-def from_seconds(s: IntegerTypes | FloatTypes, ms: int | None = None, mc: int | None = None) -> TimeSpan:
+def from_seconds(s: IntegerTypes | FloatTypes, ms: int32 | None = None, mc: int32 | None = None) -> TimeSpan:
     return create(
         float64(0),
         float64(0),
@@ -106,7 +106,7 @@ def from_seconds(s: IntegerTypes | FloatTypes, ms: int | None = None, mc: int | 
 
 
 def from_minutes(
-    m: IntegerTypes | FloatTypes, s: int | None = None, ms: int | None = None, mc: int | None = None
+    m: IntegerTypes | FloatTypes, s: int32 | None = None, ms: int32 | None = None, mc: int32 | None = None
 ) -> TimeSpan:
     return create(
         float64(0),
@@ -120,10 +120,10 @@ def from_minutes(
 
 def from_hours(
     h: IntegerTypes | FloatTypes,
-    m: int | None = None,
-    s: int | None = None,
-    ms: int | None = None,
-    mc: int | None = None,
+    m: int32 | None = None,
+    s: int32 | None = None,
+    ms: int32 | None = None,
+    mc: int32 | None = None,
 ) -> TimeSpan:
     return create(
         float64(0),
@@ -137,11 +137,11 @@ def from_hours(
 
 def from_days(
     d: IntegerTypes | FloatTypes,
-    h: int | None = None,
-    m: int | None = None,
-    s: int | None = None,
-    ms: int | None = None,
-    mc: int | None = None,
+    h: int32 | None = None,
+    m: int32 | None = None,
+    s: int32 | None = None,
+    ms: int32 | None = None,
+    mc: int32 | None = None,
 ) -> TimeSpan:
     return create(
         float64(d),
