@@ -563,6 +563,15 @@ type StaticClass =
 //     static member DefaultNullParam([<Optional; DefaultParameterValue(null:obj)>] x: obj) = x
     static member inline InlineAdd(x: int, ?y: int) = x + (defaultArg y 2)
 
+type Model = unit
+
+let update (model: Model) =
+    model, ()
+
+// [<Fact>]
+// let ``Unit arguments work`` () =
+//     update () |> equal ((), ())
+
 [<Fact>]
 let ``Optional arguments work`` () =
     let x = MyOptionalClass(?arg2 = Some "2")
