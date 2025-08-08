@@ -3542,22 +3542,9 @@ but thanks to the optimisation done below we get
     let tryFindAnyEntAttribute fullNames (ent: Fable.Entity) : (string * obj list) option =
         tryFindAnyAttribute fullNames ent.Attributes
 
-    let transformModuleFunction
-        (com: IBabelCompiler)
-        ctx
-        (info: Fable.MemberFunctionOrValue)
-        (membName: string)
-        (args: Fable.Ident list)
-        body
-        =
-        let isJsx = hasAttribute Atts.jsxComponent info.Attributes
-
+    let transformModuleFunction com ctx (info: Fable.MemberFunctionOrValue) membName (args: Fable.Ident list) body =
         let args, body =
-            match args with
-            | [] -> args, body
-            | [ arg ] when arg.Type = Fable.Unit -> [], body
-            | _ when not isJsx -> args, body
-            | _ ->
+            if info.Attributes |> hasAttribute Atts.jsxComponent then
                 // SolidJS requires values being accessed directly from the props object for reactivity to work properly
                 // https://www.solidjs.com/guides/rendering#props
                 let propsArg = makeIdent "$props"
@@ -3569,6 +3556,8 @@ but thanks to the optimisation done below we get
                     |> Map
 
                 [ propsArg ], FableTransforms.replaceValues replacements body
+            else
+                args, body
 
         let args, body, returnType, typeParamDecl =
             getMemberArgsAndBody com ctx (NonAttached membName) None info args body
