@@ -53,6 +53,7 @@ let genericQuicktest (config: QuicktestConfig) (args: string list) =
         |> CmdLine.appendRaw "--noCache"
         |> CmdLine.appendRaw "--verbose"
         |> CmdLine.appendRaw "--watch"
+        |> CmdLine.appendRaw "--format"
         |> appendRunMode,
         workingDirectory = projectDir
     )

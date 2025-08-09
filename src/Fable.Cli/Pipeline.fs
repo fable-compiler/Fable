@@ -336,6 +336,17 @@ module Python =
 
                 do! PythonPrinter.run writer python
 
+                if cliArgs.CompilerOptions.Format then
+                    // Run Ruff formatter on all generated files
+                    let outDir = IO.Path.GetDirectoryName outPath
+                    Console.WriteLine $"Running ruff format on {outPath}"
+                    // First sort imports. This is currently handled by the linter. A unified command for both linting
+                    // and formatting is planned. https://github.com/astral-sh/ruff/issues/8232
+                    Process.runSync outDir "ruff" [ "check"; "--select"; "I"; "--fix"; outPath ]
+                    |> ignore
+
+                    Process.runSync outDir "ruff" [ "format"; outPath ] |> ignore
+
                 match com.OutputType with
                 | OutputType.Library ->
                     // Make sure we include an empty `__init__.py` in every directory of a library

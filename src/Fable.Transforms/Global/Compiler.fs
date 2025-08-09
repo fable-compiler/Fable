@@ -18,7 +18,8 @@ type CompilerOptionsHelper =
             ?verbosity,
             ?fileExtension,
             ?clampByteArrays,
-            ?noReflection
+            ?noReflection,
+            ?format
         )
         =
         {
@@ -32,6 +33,7 @@ type CompilerOptionsHelper =
             ClampByteArrays = defaultArg clampByteArrays false
             NoReflection = defaultArg noReflection false
             TriggeredByDependency = false
+            Format = defaultArg format false
         }
 
 [<RequireQualifiedAccess>]
