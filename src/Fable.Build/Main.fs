@@ -62,6 +62,9 @@ Available commands:
             --no_std                Compile and run the tests without the standard library
             --threaded              Compile and run the tests with the threaded runtime
 
+        Options for Python:
+            --typing                Run type checking with Pyright and show the summary
+
     standalone                      Compile standalone + worker version of Fable running
                                     on top of of Node.js
 
