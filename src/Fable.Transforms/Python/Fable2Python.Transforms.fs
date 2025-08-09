@@ -757,10 +757,7 @@ let transformCallArgs
 
     match objArg with
     | None -> args, [], stmts @ stmts'
-    | Some objArg ->
-        //let name = Expression.name(Helpers.getUniqueIdentifier "kw")
-        //let kw = Statement.assign([ name], objArg)
-        args, objArg, stmts @ stmts'
+    | Some objArg -> args, objArg, stmts @ stmts'
 
 let resolveExpr (ctx: Context) _t strategy pyExpr : Statement list =
     // printfn "resolveExpr: %A" (pyExpr, strategy)
@@ -776,12 +773,6 @@ let resolveExpr (ctx: Context) _t strategy pyExpr : Statement list =
 let transformOperation com ctx range opKind tags : Expression * Statement list =
     match opKind with
     | Fable.Unary(op, TransformExpr com ctx (expr, stmts)) -> Expression.unaryOp (op, expr, ?loc = range), stmts
-
-    // | Fable.Binary (BinaryInstanceOf, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
-    //     let func = Expression.name ("isinstance")
-    //     let args = [ left; right ]
-    //     Expression.call (func, args), stmts' @ stmts
-
     | Fable.Binary(op, left, right: Fable.Expr) ->
         let typ = right.Type
         let left_typ = left.Type
