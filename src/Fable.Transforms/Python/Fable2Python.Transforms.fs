@@ -668,17 +668,22 @@ let transformCallArgs
             | Some(args, Some namedArgs) ->
                 let objArg, stmts =
                     namedArgs
-                    |> List.choose (fun (p, v) ->
-                        match p.Name, v with
-                        | Some k, Fable.Value(Fable.NewOption(value, _, _), _) -> value |> Option.map (fun v -> k, v)
-                        | Some k, v -> Some(k, v)
+                    |> List.choose (fun (param, value) ->
+                        match param.Name, value with
+                        | Some keyword, Fable.Value(Fable.NewOption(value, _, _), _) ->
+                            value |> Option.map (fun value -> keyword, value)
+                        | Some keyword, value -> Some(keyword, value)
                         | None, _ -> None
                     )
-                    |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
-                    |> List.map (fun (k, (v, stmts)) -> ((k, v), stmts))
+                    |> List.map (fun (keyword, value) ->
+                        let value, stmts = com.TransformAsExpr(ctx, value)
+                        (keyword, value), stmts
+                    )
                     |> List.unzip
                     |> fun (kv, stmts) ->
-                        kv |> List.map (fun (k, v) -> Keyword.keyword (Identifier k, v)), stmts |> List.collect id
+                        kv
+                        |> List.map (fun (keyword, value) -> Keyword.keyword (Identifier keyword, value)),
+                        stmts |> List.collect id
 
                 args, Some objArg, stmts
 
@@ -705,11 +710,15 @@ let transformCallArgs
                     // All parameters have names, convert to keyword arguments
                     let objArg, stmts =
                         keywordArgs
-                        |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
-                        |> List.map (fun (k, (v, stmts)) -> ((k, v), stmts))
+                        |> List.map (fun (kw, value) ->
+                            let value, stmts = com.TransformAsExpr(ctx, value)
+                            (kw, value), stmts
+                        )
                         |> List.unzip
                         |> fun (kv, stmts) ->
-                            kv |> List.map (fun (k, v) -> Keyword.keyword (Identifier k, v)), stmts |> List.collect id
+                            kv
+                            |> List.map (fun (keyword, value) -> Keyword.keyword (Identifier keyword, value)),
+                            stmts |> List.collect id
 
                     [], Some objArg, stmts
                 else
