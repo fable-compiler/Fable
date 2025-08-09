@@ -38,6 +38,7 @@ type CompilerOptions =
         FileExtension: string
         TriggeredByDependency: bool
         NoReflection: bool
+        Format: bool
     }
 
 type PluginHelper =

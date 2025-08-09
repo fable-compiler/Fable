@@ -127,6 +127,7 @@ let knownCliArgs () =
         [ "--trimRootModule" ], []
         [ "--fableLib" ], []
         [ "--replace" ], []
+        [ "--format" ], []
     ]
 
 let printKnownCliArgs () =
@@ -354,7 +355,8 @@ type Runner =
                     debugMode = (configuration = "Debug"),
                     optimizeFSharpAst = args.FlagEnabled "--optimize",
                     noReflection = args.FlagEnabled "--noReflection",
-                    verbosity = verbosity
+                    verbosity = verbosity,
+                    format = args.FlagEnabled "--format"
                 )
 
             let cliArgs =
