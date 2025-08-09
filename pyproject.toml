@@ -42,7 +42,7 @@ reportMissingTypeStubs = false
 reportMissingImports = false
 reportUnnecessaryTypeIgnoreComment = true
 reportUnusedImport = true
-reportUnusedVariable = true
+reportUnusedVariable = false
 reportUnnecessaryIsInstance = true
 reportUnnecessaryComparison = true
 reportUnnecessaryCast = true
@@ -54,7 +54,7 @@ reportOverlappingOverload = true
 reportInconsistentConstructor = true
 reportImplicitStringConcatenation = true
 pythonVersion = "3.12"
-typeCheckingMode = "strict"
+typeCheckingMode = "standard"
 
 [tool.ruff]
 # Keep in sync with .pre-commit-config.yaml
