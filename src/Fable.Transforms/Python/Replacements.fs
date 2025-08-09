@@ -299,7 +299,9 @@ let toInt com (ctx: Context) r targetType (args: Expr list) =
         | UInt8 -> Helper.LibCall(com, "types", "byte", targetType, [ arg ])
         | UInt16 -> Helper.LibCall(com, "types", "uint16", targetType, [ arg ])
         | UInt32 -> Helper.LibCall(com, "types", "uint32", targetType, [ arg ])
-        | _ -> FableError $"Unexpected non-integer type %A{typeTo}" |> raise
+        | _ ->
+            // Use normal Python int for BigInt, NativeInt, UNativeInt
+            Helper.GlobalCall("int", targetType, [ arg ])
 
     match sourceType, targetType with
     | Char, Number(typeTo, _) ->
@@ -326,7 +328,7 @@ let toChar com (ctx: Context) r (arg: Expr) =
     | Char
     | String -> arg
     | _ ->
-        let code = toInt com ctx r UInt16.Number [ arg ]
+        let code = Helper.GlobalCall("int", Int32.Number, [ arg ])
         Helper.GlobalCall("chr", Char, [ code ])
 
 let toString com (ctx: Context) r (args: Expr list) =

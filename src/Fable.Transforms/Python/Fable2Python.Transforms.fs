@@ -491,7 +491,7 @@ let extractBaseExprFromBaseCall (com: IPythonCompiler) (ctx: Context) (baseType:
             | Fable.IdentExpr id -> com.GetIdentifierAsExpr(ctx, id.Name), []
             | _ -> transformAsExpr com ctx baseRef
 
-        let expr, keywords, stmts' = transformCallArgs com ctx info
+        let expr, keywords, stmts' = transformCallArgs com ctx info true
 
         Some(baseExpr, (expr, keywords, stmts @ stmts'))
     | Some(Fable.ObjectExpr([], Fable.Unit, None)), _ ->
@@ -640,10 +640,12 @@ let transformObjectExpr
 
     Expression.call (Expression.name name), [ stmt ] @ stmts
 
+
 let transformCallArgs
     (com: IPythonCompiler)
     ctx
     (callInfo: Fable.CallInfo)
+    (isBaseConstructorCall: bool)
     : Expression list * Keyword list * Statement list
     =
 
@@ -653,7 +655,11 @@ let transformCallArgs
     let paramsInfo =
         callInfo.MemberRef |> Option.bind com.TryGetMember |> Option.map getParamsInfo
 
-    let args, objArg, stmts =
+    // Enhanced handling for constructor calls with named arguments
+    let isConstructorCall =
+        List.contains "new" callInfo.Tags && not isBaseConstructorCall
+
+    let getCallArgs paramsInfo args =
         paramsInfo
         |> Option.map (splitNamedArgs args)
         |> function
@@ -671,11 +677,50 @@ let transformCallArgs
                     |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
                     |> List.map (fun (k, (v, stmts)) -> ((k, v), stmts))
                     |> List.unzip
-                    |> (fun (kv, stmts) ->
+                    |> fun (kv, stmts) ->
                         kv |> List.map (fun (k, v) -> Keyword.keyword (Identifier k, v)), stmts |> List.collect id
-                    )
 
                 args, Some objArg, stmts
+
+    let args, objArg, stmts =
+        match paramsInfo, isConstructorCall with
+        | Some info, true when args.Length <= info.Parameters.Length && args.Length > 0 ->
+            // For constructor calls, check if we should use keyword arguments
+            // Only apply if we have parameter names for all arguments
+            let relevantParams = List.take args.Length info.Parameters
+
+            let hasAllParameterNames = relevantParams |> List.forall (fun p -> p.Name.IsSome)
+
+            if hasAllParameterNames then
+                // Try to create keyword arguments for constructor calls
+                let keywordArgs =
+                    List.zip relevantParams args
+                    |> List.choose (fun (param, arg) ->
+                        match param.Name with
+                        | Some paramName -> Some(paramName, arg)
+                        | None -> None
+                    )
+
+                if keywordArgs.Length = args.Length then
+                    // All parameters have names, convert to keyword arguments
+                    let objArg, stmts =
+                        keywordArgs
+                        |> List.map (fun (k, v) -> k, com.TransformAsExpr(ctx, v))
+                        |> List.map (fun (k, (v, stmts)) -> ((k, v), stmts))
+                        |> List.unzip
+                        |> fun (kv, stmts) ->
+                            kv |> List.map (fun (k, v) -> Keyword.keyword (Identifier k, v)), stmts |> List.collect id
+
+                    [], Some objArg, stmts
+                else
+                    // Fallback to regular handling
+                    getCallArgs paramsInfo args
+            else
+                // Fallback to regular handling when not all parameters have names
+                getCallArgs paramsInfo args
+        | _ ->
+            // Regular handling for non-constructor calls
+            getCallArgs paramsInfo args
 
     let hasSpread =
         paramsInfo |> Option.map (fun i -> i.HasSpread) |> Option.defaultValue false
@@ -816,7 +861,7 @@ let transformEmit (com: IPythonCompiler) ctx range (info: Fable.EmitInfo) =
         |> Option.toList
         |> Helpers.unzipArgs
 
-    let exprs, kw, stmts' = transformCallArgs com ctx info
+    let exprs, kw, stmts' = transformCallArgs com ctx info false
 
     if macro.StartsWith("functools", StringComparison.Ordinal) then
         com.GetImportExpr(ctx, "functools") |> ignore
@@ -858,7 +903,7 @@ let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallI
     // printfn "transformCall: %A" (callee, callInfo)
     let callee', stmts = com.TransformAsExpr(ctx, callee)
 
-    let args, kw, stmts' = transformCallArgs com ctx callInfo
+    let args, kw, stmts' = transformCallArgs com ctx callInfo false
 
     match callee, callInfo.ThisArg with
     | Fable.Get(expr, Fable.FieldGet { Name = "Dispose" }, _, _), _ ->
@@ -2330,9 +2375,6 @@ let declareModuleMember (com: IPythonCompiler) ctx _isPublic (membName: Identifi
     let name = Expression.name membName
     varDeclaration ctx name typ expr
 
-let makeEntityTypeParamDecl (com: IPythonCompiler) ctx (ent: Fable.Entity) =
-    getEntityGenParams ent |> makeTypeParamDecl com ctx
-
 let makeEntityTypeParams (com: IPythonCompiler) ctx (ent: Fable.Entity) : TypeParam list =
     getEntityGenParams ent |> makeTypeParams com ctx
 
@@ -2403,7 +2445,6 @@ let declareDataClassType
         )
 
 
-    let generics = makeEntityTypeParamDecl com ctx ent
     let typeParams = makeEntityTypeParams com ctx ent
     let bases = baseExpr |> Option.toList
 
@@ -2485,27 +2526,30 @@ let transformClassAttributes
                 // Default values are handled by the constructor parameters
                 Statement.annAssign (Expression.name (propertyName |> Naming.toPropertyNaming), annotation = ta)
             else
-                // For attributes style with init=false, class attributes should have initial values
-                // Use the extracted initial values from the constructor body
-                // printfn "Looking for extracted initial value for property: %s" propertyName
-                let defaultValue =
+                // For attributes style with init=false, avoid emitting initializers that reference
+                // constructor parameters (e.g., Age: int = Age) because no __init__ is generated and
+                // libraries like Pydantic will synthesize it. Keep literal/call defaults like Field("...").
+                let defaultValueOpt =
                     extractedInitialValues
                     |> List.tryFind (fun (propName, _getterMemb, _defaultValue) ->
                         propName = (propertyName |> Naming.toPropertyNaming)
                     )
-                    |> function
-                        | Some(_propName, _getterMemb, defaultValue) ->
-                            // printfn "Found extracted initial value for %s: %A" propertyName defaultValue
-                            defaultValue
-                        | None ->
-                            // printfn "No extracted initial value found for %s, using type default" propertyName
-                            Util.getDefaultValueForType com ctx getter.ReturnParameter.Type
+                    |> Option.map (fun (_propName, _getterMemb, defaultValue) -> defaultValue)
 
-                Statement.annAssign (
-                    Expression.name (propertyName |> Naming.toPropertyNaming),
-                    annotation = ta,
-                    value = defaultValue
-                )
+                match defaultValueOpt with
+                // Skip defaults that are just bare names (likely ctor params), emit only annotation
+                | Some(Name _) ->
+                    Statement.annAssign (Expression.name (propertyName |> Naming.toPropertyNaming), annotation = ta)
+                // If we have a non-name default (e.g., Field("Name")), keep it
+                | Some defaultValue ->
+                    Statement.annAssign (
+                        Expression.name (propertyName |> Naming.toPropertyNaming),
+                        annotation = ta,
+                        value = defaultValue
+                    )
+                // Otherwise, emit only the annotation (no default)
+                | None ->
+                    Statement.annAssign (Expression.name (propertyName |> Naming.toPropertyNaming), annotation = ta)
         )
         |> List.ofSeq
     | _ -> []
@@ -2520,13 +2564,12 @@ let declareClassType
     (consBody: Statement list)
     (baseExpr: Expression option)
     (classMembers: Statement list)
-    slotMembers
+    (slotMembers: Statement list)
     (classAttributes: ClassAttributes option)
     (attachedMembers: Fable.MemberDecl list)
     (extractedInitialValues: (string * Fable.MemberDecl * Expression) list)
     =
     // printfn "declareClassType: %A" consBody
-    let generics = makeEntityTypeParamDecl com ctx ent
     let typeParams = makeEntityTypeParams com ctx ent
 
     let fieldTypes =
@@ -3143,19 +3186,29 @@ let transformClassWithPrimaryConstructor
         if classAttributes.Style = ClassStyle.Attributes then
             if classAttributes.Init then
                 // For attributes style with init=true, generate new constructor with property names
+                // Place required params (no safe default) before optional params (with safe default),
+                // so Python's trailing-default rule is respected.
+                let requiredProps, optionalProps =
+                    extractedInitialValues
+                    |> List.partition (fun (propertyName, _getterMemb, defaultValue) ->
+                        match defaultValue with
+                        // Treat as required only when default is a bare name equal to the parameter itself
+                        // e.g., Age: int = Age. Keep None and other expressions as optional defaults.
+                        | Name name when name.Id.Name = propertyName -> true
+                        | _ -> false
+                    )
+
                 let propertyArgs =
-                    let args =
-                        extractedInitialValues
-                        |> List.map (fun (propertyName, getterMemb, _defaultValue) ->
-                            let ta, _ = Annotation.typeAnnotation com ctx None getterMemb.Body.Type
-                            Arg.arg (propertyName, annotation = ta)
-                        )
+                    let toArg (propertyName: string, getterMemb: Fable.MemberDecl, _defaultValue: Expression) =
+                        let ta, _ = Annotation.typeAnnotation com ctx None getterMemb.Body.Type
+                        Arg.arg (propertyName, annotation = ta)
 
-                    let defaults =
-                        extractedInitialValues
-                        |> List.map (fun (_propertyName, _getterMemb, defaultValue) -> defaultValue)
+                    let argsRequired = requiredProps |> List.map toArg
+                    let argsOptional = optionalProps |> List.map toArg
 
-                    Arguments.arguments (args = args, defaults = defaults)
+                    let defaults = optionalProps |> List.map (fun (_pn, _gm, dv) -> dv)
+
+                    Arguments.arguments (args = (argsRequired @ argsOptional), defaults = defaults)
 
                 let propertyBody =
                     extractedInitialValues
