@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [Python] Improve Python (e.g. Pydantic) interop (by @dbrattli)
+* [Rust] Fix compiler-generated generic args (by @ncave)
 * [All] Fixed #4041 missing unit argument (by @ncave)
 * [JS/TS/Python] Fixed eq comparer mangling (by @ncave)
 * [All] Fix all `BitConverter` return types (by @ncave)

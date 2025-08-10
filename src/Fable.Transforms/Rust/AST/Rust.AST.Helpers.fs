@@ -383,19 +383,19 @@ module Paths =
             tokens = None
         }
 
-    let mkGenericOffsetPath (names: Symbol seq) (genArgs: GenericArgs option) (offset: int) : Path =
+    let mkGenericPath (names: Symbol seq) (ownerGenArgs: GenericArgs option) (genArgs: GenericArgs option) : Path =
         let len = Seq.length names
         let idents = mkPathIdents names
 
         let args i =
-            if i = len - 1 - offset then
+            if i = len - 2 then
+                ownerGenArgs
+            elif i = len - 1 then
                 genArgs
             else
                 None
 
         idents |> Seq.mapi (fun i ident -> mkPathSegment ident (args i)) |> mkPath
-
-    let mkGenericPath (names: Symbol seq) (genArgs: GenericArgs option) : Path = mkGenericOffsetPath names genArgs 0
 
 [<AutoOpen>]
 module Patterns =
@@ -575,7 +575,7 @@ module MacCalls =
 
     let mkMacCall symbol delim kind (tokens: token.Token seq) : MacCall =
         {
-            path = mkGenericPath [ symbol ] None
+            path = mkGenericPath [ symbol ] None None
             args = mkDelimitedMacArgs delim kind tokens
             prior_type_ascription = None
         }
@@ -617,7 +617,7 @@ module Attrs =
         }
 
     let mkAttrKind (name: Symbol) args : AttrKind =
-        let path = mkGenericPath [ name ] None
+        let path = mkGenericPath [ name ] None None
         let item = mkAttrItem path args
         let kind = AttrKind.Normal(item, None)
         kind
@@ -744,7 +744,7 @@ module Exprs =
         ExprKind.Path(qualified, path) |> mkExpr
 
     let mkGenericPathExpr names genArgs : Expr =
-        mkGenericPath names genArgs |> mkPathExpr
+        mkGenericPath names None genArgs |> mkPathExpr
 
     let mkStructExpr path fields : Expr =
         {
@@ -1029,11 +1029,11 @@ module Bounds =
 
     let mkFnTraitGenericBound inputs output : GenericBound =
         let genArgs = mkParenGenericArgs inputs output
-        let path = mkGenericPath [ rawIdent "Fn" ] genArgs
+        let path = mkGenericPath [ rawIdent "Fn" ] None genArgs
         mkTraitGenericBound path
 
     let mkTypeTraitGenericBound names genArgs : GenericBound =
-        let path = mkGenericPath names genArgs
+        let path = mkGenericPath names None genArgs
         mkTraitGenericBound path
 
 [<AutoOpen>]
@@ -1101,7 +1101,8 @@ module Types =
 
     let mkPathTy path : Ty = TyKind.Path(None, path) |> mkTy
 
-    let mkGenericPathTy names genArgs : Ty = mkGenericPath names genArgs |> mkPathTy
+    let mkGenericPathTy names genArgs : Ty =
+        mkGenericPath names None genArgs |> mkPathTy
 
     let mkArrayTy ty (size: Expr) : Ty =
         TyKind.Array(ty, mkAnonConst size) |> mkTy
@@ -1363,7 +1364,7 @@ module Items =
                 span = DUMMY_SP
             }
 
-        let prefix = mkGenericPath names None
+        let prefix = mkGenericPath names None None
         let useTree = mkUseTree prefix kind
         let ident = mkIdent ""
         ItemKind.Use(useTree) |> mkItem attrs ident
