@@ -2,13 +2,13 @@ name: build
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
-    id-token: write
-    security-events: write
+  id-token: write
+  security-events: write
 
 jobs:
   # Separate job that verifies if all code was formatted correctly
@@ -21,12 +21,14 @@ jobs:
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
 
       - name: Restore tools
         run: dotnet tool restore
 
       - name: Check F# code
-        run: dotnet fantomas . --check
+        run: dotnet fantomas . --check --verbosity d
 
   # Verify that Fable.sln can be restored
   # See: https://github.com/fable-compiler/Fable/issues/3687
@@ -38,7 +40,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
 
       - name: Restore project
         run: dotnet restore Fable.sln
@@ -51,41 +55,41 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: '9.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
 
-    - name: Setup Node.js environment
-      uses: actions/setup-node@v2.4.1
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
 
-    - name: Fable Tests - JavaScript (linux)
-      if: matrix.platform == 'ubuntu-latest'
-      run: ./build.sh test javascript
+      - name: Fable Tests - JavaScript (linux)
+        if: matrix.platform == 'ubuntu-latest'
+        run: ./build.sh test javascript
 
-    - name: Fable Tests - JavaScript (Windows)
-      if: matrix.platform == 'windows-latest'
-      run: .\build.bat test javascript
+      - name: Fable Tests - JavaScript (Windows)
+        if: matrix.platform == 'windows-latest'
+        run: .\build.bat test javascript
 
   # Separate build job for TypeScript
   build-typescript:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '9.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
 
-    - name: Setup Node.js environment
-      uses: actions/setup-node@v2.4.1
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
 
-    - name: Fable Tests - TypeScript
-      run: ./build.sh test typescript
+      - name: Fable Tests - TypeScript
+        run: ./build.sh test typescript
 
     # - name: Fable Tests - TypeScript
     #   run: dotnet fsi build.fsx test-ts
@@ -95,36 +99,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '9.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
 
-    - name: Setup Node.js environment
-      uses: actions/setup-node@v2.4.1
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
 
-    - name: Fable Tests
-      run: ./build.sh test integration
+      - name: Fable Tests
+        run: ./build.sh test integration
 
   # Separate build job for Standalone
   build-standalone:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '9.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
 
-    - name: Setup Node.js environment
-      uses: actions/setup-node@v2.4.1
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
 
-    - name: Fable Tests
-      run: ./build.sh test standalone
+      - name: Fable Tests
+        run: ./build.sh test standalone
 
   # Separate build job for Python since we use a test matrix (will run in parallell)
   build-python:
@@ -135,18 +139,18 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: "9.0.x"
 
       - name: Setup dotnet tools
         run: dotnet tool restore
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -179,42 +183,42 @@ jobs:
         test: ["default", "no_std", "threaded"]
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '9.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
 
-    - name: Setup Node.js environment
-      uses: actions/setup-node@v2.4.1
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
 
-    - name: Setup Rust toolchain
-      uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-    - name: Fable Library - Rust
-      run: ./build.sh fable-library --rust
+      - name: Fable Library - Rust
+        run: ./build.sh fable-library --rust
 
-    - name: Fable Tests - Rust
-      run: ./build.sh test rust --skip-fable-library --${{ matrix.test }}
+      - name: Fable Tests - Rust
+        run: ./build.sh test rust --skip-fable-library --${{ matrix.test }}
 
   # Separate build job for Dart
   build-dart:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '9.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
 
-    - name: Setup Dart SDK
-      uses: dart-lang/setup-dart@v1.3
+      - name: Setup Dart SDK
+        uses: dart-lang/setup-dart@v1
 
-    - name: Fable Tests - Dart
-      run: ./build.sh test dart
+      - name: Fable Tests - Dart
+        run: ./build.sh test dart
 
   # Separate job to run F# analyzers
   analyzers:
@@ -222,33 +226,34 @@ jobs:
 
     strategy:
       matrix:
-        project: [
-          'src/Fable.AST/Fable.AST.fsproj',
-          'src/Fable.Transforms/Rust/AST/Rust.AST.fsproj',
-          'src/Fable.Transforms/Fable.Transforms.fsproj',
-          'src/Fable.Compiler/Fable.Compiler.fsproj'
+        project:
+          [
+            "src/Fable.AST/Fable.AST.fsproj",
+            "src/Fable.Transforms/Rust/AST/Rust.AST.fsproj",
+            "src/Fable.Transforms/Fable.Transforms.fsproj",
+            "src/Fable.Compiler/Fable.Compiler.fsproj",
           ]
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v3
-      with:
-        dotnet-version: '9.0.x'
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
 
-    - name: Restore tools
-      run: dotnet tool restore
+      - name: Restore tools
+        run: dotnet tool restore
 
-    - name: Build solution
-      run: dotnet build -c Release Fable.sln
+      - name: Build solution
+        run: dotnet build -c Release Fable.sln
 
-    - name: Run analyzers for ${{ matrix.project }}
-      run: dotnet msbuild /t:AnalyzeFSharpProject ${{ matrix.project }}
-      continue-on-error: true
+      - name: Run analyzers for ${{ matrix.project }}
+        run: dotnet msbuild /t:AnalyzeFSharpProject ${{ matrix.project }}
+        continue-on-error: true
 
-    - name: Upload SARIF files
-      uses: github/codeql-action/upload-sarif@v3
-      with:
+      - name: Upload SARIF files
+        uses: github/codeql-action/upload-sarif@v3
+        with:
           sarif_file: src/reports
           category: ${{ matrix.project }}
