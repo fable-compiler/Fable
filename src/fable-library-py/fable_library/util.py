@@ -22,6 +22,7 @@ from typing import (
     Any,
     ClassVar,
     Protocol,
+    TypeGuard,
     cast,
 )
 from urllib.parse import quote, unquote
@@ -161,23 +162,23 @@ class IComparer_1[T_in](Protocol):
     """
 
     @abstractmethod
-    def Compare(self, __x: T_in, __y: T_in) -> int32:
+    def Compare(self, /, x: T_in, y: T_in) -> int32:
         raise NotImplementedError
 
 
 class IEqualityComparer(Protocol):
     @abstractmethod
-    def Equals(self, x: Any = None, y: Any = None) -> bool:
+    def Equals(self, /, x: Any = None, y: Any = None) -> bool:
         raise NotImplementedError
 
     @abstractmethod
-    def GetHashCode(self, x_1: Any = None) -> int32:
+    def GetHashCode(self, /, x: Any = None) -> int32:
         raise NotImplementedError
 
 
 class IEqualityComparer_1[T_in](Protocol):
     @abstractmethod
-    def Equals(self, __x: T_in, __y: T_in) -> bool:
+    def Equals(self, /, x: T_in, y: T_in) -> bool:
         raise NotImplementedError
 
     @abstractmethod
@@ -2547,7 +2548,11 @@ def dispose(x: IDisposable | AbstractContextManager[Any]) -> None:
             raise ex
 
 
-def is_hashable(x: Any) -> bool:
+class HashCode(Protocol):
+    def GetHashCode(self) -> int32: ...
+
+
+def is_hashable(x: Any) -> TypeGuard[HashCode]:
     return hasattr(x, "GetHashCode")
 
 
@@ -2583,11 +2588,11 @@ class ObjectRef:
         return ObjectRef.id_map[_id]
 
 
-def safe_hash(x: Any) -> int:
+def safe_hash(x: Any) -> int32:
     return (
-        0
+        int32.ZERO
         if x is None
-        else hash(x)
+        else int32(hash(x))
         if is_hashable_py(x)
         else x.GetHashCode()
         if is_hashable(x)
@@ -2647,8 +2652,8 @@ def round(value: float64, digits: int = 0) -> float64:
     return value.round(digits)
 
 
-def randint(a: int, b: int) -> int:
-    return random.randint(a, b - 1)
+def randint(a: int32, b: int32) -> int32:
+    return int32(random.randint(int(a), int(b) - 1))
 
 
 def unescape_data_string(s: str) -> str:
