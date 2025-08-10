@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-* [JS/TS] Fix #4041 missing unit argument (by @ncave)
+* [All] Fixed #4041 missing unit argument (by @ncave)
 * [JS/TS/Python] Fixed eq comparer mangling (by @ncave)
 * [All] Fix all `BitConverter` return types (by @ncave)
 * [TS] Don't cast union case types to `any` (by @ncave)
