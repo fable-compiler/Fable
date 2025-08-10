@@ -650,7 +650,7 @@ let transformCallArgs
     =
 
     let args =
-        FSharp2Fable.Util.dropUnitCallArg callInfo.Args callInfo.SignatureArgTypes
+        FSharp2Fable.Util.dropUnitCallArg com callInfo.Args callInfo.SignatureArgTypes callInfo.MemberRef
 
     let paramsInfo =
         callInfo.MemberRef |> Option.bind com.TryGetMember |> Option.map getParamsInfo

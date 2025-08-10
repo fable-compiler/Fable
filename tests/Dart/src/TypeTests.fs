@@ -591,8 +591,8 @@ let update (model: Model) =
 
 let tests() =
 
-    // testCase "Unit arguments work" <| fun () ->
-    //     update () |> equal ((), ())
+    testCase "Unit arguments work" <| fun () ->
+        update () |> equal ((), ())
 
     testCase "Optional arguments work" <| fun () ->
         let x = MyOptionalClass(?arg2 = Some "2")

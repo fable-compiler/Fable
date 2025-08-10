@@ -1744,8 +1744,7 @@ module Util =
                 | TypeScript, None, Fable.IdentExpr id -> makeTypeAnnotation com ctx id.Type |> SuperType
                 | _ -> transformAsExpr com ctx baseRef |> SuperExpression
 
-            let args =
-                info.MemberRef |> Option.bind com.TryGetMember |> transformCallArgs com ctx info
+            let args = transformCallArgs com ctx info
 
             Some(baseExpr, args)
         | Some(Fable.Value _), Some baseType ->
@@ -1898,17 +1897,12 @@ module Util =
 
             Expression.newExpression (classExpr, [||])
 
-    let transformCallArgsWithNamedArgs
-        (com: IBabelCompiler)
-        ctx
-        (callInfo: Fable.CallInfo)
-        (memberInfo: Fable.MemberFunctionOrValue option)
-        =
+    let transformCallArgsWithNamedArgs (com: IBabelCompiler) ctx (callInfo: Fable.CallInfo) =
+        let memberInfo = callInfo.MemberRef |> Option.bind com.TryGetMember
+        let paramsInfo = Option.map getParamsInfo memberInfo
 
         let args =
-            FSharp2Fable.Util.dropUnitCallArg callInfo.Args callInfo.SignatureArgTypes
-
-        let paramsInfo = Option.map getParamsInfo memberInfo
+            FSharp2Fable.Util.dropUnitCallArg com callInfo.Args callInfo.SignatureArgTypes callInfo.MemberRef
 
         let args =
             match paramsInfo with
@@ -1966,8 +1960,8 @@ module Util =
 
         args, objArg
 
-    let transformCallArgs com ctx callInfo memberInfo =
-        match transformCallArgsWithNamedArgs com ctx callInfo memberInfo with
+    let transformCallArgs com ctx callInfo =
+        match transformCallArgsWithNamedArgs com ctx callInfo with
         | args, None -> args
         | args, Some objArg -> args @ [ objArg ]
 
@@ -2043,9 +2037,7 @@ module Util =
                 |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
                 |> Option.toList
 
-            info.MemberRef
-            |> Option.bind com.TryGetMember
-            |> transformCallArgs com ctx info
+            transformCallArgs com ctx info
             |> List.append thisArg
             |> emitExpression range macro
 
@@ -2284,8 +2276,7 @@ but thanks to the optimisation done below we get
             | memberInfo ->
                 let callee = com.TransformAsExpr(ctx, callee)
 
-                let nonNamedArgs, namedArgs =
-                    transformCallArgsWithNamedArgs com ctx callInfo memberInfo
+                let nonNamedArgs, namedArgs = transformCallArgsWithNamedArgs com ctx callInfo
 
                 let args = nonNamedArgs @ Option.toList namedArgs
 

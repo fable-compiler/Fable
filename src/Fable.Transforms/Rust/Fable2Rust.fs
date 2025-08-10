@@ -2365,11 +2365,6 @@ module Util =
             |> Option.map (fun memb -> memb.Attributes |> Seq.exists (fun a -> a.Entity.FullName = Atts.rustByRef))
             |> Option.defaultValue false
 
-        let argParams =
-            membOpt
-            |> Option.map (fun memb -> memb.CurriedParameterGroups |> List.concat)
-            |> Option.defaultValue []
-
         let ctx =
             let isSendSync =
                 match calleeExpr with
@@ -2389,10 +2384,15 @@ module Util =
                 IsParamByRefPreferred = isByRefPreferred
             }
 
-        let callArgs =
-            FSharp2Fable.Util.dropUnitCallArg callInfo.Args callInfo.SignatureArgTypes
+        let parameters =
+            membOpt
+            |> Option.map (fun memb -> memb.CurriedParameterGroups |> List.concat)
+            |> Option.defaultValue []
 
-        let args = transformCallArgs com ctx callArgs callInfo.SignatureArgTypes argParams
+        let callArgs =
+            FSharp2Fable.Util.dropUnitCallArg com callInfo.Args callInfo.SignatureArgTypes callInfo.MemberRef
+
+        let args = transformCallArgs com ctx callArgs callInfo.SignatureArgTypes parameters
 
         let genArgsOpt =
             match membOpt with
@@ -2918,7 +2918,7 @@ module Util =
 
             (callee, args)
             ||> List.fold (fun expr arg ->
-                let args = FSharp2Fable.Util.dropUnitCallArg [ arg ] []
+                let args = FSharp2Fable.Util.dropUnitCallArg com [ arg ] [] None
                 callFunction com ctx r expr args
             )
 
