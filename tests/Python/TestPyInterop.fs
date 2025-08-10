@@ -428,32 +428,37 @@ let ``test createEmpty works with interfaces`` () =
     user.Age |> equal 20
 
 // Test for Pydantic compatible classes
-
 [<Erase>]
 type Field<'T> = 'T
 
-[<Import("Field", "pydantic")>]
-let Field (description: string): Field<'T> = nativeOnly
+module Field =
+    [<Import("Field", "pydantic")>]
+    [<Emit("$0(frozen=$1)")>]
+    let Frozen (frozen: bool) : Field<'T> = nativeOnly
+
+    [<Import("Field", "pydantic")>]
+    [<Emit("$0(default=$1)")>]
+    let Default(value: 'T) : Field<'T> = nativeOnly
+
 
 [<Import("BaseModel", "pydantic")>]
 type BaseModel () = class end
 
-// Test PythonClass attribute with attributes style
 [<Py.ClassAttributes(style="attributes", init=false)>]
-type PydanticUser() =
+type PydanticUser(Name: string, Age: bigint, Email: string option, Enabled: bool) =
     inherit BaseModel()
-    member val Name: Field<string> = Field("Name") with get, set
-    member val Age: bigint = 10I with get, set
+    member val Name: string = Field.Frozen(true) with get, set
+    member val Age: bigint = Age with get, set
     member val Email: string option = None with get, set
+    member val Enabled: bool = Field.Default(false) with get, set
 
 [<Fact>]
 let ``test PydanticUser`` () =
-    let user = PydanticUser()
-    user.Name <- "Test User"
-    user.Age <- 25
-    user.Email <- Some "test@example.com"
-
+    let user = PydanticUser(Name = "Test User", Age = 25I, Email = Some "test@example.com", Enabled = true)
     user.Name |> equal "Test User"
+    user.Age |> equal 25I
+    user.Email |> equal (Some "test@example.com")
+    user.Enabled |> equal true
 
 [<Py.Decorate("dataclasses.dataclass")>]
 [<Py.ClassAttributes(style="attributes", init=false)>]

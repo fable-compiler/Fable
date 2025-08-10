@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Any
 
-from .types import FSharpRef
+from .types import FSharpRef, int32, int64
 
 
 def compare(x: int, y: int) -> int:
@@ -188,11 +188,11 @@ def from_one() -> int:
     return 1
 
 
-def from_int32(x: int) -> int:
+def from_int32(x: int32) -> int:
     return int(x)
 
 
-def from_int64(x: int) -> int:
+def from_int64(x: int64) -> int:
     return int(x)
 
 

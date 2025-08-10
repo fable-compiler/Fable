@@ -43,7 +43,6 @@ type BuildFableLibraryPython() =
 
         Shell.deleteDir (this.BuildDir </> "fable_library/fable-library-ts")
 
-
         // Run Ruff linter checking import sorting and fix any issues
         Command.Run("uv", $"run ruff check --select I --fix {this.BuildDir}")
         // Run Ruff formatter on all generated files

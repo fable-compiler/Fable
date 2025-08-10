@@ -49,10 +49,6 @@ let getGenericTypeParams (types: Fable.Type list) =
 let getEntityGenParams (ent: Fable.Entity) =
     ent.GenericParameters |> Seq.map (fun x -> x.Name) |> Set.ofSeq
 
-let makeTypeParamDecl (com: IPythonCompiler) ctx (genParams: Set<string>) =
-    // Python 3.12+ syntax: no longer need Generic[T] base classes
-    []
-
 let makeTypeParams (com: IPythonCompiler) ctx (genParams: Set<string>) : TypeParam list =
     // Python 3.12+ syntax: create TypeParam list for class/function declaration
     genParams

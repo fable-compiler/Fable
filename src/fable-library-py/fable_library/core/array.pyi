@@ -16,6 +16,8 @@ ArrayType = Literal[
     "UInt8",
     "Int16",
     "UInt16",
+    "Int32",
+    "UInt32",
     "SupportsInt",
     "USupportsInt",
     "Int64",

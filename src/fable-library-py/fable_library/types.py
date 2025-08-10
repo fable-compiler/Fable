@@ -254,6 +254,9 @@ class FSharpException(Exception, IComparable):
     def CompareTo(self, other: FSharpException):
         return compare(self.Data0, other.Data0)
 
+    def __cmp__(self, other: FSharpException):
+        return compare(self.Data0, other.Data0)
+
 
 class char(int):
     __slots__ = ()
