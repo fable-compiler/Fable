@@ -104,7 +104,11 @@ module SetTree =
         let hl = height l
         let hr = height r
 
-        let m = if hl < hr then hr else hl
+        let m =
+            if hl < hr then
+                hr
+            else
+                hl
 
         if m = 0 then // m=0 ~ isEmpty l && isEmpty r
             SetTreeLeaf k |> Some
@@ -218,9 +222,12 @@ module SetTree =
             | _ ->
                 let c = comparer.Compare(t2.Key, pivot)
 
-                if c < 0 then t, false, empty // singleton under pivot
-                elif c = 0 then empty, true, empty // singleton is    pivot
-                else empty, false, t // singleton over  pivot
+                if c < 0 then
+                    t, false, empty // singleton under pivot
+                elif c = 0 then
+                    empty, true, empty // singleton is    pivot
+                else
+                    empty, false, t // singleton over  pivot
 
     let rec spliceOutSuccessor (t: SetTree<'T>) =
         match t with
@@ -254,7 +261,11 @@ module SetTree =
                         mk tn.Left sk r'
                 else
                     rebalance tn.Left tn.Key (remove comparer k tn.Right)
-            | _ -> if c = 0 then empty else t
+            | _ ->
+                if c = 0 then
+                    empty
+                else
+                    t
 
     let rec mem (comparer: IComparer<'T>) k (t: SetTree<'T>) =
         match t with
@@ -264,9 +275,12 @@ module SetTree =
 
             match t2 with
             | :? SetTreeNode<'T> as tn ->
-                if c < 0 then mem comparer k tn.Left
-                elif c = 0 then true
-                else mem comparer k tn.Right
+                if c < 0 then
+                    mem comparer k tn.Left
+                elif c = 0 then
+                    true
+                else
+                    mem comparer k tn.Right
             | _ -> (c = 0)
 
     let rec iter f (t: SetTree<'T>) =
@@ -331,10 +345,18 @@ module SetTree =
         | Some t2 ->
             match t2 with
             | :? SetTreeNode<'T> as tn ->
-                let acc = if f tn.Key then add comparer tn.Key acc else acc
+                let acc =
+                    if f tn.Key then
+                        add comparer tn.Key acc
+                    else
+                        acc
 
                 filterAux comparer f tn.Left (filterAux comparer f tn.Right acc)
-            | _ -> if f t2.Key then add comparer t2.Key acc else acc
+            | _ ->
+                if f t2.Key then
+                    add comparer t2.Key acc
+                else
+                    acc
 
     let filter comparer f s = filterAux comparer f s empty
 
@@ -606,11 +628,17 @@ module SetTree =
                 | _ ->
                     let c = comparer.Compare(x1.Key, x2.Key)
 
-                    if c <> 0 then c else compareStacks comparer t1 t2
+                    if c <> 0 then
+                        c
+                    else
+                        compareStacks comparer t1 t2
 
     let compare comparer (t1: SetTree<'T>) (t2: SetTree<'T>) =
         if isEmpty t1 then
-            if isEmpty t2 then 0 else -1
+            if isEmpty t2 then
+                0
+            else
+                -1
         else if isEmpty t2 then
             1
         else
