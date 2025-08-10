@@ -1836,12 +1836,26 @@ module Util =
         | [ thisArg; arg ] when thisArg.IsThisArgument && isUnitArg arg -> [ thisArg ]
         | args -> args
 
-    let dropUnitCallArg (args: Fable.Expr list) (argTypes: Fable.Type list) =
-        match args, argTypes with
-        // Don't remove unit arg if a generic is expected
-        | [ MaybeCasted(Fable.Value(Fable.UnitConstant, _)) ], [ Fable.GenericParam _ ] -> args
-        | [ MaybeCasted(Fable.Value(Fable.UnitConstant, _)) ], _ -> []
-        | [ Fable.IdentExpr ident ], _ when isUnitArg ident -> []
+    let dropUnitCallArg
+        (com: Compiler)
+        (args: Fable.Expr list)
+        (argTypes: Fable.Type list)
+        (memberRef: Fable.MemberRef option)
+        =
+        let parameters =
+            match memberRef with
+            | Some(Fable.MemberRef(declaringEntity, memberInfo)) ->
+                memberRef
+                |> Option.bind com.TryGetMember
+                |> Option.map (fun memb -> memb.CurriedParameterGroups |> List.concat)
+                |> Option.defaultValue []
+            | _ -> []
+
+        match args, argTypes, parameters with
+        | [ MaybeCasted(Fable.Value(Fable.UnitConstant, _)) ], [ Fable.GenericParam _ ], _ -> args // keep generic unit args
+        | [ MaybeCasted(Fable.Value(Fable.UnitConstant, _)) ], [ Fable.Unit ], [ p ] when p.Name.IsSome -> args // keep named unit args
+        | [ MaybeCasted(Fable.Value(Fable.UnitConstant, _)) ], _, _ -> []
+        | [ Fable.IdentExpr ident ], _, _ when isUnitArg ident -> []
         | _ -> args
 
     let unboxBoxedArgs (args: Fable.Expr list) =

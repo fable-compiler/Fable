@@ -448,11 +448,11 @@ module Util =
         let paramsInfo, thisArg, args =
             match info with
             | NoCallInfo args ->
-                let args = FSharp2Fable.Util.dropUnitCallArg args []
+                let args = FSharp2Fable.Util.dropUnitCallArg com args [] None
                 None, None, args
             | CallInfo callInfo ->
                 let args =
-                    FSharp2Fable.Util.dropUnitCallArg callInfo.Args callInfo.SignatureArgTypes
+                    FSharp2Fable.Util.dropUnitCallArg com callInfo.Args callInfo.SignatureArgTypes callInfo.MemberRef
 
                 let paramsInfo =
                     callInfo.MemberRef |> Option.bind com.TryGetMember |> Option.map getParamsInfo

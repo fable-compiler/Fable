@@ -568,9 +568,9 @@ type Model = unit
 let update (model: Model) =
     model, ()
 
-// [<Fact>]
-// let ``Unit arguments work`` () =
-//     update () |> equal ((), ())
+[<Fact>]
+let ``Unit arguments work`` () =
+    update () |> equal ((), ())
 
 [<Fact>]
 let ``Optional arguments work`` () =
