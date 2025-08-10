@@ -1334,7 +1334,6 @@ module TypeHelpers =
         // Other solutions would be to add generic names to the name deduplication context or enforce Dart case conventions:
         // Pascal case for types and camel case for variables
         | Dart -> "$" + name
-        | Rust -> genParam.Name
         | _ -> name
 
     let resolveGenParam withConstraints ctxTypeArgs (genParam: FSharpGenericParameter) =

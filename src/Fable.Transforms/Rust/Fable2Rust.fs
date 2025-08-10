@@ -314,13 +314,11 @@ module TypeInfo =
 
     let makeFullNamePath fullName genArgsOpt =
         let parts = splitNameParts fullName
-        mkGenericPath parts genArgsOpt
+        mkGenericPath parts None genArgsOpt
 
-    let makeStaticCallPathExpr importName membName genArgsOpt =
-        let fullName = importName + "::" + membName
+    let makeStaticCallPathExpr fullName ownerGenArgsOpt membGenArgsOpt =
         let parts = splitNameParts fullName
-        let offset = 1 // genArgs position offset is one before last
-        mkGenericOffsetPath parts genArgsOpt offset |> mkPathExpr
+        mkGenericPath parts ownerGenArgsOpt membGenArgsOpt |> mkPathExpr
 
     let makeFullNamePathExpr fullName genArgsOpt =
         makeFullNamePath fullName genArgsOpt |> mkPathExpr
@@ -681,12 +679,14 @@ module TypeInfo =
                     // for constructors or static members, import just the type
                     let selector, membName = Fable.Naming.splitLastBy "." info.Selector
                     let importName = com.GetImportName(ctx, selector, info.Path, r)
-                    makeStaticCallPathExpr importName membName genArgsOpt
+                    let fullName = importName + "::" + membName
+                    makeStaticCallPathExpr fullName None genArgsOpt
             | Fable.LibraryImport mi when not (mi.IsInstanceMember) && not (mi.IsModuleMember) ->
                 // for static (non-module and non-instance) members, import just the type
                 let selector, membName = Fable.Naming.splitLastBy "::" info.Selector
                 let importName = com.GetImportName(ctx, selector, info.Path, r)
-                makeStaticCallPathExpr importName membName genArgsOpt
+                let fullName = importName + "::" + membName
+                makeStaticCallPathExpr fullName genArgsOpt None
             | _ ->
                 // all other imports
                 let importName = com.GetImportName(ctx, info.Selector, info.Path, r)
@@ -2394,14 +2394,25 @@ module Util =
 
         let args = transformCallArgs com ctx callArgs callInfo.SignatureArgTypes parameters
 
-        let genArgsOpt =
+        let ownerGenArgsOpt, membGenArgsOpt =
             match membOpt with
             | Some memb ->
-                if List.isEmpty callArgs && not (List.isEmpty memb.GenericParameters) then
-                    transformGenArgs com ctx callInfo.GenericArgs
-                else
-                    None
-            | _ -> None
+                let genArgsCount =
+                    (List.length callInfo.GenericArgs) - (List.length memb.GenericParameters)
+
+                let ownerGenArgs = callInfo.GenericArgs |> List.take genArgsCount
+                let membGenArgs = callInfo.GenericArgs |> List.skip genArgsCount
+                let ownerGenArgsOpt = transformGenArgs com ctx ownerGenArgs
+                let membGenArgsOpt = transformGenArgs com ctx membGenArgs
+
+                let membGenArgsOpt =
+                    if List.isEmpty callArgs && not (List.isEmpty memb.GenericParameters) then
+                        membGenArgsOpt
+                    else
+                        None
+
+                ownerGenArgsOpt, membGenArgsOpt
+            | None -> None, None
 
         match calleeExpr with
         // mutable module values (transformed as function calls)
@@ -2432,17 +2443,17 @@ module Util =
                 if memb.IsInstance && memb.IsExtension then
                     // extension method calls compiled as static method calls
                     let thisExpr = transformLeaveContext com ctx None thisArg
-                    let callee = transformImport com ctx r t info genArgsOpt
+                    let callee = transformImport com ctx r t info membGenArgsOpt
                     mkCallExpr callee (thisExpr :: args)
                 elif memb.IsInstance then
                     let callee = transformCallee com ctx thisArg
                     mkMethodCallExpr info.Selector None callee args
                 else
-                    let callee = transformImport com ctx r t info genArgsOpt
+                    let callee = transformImport com ctx r t info membGenArgsOpt
                     mkCallExpr callee args
             | None, Fable.MemberImport memberRef when isModuleMemberRef com memberRef ->
                 let memb = com.GetMember(memberRef)
-                let callee = transformImport com ctx r t info genArgsOpt
+                let callee = transformImport com ctx r t info membGenArgsOpt
 
                 if memb.IsMutable && memb.IsValue then
                     mkCallExpr callee [] |> mutableGet
@@ -2468,20 +2479,21 @@ module Util =
             | Some tc when tc.IsRecursiveRef(calleeExpr) && List.length tc.Args = List.length callInfo.Args ->
                 optimizeTailCall com ctx range tc callInfo.Args
             | _ ->
-                match callInfo.ThisArg, calleeExpr with
-                | Some thisArg, Fable.IdentExpr ident ->
-                    match membOpt with
-                    | Some memb when memb.IsExtension ->
-                        // transform extension calls as static calls
-                        let thisExpr = transformLeaveContext com ctx None thisArg
-                        let callee = makeFullNamePathExpr ident.Name genArgsOpt
-                        mkCallExpr callee (thisExpr :: args)
-                    | _ ->
-                        // other instance calls
-                        let callee = transformCallee com ctx thisArg
-                        mkMethodCallExpr ident.Name None callee args
-                | None, Fable.IdentExpr ident ->
-                    let callee = makeFullNamePathExpr ident.Name genArgsOpt
+                match callInfo.ThisArg, calleeExpr, membOpt with
+                | Some thisArg, Fable.IdentExpr ident, Some memb when memb.IsExtension ->
+                    // transform extension calls as static calls
+                    let thisExpr = transformLeaveContext com ctx None thisArg
+                    let callee = makeStaticCallPathExpr ident.Name ownerGenArgsOpt membGenArgsOpt
+                    mkCallExpr callee (thisExpr :: args)
+                | Some thisArg, Fable.IdentExpr ident, _ ->
+                    // other instance calls
+                    let callee = transformCallee com ctx thisArg
+                    mkMethodCallExpr ident.Name None callee args
+                | None, Fable.IdentExpr ident, Some memb ->
+                    let callee = makeStaticCallPathExpr ident.Name ownerGenArgsOpt membGenArgsOpt
+                    mkCallExpr callee args
+                | None, Fable.IdentExpr ident, _ ->
+                    let callee = makeFullNamePathExpr ident.Name membGenArgsOpt
                     mkCallExpr callee args
                 | _ ->
                     let callee = transformCallee com ctx calleeExpr
@@ -4623,7 +4635,7 @@ module Util =
             let genParams = makeGenericParamsFromArgs com ctx genArgs
             let generics = typeParam :: genParams |> mkGenerics
             let ty = mkGenericTy [ typeName ] [] |> makeLrcPtrTy com ctx
-            let path = mkGenericPath [ entName ] genArgsOpt
+            let path = mkGenericPath [ entName ] None genArgsOpt
             let ofTrait = mkTraitRef path |> Some
             mkImplItem [] "" ty generics memberItems ofTrait
 
@@ -4702,7 +4714,7 @@ module Util =
             let attrs = [ mkAttr "inline" [] ]
             let fnItem = mkFnAssocItem attrs "deref" fnKind
 
-            let path = mkGenericPath ("core" :: "ops" :: "Deref" :: []) None
+            let path = mkGenericPath ("core" :: "ops" :: "Deref" :: []) None None
             let ofTrait = mkTraitRef path |> Some
             let assocItems = [ tyItem; fnItem ]
 
@@ -4743,7 +4755,7 @@ module Util =
         let fnItem = mkFnAssocItem [] "fmt" fnKind
 
         let makeItem fmtTrait =
-            let path = mkGenericPath ("core" :: "fmt" :: fmtTrait :: []) None
+            let path = mkGenericPath ("core" :: "fmt" :: fmtTrait :: []) None None
             let ofTrait = mkTraitRef path |> Some
             let implItem = [ fnItem ] |> makeTraitImpl com ctx entName genArgs ofTrait
             implItem

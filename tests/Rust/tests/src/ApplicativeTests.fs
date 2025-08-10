@@ -66,26 +66,28 @@ let zipSorted (arr1:('k*'v1)[]) (arr2:('k*'v2)[]) =
 //     elif isSortedUsing (>=.) fst arr1 && isSortedUsing (>=.) fst arr2 then Array.rev (zipSorted (Array.rev arr1) (Array.rev arr2))
 //     else zipUnsorted arr1 arr2
 
-// type Result<'s, 'f> =
-//     | Ok of 's
-//     | Error of 'f
+type Result<'s, 'f> =
+    | Ok of 's
+    | Error of 'f
 
-//     static member (>>=) (r: Result<'t, 'e>, f: 't -> Result<'u, 'e>) : Result<'u, 'e> =
-//         match r with
-//         | Error e -> Error e
-//         | Ok v -> f v
+    static member (>>=) (r: Result<'t, 'e>, f: 't -> Result<'u, 'e>) : Result<'u, 'e> =
+        match r with
+        | Error e -> Error e
+        | Ok v -> f v
 
-//     static member (<^>) (f: 't -> 'u, r: Result<'t, 'e>) : Result<'u, 'e> =
-//         r >>= (f >> Ok)
+    static member (<^>) (f: 't -> 'u, r: Result<'t, 'e>) : Result<'u, 'e> =
+        r >>= (f >> Ok)
 
-//     static member (<*>) (f: 't -> 'u, r: Result<'t, 'e>) : Result<'u, 'e> =
-//         failwith "This shouldn't be called"
+    static member (<*>) (f: 't -> 'u, r: Result<'t, 'e>) : Result<'u, 'e> =
+        failwith "This shouldn't be called"
 
-//     static member (<*>) (f: Result<('t -> 'u), 'e>, r: Result<'t, 'e>) : Result<'u, 'e> =
-//         f >>= fun f -> f <^> r
+    static member (<*>) (f: Result<('t -> 'u), 'e>, r: Result<'t, 'e>) : Result<'u, 'e> =
+        f >>= fun f -> f <^> r
 
 let inline applyInline (a:'a) (b:'b) =
     a <*> b
+
+let inline intToString (x: int) = string x
 
 let sideEffectsCounter =
     let mutable i = 0
@@ -141,37 +143,37 @@ let ``Picks the right witness II`` () =
     getFirstAndLastName {| FirstName = "Alfonso"; LastName = "Horigome" |}
     |> equal "Alfonso Horigome"
 
-// [<Fact>]
-// let ``Infix applicative can be generated`` () =
-//     let r = Ok 1
-//     let a = Ok string
-//     match a <*> r with
-//     | Ok x -> equal "1" x
-//     | _ -> failwith "expected Ok('1')"
+[<Fact>]
+let ``Infix applicative can be generated`` () =
+    let r = Ok 1
+    let a = Ok intToString
+    match a <*> r with
+    | Ok x -> equal "1" x
+    | _ -> failwith "expected Ok('1')"
 
-// [<Fact>]
-// let ``Infix applicative with inline functions can be generated`` () =
-//     let r = Ok 1
-//     let a = Ok string
-//     match applyInline a r with
-//     | Ok x -> equal "1" x
-//     | _ -> failwith "expected Ok('1')"
+[<Fact>]
+let ``Infix applicative with inline functions can be generated`` () =
+    let r = Ok 1
+    let a = Ok intToString
+    match applyInline a r with
+    | Ok x -> equal "1" x
+    | _ -> failwith "expected Ok('1')"
 
-// [<Fact>]
-// let ``Infix applicative with inline composed functions can be generated`` () =
-//     let r = Ok 1
-//     let a = Ok (string >> int)
-//     match applyInline a r with
-//     | Ok x -> equal 1 x
-//     | _ -> failwith "expected Ok(1)"
+[<Fact>]
+let ``Infix applicative with inline composed functions can be generated`` () =
+    let r = Ok 1
+    let a = Ok (intToString >> int)
+    match applyInline a r with
+    | Ok x -> equal 1 x
+    | _ -> failwith "expected Ok(1)"
 
-// [<Fact>]
-// let ``Infix applicative with even more inline functions can be generated`` () =
-//     let r = Ok (fun x -> x + 1)
-//     let a = Ok (fun f x -> f x)
-//     match applyInline a r with
-//     | Ok addOne -> equal 2 (addOne 1)
-//     | _ -> failwith "expected Ok(addOne) where addOne(1) = 2"
+[<Fact>]
+let ``Infix applicative with even more inline functions can be generated`` () =
+    let r = Ok (fun (x: int) -> x + 1)
+    let a = Ok (fun (f: int -> int) (x: int) -> f x)
+    match applyInline a r with
+    | Ok addOne -> equal 2 (addOne 1)
+    | _ -> failwith "expected Ok(addOne) where addOne(1) = 2"
 
 [<Fact>]
 let ``Inline code doesn't call many times function with side effects`` () = // See #1321
@@ -940,7 +942,7 @@ module Pointful =
         equal (Some 10) sum
 
 module Results =
-    // open FSharp.Core
+    open FSharp.Core
 
     let applyResults (f: Result<_, unit>) (x: Result<_, unit>) =
         match f, x with
