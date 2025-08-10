@@ -13,6 +13,7 @@ let handle (args: string list) =
     let skipFableLibrary = args |> List.contains "--skip-fable-library"
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
+    let runTyping = args |> List.contains "--typing"
 
     BuildFableLibraryPython().Run(skipFableLibrary)
 
@@ -60,3 +61,30 @@ let handle (args: string list) =
 
         // Test against Python
         Command.Fable(fableArgs, workingDirectory = buildDir)
+
+        // Count the number of typing errors (so we can keep an eye on them)
+        if runTyping then
+            printfn "Running type checking ..."
+
+            let output =
+                let struct (output, _) =
+                    Command.ReadAsync(
+                        "uv",
+                        "run pyright",
+                        workingDirectory = buildDir,
+                        handleExitCode = fun _ -> true
+                    )
+                    |> Async.AwaitTask
+                    |> Async.RunSynchronously
+
+                output
+
+            // Extract and display only the summary line (last non-empty line)
+            let summaryLine =
+                output.Split([| '\n'; '\r' |], System.StringSplitOptions.RemoveEmptyEntries)
+                |> Array.tryLast
+                |> Option.defaultValue "No output"
+
+            printfn "Pyright summary: %s" summaryLine
+        else
+            printfn "Skipping type checking (use --typing to enable)"

@@ -22,6 +22,7 @@ dev = [
     "dunamai>=1.23.1,<2",
     "pydantic>=2.11.7",
     "attrs>=25.3.0",
+    "pyright>=1.1.403",
 ]
 
 [tool.hatch.build.targets.sdist]
