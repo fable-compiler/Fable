@@ -1,6 +1,6 @@
 namespace System.Collections.Generic
 
-type Comparer<'T when 'T: comparison and 'T: null>(comparison: 'T -> 'T -> int) =
+type Comparer<'T when 'T: comparison and 'T: not struct>(comparison: 'T -> 'T -> int) =
 
     static member Default = Comparer<'T>(LanguagePrimitives.GenericComparison)
 
@@ -16,7 +16,7 @@ type Comparer<'T when 'T: comparison and 'T: null>(comparison: 'T -> 'T -> int) 
             | x, null -> 1
             | x, y -> comparison x y
 
-type EqualityComparer<'T when 'T: equality and 'T: null>(equals: 'T -> 'T -> bool, getHashCode: 'T -> int) =
+type EqualityComparer<'T when 'T: equality and 'T: not struct>(equals: 'T -> 'T -> bool, getHashCode: 'T -> int) =
 
     static member Default =
         EqualityComparer<'T>(LanguagePrimitives.GenericEquality, LanguagePrimitives.GenericHash)
