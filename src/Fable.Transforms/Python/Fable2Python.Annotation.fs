@@ -471,7 +471,7 @@ let makeBuiltinTypeAnnotation com ctx kind repeatedGenerics =
 
 let transformFunctionWithAnnotations (com: IPythonCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
     // printfn "transformFunctionWithAnnotations: %A" (name, args, body.Type)
-    let argTypes = args |> List.map (fun id -> id.Type)
+    let argTypes = args |> List.map _.Type
 
     // In Python a generic type arg must appear both in the argument and the return type (cannot appear only once)
     let repeatedGenerics = getRepeatedGenericTypeParams ctx (argTypes @ [ body.Type ])

@@ -32,9 +32,9 @@ type PythonCompiler(com: Compiler) =
 
             let isQualifiedPythonImport =
                 match name with
-                | ""
                 | "default"
                 | "*" -> false
+                | name when name.Length = 0 -> false // CA1820
                 | _ -> true
 
             let cachedName =
