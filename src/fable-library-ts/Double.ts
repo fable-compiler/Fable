@@ -1,4 +1,5 @@
 import { FSharpRef } from "./Types.js";
+import { Exception } from "./Util.js";
 
 export function tryParse(str: string, defValue: FSharpRef<number>): boolean {
   // TODO: test if value is valid and in range
@@ -17,7 +18,7 @@ export function parse(str: string): number {
   if (tryParse(str, defValue)) {
     return defValue.contents;
   } else {
-    throw new Error(`The input string ${str} was not in a correct format.`);
+    throw new Exception(`The input string ${str} was not in a correct format.`);
   }
 }
 

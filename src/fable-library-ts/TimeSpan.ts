@@ -1,5 +1,5 @@
 import { FSharpRef } from "./Types.js";
-import { comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util.js";
+import { Exception, comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util.js";
 import { toInt64, fromFloat64 } from "./BigInt.js";
 
 // TimeSpan in runtime just becomes a number representing milliseconds
@@ -129,7 +129,7 @@ export function duration(x: number) {
 
 export function toString(ts: TimeSpan, format = "c", _provider?: any) {
   if (["c", "g", "G"].indexOf(format) === -1) {
-    throw new Error("Custom formats are not supported");
+    throw new Exception("Custom formats are not supported");
   }
   const d = Math.abs(days(ts));
   const h = Math.abs(hours(ts));
@@ -146,7 +146,7 @@ export function parse(str: string) {
   if (firstDot === -1 && firstColon === -1) { // There is only a day ex: 4
     const d = parseInt(str, 0);
     if (isNaN(d)) {
-      throw new Error(`String '${str}' was not recognized as a valid TimeSpan.`);
+      throw new Exception(`String '${str}' was not recognized as a valid TimeSpan.`);
     } else {
       return create(d, 0, 0, 0, 0);
     }
@@ -178,13 +178,13 @@ export function parse(str: string) {
           case 6: ms = +r[8] / 1000; break;
           case 7: ms = +r[8] / 10000; break;
           default:
-            throw new Error(`String '${str}' was not recognized as a valid TimeSpan.`);
+            throw new Exception(`String '${str}' was not recognized as a valid TimeSpan.`);
         }
       }
       return sign * create(d, h, m, s, ms);
     }
   }
-  throw new Error(`String '${str}' was not recognized as a valid TimeSpan.`);
+  throw new Exception(`String '${str}' was not recognized as a valid TimeSpan.`);
 }
 
 export function tryParse(v: string, defValue: FSharpRef<number>): boolean {

@@ -8,33 +8,32 @@ module private Native =
 
     let random () = JS.Math.random ()
 
-    let randomNext (min: int, max: int) : int =
+    let randomNext (minValue: int, maxValue: int) : int =
+        if (maxValue < minValue) then
+            raise <| ArgumentOutOfRangeException("minValue must be less than maxValue")
+
         emitJsStatement
             (box () |> nonNull)
             """
-        if (max < min) {
-            throw new Error("minValue must be less than maxValue");
-        }
-        return Math.floor(Math.random() * (max - min)) + min
-        """
+return Math.floor(Math.random() * (maxValue - minValue)) + minValue"""
 
     let randomBytes (buffer: byte array) : unit =
+        if isNull (box buffer) then
+            raise <| ArgumentNullException("Buffer cannot be null")
+
         emitJsStatement
             (box () |> nonNull)
             """
-        if (buffer == null) {
-            throw new Error("Buffer cannot be null");
+for (let i = 0; i < buffer.length; i += 6) {
+        // Pick random 48-bit number. Fill buffer in 2 24-bit chunks to avoid bitwise truncation.
+        let r = Math.floor(Math.random() * 281474976710656); // Low 24 bits = chunk 1.
+        const rhi = Math.floor(r / 16777216); // High 24 bits shifted via division = chunk 2.
+        for (let j = 0; j < 6 && i + j < buffer.length; j++) {
+            if (j === 3) { r = rhi; }
+            buffer[i + j] = r & 255;
+            r >>>= 8;
         }
-        for (let i = 0; i < buffer.length; i += 6) {
-            // Pick random 48-bit number. Fill buffer in 2 24-bit chunks to avoid bitwise truncation.
-            let r = Math.floor(Math.random() * 281474976710656); // Low 24 bits = chunk 1.
-            const rhi = Math.floor(r / 16777216); // High 24 bits shifted via division = chunk 2.
-            for (let j = 0; j < 6 && i + j < buffer.length; j++) {
-                if (j === 3) { r = rhi; }
-                buffer[i + j] = r & 255;
-                r >>>= 8;
-            }
-        }"""
+    }"""
 
 type IRandom =
     // Avoid overloads
@@ -173,7 +172,7 @@ type Seeded(seed: int) =
 
         member this.NextBytes(buffer: byte array) =
             if isNull (box buffer) then
-                raise <| ArgumentNullException("buffer")
+                raise <| ArgumentNullException("Buffer cannot be null")
 
             for i = 0 to buffer.Length - 1 do
                 buffer.[i] <- byte ((int (this.InternalSample())) % (int Byte.MaxValue + 1))

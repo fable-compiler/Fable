@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS] Fix Dictionary.ICollection.Remove (by @ncave)
 * [TS/Dart] Fixed optional parameter types (by @ncave)
 * [TS] Initialize un-initialized variables (by @ncave)
+* [JS/TS] Replace `Error` with `Exception` (by @ncave)
 
 ## 5.0.0-alpha.14 - 2025-07-25
 

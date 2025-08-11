@@ -1,3 +1,5 @@
+import { Exception } from "./Util.js";
+
 export type MatchEvaluator = (match: any) => string;
 
 export function create(pattern: string, options = 0) {
@@ -8,7 +10,7 @@ export function create(pattern: string, options = 0) {
   // * Singleline:  0x0010
   // * ECMAScript:  0x0100 (ignored)
   if ((options & ~(1 ^ 2 ^ 8 ^ 16 ^ 256)) !== 0) {
-    throw new Error("RegexOptions only supports: IgnoreCase, Multiline, Compiled, Singleline and ECMAScript");
+    throw new Exception("RegexOptions only supports: IgnoreCase, Multiline, Compiled, Singleline and ECMAScript");
   }
   // Set always global and unicode flags for compatibility with dotnet, see #2925
   let flags = "gu";
@@ -39,10 +41,10 @@ export function match(reg: RegExp, input: string, startAt = 0) {
 
 export function matches(reg: RegExp, input: string, startAt = 0) {
   if (input == null) {
-    throw new Error("Input cannot ve null");
+    throw new Exception("Input cannot ve null");
   }
   if (!reg.global) {
-    throw new Error("Non-global RegExp"); // Prevent infinite loop
+    throw new Exception("Non-global RegExp"); // Prevent infinite loop
   }
   reg.lastIndex = startAt;
   const matches: RegExpExecArray[] = [];

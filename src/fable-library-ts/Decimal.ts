@@ -1,7 +1,7 @@
 import Decimal, { BigSource } from "./lib/big.js";
 import { Numeric, symbol } from "./Numeric.js";
 import { FSharpRef } from "./Types.js";
-import { combineHashCodes } from "./Util.js";
+import { Exception, combineHashCodes } from "./Util.js";
 import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } from "./Int32.js";
 import { fromDecimal, int64, uint64, int128, uint128, nativeint, unativeint } from "./BigInt.js";
 import * as bigInt from "./BigInt.js";
@@ -138,7 +138,7 @@ export function parse(str: string): Decimal {
   if (tryParse(str, defValue)) {
     return defValue.contents;
   } else {
-    throw new Error(`The input string ${str} was not in a correct format.`);
+    throw new Exception(`The input string ${str} was not in a correct format.`);
   }
 }
 
@@ -149,7 +149,7 @@ export function toNumber(x: Decimal): number {
 export function toChar(x: Decimal): string {
   const n = toNumber(x);
   if (n < 0 || n > 65535 || isNaN(n)) {
-    throw new Error("Value was either too large or too small for a character.");
+    throw new Exception("Value was either too large or too small for a character.");
   }
   return String.fromCharCode(n);
 }
@@ -263,7 +263,7 @@ export function getBits(d: Decimal) {
 // export function makeRangeStepFunction(step: Decimal, last: Decimal) {
 //   const stepComparedWithZero = step.cmp(get_Zero);
 //   if (stepComparedWithZero === 0) {
-//     throw new Error("The step of a range cannot be zero");
+//     throw new Exception("The step of a range cannot be zero");
 //   }
 //   const stepGreaterThanZero = stepComparedWithZero > 0;
 //   return (x: Decimal) => {

@@ -1,4 +1,4 @@
-import { equals, isArrayLike } from "./Util.js";
+import { Exception, equals, isArrayLike } from "./Util.js";
 
 export function count<T>(col: Iterable<T>): number {
   if (typeof (col as any)["System.Collections.Generic.ICollection`1.get_Count"] === "function") {
@@ -94,7 +94,7 @@ export function add<T>(col: Iterable<T>, item: T): void {
           if ((col as any).has(item[0]) === false) {
             (col as any).set(item[0], item[1]); // map
           } else {
-            throw new Error("An item with the same key has already been added. Key: " + item[0]);
+            throw new Exception("An item with the same key has already been added. Key: " + item[0]);
           }
         } else {
           // TODO: throw for other collections?

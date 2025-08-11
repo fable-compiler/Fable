@@ -1,4 +1,5 @@
 import { FSharpRef } from "./Types.js"
+import { Exception } from "./Util.js";
 
 export function tryParse(str: string, defValue: FSharpRef<boolean>): boolean {
   if (str != null && str.match(/^\s*true\s*$/i)) {
@@ -17,6 +18,6 @@ export function parse(str: string): boolean {
   if (tryParse(str, defValue)) {
     return defValue.contents;
   } else {
-    throw new Error(`String '${str}' was not recognized as a valid Boolean.`)
+    throw new Exception(`String '${str}' was not recognized as a valid Boolean.`)
   }
 }

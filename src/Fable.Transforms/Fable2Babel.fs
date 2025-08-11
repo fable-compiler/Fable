@@ -516,7 +516,7 @@ module Reflection =
                 |> libCall com ctx range "Util" "isArrayLike" []
             | Types.exception_ ->
                 [ com.TransformAsExpr(ctx, expr) ]
-                |> libCall com ctx range "Types" "isException" []
+                |> libCall com ctx range "Util" "isException" []
             | _ ->
                 match com.GetEntity(ent) with
                 | Patterns.Try (Util.tryFindAnyEntAttribute [ Atts.stringEnum; Atts.erase; Atts.tsTaggedUnion ]) (att, _) as ent ->

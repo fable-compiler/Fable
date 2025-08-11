@@ -1,4 +1,4 @@
-import { IComparable, IEquatable, IHashable, combineHashCodes, compare, compareArrays, equalArrays, equals, sameConstructor, numberHash, structuralHash } from "./Util.js";
+import { Exception, IComparable, IEquatable, IHashable, combineHashCodes, compare, compareArrays, equalArrays, equals, sameConstructor, numberHash, structuralHash } from "./Util.js";
 
 // This type is only used internally for .ts files in the library
 // F# Result type is in Choice.fs
@@ -185,24 +185,6 @@ export class FSharpRef<T> {
 }
 
 // EXCEPTIONS
-
-// Exception is intentionally not derived from Error, for performance reasons (see #2160)
-export class Exception {
-  constructor(public message?: string) { }
-}
-
-export function isException(x: any) {
-  return x instanceof Exception || x instanceof Error;
-}
-
-export function isPromise(x: any) {
-  return x instanceof Promise;
-}
-
-export function ensureErrorOrException(e: any): any {
-  // Exceptionally admitting promises as errors for compatibility with React.suspense (see #3298)
-  return (isException(e) || isPromise(e)) ? e : new Error(String(e));
-}
 
 export abstract class FSharpException extends Exception
   implements IEquatable<FSharpException>, IComparable<FSharpException> {
