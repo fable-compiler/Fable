@@ -45,10 +45,10 @@ module Util =
     let hasPythonClassAttribute (atts: Fable.Attribute seq) =
         hasAttribute Atts.pyClassAttributes atts
 
-    let parseClassStyle (styleStr: string) =
+    let parseClassStyle (styleStr: int) =
         match styleStr with
-        | "attributes" -> ClassStyle.Attributes
-        | "properties" -> ClassStyle.Properties
+        | 0 -> ClassStyle.Properties
+        | 1 -> ClassStyle.Attributes
         | _ -> ClassStyle.Properties // Default to Properties for unknown values
 
     let getPythonClassParameters (atts: Fable.Attribute seq) =
@@ -60,8 +60,8 @@ module Util =
             // Extract parameters from the attribute constructor arguments
             match att.ConstructorArgs with
             | [] -> defaultParams
-            | [ :? string as styleParam ] -> { defaultParams with Style = parseClassStyle styleParam }
-            | [ :? string as styleParam; :? bool as initParam ] ->
+            | [ :? int as styleParam ] -> { defaultParams with Style = parseClassStyle styleParam }
+            | [ :? int as styleParam; :? bool as initParam ] ->
                 {
                     Style = parseClassStyle styleParam
                     Init = initParam
@@ -164,13 +164,14 @@ module Util =
     /// Determines if we should use the special record field naming convention (toRecordFieldSnakeCase)
     /// for the given entity. Returns true for user-defined F# records, false for built-in F# Core types.
     let shouldUseRecordFieldNaming (ent: Fable.Entity) =
-        ent.IsFSharpRecord && not (ent.FullName.StartsWith("Microsoft.FSharp.Core"))
+        ent.IsFSharpRecord
+        && not (ent.FullName.StartsWith("Microsoft.FSharp.Core", StringComparison.Ordinal))
 
     /// Determines if we should use the special record field naming convention (toRecordFieldSnakeCase)
     /// for the given entity reference. Returns true for user-defined F# records, false for built-in F# Core types.
     let shouldUseRecordFieldNamingForRef (entityRef: Fable.EntityRef) (ent: Fable.Entity) =
         ent.IsFSharpRecord
-        && not (entityRef.FullName.StartsWith("Microsoft.FSharp.Core"))
+        && not (entityRef.FullName.StartsWith("Microsoft.FSharp.Core", StringComparison.Ordinal))
 
     // Helper function to determine the kind of field access for proper naming
     let getFieldNamingKind (com: IPythonCompiler) (typ: Fable.Type) (fieldName: string) : FieldNamingKind =

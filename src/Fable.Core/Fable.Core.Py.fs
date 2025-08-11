@@ -45,11 +45,17 @@ module Py =
     [<AttributeUsage(AttributeTargets.Class, AllowMultiple = true)>]
     type DecorateAttribute(decorator: string) =
         inherit Attribute()
-
         new(decorator: string, parameters: string) = DecorateAttribute(decorator)
 
         member val Decorator: string = decorator with get, set
         member val Parameters: string = "" with get, set
+
+    [<RequireQualifiedAccess>]
+    type ClassAttributeStyle =
+        // Translates to properties with instance attributes backing
+        | Properties = 0
+        // Translates to class attributes
+        | Attributes = 1
 
     /// Used on a class to provide Python-specific control over how F# types are transpiled to Python classes.
     /// This attribute implies member attachment (similar to AttachMembers) while offering Python-specific parameters.
@@ -62,9 +68,9 @@ module Py =
     type ClassAttributes() =
         inherit Attribute()
 
-        new(style: string) = ClassAttributes()
+        new(style: ClassAttributeStyle) = ClassAttributes()
 
-        new(style: string, init: bool) = ClassAttributes()
+        new(style: ClassAttributeStyle, init: bool) = ClassAttributes()
 
     // Hack because currently Fable doesn't keep information about spread for anonymous functions
     [<Emit("lambda *args: $0(args)")>]
