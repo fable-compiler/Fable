@@ -1,4 +1,4 @@
-﻿namespace FSharp.Core
+namespace FSharp.Core
 
 [<CompiledName("Lazy")>]
 type Lazy<'T> =

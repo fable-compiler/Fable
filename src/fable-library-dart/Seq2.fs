@@ -1,4 +1,4 @@
-﻿// split from Seq to remove circular dependencies
+// split from Seq to remove circular dependencies
 module SeqModule2
 
 open Fable.Core
