@@ -1,4 +1,4 @@
-﻿module FSharp.Core.OperatorIntrinsics
+module FSharp.Core.OperatorIntrinsics
 
 let makeRangeStepFunction<'T> (step: 'T) (stop: 'T) (zero: 'T) (add: 'T -> 'T -> 'T) (compare: 'T -> 'T -> int) =
     let stepComparedWithZero = compare step zero
