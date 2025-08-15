@@ -35,6 +35,7 @@ type prop =
     static member inline children(children: JSX_ReactElement list) : JSX_IReactProperty = "children", children
 
     static member inline text(value: int) : JSX_IReactProperty = "children", [ JSX.text !!value ]
+    static member inline text(value: string) : JSX_IReactProperty = "children", [ JSX.text value ]
 
     static member inline key(value: int) : JSX_IReactProperty = "key", string value
 
@@ -162,3 +163,37 @@ let propsCanUseUnbox =
     Html.div [
         unbox<JSX_IReactProperty> ("id", "myid")
     ]
+
+let propertiesCanBeConditional a =
+    Html.div [
+        if a = "b" then
+            prop.className "success"
+        else
+            prop.className "error"
+
+        prop.text "See my color for the result"
+    ]
+
+
+let multiLevelOfConditionalForPropsAndChildrenWorks a b c =
+    Html.div [
+        if a = 1 then
+            prop.className "first-level"
+
+        prop.children [
+            if b = 1 then
+                Html.div "B condition is true"
+            else
+                Html.div [
+                    Html.div "B condition is false"
+                    if c = 1 then
+                        Html.div "But C condition is true"
+                ]
+        ]
+    ]
+
+let test =
+    JSX.create "div" [
+            "className", "second"
+            "children",  (JSX.text "content")
+        ]

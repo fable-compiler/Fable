@@ -2016,23 +2016,154 @@ module Util =
         |> List.append thisArg
         |> emitExpression range macro
 
-    let transformJsxProps (com: IBabelCompiler) props =
-        (Some([], []), props)
-        ||> List.fold (fun propsAndChildren prop ->
-            match propsAndChildren, prop with
-            | None, _ -> None
-            | Some(props, children), MaybeCasted(Fable.Value(Fable.NewTuple([ StringConst key; value ], _), _)) ->
-                if key = "children" then
-                    match value with
-                    | Replacements.Util.ArrayOrListLiteral(children, _) -> Some(props, children)
-                    | value -> Some(props, [ value ])
-                else
-                    Some((key, value) :: props, children)
-            | Some _, e ->
-                addError com [] e.Range "Cannot detect JSX prop key at compile time"
+    let (|HelperDetection|_|) (expr: Fable.Expr) =
+        match expr with
+        | MaybeCasted(Fable.Value(Fable.NewTuple([ StringConst key; value ], _), _)) -> Some(key, value)
+        | _ -> None
 
-                None
-        )
+    // type ResolvedCondition =
+    //     {
+
+    //     }
+
+    [<RequireQualifiedAccess>]
+    type TransformJsxPropsResult =
+        | Static of properties: (string * Fable.Expr) list * children: Fable.Expr list
+        | Dynamic of properties: Fable.Expr list
+
+    let transformJsxProps (com: IBabelCompiler) (originalProps: Fable.Expr list) =
+        // (Some([], []), props)
+        // ||> List.fold (fun propsAndChildren prop ->
+        //     match propsAndChildren, prop with
+        //     | None, _ -> None
+        //     | Some(props, children), HelperDetection(key, value) ->
+        //         if key = "children" then
+        //             match value with
+        //             | Replacements.Util.ArrayOrListLiteral(children, _) -> Some(props, children)
+        //             | value -> Some(props, [ value ])
+        //         else
+        //             Some((key, value) :: props, children)
+        //     | Some(props, children), Fable.IfThenElse(guardExpr, thenExpr, elseExpr, range) ->
+        //         let rec extractConditionalProperties (result) (expr: Fable.Expr) =
+        //             match result with
+        //             // Fast exist
+        //             | None -> None
+        //             | Some properties ->
+        //                 match expr with
+        //                 | Fable.Sequential exprs ->
+        //                     let validProperties, errors =
+        //                         exprs
+        //                         |> List.map (extractConditionalProperties (Some []))
+        //                         |> List.partition Option.isSome
+
+        //                     // Found invalid properties we stop here
+        //                     if not errors.IsEmpty then
+        //                         None
+        //                     else
+        //                         let validProperties = validProperties |> List.map Option.get |> List.concat
+
+        //                         Some(validProperties @ properties)
+
+        //                 | HelperDetection(thenKey, thenValue) -> Some((thenKey, thenValue) :: properties)
+
+        //                 // Unrecognized pattern we stop here
+        //                 | _ -> None
+
+        //         let flattenedThenExprs = extractConditionalProperties (Some []) thenExpr
+
+        //         let flattenedElseExprs = extractConditionalProperties (Some []) elseExpr
+
+        //         match flattenedThenExprs, flattenedElseExprs with
+        //         | None, _
+        //         | _, None
+        //         | None, None ->
+        //             addError
+        //                 com
+        //                 []
+        //                 prop.Range
+        //                 "Cannot detect JSX prop key at compile time (only simple condition are supported)"
+
+        //             None
+        //         | Some thenExprs, Some elseExprs ->
+        //             // Sequential [Value (Null (Tuple ([String; Any], false)), None); ...]
+        //             let emptyConditionBranch =
+        //                 Fable.Sequential [ Fable.Value(Fable.Null Fable.Type.Any, None) ]
+
+        //             let thenProperties =
+        //                 thenExprs
+        //                 |> List.map (fun (key, thenValue) ->
+        //                     key, Fable.IfThenElse(guardExpr, thenValue, emptyConditionBranch, None)
+        //                 )
+
+        //             let elseProperties =
+        //                 elseExprs
+        //                 |> List.map (fun (key, elseValue) ->
+        //                     let invertedGuardExpr =
+        //                         Fable.Operation(
+        //                             Fable.OperationKind.Unary(UnaryNot, guardExpr),
+        //                             [],
+        //                             guardExpr.Type,
+        //                             None
+        //                         )
+
+        //                     key, Fable.IfThenElse(invertedGuardExpr, emptyConditionBranch, elseValue, None)
+        //                 )
+
+        //             Some(thenProperties @ elseProperties @ props, children)
+
+        //     // match thenExpr, elseExpr with
+        //     // | Fable.Sequential (HelperDetection(thenKey,thenValue) :: _), Fable.Sequential (HelperDetection(elseKey,elseValue) :: _) ->
+        //     //     // List.map ?
+        //     //     // List.groupBy key
+        //     //     if thenKey = elseKey then
+        //     //         Some((thenKey, Fable.IfThenElse(guardExpr, thenValue, elseValue, range)) :: props, children)
+        //     //     else
+        //     //         addError com [] prop.Range "Blabla here"
+
+        //     //         None
+        //     // | _ ->
+        //     //     None
+        //     | Some _, e ->
+        //         addError com [] e.Range "Cannot detect JSX prop key at compile time"
+
+        //         None
+        // )
+        // (Some([], []), props)
+        // ||> List.fold (fun propsAndChildren prop ->
+        //     match propsAndChildren, prop with
+        //     | None, _ -> None
+        //     | Some(props, children), MaybeCasted(Fable.Value(Fable.NewTuple([ StringConst key; value ], _), _)) ->
+        //         if key = "children" then
+        //             match value with
+        //             | Replacements.Util.ArrayOrListLiteral(children, _) -> Some(props, children)
+        //             | value -> Some(props, [ value ])
+        //         else
+        //             Some((key, value) :: props, children)
+        //     | Some(props, children), Fable.IfThenElse(guardExpr, thenExpr, elseExpr, range) as e ->
+        //         Some(props, prop |> List.singleton)
+        //     | Some _, e ->
+        //         addError com [] e.Range "Cannot detect JSX prop key at compile time"
+
+        //         None
+        // )
+
+        let rec apply (propertiesAcc: (string * Fable.Expr) list) (children: Fable.Expr list) properties =
+            match properties with
+            | [] -> TransformJsxPropsResult.Static(propertiesAcc, children)
+            | currentProp :: rest ->
+                match currentProp with
+                | MaybeCasted(Fable.Value(Fable.NewTuple([ StringConst key; value ], _), _)) ->
+                    if key = "children" then
+                        match value with
+                        | Replacements.Util.ArrayOrListLiteral(children, _) -> apply propertiesAcc children rest
+                        | value -> apply propertiesAcc [ value ] rest
+                    else
+                        apply ((key, value) :: propertiesAcc) children rest
+                | _ ->
+                    // addError com [] currentProp.Range "Cannot detect JSX prop key at compile time"
+                    TransformJsxPropsResult.Dynamic originalProps
+
+        apply [] [] originalProps
 
     module Jsx =
 
@@ -2124,7 +2255,8 @@ but thanks to the optimisation done below we get
                                           _) -> exprs @ rest
                 | CalledExpression "append" exprs -> exprs @ rest
                 | CalledExpression "singleton" exprs -> exprs @ rest
-                | CalledExpression "empty" _ -> [ Expression.nullLiteral () ] @ rest
+                | CalledExpression "empty" _ -> [ Expression.Undefined None ] @ rest
+                | CalledExpression "ofArray" exprs -> ArrayExpression(exprs |> List.toArray, None) :: rest
                 // Note: Should we guard this unwrapper by checking that all the elements in the array are JsxElements?
                 | ArrayExpression(UnrollerFromArray exprs, _) -> exprs @ rest
                 | ConditionalExpression(testExpr, UnrollerFromSingleton thenExprs, UnrollerFromSingleton elseExprs, loc) ->
@@ -2140,10 +2272,119 @@ but thanks to the optimisation done below we get
                     // If a pattern is not optimized, you can put a debug point here to capture it
                     expr :: rest
 
-    let transformJsxEl (com: IBabelCompiler) ctx componentOrTag props =
+        module Props =
+
+            module Utils =
+
+                let (|StartsWith|_|) (value: string) =
+                    function
+                    | (s: string) when s.StartsWith(value) -> Some()
+                    | _ -> None
+
+                let (|EndsWith|_|) (value: string) =
+                    function
+                    | (s: string) when s.EndsWith(value) -> Some()
+                    | _ -> None
+
+                let (|StartsWithTrimmed|_|) (value: string) =
+                    function
+                    | StartsWith value as s -> s.Substring(value.Length) |> Some
+                    | _ -> None
+
+                let (|EndsWithTrimmed|_|) (value: string) =
+                    function
+                    | EndsWith value as s -> s.Substring(0, s.Length - value.Length) |> Some
+                    | _ -> None
+
+                let rec trimReservedIdentifiers =
+                    function
+                    | EndsWithTrimmed "'" s -> trimReservedIdentifiers s
+                    | EndsWithTrimmed "`1" s -> trimReservedIdentifiers s
+                    | s when s.Length > 2 && s.Substring(s.Length - 2).StartsWith("`") ->
+                        s.Substring(0, s.Length - 2) |> trimReservedIdentifiers
+                    | s -> s
+
+            let rec (|UnrollerFromSingleton|) (expr: Fable.Expr) : Fable.Expr list =
+                [ expr ]
+                |> function
+                    | Unroller exprs -> exprs
+
+            and (|UnrollerFromList|) (listExpr: Fable.Expr list) : Fable.Expr list =
+                listExpr
+                |> function
+                    | Unroller exprs -> exprs
+
+            and (|Unroller|): Fable.Expr list -> Fable.Expr list =
+                function
+                | [] -> []
+                | expr :: Unroller rest ->
+                    match expr with
+                    | Fable.Call(Fable.Import({ Selector = Utils.StartsWith "toList" }, Fable.Any, None),
+                                 { Args = Unroller exprs },
+                                 _,
+                                 range) ->
+                        Fable.Value(
+                            Fable.NewArray(Fable.ArrayValues exprs, Fable.Any, Fable.ArrayKind.MutableArray),
+                            range
+                        )
+                        :: rest
+                    | Fable.Call(Fable.Import({ Selector = Utils.StartsWith "delay" }, Fable.Any, None),
+                                 { Args = Unroller exprs },
+                                 _typ,
+                                 _range) -> exprs @ rest
+                    | Fable.Lambda({
+                                       Name = Utils.StartsWith "unitVar"
+                                       IsCompilerGenerated = true
+                                   },
+                                   UnrollerFromSingleton exprs,
+                                   range) -> exprs @ rest
+                    | Fable.Call(Fable.Import({ Selector = Utils.StartsWith "append" }, Fable.Any, None),
+                                 { Args = Unroller exprs },
+                                 _typ,
+                                 _range) -> exprs @ rest
+                    | Fable.Call(Fable.Import({ Selector = Utils.StartsWith "singleton" }, Fable.Any, None),
+                                 { Args = value :: Unroller exprs },
+                                 _typ,
+                                 _range) -> exprs @ (value :: rest)
+                    | Fable.Call(Fable.Import({
+                                                  Selector = Utils.StartsWith "empty"
+                                                  Path = Utils.EndsWith "Seq.js"
+                                              },
+                                              Fable.Any,
+                                              None),
+                                 {
+                                     Args = []
+                                     GenericArgs = typ :: _
+                                 },
+                                 _,
+                                 _) ->
+                        Fable.Value(
+                            Fable.NewArray(Fable.NewArrayKind.ArrayValues [], typ, Fable.ArrayKind.ImmutableArray),
+                            None
+                        )
+                        :: rest
+                    | Fable.Call(callee, ({ Args = UnrollerFromList exprs } as callInfo), typ, range) ->
+                        Fable.Call(callee, { callInfo with Args = exprs }, typ, range) :: rest
+                    | Fable.TypeCast(UnrollerFromSingleton exprs, _typ) -> exprs @ rest
+                    | Fable.IfThenElse(UnrollerFromSingleton guardExprs,
+                                       UnrollerFromSingleton thenExprs,
+                                       UnrollerFromSingleton elseExprs,
+                                       range) ->
+                        Fable.IfThenElse(
+                            Fable.Sequential guardExprs,
+                            Fable.Sequential thenExprs,
+                            Fable.Sequential elseExprs,
+                            range
+                        )
+                        :: rest
+                    | expr ->
+                        // Tips 💡
+                        // If a pattern is not optimized, you can put a debug point here to capture it
+                        expr :: rest
+
+    let transformToOptimizedJsxEl (com: IBabelCompiler) ctx componentOrTag props =
         match transformJsxProps com props with
-        | None -> Expression.nullLiteral ()
-        | Some(props, children) ->
+        | TransformJsxPropsResult.Static(properties, children) ->
             let componentOrTag = transformAsExpr com ctx componentOrTag
 
             let children =
@@ -2161,9 +2402,83 @@ but thanks to the optimisation done below we get
                 |> List.concat
 
             let props =
-                props |> List.rev |> List.map (fun (k, v) -> k, transformAsExpr com ctx v)
+                properties |> List.rev |> List.map (fun (k, v) -> k, transformAsExpr com ctx v)
 
             Expression.jsxElement (componentOrTag, props, children)
+
+        | TransformJsxPropsResult.Dynamic properties ->
+            let componentOrTag = transformAsExpr com ctx componentOrTag
+
+            let props =
+                let c =
+                    properties
+                    |> List.map (transformAsExpr com ctx)
+                    |> List.map (fun expr ->
+                        match expr with
+                        | ArrayExpression(elements, loc) ->
+                            match elements |> Array.toList with
+                            | (Literal(Literal.StringLiteral(StringLiteral.StringLiteral("children", _)))) as key :: children :: [] ->
+                                let children =
+                                    match children with
+                                    | Jsx.UnrollerFromSingleton expr -> expr
+                                    |> List.head
+
+                                ArrayExpression([| key; children |], loc)
+                            | _ -> expr
+                        | _ -> expr
+                    )
+
+                ArrayExpression(c |> List.toArray, None)
+
+            // Note:
+            // Because of how Object.fromEntries works if the code ended evaluating something like
+            // Object.fromEntries(..., [])
+            // then it will generate something like { ..., undefined: undefined }
+            // If this proves to be a problem, we can filter the props list to only keep the one with
+            // at least 2 elements to remove the empty lists
+            let builder =
+                SpreadElement(
+                    CallExpression(
+                        Expression.Identifier(Identifier("Object.fromEntries", None)),
+                        [| props |],
+                        [||],
+                        None
+                    ),
+                    None
+                )
+
+            Expression.jsxElementSpreadProps (componentOrTag, builder)
+
+    // let transformJsxEl (com: IBabelCompiler) ctx componentOrTag originalProps =
+    //     match transformJsxProps com originalProps with
+    //     | None -> Expression.nullLiteral ()
+    //     | Some propInfos ->
+    //         let componentOrTag = transformAsExpr com ctx componentOrTag
+
+    //         let props =
+    //             ArrayExpression(originalProps |> List.map (transformAsExpr com ctx) |> List.toArray, None)
+
+    //         // Note:
+    //         // Because of how Object.fromEntries works if the code ended evaluating something like
+    //         // Object.fromEntries(..., [])
+    //         // then it will generate something like { ..., undefined: undefined }
+    //         // If this proves to be a problem, we can filter the props list to only keep the one with
+    //         // at least 2 elements to remove the empty lists
+    //         let builder =
+    //             SpreadElement(
+    //                 CallExpression(
+    //                     Expression.Identifier(Identifier("Object.fromEntries", None)),
+    //                     [| props |],
+    //                     [||],
+    //                     None
+    //                 ),
+    //                 None
+    //             )
+
+    //         Expression.jsxElementSpreadProps (
+    //             componentOrTag,
+    //             builder
+    //         )
 
     let transformJsxCall (com: IBabelCompiler) ctx callee (args: Fable.Expr list) (info: Fable.MemberFunctionOrValue) =
         let names =
@@ -2175,7 +2490,7 @@ but thanks to the optimisation done below we get
                 Fable.Value(Fable.NewTuple([ Fable.Value(Fable.StringConstant key, None); value ], false), None)
             )
 
-        transformJsxEl com ctx callee props
+        transformToOptimizedJsxEl com ctx callee props
 
     let optimizeCall (com: IBabelCompiler) ctx range typ callee (callInfo: Fable.CallInfo) =
         // Try to optimize some patterns after FableTransforms
@@ -2215,8 +2530,26 @@ but thanks to the optimisation done below we get
         | Fable.Tags.Contains "pojo", keyValueList :: _ ->
             JS.Replacements.makePojo com None keyValueList
             |> Option.map (transformAsExpr com ctx)
+        // 1. If this is a static array list then we generate optimized JSX
+        // 2. Otherwise, we build an object from the list
         | Fable.Tags.Contains "jsx", componentOrTag :: Replacements.Util.ArrayOrListLiteral(props, _) :: _ ->
-            transformJsxEl com ctx componentOrTag props |> Some
+            transformToOptimizedJsxEl com ctx componentOrTag props |> Some
+        | Fable.Tags.Contains "jsx", componentOrTag :: maybeProps :: _ ->
+            let newProps =
+                match maybeProps with
+                | Jsx.Props.UnrollerFromSingleton expr -> expr
+                |> List.head // To be removed
+            // | maybeProps -> maybeProps |> List.singleton
+
+            // let secondStep =
+            match newProps with
+            | Replacements.Util.ArrayOrListLiteral(props, _) ->
+                transformToOptimizedJsxEl com ctx componentOrTag props |> Some
+            | _ ->
+                "Expecting a static list or array literal (no generator) for JSX props"
+                |> addErrorAndReturnNull com range
+                |> Some
+
         | Fable.Tags.Contains "jsx", _ ->
             "Expecting a static list or array literal (no generator) for JSX props"
             |> addErrorAndReturnNull com range

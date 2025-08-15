@@ -25,6 +25,7 @@ type AssignmentOperator =
 type Expression =
     | CommentedExpression of comment: string * expr: Expression
     | JsxElement of componentOrTag: Expression * props: (string * Expression) list * children: Expression list
+    | JsxElementSpreadProps of componentOrTag: Expression * props: Expression
     | JsxTemplate of parts: string[] * values: Expression[]
     | Literal of Literal
     | Identifier of Identifier
@@ -528,6 +529,9 @@ module Helpers =
 
         static member jsxElement(componentOrTag, props, children) =
             JsxElement(componentOrTag, props, children)
+
+        static member jsxElementSpreadProps(componentOrTag, props) =
+            JsxElementSpreadProps(componentOrTag, props)
 
         static member jsxTemplate(parts, values) = JsxTemplate(parts, values)
         static member jsxTemplate(part) = JsxTemplate([| part |], [||])

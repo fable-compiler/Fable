@@ -918,3 +918,7 @@ export function copyToArray<T>(source: T[], sourceIndex: number, target: T[], ta
     }
   }
 }
+
+export function createJsxEntries(properties: any[]) {
+  return Object.fromEntries(properties.filter(e => e.length === 2))
+}

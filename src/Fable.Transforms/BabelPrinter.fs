@@ -491,12 +491,30 @@ module PrinterExtensions =
                 printTag componentOrTag
                 printer.Print(">")
 
+        member printer.PrintJsxElementSpreadProps(componentOrTag, props) =
+            let printTag =
+                function
+                | StringConstant tag -> printer.Print(tag)
+                | componentRef -> printer.Print(componentRef)
+
+            printer.Print("<")
+            printTag componentOrTag
+
+            printer.Print("{")
+            printer.Print(props)
+            printer.Print("}")
+
+            printer.PushIndentation()
+            printer.Print("/>")
+            printer.PopIndentation()
+
         member printer.Print(expr: Expression) =
             match expr with
             | CommentedExpression(comment, expr) ->
                 printer.Print("/* " + comment + " */ ")
                 printer.Print(expr)
             | JsxElement(componentOrTag, props, children) -> printer.PrintJsxElement(componentOrTag, props, children)
+            | JsxElementSpreadProps(componentOrTag, props) -> printer.PrintJsxElementSpreadProps(componentOrTag, props)
             | JsxTemplate(parts, values) -> printer.PrintJsxTemplate(parts, values)
             | Super(loc) -> printer.Print("super", ?loc = loc)
             | Literal(n) -> printer.PrintLiteral(n)

@@ -85,4 +85,23 @@ Jest.describe("JSX API tests (using React)", fun () ->
     Jest.test("Test that properties can be defined using `unbox`", fun () ->
         matchSnapshot Components.propsCanUseUnbox
     )
+
+    Jest.test("Test that properties can be conditional", fun () ->
+        // Prevent optimization
+        let mutable myCondition = "a"
+        myCondition |> ignore
+
+        matchSnapshot (Components.propertiesCanBeConditional myCondition)
+    )
+
+    Jest.test("Test that we can have several levels of condition for boths properties and children", fun () ->
+        let mutable a = 1
+        let mutable b = 0
+        let mutable c = 1
+        a |> ignore
+        b |> ignore
+        c |> ignore
+
+        matchSnapshot (Components.multiLevelOfConditionalForPropsAndChildrenWorks a b c)
+    )
 )

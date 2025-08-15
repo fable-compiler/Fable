@@ -162,10 +162,37 @@ exports[`JSX API tests (using React) Test that optimised condition works for the
 </div>
 `;
 
+exports[`JSX API tests (using React) Test that properties can be conditional 1`] = `
+<div>
+  <div
+    class="error"
+  >
+    See my color for the result
+  </div>
+</div>
+`;
+
 exports[`JSX API tests (using React) Test that properties can be defined using \`unbox\` 1`] = `
 <div>
   <div
     id="myid"
   />
+</div>
+`;
+
+exports[`JSX API tests (using React) Test that we can have several levels of condition for boths properties and children 1`] = `
+<div>
+  <div
+    class="first-level"
+  >
+    <div>
+      <div>
+        B condition is false
+      </div>
+      <div>
+        But C condition is true
+      </div>
+    </div>
+  </div>
 </div>
 `;

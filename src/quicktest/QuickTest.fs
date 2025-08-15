@@ -12,90 +12,181 @@ open Fable.Core.JsInterop
 open Fable.Core.Testing
 open System.Globalization
 
-let log (o: obj) = JS.console.log (o)
-// printfn "%A" o
+open Fable.Core
 
-let equal expected actual =
-    let areEqual = expected = actual
-    printfn "%A = %A > %b" expected actual areEqual
+// let x : obj = JS.Object?fromObjectEntries("hello")
 
-    if not areEqual then
-        failwithf "[ASSERT ERROR] Expected %A but got %A" expected actual
+// x |> ignore
 
-let throwsError (expected: string) (f: unit -> 'a) : unit =
-    let success =
-        try
-            f () |> ignore
-            true
-        with e ->
-            if not <| String.IsNullOrEmpty(expected) then
-                equal e.Message expected
+let mutable a = 0
+a |> ignore
+let mutable b = 0
+b |> ignore
 
-            false
-    // TODO better error messages
-    equal false success
+// // let Ele() =
+// //     JSX.create "div" [
+// //         if a = 1 then
+// //             "className", "first"
+// //         else
+// //             "className", "second"
 
-let testCase (msg: string) f : unit =
-    try
-        printfn "%s" msg
-        f ()
-    with ex ->
-        printfn "%s" ex.Message
+// //         // "className", "first"
+// //     ]
 
-        if
-            ex.Message <> null
-            && ex.Message.StartsWith("[ASSERT ERROR]", StringComparison.Ordinal) |> not
-        then
-            printfn "%s" (ex.StackTrace ??= "")
+// // let Ele2() =
+// //     JSX.create "div" [
+// //         if a = 1 then
+// //             "children", [
+// //                 "div", "True 1"
+// //                 "div", "True 2"
+// //             ]
+// //         else
+// //             "children", [
+// //                 "div", "False 1"
+// //                 "div", "False 2"
+// //             ]
 
-    printfn ""
+// //         // "className", "first"
+// //     ]
 
-let testCaseAsync msg f =
-    testCase
-        msg
-        (fun () ->
-            async {
-                try
-                    do! f ()
-                with ex ->
-                    printfn "%s" ex.Message
+// // Condition children props
 
-                    if
-                        ex.Message <> null
-                        && ex.Message.StartsWith("[ASSERT ERROR]", StringComparison.Ordinal) |> not
-                    then
-                        printfn "%s" (ex.StackTrace ??= "")
-            }
-            |> Async.StartImmediate
-        )
+// // JSX.create "div" [
+// //     if a = 1 then
+// //         "className", "success"
+// //         "children", "All good"
+// //     else
+// //         "className", "error"
+// //         "children", "Please fix"
+// // ]
 
-let throwsAnyError (f: unit -> 'a) : unit =
-    let success =
-        try
-            f () |> ignore
-            true
-        with e ->
-            printfn "Got expected error: %s" e.Message
-            false
+// // Should we make sure we keep properties order in case their is an overwrite
 
-    if success then
-        printfn "[ERROR EXPECTED]"
+// // [<Global>]
+// // let Object :obj = jsNative
 
-let measureTime (f: unit -> unit) : unit =
-    emitJsStatement
-        ()
-        """
-   //js
-   const startTime = process.hrtime();
-   f();
-   const elapsed = process.hrtime(startTime);
-   console.log("Ms:", elapsed[0] * 1e3 + elapsed[1] / 1e6);
-   //!js
-"""
+// // let x : obj =
+// //     Object?fromEntries(ResizeArray [
+// //         "id", "myId"
+// //         if a = 0 then
+// //             "class", "myId"
+// //             "style", "red"
+// //         else
+// //             "id", "myId"
+// //     ])
 
-printfn "Running quick tests..."
+// // JS.console.log(x)
 
-// Write here your unit test, you can later move it
-// to Fable.Tests project. For example:
-// testCase "Addition works" <| fun () ->
-//     2 + 2 |> equal 4
+let Ele1 () =
+    JSX.create
+        "div"
+        [
+            if a = 1 then
+                "className", "second"
+
+            "children",
+            [
+                // JSX.create "div" []
+                JSX.create "div" []
+            ]
+        ]
+
+// let Ele2() =
+//     JSX.create "div" [
+//         // if a = 1 then
+//         //     "className", "first"
+//         //     "id", "my-id"
+//         //     "children", "first"
+//         // else
+//         //     "className", "second"
+//         //     "children", "second"
+
+//         if a = 1 then
+//             // "className", JSX.text "second"
+//             "children", JSX.text "Level 1"
+
+//         // if b = 1 then
+//         //     "children", JSX.create "div" [
+//         //         if a = 1 then
+//         //             "children", "1.1"
+//         //     ]
+
+//         // "children", JSX.create "div" []
+
+//         // "className", "first"
+//     ]
+
+
+// // const MyObjSpreadExample = () => {
+// //   const shouldHaveBackground = true;
+
+// //   const props = Object.fromEntries([
+// //     ["id", "myId"],
+// //     shouldHaveBackground && ["style", { background: "red" }],
+// //     ["children", <button>Click me!</button>]
+// //   ].filter(Boolean));
+
+// //   return <div {...props}></div>;
+// // };
+
+// // [<AllowNullLiteral>]
+// // [<Global>]
+// // type Props
+// //     [<ParamObject; Emit("$0")>]
+// //     (
+// //         ?id: string,
+// //         ?className: string,
+// //         ?children: obj list
+// //     ) =
+// //     member val searchTerm: string = jsNative with get, set
+// //     member val isCaseSensitive: bool option = jsNative with get, set
+
+// // [<Erase>]
+// // type Html =
+
+// //     static member inline div(props:
+// //         {|
+// //             id : string
+// //             className : string
+// //             children: obj list
+// //             style : obj
+// //         |}) : obj =
+// //         JSX.create "div" (unbox props) |> unbox
+
+
+// //     static member inline span(props:
+// //         // The anonymous record needs to be duplicated over and over
+// //         // (yes you could use an alias in theory)
+// //         {|
+// //             id : string
+// //             className : string
+// //             children: obj list
+// //             style : obj
+// //         |}) : obj =
+// //         JSX.create "div" (unbox props) |> unbox
+
+// // // But this would not solve the caller side because people need to provides all the properties of an
+// // // anonymous records
+
+// // let b =
+// //     Html.div
+// //         {|
+// //             className = "button"
+// //         |}
+// //     // Error: This anonymous record is missing fields 'children', 'id', 'style'.F
+
+
+// // const res = Object.fromEntries([
+// //     (a === 1 ? ['className', 'second'] : [],
+// //     b === 1
+// //         ? [
+// //             'children',
+// //             'child content',
+// //         ]
+// //         : []),
+// // ])
+
+// // console.log(res)
+
+// // console.log(Object.fromEntries([[]].filter(e => e.length === 2)))
+// // Remove invalid tuples from the list

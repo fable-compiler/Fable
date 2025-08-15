@@ -1,7 +1,8 @@
 import * as react from "react";
 import { empty, map, singleton, append, delay, toList } from "./fable_modules/fable-library-js.5.0.0-alpha.13/Seq.js";
-import { int32ToString } from "./fable_modules/fable-library-js.5.0.0-alpha.13/Util.js";
+import { createJsxEntries, int32ToString } from "./fable_modules/fable-library-js.5.0.0-alpha.13/Util.js";
 import { rangeDouble } from "./fable_modules/fable-library-js.5.0.0-alpha.13/Range.js";
+import { singleton as singleton_1 } from "./fable_modules/fable-library-js.5.0.0-alpha.13/List.js";
 
 export const React = react;
 
@@ -102,7 +103,7 @@ export function divWithConditionalWithoutElseBranchWorks(show) {
     return <div>
         {show ? (<div>
             I show sometimes!
-        </div>) : (null)}
+        </div>) : (undefined)}
         <div>
             I show always!
         </div>
@@ -110,3 +111,20 @@ export function divWithConditionalWithoutElseBranchWorks(show) {
 }
 
 export const propsCanUseUnbox = <div id="myid" />;
+
+export function propertiesCanBeConditional(a) {
+    return <div{...Object.fromEntries([(a === "b") ? (["className", "success"]) : (["className", "error"]), ["children", singleton_1("See my color for the result")]])}/>;
+}
+
+export function multiLevelOfConditionalForPropsAndChildrenWorks(a, b, c) {
+    return <div{...Object.fromEntries([(a === 1) ? (["className", "first-level"]) : ([]), ["children", toList(delay(() => ((b === 1) ? singleton(<div>
+        B condition is true
+    </div>) : singleton(<div>
+        <div>
+            B condition is false
+        </div>
+        {(c === 1) ? (<div>
+            But C condition is true
+        </div>) : (undefined)}
+    </div>))))]])}/>;
+}
