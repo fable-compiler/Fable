@@ -1487,14 +1487,14 @@ module FSharpPlus =
             call(Unchecked.defaultof<Apply>, f, x, Unchecked.defaultof<'``Applicative<'U>``>)
 
     let inline forInfiniteSeqs (t: seq<_>, isFailure, conversion) =
-            let add x y = y :: x
-            let mutable go = true
-            let mutable r = Return.Invoke []
-            use e = t.GetEnumerator ()
-            while go && e.MoveNext () do
-                if isFailure e.Current then go <- false
-                r <- Apply.Invoke (Map.Invoke add r) e.Current
-            Map.Invoke (List.rev >> conversion) r
+        let add x y = y :: x
+        let mutable go = true
+        let mutable r = Return.Invoke []
+        use e = t.GetEnumerator ()
+        while go && e.MoveNext () do
+            if isFailure e.Current then go <- false
+            r <- Apply.Invoke (Map.Invoke add r) e.Current
+        Map.Invoke (List.rev >> conversion) r
 
     let sequence (t: seq<option<'t>>) =
         forInfiniteSeqs (t, Option.isNone, List.toSeq) : option<seq<'t>>

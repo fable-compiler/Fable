@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Python] Improve Python (e.g. Pydantic) interop (by @dbrattli)
 * [JS/TS] Fix comparers for non-nullable types (by @ncave)
+* [Rust] Fix curried object expression getters (by @ncave)
 * [Rust] Fix compiler-generated generic args (by @ncave)
 * [All] Fixed #4041 missing unit argument (by @ncave)
 * [JS/TS/Python] Fixed eq comparer mangling (by @ncave)

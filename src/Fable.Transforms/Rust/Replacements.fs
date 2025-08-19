@@ -860,6 +860,7 @@ let makeRustFormatString interpolated (fmt: string) =
                     match g5 with
                     | "A" -> "?"
                     | "B" -> "b"
+                    | ("b" | "c" | "d" | "i" | "s" | "u") -> ""
                     | ("o" | "x" | "X" | "e" | "E") as t -> t
                     | _ -> ""
 
@@ -881,7 +882,8 @@ let makeRustFormatExpr com r t (fmt: string) args macro =
     let rustFmt, argCount = makeRustFormatString false fmt
     let argCount = argCount + 1 + (List.length args) // +1 is for fmt
     let applied = Extended(Curry(macroExpr, argCount), r)
-    curriedApply r t applied (args @ [ emitRawString rustFmt ])
+    let unboxedArgs = args |> FSharp2Fable.Util.unboxBoxedArgs
+    curriedApply r t applied (unboxedArgs @ [ emitRawString rustFmt ])
 
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -924,7 +926,8 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.Application(cont, t, [ template ], ?loc = r) |> Some
     | ".ctor", _, (StringConst fmt) :: (Value(NewArray(ArrayValues templateArgs, _, _), _)) :: _ ->
         let rustFmt, _argCount = makeRustFormatString true fmt
-        StringTemplate(None, [ rustFmt ], templateArgs) |> makeValue r |> Some
+        let unboxedArgs = templateArgs |> FSharp2Fable.Util.unboxBoxedArgs
+        StringTemplate(None, [ rustFmt ], unboxedArgs) |> makeValue r |> Some
     | ".ctor", _, [ format ] -> format |> Some // just passing along the format
     | _ -> None
 
