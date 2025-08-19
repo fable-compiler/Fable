@@ -3,7 +3,7 @@ description: Core library for Fable F#/Dart applications
 version: 1.0.0
 
 environment:
-  sdk: '>=2.17.0 <3.0.0'
+  sdk: '>=3.0.0 <4.0.0'
 
 dev_dependencies:
-  flutter_lints: ^2.0.1
+  flutter_lints: ^6.0.0

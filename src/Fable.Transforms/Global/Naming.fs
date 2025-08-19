@@ -119,7 +119,10 @@ module Naming =
         ident |> sanitizeIdentForbiddenCharsWith isRustIdentChar replaceCharRust
 
     let sanitizeDartIdentForbiddenChars (ident: string) =
-        ident |> sanitizeIdentForbiddenCharsWith isDartIdentChar replaceCharDart
+        if ident = "_" then
+            "_$"
+        else
+            ident |> sanitizeIdentForbiddenCharsWith isDartIdentChar replaceCharDart
 
     let sanitizeJsIdentForbiddenChars (ident: string) =
         ident |> sanitizeIdentForbiddenCharsWith isJsIdentChar replaceCharJs
