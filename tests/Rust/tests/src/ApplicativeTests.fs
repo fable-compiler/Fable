@@ -405,14 +405,14 @@ type Action<'model> =
     | InputChanged of Id: string * Value: string * Lens<'model, string>
     | CheckboxChanged of Id: string * Value: bool * Lens<'model, bool>
 
-// // type Action =
-// //     | InputChanged of Id: string * Value: string * Lens<RecordB, string>
-// //     | CheckboxChanged of Id: string * Value: bool * Lens<RecordB, bool>
-// // with
-// //     override x.ToString () =
-// //         match x with
-// //         | InputChanged (id, value, _) -> $"InputChanged ({id}, {value})"
-// //         | CheckboxChanged (id, value, _) -> $"CheckboxChanged ({id}, {value})"
+// type Action =
+//     | InputChanged of Id: string * Value: string * Lens<RecordB, string>
+//     | CheckboxChanged of Id: string * Value: bool * Lens<RecordB, bool>
+// with
+//     override x.ToString () =
+//         match x with
+//         | InputChanged (id, value, _) -> $"InputChanged ({id}, {value})"
+//         | CheckboxChanged (id, value, _) -> $"CheckboxChanged ({id}, {value})"
 
 let makeInput<'model> id (model: 'model) (lens: Lens<'model, string>) =
 // let makeInput id (model: RecordB) (lens: Lens<RecordB, string>) =
@@ -457,30 +457,30 @@ let inline wrapId x =
     let id = getId x
     "<<<" + id + ">>>"
 
-// // type Parseable = Parseable with static member Parse (_: string) = Parseable
+type Parseable = Parseable with static member Parse (_: string) = Parseable
 
-// // type Parse =
+type Parse =
 
-// //     static member inline Parse (_: ^R, _: obj  ) = fun (x:string) -> (^R: (static member Parse : _ -> ^R) x)
-// //     static member inline Parse (_: ^R, _: Parse) = fun (x:string) -> (^R: (static member Parse : _ * _ -> ^R) (x, Globalization.CultureInfo.InvariantCulture))
+    static member inline Parse (_: ^R, _: obj  ) = fun (x:string) -> (^R: (static member Parse : _ -> ^R) x)
+    static member inline Parse (_: ^R, _: Parse) = fun (x:string) -> (^R: (static member Parse : _ * _ -> ^R) (x, Globalization.CultureInfo.InvariantCulture))
 
-// //     static member inline Parse (_: 'T when 'T : enum<_>, _: Parse) = fun (x: string) ->
-// //         (match Enum.TryParse (x) with
-// //             | (true, v) -> v
-// //             | _         -> invalidArg "value" ("Requested value '" + x + "' was not found.")
-// //         ) : 'enum
+    static member inline Parse (_: 'T when 'T : enum<_>, _: Parse) = fun (x: string) ->
+        (match Enum.TryParse (x) with
+            | (true, v) -> v
+            | _         -> invalidArg "value" ("Requested value '" + x + "' was not found.")
+        ) : 'enum
 
-// //     static member Parse (_: bool              , _: Parse) = fun (x:string) -> Boolean.Parse (x)
-// //     static member Parse (_: char              , _: Parse) = fun  x -> Char.Parse (x)
-// //     static member Parse (_: string            , _: Parse) = id : string->_
-// //     static member Parse (_: Text.StringBuilder, _: Parse) = fun  x -> new Text.StringBuilder (x: string)
+    static member Parse (_: bool              , _: Parse) = fun (x:string) -> Boolean.Parse (x)
+    static member Parse (_: char              , _: Parse) = fun  x -> Char.Parse (x)
+    static member Parse (_: string            , _: Parse) = id : string->_
+    static member Parse (_: Text.StringBuilder, _: Parse) = fun  x -> new Text.StringBuilder (x: string)
 
-// //     static member inline Invoke (value: string) =
-// //         let inline call_2 (a: ^a, b: ^b) = ((^a or ^b) : (static member Parse : _*_ -> _) b, a)
-// //         let inline call (a: 'a) = fun (x: 'x) -> call_2 (a, Unchecked.defaultof<'r>) x : 'r
-// //         call Unchecked.defaultof<Parse> value
+    static member inline Invoke (value: string) =
+        let inline call_2 (a: ^a, b: ^b) = ((^a or ^b) : (static member Parse : _*_ -> _) b, a)
+        let inline call (a: 'a) = fun (x: 'x) -> call_2 (a, Unchecked.defaultof<'r>) x : 'r
+        call Unchecked.defaultof<Parse> value
 
-// // let inline parse (value: string) = Parse.Invoke value
+let inline parse (value: string) = Parse.Invoke value
 
 let doNothing () = ()
 
@@ -530,10 +530,10 @@ type Parent =
             | p when p.c.IsSome -> { p with c = Some x }
             | p -> p)
 
-// [<Fact>]
-// let ``TraitCall can resolve overloads with a single generic argument`` () =
-//     implicitMethod !+"hello" 5 |> equal 1
-//     implicitMethod !+6       5 |> equal 2
+[<Fact>]
+let ``TraitCall can resolve overloads with a single generic argument`` () =
+    implicitMethod !+"hello" 5 |> equal 1
+    implicitMethod !+6       5 |> equal 2
 
 [<Fact>]
 let ``NestedLambdas`` () =
@@ -578,14 +578,14 @@ let ``Multiple nested lambdas can be partially applied`` () =
     let f2 = f 1 2
     f2 3 4 5 |> equal 15
 
-// // [<Fact>]
-// // let ``Partial application of optimized closures works`` () =
-// //     let mutable m = 1
-// //     let f x = m <- m + 1; (fun y z -> x + y + z)
-// //     let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
-// //     let r = f.Invoke(1, 2, 3)
-// //     m |> equal 2
-// //     r |> equal 6
+// [<Fact>]
+// let ``Partial application of optimized closures works`` () =
+//     let mutable m = 1
+//     let f x = m <- m + 1; (fun y z -> x + y + z)
+//     let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
+//     let r = f.Invoke(1, 2, 3)
+//     m |> equal 2
+//     r |> equal 6
 
 [<Fact>]
 let ``No errors because references to missing unit args`` () =
@@ -631,16 +631,16 @@ let ``Trait calls work with record fields`` () =
     replaceById {Id=Id"ja"; Name="Voll"} ar |> Seq.head |> fun x -> equal "Sarah" x.Name
     replaceById {Id=Id"foo"; Name="Anna"} ar |> Seq.head |> fun x -> equal "Anna" x.Name
 
-// // [<Fact>]
-// // let ``Nested trait calls work`` () = // See #2468
-// //     let i: int  = parse "123"
-// //     let b: bool = parse "true"
-// //     let p: Parseable = parse ""
-// //     let h : DateTimeOffset = parse "2011-03-04T15:42:19+03:00"
-// //     equal 123 i
-// //     equal true b
-// //     equal Parseable p
-// //     equal (DateTimeOffset(2011, 3, 4, 15, 42, 19, TimeSpan.FromHours(3.))) h
+// [<Fact>]
+// let ``Nested trait calls work`` () = // See #2468
+//     let i: int  = parse "123"
+//     let b: bool = parse "true"
+//     let p: Parseable = parse ""
+//     let h : DateTimeOffset = parse "2011-03-04T15:42:19+03:00"
+//     equal 123 i
+//     equal true b
+//     equal Parseable p
+//     equal (DateTimeOffset(2011, 3, 4, 15, 42, 19, TimeSpan.FromHours(3.))) h
 
 [<Fact>]
 let ``Inline local function can call another inline function with trait call`` () =
@@ -976,17 +976,17 @@ type PrimaryConstructorUncurrying(f) =
 
 type Fun = Fun of (int -> int -> int list)
 
-// type BaseClass (f: string -> string -> string) =
-//   member _.MakeString a b = f a b
+type BaseClass (f: string -> string -> string) =
+  member _.MakeString a b = f a b
 
-// type AddString () =
-//   inherit BaseClass (fun a b -> a + b)
+type AddString () =
+  inherit BaseClass (fun a b -> a + b)
 
-// type BaseClass2 (f: string -> string -> string) =
-//   member _.MakeString a b = f a b
+type BaseClass2 (f: string -> string -> string) =
+  member _.MakeString a b = f a b
 
-// type AddString2 (f: string -> string -> string) =
-//   inherit BaseClass2 (fun a b -> f a b + " - " + f b a)
+type AddString2 (f: string -> string -> string) =
+  inherit BaseClass2 (fun a b -> f a b + " - " + f b a)
 
 type IAddFn = int -> int -> int
 type IAdder =
@@ -1074,13 +1074,13 @@ let findThing (things:Thing list) =
 
     things |> List.fold folder None  // Searching for an "In x"
 
-// type First<'t> = First of Option<'t> with
-//     static member get_Zero () = First None : First<'t>
-//     static member run (First a) = a        : 't option
+type First<'t> = First of Option<'t> with
+    static member get_Zero () = First None : First<'t>
+    static member run (First a) = a        : 't option
 
-// // type Const<'t,'u> = Const of 't with
-// //     static member inline Return (_: 'Y) = Const LanguagePrimitives.GenericZero : Const<'X,'Y>
-// //     static member run (Const a) = a
+// type Const<'t,'u> = Const of 't with
+//     static member inline Return (_: 'Y) = Const LanguagePrimitives.GenericZero : Const<'X,'Y>
+//     static member run (Const a) = a
 
 [<Fact>]
 let ``SRTP with ActivePattern works`` () =
@@ -1257,15 +1257,15 @@ let ``Lambdas with tuple arguments don't conflict with uncurrying`` () = // See 
     equal 3 res.Length
     equal 4 res.Head
 
-// [<Fact>]
-// let ``Uncurrying works for base constructors`` () = // See #1458
-//     let str = AddString()
-//     str.MakeString "foo" "bar" |> equal "foobar"
+[<Fact>]
+let ``Uncurrying works for base constructors`` () = // See #1458
+    let str = AddString()
+    str.MakeString "foo" "bar" |> equal "foobar"
 
-// [<Fact>]
-// let ``Uncurrying works for base constructors II`` () = // See #1459
-//     let str = AddString2 (fun a b -> "Prefix: " + a + b)
-//     str.MakeString "a" "b" |> equal "Prefix: ab - Prefix: ba"
+[<Fact>]
+let ``Uncurrying works for base constructors II`` () = // See #1459
+    let str = AddString2 (fun a b -> "Prefix: " + a + b)
+    str.MakeString "a" "b" |> equal "Prefix: ab - Prefix: ba"
 
 [<Fact>]
 let ``Sequence of functions is uncurried in folding`` () =
@@ -1453,18 +1453,18 @@ let ``Option uncurrying #2116`` () =
         | _ -> -1
     equal 7 x
 
-// // See https://github.com/fable-compiler/Fable/issues/2436#issuecomment-919165092
-// [<Fact>]
-// let ``Functions passed to an object expression are uncurried`` () =
-//     let mutable d = 0
-//     let getAdder x =
-//         d <- d + 1
-//         fun y z -> x + y + z
-//     let _ = getAdder 4
-//     let f = getAdder 4
-//     let adder = { new IAdder with member _.Add = f }
-//     d |> equal 2
-//     adder.Add 3 4 |> equal 11
+// See https://github.com/fable-compiler/Fable/issues/2436#issuecomment-919165092
+[<Fact>]
+let ``Functions passed to an object expression are uncurried`` () =
+    let mutable d = 0
+    let getAdder x =
+        d <- d + 1
+        fun y z -> x + y + z
+    let _ = getAdder 4
+    let f = getAdder 4
+    let adder = { new IAdder with member _.Add = f }
+    d |> equal 2
+    adder.Add 3 4 |> equal 11
 
 [<Fact>]
 let ``Iterating list of functions #2047`` () =
@@ -1521,25 +1521,27 @@ module FSharpPlus =
                 ((^M or ^I1 or ^I2 or ^R) : (static member ``<*>`` : _*_*_*_ -> _) input1, input2, output, mthd)
             call(Unchecked.defaultof<Apply>, f, x, Unchecked.defaultof<'``Applicative<'U>``>)
 
-    // let inline forInfiniteSeqs (t: seq<_>, isFailure, conversion) =
-    //         let add x y = y :: x
-    //         let mutable go = true
-    //         let mutable r = Return.Invoke []
-    //         use e = t.GetEnumerator ()
-    //         while go && e.MoveNext () do
-    //             if isFailure e.Current then go <- false
-    //             r <- Apply.Invoke (Map.Invoke add r) e.Current
-    //         Map.Invoke (List.rev >> conversion) r
+    let inline forInfiniteSeqs (t: seq<_>, isFailure, conversion) =
+        let add x y = y :: x
+        let mutable go = true
+        let mutable r = Return.Invoke []
+        use e = t.GetEnumerator ()
+        while go && e.MoveNext () do
+            if isFailure e.Current then go <- false
+            r <- Apply.Invoke (Map.Invoke add r) e.Current
+        Map.Invoke (List.rev >> conversion) r
 
-    // let sequence (t: seq<option<'t>>) =
-    //     forInfiniteSeqs (t, Option.isNone, List.toSeq) : option<seq<'t>>
+    let sequence (t: seq<option<'t>>) =
+        forInfiniteSeqs (t, Option.isNone, List.toSeq) : option<seq<'t>>
 
 open FSharpPlus
 
-// [<Fact>]
-// let ``FSharpPlus regression`` () = // See #2471
-//     let expected = Some(seq [1; 2])
-//     sequence (seq [Some 1; Some 2]) |> equal expected
+[<Fact>]
+let ``FSharpPlus regression`` () = // See #2471
+    let expected = Some(seq [1; 2])
+    let actual = sequence (seq [Some 1; Some 2])
+    // actual |> equal expected // TODO: PartialEq for Seq<T>
+    Option.map2 (=) actual expected |> equal (Some true)
 
 module Curry =
     let addString (value : string) (f : string -> 'T) =

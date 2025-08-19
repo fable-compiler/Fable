@@ -879,14 +879,23 @@ let ``test Type test with Date`` () =
     box 5 |> isDate |> equal false
 
 [<Fact>]
+let ``test Type test with Long`` () =
+    let isLong (x: obj) =
+        match x with
+        | :? int64 -> true
+        | _ -> false
+    box 5L |> isLong |> equal true
+    box 50 |> isLong |> equal false
+
+[<Fact>]
 let ``test Type test with BigInt`` () =
-    let isBigInd (x: obj) =
+    let isBigInt (x: obj) =
         match x with
         | :? bigint -> true
         | _ -> false
 
-    box 5I |> isBigInd |> equal true
-//box 50 |> isBigInd |> equal false
+    box 5I |> isBigInt |> equal true
+    box 50 |> isBigInt |> equal false
 
 [<Fact>]
 let ``test Property names don't clash with built-in JS objects`` () = // See #168

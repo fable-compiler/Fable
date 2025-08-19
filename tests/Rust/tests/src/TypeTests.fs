@@ -50,13 +50,13 @@ type TestType9() =
     let foo = TestType8("Hello")
     member _.Greet(name) = foo.Value + " " + name
 
-// type TestType10Base() =
-//     interface ITest4 with
-//         member _.Add2(x, y) = x - y
-//         member _.Add(x, y) = x + y
+type TestType10Base() =
+    interface ITest4 with
+        member _.Add2(x, y) = x - y
+        member _.Add(x, y) = x + y
 
-// type TestType10Child() =
-//     inherit TestType10Base()
+type TestType10Child() =
+    inherit TestType10Base()
 
 type RenderState =
     { Now : int
@@ -193,22 +193,22 @@ type IFoo =
 
 let mangleFoo(x: IFoo) = x.Foo()
 
-// type FooImplementor(i: int) =
-//     let mutable mut1 = 0
-//     let mutable mut2 = 5
-//     new () = FooImplementor(1)
+type FooImplementor(i: int) =
+    let mutable mut1 = 0
+    let mutable mut2 = 5
+    new () = FooImplementor(1)
 
-//     member x.Foo() = String.replicate i "foo"
-//     member x.Bar = "he"
-//     member x.MySetter with get() = mut1 and set(v) = mut1 <- v + 2
+    member x.Foo() = String.replicate i "foo"
+    member x.Bar = "he"
+    member x.MySetter with get() = mut1 and set(v) = mut1 <- v + 2
 
-//     interface IFoo with
-//         member x.Foo() = x.Foo() + "bar"
-//         member x.Bar = x.Bar + "ho"
-//         member x.MySetter with get() = mut1 + mut2 and set(v) = mut2 <- v + 3
+    interface IFoo with
+        member x.Foo() = x.Foo() + "bar"
+        member x.Bar = x.Bar + "ho"
+        member x.MySetter with get() = mut1 + mut2 and set(v) = mut2 <- v + 3
 
-// type FooImplementorChild() =
-//     inherit FooImplementor(3)
+type FooImplementorChild() =
+    inherit FooImplementor(3)
 
 // [<AbstractClass>]
 // type AbstractFoo() =
@@ -394,11 +394,11 @@ type FooClass(x) =
         member _.Item with get(i) = x[i] and set i c = x <- FooClass.ChangeChar(x, i, c)
         member _.Sum(items) = Array.reduce (fun x y -> x + y + x + y) items
 
-// [<AbstractClass>]
-// type BarAbstractClass(x: float) =
-//     member _.Value = x
-//     member _.DoSomething(x, y) = x ** y
-//     abstract DoSomething: float -> float
+[<AbstractClass>]
+type BarAbstractClass(x: float) =
+    member _.Value = x
+    member _.DoSomething(x, y) = x ** y
+    abstract DoSomething: float -> float
 
 // type BarClass(x) =
 //     inherit BarAbstractClass(10.)
@@ -416,12 +416,12 @@ type FooClass(x) =
 //         member _.Item with get(c) = x.ToCharArray() |> Array.exists ((=) c)
 //         member _.Sum(items) = Array.reduce (fun x y -> x + x + y + y) items
 
-// type Interface2 =
-//     abstract Value: int
-//     abstract Add: unit -> int
+type Interface2 =
+    abstract Value: int
+    abstract Add: unit -> int
 
-// type Interface1 =
-//     abstract Create: int -> Interface2
+type Interface1 =
+    abstract Create: int -> Interface2
 
 // type MixedThese(x: int) =
 //     member _.Value = x
@@ -431,8 +431,7 @@ type FooClass(x) =
 //                 member _.Value = y
 //                 member this2.Add() = this1.Value + this2.Value }
 
-// let areEqual (x: obj) (y: obj) = x = y
-let inline areEqual x y = x = y //TODO: non-inline
+let areEqual (x: obj) (y: obj) = x = y
 
 type MyUnion1 = Foo of int * int | Bar of float | Baz
 type MyUnion2 = Foo of int * int
@@ -441,58 +440,58 @@ type MyUnion2 = Foo of int * int
 type MyRecord1 = { Foo: int; Bar: string }
 type MyRecord2 = { Foo: int; Bar: string }
 
-// type SubclassTest1() = class end
-// type SubclassTest2() = inherit SubclassTest1()
-// type SubclassTest3() = inherit SubclassTest2()
+type SubclassTest1() = class end
+type SubclassTest2() = inherit SubclassTest1()
+type SubclassTest3() = inherit SubclassTest2()
 
-// [<Measure>] type a
-// [<Measure>] type b
-// [<Measure>] type c = a * b
-// [<Measure>] type d = a / b
+[<Measure>] type a
+[<Measure>] type b
+[<Measure>] type c = a * b
+[<Measure>] type d = a / b
 
-// type MeasureTest<[<Measure>] 'T> = { X: float<'T> }
-// type MeasureTestGen<[<Measure>] 'T, 'V> = { X: float<'T>; Y: 'V }
+type MeasureTest<[<Measure>] 'T> = { X: float<'T> }
+type MeasureTestGen<[<Measure>] 'T, 'V> = { X: float<'T>; Y: 'V }
 
-// type MeasureTest1_ = { Y: MeasureTestGen<a, int> }
-// type MeasureTest1 = { Y: MeasureTest<a*b> }
-// type MeasureTest2 = { Y: float<c> }
-// type MeasureTest3 = { Y: MeasureTest<a/b> }
-// type MeasureTest4 = { Y: float<d> }
+type MeasureTest1_ = { Y: MeasureTestGen<a, int> }
+type MeasureTest1 = { Y: MeasureTest<a*b> }
+type MeasureTest2 = { Y: float<c> }
+type MeasureTest3 = { Y: MeasureTest<a/b> }
+type MeasureTest4 = { Y: float<d> }
 
-// // Check that types with product measures compile, see #2532
-// type MeasureTest5 = { Y: MeasureTest<c> }
-// type MeasureTest6 = { Y: MeasureTest<d> }
+// Check that types with product measures compile, see #2532
+type MeasureTest5 = { Y: MeasureTest<c> }
+type MeasureTest6 = { Y: MeasureTest<d> }
 
-// type EnumFoo =
-//   | Foo = 0
-//   | Bar = 1
+type EnumFoo =
+  | Foo = 0
+  | Bar = 1
 
-// [<AbstractClass>]
-// type MangledAbstractClass1() =
-//     class end
+[<AbstractClass>]
+type MangledAbstractClass1() =
+    class end
 
-// [<AbstractClass>]
-// type MangledAbstractClass2(v: int) =
-//     inherit MangledAbstractClass1()
-//     abstract MyMethod: int -> int
-//     default _.MyMethod(x: int) = x * v
+[<AbstractClass>]
+type MangledAbstractClass2(v: int) =
+    inherit MangledAbstractClass1()
+    abstract MyMethod: int -> int
+    default _.MyMethod(x: int) = x * v
 
-// [<AbstractClass>]
-// type MangledAbstractClass3(v) =
-//     inherit MangledAbstractClass2(v + 3)
+[<AbstractClass>]
+type MangledAbstractClass3(v) =
+    inherit MangledAbstractClass2(v + 3)
 
-// [<AbstractClass>]
-// type MangledAbstractClass4(v) =
-//     inherit MangledAbstractClass3(v + 4)
-//     override _.MyMethod(x: int) = base.MyMethod(x) - v
+[<AbstractClass>]
+type MangledAbstractClass4(v) =
+    inherit MangledAbstractClass3(v + 4)
+    override _.MyMethod(x: int) = base.MyMethod(x) - v
 
-// [<AbstractClass>]
-// type MangledAbstractClass5(v) =
-//     inherit MangledAbstractClass4(v + 5)
-//     override _.MyMethod(x: int) = base.MyMethod(x) + v + 7
+[<AbstractClass>]
+type MangledAbstractClass5(v) =
+    inherit MangledAbstractClass4(v + 5)
+    override _.MyMethod(x: int) = base.MyMethod(x) + v + 7
 
-// type ConcreteClass1() =
-//     inherit MangledAbstractClass5(2)
+type ConcreteClass1() =
+    inherit MangledAbstractClass5(2)
 
 type IndexedProps(v: int) =
     let mutable v = v
@@ -524,29 +523,29 @@ type MyOptionalClass(?arg1: float, ?arg2: string, ?arg3: int) =
     member val P2 = defaultArg arg2 "1"
     member val P3 = defaultArg arg3 1
 
-// type VeryOptionalInterface =
-//     abstract Bar: int option
-//     abstract Baz: bool option
-//     abstract Bax: float option
-//     abstract Wrapped: unit option
-//     abstract Foo: string option with get, set
-//     abstract Fn: (int -> int -> int) option
-//     abstract Fn2: (int -> int -> int)
+type VeryOptionalInterface =
+    abstract Bar: int option
+    abstract Baz: bool option
+    abstract Bax: float option
+    abstract Wrapped: unit option
+    abstract Foo: string option with get, set
+    abstract Fn: (int -> int -> int) option
+    abstract Fn2: (int -> int -> int)
 
-// type VeryOptionalClass () =
-//     let mutable foo = "ab"
-//     interface VeryOptionalInterface with
-//         member _.Bar = Some 3
-//         member _.Baz = None
-//         member _.Wrapped = Some ()
-//         member _.Bax =
-//             let mutable h = ["6"] |> List.tryHead
-//             h |> Option.map float
-//         member _.Foo
-//             with get() = Some foo
-//             and set(v) = foo <- match v with Some v -> foo + v | None -> foo
-//         member _.Fn = Some (+)
-//         member _.Fn2 = (*)
+type VeryOptionalClass () =
+    let mutable foo = "ab"
+    interface VeryOptionalInterface with
+        member _.Bar = Some 3
+        member _.Baz = None
+        member _.Wrapped = Some ()
+        member _.Bax =
+            let mutable h = ["6"] |> List.tryHead
+            h |> Option.map float
+        member _.Foo
+            with get() = Some foo
+            and set(v) = foo <- match v with Some v -> foo + v | None -> foo
+        member _.Fn = Some (+)
+        member _.Fn2 = (*)
 
 type StaticClass =
 //     [<NamedParams>]
@@ -581,52 +580,52 @@ let ``Optional arguments work`` () =
     let z = MyOptionalClass(?arg3 = Some 2)
     (z.P1, z.P2, z.P3) |> equal (1.0, "1", 2)
 
-// [<Fact>]
-// let ``Can implement interface optional properties`` () =
-//     let veryOptionalValue = VeryOptionalClass() :> VeryOptionalInterface
-//     veryOptionalValue.Bar |> equal (Some 3)
-//     veryOptionalValue.Baz |> Option.isSome |> equal false
-//     veryOptionalValue.Wrapped |> Option.isSome |> equal true
-//     veryOptionalValue.Bax |> equal (Some 6.)
-//     veryOptionalValue.Foo <- Some "z"
-//     veryOptionalValue.Foo |> equal (Some "abz")
-//     veryOptionalValue.Foo <- None
-//     veryOptionalValue.Foo |> equal (Some "abz")
-//     let fn = veryOptionalValue.Fn
-//     let fn2 = veryOptionalValue.Fn2
-//     let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
-//     let f2 = match fn with Some f -> f 1 8 | None -> -5
-//     f1 + f2 - fn2 9 3 |> equal -3
+[<Fact>]
+let ``Can implement interface optional properties`` () =
+    let veryOptionalValue = VeryOptionalClass() :> VeryOptionalInterface
+    veryOptionalValue.Bar |> equal (Some 3)
+    veryOptionalValue.Baz |> Option.isSome |> equal false
+    veryOptionalValue.Wrapped |> Option.isSome |> equal true
+    veryOptionalValue.Bax |> equal (Some 6.)
+    veryOptionalValue.Foo <- Some "z"
+    veryOptionalValue.Foo |> equal (Some "abz")
+    veryOptionalValue.Foo <- None
+    veryOptionalValue.Foo |> equal (Some "abz")
+    let fn = veryOptionalValue.Fn
+    let fn2 = veryOptionalValue.Fn2
+    let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
+    let f2 = match fn with Some f -> f 1 8 | None -> -5
+    f1 + f2 - fn2 9 3 |> equal -3
 
-// [<Fact>]
-// let ``Can implement interface optional properties with object expression`` () =
-//     let veryOptionalValue =
-//         let mutable foo = "ab"
-//         { new VeryOptionalInterface with
-//             member _.Bar = Some 3
-//             member _.Baz = None
-//             member _.Wrapped = Some ()
-//             member _.Bax = ["6"] |> List.tryHead |> Option.map float
-//             member _.Foo
-//                 with get() = Some foo
-//                 and set(v) = foo <- match v with Some v -> foo + v | None -> foo
-//             member _.Fn = Some (+)
-//             member _.Fn2 = (*)
-//         }
+[<Fact>]
+let ``Can implement interface optional properties with object expression`` () =
+    let veryOptionalValue =
+        let mutable foo = "ab"
+        { new VeryOptionalInterface with
+            member _.Bar = Some 3
+            member _.Baz = None
+            member _.Wrapped = Some ()
+            member _.Bax = ["6"] |> List.tryHead |> Option.map float
+            member _.Foo
+                with get() = Some foo
+                and set(v) = foo <- match v with Some v -> foo + v | None -> foo
+            member _.Fn = Some (+)
+            member _.Fn2 = (*)
+        }
 
-//     veryOptionalValue.Bar |> equal (Some 3)
-//     veryOptionalValue.Baz |> Option.isSome |> equal false
-//     veryOptionalValue.Wrapped |> Option.isSome |> equal true
-//     veryOptionalValue.Bax |> equal (Some 6.)
-//     veryOptionalValue.Foo <- Some "z"
-//     veryOptionalValue.Foo |> equal (Some "abz")
-//     veryOptionalValue.Foo <- None
-//     veryOptionalValue.Foo |> equal (Some "abz")
-//     let fn = veryOptionalValue.Fn
-//     let fn2 = veryOptionalValue.Fn2
-//     let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
-//     let f2 = match fn with Some f -> f 1 8 | None -> -5
-//     f1 + f2 - fn2 9 3 |> equal -3
+    veryOptionalValue.Bar |> equal (Some 3)
+    veryOptionalValue.Baz |> Option.isSome |> equal false
+    veryOptionalValue.Wrapped |> Option.isSome |> equal true
+    veryOptionalValue.Bax |> equal (Some 6.)
+    veryOptionalValue.Foo <- Some "z"
+    veryOptionalValue.Foo |> equal (Some "abz")
+    veryOptionalValue.Foo <- None
+    veryOptionalValue.Foo |> equal (Some "abz")
+    let fn = veryOptionalValue.Fn
+    let fn2 = veryOptionalValue.Fn2
+    let f1 = fn |> Option.map (fun f -> f 6 9) |> Option.defaultValue -3
+    let f2 = match fn with Some f -> f 1 8 | None -> -5
+    f1 + f2 - fn2 9 3 |> equal -3
 
 // [<Fact>]
 // let ``Optional named params work`` () =
@@ -794,14 +793,14 @@ let ``Type testing with primitive types works`` () =
 //         | _ -> "unknown"
 //     System.Text.RegularExpressions.Regex(".") :> obj |> test |> equal "RegExp"
 
-// [<Fact>]
-// let ``Type test with Date`` () =
-//     let isDate (x: obj) =
-//         match x with
-//         | :? DateTime -> true
-//         | _ -> false
-//     DateTime.Now |> box |> isDate |> equal true
-//     box 5 |> isDate |> equal false
+[<Fact>]
+let ``Type test with Date`` () =
+    let isDate (x: obj) =
+        match x with
+        | :? System.DateTime -> true
+        | _ -> false
+    System.DateTime.Now |> box |> isDate |> equal true
+    box 5 |> isDate |> equal false
 
 [<Fact>]
 let ``Type test with Long`` () =
@@ -812,14 +811,14 @@ let ``Type test with Long`` () =
     box 5L |> isLong |> equal true
     box 50 |> isLong |> equal false
 
-// [<Fact>]
-// let ``Type test with BigInt`` () =
-//     let isBigInd (x: obj) =
-//         match x with
-//         | :? bigint -> true
-//         | _ -> false
-//     box 5I |> isBigInd |> equal true
-//     box 50 |> isBigInd |> equal false
+[<Fact>]
+let ``Type test with BigInt`` () =
+    let isBigInt (x: obj) =
+        match x with
+        | :? bigint -> true
+        | _ -> false
+    box 5I |> isBigInt |> equal true
+    box 50 |> isBigInt |> equal false
 
 [<Fact>]
 let ``Property names don't clash with built-in JS objects`` () = // See #168
@@ -1337,7 +1336,7 @@ let ``Non-mangled interfaces work with classes`` () =
 //     Choice3Of3 55 |> Fable.Core.Reflection.getCaseName |> equal "Choice3Of3"
 // #endif
 
-// [<Fact>]
-// let ``Can call the base version of a mangled abstract method that was declared above in the hierarchy`` () =
-//     let c = ConcreteClass1()
-//     c.MyMethod(4) |> equal 58
+[<Fact>]
+let ``Can call the base version of a mangled abstract method that was declared above in the hierarchy`` () =
+    let c = ConcreteClass1()
+    c.MyMethod(4) |> equal 58

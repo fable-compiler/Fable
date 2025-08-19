@@ -681,6 +681,9 @@ module private Transforms =
             | _ -> None
         | _ -> None
 
+    let isGetterOrValueWithoutGenerics (memb: MemberFunctionOrValue) =
+        memb.IsGetter || (memb.IsValue && List.isEmpty memb.GenericParameters)
+
     let curryReceivedArgs (com: Compiler) e =
         match e with
         // Args passed to a lambda are not uncurried, as it's difficult to do it right, see #2657
@@ -688,6 +691,16 @@ module private Transforms =
         | Delegate(args, body, name, tags) ->
             let args, body = curryArgIdentsAndReplaceInBody args body
             Delegate(args, body, name, tags)
+
+        // Uncurry getters for Rust
+        | Call(Get(_callee, FieldGet _, _, _), m, _, r) when com.Options.Language = Rust ->
+            match Option.bind com.TryGetMember m.MemberRef with
+            | Some memb when isGetterOrValueWithoutGenerics memb ->
+                match memb.ReturnParameter.Type with
+                // It may happen the arity of the abstract signature is smaller than actual arity
+                | Arity arity when arity > 1 -> Extended(Curry(e, arity), r)
+                | _ -> e
+            | _ -> e
 
         // Uncurry also values received from getters
         | GetField com (_callee, Arity arity, r) when arity > 1 -> Extended(Curry(e, arity), r)
@@ -707,9 +720,6 @@ module private Transforms =
             ObjectExpr(members, t, baseCall)
 
         | e -> e
-
-    let isGetterOrValueWithoutGenerics (mRef: MemberFunctionOrValue) =
-        mRef.IsGetter || (mRef.IsValue && List.isEmpty mRef.GenericParameters)
 
     let uncurrySendingArgs (com: Compiler) e =
         let uncurryConsArgs args (fields: Field seq) =
@@ -747,8 +757,8 @@ module private Transforms =
                     match m.Body.Type with
                     | Arity arity when arity > 1 ->
                         match com.TryGetMember(m.MemberRef) with
-                        | Some mRef when isGetterOrValueWithoutGenerics mRef ->
-                            match mRef.ReturnParameter.Type with
+                        | Some memb when isGetterOrValueWithoutGenerics memb ->
+                            match memb.ReturnParameter.Type with
                             // It may happen the arity of the abstract signature is smaller than actual arity
                             | Arity arity when arity > 1 -> { m with Body = uncurryExpr com (Some arity) m.Body }
                             | _ -> m
@@ -855,9 +865,9 @@ let rec transformDeclaration transformations (com: Compiler) file decl =
                         | Arity arity when arity > 1 ->
                             m.ImplementedSignatureRef
                             |> Option.bind (com.TryGetMember)
-                            |> Option.bind (fun mRef ->
-                                if isGetterOrValueWithoutGenerics mRef then
-                                    match mRef.ReturnParameter.Type with
+                            |> Option.bind (fun memb ->
+                                if isGetterOrValueWithoutGenerics memb then
+                                    match memb.ReturnParameter.Type with
                                     // It may happen the arity of the abstract signature is smaller than actual arity
                                     | Arity arity when arity > 1 ->
                                         Some { m with Body = uncurryExpr com (Some arity) m.Body }

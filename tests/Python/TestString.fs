@@ -99,7 +99,7 @@ let ``test input of print format can be retrieved`` () =
 let ``test interpolate works`` () =
     let name = "Phillip"
     let age = 29
-    $"Name: {name}, Age: %i{age}"
+    $"Name: %s{name}, Age: %i{age}"
     |> equal "Name: Phillip, Age: 29"
 
 #if FABLE_COMPILER

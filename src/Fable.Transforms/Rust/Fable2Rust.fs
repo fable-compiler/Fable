@@ -2123,7 +2123,7 @@ module Util =
     let makeObjectExprMemberDecl (com: IRustCompiler) ctx (memb: Fable.ObjectExprMember) =
         let capturedIdents = getCapturedIdents com ctx (Some memb.Name) memb.Args memb.Body
 
-        let thisArg = Fable.Value(Fable.ThisValue Fable.Any, None)
+        let thisArg = { makeIdent selfName with IsThisArgument = true } |> Fable.IdentExpr
 
         let replacements =
             capturedIdents
@@ -2205,7 +2205,7 @@ module Util =
 
             let fieldIdents =
                 fieldsMap.Values
-                |> Seq.map (fun ident -> { ident with Type = FableTransforms.uncurryType ident.Type })
+                // |> Seq.map (fun ident -> { ident with Type = FableTransforms.uncurryType ident.Type })
                 |> Seq.toList
 
             let exprFields =
@@ -2510,7 +2510,7 @@ module Util =
     let mutableSet expr value =
         mkMethodCallExpr "set" None expr [ value ]
 
-    let makeInstanceCall com ctx memberName calleeExpr args =
+    let makeInstanceCall (com: IRustCompiler) ctx memberName calleeExpr args =
         let membName = Fable.Naming.splitLast memberName
         let callee = com.TransformExpr(ctx, calleeExpr)
         // match calleeExpr.Type with
@@ -2642,9 +2642,7 @@ module Util =
                 let expr = transformIdent com ctx range ident
                 mutableSet (mkCallExpr expr []) value
             // mutable idents captured in object expression methods
-            | Fable.Get(Fable.Value(Fable.ThisValue _, _) as thisArg, Fable.GetKind.FieldGet info, _t, _r) when
-                info.IsMutable
-                ->
+            | Fable.Get(Fable.IdentExpr ident as thisArg, Fable.GetKind.FieldGet info, _t, _r) when info.IsMutable ->
                 let expr = transformCallee com ctx thisArg
                 let field = getField None expr info.Name
                 mutableSet field value
@@ -2768,8 +2766,7 @@ module Util =
             ||> List.fold (fun (ctx, lst) (ident: Fable.Ident, value) ->
                 let stmt, ctxNext =
                     let isCaptured =
-                        (bindings
-                         |> List.exists (fun (_i, v) -> FableTransforms.isIdentCaptured ident.Name v))
+                        (List.exists (fun (_i, v) -> FableTransforms.isIdentCaptured ident.Name v) bindings)
                         || (FableTransforms.isIdentCaptured ident.Name letBody)
 
                     match value with
@@ -3833,10 +3830,12 @@ module Util =
         let genArgs, ctx = getNewGenArgsAndCtx ctx args body
         let args = args |> discardUnitArg genArgs
 
-        let returnType =
-            match body.Type with
-            | t when isByRefType com t -> returnType // if body type is byref, use the actual return type
-            | _ -> body.Type // otherwise, use the body type as it has better matching generic parameters
+        // let returnType =
+        //     match body.Type with
+        //     // | Fable.LambdaType _ -> body.Type |> FableTransforms.uncurryType
+        //     // | Fable.DelegateType _ -> returnType
+        //     | t when isByRefType com t -> returnType // if body type is byref, use the actual return type
+        //     | _ -> body.Type // otherwise, use the body type as it has better matching generic parameters
 
         let fnDecl = transformFunctionDecl com ctx args parameters returnType
         let ctx = getFunctionBodyCtx com ctx name args body isTailRec
@@ -4155,7 +4154,7 @@ module Util =
         let fnDecl, fnBody, genArgs =
             let ctx = { ctx with IsParamByRefPreferred = isByRefPreferred }
             let parameters = memb.CurriedParameterGroups |> List.concat
-            let returnType = memb.ReturnParameter.Type
+            let returnType = decl.Body.Type // memb.ReturnParameter.Type
             transformFunc com ctx parameters returnType (Some memb.FullName) decl.Args decl.Body
 
         let isUnsafe =
@@ -4265,7 +4264,7 @@ module Util =
         let name = memb.CompiledName
         let args = args |> discardUnitArg []
         let parameters = memb.CurriedParameterGroups |> List.concat
-        let returnType = memb.ReturnParameter.Type //|> FableTransforms.uncurryType
+        let returnType = memb.ReturnParameter.Type |> FableTransforms.uncurryType
         let fnDecl = transformFunctionDecl com ctx args parameters returnType
         let genArgs = FSharp2Fable.Util.getMemberGenArgs memb
         let generics = makeGenerics com ctx genArgs
@@ -4323,7 +4322,8 @@ module Util =
 
         let fnDecl, fnBody, genArgs =
             let parameters = memb.CurriedParameterGroups |> List.concat
-            let returnType = memb.ReturnParameter.Type
+            // let returnType = memb.ReturnParameter.Type |> FableTransforms.uncurryType
+            let returnType = body.Type // |> FableTransforms.uncurryType
             transformFunc com ctx parameters returnType (Some name) args body
 
         let fnBody =

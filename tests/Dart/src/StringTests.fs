@@ -305,7 +305,7 @@ let tests() =
     testCase "string interpolation works" <| fun () ->
         let name = "Phillip"
         let age = 29
-        $"Name: {name}, Age: %i{age}"
+        $"Name: %s{name}, Age: %i{age}"
         |> equal "Name: Phillip, Age: 29"
 
     testCase "string interpolation works with inline expressions" <| fun () ->

@@ -326,7 +326,7 @@ let ``sprintf \"%A\" with overloaded string works`` () =
 let ``string interpolation works`` () =
     let name = "Phillip"
     let age = 29
-    $"Name: {name}, Age: %i{age}"
+    $"Name: %s{name}, Age: %i{age}"
     |> equal "Name: Phillip, Age: 29"
 
 [<Fact>]
