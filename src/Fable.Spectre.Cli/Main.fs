@@ -140,24 +140,11 @@ module private Util =
                         .Substring(outDir.Length, absPath.Length - outDir.Length - fileName.Length)
                         .Trim([| '/'; '\\' |])
                         .Split([| '/'; '\\' |])
-
-                let modules =
-                    match Array.toList modules, cliArgs.FableLibraryPath with
-                    | Naming.fableModules :: package :: modules, Some Py.Naming.sitePackages ->
-                        // When building packages we generate Python snake_case module within the kebab-case package
-                        let packageModule = package.Replace("-", "_")
-                        // Make sure all modules (subdirs) we create within outDir are lower case (PEP8)
-                        let modules = modules |> List.map (fun m -> m.ToLowerInvariant())
-
-                        Naming.fableModules :: package :: packageModule :: modules
-                    | modules, _ ->
-                        modules
-                        |> List.map (fun m ->
-                            match m with
-                            | "." -> ""
-                            | m -> m.Replace(".", "_")
-                        )
-                    |> List.toArray
+                    |> Array.map (fun m ->
+                        match m with
+                        | "." -> ""
+                        | m -> m.Replace(".", "_")
+                    )
                     |> IO.Path.Join
 
                 let fileName = fileName |> Pipeline.Python.getTargetPath cliArgs
@@ -220,7 +207,6 @@ module private Util =
         }
 
 module FileWatcherUtil =
-    // TODO: Fail gracefully if we don't find a common dir (or try to find outlier paths somehow)
     let getCommonBaseDir (files: string list) =
         let withTrailingSep d =
             $"%s{d}%c{IO.Path.DirectorySeparatorChar}"
@@ -255,8 +241,25 @@ module FileWatcherUtil =
                     then
                         dir
                     else
-                        match IO.Path.GetDirectoryName(dir) with
-                        | null -> failwith "No common base dir, please run again with --verbose option and report"
+                        match IO.Path.GetDirectoryName(dir) with // 'dir' is empty string ?
+                        | null ->
+                            let badPaths =
+                                restDirs
+                                |> List.filter (fun d ->
+                                    not ((withTrailingSep d).StartsWith(dir', StringComparison.Ordinal))
+                                )
+                                |> List.truncate 20
+
+                            [
+                                "Fable is trying to find a common base directory for all files and projects referenced."
+                                $"But '%s{dir'}' is not a common base directory for these source paths:"
+                                for d in badPaths do
+                                    $"    - {d}"
+                                "If you think this is a bug, please run again with --verbose option and report."
+                            ]
+                            |> String.concat Environment.NewLine
+                            |> failwith
+
                         | dir -> getCommonDir dir
 
                 getCommonDir dir
@@ -338,6 +341,7 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
 
     member _.FableLibDir = crackerResponse.FableLibDir
     member _.FableModulesDir = crackerResponse.FableModulesDir
+    member _.TreatmentWarningsAsErrors = crackerResponse.TreatWarningsAsErrors
 
     member _.MakeCompiler(currentFile, project, ?triggeredByDependency) =
         let opts =
@@ -733,7 +737,7 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
             let fableProj =
                 Project.From(
                     projCracked.ProjectFile,
-                    projCracked.ProjectOptions.SourceFiles,
+                    projCracked.ProjectOptions,
                     [],
                     assemblies,
                     Log.log,
@@ -1077,7 +1081,14 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
             Log.always "Skipped compilation because all generated files are up-to-date!"
 
             let exitCode, state = checkRunProcess state projCracked 0
-            return state, [||], exitCode
+
+            return
+                {|
+                    State = state
+                    ErrorLogs = [||]
+                    OtherLogs = [||]
+                    ExitCode = exitCode
+                |}
         else
             // Optimization for watch mode, if files haven't changed run the process as with --runFast
             let state, cliArgs =
@@ -1139,32 +1150,49 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                     SilentCompilation = false
                 }
 
-            // Sometimes errors are duplicated
-            let logs = Array.distinct logs
+            let filesToCompile = set filesToCompile
 
-            do
-                let filesToCompile = set filesToCompile
-
-                for log in logs do
+            let errorLogs, otherLogs =
+                // Sometimes errors are duplicated
+                logs
+                |> Array.distinct
+                // Ignore warnings from packages in `fable_modules` folder
+                |> Array.filter (fun log ->
                     match log.Severity with
-                    | Severity.Error -> () // We deal with errors below
+                    // We deal with errors later
+                    | Severity.Error -> true
                     | Severity.Info
                     | Severity.Warning ->
-                        // Ignore warnings from packages in `fable_modules` folder
                         match log.FileName with
                         | Some filename when
                             Naming.isInFableModules (filename) || not (filesToCompile.Contains(filename))
                             ->
-                            ()
-                        | _ ->
-                            let formatted = formatLog cliArgs.RootDir log
+                            false
+                        | _ -> true
+                )
+                // We can't forward TreatWarningsAsErrors to FCS because it would generate errors
+                // in packages code (Fable recreate a single project with all packages source files)
+                // For this reason, we need to handle the conversion ourselves here
+                // It applies to all logs (Fable, F#, etc.)
+                |> fun logs ->
+                    if projCracked.TreatmentWarningsAsErrors then
+                        logs
+                        |> Array.map (fun log ->
+                            match log.Severity with
+                            | Severity.Warning -> { log with Severity = Severity.Error }
+                            | _ -> log
+                        )
+                    else
+                        logs
+                |> Array.partition (fun log -> log.Severity = Severity.Error)
 
-                            if log.Severity = Severity.Warning then
-                                Log.warning formatted
-                            else
-                                Log.always formatted
-
-            let errorLogs = logs |> Array.filter (fun log -> log.Severity = Severity.Error)
+            otherLogs
+            |> Array.iter (fun log ->
+                match log.Severity with
+                | Severity.Error -> () // In theory, we shouldn't have errors here
+                | Severity.Info -> formatLog cliArgs.RootDir log |> Log.always
+                | Severity.Warning -> formatLog cliArgs.RootDir log |> Log.warning
+            )
 
             errorLogs |> Array.iter (formatLog cliArgs.RootDir >> Log.error)
             let hasError = Array.isEmpty errorLogs |> not
@@ -1256,7 +1284,13 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                             state.PendingFiles
                 }
 
-            return state, logs, exitCode
+            return
+                {|
+                    State = state
+                    ErrorLogs = errorLogs
+                    OtherLogs = otherLogs
+                    ExitCode = exitCode
+                |}
     }
 
 type FileWatcherMsg = | Changes of timeStamp: DateTime * changes: ISet<string>
@@ -1272,7 +1306,7 @@ let startCompilationAsync state =
             // Initialize changes with an empty set
             let changes = HashSet() :> ISet<_>
 
-            let! _state, logs, exitCode =
+            let! compilationResult =
                 match state.Watcher with
                 | None -> compilationCycle state changes
                 | Some watcher ->
@@ -1292,11 +1326,11 @@ let startCompilationAsync state =
                                                         $"""Changes:{Log.newLine}    {changes |> String.concat $"{Log.newLine}    "}"""
                                                 )
 
-                                            let! state, _logs, _exitCode = compilationCycle state changes
+                                            let! compilationResult = compilationCycle state changes
 
                                             Log.always $"Watching {File.relPathToCurDir w.Watcher.BasePath}"
 
-                                            return! loop state
+                                            return! loop compilationResult.State
                                         | _ -> return! loop state
                                 }
 
@@ -1311,7 +1345,17 @@ let startCompilationAsync state =
 
                     Async.FromContinuations(fun (_onSuccess, onError, _onCancel) -> agent.Error.Add(onError))
 
-            match exitCode with
+            // TODO: We should propably keep them separated and even use a DUs to represents
+            // logs using one case per level
+            // type LogEntry =
+            //      | Error of LogData
+            //      | Warning of LogData
+            // but for now we are just rebuilding a single array because I don't know how to
+            // adapt the integrations tests suits
+            // Perhaps, we should make the integration tests code more simple
+            let logs = Array.append compilationResult.ErrorLogs compilationResult.OtherLogs
+
+            match compilationResult.ExitCode with
             | 0 -> return Ok(state, logs)
             | _ -> return Error("Compilation failed", logs)
 
