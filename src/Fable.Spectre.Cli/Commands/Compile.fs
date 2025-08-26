@@ -8,7 +8,7 @@ open Fable.Spectre.Cli.Settings
 open Fable.Spectre.Cli.Settings.Compile
 open Fable.Spectre.Cli.Settings.Root
 open Fable.Spectre.Cli.Settings.Spec
-open Fable.Spectre.Cli.SpectreOutput
+open Fable.Spectre.Cli.Settings.Spec.Output
 open Microsoft.Extensions.Logging
 open Spectre.Console
 open Spectre.Console.Cli
@@ -158,7 +158,7 @@ type CompilingCommand<'T when 'T :> FableSettingsBase>() =
 type FableCommand() =
     inherit CompilingCommand<FableSettings>()
 
-    override this.Execute(context, settings) =
+    override this.Execute(_context, settings) =
         settings :> ICliArgs |> logPrelude
 
         if settings.version then

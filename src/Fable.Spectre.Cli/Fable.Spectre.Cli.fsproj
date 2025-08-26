@@ -14,7 +14,6 @@
     <ItemGroup>
         <None Include="README.md" />
         <Compile Include="Spec.fs" />
-        <Compile Include="Style.fs" />
         <Compile Include="Contributors.fs" />
         <Compile Include="Printers.fs" />
         <Compile Include="FileWatchers.fs" />
@@ -26,7 +25,6 @@
         <Compile Include="Settings\Root.fs" />
         <Compile Include="Settings\Clean.fs" />
         <Compile Include="Settings\Compile.fs" />
-        <Compile Include="Commands\CommonRunner.fs" />
         <Compile Include="Commands\Clean.fs" />
         <Compile Include="Commands\Compile.fs" />
         <Compile Include="Entry.fs" />

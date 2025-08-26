@@ -2,7 +2,7 @@ open Fable
 open Fable.Spectre.Cli.Commands.Clean
 open Fable.Spectre.Cli.Commands.Compile
 open Fable.Spectre.Cli.Settings.Compile
-open Fable.Spectre.Cli.SpectreOutput
+open Fable.Spectre.Cli.Settings.Spec.Output
 open Spectre.Console
 open Spectre.Console.Cli
 

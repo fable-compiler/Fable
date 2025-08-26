@@ -97,3 +97,20 @@ type ICliArgs =
     inherit IRustArgs
     inherit IPhpArgs
     inherit IDartArgs
+
+open SpectreCoff
+open Spectre.Console
+
+module Output =
+    let Dim = fun inp -> MarkupD([ Decoration.Dim ], inp)
+    let dim = Dim >> toMarkedUpString
+
+    let AnsiPanel color =
+        {
+            Border = BoxBorder.Ascii
+            BorderColor = color
+            Sizing = SizingBehaviour.Collapse
+            Padding = Padding.AllEqual 1
+        }
+
+    let HeaderPanel = AnsiPanel(Some Color.Teal)

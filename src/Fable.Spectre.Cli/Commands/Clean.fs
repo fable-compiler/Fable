@@ -1,10 +1,7 @@
 ﻿module Fable.Spectre.Cli.Commands.Clean
 
 open System
-open System.ComponentModel
 open Fable
-open Fable.Spectre.Cli.Commands.CommonRunner
-open Fable.Spectre.Cli.Settings
 open Fable.Spectre.Cli.Settings.Clean
 open Spectre.Console
 open Spectre.Console.Cli
@@ -53,7 +50,7 @@ type CleanCommand() =
         let mutable fileCount = 0
         let mutable fableModulesDeleted = false
 
-        let asyncProcess (context: StatusContext) =
+        let asyncProcess (_context: StatusContext) =
             async {
                 let rec recClean dir =
                     seq {
