@@ -284,7 +284,6 @@ impl FSharpArray {
             });
         }
 
-        println!("Creating PyObject array");
         // Fallback to generic PyObject storage
         let mut vec = Vec::with_capacity(count);
         for _ in 0..count {
