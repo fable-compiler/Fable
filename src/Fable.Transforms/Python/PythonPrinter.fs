@@ -432,7 +432,7 @@ module PrinterExtensions =
                         let i = int m.Groups[1].Value
 
                         for j = i to node.Args.Length - 1 do
-                            rep.Add("$" + string<int> j)
+                            rep.Add $"$%d{j}"
 
                         String.concat ", " rep
                     )
@@ -633,8 +633,8 @@ module PrinterExtensions =
                 | RShift -> " >> "
                 | BitOr -> " | "
                 | BitXor -> " ^ "
-                | BitAnd -> $" & "
-                | MatMult -> $" @ "
+                | BitAnd -> " & "
+                | MatMult -> " @ "
 
             printer.Print(op)
 

@@ -281,7 +281,7 @@ let makeNumberTypeAnnotation com ctx kind info =
             | Float16
             | Float32 -> "float32"
             | Float64 -> "float64"
-            | _ -> failwith $"Unsupported number type: {kind}"
+            | _ -> failwith $"Unsupported number type: %A{kind}"
 
         match name with
         | "int"

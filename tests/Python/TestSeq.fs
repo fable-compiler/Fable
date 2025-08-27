@@ -669,21 +669,19 @@ let ``test Seq.sort with tuples works`` () =
     let ys = seq {"a"; "c"; "B"; "d"}
     (xs, ys) ||> Seq.zip |> Seq.sort |> Seq.item 1 |> equal (1, "B")
 
-// FIXME:
-//[<Fact>]
-// let ``test Seq.sortDescending works`` () =
-//     let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
-//     xs |> Seq.sortDescending |> Seq.take 3 |> Seq.sum |> equal 17.
-//     let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
-//     ys |> Seq.sortDescending |> Seq.item 1 |> equal "c"
+[<Fact>]
+let ``test Seq.sortDescending works`` () =
+    let xs = [3.; 4.; 1.; -3.; 2.; 10.] |> List.toSeq
+    xs |> Seq.sortDescending |> Seq.take 3 |> Seq.sum |> equal 17.
+    let ys = ["a"; "c"; "B"; "d"] |> List.toSeq
+    ys |> Seq.sortDescending |> Seq.item 1 |> equal "c"
 
-// FIXME:
-// [<Fact>]
-// let ``test Seq.sortBy works`` () =
-//     let xs = [3.; 1.; 4.; 2.]
-//     let ys = xs |> Seq.sortBy (fun x -> -x)
-//     sumFirstTwo ys
-//     |> equal 7.
+[<Fact>]
+let ``test Seq.sortBy works`` () =
+    let xs = [3.; 1.; 4.; 2.]
+    let ys = xs |> Seq.sortBy (fun x -> -x)
+    sumFirstTwo ys
+    |> equal 7.
 
 [<Fact>]
 let ``test Seq.sortByDescending works`` () =

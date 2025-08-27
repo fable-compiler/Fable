@@ -91,7 +91,7 @@ let ``test Overloads with anonymous record arguments don't have same mangled nam
     Time.duration {| from = 1 |} |> equal 9
     Time.duration {| from = 1; until = 5 |} |> equal 4
 
-[<Fact>] // TODO: Need to handle nonlocal variables in Python
+[<Fact>]
 let ``test Anonymous record execution order`` () =
     let mutable x = 2
     let record =
