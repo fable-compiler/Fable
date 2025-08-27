@@ -47,9 +47,6 @@ module Py =
         inherit Attribute()
         new(decorator: string, parameters: string) = DecorateAttribute(decorator)
 
-        member val Decorator: string = decorator with get, set
-        member val Parameters: string = "" with get, set
-
     [<RequireQualifiedAccess>]
     type ClassAttributeStyle =
         // Translates to properties with instance attributes backing

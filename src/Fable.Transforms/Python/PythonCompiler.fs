@@ -73,7 +73,7 @@ type PythonCompiler(com: Compiler) =
                 imports.Add(cachedName, i)
 
                 // If the import member is empty we understand this is done for side-effects only
-                if name = "" then
+                if name.Length = 0 then // CA1820
                     Expression.none
                 else
                     Expression.identifier local_id

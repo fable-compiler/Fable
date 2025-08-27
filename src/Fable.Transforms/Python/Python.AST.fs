@@ -1153,7 +1153,7 @@ module PythonExtensions =
                 | UnaryNot -> Not
                 | UnaryNotBitwise -> Invert
                 // | UnaryAddressOf -> "&"
-                | _ -> failwith $"unaryOp: Operator {op} not supported"
+                | _ -> failwith $"unaryOp: Operator %A{op} not supported"
 
             Expression.unaryOp (op, operand, ?loc = loc)
 
@@ -1204,7 +1204,7 @@ module PythonExtensions =
                 | BinaryShiftRightZeroFill -> RShift
                 | BinaryShiftRightSignPropagating -> RShift
                 | BinaryXorBitwise -> BitXor
-                | _ -> failwith $"binOp: Operator {op} not supported"
+                | _ -> failwith $"binOp: Operator %A{op} not supported"
 
             Expression.binOp (left, op, right, ?loc = loc)
 

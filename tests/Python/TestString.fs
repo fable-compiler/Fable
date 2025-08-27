@@ -8,8 +8,8 @@ open Util.Testing
 
 #nowarn "44" // This construct is deprecated. Uri.EscapeUriString can corrupt the Uri string in some cases. (code 44)
 
-// module M =
-//     let f x = nameof x
+module M =
+    let f x = nameof x
 
 [<Literal>]
 let formatCoordinateBody = "(%f,%f)"
@@ -28,11 +28,11 @@ let containsInOrder (substrings: string list) (str: string) =
       lastIndex <- i
       success)
 
-// [<Fact>]
-// let ``F# nameof works`` () =
-//     M.f 12 |> equal "x"
-//     nameof M |> equal "M"
-//     nameof M.f |> equal "f"
+[<Fact>]
+let ``test F# nameof works`` () =
+    M.f 12 |> equal "x"
+    nameof M |> equal "M"
+    nameof M.f |> equal "f"
 
 [<Fact>]
 let ``test sprintf works`` () =
@@ -554,15 +554,15 @@ let ``test String.IndexOfAny works`` () =
     "abcdbcebc".IndexOfAny([|'f';'e'|], 2, 4) |> equal -1
     "abcdbcebc".IndexOfAny([|'c';'b'|]) |> equal 1
 
-// [<Fact>]
-// let ``test String.StartsWith char works`` () =
-//     "abcd".StartsWith('a') |> equal true
-//     "abcd".StartsWith('d') |> equal false
+[<Fact>]
+let ``test String.StartsWith char works`` () =
+    "abcd".StartsWith('a') |> equal true
+    "abcd".StartsWith('d') |> equal false
 
-// [<Fact>]
-// let ``test String.EndsWith char works`` () =
-//     "abcd".EndsWith('a') |> equal false
-//     "abcd".EndsWith('d') |> equal true
+[<Fact>]
+let ``test String.EndsWith char works`` () =
+    "abcd".EndsWith('a') |> equal false
+    "abcd".EndsWith('d') |> equal true
 
 [<Fact>]
 let ``test String.StartsWith works`` () =

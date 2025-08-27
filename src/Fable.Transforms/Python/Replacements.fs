@@ -1009,7 +1009,6 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let math r t (args: Expr list) argTypes methName =
         let meth = Naming.lowerFirst methName
-        //Helper.ImportedCall("math", meth, t, args, argTypes, ?loc = r)
         Helper.LibCall(com, "double", meth, t, args, argTypes, ?loc = r)
 
     match i.CompiledName, args with
@@ -1036,6 +1035,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
       _ -> toInt com ctx r t args |> Some
     | "ToInt64", _ -> toLong com ctx r false t args |> Some
     | "ToUInt64", _ -> toLong com ctx r true t args |> Some
+    | "ToIntPtr", _ -> Helper.GlobalCall("int", t, args) |> Some
+    | "ToUIntPtr", _ -> Helper.GlobalCall("int", t, args) |> Some
     | ("ToSingle" | "ToDouble"), _ -> toFloat com ctx r t args |> Some
     | "ToDecimal", _ -> toDecimal com ctx r t args |> Some
     | "ToChar", _ -> toChar com ctx r args.Head |> Some
@@ -3406,7 +3407,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             | "get_Namespace" ->
                 let fullname = getTypeFullName false exprType
 
-                match fullname.LastIndexOf(".") with
+                match fullname.LastIndexOf(".", StringComparison.Ordinal) with
                 | -1 -> "" |> returnString r
                 | i -> fullname.Substring(0, i) |> returnString r
             | "get_IsArray" ->
