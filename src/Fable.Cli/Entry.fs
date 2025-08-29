@@ -1,598 +1,473 @@
 module Fable.Cli.Entry
 
 open System
+open System.CommandLine.FSharp
+open System.CommandLine.Help
+open Fable.Cli.Spec
 open Main
 open Fable
 open Fable.Compiler.Util
 open Fable.Cli.CustomLogging
 open Microsoft.Extensions.Logging
 
-type CliArgs(args: string list) =
-    let argsMap =
-        let args =
-            // Assume last arg has true value in case it's a flag
-            match List.tryLast args with
-            | Some key when key.StartsWith('-') -> args @ [ "true" ]
-            | _ -> args
+module CliArgs =
+    let dim = "\x1b[2m"
+    let dimOff = "\x1b[22m"
 
-        (Map.empty, List.windowed 2 args)
-        ||> List.fold (fun map pair ->
-            match pair with
-            | [ key; value ] when key.StartsWith('-') ->
-                let key = key.ToLower()
+    let root =
+        RootCommand("F# transpiler; supporting F# to javascript, typescript, python, rust and others.")
 
-                let value =
-                    if value.StartsWith('-') then
-                        "true"
-                    else
-                        value
+    let cleanCommand = Command.create "clean"
+    let watchCommand = Command.create "watch" |> Mutate.Command.addAlias "w"
+    let javascriptCommand = Command.create "javascript" |> Mutate.Command.addAlias "js"
+    let pythonCommand = Command.create "python" |> Mutate.Command.addAlias "py"
+    let typescriptCommand = Command.create "typescript" |> Mutate.Command.addAlias "ts"
+    let rustCommand = Command.create "rust" |> Mutate.Command.addAlias "rs"
+    let precompileCommand = Command.create "precompile" |> Mutate.hide
+    let phpCommand = Command.create "php"
+    let dartCommand = Command.create "dart"
 
-                match Map.tryFind key map with
-                | Some prev -> Map.add key (value :: prev) map
-                | None -> Map.add key [ value ] map
-            | _ -> map
+    let languageCommands =
+        [
+            javascriptCommand
+            typescriptCommand
+            pythonCommand
+            rustCommand
+            phpCommand
+            dartCommand
+        ]
+
+    let compilerCommands = watchCommand :: languageCommands
+    let rootAndCompilerCommands = root :> Command :: compilerCommands
+    let allCommands = cleanCommand :: compilerCommands
+    let rootAndCommands = root :> Command :: allCommands
+    // We keep the bindings to the opts/args because it likely
+    // speeds up retrieval from parsed results when retrieving with
+    // the item instead of with the name
+
+    // Path argument for root only
+    let projPath =
+        Argument.create<string voption> "PATH"
+        |> Mutate.Argument.defaultValue (System.Environment.CurrentDirectory |> ValueSome)
+        |> Mutate.description $"{dim}Path containing project files{dimOff}"
+        |> Utils.addArgToCommand root
+    // extension argument for clean only
+    let extensionArg =
+        Argument.create<string voption> "EXT"
+        |> Mutate.Argument.defaultValue (".fs.js" |> ValueSome)
+        |> Mutate.description $"{dim}Path extension for cleaning{dimOff}"
+        |> Utils.addArgToCommand cleanCommand
+
+    let workingDirectory =
+        CommandOption.create<string> "--cwd"
+        |> Mutate.description $"{dim}Set the working directory{dimOff}"
+        |> Mutate.CommandOption.filePathsOnly
+        |> Mutate.CommandOption.defaultValue System.Environment.CurrentDirectory
+        |> Utils.addToCommands rootAndCommands
+
+    let verbosity =
+        CommandOption.create<Verbosity> "--verbosity"
+        |> Mutate.description $"{dim}Set the logging volume{dimOff}"
+        |> Mutate.CommandOption.addAlias "-v"
+        |> Mutate.CommandOption.valueOneOfStrings Utils.Unions.getAllCaseStringOrInitials<Verbosity>
+        |> Utils.Unions.addCustomParser (
+            function
+            | Verbosity.Normal -> [ "n"; "normal" ]
+            | Verbosity.Silent -> [ "s"; "silent" ]
+            | Verbosity.Verbose -> [ "v"; "verbose" ]
         )
+        |> Mutate.CommandOption.defaultValue Verbosity.Normal
+        |> Mutate.CommandOption.helpName $"{dim}n|normal|s|silent|v|verbose{dimOff}"
+        |> Utils.addToCommands rootAndCommands
 
-    member _.LoweredKeys = argsMap |> Map.toList |> List.map fst
+    /// DEPRECATED - TODO remove in Fable v6
+    let silent =
+        CommandOption.create<bool> "--silent"
+        |> Mutate.hide
+        |> Utils.addToCommands rootAndCommands
 
-    member _.Values(key: string) =
-        Map.tryFind (key.ToLower()) argsMap |> Option.defaultValue []
+    /// DEPRECATED - TODO remove in Fable v6
+    let verbose =
+        CommandOption.create<bool> "--verbose"
+        |> Mutate.hide
+        |> Utils.addToCommands rootAndCommands
 
-    member _.Value([<ParamArray>] keys: string array) =
-        keys
-        |> Array.map (fun k -> k.ToLower())
-        |> Array.tryPick (fun k -> Map.tryFind k argsMap)
-        |> Option.bind List.tryHead
-
-    member this.FlagOr(flag: string, defaultValue: bool) =
-        this.Value(flag)
-        |> Option.bind (fun flag ->
-            match Boolean.TryParse(flag) with
-            | true, flag -> Some flag
-            | false, _ -> None
+    let language =
+        CommandOption.create<Language> "--language"
+        |> Mutate.description $"{dim}Set the target language for the transpiler{dimOff}"
+        |> Mutate.CommandOption.addAlias "--lang"
+        |> Mutate.CommandOption.addAlias "-l"
+        |> Mutate.CommandOption.valueOneOfStrings
+            [
+                "js"
+                "javascript"
+                "ts"
+                "typescript"
+                "py"
+                "python"
+                "rs"
+                "rust"
+                "php"
+                "dart"
+            ]
+        |> Mutate.CommandOption.helpName $"{dim}javascript|typescript|python|rust|php|dart{dimOff}"
+        |> Utils.Unions.addCustomParser (
+            function
+            | JavaScript -> [ "js"; "javascript" ]
+            | TypeScript -> [ "ts"; "typescript" ]
+            | Python -> [ "py"; "python" ]
+            | Rust -> [ "rs"; "rust" ]
+            | Php -> [ "php" ]
+            | Dart -> [ "dart" ]
         )
-        |> Option.defaultValue defaultValue
+        |> Mutate.CommandOption.defaultValue JavaScript
+        |> Utils.addToCommands [ watchCommand; root ]
 
-    member this.FlagEnabled([<ParamArray>] flags: string array) =
-        flags |> Array.exists (fun flag -> this.FlagOr(flag, false))
+    let extension =
+        CommandOption.create<string> "--extension"
+        |> Mutate.description $"{dim}The file extension for Fable generated source files{dimOff}"
+        |> Mutate.CommandOption.addAlias "-e"
+        |> Mutate.CommandOption.defaultValue ".fs.js"
+        |> Utils.addToCommands rootAndCommands
 
-let knownCliArgs () =
-    [
-        [ "--cwd" ], [ "Working directory" ]
-        [ "-o"; "--outDir" ], [ "Redirect compilation output to a directory" ]
-        [ "-e"; "--extension" ], [ "Extension for generated JS files (default .fs.js)" ]
-        [ "-s"; "--sourceMaps" ], [ "Enable source maps" ]
-        [ "--sourceMapsRoot" ], [ "Set the value of the `sourceRoot` property in generated source maps" ]
-        [], []
-        [ "--define" ], [ "Defines a symbol for use in conditional compilation" ]
-        [ "-c"; "--configuration" ],
-        [
-            "The configuration to use when parsing .fsproj with MSBuild,"
-            "default is 'Debug' in watch mode, or 'Release' otherwise"
-        ]
-        [ "--verbose" ], [ "Print more info during compilation" ]
-        [ "--silent" ], [ "Don't print any log during compilation" ]
-        [ "--typedArrays" ],
-        [
-            "Compile numeric arrays as JS typed arrays (default is true for JS, false for TS)"
-        ]
-        [ "--watch" ], [ "Alias of watch command" ]
-        [ "--watchDelay" ], [ "Delay in ms before recompiling after a file changes (default 200)" ]
-        [], []
-        [ "--run" ], [ "The command after the argument will be executed after compilation" ]
-        [ "--runFast" ], [ "The command after the argument will be executed BEFORE compilation" ]
-        [ "--runWatch" ], [ "Like run, but will execute after each watch compilation" ]
-        [ "--runScript" ],
-        [
-            "Runs the generated script for last file with node"
-            """(Requires `"type": "module"` in package.json and at minimum Node.js 12.20, 14.14, or 16.0.0)"""
-        ]
-        [], []
-        [ "--yes" ], [ "Automatically reply 'yes' (e.g. with `clean` command)" ]
-        [ "--noRestore" ], [ "Skip `dotnet restore`" ]
-        [ "--noCache" ], [ "Recompile all files, including sources from packages" ]
-        [ "--exclude" ],
-        [
-            "Don't merge sources of referenced projects with specified pattern"
-            "(Intended for plugin development)"
-        ]
-        [], []
-        [ "--optimize" ], [ "Compile with optimized F# AST (experimental)" ]
-        [ "--lang"; "--language" ],
-        [
-            "Choose wich languages to compile to"
-            ""
-            "Available options:"
-            "  - javascript (alias js)"
-            "  - typescript (alias ts)"
-            "  - python (alias py)"
-            "  - rust (alias rs)"
-            "  - php"
-            "  - dart"
-            ""
-            "Default is javascript"
-            ""
-            "Support for TypeScript, Python, Rust, Php and Dart is experimental."
-        ]
-        [ "--legacyCracker" ],
-        [
-            "Use this if you have issues with the new MSBuild Cracker released in Fable 5"
-        ]
+    let yes =
+        CommandOption.create<bool> "--yes"
+        |> Mutate.description $"{dim}Automatically respond yes to prompts.{dimOff}"
+        |> Utils.addToCommands rootAndCommands
 
-        // Hidden args
-        [ "--precompiledLib" ], []
-        [ "--printAst" ], []
-        [ "--noReflection" ], []
-        [ "--noParallelTypeCheck" ], []
-        [ "--trimRootModule" ], []
-        [ "--fableLib" ], []
-        [ "--replace" ], []
-    ]
+    let definitions =
+        CommandOption.create<string[]> "--define"
+        |> Mutate.description $"{dim}Add symbols for use in conditional preprocessing{dimOff}"
+        |> Mutate.CommandOption.addAlias "-d"
+        |> Utils.addToCommands rootAndCompilerCommands
 
-let printKnownCliArgs () =
-    knownCliArgs ()
-    |> List.collect (
-        function
-        | [], _ -> [ "" ] // Empty line
-        | args, desc ->
-            let args = String.concat "|" args
+    let output =
+        CommandOption.create<string> "--output"
+        |> Mutate.CommandOption.addAlias "-o"
+        |> Mutate.CommandOption.description $"{dim}Set the output directory for generated source files{dimOff}"
+        |> Mutate.CommandOption.filePathsOnly
+        |> Utils.addToCommands rootAndCommands
 
-            match desc with
-            | [] -> [] // Args without description are hidden
-            | desc :: extraLines -> [ $"  %-18s{args}{desc}"; yield! extraLines |> List.map (sprintf "%20s%s" "") ]
-    )
+    let config =
+        CommandOption.create<BuildConfig> "--config"
+        |> Mutate.CommandOption.addAlias "-c"
+        |> Mutate.description $"{dim}Set the build configuration type{dimOff}"
+        |> Mutate.CommandOption.valueOneOfStrings [ "Debug"; "Release" ]
+        |> Mutate.CommandOption.helpName $"{dim}Debug|Release{dimOff}"
+        |> Utils.Unions.addCustomParser (
+            function
+            | Release -> [ "Release" ]
+            | Debug -> [ "Debug" ]
+        )
+        |> Utils.addToCommands rootAndCompilerCommands
 
-let generateHelp () =
-    $"""Usage: fable [watch] [.fsproj file or dir path] [arguments]
+    let watch =
+        CommandOption.create<bool> "--watch"
+        |> Mutate.description $"{dim}Run the compiler in watch mode{dimOff}"
+        |> Utils.addToCommands (rootAndCompilerCommands |> List.except [ watchCommand ])
 
-Commands:
-  -h|--help         Show help
-  --version         Print version
-  watch             Run Fable in watch mode
-  clean             Remove fable_modules folders and files with specified extension (default .fs.js)
+    let watchDelay =
+        CommandOption.create<int> "--watchDelay"
+        |> Mutate.description $"{dim}Delay between file changes and recompilation in watch mode{dimOff}"
+        |> Mutate.CommandOption.defaultValue 200
+        |> Utils.addToCommands rootAndCompilerCommands
 
-Arguments:
-{printKnownCliArgs () |> String.concat "\n"}
+    let run =
+        CommandOption.create<string> "--run"
+        |> Mutate.description $"{dim}Command line arguments that are run after compilation (enclose in strings){dimOff}"
+        |> Utils.addToCommands rootAndCompilerCommands
 
-  Environment variables:
-   DOTNET_USE_POLLING_FILE_WATCHER
-   When set to '1' or 'true', Fable watch will poll the file system for
-   changes. This is required for some file systems, such as network shares,
-   Docker mounted volumes, and other virtual file systems.
-"""
+    let runFast =
+        CommandOption.create<string> "--runFast"
+        |> Mutate.description
+            $"{dim}Command line arguments that are run before compilation (enclose in strings){dimOff}"
+        |> Utils.addToCommands rootAndCompilerCommands
 
-let generateHelpWithPrefix prefixText =
-    $"""%s{prefixText}
+    let runWatch =
+        CommandOption.create<string> "--runWatch"
+        |> Mutate.description
+            $"{dim}Command line arguments that are run whenever recompilation occurs in watch mode{dimOff}"
+        |> Utils.addToCommands rootAndCompilerCommands
 
-%s{generateHelp ()}
-                """
+    let noRestore =
+        CommandOption.create<bool> "--noRestore"
+        |> Mutate.description $"{dim}TODO{dimOff}"
+        |> Utils.addToCommands rootAndCompilerCommands
 
-let printHelp () = generateHelp () |> Log.always
+    let noCache =
+        CommandOption.create<bool> "--noCache"
+        |> Mutate.description $"{dim}TODO{dimOff}"
+        |> Utils.addToCommands rootAndCompilerCommands
 
-let sanitizeCliArgs (args: CliArgs) =
-    let knownCliArgs =
-        knownCliArgs () |> List.collect fst |> List.map (fun a -> a.ToLower()) |> set
+    let exclude =
+        CommandOption.create<string[]> "--exclude"
+        |> Mutate.description $"{dim}Exclude paths from caching - used in plugin development{dimOff}"
+        |> Utils.addToCommands rootAndCompilerCommands
 
-    (Ok args, args.LoweredKeys)
-    ||> List.fold (fun res arg ->
-        match res with
-        | Error msg -> Error msg
-        | Ok args ->
-            if knownCliArgs.Contains(arg) then
-                Ok args
-            else
-                $"Unknown argument: {arg}" |> generateHelpWithPrefix |> Error
-    )
+    let optimize =
+        CommandOption.create<bool> "--optimize"
+        |> Utils.addToCommands rootAndCompilerCommands
 
-let parseCliArgs (args: string list) = CliArgs(args) |> sanitizeCliArgs
+    let legacyCracker =
+        CommandOption.create<bool> "--legacyCracker"
+        |> Utils.addToCommands rootAndCompilerCommands
 
-let argLanguage (args: CliArgs) =
-    args.Value("--lang", "--language")
-    |> Option.map (fun lang ->
+    let printAst =
+        CommandOption.create<bool> "--printAst"
+        |> Mutate.hide
+        |> Utils.addToCommands rootAndCompilerCommands
 
-        match lang.ToLowerInvariant() with
-        | "js"
-        | "javascript" -> Ok JavaScript
-        | "ts"
-        | "typescript" -> Ok TypeScript
-        | "py"
-        | "python" -> Ok Python
-        | "php" -> Ok Php
-        | "dart" -> Ok Dart
-        | "rs"
-        | "rust" -> Ok Rust
-        | unknown ->
-            let errorMessage =
+    let trimRootModule =
+        CommandOption.create<bool> "--trimRootModule"
+        |> Mutate.hide
+        |> Utils.addToCommands rootAndCompilerCommands
+
+    let fableLib =
+        CommandOption.create<string> "--fableLib"
+        |> Mutate.hide
+        |> Utils.addToCommands rootAndCompilerCommands
+
+    let replace =
+        CommandOption.create<string[]> "--replace"
+        |> Mutate.hide
+        |> Utils.addToCommands rootAndCompilerCommands
+
+    let precompiledLib =
+        CommandOption.create<string> "--precompiledLib"
+        |> Utils.addToCommands rootAndCompilerCommands
+        |> Mutate.hide
+
+    let noReflection =
+        CommandOption.create<bool> "--noReflection"
+        |> Mutate.hide
+        |> Utils.addToCommands rootAndCompilerCommands
+
+    let noParallelTypeCheck =
+        CommandOption.create<bool> "--noParallelTypeCheck"
+        |> Mutate.hide
+        |> Utils.addToCommands rootAndCompilerCommands
+
+    let typedArrays =
+        CommandOption.create<bool> "--typedArrays"
+        |> Utils.addToCommands [ javascriptCommand; typescriptCommand; watchCommand; root ]
+
+    let sourceMap =
+        CommandOption.create<bool> "--sourceMap"
+        |> Utils.addToCommands [ javascriptCommand; typescriptCommand; watchCommand; root ]
+
+    let sourceMapRoot =
+        CommandOption.create<string> "--sourceMapRoot"
+        |> Utils.addToCommands [ javascriptCommand; typescriptCommand; watchCommand; root ]
+
+    let runScript =
+        CommandOption.create<string> "--runScript"
+        |> Utils.addToCommands [ javascriptCommand; typescriptCommand; watchCommand; root ]
+
+// let clean (args: CliArgs) language rootDir =
+//     let ignoreDirs = set [ "bin"; "obj"; "node_modules" ]
+//
+//     let outDir = args.Value("-o", "--outDir")
+//
+//     let fileExt =
+//         args.Value("-e", "--extension")
+//         |> Option.defaultWith (fun () ->
+//             let usesOutDir = Option.isSome outDir
+//             File.defaultFileExt usesOutDir language
+//         )
+//
+//     let cleanDir = outDir |> Option.defaultValue rootDir |> IO.Path.GetFullPath
+//
+//     // clean is a potentially destructive operation, we need a permission before proceeding
+//     Console.WriteLine("This will recursively delete all *{0}[.map] files in {1}", fileExt, cleanDir)
+//
+//     if not (args.FlagEnabled "--yes") then
+//         Console.WriteLine("Please press 'Y' or 'y' if you want to continue: ")
+//         let keyInfo = Console.ReadKey()
+//         Console.WriteLine()
+//
+//         if keyInfo.Key <> ConsoleKey.Y then
+//             Console.WriteLine("Clean was cancelled.")
+//             exit 0
+//
+//     let mutable fileCount = 0
+//     let mutable fableModulesDeleted = false
+//
+//     let rec recClean dir =
+//         seq {
+//             yield! IO.Directory.GetFiles(dir, "*" + fileExt)
+//             yield! IO.Directory.GetFiles(dir, "*" + fileExt + ".map")
+//         }
+//         |> Seq.iter (fun file ->
+//             IO.File.Delete(file)
+//             fileCount <- fileCount + 1
+//             Log.verbose (lazy ("Deleted " + file))
+//         )
+//
+//         IO.Directory.GetDirectories(dir)
+//         |> Array.filter (fun subdir -> ignoreDirs.Contains(IO.Path.GetFileName(subdir)) |> not)
+//         |> Array.iter (fun subdir ->
+//             if IO.Path.GetFileName(subdir) = Naming.fableModules then
+//                 IO.Directory.Delete(subdir, true)
+//                 fableModulesDeleted <- true
+//
+//                 Log.always $"Deleted {IO.Path.GetRelativePath(rootDir, subdir)}"
+//             else
+//                 recClean subdir
+//         )
+//
+//     recClean cleanDir
+//
+//     if fileCount = 0 && not fableModulesDeleted then
+//         Log.always ("No files have been deleted. If Fable output is in another directory, pass it as argument.")
+//     else
+//         Log.always ("Clean completed! Files deleted: " + string<int> fileCount)
+
+//
+// let private logPrelude commands language =
+//     match commands with
+//     | [ "--version" ] -> ()
+//     | _ ->
+//         let status =
+//             match getStatus language with
+//             | "stable"
+//             | "" -> ""
+//             | status -> $" (status: {status})"
+//
+//         Log.always ($"Fable {Literals.VERSION}: F# to {language} compiler{status}")
+//
+//         match getLibPkgVersion language with
+//         | Some(repository, pkgName, version) ->
+//             Log.always ($"Minimum {pkgName} version (when installed from {repository}): {version}")
+//         | None -> ()
+//
+//         Log.always ("\nThanks to the contributor! @" + Contributors.getRandom ())
+//
+//         Log.always ("Stand with Ukraine! https://standwithukraine.com.ua/" + "\n")
+
+let makeCliOptions (command: Command) (parseResult: ParseResult) : ICliOptions =
+    let getValueOrDefault defaultValue opt =
+        parseResult |> Utils.getOptionValue opt |> ValueOption.defaultValue defaultValue
+
+    { new ICliOptions with
+        member this.workDir =
+            CliArgs.workingDirectory |> getValueOrDefault Environment.CurrentDirectory
+
+        member this.projPath =
+            parseResult
+            |> Utils.getArgumentValue CliArgs.projPath
+            |> ValueOption.flatten
+            |> ValueOption.defaultValue Environment.CurrentDirectory
+
+        member this.verbosity =
+            let silent = CliArgs.silent |> getValueOrDefault false
+            let verbose = CliArgs.verbose |> getValueOrDefault false
+
+            CliArgs.verbosity
+            |> getValueOrDefault Verbosity.Normal
+            |> function
+                | Verbosity.Normal when verbose -> Verbosity.Verbose
+                | Verbosity.Normal when silent -> Verbosity.Silent
+                | verbosity -> verbosity
+
+        member this.language = CliArgs.language |> getValueOrDefault Language.JavaScript
+        member this.yes = CliArgs.yes |> getValueOrDefault false
+
+        member this.defines =
+            CliArgs.definitions
+            |> getValueOrDefault [||]
+            |> Array.toList
+            |> List.append
                 [
-                    $"'{unknown}' is not a valid language."
-                    ""
-                    "Available options:"
-                    "  - javascript (alias js)"
-                    "  - typescript (alias ts)"
-                    "  - python (alias py)"
-                    "  - rust (alias rs)"
-                    "  - php"
-                    "  - dart"
+                    "FABLE_COMPILER"
+                    "FABLE_COMPILER_5"
+                    CliArgs.language
+                    |> getValueOrDefault Language.JavaScript
+                    |> _.ToString().ToUpper()
+                    |> sprintf "FABLE_COMPILER_%s"
                 ]
-                |> String.concat "\n"
 
-            Error errorMessage
-    )
-    |> Option.defaultValue (Ok JavaScript)
+        member this.output = parseResult |> Utils.getOptionValue CliArgs.output
 
-type Runner =
-    static member Run
-        (
-            args: CliArgs,
-            language: Language,
-            rootDir: string,
-            runProc: RunProcess option,
-            verbosity: Fable.Verbosity,
-            ?fsprojPath: string,
-            ?watch,
-            ?precompile
-        )
-        =
-        result {
-            let normalizeAbsolutePath (path: string) =
-                (if IO.Path.IsPathRooted(path) then
-                     path
-                 else
-                     IO.Path.Combine(rootDir, path))
-                // Use getExactFullPath to remove things like: myrepo/./build/
-                // and get proper casing (see `getExactFullPath` comment)
-                |> File.getExactFullPath
-                |> Path.normalizePath
+        member this.config =
+            let isWatching =
+                getValueOrDefault false CliArgs.watch || command = CliArgs.watchCommand
 
-            let watch = defaultArg watch false
-            let precompile = defaultArg precompile false
+            parseResult
+            |> Utils.getOptionValue CliArgs.config
+            |> function
+                | ValueSome config -> config
+                | ValueNone when isWatching -> BuildConfig.Debug
+                | ValueNone -> BuildConfig.Release
 
-            let fsprojPath =
-                fsprojPath |> Option.map normalizeAbsolutePath |> Option.defaultValue rootDir
+        member this.watch =
+            getValueOrDefault false CliArgs.watch || command = CliArgs.watchCommand
 
-            let! projFile =
-                if IO.Directory.Exists(fsprojPath) then
-                    let files = IO.Directory.EnumerateFileSystemEntries(fsprojPath) |> Seq.toList
+        member this.watchDelay = CliArgs.watchDelay |> getValueOrDefault 200
+        member this.run = parseResult |> Utils.getOptionValue CliArgs.run
+        member this.runFast = parseResult |> Utils.getOptionValue CliArgs.runFast
+        member this.runWatch = parseResult |> Utils.getOptionValue CliArgs.runWatch
+        member this.noRestore = CliArgs.noRestore |> getValueOrDefault false
+        member this.noCache = CliArgs.noCache |> getValueOrDefault false
+        member this.exclude = CliArgs.exclude |> getValueOrDefault [||]
+        member this.optimize = CliArgs.optimize |> getValueOrDefault false
+        member this.legacyCracker = CliArgs.legacyCracker |> getValueOrDefault false
+        member this.printAst = CliArgs.printAst |> getValueOrDefault false
+        member this.trimRootModule = CliArgs.trimRootModule |> getValueOrDefault false
+        member this.fableLib = parseResult |> Utils.getOptionValue CliArgs.fableLib
 
-                    files
-                    |> List.filter (fun file -> file.EndsWith(".fsproj", StringComparison.Ordinal))
-                    |> function
-                        | [] ->
-                            files
-                            |> List.filter (fun file -> file.EndsWith(".fsx", StringComparison.Ordinal))
-                        | candidates -> candidates
-                    |> function
-                        | [] -> Error("Cannot find .fsproj/.fsx in dir: " + fsprojPath)
-                        | [ fsproj ] -> Ok fsproj
-                        | _ -> Error("Found multiple .fsproj/.fsx in dir: " + fsprojPath)
-                elif not (IO.File.Exists(fsprojPath)) then
-                    Error("File does not exist: " + fsprojPath)
-                else
-                    Ok fsprojPath
+        member this.replace =
+            CliArgs.replace
+            |> getValueOrDefault [||]
+            |> Array.map _.Split(':', 2)
+            // TODO
+            |> Array.filter (Array.length >> (=) 2)
+            |> Array.map (
+                function
+                | [| a; b |] -> a, b
+                | _ -> failwith "Unreachable"
+            )
+            |> Map
 
-            let typedArrays = args.FlagOr("--typedArrays", not (language = TypeScript))
+        member this.precompiledLib = parseResult |> Utils.getOptionValue CliArgs.precompiledLib
+        member this.noReflection = CliArgs.noReflection |> getValueOrDefault false
 
-            let outDir = args.Value("-o", "--outDir") |> Option.map normalizeAbsolutePath
+        member this.noParallelTypeCheck =
+            CliArgs.noParallelTypeCheck |> getValueOrDefault false
 
-            let precompiledLib =
-                args.Value("--precompiledLib") |> Option.map normalizeAbsolutePath
+        member this.typedArrays = CliArgs.typedArrays |> getValueOrDefault false
+        member this.sourceMap = CliArgs.sourceMap |> getValueOrDefault false
+        member this.sourceMapRoot = parseResult |> Utils.getOptionValue CliArgs.sourceMapRoot
+        member this.runScript = parseResult |> Utils.getOptionValue CliArgs.runScript
 
-            let fableLib = args.Value "--fableLib" |> Option.map Path.normalizePath
-            let useMSBuildForCracking = args.FlagOr("--legacyCracker", true)
-
-            do!
-                match watch, outDir, fableLib with
-                | true, _, _ when precompile -> Error("Cannot watch when precompiling")
-                | _, None, _ when precompile -> Error("outDir must be specified when precompiling")
-                | _, _, Some _ when Option.isSome precompiledLib ->
-                    Error("Cannot set fableLib when setting precompiledLib")
-                | _ -> Ok()
-
-            do!
-                let reservedDirs = [ Naming.fableModules; "obj" ]
-
-                let outDirLast =
-                    outDir
-                    |> Option.bind (fun outDir -> outDir.TrimEnd('/').Split('/') |> Array.tryLast)
-                    |> Option.defaultValue ""
-
-                if List.contains outDirLast reservedDirs then
-                    Error($"{outDirLast} is a reserved directory, please use another output directory")
-                // TODO: Remove this check when typed arrays are compatible with typescript
-                elif language = TypeScript && typedArrays then
-                    Error("Typescript output is currently not compatible with typed arrays, pass: --typedArrays false")
-                else
-                    Ok()
-
-            let configuration =
-                let defaultConfiguration =
-                    if watch then
-                        "Debug"
-                    else
-                        "Release"
-
-                match args.Value("-c", "--configuration") with
-                | None -> defaultConfiguration
-                | Some c when String.IsNullOrWhiteSpace c -> defaultConfiguration
-                | Some configurationArg -> configurationArg
-
-            let define =
-                args.Values "--define"
-                |> List.append
-                    [
-                        "FABLE_COMPILER"
-                        "FABLE_COMPILER_5"
-                        match language with
-                        | Php -> "FABLE_COMPILER_PHP"
-                        | Rust -> "FABLE_COMPILER_RUST"
-                        | Dart -> "FABLE_COMPILER_DART"
-                        | Python -> "FABLE_COMPILER_PYTHON"
-                        | TypeScript -> "FABLE_COMPILER_TYPESCRIPT"
-                        | JavaScript -> "FABLE_COMPILER_JAVASCRIPT"
-                    ]
-                |> List.distinct
-
-            let fileExt =
-                args.Value("-e", "--extension")
-                |> Option.map (fun e ->
-                    if e.StartsWith('.') then
-                        e
-                    else
-                        "." + e
-                )
-                |> Option.defaultWith (fun () ->
-                    let usesOutDir = Option.isSome outDir
-                    File.defaultFileExt usesOutDir language
-                )
-
-            let compilerOptions =
-                CompilerOptionsHelper.Make(
-                    language = language,
-                    typedArrays = typedArrays,
-                    fileExtension = fileExt,
-                    define = define,
-                    debugMode = (configuration = "Debug"),
-                    optimizeFSharpAst = args.FlagEnabled "--optimize",
-                    noReflection = args.FlagEnabled "--noReflection",
-                    verbosity = verbosity
-                )
-
-            let cliArgs =
-                {
-                    ProjectFile = Path.normalizeFullPath projFile
-                    FableLibraryPath = fableLib
-                    RootDir = rootDir
-                    Configuration = configuration
-                    OutDir = outDir
-                    IsWatch = watch
-                    Precompile = precompile
-                    PrecompiledLib = precompiledLib
-                    PrintAst = args.FlagEnabled "--printAst"
-                    SourceMaps = args.FlagEnabled "-s" || args.FlagEnabled "--sourceMaps"
-                    SourceMapsRoot = args.Value "--sourceMapsRoot"
-                    NoRestore = args.FlagEnabled "--noRestore"
-                    NoCache = args.FlagEnabled "--noCache"
-                    // TODO: If we select optimize we cannot have F#/Fable parallelization
-                    NoParallelTypeCheck = args.FlagEnabled "--noParallelTypeCheck"
-                    Exclude = args.Values "--exclude"
-                    Replace =
-                        args.Values "--replace"
-                        |> List.map (fun v ->
-                            let v = v.Split(':')
-                            v.[0], normalizeAbsolutePath v.[1]
-                        )
-                        |> Map
-                    RunProcess = runProc
-                    CompilerOptions = compilerOptions
-                    Verbosity = verbosity
-                }
-
-            let watchDelay =
-                if watch then
-                    args.Value("--watchDelay") |> Option.map int |> Option.defaultValue 200 |> Some
-                else
-                    None
-
-            let startCompilation () =
-                State.Create(cliArgs, ?watchDelay = watchDelay, useMSBuildForCracking = useMSBuildForCracking)
-                |> startCompilationAsync
-                |> Async.RunSynchronously
-
-            return!
-                // In CI builds, it may happen that two parallel Fable compilations try to precompile
-                // the same library at the same time, use a lock file to prevent issues in that case.
-                match outDir, precompile, watch with
-                | Some outDir, true, false -> File.withLock outDir startCompilation
-                | _ -> startCompilation ()
-                |> Result.mapEither ignore fst
-        }
-
-let clean (args: CliArgs) language rootDir =
-    let ignoreDirs = set [ "bin"; "obj"; "node_modules" ]
-
-    let outDir = args.Value("-o", "--outDir")
-
-    let fileExt =
-        args.Value("-e", "--extension")
-        |> Option.defaultWith (fun () ->
-            let usesOutDir = Option.isSome outDir
-            File.defaultFileExt usesOutDir language
-        )
-
-    let cleanDir = outDir |> Option.defaultValue rootDir |> IO.Path.GetFullPath
-
-    // clean is a potentially destructive operation, we need a permission before proceeding
-    Console.WriteLine("This will recursively delete all *{0}[.map] files in {1}", fileExt, cleanDir)
-
-    if not (args.FlagEnabled "--yes") then
-        Console.WriteLine("Please press 'Y' or 'y' if you want to continue: ")
-        let keyInfo = Console.ReadKey()
-        Console.WriteLine()
-
-        if keyInfo.Key <> ConsoleKey.Y then
-            Console.WriteLine("Clean was cancelled.")
-            exit 0
-
-    let mutable fileCount = 0
-    let mutable fableModulesDeleted = false
-
-    let rec recClean dir =
-        seq {
-            yield! IO.Directory.GetFiles(dir, "*" + fileExt)
-            yield! IO.Directory.GetFiles(dir, "*" + fileExt + ".map")
-        }
-        |> Seq.iter (fun file ->
-            IO.File.Delete(file)
-            fileCount <- fileCount + 1
-            Log.verbose (lazy ("Deleted " + file))
-        )
-
-        IO.Directory.GetDirectories(dir)
-        |> Array.filter (fun subdir -> ignoreDirs.Contains(IO.Path.GetFileName(subdir)) |> not)
-        |> Array.iter (fun subdir ->
-            if IO.Path.GetFileName(subdir) = Naming.fableModules then
-                IO.Directory.Delete(subdir, true)
-                fableModulesDeleted <- true
-
-                Log.always $"Deleted {IO.Path.GetRelativePath(rootDir, subdir)}"
-            else
-                recClean subdir
-        )
-
-    recClean cleanDir
-
-    if fileCount = 0 && not fableModulesDeleted then
-        Log.always ("No files have been deleted. If Fable output is in another directory, pass it as argument.")
-    else
-        Log.always ("Clean completed! Files deleted: " + string<int> fileCount)
-
-let getStatus =
-    function
-    | JavaScript
-    | TypeScript -> "stable"
-    | Python -> "beta"
-    | Rust -> "alpha"
-    | Dart -> "beta"
-    | Php -> "experimental"
-
-let getLibPkgVersion =
-    function
-    | JavaScript -> Some("npm", "@fable-org/fable-library-js", Literals.JS_LIBRARY_VERSION)
-    | TypeScript -> Some("npm", "@fable-org/fable-library-ts", Literals.JS_LIBRARY_VERSION)
-    | Python
-    | Rust
-    | Dart
-    | Php -> None
-
-let private logPrelude commands language =
-    match commands with
-    | [ "--version" ] -> ()
-    | _ ->
-        let status =
-            match getStatus language with
-            | "stable"
-            | "" -> ""
-            | status -> $" (status: {status})"
-
-        Log.always ($"Fable {Literals.VERSION}: F# to {language} compiler{status}")
-
-        match getLibPkgVersion language with
-        | Some(repository, pkgName, version) ->
-            Log.always ($"Minimum {pkgName} version (when installed from {repository}): {version}")
-        | None -> ()
-
-        Log.always ("\nThanks to the contributor! @" + Contributors.getRandom ())
-
-        Log.always ("Stand with Ukraine! https://standwithukraine.com.ua/" + "\n")
+    }
 
 [<EntryPoint>]
 let main argv =
+    CliArgs.allCommands |> List.iter CliArgs.root.Add
 
-    let createLogger level =
-        use factory =
-            LoggerFactory.Create(fun builder ->
-                builder.SetMinimumLevel(level).AddCustomConsole(fun options -> options.UseNoPrefixMsgStyle <- true)
-                |> ignore
-            )
+    CliArgs.watchCommand
+    |> Mutate.Command.mapAction (fun result ->
+        result |> printfn "PRINTING FROM WATCH %A"
 
-        factory.CreateLogger("")
+        result
+        |> Utils.getOptionResult CliArgs.config
+        |> fun x ->
+            x |> printfn "%A"
+            x
+        |> ValueOption.iter (printfn "PRINTING CONFIG %A")
 
-    // Set an initial logger in case, we fail to parse the CLI args
-    Log.setLogger Verbosity.Normal (createLogger LogLevel.Information)
+        result |> Utils.getCommandResult CliArgs.typescriptCommand |> printfn "%A"
+        result |> Utils.getOptionResult CliArgs.extension |> printfn "%A"
+        0
+    )
+    |> ignore
 
-    result {
-        let! argv, runProc =
-            argv
-            |> List.ofArray
-            |> List.splitWhile (fun a -> not (a.StartsWith("--run", StringComparison.Ordinal)))
-            |> function
-                | argv, flag :: runArgs ->
-                    match flag, runArgs with
-                    | "--run", exeFile :: args -> Ok(RunProcess(exeFile, args))
-                    | "--runFast", exeFile :: args -> Ok(RunProcess(exeFile, args, fast = true))
-                    | "--runWatch", exeFile :: args -> Ok(RunProcess(exeFile, args, watch = true))
-                    | "--runScript", args -> Ok(RunProcess(Naming.placeholder, args, watch = true))
-                    | _, [] -> Error("Missing command after " + flag)
-                    | _ -> Error("Unknown argument " + flag)
-                    |> Result.map (fun runProc -> argv, Some runProc)
-                | argv, [] -> Ok(argv, None)
+    CliArgs.root
+    |> Mutate.Command.mapAction (fun result ->
+        result
+        |> Utils.getCommandResult CliArgs.watchCommand
+        |> ValueOption.iter (printfn "PRINTING FROM ROOT %A")
 
-        let commands, args =
-            match argv with
-            | ("help" | "--help" | "-h") :: _ -> [ "--help" ], []
-            | "--version" :: _ -> [ "--version" ], []
-            | argv -> argv |> List.splitWhile (fun x -> x.StartsWith('-') |> not)
-
-        let! args = parseCliArgs args
-        let! language = argLanguage args
-        Compiler.SetLanguageUnsafe language
-
-        let rootDir =
-            match args.Value "--cwd" with
-            | Some rootDir -> File.getExactFullPath rootDir
-            | None -> IO.Directory.GetCurrentDirectory()
-
-        let level, verbosity =
-            match commands with
-            | [ "--version" ] -> LogLevel.Information, Verbosity.Normal
-            | _ ->
-                if args.FlagEnabled "--verbose" then
-                    LogLevel.Debug, Verbosity.Verbose
-                else
-                    LogLevel.Information, Verbosity.Normal
-
-        // Override the logger now that we know the verbosity level
-        Log.setLogger verbosity (createLogger level)
-
-        logPrelude commands language
-
-        match commands with
-        | [ "--help" ] -> return printHelp ()
-        | [ "--version" ] -> return Log.always Literals.VERSION
-        | [ "clean"; dir ] -> return clean args language dir
-        | [ "clean" ] -> return clean args language rootDir
-        | [ "watch"; path ] ->
-            return! Runner.Run(args, language, rootDir, runProc, verbosity, fsprojPath = path, watch = true)
-        | [ "watch" ] -> return! Runner.Run(args, language, rootDir, runProc, verbosity, watch = true)
-        | [ "precompile"; path ] ->
-            return! Runner.Run(args, language, rootDir, runProc, verbosity, fsprojPath = path, precompile = true)
-        | [ "precompile" ] -> return! Runner.Run(args, language, rootDir, runProc, verbosity, precompile = true)
-        | [ path ] ->
-            return!
-                Runner.Run(
-                    args,
-                    language,
-                    rootDir,
-                    runProc,
-                    verbosity,
-                    fsprojPath = path,
-                    watch = args.FlagEnabled("--watch")
-                )
-        | [] -> return! Runner.Run(args, language, rootDir, runProc, verbosity, watch = args.FlagEnabled("--watch"))
-        | _ -> return! "Unexpected arguments" |> generateHelpWithPrefix |> Error
-    }
-    |> function
-        | Ok _ -> 0
-        | Error msg ->
-            Log.error msg
-            1
+        0
+    )
+    |> Command.parseAndInvoke argv
