@@ -13,15 +13,17 @@
     <Description>F# to JS compiler</Description>
     <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
   </PropertyGroup>
+<!--  <ItemGroup>-->
+<!--    <Content Include="..\..\temp\fable-library-js\**\*.*" PackagePath="fable-library-js\" />-->
+<!--    <Content Include="..\..\temp\fable-library-ts\**\*.*" PackagePath="fable-library-ts\" />-->
+<!--    <Content Include="..\..\temp\fable-library-py\**\*.*" PackagePath="fable-library-py\" />-->
+<!--    <Content Include="..\..\temp\fable-library-rust\**\*.*" PackagePath="fable-library-rust\" />-->
+<!--    <Content Include="..\..\temp\fable-library-dart\**\*.*" PackagePath="fable-library-dart\" />-->
+<!--    <Content Include="..\fable-library-php\**\*.*" PackagePath="fable-library-php\" />-->
+<!--  </ItemGroup>-->
   <ItemGroup>
-    <Content Include="..\..\temp\fable-library-js\**\*.*" PackagePath="fable-library-js\" />
-    <Content Include="..\..\temp\fable-library-ts\**\*.*" PackagePath="fable-library-ts\" />
-    <Content Include="..\..\temp\fable-library-py\**\*.*" PackagePath="fable-library-py\" />
-    <Content Include="..\..\temp\fable-library-rust\**\*.*" PackagePath="fable-library-rust\" />
-    <Content Include="..\..\temp\fable-library-dart\**\*.*" PackagePath="fable-library-dart\" />
-    <Content Include="..\fable-library-php\**\*.*" PackagePath="fable-library-php\" />
-  </ItemGroup>
-  <ItemGroup>
+    <Compile Include="CommandLine.fs" />
+    <Compile Include="Spec.fs" />
     <Compile Include="Contributors.fs" />
     <Compile Include="Printers.fs" />
     <Compile Include="FileWatchers.fsi" />
@@ -47,8 +49,10 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="EluciusFTW.SpectreCoff" Version="0.50.7" />
     <PackageReference Include="FSharp.SystemTextJson" Version="1.3.13" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
     <PackageReference Include="source-map-sharp" Version="1.0.9" />
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta7.25380.108" />
   </ItemGroup>
 </Project>
