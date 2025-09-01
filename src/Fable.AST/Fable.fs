@@ -191,16 +191,16 @@ type Type =
     | String
     | Regex
     | Number of kind: NumberKind * info: NumberInfo
-    | Option of genArg: Type * isStruct: bool
-    | Tuple of genArg: Type list * isStruct: bool
-    | Array of genArg: Type * kind: ArrayKind
-    | List of genArg: Type
+    | Option of genericArg: Type * isStruct: bool
+    | Tuple of genericArg: Type list * isStruct: bool
+    | Array of genericArg: Type * kind: ArrayKind
+    | List of genericArg: Type
     | LambdaType of argType: Type * returnType: Type
     | DelegateType of argTypes: Type list * returnType: Type
     | GenericParam of name: string * isMeasure: bool * constraints: Constraint list
-    | DeclaredType of ref: EntityRef * genArgs: Type list
-    | AnonymousRecordType of fieldNames: string[] * genArgs: Type list * isStruct: bool
-    | Nullable of genArg: Type * isStruct: bool
+    | DeclaredType of ref: EntityRef * genericArgs: Type list
+    | AnonymousRecordType of fieldNames: string[] * genericArgs: Type list * isStruct: bool
+    | Nullable of genericArg: Type * isStruct: bool
 
     member this.Generics =
         match this with
