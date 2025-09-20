@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [TS] Enable typedArrays flag usage for TypeScript (by @ncave)
 * [All] Fix #4221 Fable.Type union case arg names (by @ncave)
 * [All] Erase Nullable Reference Types to inner type (by @ncave)
 * [Python] Improve Python (e.g. Pydantic) interop (by @dbrattli)

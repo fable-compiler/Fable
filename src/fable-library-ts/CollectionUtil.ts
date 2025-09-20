@@ -1,4 +1,4 @@
-import { Exception, equals, isArrayLike } from "./Util.js";
+import { Exception, MutableArray, equals, isArrayLike } from "./Util.js";
 
 export function count<T>(col: Iterable<T>): number {
   if (typeof (col as any)["System.Collections.Generic.ICollection`1.get_Count"] === "function") {
@@ -29,7 +29,7 @@ export function isReadOnly<T>(col: Iterable<T>): boolean {
     return (col as any)["System.Collections.Generic.ICollection`1.get_IsReadOnly"](); // collection
   } else {
     if (isArrayLike(col)) {
-      return ArrayBuffer.isView(col); // true for typed arrays, false for other arrays
+      return false; // array, resize array
     } else {
       if (typeof (col as any).size === "number") {
         return false; // map, set
@@ -41,7 +41,7 @@ export function isReadOnly<T>(col: Iterable<T>): boolean {
   }
 }
 
-export function copyTo<T>(col: Iterable<T>, array: T[], arrayIndex: number) {
+export function copyTo<T>(col: Iterable<T>, array: MutableArray<T>, arrayIndex: number) {
   if (typeof (col as any)["System.Collections.Generic.ICollection`1.CopyToZ3B4C077E"] === "function") {
     (col as any)["System.Collections.Generic.ICollection`1.CopyToZ3B4C077E"](array, arrayIndex); // collection
   } else {

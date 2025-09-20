@@ -711,11 +711,17 @@ module Annotation =
         |> TupleTypeAnnotation
 
     let makeArrayTypeAnnotation com ctx genArg kind =
-        match genArg with
-        | JS.Replacements.TypedArrayCompatible com kind name -> makeAliasTypeAnnotation com ctx name
-        | _ ->
+        // match genArg with
+        // | JS.Replacements.TypedArrayCompatible com kind name -> makeAliasTypeAnnotation com ctx name
+        // | _ ->
+        //     // makeNativeTypeAnnotation com ctx [genArg] "Array"
+        //     makeTypeAnnotation com ctx genArg |> ArrayTypeAnnotation
+        match kind with
+        | Fable.ResizeArray ->
             // makeNativeTypeAnnotation com ctx [genArg] "Array"
             makeTypeAnnotation com ctx genArg |> ArrayTypeAnnotation
+        | Fable.MutableArray
+        | Fable.ImmutableArray -> makeFableLibImportTypeAnnotation com ctx [ genArg ] "Util" "MutableArray"
 
     let makeListTypeAnnotation com ctx genArg =
         makeFableLibImportTypeAnnotation com ctx [ genArg ] "List" "FSharpList"
@@ -1423,6 +1429,14 @@ module Util =
             | args when info.HasSpread ->
                 let args, lastArg = List.splitLast args
                 let args = args |> List.map (fun a -> a, ParameterFlags())
+
+                let lastArg =
+                    match lastArg.Type with
+                    | Fable.Array(genArg, Fable.MutableArray) ->
+                        // modify the last argument's type if it's a spread parameter
+                        { lastArg with Type = Fable.Array(genArg, Fable.ResizeArray) }
+                    | _ -> lastArg
+
                 args @ [ lastArg, ParameterFlags(isSpread = true) ]
 
             | thisArg :: args when info.IsInstance && List.sameLength args parameters ->
@@ -4083,14 +4097,21 @@ but thanks to the optimisation done below we get
 
             let args =
                 args
-                |> Array.mapi (fun i a ->
-                    let name = defaultArg a.Name $"arg{i}"
+                |> Array.mapi (fun i arg ->
+                    let name = defaultArg arg.Name $"arg{i}"
+
+                    let argType =
+                        match arg.Type with
+                        | Fable.Array(genArg, Fable.MutableArray) when (i = argsLen - 1 && info.HasSpread) ->
+                            // modify the last argument's type if it's a spread parameter
+                            Fable.Array(genArg, Fable.ResizeArray)
+                        | _ -> arg.Type
 
                     let ta =
-                        if a.IsOptional then
-                            unwrapOptionalType a.Type
+                        if arg.IsOptional then
+                            unwrapOptionalType argType
                         else
-                            a.Type
+                            argType
                         |> FableTransforms.uncurryType
                         |> makeTypeAnnotation com ctx
 
@@ -4098,9 +4119,9 @@ but thanks to the optimisation done below we get
                         .parameter(name, ta)
                         .WithFlags(
                             ParameterFlags(
-                                isOptional = a.IsOptional,
+                                isOptional = arg.IsOptional,
                                 isSpread = (i = argsLen - 1 && info.HasSpread),
-                                isNamed = a.IsNamed
+                                isNamed = arg.IsNamed
                             )
                         )
                 )

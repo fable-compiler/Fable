@@ -1277,7 +1277,7 @@ let tests =
     testCase "Array ICollection.IsReadOnly with typed arrays works" <| fun _ ->
         let xs = [| 1; 2; 3 |]
         let coll = xs :> ICollection<_>
-#if FABLE_COMPILER_TYPESCRIPT
+#if FABLE_COMPILER_JAVASCRIPT || FABLE_COMPILER_TYPESCRIPT
         coll.IsReadOnly |> equal false // Arrays are the same as ResizeArrays
 #else
         coll.IsReadOnly |> equal true
