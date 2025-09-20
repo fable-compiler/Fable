@@ -744,17 +744,18 @@ let chunkBySize (chunkSize: int) (array: 'T[]) : 'T[][] =
     if chunkSize < 1 then
         invalidArg "size" "The input must be positive."
 
-    if array.Length = 0 then
-        ResizeArray<'T[]>() |> asArray
-    else
-        let result = ResizeArray<'T[]>()
+    let result = ResizeArray<'T[]>()
+
+    if array.Length > 0 then
+        let chunks = int (System.Math.Ceiling(float (array.Length) / float (chunkSize)))
+
         // add each chunk to the result
-        for x = 0 to int (System.Math.Ceiling(float (array.Length) / float (chunkSize))) - 1 do
+        for x = 0 to chunks - 1 do
             let start = x * chunkSize
             let slice = subArrayImpl array start chunkSize
             pushImpl result slice |> ignore
 
-        result |> asArray
+    result |> asArray
 
 let splitAt (index: int) (array: 'T[]) : 'T[] * 'T[] =
     if index < 0 || index > array.Length then
@@ -1082,10 +1083,9 @@ let splitInto (chunks: int) (array: 'T[]) : 'T[][] =
     if chunks < 1 then
         invalidArg "chunks" "The input must be positive."
 
-    if array.Length = 0 then
-        ResizeArray<'T[]>() |> asArray
-    else
-        let result = ResizeArray<'T[]>()
+    let result = ResizeArray<'T[]>()
+
+    if array.Length > 0 then
         let chunks = FSharp.Core.Operators.min chunks array.Length
         let minChunkSize = array.Length / chunks
         let chunksWithExtraItem = array.Length % chunks
@@ -1102,7 +1102,7 @@ let splitInto (chunks: int) (array: 'T[]) : 'T[][] =
             let slice = subArrayImpl array start chunkSize
             pushImpl result slice |> ignore
 
-        result |> asArray
+    result |> asArray
 
 let transpose (arrays: 'T[] seq) ([<OptionalArgument; Inject>] cons: Cons<'T>) : 'T[][] =
     let arrays =

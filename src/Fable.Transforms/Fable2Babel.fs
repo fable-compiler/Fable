@@ -711,11 +711,6 @@ module Annotation =
         |> TupleTypeAnnotation
 
     let makeArrayTypeAnnotation com ctx genArg kind =
-        // match genArg with
-        // | JS.Replacements.TypedArrayCompatible com kind name -> makeAliasTypeAnnotation com ctx name
-        // | _ ->
-        //     // makeNativeTypeAnnotation com ctx [genArg] "Array"
-        //     makeTypeAnnotation com ctx genArg |> ArrayTypeAnnotation
         match kind with
         | Fable.ResizeArray ->
             // makeNativeTypeAnnotation com ctx [genArg] "Array"
@@ -3962,7 +3957,7 @@ but thanks to the optimisation done below we get
 
                     parameters
                     |> List.mapi (fun index arg ->
-                        let name = defaultArg arg.Name $"arg{index}"
+                        let name = defaultArg arg.Name $"arg%i{index}"
 
                         /// Try to find getter/setter in F# syntax for POJOs. If found propagate its xml doc to interface.
                         let tryXmlDoc =
@@ -4097,12 +4092,13 @@ but thanks to the optimisation done below we get
 
             let args =
                 args
-                |> Array.mapi (fun i arg ->
-                    let name = defaultArg arg.Name $"arg{i}"
+                |> Array.mapi (fun index arg ->
+                    let name = defaultArg arg.Name $"arg%i{index}"
+                    let argIsSpread = (index = argsLen - 1 && info.HasSpread)
 
                     let argType =
                         match arg.Type with
-                        | Fable.Array(genArg, Fable.MutableArray) when (i = argsLen - 1 && info.HasSpread) ->
+                        | Fable.Array(genArg, Fable.MutableArray) when argIsSpread ->
                             // modify the last argument's type if it's a spread parameter
                             Fable.Array(genArg, Fable.ResizeArray)
                         | _ -> arg.Type
@@ -4118,11 +4114,7 @@ but thanks to the optimisation done below we get
                     Parameter
                         .parameter(name, ta)
                         .WithFlags(
-                            ParameterFlags(
-                                isOptional = arg.IsOptional,
-                                isSpread = (i = argsLen - 1 && info.HasSpread),
-                                isNamed = arg.IsNamed
-                            )
+                            ParameterFlags(isOptional = arg.IsOptional, isSpread = argIsSpread, isNamed = arg.IsNamed)
                         )
                 )
 
