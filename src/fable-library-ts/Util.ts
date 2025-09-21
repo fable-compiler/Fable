@@ -2,32 +2,26 @@ export type Nullable<T> = T | null | undefined;
 
 export interface MutableArray<T> extends Iterable<T> {
   readonly length: number;
-  [n: number]: T;
-
-  find<S extends T>(predicate: (value: T, index: number, array: this) => value is S, thisArg?: any): S | undefined;
+  [index: number]: T;
+  every(predicate: (value: T, index: number, array: this) => unknown, thisArg?: any): boolean;
+  fill(value: T, start?: number, end?: number): this;
+  filter(predicate: (value: T, index: number, array: this) => unknown, thisArg?: any): this;
   find(predicate: (value: T, index: number, array: this) => unknown, thisArg?: any): T | undefined;
   findIndex(predicate: (value: T, index: number, array: this) => unknown, thisArg?: any): number;
-  fill(value: T, start?: number, end?: number): this;
-
-  join(separator?: string): string;
-  reverse(): this;
-  slice(start?: number, end?: number): this;
-  sort(compareFn?: (a: T, b: T) => number): this;
-  indexOf(searchElement: T, fromIndex?: number): number;
-  lastIndexOf(searchElement: T, fromIndex?: number): number;
-  // every<S extends T>(predicate: (value: T, index: number, array: this) => value is S, thisArg?: any): MutableArray<S>;
-  every(predicate: (value: T, index: number, array: this) => unknown, thisArg?: any): boolean;
-  some(predicate: (value: T, index: number, array: this) => unknown, thisArg?: any): boolean;
   forEach(callbackfn: (value: T, index: number, array: this) => void, thisArg?: any): void;
-  // map<U>(callbackfn: (value: T, index: number, array: this) => U, thisArg?: any): MutableArray<U>;
-  filter<S extends T>(predicate: (value: T, index: number, array: this) => value is S, thisArg?: any): MutableArray<S>;
-  filter(predicate: (value: T, index: number, array: this) => unknown, thisArg?: any): MutableArray<T>;
+  indexOf(searchElement: T, fromIndex?: number): number;
+  join(separator?: string): string;
+  lastIndexOf(searchElement: T, fromIndex?: number): number;
   reduce(callbackfn: (previousValue: T, currentValue: T, currentIndex: number, array: this) => T): T;
   reduce(callbackfn: (previousValue: T, currentValue: T, currentIndex: number, array: this) => T, initialValue: T): T;
   reduce<U>(callbackfn: (previousValue: U, currentValue: T, currentIndex: number, array: this) => U, initialValue: U): U;
   reduceRight(callbackfn: (previousValue: T, currentValue: T, currentIndex: number, array: this) => T): T;
   reduceRight(callbackfn: (previousValue: T, currentValue: T, currentIndex: number, array: this) => T, initialValue: T): T;
   reduceRight<U>(callbackfn: (previousValue: U, currentValue: T, currentIndex: number, array: this) => U, initialValue: U): U;
+  reverse(): this;
+  slice(start?: number, end?: number): this;
+  some(predicate: (value: T, index: number, array: this) => unknown, thisArg?: any): boolean;
+  sort(compareFn?: (a: T, b: T) => number): this;
 }
 
 // Don't change, this corresponds to DateTime.Kind enum values in .NET
