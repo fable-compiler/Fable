@@ -34,6 +34,7 @@ let handle (args: string list) =
                 |> CmdLine.appendPrefix "--outDir" fableDest
                 |> CmdLine.appendPrefix "--lang" "typescript"
                 |> CmdLine.appendPrefix "--exclude" "Fable.Core"
+                // |> CmdLine.appendPrefix "--typedArrays" "false"
                 |> CmdLine.appendRaw "--noCache"
 
                 // Let Fable handle the TypeScript invocation

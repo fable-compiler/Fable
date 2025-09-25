@@ -1,5 +1,29 @@
 export type Nullable<T> = T | null | undefined;
 
+export interface MutableArray<T> extends Iterable<T> {
+  readonly length: number;
+  [index: number]: T;
+  every(predicate: (value: T, index: number, array: this) => unknown, thisArg?: any): boolean;
+  fill(value: T, start?: number, end?: number): this;
+  filter(predicate: (value: T, index: number, array: this) => unknown, thisArg?: any): this;
+  find(predicate: (value: T, index: number, array: this) => unknown, thisArg?: any): T | undefined;
+  findIndex(predicate: (value: T, index: number, array: this) => unknown, thisArg?: any): number;
+  forEach(callbackfn: (value: T, index: number, array: this) => void, thisArg?: any): void;
+  indexOf(searchElement: T, fromIndex?: number): number;
+  join(separator?: string): string;
+  lastIndexOf(searchElement: T, fromIndex?: number): number;
+  reduce(callbackfn: (previousValue: T, currentValue: T, currentIndex: number, array: this) => T): T;
+  reduce(callbackfn: (previousValue: T, currentValue: T, currentIndex: number, array: this) => T, initialValue: T): T;
+  reduce<U>(callbackfn: (previousValue: U, currentValue: T, currentIndex: number, array: this) => U, initialValue: U): U;
+  reduceRight(callbackfn: (previousValue: T, currentValue: T, currentIndex: number, array: this) => T): T;
+  reduceRight(callbackfn: (previousValue: T, currentValue: T, currentIndex: number, array: this) => T, initialValue: T): T;
+  reduceRight<U>(callbackfn: (previousValue: U, currentValue: T, currentIndex: number, array: this) => U, initialValue: U): U;
+  reverse(): this;
+  slice(start?: number, end?: number): this;
+  some(predicate: (value: T, index: number, array: this) => unknown, thisArg?: any): boolean;
+  sort(compareFn?: (a: T, b: T) => number): this;
+}
+
 // Don't change, this corresponds to DateTime.Kind enum values in .NET
 export const enum DateKind {
   Unspecified = 0,
@@ -46,7 +70,7 @@ export interface ICollection<T> extends Iterable<T> {
   Add(item: T): void;
   Clear(): void;
   Contains(item: T): boolean;
-  CopyTo(array: T[], arrayIndex: number): void;
+  CopyTo(array: MutableArray<T>, arrayIndex: number): void;
   Remove(item: T): boolean;
 }
 
@@ -73,6 +97,10 @@ export function ensureErrorOrException(e: any): any {
 }
 
 export function isArrayLike<T>(x: T | ArrayLike<T> | Iterable<T>): x is T[] {
+  return Array.isArray(x) || ArrayBuffer.isView(x);
+}
+
+export function isMutableArray<T>(x: T | ArrayLike<T> | Iterable<T>): x is MutableArray<T> {
   return Array.isArray(x) || ArrayBuffer.isView(x);
 }
 
@@ -132,7 +160,7 @@ export interface IEnumerable<T> extends Iterable<T> {
 }
 
 export class Enumerable<T> implements IEnumerable<T> {
-  constructor(private en: IEnumerator<T>) {}
+  constructor(private en: IEnumerator<T>) { }
   public GetEnumerator(): IEnumerator<T> { return this.en; }
   public "System.Collections.IEnumerable.GetEnumerator"(): IEnumerator<any> { return this.en; }
   [Symbol.iterator]() {
@@ -933,7 +961,7 @@ export function curry20<T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, 
 }
 
 // More performant method to copy arrays, see #2352
-export function copyToArray<T>(source: T[], sourceIndex: number, target: T[], targetIndex: number, count: number): void {
+export function copyToArray<T>(source: MutableArray<T>, sourceIndex: number, target: MutableArray<T>, targetIndex: number, count: number): void {
   if (ArrayBuffer.isView(source) && ArrayBuffer.isView(target)) {
     (target as any).set((source as any).subarray(sourceIndex, sourceIndex + count), targetIndex);
   } else {

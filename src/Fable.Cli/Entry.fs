@@ -72,10 +72,7 @@ let knownCliArgs () =
         ]
         [ "--verbose" ], [ "Print more info during compilation" ]
         [ "--silent" ], [ "Don't print any log during compilation" ]
-        [ "--typedArrays" ],
-        [
-            "Compile numeric arrays as JS typed arrays (default is true for JS, false for TS)"
-        ]
+        [ "--typedArrays" ], [ "Compile numeric arrays as JS typed arrays (default is true)" ]
         [ "--watch" ], [ "Alias of watch command" ]
         [ "--watchDelay" ], [ "Delay in ms before recompiling after a file changes (default 200)" ]
         [], []
@@ -270,7 +267,7 @@ type Runner =
                 else
                     Ok fsprojPath
 
-            let typedArrays = args.FlagOr("--typedArrays", not (language = TypeScript))
+            let typedArrays = args.FlagOr("--typedArrays", true)
 
             let outDir = args.Value("-o", "--outDir") |> Option.map normalizeAbsolutePath
 
@@ -298,9 +295,6 @@ type Runner =
 
                 if List.contains outDirLast reservedDirs then
                     Error($"{outDirLast} is a reserved directory, please use another output directory")
-                // TODO: Remove this check when typed arrays are compatible with typescript
-                elif language = TypeScript && typedArrays then
-                    Error("Typescript output is currently not compatible with typed arrays, pass: --typedArrays false")
                 else
                     Ok()
 

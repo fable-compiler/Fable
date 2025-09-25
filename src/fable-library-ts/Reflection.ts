@@ -1,5 +1,5 @@
 import { FSharpRef, Record, Union } from "./Types.js";
-import { Exception, combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Util.js";
+import { Exception, MutableArray, combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Util.js";
 import Decimal from "./Decimal.js";
 
 export type FieldInfo = [string, TypeInfo];
@@ -50,9 +50,9 @@ export class TypeInfo implements IEquatable<TypeInfo> {
 }
 
 export class GenericParameter extends TypeInfo {
-    constructor(name: string) {
-      super(name);
-    }
+  constructor(name: string) {
+    super(name);
+  }
 }
 
 export function getGenerics(t: TypeInfo): TypeInfo[] {
@@ -424,7 +424,7 @@ export function getUnionCaseFields(uci: CaseInfo): FieldInfo[] {
 // This is used as replacement of `FSharpValue.GetRecordFields`
 // For `FSharpTypes.GetRecordFields` see `getRecordElements`
 // Object.keys returns keys in the order they were added to the object
-export function getRecordFields(v: any): any[] {
+export function getRecordFields(v: any): MutableArray<any> {
   return Object.keys(v).map((k) => v[k]);
 }
 
@@ -432,7 +432,7 @@ export function getRecordField(v: any, field: FieldInfo): any {
   return v[field[0]];
 }
 
-export function getTupleFields(v: any): any[] {
+export function getTupleFields(v: any): MutableArray<any> {
   return v;
 }
 
@@ -440,7 +440,7 @@ export function getTupleField(v: any, i: number): any {
   return v[i];
 }
 
-export function makeUnion(uci: CaseInfo, values: any[]): any {
+export function makeUnion(uci: CaseInfo, values: MutableArray<any>): any {
   const expectedLength = (uci.fields || []).length;
   if (values.length !== expectedLength) {
     throw new Exception(`Expected an array of length ${expectedLength} but got ${values.length}`);
@@ -458,7 +458,7 @@ export function makeUnion(uci: CaseInfo, values: any[]): any {
   }
 }
 
-export function makeRecord(t: TypeInfo, values: any[]): any {
+export function makeRecord(t: TypeInfo, values: MutableArray<any>): any {
   const fields = getRecordElements(t);
   if (fields.length !== values.length) {
     throw new Exception(`Expected an array of length ${fields.length} but got ${values.length}`);
@@ -471,7 +471,7 @@ export function makeRecord(t: TypeInfo, values: any[]): any {
     }, {} as any);
 }
 
-export function makeTuple(values: any[], _t: TypeInfo): any {
+export function makeTuple(values: MutableArray<any>, _t: TypeInfo): any {
   return values;
 }
 

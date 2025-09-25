@@ -13,6 +13,9 @@ type Cons<'T> =
     abstract Allocate: len: int -> 'T[]
 
 module Helpers =
+    [<Emit("$0")>]
+    let inline internal asArray (a: ResizeArray<'T>) : 'T[] = nativeOnly
+
     [<Emit("Array.from($0)")>]
     let arrayFrom (xs: 'T seq) : 'T[] = nativeOnly
 
@@ -39,7 +42,7 @@ module Helpers =
     //     !!target?set(source, offset)
 
     [<Emit("$0.concat(...$1)")>]
-    let inline concatImpl (array1: 'T[]) (arrays: 'T[] seq) : 'T[] = nativeOnly
+    let inline concatImpl (array1: ResizeArray<'T>) (arrays: 'T[] seq) : ResizeArray<'T> = nativeOnly
 
     let inline fillImpl (array: 'T[]) (value: 'T) (start: int) (count: int) : 'T[] =
         !!array?fill(value, start, start + count)
@@ -57,13 +60,21 @@ module Helpers =
         !!array?reduceRight(System.Func<'State, 'T, int, 'State>(folder), state)
 
     // Typed arrays not supported, only dynamic ones do
-    let inline pushImpl (array: 'T[]) (item: 'T) : int = !!array?push(item)
+    let inline pushImpl (array: ResizeArray<'T>) (item: 'T) : int = !!array?push(item)
 
     // Typed arrays not supported, only dynamic ones do
-    let inline insertImpl (array: 'T[]) (index: int) (item: 'T) : 'T[] = !!array?splice(index, 0, item)
+    let inline insertImpl (array: ResizeArray<'T>) (index: int) (item: 'T) : ResizeArray<'T> =
+        !!array?splice(index, 0, item)
 
     // Typed arrays not supported, only dynamic ones do
-    let inline spliceImpl (array: 'T[]) (start: int) (deleteCount: int) : 'T[] = !!array?splice(start, deleteCount)
+    let inline spliceImpl (array: ResizeArray<'T>) (start: int) (deleteCount: int) : ResizeArray<'T> =
+        !!array?splice(start, deleteCount)
+
+    let inline sliceImpl (array: ResizeArray<'T>) (start: int) (count: int) : ResizeArray<'T> =
+        !!array?slice(start, start + count)
+
+    let inline findAllImpl (predicate: 'T -> bool) (array: ResizeArray<'T>) : ResizeArray<'T> =
+        !!array?filter(predicate)
 
     let inline reverseImpl (array: 'T[]) : 'T[] = !!array?reverse()
 

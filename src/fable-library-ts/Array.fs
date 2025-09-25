@@ -375,16 +375,20 @@ let takeWhile predicate (array: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'
     else
         subArrayImpl array 0 count
 
-let addInPlace (x: 'T) (array: 'T[]) =
+let findAll (predicate: 'T -> bool) (array: ResizeArray<'T>) = findAllImpl predicate array
+
+let getRange (array: ResizeArray<'T>) (start: int) (count: int) = sliceImpl array start count
+
+let addInPlace (x: 'T) (array: ResizeArray<'T>) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
     pushImpl array x |> ignore
 
-let addRangeInPlace (range: seq<'T>) (array: 'T[]) =
+let addRangeInPlace (range: seq<'T>) (array: ResizeArray<'T>) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
     for x in range do
         addInPlace x array
 
-let insertRangeInPlace index (range: seq<'T>) (array: 'T[]) =
+let insertRangeInPlace index (range: seq<'T>) (array: ResizeArray<'T>) =
     // if isTypedArrayImpl array then invalidArg "array" "Typed arrays not supported"
     let mutable i = index
 
@@ -392,8 +396,8 @@ let insertRangeInPlace index (range: seq<'T>) (array: 'T[]) =
         insertImpl array i x |> ignore
         i <- i + 1
 
-let removeInPlace (item: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>) =
-    let i = indexOf array item None None eq
+let removeInPlace (item: 'T) (array: ResizeArray<'T>) ([<Inject>] eq: IEqualityComparer<'T>) =
+    let i = indexOf (array |> asArray) item None None eq
 
     if i > -1 then
         spliceImpl array i 1 |> ignore
@@ -401,9 +405,9 @@ let removeInPlace (item: 'T) (array: 'T[]) ([<Inject>] eq: IEqualityComparer<'T>
     else
         false
 
-let removeAllInPlace predicate (array: 'T[]) =
+let removeAllInPlace predicate (array: ResizeArray<'T>) =
     let rec countRemoveAll count =
-        let i = findIndexImpl predicate array
+        let i = findIndexImpl predicate (array |> asArray)
 
         if i > -1 then
             spliceImpl array i 1 |> ignore
@@ -528,7 +532,7 @@ let tryFindIndexBack predicate (array: _[]) =
     loop (array.Length - 1)
 
 let choose (chooser: 'T -> 'U option) (array: 'T[]) ([<OptionalArgument; Inject>] cons: Cons<'U>) =
-    let res: 'U[] = [||]
+    let res = ResizeArray<'U>()
 
     for i = 0 to array.Length - 1 do
         match chooser array.[i] with
@@ -536,8 +540,8 @@ let choose (chooser: 'T -> 'U option) (array: 'T[]) ([<OptionalArgument; Inject>
         | Some y -> pushImpl res y |> ignore
 
     match box cons with
-    | null -> res // avoid extra copy
-    | _ -> map id res cons
+    | null -> res |> asArray // avoid extra copy
+    | _ -> map id (res |> asArray) cons
 
 let foldIndexed<'T, 'State> folder (state: 'State) (array: 'T[]) =
     // if isTypedArrayImpl array then
@@ -669,7 +673,7 @@ let allPairs (xs: 'T1[]) (ys: 'T2[]) : ('T1 * 'T2)[] =
     res
 
 let unfold<'T, 'State> (generator: 'State -> ('T * 'State) option) (state: 'State) : 'T[] =
-    let res: 'T[] = [||]
+    let res = ResizeArray<'T>()
 
     let rec loop state =
         match generator state with
@@ -679,7 +683,7 @@ let unfold<'T, 'State> (generator: 'State -> ('T * 'State) option) (state: 'Stat
             loop s
 
     loop state
-    res
+    res |> asArray
 
 // TODO: We should pass Cons<'T> here (and unzip3) but 'a and 'b may differ
 let unzip (array: _[]) =
@@ -740,17 +744,18 @@ let chunkBySize (chunkSize: int) (array: 'T[]) : 'T[][] =
     if chunkSize < 1 then
         invalidArg "size" "The input must be positive."
 
-    if array.Length = 0 then
-        [| [||] |]
-    else
-        let result: 'T[][] = [||]
+    let result = ResizeArray<'T[]>()
+
+    if array.Length > 0 then
+        let chunks = int (System.Math.Ceiling(float (array.Length) / float (chunkSize)))
+
         // add each chunk to the result
-        for x = 0 to int (System.Math.Ceiling(float (array.Length) / float (chunkSize))) - 1 do
+        for x = 0 to chunks - 1 do
             let start = x * chunkSize
             let slice = subArrayImpl array start chunkSize
             pushImpl result slice |> ignore
 
-        result
+    result |> asArray
 
 let splitAt (index: int) (array: 'T[]) : 'T[] * 'T[] =
     if index < 0 || index > array.Length then
@@ -1078,10 +1083,9 @@ let splitInto (chunks: int) (array: 'T[]) : 'T[][] =
     if chunks < 1 then
         invalidArg "chunks" "The input must be positive."
 
-    if array.Length = 0 then
-        [| [||] |]
-    else
-        let result: 'T[][] = [||]
+    let result = ResizeArray<'T[]>()
+
+    if array.Length > 0 then
         let chunks = FSharp.Core.Operators.min chunks array.Length
         let minChunkSize = array.Length / chunks
         let chunksWithExtraItem = array.Length % chunks
@@ -1098,7 +1102,7 @@ let splitInto (chunks: int) (array: 'T[]) : 'T[][] =
             let slice = subArrayImpl array start chunkSize
             pushImpl result slice |> ignore
 
-        result
+    result |> asArray
 
 let transpose (arrays: 'T[] seq) ([<OptionalArgument; Inject>] cons: Cons<'T>) : 'T[][] =
     let arrays =

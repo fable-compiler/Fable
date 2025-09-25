@@ -1967,13 +1967,12 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
 
         Helper.LibCall(com, "Option", "defaultArg", t, [ opt; defaultof com ctx r t ], ?loc = r)
         |> Some
-    | "FindAll", Some ar, [ arg ] -> Helper.LibCall(com, "Array", "filter", t, [ arg; ar ], ?loc = r) |> Some
+    | "FindAll", Some ar, [ arg ] -> Helper.LibCall(com, "Array", "findAll", t, [ arg; ar ], ?loc = r) |> Some
     | "AddRange", Some ar, [ arg ] ->
         Helper.LibCall(com, "Array", "addRangeInPlace", t, [ arg; ar ], ?loc = r)
         |> Some
     | "GetRange", Some ar, [ idx; cnt ] ->
-        Helper.LibCall(com, "Array", "getSubArray", t, [ ar; idx; cnt ], ?loc = r)
-        |> Some
+        Helper.LibCall(com, "Array", "getRange", t, [ ar; idx; cnt ], ?loc = r) |> Some
     | "Contains", Some(MaybeCasted(ar)), [ arg ] ->
         let args = injectArg com ctx r "Array" "contains" i.GenericArgs [ arg; ar ]
 

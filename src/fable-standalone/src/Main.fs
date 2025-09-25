@@ -462,13 +462,6 @@ let init () =
             (fableLibrary: string, results: IParseAndCheckResults, fileName: string, typedArrays, language)
             =
             let language = getLanguage language
-
-            // if not set, default to true to all languages except TypeScript
-            let typedArrays =
-                match typedArrays with
-                | None -> Some(language <> TypeScript)
-                | _ -> typedArrays
-
             compileToTargetAst results fileName fableLibrary typedArrays language
 
         member _.PrintTargetAst(fableResult, writer) =

@@ -17,8 +17,10 @@ type BuildFableLibraryTypeScript() =
         )
 
     override _.FableArgsBuilder =
-        CmdLine.appendPrefix "--typedArrays" "false"
-        >> CmdLine.appendPrefix "--define" "FX_NO_BIGINT"
+        fun cmd ->
+            cmd
+            // |> CmdLine.appendPrefix "--typedArrays" "false"
+            |> CmdLine.appendPrefix "--define" "FX_NO_BIGINT"
 
     override this.CopyStage() =
         Command.Run("npm", "install", workingDirectory = Build.Workspace.root)

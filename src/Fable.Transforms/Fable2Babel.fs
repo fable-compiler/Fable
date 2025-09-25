@@ -711,11 +711,12 @@ module Annotation =
         |> TupleTypeAnnotation
 
     let makeArrayTypeAnnotation com ctx genArg kind =
-        match genArg with
-        | JS.Replacements.TypedArrayCompatible com kind name -> makeAliasTypeAnnotation com ctx name
-        | _ ->
+        match kind with
+        | Fable.ResizeArray ->
             // makeNativeTypeAnnotation com ctx [genArg] "Array"
             makeTypeAnnotation com ctx genArg |> ArrayTypeAnnotation
+        | Fable.MutableArray
+        | Fable.ImmutableArray -> makeFableLibImportTypeAnnotation com ctx [ genArg ] "Util" "MutableArray"
 
     let makeListTypeAnnotation com ctx genArg =
         makeFableLibImportTypeAnnotation com ctx [ genArg ] "List" "FSharpList"
@@ -1423,6 +1424,14 @@ module Util =
             | args when info.HasSpread ->
                 let args, lastArg = List.splitLast args
                 let args = args |> List.map (fun a -> a, ParameterFlags())
+
+                let lastArg =
+                    match lastArg.Type with
+                    | Fable.Array(genArg, Fable.MutableArray) ->
+                        // modify the last argument's type if it's a spread parameter
+                        { lastArg with Type = Fable.Array(genArg, Fable.ResizeArray) }
+                    | _ -> lastArg
+
                 args @ [ lastArg, ParameterFlags(isSpread = true) ]
 
             | thisArg :: args when info.IsInstance && List.sameLength args parameters ->
@@ -3948,7 +3957,7 @@ but thanks to the optimisation done below we get
 
                     parameters
                     |> List.mapi (fun index arg ->
-                        let name = defaultArg arg.Name $"arg{index}"
+                        let name = defaultArg arg.Name $"arg%i{index}"
 
                         /// Try to find getter/setter in F# syntax for POJOs. If found propagate its xml doc to interface.
                         let tryXmlDoc =
@@ -4083,25 +4092,29 @@ but thanks to the optimisation done below we get
 
             let args =
                 args
-                |> Array.mapi (fun i a ->
-                    let name = defaultArg a.Name $"arg{i}"
+                |> Array.mapi (fun index arg ->
+                    let name = defaultArg arg.Name $"arg%i{index}"
+                    let argIsSpread = (index = argsLen - 1 && info.HasSpread)
+
+                    let argType =
+                        match arg.Type with
+                        | Fable.Array(genArg, Fable.MutableArray) when argIsSpread ->
+                            // modify the last argument's type if it's a spread parameter
+                            Fable.Array(genArg, Fable.ResizeArray)
+                        | _ -> arg.Type
 
                     let ta =
-                        if a.IsOptional then
-                            unwrapOptionalType a.Type
+                        if arg.IsOptional then
+                            unwrapOptionalType argType
                         else
-                            a.Type
+                            argType
                         |> FableTransforms.uncurryType
                         |> makeTypeAnnotation com ctx
 
                     Parameter
                         .parameter(name, ta)
                         .WithFlags(
-                            ParameterFlags(
-                                isOptional = a.IsOptional,
-                                isSpread = (i = argsLen - 1 && info.HasSpread),
-                                isNamed = a.IsNamed
-                            )
+                            ParameterFlags(isOptional = arg.IsOptional, isSpread = argIsSpread, isNamed = arg.IsNamed)
                         )
                 )
 
