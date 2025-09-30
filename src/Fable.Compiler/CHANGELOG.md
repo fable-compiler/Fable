@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
 * [All] Added `ofOption`/`toOption`/`ofValueOption`/`toValueOption` (by @ncave)
 * [Python] Added `Decorate` attribute to add Python decorators to classes (by @dbrattli)
 * [Python] Added `ClassAttributes` attribute to control Python class generation (@dbrattli)
