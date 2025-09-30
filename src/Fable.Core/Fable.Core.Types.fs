@@ -177,8 +177,24 @@ type EmitIndexerAttribute() =
 type EmitPropertyAttribute(propertyName: string) =
     inherit Attribute()
 
+/// <summary>
 /// Compile union types as string literals.
-/// More info: https://fable.io/docs/communicate/js-from-fable.html#stringenum-attribute
+/// </summary>
+/// <remarks>
+/// You can also use <c>[&lt;CompiledName>]</c> and <c>[&lt;CompiledValue>]</c> to
+/// specify the name or literal of the union case in the generated code:
+/// <code lang="fsharp">
+/// [&lt;StringEnum>]
+/// type EventType =
+///     | [&lt;CompiledName("Abracadabra")>] MouseOver
+///     | [&lt;CompiledValue(false)>] RealMagic
+/// let eventType = EventType.MouseOver // Compiles: "Abracadabra"
+/// let magicPower = EventType.RealMagic // Compiles: false
+/// </code>
+/// </remarks>
+/// <seealso href="https://fable.io/docs/javascript/features.html#caserules">
+/// Fable Documentation
+/// </seealso>
 [<AttributeUsage(AttributeTargets.Class)>]
 type StringEnumAttribute(caseRules: CaseRules) =
     inherit Attribute()
