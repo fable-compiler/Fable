@@ -2004,27 +2004,20 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
     | "IsSome", [ c ] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [ c ] -> Test(c, OptionTest false, r) |> Some
     | "DefaultValue", [ defValue; option ] -> defaultValue com ctx r t defValue option
-    | ("ToArray" | "ToList" | "OfNullable" | "ToNullable" | "OfObj" | "ToObj" | "Count" | "Contains" | "ForAll" | "Iterate" | "OrElse" | "DefaultWith" | "OrElseWith" | "Exists" | "Flatten" | "Fold" | "FoldBack" | "Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth),
+    | ("ToArray" | "ToList" | "OfNullable" | "ToNullable" | "OfObj" | "ToObj" | "OfOption" | "ToOption" | "OfValueOption" | "ToValueOption" | "Count" | "Contains" | "ForAll" | "Iterate" | "OrElse" | "DefaultWith" | "OrElseWith" | "Exists" | "Flatten" | "Fold" | "FoldBack" | "Filter" | "Map" | "Map2" | "Map3" | "Bind" as meth),
       args ->
-        Helper.LibCall(
-            com,
-            "Option",
-            Naming.lowerFirst meth,
-            t,
-            args,
-            i.SignatureArgTypes,
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+        let meth = Naming.lowerFirst meth
+
+        Helper.LibCall(com, "Option", meth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | _ -> None
 
 let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | ("Parse" | "TryParse" as method), args ->
-        let func = Naming.lowerFirst method
+    | ("Parse" | "TryParse" as meth), args ->
+        let meth = Naming.lowerFirst meth
 
-        Helper.LibCall(com, "Boolean", func, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        Helper.LibCall(com, "Boolean", meth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
     | _ -> None

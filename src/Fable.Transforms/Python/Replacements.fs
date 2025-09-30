@@ -1985,6 +1985,7 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
         let args = injectArg com ctx r "Seq" meth i.GenericArgs args
 
         Helper.LibCall(com, "seq", meth, t, args, i.SignatureArgTypes, ?loc = r) |> Some
+    | ("OfOption" | "ToOption" | "OfValueOption" | "ToValueOption"), [ arg ] -> arg |> Some
     | _ -> None
 
 let parseBool (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

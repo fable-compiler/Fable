@@ -167,6 +167,42 @@ let tests() =
         None |> Option.toList |> equal []
         Some (Leaf 7) |> Option.toList |> equal [Leaf 7]
 
+    testCase "Option.flatten works" <| fun () ->
+       let o1: int option option = Some (Some 1)
+       let o2: int option option = Some None
+       let o3: int option option = None
+       Option.flatten o1 |> equal (Some 1)
+       Option.flatten o2 |> equal None
+       Option.flatten o3 |> equal None
+
+//    testCase "Option.toObj works" <| fun () ->
+//        let o1: string option = Some "foo"
+//        let o2: string option = None
+//        Option.toObj o1 |> equal "foo"
+//        Option.toObj o2 |> equal null
+//
+//    testCase "Option.ofObj works" <| fun () ->
+//        let o1: string = "foo"
+//        let o2: string = null
+//        Option.ofObj o1 |> equal (Some "foo")
+//        Option.ofObj o2 |> equal None
+
+    testCase "ValueOption.ofOption works" <| fun () ->
+        Some 42 |> ValueOption.ofOption |> ValueOption.get |> equal 42
+        None |> ValueOption.ofOption |> ValueOption.isNone |> equal true
+
+    testCase "ValueOption.toOption works" <| fun () ->
+        ValueSome 42 |> ValueOption.toOption |> Option.get |> equal 42
+        ValueNone |> ValueOption.toOption |> Option.isNone |> equal true
+
+    testCase "Option.ofValueOption works" <| fun () ->
+        ValueSome 42 |> Option.ofValueOption |> Option.get |> equal 42
+        ValueNone |> Option.ofValueOption |> Option.isNone |> equal true
+
+    testCase "Option.toValueOption works" <| fun () ->
+        Some 42 |> Option.toValueOption |> ValueOption.get |> equal 42
+        None |> Option.toValueOption |> ValueOption.isNone |> equal true
+
     // https://github.com/fable-compiler/Fable/issues/1136
     testCase "Calling Some with side-effects works" <| fun () ->
         let mutable state = 0
@@ -243,26 +279,6 @@ let tests() =
         |> equal true
         x4.Value = 5 |> equal true
         Option.get x4 = 5 |> equal true
-
-    testCase "Option.flatten works" <| fun () ->
-       let o1: int option option = Some (Some 1)
-       let o2: int option option = Some None
-       let o3: int option option = None
-       Option.flatten o1 |> equal (Some 1)
-       Option.flatten o2 |> equal None
-       Option.flatten o3 |> equal None
-
-//    testCase "Option.toObj works" <| fun () ->
-//        let o1: string option = Some "foo"
-//        let o2: string option = None
-//        Option.toObj o1 |> equal "foo"
-//        Option.toObj o2 |> equal null
-//
-//    testCase "Option.ofObj works" <| fun () ->
-//        let o1: string = "foo"
-//        let o2: string = null
-//        Option.ofObj o1 |> equal (Some "foo")
-//        Option.ofObj o2 |> equal None
 
     testCase "Nested options work" <| fun () ->
         let test x1 x2 x3 =

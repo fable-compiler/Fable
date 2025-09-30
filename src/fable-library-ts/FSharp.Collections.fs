@@ -3,7 +3,7 @@ namespace FSharp.Collections
 open System.Collections.Generic
 
 module HashIdentity =
-    let FromFunctions<'T when 'T: not struct> (hasher: 'T -> int) (equals: 'T -> 'T -> bool) : IEqualityComparer<'T> =
+    let FromFunctions<'T when 'T: null> (hasher: 'T -> int) (equals: 'T -> 'T -> bool) : IEqualityComparer<'T> =
         { new IEqualityComparer<'T> with
             member _.GetHashCode(x) = hasher x
 
@@ -28,7 +28,7 @@ module HashIdentity =
         }
 
 module ComparisonIdentity =
-    let FromFunction<'T when 'T: not struct> (comparer: 'T -> 'T -> int) : IComparer<'T> =
+    let FromFunction<'T when 'T: null> (comparer: 'T -> 'T -> int) : IComparer<'T> =
         { new IComparer<'T> with
             member _.Compare(x, y) =
                 match x, y with
