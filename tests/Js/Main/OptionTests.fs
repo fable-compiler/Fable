@@ -197,6 +197,22 @@ let tests =
         Option.ofObj o2 |> equal None
 #endif
 
+    testCase "ValueOption.ofOption works" <| fun () ->
+        Some 42 |> ValueOption.ofOption |> ValueOption.get |> equal 42
+        None |> ValueOption.ofOption |> ValueOption.isNone |> equal true
+
+    testCase "ValueOption.toOption works" <| fun () ->
+        ValueSome 42 |> ValueOption.toOption |> Option.get |> equal 42
+        ValueNone |> ValueOption.toOption |> Option.isNone |> equal true
+
+    testCase "Option.ofValueOption works" <| fun () ->
+        ValueSome 42 |> Option.ofValueOption |> Option.get |> equal 42
+        ValueNone |> Option.ofValueOption |> Option.isNone |> equal true
+
+    testCase "Option.toValueOption works" <| fun () ->
+        Some 42 |> Option.toValueOption |> ValueOption.get |> equal 42
+        None |> Option.toValueOption |> ValueOption.isNone |> equal true
+
     // https://github.com/fable-compiler/Fable/issues/1136
     testCase "Calling Some with side-effects works" <| fun () ->
         let mutable state = 0

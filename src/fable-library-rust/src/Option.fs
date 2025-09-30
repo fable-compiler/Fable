@@ -145,6 +145,16 @@ let ofNullable (value: System.Nullable<'T>) =
 //     | None -> null
 //     | Some x -> box x
 
+let ofOption (option: 'T option) =
+    match option with
+    | None -> ValueNone
+    | Some x -> ValueSome x
+
+let toOption (voption: 'T voption) =
+    match voption with
+    | ValueNone -> None
+    | ValueSome x -> Some x
+
 let ofValueOption (voption: 'T voption) =
     match voption with
     | ValueNone -> None

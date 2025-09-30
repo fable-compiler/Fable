@@ -212,6 +212,26 @@ let ``test Option.ofObj works`` () =
     Option.ofObj o1 |> equal (Some "foo")
     Option.ofObj o2 |> equal None
 
+[<Fact>]
+let ``test ValueOption.ofOption works`` () =
+    Some 42 |> ValueOption.ofOption |> ValueOption.get |> equal 42
+    None |> ValueOption.ofOption |> ValueOption.isNone |> equal true
+
+[<Fact>]
+let ``test ValueOption.toOption works`` () =
+    ValueSome 42 |> ValueOption.toOption |> Option.get |> equal 42
+    ValueNone |> ValueOption.toOption |> Option.isNone |> equal true
+
+[<Fact>]
+let ``test Option.ofValueOption works`` () =
+    ValueSome 42 |> Option.ofValueOption |> Option.get |> equal 42
+    ValueNone |> Option.ofValueOption |> Option.isNone |> equal true
+
+[<Fact>]
+let ``test Option.toValueOption works`` () =
+    Some 42 |> Option.toValueOption |> ValueOption.get |> equal 42
+    None |> Option.toValueOption |> ValueOption.isNone |> equal true
+
 // https://github.com/fable-compiler/Fable/issues/1136
 [<Fact>]
 let ``test Calling Some with side-effects works`` () =
