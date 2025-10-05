@@ -2,6 +2,10 @@ namespace System.Collections.Generic
 
 open Global_
 
+type KeyNotFoundException(message: string) =
+    inherit System.Exception(message)
+    new() = KeyNotFoundException(SR.Arg_KeyNotFound)
+
 type Comparer<'T>(comparison: 'T -> 'T -> int) =
 
     static member get_Default<'V when 'V: comparison>() =

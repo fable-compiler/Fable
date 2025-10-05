@@ -1214,6 +1214,18 @@ let ``Unchecked.defaultof works with tuples`` () = // See #2491
     equal (struct (0, 0)) x
 
 [<Fact>]
+let ``nullArgCheck don't throw exception if argument is not null`` () =
+    let expected = "hello"
+    let value = nullArgCheck "arg1" expected
+    equal expected value
+
+[<Fact>]
+let ``nullArgCheck throws exception if argument is null`` () =
+    throwsError "Value cannot be null. (Parameter 'str')" (fun () ->
+        nullArgCheck "str" Unchecked.defaultof<string>
+    )
+
+[<Fact>]
 let ``Pattern matching optimization works (switch statement)`` () =
     let mutable x = ""
     let i = 4

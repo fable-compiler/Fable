@@ -160,7 +160,7 @@ let ``test TimeSpan totals work`` () =
 
 [<Fact>]
 let ``test TimeSpan.Duration works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let t = TimeSpan.FromMilliseconds(ms)
         t.Duration().TotalMilliseconds
         |> equal expected
@@ -170,7 +170,7 @@ let ``test TimeSpan.Duration works`` () =
 
 [<Fact>]
 let ``test TimeSpan.Negate works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let t = TimeSpan.FromMilliseconds(ms)
         t.Negate().TotalMilliseconds
         |> equal expected
@@ -180,7 +180,7 @@ let ``test TimeSpan.Negate works`` () =
 
 [<Fact>]
 let ``test TimeSpan Addition works`` () =
-    let test ms1 ms2 expected =
+    let test (ms1: float) (ms2: float) expected =
         let t1 = TimeSpan.FromMilliseconds(ms1)
         let t2 = TimeSpan.FromMilliseconds(ms2)
         let res1 = t1.Add(t2).TotalMilliseconds
@@ -197,7 +197,7 @@ let ``test TimeSpan Addition works`` () =
 
 [<Fact>]
 let ``test DateTime and TimeSpan Addition works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc)
         let ts = TimeSpan.FromMilliseconds(ms)
         let res1 = dt.Add(ts).ToUniversalTime()

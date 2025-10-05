@@ -4418,7 +4418,7 @@ module Util =
         let enumItem = mkEnumItem attrs entName variants generics
         enumItem
 
-    let ignoredBaseTypes = set [ Types.object; Types.valueType; Types.exception_ ]
+    let ignoredBaseTypes = set [ Types.object; Types.valueType ]
 
     let isValidBaseType (com: IRustCompiler) (entRef: Fable.EntityRef) =
         if Set.contains entRef.FullName ignoredBaseTypes then

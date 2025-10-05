@@ -2908,6 +2908,7 @@ module Util =
             let typ = makeType ctx.GenericArgs memb.FullType
             memberIdent com r typ memb membRef
 
+        // (optional, Dart only) Call the implicit constructor instead of the mangled one
         | _, Some entity when com.Options.Language = Dart && memb.IsImplicitConstructor ->
             let classExpr = FsEnt.Ref entity |> entityIdent com
             let callInfo = { callInfo with Tags = "new" :: callInfo.Tags }

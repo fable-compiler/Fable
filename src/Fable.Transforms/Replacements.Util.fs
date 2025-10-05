@@ -347,6 +347,31 @@ let (|Builtin|_|) =
         | _ -> None
     | _ -> None
 
+let (|BuiltinSystemException|_|) (ent: string) =
+    match ent with
+    | "System.ApplicationException"
+    | "System.ArgumentException"
+    | "System.ArgumentNullException"
+    | "System.ArgumentOutOfRangeException"
+    | "System.ArithmeticException"
+    | "System.DivideByZeroException"
+    | "System.FormatException"
+    | "System.IndexOutOfRangeException"
+    | "System.InvalidOperationException"
+    | "System.NotFiniteNumberException"
+    | "System.NotImplementedException"
+    | "System.NotSupportedException"
+    | "System.NullReferenceException"
+    | "System.OutOfMemoryException"
+    | "System.OverflowException"
+    | "System.RankException"
+    | "System.StackOverflowException"
+    | "System.SystemException"
+    | "System.TimeoutException" ->
+        let entName = ent.Substring(ent.LastIndexOf('.') + 1)
+        Some entName
+    | _ -> None
+
 let getElementType =
     function
     | Array(t, _) -> t
@@ -956,7 +981,7 @@ let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: Call
             |> StringConstant
             |> makeValue None
 
-        makeThrow r t (error runtimeMsg) |> Some
+        makeThrow r t (error com runtimeMsg) |> Some
 
     | "nameof"
     | "nameof2" as meth ->

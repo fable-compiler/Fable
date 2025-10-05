@@ -942,6 +942,7 @@ let tests =
         let obj = { new ObjectExprBase(x) with
                         override _.dup x = x * x }
         equal 25 x.contents
+#endif
 
     testCase "Composition with recursive `this` works" <| fun () ->
         let mutable x = 0
@@ -1047,6 +1048,7 @@ let tests =
     //
     // The same applies to try-with expression.
 
+#if !FABLE_COMPILER_TYPESCRIPT
 #if FABLE_COMPILER
     // This test fails if the system language is set to other language than English
     testCase "Pattern-matching against discriminated unions gives proper error message" <| fun () ->
@@ -1057,6 +1059,7 @@ let tests =
             | Square n -> failwith "Should not happen"
         with
             | ex -> ex.Message.StartsWith "Match failure" |> equal true
+#endif
 #endif
 
     testCase "Type of if-then-else expression is correctly determined when 'then' branch throws" <| fun () ->
@@ -1129,9 +1132,11 @@ let tests =
         Unchecked.defaultof<bool> |> equal false
         Unchecked.defaultof<string> |> equal null
         Unchecked.defaultof<Guid> |> equal Guid.Empty
+#if !FABLE_COMPILER_TYPESCRIPT
         let x = ValueType()
         Unchecked.defaultof<ValueType> |> equal x
         x.X |> equal 0
+#endif
 
     testCase "Unchecked.defaultof works with tuples" <| fun () -> // See #2491
         // TODO: Non-struct tuples
@@ -1146,7 +1151,7 @@ let tests =
         equal expected value
 
     testCase "nullArgCheck throws exception if argument is null" <| fun () ->
-        throwsError "Value cannot be null. (Parameter 'str')" (fun _ ->
+        throwsError "Value cannot be null. (Parameter 'str')" (fun () ->
             nullArgCheck "str" null
         )
 
@@ -1279,8 +1284,10 @@ let tests =
         let mutable b = 2
         incByRef a &b
         b |> equal 3
+#if !FABLE_COMPILER_TYPESCRIPT
         addInRef a &b |> equal 4
         b |> equal 3
+#endif
         setOutRef a &b
         b |> equal 1
 
@@ -1289,8 +1296,10 @@ let tests =
         mutX <- 2
         incByRef a &mutX
         mutX |> equal 3
+#if !FABLE_COMPILER_TYPESCRIPT
         addInRef a &mutX |> equal 4
         mutX |> equal 3
+#endif
         setOutRef a &mutX
         mutX |> equal 1
 
@@ -1299,8 +1308,10 @@ let tests =
         let foo: MutableFoo = { x = 2 }
         incByRef a &foo.x
         foo.x |> equal 3
+#if !FABLE_COMPILER_TYPESCRIPT
         addInRef a &foo.x |> equal 4
         foo.x |> equal 3
+#endif
         setOutRef a &foo.x
         foo.x |> equal 1
 
@@ -1349,5 +1360,4 @@ let tests =
         let times2 x = x * 2
         fn <- fn >> times2
         fn 5 |> equal 10
-#endif
   ]

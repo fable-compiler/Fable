@@ -173,7 +173,7 @@ let ``TimeSpan totals work`` () =
 
 [<Fact>]
 let ``TimeSpan.Duration works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let t = TimeSpan.FromMilliseconds(ms)
         t.Duration().TotalMilliseconds
         |> equal expected
@@ -183,7 +183,7 @@ let ``TimeSpan.Duration works`` () =
 
 [<Fact>]
 let ``TimeSpan.Negate works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let t = TimeSpan.FromMilliseconds(ms)
         t.Negate().TotalMilliseconds
         |> equal expected
@@ -193,7 +193,7 @@ let ``TimeSpan.Negate works`` () =
 
 [<Fact>]
 let ``TimeSpan Addition works`` () =
-    let test ms1 ms2 expected =
+    let test (ms1: float) (ms2: float) expected =
         let t1 = TimeSpan.FromMilliseconds(ms1)
         let t2 = TimeSpan.FromMilliseconds(ms2)
         let res1 = t1.Add(t2).TotalMilliseconds
@@ -210,7 +210,7 @@ let ``TimeSpan Addition works`` () =
 
 [<Fact>]
 let ``TimeSpan Subtraction works`` () =
-    let test ms1 ms2 expected =
+    let test (ms1: float) (ms2: float) expected =
         let t1 = TimeSpan.FromMilliseconds(ms1)
         let t2 = TimeSpan.FromMilliseconds(ms2)
         let res1 = t1.Subtract(t2).TotalMilliseconds
@@ -275,7 +275,7 @@ let ``TimeSpan Division works`` () =
 
 [<Fact>]
 let ``TimeSpan Comparison works`` () =
-    let test ms1 ms2 expected =
+    let test (ms1: float) (ms2: float) expected =
         let t1 = TimeSpan.FromMilliseconds(ms1)
         let t2 = TimeSpan.FromMilliseconds(ms2)
         let res1 = compare t1 t2
@@ -293,7 +293,7 @@ let ``TimeSpan Comparison works`` () =
 
 [<Fact>]
 let ``TimeSpan GreaterThan works`` () =
-    let test ms1 ms2 expected =
+    let test (ms1: float) (ms2: float) expected =
         let t1 = TimeSpan.FromMilliseconds(ms1)
         let t2 = TimeSpan.FromMilliseconds(ms2)
         t1 > t2
@@ -304,7 +304,7 @@ let ``TimeSpan GreaterThan works`` () =
 
 [<Fact>]
 let ``TimeSpan LessThan works`` () =
-    let test ms1 ms2 expected =
+    let test (ms1: float) (ms2: float) expected =
         let t1 = TimeSpan.FromMilliseconds(ms1)
         let t2 = TimeSpan.FromMilliseconds(ms2)
         t1 < t2
@@ -315,7 +315,7 @@ let ``TimeSpan LessThan works`` () =
 
 [<Fact>]
 let ``TimeSpan Equality works`` () =
-    let test ms1 ms2 expected =
+    let test (ms1: float) (ms2: float) expected =
         let t1 = TimeSpan.FromMilliseconds(ms1)
         let t2 = TimeSpan.FromMilliseconds(ms2)
         t1 = t2
@@ -326,7 +326,7 @@ let ``TimeSpan Equality works`` () =
 
 [<Fact>]
 let ``TimeSpan Inequality works`` () =
-    let test ms1 ms2 expected =
+    let test (ms1: float) (ms2: float) expected =
         let t1 = TimeSpan.FromMilliseconds(ms1)
         let t2 = TimeSpan.FromMilliseconds(ms2)
         t1 <> t2

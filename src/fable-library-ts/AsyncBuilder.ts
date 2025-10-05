@@ -53,8 +53,8 @@ export class CancellationToken implements IDisposable {
 }
 
 export class OperationCanceledException extends Exception {
-  constructor() {
-    super("The operation was canceled");
+  constructor(msg?: string) {
+    super(msg ?? "The operation was canceled");
     // Object.setPrototypeOf(this, OperationCanceledException.prototype);
   }
 }

@@ -19,7 +19,7 @@ return Math.floor(Math.random() * (maxValue - minValue)) + minValue"""
 
     let randomBytes (buffer: byte array) : unit =
         if isNull (box buffer) then
-            raise <| ArgumentNullException("Buffer cannot be null")
+            raise <| ArgumentNullException(nameof buffer)
 
         emitJsStatement
             (box () |> nonNull)
@@ -172,7 +172,7 @@ type Seeded(seed: int) =
 
         member this.NextBytes(buffer: byte array) =
             if isNull (box buffer) then
-                raise <| ArgumentNullException("Buffer cannot be null")
+                raise <| ArgumentNullException(nameof buffer)
 
             for i = 0 to buffer.Length - 1 do
                 buffer.[i] <- byte ((int (this.InternalSample())) % (int Byte.MaxValue + 1))

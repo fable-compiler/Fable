@@ -36,17 +36,17 @@ module Operators =
 
     [<CompiledName("FailurePattern")>]
     let (|Failure|_|) (exn: exn) = Some exn.Message
-    //if exn.GetType().FullName.EndsWith("Exception") then Some exn.Message else None
 
     [<CompiledName("NullArg")>]
-    let nullArg x = raise (System.ArgumentNullException(x))
+    let nullArg (argumentName: string) =
+        raise (System.ArgumentNullException(argumentName))
 
     [<CompiledName("Using")>]
-    let using<'T, 'R when 'T :> System.IDisposable> (resource: 'T) (action: 'T -> 'R) =
+    let using<'T, 'R when 'T :> System.IDisposable and 'T: null> (resource: 'T) (action: 'T -> 'R) =
         try
             action resource
         finally
-            match box resource with
+            match resource with
             | null -> ()
             | _ -> resource.Dispose()
 
@@ -55,13 +55,13 @@ module Operators =
 
     [<CompiledName("IsNull")>]
     let isNull (value: 'T when 'T: null) =
-        match box value with
+        match value with
         | null -> true
         | _ -> false
 
     [<CompiledName("IsNotNull")>]
-    let isNotNull (value: 'T) =
-        match box value with
+    let isNotNull (value: 'T when 'T: null) =
+        match value with
         | null -> false
         | _ -> true
 
@@ -69,10 +69,10 @@ module Operators =
     let isNullV (value: System.Nullable<'T>) = not value.HasValue
 
     [<CompiledName("NonNull")>]
-    let nonNull (value: 'T | null when 'T: not null and 'T: not struct) =
-        match box value with
+    let nonNull (value: 'T when 'T: null) =
+        match value with
         | null -> raise (System.NullReferenceException())
-        | _ -> (# "" value : 'T #)
+        | _ -> value
 
     [<CompiledName("NonNullV")>]
     let nonNullV (value: System.Nullable<'T>) =
@@ -82,23 +82,23 @@ module Operators =
             raise (System.NullReferenceException())
 
     [<CompiledName("NullMatchPattern")>]
-    let (|Null|NonNull|) (value: 'T | null when 'T: not null and 'T: not struct) =
+    let (|Null|NonNull|) (value: 'T when 'T: null) =
         match value with
         | null -> Null()
-        | _ -> NonNull (# "" value : 'T #)
+        | _ -> NonNull(value)
 
     [<CompiledName("NullValueMatchPattern")>]
     let (|NullV|NonNullV|) (value: System.Nullable<'T>) =
         if value.HasValue then
-            NonNullV value.Value
+            NonNullV(value.Value)
         else
             NullV()
 
     [<CompiledName("NonNullQuickPattern")>]
-    let (|NonNullQuick|) (value: 'T | null when 'T: not null and 'T: not struct) =
-        match box value with
+    let (|NonNullQuick|) (value: 'T when 'T: null) =
+        match value with
         | null -> raise (System.NullReferenceException())
-        | _ -> (# "" value : 'T #)
+        | _ -> value
 
     [<CompiledName("NonNullQuickValuePattern")>]
     let (|NonNullQuickV|) (value: System.Nullable<'T>) =
@@ -108,7 +108,7 @@ module Operators =
             raise (System.NullReferenceException())
 
     [<CompiledName("WithNull")>]
-    let withNull (value: 'T when 'T: not null and 'T: not struct) = (# "" value : 'T | null #)
+    let withNull (value: 'T when 'T: null) = value
 
     [<CompiledName("WithNullV")>]
     let withNullV (value: 'T) : System.Nullable<'T> = System.Nullable<'T>(value)
@@ -118,10 +118,10 @@ module Operators =
         System.Nullable<'T>()
 
     [<CompiledName("NullArgCheck")>]
-    let nullArgCheck (argumentName: string) (value: 'T | null when 'T: not null and 'T: not struct) =
+    let nullArgCheck (argumentName: string) (value: 'T when 'T: null) =
         match value with
-        | null -> raise (new System.ArgumentNullException($"Value cannot be null. (Parameter '{argumentName}')"))
-        | _ -> (# "" value : 'T #)
+        | null -> raise (System.ArgumentNullException(argumentName))
+        | _ -> value
 
 module ExtraTopLevelOperators =
     [<CompiledName("LazyPattern")>]

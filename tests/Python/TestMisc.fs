@@ -1065,6 +1065,18 @@ let ``test Unchecked.defaultof works with tuples`` () = // See #2491
     let x: struct (int*int) = Unchecked.defaultof<_>
     equal (struct (0, 0)) x
 
+[<Fact>]
+let ``test nullArgCheck don't throw exception if argument is not null`` () =
+    let expected = "hello"
+    let value = nullArgCheck "arg1" expected
+    equal expected value
+
+[<Fact>]
+let ``test nullArgCheck throws exception if argument is null`` () =
+    throwsError "Value cannot be null. (Parameter 'str')" (fun () ->
+        nullArgCheck "str" null
+    )
+
 # nowarn "26" //  This rule will never be matched (code 26)
 
 [<Fact>]
@@ -1440,17 +1452,3 @@ let ``test static properties work correctly`` () =
 
     // Test read-only explicit property
     StaticPropertiesTestClass.ReadOnlyProperty |> equal "ReadOnlyValue"
-
-
-
-[<Fact>]
-let ``test nullArgCheck don't throw exception if argument is not null`` () =
-    let expected = "hello"
-    let value = nullArgCheck "arg1" expected
-    equal expected value
-
-[<Fact>]
-let ``test nullArgCheck throws exception if argument is null`` () =
-    throwsError "Value cannot be null. (Parameter 'str')" (fun _ ->
-        nullArgCheck "str" null
-    )

@@ -100,7 +100,7 @@ let tests() =
         |> equal 98076.0
 
     testCase "TimeSpan.Duration works" <| fun () ->
-        let test ms expected =
+        let test (ms: float) expected =
             let t = TimeSpan.FromMilliseconds(ms)
             t.Duration().TotalMilliseconds
             |> equal expected
@@ -109,7 +109,7 @@ let tests() =
         test 0. 0.
 
     testCase "TimeSpan.Negate works" <| fun () ->
-        let test ms expected =
+        let test (ms: float) expected =
             let t = TimeSpan.FromMilliseconds(ms)
             t.Negate().TotalMilliseconds
             |> equal expected
@@ -118,7 +118,7 @@ let tests() =
         test 0. 0.
 
     testCase "TimeSpan Addition works" <| fun () ->
-        let test ms1 ms2 expected =
+        let test (ms1: float) (ms2: float) expected =
             let t1 = TimeSpan.FromMilliseconds(ms1)
             let t2 = TimeSpan.FromMilliseconds(ms2)
             let res1 = t1.Add(t2).TotalMilliseconds
@@ -134,7 +134,7 @@ let tests() =
         test 0. 0. 0.
 
     testCase "TimeSpan Subtraction works" <| fun () ->
-        let test ms1 ms2 expected =
+        let test (ms1: float) (ms2: float) expected =
             let t1 = TimeSpan.FromMilliseconds(ms1)
             let t2 = TimeSpan.FromMilliseconds(ms2)
             let res1 = t1.Subtract(t2).TotalMilliseconds
@@ -199,7 +199,7 @@ let tests() =
     // ]
 
     testCase "TimeSpan Comparison works" <| fun () ->
-        let test ms1 ms2 expected =
+        let test (ms1: float) (ms2: float) expected =
             let t1 = TimeSpan.FromMilliseconds(ms1)
             let t2 = TimeSpan.FromMilliseconds(ms2)
             let res1 = compare t1 t2
@@ -216,7 +216,7 @@ let tests() =
         test 0. 0. 0
 
     testCase "TimeSpan GreaterThan works" <| fun () ->
-        let test ms1 ms2 expected =
+        let test (ms1: float) (ms2: float) expected =
             let t1 = TimeSpan.FromMilliseconds(ms1)
             let t2 = TimeSpan.FromMilliseconds(ms2)
             t1 > t2
@@ -226,7 +226,7 @@ let tests() =
         test -2000. -2000. false
 
     testCase "TimeSpan LessThan works" <| fun () ->
-        let test ms1 ms2 expected =
+        let test (ms1: float) (ms2: float) expected =
             let t1 = TimeSpan.FromMilliseconds(ms1)
             let t2 = TimeSpan.FromMilliseconds(ms2)
             t1 < t2
@@ -236,7 +236,7 @@ let tests() =
         test -2000. -2000. false
 
     testCase "TimeSpan Equality works" <| fun () ->
-        let test ms1 ms2 expected =
+        let test (ms1: float) (ms2: float) expected =
             let t1 = TimeSpan.FromMilliseconds(ms1)
             let t2 = TimeSpan.FromMilliseconds(ms2)
             t1 = t2
@@ -246,7 +246,7 @@ let tests() =
         test -2000. -2000. true
 
     testCase "TimeSpan Inequality works" <| fun () ->
-        let test ms1 ms2 expected =
+        let test (ms1: float) (ms2: float) expected =
             let t1 = TimeSpan.FromMilliseconds(ms1)
             let t2 = TimeSpan.FromMilliseconds(ms2)
             t1 <> t2

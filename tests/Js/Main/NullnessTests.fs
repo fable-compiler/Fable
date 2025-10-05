@@ -1,4 +1,4 @@
-module Fable.Tests.NullnessTests
+module Fable.Tests.Nullness
 
 open Util.Testing
 open Fable.Tests.Util

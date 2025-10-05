@@ -905,7 +905,6 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
         { cacheInfo with FableOptions = opts.FableOptions }.Write()
 
         let precompiledInfo, otherOptions, sourcePaths =
-
             loadPrecompiledInfo opts cacheInfo.FSharpOptions cacheInfo.SourcePaths
 
         {
