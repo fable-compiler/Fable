@@ -29,6 +29,7 @@ let allTests =
     Lists.tests
     Maps.tests
     Misc.tests
+    Nullness.tests
     NestedAndRecursivePatternTests.tests
     Observable.tests
     Option.tests

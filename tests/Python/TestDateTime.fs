@@ -591,7 +591,7 @@ let ``test DateTime.MinValue works in pattern match`` () =
 
 [<Fact>]
 let ``test DateTime Subtraction with TimeSpan works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc)
         let ts = TimeSpan.FromMilliseconds(ms)
         let res1 = dt.Subtract(ts) |> thatYearSeconds
@@ -604,7 +604,7 @@ let ``test DateTime Subtraction with TimeSpan works`` () =
 
 [<Fact>]
 let ``test DateTime Subtraction with DateTime works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
         let dt2 = dt1.AddMilliseconds(ms)
         let res1 = dt1.Subtract(dt2).TotalSeconds
@@ -911,7 +911,7 @@ let ``test DateTime.AddMilliseconds works`` () =
 
 [<Fact>]
 let ``test DateTime Addition works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc)
         let ts = TimeSpan.FromMilliseconds(ms)
         let res1 = dt.Add(ts) |> thatYearSeconds

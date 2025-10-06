@@ -971,7 +971,7 @@ let tests =
         test 0L ticks
 
     testCase "DateTime Addition works" <| fun () ->
-        let test ms expected =
+        let test (ms: float) expected =
             let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc)
             let ts = TimeSpan.FromMilliseconds(ms)
             let res1 = dt.Add(ts) |> thatYearSeconds
@@ -983,7 +983,7 @@ let tests =
         test 0. 21945600.0
 
     testCase "DateTime Subtraction with TimeSpan works" <| fun () ->
-        let test ms expected =
+        let test (ms: float) expected =
             let dt = DateTime(2014,9,12,0,0,0,DateTimeKind.Utc)
             let ts = TimeSpan.FromMilliseconds(ms)
             let res1 = dt.Subtract(ts) |> thatYearSeconds
@@ -995,7 +995,7 @@ let tests =
         test 0. 21945600.0
 
     testCase "DateTime Subtraction with DateTime works" <| fun () ->
-        let test ms expected =
+        let test (ms: float) expected =
             let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
             let dt2 = dt1.AddMilliseconds(ms)
             let res1 = dt1.Subtract(dt2).TotalSeconds
@@ -1007,7 +1007,7 @@ let tests =
         test 0. 0.0
 
     testCase "DateTime Comparison works" <| fun () ->
-        let test ms expected =
+        let test (ms: float) expected =
             let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
             let dt2 = dt1.AddMilliseconds(ms)
             let res1 = compare dt1 dt2
@@ -1020,7 +1020,7 @@ let tests =
         test 0. 0
 
     testCase "DateTime GreaterThan works" <| fun () ->
-        let test ms expected =
+        let test (ms: float) expected =
             let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
             let dt2 = dt1.AddMilliseconds(ms)
             dt1 > dt2 |> equal expected
@@ -1029,7 +1029,7 @@ let tests =
         test 0. false
 
     testCase "DateTime LessThan works" <| fun () ->
-        let test ms expected =
+        let test (ms: float) expected =
             let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
             let dt2 = dt1.AddMilliseconds(ms)
             dt1 < dt2 |> equal expected
@@ -1038,7 +1038,7 @@ let tests =
         test 0. false
 
     testCase "DateTime Equality works" <| fun () ->
-        let test ms expected =
+        let test (ms: float) expected =
             let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
             let dt2 = dt1.AddMilliseconds(ms)
             dt1 = dt2 |> equal expected
@@ -1047,7 +1047,7 @@ let tests =
         test 0. true
 
     testCase "DateTime Inequality works" <| fun () ->
-        let test ms expected =
+        let test (ms: float) expected =
             let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
             let dt2 = dt1.AddMilliseconds(ms)
             dt1 <> dt2 |> equal expected

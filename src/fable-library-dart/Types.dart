@@ -3,6 +3,14 @@
 import 'dart:collection';
 import 'Util.dart' as util;
 
+class ExceptionBase implements Exception {
+  final String message;
+  const ExceptionBase([this.message = ""]);
+
+  @override
+  String toString() => this.message;
+}
+
 T value<T>(Some<T>? option) => option!.value;
 
 Some<T>? toOption<T>(T? value) => value != null ? Some(value) : null;

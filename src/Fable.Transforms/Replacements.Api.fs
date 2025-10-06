@@ -63,9 +63,9 @@ let tryCall (com: ICompiler) ctx r t info thisArg args =
 
 let error (com: ICompiler) msg =
     match com.Options.Language with
-    | Python -> Py.Replacements.error msg
-    | Rust -> Rust.Replacements.error msg
-    | Dart -> Dart.Replacements.error msg
+    | Python -> Py.Replacements.error com msg
+    | Rust -> Rust.Replacements.error com msg
+    | Dart -> Dart.Replacements.error com msg
     | _ -> JS.Replacements.error com msg
 
 let defaultof (com: ICompiler) ctx r typ =

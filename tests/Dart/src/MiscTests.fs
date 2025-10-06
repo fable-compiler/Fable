@@ -114,3 +114,13 @@ let tests() =
             (model + 5).ToString())
         w.Render(7, fun f -> count <- count + f) |> equal "12"
         equal 1.7 count
+
+    testCase "nullArgCheck don't throw exception if argument is not null" <| fun () ->
+        let expected = "hello"
+        let value = nullArgCheck "arg1" expected
+        equal expected value
+
+    // testCase "nullArgCheck throws exception if argument is null" <| fun () ->
+    //     throwsAnyError (fun () ->
+    //         nullArgCheck<string> "str" null
+    //     )

@@ -37,10 +37,10 @@ module Operators =
 
     [<CompiledName("FailurePattern")>]
     let (|Failure|_|) (exn: exn) = Some exn.Message
-    //if exn.GetType().FullName.EndsWith("Exception") then Some exn.Message else None
 
     [<CompiledName("NullArg")>]
-    let nullArg x = raise (System.ArgumentNullException(x))
+    let nullArg (argumentName: string) =
+        raise (System.ArgumentNullException(argumentName))
 
     [<CompiledName("Using")>]
     let using<'T, 'R when 'T :> System.IDisposable and 'T: null> (resource: 'T) (action: 'T -> 'R) =
@@ -121,7 +121,7 @@ module Operators =
     [<CompiledName("NullArgCheck")>]
     let nullArgCheck (argumentName: string) (value: 'T when 'T: null) =
         match value with
-        | null -> raise (new System.ArgumentNullException(argumentName))
+        | null -> raise (System.ArgumentNullException(argumentName))
         | _ -> value
 
 module ExtraTopLevelOperators =

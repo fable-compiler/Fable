@@ -443,7 +443,7 @@ let ``DateTimeOffset.AddTicks works`` () =
 
 [<Fact>]
 let ``DateTimeOffset Addition works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let dt = DateTimeOffset(2014,9,12,0,0,0,TimeSpan.Zero)
         let ts = TimeSpan.FromMilliseconds(ms)
         let res1 = dt.Add(ts) |> thatYearSeconds
@@ -456,7 +456,7 @@ let ``DateTimeOffset Addition works`` () =
 
 [<Fact>]
 let ``DateTimeOffset Subtraction with TimeSpan works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let dt = DateTimeOffset(2014,9,12,0,0,0,TimeSpan.Zero)
         let ts = TimeSpan.FromMilliseconds(ms)
         let res1 = dt.Subtract(ts) |> thatYearSeconds
@@ -469,7 +469,7 @@ let ``DateTimeOffset Subtraction with TimeSpan works`` () =
 
 [<Fact>]
 let ``DateTimeOffset Subtraction with DateTimeOffset works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let dt1 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 234, TimeSpan.Zero)
         let dt2 = dt1.AddMilliseconds(ms)
         let res1 = dt1.Subtract(dt2).TotalSeconds
@@ -482,7 +482,7 @@ let ``DateTimeOffset Subtraction with DateTimeOffset works`` () =
 
 [<Fact>]
 let ``DateTimeOffset Comparison works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let dt1 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 234, TimeSpan.Zero)
         let dt2 = dt1.AddMilliseconds(ms)
         let res1 = compare dt1 dt2
@@ -496,7 +496,7 @@ let ``DateTimeOffset Comparison works`` () =
 
 [<Fact>]
 let ``DateTimeOffset GreaterThan works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let dt1 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 234, TimeSpan.Zero)
         let dt2 = dt1.AddMilliseconds(ms)
         dt1 > dt2 |> equal expected
@@ -506,7 +506,7 @@ let ``DateTimeOffset GreaterThan works`` () =
 
 [<Fact>]
 let ``DateTimeOffset LessThan works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let dt1 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 234, TimeSpan.Zero)
         let dt2 = dt1.AddMilliseconds(ms)
         dt1 < dt2 |> equal expected
@@ -516,7 +516,7 @@ let ``DateTimeOffset LessThan works`` () =
 
 [<Fact>]
 let ``DateTimeOffset Equality works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let dt1 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 234, TimeSpan.Zero)
         let dt2 = dt1.AddMilliseconds(ms)
         dt1 = dt2 |> equal expected
@@ -533,7 +533,7 @@ let ``DateTimeOffset.EqualsExact works`` () =
 
 [<Fact>]
 let ``DateTimeOffset Inequality works`` () =
-    let test ms expected =
+    let test (ms: float) expected =
         let dt1 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 234, TimeSpan.Zero)
         let dt2 = dt1.AddMilliseconds(ms)
         dt1 <> dt2 |> equal expected

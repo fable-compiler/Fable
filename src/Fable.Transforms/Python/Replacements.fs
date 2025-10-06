@@ -44,7 +44,7 @@ let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
         | UNativeInt -> None
     | _ -> None
 
-let error msg =
+let error com msg =
     Helper.ConstructorCall(makeIdentExpr "Exception", Any, [ msg ])
 
 let coreModFor =
@@ -776,8 +776,10 @@ let tryEntityIdent (com: Compiler) entFullName =
     // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
     | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
     | Types.exception_ -> makeIdentExpr "Exception" |> Some
-    | Types.systemException -> makeImportLib com Any "SystemException" "SystemException" |> Some
-    | Types.timeoutException -> makeImportLib com Any "TimeoutException" "SystemException" |> Some
+    // | "System.Collections.Generic.KeyNotFoundException" ->
+    //     makeImportLib com Any "KeyNotFoundException" "System.Collections.Generic" |> Some
+    | BuiltinSystemException entName -> makeImportLib com Any entName "System" |> Some
+    // | Naming.EndsWith "Exception" _ -> makeIdentExpr "Exception" |> Some
     | _ -> None
 
 let tryConstructor com (ent: Entity) =
@@ -1085,10 +1087,10 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         |> Some
     // Exceptions
     | "FailWith", [ msg ]
-    | "InvalidOp", [ msg ] -> makeThrow r t (error msg) |> Some
+    | "InvalidOp", [ msg ] -> makeThrow r t (error com msg) |> Some
     | "InvalidArg", [ argName; msg ] ->
         let msg = add (add msg (str "\\nParameter name: ")) argName
-        makeThrow r t (error msg) |> Some
+        makeThrow r t (error com msg) |> Some
     | "Raise", [ arg ] -> makeThrow r t arg |> Some
     | "Reraise", _ ->
         match ctx.CaughtException with
@@ -1097,7 +1099,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             "`reraise` used in context where caught exception is not available, please report"
             |> addError com ctx.InlinePath r
 
-            makeThrow r t (error (str "")) |> Some
+            makeThrow r t (error com (str "")) |> Some
     // Math functions
     // TODO: optimize square pow: x * x
     | "Pow", _
@@ -2469,7 +2471,11 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Helper.ConstructorCall(makeIdentExpr "Exception", t, args, ?loc = r) |> Some
+    | ".ctor", _ ->
+        match i.DeclaringEntityFullName with
+        // | "System.Collections.Generic.KeyNotFoundException"
+        | BuiltinSystemException _ -> bclType com ctx r t i thisArg args
+        | _ -> Helper.ConstructorCall(makeIdentExpr "Exception", t, args, ?loc = r) |> Some
     | "get_Message", Some e -> Helper.GlobalCall("str", t, [ thisArg.Value ], ?loc = r) |> Some
     | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
     | _ -> None

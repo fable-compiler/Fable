@@ -32,3 +32,39 @@ module SR =
     let enumerationAlreadyFinished = "Enumeration already finished."
     let enumerationNotStarted = "Enumeration has not started. Call MoveNext."
     let resetNotSupported = "Reset is not supported on this enumerator."
+
+    let Arg_ApplicationException = "Error in the application."
+    let Arg_ArgumentException = "Value does not fall within the expected range."
+
+    let Arg_ArgumentOutOfRangeException =
+        "Specified argument was out of the range of valid values."
+
+    let ArgumentNull_Generic = "Value cannot be null."
+    let Arg_ParamName_Name = " (Parameter '"
+    let Arg_ArithmeticException = "Overflow or underflow in the arithmetic operation."
+    let Arg_DivideByZero = "Attempted to divide by zero."
+    let Arg_FormatException = "One of the identified items was in an invalid format."
+    let Arg_IndexOutOfRangeException = "Index was outside the bounds of the array."
+
+    let Arg_InvalidOperationException =
+        "Operation is not valid due to the current state of the object."
+
+    let Arg_KeyNotFound = "The given key was not present in the dictionary."
+    let Arg_NotFiniteNumberException = "Number encountered was not a finite quantity."
+    let Arg_NotImplementedException = "The method or operation is not implemented."
+    let Arg_NotSupportedException = "Specified method is not supported."
+
+    let Arg_NullReferenceException =
+        "Object reference not set to an instance of an object."
+
+    let Arg_OutOfMemoryException =
+        "Insufficient memory to continue the execution of the program."
+
+    let Arg_OverflowException = "Arithmetic operation resulted in an overflow."
+
+    let Arg_RankException =
+        "Attempted to operate on an array with the incorrect number of dimensions."
+
+    let Arg_StackOverflowException = "Operation caused a stack overflow."
+    let Arg_SystemException = "System error."
+    let Arg_TimeoutException = "The operation has timed out."

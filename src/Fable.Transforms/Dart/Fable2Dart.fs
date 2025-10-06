@@ -224,8 +224,10 @@ module Util =
         | "Fable.Core.Dart.DartNullable`1", [ genArg ] -> Nullable genArg
         | Types.regexGroup, _ -> Nullable String
         | Types.regexMatch, _ -> makeTypeRefFromName "Match" []
-        // We use `dynamic` for now because there doesn't seem to be a type that catches all errors in Dart
-        | Naming.EndsWith "Exception" _, _ -> Dynamic
+        // We use `dynamic` for Exception because there is no single type that catches all errors in Dart
+        // (except when inherited as base class, then it's getExceptionType, see transformInheritedClass)
+        | Types.exception_, _ -> Dynamic // getExceptionType com ctx
+        // | Naming.EndsWith "Exception" _, _ -> Dynamic
         | "System.Collections.Generic.Dictionary`2.Enumerator", [ key; value ] -> makeMapEntry key value |> makeIterator
         | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator", [ key; _ ] -> makeIterator key
         | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator", [ _; value ] -> makeIterator value
@@ -615,8 +617,12 @@ module Util =
     let getTupleTypeIdent (com: IDartCompiler) ctx itemsLength =
         libValue com ctx Fable.MetaType "Types" $"Tuple%i{itemsLength}"
 
-    //    let getExceptionTypeIdent (com: IDartCompiler) ctx: Ident =
-    //        transformIdentWith com ctx false Fable.MetaType "Exception"
+    // let getExceptionTypeIdent (com: IDartCompiler) ctx =
+    //     transformIdentWith com ctx false Fable.MetaType "Exception"
+
+    let getExceptionType (com: IDartCompiler) ctx =
+        // Type.reference(getExceptionTypeIdent com ctx, [])
+        libTypeRef com ctx "Types" "ExceptionBase" []
 
     /// Discards Measure generic arguments
     let transformGenArgs com ctx (genArgs: Fable.Type list) =
@@ -1178,11 +1184,12 @@ module Util =
 
         let handlers =
             catch
-            |> Option.map (fun (param, body) ->
-                let param = transformIdent com ctx param
+            |> Option.map (fun (ident, body) ->
+                let param = transformIdent com ctx ident
                 let body, _ = com.Transform(ctx, returnStrategy, body)
-                //                let test = TypeReference(getExceptionTypeIdent com ctx, [])
-                CatchClause(param = param, body = body)
+                // // let test = getExceptionType com ctx
+                // let test = transformType com ctx ident.Type
+                CatchClause(param = param, body = body) //, test = test)
             )
             |> Option.toList
 
@@ -2382,7 +2389,12 @@ module Util =
 
             Some iterable
         | Some iterable, None -> Some iterable
-        | None, Some e -> Fable.DeclaredType(e.Entity, e.GenericArgs) |> transformType com ctx |> Some
+        | None, Some e ->
+            match e.Entity.FullName with
+            | Types.exception_ -> getExceptionType com ctx |> Some
+            | _ ->
+                let t = Fable.DeclaredType(e.Entity, e.GenericArgs)
+                t |> transformType com ctx |> Some
         | None, None -> None
 
     // TODO: Inheriting interfaces
@@ -2825,7 +2837,7 @@ module Util =
                         | _ -> true
                     )
 
-                let consArgs =
+                let consArgsOrFields =
                     if thisArgsDic.Count = 0 then
                         consArgs
                     else
@@ -2863,20 +2875,40 @@ module Util =
 
                 let constructor =
                     Constructor(
-                        args = consArgs,
+                        args = consArgsOrFields,
                         body = consBody,
                         superArgs = (extractBaseArgs com ctx classDecl),
                         isConst = (hasConstAttribute consInfo.Attributes)
                     )
 
-                // let classIdent = makeImmutableIdent MetaType classDecl.Name
-                // let classType = TypeReference(classIdent, genParams |> List.map (fun g -> Generic g.Name))
-                // let exposedCons =
-                //     let argExprs = consArgs |> List.map (fun a -> Expression.identExpression a.Ident)
-                //     let exposedConsBody = Expression.invocationExpression(classIdent.Expr, argExprs, classType) |> makeReturnBlock
-                //     Declaration.functionDeclaration(cons.Name, consArgs, exposedConsBody, classType, genParams=genParams)
+                let otherDecls =
+                    if classEnt.IsAbstractClass then
+                        []
+                    else
+                        // Generate also a mangled constructor that calls the main one
+                        let classIdent = makeImmutableIdent MetaType classDecl.Name
 
-                Some constructor, variables, [] // [exposedCons]
+                        let classType =
+                            Type.reference (classIdent, genParams |> List.map (fun g -> Generic g.Name))
+
+                        let argExprs = consArgs |> List.map (fun a -> Expression.identExpression a.Ident)
+
+                        let consBodyStmt =
+                            Expression.invocationExpression (classIdent.Expr, argExprs, classType)
+                            |> makeReturnBlock
+
+                        let consDecl =
+                            Declaration.functionDeclaration (
+                                cons.Name,
+                                consArgs,
+                                consBodyStmt,
+                                classType,
+                                genParams = genParams
+                            )
+
+                        [ consDecl ]
+
+                Some constructor, variables, otherDecls
 
         let interfaceInfo, implements = transformImplementedInterfaces com ctx classEnt
 

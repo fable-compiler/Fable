@@ -3,7 +3,7 @@ import { Continuation, Continuations } from "./AsyncBuilder.js";
 import { Async, IAsyncContext, CancellationToken } from "./AsyncBuilder.js";
 import { protectedCont, protectedBind, protectedReturn } from "./AsyncBuilder.js";
 import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.js";
-import { TimeoutException } from "./SystemException.js";
+import { TimeoutException_$ctor } from "./System.js";
 import { Exception } from "./Util.js";
 
 function emptyContinuation<T>(_x: T) {
@@ -63,7 +63,7 @@ function throwAfter(millisecondsDueTime: number): Async<void> {
     let tokenId: number;
     const timeoutId = setTimeout(() => {
       ctx.cancelToken.removeListener(tokenId);
-      ctx.onError(new TimeoutException());
+      ctx.onError(TimeoutException_$ctor());
     }, millisecondsDueTime);
     tokenId = ctx.cancelToken.addListener(() => {
       clearTimeout(timeoutId);

@@ -11,8 +11,6 @@
     <Compile Include="Timer.fs" />
 
     <Compile Include="../../fable-library-ts/Global.fs" Link="Global.fs" />
-    <Compile Include="../../fable-library-ts/System.Text.fs" Link="System.Text.fs" />
-    <Compile Include="../../fable-library-ts/System.Collections.Generic.fs" Link="System.Collections.Generic.fs" />
     <Compile Include="../../fable-library-ts/FSharp.Collections.fs" Link="FSharp.Collections.fs" />
     <Compile Include="../../fable-library-ts/FSharp.Core.fs" Link="FSharp.Core.fs" />
     <Compile Include="Native.fs" />
@@ -26,6 +24,9 @@
     <Compile Include="../../fable-library-ts/Range.fs" Link="Range.fs" />
     <Compile Include="../../fable-library-ts/Set.fs" Link="Set.fs" />
     <Compile Include="../../fable-library-ts/Map.fs" Link="Map.fs" />
+    <Compile Include="../../fable-library-ts/System.fs" Link="System.fs" />
+    <Compile Include="../../fable-library-ts/System.Collections.Generic.fs" Link="System.Collections.Generic.fs" />
+    <Compile Include="../../fable-library-ts/System.Text.fs" Link="System.Text.fs" />
   </ItemGroup>
 
   <ItemGroup>

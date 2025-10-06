@@ -44,7 +44,7 @@ type CallInfo = ReplaceCallInfo
 //     let body = curriedApply None returnType expr args
 //     Fable.Delegate(argIdents, body, None, Fable.Tags.empty)
 
-let error (msg: Expr) = msg
+let error com (msg: Expr) = msg
 
 let coreModFor =
     function
@@ -1001,10 +1001,10 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ("IsNull" | "IsNotNull" | "IsNullV" | "NonNull" | "NonNullV" | "NullMatchPattern" | "NullValueMatchPattern" | "NonNullQuickPattern" | "NonNullQuickValuePattern" | "WithNull" | "WithNullV" | "NullV" | "NullArgCheck"),
       _ -> fsharpModule com ctx r t i thisArg args
     // Exceptions
-    | ("FailWith" | "InvalidOp"), [ msg ] -> makeThrow r t (error msg) |> Some
+    | ("FailWith" | "InvalidOp"), [ msg ] -> makeThrow r t (error com msg) |> Some
     | "InvalidArg", [ argName; msg ] ->
         let msg = add msg (add (add (str " (Parameter '") argName) (str "')"))
-        makeThrow r t (error msg) |> Some
+        makeThrow r t (error com msg) |> Some
     | "Raise", [ arg ] -> makeThrow r t arg |> Some
     | "Reraise", _ ->
         match ctx.CaughtException with
@@ -1013,7 +1013,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             "`reraise` used in context where caught exception is not available, please report"
             |> addError com ctx.InlinePath r
 
-            makeThrow r t (error (str "")) |> Some
+            makeThrow r t (error com (str "")) |> Some
     // Math functions
     // TODO: optimize square pow: x * x
     | ("Pow" | "PowInteger" | "op_Exponentiation"), _ ->

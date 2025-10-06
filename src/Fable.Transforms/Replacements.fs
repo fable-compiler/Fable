@@ -931,8 +931,12 @@ let tryEntityIdent (com: Compiler) entFullName =
     // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
     | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
     | Types.exception_ -> makeImportLib com Any "Exception" "Util" |> Some
-    | Types.systemException -> makeImportLib com Any "SystemException" "SystemException" |> Some
-    | Types.timeoutException -> makeImportLib com Any "TimeoutException" "SystemException" |> Some
+    | "System.OperationCanceledException" -> makeImportLib com Any "OperationCanceledException" "AsyncBuilder" |> Some
+    | "System.Collections.Generic.KeyNotFoundException" ->
+        makeImportLib com Any "KeyNotFoundException" "System.Collections.Generic"
+        |> Some
+    | BuiltinSystemException entName -> makeImportLib com Any entName "System" |> Some
+    // | Naming.EndsWith "Exception" _ -> makeImportLib com Any "Exception" "Util" |> Some
     | Types.attribute -> makeImportLib com Any "Attribute" "Types" |> Some
     | "System.Uri" -> makeImportLib com Any "Uri" "Uri" |> Some
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" ->
@@ -1011,7 +1015,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | path -> path
 
     match i.DeclaringEntityFullName, i.CompiledName with
-    | _, UniversalFableCoreHelpers com ctx r t i args (error com) expr -> Some expr
+    | _, UniversalFableCoreHelpers com ctx r t i args error expr -> Some expr
 
     // Extensions
     | _, "Async.AwaitPromise.Static" -> Helper.LibCall(com, "Async", "awaitPromise", t, args, ?loc = r) |> Some
@@ -2958,8 +2962,12 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ ->
-        Helper.LibCall(com, "Util", "Exception", Any, args, isConstructor = true)
-        |> Some
+        match i.DeclaringEntityFullName with
+        | "System.Collections.Generic.KeyNotFoundException"
+        | BuiltinSystemException _ -> bclType com ctx r t i thisArg args
+        | _ ->
+            Helper.LibCall(com, "Util", "Exception", Any, args, isConstructor = true)
+            |> Some
     | "get_Message", Some e -> getFieldWith r t e "message" |> Some
     | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
     | _ -> None

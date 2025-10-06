@@ -28,8 +28,9 @@ let (|DartDouble|_|) =
     | Float64 -> Some DartDouble
     | _ -> None
 
-let error msg =
-    Helper.ConstructorCall(makeIdentExpr "Exception", Any, [ msg ])
+let error com msg =
+    let e = makeImportLib com Any "ExceptionBase" "Types"
+    Helper.ConstructorCall(e, Any, [ msg ])
 
 let coreModFor =
     function
@@ -672,18 +673,18 @@ let tryEntityIdent (com: Compiler) entFullName =
             | i -> entFullName[0 .. i - 1]
 
         makeImportLib com MetaType entFullName "Types" |> Some
+
     // Don't use `Exception` for now because it doesn't catch all errors in Dart
     // See Fable2Dart.transformDeclaredType
 
-    //    | Types.matchFail
-    //    | Types.systemException
-    //    | Types.timeoutException
-    //    | "System.NotSupportedException"
-    //    | "System.InvalidOperationException"
-    //    | "System.Collections.Generic.KeyNotFoundException"
-    //    | Types.exception_
-    //     | Naming.EndsWith "Exception" _
-    //        -> makeIdentExpr "Exception" |> Some
+    // | Types.exception_ ->
+    //     makeImportLib com Any "ExceptionBase" "Types" |> Some
+    | "System.Collections.Generic.KeyNotFoundException" ->
+        makeImportLib com Any "KeyNotFoundException" "System.Collections.Generic"
+        |> Some
+    | BuiltinSystemException entName -> makeImportLib com Any entName "System" |> Some
+    | Naming.EndsWith "Exception" _ -> makeIdentExpr "Exception" |> Some
+
     | "System.Lazy`1" -> makeImportLib com MetaType "Lazy" "FSharp.Core" |> Some
     | _ -> None
 
@@ -1007,10 +1008,10 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
       _ -> fsharpModule com ctx r t i thisArg args
     // Exceptions
     | "FailWith", [ msg ]
-    | "InvalidOp", [ msg ] -> makeThrow r t (error msg) |> Some
+    | "InvalidOp", [ msg ] -> makeThrow r t (error com msg) |> Some
     | "InvalidArg", [ argName; msg ] ->
         let msg = add (add msg (str "\\nParameter name: ")) argName
-        makeThrow r t (error msg) |> Some
+        makeThrow r t (error com msg) |> Some
     | "Raise", [ arg ] -> makeThrow r t arg |> Some
     | "Reraise", _ -> Extended(Throw(None, t), r) |> Some
     // Math functions
@@ -2550,9 +2551,15 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
-    | ".ctor", _ -> Helper.ConstructorCall(makeIdentExpr "Exception", t, args, ?loc = r) |> Some
+    | ".ctor", _ ->
+        match i.DeclaringEntityFullName with
+        | "System.Collections.Generic.KeyNotFoundException"
+        | BuiltinSystemException _ -> bclType com ctx r t i thisArg args
+        | _ ->
+            let e = makeImportLib com Any "ExceptionBase" "Types"
+            Helper.ConstructorCall(e, t, args, ?loc = r) |> Some
     | "get_Message", Some e -> Helper.InstanceCall(e, "toString", t, [], ?loc = r) |> Some
-    //    | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
+    // | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
     | _ -> None
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -4042,7 +4049,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
 
 let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
-    | Types.exception_ -> Some(makeImportLib com Any "Exception" "Types", args)
+    | Types.exception_ -> Some(makeImportLib com Any "ExceptionBase" "Types", args)
     | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)
     | fullName when
         fullName.StartsWith("Fable.Core.", StringComparison.Ordinal)
