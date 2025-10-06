@@ -39,13 +39,13 @@ jobs:
             });
             return { "ref": result.data.head.ref, "repository": result.data.head.repo.full_name};
       - name: Checkout repo
-        uses: actions/checkout@v2
+        uses: actions/checkout@v5
         with:
           repository: ${{ fromJson(steps.get-pr.outputs.result).repository }}
           ref: ${{ fromJson(steps.get-pr.outputs.result).ref }}
           fetch-depth: 0
       - name: Install dotnet
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v5
       - name: Install dotnet tools
         run: dotnet tool restore
       - name: Process fantomas command
