@@ -1,5 +1,5 @@
-use pyo3::prelude::*;
 use chrono::Utc;
+use pyo3::prelude::*;
 
 /// A module for datetime offset operations
 pub fn register_datetime_offset_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -25,11 +25,11 @@ pub fn register_datetime_offset_module(parent_module: &Bound<'_, PyModule>) -> P
 ///
 /// Returns the current local date and time as a Python datetime object.
 #[pyfunction]
-fn now() -> PyResult<PyObject> {
+fn now() -> PyResult<Py<PyAny>> {
     // Get the current local time using chrono
     // Convert to Python datetime using PyO3's chrono feature
     // pyo3::prepare_freethreaded_python();
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         let now = Utc::now();
         let py_now = now.into_pyobject(py)?;
         Ok(py_now.into())

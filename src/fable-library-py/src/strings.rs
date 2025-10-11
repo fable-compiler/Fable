@@ -129,7 +129,7 @@ mod printf {
         }
 
         /// Make IPrintfFormat callable to support F# currying
-        fn __call__(&self, py: Python<'_>, arg: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        fn __call__(&self, py: Python<'_>, arg: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
             let mut new_format = self.clone();
 
             // Store the argument with type information for better formatting
@@ -169,7 +169,7 @@ mod printf {
 
         /// Continuation method for F# printf compatibility
         /// This method takes a continuation function and applies it to the formatted result
-        fn cont(&self, py: Python<'_>, continuation: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        fn cont(&self, py: Python<'_>, continuation: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
             if self.args.is_empty() {
                 // No args accumulated yet - return the IPrintfFormat itself so it can continue to be curried
                 Ok(self.clone().into_pyobject(py)?.into())
@@ -563,7 +563,7 @@ mod printf {
     /// - Placeholder counting excludes literal `%%` sequences
     /// - All operations are type-safe with proper error propagation
     #[pyfunction]
-    pub fn printf(py: Python<'_>, input: &str) -> PyResult<PyObject> {
+    pub fn printf(py: Python<'_>, input: &str) -> PyResult<Py<PyAny>> {
         // Check if there are any format specifiers that need arguments
         let has_format_specifiers = super::PRINTF_PATTERN.is_match(input);
 
@@ -585,7 +585,7 @@ mod printf {
         py: Python<'_>,
         cont: &Bound<'_, PyAny>,
         arg: &Bound<'_, PyAny>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         if let Ok(printf_format) = arg.extract::<IPrintfFormat>() {
             // Use the cont method, just like the original Python implementation
             printf_format.cont(py, cont)
@@ -604,7 +604,7 @@ mod printf {
 
     #[pymethods]
     impl ConsolePrinter {
-        fn __call__(&self, py: Python<'_>, arg: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+        fn __call__(&self, py: Python<'_>, arg: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
             // Call the underlying IPrintfFormat
             let result = self.format.__call__(py, arg)?;
 
@@ -628,7 +628,7 @@ mod printf {
 
     /// Print to console with F# semantics
     #[pyfunction]
-    pub fn to_console(py: Python<'_>, arg: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    pub fn to_console(py: Python<'_>, arg: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         if let Ok(printf_format) = arg.extract::<IPrintfFormat>() {
             if printf_format.args.is_empty() {
                 // Return a ConsolePrinter that will handle the currying and printing
@@ -654,7 +654,7 @@ mod printf {
 
     /// Convert to text string with F# semantics
     #[pyfunction]
-    pub fn to_text(py: Python<'_>, arg: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    pub fn to_text(py: Python<'_>, arg: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         if let Ok(printf_format) = arg.extract::<IPrintfFormat>() {
             if printf_format.args.is_empty() {
                 // Return the IPrintfFormat object itself so it can continue to be curried
@@ -1428,9 +1428,9 @@ mod formatting {
         // For single splitters and other cases, it's already handled by splitn
 
         // Convert Vec<String> to FSharpArray - type-safe object conversion
-        let py_result: Vec<PyObject> = result
+        let py_result: Vec<Py<PyAny>> = result
             .into_iter()
-            .map(|s| -> PyResult<PyObject> { Ok(s.into_pyobject(py)?.into()) })
+            .map(|s| -> PyResult<Py<PyAny>> { Ok(s.into_pyobject(py)?.into()) })
             .collect::<PyResult<Vec<_>>>()?;
         let py_list = pyo3::types::PyList::new(py, py_result)?;
         FSharpArray::new(py, Some(py_list.as_any()), None)

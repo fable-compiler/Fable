@@ -12,10 +12,10 @@ name = "_core"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.25.1", features = ["extension-module", "chrono"] }
+pyo3 = { version = "0.26.0", features = ["extension-module", "chrono"] }
 byteorder = "1.5.0"
-chrono = "0.4.40"
-regex = "1.10"
+chrono = "0.4.42"
+regex = "1.12.1"
 
 [features]
 # must be enabled when building with `cargo build`, maturin enables this automatically

@@ -16,8 +16,8 @@ pub fn register_types_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
 #[pyclass(module = "fable")]
 #[derive(Debug)]
 pub struct FSharpRef {
-    getter: PyObject,
-    setter: PyObject,
+    getter: Py<PyAny>,
+    setter: Py<PyAny>,
 }
 
 #[pymethods]
@@ -41,7 +41,7 @@ impl FSharpRef {
         }
 
         // If no setter is provided or setter is not callable, create default getter/setter
-        let contents: PyObject = contents_or_getter.into_pyobject(py)?.into();
+        let contents: Py<PyAny> = contents_or_getter.into_pyobject(py)?.into();
         let shared_contents = Arc::new(RwLock::new(contents));
         let getter = Getter {
             value: shared_contents.clone(),
@@ -57,17 +57,17 @@ impl FSharpRef {
     }
 
     #[classmethod]
-    fn __class_getitem__(cls: &Bound<'_, PyType>, _item: &Bound<'_, PyAny>) -> PyObject {
+    fn __class_getitem__(cls: &Bound<'_, PyType>, _item: &Bound<'_, PyAny>) -> Py<PyAny> {
         cls.clone().unbind().into()
     }
 
     #[getter(contents)]
-    pub fn get_contents(&self, py: Python<'_>) -> PyResult<PyObject> {
+    pub fn get_contents(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         self.getter.call0(py)
     }
 
     #[setter(contents)]
-    pub fn set_contents(&self, py: Python<'_>, value: PyObject) -> PyResult<()> {
+    pub fn set_contents(&self, py: Python<'_>, value: Py<PyAny>) -> PyResult<()> {
         self.setter.call1(py, (value,))?;
         Ok(())
     }
@@ -75,7 +75,7 @@ impl FSharpRef {
 
 #[pyclass]
 struct Getter {
-    value: Arc<RwLock<PyObject>>,
+    value: Arc<RwLock<Py<PyAny>>>,
 }
 
 #[pymethods]
@@ -86,14 +86,14 @@ impl Getter {
         py: Python<'_>,
         _args: &Bound<'_, PyAny>,
         _kwargs: Option<&Bound<'_, PyAny>>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         Ok(self.value.read().unwrap().clone_ref(py))
     }
 }
 
 #[pyclass]
 struct Setter {
-    value: Arc<RwLock<PyObject>>,
+    value: Arc<RwLock<Py<PyAny>>>,
 }
 
 #[pymethods]

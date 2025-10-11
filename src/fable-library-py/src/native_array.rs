@@ -109,7 +109,7 @@ pub enum NativeArray {
     Float32(Vec<f32>),
     Float64(Vec<f64>),
     String(Vec<String>),
-    PyObject(Arc<Mutex<Vec<PyObject>>>),
+    PyObject(Arc<Mutex<Vec<Py<PyAny>>>>),
 }
 
 impl Clone for NativeArray {
@@ -196,7 +196,7 @@ impl NativeArray {
     pub fn equals(&self, other: &NativeArray, py: Python<'_>) -> bool {
         // Helper for comparing PyObject with other types
         fn compare_pyobject_with<T: PartialEq + for<'a> pyo3::FromPyObject<'a>>(
-            py_vec: &std::sync::MutexGuard<Vec<PyObject>>,
+            py_vec: &std::sync::MutexGuard<Vec<Py<PyAny>>>,
             other_vec: &[T],
             py: Python<'_>,
         ) -> bool {
@@ -733,8 +733,8 @@ impl NativeArray {
             projection: &Bound<'_, PyAny>,
             comparer: &Bound<'_, PyAny>,
         ) -> PyResult<Ordering> {
-            let py_a: PyObject = a.clone().into_py_any(py)?;
-            let py_b: PyObject = b.clone().into_py_any(py)?;
+            let py_a: Py<PyAny> = a.clone().into_py_any(py)?;
+            let py_b: Py<PyAny> = b.clone().into_py_any(py)?;
             let proj_a = projection.call1((py_a,))?;
             let proj_b = projection.call1((py_b,))?;
             let result = comparer.call1((proj_a, proj_b))?;
@@ -840,7 +840,7 @@ impl NativeArray {
         Ok(result)
     }
 
-    pub fn get(&self, py: Python<'_>, index: usize) -> PyResult<PyObject> {
+    pub fn get(&self, py: Python<'_>, index: usize) -> PyResult<Py<PyAny>> {
         match self {
             NativeArray::Int8(vec) => Ok(vec[index].into_py_any(py)?),
             NativeArray::UInt8(vec) => Ok(vec[index].into_py_any(py)?),
