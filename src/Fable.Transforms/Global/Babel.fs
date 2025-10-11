@@ -31,6 +31,7 @@ type Expression =
     | ClassExpression of
         members: ClassMember array *
         id: Identifier option *
+        isAbstract: bool option *
         superClass: SuperClass option *
         implements: TypeAnnotation array *
         typeParameters: TypeParameter array *
@@ -170,6 +171,7 @@ type Declaration =
     | ClassDeclaration of
         members: ClassMember array *
         id: Identifier option *
+        isAbstract: bool option *
         superClass: SuperClass option *
         implements: TypeAnnotation array *
         typeParameters: TypeParameter array *
@@ -195,7 +197,7 @@ type Declaration =
 
     member this.JsDoc =
         match this with
-        | ClassDeclaration(_, _, _, _, _, _, doc)
+        | ClassDeclaration(_, _, _, _, _, _, _, doc)
         | FunctionDeclaration(_, _, _, _, _, _, doc)
         | InterfaceDeclaration(_, _, _, _, doc) -> doc
         | _ -> None
@@ -452,7 +454,7 @@ type ClassMember =
     | ClassMethod of
         kind: ClassMethodKind *
         parameters: Parameter array *
-        body: BlockStatement *
+        body: BlockStatement option *
         isStatic: bool *
         isAbstract: bool *
         returnType: TypeAnnotation option *
@@ -627,8 +629,16 @@ module Helpers =
         static member functionExpression(parameters, body, ?id, ?returnType, ?typeParameters, ?loc) = //?generator_, ?async_
             FunctionExpression(id, parameters, body, returnType, defaultArg typeParameters [||], loc)
 
-        static member classExpression(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc) =
-            ClassExpression(body, id, superClass, defaultArg implements [||], defaultArg typeParameters [||], loc)
+        static member classExpression(members, ?id, ?isAbstract, ?superClass, ?typeParameters, ?implements, ?loc) =
+            ClassExpression(
+                members,
+                id,
+                isAbstract,
+                superClass,
+                defaultArg implements [||],
+                defaultArg typeParameters [||],
+                loc
+            )
 
         static member spreadElement(argument, ?loc) = SpreadElement(argument, ?loc = loc)
 
@@ -783,11 +793,22 @@ module Helpers =
         static member functionDeclaration(parameters, body, id, ?returnType, ?typeParameters, ?loc, ?doc) =
             FunctionDeclaration(parameters, body, id, returnType, defaultArg typeParameters [||], loc, doc)
 
-        static member classDeclaration(body, ?id, ?superClass, ?typeParameters, ?implements, ?loc, ?doc) =
-            ClassDeclaration(body, id, superClass, defaultArg implements [||], defaultArg typeParameters [||], loc, doc)
+        static member classDeclaration
+            (members, ?id, ?isAbstract, ?superClass, ?typeParameters, ?implements, ?loc, ?doc)
+            =
+            ClassDeclaration(
+                members,
+                id,
+                isAbstract,
+                superClass,
+                defaultArg implements [||],
+                defaultArg typeParameters [||],
+                loc,
+                doc
+            )
 
-        static member interfaceDeclaration(id, body, ?extends, ?typeParameters, ?doc) : Declaration = // ?mixins_,
-            InterfaceDeclaration(id, body, defaultArg extends [||], defaultArg typeParameters [||], doc)
+        static member interfaceDeclaration(id, members, ?extends, ?typeParameters, ?doc) : Declaration = // ?mixins_,
+            InterfaceDeclaration(id, members, defaultArg extends [||], defaultArg typeParameters [||], doc)
 
         static member enumDeclaration(name, cases, ?isConst) =
             EnumDeclaration(name, cases, defaultArg isConst false)

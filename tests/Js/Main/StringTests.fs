@@ -31,7 +31,7 @@ let fullFormat = formatPrefix + formatCoordinateBody
 type MyUnion = Bar of int * int | Foo1 of float | Foo3 | Foo4 of MyUnion
 
 type Test(i: int) =
-      override __.ToString() = string(i + i)
+      override _.ToString() = string(i + i)
 
 type B() =
       let mutable a = 5

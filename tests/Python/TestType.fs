@@ -184,7 +184,7 @@ type ConcreteClass3() =
     inherit AbstractClass3()
     let mutable v = 5
 
-    override __.MyProp
+    override _.MyProp
         with get () = v
         and set (v2) = v <- v + v2
 
@@ -252,14 +252,14 @@ type ChildFoo() =
 
 type BaseClass(x: int) =
     abstract member Init: unit -> int
-    default __.Init() = x
+    default _.Init() = x
     abstract member Prop: string
-    default __.Prop = "base"
+    default _.Prop = "base"
 
 type ExtendedClass() =
     inherit BaseClass(5)
-    override __.Init() = base.Init() + 2
-    override __.Prop = base.Prop + "-extension"
+    override _.Init() = base.Init() + 2
+    override _.Prop = base.Prop + "-extension"
 
 type BaseClass2() =
     let field = 1

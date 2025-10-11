@@ -2374,8 +2374,8 @@ module Util =
             match fullName with
             | Types.object
             | Types.idisposable
-            | "System.IObservable`1"
-            | "System.IObserver`1"
+            | Types.iobservableGeneric
+            | Types.iobserverGeneric
             | Types.ienumerableGeneric
             // These are used for injections
             | Types.icomparer

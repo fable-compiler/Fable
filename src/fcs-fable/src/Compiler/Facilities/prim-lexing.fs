@@ -269,9 +269,9 @@ type internal Position =
     static member FirstLine fileIdx = Position(fileIdx, 1, 1, 0, 0)
 
 #if FABLE_COMPILER
-    type internal LexBufferChar = uint16
+type internal LexBufferChar = uint16
 #else
-    type internal LexBufferChar = char
+type internal LexBufferChar = char
 #endif
 
 type internal LexBufferFiller<'Char> = LexBuffer<'Char> -> unit
