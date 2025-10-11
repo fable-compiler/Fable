@@ -170,7 +170,7 @@ type AbstractClass3() =
 type ConcreteClass3() =
     inherit AbstractClass3()
     let mutable v = 5
-    override __.MyProp with get() = v and set(v2) = v <- v + v2
+    override _.MyProp with get() = v and set(v2) = v <- v + v2
 
 type ISomeInterface =
     abstract OnlyGetProp: int with get
@@ -211,7 +211,6 @@ type FooImplementor(i: int) =
 type FooImplementorChild() =
     inherit FooImplementor(3)
 
-#if !FABLE_COMPILER_TYPESCRIPT
 [<AbstractClass>]
 type AbstractFoo() =
     abstract member Foo2: unit -> string
@@ -223,18 +222,17 @@ type AbstractFoo() =
 type ChildFoo() =
     inherit AbstractFoo()
     override this.Foo2() = "BAR"
-#endif
 
 type BaseClass (x: int) =
     abstract member Init: unit -> int
-    default __.Init () = x
+    default _.Init () = x
     abstract member Prop: string
-    default __.Prop = "base"
+    default _.Prop = "base"
 
 type ExtendedClass () =
     inherit BaseClass(5)
-    override __.Init() = base.Init() + 2
-    override __.Prop = base.Prop + "-extension"
+    override _.Init() = base.Init() + 2
+    override _.Prop = base.Prop + "-extension"
 
 type BaseClass2() =
     let field = 1
@@ -398,7 +396,6 @@ type GenericMangledClass() =
         member _.SetterOnlyValue
             with set v = innerValue <- v
 
-#if !FABLE_COMPILER_TYPESCRIPT
 [<AbstractClass>]
 type InfoAClass(info: InfoA) =
     abstract WithInfo: InfoA -> InfoAClass
@@ -469,7 +466,6 @@ type BarClass(x) =
         member _.Item with get(i) = x.[i] and set i c = x <- FooClass.ChangeChar(x, i + 1, c)
         member _.Item with get(c) = x.ToCharArray() |> Array.exists ((=) c)
         member _.Sum(items) = Array.reduce (fun x y -> x + x + y + y) items
-#endif
 
 type Interface2 =
     abstract Value: int
@@ -1065,14 +1061,12 @@ let tests =
         (foo :> IFoo).MySetter <- 7
         (foo :> IFoo).MySetter |> equal 19
 
-#if !FABLE_COMPILER_TYPESCRIPT
     // TODO: Interface and abstract methods with same name clash
     testCase "A type overloading an interface method can be inherited" <| fun () ->
         let foo = ChildFoo() :> AbstractFoo
         foo.Foo2() |> equal "BAR"
         (foo :> IFoo).Foo() |> equal "BARFOO"
         mangleFoo foo |> equal "BARFOO"
-#endif
 
     testCase "Interface casting round-trip" <| fun () -> // See #1452
         let d = new DowncastTest(3) :> System.IDisposable
@@ -1214,7 +1208,7 @@ let tests =
 //        withDefaultValue.ObjValue |> equal Unchecked.defaultof<System.Collections.Generic.Dictionary<string, string>>
 //        withDefaultValue.ObjValue |> equal null
 
-#if !FABLE_COMPILER_TYPESCRIPT
+// #if !FABLE_COMPILER_TYPESCRIPT
     testCase "Private fields don't conflict with parent classes" <| fun _ -> // See #2070
         let a1 = InfoBClass({ InfoA = { Foo = "foo" }; Bar = "bar" }) :> InfoAClass
         let a2 = a1.WithFoo("foo2")
@@ -1277,7 +1271,7 @@ let tests =
         bar2.Bar <- bar2.Bar + bar2.DoSomething(addPlus2, 3.).ToString("F2").Replace(",", ".") + bar2.[2].ToString() + (sprintf "%b%b" bar2.['B'] bar2.['x'])
         bar2.Bar <- bar2.Bar + bar2.Sum("a", "bc", "d")
         bar2.Bar |> equal "BZr9536.74rtruefalseaabcbcaabcbcdd"
-#endif
+// #endif
 
     testCase "Multiple `this` references work in nested attached members" <| fun _ ->
         (MixedThese(2) :> Interface1).Create(3).Add() |> equal 5

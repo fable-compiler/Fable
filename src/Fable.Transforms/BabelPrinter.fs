@@ -231,6 +231,7 @@ module PrinterExtensions =
         member printer.PrintClass
             (
                 id: Identifier option,
+                isAbstract: bool option,
                 superClass: SuperClass option,
                 typeParameters: TypeParameter[],
                 implements: TypeAnnotation array,
@@ -238,6 +239,9 @@ module PrinterExtensions =
                 loc
             )
             =
+            if defaultArg isAbstract false then
+                printer.Print("abstract ")
+
             printer.Print("class", ?loc = loc)
             printer.PrintOptional(id, " ")
             printer.Print(typeParameters)
@@ -515,8 +519,8 @@ module PrinterExtensions =
                 printer.Print("[", ?loc = loc)
                 printer.PrintCommaSeparatedArray(elements)
                 printer.Print("]")
-            | ClassExpression(body, id, superClass, implements, typeArguments, loc) ->
-                printer.PrintClass(id, superClass, typeArguments, implements, body, loc)
+            | ClassExpression(members, id, isAbstract, superClass, implements, typeArguments, loc) ->
+                printer.PrintClass(id, isAbstract, superClass, typeArguments, implements, members, loc)
             | UnaryExpression(argument, operator, isSuffix, loc) ->
                 printer.PrintUnaryExpression(argument, operator, isSuffix, loc)
             | UpdateExpression(prefix, argument, operator, loc) ->
@@ -664,8 +668,8 @@ module PrinterExtensions =
 
         member printer.PrintDeclaration(decl: Declaration) =
             match decl with
-            | ClassDeclaration(body, id, superClass, implements, typeParameters, loc, _doc) ->
-                printer.PrintClass(id, superClass, typeParameters, implements, body, loc)
+            | ClassDeclaration(members, id, isAbstract, superClass, implements, typeParameters, loc, _doc) ->
+                printer.PrintClass(id, isAbstract, superClass, typeParameters, implements, members, loc)
             | Declaration.VariableDeclaration(d) -> printer.Print(d)
             | FunctionDeclaration(parameters, body, id, returnType, typeParameters, loc, _doc) ->
                 printer.PrintFunction(Some id, parameters, body, typeParameters, returnType, loc, isDeclaration = true)
@@ -1352,9 +1356,7 @@ module PrinterExtensions =
             if not isSetter then
                 printer.PrintOptional(returnType, ": ")
 
-            printer.Print(" ")
-
-            printer.Print(body)
+            printer.PrintOptional(body, " ")
 
         member printer.PrintAccessModifier =
             function

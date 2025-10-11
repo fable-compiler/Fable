@@ -1779,7 +1779,6 @@ module AccessorFunctionShorthand =
                 equal (namePropertyGetter student) "Jane"
         ]
 
-#if !FABLE_COMPILER_TYPESCRIPT
 module DiscriminatedUnionIsGenerated =
 
     type Test =
@@ -1797,7 +1796,6 @@ module DiscriminatedUnionIsGenerated =
                 equal false testValue.IsA
                 equal true testValue.IsValue
         ]
-#endif
 
 #if !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
 module PartialActivePatternsCanReturnBool =
@@ -1832,9 +1830,7 @@ let tests =
         @ Uncurry.tests
         @ MultipleInlines.tests
         @ AccessorFunctionShorthand.tests
-        #if !FABLE_COMPILER_TYPESCRIPT
         @ DiscriminatedUnionIsGenerated.tests
-        #endif
         #if !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
         @ PartialActivePatternsCanReturnBool.tests
         #endif

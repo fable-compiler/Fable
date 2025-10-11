@@ -6,17 +6,17 @@ module LanguagePrimitives =
 
     let GenericEqualityComparer =
         { new System.Collections.IEqualityComparer with
-            override __.Equals(x: objnull, y: objnull) = LanguagePrimitives.GenericEquality x y
+            override _.Equals(x: objnull, y: objnull) = LanguagePrimitives.GenericEquality x y
 
-            override __.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
+            override _.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
         }
 
     let GenericEqualityERComparer =
         { new System.Collections.IEqualityComparer with
-            override __.Equals(x: objnull, y: objnull) =
+            override _.Equals(x: objnull, y: objnull) =
                 LanguagePrimitives.GenericEqualityER x y
 
-            override __.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
+            override _.GetHashCode(x: obj) = LanguagePrimitives.GenericHash x
         }
 
     let FastGenericComparer<'T when 'T: comparison> =
