@@ -38,12 +38,12 @@ pub fn register_option_module(parent_module: &Bound<'_, PyModule>) -> PyResult<(
 #[derive(Debug)]
 pub struct SomeWrapper {
     #[pyo3(get)]
-    value: PyObject,
+    value: Py<PyAny>,
 }
 
 impl PartialEq for SomeWrapper {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.value
                 .bind(py)
                 .eq(other.value.bind(py))
@@ -55,7 +55,7 @@ impl PartialEq for SomeWrapper {
 #[pymethods]
 impl SomeWrapper {
     #[new]
-    pub fn new(value: PyObject) -> Self {
+    pub fn new(value: Py<PyAny>) -> Self {
         SomeWrapper { value }
     }
 
@@ -82,7 +82,7 @@ impl SomeWrapper {
     }
 
     #[classmethod]
-    fn __class_getitem__(cls: &Bound<'_, PyType>, _item: &Bound<'_, PyAny>) -> PyObject {
+    fn __class_getitem__(cls: &Bound<'_, PyType>, _item: &Bound<'_, PyAny>) -> Py<PyAny> {
         cls.clone().unbind().into()
     }
 }
@@ -94,7 +94,7 @@ fn is_some_wrapper(py: Python<'_>, obj: &Bound<'_, PyAny>) -> bool {
 }
 
 // Helper function to extract value from an option (None or SomeWrapper)
-fn extract_value(py: Python<'_>, opt: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn extract_value(py: Python<'_>, opt: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     if opt.is_none() {
         Err(PyValueError::new_err("Option has no value"))
     } else if is_some_wrapper(py, opt) {
@@ -107,7 +107,7 @@ fn extract_value(py: Python<'_>, opt: &Bound<'_, PyAny>) -> PyResult<PyObject> {
 }
 
 // Helper function to wrap a value in a SomeWrapper or return as is
-fn wrap_value(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn wrap_value(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     // Check if x is None or an instance of Some
     if x.is_none() || is_some_wrapper(py, x) {
         // Create a new SomeWrapper instance
@@ -124,8 +124,8 @@ fn wrap_value(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
 fn default_arg(
     py: Python<'_>,
     opt: &Bound<'_, PyAny>,
-    default_value: PyObject,
-) -> PyResult<PyObject> {
+    default_value: Py<PyAny>,
+) -> PyResult<Py<PyAny>> {
     if opt.is_none() {
         Ok(default_value)
     } else {
@@ -138,7 +138,7 @@ fn default_arg_with(
     py: Python<'_>,
     opt: &Bound<'_, PyAny>,
     def_thunk: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     if opt.is_none() {
         // Call the thunk function to get the default value
         Ok(def_thunk.call0()?.into())
@@ -152,7 +152,7 @@ fn filter(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
     opt: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     if opt.is_none() {
         return Ok(py.None());
     }
@@ -168,7 +168,7 @@ fn filter(
 }
 
 #[pyfunction]
-fn map(py: Python<'_>, mapping: &Bound<'_, PyAny>, opt: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn map(py: Python<'_>, mapping: &Bound<'_, PyAny>, opt: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     if opt.is_none() {
         return Ok(py.None());
     }
@@ -185,7 +185,7 @@ fn map2(
     mapping: &Bound<'_, PyAny>,
     opt1: &Bound<'_, PyAny>,
     opt2: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     if opt1.is_none() || opt2.is_none() {
         return Ok(py.None());
     }
@@ -203,7 +203,7 @@ fn map3(
     opt1: &Bound<'_, PyAny>,
     opt2: &Bound<'_, PyAny>,
     opt3: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     if opt1.is_none() || opt2.is_none() || opt3.is_none() {
         return Ok(py.None());
     }
@@ -216,23 +216,23 @@ fn map3(
 }
 
 #[pyfunction]
-fn some(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn some(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     wrap_value(py, x)
 }
 
 #[pyfunction]
-fn value(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn value(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     extract_value(py, x)
 }
 
 #[pyfunction]
-fn of_nullable(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn of_nullable(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     // Just return the object as is
     x.into_py_any(py)
 }
 
 #[pyfunction]
-fn to_nullable(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn to_nullable(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     if x.is_none() {
         Ok(py.None())
     } else {
@@ -241,7 +241,7 @@ fn to_nullable(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
 }
 
 #[pyfunction]
-fn flatten(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn flatten(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     if x.is_none() {
         Ok(py.None())
     } else {
@@ -250,7 +250,7 @@ fn flatten(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
 }
 
 #[pyfunction]
-fn to_array(py: Python<'_>, opt: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn to_array(py: Python<'_>, opt: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     if opt.is_none() {
         // Return empty list
         let empty_list = PyList::empty(py);
@@ -263,7 +263,7 @@ fn to_array(py: Python<'_>, opt: &Bound<'_, PyAny>) -> PyResult<PyObject> {
 }
 
 #[pyfunction]
-fn bind(py: Python<'_>, binder: &Bound<'_, PyAny>, opt: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn bind(py: Python<'_>, binder: &Bound<'_, PyAny>, opt: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     if opt.is_none() {
         Ok(py.None())
     } else {
@@ -277,7 +277,7 @@ fn or_else(
     py: Python<'_>,
     opt: &Bound<'_, PyAny>,
     if_none: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     if opt.is_none() {
         if_none.into_pyobject(py)?.into_py_any(py)
     } else {
@@ -290,7 +290,7 @@ fn or_else_with(
     py: Python<'_>,
     opt: &Bound<'_, PyAny>,
     if_none_thunk: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     if opt.is_none() {
         if_none_thunk.call0()?.into_py_any(py)
     } else {
@@ -299,7 +299,7 @@ fn or_else_with(
 }
 
 #[pyfunction]
-fn non_null(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+fn non_null(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     if x.is_none() {
         Err(PyValueError::new_err("Value cannot be null"))
     } else {

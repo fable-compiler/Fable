@@ -526,7 +526,7 @@ pub fn atan(x: &Float64) -> Float64 {
 }
 
 #[pyfunction]
-pub fn atan2(py: Python<'_>, y: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+pub fn atan2(py: Python<'_>, y: &Bound<'_, PyAny>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     let y_val = y
         .extract::<Float64>()
         .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64 for y"))?;
@@ -548,7 +548,7 @@ pub fn log(
     py: Python<'_>,
     x: &Bound<'_, PyAny>,
     base: Option<&Bound<'_, PyAny>>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let f64_val = x
         .extract::<Float64>()
         .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
@@ -566,7 +566,7 @@ pub fn log10(x: &Float64) -> PyResult<Float64> {
 }
 
 #[pyfunction]
-pub fn log2(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+pub fn log2(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     let f64_val = x
         .extract::<Float64>()
         .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
@@ -575,7 +575,7 @@ pub fn log2(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
 }
 
 #[pyfunction]
-pub fn degrees(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+pub fn degrees(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     let f64_val = x
         .extract::<Float64>()
         .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
@@ -584,7 +584,7 @@ pub fn degrees(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
 }
 
 #[pyfunction]
-pub fn radians(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+pub fn radians(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     let f64_val = x
         .extract::<Float64>()
         .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
@@ -625,7 +625,7 @@ pub fn is_negative_infinity(_py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<b
 }
 
 #[pyfunction]
-pub fn floor(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+pub fn floor(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     let f64_val = x
         .extract::<Float64>()
         .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
@@ -634,7 +634,7 @@ pub fn floor(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
 }
 
 #[pyfunction]
-pub fn ceil(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+pub fn ceil(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
     let f64_val = x
         .extract::<Float64>()
         .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;

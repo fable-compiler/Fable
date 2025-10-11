@@ -382,7 +382,7 @@ macro_rules! integer_variant {
                 py: Python,
                 length: usize,
                 byteorder: &str,
-            ) -> PyResult<PyObject> {
+            ) -> PyResult<Py<PyAny>> {
                 let mut bytes = vec![0; length];
                 match byteorder {
                     "little" => LittleEndian::write_uint(&mut bytes, self.0 as u64, length),

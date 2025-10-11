@@ -179,7 +179,7 @@ impl FSharpArray {
         _cls: &Bound<'_, PyType>,
         item: &Bound<'_, PyAny>,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         // Get type name - either from string or from type.__name__
         let type_name: Option<String> = if let Ok(s) = item.extract::<String>() {
             Some(s)
@@ -335,7 +335,7 @@ impl FSharpArray {
         }
     }
 
-    pub fn __add__(&self, other: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<PyObject> {
+    pub fn __add__(&self, other: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<Py<PyAny>> {
         // Use append to implement array concatenation
         let result = self.append(py, other, None)?;
         Ok(result.into_pyobject(py)?.into())
@@ -389,7 +389,7 @@ impl FSharpArray {
         self.storage.len()
     }
 
-    pub fn __iter__(&self, py: Python<'_>) -> PyResult<PyObject> {
+    pub fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let iter = FSharpArrayIter {
             array: Py::new(py, self.clone())?,
             index: 0,
@@ -398,7 +398,7 @@ impl FSharpArray {
         iter.into_py_any(py)
     }
 
-    pub fn __bytes__(&self, py: Python<'_>) -> PyResult<PyObject> {
+    pub fn __bytes__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         match &self.storage {
             // For UInt8/Int8 arrays, we can create bytes directly
             NativeArray::UInt8(vec) => {
@@ -497,7 +497,7 @@ impl FSharpArray {
         &self,
         slice: &Bound<'_, pyo3::types::PySlice>,
         py: Python<'_>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
         let indices = slice.indices(len as isize)?;
         let start = indices.start as usize;
@@ -559,7 +559,7 @@ impl FSharpArray {
         Ok(Py::new(py, result)?.into())
     }
 
-    pub fn __getitem__(&self, idx: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<PyObject> {
+    pub fn __getitem__(&self, idx: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<Py<PyAny>> {
         // Try to downcast to a slice first
         if let Ok(slice) = idx.downcast::<pyo3::types::PySlice>() {
             // println!("Slice: {:?}", slice);
@@ -579,7 +579,7 @@ impl FSharpArray {
     }
 
     // Helper method to get an item at a specific index
-    fn get_item_at_index(&self, idx: isize, py: Python<'_>) -> PyResult<PyObject> {
+    fn get_item_at_index(&self, idx: isize, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
         let idx = if idx < 0 { len as isize + idx } else { idx };
 
@@ -1067,7 +1067,7 @@ impl FSharpArray {
         py: Python<'_>,
         folder: &Bound<'_, PyAny>,
         state: &Bound<'_, PyAny>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
         let mut acc = state.clone();
 
@@ -1084,7 +1084,7 @@ impl FSharpArray {
         py: Python<'_>,
         folder: &Bound<'_, PyAny>,
         state: &Bound<'_, PyAny>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
         let mut acc = state.clone();
 
@@ -1101,7 +1101,7 @@ impl FSharpArray {
         py: Python<'_>,
         folder: &Bound<'_, PyAny>,
         state: &Bound<'_, PyAny>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
         let mut acc = state.clone();
 
@@ -1195,7 +1195,7 @@ impl FSharpArray {
         py: Python<'_>,
         folder: &Bound<'_, PyAny>,
         state: &Bound<'_, PyAny>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
         let mut acc = state.clone(); // Updated to use clone()
 
@@ -1270,13 +1270,13 @@ impl FSharpArray {
         }
     }
 
-    pub fn reduce(&self, py: Python<'_>, reduction: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    pub fn reduce(&self, py: Python<'_>, reduction: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         reduce_impl(self, py, |acc, item, _py| {
             reduction.call1((acc, item)).map(|o| o.into())
         })
     }
 
-    pub fn reduce_back(&self, py: Python<'_>, reduction: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    pub fn reduce_back(&self, py: Python<'_>, reduction: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
         if len == 0 {
             return Err(PyErr::new::<exceptions::PyValueError, _>(
@@ -1301,7 +1301,7 @@ impl FSharpArray {
         folder: &Bound<'_, PyAny>,
         other: &Bound<'_, PyAny>,
         state: &Bound<'_, PyAny>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         // Check if the other object is a FSharpArray
         if let Ok(other_array) = other.extract::<PyRef<'_, FSharpArray>>() {
             // Compare lengths first
@@ -1334,7 +1334,7 @@ impl FSharpArray {
         f: &Bound<'_, PyAny>,
         other: &Bound<'_, PyAny>,
         state: &Bound<'_, PyAny>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         // Check if the other object is a FSharpArray
         if let Ok(other_array) = other.extract::<PyRef<'_, FSharpArray>>() {
             // Compare lengths first
@@ -1378,7 +1378,7 @@ impl FSharpArray {
         Ok(())
     }
 
-    pub fn sum(&self, py: Python<'_>, adder: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    pub fn sum(&self, py: Python<'_>, adder: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
         let mut acc = adder.call_method0("GetZero")?;
 
@@ -1390,7 +1390,7 @@ impl FSharpArray {
         Ok(acc.into())
     }
 
-    pub fn average(&self, py: Python<'_>, averager: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    pub fn average(&self, py: Python<'_>, averager: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
         if len == 0 {
             return Err(PyErr::new::<exceptions::PyValueError, _>(
@@ -1414,7 +1414,7 @@ impl FSharpArray {
         py: Python<'_>,
         projection: &Bound<'_, PyAny>,
         averager: &Bound<'_, PyAny>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
         if len == 0 {
             return Err(PyErr::new::<exceptions::PyValueError, _>(
@@ -1704,7 +1704,7 @@ impl FSharpArray {
         &self,
         py: Python<'_>,
         predicate: &Bound<'_, PyAny>,
-    ) -> PyResult<Option<PyObject>> {
+    ) -> PyResult<Option<Py<PyAny>>> {
         let len = self.storage.len();
         for i in (0..len).rev() {
             let item = self.get_item_at_index(i as isize, py)?;
@@ -1813,7 +1813,7 @@ impl FSharpArray {
         mapping: &Bound<'_, PyAny>,
         state: &Bound<'_, PyAny>,
         cons: Option<&Bound<'_, PyAny>>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
 
         // Get the constructor or use default
@@ -1864,7 +1864,7 @@ impl FSharpArray {
         mapping: &Bound<'_, PyAny>,
         state: &Bound<'_, PyAny>,
         cons: Option<&Bound<'_, PyAny>>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
 
         // Get the constructor or use default
@@ -1909,7 +1909,7 @@ impl FSharpArray {
     }
 
     // Get the first element of the array
-    pub fn head(&self, py: Python<'_>) -> PyResult<PyObject> {
+    pub fn head(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         if self.storage.len() == 0 {
             return Err(PyErr::new::<exceptions::PyValueError, _>(
                 "The input array was empty",
@@ -1919,7 +1919,7 @@ impl FSharpArray {
     }
 
     // Try to get the first element, returning None if array is empty
-    pub fn try_head(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    pub fn try_head(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         if self.storage.len() == 0 {
             Ok(None)
         } else {
@@ -1940,12 +1940,12 @@ impl FSharpArray {
     }
 
     // Get an item at a specific index
-    pub fn item(&self, py: Python<'_>, index: isize) -> PyResult<PyObject> {
+    pub fn item(&self, py: Python<'_>, index: isize) -> PyResult<Py<PyAny>> {
         self.get_item_at_index(index, py)
     }
 
     // Try to get an item at a specific index, returning None if out of bounds
-    pub fn try_item(&self, py: Python<'_>, index: isize) -> PyResult<Option<PyObject>> {
+    pub fn try_item(&self, py: Python<'_>, index: isize) -> PyResult<Option<Py<PyAny>>> {
         let len = self.storage.len();
 
         // Simple bounds check matching F# implementation
@@ -2479,7 +2479,7 @@ impl FSharpArray {
         Ok(true)
     }
 
-    pub fn find(&self, py: Python<'_>, predicate: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    pub fn find(&self, py: Python<'_>, predicate: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         match self.try_find(py, predicate)? {
             Some(item) => Ok(item),
             None => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
@@ -2492,7 +2492,7 @@ impl FSharpArray {
         &self,
         py: Python<'_>,
         predicate: &Bound<'_, PyAny>,
-    ) -> PyResult<Option<PyObject>> {
+    ) -> PyResult<Option<Py<PyAny>>> {
         for i in 0..self.__len__() {
             let item = self.get_item_at_index(i as isize, py)?;
             let result = predicate.call1((item.clone_ref(py),))?.extract::<bool>()?;
@@ -2630,7 +2630,7 @@ impl FSharpArray {
     }
 
     // let max (xs: 'a[]) ([<Inject>] comparer: IComparer<'a>) : 'a =
-    pub fn max(&self, py: Python<'_>, comparer: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    pub fn max(&self, py: Python<'_>, comparer: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         reduce_impl(self, py, |acc, item, py| {
             let comparison =
                 comparer.call_method1("Compare", (acc.clone_ref(py), item.clone_ref(py)))?;
@@ -2639,7 +2639,7 @@ impl FSharpArray {
         })
     }
 
-    pub fn min(&self, py: Python<'_>, comparer: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    pub fn min(&self, py: Python<'_>, comparer: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         reduce_impl(self, py, |acc, item, py| {
             let comparison =
                 comparer.call_method1("Compare", (acc.clone_ref(py), item.clone_ref(py)))?;
@@ -2654,7 +2654,7 @@ impl FSharpArray {
         py: Python<'_>,
         projection: &Bound<'_, PyAny>,
         comparer: &Bound<'_, PyAny>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         reduce_impl(self, py, |acc, item, py| {
             let acc_key = projection.call1((acc.clone_ref(py),))?;
             let item_key = projection.call1((item.clone_ref(py),))?;
@@ -2670,7 +2670,7 @@ impl FSharpArray {
         py: Python<'_>,
         projection: &Bound<'_, PyAny>,
         comparer: &Bound<'_, PyAny>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         reduce_impl(self, py, |acc, item, py| {
             let acc_key = projection.call1((acc.clone_ref(py),))?;
             let item_key = projection.call1((item.clone_ref(py),))?;
@@ -2709,7 +2709,7 @@ impl FSharpArray {
         Ok(FSharpArray { storage: results })
     }
 
-    pub fn find_back(&self, py: Python<'_>, predicate: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    pub fn find_back(&self, py: Python<'_>, predicate: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
         for i in (0..len).rev() {
             let item = self.get_item_at_index(i as isize, py)?;
@@ -2727,7 +2727,7 @@ impl FSharpArray {
         &self,
         py: Python<'_>,
         chooser: &Bound<'_, PyAny>,
-    ) -> PyResult<Option<PyObject>> {
+    ) -> PyResult<Option<Py<PyAny>>> {
         let len = self.storage.len();
         for i in 0..len {
             let item = self.get_item_at_index(i as isize, py)?;
@@ -2742,7 +2742,7 @@ impl FSharpArray {
         Ok(None)
     }
 
-    pub fn pick(&self, py: Python<'_>, chooser: &Bound<'_, PyAny>) -> PyResult<PyObject> {
+    pub fn pick(&self, py: Python<'_>, chooser: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         match self.try_pick(py, chooser)? {
             Some(result) => Ok(result),
             None => Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
@@ -2789,7 +2789,7 @@ impl FSharpArray {
         Ok(FSharpArray { storage: builder })
     }
 
-    pub fn try_last(&self, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    pub fn try_last(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         let len = self.storage.len();
         if len == 0 {
             Ok(None)
@@ -2798,7 +2798,7 @@ impl FSharpArray {
         }
     }
 
-    pub fn last(&self, py: Python<'_>) -> PyResult<PyObject> {
+    pub fn last(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
         if len == 0 {
             Err(PyErr::new::<pyo3::exceptions::PyIndexError, _>(
@@ -2845,7 +2845,7 @@ impl FSharpArray {
         py: Python<'_>,
         projection: &Bound<'_, PyAny>,
         adder: &Bound<'_, PyAny>,
-    ) -> PyResult<PyObject> {
+    ) -> PyResult<Py<PyAny>> {
         if self.is_empty() {
             return Err(PyErr::new::<exceptions::PyValueError, _>(
                 "The input array was empty",
@@ -2863,7 +2863,7 @@ impl FSharpArray {
         Ok(acc.into())
     }
 
-    pub fn unzip(&self, py: Python<'_>) -> PyResult<PyObject> {
+    pub fn unzip(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
 
         // Create two new arrays for the results
@@ -3124,7 +3124,7 @@ pub fn fold(
     folder: &Bound<'_, PyAny>,
     state: &Bound<'_, PyAny>,
     array: &FSharpArray,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     array.fold(py, folder, state)
 }
 
@@ -3134,7 +3134,7 @@ pub fn fold_indexed(
     folder: &Bound<'_, PyAny>,
     state: &Bound<'_, PyAny>,
     array: &FSharpArray,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     array.fold_indexed(py, folder, state)
 }
 
@@ -3144,7 +3144,7 @@ pub fn fold_back(
     folder: &Bound<'_, PyAny>,
     array: &FSharpArray,
     state: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     array.fold_back(py, folder, state)
 }
 
@@ -3154,7 +3154,7 @@ pub fn fold_back_indexed(
     folder: &Bound<'_, PyAny>,
     array: &FSharpArray,
     state: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     array.fold_back_indexed(py, folder, state)
 }
 
@@ -3234,7 +3234,7 @@ pub fn reduce(
     py: Python<'_>,
     reduction: &Bound<'_, PyAny>,
     array: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let array = ensure_array(py, array)?;
     array.reduce(py, reduction)
 }
@@ -3244,7 +3244,7 @@ pub fn reduce_back(
     py: Python<'_>,
     reduction: &Bound<'_, PyAny>,
     array: &FSharpArray,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     array.reduce_back(py, reduction)
 }
 
@@ -3255,7 +3255,7 @@ pub fn fold_back_indexed2(
     array1: &FSharpArray,
     array2: &Bound<'_, PyAny>,
     state: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     array1.fold_back_indexed2(py, folder, array2, state)
 }
 
@@ -3266,7 +3266,7 @@ pub fn fold_back2(
     array1: &FSharpArray,
     array2: &Bound<'_, PyAny>,
     state: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     array1.fold_back2(py, f, array2, state)
 }
 
@@ -3289,7 +3289,7 @@ pub fn sum(
     py: Python<'_>,
     array: &Bound<'_, PyAny>, // Take a PyAny instead of FSharpArray
     adder: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let array = ensure_array(py, array)?;
 
     // Now call the member function
@@ -3301,7 +3301,7 @@ pub fn average(
     py: Python<'_>,
     array: &Bound<'_, PyAny>, // Take a PyAny instead of FSharpArray
     averager: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let array = ensure_array(py, array)?;
 
     // Now call the member function
@@ -3314,7 +3314,7 @@ pub fn average_by(
     projection: &Bound<'_, PyAny>,
     array: &Bound<'_, PyAny>, // Take a PyAny instead of FSharpArray
     averager: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let array = ensure_array(py, array)?;
 
     // Now call the member function
@@ -3380,7 +3380,7 @@ pub fn try_find_back(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
     array: &FSharpArray,
-) -> PyResult<Option<PyObject>> {
+) -> PyResult<Option<Py<PyAny>>> {
     array.try_find_back(py, predicate)
 }
 
@@ -3406,7 +3406,7 @@ pub fn map_fold(
     state: &Bound<'_, PyAny>,
     array: &FSharpArray,
     cons: Option<&Bound<'_, PyAny>>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     array.map_fold(py, mapping, state, cons)
 }
 
@@ -3418,18 +3418,18 @@ pub fn map_fold_back(
     array: &Bound<'_, PyAny>,
     state: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let array = ensure_array(py, array)?;
     array.map_fold_back(py, mapping, state, cons)
 }
 
 #[pyfunction]
-pub fn head(py: Python<'_>, array: &FSharpArray) -> PyResult<PyObject> {
+pub fn head(py: Python<'_>, array: &FSharpArray) -> PyResult<Py<PyAny>> {
     array.head(py)
 }
 
 #[pyfunction]
-pub fn try_head(py: Python<'_>, array: &FSharpArray) -> PyResult<Option<PyObject>> {
+pub fn try_head(py: Python<'_>, array: &FSharpArray) -> PyResult<Option<Py<PyAny>>> {
     array.try_head(py)
 }
 
@@ -3444,12 +3444,12 @@ pub fn tail(
 }
 
 #[pyfunction]
-pub fn item(py: Python<'_>, index: isize, array: &FSharpArray) -> PyResult<PyObject> {
+pub fn item(py: Python<'_>, index: isize, array: &FSharpArray) -> PyResult<Py<PyAny>> {
     array.item(py, index)
 }
 
 #[pyfunction]
-pub fn try_item(py: Python<'_>, index: isize, array: &FSharpArray) -> PyResult<Option<PyObject>> {
+pub fn try_item(py: Python<'_>, index: isize, array: &FSharpArray) -> PyResult<Option<Py<PyAny>>> {
     array.try_item(py, index)
 }
 
@@ -3650,7 +3650,7 @@ pub fn find(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
     array: &FSharpArray,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     array.find(py, predicate)
 }
 
@@ -3659,7 +3659,7 @@ pub fn try_find(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
     array: &FSharpArray,
-) -> PyResult<Option<PyObject>> {
+) -> PyResult<Option<Py<PyAny>>> {
     array.try_find(py, predicate)
 }
 
@@ -3736,7 +3736,7 @@ pub fn max(
     py: Python<'_>,
     array: &Bound<'_, PyAny>,
     comparer: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let array = ensure_array(py, array)?;
     array.max(py, comparer)
 }
@@ -3747,7 +3747,7 @@ pub fn min(
     py: Python<'_>,
     array: &Bound<'_, PyAny>,
     comparer: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let array = ensure_array(py, array)?;
     array.min(py, comparer)
 }
@@ -3781,7 +3781,7 @@ pub fn max_by(
     key: &Bound<'_, PyAny>,
     array: &Bound<'_, PyAny>,
     comparer: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let array = ensure_array(py, array)?;
     array.max_by(py, key, comparer)
 }
@@ -3793,7 +3793,7 @@ pub fn min_by(
     key: &Bound<'_, PyAny>,
     array: &Bound<'_, PyAny>,
     comparer: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let array = ensure_array(py, array)?;
     array.min_by(py, key, comparer)
 }
@@ -3803,12 +3803,16 @@ pub fn find_back(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
     array: &FSharpArray,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     array.find_back(py, predicate)
 }
 
 #[pyfunction]
-pub fn pick(py: Python<'_>, chooser: &Bound<'_, PyAny>, array: &FSharpArray) -> PyResult<PyObject> {
+pub fn pick(
+    py: Python<'_>,
+    chooser: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+) -> PyResult<Py<PyAny>> {
     array.pick(py, chooser)
 }
 
@@ -3817,7 +3821,7 @@ pub fn try_pick(
     py: Python<'_>,
     chooser: &Bound<'_, PyAny>,
     array: &FSharpArray,
-) -> PyResult<Option<PyObject>> {
+) -> PyResult<Option<Py<PyAny>>> {
     array.try_pick(py, chooser)
 }
 
@@ -3845,12 +3849,12 @@ pub fn try_find_index(
 }
 
 #[pyfunction]
-pub fn try_last(py: Python<'_>, array: &FSharpArray) -> PyResult<Option<PyObject>> {
+pub fn try_last(py: Python<'_>, array: &FSharpArray) -> PyResult<Option<Py<PyAny>>> {
     array.try_last(py)
 }
 
 #[pyfunction]
-pub fn last(py: Python<'_>, array: &FSharpArray) -> PyResult<PyObject> {
+pub fn last(py: Python<'_>, array: &FSharpArray) -> PyResult<Py<PyAny>> {
     array.last(py)
 }
 
@@ -3955,13 +3959,13 @@ pub fn sum_by(
     projection: &Bound<'_, PyAny>,
     array: &Bound<'_, PyAny>,
     adder: &Bound<'_, PyAny>,
-) -> PyResult<PyObject> {
+) -> PyResult<Py<PyAny>> {
     let array = ensure_array(py, array)?;
     array.sum_by(py, projection, adder)
 }
 
 #[pyfunction]
-pub fn unzip(py: Python<'_>, array: &FSharpArray) -> PyResult<PyObject> {
+pub fn unzip(py: Python<'_>, array: &FSharpArray) -> PyResult<Py<PyAny>> {
     array.unzip(py)
 }
 
@@ -4052,7 +4056,7 @@ impl FSharpCons {
     }
 
     #[classmethod]
-    fn __class_getitem__(cls: &Bound<'_, PyType>, _item: &Bound<'_, PyAny>) -> PyObject {
+    fn __class_getitem__(cls: &Bound<'_, PyType>, _item: &Bound<'_, PyAny>) -> Py<PyAny> {
         cls.clone().unbind().into()
     }
 }
@@ -4265,7 +4269,7 @@ impl FSharpArrayIter {
         slf
     }
 
-    fn __next__(mut slf: PyRefMut<'_, Self>, py: Python<'_>) -> PyResult<Option<PyObject>> {
+    fn __next__(mut slf: PyRefMut<'_, Self>, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         if slf.index >= slf.len {
             return Ok(None);
         }
@@ -4278,9 +4282,9 @@ impl FSharpArrayIter {
 }
 
 // Internal reduce implementation for Rust closures (not exposed to Python)
-fn reduce_impl<F>(array: &FSharpArray, py: Python<'_>, mut f: F) -> PyResult<PyObject>
+fn reduce_impl<F>(array: &FSharpArray, py: Python<'_>, mut f: F) -> PyResult<Py<PyAny>>
 where
-    F: FnMut(PyObject, PyObject, Python<'_>) -> PyResult<PyObject>,
+    F: FnMut(Py<PyAny>, Py<PyAny>, Python<'_>) -> PyResult<Py<PyAny>>,
 {
     let len = array.storage.len();
     if len == 0 {
