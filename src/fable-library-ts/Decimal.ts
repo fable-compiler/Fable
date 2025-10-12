@@ -1,10 +1,10 @@
 import Decimal, { BigSource } from "./lib/big.js";
-import { Numeric, symbol } from "./Numeric.js";
-import { FSharpRef } from "./Types.js";
-import { Exception, combineHashCodes } from "./Util.js";
-import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } from "./Int32.js";
-import { fromDecimal, int64, uint64, int128, uint128, nativeint, unativeint } from "./BigInt.js";
-import * as bigInt from "./BigInt.js";
+import { Numeric, symbol } from "./Numeric.ts";
+import { FSharpRef } from "./Types.ts";
+import { Exception, combineHashCodes } from "./Util.ts";
+import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } from "./Int32.ts";
+import { fromDecimal, int64, uint64, int128, uint128, nativeint, unativeint } from "./BigInt.ts";
+import * as bigInt from "./BigInt.ts";
 
 Decimal.prototype.GetHashCode = function () {
   return combineHashCodes([this.s, this.e].concat(this.c))

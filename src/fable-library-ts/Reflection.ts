@@ -1,6 +1,6 @@
-import { FSharpRef, Record, Union } from "./Types.js";
-import { Exception, MutableArray, combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Util.js";
-import Decimal from "./Decimal.js";
+import { FSharpRef, Record, Union } from "./Types.ts";
+import { Exception, MutableArray, combineHashCodes, equalArraysWith, IEquatable, stringHash } from "./Util.ts";
+import Decimal from "./Decimal.ts";
 
 export type FieldInfo = [string, TypeInfo];
 export type PropertyInfo = FieldInfo;

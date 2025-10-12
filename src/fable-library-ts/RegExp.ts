@@ -1,4 +1,4 @@
-import { Exception } from "./Util.js";
+import { Exception } from "./Util.ts";
 
 export type MatchEvaluator = (match: any) => string;
 

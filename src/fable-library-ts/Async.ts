@@ -1,10 +1,10 @@
-import { OperationCanceledException, Trampoline } from "./AsyncBuilder.js";
-import { Continuation, Continuations } from "./AsyncBuilder.js";
-import { Async, IAsyncContext, CancellationToken } from "./AsyncBuilder.js";
-import { protectedCont, protectedBind, protectedReturn } from "./AsyncBuilder.js";
-import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.js";
-import { TimeoutException_$ctor } from "./System.js";
-import { Exception } from "./Util.js";
+import { OperationCanceledException, Trampoline } from "./AsyncBuilder.ts";
+import { Continuation, Continuations } from "./AsyncBuilder.ts";
+import { Async, IAsyncContext, CancellationToken } from "./AsyncBuilder.ts";
+import { protectedCont, protectedBind, protectedReturn } from "./AsyncBuilder.ts";
+import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.ts";
+import { TimeoutException_$ctor } from "./System.ts";
+import { Exception } from "./Util.ts";
 
 function emptyContinuation<T>(_x: T) {
   // NOP

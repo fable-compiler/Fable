@@ -1,4 +1,4 @@
-import { Exception, MutableArray, equals, isArrayLike } from "./Util.js";
+import { Exception, MutableArray, equals, isArrayLike } from "./Util.ts";
 
 export function count<T>(col: Iterable<T>): number {
   if (typeof (col as any)["System.Collections.Generic.ICollection`1.get_Count"] === "function") {

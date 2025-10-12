@@ -1,6 +1,6 @@
-import { IObservable, subscribe } from "./Observable.js";
-import { Option, some, value } from "./Option.js";
-import { FSharpChoice$2_$union, Choice_tryValueIfChoice1Of2, Choice_tryValueIfChoice2Of2 } from "./Choice.js";
+import { IObservable, subscribe } from "./Observable.ts";
+import { Option, some, value } from "./Option.ts";
+import { FSharpChoice$2_$union, Choice_tryValueIfChoice1Of2, Choice_tryValueIfChoice2Of2 } from "./Choice.ts";
 
 export type Handler<T> = (sender: any, x: T) => void;
 

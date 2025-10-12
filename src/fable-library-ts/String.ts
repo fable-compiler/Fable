@@ -1,8 +1,8 @@
-import { toString as dateToString } from "./Date.js";
-import { compare as numericCompare, isNumeric, isIntegral, multiply, Numeric, toExponential, toFixed, toHex, toPrecision } from "./Numeric.js";
-import { escape } from "./RegExp.js";
-import { toString } from "./Types.js";
-import { Exception } from "./Util.js";
+import { toString as dateToString } from "./Date.ts";
+import { compare as numericCompare, isNumeric, isIntegral, multiply, Numeric, toExponential, toFixed, toHex, toPrecision } from "./Numeric.ts";
+import { escape } from "./RegExp.ts";
+import { toString } from "./Types.ts";
+import { Exception } from "./Util.ts";
 
 const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\*|\d+)?(?:\.(\d+))?(\w)/g;
 const interpolateRegExp = /(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)/g;

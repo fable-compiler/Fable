@@ -107,13 +107,6 @@ module Imports =
                 importPath
 
 type SourceWriter(sourcePath, targetPath, projDir, options: CmdLineOptions, fileExt: string, dedupTargetDir) =
-    // In imports *.ts extensions have to be converted to *.js extensions instead
-    let fileExt =
-        if fileExt.EndsWith(".ts") then
-            Path.ChangeExtension(fileExt, ".js")
-        else
-            fileExt
-
     let sb = System.Text.StringBuilder()
     let mapGenerator = lazy (SourceMapSharp.SourceMapGenerator())
 

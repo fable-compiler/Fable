@@ -1,4 +1,4 @@
-import { Exception, ensureErrorOrException, IDisposable } from "./Util.js";
+import { Exception, ensureErrorOrException, IDisposable } from "./Util.ts";
 
 export interface AsyncReplyChannel<Reply> {
   reply(value: Reply): void

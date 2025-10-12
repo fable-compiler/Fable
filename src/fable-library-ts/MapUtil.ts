@@ -1,5 +1,5 @@
-import { Exception, equals, IMap, IMapOrWeakMap, ISet } from "./Util.js";
-import { FSharpRef, Union } from "./Types.js";
+import { Exception, equals, IMap, IMapOrWeakMap, ISet } from "./Util.ts";
+import { FSharpRef, Union } from "./Types.ts";
 
 const CaseRules = {
   None: 0,
