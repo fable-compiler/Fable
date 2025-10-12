@@ -544,7 +544,7 @@ let tests =
         /// date is 2007-09-01
         /// -> UTC + 2 in Europe! (summer time)
         let usedDate = DateTime(2007, 9, 1, 9, 30, 17, DateTimeKind.Unspecified)
-        let dateWithKind (kind: DateTimeKind)=
+        let dateWithKind (kind: DateTimeKind) =
             DateTime(usedDate.Year, usedDate.Month, usedDate.Day, usedDate.Hour, usedDate.Minute, usedDate.Second, kind)
 
         let fromDateList (offset: TimeSpan) =

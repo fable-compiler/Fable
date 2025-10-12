@@ -12,14 +12,16 @@ function isLessThan(x: Numeric, y: number) {
   return numericCompare(x, y) < 0;
 }
 
-const enum StringComparison {
-  CurrentCulture = 0,
-  CurrentCultureIgnoreCase = 1,
-  InvariantCulture = 2,
-  InvariantCultureIgnoreCase = 3,
-  Ordinal = 4,
-  OrdinalIgnoreCase = 5,
-}
+export const StringComparison = {
+  CurrentCulture: 0,
+  CurrentCultureIgnoreCase: 1,
+  InvariantCulture: 2,
+  InvariantCultureIgnoreCase: 3,
+  Ordinal: 4,
+  OrdinalIgnoreCase: 5,
+} as const;
+
+export type StringComparison = typeof StringComparison[keyof typeof StringComparison];
 
 function cmp(x: string, y: string, ic: boolean | StringComparison) {
   function isIgnoreCase(i: boolean | StringComparison) {

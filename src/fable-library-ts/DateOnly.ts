@@ -1,9 +1,9 @@
 import { FSharpRef } from "./Types.js";
 import { DateTime, getTicks, dayOfYear as Date_dayOfYear, year as Date_year, month as Date_month, day as Date_day, daysInMonth as Date_daysInMonth, ticksToUnixEpochMilliseconds } from "./Date.js";
-import { Exception, IDateTime, DateKind, padWithZeros } from "./Util.js";
+import { Exception, IDateTime, DateTimeKind, padWithZeros } from "./Util.js";
 
 export function fromUnixMilliseconds(value: number) {
-  return DateTime(value, DateKind.UTC);
+  return DateTime(value, DateTimeKind.Utc);
 }
 
 export function create(year: number, month: number, day: number) {
@@ -57,8 +57,8 @@ export function dayOfYear(d: IDateTime) {
   return Date_dayOfYear(d);
 }
 
-export function toDateTime(d: IDateTime, time: number, kind = DateKind.Unspecified) {
-  return DateTime(d.getTime() + time + (kind !== DateKind.UTC ? d.getTimezoneOffset() : 0) * 60000, kind);
+export function toDateTime(d: IDateTime, time: number, kind: DateTimeKind = DateTimeKind.Unspecified) {
+  return DateTime(d.getTime() + time + (kind !== DateTimeKind.Utc ? d.getTimezoneOffset() : 0) * 60000, kind);
 }
 
 export function toString(d: IDateTime, format = "d", _provider?: any) {

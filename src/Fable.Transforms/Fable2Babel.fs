@@ -609,6 +609,8 @@ module Annotation =
         | Fable.String -> StringTypeAnnotation
         | Fable.Regex -> makeAliasTypeAnnotation com ctx "RegExp"
         | Fable.Number(BigInt, _) -> makeAliasTypeAnnotation com ctx "bigint"
+        | Fable.Number(Int32, Fable.NumberInfo.IsEnum ent) when ent.FullName = "System.DateTimeKind" ->
+            makeFableLibImportTypeAnnotation com ctx [] "Util" "DateTimeKind"
         | Fable.Number(kind, _) -> makeNumericTypeAnnotation com ctx kind
         | Fable.Nullable(genArg, isStruct) -> makeNullableTypeAnnotation com ctx isStruct genArg
         | Fable.Option(genArg, isStruct) -> makeOptionTypeAnnotation com ctx isStruct genArg
@@ -1462,7 +1464,7 @@ module Util =
         match e, typ with
         | Literal(NumericLiteral(_)), _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
-        | _, Fable.Number((Int8 | Int16 | Int32), _) ->
+        | _, Fable.Number((Int8 | Int16 | Int32), Fable.NumberInfo.Empty) ->
             Expression.binaryExpression (BinaryOrBitwise, e, Expression.numericLiteral (0.))
         | _ -> e
 
@@ -3402,10 +3404,10 @@ but thanks to the optimisation done below we get
                 |> Seq.choose (fun ifc ->
                     match ifc.Entity.FullName with
                     // Discard non-generic versions of IEquatable & IComparable
-                    | "System.IEquatable"
+                    | Types.iequatable
                     | Types.iStructuralEquatable
                     | Types.iequalityComparer
-                    | "System.IComparable"
+                    | Types.icomparable
                     | Types.iStructuralComparable
                     | Types.ienumerable
                     | Types.ienumerator -> None
@@ -3812,10 +3814,37 @@ but thanks to the optimisation done below we get
                     Parameter.parameter ("fields", typeAnnotation = fieldsArgTa)
                 |]
 
-            let consArgsModifiers = [| Readonly; Readonly |]
+            let consArgsModifiers = [||]
 
-            let consBody = BlockStatement [| callSuperAsStatement [] |]
-            let classMembers = Array.append [| cases |] classMembers
+            let consBody =
+                BlockStatement
+                    [|
+                        callSuperAsStatement []
+                        yield!
+                            [ "tag"; "fields" ]
+                            |> List.map (fun name ->
+                                let left = get None thisExpr name
+                                let right = Expression.identifier (name)
+                                assign None left right |> ExpressionStatement
+                            )
+                    |]
+
+            let classMembers =
+                [|
+                    ClassMember.classProperty (
+                        Expression.identifier "tag",
+                        typeAnnotation = tagArgTa,
+                        accessModifier = Readonly
+                    )
+
+                    ClassMember.classProperty (
+                        Expression.identifier "fields",
+                        typeAnnotation = fieldsArgTa,
+                        accessModifier = Readonly
+                    )
+                    cases
+                    yield! classMembers
+                |]
 
             let unionConsTypeParams =
                 Some(

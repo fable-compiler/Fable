@@ -1,17 +1,21 @@
 {
-    "compilerOptions": {
-      "target": "es2020",
-      "module": "es2020",
-      "sourceMap": false,
-      "allowJs": true,
-      "esModuleInterop": true,
-      "moduleResolution": "node",
-      "strict": true,
-      "noImplicitReturns": true,
-      "noFallthroughCasesInSwitch": true,
-      "noEmitOnError": true,
-      "newLine": "lf",
-      "forceConsistentCasingInFileNames": true,
-      "preserveWatchOutput": true
-    }
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "es2020",
+    "rewriteRelativeImportExtensions": true,
+    "erasableSyntaxOnly": true,
+    // "verbatimModuleSyntax": true,
+    "sourceMap": false,
+    "allowJs": true,
+    "esModuleInterop": true,
+    "moduleResolution": "node",
+    "strict": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noEmitOnError": true,
+    "newLine": "lf",
+    "forceConsistentCasingInFileNames": true,
+    "preserveWatchOutput": true
   }
+}

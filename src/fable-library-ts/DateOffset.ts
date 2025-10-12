@@ -16,7 +16,7 @@
 import { int64, fromFloat64, toFloat64 } from "./BigInt.js";
 import DateTime, { create as createDate, dateOffsetToString, daysInMonth, parseRaw, ticksToUnixEpochMilliseconds, unixEpochMillisecondsToTicks } from "./Date.js";
 import { FSharpRef } from "./Types.js";
-import { Exception, compareDates, DateKind, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
+import { Exception, compareDates, DateTimeKind, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
 
 export default function DateTimeOffset(value: number, offset?: number) {
   checkOffsetInRange(offset);
@@ -43,14 +43,14 @@ function checkOffsetInRange(offset?: number) {
 export function fromDate(date: IDateTime, offset?: number) {
   let offset2: number = 0;
   switch (date.kind) {
-    case DateKind.UTC:
+    case DateTimeKind.Utc:
       if(offset != null && offset !== 0) {
         throw new Exception("The UTC Offset for Utc DateTime instances must be 0.");
       }
       offset2 = 0;
       break;
 
-    case DateKind.Local:
+    case DateTimeKind.Local:
       offset2 = date.getTimezoneOffset() * -60_000;
       if(offset != null && offset !== offset2) {
         throw new Exception("The UTC Offset of the local dateTime parameter does not match the offset argument.");
@@ -58,7 +58,7 @@ export function fromDate(date: IDateTime, offset?: number) {
 
       break;
 
-    case DateKind.Unspecified:
+    case DateTimeKind.Unspecified:
     default:
       if(offset == null) {
         offset2 = date.getTimezoneOffset() * -60_000;
@@ -162,15 +162,15 @@ export function utcNow() {
 }
 
 export function toUniversalTime(date: IDateTimeOffset): Date {
-  return DateTime(date.getTime(), DateKind.UTC);
+  return DateTime(date.getTime(), DateTimeKind.Utc);
 }
 
 export function toLocalTime(date: IDateTimeOffset): Date {
-  return DateTime(date.getTime() + offset(now()), DateKind.Local);
+  return DateTime(date.getTime() + offset(now()), DateTimeKind.Local);
 }
 
 export function localDateTime(date: IDateTimeOffset) : Date {
-  return DateTime(date.getTime(), DateKind.Local);
+  return DateTime(date.getTime(), DateTimeKind.Local);
 }
 
 export function timeOfDay(d: IDateTimeOffset) {

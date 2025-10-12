@@ -24,15 +24,17 @@ export interface MutableArray<T> extends Iterable<T> {
   sort(compareFn?: (a: T, b: T) => number): this;
 }
 
-// Don't change, this corresponds to DateTime.Kind enum values in .NET
-export const enum DateKind {
-  Unspecified = 0,
-  UTC = 1,
-  Local = 2,
-}
+// Don't change, this corresponds to DateTimeKind.Kind enum values in .NET
+export const DateTimeKind = {
+  Unspecified: 0,
+  Utc: 1,
+  Local: 2,
+} as const;
+
+export type DateTimeKind = typeof DateTimeKind[keyof typeof DateTimeKind];
 
 export interface IDateTime extends Date {
-  kind?: DateKind;
+  kind?: DateTimeKind;
 }
 
 export interface IDateTimeOffset extends Date {
@@ -78,7 +80,7 @@ export interface ICollection<T> extends Iterable<T> {
 export class Exception {
   public message: string;
 
-  constructor(public msg?: string) {
+  constructor(msg?: string) {
     this.message = msg ?? "";
   }
 }
@@ -160,7 +162,8 @@ export interface IEnumerable<T> extends Iterable<T> {
 }
 
 export class Enumerable<T> implements IEnumerable<T> {
-  constructor(private en: IEnumerator<T>) { }
+  private en: IEnumerator<T>;
+  constructor(en: IEnumerator<T>) { this.en = en; }
   public GetEnumerator(): IEnumerator<T> { return this.en; }
   public "System.Collections.IEnumerable.GetEnumerator"(): IEnumerator<any> { return this.en; }
   [Symbol.iterator]() {
@@ -175,7 +178,8 @@ export class Enumerable<T> implements IEnumerable<T> {
 
 export class Enumerator<T> implements IEnumerator<T> {
   private current: T = defaultOf();
-  constructor(private iter: Iterator<T>) { }
+  private iter: Iterator<T>;
+  constructor(iter: Iterator<T>) { this.iter = iter; }
   public ["System.Collections.Generic.IEnumerator`1.get_Current"]() {
     return this.current;
   }
@@ -336,7 +340,7 @@ export function dateOffset(date: IDateTime | IDateTimeOffset): number {
   const date1 = date as IDateTimeOffset;
   return typeof date1.offset === "number"
     ? date1.offset
-    : ((date as IDateTime).kind === DateKind.UTC
+    : ((date as IDateTime).kind === DateTimeKind.Utc
       ? 0 : date.getTimezoneOffset() * -60000);
 }
 

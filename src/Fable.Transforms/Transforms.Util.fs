@@ -421,6 +421,9 @@ module Types =
     let icomparableGeneric = "System.IComparable`1"
 
     [<Literal>]
+    let iequatable = "System.IEquatable"
+
+    [<Literal>]
     let icomparable = "System.IComparable"
 
     [<Literal>]

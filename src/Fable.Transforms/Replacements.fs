@@ -3148,13 +3148,9 @@ let dateTime (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "ToString" ->
         Helper.LibCall(com, "Date", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
-    // | "get_Kind" ->
-    //     Helper.LibCall(com, moduleName, "kind", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
-    //     |> Some
-    //     let y = DateTime.Now.UtcTicks
-    //     let x = DateTimeOffset.Now.UtcTicks
-    //     failwith "Not implemented"
-
+    | "get_Kind" ->
+        Helper.LibCall(com, "Date", "getKind", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        |> Some
     | "get_Ticks" ->
         Helper.LibCall(com, "Date", "getTicks", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some

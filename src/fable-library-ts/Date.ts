@@ -10,7 +10,7 @@
 
 import { int64, toInt64, toFloat64 } from "./BigInt.js";
 import { FSharpRef } from "./Types.js";
-import { Exception, compareDates, DateKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
+import { Exception, compareDates, DateTimeKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
 
 export type OffsetInMinutes = number;
 export type Offset = "Z" | OffsetInMinutes | null;
@@ -94,7 +94,7 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
   let cursorPos = 0;
   let tokenLength = 0;
   let result = "";
-  const localizedDate = utc ? DateTime(date.getTime(), DateKind.UTC) : date;
+  const localizedDate = utc ? DateTime(date.getTime(), DateTimeKind.Utc) : date;
 
   while (cursorPos < format.length) {
     const token = format[cursorPos];
@@ -195,14 +195,14 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
         cursorPos += tokenLength;
         switch (tokenLength) {
           case 1:
-            switch (kind(localizedDate)) {
-              case DateKind.UTC:
+            switch (getKind(localizedDate)) {
+              case DateTimeKind.Utc:
                 result += "Z";
                 break;
-              case DateKind.Local:
+              case DateTimeKind.Local:
                 result += dateOffsetToString(localizedDate.getTimezoneOffset() * -60000);
                 break;
-              case DateKind.Unspecified:
+              case DateTimeKind.Unspecified:
                 break;
             }
             break;
@@ -288,14 +288,14 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
         cursorPos += tokenLength;
         let utcOffsetText = "";
 
-        switch (kind(localizedDate)) {
-          case DateKind.UTC:
+        switch (getKind(localizedDate)) {
+          case DateTimeKind.Utc:
             utcOffsetText = "+00:00";
             break;
-          case DateKind.Local:
+          case DateTimeKind.Local:
             utcOffsetText = dateOffsetToString(localizedDate.getTimezoneOffset() * -60000);
             break;
-          case DateKind.Unspecified:
+          case DateTimeKind.Unspecified:
             utcOffsetText = dateOffsetToString(toLocalTime(localizedDate).getTimezoneOffset() * -60000);
             break;
         }
@@ -358,8 +358,8 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
   return result;
 }
 
-export function kind(value: IDateTime): number {
-  return value.kind || 0;
+export function getKind(value: IDateTime): DateTimeKind {
+  return value.kind ?? DateTimeKind.Unspecified;
 }
 
 export function unixEpochMillisecondsToTicks(ms: number, offset: number): int64 {
@@ -385,7 +385,7 @@ function dateToISOString(d: IDateTime, utc: boolean) {
     return d.toISOString();
   } else {
     // JS Date is always local
-    const printOffset = d.kind == null ? true : d.kind === DateKind.Local;
+    const printOffset = d.kind == null ? true : d.kind === DateTimeKind.Local;
     return padWithZeros(d.getFullYear(), 4) + "-" +
       padWithZeros(d.getMonth() + 1, 2) + "-" +
       padWithZeros(d.getDate(), 2) + "T" +
@@ -445,7 +445,7 @@ function dateToString_t(date: IDateTime) {
 }
 
 function dateToStringWithKind(date: IDateTime, format?: string) {
-  const utc = date.kind === DateKind.UTC;
+  const utc = date.kind === DateTimeKind.Utc;
   if (typeof format !== "string") {
     return utc ? date.toUTCString() : date.toLocaleString();
   } else if (format.length === 1) {
@@ -470,30 +470,30 @@ export function toString(date: IDateTime | IDateTimeOffset, format?: string, _pr
     : dateToStringWithKind(date, format);
 }
 
-export function DateTime(value: number, kind?: DateKind) {
+export function DateTime(value: number, kind?: DateTimeKind) {
   const d = new Date(value) as IDateTime;
-  d.kind = (kind == null ? DateKind.Unspecified : kind) | 0;
+  d.kind = (kind == null ? DateTimeKind.Unspecified : kind);
   return d;
 }
 
-export function fromTicks(ticks: number | bigint, kind?: DateKind) {
-  kind = kind != null ? kind : DateKind.Local; // better default than Unspecified
+export function fromTicks(ticks: number | bigint, kind?: DateTimeKind) {
+  kind = kind != null ? kind : DateTimeKind.Local; // better default than Unspecified
   let date = DateTime(ticksToUnixEpochMilliseconds(ticks), kind);
 
   // Ticks are local to offset (in this case, either UTC or Local/Unknown).
   // If kind is anything but UTC, that means that the tick number was not
   // in utc, thus getTime() cannot return UTC, and needs to be shifted.
-  if (kind !== DateKind.UTC) {
+  if (kind !== DateTimeKind.Utc) {
     date = DateTime(date.getTime() - dateOffset(date), kind);
   }
 
   return date;
 }
 
-export function fromDateTimeOffset(date: IDateTimeOffset, kind: DateKind) {
+export function fromDateTimeOffset(date: IDateTimeOffset, kind: DateTimeKind) {
   switch (kind) {
-    case DateKind.UTC: return DateTime(date.getTime(), DateKind.UTC);
-    case DateKind.Local: return DateTime(date.getTime(), DateKind.Local);
+    case DateTimeKind.Utc: return DateTime(date.getTime(), DateTimeKind.Utc);
+    case DateTimeKind.Local: return DateTime(date.getTime(), DateTimeKind.Local);
     default:
       const d = DateTime(date.getTime() + (date.offset ?? 0), kind);
       return DateTime(d.getTime() - dateOffset(d), kind);
@@ -506,12 +506,12 @@ export function getTicks(date: IDateTime | IDateTimeOffset) {
 
 export function minValue() {
   // This is "0001-01-01T00:00:00.000Z", actual JS min value is -8640000000000000
-  return DateTime(-62135596800000, DateKind.UTC);
+  return DateTime(-62135596800000, DateTimeKind.Utc);
 }
 
 export function maxValue() {
   // This is "9999-12-31T23:59:59.999Z", actual JS max value is 8640000000000000
-  return DateTime(253402300799999, DateKind.UTC);
+  return DateTime(253402300799999, DateTimeKind.Utc);
 }
 
 export function parseRaw(input: string): [Date, Offset] {
@@ -593,8 +593,8 @@ export function parse(str: string, detectUTC = false): IDateTime {
   // .NET always parses DateTime as Local if there's offset info (even "Z")
   // Newtonsoft.Json uses UTC if the offset is "Z"
   const kind = offset != null
-    ? (detectUTC && offset === "Z" ? DateKind.UTC : DateKind.Local)
-    : DateKind.Unspecified;
+    ? (detectUTC && offset === "Z" ? DateTimeKind.Utc : DateTimeKind.Local)
+    : DateTimeKind.Unspecified;
   return DateTime(date.getTime(), kind);
 }
 
@@ -610,12 +610,12 @@ export function tryParse(v: string, defValue: FSharpRef<IDateTime>): boolean {
 export function create(
   year: number, month: number, day: number,
   h: number = 0, m: number = 0, s: number = 0,
-  ms: number = 0, kind?: DateKind) {
-  const date = kind === DateKind.UTC
+  ms: number = 0, kind?: DateTimeKind) {
+  const date = kind === DateTimeKind.Utc
     ? new Date(Date.UTC(year, month - 1, day, h, m, s, ms))
     : new Date(year, month - 1, day, h, m, s, ms);
   if (year <= 99) {
-    if (kind === DateKind.UTC) {
+    if (kind === DateTimeKind.Utc) {
       date.setUTCFullYear(year, month - 1, day);
     } else {
       date.setFullYear(year, month - 1, day);
@@ -629,11 +629,11 @@ export function create(
 }
 
 export function now() {
-  return DateTime(Date.now(), DateKind.Local);
+  return DateTime(Date.now(), DateTimeKind.Local);
 }
 
 export function utcNow() {
-  return DateTime(Date.now(), DateKind.UTC);
+  return DateTime(Date.now(), DateTimeKind.Utc);
 }
 
 export function today() {
@@ -651,14 +651,14 @@ export function daysInMonth(year: number, month: number) {
 }
 
 export function toUniversalTime(date: IDateTime) {
-  return date.kind === DateKind.UTC ? date : DateTime(date.getTime(), DateKind.UTC);
+  return date.kind === DateTimeKind.Utc ? date : DateTime(date.getTime(), DateTimeKind.Utc);
 }
 
 export function toLocalTime(date: IDateTime) {
-  return date.kind === DateKind.Local ? date : DateTime(date.getTime(), DateKind.Local);
+  return date.kind === DateTimeKind.Local ? date : DateTime(date.getTime(), DateTimeKind.Local);
 }
 
-export function specifyKind(d: IDateTime, kind: DateKind) {
+export function specifyKind(d: IDateTime, kind: DateTimeKind) {
   return create(year(d), month(d), day(d), hour(d), minute(d), second(d), millisecond(d), kind);
 }
 
@@ -674,35 +674,35 @@ export function date(d: IDateTime) {
 }
 
 export function day(d: IDateTime) {
-  return d.kind === DateKind.UTC ? d.getUTCDate() : d.getDate();
+  return d.kind === DateTimeKind.Utc ? d.getUTCDate() : d.getDate();
 }
 
 export function hour(d: IDateTime) {
-  return d.kind === DateKind.UTC ? d.getUTCHours() : d.getHours();
+  return d.kind === DateTimeKind.Utc ? d.getUTCHours() : d.getHours();
 }
 
 export function millisecond(d: IDateTime) {
-  return d.kind === DateKind.UTC ? d.getUTCMilliseconds() : d.getMilliseconds();
+  return d.kind === DateTimeKind.Utc ? d.getUTCMilliseconds() : d.getMilliseconds();
 }
 
 export function minute(d: IDateTime) {
-  return d.kind === DateKind.UTC ? d.getUTCMinutes() : d.getMinutes();
+  return d.kind === DateTimeKind.Utc ? d.getUTCMinutes() : d.getMinutes();
 }
 
 export function month(d: IDateTime) {
-  return (d.kind === DateKind.UTC ? d.getUTCMonth() : d.getMonth()) + 1;
+  return (d.kind === DateTimeKind.Utc ? d.getUTCMonth() : d.getMonth()) + 1;
 }
 
 export function second(d: IDateTime) {
-  return d.kind === DateKind.UTC ? d.getUTCSeconds() : d.getSeconds();
+  return d.kind === DateTimeKind.Utc ? d.getUTCSeconds() : d.getSeconds();
 }
 
 export function year(d: IDateTime) {
-  return d.kind === DateKind.UTC ? d.getUTCFullYear() : d.getFullYear();
+  return d.kind === DateTimeKind.Utc ? d.getUTCFullYear() : d.getFullYear();
 }
 
 export function dayOfWeek(d: IDateTime) {
-  return d.kind === DateKind.UTC ? d.getUTCDay() : d.getDay();
+  return d.kind === DateTimeKind.Utc ? d.getUTCDay() : d.getDay();
 }
 
 export function dayOfYear(d: IDateTime) {
@@ -717,7 +717,7 @@ export function dayOfYear(d: IDateTime) {
 
 export function add(d: IDateTime, ts: number) {
   const newDate = DateTime(d.getTime() + ts, d.kind);
-  if (d.kind !== DateKind.UTC) {
+  if (d.kind !== DateTimeKind.Utc) {
     const oldTzOffset = d.getTimezoneOffset();
     const newTzOffset = newDate.getTimezoneOffset();
     return oldTzOffset !== newTzOffset

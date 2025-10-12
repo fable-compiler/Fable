@@ -1,6 +1,6 @@
 import { FSharpRef } from "./Types.js";
 import { hours, minutes, seconds, milliseconds } from "./TimeSpan.js";
-import { Exception, DateKind, IDateTime, padWithZeros } from "./Util.js";
+import { Exception, DateTimeKind, IDateTime, padWithZeros } from "./Util.js";
 
 const millisecondsPerDay = 86400000;
 
@@ -23,7 +23,7 @@ export function fromTimeSpan(timeSpan: number) {
 }
 
 export function fromDateTime(d: IDateTime) {
-  return d.kind === DateKind.UTC
+  return d.kind === DateTimeKind.Utc
     ? create(d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds())
     : create(d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
 }
