@@ -9,34 +9,67 @@ export type ParameterInfo = FieldInfo;
 export type Constructor = new (...args: any[]) => any;
 
 export class CaseInfo {
+  public declaringType: TypeInfo;
+  public tag: number;
+  public name: string;
+  public fields?: FieldInfo[];
+
   constructor(
-    public declaringType: TypeInfo,
-    public tag: number,
-    public name: string,
-    public fields?: FieldInfo[]) {
+    declaringType: TypeInfo,
+    tag: number,
+    name: string,
+    fields?: FieldInfo[]
+  ) {
+    this.declaringType = declaringType;
+    this.tag = tag;
+    this.name = name;
+    this.fields = fields;
   }
 }
 
 export type EnumCase = [string, number];
 
 export class MethodInfo {
+  public name: string;
+  public parameters: ParameterInfo[];
+  public returnType: TypeInfo;
+
   constructor(
-    public name: string,
-    public parameters: ParameterInfo[],
-    public returnType: TypeInfo,
+    name: string,
+    parameters: ParameterInfo[],
+    returnType: TypeInfo,
   ) {
+    this.name = name;
+    this.parameters = parameters;
+    this.returnType = returnType;
   }
 }
 
 export class TypeInfo implements IEquatable<TypeInfo> {
+  public fullname: string;
+  public generics?: TypeInfo[];
+  public construct?: Constructor;
+  public parent?: TypeInfo;
+  public fields?: () => FieldInfo[];
+  public cases?: () => CaseInfo[];
+  public enumCases?: EnumCase[];
+
   constructor(
-    public fullname: string,
-    public generics?: TypeInfo[],
-    public construct?: Constructor,
-    public parent?: TypeInfo,
-    public fields?: () => FieldInfo[],
-    public cases?: () => CaseInfo[],
-    public enumCases?: EnumCase[]) {
+    fullname: string,
+    generics?: TypeInfo[],
+    construct?: Constructor,
+    parent?: TypeInfo,
+    fields?: () => FieldInfo[],
+    cases?: () => CaseInfo[],
+    enumCases?: EnumCase[]
+  ) {
+    this.fullname = fullname;
+    this.generics = generics;
+    this.construct = construct;
+    this.parent = parent;
+    this.fields = fields;
+    this.cases = cases;
+    this.enumCases = enumCases;
   }
   public toString() {
     return fullName(this);

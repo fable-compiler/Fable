@@ -263,7 +263,7 @@
         "--outDir", "${workspaceRoot}/../fable-test",
         "--fableLib", "${workspaceRoot}/temp/fable-library-rust",
         "--exclude", "Fable.Core",
-        "--lang", "Rust",
+        "--lang", "TypeScript",
         "--noCache",
         "--noParallelTypeCheck"
       ],

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+* [TS] Added support for `erasableSyntaxOnly` in TypeScript (by @ncave)
 * [All] Added some default `System` exception implementations (by @ncave)
 * [All] Added `ofOption`/`toOption`/`ofValueOption`/`toValueOption` (by @ncave)
 * [Python] Added `Decorate` attribute to add Python decorators to classes (by @dbrattli)

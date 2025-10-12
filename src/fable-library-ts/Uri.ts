@@ -1,15 +1,17 @@
 import { FSharpRef, Result } from "./Types.js";
 import { Exception } from "./Util.js";
 
-export const enum UriKind {
-  RelativeOrAbsolute = 0,
-  Absolute = 1,
-  Relative = 2,
-}
+export const UriKind = {
+  RelativeOrAbsolute: 0,
+  Absolute: 1,
+  Relative: 2,
+} as const;
+
+export type UriKind = typeof UriKind[keyof typeof UriKind];
 
 type State =
-  | { original: string; value: URL; kind: UriKind.Absolute }
-  | { original: string; value: string; kind: UriKind.Relative };
+  | { original: string; value: URL; kind: typeof UriKind.Absolute }
+  | { original: string; value: string; kind: typeof UriKind.Relative };
 
 const ok = <T>(value: T): Result<T> => ({
   tag: "ok",
