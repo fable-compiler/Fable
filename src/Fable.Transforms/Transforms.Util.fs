@@ -1131,7 +1131,8 @@ module AST =
         | Rust -> com.LibraryDir + "/" + moduleName + ".rs"
         | Dart -> com.LibraryDir + "/" + moduleName + ".dart"
         | TypeScript -> com.LibraryDir + "/" + moduleName + ".ts"
-        | _ -> com.LibraryDir + "/" + moduleName + ".js"
+        | JavaScript -> com.LibraryDir + "/" + moduleName + ".js"
+        | Php -> com.LibraryDir + "/" + moduleName + ".php"
 
     let makeImportUserGenerated r t (selector: string) (path: string) =
         Import(
