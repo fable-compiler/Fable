@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [TS] Fix #3973 Typescript imports file extension (by @ncave)
 * [TS] Fix support for abstract classes and members (by @ncave)
 * [TS] Fix getters, setters, indexers in interfaces (by @ncave)
 * [TS] Enable typedArrays flag usage for TypeScript (by @ncave)

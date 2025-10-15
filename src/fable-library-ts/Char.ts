@@ -1,5 +1,5 @@
-import * as Unicode from "./Unicode.13.0.0.js";
-import { Exception } from "./Util.js";
+import * as Unicode from "./Unicode.13.0.0.ts";
+import { Exception } from "./Util.ts";
 
 export type char = string;
 

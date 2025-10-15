@@ -1,6 +1,6 @@
-import { FSharpRef } from "./Types.js";
-import { DateTime, getTicks, dayOfYear as Date_dayOfYear, year as Date_year, month as Date_month, day as Date_day, daysInMonth as Date_daysInMonth, ticksToUnixEpochMilliseconds } from "./Date.js";
-import { Exception, IDateTime, DateTimeKind, padWithZeros } from "./Util.js";
+import { FSharpRef } from "./Types.ts";
+import { DateTime, getTicks, dayOfYear as Date_dayOfYear, year as Date_year, month as Date_month, day as Date_day, daysInMonth as Date_daysInMonth, ticksToUnixEpochMilliseconds } from "./Date.ts";
+import { Exception, IDateTime, DateTimeKind, padWithZeros } from "./Util.ts";
 
 export function fromUnixMilliseconds(value: number) {
   return DateTime(value, DateTimeKind.Utc);

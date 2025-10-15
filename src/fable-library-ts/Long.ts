@@ -1,7 +1,7 @@
-import { getPrefix, isValid } from "./Int32.js";
-import { fromString } from "./BigInt.js";
-import { FSharpRef } from "./Types.js";
-import { Exception } from "./Util.js";
+import { getPrefix, isValid } from "./Int32.ts";
+import { fromString } from "./BigInt.ts";
+import { FSharpRef } from "./Types.ts";
+import { Exception } from "./Util.ts";
 
 function getMaxValue(unsigned: boolean, radix: number, isNegative: boolean) {
   switch (radix) {

@@ -1130,6 +1130,7 @@ module AST =
             com.LibraryDir + "/" + moduleName' + ".py"
         | Rust -> com.LibraryDir + "/" + moduleName + ".rs"
         | Dart -> com.LibraryDir + "/" + moduleName + ".dart"
+        | TypeScript -> com.LibraryDir + "/" + moduleName + ".ts"
         | _ -> com.LibraryDir + "/" + moduleName + ".js"
 
     let makeImportUserGenerated r t (selector: string) (path: string) =

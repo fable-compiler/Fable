@@ -35,8 +35,6 @@ type BabelWriter
         ?fileExt: string
     )
     =
-    // In imports *.ts extensions have to be converted to *.js extensions instead
-    // TODO: incomplete
     let fileExt = Option.defaultValue ".js" fileExt
     let sourceDir = Path.GetDirectoryName(sourcePath)
     let targetDir = Path.GetDirectoryName(targetPath)

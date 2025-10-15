@@ -1,7 +1,7 @@
-import { FSharpRef } from "./Types.js";
-import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } from "./Int32.js";
-import { decimal, fromParts, truncate } from "./Decimal.js";
-import { Exception, bigintHash } from "./Util.js";
+import { FSharpRef } from "./Types.ts";
+import { int8, uint8, int16, uint16, int32, uint32, float16, float32, float64 } from "./Int32.ts";
+import { decimal, fromParts, truncate } from "./Decimal.ts";
+import { Exception, bigintHash } from "./Util.ts";
 
 const isBigEndian = false;
 

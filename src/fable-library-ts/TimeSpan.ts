@@ -1,6 +1,6 @@
-import { FSharpRef } from "./Types.js";
-import { Exception, comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util.js";
-import { toInt64, fromFloat64 } from "./BigInt.js";
+import { FSharpRef } from "./Types.ts";
+import { Exception, comparePrimitives, padLeftAndRightWithZeros, padWithZeros } from "./Util.ts";
+import { toInt64, fromFloat64 } from "./BigInt.ts";
 
 // TimeSpan in runtime just becomes a number representing milliseconds
 export type TimeSpan = number;

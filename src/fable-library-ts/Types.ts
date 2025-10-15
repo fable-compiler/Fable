@@ -1,4 +1,4 @@
-import { Exception, IComparable, IEquatable, IHashable, combineHashCodes, compare, compareArrays, equalArrays, equals, sameConstructor, numberHash, structuralHash } from "./Util.js";
+import { Exception, IComparable, IEquatable, IHashable, combineHashCodes, compare, compareArrays, equalArrays, equals, sameConstructor, numberHash, structuralHash } from "./Util.ts";
 
 // This type is only used internally for .ts files in the library
 // F# Result type is in Choice.fs

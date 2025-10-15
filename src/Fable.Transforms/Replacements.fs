@@ -1002,15 +1002,7 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     let fixDynamicImportPath =
         function
         | Value(StringConstant path, r) when path.EndsWith(".fs", StringComparison.Ordinal) ->
-            // In imports *.ts extensions have to be converted to *.js extensions instead
             let fileExt = com.Options.FileExtension
-
-            let fileExt =
-                if fileExt.EndsWith(".ts", StringComparison.Ordinal) then
-                    Path.ChangeExtension(fileExt, ".js")
-                else
-                    fileExt
-
             Value(StringConstant(Path.ChangeExtension(path, fileExt)), r)
         | path -> path
 

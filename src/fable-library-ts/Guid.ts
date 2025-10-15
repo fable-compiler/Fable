@@ -1,6 +1,6 @@
-import { trim } from "./String.js";
-import { FSharpRef } from "./Types.js";
-import { Exception } from "./Util.js";
+import { trim } from "./String.ts";
+import { FSharpRef } from "./Types.ts";
+import { Exception } from "./Util.ts";
 
 // RFC 4122 compliant. From https://stackoverflow.com/a/13653180/3922220
 // const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;

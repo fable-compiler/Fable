@@ -8,9 +8,9 @@
  * Basically; invariant: date.getTime() always return UTC time.
  */
 
-import { int64, toInt64, toFloat64 } from "./BigInt.js";
-import { FSharpRef } from "./Types.js";
-import { Exception, compareDates, DateTimeKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.js";
+import { int64, toInt64, toFloat64 } from "./BigInt.ts";
+import { FSharpRef } from "./Types.ts";
+import { Exception, compareDates, DateTimeKind, dateOffset, IDateTime, IDateTimeOffset, padWithZeros } from "./Util.ts";
 
 export type OffsetInMinutes = number;
 export type Offset = "Z" | OffsetInMinutes | null;

@@ -1,6 +1,6 @@
-import { FSharpRef } from "./Types.js";
-import { hours, minutes, seconds, milliseconds } from "./TimeSpan.js";
-import { Exception, DateTimeKind, IDateTime, padWithZeros } from "./Util.js";
+import { FSharpRef } from "./Types.ts";
+import { hours, minutes, seconds, milliseconds } from "./TimeSpan.ts";
+import { Exception, DateTimeKind, IDateTime, padWithZeros } from "./Util.ts";
 
 const millisecondsPerDay = 86400000;
 

@@ -1,4 +1,4 @@
-import { Exception, Nullable, structuralHash, equals, compare } from "./Util.js";
+import { Exception, Nullable, structuralHash, equals, compare } from "./Util.ts";
 
 // Options are erased in runtime by Fable, but we have
 // the `Some` type below to wrap values that would evaluate

@@ -1,5 +1,5 @@
-import { FSharpRef, Result } from "./Types.js";
-import { Exception } from "./Util.js";
+import { FSharpRef, Result } from "./Types.ts";
+import { Exception } from "./Util.ts";
 
 export const UriKind = {
   RelativeOrAbsolute: 0,

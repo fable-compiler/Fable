@@ -1,4 +1,4 @@
-import { IComparable } from "./Util.js";
+import { IComparable } from "./Util.ts";
 
 export const symbol = Symbol("numeric");
 
