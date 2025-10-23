@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [JS/TS] Fix #4240 Missing DateTime constructor (by @ncave)
 * [PHP] Fix php import extensions (by @MangelMaxime)
 * [TS] Fix #3973 Typescript imports file extension (by @ncave)
 * [TS] Fix support for abstract classes and members (by @ncave)

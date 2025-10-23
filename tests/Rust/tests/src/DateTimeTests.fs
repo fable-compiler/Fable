@@ -170,6 +170,17 @@ let ``DateTime constructors work`` () =
     |> equal 1069
 
 [<Fact>]
+let ``DateTime constructor from DateOnly and TimeOnly works`` () =
+    let d = DateOnly(2014, 10, 9)
+    let t = TimeOnly(13, 23, 30, 500)
+    let dt1 = DateTime(d, t)
+    let dt2 = DateTime(d, t, DateTimeKind.Utc)
+    let dt1_exp = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Unspecified)
+    let dt2_exp = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
+    dt1.Ticks |> equal dt1_exp.Ticks
+    dt2.Ticks |> equal dt2_exp.Ticks
+
+[<Fact>]
 let ``DateTime constructor from Ticks works`` () =
     let d = DateTime(624059424000000000L, DateTimeKind.Utc)
     equal 1978 d.Year
@@ -265,11 +276,13 @@ let ``DateTime.DaysInMonth works`` () =
 let ``DateTime.Now works`` () =
     let d = DateTime.Now
     d > DateTime.MinValue |> equal true
+    d.Kind |> equal DateTimeKind.Local
 
 [<Fact>]
 let ``DateTime.UtcNow works`` () =
     let d = DateTime.UtcNow
     d > DateTime.MinValue |> equal true
+    d.Kind |> equal DateTimeKind.Utc
 
 [<Fact>]
 let ``DateTime.Parse Now works`` () =

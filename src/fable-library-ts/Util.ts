@@ -341,7 +341,7 @@ export function dateOffset(date: IDateTime | IDateTimeOffset): number {
   return typeof date1.offset === "number"
     ? date1.offset
     : ((date as IDateTime).kind === DateTimeKind.Utc
-      ? 0 : date.getTimezoneOffset() * -60000);
+      ? 0 : date.getTimezoneOffset() * -60_000);
 }
 
 export function int16ToString(i: number, radix?: number) {

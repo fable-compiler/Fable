@@ -37,16 +37,16 @@ let tests() =
     //     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europe/Paris (GMT+2)
 
     testCase "DateTime from Year 1 to 99 works" <| fun () ->
-       let date = DateTime(1, 1, 2)
-       date.Year |> equal 1
-       let date = DateTime(99, 1, 2)
-       date.Year |> equal 99
+        let date = DateTime(1, 1, 2)
+        date.Year |> equal 1
+        let date = DateTime(99, 1, 2)
+        date.Year |> equal 99
 
     testCase "DateTime UTC from Year 1 to 99 works" <| fun () ->
-       let date = DateTime(1, 1, 2, 0, 0, 0, DateTimeKind.Utc)
-       date.Year |> equal 1
-       let date = DateTime(99, 1, 2, 0, 0, 0, DateTimeKind.Utc)
-       date.Year |> equal 99
+        let date = DateTime(1, 1, 2, 0, 0, 0, DateTimeKind.Utc)
+        date.Year |> equal 1
+        let date = DateTime(99, 1, 2, 0, 0, 0, DateTimeKind.Utc)
+        date.Year |> equal 99
 
     // These two tests give different values for .NET and Dart
     // so I'm just checking the fields get translated
@@ -61,23 +61,23 @@ let tests() =
         d1 < d2 |> equal false
 
     testCase "DateTime.MinValue works in pattern match" <| fun () ->
-       let d1 = Some DateTime.Now
-       match d1 with
-       | Some date when date <> DateTime.MinValue -> ()
-       | _ -> failwith "expected pattern match above"
+        let d1 = Some DateTime.Now
+        match d1 with
+        | Some date when date <> DateTime.MinValue -> ()
+        | _ -> failwith "expected pattern match above"
 
     testCase "DateTime.ToLocalTime works" <| fun () ->
-       let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
-       let d' = d.ToLocalTime()
-       d.Kind <> d'.Kind
-       |> equal true
+        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+        let d' = d.ToLocalTime()
+        d.Kind <> d'.Kind
+        |> equal true
 
     // TODO DateTimeOffset
 //    testCase "Creating DateTimeOffset from DateTime and back works" <| fun () ->
-//       let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
-//       let dto = DateTimeOffset(d)
-//       let d' = dto.DateTime
-//       d' |> equal d
+//        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+//        let dto = DateTimeOffset(d)
+//        let d' = dto.DateTime
+//        d' |> equal d
 
 //    testCase "Formatting DateTimeOffset works" <| fun () ->
 //        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
@@ -86,8 +86,8 @@ let tests() =
 //        dto.ToString("HH:mm:ss", CultureInfo.InvariantCulture) |> equal "13:23:30"
 
     testCase "DateTime.Hour works" <| fun () ->
-       let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
-       d.Hour |> equal 13
+        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+        d.Hour |> equal 13
 
 //    testCase "DateTime.ToLongDateString works" <| fun () ->
 //        let dt = DateTime(2014, 9, 11, 16, 37, 0)
@@ -116,21 +116,31 @@ let tests() =
     // TODO: Unfortunately, Dart will happily create invalid dates like DateTime(2014,2,29)
     //       But this problem also happens when parsing, so I haven't tried to fix it
     testCase "DateTime constructors work" <| fun () ->
-       let d1 = DateTime(2014, 10, 9)
-       let d2 = DateTime(2014, 10, 9, 13, 23, 30)
-       let d3 = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
-       let d4 = DateTime(2014, 10, 9, 13, 23, 30, 500)
-       let d5 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
-       d1.Day + d2.Second + d3.Second + d4.Millisecond + d5.Millisecond
-       |> equal 1069
+        let d1 = DateTime(2014, 10, 9)
+        let d2 = DateTime(2014, 10, 9, 13, 23, 30)
+        let d3 = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+        let d4 = DateTime(2014, 10, 9, 13, 23, 30, 500)
+        let d5 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
+        d1.Day + d2.Second + d3.Second + d4.Millisecond + d5.Millisecond
+        |> equal 1069
+
+    // testCase "DateTime constructor from DateOnly and TimeOnly works" <| fun () ->
+    //     let d = DateOnly(2014, 10, 9)
+    //     let t = TimeOnly(13, 23, 30, 500)
+    //     let dt1 = DateTime(d, t)
+    //     let dt2 = DateTime(d, t, DateTimeKind.Utc)
+    //     let dt1_exp = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Unspecified)
+    //     let dt2_exp = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
+    //     dt1.Ticks |> equal dt1_exp.Ticks
+    //     dt2.Ticks |> equal dt2_exp.Ticks
 
     testCase "DateTime constructor from Ticks works" <| fun () ->
-       let d = DateTime(624059424000000000L, DateTimeKind.Utc)
-       equal 1978 d.Year
-       equal 7 d.Month
-       equal 27 d.Day
-       equal 0 d.Hour
-       equal 0 d.Minute
+        let d = DateTime(624059424000000000L, DateTimeKind.Utc)
+        equal 1978 d.Year
+        equal 7 d.Month
+        equal 27 d.Day
+        equal 0 d.Hour
+        equal 0 d.Minute
 
     // FIXME
     //    let d = DateTime(624059424000000000L, DateTimeKind.Local)
@@ -153,13 +163,13 @@ let tests() =
     //    let d2 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
     //    equal d1.Ticks d2.Ticks
 
-       let t = DateTime.UtcNow.Ticks
-       let d1 = DateTime(t, DateTimeKind.Local)
-       let d2 = DateTime(t, DateTimeKind.Utc)
-       equal d1.Ticks d2.Ticks
+        let t = DateTime.UtcNow.Ticks
+        let d1 = DateTime(t, DateTimeKind.Local)
+        let d2 = DateTime(t, DateTimeKind.Utc)
+        equal d1.Ticks d2.Ticks
 
     testCase "DateTime <-> Ticks isomorphism" <| fun () ->
-       let checkIsomorphism (d: DateTime) =
+        let checkIsomorphism (d: DateTime) =
             let ticks = d.Ticks
             let kind = d.Kind
             let fromTicks = DateTime ticks
@@ -175,10 +185,10 @@ let tests() =
 
     //    checkIsomorphism DateTime.MinValue
     //    checkIsomorphism DateTime.MaxValue
-       checkIsomorphism DateTime.Now
-       checkIsomorphism <| DateTime(2014, 10, 9)
-       checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30)
-       checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, 500)
+        checkIsomorphism DateTime.Now
+        checkIsomorphism <| DateTime(2014, 10, 9)
+        checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30)
+        checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, 500)
 
     // FIXME: Isomorphims doesn't work for UTC dates
     //    checkIsomorphism DateTime.UtcNow
@@ -186,8 +196,8 @@ let tests() =
     //    checkIsomorphism <| DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
 
     testCase "DateTime.IsLeapYear works" <| fun () ->
-       DateTime.IsLeapYear(2014) |> equal false
-       DateTime.IsLeapYear(2016) |> equal true
+        DateTime.IsLeapYear(2014) |> equal false
+        DateTime.IsLeapYear(2016) |> equal true
 
    // TODO: IsDaylightSavingTime
     // testCase "DateTime.IsDaylightSavingTime works" <| fun () ->
@@ -197,31 +207,33 @@ let tests() =
     //    d2.IsDaylightSavingTime() |> equal false
 
     testCase "DateTime.DaysInMonth works" <| fun () ->
-       DateTime.DaysInMonth(2014, 1) |> equal 31
-       DateTime.DaysInMonth(2014, 2) |> equal 28
-       DateTime.DaysInMonth(2014, 4) |> equal 30
-       DateTime.DaysInMonth(2016, 2) |> equal 29
+        DateTime.DaysInMonth(2014, 1) |> equal 31
+        DateTime.DaysInMonth(2014, 2) |> equal 28
+        DateTime.DaysInMonth(2014, 4) |> equal 30
+        DateTime.DaysInMonth(2016, 2) |> equal 29
 
     testCase "DateTime.Now works" <| fun () ->
-       let d = DateTime.Now
-       d > DateTime.MinValue |> equal true
+        let d = DateTime.Now
+        d > DateTime.MinValue |> equal true
+        d.Kind |> equal DateTimeKind.Local
 
     testCase "DateTime.UtcNow works" <| fun () ->
-       let d = DateTime.UtcNow
-       d > DateTime.MinValue |> equal true
+        let d = DateTime.UtcNow
+        d > DateTime.MinValue |> equal true
+        d.Kind |> equal DateTimeKind.Utc
 
     testCase "DateTime.Parse works" <| fun () ->
-       let d = DateTime.Parse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
-       d.Year + d.Month + d.Day + d.Hour + d.Minute
-       |> equal 2096
+        let d = DateTime.Parse("9/10/2014 1:50:34 PM", CultureInfo.InvariantCulture)
+        d.Year + d.Month + d.Day + d.Hour + d.Minute
+        |> equal 2096
 
     testCase "DateTime.Parse with time-only string works" <| fun () -> // See #1045
-       let d = DateTime.Parse("13:50:34", CultureInfo.InvariantCulture)
-       d.Hour + d.Minute + d.Second |> equal 97
-       let d = DateTime.Parse("1:5:34 AM", CultureInfo.InvariantCulture)
-       d.Hour + d.Minute + d.Second |> equal 40
-       let d = DateTime.Parse("1:5:34 PM", CultureInfo.InvariantCulture)
-       d.Hour + d.Minute + d.Second |> equal 52
+        let d = DateTime.Parse("13:50:34", CultureInfo.InvariantCulture)
+        d.Hour + d.Minute + d.Second |> equal 97
+        let d = DateTime.Parse("1:5:34 AM", CultureInfo.InvariantCulture)
+        d.Hour + d.Minute + d.Second |> equal 40
+        let d = DateTime.Parse("1:5:34 PM", CultureInfo.InvariantCulture)
+        d.Hour + d.Minute + d.Second |> equal 52
 
     testCase "DateTime.TryParse works" <| fun () ->
         let f (d: string) =
@@ -238,13 +250,13 @@ let tests() =
         r |> equal false
 
     testCase "DateTime.Today works" <| fun () ->
-       let d = DateTime.Today
-       equal 0 d.Hour
+        let d = DateTime.Today
+        equal 0 d.Hour
 
     testCase "DateTime.ToUniversalTime works" <| fun () ->
-       let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
-       d.ToUniversalTime().Kind <> d.Kind
-       |> equal true
+        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
+        d.ToUniversalTime().Kind <> d.Kind
+        |> equal true
 
     testCase "DateTime.SpecifyKind works" <| fun () -> // See #1844
         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
@@ -472,22 +484,22 @@ let tests() =
         test 0. false
 
     testCase "DateTime Equality works" <| fun () ->
-       let test (ms: float) expected =
-           let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
-           let dt2 = dt1.AddMilliseconds(ms)
-           dt1 = dt2 |> equal expected
-       test 1000. false
-       test -1000. false
-       test 0. true
+        let test (ms: float) expected =
+            let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
+            let dt2 = dt1.AddMilliseconds(ms)
+            dt1 = dt2 |> equal expected
+        test 1000. false
+        test -1000. false
+        test 0. true
 
     testCase "DateTime Inequality works" <| fun () ->
-       let test (ms: float) expected =
-           let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
-           let dt2 = dt1.AddMilliseconds(ms)
-           dt1 <> dt2 |> equal expected
-       test 1000. true
-       test -1000. true
-       test 0. false
+        let test (ms: float) expected =
+            let dt1 = DateTime(2014, 10, 9, 13, 23, 30, 234, DateTimeKind.Utc)
+            let dt2 = dt1.AddMilliseconds(ms)
+            dt1 <> dt2 |> equal expected
+        test 1000. true
+        test -1000. true
+        test 0. false
 
     testCase "DateTime TimeOfDay works" <| fun () ->
         let d = DateTime(2014, 10, 9, 13, 23, 30, 1, DateTimeKind.Utc)

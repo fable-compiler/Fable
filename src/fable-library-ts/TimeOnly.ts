@@ -8,7 +8,7 @@ export function create(h: number = 0, m: number = 0, s: number = 0, ms: number =
   if (h < 0 || m < 0 || s < 0 || ms < 0)
     throw new Exception("The parameters describe an unrepresentable TimeOnly.");
 
-  return h * 3600000 + m * 60000 + s * 1000 + ms;
+  return h * 3600000 + m * 60_000 + s * 1000 + ms;
 }
 
 export function fromTicks(ticks: number | bigint) {
@@ -61,7 +61,7 @@ export function addHours(t: number, h: number) {
 }
 
 export function addMinutes(t: number, m: number) {
-  return add(t, m * 60000);
+  return add(t, m * 60_000);
 }
 
 export function isBetween(t: number, start: number, end: number) {

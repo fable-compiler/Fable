@@ -200,7 +200,7 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
                 result += "Z";
                 break;
               case DateTimeKind.Local:
-                result += dateOffsetToString(localizedDate.getTimezoneOffset() * -60000);
+                result += dateOffsetToString(localizedDate.getTimezoneOffset() * -60_000);
                 break;
               case DateTimeKind.Unspecified:
                 break;
@@ -293,10 +293,10 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
             utcOffsetText = "+00:00";
             break;
           case DateTimeKind.Local:
-            utcOffsetText = dateOffsetToString(localizedDate.getTimezoneOffset() * -60000);
+            utcOffsetText = dateOffsetToString(localizedDate.getTimezoneOffset() * -60_000);
             break;
           case DateTimeKind.Unspecified:
-            utcOffsetText = dateOffsetToString(toLocalTime(localizedDate).getTimezoneOffset() * -60000);
+            utcOffsetText = dateOffsetToString(toLocalTime(localizedDate).getTimezoneOffset() * -60_000);
             break;
         }
 
@@ -374,7 +374,7 @@ export function dateOffsetToString(offset: number) {
   const isMinus = offset < 0;
   offset = Math.abs(offset);
   const hours = ~~(offset / 3600000);
-  const minutes = (offset % 3600000) / 60000;
+  const minutes = (offset % 3600000) / 60_000;
   return (isMinus ? "-" : "+") +
     padWithZeros(hours, 2) + ":" +
     padWithZeros(minutes, 2);
@@ -393,7 +393,7 @@ function dateToISOString(d: IDateTime, utc: boolean) {
       padWithZeros(d.getMinutes(), 2) + ":" +
       padWithZeros(d.getSeconds(), 2) + "." +
       padWithZeros(d.getMilliseconds(), 3) +
-      (printOffset ? dateOffsetToString(d.getTimezoneOffset() * -60000) : "");
+      (printOffset ? dateOffsetToString(d.getTimezoneOffset() * -60_000) : "");
   }
 }
 
@@ -490,6 +490,11 @@ export function fromTicks(ticks: number | bigint, kind?: DateTimeKind) {
   return date;
 }
 
+export function fromDateTime(dateOnly: IDateTime, timeOnly: number, kind?: DateTimeKind) {
+  const d = DateTime(dateOnly.getTime() + timeOnly, kind);
+  return DateTime(d.getTime() - dateOffset(d), kind);
+}
+
 export function fromDateTimeOffset(date: IDateTimeOffset, kind: DateTimeKind) {
   switch (kind) {
     case DateTimeKind.Utc: return DateTime(date.getTime(), DateTimeKind.Utc);
@@ -574,7 +579,7 @@ export function parseRaw(input: string): [Date, Offset] {
       }
       date = new Date(baseDate.getTime() + timeInSeconds * 1000);
       // correct for daylight savings time
-      date = new Date(date.getTime() + (date.getTimezoneOffset() - baseDate.getTimezoneOffset()) * 60000);
+      date = new Date(date.getTime() + (date.getTimezoneOffset() - baseDate.getTimezoneOffset()) * 60_000);
     } else {
       fail();
     }
@@ -664,7 +669,7 @@ export function specifyKind(d: IDateTime, kind: DateTimeKind) {
 
 export function timeOfDay(d: IDateTime) {
   return hour(d) * 3600000
-    + minute(d) * 60000
+    + minute(d) * 60_000
     + second(d) * 1000
     + millisecond(d);
 }
@@ -721,7 +726,7 @@ export function add(d: IDateTime, ts: number) {
     const oldTzOffset = d.getTimezoneOffset();
     const newTzOffset = newDate.getTimezoneOffset();
     return oldTzOffset !== newTzOffset
-      ? DateTime(newDate.getTime() + (newTzOffset - oldTzOffset) * 60000, d.kind)
+      ? DateTime(newDate.getTime() + (newTzOffset - oldTzOffset) * 60_000, d.kind)
       : newDate;
   } else {
     return newDate;
@@ -737,7 +742,7 @@ export function addHours(d: IDateTime, v: number) {
 }
 
 export function addMinutes(d: IDateTime, v: number) {
-  return add(d, v * 60000);
+  return add(d, v * 60_000);
 }
 
 export function addSeconds(d: IDateTime, v: number) {
