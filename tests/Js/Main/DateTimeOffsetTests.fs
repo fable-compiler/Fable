@@ -129,14 +129,17 @@ let tests =
     //     equal dt.Hour 7
     //     equal (dt.ToLocalTime().Hour) 8
 
-    // TODO: Enable these tests
-    // testCase "DateTimeOffset.ToLocalTime works" <| fun () ->
-    //     let d = DateTimeOffset(2014, 10, 9, 13, 23, 30, TimeSpan.Zero)
-    //     let d' = d.ToLocalTime()
+    testCase "DateTimeOffset.ToLocalTime works" <| fun () ->
+        let d = DateTimeOffset.UtcNow
+        let localTime = d.ToLocalTime()
+        let utcTime = d.ToUniversalTime()
+        localTime.ToUniversalTime() |> equal utcTime
 
-    // testCase "DateTime.ToUniversalTime works" <| fun () ->
-    //     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
-    //     let d' = d.ToUniversalTime()
+    testCase "DateTimeOffset.ToUniversalTime works" <| fun () ->
+        let d = DateTimeOffset.Now
+        let localTime = d.ToLocalTime()
+        let utcTime = d.ToUniversalTime()
+        localTime.ToUniversalTime() |> equal utcTime
 
     testCase "DateTimeOffset.Hour works" <| fun () ->
         let d = DateTimeOffset(2014, 10, 9, 13, 23, 30, TimeSpan.Zero)
@@ -149,6 +152,14 @@ let tests =
         let d5 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.Zero)
         d3.Second + d5.Millisecond
         |> equal 530
+
+    testCase "DateTimeOffset constructor from DateOnly and TimeOnly works" <| fun () ->
+        let d = DateOnly(2014, 10, 9)
+        let t = TimeOnly(13, 23, 30, 500)
+        let o = TimeSpan.FromHours 5.0
+        let dt = DateTimeOffset(d, t, o)
+        let dt_exp = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, o)
+        dt.Ticks |> equal dt_exp.Ticks
 
     testCase "DateTimeOffset constructor from Ticks works" <| fun () ->
         let d = DateTimeOffset(624059424000000000L, TimeSpan.Zero)

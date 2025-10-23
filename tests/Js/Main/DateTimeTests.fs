@@ -621,6 +621,16 @@ let tests =
         d1.Day + d2.Second + d3.Second + d4.Millisecond + d5.Millisecond
         |> equal 1069
 
+    testCase "DateTime constructor from DateOnly and TimeOnly works" <| fun () ->
+        let d = DateOnly(2014, 10, 9)
+        let t = TimeOnly(13, 23, 30, 500)
+        let dt1 = DateTime(d, t)
+        let dt2 = DateTime(d, t, DateTimeKind.Utc)
+        let dt1_exp = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Unspecified)
+        let dt2_exp = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
+        dt1.Ticks |> equal dt1_exp.Ticks
+        dt2.Ticks |> equal dt2_exp.Ticks
+
     testCase "DateTime constructor from Ticks works" <| fun () ->
         let d = DateTime(624059424000000000L, DateTimeKind.Utc)
         equal 1978 d.Year
@@ -710,10 +720,12 @@ let tests =
     testCase "DateTime.Now works" <| fun () ->
         let d = DateTime.Now
         d > DateTime.MinValue |> equal true
+        d.Kind |> equal DateTimeKind.Local
 
     testCase "DateTime.UtcNow works" <| fun () ->
         let d = DateTime.UtcNow
         d > DateTime.MinValue |> equal true
+        d.Kind |> equal DateTimeKind.Utc
 
     testCase "DateTime.Parse works" <| fun () ->
         let d =

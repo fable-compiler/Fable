@@ -58,7 +58,7 @@ export function dayOfYear(d: IDateTime) {
 }
 
 export function toDateTime(d: IDateTime, time: number, kind: DateTimeKind = DateTimeKind.Unspecified) {
-  return DateTime(d.getTime() + time + (kind !== DateTimeKind.Utc ? d.getTimezoneOffset() : 0) * 60000, kind);
+  return DateTime(d.getTime() + time + (kind !== DateTimeKind.Utc ? d.getTimezoneOffset() : 0) * 60_000, kind);
 }
 
 export function toString(d: IDateTime, format = "d", _provider?: any) {

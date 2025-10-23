@@ -28,7 +28,7 @@ export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 
       // d,h,m,s,ms
       break;
   }
-  return d * 86400000 + h * 3600000 + m * 60000 + s * 1000 + ms;
+  return d * 86400000 + h * 3600000 + m * 60_000 + s * 1000 + ms;
 }
 
 export function fromTicks(ticks: number | bigint) {
@@ -64,11 +64,11 @@ export function hours(ts: TimeSpan) {
 }
 
 export function minutes(ts: TimeSpan) {
-  return signedRound(ts % 3600000 / 60000);
+  return signedRound(ts % 3600000 / 60_000);
 }
 
 export function seconds(ts: TimeSpan) {
-  return signedRound(ts % 60000 / 1000);
+  return signedRound(ts % 60_000 / 1000);
 }
 
 export function milliseconds(ts: TimeSpan) {
@@ -88,7 +88,7 @@ export function totalHours(ts: TimeSpan) {
 }
 
 export function totalMinutes(ts: TimeSpan) {
-  return ts / 60000;
+  return ts / 60_000;
 }
 
 export function totalSeconds(ts: TimeSpan) {

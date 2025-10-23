@@ -824,12 +824,13 @@ let ``test DateTime.DaysInMonth works`` () =
 let ``test DateTime.Now works`` () =
     let d = DateTime.Now
     d > DateTime.MinValue |> equal true
+    // d.Kind |> equal DateTimeKind.Local // currently we're not storing Kind
 
 [<Fact>]
 let ``test DateTime.UtcNow works`` () =
     let d = DateTime.UtcNow
     d > DateTime.MinValue |> equal true
-
+    // d.Kind |> equal DateTimeKind.Utc // currently we're not storing Kind
 
 [<Fact>]
 let ``test DateTime.AddYears works`` () =
@@ -931,6 +932,17 @@ let ``test DateTime constructors works`` () =
     let d5 = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
     d1.Day + d2.Second + d3.Second + d4.Millisecond + d5.Millisecond
     |> equal 1069
+
+// [<Fact>]
+// let ``test DateTime constructor from DateOnly and TimeOnly works`` () =
+//     let d = DateOnly(2014, 10, 9)
+//     let t = TimeOnly(13, 23, 30, 500)
+//     let dt1 = DateTime(d, t)
+//     let dt2 = DateTime(d, t, DateTimeKind.Utc)
+//     let dt1_exp = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Unspecified)
+//     let dt2_exp = DateTime(2014, 10, 9, 13, 23, 30, 500, DateTimeKind.Utc)
+//     dt1.Ticks |> equal dt1_exp.Ticks
+//     dt2.Ticks |> equal dt2_exp.Ticks
 
 [<Fact>]
 let ``test DateTime constructor from Ticks works`` () =

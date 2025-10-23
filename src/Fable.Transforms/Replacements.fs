@@ -3113,6 +3113,9 @@ let dateTime (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         | ExprType(Number(Int64, _)) :: _ ->
             Helper.LibCall(com, moduleName, "fromTicks", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
+        | ExprType(DeclaredType(ent, [])) :: _ when ent.FullName = Types.dateOnly ->
+            Helper.LibCall(com, moduleName, "fromDateTime", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
         | _ ->
             let last = List.last args
 
@@ -3166,6 +3169,9 @@ let dateTimeOffset (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: E
             |> Some
         | ExprType(DeclaredType(ent, [])) :: _ when ent.FullName = Types.datetime ->
             Helper.LibCall(com, moduleName, "fromDate", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | ExprType(DeclaredType(ent, [])) :: _ when ent.FullName = Types.dateOnly ->
+            Helper.LibCall(com, moduleName, "fromDateTime", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
         | _ ->
             match args.Length with

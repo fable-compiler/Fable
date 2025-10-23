@@ -61,16 +61,19 @@ let ``DateTimeOffset.MinValue works in pattern match`` () =
     | Some date when date <> DateTimeOffset.MinValue -> ()
     | _ -> failwith "expected pattern match above"
 
-// TODO: Enable these tests
-// [<Fact>]
-// let ``DateTimeOffset.ToLocalTime works`` () =
-//     let d = DateTimeOffset(2014, 10, 9, 13, 23, 30, TimeSpan.Zero)
-//     let d' = d.ToLocalTime()
+[<Fact>]
+let ``DateTimeOffset.ToLocalTime works`` () =
+    let d = DateTimeOffset.UtcNow
+    let localTime = d.ToLocalTime()
+    let utcTime = d.ToUniversalTime()
+    localTime.ToUniversalTime() |> equal utcTime
 
-// [<Fact>]
-// let ``DateTime.ToUniversalTime works`` () =
-//     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
-//     let d' = d.ToUniversalTime()
+[<Fact>]
+let ``DateTime.ToUniversalTime works`` () =
+    let d = DateTimeOffset.Now
+    let localTime = d.ToLocalTime()
+    let utcTime = d.ToUniversalTime()
+    localTime.ToUniversalTime() |> equal utcTime
 
 [<Fact>]
 let ``DateTimeOffset.Hour works`` () =
@@ -93,6 +96,15 @@ let ``DateTimeOffset constructors work`` () =
     d6.Millisecond |> equal 500
     d6.Microsecond |> equal 222
     d6.Nanosecond |> equal 0
+
+[<Fact>]
+let ``DateTimeOffset constructor from DateOnly and TimeOnly works`` () =
+    let d = DateOnly(2014, 10, 9)
+    let t = TimeOnly(13, 23, 30, 500)
+    let o = TimeSpan.FromHours 5.0
+    let dt = DateTimeOffset(d, t, o)
+    let dt_exp = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, o)
+    dt.Ticks |> equal dt_exp.Ticks
 
 [<Fact>]
 let ``DateTimeOffset constructor from Ticks works`` () =
