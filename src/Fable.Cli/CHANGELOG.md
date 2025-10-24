@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [TS] Fix ObjectExpr tests with multiple interfaces (by @ncave)
 * [TS] Fix ObjectExpr abstract base constructor type (by @ncave)
 * [JS/TS] Fix #4240 Missing DateTime constructor (by @ncave)
 * [PHP] Fix php import extensions (by @MangelMaxime)

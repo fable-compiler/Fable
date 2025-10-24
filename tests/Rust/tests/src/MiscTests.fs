@@ -421,12 +421,13 @@ let empty<'a> = [Unchecked.defaultof<'a>]
 type IInterface =
   abstract member Member : thing1:string -> thing2:string -> string
 
-type Taster =
-    abstract Starter: float
-    abstract Taste: quality: float * quantity: float -> int
-
 type Eater =
     abstract Bite: unit -> int
+
+type Taster =
+    inherit Eater
+    abstract Starter: float
+    abstract Taste: quality: float * quantity: float -> int
 
 // let taste (com: Taster) qlty qty = //TODO: there is no TypeCast when called from interface object expressions
 let taste (com: #Taster) qlty qty =

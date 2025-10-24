@@ -66,7 +66,7 @@ export interface IEqualityComparer<T> {
   GetHashCode(x: T): number;
 }
 
-export interface ICollection<T> extends Iterable<T> {
+export interface ICollection<T> extends IEnumerable<T> {
   readonly Count: number;
   readonly IsReadOnly: boolean;
   Add(item: T): void;

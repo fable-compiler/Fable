@@ -389,12 +389,13 @@ let empty<'a> = [Unchecked.defaultof<'a>]
 type IInterface =
   abstract member Member : thing1:string -> thing2:string -> string
 
-type Taster =
-    abstract Starter: float
-    abstract Taste: quality: float * quantity: float -> int
-
 type Eater =
     abstract Bite: unit -> int
+
+type Taster =
+    inherit Eater
+    abstract Starter: float
+    abstract Taste: quality: float * quantity: float -> int
 
 let taste (com: Taster) qlty qty =
     com.Starter * qlty + qty |> int
@@ -905,7 +906,6 @@ let tests =
         o.Bar <- 10
         o.Bar |> equal 10
 
-#if !FABLE_COMPILER_TYPESCRIPT
     testCase "Object expression from class works" <| fun () ->
         let o = { new SomeClass("World") with member x.ToString() = sprintf "Hello %s" x.Name }
         // TODO: Type testing for object expressions?
@@ -915,9 +915,11 @@ let tests =
         // |> equal "Hello World"
         o.ToString() |> equal "Hello World"
 
+#if !FABLE_COMPILER_TYPESCRIPT
     testCase "Inlined object expression doesn't change argument this context" <| fun () -> // See #1291
         let t = TestClass(42)
         t.GetNum() |> equal 46
+#endif
 
     testCase "Object expressions don't optimize members away" <| fun () -> // See #1434
         let o =
@@ -929,7 +931,6 @@ let tests =
                 member _.Bite() = 25
             }
         o.Taste(4., 6.) |> equal 28
-#endif
 
     testCase "Members are accessible in abstract class constructor inherited by object expr" <| fun () -> // See #2139
         let x = ref 5
