@@ -2019,9 +2019,9 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
         stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
     | Fable.ObjectExpr([], _, None) -> [] // Remove empty object expression
-    | Fable.ObjectExpr(members, t, baseCall) ->
-        let expr, stmts = transformObjectExpr com ctx members t baseCall
-        stmts @ (expr |> resolveExpr ctx t returnStrategy)
+    | Fable.ObjectExpr(members, typ, baseCall) ->
+        let expr, stmts = transformObjectExpr com ctx members typ baseCall
+        stmts @ (expr |> resolveExpr ctx typ returnStrategy)
 
     | Fable.Call(Fable.Get(expr, Fable.FieldGet { Name = "slice" }, _, _), info, typ, _range) ->
         let expr, stmts = transformAsSlice com ctx expr info

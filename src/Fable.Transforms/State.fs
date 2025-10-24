@@ -359,19 +359,19 @@ type CompilerImpl
 
                     "", None // failwith msg
 
-        member _.TryGetEntity(entityRef: Fable.EntityRef) =
-            match entityRef.Path with
-            | Fable.CoreAssemblyName name -> project.Assemblies.TryGetEntityByCoreAssemblyName(name, entityRef.FullName)
+        member _.TryGetEntity(entRef: Fable.EntityRef) =
+            match entRef.Path with
+            | Fable.CoreAssemblyName name -> project.Assemblies.TryGetEntityByCoreAssemblyName(name, entRef.FullName)
             | Fable.AssemblyPath path
-            | Fable.PrecompiledLib(_, path) -> project.Assemblies.TryGetEntityByAssemblyPath(path, entityRef.FullName)
+            | Fable.PrecompiledLib(_, path) -> project.Assemblies.TryGetEntityByAssemblyPath(path, entRef.FullName)
             | Fable.SourcePath fileName ->
                 // let fileName = Path.normalizePathAndEnsureFsExtension fileName
                 project.ImplementationFiles
                 |> Dictionary.tryFind fileName
-                |> Option.bind (fun file -> ReadOnlyDictionary.tryFind entityRef.FullName file.Entities)
+                |> Option.bind (fun file -> ReadOnlyDictionary.tryFind entRef.FullName file.Entities)
                 |> Option.orElseWith (fun () ->
                     // Check also the precompiled dll because this may come from a precompiled inline expr
-                    project.Assemblies.TryGetEntityByAssemblyPath(project.PrecompiledInfo.DllPath, entityRef.FullName)
+                    project.Assemblies.TryGetEntityByAssemblyPath(project.PrecompiledInfo.DllPath, entRef.FullName)
                 )
 
         member this.GetInlineExpr(memberUniqueName) =

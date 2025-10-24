@@ -299,7 +299,6 @@ module Extensions =
 
 open Extensions
 
-
 module StyleBuilderHelper =
     type StyleBuilderHelper = { TopOffset : int; BottomOffset : int }
     type DomBuilder = { ElementType : string; StyleBuilderHelper : StyleBuilderHelper }

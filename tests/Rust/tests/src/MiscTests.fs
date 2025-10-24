@@ -338,13 +338,12 @@ module Extensions =
     type NestedModule.AnotherClass with
         member x.Value2 = x.Value * 4
 
-//     [<AbstractClass>]
-//     type ObjectExprBase (x: int ref) as this =
-//         do x := this.dup x.contents
-//         abstract member dup: int -> int
+    // [<AbstractClass>]
+    // type ObjectExprBase (x: int ref) as this =
+    //     do x.Value <- this.dup x.contents
+    //     abstract member dup: int -> int
 
 open Extensions
-
 
 module StyleBuilderHelper =
     type StyleBuilderHelper = { TopOffset : int; BottomOffset : int }
