@@ -309,19 +309,12 @@ module Extensions =
     type NestedModule.AnotherClass with
         member x.Value2 = x.Value * 4
 
-// TODO: Abstract classes in TypeScript
-// - Add abstract modifier to class
-// - Declare abstract methods
-// - Skip reflection helper and constructor wrapper
-#if !FABLE_COMPILER_TYPESCRIPT
     [<AbstractClass>]
     type ObjectExprBase (x: int ref) as this =
-        do x := this.dup x.contents
+        do x.Value <- this.dup x.contents
         abstract member dup: int -> int
-#endif
 
 open Extensions
-
 
 module StyleBuilderHelper =
     type StyleBuilderHelper = { TopOffset : int; BottomOffset : int }
@@ -936,13 +929,13 @@ let tests =
                 member _.Bite() = 25
             }
         o.Taste(4., 6.) |> equal 28
+#endif
 
     testCase "Members are accessible in abstract class constructor inherited by object expr" <| fun () -> // See #2139
         let x = ref 5
         let obj = { new ObjectExprBase(x) with
                         override _.dup x = x * x }
         equal 25 x.contents
-#endif
 
     testCase "Composition with recursive `this` works" <| fun () ->
         let mutable x = 0

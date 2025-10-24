@@ -5362,10 +5362,10 @@ module Compiler =
 
             member com.TransformExpr(ctx, e) = transformExpr com ctx e
 
-            member _.GetEntity(fullName) =
-                match com.TryGetEntity(fullName) with
+            member _.GetEntity(entRef) =
+                match com.TryGetEntity(entRef) with
                 | Some ent -> ent
-                | None -> failwith $"Missing entity {fullName}"
+                | None -> failwith $"Missing entity: {entRef.FullName}"
 
         interface Fable.Compiler with
             member _.Options = com.Options
@@ -5382,7 +5382,7 @@ module Compiler =
             member _.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
-            member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
+            member _.TryGetEntity(entRef) = com.TryGetEntity(entRef)
             member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)
 

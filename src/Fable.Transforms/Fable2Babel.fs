@@ -461,7 +461,7 @@ module Reflection =
             ]
             |> libReflectionCall com ctx r "class"
 
-    let transformTypeTest (com: IBabelCompiler) ctx range expr (typ: Fable.Type) : Expression =
+    let transformTypeTest (com: IBabelCompiler) ctx range expr typ : Expression =
         let warnAndEvalToFalse msg =
             "Cannot type test (evals to false): " + msg |> addWarning com [] range
 
@@ -496,12 +496,12 @@ module Reflection =
         | Fable.Option _ -> warnAndEvalToFalse "options" // TODO
         | Fable.GenericParam _ -> warnAndEvalToFalse "generic parameters"
         | Fable.Nullable(genArg, _isStruct) -> transformTypeTest com ctx range expr genArg
-        | Fable.DeclaredType(ent, genArgs) ->
-            match ent.FullName with
+        | Fable.DeclaredType(entRef, genArgs) ->
+            match entRef.FullName with
             | Types.idisposable ->
                 match expr with
-                | MaybeCasted(ExprType(Fable.DeclaredType(ent2, _))) when
-                    com.GetEntity(ent2) |> FSharp2Fable.Util.hasInterface Types.idisposable
+                | MaybeCasted(ExprType(Fable.DeclaredType(entRef2, _))) when
+                    com.GetEntity(entRef2) |> FSharp2Fable.Util.hasInterface Types.idisposable
                     ->
                     Expression.booleanLiteral (true)
                 | _ ->
@@ -517,7 +517,7 @@ module Reflection =
                 [ com.TransformAsExpr(ctx, expr) ]
                 |> libCall com ctx range "Util" "isException" []
             | _ ->
-                match com.GetEntity(ent) with
+                match com.GetEntity(entRef) with
                 | Patterns.Try (Util.tryFindAnyEntAttribute [ Atts.stringEnum; Atts.erase; Atts.tsTaggedUnion ]) (att, _) as ent ->
                     match att with
                     | Atts.stringEnum -> jsTypeof "string" expr
@@ -536,7 +536,7 @@ module Reflection =
 
                     jsInstanceof cons expr
 
-                | _ -> warnAndEvalToFalse ent.FullName
+                | _ -> warnAndEvalToFalse entRef.FullName
 
 module Annotation =
     let isByRefOrAnyType (com: IBabelCompiler) =
@@ -1532,13 +1532,13 @@ module Util =
 
         com.GetImportExpr(ctx, selector, path, r) |> getParts parts
 
-    let transformCast (com: IBabelCompiler) (ctx: Context) t e : Expression =
-        match t with
+    let transformCast (com: IBabelCompiler) (ctx: Context) typ e : Expression =
+        match typ with
         // Optimization for (numeric) array or list literals casted to seq
         // Done at the very end of the compile pipeline to get more opportunities
         // of matching cast and literal expressions after resolving pipes, inlining...
-        | Fable.DeclaredType(ent, _) ->
-            match ent.FullName with
+        | Fable.DeclaredType(entRef, _) ->
+            match entRef.FullName with
             | Types.ienumerableGeneric
             | Types.ienumerable ->
                 match e with
@@ -1553,12 +1553,12 @@ module Util =
                 let jsExpr = com.TransformAsExpr(ctx, e)
 
                 match e.Type with
-                | Fable.DeclaredType(sourceEnt, _) when com.IsTypeScript ->
-                    let sourceEnt = com.GetEntity(sourceEnt)
+                | Fable.DeclaredType(sourceEntRef, _) when com.IsTypeScript ->
+                    let sourceEntRef = com.GetEntity(sourceEntRef)
                     // Because we use a wrapper type for multi-case unions, TypeScript
                     // won't automatically cast them to implementing interfaces
-                    if sourceEnt.IsFSharpUnion && List.isMultiple sourceEnt.UnionCases then
-                        AsExpression(jsExpr, makeTypeAnnotation com ctx t)
+                    if sourceEntRef.IsFSharpUnion && List.isMultiple sourceEntRef.UnionCases then
+                        AsExpression(jsExpr, makeTypeAnnotation com ctx typ)
                     else
                         jsExpr
                 | _ -> jsExpr
@@ -1739,37 +1739,28 @@ module Util =
             |]
         )
 
-    let extractSuperClassFromBaseCall
-        (com: IBabelCompiler)
-        (ctx: Context)
-        (baseType: Fable.DeclaredType option)
-        baseCall
-        =
+    let extractSuperClassFromBaseCall (com: IBabelCompiler) (ctx: Context) (baseType: Fable.Type option) baseCall =
         match baseCall, baseType with
         | Some(Fable.Call(baseRef, info, _, _)), _ ->
             let baseExpr =
                 match com.Options.Language, baseType, baseRef with
-                | TypeScript, Some d, _ ->
-                    Fable.DeclaredType(d.Entity, d.GenericArgs)
-                    |> makeTypeAnnotation com ctx
-                    |> SuperType
+                | TypeScript, Some typ, _ -> makeTypeAnnotation com ctx typ |> SuperType
                 | TypeScript, None, Fable.IdentExpr id -> makeTypeAnnotation com ctx id.Type |> SuperType
                 | _ -> transformAsExpr com ctx baseRef |> SuperExpression
 
             let args = transformCallArgs com ctx info
 
             Some(baseExpr, args)
-        | Some(Fable.Value _), Some baseType ->
-            // let baseEnt = com.GetEntity(baseType.Entity)
-            // let entityName = FSharp2Fable.Helpers.getEntityDeclarationName com baseType.Entity
+        | Some(Fable.Value _), Some(Fable.DeclaredType(entRef, genArgs)) ->
+            // let baseEnt = com.GetEntity(entRef)
+            // let entityName = FSharp2Fable.Helpers.getEntityDeclarationName com entRef
             // let entityType = FSharp2Fable.Util.getEntityType baseEnt
             // let baseRefId = makeTypedIdent entityType entityName
             // let baseExpr = (baseRefId |> typedIdent com ctx) :> Expression
             // Some (baseExpr, []) // default base constructor
             let range = baseCall |> Option.bind (fun x -> x.Range)
 
-            $"Ignoring base call for %s{baseType.Entity.FullName}"
-            |> addWarning com [] range
+            $"Ignoring base call for %s{entRef.FullName}" |> addWarning com [] range
 
             None
         | Some _, _ ->
@@ -1780,7 +1771,7 @@ module Util =
             None
         | None, _ -> None
 
-    let transformObjectExpr (com: IBabelCompiler) ctx t (members: Fable.ObjectExprMember list) baseCall : Expression =
+    let transformObjectExpr (com: IBabelCompiler) ctx typ (members: Fable.ObjectExprMember list) baseCall : Expression =
 
         let members = members |> List.map (fun memb -> memb, com.GetMember(memb.MemberRef))
 
@@ -1862,9 +1853,9 @@ module Util =
         if not compileAsClass then
             let expr = Expression.objectExpression (List.toArray members)
 
-            match t with
-            | Fable.DeclaredType(ent, _) when com.IsTypeScript && ent.FullName = Types.ienumerableGeneric ->
-                AsExpression(expr, makeTypeAnnotation com ctx t)
+            match typ with
+            | Fable.DeclaredType(entRef, _) when com.IsTypeScript && entRef.FullName = Types.ienumerableGeneric ->
+                AsExpression(expr, makeTypeAnnotation com ctx typ)
             | _ -> expr
         else
             let classMembers =
@@ -1894,7 +1885,7 @@ module Util =
 
             let baseExpr, classMembers =
                 baseCall
-                |> extractSuperClassFromBaseCall com ctx None
+                |> extractSuperClassFromBaseCall com ctx (Some typ)
                 |> Option.map (fun (baseExpr, baseArgs) ->
                     let consBody = BlockStatement([| callSuperAsStatement baseArgs |])
 
@@ -2327,7 +2318,7 @@ but thanks to the optimisation done below we get
             |> callFunction com ctx range expr []
         )
 
-    let transformCallAsStatements com ctx range t returnStrategy callee callInfo =
+    let transformCallAsStatements com ctx range typ returnStrategy callee callInfo =
         let argsLen (i: Fable.CallInfo) =
             List.length i.Args
             + (if Option.isSome i.ThisArg then
@@ -2345,17 +2336,19 @@ but thanks to the optimisation done below we get
             optimizeTailCall com ctx range tc args
         | _ ->
             [|
-                transformCall com ctx range t callee callInfo |> resolveExpr t returnStrategy
+                transformCall com ctx range typ callee callInfo
+                |> resolveExpr typ returnStrategy
             |]
 
-    let transformCurriedApplyAsStatements com ctx range t returnStrategy callee args =
+    let transformCurriedApplyAsStatements com ctx range typ returnStrategy callee args =
         // Warn when there's a recursive call that couldn't be optimized?
         match returnStrategy, ctx.TailCallOpportunity with
         | Some(Return | ReturnUnit), Some tc when tc.IsRecursiveRef(callee) && List.sameLength args tc.Args ->
             optimizeTailCall com ctx range tc args
         | _ ->
             [|
-                transformCurriedApply com ctx range callee args |> resolveExpr t returnStrategy
+                transformCurriedApply com ctx range callee args
+                |> resolveExpr typ returnStrategy
             |]
 
     // When expecting a block, it's usually not necessary to wrap it
@@ -3032,7 +3025,7 @@ but thanks to the optimisation done below we get
                 transformFunctionWithAnnotations com ctx name None args body
                 |> makeArrowFunctionExpression name
 
-        | Fable.ObjectExpr(members, _, baseCall) -> transformObjectExpr com ctx expr.Type members baseCall
+        | Fable.ObjectExpr(members, typ, baseCall) -> transformObjectExpr com ctx typ members baseCall
 
         | Fable.Call(callee, info, typ, range) -> transformCall com ctx range typ callee info
 
@@ -3138,10 +3131,10 @@ but thanks to the optimisation done below we get
                 |> resolveExpr expr.Type returnStrategy
             |]
 
-        | Fable.ObjectExpr(members, t, baseCall) ->
+        | Fable.ObjectExpr(members, typ, baseCall) ->
             [|
-                transformObjectExpr com ctx expr.Type members baseCall
-                |> resolveExpr t returnStrategy
+                transformObjectExpr com ctx typ members baseCall
+                |> resolveExpr typ returnStrategy
             |]
 
         | Fable.Call(callee, info, typ, range) -> transformCallAsStatements com ctx range typ returnStrategy callee info
@@ -4254,9 +4247,13 @@ but thanks to the optimisation done below we get
             let exposedConsBody = Expression.newExpression (classIdent, argExprs)
             makeFunctionExpression None (consArgs, exposedConsBody, returnType, typeParamDecl)
 
+        let baseType =
+            ent.BaseType
+            |> Option.map (fun d -> Fable.DeclaredType(d.Entity, d.GenericArgs))
+
         let baseExpr, consBody =
             classDecl.BaseCall
-            |> extractSuperClassFromBaseCall com ctx ent.BaseType
+            |> extractSuperClassFromBaseCall com ctx baseType
             |> Option.orElseWith (fun () ->
                 if ent.IsValueType then
                     Some(libValue com ctx "Types" "Record" |> SuperExpression, [])
@@ -4646,7 +4643,7 @@ module Compiler =
             member _.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
 
             member _.GetRootModule(fileName) = com.GetRootModule(fileName)
-            member _.TryGetEntity(fullName) = com.TryGetEntity(fullName)
+            member _.TryGetEntity(entRef) = com.TryGetEntity(entRef)
             member _.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
 
             member _.AddWatchDependency(fileName) = com.AddWatchDependency(fileName)

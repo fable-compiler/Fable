@@ -2143,7 +2143,7 @@ type PhpCompiler(com: Fable.Compiler) =
 
         member this.GetImplementationFile(fileName) = com.GetImplementationFile(fileName)
 
-        member this.TryGetEntity(fullName) = com.TryGetEntity(fullName)
+        member this.TryGetEntity(entRef) = com.TryGetEntity(entRef)
         member this.GetInlineExpr(fullName) = com.GetInlineExpr(fullName)
         member this.LibraryDir = com.LibraryDir
         member this.CurrentFile = com.CurrentFile
