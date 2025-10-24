@@ -5365,7 +5365,7 @@ module Compiler =
             member _.GetEntity(entRef) =
                 match com.TryGetEntity(entRef) with
                 | Some ent -> ent
-                | None -> failwith $"Missing entity: {entRef.FullName}"
+                | None -> failwith $"Missing entity: %s{entRef.FullName}"
 
         interface Fable.Compiler with
             member _.Options = com.Options

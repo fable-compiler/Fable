@@ -239,7 +239,7 @@ module Reflection =
         ctx
         r
         (genMap: Map<string, Expression> option)
-        t
+        typ
         : Expression
         =
         let primitiveTypeInfo name =
@@ -287,7 +287,7 @@ module Reflection =
                     | None -> ()
                 ]
 
-        match t with
+        match typ with
         | Fable.Measure _
         | Fable.Any -> primitiveTypeInfo "obj"
         | Fable.GenericParam(name = name) ->
@@ -776,17 +776,21 @@ module Annotation =
         | Types.fsharpAsyncGeneric -> makeFableLibImportTypeAnnotation com ctx genArgs "AsyncBuilder" "Async" |> Some
         | _ when not ent.IsInterface -> None
         // everything below is an interface
-        | Types.icollection -> makeNativeTypeAnnotation com ctx genArgs "Iterable" |> Some
-        // -> makeFableLibImportTypeAnnotation com ctx [Fable.Any] "Util" "ICollection"
-        | Types.icollectionGeneric -> makeNativeTypeAnnotation com ctx genArgs "Iterable" |> Some
-        // -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "ICollection"
+        | Types.icollection ->
+            // makeFableLibImportTypeAnnotation com ctx [Fable.Any] "Util" "ICollection" |> Some
+            makeNativeTypeAnnotation com ctx [ Fable.Any ] "Iterable" |> Some
+        | Types.icollectionGeneric ->
+            // makeFableLibImportTypeAnnotation com ctx genArgs "Util" "ICollection" |> Some
+            makeNativeTypeAnnotation com ctx genArgs "Iterable" |> Some
         // | Types.idictionary
         // | Types.ireadonlydictionary
         | Types.idisposable -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "IDisposable" |> Some
-        | Types.ienumerable -> makeNativeTypeAnnotation com ctx [ Fable.Any ] "Iterable" |> Some
-        // -> makeFableLibImportTypeAnnotation com ctx [Fable.Any] "Util" "IEnumerable" |> Some
-        | Types.ienumerableGeneric -> makeNativeTypeAnnotation com ctx genArgs "Iterable" |> Some
-        // -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "IEnumerable" |> Some
+        | Types.ienumerable ->
+            // makeFableLibImportTypeAnnotation com ctx [Fable.Any] "Util" "IEnumerable" |> Some
+            makeNativeTypeAnnotation com ctx [ Fable.Any ] "Iterable" |> Some
+        | Types.ienumerableGeneric ->
+            // makeFableLibImportTypeAnnotation com ctx genArgs "Util" "IEnumerable" |> Some
+            makeNativeTypeAnnotation com ctx genArgs "Iterable" |> Some
         | Types.ienumerator ->
             makeFableLibImportTypeAnnotation com ctx [ Fable.Any ] "Util" "IEnumerator"
             |> Some
@@ -1854,8 +1858,13 @@ module Util =
             let expr = Expression.objectExpression (List.toArray members)
 
             match typ with
-            | Fable.DeclaredType(entRef, _) when com.IsTypeScript && entRef.FullName = Types.ienumerableGeneric ->
-                AsExpression(expr, makeTypeAnnotation com ctx typ)
+            | Fable.DeclaredType(entRef, _) when com.IsTypeScript ->
+                if entRef.FullName = Types.ienumerableGeneric then
+                    // cast object expression as IEnumerable<T>
+                    let ta = makeTypeAnnotation com ctx typ
+                    AsExpression(expr, ta)
+                else
+                    expr
             | _ -> expr
         else
             let classMembers =
@@ -3404,7 +3413,9 @@ but thanks to the optimisation done below we get
                     | Types.iStructuralComparable
                     | Types.ienumerable
                     | Types.ienumerator -> None
-                    | Types.ienumerableGeneric -> makeNativeTypeAnnotation com ctx ifc.GenericArgs "Iterable" |> Some
+                    | Types.ienumerableGeneric ->
+                        // makeFableLibImportTypeAnnotation com ctx ifc.GenericArgs "Util" "IEnumerable" |> Some
+                        makeNativeTypeAnnotation com ctx ifc.GenericArgs "Iterable" |> Some
                     | Types.ienumeratorGeneric ->
                         makeFableLibImportTypeAnnotation com ctx ifc.GenericArgs "Util" "IEnumerator"
                         |> Some
