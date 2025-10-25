@@ -61,6 +61,12 @@
  (Originally from FSDependencyManager.txt:11)
 </summary>
 </member>
+<member name="M:FSDependencyManager.SR.invalidBooleanValue(System.String)">
+<summary>
+ Invalid value for boolean &apos;%s&apos;, valid values: true or false
+ (Originally from FSDependencyManager.txt:13)
+</summary>
+</member>
 <member name="M:FSDependencyManager.SR.highestVersion">
 <summary>
  with the highest version
