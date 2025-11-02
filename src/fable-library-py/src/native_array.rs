@@ -24,8 +24,10 @@ pub enum ArrayType {
 }
 
 // Implement FromPyObject for ArrayType
-impl<'source> FromPyObject<'source> for ArrayType {
-    fn extract_bound(ob: &Bound<'source, PyAny>) -> PyResult<Self> {
+impl<'py> FromPyObject<'_, 'py> for ArrayType {
+    type Error = PyErr;
+
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
         let s: &str = ob.extract()?;
         Ok(ArrayType::from_str(s))
     }
@@ -195,7 +197,7 @@ impl NativeArray {
 
     pub fn equals(&self, other: &NativeArray, py: Python<'_>) -> bool {
         // Helper for comparing PyObject with other types
-        fn compare_pyobject_with<T: PartialEq + for<'a> pyo3::FromPyObject<'a>>(
+        fn compare_pyobject_with<T: PartialEq + for<'a, 'py> pyo3::FromPyObject<'a, 'py>>(
             py_vec: &std::sync::MutexGuard<Vec<Py<PyAny>>>,
             other_vec: &[T],
             py: Python<'_>,

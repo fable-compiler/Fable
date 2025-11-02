@@ -841,9 +841,7 @@ mod formatting {
 
         // **Pattern matching**: Determine if first argument is a format provider
         let (format_str, start_index) = match args.get_item(0)? {
-            first_arg
-                if first_arg.is_none() || first_arg.downcast::<pyo3::types::PyDict>().is_ok() =>
-            {
+            first_arg if first_arg.is_none() || first_arg.cast::<pyo3::types::PyDict>().is_ok() => {
                 // Has provider: format(provider, string, ...args)
                 (args.get_item(1)?.str()?.to_string(), 2)
             }
@@ -883,7 +881,7 @@ mod formatting {
             1 => {
                 // **Pattern matching**: Check if single argument is a tuple (Rust-style)
                 let single_arg = args.get_item(start_index)?;
-                if let Ok(tuple_args) = single_arg.downcast::<pyo3::types::PyTuple>() {
+                if let Ok(tuple_args) = single_arg.cast::<pyo3::types::PyTuple>() {
                     // Rust-style: format("Hello {0}", ("World",))
                     (0..tuple_args.len())
                         .map(|i| -> PyResult<String> {

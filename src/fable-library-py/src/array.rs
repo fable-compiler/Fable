@@ -183,7 +183,7 @@ impl FSharpArray {
         // Get type name - either from string or from type.__name__
         let type_name: Option<String> = if let Ok(s) = item.extract::<String>() {
             Some(s)
-        } else if let Ok(py_type) = item.downcast::<PyType>() {
+        } else if let Ok(py_type) = item.cast::<PyType>() {
             py_type.getattr("__name__")?.extract()?
         } else {
             None
@@ -561,7 +561,7 @@ impl FSharpArray {
 
     pub fn __getitem__(&self, idx: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<Py<PyAny>> {
         // Try to downcast to a slice first
-        if let Ok(slice) = idx.downcast::<pyo3::types::PySlice>() {
+        if let Ok(slice) = idx.cast::<pyo3::types::PySlice>() {
             // println!("Slice: {:?}", slice);
             self.get_item_slice(slice, py)
         }
@@ -2875,7 +2875,7 @@ impl FSharpArray {
             let item = self.get_item_at_index(i as isize, py)?;
 
             // Try to extract as a tuple
-            if let Ok(tuple) = item.bind(py).downcast::<PyTuple>() {
+            if let Ok(tuple) = item.bind(py).cast::<PyTuple>() {
                 if tuple.len() != 2 {
                     return Err(PyErr::new::<exceptions::PyValueError, _>(
                         "Expected tuples of length 2",
@@ -4241,7 +4241,7 @@ pub fn allocate_array_from_cons(
 // Utility function to extract typed vectors from any iterable
 fn extract_typed_vec_from_iterable<U>(elements: &Bound<'_, PyAny>) -> PyResult<Vec<U>>
 where
-    U: for<'a> pyo3::FromPyObject<'a>,
+    U: for<'a, 'py> pyo3::FromPyObject<'a, 'py>,
 {
     // Get the length. Most Python objects have a len method, but some don't.
     // like sequences.
@@ -4249,7 +4249,10 @@ where
     let mut vec = Vec::with_capacity(len);
 
     for item in elements.try_iter()? {
-        let typed_item = item?.extract::<U>()?;
+        let bound_item = item?;
+        let typed_item: U = bound_item.extract().map_err(|_| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>("Failed to extract item from iterable")
+        })?;
         vec.push(typed_item);
     }
 
