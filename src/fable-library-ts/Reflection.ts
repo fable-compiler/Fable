@@ -210,7 +210,7 @@ export function name(info: FieldInfo | TypeInfo | CaseInfo | MethodInfo): string
       return name(elemType) + "[]";
     } else {
       const i = info.fullname.lastIndexOf(".");
-      return i === -1 ? info.fullname : info.fullname.substr(i + 1);
+      return i === -1 ? info.fullname : info.fullname.slice(i + 1);
     }
   } else {
     return info.name;
@@ -234,7 +234,7 @@ export function namespace(t: TypeInfo): string {
     return namespace(elemType);
   } else {
     const i = t.fullname.lastIndexOf(".");
-    return i === -1 ? "" : t.fullname.substr(0, i);
+    return i === -1 ? "" : t.fullname.slice(0, i);
   }
 }
 

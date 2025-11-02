@@ -83,7 +83,7 @@ function initConvertMaps() {
   _byteToHex = new Array(256);
   _hexToByte = {};
   for (let i = 0; i < 256; i++) {
-    _byteToHex[i] = (i + 0x100).toString(16).substr(1);
+    _byteToHex[i] = i.toString(16).padStart(2, '0');
     _hexToByte[_byteToHex[i]] = i;
   }
   _convertMapsInitialized = true;
