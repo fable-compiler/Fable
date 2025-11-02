@@ -21,6 +21,7 @@ from types import TracebackType
 from typing import (
     Any,
     ClassVar,
+    Literal,
     Protocol,
     TypeGuard,
     cast,
@@ -76,7 +77,7 @@ class IDisposable(ABC):
         exctype: type[BaseException] | None,
         excinst: BaseException | None,
         exctb: TracebackType | None,
-    ) -> bool:
+    ) -> Literal[False]:
         """Exit context management."""
 
         self.Dispose()
@@ -121,12 +122,12 @@ class AnonymousDisposable(IDisposable):
 class IEquatable(Protocol):
     def __eq__(self, other: Any) -> bool: ...
 
-    def __hash__(self) -> int32: ...
+    def __hash__(self) -> int: ...
 
 
 class IComparable(IEquatable, Protocol):
     @abstractmethod
-    def __cmp__(self, __other: Any) -> int32:
+    def __cmp__(self, __other: Any) -> int:
         raise NotImplementedError
 
     @abstractmethod
@@ -136,7 +137,7 @@ class IComparable(IEquatable, Protocol):
 
 class IComparable_1[T_in](IEquatable, Protocol):
     @abstractmethod
-    def __cmp__(self, __other: T_in) -> int32:
+    def __cmp__(self, __other: T_in) -> int:
         raise NotImplementedError
 
     @abstractmethod
@@ -162,13 +163,13 @@ class IComparer_1[T_in](Protocol):
     """
 
     @abstractmethod
-    def Compare(self, /, x: T_in, y: T_in) -> int32:
+    def Compare(self, x: T_in, y: T_in, /) -> int32:
         raise NotImplementedError
 
 
 class IEqualityComparer(Protocol):
     @abstractmethod
-    def Equals(self, /, x: Any = None, y: Any = None) -> bool:
+    def Equals(self, x: Any = None, y: Any = None, /) -> bool:
         raise NotImplementedError
 
     @abstractmethod
@@ -263,13 +264,13 @@ def compare_dicts(x: dict[str, Any], y: dict[str, Any]) -> int:
     if len(x_keys) != len(y_keys):
         return -1 if len(x_keys) < len(y_keys) else 1
 
-    x_keys = sorted(x_keys)
-    y_keys = sorted(y_keys)
+    x_keys_ = sorted(x_keys)
+    y_keys_ = sorted(y_keys)
 
     j = 0
-    for i, key in enumerate(x_keys):
-        if key != y_keys[i]:
-            return -1 if key < y_keys[i] else 1
+    for i, key in enumerate(x_keys_):
+        if key != y_keys_[i]:
+            return -1 if key < y_keys_[i] else 1
         else:
             j = compare(x[key], y[key])
             if j != 0:
@@ -548,12 +549,10 @@ class Enumerator[T](IEnumerator[T]):
 
     def __init__(self, iter: Iterator[T]) -> None:
         self.iter = iter
-        self.current = None
+        self.current: T
 
     def System_Collections_Generic_IEnumerator_1_get_Current(self) -> T:
-        if self.current is not None:
-            return self.current
-        return None  # type: ignore
+        return self.current
 
     def System_Collections_IEnumerator_MoveNext(self) -> bool:
         try:

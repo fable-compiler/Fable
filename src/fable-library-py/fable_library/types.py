@@ -154,7 +154,7 @@ class Record(IComparable):
     def Equals(self, other: Record) -> bool:
         return record_equals(self, other)
 
-    def __cmp__(self, other: Record) -> int32:
+    def __cmp__(self, other: Record) -> int:
         return record_compare_to(self, other)
 
     def __str__(self) -> str:
