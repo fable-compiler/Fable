@@ -51,9 +51,9 @@ export function compare(...args: any[]): number {
     case 2: return cmp(args[0], args[1], false);
     case 3: return cmp(args[0], args[1], args[2]);
     case 4: return cmp(args[0], args[1], args[2] === true);
-    case 5: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), false);
-    case 6: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), args[5]);
-    case 7: return cmp(args[0].substr(args[1], args[4]), args[2].substr(args[3], args[4]), args[5] === true);
+    case 5: return cmp(args[0].slice(args[1], args[1] + args[4]), args[2].slice(args[3], args[3] + args[4]), false);
+    case 6: return cmp(args[0].slice(args[1], args[1] + args[4]), args[2].slice(args[3], args[3] + args[4]), args[5]);
+    case 7: return cmp(args[0].slice(args[1], args[1] + args[4]), args[2].slice(args[3], args[3] + args[4]), args[5] === true);
     default: throw new Exception("String.compare: Unsupported number of parameters");
   }
 }
@@ -71,7 +71,7 @@ export function startsWith(str: string, pattern: string, ic: boolean | StringCom
     return str.startsWith(pattern);
   }
   if (str.length >= pattern.length) {
-    return cmp(str.substr(0, pattern.length), pattern, ic) === 0;
+    return cmp(str.slice(0, pattern.length), pattern, ic) === 0;
   }
   return false;
 }
@@ -81,7 +81,7 @@ export function endsWith(str: string, pattern: string, ic: boolean | StringCompa
     return str.endsWith(pattern);
   }
   if (str.length >= pattern.length) {
-    return cmp(str.substr(str.length - pattern.length, pattern.length), pattern, ic) === 0;
+    return cmp(str.slice(-pattern.length), pattern, ic) === 0;
   }
   return false;
 }

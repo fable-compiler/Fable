@@ -275,6 +275,8 @@ module File =
         with _ ->
             ()
 
+    let rnd = Random()
+
     let withLock (dir: string) (action: unit -> 'T) =
         let mutable fileCreated = false
         let lockFile = Path.Join(dir, "fable.lock")
@@ -322,7 +324,7 @@ module File =
                         reraise ()
                     else
                         attempt <- attempt + 1
-                        let waitMs = 100 * (Random().Next(10) + 1)
+                        let waitMs = 100 * (rnd.Next(10) + 1)
                         Thread.Sleep(millisecondsTimeout = waitMs)
 
             action ()
