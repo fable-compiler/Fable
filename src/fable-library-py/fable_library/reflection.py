@@ -12,7 +12,7 @@ from .util import combine_hash_codes, equal_arrays_with
 
 Constructor = Callable[..., Any]
 
-EnumCase = tuple[str, int]
+EnumCase = tuple[str, IntegerTypes]
 FieldInfo = tuple[str, "TypeInfo"]
 PropertyInfo = FieldInfo
 ParameterInfo = FieldInfo
@@ -50,8 +50,8 @@ class TypeInfo:
         return equals(self, other)
 
     def __hash__(self) -> int:
-        hashes: list[int] = [int32(hash(x)) for x in self.generics or []]
-        hashes.append(hash(self.fullname))
+        hashes: list[int32] = [int32(hash(x)) for x in self.generics or []]
+        hashes.append(int32(hash(self.fullname)))
         return combine_hash_codes(hashes)
 
 
@@ -296,7 +296,7 @@ def get_enum_names(t: TypeInfo) -> Array[str]:
         raise ValueError(f"{t.fullname} is not an enum type")
 
 
-def get_enum_case(t: TypeInfo, v: int | str) -> EnumCase:
+def get_enum_case(t: TypeInfo, v: IntegerTypes | str) -> EnumCase:
     if t.enum_cases is None:
         raise ValueError(f"{t.fullname} is not an enum type")
 
@@ -340,7 +340,7 @@ def parse_enum(t: TypeInfo, string: str) -> int:
     return int(get_enum_case(t, value if value else string)[1])
 
 
-def try_parse_enum(t: TypeInfo, string: str, def_value: FSharpRef[int]) -> bool:
+def try_parse_enum(t: TypeInfo, string: str, def_value: FSharpRef[Any]) -> bool:
     try:
         def_value.contents = parse_enum(t, string)
         return True
@@ -348,14 +348,14 @@ def try_parse_enum(t: TypeInfo, string: str, def_value: FSharpRef[int]) -> bool:
         return False
 
 
-def get_enum_name(t: TypeInfo, v: int) -> str:
+def get_enum_name(t: TypeInfo, v: IntegerTypes) -> str:
     return str(get_enum_case(t, v)[0])
 
 
-def is_enum_defined(t: TypeInfo, v: str | int) -> bool:
+def is_enum_defined(t: TypeInfo, v: str | IntegerTypes) -> bool:
     try:
         kv = get_enum_case(t, v)
-        return kv[0] is not None and kv[0] != ""
+        return kv[0] != ""
     except Exception:
         # Suppress error
         pass

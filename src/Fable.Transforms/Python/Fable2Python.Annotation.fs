@@ -290,29 +290,6 @@ let makeNumberTypeAnnotation com ctx kind info =
 
 
     match kind, info with
-    | _, Fable.NumberInfo.IsEnum entRef ->
-        let ent = com.GetEntity(entRef)
-
-        let cases =
-            ent.FSharpFields
-            |> Seq.choose (fun fi ->
-                match fi.Name with
-                | "value__" -> None
-                | name ->
-                    let value =
-                        match fi.LiteralValue with
-                        | Some v -> Convert.ToDouble v
-                        | None -> 0.
-
-                    Expression.tuple [ Expression.stringConstant name; Expression.floatConstant value ]
-                    |> Some
-            )
-            |> Seq.toList
-            |> Expression.list
-
-        [ Expression.stringConstant entRef.FullName; numberInfo kind; cases ]
-        |> libReflectionCall com ctx None "enum",
-        []
     | Decimal, _ -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
     | _ -> numberInfo kind, []
 

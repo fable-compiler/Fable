@@ -144,10 +144,10 @@ let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expressi
                     | name ->
                         let value =
                             match fi.LiteralValue with
-                            | Some v -> Convert.ToDouble v
-                            | None -> 0.
+                            | Some v -> Convert.ToInt32 v
+                            | None -> 0
 
-                        Expression.tuple [ Expression.stringConstant name; Expression.floatConstant value ]
+                        Expression.tuple [ Expression.stringConstant name; Expression.intConstant value ]
                         |> Some
                 )
                 |> Seq.toList

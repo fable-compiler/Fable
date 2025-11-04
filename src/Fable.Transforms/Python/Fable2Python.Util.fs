@@ -274,7 +274,7 @@ module Util =
 
         // Make it also statement if we have more than, say, 3 targets?
         // That would increase the chances to convert it into a switch
-        | Fable.DecisionTree(_, targets) -> preferStatement || List.exists (snd >> (isPyStatement ctx false)) targets
+        | Fable.DecisionTree(_, targets) -> preferStatement || List.exists (snd >> isPyStatement ctx false) targets
 
         | Fable.IfThenElse(_, thenExpr, elseExpr, _) ->
             preferStatement
@@ -831,9 +831,7 @@ module Helpers =
 /// Expression builders with automatic statement threading
 [<RequireQualifiedAccess>]
 module Expression =
-    // === Core Computation Expression ===
-
-    /// Creates a computation expression for cleaner statement threading
+    /// Creates a computation expression for cleaner statement threading.
     type WithStmtBuilder() =
         member _.Bind((expr, stmts1): Expression * Statement list, f: Expression -> Expression * Statement list) =
             let expr2, stmts2 = f expr
@@ -847,8 +845,6 @@ module Expression =
 
     let withStmts = WithStmtBuilder()
 
-    // === Statement Threading Utilities ===
-
     /// Combines multiple statement lists efficiently
     let combine (stmtLists: Statement list list) : Statement list = List.collect id stmtLists
 
@@ -858,122 +854,3 @@ module Expression =
         |> List.map f
         |> List.unzip
         |> fun (results, stmtLists) -> results, combine stmtLists
-
-    /// Transforms two expressions and combines their statements
-    let transform2
-        (com: IPythonCompiler)
-        ctx
-        (expr1: Fable.Expr)
-        (expr2: Fable.Expr)
-        : Expression * Expression * Statement list
-        =
-        let e1, stmts1 = com.TransformAsExpr(ctx, expr1)
-        let e2, stmts2 = com.TransformAsExpr(ctx, expr2)
-        e1, e2, stmts1 @ stmts2
-
-    /// Transforms three expressions and combines their statements
-    let transform3
-        (com: IPythonCompiler)
-        ctx
-        (expr1: Fable.Expr)
-        (expr2: Fable.Expr)
-        (expr3: Fable.Expr)
-        : Expression * Expression * Expression * Statement list
-        =
-        let e1, stmts1 = com.TransformAsExpr(ctx, expr1)
-        let e2, stmts2 = com.TransformAsExpr(ctx, expr2)
-        let e3, stmts3 = com.TransformAsExpr(ctx, expr3)
-        e1, e2, e3, combine [ stmts1; stmts2; stmts3 ]
-
-    /// Transforms an optional expression
-    let transformOpt (com: IPythonCompiler) ctx (expr: Fable.Expr option) : Expression option * Statement list =
-        match expr with
-        | Some e ->
-            let expr, stmts = com.TransformAsExpr(ctx, e)
-            Some expr, stmts
-        | None -> None, []
-
-    /// Lifts a pure expression (no statements) into the statement threading context
-    let liftPure (expr: Expression) : Expression * Statement list = expr, []
-
-    /// Adds statements to an existing expression result
-    let addStmts
-        (stmts: Statement list)
-        (expr: Expression, existingStmts: Statement list)
-        : Expression * Statement list
-        =
-        expr, existingStmts @ stmts
-
-    /// Pipes an expression through a pure transformation while preserving statements
-    let mapExpr (f: Expression -> Expression) (expr: Expression, stmts: Statement list) : Expression * Statement list =
-        f expr, stmts
-
-    /// Conditional transformation - applies function only if condition is true
-    let transformIf
-        (condition: bool)
-        (f: Expression -> Expression)
-        (expr: Expression, stmts: Statement list)
-        : Expression * Statement list
-        =
-        if condition then
-            f expr, stmts
-        else
-            expr, stmts
-
-    // === High-Level Expression Builders ===
-
-    /// Builds a binary operation with statement threading
-    let buildBinOp
-        (com: IPythonCompiler)
-        ctx
-        (left: Fable.Expr)
-        (op: BinaryOperator)
-        (right: Fable.Expr)
-        : Expression * Statement list
-        =
-        let left, right, stmts = transform2 com ctx left right
-        Expression.binOp (left, op, right), stmts
-
-    /// Builds a comparison with statement threading
-    let buildComparison
-        (com: IPythonCompiler)
-        ctx
-        (left: Fable.Expr)
-        (ops: ComparisonOperator list)
-        (rights: Fable.Expr list)
-        : Expression * Statement list
-        =
-        let left, stmts1 = com.TransformAsExpr(ctx, left)
-        let rights, stmts2 = mapWith (fun expr -> com.TransformAsExpr(ctx, expr)) rights
-        Expression.compare (left, ops, rights), stmts1 @ stmts2
-
-    /// Builds a function call with statement threading
-    let buildCall (com: IPythonCompiler) ctx (func: Fable.Expr) (args: Fable.Expr list) : Expression * Statement list =
-        let func, stmts1 = com.TransformAsExpr(ctx, func)
-        let args, stmts2 = mapWith (fun expr -> com.TransformAsExpr(ctx, expr)) args
-        Expression.call (func, args), stmts1 @ stmts2
-
-    /// Creates a Python list from Fable expressions with statement threading
-    let makeList (com: IPythonCompiler) ctx exprs =
-        let expr, stmts = mapWith (fun e -> com.TransformAsExpr(ctx, e)) exprs
-        expr |> Expression.list, stmts
-
-    /// Creates a Python tuple from Fable expressions with statement threading
-    let makeTuple (com: IPythonCompiler) ctx exprs =
-        let expr, stmts = mapWith (fun e -> com.TransformAsExpr(ctx, e)) exprs
-        expr |> Expression.tuple, stmts
-
-    // === Enhanced Active Patterns ===
-
-    /// Active pattern for transforming expressions with better ergonomics
-    let (|TransformExpr2|) (com: IPythonCompiler) ctx (e1: Fable.Expr) (e2: Fable.Expr) = transform2 com ctx e1 e2
-
-    let (|TransformExpr3|) (com: IPythonCompiler) ctx (e1: Fable.Expr) (e2: Fable.Expr) (e3: Fable.Expr) =
-        transform3 com ctx e1 e2 e3
-
-    /// Active pattern for transforming optional expressions
-    let (|TransformExprOpt|) (com: IPythonCompiler) ctx (expr: Fable.Expr option) = transformOpt com ctx expr
-
-    /// Active pattern for transforming lists of expressions
-    let (|TransformExprList|) (com: IPythonCompiler) ctx (exprs: Fable.Expr list) =
-        mapWith (fun expr -> com.TransformAsExpr(ctx, expr)) exprs
