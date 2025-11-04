@@ -465,11 +465,11 @@ def int_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
     return str(i)
 
 
-def count(col: Iterable[Any]) -> int:
+def count(col: Iterable[Any]) -> int32:
     if isinstance(col, Sized):
-        return len(col)
+        return int32(len(col))
 
-    count = 0
+    count = int32.ZERO
     for _ in col:
         count += 1
 
