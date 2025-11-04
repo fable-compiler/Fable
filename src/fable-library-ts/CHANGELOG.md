@@ -7,7 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+* [JS/TS] Replace the deprecated `substr` method with `slice` (by @Thorium)
+
 ## 2.0.0-beta.4 - 2025-07-25
+
+### Added
 
 * [JS/TS] Initial support for Nullable Reference Types (by @ncave)
 
