@@ -207,9 +207,10 @@ jobs:
       strategy:
         matrix:
           platform:
-            - runner: macos-13
+            # This is the last macOS version supporting x86_64 builds
+            - runner: macos-15-intel
               target: x86_64
-            - runner: macos-14
+            - runner: macos-15
               target: aarch64
       steps:
         - uses: actions/checkout@v5
