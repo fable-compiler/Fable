@@ -19,6 +19,6 @@
 ## or put your custom commands -------------------
 #echo 'Husky.Net is awesome!'
 
-dotnet husky run --name fantomas-format-staged-files
-dotnet husky run --name ruff-format-staged-files
-dotnet husky run --name lint-markdown-staged-files
+dotnet husky run --allow-roll-forward --name fantomas-format-staged-files
+dotnet husky run --allow-roll-forward --name ruff-format-staged-files
+dotnet husky run --allow-roll-forward --name lint-markdown-staged-files
