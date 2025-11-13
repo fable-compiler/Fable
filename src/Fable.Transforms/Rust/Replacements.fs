@@ -342,8 +342,6 @@ let emitFormat (com: ICompiler) r t (args: Expr list) macro =
         | [ StringTempl(fmt, args); Value(NewArray(ArrayValues restArgs, _, _), _) ] ->
             (emitRawString fmt) :: args @ restArgs
         | (StringTempl(fmt, args)) :: restArgs -> (emitRawString fmt) :: args @ restArgs
-        | [ ExprTypeAs(String, str); Value(NewArray(ArrayValues restArgs, _, _), _) ] ->
-            (emitRawString "{0}") :: str :: restArgs
         | _ -> (emitRawString "{0}") :: args
 
     let unboxedArgs = args |> FSharp2Fable.Util.unboxBoxedArgs

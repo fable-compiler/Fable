@@ -1,6 +1,7 @@
 module Build.Main
 
 open Build.FableLibrary
+open Spectre.Console
 
 // This is a basic help message, as the CLI parser is not a "real" CLI parser
 // For now, it is enough as this is just a dev tool
@@ -155,5 +156,5 @@ let main argv =
         0
 
     with e ->
-        System.Console.Write(e.ToString())
+        AnsiConsole.WriteException(e)
         1

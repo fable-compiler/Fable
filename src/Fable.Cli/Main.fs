@@ -1192,17 +1192,16 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
 
                             Log.always ("Generating assembly...")
 
-                            let! (diagnostics, result), ms =
+                            let! (diagnostics, exitCode), ms =
                                 Performance.measureAsync <| fun _ -> fableCompiler.CompileToFile(dllPath)
 
                             Log.always ($"Assembly generated in {ms}ms")
 
-                            match result with
-                            | Some ex ->
+                            if exitCode <> 0 then
                                 getFSharpDiagnostics diagnostics |> logErrors cliArgs.RootDir
-                                Log.error (ex.Message)
-                                return 1
-                            | None ->
+
+                                return exitCode
+                            else
                                 Log.always ($"Saving precompiled info...")
                                 let! fableProj = fableCompiler.GetFableProject()
 
