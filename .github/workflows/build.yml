@@ -222,13 +222,25 @@ jobs:
 
   # Separate job to run F# analyzers
   analyzers:
-      runs-on: windows-latest
+    runs-on: ubuntu-latest
 
-      steps:
-      - uses: actions/checkout@v4
+    strategy:
+      matrix:
+        project:
+          [
+            "src/Fable.AST/Fable.AST.fsproj",
+            "src/Fable.Transforms/Rust/AST/Rust.AST.fsproj",
+            "src/Fable.Transforms/Fable.Transforms.fsproj",
+            "src/Fable.Compiler/Fable.Compiler.fsproj",
+          ]
+
+    steps:
+      - uses: actions/checkout@v5
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
 
       - name: Restore tools
         run: dotnet tool restore
@@ -236,23 +248,12 @@ jobs:
       - name: Build solution
         run: dotnet build -c Release Fable.sln
 
-      - name: Run analyzers for Fable.AST
-        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.AST/Fable.AST.fsproj
-        continue-on-error: true
-
-      - name: Run analyzers for Rust.AST
-        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Transforms/Rust/AST/Rust.AST.fsproj
-        continue-on-error: true
-
-      - name: Run analyzers Fable.Transforms
-        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Transforms/Fable.Transforms.fsproj
-        continue-on-error: true
-
-      - name: Run analyzers Fable.Compiler
-        run: dotnet msbuild /t:AnalyzeFSharpProject src/Fable.Compiler/Fable.Compiler.fsproj
+      - name: Run analyzers for ${{ matrix.project }}
+        run: dotnet msbuild /t:AnalyzeFSharpProject ${{ matrix.project }}
         continue-on-error: true
 
       - name: Upload SARIF files
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
-            sarif_file: src/reports
+          sarif_file: src/reports
+          category: ${{ matrix.project }}
