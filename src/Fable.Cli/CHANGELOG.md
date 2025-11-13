@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [All] Fix MSBuildResolver to include define when restoring the project (#4252)
+* [All] Disable .NET Welcome message when cracking project (#4014)
+
 ## 4.26.0 - 2025-07-14 [YANKED]
 
 ### Changed
