@@ -58,10 +58,10 @@ let handle (args: string list) =
 
     Publish.handle args
 
-    let githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN_FABLE_ORG")
+    // let githubToken = Environment.GetEnvironmentVariable("GITHUB_TOKEN_FABLE_ORG")
 
-    if isNull githubToken then
-        failwith "Missing GITHUB_TOKEN_FABLE_ORG environment variable"
+    // if isNull githubToken then
+    //     failwith "Missing GITHUB_TOKEN_FABLE_ORG environment variable"
 
     let versionInfo = Changelog.getLastVersion Changelog.fableCLi
 

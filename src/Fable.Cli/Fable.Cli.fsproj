@@ -4,10 +4,11 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.26.0</Version>
-    <PackageReleaseNotes>## Changed
+    <Version>4.27.0</Version>
+    <PackageReleaseNotes>## Fixed
 
-- [All] Fix #4176: Move TargetFramework to net8.0 (@ncave)
+- [All] Fix MSBuildResolver to include define when restoring the project (#4252)
+- [All] Disable .NET Welcome message when cracking project (#4014)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
