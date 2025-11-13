@@ -537,9 +537,6 @@ let tests =
         x <- x + 4
         #endif
         #if FABLE_COMPILER_5
-        x <- x + 8
-        #endif
-        #if FABLE_COMPILER_6
         x <- x + 16
         #endif
         equal 5 x

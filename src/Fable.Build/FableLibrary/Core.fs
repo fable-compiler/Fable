@@ -7,6 +7,8 @@ open Build.Utils
 open Build.Utils
 open System.Diagnostics
 open SimpleExec
+open Spectre.Console
+open SpectreCoff
 
 /// <summary>
 /// Building fable-library is similar enough for all the targets
@@ -48,21 +50,19 @@ type BuildFableLibrary
     default _.CopyStage() = ()
 
     member this.Run(?skipIfExist: bool) =
-        let toConsole (s: string) = System.Console.WriteLine(s)
-
         let skipIfExist = defaultArg skipIfExist false
 
         if skipIfExist && Directory.Exists outDir then
-            "Skipping Fable build stage" |> toConsole
+            Calm "Skipping Fable build stage" |> toConsole
 
         else
 
-            "Cleaning build directory" |> toConsole
+            Calm "Cleaning build directory" |> toConsole
 
             if Directory.Exists buildDir then
                 Directory.Delete(buildDir, true)
 
-            "Building Fable.Library" |> toConsole
+            Calm "Building Fable.Library" |> toConsole
 
             let args =
                 CmdLine.appendRaw sourceDir
@@ -77,8 +77,8 @@ type BuildFableLibrary
 
             Command.Fable(args)
 
-            "Copy stage" |> toConsole
+            Calm "Copy stage" |> toConsole
             this.CopyStage()
 
-            "Post Fable build stage" |> toConsole
+            Calm "Post Fable build stage" |> toConsole
             this.PostFableBuildStage()
