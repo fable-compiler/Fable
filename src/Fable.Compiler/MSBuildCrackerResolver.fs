@@ -34,7 +34,12 @@ module private MSBuildCrackerResolver =
 
             psi.WorkingDirectory <- Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
 
-            psi.Arguments <- $"msbuild \"%s{fsproj}\" %s{args}"
+            let defineArgs =
+                defines
+                |> List.map (fun constant -> $"/p:%s{constant}=True")
+                |> String.concat " "
+
+            psi.Arguments <- $"msbuild \"%s{fsproj}\" %s{args} %s{defineArgs}"
             psi.RedirectStandardOutput <- true
             psi.RedirectStandardError <- true
             psi.UseShellExecute <- false
@@ -53,7 +58,7 @@ module private MSBuildCrackerResolver =
             let error = ps.StandardError.ReadToEnd()
             do! ps.WaitForExitAsync()
 
-            let fullCommand = $"dotnet msbuild %s{fsproj} %s{args}"
+            let fullCommand = $"dotnet %s{psi.Arguments}"
 
             if not (String.IsNullOrWhiteSpace error) then
                 failwithf $"In %s{psi.WorkingDirectory}:\n%s{fullCommand}\nfailed with\n%s{error}"
@@ -109,7 +114,6 @@ Exception:
 
             let properties =
                 [
-                    "/p:Fable=True"
                     if not (String.IsNullOrWhiteSpace configurationProperty) then
                         configurationProperty
                     $"/p:TargetFramework=%s{targetFramework}"
