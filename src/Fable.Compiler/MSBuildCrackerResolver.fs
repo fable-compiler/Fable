@@ -35,10 +35,18 @@ module private MSBuildCrackerResolver =
 
             psi.WorkingDirectory <- Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
 
-            psi.Arguments <- $"msbuild \"%s{fsproj}\" %s{args}"
+            let defineArgs =
+                defines
+                |> List.map (fun constant -> $"/p:%s{constant}=True")
+                |> String.concat " "
+
+            psi.Arguments <- $"msbuild \"%s{fsproj}\" %s{args} %s{defineArgs}"
             psi.RedirectStandardOutput <- true
             psi.RedirectStandardError <- true
             psi.UseShellExecute <- false
+            // Disable Dotnet Welcome message
+            // https://github.com/fable-compiler/Fable/issues/4014
+            psi.Environment.Add("DOTNET_NOLOGO", "1")
 
             if not (List.isEmpty defines) then
                 let definesValue = defines |> String.concat ";"
@@ -51,7 +59,7 @@ module private MSBuildCrackerResolver =
             let error = ps.StandardError.ReadToEnd()
             do! ps.WaitForExitAsync()
 
-            let fullCommand = $"dotnet msbuild %s{fsproj} %s{args}"
+            let fullCommand = $"dotnet %s{psi.Arguments}"
             // printfn "%s" fullCommand
 
             if not (String.IsNullOrWhiteSpace error) then
@@ -127,6 +135,8 @@ module private MSBuildCrackerResolver =
             let jsonDocument = JsonDocument.Parse json
             let items = jsonDocument.RootElement.GetProperty "Items"
             let properties = jsonDocument.RootElement.GetProperty "Properties"
+
+            // failwith "stop here"
 
             let options =
                 items.GetProperty("FscCommandLineArgs").EnumerateArray()
