@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-beta.2 - 2025-11-19
+
 ### Added
 
 * [Python] Added `Decorate` attribute to add Python decorators to classes (by @dbrattli)

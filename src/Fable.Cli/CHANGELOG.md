@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-alpha.15 - 2025-11-19
+
 ### Added
 
 * [TS] Added support for `erasableSyntaxOnly` in TypeScript (by @ncave)
