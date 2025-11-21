@@ -49,7 +49,7 @@
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Buildalyzer" Version="5.0.1" />
+    <PackageReference Include="Buildalyzer" Version="5.0.2-fable-001" />
     <PackageReference Include="FSharp.SystemTextJson" Version="1.2.42" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
     <PackageReference Include="source-map-sharp" Version="1.0.9" />
