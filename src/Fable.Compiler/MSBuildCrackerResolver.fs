@@ -28,11 +28,17 @@ module private MSBuildCrackerResolver =
 
     type FullPath = string
 
-    let private dotnet_msbuild_with_defines (fsproj: FullPath) (args: string) (defines: string list) : Async<string> =
+    let private dotnet_msbuild_with_defines
+        (cwd: string)
+        (fsproj: FullPath)
+        (args: string)
+        (defines: string list)
+        : Async<string>
+        =
         backgroundTask {
             let psi = ProcessStartInfo "dotnet"
 
-            psi.WorkingDirectory <- Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)
+            psi.WorkingDirectory <- cwd
 
             let defineArgs =
                 defines
@@ -67,8 +73,8 @@ module private MSBuildCrackerResolver =
         }
         |> Async.AwaitTask
 
-    let private dotnet_msbuild (fsproj: FullPath) (args: string) : Async<string> =
-        dotnet_msbuild_with_defines fsproj args List.empty
+    let private dotnet_msbuild (cwd: string) (fsproj: FullPath) (args: string) : Async<string> =
+        dotnet_msbuild_with_defines cwd fsproj args List.empty
 
     let mkOptionsFromDesignTimeBuildAux (fsproj: FileInfo) (options: CrackerOptions) : Async<ProjectOptionsResponse> =
         async {
@@ -80,6 +86,7 @@ module private MSBuildCrackerResolver =
 
             let! targetFrameworkJson =
                 dotnet_msbuild
+                    options.RootDir
                     fsproj.FullName
                     $"%s{configurationProperty} --getProperty:TargetFrameworks --getProperty:TargetFramework"
 
@@ -138,7 +145,8 @@ Exception:
             let arguments =
                 $"/restore /t:%s{targets} %s{properties} --getItem:FscCommandLineArgs --getItem:ProjectReference --getProperty:OutputType -warnAsMessage:NU1608"
 
-            let! json = dotnet_msbuild_with_defines fsproj.FullName arguments options.FableOptions.Define
+            let! json =
+                dotnet_msbuild_with_defines options.RootDir fsproj.FullName arguments options.FableOptions.Define
 
             let jsonDocument =
                 try

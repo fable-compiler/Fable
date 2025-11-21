@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [All] Fix quoted paths resolution by `Util.getExactFullPath` (by @MangelMaxime)
 
+### Changed
+
+* [All] Invoke MSBuild from Fable current working directory (by @cr3wdayt5p)
+
 ## 5.0.0-alpha.15 - 2025-11-19
 
 ### Added

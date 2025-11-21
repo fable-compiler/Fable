@@ -33,6 +33,7 @@ type CrackerOptions =
     member FableModulesDir: string
     member FableOptions: CompilerOptions
     member FableLib: string option
+    member RootDir: string
     member OutDir: string option
     member Configuration: string
     member Exclude: string list
