@@ -20,10 +20,7 @@ let tests =
 
                 // Compile project
                 let exitCode =
-                    // If there is a space in the path, it needs to be quoted
-                    // But quoting here breaks some logic in Fable
-                    // See https://github.com/fable-compiler/Fable/pull/4262#issuecomment-3563725277
-                    Fable.Cli.Entry.main [| project; "--cwd"; testCaseDir; "-e"; ".jsx.actual" |]
+                    Fable.Cli.Entry.main [| project; "--cwd"; $"'%s{testCaseDir}'"; "-e"; ".jsx.actual" |]
 
                 Expect.equal exitCode 0 "Expected exit code to be 0"
 
