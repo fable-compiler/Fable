@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [All] Fix `--cwd` with quoted paths (by @MangelMaxime)
+* [All] Fix `--legacyCracker` flag logic (by @MangelMaxime)
 
 ### Changed
 
