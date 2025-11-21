@@ -275,7 +275,7 @@ type Runner =
                 args.Value("--precompiledLib") |> Option.map normalizeAbsolutePath
 
             let fableLib = args.Value "--fableLib" |> Option.map Path.normalizePath
-            let useMSBuildForCracking = args.FlagOr("--legacyCracker", true)
+            let useLegacyCracker = args.FlagOr("--legacyCracker", false)
 
             do!
                 match watch, outDir, fableLib with
@@ -388,7 +388,7 @@ type Runner =
                     None
 
             let startCompilation () =
-                State.Create(cliArgs, ?watchDelay = watchDelay, useMSBuildForCracking = useMSBuildForCracking)
+                State.Create(cliArgs, ?watchDelay = watchDelay, useMSBuildForCracking = not useLegacyCracker)
                 |> startCompilationAsync
                 |> Async.RunSynchronously
 
