@@ -262,7 +262,20 @@ module File =
                 else
                     di.Name.ToUpper()
 
-        Path.GetFullPath(pathName) |> getExactPath
+        // Path.GetFullPath have issues with paths wrapped in quotes
+        // See https://github.com/fable-compiler/Fable/pull/4262#issuecomment-3563776069
+        let trimQuotes (path: string) =
+            if String.IsNullOrEmpty(path) then
+                path
+            elif
+                (path.StartsWith('"') && path.EndsWith('"'))
+                || (path.StartsWith('\'') && path.EndsWith('\''))
+            then
+                path.[1 .. path.Length - 2]
+            else
+                path
+
+        pathName |> trimQuotes |> Path.GetFullPath |> getExactPath
 
     /// FAKE and other tools clean dirs but don't remove them, so check whether it doesn't exist or it's empty
     let isDirectoryEmpty dir =
