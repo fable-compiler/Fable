@@ -849,7 +849,7 @@ type State =
             PendingFiles = [||]
             SilentCompilation = false
             RecompileAllFiles = defaultArg recompileAllFiles false
-            UseMSBuildForCracking = defaultArg useMSBuildForCracking false
+            UseMSBuildForCracking = defaultArg useMSBuildForCracking true
         }
 
 let private getFilesToCompile
