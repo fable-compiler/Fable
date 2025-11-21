@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [All] Fix quoted paths resolution by `Util.getExactFullPath` (by @MangelMaxime)
+
 ## 5.0.0-alpha.15 - 2025-11-19
 
 ### Added
