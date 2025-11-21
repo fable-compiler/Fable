@@ -1103,7 +1103,7 @@
  <returns>A sequence of randomly selected elements from the input sequence.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input list is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input sequence.</exception>
  <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a number outside the range [0.0..1.0).</exception>
@@ -1130,7 +1130,7 @@
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
  <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input list is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input sequence.</exception>
 
@@ -1154,7 +1154,7 @@
  <returns>A sequence of randomly selected elements from the input sequence.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input list is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input sequence.</exception>
 
@@ -1179,7 +1179,7 @@
  <returns>A sequence of randomly selected elements from the input sequence.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input list is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
  <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a number outside the range [0.0..1.0).</exception>
 
@@ -1205,7 +1205,7 @@
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
  <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input list is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
 
  <example id="randomChoicesWith-1">
@@ -1228,7 +1228,7 @@
  <returns>A sequence of randomly selected elements from the input sequence.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input sequence is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when the input sequence is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input list is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
 
  <example id="randomChoices-1">
@@ -2387,8 +2387,9 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.SeqModule.Pairwise``1(System.Collections.Generic.IEnumerable{``0})">
- <summary>Returns a sequence of each element in the input sequence and its predecessor, with the
- exception of the first element which is only returned as the predecessor of the second element.</summary>
+ <summary>Returns a sequence of each element in the input sequence paired with its predecessor, with the
+ exception of the first element which is only returned as the predecessor of the second element.
+ The predecessor comes first in the returned pairs.</summary>
 
  <param name="source">The input sequence.</param>
 
@@ -4178,7 +4179,7 @@
 
  <returns>A list of randomly selected elements from the input list.</returns>
 
- <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input list is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input list.</exception>
  <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a value outside the range [0, 1).</exception>
@@ -4202,7 +4203,7 @@
  <returns>A list of randomly selected elements from the input list.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input list is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input list.</exception>
 
@@ -4223,7 +4224,7 @@
 
  <returns>A list of randomly selected elements from the input list.</returns>
 
- <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input list is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input list.</exception>
 
@@ -4246,6 +4247,7 @@
  <returns>A list of randomly selected elements from the input list.</returns>
 
  <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input list is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
  <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a value outside the range [0, 1).</exception>
 
@@ -4268,7 +4270,7 @@
  <returns>A list of randomly selected elements from the input list.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input list is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
 
  <example id="randomChoicesWith-1">
@@ -4288,7 +4290,7 @@
 
  <returns>A list of randomly selected elements from the input list.</returns>
 
- <exception cref="T:System.ArgumentException">Thrown when the input list is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input list is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
 
  <example id="randomChoices-1">
@@ -5104,7 +5106,7 @@
 
  List.sort input
  </code>
- Evaluates to <c>[1; 1 3; 4; 6; 8]</c>.
+ Evaluates to <c>[1; 1; 3; 4; 6; 8]</c>.
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ListModule.SortBy``2(Microsoft.FSharp.Core.FSharpFunc{``0,``1},Microsoft.FSharp.Collections.FSharpList{``0})">
@@ -5427,8 +5429,9 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ListModule.Pairwise``1(Microsoft.FSharp.Collections.FSharpList{``0})">
- <summary>Returns a list of each element in the input list and its predecessor, with the
- exception of the first element which is only returned as the predecessor of the second element.</summary>
+ <summary>Returns a list of each element in the input list paired with its predecessor, with the
+ exception of the first element which is only returned as the predecessor of the second element.
+ The predecessor comes first in the returned pairs.</summary>
 
  <param name="list">The input list.</param>
 
@@ -6990,7 +6993,7 @@
  <returns>An array of randomly selected elements from the input array.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input array is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input array.</exception>
  <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a value outside the range [0, 1).</exception>
@@ -7015,7 +7018,7 @@
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
  <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input array is empty..</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input array.</exception>
 
@@ -7037,7 +7040,7 @@
  <returns>An array of randomly selected elements from the input array.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input array is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is greater than the length of the input array.</exception>
 
@@ -7060,7 +7063,7 @@
  <returns>An array of randomly selected elements from the input array.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input array is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
  <exception cref="T:System.ArgumentOutOfRangeException">Thrown when the randomizer function returns a value outside the range [0, 1).</exception>
 
@@ -7084,7 +7087,7 @@
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
  <exception cref="T:System.ArgumentNullException">Thrown when the random argument is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input array is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
 
  <example id="randomChoicesWith-1">
@@ -7105,7 +7108,7 @@
  <returns>An array of randomly selected elements from the input array.</returns>
 
  <exception cref="T:System.ArgumentNullException">Thrown when the input array is null.</exception>
- <exception cref="T:System.ArgumentException">Thrown when the input array is empty.</exception>
+ <exception cref="T:System.ArgumentException">Thrown when count is more than 0 and the input array is empty.</exception>
  <exception cref="T:System.ArgumentException">Thrown when count is less than 0.</exception>
 
  <example id="randomChoices-1">
@@ -7294,7 +7297,7 @@
  <param name="values">The values to insert.</param>
  <param name="source">The input array.</param>
 
- <returns>The result array.</returns>
+ <returns>A new array (even if values is empty).</returns>
 
  <exception cref="T:System.ArgumentException">Thrown when index is below 0 or greater than source.Length.</exception>
 
@@ -8394,8 +8397,9 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Collections.ArrayModule.Pairwise``1(``0[])">
- <summary>Returns an array of each element in the input array and its predecessor, with the
- exception of the first element which is only returned as the predecessor of the second element.</summary>
+ <summary>Returns an array of each element in the input array paired with its predecessor, with the
+ exception of the first element which is only returned as the predecessor of the second element.
+ The predecessor comes first in the returned pairs.</summary>
 
  <param name="array">The input array.</param>
 
@@ -18100,6 +18104,16 @@
 
  <category index="5">Async Internals</category>
 </member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.BackgroundTaskBuilder.MergeSources``2(Microsoft.FSharp.Control.BackgroundTaskBuilder,System.Threading.Tasks.Task{``0},System.Threading.Tasks.Task{``1})">
+ <summary>
+ Implementation of the `and!` operation for two tasks.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.TaskBuilder.MergeSources``2(Microsoft.FSharp.Control.TaskBuilder,System.Threading.Tasks.Task{``0},System.Threading.Tasks.Task{``1})">
+ <summary>
+ Implementation of the `and!` operation for two tasks.
+ </summary>
+</member>
 <member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority.TaskBuilderBase.BindDynamic.Static``3(Microsoft.FSharp.Core.CompilerServices.ResumableStateMachine{Microsoft.FSharp.Control.TaskStateMachineData{``0}}@,System.Threading.Tasks.Task{``1},Microsoft.FSharp.Core.FSharpFunc{``1,Microsoft.FSharp.Core.CompilerServices.ResumableCode{Microsoft.FSharp.Control.TaskStateMachineData{``0},``2}})">
  <summary>
  The entry point for the dynamic implementation of the corresponding operation. Do not use directly, only used when executing quotations that involve tasks or other reflective execution of F# code.
@@ -18120,6 +18134,56 @@
  Contains high-priority overloads for the `task` computation expression builder.
  </summary>
 </member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority.BackgroundTaskBuilder.MergeSources``2(Microsoft.FSharp.Control.BackgroundTaskBuilder,Microsoft.FSharp.Control.FSharpAsync{``0},System.Threading.Tasks.Task{``1})">
+ <summary>
+ Implementation of the `and!` operation for an async and a task.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority.BackgroundTaskBuilder.MergeSources``2(Microsoft.FSharp.Control.BackgroundTaskBuilder,System.Threading.Tasks.Task{``0},Microsoft.FSharp.Control.FSharpAsync{``1})">
+ <summary>
+ Implementation of the `and!` operation for a task and an async.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority.BackgroundTaskBuilder.MergeSources``2(Microsoft.FSharp.Control.BackgroundTaskBuilder,Microsoft.FSharp.Control.FSharpAsync{``0},Microsoft.FSharp.Control.FSharpAsync{``1})">
+ <summary>
+ Implementation of the `and!` operation for two asyncs.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority.BackgroundTaskBuilder.MergeSources``4(Microsoft.FSharp.Core.FSharpFunc{``0,``3},Microsoft.FSharp.Core.FSharpFunc{``3,``1},Microsoft.FSharp.Core.FSharpFunc{``3,System.Boolean},Microsoft.FSharp.Control.BackgroundTaskBuilder,``0,System.Threading.Tasks.Task{``2})">
+ <summary>
+ Implementation of the `and!` operation for a task-like value and a task.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority.BackgroundTaskBuilder.MergeSources``4(Microsoft.FSharp.Core.FSharpFunc{``0,``3},Microsoft.FSharp.Core.FSharpFunc{``3,``2},Microsoft.FSharp.Core.FSharpFunc{``3,System.Boolean},Microsoft.FSharp.Control.BackgroundTaskBuilder,System.Threading.Tasks.Task{``1},``0)">
+ <summary>
+ Implementation of the `and!` operation for a a task and a task-like value.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority.TaskBuilder.MergeSources``2(Microsoft.FSharp.Control.TaskBuilder,Microsoft.FSharp.Control.FSharpAsync{``0},System.Threading.Tasks.Task{``1})">
+ <summary>
+ Implementation of the `and!` operation for an async and a task.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority.TaskBuilder.MergeSources``2(Microsoft.FSharp.Control.TaskBuilder,System.Threading.Tasks.Task{``0},Microsoft.FSharp.Control.FSharpAsync{``1})">
+ <summary>
+ Implementation of the `and!` operation for a task and an async.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority.TaskBuilder.MergeSources``2(Microsoft.FSharp.Control.TaskBuilder,Microsoft.FSharp.Control.FSharpAsync{``0},Microsoft.FSharp.Control.FSharpAsync{``1})">
+ <summary>
+ Implementation of the `and!` operation for two asyncs.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority.TaskBuilder.MergeSources``4(Microsoft.FSharp.Core.FSharpFunc{``0,``3},Microsoft.FSharp.Core.FSharpFunc{``3,``1},Microsoft.FSharp.Core.FSharpFunc{``3,System.Boolean},Microsoft.FSharp.Control.TaskBuilder,``0,System.Threading.Tasks.Task{``2})">
+ <summary>
+ Implementation of the `and!` operation for a task-like value and a task.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority.TaskBuilder.MergeSources``4(Microsoft.FSharp.Core.FSharpFunc{``0,``3},Microsoft.FSharp.Core.FSharpFunc{``3,``2},Microsoft.FSharp.Core.FSharpFunc{``3,System.Boolean},Microsoft.FSharp.Control.TaskBuilder,System.Threading.Tasks.Task{``1},``0)">
+ <summary>
+ Implementation of the `and!` operation for a a task and a task-like value.
+ </summary>
+</member>
 <member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority.TaskBuilderBase.ReturnFrom``1(Microsoft.FSharp.Control.TaskBuilderBase,Microsoft.FSharp.Control.FSharpAsync{``0})">
  <summary>
  Specifies a unit of task code which draws a result from an F# async value.
@@ -18133,6 +18197,36 @@
 <member name="T:Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority">
  <summary>
  Contains medium-priority overloads for the `task` computation expression builder.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.LowPlusPriority.BackgroundTaskBuilder.MergeSources``4(Microsoft.FSharp.Core.FSharpFunc{``0,``3},Microsoft.FSharp.Core.FSharpFunc{``3,``1},Microsoft.FSharp.Core.FSharpFunc{``3,System.Boolean},Microsoft.FSharp.Control.BackgroundTaskBuilder,``0,Microsoft.FSharp.Control.FSharpAsync{``2})">
+ <summary>
+ Implementation of the `and!` operation for a task-like value and an async.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.LowPlusPriority.BackgroundTaskBuilder.MergeSources``4(Microsoft.FSharp.Core.FSharpFunc{``0,``3},Microsoft.FSharp.Core.FSharpFunc{``3,``2},Microsoft.FSharp.Core.FSharpFunc{``3,System.Boolean},Microsoft.FSharp.Control.BackgroundTaskBuilder,Microsoft.FSharp.Control.FSharpAsync{``1},``0)">
+ <summary>
+ Implementation of the `and!` operation for an async and a task-like value.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.LowPlusPriority.TaskBuilder.MergeSources``4(Microsoft.FSharp.Core.FSharpFunc{``0,``3},Microsoft.FSharp.Core.FSharpFunc{``3,``1},Microsoft.FSharp.Core.FSharpFunc{``3,System.Boolean},Microsoft.FSharp.Control.TaskBuilder,``0,Microsoft.FSharp.Control.FSharpAsync{``2})">
+ <summary>
+ Implementation of the `and!` operation for a task-like value and an async.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.LowPlusPriority.TaskBuilder.MergeSources``4(Microsoft.FSharp.Core.FSharpFunc{``0,``3},Microsoft.FSharp.Core.FSharpFunc{``3,``2},Microsoft.FSharp.Core.FSharpFunc{``3,System.Boolean},Microsoft.FSharp.Control.TaskBuilder,Microsoft.FSharp.Control.FSharpAsync{``1},``0)">
+ <summary>
+ Implementation of the `and!` operation for an async and a task-like value.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority.BackgroundTaskBuilder.MergeSources``6(Microsoft.FSharp.Core.FSharpFunc{``0,``4},Microsoft.FSharp.Core.FSharpFunc{``1,``5},Microsoft.FSharp.Core.FSharpFunc{``4,``2},Microsoft.FSharp.Core.FSharpFunc{``5,``3},Microsoft.FSharp.Core.FSharpFunc{``4,System.Boolean},Microsoft.FSharp.Core.FSharpFunc{``5,System.Boolean},Microsoft.FSharp.Control.BackgroundTaskBuilder,``0,``1)">
+ <summary>
+ Implementation of the `and!` operation for two task-like values.
+ </summary>
+</member>
+<member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority.TaskBuilder.MergeSources``6(Microsoft.FSharp.Core.FSharpFunc{``0,``4},Microsoft.FSharp.Core.FSharpFunc{``1,``5},Microsoft.FSharp.Core.FSharpFunc{``4,``2},Microsoft.FSharp.Core.FSharpFunc{``5,``3},Microsoft.FSharp.Core.FSharpFunc{``4,System.Boolean},Microsoft.FSharp.Core.FSharpFunc{``5,System.Boolean},Microsoft.FSharp.Control.TaskBuilder,``0,``1)">
+ <summary>
+ Implementation of the `and!` operation for two task-like values.
  </summary>
 </member>
 <member name="M:Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority.TaskBuilderBase.Using``3(Microsoft.FSharp.Control.TaskBuilderBase,``0,Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.CompilerServices.ResumableCode{Microsoft.FSharp.Control.TaskStateMachineData{``1},``2}})">
@@ -22840,7 +22934,7 @@
 <member name="M:Microsoft.FSharp.Core.Operators.ToString``1(``0)">
  <summary>Converts the argument to a string using <c>ToString</c>.</summary>
 
- <remarks>For standard integer and floating point values and any type that implements <c>IFormattable</c>
+ <remarks>For standard integer and floating point values and any type that implements <c>IFormattable</c>,
  <c>ToString</c> conversion uses <c>CultureInfo.InvariantCulture</c>. </remarks>
  <param name="value">The input value.</param>
 
@@ -23954,15 +24048,15 @@
  
 </member>
 <member name="M:Microsoft.FSharp.Core.Operators.WithNullV``1(``0)">
- <summary>Asserts that the value is non-null.</summary>
+ <summary>Wraps a value type into System.Nullable</summary>
  <remarks>In a future revision of nullness support this may be unified with 'withNull'.</remarks>
- <param name="value">The value to check.</param>
- <returns>True when value is null, false otherwise.</returns>
+ <param name="value">The value to wrap.</param>
+ <returns>System.Nullable wrapper of the input argument.</returns>
 </member>
 <member name="M:Microsoft.FSharp.Core.Operators.WithNull``1(``0)">
- <summary>Asserts that the value is non-null.</summary>
- <param name="value">The value to check.</param>
- <returns>True when value is null, false otherwise.</returns>
+ <summary>Re-types a value into a nullable reference type (|null)</summary>
+ <param name="value">The non-nullable value.</param>
+ <returns>The same value re-typed as a nullable reference type.</returns>
 </member>
 <member name="M:Microsoft.FSharp.Core.Operators.NonNullV``1(System.Nullable{``0})">
  <summary>Asserts that the value is non-null.</summary>
@@ -27962,7 +28056,7 @@
  </example>
 </member>
 <member name="M:Microsoft.FSharp.Core.StringModule.Initialize(System.Int32,Microsoft.FSharp.Core.FSharpFunc{System.Int32,System.String})">
- <summary>Builds a new string whose characters are the results of applying the function <c>mapping</c>
+ <summary>Builds a new string whose characters are the results of applying the function <c>initializer</c>
  to each index from <c>0</c> to <c>count-1</c> and concatenating the resulting
  strings.</summary>
 
@@ -28488,6 +28582,12 @@
  placeholders. Format placeholders consist of <c>%[flags][width][.precision][type]</c>.</remarks>
 
  <category index="4">Strings and Text</category>
+</member>
+<member name="T:Microsoft.FSharp.Core.CompilerServices.SupportsWhenTEnum">
+ <summary>
+ A marker type that only compilers that support the <c>when 'T : Enum</c>
+ library-only static optimization constraint will recognize.
+ </summary>
 </member>
 <member name="M:Microsoft.FSharp.Core.CompilerServices.ArrayCollector`1.Close">
 <summary>
