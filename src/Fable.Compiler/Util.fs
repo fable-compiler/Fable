@@ -268,8 +268,8 @@ module File =
             if String.IsNullOrEmpty(path) then
                 path
             elif
-                (path.StartsWith("\"") && path.EndsWith("\""))
-                || (path.StartsWith("'") && path.EndsWith("'"))
+                (path.StartsWith('"') && path.EndsWith('"'))
+                || (path.StartsWith('\'') && path.EndsWith('\''))
             then
                 path.[1 .. path.Length - 2]
             else
