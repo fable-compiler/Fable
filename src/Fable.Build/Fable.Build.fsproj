@@ -49,6 +49,7 @@
     <PackageReference Include="EasyBuild.Tools" Version="5.0.1" />
     <PackageReference Include="EluciusFTW.SpectreCoff" Version="0.47.28" />
     <PackageReference Include="Fake.IO.FileSystem" Version="6.1.0" />
+    <PackageReference Include="FsToolkit.ErrorHandling" Version="5.1.0" />
     <PackageReference Include="SimpleExec" Version="12.0.0" />
     <PackageReference Include="Spectre.Console" Version="0.47.0" />
     <PackageReference Include="Thoth.Json.Net" Version="12.0.0" />

@@ -6,10 +6,10 @@
         <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <RootNamespace>Fable.Compiler</RootNamespace>
-        <Version>4.0.0-alpha-018</Version>
-        <PackageReleaseNotes>## Changed
+        <Version>4.0.0-alpha-019</Version>
+        <PackageReleaseNotes>## Fixed
 
-- [All] Fix #4176: Move TargetFramework to net8.0 (@ncave)
+- [All] Fix quoted paths resolution by `Util.getExactFullPath` (by @MangelMaxime)
 
 </PackageReleaseNotes>
         <DebugType>embedded</DebugType>
