@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [All] Fix `BuildalyzerCracker` so it can work on .NET 10 (by @MangelMaxime)
+* [All] Fix `--cwd` with quoted paths (by @MangelMaxime)
 
 ## 4.27.0 - 2025-11-13
 
