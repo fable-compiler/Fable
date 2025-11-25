@@ -11,6 +11,7 @@
     <Compile Include="Utils/Fsproj.fs" />
     <Compile Include="Utils/Npm.fs" />
     <Compile Include="Utils/Nuget.fs" />
+    <Compile Include="Utils/LastVersionFinder.fs" />
     <Compile Include="Workspace.fs" />
     <Compile Include="SimpleExec.Extensions.fs" />
     <Compile Include="FableLibrary/Core.fs" />
@@ -45,6 +46,7 @@
   <ItemGroup>
     <PackageReference Update="FSharp.Core" Version="8.0.400" />
     <PackageReference Include="BlackFox.CommandLine" Version="1.0.0" />
+    <PackageReference Include="EasyBuild.Tools" Version="5.0.1" />
     <PackageReference Include="EluciusFTW.SpectreCoff" Version="0.47.28" />
     <PackageReference Include="Fake.IO.FileSystem" Version="6.1.0" />
     <PackageReference Include="SimpleExec" Version="12.0.0" />
