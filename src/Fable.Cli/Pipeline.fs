@@ -204,10 +204,13 @@ module Python =
         let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
         let sourcePath = com.CurrentFile
 
-        let bundleLibrary =
+        // Python: use PyPI package imports for fable_library, relative imports for other fable_modules
+        // When a custom fableLib path is specified, use relative imports for fable_library too
+        let usePyPIForFableLibrary =
             match cliArgs.FableLibraryPath with
-            | Some path when path.ToLowerInvariant() = Py.Naming.fableLibPyPI -> false
-            | _ -> true
+            | None -> true // Default: use PyPI package for fable_library
+            | Some Py.Naming.fableLibPyPIPackage -> true // Explicit PyPI package (--fableLib fable-library)
+            | Some _ -> false // Custom path: use relative imports for everything
 
         // Everything within the Fable hidden directory will be compiled as Library. We do this since the files there will be
         // compiled as part of the main project which might be a program (Exe) or library (Library).
@@ -290,9 +293,13 @@ module Python =
 
                         let parts = resolvedPath.Split('/')
 
-                        match bundleLibrary with
-                        | false -> packagePath parts
-                        | _ -> relativePath parts
+                        // Use package imports for fable_library when using PyPI, relative imports for everything else
+                        let isFableLibraryImport = parts |> Array.exists (fun p -> p = "fable_library")
+
+                        if usePyPIForFableLibrary && isFableLibraryImport then
+                            packagePath parts
+                        else
+                            relativePath parts
                 else
                     path
 

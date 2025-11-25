@@ -555,4 +555,14 @@ let ``test PropertiesUserWithInit`` () =
     user.Email |> equal (Some "test@example.com")
     user.Enabled |> equal true
 
+// Import fable_library version to verify we're using local build, not PyPI
+let fableLibraryVersion: string = import "__version__" "fable_library._version"
+
+[<Fact>]
+let ``test fable_library version is local build`` () =
+    // Local builds use version "0.0.0" as placeholder
+    // If this test fails, it means tests are running against a PyPI version
+    // instead of the locally built fable-library
+    equal "0.0.0" fableLibraryVersion
+
 #endif

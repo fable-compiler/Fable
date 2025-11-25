@@ -8,6 +8,7 @@ open SimpleExec
 
 let private buildDir = Path.Resolve("temp", "tests", "Python")
 let private sourceDir = Path.Resolve("tests", "Python")
+let private fableLibraryBuildDir = Path.Resolve("temp", "fable-library-py")
 
 let handle (args: string list) =
     let skipFableLibrary = args |> List.contains "--skip-fable-library"
@@ -20,6 +21,10 @@ let handle (args: string list) =
     Directory.clean buildDir
 
     Command.Run("uv", "sync")
+
+    // Install local fable-library as editable package for testing
+    // This ensures tests use the locally built version, not PyPI
+    Command.Run("uv", $"pip install -e {fableLibraryBuildDir}")
 
     let fableArgs =
         CmdLine.concat

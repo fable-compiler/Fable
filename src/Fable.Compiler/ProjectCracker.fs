@@ -671,8 +671,11 @@ let getFableLibraryPath (opts: CrackerOptions) (shouldCopy: bool) =
         | TypeScript, None -> "fable-library-ts", $"fable-library-ts.%s{Literals.VERSION}"
         | Php, None -> "fable-library-php", "fable-library-php"
         | JavaScript, None -> "fable-library-js", $"fable-library-js.%s{Literals.VERSION}"
-        | Python, None -> "fable-library-py/fable_library", "fable_library"
-        | Python, Some Py.Naming.fableLibPyPI -> "fable-library-py", "fable_library"
+        // Python defaults to PyPI package (no bundled library copied)
+        // fableLibPyPIPackage = "fable-library", fableLibPyPI = "fable_library" (import name)
+        | Python, None -> "", Py.Naming.fableLibPyPI
+        | Python, Some Py.Naming.fableLibPyPIPackage -> "", Py.Naming.fableLibPyPI
+        // Custom fableLib paths (e.g., --fableLib ./my-lib)
         | _, Some path ->
             if path.StartsWith("./", StringComparison.Ordinal) then
                 "", Path.normalizeFullPath path
@@ -740,10 +743,13 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
             { pkg with FsprojPath = IO.Path.Combine(targetDir, IO.Path.GetFileName(pkg.FsprojPath)) }
         )
 
+    // Python defaults to PyPI package (no copying needed)
+    // Only copy when a custom local path is specified
     let shouldCopy =
         match opts.FableLib with
-        | Some path when path.ToLowerInvariant() = Py.Naming.fableLibPyPI -> false
-        | _ -> true
+        | None -> false // Default: use PyPI package
+        | Some Py.Naming.fableLibPyPIPackage -> false // Explicit PyPI package (--fableLib fable-library)
+        | Some _ -> true // Custom path: copy library
 
     getFableLibraryPath opts shouldCopy, pkgRefs
 
