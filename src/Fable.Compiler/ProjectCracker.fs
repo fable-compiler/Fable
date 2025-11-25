@@ -117,6 +117,7 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
     member _.FableModulesDir = fableModulesDir
     member _.FableOptions: CompilerOptions = cliArgs.CompilerOptions
     member _.FableLib: string option = cliArgs.FableLibraryPath
+    member _.RootDir: string = cliArgs.RootDir
     member _.OutDir: string option = cliArgs.OutDir
     member _.Configuration: string = cliArgs.Configuration
     member _.Exclude: string list = cliArgs.Exclude
