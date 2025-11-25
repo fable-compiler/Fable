@@ -20,7 +20,7 @@ let tests =
 
                 // Compile project
                 let exitCode =
-                    Fable.Cli.Entry.main [| project; "--cwd"; $"'%s{testCaseDir}'"; "-e"; ".jsx.actual" |]
+                    Fable.Cli.Entry.main [| project; "--cwd"; $"'%s{testCaseDir}'"; "-e"; ".js.actual" |]
 
                 Expect.equal exitCode 0 "Expected exit code to be 0"
 
