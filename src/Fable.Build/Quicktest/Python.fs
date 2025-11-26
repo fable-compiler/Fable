@@ -12,7 +12,6 @@ let private fableLibraryBuildDir = Path.Resolve("temp", "fable-library-py")
 let handle (args: string list) =
     // Install local fable-library as editable package for testing
     // This ensures quicktest uses the locally built version, not PyPI
-    // Note: genericQuicktest will build fable-library first via FableLibBuilder
     if not (args |> List.contains "--skip-fable-library") then
         BuildFableLibraryPython().Run(false)
         Command.Run("uv", $"pip install -e {fableLibraryBuildDir}")
