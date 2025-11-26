@@ -7,8 +7,13 @@ module Naming =
     open Fable.Core
     open System.Text.RegularExpressions
 
+    /// PyPI package name (used for pip install)
     [<Literal>]
-    let fableLibPyPI = "fable-library"
+    let fableLibPyPIPackage = "fable-library"
+
+    /// Python import name (underscores, not hyphens)
+    [<Literal>]
+    let fableLibPyPI = "fable_library"
 
     let lowerFirst (s: string) =
         if String.IsNullOrEmpty(s) then

@@ -31,9 +31,9 @@ include = ["./fable_library"]
 "./fable_library" = "fable_library"
 
 [tool.maturin]
-python-source = "fable_library"
+python-source = "."                        # Look at project root
+module-name = "fable_library.core._core"   # Full module path
 features = ["pyo3/extension-module"]
-module-name = "core._core"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
