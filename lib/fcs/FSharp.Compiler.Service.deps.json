@@ -7,24 +7,17 @@
   "targets": {
     ".NETStandard,Version=v2.0": {},
     ".NETStandard,Version=v2.0/": {
-      "FSharp.Compiler.Service/43.9.300-dev": {
+      "FSharp.Compiler.Service/43.11.200-dev": {
         "dependencies": {
-          "FSharp.Core": "9.0.300-dev",
-          "FSharp.DependencyManager.Nuget": "9.0.300-dev",
-          "Microsoft.DotNet.XliffTasks": "9.0.0-beta.25058.5",
-          "NETStandard.Library": "2.0.3",
+          "FSharp.Core": "10.0.200-dev",
+          "FSharp.DependencyManager.Nuget": "10.0.200-dev",
           "System.Buffers": "4.6.0",
-          "System.Collections.Immutable": "8.0.0",
-          "System.Diagnostics.DiagnosticSource": "8.0.0",
-          "System.Memory": "4.5.5",
+          "System.Collections.Immutable": "9.0.0",
+          "System.Diagnostics.DiagnosticSource": "9.0.0",
+          "System.Memory": "4.6.0",
           "System.Reflection.Emit": "4.7.0",
-          "System.Reflection.Metadata": "8.0.0",
-          "System.Runtime.CompilerServices.Unsafe": "6.1.0",
-          "optimization.linux-arm64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
-          "optimization.linux-x64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
-          "optimization.windows_nt-arm64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
-          "optimization.windows_nt-x64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
-          "optimization.windows_nt-x86.MIBC.Runtime": "1.0.0-prerelease.24462.2"
+          "System.Reflection.Metadata": "9.0.0",
+          "System.Runtime.CompilerServices.Unsafe": "6.1.0"
         },
         "runtime": {
           "FSharp.Compiler.Service.dll": {}
@@ -71,18 +64,6 @@
           }
         }
       },
-      "Microsoft.DotNet.XliffTasks/9.0.0-beta.25058.5": {},
-      "Microsoft.NETCore.Platforms/1.1.0": {},
-      "NETStandard.Library/2.0.3": {
-        "dependencies": {
-          "Microsoft.NETCore.Platforms": "1.1.0"
-        }
-      },
-      "optimization.linux-arm64.MIBC.Runtime/1.0.0-prerelease.24462.2": {},
-      "optimization.linux-x64.MIBC.Runtime/1.0.0-prerelease.24462.2": {},
-      "optimization.windows_nt-arm64.MIBC.Runtime/1.0.0-prerelease.24462.2": {},
-      "optimization.windows_nt-x64.MIBC.Runtime/1.0.0-prerelease.24462.2": {},
-      "optimization.windows_nt-x86.MIBC.Runtime/1.0.0-prerelease.24462.2": {},
       "System.Buffers/4.6.0": {
         "runtime": {
           "lib/netstandard2.0/System.Buffers.dll": {
@@ -91,48 +72,48 @@
           }
         }
       },
-      "System.Collections.Immutable/8.0.0": {
+      "System.Collections.Immutable/9.0.0": {
         "dependencies": {
-          "System.Memory": "4.5.5",
+          "System.Memory": "4.6.0",
           "System.Runtime.CompilerServices.Unsafe": "6.1.0"
         },
         "runtime": {
           "lib/netstandard2.0/System.Collections.Immutable.dll": {
-            "assemblyVersion": "8.0.0.0",
-            "fileVersion": "8.0.23.53103"
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.24.52809"
           }
         }
       },
-      "System.Diagnostics.DiagnosticSource/8.0.0": {
+      "System.Diagnostics.DiagnosticSource/9.0.0": {
         "dependencies": {
-          "System.Memory": "4.5.5",
+          "System.Memory": "4.6.0",
           "System.Runtime.CompilerServices.Unsafe": "6.1.0"
         },
         "runtime": {
           "lib/netstandard2.0/System.Diagnostics.DiagnosticSource.dll": {
-            "assemblyVersion": "8.0.0.0",
-            "fileVersion": "8.0.23.53103"
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.24.52809"
           }
         }
       },
-      "System.Memory/4.5.5": {
+      "System.Memory/4.6.0": {
         "dependencies": {
           "System.Buffers": "4.6.0",
-          "System.Numerics.Vectors": "4.4.0",
+          "System.Numerics.Vectors": "4.6.0",
           "System.Runtime.CompilerServices.Unsafe": "6.1.0"
         },
         "runtime": {
           "lib/netstandard2.0/System.Memory.dll": {
-            "assemblyVersion": "4.0.1.2",
-            "fileVersion": "4.6.31308.1"
+            "assemblyVersion": "4.0.2.0",
+            "fileVersion": "4.600.24.56208"
           }
         }
       },
-      "System.Numerics.Vectors/4.4.0": {
+      "System.Numerics.Vectors/4.6.0": {
         "runtime": {
           "lib/netstandard2.0/System.Numerics.Vectors.dll": {
             "assemblyVersion": "4.1.3.0",
-            "fileVersion": "4.6.25519.3"
+            "fileVersion": "4.600.24.56208"
           }
         }
       },
@@ -155,15 +136,15 @@
           }
         }
       },
-      "System.Reflection.Metadata/8.0.0": {
+      "System.Reflection.Metadata/9.0.0": {
         "dependencies": {
-          "System.Collections.Immutable": "8.0.0",
-          "System.Memory": "4.5.5"
+          "System.Collections.Immutable": "9.0.0",
+          "System.Memory": "4.6.0"
         },
         "runtime": {
           "lib/netstandard2.0/System.Reflection.Metadata.dll": {
-            "assemblyVersion": "8.0.0.0",
-            "fileVersion": "8.0.23.53103"
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.24.52809"
           }
         }
       },
@@ -175,50 +156,16 @@
           }
         }
       },
-      "FSharp.Core/9.0.300-dev": {
-        "dependencies": {
-          "optimization.linux-arm64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
-          "optimization.linux-x64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
-          "optimization.windows_nt-arm64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
-          "optimization.windows_nt-x64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
-          "optimization.windows_nt-x86.MIBC.Runtime": "1.0.0-prerelease.24462.2"
-        },
+      "FSharp.Core/10.0.200-dev": {
         "runtime": {
           "FSharp.Core.dll": {
-            "assemblyVersion": "9.0.300-dev",
+            "assemblyVersion": "10.0.0.0",
             "fileVersion": "42.42.42.42424"
           }
         },
         "resources": {
-          "de/FSharp.Core.resources.dll": {
-            "locale": "de"
-          },
-          "ko/FSharp.Core.resources.dll": {
-            "locale": "ko"
-          },
-          "it/FSharp.Core.resources.dll": {
-            "locale": "it"
-          },
-          "ja/FSharp.Core.resources.dll": {
-            "locale": "ja"
-          },
           "zh-Hans/FSharp.Core.resources.dll": {
             "locale": "zh-Hans"
-          },
-          "fr/FSharp.Core.resources.dll": {
-            "locale": "fr"
-          },
-          "pl/FSharp.Core.resources.dll": {
-            "locale": "pl"
-          },
-          "tr/FSharp.Core.resources.dll": {
-            "locale": "tr"
-          },
-          "ru/FSharp.Core.resources.dll": {
-            "locale": "ru"
-          },
-          "zh-Hant/FSharp.Core.resources.dll": {
-            "locale": "zh-Hant"
           },
           "pt-BR/FSharp.Core.resources.dll": {
             "locale": "pt-BR"
@@ -226,59 +173,54 @@
           "es/FSharp.Core.resources.dll": {
             "locale": "es"
           },
+          "fr/FSharp.Core.resources.dll": {
+            "locale": "fr"
+          },
+          "zh-Hant/FSharp.Core.resources.dll": {
+            "locale": "zh-Hant"
+          },
+          "de/FSharp.Core.resources.dll": {
+            "locale": "de"
+          },
+          "ja/FSharp.Core.resources.dll": {
+            "locale": "ja"
+          },
           "cs/FSharp.Core.resources.dll": {
             "locale": "cs"
+          },
+          "tr/FSharp.Core.resources.dll": {
+            "locale": "tr"
+          },
+          "it/FSharp.Core.resources.dll": {
+            "locale": "it"
+          },
+          "pl/FSharp.Core.resources.dll": {
+            "locale": "pl"
+          },
+          "ru/FSharp.Core.resources.dll": {
+            "locale": "ru"
+          },
+          "ko/FSharp.Core.resources.dll": {
+            "locale": "ko"
           }
         }
       },
-      "FSharp.DependencyManager.Nuget/9.0.300-dev": {
+      "FSharp.DependencyManager.Nuget/10.0.200-dev": {
         "dependencies": {
-          "FSharp.Core": "9.0.300-dev",
+          "FSharp.Core": "10.0.200-dev",
           "System.Reflection.Emit": "4.7.0",
-          "System.Reflection.Metadata": "8.0.0",
-          "System.Runtime.CompilerServices.Unsafe": "6.1.0",
-          "optimization.linux-arm64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
-          "optimization.linux-x64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
-          "optimization.windows_nt-arm64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
-          "optimization.windows_nt-x64.MIBC.Runtime": "1.0.0-prerelease.24462.2",
-          "optimization.windows_nt-x86.MIBC.Runtime": "1.0.0-prerelease.24462.2"
+          "System.Reflection.Metadata": "9.0.0",
+          "System.Runtime.CompilerServices.Unsafe": "6.1.0"
         },
         "runtime": {
           "FSharp.DependencyManager.Nuget.dll": {
-            "assemblyVersion": "9.0.300-dev",
+            "assemblyVersion": "10.0.200.0",
             "fileVersion": "42.42.42.42424"
           }
         },
         "resources": {
-          "de/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "de"
-          },
-          "ko/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "ko"
-          },
-          "it/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "it"
-          },
-          "ja/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "ja"
-          },
           "zh-Hans/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "zh-Hans"
-          },
-          "fr/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "fr"
-          },
-          "pl/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "pl"
-          },
-          "tr/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "tr"
-          },
-          "ru/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "ru"
-          },
-          "zh-Hant/FSharp.DependencyManager.Nuget.resources.dll": {
-            "locale": "zh-Hant"
           },
           "pt-BR/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "pt-BR"
@@ -286,74 +228,45 @@
           "es/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "es"
           },
+          "fr/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "fr"
+          },
+          "zh-Hant/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "zh-Hant"
+          },
+          "de/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "de"
+          },
+          "ja/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "ja"
+          },
           "cs/FSharp.DependencyManager.Nuget.resources.dll": {
             "locale": "cs"
+          },
+          "tr/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "tr"
+          },
+          "it/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "it"
+          },
+          "pl/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "pl"
+          },
+          "ru/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "ru"
+          },
+          "ko/FSharp.DependencyManager.Nuget.resources.dll": {
+            "locale": "ko"
           }
         }
       }
     }
   },
   "libraries": {
-    "FSharp.Compiler.Service/43.9.300-dev": {
+    "FSharp.Compiler.Service/43.11.200-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
-    },
-    "Microsoft.DotNet.XliffTasks/9.0.0-beta.25058.5": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-jG0YhwaxOBdIPx8xFjQtjRHwxaq/Gk1WN1YGWmeZr1y7Wlx2N3hr8RNVQN5OJnmp9HxMPApH/g4+p7n9Ww2UbA==",
-      "path": "microsoft.dotnet.xlifftasks/9.0.0-beta.25058.5",
-      "hashPath": "microsoft.dotnet.xlifftasks.9.0.0-beta.25058.5.nupkg.sha512"
-    },
-    "Microsoft.NETCore.Platforms/1.1.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-kz0PEW2lhqygehI/d6XsPCQzD7ff7gUJaVGPVETX611eadGsA3A877GdSlU0LRVMCTH/+P3o2iDTak+S08V2+A==",
-      "path": "microsoft.netcore.platforms/1.1.0",
-      "hashPath": "microsoft.netcore.platforms.1.1.0.nupkg.sha512"
-    },
-    "NETStandard.Library/2.0.3": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-st47PosZSHrjECdjeIzZQbzivYBJFv6P2nv4cj2ypdI204DO+vZ7l5raGMiX4eXMJ53RfOIg+/s4DHVZ54Nu2A==",
-      "path": "netstandard.library/2.0.3",
-      "hashPath": "netstandard.library.2.0.3.nupkg.sha512"
-    },
-    "optimization.linux-arm64.MIBC.Runtime/1.0.0-prerelease.24462.2": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-hjaYmVJ37l557Lh6U0OavCxd+ot8+nqb2LV72wviuLL1tx8x5esAgGxkxpY//Parn5Hvx+F4sAM5qAuHbmf9mQ==",
-      "path": "optimization.linux-arm64.mibc.runtime/1.0.0-prerelease.24462.2",
-      "hashPath": "optimization.linux-arm64.mibc.runtime.1.0.0-prerelease.24462.2.nupkg.sha512"
-    },
-    "optimization.linux-x64.MIBC.Runtime/1.0.0-prerelease.24462.2": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-1VqXdKkqGeWQUWQc/m1DM8JAHc6G3BWEOxk56eC3WMI+9uD0+0pg/0E+6RxgLL4HPFNANy/tFdboa9TwF2QDPQ==",
-      "path": "optimization.linux-x64.mibc.runtime/1.0.0-prerelease.24462.2",
-      "hashPath": "optimization.linux-x64.mibc.runtime.1.0.0-prerelease.24462.2.nupkg.sha512"
-    },
-    "optimization.windows_nt-arm64.MIBC.Runtime/1.0.0-prerelease.24462.2": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-RaL1svpSHbLT6XUrZFN8ZNolNnOEnz7OLr07lEHl5MzCw+2dGeI2p9QcUw762hHOD+6eVVTmQ9AO1boDHo92Jw==",
-      "path": "optimization.windows_nt-arm64.mibc.runtime/1.0.0-prerelease.24462.2",
-      "hashPath": "optimization.windows_nt-arm64.mibc.runtime.1.0.0-prerelease.24462.2.nupkg.sha512"
-    },
-    "optimization.windows_nt-x64.MIBC.Runtime/1.0.0-prerelease.24462.2": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-7rAVqrrG0G8JDbAPqxaxrmMpPjB6FjQYNpqT+OG8YyXGww9dvNFYCV3AqBCYlPQeOvv6w8UYjkAfGQ5QoQPZUQ==",
-      "path": "optimization.windows_nt-x64.mibc.runtime/1.0.0-prerelease.24462.2",
-      "hashPath": "optimization.windows_nt-x64.mibc.runtime.1.0.0-prerelease.24462.2.nupkg.sha512"
-    },
-    "optimization.windows_nt-x86.MIBC.Runtime/1.0.0-prerelease.24462.2": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-CscKYxjkotQM3h96EE5FAyORLRiklRhjWgo9T5a6dRbedy4frjiEsK284DcNl1VZUSc+pr3w9vZ5RxSduJcEpg==",
-      "path": "optimization.windows_nt-x86.mibc.runtime/1.0.0-prerelease.24462.2",
-      "hashPath": "optimization.windows_nt-x86.mibc.runtime.1.0.0-prerelease.24462.2.nupkg.sha512"
     },
     "System.Buffers/4.6.0": {
       "type": "package",
@@ -362,33 +275,33 @@
       "path": "system.buffers/4.6.0",
       "hashPath": "system.buffers.4.6.0.nupkg.sha512"
     },
-    "System.Collections.Immutable/8.0.0": {
+    "System.Collections.Immutable/9.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-AurL6Y5BA1WotzlEvVaIDpqzpIPvYnnldxru8oXJU2yFxFUy3+pNXjXd1ymO+RA0rq0+590Q8gaz2l3Sr7fmqg==",
-      "path": "system.collections.immutable/8.0.0",
-      "hashPath": "system.collections.immutable.8.0.0.nupkg.sha512"
+      "sha512": "sha512-QhkXUl2gNrQtvPmtBTQHb0YsUrDiDQ2QS09YbtTTiSjGcf7NBqtYbrG/BE06zcBPCKEwQGzIv13IVdXNOSub2w==",
+      "path": "system.collections.immutable/9.0.0",
+      "hashPath": "system.collections.immutable.9.0.0.nupkg.sha512"
     },
-    "System.Diagnostics.DiagnosticSource/8.0.0": {
+    "System.Diagnostics.DiagnosticSource/9.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-c9xLpVz6PL9lp/djOWtk5KPDZq3cSYpmXoJQY524EOtuFl5z9ZtsotpsyrDW40U1DRnQSYvcPKEUV0X//u6gkQ==",
-      "path": "system.diagnostics.diagnosticsource/8.0.0",
-      "hashPath": "system.diagnostics.diagnosticsource.8.0.0.nupkg.sha512"
+      "sha512": "sha512-ddppcFpnbohLWdYKr/ZeLZHmmI+DXFgZ3Snq+/E7SwcdW4UnvxmaugkwGywvGVWkHPGCSZjCP+MLzu23AL5SDw==",
+      "path": "system.diagnostics.diagnosticsource/9.0.0",
+      "hashPath": "system.diagnostics.diagnosticsource.9.0.0.nupkg.sha512"
     },
-    "System.Memory/4.5.5": {
+    "System.Memory/4.6.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-XIWiDvKPXaTveaB7HVganDlOCRoj03l+jrwNvcge/t8vhGYKvqV+dMv6G4SAX2NoNmN0wZfVPTAlFwZcZvVOUw==",
-      "path": "system.memory/4.5.5",
-      "hashPath": "system.memory.4.5.5.nupkg.sha512"
+      "sha512": "sha512-OEkbBQoklHngJ8UD8ez2AERSk2g+/qpAaSWWCBFbpH727HxDq5ydVkuncBaKcKfwRqXGWx64dS6G1SUScMsitg==",
+      "path": "system.memory/4.6.0",
+      "hashPath": "system.memory.4.6.0.nupkg.sha512"
     },
-    "System.Numerics.Vectors/4.4.0": {
+    "System.Numerics.Vectors/4.6.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-UiLzLW+Lw6HLed1Hcg+8jSRttrbuXv7DANVj0DkL9g6EnnzbL75EB7EWsw5uRbhxd/4YdG8li5XizGWepmG3PQ==",
-      "path": "system.numerics.vectors/4.4.0",
-      "hashPath": "system.numerics.vectors.4.4.0.nupkg.sha512"
+      "sha512": "sha512-t+SoieZsRuEyiw/J+qXUbolyO219tKQQI0+2/YI+Qv7YdGValA6WiuokrNKqjrTNsy5ABWU11bdKOzUdheteXg==",
+      "path": "system.numerics.vectors/4.6.0",
+      "hashPath": "system.numerics.vectors.4.6.0.nupkg.sha512"
     },
     "System.Reflection.Emit/4.7.0": {
       "type": "package",
@@ -404,12 +317,12 @@
       "path": "system.reflection.emit.ilgeneration/4.7.0",
       "hashPath": "system.reflection.emit.ilgeneration.4.7.0.nupkg.sha512"
     },
-    "System.Reflection.Metadata/8.0.0": {
+    "System.Reflection.Metadata/9.0.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-ptvgrFh7PvWI8bcVqG5rsA/weWM09EnthFHR5SCnS6IN+P4mj6rE1lBDC4U8HL9/57htKAqy4KQ3bBj84cfYyQ==",
-      "path": "system.reflection.metadata/8.0.0",
-      "hashPath": "system.reflection.metadata.8.0.0.nupkg.sha512"
+      "sha512": "sha512-ANiqLu3DxW9kol/hMmTWbt3414t9ftdIuiIU7j80okq2YzAueo120M442xk1kDJWtmZTqWQn7wHDvMRipVOEOQ==",
+      "path": "system.reflection.metadata/9.0.0",
+      "hashPath": "system.reflection.metadata.9.0.0.nupkg.sha512"
     },
     "System.Runtime.CompilerServices.Unsafe/6.1.0": {
       "type": "package",
@@ -418,12 +331,12 @@
       "path": "system.runtime.compilerservices.unsafe/6.1.0",
       "hashPath": "system.runtime.compilerservices.unsafe.6.1.0.nupkg.sha512"
     },
-    "FSharp.Core/9.0.300-dev": {
+    "FSharp.Core/10.0.200-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
     },
-    "FSharp.DependencyManager.Nuget/9.0.300-dev": {
+    "FSharp.DependencyManager.Nuget/10.0.200-dev": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
