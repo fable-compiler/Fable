@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-alpha.17 - 2025-11-27
+
 ### Changed
 
 * [Python] fable-library for Python is now distributed via PyPI instead of being bundled in the NuGet package (by @dbrattli)

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 2.0.0-beta.8 - 2025-11-27
+
+* Fable 5.0.0-alpha.17
+
 ## 2.0.0-beta.7 - 2025-11-25
 
 * Fable 5.0.0-alpha.16
