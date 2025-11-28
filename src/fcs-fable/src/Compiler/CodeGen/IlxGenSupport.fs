@@ -4,9 +4,9 @@
 module internal FSharp.Compiler.IlxGenSupport
 
 open System.Reflection
-open Internal.Utilities.Library
 open FSharp.Compiler.AbstractIL.IL
 open FSharp.Compiler.TcGlobals
+open FSharp.Compiler.Text.Range
 open FSharp.Compiler.TypedTreeOps
 open FSharp.Compiler.TypedTree
 
@@ -83,12 +83,8 @@ let getFieldMemberAccess =
     | EncapsulatedProperties -> ILMemberAccess.Private
 
 let mkLocalPrivateAttributeWithPropertyConstructors
-    (
-        g: TcGlobals,
-        name: string,
-        attrProperties: (string * ILType) list option,
-        codegenStyle: AttrDataGenerationStyle
-    ) =
+    (g: TcGlobals, name: string, attrProperties: (string * ILType) list option, codegenStyle: AttrDataGenerationStyle)
+    =
     let ilTypeRef = mkILTyRef (ILScopeRef.Local, name)
     let ilTy = mkILFormalNamedTy ILBoxity.AsObject ilTypeRef []
 
@@ -98,14 +94,14 @@ let mkLocalPrivateAttributeWithPropertyConstructors
         |> List.map (fun (name, ilType) ->
             match codegenStyle with
             | PublicFields ->
-                (g.AddFieldGeneratedAttributes(mkILInstanceField (name, ilType, None, getFieldMemberAccess codegenStyle))),
+                g.AddFieldGeneratedAttributes(mkILInstanceField (name, ilType, None, getFieldMemberAccess codegenStyle)),
                 [],
                 [],
                 (name, name, ilType, [])
             | EncapsulatedProperties ->
                 let fieldName = name + "@"
 
-                (g.AddFieldGeneratedAttributes(mkILInstanceField (fieldName, ilType, None, getFieldMemberAccess codegenStyle))),
+                g.AddFieldGeneratedAttributes(mkILInstanceField (fieldName, ilType, None, getFieldMemberAccess codegenStyle)),
                 [
                     g.AddMethodGeneratedAttributes(
                         mkLdfldMethodDef ($"get_{name}", ILMemberAccess.Public, false, ilTy, fieldName, ilType, ILAttributes.Empty, [])
@@ -210,7 +206,7 @@ let mkLocalPrivateAttributeWithByteAndByteArrayConstructors (g: TcGlobals, name:
         ILGenericParameterDefs.Empty,
         g.ilg.typ_Attribute,
         [],
-        mkILMethods ([ ilScalarCtorDef; ilArrayCtorDef ]),
+        mkILMethods [ ilScalarCtorDef; ilArrayCtorDef ],
         mkILFields [ fieldDef ],
         emptyILTypeDefs,
         emptyILProperties,
@@ -220,15 +216,14 @@ let mkLocalPrivateAttributeWithByteAndByteArrayConstructors (g: TcGlobals, name:
     )
 
 let mkLocalPrivateInt32Enum (g: TcGlobals, tref: ILTypeRef, values: (string * int32) array) =
-    let ilType = ILType.Value(mkILNonGenericTySpec (tref))
+    let ilType = ILType.Value(mkILNonGenericTySpec tref)
 
     let enumFields =
         values
         |> Array.map (fun (name, value) -> mkILStaticLiteralField (name, ilType, ILFieldInit.Int32 value, None, ILMemberAccess.Public))
         |> Array.append
             [|
-                (mkILInstanceField ("value__", g.ilg.typ_Int32, None, ILMemberAccess.Public))
-                    .WithSpecialName(true)
+                (mkILInstanceField ("value__", g.ilg.typ_Int32, None, ILMemberAccess.Public)).WithSpecialName(true)
             |]
         |> Array.toList
 
@@ -266,7 +261,7 @@ let GetIsUnmanagedAttribute (g: TcGlobals) =
 let GetDynamicallyAccessedMemberTypes (g: TcGlobals) =
     let tref = g.enum_DynamicallyAccessedMemberTypes.TypeRef
 
-    if not (g.compilingFSharpCore) then
+    if not g.compilingFSharpCore then
         g.TryEmbedILType(
             tref,
             (fun () ->
@@ -290,12 +285,10 @@ let GetDynamicallyAccessedMemberTypes (g: TcGlobals) =
                         ("Interfaces", 8192)
                     |]
 
-                (mkLocalPrivateInt32Enum (g, tref, values))
-                    .WithSerializable(true)
-                    .WithSealed(true))
+                (mkLocalPrivateInt32Enum (g, tref, values)).WithSerializable(true).WithSealed(true))
         )
 
-    ILType.Value(mkILNonGenericTySpec (tref))
+    ILType.Value(mkILNonGenericTySpec tref)
 
 let GetDynamicDependencyAttribute (g: TcGlobals) memberTypes (ilType: ILType) =
     let tref = g.attrib_DynamicDependencyAttribute.TypeRef
@@ -310,7 +303,7 @@ let GetDynamicDependencyAttribute (g: TcGlobals) memberTypes (ilType: ILType) =
     )
 
     let typIlMemberTypes =
-        ILType.Value(mkILNonGenericTySpec (g.enum_DynamicallyAccessedMemberTypes.TypeRef))
+        ILType.Value(mkILNonGenericTySpec g.enum_DynamicallyAccessedMemberTypes.TypeRef)
 
     mkILCustomAttribute (
         tref,
@@ -357,7 +350,7 @@ let GetNotNullWhenTrueAttribute (g: TcGlobals) (propNames: string array) =
         []
     )
 
-let GetNullableAttribute (g: TcGlobals) (nullnessInfos: TypedTree.NullnessInfo list) =
+let GetNullableAttribute (g: TcGlobals) (nullnessInfos: NullnessInfo list) =
     let tref = g.attrib_NullableAttribute.TypeRef
 
     g.TryEmbedILType(tref, (fun () -> mkLocalPrivateAttributeWithByteAndByteArrayConstructors (g, tref.Name, "NullableFlags")))
@@ -411,10 +404,7 @@ let rec GetNullnessFromTType (g: TcGlobals) ty =
                 else if isValueType then
                     // Generic value type: 0, followed by the representation of the type arguments in order including containing types
                     yield NullnessInfo.AmbivalentToNull
-                else if
-                    IsUnionTypeWithNullAsTrueValue g tcref.Deref
-                    || TypeHasAllowNull tcref g FSharp.Compiler.Text.Range.Zero
-                then
+                else if IsUnionTypeWithNullAsTrueValue g tcref.Deref || TypeHasAllowNull tcref g range0 then
                     yield NullnessInfo.WithNull
                 else
                     // Reference type: the nullability (0, 1, or 2), followed by the representation of the type arguments in order including containing types

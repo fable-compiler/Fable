@@ -89,6 +89,13 @@ type LanguageFeature =
     | UseTypeSubsumptionCache
     | DeprecatePlacesWhereSeqCanBeOmitted
     | SupportValueOptionsAsOptionalParameters
+    | WarnWhenUnitPassedToObjArg
+    | UseBangBindingValueDiscard
+    | BetterAnonymousRecordParsing
+    | ScopedNowarn
+    | ErrorOnInvalidDeclsInTypeDefinitions
+    | AllowTypedLetUseAndBang
+    | ReturnFromFinal
 
 /// LanguageVersion management
 type LanguageVersion =

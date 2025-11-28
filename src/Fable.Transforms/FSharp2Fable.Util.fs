@@ -334,11 +334,7 @@ type FsMemberFunctionOrValue(m: FSharpMemberOrFunctionOrValue) =
         member _.ImplementedAbstractSignatures =
             m.ImplementedAbstractSignatures |> Seq.map (fun s -> FsAbstractSignature(s))
 
-#if FABLE_COMPILER
-        member _.ApparentEnclosingEntity = FsEnt.Ref m.ApparentEnclosingEntity |> Some
-#else
         member _.ApparentEnclosingEntity = m.ApparentEnclosingEntity |> Option.map FsEnt.Ref
-#endif
 
         member _.DeclaringEntity = m.DeclaringEntity |> Option.map FsEnt.Ref
         member _.XmlDoc = TypeHelpers.tryGetXmlDoc m.XmlDoc
@@ -699,14 +695,10 @@ module Helpers =
                 |> OverloadSuffix.getExtensionHash
 
             let entName =
-#if FABLE_COMPILER
-                FsEnt.Ref memb.ApparentEnclosingEntity |> getEntityMangledName NoTrimRootModule
-#else
                 memb.ApparentEnclosingEntity
                 |> Option.map FsEnt.Ref
                 |> Option.map (getEntityMangledName NoTrimRootModule)
                 |> Option.defaultValue ""
-#endif
 
             entName, Naming.InstanceMemberPart(memb.CompiledName, overloadSuffix)
         else

@@ -10,13 +10,11 @@ open Internal.Utilities.Library
 
 module internal SR =
     let private resources =
-        lazy (System.Resources.ResourceManager("fsstrings", System.Reflection.Assembly.GetExecutingAssembly()))
+        lazy System.Resources.ResourceManager("fsstrings", System.Reflection.Assembly.GetExecutingAssembly())
 
     let GetString (name: string) =
         let s =
-            resources
-                .Force()
-                .GetString(name, System.Globalization.CultureInfo.CurrentUICulture)
+            resources.Force().GetString(name, System.Globalization.CultureInfo.CurrentUICulture)
 #if DEBUG
         if isNull s then
             System.Diagnostics.Debug.Assert(false, sprintf "**RESOURCE ERROR**: Resource token %s does not exist!" name)
@@ -36,7 +34,7 @@ module internal DiagnosticMessage =
         not (ty.IsArray || ty.IsByRef || ty.IsPointer)
 
     let isFunctionType (ty1: System.Type) =
-        isNamedType (ty1)
+        isNamedType ty1
         && ty1.IsGenericType
         && System.Type.op_Equality (ty1.GetGenericTypeDefinition(), funTyC)
 

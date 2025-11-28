@@ -7,6 +7,7 @@ open FSharp.Compiler.Text
 open FSharp.Compiler.Xml
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.SyntaxTrivia
+open Internal.Utilities
 
 [<Class>]
 type SynArgNameGenerator =
@@ -322,6 +323,12 @@ val unionBindingAndMembers: bindings: SynBinding list -> members: SynMemberDefn 
 
 val synExprContainsError: inpExpr: SynExpr -> bool
 
+val stdinMockFileName: string
+
+val getSourceIdentifierValue: PathMap -> string -> range -> string
+
+val applyLineDirectivesToSourceIdentifier: string -> string -> range -> string
+
 val parsedHashDirectiveArguments: ParsedHashDirectiveArgument list -> LanguageVersion -> string list
 
 val parsedHashDirectiveArgumentsNoCheck: ParsedHashDirectiveArgument list -> string list
@@ -367,8 +374,7 @@ val (|TypesForTypar|): t: SynType -> SynType list
 [<return: Struct>]
 val (|Get_OrSet_Ident|_|): Ident -> unit voption
 
-val getGetterSetterAccess:
-    SynValSigAccess -> SynMemberKind -> Features.LanguageVersion -> SynAccess option * SynAccess option
+val getGetterSetterAccess: SynValSigAccess -> SynMemberKind -> LanguageVersion -> SynAccess option * SynAccess option
 
 /// Adds SynPat.Or pattern for unfinished empty clause above
 val addEmptyMatchClause: mBar1: range -> mBar2: range -> clauses: SynMatchClause list -> SynMatchClause list

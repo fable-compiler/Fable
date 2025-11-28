@@ -5,6 +5,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
     <!-- <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference> -->
+    <TolerateUnusedBindings>true</TolerateUnusedBindings>
   </PropertyGroup>
 
   <ItemGroup>

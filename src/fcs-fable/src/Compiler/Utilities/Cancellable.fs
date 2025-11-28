@@ -3,6 +3,16 @@ namespace FSharp.Compiler
 open System
 open System.Threading
 
+// This code provides two methods for handling cancellation in synchronous code:
+// 1. Explicitly, by calling Cancellable.CheckAndThrow().
+// 2. Implicitly, by wrapping the code in a cancellable computation.
+// The cancellable computation propagates the CancellationToken and checks for cancellation implicitly.
+// When it is impractical to use the cancellable computation, such as in deeply nested functions, Cancellable.CheckAndThrow() can be used.
+// It checks a CancellationToken local to the current async execution context, held in AsyncLocal.
+// Before calling Cancellable.CheckAndThrow(), this token must be set.
+// The token is guaranteed to be set during execution of cancellable computation.
+// Otherwise, it can be passed explicitly from the ambient async computation using Cancellable.UseToken().
+
 [<Sealed>]
 type Cancellable =
     static let tokenHolder = AsyncLocal<CancellationToken voption>()
@@ -17,6 +27,12 @@ type Cancellable =
     static member HasCancellationToken = tokenHolder.Value.IsSome
 
     static member Token = ensureToken "Token not available outside of Cancellable computation."
+
+    static member UseToken() =
+        async {
+            let! ct = Async.CancellationToken
+            return Cancellable.UsingToken ct
+        }
 
     static member UsingToken(ct) =
         let oldCt = tokenHolder.Value
@@ -41,7 +57,7 @@ open System
 open System.Threading
 open FSharp.Compiler
 
-#if !FSHARPCORE_USE_PACKAGE
+#if !FABLE_COMPILER
 open FSharp.Core.CompilerServices.StateMachineHelpers
 #endif
 
@@ -63,10 +79,10 @@ module Cancellable =
             oper ct
 #else
             try
-                use _ = Cancellable.UsingToken(ct)
                 oper ct
-            with :? OperationCanceledException as e ->
-                ValueOrCancelled.Cancelled(OperationCanceledException e.CancellationToken)
+            with
+            | :? OperationCanceledException as e when ct.IsCancellationRequested -> ValueOrCancelled.Cancelled e
+            | :? OperationCanceledException as e -> InvalidOperationException("Wrong cancellation token", e) |> raise
 #endif
 
     let fold f acc seq =
@@ -81,6 +97,7 @@ module Cancellable =
             acc)
 
     let runWithoutCancellation comp =
+        use _ = Cancellable.UsingToken CancellationToken.None
         let res = run CancellationToken.None comp
 
         match res with
@@ -89,12 +106,13 @@ module Cancellable =
 
     let toAsync c =
         async {
+            use! _holder = Cancellable.UseToken()
+
             let! ct = Async.CancellationToken
-            let res = run ct c
 
             return!
                 Async.FromContinuations(fun (cont, _econt, ccont) ->
-                    match res with
+                    match run ct c with
                     | ValueOrCancelled.Value v -> cont v
                     | ValueOrCancelled.Cancelled ce -> ccont ce)
         }
@@ -110,7 +128,8 @@ type CancellableBuilder() =
 
     member inline _.Bind(comp, [<InlineIfLambda>] k) =
         Cancellable(fun ct ->
-#if !FSHARPCORE_USE_PACKAGE
+
+#if !FABLE_COMPILER
             __debugPoint ""
 #endif
 
@@ -120,7 +139,8 @@ type CancellableBuilder() =
 
     member inline _.BindReturn(comp, [<InlineIfLambda>] k) =
         Cancellable(fun ct ->
-#if !FSHARPCORE_USE_PACKAGE
+
+#if !FABLE_COMPILER
             __debugPoint ""
 #endif
 
@@ -130,7 +150,8 @@ type CancellableBuilder() =
 
     member inline _.Combine(comp1, comp2) =
         Cancellable(fun ct ->
-#if !FSHARPCORE_USE_PACKAGE
+
+#if !FABLE_COMPILER
             __debugPoint ""
 #endif
 
@@ -140,7 +161,8 @@ type CancellableBuilder() =
 
     member inline _.TryWith(comp, [<InlineIfLambda>] handler) =
         Cancellable(fun ct ->
-#if !FSHARPCORE_USE_PACKAGE
+
+#if !FABLE_COMPILER
             __debugPoint ""
 #endif
 
@@ -160,14 +182,16 @@ type CancellableBuilder() =
             | ValueOrCancelled.Cancelled err1 -> ValueOrCancelled.Cancelled err1)
 
 #if FABLE_COMPILER
-    member inline _.Using(resource: 'Resource when 'Resource :> IDisposable, [<InlineIfLambda>] comp) =
+    member inline _.Using(resource: ('R :> IDisposable), [<InlineIfLambda>] comp) =
 #else
-    member inline _.Using(resource, [<InlineIfLambda>] comp) =
+    member inline _.Using(resource: _ MaybeNull, [<InlineIfLambda>] comp) =
 #endif
         Cancellable(fun ct ->
-#if !FSHARPCORE_USE_PACKAGE
+
+#if !FABLE_COMPILER
             __debugPoint ""
 #endif
+
             let body = comp resource
 
             let compRes =
@@ -195,7 +219,8 @@ type CancellableBuilder() =
 
     member inline _.TryFinally(comp, [<InlineIfLambda>] compensation) =
         Cancellable(fun ct ->
-#if !FSHARPCORE_USE_PACKAGE
+
+#if !FABLE_COMPILER
             __debugPoint ""
 #endif
 

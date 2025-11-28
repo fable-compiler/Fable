@@ -14,6 +14,8 @@ open FSharp.Compiler.TypedTree
 open FSharp.Compiler.TypedTreeOps
 open FSharp.Compiler.TcGlobals
 
+exception NoConstructorsAvailableForType of TType * DisplayEnv * range
+
 /// A NameResolver is a context for name resolution. It primarily holds an InfoReader.
 type NameResolver =
 
@@ -911,10 +913,17 @@ val ResolveCompletionsInType:
     AccessorDomain ->
     bool ->
     TType ->
+    allowObsolete: bool ->
         Item list
 
 val GetVisibleNamespacesAndModulesAtPoint:
-    NameResolver -> NameResolutionEnv -> FullyQualifiedFlag -> range -> AccessorDomain -> ModuleOrNamespaceRef list
+    NameResolver ->
+    NameResolutionEnv ->
+    FullyQualifiedFlag ->
+    range ->
+    AccessorDomain ->
+    allowObsolete: bool ->
+        ModuleOrNamespaceRef list
 
 val IsItemResolvable: NameResolver -> NameResolutionEnv -> range -> AccessorDomain -> string list -> Item -> bool
 

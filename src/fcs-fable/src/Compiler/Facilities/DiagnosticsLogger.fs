@@ -2,7 +2,6 @@
 
 module FSharp.Compiler.DiagnosticsLogger
 
-open FSharp.Compiler
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.Features
 open FSharp.Compiler.Text.Range
@@ -14,8 +13,8 @@ open System.Threading
 open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
 open Internal.Utilities.Library
-open Internal.Utilities.Library.Extras
 open System.Threading.Tasks
+open System.Collections.Concurrent
 
 /// Represents the style being used to format errors
 [<RequireQualifiedAccess; NoComparison; NoEquality>]
@@ -108,7 +107,7 @@ exception LibraryUseOnly of range: range
 
 exception Deprecated of message: string * range: range
 
-exception Experimental of message: string * range: range
+exception Experimental of message: string option * diagnosticId: string option * urlFormat: string option * range: range
 
 exception PossibleUnverifiableCode of range: range
 
@@ -132,6 +131,14 @@ exception DiagnosticWithSuggestions of number: int * message: string * range: ra
 
 /// A diagnostic that is raised when enabled manually, or by default with a language feature
 exception DiagnosticEnabledWithLanguageFeature of number: int * message: string * range: range * enabledByLangFeature: bool
+
+/// A diagnostic that is raised when a diagnostic is obsolete
+exception ObsoleteDiagnostic of
+    isError: bool *
+    diagnosticId: string option *
+    message: string option *
+    urlFormat: string option *
+    range: range
 
 /// The F# compiler code currently uses 'Error(...)' in many places to create
 /// an DiagnosticWithText as an exception even if it's a warning.
@@ -211,7 +218,7 @@ type StopProcessingExiter() =
     interface Exiter with
         member exiter.Exit n =
             exiter.ExitCode <- n
-            raise StopProcessing
+            raise StopProcessing<unit>
 
 /// Closed enumeration of build phases.
 [<RequireQualifiedAccess>]
@@ -441,8 +448,7 @@ module DiagnosticsLoggerExtensions =
         try
             if not tryAndDetectDev15 then
                 let preserveStackTrace =
-                    !!typeof<Exception>
-                        .GetMethod("InternalPreserveStackTrace", BindingFlags.Instance ||| BindingFlags.NonPublic)
+                    !!typeof<Exception>.GetMethod("InternalPreserveStackTrace", BindingFlags.Instance ||| BindingFlags.NonPublic)
 
                 preserveStackTrace.Invoke(exn, null) |> ignore
         with _ ->
@@ -493,8 +499,8 @@ module DiagnosticsLoggerExtensions =
             match exn with
 #if !FABLE_COMPILER
             // Don't send ThreadAbortException down the error channel
-            | :? System.Threading.ThreadAbortException
-            | WrappedError(:? System.Threading.ThreadAbortException, _) -> ()
+            | :? ThreadAbortException
+            | WrappedError(:? ThreadAbortException, _) -> ()
 #endif
             | ReportedError _
             | WrappedError(ReportedError _, _) -> ()
@@ -814,8 +820,7 @@ let NewlineifyErrorString (message: string) =
 /// fixes given string by replacing all control chars with spaces.
 /// NOTE: newlines are recognized and replaced with stringThatIsAProxyForANewlineInFlatErrors (ASCII 29, the 'group separator'),
 /// which is decoded by the IDE with 'NewlineifyErrorString' back into newlines, so that multi-line errors can be displayed in QuickInfo
-let NormalizeErrorString (text: string MaybeNull) =
-    let text = nullArgCheck "text" text
+let NormalizeErrorString (text: string) =
     let text = text.Trim()
 
     let buf = System.Text.StringBuilder()
@@ -881,10 +886,95 @@ let internal languageFeatureNotSupportedInLibraryError (langFeature: LanguageFea
     let suggestedVersionStr = LanguageVersion.GetFeatureVersionString langFeature
     error (Error(FSComp.SR.chkFeatureNotSupportedInLibrary (featureStr, suggestedVersionStr), m))
 
-/// Guard against depth of expression nesting, by moving to new stack when a maximum depth is reached
-type StackGuard(maxDepth: int, name: string) =
+#if !FABLE_COMPILER
+module StackGuardMetrics =
 
-    let mutable depth = 1
+    let meter = FSharp.Compiler.Diagnostics.Metrics.Meter
+
+    let jumpCounter =
+        meter.CreateCounter<int64>(
+            "stackguard-jumps",
+            description = "Tracks the number of times the stack guard has jumped to a new thread"
+        )
+
+    let countJump memberName location depth =
+        let tags =
+            let mutable tags = TagList()
+            tags.Add(Activity.Tags.callerMemberName, memberName)
+            tags.Add("source", location)
+            tags.Add("depth", depth)
+            tags
+
+        jumpCounter.Add(1L, &tags)
+
+    // Used by the self-listener.
+    let dataByFunctionName = ConcurrentDictionary<_, int64 ref * int ref>()
+
+    let Listen () =
+        let listener = new Metrics.MeterListener()
+
+        listener.EnableMeasurementEvents jumpCounter
+
+        listener.SetMeasurementEventCallback(fun _ v tags _ ->
+            let memberName = nonNull tags[0].Value :?> string
+            let source = nonNull tags[1].Value :?> string
+            let depth = nonNull tags[2].Value :?> int
+
+            let counter, minDepth =
+                dataByFunctionName.GetOrAdd((memberName, source), fun _ -> ref 0L, ref Int32.MaxValue)
+
+            counter.Value <- counter.Value + v
+            minDepth.Value <- min depth minDepth.Value)
+
+        listener.Start()
+        listener :> IDisposable
+
+    let StatsToString () =
+        let headers = [ "caller"; "source"; "jumps"; "min depth" ]
+
+        let data =
+            [
+                for kvp in dataByFunctionName do
+                    let memberName, source = kvp.Key
+                    let jumps, depth = kvp.Value
+                    [ memberName; source; string jumps.Value; string depth.Value ]
+            ]
+
+        if List.isEmpty data then
+            ""
+        else
+            $"StackGuard jumps:\n{Metrics.printTable headers data}"
+
+    let CaptureStatsAndWriteToConsole () =
+        let listener = Listen()
+
+        { new IDisposable with
+            member _.Dispose() =
+                listener.Dispose()
+                StatsToString() |> printfn "%s"
+        }
+#endif
+
+/// Guard against depth of expression nesting, by moving to new stack when a maximum depth is reached
+type StackGuard(name: string) =
+
+#if !FABLE_COMPILER
+    let depth = new ThreadLocal<int>()
+#endif
+
+    static member inline IsStackSufficient() =
+
+        // We single out netstandard2.0 because it lacks the non-throwing TryEnsureSufficientExecutionStack
+        // TODO: Get rid of this throwing version as soon as we can.
+#if NETSTANDARD2_0
+        try
+            RuntimeHelpers.EnsureSufficientExecutionStack()
+            true
+        with :? InsufficientExecutionStackException ->
+            false
+#else
+        RuntimeHelpers.TryEnsureSufficientExecutionStack()
+#endif
 
     [<DebuggerHidden; DebuggerStepThrough>]
     member _.Guard
@@ -895,53 +985,33 @@ type StackGuard(maxDepth: int, name: string) =
             [<CallerLineNumber; Optional; DefaultParameterValue(0)>] line: int
         ) =
 #if FABLE_COMPILER
-        ignore depth
-        ignore maxDepth
-        ignore name
         f ()
 #else //!FABLE_COMPILER
-        use _ =
-            Activity.start
-                "DiagnosticsLogger.StackGuard.Guard"
-                [|
-                    Activity.Tags.stackGuardName, name
-                    Activity.Tags.stackGuardCurrentDepth, string depth
-                    Activity.Tags.stackGuardMaxDepth, string maxDepth
-                    Activity.Tags.callerMemberName, memberName
-                    Activity.Tags.callerFilePath, path
-                    Activity.Tags.callerLineNumber, string line
-                |]
 
-        depth <- depth + 1
+        depth.Value <- depth.Value + 1
 
         try
-            if depth % maxDepth = 0 then
+            if StackGuard.IsStackSufficient() then
+                f ()
+            else
+                let fileName = System.IO.Path.GetFileName(path)
+                let depthWhenJump = depth.Value
+
+                StackGuardMetrics.countJump memberName $"{fileName}:{line}" depthWhenJump
 
                 async {
                     do! Async.SwitchToNewThread()
-                    Thread.CurrentThread.Name <- $"F# Extra Compilation Thread for {name} (depth {depth})"
+                    Thread.CurrentThread.Name <- $"F# Extra Compilation Thread for {name} (depth {depthWhenJump})"
                     return f ()
                 }
                 |> Async.RunImmediate
-            else
-                f ()
         finally
-            depth <- depth - 1
+            depth.Value <- depth.Value - 1
 #endif //!FABLE_COMPILER
 
     [<DebuggerHidden; DebuggerStepThrough>]
     member x.GuardCancellable(original: Cancellable<'T>) =
         Cancellable(fun ct -> x.Guard(fun () -> Cancellable.run ct original))
-
-    static member val DefaultDepth =
-#if DEBUG
-        GetEnvInteger "FSHARP_DefaultStackGuardDepth" 50
-#else
-        GetEnvInteger "FSHARP_DefaultStackGuardDepth" 100
-#endif
-
-    static member GetDepthOption(name: string) =
-        GetEnvInteger ("FSHARP_" + name + "StackGuardDepth") StackGuard.DefaultDepth
 
 #if !FABLE_COMPILER
 // UseMultipleDiagnosticLoggers in ParseAndCheckProject.fs provides similar functionality.

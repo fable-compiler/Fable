@@ -447,20 +447,20 @@ module internal FileSystemUtils =
             if not (hasExtensionWithValidate false path) then
                 raise (ArgumentException("chopExtension")) // message has to be precisely this, for OCaml compatibility, and no argument name can be set
 
-            Path.Combine(!! Path.GetDirectoryName(path), !! Path.GetFileNameWithoutExtension(path))
+            Path.Combine(!!Path.GetDirectoryName(path), !!Path.GetFileNameWithoutExtension(path))
 
     let fileNameOfPath path =
         checkPathForIllegalChars path
-        Path.GetFileName(path)
+        !!Path.GetFileName(path)
 
     let fileNameWithoutExtensionWithValidate (validate: bool) path =
         if validate then
             checkPathForIllegalChars path
 
-        Path.GetFileNameWithoutExtension(path)
+        !!Path.GetFileNameWithoutExtension(path)
 
     let fileNameWithoutExtension path =
-        fileNameWithoutExtensionWithValidate true path
+        !! fileNameWithoutExtensionWithValidate true path
 
     let trimQuotes (path: string) = path.Trim([| ' '; '\"' |])
 
@@ -496,8 +496,8 @@ type FileSystem =
             String.IsNullOrEmpty p || p.IndexOfAny(Path.GetInvalidPathChars()) <> -1
         let isInvalidFilename(p: string) =
             String.IsNullOrEmpty p || p.IndexOfAny(Path.GetInvalidFileNameChars()) <> -1
-        let isInvalidDirectory(d: string) =
-            d=null || d.IndexOfAny(Path.GetInvalidPathChars()) <> -1
+        let isInvalidDirectory(p: string) =
+            String.IsNullOrEmpty p || p.IndexOfAny(Path.GetInvalidPathChars()) <> -1
         isInvalidPath path ||
         let directory = Path.GetDirectoryName path
         let filename = Path.GetFileName path
@@ -769,8 +769,7 @@ type DefaultFileSystem() as this =
 
     abstract ChangeExtensionShim: path: string * extension: string -> string
 
-    default _.ChangeExtensionShim(path: string, extension: string) : string =
-        !! Path.ChangeExtension(path, extension)
+    default _.ChangeExtensionShim(path: string, extension: string) : string = !!Path.ChangeExtension(path, extension)
 
     interface IFileSystem with
         member _.AssemblyLoader = this.AssemblyLoader
@@ -888,7 +887,7 @@ module public StreamExtensions =
                 use sr = new StreamReader(s, encoding, true)
 
                 while not <| sr.EndOfStream do
-                    yield !! sr.ReadLine()
+                    yield !!sr.ReadLine()
             }
 
         member s.ReadAllLines(?encoding: Encoding) : string array =
@@ -1003,7 +1002,7 @@ type internal ByteBuffer =
 
     member inline private buf.CheckDisposed() =
         if buf.isDisposed then
-            raise (ObjectDisposedException(nameof (ByteBuffer)))
+            raise (ObjectDisposedException(nameof ByteBuffer))
 
     member private buf.Ensure newSize =
         let oldBufSize = buf.bbArray.Length

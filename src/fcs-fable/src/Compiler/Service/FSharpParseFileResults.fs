@@ -525,7 +525,6 @@ type FSharpParseFileResults(diagnostics: FSharpDiagnostic[], input: ParsedInput,
                         match expr with
                         | SynExpr.ArbitraryAfterError _
                         | SynExpr.LongIdent _
-                        | SynExpr.DotLambda _
                         | SynExpr.LibraryOnlyILAssembly _
                         | SynExpr.LibraryOnlyStaticOptimization _
                         | SynExpr.Null _
@@ -762,15 +761,8 @@ type FSharpParseFileResults(diagnostics: FSharpDiagnostic[], input: ParsedInput,
                             yield! walkExpr false e2
                             yield! walkExpr false e3
 
-                        | SynExpr.LetOrUseBang(spBind, _, _, _, rhsExpr, andBangs, bodyExpr, _, _) ->
-                            yield! walkBindSeqPt spBind
-                            yield! walkExpr true rhsExpr
+                        | SynExpr.DotLambda(_, m, _) -> yield! checkRange m
 
-                            for SynExprAndBang(debugPoint = andBangSpBind; body = eAndBang) in andBangs do
-                                yield! walkBindSeqPt andBangSpBind
-                                yield! walkExpr true eAndBang
-
-                            yield! walkExpr true bodyExpr
                 ]
 
             // Process a class declaration or F# type declaration

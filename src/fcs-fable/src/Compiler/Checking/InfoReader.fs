@@ -63,7 +63,8 @@ let rec GetImmediateIntrinsicMethInfosOfTypeAux (optFilter, ad) g amap m withExp
             let st = info.ProvidedType
             let meths = 
                 match optFilter with
-                | Some name ->  st.PApplyArray ((fun st -> st.GetMethods() |> Array.filter (fun mi -> mi.Name = name) ), "GetMethods", m)
+                | Some name ->  
+                    st.PApplyFilteredArray ((fun st -> st.GetMethods()),(fun mi -> mi.Name = name), "GetMethods", m)                        
                 | None -> st.PApplyArray ((fun st -> st.GetMethods()), "GetMethods", m)
             [   for mi in meths -> ProvidedMeth(amap, mi.Coerce(m), None, m) ]
 #endif
@@ -351,7 +352,7 @@ type private IndexedList<'T>(itemLists: 'T list list, itemsByName: NameMultiMap<
 
 /// An InfoReader is an object to help us read and cache infos. 
 /// We create one of these for each file we typecheck. 
-type InfoReader(g: TcGlobals, amap: Import.ImportMap) as this =
+type InfoReader(g: TcGlobals, amap: ImportMap) as this =
 
     /// Get the declared IL fields of a type, not including inherited fields
     let GetImmediateIntrinsicILFieldsOfType (optFilter, ad) m ty =
@@ -462,7 +463,7 @@ type InfoReader(g: TcGlobals, amap: Import.ImportMap) as this =
              let einfos = ComputeImmediateIntrinsicEventsOfType (optFilter, ad) m ty 
              let rfinfos = GetImmediateIntrinsicRecdOrClassFieldsOfType (optFilter, ad) m ty 
              match acc with 
-             | _ when not (isNil qinfos) -> Some(TraitItem (qinfos))
+             | _ when not (isNil qinfos) -> Some(TraitItem qinfos)
              | Some(MethodItem(inheritedMethSets)) when not (isNil minfos) -> Some(MethodItem (minfos :: inheritedMethSets))
              | _ when not (isNil minfos) -> Some(MethodItem [minfos])
              | Some(PropertyItem(inheritedPropSets)) when not (isNil pinfos) -> Some(PropertyItem(pinfos :: inheritedPropSets))
@@ -726,9 +727,9 @@ type InfoReader(g: TcGlobals, amap: Import.ImportMap) as this =
     /// Make a cache for function 'f' keyed by type (plus some additional 'flags') that only 
     /// caches computations for monomorphic types.
 
-    let MakeInfoCache f (flagsEq : IEqualityComparer<_>) = 
+    let MakeInfoCache name f (flagsEq : IEqualityComparer<_>) = 
         MemoizationTable<_, _>
-             (compute=f,
+             (name, compute=f,
               // Only cache closed, monomorphic types (closed = all members for the type
               // have been processed). Generic type instantiations could be processed if we had 
               // a decent hash function for these.
@@ -795,25 +796,25 @@ type InfoReader(g: TcGlobals, amap: Import.ImportMap) as this =
     let hashFlags3 = 
         { new IEqualityComparer<AccessorDomain> with 
                member _.GetHashCode((ad: AccessorDomain)) = AccessorDomain.CustomGetHashCode ad
-               member _.Equals((ad1), (ad2)) = nullSafeEquality ad1 ad2 (fun ad1 ad2 -> AccessorDomain.CustomEquals(g, ad1, ad2)) }
+               member _.Equals(ad1, ad2) = nullSafeEquality ad1 ad2 (fun ad1 ad2 -> AccessorDomain.CustomEquals(g, ad1, ad2)) }
                          
     let hashFlags4 = 
         { new IEqualityComparer<AccessorDomain * string> with 
                member _.GetHashCode((ad, nm)) = AccessorDomain.CustomGetHashCode ad + hash nm
                member _.Equals((ad1, nm1), (ad2, nm2)) = AccessorDomain.CustomEquals(g, ad1, ad2) && (nm1 = nm2) }
                          
-    let methodInfoCache = MakeInfoCache GetIntrinsicMethodSetsUncached hashFlags0
-    let propertyInfoCache = MakeInfoCache GetIntrinsicPropertySetsUncached hashFlags0
-    let recdOrClassFieldInfoCache =  MakeInfoCache GetIntrinsicRecdOrClassFieldInfosUncached hashFlags1
-    let ilFieldInfoCache = MakeInfoCache GetIntrinsicILFieldInfosUncached hashFlags1
-    let eventInfoCache = MakeInfoCache GetIntrinsicEventInfosUncached hashFlags1
-    let namedItemsCache = MakeInfoCache GetIntrinsicNamedItemsUncached hashFlags2
-    let mostSpecificOverrideMethodInfoCache = MakeInfoCache GetIntrinsicMostSpecificOverrideMethodSetsUncached hashFlags0
+    let methodInfoCache = MakeInfoCache "methodInfoCache" GetIntrinsicMethodSetsUncached hashFlags0
+    let propertyInfoCache = MakeInfoCache "propertyInfoCache" GetIntrinsicPropertySetsUncached hashFlags0
+    let recdOrClassFieldInfoCache =  MakeInfoCache "recdOrClassFieldInfoCache" GetIntrinsicRecdOrClassFieldInfosUncached hashFlags1
+    let ilFieldInfoCache = MakeInfoCache "ilFieldInfoCache" GetIntrinsicILFieldInfosUncached hashFlags1
+    let eventInfoCache = MakeInfoCache "eventInfoCache" GetIntrinsicEventInfosUncached hashFlags1
+    let namedItemsCache = MakeInfoCache "namedItemsCache" GetIntrinsicNamedItemsUncached hashFlags2
+    let mostSpecificOverrideMethodInfoCache = MakeInfoCache "mostSpecificOverrideMethodInfoCache" GetIntrinsicMostSpecificOverrideMethodSetsUncached hashFlags0
 
-    let entireTypeHierarchyCache = MakeInfoCache GetEntireTypeHierarchyUncached HashIdentity.Structural
-    let primaryTypeHierarchyCache = MakeInfoCache GetPrimaryTypeHierarchyUncached HashIdentity.Structural
-    let implicitConversionCache = MakeInfoCache FindImplicitConversionsUncached hashFlags3
-    let isInterfaceWithStaticAbstractMethodCache = MakeInfoCache IsInterfaceTypeWithMatchingStaticAbstractMemberUncached hashFlags4
+    let entireTypeHierarchyCache = MakeInfoCache "entireTypeHierarchyCache" GetEntireTypeHierarchyUncached HashIdentity.Structural
+    let primaryTypeHierarchyCache = MakeInfoCache "primaryTypeHierarchyCache" GetPrimaryTypeHierarchyUncached HashIdentity.Structural
+    let implicitConversionCache = MakeInfoCache "implicitConversionCache" FindImplicitConversionsUncached hashFlags3
+    let isInterfaceWithStaticAbstractMethodCache = MakeInfoCache "isInterfaceWithStaticAbstractMethodCache" IsInterfaceTypeWithMatchingStaticAbstractMemberUncached hashFlags4
 
     // Runtime feature support
 

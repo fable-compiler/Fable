@@ -30,9 +30,7 @@ let PrintWholeAssemblyImplementation (tcConfig: TcConfig) outfile header expr =
             let fileName = outfile + ".terms"
 
             use f =
-                FileSystem
-                    .OpenFileForWriteShim(fileName + "-" + string showTermFileCount + "-" + header, FileMode.Create)
-                    .GetWriter()
+                FileSystem.OpenFileForWriteShim(fileName + "-" + string showTermFileCount + "-" + header, FileMode.Create).GetWriter()
 
             showTermFileCount <- showTermFileCount + 1
             LayoutRender.outL f (Display.squashTo 192 (DebugPrint.implFilesL expr))
@@ -312,17 +310,8 @@ let optimizeFilesSequentially optEnv (phases: PhaseInfo[]) implFiles =
     results, optEnvFirstLoop
 
 let ApplyAllOptimizations
-    (
-        tcConfig: TcConfig,
-        tcGlobals,
-        tcVal,
-        outfile,
-        importMap,
-        isIncrementalFragment,
-        optEnv,
-        ccu: CcuThunk,
-        implFiles
-    ) =
+    (tcConfig: TcConfig, tcGlobals, tcVal, outfile, importMap, isIncrementalFragment, optEnv, ccu: CcuThunk, implFiles)
+    =
     // NOTE: optEnv - threads through
     //
     // Always optimize once - the results of this step give the x-module optimization
@@ -534,15 +523,16 @@ let ApplyAllOptimizations
 
     let results, optEnvFirstLoop =
         match tcConfig.optSettings.processingMode with
-#if !FABLE_COMPILER
         // Parallel optimization breaks determinism - turn it off in deterministic builds.
-        | Optimizer.OptimizationProcessingMode.Parallel when (not tcConfig.deterministic) ->
+        | Optimizer.OptimizationProcessingMode.Parallel ->
+#if FABLE_COMPILER
+            optimizeFilesSequentially optEnv phases implFiles
+#else
             let results, optEnvFirstPhase =
                 ParallelOptimization.optimizeFilesInParallel optEnv phases implFiles
 
             results |> Array.toList, optEnvFirstPhase
 #endif
-        | Optimizer.OptimizationProcessingMode.Parallel
         | Optimizer.OptimizationProcessingMode.Sequential -> optimizeFilesSequentially optEnv phases implFiles
 
 #if DEBUG
@@ -584,15 +574,7 @@ let CreateIlxAssemblyGenerator (_tcConfig: TcConfig, tcImports: TcImports, tcGlo
     ilxGenerator
 
 let GenerateIlxCode
-    (
-        ilxBackend,
-        isInteractiveItExpr,
-        tcConfig: TcConfig,
-        topAttrs: TopAttribs,
-        optimizedImpls,
-        fragName,
-        ilxGenerator: IlxAssemblyGenerator
-    ) =
+    (ilxBackend, isInteractiveItExpr, tcConfig: TcConfig, topAttrs: TopAttribs, optimizedImpls, fragName, ilxGenerator: IlxAssemblyGenerator) =
 
     let mainMethodInfo =
         if
@@ -619,7 +601,7 @@ let GenerateIlxCode
             isInteractive = tcConfig.isInteractive
             isInteractiveItExpr = isInteractiveItExpr
             alwaysCallVirt = tcConfig.alwaysCallVirt
-            parallelIlxGenEnabled = tcConfig.parallelIlxGen && not tcConfig.deterministic
+            parallelIlxGenEnabled = tcConfig.parallelIlxGen
         }
 
     ilxGenerator.GenerateCode(ilxGenOpts, optimizedImpls, topAttrs.assemblyAttrs, topAttrs.netModuleAttrs)

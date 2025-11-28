@@ -16,7 +16,7 @@ module XmlDocParsing =
     let (|ConstructorPats|) =
         function
         | SynArgPats.Pats ps -> ps
-        | SynArgPats.NamePatPairs(pats = xs) -> List.map (fun (_, _, pat) -> pat) xs
+        | SynArgPats.NamePatPairs(pats = xs) -> xs |> List.map _.Pattern
 
     let rec digNamesFrom pat =
         match pat with
@@ -50,7 +50,7 @@ module XmlDocParsing =
             let parameters =
                 [
                     for args in curriedArgs do
-                        for (SynArgInfo(ident = ident)) in args do
+                        for SynArgInfo(ident = ident) in args do
                             match ident with
                             | Some ident -> ident.idText
                             | None -> ()

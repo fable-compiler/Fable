@@ -3,47 +3,25 @@
 namespace FSharp.Compiler.CodeAnalysis
 
 open System
-open System.Diagnostics
-open System.IO
-open System.Reflection
-open System.Reflection.Emit
-open System.Threading
 open Internal.Utilities.Collections
 open Internal.Utilities.Library
-open Internal.Utilities.Library.Extras
 open FSharp.Compiler
-open FSharp.Compiler.AbstractIL
-open FSharp.Compiler.AbstractIL.IL
 open FSharp.Compiler.AbstractIL.ILBinaryReader
-#if !FABLE_COMPILER
-open FSharp.Compiler.AbstractIL.ILDynamicAssemblyWriter
-#endif
 open FSharp.Compiler.CodeAnalysis
 #if !FABLE_COMPILER
 open FSharp.Compiler.CodeAnalysis.TransparentCompiler
 #endif
 open FSharp.Compiler.CompilerConfig
-open FSharp.Compiler.CompilerDiagnostics
-open FSharp.Compiler.CompilerImports
 open FSharp.Compiler.CompilerOptions
-#if !FABLE_COMPILER
-open FSharp.Compiler.DependencyManager
-#endif
 open FSharp.Compiler.Diagnostics
 #if !FABLE_COMPILER
 open FSharp.Compiler.Driver
 #endif
 open FSharp.Compiler.DiagnosticsLogger
-open FSharp.Compiler.IO
-open FSharp.Compiler.ParseAndCheckInputs
-open FSharp.Compiler.ScriptClosure
 open FSharp.Compiler.Symbols
-open FSharp.Compiler.Syntax
 open FSharp.Compiler.Tokenization
 open FSharp.Compiler.Text
 open FSharp.Compiler.Text.Range
-open FSharp.Compiler.TcGlobals
-open FSharp.Compiler.BuildGraph
 
 #if !FABLE_COMPILER
 
@@ -52,14 +30,14 @@ open FSharp.Compiler.BuildGraph
 type IsResultObsolete = IsResultObsolete of (unit -> bool)
 
 module CompileHelpers =
-    let mkCompilationDiagnosticsHandlers (flatErrors) =
+    let mkCompilationDiagnosticsHandlers flatErrors =
         let diagnostics = ResizeArray<_>()
 
         let diagnosticsLogger =
             { new DiagnosticsLogger("CompileAPI") with
 
                 member _.DiagnosticSink(diag, isError) =
-                    diagnostics.Add(FSharpDiagnostic.CreateFromException(diag, isError, range0, true, flatErrors, None)) // Suggest names for errors
+                    diagnostics.Add(FSharpDiagnostic.CreateFromException(diag, isError, true, flatErrors, None)) // Suggest names for errors
 
                 member _.ErrorCount =
                     diagnostics
@@ -399,14 +377,8 @@ type FSharpChecker
     /// Typecheck a source code file, returning a handle to the results of the
     /// parse including the reconstructed types in the file.
     member _.CheckFileInProjectAllowingStaleCachedResults
-        (
-            parseResults: FSharpParseFileResults,
-            fileName: string,
-            fileVersion: int,
-            source: string,
-            options: FSharpProjectOptions,
-            ?userOpName: string
-        ) =
+        (parseResults: FSharpParseFileResults, fileName: string, fileVersion: int, source: string, options: FSharpProjectOptions, ?userOpName: string)
+        =
         let userOpName = defaultArg userOpName "Unknown"
 
         backgroundCompiler.CheckFileInProjectAllowingStaleCachedResults(
@@ -436,13 +408,8 @@ type FSharpChecker
     /// Typecheck a source code file, returning a handle to the results of the
     /// parse including the reconstructed types in the file.
     member _.ParseAndCheckFileInProject
-        (
-            fileName: string,
-            fileVersion: int,
-            sourceText: ISourceText,
-            options: FSharpProjectOptions,
-            ?userOpName: string
-        ) =
+        (fileName: string, fileVersion: int, sourceText: ISourceText, options: FSharpProjectOptions, ?userOpName: string)
+        =
         let userOpName = defaultArg userOpName "Unknown"
 
         backgroundCompiler.ParseAndCheckFileInProject(fileName, fileVersion, sourceText, options, userOpName)
@@ -463,14 +430,8 @@ type FSharpChecker
         backgroundCompiler.ParseAndCheckProject(projectSnapshot, userOpName)
 
     member _.FindBackgroundReferencesInFile
-        (
-            fileName: string,
-            options: FSharpProjectOptions,
-            symbol: FSharpSymbol,
-            ?canInvalidateProject: bool,
-            ?fastCheck: bool,
-            ?userOpName: string
-        ) =
+        (fileName: string, options: FSharpProjectOptions, symbol: FSharpSymbol, ?canInvalidateProject: bool, ?fastCheck: bool, ?userOpName: string)
+        =
         let canInvalidateProject = defaultArg canInvalidateProject true
         let userOpName = defaultArg userOpName "Unknown"
 
@@ -519,6 +480,7 @@ type FSharpChecker
         (
             fileName,
             source,
+            ?caret,
             ?previewEnabled,
             ?loadedTimeStamp,
             ?otherFlags,
@@ -534,6 +496,7 @@ type FSharpChecker
         backgroundCompiler.GetProjectOptionsFromScript(
             fileName,
             source,
+            caret,
             previewEnabled,
             loadedTimeStamp,
             otherFlags,
@@ -550,6 +513,7 @@ type FSharpChecker
         (
             fileName,
             source,
+            ?caret,
             ?documentSource,
             ?previewEnabled,
             ?loadedTimeStamp,
@@ -567,6 +531,7 @@ type FSharpChecker
         backgroundCompiler.GetProjectSnapshotFromScript(
             fileName,
             source,
+            caret,
             documentSource,
             previewEnabled,
             loadedTimeStamp,

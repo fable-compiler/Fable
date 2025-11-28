@@ -3,6 +3,7 @@
 namespace FSharp.Compiler.SyntaxTrivia
 
 open FSharp.Compiler.Text
+open FSharp.Compiler.Text.Range
 
 [<RequireQualifiedAccess; NoEquality; NoComparison>]
 type IdentTrivia =
@@ -23,23 +24,29 @@ and [<RequireQualifiedAccess; NoEquality; NoComparison>] IfDirectiveExpression =
     | Ident of string
 
 [<RequireQualifiedAccess; NoEquality; NoComparison>]
+type WarnDirectiveTrivia =
+    | Nowarn of range
+    | Warnon of range
+
+[<RequireQualifiedAccess; NoEquality; NoComparison>]
 type CommentTrivia =
     | LineComment of range: range
     | BlockComment of range: range
 
 [<NoEquality; NoComparison>]
-type ParsedImplFileInputTrivia =
+type ParsedInputTrivia =
     {
         ConditionalDirectives: ConditionalDirectiveTrivia list
+        WarnDirectives: WarnDirectiveTrivia list
         CodeComments: CommentTrivia list
     }
 
-[<NoEquality; NoComparison>]
-type ParsedSigFileInputTrivia =
-    {
-        ConditionalDirectives: ConditionalDirectiveTrivia list
-        CodeComments: CommentTrivia list
-    }
+    static member Empty =
+        {
+            ConditionalDirectives = []
+            WarnDirectives = []
+            CodeComments = []
+        }
 
 [<NoEquality; NoComparison>]
 type SynExprTryWithTrivia =
@@ -87,24 +94,13 @@ type SynExprLetOrUseTrivia =
     {
         LetOrUseKeyword: range
         InKeyword: range option
+        EqualsRange: range option
     }
 
     static member Zero: SynExprLetOrUseTrivia =
         {
             InKeyword = None
-            LetOrUseKeyword = Range.Zero
-        }
-
-[<NoEquality; NoComparison>]
-type SynExprLetOrUseBangTrivia =
-    {
-        LetOrUseBangKeyword: range
-        EqualsRange: range option
-    }
-
-    static member Zero: SynExprLetOrUseBangTrivia =
-        {
-            LetOrUseBangKeyword = Range.Zero
+            LetOrUseKeyword = range0
             EqualsRange = None
         }
 
@@ -128,7 +124,7 @@ type SynExprYieldOrReturnTrivia =
         YieldOrReturnKeyword: range
     }
 
-    static member Zero: SynExprYieldOrReturnTrivia = { YieldOrReturnKeyword = Range.Zero }
+    static member Zero: SynExprYieldOrReturnTrivia = { YieldOrReturnKeyword = range0 }
 
 [<NoEquality; NoComparison>]
 type SynExprYieldOrReturnFromTrivia =
@@ -136,10 +132,7 @@ type SynExprYieldOrReturnFromTrivia =
         YieldOrReturnFromKeyword: range
     }
 
-    static member Zero: SynExprYieldOrReturnFromTrivia =
-        {
-            YieldOrReturnFromKeyword = Range.Zero
-        }
+    static member Zero: SynExprYieldOrReturnFromTrivia = { YieldOrReturnFromKeyword = range0 }
 
 [<NoEquality; NoComparison>]
 type SynExprDoBangTrivia = { DoBangKeyword: range }
@@ -191,7 +184,7 @@ type SynTypeDefnLeadingKeyword =
         match this with
         | SynTypeDefnLeadingKeyword.Type range
         | SynTypeDefnLeadingKeyword.And range -> range
-        | SynTypeDefnLeadingKeyword.StaticType(staticRange, typeRange) -> Range.unionRanges staticRange typeRange
+        | SynTypeDefnLeadingKeyword.StaticType(staticRange, typeRange) -> unionRanges staticRange typeRange
         | SynTypeDefnLeadingKeyword.Synthetic -> failwith "Getting range from synthetic keyword"
 
 [<NoEquality; NoComparison>]
@@ -281,8 +274,8 @@ type SynLeadingKeyword =
         | DefaultVal(m1, m2)
         | MemberVal(m1, m2)
         | OverrideVal(m1, m2)
-        | StaticMemberVal(m1, _, m2) -> Range.unionRanges m1 m2
-        | Synthetic -> Range.Zero
+        | StaticMemberVal(m1, _, m2) -> unionRanges m1 m2
+        | Synthetic -> range0
 
 [<NoEquality; NoComparison>]
 type SynBindingTrivia =
@@ -298,14 +291,6 @@ type SynBindingTrivia =
             InlineKeyword = None
             EqualsRange = None
         }
-
-[<NoEquality; NoComparison>]
-type SynExprAndBangTrivia =
-    {
-        AndBangKeyword: range
-        EqualsRange: range
-        InKeyword: range option
-    }
 
 [<NoEquality; NoComparison>]
 type SynModuleDeclNestedModuleTrivia =
@@ -398,10 +383,10 @@ type GetSetKeywords =
         | Get m
         | Set m -> m
         | GetSet(mG, mS) ->
-            if Range.rangeBeforePos mG mS.Start then
-                Range.unionRanges mG mS
+            if rangeBeforePos mG mS.Start then
+                unionRanges mG mS
             else
-                Range.unionRanges mS mG
+                unionRanges mS mG
 
 [<NoEquality; NoComparison>]
 type SynMemberDefnAutoPropertyTrivia =

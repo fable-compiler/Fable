@@ -9,7 +9,6 @@ open System.IO
 open System.Collections.Immutable
 open Internal.Utilities.Library
 
-open Internal.Utilities.Collections
 #if !FABLE_COMPILER
 open Internal.Utilities.Hashing
 #endif
@@ -210,7 +209,7 @@ module SourceTextNew =
 
             member _.GetChecksum() =
                 // TODO: something better...
-                !! sourceText.ToString()
+                !!sourceText.ToString()
 #if FABLE_COMPILER
                 |> fun s -> BitConverter.GetBytes(hash s)
 #else
@@ -233,40 +232,35 @@ open System.Collections.Generic
 type internal Position =
     val FileIndex: int
     val Line: int
-    val OriginalLine: int
     val AbsoluteOffset: int
     val StartOfLineAbsoluteOffset: int
     member x.Column = x.AbsoluteOffset - x.StartOfLineAbsoluteOffset
 
-    new(fileIndex: int, line: int, originalLine: int, startOfLineAbsoluteOffset: int, absoluteOffset: int) =
+    new(fileIndex: int, line: int, startOfLineAbsoluteOffset: int, absoluteOffset: int) =
         {
             FileIndex = fileIndex
             Line = line
-            OriginalLine = originalLine
             AbsoluteOffset = absoluteOffset
             StartOfLineAbsoluteOffset = startOfLineAbsoluteOffset
         }
 
     member x.NextLine =
-        Position(x.FileIndex, x.Line + 1, x.OriginalLine + 1, x.AbsoluteOffset, x.AbsoluteOffset)
+        Position(x.FileIndex, x.Line + 1, x.AbsoluteOffset, x.AbsoluteOffset)
 
     member x.EndOfToken n =
-        Position(x.FileIndex, x.Line, x.OriginalLine, x.StartOfLineAbsoluteOffset, x.AbsoluteOffset + n)
+        Position(x.FileIndex, x.Line, x.StartOfLineAbsoluteOffset, x.AbsoluteOffset + n)
 
     member x.ShiftColumnBy by =
-        Position(x.FileIndex, x.Line, x.OriginalLine, x.StartOfLineAbsoluteOffset, x.AbsoluteOffset + by)
+        Position(x.FileIndex, x.Line, x.StartOfLineAbsoluteOffset, x.AbsoluteOffset + by)
 
     member x.ColumnMinusOne =
-        Position(x.FileIndex, x.Line, x.OriginalLine, x.StartOfLineAbsoluteOffset, x.StartOfLineAbsoluteOffset - 1)
-
-    member x.ApplyLineDirective(fileIdx, line) =
-        Position(fileIdx, line, x.OriginalLine + 1, x.AbsoluteOffset, x.AbsoluteOffset)
+        Position(x.FileIndex, x.Line, x.StartOfLineAbsoluteOffset, x.StartOfLineAbsoluteOffset - 1)
 
     override p.ToString() = $"({p.Line},{p.Column})"
 
     static member Empty = Position()
 
-    static member FirstLine fileIdx = Position(fileIdx, 1, 1, 0, 0)
+    static member FirstLine fileIdx = Position(fileIdx, 1, 0, 0)
 
 #if FABLE_COMPILER
 type internal LexBufferChar = uint16
@@ -391,12 +385,8 @@ and [<Sealed>] internal LexBuffer<'Char>
         FSharp.Compiler.DiagnosticsLogger.checkLanguageFeatureAndRecover langVersion featureId range
 
     static member FromFunction
-        (
-            reportLibraryOnlyFeatures,
-            langVersion,
-            strictIndentation,
-            f: 'Char[] * int * int -> int
-        ) : LexBuffer<'Char> =
+        (reportLibraryOnlyFeatures: bool, langVersion: LanguageVersion, strictIndentation: bool option, f: 'Char[] * int * int -> int)
+        : LexBuffer<'Char> =
         let extension = Array.zeroCreate 4096
 
         let filler (lexBuffer: LexBuffer<'Char>) =
@@ -420,8 +410,7 @@ and [<Sealed>] internal LexBuffer<'Char>
     static member FromArray(reportLibraryOnlyFeatures, langVersion, strictIndentation, s: 'Char[]) : LexBuffer<'Char> =
         let buffer = Array.copy s
 
-        LexBuffer<'Char>
-            .FromArrayNoCopy(reportLibraryOnlyFeatures, langVersion, strictIndentation, buffer)
+        LexBuffer<'Char>.FromArrayNoCopy(reportLibraryOnlyFeatures, langVersion, strictIndentation, buffer)
 
     // Important: This method takes ownership of the array
     static member FromChars(reportLibraryOnlyFeatures, langVersion, strictIndentation, arr: char[]) =
@@ -572,7 +561,7 @@ type internal UnicodeTables(trans: uint16[] array, accept: uint16[]) =
     //      1 entry for EOF
 
     member tables.Interpret(initialState, lexBuffer: LexBuffer<LexBufferChar>) =
-        startInterpret (lexBuffer)
+        startInterpret lexBuffer
         scanUntilSentinel lexBuffer initialState
 
     static member Create(trans, accept) = UnicodeTables(trans, accept)

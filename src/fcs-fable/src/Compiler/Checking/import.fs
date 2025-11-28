@@ -6,23 +6,20 @@ module internal FSharp.Compiler.Import
 open System.Collections.Concurrent
 open System.Collections.Generic
 open System.Collections.Immutable
-open FSharp.Compiler.Text.Range
 open Internal.Utilities.Library
 open Internal.Utilities.Library.Extras
-open Internal.Utilities.TypeHashing
-open Internal.Utilities.TypeHashing.HashTypes
 open FSharp.Compiler
 open FSharp.Compiler.AbstractIL.IL
 open FSharp.Compiler.CompilerGlobalState
 open FSharp.Compiler.DiagnosticsLogger
 open FSharp.Compiler.SyntaxTreeOps
 open FSharp.Compiler.Text
+open FSharp.Compiler.Text.Range
 open FSharp.Compiler.Xml
 open FSharp.Compiler.TypedTree
 open FSharp.Compiler.TypedTreeBasics
 open FSharp.Compiler.TypedTreeOps
 open FSharp.Compiler.TcGlobals
-
 #if !NO_TYPEPROVIDERS
 open FSharp.Compiler.TypeProviders
 #endif
@@ -47,49 +44,6 @@ type AssemblyLoader =
     abstract RecordGeneratedTypeRoot : ProviderGeneratedType -> unit
 #endif
 
-[<Struct; NoComparison>]
-type CanCoerce =
-    | CanCoerce
-    | NoCoerce
-
-type [<Struct; NoComparison; CustomEquality>] TTypeCacheKey =
-
-    val ty1: TType
-    val ty2: TType
-    val canCoerce: CanCoerce
-    val tcGlobals: TcGlobals
-
-    private new (ty1, ty2, canCoerce, tcGlobals) =
-        { ty1 = ty1; ty2 = ty2; canCoerce = canCoerce; tcGlobals = tcGlobals }
-
-    static member FromStrippedTypes (ty1, ty2, canCoerce, tcGlobals) =
-        TTypeCacheKey(ty1, ty2, canCoerce, tcGlobals)
-
-    interface System.IEquatable<TTypeCacheKey> with
-        member this.Equals other =
-            if this.canCoerce <> other.canCoerce then
-                false
-            elif this.ty1 === other.ty1 && this.ty2 === other.ty2 then
-                true
-            else
-                stampEquals this.tcGlobals this.ty1 other.ty1
-                && stampEquals this.tcGlobals this.ty2 other.ty2
-
-    override this.Equals other =
-        match other with
-        | :? TTypeCacheKey as p -> (this :> System.IEquatable<TTypeCacheKey>).Equals p
-        | _ -> false
-
-    override this.GetHashCode() : int =
-        let g = this.tcGlobals
-
-        let ty1Hash = combineHash (hashStamp g this.ty1) (hashTType g this.ty1)
-        let ty2Hash = combineHash (hashStamp g this.ty2) (hashTType g this.ty2)
-
-        let combined = combineHash (combineHash ty1Hash ty2Hash) (hash this.canCoerce)
-
-        combined
-
 //-------------------------------------------------------------------------
 // Import an IL types as F# types.
 //-------------------------------------------------------------------------
@@ -106,15 +60,11 @@ type [<Struct; NoComparison; CustomEquality>] TTypeCacheKey =
 type ImportMap(g: TcGlobals, assemblyLoader: AssemblyLoader) =
     let typeRefToTyconRefCache = ConcurrentDictionary<ILTypeRef, TyconRef>()
 
-    let typeSubsumptionCache = ConcurrentDictionary<TTypeCacheKey, bool>(System.Environment.ProcessorCount, 1024)
-
     member _.g = g
 
     member _.assemblyLoader = assemblyLoader
 
     member _.ILTypeRefToTyconRefCache = typeRefToTyconRefCache
-
-    member _.TypeSubsumptionCache = typeSubsumptionCache
 
 let CanImportILScopeRef (env: ImportMap) m scoref =
 
@@ -380,13 +330,13 @@ let rec ImportILTypeWithNullness (env: ImportMap) m tinst (nf:Nullness.NullableF
 
     | ILType.Array(bounds, innerTy) ->
         let n = bounds.Rank
-        let (arrayNullness,nf) = Nullness.evaluateFirstOrderNullnessAndAdvance ty nf
+        let arrayNullness,nf = Nullness.evaluateFirstOrderNullnessAndAdvance ty nf
         let struct(elemTy,nf) = ImportILTypeWithNullness env m tinst nf innerTy
         mkArrayTy env.g n arrayNullness elemTy m, nf
 
     | ILType.Boxed  tspec | ILType.Value tspec ->
         let tcref = ImportILTypeRef env m tspec.TypeRef
-        let (typeRefNullness,nf) = Nullness.evaluateFirstOrderNullnessAndAdvance ty nf
+        let typeRefNullness,nf = Nullness.evaluateFirstOrderNullnessAndAdvance ty nf
         let struct(inst,nullableFlagsLeft) = (nf,tspec.GenericArgs) ||> List.vMapFold (fun nf current -> ImportILTypeWithNullness env m tinst nf current )
 
         ImportTyconRefApp env tcref inst typeRefNullness, nullableFlagsLeft
@@ -414,7 +364,7 @@ let rec ImportILTypeWithNullness (env: ImportMap) m tinst (nf:Nullness.NullableF
             with _ ->
                 error(Error(FSComp.SR.impNotEnoughTypeParamsInScopeWhileImporting(), m))
 
-        let (typeVarNullness,nf) = Nullness.evaluateFirstOrderNullnessAndAdvance ty nf
+        let typeVarNullness,nf = Nullness.evaluateFirstOrderNullnessAndAdvance ty nf
         addNullnessToTy typeVarNullness ttype, nf
 
 /// Determines if an IL type can be imported as an F# type
@@ -450,13 +400,13 @@ let rec ImportProvidedTypeAsILType (env: ImportMap) (m: range) (st: Tainted<Prov
     elif st.PUntaint((fun st -> st.IsGenericParameter), m) then
         mkILTyvarTy (uint16 (st.PUntaint((fun st -> st.GenericParameterPosition), m)))
     elif st.PUntaint((fun st -> st.IsArray), m) then
-        let et = ImportProvidedTypeAsILType env m (st.PApply((fun st -> st.GetElementType()), m))
+        let et = ImportProvidedTypeAsILType env m (st.PApply((fun st -> !! st.GetElementType()), m))
         ILType.Array(ILArrayShape.FromRank (st.PUntaint((fun st -> st.GetArrayRank()), m)), et)
     elif st.PUntaint((fun st -> st.IsByRef), m) then
-        let et = ImportProvidedTypeAsILType env m (st.PApply((fun st -> st.GetElementType()), m))
+        let et = ImportProvidedTypeAsILType env m (st.PApply((fun st -> !! st.GetElementType()), m))
         ILType.Byref et
     elif st.PUntaint((fun st -> st.IsPointer), m) then
-        let et = ImportProvidedTypeAsILType env m (st.PApply((fun st -> st.GetElementType()), m))
+        let et = ImportProvidedTypeAsILType env m (st.PApply((fun st -> !! st.GetElementType()), m))
         ILType.Ptr et
     else
         let gst, genericArgs =
@@ -494,15 +444,15 @@ let rec ImportProvidedType (env: ImportMap) (m: range) (* (tinst: TypeInst) *) (
 
     let g = env.g
     if st.PUntaint((fun st -> st.IsArray), m) then
-        let elemTy = ImportProvidedType env m (* tinst *) (st.PApply((fun st -> st.GetElementType()), m))
+        let elemTy = ImportProvidedType env m (* tinst *) (st.PApply((fun st -> !! st.GetElementType()), m))
         // TODO Nullness - integration into type providers as a separate feature for later.
         let nullness = Nullness.knownAmbivalent
         mkArrayTy g (st.PUntaint((fun st -> st.GetArrayRank()), m)) nullness elemTy m
     elif st.PUntaint((fun st -> st.IsByRef), m) then
-        let elemTy = ImportProvidedType env m (* tinst *) (st.PApply((fun st -> st.GetElementType()), m))
+        let elemTy = ImportProvidedType env m (* tinst *) (st.PApply((fun st -> !! st.GetElementType()), m))
         mkByrefTy g elemTy
     elif st.PUntaint((fun st -> st.IsPointer), m) then
-        let elemTy = ImportProvidedType env m (* tinst *) (st.PApply((fun st -> st.GetElementType()), m))
+        let elemTy = ImportProvidedType env m (* tinst *) (st.PApply((fun st -> !! st.GetElementType()), m))
         if isUnitTy g elemTy || isVoidTy g elemTy && g.voidptr_tcr.CanDeref then
             mkVoidPtrTy g
         else
@@ -563,10 +513,10 @@ let rec ImportProvidedType (env: ImportMap) (m: range) (* (tinst: TypeInst) *) (
                         | TType_app (tcref, [], _) when tcref.TypeOrMeasureKind = TyparKind.Measure -> Measure.Const(tcref, tcref.Range)
                         | TType_app (tcref, _, _) ->
                             errorR(Error(FSComp.SR.impInvalidMeasureArgument1(tcref.CompiledName, tp.Name), m))
-                            Measure.One(tcref.Range)
+                            Measure.One tcref.Range
                         | _ ->
                             errorR(Error(FSComp.SR.impInvalidMeasureArgument2(tp.Name), m))
-                            Measure.One(Range.Zero)
+                            Measure.One range0
 
                     TType_measure (conv genericArg)
                 else
@@ -602,7 +552,7 @@ let ImportProvidedMethodBaseAsILMethodRef (env: ImportMap) (m: range) (mbase: Ta
                 | Some found -> found.Coerce(m)
                 | None ->
                     let methodName = minfo.PUntaint((fun minfo -> minfo.Name), m)
-                    let typeName = declaringGenericTypeDefn.PUntaint((fun declaringGenericTypeDefn -> declaringGenericTypeDefn.FullName), m)
+                    let typeName = declaringGenericTypeDefn.PUntaint((fun declaringGenericTypeDefn -> string declaringGenericTypeDefn.FullName), m)
                     error(Error(FSComp.SR.etIncorrectProvidedMethod(DisplayNameOfTypeProvider(minfo.TypeProvider, m), methodName, metadataToken, typeName), m))
          | _ ->
          match mbase.OfType<ProvidedConstructorInfo>() with
@@ -634,7 +584,7 @@ let ImportProvidedMethodBaseAsILMethodRef (env: ImportMap) (m: range) (mbase: Ta
                 match found with
                 | Some found -> found.Coerce(m)
                 | None ->
-                    let typeName = declaringGenericTypeDefn.PUntaint((fun x -> x.FullName), m)
+                    let typeName = declaringGenericTypeDefn.PUntaint((fun x -> string x.FullName), m)
                     error(Error(FSComp.SR.etIncorrectProvidedConstructor(DisplayNameOfTypeProvider(cinfo.TypeProvider, m), typeName), m))
          | _ -> mbase
 
@@ -648,7 +598,7 @@ let ImportProvidedMethodBaseAsILMethodRef (env: ImportMap) (m: range) (mbase: Ta
 
      let genericArity =
         if mbase.PUntaint((fun x -> x.IsGenericMethod), m) then
-            mbase.PUntaint((fun x -> x.GetGenericArguments().Length), m)
+            mbase.PApplyArray((fun x -> x.GetGenericArguments()),"GetGenericArguments", m).Length
         else 0
 
      let callingConv = (if mbase.PUntaint((fun x -> x.IsStatic), m) then ILCallingConv.Static else ILCallingConv.Instance)

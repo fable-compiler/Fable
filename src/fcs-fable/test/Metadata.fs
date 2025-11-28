@@ -28,6 +28,7 @@ let references_core = [|
     "System.Reflection.TypeExtensions"
     "System.Runtime"
     "System.Runtime.Extensions"
+    "System.Runtime.InteropServices"
     "System.Runtime.Numerics"
     "System.Text.Encoding"
     "System.Text.Encoding.Extensions"

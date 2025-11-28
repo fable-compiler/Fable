@@ -7,7 +7,6 @@ open System.Collections.Generic
 open System.Diagnostics
 
 open Internal.Utilities.Library
-open Internal.Utilities.Library.Extras
 
 [<RequireQualifiedAccess>]
 type internal CacheEvent =
@@ -23,12 +22,8 @@ type internal ValueLink<'T when 'T: not struct> =
     | Weak of WeakReference<'T>
 
 [<DebuggerDisplay("{DebuggerDisplay}")>]
-type internal LruCache<'TKey, 'TVersion, 'TValue when 'TKey: equality and 'TVersion: equality and 'TValue: not struct
-#if !NO_CHECKNULLS
-    and 'TKey:not null
-    and 'TVersion:not null
-#endif
-    >
+type internal LruCache<'TKey, 'TVersion, 'TValue
+    when 'TKey: equality and 'TVersion: equality and 'TValue: not struct and 'TKey: not null and 'TVersion: not null>
     (keepStrongly, ?keepWeakly, ?requiredToKeep, ?event) =
 
     let keepWeakly = defaultArg keepWeakly 100
@@ -72,7 +67,7 @@ type internal LruCache<'TKey, 'TVersion, 'TValue when 'TKey: equality and 'TVers
             let mutable node = weakList.Last
 
             while weakList.Count > keepWeakly && node <> null do
-                let notNullNode = !! node
+                let notNullNode = !!node
                 let previous = notNullNode.Previous
                 let key, version, label, _ = notNullNode.Value
                 weakList.Remove notNullNode
@@ -90,7 +85,7 @@ type internal LruCache<'TKey, 'TVersion, 'TValue when 'TKey: equality and 'TVers
         let mutable anythingWeakened = false
 
         while strongList.Count > keepStrongly && node <> null do
-            let notNullNode = !! node
+            let notNullNode = !!node
             let previous = notNullNode.Previous
 
             match notNullNode.Value with
@@ -219,7 +214,7 @@ type internal LruCache<'TKey, 'TVersion, 'TValue when 'TKey: equality and 'TVers
         | false, _ -> []
         | true, versionDict ->
             versionDict.Values
-            |> Seq.map (_.Value)
+            |> Seq.map _.Value
             |> Seq.sortBy (function
                 | _, _, _, Strong _ -> 0
                 | _ -> 1)

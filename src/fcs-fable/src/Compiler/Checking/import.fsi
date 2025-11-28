@@ -10,8 +10,6 @@ open FSharp.Compiler.Text
 open FSharp.Compiler.Xml
 open FSharp.Compiler.TypedTree
 
-open System.Collections.Concurrent
-
 #if !NO_TYPEPROVIDERS
 open FSharp.Compiler.TypeProviders
 #endif
@@ -37,26 +35,6 @@ type AssemblyLoader =
     abstract RecordGeneratedTypeRoot: ProviderGeneratedType -> unit
 #endif
 
-[<Struct; NoComparison>]
-type CanCoerce =
-    | CanCoerce
-    | NoCoerce
-
-[<Struct; NoComparison; CustomEquality>]
-type TTypeCacheKey =
-    interface System.IEquatable<TTypeCacheKey>
-    private new: ty1: TType * ty2: TType * canCoerce: CanCoerce * tcGlobals: TcGlobals -> TTypeCacheKey
-
-    static member FromStrippedTypes:
-        ty1: TType * ty2: TType * canCoerce: CanCoerce * tcGlobals: TcGlobals -> TTypeCacheKey
-
-    val ty1: TType
-    val ty2: TType
-    val canCoerce: CanCoerce
-    val tcGlobals: TcGlobals
-    override Equals: other: obj -> bool
-    override GetHashCode: unit -> int
-
 /// Represents a context used for converting AbstractIL .NET and provided types to F# internal compiler data structures.
 /// Also cache the conversion of AbstractIL ILTypeRef nodes, based on hashes of these.
 ///
@@ -72,9 +50,6 @@ type ImportMap =
 
     /// The TcGlobals for the import context
     member g: TcGlobals
-
-    /// Type subsumption cache
-    member TypeSubsumptionCache: ConcurrentDictionary<TTypeCacheKey, bool>
 
 module Nullness =
 

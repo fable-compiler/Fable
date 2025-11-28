@@ -11,14 +11,17 @@ open System.Threading
 open System.Threading.Tasks
 open System.Runtime.CompilerServices
 
+#if !FABLE_COMPILER
+open FSharp.Compiler.Caches
+#endif
+
 [<Class>]
 type InterruptibleLazy<'T> private (value, valueFactory: unit -> 'T) =
     let syncObj = obj ()
 
     [<VolatileField>]
     // TODO nullness - this is boxed to obj because of an attribute targets bug fixed in main, but not yet shipped (needs shipped 8.0.400)
-    let mutable valueFactory : objnull = valueFactory
-
+    let mutable valueFactory: objnull = valueFactory
 
     let mutable value = value
 
@@ -41,7 +44,7 @@ type InterruptibleLazy<'T> private (value, valueFactory: unit -> 'T) =
                 | _ ->
 
                     value <- (valueFactory |> unbox<unit -> 'T>) ()
-                    valueFactory <- Unchecked.defaultof<_>
+                    valueFactory <- Unchecked.defaultof<'T>
             finally
                 Monitor.Exit(syncObj)
 
@@ -95,22 +98,22 @@ module internal PervasiveAutoOpens =
 
     type String with
 
-        member inline x.StartsWithOrdinal value =
+        member inline x.StartsWithOrdinal(value: string) =
             x.StartsWith(value, StringComparison.Ordinal)
 
-        member inline x.EndsWithOrdinal value =
+        member inline x.EndsWithOrdinal(value: string) =
             x.EndsWith(value, StringComparison.Ordinal)
 
-        member inline x.EndsWithOrdinalIgnoreCase value =
+        member inline x.EndsWithOrdinalIgnoreCase(value: string) =
             x.EndsWith(value, StringComparison.OrdinalIgnoreCase)
 
-        member inline x.IndexOfOrdinal (value:string) =
+        member inline x.IndexOfOrdinal(value: string) =
             x.IndexOf(value, StringComparison.Ordinal)
 
-        member inline x.IndexOfOrdinal(value, startIndex) =
+        member inline x.IndexOfOrdinal(value: string, startIndex) =
             x.IndexOf(value, startIndex, StringComparison.Ordinal)
 
-        member inline x.IndexOfOrdinal(value, startIndex, count) =
+        member inline x.IndexOfOrdinal(value: string, startIndex, count) =
             x.IndexOf(value, startIndex, count, StringComparison.Ordinal)
 
     /// Get an initialization hole
@@ -148,7 +151,7 @@ module internal PervasiveAutoOpens =
 
             let task = ts.Task
 
-            Async.StartWithContinuations(computation, (ts.SetResult), (ts.SetException), (fun _ -> ts.SetCanceled()), cancellationToken)
+            Async.StartWithContinuations(computation, ts.SetResult, ts.SetException, (fun _ -> ts.SetCanceled()), cancellationToken)
 
             try
                 task.Result
@@ -160,8 +163,8 @@ module internal PervasiveAutoOpens =
 type DelayInitArrayMap<'T, 'TDictKey, 'TDictValue>(f: unit -> 'T[]) =
     let syncObj = obj ()
 
-    let mutable arrayStore : _ array MaybeNull = null
-    let mutable dictStore : _ MaybeNull = null
+    let mutable arrayStore: _ array MaybeNull = null
+    let mutable dictStore: _ MaybeNull = null
 
     let mutable func = f
 
@@ -212,12 +215,12 @@ module Order =
             member _.Compare(x, xx) = compare (p !!x) (p !!xx)
         }
 
-    let orderOn p (pxOrder: IComparer<'U>) =
+    let orderOn (p: 'T -> 'U) (pxOrder: IComparer<'U>) =
         { new IComparer<'T> with
-            member _.Compare(x, xx) = pxOrder.Compare(p x, p xx)
+            member _.Compare(x, xx) = pxOrder.Compare(p !!x, p !!xx)
         }
 
-    let toFunction (pxOrder: IComparer<'U>) x y = pxOrder.Compare(x, y)
+    let toFunction (pxOrder: IComparer<'U>) (x: 'U) (y: 'U) = pxOrder.Compare(x, y)
 
 //-------------------------------------------------------------------------
 // Library: arrays, lists, options, resizearrays
@@ -248,7 +251,7 @@ module Array =
     let order (eltOrder: IComparer<'T>) =
         { new IComparer<'T array> with
             member _.Compare(xs, ys) =
-                let xs,ys = nullArgCheck "xs" xs, nullArgCheck "ys" ys
+                let xs, ys = nullArgCheck "xs" xs, nullArgCheck "ys" ys
                 let c = compare xs.Length ys.Length
 
                 if c <> 0 then
@@ -418,8 +421,8 @@ module Option =
         with _ ->
             None
 
-module internal ValueTuple = 
-    let inline map1Of2 ([<InlineIfLambda>]f) struct(a1, a2) = struct(f a1, a2)
+module internal ValueTuple =
+    let inline map1Of2 ([<InlineIfLambda>] f) struct (a1, a2) = struct (f a1, a2)
 
 module List =
 
@@ -547,7 +550,8 @@ module List =
     let order (eltOrder: IComparer<'T>) =
         { new IComparer<'T list> with
             member _.Compare(xs, ys) =
-                let xs,ys = nullArgCheck "xs" xs, nullArgCheck "ys" ys
+                let xs, ys = nullArgCheck "xs" xs, nullArgCheck "ys" ys
+
                 let rec loop xs ys =
                     match xs, ys with
                     | [], [] -> 0
@@ -650,21 +654,22 @@ module List =
         | Some x -> x :: l
         | _ -> l
 
-    
     [<TailCall>]
-    let rec private vMapFoldWithAcc<'T, 'State, 'Result> (mapping: 'State -> 'T -> struct('Result * 'State)) state list acc : struct('Result list * 'State) =
+    let rec private vMapFoldWithAcc<'T, 'State, 'Result>
+        (mapping: 'State -> 'T -> struct ('Result * 'State))
+        state
+        list
+        acc
+        : struct ('Result list * 'State) =
         match list with
         | [] -> acc, state
-        | [h] ->
-            mapping state h
-            |> ValueTuple.map1Of2 (fun x -> x::acc)
+        | [ h ] -> mapping state h |> ValueTuple.map1Of2 (fun x -> x :: acc)
         | h :: t ->
-            let struct(mappedHead, stateHead) = mapping state h
+            let struct (mappedHead, stateHead) = mapping state h
             vMapFoldWithAcc mapping stateHead t (mappedHead :: acc)
 
-    let vMapFold<'T, 'State, 'Result> (mapping: 'State -> 'T -> struct('Result * 'State)) state list : struct('Result list * 'State) =
-        vMapFoldWithAcc mapping state list []
-        |> ValueTuple.map1Of2 List.rev
+    let vMapFold<'T, 'State, 'Result> (mapping: 'State -> 'T -> struct ('Result * 'State)) state list : struct ('Result list * 'State) =
+        vMapFoldWithAcc mapping state list [] |> ValueTuple.map1Of2 List.rev
 
 module ResizeArray =
 
@@ -728,18 +733,6 @@ module Span =
 
         state
 #endif
-
-module ValueOptionInternal =
-
-    let inline ofOption x =
-        match x with
-        | Some x -> ValueSome x
-        | None -> ValueNone
-
-    let inline bind ([<InlineIfLambda>] f) x =
-        match x with
-        | ValueSome x -> f x
-        | ValueNone -> ValueNone
 
 module String =
     let make (n: int) (c: char) : string = String(c, n)
@@ -822,13 +815,11 @@ module String =
         elif (!!value).StartsWithOrdinal pattern then Some()
         else None
 
-    let (|Contains|_|) (pattern:string) value =
-        match value with        
-        | value when String.IsNullOrWhiteSpace value -> None
+    let (|Contains|_|) (pattern: string) (value: string | null) =
+        match value with
         | null -> None
-        | value ->
-            if value.Contains pattern then Some()
-            else None
+        | value when String.IsNullOrWhiteSpace value -> None
+        | value -> if value.Contains pattern then Some() else None
 
     let getLines (str: string) =
 #if FABLE_COMPILER
@@ -840,7 +831,7 @@ module String =
             let mutable line = reader.ReadLine()
 
             while not (isNull line) do
-                yield line
+                yield (line |> Unchecked.nonNull)
                 line <- reader.ReadLine()
 
             if str.EndsWithOrdinal("\n") then
@@ -884,9 +875,7 @@ module Lazy =
 // Single threaded execution and mutual exclusion
 
 /// Represents a permission active at this point in execution
-type ExecutionToken =
-    interface
-    end
+type ExecutionToken = interface end
 
 /// Represents a token that indicates execution on the compilation thread, i.e.
 ///   - we have full access to the (partially mutable) TAST and TcImports data structures
@@ -973,15 +962,11 @@ module ResultOrException =
         | Exception _err -> f ()
 
 /// Generates unique stamps
-type UniqueStampGenerator<'T when 'T: equality
-#if !NO_CHECKNULLS
-    and 'T:not null
-#endif
-    >() =
+type UniqueStampGenerator<'T when 'T: equality and 'T: not null>() =
     let encodeTable = ConcurrentDictionary<'T, Lazy<int>>(HashIdentity.Structural)
     let mutable nItems = -1
 
-    let computeFunc = Func<'T, _>(fun _ -> lazy (Interlocked.Increment(&nItems)))
+    let computeFunc = Func<'T, _>(fun _ -> lazy Interlocked.Increment(&nItems))
 
     member _.Encode str =
         encodeTable.GetOrAdd(str, computeFunc).Value
@@ -993,14 +978,17 @@ type UniqueStampGenerator<'T when 'T: equality
 #endif
 
 /// memoize tables (all entries cached, never collected)
-type MemoizationTable<'T, 'U
-#if !NO_CHECKNULLS
-    when 'T:not null
-#endif
-    >(compute: 'T -> 'U, keyComparer: IEqualityComparer<'T>, ?canMemoize) =
+type MemoizationTable<'T, 'U when 'T: not null>(name: string, compute: 'T -> 'U, keyComparer: IEqualityComparer<'T>, ?canMemoize) =
 
+#if FABLE_COMPILER
+    do ignore name
     let table = new ConcurrentDictionary<'T, Lazy<'U>>(keyComparer)
     let computeFunc = Func<_, _>(fun key -> lazy (compute key))
+#else
+    let options = CacheOptions.getDefault keyComparer |> CacheOptions.withNoEviction
+    let table = new Cache<'T, Lazy<'U>>(options, name)
+    let computeFunc key = lazy compute key
+#endif
 
     member t.Apply x =
         if
@@ -1013,12 +1001,8 @@ type MemoizationTable<'T, 'U
             compute x
 
 /// A thread-safe lookup table which is assigning an auto-increment stamp with each insert
-type internal StampedDictionary<'T, 'U
-#if !NO_CHECKNULLS
-    when 'T:not null
-#endif
-    >(keyComparer: IEqualityComparer<'T>) =
-    let table = new ConcurrentDictionary<'T, Lazy<int * 'U>>(keyComparer)
+type internal StampedDictionary<'T, 'U when 'T: not null>(keyComparer: IEqualityComparer<'T>) =
+    let table = ConcurrentDictionary<'T, Lazy<int * 'U>>(keyComparer)
     let mutable count = -1
 
     member _.Add(key, value) =
@@ -1028,7 +1012,7 @@ type internal StampedDictionary<'T, 'U
     member _.UpdateIfExists(key, valueReplaceFunc) =
         match table.TryGetValue key with
         | true, v ->
-            let (stamp, oldVal) = v.Value
+            let stamp, oldVal = v.Value
 
             match valueReplaceFunc oldVal with
             | None -> ()
@@ -1075,7 +1059,7 @@ type LazyWithContext<'T, 'Ctxt> =
     static member NotLazy(x: 'T) : LazyWithContext<'T, 'Ctxt> =
         {
             value = x
-            funcOrException = null
+            funcOrException = (null: objnull)
             findOriginalException = id
         }
 
@@ -1090,13 +1074,10 @@ type LazyWithContext<'T, 'Ctxt> =
          | null -> true
          | _ -> false)
 
-    member x.Force(ctxt: 'Ctxt) =
+    member x.Force(ctxt: 'Ctxt) : 'T =
         match x.funcOrException with
         | null -> x.value
         | _ ->
-#if FABLE_COMPILER
-            x.UnsynchronizedForce(ctxt)
-#else
             // Enter the lock in case another thread is in the process of evaluating the result
             Monitor.Enter x
 
@@ -1104,7 +1085,6 @@ type LazyWithContext<'T, 'Ctxt> =
                 x.UnsynchronizedForce ctxt
             finally
                 Monitor.Exit x
-#endif
 
     member x.UnsynchronizedForce ctxt =
         match x.funcOrException with
@@ -1113,12 +1093,12 @@ type LazyWithContext<'T, 'Ctxt> =
             // Re-raise the original exception
             raise (x.findOriginalException res.Exception)
         | :? ('Ctxt -> 'T) as f ->
-            x.funcOrException <- box (LazyWithContextFailure.Undefined)
+            x.funcOrException <- box LazyWithContextFailure.Undefined
 
             try
                 let res = f ctxt
                 x.value <- res
-                x.funcOrException <- null
+                x.funcOrException <- (null: objnull)
                 res
             with RecoverableException exn ->
                 x.funcOrException <- box (LazyWithContextFailure(exn))
@@ -1177,7 +1157,7 @@ module IPartialEqualityComparer =
                 if dict.ContainsKey key then
                     false
                 else
-                    (dict[key] <- null
+                    (dict[key] <- (null: objnull)
                      true)
             else
                 true)
@@ -1346,6 +1326,15 @@ module MultiMap =
 
     let initBy f xs : MultiMap<_, _> =
         xs |> Seq.groupBy f |> Seq.map (fun (k, v) -> (k, List.ofSeq v)) |> Map.ofSeq
+
+    let ofList (xs: ('a * 'b) list) : MultiMap<'a, 'b> =
+        (Map.empty, xs)
+        ||> List.fold (fun m (k, v) ->
+            m
+            |> Map.change k (function
+                | None -> Some [ v ]
+                | Some vs -> Some(v :: vs)))
+        |> Map.map (fun _ values -> List.rev values)
 
 type LayeredMap<'Key, 'Value when 'Key: comparison> = Map<'Key, 'Value>
 

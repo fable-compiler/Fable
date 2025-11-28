@@ -88,7 +88,7 @@ type XmlDoc(unprocessedLines: string[], range: range) =
                         let nm = attr.Value
 
                         if not (paramNames |> List.contains nm) then
-                            warning (Error(FSComp.SR.xmlDocInvalidParameterName (nm), doc.Range))
+                            warning (Error(FSComp.SR.xmlDocInvalidParameterName nm, doc.Range))
 
                 let paramsWithDocs =
                     [
@@ -102,12 +102,12 @@ type XmlDoc(unprocessedLines: string[], range: range) =
 
                     for p in paramNames do
                         if not (paramsWithDocs |> List.contains p) then
-                            warning (Error(FSComp.SR.xmlDocMissingParameter (p), doc.Range))
+                            warning (Error(FSComp.SR.xmlDocMissingParameter p, doc.Range))
 
                 let duplicates = paramsWithDocs |> List.duplicates
 
                 for d in duplicates do
-                    warning (Error(FSComp.SR.xmlDocDuplicateParameter (d), doc.Range))
+                    warning (Error(FSComp.SR.xmlDocDuplicateParameter d, doc.Range))
 
                 for pref in xml.Descendants(XName.op_Implicit "paramref") do
                     match pref.Attribute(!!(XName.op_Implicit "name")) with
@@ -116,10 +116,10 @@ type XmlDoc(unprocessedLines: string[], range: range) =
                         let nm = attr.Value
 
                         if not (paramNames |> List.contains nm) then
-                            warning (Error(FSComp.SR.xmlDocInvalidParameterName (nm), doc.Range))
+                            warning (Error(FSComp.SR.xmlDocInvalidParameterName nm, doc.Range))
 
         with e ->
-            warning (Error(FSComp.SR.xmlDocBadlyFormed (e.Message), doc.Range))
+            warning (Error(FSComp.SR.xmlDocBadlyFormed e.Message, doc.Range))
 #endif //!FABLE_COMPILER
 
 // Discriminated unions can't contain statics, so we use a separate type
@@ -143,7 +143,8 @@ type XmlDocCollector() =
             let xmlDocBlock =
                 struct (savedLines.Count - currentGrabPointCommentsCount, savedLines.Count - 1, false)
 
-            savedGrabPoints.Add(pos, xmlDocBlock)
+            // silently override duplicate grab points (which happen only when preceded by nonsensical line directives)
+            savedGrabPoints[pos] <- xmlDocBlock
             currentGrabPointCommentsCount <- 0
             delayedGrabPoint <- ValueNone
 
@@ -243,7 +244,7 @@ type PreXmlDoc =
             if part1.IsEmpty then part2.Range
             elif part2.IsEmpty then part1.Range
             else unionRanges part1.Range part2.Range
-        | PreXmlDocEmpty -> Range.Zero
+        | PreXmlDocEmpty -> range0
         | PreXmlDoc(pos, collector) -> collector.LinesRange pos
 
     member x.IsEmpty =

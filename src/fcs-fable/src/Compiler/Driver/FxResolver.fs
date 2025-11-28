@@ -98,13 +98,9 @@ type internal FxResolver
                     p.WaitForExit()
 #if DEBUG
             if workingDir.IsSome then
-                FileSystem
-                    .OpenFileForWriteShim(Path.Combine(workingDir.Value, "StandardOutput.txt"))
-                    .WriteAllLines(outputList)
+                FileSystem.OpenFileForWriteShim(Path.Combine(workingDir.Value, "StandardOutput.txt")).WriteAllLines(outputList)
 
-                FileSystem
-                    .OpenFileForWriteShim(Path.Combine(workingDir.Value, "StandardError.txt"))
-                    .WriteAllLines(errorsList)
+                FileSystem.OpenFileForWriteShim(Path.Combine(workingDir.Value, "StandardError.txt")).WriteAllLines(errorsList)
 #endif
             p.ExitCode, outputList.ToArray(), errorsList.ToArray()
         else
@@ -116,7 +112,7 @@ type internal FxResolver
         desiredDotNetSdkVersionForDirectoryCache.GetOrAdd(
             projectDir,
             (fun _ ->
-                match getDotnetHostPath () with
+                match getDotnetHostPath None with
                 | Some dotnetHostPath ->
                     try
                         let workingDir =
@@ -250,7 +246,7 @@ type internal FxResolver
                             getRunningImplementationAssemblyDir (), warnings
                     with e ->
                         let warn =
-                            Error(FSComp.SR.scriptSdkNotDeterminedUnexpected (e.Message), rangeForErrors)
+                            Error(FSComp.SR.scriptSdkNotDeterminedUnexpected e.Message, rangeForErrors)
 
                         let path = getRunningImplementationAssemblyDir ()
                         path, [ warn ]
@@ -284,10 +280,7 @@ type internal FxResolver
             try
                 let asm = typeof<System.ValueTuple<int, int>>.Assembly
 
-                if
-                    (!!asm.FullName)
-                        .StartsWith("System.ValueTuple", StringComparison.OrdinalIgnoreCase)
-                then
+                if (!!asm.FullName).StartsWith("System.ValueTuple", StringComparison.OrdinalIgnoreCase) then
                     Some asm.Location
                 else
                     let valueTuplePath =
@@ -378,7 +371,7 @@ type internal FxResolver
                     | None -> (None, None), warnings
             with e ->
                 let warn =
-                    Error(FSComp.SR.scriptSdkNotDeterminedUnexpected (e.Message), rangeForErrors)
+                    Error(FSComp.SR.scriptSdkNotDeterminedUnexpected e.Message, rangeForErrors)
                 // This is defensive coding, we don't expect this exception to happen
                 // NOTE: consider reporting this exception as a warning
                 (None, None), [ warn ]
@@ -419,7 +412,7 @@ type internal FxResolver
 
         match runningTfmOpt with
         | Some tfm -> tfm
-        | _ -> if isRunningOnCoreClr then "net9.0" else "net472"
+        | _ -> if isRunningOnCoreClr then "net10.0" else "net472"
 
     let trySdkRefsPackDirectory =
         lazy
@@ -465,7 +458,7 @@ type internal FxResolver
                     | None -> None, warnings
                 with e ->
                     let warn =
-                        Error(FSComp.SR.scriptSdkNotDeterminedUnexpected (e.Message), rangeForErrors)
+                        Error(FSComp.SR.scriptSdkNotDeterminedUnexpected e.Message, rangeForErrors)
                     // This is defensive coding, we don't expect this exception to happen
                     // NOTE: consider reporting this exception as a warning
                     None, warnings @ [ warn ]
@@ -498,7 +491,7 @@ type internal FxResolver
                 try
                     if FileSystem.FileExistsShim(reference) then
                         // Reference is a path to a file on disk
-                        !! Path.GetFileNameWithoutExtension(reference), reference
+                        !!Path.GetFileNameWithoutExtension(reference), reference
                     else
                         // Reference is a SimpleAssembly name
                         reference, frameworkPathFromSimpleName reference
@@ -943,7 +936,7 @@ type internal FxResolver
 
                             sdkReferences, false
                         with e ->
-                            warning (Error(FSComp.SR.scriptSdkNotDeterminedUnexpected (e.Message), rangeForErrors))
+                            warning (Error(FSComp.SR.scriptSdkNotDeterminedUnexpected e.Message, rangeForErrors))
                             // This is defensive coding, we don't expect this exception to happen
                             if isRunningOnCoreClr then
                                 // If running on .NET Core and something goes wrong with getting the

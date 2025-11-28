@@ -5,19 +5,14 @@
 namespace FSharp.Compiler.CodeAnalysis
 
 open System
-open System.IO
-open System.Threading
-open System.Threading.Tasks
 open FSharp.Compiler.AbstractIL.ILBinaryReader
 open FSharp.Compiler.CodeAnalysis
 #if !FABLE_COMPILER
 open FSharp.Compiler.CodeAnalysis.TransparentCompiler
 #endif
-open FSharp.Compiler.CompilerConfig
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.EditorServices
 open FSharp.Compiler.Symbols
-open FSharp.Compiler.Syntax
 open FSharp.Compiler.Text
 open FSharp.Compiler.Tokenization
 
@@ -230,6 +225,7 @@ type public FSharpChecker =
     ///
     /// <param name="fileName">Used to differentiate between scripts, to consider each script a separate project. Also used in formatted error messages.</param>
     /// <param name="source">The source for the file.</param>
+    /// <param name="caret">The editor location for the cursor if available.</param>
     /// <param name="previewEnabled">Is the preview compiler enabled.</param>
     /// <param name="loadedTimeStamp">Indicates when the script was loaded into the editing environment,
     /// so that an 'unload' and 'reload' action will cause the script to be considered as a new project,
@@ -244,6 +240,7 @@ type public FSharpChecker =
     member GetProjectOptionsFromScript:
         fileName: string *
         source: ISourceText *
+        ?caret: Position *
         ?previewEnabled: bool *
         ?loadedTimeStamp: DateTime *
         ?otherFlags: string[] *
@@ -257,6 +254,7 @@ type public FSharpChecker =
 
     /// <param name="fileName">Used to differentiate between scripts, to consider each script a separate project. Also used in formatted error messages.</param>
     /// <param name="source">The source for the file.</param>
+    /// <param name="caret">The editor location for the cursor if available.</param>
     /// <param name="documentSource">DocumentSource to load any additional files.</param>
     /// <param name="previewEnabled">Is the preview compiler enabled.</param>
     /// <param name="loadedTimeStamp">Indicates when the script was loaded into the editing environment,
@@ -273,6 +271,7 @@ type public FSharpChecker =
     member GetProjectSnapshotFromScript:
         fileName: string *
         source: ISourceTextNew *
+        ?caret: Position *
         ?documentSource: DocumentSource *
         ?previewEnabled: bool *
         ?loadedTimeStamp: DateTime *

@@ -13,16 +13,12 @@ open FSharp.Compiler.TcGlobals
 open FSharp.Compiler.Text
 open FSharp.Compiler.TypedTree
 
-exception ObsoleteWarning of string * range
-
-exception ObsoleteError of string * range
-
 type AttribInfo =
     | FSAttribInfo of TcGlobals * Attrib
     | ILAttribInfo of TcGlobals * Import.ImportMap * ILScopeRef * ILAttribute * range
 
-    member ConstructorArguments: (TType * obj) list
-    member NamedArguments: (TType * string * bool * obj) list
+    member ConstructorArguments: (TType * objnull) list
+    member NamedArguments: (TType * string * bool * objnull) list
     member Range: range
     member TyconRef: TyconRef
 
@@ -72,7 +68,7 @@ val CheckFSharpAttributesForHidden: g: TcGlobals -> attribs: Attrib list -> bool
 
 val CheckFSharpAttributesForObsolete: g: TcGlobals -> attribs: Attrib list -> bool
 
-val CheckFSharpAttributesForUnseen: g: TcGlobals -> attribs: Attrib list -> _m: 'a -> bool
+val CheckFSharpAttributesForUnseen: g: TcGlobals -> attribs: Attrib list -> _m: 'a -> allowObsolete: bool -> bool
 
 val CheckPropInfoAttributes: pinfo: PropInfo -> m: range -> OperationResult<unit>
 
@@ -81,9 +77,9 @@ val CheckILFieldAttributes: g: TcGlobals -> finfo: ILFieldInfo -> m: range -> un
 val CheckMethInfoAttributes:
     g: TcGlobals -> m: range -> tyargsOpt: 'a option -> minfo: MethInfo -> OperationResult<unit>
 
-val MethInfoIsUnseen: g: TcGlobals -> m: range -> ty: TType -> minfo: MethInfo -> bool
+val MethInfoIsUnseen: g: TcGlobals -> m: range -> ty: TType -> minfo: MethInfo -> allowObsolete: bool -> bool
 
-val PropInfoIsUnseen: m: 'a -> pinfo: PropInfo -> bool
+val PropInfoIsUnseen: m: 'a -> allowObsolete: bool -> pinfo: PropInfo -> bool
 
 val CheckEntityAttributes: g: TcGlobals -> tcref: TyconRef -> m: range -> OperationResult<unit>
 

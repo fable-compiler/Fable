@@ -4,7 +4,6 @@ module internal FSharp.Compiler.IlxGen
 
 open System
 open System.IO
-open System.Reflection
 open FSharp.Compiler.AbstractIL.IL
 open FSharp.Compiler.TypedTree
 open FSharp.Compiler.TcGlobals
@@ -112,10 +111,10 @@ type public IlxAssemblyGenerator =
     member ClearGeneratedValue: ExecutionContext * Val -> unit
 
     /// Invert the compilation of the given value and set the storage of the value, even if it is immutable
-    member ForceSetGeneratedValue: ExecutionContext * Val * obj -> unit
+    member ForceSetGeneratedValue: ExecutionContext * Val * objnull -> unit
 
     /// Invert the compilation of the given value and return its current dynamic value and its compiled System.Type
-    member LookupGeneratedValue: ExecutionContext * Val -> (obj * Type) option
+    member LookupGeneratedValue: ExecutionContext * Val -> (objnull * Type) option
 #endif //!FABLE_COMPILER
 
 val ReportStatistics: TextWriter -> unit

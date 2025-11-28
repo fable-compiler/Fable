@@ -242,6 +242,12 @@ let resources =
       ( "Parser.TOKEN.EQUALS",
         "symbol '='"
       );
+      ( "Parser.TOKEN.GREATER.BAR.RBRACE",
+        "symbol '>|}'"
+      );  
+      ( "Parser.TOKEN.RQUOTE.BAR.RBRACE",
+        "symbol '@>|}' or '@@>|}'"
+      );  
       ( "Parser.TOKEN.GREATER.BAR.RBRACK",
         "symbol '>|]'"
       );
@@ -914,8 +920,14 @@ let resources =
       ( "Obsolete2",
         ". {0}"
       );
-      ( "Experimental",
-        "{0}. This warning can be disabled using '--nowarn:57' or '#nowarn \"57\"'."
+      ( "Experimental1",
+        "This construct is experimental"
+      );
+      ( "Experimental2",
+        ". {0}"
+      );
+      ( "Experimental3",
+        ". This warning can be disabled using '--nowarn:57' or '#nowarn \"57\"'."
       );
       ( "PossibleUnverifiableCode",
         "Uses of this construct may result in the generation of unverifiable .NET IL code. This warning can be disabled using '--nowarn:9' or '#nowarn \"9\"'."
@@ -1018,5 +1030,14 @@ let resources =
       );
       ( "Parser.TOKEN.WHILE.BANG",
         "keyword 'while!'"
+      );
+      ( "InvalidAttributeTargetForLanguageElement1",
+        "This attribute cannot be applied to {0}. Valid targets are: {1}"
+      );
+      ( "InvalidAttributeTargetForLanguageElement2",
+        "This attribute is not valid for use on this language element"
+      );
+      ( "NoConstructorsAvailableForType",
+        "No constructors are available for the type '{0}'"
       );
     ]

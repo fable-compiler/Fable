@@ -158,7 +158,7 @@ module internal ParseAndCheck =
         let dependencyFiles = parseResults |> Seq.map (fun x -> x.DependencyFiles) |> Array.concat
         let getAssemblyData () = None
         let details = (compilerState.tcGlobals, compilerState.tcImports, tcState.Ccu, tcState.CcuSig, symbolUses, topAttrsOpt,
-                        getAssemblyData, assemblyRef, access, tcImplFilesOpt, dependencyFiles, compilerState.projectOptions)
+                        getAssemblyData, assemblyRef, access, tcImplFilesOpt, dependencyFiles, Some compilerState.projectOptions)
         let keepAssemblyContents = true
         FSharpCheckProjectResults (projectFileName, Some compilerState.tcConfig, keepAssemblyContents, errors, Some details)
 
@@ -192,7 +192,7 @@ module internal ParseAndCheck =
         let input = parseResults.ParseTree
         let diagnosticsOptions = compilerState.tcConfig.diagnosticsOptions
         let capturingLogger = CompilationDiagnosticLogger("TypeCheckFile", diagnosticsOptions)
-        let diagnosticsLogger = GetDiagnosticsLoggerFilteringByScopedPragmas(false, input.ScopedPragmas, diagnosticsOptions, capturingLogger)
+        let diagnosticsLogger = GetDiagnosticsLoggerFilteringByScopedNowarn(diagnosticsOptions, capturingLogger)
         use _scope = new CompilationGlobalsScope (diagnosticsLogger, BuildPhase.TypeCheck)
 
         let checkForErrors () = parseResults.ParseHadErrors || diagnosticsLogger.ErrorCount > 0
@@ -224,7 +224,7 @@ module internal ParseAndCheck =
         let errors = Array.append parseResults.Diagnostics tcErrors
 
         let scope = TypeCheckInfo (compilerState.tcConfig, compilerState.tcGlobals, ccuSigForFile, tcState.Ccu, compilerState.tcImports, tcEnvAtEnd.AccessRights,
-                                projectFileName, fileName, compilerState.projectOptions, sink.GetResolutions(), sink.GetSymbolUses(), tcEnvAtEnd.NameEnv,
+                                projectFileName, fileName, Some compilerState.projectOptions, sink.GetResolutions(), sink.GetSymbolUses(), tcEnvAtEnd.NameEnv,
                                 loadClosure, implFile, sink.GetOpenDeclarations())
         FSharpCheckFileResults (fileName, errors, Some scope, parseResults.DependencyFiles, None, keepAssemblyContents)
 

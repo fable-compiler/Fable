@@ -1369,7 +1369,7 @@ let MakeValsForEqualityWithComparerAugmentation g (tcref: TyconRef) =
         mkValSpec g tcref ty vis (Some(mkIStructuralEquatableEqualsSlotSig g)) "Equals" (tps +-> (mkEqualsWithComparerTy g ty)) tupArg false
 
     let withEqualsExactWithComparer =
-        let vis = TAccess (updateSyntaxAccessForCompPath (vis.CompilationPaths) SyntaxAccess.Public)
+        let vis = TAccess (updateSyntaxAccessForCompPath vis.CompilationPaths SyntaxAccess.Public)
         mkValSpec
             g 
             tcref 
@@ -1647,13 +1647,7 @@ let rec TypeDefinitelyHasEquality g ty =
     match appTy with
     | ValueSome(tcref, _) when HasFSharpAttribute g g.attrib_NoEqualityAttribute tcref.Attribs -> false
     | _ ->
-        if
-            isTyparTy g ty
-            && (destTyparTy g ty).Constraints
-               |> List.exists (function
-                   | TyparConstraint.SupportsEquality _ -> true
-                   | _ -> false)
-        then
+        if ty |> IsTyparTyWithConstraint g _.IsSupportsEquality then
             true
         else
             match ty with

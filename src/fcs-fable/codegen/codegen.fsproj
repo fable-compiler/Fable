@@ -2,6 +2,7 @@
   <PropertyGroup>
     <ArtifactsDir Condition="'$(ArtifactsDir)' == ''">artifacts</ArtifactsDir>
     <FSharpSourcesRoot>$(MSBuildProjectDirectory)/../../../src/Compiler</FSharpSourcesRoot>
+    <TolerateUnusedBindings>true</TolerateUnusedBindings>
   </PropertyGroup>
   <Import Project="../../../buildtools/buildtools.targets" />
   <!-- <Import Project="fssrgen.targets" /> -->
