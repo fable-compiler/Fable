@@ -7,13 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## 5.0.0-alpha.16 - 2025-11-27
-
 ### Changed
 
-* [Python] fable-library for Python is now distributed via PyPI instead of being bundled in the NuGet package (by @dbrattli)
+* [All] Update TargetFramework to net10.0 (by @ncave)
+* [All] Update FCS to latest (commit [cfda5f6](https://github.com/dotnet/fsharp/commits/cfda5f68f781f1b336b7d6c1689d69f2c34da751/)) (by @ncave)
 
-## 5.0.0-alpha.15 - 2025-11-25
+## 5.0.0-alpha.16 - 2025-11-27
 
 ### Fixed
 
@@ -22,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 * [All] Invoke MSBuild from Fable current working directory (by @cr3wdayt5p)
+* [Python] fable-library for Python is now distributed via PyPI instead of being bundled in the NuGet package (by @dbrattli)
 
 ## 5.0.0-alpha.15 - 2025-11-19
 
@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [All] Added `ofOption`/`toOption`/`ofValueOption`/`toValueOption` (by @ncave)
 * [Python] Added `Decorate` attribute to add Python decorators to classes (by @dbrattli)
 * [Python] Added `ClassAttributes` attribute to control Python class generation (@dbrattli)
+* [Python] Added support for Python 3.14 (by @dbrattli)
 
 ### Changed
 

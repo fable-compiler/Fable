@@ -413,7 +413,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- <PackageReference Include="FSharp.Core" Version="9.0.0" /> -->
+    <!-- <PackageReference Include="FSharp.Core" Version="10.0.100" /> -->
     <!-- <Reference Include="../../artifacts/bin/FSharp.Compiler.Service/Release/netstandard2.0/FSharp.Core.dll" /> -->
   </ItemGroup>
 

@@ -227,7 +227,7 @@ let ``TimeSpan Subtraction works`` () =
 
 [<Fact>]
 let ``TimeSpan Multiplication works`` () =
-    let test ms factor expected =
+    let test (ms: float) factor expected =
             // sprintf "(%f, %f) = %f" ms factor expected
             let t = TimeSpan.FromMilliseconds(ms)
             let res1 = t.Multiply(factor).TotalMilliseconds
@@ -245,7 +245,7 @@ let ``TimeSpan Multiplication works`` () =
 [<Fact>]
 let ``TimeSpan Division works`` () =
     // Note: there are two overloads, one with TimeSpan, one with float
-    let test_ts ms1 ms2 expected =
+    let test_ts (ms1: float) (ms2: float) expected =
         // sprintf "ts(%f, %f) = %f" ms1 ms2 expected
         let t1 = TimeSpan.FromMilliseconds(ms1)
         let t2 = TimeSpan.FromMilliseconds(ms2)
@@ -254,7 +254,7 @@ let ``TimeSpan Division works`` () =
         equal res1 res2
         equal true (res1 = res2)
         equal expected res1
-    let test_float ms (factor: float) expected =
+    let test_float (ms: float) (factor: float) expected =
         // sprintf "float(%f, %f) = %f" ms factor expected
         let t = TimeSpan.FromMilliseconds(ms)
         let res1 = t.Divide(factor).TotalMilliseconds

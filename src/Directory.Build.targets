@@ -3,7 +3,7 @@
         <CodeRoot>$([System.IO.Path]::GetDirectoryName($(DirectoryBuildTargetsPath)))</CodeRoot>
         <FSharpAnalyzersOtherFlags>--analyzers-path &quot;$(PkgG-Research_FSharp_Analyzers)/analyzers/dotnet/fs&quot;</FSharpAnalyzersOtherFlags>
         <FSharpAnalyzersOtherFlags>$(FSharpAnalyzersOtherFlags) --analyzers-path &quot;$(PkgIonide_Analyzers)/analyzers/dotnet/fs&quot;</FSharpAnalyzersOtherFlags>
-        <FSharpAnalyzersOtherFlags>$(FSharpAnalyzersOtherFlags) --analyzers-path  &quot;$(CodeRoot)/Fable.Analyzers/bin/Release/net9.0&quot;</FSharpAnalyzersOtherFlags>
+        <FSharpAnalyzersOtherFlags>$(FSharpAnalyzersOtherFlags) --analyzers-path  &quot;$(CodeRoot)/Fable.Analyzers/bin/Release/net10.0&quot;</FSharpAnalyzersOtherFlags>
         <SarifOutput>$(CodeRoot)/reports/</SarifOutput>
         <FSharpAnalyzersOtherFlags>$(FSharpAnalyzersOtherFlags) --code-root &quot;$(CodeRoot)&quot;</FSharpAnalyzersOtherFlags>
         <FSharpAnalyzersOtherFlags>$(FSharpAnalyzersOtherFlags) --report &quot;$(SarifOutput)$(MSBuildProjectName)-$(TargetFramework).sarif&quot;</FSharpAnalyzersOtherFlags>

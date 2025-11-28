@@ -211,8 +211,8 @@ let ``test DateTime and TimeSpan Addition works`` () =
 [<Fact>]
 let ``test TimeSpan implementation coherence`` () =
     TimeSpan.FromTicks(1L).Ticks |> equal 1L
-    TimeSpan.FromMilliseconds(1).Milliseconds |> equal 1
-    TimeSpan.FromMilliseconds(1).TotalMilliseconds |> equal 1.
+    TimeSpan.FromMilliseconds(1L).Milliseconds |> equal 1
+    TimeSpan.FromMilliseconds(1L).TotalMilliseconds |> equal 1.
     TimeSpan.FromSeconds(1.).Seconds |> equal 1
     TimeSpan.FromSeconds(1.).TotalSeconds |> equal 1.
     TimeSpan.FromMinutes(1.).Minutes |> equal 1
@@ -222,8 +222,8 @@ let ``test TimeSpan implementation coherence`` () =
     TimeSpan.FromDays(1).Days |> equal 1
     TimeSpan.FromDays(1).TotalDays |> equal 1.
 
-    TimeSpan.FromMilliseconds(-1).Milliseconds |> equal -1
-    TimeSpan.FromMilliseconds(-1).TotalMilliseconds |> equal -1.
+    TimeSpan.FromMilliseconds(-1L).Milliseconds |> equal -1
+    TimeSpan.FromMilliseconds(-1L).TotalMilliseconds |> equal -1.
     TimeSpan.FromSeconds(-1.).Seconds |> equal -1
     TimeSpan.FromSeconds(-1.).TotalSeconds |> equal -1.
     TimeSpan.FromMinutes(-1.).Minutes |> equal -1

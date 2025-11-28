@@ -150,7 +150,7 @@ let tests() =
         test 0. 0. 0.
 
     testList "TimeSpan Multiplication works" [
-        let test ms factor expected =
+        let test (ms: float) factor expected =
             testCase $"({ms}, {factor}) = {expected}" <| fun () ->
                 let t = TimeSpan.FromMilliseconds(ms)
                 let res1 = t.Multiply(factor).TotalMilliseconds
