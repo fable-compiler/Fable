@@ -1,9 +1,6 @@
 namespace FSharp.Compiler.CodeAnalysis
 
 open FSharp.Compiler.Text
-open FSharp.Compiler.BuildGraph
-
-open System.Reflection
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.CompilerConfig
 open FSharp.Compiler.Diagnostics
@@ -90,6 +87,7 @@ type internal IBackgroundCompiler =
     abstract GetProjectOptionsFromScript:
         fileName: string *
         sourceText: ISourceText *
+        caret: Position option *
         previewEnabled: bool option *
         loadedTimeStamp: System.DateTime option *
         otherFlags: string array option *
@@ -104,6 +102,7 @@ type internal IBackgroundCompiler =
     abstract GetProjectSnapshotFromScript:
         fileName: string *
         sourceText: ISourceTextNew *
+        caret: Position option *
         documentSource: DocumentSource *
         previewEnabled: bool option *
         loadedTimeStamp: System.DateTime option *

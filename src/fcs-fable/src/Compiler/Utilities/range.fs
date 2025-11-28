@@ -7,6 +7,7 @@ open System
 open System.IO
 open System.Collections.Concurrent
 open System.Collections.Generic
+open System.Text
 open Microsoft.FSharp.Core.Printf
 open Internal.Utilities.Library
 open Internal.Utilities.Library.Extras.Bits
@@ -270,9 +271,25 @@ module FileIndex =
     let startupFileName = "startup"
     let commandLineArgsFileName = "commandLineArgs"
 
+    let mutable testSources: ConcurrentDictionary<string, string> =
+        ConcurrentDictionary()
+
+[<RequireQualifiedAccess>]
+module internal LineDirectives =
+
+    // For use in this module and in range.ApplyLineDirectives only.
+    // The key is the index of the original file. Each line directive is represented
+    // by the line number of the directive and the file index and line number of the target.
+    let mutable store: Map<FileIndex, (int * (FileIndex * int)) list> = Map.empty
+    let storeLock = obj ()
+
+    let add fileIndex lineDirectives =
+        lock storeLock <| fun () -> store <- store.Add(fileIndex, lineDirectives)
+
 [<Struct; CustomEquality; NoComparison>]
 [<System.Diagnostics.DebuggerDisplay("({StartLine},{StartColumn}-{EndLine},{EndColumn}) {ShortFileName} -> {DebugCode}")>]
 type Range(code1: int64, code2: int64) =
+    [<Obsolete("Use Range.range0 instead")>]
     static member Zero = range (0L, 0L)
 
     new(fIdx, bl, bc, el, ec) =
@@ -325,7 +342,28 @@ type Range(code1: int64, code2: int64) =
 
     member m.FileName = fileOfFileIndex m.FileIndex
 
-    member m.ShortFileName = Path.GetFileName(fileOfFileIndex m.FileIndex)
+    member internal m.ShortFileName =
+        Path.GetFileName(fileOfFileIndex m.FileIndex) |> nonNull
+
+    member m.ApplyLineDirectives() =
+        match LineDirectives.store.TryFind m.FileIndex with
+        | None -> m
+        | Some((directiveLine, _) :: _ as directives) when m.StartLine > directiveLine ->
+            let mStartLine = m.StartLine
+
+            let directiveLine, (fileIndex, directiveTargetLine) =
+                directives
+                |> List.findBack (fun (directiveLine, _) -> mStartLine > directiveLine)
+
+            let xOffset = directiveTargetLine - (directiveLine + 1)
+
+            let r =
+                range (fileIndex, mStartLine + xOffset, m.StartColumn, m.EndLine + xOffset, m.EndColumn)
+
+            let r = if m.IsSynthetic then r.MakeSynthetic() else r
+            let r = r.NoteSourceConstruct m.NotedSourceConstruct
+            r
+        | Some _ -> m
 
     member _.MakeSynthetic() =
         range (code1, code2 ||| isSyntheticMask)
@@ -357,32 +395,42 @@ type Range(code1: int64, code2: int64) =
 #if FABLE_COMPILER
         ""
 #else
-        let name = m.FileName
+        let getRangeSubstring (m: range) (stream: Stream) =
+            let endCol = m.EndColumn - 1
+            let startCol = m.StartColumn - 1
 
-        if
-            name = unknownFileName
-            || name = startupFileName
-            || name = commandLineArgsFileName
-        then
-            name
-        else
+            stream.ReadLines()
+            |> Seq.skip (m.StartLine - 1)
+            |> Seq.take (m.EndLine - m.StartLine + 1)
+            |> String.concat "\n"
+            |> fun s -> s.Substring(startCol + 1, s.LastIndexOf("\n", StringComparison.Ordinal) + 1 - startCol + endCol)
 
-            try
-                let endCol = m.EndColumn - 1
-                let startCol = m.StartColumn - 1
+        match testSources.TryGetValue(m.FileName) with
+        | true, source ->
+            use stream = new MemoryStream(Encoding.UTF8.GetBytes(source + "\n"))
+            getRangeSubstring m stream
+        | _ ->
 
-                if FileSystem.IsInvalidPathShim m.FileName then
-                    "path invalid: " + m.FileName
-                elif not (FileSystem.FileExistsShim m.FileName) then
-                    "nonexistent file: " + m.FileName
-                else
-                    FileSystem.OpenFileForReadShim(m.FileName).ReadLines()
-                    |> Seq.skip (m.StartLine - 1)
-                    |> Seq.take (m.EndLine - m.StartLine + 1)
-                    |> String.concat "\n"
-                    |> fun s -> s.Substring(startCol + 1, s.LastIndexOf("\n", StringComparison.Ordinal) + 1 - startCol + endCol)
-            with e ->
-                e.ToString()
+            let name = m.FileName
+
+            if
+                name = unknownFileName
+                || name = startupFileName
+                || name = commandLineArgsFileName
+            then
+                name
+            else
+
+                try
+                    if FileSystem.IsInvalidPathShim m.FileName then
+                        "path invalid: " + m.FileName
+                    elif not (FileSystem.FileExistsShim m.FileName) then
+                        "nonexistent file: " + m.FileName
+                    else
+                        use stream = FileSystem.OpenFileForReadShim(m.FileName)
+                        getRangeSubstring m stream
+                with e ->
+                    e.ToString()
 #endif //!FABLE_COMPILER
 
     member _.Equals(m2: range) =
@@ -461,10 +509,22 @@ module Range =
     let mkFileIndexRange fileIndex startPos endPos = range (fileIndex, startPos, endPos)
 
     let posOrder =
-        Order.orderOn (fun (p: pos) -> p.Line, p.Column) (Pair.order (Int32.order, Int32.order))
+        let pairOrder = Pair.order (Int32.order, Int32.order)
+        let lineAndColumn = fun (p: pos) -> struct (p.Line, p.Column)
+
+        { new IComparer<pos> with
+            member _.Compare(x, xx) =
+                pairOrder.Compare(lineAndColumn x, lineAndColumn xx)
+        }
 
     let rangeOrder =
-        Order.orderOn (fun (r: range) -> r.FileName, (r.Start, r.End)) (Pair.order (String.order, Pair.order (posOrder, posOrder)))
+        let tripleOrder = Pair.order (String.order, Pair.order (posOrder, posOrder))
+        let fileLineColumn = fun (r: range) -> struct (r.FileName, struct (r.Start, r.End))
+
+        { new IComparer<range> with
+            member _.Compare(x, xx) =
+                tripleOrder.Compare(fileLineColumn x, fileLineColumn xx)
+        }
 
     let outputRange (os: TextWriter) (m: range) =
         fprintf os "%s%a-%a" m.FileName outputPos m.Start outputPos m.End
@@ -548,7 +608,8 @@ module Range =
             let endL, endC = startL + 1, 0
             range (r.FileIndex, startL, startC, endL, endC)
 
-    let stringOfRange (r: range) =
+    let stringOfRange (m: range) =
+        let r = m.ApplyLineDirectives()
         sprintf "%s%s-%s" r.FileName (stringOfPos r.Start) (stringOfPos r.End)
 
     let toZ (m: range) = toZ m.Start, toZ m.End
@@ -584,3 +645,6 @@ module Range =
         with _ ->
 #endif //!FABLE_COMPILER
             mkRange file (mkPos 1 0) (mkPos 1 80)
+
+    let internal setTestSource path (source: string) =
+        testSources.GetOrAdd(path, source) |> ignore

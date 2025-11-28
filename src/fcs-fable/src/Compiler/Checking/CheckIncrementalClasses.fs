@@ -4,7 +4,6 @@ module internal FSharp.Compiler.CheckIncrementalClasses
 
 open System
 
-open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.Features
 open Internal.Utilities.Collections
 open Internal.Utilities.Library
@@ -18,6 +17,7 @@ open FSharp.Compiler.NameResolution
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.SyntaxTreeOps
 open FSharp.Compiler.Text
+open FSharp.Compiler.Text.Range
 open FSharp.Compiler.Xml
 open FSharp.Compiler.TcGlobals
 open FSharp.Compiler.TypedTree
@@ -26,8 +26,6 @@ open FSharp.Compiler.TypedTreeOps
 open FSharp.Compiler.TypeHierarchy
 
 type cenv = TcFileState
-
-let TcClassRewriteStackGuardDepth = StackGuard.GetDepthOption "TcClassRewrite"
 
 exception ParameterlessStructCtor of range: range
 
@@ -111,7 +109,7 @@ let TcStaticImplicitCtorInfo_Phase2A(cenv: cenv, env, tcref: TyconRef, m, copyOf
             let prelimValReprInfo = TranslateSynValInfo cenv m (TcAttributes cenv env) valSynData
             let prelimTyschemeG = GeneralizedType(copyOfTyconTypars, cctorTy)
             let valReprInfo = InferGenericArityFromTyScheme prelimTyschemeG prelimValReprInfo
-            let cctorValScheme = ValScheme(id, prelimTyschemeG, Some valReprInfo, None, Some memberInfo, false, ValInline.Never, NormalVal, Some (SynAccess.Private Range.Zero), false, true, false, false)
+            let cctorValScheme = ValScheme(id, prelimTyschemeG, Some valReprInfo, None, Some memberInfo, false, ValInline.Never, NormalVal, Some (SynAccess.Private range0), false, true, false, false)
                  
             let cctorVal = MakeAndPublishVal cenv env (Parent tcref, false, ModuleOrMemberBinding, ValNotInRecScope, cctorValScheme, [(* no attributes*)], XmlDoc.Empty, None, false) 
             cctorArgs, cctorVal, cctorValScheme
@@ -578,7 +576,7 @@ type IncrClassReprInfo =
                         PostTransform = (fun _ -> None)
                         PreInterceptBinding = None
                         RewriteQuotations = true
-                        StackGuard = StackGuard(TcClassRewriteStackGuardDepth, "FixupIncrClassExprPhase2C") } expr 
+                        StackGuard = StackGuard("FixupIncrClassExprPhase2C") } expr 
 
 type IncrClassConstructionBindingsPhase2C =
     | Phase2CBindings of IncrClassBindingGroup list

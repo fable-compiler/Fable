@@ -19,9 +19,9 @@ open FSharp.Compiler.UnicodeLexing
 
 let forceDebug = false
 
-let stringOfPos (pos: Position) = sprintf "(%d:%d)" pos.OriginalLine pos.Column
+let stringOfPos (pos: Position) = sprintf "(%d:%d)" pos.Line pos.Column
 
-let outputPos os (pos: Position) = Printf.fprintf os "(%d:%d)" pos.OriginalLine pos.Column
+let outputPos os (pos: Position) = Printf.fprintf os "(%d:%d)" pos.Line pos.Column
 
 /// Used for warning strings, which should display columns as 1-based and display
 /// the lines after taking '# line' directives into account (i.e. do not use
@@ -614,7 +614,7 @@ type PositionWithColumn =
 type LexFilterImpl (
     indentationSyntaxStatus: IndentationAwareSyntaxStatus,
     compilingFSharpCore,
-    lexer: (Lexbuf -> token),
+    lexer: Lexbuf -> token,
     lexbuf: Lexbuf,
     debug: bool
 ) =
@@ -742,7 +742,7 @@ type LexFilterImpl (
 
         delayToken initialLookaheadTokenTup
         initialized <- true
-        offsideStack <- (CtxtSeqBlock(FirstInSeqBlock, startPosOfTokenTup initialLookaheadTokenTup, NoAddBlockEnd)) :: offsideStack
+        offsideStack <- CtxtSeqBlock(FirstInSeqBlock, startPosOfTokenTup initialLookaheadTokenTup, NoAddBlockEnd) :: offsideStack
         initialLookaheadTokenTup
 
     let reportDiagnostic reportF (s: TokenTup) msg =
@@ -816,7 +816,7 @@ type LexFilterImpl (
             // Otherwise the rule of 'match ... with' limited by 'match' (given RelaxWhitespace2)
             // will consider the CtxtMatch as the limiting context instead of allowing undentation until the parenthesis
             // Test here: Tests/FSharp.Compiler.ComponentTests/Conformance/LexicalFiltering/Basic/OffsideExceptions.fs, RelaxWhitespace2_AllowedBefore11
-            | _, (CtxtMatchClauses _ as ctxt1) :: (CtxtMatch _) :: CtxtSeqBlock _ :: (CtxtParen ((BEGIN | LPAREN), _) as ctxt2) :: _ when relaxWhitespace2
+            | _, (CtxtMatchClauses _ as ctxt1) :: CtxtMatch _ :: CtxtSeqBlock _ :: (CtxtParen ((BEGIN | LPAREN), _) as ctxt2) :: _ when relaxWhitespace2
                       -> if ctxt1.StartCol <= ctxt2.StartCol
                          then PositionWithColumn(ctxt1.StartPos, ctxt1.StartCol)
                          else PositionWithColumn(ctxt2.StartPos, ctxt2.StartCol)
@@ -835,11 +835,11 @@ type LexFilterImpl (
                       -> undentationLimit false rest
 
             // 'try ... with' limited by 'try'
-            | _, (CtxtMatchClauses _ :: (CtxtTry _ as limitCtxt) :: _rest)
+            | _, CtxtMatchClauses _ :: (CtxtTry _ as limitCtxt) :: _rest
                       -> PositionWithColumn(limitCtxt.StartPos, limitCtxt.StartCol)
 
             // 'match ... with' limited by 'match' (given RelaxWhitespace2)
-            | _, (CtxtMatchClauses _ :: (CtxtMatch _ as limitCtxt) :: _rest) when relaxWhitespace2
+            | _, CtxtMatchClauses _ :: (CtxtMatch _ as limitCtxt) :: _rest when relaxWhitespace2
                       -> PositionWithColumn(limitCtxt.StartPos, limitCtxt.StartCol)
 
             // 'fun ->' places no limit until we hit a CtxtLetDecl etc... (Recursive)
@@ -1020,7 +1020,7 @@ type LexFilterImpl (
                     let warnF = if strictIndentation then error else warn 
                     warnF tokenTup
                         (if debug then
-                            sprintf "possible incorrect indentation: this token is offside of context at position %s, newCtxt = %A, stack = %A, newCtxtPos = %s, c1 = %d, c2 = %d"
+                            sprintf "possible incorrect indentation: this token is offside of context at (original!) position %s, newCtxt = %A, stack = %A, newCtxtPos = %s, c1 = %d, c2 = %d"
                                 (warningStringOfPosition p1.Position) newCtxt offsideStack (stringOfPos newCtxt.StartPos) p1.Column c2
                          else
                             FSComp.SR.lexfltTokenIsOffsideOfContextStartedEarlier(warningStringOfPosition p1.Position))
@@ -1117,7 +1117,7 @@ type LexFilterImpl (
                             scanAhead nParen
                         else
                             false
-                    | GREATER _ | GREATER_RBRACK | GREATER_BAR_RBRACK ->
+                    | GREATER _ | GREATER_RBRACK | GREATER_BAR_RBRACK | GREATER_BAR_RBRACE ->
                         let nParen = nParen - 1
                         let hasAfterOp = (match lookaheadToken with GREATER _ -> false | _ -> true)
                         if nParen > 0 then
@@ -1204,7 +1204,7 @@ type LexFilterImpl (
 
                 let res = scanAhead 0
                 // Put the tokens back on and smash them up if needed
-                for (tokenTup, smash) in stack do
+                for tokenTup, smash in stack do
                     if smash then
                         match tokenTup.Token with
                         | INFIX_COMPARE_OP "</" ->
@@ -1225,9 +1225,19 @@ type LexFilterImpl (
                             delayToken (pool.UseShiftedLocation(tokenTup, INFIX_AT_HAT_OP "@", 1, 0))
                             delayToken (pool.UseShiftedLocation(tokenTup, LESS res, 0, -1))
                             pool.Return tokenTup
+                        | GREATER_BAR_RBRACE ->
+                            lexbuf.CheckLanguageFeatureAndRecover LanguageFeature.BetterAnonymousRecordParsing lexbuf.LexemeRange
+                            delayToken (pool.UseShiftedLocation(tokenTup, BAR_RBRACE, 1, 0))
+                            delayToken (pool.UseShiftedLocation(tokenTup, GREATER res, 0, -2))
+                            pool.Return tokenTup
                         | GREATER_BAR_RBRACK ->
                             delayToken (pool.UseShiftedLocation(tokenTup, BAR_RBRACK, 1, 0))
                             delayToken (pool.UseShiftedLocation(tokenTup, GREATER res, 0, -2))
+                            pool.Return tokenTup
+                        | RQUOTE_BAR_RBRACE x ->
+                            lexbuf.CheckLanguageFeatureAndRecover LanguageFeature.BetterAnonymousRecordParsing lexbuf.LexemeRange
+                            delayToken (pool.UseShiftedLocation(tokenTup, BAR_RBRACE, 1, 0))
+                            delayToken (pool.UseShiftedLocation(tokenTup, RQUOTE(x), 0, -2))
                             pool.Return tokenTup
                         | GREATER_RBRACK ->
                             delayToken (pool.UseShiftedLocation(tokenTup, RBRACK, 1, 0))
@@ -1319,7 +1329,7 @@ type LexFilterImpl (
         let isSameLine() =
             match token with
             | EOF _ -> false
-            | _ -> (startPosOfTokenTup (peekNextTokenTup())).OriginalLine = tokenStartPos.OriginalLine
+            | _ -> (startPosOfTokenTup (peekNextTokenTup())).Line = tokenStartPos.Line
 
         let isControlFlowOrNotSameLine() =
             match token with
@@ -1381,6 +1391,98 @@ type LexFilterImpl (
             delayToken tokenTup
             if debug then dprintf "inserting %+A\n" tok
             returnToken (lexbufStateForInsertedDummyTokens (startPosOfTokenTup tokenTup, tokenTup.LexbufState.EndPos)) tok
+
+        // Check if we're inappropriately inside a type definition for constructs that shouldn't be there
+        // This validates that TYPE, MODULE, EXCEPTION, and OPEN declarations are not nested within type definitions
+        // The check works as follows:
+        // 1. Only check if the language feature WarnOnUnexpectedModuleDefinitionsInsideTypes is enabled
+        // 2. Skip validation inside parentheses (to avoid false positives with inline IL)
+        // 3. Traverse the context stack looking for a CtxtTypeDefns
+        // 4. If found, check if the current token is indented INSIDE it (greater column, not equal)
+        // 5. Verify we're not in a legitimate nested context (members, augmentations, or escaped to module/namespace)
+        // 6. If all conditions match, issue an error message
+        //
+        // Note: We don't check 'let' bindings as they can be valid in classes with constructors
+        // Note: Constructs at the same column level are NOT nested (e.g., type A = A type B = B on same line)
+        let checkForInvalidDeclsInTypeDefn keyword =
+            if lexbuf.SupportsFeature LanguageFeature.ErrorOnInvalidDeclsInTypeDefinitions then
+                // Skip validation if we're inside a parenthesis context
+                // This avoids false positives with inline IL: (# "unbox.any !0" type ('T) x : 'T #)
+                let rec hasParenContext stack =
+                    match stack with
+                    | [] -> false
+                    | CtxtParen _ :: _ -> true
+                    | CtxtSeqBlock _ :: rest 
+                    | CtxtVanilla _ :: rest -> hasParenContext rest
+                    | _ -> false
+                
+                // Don't validate if we're in a paren context (could be inline IL or other valid syntax)
+                if not (hasParenContext offsideStack) then
+                    // Find the nearest type definition context and check if we're inappropriately nested
+                    let rec checkNesting stack typeDefnsSeen =
+                        match stack with
+                        | [] -> 
+                            // We've traversed the whole stack without finding issues
+                            false
+                            
+                        | CtxtModuleBody _ :: _ 
+                        | CtxtNamespaceBody _ :: _ -> 
+                            // We've escaped to module/namespace level - constructs here are OK
+                            false
+                            
+                        | CtxtTypeDefns(typePos, _) :: rest ->
+                            // Found a type definition - check if we're inappropriately inside it
+                            // IMPORTANT: Same-line declarations are sequential, not nested
+                            // Example: type A = A type B = B (all on same line, B is not nested in A)
+                            // Only warn if on a DIFFERENT line with GREATER indentation
+                            if tokenStartPos.Line > typePos.Line && tokenStartCol > typePos.Column then
+                                // We're indented inside the type - this might be invalid
+                                // But first check if we're in a valid member/augmentation context
+                                let rec isInMemberContext s =
+                                    match s with
+                                    | [] -> false
+                                    | CtxtMemberHead _ :: _ 
+                                    | CtxtMemberBody _ :: _ -> true
+                                    | CtxtWithAsAugment _ :: _ -> true  // Type augmentation with 'with'
+                                    | CtxtSeqBlock _ :: tail 
+                                    | CtxtVanilla _ :: tail -> isInMemberContext tail
+                                    | _ -> false
+                                
+                                not (isInMemberContext stack)
+                            else
+                                // Not indented inside this type (same column or less), check deeper in the stack
+                                checkNesting rest true
+                                
+                        | CtxtSeqBlock _ :: rest 
+                        | CtxtVanilla _ :: rest 
+                        | CtxtParen _ :: rest ->
+                            // Transparent contexts - continue checking
+                            checkNesting rest typeDefnsSeen
+                            
+                        | CtxtMemberHead _ :: _ 
+                        | CtxtMemberBody _ :: _ when typeDefnsSeen ->
+                            // We're in a member context after seeing a type - this is OK
+                            false
+                            
+                        | _ :: rest ->
+                            // Other contexts - continue checking
+                            checkNesting rest typeDefnsSeen
+                    
+                    if checkNesting offsideStack false then
+                        let errorMessage = 
+                            match keyword with
+                            | "TYPE" -> 
+                                FSComp.SR.lexfltInvalidNestedTypeDefinition()
+                            | "MODULE" -> 
+                                FSComp.SR.lexfltInvalidNestedModule()
+                            | "EXCEPTION" -> 
+                                FSComp.SR.lexfltInvalidNestedExceptionDefinition()
+                            | "OPEN" -> 
+                                FSComp.SR.lexfltInvalidNestedOpenDeclaration()
+                            | _ -> 
+                                FSComp.SR.lexfltInvalidNestedConstruct(keyword)
+                        
+                        error tokenTup errorMessage
 
         let isSemiSemi = match token with SEMICOLON_SEMICOLON -> true | _ -> false
         let relaxWhitespace2OffsideRule =
@@ -1506,7 +1608,7 @@ type LexFilterImpl (
                     | _ :: [] -> true
                     // anything else is a non-namespace/module
                     | _ -> false
-                while not offsideStack.IsEmpty && (not(nextOuterMostInterestingContextIsNamespaceOrModule offsideStack)) &&
+                while not offsideStack.IsEmpty && not(nextOuterMostInterestingContextIsNamespaceOrModule offsideStack) &&
                                                     (match offsideStack.Head with
                                                     // open-parens of sorts
                                                     | CtxtParen(TokenLExprParen, _) -> true
@@ -1608,7 +1710,7 @@ type LexFilterImpl (
             hwTokenFetch useBlockRule
 
         // Balancing rule. Encountering a ')' or '}' balances with a '(' or '{', even if not offside
-        | ((TokenRExprParen | INTERP_STRING_END _ | INTERP_STRING_PART _) as t2), (CtxtParen (t1, _) :: _)
+        | TokenRExprParen | INTERP_STRING_END _ | INTERP_STRING_PART _ as t2, CtxtParen (t1, _) :: _
                 when parenTokensBalance t1 t2 ->
             if debug then dprintf "RPAREN/RBRACE/BAR_RBRACE/RBRACK/BAR_RBRACK/RQUOTE/END at %a terminates CtxtParen()\n" outputPos tokenStartPos
             popCtxt()
@@ -1831,7 +1933,7 @@ type LexFilterImpl (
                             elif isTypeCtxt then isTypeSeqBlockElementContinuator token
                             else isSeqBlockElementContinuator token)
                     && (tokenStartCol = offsidePos.Column)
-                    && (tokenStartPos.OriginalLine <> offsidePos.OriginalLine) ->
+                    && (tokenStartPos.Line <> offsidePos.Line) ->
                 if debug then dprintf "offside at column %d matches start of block(%a)! delaying token, returning OBLOCKSEP\n" tokenStartCol outputPos offsidePos
                 replaceCtxt tokenTup (CtxtSeqBlock (FirstInSeqBlock, offsidePos, addBlockEnd))
                 // No change to offside stack: another statement block starts...
@@ -2003,7 +2105,7 @@ type LexFilterImpl (
         //  else ...
         // ....
         //
-        | _, CtxtElse (offsidePos) :: _ when isSemiSemi || (if relaxWhitespace2OffsideRule then tokenStartCol + 1 else tokenStartCol) <= offsidePos.Column ->
+        | _, CtxtElse offsidePos :: _ when isSemiSemi || (if relaxWhitespace2OffsideRule then tokenStartCol + 1 else tokenStartCol) <= offsidePos.Column ->
             if debug then dprintf "offside from CtxtElse, popping\n"
             popCtxt()
             reprocess()
@@ -2033,7 +2135,11 @@ type LexFilterImpl (
             returnToken tokenLexbufState token
 
         //  module ... ~~~> CtxtModuleHead
+        //  Check for inappropriate nesting within type definitions
         | MODULE, _ :: _ ->
+            // Check if this module definition is inappropriately nested in a type
+            checkForInvalidDeclsInTypeDefn "MODULE"
+                
             insertComingSoonTokens("MODULE", MODULE_COMING_SOON, MODULE_IS_HERE)
             if debug then dprintf "MODULE: entering CtxtModuleHead, awaiting EQUALS to go to CtxtSeqBlock (%a)\n" outputPos tokenStartPos
             let isNested = match offsideStack with | [ CtxtSeqBlock _ ] -> false | _ -> true
@@ -2043,6 +2149,8 @@ type LexFilterImpl (
 
         // exception ... ~~~> CtxtException
         | EXCEPTION, _ :: _ ->
+            // Check if this exception definition is inappropriately nested in a type
+            checkForInvalidDeclsInTypeDefn "EXCEPTION"
             if debug then dprintf "EXCEPTION: entering CtxtException(%a)\n" outputPos tokenStartPos
             pushCtxt tokenTup (CtxtException tokenStartPos)
             returnToken tokenLexbufState token
@@ -2254,7 +2362,7 @@ type LexFilterImpl (
         | WITH, (CtxtTry _ | CtxtMatch _) :: _ ->
             let lookaheadTokenTup = peekNextTokenTup()
             let lookaheadTokenStartPos = startPosOfTokenTup lookaheadTokenTup
-            let leadingBar = match (peekNextToken()) with BAR -> true | _ -> false
+            let leadingBar = match peekNextToken() with BAR -> true | _ -> false
 
             if debug then dprintf "WITH, pushing CtxtMatchClauses, lookaheadTokenStartPos = %a, tokenStartPos = %a\n" outputPos lookaheadTokenStartPos outputPos tokenStartPos
             tryPushCtxt strictIndentation false lookaheadTokenTup (CtxtMatchClauses(leadingBar, lookaheadTokenStartPos)) |> ignore
@@ -2334,7 +2442,7 @@ type LexFilterImpl (
                 //  For attributes on properties:
                 //      member  x.PublicGetSetProperty
                 //         with [<Foo>]  get() = "Ralf"
-                if (match lookaheadTokenTup.Token with LBRACK_LESS -> true | _ -> false) && (lookaheadTokenStartPos.OriginalLine = tokenTup.StartPos.OriginalLine) then
+                if (match lookaheadTokenTup.Token with LBRACK_LESS -> true | _ -> false) && (lookaheadTokenStartPos.Line = tokenTup.StartPos.Line) then
                     let offsidePos = tokenStartPos
                     pushCtxt tokenTup (CtxtWithAsLet offsidePos)
                     returnToken tokenLexbufState OWITH
@@ -2376,7 +2484,7 @@ type LexFilterImpl (
         | FUNCTION, _ ->
             let lookaheadTokenTup = peekNextTokenTup()
             let lookaheadTokenStartPos = startPosOfTokenTup lookaheadTokenTup
-            let leadingBar = match (peekNextToken()) with BAR -> true | _ -> false
+            let leadingBar = match peekNextToken() with BAR -> true | _ -> false
             pushCtxt tokenTup (CtxtFunction tokenStartPos)
             pushCtxt lookaheadTokenTup (CtxtMatchClauses(leadingBar, lookaheadTokenStartPos))
             returnToken tokenLexbufState OFUNCTION
@@ -2484,6 +2592,9 @@ type LexFilterImpl (
             returnToken tokenLexbufState token
 
         | TYPE, _ ->
+            // Check if this type definition is inappropriately nested in another type
+            checkForInvalidDeclsInTypeDefn "TYPE"
+                
             insertComingSoonTokens("TYPE", TYPE_COMING_SOON, TYPE_IS_HERE)
             if debug then dprintf "TYPE, pushing CtxtTypeDefns(%a)\n" outputPos tokenStartPos
             pushCtxt tokenTup (CtxtTypeDefns(tokenStartPos, None))
@@ -2502,6 +2613,11 @@ type LexFilterImpl (
             returnToken tokenLexbufState token
 
         | OBLOCKBEGIN, _ ->
+            returnToken tokenLexbufState token
+
+        | OPEN, _ :: _ ->
+            // Check if this open declaration is inappropriately nested in a type
+            checkForInvalidDeclsInTypeDefn "OPEN"
             returnToken tokenLexbufState token
 
         | ODUMMY _, _ ->
@@ -2643,11 +2759,18 @@ type LexFilterImpl (
                   | NATIVEINT(v, bad) -> delayMergedToken(NATIVEINT((if plus then v else -v), (plus && bad))) // note: '-' makes a 'bad' max int 'good'. '+' does not
                   | IEEE32 v -> delayMergedToken(IEEE32(if plus then v else -v))
                   | IEEE64 v -> delayMergedToken(IEEE64(if plus then v else -v))
-                  | DECIMAL v -> delayMergedToken(DECIMAL(if plus then v else System.Decimal.op_UnaryNegation v))
+                  | DECIMAL v -> delayMergedToken(DECIMAL(if plus then v else Decimal.op_UnaryNegation v))
                   | BIGNUM(v, s) -> delayMergedToken(BIGNUM((if plus then v else "-" + v), s))
                   | _ -> noMerge()
               else
                   noMerge()
+              true
+
+          | RQUOTE_BAR_RBRACE x ->
+              lexbuf.CheckLanguageFeatureAndRecover LanguageFeature.BetterAnonymousRecordParsing lexbuf.LexemeRange
+              delayToken (pool.UseShiftedLocation(tokenTup, BAR_RBRACE, 1, 0))
+              delayToken (pool.UseShiftedLocation(tokenTup, RQUOTE(x), 0, -2))
+              pool.Return tokenTup
               true
 
           | _ ->

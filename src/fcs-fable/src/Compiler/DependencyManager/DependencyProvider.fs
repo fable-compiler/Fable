@@ -3,6 +3,7 @@
 namespace FSharp.Compiler.DependencyManager
 
 open System
+open System.Collections.Generic
 open System.IO
 open System.Reflection
 open System.Runtime.InteropServices
@@ -123,9 +124,6 @@ type IResolveDependenciesResult =
     ///     #I @"c:\somepath\to\packages\1.1.1\ResolvedPackage"
     abstract Roots: seq<string>
 
-#if NO_CHECKNULLS
-[<AllowNullLiteral>]
-#endif
 type IDependencyManagerProvider =
     abstract Name: string
     abstract Key: string
@@ -155,14 +153,27 @@ type ReflectionDependencyManagerProvider
         resolveDepsExWithScriptInfoAndTimeout: MethodInfo option,
         clearResultCache: MethodInfo option,
         outputDir: string option,
-        useResultsCache: bool
+        useResultsCache: bool,
+        sdkDirOverride: string option
     ) =
 
     let instance =
-        if not (isNull (theType.GetConstructor([| typeof<string option>; typeof<bool> |]))) then
-            Activator.CreateInstance(theType, [| outputDir :> objnull; useResultsCache :> objnull |])
-        else
-            Activator.CreateInstance(theType, [| outputDir :> objnull |])
+        let arguments: (Type * objnull) array =
+            [|
+                typeof<string option>, outputDir
+                typeof<bool>, useResultsCache
+                typeof<IDictionary<string, obj>>, dict [ "sdkDirOverride", sdkDirOverride :> obj ]
+            |]
+
+        let n = arguments.Length
+
+        // Searches for the most suitable constructor,
+        // starting from the latest version (with more parameters) and falling back to earlier ones.
+        seq { for i in n - 1 .. -1 .. 0 -> arguments[0..i] }
+        |> Seq.map Array.unzip
+        |> Seq.tryFind (fun (types, _) -> isNotNull (theType.GetConstructor(types)))
+        |> Option.map (fun (_, values) -> Activator.CreateInstance(theType, values))
+        |> Option.toObj
 
     let nameProperty (x: objnull) = x |> nameProperty.GetValue |> string
     let keyProperty (x: objnull) = x |> keyProperty.GetValue |> string
@@ -174,7 +185,7 @@ type ReflectionDependencyManagerProvider
         | Some helpMessagesProperty -> x |> helpMessagesProperty.GetValue |> toStringArray
         | None -> [||]
 
-    static member InstanceMaker(theType: Type, outputDir: string option, useResultsCache: bool) =
+    static member InstanceMaker(theType: Type, outputDir: string option, useResultsCache: bool, sdkDirOverride: string option) =
         match
             getAttributeNamed theType dependencyManagerAttributeName,
             getInstanceProperty<string> theType namePropertyName,
@@ -249,7 +260,8 @@ type ReflectionDependencyManagerProvider
                     resolveDepsExWithScriptInfoAndTimeout,
                     clearResultsCacheMethod,
                     outputDir,
-                    useResultsCache
+                    useResultsCache,
+                    sdkDirOverride
                 )
                 :> IDependencyManagerProvider)
 
@@ -318,7 +330,8 @@ type ReflectionDependencyManagerProvider
                     resolveDepsExWithScriptInfoAndTimeout,
                     clearResultsCacheMethod,
                     outputDir,
-                    useResultsCache
+                    useResultsCache,
+                    sdkDirOverride
                 )
                 :> IDependencyManagerProvider)
 
@@ -334,42 +347,36 @@ type ReflectionDependencyManagerProvider
             member _.StdOut =
                 match getInstanceProperty<string[]> (result.GetType()) "StdOut" with
                 | None -> [||]
-                | Some p -> !! p.GetValue(result) :?> string[]
+                | Some p -> !!p.GetValue(result) :?> string[]
 
             /// The resolution error log (* process stderror *)
             member _.StdError =
                 match getInstanceProperty<string[]> (result.GetType()) "StdError" with
                 | None -> [||]
-                | Some p -> !! p.GetValue(result) :?> string[]
+                | Some p -> !!p.GetValue(result) :?> string[]
 
             /// The resolution paths
             member _.Resolutions =
                 match getInstanceProperty<seq<string>> (result.GetType()) "Resolutions" with
                 | None -> Seq.empty<string>
-                | Some p -> !! p.GetValue(result) :?> seq<string>
+                | Some p -> !!p.GetValue(result) :?> seq<string>
 
             /// The source code file paths
             member _.SourceFiles =
                 match getInstanceProperty<seq<string>> (result.GetType()) "SourceFiles" with
                 | None -> Seq.empty<string>
-                | Some p -> !! p.GetValue(result) :?> seq<string>
+                | Some p -> !!p.GetValue(result) :?> seq<string>
 
             /// The roots to package directories
             member _.Roots =
                 match getInstanceProperty<seq<string>> (result.GetType()) "Roots" with
                 | None -> Seq.empty<string>
-                | Some p -> !! p.GetValue(result) :?> seq<string>
+                | Some p -> !!p.GetValue(result) :?> seq<string>
         }
 
     static member MakeResultFromFields
-        (
-            success: bool,
-            stdOut: string[],
-            stdError: string[],
-            resolutions: seq<string>,
-            sourceFiles: seq<string>,
-            roots: seq<string>
-        ) =
+        (success: bool, stdOut: string[], stdError: string[], resolutions: seq<string>, sourceFiles: seq<string>, roots: seq<string>)
+        =
         { new IResolveDependenciesResult with
             /// Succeeded?
             member _.Success = success
@@ -409,16 +416,8 @@ type ReflectionDependencyManagerProvider
 
         /// Resolve the dependencies for the given arguments
         member _.ResolveDependencies
-            (
-                scriptDir,
-                mainScriptName,
-                scriptName,
-                scriptExt,
-                packageManagerTextLines,
-                tfm,
-                rid,
-                timeout
-            ) : IResolveDependenciesResult =
+            (scriptDir, mainScriptName, scriptName, scriptExt, packageManagerTextLines, tfm, rid, timeout)
+            : IResolveDependenciesResult =
             // The ResolveDependencies method, has two signatures, the original signature in the variable resolveDeps and the updated signature resolveDepsEx
             // the resolve method can return values in two different tuples:
             //     (bool * string list * string list * string list)
@@ -495,13 +494,13 @@ type DependencyProvider
     // Resolution Path = Location of FSharp.Compiler.Service.dll
     let assemblySearchPaths =
         lazy
-            ([
+            [
                 let assemblyLocation =
                     typeof<IDependencyManagerProvider>.GetTypeInfo().Assembly.Location
 
                 yield !!(Path.GetDirectoryName assemblyLocation)
                 yield AppDomain.CurrentDomain.BaseDirectory
-            ])
+            ]
 
     let enumerateDependencyManagerAssemblies compilerTools (reportError: ResolvingErrorReport) =
         getCompilerToolsDesignTimeAssemblyPaths compilerTools
@@ -527,7 +526,12 @@ type DependencyProvider
     let mutable registeredDependencyManagers: Map<string, IDependencyManagerProvider> option =
         None
 
-    let RegisteredDependencyManagers (compilerTools: seq<string>) (outputDir: string option) (reportError: ResolvingErrorReport) =
+    let RegisteredDependencyManagers
+        (compilerTools: seq<string>)
+        (outputDir: string option)
+        (sdkDirOverride: string option)
+        (reportError: ResolvingErrorReport)
+        =
         match registeredDependencyManagers with
         | Some managers -> managers
         | None ->
@@ -537,7 +541,8 @@ type DependencyProvider
                 let loadedProviders =
                     enumerateDependencyManagerAssemblies compilerTools reportError
                     |> Seq.collect (fun a -> a.GetTypes())
-                    |> Seq.choose (fun t -> ReflectionDependencyManagerProvider.InstanceMaker(t, outputDir, useResultsCache))
+                    |> Seq.choose (fun t ->
+                        ReflectionDependencyManagerProvider.InstanceMaker(t, outputDir, useResultsCache, sdkDirOverride))
                     |> Seq.map (fun maker -> maker ())
 
                 defaultProviders
@@ -564,10 +569,10 @@ type DependencyProvider
     new() = new DependencyProvider(None, None, true)
 
     /// Returns a formatted help messages for registered dependencymanagers for the host to present
-    member _.GetRegisteredDependencyManagerHelpText(compilerTools, outputDir, errorReport) =
+    member _.GetRegisteredDependencyManagerHelpText(compilerTools, outputDir: string | null, sdkDirOverride: string option, errorReport) =
         [|
             let managers =
-                RegisteredDependencyManagers compilerTools (Option.ofString outputDir) errorReport
+                RegisteredDependencyManagers compilerTools (Option.ofString outputDir) sdkDirOverride errorReport
 
             for kvp in managers do
                 let dm = kvp.Value
@@ -575,9 +580,9 @@ type DependencyProvider
         |]
 
     /// Clear the DependencyManager results caches
-    member _.ClearResultsCache(compilerTools, outputDir, errorReport) =
+    member _.ClearResultsCache(compilerTools, outputDir: string | null, sdkDirOverride: string option, errorReport) =
         let managers =
-            RegisteredDependencyManagers compilerTools (Option.ofString outputDir) errorReport
+            RegisteredDependencyManagers compilerTools (Option.ofString outputDir) sdkDirOverride errorReport
 
         for kvp in managers do
             kvp.Value.ClearResultsCache()
@@ -587,13 +592,14 @@ type DependencyProvider
         (
             compilerTools: seq<string>,
             outputDir: string,
+            sdkDirOverride: string option,
             packageManagerKey: string,
             reportError: ResolvingErrorReport
         ) =
         let registeredKeys =
             String.Join(
                 ", ",
-                RegisteredDependencyManagers compilerTools (Option.ofString outputDir) reportError
+                RegisteredDependencyManagers compilerTools (Option.ofString outputDir) sdkDirOverride reportError
                 |> Seq.map (fun kv -> kv.Value.Key)
             )
 
@@ -602,21 +608,17 @@ type DependencyProvider
 
     /// Fetch a dependencymanager that supports a specific key
     member this.TryFindDependencyManagerInPath
-        (
-            compilerTools: seq<string>,
-            outputDir: string,
-            reportError: ResolvingErrorReport,
-            path: string
-        ) : string | null * IDependencyManagerProvider | null =
+        (compilerTools: seq<string>, outputDir: string, sdkDirOverride: string option, reportError: ResolvingErrorReport, path: string)
+        : string | null * IDependencyManagerProvider | null =
         try
             if path.Contains ":" && not (Path.IsPathRooted path) then
                 let managers =
-                    RegisteredDependencyManagers compilerTools (Option.ofString outputDir) reportError
+                    RegisteredDependencyManagers compilerTools (Option.ofString outputDir) sdkDirOverride reportError
 
                 match managers |> Seq.tryFind (fun kv -> path.StartsWithOrdinal(kv.Value.Key + ":")) with
                 | None ->
                     let err, msg =
-                        this.CreatePackageManagerUnknownError(compilerTools, outputDir, path.Split(':').[0], reportError)
+                        this.CreatePackageManagerUnknownError(compilerTools, outputDir, sdkDirOverride, path.Split(':').[0], reportError)
 
                     reportError.Invoke(ErrorReportType.Error, err, msg)
                     null, null
@@ -626,26 +628,22 @@ type DependencyProvider
                 path, null
         with e ->
             let e = stripTieWrapper e
-            let err, msg = FSComp.SR.packageManagerError (e.Message)
+            let err, msg = FSComp.SR.packageManagerError e.Message
             reportError.Invoke(ErrorReportType.Error, err, msg)
             null, null
 
     /// Fetch a dependencymanager that supports a specific key
     member _.TryFindDependencyManagerByKey
-        (
-            compilerTools: seq<string>,
-            outputDir: string,
-            reportError: ResolvingErrorReport,
-            key: string
-        ) : IDependencyManagerProvider | null =
+        (compilerTools: seq<string>, outputDir: string, sdkDirOverride: string option, reportError: ResolvingErrorReport, key: string)
+        : IDependencyManagerProvider | null =
         try
-            RegisteredDependencyManagers compilerTools (Option.ofString outputDir) reportError
+            RegisteredDependencyManagers compilerTools (Option.ofString outputDir) sdkDirOverride reportError
             |> Map.tryFind key
             |> Option.toObj
 
         with e ->
             let e = stripTieWrapper e
-            let err, msg = FSComp.SR.packageManagerError (e.Message)
+            let err, msg = FSComp.SR.packageManagerError e.Message
             reportError.Invoke(ErrorReportType.Error, err, msg)
             null
 
@@ -699,7 +697,7 @@ type DependencyProvider
 
                     with e ->
                         let e = stripTieWrapper e
-                        Error(FSComp.SR.packageManagerError (e.Message)))
+                        Error(FSComp.SR.packageManagerError e.Message))
             )
 
         match result with

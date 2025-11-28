@@ -19,7 +19,6 @@ open FSharp.Compiler.Infos
 open FSharp.Compiler.InfoReader
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.Syntax.PrettyNaming
-open FSharp.Compiler.SyntaxTreeOps
 open FSharp.Compiler.TcGlobals
 open FSharp.Compiler.Text
 open FSharp.Compiler.Text.Range
@@ -56,8 +55,6 @@ open Import
 //     a) a try-catch - accepted.
 //     b) a lambda expression - rejected.
 //     c) none of the above - rejected as when checking outmost expressions.
-
-let PostInferenceChecksStackGuardDepth = GetEnvInteger "FSHARP_PostInferenceChecks" 50
 
 //--------------------------------------------------------------------------
 // check environment
@@ -203,7 +200,7 @@ type cenv =
 
       g: TcGlobals
 
-      amap: Import.ImportMap
+      amap: ImportMap
 
       /// For reading metadata
       infoReader: InfoReader
@@ -335,9 +332,9 @@ let RecordAnonRecdInfo cenv (anonInfo: AnonRecdTypeInfo) =
 // approx walk of type
 //--------------------------------------------------------------------------
 
-/// Represents the container for nester type instantions, carrying information about the parent (generic type) and data about correspinding generic typar definition.
+/// Represents the container for nester type instantions, carrying information about the parent (generic type) and data about corresponding generic typar definition.
 /// For current use, IlGenericParameterDef was enough. For other future use cases, conversion into F# Typar might be needed.
-type TypeInstCtx = 
+type TypeInstCtx =
     | NoInfo
     | IlGenericInst of parent:TyconRef * genericArg:ILGenericParameterDef
     | TyparInst of parent:TyconRef
@@ -533,7 +530,7 @@ let CheckTypeForAccess (cenv: cenv) env objName valAcc m ty =
                 let thisCompPath = compPathOfCcu cenv.viewCcu
                 let tyconAcc = tcref.Accessibility |> AccessInternalsVisibleToAsInternal thisCompPath cenv.internalsVisibleToPaths
                 if isLessAccessible tyconAcc valAcc then
-                    errorR(Error(FSComp.SR.chkTypeLessAccessibleThanType(tcref.DisplayName, (objName())), m))
+                    errorR(Error(FSComp.SR.chkTypeLessAccessibleThanType(tcref.DisplayName, objName()), m))
 
         CheckTypeDeep cenv (visitType, None, None, None, None) cenv.g env NoInfo ty
 
@@ -549,9 +546,9 @@ let WarnOnWrongTypeForAccess (cenv: cenv) env objName valAcc m ty =
                 let thisCompPath = compPathOfCcu cenv.viewCcu
                 let tyconAcc = tcref.Accessibility |> AccessInternalsVisibleToAsInternal thisCompPath cenv.internalsVisibleToPaths
                 if isLessAccessible tyconAcc valAcc then
-                    let errorText = FSComp.SR.chkTypeLessAccessibleThanType(tcref.DisplayName, (objName())) |> snd
+                    let errorText = FSComp.SR.chkTypeLessAccessibleThanType(tcref.DisplayName, objName()) |> snd
                     let warningText = errorText + Environment.NewLine + FSComp.SR.tcTypeAbbreviationsCheckedAtCompileTime()
-                    warning(AttributeChecking.ObsoleteWarning(warningText, m))
+                    warning(ObsoleteDiagnostic(false, None, Some warningText, None, m))
 
         CheckTypeDeep cenv (visitType, None, None, None, None) cenv.g env NoInfo ty
 
@@ -649,7 +646,7 @@ let CheckTypeAux permitByRefLike (cenv: cenv) env m ty onInnerByrefError =
                errorR (Error(FSComp.SR.checkNotSufficientlyGenericBecauseOfScope(tp.DisplayName), m))
 
         let visitTyconRef (ctx:TypeInstCtx) tcref =
-            let checkInner() = 
+            let checkInner() =
                 match ctx with
                 | TopLevelAllowingByRef -> false
                 | TyparInst(parentTcRef)
@@ -694,11 +691,11 @@ let CheckTypeAux permitByRefLike (cenv: cenv) env m ty onInnerByrefError =
                    cenv.potentialUnboundUsesOfVals <- cenv.potentialUnboundUsesOfVals.Add(vref.Stamp, m)
             | _ -> ()
 
-        let initialCtx = 
+        let initialCtx =
             match permitByRefLike with
             | PermitByRefType.SpanLike
             | PermitByRefType.NoInnerByRefLike -> TopLevelAllowingByRef
-            | _ -> NoInfo        
+            | _ -> NoInfo
 
         CheckTypeDeep cenv (ignore, Some visitTyconRef, Some visitAppTy, Some visitTraitSolution, Some visitTyar) cenv.g env initialCtx ty
 
@@ -868,7 +865,7 @@ and CheckValUse (cenv: cenv) (env: env) (vref: ValRef, vFlags, m) (ctxt: PermitB
         let isReturnOfStructThis =
             ctxt.PermitOnlyReturnable &&
             isByrefTy g vref.Type &&
-            (vref.IsMemberThisVal)
+            vref.IsMemberThisVal
 
         if isReturnOfStructThis then
             errorR(Error(FSComp.SR.chkStructsMayNotReturnAddressesOfContents(), m))
@@ -1910,7 +1907,7 @@ and CheckDecisionTree cenv env dtree =
 
 and CheckDecisionTreeSwitch cenv env (inpExpr, cases, dflt, m) =
     CheckExprPermitByRefLike cenv env inpExpr |> ignore// can be byref for struct union switch
-    for (TCase(discrim, dtree)) in cases do
+    for TCase(discrim, dtree) in cases do
         CheckDecisionTreeTest cenv env m discrim
         CheckDecisionTree cenv env dtree
     dflt |> Option.iter (CheckDecisionTree cenv env)
@@ -1958,7 +1955,7 @@ and CheckAttribArgExpr cenv env expr =
         | Const.Single _
         | Const.Char _
         | Const.Zero
-        | Const.String _  
+        | Const.String _
         | Const.Decimal _ -> ()
         | _ ->
             if cenv.reportErrors then
@@ -2231,7 +2228,7 @@ let CheckModuleBinding cenv env (TBind(v, e, _) as bind) =
                 // Default augmentation contains the nasty 'Is<UnionCase>' etc.
                 let prefix = "Is"
                 if not v.IsImplied && nm.StartsWithOrdinal prefix && hasDefaultAugmentation then
-                    match tcref.GetUnionCaseByName(nm[prefix.Length ..]) with 
+                    match tcref.GetUnionCaseByName(nm[prefix.Length ..]) with
                     | Some uc -> error(NameClash(nm, kind, v.DisplayName, v.Range, FSComp.SR.chkUnionCaseDefaultAugmentation(), uc.DisplayName, uc.Range))
                     | None -> ()
 
@@ -2398,30 +2395,45 @@ let CheckEntityDefn cenv env (tycon: Entity) =
                 errorR(Error(FSComp.SR.chkCurriedMethodsCantHaveOutParams(), m))
 
             if numCurriedArgSets = 1 then
+
+                let inline tryDestOptionalTy g ty =
+                    if isOptionTy g ty then
+                        destOptionTy g ty |> ValueSome
+                    elif g.langVersion.SupportsFeature LanguageFeature.SupportValueOptionsAsOptionalParameters && isValueOptionTy g ty then
+                        destValueOptionTy g ty |> ValueSome
+                    else
+                        ValueNone
+
+                let errorIfNotStringTy m ty callerInfo = 
+                    if not (typeEquiv g g.string_ty ty) then
+                        errorR(Error(FSComp.SR.tcCallerInfoWrongType(callerInfo |> string, "string", NicePrint.minimalStringOfType cenv.denv ty), m))
+                        
+                let errorIfNotOptional tyToCompare desiredTyName m ty callerInfo =
+
+                    match tryDestOptionalTy g ty with
+                    | ValueSome t when typeEquiv g tyToCompare t -> ()
+                    | ValueSome innerTy -> errorR(Error(FSComp.SR.tcCallerInfoWrongType(callerInfo |> string, desiredTyName, NicePrint.minimalStringOfType cenv.denv innerTy), m))
+                    | ValueNone -> errorR(Error(FSComp.SR.tcCallerInfoWrongType(callerInfo |> string, desiredTyName, NicePrint.minimalStringOfType cenv.denv ty), m))                   
+
                 minfo.GetParamDatas(cenv.amap, m, minfo.FormalMethodInst)
-                |> List.iterSquared (fun (ParamData(_, isInArg, _, optArgInfo, callerInfo, _, _, ty), _) ->
+                |> List.iterSquared (fun (ParamData(_, isInArg, _, optArgInfo, callerInfo, nameOpt, _, ty), _) ->
                     ignore isInArg
+
+                    let m =
+                        match nameOpt with
+                        | Some name -> name.idRange
+                        | None -> m
+
                     match (optArgInfo, callerInfo) with
                     | _, NoCallerInfo -> ()
                     | NotOptional, _ -> errorR(Error(FSComp.SR.tcCallerInfoNotOptional(callerInfo |> string), m))
                     | CallerSide _, CallerLineNumber ->
                         if not (typeEquiv g g.int32_ty ty) then
                             errorR(Error(FSComp.SR.tcCallerInfoWrongType(callerInfo |> string, "int", NicePrint.minimalStringOfType cenv.denv ty), m))
-                    | CalleeSide, CallerLineNumber ->
-                        if not ((isOptionTy g ty) && (typeEquiv g g.int32_ty (destOptionTy g ty))) then
-                            errorR(Error(FSComp.SR.tcCallerInfoWrongType(callerInfo |> string, "int", NicePrint.minimalStringOfType cenv.denv (destOptionTy g ty)), m))
-                    | CallerSide _, CallerFilePath ->
-                        if not (typeEquiv g g.string_ty ty) then
-                            errorR(Error(FSComp.SR.tcCallerInfoWrongType(callerInfo |> string, "string", NicePrint.minimalStringOfType cenv.denv ty), m))
-                    | CalleeSide, CallerFilePath ->
-                        if not ((isOptionTy g ty) && (typeEquiv g g.string_ty (destOptionTy g ty))) then
-                            errorR(Error(FSComp.SR.tcCallerInfoWrongType(callerInfo |> string, "string", NicePrint.minimalStringOfType cenv.denv (destOptionTy g ty)), m))
-                    | CallerSide _, CallerMemberName ->
-                        if not (typeEquiv g g.string_ty ty) then
-                            errorR(Error(FSComp.SR.tcCallerInfoWrongType(callerInfo |> string, "string", NicePrint.minimalStringOfType cenv.denv ty), m))
-                    | CalleeSide, CallerMemberName ->
-                        if not ((isOptionTy g ty) && (typeEquiv g g.string_ty (destOptionTy g ty))) then
-                            errorR(Error(FSComp.SR.tcCallerInfoWrongType(callerInfo |> string, "string", NicePrint.minimalStringOfType cenv.denv (destOptionTy g ty)), m)))
+                    | CalleeSide, CallerLineNumber -> errorIfNotOptional g.int32_ty "int" m ty callerInfo
+                    | CallerSide _, (CallerFilePath | CallerMemberName) -> errorIfNotStringTy m ty callerInfo
+                    | CalleeSide, (CallerFilePath | CallerMemberName) -> errorIfNotOptional g.string_ty "string" m ty callerInfo
+                )
 
         for pinfo in immediateProps do
             let nm = pinfo.PropertyName
@@ -2460,7 +2472,7 @@ let CheckEntityDefn cenv env (tycon: Entity) =
                   setterArgs.Length <> getterArgs.Length)
                 ||
                  (let nargs = pinfo.GetParamTypes(cenv.amap, m).Length
-                  others |> List.exists (fun pinfo2 -> (isNil(pinfo2.GetParamTypes(cenv.amap, m))) <> (nargs = 0)))) then
+                  others |> List.exists (fun pinfo2 -> isNil(pinfo2.GetParamTypes(cenv.amap, m)) <> (nargs = 0)))) then
 
                   errorR(Error(FSComp.SR.chkPropertySameNameIndexer(nm, NicePrint.minimalStringOfType cenv.denv ty), m))
 
@@ -2518,7 +2530,7 @@ let CheckEntityDefn cenv env (tycon: Entity) =
     if TyconRefHasAttribute g m g.attrib_IsReadOnlyAttribute tcref && not tycon.IsStructOrEnumTycon then
         errorR(Error(FSComp.SR.tcIsReadOnlyNotStruct(), tycon.Range))
 
-    // Considers TFSharpTyconRepr and TFSharpUnionRepr. 
+    // Considers TFSharpTyconRepr and TFSharpUnionRepr.
     // [Review] are all cases covered: TILObjectRepr, TAsmRepr. [Yes - these are FSharp.Core.dll only]
     tycon.AllFieldsArray |> Array.iter (CheckRecdField false cenv env tycon)
 
@@ -2554,10 +2566,10 @@ let CheckEntityDefn cenv env (tycon: Entity) =
 
     // We do not have to check access of interface implementations.
 
-    if tycon.IsFSharpDelegateTycon then 
-        match tycon.TypeReprInfo with 
+    if tycon.IsFSharpDelegateTycon then
+        match tycon.TypeReprInfo with
         | TFSharpTyconRepr r ->
-            match r.fsobjmodel_kind with 
+            match r.fsobjmodel_kind with
             | TFSharpDelegate ss ->
                 //ss.ClassTypars
                 //ss.MethodTypars
@@ -2676,7 +2688,7 @@ let CheckImplFile (g, amap, reportErrors, infoReader, internalsVisibleToPaths, v
           reportErrors = reportErrors
           boundVals = Dictionary<_, _>(100, HashIdentity.Structural)
           limitVals = Dictionary<_, _>(100, HashIdentity.Structural)
-          stackGuard = StackGuard(PostInferenceChecksStackGuardDepth, "CheckImplFile")
+          stackGuard = StackGuard("CheckImplFile")
           potentialUnboundUsesOfVals = Map.empty
           anonRecdTypes = StampMap.Empty
           usesQuotations = false

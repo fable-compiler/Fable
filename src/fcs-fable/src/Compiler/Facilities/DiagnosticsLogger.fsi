@@ -68,7 +68,7 @@ exception LibraryUseOnly of range: range
 
 exception Deprecated of message: string * range: range
 
-exception Experimental of message: string * range: range
+exception Experimental of message: string option * diagnosticId: string option * urlFormat: string option * range: range
 
 exception PossibleUnverifiableCode of range: range
 
@@ -86,6 +86,13 @@ exception DiagnosticWithSuggestions of
     range: range *
     identifier: string *
     suggestions: Suggestions
+
+exception ObsoleteDiagnostic of
+    isError: bool *
+    diagnosticId: string option *
+    message: string option *
+    urlFormat: string option *
+    range: range
 
 /// Creates a DiagnosticWithSuggestions whose text comes via SR.*
 val ErrorWithSuggestions: (int * string) * range * string * Suggestions -> exn
@@ -207,6 +214,7 @@ type DiagnosticsLogger =
     abstract ErrorCount: int
 
     /// Checks if ErrorCount > 0
+    [<Obsolete("This also reports if a 'WarnAsError' warning occured, leading to premature abortions of compilation checks. Use CheckForRealErrorsIgnoringWarnings instead.")>]
     member CheckForErrors: unit -> bool
 
     abstract CheckForRealErrorsIgnoringWarnings: bool
@@ -451,8 +459,15 @@ val tryLanguageFeatureErrorOption:
 
 val languageFeatureNotSupportedInLibraryError: langFeature: LanguageFeature -> m: range -> 'T
 
+#if !FABLE_COMPILER
+module internal StackGuardMetrics =
+    val Listen: unit -> IDisposable
+    val StatsToString: unit -> string
+    val CaptureStatsAndWriteToConsole: unit -> IDisposable
+#endif
+
 type StackGuard =
-    new: maxDepth: int * name: string -> StackGuard
+    new: name: string -> StackGuard
 
     /// Execute the new function, on a new thread if necessary
     member Guard:
@@ -463,8 +478,6 @@ type StackGuard =
             'T
 
     member GuardCancellable: Internal.Utilities.Library.Cancellable<'T> -> Internal.Utilities.Library.Cancellable<'T>
-
-    static member GetDepthOption: string -> int
 
 /// This represents the global state established as each task function runs as part of the build.
 ///

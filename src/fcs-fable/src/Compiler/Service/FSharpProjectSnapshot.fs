@@ -5,7 +5,6 @@ module FSharp.Compiler.CodeAnalysis.ProjectSnapshot
 open System
 open System.Collections.Generic
 open System.IO
-open System.Reflection
 open FSharp.Compiler.IO
 open Internal.Utilities.Library
 open Internal.Utilities.Library.Extras
@@ -133,7 +132,7 @@ type FSharpFileSnapshot(FileName: string, Version: string, GetSource: unit -> Ta
 type internal FSharpFileSnapshotWithSource
     (FileName: string, SourceHash: ImmutableArray<byte>, Source: ISourceTextNew, IsLastCompiland: bool, IsExe: bool) =
 
-    let version = lazy (SourceHash.ToBuilder().ToArray())
+    let version = lazy SourceHash.ToBuilder().ToArray()
     let stringVersion = lazy (version.Value |> BitConverter.ToString)
 
     member val Version = version.Value
@@ -203,14 +202,14 @@ type internal ProjectSnapshotBase<'T when 'T :> IFileSnapshot>
 
     let noFileVersionsKey =
         lazy
-            ({ new ICacheKey<_, _> with
-                 member _.GetLabel() = projectConfig.Label
-                 member _.GetKey() = projectConfig.Identifier
+            { new ICacheKey<_, _> with
+                member _.GetLabel() = projectConfig.Label
+                member _.GetKey() = projectConfig.Identifier
 
-                 member _.GetVersion() =
-                     noFileVersionsHash.Value |> Md5Hasher.toString
+                member _.GetVersion() =
+                    noFileVersionsHash.Value |> Md5Hasher.toString
 
-             })
+            }
 
     let fullHash =
         lazy
@@ -226,11 +225,11 @@ type internal ProjectSnapshotBase<'T when 'T :> IFileSnapshot>
 
     let fullKey =
         lazy
-            ({ new ICacheKey<_, _> with
-                 member _.GetLabel() = projectConfig.Label
-                 member _.GetKey() = projectConfig.Identifier
-                 member _.GetVersion() = fullHash.Value |> Md5Hasher.toString
-             })
+            { new ICacheKey<_, _> with
+                member _.GetLabel() = projectConfig.Label
+                member _.GetKey() = projectConfig.Identifier
+                member _.GetVersion() = fullHash.Value |> Md5Hasher.toString
+            }
 
     let addHash (file: 'T) hash =
         hash |> Md5Hasher.addString file.FileName |> Md5Hasher.addBytes file.Version
@@ -436,15 +435,18 @@ and [<Experimental("This FCS API is experimental and subject to change.")>] Proj
             ((projectFileName, outputFileNameValue.Value |> Option.defaultValue "")
              |> FSharpProjectIdentifier)
 
-    new(projectFileName: string,
-        outputFileName: string option,
-        referencesOnDisk: string seq,
-        otherOptions: string seq,
-        ?isIncompleteTypeCheckEnvironment: bool,
-        ?useScriptResolutionRules: bool,
-        ?loadTime: DateTime,
-        ?stamp: int64,
-        ?projectId: string) =
+    new
+        (
+            projectFileName: string,
+            outputFileName: string option,
+            referencesOnDisk: string seq,
+            otherOptions: string seq,
+            ?isIncompleteTypeCheckEnvironment: bool,
+            ?useScriptResolutionRules: bool,
+            ?loadTime: DateTime,
+            ?stamp: int64,
+            ?projectId: string
+        ) =
 
         let referencesOnDisk =
             referencesOnDisk
@@ -469,7 +471,7 @@ and [<Experimental("This FCS API is experimental and subject to change.")>] Proj
             projectId = projectId
         )
 
-    member val ProjectDirectory = !! Path.GetDirectoryName(projectFileName)
+    member val ProjectDirectory = !!Path.GetDirectoryName(projectFileName)
     member _.OutputFileName = outputFileNameValue.Value
     member _.Identifier = identifier.Value
     member _.Version = fullHash.Value
@@ -616,6 +618,7 @@ and [<Experimental("This FCS API is experimental and subject to change.")>] FSha
     member _.OriginalLoadReferences = projectSnapshot.OriginalLoadReferences
     member _.Stamp = projectSnapshot.Stamp
     member _.OutputFileName = projectSnapshot.OutputFileName
+    member _.ProjectConfig = projectSnapshot.ProjectConfig
 
     static member Create
         (
@@ -726,13 +729,8 @@ and [<Experimental("This FCS API is experimental and subject to change.")>] FSha
         )
 
     static member FromOptions
-        (
-            options: FSharpProjectOptions,
-            fileName: string,
-            fileVersion: int,
-            sourceText: ISourceText,
-            documentSource: DocumentSource
-        ) =
+        (options: FSharpProjectOptions, fileName: string, fileVersion: int, sourceText: ISourceText, documentSource: DocumentSource)
+        =
 
         let getFileSnapshot _ fName =
             if fName = fileName then
@@ -746,6 +744,69 @@ and [<Experimental("This FCS API is experimental and subject to change.")>] FSha
             |> async.Return
 
         FSharpProjectSnapshot.FromOptions(options, getFileSnapshot)
+
+    static member FromResponseFile(responseFile: FileInfo, projectFileName) =
+        if not responseFile.Exists then
+            failwith $"%s{responseFile.FullName} does not exist"
+
+        let compilerArgs = File.ReadAllLines responseFile.FullName
+
+        let directoryName: string =
+            match responseFile.DirectoryName with
+            | null -> failwith "Directory name of the response file is null"
+            | str -> str
+
+        FSharpProjectSnapshot.FromCommandLineArgs(compilerArgs, directoryName, projectFileName)
+
+    static member FromCommandLineArgs(compilerArgs: string array, directoryPath: string, projectFileName) =
+        let fsharpFileExtensions = set [| ".fs"; ".fsi"; ".fsx" |]
+
+        let isFSharpFile (file: string) =
+            Set.exists (fun (ext: string) -> file.EndsWith(ext, StringComparison.Ordinal)) fsharpFileExtensions
+
+        let isReference: string -> bool = _.StartsWith("-r:")
+
+        let fsharpFiles =
+            compilerArgs
+            |> Array.choose (fun (line: string) ->
+                if not (isFSharpFile line) then
+                    None
+                else
+
+                    let fullPath = Path.Combine(directoryPath, line)
+                    if not (File.Exists fullPath) then None else Some fullPath)
+            |> Array.toList
+
+        let referencesOnDisk =
+            compilerArgs |> Seq.filter isReference |> Seq.map _.Substring(3) |> Seq.toList
+
+        let otherOptions =
+            compilerArgs
+            |> Seq.filter (not << isReference)
+            |> Seq.filter (not << isFSharpFile)
+            |> Seq.toList
+
+        FSharpProjectSnapshot.Create(
+            projectFileName = projectFileName,
+            outputFileName = None,
+            projectId = None,
+            sourceFiles = (fsharpFiles |> List.map FSharpFileSnapshot.CreateFromFileSystem),
+            referencesOnDisk =
+                (referencesOnDisk
+                 |> List.map (fun x ->
+                     {
+                         Path = x
+                         LastModified = FileSystem.GetLastWriteTimeShim(x)
+                     })),
+            otherOptions = otherOptions,
+            referencedProjects = [],
+            isIncompleteTypeCheckEnvironment = false,
+            useScriptResolutionRules = false,
+            loadTime = DateTime.Now,
+            unresolvedReferences = None,
+            originalLoadReferences = [],
+            stamp = None
+        )
 
 let internal snapshotTable =
     ConditionalWeakTable<ProjectSnapshot, FSharpProjectOptions>()

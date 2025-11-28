@@ -7,7 +7,6 @@ open System.IO
 open Internal.Utilities.Library
 open FSharp.Compiler.CheckBasics
 open FSharp.Compiler.CheckDeclarations
-open FSharp.Compiler.CompilerGlobalState
 open FSharp.Compiler.CompilerConfig
 open FSharp.Compiler.CompilerImports
 open FSharp.Compiler.Diagnostics
@@ -84,15 +83,12 @@ val ParseInput:
 
 /// A general routine to process hash directives
 val ProcessMetaCommandsFromInput:
-    ('T -> range * string -> 'T) * ('T -> range * string * Directive -> 'T) * ('T -> range * string -> unit) ->
+    ('T -> range * string * Directive -> 'T) * ('T -> range * string -> unit) ->
         TcConfigBuilder * ParsedInput * string * 'T ->
             'T
 
-/// Process all the #r, #I etc. in an input.  For non-scripts report warnings about ignored directives.
+/// Process all the #r, #I etc. in an input.
 val ApplyMetaCommandsFromInputToTcConfig: TcConfig * ParsedInput * string * DependencyProvider -> TcConfig
-
-/// Process the #nowarn in an input and integrate them into the TcConfig
-val ApplyNoWarnsToTcConfig: TcConfig * ParsedInput * string -> TcConfig
 
 /// Parse one input stream
 val ParseOneInputStream:
@@ -149,6 +145,9 @@ val ParseInputFiles:
     retryLocked: bool ->
         (ParsedInput * string) list
 
+/// Process collected directives
+val FinishPreprocessing: Lexbuf -> FSharpDiagnosticOptions -> bool -> range list -> unit
+
 #endif //!FABLE_COMPILER
 
 /// Get the initial type checking environment including the loading of mscorlib/System.Core, FSharp.Core
@@ -192,7 +191,7 @@ val CheckOneInput:
     tcImports: TcImports *
     tcGlobals: TcGlobals *
     prefixPathOpt: LongIdent option *
-    tcSink: NameResolution.TcResultsSink *
+    tcSink: TcResultsSink *
     tcState: TcState *
     input: ParsedInput ->
         Cancellable<(TcEnv * TopAttribs * CheckedImplFile option * ModuleOrNamespaceType) * TcState>
@@ -264,7 +263,7 @@ val CheckOneInputAndFinish:
     tcImports: TcImports *
     tcGlobals: TcGlobals *
     prefixPathOpt: LongIdent option *
-    tcSink: NameResolution.TcResultsSink *
+    tcSink: TcResultsSink *
     tcState: TcState *
     input: ParsedInput ->
         Cancellable<(TcEnv * TopAttribs * CheckedImplFile list * ModuleOrNamespaceType list) * TcState>

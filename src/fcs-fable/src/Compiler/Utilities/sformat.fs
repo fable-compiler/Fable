@@ -122,13 +122,6 @@ type IEnvironment =
     abstract MaxColumns: int
     abstract MaxRows: int
 
-#if NO_CHECKNULLS
-[<AutoOpen>]
-module NullShim =
-    // Shim to match nullness checking library support in preview
-    let inline (|Null|NonNull|) (x: 'T) : Choice<unit,'T> = match x with null -> Null | v -> NonNull v
-#endif
-
 [<AutoOpen>]
 module TaggedText =
     let mkTag tag text = TaggedText(tag, text)
@@ -577,6 +570,7 @@ module ReflectUtils =
 
         let GetValueInfo bindingFlags (x: 'a, ty: Type) (* x could be null *) =
             let obj = (box x)
+
             match obj with
             | Null ->
                 let isNullaryUnion =
@@ -596,8 +590,7 @@ module ReflectUtils =
                     UnitValue
                 else
                     NullValue
-            | NonNull obj -> 
-                GetValueInfoOfObject bindingFlags obj 
+            | NonNull obj -> GetValueInfoOfObject bindingFlags obj
 
 module Display =
     open ReflectUtils
@@ -1016,6 +1009,7 @@ module Display =
 
         and objL showMode depthLim prec (x: objnull, ty: Type) =
             let info = Value.GetValueInfo bindingFlags (x, ty)
+
             try
                 if depthLim <= 0 || exceededPrintSize () then
                     wordL (tagPunctuation "...")
@@ -1036,9 +1030,11 @@ module Display =
                                     Some(wordL (tagText (x.ToString())))
                                 else
                                     // Try the StructuredFormatDisplayAttribute extensibility attribute
-                                    match ty.GetCustomAttributes (typeof<StructuredFormatDisplayAttribute>, true) with
-                                    | Null | [| |] -> None
-                                    | NonNull res -> structuredFormatObjectL showMode ty depthLim (res[0] :?> StructuredFormatDisplayAttribute) x
+                                    match ty.GetCustomAttributes(typeof<StructuredFormatDisplayAttribute>, true) with
+                                    | Null
+                                    | [||] -> None
+                                    | NonNull res ->
+                                        structuredFormatObjectL showMode ty depthLim (res[0] :?> StructuredFormatDisplayAttribute) x
 
 #if COMPILER
                             // This is the PrintIntercepts extensibility point currently revealed by fsi.exe's AddPrinter
@@ -1071,6 +1067,7 @@ module Display =
         // Format an object that has a layout specified by StructuredFormatAttribute
         and structuredFormatObjectL showMode ty depthLim (attr: StructuredFormatDisplayAttribute) (obj: obj) =
             let txt = attr.Value
+
             if isNull (box txt) || txt.Length <= 1 then
                 None
             else

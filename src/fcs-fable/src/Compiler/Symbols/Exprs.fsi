@@ -61,7 +61,7 @@ type public FSharpImplementationFileDeclaration =
     | InitAction of action: FSharpExpr
 
 /// Represents a checked and reduced expression, as seen by the F# language.  The active patterns
-/// in 'FSharp.Compiler.SourceCodeServices' can be used to analyze information about the expression.
+/// in 'FSharp.Compiler.Symbols.FSharpExprPatterns' can be used to analyze information about the expression.
 ///
 /// Pattern matching is reduced to decision trees and conditional tests. Some other
 /// constructs may be represented in reduced form.
@@ -209,7 +209,7 @@ module public FSharpExprPatterns =
 
     /// Matches constant expressions, including signed and unsigned integers, strings, characters, booleans, arrays
     /// of bytes and arrays of unit16.
-    val (|Const|_|): FSharpExpr -> (obj * FSharpType) option
+    val (|Const|_|): FSharpExpr -> (objnull * FSharpType) option
 
     /// Matches expressions which take the address of a location
     val (|AddressOf|_|): FSharpExpr -> FSharpExpr option

@@ -118,7 +118,8 @@ type CompletionContext =
         enclosingTypeNameRange: range *
         spacesBeforeOverrideKeyword: int *
         hasThis: bool *
-        isStatic: bool
+        isStatic: bool *
+        spacesBeforeEnclosingDefinition: int
 
 type ShortIdent = string
 
@@ -274,7 +275,7 @@ module ParsedInput =
 
         let rec collect expr acc =
             match expr with
-            | SynExpr.Sequential(expr1 = e1; expr2 = (SynExpr.Sequential _ as e2)) -> collect e2 (e1 :: acc)
+            | SynExpr.Sequential(expr1 = e1; expr2 = SynExpr.Sequential _ as e2) -> collect e2 (e1 :: acc)
             | SynExpr.Sequential(expr1 = e1; expr2 = e2) -> e2 :: e1 :: acc
             | _ -> acc
 
@@ -318,6 +319,13 @@ module ParsedInput =
                         else
                             let _, r = CheckLongIdent longIdent
                             Some r
+
+                    | SynExpr.DotLambda(SynExpr.LongIdent _, range, _) -> Some range
+                    | SynExpr.DotLambda(synExpr, range, _) ->
+                        let result = traverseSynExpr synExpr
+
+                        result
+                        |> Option.map (fun r -> if posEq r.Start synExpr.Range.Start then range else r)
 
                     | SynExpr.DotGet(synExpr, _dotm, lid, _) ->
                         let (SynLongIdent(longIdent, _, _)) = lid
@@ -605,7 +613,7 @@ module ParsedInput =
         let (|ConstructorPats|) pats =
             match pats with
             | SynArgPats.Pats ps -> ps
-            | SynArgPats.NamePatPairs(pats = xs) -> List.map (fun (_, _, pat) -> pat) xs
+            | SynArgPats.NamePatPairs(pats = xs) -> xs |> List.map _.Pattern
 
         let inline isPosInRange range = rangeContainsPos range pos
 
@@ -839,15 +847,6 @@ module ParsedInput =
                     | Some e -> walkExprWithKind parentKind e)
 
             | SynExpr.Ident ident -> ifPosInRange ident.idRange (fun _ -> Some(EntityKind.FunctionOrValue false))
-
-            | SynExpr.LetOrUseBang(rhs = e1; andBangs = es; body = e2) ->
-                [
-                    yield e1
-                    for SynExprAndBang(body = eAndBang) in es do
-                        yield eAndBang
-                    yield e2
-                ]
-                |> List.tryPick (walkExprWithKind parentKind)
 
             | SynExpr.TraitCall(TypesForTypar ts, sign, e, _) ->
                 List.tryPick walkType ts
@@ -1135,6 +1134,8 @@ module ParsedInput =
         let last = List.last lid.LongIdent
         last.idRange.End
 
+    let lastIdentOfSynLongIdent (lid: SynLongIdent) = List.last lid.LongIdent
+
     let endOfClosingTokenOrLastIdent (mClosing: range option) (lid: SynLongIdent) =
         match mClosing with
         | Some m -> m.End
@@ -1333,18 +1334,24 @@ module ParsedInput =
             rangeContainsPos m pos
             ->
             pats
-            |> List.tryPick (fun (fieldId, _, pat) ->
-                if rangeContainsPos fieldId.idRange pos then
-                    let referencedFields = pats |> List.map (fun (id, _, _) -> id.idText)
+            |> List.tryPick (fun field ->
+                if rangeContainsPos field.FieldName.Range pos then
+                    let referencedFields =
+                        pats |> List.map (fun f -> (lastIdentOfSynLongIdent f.FieldName).idText)
+
                     Some(CompletionContext.Pattern(PatternContext.UnionCaseFieldIdentifier(referencedFields, caseId.Range)))
                 else
-                    let context = Some(PatternContext.NamedUnionCaseField(fieldId.idText, caseId.Range))
-                    TryGetCompletionContextInPattern suppressIdentifierCompletions pat context pos)
+                    let lastId = lastIdentOfSynLongIdent field.FieldName
+                    let context = Some(PatternContext.NamedUnionCaseField(lastId.idText, caseId.Range))
+
+                    TryGetCompletionContextInPattern suppressIdentifierCompletions field.Pattern context pos)
             |> Option.orElseWith (fun () ->
                 // Last resort - check for fun (Case (item1 = a; | )) ->
                 // That is, pos is after the last pair and still within parentheses
                 if rangeBeforePos mPairs pos then
-                    let referencedFields = pats |> List.map (fun (id, _, _) -> id.idText)
+                    let referencedFields =
+                        pats |> List.map (fun f -> (lastIdentOfSynLongIdent f.FieldName).idText)
+
                     Some(CompletionContext.Pattern(PatternContext.UnionCaseFieldIdentifier(referencedFields, caseId.Range)))
                 else
                     None)
@@ -1375,9 +1382,17 @@ module ParsedInput =
                 |> List.tryPick (fun pat -> TryGetCompletionContextInPattern false pat None pos)
         | SynPat.Record(fieldPats = pats; range = m) when rangeContainsPos m pos ->
             pats
-            |> List.tryPick (fun ((_, fieldId), _, pat) ->
-                if rangeContainsPos fieldId.idRange pos then
-                    let referencedFields = pats |> List.map (fun ((_, x), _, _) -> x.idText, x.idRange)
+            |> List.tryPick (fun f ->
+                let fieldId = f.FieldName
+                let pat = f.Pattern
+
+                if rangeContainsPos fieldId.Range pos then
+                    let referencedFields =
+                        pats
+                        |> List.map (fun f ->
+                            let lastId = lastIdentOfSynLongIdent f.FieldName
+                            lastId.idText, lastId.idRange)
+
                     Some(CompletionContext.Pattern(PatternContext.RecordFieldIdentifier referencedFields))
                 elif rangeContainsPos pat.Range pos then
                     TryGetCompletionContextInPattern false pat None pos
@@ -1388,13 +1403,22 @@ module ParsedInput =
                 // That is, pos is after the last field and still within braces
                 if
                     pats
-                    |> List.forall (fun (_, mEquals, pat) ->
-                        match mEquals, pat with
+                    |> List.forall (fun f ->
+                        let mEqualsOpt =
+                            match f with
+                            | NamePatPairField(equalsRange = m) -> m
+
+                        match mEqualsOpt, f.Pattern with
                         | Some mEquals, SynPat.Wild mPat -> rangeBeforePos mEquals pos && mPat.StartColumn <> mPat.EndColumn
                         | Some mEquals, _ -> rangeBeforePos mEquals pos
                         | _ -> false)
                 then
-                    let referencedFields = pats |> List.map (fun ((_, x), _, _) -> x.idText, x.idRange)
+                    let referencedFields =
+                        pats
+                        |> List.map (fun f ->
+                            let lastId = lastIdentOfSynLongIdent f.FieldName
+                            lastId.idText, lastId.idRange)
+
                     Some(CompletionContext.Pattern(PatternContext.RecordFieldIdentifier referencedFields))
                 else
                     Some(CompletionContext.Pattern PatternContext.Other))
@@ -1558,11 +1582,8 @@ module ParsedInput =
                     | _ -> None
 
                 member _.VisitBinding
-                    (
-                        path,
-                        defaultTraverse,
-                        (SynBinding(headPat = headPat; trivia = trivia; returnInfo = returnInfo) as synBinding)
-                    ) =
+                    (path, defaultTraverse, (SynBinding(headPat = headPat; trivia = trivia; returnInfo = returnInfo) as synBinding))
+                    =
 
                     let isOverrideOrMember leadingKeyword =
                         match leadingKeyword with
@@ -1582,7 +1603,8 @@ module ParsedInput =
 
                     let overrideContext path (mOverride: range) hasThis isStatic isMember =
                         match path with
-                        | _ :: SyntaxNode.SynTypeDefn(SynTypeDefn(typeInfo = SynComponentInfo(longId = [ enclosingType ]))) :: _ when
+                        | _ :: SyntaxNode.SynTypeDefn(SynTypeDefn(
+                            typeInfo = SynComponentInfo(longId = [ enclosingType ]); trivia = { LeadingKeyword = keyword })) :: _ when
                             not isMember
                             ->
                             Some(
@@ -1591,12 +1613,13 @@ module ParsedInput =
                                     enclosingType.idRange,
                                     mOverride.StartColumn,
                                     hasThis,
-                                    isStatic
+                                    isStatic,
+                                    keyword.Range.StartColumn
                                 )
                             )
-                        | SyntaxNode.SynMemberDefn(SynMemberDefn.Interface(interfaceType = ty)) :: SyntaxNode.SynTypeDefn(SynTypeDefn(
+                        | SyntaxNode.SynMemberDefn(SynMemberDefn.Interface(interfaceType = ty) as enclosingDefn) :: SyntaxNode.SynTypeDefn(SynTypeDefn(
                             typeInfo = SynComponentInfo(longId = [ enclosingType ]))) :: _
-                        | _ :: SyntaxNode.SynMemberDefn(SynMemberDefn.Interface(interfaceType = ty)) :: SyntaxNode.SynTypeDefn(SynTypeDefn(
+                        | _ :: SyntaxNode.SynMemberDefn(SynMemberDefn.Interface(interfaceType = ty) as enclosingDefn) :: SyntaxNode.SynTypeDefn(SynTypeDefn(
                             typeInfo = SynComponentInfo(longId = [ enclosingType ]))) :: _ ->
                             let ty =
                                 match ty with
@@ -1609,11 +1632,12 @@ module ParsedInput =
                                     enclosingType.idRange,
                                     mOverride.StartColumn,
                                     hasThis,
-                                    isStatic
+                                    isStatic,
+                                    enclosingDefn.Range.StartColumn
                                 )
                             )
-                        | SyntaxNode.SynMemberDefn(SynMemberDefn.Interface(interfaceType = ty)) :: (SyntaxNode.SynExpr(SynExpr.ObjExpr _) as expr) :: _
-                        | _ :: SyntaxNode.SynMemberDefn(SynMemberDefn.Interface(interfaceType = ty)) :: (SyntaxNode.SynExpr(SynExpr.ObjExpr _) as expr) :: _ ->
+                        | SyntaxNode.SynMemberDefn(SynMemberDefn.Interface(interfaceType = ty) as enclosingDefn) :: (SyntaxNode.SynExpr(SynExpr.ObjExpr _) as expr) :: _
+                        | _ :: SyntaxNode.SynMemberDefn(SynMemberDefn.Interface(interfaceType = ty) as enclosingDefn) :: (SyntaxNode.SynExpr(SynExpr.ObjExpr _) as expr) :: _ ->
                             let ty =
                                 match ty with
                                 | SynType.App(typeName = ty) -> ty
@@ -1625,10 +1649,11 @@ module ParsedInput =
                                     ty.Range,
                                     mOverride.StartColumn,
                                     hasThis,
-                                    isStatic
+                                    isStatic,
+                                    enclosingDefn.Range.StartColumn
                                 )
                             )
-                        | SyntaxNode.SynExpr(SynExpr.ObjExpr(objType = ty)) as expr :: _ ->
+                        | SyntaxNode.SynExpr(SynExpr.ObjExpr(objType = ty; newExprRange = newExprRange)) as expr :: _ ->
                             let ty =
                                 match ty with
                                 | SynType.App(typeName = ty) -> ty
@@ -1640,7 +1665,8 @@ module ParsedInput =
                                     ty.Range,
                                     mOverride.StartColumn,
                                     hasThis,
-                                    isStatic
+                                    isStatic,
+                                    newExprRange.StartColumn
                                 )
                             )
                         | _ -> Some CompletionContext.Invalid
@@ -1908,7 +1934,7 @@ module ParsedInput =
     let (|ConstructorPats|) pats =
         match pats with
         | SynArgPats.Pats ps -> ps
-        | SynArgPats.NamePatPairs(pats = xs) -> List.map (fun (_, _, pat) -> pat) xs
+        | SynArgPats.NamePatPairs(pats = xs) -> xs |> List.map _.Pattern
 
     /// Returns all `Ident`s and `LongIdent`s found in an untyped AST.
     let getLongIdents (parsedInput: ParsedInput) : IDictionary<pos, LongIdent> =
@@ -2184,16 +2210,6 @@ module ParsedInput =
                 walkExpr e2
                 walkExpr e3
 
-            | SynExpr.LetOrUseBang(pat = pat; rhs = e1; andBangs = es; body = e2) ->
-                walkPat pat
-                walkExpr e1
-
-                for SynExprAndBang(pat = patAndBang; body = eAndBang) in es do
-                    walkPat patAndBang
-                    walkExpr eAndBang
-
-                walkExpr e2
-
             | SynExpr.TraitCall(TypesForTypar ts, sign, e, _) ->
                 List.iter walkType ts
                 walkMemberSig sign
@@ -2451,7 +2467,7 @@ module ParsedInput =
             List.iter (walkSynModuleOrNamespace []) file.Contents
 
         and walkSynModuleOrNamespace (parent: LongIdent) modul =
-            let (SynModuleOrNamespace(longId = ident; kind = kind; decls = decls; range = range)) =
+            let (SynModuleOrNamespace(longId = ident; kind = kind; decls = decls; range = range; trivia = trivia)) =
                 modul
 
             if range.EndLine >= currentLine then
@@ -2467,7 +2483,14 @@ module ParsedInput =
 
                 let fullIdent = parent @ ident
 
-                let startLine = if isModule then range.StartLine else range.StartLine - 1
+                // Use trivia to get the actual module/namespace keyword line, which excludes attributes
+                let startLine =
+                    match trivia.LeadingKeyword with
+                    | SynModuleOrNamespaceLeadingKeyword.Module moduleRange -> moduleRange.StartLine
+                    | SynModuleOrNamespaceLeadingKeyword.Namespace namespaceRange -> namespaceRange.StartLine - 1
+                    | SynModuleOrNamespaceLeadingKeyword.None ->
+                        // No keyword (implicit module), use range.StartLine
+                        if isModule then range.StartLine else range.StartLine - 1
 
                 let scopeKind =
                     match isModule, parent with
@@ -2482,15 +2505,22 @@ module ParsedInput =
         and walkSynModuleDecl (parent: LongIdent) (decl: SynModuleDecl) =
             match decl with
             | SynModuleDecl.NamespaceFragment fragment -> walkSynModuleOrNamespace parent fragment
-            | SynModuleDecl.NestedModule(moduleInfo = SynComponentInfo(longId = ident); decls = decls; range = range) ->
+            | SynModuleDecl.NestedModule(moduleInfo = SynComponentInfo(longId = ident); decls = decls; range = range; trivia = trivia) ->
+
                 let fullIdent = parent @ ident
                 addModule (fullIdent, range)
 
                 if range.EndLine >= currentLine then
+                    // Use trivia to get the actual module keyword line, which excludes attributes
+                    let moduleKeywordLine =
+                        match trivia.ModuleKeyword with
+                        | Some moduleKeywordRange -> moduleKeywordRange.StartLine
+                        | None -> range.StartLine // Fallback if trivia unavailable
+
                     let moduleBodyIndentation =
                         getMinColumn decls |> Option.defaultValue (range.StartColumn + 4)
 
-                    doRange NestedModule fullIdent range.StartLine moduleBodyIndentation
+                    doRange NestedModule fullIdent moduleKeywordLine moduleBodyIndentation
                     List.iter (walkSynModuleDecl fullIdent) decls
             | SynModuleDecl.Open(_, range) -> doRange OpenDeclaration [] range.EndLine (range.StartColumn - 5)
             | SynModuleDecl.HashDirective(_, range) -> doRange HashDirective [] range.EndLine range.StartColumn

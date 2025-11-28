@@ -2,15 +2,18 @@
 
 module FSharp.Compiler.SyntaxTreeOps
 
+open Internal.Utilities
 open Internal.Utilities.Library
 open FSharp.Compiler.DiagnosticsLogger
 open FSharp.Compiler.Features
+open FSharp.Compiler.IO
 open FSharp.Compiler.Syntax
 open FSharp.Compiler.SyntaxTrivia
 open FSharp.Compiler.Syntax.PrettyNaming
 open FSharp.Compiler.Text
 open FSharp.Compiler.Text.Range
 open FSharp.Compiler.Xml
+open System
 
 /// Generate implicit argument names in parsing
 type SynArgNameGenerator() =
@@ -86,7 +89,7 @@ let rec pushUnaryArg expr arg =
             x1,
             m1
         )
-    | SynExpr.App(ExprAtomicFlag.Atomic, infix, (SynExpr.App(_) as innerApp), x1, m1) ->
+    | SynExpr.App(ExprAtomicFlag.Atomic, infix, (SynExpr.App _ as innerApp), x1, m1) ->
         SynExpr.App(ExprAtomicFlag.Atomic, infix, (pushUnaryArg innerApp arg), x1, m1)
     | SynExpr.App(ExprAtomicFlag.Atomic, infix, SynExpr.DotGet(synExpr, rangeOfDot, synLongIdent, range), x1, m1) ->
         SynExpr.App(ExprAtomicFlag.Atomic, infix, SynExpr.DotGet((pushUnaryArg synExpr arg), rangeOfDot, synLongIdent, range), x1, m1)
@@ -103,6 +106,8 @@ let rec pushUnaryArg expr arg =
         SynExpr.TypeApp(innerExpr, mLess, tyargs, mCommas, mGreater, mTypars, m)
     | SynExpr.ArbitraryAfterError(_, m) when m.Start = m.End ->
         SynExpr.DiscardAfterMissingQualificationAfterDot(SynExpr.Ident arg, m.StartRange, unionRanges arg.idRange m)
+    | SynExpr.DiscardAfterMissingQualificationAfterDot(synExpr, dotRange, m) ->
+        SynExpr.DiscardAfterMissingQualificationAfterDot(pushUnaryArg synExpr arg, dotRange, unionRanges arg.idRange m)
     | _ ->
         errorR (Error(FSComp.SR.tcDotLambdaAtNotSupportedExpression (), expr.Range))
         expr
@@ -207,7 +212,6 @@ let rec IsControlFlowExpression e =
     // Treat "ident { ... }" as a control flow expression
     | SynExpr.App(_, _, SynExpr.Ident _, SynExpr.ComputationExpr _, _)
     | SynExpr.IfThenElse _
-    | SynExpr.LetOrUseBang _
     | SynExpr.Match _
     | SynExpr.TryWith _
     | SynExpr.TryFinally _
@@ -443,7 +447,7 @@ let mkSynOperator (opm: range) (oper: string) =
             && ((opm.EndColumn - opm.StartColumn) = (oper.Length - 1))
         then
             // PREFIX_OP token where the ~ was actually absent
-            IdentTrivia.OriginalNotation(string (oper.[1..]))
+            IdentTrivia.OriginalNotation(string oper.[1..])
         else
             IdentTrivia.OriginalNotation oper
 
@@ -979,15 +983,6 @@ let rec synExprContainsError inpExpr =
 
         | SynExpr.DotNamedIndexedPropertySet(e1, _, e2, e3, _) -> walkExpr e1 || walkExpr e2 || walkExpr e3
 
-        | SynExpr.LetOrUseBang(rhs = e1; body = e2; andBangs = es) ->
-            walkExpr e1
-            || walkExprs
-                [
-                    for SynExprAndBang(body = e) in es do
-                        yield e
-                ]
-            || walkExpr e2
-
         | SynExpr.InterpolatedString(parts, _, _m) ->
             parts
             |> List.choose (function
@@ -998,13 +993,49 @@ let rec synExprContainsError inpExpr =
     walkExpr inpExpr
 
 let longIdentToString (ident: SynLongIdent) =
-    System.String.Join(".", ident.LongIdent |> List.map (fun ident -> ident.idText.ToString()))
+    String.Join(".", ident.LongIdent |> List.map (fun ident -> ident.idText.ToString()))
+
+/// The "mock" file name used by fsi.exe when reading from stdin.
+/// Has special treatment, i.e. __SOURCE_DIRECTORY__ becomes GetCurrentDirectory()
+let stdinMockFileName = "stdin"
+
+let getSourceIdentifierValue pathMap s (m: range) =
+    match s with
+    | "__SOURCE_DIRECTORY__" ->
+        let fileName = FileIndex.fileOfFileIndex m.FileIndex
+
+        let dirname =
+            if String.IsNullOrWhiteSpace fileName then
+                String.Empty
+            else if fileName = stdinMockFileName then
+                System.IO.Directory.GetCurrentDirectory()
+            else
+                fileName
+                |> FileSystem.GetFullPathShim (* asserts that path is already absolute *)
+                |> System.IO.Path.GetDirectoryName
+                |> (!!)
+
+        if String.IsNullOrEmpty dirname then
+            dirname
+        else
+            PathMap.applyDir pathMap dirname
+    | "__SOURCE_FILE__" -> !!System.IO.Path.GetFileName(FileIndex.fileOfFileIndex m.FileIndex)
+    | "__LINE__" -> string m.StartLine
+    | _ -> failwith "getSourceIdentifierValue: unexpected identifier"
+
+let applyLineDirectivesToSourceIdentifier s value (m: range) =
+    let mm = m.ApplyLineDirectives()
+
+    if mm = m then
+        value // keep the value that was assigned during lexing (when line directives were not yet evaluated)
+    else
+        getSourceIdentifierValue PathMap.empty s mm // update because of line directive
 
 let parsedHashDirectiveArguments (input: ParsedHashDirectiveArgument list) (langVersion: LanguageVersion) =
     List.choose
         (function
         | ParsedHashDirectiveArgument.String(s, _, _) -> Some s
-        | ParsedHashDirectiveArgument.SourceIdentifier(_, v, _) -> Some v
+        | ParsedHashDirectiveArgument.SourceIdentifier(s, v, m) -> Some(applyLineDirectivesToSourceIdentifier s v m)
         | ParsedHashDirectiveArgument.Int32(n, m) ->
             match tryCheckLanguageFeatureAndRecover langVersion LanguageFeature.ParsedHashDirectiveArgumentNonQuotes m with
             | true -> Some(string n)
@@ -1023,10 +1054,10 @@ let parsedHashDirectiveArgumentsNoCheck (input: ParsedHashDirectiveArgument list
     List.map
         (function
         | ParsedHashDirectiveArgument.String(s, _, _) -> s
-        | ParsedHashDirectiveArgument.SourceIdentifier(_, v, _) -> v
-        | ParsedHashDirectiveArgument.Int32(n, m) -> string n
-        | ParsedHashDirectiveArgument.Ident(ident, m) -> ident.idText
-        | ParsedHashDirectiveArgument.LongIdent(ident, m) -> longIdentToString ident)
+        | ParsedHashDirectiveArgument.SourceIdentifier(s, v, m) -> applyLineDirectivesToSourceIdentifier s v m
+        | ParsedHashDirectiveArgument.Int32(n, _) -> string n
+        | ParsedHashDirectiveArgument.Ident(ident, _) -> ident.idText
+        | ParsedHashDirectiveArgument.LongIdent(ident, _) -> longIdentToString ident)
         input
 
 let parsedHashDirectiveStringArguments (input: ParsedHashDirectiveArgument list) (_langVersion: LanguageVersion) =
@@ -1034,11 +1065,11 @@ let parsedHashDirectiveStringArguments (input: ParsedHashDirectiveArgument list)
         (function
         | ParsedHashDirectiveArgument.String(s, _, _) -> Some s
         | ParsedHashDirectiveArgument.Int32(n, m) ->
-            errorR (Error(FSComp.SR.featureParsedHashDirectiveUnexpectedInteger (n), m))
+            errorR (Error(FSComp.SR.featureParsedHashDirectiveUnexpectedInteger n, m))
             None
-        | ParsedHashDirectiveArgument.SourceIdentifier(_, v, _) -> Some v
+        | ParsedHashDirectiveArgument.SourceIdentifier(s, v, m) -> Some(applyLineDirectivesToSourceIdentifier s v m)
         | ParsedHashDirectiveArgument.Ident(ident, m) ->
-            errorR (Error(FSComp.SR.featureParsedHashDirectiveUnexpectedIdentifier (ident.idText), m))
+            errorR (Error(FSComp.SR.featureParsedHashDirectiveUnexpectedIdentifier ident.idText, m))
             None
         | ParsedHashDirectiveArgument.LongIdent(ident, m) ->
             errorR (Error(FSComp.SR.featureParsedHashDirectiveUnexpectedIdentifier (longIdentToString ident), m))
@@ -1101,11 +1132,7 @@ let (|MultiDimensionArrayType|_|) (t: SynType) =
     | SynType.App(StripParenTypes(SynType.LongIdent(SynLongIdent([ identifier ], _, _))), _, [ elementType ], _, _, true, m) ->
         if System.Text.RegularExpressions.Regex.IsMatch(identifier.idText, "^array\d\d?d$") then
             let rank =
-                identifier.idText
-                |> Seq.filter System.Char.IsDigit
-                |> Seq.toArray
-                |> System.String
-                |> int
+                identifier.idText |> Seq.filter Char.IsDigit |> Seq.toArray |> String |> int
 
             ValueSome(rank, elementType, m)
         else
@@ -1127,7 +1154,7 @@ let (|Get_OrSet_Ident|_|) (ident: Ident) =
     elif ident.idText.StartsWithOrdinal("set_") then ValueSome()
     else ValueNone
 
-let getGetterSetterAccess synValSigAccess memberKind (langVersion: Features.LanguageVersion) =
+let getGetterSetterAccess synValSigAccess memberKind (langVersion: LanguageVersion) =
     match synValSigAccess with
     | SynValSigAccess.Single(access) -> access, access
     | SynValSigAccess.GetSet(access, getterAccess, setterAccess) ->
@@ -1138,10 +1165,7 @@ let getGetterSetterAccess synValSigAccess memberKind (langVersion: Features.Lang
                 errorR (Error(FSComp.SR.parsMultipleAccessibilitiesForGetSet (), x.Range))
                 None
             | Some x, None ->
-                checkLanguageFeatureAndRecover
-                    langVersion
-                    Features.LanguageFeature.AllowAccessModifiersToAutoPropertiesGettersAndSetters
-                    x.Range
+                checkLanguageFeatureAndRecover langVersion LanguageFeature.AllowAccessModifiersToAutoPropertiesGettersAndSetters x.Range
 
                 accessBeforeGetSet
 
@@ -1151,10 +1175,7 @@ let getGetterSetterAccess synValSigAccess memberKind (langVersion: Features.Lang
             | _, (None, None) -> access, access
             | None, (Some x, _)
             | None, (_, Some x) ->
-                checkLanguageFeatureAndRecover
-                    langVersion
-                    Features.LanguageFeature.AllowAccessModifiersToAutoPropertiesGettersAndSetters
-                    x.Range
+                checkLanguageFeatureAndRecover langVersion LanguageFeature.AllowAccessModifiersToAutoPropertiesGettersAndSetters x.Range
 
                 getterAccess, setterAccess
             | _, (Some x, _)

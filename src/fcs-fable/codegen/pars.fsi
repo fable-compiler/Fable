@@ -7,6 +7,7 @@ type token =
   | HASH_IF of (range * string * ParseHelpers.LexerContinuation)
   | HASH_ELSE of (range * string * ParseHelpers.LexerContinuation)
   | HASH_ENDIF of (range * string * ParseHelpers.LexerContinuation)
+  | WARN_DIRECTIVE of (range * string * ParseHelpers.LexerContinuation)
   | COMMENT of (ParseHelpers.LexerContinuation)
   | WHITESPACE of (ParseHelpers.LexerContinuation)
   | HASH_LINE of (ParseHelpers.LexerContinuation)
@@ -105,6 +106,7 @@ type token =
   | COMMA
   | RARROW
   | GREATER_BAR_RBRACK
+  | GREATER_BAR_RBRACE
   | LPAREN_STAR_RPAREN
   | OPEN
   | OR
@@ -163,6 +165,7 @@ type token =
   | LQUOTE of (string * bool)
   | RQUOTE of (string * bool)
   | RQUOTE_DOT of (string * bool)
+  | RQUOTE_BAR_RBRACE of (string * bool)
   | PERCENT_OP of (string)
   | BINDER of (string)
   | LESS of (bool)
@@ -212,6 +215,7 @@ type tokenId =
     | TOKEN_HASH_IF
     | TOKEN_HASH_ELSE
     | TOKEN_HASH_ENDIF
+    | TOKEN_WARN_DIRECTIVE
     | TOKEN_COMMENT
     | TOKEN_WHITESPACE
     | TOKEN_HASH_LINE
@@ -310,6 +314,7 @@ type tokenId =
     | TOKEN_COMMA
     | TOKEN_RARROW
     | TOKEN_GREATER_BAR_RBRACK
+    | TOKEN_GREATER_BAR_RBRACE
     | TOKEN_LPAREN_STAR_RPAREN
     | TOKEN_OPEN
     | TOKEN_OR
@@ -368,6 +373,7 @@ type tokenId =
     | TOKEN_LQUOTE
     | TOKEN_RQUOTE
     | TOKEN_RQUOTE_DOT
+    | TOKEN_RQUOTE_BAR_RBRACE
     | TOKEN_PERCENT_OP
     | TOKEN_BINDER
     | TOKEN_LESS
@@ -582,6 +588,7 @@ type nonTerminalId =
     | NONTERM_atomicRationalConstant
     | NONTERM_constant
     | NONTERM_bindingPattern
+    | NONTERM_ceBindingCore
     | NONTERM_opt_simplePatterns
     | NONTERM_simplePatterns
     | NONTERM_barCanBeRightBeforeNull
@@ -651,8 +658,8 @@ type nonTerminalId =
     | NONTERM_optInlineAssemblyReturnTypes
     | NONTERM_recdExpr
     | NONTERM_recdExprCore
-    | NONTERM_opt_seps_recd
-    | NONTERM_seps_recd
+    | NONTERM_opt_seps_block
+    | NONTERM_seps_block
     | NONTERM_pathOrUnderscore
     | NONTERM_recdExprBindings
     | NONTERM_recdBinding

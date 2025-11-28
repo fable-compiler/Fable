@@ -6,36 +6,22 @@ open FSharp.Compiler.BuildGraph
 open System
 open System.Diagnostics
 open System.IO
-open System.Reflection
-open System.Reflection.Emit
 open System.Threading
 open Internal.Utilities.Collections
 open Internal.Utilities.Library
 open Internal.Utilities.Library.Extras
 open FSharp.Compiler
-open FSharp.Compiler.AbstractIL
-open FSharp.Compiler.AbstractIL.IL
 open FSharp.Compiler.AbstractIL.ILBinaryReader
-open FSharp.Compiler.AbstractIL.ILDynamicAssemblyWriter
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.CompilerConfig
-open FSharp.Compiler.CompilerDiagnostics
 open FSharp.Compiler.CompilerImports
 open FSharp.Compiler.CompilerOptions
 open FSharp.Compiler.DependencyManager
 open FSharp.Compiler.Diagnostics
-open FSharp.Compiler.Driver
-open FSharp.Compiler.DiagnosticsLogger
-open FSharp.Compiler.IO
 open FSharp.Compiler.ParseAndCheckInputs
 open FSharp.Compiler.ScriptClosure
 open FSharp.Compiler.Symbols
-open FSharp.Compiler.Syntax
-open FSharp.Compiler.Tokenization
-open FSharp.Compiler.Text
-open FSharp.Compiler.Text.Range
 open FSharp.Compiler.TcGlobals
-open FSharp.Compiler.BuildGraph
 open FSharp.Compiler.CodeAnalysis.ProjectSnapshot
 
 type SourceTextHash = int64
@@ -45,7 +31,7 @@ type FilePath = string
 type ProjectPath = string
 type FileVersion = int
 
-type FSharpProjectSnapshot = FSharp.Compiler.CodeAnalysis.ProjectSnapshot.FSharpProjectSnapshot
+type FSharpProjectSnapshot = ProjectSnapshot.FSharpProjectSnapshot
 
 type internal IBackgroundCompiler =
 
@@ -78,24 +64,17 @@ type internal IBackgroundCompiler =
     abstract member DownsizeCaches: unit -> unit
 
     abstract member FindReferencesInFile:
-        fileName: string *
-        options: FSharpProjectOptions *
-        symbol: FSharp.Compiler.Symbols.FSharpSymbol *
-        canInvalidateProject: bool *
-        userOpName: string ->
-            Async<seq<FSharp.Compiler.Text.range>>
+        fileName: string * options: FSharpProjectOptions * symbol: FSharpSymbol * canInvalidateProject: bool * userOpName: string ->
+            Async<seq<range>>
 
     abstract member FindReferencesInFile:
-        fileName: string * projectSnapshot: FSharpProjectSnapshot * symbol: FSharp.Compiler.Symbols.FSharpSymbol * userOpName: string ->
-            Async<seq<FSharp.Compiler.Text.range>>
+        fileName: string * projectSnapshot: FSharpProjectSnapshot * symbol: FSharpSymbol * userOpName: string -> Async<seq<range>>
 
     abstract member GetAssemblyData:
-        options: FSharpProjectOptions * outputFileName: string * userOpName: string ->
-            Async<FSharp.Compiler.CompilerConfig.ProjectAssemblyDataResult>
+        options: FSharpProjectOptions * outputFileName: string * userOpName: string -> Async<ProjectAssemblyDataResult>
 
     abstract member GetAssemblyData:
-        projectSnapshot: FSharpProjectSnapshot * outputFileName: string * userOpName: string ->
-            Async<FSharp.Compiler.CompilerConfig.ProjectAssemblyDataResult>
+        projectSnapshot: FSharpProjectSnapshot * outputFileName: string * userOpName: string -> Async<ProjectAssemblyDataResult>
 
     /// Fetch the check information from the background compiler (which checks w.r.t. the FileSystem API)
     abstract member GetBackgroundCheckResultsForFileInProject:
@@ -112,8 +91,9 @@ type internal IBackgroundCompiler =
     abstract member GetProjectOptionsFromScript:
         fileName: string *
         sourceText: ISourceText *
+        caret: Position option *
         previewEnabled: bool option *
-        loadedTimeStamp: System.DateTime option *
+        loadedTimeStamp: DateTime option *
         otherFlags: string array option *
         useFsiAuxLib: bool option *
         useSdkRefs: bool option *
@@ -121,14 +101,15 @@ type internal IBackgroundCompiler =
         assumeDotNetFramework: bool option *
         optionsStamp: int64 option *
         userOpName: string ->
-            Async<FSharpProjectOptions * FSharp.Compiler.Diagnostics.FSharpDiagnostic list>
+            Async<FSharpProjectOptions * FSharpDiagnostic list>
 
     abstract GetProjectSnapshotFromScript:
         fileName: string *
         sourceText: ISourceTextNew *
+        caret: Position option *
         documentSource: DocumentSource *
         previewEnabled: bool option *
-        loadedTimeStamp: System.DateTime option *
+        loadedTimeStamp: DateTime option *
         otherFlags: string array option *
         useFsiAuxLib: bool option *
         useSdkRefs: bool option *
@@ -328,8 +309,8 @@ type internal BackgroundCompiler
                 | FSharpReferencedProject.PEReference(getStamp, delayedReader) ->
                     { new IProjectReference with
                         member x.EvaluateRawContents() =
-                            async {
-                                let! ilReaderOpt = delayedReader.TryGetILModuleReader() |> Cancellable.toAsync
+                            cancellable {
+                                let! ilReaderOpt = delayedReader.TryGetILModuleReader()
 
                                 match ilReaderOpt with
                                 | Some ilReader ->
@@ -341,6 +322,7 @@ type internal BackgroundCompiler
                                     // continue to try to use an on-disk DLL
                                     return ProjectAssemblyDataResult.Unavailable false
                             }
+                            |> Cancellable.toAsync
 
                         member x.TryGetLogicalTimeStamp _ = getStamp () |> Some
                         member x.FileName = delayedReader.OutputFile
@@ -499,9 +481,11 @@ type internal BackgroundCompiler
         }
 
     let getOrCreateBuilder (options, userOpName) : Async<IncrementalBuilder option * FSharpDiagnostic[]> =
-        match tryGetBuilder options with
-        | Some getBuilder ->
-            async {
+        async {
+            use! _holder = Cancellable.UseToken()
+
+            match tryGetBuilder options with
+            | Some getBuilder ->
                 match! getBuilder with
                 | builderOpt, creationDiags when builderOpt.IsNone || not builderOpt.Value.IsReferencesInvalidated ->
                     return builderOpt, creationDiags
@@ -517,8 +501,8 @@ type internal BackgroundCompiler
                             checkFileInProjectCache.RemoveAnySimilar(ltok, key)))
 
                     return! createAndGetBuilder (options, userOpName)
-            }
-        | _ -> createAndGetBuilder (options, userOpName)
+            | _ -> return! createAndGetBuilder (options, userOpName)
+        }
 
     let getSimilarOrCreateBuilder (options, userOpName) =
         match tryGetSimilarBuilder options with
@@ -575,14 +559,8 @@ type internal BackgroundCompiler
                 res)
 
     member _.ParseFile
-        (
-            fileName: string,
-            sourceText: ISourceText,
-            options: FSharpParsingOptions,
-            cache: bool,
-            flatErrors: bool,
-            userOpName: string
-        ) =
+        (fileName: string, sourceText: ISourceText, options: FSharpParsingOptions, cache: bool, flatErrors: bool, userOpName: string)
+        =
         async {
             use _ =
                 Activity.start
@@ -778,14 +756,8 @@ type internal BackgroundCompiler
 
     /// Type-check the result obtained by parsing, but only if the antecedent type checking context is available.
     member bc.CheckFileInProjectAllowingStaleCachedResults
-        (
-            parseResults: FSharpParseFileResults,
-            fileName,
-            fileVersion,
-            sourceText: ISourceText,
-            options,
-            userOpName
-        ) =
+        (parseResults: FSharpParseFileResults, fileName, fileVersion, sourceText: ISourceText, options, userOpName)
+        =
         async {
             use _ =
                 Activity.start
@@ -838,14 +810,8 @@ type internal BackgroundCompiler
 
     /// Type-check the result obtained by parsing. Force the evaluation of the antecedent type checking context if needed.
     member bc.CheckFileInProject
-        (
-            parseResults: FSharpParseFileResults,
-            fileName,
-            fileVersion,
-            sourceText: ISourceText,
-            options,
-            userOpName
-        ) =
+        (parseResults: FSharpParseFileResults, fileName, fileVersion, sourceText: ISourceText, options, userOpName)
+        =
         async {
             use _ =
                 Activity.start
@@ -887,13 +853,8 @@ type internal BackgroundCompiler
 
     /// Parses and checks the source file and returns untyped AST and check results.
     member bc.ParseAndCheckFileInProject
-        (
-            fileName: string,
-            fileVersion,
-            sourceText: ISourceText,
-            options: FSharpProjectOptions,
-            userOpName
-        ) =
+        (fileName: string, fileVersion, sourceText: ISourceText, options: FSharpProjectOptions, userOpName)
+        =
         async {
             use _ =
                 Activity.start
@@ -1065,10 +1026,10 @@ type internal BackgroundCompiler
                         tcProj.TcGlobals,
                         options.IsIncompleteTypeCheckEnvironment,
                         Some builder,
-                        options,
+                        Some options,
                         Array.ofList tcDependencyFiles,
                         creationDiags,
-                        parseResults.Diagnostics,
+                        [||],
                         tcDiagnostics,
                         keepAssemblyContents,
                         Option.get latestCcuSigForFile,
@@ -1087,13 +1048,8 @@ type internal BackgroundCompiler
         }
 
     member _.FindReferencesInFile
-        (
-            fileName: string,
-            options: FSharpProjectOptions,
-            symbol: FSharpSymbol,
-            canInvalidateProject: bool,
-            userOpName: string
-        ) =
+        (fileName: string, options: FSharpProjectOptions, symbol: FSharpSymbol, canInvalidateProject: bool, userOpName: string)
+        =
         async {
             use _ =
                 Activity.start
@@ -1147,12 +1103,8 @@ type internal BackgroundCompiler
 
     /// Try to get recent approximate type check results for a file.
     member _.TryGetRecentCheckResultsForFile
-        (
-            fileName: string,
-            options: FSharpProjectOptions,
-            sourceText: ISourceText option,
-            _userOpName: string
-        ) =
+        (fileName: string, options: FSharpProjectOptions, sourceText: ISourceText option, _userOpName: string)
+        =
         use _ =
             Activity.start
                 "BackgroundCompiler.GetSemanticClassificationForFile"
@@ -1247,7 +1199,7 @@ type internal BackgroundCompiler
                      tcEnvAtEnd.AccessRights,
                      tcAssemblyExprOpt,
                      Array.ofList tcDependencyFiles,
-                     options)
+                     Some options)
 
                 let results =
                     FSharpCheckProjectResults(
@@ -1305,6 +1257,7 @@ type internal BackgroundCompiler
         (
             fileName,
             sourceText,
+            caret,
             previewEnabled,
             loadedTimeStamp,
             otherFlags,
@@ -1355,6 +1308,7 @@ type internal BackgroundCompiler
                     FSharpCheckerResultsSettings.defaultFSharpBinariesDir,
                     fileName,
                     sourceText,
+                    caret,
                     CodeContext.Editing,
                     useSimpleResolution,
                     useFsiAuxLib,
@@ -1375,8 +1329,6 @@ type internal BackgroundCompiler
                     yield! otherFlags
                     for r in loadClosure.References do
                         yield "-r:" + fst r
-                    for code, _ in loadClosure.NoWarns do
-                        yield "--nowarn:" + code
                 |]
 
             let options =
@@ -1397,16 +1349,10 @@ type internal BackgroundCompiler
             scriptClosureCache.Set(AnyCallerThread, options, loadClosure) // Save the full load closure for later correlation.
 
             let diags =
+                let flatErrors = options.OtherOptions |> Array.contains "--flaterrors"
+
                 loadClosure.LoadClosureRootFileDiagnostics
-                |> List.map (fun (exn, isError) ->
-                    FSharpDiagnostic.CreateFromException(
-                        exn,
-                        isError,
-                        range.Zero,
-                        false,
-                        options.OtherOptions |> Array.contains "--flaterrors",
-                        None
-                    ))
+                |> List.map (fun (exn, isError) -> FSharpDiagnostic.CreateFromException(exn, isError, false, flatErrors, None))
 
             return options, (diags @ diagnostics.Diagnostics)
         }
@@ -1504,7 +1450,7 @@ type internal BackgroundCompiler
 
         member _.BeforeBackgroundFileCheck = self.BeforeBackgroundFileCheck
 
-        member _.CheckFileInProject
+        member this.CheckFileInProject
             (
                 parseResults: FSharpParseFileResults,
                 fileName: string,
@@ -1513,7 +1459,13 @@ type internal BackgroundCompiler
                 options: FSharpProjectOptions,
                 userOpName: string
             ) : Async<FSharpCheckFileAnswer> =
-            self.CheckFileInProject(parseResults, fileName, fileVersion, sourceText, options, userOpName)
+            async {
+                ignore parseResults
+
+                let! _, result = this.ParseAndCheckFileInProject(fileName, fileVersion, sourceText, options, userOpName)
+
+                return result
+            }
 
         member _.CheckFileInProjectAllowingStaleCachedResults
             (
@@ -1536,13 +1488,8 @@ type internal BackgroundCompiler
         member _.FileParsed: IEvent<string * FSharpProjectOptions> = self.FileParsed
 
         member _.FindReferencesInFile
-            (
-                fileName: string,
-                options: FSharpProjectOptions,
-                symbol: FSharpSymbol,
-                canInvalidateProject: bool,
-                userOpName: string
-            ) : Async<seq<range>> =
+            (fileName: string, options: FSharpProjectOptions, symbol: FSharpSymbol, canInvalidateProject: bool, userOpName: string)
+            : Async<seq<range>> =
             self.FindReferencesInFile(fileName, options, symbol, canInvalidateProject, userOpName)
 
         member this.FindReferencesInFile(fileName, projectSnapshot, symbol, userOpName) =
@@ -1554,42 +1501,30 @@ type internal BackgroundCompiler
             self.GetAssemblyData(options, userOpName)
 
         member _.GetAssemblyData
-            (
-                projectSnapshot: FSharpProjectSnapshot,
-                _fileName: string,
-                userOpName: string
-            ) : Async<ProjectAssemblyDataResult> =
+            (projectSnapshot: FSharpProjectSnapshot, _fileName: string, userOpName: string)
+            : Async<ProjectAssemblyDataResult> =
             self.GetAssemblyData(projectSnapshot.ToOptions(), userOpName)
 
         member _.GetBackgroundCheckResultsForFileInProject
-            (
-                fileName: string,
-                options: FSharpProjectOptions,
-                userOpName: string
-            ) : Async<FSharpParseFileResults * FSharpCheckFileResults> =
+            (fileName: string, options: FSharpProjectOptions, userOpName: string)
+            : Async<FSharpParseFileResults * FSharpCheckFileResults> =
             self.GetBackgroundCheckResultsForFileInProject(fileName, options, userOpName)
 
         member _.GetBackgroundParseResultsForFileInProject
-            (
-                fileName: string,
-                options: FSharpProjectOptions,
-                userOpName: string
-            ) : Async<FSharpParseFileResults> =
+            (fileName: string, options: FSharpProjectOptions, userOpName: string)
+            : Async<FSharpParseFileResults> =
             self.GetBackgroundParseResultsForFileInProject(fileName, options, userOpName)
 
         member _.GetCachedCheckFileResult
-            (
-                builder: IncrementalBuilder,
-                fileName: string,
-                sourceText: ISourceText,
-                options: FSharpProjectOptions
-            ) : Async<(FSharpParseFileResults * FSharpCheckFileResults) option> =
+            (builder: IncrementalBuilder, fileName: string, sourceText: ISourceText, options: FSharpProjectOptions)
+            : Async<(FSharpParseFileResults * FSharpCheckFileResults) option> =
             self.GetCachedCheckFileResult(builder, fileName, sourceText, options)
 
         member _.GetProjectOptionsFromScript
             (
                 fileName: string,
                 sourceText: ISourceText,
+                caret: Position option,
                 previewEnabled: bool option,
                 loadedTimeStamp: DateTime option,
                 otherFlags: string array option,
@@ -1603,6 +1538,7 @@ type internal BackgroundCompiler
             self.GetProjectOptionsFromScript(
                 fileName,
                 sourceText,
+                caret,
                 previewEnabled,
                 loadedTimeStamp,
                 otherFlags,
@@ -1618,6 +1554,7 @@ type internal BackgroundCompiler
             (
                 fileName: string,
                 sourceText: ISourceTextNew,
+                caret: Position option,
                 documentSource: DocumentSource,
                 previewEnabled: bool option,
                 loadedTimeStamp: DateTime option,
@@ -1634,6 +1571,7 @@ type internal BackgroundCompiler
                     self.GetProjectOptionsFromScript(
                         fileName,
                         sourceText,
+                        caret,
                         previewEnabled,
                         loadedTimeStamp,
                         otherFlags,
@@ -1650,19 +1588,13 @@ type internal BackgroundCompiler
             }
 
         member _.GetSemanticClassificationForFile
-            (
-                fileName: string,
-                options: FSharpProjectOptions,
-                userOpName: string
-            ) : Async<EditorServices.SemanticClassificationView option> =
+            (fileName: string, options: FSharpProjectOptions, userOpName: string)
+            : Async<EditorServices.SemanticClassificationView option> =
             self.GetSemanticClassificationForFile(fileName, options, userOpName)
 
         member _.GetSemanticClassificationForFile
-            (
-                fileName: string,
-                snapshot: FSharpProjectSnapshot,
-                userOpName: string
-            ) : Async<EditorServices.SemanticClassificationView option> =
+            (fileName: string, snapshot: FSharpProjectSnapshot, userOpName: string)
+            : Async<EditorServices.SemanticClassificationView option> =
             self.GetSemanticClassificationForFile(fileName, snapshot.ToOptions(), userOpName)
 
         member _.InvalidateConfiguration(options: FSharpProjectOptions, userOpName: string) : unit =
@@ -1679,21 +1611,13 @@ type internal BackgroundCompiler
             self.NotifyProjectCleaned(options, userOpName)
 
         member _.ParseAndCheckFileInProject
-            (
-                fileName: string,
-                fileVersion: int,
-                sourceText: ISourceText,
-                options: FSharpProjectOptions,
-                userOpName: string
-            ) : Async<FSharpParseFileResults * FSharpCheckFileAnswer> =
+            (fileName: string, fileVersion: int, sourceText: ISourceText, options: FSharpProjectOptions, userOpName: string)
+            : Async<FSharpParseFileResults * FSharpCheckFileAnswer> =
             self.ParseAndCheckFileInProject(fileName, fileVersion, sourceText, options, userOpName)
 
         member _.ParseAndCheckFileInProject
-            (
-                fileName: string,
-                projectSnapshot: FSharpProjectSnapshot,
-                userOpName: string
-            ) : Async<FSharpParseFileResults * FSharpCheckFileAnswer> =
+            (fileName: string, projectSnapshot: FSharpProjectSnapshot, userOpName: string)
+            : Async<FSharpParseFileResults * FSharpCheckFileAnswer> =
             async {
                 let fileSnapshot =
                     projectSnapshot.ProjectSnapshot.SourceFiles
@@ -1712,14 +1636,8 @@ type internal BackgroundCompiler
             self.ParseAndCheckProject(projectSnapshot.ToOptions(), userOpName)
 
         member _.ParseFile
-            (
-                fileName: string,
-                sourceText: ISourceText,
-                options: FSharpParsingOptions,
-                cache: bool,
-                flatErrors: bool,
-                userOpName: string
-            ) =
+            (fileName: string, sourceText: ISourceText, options: FSharpParsingOptions, cache: bool, flatErrors: bool, userOpName: string)
+            =
             self.ParseFile(fileName, sourceText, options, cache, flatErrors, userOpName)
 
         member _.ParseFile(fileName: string, projectSnapshot: FSharpProjectSnapshot, userOpName: string) =
@@ -1730,18 +1648,11 @@ type internal BackgroundCompiler
         member _.ProjectChecked: IEvent<FSharpProjectOptions> = self.ProjectChecked
 
         member _.TryGetRecentCheckResultsForFile
-            (
-                fileName: string,
-                options: FSharpProjectOptions,
-                sourceText: ISourceText option,
-                userOpName: string
-            ) : (FSharpParseFileResults * FSharpCheckFileResults * SourceTextHash) option =
+            (fileName: string, options: FSharpProjectOptions, sourceText: ISourceText option, userOpName: string)
+            : (FSharpParseFileResults * FSharpCheckFileResults * SourceTextHash) option =
             self.TryGetRecentCheckResultsForFile(fileName, options, sourceText, userOpName)
 
         member _.TryGetRecentCheckResultsForFile
-            (
-                fileName: string,
-                projectSnapshot: FSharpProjectSnapshot,
-                userOpName: string
-            ) : (FSharpParseFileResults * FSharpCheckFileResults) option =
+            (fileName: string, projectSnapshot: FSharpProjectSnapshot, userOpName: string)
+            : (FSharpParseFileResults * FSharpCheckFileResults) option =
             self.TryGetRecentCheckResultsForFile(fileName, projectSnapshot, userOpName)

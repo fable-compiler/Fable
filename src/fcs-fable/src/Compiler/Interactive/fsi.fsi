@@ -8,14 +8,13 @@ open System.Threading
 open FSharp.Compiler.CodeAnalysis
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.Symbols
-open Internal.Utilities.Library
 
 /// Represents an evaluated F# value
 [<Class>]
 type FsiValue =
 
     /// The value, as an object
-    member ReflectionValue: obj
+    member ReflectionValue: objnull
 
     /// The type of the value, from the point of view of the .NET type system
     member ReflectionType: Type
@@ -308,7 +307,7 @@ type FsiEvaluationSession =
     member ReportUnhandledException: exn: exn -> unit
 
     /// Event fires when a root-level value is bound to an identifier, e.g., via `let x = ...`.
-    member ValueBound: IEvent<obj * Type * string>
+    member ValueBound: IEvent<objnull * Type * string>
 
     /// Gets the root-level values that are bound to an identifier
     member GetBoundValues: unit -> FsiBoundValue list
@@ -395,7 +394,7 @@ module Settings =
         member AddPrinter: ('T -> string) -> unit
 
         /// <summary>Register a print transformer that controls the output of the interactive session.</summary>
-        member AddPrintTransformer: ('T -> obj) -> unit
+        member AddPrintTransformer: ('T -> objnull) -> unit
 
         member internal AddedPrinters: Choice<Type * (objnull -> string), Type * (objnull -> objnull)> list
 

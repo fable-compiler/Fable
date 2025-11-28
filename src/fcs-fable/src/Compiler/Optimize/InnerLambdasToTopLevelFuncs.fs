@@ -22,8 +22,6 @@ open FSharp.Compiler.TcGlobals
 
 let verboseTLR = false
 
-let InnerLambdasToTopLevelFunctionsStackGuardDepth = StackGuard.GetDepthOption "InnerLambdasToTopLevelFunctions"
-
 //-------------------------------------------------------------------------
 // library helpers
 //-------------------------------------------------------------------------
@@ -193,7 +191,7 @@ module Pass1_DetermineTLRAndArities =
             let tps, vss, _b, _rty = stripTopLambda (e, f.Type)
             let nFormals = vss.Length
             let nMaxApplied = GetMaxNumArgsAtUses xinfo f
-            let arity = Operators.min nFormals nMaxApplied
+            let arity = min nFormals nMaxApplied
             if atTopLevel then
                 Some (f, arity)
             elif g.realsig then
@@ -330,8 +328,8 @@ type ReqdItem =
 
 let reqdItemOrder =
     let rep = function
-      | ReqdSubEnv v -> true, v
-      | ReqdVal    v -> false, v
+      | ReqdSubEnv v -> struct (true, v)
+      | ReqdVal    v -> struct (false, v)
 
     Order.orderOn rep (Pair.order (Bool.order, valOrder))
 
@@ -1332,9 +1330,9 @@ module Pass4_RewriteAssembly =
             let rhs, z = TransModuleContents penv z rhs
             ModuleOrNamespaceBinding.Module(nm, rhs), z
 
-    let TransImplFile penv z (CheckedImplFile (fragName, pragmas, signature, contents, hasExplicitEntryPoint, isScript, anonRecdTypes, namedDebugPointsForInlinedCode)) =
+    let TransImplFile penv z (CheckedImplFile (fragName, signature, contents, hasExplicitEntryPoint, isScript, anonRecdTypes, namedDebugPointsForInlinedCode)) =
         let contentsR, z = TransModuleContents penv z contents
-        (CheckedImplFile (fragName, pragmas, signature, contentsR, hasExplicitEntryPoint, isScript, anonRecdTypes, namedDebugPointsForInlinedCode)), z
+        (CheckedImplFile (fragName, signature, contentsR, hasExplicitEntryPoint, isScript, anonRecdTypes, namedDebugPointsForInlinedCode)), z
 
 //-------------------------------------------------------------------------
 // pass5: copyExpr
@@ -1372,7 +1370,7 @@ let MakeTopLevelRepresentationDecisions ccu g expr =
                 recShortCallS = recShortCallS
                 envPackM = envPackM
                 fHatM = fHatM
-                stackGuard = StackGuard(InnerLambdasToTopLevelFunctionsStackGuardDepth, "InnerLambdasToTopLevelFunctionsStackGuardDepth") }
+                stackGuard = StackGuard("InnerLambdasToTopLevelFunctionsStackGuardDepth") }
           let z = Pass4_RewriteAssembly.rewriteState0
           Pass4_RewriteAssembly.TransImplFile penv z expr
 

@@ -89,7 +89,7 @@ module TcImports =
 
             unpickleObjWithDanglingCcus file ilScopeRef ilModule Optimizer.u_CcuOptimizationInfo memA memB
 
-        let memoize_mod = new MemoizationTable<_,_> (LoadMod, keyComparer=HashIdentity.Structural)
+        let memoize_mod = MemoizationTable<_,_> ("mod", LoadMod, keyComparer=HashIdentity.Structural)
 
         let LoadSigData ccuName =
             let ilModule = memoize_mod.Apply ccuName
@@ -109,8 +109,8 @@ module TcImports =
             | [] -> None
             | (readerA, readerB)::_ -> Some (GetOptimizationData (fileName, ilScopeRef, Some ilModule, readerA, readerB))
 
-        let memoize_sig = new MemoizationTable<_,_> (LoadSigData, keyComparer=HashIdentity.Structural)
-        let memoize_opt = new MemoizationTable<_,_> (LoadOptData, keyComparer=HashIdentity.Structural)
+        let memoize_sig = MemoizationTable<_,_> ("sig", LoadSigData, keyComparer=HashIdentity.Structural)
+        let memoize_opt = MemoizationTable<_,_> ("opt", LoadOptData, keyComparer=HashIdentity.Structural)
 
         let GetCustomAttributesOfILModule (ilModule: ILModuleDef) =
             (match ilModule.Manifest with Some m -> m.CustomAttrs | None -> ilModule.CustomAttrs).AsList()
@@ -218,7 +218,7 @@ module TcImports =
             refCcusUnfixed |> List.choose snd |> List.iter fixup
             refCcus
 
-        let m = range.Zero
+        let m = Range.range0
         let fsharpCoreAssemblyName = "FSharp.Core"
         let primaryAssemblyName = PrimaryAssembly.Mscorlib.Name
         let refCcusUnfixed = List.ofArray references |> List.map (GetCcu m)

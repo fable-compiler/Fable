@@ -6,7 +6,6 @@ open System
 open System.Threading
 open FSharp.Compiler
 open FSharp.Compiler.Text
-open FSharp.Compiler.Features
 open Internal.Utilities.Text.Lexing
 
 #nowarn "57"
@@ -372,6 +371,7 @@ type public FSharpTokenKind =
     | HashIf
     | HashElse
     | HashEndIf
+    | WarnDirective
     | CommentTrivia
     | WhitespaceTrivia
     | HashLine
@@ -457,6 +457,8 @@ type public FSharpTokenKind =
     | Comma
     | RightArrow
     | GreaterBarRightBracket
+    | GreaterBarRightBrace
+    | RQuoteBarRightBrace
     | LeftParenthesisStarRightParenthesis
     | Open
     | Or

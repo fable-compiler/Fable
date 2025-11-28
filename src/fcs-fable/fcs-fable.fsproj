@@ -14,10 +14,15 @@
     <DefineConstants>$(DefineConstants);NO_INLINE_IL_PARSER</DefineConstants>
     <DefineConstants>$(DefineConstants);FSHARPCORE_USE_PACKAGE</DefineConstants>
     <OtherFlags>$(OtherFlags) --nowarn:57</OtherFlags>
+    <!-- <Nullable>enable</Nullable> -->
+    <!-- <WarningsAsErrors>FS3261</WarningsAsErrors> -->
+    <!-- <WarningsAsErrors>FS3559</WarningsAsErrors> -->
     <!-- <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference> -->
+    <TolerateUnusedBindings>true</TolerateUnusedBindings>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Fable.Core.fs" />
     <!-- BCL shims -->
     <Compile Include="System.fs" />
     <Compile Include="System.Collections.Immutable.fs" />
@@ -33,6 +38,8 @@
     <Compile Include="$(FSharpSourcesRoot)/Utilities/NullnessShims.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/Activity.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/Activity.fs" />
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Utilities/Caches.fsi" /> -->
+    <!-- <Compile Include="$(FSharpSourcesRoot)/Utilities/Caches.fs" /> -->
     <Compile Include="$(FSharpSourcesRoot)/Utilities/illib.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/illib.fs" />
     <Compile Include="$(FSharpSourcesRoot)/Utilities/sformat.fsi" />
@@ -160,6 +167,8 @@
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/SyntaxTree.fs" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/SyntaxTreeOps.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/SyntaxTreeOps.fs" />
+    <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/WarnScopes.fsi" />
+    <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/WarnScopes.fs" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/LexerStore.fsi" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/LexerStore.fs" />
     <Compile Include="$(FSharpSourcesRoot)/SyntaxTree/ParseHelpers.fsi" />

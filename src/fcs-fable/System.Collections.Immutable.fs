@@ -11,8 +11,11 @@ type ImmutableArray<'T> = 'T array
 
 module ImmutableArray =
     let CreateBuilder<'T>() = ResizeArray<'T>()
+
     let Create<'T>(items: 'T[], start: int, length: int) =
         items[start..(start + length - 1)]
+
+    let ofSeq<'T>(items: seq<'T>) = Array.ofSeq items
 
 [<Sealed>]
 type ImmutableHashSet<'T when 'T: equality>(values: 'T seq) =

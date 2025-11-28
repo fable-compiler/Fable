@@ -3,10 +3,8 @@
 namespace FSharp.Compiler.CodeAnalysis
 
 open System
-open System.Collections.Generic
 open System.IO
 open System.Threading
-open System.Threading.Tasks
 open Internal.Utilities.Library
 open FSharp.Compiler.AbstractIL.IL
 open FSharp.Compiler.AbstractIL.ILBinaryReader
@@ -27,8 +25,6 @@ open FSharp.Compiler.TypedTree
 open FSharp.Compiler.TypedTreeOps
 open FSharp.Compiler.TcGlobals
 open FSharp.Compiler.Text
-
-open Internal.Utilities.Collections
 
 [<Experimental "This type is experimental and likely to be removed in the future.">]
 [<RequireQualifiedAccess>]
@@ -245,6 +241,14 @@ type public FSharpParsingOptions =
     static member internal FromTcConfigBuilder:
         tcConfigB: TcConfigBuilder * sourceFiles: string[] * isInteractive: bool -> FSharpParsingOptions
 
+type public FSharpCodeCompletionOptions =
+    { SuggestPatternNames: bool
+      SuggestObsoleteSymbols: bool
+      SuggestGeneratedOverrides: bool
+      SuggestOverrideBodies: bool }
+
+    static member Default: FSharpCodeCompletionOptions
+
 #if FABLE_COMPILER
 
 [<Sealed>]
@@ -258,7 +262,7 @@ type internal TypeCheckInfo =
         tcAccessRights: AccessorDomain *
         projectFileName: string *
         mainInputFileName: string *
-        projectOptions: FSharpProjectOptions *
+        projectOptions: FSharpProjectOptions option *
         sResolutions: TcResolutions *
         sSymbolUses: TcSymbolUses *
         sFallback: NameResolutionEnv *
@@ -313,6 +317,9 @@ type public FSharpCheckFileResults =
     /// in the documentation for compiler service.
     member DependencyFiles: string[]
 
+    member TryGetCapturedType: range -> FSharpType option
+    member TryGetCapturedDisplayContext: range -> FSharpDisplayContext option
+
     /// <summary>Get the items for a declaration list</summary>
     ///
     /// <param name="parsedFileResults">
@@ -334,13 +341,17 @@ type public FSharpCheckFileResults =
     /// <param name="completionContextAtPos">
     ///    Completion context for a particular position computed in advance.
     /// </param>
+    /// <param name="options">
+    ///    Options to allow customizing behavior by an IDE.
+    /// </param>
     member GetDeclarationListInfo:
         parsedFileResults: FSharpParseFileResults option *
         line: int *
         lineText: string *
         partialName: PartialLongName *
         ?getAllEntities: (unit -> AssemblySymbol list) *
-        ?completionContextAtPos: (pos * CompletionContext option) ->
+        ?completionContextAtPos: (pos * CompletionContext option) *
+        ?options: FSharpCodeCompletionOptions ->
             DeclarationListInfo
 
     /// <summary>Get the items for a declaration list in FSharpSymbol format</summary>
@@ -361,12 +372,16 @@ type public FSharpCheckFileResults =
     /// <param name="getAllEntities">
     ///    Function that returns all entities from current and referenced assemblies.
     /// </param>
+    /// <param name="options">
+    ///    Options to allow customizing behavior by an IDE.
+    /// </param>
     member GetDeclarationListSymbols:
         parsedFileResults: FSharpParseFileResults option *
         line: int *
         lineText: string *
         partialName: PartialLongName *
-        ?getAllEntities: (unit -> AssemblySymbol list) ->
+        ?getAllEntities: (unit -> AssemblySymbol list) *
+        ?options: FSharpCodeCompletionOptions ->
             FSharpSymbolUse list list
 
     /// <summary>Compute a formatted tooltip for the given keywords</summary>
@@ -498,7 +513,7 @@ type public FSharpCheckFileResults =
         tcGlobals: TcGlobals *
         isIncompleteTypeCheckEnvironment: bool *
         builder: IncrementalBuilder option *
-        projectOptions: FSharpProjectOptions *
+        projectOptions: FSharpProjectOptions option *
         dependencyFiles: string[] *
         creationErrors: FSharpDiagnostic[] *
         parseErrors: FSharpDiagnostic[] *
@@ -600,7 +615,7 @@ type public FSharpCheckProjectResults =
             AccessorDomain *
             CheckedImplFile list option *
             string[] *
-            FSharpProjectOptions) option ->
+            FSharpProjectOptions option) option ->
             FSharpCheckProjectResults
 
 module internal ParseAndCheckFile =
@@ -631,7 +646,6 @@ module internal ParseAndCheckFile =
             reportErrors: bool *
             mainInputFileName: string *
             diagnosticsOptions: FSharpDiagnosticOptions *
-            sourceText: ISourceText *
             suggestNamesForErrors: bool *
             flatErrors: bool ->
                 DiagnosticsHandler

@@ -31,8 +31,6 @@ open FSharp.Compiler.Text
 open FSharp.Compiler.Text.Range
 open FSharp.Compiler.Xml
 open FSharp.Compiler.TypedTree
-open FSharp.Compiler.BuildGraph
-
 #if !NO_TYPEPROVIDERS
 open FSharp.Core.CompilerServices
 #endif
@@ -236,7 +234,7 @@ type VersionFlag =
             else
                 use fs = FileSystem.OpenFileForReadShim(s)
                 use is = new StreamReader(fs)
-                !! is.ReadLine()
+                !!is.ReadLine()
         | VersionNone -> "0.0.0.0"
 #endif //!FABLE_COMPILER
 
@@ -340,14 +338,15 @@ type AssemblyReference =
 
     member x.ProjectReference = (let (AssemblyReference(_, _, contents)) = x in contents)
 
-    member x.SimpleAssemblyNameIs name =
+    member x.SimpleAssemblyNameIs(name: string) =
         (String.Compare(FileSystemUtils.fileNameWithoutExtensionWithValidate false x.Text, name, StringComparison.OrdinalIgnoreCase) = 0)
         || not (x.Text.Contains "/")
            && not (x.Text.Contains "\\")
            && not (x.Text.EndsWith(".dll", StringComparison.InvariantCultureIgnoreCase))
            && not (x.Text.EndsWith(".exe", StringComparison.InvariantCultureIgnoreCase))
            && (try
-                   let aname = System.Reflection.AssemblyName x.Text in aname.Name = name
+                   let aname = System.Reflection.AssemblyName x.Text
+                   aname.Name = name
                with _ ->
                    false)
 
@@ -368,7 +367,7 @@ type ImportedAssembly =
         IsProviderGenerated: bool
         mutable TypeProviders: Tainted<ITypeProvider> list
 #endif
-        FSharpOptimizationData: Microsoft.FSharp.Control.Lazy<Optimizer.LazyModuleInfo option>
+        FSharpOptimizationData: Microsoft.FSharp.Control.Lazy<LazyModuleInfo option>
     }
 
 type AvailableImportedAssembly =
@@ -586,7 +585,7 @@ type TcConfigBuilder =
         mutable doTLR: bool (* run TLR pass? *)
         mutable doFinalSimplify: bool (* do final simplification pass *)
         mutable optsOn: bool (* optimizations are turned on *)
-        mutable optSettings: Optimizer.OptimizationSettings
+        mutable optSettings: OptimizationSettings
         mutable emitTailcalls: bool
         mutable deterministic: bool
         mutable parallelParsing: bool
@@ -702,7 +701,7 @@ type TcConfigBuilder =
 
             yield!
                 (tcConfigB.referencedDLLs
-                 |> Seq.map (fun ref -> !! Path.GetDirectoryName(ref.Text)))
+                 |> Seq.map (fun ref -> !!Path.GetDirectoryName(ref.Text)))
 
             tcConfigB.implicitIncludeDir
         }
@@ -721,9 +720,6 @@ type TcConfigBuilder =
             sdkDirOverride,
             rangeForErrors
         ) =
-
-        let defaultFSharpBinariesDir =
-            nullArgCheck "defaultFSharpBinariesDir" defaultFSharpBinariesDir
 
         // These are all default values, many can be overridden using the command line switch
         {
@@ -830,18 +826,11 @@ type TcConfigBuilder =
             doTLR = false
             doFinalSimplify = false
             optsOn = false
-            optSettings =
-                { OptimizationSettings.Defaults with
-                    processingMode =
-                        if FSharpExperimentalFeaturesEnabledAutomatically then
-                            OptimizationProcessingMode.Parallel
-                        else
-                            OptimizationProcessingMode.Sequential
-                }
+            optSettings = OptimizationSettings.Defaults
             emitTailcalls = true
             deterministic = false
             parallelParsing = true
-            parallelIlxGen = FSharpExperimentalFeaturesEnabledAutomatically
+            parallelIlxGen = true
             emitMetadataAssembly = MetadataAssemblyGeneration.None
             preferredUiLang = None
             lcid = None
@@ -887,15 +876,11 @@ type TcConfigBuilder =
             sdkDirOverride = sdkDirOverride
             xmlDocInfoLoader = None
             exiter = QuitProcessExiter
-            parallelReferenceResolution = ParallelReferenceResolution.Off
+            parallelReferenceResolution = ParallelReferenceResolution.On
             captureIdentifiersWhenParsing = false
             typeCheckingConfig =
                 {
-                    TypeCheckingConfig.Mode =
-                        if FSharpExperimentalFeaturesEnabledAutomatically then
-                            TypeCheckingMode.Graph
-                        else
-                            TypeCheckingMode.Sequential
+                    TypeCheckingConfig.Mode = TypeCheckingMode.Graph
                     DumpGraph = false
                 }
             dumpSignatureData = false
@@ -1103,7 +1088,7 @@ type TcConfigBuilder =
 
     member tcConfigB.AddReferencedAssemblyByPath(m, path) =
         if FileSystem.IsInvalidPathShim path then
-            warning (Error(FSComp.SR.buildInvalidAssemblyName (path), m))
+            warning (Error(FSComp.SR.buildInvalidAssemblyName path, m))
         elif
             not (
                 tcConfigB.referencedDLLs
@@ -1132,7 +1117,13 @@ type TcConfigBuilder =
                 | ErrorReportType.Error -> errorR (Error(error, m)))
 
         let dm =
-            dependencyProvider.TryFindDependencyManagerInPath(tcConfigB.compilerToolPaths, output, reportError, path)
+            dependencyProvider.TryFindDependencyManagerInPath(
+                tcConfigB.compilerToolPaths,
+                output,
+                tcConfigB.sdkDirOverride,
+                reportError,
+                path
+            )
 
         match dm with
         // #r "Assembly"
@@ -1233,7 +1224,7 @@ type TcConfig private (data: TcConfigBuilder, validate: bool) =
 
     // Look for an explicit reference to mscorlib/netstandard.dll or System.Runtime.dll and use that to compute clrRoot and targetFrameworkVersion
     let primaryAssemblyReference, primaryAssemblyExplicitFilenameOpt =
-        computeKnownDllReference (data.primaryAssembly.Name)
+        computeKnownDllReference data.primaryAssembly.Name
 
     let fslibReference =
         // Look for explicit FSharp.Core reference otherwise use version that was referenced by compiler
@@ -1258,7 +1249,7 @@ type TcConfig private (data: TcConfigBuilder, validate: bool) =
                 ComputeMakePathAbsolute data.implicitIncludeDir primaryAssemblyFilename
 
             try
-                let clrRoot = Some(!! Path.GetDirectoryName(FileSystem.GetFullPathShim fileName))
+                let clrRoot = Some(!!Path.GetDirectoryName(FileSystem.GetFullPathShim fileName))
                 clrRoot, data.legacyReferenceResolver.Impl.HighestInstalledNetFrameworkVersion()
             with e ->
                 // We no longer expect the above to fail but leaving this just in case
@@ -1565,7 +1556,7 @@ type TcConfig private (data: TcConfigBuilder, validate: bool) =
     /// 'framework' reference set that is potentially shared across multiple compilations.
     member tcConfig.IsSystemAssembly(fileName: string) =
         try
-            let dirName = !! Path.GetDirectoryName(fileName)
+            let dirName = !!Path.GetDirectoryName(fileName)
             let baseName = FileSystemUtils.fileNameWithoutExtension fileName
 
             FileSystem.FileExistsShim fileName

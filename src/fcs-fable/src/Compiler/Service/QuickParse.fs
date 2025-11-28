@@ -176,7 +176,7 @@ module QuickParse =
                     let r = searchRight p
                     let ident = lineStr.Substring(l, r - l + 1)
 
-                    if ident.IndexOf('|') <> -1 && not (isValidActivePatternName (ident)) then
+                    if ident.IndexOf('|') <> -1 && not (isValidActivePatternName ident) then
                         None
                     else
                         let pos = r + MagicalAdjustmentConstant
@@ -210,7 +210,7 @@ module QuickParse =
     /// a call to `DeclItemsForNamesAtPosition` for intellisense. This will
     /// allow us to use find the correct qualified items rather than resorting
     /// to the more expensive and less accurate environment lookup.
-    let GetCompleteIdentifierIsland (tolerateJustAfter: bool) (lineStr: string) (index: int) : (string * int * bool) option =
+    let GetCompleteIdentifierIsland (tolerateJustAfter: bool) (lineStr: string MaybeNull) (index: int) : (string * int * bool) option =
         if String.IsNullOrEmpty lineStr then
             None
         else
@@ -239,7 +239,7 @@ module QuickParse =
 
             let rec InLeadingIdentifier (pos, right, (prior, residue)) =
                 let PushName () =
-                    ((lineStr.Substring(pos + 1, right - pos - 1)) :: prior), residue
+                    (lineStr.Substring(pos + 1, right - pos - 1) :: prior), residue
 
                 if pos < 0 then
                     PushName()
@@ -252,10 +252,10 @@ module QuickParse =
 
             let rec InName (pos, startResidue, right) =
                 let NameAndResidue () =
-                    [ lineStr.Substring(pos + 1, startResidue - pos - 1) ], (lineStr.Substring(startResidue + 1, right - startResidue))
+                    [ lineStr.Substring(pos + 1, startResidue - pos - 1) ], lineStr.Substring(startResidue + 1, right - startResidue)
 
                 if pos < 0 then
-                    [ lineStr.Substring(pos + 1, startResidue - pos - 1) ], (lineStr.Substring(startResidue + 1, right - startResidue))
+                    [ lineStr.Substring(pos + 1, startResidue - pos - 1) ], lineStr.Substring(startResidue + 1, right - startResidue)
                 elif IsIdentifierPartCharacter pos then
                     InName(pos - 1, startResidue, right)
                 elif IsDot pos then

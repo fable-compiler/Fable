@@ -17,14 +17,11 @@ open FSharp.Compiler.Text
 open FSharp.Compiler.TypedTree
 open FSharp.Compiler.TypedTreeBasics
 open FSharp.Compiler.TypedTreeOps
-open FSharp.Compiler.TypedTreeOps.DebugPrint
 open FSharp.Compiler.TypeHierarchy
 open FSharp.Compiler.Xml
 
 #if !NO_TYPEPROVIDERS
 open FSharp.Compiler.TypeProviders
-open FSharp.Compiler.AbstractIL
-
 #endif
 
 //-------------------------------------------------------------------------
@@ -471,7 +468,7 @@ type ILTypeInfo =
             let tref = mkRefForNestedILTypeDef scoref (enc, tdef)
             ILTypeInfo(g, ty, tref, tdef)
         else
-            failwith ("ILTypeInfo.FromType - no IL metadata for type" + System.Environment.StackTrace)
+            failwith ("ILTypeInfo.FromType - no IL metadata for type" + Environment.StackTrace)
 
 [<NoComparison; NoEquality>]
 type ILMethParentTypeInfo =
@@ -859,7 +856,7 @@ type MethInfo =
         | MethInfoWithModifiedReturnType(mi, _) -> mi.NumArgs
         | DefaultStructCtor _ -> [0]
 #if !NO_TYPEPROVIDERS
-        | ProvidedMeth(_, mi, _, m) -> [mi.PUntaint((fun mi -> mi.GetParameters().Length), m)] // Why is this a list? Answer: because the method might be curried
+        | ProvidedMeth(_, mi, _, m) -> [mi.PApplyArray((fun mi -> mi.GetParameters()),"GetParameters", m).Length] // Why is this a list? Answer: because the method might be curried
 #endif
 
     /// Indicates if the property is a IsABC union case tester implied by a union case definition
@@ -1326,7 +1323,7 @@ type MethInfo =
         match x with
         | FSMeth(g, _, vref, _) ->
             match vref.RecursiveValInfo with
-            | ValInRecScope false -> error(Error((FSComp.SR.InvalidRecursiveReferenceToAbstractSlot()), m))
+            | ValInRecScope false -> error(Error(FSComp.SR.InvalidRecursiveReferenceToAbstractSlot(), m))
             | _ -> ()
 
             let allTyparsFromMethod, _, _, retTy, _ = GetTypeOfMemberInMemberForm g vref
@@ -1429,6 +1426,20 @@ type MethInfo =
             (paramAttribs, paramNamesAndTypes) ||> List.map2 (List.map2 (fun (info, attribs) (ParamNameAndType(nmOpt, pty)) ->
                 let (ParamAttribs(isParamArrayArg, isInArg, isOutArg, optArgInfo, callerInfo, reflArgInfo)) = info
                 ParamData(isParamArrayArg, isInArg, isOutArg, optArgInfo, callerInfo, nmOpt, reflArgInfo, pty), attribs))
+
+    member x.HasGenericRetTy() =
+        match x with
+        | ILMeth(_g, ilminfo, _) -> ilminfo.RawMetadata.Return.Type.IsTypeVar
+        | FSMeth(g, _, vref, _) ->
+            let _, _, _, retTy, _ = GetTypeOfMemberInMemberForm g vref
+            match retTy with
+            | Some retTy -> isTyparTy g retTy
+            | None -> false
+        | MethInfoWithModifiedReturnType _ -> false
+        | DefaultStructCtor _ -> false
+#if !NO_TYPEPROVIDERS
+        | ProvidedMeth _ -> false
+#endif
 
     /// Get the ParamData objects for the parameters of a MethInfo
     member x.HasParamArrayArg(amap, m, minst) =
@@ -2030,7 +2041,7 @@ type PropInfo =
             failwith "unreachable"
 #if !NO_TYPEPROVIDERS
         | ProvidedProp(_, pi, m) ->
-            pi.PUntaint((fun pi -> pi.GetIndexParameters().Length), m)>0
+            pi.PApplyArray((fun pi -> pi.GetIndexParameters()),"GetIndexParameters", m).Length>0
 #endif
 
     /// Indicates if this is an F# property compiled as a CLI event, e.g. a [<CLIEvent>] property.
@@ -2258,7 +2269,7 @@ let private tyConformsToIDelegateEvent g ty =
 
 /// Create an error object to raise should an event not have the shape expected by the .NET idiom described further below
 let nonStandardEventError nm m =
-    Error ((FSComp.SR.eventHasNonStandardType(nm, ("add_"+nm), ("remove_"+nm))), m)
+    Error (FSComp.SR.eventHasNonStandardType(nm, ("add_"+nm), ("remove_"+nm)), m)
 
 /// Find the delegate type that an F# event property implements by looking through the type hierarchy of the type of the property
 /// for the first instantiation of IDelegateEvent.
@@ -2503,7 +2514,7 @@ let MethInfosEquivByPartialSig erasureFlag ignoreFinal g amap m (minfo: MethInfo
     let argTys = minfo.GetParamTypes(amap, m, fminst)
     let argTys2 = minfo2.GetParamTypes(amap, m, fminst2)
     (argTys, argTys2) ||> List.lengthsEqAndForall2 (List.lengthsEqAndForall2 (fun ty1 ty2 ->
-        typeAEquivAux erasureFlag g (TypeEquivEnv.FromEquivTypars formalMethTypars formalMethTypars2) (stripByrefTy g ty1) (stripByrefTy g ty2)))
+        typeAEquivAux erasureFlag g (TypeEquivEnv.EmptyIgnoreNulls.FromEquivTypars formalMethTypars formalMethTypars2) (stripByrefTy g ty1) (stripByrefTy g ty2)))
 
 /// Used to hide/filter members from super classes based on signature
 /// Inref and outref parameter types will be treated as a byref type for equivalency.
@@ -2525,7 +2536,7 @@ let MethInfosEquivByNameAndSig erasureFlag ignoreFinal g amap m minfo minfo2 =
     let (CompiledSig(_, retTy2, formalMethTypars2, _)) = CompiledSigOfMeth g amap m minfo2
     match retTy, retTy2 with
     | None, None -> true
-    | Some retTy, Some retTy2 -> typeAEquivAux erasureFlag g (TypeEquivEnv.FromEquivTypars formalMethTypars formalMethTypars2) retTy retTy2
+    | Some retTy, Some retTy2 -> typeAEquivAux erasureFlag g (TypeEquivEnv.EmptyIgnoreNulls.FromEquivTypars formalMethTypars formalMethTypars2) retTy retTy2
     | _ -> false
 
 /// Used to hide/filter members from super classes based on signature
