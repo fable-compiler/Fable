@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y xz-utils
 
 # Options
 # Let it here to avoid conflicts with Microsoft options !!!
-ARG DOTNET_VERSION=9.0.101
+ARG DOTNET_VERSION=10.0.100
 ARG NODE_VERSION=18.8.0
 ARG PYTHON_VERSION=3.10.0
 ARG DART_VERSION=3.1.2

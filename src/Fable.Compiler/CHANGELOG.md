@@ -7,17 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## 5.0.0-alpha.16 - 2025-11-27
+### Changed
+
+* [All] Update TargetFramework to net10.0 (by @ncave)
+* [All] Update FCS to latest (commit [cfda5f6](https://github.com/dotnet/fsharp/commits/cfda5f68f781f1b336b7d6c1689d69f2c34da751/)) (by @ncave)
+
+## 5.0.0-alpha.17 - 2025-11-27
 
 ### Changed
 
 * [Python] fable-library for Python is now distributed via PyPI instead of being bundled in the NuGet package (by @dbrattli)
 
-## 5.0.0-alpha.15 - 2025-11-25
+## 5.0.0-alpha.16 - 2025-11-25
 
 ### Fixed
 
-* [All] Fix quoted paths resolution by `Util.getExactFullPath` (by @MangelMaxime)
+* [All] Fix `--cwd` with quoted paths (by @MangelMaxime)
+* [All] Fix `--legacyCracker` flag logic (by @MangelMaxime)
+* [All] Fix `BuildalyzerCracker` so it can work on .NET 10 (by @MangelMaxime)
 
 ### Changed
 
@@ -32,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [All] Added `ofOption`/`toOption`/`ofValueOption`/`toValueOption` (by @ncave)
 * [Python] Added `Decorate` attribute to add Python decorators to classes (by @dbrattli)
 * [Python] Added `ClassAttributes` attribute to control Python class generation (@dbrattli)
+* [Python] Added support for Python 3.14 (by @dbrattli)
 
 ### Changed
 

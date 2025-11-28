@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+* [All] Update TargetFramework to net10.0 (by @ncave)
+* [All] Update FCS to latest (commit [cfda5f6](https://github.com/dotnet/fsharp/commits/cfda5f68f781f1b336b7d6c1689d69f2c34da751/)) (by @ncave)
+
 ## 5.0.0-alpha.17 - 2025-11-27
 
 ### Changed
