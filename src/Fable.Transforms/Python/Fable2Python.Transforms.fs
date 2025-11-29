@@ -3695,6 +3695,9 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
                 let name = com.GetIdentifierAsExpr(ctx, decl.Name)
                 let anyType = com.GetImportExpr(ctx, "typing", "Any")
                 [ Statement.assign ([ name ], anyType) ]
+        elif hasEraseAttribute && ent.IsInterface then
+            // Erased interfaces should not generate any code
+            []
         else
             // Check for PythonClass attribute and extract parameters
             let classAttributes =
