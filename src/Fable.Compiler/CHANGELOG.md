@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* Fix regression, Python erased interfaces should not generate code (#4277) (by @dbrattli)
+
 ### Changed
 
 * [All] Update TargetFramework to net10.0 (by @ncave)
