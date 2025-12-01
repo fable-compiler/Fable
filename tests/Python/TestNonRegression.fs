@@ -265,3 +265,22 @@ type Disposable(cancel) =
 let ``test static properties works when inheriting from IDisposable`` () =
     let d: IDisposable = Disposable.Empty
     d.Dispose()
+
+// Test that named arguments are converted to snake_case in Python
+module NamedArgsSnakeCase =
+    [<AttachMembers>]
+    type TestRunner(testCase: string, ?configArgs: string array) =
+        member val TestCase = testCase with get
+        member val ConfigArgs = defaultArg configArgs [||] with get
+
+[<Fact>]
+let ``test named arguments are converted to snake_case`` () =
+    // Test with optional named argument
+    let runner1 = NamedArgsSnakeCase.TestRunner("test", configArgs = [| "arg1"; "arg2" |])
+    equal "test" runner1.TestCase
+    equal [| "arg1"; "arg2" |] runner1.ConfigArgs
+
+    // Test with all named arguments
+    let runner2 = NamedArgsSnakeCase.TestRunner(testCase = "test2", configArgs = [| "arg3" |])
+    equal "test2" runner2.TestCase
+    equal [| "arg3" |] runner2.ConfigArgs

@@ -682,7 +682,9 @@ let transformCallArgs
                     |> List.unzip
                     |> fun (kv, stmts) ->
                         kv
-                        |> List.map (fun (keyword, value) -> Keyword.keyword (Identifier keyword, value)),
+                        |> List.map (fun (keyword, value) ->
+                            Keyword.keyword (Identifier(Naming.toPythonNaming keyword), value)
+                        ),
                         stmts |> List.collect id
 
                 args, Some objArg, stmts
@@ -717,7 +719,9 @@ let transformCallArgs
                         |> List.unzip
                         |> fun (kv, stmts) ->
                             kv
-                            |> List.map (fun (keyword, value) -> Keyword.keyword (Identifier keyword, value)),
+                            |> List.map (fun (keyword, value) ->
+                                Keyword.keyword (Identifier(Naming.toPythonNaming keyword), value)
+                            ),
                             stmts |> List.collect id
 
                     [], Some objArg, stmts
