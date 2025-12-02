@@ -191,3 +191,12 @@ let ``test Record with both camel-case and pascal-case fields don't conflict`` (
     let x = { firstName = "John"; FirstName = "Jane" }
     equal "John" x.firstName
     equal "Jane" x.FirstName
+
+type RecordWithProperty =
+    { items: string list }
+    member this.fullName = String.concat " - " this.items
+
+[<Fact>]
+let ``test Record property access uses correct naming`` () =
+    let x = { items = ["Hello"; "World"] }
+    equal "Hello - World" x.fullName
