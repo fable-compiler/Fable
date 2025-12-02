@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-* Fix regression, Python erased interfaces should not generate code (#4277) (by @dbrattli)
+* [Python] Fix regression, named arguments not being converted to snake_case (by @dbrattli)
+* [Python] Fix regression, erased interfaces should not generate code (#4277) (by @dbrattli)
 
 ### Changed
 
