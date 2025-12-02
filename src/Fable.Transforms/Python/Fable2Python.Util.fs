@@ -188,6 +188,10 @@ module Util =
             | None -> InstancePropertyBacking // Conservative fallback for unknown entities
         | _ -> RegularField
 
+    /// Checks if a field name is an actual record field (not a property/method defined on the record)
+    let isRecordField (ent: Fable.Entity) (fieldName: string) =
+        ent.FSharpFields |> List.exists (fun f -> f.Name = fieldName)
+
     // Helper function to apply the appropriate naming convention based on field type and naming kind
     let applyFieldNaming
         (com: IPythonCompiler)
@@ -202,9 +206,8 @@ module Util =
             match narrowedType with
             | Fable.AnonymousRecordType _ when handleAnonymousRecords -> fieldName // Use the field name as is for anonymous records
             | Fable.DeclaredType(entityRef, _) ->
-                // Only apply naming convention for user-defined F# Records (not built-in F# Core types)
                 match com.TryGetEntity entityRef with
-                | Some ent when shouldUseRecordFieldNamingForRef entityRef ent ->
+                | Some ent when shouldUseRecordFieldNamingForRef entityRef ent && isRecordField ent fieldName ->
                     fieldName |> Naming.toRecordFieldSnakeCase |> Helpers.clean
                 | _ -> fieldName |> Naming.toPythonNaming // Fallback to Python naming for other types
             | _ -> fieldName |> Naming.toPropertyNaming
