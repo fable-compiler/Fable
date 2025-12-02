@@ -10,7 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [Python] Fix record member method naming (by @dbrattli)
-* Fix regression, Python erased interfaces should not generate code (#4277) (by @dbrattli)
+* [Python] Fix regression, named arguments not being converted to snake_case (by @dbrattli)
+* [Python] Fix regression, erased interfaces should not generate code (#4277) (by @dbrattli)
 
 ### Changed
 
