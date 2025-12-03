@@ -2906,8 +2906,14 @@ let transformAttachedProperty
             []
         else
             // Instance properties use the traditional approach (properties style)
+            // Get custom decorators from Py.Decorate attributes
+            let customDecorators =
+                let decoratorInfos = Util.getDecoratorInfo info.Attributes
+                Util.generateDecorators com ctx decoratorInfos
+
             let decorators =
-                [
+                customDecorators
+                @ [
                     if isGetter then
                         Expression.name "property"
                     else
@@ -2947,11 +2953,26 @@ let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFuncti
 
     let isStatic = not info.IsInstance
 
+    // Check if this method has Py.ClassMethod attribute
+    let hasClassMethodAttribute =
+        info.Attributes
+        |> Seq.exists (fun att -> att.Entity.FullName = Atts.pyClassMethod)
+
+    // Get custom decorators from Py.Decorate attributes
+    let customDecorators =
+        let decoratorInfos = Util.getDecoratorInfo info.Attributes
+        Util.generateDecorators com ctx decoratorInfos
+
     let decorators =
-        if isStatic then
-            [ Expression.name "staticmethod" ]
-        else
-            []
+        // Custom decorators come first (outermost), then static/classmethod decorator
+        customDecorators
+        @ if isStatic then
+              if hasClassMethodAttribute then
+                  [ Expression.name "classmethod" ]
+              else
+                  [ Expression.name "staticmethod" ]
+          else
+              []
 
     let makeMethod name args body decorators returnType =
         let key = memberFromName com ctx name |> nameFromKey com ctx

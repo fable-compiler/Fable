@@ -590,6 +590,73 @@ let ``test PropertiesUserWithInit`` () =
     user.Email |> equal (Some "test@example.com")
     user.Enabled |> equal true
 
+// Test Py.Decorate on static methods
+
+[<AttachMembers>]
+type ClassWithDecoratedStaticMethod() =
+    member val Value: int = 0 with get, set
+
+    [<Py.Decorate("functools.lru_cache")>]
+    static member cached_function(x: int) : int =
+        x * 2
+
+[<Fact>]
+let ``test Py.Decorate on static method`` () =
+    // Test that @lru_cache decorator is applied to static method
+    let result1 = ClassWithDecoratedStaticMethod.cached_function(5)
+    let result2 = ClassWithDecoratedStaticMethod.cached_function(5)
+    result1 |> equal 10
+    result2 |> equal 10
+
+[<AttachMembers>]
+type ClassWithDecoratedStaticMethodWithParams() =
+    [<Py.Decorate("functools.lru_cache", "maxsize=32")>]
+    static member cached_with_params(x: int) : int =
+        x * 3
+
+[<Fact>]
+let ``test Py.Decorate on static method with parameters`` () =
+    // Test that decorator with parameters is applied to static method
+    let result = ClassWithDecoratedStaticMethodWithParams.cached_with_params(4)
+    result |> equal 12
+
+[<AttachMembers>]
+type ClassWithClassMethod() =
+    member val Name: string = "" with get, set
+
+    // Note: With @classmethod, Python automatically passes `cls` as first argument
+    // So from F# we only pass the remaining arguments
+    [<Py.ClassMethod>]
+    static member create_instance(cls: obj, name: string) : ClassWithClassMethod =
+        let instance = ClassWithClassMethod()
+        instance.Name <- name
+        instance
+
+[<Fact>]
+let ``test Py.ClassMethod attribute`` () =
+    // Test that @classmethod decorator is applied instead of @staticmethod
+    // Note: cls is automatically passed by Python, so we only pass the name argument
+    // We use Emit to call the method without the cls argument from F#
+    let instance = emitPyExpr<ClassWithClassMethod> [] "ClassWithClassMethod.create_instance('TestName')"
+    instance.Name |> equal "TestName"
+
+
+[<AttachMembers>]
+type ClassWithMultipleDecoratedMethods() =
+    [<Py.Decorate("functools.lru_cache", "maxsize=16")>]
+    static member method_a(x: int) : int = x * 2
+
+    [<Py.Decorate("functools.lru_cache", "maxsize=32")>]
+    static member method_b(x: int) : int = x * 3
+
+[<Fact>]
+let ``test multiple static methods with decorators`` () =
+    // Test that decorators work on multiple static methods in same class
+    let resultA = ClassWithMultipleDecoratedMethods.method_a(5)
+    let resultB = ClassWithMultipleDecoratedMethods.method_b(5)
+    resultA |> equal 10
+    resultB |> equal 15
+
 // Import fable_library version to verify we're using local build, not PyPI
 let fableLibraryVersion: string = import "__version__" "fable_library._version"
 

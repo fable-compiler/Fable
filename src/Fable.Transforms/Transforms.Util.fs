@@ -128,6 +128,9 @@ module Atts =
     let pyClassAttributes = "Fable.Core.Py.ClassAttributes" // typeof<Fable.Core.Py.ClassAttributes>.FullName
 
     [<Literal>]
+    let pyClassMethod = "Fable.Core.Py.ClassMethodAttribute" // typeof<Fable.Core.Py.ClassMethodAttribute>.FullName
+
+    [<Literal>]
     let dartIsConst = "Fable.Core.Dart.IsConstAttribute" // typeof<Fable.Core.Dart.IsConstAttribute>.FullName
 
     [<Literal>]
