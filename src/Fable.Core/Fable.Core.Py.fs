@@ -28,8 +28,8 @@ module Py =
         abstract Decorate: fn: Callable * info: Reflection.MethodInfo -> Callable
 
     /// <summary>
-    /// Adds Python decorators to generated classes, enabling integration with Python
-    /// frameworks like dataclasses, attrs, functools, and any other decorator-based
+    /// Adds Python decorators to generated classes or methods, enabling integration with Python
+    /// frameworks like dataclasses, attrs, functools, Pydantic, and any other decorator-based
     /// libraries.
     /// </summary>
     /// <remarks>
@@ -38,14 +38,32 @@ module Py =
     /// <para>Multiple [&lt;Decorate&gt;] attributes are applied in reverse order
     /// (bottom to top), following Python's standard decorator stacking behavior.</para>
     /// <para>Examples:</para>
-    /// <para>[&lt;Decorate("dataclasses.dataclass")&gt;] - Simple decorator</para>
+    /// <para>[&lt;Decorate("dataclasses.dataclass")&gt;] - Simple class decorator</para>
     /// <para>[&lt;Decorate("functools.lru_cache", "maxsize=128")&gt;] - Decorator with
     /// parameters</para>
+    /// <para>[&lt;Decorate("pydantic.field_validator", "'Name'")&gt;] - Method decorator for
+    /// Pydantic validators</para>
     /// </remarks>
-    [<AttributeUsage(AttributeTargets.Class, AllowMultiple = true)>]
+    [<AttributeUsage(AttributeTargets.Class ||| AttributeTargets.Method, AllowMultiple = true)>]
     type DecorateAttribute(decorator: string) =
         inherit Attribute()
         new(decorator: string, parameters: string) = DecorateAttribute(decorator)
+
+    /// <summary>
+    /// Marks a static member to be emitted as a Python @classmethod instead of @staticmethod.
+    /// </summary>
+    /// <remarks>
+    /// <para>Use this attribute on static members when you need the first parameter to receive
+    /// the class (cls) instead of being a regular static method.</para>
+    /// <para>This is commonly needed for Pydantic validators and other Python frameworks that
+    /// require @classmethod decorators.</para>
+    /// <para>Example:</para>
+    /// <para>[&lt;Py.ClassMethod&gt;]</para>
+    /// <para>static member validate_name(cls, v: string) = ...</para>
+    /// </remarks>
+    [<AttributeUsage(AttributeTargets.Method)>]
+    type ClassMethodAttribute() =
+        inherit Attribute()
 
     [<RequireQualifiedAccess>]
     type ClassAttributeStyle =

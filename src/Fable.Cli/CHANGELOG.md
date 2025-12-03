@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+* [Python] Add support for [<Py.Decorate>] attribute on methods (previously only worked on classes)
+* [Python] Add new [<Py.ClassMethod>] attribute to emit @classmethod instead of @staticmethod
 * [Python] Added support for Pydantic serialization of core numeric and array types (by @dbrattli)
 
 ## 5.0.0-alpha.18 - 2025-12-03
