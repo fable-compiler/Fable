@@ -1,4 +1,4 @@
-from typing import Any, Literal, TypeAlias, TypeVar, cast
+from typing import Any, Literal, TypeVar, cast
 
 import hypothesis.strategies as st
 import pytest
@@ -17,11 +17,13 @@ from fable_library.core import (
 )
 from hypothesis import given
 from hypothesis.strategies import DrawFn
+from pydantic import BaseModel
 
 
 _T = TypeVar("_T")
 
-Array: TypeAlias = array.FSharpArray[_T]
+# Use direct reference instead of type alias to ensure __class_getitem__ is called
+Array = array.FSharpArray
 
 T = TypeVar("T")
 
@@ -1335,3 +1337,110 @@ def test_indexed():
 
 #     result3 = average_by(double, arr, averager)
 #     assert abs(result3 - 6.0) < 1e-10
+
+
+# =============================================================================
+# Pydantic Integration Tests
+# =============================================================================
+
+
+def test_pydantic_array_as_field_type():
+    """Test that FSharpArray can be used directly as a Pydantic field type."""
+
+    class ModelWithArray(BaseModel):
+        items: array.FSharpArray
+
+    arr = array.FSharpArray([1, 2, 3])
+    model = ModelWithArray(items=arr)
+    assert type(model.items).__name__ == "FSharpArray"
+    assert list(model.items) == [1, 2, 3]
+
+
+def test_pydantic_array_json_serialization():
+    """Test JSON serialization of Pydantic models with FSharpArray."""
+
+    class ModelWithArray(BaseModel):
+        items: array.FSharpArray
+
+    arr = array.FSharpArray([1, 2, 3])
+    model = ModelWithArray(items=arr)
+    assert model.model_dump_json() == '{"items":[1,2,3]}'
+    assert model.model_dump() == {"items": [1, 2, 3]}
+
+
+def test_pydantic_array_from_list():
+    """Test that Pydantic can create FSharpArray from Python list input."""
+
+    class ModelWithArray(BaseModel):
+        items: array.FSharpArray
+
+    model = ModelWithArray(items=[4, 5, 6])
+    assert type(model.items).__name__ == "FSharpArray"
+    assert list(model.items) == [4, 5, 6]
+
+
+def test_pydantic_array_json_schema():
+    """Test JSON Schema generation for Pydantic models with FSharpArray."""
+
+    class ModelWithArray(BaseModel):
+        items: array.FSharpArray
+
+    schema = ModelWithArray.model_json_schema()
+    assert schema["properties"]["items"]["type"] == "array"
+
+
+def test_pydantic_typed_array():
+    """Test FSharpArray with typed elements in Pydantic model."""
+
+    class ModelWithTypedArray(BaseModel):
+        numbers: array.FSharpArray
+
+    arr = array.FSharpArray([int32(10), int32(20), int32(30)], "Int32")
+    model = ModelWithTypedArray(numbers=arr)
+    assert model.model_dump_json() == '{"numbers":[10,20,30]}'
+
+
+def test_pydantic_nested_model_with_array():
+    """Test nested Pydantic model with FSharpArray and other Fable types."""
+
+    class ComplexModel(BaseModel):
+        name: str
+        scores: array.FSharpArray
+        age: int32
+
+    # Use FSharpArray with Float64 type for proper serialization
+    model = ComplexModel(
+        name="Test",
+        scores=array.FSharpArray([95.5, 87.3, 92.1], "Float64"),
+        age=int32(25),
+    )
+    json_str = model.model_dump_json()
+    assert '"name":"Test"' in json_str
+    assert '"age":25' in json_str
+    assert "95.5" in json_str
+
+
+def test_pydantic_array_json_deserialization():
+    """Test JSON deserialization into Pydantic models with FSharpArray."""
+
+    class Container(BaseModel):
+        items: array.FSharpArray
+
+    json_str = '{"items": [1, 2, 3, 4, 5]}'
+    c = Container.model_validate_json(json_str)
+    assert list(c.items) == [1, 2, 3, 4, 5]
+    assert type(c.items).__name__ == "FSharpArray"
+
+
+def test_pydantic_array_round_trip():
+    """Test round-trip serialization/deserialization preserves FSharpArray."""
+
+    class Data(BaseModel):
+        values: array.FSharpArray
+
+    # Use typed array for proper serialization of numeric values
+    original = Data(values=array.FSharpArray([10, 20, 30], "Int32"))
+    json_str = original.model_dump_json()
+    restored = Data.model_validate_json(json_str)
+    assert list(restored.values) == [10, 20, 30]
+    assert type(restored.values).__name__ == "FSharpArray"

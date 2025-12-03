@@ -444,6 +444,7 @@ module Field =
 [<Import("BaseModel", "pydantic")>]
 type BaseModel () = class end
 
+// Test with bigint (transpiles to Python int)
 [<Py.ClassAttributes(style=Py.ClassAttributeStyle.Attributes, init=false)>]
 type PydanticUser(Name: string, Age: bigint, Email: string option, Enabled: bool) =
     inherit BaseModel()
@@ -459,6 +460,40 @@ let ``test PydanticUser`` () =
     user.Age |> equal 25I
     user.Email |> equal (Some "test@example.com")
     user.Enabled |> equal true
+
+// Test with Fable core types (int32, int64, float) that have __get_pydantic_core_schema__
+[<Py.ClassAttributes(style=Py.ClassAttributeStyle.Attributes, init=false)>]
+type PydanticUserWithCoreTypes(Name: string, Age: int, Score: float, Level: int64) =
+    inherit BaseModel()
+    member val Name: string = Name with get, set
+    member val Age: int = Age with get, set           // int32
+    member val Score: float = Score with get, set     // float64
+    member val Level: int64 = Level with get, set     // int64
+
+[<Fact>]
+let ``test PydanticUser with core int32 type`` () =
+    let user = PydanticUserWithCoreTypes(Name = "Core User", Age = 30, Score = 95.5, Level = 100L)
+    user.Name |> equal "Core User"
+    user.Age |> equal 30
+    user.Score |> equal 95.5
+    user.Level |> equal 100L
+
+// Test with mixed core types including byte/sbyte
+[<Py.ClassAttributes(style=Py.ClassAttributeStyle.Attributes, init=false)>]
+type PydanticMixedTypes(ByteVal: byte, SByteVal: sbyte, Int16Val: int16, UInt16Val: uint16) =
+    inherit BaseModel()
+    member val ByteVal: byte = ByteVal with get, set
+    member val SByteVal: sbyte = SByteVal with get, set
+    member val Int16Val: int16 = Int16Val with get, set
+    member val UInt16Val: uint16 = UInt16Val with get, set
+
+[<Fact>]
+let ``test PydanticUser with byte and int16 types`` () =
+    let model = PydanticMixedTypes(ByteVal = 255uy, SByteVal = -128y, Int16Val = -32768s, UInt16Val = 65535us)
+    model.ByteVal |> equal 255uy
+    model.SByteVal |> equal -128y
+    model.Int16Val |> equal -32768s
+    model.UInt16Val |> equal 65535us
 
 [<Py.Decorate("dataclasses.dataclass")>]
 [<Py.ClassAttributes(style=Py.ClassAttributeStyle.Attributes, init=false)>]

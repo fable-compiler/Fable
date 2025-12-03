@@ -398,6 +398,88 @@ impl FSharpArray {
         iter.into_py_any(py)
     }
 
+    /// Pydantic v2 integration for schema generation.
+    ///
+    /// This method is called by Pydantic when building a model that uses FSharpArray.
+    /// It returns a pydantic-core schema that enables:
+    /// - Validation of input values (any iterable)
+    /// - Serialization to JSON-compatible lists
+    /// - JSON Schema generation for OpenAPI documentation
+    ///
+    /// The pydantic_core module is imported lazily - pydantic is only required
+    /// if this method is actually called (i.e., when used in a Pydantic model).
+    #[classmethod]
+    #[pyo3(name = "__get_pydantic_core_schema__")]
+    fn get_pydantic_core_schema(
+        cls: &Bound<'_, PyType>,
+        _source_type: &Bound<'_, PyAny>,
+        _handler: &Bound<'_, PyAny>,
+        py: Python<'_>,
+    ) -> PyResult<Py<PyAny>> {
+        // Lazy import of pydantic_core - only fails if pydantic is not installed
+        // AND this type is used in a Pydantic model
+        let core_schema = py.import("pydantic_core")?.getattr("core_schema")?;
+
+        // Create a validator function that wraps the constructor
+        let validator_fn = cls.getattr("_pydantic_validator")?;
+
+        // Create a serializer function that converts to list
+        let serializer_fn = cls.getattr("_pydantic_serializer")?;
+
+        // Build the serialization schema
+        let ser_schema = core_schema.call_method1(
+            "plain_serializer_function_ser_schema",
+            (serializer_fn,),
+        )?;
+
+        // Create a list schema as the base - this enables JSON Schema generation
+        let list_schema = core_schema.call_method0("list_schema")?;
+
+        // Wrap with validator function, keeping list_schema for JSON Schema
+        let validator_kwargs = pyo3::types::PyDict::new(py);
+        validator_kwargs.set_item("serialization", ser_schema)?;
+
+        let validator_schema = core_schema.call_method(
+            "no_info_after_validator_function",
+            (validator_fn, list_schema),
+            Some(&validator_kwargs),
+        )?;
+
+        Ok(validator_schema.unbind())
+    }
+
+    /// Pydantic validator function.
+    ///
+    /// Called by Pydantic during validation to convert input values to FSharpArray.
+    /// Accepts any iterable.
+    #[staticmethod]
+    #[pyo3(name = "_pydantic_validator")]
+    fn pydantic_validator(py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<Self> {
+        // If already a FSharpArray, return a clone
+        if let Ok(array) = value.extract::<PyRef<'_, FSharpArray>>() {
+            return Ok(array.clone());
+        }
+        // Otherwise create from iterable
+        FSharpArray::new(py, Some(value), None)
+    }
+
+    /// Pydantic serializer function.
+    ///
+    /// Called by Pydantic during serialization to convert FSharpArray to a
+    /// JSON-compatible list.
+    #[staticmethod]
+    #[pyo3(name = "_pydantic_serializer")]
+    fn pydantic_serializer(py: Python<'_>, instance: &Self) -> PyResult<Py<PyAny>> {
+        // Convert FSharpArray to a Python list for JSON serialization
+        let len = instance.storage.len();
+        let list = PyList::empty(py);
+        for i in 0..len {
+            let item = instance.storage.get(py, i)?;
+            list.append(item)?;
+        }
+        Ok(list.into())
+    }
+
     pub fn __bytes__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         match &self.storage {
             // For UInt8/Int8 arrays, we can create bytes directly

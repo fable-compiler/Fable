@@ -2,6 +2,7 @@ from array import array
 from decimal import Decimal
 
 from fable_library.core import byte, int16, int32, int64, sbyte, uint16, uint32, uint64
+from pydantic import BaseModel
 
 
 def test_byte_create() -> None:
@@ -260,3 +261,178 @@ def test_float_to_int_conversion():
     assert int64(float64(42.7)) == 42
     assert int64(float64(-42.7)) == -42
     assert uint64(float64(42.7)) == 42
+
+
+def test_pydantic_int_model_definition():
+    """Test that Fable integer types can be used in Pydantic models."""
+
+    class User(BaseModel):
+        age: int32
+        level: byte
+
+    user = User(age=int32(25), level=byte(3))
+    assert user.age == 25
+    assert user.level == 3
+    assert type(user.age).__name__ == "Int32"
+    assert type(user.level).__name__ == "UInt8"
+
+
+def test_pydantic_int_serialization():
+    """Test JSON serialization of Pydantic models with Fable integer types."""
+
+    class User(BaseModel):
+        age: int32
+        level: byte
+
+    user = User(age=int32(25), level=byte(3))
+    assert user.model_dump_json() == '{"age":25,"level":3}'
+    assert user.model_dump() == {"age": 25, "level": 3}
+
+
+def test_pydantic_int_json_schema():
+    """Test JSON Schema generation for Pydantic models with Fable integer types."""
+
+    class User(BaseModel):
+        age: int32
+
+    schema = User.model_json_schema()
+    assert schema["properties"]["age"]["type"] == "integer"
+
+
+def test_pydantic_all_int_types():
+    """Test all Fable integer types in Pydantic models."""
+
+    class AllInts(BaseModel):
+        a: sbyte
+        b: byte
+        c: int16
+        d: uint16
+        e: int32
+        f: uint32
+        g: int64
+        h: uint64
+
+    model = AllInts(
+        a=sbyte(-128),
+        b=byte(255),
+        c=int16(-32768),
+        d=uint16(65535),
+        e=int32(-2147483648),
+        f=uint32(4294967295),
+        g=int64(-1000000),
+        h=uint64(1000000),
+    )
+
+    # Verify types are preserved
+    assert type(model.a).__name__ == "Int8"
+    assert type(model.b).__name__ == "UInt8"
+    assert type(model.c).__name__ == "Int16"
+    assert type(model.d).__name__ == "UInt16"
+    assert type(model.e).__name__ == "Int32"
+    assert type(model.f).__name__ == "UInt32"
+    assert type(model.g).__name__ == "Int64"
+    assert type(model.h).__name__ == "UInt64"
+
+    # Verify serialization
+    json_str = model.model_dump_json()
+    assert "-128" in json_str
+    assert "255" in json_str
+    assert "1000000" in json_str
+
+
+def test_pydantic_int_from_fable_type():
+    """Test that Pydantic models accept Fable types directly as input."""
+
+    class Simple(BaseModel):
+        val: int32
+
+    # Pass a Fable Int32 directly
+    simple = Simple(val=int32(42))
+    assert simple.val == 42
+    assert type(simple.val).__name__ == "Int32"
+
+
+def test_pydantic_nested_int_models():
+    """Test nested Pydantic models with Fable integer types."""
+
+    class Address(BaseModel):
+        zip_code: int32
+
+    class Person(BaseModel):
+        age: int32
+        address: Address
+
+    person = Person(age=int32(30), address=Address(zip_code=int32(12345)))
+    assert person.age == 30
+    assert person.address.zip_code == 12345
+    assert person.model_dump_json() == '{"age":30,"address":{"zip_code":12345}}'
+
+
+def test_pydantic_int_json_deserialization():
+    """Test JSON deserialization into Pydantic models with Fable integer types."""
+
+    class User(BaseModel):
+        name: str
+        age: int32
+
+    json_str = '{"name": "Alice", "age": 30}'
+    user = User.model_validate_json(json_str)
+    assert user.name == "Alice"
+    assert user.age == 30
+    assert type(user.age).__name__ == "Int32"
+
+
+def test_pydantic_int_round_trip():
+    """Test round-trip serialization/deserialization preserves Fable types."""
+
+    class Data(BaseModel):
+        value: int64
+
+    original = Data(value=int64(123456789))
+    json_str = original.model_dump_json()
+    restored = Data.model_validate_json(json_str)
+    assert restored.value == 123456789
+    assert type(restored.value).__name__ == "Int64"
+
+
+def test_pydantic_large_int64_values():
+    """Test that large int64/uint64 values work correctly with Pydantic.
+
+    This specifically tests the fix for the issue where large int64 values
+    would fail with 'Unable to parse input string as an integer, exceeded
+    maximum size' due to Pydantic's int_schema not recognizing custom types.
+    """
+
+    class Int64Data(BaseModel):
+        value: int64
+
+    class UInt64Data(BaseModel):
+        value: uint64
+
+    # Test int64 max value
+    max_int64 = int64(9223372036854775807)
+    model = Int64Data(value=max_int64)
+    assert model.value == 9223372036854775807
+    assert type(model.value).__name__ == "Int64"
+
+    # Test int64 min value
+    min_int64 = int64(-9223372036854775808)
+    model = Int64Data(value=min_int64)
+    assert model.value == -9223372036854775808
+    assert type(model.value).__name__ == "Int64"
+
+    # Test uint64 max value
+    max_uint64 = uint64(18446744073709551615)
+    model = UInt64Data(value=max_uint64)
+    assert model.value == 18446744073709551615
+    assert type(model.value).__name__ == "UInt64"
+
+    # Test serialization of large values
+    model = Int64Data(value=int64(9223372036854775807))
+    json_str = model.model_dump_json()
+    assert "9223372036854775807" in json_str
+
+    # Test round-trip with large values
+    restored = Int64Data.model_validate_json(json_str)
+    assert restored.value == 9223372036854775807
+    assert type(restored.value).__name__ == "Int64"
