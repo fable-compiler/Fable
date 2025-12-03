@@ -495,6 +495,24 @@ let ``test PydanticUser with byte and int16 types`` () =
     model.Int16Val |> equal -32768s
     model.UInt16Val |> equal 65535us
 
+// Test Pydantic field_validator with @classmethod
+[<Py.ClassAttributes(style=Py.ClassAttributeStyle.Attributes, init=false)>]
+type PydanticUserWithValidator(Name: string) =
+    inherit BaseModel()
+    member val Name: string = Name with get, set
+
+    [<Py.Decorate("pydantic.field_validator", "'Name'")>]
+    [<Py.ClassMethod>]
+    static member validate_name(cls: obj, v: string) : string =
+        v.ToUpper()
+
+[<Fact>]
+let ``test Pydantic field_validator with classmethod`` () =
+    // Test that @field_validator and @classmethod decorators are applied correctly
+    // The validator should transform the Name to uppercase
+    let user = emitPyExpr<PydanticUserWithValidator> [] "PydanticUserWithValidator(Name='john')"
+    user.Name |> equal "JOHN"
+
 [<Py.Decorate("dataclasses.dataclass")>]
 [<Py.ClassAttributes(style=Py.ClassAttributeStyle.Attributes, init=false)>]
 type DecoratedUser() =
