@@ -36,10 +36,10 @@ use std::sync::LazyLock;
 // -----------------------------------------------------------
 
 // Type-safe regex patterns with descriptive error messages
-#[allow(dead_code)]
-static FORMAT_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}")
-        .expect("FORMAT_REGEX: Invalid regex pattern for .NET-style formatting")
+// .NET-style format pattern: {0}, {0,10}, {0:d4}, {0,-10:X8}, etc.
+static DOTNET_FORMAT_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"\{(\d+)(?:,(-?\d+))?(?::([^}]+))?\}")
+        .expect("DOTNET_FORMAT_PATTERN: Invalid regex pattern for .NET-style formatting")
 });
 
 static PRINTF_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
@@ -52,13 +52,11 @@ static INTERPOLATE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
         .expect("INTERPOLATE_PATTERN: Invalid regex pattern for string interpolation")
 });
 
-// **Performance constants**: Pre-allocated strings for common operations
+// Performance constants: Pre-allocated strings for common operations
 const TRUE_STR: &str = "true";
 const FALSE_STR: &str = "false";
-//const EMPTY_STR: &str = "";
 const SPACE_STR: &str = " ";
 const PLUS_STR: &str = "+";
-//const MINUS_STR: &str = "-";
 
 // -----------------------------------------------------------
 // Printf formatting module
@@ -94,7 +92,8 @@ mod printf {
     ///
     /// This struct maintains the format string and accumulated arguments,
     /// allowing for partial application of arguments until all placeholders
-    /// are filled. When complete, it produces the final formatted string.
+    /// are filled. When complete, it produces the final formatted string
+    /// or applies a stored continuation function to it.
     ///
     /// ## Example Usage
     ///
@@ -103,23 +102,44 @@ mod printf {
     /// formatter = printf("Hello %s, you are %d years old!")
     /// partial = formatter("Alice")
     /// result = partial(25)  # "Hello Alice, you are 25 years old!"
+    ///
+    /// # With continuation (F# failsafe pattern)
+    /// def fail(msg): raise Exception(msg)
+    /// printf("Error: %s").cont(fail)("something went wrong")  # raises Exception
     /// ```
     #[pyclass(module = "fable")]
-    #[derive(Clone)]
     pub struct IPrintfFormat {
         /// The original format string with placeholders
         input: String,
         /// Accumulated arguments with type annotations
         args: Vec<String>,
+        /// Optional continuation function to apply to the final formatted string
+        continuation: Option<Py<PyAny>>,
+        /// Cached count of format placeholders (computed once at creation)
+        placeholder_count: usize,
+    }
+
+    impl Clone for IPrintfFormat {
+        fn clone(&self) -> Self {
+            Python::attach(|py| Self {
+                input: self.input.clone(),
+                args: self.args.clone(),
+                continuation: self.continuation.as_ref().map(|c| c.clone_ref(py)),
+                placeholder_count: self.placeholder_count,
+            })
+        }
     }
 
     #[pymethods]
     impl IPrintfFormat {
         #[new]
         pub fn new(input: String) -> Self {
+            let placeholder_count = count_actual_placeholders(&input);
             Self {
                 input,
                 args: Vec::new(),
+                continuation: None,
+                placeholder_count,
             }
         }
 
@@ -146,12 +166,18 @@ mod printf {
 
             new_format.args.push(arg_str);
 
-            // Count actual format specifiers (excluding %% escape sequences)
-            let placeholder_count = count_actual_placeholders(&self.input);
+            // Use cached placeholder count instead of recomputing
+            if new_format.args.len() >= self.placeholder_count {
+                // We have enough args, format the string
+                let formatted = new_format.format_final()?;
 
-            if new_format.args.len() >= placeholder_count {
-                // We have enough args, format and return string
-                Ok(new_format.format_final()?.into_pyobject(py)?.into())
+                // If a continuation was stored, apply it to the formatted string
+                if let Some(ref continuation) = new_format.continuation {
+                    Ok(continuation.bind(py).call1((formatted,))?.unbind())
+                } else {
+                    // No continuation, just return the formatted string
+                    Ok(formatted.into_pyobject(py)?.into())
+                }
             } else {
                 // Return continuation for more args
                 Ok(new_format.into_pyobject(py)?.into())
@@ -167,16 +193,31 @@ mod printf {
             }
         }
 
-        /// Continuation method for F# printf compatibility
-        /// This method takes a continuation function and applies it to the formatted result
+        /// Continuation method for F# printf compatibility.
+        ///
+        /// This method stores a continuation function that will be applied to the
+        /// formatted result once all arguments have been collected. This is used
+        /// by F# patterns like `failwithf` and `Expect.throws` where the formatted
+        /// string should be passed to a function (e.g., to raise an exception).
+        ///
+        /// ## Usage Pattern
+        ///
+        /// ```python
+        /// def fail(msg): raise Exception(msg)
+        /// printf("Error: %s").cont(fail)("something")  # raises Exception("Error: something")
+        /// ```
         fn cont(&self, py: Python<'_>, continuation: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-            if self.args.is_empty() {
-                // No args accumulated yet - return the IPrintfFormat itself so it can continue to be curried
-                Ok(self.clone().into_pyobject(py)?.into())
-            } else {
-                // We have args, format the string and apply the continuation
+            if !self.args.is_empty() {
+                // We already have args, format the string and apply the continuation immediately
                 let formatted = self.format_final()?;
                 Ok(continuation.call1((formatted,))?.unbind())
+            } else {
+                // No args accumulated yet - store the continuation and return IPrintfFormat
+                // so it can continue to be curried. The continuation will be applied when
+                // all format arguments have been collected.
+                let mut new_format = self.clone();
+                new_format.continuation = Some(continuation.clone().unbind());
+                Ok(new_format.into_pyobject(py)?.into())
             }
         }
     }
@@ -217,12 +258,6 @@ mod printf {
                 let width = captures.get(2).and_then(|m| m.as_str().parse::<i32>().ok());
                 let precision = captures.get(3).and_then(|m| m.as_str().parse::<i32>().ok());
                 let format_type = format_type_match.as_str();
-
-                if format_type == "%" {
-                    // Literal % - replace with single %
-                    result = result.replacen(full_match, "%", 1);
-                    continue;
-                }
 
                 // Type-safe argument access
                 let Some(arg_value) = self.args.get(arg_index) else {
@@ -547,7 +582,7 @@ mod printf {
     /// # No placeholders - returns string directly
     /// result = printf("Hello World!")  # "Hello World!"
     ///
-    /// # With placeholders - returns curriedfunction
+    /// # With placeholders - returns curried function
     /// formatter = printf("Hello %s, you are %d!")
     /// partial = formatter("Alice")  # Still a function
     /// result = partial(25)  # "Hello Alice, you are 25!"
@@ -858,11 +893,8 @@ mod formatting {
 
     /// Validate format string when no arguments are provided.
     fn validate_format_string_only(format_str: &str) -> PyResult<String> {
-        use regex::Regex;
-        let format_regex = Regex::new(r"\{(\d+)(?:,(-?\d+))?(?::([^}]+))?\}")
-            .map_err(|_| pyo3::exceptions::PyValueError::new_err("Invalid regex pattern"))?;
-
-        if format_regex.is_match(format_str) {
+        // Use static regex for better performance
+        if super::DOTNET_FORMAT_PATTERN.is_match(format_str) {
             Err(pyo3::exceptions::PyValueError::new_err(
                 "Format string has placeholders but no arguments provided",
             ))
@@ -1060,7 +1092,11 @@ mod formatting {
             // Zero-padding integers: 0000
             spec if spec.starts_with('0') => apply_zero_padding_format(value, spec),
             // Standard .NET format specifiers: d4, X8, f2, etc.
-            spec if spec.chars().next().unwrap().is_ascii_alphabetic() => {
+            spec if spec
+                .chars()
+                .next()
+                .map_or(false, |c| c.is_ascii_alphabetic()) =>
+            {
                 apply_standard_format(value, spec)
             }
             // Unknown format - return as-is
@@ -1090,13 +1126,10 @@ mod formatting {
     /// This function handles the core format string processing logic using
     /// pattern matching and helper functions to eliminate nesting.
     fn process_format_replacements(format_str: &str, format_args: &[String]) -> PyResult<String> {
-        use regex::Regex;
-        let format_regex = Regex::new(r"\{(\d+)(?:,(-?\d+))?(?::([^}]+))?\}")
-            .map_err(|_| pyo3::exceptions::PyValueError::new_err("Invalid regex pattern"))?;
-
+        // Use static regex for better performance
         let mut result = format_str.to_string();
 
-        for caps in format_regex.captures_iter(format_str) {
+        for caps in super::DOTNET_FORMAT_PATTERN.captures_iter(format_str) {
             // **Pattern matching**: Safe capture extraction
             let (index, alignment, format_spec) = match (caps.get(1), caps.get(2), caps.get(3)) {
                 (Some(idx_match), align_match, spec_match) => {
@@ -1157,19 +1190,19 @@ mod formatting {
     /// Insert a string at a specific position
     #[pyfunction]
     pub fn insert(string: &str, start_index: usize, value: &str) -> PyResult<String> {
-        if start_index > string.len() {
+        // Use character-based indexing to handle UTF-8 correctly
+        let chars: Vec<char> = string.chars().collect();
+
+        if start_index > chars.len() {
             return Err(pyo3::exceptions::PyValueError::new_err(
                 "startIndex is greater than the length of this instance",
             ));
         }
 
-        // Zero-cost abstraction: single allocation with format! macro
-        Ok(format!(
-            "{}{}{}",
-            &string[..start_index],
-            value,
-            &string[start_index..]
-        ))
+        // Build result from character slices
+        let before: String = chars[..start_index].iter().collect();
+        let after: String = chars[start_index..].iter().collect();
+        Ok(format!("{}{}{}", before, value, after))
     }
 
     /// Check if string is null or empty
@@ -1268,19 +1301,24 @@ mod formatting {
     #[pyfunction]
     #[pyo3(signature = (string, start_index, count=None))]
     pub fn remove(string: &str, start_index: usize, count: Option<usize>) -> PyResult<String> {
-        if start_index >= string.len() {
+        // Use character-based indexing to handle UTF-8 correctly
+        let chars: Vec<char> = string.chars().collect();
+
+        if start_index >= chars.len() {
             return Err(pyo3::exceptions::PyValueError::new_err(
                 "startIndex must be less than length of string",
             ));
         }
 
-        // Zero-cost abstraction: single allocation based on pattern matching
+        // Build result from character slices
         Ok(match count {
             Some(count) => {
-                let end_index = std::cmp::min(start_index + count, string.len());
-                format!("{}{}", &string[..start_index], &string[end_index..])
+                let end_index = std::cmp::min(start_index + count, chars.len());
+                let before: String = chars[..start_index].iter().collect();
+                let after: String = chars[end_index..].iter().collect();
+                format!("{}{}", before, after)
             }
-            None => string[..start_index].to_string(),
+            None => chars[..start_index].iter().collect(),
         })
     }
 
@@ -1434,19 +1472,15 @@ mod formatting {
         FSharpArray::new(py, Some(py_list.as_any()), None)
     }
 
-    /// Trim string with character array support
-    #[pyfunction]
-    #[pyo3(signature = (string, *chars))]
-    pub fn trim(string: &str, chars: &Bound<'_, pyo3::types::PyTuple>) -> PyResult<String> {
-        // **Early return**: Handle empty chars case elegantly
-        if chars.is_empty() {
-            return Ok(string.trim().to_string());
-        }
-        // Continue with character processing
-
+    /// Build a character set from a Python tuple of characters/strings.
+    ///
+    /// This helper function handles both individual chars and arrays of chars,
+    /// building a HashSet for efficient character lookup in trim operations.
+    fn build_trim_char_set(
+        chars: &Bound<'_, pyo3::types::PyTuple>,
+    ) -> PyResult<std::collections::HashSet<char>> {
         let mut char_set = std::collections::HashSet::new();
 
-        // Handle both individual chars and arrays of chars
         for i in 0..chars.len() {
             let item = chars.get_item(i)?;
             if let Ok(char_str) = item.str() {
@@ -1466,10 +1500,21 @@ mod formatting {
             }
         }
 
+        Ok(char_set)
+    }
+
+    /// Trim string with character array support
+    #[pyfunction]
+    #[pyo3(signature = (string, *chars))]
+    pub fn trim(string: &str, chars: &Bound<'_, pyo3::types::PyTuple>) -> PyResult<String> {
+        if chars.is_empty() {
+            return Ok(string.trim().to_string());
+        }
+
+        let char_set = build_trim_char_set(chars)?;
         let result = string
             .trim_start_matches(|c| char_set.contains(&c))
             .trim_end_matches(|c| char_set.contains(&c));
-
         Ok(result.to_string())
     }
 
@@ -1477,32 +1522,11 @@ mod formatting {
     #[pyfunction]
     #[pyo3(signature = (string, *chars))]
     pub fn trim_start(string: &str, chars: &Bound<'_, pyo3::types::PyTuple>) -> PyResult<String> {
-        // **Early return**: Handle empty chars case elegantly
         if chars.is_empty() {
             return Ok(string.trim_start().to_string());
         }
-        // Continue with character processing
 
-        let mut char_set = std::collections::HashSet::new();
-
-        for i in 0..chars.len() {
-            let item = chars.get_item(i)?;
-            if let Ok(char_str) = item.str() {
-                for ch in char_str.to_string().chars() {
-                    char_set.insert(ch);
-                }
-            } else if let Ok(iter) = item.try_iter() {
-                for char_item in iter {
-                    let char_item = char_item?;
-                    if let Ok(char_str) = char_item.str() {
-                        for ch in char_str.to_string().chars() {
-                            char_set.insert(ch);
-                        }
-                    }
-                }
-            }
-        }
-
+        let char_set = build_trim_char_set(chars)?;
         let result = string.trim_start_matches(|c| char_set.contains(&c));
         Ok(result.to_string())
     }
@@ -1511,31 +1535,11 @@ mod formatting {
     #[pyfunction]
     #[pyo3(signature = (string, *chars))]
     pub fn trim_end(string: &str, chars: &Bound<'_, pyo3::types::PyTuple>) -> PyResult<String> {
-        // **Early return**: Handle empty chars case elegantly
         if chars.is_empty() {
             return Ok(string.trim_end().to_string());
         }
-        // Continue with character processing
 
-        let mut char_set = std::collections::HashSet::new();
-
-        for i in 0..chars.len() {
-            let item = chars.get_item(i)?;
-            if let Ok(char_str) = item.str() {
-                for ch in char_str.to_string().chars() {
-                    char_set.insert(ch);
-                }
-            } else if let Ok(iter) = item.try_iter() {
-                for char_item in iter {
-                    if let Ok(char_str) = char_item?.str() {
-                        for ch in char_str.to_string().chars() {
-                            char_set.insert(ch);
-                        }
-                    }
-                }
-            }
-        }
-
+        let char_set = build_trim_char_set(chars)?;
         let result = string.trim_end_matches(|c| char_set.contains(&c));
         Ok(result.to_string())
     }
@@ -1759,13 +1763,22 @@ mod formatting {
     #[pyfunction]
     #[pyo3(signature = (string, pattern, start_index=0))]
     pub fn index_of(string: &str, pattern: &str, start_index: usize) -> i32 {
-        if start_index >= string.len() {
+        // Use character-based indexing to handle UTF-8 correctly
+        let chars: Vec<char> = string.chars().collect();
+
+        if start_index >= chars.len() {
             return -1;
         }
 
-        let search_string = &string[start_index..];
+        // Build the search string from character index
+        let search_string: String = chars[start_index..].iter().collect();
+
         match search_string.find(pattern) {
-            Some(pos) => (start_index + pos) as i32,
+            Some(byte_pos) => {
+                // Convert byte position to character position within the search substring
+                let char_pos = search_string[..byte_pos].chars().count();
+                (start_index + char_pos) as i32
+            }
             None => -1,
         }
     }
@@ -1774,18 +1787,25 @@ mod formatting {
     #[pyfunction]
     #[pyo3(signature = (string, pattern, start_index=None))]
     pub fn last_index_of(string: &str, pattern: &str, start_index: Option<usize>) -> i32 {
-        let search_string = if let Some(end) = start_index {
-            if end >= string.len() {
-                string
+        // Use character-based indexing to handle UTF-8 correctly
+        let chars: Vec<char> = string.chars().collect();
+
+        let search_string: String = if let Some(end) = start_index {
+            if end >= chars.len() {
+                string.to_string()
             } else {
-                &string[..=end]
+                // Include character at end index (..=end)
+                chars[..=end].iter().collect()
             }
         } else {
-            string
+            string.to_string()
         };
 
         match search_string.rfind(pattern) {
-            Some(pos) => pos as i32,
+            Some(byte_pos) => {
+                // Convert byte position to character position
+                search_string[..byte_pos].chars().count() as i32
+            }
             None => -1,
         }
     }
@@ -1826,7 +1846,7 @@ mod formatting {
             return Ok(-1);
         }
 
-        let start_index = if args.len() > 0 {
+        let start_index = if !args.is_empty() {
             args.get_item(0)?.extract::<usize>()?
         } else {
             0
