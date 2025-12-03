@@ -993,6 +993,54 @@ let ``test calling ToString(CultureInfo.InvariantCulture) works`` () =
     (7923209UL).ToString(CultureInfo.InvariantCulture) |> equal "7923209"
 
 
+[<Fact>]
+let ``test printf.cont applies continuation after all args collected`` () =
+    let mutable called = false
+    let mutable receivedMsg = ""
+    let cont msg =
+        called <- true
+        receivedMsg <- msg
+
+    Printf.kprintf cont "%s: %d" "Value" 42
+
+    called |> equal true
+    receivedMsg |> equal "Value: 42"
+
+[<Fact>]
+let ``test printf.cont works with single argument`` () =
+    let mutable result = ""
+    let cont msg = result <- msg
+
+    Printf.kprintf cont "Hello %s" "World"
+
+    result |> equal "Hello World"
+
+[<Fact>]
+let ``test printf.cont raises exception via continuation`` () =
+    let fail msg = failwith msg
+
+    let mutable exceptionRaised = false
+    try
+        Printf.kprintf fail "Error: %s" "test error" |> ignore
+    with
+    | ex ->
+        exceptionRaised <- true
+        ex.Message |> equal "Error: test error"
+
+    exceptionRaised |> equal true
+
+[<Fact>]
+let ``test failwithf works`` () =
+    let mutable exceptionRaised = false
+    try
+        failwithf "Error: %s %d" "test" 42
+    with
+    | ex ->
+        exceptionRaised <- true
+        ex.Message |> equal "Error: test 42"
+
+    exceptionRaised |> equal true
+
 #if FABLE_COMPILER
 open Fable.Core
 

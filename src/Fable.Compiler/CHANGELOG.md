@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Python] Fix printf.cont() not applying continuation function when currying (by @dbrattli)
+
 ## 5.0.0-alpha.17 - 2025-12-03
 
 ### Fixed
