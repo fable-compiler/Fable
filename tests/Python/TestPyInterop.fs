@@ -657,6 +657,23 @@ let ``test multiple static methods with decorators`` () =
     resultA |> equal 10
     resultB |> equal 15
 
+[<AttachMembers>]
+type ClassWithDecoratedInstanceMethod() =
+    member val CallCount: int = 0 with get, set
+
+    [<Py.Decorate("functools.lru_cache", "maxsize=16")>]
+    member this.cached_instance_method(x: int) : int =
+        x * 4
+
+[<Fact>]
+let ``test Py.Decorate on instance method`` () =
+    // Test that decorator works on instance methods too
+    let obj = ClassWithDecoratedInstanceMethod()
+    let result1 = obj.cached_instance_method(3)
+    let result2 = obj.cached_instance_method(3)
+    result1 |> equal 12
+    result2 |> equal 12
+
 // Import fable_library version to verify we're using local build, not PyPI
 let fableLibraryVersion: string = import "__version__" "fable_library._version"
 

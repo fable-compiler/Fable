@@ -1339,11 +1339,6 @@ def test_indexed():
 #     assert abs(result3 - 6.0) < 1e-10
 
 
-# =============================================================================
-# Pydantic Integration Tests
-# =============================================================================
-
-
 def test_pydantic_array_as_field_type():
     """Test that FSharpArray can be used directly as a Pydantic field type."""
 
