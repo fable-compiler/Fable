@@ -2,6 +2,7 @@ import math
 
 import pytest
 from fable_library.core import float32, float64
+from pydantic import BaseModel
 
 
 def test_float32_create():
@@ -533,3 +534,93 @@ def test_float_repr_str():
     assert str(float32(math.inf)) == "inf"
     assert repr(float32(-math.inf)) == "-inf"
     assert str(float32(-math.inf)) == "-inf"
+
+
+def test_pydantic_float_model_definition():
+    """Test that Fable float types can be used in Pydantic models."""
+
+    class Measurement(BaseModel):
+        value: float64
+        precision: float32
+
+    m = Measurement(value=float64(3.14159), precision=float32(0.001))
+    assert m.value == 3.14159
+    assert m.precision == pytest.approx(0.001, rel=1e-6)
+    assert type(m.value).__name__ == "Float64"
+    assert type(m.precision).__name__ == "Float32"
+
+
+def test_pydantic_float_serialization():
+    """Test JSON serialization of Pydantic models with Fable float types."""
+
+    class Measurement(BaseModel):
+        value: float64
+
+    m = Measurement(value=float64(3.14159))
+    assert m.model_dump_json() == '{"value":3.14159}'
+    assert m.model_dump() == {"value": 3.14159}
+
+
+def test_pydantic_float_json_schema():
+    """Test JSON Schema generation for Pydantic models with Fable float types."""
+
+    class Measurement(BaseModel):
+        value: float64
+
+    schema = Measurement.model_json_schema()
+    assert schema["properties"]["value"]["type"] == "number"
+
+
+def test_pydantic_float_from_fable_type():
+    """Test that Pydantic models accept Fable float types directly as input."""
+
+    class Simple(BaseModel):
+        val: float64
+
+    # Pass a Fable Float64 directly
+    simple = Simple(val=float64(2.718))
+    assert simple.val == 2.718
+    assert type(simple.val).__name__ == "Float64"
+
+
+def test_pydantic_mixed_numeric_types():
+    """Test Pydantic models with mixed Fable integer and float types."""
+    from fable_library.core import int32
+
+    class MixedModel(BaseModel):
+        count: int32
+        average: float64
+
+    model = MixedModel(count=int32(10), average=float64(3.5))
+    assert model.count == 10
+    assert model.average == 3.5
+    assert type(model.count).__name__ == "Int32"
+    assert type(model.average).__name__ == "Float64"
+    assert model.model_dump_json() == '{"count":10,"average":3.5}'
+
+
+def test_pydantic_float_json_deserialization():
+    """Test JSON deserialization into Pydantic models with Fable float types."""
+
+    class Measurement(BaseModel):
+        value: float64
+
+    json_str = '{"value": 3.14159}'
+    m = Measurement.model_validate_json(json_str)
+    assert m.value == 3.14159
+    assert type(m.value).__name__ == "Float64"
+
+
+def test_pydantic_float_round_trip():
+    """Test round-trip serialization/deserialization preserves Fable float types."""
+
+    class Data(BaseModel):
+        x: float32
+        y: float64
+
+    original = Data(x=float32(1.5), y=float64(2.718281828))
+    json_str = original.model_dump_json()
+    restored = Data.model_validate_json(json_str)
+    assert restored.y == 2.718281828
+    assert type(restored.x).__name__ == "Float32"
+    assert type(restored.y).__name__ == "Float64"

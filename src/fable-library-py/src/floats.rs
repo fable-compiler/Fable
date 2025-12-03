@@ -442,6 +442,101 @@ macro_rules! float_variant {
                 self.0
             }
 
+            /// Pydantic v2 integration for schema generation.
+            ///
+            /// This method is called by Pydantic when building a model that uses this type.
+            /// It returns a pydantic-core schema that enables:
+            /// - Validation of input values
+            /// - Serialization to JSON-compatible floats
+            /// - JSON Schema generation for OpenAPI documentation
+            ///
+            /// The pydantic_core module is imported lazily - pydantic is only required
+            /// if this method is actually called (i.e., when used in a Pydantic model).
+            ///
+            /// The schema uses a chained validator approach:
+            /// 1. Before validator: Extract Python float from custom types
+            /// 2. float_schema: Pydantic's native float validation (enables JSON Schema)
+            /// 3. After validator: Wrap result back in our custom type
+            #[classmethod]
+            #[pyo3(name = "__get_pydantic_core_schema__")]
+            fn get_pydantic_core_schema(
+                cls: &Bound<'_, pyo3::types::PyType>,
+                _source_type: &Bound<'_, PyAny>,
+                _handler: &Bound<'_, PyAny>,
+                py: Python<'_>,
+            ) -> PyResult<Py<PyAny>> {
+                // Lazy import of pydantic_core - only fails if pydantic is not installed
+                // AND this type is used in a Pydantic model
+                let core_schema = py.import("pydantic_core")?.getattr("core_schema")?;
+
+                // Get all validator/serializer functions from the class
+                let extractor_fn = cls.getattr("_pydantic_extractor")?;
+                let validator_fn = cls.getattr("_pydantic_validator")?;
+                let serializer_fn = cls.getattr("_pydantic_serializer")?;
+
+                // Build the serialization schema
+                let ser_schema = core_schema
+                    .call_method1("plain_serializer_function_ser_schema", (serializer_fn,))?;
+
+                // Create a float schema as the base - this enables JSON Schema generation
+                let float_schema = core_schema.call_method0("float_schema")?;
+
+                // Build the schema chain:
+                // 1. After validator wraps float_schema, converting Python float -> our type
+                let after_kwargs = pyo3::types::PyDict::new(py);
+                after_kwargs.set_item("serialization", ser_schema)?;
+
+                let after_schema = core_schema.call_method(
+                    "no_info_after_validator_function",
+                    (validator_fn, float_schema),
+                    Some(&after_kwargs),
+                )?;
+
+                // 2. Before validator extracts Python float from our type
+                let full_schema = core_schema.call_method1(
+                    "no_info_before_validator_function",
+                    (extractor_fn, after_schema),
+                )?;
+
+                Ok(full_schema.unbind())
+            }
+
+            /// Pydantic extractor function (before validator).
+            ///
+            /// Called by Pydantic before float_schema validation to extract the underlying
+            /// Python float from our custom type.
+            #[staticmethod]
+            #[pyo3(name = "_pydantic_extractor")]
+            fn pydantic_extractor(value: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+                let py = value.py();
+                // If the value has __float__, extract it as a Python float
+                if value.hasattr("__float__")? {
+                    Ok(value.call_method0("__float__")?.into_pyobject(py).map(|o| o.unbind())?)
+                } else {
+                    Ok(value.clone().unbind())
+                }
+            }
+
+            /// Pydantic validator function (after validator).
+            ///
+            /// Called by Pydantic after float_schema validation to wrap the validated
+            /// Python float back into our custom type.
+            #[staticmethod]
+            #[pyo3(name = "_pydantic_validator")]
+            fn pydantic_validator(value: $type) -> Self {
+                Self(value)
+            }
+
+            /// Pydantic serializer function.
+            ///
+            /// Called by Pydantic during serialization to convert this type to a
+            /// JSON-compatible primitive (Python float).
+            #[staticmethod]
+            #[pyo3(name = "_pydantic_serializer")]
+            fn pydantic_serializer(instance: &Self) -> $type {
+                instance.0
+            }
+
             // Check if the value is NaN (Not a Number)
             pub fn is_nan(&self) -> bool {
                 self.0.is_nan()
