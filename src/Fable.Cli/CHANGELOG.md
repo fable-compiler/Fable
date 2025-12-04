@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-* [Python] Fix `%A` format specifier to output booleans as lowercase `true`/`false` (by @dbrattli)
+* [Python] Fix regression `%A` format specifier to output booleans as lowercase `true`/`false` (by @dbrattli)
 
 ## 5.0.0-alpha.19 - 2025-12-04
 
