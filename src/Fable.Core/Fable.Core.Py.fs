@@ -66,7 +66,6 @@ module Py =
     type ClassMethodAttribute() =
         inherit Attribute()
 
-    [<RequireQualifiedAccess>]
     type ClassAttributeStyle =
         // Translates to properties with instance attributes backing
         | Properties = 0
