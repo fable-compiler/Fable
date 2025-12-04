@@ -33,22 +33,23 @@ module Py =
     /// libraries.
     /// </summary>
     /// <remarks>
-    /// <para>The [&lt;Decorate&gt;] attribute is purely for Python interop and does NOT
-    /// affect F# compilation behavior.</para>
+    /// <para>The decorator is emitted verbatim. Use importFrom to specify the module to import from.</para>
     /// <para>Multiple [&lt;Decorate&gt;] attributes are applied in reverse order
     /// (bottom to top), following Python's standard decorator stacking behavior.</para>
     /// <para>Examples:</para>
-    /// <para>[&lt;Decorate("dataclasses.dataclass")&gt;] - Simple class decorator</para>
-    /// <para>[&lt;Decorate("functools.lru_cache", "maxsize=128")&gt;] - Decorator with
-    /// parameters</para>
-    /// <para>[&lt;Decorate("pydantic.field_validator", "'Name'")&gt;] - Method decorator for
-    /// Pydantic validators</para>
+    /// <para>[&lt;Decorate("dataclass", "dataclasses")&gt;] - imports dataclass from dataclasses</para>
+    /// <para>[&lt;Decorate("lru_cache", importFrom="functools", parameters="maxsize=128")&gt;] - with import and parameters</para>
+    /// <para>[&lt;Decorate("app.get(\"/\")")&gt;] - Local variable decorator with parameters (no import needed)</para>
     /// </remarks>
     [<AttributeUsage(AttributeTargets.Class ||| AttributeTargets.Method, AllowMultiple = true)>]
-    type DecorateAttribute(decorator: string) =
+    type DecorateAttribute(decorator: string, importFrom: string, parameters: string) =
         inherit Attribute()
-        new(decorator: string, parameters: string) = DecorateAttribute(decorator)
+        /// Decorator without import or parameters
+        new(decorator: string) = DecorateAttribute(decorator, "", "")
+        /// Decorator with import but no parameters
+        new(decorator: string, importFrom: string) = DecorateAttribute(decorator, importFrom, "")
 
+    /// Decorator with all parameters
     /// <summary>
     /// Marks a static member to be emitted as a Python @classmethod instead of @staticmethod.
     /// </summary>
