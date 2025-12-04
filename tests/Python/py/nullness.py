@@ -14,5 +14,5 @@ def maybe_null(value: str) -> str | None:
     """
     if value == "ok":
         return value
-    else:
-        return None
+
+    return None
