@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-* [Python] Add support for [<Py.Decorate>] attribute on methods (previously only worked on classes)
-* [Python] Add new [<Py.ClassMethod>] attribute to emit @classmethod instead of @staticmethod
+* [Python] Add support for [<Py.Decorate>] attribute on methods (previously only worked on classes) (by @dbrattli)
+* [Python] Add new [<Py.ClassMethod>] attribute to emit @classmethod instead of @staticmethod (by @dbrattli)
 
 ## 5.0.0-beta.2 - 2025-11-19
 

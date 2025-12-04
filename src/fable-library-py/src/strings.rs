@@ -160,6 +160,14 @@ mod printf {
                     "Int64" => format!("{}:i64", arg.str()?),
                     "UInt32" => format!("{}:u32", arg.str()?),
                     "UInt64" => format!("{}:u64", arg.str()?),
+                    // Handle booleans with F# lowercase representation (true/false)
+                    "bool" => {
+                        if arg.is_truthy()? {
+                            TRUE_STR.to_string()
+                        } else {
+                            FALSE_STR.to_string()
+                        }
+                    }
                     _ => arg.str()?.to_string(),
                 }
             };

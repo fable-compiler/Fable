@@ -128,6 +128,19 @@ let ``test Extended string interpolation syntax`` () =
     cssNew |> equal ".item-panel:hover {background-color: #eee;}"
 
 [<Fact>]
+let ``test sprintf \"%A\" formats booleans as lowercase`` () =
+    // Test that %A formats booleans as lowercase true/false (F# semantics)
+    let result = sprintf "%A" true
+    equal "true" result
+
+    let result2 = sprintf "%A" false
+    equal "false" result2
+
+    // Also test in composed context
+    let optResult = sprintf "Some(%A)" true
+    equal "Some(true)" optResult
+
+[<Fact>]
 let ``test sprintf \"%A\" with lists works`` () =
     let xs = ["Hi"; "Hello"; "Hola"]
     (sprintf "%A" xs).Replace("\"", "") |> equal "[Hi; Hello; Hola]"
