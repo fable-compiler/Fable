@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-beta.3 - 2025-12-04
+
 ### Added
 
 * [Python] Add support for [<Py.Decorate>] attribute on methods (previously only worked on classes)
