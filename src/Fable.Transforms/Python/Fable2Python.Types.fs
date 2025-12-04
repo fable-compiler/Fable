@@ -42,6 +42,7 @@ type DecoratorInfo =
     {
         Decorator: string
         Parameters: string
+        ImportFrom: string
     }
 
 

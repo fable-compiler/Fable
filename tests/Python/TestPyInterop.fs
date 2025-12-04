@@ -501,7 +501,7 @@ type PydanticUserWithValidator(Name: string) =
     inherit BaseModel()
     member val Name: string = Name with get, set
 
-    [<Py.Decorate("pydantic.field_validator", "'Name'")>]
+    [<Py.Decorate("field_validator", importFrom="pydantic", parameters="'Name'")>]
     [<Py.ClassMethod>]
     static member validate_name(cls: obj, v: string) : string =
         v.ToUpper()
@@ -513,7 +513,7 @@ let ``test Pydantic field_validator with classmethod`` () =
     let user = emitPyExpr<PydanticUserWithValidator> [] "PydanticUserWithValidator(Name='john')"
     user.Name |> equal "JOHN"
 
-[<Py.Decorate("dataclasses.dataclass")>]
+[<Py.Decorate("dataclass", importFrom="dataclasses")>]
 [<Py.ClassAttributes(style=Py.ClassAttributeStyle.Attributes, init=false)>]
 type DecoratedUser() =
     member val Name: string = "" with get, set
@@ -529,19 +529,20 @@ let ``test simple decorator without parameters`` () =
     user.Name |> equal "Test User"
     user.Age |> equal 25
 
-[<Py.Decorate("functools.lru_cache", "maxsize=128")>]
-[<Py.ClassAttributes(style=Py.ClassAttributeStyle.Attributes, init=false)>]
-type DecoratedCache() =
-    member val Value: string = "cached" with get, set
+[<AttachMembers>]
+type DecoratedCacheClass() =
+    [<Py.Decorate("lru_cache", importFrom="functools", parameters="maxsize=128")>]
+    static member expensive_computation(x: int) : int =
+        x * x  // Simulated expensive computation
 
 [<Fact>]
 let ``test decorator with parameters`` () =
-    // Test that decorator with parameters is applied correctly
-    let cache = DecoratedCache()
-    cache.Value |> equal "cached"
+    // Test that decorator with parameters is applied correctly to a method
+    let result = DecoratedCacheClass.expensive_computation(5)
+    result |> equal 25
 
-[<Py.Decorate("dataclasses.dataclass")>]
-[<Py.Decorate("functools.total_ordering")>]
+[<Py.Decorate("dataclass", importFrom="dataclasses")>]
+[<Py.Decorate("total_ordering", importFrom="functools")>]
 [<Py.ClassAttributes(style=Py.ClassAttributeStyle.Attributes, init=false)>]
 type MultiDecoratedClass() =
     member val Priority: int = 0 with get, set
@@ -560,7 +561,7 @@ let ``test multiple decorators applied in correct order`` () =
     obj.Priority |> equal 1
     obj.Name |> equal "test"
 
-[<Py.Decorate("attrs.define", "auto_attribs=True, slots=True")>]
+[<Py.Decorate("define", importFrom="attrs", parameters="auto_attribs=True, slots=True")>]
 [<Py.ClassAttributes(style=Py.ClassAttributeStyle.Attributes, init=false)>]
 type AttrsDecoratedClass() =
     member val Data: string = "attrs_data" with get, set
@@ -575,7 +576,7 @@ let ``test complex decorator parameters`` () =
 
 // Test combining Decorate with existing F# features
 
-[<Py.Decorate("dataclasses.dataclass")>]
+[<Py.Decorate("dataclass", "dataclasses")>]
 [<Py.ClassAttributes(style=Py.ClassAttributeStyle.Attributes, init=false)>]
 type InheritedDecoratedClass() =
     inherit DecoratedUser()
@@ -608,13 +609,32 @@ let ``test PropertiesUserWithInit`` () =
     user.Email |> equal (Some "test@example.com")
     user.Enabled |> equal true
 
+// Test Py.Decorate without import (local variable decorator like FastAPI app.get)
+
+// Simulate a decorator factory (like FastAPI's app instance)
+let my_decorator (path: string) : (obj -> obj) = import "my_decorator" "./native_code.py"
+
+[<AttachMembers>]
+type ClassWithLocalDecorator() =
+    // Use full decorator expression since my_decorator is a local variable (no import)
+    [<Py.Decorate("my_decorator(\"/test\")")>]
+    static member decorated_method() : string =
+        "result"
+
+[<Fact>]
+let ``test Py.Decorate without import (local variable)`` () =
+    // Test that decorator is emitted verbatim without auto-import
+    // This pattern is used for FastAPI: @app.get("/")
+    let result = ClassWithLocalDecorator.decorated_method()
+    result |> equal "decorated: result"
+
 // Test Py.Decorate on static methods
 
 [<AttachMembers>]
 type ClassWithDecoratedStaticMethod() =
     member val Value: int = 0 with get, set
 
-    [<Py.Decorate("functools.lru_cache")>]
+    [<Py.Decorate("lru_cache", importFrom="functools")>]
     static member cached_function(x: int) : int =
         x * 2
 
@@ -628,7 +648,7 @@ let ``test Py.Decorate on static method`` () =
 
 [<AttachMembers>]
 type ClassWithDecoratedStaticMethodWithParams() =
-    [<Py.Decorate("functools.lru_cache", "maxsize=32")>]
+    [<Py.Decorate("lru_cache", importFrom="functools", parameters="maxsize=32")>]
     static member cached_with_params(x: int) : int =
         x * 3
 
@@ -661,10 +681,10 @@ let ``test Py.ClassMethod attribute`` () =
 
 [<AttachMembers>]
 type ClassWithMultipleDecoratedMethods() =
-    [<Py.Decorate("functools.lru_cache", "maxsize=16")>]
+    [<Py.Decorate("lru_cache", importFrom="functools", parameters="maxsize=16")>]
     static member method_a(x: int) : int = x * 2
 
-    [<Py.Decorate("functools.lru_cache", "maxsize=32")>]
+    [<Py.Decorate("lru_cache", importFrom="functools", parameters="maxsize=32")>]
     static member method_b(x: int) : int = x * 3
 
 [<Fact>]
@@ -679,7 +699,7 @@ let ``test multiple static methods with decorators`` () =
 type ClassWithDecoratedInstanceMethod() =
     member val CallCount: int = 0 with get, set
 
-    [<Py.Decorate("functools.lru_cache", "maxsize=16")>]
+    [<Py.Decorate("lru_cache", importFrom="functools", parameters="maxsize=16")>]
     member this.cached_instance_method(x: int) : int =
         x * 4
 

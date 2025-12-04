@@ -70,17 +70,8 @@ module Util =
         )
         |> Option.defaultValue defaultParams
 
-    /// Parses a decorator string to extract module and function/class name
-    let parseDecorator (decorator: string) =
-        match decorator.Split('.') with
-        | [| functionName |] -> None, functionName // No module, just function name
-        | parts when parts.Length >= 2 ->
-            let moduleName = parts.[0 .. (parts.Length - 2)] |> String.concat "."
-            let functionName = parts.[parts.Length - 1]
-            Some moduleName, functionName
-        | _ -> None, decorator // Fallback
-
     /// Extracts decorator information from entity attributes
+    /// Constructor args order: (decorator, importFrom, parameters)
     let getDecoratorInfo (atts: Fable.Attribute seq) =
         atts
         |> Seq.choose (fun att ->
@@ -91,12 +82,21 @@ module Util =
                         {
                             Decorator = decorator
                             Parameters = ""
+                            ImportFrom = ""
                         }
-                | [ :? string as decorator; :? string as parameters ] ->
+                | [ :? string as decorator; :? string as importFrom ] ->
+                    Some
+                        {
+                            Decorator = decorator
+                            Parameters = ""
+                            ImportFrom = importFrom
+                        }
+                | [ :? string as decorator; :? string as importFrom; :? string as parameters ] ->
                     Some
                         {
                             Decorator = decorator
                             Parameters = parameters
+                            ImportFrom = importFrom
                         }
                 | _ -> None // Invalid decorator
             else
@@ -105,24 +105,22 @@ module Util =
         |> Seq.toList
 
     /// Generates Python decorator expressions from DecoratorInfo
+    /// The decorator string is emitted verbatim. If ImportFrom is specified,
+    /// an import statement is generated automatically.
     let generateDecorators (com: IPythonCompiler) (ctx: Context) (decoratorInfos: DecoratorInfo list) =
         decoratorInfos
         |> List.map (fun info ->
-            let moduleName, functionName = parseDecorator info.Decorator
-
-            let decoratorExpr =
-                match moduleName with
-                | Some module_ -> com.GetImportExpr(ctx, module_, functionName)
-                | None -> Expression.name functionName
+            // Handle import if ImportFrom is specified
+            if not (String.IsNullOrEmpty info.ImportFrom) then
+                // This triggers the import: from {importFrom} import {decorator}
+                com.GetImportExpr(ctx, info.ImportFrom, info.Decorator) |> ignore
 
             if String.IsNullOrEmpty info.Parameters then
                 // Simple decorator without parameters: @decorator
-                decoratorExpr
+                Expression.emit (info.Decorator, [])
             else
                 // Decorator with parameters: @decorator(param1=value1, param2=value2)
-                // For parameters, we emit the full decorator call as raw Python code
-                // This preserves exact parameter syntax for maximum flexibility
-                Expression.emit ($"%s{functionName}(%s{info.Parameters})", [])
+                Expression.emit ($"%s{info.Decorator}(%s{info.Parameters})", [])
         )
 
     let getIdentifier (_com: IPythonCompiler) (_ctx: Context) (name: string) =

@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+* [Python] `[<Py.Decorate>]` now emits decorator strings verbatim and adds `importFrom` parameter for explicit import control (by @dbrattli)
+
 ## 5.0.0-beta.3 - 2025-12-04
 
 ### Added
