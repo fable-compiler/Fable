@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Python] Fix regression `%A` format specifier to output booleans as lowercase `true`/`false` (by @dbrattli)
 
+### Changed
+
+* [Python] `[<Py.Decorate>]` now emits decorator strings verbatim and adds `importFrom` parameter for explicit import control (by @dbrattli)
+
 ## 5.0.0-alpha.18 - 2025-12-04
 
 ### Fixed
