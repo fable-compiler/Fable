@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+* [Python] Add Pythonic import path syntax for relative imports (`.module`, `..parent`, `...grandparent`) (by @dbrattli)
 * [Python] Add `[<Py.DecorateTemplate>]` attribute for creating custom decorator attributes (by @dbrattli)
 * [Python] Add `[<Py.ClassAttributesTemplate>]` attribute for creating custom class attribute shortcuts (by @dbrattli)
 * [Python] Add `[<Py.DataClass>]` as a built-in shorthand for `[<Py.ClassAttributes(style = Attributes, init = false)>]` (by @dbrattli)
@@ -17,10 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Python] Fix regression `[<Erase>]` on class types not preventing them from being emitted to Python (by @dbrattli)
 * [Python] Fix regression `%A` format specifier to output booleans as lowercase `true`/`false` (by @dbrattli)
-
-### Added
-
-* [Python] Add Pythonic import path syntax for relative imports (`.module`, `..parent`, `...grandparent`) (by @dbrattli)
 
 ### Changed
 
