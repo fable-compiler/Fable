@@ -70,9 +70,36 @@ module Util =
         )
         |> Option.defaultValue defaultParams
 
+    /// Tries to find a DecorateTemplateAttribute on the attribute's type
+    /// and format the template with the attribute's constructor args
+    let private tryGetTemplateDecoratorInfo (com: Fable.Compiler) (att: Fable.Attribute) =
+        com.TryGetEntity(att.Entity)
+        |> Option.bind (fun attEntity ->
+            attEntity.Attributes
+            |> Seq.tryFind (fun a -> a.Entity.FullName = Atts.pyDecorateTemplate)
+            |> Option.bind (fun templateAtt ->
+                match templateAtt.ConstructorArgs with
+                | [ :? string as template ] ->
+                    Some
+                        {
+                            Decorator = String.Format(template, att.ConstructorArgs |> List.toArray)
+                            Parameters = ""
+                            ImportFrom = ""
+                        }
+                | [ :? string as template; :? string as importFrom ] ->
+                    Some
+                        {
+                            Decorator = String.Format(template, att.ConstructorArgs |> List.toArray)
+                            Parameters = ""
+                            ImportFrom = importFrom
+                        }
+                | _ -> None
+            )
+        )
+
     /// Extracts decorator information from entity attributes
     /// Constructor args order: (decorator, importFrom, parameters)
-    let getDecoratorInfo (atts: Fable.Attribute seq) =
+    let getDecoratorInfo (com: Fable.Compiler) (atts: Fable.Attribute seq) =
         atts
         |> Seq.choose (fun att ->
             if att.Entity.FullName = Atts.pyDecorate then
@@ -100,7 +127,8 @@ module Util =
                         }
                 | _ -> None // Invalid decorator
             else
-                None
+                // Try to find a DecorateTemplateAttribute on this attribute's type
+                tryGetTemplateDecoratorInfo com att
         )
         |> Seq.toList
 

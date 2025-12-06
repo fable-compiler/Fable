@@ -283,26 +283,26 @@ type NativeCode =
 
 [<Fact>]
 let ``test importAll`` () =
-    let nativeCode: NativeCode = importAll "./native_code.py"
+    let nativeCode: NativeCode = importAll "./py/native_code.py"
     3 |> nativeCode.add5 |> equal 8
 
-let add5 (x: int): int = importMember "./native_code.py"
+let add5 (x: int): int = importMember "./py/native_code.py"
 
 [<Fact>]
 let ``test importMember`` () =
     add5 -1 |> equal 4
 
     // Cannot use the same name as Fable will mangle the identifier
-    let add7: int -> int = importMember "./native_code.py"
+    let add7: int -> int = importMember "./py/native_code.py"
     add7 12 |> equal 19
 
-    let add5': int -> int = import "add5" "./native_code.py"
+    let add5': int -> int = import "add5" "./py/native_code.py"
     add5' 12 |> equal 17
 
-    let multiply3 (x: int): int = importMember "./more_native_code.py"
+    let multiply3 (x: int): int = importMember "./py/more_native_code.py"
     multiply3 9 |> equal 27
 
-[<ImportAll("./native_code.py")>]
+[<ImportAll("./py/native_code.py")>]
 let nativeCode: NativeCode = nativeOnly
 
 [<Fact>]
@@ -612,7 +612,7 @@ let ``test PropertiesUserWithInit`` () =
 // Test Py.Decorate without import (local variable decorator like FastAPI app.get)
 
 // Simulate a decorator factory (like FastAPI's app instance)
-let my_decorator (path: string) : (obj -> obj) = import "my_decorator" "./native_code.py"
+let my_decorator (path: string) : (obj -> obj) = import "my_decorator" "./py/native_code.py"
 
 [<AttachMembers>]
 type ClassWithLocalDecorator() =
@@ -721,5 +721,65 @@ let ``test fable_library version is local build`` () =
     // If this test fails, it means tests are running against a PyPI version
     // instead of the locally built fable-library
     equal "0.0.0" fableLibraryVersion
+
+// Test DecorateTemplate attribute for creating custom decorator attributes
+// This demonstrates how library authors can create ergonomic FastAPI-style attributes
+
+// Simulated FastAPI app instance (imported from native code)
+let app: obj = import "app" "./py/native_code.py"
+
+// Custom decorator attributes using DecorateTemplate
+// Library authors define these once, users get clean syntax
+[<Erase; Py.DecorateTemplate("app.get(\"{0}\")")>]
+type GetAttribute(path: string) =
+    inherit Attribute()
+
+[<Erase; Py.DecorateTemplate("app.post(\"{0}\")")>]
+type PostAttribute(path: string) =
+    inherit Attribute()
+
+[<Erase; Py.DecorateTemplate("app.delete(\"{0}\")")>]
+type DeleteAttribute(path: string) =
+    inherit Attribute()
+
+// Users get clean, intuitive API similar to Python FastAPI:
+[<Py.ClassAttributes(style = Py.ClassAttributeStyle.Attributes, init = false)>]
+type TestAPI() =
+    [<Get("/")>]
+    static member root() = {| message = "Hello World" |}
+
+    [<Get("/items/{item_id}")>]
+    static member get_item(item_id: int) = {| item_id = item_id |}
+
+    [<Post("/items")>]
+    static member create_item(name: string) = {| name = name; created = true |}
+
+    [<Delete("/items/{item_id}")>]
+    static member delete_item(item_id: int) = {| deleted = item_id |}
+
+[<Fact>]
+let ``test DecorateTemplate generates FastAPI-style decorators`` () =
+    // Test that @app.get("/") decorator is applied and works
+    let result = TestAPI.root()
+    result.["message"] |> equal "Hello World"
+
+[<Fact>]
+let ``test DecorateTemplate with path parameter`` () =
+    // Test that @app.get("/items/{item_id}") decorator works with path params
+    let result = TestAPI.get_item(42)
+    result.["item_id"] |> equal 42
+
+[<Fact>]
+let ``test DecorateTemplate POST endpoint`` () =
+    // Test that @app.post("/items") decorator works
+    let result = TestAPI.create_item("test-item")
+    result.["name"] |> equal "test-item"
+    result.["created"] |> equal true
+
+[<Fact>]
+let ``test DecorateTemplate DELETE endpoint`` () =
+    // Test that @app.delete("/items/{item_id}") decorator works
+    let result = TestAPI.delete_item(123)
+    result.["deleted"] |> equal 123
 
 #endif

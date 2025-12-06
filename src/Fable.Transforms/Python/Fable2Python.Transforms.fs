@@ -2674,7 +2674,7 @@ let declareClassType
 
     // Generate custom decorators from [<Decorate>] attributes
     let customDecorators =
-        let decoratorInfos = Util.getDecoratorInfo ent.Attributes
+        let decoratorInfos = Util.getDecoratorInfo com ent.Attributes
         Util.generateDecorators com ctx decoratorInfos
 
     stmts
@@ -2908,7 +2908,7 @@ let transformAttachedProperty
             // Instance properties use the traditional approach (properties style)
             // Get custom decorators from Py.Decorate attributes
             let customDecorators =
-                let decoratorInfos = Util.getDecoratorInfo info.Attributes
+                let decoratorInfos = Util.getDecoratorInfo com info.Attributes
                 Util.generateDecorators com ctx decoratorInfos
 
             let decorators =
@@ -2960,7 +2960,7 @@ let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFuncti
 
     // Get custom decorators from Py.Decorate attributes
     let customDecorators =
-        let decoratorInfos = Util.getDecoratorInfo info.Attributes
+        let decoratorInfos = Util.getDecoratorInfo com info.Attributes
         Util.generateDecorators com ctx decoratorInfos
 
     let decorators =
@@ -3722,6 +3722,9 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
                 [ Statement.assign ([ name ], anyType) ]
         elif hasEraseAttribute && ent.IsInterface then
             // Erased interfaces should not generate any code
+            []
+        elif hasEraseAttribute then
+            // Erased classes (e.g., custom attribute types) should not generate any code
             []
         else
             // Check for PythonClass attribute and extract parameters
