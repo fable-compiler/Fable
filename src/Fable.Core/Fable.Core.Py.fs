@@ -16,11 +16,48 @@ module Py =
         [<Emit "$0">]
         abstract Instance: obj
 
+    /// <summary>
+    /// Base class for creating F#-side decorator attributes that transform functions at compile time.
+    /// This is similar to Python decorators but operates during Fable compilation, not at Python runtime.
+    /// </summary>
+    /// <remarks>
+    /// <para>Inherit from this class and implement the Decorate method to wrap or transform functions.</para>
+    /// <para>The decorated function is passed to Decorate, and the returned Callable replaces it.</para>
+    /// <para>Example:</para>
+    /// <code>
+    /// type LogAttribute() =
+    ///     inherit Py.DecoratorAttribute()
+    ///     override _.Decorate(fn) =
+    ///         Py.argsFunc (fun args ->
+    ///             printfn "Calling function"
+    ///             fn.Invoke(args))
+    /// </code>
+    /// <para>Note: This does NOT emit Python @decorator syntax. For emitting Python decorators,
+    /// use DecorateAttribute or DecorateTemplateAttribute instead.</para>
+    /// </remarks>
     [<AbstractClass>]
     type DecoratorAttribute() =
         inherit Attribute()
         abstract Decorate: fn: Callable -> Callable
 
+    /// <summary>
+    /// Base class for creating F#-side decorator attributes with access to reflection metadata.
+    /// Like DecoratorAttribute, but the Decorate method also receives MethodInfo for the decorated member.
+    /// </summary>
+    /// <remarks>
+    /// <para>Use this when your decorator needs information about the decorated method (name, parameters, etc.).</para>
+    /// <para>Example:</para>
+    /// <code>
+    /// type LogWithNameAttribute() =
+    ///     inherit Py.ReflectedDecoratorAttribute()
+    ///     override _.Decorate(fn, info) =
+    ///         Py.argsFunc (fun args ->
+    ///             printfn "Calling %s" info.Name
+    ///             fn.Invoke(args))
+    /// </code>
+    /// <para>Note: This does NOT emit Python @decorator syntax. For emitting Python decorators,
+    /// use DecorateAttribute or DecorateTemplateAttribute instead.</para>
+    /// </remarks>
     [<AbstractClass>]
     type ReflectedDecoratorAttribute() =
         inherit Attribute()
@@ -49,7 +86,32 @@ module Py =
         /// Decorator with import but no parameters
         new(decorator: string, importFrom: string) = DecorateAttribute(decorator, importFrom, "")
 
-    /// Decorator with all parameters
+    /// <summary>
+    /// Marks a custom attribute class as a decorator template, enabling library authors to create
+    /// ergonomic decorator attributes that users can apply without knowing the underlying Python syntax.
+    /// </summary>
+    /// <remarks>
+    /// <para>Place this attribute on a custom attribute class. The template string uses {0}, {1}, etc.
+    /// as placeholders for the custom attribute's constructor arguments.</para>
+    /// <para>Example - defining a custom decorator attribute:</para>
+    /// <code>
+    /// [&lt;Erase; Py.DecorateTemplate("app.get('{0}')")&gt;]
+    /// type GetAttribute(path: string) = inherit Attribute()
+    /// </code>
+    /// <para>Example - using the custom decorator:</para>
+    /// <code>
+    /// [&lt;Get("/users")&gt;]
+    /// static member get_users() = ...
+    /// // Generates: @app.get('/users')
+    /// </code>
+    /// <para>Use [&lt;Erase&gt;] to prevent the attribute type from being emitted to Python.</para>
+    /// </remarks>
+    [<AttributeUsage(AttributeTargets.Class)>]
+    type DecorateTemplateAttribute(template: string) =
+        inherit Attribute()
+        /// Template with import specification
+        new(template: string, importFrom: string) = DecorateTemplateAttribute(template)
+
     /// <summary>
     /// Marks a static member to be emitted as a Python @classmethod instead of @staticmethod.
     /// </summary>
@@ -72,6 +134,7 @@ module Py =
         // Translates to class attributes
         | Attributes = 1
 
+    /// <summary>
     /// Used on a class to provide Python-specific control over how F# types are transpiled to Python classes.
     /// This attribute implies member attachment (similar to AttachMembers) while offering Python-specific parameters.
     /// </summary>
@@ -80,12 +143,58 @@ module Py =
     /// <para>Additional Python-specific parameters control the generated Python class style and features.</para>
     /// </remarks>
     [<AttributeUsage(AttributeTargets.Class)>]
-    type ClassAttributes() =
+    type ClassAttributesAttribute() =
         inherit Attribute()
 
-        new(style: ClassAttributeStyle) = ClassAttributes()
+        new(style: ClassAttributeStyle) = ClassAttributesAttribute()
 
-        new(style: ClassAttributeStyle, init: bool) = ClassAttributes()
+        new(style: ClassAttributeStyle, init: bool) = ClassAttributesAttribute()
+
+    /// <summary>
+    /// Marks a custom attribute class as a class attributes template, enabling library authors
+    /// to create ergonomic class attributes that users can apply without knowing the underlying parameters.
+    /// </summary>
+    /// <remarks>
+    /// <para>Place this attribute on a custom attribute class to define the class generation style.</para>
+    /// <para>Example - defining a custom class attribute:</para>
+    /// <code>
+    /// [&lt;Erase; Py.ClassAttributesTemplate(Py.ClassAttributeStyle.Attributes, init = false)&gt;]
+    /// type BaseModelAttribute() = inherit Attribute()
+    /// </code>
+    /// <para>Example - using the custom attribute:</para>
+    /// <code>
+    /// [&lt;BaseModel&gt;]
+    /// type User(name: string, age: int) = ...
+    /// // Generates class with class-level attributes, no __init__
+    /// </code>
+    /// <para>Use [&lt;Erase&gt;] to prevent the attribute type from being emitted to Python.</para>
+    /// </remarks>
+    [<AttributeUsage(AttributeTargets.Class)>]
+    type ClassAttributesTemplateAttribute(style: ClassAttributeStyle, init: bool) =
+        inherit Attribute()
+        /// Template with Attributes style and init = false (common for Pydantic/dataclasses)
+        new(style: ClassAttributeStyle) = ClassAttributesTemplateAttribute(style, false)
+
+    /// <summary>
+    /// Shorthand for [&lt;Py.ClassAttributes(style = Attributes, init = false)&gt;].
+    /// Use this for Python dataclasses, Pydantic models, attrs classes, or any class
+    /// that needs class-level type annotations without a generated __init__.
+    /// </summary>
+    /// <remarks>
+    /// <para>Example:</para>
+    /// <code>
+    /// [&lt;Py.DataClass&gt;]
+    /// type User(name: string, age: int) = ...
+    /// // Generates:
+    /// // class User:
+    /// //     name: str
+    /// //     age: int
+    /// </code>
+    /// </remarks>
+    [<Erase>]
+    [<ClassAttributesTemplate(ClassAttributeStyle.Attributes, false)>]
+    type DataClassAttribute() =
+        inherit Attribute()
 
     // Hack because currently Fable doesn't keep information about spread for anonymous functions
     [<Emit("lambda *args: $0(args)")>]

@@ -2111,6 +2111,20 @@ module Util =
             | _ -> false
         )
 
+    /// Checks if an attribute is a Python class attribute, either directly via [<Py.ClassAttributes>]
+    /// or indirectly via a custom attribute marked with [<Py.ClassAttributesTemplate>].
+    let private isPyClassAttribute (att: FSharpAttribute) =
+        match att.AttributeType.TryFullName with
+        | Some Atts.pyClassAttributes -> true
+        | _ ->
+            // Check if the attribute type itself has ClassAttributesTemplate
+            att.AttributeType.Attributes
+            |> Seq.exists (fun a ->
+                match a.AttributeType.TryFullName with
+                | Some Atts.pyClassAttributesTemplate -> true
+                | _ -> false
+            )
+
     let isAttachMembersEntity (com: Compiler) (ent: FSharpEntity) =
         not (ent.IsFSharpModule || ent.IsInterface)
         && (
@@ -2119,11 +2133,9 @@ module Util =
         || // attach all members for Rust
         ent.Attributes
         |> Seq.exists (fun att ->
-            // Should we make sure the attribute is not an alias?
             match att.AttributeType.TryFullName with
             | Some Atts.attachMembers -> true
-            | Some Atts.pyClassAttributes -> true
-            | _ -> false
+            | _ -> isPyClassAttribute att
         ))
 
     let isPojoDefinedByConsArgsEntity (entity: Fable.Entity) =

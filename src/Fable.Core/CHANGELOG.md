@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Python] Add `[<Py.DecorateTemplate>]` attribute for creating custom decorator attributes (by @dbrattli)
+* [Python] Add `[<Py.ClassAttributesTemplate>]` attribute for creating custom class attribute shortcuts (by @dbrattli)
+* [Python] Add `[<Py.DataClass>]` as a built-in shorthand for `[<Py.ClassAttributes(style = Attributes, init = false)>]` (by @dbrattli)
+
 ### Changed
 
 * [Python] `[<Py.Decorate>]` now emits decorator strings verbatim and adds `importFrom` parameter for explicit import control (by @dbrattli)
