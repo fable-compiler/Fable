@@ -3729,8 +3729,8 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
         else
             // Check for PythonClass attribute and extract parameters
             let classAttributes =
-                if hasPythonClassAttribute ent.Attributes then
-                    getPythonClassParameters ent.Attributes
+                if hasPythonClassAttribute com ent.Attributes then
+                    getPythonClassParameters com ent.Attributes
                 else
                     ClassAttributes.Default
 

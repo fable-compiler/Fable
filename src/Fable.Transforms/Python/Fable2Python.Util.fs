@@ -42,33 +42,68 @@ module Util =
         || hasAttribute Atts.emitIndexer atts
         || hasAttribute Atts.emitProperty atts
 
-    let hasPythonClassAttribute (atts: Fable.Attribute seq) =
-        hasAttribute Atts.pyClassAttributes atts
-
     let parseClassStyle (styleStr: int) =
         match styleStr with
         | 0 -> ClassStyle.Properties
         | 1 -> ClassStyle.Attributes
         | _ -> ClassStyle.Properties // Default to Properties for unknown values
 
-    let getPythonClassParameters (atts: Fable.Attribute seq) =
+    /// Tries to find a ClassAttributesTemplateAttribute on the attribute's type
+    /// and extract the style and init parameters
+    let private tryGetTemplateClassAttributes (com: Fable.Compiler) (att: Fable.Attribute) =
+        com.TryGetEntity(att.Entity)
+        |> Option.bind (fun attEntity ->
+            attEntity.Attributes
+            |> Seq.tryFind (fun a -> a.Entity.FullName = Atts.pyClassAttributesTemplate)
+            |> Option.bind (fun templateAtt ->
+                match templateAtt.ConstructorArgs with
+                | [ :? int as styleParam ] ->
+                    Some
+                        {
+                            Style = parseClassStyle styleParam
+                            Init = false // Default for single-arg constructor
+                        }
+                | [ :? int as styleParam; :? bool as initParam ] ->
+                    Some
+                        {
+                            Style = parseClassStyle styleParam
+                            Init = initParam
+                        }
+                | _ -> None
+            )
+        )
+
+    let hasPythonClassAttribute (com: Fable.Compiler) (atts: Fable.Attribute seq) =
+        hasAttribute Atts.pyClassAttributes atts
+        || atts
+           |> Seq.exists (fun att -> tryGetTemplateClassAttributes com att |> Option.isSome)
+
+    let getPythonClassParameters (com: Fable.Compiler) (atts: Fable.Attribute seq) =
         let defaultParams = ClassAttributes.Default
 
-        atts
-        |> Seq.tryFind (fun att -> att.Entity.FullName = Atts.pyClassAttributes)
-        |> Option.map (fun att ->
-            // Extract parameters from the attribute constructor arguments
-            match att.ConstructorArgs with
-            | [] -> defaultParams
-            | [ :? int as styleParam ] -> { defaultParams with Style = parseClassStyle styleParam }
-            | [ :? int as styleParam; :? bool as initParam ] ->
-                {
-                    Style = parseClassStyle styleParam
-                    Init = initParam
-                }
-            | _ -> defaultParams // Fallback for unexpected parameter combinations
-        )
-        |> Option.defaultValue defaultParams
+        // First check for direct ClassAttributes attribute
+        let directResult =
+            atts
+            |> Seq.tryFind (fun att -> att.Entity.FullName = Atts.pyClassAttributes)
+            |> Option.map (fun att ->
+                match att.ConstructorArgs with
+                | [] -> defaultParams
+                | [ :? int as styleParam ] -> { defaultParams with Style = parseClassStyle styleParam }
+                | [ :? int as styleParam; :? bool as initParam ] ->
+                    {
+                        Style = parseClassStyle styleParam
+                        Init = initParam
+                    }
+                | _ -> defaultParams
+            )
+
+        // If no direct attribute, check for template attributes
+        match directResult with
+        | Some result -> result
+        | None ->
+            atts
+            |> Seq.tryPick (fun att -> tryGetTemplateClassAttributes com att)
+            |> Option.defaultValue defaultParams
 
     /// Tries to find a DecorateTemplateAttribute on the attribute's type
     /// and format the template with the attribute's constructor args

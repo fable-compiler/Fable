@@ -134,6 +134,7 @@ module Py =
         // Translates to class attributes
         | Attributes = 1
 
+    /// <summary>
     /// Used on a class to provide Python-specific control over how F# types are transpiled to Python classes.
     /// This attribute implies member attachment (similar to AttachMembers) while offering Python-specific parameters.
     /// </summary>
@@ -142,12 +143,58 @@ module Py =
     /// <para>Additional Python-specific parameters control the generated Python class style and features.</para>
     /// </remarks>
     [<AttributeUsage(AttributeTargets.Class)>]
-    type ClassAttributes() =
+    type ClassAttributesAttribute() =
         inherit Attribute()
 
-        new(style: ClassAttributeStyle) = ClassAttributes()
+        new(style: ClassAttributeStyle) = ClassAttributesAttribute()
 
-        new(style: ClassAttributeStyle, init: bool) = ClassAttributes()
+        new(style: ClassAttributeStyle, init: bool) = ClassAttributesAttribute()
+
+    /// <summary>
+    /// Marks a custom attribute class as a class attributes template, enabling library authors
+    /// to create ergonomic class attributes that users can apply without knowing the underlying parameters.
+    /// </summary>
+    /// <remarks>
+    /// <para>Place this attribute on a custom attribute class to define the class generation style.</para>
+    /// <para>Example - defining a custom class attribute:</para>
+    /// <code>
+    /// [&lt;Erase; Py.ClassAttributesTemplate(Py.ClassAttributeStyle.Attributes, init = false)&gt;]
+    /// type BaseModelAttribute() = inherit Attribute()
+    /// </code>
+    /// <para>Example - using the custom attribute:</para>
+    /// <code>
+    /// [&lt;BaseModel&gt;]
+    /// type User(name: string, age: int) = ...
+    /// // Generates class with class-level attributes, no __init__
+    /// </code>
+    /// <para>Use [&lt;Erase&gt;] to prevent the attribute type from being emitted to Python.</para>
+    /// </remarks>
+    [<AttributeUsage(AttributeTargets.Class)>]
+    type ClassAttributesTemplateAttribute(style: ClassAttributeStyle, init: bool) =
+        inherit Attribute()
+        /// Template with Attributes style and init = false (common for Pydantic/dataclasses)
+        new(style: ClassAttributeStyle) = ClassAttributesTemplateAttribute(style, false)
+
+    /// <summary>
+    /// Shorthand for [&lt;Py.ClassAttributes(style = Attributes, init = false)&gt;].
+    /// Use this for Python dataclasses, Pydantic models, attrs classes, or any class
+    /// that needs class-level type annotations without a generated __init__.
+    /// </summary>
+    /// <remarks>
+    /// <para>Example:</para>
+    /// <code>
+    /// [&lt;Py.DataClass&gt;]
+    /// type User(name: string, age: int) = ...
+    /// // Generates:
+    /// // class User:
+    /// //     name: str
+    /// //     age: int
+    /// </code>
+    /// </remarks>
+    [<Erase>]
+    [<ClassAttributesTemplate(ClassAttributeStyle.Attributes, false)>]
+    type DataClassAttribute() =
+        inherit Attribute()
 
     // Hack because currently Fable doesn't keep information about spread for anonymous functions
     [<Emit("lambda *args: $0(args)")>]

@@ -743,7 +743,7 @@ type DeleteAttribute(path: string) =
     inherit Attribute()
 
 // Users get clean, intuitive API similar to Python FastAPI:
-[<Py.ClassAttributes(style = Py.ClassAttributeStyle.Attributes, init = false)>]
+[<Py.DataClass>]
 type TestAPI() =
     [<Get("/")>]
     static member root() = {| message = "Hello World" |}
@@ -781,5 +781,43 @@ let ``test DecorateTemplate DELETE endpoint`` () =
     // Test that @app.delete("/items/{item_id}") decorator works
     let result = TestAPI.delete_item(123)
     result.["deleted"] |> equal 123
+
+// Test Py.DataClass - shorthand for [<Py.ClassAttributes(style = Attributes, init = false)>]
+// This generates a class with type-annotated class attributes, suitable for Pydantic, attrs, etc.
+[<Py.DataClass>]
+type DataClassUser() =
+    member val Name: string = "" with get, set
+    member val Age: int = 0 with get, set
+
+[<Fact>]
+let ``test Py.DataClass shorthand attribute`` () =
+    // DataClass generates class-level type annotations without Fable's __init__
+    // This style is used by Pydantic, attrs, and other Python frameworks
+    let user = DataClassUser()
+    user.Name <- "Alice"
+    user.Age <- 30
+    user.Name |> equal "Alice"
+    user.Age |> equal 30
+
+// Test ClassAttributesTemplate - library authors can create custom class attributes
+[<Erase; Py.ClassAttributesTemplate(Py.ClassAttributeStyle.Attributes, false)>]
+type BaseModelAttribute() =
+    inherit Attribute()
+
+// Users get clean syntax - just [<BaseModel>] instead of the verbose version
+[<BaseModel>]
+type PydanticLikeUser() =
+    member val Username: string = "" with get, set
+    member val Email: string = "" with get, set
+
+[<Fact>]
+let ``test ClassAttributesTemplate for custom class attributes`` () =
+    // BaseModel uses ClassAttributesTemplate to define a shorthand for Pydantic-style classes
+    // The class should have class-level attributes without Fable-generated __init__
+    let user = PydanticLikeUser()
+    user.Username <- "testuser"
+    user.Email <- "test@example.com"
+    user.Username |> equal "testuser"
+    user.Email |> equal "test@example.com"
 
 #endif

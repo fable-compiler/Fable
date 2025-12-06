@@ -128,7 +128,10 @@ module Atts =
     let pyDecorateTemplate = "Fable.Core.Py.DecorateTemplateAttribute" // typeof<Fable.Core.Py.DecorateTemplateAttribute>.FullName
 
     [<Literal>]
-    let pyClassAttributes = "Fable.Core.Py.ClassAttributes" // typeof<Fable.Core.Py.ClassAttributes>.FullName
+    let pyClassAttributes = "Fable.Core.Py.ClassAttributesAttribute" // typeof<Fable.Core.Py.ClassAttributesAttribute>.FullName
+
+    [<Literal>]
+    let pyClassAttributesTemplate = "Fable.Core.Py.ClassAttributesTemplateAttribute" // typeof<Fable.Core.Py.ClassAttributesTemplateAttribute>.FullName
 
     [<Literal>]
     let pyClassMethod = "Fable.Core.Py.ClassMethodAttribute" // typeof<Fable.Core.Py.ClassMethodAttribute>.FullName
