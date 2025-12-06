@@ -57,15 +57,27 @@ let pyInstanceof (x: obj) (cons: obj) : bool = nativeOnly
 
 /// Works like `ImportAttribute` (same semantics as ES6 imports).
 /// You can use "*" or "default" selectors.
+/// Path can be:
+/// - Relative (Pythonic): ".my_module", "..parent", "...grandparent" (resolved relative to current file)
+/// - Absolute/Package: "pydantic" or "collections.abc" (used as-is)
+/// - File path (legacy): "./my_module.py" (still supported for backwards compatibility)
 let import<'T> (selector: string) (path: string) : 'T = nativeOnly
 
-/// F#: let myMember = importMember<string> "myModule"
+/// F#: let myMember = importMember<string> ".my_module"
 /// Py: from my_module import my_member
+/// Path can be:
+/// - Relative (Pythonic): ".my_module", "..parent", "...grandparent" (resolved relative to current file)
+/// - Absolute/Package: "pydantic" or "collections.abc" (used as-is)
+/// - File path (legacy): "./my_module.py" (still supported for backwards compatibility)
 /// Note the import must be immediately assigned to a value in a let binding
 let importMember<'T> (path: string) : 'T = nativeOnly
 
-/// F#: let myLib = importAll<obj> "myLib"
-/// Py: from my_lib import *
+/// F#: let myLib = importAll<obj> ".my_lib"
+/// Py: import my_lib as myLib
+/// Path can be:
+/// - Relative (Pythonic): ".my_module", "..parent", "...grandparent" (resolved relative to current file)
+/// - Absolute/Package: "pydantic" or "collections.abc" (used as-is)
+/// - File path (legacy): "./my_module.py" (still supported for backwards compatibility)
 let importAll<'T> (path: string) : 'T = nativeOnly
 
 /// Imports a file only for its side effects

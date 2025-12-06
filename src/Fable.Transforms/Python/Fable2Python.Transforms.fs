@@ -3845,7 +3845,20 @@ let transformImports (_com: IPythonCompiler) (imports: Import list) : Statement 
 let getIdentForImport (ctx: Context) (moduleName: string) (name: string option) =
     // printfn "getIdentForImport: %A" (moduleName, name)
     match name with
-    | None -> Path.GetFileNameWithoutExtension(moduleName)
+    | None ->
+        // Handle Python-style relative imports like ".native_code", "..native_code", "...module" etc.
+        // Path.GetFileNameWithoutExtension(".native_code") returns "" which is wrong
+        let moduleName = moduleName.TrimStart('.')
+
+        let lastPart =
+            match moduleName.LastIndexOf('.') with
+            | -1 -> moduleName
+            | idx -> moduleName.Substring(idx + 1)
+
+        if lastPart.Length > 0 then
+            lastPart
+        else
+            Path.GetFileNameWithoutExtension(moduleName)
     | Some name -> name |> Naming.toPythonNaming
     |> getUniqueNameInRootScope ctx
     |> Identifier
