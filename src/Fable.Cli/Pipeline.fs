@@ -276,6 +276,28 @@ module Python =
                     )
                     |> String.concat "."
 
+                // Convert Python-style relative module paths to file paths for resolution.
+                // Paths starting with dots are treated as relative imports (Pythonic convention):
+                // e.g., ".native_code" -> "./native_code.py", ".py.native_code" -> "./py/native_code.py"
+                //       "..native_code" -> "../native_code.py", "...module" -> "../../module.py"
+                // Paths without "." prefix are treated as absolute/package imports and pass through as-is.
+                let path =
+                    if path.Contains('/') || path.EndsWith(".py") then
+                        path
+                    elif path.StartsWith(".") then
+                        let trimmed = path.TrimStart('.')
+                        let dotCount = path.Length - trimmed.Length
+                        // Build the relative path prefix: "." -> "./", ".." -> "../", "..." -> "../../", etc.
+                        let prefix =
+                            if dotCount = 1 then
+                                "./"
+                            else
+                                String.replicate (dotCount - 1) "../"
+
+                        prefix + trimmed.Replace(".", "/") + ".py"
+                    else
+                        path
+
                 if path.Contains('/') then
                     // If inside fable-library then use relative path
                     if isFableLibrary then
