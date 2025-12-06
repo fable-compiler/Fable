@@ -104,7 +104,7 @@ module Py =
     /// static member get_users() = ...
     /// // Generates: @app.get('/users')
     /// </code>
-    /// <para>Use [&lt;Erase&gt;] to prevent the attribute class from being emitted to Python.</para>
+    /// <para>Use [&lt;Erase&gt;] to prevent the attribute type from being emitted to Python.</para>
     /// </remarks>
     [<AttributeUsage(AttributeTargets.Class)>]
     type DecorateTemplateAttribute(template: string) =
