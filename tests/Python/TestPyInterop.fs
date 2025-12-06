@@ -730,15 +730,15 @@ let app: obj = import "app" "./py/native_code.py"
 
 // Custom decorator attributes using DecorateTemplate
 // Library authors define these once, users get clean syntax
-[<Erase; Py.DecorateTemplate("app.get(\"{0}\")")>]
+[<Erase; Py.DecorateTemplate("app.get('{0}')")>]
 type GetAttribute(path: string) =
     inherit Attribute()
 
-[<Erase; Py.DecorateTemplate("app.post(\"{0}\")")>]
+[<Erase; Py.DecorateTemplate("app.post('{0}')")>]
 type PostAttribute(path: string) =
     inherit Attribute()
 
-[<Erase; Py.DecorateTemplate("app.delete(\"{0}\")")>]
+[<Erase; Py.DecorateTemplate("app.delete('{0}')")>]
 type DeleteAttribute(path: string) =
     inherit Attribute()
 

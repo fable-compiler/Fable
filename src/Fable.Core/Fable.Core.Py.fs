@@ -95,15 +95,16 @@ module Py =
     /// as placeholders for the custom attribute's constructor arguments.</para>
     /// <para>Example - defining a custom decorator attribute:</para>
     /// <code>
-    /// [&lt;Py.DecorateTemplate("app.get(\"{0}\")")&gt;]
+    /// [&lt;Erase; Py.DecorateTemplate("app.get('{0}')")&gt;]
     /// type GetAttribute(path: string) = inherit Attribute()
     /// </code>
     /// <para>Example - using the custom decorator:</para>
     /// <code>
     /// [&lt;Get("/users")&gt;]
     /// static member get_users() = ...
-    /// // Generates: @app.get("/users")
+    /// // Generates: @app.get('/users')
     /// </code>
+    /// <para>Use [&lt;Erase&gt;] to prevent the attribute class from being emitted to Python.</para>
     /// </remarks>
     [<AttributeUsage(AttributeTargets.Class)>]
     type DecorateTemplateAttribute(template: string) =
