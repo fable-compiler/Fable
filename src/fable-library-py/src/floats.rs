@@ -17,6 +17,9 @@ macro_rules! float_variant {
         // Implement Deref trait for easy access to the inner value
         impl Deref for $name {
             type Target = $type;
+
+
+            #[inline]
             fn deref(&self) -> &Self::Target {
                 &self.0
             }
@@ -44,74 +47,115 @@ macro_rules! float_variant {
             }
 
             // --- Arithmetic Methods ---
-            pub fn __add__(&self, other: $type) -> PyResult<Self> {
-                Ok(Self(self.0 + other))
+            // Fast path: check if other is our type first to avoid __float__ call
+            pub fn __add__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+                // Fast path: other is same type
+                if let Ok(other_val) = other.extract::<Self>() {
+                    return Ok(Self(self.0 + other_val.0));
+                }
+                // Slow path: extract as primitive
+                let other_val = other.extract::<$type>()?;
+                Ok(Self(self.0 + other_val))
             }
 
-            pub fn __radd__(&self, other: $type) -> PyResult<Self> {
-                // Addition is commutative for floats
+            pub fn __radd__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
                 self.__add__(other)
             }
 
-            pub fn __sub__(&self, other: $type) -> PyResult<Self> {
-                Ok(Self(self.0 - other))
+            pub fn __sub__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+                if let Ok(other_val) = other.extract::<Self>() {
+                    return Ok(Self(self.0 - other_val.0));
+                }
+                let other_val = other.extract::<$type>()?;
+                Ok(Self(self.0 - other_val))
             }
 
-            pub fn __rsub__(&self, other: $type) -> PyResult<Self> {
-                Ok(Self(other - self.0))
+            pub fn __rsub__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+                if let Ok(other_val) = other.extract::<Self>() {
+                    return Ok(Self(other_val.0 - self.0));
+                }
+                let other_val = other.extract::<$type>()?;
+                Ok(Self(other_val - self.0))
             }
 
-            pub fn __mul__(&self, other: $type) -> PyResult<Self> {
-                Ok(Self(self.0 * other))
+            pub fn __mul__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+                if let Ok(other_val) = other.extract::<Self>() {
+                    return Ok(Self(self.0 * other_val.0));
+                }
+                let other_val = other.extract::<$type>()?;
+                Ok(Self(self.0 * other_val))
             }
 
-            pub fn __rmul__(&self, other: $type) -> PyResult<Self> {
-                // Multiplication is commutative
+            pub fn __rmul__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
                 self.__mul__(other)
             }
 
             // In .NET, division by zero with floating point numbers returns infinity
             // instead of raising an exception
-            pub fn __truediv__(&self, other: $type) -> PyResult<Self> {
-                return Ok(Self(self.0 / other));
+            pub fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+                if let Ok(other_val) = other.extract::<Self>() {
+                    return Ok(Self(self.0 / other_val.0));
+                }
+                let other_val = other.extract::<$type>()?;
+                Ok(Self(self.0 / other_val))
             }
 
-            pub fn __rtruediv__(&self, other: $type) -> PyResult<Self> {
-                // In .NET, division by zero returns infinity
-                Ok(Self(other / self.0))
+            pub fn __rtruediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+                if let Ok(other_val) = other.extract::<Self>() {
+                    return Ok(Self(other_val.0 / self.0));
+                }
+                let other_val = other.extract::<$type>()?;
+                Ok(Self(other_val / self.0))
             }
 
             // Note: __floordiv__ for floats is often less intuitive.
             // In .NET we don't have a floor division operator so if
             // we divide a float by integer we get a float.
-            pub fn __floordiv__(&self, other: $type) -> PyResult<Self> {
-                Ok(Self(self.0 / other).floor())
+            pub fn __floordiv__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+                if let Ok(other_val) = other.extract::<Self>() {
+                    return Ok(Self((self.0 / other_val.0).floor()));
+                }
+                let other_val = other.extract::<$type>()?;
+                Ok(Self((self.0 / other_val).floor()))
             }
 
-            pub fn __rfloordiv__(&self, other: $type) -> PyResult<Self> {
-                // In .NET, division by zero returns infinity
-                Ok(Self((other / self.0).floor()))
+            pub fn __rfloordiv__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+                if let Ok(other_val) = other.extract::<Self>() {
+                    return Ok(Self((other_val.0 / self.0).floor()));
+                }
+                let other_val = other.extract::<$type>()?;
+                Ok(Self((other_val / self.0).floor()))
             }
 
             // Modulo for floats: a % b == a - floor(a / b) * b
             // In .NET, modulo by zero returns NaN
-            pub fn __mod__(&self, other: $type) -> PyResult<Self> {
-                Ok(Self(self.0 % other))
+            pub fn __mod__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+                if let Ok(other_val) = other.extract::<Self>() {
+                    return Ok(Self(self.0 % other_val.0));
+                }
+                let other_val = other.extract::<$type>()?;
+                Ok(Self(self.0 % other_val))
             }
 
-            pub fn __rmod__(&self, other: $type) -> PyResult<Self> {
-                // In .NET, modulo by zero returns NaN
-                Ok(Self(other % self.0))
+            pub fn __rmod__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
+                if let Ok(other_val) = other.extract::<Self>() {
+                    return Ok(Self(other_val.0 % self.0));
+                }
+                let other_val = other.extract::<$type>()?;
+                Ok(Self(other_val % self.0))
             }
 
-            pub fn __pow__(&self, other: $type, modulo: Option<$type>) -> PyResult<Self> {
+            pub fn __pow__(&self, other: &Bound<'_, PyAny>, modulo: Option<$type>) -> PyResult<Self> {
                 if modulo.is_some() {
                     return Err(PyErr::new::<exceptions::PyTypeError, _>(
                         "pow() with modulo not supported for floats",
                     ));
                 }
-
-                Ok(Self(self.0.powf(other)))
+                if let Ok(other_val) = other.extract::<Self>() {
+                    return Ok(Self(self.0.powf(other_val.0)));
+                }
+                let other_val = other.extract::<$type>()?;
+                Ok(Self(self.0.powf(other_val)))
             }
 
             // __rpow__ is tricky as order matters. Python typically handles this via reflection.
@@ -411,22 +455,14 @@ macro_rules! float_variant {
                 Ok(Self(self.0.log(base_val)))
             }
 
-            pub fn log10(&self) -> PyResult<Self> {
-                if self.0 <= 0.0 {
-                    return Err(PyErr::new::<exceptions::PyValueError, _>(
-                        "log10() domain error",
-                    ));
-                }
-                Ok(Self(self.0.log(10.0)))
+            // .NET returns -Infinity for 0, NaN for negative values
+            pub fn log10(&self) -> Self {
+                Self(self.0.log10())
             }
 
-            pub fn log2(&self) -> PyResult<Self> {
-                if self.0 <= 0.0 {
-                    return Err(PyErr::new::<exceptions::PyValueError, _>(
-                        "log2() domain error",
-                    ));
-                }
-                Ok(Self(self.0.log(2.0)))
+            // .NET returns -Infinity for 0, NaN for negative values
+            pub fn log2(&self) -> Self {
+                Self(self.0.log2())
             }
 
             pub fn degrees(&self) -> Self {
@@ -656,17 +692,13 @@ pub fn log(
 }
 
 #[pyfunction]
-pub fn log10(x: &Float64) -> PyResult<Float64> {
+pub fn log10(x: &Float64) -> Float64 {
     x.log10()
 }
 
 #[pyfunction]
-pub fn log2(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
-    let f64_val = x
-        .extract::<Float64>()
-        .map_err(|_| PyErr::new::<exceptions::PyTypeError, _>("Expected Float64"))?;
-    let result = f64_val.log2()?;
-    Ok(result.into_pyobject(py)?.into())
+pub fn log2(x: &Float64) -> Float64 {
+    x.log2()
 }
 
 #[pyfunction]
@@ -738,7 +770,7 @@ pub fn ceil(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
 }
 
 #[pyfunction]
-pub fn pow(x: &Float64, y: f64) -> PyResult<Float64> {
+pub fn pow(x: &Float64, y: &Bound<'_, PyAny>) -> PyResult<Float64> {
     x.__pow__(y, None)
 }
 

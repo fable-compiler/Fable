@@ -54,7 +54,7 @@ struct Float32Array {}
 struct Float64Array {}
 
 #[pyclass(module="fable", extends=FSharpArray)]
-struct StringArray {}
+struct BoolArray {}
 
 #[pyclass(module="fable", extends=FSharpArray)]
 struct GenericArray {}
@@ -148,8 +148,8 @@ impl FSharpArray {
             ArrayType::Float64 => {
                 try_extract_array!(elements, py, Float64, Float64, f64)
             }
-            ArrayType::String => {
-                try_extract_array!(elements, py, String, String, String)
+            ArrayType::Bool => {
+                try_extract_array!(elements, py, Bool, bool, bool)
             }
             _ => None,
         };
@@ -201,7 +201,7 @@ impl FSharpArray {
             Some("uint64") => UInt64Array::type_object(py),
             Some("float32") => Float32Array::type_object(py),
             Some("float64") => Float64Array::type_object(py),
-            Some("string") | Some("str") => StringArray::type_object(py),
+            Some("bool") => BoolArray::type_object(py),
             _ => GenericArray::type_object(py),
         };
 
@@ -276,11 +276,11 @@ impl FSharpArray {
             return Ok(FSharpArray {
                 storage: NativeArray::Float64(vec),
             });
-        } else if let Ok(string) = value.extract::<String>() {
+        } else if let Ok(bool_val) = value.extract::<bool>() {
             let mut vec = Vec::with_capacity(count);
-            vec.resize(count, string);
+            vec.resize(count, bool_val);
             return Ok(FSharpArray {
-                storage: NativeArray::String(vec),
+                storage: NativeArray::Bool(vec),
             });
         }
 
@@ -385,6 +385,7 @@ impl FSharpArray {
         Ok(array)
     }
 
+    #[inline]
     pub fn __len__(&self) -> usize {
         self.storage.len()
     }
@@ -480,6 +481,18 @@ impl FSharpArray {
         Ok(list.into())
     }
 
+    /// Returns the raw bytes of the array's underlying storage.
+    ///
+    /// For numeric types (Int8, UInt8, Int16, etc.), this returns the raw memory
+    /// representation of the array elements as bytes. The byte order is native
+    /// (platform-dependent): little-endian on x86/x64/ARM, big-endian on some
+    /// older architectures.
+    ///
+    /// For Int8/UInt8 arrays, the result is a direct byte representation.
+    /// For larger types (Int16, Int32, Float64, etc.), each element occupies
+    /// multiple bytes in native byte order.
+    ///
+    /// Returns NotImplemented for String and PyObject arrays.
     pub fn __bytes__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         match &self.storage {
             // For UInt8/Int8 arrays, we can create bytes directly
@@ -650,17 +663,18 @@ impl FSharpArray {
         // Then try to extract as an integer
         else if let Ok(i) = idx.extract::<isize>() {
             // println!("Integer: {:?}", i);
-            return self.get_item_at_index(i, py);
+            self.get_item_at_index(i, py)
         }
         // If neither works, raise TypeError
         else {
-            return Err(PyErr::new::<exceptions::PyTypeError, _>(
+            Err(PyErr::new::<exceptions::PyTypeError, _>(
                 "indices must be integers or slices",
-            ));
+            ))
         }
     }
 
     // Helper method to get an item at a specific index
+    #[inline]
     fn get_item_at_index(&self, idx: isize, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
         let idx = if idx < 0 { len as isize + idx } else { idx };
@@ -800,7 +814,7 @@ impl FSharpArray {
                 let float64_value = value.extract::<Float64>()?;
                 vec[idx as usize] = *float64_value;
             }
-            NativeArray::String(vec) => {
+            NativeArray::Bool(vec) => {
                 vec[idx as usize] = value.extract()?;
             }
             NativeArray::PyObject(arc_mutex_vec) => {
@@ -1705,10 +1719,9 @@ impl FSharpArray {
     ) -> PyResult<FSharpArray> {
         let len = self.storage.len();
         let fs_cons = FSharpCons::extract(cons, self.storage.get_type());
-        let mut results = fs_cons.create(len);
-        let mut results2 = fs_cons.create(len);
-        let mut len_true = 0;
-        let mut len_false = 0;
+        // Don't pre-allocate full size - just let vectors grow as needed
+        let mut results = fs_cons.create(0);
+        let mut results2 = fs_cons.create(0);
 
         for i in 0..len {
             let item = self.get_item_at_index(i as isize, py)?;
@@ -1716,16 +1729,14 @@ impl FSharpArray {
             let bound_item = item.bind(py);
             if f.call1((&bound_item,))?.is_truthy()? {
                 results.push_value(bound_item, py)?;
-                len_true += 1;
             } else {
                 results2.push_value(bound_item, py)?;
-                len_false += 1;
             }
         }
 
-        // Create arrays with the correct sizes using truncate
-        let left = FSharpArray { storage: results }.truncate(py, len_true)?;
-        let right = FSharpArray { storage: results2 }.truncate(py, len_false)?;
+        // Arrays already have correct sizes from push_value calls
+        let left = FSharpArray { storage: results };
+        let right = FSharpArray { storage: results2 };
 
         // Create a new array containing the left and right results
         let mut final_results = NativeArray::new(&ArrayType::Generic, Some(2));
@@ -2086,17 +2097,14 @@ impl FSharpArray {
         index: usize,
     ) -> PyResult<bool> {
         let len = self.storage.len();
-        if index >= len {
-            return Ok(false);
+        // Iteratively check from index to end of array
+        for i in index..len {
+            let item = self.get_item_at_index(i as isize, py)?;
+            if predicate.call1((item,))?.is_truthy()? {
+                return Ok(true);
+            }
         }
-
-        let item = self.get_item_at_index(index as isize, py)?;
-        if predicate.call1((item,))?.is_truthy()? {
-            return Ok(true);
-        }
-
-        // Recursively check the next index
-        self.exists_offset(py, predicate, index + 1)
+        Ok(false)
     }
 
     pub fn exists(&self, py: Python<'_>, predicate: &Bound<'_, PyAny>) -> PyResult<bool> {
@@ -2232,7 +2240,7 @@ impl FSharpArray {
             NativeArray::UInt64(_) => "UInt64",
             NativeArray::Float32(_) => "Float32",
             NativeArray::Float64(_) => "Float64",
-            NativeArray::String(_) => "String",
+            NativeArray::Bool(_) => "Bool",
             NativeArray::PyObject(_) => "PyObject",
         };
         let contents = self.__str__(py)?;
@@ -2497,8 +2505,8 @@ impl FSharpArray {
 
     pub fn remove_in_place(&mut self, py: Python<'_>, item: &Bound<'_, PyAny>) -> PyResult<bool> {
         // Find the index of the item to remove using indexOf
-        let eq = py.import("builtins")?.getattr("__eq__")?;
-        let index = self.index_of(py, item, None, None, Some(&eq))?;
+        // Pass None for eq to use Python's default equality comparison
+        let index = self.index_of(py, item, None, None, None)?;
         if index == -1 {
             return Ok(false);
         }
@@ -3963,29 +3971,47 @@ pub fn concat(
     arrays: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
-    // Convert the input to an iterator of FSharpArrays
+    // First pass: collect all arrays and calculate total length
     let iter = arrays.try_iter()?;
+    let mut collected_arrays: Vec<FSharpArray> = Vec::new();
+    let mut total_len = 0usize;
 
-    // Start with an empty array
-    let fs_cons = FSharpCons::extract(cons, &ArrayType::Generic);
-    let mut result = fs_cons.allocate(py, 0)?;
-
-    // Append each array to the result, converting to target type if needed
     for item in iter {
         let array = item?.extract::<FSharpArray>()?;
-
-        // Convert array to target type and append
-        let array_obj = array.into_pyobject(py)?;
-        let py_array = FSharpArray::new(py, Some(&array_obj), Some(fs_cons.array_type.as_str()))?;
-        let converted = py_array.into_pyobject(py)?;
-
-        // Create FSharpCons for append
-        let append_cons = fs_cons.clone().into_pyobject(py)?;
-
-        result = result.append(py, &converted, Some(&append_cons))?;
+        total_len += array.__len__();
+        collected_arrays.push(array);
     }
 
-    Ok(result)
+    // Handle empty input
+    if collected_arrays.is_empty() {
+        let fs_cons = FSharpCons::extract(cons, &ArrayType::Generic);
+        return fs_cons.allocate(py, 0);
+    }
+
+    // Determine the target type from cons or first array
+    let target_type = if let Some(cons) = cons {
+        if let Ok(fs_cons) = cons.extract::<PyRef<'_, FSharpCons>>() {
+            fs_cons.array_type.clone()
+        } else {
+            collected_arrays[0].storage.get_type().clone()
+        }
+    } else {
+        collected_arrays[0].storage.get_type().clone()
+    };
+
+    // Allocate result array with exact capacity needed
+    let mut result_storage = NativeArray::new(&target_type, Some(total_len));
+
+    // Copy all elements from all arrays in a single pass
+    for array in &collected_arrays {
+        for i in 0..array.__len__() {
+            result_storage.push_from_storage(&array.storage, i, py);
+        }
+    }
+
+    Ok(FSharpArray {
+        storage: result_storage,
+    })
 }
 
 #[pyfunction]
@@ -4118,7 +4144,7 @@ impl FSharpCons {
             "UInt64" => ArrayType::UInt64,
             "Float32" => ArrayType::Float32,
             "Float64" => ArrayType::Float64,
-            "String" => ArrayType::String,
+            "Bool" => ArrayType::Bool,
             _ => ArrayType::Generic,
         };
 
@@ -4261,13 +4287,13 @@ impl Float64Array {
 }
 
 #[pymethods]
-impl StringArray {
+impl BoolArray {
     #[new]
     #[pyo3(signature = (elements=None))]
     fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
         Ok((
-            StringArray {},
-            FSharpArray::new(py, elements, Some("String"))?,
+            BoolArray {},
+            FSharpArray::new(py, elements, Some("Bool"))?,
         ))
     }
 }
