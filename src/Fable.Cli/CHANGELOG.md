@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Python] Fix regression `[<Erase>]` on class types not preventing them from being emitted to Python (by @dbrattli)
 * [Python] Fix regression `%A` format specifier to output booleans as lowercase `true`/`false` (by @dbrattli)
+* [Python] Fix various bugs in fable-library numeric types and string operations (by @dbrattli)
 
 ### Changed
 

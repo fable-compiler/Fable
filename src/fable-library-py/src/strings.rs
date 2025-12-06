@@ -341,18 +341,12 @@ mod printf {
     /// A tuple of `(value_string, optional_type_info)` where the type info is only
     /// present for recognized type annotation patterns.
     fn parse_type_annotation(arg_value: &str) -> (&str, Option<&str>) {
-        if arg_value.contains(':') {
-            let parts: Vec<&str> = arg_value.splitn(2, ':').collect();
-            if parts.len() == 2 && matches!(parts[1], "i32" | "i64" | "u32" | "u64") {
-                // This is a type annotation added by the __call__ method
-                (parts[0], Some(parts[1]))
-            } else {
-                // This is a natural colon in the string (like URLs)
-                (arg_value, None)
+        if let Some((value, type_info)) = arg_value.rsplit_once(':') {
+            if matches!(type_info, "i32" | "i64" | "u32" | "u64") {
+                return (value, Some(type_info));
             }
-        } else {
-            (arg_value, None)
         }
+        (arg_value, None)
     }
 
     /// Format a value based on format specifier
@@ -947,23 +941,23 @@ mod formatting {
     /// These are special .NET-style format patterns used in F# formatting
     /// that require custom parsing and numeric formatting.
     fn apply_custom_format(value: &str, format_spec: &str) -> String {
+        // Guard against format_spec that's too short to have valid inner content
+        if format_spec.len() < 5 {
+            // Minimum valid: "++x++" (5 chars)
+            return format!("-++{}++", value);
+        }
+
         let inner_spec = &format_spec[2..format_spec.len() - 2];
 
         match value.parse::<f64>() {
-            Ok(num) => match inner_spec.contains('.') {
-                true => {
-                    // **Pattern matching**: Split decimal specification
-                    let parts: Vec<&str> = inner_spec.split('.').collect();
-                    match parts.as_slice() {
-                        [_, decimal_part] => {
-                            let decimal_places = decimal_part.len();
-                            format!("-++{:.prec$}++", num.abs(), prec = decimal_places)
-                        }
-                        _ => format!("-++{}++", num),
-                    }
+            Ok(num) => {
+                if let Some((_, decimal_part)) = inner_spec.split_once('.') {
+                    let decimal_places = decimal_part.len();
+                    format!("-++{:.prec$}++", num.abs(), prec = decimal_places)
+                } else {
+                    format!("-++{}++", num)
                 }
-                false => format!("-++{}++", num),
-            },
+            }
             Err(_) => format!("-++{}++", value),
         }
     }
@@ -1103,7 +1097,7 @@ mod formatting {
             spec if spec
                 .chars()
                 .next()
-                .map_or(false, |c| c.is_ascii_alphabetic()) =>
+                .is_some_and(|c| c.is_ascii_alphabetic()) =>
             {
                 apply_standard_format(value, spec)
             }
@@ -1215,12 +1209,14 @@ mod formatting {
 
     /// Check if string is null or empty
     #[pyfunction]
+    #[must_use]
     pub fn is_null_or_empty(string: Option<&str>) -> bool {
         string.is_none_or(|s| s.is_empty())
     }
 
     /// Check if string is null or whitespace
     #[pyfunction]
+    #[must_use]
     pub fn is_null_or_white_space(string: Option<&str>) -> bool {
         string.is_none_or(|s| s.trim().is_empty())
     }
@@ -1314,7 +1310,7 @@ mod formatting {
 
         if start_index >= chars.len() {
             return Err(pyo3::exceptions::PyValueError::new_err(
-                "startIndex must be less than length of string",
+                "Index was out of range. Must be non-negative and less than the size of the collection.",
             ));
         }
 
@@ -1376,7 +1372,6 @@ mod formatting {
             _ => {} // None or positive values - continue processing
         }
 
-        // **Performance optimization**: Declare result only when needed to eliminate unused assignment
         let mut result: Vec<String>;
 
         // Handle array/list of splitters
@@ -1575,14 +1570,14 @@ mod formatting {
 
         if start_index > chars.len() {
             return Err(pyo3::exceptions::PyValueError::new_err(
-                "Invalid startIndex",
+                "startIndex cannot be larger than length of string.",
             ));
         }
 
         if let Some(length) = length {
             if start_index + length > chars.len() {
                 return Err(pyo3::exceptions::PyValueError::new_err(
-                    "Invalid startIndex and/or length",
+                    "Index and length must refer to a location within the string.",
                 ));
             }
             Ok(chars[start_index..start_index + length].iter().collect())
@@ -1598,7 +1593,7 @@ mod formatting {
 
         if start_index + length > chars.len() {
             return Err(pyo3::exceptions::PyValueError::new_err(
-                "Invalid startIndex and/or length",
+                "Index and length must refer to a location within the string.",
             ));
         }
 
@@ -1820,6 +1815,7 @@ mod formatting {
 
     /// Additional functions needed for compatibility
     #[pyfunction]
+    #[must_use]
     pub fn compare_to(this: &str, other: &str) -> i32 {
         use std::cmp::Ordering;
         match this.cmp(other) {
@@ -1830,6 +1826,7 @@ mod formatting {
     }
 
     #[pyfunction]
+    #[must_use]
     pub fn ends_with_exact(string: &str, pattern: &str) -> bool {
         if let Some(idx) = string.rfind(pattern) {
             idx == string.len() - pattern.len()
@@ -1839,6 +1836,7 @@ mod formatting {
     }
 
     #[pyfunction]
+    #[must_use]
     pub fn starts_with_exact(string: &str, pattern: &str) -> bool {
         string.find(pattern) == Some(0)
     }
@@ -1854,24 +1852,26 @@ mod formatting {
             return Ok(-1);
         }
 
+        // Use character-based indexing to handle UTF-8 correctly
+        let chars: Vec<char> = string.chars().collect();
+
         let start_index = if !args.is_empty() {
             args.get_item(0)?.extract::<usize>()?
         } else {
             0
         };
 
-        if start_index >= string.len() {
+        if start_index >= chars.len() {
             return Ok(-1);
         }
 
         let length = if args.len() > 1 {
             args.get_item(1)?.extract::<usize>()?
         } else {
-            string.len() - start_index
+            chars.len() - start_index
         };
 
-        let end_pos = std::cmp::min(start_index + length, string.len());
-        let search_string = &string[start_index..end_pos];
+        let end_pos = std::cmp::min(start_index + length, chars.len());
 
         // Convert any_of to a set of characters
         let mut char_set = std::collections::HashSet::new();
@@ -1885,7 +1885,8 @@ mod formatting {
             }
         }
 
-        for (i, c) in search_string.char_indices() {
+        // Search within the character slice
+        for (i, &c) in chars[start_index..end_pos].iter().enumerate() {
             if char_set.contains(&c) {
                 return Ok((start_index + i) as i32);
             }

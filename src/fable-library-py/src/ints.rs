@@ -212,6 +212,7 @@ macro_rules! integer_variant {
         impl Deref for $name {
             type Target = $type;
 
+            #[inline]
             fn deref(&self) -> &Self::Target {
                 &self.0
             }
@@ -401,17 +402,18 @@ macro_rules! integer_variant {
             /// Supports addition with other integer types and performs automatic
             /// type conversion. Uses wrapping addition to prevent overflow panics.
             pub fn __add__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                let other = match other.extract::<$type>() {
-                    Ok(other) => other,
-                    Err(_) => {
-                        return Err(PyErr::new::<exceptions::PyTypeError, _>(format!(
-                            "Cannot convert argument {} to {}",
-                            other.call_method0("__str__")?.extract::<String>()?,
-                            stringify!($type)
-                        )))
-                    }
-                };
-                Ok($name(self.0.wrapping_add(other)))
+                // Fast path: other is same type
+                if let Ok(other_val) = other.extract::<$name>() {
+                    return Ok($name(self.0.wrapping_add(other_val.0)));
+                }
+                // Slow path: extract as primitive
+                let other_val = other.extract::<$type>().map_err(|_| {
+                    PyErr::new::<exceptions::PyTypeError, _>(format!(
+                        "Cannot convert argument to {}",
+                        stringify!($name)
+                    ))
+                })?;
+                Ok($name(self.0.wrapping_add(other_val)))
             }
 
             /// Right-hand addition operator.
@@ -426,16 +428,18 @@ macro_rules! integer_variant {
             ///
             /// Performs subtraction with automatic type conversion and wrapping arithmetic.
             pub fn __sub__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                let other = match other.extract::<$type>() {
-                    Ok(other) => other,
-                    Err(_) => {
-                        return Err(PyErr::new::<exceptions::PyTypeError, _>(format!(
-                            "Cannot convert argument to {}",
-                            stringify!($name)
-                        )))
-                    }
-                };
-                Ok($name(self.0 - other))
+                // Fast path: other is same type
+                if let Ok(other_val) = other.extract::<$name>() {
+                    return Ok($name(self.0.wrapping_sub(other_val.0)));
+                }
+                // Slow path: extract as primitive
+                let other_val = other.extract::<$type>().map_err(|_| {
+                    PyErr::new::<exceptions::PyTypeError, _>(format!(
+                        "Cannot convert argument to {}",
+                        stringify!($name)
+                    ))
+                })?;
+                Ok($name(self.0.wrapping_sub(other_val)))
             }
 
             /// Right-hand subtraction operator.
@@ -448,19 +452,18 @@ macro_rules! integer_variant {
             /// Supports multiplication with other integer types and performs
             /// wrapping multiplication to prevent overflow panics.
             pub fn __mul__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                let other = match other.extract::<$name>() {
-                    Ok(other) => other.0,
-                    Err(_) => match other.extract::<$type>() {
-                        Ok(other) => other,
-                        Err(_) => {
-                            return Err(PyErr::new::<exceptions::PyTypeError, _>(format!(
-                                "Cannot convert argument to {}",
-                                stringify!($name)
-                            )))
-                        }
-                    },
-                };
-                Ok($name(self.0.wrapping_mul(other)))
+                // Fast path: other is same type
+                if let Ok(other_val) = other.extract::<$name>() {
+                    return Ok($name(self.0.wrapping_mul(other_val.0)));
+                }
+                // Slow path: extract as primitive
+                let other_val = other.extract::<$type>().map_err(|_| {
+                    PyErr::new::<exceptions::PyTypeError, _>(format!(
+                        "Cannot convert argument to {}",
+                        stringify!($name)
+                    ))
+                })?;
+                Ok($name(self.0.wrapping_mul(other_val)))
             }
 
             /// Right-hand multiplication operator.
@@ -507,8 +510,28 @@ macro_rules! integer_variant {
             ///
             /// Performs integer division, truncating towards negative infinity.
             pub fn __floordiv__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                let other = other.extract::<$type>()?;
-                Ok($name(self.0 / other))
+                // Fast path: other is same type
+                if let Ok(other_val) = other.extract::<$name>() {
+                    if other_val.0 == 0 {
+                        return Err(PyErr::new::<exceptions::PyZeroDivisionError, _>(
+                            "Cannot divide by zero",
+                        ));
+                    }
+                    return Ok($name(self.0 / other_val.0));
+                }
+                // Slow path: extract as primitive
+                let other_val = other.extract::<$type>().map_err(|_| {
+                    PyErr::new::<exceptions::PyTypeError, _>(format!(
+                        "Cannot convert argument to {}",
+                        stringify!($name)
+                    ))
+                })?;
+                if other_val == 0 {
+                    return Err(PyErr::new::<exceptions::PyZeroDivisionError, _>(
+                        "Cannot divide by zero",
+                    ));
+                }
+                Ok($name(self.0 / other_val))
             }
 
             /// Right-hand floor division operator.
@@ -524,8 +547,28 @@ macro_rules! integer_variant {
             ///
             /// Returns the remainder after division.
             pub fn __mod__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                let other = other.extract::<$type>()?;
-                Ok($name(self.0 % other))
+                // Fast path: other is same type
+                if let Ok(other_val) = other.extract::<$name>() {
+                    if other_val.0 == 0 {
+                        return Err(PyErr::new::<exceptions::PyZeroDivisionError, _>(
+                            "Cannot modulo by zero",
+                        ));
+                    }
+                    return Ok($name(self.0 % other_val.0));
+                }
+                // Slow path: extract as primitive
+                let other_val = other.extract::<$type>().map_err(|_| {
+                    PyErr::new::<exceptions::PyTypeError, _>(format!(
+                        "Cannot convert argument to {}",
+                        stringify!($name)
+                    ))
+                })?;
+                if other_val == 0 {
+                    return Err(PyErr::new::<exceptions::PyZeroDivisionError, _>(
+                        "Cannot modulo by zero",
+                    ));
+                }
+                Ok($name(self.0 % other_val))
             }
 
             /// Right-hand modulo operator.
@@ -622,10 +665,18 @@ macro_rules! integer_variant {
             ///
             /// Performs bitwise AND operation with type conversion.
             pub fn __and__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                match other.extract::<u32>() {
-                    Ok(other) => Ok($name((self.0 as u32 & other) as $type)),
-                    Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot compare")),
+                // Fast path: other is same type
+                if let Ok(other_val) = other.extract::<$name>() {
+                    return Ok($name(self.0 & other_val.0));
                 }
+                // Slow path: extract as primitive
+                let other_val = other.extract::<$type>().map_err(|_| {
+                    PyErr::new::<exceptions::PyTypeError, _>(format!(
+                        "Cannot convert argument to {}",
+                        stringify!($name)
+                    ))
+                })?;
+                Ok($name(self.0 & other_val))
             }
 
             /// Right-hand bitwise AND operator.
@@ -640,15 +691,18 @@ macro_rules! integer_variant {
             ///
             /// Performs bitwise OR operation with automatic type conversion.
             pub fn __or__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                let other = match other.extract::<$type>() {
-                    Ok(other) => Ok(other),
-                    Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot compare")),
-                };
-
-                match other {
-                    Ok(other) => Ok($name(self.0 | other)),
-                    Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot or")),
+                // Fast path: other is same type
+                if let Ok(other_val) = other.extract::<$name>() {
+                    return Ok($name(self.0 | other_val.0));
                 }
+                // Slow path: extract as primitive
+                let other_val = other.extract::<$type>().map_err(|_| {
+                    PyErr::new::<exceptions::PyTypeError, _>(format!(
+                        "Cannot convert argument to {}",
+                        stringify!($name)
+                    ))
+                })?;
+                Ok($name(self.0 | other_val))
             }
 
             /// Right-hand bitwise OR operator.
@@ -663,18 +717,18 @@ macro_rules! integer_variant {
             ///
             /// Performs bitwise exclusive OR operation.
             pub fn __xor__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
-                let other = match other.extract::<$name>() {
-                    Ok(other) => Ok(other.0),
-                    Err(_) => match other.extract::<$type>() {
-                        Ok(other) => Ok(other),
-                        Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot compare")),
-                    },
-                };
-
-                match other {
-                    Ok(other) => Ok($name(self.0 ^ other)),
-                    Err(_) => Err(PyErr::new::<exceptions::PyTypeError, _>("Cannot xor")),
+                // Fast path: other is same type
+                if let Ok(other_val) = other.extract::<$name>() {
+                    return Ok($name(self.0 ^ other_val.0));
                 }
+                // Slow path: extract as primitive
+                let other_val = other.extract::<$type>().map_err(|_| {
+                    PyErr::new::<exceptions::PyTypeError, _>(format!(
+                        "Cannot convert argument to {}",
+                        stringify!($name)
+                    ))
+                })?;
+                Ok($name(self.0 ^ other_val))
             }
 
             /// Right-hand bitwise XOR operator.
