@@ -821,4 +821,85 @@ let ``test ClassAttributesTemplate for custom class attributes`` () =
     user.Username |> equal "testuser"
     user.Email |> equal "test@example.com"
 
+// Test Pydantic serialization of FSharpArray
+// This tests that FSharpArray and its subclasses (GenericArray, Int32Array, etc.)
+// can be serialized by Pydantic when used in BaseModel classes
+
+[<Py.ClassAttributes(style=Py.ClassAttributeStyle.Attributes, init=false)>]
+type PydanticUserWithArray(Name: string, Scores: int[]) =
+    inherit BaseModel()
+    member val Name: string = Name with get, set
+    member val Scores: int[] = Scores with get, set
+
+[<Fact>]
+let ``test Pydantic serialization of FSharpArray`` () =
+    // Test that FSharpArray can be used in a Pydantic model and serialized
+    let user = PydanticUserWithArray(Name = "Test User", Scores = [|95; 87; 92|])
+    user.Name |> equal "Test User"
+    user.Scores |> Array.sum |> equal 274
+
+[<Fact>]
+let ``test Pydantic model_dump with FSharpArray`` () =
+    // Test that Pydantic can serialize (dump) a model containing FSharpArray
+    let user = PydanticUserWithArray(Name = "Test User", Scores = [|95; 87; 92|])
+    // Call model_dump() to serialize to dict
+    let dumped: obj = emitPyExpr (user) "$0.model_dump()"
+    // The dumped dict should have the scores as a list
+    let scores: int[] = emitPyExpr (dumped) "$0['Scores']"
+    scores |> Array.sum |> equal 274
+
+[<Fact>]
+let ``test Pydantic model_dump_json with FSharpArray`` () =
+    // Test that Pydantic can serialize to JSON a model containing FSharpArray
+    let user = PydanticUserWithArray(Name = "Test User", Scores = [|95; 87; 92|])
+    // Call model_dump_json() to serialize to JSON string
+    let json: string = emitPyExpr (user) "$0.model_dump_json()"
+    // The JSON should contain the scores
+    json.Contains("95") |> equal true
+    json.Contains("87") |> equal true
+    json.Contains("92") |> equal true
+
+[<Py.ClassAttributes(style=Py.ClassAttributeStyle.Attributes, init=false)>]
+type PydanticUserWithStringArray(Name: string, Tags: string[]) =
+    inherit BaseModel()
+    member val Name: string = Name with get, set
+    member val Tags: string[] = Tags with get, set
+
+[<Fact>]
+let ``test Pydantic serialization of FSharpArray with strings`` () =
+    // Test that string arrays work with Pydantic
+    let user = PydanticUserWithStringArray(Name = "Test User", Tags = [|"admin"; "active"; "verified"|])
+    user.Name |> equal "Test User"
+    user.Tags |> Array.length |> equal 3
+
+[<Fact>]
+let ``test Pydantic model_dump with string array`` () =
+    // Test that Pydantic can serialize string arrays
+    let user = PydanticUserWithStringArray(Name = "Test User", Tags = [|"admin"; "active"|])
+    let dumped: obj = emitPyExpr (user) "$0.model_dump()"
+    let tags: string[] = emitPyExpr (dumped) "$0['Tags']"
+    tags.[0] |> equal "admin"
+    tags.[1] |> equal "active"
+
+[<Py.ClassAttributes(style=Py.ClassAttributeStyle.Attributes, init=false)>]
+type PydanticUserWithFloatArray(Name: string, Values: float[]) =
+    inherit BaseModel()
+    member val Name: string = Name with get, set
+    member val Values: float[] = Values with get, set
+
+[<Fact>]
+let ``test Pydantic serialization of FSharpArray with floats`` () =
+    // Test that float arrays work with Pydantic
+    let user = PydanticUserWithFloatArray(Name = "Test User", Values = [|1.5; 2.5; 3.5|])
+    user.Name |> equal "Test User"
+    user.Values |> Array.sum |> equal 7.5
+
+[<Fact>]
+let ``test Pydantic model_dump_json with float array`` () =
+    // Test that Pydantic can serialize float arrays to JSON
+    let user = PydanticUserWithFloatArray(Name = "Test User", Values = [|1.5; 2.5|])
+    let json: string = emitPyExpr (user) "$0.model_dump_json()"
+    json.Contains("1.5") |> equal true
+    json.Contains("2.5") |> equal true
+
 #endif
