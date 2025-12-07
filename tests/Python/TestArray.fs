@@ -727,6 +727,14 @@ let ``test Array.truncate works`` () =
     try xs |> Array.truncate 20 |> Array.length with _ -> -1
     |> equal 5
 
+[<Fact>]
+let ``test Array.skipWhile works`` () =
+    let xs = [|1; 2; 3; 4; 5|]
+    xs |> Array.skipWhile (fun x -> x < 3) |> equal [|3; 4; 5|]
+    xs |> Array.skipWhile (fun x -> x < 1) |> equal [|1; 2; 3; 4; 5|]
+    xs |> Array.skipWhile (fun x -> x < 6) |> equal [||]
+    [||] |> Array.skipWhile (fun x -> x < 3) |> equal [||]
+
 // [<Fact>]
 // let ``test Array.sortDescending works`` () =
 //     let xs = [|3; 4; 1; -3; 2; 10|]

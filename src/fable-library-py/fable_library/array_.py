@@ -115,6 +115,7 @@ unzip = array.unzip
 copy = array.copy
 take = array.take
 skip = array.skip
+skip_while = array.skip_while
 compare_to = array.compare_to
 sort_with = array.sort_with
 choose = array.choose
@@ -206,6 +207,7 @@ __all__ = [
     "set_slice",
     "singleton",
     "skip",
+    "skip_while",
     "sort",
     "sort_by",
     "sort_by",

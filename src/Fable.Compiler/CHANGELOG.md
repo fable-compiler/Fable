@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+* [Python] Add `Array.skipWhile` support (by @dbrattli)
 * [Python] Add Pythonic import path syntax for relative imports (`.module`, `..parent`, `...grandparent`) (by @dbrattli)
 * [Python] Add `[<Py.DecorateTemplate>]` attribute for creating custom decorator attributes (by @dbrattli)
 * [Python] Add `[<Py.ClassAttributesTemplate>]` attribute for creating custom class attribute shortcuts (by @dbrattli)
