@@ -115,6 +115,7 @@ resize = array.resize
 unzip = array.unzip
 copy = array.copy
 take = array.take
+take_while = array.take_while
 skip = array.skip
 skip_while = array.skip_while
 compare_to = array.compare_to
@@ -222,6 +223,7 @@ __all__ = [
     "sum_by",
     "tail",
     "take",
+    "take_while",
     "transpose",
     "truncate",
     "try_find",

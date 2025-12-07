@@ -735,6 +735,14 @@ let ``test Array.skipWhile works`` () =
     xs |> Array.skipWhile (fun x -> x < 6) |> equal [||]
     [||] |> Array.skipWhile (fun x -> x < 3) |> equal [||]
 
+[<Fact>]
+let ``test Array.takeWhile works`` () =
+    let xs = [|1; 2; 3; 4; 5|]
+    xs |> Array.takeWhile (fun x -> x < 3) |> equal [|1; 2|]
+    xs |> Array.takeWhile (fun x -> x < 1) |> equal [||]
+    xs |> Array.takeWhile (fun x -> x < 6) |> equal [|1; 2; 3; 4; 5|]
+    [||] |> Array.takeWhile (fun x -> x < 3) |> equal [||]
+
 // [<Fact>]
 // let ``test Array.sortDescending works`` () =
 //     let xs = [|3; 4; 1; -3; 2; 10|]

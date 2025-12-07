@@ -1113,6 +1113,27 @@ impl FSharpArray {
         self.skip(py, count as isize, cons)
     }
 
+    #[pyo3(signature = (predicate, cons=None))]
+    pub fn take_while(
+        &self,
+        py: Python<'_>,
+        predicate: &Bound<'_, PyAny>,
+        cons: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<FSharpArray> {
+        let len = self.storage.len();
+        let mut count = 0;
+
+        while count < len {
+            let item = self.get_item_at_index(count as isize, py)?;
+            if !predicate.call1((item,))?.is_truthy()? {
+                break;
+            }
+            count += 1;
+        }
+
+        self.take(py, count as isize, cons)
+    }
+
     pub fn chunk_by_size(&self, py: Python<'_>, chunk_size: usize) -> PyResult<Self> {
         if chunk_size < 1 {
             return Err(PyErr::new::<exceptions::PyValueError, _>(
@@ -3235,6 +3256,17 @@ pub fn skip_while(
 }
 
 #[pyfunction]
+#[pyo3(signature = (predicate, array, cons=None))]
+pub fn take_while(
+    py: Python<'_>,
+    predicate: &Bound<'_, PyAny>,
+    array: &FSharpArray,
+    cons: Option<&Bound<'_, PyAny>>,
+) -> PyResult<FSharpArray> {
+    array.take_while(py, predicate, cons)
+}
+
+#[pyfunction]
 pub fn chunk_by_size(
     py: Python<'_>,
     chunk_size: usize,
@@ -4551,6 +4583,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(sum_by, &m)?)?;
     m.add_function(wrap_pyfunction!(tail, &m)?)?;
     m.add_function(wrap_pyfunction!(take, &m)?)?;
+    m.add_function(wrap_pyfunction!(take_while, &m)?)?;
     m.add_function(wrap_pyfunction!(transpose, &m)?)?;
     m.add_function(wrap_pyfunction!(try_find, &m)?)?;
     m.add_function(wrap_pyfunction!(try_find_back, &m)?)?;
