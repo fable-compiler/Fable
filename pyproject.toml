@@ -47,7 +47,7 @@ reportUnusedVariable = false
 reportUnnecessaryIsInstance = true
 reportUnnecessaryComparison = true
 reportUnnecessaryCast = true
-reportPrivateUsage = false # Getters/setters reference from outside the class
+reportPrivateUsage = false # Getters/setters reference private members from outside the class
 reportImportCycles = true
 reportDuplicateImport = true
 reportConstantRedefinition = true
@@ -68,7 +68,6 @@ select = ["E", "W",  "F", "I", "T", "RUF", "TID", "UP"]
 ignore = [
     "F841" # Ignore unused variable warnings
 ]
-
 
 [tool.ruff.lint.flake8-bugbear]
 # These Rust extension module types are immutable (frozen)
