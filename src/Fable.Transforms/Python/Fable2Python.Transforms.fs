@@ -2606,13 +2606,20 @@ let declareClassType
     let interfaces, stmts =
         // We only use a few interfaces as base classes. The rest is handled as Python protocols (PEP 544) to avoid a massive
         // inheritance tree that will prevent Python of finding a consistent method resolution order.
-        let allowedInterfaces = [ "IDisposable" ]
+        let allowedInterfaces = [ "IDisposable"; "IEnumerator_1" ]
+
+        // Check if class implements IEnumerator_1 (which already inherits from IDisposable)
+        let hasIEnumerator =
+            ent.AllInterfaces
+            |> Seq.exists (fun int -> Helpers.removeNamespace (int.Entity.FullName) = "IEnumerator_1")
 
         ent.AllInterfaces
         |> List.ofSeq
         |> List.filter (fun int ->
             let name = Helpers.removeNamespace (int.Entity.FullName)
+            // Filter out IDisposable if IEnumerator_1 is present to avoid diamond inheritance
             allowedInterfaces |> List.contains name
+            && not (hasIEnumerator && name = "IDisposable")
         )
         |> List.map (fun int ->
             let genericArgs =

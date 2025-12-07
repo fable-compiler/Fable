@@ -37,6 +37,9 @@ python-source = "."                        # Look at project root
 module-name = "fable_library.core._core"   # Full module path
 features = ["pyo3/extension-module"]
 
+[tool.pyright]
+reportPrivateUsage = false
+
 [tool.pytest.ini_options]
 minversion = "8.0"
 pythonpath = "."
