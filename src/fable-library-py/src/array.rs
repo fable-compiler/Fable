@@ -2934,17 +2934,26 @@ impl FSharpArray {
         }
     }
 
-    #[pyo3(signature = (projection, comparer))]
+    #[pyo3(signature = (projection, comparer=None))]
     pub fn sort_by(
         &self,
         py: Python<'_>,
         projection: &Bound<'_, PyAny>,
-        comparer: &Bound<'_, PyAny>,
+        comparer: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<FSharpArray> {
         let mut result = self.clone();
+        // Use provided comparer or create a default one
+        let default_comparer;
+        let comparer_ref = match comparer {
+            Some(c) => c,
+            None => {
+                default_comparer = DefaultComparer::new()?.into_pyobject(py)?;
+                &default_comparer
+            }
+        };
         result.storage = result
             .storage
-            .sort_by_with_projection(py, projection, comparer)?;
+            .sort_by_with_projection(py, projection, comparer_ref)?;
         Ok(result)
     }
 
@@ -4079,11 +4088,12 @@ pub fn sort(
 }
 
 #[pyfunction]
+#[pyo3(signature = (projection, array, comparer=None))]
 pub fn sort_by(
     py: Python<'_>,
     projection: &Bound<'_, PyAny>,
     array: &FSharpArray,
-    comparer: &Bound<'_, PyAny>,
+    comparer: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
     array.sort_by(py, projection, comparer)
 }
