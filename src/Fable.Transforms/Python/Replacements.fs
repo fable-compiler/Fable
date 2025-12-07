@@ -1486,11 +1486,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "Concat", None, _ ->
         match i.SignatureArgTypes with
         | [ MaybeNullable(Array _) | MaybeNullable(IEnumerable) ] ->
-            Helper.LibCall(com, "string", "join", t, ((makeStrConst "") :: args), ?loc = r)
+            Helper.LibCall(com, "string", "join", t, makeStrConst "" :: args, ?loc = r)
             |> Some
-        | _ ->
-            Helper.LibCall(com, "string", "concat", t, args, hasSpread = true, ?loc = r)
-            |> Some
+        | _ -> Helper.LibCall(com, "string", "concat", t, args, ?loc = r) |> Some
     | "CompareOrdinal", None, _ -> Helper.LibCall(com, "string", "compare_ordinal", t, args, ?loc = r) |> Some
     | Patterns.SetContains implementedStringFunctions, thisArg, args ->
         Helper.LibCall(
