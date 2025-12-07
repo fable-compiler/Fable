@@ -1221,39 +1221,11 @@ mod formatting {
         string.is_none_or(|s| s.trim().is_empty())
     }
 
-    /// Concatenate strings - supports both F# varargs and iterable patterns
+    /// Concatenate strings - varargs of strings
     #[pyfunction]
-    #[pyo3(signature = (*args))]
-    pub fn concat(args: &Bound<'_, pyo3::types::PyTuple>) -> PyResult<String> {
-        match args.len() {
-            0 => Ok(String::new()),
-            1 => {
-                // Single argument - check if it's iterable
-                if let Ok(iter) = args.get_item(0)?.try_iter() {
-                    // Zero-cost abstraction: iterator chain with collect
-                    Ok(iter
-                        .map(|item| -> PyResult<String> {
-                            let item = item?;
-                            Ok(item.str()?.to_string())
-                        })
-                        .collect::<PyResult<Vec<_>>>()?
-                        .join(""))
-                } else {
-                    // Single non-iterable argument
-                    Ok(args.get_item(0)?.str()?.to_string())
-                }
-            }
-            _ => {
-                // Multiple arguments - zero-cost iterator chain
-                Ok((0..args.len())
-                    .map(|i| -> PyResult<String> {
-                        let item = args.get_item(i)?;
-                        Ok(item.str()?.to_string())
-                    })
-                    .collect::<PyResult<Vec<_>>>()?
-                    .join(""))
-            }
-        }
+    #[pyo3(signature = (*strings))]
+    pub fn concat(strings: Vec<String>) -> String {
+        strings.join("")
     }
 
     /// Join strings with delimiter
