@@ -5,8 +5,7 @@ from .core import array, float32, float64, int8, int16, int32, int64, uint8, uin
 
 _T = TypeVar("_T")
 
-# Define typed array constructors. We do not use type aliases here since
-# we need to use them as constructors and not just types.
+# Define the typed array constructors.
 Int8Array = array.FSharpCons[int8]("Int8")
 UInt8Array = array.FSharpCons[uint8]("UInt8")
 Int16Array = array.FSharpCons[int16]("Int16")
