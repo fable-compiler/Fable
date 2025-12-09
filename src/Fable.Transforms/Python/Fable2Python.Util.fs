@@ -891,6 +891,21 @@ module Helpers =
         let callInfo = Fable.CallInfo.Create(args = [ e ])
         makeIdentExpr "str" |> makeCall None Fable.String callInfo
 
+    /// Transform return statements to wrap their values with await
+    let wrapReturnWithAwait (body: Statement list) : Statement list =
+        body
+        |> List.map (fun stmt ->
+            match stmt with
+            | Statement.Return { Value = Some value } -> Statement.return' (Await value)
+            | other -> other
+        )
+
+    /// Unwrap Task[T] to T for async function return types
+    let unwrapTaskType (returnType: Expression) : Expression =
+        match returnType with
+        | Subscript { Slice = innerType } -> innerType
+        | _ -> returnType
+
 
 /// Expression builders with automatic statement threading
 [<RequireQualifiedAccess>]
