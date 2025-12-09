@@ -338,3 +338,13 @@ let ``test ResizeArray.IndexOf works with non-primitive types`` () =
     myResizeArray.IndexOf(Dog 3) |> equal 1
     myResizeArray.IndexOf(Dog 3, 0, 1) |> equal -1
     myResizeArray.IndexOf(Duck 5, 1) |> equal -1
+
+[<Fact>]
+let ``test ResizeArray works with Seq.item`` () =
+    let li = ResizeArray([1; 2; 3])
+    let firstItem = Seq.item 0 li
+    equal 1 firstItem
+    let secondItem = Seq.item 1 li
+    equal 2 secondItem
+    let thirdItem = Seq.item 2 li
+    equal 3 thirdItem

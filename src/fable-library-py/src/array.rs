@@ -73,27 +73,81 @@ macro_rules! try_extract_array {
     };
 }
 
-// Utility function to convert Python objects to FSharpArray.
-fn ensure_array(py: Python<'_>, ob: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
-    // If it's already a FSharpArray, just extract it
-    if let Ok(array) = ob.extract::<PyRef<'_, FSharpArray>>() {
-        return Ok(array.clone());
+/// A cow-like wrapper that either borrows from an existing Python FSharpArray or owns a new one.
+///
+/// # Performance Optimization
+///
+/// This type avoids expensive deep clones when converting Python objects to FSharpArray.
+/// When the input is already an FSharpArray, we borrow it directly (zero-copy).
+/// When the input is something else (list, iterable, etc.), we create a new owned array.
+///
+/// The `Deref` implementation allows transparent access to `&FSharpArray` methods.
+/// Use `into_owned()` only when mutation or ownership transfer is required.
+enum ArrayRef<'py> {
+    /// Borrowed reference to an existing Python FSharpArray (no clone)
+    Borrowed(PyRef<'py, FSharpArray>),
+    /// Newly created array that we own
+    Owned(FSharpArray),
+}
+
+impl std::ops::Deref for ArrayRef<'_> {
+    type Target = FSharpArray;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            ArrayRef::Borrowed(r) => r,
+            ArrayRef::Owned(a) => a,
+        }
+    }
+}
+
+impl ArrayRef<'_> {
+    /// Convert to an owned FSharpArray.
+    ///
+    /// - If borrowed: clones the array data (unavoidable when ownership is needed)
+    /// - If owned: moves without copying
+    ///
+    /// Use this only when you need ownership, e.g., for mutation or storing in collections.
+    fn into_owned(self) -> FSharpArray {
+        match self {
+            ArrayRef::Borrowed(r) => r.clone(),
+            ArrayRef::Owned(a) => a,
+        }
+    }
+}
+
+/// Converts a Python object to an FSharpArray reference.
+///
+/// # Performance Optimization
+///
+/// This function returns `ArrayRef` instead of `FSharpArray` to avoid cloning
+/// when the input is already an FSharpArray. This is a common case in F# code
+/// where arrays are passed through multiple function calls.
+///
+/// - If `ob` is an FSharpArray: returns a borrowed reference (O(1), no allocation)
+/// - If `ob` is None: returns an empty array
+/// - If `ob` is iterable: converts to a new array
+/// - Otherwise: wraps as a singleton array
+fn ensure_array<'py>(py: Python<'py>, ob: &'py Bound<'py, PyAny>) -> PyResult<ArrayRef<'py>> {
+    // If it's already a FSharpArray, borrow it (no clone)
+    if let Ok(array) = ob.cast::<FSharpArray>() {
+        return Ok(ArrayRef::Borrowed(array.borrow()));
     }
 
     // If the object is None (null), create an empty array
     if ob.is_none() {
-        return FSharpArray::new(py, None, None);
+        return Ok(ArrayRef::Owned(FSharpArray::new(py, None, None)?));
     }
 
     // Check if the object is iterable
     if let Ok(iter) = ob.try_iter() {
         // Convert iterable directly to FSharpArray
-        return FSharpArray::new(py, Some(iter.as_any()), None);
+        return Ok(ArrayRef::Owned(FSharpArray::new(py, Some(iter.as_any()), None)?));
     }
 
     // If it's a single item, create a singleton array
     let singleton_list = PyList::new(py, [ob])?;
-    FSharpArray::new(py, Some(&singleton_list), None)
+    Ok(ArrayRef::Owned(FSharpArray::new(py, Some(&singleton_list), None)?))
 }
 
 #[pymethods]
@@ -390,11 +444,31 @@ impl FSharpArray {
         self.storage.len()
     }
 
-    pub fn __iter__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+    /// Returns an iterator over the array elements.
+    ///
+    /// # Performance Optimization
+    ///
+    /// This method takes `PyRef<'_, Self>` instead of `&self` to access the underlying
+    /// Python object reference. This allows us to increment the reference count via
+    /// `Py::from_borrowed_ptr` instead of cloning the entire array data.
+    ///
+    /// The iterator holds a `Py<FSharpArray>` which keeps the array alive during iteration.
+    /// This is O(1) (just a refcount increment) vs O(n) for cloning the array contents.
+    ///
+    /// # Safety
+    ///
+    /// The `unsafe` block is safe because:
+    /// - `slf.as_ptr()` returns a valid pointer to the Python object
+    /// - `from_borrowed_ptr` increments the refcount, ensuring the object stays alive
+    /// - The `PyRef` guarantees we have a valid borrow of the object
+    pub fn __iter__(slf: PyRef<'_, Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let len = slf.storage.len();
+        // SAFETY: slf.as_ptr() is valid and from_borrowed_ptr increments refcount
+        let array: Py<FSharpArray> = unsafe { Py::from_borrowed_ptr(py, slf.as_ptr()) };
         let iter = FSharpArrayIter {
-            array: Py::new(py, self.clone())?,
+            array,
             index: 0,
-            len: self.storage.len(),
+            len,
         };
         iter.into_py_any(py)
     }
@@ -428,10 +502,8 @@ impl FSharpArray {
         let serializer_fn = cls.getattr("_pydantic_serializer")?;
 
         // Build the serialization schema
-        let ser_schema = core_schema.call_method1(
-            "plain_serializer_function_ser_schema",
-            (serializer_fn,),
-        )?;
+        let ser_schema =
+            core_schema.call_method1("plain_serializer_function_ser_schema", (serializer_fn,))?;
 
         // Create a list schema as the base - this enables JSON Schema generation
         let list_schema = core_schema.call_method0("list_schema")?;
@@ -3125,13 +3197,13 @@ impl FSharpArray {
         let len = self.storage.len();
 
         // First, map each element to an array
-        let mut mapped_arrays = Vec::with_capacity(len);
+        let mut mapped_arrays: Vec<FSharpArray> = Vec::with_capacity(len);
         for i in 0..len {
             let item = self.get_item_at_index(i as isize, py)?;
             let mapped_result = mapping.call1((item,))?;
 
-            // Convert the result to a FSharpArray
-            let mapped_array = ensure_array(py, &mapped_result)?;
+            // Convert the result to a FSharpArray (need owned for collection)
+            let mapped_array = ensure_array(py, &mapped_result)?.into_owned();
             mapped_arrays.push(mapped_array);
         }
 
@@ -3164,10 +3236,11 @@ impl FSharpArray {
 #[pyo3(signature = (array1, array2, cons=None))]
 pub fn append(
     py: Python<'_>,
-    array1: &FSharpArray,
+    array1: &Bound<'_, PyAny>,
     array2: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array1 = ensure_array(py, array1)?;
     array1.append(py, array2, cons)
 }
 
@@ -3197,30 +3270,35 @@ pub fn create(py: Python<'_>, count: usize, value: &Bound<'_, PyAny>) -> PyResul
 pub fn map(
     py: Python<'_>,
     f: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.map(py, f, cons)
 }
 
 #[pyfunction]
+#[pyo3(signature = (f, array1, array2, cons=None))]
 pub fn map2(
     py: Python<'_>,
     f: &Bound<'_, PyAny>,
-    array1: &FSharpArray,
+    array1: &Bound<'_, PyAny>,
     array2: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array1 = ensure_array(py, array1)?;
     array1.map2(py, f, array2, cons)
 }
 
 #[pyfunction]
+#[pyo3(signature = (f, array, cons=None))]
 pub fn map_indexed(
     py: Python<'_>,
     f: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.map_indexed(py, f, cons)
 }
 
@@ -3228,8 +3306,9 @@ pub fn map_indexed(
 pub fn filter(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.filter(py, predicate)
 }
 
@@ -3238,9 +3317,10 @@ pub fn filter(
 pub fn skip(
     py: Python<'_>,
     count: isize,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.skip(py, count, cons)
 }
 
@@ -3249,9 +3329,10 @@ pub fn skip(
 pub fn skip_while(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.skip_while(py, predicate, cons)
 }
 
@@ -3260,9 +3341,10 @@ pub fn skip_while(
 pub fn take_while(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.take_while(py, predicate, cons)
 }
 
@@ -3270,8 +3352,9 @@ pub fn take_while(
 pub fn chunk_by_size(
     py: Python<'_>,
     chunk_size: usize,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.chunk_by_size(py, chunk_size)
 }
 
@@ -3291,8 +3374,9 @@ pub fn fold(
     py: Python<'_>,
     folder: &Bound<'_, PyAny>,
     state: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
     array.fold(py, folder, state)
 }
 
@@ -3301,8 +3385,9 @@ pub fn fold_indexed(
     py: Python<'_>,
     folder: &Bound<'_, PyAny>,
     state: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
     array.fold_indexed(py, folder, state)
 }
 
@@ -3310,9 +3395,10 @@ pub fn fold_indexed(
 pub fn fold_back(
     py: Python<'_>,
     folder: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     state: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
     array.fold_back(py, folder, state)
 }
 
@@ -3320,9 +3406,10 @@ pub fn fold_back(
 pub fn fold_back_indexed(
     py: Python<'_>,
     folder: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     state: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
     array.fold_back_indexed(py, folder, state)
 }
 
@@ -3358,9 +3445,10 @@ pub fn sort_in_place_by(
 pub fn equals_with(
     py: Python<'_>,
     equals_func: &Bound<'_, PyAny>,
-    array1: &FSharpArray,
+    array1: &Bound<'_, PyAny>,
     array2: &Bound<'_, PyAny>,
 ) -> PyResult<bool> {
+    let array1 = ensure_array(py, array1)?;
     array1.equals_with(py, equals_func, array2)
 }
 
@@ -3379,8 +3467,8 @@ pub fn resize(
         let current_array_obj = fs_ref.get_contents(py)?;
         let current_array_bound = current_array_obj.bind(py);
 
-        // Convert to FSharpArray (ensure_array now handles None as empty array)
-        let mut current_array = ensure_array(py, current_array_bound)?;
+        // Convert to FSharpArray (need owned for mutation)
+        let mut current_array = ensure_array(py, current_array_bound)?.into_owned();
 
         // Resize the array
         current_array.resize(py, new_size, zero, cons)?;
@@ -3411,8 +3499,9 @@ pub fn reduce(
 pub fn reduce_back(
     py: Python<'_>,
     reduction: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
     array.reduce_back(py, reduction)
 }
 
@@ -3420,10 +3509,11 @@ pub fn reduce_back(
 pub fn fold_back_indexed2(
     py: Python<'_>,
     folder: &Bound<'_, PyAny>,
-    array1: &FSharpArray,
+    array1: &Bound<'_, PyAny>,
     array2: &Bound<'_, PyAny>,
     state: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
+    let array1 = ensure_array(py, array1)?;
     array1.fold_back_indexed2(py, folder, array2, state)
 }
 
@@ -3431,15 +3521,17 @@ pub fn fold_back_indexed2(
 pub fn fold_back2(
     py: Python<'_>,
     f: &Bound<'_, PyAny>,
-    array1: &FSharpArray,
+    array1: &Bound<'_, PyAny>,
     array2: &Bound<'_, PyAny>,
     state: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
+    let array1 = ensure_array(py, array1)?;
     array1.fold_back2(py, f, array2, state)
 }
 
 #[pyfunction]
-pub fn iterate(py: Python<'_>, action: &Bound<'_, PyAny>, array: &FSharpArray) -> PyResult<()> {
+pub fn iterate(py: Python<'_>, action: &Bound<'_, PyAny>, array: &Bound<'_, PyAny>) -> PyResult<()> {
+    let array = ensure_array(py, array)?;
     array.iterate(py, action)
 }
 
@@ -3447,8 +3539,9 @@ pub fn iterate(py: Python<'_>, action: &Bound<'_, PyAny>, array: &FSharpArray) -
 pub fn iterate_indexed(
     py: Python<'_>,
     action: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<()> {
+    let array = ensure_array(py, array)?;
     array.iterate_indexed(py, action)
 }
 
@@ -3490,7 +3583,8 @@ pub fn average_by(
 }
 
 #[pyfunction]
-pub fn pairwise(py: Python<'_>, array: &FSharpArray) -> PyResult<FSharpArray> {
+pub fn pairwise(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.pairwise(py)
 }
 
@@ -3498,8 +3592,9 @@ pub fn pairwise(py: Python<'_>, array: &FSharpArray) -> PyResult<FSharpArray> {
 pub fn permute(
     py: Python<'_>,
     f: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<Py<FSharpArray>> {
+    let array = ensure_array(py, array)?;
     array.permute(py, f)
 }
 
@@ -3509,9 +3604,10 @@ pub fn scan(
     py: Python<'_>,
     folder: &Bound<'_, PyAny>,
     state: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<FSharpArray>> {
+    let array = ensure_array(py, array)?;
     array.scan(py, folder, state, cons)
 }
 
@@ -3520,15 +3616,17 @@ pub fn scan(
 pub fn scan_back(
     py: Python<'_>,
     folder: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     state: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<FSharpArray>> {
+    let array = ensure_array(py, array)?;
     array.scan_back(py, folder, state, cons)
 }
 
 #[pyfunction]
-pub fn split_into(py: Python<'_>, chunks: usize, array: &FSharpArray) -> PyResult<FSharpArray> {
+pub fn split_into(py: Python<'_>, chunks: usize, array: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.split_into(py, chunks)
 }
 
@@ -3547,8 +3645,9 @@ pub fn transpose(
 pub fn try_find_back(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<Option<Py<PyAny>>> {
+    let array = ensure_array(py, array)?;
     array.try_find_back(py, predicate)
 }
 
@@ -3556,13 +3655,15 @@ pub fn try_find_back(
 pub fn try_find_index_back(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<Option<usize>> {
+    let array = ensure_array(py, array)?;
     array.try_find_index_back(py, predicate)
 }
 
 #[pyfunction]
-pub fn windowed(py: Python<'_>, window_size: usize, array: &FSharpArray) -> PyResult<FSharpArray> {
+pub fn windowed(py: Python<'_>, window_size: usize, array: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.windowed(py, window_size)
 }
 
@@ -3572,9 +3673,10 @@ pub fn map_fold(
     py: Python<'_>,
     mapping: &Bound<'_, PyAny>,
     state: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
     array.map_fold(py, mapping, state, cons)
 }
 
@@ -3592,12 +3694,14 @@ pub fn map_fold_back(
 }
 
 #[pyfunction]
-pub fn head(py: Python<'_>, array: &FSharpArray) -> PyResult<Py<PyAny>> {
+pub fn head(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
     array.head(py)
 }
 
 #[pyfunction]
-pub fn try_head(py: Python<'_>, array: &FSharpArray) -> PyResult<Option<Py<PyAny>>> {
+pub fn try_head(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<Option<Py<PyAny>>> {
+    let array = ensure_array(py, array)?;
     array.try_head(py)
 }
 
@@ -3605,24 +3709,32 @@ pub fn try_head(py: Python<'_>, array: &FSharpArray) -> PyResult<Option<Py<PyAny
 #[pyo3(signature = (array, cons=None))]
 pub fn tail(
     py: Python<'_>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.tail(py, cons)
 }
 
 #[pyfunction]
-pub fn item(py: Python<'_>, index: isize, array: &FSharpArray) -> PyResult<Py<PyAny>> {
+pub fn item(py: Python<'_>, index: isize, array: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
     array.item(py, index)
 }
 
 #[pyfunction]
-pub fn try_item(py: Python<'_>, index: isize, array: &FSharpArray) -> PyResult<Option<Py<PyAny>>> {
+pub fn try_item(
+    py: Python<'_>,
+    index: isize,
+    array: &Bound<'_, PyAny>,
+) -> PyResult<Option<Py<PyAny>>> {
+    let array = ensure_array(py, array)?;
     array.try_item(py, index)
 }
 
 #[pyfunction]
-pub fn reverse(py: Python<'_>, array: &FSharpArray) -> PyResult<FSharpArray> {
+pub fn reverse(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.reverse(py)
 }
 
@@ -3641,24 +3753,28 @@ pub fn initialize(
 pub fn compare_with(
     py: Python<'_>,
     comparer: &Bound<'_, PyAny>,
-    array1: &FSharpArray,
-    array2: &FSharpArray,
+    array1: &Bound<'_, PyAny>,
+    array2: &Bound<'_, PyAny>,
 ) -> PyResult<isize> {
-    array1.compare_with(py, comparer, array2)
+    let array1 = ensure_array(py, array1)?;
+    let array2 = ensure_array(py, array2)?;
+    array1.compare_with(py, comparer, &array2)
 }
 
 #[pyfunction]
 pub fn exists_offset(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     index: usize,
 ) -> PyResult<bool> {
+    let array = ensure_array(py, array)?;
     array.exists_offset(py, predicate, index)
 }
 
 #[pyfunction]
-pub fn exists(py: Python<'_>, predicate: &Bound<'_, PyAny>, array: &FSharpArray) -> PyResult<bool> {
+pub fn exists(py: Python<'_>, predicate: &Bound<'_, PyAny>, array: &Bound<'_, PyAny>) -> PyResult<bool> {
+    let array = ensure_array(py, array)?;
     array.exists(py, predicate)
 }
 
@@ -3668,9 +3784,10 @@ pub fn update_at(
     py: Python<'_>,
     index: usize,
     value: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.update_at(py, index, value, cons)
 }
 
@@ -3686,25 +3803,29 @@ pub fn set_slice(
 }
 
 #[pyfunction]
+#[pyo3(signature = (index, value, array, cons=None))]
 pub fn insert_at(
     py: Python<'_>,
     index: usize,
     value: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.insert_at(py, index, value, cons)
 }
 
 #[pyfunction]
+#[pyo3(signature = (index, values, array, cons=None))]
 pub fn insert_many_at(
     py: Python<'_>,
     index: usize,
-    ys: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    values: &Bound<'_, PyAny>,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
-    array.insert_many_at(py, index, ys, cons)
+    let array = ensure_array(py, array)?;
+    array.insert_many_at(py, index, values, cons)
 }
 
 #[pyfunction]
@@ -3712,12 +3833,15 @@ pub fn insert_many_at(
 pub fn map3(
     py: Python<'_>,
     f: &Bound<'_, PyAny>,
-    array1: &FSharpArray,
-    array2: &FSharpArray,
-    array3: &FSharpArray,
+    array1: &Bound<'_, PyAny>,
+    array2: &Bound<'_, PyAny>,
+    array3: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
-    array1.map3(py, f, array2, array3, cons)
+    let array1 = ensure_array(py, array1)?;
+    let array2 = ensure_array(py, array2)?;
+    let array3 = ensure_array(py, array3)?;
+    array1.map3(py, f, &array2, &array3, cons)
 }
 
 #[pyfunction]
@@ -3725,11 +3849,13 @@ pub fn map3(
 pub fn map_indexed2(
     py: Python<'_>,
     f: &Bound<'_, PyAny>,
-    array1: &FSharpArray,
-    array2: &FSharpArray,
+    array1: &Bound<'_, PyAny>,
+    array2: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
-    array1.map_indexed2(py, f, array2, cons)
+    let array1 = ensure_array(py, array1)?;
+    let array2 = ensure_array(py, array2)?;
+    array1.map_indexed2(py, f, &array2, cons)
 }
 
 #[pyfunction]
@@ -3737,12 +3863,15 @@ pub fn map_indexed2(
 pub fn map_indexed3(
     py: Python<'_>,
     f: &Bound<'_, PyAny>,
-    array1: &FSharpArray,
-    array2: &FSharpArray,
-    array3: &FSharpArray,
+    array1: &Bound<'_, PyAny>,
+    array2: &Bound<'_, PyAny>,
+    array3: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
-    array1.map_indexed3(py, f, array2, array3, cons)
+    let array1 = ensure_array(py, array1)?;
+    let array2 = ensure_array(py, array2)?;
+    let array3 = ensure_array(py, array3)?;
+    array1.map_indexed3(py, f, &array2, &array3, cons)
 }
 
 #[pyfunction]
@@ -3772,14 +3901,16 @@ pub fn remove_in_place(
 }
 
 #[pyfunction]
+#[pyo3(signature = (array, item, start=None, count=None, eq=None))]
 pub fn index_of(
     py: Python<'_>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     item: &Bound<'_, PyAny>,
     start: Option<usize>,
     count: Option<usize>,
     eq: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<isize> {
+    let array = ensure_array(py, array)?;
     array.index_of(py, item, start, count, eq)
 }
 
@@ -3798,9 +3929,10 @@ pub fn copy_to(
 #[pyfunction]
 pub fn zip(
     py: Python<'_>,
-    array1: &FSharpArray,
+    array1: &Bound<'_, PyAny>,
     array2: &Bound<'_, PyAny>,
 ) -> PyResult<FSharpArray> {
+    let array1 = ensure_array(py, array1)?;
     array1.zip(py, array2)
 }
 
@@ -3808,8 +3940,9 @@ pub fn zip(
 pub fn for_all(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<bool> {
+    let array = ensure_array(py, array)?;
     array.for_all(py, predicate)
 }
 
@@ -3817,8 +3950,9 @@ pub fn for_all(
 pub fn find(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
     array.find(py, predicate)
 }
 
@@ -3826,8 +3960,9 @@ pub fn find(
 pub fn try_find(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<Option<Py<PyAny>>> {
+    let array = ensure_array(py, array)?;
     array.try_find(py, predicate)
 }
 
@@ -3835,8 +3970,9 @@ pub fn try_find(
 pub fn find_last_index(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<usize> {
+    let array = ensure_array(py, array)?;
     array.find_last_index(py, predicate)
 }
 
@@ -3872,11 +4008,12 @@ pub fn insert_range_in_place(
 #[pyo3(signature = (array, start_index, count, cons=None))]
 pub fn get_sub_array(
     py: Python<'_>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     start_index: isize,
     count: usize,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.get_sub_array(py, start_index, count, cons)
 }
 
@@ -3886,9 +4023,10 @@ pub fn get_sub_array(
 pub fn contains(
     py: Python<'_>,
     value: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     eq: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<bool> {
+    let array = ensure_array(py, array)?;
     array.contains(py, value, eq)
 }
 
@@ -3925,9 +4063,10 @@ pub fn min(
 pub fn choose(
     py: Python<'_>,
     chooser: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.choose(py, chooser, cons)
 }
 
@@ -3936,9 +4075,10 @@ pub fn choose(
 pub fn collect(
     py: Python<'_>,
     mapping: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.collect(py, mapping, cons)
 }
 
@@ -3970,8 +4110,9 @@ pub fn min_by(
 pub fn find_back(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
     array.find_back(py, predicate)
 }
 
@@ -3979,8 +4120,9 @@ pub fn find_back(
 pub fn pick(
     py: Python<'_>,
     chooser: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
     array.pick(py, chooser)
 }
 
@@ -3988,8 +4130,9 @@ pub fn pick(
 pub fn try_pick(
     py: Python<'_>,
     chooser: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<Option<Py<PyAny>>> {
+    let array = ensure_array(py, array)?;
     array.try_pick(py, chooser)
 }
 
@@ -4003,7 +4146,8 @@ pub fn remove_all_in_place(
 }
 
 #[pyfunction]
-pub fn indexed(py: Python<'_>, array: &FSharpArray) -> PyResult<FSharpArray> {
+pub fn indexed(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.indexed(py)
 }
 
@@ -4011,23 +4155,27 @@ pub fn indexed(py: Python<'_>, array: &FSharpArray) -> PyResult<FSharpArray> {
 pub fn try_find_index(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<Option<usize>> {
+    let array = ensure_array(py, array)?;
     array.try_find_index(py, predicate)
 }
 
 #[pyfunction]
-pub fn try_last(py: Python<'_>, array: &FSharpArray) -> PyResult<Option<Py<PyAny>>> {
+pub fn try_last(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<Option<Py<PyAny>>> {
+    let array = ensure_array(py, array)?;
     array.try_last(py)
 }
 
 #[pyfunction]
-pub fn last(py: Python<'_>, array: &FSharpArray) -> PyResult<Py<PyAny>> {
+pub fn last(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
     array.last(py)
 }
 
 #[pyfunction]
-pub fn truncate(py: Python<'_>, count: isize, array: &FSharpArray) -> PyResult<FSharpArray> {
+pub fn truncate(py: Python<'_>, count: isize, array: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.truncate(py, count)
 }
 
@@ -4036,9 +4184,10 @@ pub fn truncate(py: Python<'_>, count: isize, array: &FSharpArray) -> PyResult<F
 pub fn partition(
     py: Python<'_>,
     f: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.partition(py, f, cons)
 }
 
@@ -4096,8 +4245,9 @@ pub fn concat(
 pub fn find_index(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<usize> {
+    let array = ensure_array(py, array)?;
     array.find_index(py, predicate)
 }
 
@@ -4105,17 +4255,19 @@ pub fn find_index(
 pub fn find_index_back(
     py: Python<'_>,
     predicate: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<usize> {
+    let array = ensure_array(py, array)?;
     array.find_index_back(py, predicate)
 }
 
 #[pyfunction]
 pub fn sort(
     py: Python<'_>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     comparer: &Bound<'_, PyAny>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.sort(py, comparer)
 }
 
@@ -4124,9 +4276,10 @@ pub fn sort(
 pub fn sort_by(
     py: Python<'_>,
     projection: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
     comparer: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.sort_by(py, projection, comparer)
 }
 
@@ -4134,8 +4287,9 @@ pub fn sort_by(
 pub fn sort_with(
     py: Python<'_>,
     comparer: &Bound<'_, PyAny>,
-    array: &FSharpArray,
+    array: &Bound<'_, PyAny>,
 ) -> PyResult<FSharpArray> {
+    let array = ensure_array(py, array)?;
     array.sort_with(py, comparer)
 }
 
@@ -4152,7 +4306,8 @@ pub fn sum_by(
 }
 
 #[pyfunction]
-pub fn unzip(py: Python<'_>, array: &FSharpArray) -> PyResult<Py<PyAny>> {
+pub fn unzip(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let array = ensure_array(py, array)?;
     array.unzip(py)
 }
 
@@ -4172,10 +4327,12 @@ pub fn take(
 pub fn compare_to(
     py: Python<'_>,
     comparer: &Bound<'_, PyAny>,
-    source1: &FSharpArray,
-    source2: &FSharpArray,
+    source1: &Bound<'_, PyAny>,
+    source2: &Bound<'_, PyAny>,
 ) -> PyResult<isize> {
-    source1.compare_to(py, comparer, source2)
+    let source1 = ensure_array(py, source1)?;
+    let source2 = ensure_array(py, source2)?;
+    source1.compare_to(py, comparer, &source2)
 }
 
 #[pyfunction]
@@ -4370,10 +4527,7 @@ impl BoolArray {
     #[new]
     #[pyo3(signature = (elements=None))]
     fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
-        Ok((
-            BoolArray {},
-            FSharpArray::new(py, elements, Some("Bool"))?,
-        ))
+        Ok((BoolArray {}, FSharpArray::new(py, elements, Some("Bool"))?))
     }
 }
 

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, ClassVar, Protocol, SupportsFloat, SupportsInt, TypeVar, final
-
-from typing_extensions import Self
+from typing import Any, ClassVar, Protocol, Self, SupportsFloat, SupportsInt, TypeVar, final
 
 # Define a generic type variable for the protocol
 _FT = TypeVar("_FT", bound="FloatNumeric")
