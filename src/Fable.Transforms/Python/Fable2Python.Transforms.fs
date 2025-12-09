@@ -22,7 +22,7 @@ open Util
 let iife (com: IPythonCompiler) ctx (expr: Fable.Expr) =
     let afe, stmts =
         Annotation.transformFunctionWithAnnotations com ctx None [] expr
-        |||> makeArrowFunctionExpression com ctx None
+        |||> makeArrowFunctionExpression com ctx None (Some expr.Type)
 
     Expression.call (afe, []), stmts
 
@@ -98,11 +98,16 @@ let makeArrowFunctionExpression
     com
     ctx
     (name: string option)
+    (bodyType: Fable.Type option)
     (args: Arguments)
     (body: Statement list)
     returnType
     : Expression * Statement list
     =
+    let isAsync =
+        match bodyType with
+        | Some typ -> isTaskType typ
+        | None -> false
 
     let args =
         match args.Args with
@@ -153,11 +158,25 @@ let makeArrowFunctionExpression
             |> Option.map Identifier
             |> Option.defaultWith (fun _ -> Helpers.getUniqueIdentifier "_arrow")
 
-        let func = createFunction ident args body [] returnType None
+        let func =
+            if isAsync then
+                createAsyncFunction ident args body [] returnType None
+            else
+                createFunction ident args body [] returnType None
+
         Expression.name ident, [ func ]
 
+/// Check if a Fable type is a Task type (should generate async def)
+let isTaskType (typ: Fable.Type) =
+    match typ with
+    | Fable.DeclaredType(ent, _) -> ent.FullName = Types.taskGeneric
+    | _ -> false
+
 let createFunction name args body decoratorList returnType (comment: string option) =
-    createFunctionWithTypeParams name args body decoratorList returnType comment []
+    createFunctionWithTypeParams name args body decoratorList returnType comment [] false
+
+let createAsyncFunction name args body decoratorList returnType (comment: string option) =
+    createFunctionWithTypeParams name args body decoratorList returnType comment [] true
 
 let createFunctionWithTypeParams
     name
@@ -167,78 +186,19 @@ let createFunctionWithTypeParams
     returnType
     (comment: string option)
     (typeParams: TypeParam list)
+    (isAsync: bool)
     =
-    let (|Awaitable|_|) expr =
-        match expr with
-        | Expression.Call {
-                              Func = Expression.Attribute {
-                                                              Value = Expression.Name { Id = Identifier "_builder" }
-                                                              Attr = Identifier "Run"
-                                                          }
-                          } -> Some expr
-        | _ -> None
-
-    let isAsync =
-        // function is async is returnType is an Awaitable and the body return a call to _builder.Run
-        match returnType with
-        | Subscript { Value = Name { Id = Identifier "Awaitable" } } ->
-            let rec find body : bool =
-                body
-                |> List.tryFind (
-                    function
-                    | Statement.Return {
-                                           Value = Some(Expression.IfExp {
-                                                                             Body = Awaitable _
-                                                                             OrElse = Awaitable _
-                                                                         })
-                                       } -> true
-                    | Statement.Return { Value = Some(Awaitable _) } -> true
-                    | Statement.If {
-                                       Body = body
-                                       Else = orElse
-                                   } -> find body && find orElse
-                    | _stmt -> false
-                )
-                |> Option.isSome
-
-            find body
-        | _ -> false
-
-    let rec replace body : Statement list =
-        body
-        |> List.map (
-            function
-            | Statement.Return {
-                                   Value = Some(Expression.IfExp {
-                                                                     Test = test
-                                                                     Body = body
-                                                                     OrElse = orElse
-                                                                 })
-                               } ->
-                Statement.return' (Expression.ifExp (test, Expression.Await(body), Expression.Await(orElse)))
-            | Statement.Return { Value = Some(Awaitable(expr)) } -> Statement.return' (Expression.Await expr)
-            | Statement.If {
-                               Test = test
-                               Body = body
-                               Else = orElse
-                           } -> Statement.if' (test, replace body, orelse = replace orElse)
-            | stmt -> stmt
-        )
-
-    match isAsync, returnType with
-    | true, Subscript { Slice = returnType } ->
-        let body' = replace body
-
+    if isAsync then
         Statement.asyncFunctionDef (
             name = name,
             args = args,
-            body = body',
+            body = Helpers.wrapReturnWithAwait body,
             decoratorList = decoratorList,
-            returns = returnType,
+            returns = Helpers.unwrapTaskType returnType,
             typeParams = typeParams,
             ?comment = comment
         )
-    | _ ->
+    else
         Statement.functionDef (
             name = name,
             args = args,
@@ -563,7 +523,7 @@ let transformObjectExpr
                 }
             | _ -> { args with Args = self :: args.Args }
 
-        Statement.functionDef (name, args, body, decorators, returns = returnType)
+        createFunction name args body decorators returnType None
 
     /// Transform a callable property (delegate) into a method statement
     let transformCallableProperty (memb: Fable.ObjectExprMember) (args: Fable.Ident list) (body: Fable.Expr) =
@@ -575,7 +535,7 @@ let transformObjectExpr
         let self = Arg.arg "self"
         let args = { args with Args = self :: args.Args }
 
-        Statement.functionDef (name, args, body, [], returns = returnType)
+        createFunction name args body [] returnType None
 
     let interfaces, stmts =
         match typ with
@@ -1249,7 +1209,7 @@ let transformBindingExprBody (com: IPythonCompiler) (ctx: Context) (var: Fable.I
         let name = Some var.Name
 
         Annotation.transformFunctionWithAnnotations com ctx name args body
-        |||> makeArrowFunctionExpression com ctx name
+        |||> makeArrowFunctionExpression com ctx name (Some body.Type)
     | _ ->
         let expr, stmt = com.TransformAsExpr(ctx, value)
         expr |> wrapIntExpression value.Type, stmt
@@ -1779,11 +1739,11 @@ let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expressi
 
     | Fable.Lambda(arg, body, name) ->
         Annotation.transformFunctionWithAnnotations com ctx name [ arg ] body
-        |||> makeArrowFunctionExpression com ctx name
+        |||> makeArrowFunctionExpression com ctx name (Some body.Type)
 
     | Fable.Delegate(args, body, name, _) ->
         Annotation.transformFunctionWithAnnotations com ctx name args body
-        |||> makeArrowFunctionExpression com ctx name
+        |||> makeArrowFunctionExpression com ctx name (Some body.Type)
 
     | Fable.ObjectExpr([], typ, None) ->
         // Check if the type is an interface
@@ -2011,14 +1971,14 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
     | Fable.Lambda(arg, body, name) ->
         let expr', stmts =
             transformFunctionWithAnnotations com ctx name [ arg ] body
-            |||> makeArrowFunctionExpression com ctx name
+            |||> makeArrowFunctionExpression com ctx name (Some body.Type)
 
         stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
     | Fable.Delegate(args, body, name, _) ->
         let expr', stmts =
             transformFunctionWithAnnotations com ctx name args body
-            |||> makeArrowFunctionExpression com ctx name
+            |||> makeArrowFunctionExpression com ctx name (Some body.Type)
 
         stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
@@ -2832,8 +2792,10 @@ let transformModuleFunction
     let typeParams = calculateTypeParams com ctx info args returnType body.Type
     let name = com.GetIdentifier(ctx, membName |> Naming.toPythonNaming)
 
+    let isAsync = isTaskType body.Type
+
     let stmt =
-        createFunctionWithTypeParams name args body' [] returnType info.XmlDoc typeParams
+        createFunctionWithTypeParams name args body' [] returnType info.XmlDoc typeParams isAsync
 
     let expr = Expression.name name
 
@@ -2945,14 +2907,9 @@ let transformAttachedProperty
             let typeParams =
                 calculateTypeParams com ctx info arguments returnType memb.Body.Type
 
-            Statement.functionDef (
-                key,
-                arguments,
-                body = body,
-                decoratorList = decorators,
-                returns = returnType,
-                typeParams = typeParams
-            )
+            let isAsync = isTaskType memb.Body.Type
+
+            createFunctionWithTypeParams key arguments body decorators returnType None typeParams isAsync
             |> List.singleton
 
 let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
@@ -2985,15 +2942,9 @@ let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFuncti
         let key = memberFromName com ctx name |> nameFromKey com ctx
 
         let typeParams = calculateTypeParams com ctx info args returnType memb.Body.Type
+        let isAsync = isTaskType memb.Body.Type
 
-        Statement.functionDef (
-            key,
-            args,
-            body = body,
-            decoratorList = decorators,
-            returns = returnType,
-            typeParams = typeParams
-        )
+        createFunctionWithTypeParams key args body decorators returnType None typeParams isAsync
 
     let args, body, returnType =
         getMemberArgsAndBody com ctx (Attached isStatic) info.HasSpread memb.Args memb.Body

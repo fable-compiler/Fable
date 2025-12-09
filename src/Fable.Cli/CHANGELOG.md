@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+* [Python] F# `task { }` expressions now generate Python `async def` functions (by @dbrattli)
+
 ## 5.0.0-alpha.20 - 2025-12-08
 
 ### Added
