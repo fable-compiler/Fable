@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-* [Python] Fix `ResizeArray` compatibility with `Seq`/`Array` (by @dbrattli)
+* [Python] Fix `ResizeArray` compatibility with `Seq`/`Array` functions (by @dbrattli)
+* [Python] Fix `FSharpList` generic type parameter handling for `IEnumerable_1` compatibility (by @dbrattli)
 
 ## 5.0.0-alpha.20 - 2025-12-08
 
