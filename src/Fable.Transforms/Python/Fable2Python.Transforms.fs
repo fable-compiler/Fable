@@ -2775,6 +2775,9 @@ let calculateTypeParams (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOr
         |> Set.union explicitGenerics
         |> Set.union signatureGenerics
         |> Set.union bodyGenerics
+        // Filter out generics that are already defined at class level
+        |> Set.difference
+        <| ctx.ScopedTypeParams
 
     makeFunctionTypeParams com ctx repeatedGenerics
 
@@ -3695,6 +3698,15 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
             // Raise error if classAttributes.Style is ClassStyle.Properties and classAttributes.Init is false
             if classAttributes.Style = ClassStyle.Properties && not classAttributes.Init then
                 failwithf "ClassAttributes.Init must be true when ClassAttributes.Style is ClassStyle.Properties"
+
+            // Add class generic parameters to scoped type params so methods don't redeclare them
+            let classGenericParams =
+                ent.GenericParameters
+                |> List.map (fun p -> p.Name |> Helpers.clean)
+                |> Set.ofList
+
+            let ctx =
+                { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams classGenericParams }
 
             let classMembers =
                 decl.AttachedMembers

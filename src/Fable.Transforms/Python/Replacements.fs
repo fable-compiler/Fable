@@ -47,6 +47,17 @@ let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
 let error com msg =
     Helper.ConstructorCall(makeIdentExpr "Exception", Any, [ msg ])
 
+/// Wraps ResizeArray (Python list) arguments with to_enumerable for Seq module compatibility.
+let wrapResizeArrayToEnumerable com (arg: Expr) =
+    let rec getInnerType expr =
+        match expr with
+        | TypeCast(inner, _) -> getInnerType inner
+        | _ -> expr.Type
+
+    match getInnerType arg with
+    | Array(_, ResizeArray) -> Helper.LibCall(com, "util", "to_enumerable", arg.Type, [ arg ])
+    | _ -> arg
+
 let coreModFor =
     function
     | BclGuid -> "guid"
@@ -1547,6 +1558,9 @@ let formattableString
 
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // printfn "seqModule: %A" i.CompiledName
+
+    // Wrap ResizeArray arguments with to_enumerable for type compatibility
+    let args = args |> List.map (wrapResizeArrayToEnumerable com)
 
     match i.CompiledName, args with
     | "Cast", [ arg ] -> Some arg // Erase
