@@ -980,34 +980,75 @@ let transformBlock (com: IPythonCompiler) ctx ret (expr: Fable.Expr) : Statement
     | [] -> [ Pass ]
     | _ -> block |> transformBody com ctx ret
 
+/// Get the Python expression for an exception type
+let private getExceptionTypeExpr (com: IPythonCompiler) ctx =
+    function
+    | Fable.DeclaredType(entRef, _) -> Annotation.tryPyConstructor com ctx (com.GetEntity(entRef))
+    | _ -> None
+
 let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: option<Fable.Ident * Fable.Expr>, finalizer) =
     // try .. catch statements cannot be tail call optimized
     let ctx = { ctx with TailCallOpportunity = None }
 
-    let handlers =
-        catch
-        |> Option.map (fun (param, body) ->
-            let body = transformBlock com ctx returnStrategy body
-            let exn = Expression.identifier "Exception" |> Some
+    let makeHandler exnType handlerBody identifier =
+        let transformedBody = transformBlock com ctx returnStrategy handlerBody
+        ExceptHandler.exceptHandler (``type`` = Some exnType, name = identifier, body = transformedBody)
+
+    let handlers, handlerStmts =
+        match catch with
+        | None -> None, []
+        | Some(param, catchBody) ->
             let identifier = ident com ctx param
 
-            [ ExceptHandler.exceptHandler (``type`` = exn, name = identifier, body = body) ]
-        )
+            let extractedHandlers, fallback =
+                ExceptionHandling.extractExceptionHandlers catchBody
 
-    let finalizer, stmts =
-        match finalizer with
-        | Some finalizer ->
-            finalizer
-            |> transformBlock com ctx None
+            match extractedHandlers with
+            | [] ->
+                // No type tests found, use BaseException to catch all exceptions including
+                // KeyboardInterrupt, SystemExit, GeneratorExit which don't inherit from Exception
+                let handler =
+                    makeHandler (Expression.identifier "BaseException") catchBody identifier
+
+                Some [ handler ], []
+
+            | _ ->
+                // Generate separate except clauses for each exception type
+                let handlers, stmts =
+                    extractedHandlers
+                    |> List.choose (fun (typ, handlerBody) ->
+                        getExceptionTypeExpr com ctx typ
+                        |> Option.map (fun (exnTypeExpr, stmts) ->
+                            makeHandler exnTypeExpr handlerBody identifier, stmts
+                        )
+                    )
+                    |> List.unzip
+
+                // Add fallback handler if fallback is not just a reraise
+                // Use BaseException to catch all exceptions including KeyboardInterrupt etc.
+                let fallbackHandlers =
+                    match fallback with
+                    | Some fallbackExpr when not (ExceptionHandling.isReraise fallbackExpr) ->
+                        [ makeHandler (Expression.identifier "BaseException") fallbackExpr identifier ]
+                    | _ -> []
+
+                Some(handlers @ fallbackHandlers), List.concat stmts
+
+    let finalizer, finalizerStmts =
+        finalizer
+        |> Option.map (fun fin ->
+            transformBlock com ctx None fin
             |> List.partition (
                 function
                 | Statement.NonLocal _
                 | Statement.Global _ -> false
                 | _ -> true
             )
-        | None -> [], []
+        )
+        |> Option.defaultValue ([], [])
 
-    stmts
+    handlerStmts
+    @ finalizerStmts
     @ [
         Statement.try' (
             transformBlock com ctx returnStrategy body,

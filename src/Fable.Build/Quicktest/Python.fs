@@ -14,6 +14,7 @@ let handle (args: string list) =
     // This ensures quicktest uses the locally built version, not PyPI
     if not (args |> List.contains "--skip-fable-library") then
         BuildFableLibraryPython().Run(false)
+        // Install fable-library in editable mode
         Command.Run("uv", $"pip install -e {fableLibraryBuildDir}")
 
     genericQuicktest
