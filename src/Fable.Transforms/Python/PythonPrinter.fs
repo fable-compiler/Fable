@@ -55,7 +55,7 @@ module PrinterExtensions =
             | Continue -> printer.Print("continue")
 
         member printer.Print(node: Try) =
-            printer.Print("try: ", ?loc = node.Loc)
+            printer.Print("try:", ?loc = node.Loc)
             printer.PrintBlock(node.Body)
 
             for handler in node.Handlers do

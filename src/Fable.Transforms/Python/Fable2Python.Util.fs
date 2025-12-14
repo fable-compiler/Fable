@@ -933,3 +933,82 @@ module Expression =
         |> List.map f
         |> List.unzip
         |> fun (results, stmtLists) -> results, combine stmtLists
+
+/// Utilities for extracting exception handler patterns from F# AST.
+/// F# compiles try-with expressions differently depending on the number of patterns:
+/// - 1-2 patterns: nested IfThenElse with TypeTest
+/// - 3+ patterns: DecisionTree with targets
+module ExceptionHandling =
+
+    /// Check if an expression is a reraise of the caught exception.
+    /// Note: F# may rename the catch variable internally, so we check for any Throw(IdentExpr).
+    let isReraise =
+        function
+        | Fable.Extended(Fable.Throw(Some(Fable.IdentExpr _), _), _) -> true
+        | _ -> false
+
+    /// Extract exception handlers from a catch body that uses type tests.
+    /// Returns: (handlers as (type * body) list, fallbackExpr option)
+    ///
+    /// Handles three patterns:
+    /// - Simple: `| :? ExceptionType -> body`
+    /// - Binding: `| :? ExceptionType as ex -> body`
+    /// - DecisionTree: F# compiles 3+ exception patterns as a decision tree
+    let rec extractExceptionHandlers (expr: Fable.Expr) : (Fable.Type * Fable.Expr) list * Fable.Expr option =
+        match expr with
+        // Binding pattern: | :? ExceptionType as ex -> body (check first as it's more specific)
+        // F# compiles this as: IfThenElse(Test(param, TypeTest), Let(ex, TypeCast(param, typ), body), else)
+        | Fable.IfThenElse(Fable.Test(Fable.IdentExpr _, Fable.TypeTest typ, _),
+                           (Fable.Let(_, Fable.TypeCast(Fable.IdentExpr _, _), _) as thenExpr),
+                           elseExpr,
+                           _) ->
+            let restHandlers, fallback = extractExceptionHandlers elseExpr
+            (typ, thenExpr) :: restHandlers, fallback
+
+        // Simple pattern: | :? ExceptionType -> body
+        | Fable.IfThenElse(Fable.Test(Fable.IdentExpr _, Fable.TypeTest typ, _), thenExpr, elseExpr, _) ->
+            let restHandlers, fallback = extractExceptionHandlers elseExpr
+            (typ, thenExpr) :: restHandlers, fallback
+
+        // DecisionTree pattern: F# compiles 3+ exception patterns as a decision tree
+        | Fable.DecisionTree(decisionExpr, targets) ->
+            // Extract type -> targetIndex mappings from the decision expression
+            let rec extractFromDecision expr =
+                match expr with
+                | Fable.IfThenElse(Fable.Test(Fable.IdentExpr _, Fable.TypeTest typ, _),
+                                   Fable.DecisionTreeSuccess(targetIdx, boundValues, _),
+                                   elseExpr,
+                                   _) -> (typ, targetIdx, boundValues) :: extractFromDecision elseExpr
+                | Fable.DecisionTreeSuccess(targetIdx, boundValues, _) ->
+                    // Wildcard/default case
+                    [ (Fable.Any, targetIdx, boundValues) ]
+                | _ -> []
+
+            let typeToTarget = extractFromDecision decisionExpr
+
+            // Map each type test to its handler body from targets
+            // If there are bound values (from `as ex` pattern), wrap the body in Let bindings
+            let handlers =
+                typeToTarget
+                |> List.choose (fun (typ, targetIdx, boundValues) ->
+                    if targetIdx < List.length targets then
+                        let (idents, body) = targets.[targetIdx]
+                        // Wrap body with Let bindings for each bound value
+                        let wrappedBody =
+                            List.zip idents boundValues
+                            |> List.fold (fun acc (ident, value) -> Fable.Let(ident, value, acc)) body
+
+                        Some(typ, wrappedBody)
+                    else
+                        None
+                )
+
+            // Separate the wildcard (Any) from specific type handlers
+            let specificHandlers = handlers |> List.filter (fun (typ, _) -> typ <> Fable.Any)
+
+            let wildcardHandler =
+                handlers |> List.tryFind (fun (typ, _) -> typ = Fable.Any) |> Option.map snd
+
+            specificHandlers, wildcardHandler
+
+        | _ -> [], Some expr

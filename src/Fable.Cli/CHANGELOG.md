@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Python] Support catching Python `BaseException` subclasses (`KeyboardInterrupt`, `SystemExit`, `GeneratorExit`) for Python interop (by @dbrattli)
+
 ### Changed
 
 * [Python] F# `task { }` expressions now generate Python `async def` functions (by @dbrattli)
+* [Python] Generate idiomatic `except` clauses for typed exception patterns (by @dbrattli)
 
 ### Fixed
 

@@ -1017,6 +1017,55 @@ let ``test Type of try-with expression is correctly determined when exception ha
 
     f () |> equal 7
 
+// Custom exception for testing specific exception type handling
+exception MyCustomException of string
+
+[<Fact>]
+let ``test try-with catches specific exception type`` () =
+    let f () =
+        try
+            raise (MyCustomException "test error")
+            0
+        with
+        | :? MyCustomException as ex ->
+            match ex.Data0 with
+            | "test error" -> 42
+            | _ -> -1
+
+    f () |> equal 42
+
+[<Fact>]
+let ``test try-with catches multiple specific exception types`` () =
+    let f exnType =
+        try
+            match exnType with
+            | 1 -> raise (MyCustomException "custom")
+            | 2 -> raise (ArgumentException "arg")
+            | _ -> failwith "generic"
+            0
+        with
+        | :? MyCustomException -> 1
+        | :? ArgumentException -> 2
+        | _ -> 3
+
+    f 1 |> equal 1
+    f 2 |> equal 2
+    f 3 |> equal 3
+
+[<Fact>]
+let ``test try-with with unmatched exception type reraises`` () =
+    let mutable caught = ""
+    try
+        try
+            raise (ArgumentException "inner")
+        with
+        | :? MyCustomException -> caught <- "custom"
+    with
+    | :? ArgumentException -> caught <- "arg"
+    | _ -> caught <- "other"
+
+    caught |> equal "arg"
+
 [<Fact>]
 let ``test use doesn't return on finally clause`` () = // See #211
     let foo() =
