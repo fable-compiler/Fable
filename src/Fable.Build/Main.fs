@@ -101,6 +101,10 @@ Available commands:
     github-release                  Create a GitHub release based on the CHANGELOG.md
                                     file and the version in the package.json
                                     This will also invoke the publish command
+        Options:
+            --skip-publish          Skip the publish step (dangerous, use with care)
+                                    This is useful when the publish step had an issue and we
+                                    are trying to recover from it.
         """
 
     printfn "%s" helpText

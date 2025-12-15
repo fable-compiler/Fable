@@ -35,7 +35,7 @@ let private createReleaseCommitAndPush (version: LastVersionFinder.Version) =
     let versionText = version.Version.ToString()
 
     Git.addAll ()
-    Git.commit ($"Release {versionText}")
+    Git.commit ($"Release %s{versionText}")
     Git.push ()
 
 let handle (args: string list) =
@@ -50,7 +50,10 @@ let handle (args: string list) =
     // Check if the user is authenticated
     Command.Run("gh", "auth status")
 
-    Publish.handle args
+    let skipPublish = args |> List.contains "--skip-publish"
+
+    if not skipPublish then
+        Publish.handle args
 
     let changelogContent = File.ReadAllText(Changelog.fableCLi)
 

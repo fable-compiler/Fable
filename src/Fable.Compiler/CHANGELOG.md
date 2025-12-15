@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-alpha.20 - 2025-12-15
+
 ### Added
 
 * [Python] Support catching Python `BaseException` subclasses (`KeyboardInterrupt`, `SystemExit`, `GeneratorExit`) for Python interop (by @dbrattli)
