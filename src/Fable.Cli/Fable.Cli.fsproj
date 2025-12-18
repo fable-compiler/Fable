@@ -43,6 +43,10 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Buildalyzer" Version="8.0.0-fable-001" />
+    <!-- Pin Microsoft.Build transitive dependencies to fix CVE-2025-55247 (GHSA-w3q9-fxm7-j8fq) -->
+    <PackageReference Include="Microsoft.Build" Version="17.10.46" />
+    <PackageReference Include="Microsoft.Build.Tasks.Core" Version="17.10.46" />
+    <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.10.46" />
     <PackageReference Include="EasyBuild.PackageReleaseNotes.Tasks" Version="2.0.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
