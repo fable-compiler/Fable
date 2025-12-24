@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [JS/TS] Fix #4305 DateTimeOffset.Now returns wrong time (by @ncave)
 
-## 5.0.0-alpha.20 - 2025-12-15
+## 5.0.0-alpha.21 - 2025-12-15
 
 ### Added
 
@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Python] Fix `ResizeArray` compatibility with `Seq`/`Array` functions (by @dbrattli)
 * [Python] Fix `FSharpList` generic type parameter handling for `IEnumerable_1` compatibility (by @dbrattli)
 
-## 5.0.0-alpha.19 - 2025-12-08
+## 5.0.0-alpha.20 - 2025-12-08
 
 ### Added
 
@@ -50,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Python] `[<Py.Decorate>]` now emits decorator strings verbatim and adds `importFrom` parameter for explicit import control (by @dbrattli)
 
-## 5.0.0-alpha.18 - 2025-12-04
+## 5.0.0-alpha.19 - 2025-12-04
 
 ### Fixed
 
@@ -62,11 +62,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Python] Add new `[<Py.ClassMethod>]` attribute to emit @classmethod instead of @staticmethod (by @dbrattli)
 * [Python] Added support for Pydantic serialization of core numeric and array types (by @dbrattli)
 
-## 5.0.0-alpha.17 - 2025-12-03
+## 5.0.0-alpha.18 - 2025-12-03
 
 ### Fixed
 
-* [Python] Fix regression, record member method naming (by @dbrattli)
+* [Python] Fix record member method naming (by @dbrattli)
 * [Python] Fix regression, named arguments not being converted to snake_case (by @dbrattli)
 * [Python] Fix regression, erased interfaces should not generate code (#4277) (by @dbrattli)
 
@@ -76,16 +76,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [All] Update TargetFramework to net10.0 (by @ncave)
 * [All] Update FCS to latest (commit [cfda5f6](https://github.com/dotnet/fsharp/commits/cfda5f68f781f1b336b7d6c1689d69f2c34da751/)) (by @ncave)
 
-## 5.0.0-alpha.16 - 2025-11-27
+## 5.0.0-alpha.17 - 2025-11-27
+
+### Changed
+
+* [Python] fable-library for Python is now distributed via PyPI instead of being bundled in the NuGet package (by @dbrattli)
+
+## 5.0.0-alpha.16 - 2025-11-25
 
 ### Fixed
 
-* [All] Fix quoted paths resolution by `Util.getExactFullPath` (by @MangelMaxime)
+* [All] Fix `--cwd` with quoted paths (by @MangelMaxime)
+* [All] Fix `--legacyCracker` flag logic (by @MangelMaxime)
+* [All] Fix `BuildalyzerCracker` so it can work on .NET 10 (by @MangelMaxime)
 
 ### Changed
 
 * [All] Invoke MSBuild from Fable current working directory (by @cr3wdayt5p)
-* [Python] fable-library for Python is now distributed via PyPI instead of being bundled in the NuGet package (by @dbrattli)
 
 ## 5.0.0-alpha.15 - 2025-11-19
 
@@ -188,12 +195,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [All] Add support for F# `nullness` (by @MangelMaxime)
 * [JS/TS] Add support for `Unchecked.nonNull` (by @MangelMaxime)
 * [All] Add support for `TreatWarningsAsErrors` (by @MangelMaxime)
-* [JS] Don't generate an import statement for pojos defined in another file (by @shayanhabibi)
+* [All] Print help message on unexpected arguments (by @MangelMaxime)
 
 ### Fixed
 
 * [JS/TS] Make `nullArgCheck` report the same error message as on .NET (by @MangelMaxime)
 * [TS] Sanitize DUs case names when generating constructor function (by @MangelMaxime)
+* [All] Don't print help message on failed compilation (by @MangelMaxime)
+* [JS] Don't generate an import statement for pojos defined in another file (by @shayanhabibi)
 
 ## 5.0.0-alpha.11 - 2025-03-03
 
@@ -219,14 +228,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Python] Fix date formatting when repeating a format token more than the known format (example repeating 'd' more than 4 times) (by @MangelMaxime)
 * [JS/TS] Fix #4010: Supports direct nested types when using `jsOptions` (by @MangelMaxime)
 
-    ```fs
+```fs
     let opts =
         jsOptions<Level1> (fun o ->
             o.level2.level3.valueA <- 10
             o.level2.level3.valueB <- 20
             o.topValueA <- 20
         )
-    ```
+```
 
 * [JS/TS] Fix numeric formats (by @MangelMaxime)
 
@@ -238,7 +247,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-* [Python] - Print root module and module function comments (by @alfonsogarciacaro)
+* [Python] Print root module and module function comments (by @alfonsogarciacaro)
 * [Rust] Add support for module comments (by @ncave)
 * [Rust] Add support for null strings (by @ncave)
 * [TS/JS] `Pojo` attribute support (by @alfonsogarciacaro)
@@ -301,6 +310,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [JS/TS] Fix `DateTimeOffset.ToLocalTime` (by @MangelMaxime)
+* [All] Don't fails silently if an unknown argument is provided, instead log the error and print the help message (by @MangelMaxime)
 
 ## 5.0.0-alpha.4 - 2025-01-03
 
