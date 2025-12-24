@@ -143,7 +143,7 @@ export function create(
 export function now() {
   const date = new Date();
   const offset = date.getTimezoneOffset() * -60_000;
-  return DateTimeOffset(date.getTime() - offset, offset);
+  return DateTimeOffset(date.getTime(), offset);
 }
 
 export function utcNow() {
