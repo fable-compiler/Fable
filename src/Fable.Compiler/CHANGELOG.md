@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Python] Fix library type stubs for parse_int32/64 and from_integer (by @dbrattli)
 * [Python] Fix missing type parameters on generic methods (by @dbrattli)
 * [JS/TS] Fix #4305 DateTimeOffset.Now returns wrong time (by @ncave)
 
