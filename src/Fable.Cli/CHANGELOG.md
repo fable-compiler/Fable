@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Python] Fix missing type parameters on generic methods (by @dbrattli)
+
 ## 5.0.0-alpha.21 - 2025-12-15
 
 ### Added
