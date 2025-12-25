@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Python] Fix missing type parameters on generic methods (by @dbrattli)
 * [JS/TS] Fix #4305 DateTimeOffset.Now returns wrong time (by @ncave)
 
 ## 5.0.0-alpha.20 - 2025-12-15

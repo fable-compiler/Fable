@@ -4650,6 +4650,18 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
 
     m.add_class::<FSharpArray>()?;
     m.add_class::<FSharpCons>()?;
+    m.add_class::<Int8Array>()?;
+    m.add_class::<UInt8Array>()?;
+    m.add_class::<Int16Array>()?;
+    m.add_class::<UInt16Array>()?;
+    m.add_class::<Int32Array>()?;
+    m.add_class::<UInt32Array>()?;
+    m.add_class::<Int64Array>()?;
+    m.add_class::<UInt64Array>()?;
+    m.add_class::<Float32Array>()?;
+    m.add_class::<Float64Array>()?;
+    m.add_class::<BoolArray>()?;
+    m.add_class::<GenericArray>()?;
 
     m.add_function(wrap_pyfunction!(add_in_place, &m)?)?;
     m.add_function(wrap_pyfunction!(add_range_in_place, &m)?)?;

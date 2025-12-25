@@ -49,6 +49,19 @@ let getGenericTypeParams (types: Fable.Type list) =
 let getEntityGenParams (ent: Fable.Entity) =
     ent.GenericParameters |> Seq.map (fun x -> x.Name) |> Set.ofSeq
 
+/// Extract generic parameter names from a member's explicit generic parameters.
+/// Used for abstract interface methods and other cases with explicit type parameters.
+let getMemberGenParams (genParams: Fable.GenericParam list) =
+    genParams |> List.map (fun p -> p.Name) |> Set.ofList
+
+/// Create type parameters from a member's explicit generic parameters.
+/// Returns empty list if member has no generic parameters.
+let makeMemberTypeParams (com: IPythonCompiler) ctx (genParams: Fable.GenericParam list) : TypeParam list =
+    if genParams.Length > 0 then
+        getMemberGenParams genParams |> makeFunctionTypeParams com ctx
+    else
+        []
+
 let makeTypeParams (com: IPythonCompiler) ctx (genParams: Set<string>) : TypeParam list =
     // Python 3.12+ syntax: create TypeParam list for class/function declaration
     genParams
@@ -62,6 +75,22 @@ let makeFunctionTypeParams (com: IPythonCompiler) ctx (repeatedGenerics: Set<str
     |> Set.map (fun genParam -> genParam.ToUpperInvariant() |> Helpers.clean)
     |> Set.toList
     |> List.map (fun genParam -> TypeParam.typeVar (Identifier(genParam)))
+
+/// Calculate type parameters for a method from its Fable argument and return types.
+/// This is used for object expression methods and other cases where we need to derive
+/// type parameters from the method signature.
+let calculateMethodTypeParams
+    (com: IPythonCompiler)
+    ctx
+    (argTypes: Fable.Type list)
+    (returnType: Fable.Type)
+    : TypeParam list
+    =
+    let repeatedGenerics =
+        getRepeatedGenericTypeParams ctx (argTypes @ [ returnType ]) |> Set.difference
+        <| ctx.ScopedTypeParams
+
+    makeFunctionTypeParams com ctx repeatedGenerics
 
 let extractGenericParamsFromMethodSignature
     (com: IPythonCompiler)
