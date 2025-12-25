@@ -33,6 +33,7 @@ ArrayType = Literal[
     "Float32",
     "Float64",
     "String",
+    "Bool",
     "Generic",
 ]
 FSharpRef = types.FSharpRef

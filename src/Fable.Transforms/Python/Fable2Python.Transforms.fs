@@ -499,9 +499,9 @@ let transformObjectExpr
     // A generic class nested in another generic class cannot use same type variables. (PEP-484)
     let ctx = { ctx with TypeParamsScope = ctx.TypeParamsScope + 1 }
 
-    let makeMethod prop hasSpread args body decorators =
+    let makeMethod prop hasSpread (fableArgs: Fable.Ident list) (fableBody: Fable.Expr) decorators =
         let args, body, returnType =
-            getMemberArgsAndBody com ctx (Attached(isStatic = false)) hasSpread args body
+            getMemberArgsAndBody com ctx (Attached(isStatic = false)) hasSpread fableArgs fableBody
 
         let name =
             let name =
@@ -523,19 +523,31 @@ let transformObjectExpr
                 }
             | _ -> { args with Args = self :: args.Args }
 
-        createFunction name args body decorators returnType None
+        // Calculate type parameters for generic object expression methods
+        let argTypes = fableArgs |> List.map _.Type
+
+        let typeParams =
+            Annotation.calculateMethodTypeParams com ctx argTypes fableBody.Type
+
+        createFunctionWithTypeParams name args body decorators returnType None typeParams false
 
     /// Transform a callable property (delegate) into a method statement
-    let transformCallableProperty (memb: Fable.ObjectExprMember) (args: Fable.Ident list) (body: Fable.Expr) =
+    let transformCallableProperty (memb: Fable.ObjectExprMember) (fableArgs: Fable.Ident list) (fableBody: Fable.Expr) =
         // Transform the function directly without treating first arg as 'this'
         let args, body, returnType =
-            Annotation.transformFunctionWithAnnotations com ctx None args body
+            Annotation.transformFunctionWithAnnotations com ctx None fableArgs fableBody
 
         let name = com.GetIdentifier(ctx, Naming.toPythonNaming memb.Name)
         let self = Arg.arg "self"
         let args = { args with Args = self :: args.Args }
 
-        createFunction name args body [] returnType None
+        // Calculate type parameters for generic callable properties
+        let argTypes = fableArgs |> List.map _.Type
+
+        let typeParams =
+            Annotation.calculateMethodTypeParams com ctx argTypes fableBody.Type
+
+        createFunctionWithTypeParams name args body [] returnType None typeParams false
 
     let interfaces, stmts =
         match typ with
@@ -2796,13 +2808,7 @@ let tryParseEmitConstructorMacro (macro: string) =
 
 let calculateTypeParams (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) args returnType bodyType =
     // Calculate type parameters for Python 3.12 syntax
-    let explicitGenerics =
-        if info.GenericParameters.Length > 0 then
-            info.GenericParameters
-            |> List.map (fun p -> p.Name |> Helpers.clean)
-            |> Set.ofList
-        else
-            Set.empty
+    let explicitGenerics = Annotation.getMemberGenParams info.GenericParameters
 
     let signatureGenerics =
         extractGenericParamsFromMethodSignature com ctx args returnType
@@ -3368,7 +3374,17 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
 
                 let body = [ Statement.ellipsis ]
 
-                Statement.functionDef (name, args, body, returns = returnType, decoratorList = decorators)
+                // Calculate type parameters for generic abstract methods
+                let typeParams = Annotation.makeMemberTypeParams com ctx memb.GenericParameters
+
+                Statement.functionDef (
+                    name,
+                    args,
+                    body,
+                    returns = returnType,
+                    decoratorList = decorators,
+                    typeParams = typeParams
+                )
 
             if members.IsEmpty then
                 Statement.Pass

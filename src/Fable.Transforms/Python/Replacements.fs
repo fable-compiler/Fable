@@ -21,18 +21,18 @@ let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
     | ResizeArray, _ -> None
     | _, Number(kind, _) when com.Options.TypedArrays ->
         match kind with
-        | Int8 -> Some "Int8Array"
-        | UInt8 -> Some "Uint8Array"
-        | Int16 -> Some "Int16Array"
-        | UInt16 -> Some "Uint16Array"
-        | Int32 -> Some "Int32Array"
-        | UInt32 -> Some "Uint32Array"
-        | Float32 -> Some "Float32Array"
-        | Float64 -> Some "Float64Array"
+        | Int8 -> Some "Int8ArrayCons"
+        | UInt8 -> Some "UInt8ArrayCons"
+        | Int16 -> Some "Int16ArrayCons"
+        | UInt16 -> Some "UInt16ArrayCons"
+        | Int32 -> Some "Int32ArrayCons"
+        | UInt32 -> Some "UInt32ArrayCons"
+        | Float32 -> Some "Float32ArrayCons"
+        | Float64 -> Some "Float64ArrayCons"
         // Don't use typed array for int64 until we remove our int64 polyfill
         // and use JS BigInt to represent int64
-        //        | Int64 -> Some "BigInt64Array"
-        //        | UInt64 -> Some "BigUint64Array"
+        //        | Int64 -> Some "BigInt64ArrayCons"
+        //        | UInt64 -> Some "BigUint64ArrayCons"
         | Int128
         | UInt128
         | Float16
