@@ -255,14 +255,14 @@ def to_number(value: SupportsFloat | SupportsInt) -> float64:
 
 
 @overload
-def from_integer(value: int, unsigned: Literal[True], kind: int) -> uint64: ...
+def from_integer(value: SupportsInt, unsigned: Literal[True], kind: int) -> uint64: ...
 
 
 @overload
-def from_integer(value: int, unsigned: Literal[False], kind: int) -> int64: ...
+def from_integer(value: SupportsInt, unsigned: Literal[False], kind: int) -> int64: ...
 
 
-def from_integer(value: int, unsigned: bool | None = None, kind: int | None = None) -> int64 | uint64:
+def from_integer(value: SupportsInt, unsigned: bool | None = None, kind: int | None = None) -> int64 | uint64:
     if unsigned:
         return uint64(value)
     else:

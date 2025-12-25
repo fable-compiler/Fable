@@ -194,20 +194,21 @@ def parse_int32(
     string: str,
     style: int,
     unsigned: bool,
+    bitsize: int,
     radix: int = 10,
 ) -> Int32:
     """
     Parses a string representation of a 32-bit integer with F#-compatible semantics.
-    This function matches the behavior of int32.py parse function exactly.
 
     Args:
         string: The string to parse
         style: NumberStyles flags controlling parsing behavior
         unsigned: Whether to treat the result as unsigned (u32)
+        bitsize: The bit width of the target type (8, 16, or 32)
         radix: Default radix to use (defaults to 10)
 
     Returns:
-        The parsed integer value as int
+        The parsed integer value
 
     Raises:
         ValueError: If the string is not in a valid format or value is out of range
@@ -218,20 +219,21 @@ def parse_int64(
     string: str,
     style: int,
     unsigned: bool,
+    bitsize: int,
     radix: int = 10,
 ) -> Int64:
     """
     Parses a string representation of a 64-bit integer with F#-compatible semantics.
-    This function matches the behavior of long.py parse function exactly.
 
     Args:
         string: The string to parse
         style: NumberStyles flags controlling parsing behavior
         unsigned: Whether to treat the result as unsigned (u64)
+        bitsize: The bit width (64)
         radix: Default radix to use (defaults to 10)
 
     Returns:
-        The parsed integer value as int
+        The parsed integer value
 
     Raises:
         ValueError: If the string is not in a valid format or value is out of range
@@ -242,8 +244,8 @@ def try_parse_int32(
     string: str,
     style: int,
     unsigned: bool,
+    bitsize: int,
     def_value: Any,
-    radix: int = 10,
 ) -> bool:
     """
     Attempts to parse a 32-bit integer with F#-style try semantics.
@@ -252,8 +254,8 @@ def try_parse_int32(
         string: The string to parse
         style: NumberStyles flags controlling parsing behavior
         unsigned: Whether to treat the result as unsigned (u32)
+        bitsize: The bit width of the target type (8, 16, or 32)
         def_value: Python object reference to store the result on success
-        radix: Default radix to use (defaults to 10)
 
     Returns:
         True if parsing succeeded, False otherwise
@@ -264,8 +266,8 @@ def try_parse_int64(
     string: str,
     style: int,
     unsigned: bool,
+    bitsize: int,
     def_value: Any,
-    radix: int = 10,
 ) -> bool:
     """
     Attempts to parse a 64-bit integer with F#-style try semantics.
@@ -274,8 +276,8 @@ def try_parse_int64(
         string: The string to parse
         style: NumberStyles flags controlling parsing behavior
         unsigned: Whether to treat the result as unsigned (u64)
+        bitsize: The bit width (64)
         def_value: Python object reference to store the result on success
-        radix: Default radix to use (defaults to 10)
 
     Returns:
         True if parsing succeeded, False otherwise
