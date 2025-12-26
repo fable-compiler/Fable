@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 2.0.0-beta.6 - 2025-12-26
+
+### Fixed
+
+* [JS/TS] Fix #4305 `DateTimeOffset.Now` returns wrong time (by @ncave)
+
 ## 2.0.0-beta.5 - 2025-11-19
 
 ### Changed

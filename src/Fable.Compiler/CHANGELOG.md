@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-alpha.21 - 2025-12-26
+
 ### Fixed
 
 * [Python] Use Fable AST for type parameter extraction instead of Python AST heuristics (by @dbrattli)
