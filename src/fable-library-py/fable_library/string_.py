@@ -23,7 +23,6 @@ initialize = strings.initialize
 insert = strings.insert
 is_null_or_empty = strings.is_null_or_empty
 is_null_or_white_space = strings.is_null_or_white_space
-concat = strings.concat
 join = strings.join
 pad_left = strings.pad_left
 pad_right = strings.pad_right
@@ -44,6 +43,11 @@ ends_with = strings.ends_with
 index_of = strings.index_of
 last_index_of = strings.last_index_of
 interpolate = strings.interpolate
+
+
+def concat(*strings: str) -> str:
+    """Concatenate strings using native Python join for performance."""
+    return "".join(strings)
 
 
 # Additional helper functions that might be needed for backward compatibility
@@ -76,7 +80,7 @@ def from_base64string(b64encoded: str) -> Array[int]:
     return Array[int](b64decode(b64encoded))
 
 
-def join_with_indices(delimiter: str, xs: list[str], startIndex: int, count: int) -> str:
+def join_with_indices(delimiter: str, xs: Array[str], startIndex: int, count: int) -> str:
     """Join strings with start index and count."""
     endIndexPlusOne = startIndex + count
     if endIndexPlusOne > len(xs):
@@ -107,8 +111,8 @@ def starts_with_exact(string: str, pattern: str) -> bool:
     return idx == 0
 
 
-def index_of_any(string: str, any_of: list[str], *args: int) -> int:
-    """Find index of any character from the list."""
+def index_of_any(string: str, any_of: Array[str], *args: int) -> int:
+    """Find index of any character from the array."""
     if not string:
         return -1
 

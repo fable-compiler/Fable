@@ -2806,22 +2806,25 @@ let tryParseEmitConstructorMacro (macro: string) =
     else
         None
 
-let calculateTypeParams (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) args returnType bodyType =
+let calculateTypeParams
+    (com: IPythonCompiler)
+    ctx
+    (info: Fable.MemberFunctionOrValue)
+    (argTypes: Fable.Type list)
+    (bodyType: Fable.Type)
+    =
     // Calculate type parameters for Python 3.12 syntax
+    // Use Fable AST types directly instead of Python AST heuristics
     let explicitGenerics = Annotation.getMemberGenParams info.GenericParameters
 
     let signatureGenerics =
-        extractGenericParamsFromMethodSignature com ctx args returnType
-
-    let bodyGenerics =
-        // For getters/setters, also extract generics from the method body/return type
-        getGenericTypeParams [ bodyType ] |> Set.difference <| ctx.ScopedTypeParams
+        (getGenericTypeParams (argTypes @ [ bodyType ]), ctx.ScopedTypeParams)
+        ||> Set.difference
 
     let repeatedGenerics =
         Set.empty
         |> Set.union explicitGenerics
         |> Set.union signatureGenerics
-        |> Set.union bodyGenerics
         // Filter out generics that are already defined at class level
         |> Set.difference
         <| ctx.ScopedTypeParams
@@ -2833,13 +2836,14 @@ let transformModuleFunction
     ctx
     (info: Fable.MemberFunctionOrValue)
     (membName: string)
-    args
+    (fableArgs: Fable.Ident list)
     body
     =
     let args, body', returnType =
-        getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread args body
+        getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread fableArgs body
 
-    let typeParams = calculateTypeParams com ctx info args returnType body.Type
+    let argTypes = fableArgs |> List.map _.Type
+    let typeParams = calculateTypeParams com ctx info argTypes body.Type
     let name = com.GetIdentifier(ctx, membName |> Naming.toPythonNaming)
 
     let isAsync = isTaskType body.Type
@@ -2954,8 +2958,8 @@ let transformAttachedProperty
             let self = Arg.arg "self"
             let arguments = { args with Args = self :: args.Args }
 
-            let typeParams =
-                calculateTypeParams com ctx info arguments returnType memb.Body.Type
+            let argTypes = memb.Args |> List.map _.Type
+            let typeParams = calculateTypeParams com ctx info argTypes memb.Body.Type
 
             let isAsync = isTaskType memb.Body.Type
 
@@ -2988,10 +2992,11 @@ let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFuncti
           else
               []
 
+    let argTypes = memb.Args |> List.map _.Type
+    let typeParams = calculateTypeParams com ctx info argTypes memb.Body.Type
+
     let makeMethod name args body decorators returnType =
         let key = memberFromName com ctx name |> nameFromKey com ctx
-
-        let typeParams = calculateTypeParams com ctx info args returnType memb.Body.Type
         let isAsync = isTaskType memb.Body.Type
 
         createFunctionWithTypeParams key args body decorators returnType None typeParams isAsync

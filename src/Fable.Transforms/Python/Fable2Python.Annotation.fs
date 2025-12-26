@@ -92,39 +92,6 @@ let calculateMethodTypeParams
 
     makeFunctionTypeParams com ctx repeatedGenerics
 
-let extractGenericParamsFromMethodSignature
-    (com: IPythonCompiler)
-    ctx
-    (args: Arguments)
-    (returnType: Expression)
-    : Set<string>
-    =
-    // Extract generic type parameters from method signature by looking for single uppercase letter type names
-    let rec extractFromExpression (expr: Expression) : Set<string> =
-        match expr with
-        | Expression.Name { Id = Identifier name } when name.Length = 1 && System.Char.IsUpper(name.[0]) ->
-            Set.singleton name
-        | Expression.Subscript {
-                                   Value = value
-                                   Slice = slice
-                               } -> Set.union (extractFromExpression value) (extractFromExpression slice)
-        | Expression.Tuple { Elements = elements } -> elements |> List.map extractFromExpression |> Set.unionMany
-        | Expression.BinOp {
-                               Left = left
-                               Right = right
-                           } -> Set.union (extractFromExpression left) (extractFromExpression right)
-        | _ -> Set.empty
-
-    let argTypes =
-        args.Args
-        |> List.choose (fun arg -> arg.Annotation)
-        |> List.map extractFromExpression
-        |> Set.unionMany
-
-    let returnTypes = extractFromExpression returnType
-
-    Set.union argTypes returnTypes
-
 let private libReflectionCall (com: IPythonCompiler) ctx r memberName args =
     libCall com ctx r "reflection" (memberName + "_type") args
 
@@ -407,6 +374,8 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
     | Types.mailboxProcessor, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
         fableModuleAnnotation com ctx "mailbox_processor" "MailboxProcessor" resolved, stmts
+    // IFormatProvider is not used in Python, just map to Any
+    | "System.IFormatProvider", _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
     | "Fable.Core.Py.Callable", _ ->
         let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
         let genArgs = [ Expression.ellipsis; any ]

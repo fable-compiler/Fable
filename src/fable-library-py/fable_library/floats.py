@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from fable_library.core import Float32, Float64
-from fable_library.core.float import (
+from fable_library.core.floats import (
+    Float32,
+    Float64,
     acos,
     asin,
     atan,
