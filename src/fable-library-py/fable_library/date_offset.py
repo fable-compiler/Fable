@@ -101,7 +101,7 @@ def timedelta_total_microseconds(td: timedelta) -> int:
 
 
 def parse(string: str, detectUTC: bool = False) -> DateTimeOffset:
-    from dateutil import parser
+    from dateutil import parser  # Imported here to avoid top-level dependency if not used
 
     parsed_dt = parser.parse(string)
 

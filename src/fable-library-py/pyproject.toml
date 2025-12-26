@@ -8,7 +8,9 @@ authors = [
 requires-python = ">= 3.10, < 4.0"
 readme = "README.md"
 license = "MIT License"
-dependencies = []
+dependencies = [
+    "python-dateutil>=2.9.0,<3"
+]
 
 [project.urls]
 Homepage = "https://fable.io"
@@ -21,6 +23,7 @@ dev = [
     "pytest-benchmark>=5.1.0,<6",
     "pyright>=1.1.401,<2",
     "pydantic>=2.12.5",
+    "python-dateutil>=2.9.0,<3",
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -39,6 +42,18 @@ features = ["pyo3/extension-module"]
 
 [tool.pyright]
 reportPrivateUsage = false
+
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.terminal]
+output-format = "concise"
+
+[tool.ty.rules]
+# Liskov Substitution Principle violations - common in our code design
+invalid-method-override = "warn"
+# Generic class issues with nested scopes - hard to fix in generated code
+invalid-generic-class = "warn"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
