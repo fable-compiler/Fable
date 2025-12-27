@@ -10,6 +10,7 @@ from typing import (
     Literal,
 )
 
+from .array_ import Array
 from .async_builder import (
     Async,
     CancellationToken,
@@ -100,26 +101,34 @@ def ignore(computation: Async[Any]) -> Async[None]:
     return protected_bind(computation, binder)
 
 
-def parallel[T](computations: Iterable[Async[T]]) -> Async[list[T]]:
-    def delayed() -> Async[list[T]]:
+def parallel[T](computations: Iterable[Async[T]]) -> Async[Array[T]]:
+    def delayed() -> Async[Array[T]]:
         tasks: Iterable[Future[T]] = map(start_as_task, computations)  # type: ignore
         all: Future[list[T]] = asyncio.gather(*tasks)
-        return await_task(all)
+
+        def to_array(results: list[T]) -> Async[Array[T]]:
+            return protected_return(Array[T](results))
+
+        return protected_bind(await_task(all), to_array)
 
     return delay(delayed)
 
 
-def parallel2[T, U](a: Async[T], b: Async[U]) -> Async[list[T | U]]:
-    def delayed() -> Async[list[T | U]]:
+def parallel2[T, U](a: Async[T], b: Async[U]) -> Async[Array[T | U]]:
+    def delayed() -> Async[Array[T | U]]:
         tasks: Iterable[Future[T | U]] = map(start_as_task, [a, b])  # type: ignore
         all: Future[list[T | U]] = asyncio.gather(*tasks)
-        return await_task(all)
+
+        def to_array(results: list[T | U]) -> Async[Array[T | U]]:
+            return protected_return(Array[T | U](results))
+
+        return protected_bind(await_task(all), to_array)
 
     return delay(delayed)
 
 
-def sequential[T](computations: Iterable[Async[T]]) -> Async[list[T]]:
-    def delayed() -> Async[list[T]]:
+def sequential[T](computations: Iterable[Async[T]]) -> Async[Array[T]]:
+    def delayed() -> Async[Array[T]]:
         results: list[T] = []
 
         def _arrow20(_arg: Async[T]) -> Async[None]:
@@ -132,8 +141,8 @@ def sequential[T](computations: Iterable[Async[T]]) -> Async[list[T]]:
 
             return singleton.Bind(cmp, _arrow19)
 
-        def _arrow21(__unit: Literal[None] = None) -> Async[list[T]]:
-            return singleton.Return(results)
+        def _arrow21(__unit: Literal[None] = None) -> Async[Array[T]]:
+            return singleton.Return(Array[T](results))
 
         return singleton.Combine(singleton.For(computations, _arrow20), singleton.Delay(_arrow21))
 
@@ -241,11 +250,15 @@ def start_with_continuations[T](
     run_in_loop(runner)
 
 
-def start_as_task[T](computation: Async[T], cancellation_token: CancellationToken | None = None) -> Awaitable[T]:
+def start_as_task[T](
+    computation: Async[T],
+    task_creation_options: Any = None,
+    cancellation_token: CancellationToken | None = None,
+) -> Awaitable[T]:
     """Executes a computation in the thread pool.
 
     If no cancellation token is provided then the default cancellation
-    token is used.
+    token is used. The task_creation_options parameter is ignored (for .NET compatibility).
     """
     tcs: TaskCompletionSource[T] = TaskCompletionSource()
 
@@ -288,10 +301,10 @@ def throw_after(milliseconds_due_time: int | TimeSpan) -> Async[None]:
 def start_child[T](computation: Async[T], ms: int | TimeSpan | None = None) -> Async[Async[T]]:
     if ms is not None:
 
-        def binder[U](results: list[T]) -> Async[T]:
-            # TODO: the type error is correct and the implementation looks suspicious
-            # since we use parallel2 which will wait for both computations to finish
-            return protected_return(results[0])
+        def binder(results: Array[T | None]) -> Async[T]:
+            # TODO: the implementation looks suspicious since we use parallel2
+            # which will wait for both computations to finish
+            return protected_return(results[0])  # type: ignore
 
         computation_with_timeout: Async[T] = protected_bind(parallel2(computation, throw_after(ms)), binder)
 

@@ -42,6 +42,16 @@ module Util =
         || hasAttribute Atts.emitIndexer atts
         || hasAttribute Atts.emitProperty atts
 
+    /// Wraps None values in cast(type, None) for type safety.
+    /// Skips if type annotation is also None (unit type).
+    let wrapNoneInCast (com: IPythonCompiler) ctx (value: Expression) (typeAnnotation: Expression) : Expression =
+        match value, typeAnnotation with
+        | Expression.Name { Id = Identifier "None" }, Expression.Name { Id = Identifier "None" } -> value // No cast needed for None: None = None
+        | Expression.Name { Id = Identifier "None" }, _ ->
+            let cast = com.GetImportExpr(ctx, "typing", "cast")
+            Expression.call (cast, [ typeAnnotation; value ])
+        | _ -> value
+
     let parseClassStyle (styleStr: int) =
         match styleStr with
         | 0 -> ClassStyle.Properties
@@ -363,7 +373,7 @@ module Util =
 
     let ofInt (com: IPythonCompiler) (ctx: Context) (i: int) =
         //Expression.intConstant (int i)
-        libCall com ctx None "util" "int32" [ Expression.intConstant (int i) ]
+        libCall com ctx None "types" "int32" [ Expression.intConstant (int i) ]
 
     let ofString (s: string) = Expression.stringConstant s
 

@@ -17,12 +17,13 @@ open Fable.Transforms.Python.Reflection
 open Lib
 open Util
 
-
 /// Immediately Invoked Function Expression
 let iife (com: IPythonCompiler) ctx (expr: Fable.Expr) =
-    let afe, stmts =
+    let args, body, returnType, typeParams =
         Annotation.transformFunctionWithAnnotations com ctx None [] expr
-        |||> makeArrowFunctionExpression com ctx None (Some expr.Type)
+
+    let afe, stmts =
+        makeArrowFunctionExpression com ctx None (Some expr.Type) args body returnType typeParams
 
     Expression.call (afe, []), stmts
 
@@ -59,7 +60,7 @@ let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.
     let ctx =
         { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams genTypeParams }
 
-    let args, body, returnType =
+    let args, body, returnType, _typeParams =
         Annotation.transformFunctionWithAnnotations com ctx funcName args body
 
     let args =
@@ -102,6 +103,7 @@ let makeArrowFunctionExpression
     (args: Arguments)
     (body: Statement list)
     returnType
+    (typeParams: TypeParam list)
     : Expression * Statement list
     =
     let isAsync =
@@ -162,9 +164,9 @@ let makeArrowFunctionExpression
 
         let func =
             if isAsync then
-                createAsyncFunction ident args body [] returnType None
+                createFunctionWithTypeParams ident args body [] returnType None typeParams true
             else
-                createFunction ident args body [] returnType None
+                createFunctionWithTypeParams ident args body [] returnType None typeParams false
 
         Expression.name ident, [ func ]
 
@@ -536,18 +538,12 @@ let transformObjectExpr
     /// Transform a callable property (delegate) into a method statement
     let transformCallableProperty (memb: Fable.ObjectExprMember) (fableArgs: Fable.Ident list) (fableBody: Fable.Expr) =
         // Transform the function directly without treating first arg as 'this'
-        let args, body, returnType =
+        let args, body, returnType, typeParams =
             Annotation.transformFunctionWithAnnotations com ctx None fableArgs fableBody
 
         let name = com.GetIdentifier(ctx, Naming.toPythonNaming memb.Name)
         let self = Arg.arg "self"
         let args = { args with Args = self :: args.Args }
-
-        // Calculate type parameters for generic callable properties
-        let argTypes = fableArgs |> List.map _.Type
-
-        let typeParams =
-            Annotation.calculateMethodTypeParams com ctx argTypes fableBody.Type
 
         createFunctionWithTypeParams name args body [] returnType None typeParams false
 
@@ -1072,6 +1068,15 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: option<F
         )
     ]
 
+/// Helper function to extract generic arguments from a type
+let rec private getGenericArgs (typ: Fable.Type) : Fable.Type list =
+    match typ with
+    | Fable.DeclaredType(_, genArgs) -> genArgs
+    | Fable.Array(elementType, _) -> [ elementType ]
+    | Fable.List elementType -> [ elementType ]
+    | Fable.Option(elementType, _) -> [ elementType ]
+    | _ -> []
+
 /// Helper function to generate a cast statement for type narrowing
 let makeCastStatement (com: IPythonCompiler) ctx (ident: Fable.Ident) (typ: Fable.Type) =
     // Only add cast for generic types where type checker needs help
@@ -1082,7 +1087,17 @@ let makeCastStatement (com: IPythonCompiler) ctx (ident: Fable.Ident) (typ: Fabl
         | Fable.List _ -> true
         | _ -> false
 
-    if hasGenerics then
+    // Check if the original type already has the same generic arguments
+    // If so, Pyright can infer the narrowed type and the cast is unnecessary
+    let originalGenArgs = getGenericArgs ident.Type
+    let targetGenArgs = getGenericArgs typ
+
+    let sameGenericArgs =
+        not (List.isEmpty originalGenArgs)
+        && not (List.isEmpty targetGenArgs)
+        && originalGenArgs = targetGenArgs
+
+    if hasGenerics && not sameGenericArgs then
         let cast = com.GetImportExpr(ctx, "typing", "cast")
         let varExpr = identAsExpr com ctx ident
         let typeAnnotation, importStmts = Annotation.typeAnnotation com ctx None typ
@@ -1263,8 +1278,10 @@ let transformBindingExprBody (com: IPythonCompiler) (ctx: Context) (var: Fable.I
     | Function(args, body) ->
         let name = Some var.Name
 
-        Annotation.transformFunctionWithAnnotations com ctx name args body
-        |||> makeArrowFunctionExpression com ctx name (Some body.Type)
+        let args', body', returnType, typeParams =
+            Annotation.transformFunctionWithAnnotations com ctx name args body
+
+        makeArrowFunctionExpression com ctx name (Some body.Type) args' body' returnType typeParams
     | _ ->
         let expr, stmt = com.TransformAsExpr(ctx, value)
         expr |> wrapIntExpression value.Type, stmt
@@ -1292,7 +1309,8 @@ let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (
         let value, stmts = transformBindingExprBody com ctx var value
         let varName = com.GetIdentifierAsExpr(ctx, Naming.toPythonNaming var.Name)
         let ta, stmts' = Annotation.typeAnnotation com ctx None var.Type
-        let decl = varDeclaration ctx varName (Some ta) value
+        let value' = wrapNoneInCast com ctx value ta
+        let decl = varDeclaration ctx varName (Some ta) value'
         stmts @ stmts' @ decl
 
 let transformTest (com: IPythonCompiler) ctx range kind expr : Expression * Statement list =
@@ -1793,12 +1811,16 @@ let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expressi
     | Fable.Test(expr, kind, range) -> transformTest com ctx range kind expr
 
     | Fable.Lambda(arg, body, name) ->
-        Annotation.transformFunctionWithAnnotations com ctx name [ arg ] body
-        |||> makeArrowFunctionExpression com ctx name (Some body.Type)
+        let args', body', returnType, typeParams =
+            Annotation.transformFunctionWithAnnotations com ctx name [ arg ] body
+
+        makeArrowFunctionExpression com ctx name (Some body.Type) args' body' returnType typeParams
 
     | Fable.Delegate(args, body, name, _) ->
-        Annotation.transformFunctionWithAnnotations com ctx name args body
-        |||> makeArrowFunctionExpression com ctx name (Some body.Type)
+        let args', body', returnType, typeParams =
+            Annotation.transformFunctionWithAnnotations com ctx name args body
+
+        makeArrowFunctionExpression com ctx name (Some body.Type) args' body' returnType typeParams
 
     | Fable.ObjectExpr([], typ, None) ->
         // Check if the type is an interface
@@ -2024,16 +2046,20 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
         stmts @ (expr |> resolveExpr ctx Fable.Boolean returnStrategy)
 
     | Fable.Lambda(arg, body, name) ->
-        let expr', stmts =
+        let args', body', returnType, typeParams =
             transformFunctionWithAnnotations com ctx name [ arg ] body
-            |||> makeArrowFunctionExpression com ctx name (Some body.Type)
+
+        let expr', stmts =
+            makeArrowFunctionExpression com ctx name (Some body.Type) args' body' returnType typeParams
 
         stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
     | Fable.Delegate(args, body, name, _) ->
-        let expr', stmts =
+        let args', body', returnType, typeParams =
             transformFunctionWithAnnotations com ctx name args body
-            |||> makeArrowFunctionExpression com ctx name (Some body.Type)
+
+        let expr', stmts =
+            makeArrowFunctionExpression com ctx name (Some body.Type) args' body' returnType typeParams
 
         stmts @ (expr' |> resolveExpr ctx expr.Type returnStrategy)
 
@@ -2100,20 +2126,30 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
                                    Value = value
                                    Loc = _
                                }) ->
-            let nonLocals, ta =
+            let nonLocals, ta, taForCast =
                 match target with
                 | Expression.Name { Id = id } ->
                     let nonLocals = [ ctx.BoundVars.NonLocals([ id ]) |> Statement.nonLocal ]
 
-                    nonLocals, None
+                    nonLocals, None, None
                 | Expression.Attribute { Value = Expression.Name { Id = Identifier "self" } } ->
                     let ta, stmts = Annotation.typeAnnotation com ctx None typ
-                    stmts, Some ta
-                | _ -> [], None
+                    stmts, Some ta, Some ta
+                | Expression.Attribute _ ->
+                    // For non-self attribute assignments, we still need the type for casting None
+                    let ta, stmts = Annotation.typeAnnotation com ctx None typ
+                    stmts, None, Some ta
+                | _ -> [], None, None
 
             let assignment =
-                match ta with
-                | Some ta -> [ Statement.assign (target, ta, value) ]
+                match ta, taForCast with
+                | Some ta, _ ->
+                    let value' = wrapNoneInCast com ctx value ta
+                    [ Statement.assign (target, ta, value') ]
+                | None, Some ta ->
+                    // No type annotation on assignment, but still wrap None in cast
+                    let value' = wrapNoneInCast com ctx value ta
+                    [ Statement.assign ([ target ], value') ]
                 | _ -> [ Statement.assign ([ target ], value) ]
 
             nonLocals @ stmts @ assignment

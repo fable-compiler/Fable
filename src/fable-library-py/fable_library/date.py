@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime, timedelta
 from math import fmod
-from typing import Any
+from typing import Any, overload
 
 from .singleton_local_time_zone import local_time_zone
 from .time_span import TimeSpan, total_microseconds
@@ -50,6 +50,12 @@ long_months = [
 ]
 
 
+@overload
+def subtract(x: datetime, y: datetime) -> TimeSpan: ...
+@overload
+def subtract(x: datetime, y: TimeSpan) -> datetime: ...
+
+
 def subtract(x: datetime, y: datetime | TimeSpan) -> datetime | TimeSpan:
     if isinstance(y, datetime):
         delta = x - y
@@ -59,6 +65,12 @@ def subtract(x: datetime, y: datetime | TimeSpan) -> datetime | TimeSpan:
         return create_time_span(float64(0), float64(0), float64(0), float64(0), float64(0), float64(delta_microseconds))
 
     return x - timedelta(microseconds=float(total_microseconds(y)))
+
+
+@overload
+def op_subtraction(x: datetime, y: datetime) -> TimeSpan: ...
+@overload
+def op_subtraction(x: datetime, y: TimeSpan) -> datetime: ...
 
 
 def op_subtraction(x: datetime, y: datetime | TimeSpan) -> datetime | TimeSpan:
