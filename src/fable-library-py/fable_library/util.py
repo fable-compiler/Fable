@@ -357,7 +357,7 @@ def compare_dicts(x: dict[str, Any], y: dict[str, Any]) -> int:
 
 
 @returns(int32)
-def compare_arrays(xs: list[Any] | None, ys: list[Any] | None) -> int:
+def compare_arrays(xs: Sequence[Any] | None, ys: Sequence[Any] | None) -> int:
     if xs is None:
         return 0 if ys is None else 1
 

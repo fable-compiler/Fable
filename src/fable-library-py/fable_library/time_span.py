@@ -15,12 +15,12 @@ class TimeSpan(int):
 
 
 def create(
-    days: float64 = float64(0),
-    hours: float64 | None = None,
-    minutes: float64 | None = None,
-    seconds: float64 | None = None,
-    milliseconds: float64 | None = None,
-    microseconds: float64 | None = None,
+    days: float64 | int32 = float64(0),
+    hours: float64 | int32 | None = None,
+    minutes: float64 | int32 | None = None,
+    seconds: float64 | int32 | None = None,
+    milliseconds: float64 | int32 | None = None,
+    microseconds: float64 | int32 | None = None,
 ) -> TimeSpan:
     match (days, hours, minutes, seconds, milliseconds, microseconds):
         # ticks constructor

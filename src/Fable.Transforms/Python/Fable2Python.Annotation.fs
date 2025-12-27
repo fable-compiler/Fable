@@ -469,6 +469,11 @@ let transformFunctionWithAnnotations (com: IPythonCompiler) ctx name (args: Fabl
 
     let returnType, stmts = typeAnnotation com ctx (Some repeatedGenerics) body.Type
 
+    // Calculate type parameters for generic functions (excluding already scoped params)
+    let typeParams =
+        Set.difference repeatedGenerics ctx.ScopedTypeParams
+        |> makeFunctionTypeParams com ctx
+
     // Return type stays as T (not T | None) since we use Unit as default value
     // which preserves generic constraints: def foo[T](x: T = Unit) -> T
-    args', stmts @ body', returnType
+    args', stmts @ body', returnType, typeParams
