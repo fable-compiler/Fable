@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Python] Use Array type for `argsFunc` instead of tuple (by @dbrattli)
+
 ## 5.0.0-beta.4 - 2025-12-08
 
 ### Added
