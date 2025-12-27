@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Python] Fix type annotations for tuple indexing, generic defaults, and reflection (by @dbrattli)
+
 ## 5.0.0-alpha.22 - 2025-12-26
 
 ### Fixed

@@ -575,6 +575,7 @@ module Util =
         | Fable.String
         | Fable.Char -> Expression.stringConstant ""
         | Fable.DeclaredType(ent, _) -> Expression.none
+        | Fable.GenericParam _ -> libValue com ctx "util" "UNIT"
         | _ -> Expression.none
 
     /// Extract initialization value from constructor body by looking for backing field assignments
@@ -638,7 +639,7 @@ module Util =
             | [ _unit ], None when isOptional ->
                 { args with
                     Args = self :: args.Args
-                    Defaults = [ Expression.none ]
+                    Defaults = [ libValue com ctx "util" "UNIT" ]
                 }
             | _ -> { args with Args = self :: args.Args }
 

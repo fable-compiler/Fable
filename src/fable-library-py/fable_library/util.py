@@ -32,6 +32,12 @@ from .array_ import Array
 from .core import float64, int32
 
 
+# Unit type for F# unit-typed parameters. Using Any allows it to be a valid
+# default value for any generic type T, preserving generic constraints in
+# signatures like `def foo[T](x: T = UNIT) -> T` instead of `x: T | None = None`
+UNIT: Any = None
+
+
 class SupportsLessThan(Protocol):
     @abstractmethod
     def __lt__(self, __other: Any) -> bool:
@@ -169,21 +175,21 @@ class IComparer_1[T_in](Protocol):
 
 class IEqualityComparer(Protocol):
     @abstractmethod
-    def Equals(self, x: Any = None, y: Any = None, /) -> bool:
+    def Equals(self, *, x: Any = None, y: Any = None) -> bool:
         raise NotImplementedError
 
     @abstractmethod
-    def GetHashCode(self, /, x: Any = None) -> int32:
+    def GetHashCode(self, *, x: Any = None) -> int32:
         raise NotImplementedError
 
 
 class IEqualityComparer_1[T_in](Protocol):
     @abstractmethod
-    def Equals(self, /, x: T_in, y: T_in) -> bool:
+    def Equals(self, *, x: T_in, y: T_in) -> bool:
         raise NotImplementedError
 
     @abstractmethod
-    def GetHashCode(self) -> int32:
+    def GetHashCode(self, *, x: T_in | None = None) -> int32:
         raise NotImplementedError
 
 
@@ -204,16 +210,87 @@ class IStructuralComparable(Protocol):
 
 
 class ISet[T](Protocol):
-    """Protocol for set-like objects that support add/has operations."""
+    """Protocol for set-like objects (matches JS Set interface)."""
+
+    @property
+    @abstractmethod
+    def size(self) -> int:
+        """Return the number of elements in the set."""
+        raise NotImplementedError
 
     @abstractmethod
-    def add(self, value: T) -> Any:
+    def add(self, value: T) -> ISet[T]:
         """Add a value to the set."""
         raise NotImplementedError
 
     @abstractmethod
-    def __contains__(self, value: T) -> bool:
+    def clear(self) -> None:
+        """Remove all elements from the set."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete(self, value: T) -> bool:
+        """Remove a value from the set. Returns True if value was present."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def has(self, value: T) -> bool:
         """Check if value is in the set."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def __contains__(self, value: T) -> bool:
+        """Check if value is in the set (Python protocol)."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def values(self) -> IEnumerable_1[T]:
+        """Return an enumerable of values."""
+        raise NotImplementedError
+
+
+class IMap[K, V](Protocol):
+    """Protocol for map-like objects (matches JS Map interface)."""
+
+    @property
+    @abstractmethod
+    def size(self) -> int:
+        """Return the number of key-value pairs in the map."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def clear(self) -> None:
+        """Remove all key-value pairs from the map."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete(self, key: K) -> bool:
+        """Remove a key-value pair. Returns True if key was present."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get(self, key: K) -> V | None:
+        """Get the value for a key, or None if not present."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def has(self, key: K) -> bool:
+        """Check if key is in the map."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def set(self, key: K, value: V) -> IMap[K, V]:
+        """Set a key-value pair."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def keys(self) -> IEnumerable_1[K]:
+        """Return an enumerable of keys."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def values(self) -> IEnumerable_1[V]:
+        """Return an enumerable of values."""
         raise NotImplementedError
 
 
@@ -518,7 +595,7 @@ class IEnumerable(Iterable[Any], Protocol):
     __slots__ = ()
 
     @abstractmethod
-    def GetEnumerator(self) -> IEnumerator[Any]: ...
+    def GetEnumerator(self, __unit=UNIT) -> IEnumerator[Any]: ...
 
     def __iter__(self) -> Iterator[Any]:
         return self.GetEnumerator()
@@ -528,7 +605,7 @@ class IEnumerable_1[T](Iterable[T], Protocol):
     __slots__ = ()
 
     @abstractmethod
-    def GetEnumerator(self) -> IEnumerator[T]: ...
+    def GetEnumerator(self, __unit=UNIT) -> IEnumerator[T]: ...
 
     def __iter__(self) -> Iterator[T]:
         return self.GetEnumerator()
@@ -581,7 +658,7 @@ class Enumerable[T](IEnumerable_1[T]):
     def __init__(self, xs: Iterable[T]) -> None:
         self.xs = xs
 
-    def GetEnumerator(self) -> IEnumerator[T]:
+    def GetEnumerator(self, __unit=UNIT) -> IEnumerator[T]:
         return Enumerator(iter(self.xs))
 
     def __iter__(self) -> Iterator[T]:
@@ -2825,7 +2902,7 @@ def range(start: int, stop: int, step: int = 1) -> Iterable[int32]:
         # For negative step, we want to include the stop value
         adjusted_stop = stop - 1
 
-    return map(lambda x: int32(x), builtins.range(start, adjusted_stop, step))
+    return (int32(x) for x in builtins.range(start, adjusted_stop, step))
 
 
 __all__ = [

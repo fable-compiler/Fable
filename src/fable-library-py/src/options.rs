@@ -85,6 +85,86 @@ impl SomeWrapper {
     fn __class_getitem__(cls: &Bound<'_, PyType>, _item: &Bound<'_, PyAny>) -> Py<PyAny> {
         cls.clone().unbind().into()
     }
+
+    /// Pydantic v2 integration for schema generation.
+    ///
+    /// This method is called by Pydantic when building a model that uses Option[T].
+    /// It returns a pydantic-core schema that enables:
+    /// - Validation of input values (accepting SomeWrapper, T, or None)
+    /// - Serialization to JSON-compatible values
+    ///
+    /// The schema uses an any_schema since Option can hold any type.
+    #[classmethod]
+    #[pyo3(name = "__get_pydantic_core_schema__")]
+    fn get_pydantic_core_schema(
+        cls: &Bound<'_, PyType>,
+        _source_type: &Bound<'_, PyAny>,
+        _handler: &Bound<'_, PyAny>,
+        py: Python<'_>,
+    ) -> PyResult<Py<PyAny>> {
+        // Lazy import of pydantic_core
+        let core_schema = py.import("pydantic_core")?.getattr("core_schema")?;
+
+        // Get validator and serializer functions
+        let validator_fn = cls.getattr("_pydantic_validator")?;
+        let serializer_fn = cls.getattr("_pydantic_serializer")?;
+
+        // Build the serialization schema
+        let ser_schema = core_schema.call_method1(
+            "plain_serializer_function_ser_schema",
+            (serializer_fn,),
+        )?;
+
+        // Use any_schema as base since SomeWrapper can hold any value
+        let any_schema = core_schema.call_method0("any_schema")?;
+
+        // Build the schema with after validator
+        let after_kwargs = pyo3::types::PyDict::new(py);
+        after_kwargs.set_item("serialization", ser_schema)?;
+
+        let full_schema = core_schema.call_method(
+            "no_info_after_validator_function",
+            (validator_fn, any_schema),
+            Some(&after_kwargs),
+        )?;
+
+        Ok(full_schema.unbind())
+    }
+
+    /// Pydantic validator function.
+    ///
+    /// Accepts SomeWrapper instances as-is.
+    #[staticmethod]
+    #[pyo3(name = "_pydantic_validator")]
+    fn pydantic_validator(value: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        // Accept any value - SomeWrapper, the wrapped value, or None
+        value.into_py_any(py)
+    }
+
+    /// Pydantic serializer function.
+    ///
+    /// Recursively extracts wrapped values for serialization.
+    /// Some(Some(Some(42))) → 42
+    /// Some(None) → None (null in JSON)
+    #[staticmethod]
+    #[pyo3(name = "_pydantic_serializer")]
+    fn pydantic_serializer(instance: &Bound<'_, PyAny>, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let mut current = instance.clone().unbind();
+
+        // Recursively unwrap SomeWrapper until we get to the actual value
+        loop {
+            let bound = current.bind(py);
+            if bound.is_none() {
+                return Ok(py.None());
+            } else if bound.is_instance(&py.get_type::<SomeWrapper>())? {
+                let wrapper = bound.extract::<Py<SomeWrapper>>()?;
+                let wrapper_ref = wrapper.borrow(py);
+                current = wrapper_ref.value.clone_ref(py);
+            } else {
+                return Ok(current);
+            }
+        }
+    }
 }
 
 // Helper function to check if an object is a Some wrapper

@@ -70,7 +70,7 @@ dev = [
     { name = "dunamai", specifier = ">=1.23.1,<2" },
     { name = "maturin", specifier = ">=1.8.3,<2" },
     { name = "pydantic", specifier = ">=2.11.7" },
-    { name = "pyright", specifier = ">=1.1.403" },
+    { name = "pyright", specifier = ">=1.1.407" },
     { name = "pytest", specifier = ">=8.3.5,<9" },
     { name = "ruff", specifier = ">=0.11.6,<0.12" },
     { name = "ty", specifier = ">=0.0.7" },
