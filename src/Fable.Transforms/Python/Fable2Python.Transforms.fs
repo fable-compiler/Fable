@@ -110,8 +110,8 @@ let makeArrowFunctionExpression
         | None -> false
 
     let args =
-        match args.Args with
-        | [] ->
+        match args.PosOnlyArgs, args.Args with
+        | [], [] ->
             let ta = com.GetImportExpr(ctx, "typing", "Any")
 
             Arguments.arguments (args = [ Arg.arg ("__unit", annotation = ta) ], defaults = [ Expression.none ])
@@ -125,16 +125,18 @@ let makeArrowFunctionExpression
             | _ -> false
         )
 
+    let allArgs = args.PosOnlyArgs @ args.Args
+
     let (|ImmediatelyApplied|_|) =
         function
         | Expression.Call {
                               Func = callee
                               Args = appliedArgs
-                          } when args.Args.Length = appliedArgs.Length && allDefaultsAreNone ->
+                          } when allArgs.Length = appliedArgs.Length && allDefaultsAreNone ->
             // To be sure we're not running side effects when deleting the function check the callee is an identifier
             match callee with
             | Expression.Name _ ->
-                let parameters = args.Args |> List.map (fun a -> (Expression.name a.Arg))
+                let parameters = allArgs |> List.map (fun a -> (Expression.name a.Arg))
 
                 List.zip parameters appliedArgs
                 |> List.forall (
@@ -1205,7 +1207,7 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
         // TODO: Check the erased expressions don't have side effects?
         | Fable.Value(Fable.NewTuple(exprs, _), _) -> com.TransformAsExpr(ctx, List.item index exprs)
         | TransformExpr com ctx (expr, stmts) ->
-            let expr, stmts' = getExpr com ctx range expr (ofInt com ctx index)
+            let expr, stmts' = getExpr com ctx range expr (Expression.intConstant index)
             expr, stmts @ stmts'
 
     | Fable.OptionValue ->
@@ -1224,7 +1226,7 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
         Expression.withStmts {
             let! baseExpr = com.TransformAsExpr(ctx, fableExpr)
             let! fieldsExpr = getExpr com ctx range baseExpr (Expression.stringConstant "fields")
-            let! finalExpr = getExpr com ctx range fieldsExpr (ofInt com ctx i.FieldIndex)
+            let! finalExpr = getExpr com ctx range fieldsExpr (Expression.intConstant i.FieldIndex)
             return finalExpr
         }
 
@@ -2278,11 +2280,14 @@ let transformFunction
         else
             transformAsExpr com ctx body |> wrapExprInBlockWithReturn
 
-    let isUnit =
+    // Check if the last argument is unit or generic param (could be unit)
+    // This determines if a single-arg function should have a default value
+    let isUnitOrGeneric =
         List.tryLast args
-        |> Option.map (
-            function
-            | { Type = Fable.GenericParam _ } -> true
+        |> Option.map (fun arg ->
+            match arg.Type with
+            | Fable.GenericParam _
+            | Fable.Unit -> true
             | _ -> false
         )
         |> Option.defaultValue false
@@ -2314,13 +2319,14 @@ let transformFunction
 
             args', [], Statement.while' (Expression.boolConstant true, body) |> List.singleton
         | _ ->
-            // Make sure all unit arguments get default values of None
+            // Make sure unit and Option arguments get default values of None
+            // Option defaults support F# optional parameters (?x) which have Option type
             let defaults =
                 args
                 |> List.map (fun arg ->
                     match arg.Type with
-                    | Fable.Unit -> Some Expression.none
                     | Fable.Any
+                    | Fable.Unit
                     | Fable.Option _ -> Some Expression.none
                     | _ -> None
                 )
@@ -2344,22 +2350,21 @@ let transformFunction
             args', finalDefaults, body
 
     let arguments =
-        match args, isUnit with
-        | [], _ ->
-            Arguments.arguments (
-                args = Arg.arg (Identifier("__unit"), annotation = Expression.name "None") :: tcArgs,
-                defaults = Expression.none :: tcDefaults
-            )
-        // So we can also receive unit
-        | [ arg ], true ->
-            let optional =
-                match arg.Annotation with
-                | Some typeArg -> Expression.binOp (typeArg, BitOr, Expression.name "None") |> Some
-                | None -> None
-
-            let args = [ { arg with Annotation = optional } ]
-
-            Arguments.arguments (args @ tcArgs, defaults = Expression.none :: tcDefaults)
+        match args, isUnitOrGeneric, tcArgs with
+        // No args and no tail-call args: add __unit parameter
+        | [], _, [] ->
+            let unitDefault = libValue com ctx "util" "UNIT"
+            Arguments.arguments (args = [ Arg.arg (Identifier("__unit")) ], defaults = [ unitDefault ])
+        // No args but has tail-call args: skip __unit, tcArgs are sufficient
+        | [], _, _ -> Arguments.arguments (args = tcArgs, defaults = tcDefaults)
+        // Single generic/unit arg with no tail-call args: keep it with UNIT default
+        | [ arg ], true, [] ->
+            let unitDefault = libValue com ctx "util" "UNIT"
+            Arguments.arguments (args = args, defaults = [ unitDefault ])
+        // Single generic/unit arg with tail-call args: keep arg (body may reference it)
+        | [ arg ], true, _ ->
+            let unitDefault = libValue com ctx "util" "UNIT"
+            Arguments.arguments (args @ tcArgs, defaults = unitDefault :: tcDefaults)
         | _ -> Arguments.arguments (args @ tcArgs, defaults = defaults @ tcDefaults)
 
     arguments, body
@@ -3282,10 +3287,33 @@ let transformClassWithPrimaryConstructor
             []
         else
             let argExprs = consArgs.Args |> List.map (fun p -> Expression.identifier p.Arg)
-
             let exposedConsBody = Expression.call (classIdent, argExprs)
             let name = com.GetIdentifier(ctx, cons.Name)
-            [ makeFunction name (consArgs, exposedConsBody, [], returnType) ]
+
+            // Calculate type parameters for the exposed constructor wrapper
+            // The exposed constructor is a module-level function, so it needs to declare
+            // all type params including the class's type params (which are in ctx.ScopedTypeParams)
+            let argTypes = cons.Args |> List.map _.Type
+
+            let returnFableType =
+                let genTypes =
+                    classEnt.GenericParameters
+                    |> List.map (fun gp -> Fable.Type.GenericParam(gp.Name, gp.IsMeasure, gp.Constraints))
+
+                Fable.DeclaredType(classDecl.Entity, genTypes)
+
+            // Use empty ScopedTypeParams since this is a module-level function
+            let ctxForExposedCons = { ctx with ScopedTypeParams = Set.empty }
+            let info = com.GetMember(cons.MemberRef)
+
+            let typeParams =
+                calculateTypeParams com ctxForExposedCons info argTypes returnFableType
+
+            let body = wrapExprInBlockWithReturn (exposedConsBody, [])
+
+            [
+                createFunctionWithTypeParams name consArgs body [] returnType None typeParams false
+            ]
 
     let baseExpr, consBody =
         classDecl.BaseCall

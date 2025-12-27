@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, overload
 
 class IPrintfFormat:
     """F# printf-style formatting class."""
@@ -26,11 +26,11 @@ class StringComparison:
     ORDINAL: int = 4
     ORDINAL_IGNORE_CASE: int = 5
 
-# F# printf-style formatting functions
+# F# printf-style formatting functions. We use Any as return type since they can return a string or a continuation.
 def printf(input: str) -> IPrintfFormat: ...
 def continue_print(cont: Callable[..., Any], arg: Any) -> Any: ...
 def to_console(arg: Any) -> ConsolePrinter: ...
-def to_text(arg: Any) -> str: ...
+def to_text(arg: Any) -> Any: ...
 
 # String formatting functions
 def format_replacement(
@@ -40,7 +40,15 @@ def format_replacement(
     precision: int | None = None,
     format: str | None = None,
 ) -> str: ...
-def format(string: str, args: tuple[Any, ...]) -> str: ...
+# format() overloads - handles both with and without provider
+@overload
+def format(fmt: str) -> str: ...
+@overload
+def format(fmt: str, *args: Any) -> str: ...
+@overload
+def format(provider: Any, fmt: str) -> str: ...
+@overload
+def format(provider: Any, fmt: str, *args: Any) -> str: ...
 
 # String manipulation functions
 def initialize(n: int, f: Callable[[int], str]) -> str: ...

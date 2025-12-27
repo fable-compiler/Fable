@@ -1070,11 +1070,11 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             match genArg with
             | Char -> "Range", "rangeChar", args
             | Number(Decimal, _) -> "Range", "rangeDecimal", addStep args
-            | Number(BigInt, _)
-            | Number(Int32, _)
-            | Number(UInt32, _) -> "Range", "range_big_int", addStep args
-            | Number(Int64, _)
-            | Number(UInt64, _) -> "Range", "range_int64", addStep args
+            | Number(BigInt, _) -> "Range", "range_big_int", addStep args
+            | Number(Int32, _) -> "Range", "range_int32", addStep args
+            | Number(UInt32, _) -> "Range", "range_uint32", addStep args
+            | Number(Int64, _) -> "Range", "range_int64", addStep args
+            | Number(UInt64, _) -> "Range", "range_uint64", addStep args
             | _ -> "Range", "rangeDouble", addStep args
 
         Helper.LibCall(com, modul, meth, t, args, i.SignatureArgTypes, ?loc = r) |> Some

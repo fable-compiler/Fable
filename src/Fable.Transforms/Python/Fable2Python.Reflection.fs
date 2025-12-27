@@ -15,6 +15,10 @@ open Lib
 let private libReflectionCall (com: IPythonCompiler) ctx r memberName args =
     libCall com ctx r "reflection" (memberName + "_type") args
 
+/// Wraps a Python list expression in Array(...) constructor
+let private arrayExpr (com: IPythonCompiler) ctx (items: Expression list) =
+    Expression.call (libValue com ctx "types" "Array", [ Expression.list items ])
+
 let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics =
     // TODO: Refactor these three bindings to reuse in transformUnionReflectionInfo
     let fullname = ent.FullName
@@ -46,7 +50,7 @@ let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics
 
     let py, stmts' = pyConstructor com ctx ent
 
-    [ fullnameExpr; Expression.list generics; py; fields ]
+    [ fullnameExpr; arrayExpr com ctx generics; py; fields ]
     |> libReflectionCall com ctx None "record",
     stmts @ stmts'
 
@@ -81,7 +85,7 @@ let private transformUnionReflectionInfo com ctx r (ent: Fable.Entity) generics 
 
     let py, stmts = pyConstructor com ctx ent
 
-    [ fullnameExpr; Expression.list generics; py; cases ]
+    [ fullnameExpr; arrayExpr com ctx generics; py; cases ]
     |> libReflectionCall com ctx None "union",
     stmts
 
@@ -114,7 +118,7 @@ let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expressi
             [
                 Expression.stringConstant fullname
                 if not (List.isEmpty generics) then
-                    Expression.list generics
+                    arrayExpr com ctx generics
             ]
 
     match t with
@@ -257,7 +261,7 @@ let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
                 yield Expression.stringConstant fullname, []
                 match generics with
                 | [] -> yield Util.undefined None, []
-                | generics -> yield Expression.list generics, []
+                | generics -> yield arrayExpr com ctx generics, []
                 match tryPyConstructor com ctx ent with
                 | Some(Expression.Name { Id = name }, stmts) ->
                     yield Expression.name (name.Name |> Naming.toPythonNaming), stmts

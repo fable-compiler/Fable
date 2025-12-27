@@ -94,19 +94,39 @@ module PrinterExtensions =
             printer.Print(kw.Value)
 
         member printer.Print(arguments: Arguments) =
-            if not arguments.PosOnlyArgs.IsEmpty then
-                printer.PrintCommaSeparatedList(arguments.PosOnlyArgs)
-                printer.Print(", /")
-
+            let posonlyargs = arguments.PosOnlyArgs |> List.map AST.Arg
             let args = arguments.Args |> List.map AST.Arg
             let defaults = arguments.Defaults
+            // Defaults apply to the combined positional args (posonlyargs + args)
+            let totalPosArgs = posonlyargs.Length + args.Length
 
+            // Print positional-only args with their defaults
+            for i = 0 to posonlyargs.Length - 1 do
+                printer.Print(posonlyargs.[i])
+
+                if i >= totalPosArgs - defaults.Length then
+                    printer.Print("=")
+                    printer.Print(defaults[i - (totalPosArgs - defaults.Length)])
+
+                if i < posonlyargs.Length - 1 then
+                    printer.Print(", ")
+
+            // Print the / separator if there are positional-only args
+            if not posonlyargs.IsEmpty then
+                if args.IsEmpty then
+                    printer.Print(", /")
+                else
+                    printer.Print(", /, ")
+
+            // Print regular args with their defaults
             for i = 0 to args.Length - 1 do
                 printer.Print(args.[i])
 
-                if i >= args.Length - defaults.Length then
+                let posIndex = posonlyargs.Length + i
+
+                if posIndex >= totalPosArgs - defaults.Length then
                     printer.Print("=")
-                    printer.Print(defaults[i - (args.Length - defaults.Length)])
+                    printer.Print(defaults[posIndex - (totalPosArgs - defaults.Length)])
 
                 if i < args.Length - 1 then
                     printer.Print(", ")

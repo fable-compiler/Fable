@@ -287,20 +287,20 @@ let ``test importAll`` () =
     3 |> nativeCode.add5 |> equal 8
 
 // Deliberately using legacy relative path syntax to ensure it still works
-let add5 (x: int): int = importMember "./py/native_code.py"
+let add5 (x: nativeint): nativeint = importMember "./py/native_code.py"
 
 [<Fact>]
 let ``test importMember`` () =
     add5 -1 |> equal 4
 
     // Cannot use the same name as Fable will mangle the identifier
-    let add7: int -> int = importMember ".py.native_code"
+    let add7: nativeint -> nativeint = importMember ".py.native_code"
     add7 12 |> equal 19
 
-    let add5': int -> int = import "add5" ".py.native_code"
+    let add5': nativeint -> nativeint = import "add5" ".py.native_code"
     add5' 12 |> equal 17
 
-    let multiply3 (x: int): int = importMember ".py.more_native_code"
+    let multiply3 (x: nativeint): nativeint = importMember ".py.more_native_code"
     multiply3 9 |> equal 27
 
 [<ImportAll(".py.native_code")>]

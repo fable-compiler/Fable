@@ -197,7 +197,7 @@ module Py =
         inherit Attribute()
 
     // Hack because currently Fable doesn't keep information about spread for anonymous functions
-    [<Emit("lambda *args: $0(args)")>]
+    [<Emit("lambda *args: $0(Array(args))")>]
     let argsFunc (fn: obj[] -> obj) : Callable = nativeOnly
 
     /// Defines a Jupyter-like code cell. Translates to `# %%`

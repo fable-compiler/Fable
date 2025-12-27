@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from collections.abc import Callable
-from typing import Any, Generic, Protocol, TypeVar
+from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 
 from .choice import (
     Choice_tryValueIfChoice1Of2,
@@ -20,7 +20,8 @@ _U = TypeVar("_U")
 _V = TypeVar("_V")
 
 
-class IObserver(Protocol, Generic[_T_contra]):
+@runtime_checkable
+class IObserver(Protocol[_T_contra]):
     __slots__ = ()
 
     @abstractmethod

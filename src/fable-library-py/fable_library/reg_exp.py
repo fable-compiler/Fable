@@ -5,6 +5,7 @@ from collections.abc import Callable, Iterator
 from re import Match, Pattern
 
 from .types import IntegerTypes
+from .util import Enumerator, IEnumerator
 
 
 MatchEvaluator = Callable[[Match[str]], str]
@@ -29,6 +30,9 @@ class GroupCollection:
 
     def __iter__(self) -> Iterator[str]:
         return iter(self.groups)
+
+    def GetEnumerator(self) -> IEnumerator[str]:
+        return Enumerator(iter(self.groups))
 
 
 def _options_to_flags(options: int) -> int:

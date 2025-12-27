@@ -234,16 +234,20 @@ let typeAnnotation
         // unit option -> just None instead of None | None
         Expression.none, []
     | Fable.Option(genArg, _) ->
-        // Check if this is a nested option (Option<Option<T>>)
+        // Must match mustWrapOption logic in Transforms.Util.fs
+        // Wrap when: Any, Unit, GenericParam, or nested Option
         match genArg with
-        | Fable.Option(_, _) ->
-            // This is Option<Option<T>>, use the full Option type annotation
+        | Fable.Option _
+        | Fable.Any
+        | Fable.Unit
+        | Fable.GenericParam _ ->
+            // Use full Option type annotation (code will use SomeWrapper)
             let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
-            fableModuleAnnotation com ctx "option" "Option" resolved, []
+            fableModuleAnnotation com ctx "option" "Option" resolved, stmts
         | _ ->
-            // This is a simple Option<T>, use erased form T | None
-            let innerType, stmts = typeAnnotation com ctx repeatedGenerics genArg
-            Expression.binOp (innerType, BinaryOrBitwise, Expression.none), stmts
+            // For concrete types, erase to T | None (simpler, no wrapper needed)
+            let resolved, stmts = typeAnnotation com ctx repeatedGenerics genArg
+            Expression.binOp (resolved, BitOr, Expression.none), stmts
     | Fable.Tuple(genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs None, []
     | Fable.Array(genArg, Fable.ArrayKind.ResizeArray) -> makeGenericTypeAnnotation com ctx "list" [ genArg ] None, []
     | Fable.Array(genArg, _) -> fableModuleTypeHint com ctx "array_" "Array" [ genArg ] repeatedGenerics
@@ -376,6 +380,13 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
         fableModuleAnnotation com ctx "mailbox_processor" "MailboxProcessor" resolved, stmts
     // IFormatProvider is not used in Python, just map to Any
     | "System.IFormatProvider", _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
+    // JS.Set/Map are used because fable-library-py reuses Set.fs/Map.fs from the ts folder
+    | "Fable.Core.JS.Set`1", _ ->
+        let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+        fableModuleAnnotation com ctx "util" "ISet" resolved, stmts
+    | "Fable.Core.JS.Map`2", _ ->
+        let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+        fableModuleAnnotation com ctx "util" "IMap" resolved, stmts
     | "Fable.Core.Py.Callable", _ ->
         let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
         let genArgs = [ Expression.ellipsis; any ]
@@ -458,14 +469,6 @@ let transformFunctionWithAnnotations (com: IPythonCompiler) ctx name (args: Fabl
 
     let returnType, stmts = typeAnnotation com ctx (Some repeatedGenerics) body.Type
 
-    // If the only argument is generic, then we make the return type optional as well
-    let returnType' =
-        // printfn "Generic params: %A" (args, repeatedGenerics, body.Type)
-        match args, body.Type with
-        | [ { Type = Fable.GenericParam(name = x) } ], Fable.GenericParam(name = y) when
-            x = y && Set.contains x repeatedGenerics
-            ->
-            Expression.binOp (returnType, BinaryOrBitwise, Expression.none)
-        | _ -> returnType
-
-    args', stmts @ body', returnType'
+    // Return type stays as T (not T | None) since we use Unit as default value
+    // which preserves generic constraints: def foo[T](x: T = Unit) -> T
+    args', stmts @ body', returnType

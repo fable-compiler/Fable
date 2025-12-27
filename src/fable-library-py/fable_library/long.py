@@ -225,14 +225,16 @@ def from_int(value: int64, unsigned: bool = False) -> int64:
     return value
 
 
-def from_value(value: Any, unsigned: bool = False) -> int64:
-    value = int(value)
-    if unsigned and value < 0:
-        return value + 0x10000000000000000
-    elif not unsigned and value > 9223372036854775807:
-        return value - 0x10000000000000000
+@overload
+def from_value(value: Any, unsigned: Literal[True]) -> uint64: ...
 
-    return value
+
+@overload
+def from_value(value: Any, unsigned: Literal[False] = ...) -> int64: ...
+
+
+def from_value(value: Any, unsigned: bool = False) -> int64 | uint64:
+    return uint64(value) if unsigned else int64(value)
 
 
 @overload
@@ -244,10 +246,7 @@ def from_number(value: SupportsInt, unsigned: Literal[False]) -> int64: ...
 
 
 def from_number(value: SupportsInt, unsigned: bool) -> int64 | uint64:
-    if unsigned:
-        return uint64(value)
-    else:
-        return int64(value)
+    return uint64(value) if unsigned else int64(value)
 
 
 def to_number(value: SupportsFloat | SupportsInt) -> float64:

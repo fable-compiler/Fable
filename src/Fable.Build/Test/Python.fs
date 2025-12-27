@@ -15,6 +15,7 @@ let handle (args: string list) =
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
     let runTyping = args |> List.contains "--typing"
+    let runFormat = args |> List.contains "--format"
 
     BuildFableLibraryPython().Run(skipFableLibrary)
 
@@ -37,14 +38,16 @@ let handle (args: string list) =
                 |> CmdLine.appendRaw "--noCache"
 
                 if isWatch then
+                    let ruffCmd =
+                        if runFormat then
+                            $"uv run ruff check --select I --fix {buildDir} && uv run ruff format {buildDir} && "
+                        else
+                            ""
+
                     CmdLine.empty
                     |> CmdLine.appendRaw "--watch"
                     |> CmdLine.appendRaw "--runWatch"
-                    |> CmdLine.appendRaw $"uv run pytest {buildDir} -x"
-                else
-                    CmdLine.empty
-                    |> CmdLine.appendRaw "--run"
-                    |> CmdLine.appendRaw $"uv run pytest {buildDir} -x"
+                    |> CmdLine.appendRaw $"{ruffCmd}uv run pytest {buildDir} -x"
             ]
 
     if isWatch then
@@ -66,6 +69,15 @@ let handle (args: string list) =
 
         // Test against Python
         Command.Fable(fableArgs, workingDirectory = buildDir)
+
+        if runFormat then
+            // Run Ruff linter checking import sorting and fix any issues
+            Command.Run("uv", $"run ruff check --select I --fix {buildDir}")
+            // Run Ruff formatter on all generated files
+            Command.Run("uv", $"run ruff format {buildDir}")
+
+        // Run pytest
+        Command.Run("uv", $"run pytest {buildDir} -x")
 
         // Count the number of typing errors (so we can keep an eye on them)
         if runTyping then

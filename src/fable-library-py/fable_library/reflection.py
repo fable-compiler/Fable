@@ -29,14 +29,14 @@ class CaseInfo:
 @dataclass
 class MethodInfo:
     name: str
-    parameters: list[ParameterInfo]
+    parameters: Array[ParameterInfo]
     returnType: TypeInfo
 
 
 @dataclass
 class TypeInfo:
     fullname: str
-    generics: list[TypeInfo] | None = None
+    generics: Array[TypeInfo] | None = None
     construct: Constructor | None = None
     parent: TypeInfo | None = None
     fields: Callable[[], list[FieldInfo]] | None = None
@@ -57,7 +57,7 @@ class TypeInfo:
 
 def class_type(
     fullname: str,
-    generics: list[TypeInfo] | None = None,
+    generics: Array[TypeInfo] | None = None,
     construct: Constructor | None = None,
     parent: TypeInfo | None = None,
 ) -> TypeInfo:
@@ -66,7 +66,7 @@ def class_type(
 
 def union_type(
     fullname: str,
-    generics: list[TypeInfo],
+    generics: Array[TypeInfo],
     construct: type[FsUnion],
     cases: Callable[[], list[list[FieldInfo]]],
 ) -> TypeInfo:
@@ -83,16 +83,16 @@ def union_type(
 
 
 def lambda_type(argType: TypeInfo, returnType: TypeInfo):
-    return TypeInfo("Microsoft.FSharp.Core.FSharpFunc`2", [argType, returnType])
+    return TypeInfo("Microsoft.FSharp.Core.FSharpFunc`2", Array([argType, returnType]))
 
 
 def delegate_type(*generics: TypeInfo) -> TypeInfo:
-    return TypeInfo(f"System.Func`{len(generics)}", list(generics))
+    return TypeInfo(f"System.Func`{len(generics)}", Array(generics))
 
 
 def record_type(
     fullname: str,
-    generics: list[TypeInfo],
+    generics: Array[TypeInfo],
     construct: Constructor,
     fields: Callable[[], list[FieldInfo]],
 ) -> TypeInfo:
@@ -104,23 +104,23 @@ def anon_record_type(*fields: FieldInfo) -> TypeInfo:
 
 
 def option_type(generic: TypeInfo) -> TypeInfo:
-    return TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", [generic])
+    return TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", Array([generic]))
 
 
 def list_type(generic: TypeInfo) -> TypeInfo:
-    return TypeInfo("Microsoft.FSharp.Collections.FSharpList`1", [generic])
+    return TypeInfo("Microsoft.FSharp.Collections.FSharpList`1", Array([generic]))
 
 
 def array_type(generic: TypeInfo) -> TypeInfo:
-    return TypeInfo(generic.fullname + "[]", [generic])
+    return TypeInfo(generic.fullname + "[]", Array([generic]))
 
 
 def enum_type(fullname: str, underlyingType: TypeInfo, enumCases: list[EnumCase]) -> TypeInfo:
-    return TypeInfo(fullname, [underlyingType], None, None, None, None, enumCases)
+    return TypeInfo(fullname, Array([underlyingType]), None, None, None, None, enumCases)
 
 
 def tuple_type(*generics: TypeInfo) -> TypeInfo:
-    return TypeInfo(fullname=f"System.Tuple`{len(generics)}", generics=list(generics))
+    return TypeInfo(fullname=f"System.Tuple`{len(generics)}", generics=Array(list(generics)))
 
 
 obj_type: TypeInfo = TypeInfo(fullname="System.Object")
@@ -160,18 +160,18 @@ def is_generic_type(t: TypeInfo) -> bool:
 
 
 def get_generic_type_definition(t: TypeInfo):
-    return t if t.generics is None else TypeInfo(t.fullname, list(map(lambda _: obj_type, t.generics)))
+    return t if t.generics is None else TypeInfo(t.fullname, Array(map(lambda _: obj_type, t.generics)))
 
 
 def get_generics(t: TypeInfo) -> Array[TypeInfo]:
     return Array[TypeInfo](t.generics) if t.generics else Array[TypeInfo]()
 
 
-def make_generic_type(t: TypeInfo, generics: list[TypeInfo]) -> TypeInfo:
+def make_generic_type(t: TypeInfo, generics: Array[TypeInfo]) -> TypeInfo:
     return TypeInfo(t.fullname, generics, t.construct, t.parent, t.fields, t.cases)
 
 
-def create_instance(t: TypeInfo, consArgs: list[Any]) -> Any:
+def create_instance(t: TypeInfo, consArgs: Array[Any]) -> Any:
     # TODO: Check if consArgs length is same as t.construct?
     # (Arg types can still be different)
     if callable(t.construct):
@@ -322,10 +322,10 @@ def get_tuple_elements(t: TypeInfo) -> Array[TypeInfo]:
         raise ValueError(f"{t.fullname} is not a tuple type")
 
 
-def get_function_elements(t: TypeInfo) -> Array[TypeInfo]:
+def get_function_elements(t: TypeInfo) -> tuple[TypeInfo, TypeInfo]:
     if is_function(t) and t.generics is not None:
         gen = t.generics
-        return Array[TypeInfo]([gen[0], gen[1]])
+        return (gen[0], gen[1])
     else:
         raise ValueError(f"{t.fullname} is not an F# function type")
 
@@ -394,7 +394,7 @@ def get_tuple_field(v: tuple[Any, ...], i: int) -> Any:
     return v[i]
 
 
-def make_record(t: TypeInfo, values: list[Any]) -> dict[str, Any]:
+def make_record(t: TypeInfo, values: Array[Any]) -> dict[str, Any]:
     fields = get_record_elements(t)
     if len(fields) != len(values):
         raise ValueError(f"Expected an array of length {len(fields)} but got {len(values)}")
@@ -415,7 +415,7 @@ def make_tuple[T](values: Array[T], _t: TypeInfo) -> tuple[T, ...]:
     return tuple(values)
 
 
-def make_union(uci: CaseInfo, values: list[Any]) -> Any:
+def make_union(uci: CaseInfo, values: Array[Any]) -> Any:
     expectedLength = len(uci.fields or [])
     if len(values) != expectedLength:
         raise ValueError(f"Expected an array of length {expectedLength} but got {len(values)}")
