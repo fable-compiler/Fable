@@ -35,7 +35,6 @@ from .core import float64, int32
 # Unit type for F# unit-typed parameters. Using Any allows it to be a valid
 # default value for any generic type T, preserving generic constraints in
 # signatures like `def foo[T](x: T = UNIT) -> T` instead of `x: T | None = None`
-# Zero runtime cost: UNIT is just None at runtime, Any typing is static only
 UNIT: Any = None
 
 
