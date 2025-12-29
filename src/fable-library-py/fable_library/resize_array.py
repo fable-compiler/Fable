@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from .option import Option, some
@@ -92,7 +92,7 @@ def index_of[T](value: T, start: int, count: int | None, xs: list[T]) -> int:
         return -1
 
 
-def insert_range_in_place[T](index: int, items: list[T], xs: list[T]) -> None:
+def insert_range_in_place[T](index: int, items: Iterable[T], xs: list[T]) -> None:
     """Insert a range of items into xs at the given index."""
     xs[index:index] = items
 
@@ -102,7 +102,7 @@ def add_in_place[T](x: T, xs: list[T]) -> None:
     xs.append(x)
 
 
-def add_range_in_place[T](items: list[T], array: list[T]) -> None:
+def add_range_in_place[T](items: Iterable[T], array: list[T]) -> None:
     """Add a range of items to the array."""
     # Use extend for better performance instead of individual appends
     array.extend(items)

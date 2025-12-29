@@ -12,6 +12,15 @@ open Fable.Transforms.Python.AST
 open Fable.Transforms.Python.Types
 open Fable.Transforms.Python.Util
 
+/// Check if type is an inref (in-reference) or Any type.
+/// In F#, struct instance method's `this` parameter is represented as inref<StructType>,
+/// but in Python the struct is passed directly, not wrapped in FSharpRef.
+let isInRefOrAnyType (com: IPythonCompiler) =
+    function
+    | Replacements.Util.IsInRefType com _ -> true
+    | Fable.Any -> true
+    | _ -> false
+
 let tryPyConstructor (com: IPythonCompiler) ctx ent =
     match Py.Replacements.tryConstructor com ent with
     | Some e -> com.TransformAsExpr(ctx, e) |> Some
@@ -253,7 +262,7 @@ let typeAnnotation
         makeGenericTypeAnnotation com ctx "list" [ genArg ] repeatedGenerics, []
     | Fable.Array(genArg, _) -> fableModuleTypeHint com ctx "array_" "Array" [ genArg ] repeatedGenerics
     | Fable.List genArg -> fableModuleTypeHint com ctx "list" "FSharpList" [ genArg ] repeatedGenerics
-    | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind repeatedGenerics
+    | Replacements.Util.Builtin kind as typ -> makeBuiltinTypeAnnotation com ctx typ repeatedGenerics kind
     | Fable.AnonymousRecordType(_, _genArgs, _) ->
         let value = Expression.name "dict"
         let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
@@ -370,8 +379,8 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
         fableModuleAnnotation com ctx "protocols" "ICollection" resolved, stmts
     | Types.ilist, _
     | Types.ilistGeneric, _ ->
-        // Map IList<T> to list[T] in Python since arrays are lists
-        makeGenericTypeAnnotation com ctx "list" genArgs repeatedGenerics, []
+        // Map IList<T> to MutableSequence[T] which both list and FSharpArray implement
+        stdlibModuleTypeHint com ctx "collections.abc" "MutableSequence" genArgs repeatedGenerics
     | Types.idisposable, _ -> libValue com ctx "util" "IDisposable", []
     | Types.iobserverGeneric, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
@@ -450,12 +459,17 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
                 | _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
             | None -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
 
-let makeBuiltinTypeAnnotation com ctx kind repeatedGenerics =
+let makeBuiltinTypeAnnotation com ctx typ repeatedGenerics kind =
     match kind with
     | Replacements.Util.BclGuid -> stdlibModuleTypeHint com ctx "uuid" "UUID" [] repeatedGenerics
     | Replacements.Util.FSharpReference genArg ->
-        let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
-        fableModuleAnnotation com ctx "types" "FSharpRef" resolved, stmts
+        // For inref types (like struct instance member's 'this' parameter),
+        // use the inner type directly since Python doesn't wrap them in FSharpRef
+        if isInRefOrAnyType com typ then
+            typeAnnotation com ctx repeatedGenerics genArg
+        else
+            let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
+            fableModuleAnnotation com ctx "types" "FSharpRef" resolved, stmts
     (*
     | Replacements.Util.BclTimeSpan -> NumberTypeAnnotation
     | Replacements.Util.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"

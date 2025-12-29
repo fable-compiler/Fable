@@ -3,12 +3,12 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime, timedelta
 from math import fmod
-from typing import Any, overload
+from typing import Any, SupportsInt, overload
 
 from .singleton_local_time_zone import local_time_zone
 from .time_span import TimeSpan, total_microseconds
 from .time_span import create as create_time_span
-from .types import FSharpRef, float64
+from .types import FSharpRef, float64, int32, int64
 from .util import DateKind
 
 
@@ -86,7 +86,7 @@ def create(
     s: int = 0,
     ms: int = 0,
     mc: int = 0,
-    kind: DateKind | None = None,
+    kind: int32 | None = None,
 ) -> datetime:
     if kind == DateKind.UTC:
         date = datetime(
@@ -107,36 +107,36 @@ def create(
     return date
 
 
-def year(d: datetime) -> int:
-    return d.year
+def year(d: datetime) -> int32:
+    return int32(d.year)
 
 
-def month(d: datetime) -> int:
-    return d.month
+def month(d: datetime) -> int32:
+    return int32(d.month)
 
 
-def day(d: datetime) -> int:
-    return d.day
+def day(d: datetime) -> int32:
+    return int32(d.day)
 
 
-def hour(d: datetime) -> int:
-    return d.hour
+def hour(d: datetime) -> int32:
+    return int32(d.hour)
 
 
-def minute(d: datetime) -> int:
-    return d.minute
+def minute(d: datetime) -> int32:
+    return int32(d.minute)
 
 
-def second(d: datetime) -> int:
-    return d.second
+def second(d: datetime) -> int32:
+    return int32(d.second)
 
 
-def millisecond(d: datetime) -> int:
-    return d.microsecond // 1_000
+def millisecond(d: datetime) -> int32:
+    return int32(d.microsecond // 1_000)
 
 
-def microsecond(d: datetime) -> int:
-    return d.microsecond
+def microsecond(d: datetime) -> int32:
+    return int32(d.microsecond)
 
 
 def to_universal_time(d: datetime) -> datetime:
@@ -365,15 +365,15 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
 
                 match kind(date):
                     case DateKind.UTC:
-                        utc_offet_text = localized_date.strftime("%z")
+                        utc_offset_text = localized_date.strftime("%z")
                     case DateKind.Local:
-                        utc_offet_text = localized_date.strftime("%z")
-                    case DateKind.Unspecified:
-                        utc_offet_text = to_local_time(date).strftime("%z")
+                        utc_offset_text = localized_date.strftime("%z")
+                    case _:  # DateKind.Unspecified
+                        utc_offset_text = to_local_time(date).strftime("%z")
 
-                sign = utc_offet_text[:1]
-                hours = int(utc_offet_text[1:3])
-                minutes = int(utc_offet_text[3:5])
+                sign = utc_offset_text[:1]
+                hours = int(utc_offset_text[1:3])
+                minutes = int(utc_offset_text[3:5])
 
                 match token_length:
                     case 1:
@@ -600,16 +600,16 @@ def days_in_month(year: int, month: int) -> int:
     return 31
 
 
-def add_years(d: datetime, v: int) -> datetime:
+def add_years(d: datetime, v: SupportsInt) -> datetime:
     new_month = month(d)
-    new_year = year(d) + v
+    new_year = year(d) + int(v)
     _days_in_month = days_in_month(new_year, new_month)
     new_day = min(_days_in_month, day(d))
     return create(new_year, new_month, new_day, hour(d), minute(d), second(d), millisecond(d), microsecond(d), kind(d))
 
 
-def add_months(d: datetime, v: int) -> datetime:
-    new_month = month(d) + v
+def add_months(d: datetime, v: SupportsInt) -> datetime:
+    new_month = int(month(d)) + int(v)
     new_month_ = 0
     year_offset = 0
     if new_month > 12:
@@ -620,37 +620,37 @@ def add_months(d: datetime, v: int) -> datetime:
         new_month_ = 12 + int(fmod(new_month, 12))
         year_offset = new_month // 12 + (-1 if new_month_ == 12 else 0)
         new_month = new_month_
-    new_year = year(d) + year_offset
+    new_year = int(year(d)) + year_offset
     _days_in_month = days_in_month(new_year, new_month)
-    new_day = min(_days_in_month, day(d))
+    new_day = min(_days_in_month, int(day(d)))
     return create(new_year, new_month, new_day, hour(d), minute(d), second(d), millisecond(d), microsecond(d), kind(d))
 
 
-def add_days(d: datetime, v: int) -> datetime:
+def add_days(d: datetime, v: SupportsInt) -> datetime:
     return d + timedelta(days=int(v))
 
 
-def add_hours(d: datetime, v: int) -> datetime:
+def add_hours(d: datetime, v: SupportsInt) -> datetime:
     return d + timedelta(hours=int(v))
 
 
-def add_minutes(d: datetime, v: int) -> datetime:
+def add_minutes(d: datetime, v: SupportsInt) -> datetime:
     return d + timedelta(minutes=int(v))
 
 
-def add_seconds(d: datetime, v: int) -> datetime:
+def add_seconds(d: datetime, v: SupportsInt) -> datetime:
     return d + timedelta(seconds=int(v))
 
 
-def add_milliseconds(d: datetime, v: int) -> datetime:
+def add_milliseconds(d: datetime, v: SupportsInt) -> datetime:
     return d + timedelta(milliseconds=int(v))
 
 
-def add_microseconds(d: datetime, v: int) -> datetime:
+def add_microseconds(d: datetime, v: SupportsInt) -> datetime:
     return d + timedelta(microseconds=int(v))
 
 
-def kind(d: datetime) -> DateKind:
+def kind(d: datetime) -> int32:
     if d.tzinfo == UTC:
         return DateKind.UTC
 
@@ -661,11 +661,11 @@ def kind(d: datetime) -> DateKind:
     return DateKind.Local
 
 
-def specify_kind(d: datetime, kind: DateKind) -> datetime:
+def specify_kind(d: datetime, kind: int32) -> datetime:
     return create(year(d), month(d), day(d), hour(d), minute(d), second(d), millisecond(d), microsecond(d), kind)
 
 
-def ticks(d: datetime) -> int:
+def ticks(d: datetime) -> int64:
     # Note: It can happens that Ticks differs a little bit from the .NET implementation
     # because of some rounding/precision issues in Python
     # DateTime(1, 1, 1, 0, 0, 0, 0, 99, DateTimeKind.Utc).Ticks should be 990
@@ -674,20 +674,20 @@ def ticks(d: datetime) -> int:
     # - returns     -62135596799.9999
     # - instead of  -62135596800000
     # compute timestamp in microseconds
-    return unix_epoch_microseconds_to_ticks(int(d.timestamp() * 1_000_000), date_offset(d) * 1_000)
+    return unix_epoch_microseconds_to_ticks(int64(d.timestamp() * 1_000_000), date_offset(d) * 1_000)
 
 
-def unix_epoch_microseconds_to_ticks(us: int, offset: int) -> int:
-    return int(((us + 62135596800000000) + offset) * 10)
+def unix_epoch_microseconds_to_ticks(us: int64, offset: int64) -> int64:
+    return ((us + 62135596800000000) + offset) * 10
 
 
-def ticks_to_unix_epoch_microseconds(ticks: int) -> int:
-    return int((ticks - 621355968000000000) // 10)
+def ticks_to_unix_epoch_microseconds(ticks: SupportsInt) -> int:
+    return (int(ticks) - 621355968000000000) // 10
 
 
-def date_offset(d: datetime) -> int:
+def date_offset(d: datetime) -> int64:
     if d.tzinfo == UTC:
-        return 0
+        return int64.ZERO
     else:
         utc_offset = d.utcoffset()
 
@@ -696,14 +696,14 @@ def date_offset(d: datetime) -> int:
         if utc_offset is None:
             forced_utc_offset = d.astimezone().utcoffset()
             assert forced_utc_offset is not None
-            return int(forced_utc_offset.total_seconds() * 1_000)
+            return int64(forced_utc_offset.total_seconds() * 1_000)
         else:
-            return int(utc_offset.total_seconds() * 1_000)
+            return int64(utc_offset.total_seconds() * 1_000)
 
     # return 0 if d.tzinfo == timezone.utc else
 
 
-def create_from_epoch_microseconds(us: int, kind: DateKind | None = None) -> datetime:
+def create_from_epoch_microseconds(us: int, kind: int32 | None = None) -> datetime:
     if kind == DateKind.UTC:
         date = datetime.fromtimestamp(us / 1_000_000, UTC)
     else:
@@ -714,7 +714,7 @@ def create_from_epoch_microseconds(us: int, kind: DateKind | None = None) -> dat
     return date
 
 
-def from_ticks(ticks: int, kind: DateKind | None = None) -> datetime:
+def from_ticks(ticks: SupportsInt, kind: int32 | None = None) -> datetime:
     # Better default than Unspecified
     kind = kind or DateKind.Local
     date = create_from_epoch_microseconds(ticks_to_unix_epoch_microseconds(ticks), kind)
