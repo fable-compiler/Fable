@@ -199,11 +199,11 @@ class Trampoline:
         action: Callable[[], None],
         due_time: float = 0.0,
     ):
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         loop.call_later(due_time, action)
 
     def run(self, action: Callable[[], None]):
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         if self.increment_and_check():
             self.call_count = 0
