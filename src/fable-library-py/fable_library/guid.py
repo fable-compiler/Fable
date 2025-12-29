@@ -1,5 +1,8 @@
 import uuid
 
+from fable_library.array_ import Array
+from fable_library.types import byte
+
 from .types import FSharpRef
 
 
@@ -27,7 +30,7 @@ def guid_to_array(guid: uuid.UUID) -> bytearray:
     return bytearray(guid.bytes_le)
 
 
-def array_to_guid(guid: bytearray) -> uuid.UUID:
+def array_to_guid(guid: Array[byte]) -> uuid.UUID:
     return uuid.UUID(bytes_le=bytes(guid))
 
 

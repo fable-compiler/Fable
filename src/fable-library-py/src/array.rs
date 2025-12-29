@@ -3266,6 +3266,12 @@ pub fn create(py: Python<'_>, count: usize, value: &Bound<'_, PyAny>) -> PyResul
 }
 
 #[pyfunction]
+pub fn zero_create(py: Python<'_>, count: usize, value: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+    // Create an array filled with the zero value for the type
+    FSharpArray::create(py, count, value)
+}
+
+#[pyfunction]
 #[pyo3(signature = (f, array, cons=None))]
 pub fn map(
     py: Python<'_>,
@@ -4677,6 +4683,7 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(copy, &m)?)?;
     m.add_function(wrap_pyfunction!(copy_to, &m)?)?;
     m.add_function(wrap_pyfunction!(create, &m)?)?;
+    m.add_function(wrap_pyfunction!(zero_create, &m)?)?;
     m.add_function(wrap_pyfunction!(empty, &m)?)?;
     m.add_function(wrap_pyfunction!(equals_with, &m)?)?;
     m.add_function(wrap_pyfunction!(exists, &m)?)?;

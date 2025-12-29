@@ -37,6 +37,7 @@ append = array.append
 chunk_by_size = array.chunk_by_size
 compare_with = array.compare_with
 create = array.create
+zero_create = array.zero_create
 collect = array.collect
 empty = array.empty
 equals_with = array.equals_with
@@ -149,22 +150,22 @@ __all__ = [
     "Float64Array",
     "Float64ArrayCons",
     "GenericArray",
+    "Int8Array",
+    "Int8ArrayCons",
     "Int16Array",
     "Int16ArrayCons",
     "Int32Array",
     "Int32ArrayCons",
     "Int64Array",
     "Int64ArrayCons",
-    "Int8Array",
-    "Int8ArrayCons",
+    "UInt8Array",
+    "UInt8ArrayCons",
     "UInt16Array",
     "UInt16ArrayCons",
     "UInt32Array",
     "UInt32ArrayCons",
     "UInt64Array",
     "UInt64ArrayCons",
-    "UInt8Array",
-    "UInt8ArrayCons",
     "add_in_place",
     "add_range_in_place",
     "append",
@@ -263,5 +264,6 @@ __all__ = [
     "unzip",
     "update_at",
     "windowed",
+    "zero_create",
     "zip",
 ]

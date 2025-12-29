@@ -132,8 +132,8 @@ let fableModuleTypeHint com ctx moduleName memberName genArgs repeatedGenerics =
     let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
     fableModuleAnnotation com ctx moduleName memberName resolved, stmts
 
-let stdlibModuleTypeHint com ctx moduleName memberName genArgs =
-    let resolved, stmts = resolveGenerics com ctx genArgs None
+let stdlibModuleTypeHint com ctx moduleName memberName genArgs repeatedGenerics =
+    let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
     stdlibModuleAnnotation com ctx moduleName memberName resolved, stmts
 
 let makeGenTypeParamInst com ctx (genArgs: Fable.Type list) (repeatedGenerics: Set<string> option) =
@@ -201,15 +201,15 @@ let typeAnnotation
     // printfn "typeAnnotation: %A" (t, repeatedGenerics)
     match t with
     | Fable.Measure _
-    | Fable.Any -> stdlibModuleTypeHint com ctx "typing" "Any" []
+    | Fable.Any -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
     | Fable.GenericParam(name = name) when name.StartsWith("$$", StringComparison.Ordinal) ->
-        stdlibModuleTypeHint com ctx "typing" "Any" []
+        stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
     | Fable.GenericParam(name = name) ->
         match repeatedGenerics with
         | Some names when names.Contains name ->
             let name = Helpers.clean name
             com.AddTypeVar(ctx, name), []
-        | Some _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
+        | Some _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
         | None ->
             let name = Helpers.clean name
             com.AddTypeVar(ctx, name), []
@@ -220,9 +220,9 @@ let typeAnnotation
     | Fable.Number(kind, info) -> makeNumberTypeAnnotation com ctx kind info
     | Fable.LambdaType(argType, returnType) ->
         let argTypes, returnType = uncurryLambdaType -1 [ argType ] returnType
-        stdlibModuleTypeHint com ctx "collections.abc" "Callable" (argTypes @ [ returnType ])
+        stdlibModuleTypeHint com ctx "collections.abc" "Callable" (argTypes @ [ returnType ]) repeatedGenerics
     | Fable.DelegateType(argTypes, returnType) ->
-        stdlibModuleTypeHint com ctx "collections.abc" "Callable" (argTypes @ [ returnType ])
+        stdlibModuleTypeHint com ctx "collections.abc" "Callable" (argTypes @ [ returnType ]) repeatedGenerics
     | Fable.Nullable(genArg, isStruct) ->
         if isStruct then
             // For nullable value types, use T | None pattern similar to Option but without special handling
@@ -248,18 +248,19 @@ let typeAnnotation
             // For concrete types, erase to T | None (simpler, no wrapper needed)
             let resolved, stmts = typeAnnotation com ctx repeatedGenerics genArg
             Expression.binOp (resolved, BitOr, Expression.none), stmts
-    | Fable.Tuple(genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs None, []
-    | Fable.Array(genArg, Fable.ArrayKind.ResizeArray) -> makeGenericTypeAnnotation com ctx "list" [ genArg ] None, []
+    | Fable.Tuple(genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs repeatedGenerics, []
+    | Fable.Array(genArg, Fable.ArrayKind.ResizeArray) ->
+        makeGenericTypeAnnotation com ctx "list" [ genArg ] repeatedGenerics, []
     | Fable.Array(genArg, _) -> fableModuleTypeHint com ctx "array_" "Array" [ genArg ] repeatedGenerics
     | Fable.List genArg -> fableModuleTypeHint com ctx "list" "FSharpList" [ genArg ] repeatedGenerics
     | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx kind repeatedGenerics
     | Fable.AnonymousRecordType(_, _genArgs, _) ->
         let value = Expression.name "dict"
-        let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
+        let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
 
         Expression.subscript (value, Expression.tuple [ Expression.name "str"; any ]), stmts
     | Fable.DeclaredType(entRef, genArgs) -> makeEntityTypeAnnotation com ctx entRef genArgs repeatedGenerics
-    | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
+    | _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
 
 let makeNumberTypeAnnotation com ctx kind info =
     let numberInfo kind =
@@ -290,7 +291,7 @@ let makeNumberTypeAnnotation com ctx kind info =
 
 
     match kind, info with
-    | Decimal, _ -> stdlibModuleTypeHint com ctx "decimal" "Decimal" []
+    | Decimal, _ -> stdlibModuleTypeHint com ctx "decimal" "Decimal" [] None
     | _ -> numberInfo kind, []
 
 let makeImportTypeId (com: IPythonCompiler) ctx moduleName typeName =
@@ -310,7 +311,7 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
     | Types.result, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
         fableModuleAnnotation com ctx "result" "FSharpResult_2" resolved, stmts
-    | Replacements.Util.BuiltinEntity _kind -> stdlibModuleTypeHint com ctx "typing" "Any" []
+    | Replacements.Util.BuiltinEntity _kind -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
     (*
         | Replacements.Util.BclGuid
         | Replacements.Util.BclTimeSpan
@@ -330,37 +331,47 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
     | Types.fsharpAsyncGeneric, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
         fableModuleAnnotation com ctx "async_builder" "Async" resolved, stmts
-    | Types.taskGeneric, _ -> stdlibModuleTypeHint com ctx "typing" "Awaitable" genArgs
-    | Types.icomparable, _ -> libValue com ctx "util" "IComparable", []
-    | Types.iStructuralEquatable, _ -> libValue com ctx "util" "IStructuralEquatable", []
-    | Types.iStructuralComparable, _ -> libValue com ctx "util" "IStructuralComparable", []
+    | Types.taskGeneric, _ -> stdlibModuleTypeHint com ctx "typing" "Awaitable" genArgs repeatedGenerics
+    | Types.icomparable, _ -> libValue com ctx "protocols" "IComparable", []
+    | Types.iStructuralEquatable, _ -> libValue com ctx "protocols" "IStructuralEquatable", []
+    | Types.iStructuralComparable, _ -> libValue com ctx "protocols" "IStructuralComparable", []
     | Types.icomparerGeneric, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-        fableModuleAnnotation com ctx "util" "IComparer_1" resolved, stmts
-    | Types.iequalityComparer, _ -> libValue com ctx "util" "IEqualityComparer", []
+        fableModuleAnnotation com ctx "protocols" "IComparer_1" resolved, stmts
+    | Types.iequalityComparer, _ -> libValue com ctx "protocols" "IEqualityComparer", []
     | Types.iequalityComparerGeneric, _ ->
-        let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-        fableModuleAnnotation com ctx "util" "IEqualityComparer_1" [ resolved ], stmts
+        let resolved, stmts =
+            stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
+
+        fableModuleAnnotation com ctx "protocols" "IEqualityComparer_1" [ resolved ], stmts
     | Types.ienumerator, _ ->
-        let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-        fableModuleAnnotation com ctx "util" "IEnumerator" [ resolved ], stmts
+        let resolved, stmts =
+            stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
+
+        fableModuleAnnotation com ctx "protocols" "IEnumerator" [ resolved ], stmts
     | Types.ienumeratorGeneric, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-        fableModuleAnnotation com ctx "util" "IEnumerator" resolved, stmts
-    | Types.ienumerable, _ -> fableModuleAnnotation com ctx "util" "IEnumerable" [], []
+        fableModuleAnnotation com ctx "protocols" "IEnumerator" resolved, stmts
+    | Types.ienumerable, _ -> fableModuleAnnotation com ctx "protocols" "IEnumerable" [], []
     | Types.ienumerableGeneric, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-        fableModuleAnnotation com ctx "util" "IEnumerable_1" resolved, stmts
+        fableModuleAnnotation com ctx "protocols" "IEnumerable_1" resolved, stmts
     | Types.iequatableGeneric, _ ->
-        let resolved, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
-        fableModuleAnnotation com ctx "util" "IEquatable" [ resolved ], stmts
+        let resolved, stmts =
+            stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
+
+        fableModuleAnnotation com ctx "protocols" "IEquatable" [ resolved ], stmts
     | Types.icomparableGeneric, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-        fableModuleAnnotation com ctx "util" "IComparable_1" resolved, stmts
+        fableModuleAnnotation com ctx "protocols" "IComparable_1" resolved, stmts
     | Types.icollection, _
     | Types.icollectionGeneric, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-        fableModuleAnnotation com ctx "util" "ICollection" resolved, stmts
+        fableModuleAnnotation com ctx "protocols" "ICollection" resolved, stmts
+    | Types.ilist, _
+    | Types.ilistGeneric, _ ->
+        // Map IList<T> to list[T] in Python since arrays are lists
+        makeGenericTypeAnnotation com ctx "list" genArgs repeatedGenerics, []
     | Types.idisposable, _ -> libValue com ctx "util" "IDisposable", []
     | Types.iobserverGeneric, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
@@ -370,7 +381,7 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
         fableModuleAnnotation com ctx "observable" "IObservable" resolved, stmts
     | Types.idictionary, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-        fableModuleAnnotation com ctx "util" "IDictionary" resolved, stmts
+        fableModuleAnnotation com ctx "protocols" "IDictionary" resolved, stmts
     | Types.ievent2, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
         fableModuleAnnotation com ctx "event" "IEvent_2" resolved, stmts
@@ -379,23 +390,31 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
         fableModuleAnnotation com ctx "mailbox_processor" "MailboxProcessor" resolved, stmts
     // IFormatProvider is not used in Python, just map to Any
-    | "System.IFormatProvider", _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
+    | "System.IFormatProvider", _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
     // JS.Set/Map are used because fable-library-py reuses Set.fs/Map.fs from the ts folder
     | "Fable.Core.JS.Set`1", _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-        fableModuleAnnotation com ctx "util" "ISet" resolved, stmts
+        fableModuleAnnotation com ctx "protocols" "ISet" resolved, stmts
     | "Fable.Core.JS.Map`2", _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-        fableModuleAnnotation com ctx "util" "IMap" resolved, stmts
+        fableModuleAnnotation com ctx "protocols" "IMap" resolved, stmts
     | "Fable.Core.Py.Callable", _ ->
-        let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" []
+        let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
         let genArgs = [ Expression.ellipsis; any ]
 
         stdlibModuleAnnotation com ctx "collections.abc" "Callable" genArgs, stmts
+    | "Fable.Library.Python.Atom", _ ->
+        // Atom[T] is a callable wrapper for mutable module-level values
+        let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+        fableModuleAnnotation com ctx "util" "Atom" resolved, stmts
     | _ ->
         let ent = com.GetEntity(entRef)
         // printfn "DeclaredType: %A" ent.FullName
-        if ent.IsInterface then
+        // Erased interfaces (with [<Erase>] attribute) don't exist at runtime, use Any
+        let isErased =
+            ent.Attributes |> Seq.exists (fun att -> att.Entity.FullName = Atts.erase)
+
+        if ent.IsInterface && not isErased then
             let name = Helpers.removeNamespace ent.FullName
 
             // If the interface is imported then it's erased and we need to add the actual imports
@@ -411,6 +430,9 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
                 | _ -> ()
 
             makeGenericTypeAnnotation com ctx name genArgs repeatedGenerics, []
+        elif isErased then
+            // Erased types should use Any for type annotations
+            stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
         else
             match tryPyConstructor com ctx ent with
             | Some(entRef, stmts) ->
@@ -425,12 +447,12 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
                 | Expression.Name { Id = Identifier id } ->
                     makeGenericTypeAnnotation com ctx id genArgs repeatedGenerics, stmts
                 // TODO: Resolve references to types in nested modules
-                | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
-            | None -> stdlibModuleTypeHint com ctx "typing" "Any" []
+                | _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
+            | None -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
 
 let makeBuiltinTypeAnnotation com ctx kind repeatedGenerics =
     match kind with
-    | Replacements.Util.BclGuid -> Expression.name "str", []
+    | Replacements.Util.BclGuid -> stdlibModuleTypeHint com ctx "uuid" "UUID" [] repeatedGenerics
     | Replacements.Util.FSharpReference genArg ->
         let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
         fableModuleAnnotation com ctx "types" "FSharpRef" resolved, stmts
@@ -456,7 +478,7 @@ let makeBuiltinTypeAnnotation com ctx kind repeatedGenerics =
         let resolved, stmts = resolveGenerics com ctx [ ok; err ] repeatedGenerics
 
         fableModuleAnnotation com ctx "result" "FSharpResult_2" resolved, stmts
-    | _ -> stdlibModuleTypeHint com ctx "typing" "Any" []
+    | _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
 
 let transformFunctionWithAnnotations (com: IPythonCompiler) ctx name (args: Fable.Ident list) (body: Fable.Expr) =
     // printfn "transformFunctionWithAnnotations: %A" (name, args, body.Type)

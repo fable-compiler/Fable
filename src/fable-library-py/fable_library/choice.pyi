@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Any, Generic, TypeVar, overload
 
 from .reflection import TypeInfo
-from .types import Array, Union
+from .types import Union
 
 _T1 = TypeVar("_T1")
 _T2 = TypeVar("_T2")
@@ -15,9 +15,6 @@ _T6 = TypeVar("_T6")
 _T7 = TypeVar("_T7")
 
 class FSharpChoice_2(Union, Generic[_T1, _T2]):
-    tag: int
-    fields: Array[Any]
-
     def __init__(self, tag: int, *fields: Any) -> None: ...
     @staticmethod
     def cases() -> list[str]: ...
@@ -25,9 +22,6 @@ class FSharpChoice_2(Union, Generic[_T1, _T2]):
 FSharpChoice_2_reflection: Callable[[TypeInfo, TypeInfo], TypeInfo]
 
 class FSharpChoice_3(Union, Generic[_T1, _T2, _T3]):
-    tag: int
-    fields: Array[Any]
-
     def __init__(self, tag: int, *fields: Any) -> None: ...
     @staticmethod
     def cases() -> list[str]: ...
@@ -35,9 +29,6 @@ class FSharpChoice_3(Union, Generic[_T1, _T2, _T3]):
 FSharpChoice_3_reflection: Callable[[TypeInfo, TypeInfo, TypeInfo], TypeInfo]
 
 class FSharpChoice_4(Union, Generic[_T1, _T2, _T3, _T4]):
-    tag: int
-    fields: Array[Any]
-
     def __init__(self, tag: int, *fields: Any) -> None: ...
     @staticmethod
     def cases() -> list[str]: ...
@@ -45,9 +36,6 @@ class FSharpChoice_4(Union, Generic[_T1, _T2, _T3, _T4]):
 FSharpChoice_4_reflection: Callable[[TypeInfo, TypeInfo, TypeInfo, TypeInfo], TypeInfo]
 
 class FSharpChoice_5(Union, Generic[_T1, _T2, _T3, _T4, _T5]):
-    tag: int
-    fields: Array[Any]
-
     def __init__(self, tag: int, *fields: Any) -> None: ...
     @staticmethod
     def cases() -> list[str]: ...
@@ -55,9 +43,6 @@ class FSharpChoice_5(Union, Generic[_T1, _T2, _T3, _T4, _T5]):
 FSharpChoice_5_reflection: Callable[[TypeInfo, TypeInfo, TypeInfo, TypeInfo, TypeInfo], TypeInfo]
 
 class FSharpChoice_6(Union, Generic[_T1, _T2, _T3, _T4, _T5, _T6]):
-    tag: int
-    fields: Array[Any]
-
     def __init__(self, tag: int, *fields: Any) -> None: ...
     @staticmethod
     def cases() -> list[str]: ...
@@ -65,9 +50,6 @@ class FSharpChoice_6(Union, Generic[_T1, _T2, _T3, _T4, _T5, _T6]):
 FSharpChoice_6_reflection: Callable[[TypeInfo, TypeInfo, TypeInfo, TypeInfo, TypeInfo, TypeInfo], TypeInfo]
 
 class FSharpChoice_7(Union, Generic[_T1, _T2, _T3, _T4, _T5, _T6, _T7]):
-    tag: int
-    fields: Array[Any]
-
     def __init__(self, tag: int, *fields: Any) -> None: ...
     @staticmethod
     def cases() -> list[str]: ...

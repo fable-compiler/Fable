@@ -8,6 +8,10 @@ from .core._core import try_parse_int32 as try_parse
 AllowHexSpecifier = 0x00000200
 
 
+def sign(x: int32) -> int32:
+    return int32.NEG_ONE if x < int32.ZERO else int32.ONE if x > int32.ZERO else int32.ZERO
+
+
 def op_unary_negation_int8(x: int8) -> int8:
     return -x
 

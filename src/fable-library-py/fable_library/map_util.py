@@ -5,14 +5,14 @@ from collections.abc import Iterable
 from enum import IntEnum
 from re import Match
 from typing import (
-    TYPE_CHECKING,
     Any,
     NoReturn,
     TypeVar,
 )
 
+from .array_ import Array
+from .protocols import IReadOnlyDictionary, ISet
 from .types import FSharpRef, Union
-from .util import Array, ISet
 
 
 _K = TypeVar("_K")
@@ -52,14 +52,6 @@ def change_case(string: str, case_rule: CaseRules) -> str:
     return string
 
 
-if TYPE_CHECKING:
-
-    class FSharpMap(dict[_K, _V]): ...
-
-else:
-    from .map import FSharpMap
-
-
 def add_to_set(v: object, st: ISet[object]) -> bool:
     """Add to set-like object - returns True if added, False if already present."""
     if v in st:
@@ -84,7 +76,7 @@ def remove_from_dict(di: dict[_K, Any], k: _K) -> bool:
     return False
 
 
-def try_get_value(map: FSharpMap[_K, _V], key: _K, default_value: FSharpRef[_V]) -> bool:
+def try_get_value(map: IReadOnlyDictionary[_K, _V], key: _K, default_value: FSharpRef[_V]) -> bool:
     if key in map.keys():
         default_value.contents = map[key]
         return True

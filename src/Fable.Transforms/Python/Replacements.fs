@@ -88,9 +88,13 @@ let makeDecimalFromExpr com r t (e: Expr) =
     | Value(Fable.NumberConstant(NumberValue.Decimal x, _), _) -> makeDecimal com r t x
     | _ -> Helper.LibCall(com, "decimal_", "create", t, [ e ], isConstructor = true, ?loc = r)
 
+let makeAtomType genArg =
+    makeDeclaredType "Fable.Library.Python" [ genArg ] "Fable.Library.Python.Atom"
+
 let createAtom com (value: Expr) =
     let typ = value.Type
-    Helper.LibCall(com, "util", "create_atom", typ, [ value ], [ typ ])
+    let atomType = makeAtomType typ
+    Helper.LibCall(com, "util", "create_atom", atomType, [ value ], [ typ ])
 
 let getRefCell com r typ (expr: Expr) = getFieldWith r typ expr "contents"
 
@@ -1202,6 +1206,9 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | ExprType(Number((Float16 | Float32 | Float64), _)) :: _ ->
             Helper.LibCall(com, "double", "sign", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
             |> Some
+        | ExprType(Number(Int32, _)) :: _ ->
+            Helper.LibCall(com, "int32", "sign", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+            |> Some
         | ExprType(Number(_)) :: _ ->
             Helper.LibCall(com, "long", "sign", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
             |> Some
@@ -1802,7 +1809,14 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "Item", [ idx; ar ] -> getExpr r t ar idx |> Some
     | "Get", [ ar; idx ] -> getExpr r t ar idx |> Some
     | "Set", [ ar; idx; value ] -> setExpr r ar idx value |> Some
-    | "ZeroCreate", [ count ] -> createArray count None |> Some
+    | "ZeroCreate", [ count ] ->
+        match t with
+        | Array(elemType, _) ->
+            let zeroValue = getZero com ctx elemType
+
+            Helper.LibCall(com, "array", "zero_create", t, [ count; zeroValue ], ?loc = r)
+            |> Some
+        | _ -> createArray count None |> Some
     | "Create", [ count; value ] -> createArray count (Some value) |> Some
     | "Empty", _ ->
         let t =
