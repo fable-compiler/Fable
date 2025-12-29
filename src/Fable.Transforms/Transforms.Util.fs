@@ -424,6 +424,12 @@ module Types =
     let icollection = "System.Collections.ICollection"
 
     [<Literal>]
+    let ilistGeneric = "System.Collections.Generic.IList`1"
+
+    [<Literal>]
+    let ilist = "System.Collections.IList"
+
+    [<Literal>]
     let iequatableGeneric = "System.IEquatable`1"
 
     [<Literal>]

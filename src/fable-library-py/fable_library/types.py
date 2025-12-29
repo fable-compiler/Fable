@@ -9,15 +9,18 @@ from typing import (
 
 from .array_ import Array
 from .core import FSharpRef, byte, float32, float64, int8, int16, int32, int64, sbyte, uint8, uint16, uint32, uint64
-from .util import IComparable, compare
+from .protocols import IComparable
+from .util import compare
 
 
 class Union(IComparable):
     __slots__: tuple[str, ...] = ("fields", "tag")
 
+    tag: int32
+    fields: Array[Any]
+
     def __init__(self) -> None:
-        self.tag: int32
-        self.fields: Array[Any] = Array[Any]()
+        self.fields = Array[Any]()
 
     @staticmethod
     @abstractmethod
@@ -195,7 +198,7 @@ def seq_to_string(self: Iterable[Any]) -> str:
 
 def to_string(x: object | None, call_stack: int = 0) -> str:
     match x:
-        case float() if int(x) == x:  # type: ignore[no-untyped-call]
+        case float() if int(x) == x:
             return str(int(x))
         case bool():
             return str(x).lower()
@@ -210,7 +213,7 @@ class FSharpException(Exception, IComparable):
         self.Data0: Any = None
 
     def __str__(self) -> str:
-        return record_to_string(self)  # type: ignore
+        return record_to_string(self)  # type: ignore[arg-type]
 
     def __repr__(self) -> str:
         return str(self)

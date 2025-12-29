@@ -6,7 +6,7 @@ import platform
 import random
 import re
 import weakref
-from abc import ABC, ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import (
     Callable,
     Iterable,
@@ -23,6 +23,7 @@ from typing import (
     ClassVar,
     Literal,
     Protocol,
+    Self,
     TypeGuard,
     cast,
 )
@@ -31,6 +32,15 @@ from urllib.parse import quote, unquote
 from .array_ import Array
 from .core import float64, int32
 
+# Re-export protocols for backward compatibility
+from .protocols import (
+    HashCode,
+    IDisposable,
+    IEnumerable_1,
+    IEnumerator,
+    SupportsLessThan,
+)
+
 
 # Unit type for F# unit-typed parameters. Using Any allows it to be a valid
 # default value for any generic type T, preserving generic constraints in
@@ -38,10 +48,150 @@ from .core import float64, int32
 UNIT: Any = None
 
 
-class SupportsLessThan(Protocol):
+# =============================================================================
+# ABC Base Classes for Disposable/Enumerator Patterns
+# =============================================================================
+# These ABC base classes provide implementations for context manager and
+# iterator protocols. Use these when inheriting, while using the Protocol
+# versions from protocols.py for type hints.
+
+
+class ObjectDisposedException(Exception):
+    """Exception thrown when accessing a disposed object."""
+
+    def __init__(self) -> None:
+        super().__init__("Cannot access a disposed object")
+
+
+class DisposableBase(ABC):
+    """ABC base class for disposable objects.
+
+    Provides context manager support (__enter__/__exit__) for classes that
+    implement the IDisposable pattern. Inherit from this class to get
+    automatic context manager support.
+
+    Note: This is an ABC for inheritance. For type hints, use IDisposable
+    from protocols.py.
+    """
+
+    __slots__ = ()
+
     @abstractmethod
-    def __lt__(self, __other: Any) -> bool:
+    def Dispose(self) -> None:
+        """Dispose of resources. Must be implemented by subclasses."""
         raise NotImplementedError
+
+    def __enter__(self) -> Self:
+        """Enter context management."""
+        return self
+
+    def __exit__(
+        self,
+        exctype: type[BaseException] | None,
+        excinst: BaseException | None,
+        exctb: TracebackType | None,
+    ) -> Literal[False]:
+        """Exit context management."""
+        self.Dispose()
+        return False
+
+    @staticmethod
+    def create(action: Callable[[], None]) -> DisposableBase:
+        """Create disposable from action. Will call action when disposed."""
+        return AnonymousDisposable(action)
+
+
+class AnonymousDisposable(DisposableBase):
+    """A disposable that calls a provided action when disposed."""
+
+    __slots__ = "_action", "_is_disposed", "_lock"
+
+    def __init__(self, action: Callable[[], None]) -> None:
+        self._is_disposed = False
+        self._action = action
+        self._lock = RLock()
+
+    def Dispose(self) -> None:
+        """Performs the task of cleaning up resources."""
+        dispose = False
+        with self._lock:
+            if not self._is_disposed:
+                dispose = True
+                self._is_disposed = True
+
+        if dispose:
+            self._action()
+
+    def __enter__(self) -> Self:
+        if self._is_disposed:
+            raise ObjectDisposedException()
+        return self
+
+
+class EnumeratorBase[T](DisposableBase):
+    """ABC base class for enumerators.
+
+    Provides iterator protocol support (__iter__/__next__) and context manager
+    support (inherited from DisposableBase) for classes that implement the
+    IEnumerator pattern.
+
+    Note: This is an ABC for inheritance. For type hints, use IEnumerator
+    from protocols.py.
+    """
+
+    __slots__ = ()
+
+    @abstractmethod
+    def System_Collections_Generic_IEnumerator_1_get_Current(self) -> T:
+        """Get the current element (generic IEnumerator<T>.Current)."""
+        raise NotImplementedError
+
+    def System_Collections_IEnumerator_get_Current(self) -> Any:
+        """Get the current element (non-generic IEnumerator.Current)."""
+        return self.System_Collections_Generic_IEnumerator_1_get_Current()
+
+    @abstractmethod
+    def System_Collections_IEnumerator_MoveNext(self) -> bool:
+        """Move to the next element. Returns False if no more elements."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def System_Collections_IEnumerator_Reset(self) -> None:
+        """Reset the enumerator."""
+        raise NotImplementedError
+
+    def Dispose(self) -> None:
+        """Default dispose implementation (no-op). Override if needed."""
+        pass
+
+    def __iter__(self) -> Iterator[T]:
+        return self
+
+    def __next__(self) -> T:
+        if not self.System_Collections_IEnumerator_MoveNext():
+            raise StopIteration
+        return self.System_Collections_Generic_IEnumerator_1_get_Current()
+
+
+class EnumerableBase[T](ABC):
+    """ABC base class for enumerable collections.
+
+    Provides iterator protocol support (__iter__) for classes that implement
+    the IEnumerable pattern.
+
+    Note: This is an ABC for inheritance. For type hints, use IEnumerable_1
+    from protocols.py.
+    """
+
+    __slots__ = ()
+
+    @abstractmethod
+    def GetEnumerator(self, __unit: Any = UNIT) -> IEnumerator[T]:
+        """Get an enumerator for the collection."""
+        raise NotImplementedError
+
+    def __iter__(self) -> Iterator[T]:
+        return self.GetEnumerator()
 
 
 def returns[T, **P](targettype: Callable[..., T]) -> Callable[[Callable[P, Any]], Callable[P, T]]:
@@ -54,244 +204,6 @@ def returns[T, **P](targettype: Callable[..., T]) -> Callable[[Callable[P, Any]]
         return wrapper
 
     return decorator
-
-
-class ObjectDisposedException(Exception):
-    def __init__(self):
-        super().__init__("Cannot access a disposed object")
-
-
-class IDisposable(ABC):
-    """IDisposable interface.
-
-    Note: IDisposable is currently not a protocol since it also
-    implements resource management and thus cannot use static subtyping
-    and needs to be inherited from.
-    """
-
-    __slots__ = ()
-
-    @abstractmethod
-    def Dispose(self) -> None: ...
-
-    def __enter__(self):
-        """Enter context management."""
-        return self
-
-    def __exit__(
-        self,
-        exctype: type[BaseException] | None,
-        excinst: BaseException | None,
-        exctb: TracebackType | None,
-    ) -> Literal[False]:
-        """Exit context management."""
-
-        self.Dispose()
-        return False
-
-    @staticmethod
-    def create(action: Callable[[], None]):
-        """Create disposable from action. Will call action when
-        disposed."""
-        return AnonymousDisposable(action)
-
-
-# Disposable is now a type parameter in function definitions
-
-
-class AnonymousDisposable(IDisposable):
-    __slots__ = "_action", "_is_disposed", "_lock"
-
-    def __init__(self, action: Callable[[], None]):
-        self._is_disposed = False
-        self._action = action
-        self._lock = RLock()
-
-    def Dispose(self) -> None:
-        """Performs the task of cleaning up resources."""
-
-        dispose = False
-        with self._lock:
-            if not self._is_disposed:
-                dispose = True
-                self._is_disposed = True
-
-        if dispose:
-            self._action()
-
-    def __enter__(self):
-        if self._is_disposed:
-            raise ObjectDisposedException()
-        return self
-
-
-class IEquatable(Protocol):
-    def __eq__(self, other: Any) -> bool: ...
-
-    def __hash__(self) -> int: ...
-
-
-class IComparable(IEquatable, Protocol):
-    @abstractmethod
-    def __cmp__(self, __other: Any) -> int:
-        raise NotImplementedError
-
-    @abstractmethod
-    def __lt__(self, other: Any) -> bool:
-        raise NotImplementedError
-
-
-class IComparable_1[T_in](IEquatable, Protocol):
-    @abstractmethod
-    def __cmp__(self, __other: T_in) -> int:
-        raise NotImplementedError
-
-    @abstractmethod
-    def __lt__(self, other: Any) -> bool:
-        raise NotImplementedError
-
-
-class IComparer(Protocol):
-    """Defines a method that a type implements to compare two objects.
-
-    https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.icomparer-1
-    """
-
-    @abstractmethod
-    def Compare[T_in](self, x: Any = None, y: Any = None) -> int32:
-        raise NotImplementedError
-
-
-class IComparer_1[T_in](Protocol):
-    """Defines a method that a type implements to compare two objects.
-
-    https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.icomparer-1
-    """
-
-    @abstractmethod
-    def Compare(self, x: T_in, y: T_in, /) -> int32:
-        raise NotImplementedError
-
-
-class IEqualityComparer(Protocol):
-    @abstractmethod
-    def Equals(self, *, x: Any = None, y: Any = None) -> bool:
-        raise NotImplementedError
-
-    @abstractmethod
-    def GetHashCode(self, *, x: Any = None) -> int32:
-        raise NotImplementedError
-
-
-class IEqualityComparer_1[T_in](Protocol):
-    @abstractmethod
-    def Equals(self, *, x: T_in, y: T_in) -> bool:
-        raise NotImplementedError
-
-    @abstractmethod
-    def GetHashCode(self, *, x: T_in | None = None) -> int32:
-        raise NotImplementedError
-
-
-class IStructuralEquatable(Protocol):
-    @abstractmethod
-    def Equals(self, other: Any, comparer: IEqualityComparer) -> bool:
-        raise NotImplementedError
-
-    @abstractmethod
-    def __hash__(self) -> int32:
-        raise NotImplementedError
-
-
-class IStructuralComparable(Protocol):
-    @abstractmethod
-    def __cmp__(self, other: Any, comparer: IComparer) -> int32:
-        raise NotImplementedError
-
-
-class ISet[T](Protocol):
-    """Protocol for set-like objects (matches JS Set interface)."""
-
-    @property
-    @abstractmethod
-    def size(self) -> int:
-        """Return the number of elements in the set."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def add(self, value: T) -> ISet[T]:
-        """Add a value to the set."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def clear(self) -> None:
-        """Remove all elements from the set."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def delete(self, value: T) -> bool:
-        """Remove a value from the set. Returns True if value was present."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def has(self, value: T) -> bool:
-        """Check if value is in the set."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def __contains__(self, value: T) -> bool:
-        """Check if value is in the set (Python protocol)."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def values(self) -> IEnumerable_1[T]:
-        """Return an enumerable of values."""
-        raise NotImplementedError
-
-
-class IMap[K, V](Protocol):
-    """Protocol for map-like objects (matches JS Map interface)."""
-
-    @property
-    @abstractmethod
-    def size(self) -> int:
-        """Return the number of key-value pairs in the map."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def clear(self) -> None:
-        """Remove all key-value pairs from the map."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def delete(self, key: K) -> bool:
-        """Remove a key-value pair. Returns True if key was present."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def get(self, key: K) -> V | None:
-        """Get the value for a key, or None if not present."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def has(self, key: K) -> bool:
-        """Check if key is in the map."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def set(self, key: K, value: V) -> IMap[K, V]:
-        """Set a key-value pair."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def keys(self) -> IEnumerable_1[K]:
-        """Return an enumerable of keys."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def values(self) -> IEnumerable_1[V]:
-        """Return an enumerable of values."""
-        raise NotImplementedError
 
 
 class DateKind(IntEnum):
@@ -558,70 +470,9 @@ def clear(col: dict[Any, Any] | list[Any] | None) -> None:
         col.clear()
 
 
-class IEnumerator[T](Iterator[T], IDisposable):
-    __slots__ = ()
+class Enumerator[T](EnumeratorBase[T]):
+    """Concrete enumerator that wraps a Python iterator."""
 
-    def Current(self) -> T:
-        return self.System_Collections_Generic_IEnumerator_1_get_Current()
-
-    def MoveNext(self) -> bool:
-        return self.System_Collections_IEnumerator_MoveNext()
-
-    def Reset(self) -> None:
-        return self.System_Collections_IEnumerator_Reset()
-
-    @abstractmethod
-    def System_Collections_Generic_IEnumerator_1_get_Current(self) -> T: ...
-
-    def System_Collections_IEnumerator_get_Current(self) -> Any:
-        return self.System_Collections_Generic_IEnumerator_1_get_Current()
-
-    @abstractmethod
-    def System_Collections_IEnumerator_MoveNext(self) -> bool: ...
-
-    @abstractmethod
-    def System_Collections_IEnumerator_Reset(self) -> None: ...
-
-    def __iter__(self) -> Iterator[T]:
-        return self
-
-    def __next__(self) -> T:
-        if not self.MoveNext():
-            raise StopIteration
-        return self.Current()
-
-
-class IEnumerable(Iterable[Any], Protocol):
-    __slots__ = ()
-
-    @abstractmethod
-    def GetEnumerator(self, __unit=UNIT) -> IEnumerator[Any]: ...
-
-    def __iter__(self) -> Iterator[Any]:
-        return self.GetEnumerator()
-
-
-class IEnumerable_1[T](Iterable[T], Protocol):
-    __slots__ = ()
-
-    @abstractmethod
-    def GetEnumerator(self, __unit=UNIT) -> IEnumerator[T]: ...
-
-    def __iter__(self) -> Iterator[T]:
-        return self.GetEnumerator()
-
-
-class ICollection[T](IEnumerable_1[T], Protocol): ...
-
-
-class IDictionary[Key, Value](ICollection[tuple[Key, Value]], Protocol):
-    @abstractmethod
-    def keys(self) -> IEnumerable_1[Key]: ...
-
-    def values(self) -> IEnumerable_1[Value]: ...
-
-
-class Enumerator[T](IEnumerator[T]):
     __slots__ = "current", "iter"
 
     def __init__(self, iter: Iterator[T]) -> None:
@@ -629,6 +480,10 @@ class Enumerator[T](IEnumerator[T]):
         self.current: T
 
     def System_Collections_Generic_IEnumerator_1_get_Current(self) -> T:
+        return self.current
+
+    def System_Collections_IEnumerator_get_Current(self) -> Any:
+        """Non-generic IEnumerator.Current implementation."""
         return self.current
 
     def System_Collections_IEnumerator_MoveNext(self) -> bool:
@@ -642,9 +497,6 @@ class Enumerator[T](IEnumerator[T]):
     def System_Collections_IEnumerator_Reset(self) -> None:
         raise Exception("Python iterators cannot be reset")
 
-    def Dispose(self) -> None:
-        return
-
     def __next__(self) -> T:
         return next(self.iter)
 
@@ -652,13 +504,15 @@ class Enumerator[T](IEnumerator[T]):
         return self
 
 
-class Enumerable[T](IEnumerable_1[T]):
+class Enumerable[T](EnumerableBase[T]):
+    """Concrete enumerable that wraps a Python iterable."""
+
     __slots__ = "xs"
 
     def __init__(self, xs: Iterable[T]) -> None:
         self.xs = xs
 
-    def GetEnumerator(self, __unit=UNIT) -> IEnumerator[T]:
+    def GetEnumerator(self, __unit: Any = UNIT) -> IEnumerator[T]:
         return Enumerator(iter(self.xs))
 
     def __iter__(self) -> Iterator[T]:
@@ -2624,10 +2478,6 @@ def dispose(x: IDisposable | AbstractContextManager[Any]) -> None:
             raise ex
 
 
-class HashCode(Protocol):
-    def GetHashCode(self) -> int32: ...
-
-
 def is_hashable(x: Any) -> TypeGuard[HashCode]:
     return hasattr(x, "GetHashCode")
 
@@ -2636,7 +2486,7 @@ def is_hashable_py(x: Any) -> bool:
     return hasattr(x, "__hash__") and callable(x.__hash__)
 
 
-def to_iterator[T](en: IEnumerator[T]) -> IEnumerator[T]:
+def to_iterator[T](en: Enumerator[T]) -> IEnumerator[T]:
     class Iterator:
         def __iter__(self):
             return self
@@ -2712,7 +2562,7 @@ def structural_hash(x: Any) -> int32:
     return int32(hash(x))
 
 
-def array_hash(xs: list[Any]) -> int32:
+def array_hash(xs: Iterable[object]) -> int32:
     hashes: list[int32] = []
     for x in xs:
         hashes.append(structural_hash(x))
@@ -2853,12 +2703,12 @@ class StaticLazyProperty[T](StaticPropertyBase[T]):
         pass  # The factory handles value retrieval
 
 
-class StaticPropertyMeta(ABCMeta):
+class StaticPropertyMeta(type(Protocol)):
     """Metaclass that enables StaticProperty descriptors to work with class-level
     assignment.
 
-    Note: We inherit from ABCMeta to be compatible when combined with classes that also
-    inherit from ABC, such as IDisposable.
+    Note: We inherit from type(Protocol) to be compatible when combined with classes
+    that inherit from Protocol (like IDisposable) or ABC.
     """
 
     def __setattr__(cls, name: str, value: Any) -> None:
@@ -2906,12 +2756,20 @@ def range(start: int, stop: int, step: int = 1) -> Iterable[int32]:
 
 
 __all__ = [
+    # ABC Base Classes
+    "AnonymousDisposable",
+    "DisposableBase",
+    "EnumerableBase",
+    "EnumeratorBase",
+    "ObjectDisposedException",
+    # Other classes
     "ObjectRef",
     "PlatformID",
     "StaticLazyProperty",
     "StaticProperty",
     "StaticPropertyBase",
     "StaticPropertyMeta",
+    # Functions
     "array_hash",
     "copy_to_array",
     "curry2",

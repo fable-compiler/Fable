@@ -333,7 +333,13 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
     | Fable.BaseValue(Some boundIdent, _) -> identAsExpr com ctx boundIdent, []
     | Fable.ThisValue _ -> Expression.identifier "self", []
     | Fable.TypeInfo(t, _) -> transformTypeInfo com ctx r Map.empty t
-    | Fable.Null _t -> Expression.none, []
+    | Fable.Null t ->
+        match t with
+        | Fable.Unit -> Expression.none, []
+        | _ ->
+            // Cast None to the expected type to satisfy the type checker
+            let ta, stmts = Annotation.typeAnnotation com ctx None t
+            wrapNoneInCast com ctx Expression.none ta, stmts
     | Fable.UnitConstant -> undefined r, []
     | Fable.BoolConstant x -> Expression.boolConstant (x, ?loc = r), []
     | Fable.CharConstant x -> Expression.stringConstant (string<char> x, ?loc = r), []
@@ -550,6 +556,37 @@ let transformObjectExpr
     let interfaces, stmts =
         match typ with
         | Fable.Any -> [], [] // Don't inherit from Any
+        | Fable.DeclaredType(entRef, genArgs) ->
+            // Map interface names to ABC base class names for inheritance
+            // Use ABC base classes instead of Protocols for proper method resolution
+            let name = Helpers.removeNamespace entRef.FullName
+
+            let abcClassName =
+                match name with
+                | "IDisposable" -> Some "DisposableBase"
+                | "IEnumerator_1" -> Some "EnumeratorBase"
+                | _ -> None
+
+            match abcClassName with
+            | Some abcName ->
+                let expr =
+                    if List.isEmpty genArgs then
+                        libValue com ctx "util" abcName
+                    else
+                        let typeArgs =
+                            genArgs
+                            |> List.map (fun genArg ->
+                                let arg, _ = Annotation.typeAnnotation com ctx None genArg
+                                arg
+                            )
+
+                        Expression.subscript (libValue com ctx "util" abcName, Expression.tuple typeArgs)
+
+                [ expr ], []
+            | None ->
+                // Fall back to regular type annotation for non-mapped interfaces
+                let ta, stmts = Annotation.typeAnnotation com ctx None typ
+                [ ta ], stmts
         | _ ->
             let ta, stmts = Annotation.typeAnnotation com ctx None typ
             [ ta ], stmts
@@ -827,15 +864,15 @@ let transformOperation com ctx range opKind tags : Expression * Statement list =
 
 let transformEmit (com: IPythonCompiler) ctx range (info: Fable.EmitInfo) =
     let macro = info.Macro
-    let info = info.CallInfo
+    let callInfo = info.CallInfo
 
     let thisArg, stmts =
-        info.ThisArg
+        callInfo.ThisArg
         |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
         |> Option.toList
         |> Helpers.unzipArgs
 
-    let exprs, kw, stmts' = transformCallArgs com ctx info false
+    let exprs, kw, stmts' = transformCallArgs com ctx callInfo false
 
     if macro.StartsWith("functools", StringComparison.Ordinal) then
         com.GetImportExpr(ctx, "functools") |> ignore
@@ -1108,8 +1145,6 @@ let makeCastStatement (com: IPythonCompiler) ctx (ident: Fable.Ident) (typ: Fabl
         []
 
 let rec transformIfStatement (com: IPythonCompiler) ctx r ret guardExpr thenStmnt elseStmnt =
-    // printfn "transformIfStatement"
-
     // Create refined context for then branch if guard is a type test
     let thenCtx =
         match guardExpr with
@@ -2676,6 +2711,16 @@ let declareClassType
             && not (hasIEnumerator && name = "IDisposable")
         )
         |> List.map (fun int ->
+            let name = Helpers.removeNamespace (int.Entity.FullName)
+
+            // Map interface names to ABC base class names for inheritance
+            // Use ABC base classes instead of Protocols for proper method resolution
+            let abcClassName =
+                match name with
+                | "IDisposable" -> "DisposableBase"
+                | "IEnumerator_1" -> "EnumeratorBase"
+                | other -> other
+
             let genericArgs =
                 match int.GenericArgs with
                 | [ Fable.DeclaredType({ FullName = fullName }, _genericArgs) ] when
@@ -2684,10 +2729,21 @@ let declareClassType
                     [ Fable.Type.Any ]
                 | args -> args
 
-            let expr, stmts =
-                Annotation.makeEntityTypeAnnotation com ctx int.Entity genericArgs None
+            // Generate the ABC base class reference from util module
+            let expr =
+                if List.isEmpty genericArgs then
+                    libValue com ctx "util" abcClassName
+                else
+                    let typeArgs =
+                        genericArgs
+                        |> List.map (fun genArg ->
+                            let arg, _ = Annotation.typeAnnotation com ctx None genArg
+                            arg
+                        )
 
-            expr, stmts
+                    Expression.subscript (libValue com ctx "util" abcClassName, Expression.tuple typeArgs)
+
+            expr, []
         )
         |> Helpers.unzipArgs
 

@@ -20,6 +20,7 @@ type BuildFableLibraryPython() =
         // Copy all Python/F# files to the build directory
         Directory.GetFiles(this.LibraryDir, "*") |> Shell.copyFiles this.BuildDir
         Directory.GetFiles(this.SourceDir, "*.py") |> Shell.copyFiles this.OutDir
+        Directory.GetFiles(this.SourceDir, "*.pyi") |> Shell.copyFiles this.OutDir
 
         // Python extension modules
         Directory.GetFiles(Path.Combine(this.SourceDir, "core"), "*")

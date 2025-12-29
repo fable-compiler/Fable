@@ -10,7 +10,7 @@ from .choice import (
     FSharpChoice_2,
 )
 from .option import value
-from .util import IDisposable
+from .util import DisposableBase, IDisposable
 
 
 _T = TypeVar("_T")
@@ -175,7 +175,7 @@ def merge(source1: IObservable[_T], source2: IObservable[_T]) -> IObservable[_T]
             h1.Dispose()
             h2.Dispose()
 
-        return IDisposable.create(dispose)
+        return DisposableBase.create(dispose)
 
     return Observable(subscribe)
 
