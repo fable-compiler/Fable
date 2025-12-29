@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Python] Add Python 3.10+ match statement support for pattern matching (by @dbrattli)
+
 ### Fixed
 
 * [Python] Fix type annotations for inref, IList, DateKind, and regex collections (by @dbrattli)

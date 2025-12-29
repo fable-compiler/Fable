@@ -46,6 +46,7 @@ module PrinterExtensions =
             | Raise st -> printer.Print(st)
             | Expr st -> printer.Print(st)
             | With wi -> printer.Print(wi)
+            | Match mt -> printer.Print(mt)
             | For st -> printer.Print(st)
             | Try st -> printer.Print(st)
             | If st -> printer.Print(st)
@@ -277,6 +278,112 @@ module PrinterExtensions =
             printer.Print(":")
             printer.PrintBlock(ifElse.Body)
             printElse ifElse.Else
+
+        member printer.Print(node: Match) =
+            printer.Print("match ", ?loc = node.Loc)
+            printer.Print(node.Subject)
+            printer.Print(":")
+            printer.PrintNewLine()
+            printer.PushIndentation()
+
+            for case in node.Cases do
+                printer.Print(case)
+
+            printer.PopIndentation()
+
+        member printer.Print(node: MatchCase) =
+            printer.Print("case ")
+            printer.Print(node.Pattern)
+
+            match node.Guard with
+            | Some guard ->
+                printer.Print(" if ")
+                printer.Print(guard)
+            | None -> ()
+
+            printer.Print(":")
+            printer.PrintBlock(node.Body)
+
+        member printer.Print(node: Pattern) =
+            match node with
+            | MatchValue expr -> printer.Print(expr)
+            | MatchSingleton lit ->
+                match lit with
+                | BoolLiteral true -> printer.Print("True")
+                | BoolLiteral false -> printer.Print("False")
+                | NoneLiteral -> printer.Print("None")
+                | _ -> printer.Print(Expression.constant lit)
+            | MatchSequence patterns ->
+                printer.Print("[")
+                printer.PrintCommaSeparatedList(patterns)
+                printer.Print("]")
+            | MatchMapping(keys, patterns, rest) ->
+                printer.Print("{")
+
+                for i, (key, pattern) in List.zip keys patterns |> List.indexed do
+                    printer.Print(key)
+                    printer.Print(": ")
+                    printer.Print(pattern)
+
+                    if i < keys.Length - 1 then
+                        printer.Print(", ")
+
+                match rest with
+                | Some name ->
+                    if not (List.isEmpty keys) then
+                        printer.Print(", ")
+
+                    printer.Print("**")
+                    printer.Print(name)
+                | None -> ()
+
+                printer.Print("}")
+            | MatchClass(cls, patterns, kwdAttrs, kwdPatterns) ->
+                printer.Print(cls)
+                printer.Print("(")
+
+                // Print positional patterns
+                for i, pattern in patterns |> List.indexed do
+                    printer.Print(pattern)
+
+                    if i < patterns.Length - 1 then
+                        printer.Print(", ")
+
+                // Print keyword patterns
+                if not (List.isEmpty kwdAttrs) then
+                    if not (List.isEmpty patterns) then
+                        printer.Print(", ")
+
+                    for i, (attr, pattern) in List.zip kwdAttrs kwdPatterns |> List.indexed do
+                        printer.Print(attr)
+                        printer.Print("=")
+                        printer.Print(pattern)
+
+                        if i < kwdAttrs.Length - 1 then
+                            printer.Print(", ")
+
+                printer.Print(")")
+            | MatchStar name ->
+                printer.Print("*")
+
+                match name with
+                | Some n -> printer.Print(n)
+                | None -> printer.Print("_")
+            | MatchAs(pattern, name) ->
+                match pattern, name with
+                | None, None -> printer.Print("_")
+                | None, Some n -> printer.Print(n)
+                | Some pat, None -> printer.Print(pat)
+                | Some pat, Some n ->
+                    printer.Print(pat)
+                    printer.Print(" as ")
+                    printer.Print(n)
+            | MatchOr patterns ->
+                for i, pattern in patterns |> List.indexed do
+                    printer.Print(pattern)
+
+                    if i < patterns.Length - 1 then
+                        printer.Print(" | ")
 
         member printer.Print(ri: Raise) =
             printer.Print("raise ")
@@ -830,6 +937,9 @@ module PrinterExtensions =
 
         member printer.PrintCommaSeparatedList(nodes: WithItem list) =
             printer.PrintCommaSeparatedList(nodes |> List.map AST.WithItem)
+
+        member printer.PrintCommaSeparatedList(nodes: Pattern list) =
+            printer.PrintList(nodes, (fun (p: Printer) x -> p.Print(x)), (fun p -> p.Print(", ")))
 
         member printer.PrintFunction
             (

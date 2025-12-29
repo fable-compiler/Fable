@@ -1562,11 +1562,19 @@ let transformDecisionTreeSuccessAsStatements
 let transformDecisionTreeAsSwitch expr =
     let (|Equals|_|) =
         function
-        | Fable.Operation(Fable.Binary(BinaryEqual, expr, right), _, _, _) ->
-            match expr with
+        | Fable.Operation(Fable.Binary(BinaryEqual, left, right), _, _, _) ->
+            // Return (evalExpr, caseExpr) where evalExpr is the thing being matched (identifier)
+            // and caseExpr is the constant value
+            // Try constant on right side first (more common: x == 1)
+            match right with
             | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) ->
-                Some(expr, right)
-            | _ -> None
+                Some(left, right) // left is identifier, right is constant
+            | _ ->
+                // Try constant on left side (less common: 1 == x)
+                match left with
+                | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) ->
+                    Some(right, left) // right is identifier, left is constant
+                | _ -> None
         | Fable.Test(expr, Fable.UnionCaseTest tag, _) ->
             let evalExpr =
                 Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), None)
@@ -1591,7 +1599,6 @@ let transformDecisionTreeAsSwitch expr =
             match treeExpr with
             | Fable.DecisionTreeSuccess(defaultTargetIndex, defaultBoundValues, _) ->
                 let cases = (caseExpr, targetIndex, boundValues) :: cases |> List.rev
-
                 Some(evalExpr, cases, (defaultTargetIndex, defaultBoundValues))
             | treeExpr -> checkInner ((caseExpr, targetIndex, boundValues) :: cases) evalExpr treeExpr
         | _ -> None
@@ -1602,6 +1609,250 @@ let transformDecisionTreeAsSwitch expr =
         | Some(evalExpr, cases, defaultCase) -> Some(evalExpr, cases, defaultCase)
         | None -> None
     | _ -> None
+
+// Re-export from Util for local use
+let fableValueToPattern = MatchStatements.fableValueToPattern
+
+/// Builds a default (wildcard) match case for the given target index.
+let private buildDefaultMatchCase
+    (com: IPythonCompiler)
+    (ctx: Context)
+    returnStrategy
+    (targets: (Fable.Ident list * Fable.Expr) list)
+    defaultIndex
+    =
+    let _idents, targetExpr = targets |> List.item defaultIndex
+    let body = com.TransformAsStatements(ctx, returnStrategy, targetExpr)
+    MatchCase.matchCase (Pattern.matchWildcard (), body)
+
+/// Transforms a single guard case (debug mode) into a Python MatchCase with guard expression.
+/// Returns None if the guard contains statements (not expressible as a Python guard).
+let private transformDebugModeGuardCase
+    (com: IPythonCompiler)
+    (ctx: Context)
+    returnStrategy
+    (targets: (Fable.Ident list * Fable.Expr) list)
+    (subjectName: string)
+    (_subj, param, guardBody, targetIndex, _boundValues)
+    =
+    let idents, targetExpr = targets.[targetIndex]
+
+    // Use the target's bound identifier for the pattern if available
+    let patternIdent =
+        match idents with
+        | [ ident ] -> ident
+        | _ -> param
+
+    // Substitute param references with patternIdent in guard body if needed
+    let guardBody' =
+        if param.Name <> patternIdent.Name then
+            FableTransforms.replaceValues (Map.ofList [ param.Name, Fable.IdentExpr patternIdent ]) guardBody
+        else
+            guardBody
+
+    let guard, guardStmts = com.TransformAsExpr(ctx, guardBody')
+
+    // Guards with statements cannot be expressed in Python match
+    if not (List.isEmpty guardStmts) then
+        None
+    else
+        let name = com.GetIdentifier(ctx, patternIdent.Name)
+        let pattern = MatchAs(None, Some name)
+
+        let targetExpr' =
+            MatchStatements.unwrapRedundantLets subjectName patternIdent targetExpr
+
+        let body = com.TransformAsStatements(ctx, returnStrategy, targetExpr')
+        Some(MatchCase.matchCase (pattern, body, guard))
+
+/// Transforms a single inlined guard case (release mode) into a Python MatchCase with guard expression.
+/// In release mode, guards are inlined directly as comparison operations.
+/// Returns None if the guard contains statements (not expressible as a Python guard).
+let private transformReleaseModeGuardCase
+    (com: IPythonCompiler)
+    (ctx: Context)
+    returnStrategy
+    (targets: (Fable.Ident list * Fable.Expr) list)
+    (subjectIdent: Fable.Ident)
+    (guardCondition: Fable.Expr, targetIndex: int, _boundValues: Fable.Expr list)
+    =
+    let idents, targetExpr = targets.[targetIndex]
+
+    // Use the target's bound identifier for the pattern if available
+    let patternIdent =
+        match idents with
+        | [ ident ] -> ident
+        | _ -> subjectIdent
+
+    // Transform the guard condition
+    let guard, guardStmts = com.TransformAsExpr(ctx, guardCondition)
+
+    // Guards with statements cannot be expressed in Python match
+    if not (List.isEmpty guardStmts) then
+        None
+    else
+        let name = com.GetIdentifier(ctx, patternIdent.Name)
+        let pattern = MatchAs(None, Some name)
+
+        let targetExpr' =
+            MatchStatements.unwrapRedundantLets subjectIdent.Name patternIdent targetExpr
+
+        let body = com.TransformAsStatements(ctx, returnStrategy, targetExpr')
+        Some(MatchCase.matchCase (pattern, body, guard))
+
+/// Transforms debug mode guard pattern cases into a Python match statement.
+let private transformDebugModeGuardPatternAsMatch
+    (com: IPythonCompiler)
+    (ctx: Context)
+    returnStrategy
+    (targets: (Fable.Ident list * Fable.Expr) list)
+    (subjectIdent: Fable.Ident)
+    guardCases
+    (defaultIndex, _defaultBoundValues)
+    =
+    let ctx = { ctx with DecisionTargets = targets }
+
+    let matchCases =
+        guardCases
+        |> List.map (transformDebugModeGuardCase com ctx returnStrategy targets subjectIdent.Name)
+
+    // All cases must convert successfully
+    if matchCases |> List.exists Option.isNone then
+        None
+    else
+        let matchCases = matchCases |> List.choose id
+        let defaultCase = buildDefaultMatchCase com ctx returnStrategy targets defaultIndex
+        let allCases = matchCases @ [ defaultCase ]
+        let subjectExpr, stmts = com.TransformAsExpr(ctx, Fable.IdentExpr subjectIdent)
+        let matchStmt = Statement.match' (subjectExpr, allCases)
+        Some(stmts @ [ matchStmt ])
+
+/// Transforms release mode (inlined) guard pattern cases into a Python match statement.
+let private transformReleaseModeGuardPatternAsMatch
+    (com: IPythonCompiler)
+    (ctx: Context)
+    returnStrategy
+    (targets: (Fable.Ident list * Fable.Expr) list)
+    (subjectIdent: Fable.Ident)
+    (guardCases: MatchStatements.InlinedGuardCase list)
+    (defaultIndex, _defaultBoundValues)
+    =
+    let ctx = { ctx with DecisionTargets = targets }
+
+    let matchCases =
+        guardCases
+        |> List.map (transformReleaseModeGuardCase com ctx returnStrategy targets subjectIdent)
+
+    // All cases must convert successfully
+    if matchCases |> List.exists Option.isNone then
+        None
+    else
+        let matchCases = matchCases |> List.choose id
+        let defaultCase = buildDefaultMatchCase com ctx returnStrategy targets defaultIndex
+        let allCases = matchCases @ [ defaultCase ]
+        let subjectExpr, stmts = com.TransformAsExpr(ctx, Fable.IdentExpr subjectIdent)
+        let matchStmt = Statement.match' (subjectExpr, allCases)
+        Some(stmts @ [ matchStmt ])
+
+/// Transforms switch-like pattern cases into a Python match statement.
+let private transformSwitchPatternAsMatch
+    (com: IPythonCompiler)
+    (ctx: Context)
+    returnStrategy
+    (targets: (Fable.Ident list * Fable.Expr) list)
+    evalExpr
+    cases
+    (defaultIndex, _defaultBoundValues)
+    =
+    // Check if all cases have empty bound values (simple value matching)
+    let allSimpleValueCases =
+        cases |> List.forall (fun (_, _, boundValues) -> List.isEmpty boundValues)
+
+    if not allSimpleValueCases then
+        None
+    else
+        // Try to convert all case expressions to patterns
+        let convertedCases =
+            cases
+            |> List.choose (fun (caseExpr, targetIndex, _boundValues) ->
+                match fableValueToPattern caseExpr with
+                | Some pattern -> Some(pattern, targetIndex)
+                | None -> None
+            )
+
+        // Check if all cases were successfully converted
+        if List.length convertedCases <> List.length cases then
+            None
+        else
+            let ctx = { ctx with DecisionTargets = targets }
+
+            // Group cases by target index to create or-patterns
+            let groupedCases =
+                convertedCases
+                |> List.groupBy snd
+                |> List.map (fun (targetIndex, patterns) ->
+                    let patterns = patterns |> List.map fst
+
+                    let pattern =
+                        match patterns with
+                        | [ single ] -> single
+                        | multiple -> MatchOr multiple
+
+                    (pattern, targetIndex)
+                )
+
+            // Build match cases
+            let matchCases =
+                groupedCases
+                |> List.map (fun (pattern, targetIndex) ->
+                    let _idents, targetExpr = targets.[targetIndex]
+                    let body = com.TransformAsStatements(ctx, returnStrategy, targetExpr)
+                    MatchCase.matchCase (pattern, body)
+                )
+
+            // Build default case (wildcard)
+            let defaultCase = buildDefaultMatchCase com ctx returnStrategy targets defaultIndex
+
+            // Check if the default case is already covered by the grouped cases
+            let defaultAlreadyCovered =
+                groupedCases |> List.exists (fun (_, idx) -> idx = defaultIndex)
+
+            let allCases =
+                if defaultAlreadyCovered then
+                    matchCases
+                else
+                    matchCases @ [ defaultCase ]
+
+            // Transform the evaluation expression
+            let subject, stmts = com.TransformAsExpr(ctx, evalExpr)
+
+            // Build the match statement
+            let matchStmt = Statement.match' (subject, allCases)
+
+            Some(stmts @ [ matchStmt ])
+
+/// Transform a decision tree into a Python match statement.
+/// Returns None if the pattern is too complex for match statement conversion.
+let transformDecisionTreeAsMatch
+    (com: IPythonCompiler)
+    (ctx: Context)
+    returnStrategy
+    (targets: (Fable.Ident list * Fable.Expr) list)
+    (treeExpr: Fable.Expr)
+    : Statement list option
+    =
+    // First try switch-like patterns (constant matching)
+    match transformDecisionTreeAsSwitch treeExpr with
+    | Some(evalExpr, cases, defaultCase) ->
+        transformSwitchPatternAsMatch com ctx returnStrategy targets evalExpr cases defaultCase
+    | None ->
+        // Try guard pattern matching (e.g., | n when n > 10 -> ...)
+        match MatchStatements.tryExtractGuardPattern treeExpr with
+        | Some(MatchStatements.DebugModeGuards(subjectIdent, guardCases, defaultCase)) ->
+            transformDebugModeGuardPatternAsMatch com ctx returnStrategy targets subjectIdent guardCases defaultCase
+        | Some(MatchStatements.ReleaseModeGuards(subjectIdent, guardCases, defaultCase)) ->
+            transformReleaseModeGuardPatternAsMatch com ctx returnStrategy targets subjectIdent guardCases defaultCase
+        | None -> None
 
 let transformDecisionTreeAsExpr (com: IPythonCompiler) (ctx: Context) targets expr : Expression * Statement list =
     // TODO: Check if some targets are referenced multiple times
@@ -1726,22 +1977,27 @@ let transformDecisionTreeAsStatements
 
     match targetsWithMultiRefs with
     | [] ->
-        let ctx = { ctx with DecisionTargets = targets }
+        // Try to transform as a Python match statement first (Python 3.10+)
+        match transformDecisionTreeAsMatch com ctx returnStrategy targets treeExpr with
+        | Some matchStmts -> matchStmts
+        | None ->
+            // Fall back to if/elif/else transformation
+            let ctx = { ctx with DecisionTargets = targets }
 
-        match transformDecisionTreeAsSwitch treeExpr with
-        | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-            let t = treeExpr.Type
+            match transformDecisionTreeAsSwitch treeExpr with
+            | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
+                let t = treeExpr.Type
 
-            let cases =
-                cases
-                |> List.map (fun (caseExpr, targetIndex, boundValues) ->
-                    [ caseExpr ], Fable.DecisionTreeSuccess(targetIndex, boundValues, t)
-                )
+                let cases =
+                    cases
+                    |> List.map (fun (caseExpr, targetIndex, boundValues) ->
+                        [ caseExpr ], Fable.DecisionTreeSuccess(targetIndex, boundValues, t)
+                    )
 
-            let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
+                let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
 
-            transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase)
-        | None -> com.TransformAsStatements(ctx, returnStrategy, treeExpr)
+                transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase)
+            | None -> com.TransformAsStatements(ctx, returnStrategy, treeExpr)
     | targetsWithMultiRefs ->
         // If the bound idents are not referenced in the target, remove them
         let targets =
@@ -1759,18 +2015,23 @@ let transformDecisionTreeAsStatements
             |> List.exists (fun idx -> targets[idx] |> fst |> List.isEmpty |> not)
 
         if not hasAnyTargetWithMultiRefsBoundValues then
-            match transformDecisionTreeAsSwitch treeExpr with
-            | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-                let t = treeExpr.Type
+            // Try to transform as a Python match statement first (supports or-patterns)
+            match transformDecisionTreeAsMatch com ctx returnStrategy targets treeExpr with
+            | Some matchStmts -> matchStmts
+            | None ->
+                // Fall back to if/elif/else transformation
+                match transformDecisionTreeAsSwitch treeExpr with
+                | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
+                    let t = treeExpr.Type
 
-                let cases = groupSwitchCases t cases (defaultIndex, defaultBoundValues)
+                    let cases = groupSwitchCases t cases (defaultIndex, defaultBoundValues)
 
-                let ctx = { ctx with DecisionTargets = targets }
+                    let ctx = { ctx with DecisionTargets = targets }
 
-                let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
+                    let defaultCase = Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, t)
 
-                transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase)
-            | None -> transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
+                    transformSwitch com ctx true returnStrategy evalExpr cases (Some defaultCase)
+                | None -> transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
         else
             transformDecisionTreeWithTwoSwitches com ctx returnStrategy targets treeExpr
 
@@ -2196,6 +2457,34 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
         // Rewrite `if (guard) { Debugger; null }` to assert (guard)
         let guardExpr', stmts = transformAsExpr com ctx guardExpr
         stmts @ [ Statement.assert' guardExpr' ]
+    // Two-case union pattern: if shape.tag == 0 then ... else ...
+    // Transform to: match shape.tag: case 0: ... case _: ...
+    | Fable.IfThenElse(Fable.Test(unionExpr, Fable.UnionCaseTest tag, _), thenExpr, elseExpr, _r) ->
+        let tagExpr =
+            Fable.Get(unionExpr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), None)
+
+        let subject, subjectStmts = com.TransformAsExpr(ctx, tagExpr)
+        let thenBody = com.TransformAsStatements(ctx, returnStrategy, thenExpr)
+        let elseBody = com.TransformAsStatements(ctx, returnStrategy, elseExpr)
+        // Ensure bodies are not empty (Python requires at least `pass`)
+        let thenBody =
+            if List.isEmpty thenBody then
+                [ Statement.Pass ]
+            else
+                thenBody
+
+        let elseBody =
+            if List.isEmpty elseBody then
+                [ Statement.Pass ]
+            else
+                elseBody
+
+        let tagPattern = MatchValue(Expression.intConstant tag)
+        let wildcardPattern = Pattern.matchWildcard ()
+        let thenCase = MatchCase.matchCase (tagPattern, thenBody)
+        let elseCase = MatchCase.matchCase (wildcardPattern, elseBody)
+        let matchStmt = Statement.match' (subject, [ thenCase; elseCase ])
+        subjectStmts @ [ matchStmt ]
     | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, r) ->
         let asStatement =
             match returnStrategy with

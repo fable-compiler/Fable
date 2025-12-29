@@ -76,6 +76,7 @@
     <Compile Include="TestUnionType.fs" />
     <Compile Include="TestUri.fs" />
     <Compile Include="TestPyInterop.fs" />
+    <Compile Include="TestPatternMatch.fs" />
 
     <Compile Include="TestNonRegression.fs" />
     <Compile Include="Main.fs" />

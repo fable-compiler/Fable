@@ -1023,3 +1023,172 @@ module ExceptionHandling =
             specificHandlers, wildcardHandler
 
         | _ -> [], Some expr
+
+/// Utilities for Python match statement generation (PEP 634).
+/// These helpers transform F# decision trees into Python 3.10+ match/case statements.
+module MatchStatements =
+    open Fable.Transforms
+
+    /// Converts a Fable constant expression to a Python Pattern for match statements.
+    /// Returns None if the value cannot be converted to a pattern.
+    let fableValueToPattern (value: Fable.Expr) : Pattern option =
+        match value with
+        | Fable.Value(Fable.CharConstant c, _) -> Some(MatchValue(Expression.stringConstant (string<char> c)))
+        | Fable.Value(Fable.StringConstant s, _) -> Some(MatchValue(Expression.stringConstant s))
+        | Fable.Value(Fable.NumberConstant(v, _), _) ->
+            match v with
+            | Fable.NumberValue.Int8 x -> Some(MatchValue(Expression.intConstant x))
+            | Fable.NumberValue.UInt8 x -> Some(MatchValue(Expression.intConstant x))
+            | Fable.NumberValue.Int16 x -> Some(MatchValue(Expression.intConstant x))
+            | Fable.NumberValue.UInt16 x -> Some(MatchValue(Expression.intConstant x))
+            | Fable.NumberValue.Int32 x -> Some(MatchValue(Expression.intConstant x))
+            | Fable.NumberValue.UInt32 x -> Some(MatchValue(Expression.intConstant x))
+            | Fable.NumberValue.Float32 x -> Some(MatchValue(Expression.floatConstant (float x)))
+            | Fable.NumberValue.Float64 x -> Some(MatchValue(Expression.floatConstant x))
+            | _ -> None
+        | Fable.Value(Fable.BoolConstant b, _) -> Some(MatchSingleton(BoolLiteral b))
+        | Fable.Value(Fable.Null _, _) -> Some(MatchSingleton NoneLiteral)
+        | _ -> None
+
+    /// Active pattern to detect guard let bindings in F# pattern matching (debug mode).
+    /// Handles F# guards like `| n when n > 10 -> ...` which compile to:
+    ///   Let(n, IdentExpr(x), guardBody)
+    /// where guardBody uses n (e.g., n > 10)
+    /// Returns Some(subject, param, guardBody) if the pattern matches.
+    [<return: Struct>]
+    let (|GuardLetBinding|_|) =
+        function
+        | Fable.Let(param, Fable.IdentExpr subject, guardBody) -> ValueSome(subject, param, guardBody)
+        | _ -> ValueNone
+
+    /// Extracts the subject identifier from a binary comparison operation.
+    /// In release mode, guards like `n when n > 10` are inlined as direct comparisons.
+    /// Returns Some(subjectIdent) if we can identify the subject being compared.
+    let private tryExtractSubjectFromComparison (expr: Fable.Expr) : Fable.Ident option =
+        match expr with
+        | Fable.Operation(Fable.Binary(_, Fable.IdentExpr ident, _), _, _, _) -> Some ident
+        | Fable.Operation(Fable.Binary(_, _, Fable.IdentExpr ident), _, _, _) -> Some ident
+        | Fable.Operation(Fable.Logical(_, Fable.IdentExpr ident, _), _, _, _) -> Some ident
+        | Fable.Operation(Fable.Logical(_, _, Fable.IdentExpr ident), _, _, _) -> Some ident
+        | _ -> None
+
+    /// Simplified guard case representation for the new pattern.
+    /// (guardCondition, targetIndex, boundValues)
+    type InlinedGuardCase = Fable.Expr * int * Fable.Expr list
+
+    /// Extracts inlined guard cases from a decision tree (release mode).
+    /// In release mode, F# inlines the guard condition directly into the IfThenElse.
+    let private extractInlinedGuardCases
+        (subjectName: string option)
+        acc
+        expr
+        : (InlinedGuardCase list * (int * Fable.Expr list)) option
+        =
+        let rec loop subjectName acc expr =
+            match expr with
+            // Release mode pattern: condition is directly an Operation (comparison)
+            | Fable.IfThenElse(cond, Fable.DecisionTreeSuccess(targetIndex, boundValues, _), elseExpr, _) ->
+                match tryExtractSubjectFromComparison cond with
+                | Some subjectIdent ->
+                    // Verify the subject is the same across all cases
+                    match subjectName with
+                    | Some name when name <> subjectIdent.Name -> None
+                    | _ ->
+                        let guardCase: InlinedGuardCase = (cond, targetIndex, boundValues)
+                        loop (Some subjectIdent.Name) (guardCase :: acc) elseExpr
+                | None -> None
+            | Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, _) ->
+                // We've reached the default case
+                match subjectName with
+                | Some _ -> Some(List.rev acc, (defaultIndex, defaultBoundValues))
+                | None -> None
+            | _ ->
+                // Pattern doesn't match
+                None
+
+        loop subjectName acc expr
+
+    /// Extracts guard cases from a decision tree expression (debug mode).
+    /// Returns None if the pattern doesn't match a guard chain.
+    let private extractGuardCases (subjectName: string option) acc expr =
+        let rec loop subjectName acc expr =
+            match expr with
+            | Fable.IfThenElse(GuardLetBinding(subj, param, guardBody),
+                               Fable.DecisionTreeSuccess(targetIndex, boundValues, _),
+                               elseExpr,
+                               _) ->
+                // Verify the subject is the same across all cases
+                match subjectName with
+                | Some name when name <> subj.Name -> None // Different subjects, can't use match
+                | _ ->
+                    let guardCase = (subj, param, guardBody, targetIndex, boundValues)
+                    loop (Some subj.Name) (guardCase :: acc) elseExpr
+            | Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, _) ->
+                // We've reached the default case
+                match subjectName with
+                | Some _ -> Some(List.rev acc, (defaultIndex, defaultBoundValues))
+                | None -> None
+            | _ ->
+                // Pattern doesn't match - not a pure guard chain
+                None
+
+        loop subjectName acc expr
+
+    /// Result type for guard pattern extraction - supports both debug and release mode patterns.
+    type GuardPatternResult =
+        /// Debug mode: Let bindings are present, we have subject, param, guardBody per case
+        | DebugModeGuards of
+            subjectIdent: Fable.Ident *
+            cases: (Fable.Ident * Fable.Ident * Fable.Expr * int * Fable.Expr list) list *
+            defaultCase: (int * Fable.Expr list)
+        /// Release mode: Guards are inlined, we have the guard condition directly
+        | ReleaseModeGuards of
+            subjectIdent: Fable.Ident *
+            cases: InlinedGuardCase list *
+            defaultCase: (int * Fable.Expr list)
+
+    /// Detects a chain of guard expressions in a decision tree.
+    /// Handles both debug mode (with Let bindings) and release mode (inlined guards).
+    /// Returns Some(GuardPatternResult) if the pattern matches.
+    let tryExtractGuardPattern treeExpr =
+        match treeExpr with
+        // Debug mode pattern: condition is a Let binding
+        | Fable.IfThenElse(GuardLetBinding(subject, param, guardBody),
+                           Fable.DecisionTreeSuccess(targetIndex, boundValues, _),
+                           elseExpr,
+                           _) ->
+            let firstCase = (subject, param, guardBody, targetIndex, boundValues)
+
+            match extractGuardCases (Some subject.Name) [ firstCase ] elseExpr with
+            | Some(cases, defaultCase) when List.length cases >= 1 ->
+                let subjectIdent = cases |> List.head |> (fun (s, _, _, _, _) -> s)
+                Some(DebugModeGuards(subjectIdent, cases, defaultCase))
+            | _ -> None
+
+        // Release mode pattern: condition is directly an Operation (comparison)
+        | Fable.IfThenElse(cond, Fable.DecisionTreeSuccess(targetIndex, boundValues, _), elseExpr, _) ->
+            match tryExtractSubjectFromComparison cond with
+            | Some subjectIdent ->
+                let firstCase: InlinedGuardCase = (cond, targetIndex, boundValues)
+
+                match extractInlinedGuardCases (Some subjectIdent.Name) [ firstCase ] elseExpr with
+                | Some(cases, defaultCase) when List.length cases >= 1 ->
+                    Some(ReleaseModeGuards(subjectIdent, cases, defaultCase))
+                | _ -> None
+            | None -> None
+
+        | _ -> None
+
+    /// Unwraps redundant Let bindings in the target expression.
+    /// The pattern already captures the value, so Let(v, x, body) where x is the subject
+    /// can be replaced with body (substituting v with patternIdent).
+    let rec unwrapRedundantLets (subjectName: string) (patternIdent: Fable.Ident) expr =
+        match expr with
+        | Fable.Let(ident, Fable.IdentExpr valueIdent, body) when valueIdent.Name = subjectName ->
+            // This Let binds a new variable to the subject - it's redundant
+            // Replace references to ident with patternIdent in the body
+            let body' =
+                FableTransforms.replaceValues (Map.ofList [ ident.Name, Fable.IdentExpr patternIdent ]) body
+
+            unwrapRedundantLets subjectName patternIdent body'
+        | _ -> expr
