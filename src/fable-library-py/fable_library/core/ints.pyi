@@ -1,6 +1,6 @@
 """Stub file for Fable integer types."""
 
-from typing import Any, ClassVar, Protocol, Self, SupportsFloat, SupportsInt, final
+from typing import Any, ClassVar, Literal, Protocol, Self, SupportsFloat, SupportsInt, final, overload
 
 class NumericInts(Protocol):
     """Protocol for Integer types"""
@@ -62,6 +62,11 @@ class UInt8(NumericInts):
     SIXTY_FOUR: ClassVar[UInt8]
     NEG_ONE: ClassVar[UInt8]
 
+    @staticmethod
+    def parse(string: str, style: SupportsInt, radix: SupportsInt = ...) -> UInt8: ...
+    @staticmethod
+    def try_parse(string: str, style: SupportsInt, def_value: Any) -> bool: ...
+
 @final
 class Int8(NumericInts):
     ZERO: ClassVar[Int8]
@@ -79,6 +84,11 @@ class Int8(NumericInts):
     THIRTY_TWO: ClassVar[Int8]
     SIXTY_FOUR: ClassVar[Int8]
     NEG_ONE: ClassVar[Int8]
+
+    @staticmethod
+    def parse(string: str, style: SupportsInt, radix: SupportsInt = ...) -> Int8: ...
+    @staticmethod
+    def try_parse(string: str, style: SupportsInt, def_value: Any) -> bool: ...
 
 @final
 class UInt16(NumericInts):
@@ -98,6 +108,11 @@ class UInt16(NumericInts):
     SIXTY_FOUR: ClassVar[UInt16]
     NEG_ONE: ClassVar[UInt16]
 
+    @staticmethod
+    def parse(string: str, style: SupportsInt, radix: SupportsInt = ...) -> UInt16: ...
+    @staticmethod
+    def try_parse(string: str, style: SupportsInt, def_value: Any) -> bool: ...
+
 @final
 class Int16(NumericInts):
     ZERO: ClassVar[Int16]
@@ -116,6 +131,11 @@ class Int16(NumericInts):
     SIXTY_FOUR: ClassVar[Int16]
     NEG_ONE: ClassVar[Int16]
 
+    @staticmethod
+    def parse(string: str, style: SupportsInt, radix: SupportsInt = ...) -> Int16: ...
+    @staticmethod
+    def try_parse(string: str, style: SupportsInt, def_value: Any) -> bool: ...
+
 @final
 class UInt32(NumericInts):
     ZERO: ClassVar[UInt32]
@@ -133,6 +153,11 @@ class UInt32(NumericInts):
     THIRTY_TWO: ClassVar[UInt32]
     SIXTY_FOUR: ClassVar[UInt32]
     NEG_ONE: ClassVar[UInt32]
+
+    @staticmethod
+    def parse(string: str, style: SupportsInt, radix: SupportsInt = ...) -> UInt32: ...
+    @staticmethod
+    def try_parse(string: str, style: SupportsInt, def_value: Any) -> bool: ...
 
 @final
 class Int32(NumericInts, int):
@@ -153,6 +178,11 @@ class Int32(NumericInts, int):
     SIXTY_FOUR: ClassVar[Int32]
     NEG_ONE: ClassVar[Int32]
 
+    @staticmethod
+    def parse(string: str, style: SupportsInt, radix: SupportsInt = ...) -> Int32: ...
+    @staticmethod
+    def try_parse(string: str, style: SupportsInt, def_value: Any) -> bool: ...
+
 @final
 class UInt64(NumericInts):
     ZERO: ClassVar[UInt64]
@@ -171,6 +201,11 @@ class UInt64(NumericInts):
     SIXTY_FOUR: ClassVar[UInt64]
     NEG_ONE: ClassVar[UInt64]
 
+    @staticmethod
+    def parse(string: str, style: SupportsInt, radix: SupportsInt = ...) -> UInt64: ...
+    @staticmethod
+    def try_parse(string: str, style: SupportsInt, def_value: Any) -> bool: ...
+
 @final
 class Int64(NumericInts):
     ZERO: ClassVar[Int64]
@@ -188,6 +223,11 @@ class Int64(NumericInts):
     THIRTY_TWO: ClassVar[Int64]
     SIXTY_FOUR: ClassVar[Int64]
     NEG_ONE: ClassVar[Int64]
+
+    @staticmethod
+    def parse(string: str, style: SupportsInt, radix: SupportsInt = ...) -> Int64: ...
+    @staticmethod
+    def try_parse(string: str, style: SupportsInt, def_value: Any) -> bool: ...
 
 # Integer parsing functions with F#-compatible semantics
 def parse_int32(

@@ -1,4 +1,6 @@
-from .core import float64, floats
+from typing import Any
+
+from .core import float32, float64, floats
 from .types import FSharpRef
 
 
@@ -14,7 +16,7 @@ def min(x: float64, y: float64) -> float64:
     return x if x < y else y
 
 
-def try_parse(string: str, def_value: FSharpRef[float64]) -> bool:
+def try_parse(string: str, def_value: FSharpRef[float32 | float64 | Any]) -> bool:
     try:
         def_value.contents = parse(string)
         return True
@@ -52,6 +54,7 @@ inf = floats.infinity
 nan = floats.nan
 negative_inf = floats.negative_infinity
 parse = floats.parse
+parse_single = floats.parse_single
 abs = floats.abs
 
 
@@ -78,6 +81,7 @@ __all__ = [
     "max",
     "min",
     "parse",
+    "parse_single",
     "pow",
     "radians",
     "sign",

@@ -780,6 +780,12 @@ pub fn parse(x: &str) -> PyResult<Float64> {
     Ok(Float64(value))
 }
 
+#[pyfunction]
+pub fn parse_single(x: &str) -> PyResult<Float32> {
+    let value = x.trim().parse::<f32>()?;
+    Ok(Float32(value))
+}
+
 /// A module for float operations
 pub fn register_float_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent_module.py(), "floats")?;
@@ -819,6 +825,7 @@ pub fn register_float_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(ceil, &m)?)?;
     m.add_function(wrap_pyfunction!(pow, &m)?)?;
     m.add_function(wrap_pyfunction!(parse, &m)?)?;
+    m.add_function(wrap_pyfunction!(parse_single, &m)?)?;
     m.add_function(wrap_pyfunction!(abs, &m)?)?;
 
     parent_module.add_submodule(&m)
