@@ -2339,7 +2339,6 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         let upper =
             match upper with
             | Value(NewOption(None, _, _), _) -> Helper.GlobalCall("len", t, [ ar ], [ t ], ?loc = r)
-            //getExpr None (Int32.Number) ar (makeStrConst "length2")
             | _ -> add upper (makeIntConst 1)
 
         Helper.InstanceCall(ar, "slice", t, [ lower; upper ], ?loc = r) |> Some

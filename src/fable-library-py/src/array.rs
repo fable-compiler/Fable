@@ -444,6 +444,15 @@ impl FSharpArray {
         self.storage.len()
     }
 
+    /// Returns the length of the array as Int32 (F# compatible).
+    ///
+    /// This property provides F# interop compatibility by returning the array length
+    /// as an Int32 instead of Python's native int. In F#, Array.length returns int32.
+    #[getter]
+    pub fn length(&self) -> Int32 {
+        Int32(self.storage.len() as i32)
+    }
+
     /// Returns an iterator over the array elements.
     ///
     /// # Performance Optimization

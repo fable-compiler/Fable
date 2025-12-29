@@ -21,6 +21,7 @@ from types import TracebackType
 from typing import (
     Any,
     ClassVar,
+    Final,
     Literal,
     Protocol,
     Self,
@@ -206,10 +207,10 @@ def returns[T, **P](targettype: Callable[..., T]) -> Callable[[Callable[P, Any]]
     return decorator
 
 
-class DateKind(IntEnum):
-    Unspecified = 0
-    UTC = 1
-    Local = 2
+class DateKind:
+    Unspecified: Final[int32] = int32(0)
+    UTC: Final[int32] = int32(1)
+    Local: Final[int32] = int32(2)
 
 
 def equals(a: Any, b: Any) -> bool:
@@ -512,7 +513,7 @@ class Enumerable[T](EnumerableBase[T]):
     def __init__(self, xs: Iterable[T]) -> None:
         self.xs = xs
 
-    def GetEnumerator(self, __unit: Any = UNIT) -> IEnumerator[T]:
+    def GetEnumerator(self, __unit=UNIT) -> IEnumerator[T]:
         return Enumerator(iter(self.xs))
 
     def __iter__(self) -> Iterator[T]:
