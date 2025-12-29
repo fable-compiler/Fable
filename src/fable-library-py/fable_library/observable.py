@@ -1,8 +1,6 @@
-from __future__ import annotations
-
 from abc import abstractmethod
 from collections.abc import Callable
-from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from .choice import (
     Choice_tryValueIfChoice1Of2,
@@ -10,22 +8,16 @@ from .choice import (
     FSharpChoice_2,
 )
 from .option import value
-from .util import DisposableBase, IDisposable
-
-
-_T = TypeVar("_T")
-_T_co = TypeVar("_T_co", covariant=True)
-_T_contra = TypeVar("_T_contra", contravariant=True)
-_U = TypeVar("_U")
-_V = TypeVar("_V")
+from .protocols import IDisposable
+from .util import UNIT, DisposableBase
 
 
 @runtime_checkable
-class IObserver(Protocol[_T_contra]):
+class IObserver[T_contra](Protocol):
     __slots__ = ()
 
     @abstractmethod
-    def OnNext(self, __value: _T_contra) -> None: ...
+    def OnNext(self, __value: T_contra) -> None: ...
 
     @abstractmethod
     def OnError(self, __error: Exception) -> None: ...
@@ -34,16 +26,16 @@ class IObserver(Protocol[_T_contra]):
     def OnCompleted(self) -> None: ...
 
 
-def _noop(__arg: Any = None) -> None:
+def _noop(__arg=UNIT) -> None:
     pass
 
 
-class Observer(IObserver[_T]):
+class Observer[T](IObserver[T]):
     __slots__ = "_on_completed", "_on_error", "_on_next"
 
     def __init__(
         self,
-        on_next: Callable[[_T], None],
+        on_next: Callable[[T], None],
         on_error: Callable[[Exception], None] | None = None,
         on_completed: Callable[[], None] | None = None,
     ) -> None:
@@ -54,41 +46,41 @@ class Observer(IObserver[_T]):
     def OnError(self, error: Exception) -> None:
         return self._on_error(error)
 
-    def OnNext(self, value: _T) -> None:
+    def OnNext(self, value: T) -> None:
         return self._on_next(value)
 
     def OnCompleted(self) -> None:
         return self._on_completed()
 
 
-class IObservable(Protocol, Generic[_T_co]):
+class IObservable[T_co](Protocol):
     __slots__ = ()
 
     @abstractmethod
-    def Subscribe(self, __obs: IObserver[_T_co]) -> IDisposable: ...
+    def Subscribe(self, __obs: IObserver[T_co]) -> IDisposable: ...
 
 
-class Observable(IObservable[_T]):
+class Observable[T](IObservable[T]):
     __slots__ = "subscribe"
 
-    def __init__(self, subscribe: Callable[[IObserver[_T]], IDisposable]) -> None:
+    def __init__(self, subscribe: Callable[[IObserver[T]], IDisposable]) -> None:
         self.subscribe = subscribe
 
-    def Subscribe(self, obv: IObserver[_T]) -> IDisposable:
+    def Subscribe(self, obv: IObserver[T]) -> IDisposable:
         return self.subscribe(obv)
 
 
-def subscribe(callback: Callable[[_T], None], source: IObservable[_T]) -> IDisposable:
+def subscribe[T](callback: Callable[[T], None], source: IObservable[T]) -> IDisposable:
     return source.Subscribe(Observer(callback))
 
 
-def add(callback: Callable[[_T], None], source: IObservable[_T]) -> IDisposable:
+def add[T](callback: Callable[[T], None], source: IObservable[T]) -> IDisposable:
     return source.Subscribe(Observer(callback))
 
 
-def protect(
-    f: Callable[[], _T],
-    succeed: Callable[[_T], None],
+def protect[T](
+    f: Callable[[], T],
+    succeed: Callable[[T], None],
     fail: Callable[[Exception], None],
 ):
     try:
@@ -97,10 +89,10 @@ def protect(
         fail(e)
 
 
-def choose(chooser: Callable[[_T], _U | None], source: IObservable[_T]) -> IObservable[_U]:
-    def subscribe(observer: IObserver[_U]):
-        def on_next(t: _T) -> None:
-            def success(u: _U | None) -> None:
+def choose[T, U](chooser: Callable[[T], U | None], source: IObservable[T]) -> IObservable[U]:
+    def subscribe(observer: IObserver[U]):
+        def on_next(t: T) -> None:
+            def success(u: U | None) -> None:
                 if u is not None:
                     observer.OnNext(value(u))
 
@@ -112,13 +104,13 @@ def choose(chooser: Callable[[_T], _U | None], source: IObservable[_T]) -> IObse
     return Observable(subscribe)
 
 
-def filter(predicate: Callable[[_T], bool], source: IObservable[_T]) -> IObservable[_T]:
+def filter[T](predicate: Callable[[T], bool], source: IObservable[T]) -> IObservable[T]:
     return choose(lambda x: x if predicate(x) else None, source)
 
 
-def map(mapping: Callable[[_T], _U], source: IObservable[_T]) -> IObservable[_U]:
-    def subscribe(observer: IObserver[_U]) -> IDisposable:
-        def on_next(value: _T) -> None:
+def map[T, U](mapping: Callable[[T], U], source: IObservable[T]) -> IObservable[U]:
+    def subscribe(observer: IObserver[U]) -> IDisposable:
+        def on_next(value: T) -> None:
             return protect(lambda: mapping(value), observer.OnNext, observer.OnError)
 
         obv = Observer(on_next, observer.OnError, observer.OnCompleted)
@@ -127,13 +119,13 @@ def map(mapping: Callable[[_T], _U], source: IObservable[_T]) -> IObservable[_U]
     return Observable(subscribe)
 
 
-def merge(source1: IObservable[_T], source2: IObservable[_T]) -> IObservable[_T]:
-    def subscribe(observer: IObserver[_T]) -> IDisposable:
+def merge[T](source1: IObservable[T], source2: IObservable[T]) -> IObservable[T]:
+    def subscribe(observer: IObserver[T]) -> IDisposable:
         stopped = False
         completed1 = False
         completed2 = False
 
-        def on_next(value: _T) -> None:
+        def on_next(value: T) -> None:
             if stopped:
                 return
             observer.OnNext(value)
@@ -180,11 +172,11 @@ def merge(source1: IObservable[_T], source2: IObservable[_T]) -> IObservable[_T]
     return Observable(subscribe)
 
 
-def pairwise(source: IObservable[_T]) -> IObservable[tuple[_T, _T]]:
-    def subscribe(observer: IObserver[tuple[_T, _T]]) -> IDisposable:
-        last: _T | None = None
+def pairwise[T](source: IObservable[T]) -> IObservable[tuple[T, T]]:
+    def subscribe(observer: IObserver[tuple[T, T]]) -> IDisposable:
+        last: T | None = None
 
-        def on_next(value: _T) -> None:
+        def on_next(value: T) -> None:
             nonlocal last
             if last is not None:
                 observer.OnNext((last, value))
@@ -197,14 +189,14 @@ def pairwise(source: IObservable[_T]) -> IObservable[tuple[_T, _T]]:
     return Observable(subscribe)
 
 
-def partition(predicate: Callable[[_T], bool], source: IObservable[_T]) -> tuple[IObservable[_T], IObservable[_T]]:
+def partition[T](predicate: Callable[[T], bool], source: IObservable[T]) -> tuple[IObservable[T], IObservable[T]]:
     return (filter(predicate, source), filter(lambda x: not predicate(x), source))
 
 
-def scan(collector: Callable[[_U, _T], _U], state: _U, source: IObservable[_T]) -> IObservable[_U]:
-    def subscribe(observer: IObserver[_U]) -> IDisposable:
-        def on_next(t: _T) -> None:
-            def success(u: _U) -> None:
+def scan[T, U](collector: Callable[[U, T], U], state: U, source: IObservable[T]) -> IObservable[U]:
+    def subscribe(observer: IObserver[U]) -> IDisposable:
+        def on_next(t: T) -> None:
+            def success(u: U) -> None:
                 nonlocal state
                 state = u
                 observer.OnNext(u)
@@ -217,9 +209,9 @@ def scan(collector: Callable[[_U, _T], _U], state: _U, source: IObservable[_T]) 
     return Observable(subscribe)
 
 
-def split(
-    splitter: Callable[[_T], FSharpChoice_2[_U, _V]], source: IObservable[_T]
-) -> tuple[IObservable[_U], IObservable[_V]]:
+def split[T, U, V](
+    splitter: Callable[[T], FSharpChoice_2[U, V]], source: IObservable[T]
+) -> tuple[IObservable[U], IObservable[V]]:
     return (
         choose(lambda v: Choice_tryValueIfChoice1Of2(splitter(v)), source),
         choose(lambda v: Choice_tryValueIfChoice2Of2(splitter(v)), source),
