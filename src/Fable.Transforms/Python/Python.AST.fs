@@ -7,6 +7,49 @@ namespace rec Fable.Transforms.Python.AST
 open Fable.AST
 open Fable.Transforms.Python.AST
 
+/// Pattern types for Python 3.10+ match statements (PEP 634)
+/// https://docs.python.org/3/library/ast.html#match-statements
+type Pattern =
+    /// A match literal or constant pattern, e.g. `case 1:` or `case "hello":`
+    | MatchValue of value: Expression
+    /// A match singleton pattern, e.g. `case True:`, `case False:`, or `case None:`
+    | MatchSingleton of value: Literal
+    /// A match sequence pattern, e.g. `case [x, y, z]:`
+    | MatchSequence of patterns: Pattern list
+    /// A match mapping pattern, e.g. `case {"key": value}:`
+    | MatchMapping of keys: Expression list * patterns: Pattern list * rest: Identifier option
+    /// A match class pattern, e.g. `case Point(x=0, y=0):`
+    | MatchClass of cls: Expression * patterns: Pattern list * kwdAttrs: Identifier list * kwdPatterns: Pattern list
+    /// A match star pattern (capture rest), e.g. `case [first, *rest]:`
+    | MatchStar of name: Identifier option
+    /// A match as pattern (capture with optional pattern), e.g. `case _ as x:` or `case x:`
+    | MatchAs of pattern: Pattern option * name: Identifier option
+    /// A match or pattern, e.g. `case 1 | 2 | 3:`
+    | MatchOr of patterns: Pattern list
+
+/// A single case in a match statement
+type MatchCase =
+    {
+        Pattern: Pattern
+        Guard: Expression option
+        Body: Statement list
+    }
+
+/// A match statement (Python 3.10+, PEP 634)
+/// ```py
+/// match subject:
+///     case pattern1:
+///         ...
+///     case pattern2 if guard:
+///         ...
+/// ```
+type Match =
+    {
+        Subject: Expression
+        Cases: MatchCase list
+        Loc: SourceLocation option
+    }
+
 /// Type parameters introduced in Python 3.12 (PEP 695)
 type TypeParam =
     | TypeVar of TypeVarParam
@@ -149,6 +192,7 @@ type Statement =
     | Try of Try
     | Expr of Expr
     | With of With
+    | Match of Match
     | While of While
     | Raise of Raise
     | Import of Import
@@ -1053,6 +1097,59 @@ module PythonExtensions =
                 Loc = loc
             }
             |> TypeAlias
+
+        static member match'(subject, cases, ?loc) : Statement =
+            {
+                Subject = subject
+                Cases = cases
+                Loc = loc
+            }
+            |> Match
+
+    type MatchCase with
+
+        static member matchCase(pattern, body, ?guard) : MatchCase =
+            {
+                Pattern = pattern
+                Guard = guard
+                Body = body
+            }
+
+    type Pattern with
+
+        /// Create a wildcard pattern: `case _:`
+        static member matchWildcard() : Pattern = MatchAs(None, None)
+
+        /// Create a capture pattern: `case x:`
+        static member matchCapture(name: Identifier) : Pattern = MatchAs(None, Some name)
+
+        /// Create a capture pattern: `case x:`
+        static member matchCapture(name: string) : Pattern = MatchAs(None, Some(Identifier name))
+
+        /// Create an as pattern: `case pattern as x:`
+        static member matchAs(pattern, name) : Pattern = MatchAs(Some pattern, Some name)
+
+        /// Create a value/literal pattern: `case 1:` or `case "hello":`
+        static member matchValue(expr) : Pattern = MatchValue expr
+
+        /// Create a singleton pattern: `case True:`, `case False:`, `case None:`
+        static member matchSingleton(value) : Pattern = MatchSingleton value
+
+        /// Create an or pattern: `case 1 | 2 | 3:`
+        static member matchOr(patterns) : Pattern = MatchOr patterns
+
+        /// Create a sequence pattern: `case [x, y, z]:`
+        static member matchSequence(patterns) : Pattern = MatchSequence patterns
+
+        /// Create a star pattern: `case [first, *rest]:`
+        static member matchStar(?name) : Pattern = MatchStar name
+
+        /// Create a class pattern: `case Point(x=0, y=0):`
+        static member matchClass(cls, ?patterns, ?kwdAttrs, ?kwdPatterns) : Pattern =
+            MatchClass(cls, defaultArg patterns [], defaultArg kwdAttrs [], defaultArg kwdPatterns [])
+
+        /// Create a mapping pattern: `case {"key": value}:`
+        static member matchMapping(keys, patterns, ?rest) : Pattern = MatchMapping(keys, patterns, rest)
 
     type Expression with
 
