@@ -1033,7 +1033,7 @@ module MatchStatements =
     /// Returns None if the value cannot be converted to a pattern.
     let fableValueToPattern (value: Fable.Expr) : Pattern option =
         match value with
-        | Fable.Value(Fable.CharConstant c, _) -> Some(MatchValue(Expression.stringConstant (string c)))
+        | Fable.Value(Fable.CharConstant c, _) -> Some(MatchValue(Expression.stringConstant (string<char> c)))
         | Fable.Value(Fable.StringConstant s, _) -> Some(MatchValue(Expression.stringConstant s))
         | Fable.Value(Fable.NumberConstant(v, _), _) ->
             match v with
@@ -1055,10 +1055,11 @@ module MatchStatements =
     ///   Let(n, IdentExpr(x), guardBody)
     /// where guardBody uses n (e.g., n > 10)
     /// Returns Some(subject, param, guardBody) if the pattern matches.
+    [<return: Struct>]
     let (|GuardLetBinding|_|) =
         function
-        | Fable.Let(param, Fable.IdentExpr subject, guardBody) -> Some(subject, param, guardBody)
-        | _ -> None
+        | Fable.Let(param, Fable.IdentExpr subject, guardBody) -> ValueSome(subject, param, guardBody)
+        | _ -> ValueNone
 
     /// Extracts the subject identifier from a binary comparison operation.
     /// In release mode, guards like `n when n > 10` are inlined as direct comparisons.
