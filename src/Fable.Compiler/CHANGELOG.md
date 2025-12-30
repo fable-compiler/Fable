@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+* [Python] Add tuple pattern matching with guards and improve match statement generation (by @dbrattli)
 * [Python] Add Python 3.10+ match statement support for pattern matching (by @dbrattli)
 
 ### Fixed

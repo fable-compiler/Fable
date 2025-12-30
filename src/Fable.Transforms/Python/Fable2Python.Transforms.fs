@@ -761,7 +761,7 @@ let transformCallArgs
             | Replacements.Util.ArrayOrListLiteral(spreadArgs, _) :: rest ->
                 let rest = List.rev rest |> List.map (fun e -> com.TransformAsExpr(ctx, e))
 
-                rest @ (List.map (fun e -> com.TransformAsExpr(ctx, e)) spreadArgs)
+                rest @ List.map (fun e -> com.TransformAsExpr(ctx, e)) spreadArgs
                 |> Helpers.unzipArgs
             | last :: rest ->
                 let rest, stmts =
@@ -1462,10 +1462,7 @@ let transformSwitch (com: IPythonCompiler) ctx _useBlocks returnStrategy evalExp
                             | Statement.Break -> false
                             | _ -> true
                         )
-                        |> function
-                            // Make sure we don't have an empty body
-                            | [] -> [ Statement.Pass ]
-                            | body -> body
+                        |> Util.ensureNonEmptyBody
 
                     let nonLocals, body = getNonLocals ctx body
 
@@ -1627,6 +1624,15 @@ let transformDecisionTreeAsSwitch expr =
 
 // Re-export from Util for local use
 let fableValueToPattern = MatchStatements.fableValueToPattern
+
+/// Transforms bound values into binding statements by zipping idents with values.
+/// Returns empty list if lengths don't match (defensive).
+let private transformBindings com ctx (idents: Fable.Ident list) (boundValues: Fable.Expr list) =
+    if List.length idents = List.length boundValues then
+        List.zip idents boundValues
+        |> List.collect (fun (ident, value) -> transformBindingAsStatements com ctx ident value)
+    else
+        []
 
 /// Builds a default (wildcard) match case for the given target index.
 let private buildDefaultMatchCase
@@ -1886,35 +1892,15 @@ let private transformTupleOptionPatternAsMatch
             // Get the None target body
             let _, noneExpr = targets.[result.NoneTargetIndex]
             let noneBody = com.TransformAsStatements(ctx, returnStrategy, noneExpr)
-
-            let noneBody =
-                if List.isEmpty noneBody then
-                    [ Statement.Pass ]
-                else
-                    noneBody
-
-            MatchCase.matchCase (pattern, noneBody)
+            MatchCase.matchCase (pattern, Util.ensureNonEmptyBody noneBody)
         )
 
     // Build success case (wildcard - all are Some)
     // Need to bind the extracted values before executing the target body
     let successIdents, successExpr = targets.[result.SuccessTargetIndex]
-
-    // Generate bindings for the extracted values
-    let bindingStmts =
-        List.zip successIdents result.SuccessBoundValues
-        |> List.collect (fun (ident, boundValue) -> transformBindingAsStatements com ctx ident boundValue)
-
+    let bindingStmts = transformBindings com ctx successIdents result.SuccessBoundValues
     let successBodyStmts = com.TransformAsStatements(ctx, returnStrategy, successExpr)
-
-    let successBody =
-        let body = bindingStmts @ successBodyStmts
-
-        if List.isEmpty body then
-            [ Statement.Pass ]
-        else
-            body
-
+    let successBody = Util.ensureNonEmptyBody (bindingStmts @ successBodyStmts)
     let successCase = MatchCase.matchCase (Pattern.matchWildcard (), successBody)
 
     // Combine all cases
@@ -1922,6 +1908,99 @@ let private transformTupleOptionPatternAsMatch
     let matchStmt = Statement.match' (subject, allCases)
 
     Some(subjectStmts @ [ matchStmt ])
+
+/// Transform a tuple boolean+guard pattern into a Python match statement.
+/// Handles patterns like: match tuple with | true, _, i when i > -1 -> ... | _ -> ...
+/// Generates: match tuple: case [True, _, i] if i > threshold: ... case _: ...
+let private transformTupleBoolGuardPatternAsMatch
+    (com: IPythonCompiler)
+    (ctx: Context)
+    returnStrategy
+    (targets: (Fable.Ident list * Fable.Expr) list)
+    (result: MatchStatements.TupleBoolGuardPatternResult)
+    : Statement list option
+    =
+    let ctx = { ctx with DecisionTargets = targets }
+
+    // Get tuple arity from the type
+    let tupleArity =
+        match result.TupleType with
+        | Fable.Tuple(types, _) -> List.length types
+        | _ -> 3 // Default to 3 if we can't determine
+
+    // Transform the tuple expression
+    let tupleExpr, tupleStmts = com.TransformAsExpr(ctx, result.TupleExpr)
+
+    // Helper to replace tuple[idx] with a captured variable in an expression
+    let replaceGuardTupleAccess (guardIdx: int) (varName: string) (expr: Fable.Expr) : Fable.Expr =
+        let rec replace expr =
+            match expr with
+            | Fable.Get(tupleExpr', Fable.TupleIndex idx, typ, _) when idx = guardIdx ->
+                match tupleExpr', result.TupleExpr with
+                | Fable.IdentExpr id1, Fable.IdentExpr id2 when id1.Name = id2.Name ->
+                    makeTypedIdent typ varName |> Fable.IdentExpr
+                | _ -> expr
+            | Fable.Operation(Fable.Binary(op, left, right), tags, typ, range) ->
+                Fable.Operation(Fable.Binary(op, replace left, replace right), tags, typ, range)
+            | _ -> expr
+
+        replace expr
+
+    // Transform each guard case into a match case
+    let transformCase (caseIdx: int) (case: MatchStatements.TupleBoolGuardCase) : MatchCase option =
+        match case.GuardIndex, case.GuardExpr with
+        | Some guardIdx, Some guardExpr ->
+            // Generate unique variable name for this case
+            let guardVarName = getUniqueNameInDeclarationScope ctx $"i_%d{caseIdx}"
+            let guardVarIdent = Identifier guardVarName
+
+            // Build pattern: [True, _, captured_var] or similar
+            let patterns =
+                [ 0 .. tupleArity - 1 ]
+                |> List.map (fun i ->
+                    if i = result.BoolIndex then
+                        MatchSingleton(BoolLiteral result.BoolValue)
+                    elif i = guardIdx then
+                        MatchAs(None, Some guardVarIdent)
+                    else
+                        Pattern.matchWildcard ()
+                )
+
+            let pattern = MatchSequence patterns
+
+            // Transform guard, replacing tuple access with captured variable
+            let guardExpr' = replaceGuardTupleAccess guardIdx guardVarName guardExpr
+            let guard, guardStmts = com.TransformAsExpr(ctx, guardExpr')
+
+            if not (List.isEmpty guardStmts) then
+                None // Guard has statements, can't convert
+            else
+                // Transform target body
+                let targetIdents, targetExpr = targets.[case.TargetIndex]
+                let bindingStmts = transformBindings com ctx targetIdents case.BoundValues
+                let bodyStmts = com.TransformAsStatements(ctx, returnStrategy, targetExpr)
+                let body = Util.ensureNonEmptyBody (bindingStmts @ bodyStmts)
+                Some(MatchCase.matchCase (pattern, body, guard))
+        | _ -> None
+
+    // Try to transform all cases
+    let matchCases = result.Cases |> List.mapi transformCase |> List.choose id
+
+    // Check if all cases converted successfully
+    if List.length matchCases <> List.length result.Cases then
+        None
+    else
+        // Transform default target body
+        let defaultIdents, defaultExpr = targets.[result.DefaultTargetIndex]
+
+        let defaultBindingStmts =
+            transformBindings com ctx defaultIdents result.DefaultBoundValues
+
+        let defaultBodyStmts = com.TransformAsStatements(ctx, returnStrategy, defaultExpr)
+        let defaultBody = Util.ensureNonEmptyBody (defaultBindingStmts @ defaultBodyStmts)
+        let defaultCase = MatchCase.matchCase (Pattern.matchWildcard (), defaultBody)
+        let matchStmt = Statement.match' (tupleExpr, matchCases @ [ defaultCase ])
+        Some(tupleStmts @ [ matchStmt ])
 
 /// Transform a decision tree into a Python match statement.
 /// Returns None if the pattern is too complex for match statement conversion.
@@ -1948,7 +2027,11 @@ let transformDecisionTreeAsMatch
             // Try tuple Option pattern: match (x, y) with | Some a, Some b -> ... | _ -> None
             match MatchStatements.tryExtractTupleOptionPattern treeExpr with
             | Some result -> transformTupleOptionPatternAsMatch com ctx returnStrategy targets result
-            | None -> None
+            | None ->
+                // Try tuple boolean+guard pattern: match tuple with | true, _, i when i > -1 -> ...
+                match MatchStatements.tryExtractTupleBoolGuardPattern treeExpr with
+                | Some result -> transformTupleBoolGuardPatternAsMatch com ctx returnStrategy targets result
+                | None -> None
 
 let transformDecisionTreeAsExpr (com: IPythonCompiler) (ctx: Context) targets expr : Expression * Statement list =
     // TODO: Check if some targets are referenced multiple times
@@ -2029,10 +2112,16 @@ let transformDecisionTreeWithTwoSwitches
         multiVarDeclaration ctx ((ident com ctx targetId, None) :: boundIdents)
     // Transform targets as switch
     let switch2 =
-        // TODO: Declare the last case as the default case?
-        let cases = targets |> List.mapi (fun i (_, target) -> [ makeIntConst i ], target)
+        // Make the last case a default case to ensure exhaustive matching
+        // This fixes type errors where pyright thinks not all paths return a value
+        let allCases =
+            targets |> List.mapi (fun i (_, target) -> [ makeIntConst i ], target)
 
-        transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases None
+        match List.tryLast allCases with
+        | Some(_, lastTarget) when allCases.Length > 1 ->
+            let cases = allCases |> List.take (allCases.Length - 1)
+            transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases (Some lastTarget)
+        | _ -> transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) allCases None
 
     // Transform decision tree
     let targetAssign = Target(ident com ctx targetId)
@@ -2562,20 +2651,14 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
             Fable.Get(unionExpr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), None)
 
         let subject, subjectStmts = com.TransformAsExpr(ctx, tagExpr)
-        let thenBody = com.TransformAsStatements(ctx, returnStrategy, thenExpr)
-        let elseBody = com.TransformAsStatements(ctx, returnStrategy, elseExpr)
-        // Ensure bodies are not empty (Python requires at least `pass`)
+
         let thenBody =
-            if List.isEmpty thenBody then
-                [ Statement.Pass ]
-            else
-                thenBody
+            com.TransformAsStatements(ctx, returnStrategy, thenExpr)
+            |> Util.ensureNonEmptyBody
 
         let elseBody =
-            if List.isEmpty elseBody then
-                [ Statement.Pass ]
-            else
-                elseBody
+            com.TransformAsStatements(ctx, returnStrategy, elseExpr)
+            |> Util.ensureNonEmptyBody
 
         let tagPattern = MatchValue(Expression.intConstant tag)
         let wildcardPattern = Pattern.matchWildcard ()
@@ -4398,7 +4481,7 @@ let transformTypeVars (com: IPythonCompiler) ctx (typeVars: HashSet<string>) =
     []
 
 let transformExports (_com: IPythonCompiler) _ctx (exports: HashSet<string>) =
-    let exports = exports |> List.ofSeq
+    let exports = exports |> List.ofSeq |> List.sort
 
     match exports with
     | [] -> []

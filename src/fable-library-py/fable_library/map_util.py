@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from enum import IntEnum
 from re import Match
 from typing import (
@@ -84,14 +84,14 @@ def try_get_value(map: IReadOnlyDictionary[_K, _V], key: _K, default_value: FSha
     return False
 
 
-def get_item_from_dict(map: dict[_K, _V], key: _K) -> _V:
+def get_item_from_dict(map: Mapping[_K, _V], key: _K) -> _V:
     if key in map:
         return map[key]
     else:
         raise Exception(f"The given key '{key}' was not present in the dictionary.")
 
 
-def contains_value(v: _V, map: dict[Any, _V]) -> bool:
+def contains_value(v: _V, map: Mapping[Any, _V]) -> bool:
     return v in map.values()
 
 

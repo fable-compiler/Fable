@@ -32,6 +32,13 @@ module Lib =
 module Util =
     open Lib
 
+    /// Ensures a statement list is non-empty by adding Pass if needed.
+    /// Python requires at least one statement in function/class/match bodies.
+    let ensureNonEmptyBody stmts =
+        match stmts with
+        | [] -> [ Statement.Pass ]
+        | _ -> stmts
+
     let hasAttribute fullName (atts: Fable.Attribute seq) =
         atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
@@ -1275,6 +1282,124 @@ module MatchStatements =
     let tryExtractTupleOptionPattern (treeExpr: Fable.Expr) : TupleOptionPatternResult option =
         match extractNestedOptionTests None [] treeExpr with
         | Some result when List.length result.TestedVars >= 2 -> Some result
+        | _ -> None
+
+    /// A single case in a tuple boolean+guard pattern
+    type TupleBoolGuardCase =
+        {
+            /// The guard expression (e.g., i > 10), or None for literal/wildcard
+            GuardExpr: Fable.Expr option
+            /// Index of the element used in the guard (if any)
+            GuardIndex: int option
+            /// Target index for this case
+            TargetIndex: int
+            /// Bound values for this case
+            BoundValues: Fable.Expr list
+        }
+
+    /// Result type for tuple boolean+guard pattern extraction.
+    /// Represents patterns like: match tuple with | true, _, i when i > -1 -> ... | _ -> ...
+    type TupleBoolGuardPatternResult =
+        {
+            /// The tuple expression being matched
+            TupleExpr: Fable.Expr
+            /// The tuple type (to determine arity)
+            TupleType: Fable.Type
+            /// Index of the boolean element being tested (typically 0)
+            BoolIndex: int
+            /// The expected boolean value (true or false)
+            BoolValue: bool
+            /// List of guard cases (in order)
+            Cases: TupleBoolGuardCase list
+            /// Target index for default case
+            DefaultTargetIndex: int
+            /// Bound values for default case
+            DefaultBoundValues: Fable.Expr list
+        }
+
+    /// Extracts tuple index from a Get expression
+    [<return: Struct>]
+    let private (|TupleIndexGet|_|) =
+        function
+        | Fable.Get(expr, Fable.TupleIndex idx, _, _) -> ValueSome(expr, idx)
+        | _ -> ValueNone
+
+    /// Checks if two expressions refer to the same identifier
+    let private sameIdent expr1 expr2 =
+        match expr1, expr2 with
+        | Fable.IdentExpr id1, Fable.IdentExpr id2 -> id1.Name = id2.Name
+        | _ -> false
+
+    /// Extracts the tuple index from a comparison's left or right side
+    let private tryExtractGuardTupleIndex tupleExpr =
+        function
+        | Fable.Operation(Fable.Binary(_, TupleIndexGet(expr, idx), _), _, _, _) when sameIdent expr tupleExpr ->
+            Some idx
+        | Fable.Operation(Fable.Binary(_, _, TupleIndexGet(expr, idx)), _, _, _) when sameIdent expr tupleExpr ->
+            Some idx
+        | _ -> None
+
+    /// Tries to make a guard case from a guard expression
+    let private tryMakeGuardCase tupleExpr guardExpr targetIdx boundValues =
+        match tryExtractGuardTupleIndex tupleExpr guardExpr with
+        | Some guardIdx ->
+            Some
+                {
+                    GuardExpr = Some guardExpr
+                    GuardIndex = Some guardIdx
+                    TargetIndex = targetIdx
+                    BoundValues = boundValues
+                }
+        | None ->
+            // Try equality check pattern like tuple[2] == 0
+            match guardExpr with
+            | Fable.Operation(Fable.Binary(BinaryEqual, TupleIndexGet(expr, idx), _), _, _, _) when
+                sameIdent expr tupleExpr
+                ->
+                Some
+                    {
+                        GuardExpr = Some guardExpr
+                        GuardIndex = Some idx
+                        TargetIndex = targetIdx
+                        BoundValues = boundValues
+                    }
+            | _ -> None
+
+    /// Recursively extracts guard cases from nested IfThenElse
+    let rec private extractGuardCasesRec tupleExpr cases expr =
+        match expr with
+        | Fable.IfThenElse(guardExpr, Fable.DecisionTreeSuccess(targetIdx, boundValues, _), elseExpr, _) ->
+            match tryMakeGuardCase tupleExpr guardExpr targetIdx boundValues with
+            | Some guardCase ->
+                match elseExpr with
+                | Fable.DecisionTreeSuccess(elseTargetIdx, elseBoundValues, _) ->
+                    Some(List.rev (guardCase :: cases), elseTargetIdx, elseBoundValues)
+                | _ -> extractGuardCasesRec tupleExpr (guardCase :: cases) elseExpr
+            | None -> None
+        | Fable.DecisionTreeSuccess(targetIdx, boundValues, _) -> Some(List.rev cases, targetIdx, boundValues)
+        | _ -> None
+
+    /// Tries to extract a tuple boolean+guard pattern from a decision tree.
+    /// Detects: if tuple[0] then (chain of guards) else default
+    let tryExtractTupleBoolGuardPattern (treeExpr: Fable.Expr) : TupleBoolGuardPatternResult option =
+        match treeExpr with
+        | Fable.IfThenElse(TupleIndexGet(tupleExpr, boolIdx),
+                           innerExpr,
+                           Fable.DecisionTreeSuccess(outerDefaultIdx, outerDefaultBound, _),
+                           _) ->
+            match extractGuardCasesRec tupleExpr [] innerExpr with
+            | Some(cases, defaultIdx, defaultBound) when not (List.isEmpty cases) && defaultIdx = outerDefaultIdx ->
+                Some
+                    {
+                        TupleExpr = tupleExpr
+                        TupleType = tupleExpr.Type
+                        BoolIndex = boolIdx
+                        BoolValue = true
+                        Cases = cases
+                        DefaultTargetIndex = defaultIdx
+                        DefaultBoundValues = defaultBound
+                    }
+            | _ -> None
         | _ -> None
 
     /// Unwraps redundant Let bindings in the target expression.
