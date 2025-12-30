@@ -55,6 +55,12 @@ let getRepeatedGenericTypeParams ctx (types: Fable.Type list) =
 let getGenericTypeParams (types: Fable.Type list) =
     types |> FSharp2Fable.Util.getGenParamNames |> Set.ofList
 
+/// Check if a type contains any generic parameters (recursively).
+/// Used to determine if Option<T> should use Option[T] annotation vs T | None.
+/// If the inner type contains generics, we need Option[T] because runtime may wrap.
+let containsGenericParams (t: Fable.Type) =
+    FSharp2Fable.Util.getGenParamNames [ t ] |> List.isEmpty |> not
+
 let getEntityGenParams (ent: Fable.Entity) =
     ent.GenericParameters |> Seq.map (fun x -> x.Name) |> Set.ofSeq
 
@@ -341,7 +347,7 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
     | Types.fsharpAsyncGeneric, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
         fableModuleAnnotation com ctx "async_builder" "Async" resolved, stmts
-    | Types.taskGeneric, _ -> stdlibModuleTypeHint com ctx "typing" "Awaitable" genArgs repeatedGenerics
+    | Types.taskGeneric, _ -> stdlibModuleTypeHint com ctx "collections.abc" "Awaitable" genArgs repeatedGenerics
     | Types.icomparable, _ -> libValue com ctx "protocols" "IComparable", []
     | Types.iStructuralEquatable, _ -> libValue com ctx "protocols" "IStructuralEquatable", []
     | Types.iStructuralComparable, _ -> libValue com ctx "protocols" "IStructuralComparable", []

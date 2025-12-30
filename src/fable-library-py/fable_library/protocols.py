@@ -278,88 +278,86 @@ class IDictionary[Key, Value](ICollection[tuple[Key, Value]], Protocol):
 
 
 class ISet[T](Protocol):
-    """Protocol for set-like objects (matches JS Set interface)."""
+    """Protocol for set-like objects (Python-idiomatic version of JS Set interface).
+
+    The Fable compiler transforms JS-style methods to Python idioms:
+    - has(k) -> __contains__(k)  (enables `x in set` syntax)
+    - delete(k) -> __delitem__(k)  (enables `del set[k]` syntax)
+
+    Parameters are positional-only (/) to avoid name mismatch errors when
+    implementing classes use different parameter names (e.g., 'k' vs 'value').
+    """
 
     @property
-    @abstractmethod
     def size(self) -> int:
         """Return the number of elements in the set."""
-        raise NotImplementedError
+        ...
 
-    @abstractmethod
-    def add(self, value: T) -> ISet[T]:
-        """Add a value to the set."""
-        raise NotImplementedError
+    def add(self, value: T = ..., /) -> ISet[T]:
+        """Add a value to the set. Returns self for chaining."""
+        ...
 
-    @abstractmethod
     def clear(self) -> None:
         """Remove all elements from the set."""
-        raise NotImplementedError
+        ...
 
-    @abstractmethod
-    def delete(self, value: T) -> bool:
+    def __delitem__(self, value: T = ..., /) -> bool:
         """Remove a value from the set. Returns True if value was present."""
-        raise NotImplementedError
+        ...
 
-    @abstractmethod
-    def has(self, value: T) -> bool:
-        """Check if value is in the set."""
-        raise NotImplementedError
+    def __contains__(self, value: T = ..., /) -> bool:
+        """Check if value is in the set (Python `in` operator)."""
+        ...
 
-    @abstractmethod
-    def __contains__(self, value: T) -> bool:
-        """Check if value is in the set (Python protocol)."""
-        raise NotImplementedError
-
-    @abstractmethod
     def values(self) -> IEnumerable_1[T]:
         """Return an enumerable of values."""
-        raise NotImplementedError
+        ...
 
 
 class IMap[K, V](Protocol):
-    """Protocol for map-like objects (matches JS Map interface)."""
+    """Protocol for map-like objects (Python-idiomatic version of JS Map interface).
+
+    The Fable compiler transforms JS-style methods to Python idioms:
+    - has(k) -> __contains__(k)  (enables `k in map` syntax)
+    - delete(k) -> __delitem__(k)  (enables `del map[k]` syntax)
+    - get(k) -> __getitem__(k)  (enables `map[k]` syntax)
+    - set(k, v) -> __setitem__(k, v)  (enables `map[k] = v` syntax)
+
+    Parameters are positional-only (/) to avoid name mismatch errors.
+    """
 
     @property
-    @abstractmethod
     def size(self) -> int:
         """Return the number of key-value pairs in the map."""
-        raise NotImplementedError
+        ...
 
-    @abstractmethod
     def clear(self) -> None:
         """Remove all key-value pairs from the map."""
-        raise NotImplementedError
+        ...
 
-    @abstractmethod
-    def delete(self, key: K) -> bool:
+    def __delitem__(self, key: K = ..., /) -> bool:
         """Remove a key-value pair. Returns True if key was present."""
-        raise NotImplementedError
+        ...
 
-    @abstractmethod
-    def get(self, key: K) -> V | None:
+    def __getitem__(self, key: K = ..., /) -> V | None:
         """Get the value for a key, or None if not present."""
-        raise NotImplementedError
+        ...
 
-    @abstractmethod
-    def has(self, key: K) -> bool:
+    def __contains__(self, key: K = ..., /) -> bool:
         """Check if key is in the map."""
-        raise NotImplementedError
+        ...
 
-    @abstractmethod
-    def set(self, key: K, value: V) -> IMap[K, V]:
-        """Set a key-value pair."""
-        raise NotImplementedError
+    def __setitem__(self, key: K, value: V, /) -> IMap[K, V]:
+        """Set a key-value pair. Returns self for chaining."""
+        ...
 
-    @abstractmethod
     def keys(self) -> IEnumerable_1[K]:
         """Return an enumerable of keys."""
-        raise NotImplementedError
+        ...
 
-    @abstractmethod
     def values(self) -> IEnumerable_1[V]:
         """Return an enumerable of values."""
-        raise NotImplementedError
+        ...
 
 
 class IReadOnlyDictionary[K, V](Protocol):

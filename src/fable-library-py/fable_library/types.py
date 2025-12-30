@@ -14,7 +14,7 @@ from .util import compare
 
 
 class Union(IComparable):
-    __slots__: tuple[str, ...] = ("fields", "tag")
+    __slots__: list[str] = ["fields", "tag"]
 
     tag: int32
     fields: Array[Any]
@@ -261,10 +261,6 @@ class FSharpException(Exception, IComparable):
         return compare(self.Data0, other.Data0)
 
 
-class char(int):
-    __slots__ = ()
-
-
 # We don't use type aliases here because since we need to do isinstance checks
 IntegerTypes = int | byte | sbyte | int16 | uint16 | int32 | uint32 | int64 | uint64
 FloatTypes = float | float32 | float64
@@ -283,7 +279,6 @@ __all__ = [
     "IntegerTypes",
     "Union",
     "byte",
-    "char",
     "float32",
     "float64",
     "int8",
