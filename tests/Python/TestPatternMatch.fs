@@ -338,3 +338,83 @@ let ``test char match`` () =
     charMatch 'a' |> equal "letter a"
     charMatch 'b' |> equal "letter b"
     charMatch 'c' |> equal "other"
+
+// ----------------------------------------------------------------------------
+// 11. Tuple Patterns with Boolean and Guard
+// ----------------------------------------------------------------------------
+// These patterns generate Python match statements like:
+//   match tuple:
+//       case [True, _, i] if i > threshold:
+//           ...
+//       case _:
+//           ...
+
+/// Helper that returns (found: bool, hash: int, index: int)
+let tryFindIndex (key: string) (data: Map<string, int>) : bool * int * int =
+    match Map.tryFind key data with
+    | Some idx -> true, key.GetHashCode(), idx
+    | None -> false, key.GetHashCode(), -1
+
+let tupleBoolGuardSimple (result: bool * int * int) =
+    match result with
+    | true, _, i when i > -1 -> "found"
+    | _, _, _ -> "not found"
+
+let tupleBoolGuardWithValue (result: bool * int * int) =
+    match result with
+    | true, _, i when i >= 0 -> $"found at {i}"
+    | _, _, _ -> "not found"
+
+let tupleBoolGuardMultiple (result: bool * int * int) =
+    match result with
+    | true, _, i when i > 10 -> "found high"
+    | true, _, i when i > 0 -> "found low"
+    | true, _, 0 -> "found at zero"
+    | _, _, _ -> "not found"
+
+/// Simulates Dictionary.ContainsKey pattern
+let containsKeyPattern (key: string) (data: Map<string, int>) =
+    match tryFindIndex key data with
+    | true, _, i when i > -1 -> true
+    | _, _, _ -> false
+
+/// Simulates Dictionary.TryGetValue pattern
+let tryGetValuePattern (key: string) (data: Map<string, int>) =
+    match tryFindIndex key data with
+    | true, _, i when i >= 0 -> Some i
+    | _, _, _ -> None
+
+[<Fact>]
+let ``test tuple bool guard simple`` () =
+    tupleBoolGuardSimple (true, 123, 5) |> equal "found"
+    tupleBoolGuardSimple (true, 123, -1) |> equal "not found"
+    tupleBoolGuardSimple (false, 0, -1) |> equal "not found"
+
+[<Fact>]
+let ``test tuple bool guard with value`` () =
+    tupleBoolGuardWithValue (true, 0, 42) |> equal "found at 42"
+    tupleBoolGuardWithValue (true, 0, 0) |> equal "found at 0"
+    tupleBoolGuardWithValue (true, 0, -1) |> equal "not found"
+    tupleBoolGuardWithValue (false, 0, -1) |> equal "not found"
+
+[<Fact>]
+let ``test tuple bool guard multiple conditions`` () =
+    tupleBoolGuardMultiple (true, 0, 15) |> equal "found high"
+    tupleBoolGuardMultiple (true, 0, 5) |> equal "found low"
+    tupleBoolGuardMultiple (true, 0, 0) |> equal "found at zero"
+    tupleBoolGuardMultiple (true, 0, -1) |> equal "not found"
+    tupleBoolGuardMultiple (false, 0, 10) |> equal "not found"
+
+[<Fact>]
+let ``test contains key pattern`` () =
+    let data = Map.ofList [("a", 0); ("b", 1); ("c", 2)]
+    containsKeyPattern "a" data |> equal true
+    containsKeyPattern "b" data |> equal true
+    containsKeyPattern "z" data |> equal false
+
+[<Fact>]
+let ``test try get value pattern`` () =
+    let data = Map.ofList [("x", 10); ("y", 20)]
+    tryGetValuePattern "x" data |> equal (Some 10)
+    tryGetValuePattern "y" data |> equal (Some 20)
+    tryGetValuePattern "z" data |> equal None
