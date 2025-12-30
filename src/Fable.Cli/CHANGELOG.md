@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Python] Fix type annotations for async functions, date operations, and None handling (by @dbrattli)
 * [Python] Fix type annotations for tuple indexing, generic defaults, and reflection (by @dbrattli)
 
+### Removed
+
+* [All] Remove `--legacyCracker` flag, MSBuild cracker is now the default and the only cracker supported (by @MangelMaxime)
+
 ## 5.0.0-alpha.22 - 2025-12-26
 
 ### Fixed

@@ -27,7 +27,6 @@
     <Compile Include="FileWatchers.fsi" />
     <Compile Include="FileWatchers.fs" />
     <Compile Include="Pipeline.fs" />
-    <Compile Include="BuildalyzerCrackerResolver.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="CustomLogging.fs" />
     <Compile Include="Entry.fs" />
@@ -42,7 +41,6 @@
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Buildalyzer" Version="8.0.0-fable-001" />
     <PackageReference Include="EasyBuild.PackageReleaseNotes.Tasks" Version="2.0.0">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
