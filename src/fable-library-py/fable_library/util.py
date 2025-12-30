@@ -2457,11 +2457,11 @@ def curry20[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T1
         return f2
 
 
-def is_array_like(x: Any) -> bool:
+def is_array_like(x: Any) -> TypeGuard[Array]:
     return isinstance(x, Array | list | tuple | set | bytes | bytearray)
 
 
-def is_disposable(x: Any) -> bool:
+def is_disposable(x: Any) -> TypeGuard[IDisposable]:
     return x is not None and isinstance(x, IDisposable)
 
 
@@ -2488,7 +2488,7 @@ def is_hashable_py(x: Any) -> bool:
     return hasattr(x, "__hash__") and callable(x.__hash__)
 
 
-def to_iterator[T](en: Enumerator[T]) -> IEnumerator[T]:
+def to_iterator[T](en: IEnumerator[T]) -> IEnumerator[T]:
     class Iterator:
         def __iter__(self):
             return self

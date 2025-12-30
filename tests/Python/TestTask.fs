@@ -82,7 +82,7 @@ let ``test Simple task is executed correctly`` () =
         let y = 99
         result <- x = y
     }
-    |> (fun tsk -> tsk.GetAwaiter().GetResult())
+    |> fun tsk -> tsk.GetAwaiter().GetResult()
 
     equal result true
 
@@ -100,7 +100,7 @@ let ``test task use statements should dispose of resources when they go out of s
         use! r = resource
         step1ok <- not isDisposed
     }
-    |> (fun tsk -> tsk.GetAwaiter().GetResult())
+    |> fun tsk -> tsk.GetAwaiter().GetResult()
 
     step2ok <- isDisposed
     (step1ok && step2ok) |> equal true
@@ -136,7 +136,7 @@ let ``test Try ... with ... expressions inside async expressions work the same``
 
         append "f"
     }
-    |> (fun tsk -> tsk.GetAwaiter().GetResult())
+    |> fun tsk -> tsk.GetAwaiter().GetResult()
 
     equal result "abcdef"
 
@@ -151,6 +151,6 @@ let ``test TaskCompletionSource is executed correctly`` () =
         }
 
     let result =
-        x |> (fun tsk -> tsk.GetAwaiter().GetResult())
+        x |> fun tsk -> tsk.GetAwaiter().GetResult()
 
     equal 42 result

@@ -77,7 +77,7 @@ def to_base64string(in_array: Array[Any]) -> str:
 
 def from_base64string(b64encoded: str) -> Array[byte]:
     """Convert base64 string to byte array."""
-    return Array[byte](b64decode(b64encoded))
+    return Array[Any](b64decode(b64encoded))  # Use Any to avoid byte/int issues
 
 
 def join_with_indices(delimiter: str, xs: Array[str], startIndex: int, count: int) -> str:

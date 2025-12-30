@@ -17,6 +17,13 @@ open Fable.Transforms.Python.Reflection
 open Lib
 open Util
 
+/// Wrap an expression in typing.cast() to convert Option[T] -> T | None.
+/// This is zero runtime overhead - cast() is an identity function for type checkers.
+let wrapInOptionCast (com: IPythonCompiler) ctx (expr: Expression) (targetType: Fable.Type) =
+    let castFunc = com.GetImportExpr(ctx, "typing", "cast")
+    let typeAnnotation, _ = Annotation.typeAnnotation com ctx None targetType
+    Expression.call (castFunc, [ typeAnnotation; expr ])
+
 /// Immediately Invoked Function Expression
 let iife (com: IPythonCompiler) ctx (expr: Fable.Expr) =
     let args, body, returnType, typeParams =
@@ -1329,6 +1336,7 @@ let transformBindingAsExpr (com: IPythonCompiler) ctx (var: Fable.Ident) (value:
 let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
     // printfn "transformBindingAsStatements: %A" (var, value)
     let shouldTreatAsStatement = isPyStatement ctx false value
+    let needsCast = needsOptionCastForBinding value var.Type
 
     if shouldTreatAsStatement then
         let varName, varExpr = Expression.name var.Name, identAsExpr com ctx var
@@ -1341,10 +1349,17 @@ let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (
 
         stmts @ [ decl ] @ body
     else
-        let value, stmts = transformBindingExprBody com ctx var value
+        let expr, stmts = transformBindingExprBody com ctx var value
         let varName = com.GetIdentifierAsExpr(ctx, Naming.toPythonNaming var.Name)
         let ta, stmts' = Annotation.typeAnnotation com ctx None var.Type
-        let value' = wrapNoneInCast com ctx value ta
+        // Cast to T | None if needed (zero runtime overhead, just for type checker)
+        let expr' =
+            if needsCast then
+                wrapInOptionCast com ctx expr var.Type
+            else
+                expr
+
+        let value' = wrapNoneInCast com ctx expr' ta
         let decl = varDeclaration ctx varName (Some ta) value'
         stmts @ stmts' @ decl
 
@@ -1831,6 +1846,83 @@ let private transformSwitchPatternAsMatch
 
             Some(stmts @ [ matchStmt ])
 
+/// Transforms a tuple Option pattern into a Python match statement.
+/// Generates: match (x, y): case (None, _): ... case (_, None): ... case _: ...
+let private transformTupleOptionPatternAsMatch
+    (com: IPythonCompiler)
+    (ctx: Context)
+    returnStrategy
+    (targets: (Fable.Ident list * Fable.Expr) list)
+    (result: MatchStatements.TupleOptionPatternResult)
+    : Statement list option
+    =
+    let ctx = { ctx with DecisionTargets = targets }
+
+    // Build the tuple subject expression
+    let subjectExprs, subjectStmts =
+        result.TestedVars
+        |> List.map (fun ident -> com.TransformAsExpr(ctx, Fable.IdentExpr ident))
+        |> List.unzip
+
+    let subjectStmts = List.concat subjectStmts
+    let subject = Expression.tuple subjectExprs
+
+    // Build None cases: case (None, _), case (_, None), etc.
+    let noneCases =
+        result.TestedVars
+        |> List.mapi (fun i _ ->
+            // Create pattern like (_, None, _) where None is at position i
+            let patterns =
+                result.TestedVars
+                |> List.mapi (fun j _ ->
+                    if i = j then
+                        MatchSingleton NoneLiteral
+                    else
+                        Pattern.matchWildcard ()
+                )
+
+            let pattern = MatchSequence patterns
+
+            // Get the None target body
+            let _, noneExpr = targets.[result.NoneTargetIndex]
+            let noneBody = com.TransformAsStatements(ctx, returnStrategy, noneExpr)
+
+            let noneBody =
+                if List.isEmpty noneBody then
+                    [ Statement.Pass ]
+                else
+                    noneBody
+
+            MatchCase.matchCase (pattern, noneBody)
+        )
+
+    // Build success case (wildcard - all are Some)
+    // Need to bind the extracted values before executing the target body
+    let successIdents, successExpr = targets.[result.SuccessTargetIndex]
+
+    // Generate bindings for the extracted values
+    let bindingStmts =
+        List.zip successIdents result.SuccessBoundValues
+        |> List.collect (fun (ident, boundValue) -> transformBindingAsStatements com ctx ident boundValue)
+
+    let successBodyStmts = com.TransformAsStatements(ctx, returnStrategy, successExpr)
+
+    let successBody =
+        let body = bindingStmts @ successBodyStmts
+
+        if List.isEmpty body then
+            [ Statement.Pass ]
+        else
+            body
+
+    let successCase = MatchCase.matchCase (Pattern.matchWildcard (), successBody)
+
+    // Combine all cases
+    let allCases = noneCases @ [ successCase ]
+    let matchStmt = Statement.match' (subject, allCases)
+
+    Some(subjectStmts @ [ matchStmt ])
+
 /// Transform a decision tree into a Python match statement.
 /// Returns None if the pattern is too complex for match statement conversion.
 let transformDecisionTreeAsMatch
@@ -1852,7 +1944,11 @@ let transformDecisionTreeAsMatch
             transformDebugModeGuardPatternAsMatch com ctx returnStrategy targets subjectIdent guardCases defaultCase
         | Some(MatchStatements.ReleaseModeGuards(subjectIdent, guardCases, defaultCase)) ->
             transformReleaseModeGuardPatternAsMatch com ctx returnStrategy targets subjectIdent guardCases defaultCase
-        | None -> None
+        | None ->
+            // Try tuple Option pattern: match (x, y) with | Some a, Some b -> ... | _ -> None
+            match MatchStatements.tryExtractTupleOptionPattern treeExpr with
+            | Some result -> transformTupleOptionPatternAsMatch com ctx returnStrategy targets result
+            | None -> None
 
 let transformDecisionTreeAsExpr (com: IPythonCompiler) (ctx: Context) targets expr : Expression * Statement list =
     // TODO: Check if some targets are referenced multiple times
@@ -2429,7 +2525,9 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
 
                     nonLocals, None, None
                 | Expression.Attribute { Value = Expression.Name { Id = Identifier "self" } } ->
-                    let ta, stmts = Annotation.typeAnnotation com ctx None typ
+                    // Uncurry field types to match runtime behavior (class fields store uncurried functions)
+                    let uncurriedType = FableTransforms.uncurryType typ
+                    let ta, stmts = Annotation.typeAnnotation com ctx None uncurriedType
                     stmts, Some ta, Some ta
                 | Expression.Attribute _ ->
                     // For non-self attribute assignments, we still need the type for casting None
@@ -2790,9 +2888,15 @@ let getEntityFieldsAsProps (com: IPythonCompiler) ctx (ent: Fable.Entity) =
     if ent.IsFSharpUnion then
         getUnionFieldsAsIdents com ctx ent |> Array.map (identAsExpr com ctx)
     else
+        let namingConvention =
+            if shouldUseRecordFieldNaming ent then
+                Naming.toRecordFieldSnakeCase
+            else
+                Naming.toPythonNaming
+
         ent.FSharpFields
         |> Seq.map (fun field ->
-            let name = field.Name |> Naming.toPythonNaming
+            let name = field.Name |> namingConvention
 
             let cleanName =
                 (name, Naming.NoMemberPart) ||> Naming.sanitizeIdent Naming.pyBuiltins.Contains
@@ -3036,7 +3140,14 @@ let declareClassType
         )
         |> Helpers.unzipArgs
 
-    let bases = baseExpr |> Option.toList
+    // For abstract classes, add ABC as a base class
+    let abcBase =
+        if ent.IsAbstractClass then
+            [ com.GetImportExpr(ctx, "abc", "ABC") ]
+        else
+            []
+
+    let bases = (baseExpr |> Option.toList) @ abcBase
     let name = com.GetIdentifier(ctx, Naming.toPascalCase entName)
 
     // Check if the class has static properties using proper detection
@@ -3381,8 +3492,8 @@ let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFuncti
     let argTypes = memb.Args |> List.map _.Type
     let typeParams = calculateTypeParams com ctx info argTypes memb.Body.Type
 
-    let makeMethod name args body decorators returnType =
-        let key = memberFromName com ctx name |> nameFromKey com ctx
+    let makeMethod name argCount args body decorators returnType =
+        let key = memberFromName com ctx name (Some argCount) |> nameFromKey com ctx
         let isAsync = isTaskType memb.Body.Type
 
         createFunctionWithTypeParams key args body decorators returnType None typeParams isAsync
@@ -3399,10 +3510,16 @@ let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFuncti
             { args with Args = self :: args.Args }
 
     [
-        yield makeMethod memb.Name arguments body decorators returnType
+        yield makeMethod memb.Name (List.length memb.Args) arguments body decorators returnType
         if info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
             yield
-                makeMethod "__iter__" (Arguments.arguments [ self ]) (enumerator2iterator com ctx) decorators returnType
+                makeMethod
+                    "__iter__"
+                    0
+                    (Arguments.arguments [ self ])
+                    (enumerator2iterator com ctx)
+                    decorators
+                    returnType
     ]
 
 let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
@@ -3666,6 +3783,9 @@ let transformClassWithPrimaryConstructor
             // For attributes style with init=false, don't generate an exposed constructor
             // since there's no __init__ method to call
             []
+        elif classEnt.IsAbstractClass then
+            // Don't generate exposed constructor for abstract classes since they can't be instantiated
+            []
         else
             let argExprs = consArgs.Args |> List.map (fun p -> Expression.identifier p.Arg)
             let exposedConsBody = Expression.call (classIdent, argExprs)
@@ -3731,9 +3851,30 @@ let transformClassWithPrimaryConstructor
         yield! exposedCons
     ]
 
+/// Generate abstract method stubs for abstract classes.
+/// Creates stubs for dispatch slots (abstract members) that don't have default implementations.
+let generateAbstractMethodStubs
+    (com: IPythonCompiler)
+    ctx
+    (classEnt: Fable.Entity)
+    (attachedMembers: Fable.MemberDecl list)
+    =
+    // Since .Annotations depends on .Utils, we need to avoid circular dependency by passing config
+    // TODO: Refactor Utils to avoid this pattern
+    let config: AbstractClass.StubConfig =
+        {
+            GetTypeAnnotation = fun typ -> Annotation.typeAnnotation com ctx None typ
+            GetTypeParams = fun genParams -> Annotation.makeMemberTypeParams com ctx genParams
+        }
+
+    AbstractClass.generateMethodStubs com ctx config classEnt attachedMembers
+
 let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_classDecl: Fable.ClassDecl) =
     // printfn "transformInterface"
     let classIdent = com.GetIdentifier(ctx, Helpers.removeNamespace classEnt.FullName)
+
+    // Check if interface has [<Mangle>] attribute
+    let isMangled = hasAttribute Atts.mangle classEnt.Attributes
 
     let members =
         classEnt.MembersFunctionsAndValues
@@ -3754,15 +3895,26 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
     let classMembers =
         [
             for memb in members do
-                let name = memb.DisplayName |> Naming.toPythonNaming |> Helpers.clean
+                // Use mangled name if interface has [<Mangle>] attribute
+                let name =
+                    if isMangled then
+                        InterfaceNaming.getMangledMemberName classEnt memb
+                    elif memb.IsGetter || memb.IsSetter then
+                        memb.CompiledName
+                        |> Naming.removeGetSetPrefix
+                        |> Naming.toPythonNaming
+                        |> Helpers.clean
+                    else
+                        memb.DisplayName |> Naming.toPythonNaming |> Helpers.clean
 
                 let abstractMethod = com.GetImportExpr(ctx, "abc", "abstractmethod")
 
+                // For mangled interfaces, don't use @property decorators - members are plain methods
                 let decorators =
                     [
-                        if memb.IsValue || memb.IsGetter then
+                        if not isMangled && (memb.IsValue || memb.IsGetter) then
                             Expression.name "property"
-                        if memb.IsSetter then
+                        if not isMangled && memb.IsSetter then
                             Expression.name $"%s{name}.setter"
 
                         abstractMethod
@@ -3771,20 +3923,30 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
                 let name = com.GetIdentifier(ctx, name)
 
                 let args =
-                    let args =
+                    // Make protocol method parameters positional-only (using /) to avoid
+                    // parameter name mismatch errors when subclasses use different names
+                    // (e.g., value_1 instead of value due to closure captures)
+                    let posOnlyArgs =
                         [
                             if memb.IsInstance then
                                 Arg.arg "self"
+
                             for n, parameterGroup in memb.CurriedParameterGroups |> Seq.indexed do
                                 for m, pg in parameterGroup |> Seq.indexed do
-                                    let ta, _ = Annotation.typeAnnotation com ctx None pg.Type
+                                    // Uncurry function types to match class implementations
+                                    // F# interface uses curried types (LambdaType) but class methods
+                                    // use uncurried types (DelegateType) at runtime
+                                    let paramType = FableTransforms.uncurryType pg.Type
+                                    let ta, _ = Annotation.typeAnnotation com ctx None paramType
 
                                     Arg.arg (pg.Name |> Option.defaultValue $"__arg%d{n + m}", annotation = ta)
                         ]
 
-                    Arguments.arguments args
+                    Arguments.arguments (posonlyargs = posOnlyArgs)
 
-                let returnType, _ = Annotation.typeAnnotation com ctx None memb.ReturnParameter.Type
+                // Also uncurry return type for consistency with class implementations
+                let uncurriedReturnType = FableTransforms.uncurryType memb.ReturnParameter.Type
+                let returnType, _ = Annotation.typeAnnotation com ctx None uncurriedReturnType
 
                 let body = [ Statement.ellipsis ]
 
@@ -4199,8 +4361,15 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
             let staticPropertyDeclarations, setterFunctions, backingFieldDeclarations =
                 transformStaticProperties com ctx decl ent
 
+            // Generate abstract method stubs for abstract classes
+            let abstractMethodStubs =
+                generateAbstractMethodStubs com ctx ent decl.AttachedMembers
+
             let allClassMembers =
-                classMembers @ backingFieldDeclarations @ staticPropertyDeclarations
+                classMembers
+                @ backingFieldDeclarations
+                @ staticPropertyDeclarations
+                @ abstractMethodStubs
 
             let allStatements = setterFunctions
 

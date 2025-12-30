@@ -42,6 +42,34 @@ module Util =
         || hasAttribute Atts.emitIndexer atts
         || hasAttribute Atts.emitProperty atts
 
+    /// Check if an Option type has a concrete inner type (erases to T | None).
+    /// Returns true when inner type is concrete, meaning Option[T] -> T | None.
+    let hasConcreteOptionInner (typ: Fable.Type) =
+        match typ with
+        | Fable.Option(innerType, _) -> not (mustWrapOption innerType)
+        | _ -> false
+
+    /// Check if binding needs Option cast from Option[T] to T | None.
+    /// Cast needed when:
+    /// 1. User-defined generic functions (GenericArgs contains resolved types)
+    /// 2. Library imports returning Option[T] assigned to concrete T | None
+    let needsOptionCastForBinding (value: Fable.Expr) (targetType: Fable.Type) =
+        match value, targetType with
+        | Fable.Call(callee, callInfo, _, _), Fable.Option(tgtInner, _) when not (mustWrapOption tgtInner) ->
+            match value.Type with
+            | Fable.Option(srcInner, _) ->
+                // For user-defined generics: check if inner type was resolved from GenericParam
+                if callInfo.GenericArgs <> [] then
+                    List.contains srcInner callInfo.GenericArgs
+                else
+                    // For library imports (empty GenericArgs): cast if calling imported function
+                    // Local functions with concrete types generate T | None, no cast needed
+                    match callee with
+                    | Fable.Import _ -> srcInner = tgtInner && not (mustWrapOption srcInner)
+                    | _ -> false
+            | _ -> false
+        | _ -> false
+
     /// Wraps None values in cast(type, None) for type safety.
     /// Skips if type annotation is also None (unit type).
     let wrapNoneInCast (com: IPythonCompiler) ctx (value: Expression) (typeAnnotation: Expression) : Expression =
@@ -233,13 +261,13 @@ module Util =
         name
 
     /// Determines if we should use the special record field naming convention (toRecordFieldSnakeCase)
-    /// for the given entity. Returns true for user-defined F# records, false for built-in F# Core types.
+    /// for the given entity. Returns true for user-defined F# records, false for built-in types.
     let shouldUseRecordFieldNaming (ent: Fable.Entity) =
         ent.IsFSharpRecord
         && not (ent.FullName.StartsWith("Microsoft.FSharp.Core", StringComparison.Ordinal))
 
     /// Determines if we should use the special record field naming convention (toRecordFieldSnakeCase)
-    /// for the given entity reference. Returns true for user-defined F# records, false for built-in F# Core types.
+    /// for the given entity reference. Returns true for user-defined F# records, false for built-in types.
     let shouldUseRecordFieldNamingForRef (entityRef: Fable.EntityRef) (ent: Fable.Entity) =
         ent.IsFSharpRecord
         && not (entityRef.FullName.StartsWith("Microsoft.FSharp.Core", StringComparison.Ordinal))
@@ -259,7 +287,7 @@ module Util =
             | None -> InstancePropertyBacking // Conservative fallback for unknown entities
         | _ -> RegularField
 
-    /// Checks if a field name is an actual record field (not a property/method defined on the record)
+    /// Checks if a field name is an actual record field (not a property/method)
     let isRecordField (ent: Fable.Entity) (fieldName: string) =
         ent.FSharpFields |> List.exists (fun f -> f.Name = fieldName)
 
@@ -377,12 +405,21 @@ module Util =
 
     let ofString (s: string) = Expression.stringConstant s
 
-    let memberFromName (_com: IPythonCompiler) (_ctx: Context) (memberName: string) : Expression =
+    let memberFromName
+        (_com: IPythonCompiler)
+        (_ctx: Context)
+        (memberName: string)
+        (argCount: int option)
+        : Expression
+        =
         // printfn "memberFromName: %A" memberName
         match memberName with
         | "ToString" -> Expression.identifier "__str__"
         //| "GetHashCode" -> Expression.identifier "__hash__"
-        | "Equals" -> Expression.identifier "__eq__"
+        // Only map Equals to __eq__ when it takes exactly 1 argument (+ self = 2 total in memb.Args)
+        // IEquatable<T>.Equals(other) has 1 param -> __eq__
+        // IEqualityComparer<T>.Equals(x, y) has 2 params -> keep as "Equals"
+        | "Equals" when argCount = Some 2 -> Expression.identifier "__eq__"
         | "CompareTo" -> Expression.identifier "__cmp__"
         | "set" -> Expression.identifier "__setitem__"
         | "get" -> Expression.identifier "__getitem__"
@@ -1179,6 +1216,67 @@ module MatchStatements =
 
         | _ -> None
 
+    /// Result type for tuple Option pattern extraction.
+    /// Represents patterns like: match (x, y) with | Some a, Some b -> ... | _ -> None
+    type TupleOptionPatternResult =
+        {
+            /// The variables being tested (e.g., [x; y])
+            TestedVars: Fable.Ident list
+            /// The target index for the success case (when all are Some)
+            SuccessTargetIndex: int
+            /// Bound values for the success case
+            SuccessBoundValues: Fable.Expr list
+            /// The target index for the None case (when any is None)
+            NoneTargetIndex: int
+        }
+
+    /// Extracts nested Option test patterns from a decision tree.
+    /// Detects patterns like: if x is Some then (if y is Some then success else none) else none
+    /// Returns Some result if the pattern matches, None otherwise.
+    let rec private extractNestedOptionTests
+        (noneTargetIdx: int option)
+        (testedVars: Fable.Ident list)
+        (expr: Fable.Expr)
+        : TupleOptionPatternResult option
+        =
+        match expr with
+        // Test for Some (isSome=true) with nested tests or success
+        | Fable.IfThenElse(Fable.Test(Fable.IdentExpr ident, Fable.OptionTest true, _), thenExpr, elseExpr, _) ->
+            // The else branch should go to a simple None target
+            match elseExpr with
+            | Fable.DecisionTreeSuccess(elseIdx, [], _) ->
+                // Check consistency with previously seen None target
+                match noneTargetIdx with
+                | Some idx when idx <> elseIdx -> None // Inconsistent None targets
+                | _ ->
+                    // Recurse into the then branch
+                    extractNestedOptionTests (Some elseIdx) (ident :: testedVars) thenExpr
+            | _ -> None // Else branch is not a simple target
+
+        // Success case - all Option tests passed
+        | Fable.DecisionTreeSuccess(successIdx, boundValues, _) ->
+            match noneTargetIdx with
+            | Some noneIdx when successIdx <> noneIdx ->
+                Some
+                    {
+                        TestedVars = List.rev testedVars
+                        SuccessTargetIndex = successIdx
+                        SuccessBoundValues = boundValues
+                        NoneTargetIndex = noneIdx
+                    }
+            | _ -> None // No None target found or success equals None target
+
+        | _ -> None
+
+    /// Tries to extract a tuple Option pattern from a decision tree.
+    /// Returns Some result if the tree matches the pattern, None otherwise.
+    /// Requires at least 2 tested variables to be a "tuple" pattern.
+    /// Single Option tests should use regular if/else to avoid nonlocal issues.
+    let tryExtractTupleOptionPattern (treeExpr: Fable.Expr) : TupleOptionPatternResult option =
+        match extractNestedOptionTests None [] treeExpr with
+        | Some result when List.length result.TestedVars >= 2 -> Some result
+        | _ -> None
+
     /// Unwraps redundant Let bindings in the target expression.
     /// The pattern already captures the value, so Let(v, x, body) where x is the subject
     /// can be replaced with body (substituting v with patternIdent).
@@ -1192,3 +1290,101 @@ module MatchStatements =
 
             unwrapRedundantLets subjectName patternIdent body'
         | _ -> expr
+
+/// Utilities for interface and abstract class member naming.
+module InterfaceNaming =
+    /// Computes the overload suffix for an interface/abstract class member based on parameter types.
+    /// Returns empty string for getters/setters.
+    let getOverloadSuffix (ent: Fable.Entity) (memb: Fable.MemberFunctionOrValue) =
+        if memb.IsGetter || memb.IsSetter then
+            ""
+        else
+            let entityGenericParameters = ent.GenericParameters |> List.map (fun g -> g.Name)
+
+            memb.CurriedParameterGroups
+            |> List.collect (List.map (fun pg -> pg.Type))
+            |> List.singleton
+            |> OverloadSuffix.getHash entityGenericParameters
+
+    /// Generates a mangled member name for interfaces/abstract classes.
+    /// Format: EntityFullPath_MemberName + OverloadSuffix (dots replaced with underscores)
+    let getMangledMemberName (ent: Fable.Entity) (memb: Fable.MemberFunctionOrValue) =
+        let overloadSuffix = getOverloadSuffix ent memb
+        let lastDotIndex = memb.FullName.LastIndexOf '.'
+        let fullNamePath = memb.FullName.Substring(0, lastDotIndex)
+        $"{fullNamePath}.{memb.CompiledName}{overloadSuffix}".Replace(".", "_")
+
+/// Utilities for generating abstract class stubs.
+module AbstractClass =
+    open Util
+
+    /// Configuration for generating abstract method stubs.
+    /// Decouples the stub generation from Annotation module dependencies.
+    type StubConfig =
+        {
+            /// Gets type annotation for a Fable type
+            GetTypeAnnotation: Fable.Type -> Expression * Statement list
+            /// Gets type parameters for generic members
+            GetTypeParams: Fable.GenericParam list -> TypeParam list
+        }
+
+    /// Generates abstract method stubs for abstract classes.
+    /// Creates stubs for dispatch slots (abstract members) that don't have default implementations.
+    let generateMethodStubs
+        (com: IPythonCompiler)
+        ctx
+        (config: StubConfig)
+        (classEnt: Fable.Entity)
+        (attachedMembers: Fable.MemberDecl list)
+        : Statement list
+        =
+        if not classEnt.IsAbstractClass then
+            []
+        else
+            let implementedMemberNames =
+                attachedMembers
+                |> List.map (fun m -> (com.GetMember m.MemberRef).CompiledName)
+                |> Set.ofList
+
+            let isAbstractMember (memb: Fable.MemberFunctionOrValue) =
+                memb.IsDispatchSlot
+                && not memb.IsProperty
+                && not (hasAnyEmitAttribute memb.Attributes)
+                && not (Set.contains memb.CompiledName implementedMemberNames)
+
+            let makeAbstractMethodStub (memb: Fable.MemberFunctionOrValue) =
+                let name =
+                    InterfaceNaming.getMangledMemberName classEnt memb
+                    |> fun n -> com.GetIdentifier(ctx, n)
+
+                let posOnlyArgs =
+                    [
+                        if memb.IsInstance then
+                            Arg.arg "self"
+
+                        for n, parameterGroup in Seq.indexed memb.CurriedParameterGroups do
+                            for m, pg in Seq.indexed parameterGroup do
+                                let paramType = FableTransforms.uncurryType pg.Type
+                                let annotation, _ = config.GetTypeAnnotation paramType
+                                let paramName = pg.Name |> Option.defaultValue $"__arg{n + m}"
+                                Arg.arg (paramName, annotation = annotation)
+                    ]
+
+                let returnType, _ =
+                    memb.ReturnParameter.Type
+                    |> FableTransforms.uncurryType
+                    |> config.GetTypeAnnotation
+
+                Statement.functionDef (
+                    name,
+                    Arguments.arguments (posonlyargs = posOnlyArgs),
+                    body = [ Statement.ellipsis ],
+                    returns = returnType,
+                    decoratorList = [ com.GetImportExpr(ctx, "abc", "abstractmethod") ],
+                    typeParams = config.GetTypeParams memb.GenericParameters
+                )
+
+            classEnt.MembersFunctionsAndValues
+            |> Seq.filter isAbstractMember
+            |> Seq.map makeAbstractMethodStub
+            |> Seq.toList
