@@ -4,7 +4,7 @@ import builtins
 from base64 import b64decode, b64encode
 from typing import Any
 
-from .core import strings
+from .core import byte, strings
 from .types import Array
 
 
@@ -70,14 +70,14 @@ def to_fail(arg: Any) -> None:
 
 
 # Utility functions for base64 encoding/decoding
-def to_base64string(in_array: Array[int]) -> str:
+def to_base64string(in_array: Array[Any]) -> str:
     """Convert byte array to base64 string."""
     return b64encode(bytes(in_array)).decode("utf8")
 
 
-def from_base64string(b64encoded: str) -> Array[int]:
+def from_base64string(b64encoded: str) -> Array[byte]:
     """Convert base64 string to byte array."""
-    return Array[int](b64decode(b64encoded))
+    return Array[byte](b64decode(b64encoded))
 
 
 def join_with_indices(delimiter: str, xs: Array[str], startIndex: int, count: int) -> str:

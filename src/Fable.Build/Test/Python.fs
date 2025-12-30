@@ -87,7 +87,7 @@ let handle (args: string list) =
                 let struct (output, _) =
                     Command.ReadAsync(
                         "uv",
-                        "run pyright",
+                        "run pyright .",
                         workingDirectory = buildDir,
                         handleExitCode = fun _ -> true
                     )

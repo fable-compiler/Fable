@@ -56,12 +56,12 @@ def write_all_text_async(file_name: str, text: str) -> Awaitable[None]:
     return write_all_text_async()
 
 
-def write_all_lines(file_name: str, lines: list[str]) -> None:
+def write_all_lines(file_name: str, lines: Array[str]) -> None:
     with open(file_name, "w") as f:
         f.write("\n".join(lines))
 
 
-def write_all_lines_async(file_name: str, lines: list[str]) -> Awaitable[None]:
+def write_all_lines_async(file_name: str, lines: Array[str]) -> Awaitable[None]:
     async def write_all_lines_async():
         with open(file_name, "w") as f:
             f.write("\n".join(lines))

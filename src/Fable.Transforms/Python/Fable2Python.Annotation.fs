@@ -228,8 +228,9 @@ let typeAnnotation
     | Fable.String -> Expression.name "str", []
     | Fable.Number(kind, info) -> makeNumberTypeAnnotation com ctx kind info
     | Fable.LambdaType(argType, returnType) ->
-        let argTypes, returnType = uncurryLambdaType -1 [ argType ] returnType
-        stdlibModuleTypeHint com ctx "collections.abc" "Callable" (argTypes @ [ returnType ]) repeatedGenerics
+        // Keep curried structure: A -> (B -> C) becomes Callable[[A], Callable[[B], C]]
+        // This matches the actual runtime code which generates nested lambdas
+        stdlibModuleTypeHint com ctx "collections.abc" "Callable" [ argType; returnType ] repeatedGenerics
     | Fable.DelegateType(argTypes, returnType) ->
         stdlibModuleTypeHint com ctx "collections.abc" "Callable" (argTypes @ [ returnType ]) repeatedGenerics
     | Fable.Nullable(genArg, isStruct) ->
@@ -381,7 +382,7 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
     | Types.ilistGeneric, _ ->
         // Map IList<T> to MutableSequence[T] which both list and FSharpArray implement
         stdlibModuleTypeHint com ctx "collections.abc" "MutableSequence" genArgs repeatedGenerics
-    | Types.idisposable, _ -> libValue com ctx "util" "IDisposable", []
+    | Types.idisposable, _ -> libValue com ctx "protocols" "IDisposable", []
     | Types.iobserverGeneric, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
         fableModuleAnnotation com ctx "observable" "IObserver" resolved, stmts

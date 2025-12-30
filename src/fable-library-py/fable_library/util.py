@@ -6,7 +6,7 @@ import platform
 import random
 import re
 import weakref
-from abc import ABC, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from collections.abc import (
     Callable,
     Iterable,
@@ -27,11 +27,12 @@ from typing import (
     Self,
     TypeGuard,
     cast,
+    overload,
 )
 from urllib.parse import quote, unquote
 
 from .array_ import Array
-from .core import float64, int32
+from .core import float32, float64, int32
 
 # Re-export protocols for backward compatibility
 from .protocols import (
@@ -64,7 +65,7 @@ class ObjectDisposedException(Exception):
         super().__init__("Cannot access a disposed object")
 
 
-class DisposableBase(ABC):
+class DisposableBase(ABC, metaclass=ABCMeta):
     """ABC base class for disposable objects.
 
     Provides context manager support (__enter__/__exit__) for classes that
@@ -2575,7 +2576,15 @@ def physical_hash(x: Any) -> int32:
     return number_hash(ObjectRef.id(x))
 
 
-def round(value: float64, digits: int = 0) -> float64:
+@overload
+def round(value: float32, digits: int = 0) -> float32: ...
+
+
+@overload
+def round(value: float64, digits: int = 0) -> float64: ...
+
+
+def round(value: float64 | float32, digits: int = 0) -> float64 | float32:
     return value.round(digits)
 
 

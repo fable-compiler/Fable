@@ -170,6 +170,19 @@ let getParseParams (kind: NumberKind) =
 
     isFloatOrDecimal, numberModule, unsigned, bitsize
 
+/// Gets the type name for calling static parse methods on integer types
+let getIntTypeName (kind: NumberKind) =
+    match kind with
+    | Int8 -> "int8"
+    | UInt8 -> "uint8"
+    | Int16 -> "int16"
+    | UInt16 -> "uint16"
+    | Int32 -> "int32"
+    | UInt32 -> "uint32"
+    | Int64 -> "int64"
+    | UInt64 -> "uint64"
+    | x -> FableError $"Unexpected kind in getIntTypeName: %A{x}" |> raise
+
 let castBigIntMethod typeTo =
     match typeTo with
     | Number(kind, _) ->
@@ -225,7 +238,14 @@ let toFloat com (ctx: Context) r targetType (args: Expr list) : Expr =
     | Char ->
         //Helper.InstanceCall(args.Head, "charCodeAt", Int32.Number, [ makeIntConst 0 ])
         Helper.LibCall(com, "char", "char_code_at", targetType, [ args.Head; makeIntConst 0 ])
-    | String -> Helper.LibCall(com, "double", "parse", targetType, args)
+    | String ->
+        // Use parse_single for Float32, parse for Float64
+        let meth =
+            match targetType with
+            | Number(Float32, _) -> "parse_single"
+            | _ -> "parse"
+
+        Helper.LibCall(com, "double", meth, targetType, args)
     | Number(kind, _) ->
         match kind with
         | BigInt -> Helper.LibCall(com, "big_int", castBigIntMethod targetType, targetType, args)
@@ -254,16 +274,17 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
         TypeCast(args.Head, targetType)
 
 
-let stringToInt com (ctx: Context) r targetType (args: Expr list) : Expr =
+let stringToInt com (_ctx: Context) r targetType (args: Expr list) : Expr =
     let kind =
         match targetType with
         | Number(kind, _) -> kind
         | x -> FableError $"Unexpected type in stringToInt: %A{x}" |> raise
 
     let style = int System.Globalization.NumberStyles.Any
-    let _isFloatOrDecimal, numberModule, unsigned, bitsize = getParseParams kind
-    let parseArgs = [ makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize ]
-    Helper.LibCall(com, numberModule, "parse", targetType, [ args.Head ] @ parseArgs @ args.Tail, ?loc = r)
+    // Use the type's static parse method: e.g., int8.parse(string, style)
+    let typeName = getIntTypeName kind
+    let typeExpr = Helper.LibValue(com, "types", typeName, Any)
+    Helper.InstanceCall(typeExpr, "parse", targetType, [ args.Head; makeIntConst style ] @ args.Tail, ?loc = r)
 
 let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : Expr =
     let fromInteger kind arg =
@@ -815,8 +836,8 @@ let tryCoreOp com r t coreModule coreMember args =
     let op = Helper.LibValue(com, coreModule, coreMember, Any)
     tryOp com r t op args
 
-let emptyGuid () =
-    makeStrConst "00000000-0000-0000-0000-000000000000"
+let emptyGuid com t =
+    Helper.LibCall(com, "guid", "parse", t, [ makeStrConst "00000000-0000-0000-0000-000000000000" ])
 
 let rec defaultof com ctx r t =
     match t with
@@ -827,7 +848,7 @@ let rec defaultof com ctx r t =
     | Builtin BclTimeSpan
     | Builtin BclDateTime
     | Builtin BclDateTimeOffset -> getZero com ctx t
-    | Builtin BclGuid -> emptyGuid ()
+    | Builtin BclGuid -> emptyGuid com t
     | DeclaredType(ent, _) ->
         let ent = com.GetEntity(ent)
         // TODO: For BCL types we cannot access the constructor, raise error or warning?
@@ -2033,7 +2054,7 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             | Patterns.DicContains FSharp2Fable.TypeHelpers.numberTypes kind -> kind
             | x -> FableError $"Unexpected type in parse: %A{x}" |> raise
 
-        let isFloatOrDecimal, numberModule, unsigned, bitsize = getParseParams kind
+        let isFloatOrDecimal, numberModule, _unsigned, _bitsize = getParseParams kind
 
         let outValue =
             if meth = "TryParse" then
@@ -2041,15 +2062,23 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             else
                 []
 
-        let args =
-            if isFloatOrDecimal then
-                [ str ] @ outValue
-            else
-                [ str; makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize ]
-                @ outValue
+        if isFloatOrDecimal then
+            let args = [ str ] @ outValue
+            // Use parse_single for Float32, regular parse for Float64/Decimal
+            let methName =
+                match kind, meth with
+                | Float32, "Parse" -> "parse_single"
+                | Float32, "TryParse" -> "try_parse" // try_parse handles both
+                | _ -> Naming.lowerFirst meth
 
-        Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t, args, ?loc = r)
-        |> Some
+            Helper.LibCall(com, numberModule, methName, t, args, ?loc = r) |> Some
+        else
+            // For integer types, call the static parse method on the type
+            // This generates: int8.parse(string, style) instead of parse_int32(string, style, unsigned, bitsize)
+            let typeName = getIntTypeName kind
+            let typeExpr = Helper.LibValue(com, "types", typeName, Any)
+            let args = [ str; makeIntConst style ] @ outValue
+            Helper.InstanceCall(typeExpr, Naming.lowerFirst meth, t, args, ?loc = r) |> Some
 
     let isFloat =
         match i.SignatureArgTypes with
@@ -3298,7 +3327,7 @@ let guids
             |> Some
     | ".ctor" ->
         match args with
-        | [] -> emptyGuid () |> Some
+        | [] -> emptyGuid com t |> Some
         | [ ExprType(Array _) ] ->
             Helper.LibCall(com, "guid", "array_to_guid", t, args, i.SignatureArgTypes)
             |> Some
@@ -3560,7 +3589,7 @@ let tryField com returnTyp ownerTyp fieldName =
     match ownerTyp, fieldName with
     | Number(Decimal, _), _ -> Helper.LibValue(com, "decimal", "get_" + fieldName, returnTyp) |> Some
     | String, "Empty" -> makeStrConst "" |> Some
-    | Builtin BclGuid, "Empty" -> emptyGuid () |> Some
+    | Builtin BclGuid, "Empty" -> emptyGuid com returnTyp |> Some
     | Builtin BclTimeSpan, "Zero" ->
         Helper.LibCall(com, "time_span", "create", returnTyp, [ makeIntConst 0 ])
         |> Some

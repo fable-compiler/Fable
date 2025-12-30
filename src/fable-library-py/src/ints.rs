@@ -196,7 +196,7 @@ enum OtherType {
 /// ```
 // Note that it's currently not possible to extend the `int` type in Python with pyo3.
 macro_rules! integer_variant {
-    ($name:ident, $type:ty, $mask:expr, $doc:expr) => {
+    ($name:ident, $type:ty, $mask:expr, $bitsize:expr, $unsigned:expr, $doc:expr) => {
         #[doc = $doc]
         ///
         /// This type wraps a Rust primitive integer and provides:
@@ -935,6 +935,57 @@ macro_rules! integer_variant {
             fn pydantic_serializer(instance: &Self) -> $type {
                 instance.0
             }
+
+            /// Parse a string as this integer type.
+            ///
+            /// This is a strongly-typed parse function that returns the correct
+            /// integer type for better type checking.
+            ///
+            /// # Arguments
+            ///
+            /// * `string` - The string to parse
+            /// * `style` - NumberStyles flags controlling parsing behavior
+            /// * `radix` - The numeric base (default: 10)
+            ///
+            /// # Returns
+            ///
+            /// The parsed integer value as this type
+            ///
+            /// # Errors
+            ///
+            /// Returns `ValueError` if the string is not in a valid format
+            #[staticmethod]
+            #[pyo3(name = "parse", signature = (string, style, radix=10))]
+            fn parse(string: &str, style: i32, radix: i32) -> PyResult<Self> {
+                let value = parse_helper(string, style, $unsigned, $bitsize, radix)?;
+                Ok(Self(value as $type))
+            }
+
+            /// Attempt to parse a string as this integer type.
+            ///
+            /// This is a strongly-typed try_parse function that stores the result
+            /// in the provided reference on success.
+            ///
+            /// # Arguments
+            ///
+            /// * `string` - The string to parse
+            /// * `style` - NumberStyles flags controlling parsing behavior
+            /// * `def_value` - Reference object to store the result on success
+            ///
+            /// # Returns
+            ///
+            /// True if parsing succeeded, False otherwise
+            #[staticmethod]
+            #[pyo3(name = "try_parse", signature = (string, style, def_value))]
+            fn try_parse(string: &str, style: i32, def_value: &Bound<'_, PyAny>) -> PyResult<bool> {
+                match Self::parse(string, style, 10) {
+                    Ok(value) => {
+                        def_value.setattr("contents", value)?;
+                        Ok(true)
+                    }
+                    Err(_) => Ok(false),
+                }
+            }
         }
 
         /// Conversion from the wrapper type to the underlying integer type.
@@ -959,22 +1010,23 @@ macro_rules! integer_variant {
 
 // Generate all integer wrapper types using the macro
 // Each type wraps the corresponding Rust primitive and provides full Python integration
+// Parameters: name, rust_type, mask, bitsize, unsigned, doc
 
-integer_variant!(Int8, i8, 0xff_u32, "8-bit signed integer type (-128 to 127).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
+integer_variant!(Int8, i8, 0xff_u32, 8, false, "8-bit signed integer type (-128 to 127).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
 
-integer_variant!(UInt8, u8, 0xff, "8-bit unsigned integer type (0 to 255).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
+integer_variant!(UInt8, u8, 0xff, 8, true, "8-bit unsigned integer type (0 to 255).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
 
-integer_variant!(Int16, i16, 0xffff_u32, "16-bit signed integer type (-32,768 to 32,767).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
+integer_variant!(Int16, i16, 0xffff_u32, 16, false, "16-bit signed integer type (-32,768 to 32,767).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
 
-integer_variant!(UInt16, u16, 0xffff_u32, "16-bit unsigned integer type (0 to 65,535).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
+integer_variant!(UInt16, u16, 0xffff_u32, 16, true, "16-bit unsigned integer type (0 to 65,535).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
 
-integer_variant!(Int32, i32, 0xffffffff_u32, "32-bit signed integer type (-2,147,483,648 to 2,147,483,647).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
+integer_variant!(Int32, i32, 0xffffffff_u32, 32, false, "32-bit signed integer type (-2,147,483,648 to 2,147,483,647).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
 
-integer_variant!(UInt32, u32, 0xffffffff_u32, "32-bit unsigned integer type (0 to 4,294,967,295).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
+integer_variant!(UInt32, u32, 0xffffffff_u32, 32, true, "32-bit unsigned integer type (0 to 4,294,967,295).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
 
-integer_variant!(Int64, i64, 0xffffffffffffffff_u64, "64-bit signed integer type (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
+integer_variant!(Int64, i64, 0xffffffffffffffff_u64, 64, false, "64-bit signed integer type (-9,223,372,036,854,775,808 to 9,223,372,036,854,775,807).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
 
-integer_variant!(UInt64, u64, 0xffffffffffffffff_u64, "64-bit unsigned integer type (0 to 18,446,744,073,709,551,615).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
+integer_variant!(UInt64, u64, 0xffffffffffffffff_u64, 64, true, "64-bit unsigned integer type (0 to 18,446,744,073,709,551,615).\n\nInteger wrapper type providing F#-style semantics with Python integration.");
 
 // =============================================================================
 // Integer Parsing Functions
@@ -1058,6 +1110,23 @@ fn preprocess_numeric_string(string: &str, style: i32, default_radix: i32) -> (S
     let final_string = without_prefix.replace('_', "");
 
     (final_string, actual_radix)
+}
+
+/// Helper function for parsing integers used by the macro-generated parse methods.
+///
+/// Routes to the appropriate parse function based on bitsize.
+fn parse_helper(
+    string: &str,
+    style: i32,
+    unsigned: bool,
+    bitsize: i32,
+    radix: i32,
+) -> PyResult<i64> {
+    if bitsize == 64 {
+        parse_int64(string, style, unsigned, bitsize, radix)
+    } else {
+        parse_int32(string, style, unsigned, bitsize, radix)
+    }
 }
 
 // =============================================================================
