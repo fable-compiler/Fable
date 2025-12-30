@@ -1318,10 +1318,11 @@ module MatchStatements =
         }
 
     /// Extracts tuple index from a Get expression
+    [<return: Struct>]
     let private (|TupleIndexGet|_|) =
         function
-        | Fable.Get(expr, Fable.TupleIndex idx, _, _) -> Some(expr, idx)
-        | _ -> None
+        | Fable.Get(expr, Fable.TupleIndex idx, _, _) -> ValueSome(expr, idx)
+        | _ -> ValueNone
 
     /// Checks if two expressions refer to the same identifier
     let private sameIdent expr1 expr2 =

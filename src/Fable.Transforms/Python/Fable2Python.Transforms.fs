@@ -1951,7 +1951,7 @@ let private transformTupleBoolGuardPatternAsMatch
         match case.GuardIndex, case.GuardExpr with
         | Some guardIdx, Some guardExpr ->
             // Generate unique variable name for this case
-            let guardVarName = getUniqueNameInDeclarationScope ctx $"i_{caseIdx}"
+            let guardVarName = getUniqueNameInDeclarationScope ctx $"i_%d{caseIdx}"
             let guardVarIdent = Identifier guardVarName
 
             // Build pattern: [True, _, captured_var] or similar
