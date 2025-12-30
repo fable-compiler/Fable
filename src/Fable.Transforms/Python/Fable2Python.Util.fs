@@ -1312,7 +1312,7 @@ module InterfaceNaming =
         let overloadSuffix = getOverloadSuffix ent memb
         let lastDotIndex = memb.FullName.LastIndexOf '.'
         let fullNamePath = memb.FullName.Substring(0, lastDotIndex)
-        $"{fullNamePath}.{memb.CompiledName}{overloadSuffix}".Replace(".", "_")
+        $"%s{fullNamePath}.%s{memb.CompiledName}%s{overloadSuffix}".Replace(".", "_")
 
 /// Utilities for generating abstract class stubs.
 module AbstractClass =
@@ -1366,7 +1366,7 @@ module AbstractClass =
                             for m, pg in Seq.indexed parameterGroup do
                                 let paramType = FableTransforms.uncurryType pg.Type
                                 let annotation, _ = config.GetTypeAnnotation paramType
-                                let paramName = pg.Name |> Option.defaultValue $"__arg{n + m}"
+                                let paramName = pg.Name |> Option.defaultValue $"__arg%d{n + m}"
                                 Arg.arg (paramName, annotation = annotation)
                     ]
 
@@ -1385,6 +1385,10 @@ module AbstractClass =
                 )
 
             classEnt.MembersFunctionsAndValues
-            |> Seq.filter isAbstractMember
-            |> Seq.map makeAbstractMethodStub
+            |> Seq.choose (fun memb ->
+                if isAbstractMember memb then
+                    Some(makeAbstractMethodStub memb)
+                else
+                    None
+            )
             |> Seq.toList
