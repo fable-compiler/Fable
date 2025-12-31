@@ -5,7 +5,7 @@ from base64 import b64decode, b64encode
 from typing import Any
 
 from .core import byte, strings
-from .types import Array
+from .types import Array, int32
 
 
 # Re-export classes from core.strings
@@ -136,6 +136,11 @@ def index_of_any(string: str, any_of: Array[str], *args: int) -> int:
     return -1
 
 
+def get_length(string: str) -> int32:
+    """Get string length as int32 for F# interop."""
+    return int32(len(string))
+
+
 __all__ = [
     "IPrintfFormat",
     "StringComparison",
@@ -150,6 +155,7 @@ __all__ = [
     "format_replacement",
     "from_base64string",
     "get_char_at_index",
+    "get_length",
     "index_of",
     "index_of_any",
     "initialize",

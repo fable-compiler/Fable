@@ -4,6 +4,7 @@ import re
 from collections.abc import Callable, Iterator
 from re import Match, Pattern
 
+from .array_ import Array
 from .types import IntegerTypes
 from .util import UNIT, Enumerator, IEnumerator
 
@@ -138,12 +139,13 @@ def split(
     input: str,
     limit: int | None = None,
     offset: int = 0,
-) -> list[str]:
+) -> Array[str]:
     if isinstance(reg, str):
-        return re.split(input, reg, maxsplit=limit or 0)
-
-    input = input[offset:]
-    return reg.split(input, maxsplit=limit or 0)[:limit]
+        result = re.split(input, reg, maxsplit=limit or 0)
+    else:
+        input = input[offset:]
+        result = reg.split(input, maxsplit=limit or 0)[:limit]
+    return Array[str](result)
 
 
 def get_item(groups: GroupCollection, index: str | int) -> str | None:
@@ -151,13 +153,13 @@ def get_item(groups: GroupCollection, index: str | int) -> str | None:
 
 
 __all__ = [
+    "MatchCollection",
     "create",
     "escape",
     "get_item",
     "groups",
     "is_match",
     "match",
-    "MatchCollection",
     "matches",
     "options",
     "replace",

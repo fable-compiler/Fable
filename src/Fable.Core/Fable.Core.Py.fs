@@ -208,3 +208,158 @@ module Py =
     /// Embeds literal Python code into F#. Code will be printed as statements,
     /// if you want to return a value use Python `return` keyword within a function.
     let python (template: string) : 'T = nativeOnly
+
+    /// <summary>
+    /// Python Stringable marker interface for F# types that need __str__ and __repr__ in Python.
+    /// The compiler maps this to StringableBase which provides __str__ and __repr__ from ToString.
+    /// The class must override ToString() to provide the string representation.
+    /// </summary>
+    [<AllowNullLiteral>]
+    type Stringable = interface end
+
+    /// <summary>
+    /// Python Equatable marker interface for F# types that need __eq__ in Python.
+    /// The compiler maps this to EquatableBase which provides __eq__ from Equals.
+    /// The class must override Equals(other: obj) to provide equality comparison.
+    /// </summary>
+    [<AllowNullLiteral>]
+    type Equatable = interface end
+
+    /// <summary>
+    /// Python Comparable marker interface for F# types that need comparison operators in Python.
+    /// The compiler maps this to ComparableBase which provides __lt__, __le__, __gt__, __ge__ from CompareTo.
+    /// The class must implement CompareTo(other: obj) to provide comparison.
+    /// </summary>
+    [<AllowNullLiteral>]
+    type Comparable = interface end
+
+    /// <summary>
+    /// Python Hashable marker interface for F# types that need __hash__ in Python.
+    /// The compiler maps this to HashableBase which provides __hash__ from GetHashCode.
+    /// The class must implement GetHashCode() to provide the hash value.
+    /// Note: GetHashCode returns int32 while __hash__ returns int, so HashableBase handles the conversion.
+    /// </summary>
+    [<AllowNullLiteral>]
+    type Hashable = interface end
+
+    /// <summary>
+    /// Python Iterable interface for F# types that need to be iterable in Python.
+    /// Follows Python's collections.abc.Iterable protocol.
+    /// </summary>
+    [<AllowNullLiteral>]
+    type Iterable<'T> =
+        /// Python __iter__ - returns iterator
+        abstract ``__iter__``: unit -> System.Collections.Generic.IEnumerator<'T>
+
+    /// <summary>
+    /// Python Sequence interface for F# types that need to behave like Python sequences.
+    /// Follows Python's collections.abc.Sequence protocol.
+    /// </summary>
+    [<AllowNullLiteral>]
+    type Sequence<'T> =
+        /// Python __getitem__(index) - returns item at index
+        abstract ``__getitem__``: index: int -> 'T
+        /// Python __len__ - returns number of items
+        abstract ``__len__``: unit -> int
+        /// Python __iter__ - returns iterator
+        abstract ``__iter__``: unit -> System.Collections.Generic.IEnumerator<'T>
+        /// Python __contains__(value) - checks if value exists
+        abstract ``__contains__``: value: 'T -> bool
+
+    /// <summary>
+    /// Python Mapping interface for F# types that need to behave like Python read-only dicts.
+    /// Follows Python's collections.abc.Mapping protocol.
+    /// </summary>
+    [<AllowNullLiteral>]
+    type Mapping<'K, 'V> =
+        /// Python __getitem__(key) - returns value for key
+        abstract ``__getitem__``: key: 'K -> 'V
+        /// Python __len__ - returns number of items
+        abstract ``__len__``: unit -> int
+        /// Python __iter__ - returns iterator over keys
+        abstract ``__iter__``: unit -> System.Collections.Generic.IEnumerator<'K>
+        /// Python __contains__(key) - checks if key exists
+        abstract ``__contains__``: key: 'K -> bool
+        /// Python keys() - returns keys view
+        abstract keys: unit -> seq<'K>
+        /// Python values() - returns values view
+        abstract values: unit -> seq<'V>
+        /// Python items() - returns items view
+        abstract items: unit -> seq<'K * 'V>
+        /// Python get(key, default) - returns value or default
+        abstract get: key: 'K * ?defaultValue: 'V -> 'V
+
+    /// <summary>
+    /// Python MutableMapping interface for F# types that need to behave like Python dicts.
+    /// Follows Python's collections.abc.MutableMapping protocol.
+    /// The compiler will transform method names to Python dunder methods.
+    /// </summary>
+    [<AllowNullLiteral>]
+    type MutableMapping<'K, 'V> =
+        // Required abstract methods from MutableMapping (compiler maps these to dunder methods)
+        /// Python __getitem__(key) - returns value for key
+        abstract ``__getitem__``: key: 'K -> 'V
+        /// Python __setitem__(key, value) - sets value for key
+        abstract ``__setitem__``: key: 'K * value: 'V -> unit
+        /// Python __delitem__(key) - deletes key
+        abstract ``__delitem__``: key: 'K -> unit
+        /// Python __iter__ - returns iterator over keys
+        abstract ``__iter__``: unit -> System.Collections.Generic.IEnumerator<'K>
+        /// Python __len__ - returns number of items
+        abstract ``__len__``: unit -> int
+        // Concrete methods from Mapping
+        /// Python __contains__(key) - checks if key exists
+        abstract ``__contains__``: key: 'K -> bool
+        /// Python keys() - returns keys view
+        abstract keys: unit -> seq<'K>
+        /// Python values() - returns values view
+        abstract values: unit -> seq<'V>
+        /// Python items() - returns items view
+        abstract items: unit -> seq<'K * 'V>
+        /// Python get(key, default) - returns value or default
+        abstract get: key: 'K * ?defaultValue: 'V -> 'V
+        // Mixin methods from MutableMapping
+        /// Python clear() - removes all items
+        abstract clear: unit -> unit
+        /// Python pop(key, default) - removes and returns value
+        abstract pop: key: 'K * ?defaultValue: 'V -> 'V
+        /// Python popitem() - removes and returns an arbitrary (key, value) pair
+        abstract popitem: unit -> 'K * 'V
+
+    /// <summary>
+    /// Python Set interface for F# types that need to behave like Python read-only sets.
+    /// Follows Python's collections.abc.Set protocol (frozenset-like).
+    /// </summary>
+    [<AllowNullLiteral>]
+    type Set<'T> =
+        /// Python __contains__(value) - checks if value exists
+        abstract ``__contains__``: value: 'T -> bool
+        /// Python __iter__ - returns iterator
+        abstract ``__iter__``: unit -> System.Collections.Generic.IEnumerator<'T>
+        /// Python __len__ - returns number of items
+        abstract ``__len__``: unit -> int
+
+    /// <summary>
+    /// Python MutableSet interface for F# types that need to behave like Python sets.
+    /// Follows Python's collections.abc.MutableSet protocol.
+    /// The compiler will transform method names to Python dunder methods.
+    /// </summary>
+    [<AllowNullLiteral>]
+    type MutableSet<'T> =
+        /// Python __contains__(value) - checks if value exists
+        abstract ``__contains__``: value: 'T -> bool
+        /// Python __iter__ - returns iterator
+        abstract ``__iter__``: unit -> System.Collections.Generic.IEnumerator<'T>
+        /// Python __len__ - returns number of items
+        abstract ``__len__``: unit -> int
+        /// Python add(value) - adds value to set
+        abstract add: value: 'T -> unit
+        /// Python discard(value) - removes value if present
+        abstract discard: value: 'T -> unit
+        // Mixin methods
+        /// Python clear() - removes all items
+        abstract clear: unit -> unit
+        /// Python remove(value) - removes value, raises KeyError if not present
+        abstract remove: value: 'T -> unit
+        /// Python pop() - removes and returns an arbitrary element
+        abstract pop: unit -> 'T

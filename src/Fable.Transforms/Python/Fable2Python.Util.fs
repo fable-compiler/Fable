@@ -416,32 +416,16 @@ module Util =
         (_com: IPythonCompiler)
         (_ctx: Context)
         (memberName: string)
-        (argCount: int option)
+        (_argCount: int option)
         : Expression
         =
-        // printfn "memberFromName: %A" memberName
-        match memberName with
-        | "ToString" -> Expression.identifier "__str__"
-        //| "GetHashCode" -> Expression.identifier "__hash__"
-        // Only map Equals to __eq__ when it takes exactly 1 argument (+ self = 2 total in memb.Args)
-        // IEquatable<T>.Equals(other) has 1 param -> __eq__
-        // IEqualityComparer<T>.Equals(x, y) has 2 params -> keep as "Equals"
-        | "Equals" when argCount = Some 2 -> Expression.identifier "__eq__"
-        | "CompareTo" -> Expression.identifier "__cmp__"
-        | "set" -> Expression.identifier "__setitem__"
-        | "get" -> Expression.identifier "__getitem__"
-        | "has" -> Expression.identifier "__contains__"
-        | "delete" -> Expression.identifier "__delitem__"
-        | n when n.EndsWith("get_Count", StringComparison.Ordinal) -> Expression.identifier "__len__" // TODO: find a better way
-        | n when n.StartsWith("Symbol.iterator", StringComparison.Ordinal) ->
-            let name = Identifier "__iter__"
-            Expression.name name
-        | n ->
-            let n = Naming.toPythonNaming n
+        // Name transformations for specific interfaces (Py.Map, etc.) should be handled
+        // in Replacements.fs, not here. This function just sanitizes the name.
+        let n = Naming.toPythonNaming memberName
 
-            (n, Naming.NoMemberPart)
-            ||> Naming.sanitizeIdent (fun _ -> false)
-            |> Expression.name
+        (n, Naming.NoMemberPart)
+        ||> Naming.sanitizeIdent (fun _ -> false)
+        |> Expression.name
 
     let get (com: IPythonCompiler) ctx _r left memberName subscript =
         // printfn "get: %A" (memberName, subscript)

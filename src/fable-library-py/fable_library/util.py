@@ -196,6 +196,88 @@ class EnumerableBase[T](ABC):
         return self.GetEnumerator()
 
 
+class EquatableBase(ABC):
+    """ABC base class for equatable types.
+
+    Provides Python equality protocol (__eq__) for classes that implement
+    the IEquatable pattern.
+    """
+
+    __slots__ = ()
+
+    @abstractmethod
+    def Equals(self, other: object) -> bool:
+        """Check equality with another object."""
+        raise NotImplementedError
+
+    def __eq__(self, other: object) -> bool:
+        return self.Equals(other)
+
+    def __ne__(self, other: object) -> bool:
+        return not self.Equals(other)
+
+
+class ComparableBase(ABC):
+    """ABC base class for comparable types.
+
+    Provides Python comparison protocol (__lt__, __le__, __gt__, __ge__)
+    for classes that implement the IComparable pattern.
+    """
+
+    __slots__ = ()
+
+    @abstractmethod
+    def CompareTo(self, other: object) -> int:
+        """Compare to another object. Returns <0, 0, or >0."""
+        raise NotImplementedError
+
+    def __lt__(self, other: object) -> bool:
+        return self.CompareTo(other) < 0
+
+    def __le__(self, other: object) -> bool:
+        return self.CompareTo(other) <= 0
+
+    def __gt__(self, other: object) -> bool:
+        return self.CompareTo(other) > 0
+
+    def __ge__(self, other: object) -> bool:
+        return self.CompareTo(other) >= 0
+
+
+class StringableBase:
+    """Base class for types with ToString.
+
+    Provides Python string protocol (__str__, __repr__) for classes that
+    override ToString. Not an ABC - relies on duck typing for ToString.
+    """
+
+    __slots__ = ()
+
+    def __str__(self) -> str:
+        return self.ToString()  # type: ignore[attr-defined]
+
+    def __repr__(self) -> str:
+        return self.ToString()  # type: ignore[attr-defined]
+
+
+class HashableBase(ABC):
+    """ABC base class for hashable types.
+
+    Provides Python hash protocol (__hash__) for classes that implement
+    GetHashCode. Handles the type conversion from int32 to int.
+    """
+
+    __slots__ = ()
+
+    @abstractmethod
+    def GetHashCode(self) -> int:
+        """Get the hash code. Must be implemented by subclasses."""
+        raise NotImplementedError
+
+    def __hash__(self) -> int:
+        return int(self.GetHashCode())
+
+
 def returns[T, **P](targettype: Callable[..., T]) -> Callable[[Callable[P, Any]], Callable[P, T]]:
     def decorator(func: Callable[P, Any]) -> Callable[P, T]:
         @functools.wraps(func)
@@ -225,18 +307,21 @@ def equals(a: Any, b: Any) -> bool:
             return False
         case (_, None):
             return False
-        case (a, b) if is_array_like(a):
+        case (a, b) if isinstance(a, Array):
             return equal_arrays(a, b)
+        case (a, b) if hasattr(a, "Equals") and callable(a.Equals):
+            # Call Equals method for classes with override Equals (F# style)
+            return a.Equals(b)
         case _:
             return a == b
 
 
 def is_comparable(x: Any) -> bool:
-    return hasattr(x, "__cmp__") and callable(x.__cmp__)
+    return hasattr(x, "CompareTo") and callable(x.CompareTo)
 
 
 def is_equatable(x: Any) -> bool:
-    return hasattr(x, "__eq__") and callable(x.__eq__)
+    return (hasattr(x, "Equals") and callable(x.Equals)) or (hasattr(x, "__eq__") and callable(x.__eq__))
 
 
 def is_iterable(x: Any) -> bool:
@@ -300,7 +385,7 @@ def compare(a: Any, b: Any) -> int:
         case (a, None):
             return 1 if a else 0
         case (a, b) if is_comparable(a):
-            return a.__cmp__(b)
+            return a.CompareTo(b)
         case (a, b) if isinstance(a, dict):
             return compare_dicts(cast(dict[str, Any], a), b)
         case (a, b) if isinstance(a, list):
@@ -2458,7 +2543,10 @@ def curry20[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T1
 
 
 def is_array_like(x: Any) -> TypeGuard[Array]:
-    return isinstance(x, Array | list | tuple | set | bytes | bytearray)
+    # Match FSharpArray (Rust) which has .length property
+    # Also match tuples for F# tuple pattern matching
+    # Python lists should fall through to the iterator path (no .length)
+    return isinstance(x, Array | tuple)
 
 
 def is_disposable(x: Any) -> TypeGuard[IDisposable]:
@@ -2768,10 +2856,14 @@ def range(start: int, stop: int, step: int = 1) -> Iterable[int32]:
 __all__ = [
     # ABC Base Classes
     "AnonymousDisposable",
+    "ComparableBase",
     "DisposableBase",
     "EnumerableBase",
     "EnumeratorBase",
+    "EquatableBase",
+    "HashableBase",
     "ObjectDisposedException",
+    "StringableBase",
     # Other classes
     "ObjectRef",
     "PlatformID",

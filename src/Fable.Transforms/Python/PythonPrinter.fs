@@ -479,7 +479,8 @@ module PrinterExtensions =
             printer.Print(ta.Value)
 
         member printer.Print(node: Attribute) =
-            printer.Print(node.Value)
+            // Wrap complex expressions (like BinOp) in parens for correct precedence
+            printer.ComplexExpressionWithParens(node.Value)
             printer.Print(".")
             printer.Print(node.Attr)
 

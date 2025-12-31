@@ -913,6 +913,17 @@ type Set<[<EqualityConditionalOn>] 'T when 'T: comparison>(comparer: IComparer<'
         member s.GetEnumerator() =
             SetTree.mkIEnumerator s.Tree :> System.Collections.IEnumerator
 
+    // Python Set interface (read-only set operations)
+    interface Fable.Core.Py.Set<'T> with
+        member s.``__contains__``(v) = s.Contains(v)
+        member s.``__iter__``() = SetTree.mkIEnumerator s.Tree
+        member s.``__len__``() = s.Count
+
+    // Python ABC marker interfaces
+    interface Fable.Core.Py.Equatable
+    interface Fable.Core.Py.Comparable
+    interface Fable.Core.Py.Stringable
+
     // new (elements : seq<'T>) =
     //     let comparer = LanguagePrimitives.FastGenericComparer<'T>
     //     Set(comparer, SetTree.ofSeq comparer elements)

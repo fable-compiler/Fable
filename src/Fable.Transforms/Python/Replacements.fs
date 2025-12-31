@@ -1387,7 +1387,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 |> addErrorAndReturnNull com ctx.InlinePath r
                 |> Some
         | _ -> fsFormat com ctx r t i thisArg args
-    | "get_Length", Some c, _ -> Helper.GlobalCall("len", t, [ c ], [ t ], ?loc = r) |> Some
+    | "get_Length", Some c, _ ->
+        Helper.LibCall(com, "string", "getLength", t, [ c ], i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "get_Chars", Some c, _ ->
         Helper.LibCall(com, "string", "getCharAtIndex", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
@@ -1648,7 +1650,12 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "GetEnumerator", Some ar, _ -> getEnumerator com r t ar |> Some
     | "get_Count", Some(MaybeCasted(ar)), _ ->
         match ar.Type with
-        | Array _ -> Helper.GlobalCall("len", t, [ ar ], [ t ], ?loc = r) |> Some
+        // ResizeArray is Python list - use len() wrapped in int32()
+        | Array(_, ResizeArray) ->
+            let lenExpr = Helper.GlobalCall("len", Int32.Number, [ ar ], ?loc = r)
+            Helper.LibCall(com, "types", "int32", t, [ lenExpr ], ?loc = r) |> Some
+        // MutableArray/ImmutableArray are FSharpArray (Rust) with .length property returning Int32
+        | Array _ -> getFieldWith r t ar "length" |> Some
         | _ -> Helper.LibCall(com, "util", "count", t, [ ar ], ?loc = r) |> Some
     | "Clear", Some ar, _ -> Helper.LibCall(com, "Util", "clear", t, [ ar ], ?loc = r) |> Some
     | "Find", Some ar, [ arg ] ->
@@ -1776,7 +1783,9 @@ let copyToArray (com: ICompiler) r t (i: CallInfo) args =
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // printfn "arrays: %A" i.CompiledName
     match i.CompiledName, thisArg, args with
-    | "get_Length", Some arg, _ -> Helper.GlobalCall("len", t, [ arg ], [ t ], ?loc = r) |> Some
+    | "get_Length", Some arg, _ ->
+        // All arrays in Python are FSharpArray (Rust) which has .length property returning Int32
+        getFieldWith r t arg "length" |> Some
     | "get_Item", Some arg, [ idx ] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [ idx; value ] -> setExpr r arg idx value |> Some
     | "Copy", None, [ _source; _sourceIndex; _target; _targetIndex; _count ] -> copyToArray com r t i args
@@ -1826,7 +1835,14 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "ToList", args ->
         Helper.LibCall(com, "list", "of_array", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
-    | ("Length" | "Count"), [ arg ] -> Helper.GlobalCall("len", t, [ arg ], [ t ], ?loc = r) |> Some
+    | ("Length" | "Count"), [ arg ] ->
+        match arg.Type with
+        // ResizeArray is Python list - use len() wrapped in int32()
+        | Array(_, ResizeArray) ->
+            let lenExpr = Helper.GlobalCall("len", Int32.Number, [ arg ], ?loc = r)
+            Helper.LibCall(com, "types", "int32", t, [ lenExpr ], ?loc = r) |> Some
+        // MutableArray/ImmutableArray are FSharpArray (Rust) with .length property returning Int32
+        | _ -> getFieldWith r t arg "length" |> Some
     | "Item", [ idx; ar ] -> getExpr r t ar idx |> Some
     | "Get", [ ar; idx ] -> getExpr r t ar idx |> Some
     | "Set", [ ar; idx; value ] -> setExpr r ar idx value |> Some
@@ -1840,15 +1856,11 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         | _ -> createArray count None |> Some
     | "Create", [ count; value ] -> createArray count (Some value) |> Some
     | "Empty", _ ->
-        let t =
-            match t with
-            | Array(t, _) -> t
-            | _ -> Any
-
-        newArray (makeIntConst 0) t |> Some
+        // Use library function to create empty FSharpArray (Rust) instead of raw Python list
+        Helper.LibCall(com, "array", "empty", t, [], ?loc = r) |> Some
     | "IsEmpty", [ ar ] ->
-        eq (Helper.GlobalCall("len", t, [ ar ], [ t ], ?loc = r)) (makeIntConst 0)
-        |> Some
+        // Use .length property (Int32) instead of len() which returns Python int
+        eq (getFieldWith r Int32.Number ar "length") (makeIntConst 0) |> Some
     | "Concat", [ ar1; ar2 ] -> makeBinOp r t ar1 ar2 BinaryPlus |> Some
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
@@ -2461,7 +2473,10 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> Some
         | _ -> None
     | "get_IsReadOnly", _ -> makeBoolConst false |> Some
-    | "get_Count", _ -> Helper.GlobalCall("len", t, [ thisArg.Value ], [ t ], ?loc = r) |> Some
+    | "get_Count", _ ->
+        // Use int32(len()) to work with both Dictionary class and plain Python dict
+        let lenExpr = Helper.GlobalCall("len", Int32.Number, [ thisArg.Value ], ?loc = r)
+        Helper.LibCall(com, "types", "int32", t, [ lenExpr ], ?loc = r) |> Some
     | "GetEnumerator", Some callee -> getEnumerator com r t callee |> Some
     | "ContainsValue", _ ->
         match thisArg, args with
@@ -2504,7 +2519,9 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             |> makeHashSetWithComparer com r t (makeArray Any [])
             |> Some
         | _ -> None
-    | "get_Count", _, _ -> getFieldWith r t thisArg.Value "size" |> Some
+    | "get_Count", _, _ ->
+        Helper.LibCall(com, "mutable_set", "HashSet__get_Count", t, [ thisArg.Value ], ?loc = r)
+        |> Some
     | "get_IsReadOnly", _, _ -> BoolConstant false |> makeValue r |> Some
     | ReplaceName [ "Clear", "clear"; "Contains", "has"; "Remove", "delete" ] methName, Some c, args ->
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc = r) |> Some
@@ -2944,7 +2961,9 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (a
 
         Helper.LibCall(com, "util", "randint", t, [ min; max ], [ min.Type; max.Type ], ?loc = r)
         |> Some
-    | "NextDouble" -> Helper.ImportedCall("random", "random", t, [], []) |> Some
+    | "NextDouble" ->
+        let ranExpr = Helper.ImportedCall("random", "random", t, [], [])
+        Helper.LibCall(com, "types", "int32", t, [ ranExpr ], ?loc = r) |> Some
     | "NextBytes" ->
         let byteArray =
             match args with

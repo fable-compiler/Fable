@@ -572,6 +572,11 @@ let transformObjectExpr
                 match name with
                 | "IDisposable" -> Some "DisposableBase"
                 | "IEnumerator_1" -> Some "EnumeratorBase"
+                | "IEnumerable_1" -> Some "EnumerableBase"
+                | "Stringable" -> Some "StringableBase"
+                | "Equatable" -> Some "EquatableBase"
+                | "Comparable" -> Some "ComparableBase"
+                | "Hashable" -> Some "HashableBase"
                 | _ -> None
 
             match abcClassName with
@@ -616,17 +621,6 @@ let transformObjectExpr
                 let decorators = [ Expression.name $"%s{memb.Name}.setter" ]
 
                 [ makeMethod memb.Name false memb.Args memb.Body decorators ]
-            elif info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
-                let method = makeMethod memb.Name info.HasSpread memb.Args memb.Body []
-
-                let iterator =
-                    let body = enumerator2iterator com ctx
-                    let name = com.GetIdentifier(ctx, "__iter__")
-                    let args = Arguments.arguments [ Arg.arg "self" ]
-
-                    Statement.functionDef (name = name, args = args, body = body)
-
-                [ method; iterator ]
             else
                 [ makeMethod memb.Name info.HasSpread memb.Args memb.Body [] ]
         )
@@ -3015,7 +3009,47 @@ let declareDataClassType
 
 
     let typeParams = makeEntityTypeParams com ctx ent
-    let bases = baseExpr |> Option.toList
+
+    // For record types (dataclasses), the Record base class already provides:
+    // - StringableBase (__str__, __repr__ from ToString)
+    // - EquatableBase (__eq__, __ne__ from Equals)
+    // - ComparableBase (__lt__, __le__, __gt__, __ge__ from CompareTo)
+    //
+    // We only need to add EnumerableBase for IEnumerable interfaces (for iteration support)
+    let allowedInterfaces = [ "IEnumerable_1" ]
+
+    let interfaceBases =
+        ent.AllInterfaces
+        |> List.ofSeq
+        |> List.filter (fun int ->
+            let name = Helpers.removeNamespace (int.Entity.FullName)
+            allowedInterfaces |> List.contains name
+        )
+        |> List.map (fun int ->
+            // Filter out self-referential generic arguments to avoid forward reference errors
+            let genericArgs =
+                int.GenericArgs
+                |> List.filter (fun genArg ->
+                    match genArg with
+                    | Fable.DeclaredType({ FullName = fullName }, _) -> Helpers.removeNamespace (fullName) <> entName
+                    | _ -> true
+                )
+
+            // Generate the EnumerableBase reference from util module
+            if List.isEmpty genericArgs then
+                libValue com ctx "util" "EnumerableBase"
+            else
+                let typeArgs =
+                    genericArgs
+                    |> List.map (fun genArg ->
+                        let arg, _ = Annotation.typeAnnotation com ctx None genArg
+                        arg
+                    )
+
+                Expression.subscript (libValue com ctx "util" "EnumerableBase", Expression.tuple typeArgs)
+        )
+
+    let bases = (baseExpr |> Option.toList) @ interfaceBases
 
     // Add a __hash__ method to the class
     let hashMethod =
@@ -3171,7 +3205,20 @@ let declareClassType
     let interfaces, stmts =
         // We only use a few interfaces as base classes. The rest is handled as Python protocols (PEP 544) to avoid a massive
         // inheritance tree that will prevent Python of finding a consistent method resolution order.
-        let allowedInterfaces = [ "IDisposable"; "IEnumerator_1" ]
+        // Note: IEquatable_1 and IComparable are NOT mapped to ABC bases because:
+        // 1. Union/Record/ValueType already have Equals/CompareTo in their base classes
+        // 2. Regular classes get mangled method names that don't match ABC abstract methods
+        // 3. Use Py.Equatable/Py.Comparable marker interfaces for classes with override Equals/CompareTo
+        let allowedInterfaces =
+            [
+                "IDisposable"
+                "IEnumerator_1"
+                "IEnumerable_1"
+                "Stringable"
+                "Equatable"
+                "Comparable"
+                "Hashable"
+            ]
 
         // Check if class implements IEnumerator_1 (which already inherits from IDisposable)
         let hasIEnumerator =
@@ -3195,15 +3242,21 @@ let declareClassType
                 match name with
                 | "IDisposable" -> "DisposableBase"
                 | "IEnumerator_1" -> "EnumeratorBase"
+                | "IEnumerable_1" -> "EnumerableBase"
+                | "Stringable" -> "StringableBase"
+                | "Equatable" -> "EquatableBase"
+                | "Comparable" -> "ComparableBase"
+                | "Hashable" -> "HashableBase"
                 | other -> other
 
+            // Filter out self-referential generic arguments to avoid forward reference errors
             let genericArgs =
-                match int.GenericArgs with
-                | [ Fable.DeclaredType({ FullName = fullName }, _genericArgs) ] when
-                    Helpers.removeNamespace (fullName) = entName
-                    ->
-                    [ Fable.Type.Any ]
-                | args -> args
+                int.GenericArgs
+                |> List.filter (fun genArg ->
+                    match genArg with
+                    | Fable.DeclaredType({ FullName = fullName }, _) -> Helpers.removeNamespace (fullName) <> entName
+                    | _ -> true
+                )
 
             // Generate the ABC base class reference from util module
             let expr =
@@ -3592,17 +3645,9 @@ let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFuncti
         else
             { args with Args = self :: args.Args }
 
+    // Classes that need __iter__ should define it explicitly through interfaces like Py.MutableMapping
     [
-        yield makeMethod memb.Name (List.length memb.Args) arguments body decorators returnType
-        if info.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" then
-            yield
-                makeMethod
-                    "__iter__"
-                    0
-                    (Arguments.arguments [ self ])
-                    (enumerator2iterator com ctx)
-                    decorators
-                    returnType
+        makeMethod memb.Name (List.length memb.Args) arguments body decorators returnType
     ]
 
 let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =

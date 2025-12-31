@@ -15,18 +15,18 @@
     <Compile Include="../../fable-library-ts/FSharp.Core.fs" Link="FSharp.Core.fs" />
     <Compile Include="Native.fs" />
     <Compile Include="MutableMap.fs" />
-    <Compile Include="../../fable-library-ts/MutableSet.fs" Link="MutableSet.fs" />
+    <Compile Include="MutableSet.fs" />
     <Compile Include="../../fable-library-ts/Result.fs" Link="Result.fs" />
     <Compile Include="../../fable-library-ts/Choice.fs" Link="Choice.fs" />
     <Compile Include="List.fs" />
-    <Compile Include="../../fable-library-ts/Seq.fs" Link="Seq.fs" />
+    <Compile Include="Seq.fs" />
     <Compile Include="../../fable-library-ts/Seq2.fs" Link="Seq2.fs" />
     <Compile Include="Range.fs" />
     <Compile Include="Set.fs" />
-    <Compile Include="../../fable-library-ts/Map.fs" Link="Map.fs" />
+    <Compile Include="Map.fs" />
     <Compile Include="../../fable-library-ts/System.fs" Link="System.fs" />
     <Compile Include="../../fable-library-ts/System.Collections.Generic.fs" Link="System.Collections.Generic.fs" />
-    <Compile Include="../../fable-library-ts/System.Text.fs" Link="System.Text.fs" />
+    <Compile Include="System.Text.fs" />
   </ItemGroup>
 
   <ItemGroup>

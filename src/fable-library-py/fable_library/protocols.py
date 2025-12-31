@@ -49,7 +49,7 @@ class HashCode(Protocol):
 
 class IComparable(IEquatable, Protocol):
     @abstractmethod
-    def __cmp__(self, __other: Any) -> int:
+    def CompareTo(self, other: Any) -> int:
         raise NotImplementedError
 
     @abstractmethod
@@ -59,7 +59,7 @@ class IComparable(IEquatable, Protocol):
 
 class IComparable_1[T_in](IEquatable, Protocol):
     @abstractmethod
-    def __cmp__(self, __other: T_in) -> int:
+    def CompareTo(self, other: T_in) -> int:
         raise NotImplementedError
 
     @abstractmethod

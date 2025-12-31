@@ -128,25 +128,52 @@ type MutableMap<'Key, 'Value when 'Key: equality>
         member this.Values: ICollection<'Value> =
             [| for pair in this -> pair.Value |] :> ICollection<'Value>
 
-    // Python-specific interface for dict-like behavior
-    // The compiler transforms these method names to Python dunder methods
-    interface Fable.Core.JS.Map<'Key, 'Value> with
-        member this.size = this.Count
+    // Python MutableMapping interface for dict-like behavior
+    interface Fable.Core.Py.MutableMapping<'Key, 'Value> with
+        member this.``__getitem__``(k) = this.[k]
+        member this.``__setitem__``(k, v) = this.[k] <- v
+        member this.``__delitem__``(k) = this.Remove(k) |> ignore
+        // Return iterator over keys
+        member this.``__iter__``() =
+            (hashMap.Values |> Seq.concat |> Seq.map (fun p -> p.Key)).GetEnumerator()
+
+        member this.``__len__``() = this.Count
+        member this.``__contains__``(k) = this.ContainsKey(k)
+
+        member this.keys() =
+            hashMap.Values |> Seq.concat |> Seq.map (fun p -> p.Key)
+
+        member this.values() =
+            hashMap.Values |> Seq.concat |> Seq.map (fun p -> p.Value)
+
+        member this.items() =
+            hashMap.Values |> Seq.concat |> Seq.map (fun p -> p.Key, p.Value)
+
+        member this.get(k, ?defaultValue) =
+            match this.TryFind(k) with
+            | Some pair -> pair.Value
+            | None ->
+                match defaultValue with
+                | Some v -> v
+                | None -> Unchecked.defaultof<'Value>
+
         member this.clear() = this.Clear()
-        member this.delete(k) = this.Remove(k)
 
-        member this.entries() =
-            this |> Seq.map (fun p -> p.Key, p.Value)
+        member this.pop(k, ?defaultValue) =
+            match this.TryFind(k) with
+            | Some pair ->
+                this.Remove(k) |> ignore
+                pair.Value
+            | None ->
+                match defaultValue with
+                | Some v -> v
+                | None -> raise (KeyNotFoundException("Key not found"))
 
-        member this.get(k) = this.[k]
-        member this.has(k) = this.ContainsKey(k)
-        member this.keys() = this |> Seq.map (fun p -> p.Key)
+        member this.popitem() =
+            let first = this |> Seq.tryHead
 
-        member this.set(k, v) =
-            this.[k] <- v
-            this :> Fable.Core.JS.Map<'Key, 'Value>
-
-        member this.values() = this |> Seq.map (fun p -> p.Value)
-
-        member this.forEach(f, ?thisArg) =
-            this |> Seq.iter (fun p -> f p.Value p.Key this)
+            match first with
+            | Some pair ->
+                this.Remove(pair.Key) |> ignore
+                (pair.Key, pair.Value)
+            | None -> raise (KeyNotFoundException("Dictionary is empty"))

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .core import option
+from .types import Array
 
 
 type Option[T] = option.SomeWrapper[T] | T | None
@@ -15,7 +16,6 @@ map2 = option.map2
 map3 = option.map3
 of_nullable = option.of_nullable
 some = option.some
-to_array = option.to_array
 to_nullable = option.to_nullable
 value = option.value
 or_else = option.or_else
@@ -25,6 +25,12 @@ some = option.some
 non_null = option.non_null
 # Alias for compatibility
 of_null = option.of_nullable
+
+
+def to_array[T](opt: Option[T]) -> Array[T]:
+    """Convert option to FSharpArray (override of Rust impl that returns Python list)."""
+    result = option.to_array(opt)
+    return Array[T](result)
 
 
 __all__ = [
