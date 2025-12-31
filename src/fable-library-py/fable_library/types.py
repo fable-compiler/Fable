@@ -8,9 +8,10 @@ from typing import (
 )
 
 from .array_ import Array
+from .bases import ComparableBase, EquatableBase, HashableBase, StringableBase
 from .core import FSharpRef, byte, float32, float64, int8, int16, int32, int64, sbyte, uint8, uint16, uint32, uint64
 from .protocols import IComparable
-from .util import compare, equals, ComparableBase, EquatableBase, HashableBase, StringableBase
+from .util import compare, equals
 
 
 class Union(StringableBase, EquatableBase, ComparableBase, HashableBase, IComparable):

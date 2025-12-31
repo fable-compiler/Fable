@@ -243,6 +243,14 @@ module Py =
     type Hashable = interface end
 
     /// <summary>
+    /// Python Sized marker interface for F# types that need __len__ in Python.
+    /// The compiler maps this to SizedBase which provides __len__ from Count property.
+    /// The class must have a Count property that returns the number of items.
+    /// </summary>
+    [<AllowNullLiteral>]
+    type Sized = interface end
+
+    /// <summary>
     /// Python Iterable interface for F# types that need to be iterable in Python.
     /// Follows Python's collections.abc.Iterable protocol.
     /// </summary>

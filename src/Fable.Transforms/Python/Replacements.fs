@@ -2519,8 +2519,8 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             |> makeHashSetWithComparer com r t (makeArray Any [])
             |> Some
         | _ -> None
-    | "get_Count", _, _ ->
-        Helper.LibCall(com, "mutable_set", "HashSet__get_Count", t, [ thisArg.Value ], ?loc = r)
+    | "get_Count", Some c, _ ->
+        Helper.LibCall(com, "mutable_set", "HashSet__get_Count", t, [ c ], ?loc = r)
         |> Some
     | "get_IsReadOnly", _, _ -> BoolConstant false |> makeValue r |> Some
     | ReplaceName [ "Clear", "clear"; "Contains", "has"; "Remove", "delete" ] methName, Some c, args ->
@@ -3077,7 +3077,9 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg.Value; args.Head ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
     | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
-    | "get_Count" -> Helper.GlobalCall("len", t, [ thisArg.Value ], [ t ], ?loc = r) |> Some
+    | "get_Count" ->
+        thisArg
+        |> Option.map (fun c -> Helper.GlobalCall("len", t, [ c ], [ t ], ?loc = r))
     | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some
     | "IsMatch"
     | "Match"

@@ -32,6 +32,13 @@ from typing import (
 from urllib.parse import quote, unquote
 
 from .array_ import Array
+from .bases import (
+    ComparableBase,
+    EquatableBase,
+    HashableBase,
+    SizedBase,
+    StringableBase,
+)
 from .core import float32, float64, int32
 
 # Re-export protocols for backward compatibility
@@ -194,88 +201,6 @@ class EnumerableBase[T](ABC):
 
     def __iter__(self) -> Iterator[T]:
         return self.GetEnumerator()
-
-
-class EquatableBase(ABC):
-    """ABC base class for equatable types.
-
-    Provides Python equality protocol (__eq__) for classes that implement
-    the IEquatable pattern.
-    """
-
-    __slots__ = ()
-
-    @abstractmethod
-    def Equals(self, other: object) -> bool:
-        """Check equality with another object."""
-        raise NotImplementedError
-
-    def __eq__(self, other: object) -> bool:
-        return self.Equals(other)
-
-    def __ne__(self, other: object) -> bool:
-        return not self.Equals(other)
-
-
-class ComparableBase(ABC):
-    """ABC base class for comparable types.
-
-    Provides Python comparison protocol (__lt__, __le__, __gt__, __ge__)
-    for classes that implement the IComparable pattern.
-    """
-
-    __slots__ = ()
-
-    @abstractmethod
-    def CompareTo(self, other: object) -> int:
-        """Compare to another object. Returns <0, 0, or >0."""
-        raise NotImplementedError
-
-    def __lt__(self, other: object) -> bool:
-        return self.CompareTo(other) < 0
-
-    def __le__(self, other: object) -> bool:
-        return self.CompareTo(other) <= 0
-
-    def __gt__(self, other: object) -> bool:
-        return self.CompareTo(other) > 0
-
-    def __ge__(self, other: object) -> bool:
-        return self.CompareTo(other) >= 0
-
-
-class StringableBase:
-    """Base class for types with ToString.
-
-    Provides Python string protocol (__str__, __repr__) for classes that
-    override ToString. Not an ABC - relies on duck typing for ToString.
-    """
-
-    __slots__ = ()
-
-    def __str__(self) -> str:
-        return self.ToString()  # type: ignore[attr-defined]
-
-    def __repr__(self) -> str:
-        return self.ToString()  # type: ignore[attr-defined]
-
-
-class HashableBase(ABC):
-    """ABC base class for hashable types.
-
-    Provides Python hash protocol (__hash__) for classes that implement
-    GetHashCode. Handles the type conversion from int32 to int.
-    """
-
-    __slots__ = ()
-
-    @abstractmethod
-    def GetHashCode(self) -> int:
-        """Get the hash code. Must be implemented by subclasses."""
-        raise NotImplementedError
-
-    def __hash__(self) -> int:
-        return int(self.GetHashCode())
 
 
 def returns[T, **P](targettype: Callable[..., T]) -> Callable[[Callable[P, Any]], Callable[P, T]]:
@@ -2854,16 +2779,18 @@ def range(start: int, stop: int, step: int = 1) -> Iterable[int32]:
 
 
 __all__ = [
-    # ABC Base Classes
-    "AnonymousDisposable",
+    # ABC Base Classes (re-exported from bases.py for backward compatibility)
     "ComparableBase",
+    "EquatableBase",
+    "HashableBase",
+    "SizedBase",
+    "StringableBase",
+    # ABC Base Classes (defined in util.py)
+    "AnonymousDisposable",
     "DisposableBase",
     "EnumerableBase",
     "EnumeratorBase",
-    "EquatableBase",
-    "HashableBase",
     "ObjectDisposedException",
-    "StringableBase",
     # Other classes
     "ObjectRef",
     "PlatformID",

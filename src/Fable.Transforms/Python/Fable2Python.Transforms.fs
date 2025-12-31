@@ -577,13 +577,22 @@ let transformObjectExpr
                 | "Equatable" -> Some "EquatableBase"
                 | "Comparable" -> Some "ComparableBase"
                 | "Hashable" -> Some "HashableBase"
+                | "Sized" -> Some "SizedBase"
                 | _ -> None
 
             match abcClassName with
             | Some abcName ->
+                // ABC base classes are in 'bases' module, except for Disposable/Enumerator/Enumerable which are in 'util'
+                let moduleName =
+                    match name with
+                    | "IDisposable"
+                    | "IEnumerator_1"
+                    | "IEnumerable_1" -> "util"
+                    | _ -> "bases"
+
                 let expr =
                     if List.isEmpty genArgs then
-                        libValue com ctx "util" abcName
+                        libValue com ctx moduleName abcName
                     else
                         let typeArgs =
                             genArgs
@@ -592,7 +601,7 @@ let transformObjectExpr
                                 arg
                             )
 
-                        Expression.subscript (libValue com ctx "util" abcName, Expression.tuple typeArgs)
+                        Expression.subscript (libValue com ctx moduleName abcName, Expression.tuple typeArgs)
 
                 [ expr ], []
             | None ->
@@ -3218,6 +3227,7 @@ let declareClassType
                 "Equatable"
                 "Comparable"
                 "Hashable"
+                "Sized"
             ]
 
         // Check if class implements IEnumerator_1 (which already inherits from IDisposable)
@@ -3247,7 +3257,16 @@ let declareClassType
                 | "Equatable" -> "EquatableBase"
                 | "Comparable" -> "ComparableBase"
                 | "Hashable" -> "HashableBase"
+                | "Sized" -> "SizedBase"
                 | other -> other
+
+            // ABC base classes are in 'bases' module, except for Disposable/Enumerator/Enumerable which are in 'util'
+            let moduleName =
+                match name with
+                | "IDisposable"
+                | "IEnumerator_1"
+                | "IEnumerable_1" -> "util"
+                | _ -> "bases"
 
             // Filter out self-referential generic arguments to avoid forward reference errors
             let genericArgs =
@@ -3258,10 +3277,10 @@ let declareClassType
                     | _ -> true
                 )
 
-            // Generate the ABC base class reference from util module
+            // Generate the ABC base class reference
             let expr =
                 if List.isEmpty genericArgs then
-                    libValue com ctx "util" abcClassName
+                    libValue com ctx moduleName abcClassName
                 else
                     let typeArgs =
                         genericArgs
@@ -3270,7 +3289,7 @@ let declareClassType
                             arg
                         )
 
-                    Expression.subscript (libValue com ctx "util" abcClassName, Expression.tuple typeArgs)
+                    Expression.subscript (libValue com ctx moduleName abcClassName, Expression.tuple typeArgs)
 
             expr, []
         )
