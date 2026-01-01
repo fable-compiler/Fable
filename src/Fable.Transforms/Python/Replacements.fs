@@ -2473,9 +2473,9 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> Some
         | _ -> None
     | "get_IsReadOnly", _ -> makeBoolConst false |> Some
-    | "get_Count", _ ->
+    | "get_Count", Some c ->
         // Use int32(len()) to work with both Dictionary class and plain Python dict
-        let lenExpr = Helper.GlobalCall("len", Int32.Number, [ thisArg.Value ], ?loc = r)
+        let lenExpr = Helper.GlobalCall("len", Int32.Number, [ c ], ?loc = r)
         Helper.LibCall(com, "types", "int32", t, [ lenExpr ], ?loc = r) |> Some
     | "GetEnumerator", Some callee -> getEnumerator com r t callee |> Some
     | "ContainsValue", _ ->
