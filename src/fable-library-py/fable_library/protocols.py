@@ -4,7 +4,7 @@ This module contains PURE protocol (interface) definitions used by the Fable
 runtime library. These are for type hints and structural subtyping only.
 
 For classes that need to inherit with implementations (context managers, etc.),
-use the ABC base classes in util.py (DisposableBase, EnumeratorBase, etc.).
+use the ABC base classes in bases.py (ContextManagerBase, IteratorBase, etc.).
 
 Protocols are defined here to avoid circular imports between modules like
 util.py and core/array.pyi.
@@ -13,9 +13,8 @@ util.py and core/array.pyi.
 from __future__ import annotations
 
 from abc import abstractmethod
-from collections.abc import Iterable, Iterator
-from types import TracebackType
-from typing import TYPE_CHECKING, Any, Literal, Protocol, Self, runtime_checkable
+from collections.abc import Iterable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 
 if TYPE_CHECKING:
@@ -34,8 +33,15 @@ class SupportsLessThan(Protocol):
 
 
 class IEquatable(Protocol):
-    def __eq__(self, other: Any) -> bool: ...
-    def __hash__(self) -> int: ...
+    """Protocol for equatable types (pure protocol for type hints).
+
+    Note: Does NOT include __eq__, __hash__. For Python equality support,
+    use Py.Equatable and Py.Hashable marker interfaces which add
+    EquatableBase and HashableBase.
+    """
+
+    def Equals(self, other: Any, /) -> bool: ...
+    def GetHashCode(self) -> int: ...
 
 
 class HashCode(Protocol):
@@ -48,22 +54,28 @@ class HashCode(Protocol):
 
 
 class IComparable(IEquatable, Protocol):
+    """Protocol for comparable types (pure protocol for type hints).
+
+    Note: Does NOT include __lt__, __le__, __gt__, __ge__. For Python
+    comparison support, use Py.Comparable marker interface which adds
+    ComparableBase.
+    """
+
     @abstractmethod
     def CompareTo(self, other: Any) -> int:
         raise NotImplementedError
 
-    @abstractmethod
-    def __lt__(self, other: Any) -> bool:
-        raise NotImplementedError
-
 
 class IComparable_1[T_in](IEquatable, Protocol):
-    @abstractmethod
-    def CompareTo(self, other: T_in) -> int:
-        raise NotImplementedError
+    """Protocol for generic comparable types (pure protocol for type hints).
+
+    Note: Does NOT include __lt__, __le__, __gt__, __ge__. For Python
+    comparison support, use Py.Comparable marker interface which adds
+    ComparableBase.
+    """
 
     @abstractmethod
-    def __lt__(self, other: Any) -> bool:
+    def CompareTo(self, other: T_in) -> int:
         raise NotImplementedError
 
 
@@ -135,18 +147,26 @@ class IEqualityComparer_1[T_in](Protocol):
 
 
 class IStructuralEquatable(Protocol):
+    """Protocol for structural equality comparison.
+
+    Note: Does NOT include __hash__. For Python hash support, use
+    Py.Hashable marker interface which adds HashableBase.
+    """
+
     @abstractmethod
     def Equals(self, other: Any, comparer: IEqualityComparer) -> bool:
         raise NotImplementedError
 
     @abstractmethod
-    def __hash__(self) -> int32:
+    def GetHashCode(self, comparer: IEqualityComparer) -> int32:
         raise NotImplementedError
 
 
 class IStructuralComparable(Protocol):
+    """Protocol for structural comparison."""
+
     @abstractmethod
-    def __cmp__(self, other: Any, comparer: IComparer) -> int32:
+    def CompareTo(self, other: Any, comparer: IComparer) -> int32:
         raise NotImplementedError
 
 
@@ -180,25 +200,19 @@ class IDisposable(Protocol):
     """IDisposable protocol (pure protocol for type hints).
 
     This is a pure protocol for structural subtyping. For classes that need
-    to inherit with context manager implementations, use DisposableBase from
-    util.py instead.
+    to inherit with context manager implementations, use ContextManagerBase
+    from bases.py instead.
 
     Note: This protocol is @runtime_checkable to support isinstance() checks
     in utility functions like is_disposable().
+
+    Note: Does NOT include __enter__, __exit__. For Python context manager
+    support, use Py.ContextManager marker interface which adds ContextManagerBase.
     """
 
     __slots__ = ()
 
     def Dispose(self) -> None: ...
-
-    def __enter__(self) -> Self: ...
-
-    def __exit__(
-        self,
-        exctype: type[BaseException] | None,
-        excinst: BaseException | None,
-        exctb: TracebackType | None,
-    ) -> Literal[False]: ...
 
 
 # =============================================================================
@@ -206,12 +220,15 @@ class IDisposable(Protocol):
 # =============================================================================
 
 
-class IEnumerator[T](IDisposable, Protocol):
+class IEnumerator[T](Protocol):
     """Protocol for enumerators (pure protocol for type hints).
 
     This is a pure protocol for structural subtyping. For classes that need
-    to inherit with iterator/context manager implementations, use EnumeratorBase
-    from util.py instead.
+    to inherit with iterator/context manager implementations, use IteratorBase
+    and ContextManagerBase from bases.py instead.
+
+    Note: Does NOT include __iter__, __next__, __enter__, __exit__.
+    For Python iterator/context manager support, use Py marker interfaces.
     """
 
     __slots__ = ()
@@ -224,9 +241,7 @@ class IEnumerator[T](IDisposable, Protocol):
 
     def System_Collections_IEnumerator_MoveNext(self) -> bool: ...
     def System_Collections_IEnumerator_Reset(self) -> None: ...
-
-    def __iter__(self) -> Iterator[T]: ...
-    def __next__(self) -> T: ...
+    def Dispose(self) -> None: ...
 
 
 # =============================================================================
@@ -237,24 +252,28 @@ class IEnumerator[T](IDisposable, Protocol):
 # The __unit parameter uses Any default which works the same way.
 
 
-class IEnumerable(Iterable[Any], Protocol):
-    """Protocol for enumerable collections (pure protocol for type hints)."""
+class IEnumerable(Protocol):
+    """Protocol for enumerable collections (pure protocol for type hints).
+
+    Note: Does NOT include __iter__. For Python iteration support, use
+    Py.Iterable marker interface which adds IterableBase.
+    """
 
     __slots__ = ()
 
     def GetEnumerator(self, __unit: Any = None) -> IEnumerator[Any]: ...
 
-    def __iter__(self) -> Iterator[Any]: ...
 
+class IEnumerable_1[T](Protocol):
+    """Protocol for generic enumerable collections (pure protocol for type hints).
 
-class IEnumerable_1[T](Iterable[T], Protocol):
-    """Protocol for generic enumerable collections (pure protocol for type hints)."""
+    Note: Does NOT include __iter__. For Python iteration support, use
+    Py.Iterable marker interface which adds IterableBase.
+    """
 
     __slots__ = ()
 
     def GetEnumerator(self, __unit: Any = None) -> IEnumerator[T]: ...
-
-    def __iter__(self) -> Iterator[T]: ...
 
 
 # =============================================================================
@@ -273,98 +292,164 @@ class IDictionary[Key, Value](ICollection[tuple[Key, Value]], Protocol):
 
 
 # =============================================================================
-# Set and Map Protocols (JS-style interfaces)
+# .NET Collection Protocols (F# interface contracts - NO dunders)
 # =============================================================================
+# These protocols define F# interface method signatures. They do NOT include
+# Python dunder methods. For Python interop (len, in, [], etc.), use the
+# corresponding ABC base classes from bases.py via Py marker interfaces.
 
 
-class ISet[T](Protocol):
-    """Protocol for set-like objects (Python-idiomatic version of JS Set interface).
+class IReadOnlyCollection_1[T](IEnumerable_1[T], Protocol):
+    """Protocol for IReadOnlyCollection<T> (.NET).
 
-    The Fable compiler transforms JS-style methods to Python idioms:
-    - has(k) -> __contains__(k)  (enables `x in set` syntax)
-    - delete(k) -> __delitem__(k)  (enables `del set[k]` syntax)
-
-    Parameters are positional-only (/) to avoid name mismatch errors when
-    implementing classes use different parameter names (e.g., 'k' vs 'value').
+    Provides read-only access to a collection with a count.
+    For Python __len__ support, use Py.Sized marker → SizedBase.
     """
 
     @property
-    def size(self) -> int:
-        """Return the number of elements in the set."""
-        ...
-
-    def add(self, value: T = ..., /) -> ISet[T]:
-        """Add a value to the set. Returns self for chaining."""
-        ...
-
-    def clear(self) -> None:
-        """Remove all elements from the set."""
-        ...
-
-    def __delitem__(self, value: T = ..., /) -> bool:
-        """Remove a value from the set. Returns True if value was present."""
-        ...
-
-    def __contains__(self, value: T = ..., /) -> bool:
-        """Check if value is in the set (Python `in` operator)."""
-        ...
-
-    def values(self) -> IEnumerable_1[T]:
-        """Return an enumerable of values."""
+    def Count(self) -> int:
+        """Get the number of items in the collection."""
         ...
 
 
-class IMap[K, V](Protocol):
-    """Protocol for map-like objects (Python-idiomatic version of JS Map interface).
+class IReadOnlySet_1[T](IReadOnlyCollection_1[T], Protocol):
+    """Protocol for IReadOnlySet<T> (.NET 5+).
 
-    The Fable compiler transforms JS-style methods to Python idioms:
-    - has(k) -> __contains__(k)  (enables `k in map` syntax)
-    - delete(k) -> __delitem__(k)  (enables `del map[k]` syntax)
-    - get(k) -> __getitem__(k)  (enables `map[k]` syntax)
-    - set(k, v) -> __setitem__(k, v)  (enables `map[k] = v` syntax)
-
-    Parameters are positional-only (/) to avoid name mismatch errors.
+    Provides read-only set operations.
+    For Python __contains__/__iter__/__len__, use Py.Set marker → SetBase.
     """
 
+    def Contains(self, item: T, /) -> bool:
+        """Check if item exists in the set."""
+        ...
+
+    def IsProperSubsetOf(self, other: IEnumerable_1[T], /) -> bool:
+        """Check if this set is a proper subset of other."""
+        ...
+
+    def IsProperSupersetOf(self, other: IEnumerable_1[T], /) -> bool:
+        """Check if this set is a proper superset of other."""
+        ...
+
+    def IsSubsetOf(self, other: IEnumerable_1[T], /) -> bool:
+        """Check if this set is a subset of other."""
+        ...
+
+    def IsSupersetOf(self, other: IEnumerable_1[T], /) -> bool:
+        """Check if this set is a superset of other."""
+        ...
+
+    def Overlaps(self, other: IEnumerable_1[T], /) -> bool:
+        """Check if this set overlaps with other."""
+        ...
+
+    def SetEquals(self, other: IEnumerable_1[T], /) -> bool:
+        """Check if this set equals other."""
+        ...
+
+
+class ISet_1[T](IReadOnlySet_1[T], Protocol):
+    """Protocol for ISet<T> (.NET).
+
+    Provides mutable set operations.
+    For Python add/discard/remove/pop/clear, use Py.MutableSet marker → MutableSetBase.
+    """
+
+    def Add(self, item: T, /) -> bool:
+        """Add item to set. Returns True if item was added."""
+        ...
+
+    def Remove(self, item: T, /) -> bool:
+        """Remove item from set. Returns True if item was removed."""
+        ...
+
+    def Clear(self) -> None:
+        """Remove all items from set."""
+        ...
+
+    def ExceptWith(self, other: IEnumerable_1[T], /) -> None:
+        """Remove all items in other from this set."""
+        ...
+
+    def IntersectWith(self, other: IEnumerable_1[T], /) -> None:
+        """Keep only items that are in both this set and other."""
+        ...
+
+    def SymmetricExceptWith(self, other: IEnumerable_1[T], /) -> None:
+        """Keep only items that are in this set or other, but not both."""
+        ...
+
+    def UnionWith(self, other: IEnumerable_1[T], /) -> None:
+        """Add all items from other to this set."""
+        ...
+
+
+class IReadOnlyDictionary_2[K, V](IReadOnlyCollection_1[tuple[K, V]], Protocol):
+    """Protocol for IReadOnlyDictionary<K, V> (.NET).
+
+    Provides read-only dictionary access.
+    For Python __getitem__/__contains__/__iter__/__len__/keys/values/items/get,
+    use Py.Mapping marker → MappingBase.
+    """
+
+    def ContainsKey(self, key: K, /) -> bool:
+        """Check if key exists in dictionary."""
+        ...
+
+    def TryGetValue(self, key: K, /) -> tuple[bool, V]:
+        """Try to get value for key. Returns (found, value)."""
+        ...
+
+    def get_Item(self, key: K, /) -> V:
+        """Get value for key. Raises KeyError if not found."""
+        ...
+
     @property
-    def size(self) -> int:
-        """Return the number of key-value pairs in the map."""
+    def Keys(self) -> IEnumerable_1[K]:
+        """Get enumerable of keys."""
         ...
 
-    def clear(self) -> None:
-        """Remove all key-value pairs from the map."""
+    @property
+    def Values(self) -> IEnumerable_1[V]:
+        """Get enumerable of values."""
         ...
 
-    def __delitem__(self, key: K = ..., /) -> bool:
-        """Remove a key-value pair. Returns True if key was present."""
+
+class IDictionary_2[K, V](IReadOnlyDictionary_2[K, V], Protocol):
+    """Protocol for IDictionary<K, V> (.NET).
+
+    Provides mutable dictionary operations.
+    For Python __setitem__/__delitem__/clear/pop/popitem/setdefault,
+    use Py.MutableMapping marker → MutableMappingBase.
+    """
+
+    def Add(self, key: K, value: V, /) -> None:
+        """Add key-value pair. Raises if key exists."""
         ...
 
-    def __getitem__(self, key: K = ..., /) -> V | None:
-        """Get the value for a key, or None if not present."""
+    def Remove(self, key: K, /) -> bool:
+        """Remove key. Returns True if key was removed."""
         ...
 
-    def __contains__(self, key: K = ..., /) -> bool:
-        """Check if key is in the map."""
+    def Clear(self) -> None:
+        """Remove all items."""
         ...
 
-    def __setitem__(self, key: K, value: V, /) -> IMap[K, V]:
-        """Set a key-value pair. Returns self for chaining."""
+    def set_Item(self, key: K, value: V, /) -> None:
+        """Set value for key (add or update)."""
         ...
 
-    def keys(self) -> IEnumerable_1[K]:
-        """Return an enumerable of keys."""
-        ...
 
-    def values(self) -> IEnumerable_1[V]:
-        """Return an enumerable of values."""
-        ...
+# =============================================================================
+# Convenience Aliases (for common usage patterns)
+# =============================================================================
 
 
 class IReadOnlyDictionary[K, V](Protocol):
     """Minimal protocol for read-only dictionary access.
 
-    This matches what FSharpMap provides: keys() and __getitem__.
-    Used by try_get_value and similar functions.
+    This is a simplified protocol for functions that just need keys() and item access.
+    For the full .NET IReadOnlyDictionary, use IReadOnlyDictionary_2.
     """
 
     def keys(self, __unit: Any = None) -> Iterable[K]:

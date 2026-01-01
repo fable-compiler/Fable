@@ -209,46 +209,142 @@ module Py =
     /// if you want to return a value use Python `return` keyword within a function.
     let python (template: string) : 'T = nativeOnly
 
+    // =========================================================================
+    // Marker Interfaces for Python Interop
+    // =========================================================================
+    // These are opt-in marker interfaces that tell the Fable compiler to add
+    // Python ABC base classes to your F# types. The base classes provide Python
+    // dunder methods by delegating to your F# methods.
+    //
+    // Usage: Add the marker interface to your F# type, implement the required
+    // F# methods, and the compiler adds the ABC base that provides Python dunders.
+    //
+    // Example:
+    //   [<Py.Hashable; Py.Equatable>]
+    //   type MyType() =
+    //       override _.GetHashCode() = ...
+    //       override _.Equals(other) = ...
+    //   // Generated Python class inherits HashableBase, EquatableBase
+    //   // which provide __hash__, __eq__ by delegating to GetHashCode, Equals
+
+    // -------------------------------------------------------------------------
+    // Value Semantics
+    // -------------------------------------------------------------------------
+    // Use these when your F# type needs Python value semantics like equality,
+    // comparison, hashing, or string representation.
+
     /// <summary>
-    /// Python Stringable marker interface for F# types that need __str__ and __repr__ in Python.
-    /// The compiler maps this to StringableBase which provides __str__ and __repr__ from ToString.
-    /// The class must override ToString() to provide the string representation.
+    /// Provides __str__ and __repr__ from ToString().
     /// </summary>
     [<AllowNullLiteral>]
     type Stringable = interface end
 
     /// <summary>
-    /// Python Equatable marker interface for F# types that need __eq__ in Python.
-    /// The compiler maps this to EquatableBase which provides __eq__ from Equals.
-    /// The class must override Equals(other: obj) to provide equality comparison.
+    /// Provides __eq__ and __ne__ from Equals(other: obj).
     /// </summary>
     [<AllowNullLiteral>]
     type Equatable = interface end
 
     /// <summary>
-    /// Python Comparable marker interface for F# types that need comparison operators in Python.
-    /// The compiler maps this to ComparableBase which provides __lt__, __le__, __gt__, __ge__ from CompareTo.
-    /// The class must implement CompareTo(other: obj) to provide comparison.
+    /// Provides __lt__, __le__, __gt__, __ge__ from CompareTo(other: obj).
     /// </summary>
     [<AllowNullLiteral>]
     type Comparable = interface end
 
     /// <summary>
-    /// Python Hashable marker interface for F# types that need __hash__ in Python.
-    /// The compiler maps this to HashableBase which provides __hash__ from GetHashCode.
-    /// The class must implement GetHashCode() to provide the hash value.
-    /// Note: GetHashCode returns int32 while __hash__ returns int, so HashableBase handles the conversion.
+    /// Provides __hash__ from GetHashCode().
+    /// Note: GetHashCode returns int32, HashableBase converts to Python int.
     /// </summary>
     [<AllowNullLiteral>]
     type Hashable = interface end
 
+    // -------------------------------------------------------------------------
+    // Iteration Protocols
+    // -------------------------------------------------------------------------
+    // Use these when your F# type needs to participate in Python's iteration.
+
     /// <summary>
-    /// Python Sized marker interface for F# types that need __len__ in Python.
-    /// The compiler maps this to SizedBase which provides __len__ from Count property.
-    /// The class must have a Count property that returns the number of items.
+    /// Provides __iter__ from GetEnumerator().
+    /// Use for containers that can be iterated multiple times.
+    /// </summary>
+    [<AllowNullLiteral>]
+    type Iterable = interface end
+
+    /// <summary>
+    /// Provides __iter__ and __next__ from MoveNext()/Current.
+    /// Use for enumerator types that track iteration state.
+    /// </summary>
+    [<AllowNullLiteral>]
+    type Iterator = interface end
+
+    // -------------------------------------------------------------------------
+    // Size Protocol
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Provides __len__ from Count property.
     /// </summary>
     [<AllowNullLiteral>]
     type Sized = interface end
+
+    // -------------------------------------------------------------------------
+    // Resource Management
+    // -------------------------------------------------------------------------
+    // Use these when your F# type manages resources that need cleanup.
+
+    /// <summary>
+    /// Provides __enter__ and __exit__ from Dispose().
+    /// Enables Python's 'with' statement for resource management.
+    /// </summary>
+    [<AllowNullLiteral>]
+    type ContextManager = interface end
+
+    // -------------------------------------------------------------------------
+    // Collection Protocols
+    // -------------------------------------------------------------------------
+    // Use these when your F# type implements .NET collection interfaces and
+    // needs Python collection protocol support (dict-like, set-like access).
+    // These non-generic markers are distinct from the generic full interfaces
+    // (e.g., Mapping vs Mapping<'K,'V>) by arity.
+
+    /// <summary>
+    /// Provides __getitem__, __contains__, __len__, __iter__, keys, values, items, get
+    /// from get_Item(key), ContainsKey(key), Count, GetEnumerator().
+    /// </summary>
+    [<AllowNullLiteral>]
+    type Mapping = interface end
+
+    /// <summary>
+    /// Extends Mapping with __setitem__, __delitem__, clear, pop, popitem, setdefault
+    /// from set_Item(key, value), Remove(key), Clear().
+    /// </summary>
+    [<AllowNullLiteral>]
+    type MutableMapping = interface end
+
+    /// <summary>
+    /// Provides __contains__, __len__, __iter__
+    /// from Contains(item), Count, GetEnumerator().
+    /// </summary>
+    [<AllowNullLiteral>]
+    type Set = interface end
+
+    /// <summary>
+    /// Extends Set with add, discard, remove, pop, clear
+    /// from Add(item), Remove(item), Clear().
+    /// </summary>
+    [<AllowNullLiteral>]
+    type MutableSet = interface end
+
+    // =========================================================================
+    // Full Python Protocol Interfaces (for direct implementation)
+    // =========================================================================
+    // These generic interfaces define Python protocols with dunder methods.
+    // Use these when you want to implement Python protocols directly in F#,
+    // bypassing the .NET-style methods.
+    //
+    // For F# types that already have .NET-style methods (GetEnumerator, Contains,
+    // get_Item, etc.), use the marker interfaces above instead - they add ABC
+    // base classes that delegate dunders to your existing F# methods.
 
     /// <summary>
     /// Python Iterable interface for F# types that need to be iterable in Python.

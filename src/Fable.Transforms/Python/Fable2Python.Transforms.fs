@@ -568,42 +568,59 @@ let transformObjectExpr
             // Use ABC base classes instead of Protocols for proper method resolution
             let name = Helpers.removeNamespace entRef.FullName
 
-            let abcClassName =
+            // Map interface names to ABC base class(es)
+            // IEnumerator_1 maps to both IteratorBase and ContextManagerBase (since IEnumerator extends IDisposable)
+            let abcClasses =
                 match name with
-                | "IDisposable" -> Some "DisposableBase"
-                | "IEnumerator_1" -> Some "EnumeratorBase"
-                | "IEnumerable_1" -> Some "EnumerableBase"
-                | "Stringable" -> Some "StringableBase"
-                | "Equatable" -> Some "EquatableBase"
-                | "Comparable" -> Some "ComparableBase"
-                | "Hashable" -> Some "HashableBase"
-                | "Sized" -> Some "SizedBase"
+                | "IDisposable" -> Some [ "DisposableBase" ]
+                | "ContextManager" -> Some [ "ContextManagerBase" ]
+                | "IEnumerator_1" -> Some [ "IteratorBase"; "ContextManagerBase" ]
+                | "IEnumerable_1" -> Some [ "IterableBase" ]
+                | "Stringable" -> Some [ "StringableBase" ]
+                | "Equatable" -> Some [ "EquatableBase" ]
+                | "Comparable" -> Some [ "ComparableBase" ]
+                | "Hashable" -> Some [ "HashableBase" ]
+                | "Sized" -> Some [ "SizedBase" ]
+                | "Iterable" -> Some [ "IterableBase" ]
+                | "Iterator" -> Some [ "IteratorBase" ]
+                | "Mapping" -> Some [ "MappingBase" ]
+                | "MutableMapping" -> Some [ "MutableMappingBase" ]
+                | "Set" -> Some [ "SetBase" ]
+                | "MutableSet" -> Some [ "MutableSetBase" ]
                 | _ -> None
 
-            match abcClassName with
-            | Some abcName ->
-                // ABC base classes are in 'bases' module, except for Disposable/Enumerator/Enumerable which are in 'util'
-                let moduleName =
-                    match name with
-                    | "IDisposable"
-                    | "IEnumerator_1"
-                    | "IEnumerable_1" -> "util"
-                    | _ -> "bases"
+            match abcClasses with
+            | Some classes ->
+                // ABC classes that accept type parameters
+                let genericAbcClasses =
+                    Set.ofList
+                        [
+                            "IteratorBase"
+                            "IterableBase"
+                            "MappingBase"
+                            "MutableMappingBase"
+                            "SetBase"
+                            "MutableSetBase"
+                        ]
 
-                let expr =
-                    if List.isEmpty genArgs then
-                        libValue com ctx moduleName abcName
-                    else
-                        let typeArgs =
-                            genArgs
-                            |> List.map (fun genArg ->
-                                let arg, _ = Annotation.typeAnnotation com ctx None genArg
-                                arg
-                            )
+                let exprs =
+                    classes
+                    |> List.map (fun abcName ->
+                        // Only apply type args to generic ABC classes
+                        if List.isEmpty genArgs || not (genericAbcClasses.Contains abcName) then
+                            libValue com ctx "bases" abcName
+                        else
+                            let typeArgs =
+                                genArgs
+                                |> List.map (fun genArg ->
+                                    let arg, _ = Annotation.typeAnnotation com ctx None genArg
+                                    arg
+                                )
 
-                        Expression.subscript (libValue com ctx moduleName abcName, Expression.tuple typeArgs)
+                            Expression.subscript (libValue com ctx "bases" abcName, Expression.tuple typeArgs)
+                    )
 
-                [ expr ], []
+                exprs, []
             | None ->
                 // Fall back to regular type annotation for non-mapped interfaces
                 let ta, stmts = Annotation.typeAnnotation com ctx None typ
@@ -3024,7 +3041,7 @@ let declareDataClassType
     // - EquatableBase (__eq__, __ne__ from Equals)
     // - ComparableBase (__lt__, __le__, __gt__, __ge__ from CompareTo)
     //
-    // We only need to add EnumerableBase for IEnumerable interfaces (for iteration support)
+    // We only need to add IterableBase for IEnumerable interfaces (for iteration support)
     let allowedInterfaces = [ "IEnumerable_1" ]
 
     let interfaceBases =
@@ -3044,9 +3061,9 @@ let declareDataClassType
                     | _ -> true
                 )
 
-            // Generate the EnumerableBase reference from util module
+            // Generate the IterableBase reference from bases module
             if List.isEmpty genericArgs then
-                libValue com ctx "util" "EnumerableBase"
+                libValue com ctx "bases" "IterableBase"
             else
                 let typeArgs =
                     genericArgs
@@ -3055,7 +3072,7 @@ let declareDataClassType
                         arg
                     )
 
-                Expression.subscript (libValue com ctx "util" "EnumerableBase", Expression.tuple typeArgs)
+                Expression.subscript (libValue com ctx "bases" "IterableBase", Expression.tuple typeArgs)
         )
 
     let bases = (baseExpr |> Option.toList) @ interfaceBases
@@ -3221,6 +3238,7 @@ let declareClassType
         let allowedInterfaces =
             [
                 "IDisposable"
+                "ContextManager"
                 "IEnumerator_1"
                 "IEnumerable_1"
                 "Stringable"
@@ -3228,6 +3246,12 @@ let declareClassType
                 "Comparable"
                 "Hashable"
                 "Sized"
+                "Iterable"
+                "Iterator"
+                "Mapping"
+                "MutableMapping"
+                "Set"
+                "MutableSet"
             ]
 
         // Check if class implements IEnumerator_1 (which already inherits from IDisposable)
@@ -3243,30 +3267,29 @@ let declareClassType
             allowedInterfaces |> List.contains name
             && not (hasIEnumerator && name = "IDisposable")
         )
-        |> List.map (fun int ->
+        |> List.collect (fun int ->
             let name = Helpers.removeNamespace (int.Entity.FullName)
 
-            // Map interface names to ABC base class names for inheritance
-            // Use ABC base classes instead of Protocols for proper method resolution
-            let abcClassName =
+            // Map interface names to ABC base class(es)
+            // IEnumerator_1 maps to both IteratorBase and ContextManagerBase (since IEnumerator extends IDisposable)
+            let abcClasses =
                 match name with
-                | "IDisposable" -> "DisposableBase"
-                | "IEnumerator_1" -> "EnumeratorBase"
-                | "IEnumerable_1" -> "EnumerableBase"
-                | "Stringable" -> "StringableBase"
-                | "Equatable" -> "EquatableBase"
-                | "Comparable" -> "ComparableBase"
-                | "Hashable" -> "HashableBase"
-                | "Sized" -> "SizedBase"
-                | other -> other
-
-            // ABC base classes are in 'bases' module, except for Disposable/Enumerator/Enumerable which are in 'util'
-            let moduleName =
-                match name with
-                | "IDisposable"
-                | "IEnumerator_1"
-                | "IEnumerable_1" -> "util"
-                | _ -> "bases"
+                | "IDisposable" -> [ "DisposableBase" ]
+                | "ContextManager" -> [ "ContextManagerBase" ]
+                | "IEnumerator_1" -> [ "IteratorBase"; "ContextManagerBase" ]
+                | "IEnumerable_1" -> [ "IterableBase" ]
+                | "Stringable" -> [ "StringableBase" ]
+                | "Equatable" -> [ "EquatableBase" ]
+                | "Comparable" -> [ "ComparableBase" ]
+                | "Hashable" -> [ "HashableBase" ]
+                | "Sized" -> [ "SizedBase" ]
+                | "Iterable" -> [ "IterableBase" ]
+                | "Iterator" -> [ "IteratorBase" ]
+                | "Mapping" -> [ "MappingBase" ]
+                | "MutableMapping" -> [ "MutableMappingBase" ]
+                | "Set" -> [ "SetBase" ]
+                | "MutableSet" -> [ "MutableSetBase" ]
+                | other -> [ other ]
 
             // Filter out self-referential generic arguments to avoid forward reference errors
             let genericArgs =
@@ -3277,21 +3300,37 @@ let declareClassType
                     | _ -> true
                 )
 
-            // Generate the ABC base class reference
-            let expr =
-                if List.isEmpty genericArgs then
-                    libValue com ctx moduleName abcClassName
-                else
-                    let typeArgs =
-                        genericArgs
-                        |> List.map (fun genArg ->
-                            let arg, _ = Annotation.typeAnnotation com ctx None genArg
-                            arg
-                        )
+            // ABC classes that accept type parameters
+            let genericAbcClasses =
+                Set.ofList
+                    [
+                        "IteratorBase"
+                        "IterableBase"
+                        "MappingBase"
+                        "MutableMappingBase"
+                        "SetBase"
+                        "MutableSetBase"
+                    ]
 
-                    Expression.subscript (libValue com ctx moduleName abcClassName, Expression.tuple typeArgs)
+            // Generate the ABC base class references (all from 'bases' module)
+            abcClasses
+            |> List.map (fun abcClassName ->
+                let expr =
+                    // Only apply type args to generic ABC classes
+                    if List.isEmpty genericArgs || not (genericAbcClasses.Contains abcClassName) then
+                        libValue com ctx "bases" abcClassName
+                    else
+                        let typeArgs =
+                            genericArgs
+                            |> List.map (fun genArg ->
+                                let arg, _ = Annotation.typeAnnotation com ctx None genArg
+                                arg
+                            )
 
-            expr, []
+                        Expression.subscript (libValue com ctx "bases" abcClassName, Expression.tuple typeArgs)
+
+                expr, []
+            )
         )
         |> Helpers.unzipArgs
 

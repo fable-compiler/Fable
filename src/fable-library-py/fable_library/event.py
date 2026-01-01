@@ -11,7 +11,7 @@ from .choice import (
 from .observable import IObservable, IObserver, Observer
 from .option import Option, some, value
 from .protocols import IDisposable
-from .util import DisposableBase
+from .util import Disposable
 
 
 _MISSING: Final[object] = object()
@@ -96,7 +96,7 @@ class Event[T](IEvent_2[T, T]):
         def dispose() -> None:
             self._removeHandler(callback)
 
-        return DisposableBase.create(dispose)
+        return Disposable.create(dispose)
 
     def _addHandler(self, f: EventDelegate[T]) -> None:
         self.delegates.append(f)
@@ -201,7 +201,7 @@ class AnonymousEvent[U](IEvent_2[U, U]):
         def dispose() -> None:
             self._remove_handler(h)
 
-        return DisposableBase.create(dispose)
+        return Disposable.create(dispose)
 
 
 def create_event[T](

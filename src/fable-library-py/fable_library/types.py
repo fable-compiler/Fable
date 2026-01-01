@@ -199,7 +199,9 @@ class Record(StringableBase, EquatableBase, ComparableBase, HashableBase, ICompa
     # IEquatable - Equality (used by EquatableBase)
     # -------------------------------------------------------------------------
 
-    def Equals(self, other: Record) -> bool:
+    def Equals(self, other: object) -> bool:
+        if not isinstance(other, Record):
+            return False
         return record_equals(self, other)
 
     # -------------------------------------------------------------------------
@@ -213,7 +215,9 @@ class Record(StringableBase, EquatableBase, ComparableBase, HashableBase, ICompa
     # IComparable - Comparison (used by ComparableBase)
     # -------------------------------------------------------------------------
 
-    def CompareTo(self, other: Record) -> int:
+    def CompareTo(self, other: object) -> int:
+        if not isinstance(other, Record):
+            raise TypeError(f"Cannot compare Record with {type(other).__name__}")
         return record_compare_to(self, other)
 
 

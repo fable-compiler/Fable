@@ -6,7 +6,7 @@ import platform
 import random
 import re
 import weakref
-from abc import ABC, ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import (
     Callable,
     Iterable,
@@ -17,12 +17,10 @@ from collections.abc import (
 from contextlib import AbstractContextManager
 from enum import IntEnum
 from threading import RLock
-from types import TracebackType
 from typing import (
     Any,
     ClassVar,
     Final,
-    Literal,
     Protocol,
     Self,
     TypeGuard,
@@ -34,8 +32,13 @@ from urllib.parse import quote, unquote
 from .array_ import Array
 from .bases import (
     ComparableBase,
+    ContextManagerBase,
+    DisposableBase,
     EquatableBase,
     HashableBase,
+    IterableBase,
+    IteratorBase,
+    ObjectDisposedException,
     SizedBase,
     StringableBase,
 )
@@ -58,59 +61,13 @@ UNIT: Any = None
 
 
 # =============================================================================
-# ABC Base Classes for Disposable/Enumerator Patterns
+# Disposable Classes
 # =============================================================================
-# These ABC base classes provide implementations for context manager and
-# iterator protocols. Use these when inheriting, while using the Protocol
-# versions from protocols.py for type hints.
+# These classes provide disposable/context manager implementations.
+# Follows the System.Reactive Disposable pattern.
 
 
-class ObjectDisposedException(Exception):
-    """Exception thrown when accessing a disposed object."""
-
-    def __init__(self) -> None:
-        super().__init__("Cannot access a disposed object")
-
-
-class DisposableBase(ABC, metaclass=ABCMeta):
-    """ABC base class for disposable objects.
-
-    Provides context manager support (__enter__/__exit__) for classes that
-    implement the IDisposable pattern. Inherit from this class to get
-    automatic context manager support.
-
-    Note: This is an ABC for inheritance. For type hints, use IDisposable
-    from protocols.py.
-    """
-
-    __slots__ = ()
-
-    @abstractmethod
-    def Dispose(self) -> None:
-        """Dispose of resources. Must be implemented by subclasses."""
-        raise NotImplementedError
-
-    def __enter__(self) -> Self:
-        """Enter context management."""
-        return self
-
-    def __exit__(
-        self,
-        exctype: type[BaseException] | None,
-        excinst: BaseException | None,
-        exctb: TracebackType | None,
-    ) -> Literal[False]:
-        """Exit context management."""
-        self.Dispose()
-        return False
-
-    @staticmethod
-    def create(action: Callable[[], None]) -> DisposableBase:
-        """Create disposable from action. Will call action when disposed."""
-        return AnonymousDisposable(action)
-
-
-class AnonymousDisposable(DisposableBase):
+class AnonymousDisposable(ContextManagerBase):
     """A disposable that calls a provided action when disposed."""
 
     __slots__ = "_action", "_is_disposed", "_lock"
@@ -137,70 +94,17 @@ class AnonymousDisposable(DisposableBase):
         return self
 
 
-class EnumeratorBase[T](DisposableBase):
-    """ABC base class for enumerators.
+class Disposable:
+    """Static factory for creating disposables.
 
-    Provides iterator protocol support (__iter__/__next__) and context manager
-    support (inherited from DisposableBase) for classes that implement the
-    IEnumerator pattern.
-
-    Note: This is an ABC for inheritance. For type hints, use IEnumerator
-    from protocols.py.
+    Follows the System.Reactive Disposable pattern.
+    See: https://learn.microsoft.com/en-us/previous-versions/dotnet/reactive-extensions/hh229378(v=vs.103)
     """
 
-    __slots__ = ()
-
-    @abstractmethod
-    def System_Collections_Generic_IEnumerator_1_get_Current(self) -> T:
-        """Get the current element (generic IEnumerator<T>.Current)."""
-        raise NotImplementedError
-
-    def System_Collections_IEnumerator_get_Current(self) -> Any:
-        """Get the current element (non-generic IEnumerator.Current)."""
-        return self.System_Collections_Generic_IEnumerator_1_get_Current()
-
-    @abstractmethod
-    def System_Collections_IEnumerator_MoveNext(self) -> bool:
-        """Move to the next element. Returns False if no more elements."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def System_Collections_IEnumerator_Reset(self) -> None:
-        """Reset the enumerator."""
-        raise NotImplementedError
-
-    def Dispose(self) -> None:
-        """Default dispose implementation (no-op). Override if needed."""
-        pass
-
-    def __iter__(self) -> Iterator[T]:
-        return self
-
-    def __next__(self) -> T:
-        if not self.System_Collections_IEnumerator_MoveNext():
-            raise StopIteration
-        return self.System_Collections_Generic_IEnumerator_1_get_Current()
-
-
-class EnumerableBase[T](ABC):
-    """ABC base class for enumerable collections.
-
-    Provides iterator protocol support (__iter__) for classes that implement
-    the IEnumerable pattern.
-
-    Note: This is an ABC for inheritance. For type hints, use IEnumerable_1
-    from protocols.py.
-    """
-
-    __slots__ = ()
-
-    @abstractmethod
-    def GetEnumerator(self, __unit: Any = UNIT) -> IEnumerator[T]:
-        """Get an enumerator for the collection."""
-        raise NotImplementedError
-
-    def __iter__(self) -> Iterator[T]:
-        return self.GetEnumerator()
+    @staticmethod
+    def create(action: Callable[[], None]) -> AnonymousDisposable:
+        """Create a disposable from an action. Will call action when disposed."""
+        return AnonymousDisposable(action)
 
 
 def returns[T, **P](targettype: Callable[..., T]) -> Callable[[Callable[P, Any]], Callable[P, T]]:
@@ -236,7 +140,7 @@ def equals(a: Any, b: Any) -> bool:
             return equal_arrays(a, b)
         case (a, b) if hasattr(a, "Equals") and callable(a.Equals):
             # Call Equals method for classes with override Equals (F# style)
-            return a.Equals(b)
+            return bool(a.Equals(b))
         case _:
             return a == b
 
@@ -482,7 +386,7 @@ def clear(col: dict[Any, Any] | list[Any] | None) -> None:
         col.clear()
 
 
-class Enumerator[T](EnumeratorBase[T]):
+class Enumerator[T](IteratorBase[T], ContextManagerBase, IEnumerator[T]):
     """Concrete enumerator that wraps a Python iterator."""
 
     __slots__ = "current", "iter"
@@ -509,6 +413,9 @@ class Enumerator[T](EnumeratorBase[T]):
     def System_Collections_IEnumerator_Reset(self) -> None:
         raise Exception("Python iterators cannot be reset")
 
+    def Dispose(self) -> None:
+        return
+
     def __next__(self) -> T:
         return next(self.iter)
 
@@ -516,7 +423,7 @@ class Enumerator[T](EnumeratorBase[T]):
         return self
 
 
-class Enumerable[T](EnumerableBase[T]):
+class Enumerable[T](IterableBase[T]):
     """Concrete enumerable that wraps a Python iterable."""
 
     __slots__ = "xs"
@@ -2484,13 +2391,10 @@ def dispose(x: IDisposable | AbstractContextManager[Any]) -> None:
     Also tries to call `__exit__` if the object turns out to be a Python resource manager.
     For more info see: https://www.python.org/dev/peps/pep-0310/
     """
-    try:
-        x.Dispose()  # type: ignore
-    except AttributeError as ex:
-        try:
-            x.__exit__(None, None, None)
-        except AttributeError:
-            raise ex
+    if isinstance(x, IDisposable):
+        x.Dispose()
+    elif hasattr(x, "__exit__"):
+        x.__exit__(None, None, None)
 
 
 def is_hashable(x: Any) -> TypeGuard[HashCode]:
@@ -2779,26 +2683,24 @@ def range(start: int, stop: int, step: int = 1) -> Iterable[int32]:
 
 
 __all__ = [
-    # ABC Base Classes (re-exported from bases.py for backward compatibility)
+    "AnonymousDisposable",
     "ComparableBase",
+    "ContextManagerBase",
+    "Disposable",
+    "DisposableBase",
     "EquatableBase",
     "HashableBase",
-    "SizedBase",
-    "StringableBase",
-    # ABC Base Classes (defined in util.py)
-    "AnonymousDisposable",
-    "DisposableBase",
-    "EnumerableBase",
-    "EnumeratorBase",
+    "IterableBase",
+    "IteratorBase",
     "ObjectDisposedException",
-    # Other classes
     "ObjectRef",
     "PlatformID",
+    "SizedBase",
     "StaticLazyProperty",
     "StaticProperty",
     "StaticPropertyBase",
     "StaticPropertyMeta",
-    # Functions
+    "StringableBase",
     "array_hash",
     "copy_to_array",
     "curry2",
