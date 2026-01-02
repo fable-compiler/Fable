@@ -1,3 +1,8 @@
+"""F#-style events for Python.
+
+https://fsharp.github.io/fsharp-core-docs/reference/fsharp-control.html#category-1_1
+"""
+
 import inspect
 from abc import abstractmethod
 from collections.abc import Callable
@@ -30,13 +35,14 @@ class IDelegateEvent[T](Protocol):
     def RemoveHandler(self, handler: DotNetDelegate[T]) -> None: ...
 
 
-class IEvent_2[Args, Delegate](IObservable[Args], IDelegateEvent[Delegate], Protocol): ...
+class IEvent_2[Delegate, Args](IObservable[Args], IDelegateEvent[Args], Protocol): ...
 
 
-type IEvent[T] = IEvent_2[T, T]
+# IEvent<T> is IEvent$2<Handler<T>, T> where Handler<T> = (sender, args) -> None
+type IEvent[T] = IEvent_2[DotNetDelegate[T], T]
 
 
-class Event[T](IEvent_2[T, T]):
+class Event[T](IEvent_2[DotNetDelegate[T], T]):
     def __init__(self) -> None:
         self.delegates: list[EventDelegate[T]] = []
 
@@ -106,11 +112,11 @@ class Event[T](IEvent_2[T, T]):
             self.delegates.remove(f)
 
 
-def add[T](callback: Delegate[T], source_event: IEvent[T]) -> None:
+def add[T](callback: Delegate[T], source_event: IEvent_2[Any, T]) -> None:
     source_event.Subscribe(Observer(callback))
 
 
-def choose[T, U](chooser: Callable[[T], Option[U]], source_event: IEvent[T]) -> IEvent[U]:
+def choose[T, U](chooser: Callable[[T], Option[U]], source_event: IEvent_2[Any, T]) -> IEvent[U]:
     ev = Event[U]()
 
     def callback(t: T) -> None:
@@ -122,15 +128,15 @@ def choose[T, U](chooser: Callable[[T], Option[U]], source_event: IEvent[T]) -> 
     return ev
 
 
-def filter[T](predicate: Callable[[T], bool], source_event: IEvent[T]) -> IEvent[T]:
+def filter[T](predicate: Callable[[T], bool], source_event: IEvent_2[Any, T]) -> IEvent[T]:
     return choose(lambda t: some(t) if predicate(t) else None, source_event)
 
 
-def map[T, U](mapping: Callable[[T], U], source_event: IEvent[T]) -> IEvent[U]:
+def map[T, U](mapping: Callable[[T], U], source_event: IEvent_2[Any, T]) -> IEvent[U]:
     return choose(lambda t: mapping(t), source_event)
 
 
-def merge[T](event1: IEvent[T], event2: IEvent[T]) -> IEvent[T]:
+def merge[T](event1: IEvent_2[Any, T], event2: IEvent_2[Any, T]) -> IEvent[T]:
     ev = Event[T]()
 
     def fn(t: T) -> None:
@@ -141,43 +147,45 @@ def merge[T](event1: IEvent[T], event2: IEvent[T]) -> IEvent[T]:
     return ev
 
 
-def pairwise[T](source_event: IEvent[T]) -> IEvent[list[T]]:
-    ev = Event[list[T]]()
+def pairwise[T](source_event: IEvent_2[Any, T]) -> IEvent[tuple[T, T]]:
+    ev = Event[tuple[T, T]]()
     last: T | None = None
 
     def fn(next: T) -> None:
         nonlocal last
         if last is not None:
-            ev.Trigger([last, next])
+            ev.Trigger((last, next))
         last = next
 
     add(fn, source_event)
     return ev
 
 
-def partition[T](predicate: Callable[[T], bool], source_event: IEvent[T]) -> list[IEvent[T]]:
-    return [
+def partition[T](predicate: Callable[[T], bool], source_event: IEvent_2[Any, T]) -> tuple[IEvent[T], IEvent[T]]:
+    return (
         filter(predicate, source_event),
         filter(lambda x: not predicate(x), source_event),
-    ]
+    )
 
 
 def scan[T, U](
     collector: Callable[[U, T], U],
     state: U,
-    source_event: IEvent[T],
+    source_event: IEvent_2[Any, T],
 ) -> IEvent[U]:
     return map(lambda t: collector(state, t), source_event)
 
 
-def split[T, U, V](splitter: Callable[[T], FSharpChoice_2[U, V]], source_event: IEvent[T]) -> list[IEvent[Any]]:
-    return [
+def split[T, U, V](
+    splitter: Callable[[T], FSharpChoice_2[U, V]], source_event: IEvent_2[Any, T]
+) -> tuple[IEvent[U], IEvent[V]]:
+    return (
         choose(lambda t: Choice_tryValueIfChoice1Of2(splitter(t)), source_event),
         choose(lambda t: Choice_tryValueIfChoice2Of2(splitter(t)), source_event),
-    ]
+    )
 
 
-class AnonymousEvent[U](IEvent_2[U, U]):
+class AnonymousEvent[U](IEvent_2[DotNetDelegate[U], U]):
     def __init__(
         self,
         add_handler: Callable[[DotNetDelegate[U]], None],

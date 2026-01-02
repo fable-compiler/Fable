@@ -62,8 +62,9 @@ module Enumerator =
 
             str + "]"
 
-        // Python ABC marker interface for __str__
+        // Python ABC marker interfaces
         interface Fable.Core.Py.Stringable
+        interface Fable.Core.Py.Iterable
 
     type FromFunctions<'T>(current, next, dispose) =
         interface IEnumerator<'T> with

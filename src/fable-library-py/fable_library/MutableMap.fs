@@ -128,52 +128,11 @@ type MutableMap<'Key, 'Value when 'Key: equality>
         member this.Values: ICollection<'Value> =
             [| for pair in this -> pair.Value |] :> ICollection<'Value>
 
-    // Python MutableMapping interface for dict-like behavior
-    interface Fable.Core.Py.MutableMapping<'Key, 'Value> with
-        member this.``__getitem__``(k) = this.[k]
-        member this.``__setitem__``(k, v) = this.[k] <- v
-        member this.``__delitem__``(k) = this.Remove(k) |> ignore
-        // Return iterator over keys
-        member this.``__iter__``() =
-            (hashMap.Values |> Seq.concat |> Seq.map (fun p -> p.Key)).GetEnumerator()
-
-        member this.``__len__``() = this.Count
-        member this.``__contains__``(k) = this.ContainsKey(k)
-
-        member this.keys() =
-            hashMap.Values |> Seq.concat |> Seq.map (fun p -> p.Key)
-
-        member this.values() =
-            hashMap.Values |> Seq.concat |> Seq.map (fun p -> p.Value)
-
-        member this.items() =
-            hashMap.Values |> Seq.concat |> Seq.map (fun p -> p.Key, p.Value)
-
-        member this.get(k, ?defaultValue) =
-            match this.TryFind(k) with
-            | Some pair -> pair.Value
-            | None ->
-                match defaultValue with
-                | Some v -> v
-                | None -> Unchecked.defaultof<'Value>
-
-        member this.clear() = this.Clear()
-
-        member this.pop(k, ?defaultValue) =
-            match this.TryFind(k) with
-            | Some pair ->
-                this.Remove(k) |> ignore
-                pair.Value
-            | None ->
-                match defaultValue with
-                | Some v -> v
-                | None -> raise (KeyNotFoundException("Key not found"))
-
-        member this.popitem() =
-            let first = this |> Seq.tryHead
-
-            match first with
-            | Some pair ->
-                this.Remove(pair.Key) |> ignore
-                (pair.Key, pair.Value)
-            | None -> raise (KeyNotFoundException("Dictionary is empty"))
+    // Python MutableMapping protocol - explicit interface implementation (methods become attached)
+    interface Fable.Core.Py.Mapping.IMutableMapping<'Key, 'Value> with
+        member this.get_Item(key) = this.[key]
+        member this.set_Item(key, value) = this.[key] <- value
+        member this.ContainsKey(key) = this.ContainsKey(key)
+        member this.Count = this.Count
+        member this.Remove(key) = this.Remove(key)
+        member this.Clear() = this.Clear()

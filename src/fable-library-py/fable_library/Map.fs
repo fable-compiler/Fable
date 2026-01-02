@@ -2,6 +2,7 @@
 
 module Map
 
+open Native
 open System.Collections.Generic
 
 [<NoEquality; NoComparison>]
@@ -931,30 +932,37 @@ type Map<[<EqualityConditionalOn>] 'Key, [<EqualityConditionalOn; ComparisonCond
     //     member m.ContainsKey key = m.ContainsKey key
 
     // Python Mapping interface (read-only map operations)
-    interface Py.Mapping<'Key, 'Value> with
-        member m.``__getitem__``(k) = m.Item(k)
+    // interface Py.Mapping<'Key, 'Value> with
+    //     member m.``__getitem__``(k) = m.Item(k)
 
-        member m.``__iter__``() =
-            (m |> Seq.map (fun p -> p.Key)).GetEnumerator()
+    //     member m.``__iter__``() : Py.Iterator<'Key> =
+    //         let en = m |> Seq.map (fun p -> p.Key)
+    //         Helpers.toIterator (en.GetEnumerator())
 
-        member m.``__len__``() = m.Count
-        member m.``__contains__``(k) = m.ContainsKey(k)
-        member m.keys() = m |> Seq.map (fun p -> p.Key)
-        member m.values() = m |> Seq.map (fun p -> p.Value)
-        member m.items() = m |> Seq.map (fun p -> p.Key, p.Value)
+    //     member m.``__len__``() = m.Count
+    //     member m.``__contains__``(k) = m.ContainsKey(k)
+    //     member m.keys() = m |> Seq.map (fun p -> p.Key)
+    //     member m.values() = m |> Seq.map (fun p -> p.Value)
+    //     member m.items() = m |> Seq.map (fun p -> p.Key, p.Value)
 
-        member m.get(k, ?defaultValue) =
-            match m.TryFind(k) with
-            | Some v -> v
-            | None ->
-                match defaultValue with
-                | Some v -> v
-                | None -> Unchecked.defaultof<'Value>
+    //     member m.get(k, ?defaultValue) =
+    //         match m.TryFind(k) with
+    //         | Some v -> v
+    //         | None ->
+    //             match defaultValue with
+    //             | Some v -> v
+    //             | None -> Unchecked.defaultof<'Value>
 
     // Python ABC marker interfaces
     interface Py.Equatable
     interface Py.Comparable
     interface Py.Stringable
+
+    // Python Mapping protocol - explicit interface implementation (methods become attached)
+    interface Py.Mapping.IMapping<'Key, 'Value> with
+        member this.get_Item(key) = this.[key]
+        member this.ContainsKey(key) = this.ContainsKey(key)
+        member this.Count = this.Count
 
     override this.ToString() =
         let inline toStr (kv: KeyValuePair<'Key, 'Value>) =

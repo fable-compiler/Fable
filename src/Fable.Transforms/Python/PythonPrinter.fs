@@ -11,22 +11,33 @@ open Fable.Transforms.Printer
 module PrinterExtensions =
     type Printer with
 
+        /// Print a single type parameter (Python 3.12+ syntax)
+        /// Handles bounds: T: SomeType
+        member printer.PrintTypeParam(tp: TypeParam) =
+            match tp with
+            | TypeVar tv ->
+                printer.Print tv.Name
+
+                match tv.Bound with
+                | Some bound ->
+                    printer.Print ": "
+                    printer.Print bound
+                | None -> ()
+            | ParamSpec ps -> printer.Print ps.Name
+            | TypeVarTuple tvt -> printer.Print tvt.Name
+
         /// Print type parameters if any (Python 3.12+ syntax)
         member printer.PrintTypeParams(typeParams: TypeParam list) =
             if not (List.isEmpty typeParams) then
-                printer.Print("[")
+                printer.Print "["
 
-                let typeParamNames =
-                    typeParams
-                    |> List.map (fun tp ->
-                        match tp with
-                        | TypeVar tv -> tv.Name
-                        | ParamSpec ps -> ps.Name
-                        | TypeVarTuple tvt -> tvt.Name
-                    )
+                for i, tp in List.indexed typeParams do
+                    printer.PrintTypeParam tp
 
-                printer.PrintCommaSeparatedList(typeParamNames)
-                printer.Print("]")
+                    if i < typeParams.Length - 1 then
+                        printer.Print ", "
+
+                printer.Print "]"
 
         member printer.Print(stmt: Statement) =
             match stmt with
@@ -804,8 +815,22 @@ module PrinterExtensions =
             | Await ex ->
                 printer.Print("await ")
                 printer.Print(ex)
-            | Yield expr -> printer.Print("(Yield)")
-            | YieldFrom expr -> printer.Print("(Yield)")
+            | Yield expr ->
+                printer.Print("yield")
+
+                match expr with
+                | Some e ->
+                    printer.Print(" ")
+                    printer.Print(e)
+                | None -> ()
+            | YieldFrom expr ->
+                printer.Print("yield from")
+
+                match expr with
+                | Some e ->
+                    printer.Print(" ")
+                    printer.Print(e)
+                | None -> ()
             | Compare cp -> printer.Print(cp)
             | Dict di -> printer.Print(di)
             | Tuple tu -> printer.Print(tu)

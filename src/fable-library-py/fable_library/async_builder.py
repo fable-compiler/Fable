@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from abc import abstractmethod
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from threading import Lock, RLock
 from typing import (
@@ -12,6 +12,7 @@ from typing import (
     overload,
 )
 
+from .protocols import IEnumerable_1
 from .util import AnonymousDisposable, IDisposable
 
 
@@ -269,24 +270,18 @@ class AsyncBuilder:
     def Delay[T](self, generator: Callable[[], Async[T]]) -> Async[T]:
         return protected_cont(lambda ctx: generator()(ctx))
 
-    def For[T, U](self, sequence: Iterable[T], body: Callable[[T], Async[None]]) -> Async[None]:
-        done: bool = False
-        it = iter(sequence)
-        try:
-            cur = next(it)
-        except StopIteration:
-            done = True
+    def For[T, U](self, sequence: IEnumerable_1[T], body: Callable[[T], Async[None]]) -> Async[None]:
+        enumerator = sequence.GetEnumerator()
+        has_next = enumerator.System_Collections_IEnumerator_MoveNext()
 
         def delay() -> Async[None]:
-            nonlocal cur, done
+            nonlocal has_next
+            cur = enumerator.System_Collections_Generic_IEnumerator_1_get_Current()
             res = body(cur)
-            try:
-                cur = next(it)
-            except StopIteration:
-                done = True
+            has_next = enumerator.System_Collections_IEnumerator_MoveNext()
             return res
 
-        return self.While(lambda: not done, self.Delay(delay))
+        return self.While(lambda: has_next, self.Delay(delay))
 
     @overload
     def Return(self) -> Async[None]: ...

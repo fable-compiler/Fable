@@ -3,6 +3,7 @@
 namespace Fable.Collections
 
 open System.Collections.Generic
+open Fable.Core
 open Native
 
 [<Sealed>]
@@ -112,25 +113,10 @@ type MutableSet<'T when 'T: equality>(items: 'T seq, comparer: IEqualityComparer
                 this.Add x |> ignore
 #endif
 
-    // Python MutableSet interface for set-like behavior
-    interface Fable.Core.Py.MutableSet<'T> with
-        member this.``__contains__``(v) = this.Contains(v)
-
-        member this.``__iter__``() =
-            (hashMap.Values |> Seq.concat).GetEnumerator()
-
-        member this.``__len__``() = this.Count
-        member this.add(v) = this.Add(v) |> ignore
-        member this.discard(v) = this.Remove(v) |> ignore
-        member this.clear() = this.Clear()
-
-        member this.remove(v) =
-            if not (this.Remove(v)) then
-                raise (KeyNotFoundException("Item not found in set"))
-
-        member this.pop() =
-            match hashMap.Values |> Seq.concat |> Seq.tryHead with
-            | Some v ->
-                this.Remove(v) |> ignore
-                v
-            | None -> raise (System.InvalidOperationException("Set is empty"))
+    // Python MutableSet protocol - explicit interface implementation (methods become attached)
+    interface Fable.Core.Py.Set.IMutableSet<'T> with
+        member this.Contains(item) = this.Contains(item)
+        member this.Count = this.Count
+        member this.Add(item) = this.Add(item) |> ignore
+        member this.Remove(item) = this.Remove(item)
+        member this.Clear() = this.Clear()

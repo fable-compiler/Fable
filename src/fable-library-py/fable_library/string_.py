@@ -35,6 +35,9 @@ trim = strings.trim
 trim_start = strings.trim_start
 trim_end = strings.trim_end
 filter = strings.filter
+map = strings.map
+map_indexed = strings.map_indexed
+collect = strings.collect
 substring = strings.substring
 to_char_array2 = strings.to_char_array2
 compare = strings.compare
@@ -51,7 +54,7 @@ def concat(*strings: str) -> str:
 
 
 # Additional helper functions that might be needed for backward compatibility
-def to_console_error(arg: Any) -> None:
+def to_console_error(arg: Any) -> Any:
     """Print to console error stream."""
 
     def print_func(x: str) -> None:
@@ -60,7 +63,7 @@ def to_console_error(arg: Any) -> None:
     return continue_print(print_func, arg)
 
 
-def to_fail(arg: Any) -> None:
+def to_fail(arg: Any) -> Any:
     """Fail with message."""
 
     def fail(msg: str) -> None:
@@ -166,6 +169,9 @@ __all__ = [
     "join",
     "join_with_indices",
     "last_index_of",
+    "map",
+    "map_indexed",
+    "collect",
     "not_supported",
     "pad_left",
     "pad_right",

@@ -335,6 +335,87 @@ module Py =
     [<AllowNullLiteral>]
     type MutableSet = interface end
 
+    // -------------------------------------------------------------------------
+    // Namespaced Collection Protocol Markers
+    // -------------------------------------------------------------------------
+    // These modules group marker interfaces by Python protocol.
+    // The type name indicates which .NET type is implementing the protocol.
+    // Example: Py.Mapping.Map means FSharpMap implementing Python Mapping protocol.
+
+    /// <summary>
+    /// Marker interfaces for types implementing Python Mapping protocol.
+    /// Use Py.Mapping.Map for FSharpMap, Py.Mapping.Dictionary for Dictionary.
+    /// </summary>
+    module Mapping =
+        /// <summary>
+        /// Marker for FSharpMap implementing Python Mapping protocol.
+        /// Provides __getitem__, __contains__, __len__, __iter__, keys, values, items, get.
+        /// </summary>
+        type Map = interface end
+
+        /// <summary>
+        /// Marker for Dictionary implementing Python Mapping protocol.
+        /// Provides __getitem__, __contains__, __len__, __iter__, keys, values, items, get,
+        /// plus __setitem__, __delitem__, clear, pop, popitem, setdefault.
+        /// </summary>
+        type Dictionary = interface end
+
+        /// <summary>
+        /// Python Mapping protocol interface with .NET-style method names.
+        /// Implement via explicit interface implementation to get attached methods.
+        /// The compiler will generate dunders (__getitem__, __len__, etc.) that call these.
+        /// Note: GetEnumerator is not included - uses existing IEnumerable.GetEnumerator.
+        /// </summary>
+        type IMapping<'K, 'V> =
+            abstract get_Item: 'K -> 'V
+            abstract ContainsKey: 'K -> bool
+            abstract Count: int
+
+        /// <summary>
+        /// Python MutableMapping protocol interface. Extends IMapping with mutation.
+        /// </summary>
+        type IMutableMapping<'K, 'V> =
+            inherit IMapping<'K, 'V>
+            abstract set_Item: 'K * 'V -> unit
+            abstract Remove: 'K -> bool
+            abstract Clear: unit -> unit
+
+    /// <summary>
+    /// Marker interfaces for types implementing Python Set protocol.
+    /// Use Py.Set.FSharpSet for FSharpSet, Py.Set.HashSet for HashSet/MutableSet.
+    /// </summary>
+    module Set =
+        /// <summary>
+        /// Marker for FSharpSet implementing Python Set protocol.
+        /// Provides __contains__, __len__, __iter__.
+        /// </summary>
+        type FSharpSet = interface end
+
+        /// <summary>
+        /// Marker for HashSet/MutableSet implementing Python Set protocol.
+        /// Provides __contains__, __len__, __iter__, plus add, discard, remove, pop, clear.
+        /// </summary>
+        type HashSet = interface end
+
+        /// <summary>
+        /// Python Set protocol interface with .NET-style method names.
+        /// Implement via explicit interface implementation to get attached methods.
+        /// The compiler will generate dunders (__contains__, __len__, __iter__) that call these.
+        /// Note: GetEnumerator is not included - uses existing IEnumerable.GetEnumerator.
+        /// </summary>
+        type ISet<'T> =
+            abstract Contains: 'T -> bool
+            abstract Count: int
+
+        /// <summary>
+        /// Python MutableSet protocol interface. Extends ISet with mutation.
+        /// </summary>
+        type IMutableSet<'T> =
+            inherit ISet<'T>
+            abstract Add: 'T -> unit
+            abstract Remove: 'T -> bool
+            abstract Clear: unit -> unit
+
     // =========================================================================
     // Full Python Protocol Interfaces (for direct implementation)
     // =========================================================================
@@ -347,13 +428,22 @@ module Py =
     // base classes that delegate dunders to your existing F# methods.
 
     /// <summary>
+    /// Python Iterator interface following collections.abc.Iterator protocol.
+    /// Use as return type for `__iter__` methods to get correct Python type annotations.
+    /// </summary>
+    [<AllowNullLiteral>]
+    type Iterator<'T> =
+        /// Python __next__ - returns the next item
+        abstract ``__next__``: unit -> 'T
+
+    /// <summary>
     /// Python Iterable interface for F# types that need to be iterable in Python.
     /// Follows Python's collections.abc.Iterable protocol.
     /// </summary>
     [<AllowNullLiteral>]
     type Iterable<'T> =
         /// Python __iter__ - returns iterator
-        abstract ``__iter__``: unit -> System.Collections.Generic.IEnumerator<'T>
+        abstract ``__iter__``: unit -> Iterator<'T>
 
     /// <summary>
     /// Python Sequence interface for F# types that need to behave like Python sequences.
@@ -366,9 +456,10 @@ module Py =
         /// Python __len__ - returns number of items
         abstract ``__len__``: unit -> int
         /// Python __iter__ - returns iterator
-        abstract ``__iter__``: unit -> System.Collections.Generic.IEnumerator<'T>
+        abstract ``__iter__``: unit -> Iterator<'T>
         /// Python __contains__(value) - checks if value exists
         abstract ``__contains__``: value: 'T -> bool
+
 
     /// <summary>
     /// Python Mapping interface for F# types that need to behave like Python read-only dicts.
@@ -381,7 +472,7 @@ module Py =
         /// Python __len__ - returns number of items
         abstract ``__len__``: unit -> int
         /// Python __iter__ - returns iterator over keys
-        abstract ``__iter__``: unit -> System.Collections.Generic.IEnumerator<'K>
+        abstract ``__iter__``: unit -> Iterator<'K>
         /// Python __contains__(key) - checks if key exists
         abstract ``__contains__``: key: 'K -> bool
         /// Python keys() - returns keys view
@@ -408,7 +499,7 @@ module Py =
         /// Python __delitem__(key) - deletes key
         abstract ``__delitem__``: key: 'K -> unit
         /// Python __iter__ - returns iterator over keys
-        abstract ``__iter__``: unit -> System.Collections.Generic.IEnumerator<'K>
+        abstract ``__iter__``: unit -> Iterator<'K>
         /// Python __len__ - returns number of items
         abstract ``__len__``: unit -> int
         // Concrete methods from Mapping
@@ -439,7 +530,7 @@ module Py =
         /// Python __contains__(value) - checks if value exists
         abstract ``__contains__``: value: 'T -> bool
         /// Python __iter__ - returns iterator
-        abstract ``__iter__``: unit -> System.Collections.Generic.IEnumerator<'T>
+        abstract ``__iter__``: unit -> Iterator<'T>
         /// Python __len__ - returns number of items
         abstract ``__len__``: unit -> int
 
@@ -453,7 +544,7 @@ module Py =
         /// Python __contains__(value) - checks if value exists
         abstract ``__contains__``: value: 'T -> bool
         /// Python __iter__ - returns iterator
-        abstract ``__iter__``: unit -> System.Collections.Generic.IEnumerator<'T>
+        abstract ``__iter__``: unit -> Iterator<'T>
         /// Python __len__ - returns number of items
         abstract ``__len__``: unit -> int
         /// Python add(value) - adds value to set

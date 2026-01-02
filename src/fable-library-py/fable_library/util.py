@@ -17,10 +17,12 @@ from collections.abc import (
 from contextlib import AbstractContextManager
 from enum import IntEnum
 from threading import RLock
+from types import TracebackType
 from typing import (
     Any,
     ClassVar,
     Final,
+    Literal,
     Protocol,
     Self,
     TypeGuard,
@@ -32,12 +34,11 @@ from urllib.parse import quote, unquote
 from .array_ import Array
 from .bases import (
     ComparableBase,
-    ContextManagerBase,
     DisposableBase,
+    EnumerableBase,
+    EnumeratorBase,
     EquatableBase,
     HashableBase,
-    IterableBase,
-    IteratorBase,
     ObjectDisposedException,
     SizedBase,
     StringableBase,
@@ -67,7 +68,7 @@ UNIT: Any = None
 # Follows the System.Reactive Disposable pattern.
 
 
-class AnonymousDisposable(ContextManagerBase):
+class AnonymousDisposable(DisposableBase):
     """A disposable that calls a provided action when disposed."""
 
     __slots__ = "_action", "_is_disposed", "_lock"
@@ -94,12 +95,48 @@ class AnonymousDisposable(ContextManagerBase):
         return self
 
 
-class Disposable:
-    """Static factory for creating disposables.
+class Disposable[T: IDisposable](DisposableBase):
+    """Context manager wrapper for IDisposable objects.
 
-    Follows the System.Reactive Disposable pattern.
-    See: https://learn.microsoft.com/en-us/previous-versions/dotnet/reactive-extensions/hh229378(v=vs.103)
+    Wraps any object with a Dispose() method to provide Python context manager
+    support. The __enter__ method returns the wrapped value (not self), so the
+    `as` target receives the original IDisposable object.
+
+    Example:
+        with Disposable(some_enumerator) as e:
+            # e is the enumerator, not the wrapper
+            while e.MoveNext():
+                print(e.Current)
+        # e.Dispose() is called automatically
+
+    Also provides a static factory method for creating disposables from actions,
+    following the System.Reactive Disposable pattern.
     """
+
+    __slots__ = ("_value",)
+
+    def __init__(self, value: T) -> None:
+        self._value = value
+
+    def __enter__(self) -> T:
+        """Enter context management, returning the wrapped value."""
+        return self._value
+
+    def __exit__(
+        self,
+        exctype: type[BaseException] | None,
+        excinst: BaseException | None,
+        exctb: TracebackType | None,
+    ) -> Literal[False]:
+        """Exit context management, calling Dispose on the wrapped value."""
+        self.Dispose()
+        return False
+
+    def Dispose(self) -> None:
+        """Dispose the wrapped value."""
+        dispose = getattr(self._value, "Dispose", None)
+        if dispose is not None:
+            dispose()
 
     @staticmethod
     def create(action: Callable[[], None]) -> AnonymousDisposable:
@@ -386,7 +423,7 @@ def clear(col: dict[Any, Any] | list[Any] | None) -> None:
         col.clear()
 
 
-class Enumerator[T](IteratorBase[T], ContextManagerBase, IEnumerator[T]):
+class Enumerator[T](EnumeratorBase[T], DisposableBase, IEnumerator[T]):
     """Concrete enumerator that wraps a Python iterator."""
 
     __slots__ = "current", "iter"
@@ -423,7 +460,7 @@ class Enumerator[T](IteratorBase[T], ContextManagerBase, IEnumerator[T]):
         return self
 
 
-class Enumerable[T](IterableBase[T]):
+class Enumerable[T](EnumerableBase[T]):
     """Concrete enumerable that wraps a Python iterable."""
 
     __slots__ = "xs"
@@ -442,15 +479,16 @@ def to_enumerable[T](e: Iterable[T]) -> IEnumerable_1[T]:
     return Enumerable(e)
 
 
-def get_enumerator(o: Iterable[Any]) -> Enumerator[Any]:
+def get_enumerator(o: IEnumerable_1[Any] | Iterable[Any]) -> Enumerator:
     attr = getattr(o, "GetEnumerator", None)
     if attr:
         return attr()
-    elif isinstance(o, dict):
+
+    if isinstance(o, dict):
         # Dictionaries should produce tuples
         return Enumerator(iter(cast(Any, o.items())))
-    else:
-        return Enumerator(iter(o))
+
+    return Enumerator(iter(cast(Any, o)))
 
 
 _curried = weakref.WeakKeyDictionary[Any, Any]()
@@ -2405,18 +2443,24 @@ def is_hashable_py(x: Any) -> bool:
     return hasattr(x, "__hash__") and callable(x.__hash__)
 
 
-def to_iterator[T](en: IEnumerator[T]) -> IEnumerator[T]:
-    class Iterator:
-        def __iter__(self):
-            return self
+def to_iterator[T](en: IEnumerator[T]) -> Iterator[T]:
+    """Convert an IEnumerator to a Python Iterator with proper disposal.
 
-        def __next__(self):
-            has_next = en.System_Collections_IEnumerator_MoveNext()
-            if not has_next:
-                raise StopIteration
-            return en.System_Collections_IEnumerator_get_Current()
+    This wraps an F# IEnumerator to make it a proper Python iterator
+    that can be used with for loops and other Python iteration protocols.
 
-    return Enumerator(Iterator())
+    The generator's finally block ensures Dispose() is called when:
+    - Iteration completes normally
+    - A break/return exits the loop early
+    - An exception is raised during iteration
+    - The iterator is garbage collected
+    """
+    try:
+        while en.System_Collections_IEnumerator_MoveNext():
+            yield en.System_Collections_IEnumerator_get_Current()
+    finally:
+        if hasattr(en, "Dispose"):
+            en.Dispose()
 
 
 class ObjectRef:
@@ -2685,13 +2729,12 @@ def range(start: int, stop: int, step: int = 1) -> Iterable[int32]:
 __all__ = [
     "AnonymousDisposable",
     "ComparableBase",
-    "ContextManagerBase",
     "Disposable",
     "DisposableBase",
+    "EnumerableBase",
+    "EnumeratorBase",
     "EquatableBase",
     "HashableBase",
-    "IterableBase",
-    "IteratorBase",
     "ObjectDisposedException",
     "ObjectRef",
     "PlatformID",

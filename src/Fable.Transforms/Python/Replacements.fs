@@ -47,15 +47,16 @@ let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
 let error com msg =
     Helper.ConstructorCall(makeIdentExpr "Exception", Any, [ msg ])
 
-/// Wraps ResizeArray (Python list) arguments with to_enumerable for Seq module compatibility.
-let wrapResizeArrayToEnumerable com (arg: Expr) =
+/// Wraps String arguments with to_enumerable for Seq module compatibility.
+/// Python strings don't implement IEnumerable_1, so they need to be wrapped when used as sequences.
+let wrapStringToEnumerable com (arg: Expr) =
     let rec getInnerType expr =
         match expr with
         | TypeCast(inner, _) -> getInnerType inner
         | _ -> expr.Type
 
     match getInnerType arg with
-    | Array(_, ResizeArray) -> Helper.LibCall(com, "util", "to_enumerable", arg.Type, [ arg ])
+    | String -> Helper.LibCall(com, "util", "to_enumerable", arg.Type, [ arg ])
     | _ -> arg
 
 let coreModFor =
@@ -1556,12 +1557,9 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
         Helper.LibCall(com, "seq", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("Map" | "MapIndexed" | "Collect"), _ ->
-        // Cast the string to char[], see #1279
-        let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
-
         let name = Naming.toSnakeCase i.CompiledName
 
-        emitExpr r t [ Helper.LibCall(com, "seq", name, Any, args, i.SignatureArgTypes) ] "''.join(list($0))"
+        Helper.LibCall(com, "string", name, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "Concat", _ -> Helper.LibCall(com, "string", "join", t, args, ?loc = r) |> Some
     // Rest of StringModule methods
@@ -1587,10 +1585,68 @@ let formattableString
     | _ -> None
 
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    // printfn "seqModule: %A" i.CompiledName
+    // Methods where the last argument is a sequence that may need string wrapping.
+    // Python strings don't implement IEnumerable_1, so they need to be wrapped when used as sequences.
+    let wrapLastArgIfString meth args =
+        match meth with
+        | "Reverse"
+        | "Head"
+        | "Tail"
+        | "Last"
+        | "Length"
+        | "TryHead"
+        | "TryLast"
+        | "ToArray"
+        | "ToList"
+        | "Cache"
+        | "IsEmpty"
+        | "ExactlyOne"
+        | "TryExactlyOne"
+        | "Indexed"
+        | "Pairwise"
+        | "Readonly"
+        | "Rev"
+        | "Sum"
+        | "SumBy"
+        | "Average"
+        | "AverageBy"
+        | "Min"
+        | "MinBy"
+        | "Max"
+        | "MaxBy"
+        | "Reduce"
+        | "ReduceBack"
+        | "ForAll"
+        | "Exists"
+        | "Iter"
+        | "IterIndexed"
+        | "Iterate"
+        | "IterateIndexed"
+        | "Item"
+        | "TryItem"
+        | "Truncate"
+        | "Take"
+        | "TakeWhile"
+        | "Skip"
+        | "SkipWhile"
+        | "Windowed"
+        | "ChunkBySize"
+        | "SplitInto"
+        | "Distinct"
+        | "DistinctBy" ->
+            match args with
+            | [] -> args
+            | _ ->
+                let lastIdx = List.length args - 1
 
-    // Wrap ResizeArray arguments with to_enumerable for type compatibility
-    let args = args |> List.map (wrapResizeArrayToEnumerable com)
+                args
+                |> List.mapi (fun i arg ->
+                    if i = lastIdx then
+                        wrapStringToEnumerable com arg
+                    else
+                        arg
+                )
+        | _ -> args
 
     match i.CompiledName, args with
     | "Cast", [ arg ] -> Some arg // Erase
@@ -1599,16 +1655,19 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
         |> Some
     | "Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth, args ->
         let meth = Naming.lowerFirst meth
+        let args = wrapLastArgIfString i.CompiledName args
         let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
 
         Helper.LibCall(com, "seq2", meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "ToArray", [ arg ] ->
+        let arg = wrapStringToEnumerable com arg
         let elementType = getElementType t
         makeArrayFrom elementType arg |> Some
 
     | meth, _ ->
         let meth = Naming.lowerFirst meth
+        let args = wrapLastArgIfString i.CompiledName args
         let args = injectArg com ctx r "Seq" meth i.GenericArgs args
 
         Helper.LibCall(com, "seq", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
@@ -1629,7 +1688,11 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | ".ctor", _, [] -> makeResizeArray (getElementType t) [] |> Some
     | ".ctor", _, [ ExprType(Number _) ] -> makeResizeArray (getElementType t) [] |> Some
     | ".ctor", _, [ ArrayOrListLiteral(vals, _) ] -> makeResizeArray (getElementType t) vals |> Some
-    | ".ctor", _, args -> Helper.GlobalCall("list", t, args, ?loc = r) |> withTag "array" |> Some
+    // Use Array constructor which accepts both Iterable and IEnumerable_1
+    | ".ctor", _, args ->
+        Helper.LibCall(com, "array", "Array", t, args, ?loc = r)
+        |> withTag "array"
+        |> Some
     | "get_Item", Some ar, [ idx ] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [ idx; value ] -> setExpr r ar idx value |> Some
     | "Add", Some ar, [ arg ] ->

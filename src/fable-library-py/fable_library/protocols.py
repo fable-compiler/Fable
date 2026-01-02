@@ -4,7 +4,7 @@ This module contains PURE protocol (interface) definitions used by the Fable
 runtime library. These are for type hints and structural subtyping only.
 
 For classes that need to inherit with implementations (context managers, etc.),
-use the ABC base classes in bases.py (ContextManagerBase, IteratorBase, etc.).
+use the ABC base classes in bases.py (DisposableBase, EnumeratorBase, etc.).
 
 Protocols are defined here to avoid circular imports between modules like
 util.py and core/array.pyi.
@@ -200,14 +200,14 @@ class IDisposable(Protocol):
     """IDisposable protocol (pure protocol for type hints).
 
     This is a pure protocol for structural subtyping. For classes that need
-    to inherit with context manager implementations, use ContextManagerBase
+    to inherit with context manager implementations, use DisposableBase
     from bases.py instead.
 
     Note: This protocol is @runtime_checkable to support isinstance() checks
     in utility functions like is_disposable().
 
     Note: Does NOT include __enter__, __exit__. For Python context manager
-    support, use Py.ContextManager marker interface which adds ContextManagerBase.
+    support, use Py.ContextManager marker interface which adds DisposableBase.
     """
 
     __slots__ = ()
@@ -220,12 +220,12 @@ class IDisposable(Protocol):
 # =============================================================================
 
 
-class IEnumerator[T](Protocol):
+class IEnumerator[T](IDisposable, Protocol):
     """Protocol for enumerators (pure protocol for type hints).
 
     This is a pure protocol for structural subtyping. For classes that need
-    to inherit with iterator/context manager implementations, use IteratorBase
-    and ContextManagerBase from bases.py instead.
+    to inherit with iterator/context manager implementations, use EnumeratorBase
+    and DisposableBase from bases.py instead.
 
     Note: Does NOT include __iter__, __next__, __enter__, __exit__.
     For Python iterator/context manager support, use Py marker interfaces.
@@ -241,7 +241,6 @@ class IEnumerator[T](Protocol):
 
     def System_Collections_IEnumerator_MoveNext(self) -> bool: ...
     def System_Collections_IEnumerator_Reset(self) -> None: ...
-    def Dispose(self) -> None: ...
 
 
 # =============================================================================
@@ -256,7 +255,7 @@ class IEnumerable(Protocol):
     """Protocol for enumerable collections (pure protocol for type hints).
 
     Note: Does NOT include __iter__. For Python iteration support, use
-    Py.Iterable marker interface which adds IterableBase.
+    Py.Iterable marker interface which adds EnumerableBase.
     """
 
     __slots__ = ()
@@ -268,7 +267,7 @@ class IEnumerable_1[T](Protocol):
     """Protocol for generic enumerable collections (pure protocol for type hints).
 
     Note: Does NOT include __iter__. For Python iteration support, use
-    Py.Iterable marker interface which adds IterableBase.
+    Py.Iterable marker interface which adds EnumerableBase.
     """
 
     __slots__ = ()

@@ -315,6 +315,17 @@ let transformCast (com: IPythonCompiler) (ctx: Context) t e : Expression * State
             let xs = Expression.list expr
             libCall com ctx None "util" "to_enumerable" [ xs ], stmts
 
+        // Wrap ResizeArray (Python list) when cast to IEnumerable
+        // Python lists don't implement IEnumerable_1, so they need wrapping
+        | Types.ienumerableGeneric, _ when
+            match e.Type with
+            | Fable.Array(_, Fable.ArrayKind.ResizeArray) -> true
+            | Fable.DeclaredType(entRef, _) when entRef.FullName = Types.resizeArray -> true
+            | _ -> false
+            ->
+            let listExpr, stmts = com.TransformAsExpr(ctx, e)
+            libCall com ctx None "util" "to_enumerable" [ listExpr ], stmts
+
         | _ -> com.TransformAsExpr(ctx, e)
     | Fable.Number(Float32, _), _ ->
         let cons = libValue com ctx "types" "float32"
@@ -567,58 +578,14 @@ let transformObjectExpr
             // Map interface names to ABC base class names for inheritance
             // Use ABC base classes instead of Protocols for proper method resolution
             let name = Helpers.removeNamespace entRef.FullName
+            let fullName = entRef.FullName
 
-            // Map interface names to ABC base class(es)
-            // IEnumerator_1 maps to both IteratorBase and ContextManagerBase (since IEnumerator extends IDisposable)
-            let abcClasses =
-                match name with
-                | "IDisposable" -> Some [ "DisposableBase" ]
-                | "ContextManager" -> Some [ "ContextManagerBase" ]
-                | "IEnumerator_1" -> Some [ "IteratorBase"; "ContextManagerBase" ]
-                | "IEnumerable_1" -> Some [ "IterableBase" ]
-                | "Stringable" -> Some [ "StringableBase" ]
-                | "Equatable" -> Some [ "EquatableBase" ]
-                | "Comparable" -> Some [ "ComparableBase" ]
-                | "Hashable" -> Some [ "HashableBase" ]
-                | "Sized" -> Some [ "SizedBase" ]
-                | "Iterable" -> Some [ "IterableBase" ]
-                | "Iterator" -> Some [ "IteratorBase" ]
-                | "Mapping" -> Some [ "MappingBase" ]
-                | "MutableMapping" -> Some [ "MutableMappingBase" ]
-                | "Set" -> Some [ "SetBase" ]
-                | "MutableSet" -> Some [ "MutableSetBase" ]
-                | _ -> None
-
-            match abcClasses with
+            // Map interface names to ABC base class(es) using shared helper
+            match Bases.getAbcClassesForInterface name fullName with
             | Some classes ->
-                // ABC classes that accept type parameters
-                let genericAbcClasses =
-                    Set.ofList
-                        [
-                            "IteratorBase"
-                            "IterableBase"
-                            "MappingBase"
-                            "MutableMappingBase"
-                            "SetBase"
-                            "MutableSetBase"
-                        ]
-
                 let exprs =
                     classes
-                    |> List.map (fun abcName ->
-                        // Only apply type args to generic ABC classes
-                        if List.isEmpty genArgs || not (genericAbcClasses.Contains abcName) then
-                            libValue com ctx "bases" abcName
-                        else
-                            let typeArgs =
-                                genArgs
-                                |> List.map (fun genArg ->
-                                    let arg, _ = Annotation.typeAnnotation com ctx None genArg
-                                    arg
-                                )
-
-                            Expression.subscript (libValue com ctx "bases" abcName, Expression.tuple typeArgs)
-                    )
+                    |> List.map (fun abcName -> Bases.makeAbcBaseExpr com ctx abcName genArgs)
 
                 exprs, []
             | None ->
@@ -1132,15 +1099,6 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: option<F
         )
     ]
 
-/// Helper function to extract generic arguments from a type
-let rec private getGenericArgs (typ: Fable.Type) : Fable.Type list =
-    match typ with
-    | Fable.DeclaredType(_, genArgs) -> genArgs
-    | Fable.Array(elementType, _) -> [ elementType ]
-    | Fable.List elementType -> [ elementType ]
-    | Fable.Option(elementType, _) -> [ elementType ]
-    | _ -> []
-
 /// Helper function to generate a cast statement for type narrowing
 let makeCastStatement (com: IPythonCompiler) ctx (ident: Fable.Ident) (typ: Fable.Type) =
     // Only add cast for generic types where type checker needs help
@@ -1153,8 +1111,8 @@ let makeCastStatement (com: IPythonCompiler) ctx (ident: Fable.Ident) (typ: Fabl
 
     // Check if the original type already has the same generic arguments
     // If so, Pyright can infer the narrowed type and the cast is unnecessary
-    let originalGenArgs = getGenericArgs ident.Type
-    let targetGenArgs = getGenericArgs typ
+    let originalGenArgs = Annotation.getGenericArgs ident.Type
+    let targetGenArgs = Annotation.getGenericArgs typ
 
     let sameGenericArgs =
         not (List.isEmpty originalGenArgs)
@@ -2597,12 +2555,19 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
         stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
     // Transform F# `use` i.e TryCatch as Python `with`
+    // We wrap the value in Disposable(...) to provide context manager support
+    // for IDisposable objects that don't have __enter__/__exit__ methods
     | Fable.Let(ident, value, UsePattern(disposeName, tryBody)) when ident.Name = disposeName ->
         let id = Identifier ident.Name
         let body = transformBlock com ctx (Some(ResourceManager returnStrategy)) tryBody
 
         let value, stmts = com.TransformAsExpr(ctx, value)
-        let items = [ WithItem.withItem (value, Expression.name id) ]
+
+        // Wrap value in Disposable(...) to provide context manager support
+        let disposable = libValue com ctx "util" "Disposable"
+        let wrappedValue = Expression.call (disposable, [ value ])
+
+        let items = [ WithItem.withItem (wrappedValue, Expression.name id) ]
         stmts @ [ Statement.with' (items, body) ]
 
     | Fable.Let(ident, value, body) ->
@@ -3041,7 +3006,7 @@ let declareDataClassType
     // - EquatableBase (__eq__, __ne__ from Equals)
     // - ComparableBase (__lt__, __le__, __gt__, __ge__ from CompareTo)
     //
-    // We only need to add IterableBase for IEnumerable interfaces (for iteration support)
+    // We only need to add EnumerableBase for IEnumerable interfaces (for iteration support)
     let allowedInterfaces = [ "IEnumerable_1" ]
 
     let interfaceBases =
@@ -3061,9 +3026,9 @@ let declareDataClassType
                     | _ -> true
                 )
 
-            // Generate the IterableBase reference from bases module
+            // Generate the EnumerableBase reference from bases module
             if List.isEmpty genericArgs then
-                libValue com ctx "bases" "IterableBase"
+                libValue com ctx "bases" "EnumerableBase"
             else
                 let typeArgs =
                     genericArgs
@@ -3072,7 +3037,7 @@ let declareDataClassType
                         arg
                     )
 
-                Expression.subscript (libValue com ctx "bases" "IterableBase", Expression.tuple typeArgs)
+                Expression.subscript (libValue com ctx "bases" "EnumerableBase", Expression.tuple typeArgs)
         )
 
     let bases = (baseExpr |> Option.toList) @ interfaceBases
@@ -3235,61 +3200,36 @@ let declareClassType
         // 1. Union/Record/ValueType already have Equals/CompareTo in their base classes
         // 2. Regular classes get mangled method names that don't match ABC abstract methods
         // 3. Use Py.Equatable/Py.Comparable marker interfaces for classes with override Equals/CompareTo
-        let allowedInterfaces =
-            [
-                "IDisposable"
-                "ContextManager"
-                "IEnumerator_1"
-                "IEnumerable_1"
-                "Stringable"
-                "Equatable"
-                "Comparable"
-                "Hashable"
-                "Sized"
-                "Iterable"
-                "Iterator"
-                "Mapping"
-                "MutableMapping"
-                "Set"
-                "MutableSet"
-            ]
 
         // Check if class implements IEnumerator_1 (which already inherits from IDisposable)
         let hasIEnumerator =
             ent.AllInterfaces
             |> Seq.exists (fun int -> Helpers.removeNamespace (int.Entity.FullName) = "IEnumerator_1")
 
+        // Check if class implements IEnumerable_1 (avoid duplicate EnumerableBase from Py.Iterable)
+        let hasIEnumerable =
+            ent.AllInterfaces
+            |> Seq.exists (fun int -> Helpers.removeNamespace (int.Entity.FullName) = "IEnumerable_1")
+
         ent.AllInterfaces
         |> List.ofSeq
         |> List.filter (fun int ->
             let name = Helpers.removeNamespace (int.Entity.FullName)
             // Filter out IDisposable if IEnumerator_1 is present to avoid diamond inheritance
-            allowedInterfaces |> List.contains name
+            // Filter out Py.Iterable if IEnumerable_1 is present to avoid duplicate EnumerableBase
+            Bases.allowedInterfaces |> List.contains name
             && not (hasIEnumerator && name = "IDisposable")
+            && not (hasIEnumerable && name = "Iterable")
         )
         |> List.collect (fun int ->
-            let name = Helpers.removeNamespace (int.Entity.FullName)
+            let name = Helpers.removeNamespace int.Entity.FullName
+            let fullName = int.Entity.FullName
 
-            // Map interface names to ABC base class(es)
-            // IEnumerator_1 maps to both IteratorBase and ContextManagerBase (since IEnumerator extends IDisposable)
+            // Map interface names to ABC base class(es) using shared helper
             let abcClasses =
-                match name with
-                | "IDisposable" -> [ "DisposableBase" ]
-                | "ContextManager" -> [ "ContextManagerBase" ]
-                | "IEnumerator_1" -> [ "IteratorBase"; "ContextManagerBase" ]
-                | "IEnumerable_1" -> [ "IterableBase" ]
-                | "Stringable" -> [ "StringableBase" ]
-                | "Equatable" -> [ "EquatableBase" ]
-                | "Comparable" -> [ "ComparableBase" ]
-                | "Hashable" -> [ "HashableBase" ]
-                | "Sized" -> [ "SizedBase" ]
-                | "Iterable" -> [ "IterableBase" ]
-                | "Iterator" -> [ "IteratorBase" ]
-                | "Mapping" -> [ "MappingBase" ]
-                | "MutableMapping" -> [ "MutableMappingBase" ]
-                | "Set" -> [ "SetBase" ]
-                | "MutableSet" -> [ "MutableSetBase" ]
-                | other -> [ other ]
+                match Bases.getAbcClassesForInterface name fullName with
+                | Some classes -> classes
+                | None -> [ name ] // Fallback: use the interface name itself
 
             // Filter out self-referential generic arguments to avoid forward reference errors
             let genericArgs =
@@ -3300,35 +3240,10 @@ let declareClassType
                     | _ -> true
                 )
 
-            // ABC classes that accept type parameters
-            let genericAbcClasses =
-                Set.ofList
-                    [
-                        "IteratorBase"
-                        "IterableBase"
-                        "MappingBase"
-                        "MutableMappingBase"
-                        "SetBase"
-                        "MutableSetBase"
-                    ]
-
-            // Generate the ABC base class references (all from 'bases' module)
+            // Generate the ABC base class references
             abcClasses
             |> List.map (fun abcClassName ->
-                let expr =
-                    // Only apply type args to generic ABC classes
-                    if List.isEmpty genericArgs || not (genericAbcClasses.Contains abcClassName) then
-                        libValue com ctx "bases" abcClassName
-                    else
-                        let typeArgs =
-                            genericArgs
-                            |> List.map (fun genArg ->
-                                let arg, _ = Annotation.typeAnnotation com ctx None genArg
-                                arg
-                            )
-
-                        Expression.subscript (libValue com ctx "bases" abcClassName, Expression.tuple typeArgs)
-
+                let expr = Bases.makeAbcBaseExpr com ctx abcClassName genericArgs
                 expr, []
             )
         )
@@ -3520,7 +3435,8 @@ let calculateTypeParams
         |> Set.difference
         <| ctx.ScopedTypeParams
 
-    makeFunctionTypeParams com ctx repeatedGenerics
+    // Use constraint-aware version to preserve type bounds (e.g., 'T :> IDisposable)
+    Annotation.makeFunctionTypeParamsWithConstraints com ctx info.GenericParameters repeatedGenerics
 
 let transformModuleFunction
     (com: IPythonCompiler)
@@ -3658,8 +3574,6 @@ let transformAttachedProperty
             |> List.singleton
 
 let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFunctionOrValue) (memb: Fable.MemberDecl) =
-    // printfn "transformAttachedMethod: %A" memb
-
     let isStatic = not info.IsInstance
 
     // Check if this method has Py.ClassMethod attribute
@@ -4037,24 +3951,6 @@ let transformClassWithPrimaryConstructor
         yield! exposedCons
     ]
 
-/// Generate abstract method stubs for abstract classes.
-/// Creates stubs for dispatch slots (abstract members) that don't have default implementations.
-let generateAbstractMethodStubs
-    (com: IPythonCompiler)
-    ctx
-    (classEnt: Fable.Entity)
-    (attachedMembers: Fable.MemberDecl list)
-    =
-    // Since .Annotations depends on .Utils, we need to avoid circular dependency by passing config
-    // TODO: Refactor Utils to avoid this pattern
-    let config: AbstractClass.StubConfig =
-        {
-            GetTypeAnnotation = fun typ -> Annotation.typeAnnotation com ctx None typ
-            GetTypeParams = fun genParams -> Annotation.makeMemberTypeParams com ctx genParams
-        }
-
-    AbstractClass.generateMethodStubs com ctx config classEnt attachedMembers
-
 let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_classDecl: Fable.ClassDecl) =
     // printfn "transformInterface"
     let classIdent = com.GetIdentifier(ctx, Helpers.removeNamespace classEnt.FullName)
@@ -4084,7 +3980,7 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
                 // Use mangled name if interface has [<Mangle>] attribute
                 let name =
                     if isMangled then
-                        InterfaceNaming.getMangledMemberName classEnt memb
+                        Bases.InterfaceNaming.getMangledMemberName classEnt memb
                     elif memb.IsGetter || memb.IsSetter then
                         memb.CompiledName
                         |> Naming.removeGetSetPrefix
@@ -4187,7 +4083,7 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
 // Helper function to extract initial value from getter body
 // Returns (value, isFactory, externalFields, stmts) where isFactory indicates if the value is a lambda function,
 // externalFields contains field names that need to be added as class attributes
-// and stmts contains statements (e.g., local function declarations) from closurd that need lifted out of the
+// and stmts contains statements (e.g., local function declarations) from closures that need lifted out of the
 // to the nearest enclosing scope.
 let getInitialValue
     com
@@ -4549,13 +4445,17 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
 
             // Generate abstract method stubs for abstract classes
             let abstractMethodStubs =
-                generateAbstractMethodStubs com ctx ent decl.AttachedMembers
+                Bases.generateAbstractMethodStubs com ctx ent decl.AttachedMembers
+
+            // Generate Python protocol dunders for Py.Mapping and Py.Set interfaces
+            let pythonProtocolDunders = Bases.generatePythonProtocolDunders com ctx ent
 
             let allClassMembers =
                 classMembers
                 @ backingFieldDeclarations
                 @ staticPropertyDeclarations
                 @ abstractMethodStubs
+                @ pythonProtocolDunders
 
             let allStatements = setterFunctions
 

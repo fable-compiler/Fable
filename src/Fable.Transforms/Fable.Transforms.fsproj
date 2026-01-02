@@ -36,6 +36,7 @@
     <Compile Include="Python/Fable2Python.Types.fs" />
     <Compile Include="Python/Fable2Python.Util.fs" />
     <Compile Include="Python/Fable2Python.Annotation.fs" />
+    <Compile Include="Python/Fable2Python.Bases.fs" />
     <Compile Include="Python/Fable2Python.Reflection.fs" />
     <Compile Include="Python/Fable2Python.Transforms.fs" />
     <Compile Include="Python/PythonPrinter.fs" />
