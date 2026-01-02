@@ -158,9 +158,8 @@ let makeFunctionTypeParamsWithConstraints
     let signatureOnlyParams =
         repeatedGenerics
         |> Set.filter (fun name -> not (explicitNames.Contains name))
-        |> Set.map (fun genParam -> genParam.ToUpperInvariant() |> Helpers.clean)
         |> Set.toList
-        |> List.map (fun genParam -> TypeParam.typeVar (Identifier(genParam)))
+        |> List.map (fun genParam -> genParam.ToUpperInvariant() |> Helpers.clean |> Identifier |> TypeParam.typeVar)
 
     paramsWithConstraints @ signatureOnlyParams
 
