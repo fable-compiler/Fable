@@ -283,13 +283,6 @@ class IEnumerable_1[T](Protocol):
 class ICollection[T](IEnumerable_1[T], Protocol): ...
 
 
-class IDictionary[Key, Value](ICollection[tuple[Key, Value]], Protocol):
-    @abstractmethod
-    def keys(self) -> IEnumerable_1[Key]: ...
-
-    def values(self) -> IEnumerable_1[Value]: ...
-
-
 # =============================================================================
 # .NET Collection Protocols (F# interface contracts - NO dunders)
 # =============================================================================
@@ -347,7 +340,7 @@ class IReadOnlySet_1[T](IReadOnlyCollection_1[T], Protocol):
         ...
 
 
-class ISet_1[T](IReadOnlySet_1[T], Protocol):
+class ISet[T](IReadOnlySet_1[T], Protocol):
     """Protocol for ISet<T> (.NET).
 
     Provides mutable set operations.
@@ -386,55 +379,47 @@ class ISet_1[T](IReadOnlySet_1[T], Protocol):
 class IReadOnlyDictionary_2[K, V](IReadOnlyCollection_1[tuple[K, V]], Protocol):
     """Protocol for IReadOnlyDictionary<K, V> (.NET).
 
-    Provides read-only dictionary access.
-    For Python __getitem__/__contains__/__iter__/__len__/keys/values/items/get,
-    use Py.Mapping marker → MappingBase.
+    Provides read-only dictionary access. Method names are mangled to match
+    compiled F# interface implementations.
     """
 
-    def ContainsKey(self, key: K, /) -> bool:
+    def System_Collections_Generic_IDictionary_2_ContainsKey2B595(self, key: K, /) -> bool:
         """Check if key exists in dictionary."""
         ...
 
-    def TryGetValue(self, key: K, /) -> tuple[bool, V]:
-        """Try to get value for key. Returns (found, value)."""
+    def System_Collections_Generic_IDictionary_2_TryGetValue6DC89625(self, key: K, value: Any, /) -> bool:
+        """Try to get value for key. Returns True if found."""
         ...
 
-    def get_Item(self, key: K, /) -> V:
+    def System_Collections_Generic_IDictionary_2_get_Item2B595(self, key: K, /) -> V:
         """Get value for key. Raises KeyError if not found."""
         ...
 
-    @property
-    def Keys(self) -> IEnumerable_1[K]:
-        """Get enumerable of keys."""
+    def System_Collections_Generic_IDictionary_2_get_Keys(self) -> ICollection[K]:
+        """Get collection of keys."""
         ...
 
-    @property
-    def Values(self) -> IEnumerable_1[V]:
-        """Get enumerable of values."""
+    def System_Collections_Generic_IDictionary_2_get_Values(self) -> ICollection[V]:
+        """Get collection of values."""
         ...
 
 
 class IDictionary_2[K, V](IReadOnlyDictionary_2[K, V], Protocol):
     """Protocol for IDictionary<K, V> (.NET).
 
-    Provides mutable dictionary operations.
-    For Python __setitem__/__delitem__/clear/pop/popitem/setdefault,
-    use Py.MutableMapping marker → MutableMappingBase.
+    Provides mutable dictionary operations. Method names are mangled to match
+    compiled F# interface implementations.
     """
 
-    def Add(self, key: K, value: V, /) -> None:
+    def System_Collections_Generic_IDictionary_2_Add5BDDA1(self, key: K, value: V, /) -> None:
         """Add key-value pair. Raises if key exists."""
         ...
 
-    def Remove(self, key: K, /) -> bool:
+    def System_Collections_Generic_IDictionary_2_Remove2B595(self, key: K, /) -> bool:
         """Remove key. Returns True if key was removed."""
         ...
 
-    def Clear(self) -> None:
-        """Remove all items."""
-        ...
-
-    def set_Item(self, key: K, value: V, /) -> None:
+    def System_Collections_Generic_IDictionary_2_set_Item5BDDA1(self, key: K, value: V, /) -> None:
         """Set value for key (add or update)."""
         ...
 

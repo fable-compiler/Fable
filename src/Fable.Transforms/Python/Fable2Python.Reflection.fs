@@ -333,7 +333,7 @@ let transformTypeTest (com: IPythonCompiler) ctx range expr (typ: Fable.Type) : 
         | _, Fable.Type.Number(Decimal, _) -> pyTypeof "<class 'decimal.Decimal'>" expr
         | _ -> pyInstanceof (Expression.name "int") expr
 
-    | Fable.Regex -> pyInstanceof (com.GetImportExpr(ctx, "typing", "Pattern")) expr
+    | Fable.Regex -> pyInstanceof (com.GetImportExpr(ctx, "re", "Pattern")) expr
     | Fable.LambdaType _
     | Fable.DelegateType _ -> pyTypeof "<class 'function'>" expr
     | Fable.Array _ ->

@@ -6,7 +6,7 @@ import platform
 import random
 import re
 import weakref
-from abc import ABC, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from collections.abc import (
     Callable,
     Iterable,
@@ -370,16 +370,24 @@ def pad_left_and_right_with_zeros(i: int, length_left: int, length_right: int) -
 
 
 class Atom[T](Protocol):
+    @overload
+    def __call__(self) -> T: ...
+    @overload
+    def __call__(self, value: T, /) -> None: ...
     def __call__(self, *value: T) -> T | None: ...
 
 
 def create_atom[T](value: T) -> Atom[T]:
     atom = value
 
+    @overload
+    def wrapper() -> T: ...
+    @overload
+    def wrapper(value: T, /) -> None: ...
     def wrapper(*value: T) -> T | None:
         nonlocal atom
 
-        if len(value) == 0:
+        if not value:
             return atom
 
         atom = value[0]
@@ -2468,6 +2476,27 @@ def to_iterator[T](en: IEnumerator[T]) -> Iterator[T]:
             en.Dispose()
 
 
+def to_iterable[T](items: Iterable[T] | IEnumerable_1[T]) -> Iterable[T]:
+    """Convert IEnumerable_1 to Iterable if needed.
+
+    Prefers Python Iterable protocol (more efficient), falls back to GetEnumerator.
+    """
+    if isinstance(items, Iterable):
+        # Has Python iterator protocol, use it directly
+        yield from items
+    elif hasattr(items, "GetEnumerator"):
+        # It's an IEnumerable_1 without __iter__, iterate via the enumerator
+        en = items.GetEnumerator()
+        try:
+            while en.System_Collections_IEnumerator_MoveNext():
+                yield en.System_Collections_Generic_IEnumerator_1_get_Current()
+        finally:
+            if hasattr(en, "Dispose"):
+                en.Dispose()
+    else:
+        raise TypeError(f"Expected Iterable or IEnumerable_1, got {type(items)}")
+
+
 class ObjectRef:
     id_map: ClassVar = dict[int, int]()
     count: ClassVar = 0
@@ -2679,7 +2708,7 @@ class StaticLazyProperty[T](StaticPropertyBase[T]):
         pass  # The factory handles value retrieval
 
 
-class StaticPropertyMeta(type(Protocol)):
+class StaticPropertyMeta(ABCMeta):
     """Metaclass that enables StaticProperty descriptors to work with class-level
     assignment.
 
@@ -2771,6 +2800,7 @@ __all__ = [
     "randint",
     "range",
     "round",
+    "to_iterable",
     "uncurry2",
     "uncurry3",
     "uncurry4",

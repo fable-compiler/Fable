@@ -4388,18 +4388,18 @@ struct FSharpCons {
 impl FSharpCons {
     #[new]
     pub fn new(array_type: &str) -> PyResult<Self> {
-        let array_type = match array_type {
-            "Int8" => ArrayType::Int8,
-            "UInt8" => ArrayType::UInt8,
-            "Int16" => ArrayType::Int16,
-            "UInt16" => ArrayType::UInt16,
-            "Int32" => ArrayType::Int32,
-            "UInt32" => ArrayType::UInt32,
-            "Int64" => ArrayType::Int64,
-            "UInt64" => ArrayType::UInt64,
-            "Float32" => ArrayType::Float32,
-            "Float64" => ArrayType::Float64,
-            "Bool" => ArrayType::Bool,
+        let array_type = match array_type.to_lowercase().as_str() {
+            "int8" => ArrayType::Int8,
+            "uint8" => ArrayType::UInt8,
+            "int16" => ArrayType::Int16,
+            "uint16" => ArrayType::UInt16,
+            "int32" => ArrayType::Int32,
+            "uint32" => ArrayType::UInt32,
+            "int64" => ArrayType::Int64,
+            "uint64" => ArrayType::UInt64,
+            "float32" => ArrayType::Float32,
+            "float64" => ArrayType::Float64,
+            "bool" => ArrayType::Bool,
             _ => ArrayType::Generic,
         };
 

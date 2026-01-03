@@ -264,7 +264,7 @@ let ``test emitPyExpr works without parameters`` () =
     hello |> equal "Hello"
 
 // This function needs to be at the root level to avoid being mangled
-let factorial (count : int) : int =
+let factorial (count : nativeint) : nativeint =
     emitPyStatement
         count
         """if $0 < 2:

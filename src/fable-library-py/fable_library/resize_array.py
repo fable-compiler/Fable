@@ -6,27 +6,7 @@ from typing import Any, cast
 from .option import Option, some
 from .protocols import IEnumerable_1
 from .types import int32
-
-
-def _to_iterable[T](items: Iterable[T] | IEnumerable_1[T]) -> Iterable[T]:
-    """Convert IEnumerable_1 to Iterable if needed.
-
-    Prefers Python Iterable protocol (more efficient), falls back to GetEnumerator.
-    """
-    if isinstance(items, Iterable):
-        # Has Python iterator protocol, use it directly
-        yield from items
-    elif hasattr(items, "GetEnumerator"):
-        # It's an IEnumerable_1 without __iter__, iterate via the enumerator
-        en = items.GetEnumerator()
-        try:
-            while en.System_Collections_IEnumerator_MoveNext():
-                yield en.System_Collections_Generic_IEnumerator_1_get_Current()
-        finally:
-            if hasattr(en, "Dispose"):
-                en.Dispose()
-    else:
-        raise TypeError(f"Expected Iterable or IEnumerable_1, got {type(items)}")
+from .util import to_iterable
 
 
 def exists[T](predicate: Callable[[T], bool], xs: list[T]) -> bool:
@@ -117,7 +97,7 @@ def index_of[T](value: T, start: int32, count: int32 | None, xs: list[T]) -> int
 
 def insert_range_in_place[T](index: int32, items: Iterable[T] | IEnumerable_1[T], xs: list[T]) -> None:
     """Insert a range of items into xs at the given index."""
-    xs[index:index] = _to_iterable(items)
+    xs[index:index] = to_iterable(items)
 
 
 def add_in_place[T](x: T, xs: list[T]) -> None:
@@ -128,7 +108,7 @@ def add_in_place[T](x: T, xs: list[T]) -> None:
 def add_range_in_place[T](items: Iterable[T] | IEnumerable_1[T], array: list[T]) -> None:
     """Add a range of items to the array."""
     # Use extend for better performance instead of individual appends
-    array.extend(_to_iterable(items))
+    array.extend(to_iterable(items))
 
 
 def add_range[T](index: int32, items: list[T], xs: list[T]) -> list[T]:
