@@ -124,3 +124,6 @@ module Helpers =
 
         for i = srci to srci + cnt - 1 do
             trg.[i + diff] <- src.[i]
+
+    [<Import("to_iterator", "fable_library.util")>]
+    let toIterator (en: System.Collections.Generic.IEnumerator<'T>) : Py.Iterator<'T> = nativeOnly

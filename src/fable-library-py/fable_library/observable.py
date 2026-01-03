@@ -9,7 +9,7 @@ from .choice import (
 )
 from .option import value
 from .protocols import IDisposable
-from .util import UNIT, DisposableBase
+from .util import UNIT, Disposable
 
 
 @runtime_checkable
@@ -167,7 +167,7 @@ def merge[T](source1: IObservable[T], source2: IObservable[T]) -> IObservable[T]
             h1.Dispose()
             h2.Dispose()
 
-        return DisposableBase.create(dispose)
+        return Disposable.create(dispose)
 
     return Observable(subscribe)
 

@@ -322,9 +322,10 @@ let transformTypeTest (com: IPythonCompiler) ctx range expr (typ: Fable.Type) : 
         | _, Fable.Type.Number(Int8, _) -> pyInstanceof (libValue com ctx "types" "int8") expr
         | _, Fable.Type.Number(Int16, _) -> pyInstanceof (libValue com ctx "types" "int16") expr
         | _, Fable.Type.Number(UInt16, _) -> pyInstanceof (libValue com ctx "types" "uint16") expr
-        | _, Fable.Type.Number(Int32, _) ->
-            pyInstanceof (Expression.binOp (Expression.name "int", BitOr, libValue com ctx "types" "int32")) expr
+        | _, Fable.Type.Number(Int32, _) -> pyInstanceof (libValue com ctx "types" "int32") expr
         | _, Fable.Type.Number(UInt32, _) -> pyInstanceof (libValue com ctx "types" "uint32") expr
+        | _, Fable.Type.Number(NativeInt, _)
+        | _, Fable.Type.Number(UNativeInt, _) -> pyInstanceof (Expression.name "int") expr
         | _, Fable.Type.Number(Int64, _) -> pyInstanceof (libValue com ctx "types" "int64") expr
         | _, Fable.Type.Number(UInt64, _) -> pyInstanceof (libValue com ctx "types" "uint64") expr
         | _, Fable.Type.Number(Float32, _) -> pyInstanceof (libValue com ctx "types" "float32") expr
@@ -335,10 +336,12 @@ let transformTypeTest (com: IPythonCompiler) ctx range expr (typ: Fable.Type) : 
     | Fable.Regex -> pyInstanceof (com.GetImportExpr(ctx, "typing", "Pattern")) expr
     | Fable.LambdaType _
     | Fable.DelegateType _ -> pyTypeof "<class 'function'>" expr
-    | Fable.Array _
+    | Fable.Array _ ->
+        // Use isinstance(x, Array) where Array is from fable_library.types
+        pyInstanceof (libValue com ctx "types" "Array") expr
     | Fable.Tuple _ ->
-        let expr, stmts = com.TransformAsExpr(ctx, expr)
-        libCall com ctx None "util" "isArrayLike" [ expr ], stmts
+        // Use isinstance(x, tuple) for Python tuple type test
+        pyInstanceof (Expression.name "tuple") expr
     | Fable.List _ -> pyInstanceof (libValue com ctx "List" "FSharpList") expr
     | Fable.AnonymousRecordType _ -> warnAndEvalToFalse "anonymous records", []
     | Fable.MetaType -> pyInstanceof (libValue com ctx "Reflection" "TypeInfo") expr
@@ -362,8 +365,8 @@ let transformTypeTest (com: IPythonCompiler) ctx range expr (typ: Fable.Type) : 
             let expr, stmts = com.TransformAsExpr(ctx, expr)
             [ expr ] |> libCall com ctx None "util" "isIterable", stmts
         | Types.array ->
-            let expr, stmts = com.TransformAsExpr(ctx, expr)
-            [ expr ] |> libCall com ctx None "util" "isArrayLike", stmts
+            // Use isinstance(x, Array) where Array is from fable_library.types
+            pyInstanceof (libValue com ctx "types" "Array") expr
         | Types.exception_ ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
             [ expr ] |> libCall com ctx None "types" "isException", stmts

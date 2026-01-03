@@ -416,32 +416,16 @@ module Util =
         (_com: IPythonCompiler)
         (_ctx: Context)
         (memberName: string)
-        (argCount: int option)
+        (_argCount: int option)
         : Expression
         =
-        // printfn "memberFromName: %A" memberName
-        match memberName with
-        | "ToString" -> Expression.identifier "__str__"
-        //| "GetHashCode" -> Expression.identifier "__hash__"
-        // Only map Equals to __eq__ when it takes exactly 1 argument (+ self = 2 total in memb.Args)
-        // IEquatable<T>.Equals(other) has 1 param -> __eq__
-        // IEqualityComparer<T>.Equals(x, y) has 2 params -> keep as "Equals"
-        | "Equals" when argCount = Some 2 -> Expression.identifier "__eq__"
-        | "CompareTo" -> Expression.identifier "__cmp__"
-        | "set" -> Expression.identifier "__setitem__"
-        | "get" -> Expression.identifier "__getitem__"
-        | "has" -> Expression.identifier "__contains__"
-        | "delete" -> Expression.identifier "__delitem__"
-        | n when n.EndsWith("get_Count", StringComparison.Ordinal) -> Expression.identifier "__len__" // TODO: find a better way
-        | n when n.StartsWith("Symbol.iterator", StringComparison.Ordinal) ->
-            let name = Identifier "__iter__"
-            Expression.name name
-        | n ->
-            let n = Naming.toPythonNaming n
+        // Name transformations for specific interfaces (Py.Map, etc.) should be handled
+        // in Replacements.fs, not here. This function just sanitizes the name.
+        let n = Naming.toPythonNaming memberName
 
-            (n, Naming.NoMemberPart)
-            ||> Naming.sanitizeIdent (fun _ -> false)
-            |> Expression.name
+        (n, Naming.NoMemberPart)
+        ||> Naming.sanitizeIdent (fun _ -> false)
+        |> Expression.name
 
     let get (com: IPythonCompiler) ctx _r left memberName subscript =
         // printfn "get: %A" (memberName, subscript)
@@ -1415,105 +1399,3 @@ module MatchStatements =
 
             unwrapRedundantLets subjectName patternIdent body'
         | _ -> expr
-
-/// Utilities for interface and abstract class member naming.
-module InterfaceNaming =
-    /// Computes the overload suffix for an interface/abstract class member based on parameter types.
-    /// Returns empty string for getters/setters.
-    let getOverloadSuffix (ent: Fable.Entity) (memb: Fable.MemberFunctionOrValue) =
-        if memb.IsGetter || memb.IsSetter then
-            ""
-        else
-            let entityGenericParameters = ent.GenericParameters |> List.map (fun g -> g.Name)
-
-            memb.CurriedParameterGroups
-            |> List.collect (List.map (fun pg -> pg.Type))
-            |> List.singleton
-            |> OverloadSuffix.getHash entityGenericParameters
-
-    /// Generates a mangled member name for interfaces/abstract classes.
-    /// Format: EntityFullPath_MemberName + OverloadSuffix (dots replaced with underscores)
-    let getMangledMemberName (ent: Fable.Entity) (memb: Fable.MemberFunctionOrValue) =
-        let overloadSuffix = getOverloadSuffix ent memb
-        let lastDotIndex = memb.FullName.LastIndexOf '.'
-        let fullNamePath = memb.FullName.Substring(0, lastDotIndex)
-        $"%s{fullNamePath}.%s{memb.CompiledName}%s{overloadSuffix}".Replace(".", "_")
-
-/// Utilities for generating abstract class stubs.
-module AbstractClass =
-    open Util
-
-    /// Configuration for generating abstract method stubs.
-    /// Decouples the stub generation from Annotation module dependencies.
-    type StubConfig =
-        {
-            /// Gets type annotation for a Fable type
-            GetTypeAnnotation: Fable.Type -> Expression * Statement list
-            /// Gets type parameters for generic members
-            GetTypeParams: Fable.GenericParam list -> TypeParam list
-        }
-
-    /// Generates abstract method stubs for abstract classes.
-    /// Creates stubs for dispatch slots (abstract members) that don't have default implementations.
-    let generateMethodStubs
-        (com: IPythonCompiler)
-        ctx
-        (config: StubConfig)
-        (classEnt: Fable.Entity)
-        (attachedMembers: Fable.MemberDecl list)
-        : Statement list
-        =
-        if not classEnt.IsAbstractClass then
-            []
-        else
-            let implementedMemberNames =
-                attachedMembers
-                |> List.map (fun m -> (com.GetMember m.MemberRef).CompiledName)
-                |> Set.ofList
-
-            let isAbstractMember (memb: Fable.MemberFunctionOrValue) =
-                memb.IsDispatchSlot
-                && not memb.IsProperty
-                && not (hasAnyEmitAttribute memb.Attributes)
-                && not (Set.contains memb.CompiledName implementedMemberNames)
-
-            let makeAbstractMethodStub (memb: Fable.MemberFunctionOrValue) =
-                let name =
-                    InterfaceNaming.getMangledMemberName classEnt memb
-                    |> fun n -> com.GetIdentifier(ctx, n)
-
-                let posOnlyArgs =
-                    [
-                        if memb.IsInstance then
-                            Arg.arg "self"
-
-                        for n, parameterGroup in Seq.indexed memb.CurriedParameterGroups do
-                            for m, pg in Seq.indexed parameterGroup do
-                                let paramType = FableTransforms.uncurryType pg.Type
-                                let annotation, _ = config.GetTypeAnnotation paramType
-                                let paramName = pg.Name |> Option.defaultValue $"__arg%d{n + m}"
-                                Arg.arg (paramName, annotation = annotation)
-                    ]
-
-                let returnType, _ =
-                    memb.ReturnParameter.Type
-                    |> FableTransforms.uncurryType
-                    |> config.GetTypeAnnotation
-
-                Statement.functionDef (
-                    name,
-                    Arguments.arguments (posonlyargs = posOnlyArgs),
-                    body = [ Statement.ellipsis ],
-                    returns = returnType,
-                    decoratorList = [ com.GetImportExpr(ctx, "abc", "abstractmethod") ],
-                    typeParams = config.GetTypeParams memb.GenericParameters
-                )
-
-            classEnt.MembersFunctionsAndValues
-            |> Seq.choose (fun memb ->
-                if isAbstractMember memb then
-                    Some(makeAbstractMethodStub memb)
-                else
-                    None
-            )
-            |> Seq.toList

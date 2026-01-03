@@ -128,25 +128,11 @@ type MutableMap<'Key, 'Value when 'Key: equality>
         member this.Values: ICollection<'Value> =
             [| for pair in this -> pair.Value |] :> ICollection<'Value>
 
-    // Python-specific interface for dict-like behavior
-    // The compiler transforms these method names to Python dunder methods
-    interface Fable.Core.JS.Map<'Key, 'Value> with
-        member this.size = this.Count
-        member this.clear() = this.Clear()
-        member this.delete(k) = this.Remove(k)
-
-        member this.entries() =
-            this |> Seq.map (fun p -> p.Key, p.Value)
-
-        member this.get(k) = this.[k]
-        member this.has(k) = this.ContainsKey(k)
-        member this.keys() = this |> Seq.map (fun p -> p.Key)
-
-        member this.set(k, v) =
-            this.[k] <- v
-            this :> Fable.Core.JS.Map<'Key, 'Value>
-
-        member this.values() = this |> Seq.map (fun p -> p.Value)
-
-        member this.forEach(f, ?thisArg) =
-            this |> Seq.iter (fun p -> f p.Value p.Key this)
+    // Python MutableMapping protocol - explicit interface implementation (methods become attached)
+    interface Fable.Core.Py.Mapping.IMutableMapping<'Key, 'Value> with
+        member this.get_Item(key) = this.[key]
+        member this.set_Item(key, value) = this.[key] <- value
+        member this.ContainsKey(key) = this.ContainsKey(key)
+        member this.Count = this.Count
+        member this.Remove(key) = this.Remove(key)
+        member this.Clear() = this.Clear()

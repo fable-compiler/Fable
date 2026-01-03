@@ -47,15 +47,16 @@ let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
 let error com msg =
     Helper.ConstructorCall(makeIdentExpr "Exception", Any, [ msg ])
 
-/// Wraps ResizeArray (Python list) arguments with to_enumerable for Seq module compatibility.
-let wrapResizeArrayToEnumerable com (arg: Expr) =
+/// Wraps String arguments with to_enumerable for Seq module compatibility.
+/// Python strings don't implement IEnumerable_1, so they need to be wrapped when used as sequences.
+let wrapStringToEnumerable com (arg: Expr) =
     let rec getInnerType expr =
         match expr with
         | TypeCast(inner, _) -> getInnerType inner
         | _ -> expr.Type
 
     match getInnerType arg with
-    | Array(_, ResizeArray) -> Helper.LibCall(com, "util", "to_enumerable", arg.Type, [ arg ])
+    | String -> Helper.LibCall(com, "util", "to_enumerable", arg.Type, [ arg ])
     | _ -> arg
 
 let coreModFor =
@@ -1387,7 +1388,9 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 |> addErrorAndReturnNull com ctx.InlinePath r
                 |> Some
         | _ -> fsFormat com ctx r t i thisArg args
-    | "get_Length", Some c, _ -> Helper.GlobalCall("len", t, [ c ], [ t ], ?loc = r) |> Some
+    | "get_Length", Some c, _ ->
+        Helper.LibCall(com, "string", "getLength", t, [ c ], i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "get_Chars", Some c, _ ->
         Helper.LibCall(com, "string", "getCharAtIndex", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
@@ -1554,12 +1557,9 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
         Helper.LibCall(com, "seq", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("Map" | "MapIndexed" | "Collect"), _ ->
-        // Cast the string to char[], see #1279
-        let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
-
         let name = Naming.toSnakeCase i.CompiledName
 
-        emitExpr r t [ Helper.LibCall(com, "seq", name, Any, args, i.SignatureArgTypes) ] "''.join(list($0))"
+        Helper.LibCall(com, "string", name, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "Concat", _ -> Helper.LibCall(com, "string", "join", t, args, ?loc = r) |> Some
     // Rest of StringModule methods
@@ -1585,10 +1585,68 @@ let formattableString
     | _ -> None
 
 let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    // printfn "seqModule: %A" i.CompiledName
+    // Methods where the last argument is a sequence that may need string wrapping.
+    // Python strings don't implement IEnumerable_1, so they need to be wrapped when used as sequences.
+    let wrapLastArgIfString meth args =
+        match meth with
+        | "Reverse"
+        | "Head"
+        | "Tail"
+        | "Last"
+        | "Length"
+        | "TryHead"
+        | "TryLast"
+        | "ToArray"
+        | "ToList"
+        | "Cache"
+        | "IsEmpty"
+        | "ExactlyOne"
+        | "TryExactlyOne"
+        | "Indexed"
+        | "Pairwise"
+        | "Readonly"
+        | "Rev"
+        | "Sum"
+        | "SumBy"
+        | "Average"
+        | "AverageBy"
+        | "Min"
+        | "MinBy"
+        | "Max"
+        | "MaxBy"
+        | "Reduce"
+        | "ReduceBack"
+        | "ForAll"
+        | "Exists"
+        | "Iter"
+        | "IterIndexed"
+        | "Iterate"
+        | "IterateIndexed"
+        | "Item"
+        | "TryItem"
+        | "Truncate"
+        | "Take"
+        | "TakeWhile"
+        | "Skip"
+        | "SkipWhile"
+        | "Windowed"
+        | "ChunkBySize"
+        | "SplitInto"
+        | "Distinct"
+        | "DistinctBy" ->
+            match args with
+            | [] -> args
+            | _ ->
+                let lastIdx = List.length args - 1
 
-    // Wrap ResizeArray arguments with to_enumerable for type compatibility
-    let args = args |> List.map (wrapResizeArrayToEnumerable com)
+                args
+                |> List.mapi (fun i arg ->
+                    if i = lastIdx then
+                        wrapStringToEnumerable com arg
+                    else
+                        arg
+                )
+        | _ -> args
 
     match i.CompiledName, args with
     | "Cast", [ arg ] -> Some arg // Erase
@@ -1597,16 +1655,19 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
         |> Some
     | "Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth, args ->
         let meth = Naming.lowerFirst meth
+        let args = wrapLastArgIfString i.CompiledName args
         let args = injectArg com ctx r "Seq2" meth i.GenericArgs args
 
         Helper.LibCall(com, "seq2", meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "ToArray", [ arg ] ->
+        let arg = wrapStringToEnumerable com arg
         let elementType = getElementType t
         makeArrayFrom elementType arg |> Some
 
     | meth, _ ->
         let meth = Naming.lowerFirst meth
+        let args = wrapLastArgIfString i.CompiledName args
         let args = injectArg com ctx r "Seq" meth i.GenericArgs args
 
         Helper.LibCall(com, "seq", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
@@ -1627,7 +1688,11 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | ".ctor", _, [] -> makeResizeArray (getElementType t) [] |> Some
     | ".ctor", _, [ ExprType(Number _) ] -> makeResizeArray (getElementType t) [] |> Some
     | ".ctor", _, [ ArrayOrListLiteral(vals, _) ] -> makeResizeArray (getElementType t) vals |> Some
-    | ".ctor", _, args -> Helper.GlobalCall("list", t, args, ?loc = r) |> withTag "array" |> Some
+    // Use Array constructor which accepts both Iterable and IEnumerable_1
+    | ".ctor", _, args ->
+        Helper.LibCall(com, "array", "Array", t, args, ?loc = r)
+        |> withTag "array"
+        |> Some
     | "get_Item", Some ar, [ idx ] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [ idx; value ] -> setExpr r ar idx value |> Some
     | "Add", Some ar, [ arg ] ->
@@ -1648,7 +1713,12 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "GetEnumerator", Some ar, _ -> getEnumerator com r t ar |> Some
     | "get_Count", Some(MaybeCasted(ar)), _ ->
         match ar.Type with
-        | Array _ -> Helper.GlobalCall("len", t, [ ar ], [ t ], ?loc = r) |> Some
+        // ResizeArray is Python list - use len() wrapped in int32()
+        | Array(_, ResizeArray) ->
+            let lenExpr = Helper.GlobalCall("len", Int32.Number, [ ar ], ?loc = r)
+            Helper.LibCall(com, "types", "int32", t, [ lenExpr ], ?loc = r) |> Some
+        // MutableArray/ImmutableArray are FSharpArray (Rust) with .length property returning Int32
+        | Array _ -> getFieldWith r t ar "length" |> Some
         | _ -> Helper.LibCall(com, "util", "count", t, [ ar ], ?loc = r) |> Some
     | "Clear", Some ar, _ -> Helper.LibCall(com, "Util", "clear", t, [ ar ], ?loc = r) |> Some
     | "Find", Some ar, [ arg ] ->
@@ -1776,7 +1846,9 @@ let copyToArray (com: ICompiler) r t (i: CallInfo) args =
 let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // printfn "arrays: %A" i.CompiledName
     match i.CompiledName, thisArg, args with
-    | "get_Length", Some arg, _ -> Helper.GlobalCall("len", t, [ arg ], [ t ], ?loc = r) |> Some
+    | "get_Length", Some arg, _ ->
+        // All arrays in Python are FSharpArray (Rust) which has .length property returning Int32
+        getFieldWith r t arg "length" |> Some
     | "get_Item", Some arg, [ idx ] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [ idx; value ] -> setExpr r arg idx value |> Some
     | "Copy", None, [ _source; _sourceIndex; _target; _targetIndex; _count ] -> copyToArray com r t i args
@@ -1826,7 +1898,14 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
     | "ToList", args ->
         Helper.LibCall(com, "list", "of_array", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
-    | ("Length" | "Count"), [ arg ] -> Helper.GlobalCall("len", t, [ arg ], [ t ], ?loc = r) |> Some
+    | ("Length" | "Count"), [ arg ] ->
+        match arg.Type with
+        // ResizeArray is Python list - use len() wrapped in int32()
+        | Array(_, ResizeArray) ->
+            let lenExpr = Helper.GlobalCall("len", Int32.Number, [ arg ], ?loc = r)
+            Helper.LibCall(com, "types", "int32", t, [ lenExpr ], ?loc = r) |> Some
+        // MutableArray/ImmutableArray are FSharpArray (Rust) with .length property returning Int32
+        | _ -> getFieldWith r t arg "length" |> Some
     | "Item", [ idx; ar ] -> getExpr r t ar idx |> Some
     | "Get", [ ar; idx ] -> getExpr r t ar idx |> Some
     | "Set", [ ar; idx; value ] -> setExpr r ar idx value |> Some
@@ -1840,15 +1919,11 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         | _ -> createArray count None |> Some
     | "Create", [ count; value ] -> createArray count (Some value) |> Some
     | "Empty", _ ->
-        let t =
-            match t with
-            | Array(t, _) -> t
-            | _ -> Any
-
-        newArray (makeIntConst 0) t |> Some
+        // Use library function to create empty FSharpArray (Rust) instead of raw Python list
+        Helper.LibCall(com, "array", "empty", t, [], ?loc = r) |> Some
     | "IsEmpty", [ ar ] ->
-        eq (Helper.GlobalCall("len", t, [ ar ], [ t ], ?loc = r)) (makeIntConst 0)
-        |> Some
+        // Use .length property (Int32) instead of len() which returns Python int
+        eq (getFieldWith r Int32.Number ar "length") (makeIntConst 0) |> Some
     | "Concat", [ ar1; ar2 ] -> makeBinOp r t ar1 ar2 BinaryPlus |> Some
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
@@ -2461,7 +2536,10 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
             |> Some
         | _ -> None
     | "get_IsReadOnly", _ -> makeBoolConst false |> Some
-    | "get_Count", _ -> Helper.GlobalCall("len", t, [ thisArg.Value ], [ t ], ?loc = r) |> Some
+    | "get_Count", Some c ->
+        // Use int32(len()) to work with both Dictionary class and plain Python dict
+        let lenExpr = Helper.GlobalCall("len", Int32.Number, [ c ], ?loc = r)
+        Helper.LibCall(com, "types", "int32", t, [ lenExpr ], ?loc = r) |> Some
     | "GetEnumerator", Some callee -> getEnumerator com r t callee |> Some
     | "ContainsValue", _ ->
         match thisArg, args with
@@ -2504,7 +2582,9 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             |> makeHashSetWithComparer com r t (makeArray Any [])
             |> Some
         | _ -> None
-    | "get_Count", _, _ -> getFieldWith r t thisArg.Value "size" |> Some
+    | "get_Count", Some c, _ ->
+        Helper.LibCall(com, "mutable_set", "HashSet__get_Count", t, [ c ], ?loc = r)
+        |> Some
     | "get_IsReadOnly", _, _ -> BoolConstant false |> makeValue r |> Some
     | ReplaceName [ "Clear", "clear"; "Contains", "has"; "Remove", "delete" ] methName, Some c, args ->
         Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc = r) |> Some
@@ -2944,7 +3024,9 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (a
 
         Helper.LibCall(com, "util", "randint", t, [ min; max ], [ min.Type; max.Type ], ?loc = r)
         |> Some
-    | "NextDouble" -> Helper.ImportedCall("random", "random", t, [], []) |> Some
+    | "NextDouble" ->
+        let ranExpr = Helper.ImportedCall("random", "random", t, [], [])
+        Helper.LibCall(com, "types", "int32", t, [ ranExpr ], ?loc = r) |> Some
     | "NextBytes" ->
         let byteArray =
             match args with
@@ -3058,7 +3140,9 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg.Value; args.Head ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
     | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
-    | "get_Count" -> Helper.GlobalCall("len", t, [ thisArg.Value ], [ t ], ?loc = r) |> Some
+    | "get_Count" ->
+        thisArg
+        |> Option.map (fun c -> Helper.GlobalCall("len", t, [ c ], [ t ], ?loc = r))
     | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some
     | "IsMatch"
     | "Match"

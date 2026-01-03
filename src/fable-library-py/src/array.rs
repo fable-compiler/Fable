@@ -62,8 +62,8 @@ struct GenericArray {}
 // Macro to reduce repetition in type extraction for FSharpArray::new.
 // This ensures both elegance and performance, following best Rust and craftsman practices.
 macro_rules! try_extract_array {
-    ($elements:expr, $py:expr, $variant:ident, $wrapper:ty, $native:ty) => {
-        if let Ok(vec) = extract_typed_vec_from_iterable::<$native>($elements) {
+    ($elements:expr, $_py:expr, $variant:ident, $wrapper:ty, $native:ty) => {
+        if let Ok(vec) = extract_typed_vec_from_elements::<$native>($elements) {
             Some(FSharpArray {
                 storage: NativeArray::$variant(vec),
             })
@@ -126,7 +126,7 @@ impl ArrayRef<'_> {
 ///
 /// - If `ob` is an FSharpArray: returns a borrowed reference (O(1), no allocation)
 /// - If `ob` is None: returns an empty array
-/// - If `ob` is iterable: converts to a new array
+/// - If `ob` is iterable (Python __iter__ or F# IEnumerable): converts to a new array
 /// - Otherwise: wraps as a singleton array
 fn ensure_array<'py>(py: Python<'py>, ob: &'py Bound<'py, PyAny>) -> PyResult<ArrayRef<'py>> {
     // If it's already a FSharpArray, borrow it (no clone)
@@ -139,10 +139,16 @@ fn ensure_array<'py>(py: Python<'py>, ob: &'py Bound<'py, PyAny>) -> PyResult<Ar
         return Ok(ArrayRef::Owned(FSharpArray::new(py, None, None)?));
     }
 
-    // Check if the object is iterable
+    // Check if the object is iterable (Python protocol)
     if let Ok(iter) = ob.try_iter() {
         // Convert iterable directly to FSharpArray
         return Ok(ArrayRef::Owned(FSharpArray::new(py, Some(iter.as_any()), None)?));
+    }
+
+    // Check if the object implements IEnumerable (F# protocol with GetEnumerator)
+    if ob.hasattr("GetEnumerator").unwrap_or(false) {
+        // Pass to FSharpArray::new which handles IEnumerable
+        return Ok(ArrayRef::Owned(FSharpArray::new(py, Some(ob), None)?));
     }
 
     // If it's a single item, create a singleton array
@@ -155,7 +161,7 @@ impl FSharpArray {
     #[new]
     #[pyo3(signature = (elements=None, array_type=None))]
     pub fn new(
-        py: Python<'_>,
+        _py: Python<'_>,
         elements: Option<&Bound<'_, PyAny>>,
         array_type: Option<&str>,
     ) -> PyResult<Self> {
@@ -173,37 +179,37 @@ impl FSharpArray {
         // Try to extract as typed arrays first - if any succeed, return immediately
         let typed_array = match &nominal_type {
             ArrayType::Int8 => {
-                try_extract_array!(elements, py, Int8, Int8, i8)
+                try_extract_array!(elements, _py, Int8, Int8, i8)
             }
             ArrayType::UInt8 => {
-                try_extract_array!(elements, py, UInt8, UInt8, u8)
+                try_extract_array!(elements, _py, UInt8, UInt8, u8)
             }
             ArrayType::Int16 => {
-                try_extract_array!(elements, py, Int16, Int16, i16)
+                try_extract_array!(elements, _py, Int16, Int16, i16)
             }
             ArrayType::UInt16 => {
-                try_extract_array!(elements, py, UInt16, UInt16, u16)
+                try_extract_array!(elements, _py, UInt16, UInt16, u16)
             }
             ArrayType::Int32 => {
-                try_extract_array!(elements, py, Int32, Int32, i32)
+                try_extract_array!(elements, _py, Int32, Int32, i32)
             }
             ArrayType::UInt32 => {
-                try_extract_array!(elements, py, UInt32, UInt32, u32)
+                try_extract_array!(elements, _py, UInt32, UInt32, u32)
             }
             ArrayType::Int64 => {
-                try_extract_array!(elements, py, Int64, Int64, i64)
+                try_extract_array!(elements, _py, Int64, Int64, i64)
             }
             ArrayType::UInt64 => {
-                try_extract_array!(elements, py, UInt64, UInt64, u64)
+                try_extract_array!(elements, _py, UInt64, UInt64, u64)
             }
             ArrayType::Float32 => {
-                try_extract_array!(elements, py, Float32, Float32, f32)
+                try_extract_array!(elements, _py, Float32, Float32, f32)
             }
             ArrayType::Float64 => {
-                try_extract_array!(elements, py, Float64, Float64, f64)
+                try_extract_array!(elements, _py, Float64, Float64, f64)
             }
             ArrayType::Bool => {
-                try_extract_array!(elements, py, Bool, bool, bool)
+                try_extract_array!(elements, _py, Bool, bool, bool)
             }
             _ => None,
         };
@@ -218,11 +224,12 @@ impl FSharpArray {
         // Arc<Mutex<...>> is used for thread safety and Python interop.
         let len = elements.len().unwrap_or(0);
         let mut vec = Vec::with_capacity(len);
-        if let Ok(iter) = elements.try_iter() {
-            for item in iter {
-                vec.push(item?.into_pyobject(py)?.into());
-            }
-        }
+
+        for_each_element(elements, |item| {
+            vec.push(item.unbind());
+            Ok(())
+        })?;
+
         Ok(FSharpArray {
             storage: NativeArray::PyObject(Arc::new(Mutex::new(vec))),
         })
@@ -480,6 +487,22 @@ impl FSharpArray {
             len,
         };
         iter.into_py_any(py)
+    }
+
+    /// Returns an IEnumerator for this array.
+    /// Implements the .NET IEnumerable.GetEnumerator() interface.
+    #[allow(non_snake_case)]
+    #[pyo3(signature = (_unit=None))]
+    pub fn GetEnumerator(slf: PyRef<'_, Self>, py: Python<'_>, _unit: Option<&Bound<'_, PyAny>>) -> PyResult<Py<PyAny>> {
+        let len = slf.storage.len();
+        // SAFETY: slf.as_ptr() is valid and from_borrowed_ptr increments refcount
+        let array: Py<FSharpArray> = unsafe { Py::from_borrowed_ptr(py, slf.as_ptr()) };
+        let enumerator = FSharpArrayEnumerator {
+            array,
+            index: -1, // Before first element
+            len,
+        };
+        enumerator.into_py_any(py)
     }
 
     /// Pydantic v2 integration for schema generation.
@@ -2424,15 +2447,8 @@ impl FSharpArray {
             ));
         }
 
-        // Convert ys to an iterator to get the elements to insert
-        let ys_iter = ys.try_iter()?;
-
-        // Collect the items to insert into a Vec to know the count
-        let mut items_to_insert = Vec::new();
-        for item in ys_iter {
-            items_to_insert.push(item?);
-        }
-
+        // Collect the items to insert (supports Python Iterable or F# IEnumerable)
+        let items_to_insert = collect_elements(ys)?;
         let insert_count = items_to_insert.len();
 
         // Create a new array using the constructor with proper capacity
@@ -2448,7 +2464,7 @@ impl FSharpArray {
 
         // Insert all the new values from ys at the correct position
         for item in items_to_insert {
-            target.storage.push_value(&item, py)?;
+            target.storage.push_value(item.bind(py), py)?;
         }
 
         // Copy elements after the insertion point
@@ -2735,16 +2751,8 @@ impl FSharpArray {
     }
 
     pub fn add_range_in_place(&mut self, py: Python<'_>, range: &Bound<'_, PyAny>) -> PyResult<()> {
-        // Convert the range to an iterator
-        let iter = range.try_iter()?;
-
-        // Add each element from the range to the array
-        for item in iter {
-            let item = item?;
-            self.add_in_place(py, &item)?;
-        }
-
-        Ok(())
+        // Iterate over elements (Python Iterable or F# IEnumerable)
+        for_each_element(range, |item| self.add_in_place(py, &item))
     }
 
     pub fn insert_range_in_place(
@@ -2766,18 +2774,13 @@ impl FSharpArray {
             ));
         }
 
-        // Convert the range to an iterator
-        let iter = range.try_iter()?;
+        // Iterate over elements (Python Iterable or F# IEnumerable)
         let mut current_index = index;
-
-        // Insert each element from the range at the current index
-        for item in iter {
-            let item = item?;
+        for_each_element(range, |item| {
             self.storage.insert(current_index as usize, &item, py)?;
             current_index += 1;
-        }
-
-        Ok(())
+            Ok(())
+        })
     }
 
     pub fn get_sub_array(
@@ -4214,15 +4217,16 @@ pub fn concat(
     cons: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<FSharpArray> {
     // First pass: collect all arrays and calculate total length
-    let iter = arrays.try_iter()?;
+    // Supports both Python Iterable and F# IEnumerable
     let mut collected_arrays: Vec<FSharpArray> = Vec::new();
     let mut total_len = 0usize;
 
-    for item in iter {
-        let array = item?.extract::<FSharpArray>()?;
+    for_each_element(arrays, |item| {
+        let array = item.extract::<FSharpArray>()?;
         total_len += array.__len__();
         collected_arrays.push(array);
-    }
+        Ok(())
+    })?;
 
     // Handle empty input
     if collected_arrays.is_empty() {
@@ -4594,24 +4598,86 @@ pub fn allocate_array_from_cons(
     Py::new(py, array)
 }
 
-// Utility function to extract typed vectors from any iterable
-fn extract_typed_vec_from_iterable<U>(elements: &Bound<'_, PyAny>) -> PyResult<Vec<U>>
+/// Try to get an iterator from an object that implements IEnumerable (has GetEnumerator method).
+/// Returns None if the object doesn't have GetEnumerator.
+fn try_get_enumerator<'py>(elements: &Bound<'py, PyAny>) -> Option<Bound<'py, PyAny>> {
+    // Try to get GetEnumerator method (F# IEnumerable interface)
+    if let Ok(get_enumerator) = elements.getattr("GetEnumerator") {
+        // Call GetEnumerator() to get the enumerator
+        if let Ok(enumerator) = get_enumerator.call0() {
+            return Some(enumerator);
+        }
+    }
+    None
+}
+
+// Utility function to extract typed vectors from any iterable or IEnumerable
+fn extract_typed_vec_from_elements<U>(elements: &Bound<'_, PyAny>) -> PyResult<Vec<U>>
 where
     U: for<'a, 'py> pyo3::FromPyObject<'a, 'py>,
 {
-    // Get the length. Most Python objects have a len method, but some don't.
-    // like sequences.
     let len = elements.len().unwrap_or(0);
     let mut vec = Vec::with_capacity(len);
 
-    for item in elements.try_iter()? {
-        let bound_item = item?;
-        let typed_item: U = bound_item.extract().map_err(|_| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>("Failed to extract item from iterable")
+    for_each_element(elements, |item| {
+        let typed_item: U = item.extract().map_err(|_| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>("Failed to extract item from elements")
         })?;
         vec.push(typed_item);
+        Ok(())
+    })?;
+
+    Ok(vec)
+}
+
+/// Iterate over elements (Python Iterable or F# IEnumerable) and call a function for each item.
+/// This is a general-purpose helper that works with any callback.
+fn for_each_element<'py, F>(elements: &Bound<'py, PyAny>, mut f: F) -> PyResult<()>
+where
+    F: FnMut(Bound<'py, PyAny>) -> PyResult<()>,
+{
+    // First try Python's native iteration protocol (__iter__)
+    if let Ok(iter) = elements.try_iter() {
+        for item in iter {
+            f(item?)?;
+        }
+        return Ok(());
     }
 
+    // Fall back to F# IEnumerable protocol (GetEnumerator)
+    if let Some(enumerator) = try_get_enumerator(elements) {
+        let move_next = enumerator
+            .getattr("System_Collections_IEnumerator_MoveNext")
+            .or_else(|_| enumerator.getattr("MoveNext"))?;
+        let get_current = enumerator
+            .getattr("System_Collections_Generic_IEnumerator_1_get_Current")
+            .or_else(|_| enumerator.getattr("System_Collections_IEnumerator_get_Current"))
+            .or_else(|_| enumerator.getattr("get_Current"))?;
+
+        loop {
+            let has_next: bool = move_next.call0()?.extract()?;
+            if !has_next {
+                break;
+            }
+            let current = get_current.call0()?;
+            f(current)?;
+        }
+        return Ok(());
+    }
+
+    // Neither protocol is supported
+    Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+        "Object is not iterable (no __iter__ or GetEnumerator method)",
+    ))
+}
+
+/// Collect elements (Python Iterable or F# IEnumerable) into a Vec of PyObject.
+fn collect_elements(elements: &Bound<'_, PyAny>) -> PyResult<Vec<Py<PyAny>>> {
+    let mut vec = Vec::new();
+    for_each_element(elements, |item| {
+        vec.push(item.unbind());
+        Ok(())
+    })?;
     Ok(vec)
 }
 
@@ -4637,6 +4703,89 @@ impl FSharpArrayIter {
         let item = array_ref.get_item_at_index(slf.index as isize, py)?;
         slf.index += 1;
         Ok(Some(item))
+    }
+}
+
+/// IEnumerator implementation for FSharpArray.
+/// Implements the .NET IEnumerator interface for F# compatibility.
+#[pyclass(module = "fable")]
+struct FSharpArrayEnumerator {
+    array: Py<FSharpArray>,
+    index: isize, // -1 before first MoveNext, then 0..len-1
+    len: usize,
+}
+
+#[pymethods]
+impl FSharpArrayEnumerator {
+    /// IEnumerator.MoveNext - advances to the next element.
+    /// Returns true if there is a next element, false if enumeration is complete.
+    #[pyo3(name = "System_Collections_IEnumerator_MoveNext")]
+    fn move_next(&mut self) -> bool {
+        self.index += 1;
+        (self.index as usize) < self.len
+    }
+
+    /// IEnumerator<T>.Current - gets the current element (generic version).
+    #[pyo3(name = "System_Collections_Generic_IEnumerator_1_get_Current")]
+    fn get_current_generic(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        if self.index < 0 || (self.index as usize) >= self.len {
+            return Err(PyErr::new::<exceptions::PyStopIteration, _>(
+                "Enumeration not started or already finished",
+            ));
+        }
+        let array = self.array.bind(py);
+        let array_ref = array.borrow();
+        array_ref.get_item_at_index(self.index, py)
+    }
+
+    /// IEnumerator.Current - gets the current element (non-generic version).
+    #[pyo3(name = "System_Collections_IEnumerator_get_Current")]
+    fn get_current(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        self.get_current_generic(py)
+    }
+
+    /// IEnumerator.Reset - resets the enumerator to its initial position.
+    #[pyo3(name = "System_Collections_IEnumerator_Reset")]
+    fn reset(&mut self) {
+        self.index = -1;
+    }
+
+    /// IDisposable.Dispose - releases resources.
+    #[allow(non_snake_case)]
+    fn Dispose(&self) {
+        // Nothing to dispose
+    }
+
+    // Python context manager protocol (for use with 'with' statement)
+    fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    #[pyo3(signature = (_exc_type=None, _exc_val=None, _exc_tb=None))]
+    fn __exit__(
+        &self,
+        _exc_type: Option<&Bound<'_, PyAny>>,
+        _exc_val: Option<&Bound<'_, PyAny>>,
+        _exc_tb: Option<&Bound<'_, PyAny>>,
+    ) -> bool {
+        // Nothing to clean up, don't suppress exceptions
+        false
+    }
+
+    // Also implement Python iterator protocol for convenience
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __next__(mut slf: PyRefMut<'_, Self>, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        if slf.move_next() {
+            let array = slf.array.bind(py);
+            let array_ref = array.borrow();
+            let item = array_ref.get_item_at_index(slf.index, py)?;
+            Ok(Some(item))
+        } else {
+            Ok(None)
+        }
     }
 }
 

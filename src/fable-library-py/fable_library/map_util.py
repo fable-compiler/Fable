@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, MutableSet
 from enum import IntEnum
 from re import Match
 from typing import (
@@ -11,7 +11,7 @@ from typing import (
 )
 
 from .array_ import Array
-from .protocols import IReadOnlyDictionary, ISet
+from .protocols import IReadOnlyDictionary
 from .types import FSharpRef, Union
 
 
@@ -52,7 +52,7 @@ def change_case(string: str, case_rule: CaseRules) -> str:
     return string
 
 
-def add_to_set(v: object, st: ISet[object]) -> bool:
+def add_to_set(v: object, st: MutableSet[object]) -> bool:
     """Add to set-like object - returns True if added, False if already present."""
     if v in st:
         return False

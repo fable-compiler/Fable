@@ -8,12 +8,22 @@ from typing import (
 )
 
 from .array_ import Array
+from .bases import ComparableBase, EquatableBase, HashableBase, StringableBase
 from .core import FSharpRef, byte, float32, float64, int8, int16, int32, int64, sbyte, uint8, uint16, uint32, uint64
 from .protocols import IComparable
-from .util import compare
+from .util import compare, equals
 
 
-class Union(IComparable):
+class Union(StringableBase, EquatableBase, ComparableBase, HashableBase, IComparable):
+    """Base class for F# discriminated unions.
+
+    Inherits from ABC base classes that provide Python dunder methods:
+    - StringableBase: __str__, __repr__ from ToString
+    - EquatableBase: __eq__, __ne__ from Equals
+    - ComparableBase: __lt__, __le__, __gt__, __ge__ from CompareTo
+    - HashableBase: __hash__ from GetHashCode
+    """
+
     __slots__: list[str] = ["fields", "tag"]
 
     tag: int32
@@ -30,7 +40,11 @@ class Union(IComparable):
     def name(self) -> str:
         return self.cases()[self.tag]
 
-    def __str__(self) -> str:
+    # -------------------------------------------------------------------------
+    # String representation (used by StringableBase)
+    # -------------------------------------------------------------------------
+
+    def ToString(self) -> str:
         if not len(self.fields):
             return self.name
 
@@ -50,18 +64,11 @@ class Union(IComparable):
 
         return self.name + (" (" if with_parens else " ") + fields + (")" if with_parens else "")
 
-    def __repr__(self) -> str:
-        return str(self)
+    # -------------------------------------------------------------------------
+    # IEquatable - Equality (used by EquatableBase)
+    # -------------------------------------------------------------------------
 
-    def GetHashCode(self) -> int32:
-        return int32(hash((self.tag, *self.fields)))
-
-    def __hash__(self) -> int:
-        # hashes = map(hash, self.fields)
-        # return hash((hash(self.tag), *hashes))
-        return int(self.GetHashCode())
-
-    def __eq__(self, other: Any) -> bool:
+    def Equals(self, other: Any) -> bool:
         if self is other:
             return True
 
@@ -77,18 +84,21 @@ class Union(IComparable):
 
         return False
 
-    def __cmp__(self, __other: Any) -> int:
-        if self < __other:
-            return -1
-        elif self == __other:
-            return 0
-        return 1
+    # -------------------------------------------------------------------------
+    # Hashable (HashableBase provides __hash__ from GetHashCode)
+    # -------------------------------------------------------------------------
 
-    def __lt__(self, other: Any) -> bool:
+    def GetHashCode(self) -> int32:
+        return int32(hash((self.tag, *self.fields)))
+
+    # -------------------------------------------------------------------------
+    # IComparable - Comparison (used by ComparableBase)
+    # -------------------------------------------------------------------------
+
+    def CompareTo(self, other: Any) -> int:
         if self.tag == other.tag:
-            return True if compare(self.fields, other.fields) < 0 else False
-
-        return self.tag < other.tag
+            return compare(self.fields, other.fields)
+        return -1 if self.tag < other.tag else 1
 
 
 def record_compare_to(self: Record, other: Record) -> int:
@@ -131,7 +141,25 @@ def record_equals[T](self: T, other: T) -> bool:
         return False
 
     if isinstance(self, Record) and isinstance(other, Record):
-        return record_compare_to(self, other) == 0
+        # Check if the record has a custom __eq__ method (not inherited from Record)
+        # If so, use it for equality
+        self_eq_method = getattr(type(self), "__eq__", None)
+        record_eq_method = getattr(Record, "__eq__", None)
+
+        if self_eq_method and self_eq_method != record_eq_method:
+            # Record has custom equality, use it
+            return self == other
+
+        # Default field-by-field comparison using equals() for proper nested equality
+        if hasattr(self, "__dict__") and self.__dict__:
+            for name in self.__dict__.keys():
+                if not equals(self.__dict__[name], other.__dict__[name]):
+                    return False
+        elif hasattr(self, "__slots__") and self.__slots__:
+            for name in self.__slots__:
+                if not equals(getattr(self, name), getattr(other, name)):
+                    return False
+        return True
 
     return self == other
 
@@ -148,32 +176,49 @@ def record_get_hashcode(self: Record) -> int:
     return hash(tuple(getattr(self, fixed_field) for fixed_field in slots))
 
 
-class Record(IComparable):
+class Record(StringableBase, EquatableBase, ComparableBase, HashableBase, IComparable):
+    """Base class for F# records.
+
+    Inherits from ABC base classes that provide Python dunder methods:
+    - StringableBase: __str__, __repr__ from ToString
+    - EquatableBase: __eq__, __ne__ from Equals
+    - ComparableBase: __lt__, __le__, __gt__, __ge__ from CompareTo
+    - HashableBase: __hash__ from GetHashCode
+    """
+
     __slots__: list[str] = []
+
+    # -------------------------------------------------------------------------
+    # String representation (used by StringableBase)
+    # -------------------------------------------------------------------------
+
+    def ToString(self) -> str:
+        return record_to_string(self)
+
+    # -------------------------------------------------------------------------
+    # IEquatable - Equality (used by EquatableBase)
+    # -------------------------------------------------------------------------
+
+    def Equals(self, other: object) -> bool:
+        if not isinstance(other, Record):
+            return False
+        return record_equals(self, other)
+
+    # -------------------------------------------------------------------------
+    # Hashable (HashableBase provides __hash__ from GetHashCode)
+    # -------------------------------------------------------------------------
 
     def GetHashCode(self) -> int32:
         return int32(record_get_hashcode(self))
 
-    def Equals(self, other: Record) -> bool:
-        return record_equals(self, other)
+    # -------------------------------------------------------------------------
+    # IComparable - Comparison (used by ComparableBase)
+    # -------------------------------------------------------------------------
 
-    def __cmp__(self, other: Record) -> int:
+    def CompareTo(self, other: object) -> int:
+        if not isinstance(other, Record):
+            raise TypeError(f"Cannot compare Record with {type(other).__name__}")
         return record_compare_to(self, other)
-
-    def __str__(self) -> str:
-        return record_to_string(self)
-
-    def __repr__(self) -> str:
-        return str(self)
-
-    def __lt__(self, other: Any) -> bool:
-        return True if self.__cmp__(other) == -1 else False
-
-    def __eq__(self, other: Any) -> bool:
-        return self.Equals(other)
-
-    def __hash__(self) -> int:
-        return int(self.GetHashCode())
 
 
 class Attribute: ...
@@ -208,17 +253,31 @@ def to_string(x: object | None, call_stack: int = 0) -> str:
             return str(x)
 
 
-class FSharpException(Exception, IComparable):
+class FSharpException(StringableBase, EquatableBase, ComparableBase, HashableBase, Exception, IComparable):
+    """Base class for F# exceptions.
+
+    Inherits from ABC base classes that provide Python dunder methods:
+    - StringableBase: __str__, __repr__ from ToString
+    - EquatableBase: __eq__, __ne__ from Equals
+    - ComparableBase: __lt__, __le__, __gt__, __ge__ from CompareTo
+    - HashableBase: __hash__ from GetHashCode
+    """
+
     def __init__(self) -> None:
         self.Data0: Any = None
 
-    def __str__(self) -> str:
+    # -------------------------------------------------------------------------
+    # String representation (used by StringableBase)
+    # -------------------------------------------------------------------------
+
+    def ToString(self) -> str:
         return record_to_string(self)  # type: ignore[arg-type]
 
-    def __repr__(self) -> str:
-        return str(self)
+    # -------------------------------------------------------------------------
+    # IEquatable - Equality (used by EquatableBase)
+    # -------------------------------------------------------------------------
 
-    def __eq__(self, other: Any) -> bool:
+    def Equals(self, other: Any) -> bool:
         if self is other:
             return True
 
@@ -227,37 +286,20 @@ class FSharpException(Exception, IComparable):
 
         return self.Data0 == other.Data0
 
-    def __lt__(self, other: Any) -> bool:
-        if not isinstance(other, FSharpException):
-            return False
-
-        if self.Data0:
-            if other.Data0:
-                return self.Data0 < other.Data0
-            else:
-                return False
-
-        elif not self.Data0:
-            if other.Data0:
-                return False
-            else:
-                return True
-
-        return False
-
-    def __hash__(self) -> int:
-        return hash(self.Data0)
+    # -------------------------------------------------------------------------
+    # Hashable (HashableBase provides __hash__ from GetHashCode)
+    # -------------------------------------------------------------------------
 
     def GetHashCode(self) -> int:
-        return hash(self)
+        return hash(self.Data0)
 
-    def Equals(self, other: FSharpException):
-        return record_equals(self, other)
+    # -------------------------------------------------------------------------
+    # IComparable - Comparison (used by ComparableBase)
+    # -------------------------------------------------------------------------
 
-    def CompareTo(self, other: FSharpException):
-        return compare(self.Data0, other.Data0)
-
-    def __cmp__(self, other: FSharpException):
+    def CompareTo(self, other: Any) -> int:
+        if not isinstance(other, FSharpException):
+            return 1  # Non-comparable types sort after
         return compare(self.Data0, other.Data0)
 
 

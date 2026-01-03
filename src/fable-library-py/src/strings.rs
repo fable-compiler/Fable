@@ -1534,6 +1534,43 @@ mod formatting {
             .collect())
     }
 
+    /// Map string characters with a function (String.map in F#)
+    #[pyfunction]
+    pub fn map(_py: Python<'_>, mapping: &Bound<'_, PyAny>, x: &str) -> PyResult<String> {
+        x.chars()
+            .map(|ch| -> PyResult<String> {
+                let result = mapping.call1((ch,))?;
+                Ok(result.str()?.to_string())
+            })
+            .collect::<PyResult<Vec<_>>>()
+            .map(|v| v.join(""))
+    }
+
+    /// Map string characters with index (String.mapi in F#)
+    #[pyfunction]
+    pub fn map_indexed(_py: Python<'_>, mapping: &Bound<'_, PyAny>, x: &str) -> PyResult<String> {
+        x.chars()
+            .enumerate()
+            .map(|(i, ch)| -> PyResult<String> {
+                let result = mapping.call1((i as i32, ch))?;
+                Ok(result.str()?.to_string())
+            })
+            .collect::<PyResult<Vec<_>>>()
+            .map(|v| v.join(""))
+    }
+
+    /// Collect string characters with a function that returns a string (String.collect in F#)
+    #[pyfunction]
+    pub fn collect(_py: Python<'_>, mapping: &Bound<'_, PyAny>, x: &str) -> PyResult<String> {
+        x.chars()
+            .map(|ch| -> PyResult<String> {
+                let result = mapping.call1((ch,))?;
+                Ok(result.str()?.to_string())
+            })
+            .collect::<PyResult<Vec<_>>>()
+            .map(|v| v.join(""))
+    }
+
     /// Get substring
     #[pyfunction]
     #[pyo3(signature = (string, start_index, length=None))]
@@ -1560,7 +1597,7 @@ mod formatting {
 
     /// Convert string to character array
     #[pyfunction]
-    pub fn to_char_array2(string: &str, start_index: usize, length: usize) -> PyResult<Vec<char>> {
+    pub fn to_char_array2(py: Python<'_>, string: &str, start_index: usize, length: usize) -> PyResult<FSharpArray> {
         let chars: Vec<char> = string.chars().collect();
 
         if start_index + length > chars.len() {
@@ -1569,7 +1606,12 @@ mod formatting {
             ));
         }
 
-        Ok(chars[start_index..start_index + length].to_vec())
+        let py_result: Vec<Py<PyAny>> = chars[start_index..start_index + length]
+            .iter()
+            .map(|c| -> PyResult<Py<PyAny>> { Ok(c.to_string().into_pyobject(py)?.into()) })
+            .collect::<PyResult<Vec<_>>>()?;
+        let py_list = pyo3::types::PyList::new(py, py_result)?;
+        FSharpArray::new(py, Some(py_list.as_any()), None)
     }
 
     /// Extract ignore_case flag from PyAny argument using pattern matching.
@@ -2001,6 +2043,9 @@ pub fn register_string_module(parent_module: &Bound<'_, PyModule>) -> PyResult<(
     m.add_function(wrap_pyfunction!(formatting::trim_start, &m)?)?;
     m.add_function(wrap_pyfunction!(formatting::trim_end, &m)?)?;
     m.add_function(wrap_pyfunction!(formatting::filter, &m)?)?;
+    m.add_function(wrap_pyfunction!(formatting::map, &m)?)?;
+    m.add_function(wrap_pyfunction!(formatting::map_indexed, &m)?)?;
+    m.add_function(wrap_pyfunction!(formatting::collect, &m)?)?;
     m.add_function(wrap_pyfunction!(formatting::substring, &m)?)?;
     m.add_function(wrap_pyfunction!(formatting::to_char_array2, &m)?)?;
     m.add_function(wrap_pyfunction!(formatting::compare, &m)?)?;

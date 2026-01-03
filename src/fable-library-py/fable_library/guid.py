@@ -26,8 +26,8 @@ def new_guid() -> uuid.UUID:
     return uuid.uuid4()
 
 
-def guid_to_array(guid: uuid.UUID) -> bytearray:
-    return bytearray(guid.bytes_le)
+def guid_to_array(guid: uuid.UUID) -> Array[byte]:
+    return Array[byte](byte(x) for x in guid.bytes_le)
 
 
 def array_to_guid(guid: Array[byte]) -> uuid.UUID:
