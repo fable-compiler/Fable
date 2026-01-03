@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from .option import Option, some
+from .protocols import IEnumerable_1
 from .types import int32
-
-
-if TYPE_CHECKING:
-    from .protocols import IEnumerable_1
 
 
 def _to_iterable[T](items: Iterable[T] | IEnumerable_1[T]) -> Iterable[T]:

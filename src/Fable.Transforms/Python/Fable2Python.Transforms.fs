@@ -3211,15 +3211,22 @@ let declareClassType
             ent.AllInterfaces
             |> Seq.exists (fun int -> Helpers.removeNamespace (int.Entity.FullName) = "IEnumerable_1")
 
+        // Check if class implements IDisposable (avoid duplicate DisposableBase from Py.ContextManager)
+        let hasIDisposable =
+            ent.AllInterfaces
+            |> Seq.exists (fun int -> Helpers.removeNamespace (int.Entity.FullName) = "IDisposable")
+
         ent.AllInterfaces
         |> List.ofSeq
         |> List.filter (fun int ->
             let name = Helpers.removeNamespace (int.Entity.FullName)
             // Filter out IDisposable if IEnumerator_1 is present to avoid diamond inheritance
             // Filter out Py.Iterable if IEnumerable_1 is present to avoid duplicate EnumerableBase
+            // Filter out Py.ContextManager if IDisposable is present to avoid duplicate DisposableBase
             Bases.allowedInterfaces |> List.contains name
             && not (hasIEnumerator && name = "IDisposable")
             && not (hasIEnumerable && name = "Iterable")
+            && not (hasIDisposable && name = "ContextManager")
         )
         |> List.collect (fun int ->
             let name = Helpers.removeNamespace int.Entity.FullName

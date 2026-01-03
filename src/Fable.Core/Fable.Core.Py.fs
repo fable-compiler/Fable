@@ -216,12 +216,13 @@ module Py =
     // Python ABC base classes to your F# types. The base classes provide Python
     // dunder methods by delegating to your F# methods.
     //
-    // Usage: Add the marker interface to your F# type, implement the required
+    // Usage: Implement the marker interface on your F# type along with the required
     // F# methods, and the compiler adds the ABC base that provides Python dunders.
     //
     // Example:
-    //   [<Py.Hashable; Py.Equatable>]
     //   type MyType() =
+    //       interface Py.Hashable
+    //       interface Py.Equatable
     //       override _.GetHashCode() = ...
     //       override _.Equals(other) = ...
     //   // Generated Python class inherits HashableBase, EquatableBase
@@ -295,6 +296,8 @@ module Py =
     /// <summary>
     /// Provides __enter__ and __exit__ from Dispose().
     /// Enables Python's 'with' statement for resource management.
+    /// Note: Not needed if your type implements IDisposable - the compiler
+    /// automatically adds context manager support for IDisposable types.
     /// </summary>
     [<AllowNullLiteral>]
     type ContextManager = interface end
@@ -308,39 +311,48 @@ module Py =
     // (e.g., Mapping vs Mapping<'K,'V>) by arity.
 
     /// <summary>
+    /// Generic marker for custom types implementing Python Mapping protocol.
     /// Provides __getitem__, __contains__, __len__, __iter__, keys, values, items, get
     /// from get_Item(key), ContainsKey(key), Count, GetEnumerator().
+    /// For FSharpMap or Dictionary, use Py.Mapping.Map or Py.Mapping.Dictionary instead.
     /// </summary>
     [<AllowNullLiteral>]
     type Mapping = interface end
 
     /// <summary>
+    /// Generic marker for custom types implementing Python MutableMapping protocol.
     /// Extends Mapping with __setitem__, __delitem__, clear, pop, popitem, setdefault
     /// from set_Item(key, value), Remove(key), Clear().
+    /// For Dictionary, use Py.Mapping.Dictionary instead.
     /// </summary>
     [<AllowNullLiteral>]
     type MutableMapping = interface end
 
     /// <summary>
+    /// Generic marker for custom types implementing Python Set protocol.
     /// Provides __contains__, __len__, __iter__
     /// from Contains(item), Count, GetEnumerator().
+    /// For FSharpSet or HashSet, use Py.Set.FSharpSet or Py.Set.HashSet instead.
     /// </summary>
     [<AllowNullLiteral>]
     type Set = interface end
 
     /// <summary>
+    /// Generic marker for custom types implementing Python MutableSet protocol.
     /// Extends Set with add, discard, remove, pop, clear
     /// from Add(item), Remove(item), Clear().
+    /// For HashSet, use Py.Set.HashSet instead.
     /// </summary>
     [<AllowNullLiteral>]
     type MutableSet = interface end
 
     // -------------------------------------------------------------------------
-    // Namespaced Collection Protocol Markers
+    // Type-Specific Collection Protocol Markers
     // -------------------------------------------------------------------------
-    // These modules group marker interfaces by Python protocol.
-    // The type name indicates which .NET type is implementing the protocol.
-    // Example: Py.Mapping.Map means FSharpMap implementing Python Mapping protocol.
+    // These modules contain markers for specific .NET collection types.
+    // Use these instead of the generic markers above when working with
+    // FSharpMap, Dictionary, FSharpSet, or HashSet - they provide optimized
+    // implementations that understand the specific type's API.
 
     /// <summary>
     /// Marker interfaces for types implementing Python Mapping protocol.

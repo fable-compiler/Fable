@@ -13,7 +13,7 @@ from typing import (
 )
 
 from .protocols import IEnumerable_1
-from .util import AnonymousDisposable, IDisposable
+from .util import Disposable, IDisposable
 
 
 class OperationCanceledError(Exception):
@@ -79,7 +79,7 @@ class CancellationToken:
         def dispose():
             self.remove_listener(id)
 
-        AnonymousDisposable(dispose)
+        Disposable.create(dispose)
 
 
 class IAsyncContext[T]:

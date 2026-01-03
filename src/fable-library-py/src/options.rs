@@ -2,7 +2,9 @@ use core::convert::Into;
 use pyo3::class::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyList, PyType};
+use pyo3::types::{PyAny, PyType};
+
+use crate::array::FSharpArray;
 
 use pyo3::IntoPyObjectExt;
 
@@ -330,15 +332,14 @@ fn flatten(py: Python<'_>, x: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
 }
 
 #[pyfunction]
-fn to_array(py: Python<'_>, opt: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+fn to_array(py: Python<'_>, opt: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
     if opt.is_none() {
-        // Return empty list
-        let empty_list = PyList::empty(py);
-        empty_list.into_py_any(py)
+        // Return empty FSharpArray
+        FSharpArray::new(py, None, None)
     } else {
         let val = extract_value(py, opt)?;
-        let list = PyList::new(py, &[val])?;
-        list.into_py_any(py)
+        // Create a singleton FSharpArray with the extracted value
+        FSharpArray::singleton(py, val.bind(py), None)
     }
 }
 

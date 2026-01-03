@@ -2740,6 +2740,7 @@ __all__ = [
     "EnumeratorBase",
     "EquatableBase",
     "HashableBase",
+    "IDisposable",
     "ObjectDisposedException",
     "ObjectRef",
     "PlatformID",
