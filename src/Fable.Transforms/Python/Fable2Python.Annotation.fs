@@ -319,8 +319,8 @@ let typeAnnotation
         else
             typeAnnotation com ctx repeatedGenerics genArg // nullable reference types are erased
     | Fable.Option(Fable.Unit, _) ->
-        // unit option -> just None instead of None | None
-        Expression.none, []
+        // unit option -> Option[None] since it can be some(None) or None
+        fableModuleAnnotation com ctx "option" "Option" [ Expression.none ], []
     | Fable.Option(genArg, _) ->
         // Must match mustWrapOption logic in Transforms.Util.fs
         // Wrap when: Any, Unit, GenericParam, or nested Option
@@ -467,9 +467,7 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
     | Types.iobservableGeneric, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
         fableModuleAnnotation com ctx "observable" "IObservable" resolved, stmts
-    | Types.idictionary, _ ->
-        let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-        fableModuleAnnotation com ctx "protocols" "IDictionary" resolved, stmts
+    | Types.idictionary, _ -> stdlibModuleTypeHint com ctx "collections.abc" "MutableMapping" genArgs repeatedGenerics
     | Types.ievent2, _ ->
         // IEvent<'Delegate, 'Args> - only use Args (second param) since Delegate is phantom in Python
         let argsType = genArgs |> List.tryItem 1 |> Option.defaultValue Fable.Any
@@ -481,11 +479,11 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
         fableModuleAnnotation com ctx "mailbox_processor" "MailboxProcessor" resolved, stmts
     // IFormatProvider is not used in Python, just map to Any
     | "System.IFormatProvider", _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
-    // JS.Set/Map are used because fable-library-py reuses Set.fs/Map.fs from the ts folder
-    | "Fable.Core.JS.Set`1", _ ->
+    // Py.Set/Map are used because fable-library-py reuses Set.fs/Map.fs from the ts folder
+    | "Fable.Core.Py.Set`1", _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-        fableModuleAnnotation com ctx "protocols" "ISet" resolved, stmts
-    | "Fable.Core.JS.Map`2", _ ->
+        fableModuleAnnotation com ctx "protocols" "ISet_1" resolved, stmts
+    | "Fable.Core.Py.Map`2", _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
         fableModuleAnnotation com ctx "protocols" "IMap" resolved, stmts
     | "Fable.Core.Py.Callable", _ ->

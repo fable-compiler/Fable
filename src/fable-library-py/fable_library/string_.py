@@ -147,6 +147,7 @@ def get_length(string: str) -> int32:
 __all__ = [
     "IPrintfFormat",
     "StringComparison",
+    "collect",
     "compare",
     "compare_to",
     "concat",
@@ -171,7 +172,6 @@ __all__ = [
     "last_index_of",
     "map",
     "map_indexed",
-    "collect",
     "not_supported",
     "pad_left",
     "pad_right",

@@ -713,7 +713,7 @@ module Util =
         | Fable.DeclaredType(ent, [ Fable.DeclaredType(kvpEnt, [ _; _ ]) ]), Fable.DeclaredType(sourceEnt, _) when
             ent.FullName = Types.ienumerableGeneric
             && kvpEnt.FullName = Types.keyValuePair
-            && sourceEnt.FullName = Types.dictionary
+            && (sourceEnt.FullName = Types.dictionary || sourceEnt.FullName = Types.idictionary)
             ->
             Some(kvpEnt)
         | _ -> None
@@ -1399,3 +1399,121 @@ module MatchStatements =
 
             unwrapRedundantLets subjectName patternIdent body'
         | _ -> expr
+
+    /// Represents a single case extracted from a decision tree for match statement generation.
+    /// Contains the accumulated condition, target index, and bound values.
+    type DecisionTreeCase =
+        {
+            /// The condition expression for this case (accumulated from IfThenElse chain)
+            Condition: Fable.Expr
+            /// Target index for this case
+            TargetIndex: int
+            /// Bound values for this case
+            BoundValues: Fable.Expr list
+        }
+
+    /// Result type for decision tree extraction for match statement conversion.
+    type DecisionTreeMatchResult =
+        {
+            /// All cases extracted from the decision tree
+            Cases: DecisionTreeCase list
+            /// Target index for the default case
+            DefaultTargetIndex: int
+            /// Bound values for the default case
+            DefaultBoundValues: Fable.Expr list
+        }
+
+    /// Extracts all cases from a decision tree for match statement generation.
+    /// Flattens nested IfThenElse into a list of (accumulated conditions, targetIndex, boundValues).
+    /// Each path from root to DecisionTreeSuccess becomes a case with ANDed conditions.
+    let tryExtractDecisionTreeCases (treeExpr: Fable.Expr) : DecisionTreeMatchResult option =
+        // Helper to AND two conditions together
+        let andConditions (c1: Fable.Expr) (c2: Fable.Expr) : Fable.Expr =
+            Fable.Operation(Fable.Logical(LogicalAnd, c1, c2), [], Fable.Boolean, None)
+
+        // Recursively extract all paths, accumulating conditions.
+        // Uses an accumulator (acc) to avoid O(n²) list concatenation.
+        // Cases are accumulated in reverse order and reversed at the end.
+        let rec extractPaths
+            (acc: DecisionTreeCase list)
+            (currentCondition: Fable.Expr option)
+            (expr: Fable.Expr)
+            : (DecisionTreeCase list * (int * Fable.Expr list) option) option
+            =
+            match expr with
+            | Fable.IfThenElse(condition, thenExpr, elseExpr, _) ->
+                // Condition for then branch: currentCondition AND condition
+                let thenCondition =
+                    match currentCondition with
+                    | Some cc -> andConditions cc condition
+                    | None -> condition
+
+                // For the else branch, we don't accumulate "NOT condition" because
+                // Python match semantics guarantee sequential evaluation with fall-through.
+                // If the then-branch guard fails, Python automatically tries the next case,
+                // so the negation is implicit. This produces cleaner guards like:
+                //   case _ if A: ...      (instead of case _ if A: ...)
+                //   case _ if B: ...      (instead of case _ if (not A) and B: ...)
+                //   case _: ...           (default)
+                let elseCondition = currentCondition
+
+                // Extract from then branch, passing accumulator
+                match extractPaths acc (Some thenCondition) thenExpr with
+                | Some(accAfterThen, thenDefault) ->
+                    // Extract from else branch, continuing with accumulated cases
+                    match extractPaths accAfterThen elseCondition elseExpr with
+                    | Some(accAfterElse, elseDefault) ->
+                        // Default should come from one of the branches (prefer else as it's typically the fallback)
+                        let defaultCase = elseDefault |> Option.orElse thenDefault
+                        Some(accAfterElse, defaultCase)
+                    | None -> None
+                | None -> None
+
+            | Fable.DecisionTreeSuccess(targetIndex, boundValues, _) ->
+                match currentCondition with
+                | Some cond ->
+                    // This is a case with accumulated conditions - prepend to accumulator
+                    let case =
+                        {
+                            Condition = cond
+                            TargetIndex = targetIndex
+                            BoundValues = boundValues
+                        }
+
+                    Some(case :: acc, None)
+                | None ->
+                    // This is the default case (no conditions accumulated)
+                    Some(acc, Some(targetIndex, boundValues))
+
+            | _ ->
+                // Pattern doesn't match expected structure
+                None
+
+        match extractPaths [] None treeExpr with
+        | Some(casesReversed, defaultOpt) ->
+            // Reverse the accumulated cases to restore original order
+            let cases = List.rev casesReversed
+
+            match defaultOpt with
+            | Some(defaultIndex, defaultBoundValues) when not (List.isEmpty cases) ->
+                Some
+                    {
+                        Cases = cases
+                        DefaultTargetIndex = defaultIndex
+                        DefaultBoundValues = defaultBoundValues
+                    }
+            | None ->
+                // No explicit default case found - the last case in the tree isn't
+                // necessarily a catch-all, so fall back to safer code generation
+                None
+            | Some(_defaultIndex, _defaultBoundValues) when List.isEmpty cases ->
+                // Only default case with no discriminating cases - a match statement
+                // would be trivially `case _:` with no discrimination, so fall back
+                // to simpler code generation
+                None
+            | _ ->
+                // Pattern doesn't match expected structure - fall back to other code generation
+                None
+        | None ->
+            // Pattern doesn't match expected structure - fall back to other code generation
+            None

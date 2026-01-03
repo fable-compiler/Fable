@@ -17,8 +17,8 @@ type OTest(a) = member val A = a with get, set
 type UTest2 =
     | String of string
     override x.GetHashCode() = x.GetHashCode()
-    override x.Equals(yobj) =
-       match yobj with
+    override x.Equals(other) =
+       match other with
          | :? UTest2 as y ->
             match x, y with
             | String s1, String s2 -> (s1 + s1) = s2
@@ -28,12 +28,12 @@ type UTest2 =
             match x, y with
             | String s1, String s2 -> (s1 + s1) = s2
     interface System.IComparable with
-        member x.CompareTo(yobj) =
-            match yobj with
+        member x.CompareTo(other) =
+            match other with
             | :? UTest2 as y ->
                 match x, y with
                 | String s1, String s2 -> compare (s1 + s1) s2
-            | _ -> invalidArg "yobj" "cannot compare values of different types"
+            | _ -> invalidArg "other" "cannot compare values of different types"
 
 
 exception Ex of int

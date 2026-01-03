@@ -229,7 +229,6 @@ __all__ = [
     "EnumeratorBase",
     "EquatableBase",
     "HashableBase",
-    "ObjectDisposedException",
     "SizedBase",
     "StringableBase",
 ]

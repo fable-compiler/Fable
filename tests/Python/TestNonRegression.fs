@@ -164,8 +164,8 @@ type MyRecord =
 
     {Name : string; Age: int }
 
-    override this.Equals(that) =
-        this.GetHashCode() = that.GetHashCode()
+    override this.Equals(other) =
+        this.GetHashCode() = other.GetHashCode()
 
     /// Hash should just return age of person
     override this.GetHashCode() =

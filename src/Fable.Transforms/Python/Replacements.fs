@@ -59,6 +59,22 @@ let wrapStringToEnumerable com (arg: Expr) =
     | String -> Helper.LibCall(com, "util", "to_enumerable", arg.Type, [ arg ])
     | _ -> arg
 
+/// Wraps IDictionary/Dictionary arguments with to_enumerable(dict.items()) for Seq module compatibility.
+/// When iterating over a dictionary in F#, you get KeyValuePair items, but Python dict
+/// iteration yields keys only. Calling .items() gives us the key-value pairs, and
+/// to_enumerable wraps it as IEnumerable_1 for proper type compatibility.
+/// Note: Only wraps direct dict args, not those already wrapped in TypeCast (handled by transformCast).
+let wrapDictToItems com (arg: Expr) =
+    match arg.Type with
+    | DeclaredType(ent, [ keyType; valueType ]) when ent.FullName = Types.idictionary || ent.FullName = Types.dictionary ->
+        // First call .items() on the dict, then wrap with to_enumerable
+        let tupleType = Tuple([ keyType; valueType ], false)
+        let itemsReturnType = makeRuntimeType [ tupleType ] Types.ienumerableGeneric
+        let itemsCall = Helper.InstanceCall(arg, "items", itemsReturnType, [])
+        // Wrap with to_enumerable to get IEnumerable_1
+        Helper.LibCall(com, "util", "to_enumerable", itemsReturnType, [ itemsCall ])
+    | _ -> arg
+
 let coreModFor =
     function
     | BclGuid -> "guid"
@@ -698,7 +714,8 @@ let makeDictionary (com: ICompiler) ctx r t sourceSeq =
     | DeclaredType(_, [ key; _ ]) when not (isCompatibleWithNativeComparison key) ->
         // makeComparer com ctx key
         makeEqualityComparer com ctx key |> makeDictionaryWithComparer com r t sourceSeq
-    | _ -> Helper.GlobalCall("dict", t, [ sourceSeq ], isConstructor = true, ?loc = r)
+    // Use make_dict which handles both Python iterables and Fable IEnumerable_1
+    | _ -> Helper.LibCall(com, "map_util", "make_dict", t, [ sourceSeq ], ?loc = r)
 
 let makeHashSetWithComparer com r t sourceSeq comparer =
     Helper.LibCall(com, "mutable_set", "HashSet", t, [ sourceSeq; comparer ], isConstructor = true, ?loc = r)
@@ -1549,7 +1566,10 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
 let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName, args with
-    | "Length", [ arg ] -> Helper.GlobalCall("len", t, [ arg ], [ t ], ?loc = r) |> Some
+    | "Length", [ arg ] ->
+        // Use int32(len()) to ensure consistent return type
+        let lenExpr = Helper.GlobalCall("len", Int32.Number, [ arg ], ?loc = r)
+        Helper.LibCall(com, "types", "int32", t, [ lenExpr ], ?loc = r) |> Some
     | ("Iterate" | "IterateIndexed" | "ForAll" | "Exists"), _ ->
         // Cast the string to char[], see #1279
         let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
@@ -1579,7 +1599,12 @@ let formattableString
     match i.CompiledName, thisArg, args with
     | "Create", None, [ str; args ] -> objExpr [ "str", str; "args", args ] |> Some
     | "get_Format", Some x, _ -> getFieldWith r t x "str" |> Some
-    | "get_ArgumentCount", Some x, _ -> Helper.GlobalCall("len", t, [ getField x "args" ], [ t ], ?loc = r) |> Some
+    | "get_ArgumentCount", Some x, _ ->
+        // Use int32(len()) to ensure consistent return type
+        let lenExpr =
+            Helper.GlobalCall("len", Int32.Number, [ getField x "args" ], ?loc = r)
+
+        Helper.LibCall(com, "types", "int32", t, [ lenExpr ], ?loc = r) |> Some
     | "GetArgument", Some x, [ idx ] -> getExpr r t (getField x "args") idx |> Some
     | "GetArguments", Some x, [] -> getFieldWith r t x "args" |> Some
     | _ -> None
@@ -1668,6 +1693,12 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = wrapLastArgIfString i.CompiledName args
+        // Also wrap dict to .items() for functions that iterate over key-value pairs
+        let args =
+            match args with
+            | [] -> args
+            | _ -> args |> List.replaceLast (wrapDictToItems com)
+
         let args = injectArg com ctx r "Seq" meth i.GenericArgs args
 
         Helper.LibCall(com, "seq", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
@@ -3141,8 +3172,12 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         |> Some
     | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
     | "get_Count" ->
+        // Use int32(len()) to ensure consistent return type
         thisArg
-        |> Option.map (fun c -> Helper.GlobalCall("len", t, [ c ], [ t ], ?loc = r))
+        |> Option.map (fun c ->
+            let lenExpr = Helper.GlobalCall("len", Int32.Number, [ c ], ?loc = r)
+            Helper.LibCall(com, "types", "int32", t, [ lenExpr ], ?loc = r)
+        )
     | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some
     | "IsMatch"
     | "Match"

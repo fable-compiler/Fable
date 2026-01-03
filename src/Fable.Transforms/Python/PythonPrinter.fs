@@ -497,7 +497,7 @@ module PrinterExtensions =
 
         member printer.Print(ne: NamedExpr) =
             printer.Print(ne.Target)
-            printer.Print(" :=")
+            printer.Print(" := ")
             printer.Print(ne.Value)
 
         member printer.Print(node: Subscript) =
