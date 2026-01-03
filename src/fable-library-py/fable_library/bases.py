@@ -21,7 +21,7 @@ Usage:
 
 from __future__ import annotations
 
-from abc import ABC, ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -31,14 +31,7 @@ if TYPE_CHECKING:
     from .protocols import IEnumerator
 
 
-class ObjectDisposedException(Exception):
-    """Exception thrown when accessing a disposed object."""
-
-    def __init__(self) -> None:
-        super().__init__("Cannot access a disposed object")
-
-
-class DisposableBase(ABC, metaclass=ABCMeta):
+class DisposableBase(ABC):
     """ABC base class for IDisposable types.
 
     Provides context manager support (__enter__/__exit__) for classes that

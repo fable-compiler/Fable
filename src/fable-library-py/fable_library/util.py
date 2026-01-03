@@ -39,7 +39,6 @@ from .bases import (
     EnumeratorBase,
     EquatableBase,
     HashableBase,
-    ObjectDisposedException,
     SizedBase,
     StringableBase,
 )
@@ -65,7 +64,13 @@ UNIT: Any = None
 # Disposable Classes
 # =============================================================================
 # These classes provide disposable/context manager implementations.
-# Follows the System.Reactive Disposable pattern.
+
+
+class ObjectDisposedException(Exception):
+    """Exception thrown when accessing a disposed object."""
+
+    def __init__(self) -> None:
+        super().__init__("Cannot access a disposed object")
 
 
 class AnonymousDisposable(DisposableBase):
