@@ -266,7 +266,9 @@ module Py =
 
     /// <summary>
     /// Provides __iter__ from GetEnumerator().
-    /// Use for containers that can be iterated multiple times.
+    /// Use for enumerable containers that can be iterated multiple times.
+    /// Note: Not needed if your type implements IEnumerable - the compiler
+    /// automatically adds iteration support for IEnumerable types.
     /// </summary>
     [<AllowNullLiteral>]
     type Iterable = interface end
@@ -274,6 +276,8 @@ module Py =
     /// <summary>
     /// Provides __iter__ and __next__ from MoveNext()/Current.
     /// Use for enumerator types that track iteration state.
+    /// Note: Not needed if your type implements IEnumerator - the compiler
+    /// automatically adds iterator support for IEnumerator types.
     /// </summary>
     [<AllowNullLiteral>]
     type Iterator = interface end
