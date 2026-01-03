@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+* [Python] Fable will no longer auto-generate `__str__` or `__hash__` for custom types. Use the `Py.Stringable` and `Py.Hashable` marker interfaces to generate these methods (by @dbrattli)
+
 ### Added
 
 * [Python] Added ABC base classes for F# types and Py marker interfaces for Python interop (by @dbrattli)
