@@ -3384,16 +3384,15 @@ let transformClassAttributes
 /// class-level declarations for these attributes to be recognized (per PEP 526).
 let generateStaticFieldAnnotations (com: IPythonCompiler) (ctx: Context) (ent: Fable.Entity) : Statement list =
     ent.FSharpFields
-    |> List.filter (fun field ->
-        field.IsStatic
+    |> List.choose (fun field ->
         // Filter out compiler-generated fields (e.g., "init@110-1" from tuple patterns)
         // which contain special characters not valid in Python identifiers
-        && not (field.Name.Contains("@"))
-    )
-    |> List.map (fun field ->
-        let fieldName = field.Name |> Naming.toPythonNaming
-        let ta, _ = Annotation.typeAnnotation com ctx None field.FieldType
-        Statement.annAssign (Expression.name fieldName, annotation = ta)
+        if field.IsStatic && not (field.Name.Contains("@")) then
+            let fieldName = field.Name |> Naming.toPythonNaming
+            let ta, _ = Annotation.typeAnnotation com ctx None field.FieldType
+            Some(Statement.annAssign (Expression.name fieldName, annotation = ta))
+        else
+            None
     )
 
 let declareClassType
