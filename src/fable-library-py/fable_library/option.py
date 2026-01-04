@@ -5,6 +5,19 @@ from .core import option
 
 type Option[T] = option.SomeWrapper[T] | T | None
 
+
+def erase[T](opt: Option[T]) -> T | None:
+    """Erase Option wrapper type for type checker.
+
+    Converts Option[T] (SomeWrapper[T] | T | None) to T | None. This is
+    an identity function at runtime - zero overhead. Used by the
+    compiler when it knows it can safely cross generic → concrete
+    boundaries.
+    """
+    # Use type: ignore instead of cast to avoid additional runtime overhead
+    return opt  # type: ignore[return-value]
+
+
 # Re-export the functions from core.option
 bind = option.bind
 default_arg = option.default_arg
@@ -23,7 +36,6 @@ or_else_with = option.or_else_with
 filter = option.filter
 some = option.some
 non_null = option.non_null
-# Alias for compatibility
 of_null = option.of_nullable
 
 
@@ -32,6 +44,7 @@ __all__ = [
     "bind",
     "default_arg",
     "default_arg_with",
+    "erase",
     "filter",
     "flatten",
     "map",
@@ -42,7 +55,6 @@ __all__ = [
     "of_nullable",
     "or_else",
     "or_else_with",
-    "some",
     "some",
     "to_array",
     "to_nullable",

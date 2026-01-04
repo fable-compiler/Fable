@@ -2,7 +2,7 @@
 from collections.abc import Callable
 from typing import overload
 
-from .array import FSharpArray as Array
+from . import Array
 
 class SomeWrapper[T]:
     value: T
@@ -41,13 +41,17 @@ def map3[T, U, V, W](
 
 # Based on Rust implementation's behavior with SomeWrapper
 def some[T](x: T) -> SomeWrapper[T]: ...
-def value[T](x: Option[T] | T) -> T: ...  # Raises ValueError if None
+def value[T](x: Option[T]) -> T: ...  # Raises ValueError if None
 
 # Converts Python Optional[T] (T | None) to F# Option[T] (Some T | None)
 def of_nullable[T](x: T | None) -> T | None: ...
 
 # Converts F# Option<T> to Python Optional[T] (Some T -> T, None -> None)
 def to_nullable[T](x: Option[T]) -> T | None: ...
+@overload
+def flatten(x: SomeWrapper[None] | None) -> None: ...
+@overload
+def flatten[T](x: Option[Option[T]]) -> Option[T]: ...
 def flatten[T](x: Option[Option[T]]) -> Option[T]: ...
 def to_array[T](opt: Option[T]) -> Array[T]: ...
 @overload

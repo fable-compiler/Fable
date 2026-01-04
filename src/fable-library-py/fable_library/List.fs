@@ -106,9 +106,6 @@ type LinkedList<'T> =
 
         loop 0 0 xs
 
-    interface IJsonSerializable with
-        member this.toJSON() = Helpers.arrayFrom (this) |> box
-
     interface System.IComparable with
         member xs.CompareTo(other: obj) =
             let ys = other :?> 'T list

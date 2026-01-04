@@ -1,0 +1,24 @@
+{
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "standard",
+  "reportMissingTypeStubs": false,
+  "reportMissingImports": true,
+  "reportMissingModuleSource": false,
+  "reportUnnecessaryTypeIgnoreComment": true,
+  "reportUnusedImport": false,
+  "reportUnusedVariable": false,
+  "reportUnnecessaryIsInstance": true,
+  "reportUnnecessaryComparison": false,
+  "reportUnnecessaryCast": true,
+  "reportPrivateUsage": false,
+  "reportImportCycles": true,
+  "reportDuplicateImport": true,
+  "reportConstantRedefinition": false,
+  "reportOverlappingOverload": true,
+  "reportInconsistentConstructor": true,
+  "reportImplicitStringConcatenation": true,
+  "exclude": [
+    "**/.venv/**",
+    "**/node_modules/**"
+  ]
+}

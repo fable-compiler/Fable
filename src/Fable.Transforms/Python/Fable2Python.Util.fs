@@ -56,25 +56,27 @@ module Util =
         | Fable.Option(innerType, _) -> not (mustWrapOption innerType)
         | _ -> false
 
-    /// Check if binding needs Option cast from Option[T] to T | None.
-    /// Cast needed when:
-    /// 1. User-defined generic functions (GenericArgs contains resolved types)
-    /// 2. Library imports returning Option[T] assigned to concrete T | None
-    let needsOptionCastForBinding (value: Fable.Expr) (targetType: Fable.Type) =
-        match value, targetType with
-        | Fable.Call(callee, callInfo, _, _), Fable.Option(tgtInner, _) when not (mustWrapOption tgtInner) ->
-            match value.Type with
-            | Fable.Option(srcInner, _) ->
-                // For user-defined generics: check if inner type was resolved from GenericParam
-                if callInfo.GenericArgs <> [] then
-                    List.contains srcInner callInfo.GenericArgs
-                else
-                    // For library imports (empty GenericArgs): cast if calling imported function
-                    // Local functions with concrete types generate T | None, no cast needed
-                    match callee with
-                    | Fable.Import _ -> srcInner = tgtInner && not (mustWrapOption srcInner)
-                    | _ -> false
-            | _ -> false
+    /// Check if a call expression needs Option erase from Option[T] to T | None.
+    /// When target type is Option<ConcreteType> (erased to T | None), we need to erase
+    /// because library functions use Option[T] (wrapped form) in their signatures,
+    /// but actual runtime values are not wrapped for concrete types.
+    let private needsOptionEraseForCall (targetType: Fable.Type) =
+        match targetType with
+        | Fable.Option(tgtInner, _) when not (mustWrapOption tgtInner) -> true
+        | _ -> false
+
+    /// Check if binding needs Option erase from Option[T] to T | None.
+    let needsOptionEraseForBinding (value: Fable.Expr) (targetType: Fable.Type) =
+        match value with
+        | Fable.Call _ -> needsOptionEraseForCall targetType
+        | _ -> false
+
+    /// Check if return expression needs Option erase from Option[T] to T | None.
+    /// Used when returning from a function where the expected return type is T | None
+    /// but the actual expression returns Option[T] (wrapped form).
+    let needsOptionEraseForReturn (value: Fable.Expr) (expectedReturnType: Fable.Type) =
+        match value with
+        | Fable.Call _ -> needsOptionEraseForCall expectedReturnType
         | _ -> false
 
     /// Wraps None values in cast(type, None) for type safety.

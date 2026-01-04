@@ -3057,7 +3057,7 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (a
         |> Some
     | "NextDouble" ->
         let ranExpr = Helper.ImportedCall("random", "random", t, [], [])
-        Helper.LibCall(com, "types", "int32", t, [ ranExpr ], ?loc = r) |> Some
+        Helper.LibCall(com, "types", "float64", t, [ ranExpr ], ?loc = r) |> Some
     | "NextBytes" ->
         let byteArray =
             match args with

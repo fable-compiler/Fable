@@ -11,13 +11,13 @@ type R3 =
     { Bar: string
       Foo: int }
     interface System.IComparable with
-        member this.CompareTo(x) =
-            match x with
+        member this.CompareTo(other) =
+            match other with
             | :? R3 as x -> compare this.Bar x.Bar
             | _ -> -1
     override this.GetHashCode() = hash this.Bar
-    override this.Equals(x) =
-        match x with
+    override this.Equals(other) =
+        match other with
         | :? R3 as x -> this.Bar = x.Bar
         | _ -> false
 

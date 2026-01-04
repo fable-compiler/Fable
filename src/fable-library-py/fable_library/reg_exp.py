@@ -5,8 +5,9 @@ from collections.abc import Callable, Iterator
 from re import Match, Pattern
 
 from .array_ import Array
+from .protocols import IEnumerator
 from .types import IntegerTypes
-from .util import UNIT, Enumerator, IEnumerator
+from .util import UNIT, Enumerator
 
 
 MatchEvaluator = Callable[[Match[str]], str]

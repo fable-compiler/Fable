@@ -195,7 +195,7 @@ def is_equatable(x: Any) -> bool:
     return (hasattr(x, "Equals") and callable(x.Equals)) or (hasattr(x, "__eq__") and callable(x.__eq__))
 
 
-def is_iterable(x: Any) -> bool:
+def is_iterable(x: object) -> bool:
     return isinstance(x, Iterable)
 
 
@@ -420,12 +420,13 @@ def int_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
     return str(i)
 
 
-def count(col: Iterable[Any]) -> int32:
-    if isinstance(col, Sized):
-        return int32(len(col))
+def count(it: IEnumerable_1[Any] | Iterable[Any]) -> int32:
+    it = to_iterable(it)
+    if isinstance(it, Sized):
+        return int32(len(it))
 
     count = int32.ZERO
-    for _ in col:
+    for _ in it:
         count += 1
 
     return count

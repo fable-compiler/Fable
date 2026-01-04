@@ -41,26 +41,6 @@ include = ["./temp/fable-library-py/fable_library"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.pyright]
-reportMissingTypeStubs = false
-reportMissingImports = false
-reportUnnecessaryTypeIgnoreComment = true
-reportUnusedImport = false  # Generated code may have unused imports due to optimizations, will be removed by Ruff formatter
-reportUnusedVariable = false
-reportUnnecessaryIsInstance = true
-reportUnnecessaryComparison = false  # Generated Option tests compare unwrapped values to None
-reportUnnecessaryCast = true
-reportPrivateUsage = false # Getters/setters reference private members from outside the class
-reportImportCycles = true
-reportDuplicateImport = true
-reportConstantRedefinition = true
-reportOverlappingOverload = true
-reportInconsistentConstructor = true
-reportImplicitStringConcatenation = true
-
-pythonVersion = "3.12"
-typeCheckingMode = "standard"
-
 [tool.uv]
 package = false # This is a project, not a package
 
