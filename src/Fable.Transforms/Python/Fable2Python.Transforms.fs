@@ -2135,7 +2135,7 @@ let transformDecisionTreeWithTwoSwitches
 
     // Generate: (pattern_matching_result, v1, v2, ...) = nullable[int32, T1, T2, ...]()
     // This tells Pyright the types while allowing initial None values
-    let nullableFunc = com.GetImportExpr(ctx, getLibPath com "nullness", "nullable")
+    let nullableFunc = libValue com ctx "util" "nullable"
 
     // Collect type annotations and any prerequisite statements
     let int32Type = Fable.Number(Int32, Fable.NumberInfo.Empty)

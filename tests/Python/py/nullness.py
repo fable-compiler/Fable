@@ -1,22 +1,4 @@
-from typing import Any, cast
-
-
-class nullable:
-    """Returns a tuple of None values based on type parameters."""
-
-    _params: tuple[type, ...] | None = None
-
-    def __class_getitem__(cls, params: Any) -> type["nullable"]:
-        # Create a new class that remembers the params
-        class _Initialize(nullable):
-            _params = params if isinstance(params, tuple) else (params,)
-
-        return _Initialize
-
-    def __new__(cls) -> Any:
-        if cls._params is None:
-            raise TypeError("Must specify type parameters: initialize[T1, T2, ...]()")
-        return tuple(None for _ in cls._params)
+from typing import cast
 
 
 def maybe_undefined(value: str) -> str:
