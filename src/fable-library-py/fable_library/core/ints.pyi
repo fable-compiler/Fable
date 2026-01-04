@@ -1,6 +1,6 @@
 """Stub file for Fable integer types."""
 
-from typing import Any, ClassVar, Literal, Protocol, Self, SupportsFloat, SupportsInt, final, overload
+from typing import Any, ClassVar, Protocol, Self, SupportsFloat, SupportsInt, final
 
 class NumericInts(Protocol):
     """Protocol for Integer types"""

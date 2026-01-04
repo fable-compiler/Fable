@@ -378,7 +378,7 @@ def get_record_fields(v: Any) -> Array[str]:
 
 
 def get_record_field(v: Any, field: FieldInfo) -> Any:
-    if not isinstance(field[0], str):  # type: ignore
+    if not isinstance(field[0], str):
         raise ValueError("Field not a string.")
 
     if isinstance(v, dict):

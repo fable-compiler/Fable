@@ -859,12 +859,6 @@ type Map<[<EqualityConditionalOn>] 'Key, [<EqualityConditionalOn; ComparisonCond
             loop ()
         | _ -> false
 
-    interface Symbol_wellknown with
-        member _.``Symbol.toStringTag`` = "FSharpMap"
-
-    interface IJsonSerializable with
-        member this.toJSON() = JS.Constructors.Array.from (this)
-
     interface IEnumerable<KeyValuePair<'Key, 'Value>> with
         member _.GetEnumerator() = MapTree.mkIEnumerator tree
 

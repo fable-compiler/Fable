@@ -71,6 +71,62 @@ let getGenericArgs (typ: Fable.Type) : Fable.Type list =
 let containsGenericParams (t: Fable.Type) =
     FSharp2Fable.Util.getGenParamNames [ t ] |> List.isEmpty |> not
 
+/// Check if a type is a callable type (Lambda or Delegate)
+let isCallableType (t: Fable.Type) =
+    match t with
+    | Fable.LambdaType _
+    | Fable.DelegateType _ -> true
+    | _ -> false
+
+/// Get the final (non-callable) return type from a nested callable type.
+/// For A -> B -> C -> int, returns int.
+let rec getFinalReturnType (t: Fable.Type) =
+    match t with
+    | Fable.LambdaType(_, returnType) -> getFinalReturnType returnType
+    | Fable.DelegateType(_, returnType) -> getFinalReturnType returnType
+    | _ -> t
+
+/// Get the immediate return type of a callable (one level deep).
+let getImmediateReturnType (t: Fable.Type) =
+    match t with
+    | Fable.LambdaType(_, returnType) -> returnType
+    | Fable.DelegateType(_, returnType) -> returnType
+    | _ -> t
+
+/// Generate type annotation for a callable (lambda) type.
+/// For nested callables:
+/// - If returned callable returns another callable: Callable[..., Any]
+/// - If returned callable returns concrete type: Callable[..., Callable[..., ConcreteType]]
+/// For simple callables (depth 1), preserves full type information.
+let makeLambdaTypeAnnotation
+    (com: IPythonCompiler)
+    ctx
+    (repeatedGenerics: Set<string> option)
+    (argType: Fable.Type)
+    (returnType: Fable.Type)
+    : Expression * Statement list
+    =
+    if isCallableType returnType then
+        // Check if the returned callable also returns a callable
+        let innerReturnType = getImmediateReturnType returnType
+
+        if isCallableType innerReturnType then
+            // Deeply nested: Callable[..., Any]
+            let any, stmts = stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
+            stdlibModuleAnnotation com ctx "collections.abc" "Callable" [ Expression.ellipsis; any ], stmts
+        else
+            // Returned callable returns concrete type: Callable[..., Callable[..., ConcreteType]]
+            let concreteReturnExpr, stmts =
+                typeAnnotation com ctx repeatedGenerics innerReturnType
+
+            let innerCallable =
+                stdlibModuleAnnotation com ctx "collections.abc" "Callable" [ Expression.ellipsis; concreteReturnExpr ]
+
+            stdlibModuleAnnotation com ctx "collections.abc" "Callable" [ Expression.ellipsis; innerCallable ], stmts
+    else
+        // Simple case: Callable[[A], B] where B is not a callable - preserve full types
+        stdlibModuleTypeHint com ctx "collections.abc" "Callable" [ argType; returnType ] repeatedGenerics
+
 let getEntityGenParams (ent: Fable.Entity) =
     ent.GenericParameters |> Seq.map (fun x -> x.Name) |> Set.ofSeq
 
@@ -88,9 +144,31 @@ let makeMemberTypeParams (com: IPythonCompiler) ctx (genParams: Fable.GenericPar
     else
         []
 
+/// Try to convert a generic constraint type to its non-generic base type.
+/// Python 3.12+ TypeVar bounds cannot use parameterized generic types,
+/// so we map e.g., IEnumerable<'T> to IEnumerable (non-generic).
+let private tryGetNonGenericBase (target: Fable.Type) : Fable.Type option =
+    match target with
+    | Fable.DeclaredType(entRef, _genArgs) ->
+        match entRef.FullName with
+        // IEnumerable<T> -> IEnumerable (non-generic)
+        | Types.ienumerableGeneric ->
+            let nonGenericRef: Fable.EntityRef =
+                {
+                    FullName = Types.ienumerable
+                    Path = Fable.CoreAssemblyName "System.Runtime"
+                }
+
+            Some(Fable.DeclaredType(nonGenericRef, []))
+        // Add other mappings here as needed:
+        // Types.icomparableGeneric -> Types.icomparable, etc.
+        | _ -> None
+    | _ -> None
+
 /// Extract bound type from CoercesTo constraint if present.
 /// Returns the first CoercesTo constraint target type, or None if no such constraint exists.
-/// Only returns non-generic bounds since Python 3.12+ TypeVar bounds cannot be parameterized.
+/// For bounds with generic parameters, attempts to use a non-generic base type instead,
+/// since Python 3.12+ TypeVar bounds cannot be parameterized.
 let tryGetCoercesToBound (constraints: Fable.Constraint list) : Fable.Type option =
     constraints
     |> List.tryPick (
@@ -99,7 +177,8 @@ let tryGetCoercesToBound (constraints: Fable.Constraint list) : Fable.Type optio
             // Python 3.12+ doesn't support parameterized generic types as bounds
             // e.g., T: IEnumerable[U] is invalid, only T: SomeNonGenericType works
             if containsGenericParams target then
-                None
+                // Try to use a non-generic base type instead
+                tryGetNonGenericBase target
             else
                 Some target
         | _ -> None
@@ -305,10 +384,7 @@ let typeAnnotation
     | Fable.Char -> Expression.name "str", []
     | Fable.String -> Expression.name "str", []
     | Fable.Number(kind, info) -> makeNumberTypeAnnotation com ctx kind info
-    | Fable.LambdaType(argType, returnType) ->
-        // Keep curried structure: A -> (B -> C) becomes Callable[[A], Callable[[B], C]]
-        // This matches the actual runtime code which generates nested lambdas
-        stdlibModuleTypeHint com ctx "collections.abc" "Callable" [ argType; returnType ] repeatedGenerics
+    | Fable.LambdaType(argType, returnType) -> makeLambdaTypeAnnotation com ctx repeatedGenerics argType returnType
     | Fable.DelegateType(argTypes, returnType) ->
         stdlibModuleTypeHint com ctx "collections.abc" "Callable" (argTypes @ [ returnType ]) repeatedGenerics
     | Fable.Nullable(genArg, isStruct) ->
@@ -545,13 +621,8 @@ let makeBuiltinTypeAnnotation com ctx typ repeatedGenerics kind =
     match kind with
     | Replacements.Util.BclGuid -> stdlibModuleTypeHint com ctx "uuid" "UUID" [] repeatedGenerics
     | Replacements.Util.FSharpReference genArg ->
-        // For inref types (like struct instance member's 'this' parameter),
-        // use the inner type directly since Python doesn't wrap them in FSharpRef
-        if isInRefOrAnyType com typ then
-            typeAnnotation com ctx repeatedGenerics genArg
-        else
-            let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
-            fableModuleAnnotation com ctx "types" "FSharpRef" resolved, stmts
+        let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
+        fableModuleAnnotation com ctx "types" "FSharpRef" resolved, stmts
     (*
     | Replacements.Util.BclTimeSpan -> NumberTypeAnnotation
     | Replacements.Util.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"
@@ -574,6 +645,10 @@ let makeBuiltinTypeAnnotation com ctx typ repeatedGenerics kind =
         let resolved, stmts = resolveGenerics com ctx [ ok; err ] repeatedGenerics
 
         fableModuleAnnotation com ctx "result" "FSharpResult_2" resolved, stmts
+    | Replacements.Util.FSharpChoice genArgs ->
+        let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+        let name = $"FSharpChoice_%d{List.length genArgs}"
+        fableModuleAnnotation com ctx "choice" name resolved, stmts
     | _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
 
 let transformFunctionWithAnnotations

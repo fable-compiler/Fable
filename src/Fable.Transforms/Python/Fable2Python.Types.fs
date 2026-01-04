@@ -5,8 +5,8 @@ open Fable.AST
 open Fable.Transforms.Python.AST
 
 type ReturnStrategy =
-    /// Return last expression
-    | Return
+    /// Return last expression with optional expected return type (for Option casting)
+    | Return of Fable.Type option
     | ReturnUnit
     /// Return within a with-statement (to make sure we don't TC with statements)
     | ResourceManager of ReturnStrategy option

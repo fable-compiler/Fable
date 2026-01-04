@@ -17,12 +17,11 @@ open Fable.Transforms.Python.Reflection
 open Lib
 open Util
 
-/// Wrap an expression in typing.cast() to convert Option[T] -> T | None.
-/// This is zero runtime overhead - cast() is an identity function for type checkers.
-let wrapInOptionCast (com: IPythonCompiler) ctx (expr: Expression) (targetType: Fable.Type) =
-    let castFunc = com.GetImportExpr(ctx, "typing", "cast")
-    let typeAnnotation, _ = Annotation.typeAnnotation com ctx None targetType
-    Expression.call (castFunc, [ typeAnnotation; expr ])
+/// Wrap an expression in option.erase() to convert Option[T] -> T | None.
+/// This is zero runtime overhead - erase() is an identity function for type checkers.
+let wrapInOptionErase (com: IPythonCompiler) ctx (expr: Expression) =
+    libCall com ctx None "option" "erase" [ expr ]
+
 
 /// Immediately Invoked Function Expression
 let iife (com: IPythonCompiler) ctx (expr: Fable.Expr) =
@@ -773,7 +772,7 @@ let resolveExpr (ctx: Context) _t strategy pyExpr : Statement list =
     | Some ReturnUnit -> exprAsStatement ctx pyExpr
     // TODO: Where to put these int wrappings? Add them also for function arguments?
     | Some(ResourceManager strategy) -> resolveExpr ctx _t strategy pyExpr
-    | Some Return -> [ Statement.return' pyExpr ]
+    | Some(Return _) -> [ Statement.return' pyExpr ]
     | Some(Assign left) -> exprAsStatement ctx (assign None left pyExpr)
     | Some(Target left) -> exprAsStatement ctx (assign None (left |> Expression.identifier) pyExpr)
 
@@ -984,7 +983,7 @@ let transformCallAsStatements com ctx range t returnStrategy callee callInfo =
                0)
     // Warn when there's a recursive call that couldn't be optimized?
     match returnStrategy, ctx.TailCallOpportunity with
-    | Some(Return | ReturnUnit), Some tc when tc.IsRecursiveRef(callee) && argsLen callInfo = List.length tc.Args ->
+    | Some(Return _ | ReturnUnit), Some tc when tc.IsRecursiveRef(callee) && argsLen callInfo = List.length tc.Args ->
         let args =
             match callInfo.ThisArg with
             | Some thisArg -> thisArg :: callInfo.Args
@@ -993,12 +992,25 @@ let transformCallAsStatements com ctx range t returnStrategy callee callInfo =
         optimizeTailCall com ctx range tc args
     | _ ->
         let expr, stmts = transformCall com ctx range callee callInfo
+        // Check if we need to cast Option[T] to T | None for return statements
+        let expr =
+            match returnStrategy with
+            | Some(Return(Some expectedType)) ->
+                // Create a temporary Fable.Call to check if erase is needed
+                let callExpr = Fable.Call(callee, callInfo, t, range)
+
+                if needsOptionEraseForReturn callExpr expectedType then
+                    wrapInOptionErase com ctx expr
+                else
+                    expr
+            | _ -> expr
+
         stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
 let transformCurriedApplyAsStatements com ctx range t returnStrategy callee args =
     // Warn when there's a recursive call that couldn't be optimized?
     match returnStrategy, ctx.TailCallOpportunity with
-    | Some(Return | ReturnUnit), Some tc when tc.IsRecursiveRef(callee) && List.sameLength args tc.Args ->
+    | Some(Return _ | ReturnUnit), Some tc when tc.IsRecursiveRef(callee) && List.sameLength args tc.Args ->
         optimizeTailCall com ctx range tc args
     | _ ->
         let expr, stmts = transformCurriedApply com ctx range callee args
@@ -1276,10 +1288,15 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
     | Fable.OptionValue ->
         let expr, stmts = com.TransformAsExpr(ctx, fableExpr)
 
-        if mustWrapOption typ || com.Options.Language = TypeScript then
+        if mustWrapOption typ then
             libCall com ctx range "option" "value" [ expr ], stmts
         else
-            expr, stmts
+            // For concrete types, Python erases Option[T] to T | None.
+            // Use option.value() when the expression is a function call (not narrowable by Pyright)
+            // but skip it for idents (Pyright can narrow via isinstance/is not None checks)
+            match fableExpr with
+            | Fable.IdentExpr _ -> expr, stmts
+            | _ -> libCall com ctx range "option" "value" [ expr ], stmts
 
     | Fable.UnionTag ->
         let expr, stmts = getUnionExprTag com ctx range fableExpr
@@ -1340,9 +1357,8 @@ let transformBindingAsExpr (com: IPythonCompiler) ctx (var: Fable.Ident) (value:
     expr |> assign None (identAsExpr com ctx var), stmts
 
 let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
-    // printfn "transformBindingAsStatements: %A" (var, value)
     let shouldTreatAsStatement = isPyStatement ctx false value
-    let needsCast = needsOptionCastForBinding value var.Type
+    let needsErase = needsOptionEraseForBinding value var.Type
 
     if shouldTreatAsStatement then
         let varName, varExpr = Expression.name var.Name, identAsExpr com ctx var
@@ -1358,10 +1374,10 @@ let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (
         let expr, stmts = transformBindingExprBody com ctx var value
         let varName = com.GetIdentifierAsExpr(ctx, Naming.toPythonNaming var.Name)
         let ta, stmts' = Annotation.typeAnnotation com ctx None var.Type
-        // Cast to T | None if needed (zero runtime overhead, just for type checker)
+        // Erase Option wrapper if needed (zero runtime overhead, just for type checker)
         let expr' =
-            if needsCast then
-                wrapInOptionCast com ctx expr var.Type
+            if needsErase then
+                wrapInOptionErase com ctx expr
             else
                 expr
 
@@ -1421,7 +1437,7 @@ let transformSwitch (com: IPythonCompiler) ctx _useBlocks returnStrategy evalExp
 
                 let caseBody =
                     match returnStrategy with
-                    | Some Return -> caseBody
+                    | Some(Return _) -> caseBody
                     | _ -> List.append caseBody [ Statement.break' () ]
 
                 let expr, stmts = com.TransformAsExpr(ctx, lastGuard)
@@ -2096,202 +2112,6 @@ let getTargetsWithMultipleReferences expr =
     )
     |> Seq.toList
 
-/// Transform a decision tree into a Python match statement with guards.
-/// This generates type-safe code where bound variables are assigned inside each case body,
-/// avoiding the type issues caused by pre-initializing variables to None.
-/// Returns None if the pattern is not suitable for this transformation.
-let transformDecisionTreeAsMatchWithGuards
-    (com: IPythonCompiler)
-    (ctx: Context)
-    returnStrategy
-    (targets: (Fable.Ident list * Fable.Expr) list)
-    (treeExpr: Fable.Expr)
-    : Statement list option
-    =
-    match MatchStatements.tryExtractDecisionTreeCases treeExpr with
-    | None -> None
-    | Some result ->
-        let ctx = { ctx with DecisionTargets = targets }
-
-        // Find Option tests in a condition that match bound values.
-        // Returns a map from bound value index to the expression being tested.
-        // This allows us to use walrus operators to capture and narrow types.
-        let findOptionTestsForBoundValues
-            (condition: Fable.Expr)
-            (boundValues: Fable.Expr list)
-            (idents: Fable.Ident list)
-            =
-            let boundValueSet =
-                boundValues
-                |> List.mapi (fun i bv -> i, bv)
-                |> List.choose (fun (i, bv) ->
-                    // We're looking for bound values that come from Option values
-                    // These will have a corresponding OptionTest in the condition
-                    Some(i, bv)
-                )
-                |> Map.ofList
-
-            // Helper to compare expressions ignoring source locations (Range fields)
-            // This is needed because the same expression may be represented by different AST nodes
-            // with different source locations in the condition vs bound values
-            let rec exprEqualsIgnoringRange (e1: Fable.Expr) (e2: Fable.Expr) : bool =
-                match e1, e2 with
-                | Fable.IdentExpr i1, Fable.IdentExpr i2 -> i1.Name = i2.Name && i1.Type = i2.Type
-                | Fable.Get(expr1, kind1, typ1, _), Fable.Get(expr2, kind2, typ2, _) ->
-                    kind1 = kind2 && typ1 = typ2 && exprEqualsIgnoringRange expr1 expr2
-                | Fable.Call(callee1, info1, typ1, _), Fable.Call(callee2, info2, typ2, _) ->
-                    typ1 = typ2
-                    && exprEqualsIgnoringRange callee1 callee2
-                    && List.length info1.Args = List.length info2.Args
-                    && List.forall2 exprEqualsIgnoringRange info1.Args info2.Args
-                | _ -> e1 = e2
-
-            // Recursively find OptionTest patterns in the condition
-            let rec findTests acc expr =
-                match expr with
-                | Fable.Test(testedExpr, Fable.OptionTest true, _) ->
-                    // Found an OptionTest for Some - check if testedExpr matches a bound value
-                    let matchingBound =
-                        boundValueSet
-                        |> Map.toList
-                        |> List.tryFind (fun (_, bv) ->
-                            match bv with
-                            | Fable.Get(innerExpr, Fable.OptionValue, _, _) ->
-                                exprEqualsIgnoringRange innerExpr testedExpr
-                            | _ -> exprEqualsIgnoringRange bv testedExpr
-                        )
-
-                    match matchingBound with
-                    | Some(idx, _) -> Map.add idx testedExpr acc
-                    | None -> acc
-                | Fable.Operation(Fable.Logical(_, left, right), _, _, _) -> findTests (findTests acc left) right
-                | Fable.Operation(Fable.Unary(_, operand), _, _, _) -> findTests acc operand
-                | _ -> acc
-
-            findTests Map.empty condition
-
-        // Helper to generate case body: assign bound values, then execute target
-        // capturedInGuard: set of bound value indices that were captured with walrus in the guard
-        let generateCaseBody (targetIndex: int) (boundValues: Fable.Expr list) (capturedInGuard: Set<int>) =
-            let idents, target = targets[targetIndex]
-            let bindings = matchTargetIdentAndValues idents boundValues
-
-            let bindingStmts =
-                bindings
-                |> List.mapi (fun i binding -> i, binding)
-                |> List.collect (fun (i, (id, value)) ->
-                    // Skip if this binding was captured in the guard with walrus
-                    if Set.contains i capturedInGuard then
-                        []
-                    else
-                        let valueExpr, stmts = com.TransformAsExpr(ctx, value)
-
-                        let assignStmt =
-                            assign None (identAsExpr com ctx id) valueExpr |> exprAsStatement ctx
-
-                        stmts @ assignStmt
-                )
-
-            let targetStmts = com.TransformAsStatements(ctx, returnStrategy, target)
-            Util.ensureNonEmptyBody (bindingStmts @ targetStmts)
-
-        // Transform a condition, replacing OptionTest patterns with walrus expressions
-        // where the tested expression matches a bound value.
-        // Returns (transformedCondition, capturedIndices)
-        let transformConditionWithWalrus (condition: Fable.Expr) (boundValues: Fable.Expr list) (targetIndex: int) =
-            let idents, _ = targets[targetIndex]
-            let optionTests = findOptionTestsForBoundValues condition boundValues idents
-
-            if Map.isEmpty optionTests then
-                // No Option tests to transform - use regular transformation
-                let guardExpr, guardStmts = com.TransformAsExpr(ctx, condition)
-                guardExpr, guardStmts, Set.empty
-            else
-                // Replace OptionTest patterns with walrus expressions
-                let rec transformExpr expr =
-                    match expr with
-                    | Fable.Test(testedExpr, Fable.OptionTest true, range) ->
-                        // Check if this test matches a bound value
-                        let matchingIdx =
-                            optionTests
-                            |> Map.toList
-                            |> List.tryFind (fun (_, testExpr) -> testExpr = testedExpr)
-                            |> Option.map fst
-
-                        match matchingIdx with
-                        | Some idx when idx < List.length idents ->
-                            // Transform to walrus: (varName := expr) is not None
-                            let identName = idents[idx]
-                            let testedPyExpr, stmts = com.TransformAsExpr(ctx, testedExpr)
-
-                            let walrusExpr =
-                                Expression.namedExpr (Expression.name (ident com ctx identName), testedPyExpr)
-
-                            let compareExpr =
-                                Expression.compare (walrusExpr, [ IsNot ], [ Expression.none ], ?loc = range)
-
-                            compareExpr, stmts
-                        | _ ->
-                            // Regular transformation
-                            com.TransformAsExpr(ctx, expr)
-                    | Fable.Operation(Fable.Logical(op, left, right), tags, typ, range) ->
-                        let leftExpr, leftStmts = transformExpr left
-                        let rightExpr, rightStmts = transformExpr right
-
-                        let pyOp =
-                            match op with
-                            | LogicalAnd -> BoolOperator.And
-                            | LogicalOr -> BoolOperator.Or
-
-                        Expression.boolOp (pyOp, [ leftExpr; rightExpr ], ?loc = range), leftStmts @ rightStmts
-                    | Fable.Operation(Fable.Unary(UnaryNot, operand), _, _, range) ->
-                        let operandExpr, stmts = transformExpr operand
-                        Expression.unaryOp (UnaryNot, operandExpr, ?loc = range), stmts
-                    | _ -> com.TransformAsExpr(ctx, expr)
-
-                let guardExpr, guardStmts = transformExpr condition
-                let capturedIndices = optionTests |> Map.toList |> List.map fst |> Set.ofList
-                guardExpr, guardStmts, capturedIndices
-
-        // Collects statements that need to be lifted before the match statement
-        let mutable liftedStmts: Statement list = []
-
-        // Generate match cases from extracted decision tree cases
-        let matchCases =
-            result.Cases
-            |> List.map (fun case ->
-                let guardExpr, guardStmts, capturedIndices =
-                    transformConditionWithWalrus case.Condition case.BoundValues case.TargetIndex
-
-                // If guard generates statements, wrap in IIFE and lift statements
-                let finalGuardExpr =
-                    if List.isEmpty guardStmts then
-                        guardExpr
-                    else
-                        // Use IIFE to wrap the condition - statements get lifted
-                        let iifeExpr, iifeStmts = iife com ctx case.Condition
-                        liftedStmts <- liftedStmts @ iifeStmts
-                        iifeExpr
-
-                let caseBody = generateCaseBody case.TargetIndex case.BoundValues capturedIndices
-                // Use wildcard pattern with guard
-                let pattern = MatchAs(None, None)
-                MatchCase.matchCase (pattern, caseBody, guard = finalGuardExpr)
-            )
-
-        // Generate default case
-        let defaultBody =
-            generateCaseBody result.DefaultTargetIndex result.DefaultBoundValues Set.empty
-
-        let defaultPattern = MatchAs(None, None)
-        let defaultCase = MatchCase.matchCase (defaultPattern, defaultBody)
-
-        // Generate match True: statement
-        let matchSubject = Expression.boolConstant true
-        let matchStmt = Statement.match' (matchSubject, matchCases @ [ defaultCase ])
-
-        Some(liftedStmts @ [ matchStmt ])
-
 /// When several branches share target create first a switch to get the target index and bind value
 /// and another to execute the actual target
 let transformDecisionTreeWithTwoSwitches
@@ -2301,56 +2121,85 @@ let transformDecisionTreeWithTwoSwitches
     (targets: (Fable.Ident list * Fable.Expr) list)
     treeExpr
     =
-    // First, try to generate a match statement with guards.
-    // This produces type-safe code where bound variables are assigned inside each case body.
-    match transformDecisionTreeAsMatchWithGuards com ctx returnStrategy targets treeExpr with
-    | Some matchStmts -> matchStmts
+    // Use the "two switches" pattern: first switch determines target index and binds values,
+    // second switch executes the actual target code.
+    // Declare target and bound idents
+    let targetId =
+        getUniqueNameInDeclarationScope ctx "pattern_matching_result" |> makeIdent
+
+    // Collect all bound idents - these are initialized to None
+    let boundIdents =
+        targets
+        |> List.collect (fun (idents, _) -> idents)
+        |> List.distinctBy (fun id -> id.Name)
+
+    // Generate: (pattern_matching_result, v1, v2, ...) = nullable[int32, T1, T2, ...]()
+    // This tells Pyright the types while allowing initial None values
+    let nullableFunc = libValue com ctx "util" "nullable"
+
+    // Collect type annotations and any prerequisite statements
+    let int32Type = Fable.Number(Int32, Fable.NumberInfo.Empty)
+
+    let allTypes = int32Type :: (boundIdents |> List.map (fun id -> id.Type))
+
+    let typeAnnotations, typeStmts =
+        allTypes
+        |> List.map (fun t -> Annotation.typeAnnotation com ctx None t)
+        |> List.unzip
+
+    // Build nullable[T1, T2, ...]()
+    let typeSubscript =
+        match typeAnnotations with
+        | [ single ] -> single
+        | multiple -> Expression.tuple multiple
+
+    let nullableCall =
+        Expression.call (Expression.subscript (nullableFunc, typeSubscript), [])
+
+    // Build the tuple of target names for unpacking: (pattern_matching_result, v1, v2) = nullable[...]()
+    let allIdents =
+        (ident com ctx targetId) :: (boundIdents |> List.map (ident com ctx))
+
+    let targetNames = allIdents |> List.map Expression.name
+    // Wrap in a tuple to get tuple unpacking (a, b, c) = ... instead of chained a = b = c = ...
+    let targetTuple = Expression.tuple targetNames
+
+    let multiVarDecl =
+        (typeStmts |> List.concat)
+        @ [ Statement.assign ([ targetTuple ], nullableCall) ]
+
+    let switch2 =
+        // Make the last case a default case to ensure exhaustive matching
+        // This fixes type errors where pyright thinks not all paths return a value
+        let allCases =
+            targets |> List.mapi (fun i (_, target) -> [ makeIntConst i ], target)
+
+        match List.tryLast allCases with
+        | Some(_, lastTarget) when allCases.Length > 1 ->
+            let cases = allCases |> List.take (allCases.Length - 1)
+            transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases (Some lastTarget)
+        | _ -> transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) allCases None
+
+    // Transform decision tree
+    let targetAssign = Target(ident com ctx targetId)
+    let ctx = { ctx with DecisionTargets = targets }
+
+    match transformDecisionTreeAsSwitch treeExpr with
+    | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
+        let cases =
+            groupSwitchCases (Fable.Number(Int32, Fable.NumberInfo.Empty)) cases (defaultIndex, defaultBoundValues)
+
+        let defaultCase =
+            Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, Fable.NumberInfo.Empty))
+
+        let switch1 =
+            transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
+
+        multiVarDecl @ switch1 @ switch2
     | None ->
-        // Fall back to the original "two switches" pattern
-        // Declare target and bound idents
-        let targetId =
-            getUniqueNameInDeclarationScope ctx "pattern_matching_result" |> makeIdent
+        let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
 
-        let multiVarDecl =
-            let boundIdents =
-                targets
-                |> List.collect (fun (idents, _) -> idents)
-                |> List.map (fun id -> ident com ctx id, None)
-
-            multiVarDeclaration ctx ((ident com ctx targetId, None) :: boundIdents)
-        // Transform targets as switch
-        let switch2 =
-            // Make the last case a default case to ensure exhaustive matching
-            // This fixes type errors where pyright thinks not all paths return a value
-            let allCases =
-                targets |> List.mapi (fun i (_, target) -> [ makeIntConst i ], target)
-
-            match List.tryLast allCases with
-            | Some(_, lastTarget) when allCases.Length > 1 ->
-                let cases = allCases |> List.take (allCases.Length - 1)
-                transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) cases (Some lastTarget)
-            | _ -> transformSwitch com ctx true returnStrategy (targetId |> Fable.IdentExpr) allCases None
-
-        // Transform decision tree
-        let targetAssign = Target(ident com ctx targetId)
-        let ctx = { ctx with DecisionTargets = targets }
-
-        match transformDecisionTreeAsSwitch treeExpr with
-        | Some(evalExpr, cases, (defaultIndex, defaultBoundValues)) ->
-            let cases =
-                groupSwitchCases (Fable.Number(Int32, Fable.NumberInfo.Empty)) cases (defaultIndex, defaultBoundValues)
-
-            let defaultCase =
-                Fable.DecisionTreeSuccess(defaultIndex, defaultBoundValues, Fable.Number(Int32, Fable.NumberInfo.Empty))
-
-            let switch1 =
-                transformSwitch com ctx false (Some targetAssign) evalExpr cases (Some defaultCase)
-
-            multiVarDecl @ switch1 @ switch2
-        | None ->
-            let decisionTree = com.TransformAsStatements(ctx, Some targetAssign, treeExpr)
-
-            multiVarDecl @ decisionTree @ switch2
+        multiVarDecl @ decisionTree @ switch2
 
 let transformDecisionTreeAsStatements
     (com: IPythonCompiler)
@@ -2719,7 +2568,8 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
 
     | Fable.IdentExpr id ->
         let narrowedType = getNarrowedType ctx id
-        identAsExpr com ctx id |> resolveExpr ctx narrowedType returnStrategy
+        let expr = identAsExpr com ctx id
+        expr |> resolveExpr ctx narrowedType returnStrategy
 
     | Fable.Import({
                        Selector = selector
@@ -2889,7 +2739,7 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
             | Some(Target _) -> true // Compile as statement so values can be bound
             | Some(Assign _) -> (isPyStatement ctx false thenExpr) || (isPyStatement ctx false elseExpr)
             | Some(ResourceManager _) -> true
-            | Some Return ->
+            | Some(Return _) ->
                 Option.isSome ctx.TailCallOpportunity
                 || (isPyStatement ctx false thenExpr)
                 || (isPyStatement ctx false elseExpr)
@@ -3032,9 +2882,17 @@ let transformFunction
         if body.Type = Fable.Unit then
             transformBlock com ctx (Some ReturnUnit) body
         elif isPyStatement ctx (Option.isSome tailcallChance) body then
-            transformBlock com ctx (Some Return) body
+            transformBlock com ctx (Some(Return(Some body.Type))) body
         else
-            transformAsExpr com ctx body |> wrapExprInBlockWithReturn
+            let expr, stmts = transformAsExpr com ctx body
+            // Check if we need to erase Option[T] to T | None for return expressions
+            let expr =
+                if needsOptionEraseForReturn body body.Type then
+                    wrapInOptionErase com ctx expr
+                else
+                    expr
+
+            stmts @ [ Statement.return' expr ]
 
     // Check if the last argument is unit or generic param (could be unit)
     // This determines if a single-arg function should have a default value
@@ -4133,13 +3991,13 @@ let transformClassWithPrimaryConstructor
     let isOptional = Helpers.isOptional (cons.Args |> Array.ofList)
 
     // Change exposed constructor's return type from None to entity type.
+    // Use None for repeatedGenerics to include all class type parameters in the return type,
+    // not just those that appear in constructor arguments. The exposed constructor wrapper
+    // declares all class type params as function type params, so they're all in scope.
     let returnType =
-        let availableGenerics =
-            cons.Args |> List.map (fun arg -> arg.Type) |> getGenericTypeParams
-
         let genParams = getEntityGenParams classEnt
 
-        makeGenericTypeAnnotation' com ctx classDecl.Name (genParams |> List.ofSeq) (Some availableGenerics)
+        makeGenericTypeAnnotation' com ctx classDecl.Name (genParams |> List.ofSeq) None
 
     let exposedCons =
         if classAttributes.Style = ClassStyle.Attributes && not classAttributes.Init then

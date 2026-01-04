@@ -4,7 +4,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any, overload
 
-from .core import Array, int32
+from . import Array, int32
 
 class IPrintfFormat:
     """F# printf-style formatting class.

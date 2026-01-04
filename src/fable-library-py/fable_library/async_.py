@@ -31,6 +31,7 @@ from .choice import (
     Choice_makeChoice2Of2,
     FSharpChoice_2,
 )
+from .protocols import IEnumerable_1
 from .task import TaskCompletionSource
 from .time_span import TimeSpan, to_milliseconds
 
@@ -101,9 +102,9 @@ def ignore(computation: Async[Any]) -> Async[None]:
     return protected_bind(computation, binder)
 
 
-def parallel[T](computations: Iterable[Async[T]]) -> Async[Array[T]]:
+def parallel[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
     def delayed() -> Async[Array[T]]:
-        tasks: Iterable[Future[T]] = map(start_as_task, computations)  # type: ignore
+        tasks: Iterable[Awaitable[T]] = map(start_as_task, computations)  # type: ignore[arg-type]
         all: Future[list[T]] = asyncio.gather(*tasks)
 
         def to_array(results: list[T]) -> Async[Array[T]]:
@@ -127,7 +128,7 @@ def parallel2[T, U](a: Async[T], b: Async[U]) -> Async[Array[T | U]]:
     return delay(delayed)
 
 
-def sequential[T](computations: Iterable[Async[T]]) -> Async[Array[T]]:
+def sequential[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
     def delayed() -> Async[Array[T]]:
         results: list[T] = []
 
@@ -367,6 +368,18 @@ def run_synchronously[T](
     """
 
     async def runner() -> T:
+        # Set a custom exception handler to suppress CancelledError noise during shutdown
+        loop = asyncio.get_running_loop()
+
+        def exception_handler(loop: asyncio.AbstractEventLoop, context: dict[str, Any]) -> None:
+            # Suppress CancelledError exceptions during shutdown
+            exception = context.get("exception")
+            if isinstance(exception, asyncio.CancelledError):
+                return
+            # For other exceptions, use the default handler
+            loop.default_exception_handler(context)
+
+        loop.set_exception_handler(exception_handler)
         return await start_as_task(computation, cancellation_token=cancellation_token)
 
     return asyncio.run(runner())

@@ -60,6 +60,35 @@ from .protocols import (
 UNIT: Any = None
 
 
+class nullable:
+    """Returns a tuple of None values with the specified types.
+
+    Used for pattern matching variable initialization where variables need
+    to be typed but initialized to None. This is a type-safe alternative to
+    `cast(T, None)` for multiple variables.
+
+    Example:
+        (pattern_matching_result, m, n) = nullable[int, int, int]()
+
+    The type checker sees the tuple as `tuple[int, int, int]` even though
+    all values are None at runtime.
+    """
+
+    _params: tuple[type, ...] | None = None
+
+    def __class_getitem__(cls, params: Any) -> type[nullable]:
+        # Create a new class that remembers the params
+        class _Nullable(nullable):
+            _params = params if isinstance(params, tuple) else (params,)
+
+        return _Nullable
+
+    def __new__(cls) -> Any:
+        if cls._params is None:
+            raise TypeError("Must specify type parameters: nullable[T1, T2, ...]()")
+        return tuple(None for _ in cls._params)
+
+
 # =============================================================================
 # Disposable Classes
 # =============================================================================
@@ -195,7 +224,7 @@ def is_equatable(x: Any) -> bool:
     return (hasattr(x, "Equals") and callable(x.Equals)) or (hasattr(x, "__eq__") and callable(x.__eq__))
 
 
-def is_iterable(x: Any) -> bool:
+def is_iterable(x: object) -> bool:
     return isinstance(x, Iterable)
 
 
@@ -420,12 +449,13 @@ def int_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
     return str(i)
 
 
-def count(col: Iterable[Any]) -> int32:
-    if isinstance(col, Sized):
-        return int32(len(col))
+def count(it: IEnumerable_1[Any] | Iterable[Any]) -> int32:
+    it = to_iterable(it)
+    if isinstance(it, Sized):
+        return int32(len(it))
 
     count = int32.ZERO
-    for _ in col:
+    for _ in it:
         count += 1
 
     return count
@@ -2795,6 +2825,7 @@ __all__ = [
     "get_platform",
     "identity_hash",
     "ignore",
+    "nullable",
     "number_hash",
     "physical_hash",
     "randint",
