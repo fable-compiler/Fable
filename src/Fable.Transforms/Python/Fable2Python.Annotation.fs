@@ -647,7 +647,7 @@ let makeBuiltinTypeAnnotation com ctx typ repeatedGenerics kind =
         fableModuleAnnotation com ctx "result" "FSharpResult_2" resolved, stmts
     | Replacements.Util.FSharpChoice genArgs ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
-        let name = $"FSharpChoice_{List.length genArgs}"
+        let name = $"FSharpChoice_%d{List.length genArgs}"
         fableModuleAnnotation com ctx "choice" name resolved, stmts
     | _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
 

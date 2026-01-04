@@ -1,22 +1,22 @@
 {
   "pythonVersion": "3.12",
   "typeCheckingMode": "standard",
-  "reportMissingTypeStubs": false,
-  "reportMissingImports": true,
-  "reportMissingModuleSource": false,
-  "reportUnnecessaryTypeIgnoreComment": true,
-  "reportUnusedImport": false,
-  "reportUnusedVariable": false,
-  "reportUnnecessaryIsInstance": true,
-  "reportUnnecessaryComparison": false,
-  "reportUnnecessaryCast": true,
-  "reportPrivateUsage": false,
+  "reportUnusedImport": false, // Generated code may have unused imports due to optimizations, will be removed by Ruff formatter
+  "reportPrivateUsage": false, // Getters/setters reference private members from outside the class
+  "reportUnusedVariable": false, // Generated code may have unused variables
+  "reportMissingTypeStubs": false, // Pyright is confused by Fable Library code structure
+  "reportMissingModuleSource": false, // Fable generates code that from F# and Rust
+  "reportConstantRedefinition": false, // Fable preserves casing for variables starting with uppercase
+  "reportUnnecessaryIsInstance": false, // Not a problem in generated code (look into this later)
+  "reportUnnecessaryComparison": false, // Generated tests do this on purpose
   "reportImportCycles": true,
+  "reportMissingImports": true,
+  "reportUnnecessaryCast": true,
   "reportDuplicateImport": true,
-  "reportConstantRedefinition": false,
   "reportOverlappingOverload": true,
   "reportInconsistentConstructor": true,
   "reportImplicitStringConcatenation": true,
+  "reportUnnecessaryTypeIgnoreComment": true,
   "exclude": [
     "**/.venv/**",
     "**/node_modules/**"
