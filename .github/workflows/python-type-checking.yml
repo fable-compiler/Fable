@@ -1,0 +1,105 @@
+name: Python Type Checking
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/Fable.Transforms/Python/**'
+      - 'src/fable-library-py/**'
+      - 'tests/Python/**'
+      - 'pyrightconfig.ci.json'
+      - 'pyproject.toml'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  pyright:
+    runs-on: ubuntu-latest
+    env:
+      UV_LINK_MODE: copy
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Setup dotnet tools
+        run: dotnet tool restore
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: |
+          pipx install uv
+          pipx install maturin
+
+      - name: Build Fable Library - Python
+        run: ./build.sh fable-library --python
+
+      - name: Build Python tests (compile only)
+        run: |
+          uv sync
+          uv pip install -e temp/fable-library-py
+          dotnet fable tests/Python --outDir temp/tests/Python --lang python --exclude Fable.Core --noCache
+
+      - name: Run Pyright (strict mode)
+        id: pyright
+        continue-on-error: true
+        run: |
+          if uv run pyright --project pyrightconfig.ci.json temp/tests/Python/ temp/fable-library-py/; then
+            echo "result=:white_check_mark: All non-excluded files pass" >> $GITHUB_OUTPUT
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "result=:x: Type errors found in non-excluded files" >> $GITHUB_OUTPUT
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Count excluded files
+        id: excluded
+        run: |
+          COUNT=$(grep -c '"temp/' pyrightconfig.ci.json || echo "0")
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+
+      - name: Find existing comment
+        uses: peter-evans/find-comment@v3
+        id: find-comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: Python Type Checking
+
+      - name: Create or update PR comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find-comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          edit-mode: replace
+          body: |
+            ## Python Type Checking
+
+            ${{ steps.pyright.outputs.result }}
+
+            |     Metric     |                Value                |
+            | -------------- | ----------------------------------- |
+            | Excluded files | ${{ steps.excluded.outputs.count }} |
+
+            <details>
+            <summary>Files excluded from strict checking</summary>
+
+            These files have known type errors and are excluded from CI.
+            Remove from `pyrightconfig.ci.json` as errors are fixed.
+
+            </details>
+
+      - name: Fail if type errors
+        if: false  # Temporarily disabled
+        # if: steps.pyright.outputs.passed == 'false'
+        run: exit 1
