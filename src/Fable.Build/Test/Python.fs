@@ -15,6 +15,7 @@ let handle (args: string list) =
     let skipFableLibraryCore = args |> List.contains "--skip-fable-library-core"
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
+    let compileOnly = args |> List.contains "--compile-only"
     let runTyping = args |> List.contains "--type-check"
     let runFormat = args |> List.contains "--format"
 
@@ -78,7 +79,10 @@ let handle (args: string list) =
             Command.Run("uv", $"run ruff format {buildDir}")
 
         // Run pytest
-        Command.Run("uv", $"run pytest {buildDir} -x")
+        if compileOnly then
+            printfn "Skipping test execution (--compile-only specified)"
+        else
+            Command.Run("uv", $"run pytest {buildDir} -x")
 
         // Count the number of typing errors (so we can keep an eye on them)
         if runTyping then
