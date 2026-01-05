@@ -56,11 +56,15 @@ jobs:
             echo "passed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Count excluded files
+      - name: Get excluded files
         id: excluded
         run: |
           COUNT=$(grep -c '"temp/' pyrightconfig.ci.json || echo "0")
           echo "count=$COUNT" >> $GITHUB_OUTPUT
+          FILES=$(grep '"temp/' pyrightconfig.ci.json | sed 's/.*"temp/temp/' | sed 's/".*//' | sort)
+          echo "files<<EOF" >> $GITHUB_OUTPUT
+          echo "$FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Find existing comment
         uses: peter-evans/find-comment@v3
@@ -90,6 +94,10 @@ jobs:
 
             These files have known type errors and are excluded from CI.
             Remove from `pyrightconfig.ci.json` as errors are fixed.
+
+            ```
+            ${{ steps.excluded.outputs.files }}
+            ```
 
             </details>
 
