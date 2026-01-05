@@ -10,10 +10,12 @@ open Build.Utils
 let private fableLibraryBuildDir = Path.Resolve("temp", "fable-library-py")
 
 let handle (args: string list) =
+    let skipFableLibraryCore = args |> List.contains "--skip-fable-library-core"
+
     // Install local fable-library as editable package for testing
     // This ensures quicktest uses the locally built version, not PyPI
     if not (args |> List.contains "--skip-fable-library") then
-        BuildFableLibraryPython().Run(false)
+        BuildFableLibraryPython(skipCore = skipFableLibraryCore).Run(false)
         // Install fable-library in editable mode
         Command.Run("uv", $"pip install -e {fableLibraryBuildDir}")
 

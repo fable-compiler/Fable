@@ -148,9 +148,6 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Setup dotnet tools
-        run: dotnet tool restore
-
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:

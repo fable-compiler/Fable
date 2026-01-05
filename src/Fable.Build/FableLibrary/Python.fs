@@ -6,7 +6,7 @@ open Build.Utils
 open SimpleExec
 open BlackFox.CommandLine
 
-type BuildFableLibraryPython() =
+type BuildFableLibraryPython(?skipCore: bool) =
     inherit
         BuildFableLibrary(
             language = "python",
@@ -15,6 +15,8 @@ type BuildFableLibraryPython() =
             buildDir = Path.Combine("temp", "fable-library-py"),
             outDir = Path.Combine("temp", "fable-library-py", "fable_library")
         )
+
+    let skipCore = defaultArg skipCore false
 
     override this.CopyStage() =
         // Copy all Python/F# files to the build directory
@@ -33,7 +35,11 @@ type BuildFableLibraryPython() =
     override this.PostFableBuildStage() =
         // Install the python dependencies at the root of the project
         Command.Run("uv", "sync", this.BuildDir) // Maturin needs a local virtual environment
-        Command.Run("uv", "run maturin develop --release", this.BuildDir)
+
+        if skipCore then
+            printfn "Skipping fable-library-core (Rust) build"
+        else
+            Command.Run("uv", "run maturin develop --release", this.BuildDir)
 
         // Fix issues with Fable .fsproj not supporting links, so we need to copy the
         // files ourself to the output directory
@@ -44,7 +50,7 @@ type BuildFableLibraryPython() =
 
         Shell.deleteDir (this.BuildDir </> "fable_library/fable-library-ts")
 
-        // Run Ruff linter checking import sorting and fix any issues
-        Command.Run("uv", $"run ruff check --select I --fix {this.BuildDir}")
+        // Run Ruff linter checking import sorting, removing unused imports, and fix any issues
+        Command.Run("uv", $"run ruff check --select I,F401 --fix {this.BuildDir}")
         // Run Ruff formatter on all generated files
         Command.Run("uv", $"run ruff format {this.BuildDir}")

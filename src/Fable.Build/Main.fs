@@ -63,7 +63,8 @@ Available commands:
             --threaded              Compile and run the tests with the threaded runtime
 
         Options for Python:
-            --typing                Run type checking with Pyright and show the summary
+            --type-check            Run type checking on the generated code with Pyright
+            --format                Format the code generated code with Ruff formatter
 
     standalone                      Compile standalone + worker version of Fable running
                                     on top of of Node.js

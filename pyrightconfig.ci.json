@@ -1,0 +1,13 @@
+{
+  "extends": "./pyrightconfig.json",
+  "exclude": [
+    "**/.venv/**",
+    "**/node_modules/**",
+    "temp/fable-library-py/fable_library/list.py",
+    "temp/tests/Python/test_applicative.py",
+    "temp/tests/Python/test_map.py",
+    "temp/tests/Python/test_misc.py",
+    "temp/tests/Python/test_type.py",
+    "temp/tests/Python/fable_modules/thoth_json_python/encode.py"
+  ]
+}

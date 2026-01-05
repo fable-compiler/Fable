@@ -12,12 +12,13 @@ let private fableLibraryBuildDir = Path.Resolve("temp", "fable-library-py")
 
 let handle (args: string list) =
     let skipFableLibrary = args |> List.contains "--skip-fable-library"
+    let skipFableLibraryCore = args |> List.contains "--skip-fable-library-core"
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
-    let runTyping = args |> List.contains "--typing"
+    let runTyping = args |> List.contains "--type-check"
     let runFormat = args |> List.contains "--format"
 
-    BuildFableLibraryPython().Run(skipFableLibrary)
+    BuildFableLibraryPython(skipCore = skipFableLibraryCore).Run(skipFableLibrary)
 
     Directory.clean buildDir
 
@@ -40,7 +41,7 @@ let handle (args: string list) =
                 if isWatch then
                     let ruffCmd =
                         if runFormat then
-                            $"uv run ruff check --select I --fix {buildDir} && uv run ruff format {buildDir} && "
+                            $"uv run ruff check --select I,F401 --fix {buildDir} && uv run ruff format {buildDir} && "
                         else
                             ""
 
@@ -71,8 +72,8 @@ let handle (args: string list) =
         Command.Fable(fableArgs, workingDirectory = buildDir)
 
         if runFormat then
-            // Run Ruff linter checking import sorting and fix any issues
-            Command.Run("uv", $"run ruff check --select I --fix {buildDir}")
+            // Run Ruff linter checking import sorting and fix any issues, and remove unused imports
+            Command.Run("uv", $"run ruff check --select I,F401 --fix {buildDir}")
             // Run Ruff formatter on all generated files
             Command.Run("uv", $"run ruff format {buildDir}")
 
@@ -104,4 +105,4 @@ let handle (args: string list) =
 
             printfn "Pyright summary: %s" summaryLine
         else
-            printfn "Skipping type checking (use --typing to enable)"
+            printfn "Skipping type checking (use --type-check to enable)"
