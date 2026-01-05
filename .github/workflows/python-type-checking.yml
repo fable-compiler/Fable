@@ -81,7 +81,7 @@ jobs:
           issue-number: ${{ github.event.pull_request.number }}
           edit-mode: replace
           body: |
-            ## Python Type Checking
+            ## Python Type Checking (Pyright) Results
 
             ${{ steps.pyright.outputs.result }}
 
@@ -90,10 +90,9 @@ jobs:
             | Excluded files | ${{ steps.excluded.outputs.count }} |
 
             <details>
-            <summary>Files excluded from strict checking</summary>
+            <summary>Files excluded from type checking</summary>
 
-            These files have known type errors and are excluded from CI.
-            Remove from `pyrightconfig.ci.json` as errors are fixed.
+            These files have known type errors and are excluded from CI. Remove from `pyrightconfig.ci.json` as errors are fixed.
 
             ```
             ${{ steps.excluded.outputs.files }}
