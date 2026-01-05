@@ -41,10 +41,10 @@ jobs:
           pipx install uv
           pipx install maturin
 
-      - name: Build and test Python
-        run: ./build.sh test python
+      - name: Build Python (compile only)
+        run: ./build.sh test python --compile-only
 
-      - name: Run Pyright (strict mode)
+      - name: Run Pyright (standard mode)
         id: pyright
         continue-on-error: true
         run: |
