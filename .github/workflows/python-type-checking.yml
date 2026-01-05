@@ -41,14 +41,8 @@ jobs:
           pipx install uv
           pipx install maturin
 
-      - name: Build Fable Library - Python
-        run: ./build.sh fable-library --python
-
-      - name: Build Python tests (compile only)
-        run: |
-          uv sync
-          uv pip install -e temp/fable-library-py
-          dotnet fable tests/Python --outDir temp/tests/Python --lang python --exclude Fable.Core --noCache
+      - name: Build and test Python
+        run: ./build.sh test python
 
       - name: Run Pyright (strict mode)
         id: pyright
