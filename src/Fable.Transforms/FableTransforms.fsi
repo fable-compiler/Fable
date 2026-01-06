@@ -5,6 +5,7 @@ open Fable.AST.Fable
 
 val isIdentCaptured: identName: string -> expr: Expr -> bool
 val isTailRecursive: identName: string -> expr: Expr -> bool * bool
+val countReferencesUntil: limit: int -> identName: string -> body: Expr -> int
 val replaceValues: replacements: Map<string, Expr> -> expr: Expr -> Expr
 val uncurryType: typ: Type -> Type
 

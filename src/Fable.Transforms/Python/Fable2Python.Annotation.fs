@@ -543,7 +543,7 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
     | Types.iobservableGeneric, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
         fableModuleAnnotation com ctx "observable" "IObservable" resolved, stmts
-    | Types.idictionary, _ -> stdlibModuleTypeHint com ctx "collections.abc" "MutableMapping" genArgs repeatedGenerics
+    | Types.idictionary, _ -> stdlibModuleTypeHint com ctx "collections.abc" "Mapping" genArgs repeatedGenerics
     | Types.ievent2, _ ->
         // IEvent<'Delegate, 'Args> - only use Args (second param) since Delegate is phantom in Python
         let argsType = genArgs |> List.tryItem 1 |> Option.defaultValue Fable.Any
@@ -559,7 +559,7 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
     | "Fable.Core.Py.Set`1", _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
         fableModuleAnnotation com ctx "protocols" "ISet_1" resolved, stmts
-    | "Fable.Core.Py.Map`2", _ ->
+    | "Py.Mapping.IMapping`2", _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
         fableModuleAnnotation com ctx "protocols" "IMap" resolved, stmts
     | "Fable.Core.Py.Callable", _ ->
@@ -581,7 +581,16 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
         let isErased =
             ent.Attributes |> Seq.exists (fun att -> att.Entity.FullName = Atts.erase)
 
-        if ent.IsInterface && not isErased then
+        // Check for [<Global>] attribute - use the global name directly as the type annotation
+        match com, ent.Attributes with
+        | FSharp2Fable.Util.GlobalAtt(Some customName) ->
+            // Use the custom global name (e.g., "list" for [<Global("list")>])
+            makeGenericTypeAnnotation com ctx customName genArgs repeatedGenerics, []
+        | FSharp2Fable.Util.GlobalAtt None ->
+            // Use the entity's display name
+            let name = Helpers.removeNamespace ent.FullName
+            makeGenericTypeAnnotation com ctx name genArgs repeatedGenerics, []
+        | _ when ent.IsInterface && not isErased ->
             let name = Helpers.removeNamespace ent.FullName
 
             // If the interface is imported then it's erased and we need to add the actual imports
@@ -597,10 +606,10 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
                 | _ -> ()
 
             makeGenericTypeAnnotation com ctx name genArgs repeatedGenerics, []
-        elif isErased then
+        | _ when isErased ->
             // Erased types should use Any for type annotations
             stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
-        else
+        | _ ->
             match tryPyConstructor com ctx ent with
             | Some(entRef, stmts) ->
                 match entRef with

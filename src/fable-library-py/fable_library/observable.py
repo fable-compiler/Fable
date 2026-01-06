@@ -7,7 +7,7 @@ from .choice import (
     Choice_tryValueIfChoice2Of2,
     FSharpChoice_2,
 )
-from .option import value
+from .option import Option, value
 from .protocols import IDisposable
 from .util import UNIT, Disposable
 
@@ -89,10 +89,10 @@ def protect[T](
         fail(e)
 
 
-def choose[T, U](chooser: Callable[[T], U | None], source: IObservable[T]) -> IObservable[U]:
+def choose[T, U](chooser: Callable[[T], Option[U]], source: IObservable[T]) -> IObservable[U]:
     def subscribe(observer: IObserver[U]):
         def on_next(t: T) -> None:
-            def success(u: U | None) -> None:
+            def success(u: Option[U]) -> None:
                 if u is not None:
                     observer.OnNext(value(u))
 

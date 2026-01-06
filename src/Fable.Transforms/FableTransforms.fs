@@ -228,10 +228,17 @@ let noSideEffectBeforeIdent identName expr =
 
     findIdentOrSideEffect expr && not sideEffect
 
-let canInlineArg com identName value body =
+let canInlineArg (com: Compiler) identName value body =
     match value with
     | Value((Null _ | UnitConstant | TypeInfo _ | BoolConstant _ | NumberConstant _ | CharConstant _), _) -> true
-    | Value(StringConstant s, _) -> s.Length < 100
+    | Value(StringConstant s, _) ->
+        match com.Options.Language with
+        | Python ->
+            // Only inline short strings if they're referenced at most once,
+            // to avoid duplicating the literal in generated code (which can cause
+            // issues like property access on string literals in Python)
+            s.Length < 100 && countReferencesUntil 2 identName body <= 1
+        | _ -> s.Length < 100
     | _ ->
         let refCount = countReferencesUntil 2 identName body
 

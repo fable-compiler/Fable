@@ -39,6 +39,36 @@ module Util =
         | [] -> [ Statement.Pass ]
         | _ -> stmts
 
+    /// Extract the element type from an array type for vararg annotations.
+    /// For Array<T>, returns T. For other types, returns Any as fallback.
+    let getVarArgElementType (paramType: Fable.Type) : Fable.Type =
+        match paramType with
+        | Fable.Array(elemType, _) -> elemType
+        | _ -> Fable.Any // Fallback if not array type
+
+    /// Splits a list of items into regular items and an optional vararg item.
+    /// When hasSpread is true and items is non-empty, the last item becomes the vararg.
+    let splitVarArg<'T> (hasSpread: bool) (items: 'T list) : 'T list * 'T option =
+        if hasSpread && not items.IsEmpty then
+            let regular = items |> List.take (items.Length - 1)
+            let vararg = items |> List.last
+            regular, Some vararg
+        else
+            items, None
+
+    /// Adjusts Arguments to move the last arg to vararg when hasSpread is true.
+    /// Removes the annotation from vararg since Python infers it from *args.
+    let adjustArgsForSpread (hasSpread: bool) (args: Arguments) : Arguments =
+        let len = args.Args.Length
+
+        if not hasSpread || len = 0 then
+            args
+        else
+            { args with
+                VarArg = Some { args.Args[len - 1] with Annotation = None }
+                Args = args.Args[.. len - 2]
+            }
+
     let hasAttribute fullName (atts: Fable.Attribute seq) =
         atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
 
@@ -77,6 +107,55 @@ module Util =
     let needsOptionEraseForReturn (value: Fable.Expr) (expectedReturnType: Fable.Type) =
         match value with
         | Fable.Call _ -> needsOptionEraseForCall expectedReturnType
+        | _ -> false
+
+    /// Recursively check if a type contains Option with generic parameter that requires wrapping.
+    /// This checks return types of lambdas for Option[GenericParam].
+    let rec private hasWrappedOptionInReturnType (typ: Fable.Type) =
+        match typ with
+        | Fable.LambdaType(_, returnType) ->
+            // Check if return type is Option[GenericParam] or recurse into nested lambdas
+            match returnType with
+            | Fable.Option(inner, _) -> mustWrapOption inner
+            | Fable.LambdaType _ -> hasWrappedOptionInReturnType returnType
+            | _ -> false
+        | _ -> false
+
+    /// Check if a type would have its Option return type erased (T | None instead of Option[T]).
+    /// Returns true when the return type is Option[ConcreteType] which gets erased.
+    let rec private hasErasedOptionReturnType (typ: Fable.Type) =
+        match typ with
+        | Fable.LambdaType(_, returnType) ->
+            match returnType with
+            | Fable.Option(inner, _) -> not (mustWrapOption inner) // Erased when NOT wrapped
+            | Fable.LambdaType _ -> hasErasedOptionReturnType returnType
+            | _ -> false
+        | _ -> false
+
+    /// Check if a callback argument needs widen() to convert erased Option callback
+    /// to wrapped Option form for type checker compatibility.
+    /// Returns true when:
+    /// - Expected type is Callable with Option[GenericParam] in return position
+    /// - Actual arg is a lambda/function that would have erased Option return type
+    let needsOptionWidenForArg (expectedType: Fable.Type option) (argExpr: Fable.Expr) =
+        match expectedType with
+        | Some sigType when hasWrappedOptionInReturnType sigType ->
+            // Check if argument is a callable with ERASED Option return type
+            // If arg already has wrapped Option return, don't apply widen()
+            match argExpr with
+            | Fable.Lambda _
+            | Fable.Delegate _ ->
+                // Check if the lambda's return type would be erased
+                hasErasedOptionReturnType argExpr.Type
+            | Fable.IdentExpr ident ->
+                // Check if the identifier's type has erased Option return
+                hasErasedOptionReturnType ident.Type
+            | Fable.Get(_, Fable.FieldGet fieldInfo, _, _) ->
+                // Field access to a function
+                match fieldInfo.FieldType with
+                | Some typ -> hasErasedOptionReturnType typ
+                | None -> false
+            | _ -> false
         | _ -> false
 
     /// Wraps None values in cast(type, None) for type safety.

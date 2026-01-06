@@ -1,21 +1,46 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any, overload
+
 from .core import option
 
 
 type Option[T] = option.SomeWrapper[T] | T | None
 
 
-def erase[T](opt: Option[T]) -> T | None:
-    """Erase Option wrapper type for type checker.
+@overload
+def erase[T](__fn: Callable[..., Option[T]], /) -> Callable[..., T | None]: ...
 
-    Converts Option[T] (SomeWrapper[T] | T | None) to T | None. This is
-    an identity function at runtime - zero overhead. Used by the
-    compiler when it knows it can safely cross generic → concrete
-    boundaries.
+
+@overload
+def erase[T](__value: Option[T], /) -> T | None: ...
+
+
+def erase(__value_or_fn: Any, /) -> Any:
+    """Erase Option[T] to T | None for the type checker.
+
+    Works on both values and functions. Identity at runtime.
+    Used when compiler knows Option is non-nested.
     """
-    # Use type: ignore instead of cast to avoid additional runtime overhead
-    return opt  # type: ignore[return-value]
+    return __value_or_fn
+
+
+@overload
+def widen[T](__fn: Callable[..., T | None], /) -> Callable[..., Option[T]]: ...
+
+
+@overload
+def widen[T](__value: T | None, /) -> Option[T]: ...
+
+
+def widen(__value_or_fn: Any, /) -> Any:
+    """Widen T | None to Option[T] for the type checker.
+
+    Works on both values and functions. Identity at runtime.
+    Inverse of erase().
+    """
+    return __value_or_fn
 
 
 # Re-export the functions from core.option
@@ -59,4 +84,5 @@ __all__ = [
     "to_array",
     "to_nullable",
     "value",
+    "widen",
 ]

@@ -2590,12 +2590,21 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | "get_Item", _ ->
         Helper.LibCall(com, "map_util", "getItemFromDict", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
-    | ReplaceName [ "set_Item", "set"
-                    "get_Keys", "keys"
-                    "get_Values", "values"
-                    "ContainsKey", "has"
-                    "Clear", "clear" ] methName,
-      Some c -> Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc = r) |> Some
+    | "get_Keys", Some c ->
+        // Wrap .keys() with to_enumerable since KeysView doesn't implement IEnumerable_1
+        let keysCall =
+            Helper.InstanceCall(c, "keys", t, args, i.SignatureArgTypes, ?loc = r)
+
+        Helper.LibCall(com, "util", "to_enumerable", t, [ keysCall ], ?loc = r) |> Some
+    | "get_Values", Some c ->
+        // Wrap .values() with to_enumerable since ValuesView doesn't implement IEnumerable_1
+        let valuesCall =
+            Helper.InstanceCall(c, "values", t, args, i.SignatureArgTypes, ?loc = r)
+
+        Helper.LibCall(com, "util", "to_enumerable", t, [ valuesCall ], ?loc = r)
+        |> Some
+    | ReplaceName [ "set_Item", "set"; "ContainsKey", "has"; "Clear", "clear" ] methName, Some c ->
+        Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc = r) |> Some
     | _ -> None
 
 let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
