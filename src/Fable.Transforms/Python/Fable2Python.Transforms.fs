@@ -69,16 +69,7 @@ let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.
     let args, body, returnType, _typeParams =
         Annotation.transformFunctionWithAnnotations com ctx funcName args body
 
-    let args =
-        let len = args.Args.Length
-
-        if not hasSpread || len = 0 then
-            args
-        else
-            { args with
-                VarArg = Some { args.Args[len - 1] with Annotation = None }
-                Args = args.Args[.. len - 2]
-            }
+    let args = adjustArgsForSpread hasSpread args
 
     args, body, returnType
 
@@ -740,6 +731,16 @@ let transformCallArgs
     let hasSpread =
         paramsInfo |> Option.map (fun i -> i.HasSpread) |> Option.defaultValue false
 
+    // Helper to transform an arg and wrap with widen() if needed
+    let transformArgWithWiden (sigType: Fable.Type option) (argExpr: Fable.Expr) =
+        let expr, stmts = com.TransformAsExpr(ctx, argExpr)
+
+        if needsOptionWidenForArg sigType argExpr then
+            let widen = com.TransformImport(ctx, "widen", getLibPath com "option")
+            Expression.call (widen, [ expr ]), stmts
+        else
+            expr, stmts
+
     let args, stmts' =
         match args with
         | [] -> [], []
@@ -759,7 +760,14 @@ let transformCallArgs
 
                 let expr, stmts' = com.TransformAsExpr(ctx, last)
                 rest @ [ Expression.starred expr ], stmts @ stmts'
-        | args -> List.map (fun e -> com.TransformAsExpr(ctx, e)) args |> Helpers.unzipArgs
+        | args ->
+            // Transform args with widen() where needed based on signature types
+            args
+            |> List.mapi (fun i e ->
+                let sigType = List.tryItem i callInfo.SignatureArgTypes
+                transformArgWithWiden sigType e
+            )
+            |> Helpers.unzipArgs
 
     match objArg with
     | None -> args, [], stmts @ stmts'
@@ -1515,7 +1523,12 @@ let getDecisionTargetAndBoundValues (com: IPythonCompiler) (ctx: Context) target
         let bindings, replacements =
             (([], Map.empty), identsAndValues)
             ||> List.fold (fun (bindings, replacements) (ident, expr) ->
-                if canHaveSideEffects com expr then
+                // Only inline if the expression has no side effects AND is referenced at most once.
+                // If referenced multiple times, we should bind to a variable to avoid duplicating
+                // the expression (which can cause issues like accessing properties on literals).
+                let refCount = FableTransforms.countReferencesUntil 2 ident.Name target
+
+                if canHaveSideEffects com expr || refCount > 1 then
                     (ident, expr) :: bindings, replacements
                 else
                     bindings, Map.add ident.Name expr replacements
@@ -4129,23 +4142,42 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
                     // Make protocol method parameters positional-only (using /) to avoid
                     // parameter name mismatch errors when subclasses use different names
                     // (e.g., value_1 instead of value due to closure captures)
+                    let allParams =
+                        memb.CurriedParameterGroups
+                        |> Seq.indexed
+                        |> Seq.collect (fun (n, parameterGroup) ->
+                            parameterGroup |> Seq.indexed |> Seq.map (fun (m, pg) -> (n + m, pg))
+                        )
+                        |> Seq.toList
+
+                    // Split regular params from vararg param using shared helper
+                    let regularParams, varArgParam = splitVarArg memb.HasSpread allParams
+
                     let posOnlyArgs =
                         [
                             if memb.IsInstance then
                                 Arg.arg "self"
 
-                            for n, parameterGroup in memb.CurriedParameterGroups |> Seq.indexed do
-                                for m, pg in parameterGroup |> Seq.indexed do
-                                    // Uncurry function types to match class implementations
-                                    // F# interface uses curried types (LambdaType) but class methods
-                                    // use uncurried types (DelegateType) at runtime
-                                    let paramType = FableTransforms.uncurryType pg.Type
-                                    let ta, _ = Annotation.typeAnnotation com ctx None paramType
+                            for idx, pg in regularParams do
+                                // Uncurry function types to match class implementations
+                                // F# interface uses curried types (LambdaType) but class methods
+                                // use uncurried types (DelegateType) at runtime
+                                let paramType = FableTransforms.uncurryType pg.Type
+                                let ta, _ = Annotation.typeAnnotation com ctx None paramType
 
-                                    Arg.arg (pg.Name |> Option.defaultValue $"__arg%d{n + m}", annotation = ta)
+                                Arg.arg (pg.Name |> Option.defaultValue $"__arg%d{idx}", annotation = ta)
                         ]
 
-                    Arguments.arguments (posonlyargs = posOnlyArgs)
+                    // For vararg parameter, extract element type from array type for annotation
+                    let vararg =
+                        varArgParam
+                        |> Option.map (fun (_idx, pg) ->
+                            let elementType = getVarArgElementType pg.Type
+                            let ta, _ = Annotation.typeAnnotation com ctx None elementType
+                            Arg.arg (pg.Name |> Option.defaultValue "rest", annotation = ta)
+                        )
+
+                    Arguments.arguments (posonlyargs = posOnlyArgs, ?vararg = vararg)
 
                 // Also uncurry return type for consistency with class implementations
                 let uncurriedReturnType = FableTransforms.uncurryType memb.ReturnParameter.Type

@@ -67,7 +67,10 @@ let handle (args: string list) =
     else
 
         // Test against .NET
-        Command.Run("dotnet", "test -c Release", workingDirectory = sourceDir)
+        if compileOnly then
+            printfn "Skipping .NET test execution (--compile-only specified)"
+        else
+            Command.Run("dotnet", "test -c Release", workingDirectory = sourceDir)
 
         // Test against Python
         Command.Fable(fableArgs, workingDirectory = buildDir)
@@ -80,7 +83,7 @@ let handle (args: string list) =
 
         // Run pytest
         if compileOnly then
-            printfn "Skipping test execution (--compile-only specified)"
+            printfn "Skipping Python test execution (--compile-only specified)"
         else
             Command.Run("uv", $"run pytest {buildDir} -x")
 

@@ -143,11 +143,13 @@ module PrinterExtensions =
                 if i < args.Length - 1 then
                     printer.Print(", ")
 
-            match arguments.Args, arguments.VarArg with
-            | [], Some vararg ->
+            match arguments.PosOnlyArgs, arguments.Args, arguments.VarArg with
+            | [], [], Some vararg ->
+                // No positional args at all, just print *vararg
                 printer.Print("*")
                 printer.Print(vararg)
-            | _, Some vararg ->
+            | _, _, Some vararg ->
+                // Has positional-only or regular args, need comma before *vararg
                 printer.Print(", *")
                 printer.Print(vararg)
             | _ -> ()
