@@ -560,7 +560,7 @@ let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Exp
                 match com.Options.Language with
                 | Python ->
                     Helper.LibCall(com, "Curry", "curry", curriedType, [ makeNativeIntConst argTypes.Length; expr ])
-                | _ -> Helper.LibCall(com, "Util", $"curry{argTypes.Length}", curriedType, [ expr ])
+                | _ -> Helper.LibCall(com, "Util", $"curry%d{argTypes.Length}", curriedType, [ expr ])
 
             match partialArgs with
             | [] -> curried
@@ -613,7 +613,7 @@ let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
 
             match com.Options.Language with
             | Python -> Helper.LibCall(com, "Curry", "uncurry", uncurriedType, [ makeNativeIntConst arity; expr ])
-            | _ -> Helper.LibCall(com, "Util", $"uncurry{arity}", uncurriedType, [ expr ])
+            | _ -> Helper.LibCall(com, "Util", $"uncurry%d{arity}", uncurriedType, [ expr ])
         | _ ->
             // let makeArgIdent typ = makeTypedIdent typ $"a{com.IncrementCounter()}$"
             // let argIdents = argTypes |> List.map makeArgIdent
