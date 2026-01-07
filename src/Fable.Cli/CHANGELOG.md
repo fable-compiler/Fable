@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Python] Fix curry/uncurry to handle arbitrary number of arguments (by @dbrattli)
 * [Python] Fix type annotations for protocols, Option casting, and abstract classes (by @dbrattli)
 * [Python] Fix type annotations for curried functions and numeric types (by @dbrattli)
 * [Python] Fix type annotations for inref, IList, DateKind, and regex collections (by @dbrattli)

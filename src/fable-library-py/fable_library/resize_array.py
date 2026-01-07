@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from typing import Any, cast
 
+from .core import int32
 from .option import Option, some
 from .protocols import IEnumerable_1
-from .types import int32
 from .util import to_iterable
 
 

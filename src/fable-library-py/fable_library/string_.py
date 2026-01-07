@@ -4,8 +4,8 @@ import builtins
 from base64 import b64decode, b64encode
 from typing import Any
 
-from .core import byte, strings
-from .types import Array, int32
+from .array_ import Array
+from .core import byte, int32, strings
 
 
 # Re-export classes from core.strings

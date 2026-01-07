@@ -489,7 +489,7 @@ module Util =
 
     let ofInt (com: IPythonCompiler) (ctx: Context) (i: int) =
         //Expression.intConstant (int i)
-        libCall com ctx None "types" "int32" [ Expression.intConstant (int i) ]
+        libCall com ctx None "core" "int32" [ Expression.intConstant (int i) ]
 
     let ofString (s: string) = Expression.stringConstant s
 
@@ -560,7 +560,7 @@ module Util =
                 if l = "Any" then
                     com.GetImportExpr(ctx, "typing", "Any")
                 else
-                    libValue com ctx "types" l
+                    libValue com ctx "core" l
 
             let types_array = Expression.subscript (value = array, slice = type_obj, ctx = Load)
             Expression.call (types_array, [ expr ])
@@ -803,7 +803,7 @@ module Util =
         Expression.attribute (expr, Identifier field, ctx = Load), []
 
     let makeInteger (com: IPythonCompiler) (ctx: Context) r _t intName (x: obj) =
-        let cons = libValue com ctx "types" intName
+        let cons = libValue com ctx "core" intName
         let value = Expression.intConstant (x, ?loc = r)
 
         // Added support for a few selected literals for performance reasons
@@ -927,7 +927,7 @@ module Util =
         | _ -> Expression.call (cons, [ value ], ?loc = r), []
 
     let makeFloat (com: IPythonCompiler) (ctx: Context) r _t floatName x =
-        let cons = libValue com ctx "types" floatName
+        let cons = libValue com ctx "core" floatName
         let value = Expression.floatConstant (x, ?loc = r)
         Expression.call (cons, [ value ], ?loc = r), []
 

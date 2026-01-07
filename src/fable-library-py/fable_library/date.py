@@ -5,10 +5,10 @@ from datetime import UTC, datetime, timedelta
 from math import fmod
 from typing import Any, SupportsInt, overload
 
+from .core import FSharpRef, float64, int32, int64
 from .singleton_local_time_zone import local_time_zone
 from .time_span import TimeSpan, total_microseconds
 from .time_span import create as create_time_span
-from .types import FSharpRef, float64, int32, int64
 from .util import DateKind
 
 

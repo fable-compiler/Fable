@@ -4,7 +4,8 @@ import re
 from math import ceil, floor, fmod
 from typing import Any, SupportsFloat, SupportsInt
 
-from .types import FloatTypes, FSharpRef, IntegerTypes, float64
+from .core import FSharpRef, float64
+from .types import FloatTypes, IntegerTypes
 from .util import pad_left_and_right_with_zeros, pad_with_zeros
 
 

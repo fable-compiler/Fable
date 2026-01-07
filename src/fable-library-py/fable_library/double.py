@@ -1,7 +1,6 @@
 from typing import Any
 
-from .core import float32, float64, floats
-from .types import FSharpRef
+from .core import FSharpRef, float32, float64, floats
 
 
 def sign(x: float64) -> float64:

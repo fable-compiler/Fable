@@ -3,7 +3,8 @@ from __future__ import annotations
 from enum import IntEnum
 from urllib.parse import ParseResult, unquote, urljoin, urlparse
 
-from .types import FSharpRef, IntegerTypes, int32
+from .core import FSharpRef, int32
+from .types import IntegerTypes
 
 
 class UriKind(IntEnum):

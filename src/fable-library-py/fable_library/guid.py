@@ -1,9 +1,7 @@
 import uuid
 
-from fable_library.array_ import Array
-from fable_library.types import byte
-
-from .types import FSharpRef
+from .array_ import Array
+from .core import FSharpRef, byte
 
 
 def parse(string: str) -> uuid.UUID:

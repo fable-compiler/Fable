@@ -451,7 +451,7 @@ let makeNumberTypeAnnotation com ctx kind info =
         match name with
         | "int"
         | "float" -> Expression.name name
-        | _ -> fableModuleAnnotation com ctx "types" name []
+        | _ -> fableModuleAnnotation com ctx "core" name []
 
 
     match kind, info with
@@ -631,7 +631,7 @@ let makeBuiltinTypeAnnotation com ctx typ repeatedGenerics kind =
     | Replacements.Util.BclGuid -> stdlibModuleTypeHint com ctx "uuid" "UUID" [] repeatedGenerics
     | Replacements.Util.FSharpReference genArg ->
         let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
-        fableModuleAnnotation com ctx "types" "FSharpRef" resolved, stmts
+        fableModuleAnnotation com ctx "core" "FSharpRef" resolved, stmts
     (*
     | Replacements.Util.BclTimeSpan -> NumberTypeAnnotation
     | Replacements.Util.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"

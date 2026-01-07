@@ -7,7 +7,7 @@ from re import Match, Pattern
 from .array_ import Array
 from .protocols import IEnumerator
 from .types import IntegerTypes
-from .util import UNIT, Enumerator
+from .util import UNIT, Enumerator, Unit
 
 
 MatchEvaluator = Callable[[Match[str]], str]
@@ -33,7 +33,7 @@ class GroupCollection:
     def __iter__(self) -> Iterator[str]:
         return iter(self.groups)
 
-    def GetEnumerator(self, __unit=UNIT) -> IEnumerator[str]:
+    def GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[str]:
         return Enumerator(iter(self.groups))
 
 
@@ -52,7 +52,7 @@ class MatchCollection:
     def __iter__(self) -> Iterator[Match[str]]:
         return iter(self._matches)
 
-    def GetEnumerator(self, __unit=UNIT) -> IEnumerator[Match[str]]:
+    def GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[Match[str]]:
         return Enumerator(iter(self._matches))
 
 

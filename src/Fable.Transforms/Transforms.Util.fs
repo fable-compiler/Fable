@@ -1046,6 +1046,10 @@ module AST =
     let makeIntConst (x: int) =
         NumberConstant(NumberValue.Int32 x, NumberInfo.Empty) |> makeValue None
 
+    let makeNativeIntConst (x: int) =
+        NumberConstant(NumberValue.NativeInt(nativeint x), NumberInfo.Empty)
+        |> makeValue None
+
     let makeFloatConst (x: float) =
         NumberConstant(NumberValue.Float64 x, NumberInfo.Empty) |> makeValue None
 

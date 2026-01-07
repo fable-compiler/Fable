@@ -1,6 +1,7 @@
 from decimal import MAX_EMAX, MIN_EMIN, Decimal, getcontext
 
-from .types import FSharpRef, IntegerTypes, byte, float32, float64, int16, int32, int64, sbyte, uint16, uint32, uint64
+from .core import FSharpRef, byte, float32, float64, int16, int32, int64, sbyte, uint16, uint32, uint64
+from .types import IntegerTypes
 
 
 getcontext().prec = 29

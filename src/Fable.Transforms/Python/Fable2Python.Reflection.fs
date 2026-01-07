@@ -17,7 +17,7 @@ let private libReflectionCall (com: IPythonCompiler) ctx r memberName args =
 
 /// Wraps a Python list expression in Array(...) constructor
 let private arrayExpr (com: IPythonCompiler) ctx (items: Expression list) =
-    Expression.call (libValue com ctx "types" "Array", [ Expression.list items ])
+    Expression.call (libValue com ctx "array_" "Array", [ Expression.list items ])
 
 let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics =
     // TODO: Refactor these three bindings to reuse in transformUnionReflectionInfo
@@ -318,18 +318,18 @@ let transformTypeTest (com: IPythonCompiler) ctx range expr (typ: Fable.Type) : 
     | Fable.String -> pyTypeof "<class 'str'>" expr
     | Fable.Number(kind, _b) ->
         match kind, typ with
-        | _, Fable.Type.Number(UInt8, _) -> pyInstanceof (libValue com ctx "types" "uint8") expr
-        | _, Fable.Type.Number(Int8, _) -> pyInstanceof (libValue com ctx "types" "int8") expr
-        | _, Fable.Type.Number(Int16, _) -> pyInstanceof (libValue com ctx "types" "int16") expr
-        | _, Fable.Type.Number(UInt16, _) -> pyInstanceof (libValue com ctx "types" "uint16") expr
-        | _, Fable.Type.Number(Int32, _) -> pyInstanceof (libValue com ctx "types" "int32") expr
-        | _, Fable.Type.Number(UInt32, _) -> pyInstanceof (libValue com ctx "types" "uint32") expr
+        | _, Fable.Type.Number(UInt8, _) -> pyInstanceof (libValue com ctx "core" "uint8") expr
+        | _, Fable.Type.Number(Int8, _) -> pyInstanceof (libValue com ctx "core" "int8") expr
+        | _, Fable.Type.Number(Int16, _) -> pyInstanceof (libValue com ctx "core" "int16") expr
+        | _, Fable.Type.Number(UInt16, _) -> pyInstanceof (libValue com ctx "core" "uint16") expr
+        | _, Fable.Type.Number(Int32, _) -> pyInstanceof (libValue com ctx "core" "int32") expr
+        | _, Fable.Type.Number(UInt32, _) -> pyInstanceof (libValue com ctx "core" "uint32") expr
         | _, Fable.Type.Number(NativeInt, _)
         | _, Fable.Type.Number(UNativeInt, _) -> pyInstanceof (Expression.name "int") expr
-        | _, Fable.Type.Number(Int64, _) -> pyInstanceof (libValue com ctx "types" "int64") expr
-        | _, Fable.Type.Number(UInt64, _) -> pyInstanceof (libValue com ctx "types" "uint64") expr
-        | _, Fable.Type.Number(Float32, _) -> pyInstanceof (libValue com ctx "types" "float32") expr
-        | _, Fable.Type.Number(Float64, _) -> pyInstanceof (libValue com ctx "types" "float64") expr
+        | _, Fable.Type.Number(Int64, _) -> pyInstanceof (libValue com ctx "core" "int64") expr
+        | _, Fable.Type.Number(UInt64, _) -> pyInstanceof (libValue com ctx "core" "uint64") expr
+        | _, Fable.Type.Number(Float32, _) -> pyInstanceof (libValue com ctx "core" "float32") expr
+        | _, Fable.Type.Number(Float64, _) -> pyInstanceof (libValue com ctx "core" "float64") expr
         | _, Fable.Type.Number(Decimal, _) -> pyTypeof "<class 'decimal.Decimal'>" expr
         | _ -> pyInstanceof (Expression.name "int") expr
 
@@ -338,7 +338,7 @@ let transformTypeTest (com: IPythonCompiler) ctx range expr (typ: Fable.Type) : 
     | Fable.DelegateType _ -> pyTypeof "<class 'function'>" expr
     | Fable.Array _ ->
         // Use isinstance(x, Array) where Array is from fable_library.types
-        pyInstanceof (libValue com ctx "types" "Array") expr
+        pyInstanceof (libValue com ctx "array_" "Array") expr
     | Fable.Tuple _ ->
         // Use isinstance(x, tuple) for Python tuple type test
         pyInstanceof (Expression.name "tuple") expr
@@ -366,10 +366,10 @@ let transformTypeTest (com: IPythonCompiler) ctx range expr (typ: Fable.Type) : 
             [ expr ] |> libCall com ctx None "util" "isIterable", stmts
         | Types.array ->
             // Use isinstance(x, Array) where Array is from fable_library.types
-            pyInstanceof (libValue com ctx "types" "Array") expr
+            pyInstanceof (libValue com ctx "array_" "Array") expr
         | Types.exception_ ->
             let expr, stmts = com.TransformAsExpr(ctx, expr)
-            [ expr ] |> libCall com ctx None "types" "isException", stmts
+            [ expr ] |> libCall com ctx None "exceptions" "is_exception", stmts
         | Types.datetime -> pyInstanceof (com.GetImportExpr(ctx, "datetime", "datetime")) expr
         | _ ->
             let ent = com.GetEntity(ent)

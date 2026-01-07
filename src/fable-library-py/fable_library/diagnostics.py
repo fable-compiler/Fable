@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 
-from .types import int32, int64
+from .core import int32, int64
 
 
 class TimerError(Exception):

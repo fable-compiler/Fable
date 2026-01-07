@@ -1,7 +1,7 @@
 from decimal import Decimal
 from typing import Any, SupportsInt
 
-from .types import FSharpRef
+from .core import FSharpRef
 
 
 def compare(x: int, y: int) -> int:

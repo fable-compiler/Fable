@@ -16,6 +16,8 @@ from abc import abstractmethod
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from .types import UNIT, Unit
+
 
 if TYPE_CHECKING:
     from .core import int32
@@ -178,14 +180,14 @@ class IStructuralComparable(Protocol):
 class IGenericAdder[T](Protocol):
     """Protocol for types that support addition with a zero value."""
 
-    def GetZero(self, __unit: Any = ...) -> T: ...
+    def GetZero(self, __unit: Unit = UNIT) -> T: ...
     def Add(self, x: T, y: T, /) -> T: ...
 
 
 class IGenericAverager[T](Protocol):
     """Protocol for types that support averaging (add, divide by count)."""
 
-    def GetZero(self, __unit: Any = ...) -> T: ...
+    def GetZero(self, __unit: Unit = UNIT) -> T: ...
     def Add(self, x: T, y: T, /) -> T: ...
     def DivideByInt(self, x: T, i: int32, /) -> T: ...
 
@@ -247,9 +249,6 @@ class IEnumerator[T](IDisposable, Protocol):
 # Enumerable Protocols
 # =============================================================================
 
-# Note: UNIT is not imported here to avoid circular dependency.
-# The __unit parameter uses Any default which works the same way.
-
 
 class IEnumerable(Protocol):
     """Protocol for enumerable collections (pure protocol for type hints).
@@ -260,7 +259,7 @@ class IEnumerable(Protocol):
 
     __slots__ = ()
 
-    def GetEnumerator(self, __unit: Any = None) -> IEnumerator[Any]: ...
+    def GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[Any]: ...
 
 
 class IEnumerable_1[T](Protocol):
@@ -272,7 +271,7 @@ class IEnumerable_1[T](Protocol):
 
     __slots__ = ()
 
-    def GetEnumerator(self, __unit: Any = None) -> IEnumerator[T]: ...
+    def GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[T]: ...
 
 
 # =============================================================================
@@ -436,7 +435,7 @@ class IReadOnlyDictionary[K, V](Protocol):
     For the full .NET IReadOnlyDictionary, use IReadOnlyDictionary_2.
     """
 
-    def keys(self, __unit: Any = None) -> Iterable[K]:
+    def keys(self, __unit: Unit = None) -> Iterable[K]:
         """Return an iterable of keys."""
         ...
 

@@ -7,7 +7,6 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Timer
 from typing import (
     Any,
-    Literal,
 )
 
 from .array_ import Array
@@ -34,6 +33,7 @@ from .choice import (
 from .protocols import IEnumerable_1
 from .task import TaskCompletionSource
 from .time_span import TimeSpan, to_milliseconds
+from .types import UNIT, Unit
 
 
 def cancellation_token() -> Async[CancellationToken]:
@@ -96,7 +96,7 @@ def sleep(milliseconds_duetime: int | TimeSpan) -> Async[None]:
 
 
 def ignore(computation: Async[Any]) -> Async[None]:
-    def binder(_: Any | None = None) -> Async[None]:
+    def binder(_: Any | Unit = UNIT) -> Async[None]:
         return protected_return(None)
 
     return protected_bind(computation, binder)
@@ -142,7 +142,7 @@ def sequential[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
 
             return singleton.Bind(cmp, _arrow19)
 
-        def _arrow21(__unit: Literal[None] = None) -> Async[Array[T]]:
+        def _arrow21(__unit: Unit = UNIT) -> Async[Array[T]]:
             return singleton.Return(Array[T](results))
 
         return singleton.Combine(singleton.For(computations, _arrow20), singleton.Delay(_arrow21))

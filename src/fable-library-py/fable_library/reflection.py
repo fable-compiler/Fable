@@ -5,12 +5,16 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, cast
 
-from .types import Array, FSharpRef, IntegerTypes, Record, Union, int32
-from .types import Union as FsUnion
+from .array_ import Array
+from .core import FSharpRef, int32
+from .record import Record
+from .types import IntegerTypes
+from .union import Union
+from .union import Union as FsUnion
 from .util import combine_hash_codes, equal_arrays_with
 
 
-Constructor = Callable[..., Any]
+Constructor = type[Any]
 
 EnumCase = tuple[str, IntegerTypes]
 FieldInfo = tuple[str, "TypeInfo"]
@@ -251,7 +255,7 @@ def is_instance_of_type(t: TypeInfo, o: Any) -> bool:
     if callable(o):
         return is_function(t)
 
-    return t.construct is not None and isinstance(o, t.construct)  # type: ignore
+    return t.construct is not None and isinstance(o, t.construct)
 
 
 def is_record(t: Any) -> bool:
