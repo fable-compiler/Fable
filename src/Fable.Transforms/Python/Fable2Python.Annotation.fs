@@ -472,6 +472,8 @@ let makeImportTypeAnnotation com ctx genArgs moduleName typeName =
 let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedGenerics =
     // printfn "DeclaredType: %A" entRef.FullName
     match entRef.FullName, genArgs with
+    // Python's BaseException - used for catch-all exception handlers
+    | "BaseException", _ -> Expression.name "BaseException", []
     | Types.result, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
         fableModuleAnnotation com ctx "result" "FSharpResult_2" resolved, stmts
@@ -630,8 +632,13 @@ let makeBuiltinTypeAnnotation com ctx typ repeatedGenerics kind =
     match kind with
     | Replacements.Util.BclGuid -> stdlibModuleTypeHint com ctx "uuid" "UUID" [] repeatedGenerics
     | Replacements.Util.FSharpReference genArg ->
-        let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
-        fableModuleAnnotation com ctx "core" "FSharpRef" resolved, stmts
+        // In F#, struct instance method's `this` parameter is represented as inref<StructType>,
+        // but in Python the struct is passed directly, not wrapped in FSharpRef.
+        if isInRefOrAnyType com typ then
+            typeAnnotation com ctx repeatedGenerics genArg
+        else
+            let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
+            fableModuleAnnotation com ctx "core" "FSharpRef" resolved, stmts
     (*
     | Replacements.Util.BclTimeSpan -> NumberTypeAnnotation
     | Replacements.Util.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"

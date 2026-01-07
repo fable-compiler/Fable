@@ -278,6 +278,46 @@ let generatePythonProtocolDunders (com: IPythonCompiler) ctx (classEnt: Fable.En
     // a collection is either a mapping or a set, not both
     mappingDunders @ mutableMappingDunders @ setDunders @ mutableSetDunders
 
+/// Known core interfaces and their method members.
+/// These interfaces are injected by the compiler and their entities may not be available.
+/// Maps interface full name -> set of method member names.
+let knownInterfaceMethods =
+    Map
+        [
+            "Fable.Core.IGenericAdder`1", set [ "GetZero"; "Add" ]
+            "Fable.Core.IGenericAverager`1", set [ "GetZero"; "Add"; "DivideByInt" ]
+            "System.Collections.Generic.IComparer`1", set [ "Compare" ]
+            "System.Collections.Generic.IEqualityComparer`1", set [ "Equals"; "GetHashCode" ]
+        ]
+
+/// All known method names from core interfaces (for untyped object expressions).
+let knownInterfaceMethodNames =
+    knownInterfaceMethods |> Map.values |> Seq.collect id |> Set.ofSeq
+
+/// Check if the interface member is a method (vs property).
+/// Methods have parameters; properties (even returning functions) don't.
+/// Used in object expression code generation to determine whether to emit
+/// a method or a @property decorator.
+let isInterfaceMethod (com: Compiler) (typ: Fable.Type) (memberName: string) : bool =
+    match typ with
+    | Fable.DeclaredType(entRef, _) ->
+        // Check known interfaces first (handles compiler-injected interfaces)
+        match knownInterfaceMethods.TryFind entRef.FullName with
+        | Some methods -> methods.Contains memberName
+        | None ->
+            // Not a known interface, try entity lookup for user-defined interfaces
+            match com.TryGetEntity entRef with
+            | Some ent ->
+                ent.MembersFunctionsAndValues
+                |> Seq.tryFind (fun m -> m.DisplayName = memberName || m.CompiledName = memberName)
+                |> Option.map (fun m -> m.CurriedParameterGroups |> List.exists (not << List.isEmpty))
+                |> Option.defaultValue false
+            | None -> false
+    | Fable.Any ->
+        // For untyped object expressions (compiler-injected), check known method names
+        knownInterfaceMethodNames.Contains memberName
+    | _ -> false
+
 /// Utilities for interface and abstract class member naming.
 module InterfaceNaming =
     /// Computes the overload suffix for an interface/abstract class member based on parameter types.
