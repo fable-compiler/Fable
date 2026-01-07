@@ -1,9 +1,9 @@
 from typing import Any, Literal, SupportsFloat, SupportsInt, overload
 
+from .core import float64, int32, int64, uint64
 from .core._core import get_range_64 as get_range
 from .core._core import parse_int64 as parse
 from .core._core import try_parse_int64 as try_parse
-from .types import float64, int32, int64, uint64
 
 
 def compare(x: int64, y: int64) -> int64:

@@ -3,7 +3,7 @@ import sys
 from typing import SupportsFloat, SupportsInt
 
 from .array_ import Array
-from .types import byte, float32, float64, int16, int32, int64, uint8, uint16, uint32, uint64
+from .core import byte, float32, float64, int16, int32, int64, uint8, uint16, uint32, uint64
 
 
 def _bytes_to_uint8_array(data: bytes) -> Array[uint8]:

@@ -18,6 +18,7 @@ from fable_library.protocols import (
     IGenericAdder,
     IGenericAverager,
 )
+from fable_library.util import UNIT, Unit
 
 from . import FSharpRef, Int32
 
@@ -60,7 +61,7 @@ class FSharpArray[T](MutableSequence[T]):
     def length(self) -> Int32: ...
 
     # IEnumerable implementation (for .NET compatibility)
-    def GetEnumerator(self, __unit: None = None) -> IEnumerator[T]: ...
+    def GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[T]: ...
 
     # Static methods
     @staticmethod

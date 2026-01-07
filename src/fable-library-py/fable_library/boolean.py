@@ -1,6 +1,6 @@
 from typing import Any
 
-from .types import FSharpRef
+from .core import FSharpRef
 
 
 def try_parse(string: str, defValue: FSharpRef[bool]) -> bool:

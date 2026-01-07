@@ -111,9 +111,9 @@ let makeArrowFunctionExpression
     let args =
         match args.PosOnlyArgs, args.Args with
         | [], [] ->
-            let ta = com.GetImportExpr(ctx, "typing", "Any")
+            let ta = com.GetImportExpr(ctx, getLibPath com "util", "Unit")
 
-            Arguments.arguments (args = [ Arg.arg ("__unit", annotation = ta) ], defaults = [ Expression.none ])
+            Arguments.arguments (args = [ Arg.arg ("__unit", annotation = ta) ], defaults = [ Expression.tuple [] ])
         | _ -> args
 
     let allDefaultsAreNone =
@@ -320,15 +320,15 @@ let transformCast (com: IPythonCompiler) (ctx: Context) t e : Expression * State
 
         | _ -> com.TransformAsExpr(ctx, e)
     | Fable.Number(Float32, _), _ ->
-        let cons = libValue com ctx "types" "float32"
+        let cons = libValue com ctx "core" "float32"
         let value, stmts = com.TransformAsExpr(ctx, e)
         Expression.call (cons, [ value ], ?loc = None), stmts
     | Fable.Number(Float64, _), _ ->
-        let cons = libValue com ctx "types" "float64"
+        let cons = libValue com ctx "core" "float64"
         let value, stmts = com.TransformAsExpr(ctx, e)
         Expression.call (cons, [ value ], ?loc = None), stmts
     | Fable.Number(Int32, _), _ ->
-        let cons = libValue com ctx "types" "int32"
+        let cons = libValue com ctx "core" "int32"
         let value, stmts = com.TransformAsExpr(ctx, e)
         Expression.call (cons, [ value ], ?loc = None), stmts
     | _ -> com.TransformAsExpr(ctx, e)
@@ -393,9 +393,9 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
         | Fable.NumberValue.Float64 x when x = -infinity -> libValue com ctx "double" "float64.negative_infinity", []
         | Fable.NumberValue.Float64 x when Double.IsNaN(x) -> libValue com ctx "double" "float64.nan", []
         | Fable.NumberValue.Float32 x when Single.IsNaN(x) ->
-            libCall com ctx r "types" "float32" [ Expression.stringConstant "nan" ], []
+            libCall com ctx r "core" "float32" [ Expression.stringConstant "nan" ], []
         | Fable.NumberValue.Float16 x when Single.IsNaN(x) ->
-            libCall com ctx r "types" "float32" [ Expression.stringConstant "nan" ], []
+            libCall com ctx r "core" "float32" [ Expression.stringConstant "nan" ], []
         | Fable.NumberValue.Float16 x -> makeFloat com ctx r value.Type "float32" (float x)
         | Fable.NumberValue.Float32 x -> makeFloat com ctx r value.Type "float32" (float x)
         | Fable.NumberValue.Float64 x -> makeFloat com ctx r value.Type "float64" (float x)
@@ -2977,21 +2977,23 @@ let transformFunction
             args', finalDefaults, body
 
     let arguments =
+        let unitDefault = libValue com ctx "util" "UNIT"
+
         match args, isUnitOrGeneric, tcArgs with
         // No args and no tail-call args: add __unit parameter
         | [], _, [] ->
-            let unitDefault = libValue com ctx "util" "UNIT"
-            Arguments.arguments (args = [ Arg.arg (Identifier("__unit")) ], defaults = [ unitDefault ])
+            let unitType = com.GetImportExpr(ctx, getLibPath com "util", "Unit")
+
+            Arguments.arguments (
+                args = [ Arg.arg (Identifier("__unit"), annotation = unitType) ],
+                defaults = [ unitDefault ]
+            )
         // No args but has tail-call args: skip __unit, tcArgs are sufficient
         | [], _, _ -> Arguments.arguments (args = tcArgs, defaults = tcDefaults)
-        // Single generic/unit arg with no tail-call args: keep it with UNIT default
-        | [ arg ], true, [] ->
-            let unitDefault = libValue com ctx "util" "UNIT"
-            Arguments.arguments (args = args, defaults = [ unitDefault ])
+        // Single generic/unit arg with no tail-call args: keep it with () default
+        | [ arg ], true, [] -> Arguments.arguments (args = args, defaults = [ unitDefault ])
         // Single generic/unit arg with tail-call args: keep arg (body may reference it)
-        | [ arg ], true, _ ->
-            let unitDefault = libValue com ctx "util" "UNIT"
-            Arguments.arguments (args @ tcArgs, defaults = unitDefault :: tcDefaults)
+        | [ arg ], true, _ -> Arguments.arguments (args @ tcArgs, defaults = unitDefault :: tcDefaults)
         | _ -> Arguments.arguments (args @ tcArgs, defaults = defaults @ tcDefaults)
 
     arguments, body
@@ -3828,7 +3830,7 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
             decoratorList = decorators
         )
 
-    let baseExpr = libValue com ctx "types" "Union" |> Some
+    let baseExpr = libValue com ctx "union" "Union" |> Some
     let classMembers = List.append [ cases ] classMembers
 
     declareType com ctx ent entName args isOptional body baseExpr classMembers None [] []
@@ -3853,9 +3855,9 @@ let transformClassWithCompilerGeneratedConstructor
 
     let baseExpr =
         if ent.IsFSharpExceptionDeclaration then
-            libValue com ctx "types" "FSharpException" |> Some
+            libValue com ctx "exceptions" "FSharpException" |> Some
         elif ent.IsFSharpRecord || ent.IsValueType then
-            libValue com ctx "types" "Record" |> Some
+            libValue com ctx "record" "Record" |> Some
         else
             None
 
@@ -4055,7 +4057,7 @@ let transformClassWithPrimaryConstructor
         |> extractBaseExprFromBaseCall com ctx classEnt.BaseType
         |> Option.orElseWith (fun () ->
             if classEnt.IsValueType then
-                Some(libValue com ctx "Types" "Record", ([], [], []))
+                Some(libValue com ctx "record" "Record", ([], [], []))
             else
                 None
         )

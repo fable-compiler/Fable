@@ -12,8 +12,9 @@ from typing import (
 )
 
 from .array_ import Array
+from .core import FSharpRef
 from .protocols import IEnumerable_1
-from .types import FSharpRef, Union
+from .union import Union
 from .util import to_iterable
 
 

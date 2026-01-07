@@ -4,8 +4,8 @@ from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, SupportsIndex
 
 from . import time_span
+from .core import FSharpRef
 from .time_span import TimeSpan
-from .types import FSharpRef
 
 
 class DateTimeOffset(datetime):

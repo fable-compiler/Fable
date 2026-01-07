@@ -9,7 +9,7 @@ from .choice import (
 )
 from .option import Option, value
 from .protocols import IDisposable
-from .util import UNIT, Disposable
+from .util import Disposable
 
 
 @runtime_checkable
@@ -26,7 +26,7 @@ class IObserver[T_contra](Protocol):
     def OnCompleted(self) -> None: ...
 
 
-def _noop(__arg=UNIT) -> None:
+def _noop(__arg: object = None) -> None:
     pass
 
 
