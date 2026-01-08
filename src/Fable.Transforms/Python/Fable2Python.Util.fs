@@ -109,6 +109,53 @@ module Util =
         | Fable.Call _ -> needsOptionEraseForCall expectedReturnType
         | _ -> false
 
+    /// Recursively check if a type contains Option (wrapped or erased).
+    let rec private containsOption (typ: Fable.Type) =
+        match typ with
+        | Fable.Option _ -> true
+        | Fable.Tuple(types, _) -> types |> List.exists containsOption
+        | Fable.Array(elemType, _) -> containsOption elemType
+        | Fable.List elemType -> containsOption elemType
+        | _ -> false
+
+    /// Check if a type is an invariant container (Array or List) with Options inside.
+    /// This detects cases where function return types use Option[T] for generics
+    /// but variable annotations would use T | None for concrete types, causing
+    /// invariance mismatch errors in Pyright.
+    let private isInvariantContainerWithOptions (typ: Fable.Type) =
+        match typ with
+        | Fable.Array(elemType, _) -> containsOption elemType
+        | Fable.List elemType -> containsOption elemType
+        | _ -> false
+
+    /// Check if we should skip type annotation to avoid Option[T] vs T | None mismatch.
+    /// When a Call returns an invariant container (Array/List) with Options inside,
+    /// the function signature uses Option[T] for generics, but the variable annotation
+    /// would use erased T | None. Since Array/List are invariant, this causes type errors.
+    /// Skip the annotation and let Python infer from function return type.
+    let valueExtractsFromInvariantContainer (value: Fable.Expr) (varType: Fable.Type) =
+        match value with
+        | Fable.Call _ ->
+            // When a call returns an invariant container with Options, skip annotation
+            isInvariantContainerWithOptions varType
+        | Fable.Get(_, Fable.ListHead, _, _) -> containsOption varType
+        | Fable.Get(_, Fable.ListTail, _, _) -> containsOption varType
+        | Fable.Get(expr, Fable.ExprGet _, _, _) -> isInvariantContainerWithOptions expr.Type && containsOption varType
+        | _ -> false
+
+    /// Check if a binding is assigning from a wrapped option after None check.
+    /// Pattern: `if x is not None: x2 = x` where x has wrapped Option type.
+    /// After narrowing, x is SomeWrapper[T] | T, but annotation expects T.
+    /// Skip annotation to avoid type mismatch.
+    let isWrappedOptionNarrowingAssignment (value: Fable.Expr) =
+        match value with
+        | Fable.IdentExpr ident ->
+            // Check if the source has a wrapped option type
+            match ident.Type with
+            | Fable.Option(innerType, _) -> mustWrapOption innerType
+            | _ -> false
+        | _ -> false
+
     /// Get narrowed contexts for then/else branches based on a guard expression
     /// Returns (thenCtx, elseCtx) with appropriate type narrowing applied
     let getNarrowedContexts (ctx: Context) (guardExpr: Fable.Expr) : Context * Context =

@@ -71,6 +71,27 @@ let getGenericArgs (typ: Fable.Type) : Fable.Type list =
 let containsGenericParams (t: Fable.Type) =
     FSharp2Fable.Util.getGenParamNames [ t ] |> List.isEmpty |> not
 
+/// Check if a type contains Option nested inside a container (Array, List, Tuple).
+/// When Options are inside invariant containers, we must use Option[T] form consistently
+/// to match function signatures that use generic type parameters.
+let rec hasOptionInContainer (t: Fable.Type) : bool =
+    match t with
+    | Fable.Array(elementType, _) -> containsOptionType elementType
+    | Fable.List elementType -> containsOptionType elementType
+    | Fable.Tuple(genArgs, _) -> genArgs |> List.exists containsOptionType
+    | Fable.DeclaredType(_, genArgs) -> genArgs |> List.exists containsOptionType
+    | _ -> false
+
+/// Check if a type is or contains an Option type
+and containsOptionType (t: Fable.Type) : bool =
+    match t with
+    | Fable.Option _ -> true
+    | Fable.Array(elementType, _) -> containsOptionType elementType
+    | Fable.List elementType -> containsOptionType elementType
+    | Fable.Tuple(genArgs, _) -> genArgs |> List.exists containsOptionType
+    | Fable.DeclaredType(_, genArgs) -> genArgs |> List.exists containsOptionType
+    | _ -> false
+
 /// Check if a type is a callable type (Lambda or Delegate)
 let isCallableType (t: Fable.Type) =
     match t with

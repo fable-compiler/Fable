@@ -1404,31 +1404,47 @@ let transformBindingAsExpr (com: IPythonCompiler) ctx (var: Fable.Ident) (value:
 let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
     let shouldTreatAsStatement = isPyStatement ctx false value
     let needsErase = needsOptionEraseForBinding value var.Type
+    // Skip type annotation to avoid Option[T] vs T | None mismatch issues with Pyright:
+    // 1. When extracting from invariant containers (Array, List) with Options
+    // 2. When assigning from a wrapped option after None check (narrowing issue)
+    let skipAnnotation =
+        valueExtractsFromInvariantContainer value var.Type
+        || isWrappedOptionNarrowingAssignment value
 
     if shouldTreatAsStatement then
         let varName, varExpr = Expression.name var.Name, identAsExpr com ctx var
 
         ctx.BoundVars.Bind(var.Name)
-        let ta, stmts = Annotation.typeAnnotation com ctx None var.Type
-        let decl = Statement.assign (varName, ta)
 
-        let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
-
-        stmts @ [ decl ] @ body
+        if skipAnnotation then
+            // No type annotation - let Python infer from function return type
+            let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
+            body
+        else
+            let ta, stmts = Annotation.typeAnnotation com ctx None var.Type
+            let decl = Statement.assign (varName, ta)
+            let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
+            stmts @ [ decl ] @ body
     else
         let expr, stmts = transformBindingExprBody com ctx var value
         let varName = com.GetIdentifierAsExpr(ctx, Naming.toPythonNaming var.Name)
-        let ta, stmts' = Annotation.typeAnnotation com ctx None var.Type
-        // Erase Option wrapper if needed (zero runtime overhead, just for type checker)
-        let expr' =
-            if needsErase then
-                wrapInOptionErase com ctx expr
-            else
-                expr
 
-        let value' = wrapNoneInCast com ctx expr' ta
-        let decl = varDeclaration ctx varName (Some ta) value'
-        stmts @ stmts' @ decl
+        if skipAnnotation then
+            // No type annotation - let Python infer from function return type
+            let decl = varDeclaration ctx varName None expr
+            stmts @ decl
+        else
+            let ta, stmts' = Annotation.typeAnnotation com ctx None var.Type
+            // Erase Option wrapper if needed (zero runtime overhead, just for type checker)
+            let expr' =
+                if needsErase then
+                    wrapInOptionErase com ctx expr
+                else
+                    expr
+
+            let value' = wrapNoneInCast com ctx expr' ta
+            let decl = varDeclaration ctx varName (Some ta) value'
+            stmts @ stmts' @ decl
 
 let transformTest (com: IPythonCompiler) ctx range kind expr : Expression * Statement list =
     match kind with
@@ -3126,15 +3142,29 @@ let declareDataClassType
     =
     let name = com.GetIdentifier(ctx, entName)
 
+    // Generate field annotations from entity's FSharpFields to properly uncurry function types.
+    // Record/dataclass fields store functions uncurried at runtime, so we need to uncurry
+    // lambda types in the type annotations to match.
     let props =
-        consArgs.Args
-        |> List.map (fun arg ->
-            let any _ =
-                stdlibModuleAnnotation com ctx "typing" "Any" []
+        ent.FSharpFields
+        |> List.mapi (fun i field ->
+            // Get the argument name from consArgs (preserves the Python naming convention)
+            let argName =
+                if i < consArgs.Args.Length then
+                    consArgs.Args.[i].Arg
+                else
+                    // Fallback to field name if consArgs doesn't have enough args
+                    com.GetIdentifier(ctx, field.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean)
 
-            let annotation = arg.Annotation |> Option.defaultWith any
+            // Uncurry lambda types for field annotations since fields store uncurried functions
+            let fieldType =
+                match field.FieldType with
+                | Fable.LambdaType _ -> FableTransforms.uncurryType field.FieldType
+                | _ -> field.FieldType
 
-            Statement.assign (Expression.name arg.Arg, annotation = annotation)
+            let annotation, _ = Annotation.typeAnnotation com ctx None fieldType
+
+            Statement.assign (Expression.name argName, annotation = annotation)
         )
 
 
