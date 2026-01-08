@@ -1163,7 +1163,8 @@ module ExceptionHandling =
         match typ with
         | Fable.DeclaredType(entRef, _) ->
             entRef.FullName = "System.Exception"
-            || entRef.FullName.StartsWith("System.") && entRef.FullName.EndsWith("Exception")
+            || entRef.FullName.StartsWith("System.", StringComparison.Ordinal)
+               && entRef.FullName.EndsWith("Exception", StringComparison.Ordinal)
         | _ -> false
 
     /// Create a Fable type representing Python's BaseException.
