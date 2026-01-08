@@ -109,6 +109,77 @@ module Util =
         | Fable.Call _ -> needsOptionEraseForCall expectedReturnType
         | _ -> false
 
+    /// Recursively check if a type contains Option (wrapped or erased).
+    let rec private containsOption (typ: Fable.Type) =
+        match typ with
+        | Fable.Option _ -> true
+        | Fable.Tuple(types, _) -> types |> List.exists containsOption
+        | Fable.Array(elemType, _) -> containsOption elemType
+        | Fable.List elemType -> containsOption elemType
+        | _ -> false
+
+    /// Check if a type is an invariant container (Array or List) with Options inside.
+    /// This detects cases where function return types use Option[T] for generics
+    /// but variable annotations would use T | None for concrete types, causing
+    /// invariance mismatch errors in Pyright.
+    let private isInvariantContainerWithOptions (typ: Fable.Type) =
+        match typ with
+        | Fable.Array(elemType, _) -> containsOption elemType
+        | Fable.List elemType -> containsOption elemType
+        | _ -> false
+
+    /// Check if we should skip type annotation to avoid Option[T] vs T | None mismatch.
+    /// When a Call returns an invariant container (Array/List) with Options inside,
+    /// the function signature uses Option[T] for generics, but the variable annotation
+    /// would use erased T | None. Since Array/List are invariant, this causes type errors.
+    /// Skip the annotation and let Python infer from function return type.
+    let valueExtractsFromInvariantContainer (value: Fable.Expr) (varType: Fable.Type) =
+        match value with
+        | Fable.Call _ ->
+            // When a call returns an invariant container with Options, skip annotation
+            isInvariantContainerWithOptions varType
+        | Fable.Get(_, Fable.ListHead, _, _) -> containsOption varType
+        | Fable.Get(_, Fable.ListTail, _, _) -> containsOption varType
+        | Fable.Get(expr, Fable.ExprGet _, _, _) -> isInvariantContainerWithOptions expr.Type && containsOption varType
+        | _ -> false
+
+    /// Check if a binding is assigning from a wrapped option after None check.
+    /// Pattern: `if x is not None: x2 = x` where x has wrapped Option type.
+    /// After narrowing, x is SomeWrapper[T] | T, but annotation expects T.
+    /// Skip annotation to avoid type mismatch.
+    let isWrappedOptionNarrowingAssignment (value: Fable.Expr) =
+        match value with
+        | Fable.IdentExpr ident ->
+            // Check if the source has a wrapped option type
+            match ident.Type with
+            | Fable.Option(innerType, _) -> mustWrapOption innerType
+            | _ -> false
+        | _ -> false
+
+    /// Get narrowed contexts for then/else branches based on a guard expression
+    /// Returns (thenCtx, elseCtx) with appropriate type narrowing applied
+    let getNarrowedContexts (ctx: Context) (guardExpr: Fable.Expr) : Context * Context =
+        match guardExpr with
+        | Fable.Test(Fable.IdentExpr ident, Fable.TypeTest typ, _) ->
+            // TypeTest: then branch has the narrowed type
+            { ctx with NarrowedTypes = Map.add ident.Name typ ctx.NarrowedTypes }, ctx
+        | Fable.Test(Fable.IdentExpr ident, Fable.OptionTest nonEmpty, _) ->
+            // OptionTest: only narrow for erased options (T | None), not wrapped options (Option[T])
+            // Wrapped options require value() call to unwrap, so the type doesn't change
+            match ident.Type with
+            | Fable.Option(innerType, _) when not (mustWrapOption innerType) ->
+                // Erased option: type narrows from T | None to T
+                if nonEmpty then
+                    // v is not None: then branch has the unwrapped type
+                    { ctx with NarrowedTypes = Map.add ident.Name innerType ctx.NarrowedTypes }, ctx
+                else
+                    // v is None: else branch has the unwrapped type
+                    ctx, { ctx with NarrowedTypes = Map.add ident.Name innerType ctx.NarrowedTypes }
+            | _ ->
+                // Wrapped option or non-option: no type narrowing
+                ctx, ctx
+        | _ -> ctx, ctx
+
     /// Recursively check if a type contains Option with generic parameter that requires wrapping.
     /// This checks return types of lambdas for Option[GenericParam].
     let rec private hasWrappedOptionInReturnType (typ: Fable.Type) =
@@ -1132,6 +1203,39 @@ module ExceptionHandling =
             specificHandlers, wildcardHandler
 
         | _ -> [], Some expr
+
+    /// Check if a type is System.Exception or a subtype (including exn alias).
+    /// Used to identify exception types that need to be widened to BaseException for catch-all handlers.
+    let private isExceptionType (typ: Fable.Type) =
+        match typ with
+        | Fable.DeclaredType(entRef, _) ->
+            entRef.FullName = "System.Exception"
+            || entRef.FullName.StartsWith("System.", StringComparison.Ordinal)
+               && entRef.FullName.EndsWith("Exception", StringComparison.Ordinal)
+        | _ -> false
+
+    /// Create a Fable type representing Python's BaseException.
+    /// This maps to the built-in BaseException class in Python.
+    let private baseExceptionType =
+        let entRef: Fable.EntityRef =
+            {
+                FullName = "BaseException"
+                Path = Fable.CoreAssemblyName "builtins"
+            }
+
+        Fable.DeclaredType(entRef, [])
+
+    /// Rewrite exception-typed bindings in a fallback expression to use BaseException type.
+    /// This is needed because Python's BaseException is broader than Exception,
+    /// and type checkers reject `ex: Exception = <BaseException>`.
+    let rec widenExceptionTypes (expr: Fable.Expr) : Fable.Expr =
+        match expr with
+        | Fable.Let(ident, value, body) when isExceptionType ident.Type ->
+            // Change the ident's type to BaseException for correct Python typing
+            let widenedIdent = { ident with Type = baseExceptionType }
+            Fable.Let(widenedIdent, value, widenExceptionTypes body)
+        | Fable.Let(ident, value, body) -> Fable.Let(ident, value, widenExceptionTypes body)
+        | _ -> expr
 
 /// Utilities for Python match statement generation (PEP 634).
 /// These helpers transform F# decision trees into Python 3.10+ match/case statements.

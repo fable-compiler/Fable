@@ -71,6 +71,27 @@ let getGenericArgs (typ: Fable.Type) : Fable.Type list =
 let containsGenericParams (t: Fable.Type) =
     FSharp2Fable.Util.getGenParamNames [ t ] |> List.isEmpty |> not
 
+/// Check if a type contains Option nested inside a container (Array, List, Tuple).
+/// When Options are inside invariant containers, we must use Option[T] form consistently
+/// to match function signatures that use generic type parameters.
+let rec hasOptionInContainer (t: Fable.Type) : bool =
+    match t with
+    | Fable.Array(elementType, _) -> containsOptionType elementType
+    | Fable.List elementType -> containsOptionType elementType
+    | Fable.Tuple(genArgs, _) -> genArgs |> List.exists containsOptionType
+    | Fable.DeclaredType(_, genArgs) -> genArgs |> List.exists containsOptionType
+    | _ -> false
+
+/// Check if a type is or contains an Option type
+and containsOptionType (t: Fable.Type) : bool =
+    match t with
+    | Fable.Option _ -> true
+    | Fable.Array(elementType, _) -> containsOptionType elementType
+    | Fable.List elementType -> containsOptionType elementType
+    | Fable.Tuple(genArgs, _) -> genArgs |> List.exists containsOptionType
+    | Fable.DeclaredType(_, genArgs) -> genArgs |> List.exists containsOptionType
+    | _ -> false
+
 /// Check if a type is a callable type (Lambda or Delegate)
 let isCallableType (t: Fable.Type) =
     match t with
@@ -472,6 +493,8 @@ let makeImportTypeAnnotation com ctx genArgs moduleName typeName =
 let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedGenerics =
     // printfn "DeclaredType: %A" entRef.FullName
     match entRef.FullName, genArgs with
+    // Python's BaseException - used for catch-all exception handlers
+    | "BaseException", _ -> Expression.name "BaseException", []
     | Types.result, _ ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
         fableModuleAnnotation com ctx "result" "FSharpResult_2" resolved, stmts
@@ -630,8 +653,13 @@ let makeBuiltinTypeAnnotation com ctx typ repeatedGenerics kind =
     match kind with
     | Replacements.Util.BclGuid -> stdlibModuleTypeHint com ctx "uuid" "UUID" [] repeatedGenerics
     | Replacements.Util.FSharpReference genArg ->
-        let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
-        fableModuleAnnotation com ctx "core" "FSharpRef" resolved, stmts
+        // In F#, struct instance method's `this` parameter is represented as inref<StructType>,
+        // but in Python the struct is passed directly, not wrapped in FSharpRef.
+        if isInRefOrAnyType com typ then
+            typeAnnotation com ctx repeatedGenerics genArg
+        else
+            let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
+            fableModuleAnnotation com ctx "core" "FSharpRef" resolved, stmts
     (*
     | Replacements.Util.BclTimeSpan -> NumberTypeAnnotation
     | Replacements.Util.BclDateTime -> makeSimpleTypeAnnotation com ctx "Date"

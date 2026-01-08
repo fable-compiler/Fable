@@ -23,15 +23,48 @@ let wrapInOptionErase (com: IPythonCompiler) ctx (expr: Expression) =
     libCall com ctx None "option" "erase" [ expr ]
 
 
+/// Find identifiers used in an expression that have been narrowed in the context
+let findNarrowedIdentsUsedInExpr (ctx: Context) (expr: Fable.Expr) : (string * Fable.Type) list =
+    ctx.NarrowedTypes
+    |> Map.toList
+    |> List.filter (fun (name, _) -> isIdentUsed name expr)
+
 /// Immediately Invoked Function Expression
+/// When narrowed types are in scope, pass them as arguments to avoid closure capture issues
+/// with type narrowing (Pyright can't see that a captured variable has been narrowed)
 let iife (com: IPythonCompiler) ctx (expr: Fable.Expr) =
-    let args, body, returnType, typeParams =
-        Annotation.transformFunctionWithAnnotations com ctx None [] expr
+    // Find identifiers that are both used in the expression and have narrowed types
+    let narrowedIdents = findNarrowedIdentsUsedInExpr ctx expr
 
-    let afe, stmts =
-        makeArrowFunctionExpression com ctx None (Some expr.Type) args body returnType typeParams
+    match narrowedIdents with
+    | [] ->
+        // No narrowed types, use the original approach
+        let args, body, returnType, typeParams =
+            Annotation.transformFunctionWithAnnotations com ctx None [] expr
 
-    Expression.call (afe, []), stmts
+        let afe, stmts =
+            makeArrowFunctionExpression com ctx None (Some expr.Type) args body returnType typeParams
+
+        Expression.call (afe, []), stmts
+    | narrowedIdents ->
+        // Create Fable.Ident arguments for the narrowed identifiers using makeTypedIdent
+        let fableArgs =
+            narrowedIdents
+            |> List.map (fun (name, narrowedType) -> makeTypedIdent narrowedType name)
+
+        // Transform the function with the narrowed arguments
+        let args, body, returnType, typeParams =
+            Annotation.transformFunctionWithAnnotations com ctx None fableArgs expr
+
+        let afe, stmts =
+            makeArrowFunctionExpression com ctx None (Some expr.Type) args body returnType typeParams
+
+        // Create call arguments from the narrowed identifier names
+        let callArgs =
+            narrowedIdents
+            |> List.map (fun (name, _) -> com.GetIdentifierAsExpr(ctx, Naming.toPythonNaming name))
+
+        Expression.call (afe, callArgs), stmts
 
 let transformImport (com: IPythonCompiler) ctx (_r: SourceLocation option) (name: string) (moduleName: string) =
     let name, parts =
@@ -551,18 +584,6 @@ let transformObjectExpr
 
         createFunctionWithTypeParams name args body decorators returnType None typeParams false
 
-    /// Transform a callable property (delegate) into a method statement
-    let transformCallableProperty (memb: Fable.ObjectExprMember) (fableArgs: Fable.Ident list) (fableBody: Fable.Expr) =
-        // Transform the function directly without treating first arg as 'this'
-        let args, body, returnType, typeParams =
-            Annotation.transformFunctionWithAnnotations com ctx None fableArgs fableBody
-
-        let name = com.GetIdentifier(ctx, Naming.toPythonNaming memb.Name)
-        let self = Arg.arg "self"
-        let args = { args with Args = self :: args.Args }
-
-        createFunctionWithTypeParams name args body [] returnType None typeParams false
-
     let interfaces, stmts =
         match typ with
         | Fable.Any -> [], [] // Don't inherit from Any
@@ -588,23 +609,38 @@ let transformObjectExpr
             let ta, stmts = Annotation.typeAnnotation com ctx None typ
             [ ta ], stmts
 
+    /// Transform an interface method into a method statement (not a property)
+    let transformInterfaceMethod (memb: Fable.ObjectExprMember) =
+        let args, body =
+            match memb.Body with
+            | Fable.Delegate(args, body, _, _) -> args, body
+            | Fable.Lambda(arg, body, _) -> [ arg ], body
+            | _ -> memb.Args, memb.Body
+
+        let args', body', returnType =
+            getMemberArgsAndBody com ctx (NonAttached memb.Name) false args body
+
+        let name = com.GetIdentifier(ctx, Naming.toPythonNaming memb.Name)
+        let self = Arg.arg "self"
+        let args' = { args' with Args = self :: args'.Args }
+        let argTypes = args |> List.map _.Type
+        let typeParams = Annotation.calculateMethodTypeParams com ctx argTypes body.Type
+
+        createFunctionWithTypeParams name args' body' [] returnType None typeParams false
+
     let members =
         members
         |> List.collect (fun memb ->
             let info = com.GetMember(memb.MemberRef)
 
             if not memb.IsMangled && (info.IsGetter || info.IsValue) then
-                match memb.Body with
-                | Fable.Delegate(args, body, _, _) ->
-                    // Transform callable property into method
-                    [ transformCallableProperty memb args body ]
-                | _ ->
-                    // Regular property
+                if Bases.isInterfaceMethod com typ memb.Name then
+                    [ transformInterfaceMethod memb ]
+                else
                     let decorators = [ Expression.name "property" ]
                     [ makeMethod memb.Name false memb.Args memb.Body decorators ]
             elif not memb.IsMangled && info.IsSetter then
                 let decorators = [ Expression.name $"%s{memb.Name}.setter" ]
-
                 [ makeMethod memb.Name false memb.Args memb.Body decorators ]
             else
                 [ makeMethod memb.Name info.HasSpread memb.Args memb.Body [] ]
@@ -1096,8 +1132,11 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: option<F
             | [] ->
                 // No type tests found, use BaseException to catch all exceptions including
                 // KeyboardInterrupt, SystemExit, GeneratorExit which don't inherit from Exception
+                // We widen exception types to Any because BaseException is broader than Exception
+                let widenedBody = ExceptionHandling.widenExceptionTypes catchBody
+
                 let handler =
-                    makeHandler (Expression.identifier "BaseException") catchBody identifier
+                    makeHandler (Expression.identifier "BaseException") widenedBody identifier
 
                 Some [ handler ], []
 
@@ -1115,10 +1154,12 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: option<F
 
                 // Add fallback handler if fallback is not just a reraise
                 // Use BaseException to catch all exceptions including KeyboardInterrupt etc.
+                // We widen exception types to Any because BaseException is broader than Exception
                 let fallbackHandlers =
                     match fallback with
                     | Some fallbackExpr when not (ExceptionHandling.isReraise fallbackExpr) ->
-                        [ makeHandler (Expression.identifier "BaseException") fallbackExpr identifier ]
+                        let widenedExpr = ExceptionHandling.widenExceptionTypes fallbackExpr
+                        [ makeHandler (Expression.identifier "BaseException") widenedExpr identifier ]
                     | _ -> []
 
                 Some(handlers @ fallbackHandlers), List.concat stmts
@@ -1178,12 +1219,8 @@ let makeCastStatement (com: IPythonCompiler) ctx (ident: Fable.Ident) (typ: Fabl
         []
 
 let rec transformIfStatement (com: IPythonCompiler) ctx r ret guardExpr thenStmnt elseStmnt =
-    // Create refined context for then branch if guard is a type test
-    let thenCtx =
-        match guardExpr with
-        | Fable.Test(Fable.IdentExpr ident, Fable.TypeTest typ, _) ->
-            { ctx with NarrowedTypes = Map.add ident.Name typ ctx.NarrowedTypes }
-        | _ -> ctx
+    // Create refined context for then/else branches based on guard type
+    let thenCtx, elseCtx = getNarrowedContexts ctx guardExpr
 
     let expr, stmts = com.TransformAsExpr(ctx, guardExpr)
 
@@ -1218,7 +1255,7 @@ let rec transformIfStatement (com: IPythonCompiler) ctx r ret guardExpr thenStmn
 
         let ifStatement, stmts'' =
             let block, stmts =
-                transformBlock com ctx ret elseStmnt
+                transformBlock com elseCtx ret elseStmnt
                 |> List.partition (
                     function
                     | Statement.NonLocal _
@@ -1367,31 +1404,47 @@ let transformBindingAsExpr (com: IPythonCompiler) ctx (var: Fable.Ident) (value:
 let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
     let shouldTreatAsStatement = isPyStatement ctx false value
     let needsErase = needsOptionEraseForBinding value var.Type
+    // Skip type annotation to avoid Option[T] vs T | None mismatch issues with Pyright:
+    // 1. When extracting from invariant containers (Array, List) with Options
+    // 2. When assigning from a wrapped option after None check (narrowing issue)
+    let skipAnnotation =
+        valueExtractsFromInvariantContainer value var.Type
+        || isWrappedOptionNarrowingAssignment value
 
     if shouldTreatAsStatement then
         let varName, varExpr = Expression.name var.Name, identAsExpr com ctx var
 
         ctx.BoundVars.Bind(var.Name)
-        let ta, stmts = Annotation.typeAnnotation com ctx None var.Type
-        let decl = Statement.assign (varName, ta)
 
-        let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
-
-        stmts @ [ decl ] @ body
+        if skipAnnotation then
+            // No type annotation - let Python infer from function return type
+            let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
+            body
+        else
+            let ta, stmts = Annotation.typeAnnotation com ctx None var.Type
+            let decl = Statement.assign (varName, ta)
+            let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
+            stmts @ [ decl ] @ body
     else
         let expr, stmts = transformBindingExprBody com ctx var value
         let varName = com.GetIdentifierAsExpr(ctx, Naming.toPythonNaming var.Name)
-        let ta, stmts' = Annotation.typeAnnotation com ctx None var.Type
-        // Erase Option wrapper if needed (zero runtime overhead, just for type checker)
-        let expr' =
-            if needsErase then
-                wrapInOptionErase com ctx expr
-            else
-                expr
 
-        let value' = wrapNoneInCast com ctx expr' ta
-        let decl = varDeclaration ctx varName (Some ta) value'
-        stmts @ stmts' @ decl
+        if skipAnnotation then
+            // No type annotation - let Python infer from function return type
+            let decl = varDeclaration ctx varName None expr
+            stmts @ decl
+        else
+            let ta, stmts' = Annotation.typeAnnotation com ctx None var.Type
+            // Erase Option wrapper if needed (zero runtime overhead, just for type checker)
+            let expr' =
+                if needsErase then
+                    wrapInOptionErase com ctx expr
+                else
+                    expr
+
+            let value' = wrapNoneInCast com ctx expr' ta
+            let decl = varDeclaration ctx varName (Some ta) value'
+            stmts @ stmts' @ decl
 
 let transformTest (com: IPythonCompiler) ctx range kind expr : Expression * Statement list =
     match kind with
@@ -2420,22 +2473,25 @@ let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expressi
 
     | Fable.Get(expr, kind, typ, range) -> transformGet com ctx range typ expr kind
 
-    | Fable.IfThenElse(Fable.Test(expr, Fable.TypeTest typ, r), thenExpr, TransformExpr com ctx (elseExpr, stmts''), _r) ->
+    // Handle TypeTest and OptionTest for type narrowing
+    | Fable.IfThenElse(Fable.Test(expr, testKind, r), thenExpr, elseExpr, _r) when
+        (match testKind with
+         | Fable.TypeTest _
+         | Fable.OptionTest _ -> true
+         | _ -> false)
+        ->
+        let guardExpr = Fable.Test(expr, testKind, r)
+        let thenCtx, elseCtx = getNarrowedContexts ctx guardExpr
+
         let finalExpr, stmts =
             Expression.withStmts {
-                let! guardExpr = transformTest com ctx r (Fable.TypeTest typ) expr
-
-                // Create refined context for then branch with type assertion
-                let thenCtx =
-                    match expr with
-                    | Fable.IdentExpr ident -> { ctx with NarrowedTypes = Map.add ident.Name typ ctx.NarrowedTypes }
-                    | _ -> ctx
-
+                let! guardExprCompiled = transformTest com ctx r testKind expr
                 let! thenExprCompiled = com.TransformAsExpr(thenCtx, thenExpr)
-                return Expression.ifExp (guardExpr, thenExprCompiled, elseExpr)
+                let! elseExprCompiled = com.TransformAsExpr(elseCtx, elseExpr)
+                return Expression.ifExp (guardExprCompiled, thenExprCompiled, elseExprCompiled)
             }
 
-        finalExpr, stmts @ stmts''
+        finalExpr, stmts
 
     | Fable.IfThenElse(TransformExpr com ctx (guardExpr, stmts),
                        TransformExpr com ctx (thenExpr, stmts'),
@@ -2760,18 +2816,14 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
         if asStatement then
             transformIfStatement com ctx r returnStrategy guardExpr thenExpr elseExpr
         else
-            // Create refined context for then branch if guard is a type test
-            let thenCtx =
-                match guardExpr with
-                | Fable.Test(Fable.IdentExpr ident, Fable.TypeTest typ, _) ->
-                    { ctx with NarrowedTypes = Map.add ident.Name typ ctx.NarrowedTypes }
-                | _ -> ctx
+            // Create refined context for then/else branches based on guard type
+            let thenCtx, elseCtx = getNarrowedContexts ctx guardExpr
 
             let expr, stmts =
                 Expression.withStmts {
                     let! guardExpr' = transformAsExpr com ctx guardExpr
-                    let! thenExpr' = transformAsExpr com thenCtx thenExpr // Use refined context
-                    let! elseExpr' = transformAsExpr com ctx elseExpr
+                    let! thenExpr' = transformAsExpr com thenCtx thenExpr
+                    let! elseExpr' = transformAsExpr com elseCtx elseExpr
                     return Expression.ifExp (guardExpr', thenExpr', elseExpr', ?loc = r)
                 }
 
@@ -3090,15 +3142,29 @@ let declareDataClassType
     =
     let name = com.GetIdentifier(ctx, entName)
 
+    // Generate field annotations from entity's FSharpFields to properly uncurry function types.
+    // Record/dataclass fields store functions uncurried at runtime, so we need to uncurry
+    // lambda types in the type annotations to match.
     let props =
-        consArgs.Args
-        |> List.map (fun arg ->
-            let any _ =
-                stdlibModuleAnnotation com ctx "typing" "Any" []
+        ent.FSharpFields
+        |> List.mapi (fun i field ->
+            // Get the argument name from consArgs (preserves the Python naming convention)
+            let argName =
+                if i < consArgs.Args.Length then
+                    consArgs.Args.[i].Arg
+                else
+                    // Fallback to field name if consArgs doesn't have enough args
+                    com.GetIdentifier(ctx, field.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean)
 
-            let annotation = arg.Annotation |> Option.defaultWith any
+            // Uncurry lambda types for field annotations since fields store uncurried functions
+            let fieldType =
+                match field.FieldType with
+                | Fable.LambdaType _ -> FableTransforms.uncurryType field.FieldType
+                | _ -> field.FieldType
 
-            Statement.assign (Expression.name arg.Arg, annotation = annotation)
+            let annotation, _ = Annotation.typeAnnotation com ctx None fieldType
+
+            Statement.assign (Expression.name argName, annotation = annotation)
         )
 
 
