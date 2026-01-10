@@ -88,13 +88,7 @@ let private transformUnionReflectionInfo com ctx r (ent: Fable.Entity) generics 
     // Generate case constructors list for make_union
     // Use full case class names (UnionName_CaseName) to match the generated classes,
     // except for library types (Result, Choice) which use simple names
-    let isLibraryType =
-        match ent.FullName with
-        | Types.result -> true // Microsoft.FSharp.Core.FSharpResult`2
-        | fn when fn.StartsWith("Microsoft.FSharp.Core.FSharpChoice`", StringComparison.Ordinal) -> true
-        | fn when fn.StartsWith("FSharp.Core.FSharpChoice`", StringComparison.Ordinal) -> true
-        | "FSharp.Core.FSharpResult`2" -> true // Library-compiled Result
-        | _ -> false
+    let usesSimpleNames = Util.usesSimpleCaseNames ent.FullName
 
     // Get the entity declaration name (with module scope) for consistent naming
     let entityDeclName = FSharp2Fable.Helpers.getEntityDeclarationName com ent.Ref
@@ -108,7 +102,7 @@ let private transformUnionReflectionInfo com ctx r (ent: Fable.Entity) generics 
                 | None -> uci.Name
 
             let caseClassName =
-                if isLibraryType then
+                if usesSimpleNames then
                     caseName
                 else
                     $"%s{entityDeclName}_%s{caseName}"

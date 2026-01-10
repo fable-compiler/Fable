@@ -111,19 +111,6 @@ let getUnionCaseName (uci: Fable.UnionCase) =
     | Some cname -> cname
     | None -> uci.Name
 
-/// Returns true if this is a core library union type (Result, Choice, Option)
-/// that should use simple case names.
-let private isLibraryUnionType (ent: Fable.Entity) =
-    match ent.FullName with
-    | Types.result -> true
-    // User code: Microsoft.FSharp.Core.FSharpChoice`N
-    | fullName when fullName.StartsWith("Microsoft.FSharp.Core.FSharpChoice`", StringComparison.Ordinal) -> true
-    // Library code: FSharp.Core.FSharpChoice`N
-    | fullName when fullName.StartsWith("FSharp.Core.FSharpChoice`", StringComparison.Ordinal) -> true
-    // Library code: FSharp.Core.FSharpResult`2
-    | "FSharp.Core.FSharpResult`2" -> true
-    | _ -> false
-
 /// Gets the unique case class name by prefixing with the union type name.
 /// This prevents collisions when different union types have cases with the same name.
 /// Library types (Result, Choice) use simple case names without prefix.
@@ -136,7 +123,7 @@ let getUnionCaseClassName
     =
     let caseName = getUnionCaseName uci
     // Library types use simple names (Ok, Error, Choice1Of2, etc.) for backwards compatibility
-    if isLibraryUnionType ent then
+    if usesSimpleCaseNames ent.FullName then
         caseName
     else
         // Use provided entity name or compute from entity reference
@@ -530,17 +517,18 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
 
         // Determine the import path based on the entity type
         let caseRef =
-            // Check if this is a library type (Result, Choice, etc.)
-            match entRef.FullName with
-            | Types.result ->
-                // FSharpResult_2 - import Ok/Error from fable_library.result (simple names)
+            // Library types (Result, Choice) use simple case names from fable_library
+            if isLibraryUnionType entRef.FullName then
                 let caseName = getUnionCaseName uci
-                libValue com ctx "result" caseName
-            | fullName when fullName.StartsWith("Microsoft.FSharp.Core.FSharpChoice`", StringComparison.Ordinal) ->
-                // FSharpChoice_N - import case from fable_library.choice (simple names)
-                let caseName = getUnionCaseName uci
-                libValue com ctx "choice" caseName
-            | _ ->
+                // Result uses "result" module, Choice uses "choice" module
+                let moduleName =
+                    if entRef.FullName = Types.result then
+                        "result"
+                    else
+                        "choice"
+
+                libValue com ctx moduleName caseName
+            else
                 // User-defined union - use full case class name (UnionName_CaseName)
                 let caseClassName = getUnionCaseClassName com ent uci None
                 // Check if it's from another file

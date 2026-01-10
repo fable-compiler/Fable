@@ -32,6 +32,27 @@ module Lib =
 module Util =
     open Lib
 
+    /// Returns true if this is a core library union type (Result, Choice) in user code
+    /// that should import case constructors from fable_library.
+    /// Only matches Microsoft.FSharp.Core.* (user code), not FSharp.Core.* (library source)
+    /// to avoid circular imports when compiling the library itself.
+    let isLibraryUnionType (fullName: string) =
+        match fullName with
+        | Types.result -> true
+        | fn when fn.StartsWith("Microsoft.FSharp.Core.FSharpChoice`", StringComparison.Ordinal) -> true
+        | _ -> false
+
+    /// Returns true if this union type should use simple case names (Choice1Of2, Ok, Error)
+    /// rather than prefixed names (MyUnion_Case1). Used for naming case classes.
+    /// This matches both user code (Microsoft.FSharp.Core.*) and library source (FSharp.Core.*).
+    let usesSimpleCaseNames (fullName: string) =
+        match fullName with
+        | Types.result -> true
+        | fn when fn.StartsWith("Microsoft.FSharp.Core.FSharpChoice`", StringComparison.Ordinal) -> true
+        | fn when fn.StartsWith("FSharp.Core.FSharpChoice`", StringComparison.Ordinal) -> true
+        | "FSharp.Core.FSharpResult`2" -> true
+        | _ -> false
+
     /// Ensures a statement list is non-empty by adding Pass if needed.
     /// Python requires at least one statement in function/class/match bodies.
     let ensureNonEmptyBody stmts =
