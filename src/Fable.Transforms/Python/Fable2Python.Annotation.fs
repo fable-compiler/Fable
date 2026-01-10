@@ -373,6 +373,22 @@ let makeGenericTypeAnnotation'
 
         Expression.subscript (name, Expression.tuple genArgs)
 
+/// Creates a subscript expression for generic type parameters from a list of names.
+/// For a single param, returns just the name; for multiple, returns a tuple.
+/// E.g., [] -> baseExpr, [T] -> baseExpr[T], [T1, T2] -> baseExpr[T1, T2]
+let makeGenericParamSubscript (genParamNames: string list) (baseExpr: Expression) =
+    if List.isEmpty genParamNames then
+        baseExpr
+    else
+        let genArgs = genParamNames |> List.map Expression.name
+
+        let slice =
+            match genArgs with
+            | [ single ] -> single
+            | multiple -> Expression.tuple multiple
+
+        Expression.subscript (baseExpr, slice)
+
 let resolveGenerics com ctx generics repeatedGenerics : Expression list * Statement list =
     generics
     |> List.map (typeAnnotation com ctx repeatedGenerics)

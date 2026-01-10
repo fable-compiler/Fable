@@ -3915,12 +3915,8 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
 
     // Generate the base class (e.g., MyUnion[T](Union) or MyUnion(Union))
     let baseUnionExpr = libValue com ctx "union" "Union"
-    let baseClassBody = [ casesMethod ] @ classMembers
-
-    let baseClassBody =
-        match baseClassBody with
-        | [] -> [ Statement.ellipsis ]
-        | _ -> baseClassBody
+    // casesMethod is always present, so body is never empty
+    let baseClassBody = casesMethod :: classMembers
 
     // Base class uses leading underscore (private), type alias gets clean name (public)
     let baseClassName = com.GetIdentifier(ctx, "_" + entName)
@@ -3931,7 +3927,7 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
     // Generate case classes with @tagged_union decorator
     let caseClasses =
         ent.UnionCases
-        |> Seq.mapi (fun tag uci ->
+        |> List.mapi (fun tag uci ->
             // Use full case class name (UnionName_CaseName) to avoid collisions
             // Pass the entity name to ensure consistent scoping with base class
             let caseClassName = getUnionCaseClassName com ent uci (Some entName)
@@ -3954,13 +3950,9 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
             let fieldAnnotations =
                 uci.UnionCaseFields
                 |> List.map (fun field ->
-                    let fieldName =
-                        if field.Name = "Item" then
-                            "item"
-                        else
-                            // Apply snake_case and clean to remove invalid characters like apostrophes
-                            field.Name |> Naming.toSnakeCase |> Helpers.clean
-
+                    // Convert to snake_case and clean to remove invalid characters like apostrophes
+                    // Handles: "Item" -> "item", "Item1" -> "item1", "MyField" -> "my_field"
+                    let fieldName = field.Name |> Naming.toSnakeCase |> Helpers.clean
                     let ta, _ = Annotation.typeAnnotation com caseCtx None field.FieldType
                     let target = Expression.name (fieldName, Store)
                     // Use annAssign to generate: field: type (not field = type)
@@ -3975,20 +3967,8 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
             // The case class inherits from the parameterized base union class
             // e.g., class Either_Left[TL, TR](_Either_2[TL, TR]): ...
             let baseClassExpr =
-                let baseClassNameStr = "_" + entName
-
-                if List.isEmpty genParamNames then
-                    Expression.name baseClassNameStr
-                else
-                    // Create subscript: _Either_2[TL, TR]
-                    let genArgs = genParamNames |> List.map Expression.name
-
-                    let genArgsTuple =
-                        match genArgs with
-                        | [ single ] -> single
-                        | multiple -> Expression.tuple multiple
-
-                    Expression.subscript (Expression.name baseClassNameStr, genArgsTuple)
+                Expression.name ("_" + entName)
+                |> Annotation.makeGenericParamSubscript genParamNames
 
             Statement.classDef (
                 caseClassIdent,
@@ -3998,7 +3978,6 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
                 typeParams = typeParams
             )
         )
-        |> Seq.toList
 
     // Generate type alias: type MyUnion[T] = MyUnion_CaseA[T] | MyUnion_CaseB[T] | ...
     // The type alias uses the clean name (public API), base class uses underscore prefix (private)
@@ -4008,24 +3987,13 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
         // If generic, parameterize each case type
         let caseTypes =
             ent.UnionCases
-            |> Seq.map (fun uci ->
+            |> List.map (fun uci ->
                 // Use the full case class name (UnionName_CaseName)
-                let caseClassName =
-                    getUnionCaseClassName com ent uci (Some entName) |> Expression.name
+                let caseClassName = getUnionCaseClassName com ent uci (Some entName)
 
-                if List.isEmpty genParamNames then
-                    caseClassName
-                else
-                    let genArgs = genParamNames |> List.map Expression.name
-
-                    let genArgsTuple =
-                        match genArgs with
-                        | [ single ] -> single
-                        | multiple -> Expression.tuple multiple
-
-                    Expression.subscript (caseClassName, genArgsTuple)
+                Expression.name caseClassName
+                |> Annotation.makeGenericParamSubscript genParamNames
             )
-            |> Seq.toList
 
         let unionType =
             match caseTypes with
