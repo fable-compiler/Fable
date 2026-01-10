@@ -123,6 +123,9 @@ type Context =
         ScopedTypeParams: Set<string>
         TypeParamsScope: int
         NarrowedTypes: Map<string, Fable.Type>
+        /// When inside a union base class definition, this holds the entity name.
+        /// Used to determine whether to use base class name or type alias for annotations.
+        EnclosingUnionBaseClass: string option
     }
 
 type IPythonCompiler =

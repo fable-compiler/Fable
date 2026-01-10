@@ -1204,39 +1204,6 @@ module ExceptionHandling =
 
         | _ -> [], Some expr
 
-    /// Check if a type is System.Exception or a subtype (including exn alias).
-    /// Used to identify exception types that need to be widened to BaseException for catch-all handlers.
-    let private isExceptionType (typ: Fable.Type) =
-        match typ with
-        | Fable.DeclaredType(entRef, _) ->
-            entRef.FullName = "System.Exception"
-            || entRef.FullName.StartsWith("System.", StringComparison.Ordinal)
-               && entRef.FullName.EndsWith("Exception", StringComparison.Ordinal)
-        | _ -> false
-
-    /// Create a Fable type representing Python's BaseException.
-    /// This maps to the built-in BaseException class in Python.
-    let private baseExceptionType =
-        let entRef: Fable.EntityRef =
-            {
-                FullName = "BaseException"
-                Path = Fable.CoreAssemblyName "builtins"
-            }
-
-        Fable.DeclaredType(entRef, [])
-
-    /// Rewrite exception-typed bindings in a fallback expression to use BaseException type.
-    /// This is needed because Python's BaseException is broader than Exception,
-    /// and type checkers reject `ex: Exception = <BaseException>`.
-    let rec widenExceptionTypes (expr: Fable.Expr) : Fable.Expr =
-        match expr with
-        | Fable.Let(ident, value, body) when isExceptionType ident.Type ->
-            // Change the ident's type to BaseException for correct Python typing
-            let widenedIdent = { ident with Type = baseExceptionType }
-            Fable.Let(widenedIdent, value, widenExceptionTypes body)
-        | Fable.Let(ident, value, body) -> Fable.Let(ident, value, widenExceptionTypes body)
-        | _ -> expr
-
 /// Utilities for Python match statement generation (PEP 634).
 /// These helpers transform F# decision trees into Python 3.10+ match/case statements.
 module MatchStatements =

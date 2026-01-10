@@ -378,7 +378,7 @@ let resolveGenerics com ctx generics repeatedGenerics : Expression list * Statem
     |> List.map (typeAnnotation com ctx repeatedGenerics)
     |> Helpers.unzipArgs
 
-let typeAnnotation
+let rec typeAnnotation
     (com: IPythonCompiler)
     ctx
     (repeatedGenerics: Set<string> option)
@@ -644,7 +644,32 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
                     | "string" -> StringTypeAnnotation
                     | _ -> AnyTypeAnnotation*)
                 | Expression.Name { Id = Identifier id } ->
-                    makeGenericTypeAnnotation com ctx id genArgs repeatedGenerics, stmts
+                    // For F# union types, tryPyConstructor returns the underscore-prefixed base class
+                    // name (e.g., "_MyUnion"). For type annotations:
+                    // - Inside base class definition: use base class name (_MyUnion)
+                    // - Elsewhere: use type alias (MyUnion) for public API
+                    let isInsideThisUnionBaseClass =
+                        match ctx.EnclosingUnionBaseClass with
+                        | Some enclosingName -> ent.DisplayName = enclosingName
+                        | None -> false
+
+                    let annotationName =
+                        if ent.IsFSharpUnion && id.StartsWith("_") && not isInsideThisUnionBaseClass then
+                            // Outside base class - use type alias (strip underscore)
+                            id.Substring(1)
+                        else
+                            // Inside base class or not a union - use as-is
+                            id
+
+                    // Import the type if it's from another file
+                    if ent.IsFSharpUnion then
+                        match ent.Ref.SourcePath with
+                        | Some path when path <> com.CurrentFile ->
+                            let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+                            com.GetImportExpr(ctx, importPath, annotationName) |> ignore
+                        | _ -> ()
+
+                    makeGenericTypeAnnotation com ctx annotationName genArgs repeatedGenerics, stmts
                 // TODO: Resolve references to types in nested modules
                 | _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
             | None -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
@@ -684,6 +709,7 @@ let makeBuiltinTypeAnnotation com ctx typ repeatedGenerics kind =
         fableModuleAnnotation com ctx "result" "FSharpResult_2" resolved, stmts
     | Replacements.Util.FSharpChoice genArgs ->
         let resolved, stmts = resolveGenerics com ctx genArgs repeatedGenerics
+        // Use the type alias (clean name without underscore prefix)
         let name = $"FSharpChoice_%d{List.length genArgs}"
         fableModuleAnnotation com ctx "choice" name resolved, stmts
     | _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics

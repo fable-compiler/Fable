@@ -111,6 +111,42 @@ let getUnionCaseName (uci: Fable.UnionCase) =
     | Some cname -> cname
     | None -> uci.Name
 
+/// Returns true if this is a core library union type (Result, Choice, Option)
+/// that should use simple case names.
+let private isLibraryUnionType (ent: Fable.Entity) =
+    match ent.FullName with
+    | Types.result -> true
+    // User code: Microsoft.FSharp.Core.FSharpChoice`N
+    | fullName when fullName.StartsWith("Microsoft.FSharp.Core.FSharpChoice`") -> true
+    // Library code: FSharp.Core.FSharpChoice`N
+    | fullName when fullName.StartsWith("FSharp.Core.FSharpChoice`") -> true
+    // Library code: FSharp.Core.FSharpResult`2
+    | "FSharp.Core.FSharpResult`2" -> true
+    | _ -> false
+
+/// Gets the unique case class name by prefixing with the union type name.
+/// This prevents collisions when different union types have cases with the same name.
+/// Library types (Result, Choice) use simple case names without prefix.
+/// The optional entityName parameter should be the compiled entity name (with module scope).
+let getUnionCaseClassName
+    (com: IPythonCompiler)
+    (ent: Fable.Entity)
+    (uci: Fable.UnionCase)
+    (entityName: string option)
+    =
+    let caseName = getUnionCaseName uci
+    // Library types use simple names (Ok, Error, Choice1Of2, etc.) for backwards compatibility
+    if isLibraryUnionType ent then
+        caseName
+    else
+        // Use provided entity name or compute from entity reference
+        let unionName =
+            match entityName with
+            | Some name -> name
+            | None -> FSharp2Fable.Helpers.getEntityDeclarationName com ent.Ref
+
+        $"{unionName}_{caseName}"
+
 let getUnionExprTag (com: IPythonCompiler) ctx r (fableExpr: Fable.Expr) =
     Expression.withStmts {
         let! expr = com.TransformAsExpr(ctx, fableExpr)
@@ -483,16 +519,41 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
             values |> List.map (fun x -> com.TransformAsExpr(ctx, x)) |> Helpers.unzipArgs
 
         List.zip (List.ofArray fieldNames) values |> makePyObject, stmts
-    | Fable.NewUnion(values, tag, ent, _genArgs) ->
-        let ent = com.GetEntity(ent)
+    | Fable.NewUnion(values, tag, entRef, _genArgs) ->
+        let ent = com.GetEntity(entRef)
 
         let values, stmts =
             List.map (fun x -> com.TransformAsExpr(ctx, x)) values |> Helpers.unzipArgs
 
-        let consRef, stmts' = ent |> pyConstructor com ctx
-        // let caseName = ent.UnionCases |> List.item tag |> getUnionCaseName |> ofString
-        let values = ofInt com ctx tag :: values
-        Expression.call (consRef, values, ?loc = r), stmts @ stmts'
+        // Get the union case
+        let uci = ent.UnionCases |> List.item tag
+
+        // Determine the import path based on the entity type
+        let caseRef =
+            // Check if this is a library type (Result, Choice, etc.)
+            match entRef.FullName with
+            | Types.result ->
+                // FSharpResult_2 - import Ok/Error from fable_library.result (simple names)
+                let caseName = getUnionCaseName uci
+                libValue com ctx "result" caseName
+            | fullName when fullName.StartsWith("Microsoft.FSharp.Core.FSharpChoice`") ->
+                // FSharpChoice_N - import case from fable_library.choice (simple names)
+                let caseName = getUnionCaseName uci
+                libValue com ctx "choice" caseName
+            | _ ->
+                // User-defined union - use full case class name (UnionName_CaseName)
+                let caseClassName = getUnionCaseClassName com ent uci None
+                // Check if it's from another file
+                match entRef.SourcePath with
+                | Some path when path <> com.CurrentFile ->
+                    // Import from another module
+                    let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+                    com.GetImportExpr(ctx, importPath, caseClassName)
+                | _ ->
+                    // Local - just get identifier
+                    com.GetIdentifierAsExpr(ctx, caseClassName)
+
+        Expression.call (caseRef, values, ?loc = r), stmts
     | _ -> failwith $"transformValue: value %A{value} not supported!"
 
 let extractBaseExprFromBaseCall (com: IPythonCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
@@ -1130,13 +1191,10 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: option<F
 
             match extractedHandlers with
             | [] ->
-                // No type tests found, use BaseException to catch all exceptions including
-                // KeyboardInterrupt, SystemExit, GeneratorExit which don't inherit from Exception
-                // We widen exception types to Any because BaseException is broader than Exception
-                let widenedBody = ExceptionHandling.widenExceptionTypes catchBody
-
-                let handler =
-                    makeHandler (Expression.identifier "BaseException") widenedBody identifier
+                // No type tests found, use Exception to match F#/.NET semantics.
+                // Users can explicitly catch KeyboardInterrupt, SystemExit, GeneratorExit
+                // using type tests if needed.
+                let handler = makeHandler (Expression.identifier "Exception") catchBody identifier
 
                 Some [ handler ], []
 
@@ -1153,13 +1211,11 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: option<F
                     |> List.unzip
 
                 // Add fallback handler if fallback is not just a reraise
-                // Use BaseException to catch all exceptions including KeyboardInterrupt etc.
-                // We widen exception types to Any because BaseException is broader than Exception
+                // Use Exception to match F#/.NET semantics
                 let fallbackHandlers =
                     match fallback with
                     | Some fallbackExpr when not (ExceptionHandling.isReraise fallbackExpr) ->
-                        let widenedExpr = ExceptionHandling.widenExceptionTypes fallbackExpr
-                        [ makeHandler (Expression.identifier "BaseException") widenedExpr identifier ]
+                        [ makeHandler (Expression.identifier "Exception") fallbackExpr identifier ]
                     | _ -> []
 
                 Some(handlers @ fallbackHandlers), List.concat stmts
@@ -3825,56 +3881,17 @@ let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFuncti
     ]
 
 let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
-    let fieldIds = getUnionFieldsAsIdents com ctx ent
+    // Get generic type parameters for the union
+    let typeParams = makeEntityTypeParams com ctx ent
 
-    let args, isOptional =
-        let args =
-            fieldIds[0]
-            |> ident com ctx
-            |> (fun id ->
-                let ta, _ = Annotation.typeAnnotation com ctx None fieldIds[0].Type
-                Arg.arg (id, annotation = ta)
-            )
-            |> List.singleton
+    // Get generic parameter names for parameterizing base class in case classes
+    // Use uppercase and clean to match makeTypeParams behavior
+    let genParamNames =
+        ent.GenericParameters
+        |> List.map (fun p -> p.Name.ToUpperInvariant() |> Helpers.clean)
 
-        let varargs =
-            fieldIds[1]
-            |> ident com ctx
-            |> fun id ->
-                let gen = getGenericTypeParams [ fieldIds[1].Type ] |> Set.toList |> List.tryHead
-
-                let ta = Expression.name (gen |> Option.defaultValue "Any")
-                Arg.arg (id, annotation = ta)
-
-
-        let isOptional = Helpers.isOptional fieldIds
-        Arguments.arguments (args = args, vararg = varargs), isOptional
-
-    let body =
-        [
-            yield callSuperAsStatement []
-            yield!
-                fieldIds
-                |> Array.map (fun id ->
-                    let left = get com ctx None thisExpr id.Name false
-
-                    let right =
-                        match id.Type with
-                        | Fable.Number _ -> identAsExpr com ctx id
-                        | Fable.Array _ ->
-                            // Convert varArg from tuple to array. TODO: we might need to do this other places as well.
-                            let array = libValue com ctx "array_" "Array"
-                            let type_obj = com.GetImportExpr(ctx, "typing", "Any")
-                            let types_array = Expression.subscript (value = array, slice = type_obj, ctx = Load)
-                            Expression.call (types_array, [ identAsExpr com ctx id ])
-                        | _ -> identAsExpr com ctx id
-
-                    let ta, _ = Annotation.typeAnnotation com ctx None id.Type
-                    Statement.assign (left, ta, right)
-                )
-        ]
-
-    let cases =
+    // Generate the cases() static method for the base class
+    let casesMethod =
         let expr, stmts =
             ent.UnionCases
             |> Seq.map (getUnionCaseName >> makeStrConst)
@@ -3896,10 +3913,156 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
             decoratorList = decorators
         )
 
-    let baseExpr = libValue com ctx "union" "Union" |> Some
-    let classMembers = List.append [ cases ] classMembers
+    // Generate the base class (e.g., MyUnion[T](Union) or MyUnion(Union))
+    let baseUnionExpr = libValue com ctx "union" "Union"
+    let baseClassBody = [ casesMethod ] @ classMembers
 
-    declareType com ctx ent entName args isOptional body baseExpr classMembers None [] []
+    let baseClassBody =
+        match baseClassBody with
+        | [] -> [ Statement.ellipsis ]
+        | _ -> baseClassBody
+
+    // Base class uses leading underscore (private), type alias gets clean name (public)
+    let baseClassName = com.GetIdentifier(ctx, "_" + entName)
+
+    let baseClassDef =
+        Statement.classDef (baseClassName, bases = [ baseUnionExpr ], body = baseClassBody, typeParams = typeParams)
+
+    // Generate case classes with @tagged_union decorator
+    let caseClasses =
+        ent.UnionCases
+        |> Seq.mapi (fun tag uci ->
+            // Use full case class name (UnionName_CaseName) to avoid collisions
+            // Pass the entity name to ensure consistent scoping with base class
+            let caseClassName = getUnionCaseClassName com ent uci (Some entName)
+            let caseClassIdent = com.GetIdentifier(ctx, caseClassName)
+
+            // Export the case class for library builds
+            if com.OutputType = OutputType.Library then
+                com.AddExport caseClassName |> ignore
+
+            // Get the tagged_union decorator with the tag number (simple int literal)
+            let taggedUnionDecorator =
+                let taggedUnion = libValue com ctx "union" "tagged_union"
+                let tagLiteral = Expression.intConstant tag
+                Expression.call (taggedUnion, [ tagLiteral ])
+
+            // Generate field annotations for the case class (field: type syntax)
+            // Use a context without EnclosingUnionBaseClass so field types use type alias
+            let caseCtx = { ctx with EnclosingUnionBaseClass = None }
+
+            let fieldAnnotations =
+                uci.UnionCaseFields
+                |> List.map (fun field ->
+                    let fieldName =
+                        if field.Name = "Item" then
+                            "item"
+                        else
+                            // Apply snake_case and clean to remove invalid characters like apostrophes
+                            field.Name |> Naming.toSnakeCase |> Helpers.clean
+
+                    let ta, _ = Annotation.typeAnnotation com caseCtx None field.FieldType
+                    let target = Expression.name (fieldName, Store)
+                    // Use annAssign to generate: field: type (not field = type)
+                    Statement.annAssign (target, annotation = ta, simple = true)
+                )
+
+            let caseClassBody =
+                match fieldAnnotations with
+                | [] -> [ Statement.ellipsis ]
+                | _ -> fieldAnnotations
+
+            // The case class inherits from the parameterized base union class
+            // e.g., class Either_Left[TL, TR](_Either_2[TL, TR]): ...
+            let baseClassExpr =
+                let baseClassNameStr = "_" + entName
+
+                if List.isEmpty genParamNames then
+                    Expression.name baseClassNameStr
+                else
+                    // Create subscript: _Either_2[TL, TR]
+                    let genArgs = genParamNames |> List.map Expression.name
+
+                    let genArgsTuple =
+                        match genArgs with
+                        | [ single ] -> single
+                        | multiple -> Expression.tuple multiple
+
+                    Expression.subscript (Expression.name baseClassNameStr, genArgsTuple)
+
+            Statement.classDef (
+                caseClassIdent,
+                bases = [ baseClassExpr ],
+                body = caseClassBody,
+                decoratorList = [ taggedUnionDecorator ],
+                typeParams = typeParams
+            )
+        )
+        |> Seq.toList
+
+    // Generate type alias: type MyUnion[T] = MyUnion_CaseA[T] | MyUnion_CaseB[T] | ...
+    // The type alias uses the clean name (public API), base class uses underscore prefix (private)
+    let typeAlias =
+        let aliasName = Expression.name entName
+
+        // If generic, parameterize each case type
+        let caseTypes =
+            ent.UnionCases
+            |> Seq.map (fun uci ->
+                // Use the full case class name (UnionName_CaseName)
+                let caseClassName =
+                    getUnionCaseClassName com ent uci (Some entName) |> Expression.name
+
+                if List.isEmpty genParamNames then
+                    caseClassName
+                else
+                    let genArgs = genParamNames |> List.map Expression.name
+
+                    let genArgsTuple =
+                        match genArgs with
+                        | [ single ] -> single
+                        | multiple -> Expression.tuple multiple
+
+                    Expression.subscript (caseClassName, genArgsTuple)
+            )
+            |> Seq.toList
+
+        let unionType =
+            match caseTypes with
+            | [] -> Expression.name "None"
+            | [ single ] -> single
+            | first :: rest -> List.fold (fun acc t -> Expression.binOp (acc, BitOr, t)) first rest
+
+        Statement.typeAlias (aliasName, unionType, typeParams = typeParams)
+
+    // Generate reflection declaration for the union type (same as for records/classes)
+    let reflectionDeclaration, reflectionStmts =
+        let ta = fableModuleAnnotation com ctx "reflection" "TypeInfo" []
+
+        let genArgs =
+            Array.init ent.GenericParameters.Length (fun i -> "gen" + string<int> i |> makeIdent)
+
+        let args =
+            genArgs
+            |> Array.mapToList (fun id -> Arg.arg (ident com ctx id, annotation = ta))
+
+        let args = Arguments.arguments args
+        let generics = genArgs |> Array.mapToList (identAsExpr com ctx)
+
+        let body, stmts = transformReflectionInfo com ctx None ent generics
+        let expr, stmts' = makeFunctionExpression com ctx None (args, body, [], ta)
+
+        let name =
+            com.GetIdentifier(ctx, Naming.toPascalCase entName + Naming.reflectionSuffix)
+
+        expr |> declareModuleMember com ctx ent.IsPublic name None, stmts @ stmts'
+
+    // Return all statements: base class, case classes, type alias, reflection
+    reflectionStmts
+    @ [ baseClassDef ]
+    @ caseClasses
+    @ [ typeAlias ]
+    @ reflectionDeclaration
 
 let transformClassWithCompilerGeneratedConstructor
     (com: IPythonCompiler)
@@ -4645,6 +4808,14 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
             let ctx =
                 { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams classGenericParams }
 
+            // For union types, set the enclosing base class context so type annotations
+            // inside base class methods use the base class name instead of type alias
+            let ctx =
+                if ent.IsFSharpUnion then
+                    { ctx with EnclosingUnionBaseClass = Some decl.Name }
+                else
+                    ctx
+
             let classMembers =
                 decl.AttachedMembers
                 |> List.collect (fun memb ->
@@ -4815,6 +4986,7 @@ let transformFile (com: IPythonCompiler) (file: Fable.File) =
             ScopedTypeParams = Set.empty
             TypeParamsScope = 0
             NarrowedTypes = Map.empty
+            EnclosingUnionBaseClass = None
         }
 
     // printfn "file: %A" file.Declarations

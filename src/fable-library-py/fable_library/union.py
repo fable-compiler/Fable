@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any
+from dataclasses import dataclass
+from dataclasses import fields as dataclass_fields
+from typing import Any, dataclass_transform
 
 from .array_ import Array
 from .bases import ComparableBase, EquatableBase, HashableBase, StringableBase
@@ -99,6 +101,38 @@ class Union(StringableBase, EquatableBase, ComparableBase, HashableBase, ICompar
         return -1 if self.tag < other.tag else 1
 
 
-__all__ = [
-    "Union",
-]
+@dataclass_transform()
+def tagged_union(tag: int):
+    """Decorator for union case classes.
+
+    Uses @dataclass_transform() so type checkers understand:
+    - Field annotations become constructor parameters
+    - __match_args__ is generated
+    - __eq__, __repr__, __hash__ are generated
+
+    Additionally sets:
+    - cls.tag = tag (numeric case discriminator)
+    - cls.fields property (list of field values for backwards compat)
+    """
+
+    def decorator[T](cls: type[T]) -> type[T]:
+        # Apply dataclass internally
+        dc_cls: Any = dataclass(cls)
+
+        # Set the tag
+        dc_cls.tag = tag
+
+        # Generate fields property from dataclass fields
+        field_names = [f.name for f in dataclass_fields(dc_cls)]
+
+        @property
+        def fields(self) -> Array[Any]:
+            return Array[Any]([getattr(self, name) for name in field_names])
+
+        dc_cls.fields = fields
+        return dc_cls
+
+    return decorator
+
+
+__all__ = ["Union", "tagged_union"]

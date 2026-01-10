@@ -28,6 +28,7 @@ class CaseInfo:
     tag: int
     name: str
     fields: list[FieldInfo]
+    case_constructor: type[Any] | None = None
 
 
 @dataclass
@@ -73,12 +74,14 @@ def union_type(
     generics: Array[TypeInfo],
     construct: type[FsUnion],
     cases: Callable[[], list[list[FieldInfo]]],
+    case_constructors: list[type[Any]] | None = None,
 ) -> TypeInfo:
     def fn() -> list[CaseInfo]:
         caseNames: list[str] = construct.cases()
 
         def mapper(i: int, fields: list[FieldInfo]) -> CaseInfo:
-            return CaseInfo(t, i, caseNames[i], fields)
+            case_ctor = case_constructors[i] if case_constructors else None
+            return CaseInfo(t, i, caseNames[i], fields, case_ctor)
 
         return [mapper(i, x) for i, x in enumerate(cases())]
 
@@ -424,6 +427,11 @@ def make_union(uci: CaseInfo, values: Array[Any]) -> Any:
     if len(values) != expectedLength:
         raise ValueError(f"Expected an array of length {expectedLength} but got {len(values)}")
 
+    # Use case constructor if available (new tagged_union pattern)
+    if uci.case_constructor is not None:
+        return uci.case_constructor(*values)
+
+    # Fallback to old pattern via base class construct
     return uci.declaringType.construct(uci.tag, *values) if uci.declaringType.construct else {}
 
 

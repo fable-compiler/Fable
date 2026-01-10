@@ -817,9 +817,12 @@ let tryEntityIdent (com: Compiler) entFullName =
     | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "Date" |> Some
     | BuiltinDefinition BclTimer -> makeImportLib com Any "default" "Timer" |> Some
     | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
-    | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult_2" "Result" |> Some
+    | BuiltinDefinition(FSharpResult _) ->
+        // Import the underscore-prefixed base class (has cases() method), not the type alias
+        makeImportLib com Any "_FSharpResult_2" "Result" |> Some
     | BuiltinDefinition(FSharpChoice genArgs) ->
-        let membName = $"FSharpChoice_{List.length genArgs}"
+        // Import the underscore-prefixed base class (has cases() method), not the type alias
+        let membName = $"_FSharpChoice_{List.length genArgs}"
         makeImportLib com Any membName "Choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
@@ -840,7 +843,13 @@ let tryConstructor com (ent: Entity) =
     if FSharp2Fable.Util.isReplacementCandidate ent.Ref then
         tryEntityIdent com (ent.FullName |> Naming.toPythonNaming)
     else
-        FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent
+        match FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent with
+        | Some(IdentExpr ident) when ent.IsFSharpUnion ->
+            // For F# union types, the base class is prefixed with underscore (_UnionName)
+            // This is needed for both reflection (base class has cases() method) and
+            // type annotations (self inside base class methods)
+            Some(IdentExpr { ident with Name = "_" + ident.Name })
+        | other -> other
 
 let constructor com ent =
     match tryConstructor com ent with
