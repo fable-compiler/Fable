@@ -654,7 +654,11 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
                         | None -> false
 
                     let annotationName =
-                        if ent.IsFSharpUnion && id.StartsWith("_") && not isInsideThisUnionBaseClass then
+                        if
+                            ent.IsFSharpUnion
+                            && id.StartsWith("_", StringComparison.Ordinal)
+                            && not isInsideThisUnionBaseClass
+                        then
                             // Outside base class - use type alias (strip underscore)
                             id.Substring(1)
                         else

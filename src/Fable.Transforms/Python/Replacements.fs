@@ -822,7 +822,7 @@ let tryEntityIdent (com: Compiler) entFullName =
         makeImportLib com Any "_FSharpResult_2" "Result" |> Some
     | BuiltinDefinition(FSharpChoice genArgs) ->
         // Import the underscore-prefixed base class (has cases() method), not the type alias
-        let membName = $"_FSharpChoice_{List.length genArgs}"
+        let membName = $"_FSharpChoice_%d{List.length genArgs}"
         makeImportLib com Any membName "Choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr

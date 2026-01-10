@@ -91,8 +91,8 @@ let private transformUnionReflectionInfo com ctx r (ent: Fable.Entity) generics 
     let isLibraryType =
         match ent.FullName with
         | Types.result -> true // Microsoft.FSharp.Core.FSharpResult`2
-        | fn when fn.StartsWith "Microsoft.FSharp.Core.FSharpChoice`" -> true
-        | fn when fn.StartsWith "FSharp.Core.FSharpChoice`" -> true
+        | fn when fn.StartsWith("Microsoft.FSharp.Core.FSharpChoice`", StringComparison.Ordinal) -> true
+        | fn when fn.StartsWith("FSharp.Core.FSharpChoice`", StringComparison.Ordinal) -> true
         | "FSharp.Core.FSharpResult`2" -> true // Library-compiled Result
         | _ -> false
 
@@ -111,7 +111,7 @@ let private transformUnionReflectionInfo com ctx r (ent: Fable.Entity) generics 
                 if isLibraryType then
                     caseName
                 else
-                    $"{entityDeclName}_{caseName}"
+                    $"%s{entityDeclName}_%s{caseName}"
 
             com.GetIdentifierAsExpr(ctx, caseClassName)
         )

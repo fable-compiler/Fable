@@ -117,9 +117,9 @@ let private isLibraryUnionType (ent: Fable.Entity) =
     match ent.FullName with
     | Types.result -> true
     // User code: Microsoft.FSharp.Core.FSharpChoice`N
-    | fullName when fullName.StartsWith("Microsoft.FSharp.Core.FSharpChoice`") -> true
+    | fullName when fullName.StartsWith("Microsoft.FSharp.Core.FSharpChoice`", StringComparison.Ordinal) -> true
     // Library code: FSharp.Core.FSharpChoice`N
-    | fullName when fullName.StartsWith("FSharp.Core.FSharpChoice`") -> true
+    | fullName when fullName.StartsWith("FSharp.Core.FSharpChoice`", StringComparison.Ordinal) -> true
     // Library code: FSharp.Core.FSharpResult`2
     | "FSharp.Core.FSharpResult`2" -> true
     | _ -> false
@@ -145,7 +145,7 @@ let getUnionCaseClassName
             | Some name -> name
             | None -> FSharp2Fable.Helpers.getEntityDeclarationName com ent.Ref
 
-        $"{unionName}_{caseName}"
+        $"%s{unionName}_%s{caseName}"
 
 let getUnionExprTag (com: IPythonCompiler) ctx r (fableExpr: Fable.Expr) =
     Expression.withStmts {
@@ -536,7 +536,7 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
                 // FSharpResult_2 - import Ok/Error from fable_library.result (simple names)
                 let caseName = getUnionCaseName uci
                 libValue com ctx "result" caseName
-            | fullName when fullName.StartsWith("Microsoft.FSharp.Core.FSharpChoice`") ->
+            | fullName when fullName.StartsWith("Microsoft.FSharp.Core.FSharpChoice`", StringComparison.Ordinal) ->
                 // FSharpChoice_N - import case from fable_library.choice (simple names)
                 let caseName = getUnionCaseName uci
                 libValue com ctx "choice" caseName
