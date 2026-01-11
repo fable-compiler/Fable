@@ -85,7 +85,34 @@ let private transformUnionReflectionInfo com ctx r (ent: Fable.Entity) generics 
 
     let py, stmts = pyConstructor com ctx ent
 
-    [ fullnameExpr; arrayExpr com ctx generics; py; cases ]
+    // Generate case constructors list for make_union
+    // Use full case class names (UnionName_CaseName) to match the generated classes,
+    // except for library types (Result, Choice) which use simple names
+    let usesSimpleNames = Util.usesSimpleCaseNames ent.FullName
+
+    // Get the entity declaration name (with module scope) for consistent naming
+    let entityDeclName = FSharp2Fable.Helpers.getEntityDeclarationName com ent.Ref
+
+    let caseConstructors =
+        ent.UnionCases
+        |> Seq.map (fun uci ->
+            let caseName =
+                match uci.CompiledName with
+                | Some cname -> cname
+                | None -> uci.Name
+
+            let caseClassName =
+                if usesSimpleNames then
+                    caseName
+                else
+                    $"%s{entityDeclName}_%s{caseName}"
+
+            com.GetIdentifierAsExpr(ctx, caseClassName)
+        )
+        |> Seq.toList
+        |> Expression.list
+
+    [ fullnameExpr; arrayExpr com ctx generics; py; cases; caseConstructors ]
     |> libReflectionCall com ctx None "union",
     stmts
 

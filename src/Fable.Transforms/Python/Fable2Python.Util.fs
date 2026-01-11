@@ -32,6 +32,27 @@ module Lib =
 module Util =
     open Lib
 
+    /// Returns true if this is a core library union type (Result, Choice) in user code
+    /// that should import case constructors from fable_library.
+    /// Only matches Microsoft.FSharp.Core.* (user code), not FSharp.Core.* (library source)
+    /// to avoid circular imports when compiling the library itself.
+    let isLibraryUnionType (fullName: string) =
+        match fullName with
+        | Types.result -> true
+        | fn when fn.StartsWith("Microsoft.FSharp.Core.FSharpChoice`", StringComparison.Ordinal) -> true
+        | _ -> false
+
+    /// Returns true if this union type should use simple case names (Choice1Of2, Ok, Error)
+    /// rather than prefixed names (MyUnion_Case1). Used for naming case classes.
+    /// This matches both user code (Microsoft.FSharp.Core.*) and library source (FSharp.Core.*).
+    let usesSimpleCaseNames (fullName: string) =
+        match fullName with
+        | Types.result -> true
+        | fn when fn.StartsWith("Microsoft.FSharp.Core.FSharpChoice`", StringComparison.Ordinal) -> true
+        | fn when fn.StartsWith("FSharp.Core.FSharpChoice`", StringComparison.Ordinal) -> true
+        | "FSharp.Core.FSharpResult`2" -> true
+        | _ -> false
+
     /// Ensures a statement list is non-empty by adding Pass if needed.
     /// Python requires at least one statement in function/class/match bodies.
     let ensureNonEmptyBody stmts =
@@ -1203,39 +1224,6 @@ module ExceptionHandling =
             specificHandlers, wildcardHandler
 
         | _ -> [], Some expr
-
-    /// Check if a type is System.Exception or a subtype (including exn alias).
-    /// Used to identify exception types that need to be widened to BaseException for catch-all handlers.
-    let private isExceptionType (typ: Fable.Type) =
-        match typ with
-        | Fable.DeclaredType(entRef, _) ->
-            entRef.FullName = "System.Exception"
-            || entRef.FullName.StartsWith("System.", StringComparison.Ordinal)
-               && entRef.FullName.EndsWith("Exception", StringComparison.Ordinal)
-        | _ -> false
-
-    /// Create a Fable type representing Python's BaseException.
-    /// This maps to the built-in BaseException class in Python.
-    let private baseExceptionType =
-        let entRef: Fable.EntityRef =
-            {
-                FullName = "BaseException"
-                Path = Fable.CoreAssemblyName "builtins"
-            }
-
-        Fable.DeclaredType(entRef, [])
-
-    /// Rewrite exception-typed bindings in a fallback expression to use BaseException type.
-    /// This is needed because Python's BaseException is broader than Exception,
-    /// and type checkers reject `ex: Exception = <BaseException>`.
-    let rec widenExceptionTypes (expr: Fable.Expr) : Fable.Expr =
-        match expr with
-        | Fable.Let(ident, value, body) when isExceptionType ident.Type ->
-            // Change the ident's type to BaseException for correct Python typing
-            let widenedIdent = { ident with Type = baseExceptionType }
-            Fable.Let(widenedIdent, value, widenExceptionTypes body)
-        | Fable.Let(ident, value, body) -> Fable.Let(ident, value, widenExceptionTypes body)
-        | _ -> expr
 
 /// Utilities for Python match statement generation (PEP 634).
 /// These helpers transform F# decision trees into Python 3.10+ match/case statements.
