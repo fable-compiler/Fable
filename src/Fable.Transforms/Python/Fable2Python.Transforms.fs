@@ -73,7 +73,15 @@ let transformImport (com: IPythonCompiler) ctx (_r: SourceLocation option) (name
 
     com.GetImportExpr(ctx, moduleName, name) |> getParts com ctx parts
 
-let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.Ident list) (body: Fable.Expr) =
+let getMemberArgsAndBodyCore
+    (com: IPythonCompiler)
+    ctx
+    kind
+    hasSpread
+    (args: Fable.Ident list)
+    (body: Fable.Expr)
+    (selfName: string)
+    =
     // printfn "getMemberArgsAndBody: %A" hasSpread
     let funcName, genTypeParams, args, body =
         match kind, args with
@@ -82,9 +90,8 @@ let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.
                 Set.difference (Annotation.getGenericTypeParams [ thisArg.Type ]) ctx.ScopedTypeParams
 
             let body =
-                // TODO: If ident is not captured maybe we can just replace it with "this"
                 if isIdentUsed thisArg.Name body then
-                    let thisKeyword = Fable.IdentExpr { thisArg with Name = "self" }
+                    let thisKeyword = Fable.IdentExpr { thisArg with Name = selfName }
 
                     Fable.Let(thisArg, thisKeyword, body)
                 else
@@ -105,6 +112,9 @@ let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.
     let args = adjustArgsForSpread hasSpread args
 
     args, body, returnType
+
+let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.Ident list) (body: Fable.Expr) =
+    getMemberArgsAndBodyCore com ctx kind hasSpread args body "self"
 
 let getUnionCaseName (uci: Fable.UnionCase) =
     match uci.CompiledName with
@@ -365,6 +375,7 @@ let transformCast (com: IPythonCompiler) (ctx: Context) t e : Expression * State
 
         // Wrap ResizeArray (Python list) when cast to IEnumerable
         // Python lists don't implement IEnumerable_1, so they need wrapping
+        // Optimization: If ResizeArray was created via of_seq from IEnumerable, use the original arg
         | Types.ienumerableGeneric, _ when
             match e.Type with
             | Fable.Array(_, Fable.ArrayKind.ResizeArray) -> true
@@ -372,7 +383,15 @@ let transformCast (com: IPythonCompiler) (ctx: Context) t e : Expression * State
             | _ -> false
             ->
             let listExpr, stmts = com.TransformAsExpr(ctx, e)
-            libCall com ctx None "util" "to_enumerable" [ listExpr ], stmts
+            // Check if the expression is of_seq(arg) - if so, use arg directly (already IEnumerable)
+            match listExpr with
+            | Expression.Call {
+                                  Func = Expression.Name { Id = Identifier "of_seq" }
+                                  Args = [ innerArg ]
+                              } ->
+                // Skip both of_seq and to_enumerable - use original IEnumerable directly
+                innerArg, stmts
+            | _ -> libCall com ctx None "util" "to_enumerable" [ listExpr ], stmts
 
         | _ -> com.TransformAsExpr(ctx, e)
     | Fable.Number(Float32, _), _ ->
@@ -601,7 +620,59 @@ let transformObjectExpr
     // A generic class nested in another generic class cannot use same type variables. (PEP-484)
     let ctx = { ctx with TypeParamsScope = ctx.TypeParamsScope + 1 }
 
+    // Check if any member body uses ThisValue from an outer scope (e.g., inside a constructor).
+    // ThisValue specifically represents `self` in a constructor/method context.
+    // Note: IsThisArgument identifiers are captured via default arguments (x: Any=x),
+    // so we only need to handle explicit ThisValue here.
+    let usesOuterThis =
+        members
+        |> List.exists (fun memb ->
+            memb.Body
+            |> deepExists (
+                function
+                | Fable.Value(Fable.ThisValue _, _) -> true
+                | _ -> false
+            )
+        )
+
+    // Only generate capture statement if outer this is actually used.
+    // This allows inner class methods to reference the outer instance via "_this"
+    // while using standard "self" for the inner instance (satisfies Pylance).
+    let thisCaptureStmts =
+        if usesOuterThis then
+            let anyType = stdlibModuleAnnotation com ctx "typing" "Any" []
+
+            [
+                Statement.assign (Expression.name "_this", anyType, value = Expression.name "self")
+            ]
+        else
+            []
+
+    // Replace ThisValue in the body with an identifier reference to "_this"
+    // This ensures that outer self references correctly bind to the captured variable
+    let replaceThisValue (body: Fable.Expr) =
+        if usesOuterThis then
+            body
+            |> visitFromInsideOut (
+                function
+                | Fable.Value(Fable.ThisValue typ, r) ->
+                    Fable.IdentExpr
+                        {
+                            Name = "_this"
+                            Type = typ
+                            IsMutable = false
+                            IsThisArgument = false
+                            IsCompilerGenerated = true
+                            Range = r
+                        }
+                | e -> e
+            )
+        else
+            body
+
     let makeMethod prop hasSpread (fableArgs: Fable.Ident list) (fableBody: Fable.Expr) decorators =
+        let fableBody = replaceThisValue fableBody
+
         let args, body, returnType =
             getMemberArgsAndBody com ctx (Attached(isStatic = false)) hasSpread fableArgs fableBody
 
@@ -614,16 +685,7 @@ let transformObjectExpr
             com.GetIdentifier(ctx, Naming.toPythonNaming name)
 
         let self = Arg.arg "self"
-
-        let args =
-            match decorators with
-            // Remove extra parameters from getters, i.e __unit=None
-            | [ Expression.Name { Id = Identifier "property" } ] ->
-                { args with
-                    Args = [ self ]
-                    Defaults = []
-                }
-            | _ -> { args with Args = self :: args.Args }
+        let args = { args with Args = self :: args.Args }
 
         // Calculate type parameters for generic object expression methods
         let argTypes = fableArgs |> List.map _.Type
@@ -666,12 +728,16 @@ let transformObjectExpr
             | Fable.Lambda(arg, body, _) -> [ arg ], body
             | _ -> memb.Args, memb.Body
 
+        // Replace ThisValue with this_ identifier for outer self references
+        let body = replaceThisValue body
+
         let args', body', returnType =
             getMemberArgsAndBody com ctx (NonAttached memb.Name) false args body
 
         let name = com.GetIdentifier(ctx, Naming.toPythonNaming memb.Name)
         let self = Arg.arg "self"
         let args' = { args' with Args = self :: args'.Args }
+
         let argTypes = args |> List.map _.Type
         let typeParams = Annotation.calculateMethodTypeParams com ctx argTypes body.Type
 
@@ -716,7 +782,7 @@ let transformObjectExpr
 
     let stmt = Statement.classDef (name, body = classBody, bases = interfaces)
 
-    Expression.call (Expression.name name), [ stmt ] @ stmts
+    Expression.call (Expression.name name), thisCaptureStmts @ [ stmt ] @ stmts
 
 
 let transformCallArgs

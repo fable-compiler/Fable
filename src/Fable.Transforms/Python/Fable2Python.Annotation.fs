@@ -12,12 +12,18 @@ open Fable.Transforms.Python.AST
 open Fable.Transforms.Python.Types
 open Fable.Transforms.Python.Util
 
-/// Check if type is an inref (in-reference) or Any type.
+/// Check if type is an inref wrapping a struct/value type.
 /// In F#, struct instance method's `this` parameter is represented as inref<StructType>,
 /// but in Python the struct is passed directly, not wrapped in FSharpRef.
-let isInRefOrAnyType (com: IPythonCompiler) =
+/// For regular inref<T> parameters (where T is a primitive or non-struct), we keep FSharpRef.
+let isStructInRefType (com: IPythonCompiler) =
     function
-    | Replacements.Util.IsInRefType com _ -> true
+    | Replacements.Util.IsInRefType com innerType ->
+        match innerType with
+        | Fable.DeclaredType(entRef, _) ->
+            let ent = com.GetEntity(entRef)
+            ent.IsValueType
+        | _ -> false
     | Fable.Any -> true
     | _ -> false
 
@@ -698,9 +704,10 @@ let makeBuiltinTypeAnnotation com ctx typ repeatedGenerics kind =
     match kind with
     | Replacements.Util.BclGuid -> stdlibModuleTypeHint com ctx "uuid" "UUID" [] repeatedGenerics
     | Replacements.Util.FSharpReference genArg ->
-        // In F#, struct instance method's `this` parameter is represented as inref<StructType>,
+        // For struct instance methods, `this` is represented as inref<StructType> in F#,
         // but in Python the struct is passed directly, not wrapped in FSharpRef.
-        if isInRefOrAnyType com typ then
+        // For regular byref/inref/outref parameters, we use FSharpRef.
+        if isStructInRefType com typ then
             typeAnnotation com ctx repeatedGenerics genArg
         else
             let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
