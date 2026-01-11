@@ -100,6 +100,12 @@ module Util =
         || hasAttribute Atts.emitIndexer atts
         || hasAttribute Atts.emitProperty atts
 
+    /// Check if a type contains any generic parameters (recursively).
+    /// Used to determine if Option<T> should use Option[T] annotation vs T | None.
+    /// Note: This is duplicated from Annotation.fs due to compilation order (Util.fs compiles first).
+    let private containsGenericParams (t: Fable.Type) =
+        FSharp2Fable.Util.getGenParamNames [ t ] |> List.isEmpty |> not
+
     /// Check if an Option type has a concrete inner type (erases to T | None).
     /// Returns true when inner type is concrete, meaning Option[T] -> T | None.
     let hasConcreteOptionInner (typ: Fable.Type) =
@@ -107,19 +113,34 @@ module Util =
         | Fable.Option(innerType, _) -> not (mustWrapOption innerType)
         | _ -> false
 
+    /// Check if inner type of Option is a callable with generic params (needs wrapping)
+    let private isCallableWithGenerics (t: Fable.Type) =
+        match t with
+        | Fable.LambdaType _
+        | Fable.DelegateType _ -> containsGenericParams t
+        | _ -> false
+
     /// Check if a call expression needs Option erase from Option[T] to T | None.
     /// When target type is Option<ConcreteType> (erased to T | None), we need to erase
     /// because library functions use Option[T] (wrapped form) in their signatures,
     /// but actual runtime values are not wrapped for concrete types.
-    let private needsOptionEraseForCall (targetType: Fable.Type) =
+    /// Also handles function types (LambdaType) where the return type contains a concrete Option,
+    /// using the erase() overload for Callable[..., Option[T]] -> Callable[..., T | None].
+    let rec private needsOptionEraseForCall (targetType: Fable.Type) =
         match targetType with
-        | Fable.Option(tgtInner, _) when not (mustWrapOption tgtInner) -> true
+        // Don't erase if inner type is callable with generic params - both annotation and runtime use wrapped form
+        | Fable.Option(tgtInner, _) when not (mustWrapOption tgtInner) && not (isCallableWithGenerics tgtInner) -> true
+        // Handle function types where return type is a concrete Option
+        // erase() has an overload: Callable[..., Option[T]] -> Callable[..., T | None]
+        | Fable.LambdaType(_, returnType) -> needsOptionEraseForCall returnType
+        | Fable.DelegateType(_, returnType) -> needsOptionEraseForCall returnType
         | _ -> false
 
     /// Check if binding needs Option erase from Option[T] to T | None.
     let needsOptionEraseForBinding (value: Fable.Expr) (targetType: Fable.Type) =
         match value with
-        | Fable.Call _ -> needsOptionEraseForCall targetType
+        | Fable.Call _
+        | Fable.CurriedApply _ -> needsOptionEraseForCall targetType
         | _ -> false
 
     /// Check if return expression needs Option erase from Option[T] to T | None.
@@ -127,7 +148,8 @@ module Util =
     /// but the actual expression returns Option[T] (wrapped form).
     let needsOptionEraseForReturn (value: Fable.Expr) (expectedReturnType: Fable.Type) =
         match value with
-        | Fable.Call _ -> needsOptionEraseForCall expectedReturnType
+        | Fable.Call _
+        | Fable.CurriedApply _ -> needsOptionEraseForCall expectedReturnType
         | _ -> false
 
     /// Recursively check if a type contains Option (wrapped or erased).
