@@ -73,15 +73,7 @@ let transformImport (com: IPythonCompiler) ctx (_r: SourceLocation option) (name
 
     com.GetImportExpr(ctx, moduleName, name) |> getParts com ctx parts
 
-let getMemberArgsAndBodyCore
-    (com: IPythonCompiler)
-    ctx
-    kind
-    hasSpread
-    (args: Fable.Ident list)
-    (body: Fable.Expr)
-    (selfName: string)
-    =
+let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.Ident list) (body: Fable.Expr) =
     // printfn "getMemberArgsAndBody: %A" hasSpread
     let funcName, genTypeParams, args, body =
         match kind, args with
@@ -91,7 +83,7 @@ let getMemberArgsAndBodyCore
 
             let body =
                 if isIdentUsed thisArg.Name body then
-                    let thisKeyword = Fable.IdentExpr { thisArg with Name = selfName }
+                    let thisKeyword = Fable.IdentExpr { thisArg with Name = "self" }
 
                     Fable.Let(thisArg, thisKeyword, body)
                 else
@@ -112,9 +104,6 @@ let getMemberArgsAndBodyCore
     let args = adjustArgsForSpread hasSpread args
 
     args, body, returnType
-
-let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.Ident list) (body: Fable.Expr) =
-    getMemberArgsAndBodyCore com ctx kind hasSpread args body "self"
 
 let getUnionCaseName (uci: Fable.UnionCase) =
     match uci.CompiledName with

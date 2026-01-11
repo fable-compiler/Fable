@@ -9,6 +9,11 @@ from .protocols import IEnumerable_1
 from .util import to_iterable
 
 
+def of_seq[T](items: Iterable[T] | IEnumerable_1[T]) -> list[T]:
+    """Create a ResizeArray (Python list) from an iterable or IEnumerable_1."""
+    return list(to_iterable(items))
+
+
 def exists[T](predicate: Callable[[T], bool], xs: list[T]) -> bool:
     """Test if a predicate is true for at least one element in a list."""
     return any(predicate(x) for x in xs)
@@ -146,6 +151,7 @@ __all__ = [
     "index_of",
     "insert_range_in_place",
     "iterate",
+    "of_seq",
     "remove",
     "remove_all_in_place",
     "remove_range",

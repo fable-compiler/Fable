@@ -24,7 +24,6 @@ let isStructInRefType (com: IPythonCompiler) =
             let ent = com.GetEntity(entRef)
             ent.IsValueType
         | _ -> false
-    | Fable.Any -> true
     | _ -> false
 
 let tryPyConstructor (com: IPythonCompiler) ctx ent =
