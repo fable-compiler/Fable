@@ -1109,7 +1109,7 @@ let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallI
 let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts)) args =
     ((applied, stmts), args)
     ||> List.fold (fun (applied, stmts) arg ->
-        let args, stmts' =
+        let args, argStmts =
             match arg with
             // TODO: If arg type is unit but it's an expression with potential
             // side-effects, we need to extract it and execute it before the call
@@ -1118,7 +1118,7 @@ let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts))
             | Fable.Value(Fable.UnitConstant, _) -> [], []
             | Fable.IdentExpr ident when ident.Type = Fable.Unit -> [], []
             | arg ->
-                let argExpr, stmts' = com.TransformAsExpr(ctx, arg)
+                let argExpr, transformStmts = com.TransformAsExpr(ctx, arg)
                 // When a Call or CurriedApply result is passed as an argument,
                 // check if we need to erase Option[T] to T | None
                 let argExpr =
@@ -1127,9 +1127,9 @@ let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts))
                     else
                         argExpr
 
-                [ argExpr ], stmts'
+                [ argExpr ], transformStmts
 
-        callFunction range applied args [], stmts @ stmts'
+        callFunction range applied args [], stmts @ argStmts
     )
 
 /// Extract the expected return type from a return strategy, unwrapping ResourceManager if needed

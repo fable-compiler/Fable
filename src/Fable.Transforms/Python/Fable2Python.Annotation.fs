@@ -446,7 +446,7 @@ let rec typeAnnotation
         fableModuleAnnotation com ctx "option" "Option" [ Expression.none ], []
     | Fable.Option(genArg, _) ->
         // Must match mustWrapOption logic in Transforms.Util.fs
-        // Wrap when: Any, Unit, GenericParam, nested Option, or types containing generic params
+        // Wrap when: Any, Unit, GenericParam, nested Option, or callable with generic params
         match genArg with
         | Fable.Option _
         | Fable.Any
@@ -455,13 +455,15 @@ let rec typeAnnotation
             // Use full Option type annotation (code will use SomeWrapper)
             let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
             fableModuleAnnotation com ctx "option" "Option" resolved, stmts
-        | _ when containsGenericParams genArg ->
-            // Inner type contains generic parameters (e.g., Callable[[_A], _B])
+        | Fable.LambdaType _
+        | Fable.DelegateType _ when containsGenericParams genArg ->
+            // Callable types with generic parameters (e.g., Callable[[_A], _B])
             // Must use Option[T] form because runtime wraps with SomeWrapper
             let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
             fableModuleAnnotation com ctx "option" "Option" resolved, stmts
         | _ ->
-            // For concrete types, erase to T | None (simpler, no wrapper needed)
+            // For concrete types (including DeclaredTypes with generics like FSharpList[T]),
+            // erase to T | None (simpler, no wrapper needed)
             let resolved, stmts = typeAnnotation com ctx repeatedGenerics genArg
             Expression.binOp (resolved, BitOr, Expression.none), stmts
     | Fable.Tuple(genArgs, _) -> makeGenericTypeAnnotation com ctx "tuple" genArgs repeatedGenerics, []
