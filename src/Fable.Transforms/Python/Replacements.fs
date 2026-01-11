@@ -1728,11 +1728,18 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | ".ctor", _, [] -> makeResizeArray (getElementType t) [] |> Some
     | ".ctor", _, [ ExprType(Number _) ] -> makeResizeArray (getElementType t) [] |> Some
     | ".ctor", _, [ ArrayOrListLiteral(vals, _) ] -> makeResizeArray (getElementType t) vals |> Some
-    // Use Array constructor which accepts both Iterable and IEnumerable_1
-    | ".ctor", _, args ->
-        Helper.LibCall(com, "array", "Array", t, args, ?loc = r)
-        |> withTag "array"
-        |> Some
+    // When a ResizeArray is cast to IEnumerable and passed to ResizeArray constructor,
+    // unwrap the cast since list() can handle lists directly (avoids to_enumerable wrapper)
+    | ".ctor", _, [ TypeCast(innerExpr, DeclaredType(ent, _)) ] when
+        ent.FullName = Types.ienumerableGeneric
+        && match innerExpr.Type with
+           | Array(_, ResizeArray) -> true
+           | DeclaredType(entRef, _) when entRef.FullName = Types.resizeArray -> true
+           | _ -> false
+        ->
+        Helper.GlobalCall("list", t, [ innerExpr ], ?loc = r) |> Some
+    // Use resize_array.of_seq to create a list from IEnumerable_1 or any iterable
+    | ".ctor", _, args -> Helper.LibCall(com, "resize_array", "of_seq", t, args, ?loc = r) |> Some
     | "get_Item", Some ar, [ idx ] -> getExpr r t ar idx |> Some
     | "set_Item", Some ar, [ idx; value ] -> setExpr r ar idx value |> Some
     | "Add", Some ar, [ arg ] ->
