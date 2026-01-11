@@ -44,27 +44,76 @@ jobs:
       - name: Build Python (compile only)
         run: ./build.sh test python --compile-only
 
-      - name: Run Pyright (standard mode)
+      - name: Run Pyright and collect errors
         id: pyright
         continue-on-error: true
         run: |
+          # Get excluded files from CI config
+          EXCLUDED_FILES=$(grep '"temp/' pyrightconfig.ci.json | sed 's/.*"\(temp[^"]*\)".*/\1/' | sort)
+
+          # Run pyright on all files (without CI excludes) and capture output
+          PYRIGHT_OUTPUT=$(uv run pyright temp/tests/Python/ temp/fable-library-py/ 2>&1 || true)
+
+          # Parse errors per file
+          ERROR_COUNTS=$(echo "$PYRIGHT_OUTPUT" | grep " - error:" | sed 's/:.*//g' | sed 's|.*/Fable/||' | sort | uniq -c | sort -rn)
+
+          # Calculate total errors
+          TOTAL_ERRORS=$(echo "$ERROR_COUNTS" | awk '{sum += $1} END {print sum+0}')
+
+          # Count files with errors
+          FILE_COUNT=$(echo "$ERROR_COUNTS" | grep -c '[0-9]' || echo "0")
+
+          # Check for new files with errors (not in exclude list)
+          NEW_FILES=""
+          HAS_NEW_ERRORS=false
+          while IFS= read -r line; do
+            if [ -n "$line" ]; then
+              FILE=$(echo "$line" | awk '{print $2}')
+              COUNT=$(echo "$line" | awk '{print $1}')
+              if ! echo "$EXCLUDED_FILES" | grep -q "^${FILE}$"; then
+                NEW_FILES="${NEW_FILES}| \`${FILE}\` | ${COUNT} | :warning: **NEW** |\n"
+                HAS_NEW_ERRORS=true
+              fi
+            fi
+          done <<< "$ERROR_COUNTS"
+
+          # Build error table for excluded files
+          EXCLUDED_TABLE=""
+          while IFS= read -r line; do
+            if [ -n "$line" ]; then
+              FILE=$(echo "$line" | awk '{print $2}')
+              COUNT=$(echo "$line" | awk '{print $1}')
+              if echo "$EXCLUDED_FILES" | grep -q "^${FILE}$"; then
+                EXCLUDED_TABLE="${EXCLUDED_TABLE}| \`${FILE}\` | ${COUNT} | Excluded |\n"
+              fi
+            fi
+          done <<< "$ERROR_COUNTS"
+
+          # Set outputs
+          echo "total_errors=$TOTAL_ERRORS" >> $GITHUB_OUTPUT
+          echo "file_count=$FILE_COUNT" >> $GITHUB_OUTPUT
+          echo "has_new_errors=$HAS_NEW_ERRORS" >> $GITHUB_OUTPUT
+
+          echo "new_files<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$NEW_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "excluded_table<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$EXCLUDED_TABLE" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Run pyright with CI config to check if excluded files pass
           if uv run pyright --project pyrightconfig.ci.json temp/tests/Python/ temp/fable-library-py/; then
-            echo "result=:white_check_mark: All non-excluded files pass" >> $GITHUB_OUTPUT
-            echo "passed=true" >> $GITHUB_OUTPUT
+            echo "ci_passed=true" >> $GITHUB_OUTPUT
           else
-            echo "result=:x: Type errors found in non-excluded files" >> $GITHUB_OUTPUT
-            echo "passed=false" >> $GITHUB_OUTPUT
+            echo "ci_passed=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Get excluded files
+      - name: Get excluded files count
         id: excluded
         run: |
           COUNT=$(grep -c '"temp/' pyrightconfig.ci.json || echo "0")
           echo "count=$COUNT" >> $GITHUB_OUTPUT
-          FILES=$(grep '"temp/' pyrightconfig.ci.json | sed 's/.*"temp/temp/' | sed 's/".*//' | sort)
-          echo "files<<EOF" >> $GITHUB_OUTPUT
-          echo "$FILES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Find existing comment
         uses: peter-evans/find-comment@v3
@@ -83,24 +132,34 @@ jobs:
           body: |
             ## Python Type Checking Results (Pyright)
 
-            ${{ steps.pyright.outputs.result }}
-
-            |     Metric     |                Value                |
-            | -------------- | ----------------------------------- |
+            | Metric | Value |
+            |--------|-------|
+            | Total errors | ${{ steps.pyright.outputs.total_errors }} |
+            | Files with errors | ${{ steps.pyright.outputs.file_count }} |
             | Excluded files | ${{ steps.excluded.outputs.count }} |
+            | New errors | ${{ steps.pyright.outputs.has_new_errors == 'true' && ':x: Yes' || ':white_check_mark: No' }} |
+
+            ${{ steps.pyright.outputs.has_new_errors == 'true' && '### :warning: New Files with Errors
+
+            These files are NOT in the exclude list and must be fixed or added to `pyrightconfig.ci.json`:
+
+            | File | Errors | Status |
+            |------|--------|--------|' || '' }}
+            ${{ steps.pyright.outputs.new_files }}
 
             <details>
-            <summary>Files excluded from type checking</summary>
+            <summary>Excluded files with errors (${{ steps.excluded.outputs.count }} files)</summary>
 
             These files have known type errors and are excluded from CI. Remove from `pyrightconfig.ci.json` as errors are fixed.
 
-            ```
-            ${{ steps.excluded.outputs.files }}
-            ```
+            | File | Errors | Status |
+            |------|--------|--------|
+            ${{ steps.pyright.outputs.excluded_table }}
 
             </details>
 
-      - name: Fail if type errors
-        if: false  # Temporarily disabled
-        # if: steps.pyright.outputs.passed == 'false'
-        run: exit 1
+      - name: Fail if new errors
+        if: steps.pyright.outputs.has_new_errors == 'true'
+        run: |
+          echo "::error::New files with type errors detected! Either fix the errors or add them to pyrightconfig.ci.json"
+          exit 1
