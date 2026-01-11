@@ -306,11 +306,16 @@ let stdlibModuleAnnotation (com: IPythonCompiler) ctx moduleName memberName args
             match args with
             | Expression.Name { Id = Identifier Ellipsis } :: _xs -> Expression.ellipsis
             | _ ->
-                args
-                |> List.removeAt (args.Length - 1)
+                let argsWithoutReturn = args |> List.removeAt (args.Length - 1)
+
+                argsWithoutReturn
                 |> List.choose (
                     function
-                    | Expression.Name { Id = Identifier "None" } when args.Length = 2 -> None
+                    // Filter out None (unit) only when it's the sole argument.
+                    // F# `unit -> T` means "takes no args" in Python: Callable[[], T]
+                    // But `unit -> 'a -> T` uncurried to `(unit, 'a) -> T` must keep
+                    // None to match the actual function signature with unit parameter.
+                    | Expression.Name { Id = Identifier "None" } when argsWithoutReturn.Length = 1 -> None
                     | x -> Some x
                 )
                 |> Expression.list
@@ -441,13 +446,18 @@ let rec typeAnnotation
         fableModuleAnnotation com ctx "option" "Option" [ Expression.none ], []
     | Fable.Option(genArg, _) ->
         // Must match mustWrapOption logic in Transforms.Util.fs
-        // Wrap when: Any, Unit, GenericParam, or nested Option
+        // Wrap when: Any, Unit, GenericParam, nested Option, or types containing generic params
         match genArg with
         | Fable.Option _
         | Fable.Any
         | Fable.Unit
         | Fable.GenericParam _ ->
             // Use full Option type annotation (code will use SomeWrapper)
+            let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
+            fableModuleAnnotation com ctx "option" "Option" resolved, stmts
+        | _ when containsGenericParams genArg ->
+            // Inner type contains generic parameters (e.g., Callable[[_A], _B])
+            // Must use Option[T] form because runtime wraps with SomeWrapper
             let resolved, stmts = resolveGenerics com ctx [ genArg ] repeatedGenerics
             fableModuleAnnotation com ctx "option" "Option" resolved, stmts
         | _ ->

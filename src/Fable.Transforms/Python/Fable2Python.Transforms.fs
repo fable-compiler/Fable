@@ -1117,10 +1117,27 @@ let transformCurriedApply com ctx range (TransformExpr com ctx (applied, stmts))
             // TODO: discardUnitArg may still be needed in some cases
             | Fable.Value(Fable.UnitConstant, _) -> [], []
             | Fable.IdentExpr ident when ident.Type = Fable.Unit -> [], []
-            | TransformExpr com ctx (arg, stmts') -> [ arg ], stmts'
+            | arg ->
+                let argExpr, stmts' = com.TransformAsExpr(ctx, arg)
+                // When a Call or CurriedApply result is passed as an argument,
+                // check if we need to erase Option[T] to T | None
+                let argExpr =
+                    if needsOptionEraseForBinding arg arg.Type then
+                        wrapInOptionErase com ctx argExpr
+                    else
+                        argExpr
+
+                [ argExpr ], stmts'
 
         callFunction range applied args [], stmts @ stmts'
     )
+
+/// Extract the expected return type from a return strategy, unwrapping ResourceManager if needed
+let rec private getExpectedReturnType (strategy: ReturnStrategy option) =
+    match strategy with
+    | Some(Return(Some expectedType)) -> Some expectedType
+    | Some(ResourceManager inner) -> getExpectedReturnType inner
+    | _ -> None
 
 let transformCallAsStatements com ctx range t returnStrategy callee callInfo =
     let argsLen (i: Fable.CallInfo) =
@@ -1141,9 +1158,10 @@ let transformCallAsStatements com ctx range t returnStrategy callee callInfo =
     | _ ->
         let expr, stmts = transformCall com ctx range callee callInfo
         // Check if we need to cast Option[T] to T | None for return statements
+        // Also handles ResourceManager-wrapped return strategies (e.g., inside `with` blocks)
         let expr =
-            match returnStrategy with
-            | Some(Return(Some expectedType)) ->
+            match getExpectedReturnType returnStrategy with
+            | Some expectedType ->
                 // Create a temporary Fable.Call to check if erase is needed
                 let callExpr = Fable.Call(callee, callInfo, t, range)
 
@@ -1151,7 +1169,7 @@ let transformCallAsStatements com ctx range t returnStrategy callee callInfo =
                     wrapInOptionErase com ctx expr
                 else
                     expr
-            | _ -> expr
+            | None -> expr
 
         stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
@@ -3996,7 +4014,14 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
                     // Convert to snake_case and clean to remove invalid characters like apostrophes
                     // Handles: "Item" -> "item", "Item1" -> "item1", "MyField" -> "my_field"
                     let fieldName = field.Name |> Naming.toSnakeCase |> Helpers.clean
-                    let ta, _ = Annotation.typeAnnotation com caseCtx None field.FieldType
+                    // Uncurry lambda types for field annotations since union case fields
+                    // store uncurried functions at runtime (same as record fields)
+                    let fieldType =
+                        match field.FieldType with
+                        | Fable.LambdaType _ -> FableTransforms.uncurryType field.FieldType
+                        | _ -> field.FieldType
+
+                    let ta, _ = Annotation.typeAnnotation com caseCtx None fieldType
                     let target = Expression.name (fieldName, Store)
                     // Use annAssign to generate: field: type (not field = type)
                     Statement.annAssign (target, annotation = ta, simple = true)
@@ -4763,6 +4788,12 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
                     let value, stmts = transformAsExpr com ctx decl.Body
                     let name = com.GetIdentifier(ctx, Naming.toPythonNaming decl.Name)
                     let ta, _ = Annotation.typeAnnotation com ctx None decl.Body.Type
+                    // Erase Option wrapper if needed (Call/CurriedApply returning Option[T] to T | None)
+                    let value =
+                        if needsOptionEraseForBinding decl.Body decl.Body.Type then
+                            wrapInOptionErase com ctx value
+                        else
+                            value
 
                     stmts @ declareModuleMember com ctx info.IsPublic name (Some ta) value
                 else
