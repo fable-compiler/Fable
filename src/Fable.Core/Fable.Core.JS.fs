@@ -404,8 +404,8 @@ module JS =
 
     and [<AllowNullLiteral>] AsyncIterator<'T> =
         abstract next: unit -> Promise<IteratorResult<'T>>
-        abstract ``return``: ?value: 'T -> Promise<IteratorResult<'T>>
-        abstract throw: ?e: obj -> Promise<IteratorResult<'T>>
+        abstract ``return``: value: 'T -> Promise<IteratorResult<'T>>
+        abstract throw: e: obj -> Promise<IteratorResult<'T>>
 
     and [<AllowNullLiteral>] AsyncGenerator<'T> =
         inherit AsyncIterator<'T>
