@@ -916,14 +916,6 @@ module JS =
     // let [<Global>] BigInt64Array: BigInt64ArrayConstructor = nativeOnly
 
     [<RequireQualifiedAccess>]
-    module Symbol =
-        [<Global("Symbol.asyncIterator")>]
-        let asyncIterator: obj = nativeOnly
-
-        [<Global("Symbol.asyncDispose")>]
-        let asyncDispose: obj = nativeOnly
-
-    [<RequireQualifiedAccess>]
     module Constructors =
 
         [<Global>]
