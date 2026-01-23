@@ -448,6 +448,7 @@ module PrinterExtensions =
                     function
                     | _, NullOrUndefinedOrVoid -> ()
                     | key, StringConstant value -> printProp (fun () -> printer.Print($"{key}=\"{value}\""))
+                    | "", value -> printProp (fun () -> printer.Print(value))
                     | key, value ->
                         printProp (fun () ->
                             printer.Print(key + "={")
