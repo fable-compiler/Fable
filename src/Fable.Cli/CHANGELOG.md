@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Python] Fix type annotations for protocols, ABCs, Atom, and Set module (by @dbrattli)
 * [Python] Fix type annotations for async functions, date operations, and None handling (by @dbrattli)
 * [Python] Fix type annotations for tuple indexing, generic defaults, and reflection (by @dbrattli)
+* [All] Fix `StringBuilder.Chars` getter and setter (by @MangelMaxime)
 
 ### Removed
 

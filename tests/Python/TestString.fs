@@ -277,14 +277,21 @@ let ``test StringBuilder.AppendFormat with provider works`` () =
 let ``test StringBuilder.Chars works`` () =
     let sb = System.Text.StringBuilder()
                         .Append("abc")
+                        .Append("def")
+    sb.Chars(0) |> equal 'a'
     sb.Chars(1) |> equal 'b'
+    sb.Chars(2) |> equal 'c'
+    sb.Chars(3) |> equal 'd'
+    sb.Chars(4) |> equal 'e'
+    sb.Chars(5) |> equal 'f'
 
 [<Fact>]
 let ``test StringBuilder.Chars throws when index is out of bounds`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
     throwsAnyError <| fun () ->
-        let sb = System.Text.StringBuilder()
-                            .Append("abc")
         sb.Chars(-1) |> ignore
+    throwsAnyError <| fun () ->
         sb.Chars(3) |> ignore
 
 [<Fact>]
@@ -308,6 +315,10 @@ let ``test StringBuilder index setter works`` () =
                         .Append("abc")
     sb[1] <- 'x'
     equal "axc" (sb.ToString())
+    throwsAnyError <| fun () ->
+        sb[-1] <- 'y'
+    throwsAnyError <| fun () ->
+        sb[3] <- 'z'
 
 [<Fact>]
 let ``test Conversion char to int works`` () =

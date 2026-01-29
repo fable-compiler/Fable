@@ -12,11 +12,11 @@ type StringBuilder(value: string, capacity: int) =
     new() = StringBuilder("", 16)
 
     member x.Append(s: string | null) =
-        buf.Add(string s)
+        buf.Add(string<string | null> s)
         x
 
     member x.Append(s: string | null, startIndex: int, count: int) =
-        buf.Add((string s).Substring(startIndex, count))
+        buf.Add((string<string | null> s).Substring(startIndex, count))
         x
 
     member x.Append(c: char) =
@@ -101,31 +101,31 @@ type StringBuilder(value: string, capacity: int) =
 
         with get (index: int) =
             let mutable len = 0
-            let mutable i = -1
+            let mutable i = 0
 
-            while i + 1 < buf.Count && len < index do
-                i <- i + 1
+            while i < buf.Count && len + buf[i].Length <= index do
                 len <- len + buf[i].Length
+                i <- i + 1
 
-            if index < 0 || i < 0 || i >= buf.Count then
+            if index < 0 || i >= buf.Count then
                 failwith "Index was outside the bounds of the array"
             else
-                let pos = len - index - 1
+                let pos = index - len
                 buf[i][pos]
 
         and set (index: int) (value: char) =
             let mutable len = 0
-            let mutable i = -1
+            let mutable i = 0
 
-            while i + 1 < buf.Count && len < index do
-                i <- i + 1
+            while i < buf.Count && len + buf[i].Length <= index do
                 len <- len + buf[i].Length
+                i <- i + 1
 
-            if index < 0 || i < 0 || i >= buf.Count then
+            if index < 0 || i >= buf.Count then
                 failwith "Index was outside the bounds of the array"
             else
-                let pos = len - index - 1
-                buf[i] <- buf[i][0 .. (pos - 1)] + (string value) + buf[i][(pos + 1) ..]
+                let pos = index - len
+                buf[i] <- buf[i][0 .. (pos - 1)] + (string<char> value) + buf[i][(pos + 1) ..]
 
     member x.Replace(oldValue: char, newValue: char) =
         for i = buf.Count - 1 downto 0 do

@@ -123,13 +123,20 @@ let tests = testList "Strings" [
     testCase "StringBuilder.Chars works" <| fun () ->
         let sb = System.Text.StringBuilder()
                             .Append("abc")
+                            .Append("def")
+        sb.Chars(0) |> equal 'a'
         sb.Chars(1) |> equal 'b'
+        sb.Chars(2) |> equal 'c'
+        sb.Chars(3) |> equal 'd'
+        sb.Chars(4) |> equal 'e'
+        sb.Chars(5) |> equal 'f'
 
     testCase "StringBuilder.Chars throws when index is out of bounds" <| fun () ->
+        let sb = System.Text.StringBuilder()
+                            .Append("abc")
         throwsAnyError <| fun () ->
-            let sb = System.Text.StringBuilder()
-                                .Append("abc")
             sb.Chars(-1) |> ignore
+        throwsAnyError <| fun () ->
             sb.Chars(3) |> ignore
 
     testCase "StringBuilder.Replace works" <| fun () ->
@@ -150,6 +157,10 @@ let tests = testList "Strings" [
                             .Append("abc")
         sb[1] <- 'x'
         sb.ToString() |> equal "axc"
+        throwsAnyError <| fun () ->
+            sb[-1] <- 'y'
+        throwsAnyError <| fun () ->
+            sb[3] <- 'z'
 
     // Formatting
 
