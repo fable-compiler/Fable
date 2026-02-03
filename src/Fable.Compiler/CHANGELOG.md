@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-alpha.22 - 2026-02-03
+
 ### Changed
 
 * [Python] Changed DU representation to use separate classes for each case (by @dbrattli)

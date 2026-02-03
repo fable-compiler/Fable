@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 2.0.0-beta.7 - 2026-02-03
+
+* [JS/TS] Fix `StringBuilder.Chars` getter and setter (by @MangelMaxime)
+
 ## 2.0.0-beta.6 - 2025-12-26
 
 ### Fixed
