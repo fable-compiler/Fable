@@ -17,24 +17,24 @@ type StringBuilder(value: string, capacity: int) =
         buf.Add(s)
         x
 
-    member x.Append(o: bool) = x.Append(string o)
-    member x.Append(c: char) = x.Append(string c)
+    member x.Append(o: bool) = x.Append(string<bool> o)
+    member x.Append(c: char) = x.Append(string<char> c)
 
     member x.Append(c: char, repeatCount: int) =
         let s = String.replicate repeatCount (string<char> c)
         buf.Add(s)
         x
 
-    member x.Append(o: int8) = x.Append(string o)
-    member x.Append(o: byte) = x.Append(string o)
-    member x.Append(o: int16) = x.Append(string o)
-    member x.Append(o: uint16) = x.Append(string o)
-    member x.Append(o: int32) = x.Append(string o)
-    member x.Append(o: uint32) = x.Append(string o)
-    member x.Append(o: int64) = x.Append(string o)
-    member x.Append(o: uint64) = x.Append(string o)
-    member x.Append(o: float32) = x.Append(string o)
-    member x.Append(o: float) = x.Append(string o)
+    member x.Append(o: int8) = x.Append(string<int8> o)
+    member x.Append(o: byte) = x.Append(string<byte> o)
+    member x.Append(o: int16) = x.Append(string<int16> o)
+    member x.Append(o: uint16) = x.Append(string<uint16> o)
+    member x.Append(o: int32) = x.Append(string<int32> o)
+    member x.Append(o: uint32) = x.Append(string<uint32> o)
+    member x.Append(o: int64) = x.Append(string<int64> o)
+    member x.Append(o: uint64) = x.Append(string<uint64> o)
+    member x.Append(o: float32) = x.Append(string<float32> o)
+    member x.Append(o: float) = x.Append(string<float> o)
 
     member x.Append(s: string, index: int, count: int) = x.Append(s.Substring(index, count))
 
@@ -57,31 +57,31 @@ type StringBuilder(value: string, capacity: int) =
 
         with get (index: int) =
             let mutable len = 0
-            let mutable i = -1
+            let mutable i = 0
 
-            while i + 1 < buf.Count && len < index do
-                i <- i + 1
+            while i < buf.Count && len + buf[i].Length <= index do
                 len <- len + buf[i].Length
+                i <- i + 1
 
-            if index < 0 || i < 0 || i >= buf.Count then
+            if index < 0 || i >= buf.Count then
                 failwith "Index was outside the bounds of the array"
             else
-                let pos = len - index - 1
+                let pos = index - len
                 buf[i][pos]
 
         and set (index: int) (value: char) =
             let mutable len = 0
-            let mutable i = -1
+            let mutable i = 0
 
-            while i + 1 < buf.Count && len < index do
-                i <- i + 1
+            while i < buf.Count && len + buf[i].Length <= index do
                 len <- len + buf[i].Length
+                i <- i + 1
 
-            if index < 0 || i < 0 || i >= buf.Count then
+            if index < 0 || i >= buf.Count then
                 failwith "Index was outside the bounds of the array"
             else
-                let pos = len - index - 1
-                buf[i] <- buf[i][0 .. (pos - 1)] + (string value) + buf[i][(pos + 1) ..]
+                let pos = index - len
+                buf[i] <- buf[i][0 .. (pos - 1)] + (string<char> value) + buf[i][(pos + 1) ..]
 
     member x.Length =
         let mutable len = 0
@@ -92,8 +92,8 @@ type StringBuilder(value: string, capacity: int) =
         len
 
     member x.Replace(oldValue: char, newValue: char) =
-        let oldValue = string oldValue
-        let newValue = string newValue
+        let oldValue = string<char> oldValue
+        let newValue = string<char> newValue
 
         for i = buf.Count - 1 downto 0 do
             buf[i] <- buf[i].Replace(oldValue, newValue)
