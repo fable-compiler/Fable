@@ -108,3 +108,27 @@ let ``test String.Contains works`` () =
 let ``test String.IndexOf works`` () =
     "hello world".IndexOf("world") |> equal 6
     "hello world".IndexOf("xyz") |> equal -1
+
+[<Fact>]
+let ``test String.Split works`` () =
+    let parts = "a,b,c".Split(",")
+    Array.length parts |> equal 3
+    parts.[0] |> equal "a"
+    parts.[1] |> equal "b"
+    parts.[2] |> equal "c"
+
+[<Fact>]
+let ``test String.Join works`` () =
+    System.String.Join(", ", [| "a"; "b"; "c" |]) |> equal "a, b, c"
+
+[<Fact>]
+let ``test String.Join with list works`` () =
+    System.String.Join("-", [| "hello"; "world" |]) |> equal "hello-world"
+
+[<Fact>]
+let ``test String Concat module works`` () =
+    String.concat ", " ["a"; "b"; "c"] |> equal "a, b, c"
+
+[<Fact>]
+let ``test String Replicate works`` () =
+    String.replicate 3 "ab" |> equal "ababab"

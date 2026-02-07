@@ -36,6 +36,30 @@ let private operators
         let msg = add (add msg (Value(StringConstant "\\nParameter name: ", None))) argName
         makeThrow r _t msg |> Some
     | "Raise", [ arg ] -> makeThrow r _t arg |> Some
+    // Math operators
+    | "Abs", [ arg ] -> emitExpr r _t [ arg ] "erlang:abs($0)" |> Some
+    | "Acos", [ arg ] -> emitExpr r _t [ arg ] "math:acos($0)" |> Some
+    | "Asin", [ arg ] -> emitExpr r _t [ arg ] "math:asin($0)" |> Some
+    | "Atan", [ arg ] -> emitExpr r _t [ arg ] "math:atan($0)" |> Some
+    | "Atan2", [ y; x ] -> emitExpr r _t [ y; x ] "math:atan2($0, $1)" |> Some
+    | "Ceiling", [ arg ] -> emitExpr r _t [ arg ] "erlang:ceil($0)" |> Some
+    | "Cos", [ arg ] -> emitExpr r _t [ arg ] "math:cos($0)" |> Some
+    | "Exp", [ arg ] -> emitExpr r _t [ arg ] "math:exp($0)" |> Some
+    | "Floor", [ arg ] -> emitExpr r _t [ arg ] "erlang:floor($0)" |> Some
+    | "Log", [ arg ] -> emitExpr r _t [ arg ] "math:log($0)" |> Some
+    | "Log10", [ arg ] -> emitExpr r _t [ arg ] "math:log10($0)" |> Some
+    | "Log2", [ arg ] -> emitExpr r _t [ arg ] "math:log2($0)" |> Some
+    | ("Pow" | "op_Exponentiation"), [ base_; exp_ ] -> emitExpr r _t [ base_; exp_ ] "math:pow($0, $1)" |> Some
+    | "Round", [ arg ] -> emitExpr r _t [ arg ] "erlang:round($0)" |> Some
+    | "Sign", [ arg ] ->
+        emitExpr r _t [ arg ] "case $0 > 0 of true -> 1; false -> case $0 < 0 of true -> -1; false -> 0 end end"
+        |> Some
+    | "Sin", [ arg ] -> emitExpr r _t [ arg ] "math:sin($0)" |> Some
+    | "Sqrt", [ arg ] -> emitExpr r _t [ arg ] "math:sqrt($0)" |> Some
+    | "Tan", [ arg ] -> emitExpr r _t [ arg ] "math:tan($0)" |> Some
+    | "Truncate", [ arg ] -> emitExpr r _t [ arg ] "trunc($0)" |> Some
+    | ("Max" | "Max_"), [ a; b ] -> emitExpr r _t [ a; b ] "erlang:max($0, $1)" |> Some
+    | ("Min" | "Min_"), [ a; b ] -> emitExpr r _t [ a; b ] "erlang:min($0, $1)" |> Some
     | (Operators.equality | "Eq"), [ left; right ] -> equals r true left right |> Some
     | (Operators.inequality | "Neq"), [ left; right ] -> equals r false left right |> Some
     | Operators.unaryNegation, [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, _t, r) |> Some
@@ -166,6 +190,59 @@ let private strings
     // str.Replace(old, new) → binary replacement via string:replace
     | "Replace", Some c, [ oldVal; newVal ] ->
         emitExpr r t [ c; oldVal; newVal ] "iolist_to_binary(string:replace($0, $1, $2, all))"
+        |> Some
+    // str.Split(sep) → binary:split(Str, Sep, [global])
+    | "Split", Some c, [ sep ] ->
+        match sep.Type with
+        | Type.Char ->
+            // Char separator: convert to binary first
+            emitExpr r t [ c; sep ] "binary:split($0, <<$1/utf8>>, [global])" |> Some
+        | Type.Array _ ->
+            // Array of chars/strings: use first element as separator
+            emitExpr r t [ c; sep ] "binary:split($0, $1, [global])" |> Some
+        | _ -> emitExpr r t [ c; sep ] "binary:split($0, $1, [global])" |> Some
+    | "Split", Some c, [ sep; _options ] -> emitExpr r t [ c; sep ] "binary:split($0, $1, [global])" |> Some
+    // String.Join(sep, items) → iolist_to_binary(lists:join(Sep, Items))
+    | "Join", None, [ sep; items ] -> emitExpr r t [ sep; items ] "iolist_to_binary(lists:join($0, $1))" |> Some
+    // String.Concat(items) → iolist_to_binary(Items)
+    | "Concat", None, args ->
+        match args with
+        | [ items ] -> emitExpr r t [ items ] "iolist_to_binary($0)" |> Some
+        | [ a; b ] -> emitExpr r t [ a; b ] "iolist_to_binary([$0, $1])" |> Some
+        | _ -> None
+    // str.PadLeft(width) → string:pad(Str, Width, leading)
+    | "PadLeft", Some c, [ width ] ->
+        emitExpr r t [ c; width ] "iolist_to_binary(string:pad($0, $1, leading))"
+        |> Some
+    | "PadLeft", Some c, [ width; padChar ] ->
+        emitExpr r t [ c; width; padChar ] "iolist_to_binary(string:pad($0, $1, leading, [$2]))"
+        |> Some
+    | "PadRight", Some c, [ width ] ->
+        emitExpr r t [ c; width ] "iolist_to_binary(string:pad($0, $1, trailing))"
+        |> Some
+    | "PadRight", Some c, [ width; padChar ] ->
+        emitExpr r t [ c; width; padChar ] "iolist_to_binary(string:pad($0, $1, trailing, [$2]))"
+        |> Some
+    // str.ToCharArray() → binary_to_list(Str)
+    | "ToCharArray", Some c, [] -> emitExpr r t [ c ] "binary_to_list($0)" |> Some
+    // str.Chars(idx) or str.[idx] → binary:at(Str, Idx)
+    | ("get_Chars" | "get_Item"), Some c, [ idx ] -> emitExpr r t [ c; idx ] "binary:at($0, $1)" |> Some
+    // str.Insert(idx, value) → iolist_to_binary([binary:part(S,0,Idx), Value, binary:part(S,Idx,byte_size(S)-Idx)])
+    | "Insert", Some c, [ idx; value ] ->
+        emitExpr
+            r
+            t
+            [ c; idx; value ]
+            "iolist_to_binary([binary:part($0, 0, $1), $2, binary:part($0, $1, byte_size($0) - $1)])"
+        |> Some
+    // str.Remove(startIdx) → binary:part(Str, 0, StartIdx)
+    | "Remove", Some c, [ startIdx ] -> emitExpr r t [ c; startIdx ] "binary:part($0, 0, $1)" |> Some
+    | "Remove", Some c, [ startIdx; count ] ->
+        emitExpr
+            r
+            t
+            [ c; startIdx; count ]
+            "iolist_to_binary([binary:part($0, 0, $1), binary:part($0, $1 + $2, byte_size($0) - $1 - $2)])"
         |> Some
     // str.IndexOf(sub) — let it fall through to JS replacements which generates indexOf → handled in Fable2Beam
     // str.Contains(sub) — let it fall through to JS replacements which generates indexOf >= 0
@@ -380,6 +457,246 @@ let private convert
             |> Some
     | _ -> None
 
+/// Beam-specific List module replacements.
+/// Lists in Erlang are native linked lists, same as F#.
+let private listModule
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, args with
+    | "Head", [ list ] -> emitExpr r t [ list ] "hd($0)" |> Some
+    | "Tail", [ list ] -> emitExpr r t [ list ] "tl($0)" |> Some
+    | ("Length" | "Count"), [ list ] -> emitExpr r t [ list ] "length($0)" |> Some
+    | "IsEmpty", [ list ] -> emitExpr r t [ list ] "($0 =:= [])" |> Some
+    | "Empty", _ -> Value(NewList(None, t), None) |> Some
+    | "Singleton", [ item ] -> emitExpr r t [ item ] "[$0]" |> Some
+    | "Map", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:map($0, $1)" |> Some
+    | "MapIndexed", [ fn; list ] ->
+        emitExpr
+            r
+            t
+            [ fn; list ]
+            "element(2, lists:mapfoldl(fun(X_e_, X_i_) -> {($0)(X_i_, X_e_), X_i_ + 1} end, 0, $1))"
+        |> Some
+    | "Filter", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:filter($0, $1)" |> Some
+    | "Reverse", [ list ] -> emitExpr r t [ list ] "lists:reverse($0)" |> Some
+    | "Append", [ l1; l2 ] -> emitExpr r t [ l1; l2 ] "lists:append($0, $1)" |> Some
+    | "Concat", [ lists ] -> emitExpr r t [ lists ] "lists:append($0)" |> Some
+    | "Sum", [ list ] -> emitExpr r t [ list ] "lists:sum($0)" |> Some
+    | "SumBy", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:sum(lists:map($0, $1))" |> Some
+    | "Fold", [ fn; state; list ] ->
+        emitExpr r t [ fn; state; list ] "lists:foldl(fun(X_item_, X_acc_) -> ($0)(X_acc_, X_item_) end, $1, $2)"
+        |> Some
+    | "FoldBack", [ fn; list; state ] ->
+        emitExpr r t [ fn; list; state ] "lists:foldr(fun(X_item_, X_acc_) -> ($0)(X_item_, X_acc_) end, $2, $1)"
+        |> Some
+    | "Reduce", [ fn; list ] ->
+        emitExpr r t [ fn; list ] "lists:foldl(fun(X_item_, X_acc_) -> ($0)(X_acc_, X_item_) end, hd($1), tl($1))"
+        |> Some
+    | "Sort", [ list ] -> emitExpr r t [ list ] "lists:sort($0)" |> Some
+    | "SortBy", [ fn; list ] ->
+        emitExpr r t [ fn; list ] "lists:sort(fun(A_, B_) -> ($0)(A_) =< ($0)(B_) end, $1)"
+        |> Some
+    | "SortDescending", [ list ] -> emitExpr r t [ list ] "lists:reverse(lists:sort($0))" |> Some
+    | "SortByDescending", [ fn; list ] ->
+        emitExpr r t [ fn; list ] "lists:reverse(lists:sort(fun(A_, B_) -> ($0)(A_) =< ($0)(B_) end, $1))"
+        |> Some
+    | "SortWith", [ fn; list ] ->
+        emitExpr r t [ fn; list ] "lists:sort(fun(A_, B_) -> ($0)(A_, B_) =< 0 end, $1)"
+        |> Some
+    | "Contains", [ item; list ] -> emitExpr r t [ item; list ] "lists:member($0, $1)" |> Some
+    | "Exists", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:any($0, $1)" |> Some
+    | "ForAll", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:all($0, $1)" |> Some
+    | "Iterate", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:foreach($0, $1)" |> Some
+    | "Find", [ fn; list ] ->
+        // Wrap in fun() to isolate variable scope (prevents H_ collision when called multiple times)
+        emitExpr
+            r
+            t
+            [ fn; list ]
+            "(fun() -> case lists:dropwhile(fun(X_e_) -> not ($0)(X_e_) end, $1) of [H_|_] -> H_; [] -> erlang:error(<<\"key_not_found\">>) end end)()"
+        |> Some
+    | "TryFind", [ fn; list ] ->
+        // Wrap in fun() to isolate variable scope
+        emitExpr
+            r
+            t
+            [ fn; list ]
+            "(fun() -> case lists:dropwhile(fun(X_e_) -> not ($0)(X_e_) end, $1) of [H_|_] -> H_; [] -> undefined end end)()"
+        |> Some
+    | "Choose", [ fn; list ] ->
+        emitExpr
+            r
+            t
+            [ fn; list ]
+            "lists:filtermap(fun(X_e_) -> case ($0)(X_e_) of undefined -> false; V_ -> {true, V_} end end, $1)"
+        |> Some
+    | "Collect", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:append(lists:map($0, $1))" |> Some
+    | "Partition", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:partition($0, $1)" |> Some
+    | "Zip", [ l1; l2 ] ->
+        emitExpr r t [ l1; l2 ] "lists:zipwith(fun(A_, B_) -> {A_, B_} end, $0, $1)"
+        |> Some
+    | "Unzip", [ list ] -> emitExpr r t [ list ] "lists:unzip($0)" |> Some
+    | "Min", [ list ] -> emitExpr r t [ list ] "lists:min($0)" |> Some
+    | "Max", [ list ] -> emitExpr r t [ list ] "lists:max($0)" |> Some
+    | "MinBy", [ fn; list ] ->
+        emitExpr r t [ fn; list ] "element(2, lists:min(lists:map(fun(X_e_) -> {($0)(X_e_), X_e_} end, $1)))"
+        |> Some
+    | "MaxBy", [ fn; list ] ->
+        emitExpr r t [ fn; list ] "element(2, lists:max(lists:map(fun(X_e_) -> {($0)(X_e_), X_e_} end, $1)))"
+        |> Some
+    | "Indexed", [ list ] -> emitExpr r t [ list ] "lists:zip(lists:seq(0, length($0) - 1), $0)" |> Some
+    | "ToArray", [ list ] -> Some(List.head args)
+    | "OfArray", [ arr ] -> Some(List.head args)
+    | "OfSeq", [ seq ] -> Some(List.head args)
+    | "ToSeq", [ list ] -> Some(List.head args)
+    | _ -> None
+
+/// Beam-specific FSharpList instance method replacements.
+let private lists
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (_args: Expr list)
+    =
+    match info.CompiledName, thisArg with
+    | "get_Head", Some c -> emitExpr r t [ c ] "hd($0)" |> Some
+    | "get_Tail", Some c -> emitExpr r t [ c ] "tl($0)" |> Some
+    | "get_Length", Some c -> emitExpr r t [ c ] "length($0)" |> Some
+    | "get_IsEmpty", Some c -> emitExpr r t [ c ] "($0 =:= [])" |> Some
+    | "get_Item", Some c ->
+        match _args with
+        | [ idx ] -> emitExpr r t [ c; idx ] "lists:nth($1 + 1, $0)" |> Some
+        | _ -> None
+    | _ -> None
+
+/// Beam-specific Map module replacements.
+/// F# Maps are represented as Erlang native maps (#{}).
+let private mapModule
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, args with
+    | "Empty", _ -> emitExpr r t [] "#{}" |> Some
+    | "OfList", [ pairs ] -> emitExpr r t [ pairs ] "maps:from_list($0)" |> Some
+    | "OfArray", [ arr ] -> emitExpr r t [ arr ] "maps:from_list($0)" |> Some
+    | "OfSeq", [ seq ] -> emitExpr r t [ seq ] "maps:from_list($0)" |> Some
+    | "Add", [ key; value; map ] -> emitExpr r t [ key; value; map ] "maps:put($0, $1, $2)" |> Some
+    | "Find", [ key; map ] -> emitExpr r t [ key; map ] "maps:get($0, $1)" |> Some
+    | "TryFind", [ key; map ] ->
+        emitExpr r t [ key; map ] "(fun() -> case maps:find($0, $1) of {ok, V_} -> V_; error -> undefined end end)()"
+        |> Some
+    | "ContainsKey", [ key; map ] -> emitExpr r t [ key; map ] "maps:is_key($0, $1)" |> Some
+    | "Remove", [ key; map ] -> emitExpr r t [ key; map ] "maps:remove($0, $1)" |> Some
+    | "IsEmpty", [ map ] -> emitExpr r t [ map ] "(maps:size($0) =:= 0)" |> Some
+    | ("Count" | "Length"), [ map ] -> emitExpr r t [ map ] "maps:size($0)" |> Some
+    | "ToList", [ map ] -> emitExpr r t [ map ] "maps:to_list($0)" |> Some
+    | "ToArray", [ map ] -> emitExpr r t [ map ] "maps:to_list($0)" |> Some
+    | "ToSeq", [ map ] -> emitExpr r t [ map ] "maps:to_list($0)" |> Some
+    | "Keys", [ map ] -> emitExpr r t [ map ] "maps:keys($0)" |> Some
+    | "Values", [ map ] -> emitExpr r t [ map ] "maps:values($0)" |> Some
+    | "Map", [ fn; map ] -> emitExpr r t [ fn; map ] "maps:map(fun(K_, V_) -> ($0)(K_, V_) end, $1)" |> Some
+    | "Filter", [ fn; map ] ->
+        emitExpr r t [ fn; map ] "maps:filter(fun(K_, V_) -> ($0)(K_, V_) end, $1)"
+        |> Some
+    | "Fold", [ fn; state; map ] ->
+        emitExpr r t [ fn; state; map ] "maps:fold(fun(K_, V_, Acc_) -> ($0)(Acc_, K_, V_) end, $1, $2)"
+        |> Some
+    | "FoldBack", [ fn; map; state ] ->
+        emitExpr r t [ fn; map; state ] "maps:fold(fun(K_, V_, Acc_) -> ($0)(K_, V_, Acc_) end, $2, $1)"
+        |> Some
+    | "Exists", [ fn; map ] ->
+        emitExpr r t [ fn; map ] "lists:any(fun({K_, V_}) -> ($0)(K_, V_) end, maps:to_list($1))"
+        |> Some
+    | "ForAll", [ fn; map ] ->
+        emitExpr r t [ fn; map ] "lists:all(fun({K_, V_}) -> ($0)(K_, V_) end, maps:to_list($1))"
+        |> Some
+    | "Iterate", [ fn; map ] ->
+        emitExpr r t [ fn; map ] "maps:foreach(fun(K_, V_) -> ($0)(K_, V_) end, $1)"
+        |> Some
+    | "FindKey", [ fn; map ] ->
+        emitExpr
+            r
+            t
+            [ fn; map ]
+            "(fun() -> case lists:dropwhile(fun({K_, V_}) -> not ($0)(K_, V_) end, maps:to_list($1)) of [{K_r_, _}|_] -> K_r_; [] -> erlang:error(<<\"key_not_found\">>) end end)()"
+        |> Some
+    | "TryFindKey", [ fn; map ] ->
+        emitExpr
+            r
+            t
+            [ fn; map ]
+            "(fun() -> case lists:dropwhile(fun({K_, V_}) -> not ($0)(K_, V_) end, maps:to_list($1)) of [{K_r_, _}|_] -> K_r_; [] -> undefined end end)()"
+        |> Some
+    | "Partition", [ fn; map ] ->
+        emitExpr
+            r
+            t
+            [ fn; map ]
+            "(fun(M_) -> {maps:filter(fun(K_, V_) -> ($0)(K_, V_) end, M_), maps:filter(fun(K_, V_) -> not ($0)(K_, V_) end, M_)} end)($1)"
+        |> Some
+    | _ -> None
+
+/// Beam-specific FSharpMap instance method replacements.
+let private maps
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg, args with
+    | ".ctor", None, [ pairs ] -> emitExpr r t [ pairs ] "maps:from_list($0)" |> Some
+    | "get_Count", Some c, _ -> emitExpr r t [ c ] "maps:size($0)" |> Some
+    | "get_IsEmpty", Some c, _ -> emitExpr r t [ c ] "(maps:size($0) =:= 0)" |> Some
+    | "get_Item", Some c, [ key ] -> emitExpr r t [ key; c ] "maps:get($0, $1)" |> Some
+    | "ContainsKey", Some c, [ key ] -> emitExpr r t [ key; c ] "maps:is_key($0, $1)" |> Some
+    | "Add", Some c, [ key; value ] -> emitExpr r t [ key; value; c ] "maps:put($0, $1, $2)" |> Some
+    | "Remove", Some c, [ key ] -> emitExpr r t [ key; c ] "maps:remove($0, $1)" |> Some
+    | "TryGetValue", Some c, [ key ] ->
+        emitExpr
+            r
+            t
+            [ key; c ]
+            "(fun() -> case maps:find($0, $1) of {ok, V_} -> {true, V_}; error -> {false, undefined} end end)()"
+        |> Some
+    | _ -> None
+
+/// Beam-specific StringModule replacements.
+let private stringModule
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, args with
+    | "Concat", [ sep; items ] -> emitExpr r t [ sep; items ] "iolist_to_binary(lists:join($0, $1))" |> Some
+    | "Length", [ str ] -> emitExpr r t [ str ] "byte_size($0)" |> Some
+    | "IsNullOrEmpty", [ str ] -> emitExpr r t [ str ] "(($0 =:= undefined) orelse ($0 =:= <<>>))" |> Some
+    | "IsNullOrWhiteSpace", [ str ] ->
+        emitExpr r t [ str ] "(($0 =:= undefined) orelse (string:trim($0) =:= <<>>))"
+        |> Some
+    | "Replicate", [ count; str ] -> emitExpr r t [ count; str ] "iolist_to_binary(lists:duplicate($0, $1))" |> Some
+    | _ -> None
+
 /// Beam-specific Array instance method replacements.
 /// Arrays in Erlang are represented as lists.
 let private arrays
@@ -449,14 +766,14 @@ let private arrayModule
             r
             t
             [ fn; arr ]
-            "case lists:dropwhile(fun(X_e_) -> not ($0)(X_e_) end, $1) of [H_|_] -> H_; [] -> erlang:error(<<\"key_not_found\">>) end"
+            "(fun() -> case lists:dropwhile(fun(X_e_) -> not ($0)(X_e_) end, $1) of [H_|_] -> H_; [] -> erlang:error(<<\"key_not_found\">>) end end)()"
         |> Some
     | "TryFind", [ fn; arr ] ->
         emitExpr
             r
             t
             [ fn; arr ]
-            "case lists:dropwhile(fun(X_e_) -> not ($0)(X_e_) end, $1) of [H_|_] -> H_; [] -> undefined end"
+            "(fun() -> case lists:dropwhile(fun(X_e_) -> not ($0)(X_e_) end, $1) of [H_|_] -> H_; [] -> undefined end end)()"
         |> Some
     | "Choose", [ fn; arr ] ->
         emitExpr
@@ -507,13 +824,18 @@ let tryCall
     | "Microsoft.FSharp.Core.LanguagePrimitives"
     | "Microsoft.FSharp.Core.LanguagePrimitives.HashCompare" -> languagePrimitives com ctx r t info thisArg args
     | Types.string -> strings com ctx r t info thisArg args
+    | "Microsoft.FSharp.Core.StringModule" -> stringModule com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.FSharpOption`1"
     | "Microsoft.FSharp.Core.FSharpValueOption`1" -> options com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.OptionModule"
     | "Microsoft.FSharp.Core.ValueOptionModule" -> optionModule com ctx r t info thisArg args
+    | "Microsoft.FSharp.Collections.FSharpList`1" -> lists com ctx r t info thisArg args
+    | "Microsoft.FSharp.Collections.ListModule" -> listModule com ctx r t info thisArg args
     | "System.Array" -> arrays com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.ArrayModule"
     | "Microsoft.FSharp.Collections.ArrayModule.Parallel" -> arrayModule com ctx r t info thisArg args
+    | "Microsoft.FSharp.Collections.FSharpMap`2" -> maps com ctx r t info thisArg args
+    | "Microsoft.FSharp.Collections.MapModule" -> mapModule com ctx r t info thisArg args
     | "System.Object"
     | "System.ValueType" -> conversions com ctx r t info thisArg args
     | "System.Convert" -> convert com ctx r t info thisArg args

@@ -1256,6 +1256,55 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                 // Fallback: try lists:selector(args...)
                 Beam.ErlExpr.Call(Some "lists", sanitizeErlangName selector, cleanArgs)
             |> wrapWithHoisted hoisted
+        | selector when importModuleName = Some "map" ->
+            // Map module calls from JS Replacements fallthrough
+            let args = info.Args |> List.map (transformExpr com ctx)
+            let hoisted, cleanArgs = hoistBlocksFromArgs args
+
+            match selector with
+            | "ofList"
+            | "ofArray"
+            | "ofSeq" ->
+                // May have injected comparer as first arg: [comparer; pairs]
+                let pairs =
+                    match cleanArgs with
+                    | [ _; p ] -> p
+                    | [ p ] -> p
+                    | _ -> Beam.ErlExpr.List []
+
+                Beam.ErlExpr.Call(Some "maps", "from_list", [ pairs ])
+            | "empty" -> Beam.ErlExpr.Map []
+            | "add" ->
+                match cleanArgs with
+                | [ key; value; map ] -> Beam.ErlExpr.Call(Some "maps", "put", [ key; value; map ])
+                | _ -> Beam.ErlExpr.Call(Some "maps", "put", cleanArgs)
+            | "find" ->
+                match cleanArgs with
+                | [ key; map ] -> Beam.ErlExpr.Call(Some "maps", "get", [ key; map ])
+                | _ -> Beam.ErlExpr.Call(Some "maps", "get", cleanArgs)
+            | "containsKey" ->
+                match cleanArgs with
+                | [ key; map ] -> Beam.ErlExpr.Call(Some "maps", "is_key", [ key; map ])
+                | _ -> Beam.ErlExpr.Call(Some "maps", "is_key", cleanArgs)
+            | "remove" ->
+                match cleanArgs with
+                | [ key; map ] -> Beam.ErlExpr.Call(Some "maps", "remove", [ key; map ])
+                | _ -> Beam.ErlExpr.Call(Some "maps", "remove", cleanArgs)
+            | "count" -> Beam.ErlExpr.Call(Some "maps", "size", cleanArgs)
+            | "isEmpty" ->
+                match cleanArgs with
+                | [ map ] ->
+                    Beam.ErlExpr.BinOp(
+                        "=:=",
+                        Beam.ErlExpr.Call(Some "maps", "size", [ map ]),
+                        Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 0L)
+                    )
+                | _ -> Beam.ErlExpr.Call(Some "maps", "size", cleanArgs)
+            | "toList"
+            | "toArray"
+            | "toSeq" -> Beam.ErlExpr.Call(Some "maps", "to_list", cleanArgs)
+            | _ -> Beam.ErlExpr.Call(Some "maps", sanitizeErlangName selector, cleanArgs)
+            |> wrapWithHoisted hoisted
         | selector ->
             let args = info.Args |> List.map (transformExpr com ctx)
             let hoisted, cleanArgs = hoistBlocksFromArgs args

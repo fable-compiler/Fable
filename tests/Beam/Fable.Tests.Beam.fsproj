@@ -34,6 +34,7 @@
     <Compile Include="LoopTests.fs" />
     <Compile Include="ArrayTests.fs" />
     <Compile Include="TupleTests.fs" />
+    <Compile Include="MapTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
