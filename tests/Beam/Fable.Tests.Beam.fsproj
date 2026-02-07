@@ -27,6 +27,8 @@
     <Compile Include="PatternMatchTests.fs" />
     <Compile Include="FnTests.fs" />
     <Compile Include="RecordTests.fs" />
+    <Compile Include="StringTests.fs" />
+    <Compile Include="TryCatchTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
