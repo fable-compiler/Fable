@@ -42,6 +42,8 @@
     <Compile Include="ReflectionTests.fs" />
     <Compile Include="ComparisonTests.fs" />
     <Compile Include="CharTests.fs" />
+    <Compile Include="TailCallTests.fs" />
+    <Compile Include="SeqExpressionTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

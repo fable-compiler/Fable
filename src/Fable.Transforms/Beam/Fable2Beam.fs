@@ -123,6 +123,7 @@ let rec private containsIdentRef (name: string) (expr: Expr) : bool =
     | Test(e, _, _) -> containsIdentRef name e
     | Get(e, _, _, _) -> containsIdentRef name e
     | Set(e, _, _, v, _) -> containsIdentRef name e || containsIdentRef name v
+    | Emit(emitInfo, _, _) -> emitInfo.CallInfo.Args |> List.exists (containsIdentRef name)
     | _ -> false
 
 /// Flatten nested Block expressions into a flat list
@@ -531,8 +532,44 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
             let erlBody = transformExpr com ctx' body
             Beam.ErlExpr.Block([ bundleMatch ] @ individualBindings @ [ erlBody ])
+        elif allAreLambdas && bindings.Length = 1 then
+            // Single self-recursive function: use named fun
+            let (ident, value) = bindings.Head
+            let varName = capitalizeFirst ident.Name |> sanitizeErlangVar
+            let ctx' = { ctx with RecursiveBindings = ctx.RecursiveBindings.Add(ident.Name) }
+
+            let argPats, lambdaBody =
+                match value with
+                | Lambda(arg, lambdaBody, _) -> [ Beam.PVar(capitalizeFirst arg.Name |> sanitizeErlangVar) ], lambdaBody
+                | Delegate(args, lambdaBody, _, _) ->
+                    args
+                    |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)),
+                    lambdaBody
+                | _ -> failwith "unreachable: already checked allAreLambdas"
+
+            let erlLambdaBody = transformExpr com ctx' lambdaBody
+
+            let bodyExprs =
+                match erlLambdaBody with
+                | Beam.ErlExpr.Block es -> es
+                | e -> [ e ]
+
+            let namedFun =
+                Beam.ErlExpr.NamedFun(
+                    varName,
+                    [
+                        {
+                            Patterns = argPats
+                            Guard = []
+                            Body = bodyExprs
+                        }
+                    ]
+                )
+
+            let erlOuterBody = transformExpr com ctx' body
+            Beam.ErlExpr.Block [ Beam.ErlExpr.Match(Beam.PVar varName, namedFun); erlOuterBody ]
         else
-            // Simple case: single binding or non-lambda bindings
+            // Simple case: non-lambda bindings
             let assignments =
                 bindings
                 |> List.map (fun (ident, value) ->
@@ -1483,13 +1520,18 @@ and transformClassDeclaration
             let fields = extractFieldSets cons.Body
 
             // Constructor args: skip `this` (first arg in the Fable IR for instance members)
-            let ctorArgs =
-                cons.Args
-                |> List.filter (fun a -> a.Name <> "this" && not (a.Name.StartsWith("unitVar")))
+            let ctorArgs = cons.Args |> List.filter (fun a -> a.Name <> "this")
 
             let argPatterns =
                 ctorArgs
-                |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
+                |> List.map (fun a ->
+                    let name = capitalizeFirst a.Name |> sanitizeErlangVar
+
+                    if a.Name.StartsWith("unitVar") then
+                        Beam.PVar("_" + name)
+                    else
+                        Beam.PVar(name)
+                )
 
             // Build the state map entries from fields
             // Fields may reference constructor args or be complex expressions
