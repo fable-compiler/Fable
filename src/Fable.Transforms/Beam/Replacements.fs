@@ -30,6 +30,12 @@ let private operators
     (args: Expr list)
     =
     match info.CompiledName, args with
+    | "FailWith", [ msg ]
+    | "InvalidOp", [ msg ] -> makeThrow r _t msg |> Some
+    | "InvalidArg", [ argName; msg ] ->
+        let msg = add (add msg (Value(StringConstant "\\nParameter name: ", None))) argName
+        makeThrow r _t msg |> Some
+    | "Raise", [ arg ] -> makeThrow r _t arg |> Some
     | (Operators.equality | "Eq"), [ left; right ] -> equals r true left right |> Some
     | (Operators.inequality | "Neq"), [ left; right ] -> equals r false left right |> Some
     | Operators.unaryNegation, [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, _t, r) |> Some

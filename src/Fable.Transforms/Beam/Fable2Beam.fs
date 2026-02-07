@@ -480,8 +480,12 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 | Beam.ErlExpr.Block es -> es
                 | e -> [ e ]
 
-            // Bind the ident to a map: E = #{message => iolist_to_binary(io_lib:format(..."~p"..., [Reason]))}
-            let messageExpr =
+            // Bind the ident to a map with the exception message.
+            // If reason is already a binary (from failwith), use it directly.
+            // Otherwise format with ~p to convert atoms/tuples/etc to a binary string.
+            let reasonRef = Beam.ErlExpr.Variable reasonVar
+
+            let formatExpr =
                 Beam.ErlExpr.Call(
                     None,
                     "iolist_to_binary",
@@ -495,9 +499,26 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                                     "binary_to_list",
                                     [ Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit "~p") ]
                                 )
-                                Beam.ErlExpr.List [ Beam.ErlExpr.Variable reasonVar ]
+                                Beam.ErlExpr.List [ reasonRef ]
                             ]
                         )
+                    ]
+                )
+
+            let messageExpr =
+                Beam.ErlExpr.Case(
+                    reasonRef,
+                    [
+                        {
+                            Pattern = Beam.PWildcard
+                            Guard = [ Beam.ErlExpr.Call(None, "is_binary", [ reasonRef ]) ]
+                            Body = [ reasonRef ]
+                        }
+                        {
+                            Pattern = Beam.PWildcard
+                            Guard = []
+                            Body = [ formatExpr ]
+                        }
                     ]
                 )
 
@@ -514,6 +535,21 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         | None ->
             // No catch handler, just execute the body (finalizer not yet supported)
             erlBody
+
+    | Extended(kind, _range) ->
+        match kind with
+        | Throw(Some exprArg, _typ) ->
+            let erlExpr = transformExpr com ctx exprArg
+            Beam.ErlExpr.Call(Some "erlang", "error", [ erlExpr ])
+        | Throw(None, _typ) ->
+            // Re-raise (should not normally happen outside catch context)
+            Beam.ErlExpr.Call(
+                Some "erlang",
+                "error",
+                [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "rethrow")) ]
+            )
+        | Curry _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_curry"))
+        | Debugger -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_debugger"))
 
     | _ ->
         let exprName = expr.GetType().Name
