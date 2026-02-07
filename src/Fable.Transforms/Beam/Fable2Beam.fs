@@ -862,6 +862,24 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
 
             Beam.ErlExpr.Call(None, "iolist_to_binary", [ Beam.ErlExpr.List cleanArgs ])
             |> wrapWithHoisted hoisted
+        | "isNullOrEmpty" ->
+            // String.IsNullOrEmpty(s) → (S =:= undefined) orelse (S =:= <<"">>)
+            match info.Args with
+            | [ arg ] ->
+                let erlArg = transformExpr com ctx arg
+                let hoisted, cleanArg = extractBlock erlArg
+
+                Beam.ErlExpr.BinOp(
+                    "orelse",
+                    Beam.ErlExpr.BinOp(
+                        "=:=",
+                        cleanArg,
+                        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "undefined"))
+                    ),
+                    Beam.ErlExpr.BinOp("=:=", cleanArg, Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit ""))
+                )
+                |> wrapWithHoisted hoisted
+            | _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_is_null_or_empty"))
         | selector when importModuleName = Some "list" ->
             // Map F# List operations to Erlang stdlib
             let args = info.Args |> List.map (transformExpr com ctx)
@@ -938,6 +956,45 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
             else
                 Beam.ErlExpr.Call(None, sanitizeErlangName ident.Name, cleanArgs)
                 |> wrapWithHoisted hoisted
+
+    | Get(calleeExpr, FieldGet fieldInfo, _, _) ->
+        // Instance method calls (e.g., str.indexOf(sub) from String.Contains replacement)
+        let erlCallee = transformExpr com ctx calleeExpr
+        let args = info.Args |> List.map (transformExpr com ctx)
+        let calleeHoisted, cleanCallee = extractBlock erlCallee
+        let argsHoisted, cleanArgs = hoistBlocksFromArgs args
+        let allHoisted = calleeHoisted @ argsHoisted
+
+        match fieldInfo.Name with
+        | "indexOf" ->
+            // str.indexOf(sub) → case binary:match(Str, Sub) of {Pos,_} -> Pos; nomatch -> -1 end
+            match cleanArgs with
+            | [ sub ] ->
+                let ctr = com.IncrementCounter()
+                let posVar = $"Idx_pos_{ctr}"
+
+                Beam.ErlExpr.Case(
+                    Beam.ErlExpr.Call(Some "binary", "match", [ cleanCallee; sub ]),
+                    [
+                        {
+                            Pattern = Beam.PTuple [ Beam.PVar posVar; Beam.PWildcard ]
+                            Guard = []
+                            Body = [ Beam.ErlExpr.Variable posVar ]
+                        }
+                        {
+                            Pattern = Beam.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom "nomatch"))
+                            Guard = []
+                            Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer -1L) ]
+                        }
+                    ]
+                )
+                |> wrapWithHoisted allHoisted
+            | _ ->
+                Beam.ErlExpr.Call(None, "unknown_call", cleanCallee :: cleanArgs)
+                |> wrapWithHoisted allHoisted
+        | methodName ->
+            Beam.ErlExpr.Call(None, sanitizeErlangName methodName, cleanCallee :: cleanArgs)
+            |> wrapWithHoisted allHoisted
 
     | _ ->
         let args = info.Args |> List.map (transformExpr com ctx)
