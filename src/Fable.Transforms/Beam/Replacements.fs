@@ -120,6 +120,7 @@ let private operators
     | "ToString", [ arg ] ->
         match arg.Type with
         | Type.String -> Some arg
+        | Type.Char -> emitExpr r _t [ arg ] "<<$0/utf8>>" |> Some
         | Type.Number(kind, _) ->
             match kind with
             | Float16
@@ -220,6 +221,92 @@ let private valueTypes
         match _args with
         | [ arg ] -> compare com r thisObj arg |> Some
         | _ -> None
+    | _ -> None
+
+/// Beam-specific System.Char replacements.
+/// Chars in Erlang are integers (Unicode codepoints).
+let private chars
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, args with
+    | "ToUpper", [ c ] -> Helper.LibCall(com, "fable_char", "to_upper", t, [ c ]) |> Some
+    | "ToUpperInvariant", [ c ] -> Helper.LibCall(com, "fable_char", "to_upper", t, [ c ]) |> Some
+    | "ToLower", [ c ] -> Helper.LibCall(com, "fable_char", "to_lower", t, [ c ]) |> Some
+    | "ToLowerInvariant", [ c ] -> Helper.LibCall(com, "fable_char", "to_lower", t, [ c ]) |> Some
+    | "ToString", [ c ] -> Helper.LibCall(com, "fable_char", "to_string", t, [ c ]) |> Some
+    | "IsLetter", [ c ] -> Helper.LibCall(com, "fable_char", "is_letter", t, [ c ]) |> Some
+    | "IsLetter", [ str; idx ] ->
+        Helper.LibCall(com, "fable_char", "is_letter", t, [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ])
+        |> Some
+    | "IsDigit", [ c ] -> Helper.LibCall(com, "fable_char", "is_digit", t, [ c ]) |> Some
+    | "IsDigit", [ str; idx ] ->
+        Helper.LibCall(com, "fable_char", "is_digit", t, [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ])
+        |> Some
+    | "IsLetterOrDigit", [ c ] -> Helper.LibCall(com, "fable_char", "is_letter_or_digit", t, [ c ]) |> Some
+    | "IsLetterOrDigit", [ str; idx ] ->
+        Helper.LibCall(
+            com,
+            "fable_char",
+            "is_letter_or_digit",
+            t,
+            [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ]
+        )
+        |> Some
+    | "IsUpper", [ c ] -> Helper.LibCall(com, "fable_char", "is_upper", t, [ c ]) |> Some
+    | "IsUpper", [ str; idx ] ->
+        Helper.LibCall(com, "fable_char", "is_upper", t, [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ])
+        |> Some
+    | "IsLower", [ c ] -> Helper.LibCall(com, "fable_char", "is_lower", t, [ c ]) |> Some
+    | "IsLower", [ str; idx ] ->
+        Helper.LibCall(com, "fable_char", "is_lower", t, [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ])
+        |> Some
+    | "IsNumber", [ c ] -> Helper.LibCall(com, "fable_char", "is_number", t, [ c ]) |> Some
+    | "IsNumber", [ str; idx ] ->
+        Helper.LibCall(com, "fable_char", "is_number", t, [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ])
+        |> Some
+    | "IsWhiteSpace", [ c ] -> Helper.LibCall(com, "fable_char", "is_whitespace", t, [ c ]) |> Some
+    | "IsWhiteSpace", [ str; idx ] ->
+        Helper.LibCall(com, "fable_char", "is_whitespace", t, [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ])
+        |> Some
+    | "IsControl", [ c ] -> Helper.LibCall(com, "fable_char", "is_control", t, [ c ]) |> Some
+    | "IsControl", [ str; idx ] ->
+        Helper.LibCall(com, "fable_char", "is_control", t, [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ])
+        |> Some
+    | "IsPunctuation", [ c ] -> Helper.LibCall(com, "fable_char", "is_punctuation", t, [ c ]) |> Some
+    | "IsPunctuation", [ str; idx ] ->
+        Helper.LibCall(
+            com,
+            "fable_char",
+            "is_punctuation",
+            t,
+            [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ]
+        )
+        |> Some
+    | "IsSeparator", [ c ] -> Helper.LibCall(com, "fable_char", "is_separator", t, [ c ]) |> Some
+    | "IsSeparator", [ str; idx ] ->
+        Helper.LibCall(com, "fable_char", "is_separator", t, [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ])
+        |> Some
+    | "IsSymbol", [ c ] -> Helper.LibCall(com, "fable_char", "is_symbol", t, [ c ]) |> Some
+    | "IsSymbol", [ str; idx ] ->
+        Helper.LibCall(com, "fable_char", "is_symbol", t, [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ])
+        |> Some
+    | "GetUnicodeCategory", [ c ] -> Helper.LibCall(com, "fable_char", "get_unicode_category", t, [ c ]) |> Some
+    | "GetUnicodeCategory", [ str; idx ] ->
+        Helper.LibCall(
+            com,
+            "fable_char",
+            "get_unicode_category",
+            t,
+            [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ]
+        )
+        |> Some
+    | "Parse", [ str ] -> Helper.LibCall(com, "fable_char", "parse", t, [ str ]) |> Some
     | _ -> None
 
 /// Beam-specific string method replacements.
@@ -429,6 +516,7 @@ let private conversions
 
         match arg.Type with
         | Type.String -> Some arg
+        | Type.Char -> emitExpr r t [ arg ] "<<$0/utf8>>" |> Some
         | Type.Number(kind, _) ->
             match kind with
             | Float16
@@ -957,11 +1045,14 @@ let tryCall
         | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
         | _ -> None
     | "System.Char" ->
-        match info.CompiledName, thisArg, args with
-        | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
-        | "CompareTo", Some thisObj, [ arg ] -> compare com r thisObj arg |> Some
-        | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
-        | _ -> conversions com ctx r t info thisArg args
+        match chars com ctx r t info thisArg args with
+        | Some _ as res -> res
+        | None ->
+            match info.CompiledName, thisArg, args with
+            | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
+            | "CompareTo", Some thisObj, [ arg ] -> compare com r thisObj arg |> Some
+            | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
+            | _ -> conversions com ctx r t info thisArg args
     | "System.SByte"
     | "System.Byte"
     | "System.Int16"
