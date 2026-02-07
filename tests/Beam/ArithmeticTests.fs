@@ -86,7 +86,6 @@ let ``test Logical not works`` () =
     not true |> equal false
     not false |> equal true
 
-#if !FABLE_COMPILER_BEAM // TODO: needs fable-library-beam (big_int module)
 [<Fact>]
 let ``test Int64 Infix add can be generated`` () =
     4L + 2L |> equal 6L
@@ -102,7 +101,6 @@ let ``test Int64 Infix multiply can be generated`` () =
 [<Fact>]
 let ``test Int64 Infix divide can be generated`` () =
     4L / 2L |> equal 2L
-#endif
 
 [<Fact>]
 let ``test Equality works`` () =

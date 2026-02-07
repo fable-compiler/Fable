@@ -33,6 +33,22 @@ let private operators
     | (Operators.equality | "Eq"), [ left; right ] -> equals r true left right |> Some
     | (Operators.inequality | "Neq"), [ left; right ] -> equals r false left right |> Some
     | Operators.unaryNegation, [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, _t, r) |> Some
+    // Erlang has native arbitrary-precision integers, so Int64/UInt64/BigInt
+    // use direct binary ops instead of library calls (like Python's int)
+    | Patterns.SetContains Operators.standardSet, _ ->
+        let argTypes = args |> List.map (fun a -> a.Type)
+
+        match argTypes with
+        | Number((Int64 | UInt64 | Int128 | UInt128 | NativeInt | UNativeInt | BigInt), _) :: _ ->
+            match info.CompiledName, args with
+            | Operators.addition, [ left; right ] -> makeBinOp r _t left right BinaryPlus |> Some
+            | Operators.subtraction, [ left; right ] -> makeBinOp r _t left right BinaryMinus |> Some
+            | Operators.multiply, [ left; right ] -> makeBinOp r _t left right BinaryMultiply |> Some
+            | (Operators.division | Operators.divideByInt), [ left; right ] ->
+                makeBinOp r _t left right BinaryDivide |> Some
+            | Operators.modulus, [ left; right ] -> makeBinOp r _t left right BinaryModulus |> Some
+            | _ -> None
+        | _ -> None
     | _ -> None
 
 let private languagePrimitives
