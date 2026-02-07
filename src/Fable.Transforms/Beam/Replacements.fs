@@ -20,6 +20,9 @@ let private equals r equal (left: Expr) (right: Expr) =
     else
         makeBinOp r Boolean left right BinaryUnequal
 
+let private compare (com: ICompiler) r (left: Expr) (right: Expr) =
+    Helper.LibCall(com, "fable_comparison", "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
+
 let private operators
     (_com: ICompiler)
     (_ctx: Context)
@@ -36,6 +39,16 @@ let private operators
         let msg = add (add msg (Value(StringConstant "\\nParameter name: ", None))) argName
         makeThrow r _t msg |> Some
     | "Raise", [ arg ] -> makeThrow r _t arg |> Some
+    | "NullArg", [ arg ] ->
+        let msg =
+            add
+                (Value(StringConstant "Value cannot be null.", None))
+                (add (Value(StringConstant "\\nParameter name: ", None)) arg)
+
+        makeThrow r _t msg |> Some
+    | "IsNull", [ arg ] -> emitExpr r _t [ arg ] "($0 =:= undefined)" |> Some
+    | "Hash", [ arg ] -> emitExpr r _t [ arg ] "erlang:phash2($0)" |> Some
+    | "Compare", [ left; right ] -> compare _com r left right |> Some
     // Math operators
     | "Abs", [ arg ] -> emitExpr r _t [ arg ] "erlang:abs($0)" |> Some
     | "Acos", [ arg ] -> emitExpr r _t [ arg ] "math:acos($0)" |> Some
@@ -62,6 +75,11 @@ let private operators
     | ("Min" | "Min_"), [ a; b ] -> emitExpr r _t [ a; b ] "erlang:min($0, $1)" |> Some
     | (Operators.equality | "Eq"), [ left; right ] -> equals r true left right |> Some
     | (Operators.inequality | "Neq"), [ left; right ] -> equals r false left right |> Some
+    | (Operators.lessThan | "Lt"), [ left; right ] -> makeBinOp r Boolean left right BinaryLess |> Some
+    | (Operators.lessThanOrEqual | "Lte"), [ left; right ] -> makeBinOp r Boolean left right BinaryLessOrEqual |> Some
+    | (Operators.greaterThan | "Gt"), [ left; right ] -> makeBinOp r Boolean left right BinaryGreater |> Some
+    | (Operators.greaterThanOrEqual | "Gte"), [ left; right ] ->
+        makeBinOp r Boolean left right BinaryGreaterOrEqual |> Some
     | Operators.unaryNegation, [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, _t, r) |> Some
     // Type conversions: int(x), float(x), string(x), etc.
     | ("ToSByte" | "ToByte" | "ToInt8" | "ToUInt8" | "ToInt16" | "ToUInt16" | "ToInt" | "ToUInt" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"),
@@ -139,10 +157,10 @@ let private operators
     | _ -> None
 
 let private languagePrimitives
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
-    (_t: Type)
+    (t: Type)
     (info: CallInfo)
     (_thisArg: Expr option)
     (args: Expr list)
@@ -150,6 +168,58 @@ let private languagePrimitives
     match info.CompiledName, args with
     | ("GenericEquality" | "GenericEqualityIntrinsic"), [ left; right ] -> equals r true left right |> Some
     | ("GenericEqualityER" | "GenericEqualityERIntrinsic"), [ left; right ] -> equals r true left right |> Some
+    | ("GenericComparison" | "GenericComparisonIntrinsic"), [ left; right ] -> compare com r left right |> Some
+    | ("GenericLessThan" | "GenericLessThanIntrinsic"), [ left; right ] ->
+        makeBinOp r Boolean left right BinaryLess |> Some
+    | ("GenericLessOrEqual" | "GenericLessOrEqualIntrinsic"), [ left; right ] ->
+        makeBinOp r Boolean left right BinaryLessOrEqual |> Some
+    | ("GenericGreaterThan" | "GenericGreaterThanIntrinsic"), [ left; right ] ->
+        makeBinOp r Boolean left right BinaryGreater |> Some
+    | ("GenericGreaterOrEqual" | "GenericGreaterOrEqualIntrinsic"), [ left; right ] ->
+        makeBinOp r Boolean left right BinaryGreaterOrEqual |> Some
+    | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [ left; right ] ->
+        makeBinOp r Boolean left right BinaryEqual |> Some
+    | ("GenericHash" | "GenericHashIntrinsic"), [ arg ] -> emitExpr r t [ arg ] "erlang:phash2($0)" |> Some
+    | ("PhysicalHash" | "PhysicalHashIntrinsic"), [ arg ] -> emitExpr r t [ arg ] "erlang:phash2($0)" |> Some
+    | _ -> None
+
+/// Beam-specific System.Object replacements.
+let private objects
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg, args with
+    | "ReferenceEquals", None, [ left; right ] -> makeBinOp r Boolean left right BinaryEqual |> Some
+    | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
+    | "Equals", None, [ left; right ] -> equals r true left right |> Some
+    | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
+    | _ -> None
+
+/// Beam-specific System.ValueType replacements.
+let private valueTypes
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (_args: Expr list)
+    =
+    match info.CompiledName, thisArg with
+    | "Equals", Some thisObj ->
+        match _args with
+        | [ arg ] -> equals r true thisObj arg |> Some
+        | _ -> None
+    | "GetHashCode", Some thisObj -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
+    | "CompareTo", Some thisObj ->
+        match _args with
+        | [ arg ] -> compare com r thisObj arg |> Some
+        | _ -> None
     | _ -> None
 
 /// Beam-specific string method replacements.
@@ -226,6 +296,10 @@ let private strings
         Helper.LibCall(com, "fable_string", "remove", t, [ c; startIdx; count ]) |> Some
     // str.IndexOf(sub) — let it fall through to JS replacements which generates indexOf → handled in Fable2Beam
     // str.Contains(sub) — let it fall through to JS replacements which generates indexOf >= 0
+    // Instance methods: Equals, CompareTo, GetHashCode
+    | "Equals", Some c, [ arg ] -> equals r true c arg |> Some
+    | "CompareTo", Some c, [ arg ] -> compare com r c arg |> Some
+    | "GetHashCode", Some c, [] -> emitExpr r t [ c ] "erlang:phash2($0)" |> Some
     | _ -> None
 
 /// Beam-specific Option module replacements.
@@ -374,9 +448,9 @@ let private conversions
         | _ -> Some arg // numbers are already chars in Erlang
     | _ -> None
 
-/// Beam-specific numeric type method replacements (Parse, ToString on numeric types).
+/// Beam-specific numeric type method replacements (Parse, ToString, Equals, CompareTo, GetHashCode).
 let private numericTypes
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -403,6 +477,9 @@ let private numericTypes
             | Decimal -> emitExpr r t [ c ] "float_to_binary($0)" |> Some
             | _ -> emitExpr r t [ c ] "integer_to_binary($0)" |> Some
         | _ -> None
+    | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
+    | "CompareTo", Some thisObj, [ arg ] -> compare com r thisObj arg |> Some
+    | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
     | _ -> None
 
 /// Beam-specific System.Convert replacements.
@@ -843,7 +920,8 @@ let tryCall
     match info.DeclaringEntityFullName with
     | "Microsoft.FSharp.Core.Operators"
     | "Microsoft.FSharp.Core.Operators.Checked"
-    | "Microsoft.FSharp.Core.ExtraTopLevelOperators" -> operators com ctx r t info thisArg args
+    | "Microsoft.FSharp.Core.ExtraTopLevelOperators"
+    | "System.Math" -> operators com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.LanguagePrimitives"
     | "Microsoft.FSharp.Core.LanguagePrimitives.HashCompare" -> languagePrimitives com ctx r t info thisArg args
     | Types.string -> strings com ctx r t info thisArg args
@@ -863,10 +941,27 @@ let tryCall
     | "Microsoft.FSharp.Collections.SeqModule" -> seqModule com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers" -> seqModule com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com ctx r t info thisArg args
-    | "System.Object"
-    | "System.ValueType" -> conversions com ctx r t info thisArg args
+    | "System.Object" ->
+        match objects com ctx r t info thisArg args with
+        | Some _ as res -> res
+        | None -> conversions com ctx r t info thisArg args
+    | "System.ValueType" ->
+        match valueTypes com ctx r t info thisArg args with
+        | Some _ as res -> res
+        | None -> conversions com ctx r t info thisArg args
     | "System.Convert" -> convert com ctx r t info thisArg args
-    | "System.Char" -> conversions com ctx r t info thisArg args
+    | "System.Boolean" ->
+        match info.CompiledName, thisArg, args with
+        | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
+        | "CompareTo", Some thisObj, [ arg ] -> compare com r thisObj arg |> Some
+        | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
+        | _ -> None
+    | "System.Char" ->
+        match info.CompiledName, thisArg, args with
+        | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
+        | "CompareTo", Some thisObj, [ arg ] -> compare com r thisObj arg |> Some
+        | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
+        | _ -> conversions com ctx r t info thisArg args
     | "System.SByte"
     | "System.Byte"
     | "System.Int16"
