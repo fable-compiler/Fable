@@ -287,6 +287,41 @@ module Output =
 
             printExpr sb indent expr
 
+        | TryCatch(body, catchVar, catchBody) ->
+            sb.AppendLine("try") |> ignore
+
+            body
+            |> List.iteri (fun i bodyExpr ->
+                writeIndent ()
+                sb.Append("    ") |> ignore
+                printExpr sb (indent + 1) bodyExpr
+
+                if i < body.Length - 1 then
+                    sb.Append(",") |> ignore
+
+                sb.AppendLine() |> ignore
+            )
+
+            writeIndent ()
+            sb.AppendLine($"catch") |> ignore
+            writeIndent ()
+            sb.AppendLine($"    _:{catchVar} ->") |> ignore
+
+            catchBody
+            |> List.iteri (fun i bodyExpr ->
+                writeIndent ()
+                sb.Append("        ") |> ignore
+                printExpr sb (indent + 2) bodyExpr
+
+                if i < catchBody.Length - 1 then
+                    sb.Append(",") |> ignore
+
+                sb.AppendLine() |> ignore
+            )
+
+            writeIndent ()
+            sb.Append("end") |> ignore
+
     let printFunClause (sb: System.Text.StringBuilder) (name: Atom) (clause: ErlFunClause) =
         let (Atom atomName) = name
         sb.Append($"{atomName}(") |> ignore

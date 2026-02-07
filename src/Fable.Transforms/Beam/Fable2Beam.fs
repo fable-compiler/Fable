@@ -457,6 +457,64 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
     | Emit(emitInfo, _typ, _range) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit $"%%emit: {emitInfo.Macro}")
 
+    | TryCatch(body, catch_, _finalizer, _range) ->
+        let erlBody = transformExpr com ctx body
+
+        let bodyExprs =
+            match erlBody with
+            | Beam.ErlExpr.Block es -> es
+            | e -> [ e ]
+
+        match catch_ with
+        | Some(ident, catchExpr) ->
+            // Create a temp var for the raw reason, then wrap it in a map with "message" field
+            // so that e.Message field access works via maps:get
+            let ctr = com.IncrementCounter()
+            let reasonVar = $"Exn_reason_{ctr}"
+            let identVar = capitalizeFirst ident.Name
+
+            let erlCatchBody = transformExpr com ctx catchExpr
+
+            let catchBodyExprs =
+                match erlCatchBody with
+                | Beam.ErlExpr.Block es -> es
+                | e -> [ e ]
+
+            // Bind the ident to a map: E = #{message => iolist_to_binary(io_lib:format(..."~p"..., [Reason]))}
+            let messageExpr =
+                Beam.ErlExpr.Call(
+                    None,
+                    "iolist_to_binary",
+                    [
+                        Beam.ErlExpr.Call(
+                            Some "io_lib",
+                            "format",
+                            [
+                                Beam.ErlExpr.Call(
+                                    None,
+                                    "binary_to_list",
+                                    [ Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit "~p") ]
+                                )
+                                Beam.ErlExpr.List [ Beam.ErlExpr.Variable reasonVar ]
+                            ]
+                        )
+                    ]
+                )
+
+            let bindIdent =
+                Beam.ErlExpr.Match(
+                    Beam.PVar identVar,
+                    Beam.ErlExpr.Map
+                        [
+                            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "message")), messageExpr
+                        ]
+                )
+
+            Beam.ErlExpr.TryCatch(bodyExprs, reasonVar, [ bindIdent ] @ catchBodyExprs)
+        | None ->
+            // No catch handler, just execute the body (finalizer not yet supported)
+            erlBody
+
     | _ ->
         let exprName = expr.GetType().Name
         Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom $"todo_{exprName.ToLowerInvariant()}"))

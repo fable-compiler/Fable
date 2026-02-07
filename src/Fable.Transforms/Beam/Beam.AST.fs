@@ -33,6 +33,7 @@ type ErlExpr =
     | Block of ErlExpr list
     | BinOp of op: string * ErlExpr * ErlExpr
     | UnaryOp of op: string * ErlExpr
+    | TryCatch of body: ErlExpr list * catchVar: string * catchBody: ErlExpr list
 
 and ErlCaseClause =
     {
