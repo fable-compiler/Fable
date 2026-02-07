@@ -43,6 +43,7 @@
     <Compile Include="Python/Fable2Python.Transforms.fs" />
     <Compile Include="Python/PythonPrinter.fs" />
     <Compile Include="Python/PythonCompiler.fs" />
+    <Compile Include="Beam/Fable2Beam.Reflection.fs" />
     <Compile Include="Beam/Fable2Beam.fs" />
     <Compile Include="Beam/ErlangPrinter.fs" />
     <Compile Include="Php/Php.fs" />

@@ -910,6 +910,8 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
 
             Beam.ErlExpr.Call(None, "iolist_to_binary", [ Beam.ErlExpr.List elements ])
 
+    | TypeInfo(typ, _tags) -> Reflection.transformTypeInfo com None Map.empty typ
+
     | _ ->
         let kindName = value.GetType().Name
         Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom $"todo_{kindName.ToLowerInvariant()}"))
