@@ -32,6 +32,8 @@
     <Compile Include="OptionTests.fs" />
     <Compile Include="ConversionTests.fs" />
     <Compile Include="LoopTests.fs" />
+    <Compile Include="ArrayTests.fs" />
+    <Compile Include="TupleTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

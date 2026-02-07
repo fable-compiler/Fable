@@ -380,6 +380,112 @@ let private convert
             |> Some
     | _ -> None
 
+/// Beam-specific Array instance method replacements.
+/// Arrays in Erlang are represented as lists.
+let private arrays
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg, args with
+    | "get_Length", Some c, _ -> emitExpr r t [ c ] "length($0)" |> Some
+    | "get_Item", Some c, [ idx ] -> emitExpr r t [ c; idx ] "lists:nth($1 + 1, $0)" |> Some
+    | _ -> None
+
+/// Beam-specific Array module replacements.
+let private arrayModule
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, args with
+    | ("Length" | "Count"), [ arr ] -> emitExpr r t [ arr ] "length($0)" |> Some
+    | "Item", [ idx; arr ] -> emitExpr r t [ arr; idx ] "lists:nth($1 + 1, $0)" |> Some
+    | "Get", [ arr; idx ] -> emitExpr r t [ arr; idx ] "lists:nth($1 + 1, $0)" |> Some
+    | "Head", [ arr ] -> emitExpr r t [ arr ] "hd($0)" |> Some
+    | "Last", [ arr ] -> emitExpr r t [ arr ] "lists:last($0)" |> Some
+    | "Tail", [ arr ] -> emitExpr r t [ arr ] "tl($0)" |> Some
+    | "IsEmpty", [ arr ] -> emitExpr r t [ arr ] "($0 =:= [])" |> Some
+    | "Empty", _ -> Value(NewArray(ArrayValues [], t, MutableArray), None) |> Some
+    | "Map", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:map($0, $1)" |> Some
+    | "Filter", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:filter($0, $1)" |> Some
+    | "Exists", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:any($0, $1)" |> Some
+    | "ForAll", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:all($0, $1)" |> Some
+    | "Iterate", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:foreach($0, $1)" |> Some
+    | "Fold", [ fn; state; arr ] ->
+        // F# Array.fold: folder(state, item), Erlang foldl: fun(item, acc) — must swap
+        emitExpr r t [ fn; state; arr ] "lists:foldl(fun(X_item_, X_acc_) -> ($0)(X_acc_, X_item_) end, $1, $2)"
+        |> Some
+    | "FoldBack", [ fn; arr; state ] ->
+        emitExpr r t [ fn; arr; state ] "lists:foldr(fun(X_item_, X_acc_) -> ($0)(X_item_, X_acc_) end, $2, $1)"
+        |> Some
+    | "Reduce", [ fn; arr ] ->
+        emitExpr r t [ fn; arr ] "lists:foldl(fun(X_item_, X_acc_) -> ($0)(X_acc_, X_item_) end, hd($1), tl($1))"
+        |> Some
+    | "Reverse", [ arr ] -> emitExpr r t [ arr ] "lists:reverse($0)" |> Some
+    | "Append", [ arr1; arr2 ] -> emitExpr r t [ arr1; arr2 ] "lists:append($0, $1)" |> Some
+    | "Concat", [ arrs ] -> emitExpr r t [ arrs ] "lists:append($0)" |> Some
+    | "Sum", [ arr ] -> emitExpr r t [ arr ] "lists:sum($0)" |> Some
+    | "SumBy", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:sum(lists:map($0, $1))" |> Some
+    | "Min", [ arr ] -> emitExpr r t [ arr ] "lists:min($0)" |> Some
+    | "Max", [ arr ] -> emitExpr r t [ arr ] "lists:max($0)" |> Some
+    | "MinBy", [ fn; arr ] ->
+        emitExpr r t [ fn; arr ] "element(2, lists:min(lists:map(fun(X_e_) -> {($0)(X_e_), X_e_} end, $1)))"
+        |> Some
+    | "MaxBy", [ fn; arr ] ->
+        emitExpr r t [ fn; arr ] "element(2, lists:max(lists:map(fun(X_e_) -> {($0)(X_e_), X_e_} end, $1)))"
+        |> Some
+    | "Contains", [ value; arr ] -> emitExpr r t [ value; arr ] "lists:member($0, $1)" |> Some
+    | "Find", [ fn; arr ] ->
+        emitExpr
+            r
+            t
+            [ fn; arr ]
+            "case lists:dropwhile(fun(X_e_) -> not ($0)(X_e_) end, $1) of [H_|_] -> H_; [] -> erlang:error(<<\"key_not_found\">>) end"
+        |> Some
+    | "TryFind", [ fn; arr ] ->
+        emitExpr
+            r
+            t
+            [ fn; arr ]
+            "case lists:dropwhile(fun(X_e_) -> not ($0)(X_e_) end, $1) of [H_|_] -> H_; [] -> undefined end"
+        |> Some
+    | "Choose", [ fn; arr ] ->
+        emitExpr
+            r
+            t
+            [ fn; arr ]
+            "lists:filtermap(fun(X_e_) -> case ($0)(X_e_) of undefined -> false; V_ -> {true, V_} end end, $1)"
+        |> Some
+    | "Collect", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:append(lists:map($0, $1))" |> Some
+    | "ToList", [ arr ] -> Some(List.head args) // arrays and lists are the same in Erlang
+    | "OfList", [ lst ] -> Some(List.head args) // arrays and lists are the same in Erlang
+    | "OfSeq", [ seq ] -> Some(List.head args)
+    | "ToSeq", [ arr ] -> Some(List.head args)
+    | "ZeroCreate", [ count ] -> emitExpr r t [ count ] "lists:duplicate($0, 0)" |> Some
+    | "Create", [ count; value ] -> emitExpr r t [ count; value ] "lists:duplicate($0, $1)" |> Some
+    | "Sort", [ arr ] -> emitExpr r t [ arr ] "lists:sort($0)" |> Some
+    | "SortDescending", [ arr ] -> emitExpr r t [ arr ] "lists:reverse(lists:sort($0))" |> Some
+    | "SortBy", [ fn; arr ] ->
+        emitExpr r t [ fn; arr ] "lists:sort(fun(A_, B_) -> ($0)(A_) =< ($0)(B_) end, $1)"
+        |> Some
+    | "SortWith", [ fn; arr ] ->
+        emitExpr r t [ fn; arr ] "lists:sort(fun(A_, B_) -> ($0)(A_, B_) =< 0 end, $1)"
+        |> Some
+    | "Zip", [ arr1; arr2 ] ->
+        emitExpr r t [ arr1; arr2 ] "lists:zipwith(fun(A_, B_) -> {A_, B_} end, $0, $1)"
+        |> Some
+    | "Unzip", [ arr ] -> emitExpr r t [ arr ] "lists:unzip($0)" |> Some
+    | _ -> None
+
 let tryField (_com: ICompiler) _returnTyp _ownerTyp _fieldName : Expr option = None
 
 let tryType (_t: Type) : Expr option = None
@@ -405,6 +511,9 @@ let tryCall
     | "Microsoft.FSharp.Core.FSharpValueOption`1" -> options com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.OptionModule"
     | "Microsoft.FSharp.Core.ValueOptionModule" -> optionModule com ctx r t info thisArg args
+    | "System.Array" -> arrays com ctx r t info thisArg args
+    | "Microsoft.FSharp.Collections.ArrayModule"
+    | "Microsoft.FSharp.Collections.ArrayModule.Parallel" -> arrayModule com ctx r t info thisArg args
     | "System.Object"
     | "System.ValueType" -> conversions com ctx r t info thisArg args
     | "System.Convert" -> convert com ctx r t info thisArg args

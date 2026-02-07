@@ -742,6 +742,17 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         let tailExpr = transformExpr com ctx tail
         Beam.ErlExpr.ListCons(headExpr, tailExpr)
 
+    | NewArray(ArrayValues values, _typ, _kind) ->
+        let erlValues = values |> List.map (transformExpr com ctx)
+        Beam.ErlExpr.List erlValues
+
+    | NewArray(ArrayFrom expr, _typ, _kind) -> transformExpr com ctx expr
+
+    | NewArray(ArrayAlloc size, _typ, _kind) ->
+        // Create an array of N zeros: lists:duplicate(N, 0)
+        let erlSize = transformExpr com ctx size
+        Beam.ErlExpr.Call(Some "lists", "duplicate", [ erlSize; Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 0L) ])
+
     | NewUnion(values, tag, _ref, _genArgs) ->
         let erlValues = values |> List.map (transformExpr com ctx)
         Beam.ErlExpr.Tuple(Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 tag)) :: erlValues)
@@ -942,7 +953,22 @@ and transformTest (com: IBeamCompiler) (ctx: Context) (kind: TestKind) (expr: Ex
             Beam.ErlExpr.BinOp("=/=", erlExpr, Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "undefined")))
         else
             Beam.ErlExpr.BinOp("=:=", erlExpr, Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "undefined")))
-    | TypeTest _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_type_test"))
+    | TypeTest typ ->
+        match typ with
+        | Fable.AST.Fable.Type.Number(kind, _) ->
+            match kind with
+            | Float16
+            | Float32
+            | Float64
+            | Decimal -> Beam.ErlExpr.Call(None, "is_float", [ erlExpr ])
+            | _ -> Beam.ErlExpr.Call(None, "is_integer", [ erlExpr ])
+        | Fable.AST.Fable.Type.String -> Beam.ErlExpr.Call(None, "is_binary", [ erlExpr ])
+        | Fable.AST.Fable.Type.Boolean -> Beam.ErlExpr.Call(None, "is_boolean", [ erlExpr ])
+        | Fable.AST.Fable.Type.List _ -> Beam.ErlExpr.Call(None, "is_list", [ erlExpr ])
+        | Fable.AST.Fable.Type.Array _ -> Beam.ErlExpr.Call(None, "is_list", [ erlExpr ])
+        | Fable.AST.Fable.Type.Tuple _ -> Beam.ErlExpr.Call(None, "is_tuple", [ erlExpr ])
+        | Fable.AST.Fable.Type.DeclaredType _ -> Beam.ErlExpr.Call(None, "is_map", [ erlExpr ])
+        | _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BoolLit true)
 
 and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (expr: Expr) : Beam.ErlExpr =
     let erlExpr = transformExpr com ctx expr
@@ -972,7 +998,23 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (expr: Expr
                 erlExpr
             ]
         )
-    | ExprGet indexExpr -> Beam.ErlExpr.Call(None, "element", [ transformExpr com ctx indexExpr; erlExpr ])
+    | ExprGet indexExpr ->
+        let erlIndex = transformExpr com ctx indexExpr
+
+        match expr.Type with
+        | Fable.AST.Fable.Type.Array _ ->
+            // Array (Erlang list): lists:nth is 1-based, F# is 0-based
+            Beam.ErlExpr.Call(
+                Some "lists",
+                "nth",
+                [
+                    Beam.ErlExpr.BinOp("+", erlIndex, Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 1L))
+                    erlExpr
+                ]
+            )
+        | _ ->
+            // Tuple or other: element is 1-based
+            Beam.ErlExpr.Call(None, "element", [ erlIndex; erlExpr ])
 
 and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: CallInfo) : Beam.ErlExpr =
     match callee with
@@ -1187,6 +1229,29 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
 
                     Beam.ErlExpr.Call(Some "lists", "foldl", [ wrapper; state; list ])
                 | _ -> Beam.ErlExpr.Call(Some "lists", "foldl", cleanArgs)
+            | _ ->
+                // Fallback: try lists:selector(args...)
+                Beam.ErlExpr.Call(Some "lists", sanitizeErlangName selector, cleanArgs)
+            |> wrapWithHoisted hoisted
+        | selector when importModuleName = Some "array" ->
+            // Array module calls from JS Replacements — arrays are lists in Erlang
+            let args = info.Args |> List.map (transformExpr com ctx)
+            let hoisted, cleanArgs = hoistBlocksFromArgs args
+
+            match selector with
+            | "item" ->
+                // array:item(idx, arr) → lists:nth(idx+1, arr) (0-based to 1-based)
+                match cleanArgs with
+                | [ idx; arr ] ->
+                    Beam.ErlExpr.Call(
+                        Some "lists",
+                        "nth",
+                        [
+                            Beam.ErlExpr.BinOp("+", idx, Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 1L))
+                            arr
+                        ]
+                    )
+                | _ -> Beam.ErlExpr.Call(Some "lists", "nth", cleanArgs)
             | _ ->
                 // Fallback: try lists:selector(args...)
                 Beam.ErlExpr.Call(Some "lists", sanitizeErlangName selector, cleanArgs)
