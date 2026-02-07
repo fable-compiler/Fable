@@ -18,6 +18,7 @@ type Context =
         UsedNames: Set<string>
         DecisionTargets: (Ident list * Expr) list
         RecursiveBindings: Set<string>
+        MutualRecBindings: Map<string, string * string> // name -> (bundleVarName, atomTag)
     }
 
 let private toSnakeCase (name: string) =
@@ -165,7 +166,15 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
     | Call(callee, info, _typ, _range) -> transformCall com ctx callee info
 
-    | IdentExpr ident -> Beam.ErlExpr.Variable(capitalizeFirst ident.Name)
+    | IdentExpr ident ->
+        match ctx.MutualRecBindings.TryFind(ident.Name) with
+        | Some(bundleName, atomTag) ->
+            // Return the dispatched closure: Mk_rec_N(atom_tag)
+            Beam.ErlExpr.Apply(
+                Beam.ErlExpr.Variable(bundleName),
+                [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomTag)) ]
+            )
+        | None -> Beam.ErlExpr.Variable(capitalizeFirst ident.Name)
 
     | Sequential exprs ->
         let erlExprs = exprs |> List.map (transformExpr com ctx)
@@ -343,14 +352,108 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
     | Set _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_set"))
 
     | LetRec(bindings, body) ->
-        let assignments =
+        let allAreLambdas =
             bindings
-            |> List.map (fun (ident, value) ->
-                Beam.ErlExpr.Match(Beam.PVar(capitalizeFirst ident.Name), transformExpr com ctx value)
+            |> List.forall (fun (_, value) ->
+                match value with
+                | Lambda _
+                | Delegate _ -> true
+                | _ -> false
             )
 
-        let erlBody = transformExpr com ctx body
-        Beam.ErlExpr.Block(assignments @ [ erlBody ])
+        if allAreLambdas && bindings.Length > 1 then
+            // Mutual recursion: bundle all functions into a single named fun
+            // that dispatches on an atom tag
+            let bundleName = $"Mk_rec_{com.IncrementCounter()}"
+
+            // Build atom tags and the MutualRecBindings map
+            let bindingInfos =
+                bindings
+                |> List.map (fun (ident, value) ->
+                    let atomTag = sanitizeErlangName ident.Name
+                    (ident, value, atomTag)
+                )
+
+            let mutualRecMap =
+                bindingInfos
+                |> List.fold (fun acc (ident, _, atomTag) -> Map.add ident.Name (bundleName, atomTag) acc) Map.empty
+
+            let allNames = bindings |> List.map (fun (ident, _) -> ident.Name) |> Set.ofList
+
+            let ctx' =
+                { ctx with
+                    RecursiveBindings = ctx.RecursiveBindings |> Set.union allNames
+                    MutualRecBindings = mutualRecMap
+                }
+
+            // Build clauses for the named fun: each clause matches an atom tag
+            // and returns a closure for that function
+            let clauses =
+                bindingInfos
+                |> List.map (fun (_ident, value, atomTag) ->
+                    let argPats, lambdaBody =
+                        match value with
+                        | Lambda(arg, lambdaBody, _) -> [ Beam.PVar(capitalizeFirst arg.Name) ], lambdaBody
+                        | Delegate(args, lambdaBody, _, _) ->
+                            args |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name)), lambdaBody
+                        | _ -> failwith "unreachable: already checked allAreLambdas"
+
+                    let erlBody = transformExpr com ctx' lambdaBody
+
+                    let bodyExprs =
+                        match erlBody with
+                        | Beam.ErlExpr.Block es -> es
+                        | e -> [ e ]
+
+                    // The clause pattern is the atom tag; the body returns a fun
+                    let innerFun =
+                        Beam.ErlExpr.Fun
+                            [
+                                {
+                                    Beam.ErlFunClause.Patterns = argPats
+                                    Guard = []
+                                    Body = bodyExprs
+                                }
+                            ]
+
+                    ({
+                        Patterns = [ Beam.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom atomTag)) ]
+                        Guard = []
+                        Body = [ innerFun ]
+                    }
+                    : Beam.ErlFunClause)
+                )
+
+            let namedFun = Beam.ErlExpr.NamedFun(bundleName, clauses)
+
+            // Bind the bundle: Mk_rec_N = fun Mk_rec_N(...) -> ... end
+            let bundleMatch = Beam.ErlExpr.Match(Beam.PVar bundleName, namedFun)
+
+            // Bind each individual name: IsEven = Mk_rec_N(is_even)
+            let individualBindings =
+                bindingInfos
+                |> List.map (fun (ident, _, atomTag) ->
+                    Beam.ErlExpr.Match(
+                        Beam.PVar(capitalizeFirst ident.Name),
+                        Beam.ErlExpr.Apply(
+                            Beam.ErlExpr.Variable bundleName,
+                            [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomTag)) ]
+                        )
+                    )
+                )
+
+            let erlBody = transformExpr com ctx' body
+            Beam.ErlExpr.Block([ bundleMatch ] @ individualBindings @ [ erlBody ])
+        else
+            // Simple case: single binding or non-lambda bindings
+            let assignments =
+                bindings
+                |> List.map (fun (ident, value) ->
+                    Beam.ErlExpr.Match(Beam.PVar(capitalizeFirst ident.Name), transformExpr com ctx value)
+                )
+
+            let erlBody = transformExpr com ctx body
+            Beam.ErlExpr.Block(assignments @ [ erlBody ])
 
     | Emit(emitInfo, _typ, _range) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit $"%%emit: {emitInfo.Macro}")
 
@@ -818,12 +921,23 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
         let args = info.Args |> List.map (transformExpr com ctx)
         let hoisted, cleanArgs = hoistBlocksFromArgs args
 
-        if ctx.RecursiveBindings.Contains(ident.Name) then
-            Beam.ErlExpr.Apply(Beam.ErlExpr.Variable(capitalizeFirst ident.Name), cleanArgs)
-            |> wrapWithHoisted hoisted
-        else
-            Beam.ErlExpr.Call(None, sanitizeErlangName ident.Name, cleanArgs)
-            |> wrapWithHoisted hoisted
+        match ctx.MutualRecBindings.TryFind(ident.Name) with
+        | Some(bundleName, atomTag) ->
+            // Mutual recursion: (Mk_rec_N(atom_tag))(args)
+            let bundleCall =
+                Beam.ErlExpr.Apply(
+                    Beam.ErlExpr.Variable(bundleName),
+                    [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomTag)) ]
+                )
+
+            Beam.ErlExpr.Apply(bundleCall, cleanArgs) |> wrapWithHoisted hoisted
+        | None ->
+            if ctx.RecursiveBindings.Contains(ident.Name) then
+                Beam.ErlExpr.Apply(Beam.ErlExpr.Variable(capitalizeFirst ident.Name), cleanArgs)
+                |> wrapWithHoisted hoisted
+            else
+                Beam.ErlExpr.Call(None, sanitizeErlangName ident.Name, cleanArgs)
+                |> wrapWithHoisted hoisted
 
     | _ ->
         let args = info.Args |> List.map (transformExpr com ctx)
@@ -899,6 +1013,7 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             UsedNames = file.UsedNamesInRootScope
             DecisionTargets = []
             RecursiveBindings = Set.empty
+            MutualRecBindings = Map.empty
         }
 
     let beamCom =

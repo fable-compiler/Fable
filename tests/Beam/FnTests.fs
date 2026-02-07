@@ -61,7 +61,6 @@ let ``test Recursive function works`` () =
         else n * factorial (n - 1)
     factorial 5 |> equal 120
 
-#if !FABLE_COMPILER_BEAM // TODO: mutual recursion needs forward-reference support
 [<Fact>]
 let ``test Mutual recursion works`` () =
     let rec isEven n =
@@ -72,7 +71,6 @@ let ``test Mutual recursion works`` () =
         else isEven (n - 1)
     isEven 4 |> equal true
     isOdd 3 |> equal true
-#endif
 
 [<Fact>]
 let ``test Pipe operator works`` () =
