@@ -18,7 +18,7 @@ reduce(Fn, List) ->
     lists:foldl(fun(Item, Acc) -> (Fn(Acc))(Item) end, hd(List), tl(List)).
 
 map_indexed(Fn, List) ->
-    element(2, lists:mapfoldl(fun(E, I) -> {(Fn(I))(E), I + 1} end, 0, List)).
+    element(1, lists:mapfoldl(fun(E, I) -> {(Fn(I))(E), I + 1} end, 0, List)).
 
 sort_by(Fn, List) ->
     lists:sort(fun(A, B) -> Fn(A) =< Fn(B) end, List).
