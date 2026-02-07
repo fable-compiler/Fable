@@ -20,6 +20,8 @@ type Context =
         RecursiveBindings: Set<string>
         MutualRecBindings: Map<string, string * string> // name -> (bundleVarName, atomTag)
         MutableVars: Set<string> // names of mutable variables (use process dict put/get)
+        ThisArgVar: string option // Erlang variable name for `this` in class constructors/methods
+        ThisIdentNames: Set<string> // original Fable ident names that refer to `this` (e.g., "_", "__")
     }
 
 let private toSnakeCase (name: string) =
@@ -51,7 +53,7 @@ let private sanitizeErlangName (name: string) =
             else
                 "_"
     )
-    |> fun s -> s.Replace("'", "")
+    |> fun s -> s.Replace("'", "").Replace("$", "_").Replace("@", "")
     |> toSnakeCase
     |> fun s -> System.Text.RegularExpressions.Regex.Replace(s, "_+", "_")
     |> fun s -> s.Trim('_')
@@ -67,9 +69,15 @@ let private capitalizeFirst (s: string) =
     else
         s.[0..0].ToUpperInvariant() + s.[1..]
 
+/// Sanitize a string for use as an Erlang variable name (must start with uppercase or _)
+let private sanitizeErlangVar (name: string) =
+    // Remove/replace characters invalid in Erlang variable names
+    name.Replace("$", "_").Replace("@", "_")
+    |> fun s -> System.Text.RegularExpressions.Regex.Replace(s, "[^a-zA-Z0-9_]", "_")
+
 /// Convert an F# ident to an Erlang variable name, prefixing unused unit args with _
 let private toErlangVar (ident: Ident) =
-    let name = capitalizeFirst ident.Name
+    let name = capitalizeFirst ident.Name |> sanitizeErlangVar
     // Prefix unit parameters with _ to suppress Erlang unused variable warnings
     if ident.Name.StartsWith("unitVar") then
         "_" + name
@@ -148,6 +156,25 @@ let private wrapWithHoisted (hoisted: Beam.ErlExpr list) (expr: Beam.ErlExpr) : 
     else
         Beam.ErlExpr.Block(hoisted @ [ expr ])
 
+/// Check if an entity ref refers to a user-defined class (not record, union, module, interface, or BCL type)
+let private isClassType (com: IBeamCompiler) (entityRef: EntityRef) =
+    // Only consider user-defined types (SourcePath), not BCL/core types
+    match entityRef.Path with
+    | SourcePath _
+    | PrecompiledLib _ ->
+        match com.TryGetEntity(entityRef) with
+        | Some entity ->
+            not entity.IsFSharpRecord
+            && not entity.IsFSharpUnion
+            && not entity.IsFSharpModule
+            && not entity.IsInterface
+            && not entity.IsFSharpExceptionDeclaration
+        | None -> false
+    | _ -> false
+
+let private atomLit name =
+    Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom name))
+
 let private getDecisionTarget (ctx: Context) targetIndex =
     match List.tryItem targetIndex ctx.DecisionTargets with
     | None -> failwith $"Cannot find DecisionTree target %i{targetIndex}"
@@ -168,7 +195,12 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
     | Call(callee, info, _typ, _range) -> transformCall com ctx callee info
 
     | IdentExpr ident ->
-        if ctx.MutableVars.Contains(ident.Name) then
+        if ctx.ThisIdentNames.Contains(ident.Name) then
+            // This is a reference to the `this` parameter — use the renamed variable
+            match ctx.ThisArgVar with
+            | Some varName -> Beam.ErlExpr.Variable varName
+            | None -> Beam.ErlExpr.Variable "This"
+        elif ctx.MutableVars.Contains(ident.Name) then
             // Mutable variable: read from process dictionary
             Beam.ErlExpr.Call(
                 None,
@@ -185,7 +217,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                     Beam.ErlExpr.Variable(bundleName),
                     [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomTag)) ]
                 )
-            | None -> Beam.ErlExpr.Variable(capitalizeFirst ident.Name)
+            | None -> Beam.ErlExpr.Variable(capitalizeFirst ident.Name |> sanitizeErlangVar)
 
     | Sequential exprs ->
         let erlExprs = exprs |> List.map (transformExpr com ctx)
@@ -203,7 +235,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         Beam.ErlExpr.Block [ Beam.ErlExpr.Call(None, "put", [ atomKey; erlValue ]); erlBody ]
 
     | Let(ident, value, body) ->
-        let varName = capitalizeFirst ident.Name
+        let varName = capitalizeFirst ident.Name |> sanitizeErlangVar
 
         match value with
         | Lambda(arg, lambdaBody, _) when containsIdentRef ident.Name lambdaBody ->
@@ -221,7 +253,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                     varName,
                     [
                         {
-                            Patterns = [ Beam.PVar(capitalizeFirst arg.Name) ]
+                            Patterns = [ Beam.PVar(capitalizeFirst arg.Name |> sanitizeErlangVar) ]
                             Guard = []
                             Body = bodyExprs
                         }
@@ -233,7 +265,11 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         | Delegate(args, lambdaBody, _, _) when containsIdentRef ident.Name lambdaBody ->
             // Self-recursive delegate: use Erlang named fun
             let ctx' = { ctx with RecursiveBindings = ctx.RecursiveBindings.Add(ident.Name) }
-            let argPats = args |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name))
+
+            let argPats =
+                args
+                |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
+
             let erlBody = transformExpr com ctx' lambdaBody
 
             let bodyExprs =
@@ -311,14 +347,17 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         Beam.ErlExpr.Fun
             [
                 {
-                    Patterns = [ Beam.PVar(capitalizeFirst arg.Name) ]
+                    Patterns = [ Beam.PVar(capitalizeFirst arg.Name |> sanitizeErlangVar) ]
                     Guard = []
                     Body = bodyExprs
                 }
             ]
 
     | Delegate(args, body, _name, _tags) ->
-        let argPats = args |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name))
+        let argPats =
+            args
+            |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
+
         let erlBody = transformExpr com ctx body
 
         let bodyExprs =
@@ -368,15 +407,31 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         | _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_set"))
 
     | Set(expr, FieldSet fieldName, _, value, _) ->
-        Beam.ErlExpr.Call(
-            Some "maps",
-            "put",
-            [
-                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(toSnakeCase fieldName)))
-                transformExpr com ctx value
-                transformExpr com ctx expr
-            ]
-        )
+        let erlExpr = transformExpr com ctx expr
+        let erlValue = transformExpr com ctx value
+
+        let atomField =
+            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeErlangName fieldName)))
+
+        match expr.Type with
+        | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isClassType com entityRef ->
+            // Class instance: update state in process dict
+            // put(Ref, maps:put(field, Value, get(Ref)))
+            Beam.ErlExpr.Call(
+                None,
+                "put",
+                [
+                    erlExpr
+                    Beam.ErlExpr.Call(
+                        Some "maps",
+                        "put",
+                        [ atomField; erlValue; Beam.ErlExpr.Call(None, "get", [ erlExpr ]) ]
+                    )
+                ]
+            )
+        | _ ->
+            // Record: existing behavior (maps:put returning new map)
+            Beam.ErlExpr.Call(Some "maps", "put", [ atomField; erlValue; erlExpr ])
 
     | Set _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_set"))
 
@@ -422,9 +477,12 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 |> List.map (fun (_ident, value, atomTag) ->
                     let argPats, lambdaBody =
                         match value with
-                        | Lambda(arg, lambdaBody, _) -> [ Beam.PVar(capitalizeFirst arg.Name) ], lambdaBody
+                        | Lambda(arg, lambdaBody, _) ->
+                            [ Beam.PVar(capitalizeFirst arg.Name |> sanitizeErlangVar) ], lambdaBody
                         | Delegate(args, lambdaBody, _, _) ->
-                            args |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name)), lambdaBody
+                            args
+                            |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)),
+                            lambdaBody
                         | _ -> failwith "unreachable: already checked allAreLambdas"
 
                     let erlBody = transformExpr com ctx' lambdaBody
@@ -633,7 +691,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         // For_loop_(Start)
         let ctr = com.IncrementCounter()
         let loopName = $"For_loop_{ctr}"
-        let varName = capitalizeFirst ident.Name
+        let varName = capitalizeFirst ident.Name |> sanitizeErlangVar
         let erlStart = transformExpr com ctx start
         let erlLimit = transformExpr com ctx limit
         let erlBody = transformExpr com ctx body
@@ -760,6 +818,11 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
     | NewOption(Some value, _typ, _isStruct) -> transformExpr com ctx value
 
     | NewOption(None, _typ, _isStruct) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "undefined"))
+
+    | ThisValue _ ->
+        match ctx.ThisArgVar with
+        | Some varName -> Beam.ErlExpr.Variable varName
+        | None -> Beam.ErlExpr.Variable "This" // fallback
 
     | CharConstant c -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 c))
 
@@ -990,13 +1053,19 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (expr: Expr
     | ListTail -> Beam.ErlExpr.Call(None, "tl", [ erlExpr ])
     | OptionValue -> erlExpr
     | FieldGet info ->
+        let target =
+            match expr.Type with
+            | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isClassType com entityRef ->
+                // Class instance: state is stored in process dict, ref is the key
+                Beam.ErlExpr.Call(None, "get", [ erlExpr ])
+            | _ -> erlExpr // record/union: direct map
+
+        let fieldName = sanitizeErlangName info.Name
+
         Beam.ErlExpr.Call(
             Some "maps",
             "get",
-            [
-                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(toSnakeCase info.Name)))
-                erlExpr
-            ]
+            [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom fieldName)); target ]
         )
     | ExprGet indexExpr ->
         let erlIndex = transformExpr com ctx indexExpr
@@ -1316,6 +1385,15 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
         let args = info.Args |> List.map (transformExpr com ctx)
         let hoisted, cleanArgs = hoistBlocksFromArgs args
 
+        // For instance method/property calls, prepend ThisArg to args
+        let allHoisted, allArgs =
+            match info.ThisArg with
+            | Some thisExpr ->
+                let erlThis = transformExpr com ctx thisExpr
+                let thisHoisted, cleanThis = extractBlock erlThis
+                hoisted @ thisHoisted, cleanThis :: cleanArgs
+            | None -> hoisted, cleanArgs
+
         match ctx.MutualRecBindings.TryFind(ident.Name) with
         | Some(bundleName, atomTag) ->
             // Mutual recursion: (Mk_rec_N(atom_tag))(args)
@@ -1325,14 +1403,14 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                     [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomTag)) ]
                 )
 
-            Beam.ErlExpr.Apply(bundleCall, cleanArgs) |> wrapWithHoisted hoisted
+            Beam.ErlExpr.Apply(bundleCall, allArgs) |> wrapWithHoisted allHoisted
         | None ->
             if ctx.RecursiveBindings.Contains(ident.Name) then
-                Beam.ErlExpr.Apply(Beam.ErlExpr.Variable(capitalizeFirst ident.Name), cleanArgs)
-                |> wrapWithHoisted hoisted
+                Beam.ErlExpr.Apply(Beam.ErlExpr.Variable(capitalizeFirst ident.Name), allArgs)
+                |> wrapWithHoisted allHoisted
             else
-                Beam.ErlExpr.Call(None, sanitizeErlangName ident.Name, cleanArgs)
-                |> wrapWithHoisted hoisted
+                Beam.ErlExpr.Call(None, sanitizeErlangName ident.Name, allArgs)
+                |> wrapWithHoisted allHoisted
 
     | Get(calleeExpr, FieldGet fieldInfo, _, _) ->
         // Instance method calls (e.g., str.indexOf(sub) from String.Contains replacement)
@@ -1379,15 +1457,264 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
 
         Beam.ErlExpr.Call(None, "unknown_call", cleanArgs) |> wrapWithHoisted hoisted
 
+and transformClassDeclaration
+    (com: IBeamCompiler)
+    (ctx: Context)
+    (className: string)
+    (ent: Entity)
+    (decl: ClassDecl)
+    : Beam.ErlForm list
+    =
+    let constructorForms =
+        match decl.Constructor with
+        | Some cons ->
+            // Extract constructor field assignments from the body.
+            // The constructor body pattern is:
+            //   Sequential [ObjectExpr; Sequential[Set(FieldSet(name), ThisValue, value); ...]]
+            // We collect all Set(FieldSet(name), _, value) into initial map entries.
+            let rec extractFieldSets (expr: Expr) : (string * Expr) list =
+                match expr with
+                | Set(_, FieldSet fieldName, _, value, _) -> [ (fieldName, value) ]
+                | Sequential exprs -> exprs |> List.collect extractFieldSets
+                | _ -> []
+
+            let fields = extractFieldSets cons.Body
+
+            // Constructor args: skip `this` (first arg in the Fable IR for instance members)
+            let ctorArgs =
+                cons.Args
+                |> List.filter (fun a -> a.Name <> "this" && not (a.Name.StartsWith("unitVar")))
+
+            let argPatterns =
+                ctorArgs
+                |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
+
+            // Build the state map entries from fields
+            // Fields may reference constructor args or be complex expressions
+            // Use a context where ThisValue maps to "Ref"
+            let ctorCtx = { ctx with ThisArgVar = Some "Ref" }
+
+            let mapEntries =
+                fields
+                |> List.map (fun (name, value) ->
+                    let erlValue = transformExpr com ctorCtx value
+                    atomLit (sanitizeErlangName name), erlValue
+                )
+
+            let body =
+                [
+                    // Ref = make_ref()
+                    Beam.ErlExpr.Match(Beam.PVar "Ref", Beam.ErlExpr.Call(None, "make_ref", []))
+                    // put(Ref, #{field1 => Val1, field2 => Val2, ...})
+                    Beam.ErlExpr.Call(None, "put", [ Beam.ErlExpr.Variable "Ref"; Beam.ErlExpr.Map mapEntries ])
+                    // Return Ref
+                    Beam.ErlExpr.Variable "Ref"
+                ]
+
+            // Use the constructor's compiled name so call sites can find it
+            let ctorFuncName = sanitizeErlangName cons.Name
+
+            let funcDef: Beam.ErlFunctionDef =
+                {
+                    Name = Beam.Atom ctorFuncName
+                    Arity = argPatterns.Length
+                    Clauses =
+                        [
+                            {
+                                Patterns = argPatterns
+                                Guard = []
+                                Body = body
+                            }
+                        ]
+                }
+
+            [ Beam.ErlForm.Function funcDef ]
+        | None -> []
+
+    // Attached members: getters, setters, methods, secondary constructors
+    let memberForms =
+        decl.AttachedMembers
+        |> List.collect (fun memb ->
+            let info =
+                memb.ImplementedSignatureRef
+                |> Option.map com.GetMember
+                |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
+
+            if info.IsConstructor then
+                // Secondary constructor: generates an additional function with different arity
+                // The body typically calls the primary constructor
+                let ctorArgs =
+                    memb.Args
+                    |> List.filter (fun a -> a.Name <> "this" && not (a.Name.StartsWith("unitVar")))
+
+                let argPatterns =
+                    ctorArgs
+                    |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
+
+                let bodyExpr = transformExpr com ctx memb.Body
+
+                let body =
+                    match bodyExpr with
+                    | Beam.ErlExpr.Block es -> es
+                    | e -> [ e ]
+
+                let funcDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom(sanitizeErlangName memb.Name)
+                        Arity = argPatterns.Length
+                        Clauses =
+                            [
+                                {
+                                    Patterns = argPatterns
+                                    Guard = []
+                                    Body = body
+                                }
+                            ]
+                    }
+
+                [ Beam.ErlForm.Function funcDef ]
+            elif not memb.IsMangled && info.IsGetter then
+                // Property getter: class_name_get_prop(This) -> maps:get(prop, get(This)).
+                let propName = sanitizeErlangName memb.Name
+                let funcName = $"{className}_{propName}"
+                // The getter body references `this` — the first arg
+                let thisArg = memb.Args |> List.tryFind (fun a -> a.Name = "this")
+
+                match thisArg with
+                | Some _thisIdent ->
+                    let bodyExpr = transformExpr com ctx memb.Body
+
+                    let body =
+                        match bodyExpr with
+                        | Beam.ErlExpr.Block es -> es
+                        | e -> [ e ]
+
+                    let funcDef: Beam.ErlFunctionDef =
+                        {
+                            Name = Beam.Atom funcName
+                            Arity = 1
+                            Clauses =
+                                [
+                                    {
+                                        Patterns = [ Beam.PVar "This" ]
+                                        Guard = []
+                                        Body = body
+                                    }
+                                ]
+                        }
+
+                    [ Beam.ErlForm.Function funcDef ]
+                | None -> []
+            elif not memb.IsMangled && info.IsSetter then
+                // Property setter: class_name_set_prop(This, Value) -> put(This, maps:put(prop, Value, get(This))).
+                let propName = sanitizeErlangName memb.Name
+                let funcName = $"{className}_set_{propName}"
+                let nonThisArgs = memb.Args |> List.filter (fun a -> a.Name <> "this")
+
+                let argPatterns =
+                    [ Beam.PVar "This" ]
+                    @ (nonThisArgs
+                       |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)))
+
+                let bodyExpr = transformExpr com ctx memb.Body
+
+                let body =
+                    match bodyExpr with
+                    | Beam.ErlExpr.Block es -> es
+                    | e -> [ e ]
+
+                let funcDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom funcName
+                        Arity = argPatterns.Length
+                        Clauses =
+                            [
+                                {
+                                    Patterns = argPatterns
+                                    Guard = []
+                                    Body = body
+                                }
+                            ]
+                    }
+
+                [ Beam.ErlForm.Function funcDef ]
+            else
+                // Regular method: class_name_method(This, Args...) -> Body.
+                let methodName = sanitizeErlangName memb.Name
+                let funcName = $"{className}_{methodName}"
+                let allArgs = memb.Args
+                let nonThisArgs = allArgs |> List.filter (fun a -> a.Name <> "this")
+
+                let argPatterns =
+                    [ Beam.PVar "This" ]
+                    @ (nonThisArgs
+                       |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)))
+
+                let bodyExpr = transformExpr com ctx memb.Body
+
+                let body =
+                    match bodyExpr with
+                    | Beam.ErlExpr.Block es -> es
+                    | e -> [ e ]
+
+                let funcDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom funcName
+                        Arity = argPatterns.Length
+                        Clauses =
+                            [
+                                {
+                                    Patterns = argPatterns
+                                    Guard = []
+                                    Body = body
+                                }
+                            ]
+                    }
+
+                [ Beam.ErlForm.Function funcDef ]
+        )
+
+    constructorForms @ memberForms
+
 and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration) : Beam.ErlForm list =
     match decl with
     | MemberDeclaration memDecl ->
+        let info =
+            memDecl.ImplementedSignatureRef
+            |> Option.map com.GetMember
+            |> Option.defaultWith (fun () -> com.GetMember(memDecl.MemberRef))
+
         let name = sanitizeErlangName memDecl.Name
         let arity = memDecl.Args.Length
 
-        let args = memDecl.Args |> List.map (fun arg -> Beam.PVar(toErlangVar arg))
+        // For instance members, the first arg is `this` (named `_` or `__` or `this$` etc.)
+        // We need to rename it to a proper Erlang variable and set up the context
+        let args, memberCtx =
+            if info.IsInstance && memDecl.Args.Length > 0 then
+                let thisArg = memDecl.Args.[0]
 
-        let bodyExpr = transformExpr com ctx memDecl.Body
+                let thisVarName =
+                    let n = capitalizeFirst thisArg.Name
+                    // Erlang's `_` is anonymous (can't be referenced), need a real var
+                    if n = "_" || n = "__" then
+                        "This"
+                    elif n.EndsWith("$") then
+                        n.TrimEnd('$') // e.g., This$ -> This
+                    else
+                        n
+
+                let restArgs =
+                    memDecl.Args.[1..] |> List.map (fun arg -> Beam.PVar(toErlangVar arg))
+
+                Beam.PVar(thisVarName) :: restArgs,
+                { ctx with
+                    ThisArgVar = Some thisVarName
+                    ThisIdentNames = Set.singleton thisArg.Name
+                }
+            else
+                memDecl.Args |> List.map (fun arg -> Beam.PVar(toErlangVar arg)), ctx
+
+        let bodyExpr = transformExpr com memberCtx memDecl.Body
 
         let body =
             match bodyExpr with
@@ -1436,7 +1763,10 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
 
     | ModuleDeclaration modDecl -> modDecl.Members |> List.collect (transformDeclaration com ctx)
 
-    | ClassDeclaration _ -> [ Beam.ErlForm.Comment "TODO: class declaration" ]
+    | ClassDeclaration decl ->
+        let ent = com.GetEntity(decl.Entity)
+        let className = sanitizeErlangName decl.Name
+        transformClassDeclaration com ctx className ent decl
 
 let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
     let moduleName = moduleNameFromFile com.CurrentFile
@@ -1449,6 +1779,8 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             RecursiveBindings = Set.empty
             MutualRecBindings = Map.empty
             MutableVars = Set.empty
+            ThisArgVar = None
+            ThisIdentNames = Set.empty
         }
 
     let beamCom =

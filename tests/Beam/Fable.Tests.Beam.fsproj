@@ -38,6 +38,7 @@
     <Compile Include="SeqTests.fs" />
     <Compile Include="SudokuTests.fs" />
     <Compile Include="ResultTests.fs" />
+    <Compile Include="TypeTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
