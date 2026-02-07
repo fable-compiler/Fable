@@ -56,24 +56,23 @@ Phase 1 uses a single `Fable2Beam.fs` (following the PHP pattern). Can split int
 
 Erlang modules implementing F# core types:
 
-|         Module         |         Purpose          |                 Notes                 |                                          |
-| ---------------------- | ------------------------ | ------------------------------------- | ---------------------------------------- |
-| `fable_option.erl`     | `Option<T>`              | `{some, V} \                          | none`                                    |
-| `fable_result.erl`     | `Result<T,E>`            | `{ok, V} \                            | {error, E}` — matches Erlang convention! |
-| `fable_choice.erl`     | `Choice<T1,T2,...>`      | Tagged tuples                         |                                          |
-| `fable_list.erl`       | `FSharpList<T>`          | Erlang lists are already linked lists |                                          |
-| `fable_array.erl`      | `Array<T>`               | Erlang arrays or tuples               |                                          |
-| `fable_map.erl`        | `FSharpMap<K,V>`         | Erlang `maps` module                  |                                          |
-| `fable_set.erl`        | `FSharpSet<T>`           | `sets` or `gb_sets`                   |                                          |
-| `fable_seq.erl`        | `Seq<T>` / `IEnumerable` | Lazy lists / iterators                |                                          |
-| `fable_string.erl`     | String utilities         | Erlang binaries (`<<"hello">>`)       |                                          |
-| `fable_decimal.erl`    | `decimal`                | Needs a library or custom impl        |                                          |
-| `fable_guid.erl`       | `Guid`                   | UUID generation                       |                                          |
-| `fable_date.erl`       | `DateTime`               | `calendar` module                     |                                          |
-| `fable_async.erl`      | `Async<T>`               | Processes + message passing           |                                          |
-| `fable_mailbox.erl`    | `MailboxProcessor<T>`    | `gen_server` wrapper                  |                                          |
-| `fable_reflection.erl` | Reflection helpers       | Type info at runtime                  |                                          |
-| `fable_util.erl`       | General utilities        | Comparison, equality, hashing         |                                          |
+| Module | Purpose | Notes | Status |
+| --- | --- | --- | --- |
+| fable_option.erl | Option | Some(x) = x, None = undefined | Done |
+| fable_list.erl | FSharpList | fold, find, choose, collect, etc. | Done |
+| fable_map.erl | FSharpMap | Erlang native maps | Done |
+| fable_seq.erl | Seq / IEnumerable | Eager lists, delay/singleton/unfold | Done |
+| fable_string.erl | String utilities | Erlang binaries | Done |
+| fable_result.erl | Result | {ok, V} or {error, E} | Planned |
+| fable_choice.erl | Choice | Tagged tuples | Planned |
+| fable_set.erl | FSharpSet | sets or gb_sets | Planned |
+| fable_decimal.erl | decimal | Needs a library or custom impl | Planned |
+| fable_guid.erl | Guid | UUID generation | Planned |
+| fable_date.erl | DateTime | calendar module | Planned |
+| fable_async.erl | Async | Processes + message passing | Planned |
+| fable_mailbox.erl | MailboxProcessor | gen_server wrapper | Planned |
+| fable_reflection.erl | Reflection helpers | Type info at runtime | Planned |
+| fable_util.erl | General utilities | Comparison, equality, hashing | Planned |
 
 ### Registration & CLI (modified existing files) -- All Done
 
@@ -268,34 +267,30 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 
 **Test suite**: `tests/Beam/` with xUnit. Run with `./build.sh test beam` which:
 
-1. Runs all tests on .NET via `dotnet test` (87 tests)
+1. Runs all tests on .NET via `dotnet test` (273 tests)
 2. Compiles tests to `.erl` via Fable
 3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all test functions (73 Erlang tests pass)
+4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (273 Erlang tests pass)
 
-Some tests are excluded from Beam compilation with `#if !FABLE_COMPILER_BEAM` guards
-(see "Excluded Tests" below). These will be enabled as features are implemented.
-
-|       Test File        | .NET Tests | Beam Tests |                                             Coverage                                             |
-| ---------------------- | ---------- | ---------- | ------------------------------------------------------------------------------------------------ |
-| `ArithmeticTests.fs`   | 25         | 20         | Arithmetic, bitwise, logical, comparison operators (excl. unary negation, Int64)                 |
-| `ListTests.fs`         | 14         | 3          | List equality, isEmpty, pattern matching                                                         |
-| `UnionTypeTests.fs`    | 10         | 10         | All union tests including match-in-expression, Either with string interpolation                  |
-| `PatternMatchTests.fs` | 10         | 10         | All pattern match tests including option with string interpolation                               |
-| `FnTests.fs`           | 15         | 14         | All function tests including recursive lambdas (excl. mutual recursion)                          |
-| `RecordTests.fs`       | 9          | 9          | Creation, update, float fields, nesting, function params, anonymous records, structural equality |
-| **Total**              | **87**     | **73**     |                                                                                                  |
-
-#### Excluded Tests (with reasons)
-
-Tests excluded via `#if !FABLE_COMPILER_BEAM`:
-
-| Test                       | Reason                                       |
-| -------------------------- | -------------------------------------------- |
-| Unary negation             | Needs `fable-library-beam` (int32 module)    |
-| Int64 arithmetic (4 tests) | Needs `fable-library-beam` (big_int module)  |
-| Mutual recursion           | Needs forward-reference support for closures |
-| List operations (12 tests) | Needs `fable-library-beam` (list module)     |
+| Test File | Tests | Coverage |
+| --- | --- | --- |
+| ArithmeticTests.fs | 28 | Arithmetic, bitwise, logical, comparison, Int64, unary negation |
+| ListTests.fs | 35 | List operations, head/tail, map/filter/fold, append, sort, choose, collect, find, zip |
+| UnionTypeTests.fs | 10 | All union tests including match-in-expression, Either with string interpolation |
+| PatternMatchTests.fs | 10 | All pattern match tests including option with string interpolation |
+| FnTests.fs | 15 | All function tests including recursive lambdas and mutual recursion |
+| RecordTests.fs | 9 | Creation, update, float fields, nesting, function params, anonymous records, structural equality |
+| StringTests.fs | 29 | String methods, interpolation, concat, substring, replace, split, trim, pad, etc. |
+| TryCatchTests.fs | 8 | try/catch, failwith, exception messages, nested try/catch |
+| OptionTests.fs | 13 | Option.map/bind/defaultValue/filter/isSome/isNone, Option module functions |
+| ConversionTests.fs | 11 | int/float/string conversions, int-to-float, float-to-int, toString, parse |
+| LoopTests.fs | 7 | for loops, while loops, nested loops, mutable variables |
+| ArrayTests.fs | 19 | Array literal, map/filter/fold, mapi, append, sort, indexed, length |
+| TupleTests.fs | 10 | Tuple creation, destructuring, fst/snd, equality, nesting |
+| MapTests.fs | 21 | F# Map create/add/remove/find/containsKey/count, iteration, fold, filter |
+| SeqTests.fs | 47 | Seq.map/filter/fold/head/length/append/concat/distinct/take/skip/unfold/init/scan/zip/etc. |
+| SudokuTests.fs | 1 | Integration test: constraint-propagation Sudoku solver using Seq, Array, ranges |
+| **Total** | **273** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -319,15 +314,29 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
   Implemented via `Beam/Replacements.fs` intercepting `GenericEquality`/`op_Equality`
   before JS Replacements generates `Util.equals` library calls.
 
-### Phase 4: Collections
+### Phase 4: Collections -- COMPLETE
 
-- [ ] `list<T>` → Erlang lists (cons cells — natural fit)
-- [ ] List module functions → `lists:` module calls
-- [ ] `array<T>` → Erlang array or tuple-based
-- [ ] `Map<K,V>` → Erlang `maps`
-- [ ] `Set<T>` → Erlang `sets` / `gb_sets`
-- [ ] `Seq<T>` → lazy evaluation with funs
-- [ ] Minimal fable-library-beam runtime
+- [x] `list<T>` → Erlang lists (cons cells — natural fit)
+- [x] List module functions → `lists:` module calls + `fable_list.erl` library
+- [x] `array<T>` → Erlang lists (arrays represented as lists for simplicity)
+- [x] `Map<K,V>` → Erlang native `#{}` maps, `maps:` module calls + `fable_map.erl`
+- [ ] `Set<T>` → Erlang `sets` / `gb_sets` (not yet implemented)
+- [x] `Seq<T>` → eager Erlang lists with `fable_seq.erl` library
+- [x] `fable-library-beam` runtime: `fable_list.erl`, `fable_map.erl`, `fable_string.erl`, `fable_option.erl`, `fable_seq.erl`
+- [x] Range expressions: `[1..n]` → `lists:seq(1, n)`, `[1..2..n]` → `lists:seq(1, n, 2)`
+- [x] Array indexing: `arr.[i]` → `lists:nth(i + 1, arr)` (0-based to 1-based)
+- [x] Array comprehensions: `[| for i in 0..n -> expr |]` via Seq desugaring
+
+**Design decisions**:
+
+- Sequences are **eager** (evaluated immediately as lists). `Seq.delay(f)` calls `f(ok)`.
+  This simplifies the implementation; lazy sequences can be added later if needed.
+- Seq operations intercepted in Beam Replacements (not JS fallback) to avoid
+  injected comparers/adders that Erlang doesn't need.
+- Complex operations in `fable_list.erl`/`fable_seq.erl`, simple BIF mappings via `emitExpr`.
+- All multi-arg callbacks use curried application `(Fn(A))(B)` to match Fable's compilation.
+- Integration tested with a Sudoku solver (SudokuTests.fs) using Seq, Array, ranges, and
+  array comprehensions.
 
 ### Phase 5: Modules & Imports -- PARTIALLY COMPLETE
 
@@ -341,10 +350,12 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
 - [x] Cross-module call resolution (derive module from `importInfo.Path`)
 - [x] Inline `assertEqual`/`assertNotEqual` assertions (no util dependency needed)
 
-### Phase 6: Error Handling
+### Phase 6: Error Handling -- PARTIALLY COMPLETE
 
-- [ ] try/with → try/catch
-- [ ] F# exceptions → tagged error tuples or throw
+- [x] try/with → try/catch with `erlang:error` for exceptions
+- [x] `failwith` → `erlang:error(<<"message">>)`
+- [x] Exception message access via `#{message => Reason}` map wrapping
+- [x] Nested try/catch works
 - [ ] `Result<T,E>` integration with Erlang `{ok,V}/{error,E}` convention
 
 ### Phase 7: Async & Processes
@@ -375,8 +386,8 @@ The crown jewel.
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 87 .NET tests + 68 Erlang tests, `./build.sh test beam`)
-- [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all exported test functions)
+- [x] Test suite (`tests/Beam/` — 273 .NET tests + 273 Erlang tests, `./build.sh test beam`)
+- [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
 - [ ] Documentation

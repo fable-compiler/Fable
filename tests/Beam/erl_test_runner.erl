@@ -13,7 +13,8 @@ main([Dir]) ->
         code:load_file(Mod),
         Exports = Mod:module_info(exports),
         TestFuns = [{Mod, F} || {F, 1} <- Exports,
-                     F =/= module_info],
+                     F =/= module_info,
+                     lists:prefix("test_", atom_to_list(F))],
         lists:foldl(fun({M, F}, {Pass, Fail}) ->
             try
                 M:F(ok),

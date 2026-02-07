@@ -117,6 +117,9 @@ let private operators
         match arg.Type with
         | Type.String -> emitExpr r _t [ arg ] "binary:first($0)" |> Some
         | _ -> Some arg
+    // Range operators: [start..stop] and [start..step..stop]
+    | "op_Range", [ first; last ] -> emitExpr r _t [ first; last ] "lists:seq($0, $1)" |> Some
+    | "op_RangeStep", [ first; step; last ] -> emitExpr r _t [ first; step; last ] "lists:seq($0, $2, $1)" |> Some
     // Erlang has native arbitrary-precision integers, so Int64/UInt64/BigInt
     // use direct binary ops instead of library calls (like Python's int)
     | Patterns.SetContains Operators.standardSet, _ ->
@@ -730,6 +733,7 @@ let private arrayModule
     | "IsEmpty", [ arr ] -> emitExpr r t [ arr ] "($0 =:= [])" |> Some
     | "Empty", _ -> Value(NewArray(ArrayValues [], t, MutableArray), None) |> Some
     | "Map", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:map($0, $1)" |> Some
+    | "MapIndexed", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "map_indexed", t, [ fn; arr ]) |> Some
     | "Filter", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:filter($0, $1)" |> Some
     | "Exists", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:any($0, $1)" |> Some
     | "ForAll", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:all($0, $1)" |> Some
@@ -763,6 +767,26 @@ let private arrayModule
     | "SortWith", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; arr ]) |> Some
     | "Zip", [ arr1; arr2 ] -> Helper.LibCall(com, "fable_list", "zip", t, [ arr1; arr2 ]) |> Some
     | "Unzip", [ arr ] -> emitExpr r t [ arr ] "lists:unzip($0)" |> Some
+    | _ -> None
+
+/// Beam-specific OperatorIntrinsics replacements (ranges).
+/// F# range expressions like [1..n] compile to RangeInt32(start, step, stop).
+/// Erlang's lists:seq(From, To, Step) generates the equivalent list.
+let private intrinsicFunctions
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, args with
+    | "RangeChar", [ start; stop ] -> emitExpr r t [ start; stop ] "lists:seq($0, $1)" |> Some
+    | ("RangeSByte" | "RangeByte" | "RangeInt16" | "RangeUInt16" | "RangeInt32" | "RangeUInt32" | "RangeInt64" | "RangeUInt64" | "RangeSingle" | "RangeDouble"),
+      [ start; step; stop ] ->
+        // lists:seq(From, To, Step) — args are (start, step, stop)
+        emitExpr r t [ start; step; stop ] "lists:seq($0, $2, $1)" |> Some
     | _ -> None
 
 let tryField (_com: ICompiler) _returnTyp _ownerTyp _fieldName : Expr option = None
@@ -800,6 +824,7 @@ let tryCall
     | "Microsoft.FSharp.Collections.MapModule" -> mapModule com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.SeqModule" -> seqModule com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers" -> seqModule com ctx r t info thisArg args
+    | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com ctx r t info thisArg args
     | "System.Object"
     | "System.ValueType" -> conversions com ctx r t info thisArg args
     | "System.Convert" -> convert com ctx r t info thisArg args
@@ -815,6 +840,10 @@ let tryCall
     | "System.Single"
     | "System.Double"
     | "System.Decimal" -> numericTypes com ctx r t info thisArg args
+    | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions" ->
+        match info.CompiledName, args with
+        | "GetArray", [ ar; idx ] -> emitExpr r t [ ar; idx ] "lists:nth($1 + 1, $0)" |> Some
+        | _ -> None
     | _ -> None
 
 let tryBaseConstructor
