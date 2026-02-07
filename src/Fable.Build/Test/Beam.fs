@@ -50,8 +50,14 @@ let handle (args: string list) =
         // Compile tests to Erlang
         Command.Fable(fableArgs, workingDirectory = buildDir)
 
-        // Copy test runner and compile all .erl files with erlc
+        // Copy test runner and fable-library-beam files, then compile all .erl files with erlc
         File.Copy(testRunnerSrc, Path.Combine(buildDir, "erl_test_runner.erl"), overwrite = true)
+
+        let libDir = Path.Resolve("src", "fable-library-beam")
+
+        if Directory.Exists(libDir) then
+            for erlFile in Directory.GetFiles(libDir, "*.erl") do
+                File.Copy(erlFile, Path.Combine(buildDir, Path.GetFileName(erlFile)), overwrite = true)
 
         let erlFiles = Directory.GetFiles(buildDir, "*.erl")
         let mutable compileErrors = 0

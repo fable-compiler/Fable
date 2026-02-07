@@ -152,7 +152,7 @@ let private languagePrimitives
 /// Beam-specific string method replacements.
 /// Erlang strings are UTF-8 binaries (<<>>), so we use binary module functions.
 let private strings
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -171,26 +171,17 @@ let private strings
     | "Trim", Some c, [] -> emitExpr r t [ c ] "string:trim($0)" |> Some
     | "TrimStart", Some c, [] -> emitExpr r t [ c ] "string:trim($0, leading)" |> Some
     | "TrimEnd", Some c, [] -> emitExpr r t [ c ] "string:trim($0, trailing)" |> Some
-    // str.StartsWith(prefix) → binary part check
-    | "StartsWith", Some c, [ prefix ] ->
-        emitExpr r t [ c; prefix ] "(binary:match($0, $1) =:= {0, byte_size($1)})"
-        |> Some
-    // str.EndsWith(suffix) → binary part check at end
-    | "EndsWith", Some c, [ suffix ] ->
-        emitExpr
-            r
-            t
-            [ c; suffix ]
-            "(binary:match($0, $1, [{scope, {byte_size($0) - byte_size($1), byte_size($1)}}]) =/= nomatch)"
-        |> Some
+    // str.StartsWith(prefix)
+    | "StartsWith", Some c, [ prefix ] -> Helper.LibCall(com, "fable_string", "starts_with", t, [ c; prefix ]) |> Some
+    // str.EndsWith(suffix)
+    | "EndsWith", Some c, [ suffix ] -> Helper.LibCall(com, "fable_string", "ends_with", t, [ c; suffix ]) |> Some
     // str.Substring(start) → binary:part(Str, Start, byte_size(Str) - Start)
     | "Substring", Some c, [ start ] -> emitExpr r t [ c; start ] "binary:part($0, $1, byte_size($0) - $1)" |> Some
     // str.Substring(start, length) → binary:part(Str, Start, Length)
     | "Substring", Some c, [ start; len ] -> emitExpr r t [ c; start; len ] "binary:part($0, $1, $2)" |> Some
-    // str.Replace(old, new) → binary replacement via string:replace
+    // str.Replace(old, new)
     | "Replace", Some c, [ oldVal; newVal ] ->
-        emitExpr r t [ c; oldVal; newVal ] "iolist_to_binary(string:replace($0, $1, $2, all))"
-        |> Some
+        Helper.LibCall(com, "fable_string", "replace", t, [ c; oldVal; newVal ]) |> Some
     // str.Split(sep) → binary:split(Str, Sep, [global])
     | "Split", Some c, [ sep ] ->
         match sep.Type with
@@ -202,48 +193,34 @@ let private strings
             emitExpr r t [ c; sep ] "binary:split($0, $1, [global])" |> Some
         | _ -> emitExpr r t [ c; sep ] "binary:split($0, $1, [global])" |> Some
     | "Split", Some c, [ sep; _options ] -> emitExpr r t [ c; sep ] "binary:split($0, $1, [global])" |> Some
-    // String.Join(sep, items) → iolist_to_binary(lists:join(Sep, Items))
-    | "Join", None, [ sep; items ] -> emitExpr r t [ sep; items ] "iolist_to_binary(lists:join($0, $1))" |> Some
+    // String.Join(sep, items)
+    | "Join", None, [ sep; items ] -> Helper.LibCall(com, "fable_string", "join", t, [ sep; items ]) |> Some
     // String.Concat(items) → iolist_to_binary(Items)
     | "Concat", None, args ->
         match args with
         | [ items ] -> emitExpr r t [ items ] "iolist_to_binary($0)" |> Some
         | [ a; b ] -> emitExpr r t [ a; b ] "iolist_to_binary([$0, $1])" |> Some
         | _ -> None
-    // str.PadLeft(width) → string:pad(Str, Width, leading)
-    | "PadLeft", Some c, [ width ] ->
-        emitExpr r t [ c; width ] "iolist_to_binary(string:pad($0, $1, leading))"
-        |> Some
+    // str.PadLeft(width)
+    | "PadLeft", Some c, [ width ] -> Helper.LibCall(com, "fable_string", "pad_left", t, [ c; width ]) |> Some
     | "PadLeft", Some c, [ width; padChar ] ->
-        emitExpr r t [ c; width; padChar ] "iolist_to_binary(string:pad($0, $1, leading, [$2]))"
+        Helper.LibCall(com, "fable_string", "pad_left", t, [ c; width; padChar ])
         |> Some
-    | "PadRight", Some c, [ width ] ->
-        emitExpr r t [ c; width ] "iolist_to_binary(string:pad($0, $1, trailing))"
-        |> Some
+    // str.PadRight(width)
+    | "PadRight", Some c, [ width ] -> Helper.LibCall(com, "fable_string", "pad_right", t, [ c; width ]) |> Some
     | "PadRight", Some c, [ width; padChar ] ->
-        emitExpr r t [ c; width; padChar ] "iolist_to_binary(string:pad($0, $1, trailing, [$2]))"
+        Helper.LibCall(com, "fable_string", "pad_right", t, [ c; width; padChar ])
         |> Some
     // str.ToCharArray() → binary_to_list(Str)
     | "ToCharArray", Some c, [] -> emitExpr r t [ c ] "binary_to_list($0)" |> Some
     // str.Chars(idx) or str.[idx] → binary:at(Str, Idx)
     | ("get_Chars" | "get_Item"), Some c, [ idx ] -> emitExpr r t [ c; idx ] "binary:at($0, $1)" |> Some
-    // str.Insert(idx, value) → iolist_to_binary([binary:part(S,0,Idx), Value, binary:part(S,Idx,byte_size(S)-Idx)])
-    | "Insert", Some c, [ idx; value ] ->
-        emitExpr
-            r
-            t
-            [ c; idx; value ]
-            "iolist_to_binary([binary:part($0, 0, $1), $2, binary:part($0, $1, byte_size($0) - $1)])"
-        |> Some
-    // str.Remove(startIdx) → binary:part(Str, 0, StartIdx)
-    | "Remove", Some c, [ startIdx ] -> emitExpr r t [ c; startIdx ] "binary:part($0, 0, $1)" |> Some
+    // str.Insert(idx, value)
+    | "Insert", Some c, [ idx; value ] -> Helper.LibCall(com, "fable_string", "insert", t, [ c; idx; value ]) |> Some
+    // str.Remove(startIdx)
+    | "Remove", Some c, [ startIdx ] -> Helper.LibCall(com, "fable_string", "remove", t, [ c; startIdx ]) |> Some
     | "Remove", Some c, [ startIdx; count ] ->
-        emitExpr
-            r
-            t
-            [ c; startIdx; count ]
-            "iolist_to_binary([binary:part($0, 0, $1), binary:part($0, $1 + $2, byte_size($0) - $1 - $2)])"
-        |> Some
+        Helper.LibCall(com, "fable_string", "remove", t, [ c; startIdx; count ]) |> Some
     // str.IndexOf(sub) — let it fall through to JS replacements which generates indexOf → handled in Fable2Beam
     // str.Contains(sub) — let it fall through to JS replacements which generates indexOf >= 0
     | _ -> None
@@ -251,7 +228,7 @@ let private strings
 /// Beam-specific Option module replacements.
 /// Options in Erlang: None = undefined atom, Some(x) = x.
 let private optionModule
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -261,20 +238,10 @@ let private optionModule
     =
     match info.CompiledName, args with
     | "DefaultValue", [ defVal; opt ] ->
-        // Option.defaultValue defVal opt → case Opt of undefined -> DefVal; _ -> Opt end
-        // F# sends args as [defVal; opt] (defaultValue first, then option)
-        emitExpr r t [ opt; defVal ] "case $0 of undefined -> $1; Opt_val_ -> Opt_val_ end"
-        |> Some
-    | "DefaultWith", [ defFn; opt ] ->
-        // F# sends args as [defFn; opt]
-        emitExpr r t [ opt; defFn ] "case $0 of undefined -> ($1)(ok); Opt_val_ -> Opt_val_ end"
-        |> Some
-    | "Map", [ fn; opt ] ->
-        emitExpr r t [ fn; opt ] "case $1 of undefined -> undefined; Opt_val_ -> ($0)(Opt_val_) end"
-        |> Some
-    | "Bind", [ fn; opt ] ->
-        emitExpr r t [ fn; opt ] "case $1 of undefined -> undefined; Opt_val_ -> ($0)(Opt_val_) end"
-        |> Some
+        Helper.LibCall(com, "fable_option", "default_value", t, [ opt; defVal ]) |> Some
+    | "DefaultWith", [ defFn; opt ] -> Helper.LibCall(com, "fable_option", "default_with", t, [ opt; defFn ]) |> Some
+    | "Map", [ fn; opt ] -> Helper.LibCall(com, "fable_option", "map", t, [ fn; opt ]) |> Some
+    | "Bind", [ fn; opt ] -> Helper.LibCall(com, "fable_option", "bind", t, [ fn; opt ]) |> Some
     | "IsSome", [ c ] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [ c ] -> Test(c, OptionTest false, r) |> Some
     | "GetValue", [ c ] ->
@@ -460,7 +427,7 @@ let private convert
 /// Beam-specific List module replacements.
 /// Lists in Erlang are native linked lists, same as F#.
 let private listModule
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -476,81 +443,38 @@ let private listModule
     | "Empty", _ -> Value(NewList(None, t), None) |> Some
     | "Singleton", [ item ] -> emitExpr r t [ item ] "[$0]" |> Some
     | "Map", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:map($0, $1)" |> Some
-    | "MapIndexed", [ fn; list ] ->
-        emitExpr
-            r
-            t
-            [ fn; list ]
-            "element(2, lists:mapfoldl(fun(X_e_, X_i_) -> {($0)(X_i_, X_e_), X_i_ + 1} end, 0, $1))"
-        |> Some
+    | "MapIndexed", [ fn; list ] -> Helper.LibCall(com, "fable_list", "map_indexed", t, [ fn; list ]) |> Some
     | "Filter", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:filter($0, $1)" |> Some
     | "Reverse", [ list ] -> emitExpr r t [ list ] "lists:reverse($0)" |> Some
     | "Append", [ l1; l2 ] -> emitExpr r t [ l1; l2 ] "lists:append($0, $1)" |> Some
     | "Concat", [ lists ] -> emitExpr r t [ lists ] "lists:append($0)" |> Some
     | "Sum", [ list ] -> emitExpr r t [ list ] "lists:sum($0)" |> Some
-    | "SumBy", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:sum(lists:map($0, $1))" |> Some
-    | "Fold", [ fn; state; list ] ->
-        emitExpr r t [ fn; state; list ] "lists:foldl(fun(X_item_, X_acc_) -> ($0)(X_acc_, X_item_) end, $1, $2)"
-        |> Some
-    | "FoldBack", [ fn; list; state ] ->
-        emitExpr r t [ fn; list; state ] "lists:foldr(fun(X_item_, X_acc_) -> ($0)(X_item_, X_acc_) end, $2, $1)"
-        |> Some
-    | "Reduce", [ fn; list ] ->
-        emitExpr r t [ fn; list ] "lists:foldl(fun(X_item_, X_acc_) -> ($0)(X_acc_, X_item_) end, hd($1), tl($1))"
-        |> Some
+    | "SumBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "sum_by", t, [ fn; list ]) |> Some
+    | "Fold", [ fn; state; list ] -> Helper.LibCall(com, "fable_list", "fold", t, [ fn; state; list ]) |> Some
+    | "FoldBack", [ fn; list; state ] -> Helper.LibCall(com, "fable_list", "fold_back", t, [ fn; list; state ]) |> Some
+    | "Reduce", [ fn; list ] -> Helper.LibCall(com, "fable_list", "reduce", t, [ fn; list ]) |> Some
     | "Sort", [ list ] -> emitExpr r t [ list ] "lists:sort($0)" |> Some
-    | "SortBy", [ fn; list ] ->
-        emitExpr r t [ fn; list ] "lists:sort(fun(A_, B_) -> ($0)(A_) =< ($0)(B_) end, $1)"
-        |> Some
+    | "SortBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; list ]) |> Some
     | "SortDescending", [ list ] -> emitExpr r t [ list ] "lists:reverse(lists:sort($0))" |> Some
     | "SortByDescending", [ fn; list ] ->
-        emitExpr r t [ fn; list ] "lists:reverse(lists:sort(fun(A_, B_) -> ($0)(A_) =< ($0)(B_) end, $1))"
-        |> Some
-    | "SortWith", [ fn; list ] ->
-        emitExpr r t [ fn; list ] "lists:sort(fun(A_, B_) -> ($0)(A_, B_) =< 0 end, $1)"
-        |> Some
+        Helper.LibCall(com, "fable_list", "sort_by_descending", t, [ fn; list ]) |> Some
+    | "SortWith", [ fn; list ] -> Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; list ]) |> Some
     | "Contains", [ item; list ] -> emitExpr r t [ item; list ] "lists:member($0, $1)" |> Some
     | "Exists", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:any($0, $1)" |> Some
     | "ForAll", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:all($0, $1)" |> Some
     | "Iterate", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:foreach($0, $1)" |> Some
-    | "Find", [ fn; list ] ->
-        // Wrap in fun() to isolate variable scope (prevents H_ collision when called multiple times)
-        emitExpr
-            r
-            t
-            [ fn; list ]
-            "(fun() -> case lists:dropwhile(fun(X_e_) -> not ($0)(X_e_) end, $1) of [H_|_] -> H_; [] -> erlang:error(<<\"key_not_found\">>) end end)()"
-        |> Some
-    | "TryFind", [ fn; list ] ->
-        // Wrap in fun() to isolate variable scope
-        emitExpr
-            r
-            t
-            [ fn; list ]
-            "(fun() -> case lists:dropwhile(fun(X_e_) -> not ($0)(X_e_) end, $1) of [H_|_] -> H_; [] -> undefined end end)()"
-        |> Some
-    | "Choose", [ fn; list ] ->
-        emitExpr
-            r
-            t
-            [ fn; list ]
-            "lists:filtermap(fun(X_e_) -> case ($0)(X_e_) of undefined -> false; V_ -> {true, V_} end end, $1)"
-        |> Some
-    | "Collect", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:append(lists:map($0, $1))" |> Some
+    | "Find", [ fn; list ] -> Helper.LibCall(com, "fable_list", "find", t, [ fn; list ]) |> Some
+    | "TryFind", [ fn; list ] -> Helper.LibCall(com, "fable_list", "try_find", t, [ fn; list ]) |> Some
+    | "Choose", [ fn; list ] -> Helper.LibCall(com, "fable_list", "choose", t, [ fn; list ]) |> Some
+    | "Collect", [ fn; list ] -> Helper.LibCall(com, "fable_list", "collect", t, [ fn; list ]) |> Some
     | "Partition", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:partition($0, $1)" |> Some
-    | "Zip", [ l1; l2 ] ->
-        emitExpr r t [ l1; l2 ] "lists:zipwith(fun(A_, B_) -> {A_, B_} end, $0, $1)"
-        |> Some
+    | "Zip", [ l1; l2 ] -> Helper.LibCall(com, "fable_list", "zip", t, [ l1; l2 ]) |> Some
     | "Unzip", [ list ] -> emitExpr r t [ list ] "lists:unzip($0)" |> Some
     | "Min", [ list ] -> emitExpr r t [ list ] "lists:min($0)" |> Some
     | "Max", [ list ] -> emitExpr r t [ list ] "lists:max($0)" |> Some
-    | "MinBy", [ fn; list ] ->
-        emitExpr r t [ fn; list ] "element(2, lists:min(lists:map(fun(X_e_) -> {($0)(X_e_), X_e_} end, $1)))"
-        |> Some
-    | "MaxBy", [ fn; list ] ->
-        emitExpr r t [ fn; list ] "element(2, lists:max(lists:map(fun(X_e_) -> {($0)(X_e_), X_e_} end, $1)))"
-        |> Some
-    | "Indexed", [ list ] -> emitExpr r t [ list ] "lists:zip(lists:seq(0, length($0) - 1), $0)" |> Some
+    | "MinBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "min_by", t, [ fn; list ]) |> Some
+    | "MaxBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "max_by", t, [ fn; list ]) |> Some
+    | "Indexed", [ list ] -> Helper.LibCall(com, "fable_list", "indexed", t, [ list ]) |> Some
     | "ToArray", [ list ] -> Some(List.head args)
     | "OfArray", [ arr ] -> Some(List.head args)
     | "OfSeq", [ seq ] -> Some(List.head args)
@@ -581,7 +505,7 @@ let private lists
 /// Beam-specific Map module replacements.
 /// F# Maps are represented as Erlang native maps (#{}).
 let private mapModule
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -596,9 +520,7 @@ let private mapModule
     | "OfSeq", [ seq ] -> emitExpr r t [ seq ] "maps:from_list($0)" |> Some
     | "Add", [ key; value; map ] -> emitExpr r t [ key; value; map ] "maps:put($0, $1, $2)" |> Some
     | "Find", [ key; map ] -> emitExpr r t [ key; map ] "maps:get($0, $1)" |> Some
-    | "TryFind", [ key; map ] ->
-        emitExpr r t [ key; map ] "(fun() -> case maps:find($0, $1) of {ok, V_} -> V_; error -> undefined end end)()"
-        |> Some
+    | "TryFind", [ key; map ] -> Helper.LibCall(com, "fable_map", "try_find", t, [ key; map ]) |> Some
     | "ContainsKey", [ key; map ] -> emitExpr r t [ key; map ] "maps:is_key($0, $1)" |> Some
     | "Remove", [ key; map ] -> emitExpr r t [ key; map ] "maps:remove($0, $1)" |> Some
     | "IsEmpty", [ map ] -> emitExpr r t [ map ] "(maps:size($0) =:= 0)" |> Some
@@ -608,51 +530,21 @@ let private mapModule
     | "ToSeq", [ map ] -> emitExpr r t [ map ] "maps:to_list($0)" |> Some
     | "Keys", [ map ] -> emitExpr r t [ map ] "maps:keys($0)" |> Some
     | "Values", [ map ] -> emitExpr r t [ map ] "maps:values($0)" |> Some
-    | "Map", [ fn; map ] -> emitExpr r t [ fn; map ] "maps:map(fun(K_, V_) -> ($0)(K_, V_) end, $1)" |> Some
-    | "Filter", [ fn; map ] ->
-        emitExpr r t [ fn; map ] "maps:filter(fun(K_, V_) -> ($0)(K_, V_) end, $1)"
-        |> Some
-    | "Fold", [ fn; state; map ] ->
-        emitExpr r t [ fn; state; map ] "maps:fold(fun(K_, V_, Acc_) -> ($0)(Acc_, K_, V_) end, $1, $2)"
-        |> Some
-    | "FoldBack", [ fn; map; state ] ->
-        emitExpr r t [ fn; map; state ] "maps:fold(fun(K_, V_, Acc_) -> ($0)(K_, V_, Acc_) end, $2, $1)"
-        |> Some
-    | "Exists", [ fn; map ] ->
-        emitExpr r t [ fn; map ] "lists:any(fun({K_, V_}) -> ($0)(K_, V_) end, maps:to_list($1))"
-        |> Some
-    | "ForAll", [ fn; map ] ->
-        emitExpr r t [ fn; map ] "lists:all(fun({K_, V_}) -> ($0)(K_, V_) end, maps:to_list($1))"
-        |> Some
-    | "Iterate", [ fn; map ] ->
-        emitExpr r t [ fn; map ] "maps:foreach(fun(K_, V_) -> ($0)(K_, V_) end, $1)"
-        |> Some
-    | "FindKey", [ fn; map ] ->
-        emitExpr
-            r
-            t
-            [ fn; map ]
-            "(fun() -> case lists:dropwhile(fun({K_, V_}) -> not ($0)(K_, V_) end, maps:to_list($1)) of [{K_r_, _}|_] -> K_r_; [] -> erlang:error(<<\"key_not_found\">>) end end)()"
-        |> Some
-    | "TryFindKey", [ fn; map ] ->
-        emitExpr
-            r
-            t
-            [ fn; map ]
-            "(fun() -> case lists:dropwhile(fun({K_, V_}) -> not ($0)(K_, V_) end, maps:to_list($1)) of [{K_r_, _}|_] -> K_r_; [] -> undefined end end)()"
-        |> Some
-    | "Partition", [ fn; map ] ->
-        emitExpr
-            r
-            t
-            [ fn; map ]
-            "(fun(M_) -> {maps:filter(fun(K_, V_) -> ($0)(K_, V_) end, M_), maps:filter(fun(K_, V_) -> not ($0)(K_, V_) end, M_)} end)($1)"
-        |> Some
+    | "Map", [ fn; map ] -> Helper.LibCall(com, "fable_map", "map", t, [ fn; map ]) |> Some
+    | "Filter", [ fn; map ] -> Helper.LibCall(com, "fable_map", "filter", t, [ fn; map ]) |> Some
+    | "Fold", [ fn; state; map ] -> Helper.LibCall(com, "fable_map", "fold", t, [ fn; state; map ]) |> Some
+    | "FoldBack", [ fn; map; state ] -> Helper.LibCall(com, "fable_map", "fold_back", t, [ fn; map; state ]) |> Some
+    | "Exists", [ fn; map ] -> Helper.LibCall(com, "fable_map", "exists", t, [ fn; map ]) |> Some
+    | "ForAll", [ fn; map ] -> Helper.LibCall(com, "fable_map", "forall", t, [ fn; map ]) |> Some
+    | "Iterate", [ fn; map ] -> Helper.LibCall(com, "fable_map", "iterate", t, [ fn; map ]) |> Some
+    | "FindKey", [ fn; map ] -> Helper.LibCall(com, "fable_map", "find_key", t, [ fn; map ]) |> Some
+    | "TryFindKey", [ fn; map ] -> Helper.LibCall(com, "fable_map", "try_find_key", t, [ fn; map ]) |> Some
+    | "Partition", [ fn; map ] -> Helper.LibCall(com, "fable_map", "partition", t, [ fn; map ]) |> Some
     | _ -> None
 
 /// Beam-specific FSharpMap instance method replacements.
 let private maps
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -668,18 +560,12 @@ let private maps
     | "ContainsKey", Some c, [ key ] -> emitExpr r t [ key; c ] "maps:is_key($0, $1)" |> Some
     | "Add", Some c, [ key; value ] -> emitExpr r t [ key; value; c ] "maps:put($0, $1, $2)" |> Some
     | "Remove", Some c, [ key ] -> emitExpr r t [ key; c ] "maps:remove($0, $1)" |> Some
-    | "TryGetValue", Some c, [ key ] ->
-        emitExpr
-            r
-            t
-            [ key; c ]
-            "(fun() -> case maps:find($0, $1) of {ok, V_} -> {true, V_}; error -> {false, undefined} end end)()"
-        |> Some
+    | "TryGetValue", Some c, [ key ] -> Helper.LibCall(com, "fable_map", "try_get_value", t, [ key; c ]) |> Some
     | _ -> None
 
 /// Beam-specific StringModule replacements.
 let private stringModule
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -688,13 +574,13 @@ let private stringModule
     (args: Expr list)
     =
     match info.CompiledName, args with
-    | "Concat", [ sep; items ] -> emitExpr r t [ sep; items ] "iolist_to_binary(lists:join($0, $1))" |> Some
+    | "Concat", [ sep; items ] -> Helper.LibCall(com, "fable_string", "join", t, [ sep; items ]) |> Some
     | "Length", [ str ] -> emitExpr r t [ str ] "byte_size($0)" |> Some
-    | "IsNullOrEmpty", [ str ] -> emitExpr r t [ str ] "(($0 =:= undefined) orelse ($0 =:= <<>>))" |> Some
+    | "IsNullOrEmpty", [ str ] -> Helper.LibCall(com, "fable_string", "is_null_or_empty", t, [ str ]) |> Some
     | "IsNullOrWhiteSpace", [ str ] ->
-        emitExpr r t [ str ] "(($0 =:= undefined) orelse (string:trim($0) =:= <<>>))"
+        Helper.LibCall(com, "fable_string", "is_null_or_white_space", t, [ str ])
         |> Some
-    | "Replicate", [ count; str ] -> emitExpr r t [ count; str ] "iolist_to_binary(lists:duplicate($0, $1))" |> Some
+    | "Replicate", [ count; str ] -> Helper.LibCall(com, "fable_string", "replicate", t, [ count; str ]) |> Some
     | _ -> None
 
 /// Beam-specific Array instance method replacements.
@@ -715,7 +601,7 @@ let private arrays
 
 /// Beam-specific Array module replacements.
 let private arrayModule
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -737,52 +623,23 @@ let private arrayModule
     | "Exists", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:any($0, $1)" |> Some
     | "ForAll", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:all($0, $1)" |> Some
     | "Iterate", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:foreach($0, $1)" |> Some
-    | "Fold", [ fn; state; arr ] ->
-        // F# Array.fold: folder(state, item), Erlang foldl: fun(item, acc) — must swap
-        emitExpr r t [ fn; state; arr ] "lists:foldl(fun(X_item_, X_acc_) -> ($0)(X_acc_, X_item_) end, $1, $2)"
-        |> Some
-    | "FoldBack", [ fn; arr; state ] ->
-        emitExpr r t [ fn; arr; state ] "lists:foldr(fun(X_item_, X_acc_) -> ($0)(X_item_, X_acc_) end, $2, $1)"
-        |> Some
-    | "Reduce", [ fn; arr ] ->
-        emitExpr r t [ fn; arr ] "lists:foldl(fun(X_item_, X_acc_) -> ($0)(X_acc_, X_item_) end, hd($1), tl($1))"
-        |> Some
+    | "Fold", [ fn; state; arr ] -> Helper.LibCall(com, "fable_list", "fold", t, [ fn; state; arr ]) |> Some
+    | "FoldBack", [ fn; arr; state ] -> Helper.LibCall(com, "fable_list", "fold_back", t, [ fn; arr; state ]) |> Some
+    | "Reduce", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "reduce", t, [ fn; arr ]) |> Some
     | "Reverse", [ arr ] -> emitExpr r t [ arr ] "lists:reverse($0)" |> Some
     | "Append", [ arr1; arr2 ] -> emitExpr r t [ arr1; arr2 ] "lists:append($0, $1)" |> Some
     | "Concat", [ arrs ] -> emitExpr r t [ arrs ] "lists:append($0)" |> Some
     | "Sum", [ arr ] -> emitExpr r t [ arr ] "lists:sum($0)" |> Some
-    | "SumBy", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:sum(lists:map($0, $1))" |> Some
+    | "SumBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sum_by", t, [ fn; arr ]) |> Some
     | "Min", [ arr ] -> emitExpr r t [ arr ] "lists:min($0)" |> Some
     | "Max", [ arr ] -> emitExpr r t [ arr ] "lists:max($0)" |> Some
-    | "MinBy", [ fn; arr ] ->
-        emitExpr r t [ fn; arr ] "element(2, lists:min(lists:map(fun(X_e_) -> {($0)(X_e_), X_e_} end, $1)))"
-        |> Some
-    | "MaxBy", [ fn; arr ] ->
-        emitExpr r t [ fn; arr ] "element(2, lists:max(lists:map(fun(X_e_) -> {($0)(X_e_), X_e_} end, $1)))"
-        |> Some
+    | "MinBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "min_by", t, [ fn; arr ]) |> Some
+    | "MaxBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "max_by", t, [ fn; arr ]) |> Some
     | "Contains", [ value; arr ] -> emitExpr r t [ value; arr ] "lists:member($0, $1)" |> Some
-    | "Find", [ fn; arr ] ->
-        emitExpr
-            r
-            t
-            [ fn; arr ]
-            "(fun() -> case lists:dropwhile(fun(X_e_) -> not ($0)(X_e_) end, $1) of [H_|_] -> H_; [] -> erlang:error(<<\"key_not_found\">>) end end)()"
-        |> Some
-    | "TryFind", [ fn; arr ] ->
-        emitExpr
-            r
-            t
-            [ fn; arr ]
-            "(fun() -> case lists:dropwhile(fun(X_e_) -> not ($0)(X_e_) end, $1) of [H_|_] -> H_; [] -> undefined end end)()"
-        |> Some
-    | "Choose", [ fn; arr ] ->
-        emitExpr
-            r
-            t
-            [ fn; arr ]
-            "lists:filtermap(fun(X_e_) -> case ($0)(X_e_) of undefined -> false; V_ -> {true, V_} end end, $1)"
-        |> Some
-    | "Collect", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:append(lists:map($0, $1))" |> Some
+    | "Find", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "find", t, [ fn; arr ]) |> Some
+    | "TryFind", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "try_find", t, [ fn; arr ]) |> Some
+    | "Choose", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "choose", t, [ fn; arr ]) |> Some
+    | "Collect", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "collect", t, [ fn; arr ]) |> Some
     | "ToList", [ arr ] -> Some(List.head args) // arrays and lists are the same in Erlang
     | "OfList", [ lst ] -> Some(List.head args) // arrays and lists are the same in Erlang
     | "OfSeq", [ seq ] -> Some(List.head args)
@@ -791,15 +648,9 @@ let private arrayModule
     | "Create", [ count; value ] -> emitExpr r t [ count; value ] "lists:duplicate($0, $1)" |> Some
     | "Sort", [ arr ] -> emitExpr r t [ arr ] "lists:sort($0)" |> Some
     | "SortDescending", [ arr ] -> emitExpr r t [ arr ] "lists:reverse(lists:sort($0))" |> Some
-    | "SortBy", [ fn; arr ] ->
-        emitExpr r t [ fn; arr ] "lists:sort(fun(A_, B_) -> ($0)(A_) =< ($0)(B_) end, $1)"
-        |> Some
-    | "SortWith", [ fn; arr ] ->
-        emitExpr r t [ fn; arr ] "lists:sort(fun(A_, B_) -> ($0)(A_, B_) =< 0 end, $1)"
-        |> Some
-    | "Zip", [ arr1; arr2 ] ->
-        emitExpr r t [ arr1; arr2 ] "lists:zipwith(fun(A_, B_) -> {A_, B_} end, $0, $1)"
-        |> Some
+    | "SortBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; arr ]) |> Some
+    | "SortWith", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; arr ]) |> Some
+    | "Zip", [ arr1; arr2 ] -> Helper.LibCall(com, "fable_list", "zip", t, [ arr1; arr2 ]) |> Some
     | "Unzip", [ arr ] -> emitExpr r t [ arr ] "lists:unzip($0)" |> Some
     | _ -> None
 
