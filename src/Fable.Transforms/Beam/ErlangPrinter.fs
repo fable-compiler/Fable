@@ -10,7 +10,13 @@ module Output =
     let rec printLiteral (sb: System.Text.StringBuilder) (lit: ErlLiteral) =
         match lit with
         | Integer i -> sb.Append(string i) |> ignore
-        | Float f -> sb.Append(sprintf "%g" f) |> ignore
+        | Float f ->
+            let s = sprintf "%g" f
+            // Ensure the float literal always has a decimal point for Erlang
+            if s.Contains(".") || s.Contains("e") || s.Contains("E") then
+                sb.Append(s) |> ignore
+            else
+                sb.Append(s + ".0") |> ignore
         | StringLit s -> sb.Append($"<<\"{escapeErlangString s}\">>") |> ignore
         | AtomLit(Atom a) -> sb.Append(a) |> ignore
         | BoolLit true -> sb.Append("true") |> ignore

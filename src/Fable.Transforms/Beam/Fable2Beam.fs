@@ -19,6 +19,7 @@ type Context =
         DecisionTargets: (Ident list * Expr) list
         RecursiveBindings: Set<string>
         MutualRecBindings: Map<string, string * string> // name -> (bundleVarName, atomTag)
+        MutableVars: Set<string> // names of mutable variables (use process dict put/get)
     }
 
 let private toSnakeCase (name: string) =
@@ -167,18 +168,39 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
     | Call(callee, info, _typ, _range) -> transformCall com ctx callee info
 
     | IdentExpr ident ->
-        match ctx.MutualRecBindings.TryFind(ident.Name) with
-        | Some(bundleName, atomTag) ->
-            // Return the dispatched closure: Mk_rec_N(atom_tag)
-            Beam.ErlExpr.Apply(
-                Beam.ErlExpr.Variable(bundleName),
-                [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomTag)) ]
+        if ctx.MutableVars.Contains(ident.Name) then
+            // Mutable variable: read from process dictionary
+            Beam.ErlExpr.Call(
+                None,
+                "get",
+                [
+                    Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeErlangName ident.Name)))
+                ]
             )
-        | None -> Beam.ErlExpr.Variable(capitalizeFirst ident.Name)
+        else
+            match ctx.MutualRecBindings.TryFind(ident.Name) with
+            | Some(bundleName, atomTag) ->
+                // Return the dispatched closure: Mk_rec_N(atom_tag)
+                Beam.ErlExpr.Apply(
+                    Beam.ErlExpr.Variable(bundleName),
+                    [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomTag)) ]
+                )
+            | None -> Beam.ErlExpr.Variable(capitalizeFirst ident.Name)
 
     | Sequential exprs ->
         let erlExprs = exprs |> List.map (transformExpr com ctx)
         Beam.ErlExpr.Block erlExprs
+
+    | Let(ident, value, body) when ident.IsMutable && not (ident.Name.StartsWith("copyOfStruct")) ->
+        // Mutable variable: use process dictionary put/get
+        // (but not for compiler-generated struct copies which aren't truly mutated)
+        let atomKey =
+            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeErlangName ident.Name)))
+
+        let erlValue = transformExpr com ctx value
+        let ctx' = { ctx with MutableVars = ctx.MutableVars.Add(ident.Name) }
+        let erlBody = transformExpr com ctx' body
+        Beam.ErlExpr.Block [ Beam.ErlExpr.Call(None, "put", [ atomKey; erlValue ]); erlBody ]
 
     | Let(ident, value, body) ->
         let varName = capitalizeFirst ident.Name
@@ -235,8 +257,9 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             Beam.ErlExpr.Block [ Beam.ErlExpr.Match(Beam.PVar varName, namedFun); erlOuterBody ]
         | _ ->
             let erlValue = transformExpr com ctx value
+            let hoisted, cleanValue = extractBlock erlValue
             let erlBody = transformExpr com ctx body
-            Beam.ErlExpr.Block [ Beam.ErlExpr.Match(Beam.PVar varName, erlValue); erlBody ]
+            Beam.ErlExpr.Block(hoisted @ [ Beam.ErlExpr.Match(Beam.PVar varName, cleanValue); erlBody ])
 
     | TypeCast(expr, _typ) -> transformExpr com ctx expr
 
@@ -335,6 +358,12 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
     | Set(expr, ValueSet, _typ, value, _range) ->
         match expr with
+        | IdentExpr ident when ctx.MutableVars.Contains(ident.Name) ->
+            // Mutable variable: update via process dictionary
+            let atomKey =
+                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeErlangName ident.Name)))
+
+            Beam.ErlExpr.Call(None, "put", [ atomKey; transformExpr com ctx value ])
         | IdentExpr ident -> Beam.ErlExpr.Match(Beam.PVar(capitalizeFirst ident.Name), transformExpr com ctx value)
         | _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_set"))
 
@@ -538,6 +567,137 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             // No catch handler, just execute the body (finalizer not yet supported)
             erlBody
 
+    | WhileLoop(guard, body, _range) ->
+        // Transform while loop to a tail-recursive named fun:
+        // WhileLoop_ = fun WhileLoop_() ->
+        //     case Guard of
+        //         true -> Body, WhileLoop_();
+        //         false -> ok
+        //     end
+        // end,
+        // WhileLoop_()
+        let ctr = com.IncrementCounter()
+        let loopName = $"While_loop_{ctr}"
+        let erlGuard = transformExpr com ctx guard
+        let erlBody = transformExpr com ctx body
+
+        let bodyExprs =
+            match erlBody with
+            | Beam.ErlExpr.Block es -> es
+            | e -> [ e ]
+
+        let loopFun =
+            Beam.ErlExpr.NamedFun(
+                loopName,
+                [
+                    {
+                        Patterns = []
+                        Guard = []
+                        Body =
+                            [
+                                Beam.ErlExpr.Case(
+                                    erlGuard,
+                                    [
+                                        {
+                                            Pattern = Beam.PLiteral(Beam.BoolLit true)
+                                            Guard = []
+                                            Body =
+                                                bodyExprs @ [ Beam.ErlExpr.Apply(Beam.ErlExpr.Variable loopName, []) ]
+                                        }
+                                        {
+                                            Pattern = Beam.PLiteral(Beam.BoolLit false)
+                                            Guard = []
+                                            Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "ok")) ]
+                                        }
+                                    ]
+                                )
+                            ]
+                    }
+                ]
+            )
+
+        Beam.ErlExpr.Block
+            [
+                Beam.ErlExpr.Match(Beam.PVar loopName, loopFun)
+                Beam.ErlExpr.Apply(Beam.ErlExpr.Variable loopName, [])
+            ]
+
+    | ForLoop(ident, start, limit, body, isUp, _range) ->
+        // Transform for loop to a tail-recursive named fun:
+        // For_loop_ = fun For_loop_(I) ->
+        //     case (isUp andalso I =< Limit) orelse (not isUp andalso I >= Limit) of
+        //         true -> Body, For_loop_(I +/- 1);
+        //         false -> ok
+        //     end
+        // end,
+        // For_loop_(Start)
+        let ctr = com.IncrementCounter()
+        let loopName = $"For_loop_{ctr}"
+        let varName = capitalizeFirst ident.Name
+        let erlStart = transformExpr com ctx start
+        let erlLimit = transformExpr com ctx limit
+        let erlBody = transformExpr com ctx body
+
+        let bodyExprs =
+            match erlBody with
+            | Beam.ErlExpr.Block es -> es
+            | e -> [ e ]
+
+        let compareOp =
+            if isUp then
+                "=<"
+            else
+                ">="
+
+        let stepOp =
+            if isUp then
+                "+"
+            else
+                "-"
+
+        let guardExpr =
+            Beam.ErlExpr.BinOp(compareOp, Beam.ErlExpr.Variable varName, erlLimit)
+
+        let nextStep =
+            Beam.ErlExpr.BinOp(stepOp, Beam.ErlExpr.Variable varName, Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 1L))
+
+        let loopFun =
+            Beam.ErlExpr.NamedFun(
+                loopName,
+                [
+                    {
+                        Patterns = [ Beam.PVar varName ]
+                        Guard = []
+                        Body =
+                            [
+                                Beam.ErlExpr.Case(
+                                    guardExpr,
+                                    [
+                                        {
+                                            Pattern = Beam.PLiteral(Beam.BoolLit true)
+                                            Guard = []
+                                            Body =
+                                                bodyExprs
+                                                @ [ Beam.ErlExpr.Apply(Beam.ErlExpr.Variable loopName, [ nextStep ]) ]
+                                        }
+                                        {
+                                            Pattern = Beam.PLiteral(Beam.BoolLit false)
+                                            Guard = []
+                                            Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "ok")) ]
+                                        }
+                                    ]
+                                )
+                            ]
+                    }
+                ]
+            )
+
+        Beam.ErlExpr.Block
+            [
+                Beam.ErlExpr.Match(Beam.PVar loopName, loopFun)
+                Beam.ErlExpr.Apply(Beam.ErlExpr.Variable loopName, [ erlStart ])
+            ]
+
     | Extended(kind, _range) ->
         match kind with
         | Throw(Some exprArg, _typ) ->
@@ -696,6 +856,13 @@ and transformOperation
         let allHoisted = leftHoisted @ rightHoisted
 
         match op with
+        | BinaryPlus when
+            left.Type = Fable.AST.Fable.Type.String
+            || right.Type = Fable.AST.Fable.Type.String
+            ->
+            // String concatenation: use iolist_to_binary([Left, Right])
+            Beam.ErlExpr.Call(None, "iolist_to_binary", [ Beam.ErlExpr.List [ cleanLeft; cleanRight ] ])
+            |> wrapWithHoisted allHoisted
         | BinaryExponent ->
             Beam.ErlExpr.Call(Some "math", "pow", [ cleanLeft; cleanRight ])
             |> wrapWithHoisted allHoisted
@@ -1167,6 +1334,7 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             DecisionTargets = []
             RecursiveBindings = Set.empty
             MutualRecBindings = Map.empty
+            MutableVars = Set.empty
         }
 
     let beamCom =

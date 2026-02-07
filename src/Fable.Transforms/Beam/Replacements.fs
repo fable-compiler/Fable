@@ -39,6 +39,60 @@ let private operators
     | (Operators.equality | "Eq"), [ left; right ] -> equals r true left right |> Some
     | (Operators.inequality | "Neq"), [ left; right ] -> equals r false left right |> Some
     | Operators.unaryNegation, [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, _t, r) |> Some
+    // Type conversions: int(x), float(x), string(x), etc.
+    | ("ToSByte" | "ToByte" | "ToInt8" | "ToUInt8" | "ToInt16" | "ToUInt16" | "ToInt" | "ToUInt" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"),
+      [ arg ] ->
+        match arg.Type with
+        | Type.String -> emitExpr r _t [ arg ] "binary_to_integer($0)" |> Some
+        | Type.Number(kind, _) ->
+            match kind with
+            | Float16
+            | Float32
+            | Float64
+            | Decimal -> emitExpr r _t [ arg ] "trunc($0)" |> Some
+            | _ -> Some arg
+        | Type.Char -> Some arg
+        | _ -> Some arg
+    | ("ToSingle" | "ToDouble"), [ arg ] ->
+        match arg.Type with
+        | Type.String -> emitExpr r _t [ arg ] "binary_to_float($0)" |> Some
+        | Type.Number(kind, _) ->
+            match kind with
+            | Float16
+            | Float32
+            | Float64
+            | Decimal -> Some arg
+            | _ -> emitExpr r _t [ arg ] "float($0)" |> Some
+        | _ -> emitExpr r _t [ arg ] "float($0)" |> Some
+    | "ToDecimal", [ arg ] ->
+        match arg.Type with
+        | Type.String -> emitExpr r _t [ arg ] "binary_to_float($0)" |> Some
+        | Type.Number(kind, _) ->
+            match kind with
+            | Float16
+            | Float32
+            | Float64
+            | Decimal -> Some arg
+            | _ -> emitExpr r _t [ arg ] "float($0)" |> Some
+        | _ -> emitExpr r _t [ arg ] "float($0)" |> Some
+    | "ToString", [ arg ] ->
+        match arg.Type with
+        | Type.String -> Some arg
+        | Type.Number(kind, _) ->
+            match kind with
+            | Float16
+            | Float32
+            | Float64
+            | Decimal -> emitExpr r _t [ arg ] "float_to_binary($0)" |> Some
+            | _ -> emitExpr r _t [ arg ] "integer_to_binary($0)" |> Some
+        | Type.Boolean -> emitExpr r _t [ arg ] "atom_to_binary($0)" |> Some
+        | _ ->
+            emitExpr r _t [ arg ] "iolist_to_binary(io_lib:format(binary_to_list(<<\"~p\">>), [$0]))"
+            |> Some
+    | "ToChar", [ arg ] ->
+        match arg.Type with
+        | Type.String -> emitExpr r _t [ arg ] "binary:first($0)" |> Some
+        | _ -> Some arg
     // Erlang has native arbitrary-precision integers, so Int64/UInt64/BigInt
     // use direct binary ops instead of library calls (like Python's int)
     | Patterns.SetContains Operators.standardSet, _ ->
@@ -167,6 +221,165 @@ let private options
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
     | _ -> None
 
+/// Beam-specific type conversion replacements.
+/// Handles int(), float(), string(), ToString, Parse, etc.
+let private conversions
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, args with
+    // int(x), byte(x), etc. → convert to integer
+    | ("ToSByte" | "ToByte" | "ToInt8" | "ToUInt8" | "ToInt16" | "ToUInt16" | "ToInt" | "ToUInt" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"),
+      [ arg ] ->
+        match arg.Type with
+        | Type.String -> emitExpr r t [ arg ] "binary_to_integer($0)" |> Some
+        | Type.Number(kind, _) ->
+            match kind with
+            | Float16
+            | Float32
+            | Float64
+            | Decimal -> emitExpr r t [ arg ] "trunc($0)" |> Some
+            | _ -> Some arg // int-to-int: no conversion needed in Erlang
+        | Type.Char -> Some arg // char is already an integer in Erlang
+        | _ -> Some arg
+    // float(x), double(x) → convert to float
+    | ("ToSingle" | "ToDouble"), [ arg ] ->
+        match arg.Type with
+        | Type.String -> emitExpr r t [ arg ] "binary_to_float($0)" |> Some
+        | Type.Number(kind, _) ->
+            match kind with
+            | Float16
+            | Float32
+            | Float64
+            | Decimal -> Some arg // already float
+            | _ -> emitExpr r t [ arg ] "float($0)" |> Some
+        | _ -> emitExpr r t [ arg ] "float($0)" |> Some
+    // string(x), ToString() → convert to string
+    | "ToString", _ ->
+        let arg =
+            match _thisArg with
+            | Some c -> c
+            | None ->
+                match args with
+                | [ a ] -> a
+                | _ -> Value(Null Type.Unit, None)
+
+        match arg.Type with
+        | Type.String -> Some arg
+        | Type.Number(kind, _) ->
+            match kind with
+            | Float16
+            | Float32
+            | Float64
+            | Decimal -> emitExpr r t [ arg ] "float_to_binary($0)" |> Some
+            | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
+        | Type.Boolean -> emitExpr r t [ arg ] "atom_to_binary($0)" |> Some
+        | _ ->
+            // Fallback: use io_lib:format ~p for general toString
+            emitExpr r t [ arg ] "iolist_to_binary(io_lib:format(binary_to_list(<<\"~p\">>), [$0]))"
+            |> Some
+    // char(x) → Erlang integers represent chars
+    | "ToChar", [ arg ] ->
+        match arg.Type with
+        | Type.String -> emitExpr r t [ arg ] "binary:first($0)" |> Some
+        | _ -> Some arg // numbers are already chars in Erlang
+    | _ -> None
+
+/// Beam-specific numeric type method replacements (Parse, ToString on numeric types).
+let private numericTypes
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg, args with
+    | "Parse", None, [ arg ] ->
+        match info.DeclaringEntityFullName with
+        | "System.Double"
+        | "System.Single"
+        | "System.Decimal" -> emitExpr r t [ arg ] "binary_to_float($0)" |> Some
+        | _ ->
+            // Int32, Int64, Byte, etc. — all parse to integer
+            emitExpr r t [ arg ] "binary_to_integer($0)" |> Some
+    | "ToString", Some c, [] ->
+        match c.Type with
+        | Type.Number(kind, _) ->
+            match kind with
+            | Float16
+            | Float32
+            | Float64
+            | Decimal -> emitExpr r t [ c ] "float_to_binary($0)" |> Some
+            | _ -> emitExpr r t [ c ] "integer_to_binary($0)" |> Some
+        | _ -> None
+    | _ -> None
+
+/// Beam-specific System.Convert replacements.
+let private convert
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, args with
+    | "ToInt32", [ arg ] ->
+        match arg.Type with
+        | Type.String -> emitExpr r t [ arg ] "binary_to_integer($0)" |> Some
+        | Type.Number(kind, _) ->
+            match kind with
+            | Float16
+            | Float32
+            | Float64
+            | Decimal -> emitExpr r t [ arg ] "trunc($0)" |> Some
+            | _ -> Some arg
+        | _ -> Some arg
+    | "ToInt64", [ arg ] ->
+        match arg.Type with
+        | Type.String -> emitExpr r t [ arg ] "binary_to_integer($0)" |> Some
+        | Type.Number(kind, _) ->
+            match kind with
+            | Float16
+            | Float32
+            | Float64
+            | Decimal -> emitExpr r t [ arg ] "trunc($0)" |> Some
+            | _ -> Some arg
+        | _ -> Some arg
+    | "ToDouble", [ arg ] ->
+        match arg.Type with
+        | Type.String -> emitExpr r t [ arg ] "binary_to_float($0)" |> Some
+        | Type.Number(kind, _) ->
+            match kind with
+            | Float16
+            | Float32
+            | Float64
+            | Decimal -> Some arg
+            | _ -> emitExpr r t [ arg ] "float($0)" |> Some
+        | _ -> emitExpr r t [ arg ] "float($0)" |> Some
+    | "ToString", [ arg ] ->
+        match arg.Type with
+        | Type.String -> Some arg
+        | Type.Number(kind, _) ->
+            match kind with
+            | Float16
+            | Float32
+            | Float64
+            | Decimal -> emitExpr r t [ arg ] "float_to_binary($0)" |> Some
+            | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
+        | _ ->
+            emitExpr r t [ arg ] "iolist_to_binary(io_lib:format(binary_to_list(<<\"~p\">>), [$0]))"
+            |> Some
+    | _ -> None
+
 let tryField (_com: ICompiler) _returnTyp _ownerTyp _fieldName : Expr option = None
 
 let tryType (_t: Type) : Expr option = None
@@ -192,6 +405,21 @@ let tryCall
     | "Microsoft.FSharp.Core.FSharpValueOption`1" -> options com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.OptionModule"
     | "Microsoft.FSharp.Core.ValueOptionModule" -> optionModule com ctx r t info thisArg args
+    | "System.Object"
+    | "System.ValueType" -> conversions com ctx r t info thisArg args
+    | "System.Convert" -> convert com ctx r t info thisArg args
+    | "System.Char" -> conversions com ctx r t info thisArg args
+    | "System.SByte"
+    | "System.Byte"
+    | "System.Int16"
+    | "System.UInt16"
+    | "System.Int32"
+    | "System.UInt32"
+    | "System.Int64"
+    | "System.UInt64"
+    | "System.Single"
+    | "System.Double"
+    | "System.Decimal" -> numericTypes com ctx r t info thisArg args
     | _ -> None
 
 let tryBaseConstructor
