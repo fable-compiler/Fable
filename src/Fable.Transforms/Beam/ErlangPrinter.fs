@@ -216,6 +216,20 @@ module Output =
                 writeIndent ()
                 sb.Append("    ") |> ignore
                 printPattern sb clause.Pattern
+
+                match clause.Guard with
+                | [] -> ()
+                | guards ->
+                    sb.Append(" when ") |> ignore
+
+                    guards
+                    |> List.iteri (fun gi g ->
+                        if gi > 0 then
+                            sb.Append(", ") |> ignore
+
+                        printExpr sb indent g
+                    )
+
                 sb.Append(" ->") |> ignore
                 sb.AppendLine() |> ignore
 
@@ -321,6 +335,19 @@ module Output =
 
             writeIndent ()
             sb.Append("end") |> ignore
+
+        | Emit(template, args) ->
+            // Substitute $0, $1, etc. with printed argument expressions
+            let mutable result = template
+
+            args
+            |> List.iteri (fun i arg ->
+                let argSb = System.Text.StringBuilder()
+                printExpr argSb indent arg
+                result <- result.Replace($"${i}", argSb.ToString())
+            )
+
+            sb.Append(result) |> ignore
 
     let printFunClause (sb: System.Text.StringBuilder) (name: Atom) (clause: ErlFunClause) =
         let (Atom atomName) = name

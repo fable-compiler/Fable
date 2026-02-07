@@ -455,7 +455,9 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             let erlBody = transformExpr com ctx body
             Beam.ErlExpr.Block(assignments @ [ erlBody ])
 
-    | Emit(emitInfo, _typ, _range) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit $"%%emit: {emitInfo.Macro}")
+    | Emit(emitInfo, _typ, _range) ->
+        let args = emitInfo.CallInfo.Args |> List.map (transformExpr com ctx)
+        Beam.ErlExpr.Emit(emitInfo.Macro, args)
 
     | TryCatch(body, catch_, _finalizer, _range) ->
         let erlBody = transformExpr com ctx body

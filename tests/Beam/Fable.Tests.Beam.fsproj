@@ -29,6 +29,7 @@
     <Compile Include="RecordTests.fs" />
     <Compile Include="StringTests.fs" />
     <Compile Include="TryCatchTests.fs" />
+    <Compile Include="OptionTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

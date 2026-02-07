@@ -34,6 +34,7 @@ type ErlExpr =
     | BinOp of op: string * ErlExpr * ErlExpr
     | UnaryOp of op: string * ErlExpr
     | TryCatch of body: ErlExpr list * catchVar: string * catchBody: ErlExpr list
+    | Emit of template: string * args: ErlExpr list
 
 and ErlCaseClause =
     {
