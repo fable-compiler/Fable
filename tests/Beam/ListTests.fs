@@ -3,7 +3,6 @@ module Fable.Tests.List
 open Fable.Tests.Util
 open Util.Testing
 
-#if !FABLE_COMPILER_BEAM // TODO: needs fable-library-beam (list module)
 [<Fact>]
 let ``test List literal works`` () =
     let xs = [1; 2; 3]
@@ -28,7 +27,6 @@ let ``test List.head works`` () =
 let ``test List.tail works`` () =
     let xs = [1; 2; 3]
     xs.Tail.Head |> equal 2
-#endif
 
 [<Fact>]
 let ``test List equality works`` () =
@@ -52,7 +50,6 @@ let ``test List.isEmpty works`` () =
     List.isEmpty [1] |> equal false
     List.isEmpty<int> [] |> equal true
 
-#if !FABLE_COMPILER_BEAM // TODO: needs fable-library-beam (list module)
 [<Fact>]
 let ``test List.length works`` () =
     List.length [1; 2; 3] |> equal 3
@@ -87,4 +84,3 @@ let ``test List.append works`` () =
 [<Fact>]
 let ``test List.sum works`` () =
     [1; 2; 3; 4] |> List.sum |> equal 10
-#endif

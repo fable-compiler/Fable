@@ -32,6 +32,7 @@ let private operators
     match info.CompiledName, args with
     | (Operators.equality | "Eq"), [ left; right ] -> equals r true left right |> Some
     | (Operators.inequality | "Neq"), [ left; right ] -> equals r false left right |> Some
+    | Operators.unaryNegation, [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, _t, r) |> Some
     | _ -> None
 
 let private languagePrimitives

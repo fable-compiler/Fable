@@ -759,6 +759,54 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
 
             Beam.ErlExpr.Call(None, "iolist_to_binary", [ Beam.ErlExpr.List cleanArgs ])
             |> wrapWithHoisted hoisted
+        | selector when importModuleName = Some "list" ->
+            // Map F# List operations to Erlang stdlib
+            let args = info.Args |> List.map (transformExpr com ctx)
+            let hoisted, cleanArgs = hoistBlocksFromArgs args
+
+            match selector with
+            | "head" -> Beam.ErlExpr.Call(None, "hd", cleanArgs)
+            | "tail" -> Beam.ErlExpr.Call(None, "tl", cleanArgs)
+            | "length" -> Beam.ErlExpr.Call(None, "length", cleanArgs)
+            | "map" -> Beam.ErlExpr.Call(Some "lists", "map", cleanArgs)
+            | "filter" -> Beam.ErlExpr.Call(Some "lists", "filter", cleanArgs)
+            | "rev"
+            | "reverse" -> Beam.ErlExpr.Call(Some "lists", "reverse", cleanArgs)
+            | "append" -> Beam.ErlExpr.Call(Some "lists", "append", cleanArgs)
+            | "sum" ->
+                // ReplacementsInject adds IGenericAdder arg — Erlang's lists:sum/1 doesn't need it
+                match cleanArgs with
+                | list :: _ -> Beam.ErlExpr.Call(Some "lists", "sum", [ list ])
+                | _ -> Beam.ErlExpr.Call(Some "lists", "sum", cleanArgs)
+            | "fold" ->
+                // F# fold: folder(acc, item), Erlang foldl: fun(item, acc) — must swap
+                match cleanArgs with
+                | [ f; state; list ] ->
+                    let ctr = com.IncrementCounter()
+                    let xVar, accVar = $"Fold_x_{ctr}", $"Fold_acc_{ctr}"
+
+                    let wrapper =
+                        Beam.ErlExpr.Fun
+                            [
+                                {
+                                    Patterns = [ Beam.PVar xVar; Beam.PVar accVar ]
+                                    Guard = []
+                                    Body =
+                                        [
+                                            Beam.ErlExpr.Apply(
+                                                f,
+                                                [ Beam.ErlExpr.Variable accVar; Beam.ErlExpr.Variable xVar ]
+                                            )
+                                        ]
+                                }
+                            ]
+
+                    Beam.ErlExpr.Call(Some "lists", "foldl", [ wrapper; state; list ])
+                | _ -> Beam.ErlExpr.Call(Some "lists", "foldl", cleanArgs)
+            | _ ->
+                // Fallback: try lists:selector(args...)
+                Beam.ErlExpr.Call(Some "lists", sanitizeErlangName selector, cleanArgs)
+            |> wrapWithHoisted hoisted
         | selector ->
             let args = info.Args |> List.map (transformExpr com ctx)
             let hoisted, cleanArgs = hoistBlocksFromArgs args

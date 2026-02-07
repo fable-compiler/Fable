@@ -37,12 +37,10 @@ let ``test Evaluation order is preserved by generated code`` () =
 let ``test Adding floats works`` () =
     3.141 + 2.85 |> equal 5.991
 
-#if !FABLE_COMPILER_BEAM // TODO: needs fable-library-beam (int32 module)
 [<Fact>]
 let ``test Unary negation works`` () =
     let x = 5
     -x |> equal -5
-#endif
 
 [<Fact>]
 let ``test Unary plus works`` () =
