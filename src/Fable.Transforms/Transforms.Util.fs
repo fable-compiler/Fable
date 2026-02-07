@@ -1152,6 +1152,7 @@ module AST =
         | TypeScript -> com.LibraryDir + "/" + moduleName + ".ts"
         | JavaScript -> com.LibraryDir + "/" + moduleName + ".js"
         | Php -> com.LibraryDir + "/" + moduleName + ".php"
+        | Beam -> com.LibraryDir + "/" + moduleName + ".erl"
 
     let makeImportUserGenerated r t (selector: string) (path: string) =
         Import(

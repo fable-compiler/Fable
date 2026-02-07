@@ -131,10 +131,12 @@ module File =
             | Fable.Php -> ".php"
             | Fable.Dart -> ".dart"
             | Fable.Rust -> ".rs"
+            | Fable.Beam -> ".erl"
             | Fable.JavaScript -> ".js"
 
         match language, usesOutDir with
         | Fable.Python, _ -> fileExt // Extension will always be .py for Python
+        | Fable.Beam, _ -> fileExt // Extension will always be .erl for Beam
         | _, true -> fileExt
         | _ -> ".fs" + fileExt
 

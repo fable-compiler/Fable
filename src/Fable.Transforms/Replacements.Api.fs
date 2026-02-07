@@ -59,6 +59,10 @@ let tryCall (com: ICompiler) ctx r t info thisArg args =
     | Rust -> Rust.Replacements.tryCall com ctx r t info thisArg args
     | Python -> Py.Replacements.tryCall com ctx r t info thisArg args
     | Dart -> Dart.Replacements.tryCall com ctx r t info thisArg args
+    | Beam ->
+        match Beam.Replacements.tryCall com ctx r t info thisArg args with
+        | Some result -> Some result
+        | None -> JS.Replacements.tryCall com ctx r t info thisArg args
     | _ -> JS.Replacements.tryCall com ctx r t info thisArg args
 
 let error (com: ICompiler) msg =
@@ -82,7 +86,8 @@ let createMutablePublicValue (com: ICompiler) value =
     | TypeScript -> JS.Replacements.createAtom com value
     | Rust
     | Php
-    | Dart -> value
+    | Dart
+    | Beam -> value
 
 let getRefCell (com: ICompiler) r typ (expr: Expr) =
     match com.Options.Language with

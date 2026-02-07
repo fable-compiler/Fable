@@ -152,6 +152,19 @@ module private Util =
                 IO.Path.Join(outDir, modules, fileName)
 
             Path.ChangeExtension(absPath, fileExt)
+        | Beam ->
+            let fileExt = cliArgs.CompilerOptions.FileExtension
+
+            match cliArgs.OutDir with
+            | Some outDir ->
+                let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
+                let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
+                let absPath = Path.ChangeExtension(absPath, fileExt)
+                Pipeline.Beam.getTargetPath cliArgs absPath
+            | None ->
+                let absPath = Path.ChangeExtension(file, fileExt)
+                Pipeline.Beam.getTargetPath cliArgs absPath
+
         | lang ->
             let changeExtension path fileExt =
                 match lang with

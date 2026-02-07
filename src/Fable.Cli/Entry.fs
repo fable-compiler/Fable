@@ -106,10 +106,11 @@ let knownCliArgs () =
             "  - rust (alias rs)"
             "  - php"
             "  - dart"
+            "  - beam (alias erlang)"
             ""
             "Default is javascript"
             ""
-            "Support for TypeScript, Python, Rust, Php and Dart is experimental."
+            "Support for TypeScript, Python, Rust, Php, Dart and Beam is experimental."
         ]
 
         // Hidden args
@@ -194,6 +195,8 @@ let argLanguage (args: CliArgs) =
         | "dart" -> Ok Dart
         | "rs"
         | "rust" -> Ok Rust
+        | "beam"
+        | "erlang" -> Ok Beam
         | unknown ->
             let errorMessage =
                 [
@@ -206,6 +209,7 @@ let argLanguage (args: CliArgs) =
                     "  - rust (alias rs)"
                     "  - php"
                     "  - dart"
+                    "  - beam (alias erlang)"
                 ]
                 |> String.concat "\n"
 
@@ -318,6 +322,7 @@ type Runner =
                         | Python -> "FABLE_COMPILER_PYTHON"
                         | TypeScript -> "FABLE_COMPILER_TYPESCRIPT"
                         | JavaScript -> "FABLE_COMPILER_JAVASCRIPT"
+                        | Beam -> "FABLE_COMPILER_BEAM"
                     ]
                 |> List.distinct
 
@@ -463,6 +468,7 @@ let getStatus =
     | Rust -> "alpha"
     | Dart -> "beta"
     | Php -> "experimental"
+    | Beam -> "experimental"
 
 let getLibPkgVersion =
     function
@@ -471,7 +477,8 @@ let getLibPkgVersion =
     | Python
     | Rust
     | Dart
-    | Php -> None
+    | Php
+    | Beam -> None
 
 let private logPrelude commands language =
     match commands with

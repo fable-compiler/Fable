@@ -23,6 +23,8 @@
     <Compile Include="Python/Replacements.fs" />
     <Compile Include="Rust/Replacements.fs" />
     <Compile Include="Dart/Replacements.fs" />
+    <Compile Include="Beam/Beam.AST.fs" />
+    <Compile Include="Beam/Replacements.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="Replacements.Api.fs" />
     <Compile Include="FSharp2Fable.fsi" />
@@ -41,6 +43,8 @@
     <Compile Include="Python/Fable2Python.Transforms.fs" />
     <Compile Include="Python/PythonPrinter.fs" />
     <Compile Include="Python/PythonCompiler.fs" />
+    <Compile Include="Beam/Fable2Beam.fs" />
+    <Compile Include="Beam/ErlangPrinter.fs" />
     <Compile Include="Php/Php.fs" />
     <Compile Include="Php/Fable2Php.fs" />
     <Compile Include="Php/PhpPrinter.fs" />
