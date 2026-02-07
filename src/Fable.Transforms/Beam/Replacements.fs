@@ -268,6 +268,43 @@ let private options
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
     | _ -> None
 
+/// Beam-specific Result module replacements.
+/// Result in Erlang: Ok x = {0, X}, Error e = {1, E}.
+let private resultModule
+    (com: ICompiler)
+    (_ctx: Context)
+    _r
+    (t: Type)
+    (info: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, args with
+    | "Map", [ fn; result ] -> Helper.LibCall(com, "fable_result", "map", t, [ fn; result ]) |> Some
+    | "MapError", [ fn; result ] -> Helper.LibCall(com, "fable_result", "map_error", t, [ fn; result ]) |> Some
+    | "Bind", [ fn; result ] -> Helper.LibCall(com, "fable_result", "bind", t, [ fn; result ]) |> Some
+    | "IsOk", [ result ] -> Helper.LibCall(com, "fable_result", "is_ok", t, [ result ]) |> Some
+    | "IsError", [ result ] -> Helper.LibCall(com, "fable_result", "is_error", t, [ result ]) |> Some
+    | "Contains", [ value; result ] -> Helper.LibCall(com, "fable_result", "contains", t, [ value; result ]) |> Some
+    | "Count", [ result ] -> Helper.LibCall(com, "fable_result", "count", t, [ result ]) |> Some
+    | "DefaultValue", [ defVal; result ] ->
+        Helper.LibCall(com, "fable_result", "default_value", t, [ defVal; result ])
+        |> Some
+    | "DefaultWith", [ defFn; result ] ->
+        Helper.LibCall(com, "fable_result", "default_with", t, [ defFn; result ])
+        |> Some
+    | "Exists", [ fn; result ] -> Helper.LibCall(com, "fable_result", "exists", t, [ fn; result ]) |> Some
+    | "Fold", [ fn; state; result ] -> Helper.LibCall(com, "fable_result", "fold", t, [ fn; state; result ]) |> Some
+    | "FoldBack", [ fn; result; state ] ->
+        Helper.LibCall(com, "fable_result", "fold_back", t, [ fn; result; state ])
+        |> Some
+    | "ForAll", [ fn; result ] -> Helper.LibCall(com, "fable_result", "forall", t, [ fn; result ]) |> Some
+    | "Iterate", [ fn; result ] -> Helper.LibCall(com, "fable_result", "iter", t, [ fn; result ]) |> Some
+    | "ToArray", [ result ] -> Helper.LibCall(com, "fable_result", "to_array", t, [ result ]) |> Some
+    | "ToList", [ result ] -> Helper.LibCall(com, "fable_result", "to_list", t, [ result ]) |> Some
+    | "ToOption", [ result ] -> Helper.LibCall(com, "fable_result", "to_option", t, [ result ]) |> Some
+    | _ -> None
+
 /// Beam-specific type conversion replacements.
 /// Handles int(), float(), string(), ToString, Parse, etc.
 let private conversions
@@ -815,6 +852,7 @@ let tryCall
     | "Microsoft.FSharp.Core.FSharpValueOption`1" -> options com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.OptionModule"
     | "Microsoft.FSharp.Core.ValueOptionModule" -> optionModule com ctx r t info thisArg args
+    | "Microsoft.FSharp.Core.ResultModule" -> resultModule com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.FSharpList`1" -> lists com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.ListModule" -> listModule com ctx r t info thisArg args
     | "System.Array" -> arrays com ctx r t info thisArg args
