@@ -49,7 +49,7 @@ let private sanitizeErlangName (name: string) =
             let c = char (System.Convert.ToInt32(m.Groups.[1].Value, 16))
 
             if System.Char.IsLetterOrDigit(c) then
-                string c
+                c.ToString()
             else
                 "_"
     )
@@ -79,7 +79,7 @@ let private sanitizeErlangVar (name: string) =
 let private toErlangVar (ident: Ident) =
     let name = capitalizeFirst ident.Name |> sanitizeErlangVar
     // Prefix unit parameters with _ to suppress Erlang unused variable warnings
-    if ident.Name.StartsWith("unitVar") then
+    if ident.Name.StartsWith("unitVar", System.StringComparison.Ordinal) then
         "_" + name
     else
         name
@@ -224,7 +224,10 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         let erlExprs = exprs |> List.map (transformExpr com ctx)
         Beam.ErlExpr.Block erlExprs
 
-    | Let(ident, value, body) when ident.IsMutable && not (ident.Name.StartsWith("copyOfStruct")) ->
+    | Let(ident, value, body) when
+        ident.IsMutable
+        && not (ident.Name.StartsWith("copyOfStruct", System.StringComparison.Ordinal))
+        ->
         // Mutable variable: use process dictionary put/get
         // (but not for compiler-generated struct copies which aren't truly mutated)
         let atomKey =
@@ -449,7 +452,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         if allAreLambdas && bindings.Length > 1 then
             // Mutual recursion: bundle all functions into a single named fun
             // that dispatches on an atom tag
-            let bundleName = $"Mk_rec_{com.IncrementCounter()}"
+            let bundleName = $"Mk_rec_%d{com.IncrementCounter()}"
 
             // Build atom tags and the MutualRecBindings map
             let bindingInfos =
@@ -596,7 +599,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             // Create a temp var for the raw reason, then wrap it in a map with "message" field
             // so that e.Message field access works via maps:get
             let ctr = com.IncrementCounter()
-            let reasonVar = $"Exn_reason_{ctr}"
+            let reasonVar = $"Exn_reason_%d{ctr}"
             let identVar = capitalizeFirst ident.Name
 
             let erlCatchBody = transformExpr com ctx catchExpr
@@ -672,7 +675,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         // end,
         // WhileLoop_()
         let ctr = com.IncrementCounter()
-        let loopName = $"While_loop_{ctr}"
+        let loopName = $"While_loop_%d{ctr}"
         let erlGuard = transformExpr com ctx guard
         let erlBody = transformExpr com ctx body
 
@@ -727,7 +730,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         // end,
         // For_loop_(Start)
         let ctr = com.IncrementCounter()
-        let loopName = $"For_loop_{ctr}"
+        let loopName = $"For_loop_%d{ctr}"
         let varName = capitalizeFirst ident.Name |> sanitizeErlangVar
         let erlStart = transformExpr com ctx start
         let erlLimit = transformExpr com ctx limit
@@ -810,7 +813,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
     | _ ->
         let exprName = expr.GetType().Name
-        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom $"todo_{exprName.ToLowerInvariant()}"))
+        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom $"todo_%s{exprName.ToLowerInvariant()}"))
 
 and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam.ErlExpr =
     match value with
@@ -890,7 +893,7 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
             let entries =
                 values
                 |> List.mapi (fun i v ->
-                    Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom $"field_{i}")), transformExpr com ctx v
+                    Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom $"field_%d{i}")), transformExpr com ctx v
                 )
 
             Beam.ErlExpr.Map entries
@@ -961,7 +964,7 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
 
     | _ ->
         let kindName = value.GetType().Name
-        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom $"todo_{kindName.ToLowerInvariant()}"))
+        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom $"todo_%s{kindName.ToLowerInvariant()}"))
 
 and transformOperation
     (com: IBeamCompiler)
@@ -1187,7 +1190,7 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                     | Beam.ErlExpr.Literal _
                     | Beam.ErlExpr.Variable _ -> ([], expr)
                     | _ ->
-                        let varName = $"{name}_{counter}"
+                        let varName = $"%s{name}_%d{counter}"
                         ([ Beam.ErlExpr.Match(Beam.PVar varName, expr) ], Beam.ErlExpr.Variable varName)
 
                 let tempActualH, useActual = storeIfComplex "Assert_actual" cleanActual
@@ -1242,7 +1245,7 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                     | Beam.ErlExpr.Literal _
                     | Beam.ErlExpr.Variable _ -> ([], expr)
                     | _ ->
-                        let varName = $"{name}_{counter}"
+                        let varName = $"%s{name}_%d{counter}"
                         ([ Beam.ErlExpr.Match(Beam.PVar varName, expr) ], Beam.ErlExpr.Variable varName)
 
                 let tempActualH, useActual = storeIfComplex "Assert_actual" cleanActual
@@ -1330,7 +1333,7 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                 match cleanArgs with
                 | [ f; state; list ] ->
                     let ctr = com.IncrementCounter()
-                    let xVar, accVar = $"Fold_x_{ctr}", $"Fold_acc_{ctr}"
+                    let xVar, accVar = $"Fold_x_%d{ctr}", $"Fold_acc_%d{ctr}"
 
                     let wrapper =
                         Beam.ErlExpr.Fun
@@ -1478,7 +1481,7 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
             match cleanArgs with
             | [ sub ] ->
                 let ctr = com.IncrementCounter()
-                let posVar = $"Idx_pos_{ctr}"
+                let posVar = $"Idx_pos_%d{ctr}"
 
                 Beam.ErlExpr.Case(
                     Beam.ErlExpr.Call(Some "binary", "match", [ cleanCallee; sub ]),
@@ -1540,7 +1543,7 @@ and transformClassDeclaration
                 |> List.map (fun a ->
                     let name = capitalizeFirst a.Name |> sanitizeErlangVar
 
-                    if a.Name.StartsWith("unitVar") then
+                    if a.Name.StartsWith("unitVar", System.StringComparison.Ordinal) then
                         Beam.PVar("_" + name)
                     else
                         Beam.PVar(name)
@@ -1602,7 +1605,10 @@ and transformClassDeclaration
                 // The body typically calls the primary constructor
                 let ctorArgs =
                     memb.Args
-                    |> List.filter (fun a -> a.Name <> "this" && not (a.Name.StartsWith("unitVar")))
+                    |> List.filter (fun a ->
+                        a.Name <> "this"
+                        && not (a.Name.StartsWith("unitVar", System.StringComparison.Ordinal))
+                    )
 
                 let argPatterns =
                     ctorArgs
@@ -1633,7 +1639,7 @@ and transformClassDeclaration
             elif not memb.IsMangled && info.IsGetter then
                 // Property getter: class_name_get_prop(This) -> maps:get(prop, get(This)).
                 let propName = sanitizeErlangName memb.Name
-                let funcName = $"{className}_{propName}"
+                let funcName = $"%s{className}_%s{propName}"
                 // The getter body references `this` — the first arg
                 let thisArg = memb.Args |> List.tryFind (fun a -> a.Name = "this")
 
@@ -1665,7 +1671,7 @@ and transformClassDeclaration
             elif not memb.IsMangled && info.IsSetter then
                 // Property setter: class_name_set_prop(This, Value) -> put(This, maps:put(prop, Value, get(This))).
                 let propName = sanitizeErlangName memb.Name
-                let funcName = $"{className}_set_{propName}"
+                let funcName = $"%s{className}_set_%s{propName}"
                 let nonThisArgs = memb.Args |> List.filter (fun a -> a.Name <> "this")
 
                 let argPatterns =
@@ -1698,7 +1704,7 @@ and transformClassDeclaration
             else
                 // Regular method: class_name_method(This, Args...) -> Body.
                 let methodName = sanitizeErlangName memb.Name
-                let funcName = $"{className}_{methodName}"
+                let funcName = $"%s{className}_%s{methodName}"
                 let allArgs = memb.Args
                 let nonThisArgs = allArgs |> List.filter (fun a -> a.Name <> "this")
 
@@ -1755,7 +1761,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                     // Erlang's `_` is anonymous (can't be referenced), need a real var
                     if n = "_" || n = "__" then
                         "This"
-                    elif n.EndsWith("$") then
+                    elif n.EndsWith("$", System.StringComparison.Ordinal) then
                         n.TrimEnd('$') // e.g., This$ -> This
                     else
                         n

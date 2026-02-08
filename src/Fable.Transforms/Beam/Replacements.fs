@@ -1373,10 +1373,10 @@ let tryCall
         // Large BigInt literals: FromString("12345...") → binary_to_integer
         | "FromString", None, [ arg ] -> emitExpr r t [ arg ] "binary_to_integer($0)" |> Some
         // FromInt32/FromInt64/etc: identity (Erlang native integers)
-        | name, None, [ arg ] when name.StartsWith("From") -> Some arg
+        | name, None, [ arg ] when name.StartsWith("From", System.StringComparison.Ordinal) -> Some arg
         // ToInt/ToDouble/etc: identity
-        | name, None, [ arg ] when name.StartsWith("To") -> Some arg
-        | name, Some c, _ when name.StartsWith("To") -> Some c
+        | name, None, [ arg ] when name.StartsWith("To", System.StringComparison.Ordinal) -> Some arg
+        | name, Some c, _ when name.StartsWith("To", System.StringComparison.Ordinal) -> Some c
         | _ -> None
     | _ -> None
 

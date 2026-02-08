@@ -9,7 +9,7 @@ module Output =
 
     let rec printLiteral (sb: System.Text.StringBuilder) (lit: ErlLiteral) =
         match lit with
-        | Integer i -> sb.Append(string i) |> ignore
+        | Integer i -> sb.Append(i.ToString()) |> ignore
         | Float f ->
             // Use full double precision (17 significant digits) to avoid lossy rounding
             let s = sprintf "%.17g" f
@@ -18,7 +18,7 @@ module Output =
                 sb.Append(s) |> ignore
             else
                 sb.Append(s + ".0") |> ignore
-        | StringLit s -> sb.Append($"<<\"{escapeErlangString s}\">>") |> ignore
+        | StringLit s -> sb.Append($"<<\"%s{escapeErlangString s}\">>") |> ignore
         | AtomLit(Atom a) -> sb.Append(a) |> ignore
         | BoolLit true -> sb.Append("true") |> ignore
         | BoolLit false -> sb.Append("false") |> ignore
@@ -108,8 +108,8 @@ module Output =
 
         | Call(module_, func, args) ->
             match module_ with
-            | Some m -> sb.Append($"{m}:{func}(") |> ignore
-            | None -> sb.Append($"{func}(") |> ignore
+            | Some m -> sb.Append($"%s{m}:%s{func}(") |> ignore
+            | None -> sb.Append($"%s{func}(") |> ignore
 
             args
             |> List.iteri (fun i a ->
@@ -185,7 +185,7 @@ module Output =
                 if i > 0 then
                     sb.Append(";") |> ignore
 
-                sb.Append($"{name}(") |> ignore
+                sb.Append($"%s{name}(") |> ignore
 
                 clause.Patterns
                 |> List.iteri (fun j p ->
@@ -290,7 +290,7 @@ module Output =
             if needsParens left then
                 sb.Append(")") |> ignore
 
-            sb.Append($" {op} ") |> ignore
+            sb.Append($" %s{op} ") |> ignore
 
             if needsParens right then
                 sb.Append("(") |> ignore
@@ -326,7 +326,7 @@ module Output =
             writeIndent ()
             sb.AppendLine($"catch") |> ignore
             writeIndent ()
-            sb.AppendLine($"    _:{catchVar} ->") |> ignore
+            sb.AppendLine($"    _:%s{catchVar} ->") |> ignore
 
             catchBody
             |> List.iteri (fun i bodyExpr ->
@@ -351,14 +351,14 @@ module Output =
             |> List.iteri (fun i arg ->
                 let argSb = System.Text.StringBuilder()
                 printExpr argSb indent arg
-                result <- result.Replace($"${i}", argSb.ToString())
+                result <- result.Replace($"$%d{i}", argSb.ToString())
             )
 
             sb.Append(result) |> ignore
 
     let printFunClause (sb: System.Text.StringBuilder) (name: Atom) (clause: ErlFunClause) =
         let (Atom atomName) = name
-        sb.Append($"{atomName}(") |> ignore
+        sb.Append($"%s{atomName}(") |> ignore
 
         clause.Patterns
         |> List.iteri (fun i p ->
@@ -384,17 +384,17 @@ module Output =
 
     let printAttribute (sb: System.Text.StringBuilder) (attr: ErlAttribute) =
         match attr with
-        | ModuleAttr(Atom name) -> sb.AppendLine($"-module({name}).") |> ignore
+        | ModuleAttr(Atom name) -> sb.AppendLine($"-module(%s{name}).") |> ignore
 
         | ExportAttr exports ->
             let exportStrs =
                 exports
-                |> List.map (fun (Atom name, arity) -> $"{name}/{arity}")
+                |> List.map (fun (Atom name, arity) -> $"%s{name}/%d{arity}")
                 |> String.concat ", "
 
-            sb.AppendLine($"-export([{exportStrs}]).") |> ignore
+            sb.AppendLine($"-export([%s{exportStrs}]).") |> ignore
 
-        | CustomAttr(Atom name, value) -> sb.AppendLine($"-{name}({value}).") |> ignore
+        | CustomAttr(Atom name, value) -> sb.AppendLine($"-%s{name}(%s{value}).") |> ignore
 
     let printForm (sb: System.Text.StringBuilder) (form: ErlForm) =
         match form with
@@ -413,7 +413,7 @@ module Output =
 
             sb.AppendLine(".") |> ignore
 
-        | Comment text -> sb.AppendLine($"%% {text}") |> ignore
+        | Comment text -> sb.AppendLine($"%%%% %s{text}") |> ignore
 
     let printModule (sb: System.Text.StringBuilder) (erlModule: ErlModule) =
         erlModule.Forms |> List.iter (printForm sb)

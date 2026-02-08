@@ -71,7 +71,7 @@ let rec transformTypeInfo
     | Fable.DelegateType(argTypes, returnType) ->
         let genArgs = resolveGenerics (argTypes @ [ returnType ])
         let arity = List.length argTypes + 1
-        makeTypeInfoMap $"System.Func`{arity}" genArgs
+        makeTypeInfoMap $"System.Func`%d{arity}" genArgs
     | Fable.Tuple(genArgs, isStruct) ->
         let resolved = resolveGenerics genArgs
         let n = List.length genArgs
@@ -82,7 +82,7 @@ let rec transformTypeInfo
             else
                 "System.Tuple"
 
-        makeTypeInfoMap $"{prefix}`{n}" resolved
+        makeTypeInfoMap $"%s{prefix}`%d{n}" resolved
     | Fable.Option(genArg, _) ->
         let resolved = resolveGenerics [ genArg ]
         makeTypeInfoMap "Microsoft.FSharp.Core.FSharpOption`1" resolved
