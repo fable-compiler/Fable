@@ -1,6 +1,6 @@
 # Fable.Beam — F# on the BEAM
 
-Draft plan for adding an Erlang/BEAM target to Fable.
+An Erlang/BEAM target for Fable.
 
 ## Motivation
 
@@ -37,6 +37,57 @@ Erlang AST
 .erl source files
 ```
 
+## Design Principles: Beam as an Independent Target
+
+Fable.Beam should be its own target with its own idioms. While the compiler pipeline
+is shared with other targets, the **Replacements layer and runtime library should
+take full advantage of Erlang/BEAM capabilities** rather than inheriting patterns
+from JavaScript or Python that don't fit.
+
+### Don't inherit JS/Python patterns when Erlang is simpler
+
+Many .NET BCL operations that require complex library emulation in JS or Python map
+directly to Erlang built-ins:
+
+| Area | JS/Python approach | Erlang approach |
+| --- | --- | --- |
+| **Integers** | Fixed-width emulation (JS BigInt, Python PyO3 Rust) | Native arbitrary-precision — direct `+`, `-`, `*`, `div`, `rem` |
+| **Int64/BigInt** | Library calls (`big_int:op_add`, etc.) | Direct binary ops — Erlang integers ARE arbitrary-precision |
+| **Bitwise ops** | JS routes Int64 through BigInt library | Native `band`, `bor`, `bxor`, `bsl`, `bsr`, `bnot` |
+| **Lists** | Array-based emulation | Native linked lists — direct `[H\|T]`, `lists:*` |
+| **Maps** | Library objects/dicts | Native `#{}` maps, `maps:*` |
+| **Structural equality** | `Util.equals()` library call | Native `=:=` (deep comparison on all types) |
+| **Structural comparison** | `Util.compare()` library call | Native `<`, `>`, `=<`, `>=` (works on all terms) |
+| **Hashing** | Custom hash functions | `erlang:phash2/1` |
+| **Pattern matching** | Compiled to if/else chains | Native pattern matching in `case` expressions |
+| **Sequences** | Lazy iterators | Eager lists (simple, correct — add lazy later if needed) |
+
+**Rule: If Erlang can do it natively, do it natively.** Only create library modules
+(`fable-library-beam/*.erl`) for operations that genuinely need helper code. Avoid
+falling through to the JS Replacements fallback for Beam-specific operations.
+
+### Never modify F# tests to accommodate Erlang quirks
+
+The F# test suite represents valid F# code that must compile and run correctly on all
+targets. When an Erlang edge case causes a test failure:
+
+- **DO**: Add a helper function in `fable-library-beam/` that handles the edge case
+  (e.g., `fable_convert:to_float/1` handles `"1."` which `binary_to_float/1` rejects)
+- **DO**: Use `#if FABLE_COMPILER` blocks for genuine cross-platform differences
+  (e.g., .NET CultureInfo in parsing)
+- **DON'T**: Change the F# test input to avoid the edge case (e.g., changing
+  `float("1.")` to `float("1.0")` — this hides the bug)
+
+### Intercept in Beam Replacements, not JS fallback
+
+The Replacements pipeline tries `Beam.Replacements.tryCall` first, then falls back to
+`JS.Replacements.tryCall`. The JS fallback injects extra arguments (comparers, adders)
+that Erlang doesn't need and generates library imports (`Util`, `BigInt`, etc.) that
+don't exist in Erlang.
+
+**Handle operations in Beam Replacements** to get clean, original argument lists.
+Reserve the JS fallback only for operations that genuinely work the same way.
+
 ## New Files
 
 ### Compiler transforms (`src/Fable.Transforms/Beam/`)
@@ -60,19 +111,20 @@ Erlang modules implementing F# core types:
 | --- | --- | --- | --- |
 | fable_option.erl | Option | Some(x) = x, None = undefined | Done |
 | fable_list.erl | FSharpList | fold, find, choose, collect, etc. | Done |
-| fable_map.erl | FSharpMap | Erlang native maps | Done |
+| fable_map.erl | FSharpMap | Erlang native maps, pick/try_pick/min/max | Done |
 | fable_seq.erl | Seq / IEnumerable | Eager lists, delay/singleton/unfold | Done |
-| fable_string.erl | String utilities | Erlang binaries | Done |
-| fable_result.erl | Result | {ok, V} or {error, E} | Planned |
-| fable_choice.erl | Choice | Tagged tuples | Planned |
+| fable_string.erl | String utilities | Erlang binaries, pad/replace/join | Done |
+| fable_comparison.erl | Comparison | compare/2 returning -1/0/1 | Done |
+| fable_char.erl | Char utilities | is_letter/digit/upper/lower/whitespace | Done |
+| fable_convert.erl | Type conversions | Robust to_float handling edge cases | Done |
+| fable_reflection.erl | Reflection helpers | Type info as Erlang maps | Done |
+| fable_result.erl | Result | {ok, V} or {error, E} | Done |
 | fable_set.erl | FSharpSet | sets or gb_sets | Planned |
 | fable_decimal.erl | decimal | Needs a library or custom impl | Planned |
 | fable_guid.erl | Guid | UUID generation | Planned |
 | fable_date.erl | DateTime | calendar module | Planned |
 | fable_async.erl | Async | Processes + message passing | Planned |
 | fable_mailbox.erl | MailboxProcessor | gen_server wrapper | Planned |
-| fable_reflection.erl | Reflection helpers | Type info at runtime | Planned |
-| fable_util.erl | General utilities | Comparison, equality, hashing | Planned |
 
 ### Registration & CLI (modified existing files) -- All Done
 
@@ -267,30 +319,37 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 
 **Test suite**: `tests/Beam/` with xUnit. Run with `./build.sh test beam` which:
 
-1. Runs all tests on .NET via `dotnet test` (273 tests)
+1. Runs all tests on .NET via `dotnet test` (664 tests)
 2. Compiles tests to `.erl` via Fable
 3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (273 Erlang tests pass)
+4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (664 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
-| ArithmeticTests.fs | 28 | Arithmetic, bitwise, logical, comparison, Int64, unary negation |
-| ListTests.fs | 35 | List operations, head/tail, map/filter/fold, append, sort, choose, collect, find, zip |
-| UnionTypeTests.fs | 10 | All union tests including match-in-expression, Either with string interpolation |
-| PatternMatchTests.fs | 10 | All pattern match tests including option with string interpolation |
-| FnTests.fs | 15 | All function tests including recursive lambdas and mutual recursion |
-| RecordTests.fs | 9 | Creation, update, float fields, nesting, function params, anonymous records, structural equality |
-| StringTests.fs | 29 | String methods, interpolation, concat, substring, replace, split, trim, pad, etc. |
+| ArithmeticTests.fs | 104 | Arithmetic, bitwise, logical, comparison, Int64, BigInt, exponentiation, sign |
+| ListTests.fs | 94 | List operations, head/tail, map/filter/fold, append, sort, choose, collect, find, zip, chunkBySize, pairwise, windowed, etc. |
+| UnionTypeTests.fs | 18 | Union construction, matching, structural equality, active patterns |
+| PatternMatchTests.fs | 15 | Pattern matching with guards, options, nested patterns |
+| FnTests.fs | 15 | Functions, recursive lambdas, mutual recursion, closures |
+| RecordTests.fs | 11 | Creation, update, float fields, nesting, anonymous records, structural equality |
+| StringTests.fs | 29 | String methods, interpolation, concat, substring, replace, split, trim, pad |
 | TryCatchTests.fs | 8 | try/catch, failwith, exception messages, nested try/catch |
-| OptionTests.fs | 13 | Option.map/bind/defaultValue/filter/isSome/isNone, Option module functions |
-| ConversionTests.fs | 11 | int/float/string conversions, int-to-float, float-to-int, toString, parse |
+| OptionTests.fs | 19 | Option.map/bind/defaultValue/filter/isSome/isNone, Option module |
+| ConversionTests.fs | 43 | Type conversions, System.Convert, Parse, ToString, BigInt conversions |
 | LoopTests.fs | 7 | for loops, while loops, nested loops, mutable variables |
 | ArrayTests.fs | 19 | Array literal, map/filter/fold, mapi, append, sort, indexed, length |
 | TupleTests.fs | 10 | Tuple creation, destructuring, fst/snd, equality, nesting |
-| MapTests.fs | 21 | F# Map create/add/remove/find/containsKey/count, iteration, fold, filter |
-| SeqTests.fs | 47 | Seq.map/filter/fold/head/length/append/concat/distinct/take/skip/unfold/init/scan/zip/etc. |
-| SudokuTests.fs | 1 | Integration test: constraint-propagation Sudoku solver using Seq, Array, ranges |
-| **Total** | **273** | |
+| MapTests.fs | 62 | F# Map create/add/remove/find/containsKey/count, iteration, fold, filter, pick, tryPick, minKeyValue, maxKeyValue |
+| SeqTests.fs | 47 | Seq.map/filter/fold/head/length/append/concat/distinct/take/skip/unfold/init/scan/zip |
+| ComparisonTests.fs | 67 | compare, hash, isNull, Equals, CompareTo, GetHashCode, structural comparison |
+| CharTests.fs | 33 | Char.IsLetter/IsDigit/IsUpper/IsLower, char conversions, ToString |
+| TailCallTests.fs | 5 | Tail call optimization, recursive functions |
+| SeqExpressionTests.fs | 12 | Seq expressions, yield, yield! |
+| TypeTests.fs | 10 | Class constructors, properties, methods, closures |
+| ReflectionTests.fs | 11 | Type info, FSharpType reflection |
+| SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
+| ResultTests.fs | 12 | Result.map/bind/mapError, Result module functions |
+| **Total** | **664** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -386,7 +445,7 @@ The crown jewel.
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 273 .NET tests + 273 Erlang tests, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 664 .NET tests + 664 Erlang tests, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
@@ -639,7 +698,8 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
 - **Module naming**: Snake_case derived from filename (`MyModule.fs` → `my_module`)
 - **Replacements strategy**: Beam has its own dispatch in `Replacements.Api.fs` with
   JS fallback (`Beam.Replacements.tryCall` → `JS.Replacements.tryCall` if `None`).
-  Beam overrides equality to use native `=:=`; everything else falls through to JS.
+  Beam handles equality, comparison, numerics, collections, and conversions natively;
+  only operations that genuinely work the same way fall through to JS.
 - **File structure**: Single `Fable2Beam.fs` for Phase 1 (PHP pattern), split later
   as complexity grows (Python pattern)
 - **DU representation**: Tagged tuples `{Tag, Field1, ...}` with integer tags,

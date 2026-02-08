@@ -156,7 +156,6 @@ let ``test System.Convert.ToDouble works`` () =
     float(1L) |> equal x
     float(1.f) |> equal x
     float(1.) |> equal x
-    // Erlang's binary_to_float requires "1.0" not "1." (no trailing-dot format)
     float("1.0") |> equal x
 
     Convert.ToDouble(1) |> equal x

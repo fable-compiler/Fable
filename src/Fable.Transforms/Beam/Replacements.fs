@@ -105,7 +105,7 @@ let private operators
         | _ -> Some arg
     | ("ToSingle" | "ToDouble"), [ arg ] ->
         match arg.Type with
-        | Type.String -> emitExpr r _t [ arg ] "binary_to_float($0)" |> Some
+        | Type.String -> Helper.LibCall(_com, "fable_convert", "to_float", _t, [ arg ]) |> Some
         | Type.Number(kind, _) ->
             match kind with
             | Float16
@@ -116,7 +116,7 @@ let private operators
         | _ -> emitExpr r _t [ arg ] "float($0)" |> Some
     | "ToDecimal", [ arg ] ->
         match arg.Type with
-        | Type.String -> emitExpr r _t [ arg ] "binary_to_float($0)" |> Some
+        | Type.String -> Helper.LibCall(_com, "fable_convert", "to_float", _t, [ arg ]) |> Some
         | Type.Number(kind, _) ->
             match kind with
             | Float16
@@ -504,7 +504,7 @@ let private resultModule
 /// Beam-specific type conversion replacements.
 /// Handles int(), float(), string(), ToString, Parse, etc.
 let private conversions
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -530,7 +530,7 @@ let private conversions
     // float(x), double(x) → convert to float
     | ("ToSingle" | "ToDouble"), [ arg ] ->
         match arg.Type with
-        | Type.String -> emitExpr r t [ arg ] "binary_to_float($0)" |> Some
+        | Type.String -> Helper.LibCall(com, "fable_convert", "to_float", t, [ arg ]) |> Some
         | Type.Number(kind, _) ->
             match kind with
             | Float16
@@ -586,7 +586,7 @@ let private numericTypes
         match info.DeclaringEntityFullName with
         | "System.Double"
         | "System.Single"
-        | "System.Decimal" -> emitExpr r t [ arg ] "binary_to_float($0)" |> Some
+        | "System.Decimal" -> Helper.LibCall(com, "fable_convert", "to_float", t, [ arg ]) |> Some
         | _ ->
             // Int32, Int64, Byte, etc. — all parse to integer
             emitExpr r t [ arg ] "binary_to_integer($0)" |> Some
@@ -607,7 +607,7 @@ let private numericTypes
 
 /// Beam-specific System.Convert replacements.
 let private convert
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -630,7 +630,7 @@ let private convert
 
     let toFloat (arg: Expr) =
         match arg.Type with
-        | Type.String -> emitExpr r t [ arg ] "binary_to_float($0)" |> Some
+        | Type.String -> Helper.LibCall(com, "fable_convert", "to_float", t, [ arg ]) |> Some
         | Type.Number(kind, _) ->
             match kind with
             | Float16
