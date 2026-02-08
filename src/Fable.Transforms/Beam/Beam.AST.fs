@@ -28,11 +28,11 @@ type ErlExpr =
     | Apply of func: ErlExpr * args: ErlExpr list
     | Fun of clauses: ErlFunClause list
     | NamedFun of name: string * clauses: ErlFunClause list
-    | Case of ErlExpr * ErlCaseClause list
-    | Match of ErlPattern * ErlExpr
+    | Case of expr: ErlExpr * clauses: ErlCaseClause list
+    | Match of pattern: ErlPattern * expr: ErlExpr
     | Block of ErlExpr list
-    | BinOp of op: string * ErlExpr * ErlExpr
-    | UnaryOp of op: string * ErlExpr
+    | BinOp of op: string * left: ErlExpr * right: ErlExpr
+    | UnaryOp of op: string * operand: ErlExpr
     | TryCatch of body: ErlExpr list * catchVar: string * catchBody: ErlExpr list
     | Emit of template: string * args: ErlExpr list
 

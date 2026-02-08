@@ -7,7 +7,7 @@
          group_by/2, count_by/2,
          item/2, head/1, last/1,
          find_index/2, try_find_index/2,
-         map2/3, map_indexed/2,
+         map2/3, map_indexed/2, map_indexed2/3,
          iter_indexed/2, iter2/3,
          fold2/4, fold_back2/4,
          scan/3, scan_back/3,
@@ -172,6 +172,10 @@ map2(Fn, L1, L2) ->
 map_indexed(Fn, List) ->
     element(1, lists:mapfoldl(fun(E, I) -> {(Fn(I))(E), I + 1} end, 0, List)).
 
+map_indexed2(Fn, L1, L2) ->
+    Zipped = lists:zip(L1, L2),
+    element(1, lists:mapfoldl(fun({A, B}, I) -> {((Fn(I))(A))(B), I + 1} end, 0, Zipped)).
+
 iter_indexed(Fn, List) ->
     iter_indexed_acc(Fn, List, 0).
 
@@ -190,14 +194,14 @@ fold_back2(Fn, L1, L2, State) ->
     lists:foldr(fun({A, B}, Acc) -> ((Fn(A))(B))(Acc) end, State, lists:zip(L1, L2)).
 
 scan(Fn, State, List) ->
-    {_, Result} = lists:mapfoldl(fun(Item, Acc) ->
+    {Result, _} = lists:mapfoldl(fun(Item, Acc) ->
         New = (Fn(Acc))(Item),
         {New, New}
     end, State, List),
     [State | Result].
 
 scan_back(Fn, List, State) ->
-    {_, Result} = lists:mapfoldr(fun(Item, Acc) ->
+    {Result, _} = lists:mapfoldr(fun(Item, Acc) ->
         New = (Fn(Item))(Acc),
         {New, New}
     end, State, List),

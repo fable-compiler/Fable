@@ -242,3 +242,275 @@ let ``test Seq.partition works`` () =
     let (yes, no) = [1; 2; 3; 4; 5] |> Seq.toList |> List.partition (fun x -> x % 2 = 0)
     yes |> equal [2; 4]
     no |> equal [1; 3; 5]
+
+[<Fact>]
+let ``test Seq.findIndex works`` () =
+    [1; 2; 3; 4] |> Seq.findIndex (fun x -> x > 2) |> equal 2
+
+[<Fact>]
+let ``test Seq.findBack works`` () =
+    [1; 2; 3; 4] |> Seq.findBack (fun x -> x < 4) |> equal 3
+
+[<Fact>]
+let ``test Seq.findIndexBack works`` () =
+    [1; 2; 3; 4] |> Seq.findIndexBack (fun x -> x < 4) |> equal 2
+
+[<Fact>]
+let ``test Seq.tryFindBack works`` () =
+    [1; 2; 3] |> Seq.tryFindBack (fun x -> x > 2) |> equal (Some 3)
+    [1; 2; 3] |> Seq.tryFindBack (fun x -> x > 10) |> equal None
+
+[<Fact>]
+let ``test Seq.tryFindIndex works`` () =
+    [1; 2; 3; 4] |> Seq.tryFindIndex (fun x -> x > 2) |> equal (Some 2)
+    [1; 2; 3; 4] |> Seq.tryFindIndex (fun x -> x > 10) |> equal None
+
+[<Fact>]
+let ``test Seq.tryFindIndexBack works`` () =
+    [1; 2; 3; 4] |> Seq.tryFindIndexBack (fun x -> x < 4) |> equal (Some 2)
+    [1; 2; 3; 4] |> Seq.tryFindIndexBack (fun x -> x > 10) |> equal None
+
+[<Fact>]
+let ``test Seq.tryHead works`` () =
+    [1; 2; 3] |> Seq.tryHead |> equal (Some 1)
+    Seq.empty<int> |> Seq.tryHead |> equal None
+
+[<Fact>]
+let ``test Seq.tail works`` () =
+    [1; 2; 3] |> Seq.tail |> Seq.toList |> equal [2; 3]
+
+[<Fact>]
+let ``test Seq.item works`` () =
+    [10; 20; 30] |> Seq.item 1 |> equal 20
+
+[<Fact>]
+let ``test Seq.tryItem works`` () =
+    [10; 20; 30] |> Seq.tryItem 1 |> equal (Some 20)
+    [10; 20; 30] |> Seq.tryItem 5 |> equal None
+
+[<Fact>]
+let ``test Seq.tryLast works`` () =
+    [1; 2; 3] |> Seq.tryLast |> equal (Some 3)
+    Seq.empty<int> |> Seq.tryLast |> equal None
+
+[<Fact>]
+let ``test Seq.exactlyOne works`` () =
+    [42] |> Seq.exactlyOne |> equal 42
+
+[<Fact>]
+let ``test Seq.tryExactlyOne works`` () =
+    [42] |> Seq.tryExactlyOne |> equal (Some 42)
+    [1; 2] |> Seq.tryExactlyOne |> equal None
+    Seq.empty<int> |> Seq.tryExactlyOne |> equal None
+
+[<Fact>]
+let ``test Seq.iteri works`` () =
+    let mutable total = 0
+    [10; 20; 30] |> Seq.iteri (fun i x -> total <- total + i + x)
+    total |> equal 63
+
+[<Fact>]
+let ``test Seq.iter2 works`` () =
+    let mutable total = 0
+    Seq.iter2 (fun a b -> total <- total + a + b) [1; 2; 3] [10; 20; 30]
+    total |> equal 66
+
+[<Fact>]
+let ``test Seq.map2 works`` () =
+    Seq.map2 (fun a b -> a + b) [1; 2; 3] [10; 20; 30]
+    |> Seq.toList
+    |> equal [11; 22; 33]
+
+[<Fact>]
+let ``test Seq.mapi works`` () =
+    [10; 20; 30]
+    |> Seq.mapi (fun i x -> i * 100 + x)
+    |> Seq.toList
+    |> equal [10; 120; 230]
+
+[<Fact>]
+let ``test Seq.mapFold works`` () =
+    let result, state =
+        [1; 2; 3; 4]
+        |> Seq.mapFold (fun acc x -> (acc + x, acc + x)) 0
+    result |> Seq.toList |> equal [1; 3; 6; 10]
+    state |> equal 10
+
+[<Fact>]
+let ``test Seq.mapFoldBack works`` () =
+    let result, state =
+        Seq.mapFoldBack (fun x acc -> (x + acc, x + acc)) [1; 2; 3; 4] 0
+    result |> Seq.toList |> equal [10; 9; 7; 4]
+    state |> equal 10
+
+[<Fact>]
+let ``test Seq.scan works`` () =
+    [1; 2; 3; 4]
+    |> Seq.scan (fun acc x -> acc + x) 0
+    |> Seq.toList
+    |> equal [0; 1; 3; 6; 10]
+
+[<Fact>]
+let ``test Seq.maxBy works`` () =
+    [1; 3; 2] |> Seq.maxBy (fun x -> -x) |> equal 1
+
+[<Fact>]
+let ``test Seq.minBy works`` () =
+    [1; 3; 2] |> Seq.minBy (fun x -> -x) |> equal 3
+
+[<Fact>]
+let ``test Seq.ofArray works`` () =
+    [| 1; 2; 3 |] |> Seq.ofArray |> Seq.toList |> equal [1; 2; 3]
+
+[<Fact>]
+let ``test Seq.pick works`` () =
+    [1; 2; 3; 4]
+    |> Seq.pick (fun x -> if x > 2 then Some (x * 10) else None)
+    |> equal 30
+
+[<Fact>]
+let ``test Seq.tryPick works`` () =
+    [1; 2; 3] |> Seq.tryPick (fun x -> if x > 2 then Some (x * 10) else None) |> equal (Some 30)
+    [1; 2; 3] |> Seq.tryPick (fun x -> if x > 10 then Some x else None) |> equal None
+
+[<Fact>]
+let ``test Seq.exists2 works`` () =
+    Seq.exists2 (fun a b -> a + b > 5) [1; 2; 3] [3; 3; 3] |> equal true
+    Seq.exists2 (fun a b -> a + b > 10) [1; 2; 3] [3; 3; 3] |> equal false
+
+[<Fact>]
+let ``test Seq.forall2 works`` () =
+    Seq.forall2 (fun a b -> a + b > 0) [1; 2; 3] [3; 3; 3] |> equal true
+    Seq.forall2 (fun a b -> a + b > 4) [1; 2; 3] [3; 3; 3] |> equal false
+
+[<Fact>]
+let ``test Seq.zip3 works`` () =
+    let result = Seq.zip3 [1; 2] ["a"; "b"] [10; 20] |> Seq.toList
+    List.length result |> equal 2
+    let (a, b, c) = result.[0]
+    a |> equal 1
+    b |> equal "a"
+    c |> equal 10
+
+[<Fact>]
+let ``test Seq.countBy works`` () =
+    let result = [1; 2; 3; 4; 5] |> Seq.countBy (fun x -> x % 2 = 0) |> Seq.toList
+    result |> List.length |> equal 2
+
+[<Fact>]
+let ``test Seq.groupBy works`` () =
+    let result = [1; 2; 3; 4; 5; 6] |> Seq.groupBy (fun x -> x % 3) |> Seq.toList
+    result |> List.length |> equal 3
+
+[<Fact>]
+let ``test Seq.readonly works`` () =
+    [1; 2; 3] |> Seq.readonly |> Seq.toList |> equal [1; 2; 3]
+
+[<Fact>]
+let ``test Seq.where works`` () =
+    [1; 2; 3; 4; 5] |> Seq.where (fun x -> x > 3) |> Seq.toList |> equal [4; 5]
+
+[<Fact>]
+let ``test Seq.windowed works`` () =
+    [1; 2; 3; 4; 5]
+    |> Seq.windowed 3
+    |> Seq.toList
+    |> equal [[|1; 2; 3|]; [|2; 3; 4|]; [|3; 4; 5|]]
+
+[<Fact>]
+let ``test Seq.allPairs works`` () =
+    let result = Seq.allPairs [1; 2] ["a"; "b"] |> Seq.toList
+    result |> List.length |> equal 4
+    fst result.[0] |> equal 1
+    snd result.[0] |> equal "a"
+
+[<Fact>]
+let ``test Seq.splitInto works`` () =
+    let result = [1; 2; 3; 4; 5] |> Seq.splitInto 3 |> Seq.toList
+    result |> List.length |> equal 3
+
+[<Fact>]
+let ``test Seq.transpose works`` () =
+    [[1; 2; 3]; [4; 5; 6]]
+    |> Seq.transpose
+    |> Seq.map Seq.toList
+    |> Seq.toList
+    |> equal [[1; 4]; [2; 5]; [3; 6]]
+
+[<Fact>]
+let ``test Seq.updateAt works`` () =
+    [1; 2; 3; 4; 5]
+    |> Seq.updateAt 2 99
+    |> Seq.toList
+    |> equal [1; 2; 99; 4; 5]
+
+[<Fact>]
+let ``test Seq.insertAt works`` () =
+    [1; 2; 3]
+    |> Seq.insertAt 1 99
+    |> Seq.toList
+    |> equal [1; 99; 2; 3]
+
+[<Fact>]
+let ``test Seq.insertManyAt works`` () =
+    [1; 2; 3]
+    |> Seq.insertManyAt 1 [88; 99]
+    |> Seq.toList
+    |> equal [1; 88; 99; 2; 3]
+
+[<Fact>]
+let ``test Seq.removeAt works`` () =
+    [1; 2; 3; 4]
+    |> Seq.removeAt 1
+    |> Seq.toList
+    |> equal [1; 3; 4]
+
+[<Fact>]
+let ``test Seq.removeManyAt works`` () =
+    [1; 2; 3; 4; 5]
+    |> Seq.removeManyAt 1 2
+    |> Seq.toList
+    |> equal [1; 4; 5]
+
+[<Fact>]
+let ``test Seq.average works`` () =
+    [1.0; 2.0; 3.0] |> Seq.average |> equal 2.0
+
+[<Fact>]
+let ``test Seq.averageBy works`` () =
+    [1; 2; 3] |> Seq.averageBy (fun x -> float x) |> equal 2.0
+
+[<Fact>]
+let ``test Seq.reduceBack works`` () =
+    [1; 2; 3; 4]
+    |> Seq.reduceBack (fun x acc -> x - acc)
+    |> equal -2
+
+[<Fact>]
+let ``test Seq.sortWith works`` () =
+    [3; 1; 4; 1; 5]
+    |> Seq.sortWith (fun a b -> compare a b)
+    |> Seq.toList
+    |> equal [1; 1; 3; 4; 5]
+
+[<Fact>]
+let ``test Seq.compareWith works`` () =
+    Seq.compareWith compare [1; 2; 3] [1; 2; 3] |> equal 0
+    Seq.compareWith compare [1; 2; 3] [1; 2; 4] |> equal -1
+    Seq.compareWith compare [1; 2; 4] [1; 2; 3] |> equal 1
+    Seq.compareWith compare [1; 2] [1; 2; 3] |> equal -1
+
+[<Fact>]
+let ``test Seq.fold2 works`` () =
+    Seq.fold2 (fun acc a b -> acc + a + b) 0 [1; 2; 3] [10; 20; 30]
+    |> equal 66
+
+[<Fact>]
+let ``test Seq.scanBack works`` () =
+    Seq.scanBack (fun x acc -> x + acc) [1; 2; 3; 4] 0
+    |> Seq.toList
+    |> equal [10; 9; 7; 4; 0]
+
+[<Fact>]
+let ``test Seq.cache works`` () =
+    [1; 2; 3] |> Seq.cache |> Seq.toList |> equal [1; 2; 3]

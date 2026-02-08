@@ -1082,6 +1082,38 @@ let private seqModule
     | "Zip3", [ s1; s2; s3 ] -> Helper.LibCall(com, "fable_seq", "zip3", t, [ s1; s2; s3 ]) |> Some
     | "Pick", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "pick", t, [ fn; seq ]) |> Some
     | "TryPick", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "try_pick", t, [ fn; seq ]) |> Some
+    // Reuse fable_list.erl for operations already implemented there
+    | "FindBack", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "find_back", t, [ fn; seq ]) |> Some
+    | "TryFindBack", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "try_find_back", t, [ fn; seq ]) |> Some
+    | "FindIndexBack", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "find_index_back", t, [ fn; seq ]) |> Some
+    | "TryFindIndexBack", [ fn; seq ] ->
+        Helper.LibCall(com, "fable_list", "try_find_index_back", t, [ fn; seq ]) |> Some
+    | "TryHead", [ seq ] -> Helper.LibCall(com, "fable_list", "try_head", t, [ seq ]) |> Some
+    | "Tail", [ seq ] -> emitExpr r t [ seq ] "tl($0)" |> Some
+    | "TryItem", [ idx; seq ] -> Helper.LibCall(com, "fable_list", "try_item", t, [ idx; seq ]) |> Some
+    | "TryLast", [ seq ] -> Helper.LibCall(com, "fable_list", "try_last", t, [ seq ]) |> Some
+    | "ExactlyOne", [ seq ] -> Helper.LibCall(com, "fable_list", "exactly_one", t, [ seq ]) |> Some
+    | "TryExactlyOne", [ seq ] -> Helper.LibCall(com, "fable_list", "try_exactly_one", t, [ seq ]) |> Some
+    | "MapFold", [ fn; state; seq ] -> Helper.LibCall(com, "fable_list", "map_fold", t, [ fn; state; seq ]) |> Some
+    | "MapFoldBack", [ fn; seq; state ] ->
+        Helper.LibCall(com, "fable_list", "map_fold_back", t, [ fn; seq; state ])
+        |> Some
+    | "Average", [ seq ] -> Helper.LibCall(com, "fable_list", "average", t, [ seq ]) |> Some
+    | "AverageBy", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "average_by", t, [ fn; seq ]) |> Some
+    | "AllPairs", [ s1; s2 ] -> Helper.LibCall(com, "fable_list", "all_pairs", t, [ s1; s2 ]) |> Some
+    | "SplitInto", [ count; seq ] -> Helper.LibCall(com, "fable_list", "split_into", t, [ count; seq ]) |> Some
+    | "Transpose", [ seqs ] -> Helper.LibCall(com, "fable_list", "transpose", t, [ seqs ]) |> Some
+    | "UpdateAt", [ idx; value; seq ] -> Helper.LibCall(com, "fable_list", "update_at", t, [ idx; value; seq ]) |> Some
+    | "InsertAt", [ idx; value; seq ] -> Helper.LibCall(com, "fable_list", "insert_at", t, [ idx; value; seq ]) |> Some
+    | "InsertManyAt", [ idx; values; seq ] ->
+        Helper.LibCall(com, "fable_list", "insert_many_at", t, [ idx; values; seq ])
+        |> Some
+    | "RemoveAt", [ idx; seq ] -> Helper.LibCall(com, "fable_list", "remove_at", t, [ idx; seq ]) |> Some
+    | "RemoveManyAt", [ idx; count; seq ] ->
+        Helper.LibCall(com, "fable_list", "remove_many_at", t, [ idx; count; seq ])
+        |> Some
+    | ("Readonly" | "ReadOnly" | "Cache"), [ seq ] -> Some seq
+    | "Where", [ fn; seq ] -> emitExpr r t [ fn; seq ] "lists:filter($0, $1)" |> Some
     // RuntimeHelpers — seq computation expression desugaring
     | "EnumerateWhile", [ guard; body ] ->
         // Eager: repeatedly evaluate guard and body until guard returns false

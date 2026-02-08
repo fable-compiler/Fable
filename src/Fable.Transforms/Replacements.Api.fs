@@ -34,6 +34,7 @@ let tryField (com: ICompiler) returnTyp ownerTyp fieldName =
     | Rust -> Rust.Replacements.tryField com returnTyp ownerTyp fieldName
     | Python -> Py.Replacements.tryField com returnTyp ownerTyp fieldName
     | Dart -> Dart.Replacements.tryField com returnTyp ownerTyp fieldName
+    | Beam -> Beam.Replacements.tryField com returnTyp ownerTyp fieldName
     | _ -> JS.Replacements.tryField com returnTyp ownerTyp fieldName
 
 let tryBaseConstructor (com: ICompiler) ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
@@ -41,6 +42,7 @@ let tryBaseConstructor (com: ICompiler) ctx (ent: EntityRef) (argTypes: Lazy<Typ
     | Python -> Py.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
     | Dart -> Dart.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
     | Rust -> Rust.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
+    //| Beam -> Beam.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
     | _ -> JS.Replacements.tryBaseConstructor com ctx ent argTypes genArgs args
 
 let makeMethodInfo (com: ICompiler) r (name: string) (parameters: (string * Type) list) (returnType: Type) =
@@ -52,6 +54,7 @@ let tryType (com: ICompiler) (t: Type) =
     | Rust -> Rust.Replacements.tryType t
     | Python -> Py.Replacements.tryType t
     | Dart -> Dart.Replacements.tryType t
+    //| Beam -> Beam.Replacements.tryType t
     | _ -> JS.Replacements.tryType t
 
 let tryCall (com: ICompiler) ctx r t info thisArg args =
