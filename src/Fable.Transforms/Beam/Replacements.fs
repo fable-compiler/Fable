@@ -1100,7 +1100,7 @@ let private seqModule
 /// Beam-specific Array instance method replacements.
 /// Arrays in Erlang are represented as lists.
 let private arrays
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -1111,6 +1111,10 @@ let private arrays
     match info.CompiledName, thisArg, args with
     | "get_Length", Some c, _ -> emitExpr r t [ c ] "length($0)" |> Some
     | "get_Item", Some c, [ idx ] -> emitExpr r t [ c; idx ] "lists:nth($1 + 1, $0)" |> Some
+    // System.Array.Copy(source, dest, length) — copy first N elements
+    | "Copy", None, [ src; _dest; len ] -> emitExpr r t [ src; len ] "lists:sublist($0, $1)" |> Some
+    // System.Array.IndexOf(arr, value) — find index of value
+    | "IndexOf", None, [ arr; value ] -> Helper.LibCall(com, "fable_list", "index_of_value", t, [ value; arr ]) |> Some
     | _ -> None
 
 /// Beam-specific Array module replacements.
@@ -1166,7 +1170,67 @@ let private arrayModule
     | "SortBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; arr ]) |> Some
     | "SortWith", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; arr ]) |> Some
     | "Zip", [ arr1; arr2 ] -> Helper.LibCall(com, "fable_list", "zip", t, [ arr1; arr2 ]) |> Some
+    | "Zip3", [ a1; a2; a3 ] -> Helper.LibCall(com, "fable_list", "zip3", t, [ a1; a2; a3 ]) |> Some
     | "Unzip", [ arr ] -> emitExpr r t [ arr ] "lists:unzip($0)" |> Some
+    | "Initialize", [ count; fn ] -> Helper.LibCall(com, "fable_list", "init", t, [ count; fn ]) |> Some
+    | "Copy", [ arr ] -> emitExpr r t [ arr ] "lists:append($0, [])" |> Some
+    | "Scan", [ fn; state; arr ] -> Helper.LibCall(com, "fable_list", "scan", t, [ fn; state; arr ]) |> Some
+    | "ScanBack", [ fn; arr; state ] -> Helper.LibCall(com, "fable_list", "scan_back", t, [ fn; arr; state ]) |> Some
+    | "ReduceBack", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "reduce_back", t, [ fn; arr ]) |> Some
+    | "FindIndex", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "find_index", t, [ fn; arr ]) |> Some
+    | "TryFindIndex", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "try_find_index", t, [ fn; arr ]) |> Some
+    | "FindBack", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "find_back", t, [ fn; arr ]) |> Some
+    | "FindIndexBack", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "find_index_back", t, [ fn; arr ]) |> Some
+    | "TryFindBack", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "try_find_back", t, [ fn; arr ]) |> Some
+    | "TryFindIndexBack", [ fn; arr ] ->
+        Helper.LibCall(com, "fable_list", "try_find_index_back", t, [ fn; arr ]) |> Some
+    | "Pick", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "pick", t, [ fn; arr ]) |> Some
+    | "TryPick", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "try_pick", t, [ fn; arr ]) |> Some
+    | "Partition", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:partition($0, $1)" |> Some
+    | "Permute", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "permute", t, [ fn; arr ]) |> Some
+    | "Map2", [ fn; a1; a2 ] -> Helper.LibCall(com, "fable_list", "map2", t, [ fn; a1; a2 ]) |> Some
+    | "Map3", [ fn; a1; a2; a3 ] -> Helper.LibCall(com, "fable_list", "map3", t, [ fn; a1; a2; a3 ]) |> Some
+    | "MapIndexed2", [ fn; a1; a2 ] -> Helper.LibCall(com, "fable_list", "mapi2", t, [ fn; a1; a2 ]) |> Some
+    | "MapFold", [ fn; state; arr ] -> Helper.LibCall(com, "fable_list", "map_fold", t, [ fn; state; arr ]) |> Some
+    | "MapFoldBack", [ fn; arr; state ] ->
+        Helper.LibCall(com, "fable_list", "map_fold_back", t, [ fn; arr; state ])
+        |> Some
+    | "Distinct", [ arr ] -> Helper.LibCall(com, "fable_list", "distinct", t, [ arr ]) |> Some
+    | "DistinctBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "distinct_by", t, [ fn; arr ]) |> Some
+    | "Pairwise", [ arr ] -> Helper.LibCall(com, "fable_list", "pairwise", t, [ arr ]) |> Some
+    | "GroupBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "group_by", t, [ fn; arr ]) |> Some
+    | "CountBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "count_by", t, [ fn; arr ]) |> Some
+    | "Windowed", [ size; arr ] -> Helper.LibCall(com, "fable_list", "windowed", t, [ size; arr ]) |> Some
+    | "SplitInto", [ count; arr ] -> Helper.LibCall(com, "fable_list", "split_into", t, [ count; arr ]) |> Some
+    | "Transpose", [ arrs ] -> Helper.LibCall(com, "fable_list", "transpose", t, [ arrs ]) |> Some
+    | "Skip", [ count; arr ] -> emitExpr r t [ arr; count ] "lists:nthtail($1, $0)" |> Some
+    | "SkipWhile", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:dropwhile($0, $1)" |> Some
+    | "Take", [ count; arr ] -> emitExpr r t [ arr; count ] "lists:sublist($0, $1)" |> Some
+    | "TakeWhile", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:takewhile($0, $1)" |> Some
+    | "Truncate", [ count; arr ] -> emitExpr r t [ arr; count ] "lists:sublist($0, $1)" |> Some
+    | "TryHead", [ arr ] -> Helper.LibCall(com, "fable_list", "try_head", t, [ arr ]) |> Some
+    | "TryLast", [ arr ] -> Helper.LibCall(com, "fable_list", "try_last", t, [ arr ]) |> Some
+    | "TryItem", [ idx; arr ] -> Helper.LibCall(com, "fable_list", "try_item", t, [ idx; arr ]) |> Some
+    | "ExactlyOne", [ arr ] -> Helper.LibCall(com, "fable_list", "exactly_one", t, [ arr ]) |> Some
+    | "TryExactlyOne", [ arr ] -> Helper.LibCall(com, "fable_list", "try_exactly_one", t, [ arr ]) |> Some
+    | "Average", [ arr ] -> Helper.LibCall(com, "fable_list", "average", t, [ arr ]) |> Some
+    | "AverageBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "average_by", t, [ fn; arr ]) |> Some
+    | "IterateIndexed", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "iteri", t, [ fn; arr ]) |> Some
+    | "Indexed", [ arr ] -> Helper.LibCall(com, "fable_list", "indexed", t, [ arr ]) |> Some
+    | "CompareWith", [ fn; a1; a2 ] -> Helper.LibCall(com, "fable_list", "compare_with", t, [ fn; a1; a2 ]) |> Some
+    | "UpdateAt", [ idx; value; arr ] -> Helper.LibCall(com, "fable_list", "update_at", t, [ idx; value; arr ]) |> Some
+    | "InsertAt", [ idx; value; arr ] -> Helper.LibCall(com, "fable_list", "insert_at", t, [ idx; value; arr ]) |> Some
+    | "InsertManyAt", [ idx; values; arr ] ->
+        Helper.LibCall(com, "fable_list", "insert_many_at", t, [ idx; values; arr ])
+        |> Some
+    | "RemoveAt", [ idx; arr ] -> Helper.LibCall(com, "fable_list", "remove_at", t, [ idx; arr ]) |> Some
+    | "RemoveManyAt", [ idx; count; arr ] ->
+        Helper.LibCall(com, "fable_list", "remove_many_at", t, [ idx; count; arr ])
+        |> Some
+    // In-place sort operations: since arrays are lists in Erlang, return sorted copy
+    | "SortInPlace", [ arr ] -> emitExpr r t [ arr ] "lists:sort($0)" |> Some
+    | "SortInPlaceBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; arr ]) |> Some
+    | "SortInPlaceWith", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; arr ]) |> Some
     | _ -> None
 
 /// Beam-specific OperatorIntrinsics replacements (ranges).

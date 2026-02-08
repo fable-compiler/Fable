@@ -3,6 +3,7 @@
          sort_by/2, sort_by_descending/2, sort_with/2,
          find/2, try_find/2, find_index/2, try_find_index/2,
          find_back/2, try_find_back/2,
+         find_index_back/2, try_find_index_back/2,
          choose/2, collect/2,
          sum_by/2, min_by/2, max_by/2, indexed/1, zip/2, zip3/3,
          init/2, replicate/2, scan/3, scan_back/3,
@@ -13,7 +14,11 @@
          average/1, average_by/2, count_by/2, group_by/2,
          unfold/2, split_at/2, chunk_by_size/2, windowed/2,
          split_into/2, except/2, all_pairs/2, permute/2,
-         map_fold/3, map_fold_back/3, pick/2, try_pick/2]).
+         map_fold/3, map_fold_back/3, pick/2, try_pick/2,
+         transpose/1, compare_with/3,
+         update_at/3, insert_at/3, insert_many_at/3,
+         remove_at/2, remove_many_at/3,
+         index_of_value/2]).
 
 %% Fable compiles multi-arg F# lambdas as curried functions:
 %%   fun acc x -> acc + x  =>  fun(Acc) -> fun(X) -> Acc + X end end
@@ -239,9 +244,10 @@ windowed(Size, [_|T] = List, Acc) ->
 
 split_into(Count, List) ->
     Len = length(List),
-    Base = Len div Count,
-    Extra = Len rem Count,
-    split_into(Count, List, Base, Extra, []).
+    ActualCount = min(Count, Len),
+    Base = Len div ActualCount,
+    Extra = Len rem ActualCount,
+    split_into(ActualCount, List, Base, Extra, []).
 split_into(0, _, _, _, Acc) -> lists:reverse(Acc);
 split_into(N, List, Base, Extra, Acc) ->
     Size = Base + (case Extra > 0 of true -> 1; false -> 0 end),
@@ -289,3 +295,61 @@ try_pick(Fn, [H|T]) ->
         undefined -> try_pick(Fn, T);
         V -> V
     end.
+
+find_index_back(Fn, List) ->
+    case try_find_index_back(Fn, List) of
+        undefined -> erlang:error(<<"key_not_found">>);
+        Idx -> Idx
+    end.
+
+try_find_index_back(Fn, List) ->
+    try_find_index_back(Fn, lists:reverse(List), length(List) - 1).
+try_find_index_back(_Fn, [], _Idx) -> undefined;
+try_find_index_back(Fn, [H|T], Idx) ->
+    case Fn(H) of
+        true -> Idx;
+        false -> try_find_index_back(Fn, T, Idx - 1)
+    end.
+
+transpose([]) -> [];
+transpose([[] | _]) -> [];
+transpose(Lists) ->
+    Heads = [hd(L) || L <- Lists],
+    Tails = [tl(L) || L <- Lists],
+    [Heads | transpose(Tails)].
+
+compare_with(_Fn, [], []) -> 0;
+compare_with(_Fn, [], _) -> -1;
+compare_with(_Fn, _, []) -> 1;
+compare_with(Fn, [H1|T1], [H2|T2]) ->
+    case (Fn(H1))(H2) of
+        0 -> compare_with(Fn, T1, T2);
+        N -> N
+    end.
+
+update_at(Idx, Value, List) ->
+    {Before, [_|After]} = lists:split(Idx, List),
+    Before ++ [Value | After].
+
+insert_at(Idx, Value, List) ->
+    {Before, After} = lists:split(Idx, List),
+    Before ++ [Value | After].
+
+insert_many_at(Idx, Values, List) ->
+    {Before, After} = lists:split(Idx, List),
+    Before ++ Values ++ After.
+
+remove_at(Idx, List) ->
+    {Before, [_|After]} = lists:split(Idx, List),
+    Before ++ After.
+
+remove_many_at(Idx, Count, List) ->
+    {Before, Rest} = lists:split(Idx, List),
+    After = lists:nthtail(Count, Rest),
+    Before ++ After.
+
+index_of_value(Value, List) ->
+    index_of_value(Value, List, 0).
+index_of_value(_Value, [], _Idx) -> -1;
+index_of_value(Value, [Value|_], Idx) -> Idx;
+index_of_value(Value, [_|T], Idx) -> index_of_value(Value, T, Idx + 1).
