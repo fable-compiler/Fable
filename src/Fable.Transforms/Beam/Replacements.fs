@@ -1285,6 +1285,41 @@ let private intrinsicFunctions
         emitExpr r t [ start; step; stop ] "lists:seq($0, $2, $1)" |> Some
     | _ -> None
 
+let error (_com: ICompiler) (msg: Expr) = msg
+
+let defaultof (_com: ICompiler) (_ctx: Context) (r: SourceLocation option) (typ: Type) =
+    match typ with
+    | Boolean -> makeBoolConst false
+    | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
+    | Char -> CharConstant '\u0000' |> makeValue None
+    | String -> makeStrConst ""
+    | _ -> Value(Null typ, r)
+
+let getRefCell (_com: ICompiler) (r: SourceLocation option) (_typ: Type) (expr: Expr) =
+    emitExpr r _typ [ expr ] "get($0)"
+
+let setRefCell (_com: ICompiler) (r: SourceLocation option) (expr: Expr) (value: Expr) =
+    emitExpr r Unit [ expr; value ] "put($0, $1)"
+
+let makeRefCellFromValue (_com: ICompiler) (r: SourceLocation option) (value: Expr) =
+    emitExpr r Any [ value ] "(fun() -> Ref = make_ref(), put(Ref, $0), Ref end)()"
+
+let makeRefFromMutableValue (_com: ICompiler) (_ctx: Context) (_r: SourceLocation option) (_t: Type) (value: Expr) =
+    value
+
+let makeRefFromMutableFunc (_com: ICompiler) (_ctx: Context) (_r: SourceLocation option) (_t: Type) (value: Expr) =
+    value
+
+let makeRefFromMutableField
+    (_com: ICompiler)
+    (_ctx: Context)
+    (r: SourceLocation option)
+    (t: Type)
+    (callee: Expr)
+    (key: string)
+    =
+    Get(callee, FieldInfo.Create(key, isMutable = true), t, r)
+
 let tryField (_com: ICompiler) _returnTyp _ownerTyp _fieldName : Expr option = None
 
 let tryType (_t: Type) : Expr option = None

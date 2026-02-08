@@ -237,3 +237,65 @@ let ``test Option.map ignore generates Some unit`` () =
     let mySome = Some ()
     let myOtherSome = mySome |> Option.map (ignore)
     equal mySome myOtherSome
+
+// Nested option tests (require option wrapping support)
+[<Fact>]
+let ``test Nested option Some Some works`` () =
+    let x: int option option = Some(Some 42)
+    x.IsSome |> equal true
+
+[<Fact>]
+let ``test Nested option Some None works`` () =
+    let x: int option option = Some(None)
+    x.IsSome |> equal true
+
+[<Fact>]
+let ``test Nested option None works`` () =
+    let x: int option option = None
+    x.IsNone |> equal true
+
+[<Fact>]
+let ``test Nested option value extraction works`` () =
+    let x: int option option = Some(Some 42)
+    match x with
+    | Some inner ->
+        inner.IsSome |> equal true
+        inner.Value |> equal 42
+    | None -> failwith "should be Some"
+
+[<Fact>]
+let ``test Nested option Some None value is None`` () =
+    let x: int option option = Some(None)
+    match x with
+    | Some inner ->
+        inner.IsNone |> equal true
+    | None -> failwith "should be Some"
+
+[<Fact>]
+let ``test Option flatten with nested Some works`` () =
+    Option.flatten (Some(Some 1)) |> equal (Some 1)
+
+[<Fact>]
+let ``test Option flatten with nested None works`` () =
+    Option.flatten (Some(None)) |> equal None
+
+[<Fact>]
+let ``test Option flatten with None works`` () =
+    let x: int option option = None
+    Option.flatten x |> equal None
+
+[<Fact>]
+let ``test Option with unit Some works`` () =
+    let x: unit option = Some()
+    x.IsSome |> equal true
+
+[<Fact>]
+let ``test Option with unit None works`` () =
+    let x: unit option = None
+    x.IsNone |> equal true
+
+[<Fact>]
+let ``test Generic option function works`` () =
+    let makeSomeGeneric (x: 'a) : 'a option = Some x
+    makeSomeGeneric 42 |> Option.isSome |> equal true
+    makeSomeGeneric "hello" |> Option.isSome |> equal true

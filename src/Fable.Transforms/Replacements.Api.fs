@@ -73,6 +73,7 @@ let error (com: ICompiler) msg =
     | Python -> Py.Replacements.error com msg
     | Rust -> Rust.Replacements.error com msg
     | Dart -> Dart.Replacements.error com msg
+    | Beam -> Beam.Replacements.error com msg
     | _ -> JS.Replacements.error com msg
 
 let defaultof (com: ICompiler) ctx r typ =
@@ -80,6 +81,7 @@ let defaultof (com: ICompiler) ctx r typ =
     | Rust -> Rust.Replacements.getZero com ctx typ
     | Python -> Py.Replacements.defaultof com ctx r typ
     | Dart -> Dart.Replacements.getZero com ctx typ
+    | Beam -> Beam.Replacements.defaultof com ctx r typ
     | _ -> JS.Replacements.defaultof com ctx r typ
 
 let createMutablePublicValue (com: ICompiler) value =
@@ -97,6 +99,7 @@ let getRefCell (com: ICompiler) r typ (expr: Expr) =
     | Python -> Py.Replacements.getRefCell com r typ expr
     | Rust -> Rust.Replacements.getRefCell com r typ expr
     | Dart -> Dart.Replacements.getRefCell com r typ expr
+    | Beam -> Beam.Replacements.getRefCell com r typ expr
     | _ -> JS.Replacements.getRefCell com r typ expr
 
 let setRefCell (com: ICompiler) r (expr: Expr) (value: Expr) =
@@ -104,6 +107,7 @@ let setRefCell (com: ICompiler) r (expr: Expr) (value: Expr) =
     | Python -> Py.Replacements.setRefCell com r expr value
     | Rust -> Rust.Replacements.setRefCell com r expr value
     | Dart -> Dart.Replacements.setRefCell com r expr value
+    | Beam -> Beam.Replacements.setRefCell com r expr value
     | _ -> JS.Replacements.setRefCell com r expr value
 
 let makeRefCellFromValue (com: ICompiler) r (value: Expr) =
@@ -111,6 +115,7 @@ let makeRefCellFromValue (com: ICompiler) r (value: Expr) =
     | Python -> Py.Replacements.makeRefCellFromValue com r value
     | Rust -> Rust.Replacements.makeRefCellFromValue com r value
     | Dart -> Dart.Replacements.makeRefCellFromValue com r value
+    | Beam -> Beam.Replacements.makeRefCellFromValue com r value
     | _ -> JS.Replacements.makeRefCellFromValue com r value
 
 let makeRefFromMutableFunc (com: ICompiler) ctx r t (value: Expr) =
@@ -118,6 +123,7 @@ let makeRefFromMutableFunc (com: ICompiler) ctx r t (value: Expr) =
     | Python -> Py.Replacements.makeRefFromMutableFunc com ctx r t value
     | Rust -> Rust.Replacements.makeRefFromMutableFunc com ctx r t value
     | Dart -> Dart.Replacements.makeRefFromMutableFunc com ctx r t value
+    | Beam -> Beam.Replacements.makeRefFromMutableFunc com ctx r t value
     | _ -> JS.Replacements.makeRefFromMutableFunc com ctx r t value
 
 let makeRefFromMutableValue (com: ICompiler) ctx r t (value: Expr) =
@@ -125,6 +131,7 @@ let makeRefFromMutableValue (com: ICompiler) ctx r t (value: Expr) =
     | Python -> Py.Replacements.makeRefFromMutableValue com ctx r t value
     | Rust -> Rust.Replacements.makeRefFromMutableValue com ctx r t value
     | Dart -> Dart.Replacements.makeRefFromMutableValue com ctx r t value
+    | Beam -> Beam.Replacements.makeRefFromMutableValue com ctx r t value
     | _ -> JS.Replacements.makeRefFromMutableValue com ctx r t value
 
 let makeRefFromMutableField (com: ICompiler) ctx r t (value: Expr) =
@@ -132,4 +139,5 @@ let makeRefFromMutableField (com: ICompiler) ctx r t (value: Expr) =
     | Python -> Py.Replacements.makeRefFromMutableField com ctx r t value
     | Rust -> Rust.Replacements.makeRefFromMutableField com ctx r t value
     | Dart -> Dart.Replacements.makeRefFromMutableField com ctx r t value
+    | Beam -> Beam.Replacements.makeRefFromMutableField com ctx r t value
     | _ -> JS.Replacements.makeRefFromMutableField com ctx r t value

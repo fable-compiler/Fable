@@ -4,9 +4,20 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable
 open Fable.Transforms
+open Fable.Beam.Naming
+open Fable.Transforms.Beam.Util
 
 // Use fully qualified names for Beam AST types to avoid conflicts with Fable AST
 // e.g., Beam.ErlExpr, Beam.ErlLiteral, Beam.Atom, etc.
+
+/// Beam-specific version of mustWrapOption. Unlike JS/Python where unit is null/undefined,
+/// Erlang's unit (ok atom) is distinct from None (undefined atom), so Unit doesn't need wrapping.
+let rec mustWrapOption =
+    function
+    | Any
+    | GenericParam _
+    | Option _ -> true
+    | _ -> false
 
 type IBeamCompiler =
     inherit Fable.Compiler
@@ -23,139 +34,6 @@ type Context =
         ThisArgVar: string option // Erlang variable name for `this` in class constructors/methods
         ThisIdentNames: Set<string> // original Fable ident names that refer to `this` (e.g., "_", "__")
     }
-
-let private toSnakeCase (name: string) =
-    let sb = System.Text.StringBuilder()
-
-    for i = 0 to name.Length - 1 do
-        let c = name.[i]
-
-        if System.Char.IsUpper(c) then
-            if i > 0 then
-                sb.Append('_') |> ignore
-
-            sb.Append(System.Char.ToLowerInvariant(c)) |> ignore
-        else
-            sb.Append(c) |> ignore
-
-    sb.ToString()
-
-let private sanitizeErlangName (name: string) =
-    // Decode $XXXX hex sequences from F# compiled names (e.g. $0020 -> space -> _)
-    System.Text.RegularExpressions.Regex.Replace(
-        name,
-        @"\$([0-9A-Fa-f]{4})",
-        fun m ->
-            let c = char (System.Convert.ToInt32(m.Groups.[1].Value, 16))
-
-            if System.Char.IsLetterOrDigit(c) then
-                c.ToString()
-            else
-                "_"
-    )
-    |> fun s -> s.Replace("'", "").Replace("$", "_").Replace("@", "")
-    |> toSnakeCase
-    |> fun s -> System.Text.RegularExpressions.Regex.Replace(s, "_+", "_")
-    |> fun s -> s.Trim('_')
-
-let private moduleNameFromFile (filePath: string) =
-    System.IO.Path.GetFileNameWithoutExtension(filePath)
-    |> toSnakeCase
-    |> fun s -> s.Replace(".", "_").Replace("-", "_")
-
-let private capitalizeFirst (s: string) =
-    if s.Length = 0 then
-        s
-    else
-        s.[0..0].ToUpperInvariant() + s.[1..]
-
-/// Sanitize a string for use as an Erlang variable name (must start with uppercase or _)
-let private sanitizeErlangVar (name: string) =
-    // Remove/replace characters invalid in Erlang variable names
-    name.Replace("$", "_").Replace("@", "_")
-    |> fun s -> System.Text.RegularExpressions.Regex.Replace(s, "[^a-zA-Z0-9_]", "_")
-
-/// Convert an F# ident to an Erlang variable name, prefixing unused unit args with _
-let private toErlangVar (ident: Ident) =
-    let name = capitalizeFirst ident.Name |> sanitizeErlangVar
-    // Prefix unit parameters with _ to suppress Erlang unused variable warnings
-    if ident.Name.StartsWith("unitVar", System.StringComparison.Ordinal) then
-        "_" + name
-    else
-        name
-
-let private isIntegerType (typ: Fable.AST.Fable.Type) =
-    match typ with
-    | Fable.AST.Fable.Type.Number(kind, _) ->
-        match kind with
-        | Float16
-        | Float32
-        | Float64
-        | Decimal -> false
-        | _ -> true
-    | _ -> true // default to integer division
-
-/// Check if a Fable expression contains a reference to the given identifier name
-let rec private containsIdentRef (name: string) (expr: Expr) : bool =
-    match expr with
-    | IdentExpr ident -> ident.Name = name
-    | Call(callee, info, _, _) -> containsIdentRef name callee || info.Args |> List.exists (containsIdentRef name)
-    | CurriedApply(applied, args, _, _) -> containsIdentRef name applied || args |> List.exists (containsIdentRef name)
-    | Let(_, value, body) -> containsIdentRef name value || containsIdentRef name body
-    | LetRec(bindings, body) ->
-        bindings |> List.exists (fun (_, v) -> containsIdentRef name v)
-        || containsIdentRef name body
-    | Lambda(_, body, _) -> containsIdentRef name body
-    | Delegate(_, body, _, _) -> containsIdentRef name body
-    | IfThenElse(g, t, e, _) -> containsIdentRef name g || containsIdentRef name t || containsIdentRef name e
-    | Sequential exprs -> exprs |> List.exists (containsIdentRef name)
-    | Value _ -> false
-    | TypeCast(e, _) -> containsIdentRef name e
-    | Operation(kind, _, _, _) ->
-        match kind with
-        | Binary(_, l, r) -> containsIdentRef name l || containsIdentRef name r
-        | Unary(_, e) -> containsIdentRef name e
-        | Logical(_, l, r) -> containsIdentRef name l || containsIdentRef name r
-    | DecisionTree(e, targets) ->
-        containsIdentRef name e
-        || targets |> List.exists (fun (_, t) -> containsIdentRef name t)
-    | DecisionTreeSuccess(_, values, _) -> values |> List.exists (containsIdentRef name)
-    | Test(e, _, _) -> containsIdentRef name e
-    | Get(e, _, _, _) -> containsIdentRef name e
-    | Set(e, _, _, v, _) -> containsIdentRef name e || containsIdentRef name v
-    | Emit(emitInfo, _, _) -> emitInfo.CallInfo.Args |> List.exists (containsIdentRef name)
-    | _ -> false
-
-/// Flatten nested Block expressions into a flat list
-let rec private flattenBlock (expr: Beam.ErlExpr) : Beam.ErlExpr list =
-    match expr with
-    | Beam.ErlExpr.Block exprs -> exprs |> List.collect flattenBlock
-    | _ -> [ expr ]
-
-/// Extract a Block into (hoisted_statements, final_expression).
-/// Used to ensure multi-expression Blocks don't appear in argument positions.
-let private extractBlock (expr: Beam.ErlExpr) : Beam.ErlExpr list * Beam.ErlExpr =
-    let flat = flattenBlock expr
-
-    match flat with
-    | [] -> ([], Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "ok")))
-    | [ single ] -> ([], single)
-    | many ->
-        let stmts = many.[.. many.Length - 2]
-        let final = many.[many.Length - 1]
-        (stmts, final)
-
-/// Hoist Block expressions from a list of transformed arguments
-let private hoistBlocksFromArgs (args: Beam.ErlExpr list) : Beam.ErlExpr list * Beam.ErlExpr list =
-    let results = args |> List.map extractBlock
-    (results |> List.collect fst, results |> List.map snd)
-
-/// Wrap an expression with hoisted statements, if any
-let private wrapWithHoisted (hoisted: Beam.ErlExpr list) (expr: Beam.ErlExpr) : Beam.ErlExpr =
-    if List.isEmpty hoisted then
-        expr
-    else
-        Beam.ErlExpr.Block(hoisted @ [ expr ])
 
 /// Check if an entity ref refers to a user-defined class (not record, union, module, interface, or BCL type)
 let private isClassType (com: IBeamCompiler) (entityRef: EntityRef) =
@@ -380,7 +258,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
     | Test(expr, kind, _range) -> transformTest com ctx kind expr
 
-    | Get(expr, kind, _typ, _range) -> transformGet com ctx kind expr
+    | Get(expr, kind, typ, _range) -> transformGet com ctx kind typ expr
 
     | DecisionTree(expr, targets) ->
         let ctx = { ctx with DecisionTargets = targets }
@@ -855,7 +733,18 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         let erlValues = values |> List.map (transformExpr com ctx)
         Beam.ErlExpr.Tuple(Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 tag)) :: erlValues)
 
-    | NewOption(Some value, _typ, _isStruct) -> transformExpr com ctx value
+    | NewOption(Some value, typ, _isStruct) ->
+        let erlValue = transformExpr com ctx value
+
+        match typ with
+        | GenericParam _
+        | Any ->
+            // Runtime decision: use smart constructor that wraps only ambiguous values
+            Beam.ErlExpr.Call(Some "fable_option", "some", [ erlValue ])
+        | _ when mustWrapOption typ ->
+            // Compile-time decision: we know wrapping is needed (e.g., Option<Option<T>>)
+            Beam.ErlExpr.Tuple [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "some")); erlValue ]
+        | _ -> erlValue
 
     | NewOption(None, _typ, _isStruct) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "undefined"))
 
@@ -1085,7 +974,7 @@ and transformTest (com: IBeamCompiler) (ctx: Context) (kind: TestKind) (expr: Ex
         | Fable.AST.Fable.Type.DeclaredType _ -> Beam.ErlExpr.Call(None, "is_map", [ erlExpr ])
         | _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BoolLit true)
 
-and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (expr: Expr) : Beam.ErlExpr =
+and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type) (expr: Expr) : Beam.ErlExpr =
     let erlExpr = transformExpr com ctx expr
 
     match kind with
@@ -1103,7 +992,11 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (expr: Expr
         )
     | ListHead -> Beam.ErlExpr.Call(None, "hd", [ erlExpr ])
     | ListTail -> Beam.ErlExpr.Call(None, "tl", [ erlExpr ])
-    | OptionValue -> erlExpr
+    | OptionValue ->
+        if mustWrapOption typ then
+            Beam.ErlExpr.Call(Some "fable_option", "value", [ erlExpr ])
+        else
+            erlExpr
     | FieldGet info ->
         let target =
             match expr.Type with
