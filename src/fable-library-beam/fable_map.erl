@@ -1,7 +1,8 @@
 -module(fable_map).
 -export([try_find/2, fold/3, fold_back/3, map/2, filter/2,
          exists/2, forall/2, iterate/2, find_key/2, try_find_key/2,
-         partition/2, try_get_value/2]).
+         partition/2, try_get_value/2,
+         pick/2, try_pick/2, min_key_value/1, max_key_value/1, change/3]).
 
 %% Fable compiles multi-arg F# lambdas as curried functions:
 %%   fun k v -> ...  =>  fun(K) -> fun(V) -> ... end end
@@ -49,3 +50,38 @@ partition(Fn, Map) ->
 
 try_get_value(Key, Map) ->
     case maps:find(Key, Map) of {ok, V} -> {true, V}; error -> {false, undefined} end.
+
+pick(Fn, Map) ->
+    case try_pick(Fn, Map) of
+        undefined -> erlang:error(<<"key_not_found">>);
+        V -> V
+    end.
+
+try_pick(_Fn, []) -> undefined;
+try_pick(Fn, [{K, V}|T]) ->
+    case (Fn(K))(V) of
+        undefined -> try_pick(Fn, T);
+        Result -> Result
+    end;
+try_pick(Fn, Map) when is_map(Map) ->
+    try_pick(Fn, maps:to_list(Map)).
+
+min_key_value(Map) ->
+    lists:min(maps:to_list(Map)).
+
+max_key_value(Map) ->
+    lists:max(maps:to_list(Map)).
+
+change(Key, Fn, Map) ->
+    case maps:find(Key, Map) of
+        {ok, V} ->
+            case Fn(V) of
+                undefined -> maps:remove(Key, Map);
+                NewV -> maps:put(Key, NewV, Map)
+            end;
+        error ->
+            case Fn(undefined) of
+                undefined -> Map;
+                NewV -> maps:put(Key, NewV, Map)
+            end
+    end.

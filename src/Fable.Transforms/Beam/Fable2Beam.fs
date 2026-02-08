@@ -864,6 +864,16 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
     | CharConstant c -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 c))
 
     | NumberConstant(NumberValue.Int64 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer i)
+    | NumberConstant(NumberValue.Int8 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+    | NumberConstant(NumberValue.UInt8 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+    | NumberConstant(NumberValue.Int16 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+    | NumberConstant(NumberValue.UInt16 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+    | NumberConstant(NumberValue.UInt32 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+    | NumberConstant(NumberValue.UInt64 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+    | NumberConstant(NumberValue.Float32 f, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Float(float f))
+    | NumberConstant(NumberValue.NativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+    | NumberConstant(NumberValue.UNativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+    | NumberConstant(NumberValue.Decimal d, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Float(float d))
 
     | NewRecord(values, ref, _genArgs) ->
         match com.TryGetEntity(ref) with

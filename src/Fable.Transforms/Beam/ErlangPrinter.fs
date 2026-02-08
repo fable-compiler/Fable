@@ -11,7 +11,8 @@ module Output =
         match lit with
         | Integer i -> sb.Append(string i) |> ignore
         | Float f ->
-            let s = sprintf "%g" f
+            // Use full double precision (17 significant digits) to avoid lossy rounding
+            let s = sprintf "%.17g" f
             // Ensure the float literal always has a decimal point for Erlang
             if s.Contains(".") || s.Contains("e") || s.Contains("E") then
                 sb.Append(s) |> ignore

@@ -58,24 +58,29 @@ let private operators
     | "Asin", [ arg ] -> emitExpr r _t [ arg ] "math:asin($0)" |> Some
     | "Atan", [ arg ] -> emitExpr r _t [ arg ] "math:atan($0)" |> Some
     | "Atan2", [ y; x ] -> emitExpr r _t [ y; x ] "math:atan2($0, $1)" |> Some
-    | "Ceiling", [ arg ] -> emitExpr r _t [ arg ] "erlang:ceil($0)" |> Some
+    | "Ceiling", [ arg ] -> emitExpr r _t [ arg ] "float(erlang:ceil($0))" |> Some
     | "Cos", [ arg ] -> emitExpr r _t [ arg ] "math:cos($0)" |> Some
     | "Exp", [ arg ] -> emitExpr r _t [ arg ] "math:exp($0)" |> Some
-    | "Floor", [ arg ] -> emitExpr r _t [ arg ] "erlang:floor($0)" |> Some
+    | "Floor", [ arg ] -> emitExpr r _t [ arg ] "float(erlang:floor($0))" |> Some
     | "Log", [ arg ] -> emitExpr r _t [ arg ] "math:log($0)" |> Some
     | "Log10", [ arg ] -> emitExpr r _t [ arg ] "math:log10($0)" |> Some
     | "Log2", [ arg ] -> emitExpr r _t [ arg ] "math:log2($0)" |> Some
     | ("Pow" | "op_Exponentiation"), [ base_; exp_ ] -> emitExpr r _t [ base_; exp_ ] "math:pow($0, $1)" |> Some
-    | "Round", [ arg ] -> emitExpr r _t [ arg ] "erlang:round($0)" |> Some
+    | "Round", [ arg ] -> emitExpr r _t [ arg ] "float(erlang:round($0))" |> Some
     | "Sign", [ arg ] ->
         emitExpr r _t [ arg ] "case $0 > 0 of true -> 1; false -> case $0 < 0 of true -> -1; false -> 0 end end"
         |> Some
     | "Sin", [ arg ] -> emitExpr r _t [ arg ] "math:sin($0)" |> Some
     | "Sqrt", [ arg ] -> emitExpr r _t [ arg ] "math:sqrt($0)" |> Some
     | "Tan", [ arg ] -> emitExpr r _t [ arg ] "math:tan($0)" |> Some
-    | "Truncate", [ arg ] -> emitExpr r _t [ arg ] "trunc($0)" |> Some
+    | "Cosh", [ arg ] -> emitExpr r _t [ arg ] "math:cosh($0)" |> Some
+    | "Sinh", [ arg ] -> emitExpr r _t [ arg ] "math:sinh($0)" |> Some
+    | "Tanh", [ arg ] -> emitExpr r _t [ arg ] "math:tanh($0)" |> Some
+    | "Truncate", [ arg ] -> emitExpr r _t [ arg ] "float(trunc($0))" |> Some
     | ("Max" | "Max_"), [ a; b ] -> emitExpr r _t [ a; b ] "erlang:max($0, $1)" |> Some
     | ("Min" | "Min_"), [ a; b ] -> emitExpr r _t [ a; b ] "erlang:min($0, $1)" |> Some
+    | "Clamp", [ value; min_; max_ ] -> emitExpr r _t [ value; min_; max_ ] "erlang:min(erlang:max($0, $1), $2)" |> Some
+    | "Log", [ x; base_ ] -> emitExpr r _t [ x; base_ ] "(math:log($0) / math:log($1))" |> Some
     | (Operators.equality | "Eq"), [ left; right ] -> equals r true left right |> Some
     | (Operators.inequality | "Neq"), [ left; right ] -> equals r false left right |> Some
     | (Operators.lessThan | "Lt"), [ left; right ] -> makeBinOp r Boolean left right BinaryLess |> Some
@@ -144,6 +149,15 @@ let private operators
     | "op_RangeStep", [ first; step; last ] -> emitExpr r _t [ first; step; last ] "lists:seq($0, $2, $1)" |> Some
     // Erlang has native arbitrary-precision integers, so Int64/UInt64/BigInt
     // use direct binary ops instead of library calls (like Python's int)
+    // Bitwise operators — Erlang has native bitwise support for all integer sizes
+    | Operators.bitwiseAnd, [ left; right ] -> emitExpr r _t [ left; right ] "($0 band $1)" |> Some
+    | Operators.bitwiseOr, [ left; right ] -> emitExpr r _t [ left; right ] "($0 bor $1)" |> Some
+    | Operators.exclusiveOr, [ left; right ] -> emitExpr r _t [ left; right ] "($0 bxor $1)" |> Some
+    | Operators.leftShift, [ left; right ] -> emitExpr r _t [ left; right ] "($0 bsl $1)" |> Some
+    | Operators.rightShift, [ left; right ] -> emitExpr r _t [ left; right ] "($0 bsr $1)" |> Some
+    | Operators.logicalNot, [ operand ] -> emitExpr r _t [ operand ] "(bnot $0)" |> Some
+    // Erlang has native arbitrary-precision integers, so Int64/UInt64/BigInt
+    // use direct binary ops instead of library calls
     | Patterns.SetContains Operators.standardSet, _ ->
         let argTypes = args |> List.map (fun a -> a.Type)
 
@@ -601,10 +615,10 @@ let private convert
     (_thisArg: Expr option)
     (args: Expr list)
     =
-    match info.CompiledName, args with
-    | "ToInt32", [ arg ] ->
+    let toInt (arg: Expr) =
         match arg.Type with
         | Type.String -> emitExpr r t [ arg ] "binary_to_integer($0)" |> Some
+        | Type.Char -> Some arg
         | Type.Number(kind, _) ->
             match kind with
             | Float16
@@ -613,18 +627,8 @@ let private convert
             | Decimal -> emitExpr r t [ arg ] "trunc($0)" |> Some
             | _ -> Some arg
         | _ -> Some arg
-    | "ToInt64", [ arg ] ->
-        match arg.Type with
-        | Type.String -> emitExpr r t [ arg ] "binary_to_integer($0)" |> Some
-        | Type.Number(kind, _) ->
-            match kind with
-            | Float16
-            | Float32
-            | Float64
-            | Decimal -> emitExpr r t [ arg ] "trunc($0)" |> Some
-            | _ -> Some arg
-        | _ -> Some arg
-    | "ToDouble", [ arg ] ->
+
+    let toFloat (arg: Expr) =
         match arg.Type with
         | Type.String -> emitExpr r t [ arg ] "binary_to_float($0)" |> Some
         | Type.Number(kind, _) ->
@@ -635,6 +639,15 @@ let private convert
             | Decimal -> Some arg
             | _ -> emitExpr r t [ arg ] "float($0)" |> Some
         | _ -> emitExpr r t [ arg ] "float($0)" |> Some
+
+    match info.CompiledName, args with
+    | ("ToSByte" | "ToByte" | "ToInt16" | "ToUInt16" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64"), [ arg ] ->
+        toInt arg
+    | ("ToSingle" | "ToDouble"), [ arg ] -> toFloat arg
+    | "ToChar", [ arg ] ->
+        match arg.Type with
+        | Type.String -> emitExpr r t [ arg ] "binary:first($0)" |> Some
+        | _ -> Some arg
     | "ToString", [ arg ] ->
         match arg.Type with
         | Type.String -> Some arg
@@ -818,6 +831,11 @@ let private mapModule
     | "FindKey", [ fn; map ] -> Helper.LibCall(com, "fable_map", "find_key", t, [ fn; map ]) |> Some
     | "TryFindKey", [ fn; map ] -> Helper.LibCall(com, "fable_map", "try_find_key", t, [ fn; map ]) |> Some
     | "Partition", [ fn; map ] -> Helper.LibCall(com, "fable_map", "partition", t, [ fn; map ]) |> Some
+    | "Pick", [ fn; map ] -> Helper.LibCall(com, "fable_map", "pick", t, [ fn; map ]) |> Some
+    | "TryPick", [ fn; map ] -> Helper.LibCall(com, "fable_map", "try_pick", t, [ fn; map ]) |> Some
+    | "MinKeyValue", [ map ] -> Helper.LibCall(com, "fable_map", "min_key_value", t, [ map ]) |> Some
+    | "MaxKeyValue", [ map ] -> Helper.LibCall(com, "fable_map", "max_key_value", t, [ map ]) |> Some
+    | "Change", [ key; fn; map ] -> Helper.LibCall(com, "fable_map", "change", t, [ key; fn; map ]) |> Some
     | _ -> None
 
 /// Beam-specific FSharpMap instance method replacements.
@@ -839,6 +857,7 @@ let private maps
     | "Add", Some c, [ key; value ] -> emitExpr r t [ key; value; c ] "maps:put($0, $1, $2)" |> Some
     | "Remove", Some c, [ key ] -> emitExpr r t [ key; c ] "maps:remove($0, $1)" |> Some
     | "TryGetValue", Some c, [ key ] -> Helper.LibCall(com, "fable_map", "try_get_value", t, [ key; c ]) |> Some
+    | "TryFind", Some c, [ key ] -> Helper.LibCall(com, "fable_map", "try_find", t, [ key; c ]) |> Some
     | _ -> None
 
 /// Beam-specific StringModule replacements.
@@ -1140,6 +1159,54 @@ let tryCall
     | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions" ->
         match info.CompiledName, args with
         | "GetArray", [ ar; idx ] -> emitExpr r t [ ar; idx ] "lists:nth($1 + 1, $0)" |> Some
+        | _ -> None
+    | "System.Numerics.BigInteger"
+    | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" ->
+        // Erlang has native arbitrary-precision integers, so BigInt ops map directly
+        match info.CompiledName, thisArg, args with
+        | ".ctor", None, [ arg ] -> Some arg // bigint(x) = x in Erlang
+        | "op_Addition", None, [ left; right ] -> makeBinOp r t left right BinaryPlus |> Some
+        | "op_Subtraction", None, [ left; right ] -> makeBinOp r t left right BinaryMinus |> Some
+        | "op_Multiply", None, [ left; right ] -> makeBinOp r t left right BinaryMultiply |> Some
+        | "op_Division", None, [ left; right ] -> makeBinOp r t left right BinaryDivide |> Some
+        | "op_Modulus", None, [ left; right ] -> makeBinOp r t left right BinaryModulus |> Some
+        | "op_UnaryNegation", None, [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, t, r) |> Some
+        | "op_BitwiseAnd", None, [ left; right ] -> emitExpr r t [ left; right ] "($0 band $1)" |> Some
+        | "op_BitwiseOr", None, [ left; right ] -> emitExpr r t [ left; right ] "($0 bor $1)" |> Some
+        | "op_ExclusiveOr", None, [ left; right ] -> emitExpr r t [ left; right ] "($0 bxor $1)" |> Some
+        | "op_LeftShift", None, [ value; shift ] -> emitExpr r t [ value; shift ] "($0 bsl $1)" |> Some
+        | "op_RightShift", None, [ value; shift ] -> emitExpr r t [ value; shift ] "($0 bsr $1)" |> Some
+        | "op_LessThan", None, [ left; right ] -> makeBinOp r Boolean left right BinaryLess |> Some
+        | "op_LessThanOrEqual", None, [ left; right ] -> makeBinOp r Boolean left right BinaryLessOrEqual |> Some
+        | "op_GreaterThan", None, [ left; right ] -> makeBinOp r Boolean left right BinaryGreater |> Some
+        | "op_GreaterThanOrEqual", None, [ left; right ] -> makeBinOp r Boolean left right BinaryGreaterOrEqual |> Some
+        | "op_Equality", None, [ left; right ] -> equals r true left right |> Some
+        | "op_Inequality", None, [ left; right ] -> equals r false left right |> Some
+        | ("get_Sign" | "Sign"), Some thisObj, _ ->
+            emitExpr r t [ thisObj ] "case $0 > 0 of true -> 1; false -> case $0 < 0 of true -> -1; false -> 0 end end"
+            |> Some
+        | "Abs", None, [ arg ] -> emitExpr r t [ arg ] "erlang:abs($0)" |> Some
+        | ("get_IsZero" | "IsZero"), Some thisObj, _ -> emitExpr r t [ thisObj ] "($0 =:= 0)" |> Some
+        | ("get_IsOne" | "IsOne"), Some thisObj, _ -> emitExpr r t [ thisObj ] "($0 =:= 1)" |> Some
+        | ("ToInt64" | "ToInt64Unchecked" | "ToInt32" | "ToInt16" | "ToByte" | "ToSByte" | "op_Explicit"), None, [ arg ] ->
+            Some arg // identity in Erlang
+        | "Parse", None, [ str ] -> emitExpr r t [ str ] "binary_to_integer($0)" |> Some
+        | "Pow", None, [ base_; exp_ ] -> emitExpr r t [ base_; exp_ ] "math:pow($0, $1)" |> Some
+        | "get_Zero", _, _ -> Value(NumberConstant(NumberValue.Int32 0, NumberInfo.Empty), r) |> Some
+        | "get_One", _, _ -> Value(NumberConstant(NumberValue.Int32 1, NumberInfo.Empty), r) |> Some
+        | "CompareTo", Some thisObj, [ arg ] -> compare com r thisObj arg |> Some
+        | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
+        | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
+        // NumericLiteralI special values
+        | "FromZero", None, _ -> Value(NumberConstant(NumberValue.Int32 0, NumberInfo.Empty), r) |> Some
+        | "FromOne", None, _ -> Value(NumberConstant(NumberValue.Int32 1, NumberInfo.Empty), r) |> Some
+        // Large BigInt literals: FromString("12345...") → binary_to_integer
+        | "FromString", None, [ arg ] -> emitExpr r t [ arg ] "binary_to_integer($0)" |> Some
+        // FromInt32/FromInt64/etc: identity (Erlang native integers)
+        | name, None, [ arg ] when name.StartsWith("From") -> Some arg
+        // ToInt/ToDouble/etc: identity
+        | name, None, [ arg ] when name.StartsWith("To") -> Some arg
+        | name, Some c, _ when name.StartsWith("To") -> Some c
         | _ -> None
     | _ -> None
 
