@@ -701,6 +701,58 @@ let private listModule
     | "MinBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "min_by", t, [ fn; list ]) |> Some
     | "MaxBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "max_by", t, [ fn; list ]) |> Some
     | "Indexed", [ list ] -> Helper.LibCall(com, "fable_list", "indexed", t, [ list ]) |> Some
+    | "ReduceBack", [ fn; list ] -> Helper.LibCall(com, "fable_list", "reduce_back", t, [ fn; list ]) |> Some
+    | ("Init" | "Initialize"), [ count; fn ] -> Helper.LibCall(com, "fable_list", "init", t, [ count; fn ]) |> Some
+    | "Replicate", [ count; value ] -> Helper.LibCall(com, "fable_list", "replicate", t, [ count; value ]) |> Some
+    | "Item", [ idx; list ] -> emitExpr r t [ idx; list ] "lists:nth($0 + 1, $1)" |> Some
+    | "Skip", [ count; list ] -> emitExpr r t [ count; list ] "lists:nthtail($0, $1)" |> Some
+    | "Take", [ count; list ] -> emitExpr r t [ count; list ] "lists:sublist($1, $0)" |> Some
+    | "SkipWhile", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:dropwhile($0, $1)" |> Some
+    | "TakeWhile", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:takewhile($0, $1)" |> Some
+    | "Truncate", [ count; list ] -> emitExpr r t [ count; list ] "lists:sublist($1, $0)" |> Some
+    | "Last", [ list ] -> emitExpr r t [ list ] "lists:last($0)" |> Some
+    | "FindIndex", [ fn; list ] -> Helper.LibCall(com, "fable_list", "find_index", t, [ fn; list ]) |> Some
+    | "TryFindIndex", [ fn; list ] -> Helper.LibCall(com, "fable_list", "try_find_index", t, [ fn; list ]) |> Some
+    | "FindBack", [ fn; list ] -> Helper.LibCall(com, "fable_list", "find_back", t, [ fn; list ]) |> Some
+    | "TryFindBack", [ fn; list ] -> Helper.LibCall(com, "fable_list", "try_find_back", t, [ fn; list ]) |> Some
+    | "TryHead", [ list ] -> Helper.LibCall(com, "fable_list", "try_head", t, [ list ]) |> Some
+    | "TryLast", [ list ] -> Helper.LibCall(com, "fable_list", "try_last", t, [ list ]) |> Some
+    | "TryItem", [ idx; list ] -> Helper.LibCall(com, "fable_list", "try_item", t, [ idx; list ]) |> Some
+    | "ExactlyOne", [ list ] -> Helper.LibCall(com, "fable_list", "exactly_one", t, [ list ]) |> Some
+    | "TryExactlyOne", [ list ] -> Helper.LibCall(com, "fable_list", "try_exactly_one", t, [ list ]) |> Some
+    | "Distinct", [ list ] -> Helper.LibCall(com, "fable_list", "distinct", t, [ list ]) |> Some
+    | "DistinctBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "distinct_by", t, [ fn; list ]) |> Some
+    | "Pairwise", [ list ] -> Helper.LibCall(com, "fable_list", "pairwise", t, [ list ]) |> Some
+    | "Exists2", [ fn; l1; l2 ] -> Helper.LibCall(com, "fable_list", "exists2", t, [ fn; l1; l2 ]) |> Some
+    | "ForAll2", [ fn; l1; l2 ] -> Helper.LibCall(com, "fable_list", "forall2", t, [ fn; l1; l2 ]) |> Some
+    | "Map2", [ fn; l1; l2 ] -> Helper.LibCall(com, "fable_list", "map2", t, [ fn; l1; l2 ]) |> Some
+    | "Map3", [ fn; l1; l2; l3 ] -> Helper.LibCall(com, "fable_list", "map3", t, [ fn; l1; l2; l3 ]) |> Some
+    | "MapIndexed2", [ fn; l1; l2 ] -> Helper.LibCall(com, "fable_list", "mapi2", t, [ fn; l1; l2 ]) |> Some
+    | "Iterate2", [ fn; l1; l2 ] -> Helper.LibCall(com, "fable_list", "iter2", t, [ fn; l1; l2 ]) |> Some
+    | "IterateIndexed", [ fn; list ] -> Helper.LibCall(com, "fable_list", "iteri", t, [ fn; list ]) |> Some
+    | "IterateIndexed2", [ fn; l1; l2 ] -> Helper.LibCall(com, "fable_list", "iteri2", t, [ fn; l1; l2 ]) |> Some
+    | "Scan", [ fn; state; list ] -> Helper.LibCall(com, "fable_list", "scan", t, [ fn; state; list ]) |> Some
+    | "ScanBack", [ fn; list; state ] -> Helper.LibCall(com, "fable_list", "scan_back", t, [ fn; list; state ]) |> Some
+    | "Average", [ list ] -> Helper.LibCall(com, "fable_list", "average", t, [ list ]) |> Some
+    | "AverageBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "average_by", t, [ fn; list ]) |> Some
+    | "Zip3", [ l1; l2; l3 ] -> Helper.LibCall(com, "fable_list", "zip3", t, [ l1; l2; l3 ]) |> Some
+    | "Unzip3", [ list ] -> emitExpr r t [ list ] "lists:unzip3($0)" |> Some
+    | "Pick", [ fn; list ] -> Helper.LibCall(com, "fable_list", "pick", t, [ fn; list ]) |> Some
+    | "TryPick", [ fn; list ] -> Helper.LibCall(com, "fable_list", "try_pick", t, [ fn; list ]) |> Some
+    | "MapFold", [ fn; state; list ] -> Helper.LibCall(com, "fable_list", "map_fold", t, [ fn; state; list ]) |> Some
+    | "MapFoldBack", [ fn; list; state ] ->
+        Helper.LibCall(com, "fable_list", "map_fold_back", t, [ fn; list; state ])
+        |> Some
+    | "Unfold", [ fn; state ] -> Helper.LibCall(com, "fable_list", "unfold", t, [ fn; state ]) |> Some
+    | "SplitAt", [ idx; list ] -> Helper.LibCall(com, "fable_list", "split_at", t, [ idx; list ]) |> Some
+    | "ChunkBySize", [ size; list ] -> Helper.LibCall(com, "fable_list", "chunk_by_size", t, [ size; list ]) |> Some
+    | "Windowed", [ size; list ] -> Helper.LibCall(com, "fable_list", "windowed", t, [ size; list ]) |> Some
+    | "Except", [ excl; list ] -> Helper.LibCall(com, "fable_list", "except", t, [ excl; list ]) |> Some
+    | "AllPairs", [ l1; l2 ] -> Helper.LibCall(com, "fable_list", "all_pairs", t, [ l1; l2 ]) |> Some
+    | "Permute", [ fn; list ] -> Helper.LibCall(com, "fable_list", "permute", t, [ fn; list ]) |> Some
+    | "SplitInto", [ count; list ] -> Helper.LibCall(com, "fable_list", "split_into", t, [ count; list ]) |> Some
+    | "CountBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "count_by", t, [ fn; list ]) |> Some
+    | "GroupBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "group_by", t, [ fn; list ]) |> Some
     | "ToArray", [ list ] -> Some(List.head args)
     | "OfArray", [ arr ] -> Some(List.head args)
     | "OfSeq", [ seq ] -> Some(List.head args)
