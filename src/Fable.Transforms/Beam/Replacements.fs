@@ -33,6 +33,9 @@ let private operators
     (args: Expr list)
     =
     match info.CompiledName, args with
+    | ("DefaultArg" | "DefaultValueArg"), [ opt; defValue ] ->
+        Helper.LibCall(_com, "fable_option", "default_value", _t, [ opt; defValue ])
+        |> Some
     | "FailWith", [ msg ]
     | "InvalidOp", [ msg ] -> makeThrow r _t msg |> Some
     | "InvalidArg", [ argName; msg ] ->
@@ -411,6 +414,24 @@ let private optionModule
     | "GetValue", [ c ] ->
         // Option.get / Option.value — just return the value (will crash on undefined at runtime)
         Some c
+    | "OrElse", [ ifNone; opt ] -> Helper.LibCall(com, "fable_option", "or_else", t, [ opt; ifNone ]) |> Some
+    | "OrElseWith", [ ifNoneFn; opt ] ->
+        Helper.LibCall(com, "fable_option", "or_else_with", t, [ opt; ifNoneFn ])
+        |> Some
+    | "Iterate", [ fn; opt ] -> Helper.LibCall(com, "fable_option", "iter", t, [ fn; opt ]) |> Some
+    | "Map2", [ fn; opt1; opt2 ] -> Helper.LibCall(com, "fable_option", "map2", t, [ fn; opt1; opt2 ]) |> Some
+    | "Map3", [ fn; opt1; opt2; opt3 ] ->
+        Helper.LibCall(com, "fable_option", "map3", t, [ fn; opt1; opt2; opt3 ]) |> Some
+    | "Contains", [ value; opt ] -> Helper.LibCall(com, "fable_option", "contains", t, [ value; opt ]) |> Some
+    | "Filter", [ fn; opt ] -> Helper.LibCall(com, "fable_option", "filter", t, [ fn; opt ]) |> Some
+    | "Fold", [ fn; state; opt ] -> Helper.LibCall(com, "fable_option", "fold", t, [ fn; state; opt ]) |> Some
+    | "FoldBack", [ fn; opt; state ] -> Helper.LibCall(com, "fable_option", "fold_back", t, [ fn; opt; state ]) |> Some
+    | "ToArray", [ opt ] -> Helper.LibCall(com, "fable_option", "to_array", t, [ opt ]) |> Some
+    | "ToList", [ opt ] -> Helper.LibCall(com, "fable_option", "to_list", t, [ opt ]) |> Some
+    | "Flatten", [ opt ] -> Helper.LibCall(com, "fable_option", "flatten", t, [ opt ]) |> Some
+    | "Count", [ opt ] -> Helper.LibCall(com, "fable_option", "count", t, [ opt ]) |> Some
+    | "ForAll", [ fn; opt ] -> Helper.LibCall(com, "fable_option", "for_all", t, [ fn; opt ]) |> Some
+    | "Exists", [ fn; opt ] -> Helper.LibCall(com, "fable_option", "exists", t, [ fn; opt ]) |> Some
     | _ -> None
 
 /// Beam-specific FSharpOption instance method replacements.
