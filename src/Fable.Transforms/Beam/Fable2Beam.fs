@@ -674,6 +674,52 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 Beam.ErlExpr.Apply(Beam.ErlExpr.Variable loopName, [ erlStart ])
             ]
 
+    | ObjectExpr(members, _typ, _baseCall) ->
+        // Build a map: #{method_name => fun(Args) -> Body end, ...}
+        // Getters are stored as evaluated values (since call site uses FieldGet),
+        // methods are stored as closures.
+        // Members include `this` as first arg (from bindMemberArgs). For simple cases
+        // (no self-reference), we skip `this` and create a plain map.
+        let mapEntries =
+            members
+            |> List.map (fun memb ->
+                let memberInfo = com.GetMember(memb.MemberRef)
+                let methodName = sanitizeErlangName memb.Name
+                // Skip the `this` arg (first arg for instance members)
+                let nonThisArgs =
+                    match memb.Args with
+                    | first :: rest when first.IsThisArgument -> rest
+                    | args -> args
+
+                let erlBody = transformExpr com ctx memb.Body
+
+                if memberInfo.IsGetter then
+                    // Property getter: store the evaluated value directly
+                    // Call site uses Get(obj, FieldGet(name)) → maps:get(name, obj)
+                    atomLit methodName, erlBody
+                else
+                    let argPats = nonThisArgs |> List.map (fun a -> Beam.PVar(toErlangVar a))
+
+                    let bodyExprs =
+                        match erlBody with
+                        | Beam.ErlExpr.Block es -> es
+                        | e -> [ e ]
+
+                    let funExpr =
+                        Beam.ErlExpr.Fun
+                            [
+                                {
+                                    Patterns = argPats
+                                    Guard = []
+                                    Body = bodyExprs
+                                }
+                            ]
+
+                    atomLit methodName, funExpr
+            )
+
+        Beam.ErlExpr.Map(mapEntries)
+
     | Extended(kind, _range) ->
         match kind with
         | Throw(Some exprArg, _typ) ->
@@ -1361,43 +1407,57 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                 |> wrapWithHoisted allHoisted
 
     | Get(calleeExpr, FieldGet fieldInfo, _, _) ->
-        // Instance method calls (e.g., str.indexOf(sub) from String.Contains replacement)
+        // Check if this is an interface method call (callee is an interface type)
+        let isInterfaceExpr =
+            match calleeExpr.Type with
+            | Fable.AST.Fable.Type.DeclaredType(entityRef, _) ->
+                match com.TryGetEntity(entityRef) with
+                | Some entity -> entity.IsInterface
+                | None -> false
+            | _ -> false
+
         let erlCallee = transformExpr com ctx calleeExpr
         let args = info.Args |> List.map (transformExpr com ctx)
         let calleeHoisted, cleanCallee = extractBlock erlCallee
         let argsHoisted, cleanArgs = hoistBlocksFromArgs args
         let allHoisted = calleeHoisted @ argsHoisted
 
-        match fieldInfo.Name with
-        | "indexOf" ->
-            // str.indexOf(sub) → case binary:match(Str, Sub) of {Pos,_} -> Pos; nomatch -> -1 end
-            match cleanArgs with
-            | [ sub ] ->
-                let ctr = com.IncrementCounter()
-                let posVar = $"Idx_pos_%d{ctr}"
+        if isInterfaceExpr then
+            // Interface method dispatch: (maps:get(method_name, Obj))(Args)
+            let methodAtom = atomLit (sanitizeErlangName fieldInfo.Name)
+            let lookup = Beam.ErlExpr.Call(Some "maps", "get", [ methodAtom; cleanCallee ])
+            Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted allHoisted
+        else
+            match fieldInfo.Name with
+            | "indexOf" ->
+                // str.indexOf(sub) → case binary:match(Str, Sub) of {Pos,_} -> Pos; nomatch -> -1 end
+                match cleanArgs with
+                | [ sub ] ->
+                    let ctr = com.IncrementCounter()
+                    let posVar = $"Idx_pos_%d{ctr}"
 
-                Beam.ErlExpr.Case(
-                    Beam.ErlExpr.Call(Some "binary", "match", [ cleanCallee; sub ]),
-                    [
-                        {
-                            Pattern = Beam.PTuple [ Beam.PVar posVar; Beam.PWildcard ]
-                            Guard = []
-                            Body = [ Beam.ErlExpr.Variable posVar ]
-                        }
-                        {
-                            Pattern = Beam.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom "nomatch"))
-                            Guard = []
-                            Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer -1L) ]
-                        }
-                    ]
-                )
+                    Beam.ErlExpr.Case(
+                        Beam.ErlExpr.Call(Some "binary", "match", [ cleanCallee; sub ]),
+                        [
+                            {
+                                Pattern = Beam.PTuple [ Beam.PVar posVar; Beam.PWildcard ]
+                                Guard = []
+                                Body = [ Beam.ErlExpr.Variable posVar ]
+                            }
+                            {
+                                Pattern = Beam.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom "nomatch"))
+                                Guard = []
+                                Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer -1L) ]
+                            }
+                        ]
+                    )
+                    |> wrapWithHoisted allHoisted
+                | _ ->
+                    Beam.ErlExpr.Call(None, "unknown_call", cleanCallee :: cleanArgs)
+                    |> wrapWithHoisted allHoisted
+            | methodName ->
+                Beam.ErlExpr.Call(None, sanitizeErlangName methodName, cleanCallee :: cleanArgs)
                 |> wrapWithHoisted allHoisted
-            | _ ->
-                Beam.ErlExpr.Call(None, "unknown_call", cleanCallee :: cleanArgs)
-                |> wrapWithHoisted allHoisted
-        | methodName ->
-            Beam.ErlExpr.Call(None, sanitizeErlangName methodName, cleanCallee :: cleanArgs)
-            |> wrapWithHoisted allHoisted
 
     | _ ->
         let args = info.Args |> List.map (transformExpr com ctx)

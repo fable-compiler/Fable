@@ -75,3 +75,41 @@ let ``test multiple constructors work`` () =
 [<Fact>]
 let ``test closure in constructor captures value`` () =
     ThisContextInConstructor(7).GetValue() |> equal 7
+
+// Object expression tests
+
+type IGreeter =
+    abstract Greet: string -> string
+
+type IAdder =
+    abstract Add: int -> int -> int
+
+type IValueHolder =
+    abstract Value: int
+
+[<Fact>]
+let ``test object expression with single method works`` () =
+    let greeter = { new IGreeter with member _.Greet(name) = "Hello, " + name }
+    equal "Hello, World" (greeter.Greet("World"))
+
+[<Fact>]
+let ``test object expression with curried method works`` () =
+    let adder = { new IAdder with member _.Add x y = x + y }
+    equal 7 (adder.Add 3 4)
+
+[<Fact>]
+let ``test object expression with property getter works`` () =
+    let holder = { new IValueHolder with member _.Value = 42 }
+    equal 42 holder.Value
+
+[<Fact>]
+let ``test object expression passed as function argument works`` () =
+    let greet (g: IGreeter) name = g.Greet(name)
+    let greeter = { new IGreeter with member _.Greet(name) = "Hi, " + name }
+    equal "Hi, Bob" (greet greeter "Bob")
+
+[<Fact>]
+let ``test object expression captures closure values`` () =
+    let prefix = "Dear"
+    let greeter = { new IGreeter with member _.Greet(name) = prefix + " " + name }
+    equal "Dear Alice" (greeter.Greet("Alice"))
