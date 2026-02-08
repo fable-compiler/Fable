@@ -1130,6 +1130,9 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (expr: Expr
                     erlExpr
                 ]
             )
+        | Fable.AST.Fable.Type.String ->
+            // String indexing: binary:at(Str, Idx)
+            Beam.ErlExpr.Call(Some "binary", "at", [ erlExpr; erlIndex ])
         | _ ->
             // Tuple or other: element is 1-based
             Beam.ErlExpr.Call(None, "element", [ erlIndex; erlExpr ])

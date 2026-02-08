@@ -338,6 +338,23 @@ let private strings
     (args: Expr list)
     =
     match info.CompiledName, thisArg, args with
+    // String constructors: String(char[]), String(char, count), String(char[], start, length)
+    | ".ctor", _, fstArg :: _ ->
+        match fstArg.Type with
+        | Type.Char ->
+            match args with
+            | [ ch; count ] ->
+                Helper.LibCall(com, "fable_string", "string_ctor_char_count", t, [ ch; count ])
+                |> Some
+            | _ -> None
+        | Type.Array _ ->
+            match args with
+            | [ chars ] -> Helper.LibCall(com, "fable_string", "string_ctor_chars", t, [ chars ]) |> Some
+            | [ chars; start; len ] ->
+                Helper.LibCall(com, "fable_string", "string_ctor_chars_range", t, [ chars; start; len ])
+                |> Some
+            | _ -> None
+        | _ -> None
     // str.Length → byte_size(Str) — works for ASCII; for full Unicode use string:length
     | "get_Length", Some c, _ -> emitExpr r t [ c ] "byte_size($0)" |> Some
     // str.ToUpper() → string:uppercase(Str)
@@ -346,12 +363,33 @@ let private strings
     | ("ToLower" | "ToLowerInvariant"), Some c, _ -> emitExpr r t [ c ] "string:lowercase($0)" |> Some
     // str.Trim() → string:trim(Str)
     | "Trim", Some c, [] -> emitExpr r t [ c ] "string:trim($0)" |> Some
+    | "Trim", Some c, [ chars ] -> Helper.LibCall(com, "fable_string", "trim_chars", t, [ c; chars ]) |> Some
     | "TrimStart", Some c, [] -> emitExpr r t [ c ] "string:trim($0, leading)" |> Some
+    | "TrimStart", Some c, [ chars ] -> Helper.LibCall(com, "fable_string", "trim_start_chars", t, [ c; chars ]) |> Some
     | "TrimEnd", Some c, [] -> emitExpr r t [ c ] "string:trim($0, trailing)" |> Some
+    | "TrimEnd", Some c, [ chars ] -> Helper.LibCall(com, "fable_string", "trim_end_chars", t, [ c; chars ]) |> Some
     // str.StartsWith(prefix)
-    | "StartsWith", Some c, [ prefix ] -> Helper.LibCall(com, "fable_string", "starts_with", t, [ c; prefix ]) |> Some
+    | "StartsWith", Some c, [ prefix ] ->
+        match prefix.Type with
+        | Type.Char -> emitExpr r t [ c; prefix ] "fable_string:starts_with($0, <<$1/utf8>>)" |> Some
+        | _ -> Helper.LibCall(com, "fable_string", "starts_with", t, [ c; prefix ]) |> Some
+    | "StartsWith", Some c, [ prefix; _compType ] ->
+        emitExpr r t [ c; prefix ] "fable_string:starts_with(string:lowercase($0), string:lowercase($1))"
+        |> Some
+    | "StartsWith", Some c, [ prefix; _ignoreCase; _culture ] ->
+        emitExpr r t [ c; prefix ] "fable_string:starts_with(string:lowercase($0), string:lowercase($1))"
+        |> Some
     // str.EndsWith(suffix)
-    | "EndsWith", Some c, [ suffix ] -> Helper.LibCall(com, "fable_string", "ends_with", t, [ c; suffix ]) |> Some
+    | "EndsWith", Some c, [ suffix ] ->
+        match suffix.Type with
+        | Type.Char -> emitExpr r t [ c; suffix ] "fable_string:ends_with($0, <<$1/utf8>>)" |> Some
+        | _ -> Helper.LibCall(com, "fable_string", "ends_with", t, [ c; suffix ]) |> Some
+    | "EndsWith", Some c, [ suffix; _compType ] ->
+        emitExpr r t [ c; suffix ] "fable_string:ends_with(string:lowercase($0), string:lowercase($1))"
+        |> Some
+    | "EndsWith", Some c, [ suffix; _ignoreCase; _culture ] ->
+        emitExpr r t [ c; suffix ] "fable_string:ends_with(string:lowercase($0), string:lowercase($1))"
+        |> Some
     // str.Substring(start) → binary:part(Str, Start, byte_size(Str) - Start)
     | "Substring", Some c, [ start ] -> emitExpr r t [ c; start ] "binary:part($0, $1, byte_size($0) - $1)" |> Some
     // str.Substring(start, length) → binary:part(Str, Start, Length)
@@ -360,16 +398,11 @@ let private strings
     | "Replace", Some c, [ oldVal; newVal ] ->
         Helper.LibCall(com, "fable_string", "replace", t, [ c; oldVal; newVal ]) |> Some
     // str.Split(sep) → binary:split(Str, Sep, [global])
-    | "Split", Some c, [ sep ] ->
-        match sep.Type with
-        | Type.Char ->
-            // Char separator: convert to binary first
-            emitExpr r t [ c; sep ] "binary:split($0, <<$1/utf8>>, [global])" |> Some
-        | Type.Array _ ->
-            // Array of chars/strings: use first element as separator
-            emitExpr r t [ c; sep ] "binary:split($0, $1, [global])" |> Some
-        | _ -> emitExpr r t [ c; sep ] "binary:split($0, $1, [global])" |> Some
-    | "Split", Some c, [ sep; _options ] -> emitExpr r t [ c; sep ] "binary:split($0, $1, [global])" |> Some
+    | "Split", Some c, [ sep ] -> Helper.LibCall(com, "fable_string", "split", t, [ c; sep ]) |> Some
+    | "Split", Some c, [ sep; options ] -> Helper.LibCall(com, "fable_string", "split", t, [ c; sep; options ]) |> Some
+    | "Split", Some c, [ sep; count; _options ] ->
+        Helper.LibCall(com, "fable_string", "split_with_count", t, [ c; sep; count ])
+        |> Some
     // String.Join(sep, items)
     | "Join", None, [ sep; items ] -> Helper.LibCall(com, "fable_string", "join", t, [ sep; items ]) |> Some
     // String.Concat(items) → iolist_to_binary(Items)
@@ -377,7 +410,39 @@ let private strings
         match args with
         | [ items ] -> emitExpr r t [ items ] "iolist_to_binary($0)" |> Some
         | [ a; b ] -> emitExpr r t [ a; b ] "iolist_to_binary([$0, $1])" |> Some
+        | [ a; b; c ] -> emitExpr r t [ a; b; c ] "iolist_to_binary([$0, $1, $2])" |> Some
         | _ -> None
+    // String.Compare
+    | "Compare", None, [ a; b ] -> Helper.LibCall(com, "fable_string", "compare", t, [ a; b ]) |> Some
+    | "Compare", None, [ a; b; _ ] ->
+        // Handles both ignoreCase bool and StringComparison enum
+        Helper.LibCall(com, "fable_string", "compare_ignore_case", t, [ a; b ]) |> Some
+    | "Compare", None, [ a; startA; b; startB; len ] ->
+        // String.Compare(a, startA, b, startB, len) — substring comparison
+        emitExpr
+            r
+            t
+            [ a; startA; b; startB; len ]
+            "fable_string:compare(binary:part($0, $1, $4), binary:part($2, $3, $4))"
+        |> Some
+    | "Compare", None, [ a; startA; b; startB; len; _ ] ->
+        // String.Compare(a, startA, b, startB, len, compType) — substring comparison with comparison type
+        emitExpr
+            r
+            t
+            [ a; startA; b; startB; len ]
+            "fable_string:compare_ignore_case(binary:part($0, $1, $4), binary:part($2, $3, $4))"
+        |> Some
+    // String.IsNullOrEmpty / IsNullOrWhiteSpace (static on System.String)
+    | "IsNullOrEmpty", None, [ str ] -> Helper.LibCall(com, "fable_string", "is_null_or_empty", t, [ str ]) |> Some
+    | "IsNullOrWhiteSpace", None, [ str ] ->
+        Helper.LibCall(com, "fable_string", "is_null_or_white_space", t, [ str ])
+        |> Some
+    // String.Equals static
+    | "Equals", None, [ a; b ] -> equals r true a b |> Some
+    | "Equals", None, [ a; b; _compType ] ->
+        // For OrdinalIgnoreCase, compare lowered
+        emitExpr r t [ a; b ] "(string:lowercase($0) =:= string:lowercase($1))" |> Some
     // str.PadLeft(width)
     | "PadLeft", Some c, [ width ] -> Helper.LibCall(com, "fable_string", "pad_left", t, [ c; width ]) |> Some
     | "PadLeft", Some c, [ width; padChar ] ->
@@ -388,8 +453,37 @@ let private strings
     | "PadRight", Some c, [ width; padChar ] ->
         Helper.LibCall(com, "fable_string", "pad_right", t, [ c; width; padChar ])
         |> Some
+    // str.Contains(sub) → fable_string:contains
+    | "Contains", Some c, [ sub ] -> Helper.LibCall(com, "fable_string", "contains", t, [ c; sub ]) |> Some
+    // str.IndexOf(sub) / str.IndexOf(sub, startIdx)
+    | "IndexOf", Some c, [ sub ] ->
+        match sub.Type with
+        | Type.Char -> emitExpr r t [ c; sub ] "fable_string:index_of($0, <<$1/utf8>>)" |> Some
+        | _ -> Helper.LibCall(com, "fable_string", "index_of", t, [ c; sub ]) |> Some
+    | "IndexOf", Some c, [ sub; startIdx ] ->
+        match sub.Type with
+        | Type.Char ->
+            emitExpr r t [ c; sub; startIdx ] "fable_string:index_of($0, <<$1/utf8>>, $2)"
+            |> Some
+        | _ -> Helper.LibCall(com, "fable_string", "index_of", t, [ c; sub; startIdx ]) |> Some
+    // str.LastIndexOf(sub) / str.LastIndexOf(sub, maxIdx)
+    | "LastIndexOf", Some c, [ sub ] ->
+        match sub.Type with
+        | Type.Char -> emitExpr r t [ c; sub ] "fable_string:last_index_of($0, <<$1/utf8>>)" |> Some
+        | _ -> Helper.LibCall(com, "fable_string", "last_index_of", t, [ c; sub ]) |> Some
+    | "LastIndexOf", Some c, [ sub; maxIdx ] ->
+        match sub.Type with
+        | Type.Char ->
+            emitExpr r t [ c; sub; maxIdx ] "fable_string:last_index_of($0, <<$1/utf8>>, $2)"
+            |> Some
+        | _ ->
+            Helper.LibCall(com, "fable_string", "last_index_of", t, [ c; sub; maxIdx ])
+            |> Some
     // str.ToCharArray() → binary_to_list(Str)
     | "ToCharArray", Some c, [] -> emitExpr r t [ c ] "binary_to_list($0)" |> Some
+    | "ToCharArray", Some c, [ start; len ] ->
+        Helper.LibCall(com, "fable_string", "to_char_array", t, [ c; start; len ])
+        |> Some
     // str.Chars(idx) or str.[idx] → binary:at(Str, Idx)
     | ("get_Chars" | "get_Item"), Some c, [ idx ] -> emitExpr r t [ c; idx ] "binary:at($0, $1)" |> Some
     // str.Insert(idx, value)
@@ -402,6 +496,9 @@ let private strings
     // str.Contains(sub) — let it fall through to JS replacements which generates indexOf >= 0
     // Instance methods: Equals, CompareTo, GetHashCode
     | "Equals", Some c, [ arg ] -> equals r true c arg |> Some
+    | "Equals", Some c, [ arg; _compType ] ->
+        emitExpr r t [ c; arg ] "(string:lowercase($0) =:= string:lowercase($1))"
+        |> Some
     | "CompareTo", Some c, [ arg ] -> compare com r c arg |> Some
     | "GetHashCode", Some c, [] -> emitExpr r t [ c ] "erlang:phash2($0)" |> Some
     | _ -> None
@@ -878,6 +975,15 @@ let private stringModule
         Helper.LibCall(com, "fable_string", "is_null_or_white_space", t, [ str ])
         |> Some
     | "Replicate", [ count; str ] -> Helper.LibCall(com, "fable_string", "replicate", t, [ count; str ]) |> Some
+    | "ForAll", [ fn; str ] -> Helper.LibCall(com, "fable_string", "forall", t, [ fn; str ]) |> Some
+    | "Exists", [ fn; str ] -> Helper.LibCall(com, "fable_string", "exists", t, [ fn; str ]) |> Some
+    | "Initialize", [ count; fn ] -> Helper.LibCall(com, "fable_string", "init", t, [ count; fn ]) |> Some
+    | "Collect", [ fn; str ] -> Helper.LibCall(com, "fable_string", "collect", t, [ fn; str ]) |> Some
+    | "Iterate", [ fn; str ] -> Helper.LibCall(com, "fable_string", "iter", t, [ fn; str ]) |> Some
+    | "IterateIndexed", [ fn; str ] -> Helper.LibCall(com, "fable_string", "iteri", t, [ fn; str ]) |> Some
+    | "Map", [ fn; str ] -> Helper.LibCall(com, "fable_string", "map", t, [ fn; str ]) |> Some
+    | "MapIndexed", [ fn; str ] -> Helper.LibCall(com, "fable_string", "mapi", t, [ fn; str ]) |> Some
+    | "Filter", [ fn; str ] -> Helper.LibCall(com, "fable_string", "filter", t, [ fn; str ]) |> Some
     | _ -> None
 
 /// Beam-specific Seq module replacements.
