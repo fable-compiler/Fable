@@ -1,5 +1,6 @@
 namespace rec Fable.AST.Beam
 
+[<Struct>]
 type Atom = | Atom of name: string
 
 type ErlLiteral =

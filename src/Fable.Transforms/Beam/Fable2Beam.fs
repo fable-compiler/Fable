@@ -1512,8 +1512,24 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                     Beam.ErlExpr.Call(None, "unknown_call", cleanCallee :: cleanArgs)
                     |> wrapWithHoisted allHoisted
             | methodName ->
-                Beam.ErlExpr.Call(None, sanitizeErlangName methodName, cleanCallee :: cleanArgs)
-                |> wrapWithHoisted allHoisted
+                // Check if callee is a record/anonymous record (function-valued field)
+                let isRecordLike =
+                    match calleeExpr.Type with
+                    | Fable.AST.Fable.Type.AnonymousRecordType _ -> true
+                    | Fable.AST.Fable.Type.DeclaredType(entityRef, _) ->
+                        match com.TryGetEntity(entityRef) with
+                        | Some entity -> entity.IsFSharpRecord
+                        | None -> false
+                    | _ -> false
+
+                if isRecordLike then
+                    // Function-valued record field: (maps:get(field, Record))(Args)
+                    let fieldAtom = atomLit (sanitizeErlangName methodName)
+                    let lookup = Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; cleanCallee ])
+                    Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted allHoisted
+                else
+                    Beam.ErlExpr.Call(None, sanitizeErlangName methodName, cleanCallee :: cleanArgs)
+                    |> wrapWithHoisted allHoisted
 
     | _ ->
         let args = info.Args |> List.map (transformExpr com ctx)
@@ -1596,10 +1612,7 @@ and transformClassDeclaration
                                 let erlBody = transformExpr com ifaceCtorCtx memb.Body
                                 Some(atomLit memberName, erlBody)
                             else
-                                // Method: create a closure that calls the module-level function.
-                                // The module-level function is: className_methodName(This, Args...)
-                                let moduleFuncName = $"%s{className}_%s{memberName}"
-
+                                // Method: create a closure with the body inlined directly.
                                 let nonThisArgs =
                                     memb.Args |> List.filter (fun a -> not a.IsThisArgument && a.Name <> "this")
 
@@ -1607,11 +1620,19 @@ and transformClassDeclaration
                                     nonThisArgs
                                     |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
 
-                                let argVars =
-                                    nonThisArgs
-                                    |> List.map (fun a ->
-                                        Beam.ErlExpr.Variable(capitalizeFirst a.Name |> sanitizeErlangVar)
-                                    )
+                                // Set up context so `this` references resolve to `Ref`
+                                let ifaceCtorCtx =
+                                    match memb.Args with
+                                    | first :: _ when first.IsThisArgument || first.Name = "this" ->
+                                        { ctorCtx with ThisIdentNames = Set.singleton first.Name }
+                                    | _ -> ctorCtx
+
+                                let erlBody = transformExpr com ifaceCtorCtx memb.Body
+
+                                let bodyExprs =
+                                    match erlBody with
+                                    | Beam.ErlExpr.Block es -> es
+                                    | e -> [ e ]
 
                                 let closure =
                                     Beam.ErlExpr.Fun
@@ -1619,14 +1640,7 @@ and transformClassDeclaration
                                             {
                                                 Patterns = argPats
                                                 Guard = []
-                                                Body =
-                                                    [
-                                                        Beam.ErlExpr.Call(
-                                                            None,
-                                                            moduleFuncName,
-                                                            Beam.ErlExpr.Variable "Ref" :: argVars
-                                                        )
-                                                    ]
+                                                Body = bodyExprs
                                             }
                                         ]
 
@@ -1692,157 +1706,163 @@ and transformClassDeclaration
     let memberForms =
         decl.AttachedMembers
         |> List.collect (fun memb ->
-            let info =
-                memb.ImplementedSignatureRef
-                |> Option.map com.GetMember
-                |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
+            // Skip interface implementations — they are inlined as closures
+            // in interfaceEntries and don't need separate module-level functions.
+            if memb.ImplementedSignatureRef.IsSome then
+                []
+            else
 
-            // Helper: separate this arg from other args, set up proper context
-            let getThisAndArgs () =
-                match memb.Args with
-                | first :: rest when first.IsThisArgument || first.Name = "this" ->
-                    let thisIdentNames = Set.singleton first.Name
+                let info =
+                    memb.ImplementedSignatureRef
+                    |> Option.map com.GetMember
+                    |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
 
-                    let memberCtx =
-                        { ctx with
-                            ThisArgVar = Some "This"
-                            ThisIdentNames = thisIdentNames
+                // Helper: separate this arg from other args, set up proper context
+                let getThisAndArgs () =
+                    match memb.Args with
+                    | first :: rest when first.IsThisArgument || first.Name = "this" ->
+                        let thisIdentNames = Set.singleton first.Name
+
+                        let memberCtx =
+                            { ctx with
+                                ThisArgVar = Some "This"
+                                ThisIdentNames = thisIdentNames
+                            }
+
+                        Some first, rest, memberCtx
+                    | _ -> None, memb.Args, ctx
+
+                if info.IsConstructor then
+                    // Secondary constructor: generates an additional function with different arity
+                    // The body typically calls the primary constructor
+                    let ctorArgs =
+                        memb.Args
+                        |> List.filter (fun a ->
+                            not a.IsThisArgument
+                            && a.Name <> "this"
+                            && not (a.Name.StartsWith("unitVar", System.StringComparison.Ordinal))
+                        )
+
+                    let argPatterns =
+                        ctorArgs
+                        |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
+
+                    let bodyExpr = transformExpr com ctx memb.Body
+
+                    let body =
+                        match bodyExpr with
+                        | Beam.ErlExpr.Block es -> es
+                        | e -> [ e ]
+
+                    let funcDef: Beam.ErlFunctionDef =
+                        {
+                            Name = Beam.Atom(sanitizeErlangName memb.Name)
+                            Arity = argPatterns.Length
+                            Clauses =
+                                [
+                                    {
+                                        Patterns = argPatterns
+                                        Guard = []
+                                        Body = body
+                                    }
+                                ]
                         }
 
-                    Some first, rest, memberCtx
-                | _ -> None, memb.Args, ctx
+                    [ Beam.ErlForm.Function funcDef ]
+                elif not memb.IsMangled && info.IsGetter then
+                    // Property getter: class_name_get_prop(This) -> maps:get(prop, get(This)).
+                    let propName = sanitizeErlangName memb.Name
+                    let funcName = $"%s{className}_%s{propName}"
+                    let _thisArg, _nonThisArgs, memberCtx = getThisAndArgs ()
 
-            if info.IsConstructor then
-                // Secondary constructor: generates an additional function with different arity
-                // The body typically calls the primary constructor
-                let ctorArgs =
-                    memb.Args
-                    |> List.filter (fun a ->
-                        not a.IsThisArgument
-                        && a.Name <> "this"
-                        && not (a.Name.StartsWith("unitVar", System.StringComparison.Ordinal))
-                    )
+                    let bodyExpr = transformExpr com memberCtx memb.Body
 
-                let argPatterns =
-                    ctorArgs
-                    |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
+                    let body =
+                        match bodyExpr with
+                        | Beam.ErlExpr.Block es -> es
+                        | e -> [ e ]
 
-                let bodyExpr = transformExpr com ctx memb.Body
+                    let funcDef: Beam.ErlFunctionDef =
+                        {
+                            Name = Beam.Atom funcName
+                            Arity = 1
+                            Clauses =
+                                [
+                                    {
+                                        Patterns = [ Beam.PVar "This" ]
+                                        Guard = []
+                                        Body = body
+                                    }
+                                ]
+                        }
 
-                let body =
-                    match bodyExpr with
-                    | Beam.ErlExpr.Block es -> es
-                    | e -> [ e ]
+                    [ Beam.ErlForm.Function funcDef ]
+                elif not memb.IsMangled && info.IsSetter then
+                    // Property setter: class_name_set_prop(This, Value) -> put(This, maps:put(prop, Value, get(This))).
+                    let propName = sanitizeErlangName memb.Name
+                    let funcName = $"%s{className}_set_%s{propName}"
+                    let _thisArg, nonThisArgs, memberCtx = getThisAndArgs ()
 
-                let funcDef: Beam.ErlFunctionDef =
-                    {
-                        Name = Beam.Atom(sanitizeErlangName memb.Name)
-                        Arity = argPatterns.Length
-                        Clauses =
-                            [
-                                {
-                                    Patterns = argPatterns
-                                    Guard = []
-                                    Body = body
-                                }
-                            ]
-                    }
+                    let argPatterns =
+                        [ Beam.PVar "This" ]
+                        @ (nonThisArgs
+                           |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)))
 
-                [ Beam.ErlForm.Function funcDef ]
-            elif not memb.IsMangled && info.IsGetter then
-                // Property getter: class_name_get_prop(This) -> maps:get(prop, get(This)).
-                let propName = sanitizeErlangName memb.Name
-                let funcName = $"%s{className}_%s{propName}"
-                let _thisArg, _nonThisArgs, memberCtx = getThisAndArgs ()
+                    let bodyExpr = transformExpr com memberCtx memb.Body
 
-                let bodyExpr = transformExpr com memberCtx memb.Body
+                    let body =
+                        match bodyExpr with
+                        | Beam.ErlExpr.Block es -> es
+                        | e -> [ e ]
 
-                let body =
-                    match bodyExpr with
-                    | Beam.ErlExpr.Block es -> es
-                    | e -> [ e ]
+                    let funcDef: Beam.ErlFunctionDef =
+                        {
+                            Name = Beam.Atom funcName
+                            Arity = argPatterns.Length
+                            Clauses =
+                                [
+                                    {
+                                        Patterns = argPatterns
+                                        Guard = []
+                                        Body = body
+                                    }
+                                ]
+                        }
 
-                let funcDef: Beam.ErlFunctionDef =
-                    {
-                        Name = Beam.Atom funcName
-                        Arity = 1
-                        Clauses =
-                            [
-                                {
-                                    Patterns = [ Beam.PVar "This" ]
-                                    Guard = []
-                                    Body = body
-                                }
-                            ]
-                    }
+                    [ Beam.ErlForm.Function funcDef ]
+                else
+                    // Regular method: class_name_method(This, Args...) -> Body.
+                    let methodName = sanitizeErlangName memb.Name
+                    let funcName = $"%s{className}_%s{methodName}"
+                    let _thisArg, nonThisArgs, memberCtx = getThisAndArgs ()
 
-                [ Beam.ErlForm.Function funcDef ]
-            elif not memb.IsMangled && info.IsSetter then
-                // Property setter: class_name_set_prop(This, Value) -> put(This, maps:put(prop, Value, get(This))).
-                let propName = sanitizeErlangName memb.Name
-                let funcName = $"%s{className}_set_%s{propName}"
-                let _thisArg, nonThisArgs, memberCtx = getThisAndArgs ()
+                    let argPatterns =
+                        [ Beam.PVar "This" ]
+                        @ (nonThisArgs
+                           |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)))
 
-                let argPatterns =
-                    [ Beam.PVar "This" ]
-                    @ (nonThisArgs
-                       |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)))
+                    let bodyExpr = transformExpr com memberCtx memb.Body
 
-                let bodyExpr = transformExpr com memberCtx memb.Body
+                    let body =
+                        match bodyExpr with
+                        | Beam.ErlExpr.Block es -> es
+                        | e -> [ e ]
 
-                let body =
-                    match bodyExpr with
-                    | Beam.ErlExpr.Block es -> es
-                    | e -> [ e ]
+                    let funcDef: Beam.ErlFunctionDef =
+                        {
+                            Name = Beam.Atom funcName
+                            Arity = argPatterns.Length
+                            Clauses =
+                                [
+                                    {
+                                        Patterns = argPatterns
+                                        Guard = []
+                                        Body = body
+                                    }
+                                ]
+                        }
 
-                let funcDef: Beam.ErlFunctionDef =
-                    {
-                        Name = Beam.Atom funcName
-                        Arity = argPatterns.Length
-                        Clauses =
-                            [
-                                {
-                                    Patterns = argPatterns
-                                    Guard = []
-                                    Body = body
-                                }
-                            ]
-                    }
-
-                [ Beam.ErlForm.Function funcDef ]
-            else
-                // Regular method: class_name_method(This, Args...) -> Body.
-                let methodName = sanitizeErlangName memb.Name
-                let funcName = $"%s{className}_%s{methodName}"
-                let _thisArg, nonThisArgs, memberCtx = getThisAndArgs ()
-
-                let argPatterns =
-                    [ Beam.PVar "This" ]
-                    @ (nonThisArgs
-                       |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)))
-
-                let bodyExpr = transformExpr com memberCtx memb.Body
-
-                let body =
-                    match bodyExpr with
-                    | Beam.ErlExpr.Block es -> es
-                    | e -> [ e ]
-
-                let funcDef: Beam.ErlFunctionDef =
-                    {
-                        Name = Beam.Atom funcName
-                        Arity = argPatterns.Length
-                        Clauses =
-                            [
-                                {
-                                    Patterns = argPatterns
-                                    Guard = []
-                                    Body = body
-                                }
-                            ]
-                    }
-
-                [ Beam.ErlForm.Function funcDef ]
+                    [ Beam.ErlForm.Function funcDef ]
         )
 
     constructorForms @ memberForms

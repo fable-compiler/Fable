@@ -502,12 +502,11 @@ let ``test Sign operator works with bigints`` () =
 // let ``test Decimal literals can be generated`` () =
 //     0M |> equal Decimal.Zero
 
-// TODO: incr/decr use ref cells which may not work in Beam
-// [<Fact>]
-// let ``test incr works`` () =
-//     let i = ref 5
-//     incr i
-//     !i |> equal 6
+[<Fact>]
+let ``test incr works`` () =
+    let i = ref 5
+    incr i
+    !i |> equal 6
 
 // TODO: System.Random not implemented for Beam
 // [<Fact>]

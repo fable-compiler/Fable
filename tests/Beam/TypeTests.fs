@@ -140,6 +140,41 @@ type SimpleCounter(start: int) =
             count <- count + 1
             count
 
+type IDescribable =
+    abstract Describe: unit -> string
+
+type DescribableImpl(name: string) =
+    member _.Describe() = name
+    interface IDescribable with
+        member x.Describe() = x.Describe() + " (described)"
+
+type ILabeled =
+    abstract Label: string
+
+type LabeledImpl(s: string) =
+    member _.Label = s
+    interface ILabeled with
+        member x.Label = x.Label + " (labeled)"
+
+type IReadOnlyProps =
+    abstract OnlyGet: int
+    abstract OnlyProp: int
+
+type ReadOnlyPropsImpl() =
+    interface IReadOnlyProps with
+        member _.OnlyGet = 0
+        member _.OnlyProp = 3
+
+type Employee2 = { empName: string; empAge: float; empLocation: Location2 }
+and Location2 = { locName: string; mutable locEmployees: Employee2 list }
+
+type SameCheckRecord = { SCFoo: int; SCBar: string }
+
+type SameCheckUnion =
+    | UCFoo of int * int
+    | UCBar of float
+    | UCBaz
+
 [<Fact>]
 let ``test class implementing interface method works`` () =
     let greeter = MyGreeter("Hello") :> IGreeter
@@ -178,6 +213,70 @@ let ``test class implementing interface with closure capture works`` () =
     let makeGreeter prefix = MyGreeter(prefix) :> IGreeter
     let g = makeGreeter "Dear"
     equal "Dear, Alice" (g.Greet("Alice"))
+
+[<Fact>]
+let ``test class implementing interface method with mutable state works`` () =
+    let counter = SimpleCounter(0) :> ICounter
+    let r1 = counter.Increment()
+    let r2 = counter.Increment()
+    let r3 = counter.Increment()
+    equal 1 r1
+    equal 2 r2
+    equal 3 r3
+
+[<Fact>]
+let ``test a type can overload an interface method`` () =
+    let obj = DescribableImpl("hello")
+    equal "hello" (obj.Describe())
+    equal "hello (described)" ((obj :> IDescribable).Describe())
+
+[<Fact>]
+let ``test a type can overload an interface getter`` () =
+    let obj = LabeledImpl("hi")
+    equal "hi" (obj.Label)
+    equal "hi (labeled)" ((obj :> ILabeled).Label)
+
+[<Fact>]
+let ``test class implementing read-only interface properties works`` () =
+    let obj = ReadOnlyPropsImpl() :> IReadOnlyProps
+    equal 0 obj.OnlyGet
+    equal 3 obj.OnlyProp
+
+// Basic language feature tests
+
+[<Fact>]
+let ``test unit arguments work`` () =
+    let update () = ((), ())
+    update () |> equal ((), ())
+
+// TODO: Mutable record fields use maps:put which returns a new map in Erlang,
+// but the original binding is not updated (Erlang maps are immutable).
+// Needs process dictionary approach for mutable record fields.
+// [<Fact>]
+// let ``test circular record dependencies work`` () =
+//     let loc = { locName = "NYC"; locEmployees = [] }
+//     let emp = { empName = "Joe"; empAge = 30.0; empLocation = loc }
+//     loc.locEmployees <- [ emp ]
+//     equal "Joe" loc.locEmployees.Head.empName
+//     equal "NYC" emp.empLocation.locName
+
+[<Fact>]
+let ``test records of same type with same values are equal`` () =
+    let r1 = { SCFoo = 2; SCBar = "oh" }
+    let r2 = { SCFoo = 2; SCBar = "oh" }
+    equal true (r1 = r2)
+
+[<Fact>]
+let ``test records of same type with different values are not equal`` () =
+    let r1 = { SCFoo = 2; SCBar = "oh" }
+    let r2 = { SCFoo = 3; SCBar = "oh" }
+    equal true (r1 <> r2)
+
+[<Fact>]
+let ``test unions of same type with same values are equal`` () =
+    let u1 = UCFoo(1, 2)
+    let u2 = UCFoo(1, 2)
+    equal true (u1 = u2)
 
 // Type testing tests
 
@@ -263,3 +362,29 @@ let ``test box and unbox string works`` () =
     let boxed: obj = box s
     let unboxed: string = unbox boxed
     equal "hello" unboxed
+
+[<Fact>]
+let ``test unions of same type different cases are not equal`` () =
+    let u1 = UCFoo(1, 2)
+    let u2 = UCBar(1.0)
+    equal true (u1 <> u2)
+
+[<Fact>]
+let ``test unions of same type different values are not equal`` () =
+    let u1 = UCFoo(1, 2)
+    let u2 = UCFoo(3, 4)
+    equal true (u1 <> u2)
+
+[<Fact>]
+let ``test box and unbox bool works`` () =
+    let b = true
+    let boxed: obj = box b
+    let unboxed: bool = unbox boxed
+    equal true unboxed
+
+[<Fact>]
+let ``test box and unbox tuple works`` () =
+    let t = (1, "a")
+    let boxed: obj = box t
+    let unboxed: int * string = unbox boxed
+    equal (1, "a") unboxed

@@ -133,12 +133,11 @@ let ``test record equality when it has optional field`` () =
 //     equal "John" x.firstName
 //     equal "Jane" x.FirstName
 
-// TODO: Function-valued anonymous record fields generate incorrect Erlang (f(R,...) instead of maps:get(f,R)(...))
-// [<Fact>]
-// let ``test anonymous records work with functions`` () =
-//     let r = {| X = 5; Y = "Foo"; F = fun x y -> x + y |}
-//     sprintf "Tell me %s %i times" r.Y (r.F r.X 3)
-//     |> equal "Tell me Foo 8 times"
+[<Fact>]
+let ``test anonymous records work with functions`` () =
+    let r = {| X = 5; Y = "Foo"; F = fun x y -> x + y |}
+    r.F r.X 3 |> equal 8
+    r.Y |> equal "Foo"
 
 [<Fact>]
 let ``test anonymous record equality works`` () =

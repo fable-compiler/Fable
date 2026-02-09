@@ -160,6 +160,21 @@ let private operators
     | Operators.logicalNot, [ operand ] -> emitExpr r _t [ operand ] "(bnot $0)" |> Some
     // Erlang has native arbitrary-precision integers, so Int64/UInt64/BigInt
     // use direct binary ops instead of library calls
+    // Ref cells: ref, !, :=, incr, decr
+    | "op_Dereference", [ arg ] -> emitExpr r _t [ arg ] "get($0)" |> Some
+    | "op_ColonEquals", [ o; v ] -> emitExpr r Unit [ o; v ] "put($0, $1)" |> Some
+    | "Ref", [ arg ] ->
+        emitExpr r Any [ arg ] "(fun() -> Ref = make_ref(), put(Ref, $0), Ref end)()"
+        |> Some
+    | ("Increment" | "Decrement"), [ arg ] ->
+        // incr x → put(x, get(x) + 1); decr x → put(x, get(x) - 1)
+        let delta =
+            if info.CompiledName = "Increment" then
+                "1"
+            else
+                "-1"
+
+        emitExpr r _t [ arg ] $"put($0, get($0) + %s{delta})" |> Some
     | Patterns.SetContains Operators.standardSet, _ ->
         let argTypes = args |> List.map (fun a -> a.Type)
 
@@ -1398,7 +1413,10 @@ let makeRefFromMutableField
     =
     Get(callee, FieldInfo.Create(key, isMutable = true), t, r)
 
-let tryField (_com: ICompiler) _returnTyp _ownerTyp _fieldName : Expr option = None
+let tryField (_com: ICompiler) _returnTyp ownerTyp fieldName : Expr option =
+    match ownerTyp, fieldName with
+    | String, "Empty" -> makeStrConst "" |> Some
+    | _ -> None
 
 let tryType (_t: Type) : Expr option = None
 
@@ -1524,6 +1542,12 @@ let tryCall
         // ToInt/ToDouble/etc: identity
         | name, None, [ arg ] when name.StartsWith("To", System.StringComparison.Ordinal) -> Some arg
         | name, Some c, _ when name.StartsWith("To", System.StringComparison.Ordinal) -> Some c
+        | _ -> None
+    | "Microsoft.FSharp.Core.FSharpRef`1" ->
+        // Ref cell .Value get/set: use process dictionary
+        match info.CompiledName, thisArg, args with
+        | "get_Value", Some callee, _ -> getRefCell com r t callee |> Some
+        | "set_Value", Some callee, [ value ] -> setRefCell com r callee value |> Some
         | _ -> None
     | _ -> None
 

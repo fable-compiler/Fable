@@ -38,11 +38,10 @@ let ``test String inequality works`` () =
 let ``test Empty string works`` () =
     "" |> equal ""
 
-// TODO: String.Empty is an ILFieldGet that Fable doesn't support
-// [<Fact>]
-// let ``test String.Empty works`` () =
-//     let s = String.Empty
-//     s |> equal ""
+[<Fact>]
+let ``test String.Empty works`` () =
+    let s = String.Empty
+    s |> equal ""
 
 [<Fact>]
 let ``test String concatenation with variable works`` () =
@@ -283,13 +282,12 @@ let ``test String.init works`` () =
 let ``test String.collect works`` () =
     "abc" |> String.collect (fun c -> "bcd") |> equal "bcdbcdbcd"
 
-// TODO: ref cells not supported in Beam yet
-// [<Fact>]
-// let ``test String.iter works`` () =
-//     let res = ref ""
-//     "Hello world!"
-//     |> String.iter (fun c -> res.Value <- res.Value + c.ToString())
-//     equal "Hello world!" res.Value
+[<Fact>]
+let ``test String.iter works`` () =
+    let res = ref ""
+    "Hello world!"
+    |> String.iter (fun c -> res.Value <- res.Value + c.ToString())
+    equal "Hello world!" res.Value
 
 [<Fact>]
 let ``test String.iteri works`` () =
