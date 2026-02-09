@@ -56,6 +56,7 @@ directly to Erlang built-ins:
 | **Bitwise ops** | JS routes Int64 through BigInt library | Native `band`, `bor`, `bxor`, `bsl`, `bsr`, `bnot` |
 | **Lists** | Array-based emulation | Native linked lists — direct `[H\|T]`, `lists:*` |
 | **Maps** | Library objects/dicts | Native `#{}` maps, `maps:*` |
+| **Sets** | Library Set class | Native `ordsets` (sorted lists) |
 | **Structural equality** | `Util.equals()` library call | Native `=:=` (deep comparison on all types) |
 | **Structural comparison** | `Util.compare()` library call | Native `<`, `>`, `=<`, `>=` (works on all terms) |
 | **Hashing** | Custom hash functions | `erlang:phash2/1` |
@@ -119,7 +120,7 @@ Erlang modules implementing F# core types:
 | fable_convert.erl | Type conversions | Robust to_float handling edge cases | Done |
 | fable_reflection.erl | Reflection helpers | Type info as Erlang maps | Done |
 | fable_result.erl | Result | {ok, V} or {error, E} | Done |
-| fable_set.erl | FSharpSet | sets or gb_sets | Planned |
+| fable_set.erl | FSharpSet | ordsets (sorted lists), fold/map/filter/partition/union_many/intersect_many | Done |
 | fable_decimal.erl | decimal | Needs a library or custom impl | Planned |
 | fable_guid.erl | Guid | UUID generation | Planned |
 | fable_date.erl | DateTime | calendar module | Planned |
@@ -322,7 +323,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 1. Runs all tests on .NET via `dotnet test`
 2. Compiles tests to `.erl` via Fable
 3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (857 Erlang tests pass)
+4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (903 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -348,8 +349,9 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | TypeTests.fs | 13 | Class constructors, properties, methods, closures, object expressions |
 | TryCatchTests.fs | 8 | try/catch, failwith, exception messages, nested try/catch |
 | LoopTests.fs | 7 | for loops, while loops, nested loops, mutable variables |
+| SetTests.fs | 46 | Set construction, add/remove/contains, union/intersect/difference, subset/superset, fold/map/filter, partition, min/max |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **857** | |
+| **Total** | **903** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -379,7 +381,7 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
 - [x] List module functions → `lists:` module calls + `fable_list.erl` library
 - [x] `array<T>` → Erlang lists (arrays represented as lists for simplicity)
 - [x] `Map<K,V>` → Erlang native `#{}` maps, `maps:` module calls + `fable_map.erl`
-- [ ] `Set<T>` → Erlang `sets` / `gb_sets` (not yet implemented)
+- [x] `Set<T>` → Erlang `ordsets` (sorted lists), `ordsets:` module calls + `fable_set.erl`
 - [x] `Seq<T>` → eager Erlang lists with `fable_seq.erl` library
 - [x] `fable-library-beam` runtime: `fable_list.erl`, `fable_map.erl`, `fable_string.erl`, `fable_option.erl`, `fable_seq.erl`
 - [x] Range expressions: `[1..n]` → `lists:seq(1, n)`, `[1..2..n]` → `lists:seq(1, n, 2)`
@@ -396,6 +398,12 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
 - All multi-arg callbacks use curried application `(Fn(A))(B)` to match Fable's compilation.
 - Integration tested with a Sudoku solver (SudokuTests.fs) using Seq, Array, ranges, and
   array comprehensions.
+- Sets use Erlang's `ordsets` module (sorted lists). Maintains ordering compatible with
+  F#'s structural comparison. Simple operations (`add`, `contains`, `union`, etc.) map
+  directly to `ordsets:*` BIFs. Higher-order operations (`fold`, `map`, `filter`) use
+  `fable_set.erl` for curried function handling. Set `+`/`-` operators intercepted in
+  Beam `operators` via `Builtin(FSharpSet _)` arg type matching. `set [1;2;3]` handled
+  via `CreateSet` → `ordsets:from_list`.
 
 ### Phase 5: Modules & Imports -- PARTIALLY COMPLETE
 
@@ -445,7 +453,7 @@ The crown jewel.
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 857 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 903 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
