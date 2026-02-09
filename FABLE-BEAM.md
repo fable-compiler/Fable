@@ -135,7 +135,7 @@ Erlang modules implementing F# core types:
 | `src/Fable.Compiler/ProjectCracker.fs`         | Added Beam library path                         | Done   |
 | `src/Fable.Cli/Entry.fs`                       | Added `--lang beam` argument parsing            | Done   |
 | `src/Fable.Cli/Pipeline.fs`                    | Added `Beam.compileFile` dispatch               | Done   |
-| `src/Fable.Transforms/Replacements.Api.fs`     | Added Beam to `createMutablePublicValue`        | Done   |
+| `src/Fable.Transforms/Replacements.Api.fs`     | Beam dispatch for all 15 API functions          | Done   |
 | `src/Fable.Transforms/Transforms.Util.fs`      | Added Beam to `getLibPath`                      | Done   |
 | `src/Fable.Transforms/FSharp2Fable.Util.fs`    | Added Beam to `isModuleValueCompiledAsFunction` | Done   |
 | `src/Fable.Transforms/Fable.Transforms.fsproj` | Added Beam files to project                     | Done   |
@@ -169,7 +169,7 @@ Erlang modules implementing F# core types:
 | `unit`           | `ok`                   | Atom                                       |                              |
 | `tuple`          | `tuple`                | Direct: `{A, B, C}`                        |                              |
 | `list<T>`        | `list()`               | Both are linked lists!                     |                              |
-| `option<T>`      | `{some, V} \           | none`                                      | Or use `undefined` atom      |
+| `option<T>`      | `x` or `{some, x}` \   | `undefined`                                | Erased or wrapped (see below)|
 | `Result<T,E>`    | `{ok, V} \             | {error, E}`                                | Matches Erlang idiom exactly |
 | Pattern matching | Pattern matching       | Both languages excel here                  |                              |
 | Immutability     | Immutability           | Erlang is immutable by default             |                              |
@@ -182,7 +182,7 @@ Erlang modules implementing F# core types:
 | **DU cases**                      | Tagged tuples: `{some, V}`, `{node, L, R}`        | Maps, records                        |
 | **Records**                       | Erlang maps: `#{name => <<"Dag">>}`               | Erlang records (compile-time tuples) |
 | **Classes**                       | Module + map (state as map, methods as functions) | Processes holding state              |
-| **Interfaces**                    | Behaviour callbacks or dispatch maps              | Protocol pattern                     |
+| **Interfaces**                    | Dispatch maps: `#{method => fun(...) -> ... end}` | Done (object expressions)            |
 | **Mutability** (`ref`, `mutable`) | Process dictionary, ETS, or process state         | Agent pattern                        |
 | **Exceptions**                    | `throw`/`catch` with tagged tuples                | Error tuples (Erlang way)            |
 | **Generics**                      | Erased (Erlang is dynamically typed)              | —                                    |
@@ -319,37 +319,37 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 
 **Test suite**: `tests/Beam/` with xUnit. Run with `./build.sh test beam` which:
 
-1. Runs all tests on .NET via `dotnet test` (664 tests)
+1. Runs all tests on .NET via `dotnet test`
 2. Compiles tests to `.erl` via Fable
 3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (664 Erlang tests pass)
+4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (857 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
 | ArithmeticTests.fs | 104 | Arithmetic, bitwise, logical, comparison, Int64, BigInt, exponentiation, sign |
+| ArrayTests.fs | 102 | Array literal, map/filter/fold, mapi, append, sort, indexed, length, choose, collect, zip, pairwise |
+| SeqTests.fs | 96 | Seq.map/filter/fold/head/length/append/concat/distinct/take/skip/unfold/init/scan/zip/chunkBySize |
 | ListTests.fs | 94 | List operations, head/tail, map/filter/fold, append, sort, choose, collect, find, zip, chunkBySize, pairwise, windowed, etc. |
-| UnionTypeTests.fs | 18 | Union construction, matching, structural equality, active patterns |
-| PatternMatchTests.fs | 15 | Pattern matching with guards, options, nested patterns |
-| FnTests.fs | 15 | Functions, recursive lambdas, mutual recursion, closures |
-| RecordTests.fs | 11 | Creation, update, float fields, nesting, anonymous records, structural equality |
-| StringTests.fs | 29 | String methods, interpolation, concat, substring, replace, split, trim, pad |
-| TryCatchTests.fs | 8 | try/catch, failwith, exception messages, nested try/catch |
-| OptionTests.fs | 19 | Option.map/bind/defaultValue/filter/isSome/isNone, Option module |
-| ConversionTests.fs | 43 | Type conversions, System.Convert, Parse, ToString, BigInt conversions |
-| LoopTests.fs | 7 | for loops, while loops, nested loops, mutable variables |
-| ArrayTests.fs | 19 | Array literal, map/filter/fold, mapi, append, sort, indexed, length |
-| TupleTests.fs | 10 | Tuple creation, destructuring, fst/snd, equality, nesting |
-| MapTests.fs | 62 | F# Map create/add/remove/find/containsKey/count, iteration, fold, filter, pick, tryPick, minKeyValue, maxKeyValue |
-| SeqTests.fs | 47 | Seq.map/filter/fold/head/length/append/concat/distinct/take/skip/unfold/init/scan/zip |
-| ComparisonTests.fs | 67 | compare, hash, isNull, Equals, CompareTo, GetHashCode, structural comparison |
+| StringTests.fs | 91 | String methods, interpolation, concat, substring, replace, split, trim, pad, contains, startsWith, endsWith |
+| ConversionTests.fs | 61 | Type conversions, System.Convert, Parse, ToString, BigInt conversions |
+| OptionTests.fs | 50 | Option.map/bind/defaultValue/filter/isSome/isNone, Option module, nested options |
+| ComparisonTests.fs | 44 | compare, hash, isNull, Equals, CompareTo, GetHashCode, structural comparison |
+| MapTests.fs | 43 | F# Map create/add/remove/find/containsKey/count, iteration, fold, filter, pick, tryPick, minKeyValue, maxKeyValue |
 | CharTests.fs | 33 | Char.IsLetter/IsDigit/IsUpper/IsLower, char conversions, ToString |
-| TailCallTests.fs | 5 | Tail call optimization, recursive functions |
-| SeqExpressionTests.fs | 12 | Seq expressions, yield, yield! |
-| TypeTests.fs | 10 | Class constructors, properties, methods, closures |
+| PatternMatchTests.fs | 28 | Pattern matching with guards, options, nested patterns, when clauses |
+| ResultTests.fs | 21 | Result.map/bind/mapError, Result module functions |
+| UnionTypeTests.fs | 18 | Union construction, matching, structural equality, active patterns |
+| RecordTests.fs | 17 | Creation, update, float fields, nesting, anonymous records, structural equality |
+| FnTests.fs | 15 | Functions, recursive lambdas, mutual recursion, closures |
+| TailCallTests.fs | 14 | Tail call optimization, recursive functions |
+| SeqExpressionTests.fs | 11 | Seq expressions, yield, yield! |
 | ReflectionTests.fs | 11 | Type info, FSharpType reflection |
+| TupleTests.fs | 10 | Tuple creation, destructuring, fst/snd, equality, nesting |
+| TypeTests.fs | 13 | Class constructors, properties, methods, closures, object expressions |
+| TryCatchTests.fs | 8 | try/catch, failwith, exception messages, nested try/catch |
+| LoopTests.fs | 7 | for loops, while loops, nested loops, mutable variables |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| ResultTests.fs | 12 | Result.map/bind/mapError, Result module functions |
-| **Total** | **664** | |
+| **Total** | **857** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -445,7 +445,7 @@ The crown jewel.
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 664 .NET tests + 664 Erlang tests, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 857 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
@@ -699,7 +699,11 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
 - **Replacements strategy**: Beam has its own dispatch in `Replacements.Api.fs` with
   JS fallback (`Beam.Replacements.tryCall` → `JS.Replacements.tryCall` if `None`).
   Beam handles equality, comparison, numerics, collections, and conversions natively;
-  only operations that genuinely work the same way fall through to JS.
+  only operations that genuinely work the same way fall through to JS. All 15
+  `Replacements.Api.fs` functions now have explicit Beam dispatch — `error` returns
+  the message directly (wrapped by `makeThrow`), `defaultof` returns type-appropriate
+  zero values, and ref cell operations use the process dictionary (`make_ref` +
+  `put`/`get`).
 - **File structure**: Single `Fable2Beam.fs` for Phase 1 (PHP pattern), split later
   as complexity grows (Python pattern)
 - **DU representation**: Tagged tuples `{Tag, Field1, ...}` with integer tags,
@@ -755,6 +759,19 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   in temp variables (`Assert_actual_N`, `Assert_expected_N`) to avoid duplicate
   evaluation and Erlang "unsafe variable" errors from variable bindings inside case
   branches that get duplicated in error messages.
+- **Option representation**: `None` = `undefined` atom. Simple `Some(x)` is **erased**
+  (just `x`). Nested options (`Option<Option<T>>`), `GenericParam`, and `Any` types use
+  **wrapped** representation: `Some(x)` = `{some, x}`. This avoids ambiguity when
+  `Some(None)` would otherwise be indistinguishable from `None`. Runtime smart constructor
+  `fable_option:some/1` handles wrapping at generic call sites. Unlike JS/Python, `Unit`
+  does NOT need wrapping because Erlang's `ok` atom is distinct from `undefined`.
+- **Object expressions / Interfaces**: `{ new IFoo with member _.Bar(x) = ... }` compiles
+  to an Erlang map of closures: `#{bar => fun(X) -> ... end}`. Property getters are stored
+  as evaluated values (not closures) since call sites use `Get(obj, FieldGet(name))` →
+  `maps:get(name, Obj)`. Interface method calls use `(maps:get(method, Obj))(Args)`.
+  Detection: `transformCall`'s `Get(calleeExpr, FieldGet, _, _)` branch checks if
+  `calleeExpr.Type` is a `DeclaredType` with `entity.IsInterface`. Self-referencing
+  members (e.g., `x.Print()` inside another member) are not yet supported.
 
 ## Open Questions
 
