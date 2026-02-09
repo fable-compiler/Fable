@@ -474,8 +474,9 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
         match catch_ with
         | Some(ident, catchExpr) ->
-            // Create a temp var for the raw reason, then wrap it in a map with "message" field
-            // so that e.Message field access works via maps:get
+            // Create a temp var for the raw reason, then bind the catch ident.
+            // Custom exceptions (maps with __type) are preserved as-is.
+            // Plain errors (binaries from failwith, atoms, etc.) are wrapped in #{message => ...}.
             let ctr = com.IncrementCounter()
             let reasonVar = $"Exn_reason_%d{ctr}"
             let identVar = capitalizeFirst ident.Name
@@ -487,9 +488,6 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 | Beam.ErlExpr.Block es -> es
                 | e -> [ e ]
 
-            // Bind the ident to a map with the exception message.
-            // If reason is already a binary (from failwith), use it directly.
-            // Otherwise format with ~p to convert atoms/tuples/etc to a binary string.
             let reasonRef = Beam.ErlExpr.Variable reasonVar
 
             let formatExpr =
@@ -529,13 +527,33 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                     ]
                 )
 
+            // If reason is already a map (custom exception with __type), use it directly.
+            // Otherwise wrap in #{message => ...} for .Message access.
             let bindIdent =
                 Beam.ErlExpr.Match(
                     Beam.PVar identVar,
-                    Beam.ErlExpr.Map
+                    Beam.ErlExpr.Case(
+                        reasonRef,
                         [
-                            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "message")), messageExpr
+                            {
+                                Pattern = Beam.PWildcard
+                                Guard = [ Beam.ErlExpr.Call(None, "is_map", [ reasonRef ]) ]
+                                Body = [ reasonRef ]
+                            }
+                            {
+                                Pattern = Beam.PWildcard
+                                Guard = []
+                                Body =
+                                    [
+                                        Beam.ErlExpr.Map
+                                            [
+                                                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "message")),
+                                                messageExpr
+                                            ]
+                                    ]
+                            }
                         ]
+                    )
                 )
 
             Beam.ErlExpr.TryCatch(bodyExprs, reasonVar, [ bindIdent ] @ catchBodyExprs)
@@ -816,14 +834,36 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
     | NewRecord(values, ref, _genArgs) ->
         match com.TryGetEntity(ref) with
         | Some entity ->
-            let entries =
+            let fieldEntries =
                 List.zip (entity.FSharpFields |> List.map (fun f -> f.Name)) values
                 |> List.map (fun (name, value) ->
                     Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(toSnakeCase name))),
                     transformExpr com ctx value
                 )
 
-            Beam.ErlExpr.Map entries
+            if entity.IsFSharpExceptionDeclaration then
+                // Exception types: add __type tag for type discrimination and message field
+                let typeName = sanitizeErlangName entity.DisplayName
+
+                let hasMessageField =
+                    entity.FSharpFields |> List.exists (fun f -> toSnakeCase f.Name = "message")
+
+                let messageEntry =
+                    if hasMessageField then
+                        // A field named "message" already exists, don't add a duplicate
+                        []
+                    else
+                        match values with
+                        | [ singleValue ] ->
+                            // Single-field exception: message = the field value
+                            [ atomLit "message", transformExpr com ctx singleValue ]
+                        | _ ->
+                            // Multi-field exception: message = type name string
+                            [ atomLit "message", Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit typeName) ]
+
+                Beam.ErlExpr.Map([ atomLit "exn_type", atomLit typeName ] @ messageEntry @ fieldEntries)
+            else
+                Beam.ErlExpr.Map fieldEntries
         | None ->
             let entries =
                 values
@@ -869,17 +909,7 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
                         ]
                     )
                 | _ -> Beam.ErlExpr.Call(None, "integer_to_binary", [ erlValue ])
-            | _ ->
-                let fmtStr =
-                    Beam.ErlExpr.Call(None, "binary_to_list", [ Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit "~p") ])
-
-                Beam.ErlExpr.Call(
-                    None,
-                    "iolist_to_binary",
-                    [
-                        Beam.ErlExpr.Call(Some "io_lib", "format", [ fmtStr; Beam.ErlExpr.List [ erlValue ] ])
-                    ]
-                )
+            | _ -> Beam.ErlExpr.Call(Some "fable_string", "to_string", [ erlValue ])
 
         match parts with
         | [] -> Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit "")
@@ -1017,7 +1047,24 @@ and transformTest (com: IBeamCompiler) (ctx: Context) (kind: TestKind) (expr: Ex
         | Fable.AST.Fable.Type.List _ -> Beam.ErlExpr.Call(None, "is_list", [ erlExpr ])
         | Fable.AST.Fable.Type.Array _ -> Beam.ErlExpr.Call(None, "is_list", [ erlExpr ])
         | Fable.AST.Fable.Type.Tuple _ -> Beam.ErlExpr.Call(None, "is_tuple", [ erlExpr ])
-        | Fable.AST.Fable.Type.DeclaredType _ -> Beam.ErlExpr.Call(None, "is_map", [ erlExpr ])
+        | Fable.AST.Fable.Type.DeclaredType(ref, _) ->
+            // For exception types, check __type tag: (is_map(X) andalso maps:get(__type, X, undefined) =:= type_name)
+            // For other types, just check is_map
+            let isMap = Beam.ErlExpr.Call(None, "is_map", [ erlExpr ])
+
+            match com.TryGetEntity(ref) with
+            | Some entity when entity.IsFSharpExceptionDeclaration ->
+                let typeName = sanitizeErlangName entity.DisplayName
+
+                let typeCheck =
+                    Beam.ErlExpr.BinOp(
+                        "=:=",
+                        Beam.ErlExpr.Call(Some "maps", "get", [ atomLit "exn_type"; erlExpr; atomLit "undefined" ]),
+                        atomLit typeName
+                    )
+
+                Beam.ErlExpr.BinOp("andalso", isMap, typeCheck)
+            | _ -> isMap
         | _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BoolLit true)
 
 and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type) (expr: Expr) : Beam.ErlExpr =
@@ -1502,46 +1549,49 @@ and transformClassDeclaration
                         Beam.PVar(name)
                 )
 
-            // Build the state map entries from fields
-            // Fields may reference constructor args or be complex expressions
-            // Use a context where ThisValue maps to "Ref"
-            let ctorCtx = { ctx with ThisArgVar = Some "Ref" }
+            if ent.IsFSharpExceptionDeclaration then
+                // F# exception construction goes through NewRecord, not ClassDecl constructor.
+                // No need to generate a constructor function here.
+                []
+            else
+                // Regular class: object = make_ref(), state in process dict
+                let ctorCtx = { ctx with ThisArgVar = Some "Ref" }
 
-            let mapEntries =
-                fields
-                |> List.map (fun (name, value) ->
-                    let erlValue = transformExpr com ctorCtx value
-                    atomLit (sanitizeErlangName name), erlValue
-                )
+                let mapEntries =
+                    fields
+                    |> List.map (fun (name, value) ->
+                        let erlValue = transformExpr com ctorCtx value
+                        atomLit (sanitizeErlangName name), erlValue
+                    )
 
-            let body =
-                [
-                    // Ref = make_ref()
-                    Beam.ErlExpr.Match(Beam.PVar "Ref", Beam.ErlExpr.Call(None, "make_ref", []))
-                    // put(Ref, #{field1 => Val1, field2 => Val2, ...})
-                    Beam.ErlExpr.Call(None, "put", [ Beam.ErlExpr.Variable "Ref"; Beam.ErlExpr.Map mapEntries ])
-                    // Return Ref
-                    Beam.ErlExpr.Variable "Ref"
-                ]
+                let body =
+                    [
+                        // Ref = make_ref()
+                        Beam.ErlExpr.Match(Beam.PVar "Ref", Beam.ErlExpr.Call(None, "make_ref", []))
+                        // put(Ref, #{field1 => Val1, field2 => Val2, ...})
+                        Beam.ErlExpr.Call(None, "put", [ Beam.ErlExpr.Variable "Ref"; Beam.ErlExpr.Map mapEntries ])
+                        // Return Ref
+                        Beam.ErlExpr.Variable "Ref"
+                    ]
 
-            // Use the constructor's compiled name so call sites can find it
-            let ctorFuncName = sanitizeErlangName cons.Name
+                // Use the constructor's compiled name so call sites can find it
+                let ctorFuncName = sanitizeErlangName cons.Name
 
-            let funcDef: Beam.ErlFunctionDef =
-                {
-                    Name = Beam.Atom ctorFuncName
-                    Arity = argPatterns.Length
-                    Clauses =
-                        [
-                            {
-                                Patterns = argPatterns
-                                Guard = []
-                                Body = body
-                            }
-                        ]
-                }
+                let funcDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom ctorFuncName
+                        Arity = argPatterns.Length
+                        Clauses =
+                            [
+                                {
+                                    Patterns = argPatterns
+                                    Guard = []
+                                    Body = body
+                                }
+                            ]
+                    }
 
-            [ Beam.ErlForm.Function funcDef ]
+                [ Beam.ErlForm.Function funcDef ]
         | None -> []
 
     // Attached members: getters, setters, methods, secondary constructors

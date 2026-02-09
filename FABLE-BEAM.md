@@ -323,7 +323,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 1. Runs all tests on .NET via `dotnet test`
 2. Compiles tests to `.erl` via Fable
 3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (903 Erlang tests pass)
+4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (936 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -346,12 +346,14 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | SeqExpressionTests.fs | 11 | Seq expressions, yield, yield! |
 | ReflectionTests.fs | 11 | Type info, FSharpType reflection |
 | TupleTests.fs | 10 | Tuple creation, destructuring, fst/snd, equality, nesting |
-| TypeTests.fs | 13 | Class constructors, properties, methods, closures, object expressions |
+| TypeTests.fs | 22 | Class constructors, properties, methods, closures, object expressions, type testing (:?) |
 | TryCatchTests.fs | 8 | try/catch, failwith, exception messages, nested try/catch |
+| EnumTests.fs | 14 | Enum HasFlag, comparison, EnumOfValue/ToValue, pattern matching, bitwise ops |
+| ExceptionTests.fs | 10 | Custom exceptions, type discrimination, nested catch, field access, Message property |
 | LoopTests.fs | 7 | for loops, while loops, nested loops, mutable variables |
 | SetTests.fs | 46 | Set construction, add/remove/contains, union/intersect/difference, subset/superset, fold/map/filter, partition, min/max |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **903** | |
+| **Total** | **936** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -424,6 +426,36 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
 - [x] Exception message access via `#{message => Reason}` map wrapping
 - [x] Nested try/catch works
 - [x] `Result<T,E>` integration with Erlang `{ok,V}/{error,E}` convention
+- [x] Custom F# exception types (`exception MyError of string`) → maps with `exn_type` tag
+- [x] Exception type discrimination in catch: `maps:get(exn_type, X, undefined) =:= type_name`
+- [x] Multi-field exceptions: `exception MyError2 of code: int * message: string`
+- [x] Exception `.Message` property via `message` field in exception map
+
+### Phase 6b: Types & Type Testing -- COMPLETE
+
+Extend type system support for common F# patterns.
+
+- [x] **Enum support** — F# enums are just integers in Erlang (trivial, works out of box)
+    - Enum declaration, construction, pattern matching — all native
+    - `int` ↔ enum conversion, `enum<MyEnum>(n)` — TypeCast is erased
+    - Enum comparison, flags (bitwise) — native Erlang operators
+    - `EnumOfValue`/`EnumToValue` — TypeCast is erased
+- [x] **Custom exceptions** — `exception MyError of string` → maps with `exn_type` atom tag
+    - Exception construction via `NewRecord` adds `exn_type` and `message` fields
+    - Pattern matching in try/catch: `maps:get(exn_type, X, undefined) =:= type_name`
+    - Exception `.Message` property via `message` field in exception map
+    - TryCatch handler preserves exception maps (is_map check), wraps non-maps in `#{message => ...}`
+    - Multi-field exceptions with named fields work correctly
+- [x] **Type testing (`:?`)** — runtime type checks via Erlang guards
+    - `match x with :? int as i -> ...` → `is_integer(X)` guard
+    - Primitive types: `is_binary` (string), `is_boolean` (bool), `is_float` (float), `is_integer` (int)
+    - Collection types: `is_list` (list/array), `is_tuple` (tuple), `is_map` (record/class)
+    - Exception types: `is_map(X) andalso maps:get(exn_type, X, undefined) =:= type_name`
+    - `box`/`unbox` are erased (TypeCast)
+- [x] **String interpolation fix** — `fable_string:to_string/1` for generic value formatting
+    - Replaces `~p` format (which showed `<<"...">>` for binaries) with runtime type dispatch
+    - Handles binary/integer/float/atom natively, falls back to `~p` for complex terms
+- [ ] **Curry expressions** — `todo_curry` → proper partial application support
 
 ### Phase 7: Async & Processes
 
@@ -453,7 +485,7 @@ The crown jewel.
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 903 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 936 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)

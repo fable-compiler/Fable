@@ -10,7 +10,8 @@
          to_char_array/1, to_char_array/3,
          compare/2, compare_ignore_case/2,
          string_ctor_chars/1, string_ctor_char_count/2, string_ctor_chars_range/3,
-         split/2, split/3, split_remove_empty/2, split_with_count/3]).
+         split/2, split/3, split_remove_empty/2, split_with_count/3,
+         to_string/1]).
 
 insert(Str, Idx, Value) ->
     iolist_to_binary([binary:part(Str, 0, Idx), Value, binary:part(Str, Idx, byte_size(Str) - Idx)]).
@@ -217,3 +218,21 @@ split_count_loop(Str, Seps, Count, Acc) ->
         [Part, Rest] -> split_count_loop(Rest, Seps, Count - 1, [Part | Acc]);
         [_] -> lists:reverse([Str | Acc])
     end.
+
+%% Generic value-to-string conversion for string interpolation.
+%% Handles all Erlang types, outputting human-readable strings (not Erlang term format).
+to_string(V) when is_binary(V) -> V;
+to_string(V) when is_integer(V) -> integer_to_binary(V);
+to_string(V) when is_float(V) ->
+    %% Match Erlang float_to_binary default but trim trailing zeros
+    S = float_to_binary(V, [{decimals, 10}, compact]),
+    %% Ensure at least one decimal: "42" -> "42.0"
+    case binary:match(S, <<".">>) of
+        nomatch -> <<S/binary, ".0">>;
+        _ -> S
+    end;
+to_string(V) when is_atom(V) -> atom_to_binary(V, utf8);
+to_string(V) when is_boolean(V) ->
+    case V of true -> <<"true">>; false -> <<"false">> end;
+to_string(V) ->
+    iolist_to_binary(io_lib:format(binary_to_list(<<"~p">>), [V])).

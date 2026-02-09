@@ -113,3 +113,88 @@ let ``test object expression captures closure values`` () =
     let prefix = "Dear"
     let greeter = { new IGreeter with member _.Greet(name) = prefix + " " + name }
     equal "Dear Alice" (greeter.Greet("Alice"))
+
+// Type testing tests
+
+[<Fact>]
+let ``test type test string works`` () =
+    let test (o: obj) =
+        match o with
+        | :? string -> true
+        | _ -> false
+    box "hello" |> test |> equal true
+    box 5 |> test |> equal false
+
+[<Fact>]
+let ``test type test int works`` () =
+    let test (o: obj) =
+        match o with
+        | :? int -> true
+        | _ -> false
+    box 5 |> test |> equal true
+    box "hello" |> test |> equal false
+
+[<Fact>]
+let ``test type test float works`` () =
+    let test (o: obj) =
+        match o with
+        | :? float -> true
+        | _ -> false
+    box 3.14 |> test |> equal true
+    box 5 |> test |> equal false
+
+[<Fact>]
+let ``test type test bool works`` () =
+    let test (o: obj) =
+        match o with
+        | :? bool -> true
+        | _ -> false
+    box true |> test |> equal true
+    box "true" |> test |> equal false
+
+[<Fact>]
+let ``test type test with pattern binding works`` () =
+    let test (o: obj) =
+        match o with
+        | :? string as s -> "string:" + s
+        | :? int as i -> "int:" + string i
+        | _ -> "other"
+    box "hello" |> test |> equal "string:hello"
+    box 42 |> test |> equal "int:42"
+
+[<Fact>]
+let ``test type test multiple types works`` () =
+    let classify (o: obj) =
+        match o with
+        | :? string -> "string"
+        | :? int -> "int"
+        | :? float -> "float"
+        | :? bool -> "bool"
+        | _ -> "unknown"
+    box "hi" |> classify |> equal "string"
+    box 1 |> classify |> equal "int"
+    box 2.5 |> classify |> equal "float"
+    box false |> classify |> equal "bool"
+
+[<Fact>]
+let ``test type test list works`` () =
+    let test (o: obj) =
+        match o with
+        | :? list<int> -> true
+        | _ -> false
+    box [ 1; 2; 3 ] |> test |> equal true
+    box "hello" |> test |> equal false
+
+[<Fact>]
+let ``test box and unbox roundtrip works`` () =
+    let x = 42
+    let boxed: obj = box x
+    let unboxed: int = unbox boxed
+    equal 42 unboxed
+
+[<Fact>]
+let ``test box and unbox string works`` () =
+    let s = "hello"
+    let boxed: obj = box s
+    let unboxed: string = unbox boxed
+    equal "hello" unboxed
