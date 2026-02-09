@@ -35,6 +35,12 @@ type Context =
         ThisIdentNames: Set<string> // original Fable ident names that refer to `this` (e.g., "_", "__")
     }
 
+/// Check if an entity ref refers to an interface type
+let private isInterfaceType (com: IBeamCompiler) (entityRef: EntityRef) =
+    match com.TryGetEntity(entityRef) with
+    | Some entity -> entity.IsInterface
+    | None -> false
+
 /// Check if an entity ref refers to a user-defined class (not record, union, module, interface, or BCL type)
 let private isClassType (com: IBeamCompiler) (entityRef: EntityRef) =
     // Only consider user-defined types (SourcePath), not BCL/core types
@@ -1091,20 +1097,19 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
         else
             erlExpr
     | FieldGet info ->
-        let target =
-            match expr.Type with
-            | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isClassType com entityRef ->
-                // Class instance: state is stored in process dict, ref is the key
-                Beam.ErlExpr.Call(None, "get", [ erlExpr ])
-            | _ -> erlExpr // record/union: direct map
-
         let fieldName = sanitizeErlangName info.Name
+        let fieldAtom = Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom fieldName))
 
-        Beam.ErlExpr.Call(
-            Some "maps",
-            "get",
-            [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom fieldName)); target ]
-        )
+        match expr.Type with
+        | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isClassType com entityRef ->
+            // Class instance: state is stored in process dict, ref is the key
+            Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; Beam.ErlExpr.Call(None, "get", [ erlExpr ]) ])
+        | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
+            // Interface dispatch: works for both object expressions (maps) and class instances (refs)
+            Beam.ErlExpr.Call(Some "fable_utils", "iface_get", [ fieldAtom; erlExpr ])
+        | _ ->
+            // Record/union: direct map access
+            Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; erlExpr ])
     | ExprGet indexExpr ->
         let erlIndex = transformExpr com ctx indexExpr
 
@@ -1470,9 +1475,13 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
         let allHoisted = calleeHoisted @ argsHoisted
 
         if isInterfaceExpr then
-            // Interface method dispatch: (maps:get(method_name, Obj))(Args)
+            // Interface method dispatch: (fable_utils:iface_get(method_name, Obj))(Args)
+            // Works for both object expressions (maps) and class instances (refs)
             let methodAtom = atomLit (sanitizeErlangName fieldInfo.Name)
-            let lookup = Beam.ErlExpr.Call(Some "maps", "get", [ methodAtom; cleanCallee ])
+
+            let lookup =
+                Beam.ErlExpr.Call(Some "fable_utils", "iface_get", [ methodAtom; cleanCallee ])
+
             Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted allHoisted
         else
             match fieldInfo.Name with
@@ -1564,12 +1573,97 @@ and transformClassDeclaration
                         atomLit (sanitizeErlangName name), erlValue
                     )
 
+                // Build interface entries from AttachedMembers that implement interfaces.
+                // These are stored in the process dict state map alongside field state,
+                // so interface dispatch (fable_utils:iface_get) can find them.
+                let interfaceEntries =
+                    decl.AttachedMembers
+                    |> List.choose (fun memb ->
+                        match memb.ImplementedSignatureRef with
+                        | Some sigRef ->
+                            let sigInfo = com.GetMember(sigRef)
+                            let memberName = sanitizeErlangName memb.Name
+
+                            if sigInfo.IsGetter then
+                                // Property getter: evaluate the body in constructor context
+                                // to get the value. The body can reference `this` fields via get(Ref).
+                                let ifaceCtorCtx =
+                                    match memb.Args with
+                                    | first :: _ when first.IsThisArgument || first.Name = "this" ->
+                                        { ctorCtx with ThisIdentNames = Set.singleton first.Name }
+                                    | _ -> ctorCtx
+
+                                let erlBody = transformExpr com ifaceCtorCtx memb.Body
+                                Some(atomLit memberName, erlBody)
+                            else
+                                // Method: create a closure that calls the module-level function.
+                                // The module-level function is: className_methodName(This, Args...)
+                                let moduleFuncName = $"%s{className}_%s{memberName}"
+
+                                let nonThisArgs =
+                                    memb.Args |> List.filter (fun a -> not a.IsThisArgument && a.Name <> "this")
+
+                                let argPats =
+                                    nonThisArgs
+                                    |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
+
+                                let argVars =
+                                    nonThisArgs
+                                    |> List.map (fun a ->
+                                        Beam.ErlExpr.Variable(capitalizeFirst a.Name |> sanitizeErlangVar)
+                                    )
+
+                                let closure =
+                                    Beam.ErlExpr.Fun
+                                        [
+                                            {
+                                                Patterns = argPats
+                                                Guard = []
+                                                Body =
+                                                    [
+                                                        Beam.ErlExpr.Call(
+                                                            None,
+                                                            moduleFuncName,
+                                                            Beam.ErlExpr.Variable "Ref" :: argVars
+                                                        )
+                                                    ]
+                                            }
+                                        ]
+
+                                Some(atomLit memberName, closure)
+                        | None -> None
+                    )
+
                 let body =
                     [
                         // Ref = make_ref()
                         Beam.ErlExpr.Match(Beam.PVar "Ref", Beam.ErlExpr.Call(None, "make_ref", []))
                         // put(Ref, #{field1 => Val1, field2 => Val2, ...})
                         Beam.ErlExpr.Call(None, "put", [ Beam.ErlExpr.Variable "Ref"; Beam.ErlExpr.Map mapEntries ])
+                    ]
+                    @ (if interfaceEntries.IsEmpty then
+                           []
+                       else
+                           // Step 2: merge interface entries into state (separate put so getter bodies
+                           // that reference this.SomeField via get(Ref) work correctly)
+                           [
+                               Beam.ErlExpr.Call(
+                                   None,
+                                   "put",
+                                   [
+                                       Beam.ErlExpr.Variable "Ref"
+                                       Beam.ErlExpr.Call(
+                                           Some "maps",
+                                           "merge",
+                                           [
+                                               Beam.ErlExpr.Call(None, "get", [ Beam.ErlExpr.Variable "Ref" ])
+                                               Beam.ErlExpr.Map interfaceEntries
+                                           ]
+                                       )
+                                   ]
+                               )
+                           ])
+                    @ [
                         // Return Ref
                         Beam.ErlExpr.Variable "Ref"
                     ]
@@ -1603,13 +1697,29 @@ and transformClassDeclaration
                 |> Option.map com.GetMember
                 |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
 
+            // Helper: separate this arg from other args, set up proper context
+            let getThisAndArgs () =
+                match memb.Args with
+                | first :: rest when first.IsThisArgument || first.Name = "this" ->
+                    let thisIdentNames = Set.singleton first.Name
+
+                    let memberCtx =
+                        { ctx with
+                            ThisArgVar = Some "This"
+                            ThisIdentNames = thisIdentNames
+                        }
+
+                    Some first, rest, memberCtx
+                | _ -> None, memb.Args, ctx
+
             if info.IsConstructor then
                 // Secondary constructor: generates an additional function with different arity
                 // The body typically calls the primary constructor
                 let ctorArgs =
                     memb.Args
                     |> List.filter (fun a ->
-                        a.Name <> "this"
+                        not a.IsThisArgument
+                        && a.Name <> "this"
                         && not (a.Name.StartsWith("unitVar", System.StringComparison.Ordinal))
                     )
 
@@ -1643,46 +1753,42 @@ and transformClassDeclaration
                 // Property getter: class_name_get_prop(This) -> maps:get(prop, get(This)).
                 let propName = sanitizeErlangName memb.Name
                 let funcName = $"%s{className}_%s{propName}"
-                // The getter body references `this` — the first arg
-                let thisArg = memb.Args |> List.tryFind (fun a -> a.Name = "this")
+                let _thisArg, _nonThisArgs, memberCtx = getThisAndArgs ()
 
-                match thisArg with
-                | Some _thisIdent ->
-                    let bodyExpr = transformExpr com ctx memb.Body
+                let bodyExpr = transformExpr com memberCtx memb.Body
 
-                    let body =
-                        match bodyExpr with
-                        | Beam.ErlExpr.Block es -> es
-                        | e -> [ e ]
+                let body =
+                    match bodyExpr with
+                    | Beam.ErlExpr.Block es -> es
+                    | e -> [ e ]
 
-                    let funcDef: Beam.ErlFunctionDef =
-                        {
-                            Name = Beam.Atom funcName
-                            Arity = 1
-                            Clauses =
-                                [
-                                    {
-                                        Patterns = [ Beam.PVar "This" ]
-                                        Guard = []
-                                        Body = body
-                                    }
-                                ]
-                        }
+                let funcDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom funcName
+                        Arity = 1
+                        Clauses =
+                            [
+                                {
+                                    Patterns = [ Beam.PVar "This" ]
+                                    Guard = []
+                                    Body = body
+                                }
+                            ]
+                    }
 
-                    [ Beam.ErlForm.Function funcDef ]
-                | None -> []
+                [ Beam.ErlForm.Function funcDef ]
             elif not memb.IsMangled && info.IsSetter then
                 // Property setter: class_name_set_prop(This, Value) -> put(This, maps:put(prop, Value, get(This))).
                 let propName = sanitizeErlangName memb.Name
                 let funcName = $"%s{className}_set_%s{propName}"
-                let nonThisArgs = memb.Args |> List.filter (fun a -> a.Name <> "this")
+                let _thisArg, nonThisArgs, memberCtx = getThisAndArgs ()
 
                 let argPatterns =
                     [ Beam.PVar "This" ]
                     @ (nonThisArgs
                        |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)))
 
-                let bodyExpr = transformExpr com ctx memb.Body
+                let bodyExpr = transformExpr com memberCtx memb.Body
 
                 let body =
                     match bodyExpr with
@@ -1708,15 +1814,14 @@ and transformClassDeclaration
                 // Regular method: class_name_method(This, Args...) -> Body.
                 let methodName = sanitizeErlangName memb.Name
                 let funcName = $"%s{className}_%s{methodName}"
-                let allArgs = memb.Args
-                let nonThisArgs = allArgs |> List.filter (fun a -> a.Name <> "this")
+                let _thisArg, nonThisArgs, memberCtx = getThisAndArgs ()
 
                 let argPatterns =
                     [ Beam.PVar "This" ]
                     @ (nonThisArgs
                        |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)))
 
-                let bodyExpr = transformExpr com ctx memb.Body
+                let bodyExpr = transformExpr com memberCtx memb.Body
 
                 let body =
                     match bodyExpr with

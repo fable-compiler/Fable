@@ -114,6 +114,71 @@ let ``test object expression captures closure values`` () =
     let greeter = { new IGreeter with member _.Greet(name) = prefix + " " + name }
     equal "Dear Alice" (greeter.Greet("Alice"))
 
+// Class implementing interface tests
+
+type MyGreeter(prefix: string) =
+    interface IGreeter with
+        member _.Greet(name) = prefix + ", " + name
+
+type MyAdder(offset: int) =
+    interface IAdder with
+        member _.Add x y = x + y + offset
+
+type MyValueHolder(v: int) =
+    interface IValueHolder with
+        member _.Value = v
+
+type ICounter =
+    abstract Count: int
+    abstract Increment: unit -> int
+
+type SimpleCounter(start: int) =
+    let mutable count = start
+    interface ICounter with
+        member _.Count = count
+        member _.Increment() =
+            count <- count + 1
+            count
+
+[<Fact>]
+let ``test class implementing interface method works`` () =
+    let greeter = MyGreeter("Hello") :> IGreeter
+    equal "Hello, World" (greeter.Greet("World"))
+
+[<Fact>]
+let ``test class implementing interface property works`` () =
+    let holder = MyValueHolder(42) :> IValueHolder
+    equal 42 holder.Value
+
+[<Fact>]
+let ``test class implementing interface with curried method works`` () =
+    let adder = MyAdder(0) :> IAdder
+    equal 7 (adder.Add 3 4)
+
+[<Fact>]
+let ``test class with offset implementing interface works`` () =
+    let adder = MyAdder(10) :> IAdder
+    equal 17 (adder.Add 3 4)
+
+[<Fact>]
+let ``test class instance passed to function expecting interface works`` () =
+    let greet (g: IGreeter) name = g.Greet(name)
+    let greeter = MyGreeter("Hey")
+    equal "Hey, Bob" (greet greeter "Bob")
+
+[<Fact>]
+let ``test multiple classes implementing same interface work`` () =
+    let g1 = MyGreeter("Hi") :> IGreeter
+    let g2 = { new IGreeter with member _.Greet(name) = "Yo, " + name }
+    equal "Hi, X" (g1.Greet("X"))
+    equal "Yo, X" (g2.Greet("X"))
+
+[<Fact>]
+let ``test class implementing interface with closure capture works`` () =
+    let makeGreeter prefix = MyGreeter(prefix) :> IGreeter
+    let g = makeGreeter "Dear"
+    equal "Dear, Alice" (g.Greet("Alice"))
+
 // Type testing tests
 
 [<Fact>]
