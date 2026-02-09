@@ -790,7 +790,8 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
 
     | NewArray(ArrayValues values, _typ, _kind) ->
         let erlValues = values |> List.map (transformExpr com ctx)
-        Beam.ErlExpr.List erlValues
+        let hoisted, cleanValues = hoistBlocksFromArgs erlValues
+        Beam.ErlExpr.List cleanValues |> wrapWithHoisted hoisted
 
     | NewArray(ArrayFrom expr, _typ, _kind) -> transformExpr com ctx expr
 

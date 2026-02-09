@@ -53,8 +53,11 @@ let ``test async sleep works`` () =
 
 [<Fact>]
 let ``test async parallel works`` () =
-    let makeComp n = async { return n }
-    let comps = [| 1; 2; 3 |] |> Array.map makeComp
+    let comps = [|
+        async { return 1 }
+        async { return 2 }
+        async { return 3 }
+    |]
     let results = Async.RunSynchronously (Async.Parallel comps)
     Array.sum results |> equal 6
 
