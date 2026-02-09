@@ -415,7 +415,7 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
 - [x] `failwith` → `erlang:error(<<"message">>)`
 - [x] Exception message access via `#{message => Reason}` map wrapping
 - [x] Nested try/catch works
-- [ ] `Result<T,E>` integration with Erlang `{ok,V}/{error,E}` convention
+- [x] `Result<T,E>` integration with Erlang `{ok,V}/{error,E}` convention
 
 ### Phase 7: Async & Processes
 
