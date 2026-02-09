@@ -436,9 +436,14 @@ let private strings
         | _ -> None
     // String.Compare
     | "Compare", None, [ a; b ] -> Helper.LibCall(com, "fable_string", "compare", t, [ a; b ]) |> Some
-    | "Compare", None, [ a; b; _ ] ->
-        // Handles both ignoreCase bool and StringComparison enum
-        Helper.LibCall(com, "fable_string", "compare_ignore_case", t, [ a; b ]) |> Some
+    | "Compare", None, [ a; b; compType ] ->
+        // Dispatch on ignoreCase bool (true) or StringComparison enum (5=OrdinalIgnoreCase)
+        emitExpr
+            r
+            t
+            [ a; b; compType ]
+            "(fun() -> case $2 of true -> fable_string:compare_ignore_case($0, $1); 5 -> fable_string:compare_ignore_case($0, $1); _ -> fable_string:compare($0, $1) end end)()"
+        |> Some
     | "Compare", None, [ a; startA; b; startB; len ] ->
         // String.Compare(a, startA, b, startB, len) — substring comparison
         emitExpr
@@ -447,13 +452,13 @@ let private strings
             [ a; startA; b; startB; len ]
             "fable_string:compare(binary:part($0, $1, $4), binary:part($2, $3, $4))"
         |> Some
-    | "Compare", None, [ a; startA; b; startB; len; _ ] ->
+    | "Compare", None, [ a; startA; b; startB; len; compType ] ->
         // String.Compare(a, startA, b, startB, len, compType) — substring comparison with comparison type
         emitExpr
             r
             t
-            [ a; startA; b; startB; len ]
-            "fable_string:compare_ignore_case(binary:part($0, $1, $4), binary:part($2, $3, $4))"
+            [ a; startA; b; startB; len; compType ]
+            "(fun() -> case $5 of true -> fable_string:compare_ignore_case(binary:part($0, $1, $4), binary:part($2, $3, $4)); 5 -> fable_string:compare_ignore_case(binary:part($0, $1, $4), binary:part($2, $3, $4)); _ -> fable_string:compare(binary:part($0, $1, $4), binary:part($2, $3, $4)) end end)()"
         |> Some
     // String.IsNullOrEmpty / IsNullOrWhiteSpace (static on System.String)
     | "IsNullOrEmpty", None, [ str ] -> Helper.LibCall(com, "fable_string", "is_null_or_empty", t, [ str ]) |> Some
@@ -462,9 +467,14 @@ let private strings
         |> Some
     // String.Equals static
     | "Equals", None, [ a; b ] -> equals r true a b |> Some
-    | "Equals", None, [ a; b; _compType ] ->
-        // For OrdinalIgnoreCase, compare lowered
-        emitExpr r t [ a; b ] "(string:lowercase($0) =:= string:lowercase($1))" |> Some
+    | "Equals", None, [ a; b; compType ] ->
+        // Dispatch on StringComparison: 5=OrdinalIgnoreCase → lowercase compare, else exact
+        emitExpr
+            r
+            t
+            [ a; b; compType ]
+            "(fun() -> case $2 of 5 -> string:lowercase($0) =:= string:lowercase($1); _ -> $0 =:= $1 end end)()"
+        |> Some
     // str.PadLeft(width)
     | "PadLeft", Some c, [ width ] -> Helper.LibCall(com, "fable_string", "pad_left", t, [ c; width ]) |> Some
     | "PadLeft", Some c, [ width; padChar ] ->
@@ -518,8 +528,13 @@ let private strings
     // str.Contains(sub) — let it fall through to JS replacements which generates indexOf >= 0
     // Instance methods: Equals, CompareTo, GetHashCode
     | "Equals", Some c, [ arg ] -> equals r true c arg |> Some
-    | "Equals", Some c, [ arg; _compType ] ->
-        emitExpr r t [ c; arg ] "(string:lowercase($0) =:= string:lowercase($1))"
+    | "Equals", Some c, [ arg; compType ] ->
+        // Dispatch on StringComparison: 5=OrdinalIgnoreCase → lowercase compare, else exact
+        emitExpr
+            r
+            t
+            [ c; arg; compType ]
+            "(fun() -> case $2 of 5 -> string:lowercase($0) =:= string:lowercase($1); _ -> $0 =:= $1 end end)()"
         |> Some
     | "CompareTo", Some c, [ arg ] -> compare com r c arg |> Some
     | "GetHashCode", Some c, [] -> emitExpr r t [ c ] "erlang:phash2($0)" |> Some

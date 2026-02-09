@@ -253,7 +253,7 @@ let ``test Map instance TryFind works`` () =
     m.TryFind(1) |> equal (Some "a")
     m.TryFind(99) |> equal None
 
-// TODO: TryGetValue uses byref out-parameter pattern that doesn't work in Beam
+// TODO: TryGetValue compiles with byref out-parameter pattern that generates invalid Erlang
 // [<Fact>]
 // let ``test Map instance TryGetValue works`` () =
 //     let m = Map.ofList [ (1, "a"); (2, "b") ]

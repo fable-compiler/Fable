@@ -388,3 +388,7 @@ let ``test box and unbox tuple works`` () =
     let boxed: obj = box t
     let unboxed: int * string = unbox boxed
     equal (1, "a") unboxed
+
+// TODO: Downcasting from interface to class, type tests on records/unions/interfaces,
+// and typeof comparison require runtime type information not available in Erlang.
+// TypeCast is erased, so :?> only works for simple casts (e.g., obj to concrete type via box/unbox).

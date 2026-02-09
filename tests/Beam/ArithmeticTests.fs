@@ -508,6 +508,21 @@ let ``test incr works`` () =
     incr i
     !i |> equal 6
 
+[<Fact>]
+let ``test decr works`` () =
+    let i = ref 5
+    decr i
+    !i |> equal 4
+
+[<Fact>]
+let ``test ref cell basic operations work`` () =
+    let x = ref 10
+    equal 10 !x
+    x.Value <- 20
+    equal 20 x.Value
+    x := 30
+    equal 30 !x
+
 // TODO: System.Random not implemented for Beam
 // [<Fact>]
 // let ``test System.Random works`` () =

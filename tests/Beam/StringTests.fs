@@ -378,13 +378,12 @@ let ``test System.String.Equals works`` () =
     "ABC".Equals("abc") |> equal false
     "abc".Equals("abd") |> equal false
 
-// TODO: StringComparison enum values not yet supported — need to dispatch on Ordinal vs OrdinalIgnoreCase
-// [<Fact>]
-// let ``test System.String.Equals with StringComparison works`` () =
-//     System.String.Equals("ABC", "abc", StringComparison.Ordinal) |> equal false
-//     System.String.Equals("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal true
-//     "ABC".Equals("abc", StringComparison.Ordinal) |> equal false
-//     "ABC".Equals("abc", StringComparison.OrdinalIgnoreCase) |> equal true
+[<Fact>]
+let ``test System.String.Equals with StringComparison works`` () =
+    System.String.Equals("ABC", "abc", StringComparison.Ordinal) |> equal false
+    System.String.Equals("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal true
+    "ABC".Equals("abc", StringComparison.Ordinal) |> equal false
+    "ABC".Equals("abc", StringComparison.OrdinalIgnoreCase) |> equal true
 
 // --- String.Compare ---
 
@@ -400,11 +399,10 @@ let ``test String.Compare with ignoreCase works`` () =
     System.String.Compare("ABC", "abd", true) |> equal -1
     System.String.Compare("BBC", "abd", true) |> equal 1
 
-// TODO: StringComparison enum values not yet supported — need to dispatch on Ordinal vs OrdinalIgnoreCase
-// [<Fact>]
-// let ``test String.Compare with StringComparison works`` () =
-//     System.String.Compare("ABC", "abc", StringComparison.Ordinal) < 0 |> equal true
-//     System.String.Compare("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal 0
+[<Fact>]
+let ``test String.Compare with StringComparison works`` () =
+    System.String.Compare("ABC", "abc", StringComparison.Ordinal) < 0 |> equal true
+    System.String.Compare("ABC", "abc", StringComparison.OrdinalIgnoreCase) |> equal 0
 
 // --- String.Concat ---
 
@@ -486,11 +484,14 @@ let ``test Passing Char.IsDigit as function reference works`` () =
 //     String.Format("{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
 //     |> equal "Babel is to Fable what Fable is to F#"
 
-// TODO: String.Split with RemoveEmptyEntries needs options support
-// [<Fact>]
-// let ``test String.Split with remove empties works`` () =
-//     "a b c  d ".Split([|" "|], StringSplitOptions.RemoveEmptyEntries)
-//     |> (=) [|"a";"b";"c";"d"|] |> equal true
+[<Fact>]
+let ``test String.Split with remove empties works`` () =
+    let result = "a b c  d ".Split([|" "|], StringSplitOptions.RemoveEmptyEntries)
+    result.Length |> equal 4
+    result.[0] |> equal "a"
+    result.[1] |> equal "b"
+    result.[2] |> equal "c"
+    result.[3] |> equal "d"
 
 // TODO: String.Split with count needs implementation
 // [<Fact>]
