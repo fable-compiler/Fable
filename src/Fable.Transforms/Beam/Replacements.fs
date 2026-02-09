@@ -1438,6 +1438,30 @@ let asyncBuilder (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (_thisArg: E
         Helper.LibCall(com, "fable_async_builder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
 
+let taskBuilder (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (_thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Singleton" -> Helper.LibCall(com, "fable_async_builder", "singleton", t, [], ?loc = r) |> Some
+    | "TaskBuilderBase.Bind"
+    | "TaskBuilderBase.ReturnFrom" ->
+        let meth = i.CompiledName.Replace("TaskBuilderBase.", "")
+
+        Helper.LibCall(com, "fable_async_builder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | meth ->
+        Helper.LibCall(com, "fable_async_builder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+
+let tasks (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName with
+    | Some x, ("GetAwaiter" | "GetResult" | "get_Result" | "Result") ->
+        // Task.Result / GetAwaiter().GetResult() → run_synchronously
+        Helper.LibCall(com, "fable_async", "run_synchronously", t, [ x ], i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | None, "FromResult" ->
+        Helper.LibCall(com, "fable_async_builder", "return", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | _ -> None
+
 let asyncs (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (_thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "Start" ->
@@ -1591,6 +1615,15 @@ let tryCall
     | "Microsoft.FSharp.Control.AsyncActivation`1" -> asyncBuilder com ctx r t info thisArg args
     | "Microsoft.FSharp.Control.FSharpAsync"
     | "Microsoft.FSharp.Control.AsyncPrimitives" -> asyncs com ctx r t info thisArg args
+    | "Microsoft.FSharp.Control.TaskBuilderBase"
+    | "Microsoft.FSharp.Control.TaskBuilderModule"
+    | "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority"
+    | "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority" -> taskBuilder com ctx r t info thisArg args
+    | "Microsoft.FSharp.Control.TaskBuilder" -> taskBuilder com ctx r t info thisArg args
+    | "System.Threading.Tasks.Task"
+    | "System.Threading.Tasks.Task`1"
+    | "System.Threading.Tasks.TaskCompletionSource`1"
+    | "System.Runtime.CompilerServices.TaskAwaiter`1" -> tasks com ctx r t info thisArg args
     | _ -> None
 
 let tryBaseConstructor

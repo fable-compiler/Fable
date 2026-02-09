@@ -1,5 +1,6 @@
 -module(fable_async_builder).
--export([singleton/0, singleton/1, delay/1, return/1, return_from/1,
+-export([singleton/0, singleton/1, task/0, task/1, run/1,
+         delay/1, return/1, return_from/1,
          bind/2, combine/2, zero/0, zero/1,
          try_with/2, try_finally/2, using/2,
          while/2, for/2]).
@@ -7,6 +8,13 @@
 %% The singleton builder instance (just an atom tag)
 singleton() -> async_builder.
 singleton(_Unit) -> async_builder.
+
+%% Task builder singleton (alias for async builder in Erlang)
+task() -> task_builder.
+task(_Unit) -> task_builder.
+
+%% Run: execute a delayed computation (identity for CPS — just returns the computation)
+run(Computation) -> Computation.
 
 %% Return: wrap value in immediate success continuation
 return(Value) ->
