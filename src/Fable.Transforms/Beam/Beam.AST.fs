@@ -1,27 +1,27 @@
 namespace rec Fable.AST.Beam
 
-type Atom = | Atom of string
+type Atom = | Atom of name: string
 
 type ErlLiteral =
-    | Integer of int64
-    | Float of float
-    | StringLit of string
-    | AtomLit of Atom
-    | BoolLit of bool
+    | Integer of value: int64
+    | Float of value: float
+    | StringLit of value: string
+    | AtomLit of atom: Atom
+    | BoolLit of value: bool
     | NilLit
 
 type ErlPattern =
-    | PVar of string
-    | PLiteral of ErlLiteral
-    | PTuple of ErlPattern list
+    | PVar of name: string
+    | PLiteral of literal: ErlLiteral
+    | PTuple of elements: ErlPattern list
     | PList of head: ErlPattern * tail: ErlPattern
     | PWildcard
 
 type ErlExpr =
-    | Literal of ErlLiteral
-    | Variable of string
-    | Tuple of ErlExpr list
-    | List of ErlExpr list
+    | Literal of literal: ErlLiteral
+    | Variable of name: string
+    | Tuple of elements: ErlExpr list
+    | List of elements: ErlExpr list
     | ListCons of head: ErlExpr * tail: ErlExpr
     | Map of entries: (ErlExpr * ErlExpr) list
     | Call of module_: string option * func: string * args: ErlExpr list
@@ -30,7 +30,7 @@ type ErlExpr =
     | NamedFun of name: string * clauses: ErlFunClause list
     | Case of expr: ErlExpr * clauses: ErlCaseClause list
     | Match of pattern: ErlPattern * expr: ErlExpr
-    | Block of ErlExpr list
+    | Block of exprs: ErlExpr list
     | BinOp of op: string * left: ErlExpr * right: ErlExpr
     | UnaryOp of op: string * operand: ErlExpr
     | TryCatch of body: ErlExpr list * catchVar: string * catchBody: ErlExpr list
@@ -51,9 +51,9 @@ and ErlFunClause =
     }
 
 type ErlAttribute =
-    | ModuleAttr of Atom
-    | ExportAttr of (Atom * int) list
-    | CustomAttr of Atom * string
+    | ModuleAttr of name: Atom
+    | ExportAttr of exports: (Atom * int) list
+    | CustomAttr of name: Atom * value: string
 
 type ErlFunctionDef =
     {
@@ -63,9 +63,9 @@ type ErlFunctionDef =
     }
 
 type ErlForm =
-    | Attribute of ErlAttribute
-    | Function of ErlFunctionDef
-    | Comment of string
+    | Attribute of attr: ErlAttribute
+    | Function of def: ErlFunctionDef
+    | Comment of text: string
 
 type ErlModule =
     {
