@@ -144,6 +144,8 @@ let private operators
         match arg.Type with
         | Type.String -> emitExpr r _t [ arg ] "binary:first($0)" |> Some
         | _ -> Some arg
+    // CreateSet: the `set [1;2;3]` syntax
+    | "CreateSet", [ arg ] -> emitExpr r _t [ arg ] "ordsets:from_list($0)" |> Some
     // Range operators: [start..stop] and [start..step..stop]
     | "op_Range", [ first; last ] -> emitExpr r _t [ first; last ] "lists:seq($0, $1)" |> Some
     | "op_RangeStep", [ first; step; last ] -> emitExpr r _t [ first; step; last ] "lists:seq($0, $2, $1)" |> Some
@@ -162,6 +164,11 @@ let private operators
         let argTypes = args |> List.map (fun a -> a.Type)
 
         match argTypes with
+        | Builtin(FSharpSet _) :: _ ->
+            match info.CompiledName, args with
+            | Operators.addition, [ left; right ] -> emitExpr r _t [ left; right ] "ordsets:union($0, $1)" |> Some
+            | Operators.subtraction, [ left; right ] -> emitExpr r _t [ left; right ] "ordsets:subtract($0, $1)" |> Some
+            | _ -> None
         | Number((Int64 | UInt64 | Int128 | UInt128 | NativeInt | UNativeInt | BigInt), _) :: _ ->
             match info.CompiledName, args with
             | Operators.addition, [ left; right ] -> makeBinOp r _t left right BinaryPlus |> Some
@@ -957,6 +964,77 @@ let private maps
     | "TryFind", Some c, [ key ] -> Helper.LibCall(com, "fable_map", "try_find", t, [ key; c ]) |> Some
     | _ -> None
 
+/// Beam-specific Set module replacements.
+/// F# Sets are represented as Erlang ordsets (sorted lists).
+let private setModule
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, args with
+    | "Empty", _ -> emitExpr r t [] "[]" |> Some
+    | "Singleton", [ x ] -> emitExpr r t [ x ] "[$0]" |> Some
+    | ("OfList" | "OfArray" | "OfSeq"), [ xs ] -> emitExpr r t [ xs ] "ordsets:from_list($0)" |> Some
+    | "Add", [ elem; set ] -> emitExpr r t [ elem; set ] "ordsets:add_element($0, $1)" |> Some
+    | "Contains", [ elem; set ] -> emitExpr r t [ elem; set ] "ordsets:is_element($0, $1)" |> Some
+    | "Remove", [ elem; set ] -> emitExpr r t [ elem; set ] "ordsets:del_element($0, $1)" |> Some
+    | "IsEmpty", [ set ] -> emitExpr r t [ set ] "($0 =:= [])" |> Some
+    | "Count", [ set ] -> emitExpr r t [ set ] "length($0)" |> Some
+    | "Union", [ s1; s2 ] -> emitExpr r t [ s1; s2 ] "ordsets:union($0, $1)" |> Some
+    | "Intersect", [ s1; s2 ] -> emitExpr r t [ s1; s2 ] "ordsets:intersection($0, $1)" |> Some
+    | "Difference", [ s1; s2 ] -> emitExpr r t [ s1; s2 ] "ordsets:subtract($0, $1)" |> Some
+    | "IsSubset", [ s1; s2 ] -> emitExpr r t [ s1; s2 ] "ordsets:is_subset($0, $1)" |> Some
+    | "IsSuperset", [ s1; s2 ] -> emitExpr r t [ s1; s2 ] "ordsets:is_subset($1, $0)" |> Some
+    | "IsProperSubset", [ s1; s2 ] -> Helper.LibCall(com, "fable_set", "is_proper_subset", t, [ s1; s2 ]) |> Some
+    | "IsProperSuperset", [ s1; s2 ] -> Helper.LibCall(com, "fable_set", "is_proper_superset", t, [ s1; s2 ]) |> Some
+    | "MinElement", [ set ] -> emitExpr r t [ set ] "hd($0)" |> Some
+    | "MaxElement", [ set ] -> emitExpr r t [ set ] "lists:last($0)" |> Some
+    | ("ToList" | "ToArray" | "ToSeq"), [ set ] -> Some set
+    | "Filter", [ fn; set ] -> Helper.LibCall(com, "fable_set", "filter", t, [ fn; set ]) |> Some
+    | "Map", [ fn; set ] -> Helper.LibCall(com, "fable_set", "map", t, [ fn; set ]) |> Some
+    | "Fold", [ fn; state; set ] -> Helper.LibCall(com, "fable_set", "fold", t, [ fn; state; set ]) |> Some
+    | "FoldBack", [ fn; set; state ] -> Helper.LibCall(com, "fable_set", "fold_back", t, [ fn; set; state ]) |> Some
+    | "Exists", [ fn; set ] -> Helper.LibCall(com, "fable_set", "exists", t, [ fn; set ]) |> Some
+    | "ForAll", [ fn; set ] -> Helper.LibCall(com, "fable_set", "forall", t, [ fn; set ]) |> Some
+    | "Iterate", [ fn; set ] -> Helper.LibCall(com, "fable_set", "iterate", t, [ fn; set ]) |> Some
+    | "Partition", [ fn; set ] -> Helper.LibCall(com, "fable_set", "partition", t, [ fn; set ]) |> Some
+    | "UnionMany", [ sets ] -> Helper.LibCall(com, "fable_set", "union_many", t, [ sets ]) |> Some
+    | "IntersectMany", [ sets ] -> Helper.LibCall(com, "fable_set", "intersect_many", t, [ sets ]) |> Some
+    | _ -> None
+
+/// Beam-specific FSharpSet instance method replacements.
+let private sets
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg, args with
+    | ".ctor", None, [ xs ] -> emitExpr r t [ xs ] "ordsets:from_list($0)" |> Some
+    | "get_Count", Some c, _ -> emitExpr r t [ c ] "length($0)" |> Some
+    | "get_IsEmpty", Some c, _ -> emitExpr r t [ c ] "($0 =:= [])" |> Some
+    | "Contains", Some c, [ elem ] -> emitExpr r t [ elem; c ] "ordsets:is_element($0, $1)" |> Some
+    | "Add", Some c, [ elem ] -> emitExpr r t [ elem; c ] "ordsets:add_element($0, $1)" |> Some
+    | "Remove", Some c, [ elem ] -> emitExpr r t [ elem; c ] "ordsets:del_element($0, $1)" |> Some
+    | "get_MinimumElement", Some c, _ -> emitExpr r t [ c ] "hd($0)" |> Some
+    | "get_MaximumElement", Some c, _ -> emitExpr r t [ c ] "lists:last($0)" |> Some
+    | "IsSubsetOf", Some c, [ other ] -> emitExpr r t [ c; other ] "ordsets:is_subset($0, $1)" |> Some
+    | "IsSupersetOf", Some c, [ other ] -> emitExpr r t [ c; other ] "ordsets:is_subset($1, $0)" |> Some
+    | "IsProperSubsetOf", Some c, [ other ] ->
+        Helper.LibCall(com, "fable_set", "is_proper_subset", t, [ c; other ]) |> Some
+    | "IsProperSupersetOf", Some c, [ other ] ->
+        Helper.LibCall(com, "fable_set", "is_proper_superset", t, [ c; other ]) |> Some
+    | "op_Addition", None, [ s1; s2 ] -> emitExpr r t [ s1; s2 ] "ordsets:union($0, $1)" |> Some
+    | "op_Subtraction", None, [ s1; s2 ] -> emitExpr r t [ s1; s2 ] "ordsets:subtract($0, $1)" |> Some
+    | _ -> None
+
 /// Beam-specific StringModule replacements.
 let private stringModule
     (com: ICompiler)
@@ -1355,6 +1433,8 @@ let tryCall
     | "Microsoft.FSharp.Collections.ArrayModule.Parallel" -> arrayModule com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.FSharpMap`2" -> maps com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.MapModule" -> mapModule com ctx r t info thisArg args
+    | "Microsoft.FSharp.Collections.FSharpSet`1" -> sets com ctx r t info thisArg args
+    | "Microsoft.FSharp.Collections.SetModule" -> setModule com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.SeqModule" -> seqModule com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers" -> seqModule com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.Operators.OperatorIntrinsics" -> intrinsicFunctions com ctx r t info thisArg args
