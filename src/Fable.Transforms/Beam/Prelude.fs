@@ -3,6 +3,47 @@ namespace Fable.Beam
 module Naming =
     open System.Text.RegularExpressions
 
+    // https://www.erlang.org/doc/system/expressions#reserved-words
+    let erlKeywords =
+        System.Collections.Generic.HashSet
+            [
+                "after"
+                "and"
+                "andalso"
+                "band"
+                "begin"
+                "bnot"
+                "bor"
+                "bsl"
+                "bsr"
+                "bxor"
+                "case"
+                "catch"
+                "cond"
+                "div"
+                "end"
+                "fun"
+                "if"
+                "let"
+                "not"
+                "of"
+                "or"
+                "orelse"
+                "receive"
+                "rem"
+                "try"
+                "when"
+                "xor"
+                "maybe"
+                "else"
+            ]
+
+    let checkErlKeywords name =
+        if erlKeywords.Contains name then
+            name + "_"
+        else
+            name
+
     let toSnakeCase (name: string) =
         let sb = System.Text.StringBuilder()
 

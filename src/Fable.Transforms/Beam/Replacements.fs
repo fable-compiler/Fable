@@ -194,6 +194,9 @@ let private operators
             | Operators.modulus, [ left; right ] -> makeBinOp r _t left right BinaryModulus |> Some
             | _ -> None
         | _ -> None
+    | "DefaultAsyncBuilder", _ ->
+        Helper.LibCall(_com, "fable_async_builder", "singleton", _t, [], ?loc = r)
+        |> Some
     | _ -> None
 
 let private languagePrimitives
@@ -1428,6 +1431,26 @@ let makeRefFromMutableField
     =
     Get(callee, FieldInfo.Create(key, isMutable = true), t, r)
 
+let asyncBuilder (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (_thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Singleton" -> Helper.LibCall(com, "fable_async_builder", "singleton", t, [], ?loc = r) |> Some
+    | meth ->
+        Helper.LibCall(com, "fable_async_builder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+
+let asyncs (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (_thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Start" ->
+        Helper.LibCall(com, "fable_async", "start_immediate", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "get_CancellationToken" -> emitExpr r t [] "undefined" |> Some
+    | "Catch" ->
+        Helper.LibCall(com, "fable_async", "catch_async", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | meth ->
+        Helper.LibCall(com, "fable_async", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+
 let tryField (_com: ICompiler) _returnTyp ownerTyp fieldName : Expr option =
     match ownerTyp, fieldName with
     | String, "Empty" -> makeStrConst "" |> Some
@@ -1564,6 +1587,10 @@ let tryCall
         | "get_Value", Some callee, _ -> getRefCell com r t callee |> Some
         | "set_Value", Some callee, [ value ] -> setRefCell com r callee value |> Some
         | _ -> None
+    | "Microsoft.FSharp.Control.FSharpAsyncBuilder"
+    | "Microsoft.FSharp.Control.AsyncActivation`1" -> asyncBuilder com ctx r t info thisArg args
+    | "Microsoft.FSharp.Control.FSharpAsync"
+    | "Microsoft.FSharp.Control.AsyncPrimitives" -> asyncs com ctx r t info thisArg args
     | _ -> None
 
 let tryBaseConstructor
