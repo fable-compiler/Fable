@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Python] Fix `Task<T>` pass-through returns not being awaited in if/else and try/with branches (by @dbrattli)
+* [Python] Fix `:? T as x` type test pattern in closures causing `UnboundLocalError` due to `cast()` shadowing outer variable (by @dbrattli)
+
 ## 5.0.0-alpha.23 - 2026-02-03
 
 ### Changed

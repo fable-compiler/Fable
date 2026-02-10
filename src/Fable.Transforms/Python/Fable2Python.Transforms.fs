@@ -1305,35 +1305,12 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: option<F
         )
     ]
 
-/// Helper function to generate a cast statement for type narrowing
-let makeCastStatement (com: IPythonCompiler) ctx (ident: Fable.Ident) (typ: Fable.Type) =
-    // Only add cast for generic types where type checker needs help
-    let hasGenerics =
-        match typ with
-        | Fable.DeclaredType(_, genArgs) when not (List.isEmpty genArgs) -> true
-        | Fable.Array _ -> true
-        | Fable.List _ -> true
-        | _ -> false
-
-    // Check if the original type already has the same generic arguments
-    // If so, Pyright can infer the narrowed type and the cast is unnecessary
-    let originalGenArgs = Annotation.getGenericArgs ident.Type
-    let targetGenArgs = Annotation.getGenericArgs typ
-
-    let sameGenericArgs =
-        not (List.isEmpty originalGenArgs)
-        && not (List.isEmpty targetGenArgs)
-        && originalGenArgs = targetGenArgs
-
-    if hasGenerics && not sameGenericArgs then
-        let cast = com.GetImportExpr(ctx, "typing", "cast")
-        let varExpr = identAsExpr com ctx ident
-        let typeAnnotation, importStmts = Annotation.typeAnnotation com ctx None typ
-        let castExpr = Expression.call (cast, [ typeAnnotation; varExpr ])
-        let castStmt = Statement.assign ([ varExpr ], castExpr)
-        importStmts @ [ castStmt ]
-    else
-        []
+/// Helper function to generate a cast statement for type narrowing.
+/// Disabled: The isinstance() check in the if-guard already provides Pyright with
+/// sufficient type narrowing. Generating `value = cast(T, value)` causes Python
+/// UnboundLocalError when inside closures (e.g., task CE bodies), because the
+/// assignment makes Python treat the variable as local throughout the function.
+let makeCastStatement (_com: IPythonCompiler) _ctx (_ident: Fable.Ident) (_typ: Fable.Type) = []
 
 let rec transformIfStatement (com: IPythonCompiler) ctx r ret guardExpr thenStmnt elseStmnt =
     // Create refined context for then/else branches based on guard type
