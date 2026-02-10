@@ -194,6 +194,10 @@ let private operators
         | _ -> Some arg
     // CreateSet: the `set [1;2;3]` syntax
     | "CreateSet", [ arg ] -> emitExpr r _t [ arg ] "ordsets:from_list($0)" |> Some
+    // CreateDictionary: the `dict [...]` syntax
+    | ("CreateDictionary" | "CreateReadOnlyDictionary"), [ arg ] ->
+        Helper.LibCall(_com, "fable_dictionary", "create_from_list", _t, [ arg ], ?loc = r)
+        |> Some
     // Range operators: [start..stop] and [start..step..stop]
     | "op_Range", [ first; last ] -> emitExpr r _t [ first; last ] "lists:seq($0, $1)" |> Some
     | "op_RangeStep", [ first; step; last ] -> emitExpr r _t [ first; step; last ] "lists:seq($0, $2, $1)" |> Some
@@ -1471,8 +1475,10 @@ let setRefCell (_com: ICompiler) (r: SourceLocation option) (expr: Expr) (value:
 let makeRefCellFromValue (_com: ICompiler) (r: SourceLocation option) (value: Expr) =
     emitExpr r Any [ value ] "(fun() -> Ref = make_ref(), put(Ref, $0), Ref end)()"
 
-let makeRefFromMutableValue (_com: ICompiler) (_ctx: Context) (_r: SourceLocation option) (_t: Type) (value: Expr) =
-    value
+let makeRefFromMutableValue (_com: ICompiler) (_ctx: Context) (r: SourceLocation option) (t: Type) (value: Expr) =
+    // Wrap in UnaryAddressOf so Fable2Beam can detect out-parameter usage
+    // and emit the atom key (process dict key) instead of the dereferenced value.
+    Operation(Unary(UnaryAddressOf, value), Tags.empty, t, r)
 
 let makeRefFromMutableFunc (_com: ICompiler) (_ctx: Context) (_r: SourceLocation option) (_t: Type) (value: Expr) =
     value
@@ -1880,6 +1886,163 @@ let private resizeArrays
         |> Some
     | _ -> None
 
+let private keyValuePairs
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg with
+    | ".ctor", _ -> makeTuple r true args |> Some
+    | "get_Key", Some c -> Get(c, TupleIndex 0, t, r) |> Some
+    | "get_Value", Some c -> Get(c, TupleIndex 1, t, r) |> Some
+    | _ -> None
+
+let private dictionaries
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg, args with
+    // Constructors
+    | ".ctor", _, [] -> Helper.LibCall(com, "fable_dictionary", "create_empty", t, [], ?loc = r) |> Some
+    | ".ctor", _, [ ExprType(Number _) ] ->
+        // Ignore capacity hint
+        Helper.LibCall(com, "fable_dictionary", "create_empty", t, [], ?loc = r) |> Some
+    | ".ctor", _, [ arg ] ->
+        // From IDictionary or IEnumerable<KeyValuePair>
+        Helper.LibCall(com, "fable_dictionary", "create_from_list", t, [ arg ], ?loc = r)
+        |> Some
+    | ".ctor", _, [ _arg; _eqComp ] ->
+        // With IEqualityComparer: ignore comparer for now, Erlang =:= does structural comparison
+        match info.SignatureArgTypes with
+        | [ Number _; _ ] ->
+            // (capacity, comparer)
+            Helper.LibCall(com, "fable_dictionary", "create_empty", t, [], ?loc = r) |> Some
+        | _ ->
+            Helper.LibCall(com, "fable_dictionary", "create_from_list", t, [ _arg ], ?loc = r)
+            |> Some
+    // get_Count
+    | "get_Count", Some callee, _ ->
+        Helper.LibCall(com, "fable_dictionary", "get_count", t, [ callee ], ?loc = r)
+        |> Some
+    // get_IsReadOnly
+    | "get_IsReadOnly", _, _ -> makeBoolConst false |> Some
+    // Add
+    | "Add", Some callee, [ key; value ] ->
+        Helper.LibCall(com, "fable_dictionary", "add", t, [ callee; key; value ], ?loc = r)
+        |> Some
+    // get_Item (indexer get)
+    | "get_Item", Some callee, [ key ] ->
+        Helper.LibCall(com, "fable_dictionary", "get_item", t, [ callee; key ], ?loc = r)
+        |> Some
+    // set_Item (indexer set)
+    | "set_Item", Some callee, [ key; value ] ->
+        Helper.LibCall(com, "fable_dictionary", "set_item", t, [ callee; key; value ], ?loc = r)
+        |> Some
+    // ContainsKey
+    | "ContainsKey", Some callee, [ key ] ->
+        Helper.LibCall(com, "fable_dictionary", "contains_key", t, [ callee; key ], ?loc = r)
+        |> Some
+    // ContainsValue
+    | "ContainsValue", Some callee, [ value ] ->
+        Helper.LibCall(com, "fable_dictionary", "contains_value", t, [ callee; value ], ?loc = r)
+        |> Some
+    // Remove
+    | "Remove", Some callee, [ key ] ->
+        Helper.LibCall(com, "fable_dictionary", "remove", t, [ callee; key ], ?loc = r)
+        |> Some
+    // Clear
+    | "Clear", Some callee, _ ->
+        Helper.LibCall(com, "fable_dictionary", "clear", t, [ callee ], ?loc = r)
+        |> Some
+    // TryGetValue: F# desugars `let ok, v = dic.TryGetValue(k)` into
+    // TryGetValue(key, &outRef) → bool, where outRef is a mutable variable.
+    // The outRef expression may be an AddressOf (passes atom key via our fix)
+    // or a regular get() expression. We pass it through to try_get_value/3.
+    | "TryGetValue", Some callee, [ key; outRef ] ->
+        // Check if outRef is AddressOf - if so, it will generate the atom key
+        // Otherwise generate inline code that ignores the out-ref
+        match outRef with
+        | Operation(Unary(UnaryAddressOf, _), _, _, _) ->
+            Helper.LibCall(com, "fable_dictionary", "try_get_value", t, [ callee; key; outRef ], ?loc = r)
+            |> Some
+        | _ ->
+            // outRef is a value (get(atom)), not an addressOf expression.
+            // We need the atom key, but it's not available.
+            // Fall back to inline emitExpr that returns {Bool, Value} as a tuple,
+            // then extract just the first element (bool) since the F# desugaring
+            // wraps this in {result, get(out_arg)}
+            emitExpr
+                r
+                t
+                [ callee; key ]
+                "(fun() -> case maps:find($1, get($0)) of {ok, _V_} -> _V_; error -> 0 end end)()"
+            |> Some
+    | "TryGetValue", Some callee, [ key ] ->
+        Helper.LibCall(com, "fable_dictionary", "try_get_value", t, [ callee; key ], ?loc = r)
+        |> Some
+    // get_Keys
+    | "get_Keys", Some callee, _ ->
+        Helper.LibCall(com, "fable_dictionary", "get_keys", t, [ callee ], ?loc = r)
+        |> Some
+    // get_Values
+    | "get_Values", Some callee, _ ->
+        Helper.LibCall(com, "fable_dictionary", "get_values", t, [ callee ], ?loc = r)
+        |> Some
+    // GetEnumerator for Dictionary iteration
+    | "GetEnumerator", Some callee, _ ->
+        Helper.LibCall(com, "fable_dictionary", "get_enumerator", t, [ callee ], ?loc = r)
+        |> Some
+    | _ -> None
+
+let private collections
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg with
+    | "get_Count", Some callee ->
+        Helper.LibCall(com, "fable_dictionary", "get_count", t, [ callee ], ?loc = r)
+        |> Some
+    | "get_IsReadOnly", _ -> makeBoolConst false |> Some
+    | "Add", Some callee ->
+        match args with
+        | [ key; value ] ->
+            Helper.LibCall(com, "fable_dictionary", "add", t, [ callee; key; value ], ?loc = r)
+            |> Some
+        | _ -> None
+    | "Remove", Some callee ->
+        match args with
+        | [ key ] ->
+            Helper.LibCall(com, "fable_dictionary", "remove", t, [ callee; key ], ?loc = r)
+            |> Some
+        | _ -> None
+    | "Clear", Some callee ->
+        Helper.LibCall(com, "fable_dictionary", "clear", t, [ callee ], ?loc = r)
+        |> Some
+    | "Contains", Some callee ->
+        match args with
+        | [ key ] ->
+            Helper.LibCall(com, "fable_dictionary", "contains_key", t, [ callee; key ], ?loc = r)
+            |> Some
+        | _ -> None
+    | "GetEnumerator", Some callee ->
+        Helper.LibCall(com, "fable_dictionary", "get_enumerator", t, [ callee ], ?loc = r)
+        |> Some
+    | _ -> None
+
 let private enumerables
     (com: ICompiler)
     (_ctx: Context)
@@ -2072,11 +2235,22 @@ let tryCall
     | Types.regexMatchCollection
     | Types.regexGroupCollection -> regex com ctx r t info thisArg args
     | Types.resizeArray -> resizeArrays com ctx r t info thisArg args
+    | Types.dictionary
+    | Types.idictionary -> dictionaries com ctx r t info thisArg args
+    | Types.keyValuePair -> keyValuePairs com ctx r t info thisArg args
+    | Types.icollectionGeneric
+    | Types.icollection
+    | Types.ireadonlycollection
+    | "System.Collections.Generic.Dictionary`2.KeyCollection"
+    | "System.Collections.Generic.Dictionary`2.ValueCollection" -> collections com ctx r t info thisArg args
     | Types.ienumerableGeneric
     | Types.ienumerable -> enumerables com ctx r t info thisArg args
     | Types.ienumeratorGeneric
     | Types.ienumerator
-    | "System.Collections.Generic.List`1.Enumerator" -> enumerators com ctx r t info thisArg args
+    | "System.Collections.Generic.List`1.Enumerator"
+    | "System.Collections.Generic.Dictionary`2.Enumerator"
+    | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator"
+    | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator" -> enumerators com ctx r t info thisArg args
     | _ -> None
 
 let tryBaseConstructor

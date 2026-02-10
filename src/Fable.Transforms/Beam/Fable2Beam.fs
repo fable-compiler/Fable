@@ -1002,7 +1002,14 @@ and transformOperation
             | UnaryPlus -> cleanOperand
             | UnaryNot -> Beam.ErlExpr.UnaryOp("not", cleanOperand)
             | UnaryNotBitwise -> Beam.ErlExpr.UnaryOp("bnot", cleanOperand)
-            | UnaryAddressOf -> cleanOperand
+            | UnaryAddressOf ->
+                // For mutable variables, pass the atom key (process dict key)
+                // instead of the dereferenced value. This enables out-parameter support
+                // (e.g., Dictionary.TryGetValue) where the callee needs to put() a new value.
+                match operand with
+                | IdentExpr ident when ctx.MutableVars.Contains(ident.Name) ->
+                    Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeErlangName ident.Name)))
+                | _ -> cleanOperand
 
         result |> wrapWithHoisted hoisted
 

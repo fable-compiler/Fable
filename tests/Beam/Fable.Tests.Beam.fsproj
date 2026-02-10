@@ -52,6 +52,7 @@
     <Compile Include="MailboxProcessorTests.fs" />
     <Compile Include="RegexTests.fs" />
     <Compile Include="ResizeArrayTests.fs" />
+    <Compile Include="DictionaryTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
