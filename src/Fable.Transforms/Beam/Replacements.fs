@@ -1567,6 +1567,317 @@ let mailbox (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         | "Reply" -> emitExpr r t (callee :: args) "(maps:get(reply, $0))($1)" |> Some
         | _ -> None
 
+let private regex
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg, args with
+    // Constructor
+    | ".ctor", _, [ pattern ] -> Helper.LibCall(com, "fable_regex", "create", t, [ pattern ], ?loc = r) |> Some
+    | ".ctor", _, [ pattern; options ] ->
+        Helper.LibCall(com, "fable_regex", "create", t, [ pattern; options ], ?loc = r)
+        |> Some
+    // Instance IsMatch
+    | "IsMatch", Some callee, [ input ] ->
+        Helper.LibCall(com, "fable_regex", "is_match", t, [ callee; input ], ?loc = r)
+        |> Some
+    | "IsMatch", Some callee, [ input; offset ] ->
+        Helper.LibCall(com, "fable_regex", "is_match", t, [ callee; input; offset ], ?loc = r)
+        |> Some
+    // Static IsMatch
+    | "IsMatch", None, [ input; pattern ] ->
+        Helper.LibCall(com, "fable_regex", "is_match", t, [ input; pattern ], ?loc = r)
+        |> Some
+    | "IsMatch", None, [ input; pattern; options ] ->
+        Helper.LibCall(com, "fable_regex", "is_match", t, [ input; pattern; options ], ?loc = r)
+        |> Some
+    // Instance Match
+    | "Match", Some callee, [ input ] ->
+        Helper.LibCall(com, "fable_regex", "match", t, [ callee; input ], ?loc = r)
+        |> Some
+    | "Match", Some callee, [ input; offset ] ->
+        Helper.LibCall(com, "fable_regex", "match", t, [ callee; input; offset ], ?loc = r)
+        |> Some
+    // Static Match
+    | "Match", None, [ input; pattern ] ->
+        Helper.LibCall(com, "fable_regex", "match", t, [ input; pattern ], ?loc = r)
+        |> Some
+    | "Match", None, [ input; pattern; options ] ->
+        Helper.LibCall(com, "fable_regex", "match", t, [ input; pattern; options ], ?loc = r)
+        |> Some
+    // Instance Matches
+    | "Matches", Some callee, [ input ] ->
+        Helper.LibCall(com, "fable_regex", "matches", t, [ callee; input ], ?loc = r)
+        |> Some
+    | "Matches", Some callee, [ input; offset ] ->
+        Helper.LibCall(com, "fable_regex", "matches", t, [ callee; input; offset ], ?loc = r)
+        |> Some
+    // Static Matches
+    | "Matches", None, [ input; pattern ] ->
+        Helper.LibCall(com, "fable_regex", "matches", t, [ input; pattern ], ?loc = r)
+        |> Some
+    | "Matches", None, [ input; pattern; options ] ->
+        Helper.LibCall(com, "fable_regex", "matches", t, [ input; pattern; options ], ?loc = r)
+        |> Some
+    // Instance Replace (string replacement)
+    | "Replace", Some callee, [ input; replacement ] when replacement.Type = String ->
+        Helper.LibCall(com, "fable_regex", "replace", t, [ callee; input; replacement ], ?loc = r)
+        |> Some
+    | "Replace", Some callee, [ input; replacement; count ] when replacement.Type = String ->
+        Helper.LibCall(com, "fable_regex", "replace", t, [ callee; input; replacement; count ], ?loc = r)
+        |> Some
+    | "Replace", Some callee, [ input; replacement; count; offset ] when replacement.Type = String ->
+        Helper.LibCall(com, "fable_regex", "replace", t, [ callee; input; replacement; count; offset ], ?loc = r)
+        |> Some
+    // Static Replace (string replacement)
+    | "Replace", None, [ input; pattern; replacement ] when replacement.Type = String ->
+        Helper.LibCall(com, "fable_regex", "replace", t, [ input; pattern; replacement ], ?loc = r)
+        |> Some
+    | "Replace", None, [ input; pattern; replacement; options ] when replacement.Type = String ->
+        Helper.LibCall(com, "fable_regex", "replace", t, [ input; pattern; replacement; options ], ?loc = r)
+        |> Some
+    // Instance Replace (evaluator)
+    | "Replace", Some callee, [ input; evaluator ] ->
+        Helper.LibCall(com, "fable_regex", "replace_evaluator", t, [ callee; input; evaluator ], ?loc = r)
+        |> Some
+    | "Replace", Some callee, [ input; evaluator; count ] ->
+        Helper.LibCall(com, "fable_regex", "replace_evaluator", t, [ callee; input; evaluator; count ], ?loc = r)
+        |> Some
+    | "Replace", Some callee, [ input; evaluator; count; offset ] ->
+        Helper.LibCall(
+            com,
+            "fable_regex",
+            "replace_evaluator",
+            t,
+            [ callee; input; evaluator; count; offset ],
+            ?loc = r
+        )
+        |> Some
+    // Static Replace (evaluator)
+    | "Replace", None, [ input; pattern; evaluator ] ->
+        Helper.LibCall(com, "fable_regex", "replace_evaluator", t, [ input; pattern; evaluator ], ?loc = r)
+        |> Some
+    // Instance Split
+    | "Split", Some callee, [ input ] ->
+        Helper.LibCall(com, "fable_regex", "split", t, [ callee; input ], ?loc = r)
+        |> Some
+    | "Split", Some callee, [ input; count ] ->
+        Helper.LibCall(com, "fable_regex", "split", t, [ callee; input; count ], ?loc = r)
+        |> Some
+    | "Split", Some callee, [ input; count; offset ] ->
+        Helper.LibCall(com, "fable_regex", "split", t, [ callee; input; count; offset ], ?loc = r)
+        |> Some
+    // Static Split
+    | "Split", None, [ input; pattern ] ->
+        Helper.LibCall(com, "fable_regex", "split", t, [ input; pattern ], ?loc = r)
+        |> Some
+    | "Split", None, [ input; pattern; options ] ->
+        Helper.LibCall(com, "fable_regex", "split", t, [ input; pattern; options ], ?loc = r)
+        |> Some
+    // Escape / Unescape
+    | "Escape", None, [ str ] -> Helper.LibCall(com, "fable_regex", "escape", t, [ str ], ?loc = r) |> Some
+    | "Unescape", None, [ str ] -> Helper.LibCall(com, "fable_regex", "unescape", t, [ str ], ?loc = r) |> Some
+    // Match/Group/Capture property accessors
+    | "get_Value", Some callee, _ -> Helper.LibCall(com, "fable_regex", "get_value", t, [ callee ], ?loc = r) |> Some
+    | "get_Index", Some callee, _ -> Helper.LibCall(com, "fable_regex", "get_index", t, [ callee ], ?loc = r) |> Some
+    | "get_Length", Some callee, _ ->
+        Helper.LibCall(com, "fable_regex", "get_length", t, [ callee ], ?loc = r)
+        |> Some
+    | "get_Success", Some callee, _ ->
+        Helper.LibCall(com, "fable_regex", "get_success", t, [ callee ], ?loc = r)
+        |> Some
+    // Groups
+    | "get_Groups", Some callee, _ ->
+        Helper.LibCall(com, "fable_regex", "get_groups", t, [ callee ], ?loc = r)
+        |> Some
+    // Collection indexer (MatchCollection, GroupCollection)
+    | "get_Item", Some callee, [ idx ] ->
+        Helper.LibCall(com, "fable_regex", "get_item", t, [ callee; idx ], ?loc = r)
+        |> Some
+    // Count
+    | "get_Count", Some callee, _ -> Helper.LibCall(com, "fable_regex", "get_count", t, [ callee ], ?loc = r) |> Some
+    // Options
+    | "get_Options", Some callee, _ ->
+        Helper.LibCall(com, "fable_regex", "get_options", t, [ callee ], ?loc = r)
+        |> Some
+    // GetEnumerator for MatchCollection iteration
+    | "GetEnumerator", Some callee, _ ->
+        // Return the list itself; Beam iteration works on lists
+        Some callee
+    | _ -> None
+
+let private resizeArrays
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg, args with
+    // Constructors - use process dictionary (same as Ref cells)
+    | ".ctor", _, [] -> emitExpr r t [] "(fun() -> Ref = make_ref(), put(Ref, []), Ref end)()" |> Some
+    | ".ctor", _, [ ExprType(Number _) ] ->
+        // Ignore size hint, just create empty
+        emitExpr r t [] "(fun() -> Ref = make_ref(), put(Ref, []), Ref end)()" |> Some
+    | ".ctor", _, [ arg ] ->
+        // From IEnumerable/sequence
+        emitExpr r t [ arg ] "(fun() -> Ref = make_ref(), put(Ref, $0), Ref end)()"
+        |> Some
+    // get_Item: lists:nth is 1-based
+    | "get_Item", Some callee, [ idx ] -> emitExpr r t [ callee; idx ] "lists:nth($1 + 1, get($0))" |> Some
+    // set_Item
+    | "set_Item", Some callee, [ idx; value ] ->
+        Helper.LibCall(
+            com,
+            "fable_resize_array",
+            "set_item",
+            t,
+            [ emitExpr r (List Any) [ callee ] "get($0)"; idx; value ],
+            ?loc = r
+        )
+        |> fun newList -> emitExpr r Unit [ callee; newList ] "put($0, $1)" |> Some
+    // get_Count
+    | "get_Count", Some callee, _ -> emitExpr r t [ callee ] "length(get($0))" |> Some
+    // Add
+    | "Add", Some callee, [ arg ] -> emitExpr r Unit [ callee; arg ] "put($0, get($0) ++ [$1])" |> Some
+    // AddRange
+    | "AddRange", Some callee, [ arg ] -> emitExpr r Unit [ callee; arg ] "put($0, get($0) ++ $1)" |> Some
+    // Contains
+    | "Contains", Some callee, [ arg ] -> emitExpr r t [ callee; arg ] "lists:member($1, get($0))" |> Some
+    // IndexOf
+    | "IndexOf", Some callee, [ arg ] ->
+        Helper.LibCall(
+            com,
+            "fable_resize_array",
+            "index_of",
+            t,
+            [ emitExpr r (List Any) [ callee ] "get($0)"; arg ],
+            ?loc = r
+        )
+        |> Some
+    // Remove
+    | "Remove", Some callee, [ arg ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        let call =
+            Helper.LibCall(com, "fable_resize_array", "remove", t, [ listExpr; arg ], ?loc = r)
+
+        emitExpr r Boolean [ callee; call ] "(fun() -> {Result, NewList} = $1, put($0, NewList), Result end)()"
+        |> Some
+    // RemoveAll
+    | "RemoveAll", Some callee, [ pred ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        let call =
+            Helper.LibCall(com, "fable_resize_array", "remove_all", t, [ listExpr; pred ], ?loc = r)
+
+        emitExpr r t [ callee; call ] "(fun() -> {Count, NewList} = $1, put($0, NewList), Count end)()"
+        |> Some
+    // RemoveAt
+    | "RemoveAt", Some callee, [ idx ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        let call =
+            Helper.LibCall(com, "fable_resize_array", "remove_at", t, [ listExpr; idx ], ?loc = r)
+
+        emitExpr r Unit [ callee; call ] "put($0, $1)" |> Some
+    // Insert
+    | "Insert", Some callee, [ idx; arg ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        let call =
+            Helper.LibCall(com, "fable_resize_array", "insert", t, [ listExpr; idx; arg ], ?loc = r)
+
+        emitExpr r Unit [ callee; call ] "put($0, $1)" |> Some
+    // InsertRange
+    | "InsertRange", Some callee, [ idx; items ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        let call =
+            Helper.LibCall(com, "fable_resize_array", "insert_range", t, [ listExpr; idx; items ], ?loc = r)
+
+        emitExpr r Unit [ callee; call ] "put($0, $1)" |> Some
+    // GetRange
+    | "GetRange", Some callee, [ idx; count ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        Helper.LibCall(com, "fable_resize_array", "get_range", t, [ listExpr; idx; count ], ?loc = r)
+        |> Some
+    // Clear
+    | "Clear", Some callee, _ -> emitExpr r Unit [ callee ] "put($0, [])" |> Some
+    // Reverse
+    | "Reverse", Some callee, [] -> emitExpr r Unit [ callee ] "put($0, lists:reverse(get($0)))" |> Some
+    // Sort (no args)
+    | "Sort", Some callee, [] -> emitExpr r Unit [ callee ] "put($0, lists:sort(get($0)))" |> Some
+    // Sort with comparison
+    | "Sort", Some callee, [ comparer ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        let call =
+            Helper.LibCall(com, "fable_resize_array", "sort_with", t, [ listExpr; comparer ], ?loc = r)
+
+        emitExpr r Unit [ callee; call ] "put($0, $1)" |> Some
+    // ToArray
+    | "ToArray", Some callee, [] -> emitExpr r t [ callee ] "get($0)" |> Some
+    // Find
+    | "Find", Some callee, [ pred ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        Helper.LibCall(com, "fable_resize_array", "find", t, [ pred; listExpr ], ?loc = r)
+        |> Some
+    // FindLast
+    | "FindLast", Some callee, [ pred ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        Helper.LibCall(com, "fable_resize_array", "find_last", t, [ listExpr; pred ], ?loc = r)
+        |> Some
+    // FindAll
+    | "FindAll", Some callee, [ pred ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        Helper.LibCall(com, "fable_resize_array", "find_all", t, [ listExpr; pred ], ?loc = r)
+        |> Some
+    // FindIndex
+    | "FindIndex", Some callee, [ pred ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        Helper.LibCall(com, "fable_resize_array", "find_index", t, [ listExpr; pred ], ?loc = r)
+        |> Some
+    // FindLastIndex
+    | "FindLastIndex", Some callee, [ pred ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        Helper.LibCall(com, "fable_resize_array", "find_last_index", t, [ listExpr; pred ], ?loc = r)
+        |> Some
+    // Exists
+    | "Exists", Some callee, [ pred ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        Helper.LibCall(com, "fable_resize_array", "exists", t, [ listExpr; pred ], ?loc = r)
+        |> Some
+    // ForEach
+    | "ForEach", Some callee, [ fn ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        Helper.LibCall(com, "fable_resize_array", "for_each", t, [ listExpr; fn ], ?loc = r)
+        |> Some
+    // ConvertAll
+    | "ConvertAll", Some callee, [ fn ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        Helper.LibCall(com, "fable_resize_array", "convert_all", t, [ listExpr; fn ], ?loc = r)
+        |> Some
+    // GetEnumerator - return the list for iteration
+    | "GetEnumerator", Some callee, _ -> emitExpr r t [ callee ] "get($0)" |> Some
+    | _ -> None
+
 let tryField (_com: ICompiler) _returnTyp ownerTyp fieldName : Expr option =
     match ownerTyp, fieldName with
     | String, "Empty" -> makeStrConst "" |> Some
@@ -1720,6 +2031,13 @@ let tryCall
     | Naming.StartsWith Types.printfFormat _ -> fsFormat com ctx r t info thisArg args
     | "Microsoft.FSharp.Control.FSharpMailboxProcessor`1"
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" -> mailbox com ctx r t info thisArg args
+    | Types.regex
+    | Types.regexCapture
+    | Types.regexMatch
+    | Types.regexGroup
+    | Types.regexMatchCollection
+    | Types.regexGroupCollection -> regex com ctx r t info thisArg args
+    | Types.resizeArray -> resizeArrays com ctx r t info thisArg args
     | _ -> None
 
 let tryBaseConstructor
