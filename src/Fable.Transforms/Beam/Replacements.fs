@@ -2003,6 +2003,85 @@ let private dictionaries
         |> Some
     | _ -> None
 
+let private hashSets
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg, args with
+    // Constructors
+    | ".ctor", _, [] -> Helper.LibCall(com, "fable_hashset", "create_empty", t, [], ?loc = r) |> Some
+    | ".ctor", _, [ ExprType(Number _) ] ->
+        // Ignore capacity hint
+        Helper.LibCall(com, "fable_hashset", "create_empty", t, [], ?loc = r) |> Some
+    | ".ctor", _, [ arg ] ->
+        // From IEnumerable
+        Helper.LibCall(com, "fable_hashset", "create_from_list", t, [ arg ], ?loc = r)
+        |> Some
+    | ".ctor", _, [ arg; _eqComp ] ->
+        // With IEqualityComparer: ignore comparer, Erlang =:= does structural comparison
+        match info.SignatureArgTypes with
+        | [ Number _; _ ] ->
+            // (capacity, comparer)
+            Helper.LibCall(com, "fable_hashset", "create_empty", t, [], ?loc = r) |> Some
+        | _ ->
+            Helper.LibCall(com, "fable_hashset", "create_from_list", t, [ arg ], ?loc = r)
+            |> Some
+    // get_Count
+    | "get_Count", Some callee, _ ->
+        Helper.LibCall(com, "fable_hashset", "get_count", t, [ callee ], ?loc = r)
+        |> Some
+    // get_IsReadOnly
+    | "get_IsReadOnly", _, _ -> makeBoolConst false |> Some
+    // Add: returns bool (true if newly added)
+    | "Add", Some callee, [ item ] ->
+        Helper.LibCall(com, "fable_hashset", "add", t, [ callee; item ], ?loc = r)
+        |> Some
+    // Remove
+    | "Remove", Some callee, [ item ] ->
+        Helper.LibCall(com, "fable_hashset", "remove", t, [ callee; item ], ?loc = r)
+        |> Some
+    // Contains
+    | "Contains", Some callee, [ item ] ->
+        Helper.LibCall(com, "fable_hashset", "contains", t, [ callee; item ], ?loc = r)
+        |> Some
+    // Clear
+    | "Clear", Some callee, _ -> Helper.LibCall(com, "fable_hashset", "clear", t, [ callee ], ?loc = r) |> Some
+    // UnionWith
+    | "UnionWith", Some callee, [ other ] ->
+        Helper.LibCall(com, "fable_hashset", "union_with", t, [ callee; other ], ?loc = r)
+        |> Some
+    // IntersectWith
+    | "IntersectWith", Some callee, [ other ] ->
+        Helper.LibCall(com, "fable_hashset", "intersect_with", t, [ callee; other ], ?loc = r)
+        |> Some
+    // ExceptWith
+    | "ExceptWith", Some callee, [ other ] ->
+        Helper.LibCall(com, "fable_hashset", "except_with", t, [ callee; other ], ?loc = r)
+        |> Some
+    // IsSubsetOf / IsSupersetOf / IsProperSubsetOf / IsProperSupersetOf
+    | "IsSubsetOf", Some callee, [ other ] ->
+        Helper.LibCall(com, "fable_hashset", "is_subset_of", t, [ callee; other ], ?loc = r)
+        |> Some
+    | "IsSupersetOf", Some callee, [ other ] ->
+        Helper.LibCall(com, "fable_hashset", "is_superset_of", t, [ callee; other ], ?loc = r)
+        |> Some
+    | "IsProperSubsetOf", Some callee, [ other ] ->
+        Helper.LibCall(com, "fable_hashset", "is_proper_subset_of", t, [ callee; other ], ?loc = r)
+        |> Some
+    | "IsProperSupersetOf", Some callee, [ other ] ->
+        Helper.LibCall(com, "fable_hashset", "is_proper_superset_of", t, [ callee; other ], ?loc = r)
+        |> Some
+    // GetEnumerator
+    | "GetEnumerator", Some callee, _ ->
+        Helper.LibCall(com, "fable_hashset", "get_enumerator", t, [ callee ], ?loc = r)
+        |> Some
+    | _ -> None
+
 let private collections
     (com: ICompiler)
     (_ctx: Context)
@@ -2237,6 +2316,7 @@ let tryCall
     | Types.resizeArray -> resizeArrays com ctx r t info thisArg args
     | Types.dictionary
     | Types.idictionary -> dictionaries com ctx r t info thisArg args
+    | Types.hashset -> hashSets com ctx r t info thisArg args
     | Types.keyValuePair -> keyValuePairs com ctx r t info thisArg args
     | Types.icollectionGeneric
     | Types.icollection
@@ -2250,7 +2330,8 @@ let tryCall
     | "System.Collections.Generic.List`1.Enumerator"
     | "System.Collections.Generic.Dictionary`2.Enumerator"
     | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator"
-    | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator" -> enumerators com ctx r t info thisArg args
+    | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator"
+    | "System.Collections.Generic.HashSet`1.Enumerator" -> enumerators com ctx r t info thisArg args
     | _ -> None
 
 let tryBaseConstructor

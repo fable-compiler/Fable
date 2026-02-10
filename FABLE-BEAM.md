@@ -126,6 +126,7 @@ Erlang modules implementing F# core types:
 | fable_regex.erl | Regex | Wraps Erlang `re` module (PCRE), IsMatch/Match/Matches/Replace/Split | Done |
 | fable_resize_array.erl | ResizeArray | List manipulation helpers (set_item, remove, insert, find, sort) | Done |
 | fable_dictionary.erl | Dictionary | Mutable dictionary via process dict + Erlang maps, TryGetValue with out-refs | Done |
+| fable_hashset.erl | HashSet | Mutable set via process dict + Erlang maps, UnionWith/IntersectWith/ExceptWith | Done |
 | fable_decimal.erl | decimal | Needs a library or custom impl | Planned |
 | fable_guid.erl | Guid | UUID generation | Planned |
 | fable_date.erl | DateTime | calendar module | Planned |
@@ -330,7 +331,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 1. Runs all tests on .NET via `dotnet test`
 2. Compiles tests to `.erl` via Fable
 3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (1057 Erlang tests pass)
+4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (1076 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -365,8 +366,9 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | RegexTests.fs | 28 | Regex IsMatch, Match, Matches, Replace (string/evaluator/macros), Split, Escape, Groups, Options |
 | ResizeArrayTests.fs | 20 | ResizeArray construction, Add, indexer, Contains, IndexOf, Remove, Insert, Clear, Sort, Reverse, ToArray, iteration, Exists, FindIndex |
 | DictionaryTests.fs | 17 | Dictionary creation, Add, Count, indexer get/set, ContainsKey, ContainsValue, Remove, TryGetValue, Clear, dict function, integer keys, duplicate key throws, missing key throws, iteration, creation from existing dict |
+| HashSetTests.fs | 19 | HashSet creation, Add, Remove, Contains, Count, Clear, UnionWith, IntersectWith, ExceptWith, iteration, records |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **1057** | |
+| **Total** | **1076** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -545,7 +547,7 @@ for mutable state, `fable_async:from_continuations` for the receive/reply coordi
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 1057 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 1076 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)

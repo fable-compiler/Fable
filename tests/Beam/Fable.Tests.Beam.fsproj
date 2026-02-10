@@ -53,6 +53,7 @@
     <Compile Include="RegexTests.fs" />
     <Compile Include="ResizeArrayTests.fs" />
     <Compile Include="DictionaryTests.fs" />
+    <Compile Include="HashSetTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
