@@ -121,10 +121,11 @@ Erlang modules implementing F# core types:
 | fable_reflection.erl | Reflection helpers | Type info as Erlang maps | Done |
 | fable_result.erl | Result | {ok, V} or {error, E} | Done |
 | fable_set.erl | FSharpSet | ordsets (sorted lists), fold/map/filter/partition/union_many/intersect_many | Done |
+| fable_async_builder.erl | AsyncBuilder | CPS builder operations (bind, return, delay, etc.) | Done |
+| fable_async.erl | Async | High-level ops (RunSynchronously, Parallel, Sleep, etc.) | Done |
 | fable_decimal.erl | decimal | Needs a library or custom impl | Planned |
 | fable_guid.erl | Guid | UUID generation | Planned |
 | fable_date.erl | DateTime | calendar module | Planned |
-| fable_async.erl | Async | Processes + message passing | Planned |
 | fable_mailbox.erl | MailboxProcessor | gen_server wrapper | Planned |
 
 ### Registration & CLI (modified existing files) -- All Done
@@ -189,7 +190,7 @@ Erlang modules implementing F# core types:
 | **Generics**                      | Erased (Erlang is dynamically typed)              | —                                    |
 | **Currying**                      | Lambda wrapping (same as Python target)           | —                                    |
 | **Nested modules**                | Flat module names: `My_Module_Sub`                | One file per module                  |
-| **Computation expressions**       | Transformed at Fable AST level (before target)    | —                                    |
+| **Computation expressions**       | Transformed at Fable AST level; async/task → CPS  | —                                    |
 
 ## The Interesting Parts: OTP Integration
 
@@ -223,15 +224,20 @@ handle_cast({increment, N}, State) -> {noreply, State + N};
 handle_call(get, From, State) -> {reply, State, From}.
 ```
 
-### Async → Processes
+### Async → CPS with Erlang Concurrency (IMPLEMENTED)
 
-|            F#            |             Erlang              |
-| ------------------------ | ------------------------------- |
-| `Async.Start`            | `spawn_link(fun() -> ... end)`  |
-| `Async.RunSynchronously` | Direct execution or `receive`   |
-| `Async.Parallel`         | Spawn multiple, collect results |
-| `Async.Sleep`            | `timer:sleep(Ms)`               |
-| `let! x = ...`           | Message passing with `receive`  |
+CPS (Continuation-Passing Style) with Erlang processes for parallelism:
+
+| F# | Erlang |
+| --- | --- |
+| `async { return x }` | `fun(Ctx) -> (maps:get(on_success, Ctx))(X) end` |
+| `let! x = comp` | `bind(Comp, fun(X) -> ... end)` — CPS monadic bind |
+| `Async.StartImmediate` | Direct CPS invocation with default context |
+| `Async.RunSynchronously` | CPS invocation in same process (preserves process dict) |
+| `Async.Parallel` | `spawn` per computation, `receive` to collect results |
+| `Async.Sleep` | `timer:sleep(Ms)` then invoke on_success |
+| `task { return x }` | Same as async (Task is alias for Async on Beam) |
+| `task.Result` | `fable_async:run_synchronously(Comp)` |
 
 ### Supervision (future — needs F# API design)
 
@@ -323,7 +329,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 1. Runs all tests on .NET via `dotnet test`
 2. Compiles tests to `.erl` via Fable
 3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (936 Erlang tests pass)
+4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (982 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -352,8 +358,10 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | ExceptionTests.fs | 10 | Custom exceptions, type discrimination, nested catch, field access, Message property |
 | LoopTests.fs | 7 | for loops, while loops, nested loops, mutable variables |
 | SetTests.fs | 46 | Set construction, add/remove/contains, union/intersect/difference, subset/superset, fold/map/filter, partition, min/max |
+| AsyncTests.fs | 10 | Async return, let!/do!, return!, try-with, sleep, parallel, ignore, start immediate |
+| TaskTests.fs | 8 | Task return, let!/do!, return!, try-with, while, for, sequential composition |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **936** | |
+| **Total** | **982** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -457,13 +465,42 @@ Extend type system support for common F# patterns.
     - Handles binary/integer/float/atom natively, falls back to `~p` for complex terms
 - [ ] **Curry expressions** — `todo_curry` → proper partial application support
 
-### Phase 7: Async & Processes
+### Phase 7: Async, Task & Processes -- COMPLETE
 
-- [ ] Basic `async { }` → process spawn
-- [ ] `let!` → message receive
-- [ ] `Async.Start` → `spawn_link`
-- [ ] `Async.Parallel` → multi-process fan-out
-- [ ] Cancellation tokens → process monitors
+CPS (Continuation-Passing Style) implementation. `Async<T>` = `fun(Ctx) -> ok end` where
+`Ctx = #{on_success, on_error, on_cancel, cancel_token}`. CPS naturally gives cold semantics
+(F# Async is cold — doesn't execute until started). Task CE is an alias for Async on the Beam
+target since Erlang has no equivalent of .NET's hot Task distinction.
+
+- [x] `async { }` computation expression → CPS builder via `fable_async_builder.erl`
+- [x] `let!` / `do!` → `bind/2` (monadic bind — run computation, pass result to binder)
+- [x] `return` / `return!` → `return/1` / `return_from/1`
+- [x] `try/with` in async → `try_with/2` (CPS on_error override + synchronous try/catch)
+- [x] `while` / `for` in async → `while/2` / `for/2` (recursive bind)
+- [x] `Async.RunSynchronously` → runs in same process (preserves process dict access)
+- [x] `Async.StartImmediate` → runs with default context (fire-and-forget)
+- [x] `Async.Parallel` → spawn one process per computation, collect via message passing
+- [x] `Async.Sleep` → `timer:sleep/1`
+- [x] `Async.Ignore` → bind + return unit
+- [x] `Async.StartWithContinuations` → direct CPS invocation
+- [x] `Async.FromContinuations` → lower-level CPS primitive
+- [x] `task { }` computation expression → alias for async builder
+- [x] `task.Result` → `fable_async:run_synchronously`
+- [ ] Cancellation tokens → process monitors (deferred)
+
+**Design decisions**:
+
+- **CPS over spawn**: `Async<T>` is a function `fun(Ctx) -> ok end`, not a spawned process.
+  CPS naturally gives cold semantics matching F# Async. No trampoline needed — Erlang has
+  native tail call optimization.
+- **RunSynchronously runs in same process**: Uses process dict ref to store result, NOT
+  `spawn` + `receive`. This preserves mutable variable (process dict) access from async body.
+- **Task = Async alias**: Task CE builder methods route to `fable_async_builder`, Task
+  instance methods (`.Result`, `.GetAwaiter().GetResult()`) route to `run_synchronously`.
+- **try_with dual handler**: Both the CPS `on_error` override AND the `try/catch` must invoke
+  the Handler — synchronous throws (like `erlang:error`) bypass the CPS on_error path.
+- **Erlang function naming**: `return`, `for`, `while` are NOT reserved words in Erlang —
+  they work as function names in remote calls (`fable_async_builder:return(V)`).
 
 ### Phase 8: MailboxProcessor → gen_server
 
@@ -485,7 +522,7 @@ The crown jewel.
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 936 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 982 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
@@ -812,6 +849,19 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   Detection: `transformCall`'s `Get(calleeExpr, FieldGet, _, _)` branch checks if
   `calleeExpr.Type` is a `DeclaredType` with `entity.IsInterface`. Self-referencing
   members (e.g., `x.Print()` inside another member) are not yet supported.
+
+- **Async/Task CE**: CPS (Continuation-Passing Style) implementation. `Async<T>` is a function
+  `fun(Ctx) -> ok end` with context map `#{on_success, on_error, on_cancel, cancel_token}`.
+  No trampoline needed (Erlang has native TCO). `RunSynchronously` runs in same process
+  (not spawned) to preserve process dict access for mutable variables. `Parallel` spawns one
+  process per computation and collects results via message passing. Task CE is an alias —
+  Task builder methods route to `fable_async_builder`, `.Result` routes to `run_synchronously`.
+  Replacements routing: `FSharpAsyncBuilder`/`AsyncActivation` → `asyncBuilder`;
+  `FSharpAsync`/`AsyncPrimitives` → `asyncs`; `TaskBuilder`/`TaskBuilderBase` → `taskBuilder`;
+  `Task`/`Task<T>` → `tasks`. `DefaultAsyncBuilder` in operators → `fable_async_builder:singleton`.
+- **NewArray block hoisting**: `NewArray(ArrayValues ...)` uses `hoistBlocksFromArgs` +
+  `wrapWithHoisted` to hoist Let bindings out of array literal positions, matching the
+  pattern used for Call/Apply/BinOp arguments.
 
 ## Open Questions
 
