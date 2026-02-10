@@ -8,7 +8,7 @@ An Erlang/BEAM target for Fable.
   approach that made Fable.Python a success for learning Python)
 - Bring F#'s type system, pattern matching, and computation expressions to the
   BEAM ecosystem
-- Map F#'s agent model (`MailboxProcessor`) to OTP's `gen_server` — a natural fit
+- Bring F#'s agent model (`MailboxProcessor`) to the BEAM with compatible semantics
 - Explore what F# + OTP supervision trees + hot code reloading could look like
 
 ## Target Language: Erlang Source
@@ -126,7 +126,7 @@ Erlang modules implementing F# core types:
 | fable_decimal.erl | decimal | Needs a library or custom impl | Planned |
 | fable_guid.erl | Guid | UUID generation | Planned |
 | fable_date.erl | DateTime | calendar module | Planned |
-| fable_mailbox.erl | MailboxProcessor | gen_server wrapper | Planned |
+| fable_mailbox.erl | MailboxProcessor | In-process CPS continuation model (same as JS/Python) | Done |
 
 ### Registration & CLI (modified existing files) -- All Done
 
@@ -194,35 +194,33 @@ Erlang modules implementing F# core types:
 
 ## The Interesting Parts: OTP Integration
 
-### MailboxProcessor → gen_server
+### MailboxProcessor — In-Process CPS Model (IMPLEMENTED)
 
-This is the marquee feature. F#:
+F#'s `MailboxProcessor` uses same-process CPS continuations (matching JS/Python targets),
+NOT OTP gen_server. This design was chosen because:
 
-```fsharp
-let agent = MailboxProcessor.Start(fun inbox ->
-    let rec loop state =
-        async {
-            let! msg = inbox.Receive()
-            match msg with
-            | Increment n -> return! loop (state + n)
-            | Get channel -> channel.Reply(state); return! loop state
-        }
-    loop 0)
-```
+1. F# MailboxProcessor body closures capture mutable state from the caller — a separate
+   Erlang process can't access process dict state from the parent
+2. The CPS async framework (`run_synchronously`) uses process dict `put`/`erase`,
+   requiring same-process execution
+3. gen_server would require compile-time extraction of message handlers from an opaque
+   async body — extremely complex for no semantic benefit
 
-Could generate an Erlang `gen_server`:
+The implementation mirrors `src/fable-library-py/fable_library/mailbox_processor.py`.
 
-```erlang
--module(counter).
--behaviour(gen_server).
--export([start_link/0, init/1, handle_cast/2, handle_call/3]).
+| F# | Erlang |
+| --- | --- |
+| `new MailboxProcessor(body)` | `fable_mailbox:default(Body)` — creates agent with empty queue |
+| `MailboxProcessor.Start(body)` | `fable_mailbox:start(Body)` — create + start |
+| `agent.Start()` | `fable_mailbox:start_instance(Agent)` — run body via `start_immediate` |
+| `inbox.Receive()` | `fable_mailbox:receive_msg(Agent)` — returns `Async<Msg>` via `from_continuations` |
+| `agent.Post(msg)` | `fable_mailbox:post(Agent, Msg)` — queue + `process_events` |
+| `agent.PostAndAsyncReply(f)` | `fable_mailbox:post_and_async_reply(Agent, F)` — reply channel + `Async<Reply>` |
+| `replyChannel.Reply(v)` | `(maps:get(reply, Channel))(V)` — emitExpr inline |
 
-start_link() -> gen_server:start_link(?MODULE, 0, []).
-init(State) -> {ok, State}.
-
-handle_cast({increment, N}, State) -> {noreply, State + N};
-handle_call(get, From, State) -> {reply, State, From}.
-```
+**Future direction**: A separate `actor { }` CE in `Fable.Core.Beam` could map directly
+to OTP gen_server/gen_statem for users who want real process isolation, supervision trees,
+and fault tolerance — the actual reasons to target BEAM.
 
 ### Async → CPS with Erlang Concurrency (IMPLEMENTED)
 
@@ -329,7 +327,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 1. Runs all tests on .NET via `dotnet test`
 2. Compiles tests to `.erl` via Fable
 3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (985 Erlang tests pass)
+4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (988 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -360,8 +358,9 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | SetTests.fs | 46 | Set construction, add/remove/contains, union/intersect/difference, subset/superset, fold/map/filter, partition, min/max |
 | AsyncTests.fs | 10 | Async return, let!/do!, return!, try-with, sleep, parallel, ignore, start immediate |
 | TaskTests.fs | 8 | Task return, let!/do!, return!, try-with, while, for, sequential composition |
+| MailboxProcessorTests.fs | 3 | MailboxProcessor post, postAndAsyncReply, postAndAsyncReply with falsy values |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **985** | |
+| **Total** | **988** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -502,15 +501,33 @@ target since Erlang has no equivalent of .NET's hot Task distinction.
 - **Erlang function naming**: `return`, `for`, `while` are NOT reserved words in Erlang —
   they work as function names in remote calls (`fable_async_builder:return(V)`).
 
-### Phase 8: MailboxProcessor → gen_server
+### Phase 8: MailboxProcessor -- COMPLETE
 
-The crown jewel.
+In-process CPS continuation model (same pattern as JS/Python targets). Uses process dict
+for mutable state, `fable_async:from_continuations` for the receive/reply coordination.
 
-- [ ] `MailboxProcessor.Start` → `gen_server:start_link`
-- [ ] `inbox.Receive()` → `handle_cast`/`handle_call`
-- [ ] `agent.Post` → `gen_server:cast`
-- [ ] `agent.PostAndAsyncReply` → `gen_server:call`
-- [ ] `AsyncReplyChannel` → `gen_server` `From` reply
+- [x] `MailboxProcessor.Start` → `fable_mailbox:start(Body)` (create + start_immediate)
+- [x] `new MailboxProcessor(body)` → `fable_mailbox:default(Body)` (create only)
+- [x] `agent.Start()` → `fable_mailbox:start_instance(Agent)`
+- [x] `inbox.Receive()` → `fable_mailbox:receive_msg(Agent)` (Async via from_continuations)
+- [x] `agent.Post(msg)` → `fable_mailbox:post(Agent, Msg)` (queue + process_events)
+- [x] `agent.PostAndAsyncReply(f)` → `fable_mailbox:post_and_async_reply(Agent, F)`
+- [x] `replyChannel.Reply(v)` → `(maps:get(reply, Channel))(V)` (emitExpr inline)
+
+**Design decisions**:
+
+- **Same-process, not gen_server**: MailboxProcessor body closures capture mutable state via
+  process dict. A separate process can't access this state. The CPS model runs everything
+  inline in the caller's process, matching F# semantics exactly.
+- **State as process dict map**: Agent = `#{ref => Ref}` where `Ref` keys into process dict
+  storing `#{body, messages, continuation}`. Mutable queue + continuation slot.
+- **Synchronous reply coordination**: `post_and_async_reply` stores a reply callback in the
+  reply channel map. Since everything runs synchronously via CPS, by the time `post` returns
+  the inbox has processed the message and called Reply, so the value is available immediately.
+- **Named `receive_msg`**: Erlang's `receive` is a reserved keyword, so the function is named
+  `receive_msg`. The Replacements dispatch maps `"Receive"` → `receive_msg`.
+- **Future OTP integration**: A separate `actor { }` CE could map to gen_server for users who
+  want real process isolation and supervision trees.
 
 ### Phase 9: OTP Patterns (exploratory)
 
@@ -522,7 +539,7 @@ The crown jewel.
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 985 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 988 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
@@ -874,6 +891,14 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   `operators` (for `ExtraTopLevelOperators.sprintf`) and `tryCall` (for `PrintfModule`/
   `PrintfFormat` entities). The old `toConsole` → `io:format("~s~n")` hack in Fable2Beam.fs
   was removed.
+- **MailboxProcessor**: In-process CPS continuation model, NOT gen_server. Agent state lives
+  in process dict keyed by `make_ref()`: `#{body, messages, continuation}`. `receive_msg`
+  uses `from_continuations` to store OnSuccess as pending continuation; `post` adds to queue
+  and calls `process_events`; `post_and_async_reply` creates a reply channel map
+  `#{reply => Fun}` where Fun stores the reply value in process dict, and the synchronous
+  CPS execution guarantees the value is available when `post` returns. `Reply` is dispatched
+  via `emitExpr` as `(maps:get(reply, $0))($1)`. Replacements route
+  `FSharpMailboxProcessor` and `FSharpAsyncReplyChannel` to the `mailbox` handler.
 
 ## Open Questions
 

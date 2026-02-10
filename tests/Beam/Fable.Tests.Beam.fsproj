@@ -49,6 +49,7 @@
     <Compile Include="ExceptionTests.fs" />
     <Compile Include="AsyncTests.fs" />
     <Compile Include="TaskTests.fs" />
+    <Compile Include="MailboxProcessorTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

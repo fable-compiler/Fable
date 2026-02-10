@@ -1531,6 +1531,42 @@ let asyncs (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (_thisArg: Expr op
         Helper.LibCall(com, "fable_async", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
 
+let mailbox (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg with
+    | None ->
+        match i.CompiledName with
+        | ".ctor" ->
+            Helper.LibCall(com, "fable_mailbox", "default", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | "Start" ->
+            Helper.LibCall(com, "fable_mailbox", "start", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | _ -> None
+    | Some callee ->
+        match i.CompiledName with
+        | "Start" ->
+            Helper.LibCall(com, "fable_mailbox", "start_instance", t, [ callee ], ?loc = r)
+            |> Some
+        | "Receive" ->
+            Helper.LibCall(com, "fable_mailbox", "receive_msg", t, [ callee ], ?loc = r)
+            |> Some
+        | "Post" ->
+            Helper.LibCall(com, "fable_mailbox", "post", t, callee :: args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | "PostAndAsyncReply" ->
+            Helper.LibCall(
+                com,
+                "fable_mailbox",
+                "post_and_async_reply",
+                t,
+                callee :: args,
+                i.SignatureArgTypes,
+                ?loc = r
+            )
+            |> Some
+        | "Reply" -> emitExpr r t (callee :: args) "(maps:get(reply, $0))($1)" |> Some
+        | _ -> None
+
 let tryField (_com: ICompiler) _returnTyp ownerTyp fieldName : Expr option =
     match ownerTyp, fieldName with
     | String, "Empty" -> makeStrConst "" |> Some
@@ -1682,6 +1718,8 @@ let tryCall
     | "System.Runtime.CompilerServices.TaskAwaiter`1" -> tasks com ctx r t info thisArg args
     | Types.printfModule
     | Naming.StartsWith Types.printfFormat _ -> fsFormat com ctx r t info thisArg args
+    | "Microsoft.FSharp.Control.FSharpMailboxProcessor`1"
+    | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" -> mailbox com ctx r t info thisArg args
     | _ -> None
 
 let tryBaseConstructor
