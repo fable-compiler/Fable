@@ -327,7 +327,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 1. Runs all tests on .NET via `dotnet test`
 2. Compiles tests to `.erl` via Fable
 3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (988 Erlang tests pass)
+4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (992 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -345,7 +345,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | ResultTests.fs | 21 | Result.map/bind/mapError, Result module functions |
 | UnionTypeTests.fs | 18 | Union construction, matching, structural equality, active patterns |
 | RecordTests.fs | 17 | Creation, update, float fields, nesting, anonymous records, structural equality |
-| FnTests.fs | 15 | Functions, recursive lambdas, mutual recursion, closures |
+| FnTests.fs | 19 | Functions, recursive lambdas, mutual recursion, closures, curry expressions |
 | TailCallTests.fs | 14 | Tail call optimization, recursive functions |
 | SeqExpressionTests.fs | 11 | Seq expressions, yield, yield! |
 | ReflectionTests.fs | 11 | Type info, FSharpType reflection |
@@ -360,7 +360,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | TaskTests.fs | 8 | Task return, let!/do!, return!, try-with, while, for, sequential composition |
 | MailboxProcessorTests.fs | 3 | MailboxProcessor post, postAndAsyncReply, postAndAsyncReply with falsy values |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **988** | |
+| **Total** | **992** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -539,7 +539,7 @@ for mutable state, `fable_async:from_continuations` for the receive/reply coordi
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 988 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 992 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
