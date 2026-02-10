@@ -94,3 +94,26 @@ let ``test Let binding in function body works`` () =
         let z = y * 2
         z
     f 3 |> equal 8
+
+[<Fact>]
+let ``test Generic lambda argument with operator`` () =
+    let genericLambdaArgument f x = f x x
+    genericLambdaArgument (+) 3 |> equal 6
+
+[<Fact>]
+let ``test Passing multi-arg function to generic higher-order function`` () =
+    let apply2 f a b = f a b
+    let add a b = a + b
+    apply2 add 3 4 |> equal 7
+
+[<Fact>]
+let ``test List.map with curried operator`` () =
+    let xs = [1; 2; 3]
+    let ys = xs |> List.map (fun x -> (+) 10 x)
+    ys |> equal [11; 12; 13]
+
+[<Fact>]
+let ``test Function value assigned then called`` () =
+    let add a b c = a + b + c
+    let f = add
+    f 1 2 3 |> equal 6

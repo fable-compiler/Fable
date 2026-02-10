@@ -462,7 +462,7 @@ Extend type system support for common F# patterns.
 - [x] **String interpolation fix** — `fable_string:to_string/1` for generic value formatting
     - Replaces `~p` format (which showed `<<"...">>` for binaries) with runtime type dispatch
     - Handles binary/integer/float/atom natively, falls back to `~p` for complex terms
-- [ ] **Curry expressions** — `todo_curry` → proper partial application support
+- [x] **Curry expressions** — uses `Replacements.Api.curryExprAtRuntime` to generate nested lambdas at compile time (no runtime module needed)
 
 ### Phase 7: Async, Task & Processes -- COMPLETE
 
