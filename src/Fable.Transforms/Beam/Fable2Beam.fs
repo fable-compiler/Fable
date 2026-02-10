@@ -1514,10 +1514,15 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                     |> wrapWithHoisted allHoisted
 
     | _ ->
+        // Generic callee expression (e.g., operator value like (+) passed as function arg).
+        // Transform the callee and apply it as a function value.
+        let erlCallee = transformExpr com ctx callee
         let args = info.Args |> List.map (transformExpr com ctx)
-        let hoisted, cleanArgs = hoistBlocksFromArgs args
+        let calleeHoisted, cleanCallee = extractBlock erlCallee
+        let argsHoisted, cleanArgs = hoistBlocksFromArgs args
+        let allHoisted = calleeHoisted @ argsHoisted
 
-        Beam.ErlExpr.Call(None, "unknown_call", cleanArgs) |> wrapWithHoisted hoisted
+        Beam.ErlExpr.Apply(cleanCallee, cleanArgs) |> wrapWithHoisted allHoisted
 
 and transformClassDeclaration
     (com: IBeamCompiler)
