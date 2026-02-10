@@ -23,6 +23,54 @@ let private equals r equal (left: Expr) (right: Expr) =
 let private compare (com: ICompiler) r (left: Expr) (right: Expr) =
     Helper.LibCall(com, "fable_comparison", "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
 
+let private fsFormat
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (i: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match i.CompiledName, _thisArg, args with
+    | "get_Value", Some callee, _ -> emitExpr r t [ callee ] "maps:get(input, $0)" |> Some
+    | "PrintFormatToString", _, _ ->
+        match args with
+        | [ template ] when template.Type = String -> Some template
+        | _ ->
+            Helper.LibCall(com, "fable_string", "to_text", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+    | "PrintFormatLine", _, _ ->
+        Helper.LibCall(com, "fable_string", "to_console", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "PrintFormat", _, _ ->
+        Helper.LibCall(com, "fable_string", "to_console", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("PrintFormatToError" | "PrintFormatLineToError"), _, _ ->
+        Helper.LibCall(com, "fable_string", "to_console_error", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "PrintFormatToStringThenFail", _, _ ->
+        Helper.LibCall(com, "fable_string", "to_fail", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "PrintFormatToStringThen", _, _ ->
+        match args with
+        | [ _ ] ->
+            Helper.LibCall(com, "fable_string", "to_text", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | [ cont; fmt ] -> emitExpr r t [ fmt; cont ] "(maps:get(cont, $0))($1)" |> Some
+        | _ -> None
+    | "PrintFormatThen", _, arg :: callee :: _ -> emitExpr r t [ callee; arg ] "(maps:get(cont, $0))($1)" |> Some
+    | ".ctor", _, str :: (Value(NewArray(ArrayValues templateArgs, _, _), _) as values) :: _ ->
+        match makeStringTemplateFrom [| "%s"; "%i" |] templateArgs str with
+        | Some v -> makeValue r v |> Some
+        | None ->
+            Helper.LibCall(com, "fable_string", "interpolate", t, [ str; values ], i.SignatureArgTypes, ?loc = r)
+            |> Some
+    | ".ctor", _, arg :: _ ->
+        Helper.LibCall(com, "fable_string", "printf", t, [ arg ], i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | _ -> None
+
 let private operators
     (_com: ICompiler)
     (_ctx: Context)
@@ -197,6 +245,8 @@ let private operators
     | "DefaultAsyncBuilder", _ ->
         Helper.LibCall(_com, "fable_async_builder", "singleton", _t, [], ?loc = r)
         |> Some
+    | ("PrintFormatToString" | "PrintFormatToStringThen" | "PrintFormat" | "PrintFormatLine" | "PrintFormatToError" | "PrintFormatLineToError" | "PrintFormatThen" | "PrintFormatToStringThenFail"),
+      _ -> fsFormat _com _ctx r _t info _thisArg args
     | _ -> None
 
 let private languagePrimitives
@@ -541,6 +591,12 @@ let private strings
         |> Some
     | "CompareTo", Some c, [ arg ] -> compare com r c arg |> Some
     | "GetHashCode", Some c, [] -> emitExpr r t [ c ] "erlang:phash2($0)" |> Some
+    // String.Format("{0} {1}", arg0, arg1)
+    | "Format", None, (fmtStr :: fmtArgs) ->
+        let argsArray = Value(NewArray(ArrayValues fmtArgs, Any, MutableArray), None)
+
+        Helper.LibCall(com, "fable_string", "format", t, [ fmtStr; argsArray ], ?loc = r)
+        |> Some
     | _ -> None
 
 /// Beam-specific Option module replacements.
@@ -1624,6 +1680,8 @@ let tryCall
     | "System.Threading.Tasks.Task`1"
     | "System.Threading.Tasks.TaskCompletionSource`1"
     | "System.Runtime.CompilerServices.TaskAwaiter`1" -> tasks com ctx r t info thisArg args
+    | Types.printfModule
+    | Naming.StartsWith Types.printfFormat _ -> fsFormat com ctx r t info thisArg args
     | _ -> None
 
 let tryBaseConstructor

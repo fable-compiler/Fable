@@ -450,20 +450,18 @@ let ``test String.PadRight works`` () =
 let ``test Passing Char.IsDigit as function reference works`` () =
     "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
 
-// TODO: sprintf needs significant work for Beam target
-// [<Fact>]
-// let ``test sprintf works`` () =
-//     sprintf "%.2f %g" 0.5468989 5.
-//     |> equal "0.55 5"
-//     let printer = sprintf "Hi %s, good %s!"
-//     let printer = printer "Alfonso"
-//     printer "morning" |> equal "Hi Alfonso, good morning!"
-//     printer "evening" |> equal "Hi Alfonso, good evening!"
+[<Fact>]
+let ``test sprintf works`` () =
+    sprintf "%.2f %g" 0.5468989 5.
+    |> equal "0.55 5"
+    let printer = sprintf "Hi %s, good %s!"
+    let printer = printer "Alfonso"
+    printer "morning" |> equal "Hi Alfonso, good morning!"
+    printer "evening" |> equal "Hi Alfonso, good evening!"
 
-// TODO: sprintf not yet implemented for Beam
-// [<Fact>]
-// let ``test sprintf without arguments works`` () =
-//     sprintf "hello" |> equal "hello"
+[<Fact>]
+let ``test sprintf without arguments works`` () =
+    sprintf "hello" |> equal "hello"
 
 // TODO: StringBuilder requires class/object support beyond current Beam capabilities
 // [<Fact>]
@@ -477,12 +475,11 @@ let ``test Passing Char.IsDigit as function reference works`` () =
 //                       .ToString()
 //     sb.ToString() |> equal expected
 
-// TODO: String.Format requires format string parsing
-// [<Fact>]
-// let ``test String.Format works`` () =
-//     let arg1, arg2, arg3 = "F#", "Fable", "Babel"
-//     String.Format("{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
-//     |> equal "Babel is to Fable what Fable is to F#"
+[<Fact>]
+let ``test String.Format works`` () =
+    let arg1, arg2, arg3 = "F#", "Fable", "Babel"
+    String.Format("{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
+    |> equal "Babel is to Fable what Fable is to F#"
 
 [<Fact>]
 let ``test String.Split with remove empties works`` () =

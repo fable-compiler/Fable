@@ -1145,25 +1145,6 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                 Some name
 
         match importInfo.Selector with
-        | "toConsole" ->
-            match info.Args with
-            | [ arg ] ->
-                let erlArg = transformExpr com ctx arg
-                let hoisted, cleanArg = extractBlock erlArg
-
-                Beam.ErlExpr.Call(
-                    Some "io",
-                    "format",
-                    [
-                        Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit "~s~n")
-                        Beam.ErlExpr.List [ cleanArg ]
-                    ]
-                )
-                |> wrapWithHoisted hoisted
-            | _ ->
-                let args = info.Args |> List.map (transformExpr com ctx)
-                let hoisted, cleanArgs = hoistBlocksFromArgs args
-                Beam.ErlExpr.Call(Some "io", "format", cleanArgs) |> wrapWithHoisted hoisted
         | "assertEqual"
         | "Testing_equal" ->
             match info.Args with
