@@ -266,6 +266,14 @@ module Output =
             printExpr sb indent expr
 
         | Block exprs ->
+            // Wrap multi-expression blocks in begin...end to avoid
+            // comma-separated expressions being misinterpreted as
+            // separate function call arguments
+            let needsBeginEnd = exprs.Length > 1
+
+            if needsBeginEnd then
+                sb.Append("begin ") |> ignore
+
             exprs
             |> List.iteri (fun i e ->
                 printExpr sb indent e
@@ -275,6 +283,9 @@ module Output =
                     sb.AppendLine() |> ignore
                     writeIndent ()
             )
+
+            if needsBeginEnd then
+                sb.Append(" end") |> ignore
 
         | BinOp(op, left, right) ->
             let needsParens =

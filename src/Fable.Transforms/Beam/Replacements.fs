@@ -2082,6 +2082,109 @@ let private hashSets
         |> Some
     | _ -> None
 
+let private queues
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg, args with
+    | ".ctor", _, [] -> Helper.LibCall(com, "fable_queue", "create_empty", t, [], ?loc = r) |> Some
+    | ".ctor", _, [ ExprType(Number _) ] ->
+        // Ignore capacity hint
+        Helper.LibCall(com, "fable_queue", "create_empty", t, [], ?loc = r) |> Some
+    | ".ctor", _, [ arg ] ->
+        // From IEnumerable
+        Helper.LibCall(com, "fable_queue", "create_from_list", t, [ arg ], ?loc = r)
+        |> Some
+    | "get_Count", Some callee, _ -> Helper.LibCall(com, "fable_queue", "get_count", t, [ callee ], ?loc = r) |> Some
+    | "Enqueue", Some callee, [ item ] ->
+        Helper.LibCall(com, "fable_queue", "enqueue", t, [ callee; item ], ?loc = r)
+        |> Some
+    | "Dequeue", Some callee, _ -> Helper.LibCall(com, "fable_queue", "dequeue", t, [ callee ], ?loc = r) |> Some
+    | "TryDequeue", Some callee, [ outRef ] ->
+        match outRef with
+        | Operation(Unary(UnaryAddressOf, _), _, _, _) ->
+            Helper.LibCall(com, "fable_queue", "try_dequeue", t, [ callee; outRef ], ?loc = r)
+            |> Some
+        | _ ->
+            Helper.LibCall(com, "fable_queue", "try_dequeue", t, [ callee ], ?loc = r)
+            |> Some
+    | "TryDequeue", Some callee, _ ->
+        Helper.LibCall(com, "fable_queue", "try_dequeue", t, [ callee ], ?loc = r)
+        |> Some
+    | "Peek", Some callee, _ -> Helper.LibCall(com, "fable_queue", "peek", t, [ callee ], ?loc = r) |> Some
+    | "TryPeek", Some callee, [ outRef ] ->
+        match outRef with
+        | Operation(Unary(UnaryAddressOf, _), _, _, _) ->
+            Helper.LibCall(com, "fable_queue", "try_peek", t, [ callee; outRef ], ?loc = r)
+            |> Some
+        | _ -> Helper.LibCall(com, "fable_queue", "try_peek", t, [ callee ], ?loc = r) |> Some
+    | "TryPeek", Some callee, _ -> Helper.LibCall(com, "fable_queue", "try_peek", t, [ callee ], ?loc = r) |> Some
+    | "Contains", Some callee, [ item ] ->
+        Helper.LibCall(com, "fable_queue", "contains", t, [ callee; item ], ?loc = r)
+        |> Some
+    | "Clear", Some callee, _ -> Helper.LibCall(com, "fable_queue", "clear", t, [ callee ], ?loc = r) |> Some
+    | "ToArray", Some callee, _ -> Helper.LibCall(com, "fable_queue", "to_array", t, [ callee ], ?loc = r) |> Some
+    | "TrimExcess", Some callee, _ ->
+        Helper.LibCall(com, "fable_queue", "trim_excess", t, [ callee ], ?loc = r)
+        |> Some
+    | "GetEnumerator", Some callee, _ ->
+        Helper.LibCall(com, "fable_queue", "get_enumerator", t, [ callee ], ?loc = r)
+        |> Some
+    | _ -> None
+
+let private stacks
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg, args with
+    | ".ctor", _, [] -> Helper.LibCall(com, "fable_stack", "create_empty", t, [], ?loc = r) |> Some
+    | ".ctor", _, [ ExprType(Number _) ] ->
+        // Ignore capacity hint
+        Helper.LibCall(com, "fable_stack", "create_empty", t, [], ?loc = r) |> Some
+    | ".ctor", _, [ arg ] ->
+        // From IEnumerable
+        Helper.LibCall(com, "fable_stack", "create_from_list", t, [ arg ], ?loc = r)
+        |> Some
+    | "get_Count", Some callee, _ -> Helper.LibCall(com, "fable_stack", "get_count", t, [ callee ], ?loc = r) |> Some
+    | "Push", Some callee, [ item ] ->
+        Helper.LibCall(com, "fable_stack", "push", t, [ callee; item ], ?loc = r)
+        |> Some
+    | "Pop", Some callee, _ -> Helper.LibCall(com, "fable_stack", "pop", t, [ callee ], ?loc = r) |> Some
+    | "TryPop", Some callee, [ outRef ] ->
+        match outRef with
+        | Operation(Unary(UnaryAddressOf, _), _, _, _) ->
+            Helper.LibCall(com, "fable_stack", "try_pop", t, [ callee; outRef ], ?loc = r)
+            |> Some
+        | _ -> Helper.LibCall(com, "fable_stack", "try_pop", t, [ callee ], ?loc = r) |> Some
+    | "TryPop", Some callee, _ -> Helper.LibCall(com, "fable_stack", "try_pop", t, [ callee ], ?loc = r) |> Some
+    | "Peek", Some callee, _ -> Helper.LibCall(com, "fable_stack", "peek", t, [ callee ], ?loc = r) |> Some
+    | "TryPeek", Some callee, [ outRef ] ->
+        match outRef with
+        | Operation(Unary(UnaryAddressOf, _), _, _, _) ->
+            Helper.LibCall(com, "fable_stack", "try_peek", t, [ callee; outRef ], ?loc = r)
+            |> Some
+        | _ -> Helper.LibCall(com, "fable_stack", "try_peek", t, [ callee ], ?loc = r) |> Some
+    | "TryPeek", Some callee, _ -> Helper.LibCall(com, "fable_stack", "try_peek", t, [ callee ], ?loc = r) |> Some
+    | "Contains", Some callee, [ item ] ->
+        Helper.LibCall(com, "fable_stack", "contains", t, [ callee; item ], ?loc = r)
+        |> Some
+    | "Clear", Some callee, _ -> Helper.LibCall(com, "fable_stack", "clear", t, [ callee ], ?loc = r) |> Some
+    | "ToArray", Some callee, _ -> Helper.LibCall(com, "fable_stack", "to_array", t, [ callee ], ?loc = r) |> Some
+    | "GetEnumerator", Some callee, _ ->
+        Helper.LibCall(com, "fable_stack", "get_enumerator", t, [ callee ], ?loc = r)
+        |> Some
+    | _ -> None
+
 let private collections
     (com: ICompiler)
     (_ctx: Context)
@@ -2317,6 +2420,8 @@ let tryCall
     | Types.dictionary
     | Types.idictionary -> dictionaries com ctx r t info thisArg args
     | Types.hashset -> hashSets com ctx r t info thisArg args
+    | Types.queue -> queues com ctx r t info thisArg args
+    | Types.stack -> stacks com ctx r t info thisArg args
     | Types.keyValuePair -> keyValuePairs com ctx r t info thisArg args
     | Types.icollectionGeneric
     | Types.icollection
