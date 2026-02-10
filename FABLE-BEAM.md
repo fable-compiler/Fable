@@ -114,7 +114,7 @@ Erlang modules implementing F# core types:
 | fable_list.erl | FSharpList | fold, find, choose, collect, etc. | Done |
 | fable_map.erl | FSharpMap | Erlang native maps, pick/try_pick/min/max | Done |
 | fable_seq.erl | Seq / IEnumerable | Eager lists, delay/singleton/unfold | Done |
-| fable_string.erl | String utilities | Erlang binaries, pad/replace/join | Done |
+| fable_string.erl | String utilities | Erlang binaries, pad/replace/join, sprintf/printf/String.Format | Done |
 | fable_comparison.erl | Comparison | compare/2 returning -1/0/1 | Done |
 | fable_char.erl | Char utilities | is_letter/digit/upper/lower/whitespace | Done |
 | fable_convert.erl | Type conversions | Robust to_float handling edge cases | Done |
@@ -329,7 +329,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 1. Runs all tests on .NET via `dotnet test`
 2. Compiles tests to `.erl` via Fable
 3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (982 Erlang tests pass)
+4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (985 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -337,7 +337,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | ArrayTests.fs | 102 | Array literal, map/filter/fold, mapi, append, sort, indexed, length, choose, collect, zip, pairwise |
 | SeqTests.fs | 96 | Seq.map/filter/fold/head/length/append/concat/distinct/take/skip/unfold/init/scan/zip/chunkBySize |
 | ListTests.fs | 94 | List operations, head/tail, map/filter/fold, append, sort, choose, collect, find, zip, chunkBySize, pairwise, windowed, etc. |
-| StringTests.fs | 91 | String methods, interpolation, concat, substring, replace, split, trim, pad, contains, startsWith, endsWith |
+| StringTests.fs | 94 | String methods, interpolation, concat, substring, replace, split, trim, pad, contains, startsWith, endsWith, sprintf, String.Format |
 | ConversionTests.fs | 61 | Type conversions, System.Convert, Parse, ToString, BigInt conversions |
 | OptionTests.fs | 50 | Option.map/bind/defaultValue/filter/isSome/isNone, Option module, nested options |
 | ComparisonTests.fs | 44 | compare, hash, isNull, Equals, CompareTo, GetHashCode, structural comparison |
@@ -361,7 +361,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | AsyncTests.fs | 10 | Async return, let!/do!, return!, try-with, sleep, parallel, ignore, start immediate |
 | TaskTests.fs | 8 | Task return, let!/do!, return!, try-with, while, for, sequential composition |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **982** | |
+| **Total** | **985** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -522,7 +522,7 @@ The crown jewel.
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 982 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 985 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
@@ -862,6 +862,18 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
 - **NewArray block hoisting**: `NewArray(ArrayValues ...)` uses `hoistBlocksFromArgs` +
   `wrapWithHoisted` to hoist Let bindings out of array literal positions, matching the
   pattern used for Call/Apply/BinOp arguments.
+- **sprintf / printfn / String.Format**: Full F# format string support via `fable_string.erl`
+  runtime. `printf/1` parses format strings (`%d`, `%s`, `%.2f`, `%g`, `%x`, etc.) into a
+  continuation-based format object `#{input, cont}`. `to_text` (sprintf), `to_console`
+  (printfn), `to_console_error` (eprintfn), `to_fail` (failwithf) apply continuations with
+  appropriate handlers. Multi-arity overloads (`to_text/1..5`) handle Fable's inlined arg
+  passing where `CurriedApply` flattens curried args into a single call. `format/2` handles
+  .NET `String.Format("{0} {1}", args)` with positional placeholders. Replacements routing:
+  `fsFormat` function handles `PrintfFormat.ctor` (→ `printf`), `PrintFormatToString`
+  (→ `to_text`), `PrintFormatLine`/`PrintFormat` (→ `to_console`), etc. Dispatched from both
+  `operators` (for `ExtraTopLevelOperators.sprintf`) and `tryCall` (for `PrintfModule`/
+  `PrintfFormat` entities). The old `toConsole` → `io:format("~s~n")` hack in Fable2Beam.fs
+  was removed.
 
 ## Open Questions
 
