@@ -1874,8 +1874,42 @@ let private resizeArrays
 
         Helper.LibCall(com, "fable_resize_array", "convert_all", t, [ listExpr; fn ], ?loc = r)
         |> Some
-    // GetEnumerator - return the list for iteration
-    | "GetEnumerator", Some callee, _ -> emitExpr r t [ callee ] "get($0)" |> Some
+    // GetEnumerator - create a proper enumerator for iteration
+    | "GetEnumerator", Some callee, _ ->
+        Helper.LibCall(com, "fable_utils", "get_enumerator", t, [ callee ], ?loc = r)
+        |> Some
+    | _ -> None
+
+let private enumerables
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (_args: Expr list)
+    =
+    match info.CompiledName, thisArg with
+    | "GetEnumerator", Some callee ->
+        Helper.LibCall(com, "fable_utils", "get_enumerator", t, [ callee ], ?loc = r)
+        |> Some
+    | _ -> None
+
+let private enumerators
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (_args: Expr list)
+    =
+    match info.CompiledName, thisArg with
+    | "MoveNext", Some callee -> Helper.LibCall(com, "fable_utils", "move_next", t, [ callee ], ?loc = r) |> Some
+    | ("get_Current" | "System.Collections.Generic.IEnumerator`1.get_Current" | "System.Collections.IEnumerator.get_Current"),
+      Some callee ->
+        Helper.LibCall(com, "fable_utils", "get_current", t, [ callee ], ?loc = r)
+        |> Some
     | _ -> None
 
 let tryField (_com: ICompiler) _returnTyp ownerTyp fieldName : Expr option =
@@ -2038,6 +2072,11 @@ let tryCall
     | Types.regexMatchCollection
     | Types.regexGroupCollection -> regex com ctx r t info thisArg args
     | Types.resizeArray -> resizeArrays com ctx r t info thisArg args
+    | Types.ienumerableGeneric
+    | Types.ienumerable -> enumerables com ctx r t info thisArg args
+    | Types.ienumeratorGeneric
+    | Types.ienumerator
+    | "System.Collections.Generic.List`1.Enumerator" -> enumerators com ctx r t info thisArg args
     | _ -> None
 
 let tryBaseConstructor

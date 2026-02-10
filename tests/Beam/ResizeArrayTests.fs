@@ -139,6 +139,16 @@ let ``test ResizeArray.ToArray works`` () =
     arr.Length |> equal 3
     arr.[0] |> equal 1
 
+// --- Iteration ---
+
+[<Fact>]
+let ``test ResizeArray iteration with for-in works`` () =
+    let ra = ResizeArray<int>([10; 20; 30])
+    let mutable sum = 0
+    for x in ra do
+        sum <- sum + x
+    sum |> equal 60
+
 // --- Exists ---
 
 [<Fact>]

@@ -329,7 +329,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 1. Runs all tests on .NET via `dotnet test`
 2. Compiles tests to `.erl` via Fable
 3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (1020 Erlang tests pass)
+4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (1021 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -362,9 +362,9 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | TaskTests.fs | 8 | Task return, let!/do!, return!, try-with, while, for, sequential composition |
 | MailboxProcessorTests.fs | 3 | MailboxProcessor post, postAndAsyncReply, postAndAsyncReply with falsy values |
 | RegexTests.fs | 28 | Regex IsMatch, Match, Matches, Replace (string/evaluator/macros), Split, Escape, Groups, Options |
-| ResizeArrayTests.fs | 19 | ResizeArray construction, Add, indexer, Contains, IndexOf, Remove, Insert, Clear, Sort, Reverse, ToArray, Exists, FindIndex |
+| ResizeArrayTests.fs | 20 | ResizeArray construction, Add, indexer, Contains, IndexOf, Remove, Insert, Clear, Sort, Reverse, ToArray, iteration, Exists, FindIndex |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **1020** | |
+| **Total** | **1021** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -543,7 +543,7 @@ for mutable state, `fable_async:from_continuations` for the receive/reply coordi
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 1020 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 1021 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
