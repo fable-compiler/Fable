@@ -333,12 +333,12 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 1. Runs all tests on .NET via `dotnet test`
 2. Compiles tests to `.erl` via Fable
 3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (1100 Erlang tests pass)
+4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (1110 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
 | ArithmeticTests.fs | 104 | Arithmetic, bitwise, logical, comparison, Int64, BigInt, exponentiation, sign |
-| ArrayTests.fs | 102 | Array literal, map/filter/fold, mapi, append, sort, indexed, length, choose, collect, zip, pairwise |
+| ArrayTests.fs | 112 | Array literal, map/filter/fold, mapi, append, sort, indexed, length, choose, collect, zip, pairwise, iter/iteri, exactlyOne, groupBy, distinct/distinctBy, zip3/unzip3 |
 | SeqTests.fs | 96 | Seq.map/filter/fold/head/length/append/concat/distinct/take/skip/unfold/init/scan/zip/chunkBySize |
 | ListTests.fs | 94 | List operations, head/tail, map/filter/fold, append, sort, choose, collect, find, zip, chunkBySize, pairwise, windowed, etc. |
 | StringTests.fs | 94 | String methods, interpolation, concat, substring, replace, split, trim, pad, contains, startsWith, endsWith, sprintf, String.Format |
@@ -372,7 +372,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | QueueTests.fs | 15 | Queue creation, Enqueue, Dequeue, Peek, TryDequeue, TryPeek, Contains, Clear, ToArray, throws |
 | StackTests.fs | 9 | Stack creation, Push, Pop, Peek, TryPop, TryPeek, Contains, ToArray, Clear |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **1100** | |
+| **Total** | **1110** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -551,7 +551,7 @@ for mutable state, `fable_async:from_continuations` for the receive/reply coordi
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 1100 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 1110 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
