@@ -1904,7 +1904,31 @@ and transformClassDeclaration
                     [ Beam.ErlForm.Function funcDef ]
         )
 
-    constructorForms @ memberForms
+    // Deduplicate functions by name+arity. This can happen when a property setter
+    // (e.g., `set StatusCode`) and a method (e.g., `SetStatusCode`) both mangle to
+    // the same Erlang function name. Unlike JS/Python which have native getter/setter
+    // syntax, Erlang uses plain functions so name collisions produce duplicate definitions.
+    let allForms = constructorForms @ memberForms
+
+    let dedup =
+        allForms
+        |> List.fold
+            (fun (seen, acc) form ->
+                match form with
+                | Beam.ErlForm.Function def ->
+                    let key = (def.Name, def.Arity)
+
+                    if Set.contains key seen then
+                        (seen, acc)
+                    else
+                        (Set.add key seen, form :: acc)
+                | _ -> (seen, form :: acc)
+            )
+            (Set.empty, [])
+        |> snd
+        |> List.rev
+
+    dedup
 
 and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration) : Beam.ErlForm list =
     match decl with
@@ -2052,6 +2076,7 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             | Beam.ErlForm.Function def -> Some(def.Name, def.Arity)
             | _ -> None
         )
+        |> List.distinct
 
     let allForms =
         [
