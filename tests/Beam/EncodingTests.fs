@@ -2,6 +2,7 @@ module Fable.Tests.Encoding
 
 open System
 open System.Text
+open System.Collections.Generic
 open Fable.Tests.Util
 open Util.Testing
 
@@ -116,3 +117,102 @@ let ``test Nullable with float works`` () =
     let x = Nullable(1.0)
     x.HasValue |> equal true
     x.Value |> equal 1.0
+
+// --- Base64 ---
+
+[<Fact>]
+let ``test Convert.ToBase64String works`` () =
+    let bytes = [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
+    Convert.ToBase64String(bytes) |> equal "AgQGCAoMDhASFA=="
+
+[<Fact>]
+let ``test Convert.FromBase64String works`` () =
+    let result = Convert.FromBase64String("AgQGCAoMDhASFA==")
+    result.Length |> equal 10
+    result.[0] |> equal 2uy
+    result.[9] |> equal 20uy
+
+[<Fact>]
+let ``test Base64 roundtrip works`` () =
+    let original = [| 0uy; 127uy; 255uy; 1uy; 42uy |]
+    let encoded = Convert.ToBase64String(original)
+    let decoded = Convert.FromBase64String(encoded)
+    decoded |> equal original
+
+[<Fact>]
+let ``test Base64 empty array works`` () =
+    let bytes = [||] : byte array
+    let encoded = Convert.ToBase64String(bytes)
+    encoded |> equal ""
+
+// --- Guid ---
+
+[<Fact>]
+let ``test Guid.NewGuid works`` () =
+    let g1 = Guid.NewGuid()
+    let g2 = Guid.NewGuid()
+    g1 <> g2 |> equal true
+
+[<Fact>]
+let ``test Guid.Empty works`` () =
+    let g = Guid.Empty
+    g.ToString() |> equal "00000000-0000-0000-0000-000000000000"
+
+[<Fact>]
+let ``test Guid.Parse works`` () =
+    let g = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+    g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+
+[<Fact>]
+let ``test Guid.ToString returns D format`` () =
+    let g = Guid.NewGuid()
+    let s = g.ToString()
+    // D format: 8-4-4-4-12 with dashes
+    s.Length |> equal 36
+    s.[8] |> equal '-'
+    s.[13] |> equal '-'
+    s.[18] |> equal '-'
+    s.[23] |> equal '-'
+
+[<Fact>]
+let ``test Guid constructor with string works`` () =
+    let g = Guid("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+    g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+
+[<Fact>]
+let ``test Guid equality works`` () =
+    let g1 = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+    let g2 = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+    g1 = g2 |> equal true
+
+[<Fact>]
+let ``test Guid inequality works`` () =
+    let g1 = Guid.NewGuid()
+    let g2 = Guid.NewGuid()
+    g1 <> g2 |> equal true
+
+// --- Random ---
+
+[<Fact>]
+let ``test Random.Next works`` () =
+    let rnd = Random()
+    let x = rnd.Next()
+    (x >= 0) |> equal true
+
+[<Fact>]
+let ``test Random.Next with max works`` () =
+    let rnd = Random()
+    let x = rnd.Next(100)
+    (x >= 0 && x < 100) |> equal true
+
+[<Fact>]
+let ``test Random.Next with min and max works`` () =
+    let rnd = Random()
+    let x = rnd.Next(10, 20)
+    (x >= 10 && x < 20) |> equal true
+
+[<Fact>]
+let ``test Random.NextDouble works`` () =
+    let rnd = Random()
+    let x = rnd.NextDouble()
+    (x >= 0.0 && x < 1.0) |> equal true

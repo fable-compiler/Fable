@@ -1,5 +1,6 @@
 -module(fable_convert).
--export([to_float/1, to_int/1, to_int_with_base/2, to_string_with_base/3, boolean_parse/1]).
+-export([to_float/1, to_int/1, to_int_with_base/2, to_string/1, to_string_with_base/3,
+         to_base64/1, from_base64/1, boolean_parse/1]).
 
 %% Robust string-to-float conversion that handles edge cases
 %% Erlang's binary_to_float/1 is strict and rejects formats like "1." or "1"
@@ -57,6 +58,32 @@ to_string_with_base(N, 10, _BitWidth) when is_integer(N) ->
 to_string_with_base(N, Base, BitWidth) when is_integer(N), N < 0 ->
     Mask = (1 bsl BitWidth) - 1,
     string:lowercase(integer_to_binary(N band Mask, Base)).
+
+%% Generic ToString - handles runtime type dispatch for obj.ToString()
+%% Unlike ~p which wraps binaries in <<"...">> notation, this returns
+%% the string as-is when the value is already a binary.
+to_string(Value) when is_binary(Value) -> Value;
+to_string(Value) when is_integer(Value) -> integer_to_binary(Value);
+to_string(Value) when is_float(Value) -> float_to_binary(Value);
+to_string(Value) when is_atom(Value) -> atom_to_binary(Value);
+to_string(Value) when is_list(Value) ->
+    %% Lists could be charlists or regular lists
+    try list_to_binary(Value)
+    catch _:_ -> iolist_to_binary(io_lib:format("~p", [Value]))
+    end;
+to_string(Value) ->
+    iolist_to_binary(io_lib:format("~p", [Value])).
+
+%% Base64 encoding/decoding
+%% .NET's Convert.ToBase64String takes byte[] and returns string
+%% .NET's Convert.FromBase64String takes string and returns byte[]
+to_base64(Bytes) when is_list(Bytes) ->
+    base64:encode(list_to_binary(Bytes));
+to_base64(Bin) when is_binary(Bin) ->
+    base64:encode(Bin).
+
+from_base64(Str) when is_binary(Str) ->
+    binary_to_list(base64:decode(Str)).
 
 %% Boolean.Parse - case insensitive, trims whitespace
 boolean_parse(Bin) when is_binary(Bin) ->

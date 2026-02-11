@@ -186,7 +186,7 @@ let private operators
             | _ -> emitExpr r _t [ arg ] "integer_to_binary($0)" |> Some
         | Type.Boolean -> emitExpr r _t [ arg ] "atom_to_binary($0)" |> Some
         | _ ->
-            emitExpr r _t [ arg ] "iolist_to_binary(io_lib:format(binary_to_list(<<\"~p\">>), [$0]))"
+            Helper.LibCall(_com, "fable_convert", "to_string", _t, [ arg ], ?loc = r)
             |> Some
     | "ToChar", [ arg ] ->
         match arg.Type with
@@ -772,10 +772,7 @@ let private conversions
             | Decimal -> emitExpr r t [ arg ] "float_to_binary($0)" |> Some
             | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
         | Type.Boolean -> emitExpr r t [ arg ] "atom_to_binary($0)" |> Some
-        | _ ->
-            // Fallback: use io_lib:format ~p for general toString
-            emitExpr r t [ arg ] "iolist_to_binary(io_lib:format(binary_to_list(<<\"~p\">>), [$0]))"
-            |> Some
+        | _ -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
     // char(x) → Erlang integers represent chars
     | "ToChar", [ arg ] ->
         match arg.Type with
@@ -874,9 +871,7 @@ let private convert
             | Float64
             | Decimal -> emitExpr r t [ arg ] "float_to_binary($0)" |> Some
             | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
-        | _ ->
-            emitExpr r t [ arg ] "iolist_to_binary(io_lib:format(binary_to_list(<<\"~p\">>), [$0]))"
-            |> Some
+        | _ -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
     | "ToString", [ arg; baseArg ] ->
         let bitWidth =
             match arg.Type with
@@ -903,6 +898,10 @@ let private convert
             Helper.LibCall(com, "fable_convert", "boolean_parse", t, [ arg ], ?loc = r)
             |> Some
         | _ -> None
+    | "ToBase64String", [ arg ] -> Helper.LibCall(com, "fable_convert", "to_base64", t, [ arg ], ?loc = r) |> Some
+    | "FromBase64String", [ arg ] ->
+        Helper.LibCall(com, "fable_convert", "from_base64", t, [ arg ], ?loc = r)
+        |> Some
     | _ -> None
 
 /// Beam-specific List module replacements.
@@ -2352,6 +2351,7 @@ let tryField (_com: ICompiler) _returnTyp ownerTyp fieldName : Expr option =
         | "System.BitConverter", "IsLittleEndian" ->
             // BEAM uses big-endian by convention for binary construction/extraction
             Value(BoolConstant false, None) |> Some
+        | "System.Guid", "Empty" -> makeStrConst "00000000-0000-0000-0000-000000000000" |> Some
         | _ -> None
     | _ -> None
 
@@ -2471,6 +2471,92 @@ let private nullables
     | "get_Value", Some c -> Some c
     // .HasValue → check if not undefined
     | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
+    | _ -> None
+
+/// Beam-specific System.Guid replacements.
+/// GUIDs are represented as binary strings in D format (with dashes, lowercase).
+let private guids
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName with
+    | ".ctor" ->
+        match args with
+        | [] -> makeStrConst "00000000-0000-0000-0000-000000000000" |> Some
+        | [ StringConst literalGuid ] ->
+            try
+                System.Guid.Parse(literalGuid) |> string<System.Guid> |> makeStrConst |> Some
+            with _ ->
+                None
+        | [ arg ] when arg.Type = Type.String ->
+            Helper.LibCall(com, "fable_guid", "parse", t, [ arg ], ?loc = r) |> Some
+        | _ -> None
+    | "NewGuid" -> Helper.LibCall(com, "fable_guid", "new_guid", t, [], ?loc = r) |> Some
+    | "Parse" ->
+        match args with
+        | [ StringConst literalGuid ] ->
+            try
+                System.Guid.Parse(literalGuid) |> string<System.Guid> |> makeStrConst |> Some
+            with _ ->
+                Helper.LibCall(com, "fable_guid", "parse", t, args, ?loc = r) |> Some
+        | _ -> Helper.LibCall(com, "fable_guid", "parse", t, args, ?loc = r) |> Some
+    | "TryParse" -> None // TODO: needs out-param support
+    | "ToByteArray" ->
+        match thisArg with
+        | Some c -> Helper.LibCall(com, "fable_guid", "to_byte_array", t, [ c ], ?loc = r) |> Some
+        | None -> None
+    | "ToString" when args.Length = 0 -> thisArg
+    | "ToString" when args.Length = 1 ->
+        match thisArg with
+        | Some c ->
+            Helper.LibCall(com, "fable_guid", "to_string_format", t, [ c; args.Head ], ?loc = r)
+            |> Some
+        | None -> None
+    | "CompareTo" ->
+        match thisArg with
+        | Some c -> compare com r c args.Head |> Some
+        | None -> None
+    | "Equals" ->
+        match thisArg with
+        | Some c -> equals r true c args.Head |> Some
+        | None -> None
+    | "GetHashCode" ->
+        match thisArg with
+        | Some c -> emitExpr r t [ c ] "erlang:phash2($0)" |> Some
+        | None -> None
+    | _ -> None
+
+/// Beam-specific System.Random replacements.
+/// Uses Erlang's rand module for random number generation.
+let private randoms
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg with
+    | ".ctor", _ -> emitExpr r t [] "ok" |> Some // Random is stateless in Erlang
+    | "Next", Some _ ->
+        match args with
+        | [] -> emitExpr r t [] "rand:uniform(2147483647) - 1" |> Some
+        | [ maxVal ] -> emitExpr r t [ maxVal ] "rand:uniform($0) - 1" |> Some
+        | [ minVal; maxVal ] -> emitExpr r t [ minVal; maxVal ] "$0 + rand:uniform($1 - $0) - 1" |> Some
+        | _ -> None
+    | "NextDouble", Some _ -> emitExpr r t [] "rand:uniform()" |> Some
+    | "NextBytes", Some _ ->
+        match args with
+        | [ arr ] ->
+            emitExpr r t [ arr ] "binary_to_list(crypto:strong_rand_bytes(length(get($0))))"
+            |> Some
+        | _ -> None
     | _ -> None
 
 let tryType (_t: Type) : Expr option = None
@@ -2658,6 +2744,8 @@ let tryCall
     | "System.Text.UTF8Encoding" -> encoding com ctx r t info thisArg args
     | "System.Diagnostics.Stopwatch" -> stopwatch com ctx r t info thisArg args
     | Types.nullable -> nullables com ctx r t info thisArg args
+    | Types.guid -> guids com ctx r t info thisArg args
+    | "System.Random" -> randoms com ctx r t info thisArg args
     | _ -> None
 
 let tryBaseConstructor
