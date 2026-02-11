@@ -20,6 +20,7 @@
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Misc/Aether.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ListTests.fs" />
@@ -57,6 +58,7 @@
     <Compile Include="QueueTests.fs" />
     <Compile Include="StackTests.fs" />
     <Compile Include="EncodingTests.fs" />
+    <Compile Include="ApplicativeTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
