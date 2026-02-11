@@ -1,6 +1,6 @@
 -module(fable_reflection).
 -export([full_name/1, namespace/1, is_generic_type/1, is_array/1,
-         get_element_type/1, get_generics/1]).
+         get_element_type/1, get_generics/1, make_tuple_type/1]).
 
 full_name(TypeInfo) ->
     maps:get(fullname, TypeInfo).
@@ -32,3 +32,9 @@ get_element_type(TypeInfo) ->
 
 get_generics(TypeInfo) ->
     maps:get(generics, TypeInfo, []).
+
+%% Create a TypeInfo for a tuple from a list of element TypeInfos.
+make_tuple_type(TypeInfos) when is_list(TypeInfos) ->
+    N = length(TypeInfos),
+    FullName = iolist_to_binary([<<"System.Tuple`">>, integer_to_binary(N)]),
+    #{fullname => FullName, generics => TypeInfos}.

@@ -1,9 +1,17 @@
 -module(fable_utils).
--export([iface_get/2, apply_curried/2, get_enumerator/1, move_next/1, get_current/1]).
+-export([iface_get/2, apply_curried/2, new_ref/1, get_enumerator/1, move_next/1, get_current/1,
+         pos_infinity/0, neg_infinity/0, nan/0]).
 
 %% Interface dispatch: works for both object expressions (maps) and class instances (refs).
 iface_get(Name, Obj) when is_map(Obj) -> maps:get(Name, Obj);
 iface_get(Name, Ref) -> maps:get(Name, get(Ref)).
+
+%% Create a new process dictionary ref cell with the given initial value.
+%% Encapsulates make_ref() + put() to avoid variable name collisions in nested constructs.
+new_ref(Value) ->
+    Ref = make_ref(),
+    put(Ref, Value),
+    Ref.
 
 %% Apply a list of args one at a time to a curried function.
 %% Used by CurriedApply when the target is a qualified call returning a curried function.
@@ -36,3 +44,9 @@ move_next(EnumRef) ->
 get_current(EnumRef) ->
     State = get(EnumRef),
     maps:get(current, State).
+
+%% IEEE 754 special float values via binary construction.
+%% Erlang has no literals for infinity/NaN, but the BEAM VM supports them internally.
+pos_infinity() -> <<F/float>> = <<0:1, 2047:11, 0:52>>, F.
+neg_infinity() -> <<F/float>> = <<1:1, 2047:11, 0:52>>, F.
+nan() -> <<F/float>> = <<0:1, 2047:11, 1:52>>, F.

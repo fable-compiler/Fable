@@ -73,7 +73,7 @@ module Naming =
                 else
                     "_"
         )
-        |> fun s -> s.Replace("'", "").Replace("$", "_").Replace("@", "")
+        |> fun s -> s.Replace("'", "").Replace("$", "_").Replace("@", "").Replace(".", "_")
         |> toSnakeCase
         |> fun s -> Regex.Replace(s, "_+", "_")
         |> fun s -> s.Trim('_')

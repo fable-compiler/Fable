@@ -1,5 +1,5 @@
 -module(fable_guid).
--export([new_guid/0, parse/1, to_byte_array/1, to_string_format/2]).
+-export([new_guid/0, parse/1, from_bytes/1, to_byte_array/1, to_string_format/2]).
 
 %% Generate a new random UUID v4.
 %% Format: "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" where y is [89ab].
@@ -14,6 +14,24 @@ format_uuid(A, B, Ver, C, Var, D, E) ->
     list_to_binary(
         io_lib:format("~8.16.0b-~4.16.0b-~1.16.0b~3.16.0b-~1.16.0b~3.16.0b-~12.16.0b",
                        [A, B, Ver, C, Var, D, E])).
+
+%% Construct a GUID from a 16-byte array (list of integers).
+%% .NET uses mixed-endian: first 3 groups are little-endian, last 2 are big-endian.
+from_bytes(Bytes) when is_list(Bytes), length(Bytes) =:= 16 ->
+    [B0,B1,B2,B3, B4,B5, B6,B7, B8,B9, B10,B11,B12,B13,B14,B15] = Bytes,
+    %% Group 1 (4 bytes, little-endian in .NET)
+    A = (B3 bsl 24) bor (B2 bsl 16) bor (B1 bsl 8) bor B0,
+    %% Group 2 (2 bytes, little-endian)
+    B = (B5 bsl 8) bor B4,
+    %% Group 3 (2 bytes, little-endian)
+    C = (B7 bsl 8) bor B6,
+    %% Group 4 (2 bytes, big-endian)
+    D = (B8 bsl 8) bor B9,
+    %% Group 5 (6 bytes, big-endian)
+    E = (B10 bsl 40) bor (B11 bsl 32) bor (B12 bsl 24) bor (B13 bsl 16) bor (B14 bsl 8) bor B15,
+    list_to_binary(
+        io_lib:format("~8.16.0b-~4.16.0b-~4.16.0b-~4.16.0b-~12.16.0b",
+                       [A, B, C, D, E])).
 
 %% Parse a GUID string, accepting various formats:
 %% "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" (D format)

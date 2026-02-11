@@ -545,3 +545,54 @@ let ``test String.Split with remove empties works`` () =
 //     let convert (s: FormattableString) = s
 //     let s = convert $"You owe: {orderAmount:N5} {3} {5 = 5}"
 //     s.Format |> equal "You owe: {0:N5} {1} {2}"
+
+// --- String slicing ---
+
+[<Fact>]
+let ``test String slicing with start works`` () =
+    let s = "hello world"
+    s.[6..] |> equal "world"
+
+[<Fact>]
+let ``test String slicing with end works`` () =
+    let s = "hello world"
+    s.[..4] |> equal "hello"
+
+[<Fact>]
+let ``test String slicing with start and end works`` () =
+    let s = "hello world"
+    s.[6..10] |> equal "world"
+
+[<Fact>]
+let ``test String slicing from beginning works`` () =
+    let s = "hello world"
+    s.[0..4] |> equal "hello"
+
+[<Fact>]
+let ``test String slicing with computed index works`` () =
+    let s = "hello world"
+    let prefix = "hello "
+    s.[prefix.Length..] |> equal "world"
+
+[<Fact>]
+let ``test String slicing to computed index works`` () =
+    let s = "/api/users/42"
+    let path = "/api/users"
+    s.[0 .. path.Length - 1] |> equal "/api/users"
+
+// --- Array slicing ---
+
+[<Fact>]
+let ``test Array slicing with start works`` () =
+    let arr = [| 1; 2; 3; 4; 5 |]
+    arr.[2..] |> equal [| 3; 4; 5 |]
+
+[<Fact>]
+let ``test Array slicing with end works`` () =
+    let arr = [| 1; 2; 3; 4; 5 |]
+    arr.[..2] |> equal [| 1; 2; 3 |]
+
+[<Fact>]
+let ``test Array slicing with start and end works`` () =
+    let arr = [| 1; 2; 3; 4; 5 |]
+    arr.[1..3] |> equal [| 2; 3; 4 |]

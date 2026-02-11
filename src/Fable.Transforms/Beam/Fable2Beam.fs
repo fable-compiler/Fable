@@ -34,6 +34,7 @@ type Context =
         LocalVars: Set<string> // names of locally-bound variables (params, let bindings, lambda args)
         ThisArgVar: string option // Erlang variable name for `this` in class constructors/methods
         ThisIdentNames: Set<string> // original Fable ident names that refer to `this` (e.g., "_", "__")
+        CtorFieldExprs: Map<string, Beam.ErlExpr> // field name -> Erlang expr during constructor
     }
 
 /// Check if an entity ref refers to an interface type
@@ -57,6 +58,7 @@ let private isClassType (com: IBeamCompiler) (entityRef: EntityRef) =
             && not entity.IsFSharpExceptionDeclaration
         | None -> false
     | _ -> false
+
 
 let private atomLit name =
     Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom name))
@@ -103,7 +105,12 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                     Beam.ErlExpr.Variable(bundleName),
                     [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomTag)) ]
                 )
-            | None -> Beam.ErlExpr.Variable(capitalizeFirst ident.Name |> sanitizeErlangVar)
+            | None ->
+                if ctx.LocalVars.Contains(ident.Name) || ctx.RecursiveBindings.Contains(ident.Name) then
+                    Beam.ErlExpr.Variable(capitalizeFirst ident.Name |> sanitizeErlangVar)
+                else
+                    // Module-level function reference: call as 0-arity function
+                    Beam.ErlExpr.Call(None, sanitizeErlangName ident.Name, [])
 
     | Sequential exprs ->
         let erlExprs = exprs |> List.map (transformExpr com ctx)
@@ -207,8 +214,16 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
         let result =
             match cleanApplied with
+            | Beam.ErlExpr.Call(None, _f, []) when cleanArgs.Length = 1 ->
+                // 0-arity module value retrieval + single arg: apply to result
+                // e.g., webApp(arg) where webApp/0 returns a function
+                Beam.ErlExpr.Apply(cleanApplied, cleanArgs)
+            | Beam.ErlExpr.Call(None, _f, []) ->
+                // 0-arity module value retrieval + multiple args: apply curried
+                // e.g., webApp(B0, B1) where webApp/0 returns a curried function
+                Beam.ErlExpr.Call(Some "fable_utils", "apply_curried", [ cleanApplied; Beam.ErlExpr.List cleanArgs ])
             | Beam.ErlExpr.Call(None, f, existingArgs) ->
-                // Unqualified (same-module) call: safe to merge args
+                // Unqualified (same-module) call with args: safe to merge
                 Beam.ErlExpr.Call(None, f, existingArgs @ cleanArgs)
             | Beam.ErlExpr.Call(Some m, f, existingArgs) when m.StartsWith("fable_") ->
                 // Fable library call: designed to handle merged args via multi-arity overloads
@@ -390,17 +405,20 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             let clauses =
                 bindingInfos
                 |> List.map (fun (_ident, value, atomTag) ->
-                    let argPats, lambdaBody =
+                    let argPats, lambdaBody, lambdaCtx =
                         match value with
                         | Lambda(arg, lambdaBody, _) ->
-                            [ Beam.PVar(capitalizeFirst arg.Name |> sanitizeErlangVar) ], lambdaBody
+                            [ Beam.PVar(capitalizeFirst arg.Name |> sanitizeErlangVar) ],
+                            lambdaBody,
+                            { ctx' with LocalVars = ctx'.LocalVars.Add(arg.Name) }
                         | Delegate(args, lambdaBody, _, _) ->
                             args
                             |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)),
-                            lambdaBody
+                            lambdaBody,
+                            { ctx' with LocalVars = args |> List.fold (fun s a -> s.Add(a.Name)) ctx'.LocalVars }
                         | _ -> failwith "unreachable: already checked allAreLambdas"
 
-                    let erlBody = transformExpr com ctx' lambdaBody
+                    let erlBody = transformExpr com lambdaCtx lambdaBody
 
                     let bodyExprs =
                         match erlBody with
@@ -452,16 +470,20 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             let varName = capitalizeFirst ident.Name |> sanitizeErlangVar
             let ctx' = { ctx with RecursiveBindings = ctx.RecursiveBindings.Add(ident.Name) }
 
-            let argPats, lambdaBody =
+            let argPats, lambdaBody, lambdaCtx =
                 match value with
-                | Lambda(arg, lambdaBody, _) -> [ Beam.PVar(capitalizeFirst arg.Name |> sanitizeErlangVar) ], lambdaBody
+                | Lambda(arg, lambdaBody, _) ->
+                    [ Beam.PVar(capitalizeFirst arg.Name |> sanitizeErlangVar) ],
+                    lambdaBody,
+                    { ctx' with LocalVars = ctx'.LocalVars.Add(arg.Name) }
                 | Delegate(args, lambdaBody, _, _) ->
                     args
                     |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)),
-                    lambdaBody
+                    lambdaBody,
+                    { ctx' with LocalVars = args |> List.fold (fun s a -> s.Add(a.Name)) ctx'.LocalVars }
                 | _ -> failwith "unreachable: already checked allAreLambdas"
 
-            let erlLambdaBody = transformExpr com ctx' lambdaBody
+            let erlLambdaBody = transformExpr com lambdaCtx lambdaBody
 
             let bodyExprs =
                 match erlLambdaBody with
@@ -664,7 +686,8 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         let varName = capitalizeFirst ident.Name |> sanitizeErlangVar
         let erlStart = transformExpr com ctx start
         let erlLimit = transformExpr com ctx limit
-        let erlBody = transformExpr com ctx body
+        let loopCtx = { ctx with LocalVars = ctx.LocalVars.Add(ident.Name) }
+        let erlBody = transformExpr com loopCtx body
 
         let bodyExprs =
             match erlBody with
@@ -743,7 +766,10 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                     | first :: rest when first.IsThisArgument -> rest
                     | args -> args
 
-                let erlBody = transformExpr com ctx memb.Body
+                let membCtx =
+                    { ctx with LocalVars = nonThisArgs |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars }
+
+                let erlBody = transformExpr com membCtx memb.Body
 
                 if memberInfo.IsGetter then
                     // Property getter: store the evaluated value directly
@@ -801,17 +827,29 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
         let funcName = sanitizeErlangName importInfo.Selector
 
-        // Count arity from the function type
+        // Count arity from the function type (follows all nested LambdaType levels)
         let rec functionArity (t: Fable.AST.Fable.Type) =
             match t with
             | Fable.AST.Fable.Type.LambdaType(_, returnType) -> 1 + functionArity returnType
             | Fable.AST.Fable.Type.DelegateType(argTypes, _) -> argTypes.Length
             | _ -> 0
 
-        let arity = functionArity typ
+        // Determine the actual Erlang arity of the imported function.
+        // For MemberImport, use NonCurriedArgTypes which gives us the actual parameter count.
+        // This is critical because functionArity(typ) follows the full curried type chain
+        // (including return type nesting), which over-counts when the return type is itself
+        // a function type (e.g., HttpHandler -> HttpHandler -> HttpHandler where HttpHandler
+        // is a function type — functionArity returns 4 but actual Erlang arity is 2).
+        let arity =
+            match importInfo.Kind with
+            | Fable.AST.Fable.MemberImport(Fable.AST.Fable.MemberRef(_, info)) ->
+                match info.NonCurriedArgTypes with
+                | Some argTypes -> argTypes.Length
+                | None -> 0 // Value binding (no explicit params) → 0-arity in Erlang
+            | _ -> functionArity typ
 
         if arity = 0 then
-            // Not a function type — just a value reference, call with no args
+            // Not a function or value binding — call with no args to get the value
             Beam.ErlExpr.Call(moduleName, funcName, [])
         else
             // Generate lambda wrapper for the function reference
@@ -842,7 +880,15 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
 
     | NumberConstant(NumberValue.Int32 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
 
-    | NumberConstant(NumberValue.Float64 f, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Float f)
+    | NumberConstant(NumberValue.Float64 f, _) ->
+        if System.Double.IsPositiveInfinity(f) then
+            Beam.ErlExpr.Call(Some "fable_utils", "pos_infinity", [])
+        elif System.Double.IsNegativeInfinity(f) then
+            Beam.ErlExpr.Call(Some "fable_utils", "neg_infinity", [])
+        elif System.Double.IsNaN(f) then
+            Beam.ErlExpr.Call(Some "fable_utils", "nan", [])
+        else
+            Beam.ErlExpr.Literal(Beam.ErlLiteral.Float f)
 
     | UnitConstant -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "ok"))
 
@@ -904,7 +950,17 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
     | NumberConstant(NumberValue.UInt16 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
     | NumberConstant(NumberValue.UInt32 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
     | NumberConstant(NumberValue.UInt64 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
-    | NumberConstant(NumberValue.Float32 f, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Float(float f))
+    | NumberConstant(NumberValue.Float32 f, _) ->
+        let d = float f
+
+        if System.Double.IsPositiveInfinity(d) then
+            Beam.ErlExpr.Call(Some "fable_utils", "pos_infinity", [])
+        elif System.Double.IsNegativeInfinity(d) then
+            Beam.ErlExpr.Call(Some "fable_utils", "neg_infinity", [])
+        elif System.Double.IsNaN(d) then
+            Beam.ErlExpr.Call(Some "fable_utils", "nan", [])
+        else
+            Beam.ErlExpr.Literal(Beam.ErlLiteral.Float d)
     | NumberConstant(NumberValue.NativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
     | NumberConstant(NumberValue.UNativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
     | NumberConstant(NumberValue.Decimal d, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Float(float d))
@@ -1105,7 +1161,7 @@ and transformTest (com: IBeamCompiler) (ctx: Context) (kind: TestKind) (expr: Ex
     | UnionCaseTest tag ->
         Beam.ErlExpr.BinOp(
             "=:=",
-            Beam.ErlExpr.Call(None, "element", [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 1L); erlExpr ]),
+            Beam.ErlExpr.Call(Some "erlang", "element", [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 1L); erlExpr ]),
             Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 tag))
         )
     | ListTest isCons ->
@@ -1157,8 +1213,13 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
 
     match kind with
     | TupleIndex i ->
-        Beam.ErlExpr.Call(None, "element", [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 (i + 1))); erlExpr ])
-    | UnionTag -> Beam.ErlExpr.Call(None, "element", [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 1L); erlExpr ])
+        Beam.ErlExpr.Call(
+            Some "erlang",
+            "element",
+            [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 (i + 1))); erlExpr ]
+        )
+    | UnionTag ->
+        Beam.ErlExpr.Call(Some "erlang", "element", [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 1L); erlExpr ])
     | UnionField info ->
         Beam.ErlExpr.Call(
             None,
@@ -1168,8 +1229,8 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
                 erlExpr
             ]
         )
-    | ListHead -> Beam.ErlExpr.Call(None, "hd", [ erlExpr ])
-    | ListTail -> Beam.ErlExpr.Call(None, "tl", [ erlExpr ])
+    | ListHead -> Beam.ErlExpr.Call(Some "erlang", "hd", [ erlExpr ])
+    | ListTail -> Beam.ErlExpr.Call(Some "erlang", "tl", [ erlExpr ])
     | OptionValue ->
         if mustWrapOption typ then
             Beam.ErlExpr.Call(Some "fable_option", "value", [ erlExpr ])
@@ -1181,8 +1242,18 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
 
         match expr.Type with
         | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isClassType com entityRef ->
-            // Class instance: state is stored in process dict, ref is the key
-            Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; Beam.ErlExpr.Call(None, "get", [ erlExpr ]) ])
+            // During constructor, field values may reference other fields via this.FieldName.
+            // Since put(Ref, #{...}) hasn't happened yet, we use the precomputed Erlang expressions.
+            let isThisRef =
+                match ctx.ThisArgVar, erlExpr with
+                | Some thisVar, Beam.ErlExpr.Variable v -> v = thisVar
+                | _ -> false
+
+            match isThisRef, ctx.CtorFieldExprs.TryFind(info.Name) with
+            | true, Some cachedExpr -> cachedExpr
+            | _ ->
+                // Class instance: state is stored in process dict, ref is the key
+                Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; Beam.ErlExpr.Call(None, "get", [ erlExpr ]) ])
         | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
             // Interface dispatch: works for both object expressions (maps) and class instances (refs)
             Beam.ErlExpr.Call(Some "fable_utils", "iface_get", [ fieldAtom; erlExpr ])
@@ -1207,8 +1278,20 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
             // String indexing: binary:at(Str, Idx)
             Beam.ErlExpr.Call(Some "binary", "at", [ erlExpr; erlIndex ])
         | _ ->
-            // Tuple or other: element is 1-based
-            Beam.ErlExpr.Call(None, "element", [ erlIndex; erlExpr ])
+            // Check if the index is a string constant (from JS Replacements field access like getFieldWith)
+            match indexExpr with
+            | Value(StringConstant "length", _) ->
+                // .Length property fallthrough from JS Replacements → byte_size for binaries
+                Beam.ErlExpr.Call(None, "byte_size", [ erlExpr ])
+            | Value(StringConstant key, _) ->
+                // String-keyed field access → maps:get(atom, obj)
+                let fieldAtom =
+                    Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeErlangName key)))
+
+                Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; erlExpr ])
+            | _ ->
+                // Integer index → tuple element (1-based)
+                Beam.ErlExpr.Call(Some "erlang", "element", [ erlIndex; erlExpr ])
 
 and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: CallInfo) : Beam.ErlExpr =
     match callee with
@@ -1366,9 +1449,9 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
             let hoisted, cleanArgs = hoistBlocksFromArgs args
 
             match selector with
-            | "head" -> Beam.ErlExpr.Call(None, "hd", cleanArgs)
-            | "tail" -> Beam.ErlExpr.Call(None, "tl", cleanArgs)
-            | "length" -> Beam.ErlExpr.Call(None, "length", cleanArgs)
+            | "head" -> Beam.ErlExpr.Call(Some "erlang", "hd", cleanArgs)
+            | "tail" -> Beam.ErlExpr.Call(Some "erlang", "tl", cleanArgs)
+            | "length" -> Beam.ErlExpr.Call(Some "erlang", "length", cleanArgs)
             | "map" -> Beam.ErlExpr.Call(Some "lists", "map", cleanArgs)
             | "filter" -> Beam.ErlExpr.Call(Some "lists", "filter", cleanArgs)
             | "rev"
@@ -1484,8 +1567,17 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
             let args = info.Args |> List.map (transformExpr com ctx)
             let hoisted, cleanArgs = hoistBlocksFromArgs args
 
-            Beam.ErlExpr.Call(importModuleName, sanitizeErlangName selector, cleanArgs)
-            |> wrapWithHoisted hoisted
+            // For instance method/property calls, prepend ThisArg to args
+            let allHoisted, allArgs =
+                match info.ThisArg with
+                | Some thisExpr ->
+                    let erlThis = transformExpr com ctx thisExpr
+                    let thisHoisted, cleanThis = extractBlock erlThis
+                    hoisted @ thisHoisted, cleanThis :: cleanArgs
+                | None -> hoisted, cleanArgs
+
+            Beam.ErlExpr.Call(importModuleName, sanitizeErlangName selector, allArgs)
+            |> wrapWithHoisted allHoisted
 
     | IdentExpr ident ->
         let args = info.Args |> List.map (transformExpr com ctx)
@@ -1651,12 +1743,22 @@ and transformClassDeclaration
                         LocalVars = ctorArgs |> List.fold (fun (s: Set<string>) a -> s.Add(a.Name)) ctx.LocalVars
                     }
 
-                let mapEntries =
+                // Process fields in order, progressively building a map of field name → Erlang expr.
+                // This allows later fields to reference earlier fields via this.FieldName
+                // (which would otherwise fail because put(Ref, #{...}) hasn't happened yet).
+                let mapEntries, _ =
                     fields
-                    |> List.map (fun (name, value) ->
-                        let erlValue = transformExpr com ctorCtx value
-                        atomLit (sanitizeErlangName name), erlValue
-                    )
+                    |> List.fold
+                        (fun (entries, fieldCtx: Context) (name, value) ->
+                            let erlValue = transformExpr com fieldCtx value
+                            let entries' = entries @ [ atomLit (sanitizeErlangName name), erlValue ]
+
+                            let fieldCtx' =
+                                { fieldCtx with CtorFieldExprs = fieldCtx.CtorFieldExprs.Add(name, erlValue) }
+
+                            entries', fieldCtx'
+                        )
+                        ([], ctorCtx)
 
                 // Build interface entries from AttachedMembers that implement interfaces.
                 // These are stored in the process dict state map alongside field state,
@@ -1829,7 +1931,10 @@ and transformClassDeclaration
                         ctorArgs
                         |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
 
-                    let bodyExpr = transformExpr com ctx memb.Body
+                    let ctorCtx =
+                        { ctx with LocalVars = ctorArgs |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars }
+
+                    let bodyExpr = transformExpr com ctorCtx memb.Body
 
                     let body =
                         match bodyExpr with
@@ -2081,6 +2186,7 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             LocalVars = Set.empty
             ThisArgVar = None
             ThisIdentNames = Set.empty
+            CtorFieldExprs = Map.empty
         }
 
     let beamCom =

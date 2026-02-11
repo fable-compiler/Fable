@@ -153,17 +153,18 @@ module private Util =
 
             Path.ChangeExtension(absPath, fileExt)
         | Beam ->
+            // Erlang uses flat module names (no directory hierarchy).
+            // All .erl files go directly into outDir regardless of source file location.
+            // This ensures linked/shared files like ../Helpers.fs produce helpers.erl
+            // in the same directory as the main project files.
             let fileExt = cliArgs.CompilerOptions.FileExtension
+            let fileName = Pipeline.Beam.normalizeFileName file
 
             match cliArgs.OutDir with
-            | Some outDir ->
-                let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
-                let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
-                let absPath = Path.ChangeExtension(absPath, fileExt)
-                Pipeline.Beam.getTargetPath cliArgs absPath
+            | Some outDir -> IO.Path.Combine(IO.Path.GetFullPath outDir, fileName + fileExt)
             | None ->
-                let absPath = Path.ChangeExtension(file, fileExt)
-                Pipeline.Beam.getTargetPath cliArgs absPath
+                let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
+                IO.Path.Combine(projDir, fileName + fileExt)
 
         | lang ->
             let changeExtension path fileExt =
@@ -1124,6 +1125,38 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                     state.SilentCompilation,
                     fun f -> state.TriggeredByDependency(f, changes)
                 )
+
+            // For Beam, copy fable-library-beam .erl files to the output directory
+            // so the runtime library modules are available alongside the compiled output.
+            if cliArgs.CompilerOptions.Language = Beam then
+                match cliArgs.OutDir with
+                | Some outDir ->
+                    let outDir = IO.Path.GetFullPath outDir
+                    // Search for the fable-library-beam directory from the Fable CLI location
+                    let fableLibDir =
+                        let baseDir = System.AppContext.BaseDirectory
+
+                        baseDir
+                        |> Fable.Compiler.Util.File.tryFindNonEmptyDirectoryUpwards
+                            {|
+                                matches = [ "src/fable-library-beam"; "fable-library-beam"; "temp/fable-library-beam" ]
+                                exclude = []
+                            |}
+
+                    match fableLibDir with
+                    | Some libDir ->
+                        for erlFile in IO.Directory.GetFiles(libDir, "*.erl") do
+                            let targetPath = IO.Path.Combine(outDir, IO.Path.GetFileName(erlFile))
+
+                            if
+                                not (IO.File.Exists(targetPath))
+                                || IO.File.GetLastWriteTime(erlFile) > IO.File.GetLastWriteTime(targetPath)
+                            then
+                                IO.File.Copy(erlFile, targetPath, overwrite = true)
+                    | None ->
+                        Log.warning
+                            "Could not find fable-library-beam directory. Runtime modules will not be available."
+                | None -> ()
 
             let logs, watchDependencies =
                 ((fsharpLogs, state.WatchDependencies), fableResults)

@@ -3,6 +3,22 @@ module Fable.Tests.Fn
 open Fable.Tests.Util
 open Util.Testing
 
+// Module-level functions (defined outside test bodies)
+// These exercise the IdentExpr fix: local vars → Variable, module-level → Call
+let moduleAdd a b = a + b
+let moduleDouble x = x * 2
+let moduleValue = 42
+let moduleTriple x = x * 3
+
+// Module-level VALUE bindings that hold functions (0-arity in Erlang).
+// Tests the CurriedApply fix: don't merge args into 0-arity calls.
+// NOTE: simple lambdas like `fun a b -> a + b` get promoted to N-arity functions
+// by Fable's optimizer. Use function calls on RHS to force 0-arity in Erlang.
+let moduleFnValue = fun a b -> a + b
+let moduleCurriedHandler = fun (x: int) -> fun (y: int) -> x * y
+let private fnList = [fun (a: int) (b: int) -> a + b]
+let modulePickedFn = fnList |> List.head
+
 [<Fact>]
 let ``test Function application works`` () =
     let add a b = a + b
@@ -144,3 +160,79 @@ let ``test Let-bound function called inside lambda`` () =
     let doubler x = x * 2
     let results = [1; 2; 3] |> List.map (fun n -> doubler n)
     results |> equal [2; 4; 6]
+
+// --- Module-level function reference tests ---
+// These test that IdentExpr correctly distinguishes local variables (Variable)
+// from module-level function references (Call with 0-arity).
+
+[<Fact>]
+let ``test module-level function reference works`` () =
+    let f = moduleAdd
+    f 3 4 |> equal 7
+
+[<Fact>]
+let ``test module-level function called directly works`` () =
+    moduleAdd 10 20 |> equal 30
+
+[<Fact>]
+let ``test module-level value reference works`` () =
+    moduleValue |> equal 42
+
+[<Fact>]
+let ``test module-level function passed to higher-order function works`` () =
+    [1; 2; 3] |> List.map moduleDouble |> equal [2; 4; 6]
+
+[<Fact>]
+let ``test module-level function partially applied works`` () =
+    let add5 = moduleAdd 5
+    add5 10 |> equal 15
+
+[<Fact>]
+let ``test module-level function used in composition works`` () =
+    let doubleAndTriple = moduleDouble >> moduleTriple
+    doubleAndTriple 2 |> equal 12
+
+[<Fact>]
+let ``test local binding shadows module-level function`` () =
+    let moduleAdd a b = a * b  // shadows the module-level moduleAdd
+    moduleAdd 3 4 |> equal 12  // should use local, not module-level
+
+[<Fact>]
+let ``test recursive function args are local not module-level`` () =
+    let rec countdown n acc =
+        if n <= 0 then acc
+        else countdown (n - 1) (acc + n)
+    countdown 5 0 |> equal 15
+
+[<Fact>]
+let ``test mutual recursion args are local not module-level`` () =
+    let rec ping n =
+        if n <= 0 then "done"
+        else pong (n - 1)
+    and pong n =
+        if n <= 0 then "done"
+        else ping (n - 1)
+    ping 4 |> equal "done"
+
+// --- Module-level function VALUE tests ---
+// These test that 0-arity value bindings holding functions are called correctly:
+// web_app/0 returns a function, then args are applied to the result.
+
+[<Fact>]
+let ``test module-level function value called with two args works`` () =
+    moduleFnValue 3 4 |> equal 7
+
+[<Fact>]
+let ``test module-level curried handler called with args works`` () =
+    moduleCurriedHandler 5 6 |> equal 30
+
+[<Fact>]
+let ``test module-level function value passed as argument works`` () =
+    let apply f = f 10 20
+    apply moduleFnValue |> equal 30
+
+[<Fact>]
+let ``test module-level computed function value called with args works`` () =
+    // modulePickedFn is a 0-arity Erlang function that returns a function.
+    // This tests that CurriedApply doesn't merge args into the 0-arity call.
+    modulePickedFn 3 4 |> equal 7

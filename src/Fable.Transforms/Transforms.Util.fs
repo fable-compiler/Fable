@@ -1152,7 +1152,18 @@ module AST =
         | TypeScript -> com.LibraryDir + "/" + moduleName + ".ts"
         | JavaScript -> com.LibraryDir + "/" + moduleName + ".js"
         | Php -> com.LibraryDir + "/" + moduleName + ".php"
-        | Beam -> com.LibraryDir + "/" + moduleName + ".erl"
+        | Beam ->
+            // Beam library modules use fable_ prefix with snake_case (e.g., "Option" -> "fable_option")
+            let beamModuleName =
+                if moduleName.StartsWith("fable_") then
+                    moduleName
+                else
+                    "fable_"
+                    + (moduleName
+                       |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+                       |> fun s -> s.Replace(".", "_"))
+
+            com.LibraryDir + "/" + beamModuleName + ".erl"
 
     let makeImportUserGenerated r t (selector: string) (path: string) =
         Import(
