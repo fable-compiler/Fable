@@ -2067,7 +2067,27 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
                 com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag)
         }
 
-    let forms = file.Declarations |> List.collect (transformDeclaration beamCom ctx)
+    let forms =
+        file.Declarations
+        |> List.collect (transformDeclaration beamCom ctx)
+        // Deduplicate functions by name+arity at module level. This handles cases where
+        // a property setter and a method mangle to the same Erlang function name, even
+        // when they come from different declaration paths (ClassDeclaration vs MemberDeclaration).
+        |> List.fold
+            (fun (seen, acc) form ->
+                match form with
+                | Beam.ErlForm.Function def ->
+                    let key = (def.Name, def.Arity)
+
+                    if Set.contains key seen then
+                        (seen, acc)
+                    else
+                        (Set.add key seen, form :: acc)
+                | _ -> (seen, form :: acc)
+            )
+            (Set.empty, [])
+        |> snd
+        |> List.rev
 
     let exports =
         forms
@@ -2076,7 +2096,6 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             | Beam.ErlForm.Function def -> Some(def.Name, def.Arity)
             | _ -> None
         )
-        |> List.distinct
 
     let allForms =
         [
