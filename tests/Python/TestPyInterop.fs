@@ -902,4 +902,24 @@ let ``test Pydantic model_dump_json with float array`` () =
     json.Contains("1.5") |> equal true
     json.Contains("2.5") |> equal true
 
+// Regression tests: Array.length/.Length/Array.isEmpty must use len() so they
+// work on plain Python lists (e.g. from Emit, unbox, native APIs), not just FSharpArray.
+
+[<Fact>]
+let ``test Array.length works on plain Python list`` () =
+    let xs: int[] = emitPyExpr () "[1, 2, 3]"
+    Array.length xs |> equal 3
+
+[<Fact>]
+let ``test .Length works on plain Python list`` () =
+    let xs: int[] = emitPyExpr () "[10, 20]"
+    xs.Length |> equal 2
+
+[<Fact>]
+let ``test Array.isEmpty works on plain Python list`` () =
+    let xs: int[] = emitPyExpr () "[1]"
+    Array.isEmpty xs |> equal false
+    let ys: int[] = emitPyExpr () "[]"
+    Array.isEmpty ys |> equal true
+
 #endif
