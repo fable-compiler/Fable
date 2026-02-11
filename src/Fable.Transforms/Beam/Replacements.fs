@@ -141,7 +141,7 @@ let private operators
     | ("ToSByte" | "ToByte" | "ToInt8" | "ToUInt8" | "ToInt16" | "ToUInt16" | "ToInt" | "ToUInt" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"),
       [ arg ] ->
         match arg.Type with
-        | Type.String -> emitExpr r _t [ arg ] "binary_to_integer($0)" |> Some
+        | Type.String -> Helper.LibCall(_com, "fable_convert", "to_int", _t, [ arg ], ?loc = r) |> Some
         | Type.Number(kind, _) ->
             match kind with
             | Float16
@@ -278,6 +278,21 @@ let private languagePrimitives
         makeBinOp r Boolean left right BinaryEqual |> Some
     | ("GenericHash" | "GenericHashIntrinsic"), [ arg ] -> emitExpr r t [ arg ] "erlang:phash2($0)" |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [ arg ] -> emitExpr r t [ arg ] "erlang:phash2($0)" |> Some
+    | _ -> None
+
+let private unchecked
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, args with
+    | "Hash", [ arg ] -> emitExpr r t [ arg ] "erlang:phash2($0)" |> Some
+    | "Equals", [ left; right ] -> equals r true left right |> Some
+    | "Compare", [ left; right ] -> compare com r left right |> Some
     | _ -> None
 
 /// Beam-specific System.Object replacements.
@@ -714,7 +729,7 @@ let private conversions
     | ("ToSByte" | "ToByte" | "ToInt8" | "ToUInt8" | "ToInt16" | "ToUInt16" | "ToInt" | "ToUInt" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"),
       [ arg ] ->
         match arg.Type with
-        | Type.String -> emitExpr r t [ arg ] "binary_to_integer($0)" |> Some
+        | Type.String -> Helper.LibCall(com, "fable_convert", "to_int", t, [ arg ], ?loc = r) |> Some
         | Type.Number(kind, _) ->
             match kind with
             | Float16
@@ -814,7 +829,7 @@ let private convert
     =
     let toInt (arg: Expr) =
         match arg.Type with
-        | Type.String -> emitExpr r t [ arg ] "binary_to_integer($0)" |> Some
+        | Type.String -> Helper.LibCall(com, "fable_convert", "to_int", t, [ arg ], ?loc = r) |> Some
         | Type.Char -> Some arg
         | Type.Number(kind, _) ->
             match kind with
@@ -840,6 +855,10 @@ let private convert
     match info.CompiledName, args with
     | ("ToSByte" | "ToByte" | "ToInt16" | "ToUInt16" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64"), [ arg ] ->
         toInt arg
+    | ("ToSByte" | "ToByte" | "ToInt16" | "ToUInt16" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64"),
+      [ arg; baseArg ] ->
+        Helper.LibCall(com, "fable_convert", "to_int_with_base", t, [ arg; baseArg ], ?loc = r)
+        |> Some
     | ("ToSingle" | "ToDouble"), [ arg ] -> toFloat arg
     | "ToChar", [ arg ] ->
         match arg.Type with
@@ -858,6 +877,32 @@ let private convert
         | _ ->
             emitExpr r t [ arg ] "iolist_to_binary(io_lib:format(binary_to_list(<<\"~p\">>), [$0]))"
             |> Some
+    | "ToString", [ arg; baseArg ] ->
+        let bitWidth =
+            match arg.Type with
+            | Type.Number(Int8, _)
+            | Type.Number(UInt8, _) -> 8
+            | Type.Number(Int16, _)
+            | Type.Number(UInt16, _) -> 16
+            | Type.Number(Int64, _)
+            | Type.Number(UInt64, _) -> 64
+            | _ -> 32
+
+        Helper.LibCall(
+            com,
+            "fable_convert",
+            "to_string_with_base",
+            t,
+            [ arg; baseArg; makeIntConst bitWidth ],
+            ?loc = r
+        )
+        |> Some
+    | "ToBoolean", [ arg ] ->
+        match arg.Type with
+        | Type.String ->
+            Helper.LibCall(com, "fable_convert", "boolean_parse", t, [ arg ], ?loc = r)
+            |> Some
+        | _ -> None
     | _ -> None
 
 /// Beam-specific List module replacements.
@@ -963,6 +1008,28 @@ let private listModule
     | "SplitInto", [ count; list ] -> Helper.LibCall(com, "fable_list", "split_into", t, [ count; list ]) |> Some
     | "CountBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "count_by", t, [ fn; list ]) |> Some
     | "GroupBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "group_by", t, [ fn; list ]) |> Some
+    | "Fold2", [ fn; state; l1; l2 ] -> Helper.LibCall(com, "fable_list", "fold2", t, [ fn; state; l1; l2 ]) |> Some
+    | "FoldBack2", [ fn; l1; l2; state ] ->
+        Helper.LibCall(com, "fable_list", "fold_back2", t, [ fn; l1; l2; state ])
+        |> Some
+    | "FindIndexBack", [ fn; list ] -> Helper.LibCall(com, "fable_list", "find_index_back", t, [ fn; list ]) |> Some
+    | "TryFindIndexBack", [ fn; list ] ->
+        Helper.LibCall(com, "fable_list", "try_find_index_back", t, [ fn; list ])
+        |> Some
+    | "Transpose", [ lists ] -> Helper.LibCall(com, "fable_list", "transpose", t, [ lists ]) |> Some
+    | "CompareWith", [ fn; l1; l2 ] -> Helper.LibCall(com, "fable_list", "compare_with", t, [ fn; l1; l2 ]) |> Some
+    | "UpdateAt", [ idx; value; list ] ->
+        Helper.LibCall(com, "fable_list", "update_at", t, [ idx; value; list ]) |> Some
+    | "InsertAt", [ idx; value; list ] ->
+        Helper.LibCall(com, "fable_list", "insert_at", t, [ idx; value; list ]) |> Some
+    | "InsertManyAt", [ idx; values; list ] ->
+        Helper.LibCall(com, "fable_list", "insert_many_at", t, [ idx; values; list ])
+        |> Some
+    | "RemoveAt", [ idx; list ] -> Helper.LibCall(com, "fable_list", "remove_at", t, [ idx; list ]) |> Some
+    | "RemoveManyAt", [ idx; count; list ] ->
+        Helper.LibCall(com, "fable_list", "remove_many_at", t, [ idx; count; list ])
+        |> Some
+    | "Unzip3", [ list ] -> emitExpr r t [ list ] "lists:unzip3($0)" |> Some
     | "ToArray", [ list ] -> Some(List.head args)
     | "OfArray", [ arr ] -> Some(List.head args)
     | "OfSeq", [ seq ] -> Some(List.head args)
@@ -1430,6 +1497,22 @@ let private arrayModule
     | "RemoveManyAt", [ idx; count; arr ] ->
         Helper.LibCall(com, "fable_list", "remove_many_at", t, [ idx; count; arr ])
         |> Some
+    | "Exists2", [ fn; a1; a2 ] -> Helper.LibCall(com, "fable_list", "exists2", t, [ fn; a1; a2 ]) |> Some
+    | "ForAll2", [ fn; a1; a2 ] -> Helper.LibCall(com, "fable_list", "forall2", t, [ fn; a1; a2 ]) |> Some
+    | "Fold2", [ fn; state; a1; a2 ] -> Helper.LibCall(com, "fable_list", "fold2", t, [ fn; state; a1; a2 ]) |> Some
+    | "FoldBack2", [ fn; a1; a2; state ] ->
+        Helper.LibCall(com, "fable_list", "fold_back2", t, [ fn; a1; a2; state ])
+        |> Some
+    | "Iterate2", [ fn; a1; a2 ] -> Helper.LibCall(com, "fable_list", "iter2", t, [ fn; a1; a2 ]) |> Some
+    | "IterateIndexed2", [ fn; a1; a2 ] -> Helper.LibCall(com, "fable_list", "iteri2", t, [ fn; a1; a2 ]) |> Some
+    | "SortByDescending", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sort_by_descending", t, [ fn; arr ]) |> Some
+    | ("Sub" | "GetSubArray"), [ arr; start; count ] ->
+        emitExpr r t [ arr; start; count ] "lists:sublist($0, $1 + 1, $2)" |> Some
+    | "Except", [ excludeArr; arr ] -> Helper.LibCall(com, "fable_list", "except", t, [ excludeArr; arr ]) |> Some
+    | "ChunkBySize", [ size; arr ] -> Helper.LibCall(com, "fable_list", "chunk_by_size", t, [ size; arr ]) |> Some
+    | "SplitAt", [ idx; arr ] -> Helper.LibCall(com, "fable_list", "split_at", t, [ idx; arr ]) |> Some
+    | "AllPairs", [ a1; a2 ] -> Helper.LibCall(com, "fable_list", "all_pairs", t, [ a1; a2 ]) |> Some
+    | "Unzip3", [ arr ] -> emitExpr r t [ arr ] "lists:unzip3($0)" |> Some
     // In-place sort operations: since arrays are lists in Erlang, return sorted copy
     | "SortInPlace", [ arr ] -> emitExpr r t [ arr ] "lists:sort($0)" |> Some
     | "SortInPlaceBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; arr ]) |> Some
@@ -2260,6 +2343,76 @@ let private enumerators
 let tryField (_com: ICompiler) _returnTyp ownerTyp fieldName : Expr option =
     match ownerTyp, fieldName with
     | String, "Empty" -> makeStrConst "" |> Some
+    | DeclaredType(ent, _), fieldName ->
+        match ent.FullName, fieldName with
+        | "System.Diagnostics.Stopwatch", "Frequency" ->
+            // 1_000_000 microseconds per second
+            Value(NumberConstant(NumberValue.Int64 1_000_000L, NumberInfo.Empty), None)
+            |> Some
+        | _ -> None
+    | _ -> None
+
+/// Beam-specific System.Text.Encoding replacements.
+/// In Erlang, strings are binaries (UTF-8 by default), so encoding is mostly identity.
+let private encoding
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg, args with
+    // Encoding.UTF8 / Encoding.Unicode — return an atom tag (not used, but needed as callee)
+    | ("get_UTF8" | "get_Unicode"), _, _ -> emitExpr r t [] "utf8" |> Some
+    // GetBytes(string) → string is already a binary in Erlang
+    | "GetBytes", Some _callee, [ arg ] -> Some arg
+    // GetBytes(string, index, count) → binary:part
+    | "GetBytes", Some _callee, [ str; idx; count ] ->
+        emitExpr r t [ str; idx; count ] "binary:part($0, $1, $2)" |> Some
+    // GetString(bytes) → bytes is already a string/binary in Erlang
+    | "GetString", Some _callee, [ arg ] -> Some arg
+    // GetString(bytes, index, count) → binary:part
+    | "GetString", Some _callee, [ bytes; idx; count ] ->
+        emitExpr r t [ bytes; idx; count ] "binary:part($0, $1, $2)" |> Some
+    | _ -> None
+
+/// Beam-specific System.Diagnostics.Stopwatch replacements.
+let private stopwatch
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (_thisArg: Expr option)
+    (_args: Expr list)
+    =
+    match info.CompiledName with
+    // Stopwatch.Frequency → 1_000_000 (microseconds per second)
+    | "get_Frequency" -> makeIntConst 1_000_000 |> Some
+    // Stopwatch.GetTimestamp() → erlang:monotonic_time(microsecond)
+    | "GetTimestamp" -> emitExpr r t [] "erlang:monotonic_time(microsecond)" |> Some
+    | _ -> None
+
+/// Beam-specific Nullable<T> replacements.
+/// Nullable is erased in Erlang — Nullable(x) → x, Nullable<T>() → undefined.
+let private nullables
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, thisArg with
+    // Nullable(value) → value
+    | ".ctor", None -> List.tryHead args
+    // .Value → identity (value is already there)
+    | "get_Value", Some c -> Some c
+    // .HasValue → check if not undefined
+    | "get_HasValue", Some c -> Test(c, OptionTest true, r) |> Some
     | _ -> None
 
 let tryType (_t: Type) : Expr option = None
@@ -2311,6 +2464,9 @@ let tryCall
     | "System.Convert" -> convert com ctx r t info thisArg args
     | "System.Boolean" ->
         match info.CompiledName, thisArg, args with
+        | "Parse", None, [ arg ] ->
+            Helper.LibCall(com, "fable_convert", "boolean_parse", t, [ arg ], ?loc = r)
+            |> Some
         | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
         | "CompareTo", Some thisObj, [ arg ] -> compare com r thisObj arg |> Some
         | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
@@ -2419,6 +2575,7 @@ let tryCall
     | Types.resizeArray -> resizeArrays com ctx r t info thisArg args
     | Types.dictionary
     | Types.idictionary -> dictionaries com ctx r t info thisArg args
+    | "Microsoft.FSharp.Core.Operators.Unchecked" -> unchecked com ctx r t info thisArg args
     | Types.hashset -> hashSets com ctx r t info thisArg args
     | Types.queue -> queues com ctx r t info thisArg args
     | Types.stack -> stacks com ctx r t info thisArg args
@@ -2437,6 +2594,11 @@ let tryCall
     | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator"
     | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator"
     | "System.Collections.Generic.HashSet`1.Enumerator" -> enumerators com ctx r t info thisArg args
+    | "System.Text.Encoding"
+    | "System.Text.UnicodeEncoding"
+    | "System.Text.UTF8Encoding" -> encoding com ctx r t info thisArg args
+    | "System.Diagnostics.Stopwatch" -> stopwatch com ctx r t info thisArg args
+    | Types.nullable -> nullables com ctx r t info thisArg args
     | _ -> None
 
 let tryBaseConstructor

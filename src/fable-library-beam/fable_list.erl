@@ -1,5 +1,6 @@
 -module(fable_list).
--export([fold/3, fold_back/3, reduce/2, reduce_back/2, map_indexed/2,
+-export([fold/3, fold_back/3, fold2/4, fold_back2/4,
+         reduce/2, reduce_back/2, map_indexed/2,
          sort_by/2, sort_by_descending/2, sort_with/2,
          find/2, try_find/2, find_index/2, try_find_index/2,
          find_back/2, try_find_back/2,
@@ -29,6 +30,14 @@ fold(Fn, State, List) ->
 
 fold_back(Fn, List, State) ->
     lists:foldr(fun(Item, Acc) -> (Fn(Item))(Acc) end, State, List).
+
+fold2(Fn, State, L1, L2) ->
+    Zipped = lists:zip(L1, L2),
+    lists:foldl(fun({A, B}, Acc) -> ((Fn(Acc))(A))(B) end, State, Zipped).
+
+fold_back2(Fn, L1, L2, State) ->
+    Zipped = lists:zip(L1, L2),
+    lists:foldr(fun({A, B}, Acc) -> ((Fn(A))(B))(Acc) end, State, Zipped).
 
 reduce(Fn, List) ->
     lists:foldl(fun(Item, Acc) -> (Fn(Acc))(Item) end, hd(List), tl(List)).

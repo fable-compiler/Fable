@@ -514,3 +514,93 @@ let ``test Seq.scanBack works`` () =
 [<Fact>]
 let ``test Seq.cache works`` () =
     [1; 2; 3] |> Seq.cache |> Seq.toList |> equal [1; 2; 3]
+
+// --- Additional tests ported from JS ---
+
+[<Fact>]
+let ``test Seq.delay works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = Seq.delay (fun () -> xs :> _ seq)
+    ys |> Seq.head
+    |> equal 1.
+
+[<Fact>]
+let ``test Seq.sortByDescending works`` () =
+    let xs = [3.; 1.; 4.; 2.]
+    let ys = xs |> Seq.sortByDescending (fun x -> -x)
+    (ys |> Seq.item 0) + (ys |> Seq.item 1)
+    |> equal 3.
+
+[<Fact>]
+let ``test Seq.sort with tuples works`` () =
+    let xs = seq {3; 1; 1; -3}
+    let ys = seq {"a"; "c"; "B"; "d"}
+    (xs, ys) ||> Seq.zip |> Seq.sort |> Seq.item 1 |> equal (1, "B")
+
+[<Fact>]
+let ``test Seq.distinct with tuples works`` () =
+    let xs = [(1, 2); (2, 3); (1, 2)]
+    let ys = xs |> Seq.distinct
+    ys |> Seq.length |> equal 2
+    ys |> Seq.sumBy fst |> equal 3
+
+[<Fact>]
+let ``test Seq.distinctBy with tuples works`` () =
+    let xs = [4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7]
+    let ys = xs |> Seq.distinctBy (fun (x,_) -> x % 2)
+    ys |> Seq.length |> equal 2
+    ys |> Seq.head |> fst >= 4 |> equal true
+
+[<Fact>]
+let ``test Seq.foldBack2 works`` () =
+    Seq.foldBack2 (fun x y acc -> x + y - acc) [1; 2; 3; 4] [1; 2; 3; 4] 0
+    |> equal -4
+
+// TODO: Seq.forall laziness test fails because Beam sequences are eager lists;
+// Seq.map evaluates all elements before Seq.forall checks them
+// [<Fact>]
+// let ``test Seq.forall is lazy`` () =
+//     let mutable x = ""
+//     let one() = x <- "one"; false
+//     let two() = x <- "two"; true
+//     let ok =
+//         [one; two]
+//         |> Seq.map (fun c -> c())
+//         |> Seq.forall id
+//     ok |> equal false
+//     x |> equal "one"
+
+[<Fact>]
+let ``test Seq.fold with tupled arguments works`` () =
+    let a, b =
+        ((1, 5), [1;2;3;4])
+        ||> Seq.fold (fun (a, b) i ->
+            a * i, b + i)
+    equal 24 a
+    equal 15 b
+
+[<Fact>]
+let ``test Seq.scan works with empty input`` () =
+    let xs = Seq.empty
+    let ys = xs |> Seq.scan (+) 3
+    Seq.head ys |> equal 3
+    Seq.length ys |> equal 1
+
+[<Fact>]
+let ``test Seq.chunkBySize works`` () =
+    seq {1..8} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|] ]
+    seq {1..10} |> Seq.chunkBySize 4 |> Seq.toList |> equal [ [|1..4|]; [|5..8|]; [|9..10|] ]
+
+[<Fact>]
+let ``test Seq.range works`` () =
+    seq{1..5}
+    |> Seq.reduce (+)
+    |> equal 15
+    // Float ranges don't work: lists:seq only supports integers in Erlang
+
+[<Fact>]
+let ``test Seq.range step works`` () =
+    seq{0..2..9}
+    |> Seq.reduce (+)
+    |> equal 20
+    // Float range with step doesn't work: lists:seq only supports integers in Erlang

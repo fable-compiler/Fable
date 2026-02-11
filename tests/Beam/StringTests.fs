@@ -434,6 +434,30 @@ let ``test String.PadLeft works`` () =
 let ``test String.PadRight works`` () =
     "abc".PadRight(6) |> equal "abc   "
 
+[<Fact>]
+let ``test String.PadLeft with char works`` () =
+    "22".PadLeft(10, '0') |> equal "0000000022"
+    "333".PadLeft(1) |> equal "333"
+
+[<Fact>]
+let ``test String.PadRight with char works`` () =
+    "-22".PadRight(10, 'X') |> equal "-22XXXXXXX"
+
+// --- String.exists ---
+
+[<Fact>]
+let ``test String.exists works`` () =
+    "aaa" |> String.exists (fun c -> c = 'a') |> equal true
+    "aaa" |> String.exists (fun c -> c = 'b') |> equal false
+    "" |> String.exists (fun c -> c = 'a') |> equal false
+
+// --- String.Join variants ---
+
+[<Fact>]
+let ``test String.Join with IEnumerable works`` () =
+    System.String.Join("--", seq { yield "a"; yield "b"; yield "c" })
+    |> equal "a--b--c"
+
 // --- Enumerating string ---
 
 // TODO: Enumerating strings with for...in + Seq.rev requires IEnumerable support

@@ -461,3 +461,153 @@ let ``test List snail to append works`` () =
 let ``test List range works`` () =
     [1..5] |> equal [1; 2; 3; 4; 5]
     [1..2..9] |> equal [1; 3; 5; 7; 9]
+
+// --- Additional tests ported from JS ---
+
+[<Fact>]
+let ``test List.fold2 works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [1; 2; 3; 4]
+    List.fold2 (fun x y z -> x + y + z) 0 xs ys
+    |> equal 20
+
+[<Fact>]
+let ``test List.foldBack2 works`` () =
+    ([1; 2; 3; 4], [1; 2; 3; 4], 0)
+    |||> List.foldBack2 (fun x y acc -> acc - y * x)
+    |> equal -30
+
+[<Fact>]
+let ``test List.findBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.find ((>) 4.) |> equal 1.
+    xs |> List.findBack ((>) 4.) |> equal 3.
+
+[<Fact>]
+let ``test List.findIndexBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.findIndex ((>) 4.) |> equal 0
+    xs |> List.findIndexBack ((>) 4.) |> equal 2
+
+[<Fact>]
+let ``test List.tryFindBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.tryFind ((>) 4.) |> equal (Some 1.)
+    xs |> List.tryFindBack ((>) 4.) |> equal (Some 3.)
+    xs |> List.tryFindBack ((=) 5.) |> equal None
+
+[<Fact>]
+let ``test List.tryFindIndexBack works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    xs |> List.tryFindIndex ((>) 4.) |> equal (Some 0)
+    xs |> List.tryFindIndexBack ((>) 4.) |> equal (Some 2)
+    xs |> List.tryFindIndexBack ((=) 5.) |> equal None
+
+[<Fact>]
+let ``test List.mapi2 works`` () =
+    let xs = [7;8;9]
+    let ys = [5;4;3]
+    let zs = List.mapi2 (fun i x y -> i * (x - y)) xs ys
+    List.sum zs |> equal 16
+
+[<Fact>]
+let ``test List.iteri2 works`` () =
+    let mutable total = 0
+    let xs = [1; 2; 3; 4]
+    let ys = [2; 4; 6; 8]
+    List.iteri2 (fun i x y ->
+        total <- total + i * (y - x)
+        ) xs ys
+    equal 20 total
+
+[<Fact>]
+let ``test List.countBy works`` () =
+    let xs = [1; 2; 3; 4]
+    xs |> List.countBy (fun x -> x % 2)
+    |> List.length |> equal 2
+
+[<Fact>]
+let ``test List.groupBy returns valid list`` () =
+    let xs = [1; 2]
+    let worked =
+        match List.groupBy (fun _ -> true) xs with
+        | [true, [1; 2]] -> true
+        | _ -> false
+    worked |> equal true
+
+[<Fact>]
+let ``test List.distinct with tuples works`` () =
+    let xs = [(1, 2); (2, 3); (1, 2)]
+    let ys = xs |> List.distinct
+    ys |> List.length |> equal 2
+    ys |> List.sumBy fst |> equal 3
+
+[<Fact>]
+let ``test List.distinctBy with tuples works`` () =
+    let xs = [4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7]
+    let ys = xs |> List.distinctBy (fun (x,_) -> x % 2)
+    ys |> List.length |> equal 2
+    ys |> List.head |> fst >= 4 |> equal true
+
+[<Fact>]
+let ``test List.insertAt works`` () =
+    equal [0; 1; 2; 3; 4; 5] (List.insertAt 0 0 [1..5])
+    equal [1; 2; 0; 3; 4; 5] (List.insertAt 2 0 [1..5])
+    equal [1; 2; 3; 4; 0; 5] (List.insertAt 4 0 [1..5])
+    equal [0] (List.insertAt 0 0 [])
+
+[<Fact>]
+let ``test List.insertManyAt works`` () =
+    equal [0; 0; 1; 2; 3; 4; 5] (List.insertManyAt 0 [0; 0] [1..5])
+    equal [1; 2; 0; 0; 3; 4; 5] (List.insertManyAt 2 [0; 0] [1..5])
+    equal [1; 2; 3; 4; 0; 0; 5] (List.insertManyAt 4 [0; 0] [1..5])
+    equal [0; 0] (List.insertManyAt 0 [0; 0] [])
+
+[<Fact>]
+let ``test List.removeAt works`` () =
+    equal [2; 3; 4; 5] (List.removeAt 0 [1..5])
+    equal [1; 2; 4; 5] (List.removeAt 2 [1..5])
+    equal [1; 2; 3; 4] (List.removeAt 4 [1..5])
+
+[<Fact>]
+let ``test List.removeManyAt works`` () =
+    equal [3; 4; 5] (List.removeManyAt 0 2 [1..5])
+    equal [1; 2; 5] (List.removeManyAt 2 2 [1..5])
+    equal [1; 2; 3] (List.removeManyAt 3 2 [1..5])
+
+[<Fact>]
+let ``test List.updateAt works`` () =
+    equal [0; 2; 3; 4; 5] (List.updateAt 0 0 [1..5])
+    equal [1; 2; 0; 4; 5] (List.updateAt 2 0 [1..5])
+    equal [1; 2; 3; 4; 0] (List.updateAt 4 0 [1..5])
+
+[<Fact>]
+let ``test List.splitInto works`` () =
+    [1..10] |> List.splitInto 3 |> equal [ [1..4]; [5..7]; [8..10] ]
+    [1..11] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..11] ]
+    [1..12] |> List.splitInto 3 |> equal [ [1..4]; [5..8]; [9..12] ]
+    [1..5] |> List.splitInto 4 |> equal [ [1..2]; [3]; [4]; [5] ]
+    [1..4] |> List.splitInto 20 |> equal [ [1]; [2]; [3]; [4] ]
+
+[<Fact>]
+let ``test List.transpose works`` () =
+    List.transpose [[1..3]; [4..6]]
+    |> equal [[1; 4]; [2; 5]; [3; 6]]
+    List.transpose [[1..3]]
+    |> equal [[1]; [2]; [3]]
+    List.transpose [[1]; [2]]
+    |> equal [[1..2]]
+    List.transpose []
+    |> equal []
+    List.transpose [[]]
+    |> equal []
+
+[<Fact>]
+let ``test List.compareWith works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [1; 2; 3; 5]
+    let zs = [1; 2; 3; 3]
+    List.compareWith compare xs xs |> equal 0
+    List.compareWith compare xs ys |> equal -1
+    List.compareWith compare xs zs |> equal 1
+

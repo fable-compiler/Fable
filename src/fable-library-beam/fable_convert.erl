@@ -1,5 +1,5 @@
 -module(fable_convert).
--export([to_float/1]).
+-export([to_float/1, to_int/1, to_int_with_base/2, to_string_with_base/3, boolean_parse/1]).
 
 %% Robust string-to-float conversion that handles edge cases
 %% Erlang's binary_to_float/1 is strict and rejects formats like "1." or "1"
@@ -26,4 +26,44 @@ try_as_integer(Str) ->
         {Int, []} -> float(Int);
         {Int, "."} -> float(Int);  %% Handle trailing dot like "1."
         _ -> erlang:error(badarg)
+    end.
+
+%% Parse string to integer, handling 0x/0o/0b prefixes
+to_int(Bin) when is_binary(Bin) ->
+    case Bin of
+        <<"0x", Rest/binary>> -> binary_to_integer(Rest, 16);
+        <<"0X", Rest/binary>> -> binary_to_integer(Rest, 16);
+        <<"0o", Rest/binary>> -> binary_to_integer(Rest, 8);
+        <<"0O", Rest/binary>> -> binary_to_integer(Rest, 8);
+        <<"0b", Rest/binary>> -> binary_to_integer(Rest, 2);
+        <<"0B", Rest/binary>> -> binary_to_integer(Rest, 2);
+        _ -> binary_to_integer(Bin)
+    end;
+to_int(N) when is_integer(N) -> N;
+to_int(F) when is_float(F) -> trunc(F).
+
+%% Parse string to integer with given base (2, 8, 10, 16)
+to_int_with_base(Bin, Base) when is_binary(Bin), is_integer(Base) ->
+    binary_to_integer(Bin, Base).
+
+%% Convert integer to string with given base and bit width
+%% BitWidth: 8 (SByte), 16 (Int16), 32 (Int32), 64 (Int64)
+%% For negative numbers with non-decimal bases, .NET uses two's complement
+%% .NET always produces lowercase hex digits
+to_string_with_base(N, Base, _BitWidth) when is_integer(N), N >= 0 ->
+    string:lowercase(integer_to_binary(N, Base));
+to_string_with_base(N, 10, _BitWidth) when is_integer(N) ->
+    integer_to_binary(N);
+to_string_with_base(N, Base, BitWidth) when is_integer(N), N < 0 ->
+    Mask = (1 bsl BitWidth) - 1,
+    string:lowercase(integer_to_binary(N band Mask, Base)).
+
+%% Boolean.Parse - case insensitive, trims whitespace
+boolean_parse(Bin) when is_binary(Bin) ->
+    Trimmed = string:trim(binary_to_list(Bin)),
+    Lower = string:lowercase(Trimmed),
+    case Lower of
+        "true" -> true;
+        "false" -> false;
+        _ -> erlang:error({badarg, Bin})
     end.

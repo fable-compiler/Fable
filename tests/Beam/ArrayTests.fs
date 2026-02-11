@@ -732,12 +732,11 @@ let ``test Array.compareWith works`` () =
 
 // --- Additional tests ported from JS ---
 
-// TODO: Array.sub not yet implemented in Beam
-// [<Fact>]
-// let ``test Array.sub works`` () =
-//     let xs = [|0..99|]
-//     let ys = Array.sub xs 5 10
-//     ys |> Array.sum |> equal 95
+[<Fact>]
+let ``test Array.sub works`` () =
+    let xs = [|0..99|]
+    let ys = Array.sub xs 5 10
+    ys |> Array.sum |> equal 95
 
 // TODO: Array.fill requires mutable array support
 // [<Fact>]
@@ -754,39 +753,35 @@ let ``test Array.compareWith works`` () =
 //     Array.blit xs 3 ys 5 4
 //     ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal 22
 
-// TODO: Array.exists2 not yet implemented in Beam
-// [<Fact>]
-// let ``test Array.exists2 works`` () =
-//     let xs = [|1; 2; 3; 4|]
-//     let ys = [|1; 2; 3; 4|]
-//     Array.exists2 (fun x y -> x * y = 16) xs ys
-//     |> equal true
+[<Fact>]
+let ``test Array.exists2 works`` () =
+    let xs = [|1; 2; 3; 4|]
+    let ys = [|1; 2; 3; 4|]
+    Array.exists2 (fun x y -> x * y = 16) xs ys
+    |> equal true
 
-// TODO: Array.forall2 not yet implemented in Beam
-// [<Fact>]
-// let ``test Array.forall2 works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     let ys = [|1.; 2.; 3.; 5.|]
-//     Array.forall2 (=) xs ys
-//     |> equal false
-//     Array.forall2 (fun x y -> x <= 4. && y <= 5.) xs ys
-//     |> equal true
+[<Fact>]
+let ``test Array.forall2 works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let ys = [|1.; 2.; 3.; 5.|]
+    Array.forall2 (=) xs ys
+    |> equal false
+    Array.forall2 (fun x y -> x <= 4. && y <= 5.) xs ys
+    |> equal true
 
-// TODO: Array.fold2 not yet implemented in Beam
-// [<Fact>]
-// let ``test Array.fold2 works`` () =
-//     let xs = [|1; 2; 3; 4|]
-//     let ys = [|1; 2; 3; 4|]
-//     let total = Array.fold2 (fun x y z -> x + y + z) 0 xs ys
-//     total |> equal 20
+[<Fact>]
+let ``test Array.fold2 works`` () =
+    let xs = [|1; 2; 3; 4|]
+    let ys = [|1; 2; 3; 4|]
+    let total = Array.fold2 (fun x y z -> x + y + z) 0 xs ys
+    total |> equal 20
 
-// TODO: Array.foldBack2 not yet implemented in Beam
-// [<Fact>]
-// let ``test Array.foldBack2 works`` () =
-//     let xs = [|1; 2; 3; 4|]
-//     let ys = [|1; 2; 3; 4|]
-//     let total = Array.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
-//     total |> equal -4
+[<Fact>]
+let ``test Array.foldBack2 works`` () =
+    let xs = [|1; 2; 3; 4|]
+    let ys = [|1; 2; 3; 4|]
+    let total = Array.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
+    total |> equal -4
 
 [<Fact>]
 let ``test Array.iter works`` () =
@@ -795,13 +790,12 @@ let ``test Array.iter works`` () =
     xs |> Array.iter (fun x -> total <- total + x)
     total |> equal 10.
 
-// TODO: Array.iter2 not yet implemented in Beam
-// [<Fact>]
-// let ``test Array.iter2 works`` () =
-//     let xs = [|1; 2; 3; 4|]
-//     let mutable total = 0
-//     Array.iter2 (fun x y -> total <- total - x - y) xs xs
-//     total |> equal -20
+[<Fact>]
+let ``test Array.iter2 works`` () =
+    let xs = [|1; 2; 3; 4|]
+    let mutable total = 0
+    Array.iter2 (fun x y -> total <- total - x - y) xs xs
+    total |> equal -20
 
 [<Fact>]
 let ``test Array.iteri works`` () =
@@ -810,13 +804,12 @@ let ``test Array.iteri works`` () =
     xs |> Array.iteri (fun i x -> total <- total + (float i) * x)
     total |> equal 20.
 
-// TODO: Array.iteri2 not yet implemented in Beam
-// [<Fact>]
-// let ``test Array.iteri2 works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     let mutable total = 0.
-//     Array.iteri2 (fun i x y -> total <- total + (float i) * x + (float i) * y) xs xs
-//     total |> equal 40.
+[<Fact>]
+let ``test Array.iteri2 works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let mutable total = 0.
+    Array.iteri2 (fun i x y -> total <- total + (float i) * x + (float i) * y) xs xs
+    total |> equal 40.
 
 // TODO: Array.sortInPlace requires mutable array support (arrays are immutable lists in Beam)
 // [<Fact>]
@@ -839,12 +832,11 @@ let ``test Array.iteri works`` () =
 //     Array.sortInPlaceWith (fun x y -> int(x - y)) xs
 //     xs.[0] + xs.[1] |> equal 3.
 
-// TODO: Array.sortByDescending not yet implemented in Beam
-// [<Fact>]
-// let ``test Array.sortByDescending works`` () =
-//     let xs = [|3.; 4.; 1.; 2.|]
-//     let ys = xs |> Array.sortByDescending (fun x -> -x)
-//     ys.[0] + ys.[1] |> equal 3.
+[<Fact>]
+let ``test Array.sortByDescending works`` () =
+    let xs = [|3.; 4.; 1.; 2.|]
+    let ys = xs |> Array.sortByDescending (fun x -> -x)
+    ys.[0] + ys.[1] |> equal 3.
 
 [<Fact>]
 let ``test Array.exactlyOne works`` () =
@@ -866,36 +858,32 @@ let ``test Array.groupBy works`` () =
     let worked = actualKey && actualGroup.[0] = 1 && actualGroup.[1] = 2
     worked |> equal true
 
-// TODO: Array.except not yet implemented in Beam
-// [<Fact>]
-// let ``test Array.except works`` () =
-//     Array.except [|2|] [|1; 3; 2|] |> Array.last |> equal 3
-//     Array.except [|2|] [|2; 4; 6|] |> Array.head |> equal 4
-//     Array.except [|1|] [|1; 1; 1; 1|] |> Array.isEmpty |> equal true
-//     Array.except [|'t'; 'e'; 's'; 't'|] [|'t'; 'e'; 's'; 't'|] |> Array.isEmpty |> equal true
-//     Array.except [|(1, 2)|] [|(1, 2)|] |> Array.isEmpty |> equal true
+[<Fact>]
+let ``test Array.except works`` () =
+    Array.except [|2|] [|1; 3; 2|] |> Array.last |> equal 3
+    Array.except [|2|] [|2; 4; 6|] |> Array.head |> equal 4
+    Array.except [|1|] [|1; 1; 1; 1|] |> Array.isEmpty |> equal true
+    Array.except [|'t'; 'e'; 's'; 't'|] [|'t'; 'e'; 's'; 't'|] |> Array.isEmpty |> equal true
+    Array.except [|(1, 2)|] [|(1, 2)|] |> Array.isEmpty |> equal true
 
-// TODO: Array.chunkBySize not yet implemented in Beam
-// [<Fact>]
-// let ``test Array.chunkBySize works`` () =
-//     [|1..8|] |> Array.chunkBySize 4 |> equal [| [|1..4|]; [|5..8|] |]
-//     [|1..10|] |> Array.chunkBySize 4 |> equal [| [|1..4|]; [|5..8|]; [|9..10|] |]
+[<Fact>]
+let ``test Array.chunkBySize works`` () =
+    [|1..8|] |> Array.chunkBySize 4 |> equal [| [|1..4|]; [|5..8|] |]
+    [|1..10|] |> Array.chunkBySize 4 |> equal [| [|1..4|]; [|5..8|]; [|9..10|] |]
 
-// TODO: Array.splitAt not yet implemented in Beam
-// [<Fact>]
-// let ``test Array.splitAt works`` () =
-//     let ar = [|1;2;3;4|]
-//     Array.splitAt 0 ar |> equal ([||], [|1;2;3;4|])
-//     Array.splitAt 3 ar |> equal ([|1;2;3|], [|4|])
-//     Array.splitAt 4 ar |> equal ([|1;2;3;4|], [||])
+[<Fact>]
+let ``test Array.splitAt works`` () =
+    let ar = [|1;2;3;4|]
+    Array.splitAt 0 ar |> equal ([||], [|1;2;3;4|])
+    Array.splitAt 3 ar |> equal ([|1;2;3|], [|4|])
+    Array.splitAt 4 ar |> equal ([|1;2;3;4|], [||])
 
-// TODO: Array.allPairs not yet implemented in Beam
-// [<Fact>]
-// let ``test Array.allPairs works`` () =
-//     let xs = [|1;2|]
-//     let ys = [|'a';'b'|]
-//     Array.allPairs xs ys
-//     |> equal [|(1, 'a'); (1, 'b'); (2, 'a'); (2, 'b')|]
+[<Fact>]
+let ``test Array.allPairs works`` () =
+    let xs = [|1;2|]
+    let ys = [|'a';'b'|]
+    Array.allPairs xs ys
+    |> equal [|(1, 'a'); (1, 'b'); (2, 'a'); (2, 'b')|]
 
 [<Fact>]
 let ``test Array.distinct with tuples works`` () =

@@ -377,6 +377,154 @@ let ``test System.Convert.ToString UInt32 works`` () =
 let ``test System.Convert.ToString UInt64 works`` () =
     Convert.ToString(101uL) |> equal "101"
 
+// --- Boolean.Parse ---
+
+[<Fact>]
+let ``test System.Boolean.Parse works`` () =
+    Boolean.Parse "true" |> equal true
+    Boolean.Parse "True" |> equal true
+    Boolean.Parse " true " |> equal true
+    Boolean.Parse "false" |> equal false
+    Boolean.Parse "False" |> equal false
+    Boolean.Parse " false " |> equal false
+
+// --- More Parse methods ---
+
+[<Fact>]
+let ``test System.SByte.Parse works`` () =
+    SByte.Parse("5") |> equal 5y
+    SByte.Parse("-5") |> equal -5y
+    SByte.Parse("-128") |> equal -128y
+
+[<Fact>]
+let ``test System.Int16.Parse works`` () =
+    Int16.Parse("5") |> equal 5s
+    Int16.Parse("-5") |> equal -5s
+    Int16.Parse("-32768") |> equal -32768s
+
+[<Fact>]
+let ``test System.Byte.Parse works`` () =
+    Byte.Parse("5") |> equal 5uy
+    Byte.Parse("255") |> equal 255uy
+
+[<Fact>]
+let ``test System.UInt16.Parse works`` () =
+    UInt16.Parse("5") |> equal 5us
+    UInt16.Parse("65535") |> equal 65535us
+
+[<Fact>]
+let ``test System.UInt32.Parse works`` () =
+    UInt32.Parse("5") |> equal 5u
+    UInt32.Parse("4294967295") |> equal 4294967295u
+
+[<Fact>]
+let ``test System.UInt64.Parse works`` () =
+    UInt64.Parse("5") |> equal 5uL
+
+// --- Convert with base parameter ---
+
+[<Fact>]
+let ``test System.Convert.ToInt32 with base works`` () =
+    let x = "101"
+    Convert.ToInt32(x) |> equal 101
+    Convert.ToInt32(x, 2) |> equal 5
+    Convert.ToInt32(x, 8) |> equal 65
+    Convert.ToInt32(x, 10) |> equal 101
+    Convert.ToInt32(x, 16) |> equal 257
+
+[<Fact>]
+let ``test System.Convert.ToInt64 with base works`` () =
+    let x = "101"
+    Convert.ToInt64(x) |> equal 101L
+    Convert.ToInt64(x, 2) |> equal 5L
+    Convert.ToInt64(x, 8) |> equal 65L
+    Convert.ToInt64(x, 10) |> equal 101L
+    Convert.ToInt64(x, 16) |> equal 257L
+
+[<Fact>]
+let ``test System.Convert.ToByte with base works`` () =
+    let x = "101"
+    Convert.ToByte(x) |> equal 101uy
+    Convert.ToByte(x, 2) |> equal 5uy
+    Convert.ToByte(x, 8) |> equal 65uy
+    Convert.ToByte(x, 10) |> equal 101uy
+
+[<Fact>]
+let ``test System.Convert.ToInt16 with base works`` () =
+    let x = "101"
+    Convert.ToInt16(x) |> equal 101s
+    Convert.ToInt16(x, 2) |> equal 5s
+    Convert.ToInt16(x, 8) |> equal 65s
+    Convert.ToInt16(x, 10) |> equal 101s
+    Convert.ToInt16(x, 16) |> equal 257s
+
+// --- Convert.ToString with base parameter ---
+
+[<Fact>]
+let ``test System.Convert.ToString Int32 with base works`` () =
+    let x = "101"
+    Convert.ToString(101) |> equal x
+    Convert.ToString(5, 2) |> equal x
+    Convert.ToString(65, 8) |> equal x
+    Convert.ToString(101, 10) |> equal x
+    Convert.ToString(257, 16) |> equal x
+    Convert.ToString(-5, 16) |> equal "fffffffb"
+
+[<Fact>]
+let ``test System.Convert.ToString Int64 with base works`` () =
+    let x = "101"
+    Convert.ToString(101L) |> equal x
+    Convert.ToString(5L, 2) |> equal x
+    Convert.ToString(65L, 8) |> equal x
+    Convert.ToString(101L, 10) |> equal x
+    Convert.ToString(257L, 16) |> equal x
+    Convert.ToString(-5L, 16) |> equal "fffffffffffffffb"
+
+[<Fact>]
+let ``test System.Convert.ToString with base binary max values`` () =
+    Convert.ToString(Byte.MaxValue, 2) |> equal "11111111"
+    Convert.ToString(Int32.MaxValue, 2) |> equal "1111111111111111111111111111111"
+    Convert.ToString(Int64.MaxValue, 2) |> equal "111111111111111111111111111111111111111111111111111111111111111"
+
+// --- Parsing with radix prefixes ---
+
+[<Fact>]
+let ``test Parsing integers with different radices works`` () =
+    equal 11 (int "11")
+    equal 17 (int "0x11")
+    equal 9 (int "0o11")
+    equal 3 (int "0b11")
+
+// --- More cross-type conversions ---
+
+[<Fact>]
+let ``test System.Convert.ToDouble comprehensive works`` () =
+    let x = 1.
+    float(1y) |> equal x
+    float(1uy) |> equal x
+    float(1s) |> equal x
+    float(1) |> equal x
+    float(1L) |> equal x
+    float(1u) |> equal x
+    float(1us) |> equal x
+    float(1uL) |> equal x
+    float(1.f) |> equal x
+    float(1.) |> equal x
+
+[<Fact>]
+let ``test System.Convert.ToSingle comprehensive works`` () =
+    let x = 1.f
+    float32(1y) |> equal x
+    float32(1uy) |> equal x
+    float32(1s) |> equal x
+    float32(1) |> equal x
+    float32(1L) |> equal x
+    float32(1u) |> equal x
+    float32(1us) |> equal x
+    float32(1uL) |> equal x
+    float32(1.f) |> equal x
+    float32(1.) |> equal x
+
 // TODO: Decimal not implemented for Beam
 // [<Fact>]
 // let ``test System.Decimal.Parse works`` () =
@@ -393,16 +541,6 @@ let ``test System.Convert.ToString UInt64 works`` () =
 // [<Fact>]
 // let ``test System.Int32.Parse with hex works`` () =
 //     Int32.Parse("5f", System.Globalization.NumberStyles.HexNumber) |> equal 95
-
-// TODO: Convert.ToXxx with base requires library support
-// [<Fact>]
-// let ``test System.Convert.ToInt32 with base works`` () =
-//     Convert.ToInt32("101", 2) |> equal 5
-
-// TODO: Convert.ToString with base requires library support
-// [<Fact>]
-// let ``test System.Convert.ToString with base works`` () =
-//     Convert.ToString(5, 2) |> equal "101"
 
 // TODO: BitConverter requires byte array support
 // [<Fact>]

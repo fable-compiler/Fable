@@ -56,6 +56,7 @@
     <Compile Include="HashSetTests.fs" />
     <Compile Include="QueueTests.fs" />
     <Compile Include="StackTests.fs" />
+    <Compile Include="EncodingTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

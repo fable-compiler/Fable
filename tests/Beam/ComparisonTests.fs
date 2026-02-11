@@ -458,3 +458,170 @@ let ``test compare with strings works`` () =
     equal 0 (compare "a" "a")
     equal -1 (compare "a" "b")
     equal 1 (compare "b" "a")
+
+// --- Set equality ---
+
+[<Fact>]
+let ``test Set equality works`` () =
+    let xs1 = Set [ 1; 2; 3 ]
+    let xs2 = Set [ 1; 2; 3 ]
+    let xs3 = Set [ 1; 2; 4 ]
+    let xs4 = Set [ 3; 2; 1 ]
+    let xs5 = Set [ 1; 2; 3; 1 ]
+    equal true (xs1 = xs2)
+    equal false (xs1 = xs3)
+    equal true (xs1 <> xs3)
+    equal false (xs1 <> xs2)
+    equal true (xs1 = xs4)
+    equal false (xs1 <> xs5)
+
+[<Fact>]
+let ``test Set comparison works`` () =
+    let xs1 = Set [ 1; 2; 3 ]
+    let xs2 = Set [ 1; 2; 3 ]
+    let xs3 = Set [ 1; 2; 4 ]
+    let xs4 = Set [ 1; 2; 2 ]
+    let xs5 = Set [ 1; 2 ]
+    let xs6 = Set [ 1; 2; 3; 1 ]
+    equal 0 (compare xs1 xs2)
+    equal -1 (compare xs1 xs3)
+    equal true (xs1 < xs3)
+    equal 1 (compare xs1 xs4)
+    equal false (xs1 < xs4)
+    equal 1 (compare xs1 xs5)
+    equal true (xs1 > xs5)
+    equal 0 (compare xs1 xs6)
+
+// --- hash with more types ---
+
+[<Fact>]
+let ``test hash with arrays works`` () =
+    (hash [|1; 2|], hash [|1; 2|]) ||> equal
+    (hash [|2; 1|], hash [|1; 2|]) ||> notEqual
+
+[<Fact>]
+let ``test hash with options works`` () =
+    (hash (Some 1), hash (Some 1)) ||> equal
+    (hash (Some 2), hash (Some 1)) ||> notEqual
+
+[<Fact>]
+let ``test hash with unions works`` () =
+    (hash (A 1), hash (A 1)) ||> equal
+    (hash (A 2), hash (A 1)) ||> notEqual
+    (hash (B 1), hash (A 1)) ||> notEqual
+
+// --- Unchecked ---
+
+[<Fact>]
+let ``test Unchecked.equals works`` () =
+    Unchecked.equals 111 111 |> equal true
+    Unchecked.equals 222 333 |> equal false
+    Unchecked.equals "1" "1" |> equal true
+    Unchecked.equals "2" "3" |> equal false
+    Unchecked.equals [1] [1] |> equal true
+    Unchecked.equals [2] [3] |> equal false
+
+[<Fact>]
+let ``test Unchecked.compare works`` () =
+    Unchecked.compare 111 111 |> equal 0
+    Unchecked.compare 222 333 |> equal -1
+    Unchecked.compare 333 222 |> equal 1
+    Unchecked.compare "1" "1" |> equal 0
+    Unchecked.compare "2" "3" |> equal -1
+    Unchecked.compare "3" "2" |> equal 1
+    Unchecked.compare [1] [1] |> equal 0
+    Unchecked.compare [2] [3] |> equal -1
+    Unchecked.compare [3] [2] |> equal 1
+
+[<Fact>]
+let ``test Unchecked.hash with primitives works`` () =
+    (Unchecked.hash 111, Unchecked.hash 111) ||> equal
+    (Unchecked.hash 222, Unchecked.hash 333) ||> notEqual
+    (Unchecked.hash "1", Unchecked.hash "1") ||> equal
+    (Unchecked.hash "2", Unchecked.hash "3") ||> notEqual
+
+[<Fact>]
+let ``test Unchecked.hash with lists works`` () =
+    (Unchecked.hash [1;2], Unchecked.hash [1;2]) ||> equal
+    (Unchecked.hash [2;1], Unchecked.hash [1;2]) ||> notEqual
+
+[<Fact>]
+let ``test Unchecked.hash with arrays works`` () =
+    (Unchecked.hash [|1;2|], Unchecked.hash [|1;2|]) ||> equal
+    (Unchecked.hash [|2;1|], Unchecked.hash [|1;2|]) ||> notEqual
+
+[<Fact>]
+let ``test Unchecked.hash with tuples works`` () =
+    (Unchecked.hash (1,2), Unchecked.hash (1,2)) ||> equal
+    (Unchecked.hash (2,1), Unchecked.hash (1,2)) ||> notEqual
+
+// --- LanguagePrimitives ---
+
+[<Fact>]
+let ``test LanguagePrimitives.GenericEquality works`` () =
+    LanguagePrimitives.GenericEquality 111 111 |> equal true
+    LanguagePrimitives.GenericEquality 222 333 |> equal false
+    LanguagePrimitives.GenericEquality "1" "1" |> equal true
+    LanguagePrimitives.GenericEquality "2" "3" |> equal false
+    LanguagePrimitives.GenericEquality [1] [1] |> equal true
+    LanguagePrimitives.GenericEquality [2] [3] |> equal false
+
+[<Fact>]
+let ``test LanguagePrimitives.GenericComparison works`` () =
+    LanguagePrimitives.GenericComparison 111 111 |> equal 0
+    LanguagePrimitives.GenericComparison 222 333 |> equal -1
+    LanguagePrimitives.GenericComparison 333 222 |> equal 1
+    LanguagePrimitives.GenericComparison "1" "1" |> equal 0
+    LanguagePrimitives.GenericComparison "2" "3" |> equal -1
+    LanguagePrimitives.GenericComparison "3" "2" |> equal 1
+
+[<Fact>]
+let ``test LanguagePrimitives.GenericHash with primitives works`` () =
+    (LanguagePrimitives.GenericHash 111, LanguagePrimitives.GenericHash 111) ||> equal
+    (LanguagePrimitives.GenericHash 222, LanguagePrimitives.GenericHash 111) ||> notEqual
+    (LanguagePrimitives.GenericHash "1", LanguagePrimitives.GenericHash "1") ||> equal
+    (LanguagePrimitives.GenericHash "2", LanguagePrimitives.GenericHash "1") ||> notEqual
+
+[<Fact>]
+let ``test LanguagePrimitives.GenericHash with lists works`` () =
+    (LanguagePrimitives.GenericHash [1;2], LanguagePrimitives.GenericHash [1;2]) ||> equal
+    (LanguagePrimitives.GenericHash [2;1], LanguagePrimitives.GenericHash [1;2]) ||> notEqual
+
+[<Fact>]
+let ``test LanguagePrimitives.GenericHash with arrays works`` () =
+    (LanguagePrimitives.GenericHash [|1;2|], LanguagePrimitives.GenericHash [|1;2|]) ||> equal
+    (LanguagePrimitives.GenericHash [|2;1|], LanguagePrimitives.GenericHash [|1;2|]) ||> notEqual
+
+[<Fact>]
+let ``test LanguagePrimitives.GenericHash with tuples works`` () =
+    (LanguagePrimitives.GenericHash (1,2), LanguagePrimitives.GenericHash (1,2)) ||> equal
+    (LanguagePrimitives.GenericHash (2,1), LanguagePrimitives.GenericHash (1,2)) ||> notEqual
+
+// --- GetHashCode with more types ---
+
+[<Fact>]
+let ``test GetHashCode with lists works`` () =
+    ([1; 2].GetHashCode(), [1; 2].GetHashCode()) ||> equal
+    ([2; 1].GetHashCode(), [1; 2].GetHashCode()) ||> notEqual
+
+[<Fact>]
+let ``test GetHashCode with tuples works`` () =
+    ((1, 2).GetHashCode(), (1, 2).GetHashCode()) ||> equal
+    ((2, 1).GetHashCode(), (1, 2).GetHashCode()) ||> notEqual
+
+[<Fact>]
+let ``test GetHashCode with options works`` () =
+    ((Some 1).GetHashCode(), (Some 1).GetHashCode()) ||> equal
+    ((Some 2).GetHashCode(), (Some 1).GetHashCode()) ||> notEqual
+
+[<Fact>]
+let ``test GetHashCode with unions works`` () =
+    ((A 1).GetHashCode(), (A 1).GetHashCode()) ||> equal
+    ((A 2).GetHashCode(), (A 1).GetHashCode()) ||> notEqual
+    ((B 1).GetHashCode(), (A 1).GetHashCode()) ||> notEqual
+
+[<Fact>]
+let ``test GetHashCode with records works`` () =
+    ({a=1; b=2}.GetHashCode(), {a=1; b=2}.GetHashCode()) ||> equal
+    ({a=2; b=1}.GetHashCode(), {a=1; b=2}.GetHashCode()) ||> notEqual
+
