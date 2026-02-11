@@ -787,6 +787,49 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         | Curry(e, arity) -> transformExpr com ctx (Replacements.Api.curryExprAtRuntime com arity e)
         | Debugger -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_debugger"))
 
+    | Import(importInfo, typ, _range) ->
+        // Standalone import (function reference from another module, not a direct call).
+        // Generate a lambda wrapper: fun(A1, ..., AN) -> module:function(A1, ..., AN) end
+        let moduleName =
+            let name = moduleNameFromFile importInfo.Path
+            let currentModule = moduleNameFromFile com.CurrentFile
+
+            if name = currentModule then
+                None
+            else
+                Some name
+
+        let funcName = sanitizeErlangName importInfo.Selector
+
+        // Count arity from the function type
+        let rec functionArity (t: Fable.AST.Fable.Type) =
+            match t with
+            | Fable.AST.Fable.Type.LambdaType(_, returnType) -> 1 + functionArity returnType
+            | Fable.AST.Fable.Type.DelegateType(argTypes, _) -> argTypes.Length
+            | _ -> 0
+
+        let arity = functionArity typ
+
+        if arity = 0 then
+            // Not a function type — just a value reference, call with no args
+            Beam.ErlExpr.Call(moduleName, funcName, [])
+        else
+            // Generate lambda wrapper for the function reference
+            let counter = com.IncrementCounter()
+
+            let argNames = List.init arity (fun i -> $"Import_arg_%d{i}_%d{counter}")
+            let argPats = argNames |> List.map Beam.PVar
+            let argExprs = argNames |> List.map Beam.ErlExpr.Variable
+
+            Beam.ErlExpr.Fun
+                [
+                    {
+                        Patterns = argPats
+                        Guard = []
+                        Body = [ Beam.ErlExpr.Call(moduleName, funcName, argExprs) ]
+                    }
+                ]
+
     | _ ->
         let exprName = expr.GetType().Name
         Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom $"todo_%s{exprName.ToLowerInvariant()}"))
