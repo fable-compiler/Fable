@@ -60,6 +60,49 @@ let ``test Stopwatch elapsed time calculation works`` () =
     // Should be non-negative
     (elapsedMs >= 0.0) |> equal true
 
+// --- BitConverter ---
+
+[<Fact>]
+let ``test BitConverter.IsLittleEndian works`` () =
+#if FABLE_COMPILER
+    // BEAM uses big-endian by convention
+    System.BitConverter.IsLittleEndian |> equal false
+#else
+    // .NET on x86/ARM is little-endian
+    System.BitConverter.IsLittleEndian |> equal true
+#endif
+
+[<Fact>]
+let ``test BitConverter.GetBytes UInt64 works`` () =
+    let bytes = System.BitConverter.GetBytes(1UL)
+    bytes.Length |> equal 8
+
+[<Fact>]
+let ``test BitConverter.GetBytes Int32 works`` () =
+    let bytes = System.BitConverter.GetBytes(256)
+    bytes.Length |> equal 4
+
+[<Fact>]
+let ``test BitConverter roundtrip UInt64 works`` () =
+    let value = 12345678901234UL
+    let bytes = System.BitConverter.GetBytes(value)
+    let result = System.BitConverter.ToUInt64(bytes, 0)
+    result |> equal value
+
+[<Fact>]
+let ``test BitConverter roundtrip Int32 works`` () =
+    let value = 42
+    let bytes = System.BitConverter.GetBytes(value)
+    let result = System.BitConverter.ToInt32(bytes, 0)
+    result |> equal value
+
+[<Fact>]
+let ``test BitConverter roundtrip Int64 works`` () =
+    let value = -12345678901234L
+    let bytes = System.BitConverter.GetBytes(value)
+    let result = System.BitConverter.ToInt64(bytes, 0)
+    result |> equal value
+
 // --- Nullable ---
 
 [<Fact>]

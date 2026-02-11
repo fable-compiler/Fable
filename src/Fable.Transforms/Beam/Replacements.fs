@@ -2349,7 +2349,65 @@ let tryField (_com: ICompiler) _returnTyp ownerTyp fieldName : Expr option =
             // 1_000_000 microseconds per second
             Value(NumberConstant(NumberValue.Int64 1_000_000L, NumberInfo.Empty), None)
             |> Some
+        | "System.BitConverter", "IsLittleEndian" ->
+            // BEAM uses big-endian by convention for binary construction/extraction
+            Value(BoolConstant false, None) |> Some
         | _ -> None
+    | _ -> None
+
+/// Beam-specific System.BitConverter replacements.
+/// BEAM uses big-endian by convention for binary construction/extraction.
+let private bitConvert
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, args with
+    // GetBytes: convert a numeric value to a byte list (big-endian)
+    | "GetBytes", [ arg ] ->
+        let bitSize =
+            match arg.Type with
+            | Number(Int16, _)
+            | Number(UInt16, _) -> 16
+            | Number(Int32, _)
+            | Number(UInt32, _)
+            | Number(Float32, _) -> 32
+            | Number(Int64, _)
+            | Number(UInt64, _)
+            | Number(Float64, _) -> 64
+            | _ -> 32
+
+        Helper.LibCall(com, "fable_bit_converter", "get_bytes", t, [ arg; makeIntConst bitSize ], ?loc = r)
+        |> Some
+    // ToInt16, ToUInt16, ToInt32, ToUInt32, ToInt64, ToUInt64, ToSingle, ToDouble
+    | "ToInt16", [ bytes; startIndex ] ->
+        Helper.LibCall(com, "fable_bit_converter", "to_int", t, [ bytes; startIndex; makeIntConst 16 ], ?loc = r)
+        |> Some
+    | ("ToUInt16"), [ bytes; startIndex ] ->
+        Helper.LibCall(com, "fable_bit_converter", "to_uint", t, [ bytes; startIndex; makeIntConst 16 ], ?loc = r)
+        |> Some
+    | "ToInt32", [ bytes; startIndex ] ->
+        Helper.LibCall(com, "fable_bit_converter", "to_int", t, [ bytes; startIndex; makeIntConst 32 ], ?loc = r)
+        |> Some
+    | "ToUInt32", [ bytes; startIndex ] ->
+        Helper.LibCall(com, "fable_bit_converter", "to_uint", t, [ bytes; startIndex; makeIntConst 32 ], ?loc = r)
+        |> Some
+    | "ToInt64", [ bytes; startIndex ] ->
+        Helper.LibCall(com, "fable_bit_converter", "to_int", t, [ bytes; startIndex; makeIntConst 64 ], ?loc = r)
+        |> Some
+    | "ToUInt64", [ bytes; startIndex ] ->
+        Helper.LibCall(com, "fable_bit_converter", "to_uint", t, [ bytes; startIndex; makeIntConst 64 ], ?loc = r)
+        |> Some
+    | "ToSingle", [ bytes; startIndex ] ->
+        Helper.LibCall(com, "fable_bit_converter", "to_float", t, [ bytes; startIndex; makeIntConst 32 ], ?loc = r)
+        |> Some
+    | "ToDouble", [ bytes; startIndex ] ->
+        Helper.LibCall(com, "fable_bit_converter", "to_float", t, [ bytes; startIndex; makeIntConst 64 ], ?loc = r)
+        |> Some
     | _ -> None
 
 /// Beam-specific System.Text.Encoding replacements.
@@ -2594,6 +2652,7 @@ let tryCall
     | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator"
     | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator"
     | "System.Collections.Generic.HashSet`1.Enumerator" -> enumerators com ctx r t info thisArg args
+    | "System.BitConverter" -> bitConvert com ctx r t info thisArg args
     | "System.Text.Encoding"
     | "System.Text.UnicodeEncoding"
     | "System.Text.UTF8Encoding" -> encoding com ctx r t info thisArg args
