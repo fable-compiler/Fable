@@ -333,30 +333,30 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 1. Runs all tests on .NET via `dotnet test`
 2. Compiles tests to `.erl` via Fable
 3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (1205 Erlang tests pass)
+4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (1378 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
-| ArithmeticTests.fs | 104 | Arithmetic, bitwise, logical, comparison, Int64, BigInt, exponentiation, sign |
+| ArithmeticTests.fs | 103 | Arithmetic, bitwise, logical, comparison, Int64, BigInt, exponentiation, sign |
 | ArrayTests.fs | 122 | Array literal, map/filter/fold, mapi, append, sort, indexed, length, choose, collect, zip, pairwise, iter/iteri/iter2/iteri2, exactlyOne, groupBy, distinct/distinctBy, zip3/unzip3, exists2/forall2, fold2/foldBack2, sub, except, chunkBySize, splitAt, allPairs, sortByDescending |
 | SeqTests.fs | 107 | Seq.map/filter/fold/head/length/append/concat/distinct/take/skip/unfold/init/scan/zip/chunkBySize, delay, sortByDescending, foldBack2, mapFold, chunkBySize, range |
 | ListTests.fs | 114 | List operations, head/tail, map/filter/fold/fold2/foldBack2, append, sort, choose, collect, find/findBack, zip, chunkBySize, pairwise, windowed, insertAt/removeAt/updateAt, transpose, compareWith, etc. |
-| StringTests.fs | 95 | String methods, interpolation, concat, substring, replace, split, trim, pad, contains, startsWith, endsWith, sprintf, String.Format, exists |
-| ConversionTests.fs | 76 | Type conversions, System.Convert, Parse, ToString, BigInt conversions, base conversion, Boolean.Parse |
+| StringTests.fs | 97 | String methods, interpolation, concat, substring, replace, split, trim, pad, contains, startsWith, endsWith, sprintf, String.Format, exists |
+| ConversionTests.fs | 70 | Type conversions, System.Convert, Parse, ToString, BigInt conversions, base conversion, Boolean.Parse |
 | OptionTests.fs | 50 | Option.map/bind/defaultValue/filter/isSome/isNone, Option module, nested options |
 | ComparisonTests.fs | 66 | compare, hash, isNull, Equals, CompareTo, GetHashCode, structural comparison, Unchecked, LanguagePrimitives, Set equality/comparison |
-| MapTests.fs | 43 | F# Map create/add/remove/find/containsKey/count, iteration, fold, filter, pick, tryPick, minKeyValue, maxKeyValue |
+| MapTests.fs | 41 | F# Map create/add/remove/find/containsKey/count, iteration, fold, filter, pick, tryPick, minKeyValue, maxKeyValue |
 | CharTests.fs | 33 | Char.IsLetter/IsDigit/IsUpper/IsLower, char conversions, ToString |
 | PatternMatchTests.fs | 28 | Pattern matching with guards, options, nested patterns, when clauses |
 | ResultTests.fs | 21 | Result.map/bind/mapError, Result module functions |
 | UnionTypeTests.fs | 18 | Union construction, matching, structural equality, active patterns |
-| RecordTests.fs | 17 | Creation, update, float fields, nesting, anonymous records, structural equality |
-| FnTests.fs | 19 | Functions, recursive lambdas, mutual recursion, closures, curry expressions, operator-as-value |
+| RecordTests.fs | 16 | Creation, update, float fields, nesting, anonymous records, structural equality |
+| FnTests.fs | 37 | Functions, recursive lambdas, mutual recursion, closures, curry expressions, operator-as-value, partial application, curried functions |
 | TailCallTests.fs | 14 | Tail call optimization, recursive functions |
-| SeqExpressionTests.fs | 11 | Seq expressions, yield, yield! |
+| SeqExpressionTests.fs | 9 | Seq expressions, yield, yield! |
 | ReflectionTests.fs | 11 | Type info, FSharpType reflection |
 | TupleTests.fs | 10 | Tuple creation, destructuring, fst/snd, equality, nesting |
-| TypeTests.fs | 22 | Class constructors, properties, methods, closures, object expressions, type testing (:?) |
+| TypeTests.fs | 44 | Class constructors, properties, methods, closures, object expressions, type testing (:?), inheritance, secondary constructors, abstract classes |
 | TryCatchTests.fs | 8 | try/catch, failwith, exception messages, nested try/catch |
 | EnumTests.fs | 14 | Enum HasFlag, comparison, EnumOfValue/ToValue, pattern matching, bitwise ops |
 | ExceptionTests.fs | 10 | Custom exceptions, type discrimination, nested catch, field access, Message property |
@@ -371,9 +371,11 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | HashSetTests.fs | 19 | HashSet creation, Add, Remove, Contains, Count, Clear, UnionWith, IntersectWith, ExceptWith, iteration, records |
 | QueueTests.fs | 15 | Queue creation, Enqueue, Dequeue, Peek, TryDequeue, TryPeek, Contains, Clear, ToArray, throws |
 | StackTests.fs | 9 | Stack creation, Push, Pop, Peek, TryPop, TryPeek, Contains, ToArray, Clear |
-| EncodingTests.fs | 9 | Encoding.UTF8.GetBytes/GetString, Stopwatch.Frequency/GetTimestamp, Nullable |
+| EncodingTests.fs | 30 | Encoding.UTF8.GetBytes/GetString, Stopwatch.Frequency/GetTimestamp, Nullable, DateTimeOffset, TimeSpan, Guid |
+| ApplicativeTests.fs | 83 | Applicative-style programming, functors, CEs with and!, curried map/apply, generic applicatives, ZipList |
+| MiscTests.fs | 40 | Partial functions, computation expressions, inline methods, object expressions, type extensions, pattern matching, exception handling, module shadowing, private modules |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **1205** | |
+| **Total** | **1378** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -552,7 +554,7 @@ for mutable state, `fable_async:from_continuations` for the receive/reply coordi
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 1205 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 1378 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
@@ -830,11 +832,12 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
 - **Structural equality**: Erlang's native `=:=` for all types (no runtime library).
   Intercepted in `Beam/Replacements.fs` before JS Replacements generates `Util.equals`
   library calls. Works because `=:=` does deep comparison on tuples, maps, and lists.
-- **Function name sanitization**: `sanitizeErlangName` in `Fable2Beam.fs` decodes
+- **Function name sanitization**: `sanitizeErlangName` in `Prelude.fs` decodes
   `$XXXX` hex sequences from F# compiled names (e.g. `$0020` → space), strips
-  apostrophes, converts to snake_case, and collapses/trims underscores. Applied to
-  all function names and import selectors. Example:
-  `test$0020infix$0020add$0020can$0020be$0020generated` → `test_infix_add_can_be_generated`
+  apostrophes, converts to snake_case, collapses/trims underscores, and escapes
+  Erlang reserved words (e.g. `maybe` → `maybe_`, `receive` → `receive_`). The
+  keyword escaping uses `checkErlKeywords` against the full OTP 25+ keyword set.
+  Example: `test$0020infix$0020add$0020can$0020be$0020generated` → `test_infix_add_can_be_generated`
 - **Output filenames**: Snake_case, following the Python target pattern. Uses
   `Naming.applyCaseRule Core.CaseRules.SnakeCase` in `Pipeline.fs` Beam module.
   Erlang requires module name to match filename, so `ArithmeticTests.fs` →
@@ -912,6 +915,15 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   CPS execution guarantees the value is available when `post` returns. `Reply` is dispatched
   via `emitExpr` as `(maps:get(reply, $0))($1)`. Replacements route
   `FSharpMailboxProcessor` and `FSharpAsyncReplyChannel` to the `mailbox` handler.
+- **CurriedApply**: Uses a simple `List.fold` applying args one at a time:
+  `cleanArgs |> List.fold (fun fn arg -> Apply(fn, [arg])) cleanApplied`. This matches
+  JS (Fable2Babel.fs) and Python (Fable2Python.Transforms.fs). Never merge CurriedApply
+  args into Call nodes — that causes badarity errors when calling curried closures.
+- **Erlang keyword escaping**: `sanitizeErlangName` pipes through `checkErlKeywords` at
+  the end to append `_` suffix to Erlang reserved words (e.g. `maybe` → `maybe_`,
+  `receive` → `receive_`). The `erlKeywords` set covers OTP 25+ keywords including
+  `maybe` and `else`. This is needed because F# identifiers like `maybe` are valid but
+  would generate Erlang syntax errors.
 
 ## Open Questions
 
