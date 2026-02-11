@@ -59,6 +59,7 @@
     <Compile Include="StackTests.fs" />
     <Compile Include="EncodingTests.fs" />
     <Compile Include="ApplicativeTests.fs" />
+    <Compile Include="MiscTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

@@ -77,6 +77,7 @@ module Naming =
         |> toSnakeCase
         |> fun s -> Regex.Replace(s, "_+", "_")
         |> fun s -> s.Trim('_')
+        |> checkErlKeywords
 
     let moduleNameFromFile (filePath: string) =
         System.IO.Path.GetFileNameWithoutExtension(filePath)
