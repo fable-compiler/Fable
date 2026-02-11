@@ -207,7 +207,19 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
         let result =
             match cleanApplied with
-            | Beam.ErlExpr.Call(m, f, existingArgs) -> Beam.ErlExpr.Call(m, f, existingArgs @ cleanArgs)
+            | Beam.ErlExpr.Call(None, f, existingArgs) ->
+                // Unqualified (same-module) call: safe to merge args
+                Beam.ErlExpr.Call(None, f, existingArgs @ cleanArgs)
+            | Beam.ErlExpr.Call(Some m, f, existingArgs) when m.StartsWith("fable_") ->
+                // Fable library call: designed to handle merged args via multi-arity overloads
+                Beam.ErlExpr.Call(Some m, f, existingArgs @ cleanArgs)
+            | Beam.ErlExpr.Call(Some _, _, _) when cleanArgs.Length = 1 ->
+                // Qualified call to non-fable module (e.g., maps:get): returns a value
+                // If it's a function, apply the single arg to it
+                Beam.ErlExpr.Apply(cleanApplied, cleanArgs)
+            | Beam.ErlExpr.Call(Some _, _, _) ->
+                // Qualified call with multiple curried args: apply one at a time
+                Beam.ErlExpr.Call(Some "fable_utils", "apply_curried", [ cleanApplied; Beam.ErlExpr.List cleanArgs ])
             | _ -> Beam.ErlExpr.Apply(cleanApplied, cleanArgs)
 
         result |> wrapWithHoisted allHoisted

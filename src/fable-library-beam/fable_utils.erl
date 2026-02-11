@@ -1,9 +1,14 @@
 -module(fable_utils).
--export([iface_get/2, get_enumerator/1, move_next/1, get_current/1]).
+-export([iface_get/2, apply_curried/2, get_enumerator/1, move_next/1, get_current/1]).
 
 %% Interface dispatch: works for both object expressions (maps) and class instances (refs).
 iface_get(Name, Obj) when is_map(Obj) -> maps:get(Name, Obj);
 iface_get(Name, Ref) -> maps:get(Name, get(Ref)).
+
+%% Apply a list of args one at a time to a curried function.
+%% Used by CurriedApply when the target is a qualified call returning a curried function.
+apply_curried(Fun, []) -> Fun;
+apply_curried(Fun, [Arg | Rest]) -> apply_curried(Fun(Arg), Rest).
 
 %% Enumerator support for for-in loops over lists.
 %% Enumerator is a process dict ref pointing to #{items => List, current => undefined}.

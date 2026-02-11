@@ -165,6 +165,23 @@ type ReadOnlyPropsImpl() =
         member _.OnlyGet = 0
         member _.OnlyProp = 3
 
+type IConfigurable =
+    abstract Configure: (int -> int) -> int
+
+type ConfigurableImpl(baseValue: int) =
+    interface IConfigurable with
+        member _.Configure(transform) = transform baseValue
+
+type IApplicator =
+    abstract Apply: (string -> string -> string) -> string -> string -> string
+
+type ApplicatorImpl() =
+    interface IApplicator with
+        member _.Apply(combiner) (a) (b) = combiner a b
+
+type ClassWithFnParam(transform: int -> int) =
+    member _.Run(x: int) = transform x
+
 type Employee2 = { empName: string; empAge: float; empLocation: Location2 }
 and Location2 = { locName: string; mutable locEmployees: Employee2 list }
 
@@ -241,6 +258,22 @@ let ``test class implementing read-only interface properties works`` () =
     let obj = ReadOnlyPropsImpl() :> IReadOnlyProps
     equal 0 obj.OnlyGet
     equal 3 obj.OnlyProp
+
+[<Fact>]
+let ``test interface method that takes function parameter and calls it works`` () =
+    let cfg = ConfigurableImpl(10) :> IConfigurable
+    cfg.Configure(fun x -> x * 2) |> equal 20
+    cfg.Configure(fun x -> x + 5) |> equal 15
+
+[<Fact>]
+let ``test interface method with multi-arg function parameter works`` () =
+    let app = ApplicatorImpl() :> IApplicator
+    app.Apply (fun a b -> a + " " + b) "hello" "world" |> equal "hello world"
+
+[<Fact>]
+let ``test class constructor with function parameter works`` () =
+    let obj = ClassWithFnParam(fun x -> x * 3)
+    obj.Run(7) |> equal 21
 
 // Basic language feature tests
 
