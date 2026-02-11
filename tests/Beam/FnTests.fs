@@ -117,3 +117,30 @@ let ``test Function value assigned then called`` () =
     let add a b c = a + b + c
     let f = add
     f 1 2 3 |> equal 6
+
+[<Fact>]
+let ``test Calling function parameter works`` () =
+    let applyFn (myFunc: int -> int) (x: int) = myFunc x
+    applyFn (fun n -> n * 3) 7 |> equal 21
+
+[<Fact>]
+let ``test Lambda captured variable called as function`` () =
+    let callWith42 (f: int -> string) = f 42
+    callWith42 (fun n -> string n) |> equal "42"
+
+[<Fact>]
+let ``test Higher-order function with two-arg callback`` () =
+    let combine (f: int -> int -> int) a b = f a b
+    combine (fun x y -> x + y) 10 20 |> equal 30
+
+[<Fact>]
+let ``test Option.map with function parameter works`` () =
+    let applyToOption (f: int -> int) (opt: int option) = Option.map f opt
+    applyToOption (fun x -> x * 2) (Some 5) |> equal (Some 10)
+    applyToOption (fun x -> x * 2) None |> equal None
+
+[<Fact>]
+let ``test Let-bound function called inside lambda`` () =
+    let doubler x = x * 2
+    let results = [1; 2; 3] |> List.map (fun n -> doubler n)
+    results |> equal [2; 4; 6]

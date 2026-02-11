@@ -31,6 +31,7 @@ type Context =
         RecursiveBindings: Set<string>
         MutualRecBindings: Map<string, string * string> // name -> (bundleVarName, atomTag)
         MutableVars: Set<string> // names of mutable variables (use process dict put/get)
+        LocalVars: Set<string> // names of locally-bound variables (params, let bindings, lambda args)
         ThisArgVar: string option // Erlang variable name for `this` in class constructors/methods
         ThisIdentNames: Set<string> // original Fable ident names that refer to `this` (e.g., "_", "__")
     }
@@ -128,7 +129,12 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         match value with
         | Lambda(arg, lambdaBody, _) when containsIdentRef ident.Name lambdaBody ->
             // Self-recursive lambda: use Erlang named fun
-            let ctx' = { ctx with RecursiveBindings = ctx.RecursiveBindings.Add(ident.Name) }
+            let ctx' =
+                { ctx with
+                    RecursiveBindings = ctx.RecursiveBindings.Add(ident.Name)
+                    LocalVars = ctx.LocalVars.Add(arg.Name)
+                }
+
             let erlBody = transformExpr com ctx' lambdaBody
 
             let bodyExprs =
@@ -152,7 +158,11 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             Beam.ErlExpr.Block [ Beam.ErlExpr.Match(Beam.PVar varName, namedFun); erlOuterBody ]
         | Delegate(args, lambdaBody, _, _) when containsIdentRef ident.Name lambdaBody ->
             // Self-recursive delegate: use Erlang named fun
-            let ctx' = { ctx with RecursiveBindings = ctx.RecursiveBindings.Add(ident.Name) }
+            let ctx' =
+                { ctx with
+                    RecursiveBindings = ctx.RecursiveBindings.Add(ident.Name)
+                    LocalVars = args |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars
+                }
 
             let argPats =
                 args
@@ -182,7 +192,8 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         | _ ->
             let erlValue = transformExpr com ctx value
             let hoisted, cleanValue = extractBlock erlValue
-            let erlBody = transformExpr com ctx body
+            let ctx' = { ctx with LocalVars = ctx.LocalVars.Add(ident.Name) }
+            let erlBody = transformExpr com ctx' body
             Beam.ErlExpr.Block(hoisted @ [ Beam.ErlExpr.Match(Beam.PVar varName, cleanValue); erlBody ])
 
     | TypeCast(expr, _typ) -> transformExpr com ctx expr
@@ -225,7 +236,8 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         )
 
     | Lambda(arg, body, _name) ->
-        let erlBody = transformExpr com ctx body
+        let ctx' = { ctx with LocalVars = ctx.LocalVars.Add(arg.Name) }
+        let erlBody = transformExpr com ctx' body
 
         let bodyExprs =
             match erlBody with
@@ -246,7 +258,10 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             args
             |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
 
-        let erlBody = transformExpr com ctx body
+        let ctx' =
+            { ctx with LocalVars = args |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars }
+
+        let erlBody = transformExpr com ctx' body
 
         let bodyExprs =
             match erlBody with
@@ -487,7 +502,8 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             let reasonVar = $"Exn_reason_%d{ctr}"
             let identVar = capitalizeFirst ident.Name
 
-            let erlCatchBody = transformExpr com ctx catchExpr
+            let ctx' = { ctx with LocalVars = ctx.LocalVars.Add(ident.Name) }
+            let erlCatchBody = transformExpr com ctx' catchExpr
 
             let catchBodyExprs =
                 match erlCatchBody with
@@ -1440,8 +1456,8 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
 
             Beam.ErlExpr.Apply(bundleCall, allArgs) |> wrapWithHoisted allHoisted
         | None ->
-            if ctx.RecursiveBindings.Contains(ident.Name) then
-                Beam.ErlExpr.Apply(Beam.ErlExpr.Variable(capitalizeFirst ident.Name), allArgs)
+            if ctx.RecursiveBindings.Contains(ident.Name) || ctx.LocalVars.Contains(ident.Name) then
+                Beam.ErlExpr.Apply(Beam.ErlExpr.Variable(capitalizeFirst ident.Name |> sanitizeErlangVar), allArgs)
                 |> wrapWithHoisted allHoisted
             else
                 Beam.ErlExpr.Call(None, sanitizeErlangName ident.Name, allArgs)
@@ -1574,7 +1590,11 @@ and transformClassDeclaration
                 []
             else
                 // Regular class: object = make_ref(), state in process dict
-                let ctorCtx = { ctx with ThisArgVar = Some "Ref" }
+                let ctorCtx =
+                    { ctx with
+                        ThisArgVar = Some "Ref"
+                        LocalVars = ctorArgs |> List.fold (fun (s: Set<string>) a -> s.Add(a.Name)) ctx.LocalVars
+                    }
 
                 let mapEntries =
                     fields
@@ -1615,11 +1635,19 @@ and transformClassDeclaration
                                     |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
 
                                 // Set up context so `this` references resolve to `Ref`
+                                // and non-this args are tracked as local vars
                                 let ifaceCtorCtx =
+                                    let argNames =
+                                        nonThisArgs
+                                        |> List.fold (fun (s: Set<string>) a -> s.Add(a.Name)) ctorCtx.LocalVars
+
                                     match memb.Args with
                                     | first :: _ when first.IsThisArgument || first.Name = "this" ->
-                                        { ctorCtx with ThisIdentNames = Set.singleton first.Name }
-                                    | _ -> ctorCtx
+                                        { ctorCtx with
+                                            ThisIdentNames = Set.singleton first.Name
+                                            LocalVars = argNames
+                                        }
+                                    | _ -> { ctorCtx with LocalVars = argNames }
 
                                 let erlBody = transformExpr com ifaceCtorCtx memb.Body
 
@@ -1713,6 +1741,10 @@ and transformClassDeclaration
 
                 // Helper: separate this arg from other args, set up proper context
                 let getThisAndArgs () =
+                    let argNames =
+                        memb.Args
+                        |> List.fold (fun (s: Set<string>) (a: Ident) -> s.Add(a.Name)) ctx.LocalVars
+
                     match memb.Args with
                     | first :: rest when first.IsThisArgument || first.Name = "this" ->
                         let thisIdentNames = Set.singleton first.Name
@@ -1721,10 +1753,11 @@ and transformClassDeclaration
                             { ctx with
                                 ThisArgVar = Some "This"
                                 ThisIdentNames = thisIdentNames
+                                LocalVars = argNames
                             }
 
                         Some first, rest, memberCtx
-                    | _ -> None, memb.Args, ctx
+                    | _ -> None, memb.Args, { ctx with LocalVars = argNames }
 
                 if info.IsConstructor then
                     // Secondary constructor: generates an additional function with different arity
@@ -1895,9 +1928,11 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                 { ctx with
                     ThisArgVar = Some thisVarName
                     ThisIdentNames = Set.singleton thisArg.Name
+                    LocalVars = memDecl.Args |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars
                 }
             else
-                memDecl.Args |> List.map (fun arg -> Beam.PVar(toErlangVar arg)), ctx
+                memDecl.Args |> List.map (fun arg -> Beam.PVar(toErlangVar arg)),
+                { ctx with LocalVars = memDecl.Args |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars }
 
         let bodyExpr = transformExpr com memberCtx memDecl.Body
 
@@ -1964,6 +1999,7 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             RecursiveBindings = Set.empty
             MutualRecBindings = Map.empty
             MutableVars = Set.empty
+            LocalVars = Set.empty
             ThisArgVar = None
             ThisIdentNames = Set.empty
         }

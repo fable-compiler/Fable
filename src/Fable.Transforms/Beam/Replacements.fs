@@ -1028,7 +1028,6 @@ let private listModule
     | "RemoveManyAt", [ idx; count; list ] ->
         Helper.LibCall(com, "fable_list", "remove_many_at", t, [ idx; count; list ])
         |> Some
-    | "Unzip3", [ list ] -> emitExpr r t [ list ] "lists:unzip3($0)" |> Some
     | "ToArray", [ list ] -> Some(List.head args)
     | "OfArray", [ arr ] -> Some(List.head args)
     | "OfSeq", [ seq ] -> Some(List.head args)
