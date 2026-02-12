@@ -3654,6 +3654,10 @@ let tryCall
     | Types.nullable -> nullables com ctx r t info thisArg args
     | Types.guid -> guids com ctx r t info thisArg args
     | "System.Random" -> randoms com ctx r t info thisArg args
+    | "System.Environment" ->
+        match info.CompiledName with
+        | "get_NewLine" -> makeStrConst "\n" |> Some
+        | _ -> None
     | Types.datetime -> dates com ctx r t info thisArg args
     | "System.Uri" -> uris com ctx r t info thisArg args
     | Types.datetimeOffset -> dateTimeOffsets com ctx r t info thisArg args

@@ -580,6 +580,166 @@ let ``test String slicing to computed index works`` () =
     let path = "/api/users"
     s.[0 .. path.Length - 1] |> equal "/api/users"
 
+// --- String conversion tests ---
+
+[<Fact>]
+let ``test Conversion string to int8 works`` () =
+    equal 5y (int8 "5")
+    equal "5" (string 5y)
+
+[<Fact>]
+let ``test Conversion string to negative int8 works`` () =
+    equal -5y (int8 "-5")
+    equal "-5" (string -5y)
+
+[<Fact>]
+let ``test Conversion string to int16 works`` () =
+    equal 5s (int16 "5")
+    equal "5" (string 5s)
+
+[<Fact>]
+let ``test Conversion string to negative int16 works`` () =
+    equal -5s (int16 "-5")
+    equal "-5" (string -5s)
+
+[<Fact>]
+let ``test Conversion string to int32 works`` () =
+    equal 5 (int32 "5")
+    equal "5" (string 5)
+
+[<Fact>]
+let ``test Conversion string to negative int32 works`` () =
+    equal -5 (int32 "-5")
+    equal "-5" (string -5)
+
+[<Fact>]
+let ``test Conversion string to int64 works`` () =
+    equal 5L (int64 "5")
+    equal "5" (string 5L)
+
+[<Fact>]
+let ``test Conversion string to negative int64 works`` () =
+    equal -5L (int64 "-5")
+    equal "-5" (string -5L)
+
+[<Fact>]
+let ``test Conversion string to uint8 works`` () =
+    equal 5uy (uint8 "5")
+    equal "5" (string 5uy)
+
+[<Fact>]
+let ``test Conversion string to uint16 works`` () =
+    equal 5us (uint16 "5")
+    equal "5" (string 5us)
+
+[<Fact>]
+let ``test Conversion string to uint32 works`` () =
+    equal 5u (uint32 "5")
+    equal "5" (string 5u)
+
+[<Fact>]
+let ``test Conversion string to uint64 works`` () =
+    equal 5uL (uint64 "5")
+    equal "5" (string 5uL)
+
+[<Fact>]
+let ``test Conversion string to single works`` () =
+    equal 5.f (float32 "5.0")
+    equal -5.f (float32 "-5.0")
+    (string 5.f).StartsWith("5") |> equal true
+    equal 5.25f (float32 "5.25")
+    (string 5.25f).StartsWith("5.25") |> equal true
+
+[<Fact>]
+let ``test Conversion string to double works`` () =
+    equal 5. (float "5.0")
+    equal -5. (float "-5.0")
+    (string 5.).StartsWith("5") |> equal true
+    equal 5.25 (float "5.25")
+    (string 5.25).StartsWith("5.25") |> equal true
+
+// TODO: Decimal type (MakeDecimal) not yet supported by Fable Beam
+// [<Fact>]
+// let ``test Conversion string to decimal works`` () =
+//     equal 5.m (decimal "5.0")
+//     equal -5.m (decimal "-5.0")
+//     (string 5.m).StartsWith("5") |> equal true
+//     equal 5.25m (decimal "5.25")
+//     (string 5.25m).StartsWith("5.25") |> equal true
+
+[<Fact>]
+let ``test Conversion char to int works`` () =
+    equal 97 (int 'a')
+    equal 'a' (char 97)
+
+[<Fact>]
+let ``test Conversion string to char works`` () =
+    equal 'a' (char "a")
+    equal "a" (string 'a')
+
+// --- String.Trim with special chars ---
+
+[<Fact>]
+let ``test String.Trim with special chars works`` () =
+    @"()[]{}abc/.?*+-^$|\".Trim(@"()[]{}/.?*+-^$|\".ToCharArray())
+    |> equal "abc"
+
+// --- String.StartsWith / EndsWith with ignoreCase boolean ---
+
+[<Fact>]
+let ``test String.StartsWith with ignoreCase boolean works`` () =
+    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    for arg in args do
+        "ABCD".StartsWith(fst arg, true, System.Globalization.CultureInfo.InvariantCulture)
+        |> equal (snd arg)
+
+[<Fact>]
+let ``test String.EndsWith with ignoreCase boolean works`` () =
+    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
+    for arg in args do
+        "ABCD".EndsWith(fst arg, true, System.Globalization.CultureInfo.InvariantCulture)
+        |> equal (snd arg)
+
+// --- String.Substring error tests ---
+
+[<Fact>]
+let ``test String.Substring throws error if startIndex or length are out of bounds`` () =
+    let throws f =
+        try f () |> ignore; false
+        with _ -> true
+    throws (fun _ -> "abcdefg".Substring(20)) |> equal true
+    throws (fun _ -> "abcdefg".Substring(2, 10)) |> equal true
+
+// --- String.Join additional tests ---
+
+[<Fact>]
+let ``test String.Join works with chars`` () =
+    [0..10]
+    |> List.map (fun _ -> '*')
+    |> fun chars -> System.String.Join("", chars)
+    |> equal "***********"
+
+[<Fact>]
+let ``test String.Join with single argument works`` () =
+    System.String.Join(",", "abc") |> equal "abc"
+    System.String.Join(",", [|"abc"|]) |> equal "abc"
+    System.String.Join(",", ["abc"]) |> equal "abc"
+
+// TODO: BigInt ToString() doesn't produce correct string representation for String.Join on Beam
+// [<Fact>]
+// let ``test String.Join with big integers works`` () =
+//     System.String.Join("--", [|3I; 5I|])
+//     |> equal "3--5"
+
+// --- System.Environment.NewLine ---
+
+#if FABLE_COMPILER
+[<Fact>]
+let ``test System.Environment.NewLine works`` () =
+    System.Environment.NewLine
+    |> equal "\n"
+#endif
+
 // --- Array slicing ---
 
 [<Fact>]

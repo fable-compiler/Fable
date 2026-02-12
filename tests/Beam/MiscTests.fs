@@ -820,3 +820,81 @@ let ``test lambdas returning member expression accessing anon record work`` () =
 //     foo.x |> equal 3
 //     foo.x <- 1
 //     foo.x |> equal 1
+
+// --- Unchecked.defaultof tests ---
+
+[<Fact>]
+let ``test Unchecked.defaultof works`` () =
+    Unchecked.defaultof<int> |> equal 0
+    Unchecked.defaultof<int64> |> equal 0L
+    Unchecked.defaultof<bool> |> equal false
+
+// TODO: Unchecked.defaultof<string> returns empty binary on Beam, not null/undefined
+// Unchecked.defaultof<string> |> equal null
+
+// TODO: Unchecked.defaultof for struct tuples not yet supported on Beam
+// [<Fact>]
+// let ``test Unchecked.defaultof works with tuples`` () =
+//     let x: struct (int*int) = Unchecked.defaultof<_>
+//     equal (struct (0, 0)) x
+
+// --- Internal members tests ---
+
+module Internal =
+    let internal add x y = x + y
+
+    type internal MyType =
+        static member Subtract x y = x - y
+
+[<Fact>]
+let ``test Internal members can be accessed from other modules`` () =
+    Internal.add 3 2 |> equal 5
+
+[<Fact>]
+let ``test Internal types can be accessed from other modules`` () =
+    Internal.MyType.Subtract 3 2 |> equal 1
+
+// --- Binding/shadowing tests ---
+
+let f8 a b = a + b
+let mutable topA = 10
+
+module B =
+    let c = topA
+    do topA <- topA + 5
+    let mutable a = 20
+    let d = f8 2 2
+    let f8 a b = a - b
+
+    module D =
+        let d = a
+        do a <- a + 5
+        let e = f8 2 2
+
+[<Fact>]
+let ``test Binding doesn't shadow top-level values`` () =
+    equal 10 B.c
+    equal 20 B.D.d
+
+[<Fact>]
+let ``test Binding doesn't shadow top-level functions`` () =
+    equal 4 B.d
+    equal 0 B.D.e
+
+// TODO: Module-level `do` side effects on mutable values don't execute during Erlang module load
+// [<Fact>]
+// let ``test Setting a top-level value doesn't alter values at same level`` () =
+//     equal 15 topA
+//     equal 25 B.a
+
+// TODO: Recursive value bindings use Lazy internally, which is not yet supported by Fable Beam
+// let mutable recMutableValue = 0
+// let rec recursive1 = delay (fun () -> recursive2())
+// and recursive2 =
+//     recMutableValue <- 5
+//     fun () -> recMutableValue <- recMutableValue * 2
+// [<Fact>]
+// let ``test Recursive values work`` () =
+//     recMutableValue |> equal 5
+//     recursive1()
+//     recMutableValue |> equal 10
