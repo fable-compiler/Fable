@@ -722,13 +722,12 @@ let ``test Array.compareWith works`` () =
 
 // --- System.Array ---
 
-// TODO: System.Array.IndexOf with union types requires equality dispatch
-// [<Fact>]
-// let ``test System.Array.IndexOf works with non-primitive types`` () =
-//     let myArray = [|Duck 5|]
-//     System.Array.IndexOf(myArray, Duck 3) |> equal -1
-//     System.Array.IndexOf(myArray, Dog 5) |> equal -1
-//     System.Array.IndexOf(myArray, Duck 5) |> equal 0
+[<Fact>]
+let ``test System.Array.IndexOf works with non-primitive types`` () =
+    let myArray = [|Duck 5|]
+    System.Array.IndexOf(myArray, Duck 3) |> equal -1
+    System.Array.IndexOf(myArray, Dog 5) |> equal -1
+    System.Array.IndexOf(myArray, Duck 5) |> equal 0
 
 // --- Additional tests ported from JS ---
 

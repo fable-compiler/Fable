@@ -177,13 +177,12 @@ let ``test HashSet iteration with for-in works`` () =
         sum <- sum + v
     sum |> equal 6
 
-// TODO: Seq.fold on HashSet requires IEnumerable conversion
-// [<Fact>]
-// let ``test HashSet folding works`` () =
-//     let hs = HashSet<int>()
-//     for i in 1 .. 10 do hs.Add(i) |> ignore
-//     hs |> Seq.fold (fun acc item -> acc + item) 0
-//     |> equal 55
+[<Fact>]
+let ``test HashSet folding works`` () =
+    let hs = HashSet<int>()
+    for i in 1 .. 10 do hs.Add(i) |> ignore
+    hs |> Seq.fold (fun acc item -> acc + item) 0
+    |> equal 55
 
 [<Fact>]
 let ``test HashSet sum via iteration works`` () =

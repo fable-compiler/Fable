@@ -25,8 +25,22 @@
 %%   fun acc x -> acc + x  =>  fun(Acc) -> fun(X) -> Acc + X end end
 %% So we use curried application: (Fn(Acc))(Item) instead of Fn(Acc, Item).
 
-fold(Fn, State, List) ->
-    lists:foldl(fun(Item, Acc) -> (Fn(Acc))(Item) end, State, List).
+fold(Fn, State, List) when is_list(List) ->
+    lists:foldl(fun(Item, Acc) -> (Fn(Acc))(Item) end, State, List);
+fold(Fn, State, Ref) when is_reference(Ref) ->
+    %% Process dict ref (HashSet, ResizeArray): extract underlying data
+    fold(Fn, State, ref_to_list(Ref));
+fold(Fn, State, Map) when is_map(Map) ->
+    %% HashSet internal map: iterate over keys
+    fold(Fn, State, maps:keys(Map)).
+
+%% Convert a process dict ref to a list for iteration.
+ref_to_list(Ref) ->
+    Inner = get(Ref),
+    case Inner of
+        L when is_list(L) -> L;         %% ResizeArray
+        M when is_map(M) -> maps:keys(M) %% HashSet
+    end.
 
 fold_back(Fn, List, State) ->
     lists:foldr(fun(Item, Acc) -> (Fn(Item))(Acc) end, State, List).
