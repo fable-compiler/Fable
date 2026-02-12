@@ -611,3 +611,121 @@ let ``test List.compareWith works`` () =
     List.compareWith compare xs ys |> equal -1
     List.compareWith compare xs zs |> equal 1
 
+[<Fact>]
+let ``test List.empty works`` () =
+    let xs = List.empty<int>
+    List.length xs
+    |> equal 0
+
+[<Fact>]
+let ``test xs.Head works`` () =
+    let xs = [1; 2; 3; 4]
+    equal 1 xs.Head
+
+[<Fact>]
+let ``test xs.Tail works`` () =
+    let xs = [1; 2; 3; 4]
+    equal 2 xs.Tail.Head
+
+[<Fact>]
+let ``test List cons works II`` () =
+    let li = [1;2;3;4;5]
+    let li2 = li.Tail
+    let li3 = [8;9;11] @ li2
+    let li3b = [20;16] @ li3.Tail
+    let li4 = 14 :: li3b
+    li4.[1] |> equal 20
+    li4.[3] |> equal 9
+    List.length li4 |> equal 9
+    List.sum li4 |> equal 84
+
+[<Fact>]
+let ``test List.append works II`` () =
+    let li = [1;2;3;4;5]
+    let li2 = li.Tail
+    let li3 = [8;9;11] @ li2
+    let li3b = [20;16] @ li3.Tail
+    let li4 = li3b @ li2
+    li4.[1] |> equal 16
+    li4.[9] |> equal 3
+    List.length li4 |> equal 12
+    List.sum li4 |> equal 84
+
+[<Fact>]
+let ``test List.append works with empty list`` () =
+    let li = [{| value = 2|}; {| value = 4|};]
+    let li = li @ []
+    let li = [] @ li
+    li
+    |> Seq.map (fun x -> 20 / x.value)
+    |> Seq.sum
+    |> equal 15
+
+[<Fact>]
+let ``test Some [] works`` () =
+    let xs: int list option = Some []
+    let ys: int list option = None
+    Option.isSome xs |> equal true
+    Option.isNone ys |> equal true
+
+[<Fact>]
+let ``test List.Equals works`` () =
+    let xs = [1;2;3]
+    xs.Equals(xs) |> equal true
+
+[<Fact>]
+let ``test Implicit yields work`` () =
+    let makeList condition =
+        [
+            1
+            2
+            if condition then
+                3
+        ]
+    makeList true |> List.sum |> equal 6
+    makeList false |> List.sum |> equal 3
+
+[<Fact>]
+let ``test List comprehensions returning None work`` () =
+    let spam : string option list = [for _ in 0..5 -> None]
+    List.length spam |> equal 6
+
+[<Fact>]
+let ``test List.collect works II`` () =
+    let xs = ["a"; "fable"; "bar" ]
+    xs
+    |> List.collect (fun a -> [a.Length])
+    |> equal [1; 5; 3]
+
+[<Fact>]
+let ``test List.contains lambda doesn't clash`` () =
+    let modifyList current x =
+        let contains = current |> List.contains x
+        match contains with
+            | true -> current |> (List.filter (fun a -> a <> x))
+            | false -> x::current
+    let l = [1;2;3;4]
+    (modifyList l 1) |> List.contains 1 |> equal false
+    (modifyList l 5) |> List.contains 5 |> equal true
+
+[<Fact>]
+let ``test List.Item throws exception when index is out of range`` () =
+    let xs = [0]
+    (try (xs.Item 1) |> ignore; false with | _ -> true) |> equal true
+
+// TODO: List.GetSlice not yet supported by Fable Beam
+// [<Fact>]
+// let ``test List slice works`` () =
+//     let xs = [1; 2; 3; 4]
+//     xs.[..2] |> List.sum |> equal 6
+//     xs.[2..] |> List.sum |> equal 7
+//     xs.[1..2] |> List.sum |> equal 5
+
+[<Fact>]
+let ``test List.groupBy maintains order`` () =
+    let xs = [ 0,5; 1,5; 2,5; 3,5; 0,6; 1,6; 2,6; 3,6 ]
+    let mapped = xs |> List.take 4 |> List.map (fun (x,y) -> x, [x,y; x,y+1])
+    let grouped = xs |> List.groupBy fst
+    grouped |> equal mapped
+
+
