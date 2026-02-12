@@ -487,6 +487,86 @@ let ``test sprintf works`` () =
 let ``test sprintf without arguments works`` () =
     sprintf "hello" |> equal "hello"
 
+[<Fact>]
+let ``test sprintf works II`` () =
+    let printer2 = sprintf "Hi %s, good %s%s" "Maxime"
+    let printer2 = printer2 "afternoon"
+    printer2 "?" |> equal "Hi Maxime, good afternoon?"
+
+[<Fact>]
+let ``test sprintf displays sign correctly`` () =
+    sprintf "%i" 1 |> equal "1"
+    sprintf "%d" 1 |> equal "1"
+    sprintf "%d" 1L |> equal "1"
+    sprintf "%.2f" 1. |> equal "1.00"
+    sprintf "%i" -1 |> equal "-1"
+    sprintf "%d" -1 |> equal "-1"
+    sprintf "%d" -1L |> equal "-1"
+    sprintf "%.2f" -1. |> equal "-1.00"
+
+[<Fact>]
+let ``test sprintf with different decimal digits works`` () =
+    sprintf "Percent: %.0f%%" 5.0 |> equal "Percent: 5%"
+    sprintf "Percent: %.2f%%" 5. |> equal "Percent: 5.00%"
+    sprintf "Percent: %.1f%%" 5.24 |> equal "Percent: 5.2%"
+    sprintf "Percent: %.2f%%" 5.268 |> equal "Percent: 5.27%"
+    sprintf "Percent: %f%%" 5.67 |> equal "Percent: 5.670000%"
+
+[<Fact>]
+let ``test sprintf "%X" works`` () =
+    sprintf "255: %X" 255 |> equal "255: FF"
+    sprintf "255: %x" 255 |> equal "255: ff"
+    sprintf "4095L: %X" 4095L |> equal "4095L: FFF"
+
+// TODO: Negative hex formatting requires two's complement masking which isn't implemented
+// sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
+// sprintf "-4095L: %X" -4095L |> equal "-4095L: FFFFFFFFFFFFF001"
+
+[<Fact>]
+let ``test sprintf integers with sign and padding works`` () =
+    sprintf "%+04i" 1 |> equal "+001"
+    sprintf "%+04i" -1 |> equal "-001"
+    sprintf "%5d" -5 |> equal "   -5"
+    sprintf "%5d" -5L |> equal "   -5"
+    sprintf "%- 4i" 5 |> equal " 5  "
+
+[<Fact>]
+let ``test failwithf works`` () =
+    let mutable exceptionRaised = false
+    try
+        failwithf "Error: %s %d" "test" 42
+    with
+    | ex ->
+        exceptionRaised <- true
+        ex.Message |> equal "Error: test 42"
+    exceptionRaised |> equal true
+
+[<Fact>]
+let ``test interpolate works`` () =
+    let name = "Phillip"
+    let age = 29
+    $"Name: %s{name}, Age: %i{age}"
+    |> equal "Name: Phillip, Age: 29"
+
+[<Fact>]
+let ``test string interpolation works with anonymous records`` () =
+    let person =
+        {|
+            Name = "John"
+            Surname = "Doe"
+            Age = 32
+            Country = "The United Kingdom"
+        |}
+    $"Hi! My name is %s{person.Name} %s{person.Surname.ToUpper()}. I'm %i{person.Age} years old and I'm from %s{person.Country}!"
+    |> equal "Hi! My name is John DOE. I'm 32 years old and I'm from The United Kingdom!"
+
+[<Fact>]
+let ``test String.concat with long array works`` () =
+    let n = 1_000
+    let a = Array.init n (fun _i -> "a")
+    let s = String.concat "" a
+    s.Length |> equal n
+
 // TODO: StringBuilder requires class/object support beyond current Beam capabilities
 // [<Fact>]
 // let ``test StringBuilder works`` () =

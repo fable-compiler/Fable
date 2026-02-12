@@ -420,7 +420,21 @@ build_curried([Part | RestParts], [Spec | RestSpecs], Cont, Acc) ->
 format_value(Spec, Value) ->
     {Flags, Width, Prec, Type} = parse_spec_parts(Spec),
     Raw = format_raw(Type, Prec, Value),
-    apply_width(Flags, Width, Raw).
+    WithSign = apply_sign_flag(Flags, Raw, Value),
+    apply_width(Flags, Width, WithSign).
+
+%% apply_sign_flag/3 — Apply '+' or ' ' flag for numeric values.
+apply_sign_flag(Flags, Raw, Value) ->
+    IsNeg = case Raw of <<$-, _/binary>> -> true; _ -> false end,
+    case {IsNeg, lists:member($+, Flags)} of
+        {false, true} when is_number(Value) -> <<$+, Raw/binary>>;
+        {false, false} ->
+            case lists:member($\s, Flags) of
+                true when is_number(Value) -> <<$\s, Raw/binary>>;
+                _ -> Raw
+            end;
+        _ -> Raw
+    end.
 
 %% parse_spec_parts/1 — Parse "%[flags][width][.prec]type" into components.
 parse_spec_parts([$% | Rest]) ->
@@ -458,7 +472,15 @@ format_raw($s, _Prec, Value) ->
     to_string(Value);
 format_raw($f, Prec, Value) ->
     P = if Prec < 0 -> 6; true -> Prec end,
-    iolist_to_binary(io_lib:format("~.*f", [P, float(Value)]));
+    F = float(Value),
+    case P of
+        0 ->
+            %% Erlang's io_lib:format doesn't support precision 0 for ~f
+            %% So we round manually and format as integer
+            integer_to_binary(erlang:round(F));
+        _ ->
+            iolist_to_binary(io_lib:format("~.*f", [P, F]))
+    end;
 format_raw($F, Prec, Value) ->
     format_raw($f, Prec, Value);
 format_raw($e, Prec, Value) ->
@@ -530,11 +552,32 @@ apply_width(Flags, Width, Str) when Width > 0 ->
         Len >= Width -> Str;
         true ->
             Pad = Width - Len,
-            PadChar = case lists:member($0, Flags) of true -> $0; false -> $  end,
-            PadStr = list_to_binary(lists:duplicate(Pad, PadChar)),
-            case lists:member($-, Flags) of
-                true -> <<Str/binary, PadStr/binary>>;
-                false -> <<PadStr/binary, Str/binary>>
+            ZeroPad = lists:member($0, Flags),
+            case {ZeroPad, lists:member($-, Flags)} of
+                {true, false} ->
+                    %% Zero-padding: sign/prefix goes before zeros
+                    case Str of
+                        <<$+, Rest/binary>> ->
+                            PadStr = list_to_binary(lists:duplicate(Pad, $0)),
+                            <<$+, PadStr/binary, Rest/binary>>;
+                        <<$-, Rest/binary>> ->
+                            PadStr = list_to_binary(lists:duplicate(Pad, $0)),
+                            <<$-, PadStr/binary, Rest/binary>>;
+                        <<$\s, Rest/binary>> ->
+                            PadStr = list_to_binary(lists:duplicate(Pad, $0)),
+                            <<$\s, PadStr/binary, Rest/binary>>;
+                        _ ->
+                            PadStr = list_to_binary(lists:duplicate(Pad, $0)),
+                            <<PadStr/binary, Str/binary>>
+                    end;
+                {_, true} ->
+                    %% Left-aligned (- flag)
+                    PadStr = list_to_binary(lists:duplicate(Pad, $\s)),
+                    <<Str/binary, PadStr/binary>>;
+                _ ->
+                    %% Right-aligned with spaces
+                    PadStr = list_to_binary(lists:duplicate(Pad, $\s)),
+                    <<PadStr/binary, Str/binary>>
             end
     end;
 apply_width(_, _, Str) -> Str.
