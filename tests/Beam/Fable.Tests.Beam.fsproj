@@ -62,6 +62,7 @@
     <Compile Include="MiscTests.fs" />
     <Compile Include="TimeSpanTests.fs" />
     <Compile Include="DateTimeTests.fs" />
+    <Compile Include="UriTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

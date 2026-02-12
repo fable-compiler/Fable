@@ -455,6 +455,8 @@ let private objects
         | DeclaredType(ent, _) when ent.FullName = Types.datetime ->
             Helper.LibCall(_com, "fable_date", "to_string", t, [ thisObj ], ?loc = r)
             |> Some
+        | DeclaredType(ent, _) when ent.FullName = "System.Uri" ->
+            Helper.LibCall(_com, "fable_uri", "to_string", t, [ thisObj ], ?loc = r) |> Some
         | _ ->
             Helper.LibCall(_com, "fable_convert", "to_string", t, [ thisObj ], ?loc = r)
             |> Some
@@ -3029,6 +3031,84 @@ let private dates
         | None -> None
     | _ -> None
 
+/// Beam-specific System.Uri replacements.
+/// Uri is represented as an Erlang map with parsed components.
+let private uris
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName with
+    | ".ctor" -> Helper.LibCall(com, "fable_uri", "create", t, args, ?loc = r) |> Some
+    | "TryCreate" -> Helper.LibCall(com, "fable_uri", "try_create", t, args, ?loc = r) |> Some
+    | "ToString" ->
+        match thisArg with
+        | Some callee -> Helper.LibCall(com, "fable_uri", "to_string", t, [ callee ], ?loc = r) |> Some
+        | None -> None
+    | "get_IsAbsoluteUri" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_uri", "is_absolute_uri", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Scheme" ->
+        match thisArg with
+        | Some callee -> Helper.LibCall(com, "fable_uri", "scheme", t, [ callee ], ?loc = r) |> Some
+        | None -> None
+    | "get_Host" ->
+        match thisArg with
+        | Some callee -> Helper.LibCall(com, "fable_uri", "host", t, [ callee ], ?loc = r) |> Some
+        | None -> None
+    | "get_AbsolutePath" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_uri", "absolute_path", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_AbsoluteUri" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_uri", "absolute_uri", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_PathAndQuery" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_uri", "path_and_query", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Query" ->
+        match thisArg with
+        | Some callee -> Helper.LibCall(com, "fable_uri", "query", t, [ callee ], ?loc = r) |> Some
+        | None -> None
+    | "get_Fragment" ->
+        match thisArg with
+        | Some callee -> Helper.LibCall(com, "fable_uri", "fragment", t, [ callee ], ?loc = r) |> Some
+        | None -> None
+    | "get_OriginalString" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_uri", "original_string", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Port" ->
+        match thisArg with
+        | Some callee -> Helper.LibCall(com, "fable_uri", "port", t, [ callee ], ?loc = r) |> Some
+        | None -> None
+    | "Equals" ->
+        match thisArg with
+        | Some callee -> equals r true callee args.Head |> Some
+        | None -> None
+    | "GetHashCode" ->
+        match thisArg with
+        | Some callee -> emitExpr r t [ callee ] "erlang:phash2($0)" |> Some
+        | None -> None
+    | _ -> None
+
 /// Beam-specific System.TimeSpan replacements.
 /// TimeSpan is represented as an integer of ticks (100-nanosecond units).
 let private timeSpans
@@ -3421,6 +3501,7 @@ let tryCall
     | Types.guid -> guids com ctx r t info thisArg args
     | "System.Random" -> randoms com ctx r t info thisArg args
     | Types.datetime -> dates com ctx r t info thisArg args
+    | "System.Uri" -> uris com ctx r t info thisArg args
     | Types.timespan -> timeSpans com ctx r t info thisArg args
     | "System.Globalization.CultureInfo" ->
         match info.CompiledName with
