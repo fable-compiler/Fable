@@ -83,7 +83,7 @@ to_base64(Bin) when is_binary(Bin) ->
     base64:encode(Bin).
 
 from_base64(Str) when is_binary(Str) ->
-    binary_to_list(base64:decode(Str)).
+    base64:decode(Str).
 
 %% Boolean.Parse - case insensitive, trims whitespace
 boolean_parse(Bin) when is_binary(Bin) ->

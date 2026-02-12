@@ -1528,8 +1528,18 @@ let private arrays
     (thisArg: Expr option)
     (args: Expr list)
     =
+    let isByteArray =
+        match thisArg with
+        | Some c ->
+            match c.Type with
+            | Type.Array(Type.Number(UInt8, _), _) -> true
+            | _ -> false
+        | None -> false
+
     match info.CompiledName, thisArg, args with
+    | "get_Length", Some c, _ when isByteArray -> emitExpr r t [ c ] "byte_size($0)" |> Some
     | "get_Length", Some c, _ -> emitExpr r t [ c ] "length($0)" |> Some
+    | "get_Item", Some c, [ idx ] when isByteArray -> emitExpr r t [ c; idx ] "binary:at($0, $1)" |> Some
     | "get_Item", Some c, [ idx ] -> emitExpr r t [ c; idx ] "lists:nth($1 + 1, $0)" |> Some
     // System.Array.Copy(source, dest, length) — copy first N elements
     | "Copy", None, [ src; _dest; len ] -> emitExpr r t [ src; len ] "lists:sublist($0, $1)" |> Some
@@ -2834,7 +2844,10 @@ let tryCall
     | "System.Decimal" -> numericTypes com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicFunctions" ->
         match info.CompiledName, args with
-        | "GetArray", [ ar; idx ] -> emitExpr r t [ ar; idx ] "lists:nth($1 + 1, $0)" |> Some
+        | "GetArray", [ ar; idx ] ->
+            match ar.Type with
+            | Type.Array(Type.Number(UInt8, _), _) -> emitExpr r t [ ar; idx ] "binary:at($0, $1)" |> Some
+            | _ -> emitExpr r t [ ar; idx ] "lists:nth($1 + 1, $0)" |> Some
         | "GetString", [ ar; idx ] -> emitExpr r t [ ar; idx ] "binary:at($0, $1)" |> Some
         | ("UnboxFast" | "UnboxGeneric" | "CheckThis"), [ arg ] -> TypeCast(arg, t) |> Some
         | _ -> None

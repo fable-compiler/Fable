@@ -1155,7 +1155,7 @@ module AST =
         | Beam ->
             // Beam library modules use fable_ prefix with snake_case (e.g., "Option" -> "fable_option")
             let beamModuleName =
-                if moduleName.StartsWith("fable_") then
+                if moduleName.StartsWith("fable_", System.StringComparison.Ordinal) then
                     moduleName
                 else
                     "fable_"

@@ -886,12 +886,28 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         let tailExpr = transformExpr com ctx tail
         Beam.ErlExpr.ListCons(headExpr, tailExpr)
 
+    | NewArray(ArrayValues values, Type.Number(UInt8, _), _kind) ->
+        // byte[] → Erlang binary <<v1, v2, ...>>
+        match values with
+        | [] -> Beam.ErlExpr.Emit("<<>>", [])
+        | _ ->
+            let erlValues = values |> List.map (transformExpr com ctx)
+            let hoisted, cleanValues = hoistBlocksFromArgs erlValues
+
+            Beam.ErlExpr.Call(None, "list_to_binary", [ Beam.ErlExpr.List cleanValues ])
+            |> wrapWithHoisted hoisted
+
     | NewArray(ArrayValues values, _typ, _kind) ->
         let erlValues = values |> List.map (transformExpr com ctx)
         let hoisted, cleanValues = hoistBlocksFromArgs erlValues
         Beam.ErlExpr.List cleanValues |> wrapWithHoisted hoisted
 
     | NewArray(ArrayFrom expr, _typ, _kind) -> transformExpr com ctx expr
+
+    | NewArray(ArrayAlloc size, Type.Number(UInt8, _), _kind) ->
+        // byte[] zero-alloc → binary of N zero bytes
+        let erlSize = transformExpr com ctx size
+        Beam.ErlExpr.Call(Some "binary", "copy", [ Beam.ErlExpr.Emit("<<0>>", []); erlSize ])
 
     | NewArray(ArrayAlloc size, _typ, _kind) ->
         // Create an array of N zeros: lists:duplicate(N, 0)
@@ -1245,6 +1261,9 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
         let erlIndex = transformExpr com ctx indexExpr
 
         match expr.Type with
+        | Fable.AST.Fable.Type.Array(Fable.AST.Fable.Type.Number(UInt8, _), _) ->
+            // byte[] (Erlang binary): binary:at(Bin, Idx)
+            Beam.ErlExpr.Call(Some "binary", "at", [ erlExpr; erlIndex ])
         | Fable.AST.Fable.Type.Array _ ->
             // Array (Erlang list): lists:nth is 1-based, F# is 0-based
             Beam.ErlExpr.Call(
