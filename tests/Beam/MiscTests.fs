@@ -47,6 +47,22 @@ let execMaybe a = maybe {
     return c
 }
 
+// Units of measure
+[<Measure>] type km
+[<Measure>] type mi
+[<Measure>] type h
+
+[<Measure>] type Measure1
+[<Measure>] type Measure2 = Measure1
+
+type MeasureTest() =
+    member _.Method(x: float<Measure2>) = x
+
+type Vector3D<[<Measure>] 'u> =
+    { x: float<'u>; y: float<'u>; z: float<'u> }
+    static member (+) (v1: Vector3D<'u>, v2: Vector3D<'u>) =
+        { x = v1.x + v2.x; y = v1.y + v2.y; z = v1.z + v2.z }
+
 // Inline functions
 let inline f x y = x + y
 let inline sum x = fun y -> x + y
@@ -898,3 +914,26 @@ let ``test Binding doesn't shadow top-level functions`` () =
 //     recMutableValue |> equal 5
 //     recursive1()
 //     recMutableValue |> equal 10
+
+// --- More tests ported from Python ---
+
+[<Fact>]
+let ``test Units of measure work`` () =
+    3<km/h> + 2<km/h> |> equal 5<km/h>
+
+[<Fact>]
+let ``test Units of measure work with vectors`` () =
+    let v1 = { x = 4.3<mi>; y = 5.<mi>; z = 2.8<mi> }
+    let v2 = { x = 5.6<mi>; y = 3.8<mi>; z = 0.<mi> }
+    let v3 = v1 + v2
+    equal 8.8<mi> v3.y
+
+[<Fact>]
+let ``test Units of measure work with longs`` () =
+    3L<km/h> + 2L<km/h> |> equal 5L<km/h>
+
+[<Fact>]
+let ``test Abbreviated measures work`` () =
+    let x = 5.<Measure1>
+    let c = MeasureTest()
+    c.Method(5.<Measure2>) |> equal x

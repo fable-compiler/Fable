@@ -65,3 +65,38 @@ let ``test Tuple as function return works`` () =
     let (q, r) = divRem 10 3
     q |> equal 3
     r |> equal 1
+
+[<Fact>]
+let ``test Tuple dereferencing can be generated`` () =
+    let x = 10, true
+    let y, z = x
+    equal 10 y
+    equal true z
+
+// TODO: System.Tuple.Item1/Item2 not supported in Beam
+// [<Fact>]
+// let ``test Tuple Item1 and Item2 work`` () =
+//     let t = (1, 2)
+//     t.Item1 |> equal 1
+//     t.Item2 |> equal 2
+
+[<Fact>]
+let ``test struct tuples work`` () =
+    let t = struct (1, 2)
+    let (struct (a, b)) = t
+    a |> equal 1
+    b |> equal 2
+
+[<Fact>]
+let ``test Tuple map works`` () =
+    let f (a, b) = (a * 2, b + 1)
+    let (x, y) = f (3, 4)
+    x |> equal 6
+    y |> equal 5
+
+[<Fact>]
+let ``test Tuple comparison works`` () =
+    (1, 2) < (1, 3) |> equal true
+    (1, 2) < (2, 1) |> equal true
+    (1, 2) > (1, 1) |> equal true
+    (1, 2) >= (1, 2) |> equal true

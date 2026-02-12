@@ -5,7 +5,7 @@
     insert/3, insert_range/3,
     get_range/3,
     index_of/2, index_of/3,
-    find/2, find_last/2, find_all/2, find_index/2, find_last_index/2,
+    find/3, find_last/2, find_all/2, find_index/2, find_last_index/2,
     exists/2,
     sort_with/2,
     for_each/2,
@@ -72,12 +72,12 @@ index_of_impl([], _Item, _Idx) -> -1;
 index_of_impl([Item | _], Item, Idx) -> Idx;
 index_of_impl([_ | Rest], Item, Idx) -> index_of_impl(Rest, Item, Idx + 1).
 
-%% Find first matching predicate
-find(_Pred, []) -> erlang:error(<<"Key not found">>);
-find(Pred, [H | T]) ->
+%% Find first matching predicate, return Default when not found
+find(_Pred, [], Default) -> Default;
+find(Pred, [H | T], Default) ->
     case Pred(H) of
         true -> H;
-        false -> find(Pred, T)
+        false -> find(Pred, T, Default)
     end.
 
 %% Find last matching predicate

@@ -728,4 +728,58 @@ let ``test List.groupBy maintains order`` () =
     let grouped = xs |> List.groupBy fst
     grouped |> equal mapped
 
+// --- More tests ported from Python ---
 
+[<Fact>]
+let ``test List.empty works II`` () =
+    let xs = 1 :: List.Empty
+    let ys = 1 :: List.empty
+    xs.Length + ys.Length |> equal 2
+
+[<Fact>]
+let ``test List.ofSeq works`` () =
+    let ys = List.ofSeq <| seq { yield 1; yield 2 }
+    ys.Head |> equal 1
+    ys.Length |> equal 2
+
+[<Fact>]
+let ``test List.length works II`` () =
+    let xs = [1; 2; 3; 4]
+    List.length xs |> equal 4
+
+[<Fact>]
+let ``test List.toSeq works`` () =
+    [1; 2]
+    |> List.toSeq
+    |> Seq.tail |> Seq.head
+    |> equal 2
+
+[<Fact>]
+let ``test List iterators from range do rewind`` () =
+    let xs = [1..5] |> List.toSeq
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+
+[<Fact>]
+let ``test Int list tail doesn't get wrapped with `| 0` ``  () =
+    let revert xs =
+        let rec rev acc (ls: int list) =
+            match ls with
+            | [] -> acc
+            | h::t -> rev (h::acc) t
+        rev [] xs
+    let res = revert [2;3;4]
+    equal 3 res.Length
+    equal 4 res.Head
+
+[<Fact>]
+let ``test List.mapFold works II`` () =
+    let f x y = x,y
+    let xs,_ = List.mapFold f "a" ["b"]
+    equal "a" xs.Head
+
+[<Fact>]
+let ``test List.mapFoldBack works II`` () =
+    let f x y = x,y
+    let xs,_ = List.mapFoldBack f ["a"] "b"
+    equal "a" xs.Head

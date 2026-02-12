@@ -28,6 +28,15 @@ type RecordA =
 type CasingRecord =
     { firstName: string; FirstName: string }
 
+type PersonWithMethods =
+    { name: string; mutable luckyNumber: int }
+    member x.LuckyDay = x.luckyNumber % 30
+    member x.SignDoc str = str + " by " + x.name
+
+type RecordWithProperty =
+    { items: string list }
+    member this.fullName = String.concat " - " this.items
+
 [<Fact>]
 let ``test simple record creation works`` () =
     let p = { Name = "Alice"; Age = 30 }
@@ -146,3 +155,52 @@ let ``test anonymous record equality works`` () =
     equal true (x = y)
     let z = {| Foo = "baz"; Bar = 14 |}
     equal false (x = z)
+
+[<Fact>]
+let ``test Record methods can be generated`` () =
+    let x = { name = "Alfonso"; luckyNumber = 54 }
+    equal 24 x.LuckyDay
+    x.SignDoc "Hello World!"
+    |> equal "Hello World! by Alfonso"
+
+[<Fact>]
+let ``test Record property access uses correct naming`` () =
+    let x = { items = ["Hello"; "World"] }
+    equal "Hello - World" x.fullName
+
+[<Fact>]
+let ``test Anonymous records can have optional fields`` () =
+    let add (o: {| bar: int option; zas: string option; foo: int option option |}) =
+        let bar = o.bar |> Option.map string |> Option.defaultValue "-"
+        let zas = defaultArg o.zas ""
+        let foo = match o.foo with Some(Some i) -> string i | Some None -> "xx" | None -> "x"
+        bar + zas + foo
+    {| bar = Some 3; zas = Some "ooooo"; foo = Some None |} |> add |> equal "3oooooxx"
+    {| bar = Some 22; zas = Some ""; foo = Some(Some 999) |} |> add |> equal "22999"
+    {| bar = None; zas = None; foo = None |} |> add |> equal "-x"
+
+[<Fact>]
+let ``test Anonymous record execution order`` () =
+    let mutable x = 2
+    let record =
+        {|
+            C = (x <- x * 3; x)
+            B = (x <- x + 5; x)
+            A = (x <- x / 2; x)
+        |}
+    record.C |> equal 6
+    record.B |> equal 11
+    record.A |> equal 5
+
+[<Fact>]
+let ``test Record with list field works`` () =
+    let r = { items = ["a"; "b"; "c"] }
+    r.items.Length |> equal 3
+    r.items.Head |> equal "a"
+
+[<Fact>]
+let ``test Updating nested record works`` () =
+    let car = { Interior = { Seats = 4 } }
+    let car2 = { car with Interior = { Seats = 5 } }
+    car.Interior.Seats |> equal 4
+    car2.Interior.Seats |> equal 5

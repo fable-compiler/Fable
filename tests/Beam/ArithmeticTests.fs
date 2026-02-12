@@ -577,6 +577,27 @@ let ``test Bitwise shift left with unsigned integer works`` () =
 let ``test UInt64 multiplication with 0 returns uint`` () =
     0x0UL * 0x1UL |> equal 0x0UL
 
+[<Fact>]
+let ``test Bitwise OR on large unsigned integer works`` () =
+    0x80000000u ||| 0u |> equal (0x80000000u ||| 0u >>> 0)
+    0x80000000UL||| 0UL|> equal (0x80000000UL||| 0UL>>> 0)
+
+[<Fact>]
+let ``test Bitwise AND on large unsigned integer works`` () =
+    0x80000000u &&& 0xffffffffu |> equal (0x80000000u &&& 0xffffffffu >>> 0)
+    0x80000000UL&&& 0xffffffffUL|> equal (0x80000000UL&&& 0xffffffffUL>>> 0)
+
+[<Fact>]
+let ``test Bitwise XOR on large unsigned integer works`` () =
+    0x80000000u ^^^ 0u |> equal (0x80000000u ^^^ 0u >>> 0)
+    0x80000000UL^^^ 0UL|> equal (0x80000000UL^^^ 0UL>>> 0)
+
+// TODO: ~~~ on unsigned integers uses LogicalNotDynamic which is not supported by Fable
+// [<Fact>]
+// let ``test Bitwise NOT on large unsigned integer works`` () =
+//     (~~~0x80000000u >>> 0) |> equal ~~~0x80000000u
+//     (~~~0x80000000UL>>> 0) |> equal ~~~0x80000000UL
+
 // TODO: UInt64 shift right requires unsigned masking (Erlang >>> is arithmetic shift)
 // [<Fact>]
 // let ``test UInt64 Bitwise shift right can be generated`` () =
@@ -586,3 +607,13 @@ let ``test UInt64 multiplication with 0 returns uint`` () =
 // [<Fact>]
 // let ``test extreme values work`` () =
 //     0.0 / 0.0 |> Double.IsNaN |> equal true
+
+// --- More tests ported from Python (batch 2) ---
+
+[<Fact>]
+let ``test MathF.Min works`` () =
+    MathF.Min(-4.0f, 3.0f) |> equal -4.0f
+
+[<Fact>]
+let ``test MathF.Max works`` () =
+    MathF.Max(-4.0f, 3.0f) |> equal 3.0f

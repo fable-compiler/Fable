@@ -54,3 +54,41 @@ let ``test nested for loops work`` () =
         for j = 1 to 3 do
             sum <- sum + (i * j)
     sum |> equal 36
+
+[<Fact>]
+let ``test for loop upto minus one works`` () =
+    let mutable result = 0
+    for i = 0 to 10 - 1 do
+        result <- result + i
+    result |> equal 45
+
+[<Fact>]
+let ``test for-in loop over list works`` () =
+    let mutable sum = 0
+    for x in [1; 2; 3; 4; 5] do
+        sum <- sum + x
+    sum |> equal 15
+
+[<Fact>]
+let ``test for-in loop over array works`` () =
+    let mutable sum = 0
+    for x in [| 10; 20; 30 |] do
+        sum <- sum + x
+    sum |> equal 60
+
+// TODO: String.GetEnumerator not supported in Beam
+// [<Fact>]
+// let ``test for-in loop over string works`` () =
+//     let mutable count = 0
+//     for _c in "hello" do
+//         count <- count + 1
+//     count |> equal 5
+
+[<Fact>]
+let ``test while loop with counter works`` () =
+    let mutable x = 10
+    let mutable count = 0
+    while x > 0 do
+        x <- x - 3
+        count <- count + 1
+    count |> equal 4

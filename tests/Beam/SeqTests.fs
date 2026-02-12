@@ -604,3 +604,127 @@ let ``test Seq.range step works`` () =
     |> Seq.reduce (+)
     |> equal 20
     // Float range with step doesn't work: lists:seq only supports integers in Erlang
+
+[<Fact>]
+let ``test Seq.empty works`` () =
+    let xs = Seq.empty<int>
+    Seq.length xs |> equal 0
+
+[<Fact>]
+let ``test Seq.average for empty sequence`` () =
+    let xs = Seq.empty<float>
+    (try Seq.average xs |> ignore; false with | _ -> true) |> equal true
+
+[<Fact>]
+let ``test Seq.averageBy for empty sequence`` () =
+    let xs = Seq.empty<float>
+    (try Seq.averageBy ((*) 2.) xs |> ignore; false with | _ -> true) |> equal true
+
+[<Fact>]
+let ``test Seq.item throws exception when index is out of range`` () =
+    let xs = [0]
+    (try Seq.item 1 xs |> ignore; false with | _ -> true) |> equal true
+
+[<Fact>]
+let ``test Seq.singleton works with None`` () =
+    let xs : int option seq = Seq.singleton None
+    xs |> Seq.length |> equal 1
+
+[<Fact>]
+let ``test Seq.collect works with Options`` () =
+    let xss = [[Some 1; Some 2]; [None; Some 3]]
+    Seq.collect id xss
+    |> Seq.sumBy (function
+        | Some n -> n
+        | None -> 0
+    )
+    |> equal 6
+
+    seq {
+        for xs in xss do
+            for x in xs do
+                x
+    }
+    |> Seq.length
+    |> equal 4
+
+[<Fact>]
+let ``test Seq.cast works`` () =
+    let xs = [box 1; box 2; box 3]
+    let ys = Seq.cast<int> xs
+    ys |> Seq.head |> equal 1
+
+[<Fact>]
+let ``test Seq.skip fails when there're not enough elements`` () =
+    let error, xs = ref false, [|1;2;3;4;5|]
+    try
+        Seq.skip 5 xs |> Seq.length |> equal 0
+    with _ -> error.Value <- true
+    equal false error.Value
+    try
+        Seq.skip 6 xs |> Seq.length |> equal 0
+    with _ -> error.Value <- true
+    equal true error.Value
+
+[<Fact>]
+let ``test Seq.filter doesn't blow the stack with long sequences`` () =
+    let max = 1000000
+    let a = [| for i in 1 .. max -> 0 |]
+    let b = a |> Seq.filter (fun x -> x > 10) |> Seq.toArray
+    equal 0 b.Length
+
+[<Fact>]
+let ``test Seq.range works with long`` () =
+    seq{1L..5L}
+    |> Seq.reduce (+)
+    |> equal 15L
+
+// TODO: char ranges not yet supported in Beam
+// [<Fact>]
+// let ``test Seq.range works with chars`` () =
+//     seq{'a' .. 'f'}
+//     |> Seq.toArray
+//     |> System.String
+//     |> equal "abcdef"
+
+[<Fact>]
+let ``test Seq.head with option works`` () =
+    let xs = [Some 1.; None]
+    Seq.head xs |> equal (Some 1.)
+    let xs = [None; Some 1.]
+    Seq.head xs |> equal None
+
+// TODO: nested Option .Value.Value accessor doesn't unwrap correctly on Beam
+// [<Fact>]
+// let ``test Seq.tryHead with option works`` () =
+//     let xs = [Some 1.; None]
+//     Seq.tryHead xs |> equal (Some(Some 1.))
+//     let xs = [None; Some 1.]
+//     Seq.tryHead xs |> equal (Some(None))
+
+[<Fact>]
+let ``test seq empty works`` () =
+    let xs = seq { }
+    Seq.isEmpty xs |> equal true
+
+[<Fact>]
+let ``test Seq.iter works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let mutable total = 0.
+    xs |> Seq.iter (fun x -> total <- total + x)
+    total |> equal 10.
+
+[<Fact>]
+let ``test Seq.iteri with index works`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let mutable total = 0.
+    xs |> Seq.iteri (fun i x -> total <- total + (float i) * x)
+    total |> equal 20.
+
+// TODO: Seq.initInfinite not supported in Beam
+// [<Fact>]
+// let ``test Seq.initInfinite works`` () =
+//     Seq.initInfinite (fun i -> 2. * float i)
+//     |> Seq.take 10
+//     |> Seq.sum
+//     |> equal 90.

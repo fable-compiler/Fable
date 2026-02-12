@@ -5,7 +5,9 @@
     is_upper/1, is_lower/1, is_number/1,
     is_whitespace/1, is_control/1,
     is_punctuation/1, is_separator/1, is_symbol/1,
-    char_at/2, parse/1,
+    is_high_surrogate/1, is_low_surrogate/1,
+    is_surrogate/1, is_surrogate_pair/2,
+    char_at/2, parse/1, try_parse/2,
     get_unicode_category/1
 ]).
 
@@ -82,9 +84,33 @@ is_symbol(_) -> false.
 char_at(Str, Idx) ->
     binary:at(Str, Idx).
 
+%% UTF-16 surrogate detection (for .NET compatibility)
+%% High surrogates: U+D800..U+DBFF
+is_high_surrogate(C) when C >= 16#D800, C =< 16#DBFF -> true;
+is_high_surrogate(_) -> false.
+
+%% Low surrogates: U+DC00..U+DFFF
+is_low_surrogate(C) when C >= 16#DC00, C =< 16#DFFF -> true;
+is_low_surrogate(_) -> false.
+
+%% Any surrogate: U+D800..U+DFFF
+is_surrogate(C) when C >= 16#D800, C =< 16#DFFF -> true;
+is_surrogate(_) -> false.
+
+%% Surrogate pair: first is high surrogate, second is low surrogate
+is_surrogate_pair(Hi, Lo) -> is_high_surrogate(Hi) andalso is_low_surrogate(Lo).
+
 %% Parse a single-character string
 parse(<<C/utf8>>) -> C;
 parse(_) -> erlang:error(<<"String must be exactly one character long.">>).
+
+%% TryParse a single-character string (uses process dict out-param)
+try_parse(<<C/utf8>>, OutRef) ->
+    put(OutRef, C),
+    true;
+try_parse(_, OutRef) ->
+    put(OutRef, 0),
+    false.
 
 %% Get Unicode category (simplified - returns integer matching UnicodeCategory enum)
 %% 0=UppercaseLetter, 1=LowercaseLetter, 2=TitlecaseLetter, 3=ModifierLetter,

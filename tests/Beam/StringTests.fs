@@ -836,3 +836,59 @@ let ``test Array slicing with end works`` () =
 let ``test Array slicing with start and end works`` () =
     let arr = [| 1; 2; 3; 4; 5 |]
     arr.[1..3] |> equal [| 2; 3; 4 |]
+
+// --- Additional String tests ported from Python ---
+
+[<Fact>]
+let ``test String.IsNullOrEmpty works`` () =
+    System.String.IsNullOrEmpty("") |> equal true
+    System.String.IsNullOrEmpty(null) |> equal true
+    System.String.IsNullOrEmpty("test") |> equal false
+    System.String.IsNullOrEmpty(" \t") |> equal false
+
+[<Fact>]
+let ``test String.IsNullOrWhiteSpace works`` () =
+    System.String.IsNullOrWhiteSpace("") |> equal true
+    System.String.IsNullOrWhiteSpace(null) |> equal true
+    System.String.IsNullOrWhiteSpace("test") |> equal false
+    System.String.IsNullOrWhiteSpace(" \t") |> equal true
+
+[<Fact>]
+let ``test String.Substring works`` () =
+    "abcdefg".Substring(2) |> equal "cdefg"
+
+[<Fact>]
+let ``test String.Substring with length works`` () =
+    "abcdefg".Substring(2, 3) |> equal "cde"
+
+[<Fact>]
+let ``test String.Remove with start index works`` () =
+    "abcdefg".Remove(2) |> equal "ab"
+
+[<Fact>]
+let ``test String.Remove with count works`` () =
+    "abcdefg".Remove(2, 3) |> equal "abfg"
+
+// TODO: Enumerating strings with for...in + Seq.rev requires IEnumerable support in Beam
+// [<Fact>]
+// let ``test Enumerating string works II`` () =
+//     let mutable res = ""
+//     for c in "HELLO" |> Seq.rev do
+//         res <- res + (string c)
+//     equal "OLLEH" res
+
+[<Fact>]
+let ``test String.filter with Char.IsDigit works`` () =
+    "Hello! 123" |> String.filter System.Char.IsDigit |> equal "123"
+
+[<Fact>]
+let ``test String.ctor char array works`` () =
+    System.String([|'f'; 'a'; 'b'; 'l'; 'e'|]) |> equal "fable"
+
+[<Fact>]
+let ``test String.ctor char count works`` () =
+    System.String('f', 5) |> equal "fffff"
+
+[<Fact>]
+let ``test String.ctor char array with offset works`` () =
+    System.String([|'f'; 'a'; 'b'; 'l'; 'e'|], 1, 3) |> equal "abl"

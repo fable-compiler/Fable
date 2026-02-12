@@ -73,7 +73,7 @@ let private fsFormat
 
 let private operators
     (com: ICompiler)
-    (_ctx: Context)
+    (ctx: Context)
     r
     (_t: Type)
     (info: CallInfo)
@@ -281,10 +281,10 @@ let private operators
     // List append
     | "op_Append", [ left; right ] -> emitExpr r _t [ left; right ] "($0 ++ $1)" |> Some
     // TypeOf: typeof<T> → TypeInfo
-    | "TypeOf", _ -> (genArg com _ctx r 0 info.GenericArgs) |> makeTypeInfo r |> Some
+    | "TypeOf", _ -> (genArg com ctx r 0 info.GenericArgs) |> makeTypeInfo r |> Some
     // Reraise
     | "Reraise", _ ->
-        match _ctx.CaughtException with
+        match ctx.CaughtException with
         | Some ex -> makeThrow r _t (IdentExpr ex) |> Some
         | None -> makeThrow r _t (Value(StringConstant "reraise", None)) |> Some
     // Pow (for Double, via math:pow)
@@ -322,27 +322,32 @@ let private operators
                 Helper.LibCall(com, "fable_date", "op_subtraction", _t, [ left; right ], ?loc = r)
                 |> Some
             | _ -> None
-        // Default: standard arithmetic for numbers
+        // Default: check for custom operator on DeclaredType, then fall back to native ops
         | _ ->
-            match info.CompiledName, args with
-            | Operators.addition, [ left; right ] -> makeBinOp r _t left right BinaryPlus |> Some
-            | Operators.subtraction, [ left; right ] -> makeBinOp r _t left right BinaryMinus |> Some
-            | Operators.multiply, [ left; right ] -> makeBinOp r _t left right BinaryMultiply |> Some
-            | (Operators.division | Operators.divideByInt), [ left; right ] ->
-                makeBinOp r _t left right BinaryDivide |> Some
-            | Operators.modulus, [ left; right ] -> makeBinOp r _t left right BinaryModulus |> Some
-            | Operators.unaryPlus, [ arg ] -> arg |> Some
-            | _ -> None
+            let opName = info.CompiledName
+
+            match (|CustomOp|_|) com ctx r _t opName args argTypes with
+            | Some _ as e -> e
+            | None ->
+                match opName, args with
+                | Operators.addition, [ left; right ] -> makeBinOp r _t left right BinaryPlus |> Some
+                | Operators.subtraction, [ left; right ] -> makeBinOp r _t left right BinaryMinus |> Some
+                | Operators.multiply, [ left; right ] -> makeBinOp r _t left right BinaryMultiply |> Some
+                | (Operators.division | Operators.divideByInt), [ left; right ] ->
+                    makeBinOp r _t left right BinaryDivide |> Some
+                | Operators.modulus, [ left; right ] -> makeBinOp r _t left right BinaryModulus |> Some
+                | Operators.unaryPlus, [ arg ] -> arg |> Some
+                | _ -> None
     | "DefaultAsyncBuilder", _ ->
         Helper.LibCall(com, "fable_async_builder", "singleton", _t, [], ?loc = r)
         |> Some
     | ("PrintFormatToString" | "PrintFormatToStringThen" | "PrintFormat" | "PrintFormatLine" | "PrintFormatToError" | "PrintFormatLineToError" | "PrintFormatThen" | "PrintFormatToStringThenFail"),
-      _ -> fsFormat com _ctx r _t info _thisArg args
+      _ -> fsFormat com ctx r _t info _thisArg args
     | _ -> None
 
 let private languagePrimitives
     (com: ICompiler)
-    (_ctx: Context)
+    (ctx: Context)
     r
     (t: Type)
     (info: CallInfo)
@@ -397,22 +402,28 @@ let private languagePrimitives
         if operation = "op_Explicit" then
             Some arg
         else
-            // For Dynamic ops, map to standard binary operations
-            match operation, args with
-            | "op_Addition", [ left; right ] -> makeBinOp r t left right BinaryPlus |> Some
-            | "op_Subtraction", [ left; right ] -> makeBinOp r t left right BinaryMinus |> Some
-            | "op_Multiply", [ left; right ] -> makeBinOp r t left right BinaryMultiply |> Some
-            | "op_Division", [ left; right ] -> makeBinOp r t left right BinaryDivide |> Some
-            | "op_Modulus", [ left; right ] -> makeBinOp r t left right BinaryModulus |> Some
-            | ("DivideByInt" | Operators.divideByInt), [ left; right ] -> makeBinOp r t left right BinaryDivide |> Some
-            | "op_UnaryNegation", [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, t, r) |> Some
-            | "op_BitwiseAnd", [ left; right ] -> emitExpr r t [ left; right ] "($0 band $1)" |> Some
-            | "op_BitwiseOr", [ left; right ] -> emitExpr r t [ left; right ] "($0 bor $1)" |> Some
-            | "op_ExclusiveOr", [ left; right ] -> emitExpr r t [ left; right ] "($0 bxor $1)" |> Some
-            | "op_LeftShift", [ left; right ] -> emitExpr r t [ left; right ] "($0 bsl $1)" |> Some
-            | "op_RightShift", [ left; right ] -> emitExpr r t [ left; right ] "($0 bsr $1)" |> Some
-            | "op_Explicit", [ arg ] -> Some arg
-            | _ -> None
+            let argTypes = args |> List.map (fun a -> a.Type)
+            // Check for custom operator on DeclaredType before falling back to native ops
+            match (|CustomOp|_|) com ctx r t operation args argTypes with
+            | Some _ as e -> e
+            | None ->
+                // For Dynamic ops, map to standard binary operations
+                match operation, args with
+                | "op_Addition", [ left; right ] -> makeBinOp r t left right BinaryPlus |> Some
+                | "op_Subtraction", [ left; right ] -> makeBinOp r t left right BinaryMinus |> Some
+                | "op_Multiply", [ left; right ] -> makeBinOp r t left right BinaryMultiply |> Some
+                | "op_Division", [ left; right ] -> makeBinOp r t left right BinaryDivide |> Some
+                | "op_Modulus", [ left; right ] -> makeBinOp r t left right BinaryModulus |> Some
+                | ("DivideByInt" | Operators.divideByInt), [ left; right ] ->
+                    makeBinOp r t left right BinaryDivide |> Some
+                | "op_UnaryNegation", [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, t, r) |> Some
+                | "op_BitwiseAnd", [ left; right ] -> emitExpr r t [ left; right ] "($0 band $1)" |> Some
+                | "op_BitwiseOr", [ left; right ] -> emitExpr r t [ left; right ] "($0 bor $1)" |> Some
+                | "op_ExclusiveOr", [ left; right ] -> emitExpr r t [ left; right ] "($0 bxor $1)" |> Some
+                | "op_LeftShift", [ left; right ] -> emitExpr r t [ left; right ] "($0 bsl $1)" |> Some
+                | "op_RightShift", [ left; right ] -> emitExpr r t [ left; right ] "($0 bsr $1)" |> Some
+                | "op_Explicit", [ arg ] -> Some arg
+                | _ -> None
     | "DivideByInt", [ left; right ] -> makeBinOp r t left right BinaryDivide |> Some
     // IntrinsicFunctions within LanguagePrimitives
     | "UnboxFast", [ arg ] -> TypeCast(arg, t) |> Some
@@ -595,6 +606,44 @@ let private chars
         )
         |> Some
     | "Parse", [ str ] -> Helper.LibCall(com, "fable_char", "parse", t, [ str ]) |> Some
+    | "TryParse", _ -> Helper.LibCall(com, "fable_char", "try_parse", t, args, ?loc = r) |> Some
+    | "IsHighSurrogate", [ c ] -> Helper.LibCall(com, "fable_char", "is_high_surrogate", t, [ c ]) |> Some
+    | "IsHighSurrogate", [ str; idx ] ->
+        Helper.LibCall(
+            com,
+            "fable_char",
+            "is_high_surrogate",
+            t,
+            [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ]
+        )
+        |> Some
+    | "IsLowSurrogate", [ c ] -> Helper.LibCall(com, "fable_char", "is_low_surrogate", t, [ c ]) |> Some
+    | "IsLowSurrogate", [ str; idx ] ->
+        Helper.LibCall(
+            com,
+            "fable_char",
+            "is_low_surrogate",
+            t,
+            [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ]
+        )
+        |> Some
+    | "IsSurrogate", [ c ] -> Helper.LibCall(com, "fable_char", "is_surrogate", t, [ c ]) |> Some
+    | "IsSurrogate", [ str; idx ] ->
+        Helper.LibCall(com, "fable_char", "is_surrogate", t, [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ])
+        |> Some
+    | "IsSurrogatePair", [ hi; lo ] -> Helper.LibCall(com, "fable_char", "is_surrogate_pair", t, [ hi; lo ]) |> Some
+    | "IsSurrogatePair", [ str; idx ] ->
+        Helper.LibCall(
+            com,
+            "fable_char",
+            "is_surrogate_pair",
+            t,
+            [
+                emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)"
+                emitExpr r Type.Char [ str; idx ] "binary:at($0, $1 + 1)"
+            ]
+        )
+        |> Some
     | _ -> None
 
 /// Beam-specific string method replacements.
@@ -1257,6 +1306,7 @@ let private lists
     | "get_Tail", Some c -> emitExpr r t [ c ] "tl($0)" |> Some
     | "get_Length", Some c -> emitExpr r t [ c ] "length($0)" |> Some
     | "get_IsEmpty", Some c -> emitExpr r t [ c ] "($0 =:= [])" |> Some
+    | "get_Empty", _ -> Value(NewList(None, t), None) |> Some
     | "get_Item", Some c ->
         match _args with
         | [ idx ] -> emitExpr r t [ c; idx ] "lists:nth($1 + 1, $0)" |> Some
@@ -1433,6 +1483,19 @@ let private stringModule
     | "Filter", [ fn; str ] -> Helper.LibCall(com, "fable_string", "filter", t, [ fn; str ]) |> Some
     | _ -> None
 
+/// Unwrap a ResizeArray (process dictionary ref) to its underlying list.
+/// Needed because Seq operations that use lists:* BIFs directly
+/// can receive a ResizeArray ref instead of a plain list.
+/// ResizeArray<T> is represented as Array(T, ResizeArray) in Fable AST.
+/// Also looks through TypeCast wrappers (e.g., ResizeArray :> seq<_>).
+let rec private unwrapSeqArg r (expr: Expr) =
+    match expr with
+    | TypeCast(innerExpr, _) -> unwrapSeqArg r innerExpr
+    | _ ->
+        match expr.Type with
+        | Array(_, Fable.ResizeArray) -> emitExpr r (List Any) [ expr ] "get($0)"
+        | _ -> expr
+
 /// Beam-specific Seq module replacements.
 /// Sequences in Erlang are represented as eager lists.
 /// Most operations reuse lists:* BIFs or fable_list.erl;
@@ -1449,35 +1512,41 @@ let private seqModule
     match info.CompiledName, args with
     // Cast — erased at runtime (Erlang is dynamically typed)
     | "Cast", [ arg ] -> TypeCast(arg, t) |> Some
-    // Identity conversions — seq is a list in Beam
-    | "ToList", [ seq ] -> Some seq
-    | "ToArray", [ seq ] -> Some seq
+    // Identity conversions — seq is a list in Beam (unwrap ResizeArray refs)
+    | "ToList", [ seq ] -> unwrapSeqArg r seq |> Some
+    | "ToArray", [ seq ] -> unwrapSeqArg r seq |> Some
     | "OfList", [ list ] -> Some list
     | "OfArray", [ arr ] -> Some arr
     // Empty
     | "Empty", _ -> Value(NewList(None, t), None) |> Some
-    // Simple emitExpr (1:1 BIF mappings)
-    | "Head", [ seq ] -> emitExpr r t [ seq ] "hd($0)" |> Some
-    | "Last", [ seq ] -> emitExpr r t [ seq ] "lists:last($0)" |> Some
-    | ("Length" | "Count"), [ seq ] -> emitExpr r t [ seq ] "length($0)" |> Some
-    | "IsEmpty", [ seq ] -> emitExpr r t [ seq ] "($0 =:= [])" |> Some
-    | "Map", [ fn; seq ] -> emitExpr r t [ fn; seq ] "lists:map($0, $1)" |> Some
-    | "Filter", [ fn; seq ] -> emitExpr r t [ fn; seq ] "lists:filter($0, $1)" |> Some
-    | "Reverse", [ seq ] -> emitExpr r t [ seq ] "lists:reverse($0)" |> Some
-    | "Append", [ s1; s2 ] -> emitExpr r t [ s1; s2 ] "lists:append($0, $1)" |> Some
+    // Simple emitExpr (1:1 BIF mappings) — unwrap ResizeArray refs
+    | "Head", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "hd($0)" |> Some
+    | "Last", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:last($0)" |> Some
+    | ("Length" | "Count"), [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "length($0)" |> Some
+    | "IsEmpty", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "($0 =:= [])" |> Some
+    | "Map", [ fn; seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ fn; seq ] "lists:map($0, $1)" |> Some
+    | "Filter", [ fn; seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ fn; seq ] "lists:filter($0, $1)" |> Some
+    | "Reverse", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:reverse($0)" |> Some
+    | "Append", [ s1; s2 ] ->
+        let s1 = unwrapSeqArg r s1
+        let s2 = unwrapSeqArg r s2
+        emitExpr r t [ s1; s2 ] "lists:append($0, $1)" |> Some
     | "Concat", [ seqs ] -> emitExpr r t [ seqs ] "lists:append($0)" |> Some
-    | "Sum", [ seq ] -> emitExpr r t [ seq ] "lists:sum($0)" |> Some
-    | "Contains", [ item; seq ] -> emitExpr r t [ item; seq ] "lists:member($0, $1)" |> Some
-    | "Exists", [ fn; seq ] -> emitExpr r t [ fn; seq ] "lists:any($0, $1)" |> Some
-    | "ForAll", [ fn; seq ] -> emitExpr r t [ fn; seq ] "lists:all($0, $1)" |> Some
-    | "Iterate", [ fn; seq ] -> emitExpr r t [ fn; seq ] "lists:foreach($0, $1)" |> Some
-    | "Sort", [ seq ] -> emitExpr r t [ seq ] "lists:sort($0)" |> Some
-    | "SortDescending", [ seq ] -> emitExpr r t [ seq ] "lists:reverse(lists:sort($0))" |> Some
-    | "Min", [ seq ] -> emitExpr r t [ seq ] "lists:min($0)" |> Some
-    | "Max", [ seq ] -> emitExpr r t [ seq ] "lists:max($0)" |> Some
-    | "Partition", [ fn; seq ] -> emitExpr r t [ fn; seq ] "lists:partition($0, $1)" |> Some
-    | "Unzip", [ seq ] -> emitExpr r t [ seq ] "lists:unzip($0)" |> Some
-    | "Item", [ idx; seq ] -> emitExpr r t [ seq; idx ] "lists:nth($1 + 1, $0)" |> Some
+    | "Sum", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:sum($0)" |> Some
+    | "Contains", [ item; seq ] ->
+        let seq = unwrapSeqArg r seq in emitExpr r t [ item; seq ] "lists:member($0, $1)" |> Some
+    | "Exists", [ fn; seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ fn; seq ] "lists:any($0, $1)" |> Some
+    | "ForAll", [ fn; seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ fn; seq ] "lists:all($0, $1)" |> Some
+    | "Iterate", [ fn; seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ fn; seq ] "lists:foreach($0, $1)" |> Some
+    | "Sort", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:sort($0)" |> Some
+    | "SortDescending", [ seq ] ->
+        let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:reverse(lists:sort($0))" |> Some
+    | "Min", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:min($0)" |> Some
+    | "Max", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:max($0)" |> Some
+    | "Partition", [ fn; seq ] ->
+        let seq = unwrapSeqArg r seq in emitExpr r t [ fn; seq ] "lists:partition($0, $1)" |> Some
+    | "Unzip", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:unzip($0)" |> Some
+    | "Item", [ idx; seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq; idx ] "lists:nth($1 + 1, $0)" |> Some
     // Reuse fable_list.erl
     | "Fold", [ fn; state; seq ] -> Helper.LibCall(com, "fable_list", "fold", t, [ fn; state; seq ]) |> Some
     | "FoldBack", [ fn; seq; state ] -> Helper.LibCall(com, "fable_list", "fold_back", t, [ fn; seq; state ]) |> Some
@@ -2158,12 +2227,14 @@ let private resizeArrays
             Helper.LibCall(com, "fable_resize_array", "insert_range", t, [ listExpr; idx; items ], ?loc = r)
 
         emitExpr r Unit [ callee; call ] "put($0, $1)" |> Some
-    // GetRange
+    // GetRange — returns a new ResizeArray (ref)
     | "GetRange", Some callee, [ idx; count ] ->
         let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
 
-        Helper.LibCall(com, "fable_resize_array", "get_range", t, [ listExpr; idx; count ], ?loc = r)
-        |> Some
+        let sublist =
+            Helper.LibCall(com, "fable_resize_array", "get_range", t, [ listExpr; idx; count ], ?loc = r)
+
+        Helper.LibCall(com, "fable_utils", "new_ref", t, [ sublist ], ?loc = r) |> Some
     // Clear
     | "Clear", Some callee, _ -> emitExpr r Unit [ callee ] "put($0, [])" |> Some
     // Reverse
@@ -2180,11 +2251,12 @@ let private resizeArrays
         emitExpr r Unit [ callee; call ] "put($0, $1)" |> Some
     // ToArray
     | "ToArray", Some callee, [] -> emitExpr r t [ callee ] "get($0)" |> Some
-    // Find
+    // Find — returns default value when not found (matching .NET List<T>.Find)
     | "Find", Some callee, [ pred ] ->
         let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+        let defVal = defaultof com _ctx r t
 
-        Helper.LibCall(com, "fable_resize_array", "find", t, [ pred; listExpr ], ?loc = r)
+        Helper.LibCall(com, "fable_resize_array", "find", t, [ pred; listExpr; defVal ], ?loc = r)
         |> Some
     // FindLast
     | "FindLast", Some callee, [ pred ] ->
@@ -2192,12 +2264,14 @@ let private resizeArrays
 
         Helper.LibCall(com, "fable_resize_array", "find_last", t, [ listExpr; pred ], ?loc = r)
         |> Some
-    // FindAll
+    // FindAll — returns a new ResizeArray (ref)
     | "FindAll", Some callee, [ pred ] ->
         let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
 
-        Helper.LibCall(com, "fable_resize_array", "find_all", t, [ listExpr; pred ], ?loc = r)
-        |> Some
+        let filtered =
+            Helper.LibCall(com, "fable_resize_array", "find_all", t, [ listExpr; pred ], ?loc = r)
+
+        Helper.LibCall(com, "fable_utils", "new_ref", t, [ filtered ], ?loc = r) |> Some
     // FindIndex
     | "FindIndex", Some callee, [ pred ] ->
         let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
@@ -3475,7 +3549,8 @@ let tryCall
     | "Microsoft.FSharp.Core.Operators"
     | "Microsoft.FSharp.Core.Operators.Checked"
     | "Microsoft.FSharp.Core.ExtraTopLevelOperators"
-    | "System.Math" -> operators com ctx r t info thisArg args
+    | "System.Math"
+    | "System.MathF" -> operators com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.LanguagePrimitives"
     | "Microsoft.FSharp.Core.LanguagePrimitives.HashCompare" -> languagePrimitives com ctx r t info thisArg args
     | Types.string -> strings com ctx r t info thisArg args

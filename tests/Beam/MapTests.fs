@@ -4,6 +4,24 @@ open Fable.Tests.Util
 open Util.Testing
 
 [<Fact>]
+let ``test Map construction from list works`` () =
+    let xs = Map [1,1; 2,2]
+    xs |> Seq.isEmpty |> equal false
+    Map.count xs |> equal 2
+
+[<Fact>]
+let ``test Map.IsEmpty works II`` () =
+    let xs = Map.empty<int, int>
+    xs.IsEmpty |> equal true
+    let ys = Map [1,1; 2,2]
+    ys.IsEmpty |> equal false
+
+[<Fact>]
+let ``test Map.TryGetValue returns tuple`` () =
+    let xs = Map.empty.Add(1, 1)
+    xs.TryGetValue(1) |> equal (true, 1)
+
+[<Fact>]
 let ``test Map ofList works`` () =
     let m = Map.ofList [ (1, "a"); (2, "b"); (3, "c") ]
     Map.count m |> equal 3

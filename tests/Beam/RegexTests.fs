@@ -174,3 +174,123 @@ let ``test Regex.Options works`` () =
 [<Fact>]
 let ``test RegexOptions.Singleline works`` () =
     Regex.IsMatch("a\nb", "a.b", RegexOptions.Singleline) |> equal true
+
+// --- Iteration ---
+
+// TODO: MatchCollection iteration with for-in not yet supported
+// [<Fact>]
+// let ``test Regex.Matches iteration works`` () =
+//     let ms = Regex.Matches("a1b2c3", "\\d")
+//     let count = ref 0
+//     for _m in ms do count.Value <- count.Value + 1
+//     equal 3 count.Value
+
+// TODO: GroupCollection iteration with for-in not yet supported
+// [<Fact>]
+// let ``test Match.Groups iteration works`` () =
+//     let m = Regex.Match("John 30", "(\\w+) (\\d+)")
+//     let mutable count = 0
+//     for g in m.Groups do
+//         count <- count + g.Value.Length
+//     equal 13 count
+
+[<Fact>]
+let ``test Match.Groups iteration works II`` () =
+    let m = Regex.Match("foo bar baz", @"(\w+) \w+ (\w+)")
+    let li = [ for g in m.Groups -> g.Value ]
+    let x = li |> List.skip 1 |> List.reduce (+)
+    equal "foobaz" x
+
+[<Fact>]
+let ``test Group values can be converted to int`` () =
+    let m = Regex.Match("ABC123", @"([A-Z]+)(\d+)")
+    let group = m.Groups.[2]
+    int (group.Value) |> equal 123
+
+// --- Replace with offset ---
+
+[<Fact>]
+let ``test Regex.Replace with limit and offset works`` () =
+    let str = "Too   much   space"
+    let r = Regex("\\s+")
+    r.Replace(str, " ", count = 20, startat = 0)
+    |> equal "Too much space"
+    r.Replace(str, " ", count = 20, startat = 5)
+    |> equal "Too   much space"
+
+[<Fact>]
+let ``test Regex.Replace with evaluator and limit works`` () =
+    let str = "abcabcabcabcabcabcabcabc"
+    let r = Regex("c")
+    let test count expected =
+        r.Replace(str, (fun (m: Match) -> string m.Index), count=count)
+        |> equal expected
+    test 1 "ab2abcabcabcabcabcabcabc"
+    test 3 "ab2ab5ab8abcabcabcabcabc"
+
+// --- Split with limit ---
+
+// TODO: Regex.Split with limit not yet supported
+// [<Fact>]
+// let ``test Regex.Split with limit works`` () =
+//     let r = Regex("\\d")
+//     let result = r.Split("a1b2c3", 2)
+//     result.Length |> equal 2
+//     result.[0] |> equal "a"
+//     result.[1] |> equal "b2c3"
+
+// --- Named groups ---
+
+[<Fact>]
+let ``test succeeds when match`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+    m.Success |> equal true
+
+[<Fact>]
+let ``test doesn't succeed when unmatched`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Hello World"
+    m.Success |> equal false
+
+// TODO: Accessing groups by string name (m.Groups.["name"]) not yet supported
+// [<Fact>]
+// let ``test can get value of existing group`` () =
+//     let r = Regex "(?<number>\\d+)"
+//     let m = r.Match "Number 12345 is positive"
+//     m.Groups.["number"].Value |> equal "12345"
+//
+// [<Fact>]
+// let ``test can get values of multiple existing groups`` () =
+//     let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+//     let m = r.Match "Number: +49 1234!"
+//     m.Groups.["country"].Value |> equal "49"
+//     m.Groups.["num"].Value |> equal "1234"
+//
+// [<Fact>]
+// let ``test doesn't succeed for not existing named group`` () =
+//     let r = Regex "(?<number>\\d+)"
+//     let m = r.Match "Number 12345 is positive"
+//     m.Groups.["nothing"].Success |> equal false
+//
+// [<Fact>]
+// let ``test doesn't succeed for existing unmatched group`` () =
+//     let r = Regex "(?<exact>42)|(?<number>\\d+)"
+//     let m = r.Match "Number 12345 is positive"
+//     m.Groups.["exact"].Success |> equal false
+//
+// [<Fact>]
+// let ``test named capture group group name from variable`` () =
+//     let r = Regex "(?<number>\\d+)"
+//     let m = r.Match "Number 12345 is positive"
+//     let g = "number"
+//     m.Groups.[g].Value |> equal "12345"
+
+[<Fact>]
+let ``test Regex.Replace with evaluator works when regex has named capture group`` () =
+    let r = Regex "0(?<number>\\d+)"
+    let text = "Number 012345!"
+    let replace (m: Match) =
+        sprintf "%s" m.Groups.[1].Value
+    let actual = r.Replace(text, replace)
+    actual |> equal "Number 12345!"

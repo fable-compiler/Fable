@@ -184,3 +184,83 @@ let ``test Char.GetUnicodeCategory with two args works`` () =
     Char.GetUnicodeCategory(str, 0) |> int |> equal 0
     Char.GetUnicodeCategory(str, 1) |> int |> equal 1
     Char.GetUnicodeCategory(str, 2) |> int |> equal 8
+
+[<Fact>]
+let ``test Char addition works`` () =
+    'A' + 'B' |> int |> equal 131
+    'A' + char 7 |> int |> equal 72
+
+[<Fact>]
+let ``test Char subtraction works`` () =
+    'B' - 'A' |> int |> equal 1
+    char 9 - char 7 |> int |> equal 2
+
+[<Fact>]
+let ``test Char.TryParse works`` () =
+    let mutable c = ' '
+    Char.TryParse("A", &c) |> equal true
+    c |> equal 'A'
+
+[<Fact>]
+let ``test Char.TryParse fails with empty string`` () =
+    let mutable c = ' '
+    Char.TryParse("", &c) |> equal false
+
+[<Fact>]
+let ``test Char.TryParse fails with longer string`` () =
+    let mutable c = ' '
+    Char.TryParse("AA", &c) |> equal false
+
+// TODO: Surrogate tests need UTF-16 codepoint handling.
+// Erlang uses full Unicode codepoints, not UTF-16 encoding,
+// so string indexing returns codepoints not UTF-16 code units.
+// [<Fact>]
+// let ``test Char.IsHighSurrogate works`` () =
+//     Char.IsHighSurrogate('a') |> equal false
+//     Char.IsHighSurrogate("\U00010F00".[0]) |> equal true
+//
+// [<Fact>]
+// let ``test Char.IsHighSurrogate with two args works`` () =
+//     let str = "a\U00010F00z"
+//     Char.IsHighSurrogate(str,0) |> equal false
+//     Char.IsHighSurrogate(str,1) |> equal true
+//     Char.IsHighSurrogate(str,2) |> equal false
+//     Char.IsHighSurrogate(str,3) |> equal false
+//
+// [<Fact>]
+// let ``test Char.IsLowSurrogate works`` () =
+//     Char.IsLowSurrogate('a') |> equal false
+//     Char.IsLowSurrogate("\U00010F00".[1]) |> equal true
+//
+// [<Fact>]
+// let ``test Char.IsLowSurrogate with two args works`` () =
+//     let str = "a\U00010F00z"
+//     Char.IsLowSurrogate(str,0) |> equal false
+//     Char.IsLowSurrogate(str,1) |> equal false
+//     Char.IsLowSurrogate(str,2) |> equal true
+//     Char.IsLowSurrogate(str,3) |> equal false
+//
+// [<Fact>]
+// let ``test Char.IsSurrogate works`` () =
+//     Char.IsSurrogate('a') |> equal false
+//     Char.IsSurrogate("\U00010F00".[1]) |> equal true
+//
+// [<Fact>]
+// let ``test Char.IsSurrogate with two args works`` () =
+//     let str = "a\U00010F00z"
+//     Char.IsSurrogate(str,0) |> equal false
+//     Char.IsSurrogate(str,1) |> equal true
+//     Char.IsSurrogate(str,2) |> equal true
+//     Char.IsSurrogate(str,3) |> equal false
+//
+// [<Fact>]
+// let ``test Char.IsSurrogatePair works`` () =
+//     Char.IsSurrogatePair('a', 'b') |> equal false
+//     Char.IsSurrogatePair("\U00010F00".[0], "\U00010F00".[1]) |> equal true
+//
+// [<Fact>]
+// let ``test Char.IsSurrogatePair with two args works`` () =
+//     let str = "a\U00010F00z"
+//     Char.IsSurrogatePair(str,0) |> equal false
+//     Char.IsSurrogatePair(str,1) |> equal true
+//     Char.IsSurrogatePair(str,2) |> equal false
