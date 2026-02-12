@@ -38,6 +38,12 @@ module Naming =
                 "else"
             ]
 
+    /// Auto-imported BIFs that cause "ambiguous call" errors when used as
+    /// module-level function names. These need no_auto_import in generated modules.
+    let erlAutoImportedBifs =
+        System.Collections.Generic.HashSet
+            [ "apply"; "now"; "self"; "throw"; "exit"; "error"; "spawn"; "link"; "monitor" ]
+
     let checkErlKeywords name =
         if erlKeywords.Contains name then
             name + "_"

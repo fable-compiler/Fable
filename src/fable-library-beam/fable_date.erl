@@ -1,4 +1,5 @@
 -module(fable_date).
+-compile({no_auto_import,[now/0]}).
 -export([
     create/3, create/6, create/7, create/8, create/9,
     from_ticks/1, from_ticks/2,
@@ -193,7 +194,7 @@ add({Ticks, Kind}, TimeSpanTicks) ->
     {Ticks + TimeSpanTicks, Kind}.
 
 %% Subtract: DT - TimeSpan -> DT, DT - DT -> TimeSpan
-subtract({Ticks1, Kind}, {Ticks2, _Kind2}) ->
+subtract({Ticks1, _Kind}, {Ticks2, _Kind2}) ->
     %% DateTime - DateTime -> TimeSpan (ticks)
     Ticks1 - Ticks2;
 subtract({Ticks, Kind}, TimeSpanTicks) when is_integer(TimeSpanTicks) ->

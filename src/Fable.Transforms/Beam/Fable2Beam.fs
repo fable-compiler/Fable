@@ -2286,9 +2286,28 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             | _ -> None
         )
 
+    // Check for function names that clash with auto-imported BIFs
+    let clashingBifs =
+        exports
+        |> List.choose (fun (Beam.Atom name, arity) ->
+            if erlAutoImportedBifs.Contains(name) then
+                Some(name, arity)
+            else
+                None
+        )
+        |> List.distinct
+
     let allForms =
         [
             Beam.ErlForm.Attribute(Beam.ModuleAttr(Beam.Atom moduleName))
+            if not (List.isEmpty clashingBifs) then
+                let bifStrs =
+                    clashingBifs
+                    |> List.map (fun (name, arity) -> $"%s{name}/%d{arity}")
+                    |> String.concat ","
+
+                Beam.ErlForm.Attribute(Beam.CustomAttr(Beam.Atom "compile", $"{{no_auto_import,[%s{bifStrs}]}}"))
+
             Beam.ErlForm.Attribute(Beam.ExportAttr exports)
             yield! forms
         ]
