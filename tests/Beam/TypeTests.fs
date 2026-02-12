@@ -422,6 +422,108 @@ let ``test box and unbox tuple works`` () =
     let unboxed: int * string = unbox boxed
     equal (1, "a") unboxed
 
+// TODO: Lazy not yet supported by Beam Replacements (needs Lazy.Create, Lazy.Value, Lazy.Force, etc.)
+// [<Fact>]
+// let ``test lazy works`` () =
+//     let mutable snitch = 0
+//     let lazyVal =
+//         lazy
+//             (snitch <- snitch + 1
+//              5)
+//     equal 0 snitch
+//     equal 5 lazyVal.Value
+//     equal 1 snitch
+//     lazyVal.Force() |> equal 5
+//     equal 1 snitch
+//
+// [<Fact>]
+// let ``test Lazy.CreateFromValue works`` () =
+//     let mutable snitch = 0
+//     let lazyVal =
+//         Lazy<_>.CreateFromValue
+//             (snitch <- snitch + 1
+//              5)
+//     equal 1 snitch
+//     equal 5 lazyVal.Value
+//     equal 1 snitch
+//
+// [<Fact>]
+// let ``test lazy.IsValueCreated works`` () =
+//     let mutable snitch = 0
+//     let lazyVal =
+//         Lazy<_>.Create
+//             (fun () ->
+//                 snitch <- snitch + 1
+//                 5)
+//     equal 0 snitch
+//     equal false lazyVal.IsValueCreated
+//     equal 5 lazyVal.Value
+//     equal true lazyVal.IsValueCreated
+//     lazyVal.Force() |> equal 5
+//     equal true lazyVal.IsValueCreated
+//
+// [<Fact>]
+// let ``test Lazy constructor works`` () =
+//     let items = Lazy<string list>(fun () -> [ "a"; "b"; "c" ])
+//     let search e =
+//         items.Value |> List.tryFind (fun m -> m = e)
+//     search "b" |> equal (Some "b")
+//     search "d" |> equal None
+
+// --- Type test with specific types ---
+
+// TODO: Erlang has a single integer type, so :? int64 and :? bigint can't
+// distinguish from :? int. These type tests are not feasible in Beam.
+// [<Fact>]
+// let ``test Type test with Long`` () =
+//     let isLong (x: obj) =
+//         match x with
+//         | :? int64 -> true
+//         | _ -> false
+//     box 5L |> isLong |> equal true
+//     box 50 |> isLong |> equal false
+//
+// [<Fact>]
+// let ``test Type test with BigInt`` () =
+//     let isBigInt (x: obj) =
+//         match x with
+//         | :? bigint -> true
+//         | _ -> false
+//     box 5I |> isBigInt |> equal true
+//     box 50 |> isBigInt |> equal false
+
+// --- Same shape, different types ---
+
+type MyUnion1 =
+    | Foo1 of int * int
+    | Bar1 of float
+    | Baz1
+
+type MyUnion2 =
+    | Foo2 of int * int
+    override _.ToString() = "ffff"
+
+type MyRecord1 = { Foo: int; Bar: string }
+type MyRecord2 = { Foo2R: int; Bar2R: string }
+
+let areEqual (x: obj) (y: obj) = x = y
+
+// TODO: Different types with same shape comparison requires runtime type info
+// [<Fact>]
+// let ``test Two unions of different type with same shape are not equal`` () =
+//     areEqual (Foo1(1, 2)) (Foo2(1, 2))
+//     |> equal false
+//     areEqual (Foo1(1, 2)) (Foo1(1, 2))
+//     |> equal true
+
+// TODO: Different types with same shape comparison requires runtime type info
+// [<Fact>]
+// let ``test Two records of different type with same shape are not equal`` () =
+//     areEqual { MyRecord1.Foo = 2; Bar = "oh" } { MyRecord2.Foo2R = 2; Bar2R = "oh" }
+//     |> equal false
+//     areEqual { MyRecord1.Foo = 2; Bar = "oh" } { MyRecord1.Foo = 2; Bar = "oh" }
+//     |> equal true
+
 // TODO: Downcasting from interface to class, type tests on records/unions/interfaces,
 // and typeof comparison require runtime type information not available in Erlang.
 // TypeCast is erased, so :?> only works for simple casts (e.g., obj to concrete type via box/unbox).

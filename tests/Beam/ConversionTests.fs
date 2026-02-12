@@ -4,6 +4,22 @@ open System
 open Fable.Tests.Util
 open Util.Testing
 
+let tryParse f initial (value: string) =
+    let res = ref initial
+#if FABLE_COMPILER
+    let success = f(value, res)
+#else
+    let success = f(value, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo("en-US"), res)
+#endif
+    (success, res.Value)
+
+let parse f (a: string) =
+#if FABLE_COMPILER
+    f(a)
+#else
+    f(a, System.Globalization.CultureInfo("en-US"))
+#endif
+
 // --- Basic type conversions ---
 
 [<Fact>]
@@ -554,8 +570,172 @@ let ``test Convert.ToBase64String works`` () =
     let bytes = [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
     Convert.ToBase64String(bytes) |> equal "AgQGCAoMDhASFA=="
 
-// TODO: Guid not implemented for Beam
+// --- TryParse methods ---
+
+// TODO: TryParse via higher-order function with ref cells doesn't work in Beam
+// (ref cells use process dictionary, but lambda wrapping treats them as maps)
 // [<Fact>]
-// let ``test Guid.Parse works`` () =
-//     let g = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
-//     g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+// let ``test System.Double.TryParse works`` () =
+//     tryParse Double.TryParse 0.0 "1" |> equal (true, 1.0)
+//     tryParse Double.TryParse 0.0 "1.5" |> equal (true, 1.5)
+//     tryParse Double.TryParse 0.0 "foo" |> equal (false, 0.0)
+//     tryParse Double.TryParse 0.0 "" |> equal (false, 0.0)
+//     tryParse Double.TryParse 0.0 "-1.5" |> equal (true, -1.5)
+//
+// [<Fact>]
+// let ``test System.Single.TryParse works`` () =
+//     tryParse Single.TryParse 0.0f "1" |> equal (true, 1.0f)
+//     tryParse Single.TryParse 0.0f "1.5" |> equal (true, 1.5f)
+//     tryParse Single.TryParse 0.0f "foo" |> equal (false, 0.0f)
+//     tryParse Single.TryParse 0.0f "-1.5" |> equal (true, -1.5f)
+
+[<Fact>]
+let ``test System.Boolean.TryParse works`` () =
+    Boolean.TryParse "true" |> equal (true, true)
+    Boolean.TryParse "True" |> equal (true, true)
+    Boolean.TryParse "false" |> equal (true, false)
+    Boolean.TryParse "False" |> equal (true, false)
+    Boolean.TryParse "tru" |> equal (false, false)
+    Boolean.TryParse "falsee" |> equal (false, false)
+
+// TODO: TryParse via higher-order function with ref cells doesn't work in Beam
+// [<Fact>]
+// let ``test System.Int64.TryParse works`` () =
+//     tryParse Int64.TryParse 0L "99" |> equal (true, 99L)
+//     tryParse Int64.TryParse 0L "foo" |> equal (false, 0L)
+//
+// [<Fact>]
+// let ``test System.UInt32.TryParse works`` () =
+//     tryParse UInt32.TryParse 0u "99" |> equal (true, 99u)
+//     tryParse UInt32.TryParse 0u "foo" |> equal (false, 0u)
+//
+// [<Fact>]
+// let ``test System.UInt64.TryParse works`` () =
+//     tryParse UInt64.TryParse 0UL "99" |> equal (true, 99UL)
+//     tryParse UInt64.TryParse 0UL "foo" |> equal (false, 0UL)
+
+// --- Single.Parse ---
+
+[<Fact>]
+let ``test System.Single.Parse works`` () =
+    parse Single.Parse "1.5" |> equal 1.5f
+
+[<Fact>]
+let ``test System.Int32.ToString 'd' works`` () =
+    (5592405).ToString("d") |> equal "5592405"
+    (5592405).ToString("d10") |> equal "0005592405"
+
+[<Fact>]
+let ``test System.Int32.ToString 'x' works`` () =
+    (5592405).ToString("x") |> equal "555555"
+    (5592405).ToString("x10") |> equal "0000555555"
+
+[<Fact>]
+let ``test System.Int64.ToString 'd' works`` () =
+    5592405L.ToString("d") |> equal "5592405"
+    5592405L.ToString("d10") |> equal "0005592405"
+
+[<Fact>]
+let ``test System.Int64.ToString 'x' works`` () =
+    5592405L.ToString("x") |> equal "555555"
+    5592405L.ToString("x10") |> equal "0000555555"
+
+// --- Convert.FromBase64String ---
+
+[<Fact>]
+let ``test Convert.FromBase64String works`` () =
+    Convert.FromBase64String("AgQGCAoMDhASFA==")
+    |> equal [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
+
+// --- More BitConverter tests ---
+
+// TODO: BitConverter.GetBytes(Boolean) not yet supported
+// [<Fact>]
+// let ``test BitConverter.GetBytes Boolean works`` () =
+//     let value = true
+//     let bytes = BitConverter.GetBytes(value)
+//     bytes |> equal [| 1uy |]
+
+[<Fact>]
+let ``test BitConverter.GetBytes Int16 works`` () =
+    let value = 0x0102s
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 2uy; 1uy |]
+
+[<Fact>]
+let ``test BitConverter.GetBytes Int64 works`` () =
+    let value = 0x0102030405060708L
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 8uy; 7uy; 6uy; 5uy; 4uy; 3uy; 2uy; 1uy |]
+
+[<Fact>]
+let ``test BitConverter.GetBytes Double works`` () =
+    let value = 1.0
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 240uy; 63uy |]
+
+// TODO: BitConverter.ToBoolean not yet supported by Beam Replacements
+// [<Fact>]
+// let ``test BitConverter.ToBoolean works`` () =
+//     let value = true
+//     let bytes = BitConverter.GetBytes(value)
+//     BitConverter.ToBoolean(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToInt16 works`` () =
+    let value = 0x0102s
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToInt16(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToInt64 works`` () =
+    let value = 0x0102030405060708L
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToInt64(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToDouble works`` () =
+    let value = 1.0
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToDouble(bytes, 0) |> equal value
+
+// TODO: BitConverter.ToString not yet supported by Beam Replacements
+// [<Fact>]
+// let ``test BitConverter.ToString works`` () =
+//     let value = 0x01020304
+//     let bytes = BitConverter.GetBytes(value)
+//     BitConverter.ToString(bytes) |> equal "04-03-02-01"
+//
+// [<Fact>]
+// let ``test BitConverter.ToString 2 works`` () =
+//     let value = 0x01020304
+//     let bytes = BitConverter.GetBytes(value)
+//     BitConverter.ToString(bytes, 1) |> equal "03-02-01"
+//
+// [<Fact>]
+// let ``test BitConverter.ToString 3 works`` () =
+//     let value = 0x01020304
+//     let bytes = BitConverter.GetBytes(value)
+//     BitConverter.ToString(bytes, 1, 2) |> equal "03-02"
+
+// --- Guid tests (now implemented) ---
+
+[<Fact>]
+let ``test Guid.Parse works`` () =
+    let g = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+    g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+
+// TODO: Guid.TryParse not yet supported by Beam Replacements
+// [<Fact>]
+// let ``test Guid.TryParse works`` () =
+//     let success1, g1 = Guid.TryParse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+//     success1 |> equal true
+//     g1.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+//     let success2, _ = Guid.TryParse("not-a-guid")
+//     success2 |> equal false
+
+[<Fact>]
+let ``test Parsed guids with different case are considered the same`` () =
+    let g1 = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+    let g2 = Guid.Parse("96258006-C4BA-4A7F-80C4-DE7F2B2898C5")
+    g1 = g2 |> equal true

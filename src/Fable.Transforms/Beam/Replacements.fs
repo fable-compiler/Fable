@@ -135,8 +135,12 @@ let private operators
     | "Log", [ arg ] -> emitExpr r _t [ arg ] "math:log($0)" |> Some
     | "Log10", [ arg ] -> emitExpr r _t [ arg ] "math:log10($0)" |> Some
     | "Log2", [ arg ] -> emitExpr r _t [ arg ] "math:log2($0)" |> Some
-    | ("Pow" | "op_Exponentiation"), [ base_; exp_ ] -> emitExpr r _t [ base_; exp_ ] "math:pow($0, $1)" |> Some
+    | ("Pow" | "PowInteger" | "op_Exponentiation"), [ base_; exp_ ] ->
+        emitExpr r _t [ base_; exp_ ] "math:pow($0, $1)" |> Some
     | "Round", [ arg ] -> emitExpr r _t [ arg ] "float(erlang:round($0))" |> Some
+    | "Round", [ arg; digits ] ->
+        emitExpr r _t [ arg; digits ] "(erlang:round($0 * math:pow(10, $1)) / math:pow(10, $1))"
+        |> Some
     | "Sign", [ arg ] ->
         emitExpr r _t [ arg ] "case $0 > 0 of true -> 1; false -> case $0 < 0 of true -> -1; false -> 0 end end"
         |> Some
@@ -985,6 +989,9 @@ let private numericTypes
             | Decimal -> emitExpr r t [ c ] "float_to_binary($0)" |> Some
             | _ -> emitExpr r t [ c ] "integer_to_binary($0)" |> Some
         | _ -> None
+    | "ToString", Some c, [ fmt ] ->
+        Helper.LibCall(com, "fable_convert", "int_to_string_with_format", t, [ c; fmt ], ?loc = r)
+        |> Some
     | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
     | "CompareTo", Some thisObj, [ arg ] -> compare com r thisObj arg |> Some
     | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
@@ -3503,6 +3510,9 @@ let tryCall
         match info.CompiledName, thisArg, args with
         | "Parse", None, [ arg ] ->
             Helper.LibCall(com, "fable_convert", "boolean_parse", t, [ arg ], ?loc = r)
+            |> Some
+        | "TryParse", None, _ ->
+            Helper.LibCall(com, "fable_convert", "boolean_try_parse", t, args, ?loc = r)
             |> Some
         | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
         | "CompareTo", Some thisObj, [ arg ] -> compare com r thisObj arg |> Some

@@ -4,6 +4,10 @@ open System
 open Fable.Tests.Util
 open Util.Testing
 
+let [<Literal>] posLiteral = 5
+let [<Literal>] negLiteral = -345
+let notALiteral = 5
+
 let checkTo3dp (expected: float) actual =
     floor (actual * 1000.) |> equal expected
 
@@ -528,6 +532,55 @@ let ``test System.Random works`` () =
     let rnd = Random()
     let x = rnd.Next()
     x >= 0 |> equal true
+
+// --- More tests ported from Python ---
+
+[<Fact>]
+let ``test Int32 literal addition is optimized`` () =
+    posLiteral + 7 |> equal 12
+    notALiteral + 7 |> equal 12
+
+[<Fact>]
+let ``test Unary negation with negative literal values works`` () =
+    -negLiteral |> equal 345
+
+// TODO: Erlang has arbitrary precision integers, so -(-128y) = 128, not SByte.MinValue (-128).
+// .NET fixed-width types overflow but Erlang integers don't, making this test invalid for Beam.
+// [<Fact>]
+// let ``test Unary negation with integer MinValue works`` () =
+//     -(-128y) |> equal SByte.MinValue
+//     -(-32768s) |> equal Int16.MinValue
+//     -(-2147483648) |> equal Int32.MinValue
+//     -(-9223372036854775808L) |> equal Int64.MinValue
+
+[<Fact>]
+let ``test pown works`` () =
+    pown 2.2 3 |> checkTo3dp 10648.
+
+[<Fact>]
+let ``test Math.Round with digits works`` () =
+    Math.Round(1.426, 2) |> equal 1.43
+    Math.Round(1.426, 1) |> equal 1.4
+    Math.Round(-1.426, 2) |> equal -1.43
+    Math.Round(-1.426, 1) |> equal -1.4
+
+[<Fact>]
+let ``test sqrt matches .NET core implementation`` () =
+    checkTo3dp 1732. (sqrt 3.0)
+    sqrt 0.0 |> equal 0.0
+
+[<Fact>]
+let ``test Bitwise shift left with unsigned integer works`` () =
+    1u <<< 31 |> equal 2147483648u
+
+[<Fact>]
+let ``test UInt64 multiplication with 0 returns uint`` () =
+    0x0UL * 0x1UL |> equal 0x0UL
+
+// TODO: UInt64 shift right requires unsigned masking (Erlang >>> is arithmetic shift)
+// [<Fact>]
+// let ``test UInt64 Bitwise shift right can be generated`` () =
+//     15210016002388773605UL >>> 33 |> equal 1770678907UL
 
 // TODO: infinity/NaN not available in Erlang (1.0/0.0 raises badarith)
 // [<Fact>]

@@ -1,6 +1,7 @@
 -module(fable_convert).
 -export([to_float/1, to_int/1, to_int_with_base/2, to_string/1, to_string_with_base/3,
-         to_base64/1, from_base64/1, boolean_parse/1,
+         to_base64/1, from_base64/1, boolean_parse/1, boolean_try_parse/2,
+         int_to_string_with_format/2,
          try_parse_int/2, try_parse_float/2]).
 
 %% Robust string-to-float conversion that handles edge cases
@@ -116,4 +117,41 @@ boolean_parse(Bin) when is_binary(Bin) ->
         "true" -> true;
         "false" -> false;
         _ -> erlang:error({badarg, Bin})
+    end.
+
+%% Boolean.TryParse - sets out-param via process dictionary, returns success bool
+boolean_try_parse(Bin, OutRef) when is_binary(Bin) ->
+    Trimmed = string:trim(binary_to_list(Bin)),
+    Lower = string:lowercase(Trimmed),
+    case Lower of
+        "true" -> put(OutRef, true), true;
+        "false" -> put(OutRef, false), true;
+        _ -> put(OutRef, false), false
+    end.
+
+%% Int32/Int64 ToString with format specifier
+%% Supports: "d", "d<N>" (decimal with padding), "x", "x<N>" (hex with padding)
+int_to_string_with_format(Value, Fmt) when is_binary(Fmt) ->
+    FmtStr = string:lowercase(binary_to_list(Fmt)),
+    case FmtStr of
+        [$d] ->
+            integer_to_binary(Value);
+        [$d | WidthStr] ->
+            Width = list_to_integer(WidthStr),
+            S = integer_to_list(Value),
+            Len = length(S),
+            if Len >= Width -> list_to_binary(S);
+               true -> list_to_binary(string:pad(S, Width, leading, $0))
+            end;
+        [$x] ->
+            list_to_binary(string:lowercase(integer_to_list(Value, 16)));
+        [$x | WidthStr] ->
+            Width = list_to_integer(WidthStr),
+            S = string:lowercase(integer_to_list(Value, 16)),
+            Len = length(S),
+            if Len >= Width -> list_to_binary(S);
+               true -> list_to_binary(string:pad(S, Width, leading, $0))
+            end;
+        _ ->
+            integer_to_binary(Value)
     end.

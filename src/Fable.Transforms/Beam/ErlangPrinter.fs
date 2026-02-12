@@ -48,7 +48,30 @@ module Output =
             sb.Append("]") |> ignore
         | PWildcard -> sb.Append("_") |> ignore
 
-    let rec printExpr (sb: System.Text.StringBuilder) (indent: int) (expr: ErlExpr) =
+    /// Surround with parens anything that can potentially conflict with operator precedence.
+    /// Negative literals need parens too to avoid Erlang's '--' list subtraction operator.
+    let rec complexExprWithParens (sb: System.Text.StringBuilder) (indent: int) (expr: ErlExpr) =
+        match expr with
+        | Literal(Integer n) when n < 0L ->
+            sb.Append("(") |> ignore
+            printExpr sb indent expr
+            sb.Append(")") |> ignore
+        | Literal(Float f) when f < 0.0 ->
+            sb.Append("(") |> ignore
+            printExpr sb indent expr
+            sb.Append(")") |> ignore
+        | Literal _
+        | Variable _
+        | Call _
+        | List _
+        | Tuple _
+        | Map _ -> printExpr sb indent expr
+        | _ ->
+            sb.Append("(") |> ignore
+            printExpr sb indent expr
+            sb.Append(")") |> ignore
+
+    and printExpr (sb: System.Text.StringBuilder) (indent: int) (expr: ErlExpr) =
         let writeIndent () =
             for _ in 1..indent do
                 sb.Append("    ") |> ignore
@@ -288,28 +311,9 @@ module Output =
                 sb.Append(" end") |> ignore
 
         | BinOp(op, left, right) ->
-            let needsParens =
-                function
-                | BinOp _ -> true
-                | _ -> false
-
-            if needsParens left then
-                sb.Append("(") |> ignore
-
-            printExpr sb indent left
-
-            if needsParens left then
-                sb.Append(")") |> ignore
-
+            complexExprWithParens sb indent left
             sb.Append($" %s{op} ") |> ignore
-
-            if needsParens right then
-                sb.Append("(") |> ignore
-
-            printExpr sb indent right
-
-            if needsParens right then
-                sb.Append(")") |> ignore
+            complexExprWithParens sb indent right
 
         | UnaryOp(op, expr) ->
             sb.Append(op) |> ignore
@@ -317,7 +321,7 @@ module Output =
             if System.Char.IsLetter(op.[op.Length - 1]) then
                 sb.Append(" ") |> ignore
 
-            printExpr sb indent expr
+            complexExprWithParens sb indent expr
 
         | TryCatch(body, catchVar, catchBody, after) ->
             sb.AppendLine("try") |> ignore

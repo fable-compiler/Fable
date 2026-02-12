@@ -68,6 +68,7 @@
     <Compile Include="AnonRecordTests.fs" />
     <Compile Include="NonRegressionTests.fs" />
     <Compile Include="NullnessTests.fs" />
+    <Compile Include="CustomOperatorTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
