@@ -3031,6 +3031,126 @@ let private dates
         | None -> None
     | _ -> None
 
+/// Beam-specific System.DateTimeOffset replacements.
+/// DateTimeOffset is represented as a 3-tuple {Ticks, Kind, OffsetTicks}.
+let private dateTimeOffsets
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName with
+    | ".ctor" ->
+        match args with
+        | [] -> Helper.LibCall(com, "fable_date_offset", "min_value", t, [], ?loc = r) |> Some
+        | ExprType(Number(Int64, _)) :: _ ->
+            Helper.LibCall(com, "fable_date_offset", "from_ticks", t, args, ?loc = r)
+            |> Some
+        | ExprType(DeclaredType(e, [])) :: _ when e.FullName = Types.datetime ->
+            Helper.LibCall(com, "fable_date_offset", "from_date", t, args, ?loc = r) |> Some
+        | _ -> Helper.LibCall(com, "fable_date_offset", "create", t, args, ?loc = r) |> Some
+    | "ToString" ->
+        match thisArg with
+        | Some callee ->
+            match args with
+            | [] ->
+                Helper.LibCall(com, "fable_date_offset", "to_string", t, [ callee ], ?loc = r)
+                |> Some
+            | [ fmt ] ->
+                Helper.LibCall(com, "fable_date_offset", "to_string", t, [ callee; fmt ], ?loc = r)
+                |> Some
+            | [ fmt; culture ] ->
+                Helper.LibCall(com, "fable_date_offset", "to_string", t, [ callee; fmt; culture ], ?loc = r)
+                |> Some
+            | _ -> None
+        | None -> None
+    | "get_Offset" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_date_offset", "offset", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_DateTime" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_date_offset", "date_time", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_LocalDateTime" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_date_offset", "to_local_time", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_UtcDateTime" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_date_offset", "to_universal_time", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Year" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_date_offset", "year", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Month" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_date_offset", "month", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Day" ->
+        match thisArg with
+        | Some callee -> Helper.LibCall(com, "fable_date_offset", "day", t, [ callee ], ?loc = r) |> Some
+        | None -> None
+    | "get_Hour" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_date_offset", "hour", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Minute" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_date_offset", "minute", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Second" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_date_offset", "second", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Millisecond" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_date_offset", "millisecond", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Ticks" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_date_offset", "ticks", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Now" -> Helper.LibCall(com, "fable_date_offset", "now", t, [], ?loc = r) |> Some
+    | "get_UtcNow" -> Helper.LibCall(com, "fable_date_offset", "utc_now", t, [], ?loc = r) |> Some
+    | "get_MinValue" -> Helper.LibCall(com, "fable_date_offset", "min_value", t, [], ?loc = r) |> Some
+    | "TryParse" -> Helper.LibCall(com, "fable_date_offset", "try_parse", t, args, ?loc = r) |> Some
+    | "Equals" ->
+        match thisArg with
+        | Some callee -> equals r true callee args.Head |> Some
+        | None -> None
+    | "GetHashCode" ->
+        match thisArg with
+        | Some callee -> emitExpr r t [ callee ] "erlang:phash2($0)" |> Some
+        | None -> None
+    | _ -> None
+
 /// Beam-specific System.Uri replacements.
 /// Uri is represented as an Erlang map with parsed components.
 let private uris
@@ -3502,6 +3622,7 @@ let tryCall
     | "System.Random" -> randoms com ctx r t info thisArg args
     | Types.datetime -> dates com ctx r t info thisArg args
     | "System.Uri" -> uris com ctx r t info thisArg args
+    | Types.datetimeOffset -> dateTimeOffsets com ctx r t info thisArg args
     | Types.timespan -> timeSpans com ctx r t info thisArg args
     | "System.Globalization.CultureInfo" ->
         match info.CompiledName with
