@@ -65,13 +65,8 @@ let ``test Stopwatch elapsed time calculation works`` () =
 
 [<Fact>]
 let ``test BitConverter.IsLittleEndian works`` () =
-#if FABLE_COMPILER
-    // BEAM uses big-endian by convention
-    System.BitConverter.IsLittleEndian |> equal false
-#else
-    // .NET on x86/ARM is little-endian
+    // Match .NET behavior: little-endian
     System.BitConverter.IsLittleEndian |> equal true
-#endif
 
 [<Fact>]
 let ``test BitConverter.GetBytes UInt64 works`` () =

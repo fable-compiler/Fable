@@ -253,15 +253,14 @@ let ``test Map instance TryFind works`` () =
     m.TryFind(1) |> equal (Some "a")
     m.TryFind(99) |> equal None
 
-// TODO: TryGetValue compiles with byref out-parameter pattern that generates invalid Erlang
-// [<Fact>]
-// let ``test Map instance TryGetValue works`` () =
-//     let m = Map.ofList [ (1, "a"); (2, "b") ]
-//     let found, value = m.TryGetValue(1)
-//     found |> equal true
-//     value |> equal "a"
-//     let notFound, _ = m.TryGetValue(99)
-//     notFound |> equal false
+[<Fact>]
+let ``test Map instance TryGetValue works`` () =
+    let m = Map.ofList [ (1, "a"); (2, "b") ]
+    let found, value = m.TryGetValue(1)
+    found |> equal true
+    value |> equal "a"
+    let notFound, _ = m.TryGetValue(99)
+    notFound |> equal false
 
 [<Fact>]
 let ``test Map find with option type values works`` () =

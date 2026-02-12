@@ -500,7 +500,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         let args = emitInfo.CallInfo.Args |> List.map (transformExpr com ctx)
         Beam.ErlExpr.Emit(emitInfo.Macro, args)
 
-    | TryCatch(body, catch_, _finalizer, _range) ->
+    | TryCatch(body, catch_, finalizer, _range) ->
         let erlBody = transformExpr com ctx body
 
         let bodyExprs =
@@ -508,8 +508,18 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             | Beam.ErlExpr.Block es -> es
             | e -> [ e ]
 
-        match catch_ with
-        | Some(ident, catchExpr) ->
+        let afterExprs =
+            match finalizer with
+            | Some fin ->
+                let erlFin = transformExpr com ctx fin
+
+                match erlFin with
+                | Beam.ErlExpr.Block es -> es
+                | e -> [ e ]
+            | None -> []
+
+        match catch_, afterExprs with
+        | Some(ident, catchExpr), _ ->
             // Create a temp var for the raw reason, then bind the catch ident.
             // Custom exceptions (maps with __type) are preserved as-is.
             // Plain errors (binaries from failwith, atoms, etc.) are wrapped in #{message => ...}.
@@ -593,10 +603,23 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                     )
                 )
 
-            Beam.ErlExpr.TryCatch(bodyExprs, reasonVar, [ bindIdent ] @ catchBodyExprs)
-        | None ->
-            // No catch handler, just execute the body (finalizer not yet supported)
+            Beam.ErlExpr.TryCatch(bodyExprs, reasonVar, [ bindIdent ] @ catchBodyExprs, afterExprs)
+        | None, [] ->
+            // No catch handler and no finalizer
             erlBody
+        | None, _ ->
+            // No catch handler but has finalizer (use binding) → try/after
+            let ctr = com.IncrementCounter()
+            let reasonVar = $"Exn_reason_%d{ctr}"
+            // Re-throw in catch to preserve the error after running the after block
+            Beam.ErlExpr.TryCatch(
+                bodyExprs,
+                reasonVar,
+                [
+                    Beam.ErlExpr.Call(Some "erlang", "error", [ Beam.ErlExpr.Variable reasonVar ])
+                ],
+                afterExprs
+            )
 
     | WhileLoop(guard, body, _range) ->
         // Transform while loop to a tail-recursive named fun:
@@ -1187,8 +1210,9 @@ and transformTest (com: IBeamCompiler) (ctx: Context) (kind: TestKind) (expr: Ex
         | Fable.AST.Fable.Type.Tuple _ -> Beam.ErlExpr.Call(None, "is_tuple", [ erlExpr ])
         | Fable.AST.Fable.Type.DeclaredType(ref, _) ->
             // For exception types, check __type tag: (is_map(X) andalso maps:get(__type, X, undefined) =:= type_name)
-            // For other types, just check is_map
+            // For other types, check is_map or is_reference (class instances use refs)
             let isMap = Beam.ErlExpr.Call(None, "is_map", [ erlExpr ])
+            let isRef = Beam.ErlExpr.Call(None, "is_reference", [ erlExpr ])
 
             match com.TryGetEntity(ref) with
             | Some entity when entity.IsFSharpExceptionDeclaration ->
@@ -1202,7 +1226,7 @@ and transformTest (com: IBeamCompiler) (ctx: Context) (kind: TestKind) (expr: Ex
                     )
 
                 Beam.ErlExpr.BinOp("andalso", isMap, typeCheck)
-            | _ -> isMap
+            | _ -> Beam.ErlExpr.BinOp("orelse", isMap, isRef)
         | _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BoolLit true)
 
 and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type) (expr: Expr) : Beam.ErlExpr =
@@ -1715,7 +1739,18 @@ and transformClassDeclaration
                 | Sequential exprs -> exprs |> List.collect extractFieldSets
                 | _ -> []
 
+            // Extract non-field `do` expressions from the constructor body.
+            // These are expressions like `do v.Value <- 10` that are side effects
+            // in the constructor but not field assignments on the class itself.
+            let rec extractDoExprs (expr: Expr) : Expr list =
+                match expr with
+                | Set(_, FieldSet _, _, _, _) -> [] // Handled by extractFieldSets
+                | ObjectExpr _ -> [] // Skip ObjectExpr (interface implementations)
+                | Sequential exprs -> exprs |> List.collect extractDoExprs
+                | _ -> [ expr ]
+
             let fields = extractFieldSets cons.Body
+            let doExprs = extractDoExprs cons.Body
 
             // Constructor args: skip `this` (first arg in the Fable IR for instance members)
             let ctorArgs = cons.Args |> List.filter (fun a -> a.Name <> "this")
@@ -1827,6 +1862,9 @@ and transformClassDeclaration
                         | None -> None
                     )
 
+                // Transform constructor `do` expressions (side effects like `do v.Value <- 10`)
+                let erlDoExprs = doExprs |> List.map (transformExpr com ctorCtx)
+
                 let body =
                     [
                         // Ref = make_ref()
@@ -1856,6 +1894,8 @@ and transformClassDeclaration
                                    ]
                                )
                            ])
+                    // Constructor `do` body expressions (side effects)
+                    @ erlDoExprs
                     @ [
                         // Return Ref
                         Beam.ErlExpr.Variable "Ref"

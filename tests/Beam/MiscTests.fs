@@ -105,7 +105,7 @@ let (|NonEmpty|_|) (s: string) =
 // type IFoo3 =
 //     abstract Bar: int with get, set
 
-// TODO: RecursiveType "as self" constructor — do expressions in constructor body not executed
+// TODO: RecursiveType "as self" constructor — self-reference generates badkey error
 // type RecursiveType(subscribe) as self =
 //     let foo = 3
 //     let getNumber() = 3
@@ -472,14 +472,12 @@ let ``test Inlined object expression doesn't change argument this context`` () =
 
 // -- Type Extensions --
 
-// TODO: IDisposable.Create extension — disp.Dispose() call not generating correctly
-
-// [<Fact>]
-// let ``test Type extension static methods work`` () =
-//     let disposed = ref false
-//     let disp = IDisposable.Create(fun () -> disposed.Value <- true)
-//     disp.Dispose ()
-//     equal true disposed.Value
+[<Fact>]
+let ``test Type extension static methods work`` () =
+    let disposed = ref false
+    let disp = IDisposable.Create(fun () -> disposed.Value <- true)
+    disp.Dispose ()
+    equal true disposed.Value
 
 [<Fact>]
 let ``test Type extension properties work`` () =
@@ -598,25 +596,23 @@ let ``test use doesn't return on finally clause`` () =
         c.Foo()
     foo() |> equal 5
 
-// TODO: use/Dispose — Dispose not called at end of scope
+[<Fact>]
+let ``test use calls Dispose at the end of the scope`` () =
+    let cell = ref 0
+    let res =
+        use c = new DisposableBar(cell)
+        cell.Value
+    res |> equal 10
+    cell.Value |> equal 20
 
-// [<Fact>]
-// let ``test use calls Dispose at the end of the scope`` () =
-//     let cell = ref 0
-//     let res =
-//         use c = new DisposableBar(cell)
-//         cell.Value
-//     res |> equal 10
-//     cell.Value |> equal 20
-
-// [<Fact>]
-// let ``test use calls Dispose of an object expression at the end of the scope`` () =
-//     let cell = ref 0
-//     let res =
-//         use c = createCellDisposable cell
-//         cell.Value
-//     res |> equal 10
-//     cell.Value |> equal 20
+[<Fact>]
+let ``test use calls Dispose of an object expression at the end of the scope`` () =
+    let cell = ref 0
+    let res =
+        use c = createCellDisposable cell
+        cell.Value
+    res |> equal 10
+    cell.Value |> equal 20
 
 // -- Exception Handling --
 
@@ -742,12 +738,10 @@ let ``test While with isNone doesn't hang with Some unit`` () =
     Trampoline.run (fun _ -> Trampoline.Break 42) () |> ignore
     Trampoline.run (fun _ -> Trampoline.Break ()) () |> ignore
 
-// TODO: ignore returns value (7) instead of unit (ok) — ignore not handled in Replacements
-
-// [<Fact>]
-// let ``test Ignore shouldn't return value`` () =
-//     let producer () = 7
-//     equal (box ()) (box(ignore(producer())))
+[<Fact>]
+let ``test Ignore shouldn't return value`` () =
+    let producer () = 7
+    equal (box ()) (box(ignore(producer())))
 
 [<Fact>]
 let ``test FSharpRef can be used in properties`` () =
@@ -818,7 +812,6 @@ let ``test lambdas returning member expression accessing anon record work`` () =
     x() |> equal 1
 
 // TODO: Mutable record fields — mutation not working correctly
-
 // [<Fact>]
 // let ``test Mutable fields can be passed by reference`` () =
 //     let a = 1

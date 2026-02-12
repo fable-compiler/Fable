@@ -319,7 +319,7 @@ module Output =
 
             printExpr sb indent expr
 
-        | TryCatch(body, catchVar, catchBody) ->
+        | TryCatch(body, catchVar, catchBody, after) ->
             sb.AppendLine("try") |> ignore
 
             body
@@ -350,6 +350,24 @@ module Output =
 
                 sb.AppendLine() |> ignore
             )
+
+            match after with
+            | [] -> ()
+            | afterExprs ->
+                writeIndent ()
+                sb.AppendLine("after") |> ignore
+
+                afterExprs
+                |> List.iteri (fun i afterExpr ->
+                    writeIndent ()
+                    sb.Append("    ") |> ignore
+                    printExpr sb (indent + 1) afterExpr
+
+                    if i < afterExprs.Length - 1 then
+                        sb.Append(",") |> ignore
+
+                    sb.AppendLine() |> ignore
+                )
 
             writeIndent ()
             sb.Append("end") |> ignore

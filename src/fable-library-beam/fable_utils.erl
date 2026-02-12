@@ -1,5 +1,6 @@
 -module(fable_utils).
--export([iface_get/2, apply_curried/2, new_ref/1, get_enumerator/1, move_next/1, get_current/1,
+-export([iface_get/2, apply_curried/2, new_ref/1, safe_dispose/1,
+         get_enumerator/1, move_next/1, get_current/1,
          pos_infinity/0, neg_infinity/0, nan/0]).
 
 %% Interface dispatch: works for both object expressions (maps) and class instances (refs).
@@ -12,6 +13,17 @@ new_ref(Value) ->
     Ref = make_ref(),
     put(Ref, Value),
     Ref.
+
+%% Safely call Dispose on an object that may or may not implement IDisposable.
+%% Handles both ref-based class instances and map-based object expressions.
+safe_dispose(Obj) when is_reference(Obj) ->
+    safe_dispose(get(Obj));
+safe_dispose(Obj) when is_map(Obj) ->
+    case maps:is_key(dispose, Obj) of
+        true -> (maps:get(dispose, Obj))(ok);
+        false -> ok
+    end;
+safe_dispose(_) -> ok.
 
 %% Apply a list of args one at a time to a curried function.
 %% Used by CurriedApply when the target is a qualified call returning a curried function.

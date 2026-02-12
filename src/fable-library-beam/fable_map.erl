@@ -1,7 +1,7 @@
 -module(fable_map).
 -export([try_find/2, fold/3, fold_back/3, map/2, filter/2,
          exists/2, forall/2, iterate/2, find_key/2, try_find_key/2,
-         partition/2, try_get_value/2,
+         partition/2, try_get_value/2, try_get_value/3,
          pick/2, try_pick/2, min_key_value/1, max_key_value/1, change/3]).
 
 %% Fable compiles multi-arg F# lambdas as curried functions:
@@ -50,6 +50,13 @@ partition(Fn, Map) ->
 
 try_get_value(Key, Map) ->
     case maps:find(Key, Map) of {ok, V} -> {true, V}; error -> {false, undefined} end.
+
+%% TryGetValue with out-parameter: sets the out-ref and returns bool.
+try_get_value(Key, Map, OutRef) ->
+    case maps:find(Key, Map) of
+        {ok, V} -> put(OutRef, V), true;
+        error -> false
+    end.
 
 pick(Fn, Map) ->
     case try_pick(Fn, Map) of

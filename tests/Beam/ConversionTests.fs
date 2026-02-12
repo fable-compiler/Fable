@@ -530,29 +530,29 @@ let ``test System.Convert.ToSingle comprehensive works`` () =
 // let ``test System.Decimal.Parse works`` () =
 //     Decimal.Parse "1.5" |> equal 1.5M
 
-// TODO: TryParse uses ref cells / byref which may not work in Beam
-// [<Fact>]
-// let ``test System.Int32.TryParse works`` () =
-//     let success, value = Int32.TryParse("1")
-//     success |> equal true
-//     value |> equal 1
+[<Fact>]
+let ``test System.Int32.TryParse works`` () =
+    let success, value = Int32.TryParse("1")
+    success |> equal true
+    value |> equal 1
+    let success2, value2 = Int32.TryParse("not a number")
+    success2 |> equal false
+    value2 |> equal 0
 
 // TODO: Hex parsing requires NumberStyles support
 // [<Fact>]
 // let ``test System.Int32.Parse with hex works`` () =
 //     Int32.Parse("5f", System.Globalization.NumberStyles.HexNumber) |> equal 95
 
-// TODO: BitConverter requires byte array support
-// [<Fact>]
-// let ``test BitConverter.GetBytes Int32 works`` () =
-//     let bytes = BitConverter.GetBytes(0x01020304)
-//     bytes |> equal [| 4uy; 3uy; 2uy; 1uy |]
+[<Fact>]
+let ``test BitConverter.GetBytes Int32 works`` () =
+    let bytes = BitConverter.GetBytes(0x01020304)
+    bytes |> equal [| 4uy; 3uy; 2uy; 1uy |]
 
-// TODO: Base64 encoding/decoding requires library support
-// [<Fact>]
-// let ``test Convert.ToBase64String works`` () =
-//     let bytes = [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
-//     Convert.ToBase64String(bytes) |> equal "AgQGCAoMDhASFA=="
+[<Fact>]
+let ``test Convert.ToBase64String works`` () =
+    let bytes = [| 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy |]
+    Convert.ToBase64String(bytes) |> equal "AgQGCAoMDhASFA=="
 
 // TODO: Guid not implemented for Beam
 // [<Fact>]

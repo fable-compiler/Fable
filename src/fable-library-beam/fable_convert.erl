@@ -1,6 +1,7 @@
 -module(fable_convert).
 -export([to_float/1, to_int/1, to_int_with_base/2, to_string/1, to_string_with_base/3,
-         to_base64/1, from_base64/1, boolean_parse/1]).
+         to_base64/1, from_base64/1, boolean_parse/1,
+         try_parse_int/2, try_parse_float/2]).
 
 %% Robust string-to-float conversion that handles edge cases
 %% Erlang's binary_to_float/1 is strict and rejects formats like "1." or "1"
@@ -84,6 +85,28 @@ to_base64(Bin) when is_binary(Bin) ->
 
 from_base64(Str) when is_binary(Str) ->
     base64:decode(Str).
+
+%% TryParse: returns bool and sets out-param via put(OutRef, Value).
+%% F# uses out-parameter pattern: result = TryParse(str, &outRef).
+try_parse_int(Bin, OutRef) when is_binary(Bin) ->
+    Trimmed = string:trim(binary_to_list(Bin)),
+    case string:to_integer(Trimmed) of
+        {Int, []} -> put(OutRef, Int), true;
+        _ -> false
+    end;
+try_parse_int(_, _) -> false.
+
+try_parse_float(Bin, OutRef) when is_binary(Bin) ->
+    Trimmed = string:trim(binary_to_list(Bin)),
+    case string:to_float(Trimmed) of
+        {Float, []} -> put(OutRef, Float), true;
+        _ ->
+            case string:to_integer(Trimmed) of
+                {Int, []} -> put(OutRef, float(Int)), true;
+                _ -> false
+            end
+    end;
+try_parse_float(_, _) -> false.
 
 %% Boolean.Parse - case insensitive, trims whitespace
 boolean_parse(Bin) when is_binary(Bin) ->

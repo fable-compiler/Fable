@@ -225,7 +225,7 @@ let private operators
         emitExpr r _t [ arg ] $"put($0, get($0) + %s{delta})" |> Some
     // Erased operators — Beam doesn't need special treatment
     | ("KeyValuePattern" | "Identity" | "Box" | "Unbox" | "ToEnum"), [ arg ] -> TypeCast(arg, _t) |> Some
-    | "Ignore", _ -> TypeCast(args.Head, Unit) |> Some
+    | "Ignore", _ -> Sequential [ args.Head; Value(UnitConstant, None) ] |> Some
     | "CreateSequence", [ xs ] -> TypeCast(xs, _t) |> Some
     // Pipes and composition
     | "op_PipeRight", [ x; f ]
@@ -958,8 +958,18 @@ let private numericTypes
         |> Some
     // System.Double.Pow (static)
     | "Pow", None, [ base_; exp_ ] -> emitExpr r t [ base_; exp_ ] "math:pow($0, $1)" |> Some
-    // TryParse
-    | "TryParse", None, _ -> None // Not yet supported
+    // TryParse: F# out-parameter pattern. Fable passes [str; addressOfOutRef].
+    // Our function returns bool and sets the out-ref via put(Ref, Value).
+    | "TryParse", None, str :: outRef :: _ ->
+        match info.DeclaringEntityFullName with
+        | Types.float16
+        | Types.float32
+        | Types.float64 ->
+            Helper.LibCall(com, "fable_convert", "try_parse_float", t, [ str; outRef ], ?loc = r)
+            |> Some
+        | _ ->
+            Helper.LibCall(com, "fable_convert", "try_parse_int", t, [ str; outRef ], ?loc = r)
+            |> Some
     // MaxValue / MinValue
     | ("get_MaxValue" | "get_MinValue"), None, _ -> None // Not yet supported
     | _ -> None
@@ -1268,6 +1278,9 @@ let private maps
     | "ContainsKey", Some c, [ key ] -> emitExpr r t [ key; c ] "maps:is_key($0, $1)" |> Some
     | "Add", Some c, [ key; value ] -> emitExpr r t [ key; value; c ] "maps:put($0, $1, $2)" |> Some
     | "Remove", Some c, [ key ] -> emitExpr r t [ key; c ] "maps:remove($0, $1)" |> Some
+    | "TryGetValue", Some c, key :: outRef :: _ ->
+        Helper.LibCall(com, "fable_map", "try_get_value", t, [ key; c; outRef ], ?loc = r)
+        |> Some
     | "TryGetValue", Some c, [ key ] -> Helper.LibCall(com, "fable_map", "try_get_value", t, [ key; c ]) |> Some
     | "TryFind", Some c, [ key ] -> Helper.LibCall(com, "fable_map", "try_find", t, [ key; c ]) |> Some
     | _ -> None
@@ -2553,8 +2566,8 @@ let tryField (_com: ICompiler) _returnTyp ownerTyp fieldName : Expr option =
             Value(NumberConstant(NumberValue.Int64 1_000_000L, NumberInfo.Empty), None)
             |> Some
         | "System.BitConverter", "IsLittleEndian" ->
-            // BEAM uses big-endian by convention for binary construction/extraction
-            Value(BoolConstant false, None) |> Some
+            // Match .NET behavior: IsLittleEndian = true (our runtime uses little-endian)
+            Value(BoolConstant true, None) |> Some
         | "System.Guid", "Empty" -> makeStrConst "00000000-0000-0000-0000-000000000000" |> Some
         | _ -> None
     | _ -> None
@@ -2967,7 +2980,7 @@ let tryCall
     // IDisposable
     | "System.IDisposable" ->
         match info.CompiledName, thisArg with
-        | "Dispose", Some c -> emitExpr r t [ c ] "ok" |> Some // noop in Erlang
+        | "Dispose", Some c -> Helper.LibCall(com, "fable_utils", "safe_dispose", t, [ c ], ?loc = r) |> Some
         | _ -> None
     // Exception — caught exceptions are wrapped as #{message => Msg} by Fable2Beam
     | "System.Exception" ->

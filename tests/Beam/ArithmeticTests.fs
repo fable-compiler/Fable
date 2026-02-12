@@ -523,12 +523,11 @@ let ``test ref cell basic operations work`` () =
     x := 30
     equal 30 !x
 
-// TODO: System.Random not implemented for Beam
-// [<Fact>]
-// let ``test System.Random works`` () =
-//     let rnd = Random()
-//     let x = rnd.Next()
-//     x >= 0 |> equal true
+[<Fact>]
+let ``test System.Random works`` () =
+    let rnd = Random()
+    let x = rnd.Next()
+    x >= 0 |> equal true
 
 // TODO: infinity/NaN not available in Erlang (1.0/0.0 raises badarith)
 // [<Fact>]
