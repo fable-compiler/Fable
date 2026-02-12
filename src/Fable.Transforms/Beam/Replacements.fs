@@ -98,6 +98,28 @@ let private operators
 
         makeThrow r _t msg |> Some
     | "IsNull", [ arg ] -> emitExpr r _t [ arg ] "($0 =:= undefined)" |> Some
+    | "IsNotNull", [ arg ] -> emitExpr r _t [ arg ] "($0 =/= undefined)" |> Some
+    // Nullable active patterns and helpers
+    | "NullMatchPattern", [ arg ] ->
+        // Returns {0, ok} (Some(())) if null, {1} (None) otherwise
+        emitExpr r _t [ arg ] "(case $0 of undefined -> {0, ok}; _ -> {1} end)" |> Some
+    | ("NonNull" | "NonNullV"), [ arg ] -> Some arg // Identity - just return the value
+    | ("NonNullQuickPattern" | "NonNullQuickValuePattern"), [ arg ] ->
+        // Returns {0, x} (Some(x)) if non-null, {1} (None) otherwise
+        emitExpr r _t [ arg ] "(case $0 of undefined -> {1}; X___ -> {0, X___} end)"
+        |> Some
+    | "NullValueMatchPattern", [ arg ] ->
+        emitExpr r _t [ arg ] "(case $0 of undefined -> {0, ok}; _ -> {1} end)" |> Some
+    | ("WithNull" | "WithNullV"), [ arg ] -> Some arg // Identity
+    | "NullV", [] -> Value(Null _t, r) |> Some
+    | ("IsNullV"), [ arg ] -> emitExpr r _t [ arg ] "($0 =:= undefined)" |> Some
+    | "NullArgCheck", [ argName; arg ] ->
+        emitExpr
+            r
+            _t
+            [ argName; arg ]
+            "(case $1 of undefined -> erlang:error({badarg, <<\"Value cannot be null. Parameter name: \", $0/binary>>}); _ -> $1 end)"
+        |> Some
     | "Hash", [ arg ] -> emitExpr r _t [ arg ] "erlang:phash2($0)" |> Some
     | "Compare", [ left; right ] -> compare com r left right |> Some
     // Math operators
@@ -418,6 +440,7 @@ let private unchecked
     | "Hash", [ arg ] -> emitExpr r t [ arg ] "erlang:phash2($0)" |> Some
     | "Equals", [ left; right ] -> equals r true left right |> Some
     | "Compare", [ left; right ] -> compare com r left right |> Some
+    | "NonNull", [ arg ] -> Some arg // Identity - unchecked non-null assertion
     | _ -> None
 
 /// Beam-specific System.Object replacements.
@@ -1774,7 +1797,7 @@ let defaultof (_com: ICompiler) (_ctx: Context) (r: SourceLocation option) (typ:
     | Boolean -> makeBoolConst false
     | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
     | Char -> CharConstant '\u0000' |> makeValue None
-    | String -> makeStrConst ""
+    | String -> Value(Null typ, r)
     | DeclaredType(ent, _) when ent.FullName = Types.guid -> makeStrConst "00000000-0000-0000-0000-000000000000"
     | _ -> Value(Null typ, r)
 
