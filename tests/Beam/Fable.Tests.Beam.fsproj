@@ -64,6 +64,8 @@
     <Compile Include="DateTimeTests.fs" />
     <Compile Include="UriTests.fs" />
     <Compile Include="DateTimeOffsetTests.fs" />
+    <Compile Include="GuidTests.fs" />
+    <Compile Include="AnonRecordTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

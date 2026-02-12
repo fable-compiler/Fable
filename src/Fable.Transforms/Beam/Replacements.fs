@@ -1775,6 +1775,7 @@ let defaultof (_com: ICompiler) (_ctx: Context) (r: SourceLocation option) (typ:
     | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
     | Char -> CharConstant '\u0000' |> makeValue None
     | String -> makeStrConst ""
+    | DeclaredType(ent, _) when ent.FullName = Types.guid -> makeStrConst "00000000-0000-0000-0000-000000000000"
     | _ -> Value(Null typ, r)
 
 let getRefCell (_com: ICompiler) (r: SourceLocation option) (_typ: Type) (expr: Expr) =
