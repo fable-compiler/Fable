@@ -439,6 +439,9 @@ let private objects
             | _ -> emitExpr r t [ thisObj ] "integer_to_binary($0)" |> Some
         | Type.Boolean -> emitExpr r t [ thisObj ] "atom_to_binary($0)" |> Some
         | Type.String -> Some thisObj
+        | DeclaredType(ent, _) when ent.FullName = Types.timespan ->
+            Helper.LibCall(_com, "fable_timespan", "to_string", t, [ thisObj ], ?loc = r)
+            |> Some
         | _ ->
             Helper.LibCall(_com, "fable_convert", "to_string", t, [ thisObj ], ?loc = r)
             |> Some
@@ -2569,6 +2572,7 @@ let tryField (_com: ICompiler) _returnTyp ownerTyp fieldName : Expr option =
             // Match .NET behavior: IsLittleEndian = true (our runtime uses little-endian)
             Value(BoolConstant true, None) |> Some
         | "System.Guid", "Empty" -> makeStrConst "00000000-0000-0000-0000-000000000000" |> Some
+        | Types.timespan, "Zero" -> makeIntConst 0 |> Some
         | _ -> None
     | _ -> None
 
@@ -2779,6 +2783,205 @@ let private randoms
         | _ -> None
     | _ -> None
 
+/// Beam-specific System.TimeSpan replacements.
+/// TimeSpan is represented as an integer of ticks (100-nanosecond units).
+let private timeSpans
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName with
+    | ".ctor" -> Helper.LibCall(com, "fable_timespan", "create", t, args, ?loc = r) |> Some
+    | "ToString" ->
+        match thisArg with
+        | Some callee ->
+            match args with
+            | [] ->
+                Helper.LibCall(com, "fable_timespan", "to_string", t, [ callee ], ?loc = r)
+                |> Some
+            | [ fmt; culture ] ->
+                Helper.LibCall(com, "fable_timespan", "to_string", t, [ callee; fmt; culture ], ?loc = r)
+                |> Some
+            | _ -> None
+        | None -> None
+    | "get_Zero" -> makeIntConst 0 |> Some
+    | "FromTicks" -> Helper.LibCall(com, "fable_timespan", "from_ticks", t, args, ?loc = r) |> Some
+    | "FromDays" -> Helper.LibCall(com, "fable_timespan", "from_days", t, args, ?loc = r) |> Some
+    | "FromHours" -> Helper.LibCall(com, "fable_timespan", "from_hours", t, args, ?loc = r) |> Some
+    | "FromMinutes" -> Helper.LibCall(com, "fable_timespan", "from_minutes", t, args, ?loc = r) |> Some
+    | "FromSeconds" -> Helper.LibCall(com, "fable_timespan", "from_seconds", t, args, ?loc = r) |> Some
+    | "FromMilliseconds" ->
+        Helper.LibCall(com, "fable_timespan", "from_milliseconds", t, args, ?loc = r)
+        |> Some
+    | "FromMicroseconds" ->
+        Helper.LibCall(com, "fable_timespan", "from_microseconds", t, args, ?loc = r)
+        |> Some
+    | "Parse" -> Helper.LibCall(com, "fable_timespan", "parse", t, args, ?loc = r) |> Some
+    | "TryParse" -> Helper.LibCall(com, "fable_timespan", "try_parse", t, args, ?loc = r) |> Some
+    | "Add" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "add", t, [ callee; args.Head ], ?loc = r)
+            |> Some
+        | None -> None
+    | "Subtract" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "subtract", t, [ callee; args.Head ], ?loc = r)
+            |> Some
+        | None -> None
+    | "Negate" ->
+        match thisArg with
+        | Some callee -> Helper.LibCall(com, "fable_timespan", "negate", t, [ callee ], ?loc = r) |> Some
+        | None -> None
+    | "Duration" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "duration", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "Multiply" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "multiply", t, [ callee; args.Head ], ?loc = r)
+            |> Some
+        | None -> None
+    | "Divide" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "divide", t, [ callee; args.Head ], ?loc = r)
+            |> Some
+        | None -> None
+    | "CompareTo" ->
+        match thisArg with
+        | Some callee -> compare com r callee args.Head |> Some
+        | None -> None
+    | "Equals" ->
+        match thisArg with
+        | Some callee -> equals r true callee args.Head |> Some
+        | None -> None
+    | "GetHashCode" ->
+        match thisArg with
+        | Some callee -> emitExpr r t [ callee ] "erlang:phash2($0)" |> Some
+        | None -> None
+    // Instance properties: get_Days, get_Hours, get_Minutes, get_Seconds, get_Milliseconds, etc.
+    | "get_Days" ->
+        match thisArg with
+        | Some callee -> Helper.LibCall(com, "fable_timespan", "days", t, [ callee ], ?loc = r) |> Some
+        | None -> None
+    | "get_Hours" ->
+        match thisArg with
+        | Some callee -> Helper.LibCall(com, "fable_timespan", "hours", t, [ callee ], ?loc = r) |> Some
+        | None -> None
+    | "get_Minutes" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "minutes", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Seconds" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "seconds", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Milliseconds" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "milliseconds", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Microseconds" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "microseconds", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_Ticks" ->
+        match thisArg with
+        | Some callee -> Helper.LibCall(com, "fable_timespan", "ticks", t, [ callee ], ?loc = r) |> Some
+        | None -> None
+    | "get_TotalDays" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "total_days", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_TotalHours" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "total_hours", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_TotalMinutes" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "total_minutes", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_TotalSeconds" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "total_seconds", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_TotalMilliseconds" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "total_milliseconds", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    | "get_TotalMicroseconds" ->
+        match thisArg with
+        | Some callee ->
+            Helper.LibCall(com, "fable_timespan", "total_microseconds", t, [ callee ], ?loc = r)
+            |> Some
+        | None -> None
+    // Static operators: TimeSpan + TimeSpan, TimeSpan - TimeSpan
+    | "op_Addition" ->
+        match args with
+        | [ left; right ] -> makeBinOp r t left right BinaryPlus |> Some
+        | _ -> None
+    | "op_Subtraction" ->
+        match args with
+        | [ left; right ] -> makeBinOp r t left right BinaryMinus |> Some
+        | _ -> None
+    | "op_Equality" ->
+        match args with
+        | [ left; right ] -> equals r true left right |> Some
+        | _ -> None
+    | "op_Inequality" ->
+        match args with
+        | [ left; right ] -> equals r false left right |> Some
+        | _ -> None
+    | "op_LessThan" ->
+        match args with
+        | [ left; right ] -> makeBinOp r Boolean left right BinaryLess |> Some
+        | _ -> None
+    | "op_LessThanOrEqual" ->
+        match args with
+        | [ left; right ] -> makeBinOp r Boolean left right BinaryLessOrEqual |> Some
+        | _ -> None
+    | "op_GreaterThan" ->
+        match args with
+        | [ left; right ] -> makeBinOp r Boolean left right BinaryGreater |> Some
+        | _ -> None
+    | "op_GreaterThanOrEqual" ->
+        match args with
+        | [ left; right ] -> makeBinOp r Boolean left right BinaryGreaterOrEqual |> Some
+        | _ -> None
+    | "op_UnaryNegation" ->
+        match args with
+        | [ operand ] ->
+            Helper.LibCall(com, "fable_timespan", "negate", t, [ operand ], ?loc = r)
+            |> Some
+        | _ -> None
+    | _ -> None
+
 let tryType (_t: Type) : Expr option = None
 
 let tryCall
@@ -2971,6 +3174,11 @@ let tryCall
     | Types.nullable -> nullables com ctx r t info thisArg args
     | Types.guid -> guids com ctx r t info thisArg args
     | "System.Random" -> randoms com ctx r t info thisArg args
+    | Types.timespan -> timeSpans com ctx r t info thisArg args
+    | "System.Globalization.CultureInfo" ->
+        match info.CompiledName with
+        | "get_InvariantCulture" -> emitExpr r t [] "undefined" |> Some
+        | _ -> None
     // Testing assertions (used by our test framework)
     | "Fable.Core.Testing.Assert" ->
         match info.CompiledName, args with
