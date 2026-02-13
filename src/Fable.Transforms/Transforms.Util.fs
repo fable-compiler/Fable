@@ -1153,15 +1153,20 @@ module AST =
         | JavaScript -> com.LibraryDir + "/" + moduleName + ".js"
         | Php -> com.LibraryDir + "/" + moduleName + ".php"
         | Beam ->
-            // Beam library modules use fable_ prefix with snake_case (e.g., "Option" -> "fable_option")
+            // Beam library modules: names starting with "fable_" pass through as-is.
+            // Names from JS fallback (e.g., "Option") get fable_ prefix for backward compat.
+            // Dotted names from bclType (e.g., "System.Text") are F#-compiled modules.
             let beamModuleName =
                 if moduleName.StartsWith("fable_", System.StringComparison.Ordinal) then
                     moduleName
+                elif moduleName.Contains(".") then
+                    // F#-compiled library module (e.g., "System.Text" -> "system_text")
+                    moduleName
+                    |> fun s -> s.Replace(".", "_").Replace("-", "_")
+                    |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
                 else
-                    "fable_"
-                    + (moduleName
-                       |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
-                       |> fun s -> s.Replace(".", "_"))
+                    // JS fallback module name (e.g., "Option" -> "fable_option")
+                    "fable_" + (moduleName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase)
 
             com.LibraryDir + "/" + beamModuleName + ".erl"
 

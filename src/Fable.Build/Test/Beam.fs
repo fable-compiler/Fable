@@ -59,6 +59,13 @@ let handle (args: string list) =
             for erlFile in Directory.GetFiles(libDir, "*.erl") do
                 File.Copy(erlFile, Path.Combine(buildDir, Path.GetFileName(erlFile)), overwrite = true)
 
+        // Copy Fable-compiled library files (e.g., system_text.erl from System.Text.fs)
+        let compiledLibDir = Path.Resolve("temp", "fable-library-beam")
+
+        if Directory.Exists(compiledLibDir) then
+            for erlFile in Directory.GetFiles(compiledLibDir, "*.erl") do
+                File.Copy(erlFile, Path.Combine(buildDir, Path.GetFileName(erlFile)), overwrite = true)
+
         let erlFiles = Directory.GetFiles(buildDir, "*.erl")
         let mutable compileErrors = 0
 

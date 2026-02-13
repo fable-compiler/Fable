@@ -87,8 +87,8 @@ module Naming =
 
     let moduleNameFromFile (filePath: string) =
         System.IO.Path.GetFileNameWithoutExtension(filePath)
-        |> toSnakeCase
         |> fun s -> s.Replace(".", "_").Replace("-", "_")
+        |> Fable.Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
 
     let capitalizeFirst (s: string) =
         if s.Length = 0 then

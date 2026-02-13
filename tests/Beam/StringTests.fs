@@ -567,17 +567,16 @@ let ``test String.concat with long array works`` () =
     let s = String.concat "" a
     s.Length |> equal n
 
-// TODO: StringBuilder requires class/object support beyond current Beam capabilities
-// [<Fact>]
-// let ``test StringBuilder works`` () =
-//     let sb = System.Text.StringBuilder()
-//     sb.Append "Hello" |> ignore
-//     sb.AppendLine () |> ignore
-//     sb.AppendLine "World!" |> ignore
-//     let expected = System.Text.StringBuilder()
-//                       .AppendFormat("Hello{0}World!{0}", Environment.NewLine)
-//                       .ToString()
-//     sb.ToString() |> equal expected
+[<Fact>]
+let ``test StringBuilder works`` () =
+    let sb = System.Text.StringBuilder()
+    sb.Append "Hello" |> ignore
+    sb.AppendLine () |> ignore
+    sb.AppendLine "World!" |> ignore
+    let expected = System.Text.StringBuilder()
+                      .AppendFormat("Hello{0}World!{0}", Environment.NewLine)
+                      .ToString()
+    sb.ToString() |> equal expected
 
 [<Fact>]
 let ``test String.Format works`` () =

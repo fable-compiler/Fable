@@ -12,4 +12,7 @@ type BuildFableLibraryBeam() =
             Path.Combine("temp", "fable-library-beam")
         )
 
-    override _.CopyStage() = ()
+    override this.CopyStage() =
+        // Copy hand-written .erl runtime files to the output directory
+        for erlFile in Directory.GetFiles(this.SourceDir, "*.erl") do
+            File.Copy(erlFile, Path.Combine(this.OutDir, Path.GetFileName(erlFile)), overwrite = true)

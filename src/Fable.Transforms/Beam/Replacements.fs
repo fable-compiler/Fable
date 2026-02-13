@@ -495,6 +495,9 @@ let private objects
             |> Some
         | DeclaredType(ent, _) when ent.FullName = "System.Uri" ->
             Helper.LibCall(_com, "fable_uri", "to_string", t, [ thisObj ], ?loc = r) |> Some
+        | DeclaredType(ent, _) when ent.FullName = "System.Text.StringBuilder" ->
+            // StringBuilder.ToString() → iolist_to_binary(get(maps:get(buf, get(Sb))))
+            emitExpr r t [ thisObj ] "iolist_to_binary(get(maps:get(buf, get($0))))" |> Some
         | _ ->
             Helper.LibCall(_com, "fable_convert", "to_string", t, [ thisObj ], ?loc = r)
             |> Some
@@ -3533,6 +3536,43 @@ let private timeSpans
         | _ -> None
     | _ -> None
 
+let private getMangledNames (i: CallInfo) (thisArg: Expr option) =
+    let isStatic = Option.isNone thisArg
+    let pos = i.DeclaringEntityFullName.LastIndexOf('.')
+
+    let moduleName =
+        i.DeclaringEntityFullName.Substring(0, pos).Replace("Microsoft.", "")
+
+    let entityName =
+        i.DeclaringEntityFullName.Substring(pos + 1)
+        |> FSharp2Fable.Helpers.cleanNameAsJsIdentifier
+
+    let memberName = i.CompiledName |> FSharp2Fable.Helpers.cleanNameAsJsIdentifier
+
+    let mangledName =
+        Naming.buildNameWithoutSanitationFrom entityName isStatic memberName i.OverloadSuffix
+
+    moduleName, mangledName
+
+let private bclType (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let moduleName, mangledName = getMangledNames i thisArg
+
+    let args =
+        match thisArg with
+        | Some callee -> callee :: args
+        | _ -> args
+
+    // F#-compiled methods/constructors with no user args still take a unit parameter (_UnitVar).
+    // Constructors: .ctor() → fun(_UnitVar), instance methods: member x.Foo() → fun(X, _UnitVar)
+    let args =
+        if args.IsEmpty || (thisArg.IsSome && i.SignatureArgTypes.IsEmpty) then
+            args @ [ Value(UnitConstant, None) ]
+        else
+            args
+
+    Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+    |> Some
+
 let tryType (_t: Type) : Expr option = None
 
 let tryCall
@@ -3795,6 +3835,7 @@ let tryCall
             // MakeTuple(values, tupleType) — just return values as a tuple (list in Erlang)
             emitExpr r t [ values ] "list_to_tuple($0)" |> Some
         | _ -> None
+    | "System.Text.StringBuilder" -> bclType com ctx r t info thisArg args
     | _ -> None
 
 let tryBaseConstructor
