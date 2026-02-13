@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 4.29.0 - 2026-02-13
+
 ### Fixed
 
 * [All] Prevent Fable from freezing when running a sub-process via `--run` (fix #3631) (by @MangelMaxime)

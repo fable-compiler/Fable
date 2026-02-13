@@ -4,11 +4,11 @@
     <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <Version>4.28.0</Version>
+    <Version>4.29.0</Version>
     <PackageReleaseNotes>## Fixed
 
-- [All] Fix `BuildalyzerCracker` so it can work on .NET 10 (by @MangelMaxime)
-- [All] Fix `--cwd` with quoted paths (by @MangelMaxime)
+- [All] Prevent Fable from freezing when running a sub-process via `--run` (fix #3631) (by @MangelMaxime)
+- [All] Improve console width detection when rewritting console output (by @MangelMaxime)
 
 </PackageReleaseNotes>
     <!-- Allow users with newer dotnet SDK to run Fable, see #1910 -->
