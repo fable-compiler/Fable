@@ -1,5 +1,6 @@
 module Build.Test.Beam
 
+open Build.FableLibrary
 open System.IO
 open Build.Utils
 open BlackFox.CommandLine
@@ -12,8 +13,9 @@ let private testRunnerSrc = Path.Resolve("tests", "Beam", "erl_test_runner.erl")
 let handle (args: string list) =
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
+    let skipFableLibrary = args |> List.contains "--skip-fable-library"
 
-    // No fable-library for Beam yet, skip that step
+    BuildFableLibraryBeam().Run(skipFableLibrary)
 
     Directory.clean buildDir
 
