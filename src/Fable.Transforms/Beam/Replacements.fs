@@ -3562,14 +3562,6 @@ let private bclType (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg:
         | Some callee -> callee :: args
         | _ -> args
 
-    // F#-compiled methods/constructors with no user args still take a unit parameter (_UnitVar).
-    // Constructors: .ctor() → fun(_UnitVar), instance methods: member x.Foo() → fun(X, _UnitVar)
-    let args =
-        if args.IsEmpty || (thisArg.IsSome && i.SignatureArgTypes.IsEmpty) then
-            args @ [ Value(UnitConstant, None) ]
-        else
-            args
-
     Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
     |> Some
 

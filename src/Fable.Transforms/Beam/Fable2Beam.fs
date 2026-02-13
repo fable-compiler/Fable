@@ -764,11 +764,14 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             |> List.map (fun memb ->
                 let memberInfo = com.GetMember(memb.MemberRef)
                 let methodName = sanitizeErlangName memb.Name
-                // Skip the `this` arg (first arg for instance members)
+                // Skip the `this` arg (first arg for instance members), then discard unit args.
+                // ObjectExpr members are interface method implementations, so discardUnitArg
+                // is safe and matches dropUnitCallArg at call sites.
                 let nonThisArgs =
                     match memb.Args with
                     | first :: rest when first.IsThisArgument -> rest
                     | args -> args
+                    |> FSharp2Fable.Util.discardUnitArg
 
                 let membCtx =
                     { ctx with LocalVars = nonThisArgs |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars }
@@ -1318,6 +1321,9 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
                 Beam.ErlExpr.Call(Some "erlang", "element", [ erlIndex; erlExpr ])
 
 and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: CallInfo) : Beam.ErlExpr =
+    let info =
+        { info with Args = FSharp2Fable.Util.dropUnitCallArg com info.Args info.SignatureArgTypes info.MemberRef }
+
     match callee with
     | Import(importInfo, _typ, _range) ->
         let importModuleName =
@@ -1752,19 +1758,15 @@ and transformClassDeclaration
             let fields = extractFieldSets cons.Body
             let doExprs = extractDoExprs cons.Body
 
-            // Constructor args: skip `this` (first arg in the Fable IR for instance members)
-            let ctorArgs = cons.Args |> List.filter (fun a -> a.Name <> "this")
+            // Constructor args: skip `this`, then discard unit args
+            let ctorArgs =
+                cons.Args
+                |> List.filter (fun a -> a.Name <> "this")
+                |> FSharp2Fable.Util.discardUnitArg
 
             let argPatterns =
                 ctorArgs
-                |> List.map (fun a ->
-                    let name = capitalizeFirst a.Name |> sanitizeErlangVar
-
-                    if a.Name.StartsWith("unitVar", System.StringComparison.Ordinal) then
-                        Beam.PVar("_" + name)
-                    else
-                        Beam.PVar(name)
-                )
+                |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
 
             if ent.IsFSharpExceptionDeclaration then
                 // F# exception construction goes through NewRecord, not ClassDecl constructor.
@@ -1819,8 +1821,11 @@ and transformClassDeclaration
                                 Some(atomLit memberName, erlBody)
                             else
                                 // Method: create a closure with the body inlined directly.
+                                // Apply discardUnitArg to match dropUnitCallArg at call sites.
                                 let nonThisArgs =
-                                    memb.Args |> List.filter (fun a -> not a.IsThisArgument && a.Name <> "this")
+                                    memb.Args
+                                    |> List.filter (fun a -> not a.IsThisArgument && a.Name <> "this")
+                                    |> FSharp2Fable.Util.discardUnitArg
 
                                 let argPats =
                                     nonThisArgs
@@ -1938,11 +1943,17 @@ and transformClassDeclaration
 
                 // Helper: separate this arg from other args, set up proper context
                 let getThisAndArgs () =
+                    let discardedArgs =
+                        match memb.Args with
+                        | first :: rest when first.IsThisArgument || first.Name = "this" ->
+                            first :: (FSharp2Fable.Util.discardUnitArg rest)
+                        | args -> FSharp2Fable.Util.discardUnitArg args
+
                     let argNames =
-                        memb.Args
+                        discardedArgs
                         |> List.fold (fun (s: Set<string>) (a: Ident) -> s.Add(a.Name)) ctx.LocalVars
 
-                    match memb.Args with
+                    match discardedArgs with
                     | first :: rest when first.IsThisArgument || first.Name = "this" ->
                         let thisIdentNames = Set.singleton first.Name
 
@@ -1954,18 +1965,15 @@ and transformClassDeclaration
                             }
 
                         Some first, rest, memberCtx
-                    | _ -> None, memb.Args, { ctx with LocalVars = argNames }
+                    | _ -> None, discardedArgs, { ctx with LocalVars = argNames }
 
                 if info.IsConstructor then
                     // Secondary constructor: generates an additional function with different arity
                     // The body typically calls the primary constructor
                     let ctorArgs =
                         memb.Args
-                        |> List.filter (fun a ->
-                            not a.IsThisArgument
-                            && a.Name <> "this"
-                            && not (a.Name.StartsWith("unitVar", System.StringComparison.Ordinal))
-                        )
+                        |> List.filter (fun a -> not a.IsThisArgument && a.Name <> "this")
+                        |> FSharp2Fable.Util.discardUnitArg
 
                     let argPatterns =
                         ctorArgs
@@ -2127,10 +2135,10 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
             |> Option.defaultWith (fun () -> com.GetMember(memDecl.MemberRef))
 
         let name = sanitizeErlangName memDecl.Name
-        let arity = memDecl.Args.Length
 
         // For instance members, the first arg is `this` (named `_` or `__` or `this$` etc.)
-        // We need to rename it to a proper Erlang variable and set up the context
+        // We need to rename it to a proper Erlang variable and set up the context.
+        // Apply discardUnitArg to non-this args for symmetric unit stripping.
         let args, memberCtx =
             if info.IsInstance && memDecl.Args.Length > 0 then
                 let thisArg = memDecl.Args.[0]
@@ -2146,17 +2154,25 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                         n
 
                 let restArgs =
-                    memDecl.Args.[1..] |> List.map (fun arg -> Beam.PVar(toErlangVar arg))
+                    memDecl.Args.[1..]
+                    |> FSharp2Fable.Util.discardUnitArg
+                    |> List.map (fun arg -> Beam.PVar(toErlangVar arg))
+
+                let allIdents = thisArg :: (memDecl.Args.[1..] |> FSharp2Fable.Util.discardUnitArg)
 
                 Beam.PVar(thisVarName) :: restArgs,
                 { ctx with
                     ThisArgVar = Some thisVarName
                     ThisIdentNames = Set.singleton thisArg.Name
-                    LocalVars = memDecl.Args |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars
+                    LocalVars = allIdents |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars
                 }
             else
-                memDecl.Args |> List.map (fun arg -> Beam.PVar(toErlangVar arg)),
-                { ctx with LocalVars = memDecl.Args |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars }
+                let discardedArgs = FSharp2Fable.Util.discardUnitArg memDecl.Args
+
+                discardedArgs |> List.map (fun arg -> Beam.PVar(toErlangVar arg)),
+                { ctx with LocalVars = discardedArgs |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars }
+
+        let arity = args.Length
 
         let bodyExpr = transformExpr com memberCtx memDecl.Body
 

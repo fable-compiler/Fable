@@ -5,14 +5,9 @@ open Fable.AST
 open Fable.AST.Fable
 open Fable.Beam
 
-/// Convert an F# ident to an Erlang variable name, prefixing unused unit args with _
+/// Convert an F# ident to an Erlang variable name
 let toErlangVar (ident: Ident) =
-    let name = Naming.capitalizeFirst ident.Name |> Naming.sanitizeErlangVar
-    // Prefix unit parameters with _ to suppress Erlang unused variable warnings
-    if ident.Name.StartsWith("unitVar", System.StringComparison.Ordinal) then
-        "_" + name
-    else
-        name
+    Naming.capitalizeFirst ident.Name |> Naming.sanitizeErlangVar
 
 let isIntegerType (typ: Fable.AST.Fable.Type) =
     match typ with

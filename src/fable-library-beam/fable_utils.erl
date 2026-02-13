@@ -20,7 +20,12 @@ safe_dispose(Obj) when is_reference(Obj) ->
     safe_dispose(get(Obj));
 safe_dispose(Obj) when is_map(Obj) ->
     case maps:is_key(dispose, Obj) of
-        true -> (maps:get(dispose, Obj))(ok);
+        true ->
+            Fn = maps:get(dispose, Obj),
+            case erlang:fun_info(Fn, arity) of
+                {arity, 0} -> Fn();
+                {arity, _} -> Fn(ok)
+            end;
         false -> ok
     end;
 safe_dispose(_) -> ok.

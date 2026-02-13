@@ -12,12 +12,12 @@ main([Dir]) ->
         code:purge(Mod),
         code:load_file(Mod),
         Exports = Mod:module_info(exports),
-        TestFuns = [{Mod, F} || {F, 1} <- Exports,
+        TestFuns = [{Mod, F} || {F, 0} <- Exports,
                      F =/= module_info,
                      lists:prefix("test_", atom_to_list(F))],
         lists:foldl(fun({M, F}, {Pass, Fail}) ->
             try
-                M:F(ok),
+                M:F(),
                 io:format("  PASS ~s:~s~n", [M, F]),
                 {Pass + 1, Fail}
             catch
