@@ -2638,17 +2638,25 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             |> makeHashSetWithComparer com r t (makeArray Any [])
             |> Some
         | _ -> None
-    | "get_Count", Some c, _ ->
-        Helper.LibCall(com, "mutable_set", "HashSet__get_Count", t, [ c ], ?loc = r)
-        |> Some
+    | "get_Count", Some c, _ -> Helper.GlobalCall("len", t, [ c ], ?loc = r) |> Some
     | "get_IsReadOnly", _, _ -> BoolConstant false |> makeValue r |> Some
-    | ReplaceName [ "Clear", "clear"; "Contains", "has"; "Remove", "delete" ] methName, Some c, args ->
-        Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc = r) |> Some
+    | "Clear", Some c, _ -> Helper.InstanceCall(c, "clear", t, args, i.SignatureArgTypes, ?loc = r) |> Some
+    | "Contains", Some c, [ arg ] ->
+        Helper.LibCall(com, "map_util", "containsInSet", t, [ arg; c ], ?loc = r)
+        |> Some
+    | "Remove", Some c, [ arg ] ->
+        Helper.LibCall(com, "map_util", "removeFromSet", t, [ arg; c ], ?loc = r)
+        |> Some
     | "GetEnumerator", Some c, _ -> getEnumerator com r t c |> Some
     | "Add", Some c, [ arg ] -> Helper.LibCall(com, "map_util", "addToSet", t, [ arg; c ], ?loc = r) |> Some
-    | ("IsProperSubsetOf" | "IsProperSupersetOf" | "UnionWith" | "IntersectWith" | "ExceptWith" | "IsSubsetOf" | "IsSupersetOf" as meth),
-      Some c,
-      args ->
+    | "UnionWith", Some c, [ arg ] -> Helper.LibCall(com, "map_util", "unionWithSet", t, [ c; arg ], ?loc = r) |> Some
+    | "IntersectWith", Some c, [ arg ] ->
+        Helper.LibCall(com, "map_util", "intersectWithSet", t, [ c; arg ], ?loc = r)
+        |> Some
+    | "ExceptWith", Some c, [ arg ] ->
+        Helper.LibCall(com, "map_util", "exceptWithSet", t, [ c; arg ], ?loc = r)
+        |> Some
+    | ("IsProperSubsetOf" | "IsProperSupersetOf" | "IsSubsetOf" | "IsSupersetOf" as meth), Some c, args ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Set" meth i.GenericArgs args
 
