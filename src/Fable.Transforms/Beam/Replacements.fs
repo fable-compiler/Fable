@@ -177,10 +177,10 @@ let private operators
         | Type.String -> Helper.LibCall(com, "fable_convert", "to_int", _t, [ arg ], ?loc = r) |> Some
         | Type.Number(kind, _) ->
             match kind with
+            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_int", _t, [ arg ], ?loc = r) |> Some
             | Float16
             | Float32
-            | Float64
-            | Decimal -> emitExpr r _t [ arg ] "trunc($0)" |> Some
+            | Float64 -> emitExpr r _t [ arg ] "trunc($0)" |> Some
             | _ -> Some arg
         | Type.Char -> Some arg
         | _ -> Some arg
@@ -189,33 +189,37 @@ let private operators
         | Type.String -> Helper.LibCall(com, "fable_convert", "to_float", _t, [ arg ]) |> Some
         | Type.Number(kind, _) ->
             match kind with
+            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_number", _t, [ arg ], ?loc = r) |> Some
             | Float16
             | Float32
-            | Float64
-            | Decimal -> Some arg
+            | Float64 -> Some arg
             | _ -> emitExpr r _t [ arg ] "float($0)" |> Some
         | _ -> emitExpr r _t [ arg ] "float($0)" |> Some
     | "ToDecimal", [ arg ] ->
         match arg.Type with
-        | Type.String -> Helper.LibCall(com, "fable_convert", "to_float", _t, [ arg ]) |> Some
+        | Type.String -> Helper.LibCall(com, "fable_decimal", "parse", _t, [ arg ], ?loc = r) |> Some
         | Type.Number(kind, _) ->
             match kind with
+            | Decimal -> Some arg
             | Float16
             | Float32
-            | Float64
-            | Decimal -> Some arg
-            | _ -> emitExpr r _t [ arg ] "float($0)" |> Some
-        | _ -> emitExpr r _t [ arg ] "float($0)" |> Some
+            | Float64 ->
+                // float → fixed-scale: trunc(x * 10^28)
+                emitExpr r _t [ arg ] "trunc($0 * 10000000000000000000000000000)" |> Some
+            | _ ->
+                // int → fixed-scale: x * 10^28
+                emitExpr r _t [ arg ] "($0 * 10000000000000000000000000000)" |> Some
+        | _ -> emitExpr r _t [ arg ] "($0 * 10000000000000000000000000000)" |> Some
     | "ToString", [ arg ] ->
         match arg.Type with
         | Type.String -> Some arg
         | Type.Char -> emitExpr r _t [ arg ] "<<$0/utf8>>" |> Some
         | Type.Number(kind, _) ->
             match kind with
+            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", _t, [ arg ], ?loc = r) |> Some
             | Float16
             | Float32
-            | Float64
-            | Decimal -> emitExpr r _t [ arg ] "float_to_binary($0)" |> Some
+            | Float64 -> emitExpr r _t [ arg ] "float_to_binary($0)" |> Some
             | _ -> emitExpr r _t [ arg ] "integer_to_binary($0)" |> Some
         | Type.Boolean -> emitExpr r _t [ arg ] "atom_to_binary($0)" |> Some
         | _ -> Helper.LibCall(com, "fable_convert", "to_string", _t, [ arg ], ?loc = r) |> Some
@@ -336,6 +340,22 @@ let private operators
         | String :: _ ->
             match info.CompiledName, args with
             | Operators.addition, [ left; right ] -> add left right |> Some
+            | _ -> None
+        // Decimal: fixed-scale integer — +, -, rem work natively; *, / need library calls
+        | Number(Decimal, _) :: _ ->
+            match info.CompiledName, args with
+            | Operators.addition, [ left; right ] -> makeBinOp r _t left right BinaryPlus |> Some
+            | Operators.subtraction, [ left; right ] -> makeBinOp r _t left right BinaryMinus |> Some
+            | Operators.multiply, [ left; right ] ->
+                Helper.LibCall(com, "fable_decimal", "multiply", _t, [ left; right ], ?loc = r)
+                |> Some
+            | Operators.division, [ left; right ] ->
+                Helper.LibCall(com, "fable_decimal", "divide", _t, [ left; right ], ?loc = r)
+                |> Some
+            | Operators.divideByInt, [ left; right ] ->
+                Helper.LibCall(com, "fable_decimal", "divide_by_int", _t, [ left; right ], ?loc = r)
+                |> Some
+            | Operators.modulus, [ left; right ] -> makeBinOp r _t left right BinaryModulus |> Some
             | _ -> None
         // DateTime arithmetic: + and - need runtime library calls
         | DeclaredType(ent, _) :: _ when ent.FullName = Types.datetime ->
@@ -505,10 +525,12 @@ let private objects
         | Type.Char -> emitExpr r t [ thisObj ] "<<$0/utf8>>" |> Some
         | Type.Number(kind, _) ->
             match kind with
+            | Decimal ->
+                Helper.LibCall(_com, "fable_decimal", "to_string", t, [ thisObj ], ?loc = r)
+                |> Some
             | Float16
             | Float32
-            | Float64
-            | Decimal -> emitExpr r t [ thisObj ] "float_to_binary($0)" |> Some
+            | Float64 -> emitExpr r t [ thisObj ] "float_to_binary($0)" |> Some
             | _ -> emitExpr r t [ thisObj ] "integer_to_binary($0)" |> Some
         | Type.Boolean -> emitExpr r t [ thisObj ] "atom_to_binary($0)" |> Some
         | Type.String -> Some thisObj
@@ -1051,8 +1073,8 @@ let private numericTypes
     | "Parse", None, [ arg ] ->
         match info.DeclaringEntityFullName with
         | "System.Double"
-        | "System.Single"
-        | "System.Decimal" -> Helper.LibCall(com, "fable_convert", "to_float", t, [ arg ]) |> Some
+        | "System.Single" -> Helper.LibCall(com, "fable_convert", "to_float", t, [ arg ]) |> Some
+        | "System.Decimal" -> Helper.LibCall(com, "fable_decimal", "parse", t, [ arg ], ?loc = r) |> Some
         | _ ->
             // Int32, Int64, Byte, etc. — all parse to integer
             emitExpr r t [ arg ] "binary_to_integer($0)" |> Some
@@ -1060,10 +1082,10 @@ let private numericTypes
         match c.Type with
         | Type.Number(kind, _) ->
             match kind with
+            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", t, [ c ], ?loc = r) |> Some
             | Float16
             | Float32
-            | Float64
-            | Decimal -> emitExpr r t [ c ] "float_to_binary($0)" |> Some
+            | Float64 -> emitExpr r t [ c ] "float_to_binary($0)" |> Some
             | _ -> emitExpr r t [ c ] "integer_to_binary($0)" |> Some
         | _ -> None
     | "ToString", Some c, [ fmt ] ->
@@ -1092,16 +1114,29 @@ let private numericTypes
         | Types.float64 ->
             Helper.LibCall(com, "fable_convert", "try_parse_float", t, [ str; outRef ], ?loc = r)
             |> Some
+        | Types.decimal ->
+            Helper.LibCall(com, "fable_decimal", "try_parse", t, [ str; outRef ], ?loc = r)
+            |> Some
         | _ ->
             Helper.LibCall(com, "fable_convert", "try_parse_int", t, [ str; outRef ], ?loc = r)
             |> Some
-    // Decimal arithmetic — Beam treats decimal as float, so use native operators
-    | "op_Addition", None, [ left; right ] -> makeBinOp r t left right BinaryPlus |> Some
-    | "op_Subtraction", None, [ left; right ] -> makeBinOp r t left right BinaryMinus |> Some
-    | "op_Multiply", None, [ left; right ] -> makeBinOp r t left right BinaryMultiply |> Some
-    | "op_Division", None, [ left; right ] -> makeBinOp r t left right BinaryDivide |> Some
-    | "op_Modulus", None, [ left; right ] -> makeBinOp r t left right BinaryModulus |> Some
-    | "op_UnaryNegation", None, [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, t, r) |> Some
+    // Decimal — fixed-scale integer (value × 10^28).
+    // +, -, rem, abs, sign, comparisons work natively; *, / need library calls.
+    | ("op_Addition" | "Add"), None, [ left; right ] -> makeBinOp r t left right BinaryPlus |> Some
+    | ("op_Subtraction" | "Subtract"), None, [ left; right ] -> makeBinOp r t left right BinaryMinus |> Some
+    | ("op_Multiply" | "Multiply"), None, [ left; right ] ->
+        Helper.LibCall(com, "fable_decimal", "multiply", t, [ left; right ], ?loc = r)
+        |> Some
+    | ("op_Division" | "Divide"), None, [ left; right ] ->
+        Helper.LibCall(com, "fable_decimal", "divide", t, [ left; right ], ?loc = r)
+        |> Some
+    | ("op_Modulus" | "Remainder"), None, [ left; right ] -> makeBinOp r t left right BinaryModulus |> Some
+    | ("op_UnaryNegation" | "Negate"), None, [ operand ] ->
+        Operation(Unary(UnaryMinus, operand), Tags.empty, t, r) |> Some
+    // Static properties
+    | "get_Zero", None, _ -> makeIntConst 0 |> Some
+    | "get_One", None, _ -> Helper.LibCall(com, "fable_decimal", "get_one", t, [], ?loc = r) |> Some
+    | "get_MinusOne", None, _ -> Helper.LibCall(com, "fable_decimal", "get_minus_one", t, [], ?loc = r) |> Some
     // MaxValue / MinValue
     | ("get_MaxValue" | "get_MinValue"), None, _ -> None // Not yet supported
     | _ -> None
@@ -2729,6 +2764,14 @@ let private enumerators
 
 let tryField (com: ICompiler) returnTyp ownerTyp fieldName : Expr option =
     match ownerTyp, fieldName with
+    | Number(Decimal, _), "Zero" -> makeIntConst 0 |> Some
+    | Number(Decimal, _), "One" ->
+        Helper.LibCall(com, "fable_decimal", "get_one", returnTyp, [], ?loc = None)
+        |> Some
+    | Number(Decimal, _), "MinusOne" ->
+        Helper.LibCall(com, "fable_decimal", "get_minus_one", returnTyp, [], ?loc = None)
+        |> Some
+    | Number(Decimal, _), _ -> None
     | String, "Empty" -> makeStrConst "" |> Some
     | DeclaredType(ent, _), fieldName ->
         match ent.FullName, fieldName with
@@ -3699,14 +3742,7 @@ let tryCall
         | "GetString", [ ar; idx ] -> emitExpr r t [ ar; idx ] "binary:at($0, $1)" |> Some
         | ("UnboxFast" | "UnboxGeneric" | "CheckThis"), [ arg ] -> TypeCast(arg, t) |> Some
         | "MakeDecimal", [ low; mid; high; isNegative; scale ] ->
-            // Decimal is represented as float in Beam.
-            // MakeDecimal(low, mid, high, isNegative, scale) →
-            //   (low + mid * 2^32 + high * 2^64) / math:pow(10, scale) * case isNegative of true -> -1; false -> 1 end
-            emitExpr
-                r
-                t
-                [ low; mid; high; isNegative; scale ]
-                "(($0 + $1 * 4294967296 + $2 * 18446744073709551616) / math:pow(10, $4) * case $3 of true -> -1; false -> 1 end)"
+            Helper.LibCall(com, "fable_decimal", "from_parts", t, [ low; mid; high; isNegative; scale ], ?loc = r)
             |> Some
         | _ -> None
     | "System.Numerics.BigInteger"

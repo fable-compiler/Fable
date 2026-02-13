@@ -6,6 +6,7 @@ type Atom = | Atom of name: string
 type ErlLiteral =
     | Integer of value: int64
     | Float of value: float
+    | BigInt of value: string
     | StringLit of value: string
     | AtomLit of atom: Atom
     | BoolLit of value: bool

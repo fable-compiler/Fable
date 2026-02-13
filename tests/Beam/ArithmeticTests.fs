@@ -504,10 +504,98 @@ let ``test Sign operator works with bigints`` () =
     sign -1I |> equal -1
     sign -2I |> equal -1
 
-// TODO: Decimal support not yet implemented for Beam
-// [<Fact>]
-// let ``test Decimal literals can be generated`` () =
-//     0M |> equal Decimal.Zero
+[<Fact>]
+let ``test Decimal literals can be generated`` () =
+    0M |> equal Decimal.Zero
+    1M |> equal Decimal.One
+    -1M |> equal Decimal.MinusOne
+
+[<Fact>]
+let ``test Decimal.ToString works`` () =
+    string 001.23456M |> equal "1.23456"
+    string 1.23456M |> equal "1.23456"
+
+[<Fact>]
+let ``test Decimal Infix add works`` () =
+    4.0868M + 2.289348M |> equal 6.376148M
+
+[<Fact>]
+let ``test Decimal Infix subtract works`` () =
+    4.0868M - 2.289348M |> equal 1.797452M
+
+[<Fact>]
+let ``test Decimal Infix multiply works`` () =
+    4.0868M * 2.289348M |> equal 9.3561074064M
+
+[<Fact>]
+let ``test Decimal Infix divide works`` () =
+    4M / 2M |> equal 2M
+
+[<Fact>]
+let ``test Decimal Infix modulo works`` () =
+    4.0868M % 2.289348M |> equal 1.797452M
+
+[<Fact>]
+let ``test Decimal.Add works`` () =
+    Decimal.Add(4.0868M, 2.289348M) |> equal 6.376148M
+
+[<Fact>]
+let ``test Decimal.Subtract works`` () =
+    Decimal.Subtract(4.0868M, 2.289348M) |> equal 1.797452M
+
+[<Fact>]
+let ``test Decimal.Multiply works`` () =
+    Decimal.Multiply(4.0868M, 2.289348M) |> equal 9.3561074064M
+
+[<Fact>]
+let ``test Decimal.Divide works`` () =
+    Decimal.Divide(4M, 2M) |> equal 2M
+
+[<Fact>]
+let ``test Decimal.Remainder works`` () =
+    Decimal.Remainder(4.0868M, 2.289348M) |> equal 1.797452M
+
+[<Fact>]
+let ``test Decimal.Negate works`` () =
+    Decimal.Negate(4M) |> equal -4M
+
+[<Fact>]
+let ``test Decimal Evaluation order is preserved by generated code`` () =
+    (4.4567M - 2.2234M) * 2.6492M + 1.2493M |> equal 7.16575836M
+
+[<Fact>]
+let ``test Decimal abs works`` () =
+    abs -4M |> equal 4M
+
+[<Fact>]
+let ``test Decimal equality works`` () =
+    let x = 5m
+    let y = 5m
+    let z = 6m
+    (x = y) |> equal true
+    (x = z) |> equal false
+
+[<Fact>]
+let ``test Decimal comparison works`` () =
+    let x = 5m
+    let y = 5m
+    let z = 6m
+    compare x y |> equal 0
+    compare x z |> equal -1
+    compare z x |> equal 1
+
+[<Fact>]
+let ``test Member values of decimal type can be compared`` () =
+    1M < 2M |> equal true
+    1M > 2M |> equal false
+
+[<Fact>]
+let ``test Sign operator works with decimals`` () =
+    sign 1m |> equal 1
+    sign 2m |> equal 1
+    sign 0m |> equal 0
+    sign -1m |> equal -1
+    sign -2m |> equal -1
 
 [<Fact>]
 let ``test incr works`` () =

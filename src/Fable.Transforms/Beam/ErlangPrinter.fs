@@ -18,6 +18,7 @@ module Output =
                 sb.Append(s) |> ignore
             else
                 sb.Append(s + ".0") |> ignore
+        | BigInt s -> sb.Append(s) |> ignore
         | StringLit s -> sb.Append($"<<\"%s{escapeErlangString s}\">>") |> ignore
         | AtomLit(Atom a) -> sb.Append(a) |> ignore
         | BoolLit true -> sb.Append("true") |> ignore
@@ -57,6 +58,10 @@ module Output =
             printExpr sb indent expr
             sb.Append(")") |> ignore
         | Literal(Float f) when f < 0.0 ->
+            sb.Append("(") |> ignore
+            printExpr sb indent expr
+            sb.Append(")") |> ignore
+        | Literal(BigInt s) when s.StartsWith("-") ->
             sb.Append("(") |> ignore
             printExpr sb indent expr
             sb.Append(")") |> ignore

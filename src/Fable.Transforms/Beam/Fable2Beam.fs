@@ -986,7 +986,24 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
             Beam.ErlExpr.Literal(Beam.ErlLiteral.Float d)
     | NumberConstant(NumberValue.NativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
     | NumberConstant(NumberValue.UNativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
-    | NumberConstant(NumberValue.Decimal d, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Float(float d))
+    | NumberConstant(NumberValue.Decimal d, _) ->
+        // Decimal as fixed-scale integer: value × 10^28
+        let bits = System.Decimal.GetBits(d)
+        let low = System.Numerics.BigInteger(uint32 bits.[0])
+        let mid = System.Numerics.BigInteger(uint32 bits.[1]) <<< 32
+        let high = System.Numerics.BigInteger(uint32 bits.[2]) <<< 64
+        let coefficient = low + mid + high
+        let isNegative = bits.[3] < 0
+        let scale = (bits.[3] >>> 16) &&& 0x7F
+        let adjusted = coefficient * System.Numerics.BigInteger.Pow(10I, 28 - scale)
+
+        let value =
+            if isNegative then
+                -adjusted
+            else
+                adjusted
+
+        Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string value))
 
     | NewRecord(values, ref, _genArgs) ->
         match com.TryGetEntity(ref) with

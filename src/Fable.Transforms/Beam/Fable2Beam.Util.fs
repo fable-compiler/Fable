@@ -15,9 +15,8 @@ let isIntegerType (typ: Fable.AST.Fable.Type) =
         match kind with
         | Float16
         | Float32
-        | Float64
-        | Decimal -> false
-        | _ -> true
+        | Float64 -> false
+        | _ -> true // Decimal is now a fixed-scale integer
     | _ -> true // default to integer division
 
 /// Check if a Fable expression contains a reference to the given identifier name
