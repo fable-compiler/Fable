@@ -177,22 +177,20 @@ let ``test RegexOptions.Singleline works`` () =
 
 // --- Iteration ---
 
-// TODO: MatchCollection iteration with for-in not yet supported
-// [<Fact>]
-// let ``test Regex.Matches iteration works`` () =
-//     let ms = Regex.Matches("a1b2c3", "\\d")
-//     let count = ref 0
-//     for _m in ms do count.Value <- count.Value + 1
-//     equal 3 count.Value
+[<Fact>]
+let ``test Regex.Matches iteration works`` () =
+    let ms = Regex.Matches("a1b2c3", "\\d")
+    let count = ref 0
+    for _m in ms do count.Value <- count.Value + 1
+    equal 3 count.Value
 
-// TODO: GroupCollection iteration with for-in not yet supported
-// [<Fact>]
-// let ``test Match.Groups iteration works`` () =
-//     let m = Regex.Match("John 30", "(\\w+) (\\d+)")
-//     let mutable count = 0
-//     for g in m.Groups do
-//         count <- count + g.Value.Length
-//     equal 13 count
+[<Fact>]
+let ``test Match.Groups iteration works`` () =
+    let m = Regex.Match("John 30", "(\\w+) (\\d+)")
+    let mutable count = 0
+    for g in m.Groups do
+        count <- count + g.Value.Length
+    equal 13 count
 
 [<Fact>]
 let ``test Match.Groups iteration works II`` () =

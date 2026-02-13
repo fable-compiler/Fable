@@ -76,13 +76,12 @@ let ``test for-in loop over array works`` () =
         sum <- sum + x
     sum |> equal 60
 
-// TODO: String.GetEnumerator not supported in Beam
-// [<Fact>]
-// let ``test for-in loop over string works`` () =
-//     let mutable count = 0
-//     for _c in "hello" do
-//         count <- count + 1
-//     count |> equal 5
+[<Fact>]
+let ``test for-in loop over string works`` () =
+    let mutable count = 0
+    for _c in "hello" do
+        count <- count + 1
+    count |> equal 5
 
 [<Fact>]
 let ``test while loop with counter works`` () =

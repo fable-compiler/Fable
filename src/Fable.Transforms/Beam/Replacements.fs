@@ -886,6 +886,8 @@ let private strings
         |> Some
     | "CompareTo", Some c, [ arg ] -> compare com r c arg |> Some
     | "GetHashCode", Some c, [] -> emitExpr r t [ c ] "erlang:phash2($0)" |> Some
+    // str.GetEnumerator() → convert string to list of codepoints and create enumerator
+    | "GetEnumerator", Some c, _ -> emitExpr r t [ c ] "fable_utils:get_enumerator(binary_to_list($0))" |> Some
     // String.Format("{0} {1}", arg0, arg1)
     | "Format", None, (fmtStr :: fmtArgs) ->
         let argsArray = Value(NewArray(ArrayValues fmtArgs, Any, MutableArray), None)
@@ -1564,6 +1566,7 @@ let rec private unwrapSeqArg r (expr: Expr) =
     | _ ->
         match expr.Type with
         | Array(_, Fable.ResizeArray) -> emitExpr r (List Any) [ expr ] "get($0)"
+        | String -> emitExpr r (List Any) [ expr ] "binary_to_list($0)"
         | _ -> expr
 
 /// Beam-specific Seq module replacements.
@@ -2205,10 +2208,10 @@ let private regex
     | "get_Options", Some callee, _ ->
         Helper.LibCall(com, "fable_regex", "get_options", t, [ callee ], ?loc = r)
         |> Some
-    // GetEnumerator for MatchCollection iteration
+    // GetEnumerator for MatchCollection/GroupCollection iteration
     | "GetEnumerator", Some callee, _ ->
-        // Return the list itself; Beam iteration works on lists
-        Some callee
+        Helper.LibCall(com, "fable_utils", "get_enumerator", t, [ callee ], ?loc = r)
+        |> Some
     | _ -> None
 
 let private resizeArrays
@@ -3843,7 +3846,8 @@ let tryCall
     | "System.Collections.Generic.Dictionary`2.Enumerator"
     | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator"
     | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator"
-    | "System.Collections.Generic.HashSet`1.Enumerator" -> enumerators com ctx r t info thisArg args
+    | "System.Collections.Generic.HashSet`1.Enumerator"
+    | "System.CharEnumerator" -> enumerators com ctx r t info thisArg args
     | "System.BitConverter" -> bitConvert com ctx r t info thisArg args
     | "System.Text.Encoding"
     | "System.Text.UnicodeEncoding"

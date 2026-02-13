@@ -460,13 +460,12 @@ let ``test String.Join with IEnumerable works`` () =
 
 // --- Enumerating string ---
 
-// TODO: Enumerating strings with for...in + Seq.rev requires IEnumerable support
-// [<Fact>]
-// let ``test Enumerating string works`` () =
-//     let mutable res = ""
-//     for c in "HELLO" |> Seq.rev do
-//         res <- res + (string c)
-//     equal "OLLEH" res
+[<Fact>]
+let ``test Enumerating string with Seq.rev works`` () =
+    let mutable res = ""
+    for c in "HELLO" |> Seq.rev do
+        res <- res + (string c)
+    equal "OLLEH" res
 
 // --- Passing Char.IsDigit as function reference ---
 
@@ -868,13 +867,12 @@ let ``test String.Remove with start index works`` () =
 let ``test String.Remove with count works`` () =
     "abcdefg".Remove(2, 3) |> equal "abfg"
 
-// TODO: Enumerating strings with for...in + Seq.rev requires IEnumerable support in Beam
-// [<Fact>]
-// let ``test Enumerating string works II`` () =
-//     let mutable res = ""
-//     for c in "HELLO" |> Seq.rev do
-//         res <- res + (string c)
-//     equal "OLLEH" res
+[<Fact>]
+let ``test Enumerating string with Seq.rev works II`` () =
+    let mutable res = ""
+    for c in "HELLO" |> Seq.rev do
+        res <- res + (string c)
+    equal "OLLEH" res
 
 [<Fact>]
 let ``test String.filter with Char.IsDigit works`` () =
@@ -892,13 +890,12 @@ let ``test String.ctor char count works`` () =
 let ``test String.ctor char array with offset works`` () =
     System.String([|'f'; 'a'; 'b'; 'l'; 'e'|], 1, 3) |> equal "abl"
 
-// TODO: System.String.GetEnumerator not supported by Fable for Beam target
-// [<Fact>]
-// let ``test Enumerating string works`` () =
-//     let mutable res = ""
-//     for c in "HELLO" do
-//         res <- res + (string c)
-//     equal "HELLO" res
+[<Fact>]
+let ``test Enumerating string works`` () =
+    let mutable res = ""
+    for c in "HELLO" do
+        res <- res + (string c)
+    equal "HELLO" res
 
 // TODO: Typed format specifiers in string interpolation (%.8f{expr}) not yet supported by Beam target
 // [<Fact>]
