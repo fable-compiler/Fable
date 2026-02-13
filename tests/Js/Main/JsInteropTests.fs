@@ -225,6 +225,18 @@ type LowerAllOptions =
     | ContentBox
     | BorderBox
 
+type RespectValuesEnum = Foo = 0 | Bar = 1 | Baz = 2
+
+[<StringEnum(CaseRules.LowerAll); RequireQualifiedAccess>]
+type RespectValues =
+    | ContentBox
+    | [<CompiledValue(false)>] None
+    | [<CompiledValue(42)>] AnswerToLife
+    | [<CompiledValue(3.14159)>] Pi
+    | [<CompiledValue(RespectValuesEnum.Foo)>] Foo
+    | [<CompiledName("Bar"); CompiledValue(1)>] Bar
+//    | [<CompiledValue(null)>] Undefined // Error: Expected: undefined - Actual: undefined
+
 [<StringEnum>]
 #endif
 type Field = OldPassword | NewPassword | ConfirmPassword
@@ -828,6 +840,20 @@ let tests =
     testCase "StringEnum works with CaseRules.LowerAll" <| fun () ->
         let x = LowerAllOptions.ContentBox
         x |> unbox |> equal "contentbox"
+
+    testCase "StringEnum is overwritten by CompiledValue" <| fun () ->
+        RespectValues.ContentBox |> unbox |> equal "contentbox"
+        RespectValues.None |> unbox |> equal false
+        // When running fable-compiler-js we can't make a distinction between int and float at runtime
+        // See https://github.com/fable-compiler/Fable/pull/4144#issuecomment-3001681838
+        #if !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
+        RespectValues.Pi |> unbox |> equal 3.14159
+        #endif
+        RespectValues.AnswerToLife |> unbox |> equal 42
+        RespectValues.Foo |> unbox |> equal RespectValuesEnum.Foo
+
+    testCase "StringEnum CompiledName over CompiledValue" <| fun () ->
+        RespectValues.Bar |> unbox |> equal "Bar"
 
     // See https://github.com/fable-compiler/fable-import/issues/72
     testCase "Can use values and functions from global modules" <| fun () ->
