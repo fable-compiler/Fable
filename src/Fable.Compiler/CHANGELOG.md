@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-alpha.23 - 2026-02-13
+
 ### Fixed
 
 * [Python] Fix `Array.length`, `.Length`, `Array.isEmpty`, and `ResizeArray.Count` to use `len()` instead of `.length` property for plain Python list interop (by @dbrattli)
