@@ -395,6 +395,22 @@ module JS =
     and [<AllowNullLiteral>] AsyncIterable<'T> =
         inherit AsyncIterable
 
+        [<Emit("$0[Symbol.asyncIterator]()")>]
+        abstract asyncIterator: unit -> AsyncIterator<'T>
+
+    and [<AllowNullLiteral>] IteratorResult<'T> =
+        abstract value: 'T with get, set
+        abstract ``done``: bool with get, set
+
+    and [<AllowNullLiteral>] AsyncIterator<'T> =
+        abstract next: unit -> Promise<IteratorResult<'T>>
+        abstract ``return``: value: 'T -> Promise<IteratorResult<'T>>
+        abstract throw: e: obj -> Promise<IteratorResult<'T>>
+
+    and [<AllowNullLiteral>] AsyncGenerator<'T> =
+        inherit AsyncIterator<'T>
+        inherit AsyncIterable<'T>
+
     and [<AllowNullLiteral>] Promise<'T> =
         abstract ``then``: ?onfulfilled: ('T -> 'TResult) * ?onrejected: (obj -> 'TResult) -> Promise<'TResult>
 
