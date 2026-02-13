@@ -136,7 +136,7 @@ Erlang modules implementing F# core types:
 | fable_uri.erl | Uri | URI parsing and manipulation | Done |
 | fable_utils.erl | Utilities | IEnumerator, throwsAnyError, infinity/NaN helpers | Done |
 | fable_bit_converter.erl | BitConverter | Byte conversion, endianness | Done |
-| fable_decimal.erl | decimal | Needs a library or custom impl | Planned |
+| fable_decimal.erl | Decimal | Fixed-scale integer (value × 10^28), multiply/divide/to_string/parse/from_parts | Done |
 | fable_mailbox.erl | MailboxProcessor | In-process CPS continuation model (same as JS/Python) | Done |
 
 ### Registration & CLI (modified existing files) -- All Done
@@ -338,7 +338,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 1. Runs all tests on .NET via `dotnet test`
 2. Compiles tests to `.erl` via Fable
 3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (1741 Erlang tests pass)
+4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (1773 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -346,7 +346,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | ListTests.fs | 136 | List operations, head/tail, map/filter/fold/fold2/foldBack2, append, sort, choose, collect, find/findBack, zip, chunkBySize, pairwise, windowed, insertAt/removeAt/updateAt, transpose, compareWith, etc. |
 | ArrayTests.fs | 123 | Array literal, map/filter/fold, mapi, append, sort, indexed, length, choose, collect, zip, pairwise, iter/iteri/iter2/iteri2, exactlyOne, groupBy, distinct/distinctBy, zip3/unzip3, exists2/forall2, fold2/foldBack2, sub, except, chunkBySize, splitAt, allPairs, sortByDescending |
 | SeqTests.fs | 120 | Seq.map/filter/fold/head/length/append/concat/distinct/take/skip/unfold/init/scan/zip/chunkBySize, delay, sortByDescending, foldBack2, mapFold, chunkBySize, range, iter, iteri, empty |
-| ArithmeticTests.fs | 116 | Arithmetic, bitwise, logical, comparison, Int64, BigInt, exponentiation, sign, MathF.Min/Max, pown |
+| ArithmeticTests.fs | 125 | Arithmetic, bitwise, logical, comparison, Int64, BigInt, decimal (fixed-scale), exponentiation, sign, MathF.Min/Max, pown |
 | ConversionTests.fs | 88 | Type conversions, System.Convert, Parse, ToString, BigInt conversions, base conversion, Boolean.Parse |
 | ApplicativeTests.fs | 82 | Applicative-style programming, functors, CEs with and!, curried map/apply, generic applicatives, ZipList |
 | TimeSpanTests.fs | 81 | TimeSpan creation, from_*, component accessors, total_*, arithmetic, parse, try_parse, to_string, formatting |
@@ -389,7 +389,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | MailboxProcessorTests.fs | 3 | MailboxProcessor post, postAndAsyncReply, postAndAsyncReply with falsy values |
 | CustomOperatorTests.fs | 2 | Custom operators on types, SRTP dynamic dispatch |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **1741** | |
+| **Total** | **1773** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -568,7 +568,7 @@ for mutable state, `fable_async:from_continuations` for the receive/reply coordi
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 1741 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 1773 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
