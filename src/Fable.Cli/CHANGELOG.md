@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [All] Prevent Fable from freezing when running a sub-process via `--run` (fix #3631) (by @MangelMaxime)
+* [All] Improve console width detection when rewritting console output (by @MangelMaxime)
+
 ## 4.28.0 - 2025-11-25
 
 ### Fixed

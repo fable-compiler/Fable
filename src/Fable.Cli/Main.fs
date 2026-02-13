@@ -652,15 +652,25 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
 
                                 match projCracked.CliArgs.Verbosity with
                                 | Verbosity.Silent -> ()
-                                | Verbosity.Verbose -> Console.Out.WriteLine(msg)
+                                | Verbosity.Verbose -> Log.always msg
                                 | Verbosity.Normal ->
+                                    let hasRunProcess = Option.isSome projCracked.CliArgs.RunProcess
+
+                                    // If a process has been registered to run after compilation
+                                    // We don't want to rewrite the console output because it can cause
+                                    // a deadlock if the spwaned process rewrite the console output at the same time
+                                    // See https://github.com/fable-compiler/Fable/issues/3631
+                                    if hasRunProcess then
+                                        Log.always msg
                                     // Avoid log pollution in CI. Also, if output is redirected don't try to rewrite
                                     // the same line as it seems to cause problems, see #2727
-                                    if not isCi && not Console.IsOutputRedirected then
+                                    else if not isCi && not Console.IsOutputRedirected then
+                                        let maxWidth = Console.WindowWidth - 3 // for the "..." when message is too long
+
                                         // If the message is longer than the terminal width it will jump to next line
                                         let msg =
-                                            if msg.Length > 80 then
-                                                msg.[..80] + "..."
+                                            if msg.Length > maxWidth then
+                                                msg.[..maxWidth] + "..."
                                             else
                                                 msg
 
