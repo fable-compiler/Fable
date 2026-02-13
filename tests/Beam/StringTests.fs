@@ -892,3 +892,22 @@ let ``test String.ctor char count works`` () =
 [<Fact>]
 let ``test String.ctor char array with offset works`` () =
     System.String([|'f'; 'a'; 'b'; 'l'; 'e'|], 1, 3) |> equal "abl"
+
+// TODO: System.String.GetEnumerator not supported by Fable for Beam target
+// [<Fact>]
+// let ``test Enumerating string works`` () =
+//     let mutable res = ""
+//     for c in "HELLO" do
+//         res <- res + (string c)
+//     equal "HELLO" res
+
+// TODO: Typed format specifiers in string interpolation (%.8f{expr}) not yet supported by Beam target
+// [<Fact>]
+// let ``test string interpolation works with inline expressions`` () =
+//     $"I think {3.0 + 0.14} is close to %.8f{3.14159265}!"
+//     |> equal "I think 3.14 is close to 3.14159265!"
+
+[<Fact>]
+let ``test printing strings with unicode characters`` () =
+    let result = sprintf "%s" "🚀"
+    result |> equal "🚀"

@@ -300,3 +300,36 @@ let ``test Map toSeq generates sequences that can be iterated multiple times`` (
     let s = Map.toSeq m
     Seq.length s |> equal 2
     Seq.length s |> equal 2
+
+[<Fact>]
+let ``test Map.keys works`` () =
+    let xs = Map.ofList [1,"a"; 2,"b"; 3,"c"]
+    Map.keys xs |> Seq.length |> equal 3
+    Map.keys xs |> Seq.sort |> Seq.toList |> equal [1; 2; 3]
+
+[<Fact>]
+let ``test Map.values works`` () =
+    let xs = Map.ofList [1,"a"; 2,"b"; 3,"c"]
+    Map.values xs |> Seq.length |> equal 3
+    Map.values xs |> Seq.sort |> Seq.toList |> equal ["a"; "b"; "c"]
+
+[<Fact>]
+let ``test Map.minKeyValue works`` () =
+    let xs = [(5, "e"); (2, "b"); (3, "c"); (4, "d")]
+    let ys = [("e", 5); ("b", 2); ("c", 3); ("d", 4)]
+    xs |> Map.ofList |> Map.minKeyValue |> equal (2, "b")
+    ys |> Map.ofList |> Map.minKeyValue |> equal ("b", 2)
+
+[<Fact>]
+let ``test Map.maxKeyValue works`` () =
+    let xs = [(2, "b"); (5, "e"); (3, "c"); (4, "d")]
+    let ys = [("b", 2); ("e", 5); ("c", 3); ("d", 4)]
+    xs |> Map.ofList |> Map.maxKeyValue |> equal (5, "e")
+    ys |> Map.ofList |> Map.maxKeyValue |> equal ("e", 5)
+
+[<Fact>]
+let ``test Map.change works`` () =
+    let m = Map["a",1; "b",2]
+    let m2 = Map["a",1; "b",3]
+    m |> Map.change "c" (Option.map (fun v -> v + 1)) |> equal m
+    m |> Map.change "b" (Option.map (fun v -> v + 1)) |> equal m2

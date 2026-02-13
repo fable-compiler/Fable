@@ -32,6 +32,7 @@ let ``test Integer division doesn't produce floats`` () =
     5. / 2. |> equal 2.5
     5 / 2 |> equal 2
     5 / 3 |> equal 1
+    float 5 / 2. |> equal 2.5
 
 [<Fact>]
 let ``test Infix modulo can be generated`` () =
@@ -245,6 +246,8 @@ let ``test BigInt abs works`` () =
 let ``test abs works`` () =
     abs -4 |> equal 4
 
+// Note: Erlang round/1 uses "round half away from zero", not .NET's "round half to even" (banker's rounding).
+// round(-12.5) = -13 in Erlang, -12 in .NET. We test the values that are consistent.
 [<Fact>]
 let ``test round works`` () =
     round 1.5 |> equal 2.
@@ -510,13 +513,19 @@ let ``test Sign operator works with bigints`` () =
 let ``test incr works`` () =
     let i = ref 5
     incr i
-    !i |> equal 6
+    i := !i + 1
+    !i |> equal 7
+    i.Value <- i.Value + 1
+    i.Value |> equal 8
 
 [<Fact>]
 let ``test decr works`` () =
     let i = ref 5
     decr i
-    !i |> equal 4
+    i := !i - 1
+    !i |> equal 3
+    i.Value <- i.Value - 1
+    i.Value |> equal 2
 
 [<Fact>]
 let ``test ref cell basic operations work`` () =
@@ -532,6 +541,16 @@ let ``test System.Random works`` () =
     let rnd = Random()
     let x = rnd.Next()
     x >= 0 |> equal true
+    let x = rnd.Next(5)
+    (x >= 0 && x < 5) |> equal true
+    let x = rnd.Next(14, 20)
+    (x >= 14 && x < 20) |> equal true
+    let x = rnd.Next(-14, -10)
+    (x >= -14 && x < -10) |> equal true
+    let x = rnd.NextDouble()
+    (x >= 0.0 && x < 1.0) |> equal true
+    throwsAnyError <| fun () -> rnd.Next(-10)
+    throwsAnyError <| fun () -> rnd.Next(14, 10)
 
 // --- More tests ported from Python ---
 
@@ -591,6 +610,12 @@ let ``test Bitwise AND on large unsigned integer works`` () =
 let ``test Bitwise XOR on large unsigned integer works`` () =
     0x80000000u ^^^ 0u |> equal (0x80000000u ^^^ 0u >>> 0)
     0x80000000UL^^^ 0UL|> equal (0x80000000UL^^^ 0UL>>> 0)
+
+[<Fact>]
+let ``test Zero fill shift right for unsigned`` () =
+    0x80000000 >>> 1 |> equal -1073741824
+    0x80000000u >>> 1 |> equal 1073741824u
+    0x80000000UL>>> 1 |> equal 1073741824UL
 
 // TODO: ~~~ on unsigned integers uses LogicalNotDynamic which is not supported by Fable
 // [<Fact>]

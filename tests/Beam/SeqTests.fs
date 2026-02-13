@@ -728,3 +728,22 @@ let ``test Seq.iteri with index works`` () =
 //     |> Seq.take 10
 //     |> Seq.sum
 //     |> equal 90.
+
+[<Fact>]
+let ``test Seq.collect works II`` () =
+    let xs = [[1.]; [2.]; [3.]; [4.]]
+    let ys = xs |> Seq.collect id
+    (Seq.head ys) + (Seq.head (Seq.skip 1 ys))
+    |> equal 3.
+
+[<Fact>]
+let ``test Seq.average works with float`` () =
+    let xs = seq {1.; 2.; 3.; 4.}
+    Seq.average xs
+    |> equal 2.5
+
+[<Fact>]
+let ``test Seq.averageBy works with float`` () =
+    let xs = seq {1.; 2.; 3.; 4.}
+    Seq.averageBy ((*) 2.) xs
+    |> equal 5.

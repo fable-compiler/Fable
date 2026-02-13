@@ -121,10 +121,10 @@ find_last_index_impl([H | T], Pred, Idx) ->
 exists(List, Pred) ->
     lists:any(Pred, List).
 
-%% Sort with comparison function
+%% Sort with comparison function (Comparison<T> delegate = 2-arg function)
 sort_with(List, CompareFn) ->
     lists:sort(fun(A, B) ->
-        case (CompareFn(A))(B) of
+        case CompareFn(A, B) of
             R when R =< 0 -> true;
             _ -> false
         end

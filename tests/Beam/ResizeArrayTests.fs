@@ -292,6 +292,31 @@ let ``test ResizeArray.RemoveAll works`` () =
 //     equal 5 xs[2]
 
 [<Fact>]
+let ``test ResizeArray.SortInPlaceWith works`` () =
+    let li = ResizeArray<_>()
+    li.Add(3.); li.Add(6.); li.Add(5.); li.Add(4.); li.Add(8.)
+    li.Sort(fun x y -> if x > y then -1 elif x < y then 1 else 0)
+    equal 4. li.[3]
+
+[<Fact>]
+let ``test ResizeArray.SortInPlaceWith works with custom comparison function`` () =
+    let ns = ResizeArray<int> [1;3;2]
+    ns.Sort(fun x y -> if x < y then 1 else -1)
+    Seq.toList ns |> equal [3; 2; 1]
+    ns.Sort(compare)
+    Seq.toList ns |> equal [1;2;3]
+
+[<Fact>]
+let ``test ResizeArray.IndexOf works with non-primitive types`` () =
+    let myResizeArray = ResizeArray<Animal>()
+    myResizeArray.Add (Duck 5)
+    myResizeArray.IndexOf (Duck 3) |> equal -1
+    myResizeArray.IndexOf (Dog 5) |> equal -1
+    myResizeArray.IndexOf (Duck 5) |> equal 0
+    myResizeArray.Add(Dog 3)
+    myResizeArray.IndexOf(Dog 3) |> equal 1
+
+[<Fact>]
 let ``test ResizeArray.Item is undefined when index is out of range`` () =
     let xs = ResizeArray [0]
     try (xs.Item 1) |> ignore; false with _ -> true

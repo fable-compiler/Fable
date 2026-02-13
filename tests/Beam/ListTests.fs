@@ -409,6 +409,11 @@ let ``test List comparison works`` () =
     compare [1; 2; 3] [1; 2; 3] |> equal 0
     compare [1; 2; 3] [1; 2; 4] < 0 |> equal true
     compare [1; 2; 4] [1; 2; 3] > 0 |> equal true
+    let xs = [1;2;3]
+    let ys = [1;2;3]
+    let zs = [1;4;3]
+    xs < ys |> equal false
+    xs < zs |> equal true
 
 [<Fact>]
 let ``test List.mapFold works`` () =
@@ -783,3 +788,12 @@ let ``test List.mapFoldBack works II`` () =
     let f x y = x,y
     let xs,_ = List.mapFoldBack f ["a"] "b"
     equal "a" xs.Head
+
+[<Fact>]
+let ``test List.range works`` () =
+    [1..5]
+    |> List.reduce (+)
+    |> equal 15
+    [0..2..9]
+    |> List.reduce (+)
+    |> equal 20

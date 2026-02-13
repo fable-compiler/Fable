@@ -932,3 +932,42 @@ let ``test Array.unzip3 works`` () =
     let xs = [|1., 2., 3.|]
     let ys, zs, ks = xs |> Array.unzip3
     ys.[0] + zs.[0] + ks.[0] |> equal 6.
+
+[<Fact>]
+let ``test Pattern matching with arrays works`` () =
+    match [||] with [||] -> true | _ -> false
+    |> equal true
+    match [|1|] with [||] -> 0 | [|x|] -> 1 | _ -> 2
+    |> equal 1
+    match [|"a";"b"|] with [|"a";"b"|] -> 1 | _ -> 2
+    |> equal 1
+
+[<Fact>]
+let ``test Array.filter with chars works`` () =
+    let xs = [|'a'; '2'; 'b'; 'c'|]
+    let ys = xs |> Array.filter System.Char.IsLetter
+    ys.Length |> equal 3
+
+[<Fact>]
+let ``test Array.map doesn't execute side effects twice`` () =
+    let mutable c = 0
+    let i () = c <- c + 1; c
+    [| i (); i (); i () |] |> Array.map (fun x -> x + 1) |> ignore
+    equal 3 c
+
+[<Fact>]
+let ``test Mapping with typed arrays doesnt coerce`` () =
+    let data = [| 1 .. 12 |]
+    let page size page data =
+        data
+        |> Array.skip ((page-1) * size)
+        |> Array.take size
+    let test1 =
+        [| 1..4 |]
+        |> Array.map (fun x -> page 3 x data)
+    let test2 =
+        [| 1..4 |]
+        |> Seq.map (fun x -> page 3 x data)
+        |> Array.ofSeq
+    test1 |> Array.concat |> Array.sum |> equal 78
+    test2 |> Array.concat |> Array.sum |> equal 78
