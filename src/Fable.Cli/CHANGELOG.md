@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Python] Fix HashSet operations (Count, Contains, Remove, UnionWith, IntersectWith, ExceptWith) to work with both native Python sets and custom MutableSet (by @dbrattli)
+
 ## 5.0.0-alpha.23 - 2026-02-03
 
 ### Changed
