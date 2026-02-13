@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [Python] Fix HashSet operations (Count, Contains, Remove, UnionWith, IntersectWith, ExceptWith) to work with both native Python sets and custom MutableSet (by @dbrattli)
+* [Python] Fix `Array.length`, `.Length`, `Array.isEmpty`, and `ResizeArray.Count` to use `len()` instead of `.length` property for plain Python list interop (by @dbrattli)
+* [Python] Fix `Task<T>` pass-through returns not being awaited in if/else and try/with branches (by @dbrattli)
+* [Python] Fix `:? T as x` type test pattern in closures causing `UnboundLocalError` due to `cast()` shadowing outer variable (by @dbrattli)
 
 ## 5.0.0-alpha.22 - 2026-02-03
 

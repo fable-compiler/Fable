@@ -1125,12 +1125,73 @@ module Helpers =
         let callInfo = Fable.CallInfo.Create(args = [ e ])
         makeIdentExpr "str" |> makeCall None Fable.String callInfo
 
-    /// Transform return statements to wrap their values with await
-    let wrapReturnWithAwait (body: Statement list) : Statement list =
+    /// Transform return statements to wrap their values with await.
+    /// Recursively traverses nested control flow (if/else, match, try, for, while, with)
+    /// to ensure ALL return statements in async functions get awaited.
+    let rec wrapReturnWithAwait (body: Statement list) : Statement list =
         body
         |> List.map (fun stmt ->
             match stmt with
+            | Statement.Return { Value = Some(Await _) } -> stmt // Already awaited
             | Statement.Return { Value = Some value } -> Statement.return' (Await value)
+            | Statement.If ifStmt ->
+                Statement.if' (
+                    ifStmt.Test,
+                    wrapReturnWithAwait ifStmt.Body,
+                    wrapReturnWithAwait ifStmt.Else,
+                    ?loc = ifStmt.Loc
+                )
+            | Statement.Match matchStmt ->
+                let cases =
+                    matchStmt.Cases
+                    |> List.map (fun case ->
+                        MatchCase.matchCase (case.Pattern, wrapReturnWithAwait case.Body, ?guard = case.Guard)
+                    )
+
+                Statement.match' (matchStmt.Subject, cases, ?loc = matchStmt.Loc)
+            | Statement.Try tryStmt ->
+                let handlers =
+                    tryStmt.Handlers
+                    |> List.map (fun h -> { h with Body = wrapReturnWithAwait h.Body })
+
+                Statement.try' (
+                    wrapReturnWithAwait tryStmt.Body,
+                    handlers = handlers,
+                    orElse = wrapReturnWithAwait tryStmt.OrElse,
+                    finalBody = wrapReturnWithAwait tryStmt.FinalBody,
+                    ?loc = tryStmt.Loc
+                )
+            | Statement.For forStmt ->
+                Statement.for' (
+                    forStmt.Target,
+                    forStmt.Iterator,
+                    body = wrapReturnWithAwait forStmt.Body,
+                    orelse = wrapReturnWithAwait forStmt.Else,
+                    ?typeComment = forStmt.TypeComment
+                )
+            | Statement.AsyncFor asyncForStmt ->
+                AsyncFor(
+                    AsyncFor.asyncFor (
+                        asyncForStmt.Target,
+                        asyncForStmt.Iterator,
+                        wrapReturnWithAwait asyncForStmt.Body,
+                        orelse = wrapReturnWithAwait asyncForStmt.Else,
+                        ?typeComment = asyncForStmt.TypeComment
+                    )
+                )
+            | Statement.While whileStmt ->
+                Statement.while' (
+                    whileStmt.Test,
+                    wrapReturnWithAwait whileStmt.Body,
+                    orelse = wrapReturnWithAwait whileStmt.Else,
+                    ?loc = whileStmt.Loc
+                )
+            | Statement.With withStmt ->
+                Statement.with' (
+                    withStmt.Items,
+                    body = wrapReturnWithAwait withStmt.Body,
+                    ?typeComment = withStmt.TypeComment
+                )
             | other -> other
         )
 
