@@ -862,6 +862,12 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   on a util module.
 - **Unit parameters**: Erlang unused variable warnings suppressed by prefixing unit
   parameters with `_` via `toErlangVar` in `Fable2Beam.fs`.
+- **discardUnitArg / dropUnitCallArg**: Symmetric unit stripping matching JS/Python/Dart.
+  `discardUnitArg` strips trailing unit parameters from function definitions (Lambda,
+  Delegate, ObjectExpr members, MemberDeclaration, class methods/constructors).
+  `dropUnitCallArg` strips the corresponding unit argument at call sites (in `transformCall`).
+  Both sides must be stripped symmetrically so Erlang arity matching works. The old
+  workaround of appending `Value(UnitConstant)` in `bclType` was removed.
 - **Block hoisting**: When `Let` bindings produce `Block [Match(...); body]` expressions,
   these Blocks are invalid inside Erlang argument positions (Call, Apply, BinOp). The
   `extractBlock` / `hoistBlocksFromArgs` / `wrapWithHoisted` helpers extract leading
