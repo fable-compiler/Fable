@@ -73,12 +73,11 @@ let ``test Tuple dereferencing can be generated`` () =
     equal 10 y
     equal true z
 
-// TODO: System.Tuple.Item1/Item2 not supported in Beam
-// [<Fact>]
-// let ``test Tuple Item1 and Item2 work`` () =
-//     let t = (1, 2)
-//     t.Item1 |> equal 1
-//     t.Item2 |> equal 2
+[<Fact>]
+let ``test Tuple Item1 and Item2 work`` () =
+    let t = (1, 2)
+    t.Item1 |> equal 1
+    t.Item2 |> equal 2
 
 [<Fact>]
 let ``test struct tuples work`` () =

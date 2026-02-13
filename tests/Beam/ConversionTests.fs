@@ -541,10 +541,11 @@ let ``test System.Convert.ToSingle comprehensive works`` () =
     float32(1.f) |> equal x
     float32(1.) |> equal x
 
-// TODO: Decimal not implemented for Beam
-// [<Fact>]
-// let ``test System.Decimal.Parse works`` () =
-//     Decimal.Parse "1.5" |> equal 1.5M
+#if FABLE_COMPILER
+[<Fact>]
+let ``test System.Decimal.Parse works`` () =
+    Decimal.Parse "1.5" |> equal 1.5M
+#endif
 
 [<Fact>]
 let ``test System.Int32.TryParse works`` () =
@@ -739,3 +740,99 @@ let ``test Parsed guids with different case are considered the same`` () =
     let g1 = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
     let g2 = Guid.Parse("96258006-C4BA-4A7F-80C4-DE7F2B2898C5")
     g1 = g2 |> equal true
+
+[<Fact>]
+let ``test System.BigInt.ToString works`` () =
+    5592405I.ToString() |> equal "5592405"
+
+#if FABLE_COMPILER
+[<Fact>]
+let ``test System.Decimal.ToString works`` () =
+    5592405M.ToString() |> equal "5592405"
+#endif
+
+// --- Convert.ToString (Single/Double/Decimal only - others already exist above) ---
+
+// TODO: Float ToString returns scientific notation in Erlang (e.g., "1.01e+02" instead of "101")
+// [<Fact>]
+// let ``test System.Convert.ToString Single works`` () =
+//     Convert.ToString(101.f) |> equal "101"
+
+// [<Fact>]
+// let ``test System.Convert.ToString Double works`` () =
+//     Convert.ToString(101.) |> equal "101"
+
+// TODO: Decimal Convert.ToString not supported
+// [<Fact>]
+// let ``test System.Convert.ToString Decimal works`` () =
+//     Convert.ToString(101.m) |> equal "101"
+
+// --- Decimal conversions ---
+
+// TODO: System.Decimal.op_Explicit not supported by Fable Beam
+// #if FABLE_COMPILER
+// [<Fact>]
+// let ``test Decimal.ToSByte works`` () =
+//     let value = 0x02y
+//     sbyte (decimal (int32 value)) |> equal value
+// ... (all Decimal.To* tests need Decimal.op_Explicit)
+// #endif
+
+// --- BigInt conversions ---
+
+[<Fact>]
+let ``test BigInt.ToChar works`` () =
+    let value = 'A'
+    char (bigint (int32 value)) |> equal value
+
+[<Fact>]
+let ``test BigInt.ToSByte works`` () =
+    let value = 0x02y
+    sbyte (bigint (int32 value)) |> equal value
+
+[<Fact>]
+let ``test BigInt.ToInt16 works`` () =
+    let value = 0x0102s
+    int16 (bigint (int32 value)) |> equal value
+
+[<Fact>]
+let ``test BigInt.ToByte works`` () =
+    let value = 0x02uy
+    byte (bigint (uint32 value)) |> equal value
+
+[<Fact>]
+let ``test BigInt.ToUInt16 works`` () =
+    let value = 0xFF02us
+    uint16 (bigint (uint32 value)) |> equal value
+
+[<Fact>]
+let ``test BigInt.ToUInt32 works`` () =
+    let value = 0xFF020304u
+    uint32 (bigint value) |> equal value
+
+[<Fact>]
+let ``test BigInt.ToUInt64 works`` () =
+    let value = 0xFF02030405060708UL
+    uint64 (bigint value) |> equal value
+
+[<Fact>]
+let ``test BigInt.ToSingle works`` () =
+    let value = 1.0f
+    single (bigint value) |> equal value
+
+// --- FSharp.Core type converters ---
+
+[<Fact>]
+let ``test FSharp.Core type converters can combined via the >> operator`` () =
+    "1" |> (sbyte >> Ok) |> equal (Ok 1y)
+    "1" |> (int16 >> Ok) |> equal (Ok 1s)
+    "1" |> (int >> Ok) |> equal (Ok 1)
+    "1" |> (int64 >> Ok) |> equal (Ok 1L)
+    "1" |> (byte >> Ok) |> equal (Ok 1uy)
+    "1" |> (uint16 >> Ok) |> equal (Ok 1us)
+    "1" |> (uint32 >> Ok) |> equal (Ok 1u)
+    "1" |> (uint64 >> Ok) |> equal (Ok 1uL)
+    "1" |> (float32 >> Ok) |> equal (Ok 1.f)
+    "1" |> (float >> Ok) |> equal (Ok 1.)
+    "1" |> (double >> Ok) |> equal (Ok 1.)
+    "1" |> (decimal >> Ok) |> equal (Ok 1.m)

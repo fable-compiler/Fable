@@ -592,7 +592,7 @@ let ``test String.Split with remove empties works`` () =
     result.[2] |> equal "c"
     result.[3] |> equal "d"
 
-// TODO: String.Split with count needs implementation
+// TODO: String.Split 2-arg overload (char[], int) not matched by 3-arg Replacement pattern
 // [<Fact>]
 // let ``test String.Split with count works`` () =
 //     let array = "a b  c d".Split ([|' '|], 2)
@@ -736,14 +736,13 @@ let ``test Conversion string to double works`` () =
     equal 5.25 (float "5.25")
     (string 5.25).StartsWith("5.25") |> equal true
 
-// TODO: Decimal type (MakeDecimal) not yet supported by Fable Beam
-// [<Fact>]
-// let ``test Conversion string to decimal works`` () =
-//     equal 5.m (decimal "5.0")
-//     equal -5.m (decimal "-5.0")
-//     (string 5.m).StartsWith("5") |> equal true
-//     equal 5.25m (decimal "5.25")
-//     (string 5.25m).StartsWith("5.25") |> equal true
+[<Fact>]
+let ``test Conversion string to decimal works`` () =
+    equal 5.m (decimal "5.0")
+    equal -5.m (decimal "-5.0")
+    (string 5.m).StartsWith("5") |> equal true
+    equal 5.25m (decimal "5.25")
+    (string 5.25m).StartsWith("5.25") |> equal true
 
 [<Fact>]
 let ``test Conversion char to int works`` () =
@@ -803,7 +802,7 @@ let ``test String.Join with single argument works`` () =
     System.String.Join(",", [|"abc"|]) |> equal "abc"
     System.String.Join(",", ["abc"]) |> equal "abc"
 
-// TODO: BigInt ToString() doesn't produce correct string representation for String.Join on Beam
+// TODO: String.Join doesn't call ToString on BigInt elements (raw bytes instead of string representation)
 // [<Fact>]
 // let ``test String.Join with big integers works`` () =
 //     System.String.Join("--", [|3I; 5I|])
@@ -907,3 +906,83 @@ let ``test Enumerating string works`` () =
 let ``test printing strings with unicode characters`` () =
     let result = sprintf "%s" "🚀"
     result |> equal "🚀"
+
+[<Fact>]
+let ``test StringBuilder.Length works`` () =
+    let sb = System.Text.StringBuilder()
+    sb.Append("Hello") |> ignore
+    sb.Length |> equal 5
+
+[<Fact>]
+let ``test StringBuilder.Clear works`` () =
+    let sb = new System.Text.StringBuilder()
+    sb.Append("1111") |> ignore
+    sb.Clear() |> ignore
+    sb.ToString() |> equal ""
+
+// TODO: StringBuilder.AppendFormat not yet supported in Beam
+// [<Fact>]
+// let ``test StringBuilder.AppendFormat works`` () =
+//     let sb = System.Text.StringBuilder()
+//     sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
+//     sb.ToString() |> equal "Hello World!"
+
+// TODO: StringBuilder.Chars (indexer) not yet supported in Beam
+// [<Fact>]
+// let ``test StringBuilder.Chars works`` () =
+//     let sb = System.Text.StringBuilder()
+//                         .Append("abc")
+//                         .Append("def")
+//     sb.Chars(0) |> equal 'a'
+
+// TODO: StringBuilder.Replace not yet supported in Beam
+// [<Fact>]
+// let ``test StringBuilder.Replace works`` () =
+//     let sb = System.Text.StringBuilder()
+//                         .Append("abc")
+//                         .Append("abc")
+//                         .Replace('a', 'x')
+//                         .Replace("cx", "yz")
+//     equal "xbyzbc" (sb.ToString())
+
+[<Fact>]
+let ``test StringBuilder.ToString works with index and length`` () =
+    let sb = System.Text.StringBuilder()
+    sb.Append("Hello") |> ignore
+    sb.AppendLine() |> ignore
+    sb.ToString(2, 2) |> equal "ll"
+
+[<Fact>]
+let ``test System.String.Join with long array works`` () =
+    let n = 100_000
+    let a = Array.init n (fun _i -> "a")
+    let s = String.Join("", a)
+    s.Length |> equal n
+
+[<Fact>]
+let ``test System.String.Join with long seq works`` () =
+    let n = 100_000
+    let a = seq { for i in 1..n -> "a" }
+    let s = String.Join("", a)
+    s.Length |> equal n
+
+[<Fact>]
+let ``test System.String.Concat with long array works`` () =
+    let n = 100_000
+    let a = Array.init n (fun _i -> "a")
+    let s = String.Concat(a)
+    s.Length |> equal n
+
+[<Fact>]
+let ``test System.String.Concat with long seq works`` () =
+    let n = 100_000
+    let a = seq { for i in 1..n -> "a" }
+    let s = String.Concat(a)
+    s.Length |> equal n
+
+[<Fact>]
+let ``test String.concat with long seq works`` () =
+    let n = 1_000_000
+    let a = seq { for i in 1..n -> "a" }
+    let s = String.concat "" a
+    s.Length |> equal n

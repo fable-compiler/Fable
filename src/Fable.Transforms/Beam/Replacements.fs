@@ -2409,6 +2409,29 @@ let private keyValuePairs
     | "get_Value", Some c -> Get(c, TupleIndex 1, t, r) |> Some
     | _ -> None
 
+let private tuples
+    (_com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (i: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    let isStruct = i.DeclaringEntityFullName.StartsWith("System.ValueTuple")
+
+    match i.CompiledName, thisArg with
+    | (".ctor" | "Create"), _ -> Value(NewTuple(args, isStruct), r) |> Some
+    | "get_Item1", Some x -> Get(x, TupleIndex 0, t, r) |> Some
+    | "get_Item2", Some x -> Get(x, TupleIndex 1, t, r) |> Some
+    | "get_Item3", Some x -> Get(x, TupleIndex 2, t, r) |> Some
+    | "get_Item4", Some x -> Get(x, TupleIndex 3, t, r) |> Some
+    | "get_Item5", Some x -> Get(x, TupleIndex 4, t, r) |> Some
+    | "get_Item6", Some x -> Get(x, TupleIndex 5, t, r) |> Some
+    | "get_Item7", Some x -> Get(x, TupleIndex 6, t, r) |> Some
+    | "get_Rest", Some x -> Get(x, TupleIndex 7, t, r) |> Some
+    | _ -> None
+
 let private dictionaries
     (com: ICompiler)
     (_ctx: Context)
@@ -3833,6 +3856,8 @@ let tryCall
     | Types.queue -> queues com ctx r t info thisArg args
     | Types.stack -> stacks com ctx r t info thisArg args
     | Types.keyValuePair -> keyValuePairs com ctx r t info thisArg args
+    | Naming.StartsWith "System.Tuple" _
+    | Naming.StartsWith "System.ValueTuple" _ -> tuples com ctx r t info thisArg args
     | Types.icollectionGeneric
     | Types.icollection
     | Types.ireadonlycollection

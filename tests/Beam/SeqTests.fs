@@ -3,6 +3,20 @@ module Fable.Tests.Seq
 open Fable.Tests.Util
 open Util.Testing
 
+let sumFirstTwo (zs: seq<float>) =
+    let second = Seq.skip 1 zs |> Seq.head
+    let first = Seq.head zs
+    first + second
+
+type DummyUnion = Number of int
+type ExceptFoo = { Bar:string }
+
+type SeqPoint =
+    { x: int; y: int }
+    static member Zero = { x=0; y=0 }
+    static member Neg(p: SeqPoint) = { x = -p.x; y = -p.y }
+    static member (+) (p1, p2) = { x= p1.x + p2.x; y = p1.y + p2.y }
+
 [<Fact>]
 let ``test Seq.map works`` () =
     [1; 2; 3]
@@ -747,3 +761,183 @@ let ``test Seq.averageBy works with float`` () =
     let xs = seq {1.; 2.; 3.; 4.}
     Seq.averageBy ((*) 2.) xs
     |> equal 5.
+
+[<Fact>]
+let ``test Seq.max works with float`` () =
+    let xs = [1.; 2.]
+    xs |> Seq.max
+    |> equal 2.
+
+[<Fact>]
+let ``test Seq.maxBy works with float`` () =
+    let xs = [1.; 2.]
+    xs |> Seq.maxBy (fun x -> -x)
+    |> equal 1.
+
+[<Fact>]
+let ``test Seq.min works with float`` () =
+    let xs = [1.; 2.]
+    xs |> Seq.min
+    |> equal 1.
+
+[<Fact>]
+let ``test Seq.minBy works with float`` () =
+    let xs = [1.; 2.]
+    xs |> Seq.minBy (fun x -> -x)
+    |> equal 2.
+
+[<Fact>]
+let ``test Seq.max with non numeric types works`` () =
+    let p1 = {x=1; y=1}
+    let p2 = {x=2; y=2}
+    [p1; p2] |> Seq.max |> equal p2
+
+[<Fact>]
+let ``test Seq.maxBy with non numeric types works`` () =
+    let p1 = {x=1; y=1}
+    let p2 = {x=2; y=2}
+    [p1; p2] |> Seq.maxBy SeqPoint.Neg |> equal p1
+
+[<Fact>]
+let ``test Seq.min with non numeric types works`` () =
+    let p1 = {x=1; y=1}
+    let p2 = {x=2; y=2}
+    [p1; p2] |> Seq.min |> equal p1
+
+[<Fact>]
+let ``test Seq.minBy with non numeric types works`` () =
+    let p1 = {x=1; y=1}
+    let p2 = {x=2; y=2}
+    [p1; p2] |> Seq.minBy SeqPoint.Neg |> equal p2
+
+[<Fact>]
+let ``test Seq.maxBy with numeric projection works`` () =
+    let p1 = {x=1; y=2}
+    let p2 = {x=2; y=1}
+    [p1; p2] |> Seq.maxBy (fun p -> p.y) |> equal p1
+
+[<Fact>]
+let ``test Seq.minBy with numeric projection works`` () =
+    let p1 = {x=1; y=2}
+    let p2 = {x=2; y=1}
+    [p1; p2] |> Seq.minBy (fun p -> p.y) |> equal p2
+
+[<Fact>]
+let ``test Seq.sum works with float`` () =
+    let xs = [1.; 2.]
+    xs |> Seq.sum
+    |> equal 3.
+
+[<Fact>]
+let ``test Seq.sumBy works with float`` () =
+    let xs = [1.; 2.]
+    xs |> Seq.sumBy ((*) 2.)
+    |> equal 6.
+
+// TODO: Seq.sum with custom types causes badarith in Beam (Zero + operator not inlined properly)
+// [<Fact>]
+// let ``test Seq.sum with non numeric types works`` () =
+//     let p1 = {x=1; y=10}
+//     let p2 = {x=2; y=20}
+//     [p1; p2] |> Seq.sum |> (=) {x=3;y=30} |> equal true
+
+// TODO: Seq.sumBy with custom types causes badarith in Beam
+// [<Fact>]
+// let ``test Seq.sumBy with non numeric types works`` () =
+//     let p1 = {x=1; y=10}
+//     let p2 = {x=2; y=20}
+//     [p1; p2] |> Seq.sumBy SeqPoint.Neg |> (=) {x = -3; y = -30} |> equal true
+
+[<Fact>]
+let ``test Seq.sumBy with numeric projection works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [p1; p2] |> Seq.sumBy (fun p -> p.y) |> equal 30
+
+[<Fact>]
+let ``test Seq.reduce works with float`` () =
+    let xs = [1.; 2.]
+    xs |> Seq.reduce (+)
+    |> equal 3.
+
+[<Fact>]
+let ``test Seq.scan works with float`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let ys = xs |> Seq.scan (+) 0.
+    sumFirstTwo ys |> equal 1.
+
+[<Fact>]
+let ``test Seq.skip works with float`` () =
+    let xs = [1.; 2.; 3.]
+    let ys = xs |> Seq.skip 1
+    ys |> Seq.head
+    |> equal 2.
+
+[<Fact>]
+let ``test Seq.toArray works with float`` () =
+    let xs = [1.; 2.; 3.]
+    let ys = xs |> Seq.toArray
+    ys.[0] + ys.[1]
+    |> equal 3.
+
+[<Fact>]
+let ``test Seq.toList works with float`` () =
+    let xs = [1.; 2.; 3.]
+    let ys = xs |> Seq.toList
+    ys.Head + ys.Tail.Head
+    |> equal 3.
+
+[<Fact>]
+let ``test Seq.zip works with float`` () =
+    let xs = [1.; 2.; 3.]
+    let ys = [1.; 2.; 3.]
+    let zs = Seq.zip xs ys
+    let x, y = zs |> Seq.head
+    x + y
+    |> equal 2.
+
+[<Fact>]
+let ``test Seq.zip3 works with float`` () =
+    let xs = [1.; 2.; 3.]
+    let ys = [1.; 2.; 3.]
+    let zs = [1.; 2.; 3.]
+    let ks = Seq.zip3 xs ys zs
+    let x, y, z = ks |> Seq.head
+    x + y + z
+    |> equal 3.
+
+[<Fact>]
+let ``test Seq.pairwise works with sprintf`` () =
+    let xs = [1; 2; 3; 4]
+    xs |> Seq.pairwise
+    |> Seq.map (fun (x, y) -> sprintf "%i%i" x y)
+    |> String.concat ""
+    |> equal "122334"
+
+[<Fact>]
+let ``test Seq.pairwise works with empty input`` () =
+    ([||] : int array) |> Seq.pairwise |> Seq.toArray |> equal [||]
+    [1] |> Seq.pairwise |> Seq.toList |> equal []
+    [1; 2] |> Seq.pairwise |> Seq.toList |> equal [(1, 2)]
+
+[<Fact>]
+let ``test Seq.groupBy with structural equality works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = xs |> Seq.groupBy (fun x -> Number (x % 2))
+    ys |> Seq.length |> equal 2
+
+[<Fact>]
+let ``test Seq.range step works with long`` () =
+    seq{0L..2L..9L}
+    |> Seq.reduce (+)
+    |> equal 20L
+
+[<Fact>]
+let ``test Seq iterators from range do rewind`` () =
+    let xs = seq {for i=1 to 5 do i}
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+
+    let xs2 = seq {1..5}
+    xs2 |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+    xs2 |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"

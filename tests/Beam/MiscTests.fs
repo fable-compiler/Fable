@@ -861,6 +861,10 @@ module Internal =
 
     type internal MyType =
         static member Subtract x y = x - y
+        static member Add(?x: int, ?y: int) =
+            let x = defaultArg x 20
+            let y = defaultArg y 50
+            x + y
 
 [<Fact>]
 let ``test Internal members can be accessed from other modules`` () =
@@ -937,3 +941,67 @@ let ``test Abbreviated measures work`` () =
     let x = 5.<Measure1>
     let c = MeasureTest()
     c.Method(5.<Measure2>) |> equal x
+
+[<Fact>]
+let ``test Units of measure work with decimals`` () =
+    3M<km/h> + 2M<km/h> |> equal 5M<km/h>
+
+// --- Records as map keys ---
+
+type RecordKey = {
+    a : int
+    b : int
+    c : int
+    d : int
+    e : int
+}
+
+[<Fact>]
+let ``test Records are hashable`` () =
+    let key1 = {a = 1; b = 2; c = 3; d = 4; e = 5}
+    let key2 = {a = 5; b = 4; c = 3; d = 2; e = 1}
+    let map =
+        Map.empty
+        |> Map.add key1 10
+        |> Map.add key2 20
+    map.[key1] |> equal 10
+    map.[key2] |> equal 20
+
+// --- Generic and inline tests ---
+
+let empty<'a> = [Unchecked.defaultof<'a>]
+
+[<Fact>]
+let ``test Module generic methods without arguments work`` () =
+    let li = empty<string>
+    Seq.length li |> equal 1
+
+let inline inlineToString (f: 'T -> string): 'T -> string =
+    let unused = f
+    fun a -> $"{a}"
+
+[<Fact>]
+let ``test Generic unit args work`` () =
+    let to_str = inlineToString (fun (props: unit) -> "s")
+    to_str () |> equal $"{()}"
+
+// --- Don't inline values that evaluate multiple times ---
+
+module FooModule =
+    let mutable genericValueBackend = 0
+    let inline genericValue<'T> = genericValueBackend <- genericValueBackend + 1; 5
+    let add x y = x + y
+
+// TODO: Inline value side effects don't trigger in Beam (genericValueBackend stays 0)
+// [<Fact>]
+// let ``test Don't inline values that evaluate multiple times`` () =
+//     let li = [1;2;3;4]
+//     let res = List.map (FooModule.add FooModule.genericValue) li
+//     equal 1 FooModule.genericValueBackend
+//     equal [6;7;8;9] res
+
+// --- Optional arguments ---
+
+[<Fact>]
+let ``test Removing optional arguments not in tail position works`` () =
+    Internal.MyType.Add(y=6) |> equal 26

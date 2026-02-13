@@ -83,6 +83,17 @@ type MyTailCall() =
         then s
         else x.Sum(v + 1L, m, s + v)
 
+let rec parseNum tokens acc = function
+  | x::xs when x >= '0' && x <= '9' ->
+      parseNum tokens (x::acc) xs
+  | xs -> parseTokens ((List.rev acc)::tokens) xs
+
+and parseTokens tokens = function
+  | x::xs when x >= '0' && x <= '9' ->
+      parseNum tokens [x] xs
+  | x::xs -> parseTokens tokens xs
+  | [] -> List.rev tokens
+
 [<Fact>]
 let ``test Tailcall works in tail position`` () =
 #if FABLE_COMPILER
@@ -176,3 +187,20 @@ let ``test State of internally mutated tail called function parameters is preser
         then lst
         else loop ((fun () -> i) :: lst) (i - 1)
     loop [] 3 |> List.map (fun f -> f()) |> equal [1;2;3]
+
+[<Fact>]
+let ``test Mutually recursive functions can be partially optimized`` () =
+    let s = "a5b6c"
+    s.ToCharArray() |> Seq.toList |> parseTokens []
+    |> Seq.concat |> Seq.map string |> String.concat ""
+    |> equal "56"
+
+// TODO: recWithFinally generates syntax error in Erlang (try/finally in recursive function)
+// [<Fact>]
+// let ``test Recursive functions containing finally work`` () =
+//     recWithFinally () |> equal "abcdeEDCBA"
+
+// TODO: recWithUse generates syntax error in Erlang (object expression IDisposable)
+// [<Fact>]
+// let ``test Recursive functions containing use work`` () =
+//     recWithUse () |> equal "abcdeEDCBA"
