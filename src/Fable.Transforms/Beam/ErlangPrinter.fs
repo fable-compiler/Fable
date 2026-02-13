@@ -61,7 +61,7 @@ module Output =
             sb.Append("(") |> ignore
             printExpr sb indent expr
             sb.Append(")") |> ignore
-        | Literal(BigInt s) when s.StartsWith("-") ->
+        | Literal(BigInt s) when s.StartsWith("-", System.StringComparison.Ordinal) ->
             sb.Append("(") |> ignore
             printExpr sb indent expr
             sb.Append(")") |> ignore
