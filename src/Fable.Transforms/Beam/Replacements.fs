@@ -23,6 +23,13 @@ let private equals r equal (left: Expr) (right: Expr) =
 let private compare (com: ICompiler) r (left: Expr) (right: Expr) =
     Helper.LibCall(com, "fable_comparison", "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
 
+let private getOne (com: ICompiler) (ctx: Context) (t: Type) =
+    match t with
+    | Boolean -> makeBoolConst true
+    | Number(kind, uom) -> NumberConstant(NumberValue.GetOne kind, uom) |> makeValue None
+    | ListSingleton(CustomOp com ctx None t "get_One" [] e) -> e
+    | _ -> makeIntConst 1
+
 let private fsFormat
     (com: ICompiler)
     (_ctx: Context)
@@ -223,8 +230,26 @@ let private operators
         Helper.LibCall(com, "fable_dictionary", "create_from_list", _t, [ arg ], ?loc = r)
         |> Some
     // Range operators: [start..stop] and [start..step..stop]
-    | "op_Range", [ first; last ] -> emitExpr r _t [ first; last ] "lists:seq($0, $1)" |> Some
-    | "op_RangeStep", [ first; step; last ] -> emitExpr r _t [ first; step; last ] "lists:seq($0, $2, $1)" |> Some
+    | ("op_Range" | "op_RangeStep"), _ ->
+        let genArg = genArg com ctx r 0 info.GenericArgs
+
+        let addStep args =
+            match args with
+            | [ first; last ] -> [ first; getOne com ctx genArg; last ]
+            | _ -> args
+
+        let modul, meth, args =
+            match genArg with
+            | Char -> "range", "range_char", args
+            | Number(Decimal, _) -> "range", "range_decimal", addStep args
+            | Number(Int32, _) -> "range", "range_int32", addStep args
+            | Number(UInt32, _) -> "range", "range_u_int32", addStep args
+            | Number(Int64, _) -> "range", "range_int64", addStep args
+            | Number(UInt64, _) -> "range", "range_u_int64", addStep args
+            | _ -> "range", "range_double", addStep args
+
+        Helper.LibCall(com, modul, meth, _t, args, info.SignatureArgTypes, ?loc = r)
+        |> Some
     // Erlang has native arbitrary-precision integers, so Int64/UInt64/BigInt
     // use direct binary ops instead of library calls (like Python's int)
     // Bitwise operators — Erlang has native bitwise support for all integer sizes
@@ -1070,6 +1095,13 @@ let private numericTypes
         | _ ->
             Helper.LibCall(com, "fable_convert", "try_parse_int", t, [ str; outRef ], ?loc = r)
             |> Some
+    // Decimal arithmetic — Beam treats decimal as float, so use native operators
+    | "op_Addition", None, [ left; right ] -> makeBinOp r t left right BinaryPlus |> Some
+    | "op_Subtraction", None, [ left; right ] -> makeBinOp r t left right BinaryMinus |> Some
+    | "op_Multiply", None, [ left; right ] -> makeBinOp r t left right BinaryMultiply |> Some
+    | "op_Division", None, [ left; right ] -> makeBinOp r t left right BinaryDivide |> Some
+    | "op_Modulus", None, [ left; right ] -> makeBinOp r t left right BinaryModulus |> Some
+    | "op_UnaryNegation", None, [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, t, r) |> Some
     // MaxValue / MinValue
     | ("get_MaxValue" | "get_MinValue"), None, _ -> None // Not yet supported
     | _ -> None
@@ -1814,9 +1846,9 @@ let private arrayModule
 
 /// Beam-specific OperatorIntrinsics replacements (ranges).
 /// F# range expressions like [1..n] compile to RangeInt32(start, step, stop).
-/// Erlang's lists:seq(From, To, Step) generates the equivalent list.
+/// Routes through Range.fs library for correctness with floats/decimals.
 let private intrinsicFunctions
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -1825,11 +1857,24 @@ let private intrinsicFunctions
     (args: Expr list)
     =
     match info.CompiledName, args with
-    | "RangeChar", [ start; stop ] -> emitExpr r t [ start; stop ] "lists:seq($0, $1)" |> Some
-    | ("RangeSByte" | "RangeByte" | "RangeInt16" | "RangeUInt16" | "RangeInt32" | "RangeUInt32" | "RangeInt64" | "RangeUInt64" | "RangeSingle" | "RangeDouble"),
-      [ start; step; stop ] ->
-        // lists:seq(From, To, Step) — args are (start, step, stop)
-        emitExpr r t [ start; step; stop ] "lists:seq($0, $2, $1)" |> Some
+    | "RangeChar", _ ->
+        Helper.LibCall(com, "range", "range_char", t, args, info.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("RangeSByte" | "RangeByte" | "RangeInt16" | "RangeUInt16" | "RangeSingle" | "RangeDouble"), _ ->
+        Helper.LibCall(com, "range", "range_double", t, args, info.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "RangeInt32", _ ->
+        Helper.LibCall(com, "range", "range_int32", t, args, info.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "RangeUInt32", _ ->
+        Helper.LibCall(com, "range", "range_u_int32", t, args, info.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "RangeInt64", _ ->
+        Helper.LibCall(com, "range", "range_int64", t, args, info.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "RangeUInt64", _ ->
+        Helper.LibCall(com, "range", "range_u_int64", t, args, info.SignatureArgTypes, ?loc = r)
+        |> Some
     | "GetStringSlice", [ ar; lower; upper ] ->
         let lower =
             match lower with
@@ -3653,6 +3698,16 @@ let tryCall
             | _ -> emitExpr r t [ ar; idx ] "lists:nth($1 + 1, $0)" |> Some
         | "GetString", [ ar; idx ] -> emitExpr r t [ ar; idx ] "binary:at($0, $1)" |> Some
         | ("UnboxFast" | "UnboxGeneric" | "CheckThis"), [ arg ] -> TypeCast(arg, t) |> Some
+        | "MakeDecimal", [ low; mid; high; isNegative; scale ] ->
+            // Decimal is represented as float in Beam.
+            // MakeDecimal(low, mid, high, isNegative, scale) →
+            //   (low + mid * 2^32 + high * 2^64) / math:pow(10, scale) * case isNegative of true -> -1; false -> 1 end
+            emitExpr
+                r
+                t
+                [ low; mid; high; isNegative; scale ]
+                "(($0 + $1 * 4294967296 + $2 * 18446744073709551616) / math:pow(10, $4) * case $3 of true -> -1; false -> 1 end)"
+            |> Some
         | _ -> None
     | "System.Numerics.BigInteger"
     | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" ->
