@@ -336,9 +336,10 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 **Test suite**: `tests/Beam/` with xUnit. Run with `./build.sh test beam` which:
 
 1. Runs all tests on .NET via `dotnet test`
-2. Compiles tests to `.erl` via Fable
-3. Compiles `.erl` files with `erlc`
-4. Runs an Erlang test runner (`erl_test_runner.erl`) that discovers and executes all `test_`-prefixed functions (1847 Erlang tests pass)
+2. Compiles tests to `.erl` via Fable (library files auto-copied to `fable_modules/fable-library-beam/`)
+3. Compiles library `.erl` files in `fable_modules/fable-library-beam/` with `erlc`
+4. Compiles test `.erl` files with `erlc -pa fable_modules/fable-library-beam`
+5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions (1861 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -389,7 +390,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | NullnessTests.fs | 5 | Null operators, isNull, defaultof, Option.ofObj/toObj |
 | MailboxProcessorTests.fs | 3 | MailboxProcessor post, postAndAsyncReply, postAndAsyncReply with falsy values |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **1847** | |
+| **Total** | **1861** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -461,6 +462,7 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
 - [x] Function name sanitization (`$XXXX` hex sequences from F# backtick names)
 - [x] Cross-module call resolution (derive module from `importInfo.Path`)
 - [x] Inline `assertEqual`/`assertNotEqual` assertions (no util dependency needed)
+- [x] `fable_modules/fable-library-beam/` output structure (aligned with JS/Dart/Rust targets)
 
 ### Phase 6: Error Handling -- PARTIALLY COMPLETE
 
@@ -575,7 +577,7 @@ for mutable state, `fable_async:from_continuations` for the receive/reply coordi
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 1847 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 1861 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
@@ -863,6 +865,14 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   `Naming.applyCaseRule Core.CaseRules.SnakeCase` in `Pipeline.fs` Beam module.
   Erlang requires module name to match filename, so `ArithmeticTests.fs` →
   `arithmetic_tests.erl` with `-module(arithmetic_tests).`
+- **Library output layout**: Aligned with JS/Dart/Rust targets — library files go to
+  `fable_modules/fable-library-beam/` under the output directory, not mixed with compiled
+  project files. `ProjectCracker.fs` uses non-empty `buildDir` to trigger the standard
+  `copyDir` mechanism. `getOutPath` in `Main.fs` checks `Naming.isInFableModules` to preserve
+  the subdirectory structure for library files while keeping project files flat in `outDir`.
+  Erlang resolves modules via code path (`-pa fable_modules/fable-library-beam`) rather than
+  hierarchical imports. Third-party project output structure:
+  `output/my_module.erl` + `output/fable_modules/fable-library-beam/{fable_list,fable_string,seq,...}.erl`.
 - **Inline assertions**: `assertEqual`/`assertNotEqual` (and their `Testing_equal`/
   `Testing_notEqual` variants) are inlined as `case Actual =:= Expected of true -> ok;
   false -> erlang:error({assert_equal, Expected, Actual}) end` — no runtime dependency
