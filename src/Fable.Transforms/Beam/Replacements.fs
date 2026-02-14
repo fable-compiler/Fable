@@ -1583,10 +1583,22 @@ let rec private unwrapSeqArg r (expr: Expr) =
         | String -> emitExpr r (List Any) [ expr ] "binary_to_list($0)"
         | _ -> expr
 
+/// Direct call to the compiled seq.erl module, bypassing getLibPath.
+/// Used to call specific seq.erl functions from Replacements without affecting
+/// library-internal routing (Range.fs etc. still use fable_seq via getLibPath).
+let private seqCall r t fnName args =
+    let placeholders =
+        args |> List.mapi (fun i _ -> "$" + string i) |> String.concat ", "
+
+    emitExpr r t args $"seq:{fnName}({placeholders})"
+
 /// Beam-specific Seq module replacements.
 /// Sequences in Erlang are represented as eager lists.
-/// Most operations reuse lists:* BIFs or fable_list.erl;
-/// Seq-specific operations (delay, unfold, etc.) use fable_seq.erl.
+/// Scalar-returning operations (fold, find, exists, etc.) route through compiled
+/// seq.erl which accepts both lists and seq objects via fable_utils:get_enumerator.
+/// Sequence-returning operations stay as eager list implementations (BIFs/fable_list/fable_seq)
+/// since the rest of the codebase expects plain Erlang lists.
+/// Operations not in seq.erl (Distinct, GroupBy, etc.) stay in fable_seq.erl.
 let private seqModule
     (com: ICompiler)
     (_ctx: Context)
@@ -1606,11 +1618,56 @@ let private seqModule
     | "OfArray", [ arr ] -> Some arr
     // Empty
     | "Empty", _ -> Value(NewList(None, t), None) |> Some
-    // Simple emitExpr (1:1 BIF mappings) — unwrap ResizeArray refs
+    // === Scalar-returning operations with 1-arg callbacks — use compiled seq.erl ===
+    // (seq.erl accepts plain lists via fable_utils:get_enumerator)
+    // NOTE: Only operations with 0-arg or 1-arg callbacks can use seq.erl.
+    // Operations with 2+ arg callbacks fail because seq.erl calls Fn(A, B) uncurried
+    // but the Beam target generates curried lambdas fun(A) -> fun(B) -> ... end.
+    // NOTE: seq:length/1 has infinite recursion (calls itself instead of erlang:length/1
+    // due to BIF name clash), so we use the BIF directly.
+    // Element access (no callback)
     | "Head", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "hd($0)" |> Some
-    | "Last", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:last($0)" |> Some
+    | "Last", [ seq ] -> seqCall r t "last" [ seq ] |> Some
     | ("Length" | "Count"), [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "length($0)" |> Some
-    | "IsEmpty", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "($0 =:= [])" |> Some
+    | "IsEmpty", [ seq ] -> seqCall r t "is_empty" [ seq ] |> Some
+    | "Item", [ idx; seq ] -> seqCall r t "item" [ idx; seq ] |> Some
+    | "TryHead", [ seq ] -> seqCall r t "try_head" [ seq ] |> Some
+    | "TryItem", [ idx; seq ] -> seqCall r t "try_item" [ idx; seq ] |> Some
+    | "TryLast", [ seq ] -> seqCall r t "try_last" [ seq ] |> Some
+    | "ExactlyOne", [ seq ] -> seqCall r t "exactly_one" [ seq ] |> Some
+    | "TryExactlyOne", [ seq ] -> seqCall r t "try_exactly_one" [ seq ] |> Some
+    // Predicates (1-arg callback — safe)
+    | "Exists", [ fn; seq ] -> seqCall r t "exists" [ fn; seq ] |> Some
+    | "ForAll", [ fn; seq ] -> seqCall r t "for_all" [ fn; seq ] |> Some
+    // Iteration (1-arg callback — safe)
+    | "Iterate", [ fn; seq ] -> seqCall r t "iterate" [ fn; seq ] |> Some
+    // Search (1-arg callback — safe)
+    | "Find", [ fn; seq ] -> seqCall r t "find" [ fn; seq ] |> Some
+    | "TryFind", [ fn; seq ] -> seqCall r t "try_find" [ fn; seq ] |> Some
+    | "FindBack", [ fn; seq ] -> seqCall r t "find_back" [ fn; seq ] |> Some
+    | "TryFindBack", [ fn; seq ] -> seqCall r t "try_find_back" [ fn; seq ] |> Some
+    | "FindIndex", [ fn; seq ] -> seqCall r t "find_index" [ fn; seq ] |> Some
+    | "TryFindIndex", [ fn; seq ] -> seqCall r t "try_find_index" [ fn; seq ] |> Some
+    | "FindIndexBack", [ fn; seq ] -> seqCall r t "find_index_back" [ fn; seq ] |> Some
+    | "TryFindIndexBack", [ fn; seq ] -> seqCall r t "try_find_index_back" [ fn; seq ] |> Some
+    | "Pick", [ fn; seq ] -> seqCall r t "pick" [ fn; seq ] |> Some
+    | "TryPick", [ fn; seq ] -> seqCall r t "try_pick" [ fn; seq ] |> Some
+    // === Operations with 2+ arg callbacks — use old eager implementations ===
+    // (seq.erl expects uncurried Fn(A, B) but Beam generates curried fun(A) -> fun(B) -> ... end)
+    | "Fold", [ fn; state; seq ] -> Helper.LibCall(com, "fable_list", "fold", t, [ fn; state; seq ]) |> Some
+    | "FoldBack", [ fn; seq; state ] -> Helper.LibCall(com, "fable_list", "fold_back", t, [ fn; seq; state ]) |> Some
+    | "Reduce", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "reduce", t, [ fn; seq ]) |> Some
+    | "ReduceBack", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "reduce_back", t, [ fn; seq ]) |> Some
+    | "Exists2", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "exists2", t, [ fn; s1; s2 ]) |> Some
+    | "ForAll2", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "for_all2", t, [ fn; s1; s2 ]) |> Some
+    | "IterateIndexed", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "iter_indexed", t, [ fn; seq ]) |> Some
+    | "Iterate2", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "iter2", t, [ fn; s1; s2 ]) |> Some
+    | "Fold2", [ fn; state; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "fold2", t, [ fn; state; s1; s2 ]) |> Some
+    | "FoldBack2", [ fn; s1; s2; state ] ->
+        Helper.LibCall(com, "fable_seq", "fold_back2", t, [ fn; s1; s2; state ]) |> Some
+    | "CompareWith", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "compare_with", t, [ fn; s1; s2 ]) |> Some
+    // === Sequence-returning operations — stay as eager list implementations ===
+    // Simple BIF mappings (unwrap ResizeArray refs)
     | "Map", [ fn; seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ fn; seq ] "lists:map($0, $1)" |> Some
     | "Filter", [ fn; seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ fn; seq ] "lists:filter($0, $1)" |> Some
     | "Reverse", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:reverse($0)" |> Some
@@ -1619,92 +1676,35 @@ let private seqModule
         let s2 = unwrapSeqArg r s2
         emitExpr r t [ s1; s2 ] "lists:append($0, $1)" |> Some
     | "Concat", [ seqs ] -> emitExpr r t [ seqs ] "lists:append($0)" |> Some
-    | "Sum", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:sum($0)" |> Some
-    | "Contains", [ item; seq ] ->
-        let seq = unwrapSeqArg r seq in emitExpr r t [ item; seq ] "lists:member($0, $1)" |> Some
-    | "Exists", [ fn; seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ fn; seq ] "lists:any($0, $1)" |> Some
-    | "ForAll", [ fn; seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ fn; seq ] "lists:all($0, $1)" |> Some
-    | "Iterate", [ fn; seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ fn; seq ] "lists:foreach($0, $1)" |> Some
-    | "Sort", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:sort($0)" |> Some
-    | "SortDescending", [ seq ] ->
-        let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:reverse(lists:sort($0))" |> Some
-    | "Min", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:min($0)" |> Some
-    | "Max", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:max($0)" |> Some
+    | "Where", [ fn; seq ] -> emitExpr r t [ fn; seq ] "lists:filter($0, $1)" |> Some
+    | "Tail", [ seq ] -> emitExpr r t [ seq ] "tl($0)" |> Some
     | "Partition", [ fn; seq ] ->
         let seq = unwrapSeqArg r seq in emitExpr r t [ fn; seq ] "lists:partition($0, $1)" |> Some
     | "Unzip", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:unzip($0)" |> Some
-    | "Item", [ idx; seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq; idx ] "lists:nth($1 + 1, $0)" |> Some
-    // Reuse fable_list.erl
-    | "Fold", [ fn; state; seq ] -> Helper.LibCall(com, "fable_list", "fold", t, [ fn; state; seq ]) |> Some
-    | "FoldBack", [ fn; seq; state ] -> Helper.LibCall(com, "fable_list", "fold_back", t, [ fn; seq; state ]) |> Some
-    | "Reduce", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "reduce", t, [ fn; seq ]) |> Some
-    | "Collect", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "collect", t, [ fn; seq ]) |> Some
-    | "Choose", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "choose", t, [ fn; seq ]) |> Some
-    | "Find", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "find", t, [ fn; seq ]) |> Some
-    | "TryFind", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "try_find", t, [ fn; seq ]) |> Some
-    | "SumBy", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "sum_by", t, [ fn; seq ]) |> Some
-    | "MinBy", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "min_by", t, [ fn; seq ]) |> Some
-    | "MaxBy", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "max_by", t, [ fn; seq ]) |> Some
-    | "MapIndexed", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "map_indexed", t, [ fn; seq ]) |> Some
-    | "Indexed", [ seq ] -> Helper.LibCall(com, "fable_list", "indexed", t, [ seq ]) |> Some
+    // Sorting (no inject — use simple BIF-based implementations)
+    | "Sort", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:sort($0)" |> Some
+    | "SortDescending", [ seq ] ->
+        let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:reverse(lists:sort($0))" |> Some
     | "SortBy", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; seq ]) |> Some
     | "SortByDescending", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "sort_by_descending", t, [ fn; seq ]) |> Some
     | "SortWith", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; seq ]) |> Some
-    | "Zip", [ s1; s2 ] -> Helper.LibCall(com, "fable_list", "zip", t, [ s1; s2 ]) |> Some
-    // New fable_seq.erl operations
-    | ("Delay" | "EnumerateUsing"), [ fn ] -> Helper.LibCall(com, "fable_seq", "delay", t, [ fn ]) |> Some
-    | "Singleton", [ item ] -> Helper.LibCall(com, "fable_seq", "singleton", t, [ item ]) |> Some
-    | "Unfold", [ fn; state ] -> Helper.LibCall(com, "fable_seq", "unfold", t, [ fn; state ]) |> Some
-    | "Initialize", [ count; fn ] -> Helper.LibCall(com, "fable_seq", "initialize", t, [ count; fn ]) |> Some
-    | "Take", [ count; seq ] -> Helper.LibCall(com, "fable_seq", "take", t, [ count; seq ]) |> Some
-    | "Skip", [ count; seq ] -> Helper.LibCall(com, "fable_seq", "skip", t, [ count; seq ]) |> Some
-    | "Truncate", [ count; seq ] -> Helper.LibCall(com, "fable_seq", "truncate", t, [ count; seq ]) |> Some
-    | "TakeWhile", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "take_while", t, [ fn; seq ]) |> Some
-    | "SkipWhile", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "skip_while", t, [ fn; seq ]) |> Some
-    | "Pairwise", [ seq ] -> Helper.LibCall(com, "fable_seq", "pairwise", t, [ seq ]) |> Some
-    | "Windowed", [ size; seq ] -> Helper.LibCall(com, "fable_seq", "windowed", t, [ size; seq ]) |> Some
-    | "ChunkBySize", [ size; seq ] -> Helper.LibCall(com, "fable_seq", "chunk_by_size", t, [ size; seq ]) |> Some
-    | "Distinct", [ seq ] -> Helper.LibCall(com, "fable_seq", "distinct", t, [ seq ]) |> Some
-    | "DistinctBy", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "distinct_by", t, [ fn; seq ]) |> Some
-    | "GroupBy", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "group_by", t, [ fn; seq ]) |> Some
-    | "CountBy", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "count_by", t, [ fn; seq ]) |> Some
-    | "Except", [ excl; seq ] -> Helper.LibCall(com, "fable_seq", "except", t, [ excl; seq ]) |> Some
-    | "FindIndex", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "find_index", t, [ fn; seq ]) |> Some
-    | "TryFindIndex", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "try_find_index", t, [ fn; seq ]) |> Some
-    | "Map2", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "map2", t, [ fn; s1; s2 ]) |> Some
-    | "MapIndexed2", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "map_indexed2", t, [ fn; s1; s2 ]) |> Some
-    | "IterateIndexed", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "iter_indexed", t, [ fn; seq ]) |> Some
-    | "Iterate2", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "iter2", t, [ fn; s1; s2 ]) |> Some
-    | "Fold2", [ fn; state; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "fold2", t, [ fn; state; s1; s2 ]) |> Some
-    | "FoldBack2", [ fn; s1; s2; state ] ->
-        Helper.LibCall(com, "fable_seq", "fold_back2", t, [ fn; s1; s2; state ]) |> Some
-    | "Scan", [ fn; state; seq ] -> Helper.LibCall(com, "fable_seq", "scan", t, [ fn; state; seq ]) |> Some
-    | "ScanBack", [ fn; seq; state ] -> Helper.LibCall(com, "fable_seq", "scan_back", t, [ fn; seq; state ]) |> Some
-    | "ReduceBack", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "reduce_back", t, [ fn; seq ]) |> Some
-    | "ForAll2", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "for_all2", t, [ fn; s1; s2 ]) |> Some
-    | "Exists2", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "exists2", t, [ fn; s1; s2 ]) |> Some
-    | "CompareWith", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "compare_with", t, [ fn; s1; s2 ]) |> Some
-    | "Zip3", [ s1; s2; s3 ] -> Helper.LibCall(com, "fable_seq", "zip3", t, [ s1; s2; s3 ]) |> Some
-    | "Pick", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "pick", t, [ fn; seq ]) |> Some
-    | "TryPick", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "try_pick", t, [ fn; seq ]) |> Some
-    // Reuse fable_list.erl for operations already implemented there
-    | "FindBack", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "find_back", t, [ fn; seq ]) |> Some
-    | "TryFindBack", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "try_find_back", t, [ fn; seq ]) |> Some
-    | "FindIndexBack", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "find_index_back", t, [ fn; seq ]) |> Some
-    | "TryFindIndexBack", [ fn; seq ] ->
-        Helper.LibCall(com, "fable_list", "try_find_index_back", t, [ fn; seq ]) |> Some
-    | "TryHead", [ seq ] -> Helper.LibCall(com, "fable_list", "try_head", t, [ seq ]) |> Some
-    | "Tail", [ seq ] -> emitExpr r t [ seq ] "tl($0)" |> Some
-    | "TryItem", [ idx; seq ] -> Helper.LibCall(com, "fable_list", "try_item", t, [ idx; seq ]) |> Some
-    | "TryLast", [ seq ] -> Helper.LibCall(com, "fable_list", "try_last", t, [ seq ]) |> Some
-    | "ExactlyOne", [ seq ] -> Helper.LibCall(com, "fable_list", "exactly_one", t, [ seq ]) |> Some
-    | "TryExactlyOne", [ seq ] -> Helper.LibCall(com, "fable_list", "try_exactly_one", t, [ seq ]) |> Some
-    | "MapFold", [ fn; state; seq ] -> Helper.LibCall(com, "fable_list", "map_fold", t, [ fn; state; seq ]) |> Some
-    | "MapFoldBack", [ fn; seq; state ] ->
-        Helper.LibCall(com, "fable_list", "map_fold_back", t, [ fn; seq; state ])
-        |> Some
+    // Aggregation (no inject — use simple BIF-based implementations)
+    | "Sum", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:sum($0)" |> Some
+    | "SumBy", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "sum_by", t, [ fn; seq ]) |> Some
+    | "Min", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:min($0)" |> Some
+    | "Max", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:max($0)" |> Some
+    | "MinBy", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "min_by", t, [ fn; seq ]) |> Some
+    | "MaxBy", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "max_by", t, [ fn; seq ]) |> Some
     | "Average", [ seq ] -> Helper.LibCall(com, "fable_list", "average", t, [ seq ]) |> Some
     | "AverageBy", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "average_by", t, [ fn; seq ]) |> Some
+    | "Contains", [ item; seq ] ->
+        let seq = unwrapSeqArg r seq in emitExpr r t [ item; seq ] "lists:member($0, $1)" |> Some
+    // Reuse fable_list.erl for list-returning operations
+    | "MapIndexed", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "map_indexed", t, [ fn; seq ]) |> Some
+    | "Indexed", [ seq ] -> Helper.LibCall(com, "fable_list", "indexed", t, [ seq ]) |> Some
+    | "Collect", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "collect", t, [ fn; seq ]) |> Some
+    | "Choose", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "choose", t, [ fn; seq ]) |> Some
+    | "Zip", [ s1; s2 ] -> Helper.LibCall(com, "fable_list", "zip", t, [ s1; s2 ]) |> Some
     | "AllPairs", [ s1; s2 ] -> Helper.LibCall(com, "fable_list", "all_pairs", t, [ s1; s2 ]) |> Some
     | "SplitInto", [ count; seq ] -> Helper.LibCall(com, "fable_list", "split_into", t, [ count; seq ]) |> Some
     | "Transpose", [ seqs ] -> Helper.LibCall(com, "fable_list", "transpose", t, [ seqs ]) |> Some
@@ -1717,8 +1717,36 @@ let private seqModule
     | "RemoveManyAt", [ idx; count; seq ] ->
         Helper.LibCall(com, "fable_list", "remove_many_at", t, [ idx; count; seq ])
         |> Some
+    | "MapFold", [ fn; state; seq ] -> Helper.LibCall(com, "fable_list", "map_fold", t, [ fn; state; seq ]) |> Some
+    | "MapFoldBack", [ fn; seq; state ] ->
+        Helper.LibCall(com, "fable_list", "map_fold_back", t, [ fn; seq; state ])
+        |> Some
+    // fable_seq.erl operations (list-returning)
+    | "Delay", [ fn ] -> Helper.LibCall(com, "fable_seq", "delay", t, [ fn ]) |> Some
+    | "EnumerateUsing", [ fn ] -> Helper.LibCall(com, "fable_seq", "delay", t, [ fn ]) |> Some
+    | "Singleton", [ item ] -> Helper.LibCall(com, "fable_seq", "singleton", t, [ item ]) |> Some
+    | "Unfold", [ fn; state ] -> Helper.LibCall(com, "fable_seq", "unfold", t, [ fn; state ]) |> Some
+    | "Initialize", [ count; fn ] -> Helper.LibCall(com, "fable_seq", "initialize", t, [ count; fn ]) |> Some
+    | "Take", [ count; seq ] -> Helper.LibCall(com, "fable_seq", "take", t, [ count; seq ]) |> Some
+    | "Skip", [ count; seq ] -> Helper.LibCall(com, "fable_seq", "skip", t, [ count; seq ]) |> Some
+    | "Truncate", [ count; seq ] -> Helper.LibCall(com, "fable_seq", "truncate", t, [ count; seq ]) |> Some
+    | "TakeWhile", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "take_while", t, [ fn; seq ]) |> Some
+    | "SkipWhile", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "skip_while", t, [ fn; seq ]) |> Some
+    | "Pairwise", [ seq ] -> Helper.LibCall(com, "fable_seq", "pairwise", t, [ seq ]) |> Some
+    | "Windowed", [ size; seq ] -> Helper.LibCall(com, "fable_seq", "windowed", t, [ size; seq ]) |> Some
+    | "ChunkBySize", [ size; seq ] -> Helper.LibCall(com, "fable_seq", "chunk_by_size", t, [ size; seq ]) |> Some
+    | "Scan", [ fn; state; seq ] -> Helper.LibCall(com, "fable_seq", "scan", t, [ fn; state; seq ]) |> Some
+    | "ScanBack", [ fn; seq; state ] -> Helper.LibCall(com, "fable_seq", "scan_back", t, [ fn; seq; state ]) |> Some
+    | "Map2", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "map2", t, [ fn; s1; s2 ]) |> Some
+    | "MapIndexed2", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "map_indexed2", t, [ fn; s1; s2 ]) |> Some
+    | "Zip3", [ s1; s2; s3 ] -> Helper.LibCall(com, "fable_seq", "zip3", t, [ s1; s2; s3 ]) |> Some
+    // Operations NOT in compiled seq.erl — stay in fable_seq.erl
+    | "Distinct", [ seq ] -> Helper.LibCall(com, "fable_seq", "distinct", t, [ seq ]) |> Some
+    | "DistinctBy", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "distinct_by", t, [ fn; seq ]) |> Some
+    | "GroupBy", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "group_by", t, [ fn; seq ]) |> Some
+    | "CountBy", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "count_by", t, [ fn; seq ]) |> Some
+    | "Except", [ excl; seq ] -> Helper.LibCall(com, "fable_seq", "except", t, [ excl; seq ]) |> Some
     | ("Readonly" | "ReadOnly" | "Cache"), [ seq ] -> Some seq
-    | "Where", [ fn; seq ] -> emitExpr r t [ fn; seq ] "lists:filter($0, $1)" |> Some
     // RuntimeHelpers — seq computation expression desugaring
     | "EnumerateWhile", [ guard; body ] ->
         // Eager: repeatedly evaluate guard and body until guard returns false
