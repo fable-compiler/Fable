@@ -138,9 +138,7 @@ let private operators
     | "Failure", [ msg ] -> emitExpr r _t [ msg ] "#{message => $0}" |> Some
     | "FailurePattern", [ exn ] -> emitExpr r _t [ exn ] "maps:get(message, $0, $0)" |> Some
     // LazyPattern — force a lazy value
-    | "LazyPattern", [ arg ] ->
-        // Lazy values in Beam are just thunks (0-arity funs)
-        emitExpr r _t [ arg ] "$0()" |> Some
+    | "LazyPattern", [ arg ] -> Helper.LibCall(com, "fable_utils", "force_lazy", _t, [ arg ], ?loc = r) |> Some
     | "Hash", [ arg ] -> emitExpr r _t [ arg ] "erlang:phash2($0)" |> Some
     | "Compare", [ left; right ] -> compare com r left right |> Some
     // Math operators
@@ -4096,17 +4094,22 @@ let tryCall
         match info.CompiledName, thisArg, args with
         | "HasFlag", Some value, [ flag ] -> emitExpr r t [ value; flag ] "(($0 band $1) =:= $1)" |> Some
         | _ -> None
-    // Lazy — lazy values are thunks (0-arity funs) in Erlang
+    // Lazy — lazy values use process dict for memoization
     | "System.Lazy`1"
     | "Microsoft.FSharp.Control.Lazy"
     | "Microsoft.FSharp.Control.LazyExtensions" ->
         match info.CompiledName, thisArg, args with
-        | "Force", Some callee, _ -> emitExpr r t [ callee ] "$0()" |> Some
-        | ("get_Value" | "get_IsValueCreated"), Some callee, _ -> emitExpr r t [ callee ] "$0()" |> Some
-        | (".ctor" | "Create"), None, [ factory ] -> Some factory // Lazy<T>(fun () -> x) just becomes the thunk
+        | ("Force" | "get_Value"), Some callee, _ ->
+            Helper.LibCall(com, "fable_utils", "force_lazy", t, [ callee ], ?loc = r)
+            |> Some
+        | "get_IsValueCreated", Some callee, _ ->
+            Helper.LibCall(com, "fable_utils", "is_value_created", t, [ callee ], ?loc = r)
+            |> Some
+        | (".ctor" | "Create"), None, [ factory ] ->
+            Helper.LibCall(com, "fable_utils", "new_lazy", t, [ factory ], ?loc = r) |> Some
         | "CreateFromValue", None, [ value ] ->
-            // Wrap value in a thunk
-            emitExpr r t [ value ] "fun() -> $0 end" |> Some
+            Helper.LibCall(com, "fable_utils", "new_lazy_from_value", t, [ value ], ?loc = r)
+            |> Some
         | _ -> None
     // Action/Func/Delegate — functions in Erlang
     | "System.Delegate"

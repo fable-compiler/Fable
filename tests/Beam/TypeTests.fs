@@ -453,53 +453,52 @@ let ``test box and unbox tuple works`` () =
     let unboxed: int * string = unbox boxed
     equal (1, "a") unboxed
 
-// TODO: Lazy not yet supported by Beam Replacements (needs Lazy.Create, Lazy.Value, Lazy.Force, etc.)
-// [<Fact>]
-// let ``test lazy works`` () =
-//     let mutable snitch = 0
-//     let lazyVal =
-//         lazy
-//             (snitch <- snitch + 1
-//              5)
-//     equal 0 snitch
-//     equal 5 lazyVal.Value
-//     equal 1 snitch
-//     lazyVal.Force() |> equal 5
-//     equal 1 snitch
-//
-// [<Fact>]
-// let ``test Lazy.CreateFromValue works`` () =
-//     let mutable snitch = 0
-//     let lazyVal =
-//         Lazy<_>.CreateFromValue
-//             (snitch <- snitch + 1
-//              5)
-//     equal 1 snitch
-//     equal 5 lazyVal.Value
-//     equal 1 snitch
-//
-// [<Fact>]
-// let ``test lazy.IsValueCreated works`` () =
-//     let mutable snitch = 0
-//     let lazyVal =
-//         Lazy<_>.Create
-//             (fun () ->
-//                 snitch <- snitch + 1
-//                 5)
-//     equal 0 snitch
-//     equal false lazyVal.IsValueCreated
-//     equal 5 lazyVal.Value
-//     equal true lazyVal.IsValueCreated
-//     lazyVal.Force() |> equal 5
-//     equal true lazyVal.IsValueCreated
-//
-// [<Fact>]
-// let ``test Lazy constructor works`` () =
-//     let items = Lazy<string list>(fun () -> [ "a"; "b"; "c" ])
-//     let search e =
-//         items.Value |> List.tryFind (fun m -> m = e)
-//     search "b" |> equal (Some "b")
-//     search "d" |> equal None
+[<Fact>]
+let ``test lazy works`` () =
+    let mutable snitch = 0
+    let lazyVal =
+        lazy
+            (snitch <- snitch + 1
+             5)
+    equal 0 snitch
+    equal 5 lazyVal.Value
+    equal 1 snitch
+    lazyVal.Force() |> equal 5
+    equal 1 snitch
+
+[<Fact>]
+let ``test Lazy.CreateFromValue works`` () =
+    let mutable snitch = 0
+    let lazyVal =
+        Lazy<_>.CreateFromValue
+            (snitch <- snitch + 1
+             5)
+    equal 1 snitch
+    equal 5 lazyVal.Value
+    equal 1 snitch
+
+[<Fact>]
+let ``test lazy.IsValueCreated works`` () =
+    let mutable snitch = 0
+    let lazyVal =
+        Lazy<_>.Create
+            (fun () ->
+                snitch <- snitch + 1
+                5)
+    equal 0 snitch
+    equal false lazyVal.IsValueCreated
+    equal 5 lazyVal.Value
+    equal true lazyVal.IsValueCreated
+    lazyVal.Force() |> equal 5
+    equal true lazyVal.IsValueCreated
+
+[<Fact>]
+let ``test Lazy constructor works`` () =
+    let items = Lazy<string list>(fun () -> [ "a"; "b"; "c" ])
+    let search e =
+        items.Value |> List.tryFind (fun m -> m = e)
+    search "b" |> equal (Some "b")
+    search "d" |> equal None
 
 // --- Type test with specific types ---
 

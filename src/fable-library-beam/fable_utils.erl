@@ -1,7 +1,8 @@
 -module(fable_utils).
 -export([iface_get/2, apply_curried/2, new_ref/1, safe_dispose/1,
          get_enumerator/1, move_next/1, get_current/1,
-         pos_infinity/0, neg_infinity/0, nan/0]).
+         pos_infinity/0, neg_infinity/0, nan/0,
+         new_lazy/1, new_lazy_from_value/1, force_lazy/1, is_value_created/1]).
 
 %% Interface dispatch: works for both object expressions (maps) and class instances (refs).
 iface_get(Name, Obj) when is_map(Obj) -> maps:get(Name, Obj);
@@ -70,3 +71,29 @@ get_current(EnumRef) ->
 pos_infinity() -> <<F/float>> = <<0:1, 2047:11, 0:52>>, F.
 neg_infinity() -> <<F/float>> = <<1:1, 2047:11, 0:52>>, F.
 nan() -> <<F/float>> = <<0:1, 2047:11, 1:52>>, F.
+
+%% Lazy<T> with memoization via process dictionary.
+new_lazy(Factory) ->
+    Ref = make_ref(),
+    put(Ref, #{factory => Factory, is_value_created => false}),
+    Ref.
+
+%% Create an already-evaluated lazy value.
+new_lazy_from_value(Value) ->
+    Ref = make_ref(),
+    put(Ref, #{is_value_created => true, value => Value}),
+    Ref.
+
+force_lazy(LazyRef) ->
+    State = get(LazyRef),
+    case maps:get(is_value_created, State) of
+        true -> maps:get(value, State);
+        false ->
+            Factory = maps:get(factory, State),
+            Value = Factory(ok),
+            put(LazyRef, State#{is_value_created := true, value => Value}),
+            Value
+    end.
+
+is_value_created(LazyRef) ->
+    maps:get(is_value_created, get(LazyRef)).
