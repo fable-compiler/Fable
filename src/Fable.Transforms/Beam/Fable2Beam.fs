@@ -687,7 +687,15 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         // For_loop_(Start)
         let ctr = com.IncrementCounter()
         let loopName = $"For_loop_%d{ctr}"
-        let varName = capitalizeFirst ident.Name |> sanitizeErlangVar
+        // When ident.Name is "_" (discarded), generate a real variable name
+        // because Erlang's _ is always a wildcard (can't be bound/referenced)
+        let identName =
+            if ident.Name = "_" then
+                $"_For_i_%d{ctr}"
+            else
+                ident.Name
+
+        let varName = capitalizeFirst identName |> sanitizeErlangVar
         let erlStart = transformExpr com ctx start
         let erlLimit = transformExpr com ctx limit
         let loopCtx = { ctx with LocalVars = ctx.LocalVars.Add(ident.Name) }
@@ -2333,6 +2341,9 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
     let allForms =
         [
             Beam.ErlForm.Attribute(Beam.ModuleAttr(Beam.Atom moduleName))
+            // Suppress unused variable/function warnings from generated code
+            Beam.ErlForm.Attribute(Beam.CustomAttr(Beam.Atom "compile", "nowarn_unused_vars"))
+            Beam.ErlForm.Attribute(Beam.CustomAttr(Beam.Atom "compile", "nowarn_unused_function"))
             if not (List.isEmpty clashingBifs) then
                 let bifStrs =
                     clashingBifs

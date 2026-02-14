@@ -127,6 +127,20 @@ let private operators
             [ argName; arg ]
             "(case $1 of undefined -> erlang:error({badarg, <<\"Value cannot be null. Parameter name: \", $0/binary>>}); _ -> $1 end)"
         |> Some
+    // Lock — no-op in Erlang (processes are isolated), just call the action
+    | "Lock", [ _lockObj; action ] -> CurriedApply(action, [ Value(UnitConstant, None) ], _t, r) |> Some
+    // Using — resource disposal
+    | "Using", [ resource; action ] ->
+        // try action(resource) finally resource.Dispose()
+        Helper.LibCall(com, "fable_utils", "using", _t, [ resource; action ], ?loc = r)
+        |> Some
+    // Failure — create exception from message
+    | "Failure", [ msg ] -> emitExpr r _t [ msg ] "#{message => $0}" |> Some
+    | "FailurePattern", [ exn ] -> emitExpr r _t [ exn ] "maps:get(message, $0, $0)" |> Some
+    // LazyPattern — force a lazy value
+    | "LazyPattern", [ arg ] ->
+        // Lazy values in Beam are just thunks (0-arity funs)
+        emitExpr r _t [ arg ] "$0()" |> Some
     | "Hash", [ arg ] -> emitExpr r _t [ arg ] "erlang:phash2($0)" |> Some
     | "Compare", [ left; right ] -> compare com r left right |> Some
     // Math operators
@@ -1769,6 +1783,7 @@ let private arrayModule
     | "Tail", [ arr ] -> emitExpr r t [ arr ] "tl($0)" |> Some
     | "IsEmpty", [ arr ] -> emitExpr r t [ arr ] "($0 =:= [])" |> Some
     | "Empty", _ -> Value(NewArray(ArrayValues [], t, MutableArray), None) |> Some
+    | "Singleton", [ item ] -> emitExpr r t [ item ] "[$0]" |> Some
     | "Map", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:map($0, $1)" |> Some
     | "MapIndexed", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "map_indexed", t, [ fn; arr ]) |> Some
     | "Filter", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:filter($0, $1)" |> Some
@@ -3907,6 +3922,21 @@ let tryCall
     // Exception — caught exceptions are wrapped as #{message => Msg} by Fable2Beam
     | "System.Exception" ->
         match info.CompiledName, thisArg, args with
+        | ".ctor", None, [ msg ] -> emitExpr r t [ msg ] "#{message => $0}" |> Some
+        | ".ctor", None, [] ->
+            emitExpr r t [] "#{message => <<\"Exception of type 'System.Exception' was thrown.\">>}"
+            |> Some
+        | "get_Message", Some c, _ -> emitExpr r t [ c ] "maps:get(message, $0, $0)" |> Some
+        | _ -> None
+    // Built-in .NET exception types — all become #{message => Msg} maps in Erlang
+    | BuiltinSystemException _
+    | "System.Collections.Generic.KeyNotFoundException" ->
+        match info.CompiledName, thisArg, args with
+        | ".ctor", None, [ msg ] -> emitExpr r t [ msg ] "#{message => $0}" |> Some
+        | ".ctor", None, [] ->
+            let typeName = info.DeclaringEntityFullName
+            let msg = $"Exception of type '{typeName}' was thrown."
+            emitExpr r t [] $"#{{message => <<\"{msg}\">>}}" |> Some
         | "get_Message", Some c, _ -> emitExpr r t [ c ] "maps:get(message, $0, $0)" |> Some
         | _ -> None
     // System.Type (reflection) — type info is a map #{fullname => ..., generics => [...]}
@@ -3923,6 +3953,18 @@ let tryCall
     | "System.Enum" ->
         match info.CompiledName, thisArg, args with
         | "HasFlag", Some value, [ flag ] -> emitExpr r t [ value; flag ] "(($0 band $1) =:= $1)" |> Some
+        | _ -> None
+    // Lazy — lazy values are thunks (0-arity funs) in Erlang
+    | "System.Lazy`1"
+    | "Microsoft.FSharp.Control.Lazy"
+    | "Microsoft.FSharp.Control.LazyExtensions" ->
+        match info.CompiledName, thisArg, args with
+        | "Force", Some callee, _ -> emitExpr r t [ callee ] "$0()" |> Some
+        | ("get_Value" | "get_IsValueCreated"), Some callee, _ -> emitExpr r t [ callee ] "$0()" |> Some
+        | (".ctor" | "Create"), None, [ factory ] -> Some factory // Lazy<T>(fun () -> x) just becomes the thunk
+        | "CreateFromValue", None, [ value ] ->
+            // Wrap value in a thunk
+            emitExpr r t [ value ] "fun() -> $0 end" |> Some
         | _ -> None
     // Action/Func/Delegate — functions in Erlang
     | "System.Delegate"
