@@ -76,6 +76,16 @@ let private matchTargetIdentAndValues idents values =
     else
         failwith "Target idents/values lengths differ"
 
+/// Resolve the Erlang module name for an import, returning None if it's the current module.
+let resolveImportModuleName (com: IBeamCompiler) (importPath: string) =
+    let name = moduleNameFromFile importPath
+    let currentModule = moduleNameFromFile com.CurrentFile
+
+    if name = currentModule then
+        None
+    else
+        Some name
+
 let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.ErlExpr =
     match expr with
     | Value(kind, _range) -> transformValue com ctx kind
@@ -207,18 +217,34 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
     | CurriedApply(applied, args, _typ, _range) ->
         // CurriedApply applies args one at a time to a curried function value.
-        // This matches how JS and Python targets handle CurriedApply: a simple fold.
-        let appliedExpr = transformExpr com ctx applied
-        let argExprs = args |> List.map (transformExpr com ctx)
-        let appliedHoisted, cleanApplied = extractBlock appliedExpr
-        let argsHoisted, cleanArgs = hoistBlocksFromArgs argExprs
-        let allHoisted = appliedHoisted @ argsHoisted
+        // In most targets (JS, Python, Dart), the default fold works because Import produces
+        // a runtime function reference that can be applied incrementally. In Erlang, remote
+        // function calls require known arity (module:function/N), so when the applied expression
+        // is a UserImport we emit a direct remote call with all args collected.
+        match applied with
+        | Import(importInfo, _, _) when
+            (match importInfo.Kind with
+             | Fable.AST.Fable.UserImport _ -> true
+             | _ -> false)
+            ->
+            let moduleName = resolveImportModuleName com importInfo.Path
+            let funcName = sanitizeErlangName importInfo.Selector
+            let argExprs = args |> List.map (transformExpr com ctx)
+            let hoisted, cleanArgs = hoistBlocksFromArgs argExprs
+            Beam.ErlExpr.Call(moduleName, funcName, cleanArgs) |> wrapWithHoisted hoisted
+        | _ ->
+            // Default: fold applying args one at a time (matches JS/Python)
+            let appliedExpr = transformExpr com ctx applied
+            let argExprs = args |> List.map (transformExpr com ctx)
+            let appliedHoisted, cleanApplied = extractBlock appliedExpr
+            let argsHoisted, cleanArgs = hoistBlocksFromArgs argExprs
+            let allHoisted = appliedHoisted @ argsHoisted
 
-        let result =
-            cleanArgs
-            |> List.fold (fun fn arg -> Beam.ErlExpr.Apply(fn, [ arg ])) cleanApplied
+            let result =
+                cleanArgs
+                |> List.fold (fun fn arg -> Beam.ErlExpr.Apply(fn, [ arg ])) cleanApplied
 
-        result |> wrapWithHoisted allHoisted
+            result |> wrapWithHoisted allHoisted
 
     | Operation(kind, _tags, typ, _range) -> transformOperation com ctx kind typ
 
@@ -831,14 +857,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
     | Import(importInfo, typ, _range) ->
         // Standalone import (function reference from another module, not a direct call).
         // Generate a lambda wrapper: fun(A1, ..., AN) -> module:function(A1, ..., AN) end
-        let moduleName =
-            let name = moduleNameFromFile importInfo.Path
-            let currentModule = moduleNameFromFile com.CurrentFile
-
-            if name = currentModule then
-                None
-            else
-                Some name
+        let moduleName = resolveImportModuleName com importInfo.Path
 
         let funcName = sanitizeErlangName importInfo.Selector
 
@@ -1351,14 +1370,7 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
 
     match callee with
     | Import(importInfo, _typ, _range) ->
-        let importModuleName =
-            let name = moduleNameFromFile importInfo.Path
-            let currentModule = moduleNameFromFile com.CurrentFile
-
-            if name = currentModule then
-                None
-            else
-                Some name
+        let importModuleName = resolveImportModuleName com importInfo.Path
 
         match importInfo.Selector with
         | "assertEqual"

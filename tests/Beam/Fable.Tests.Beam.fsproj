@@ -70,6 +70,7 @@
     <Compile Include="NullnessTests.fs" />
     <Compile Include="CustomOperatorTests.fs" />
     <Compile Include="EnumerableTests.fs" />
+    <Compile Include="InteropTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

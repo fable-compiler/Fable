@@ -4028,6 +4028,24 @@ let tryCall
         match info.CompiledName with
         | "get_InvariantCulture" -> emitExpr r t [] "undefined" |> Some
         | _ -> None
+    | "Fable.Core.BeamInterop" ->
+        match info.CompiledName, args with
+        | Naming.StartsWith "import" suffix, _ ->
+            match suffix, args with
+            | "Member", [ RequireStringConst com ctx r path ] ->
+                makeImportUserGenerated r t Naming.placeholder path |> Some
+            | "All", [ RequireStringConst com ctx r path ] -> makeImportUserGenerated r t "*" path |> Some
+            | _, [ RequireStringConst com ctx r selector; RequireStringConst com ctx r path ] ->
+                makeImportUserGenerated r t selector path |> Some
+            | _ -> None
+        | Naming.StartsWith "emitErl" rest, [ args; macro ] ->
+            match macro with
+            | RequireStringConstOrTemplate com ctx r template ->
+                let args = destructureTupleArgs [ args ]
+                let isStatement = rest = "Statement"
+                emitTemplate r t args isStatement template |> Some
+        | "op_BangBang", [ arg ] -> Some arg
+        | _ -> None
     // Testing assertions (used by our test framework)
     | "Fable.Core.Testing.Assert" ->
         match info.CompiledName, args with

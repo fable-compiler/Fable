@@ -55,6 +55,14 @@ let handle (args: string list) =
         // Copy test runner to build dir
         File.Copy(testRunnerSrc, Path.Combine(buildDir, "erl_test_runner.erl"), overwrite = true)
 
+        // Copy native Erlang test modules to build dir
+        let nativeErlDir = Path.Resolve("tests", "Beam", "erl")
+
+        if Directory.Exists(nativeErlDir) then
+            for erlFile in Directory.GetFiles(nativeErlDir, "*.erl") do
+                let fileName = Path.GetFileName(erlFile)
+                File.Copy(erlFile, Path.Combine(buildDir, fileName), overwrite = true)
+
         // fable-library-beam files are auto-copied to fable_modules/fable-library-beam/ by the compiler
         let fableModulesLibDir =
             Path.Combine(buildDir, "fable_modules", "fable-library-beam")
