@@ -144,3 +144,24 @@ let ``test Dequeue throws on empty queue`` () =
     with _ ->
         threw <- true
     threw |> equal true
+
+// --- Enumeration ---
+
+[<Fact>]
+let ``test Queue can be enumerated with for-in`` () =
+    let q = Queue<int>()
+    q.Enqueue(10)
+    q.Enqueue(20)
+    q.Enqueue(30)
+    let mutable sum = 0
+    for item in q do
+        sum <- sum + item
+    sum |> equal 60
+
+[<Fact>]
+let ``test Queue enumeration preserves order`` () =
+    let q = Queue<string>(["a"; "b"; "c"])
+    let mutable result = ""
+    for item in q do
+        result <- result + item
+    result |> equal "abc"

@@ -370,6 +370,27 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             // Record: existing behavior (maps:put returning new map)
             Beam.ErlExpr.Call(Some "maps", "put", [ atomField; erlValue; erlExpr ])
 
+    | Set(IdentExpr ident, ExprSet idx, _, value, _) when ctx.MutableVars.Contains(ident.Name) ->
+        // Array index set on mutable variable: put(key, fable_resize_array:set_item(get(key), Idx, Value))
+        let atomKey =
+            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeErlangName ident.Name)))
+
+        let erlIdx = transformExpr com ctx idx
+        let erlValue = transformExpr com ctx value
+
+        Beam.ErlExpr.Call(
+            None,
+            "put",
+            [
+                atomKey
+                Beam.ErlExpr.Call(
+                    Some "fable_resize_array",
+                    "set_item",
+                    [ Beam.ErlExpr.Call(None, "get", [ atomKey ]); erlIdx; erlValue ]
+                )
+            ]
+        )
+
     | Set _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_set"))
 
     | LetRec(bindings, body) ->

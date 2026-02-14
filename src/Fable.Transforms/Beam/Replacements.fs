@@ -1837,6 +1837,7 @@ let private arrays
     | "get_Length", Some c, _ -> emitExpr r t [ c ] "erlang:length($0)" |> Some
     | "get_Item", Some c, [ idx ] when isByteArray -> emitExpr r t [ c; idx ] "binary:at($0, $1)" |> Some
     | "get_Item", Some c, [ idx ] -> emitExpr r t [ c; idx ] "lists:nth($1 + 1, $0)" |> Some
+    | "set_Item", Some c, [ idx; value ] -> setExpr r c idx value |> Some
     // System.Array.Copy(source, dest, length) — copy first N elements
     | "Copy", None, [ src; _dest; len ] -> emitExpr r t [ src; len ] "lists:sublist($0, $1)" |> Some
     // System.Array.IndexOf(arr, value) — find index of value
@@ -1857,6 +1858,7 @@ let private arrayModule
     | ("Length" | "Count"), [ arr ] -> emitExpr r t [ arr ] "erlang:length($0)" |> Some
     | "Item", [ idx; arr ] -> emitExpr r t [ arr; idx ] "lists:nth($1 + 1, $0)" |> Some
     | "Get", [ arr; idx ] -> emitExpr r t [ arr; idx ] "lists:nth($1 + 1, $0)" |> Some
+    | "Set", [ arr; idx; value ] -> setExpr r arr idx value |> Some
     | "Head", [ arr ] -> emitExpr r t [ arr ] "erlang:hd($0)" |> Some
     | "Last", [ arr ] -> emitExpr r t [ arr ] "lists:last($0)" |> Some
     | "Tail", [ arr ] -> emitExpr r t [ arr ] "erlang:tl($0)" |> Some
@@ -3899,6 +3901,7 @@ let tryCall
             | Type.Array(Type.Number(UInt8, _), _) -> emitExpr r t [ ar; idx ] "binary:at($0, $1)" |> Some
             | _ -> emitExpr r t [ ar; idx ] "lists:nth($1 + 1, $0)" |> Some
         | "GetString", [ ar; idx ] -> emitExpr r t [ ar; idx ] "binary:at($0, $1)" |> Some
+        | "SetArray", [ ar; idx; value ] -> setExpr r ar idx value |> Some
         | ("UnboxFast" | "UnboxGeneric" | "CheckThis"), [ arg ] -> TypeCast(arg, t) |> Some
         | "MakeDecimal", [ low; mid; high; isNegative; scale ] ->
             Helper.LibCall(com, "fable_decimal", "from_parts", t, [ low; mid; high; isNegative; scale ], ?loc = r)
@@ -4007,6 +4010,7 @@ let tryCall
     | "System.Collections.Generic.Dictionary`2.KeyCollection.Enumerator"
     | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator"
     | "System.Collections.Generic.HashSet`1.Enumerator"
+    | "System.Collections.Generic.Queue`1.Enumerator"
     | "System.CharEnumerator" -> enumerators com ctx r t info thisArg args
     | "System.BitConverter" -> bitConvert com ctx r t info thisArg args
     | "System.Text.Encoding"

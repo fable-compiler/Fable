@@ -29,7 +29,7 @@ let ``test Array indexer getter works`` () =
     let x = [| 1.; 2.; 3.; 4.; 5. |]
     x.[2] |> equal 3.
 
-// TODO: SetArray not supported in Beam
+// TODO: SetArray on non-mutable arrays not supported in Beam (Erlang lists are immutable values)
 // [<Fact>]
 // let ``test Array indexer setter works`` () =
 //     let x = [| 1.; 2.; 3.; 4.; 5. |]
@@ -37,16 +37,28 @@ let ``test Array indexer getter works`` () =
 //     equal 10. x.[3]
 
 [<Fact>]
+let ``test Array indexer setter works with mutable`` () =
+    let mutable x = [| 1.; 2.; 3.; 4.; 5. |]
+    x.[3] <- 10.
+    equal 10. x.[3]
+
+[<Fact>]
 let ``test Array getter works`` () =
     let x = [| 1.; 2.; 3.; 4.; 5. |]
     Array.get x 2 |> equal 3.
 
-// TODO: Array.Set not supported in Beam
+// TODO: Array.Set on non-mutable arrays not supported in Beam (Erlang lists are immutable values)
 // [<Fact>]
 // let ``test Array setter works`` () =
 //     let x = [| 1.; 2.; 3.; 4.; 5. |]
 //     Array.set x 3 10.
 //     equal 10. x.[3]
+
+[<Fact>]
+let ``test Array setter works with mutable`` () =
+    let mutable x = [| 1.; 2.; 3.; 4.; 5. |]
+    Array.set x 3 10.
+    equal 10. x.[3]
 
 [<Fact>]
 let ``test xs.Length works`` () =
