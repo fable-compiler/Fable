@@ -77,6 +77,8 @@
     <Compile Include="TestUri.fs" />
     <Compile Include="TestPyInterop.fs" />
     <Compile Include="TestPatternMatch.fs" />
+    <Compile Include="TestHashSet.fs" />
+    <Compile Include="TestNestedAndRecursivePattern.fs" />
 
     <Compile Include="TestNonRegression.fs" />
     <Compile Include="Main.fs" />
