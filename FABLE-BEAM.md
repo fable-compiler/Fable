@@ -134,7 +134,7 @@ Erlang modules implementing F# core types:
 | fable_date_offset.erl | DateTimeOffset | 3-tuple {Ticks, OffsetTicks, Kind}, wraps fable_date | Done |
 | fable_guid.erl | Guid | UUID v4 generation, parse, toString, comparison | Done |
 | fable_uri.erl | Uri | URI parsing and manipulation | Done |
-| fable_utils.erl | Utilities | IEnumerator, throwsAnyError, infinity/NaN helpers | Done |
+| fable_utils.erl | Utilities | IEnumerator (lists/refs/maps/HashSet), apply_curried, infinity/NaN helpers | Done |
 | fable_bit_converter.erl | BitConverter | Byte conversion, endianness | Done |
 | fable_decimal.erl | Decimal | Fixed-scale integer (value × 10^28), multiply/divide/to_string/parse/from_parts | Done |
 | fable_mailbox.erl | MailboxProcessor | In-process CPS continuation model (same as JS/Python) | Done |
@@ -433,7 +433,14 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
 - Seq operations intercepted in Beam Replacements (not JS fallback) to avoid
   injected comparers/adders that Erlang doesn't need.
 - Complex operations in `fable_list.erl`/`fable_seq.erl`, simple BIF mappings via `emitExpr`.
-- All multi-arg callbacks use curried application `(Fn(A))(B)` to match Fable's compilation.
+- Scalar Seq operations (Fold, Reduce, Find, etc.) routed through compiled `seq.erl`
+  (Fable-compiled from `Seq.fs`) via `Helper.LibCall` with `SignatureArgTypes`. This enables
+  the `uncurrySendingArgs` FableTransform to automatically convert curried callbacks to
+  uncurried Delegates, matching the pattern used by the Python target.
+- BIF qualification: `ErlangPrinter.fs` automatically prefixes known BIFs (`length`, `hd`,
+  `tl`, `element`, `put`, `get`, etc.) with `erlang:` in `Call(None, ...)` nodes. This
+  prevents shadowing when compiled library modules (like `seq.erl`) define functions with
+  the same name as BIFs.
 - Integration tested with a Sudoku solver (SudokuTests.fs) using Seq, Array, ranges, and
   array comprehensions.
 - Sets use Erlang's `ordsets` module (sorted lists). Maintains ordering compatible with
