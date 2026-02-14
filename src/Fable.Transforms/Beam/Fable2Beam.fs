@@ -30,7 +30,7 @@ type Context =
         DecisionTargets: (Ident list * Expr) list
         RecursiveBindings: Set<string>
         MutualRecBindings: Map<string, string * string> // name -> (bundleVarName, atomTag)
-        MutableVars: Set<string> // names of mutable variables (use process dict put/get)
+        MutableVars: Map<string, string> // F# ident name -> Erlang var name holding the ref
         LocalVars: Set<string> // names of locally-bound variables (params, let bindings, lambda args)
         ThisArgVar: string option // Erlang variable name for `this` in class constructors/methods
         ThisIdentNames: Set<string> // original Fable ident names that refer to `this` (e.g., "_", "__")
@@ -98,15 +98,10 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             match ctx.ThisArgVar with
             | Some varName -> Beam.ErlExpr.Variable varName
             | None -> Beam.ErlExpr.Variable "This"
-        elif ctx.MutableVars.Contains(ident.Name) then
-            // Mutable variable: read from process dictionary
-            Beam.ErlExpr.Call(
-                None,
-                "get",
-                [
-                    Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeErlangName ident.Name)))
-                ]
-            )
+        elif ctx.MutableVars.ContainsKey(ident.Name) then
+            // Mutable variable: read from process dictionary using unique ref key
+            let refVarName = ctx.MutableVars.[ident.Name]
+            Beam.ErlExpr.Call(None, "get", [ Beam.ErlExpr.Variable(refVarName) ])
         else
             match ctx.MutualRecBindings.TryFind(ident.Name) with
             | Some(bundleName, atomTag) ->
@@ -130,15 +125,21 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         ident.IsMutable
         && not (ident.Name.StartsWith("copyOfStruct", System.StringComparison.Ordinal))
         ->
-        // Mutable variable: use process dictionary put/get
+        // Mutable variable: use unique ref key via process dictionary
         // (but not for compiler-generated struct copies which aren't truly mutated)
-        let atomKey =
-            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeErlangName ident.Name)))
-
+        let refVarName = (capitalizeFirst ident.Name |> sanitizeErlangVar) + "_ref"
         let erlValue = transformExpr com ctx value
-        let ctx' = { ctx with MutableVars = ctx.MutableVars.Add(ident.Name) }
+        let ctx' = { ctx with MutableVars = ctx.MutableVars.Add(ident.Name, refVarName) }
         let erlBody = transformExpr com ctx' body
-        Beam.ErlExpr.Block [ Beam.ErlExpr.Call(None, "put", [ atomKey; erlValue ]); erlBody ]
+
+        Beam.ErlExpr.Block
+            [
+                Beam.ErlExpr.Match(
+                    Beam.PVar(refVarName),
+                    Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ erlValue ])
+                )
+                erlBody
+            ]
 
     | Let(ident, value, body) ->
         let varName = capitalizeFirst ident.Name |> sanitizeErlangVar
@@ -334,12 +335,10 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
     | Set(expr, ValueSet, _typ, value, _range) ->
         match expr with
-        | IdentExpr ident when ctx.MutableVars.Contains(ident.Name) ->
-            // Mutable variable: update via process dictionary
-            let atomKey =
-                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeErlangName ident.Name)))
-
-            Beam.ErlExpr.Call(None, "put", [ atomKey; transformExpr com ctx value ])
+        | IdentExpr ident when ctx.MutableVars.ContainsKey(ident.Name) ->
+            // Mutable variable: update via process dictionary using unique ref key
+            let refVarName = ctx.MutableVars.[ident.Name]
+            Beam.ErlExpr.Call(None, "put", [ Beam.ErlExpr.Variable(refVarName); transformExpr com ctx value ])
         | IdentExpr ident -> Beam.ErlExpr.Match(Beam.PVar(capitalizeFirst ident.Name), transformExpr com ctx value)
         | _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_set"))
 
@@ -370,10 +369,10 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             // Record: existing behavior (maps:put returning new map)
             Beam.ErlExpr.Call(Some "maps", "put", [ atomField; erlValue; erlExpr ])
 
-    | Set(IdentExpr ident, ExprSet idx, _, value, _) when ctx.MutableVars.Contains(ident.Name) ->
-        // Array index set on mutable variable: put(key, fable_resize_array:set_item(get(key), Idx, Value))
-        let atomKey =
-            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeErlangName ident.Name)))
+    | Set(IdentExpr ident, ExprSet idx, _, value, _) when ctx.MutableVars.ContainsKey(ident.Name) ->
+        // Array index set on mutable variable: put(ref, fable_resize_array:set_item(get(ref), Idx, Value))
+        let refVarName = ctx.MutableVars.[ident.Name]
+        let refVar = Beam.ErlExpr.Variable(refVarName)
 
         let erlIdx = transformExpr com ctx idx
         let erlValue = transformExpr com ctx value
@@ -382,11 +381,11 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             None,
             "put",
             [
-                atomKey
+                refVar
                 Beam.ErlExpr.Call(
                     Some "fable_resize_array",
                     "set_item",
-                    [ Beam.ErlExpr.Call(None, "get", [ atomKey ]); erlIdx; erlValue ]
+                    [ Beam.ErlExpr.Call(None, "get", [ refVar ]); erlIdx; erlValue ]
                 )
             ]
         )
@@ -1222,8 +1221,9 @@ and transformOperation
                 // instead of the dereferenced value. This enables out-parameter support
                 // (e.g., Dictionary.TryGetValue) where the callee needs to put() a new value.
                 match operand with
-                | IdentExpr ident when ctx.MutableVars.Contains(ident.Name) ->
-                    Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeErlangName ident.Name)))
+                | IdentExpr ident when ctx.MutableVars.ContainsKey(ident.Name) ->
+                    let refVarName = ctx.MutableVars.[ident.Name]
+                    Beam.ErlExpr.Variable(refVarName)
                 | _ -> cleanOperand
 
         result |> wrapWithHoisted hoisted
@@ -2296,7 +2296,7 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             DecisionTargets = []
             RecursiveBindings = Set.empty
             MutualRecBindings = Map.empty
-            MutableVars = Set.empty
+            MutableVars = Map.empty
             LocalVars = Set.empty
             ThisArgVar = None
             ThisIdentNames = Set.empty
