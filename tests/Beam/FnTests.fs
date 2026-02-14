@@ -236,3 +236,18 @@ let ``test module-level computed function value called with args works`` () =
     // modulePickedFn is a 0-arity Erlang function that returns a function.
     // This tests that CurriedApply doesn't merge args into the 0-arity call.
     modulePickedFn 3 4 |> equal 7
+
+[<Fact>]
+let ``test let rec with recursive call inside callback works`` () =
+    let processItems () =
+        let mutable result = 0
+        let rec loop items =
+            match items with
+            | [] -> ()
+            | x :: rest ->
+                let callback = {| Run = fun () -> loop rest |}
+                result <- result + x
+                callback.Run()
+        loop [1; 2; 3]
+        result
+    processItems () |> equal 6

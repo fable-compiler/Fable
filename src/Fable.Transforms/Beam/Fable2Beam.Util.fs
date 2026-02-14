@@ -33,7 +33,17 @@ let rec containsIdentRef (name: string) (expr: Expr) : bool =
     | Delegate(_, body, _, _) -> containsIdentRef name body
     | IfThenElse(g, t, e, _) -> containsIdentRef name g || containsIdentRef name t || containsIdentRef name e
     | Sequential exprs -> exprs |> List.exists (containsIdentRef name)
-    | Value _ -> false
+    | Value(value, _) ->
+        match value with
+        | NewAnonymousRecord(values, _, _, _)
+        | NewRecord(values, _, _)
+        | NewUnion(values, _, _, _)
+        | NewTuple(values, _) -> values |> List.exists (containsIdentRef name)
+        | NewList(Some(h, t), _) -> containsIdentRef name h || containsIdentRef name t
+        | NewOption(Some e, _, _) -> containsIdentRef name e
+        | NewArray(NewArrayKind.ArrayValues values, _, _) -> values |> List.exists (containsIdentRef name)
+        | StringTemplate(_, _, values) -> values |> List.exists (containsIdentRef name)
+        | _ -> false
     | TypeCast(e, _) -> containsIdentRef name e
     | Operation(kind, _, _, _) ->
         match kind with
@@ -48,6 +58,13 @@ let rec containsIdentRef (name: string) (expr: Expr) : bool =
     | Get(e, _, _, _) -> containsIdentRef name e
     | Set(e, _, _, v, _) -> containsIdentRef name e || containsIdentRef name v
     | Emit(emitInfo, _, _) -> emitInfo.CallInfo.Args |> List.exists (containsIdentRef name)
+    | ObjectExpr(members, _, baseCall) ->
+        members |> List.exists (fun m -> containsIdentRef name m.Body)
+        || (
+            match baseCall with
+            | Some e -> containsIdentRef name e
+            | None -> false
+        )
     | _ -> false
 
 /// Flatten nested Block expressions into a flat list
