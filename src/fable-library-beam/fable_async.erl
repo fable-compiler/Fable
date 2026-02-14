@@ -4,29 +4,31 @@
          start_with_continuations/4, start_with_continuations/5,
          sleep/1, parallel/1, sequential/1,
          catch_async/1, ignore/1, from_continuations/1,
-         start_as_task/1]).
+         start_as_task/1,
+         cancellation_token/0, create_cancellation_token/0, create_cancellation_token/1]).
 
 %% Default context: run inline in current process
-default_ctx() ->
+default_ctx() -> default_ctx(undefined).
+default_ctx(CancelToken) ->
     #{on_success => fun(_) -> ok end,
       on_error => fun(E) -> erlang:error(E) end,
       on_cancel => fun(_) -> ok end,
-      cancel_token => undefined}.
+      cancel_token => CancelToken}.
 
 %% StartImmediate: run with default context (fire-and-forget)
 start_immediate(Computation) -> start_immediate(Computation, undefined).
-start_immediate(Computation, _CancelToken) ->
-    Computation(default_ctx()).
+start_immediate(Computation, CancelToken) ->
+    Computation(default_ctx(CancelToken)).
 
 %% RunSynchronously: run CPS chain in current process, capture result
 run_synchronously(Computation) -> run_synchronously(Computation, undefined).
-run_synchronously(Computation, _CancelToken) ->
+run_synchronously(Computation, CancelToken) ->
     %% Use a unique ref as key to store result in process dict
     Ref = make_ref(),
     Ctx = #{on_success => fun(V) -> put(Ref, {ok, V}) end,
             on_error => fun(E) -> put(Ref, {error, E}) end,
             on_cancel => fun(_) -> put(Ref, {cancelled}) end,
-            cancel_token => undefined},
+            cancel_token => CancelToken},
     try Computation(Ctx)
     catch _:Err -> put(Ref, {error, Err})
     end,
@@ -41,18 +43,53 @@ run_synchronously(Computation, _CancelToken) ->
 %% StartWithContinuations
 start_with_continuations(Comp, OnSuccess, OnError, OnCancel) ->
     start_with_continuations(Comp, OnSuccess, OnError, OnCancel, undefined).
-start_with_continuations(Comp, OnSuccess, OnError, OnCancel, _Token) ->
+start_with_continuations(Comp, OnSuccess, OnError, OnCancel, Token) ->
     Ctx = #{on_success => OnSuccess, on_error => OnError,
-            on_cancel => OnCancel, cancel_token => undefined},
+            on_cancel => OnCancel, cancel_token => Token},
     try Comp(Ctx)
     catch _:Err -> OnError(Err)
     end.
 
-%% Sleep: pause current process
+%% Sleep: pause current process, with cancellation support
 sleep(Milliseconds) ->
     fun(Ctx) ->
-        timer:sleep(Milliseconds),
-        (maps:get(on_success, Ctx))(ok)
+        Token = maps:get(cancel_token, Ctx),
+        case Token of
+            undefined ->
+                timer:sleep(Milliseconds),
+                (maps:get(on_success, Ctx))(ok);
+            _ ->
+                %% Check if already cancelled before sleeping
+                case fable_cancellation:is_cancellation_requested(Token) of
+                    true ->
+                        (maps:get(on_cancel, Ctx))(ok);
+                    false ->
+                        %% Set up a timer to send us a wake-up message
+                        Self = self(),
+                        TimerRef = make_ref(),
+                        timer:apply_after(Milliseconds, erlang, send, [Self, {sleep_done, TimerRef}]),
+                        %% Register a cancellation listener to wake us up early
+                        RegId = fable_cancellation:register(Token, fun(_) ->
+                            Self ! {sleep_cancelled, TimerRef}
+                        end),
+                        %% Wait for either sleep completion or cancellation
+                        receive
+                            {sleep_done, TimerRef} ->
+                                (maps:get(on_success, Ctx))(ok);
+                            {sleep_cancelled, TimerRef} ->
+                                (maps:get(on_cancel, Ctx))(ok);
+                            {cancel_token, Token} ->
+                                %% Timer-based cancel via cancel_after
+                                fable_cancellation:cancel(Token),
+                                (maps:get(on_cancel, Ctx))(ok)
+                        end,
+                        %% Clean up registration if we have one
+                        case RegId of
+                            undefined -> ok;
+                            _ -> ok
+                        end
+                end
+        end
     end.
 
 %% Parallel: spawn one process per computation, collect results in order
@@ -123,3 +160,14 @@ from_continuations(F) ->
 %% StartAsTask: simplified — just run synchronously for now
 start_as_task(Computation) ->
     run_synchronously(Computation).
+
+%% CancellationToken: returns async that extracts cancel_token from context
+cancellation_token() ->
+    fun(Ctx) ->
+        Token = maps:get(cancel_token, Ctx),
+        (maps:get(on_success, Ctx))(Token)
+    end.
+
+%% Create cancellation token (delegates to fable_cancellation)
+create_cancellation_token() -> fable_cancellation:create().
+create_cancellation_token(Arg) -> fable_cancellation:create(Arg).

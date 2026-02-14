@@ -2120,13 +2120,52 @@ let asyncs (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (_thisArg: Expr op
     | "Start" ->
         Helper.LibCall(com, "fable_async", "start_immediate", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
-    | "get_CancellationToken" -> emitExpr r t [] "undefined" |> Some
+    | "get_CancellationToken" ->
+        Helper.LibCall(com, "fable_async", "cancellation_token", t, [], [], ?loc = r)
+        |> Some
     | "Catch" ->
         Helper.LibCall(com, "fable_async", "catch_async", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | meth ->
         Helper.LibCall(com, "fable_async", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+
+let cancels (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "get_None"
+    | ".ctor" ->
+        Helper.LibCall(com, "fable_cancellation", "create", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "get_Token" -> thisArg
+    | "Cancel"
+    | "CancelAfter"
+    | "get_IsCancellationRequested"
+    | "ThrowIfCancellationRequested" ->
+        let args, argTypes =
+            match thisArg with
+            | Some c -> c :: args, c.Type :: i.SignatureArgTypes
+            | None -> args, i.SignatureArgTypes
+
+        Helper.LibCall(
+            com,
+            "fable_cancellation",
+            Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst,
+            t,
+            args,
+            argTypes,
+            ?loc = r
+        )
+        |> Some
+    | "Dispose" -> Null Type.Unit |> makeValue r |> Some
+    | "Register" ->
+        let args, argTypes =
+            match thisArg with
+            | Some c -> c :: args, c.Type :: i.SignatureArgTypes
+            | None -> args, i.SignatureArgTypes
+
+        Helper.LibCall(com, "fable_cancellation", "register", t, args, argTypes, ?loc = r)
+        |> Some
+    | _ -> None
 
 let mailbox (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg with
@@ -3934,6 +3973,8 @@ let tryCall
     | "System.Runtime.CompilerServices.TaskAwaiter`1" -> tasks com ctx r t info thisArg args
     | Types.printfModule
     | Naming.StartsWith Types.printfFormat _ -> fsFormat com ctx r t info thisArg args
+    | "System.Threading.CancellationToken"
+    | "System.Threading.CancellationTokenSource" -> cancels com ctx r t info thisArg args
     | "Microsoft.FSharp.Control.FSharpMailboxProcessor`1"
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" -> mailbox com ctx r t info thisArg args
     | Types.regex
