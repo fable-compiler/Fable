@@ -3679,8 +3679,7 @@ let declareType
         let body, stmts = transformReflectionInfo com ctx None ent generics
         let expr, stmts' = makeFunctionExpression com ctx None (args, body, [], ta)
 
-        let name =
-            com.GetIdentifier(ctx, Naming.toPascalCase entName + Naming.reflectionSuffix)
+        let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
 
         expr |> declareModuleMember com ctx ent.IsPublic name None, stmts @ stmts'
 
@@ -4065,8 +4064,7 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
         let body, stmts = transformReflectionInfo com ctx None ent generics
         let expr, stmts' = makeFunctionExpression com ctx None (args, body, [], ta)
 
-        let name =
-            com.GetIdentifier(ctx, Naming.toPascalCase entName + Naming.reflectionSuffix)
+        let name = com.GetIdentifier(ctx, entName + Naming.reflectionSuffix)
 
         expr |> declareModuleMember com ctx ent.IsPublic name None, stmts @ stmts'
 

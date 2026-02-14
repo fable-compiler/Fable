@@ -4,6 +4,8 @@
     "**/.venv/**",
     "**/node_modules/**",
     "temp/tests/Python/test_applicative.py",
+    "temp/tests/Python/test_hash_set.py",
+    "temp/tests/Python/test_nested_and_recursive_pattern.py",
     "temp/tests/Python/fable_modules/thoth_json_python/encode.py"
   ]
 }
