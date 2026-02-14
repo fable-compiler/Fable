@@ -137,7 +137,59 @@ module Output =
         | Call(module_, func, args) ->
             match module_ with
             | Some m -> sb.Append($"%s{m}:%s{func}(") |> ignore
-            | None -> sb.Append($"%s{func}(") |> ignore
+            | None ->
+                // Qualify known BIFs with erlang: to prevent shadowing by local functions
+                // (e.g., seq.erl defines length/1 which would shadow erlang:length/1)
+                let qualifiedFunc =
+                    match func with
+                    | "length"
+                    | "hd"
+                    | "tl"
+                    | "element"
+                    | "setelement"
+                    | "put"
+                    | "get"
+                    | "erase"
+                    | "make_ref"
+                    | "is_atom"
+                    | "is_binary"
+                    | "is_boolean"
+                    | "is_float"
+                    | "is_integer"
+                    | "is_list"
+                    | "is_map"
+                    | "is_number"
+                    | "is_pid"
+                    | "is_port"
+                    | "is_reference"
+                    | "is_tuple"
+                    | "abs"
+                    | "byte_size"
+                    | "map_size"
+                    | "tuple_size"
+                    | "round"
+                    | "trunc"
+                    | "ceil"
+                    | "floor"
+                    | "integer_to_binary"
+                    | "float_to_binary"
+                    | "list_to_binary"
+                    | "binary_to_integer"
+                    | "binary_to_float"
+                    | "binary_to_list"
+                    | "iolist_to_binary"
+                    | "atom_to_binary"
+                    | "binary_to_atom"
+                    | "list_to_tuple"
+                    | "tuple_to_list"
+                    | "throw"
+                    | "exit"
+                    | "self"
+                    | "node"
+                    | "spawn" -> $"erlang:%s{func}"
+                    | _ -> func
+
+                sb.Append($"%s{qualifiedFunc}(") |> ignore
 
             args
             |> List.iteri (fun i a ->

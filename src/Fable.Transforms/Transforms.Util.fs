@@ -1157,7 +1157,7 @@ module AST =
             // Names from JS fallback (e.g., "Option") get fable_ prefix for backward compat.
             // Dotted names from bclType (e.g., "System.Text") are F#-compiled modules.
             // Fable-compiled .fs modules (e.g., "range" from Range.fs) use their name directly.
-            let fableCompiledModules = set [ "range" ]
+            let fableCompiledModules = set [ "range"; "seq" ]
 
             let beamModuleName =
                 if moduleName.StartsWith("fable_", System.StringComparison.Ordinal) then

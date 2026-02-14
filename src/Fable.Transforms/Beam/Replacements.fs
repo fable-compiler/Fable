@@ -1259,9 +1259,9 @@ let private listModule
     (args: Expr list)
     =
     match info.CompiledName, args with
-    | "Head", [ list ] -> emitExpr r t [ list ] "hd($0)" |> Some
-    | "Tail", [ list ] -> emitExpr r t [ list ] "tl($0)" |> Some
-    | ("Length" | "Count"), [ list ] -> emitExpr r t [ list ] "length($0)" |> Some
+    | "Head", [ list ] -> emitExpr r t [ list ] "erlang:hd($0)" |> Some
+    | "Tail", [ list ] -> emitExpr r t [ list ] "erlang:tl($0)" |> Some
+    | ("Length" | "Count"), [ list ] -> emitExpr r t [ list ] "erlang:length($0)" |> Some
     | "IsEmpty", [ list ] -> emitExpr r t [ list ] "($0 =:= [])" |> Some
     | "Empty", _ -> Value(NewList(None, t), None) |> Some
     | "Singleton", [ item ] -> emitExpr r t [ item ] "[$0]" |> Some
@@ -1388,9 +1388,9 @@ let private lists
     (_args: Expr list)
     =
     match info.CompiledName, thisArg with
-    | "get_Head", Some c -> emitExpr r t [ c ] "hd($0)" |> Some
-    | "get_Tail", Some c -> emitExpr r t [ c ] "tl($0)" |> Some
-    | "get_Length", Some c -> emitExpr r t [ c ] "length($0)" |> Some
+    | "get_Head", Some c -> emitExpr r t [ c ] "erlang:hd($0)" |> Some
+    | "get_Tail", Some c -> emitExpr r t [ c ] "erlang:tl($0)" |> Some
+    | "get_Length", Some c -> emitExpr r t [ c ] "erlang:length($0)" |> Some
     | "get_IsEmpty", Some c -> emitExpr r t [ c ] "($0 =:= [])" |> Some
     | "get_Empty", _ -> Value(NewList(None, t), None) |> Some
     | "get_Item", Some c ->
@@ -1488,7 +1488,7 @@ let private setModule
     | "Contains", [ elem; set ] -> emitExpr r t [ elem; set ] "ordsets:is_element($0, $1)" |> Some
     | "Remove", [ elem; set ] -> emitExpr r t [ elem; set ] "ordsets:del_element($0, $1)" |> Some
     | "IsEmpty", [ set ] -> emitExpr r t [ set ] "($0 =:= [])" |> Some
-    | "Count", [ set ] -> emitExpr r t [ set ] "length($0)" |> Some
+    | "Count", [ set ] -> emitExpr r t [ set ] "erlang:length($0)" |> Some
     | "Union", [ s1; s2 ] -> emitExpr r t [ s1; s2 ] "ordsets:union($0, $1)" |> Some
     | "Intersect", [ s1; s2 ] -> emitExpr r t [ s1; s2 ] "ordsets:intersection($0, $1)" |> Some
     | "Difference", [ s1; s2 ] -> emitExpr r t [ s1; s2 ] "ordsets:subtract($0, $1)" |> Some
@@ -1496,7 +1496,7 @@ let private setModule
     | "IsSuperset", [ s1; s2 ] -> emitExpr r t [ s1; s2 ] "ordsets:is_subset($1, $0)" |> Some
     | "IsProperSubset", [ s1; s2 ] -> Helper.LibCall(com, "fable_set", "is_proper_subset", t, [ s1; s2 ]) |> Some
     | "IsProperSuperset", [ s1; s2 ] -> Helper.LibCall(com, "fable_set", "is_proper_superset", t, [ s1; s2 ]) |> Some
-    | "MinElement", [ set ] -> emitExpr r t [ set ] "hd($0)" |> Some
+    | "MinElement", [ set ] -> emitExpr r t [ set ] "erlang:hd($0)" |> Some
     | "MaxElement", [ set ] -> emitExpr r t [ set ] "lists:last($0)" |> Some
     | ("ToList" | "ToArray" | "ToSeq"), [ set ] -> Some set
     | "Filter", [ fn; set ] -> Helper.LibCall(com, "fable_set", "filter", t, [ fn; set ]) |> Some
@@ -1523,12 +1523,12 @@ let private sets
     =
     match info.CompiledName, thisArg, args with
     | ".ctor", None, [ xs ] -> emitExpr r t [ xs ] "ordsets:from_list($0)" |> Some
-    | "get_Count", Some c, _ -> emitExpr r t [ c ] "length($0)" |> Some
+    | "get_Count", Some c, _ -> emitExpr r t [ c ] "erlang:length($0)" |> Some
     | "get_IsEmpty", Some c, _ -> emitExpr r t [ c ] "($0 =:= [])" |> Some
     | "Contains", Some c, [ elem ] -> emitExpr r t [ elem; c ] "ordsets:is_element($0, $1)" |> Some
     | "Add", Some c, [ elem ] -> emitExpr r t [ elem; c ] "ordsets:add_element($0, $1)" |> Some
     | "Remove", Some c, [ elem ] -> emitExpr r t [ elem; c ] "ordsets:del_element($0, $1)" |> Some
-    | "get_MinimumElement", Some c, _ -> emitExpr r t [ c ] "hd($0)" |> Some
+    | "get_MinimumElement", Some c, _ -> emitExpr r t [ c ] "erlang:hd($0)" |> Some
     | "get_MaximumElement", Some c, _ -> emitExpr r t [ c ] "lists:last($0)" |> Some
     | "IsSubsetOf", Some c, [ other ] -> emitExpr r t [ c; other ] "ordsets:is_subset($0, $1)" |> Some
     | "IsSupersetOf", Some c, [ other ] -> emitExpr r t [ c; other ] "ordsets:is_subset($1, $0)" |> Some
@@ -1583,19 +1583,12 @@ let rec private unwrapSeqArg r (expr: Expr) =
         | String -> emitExpr r (List Any) [ expr ] "binary_to_list($0)"
         | _ -> expr
 
-/// Direct call to the compiled seq.erl module, bypassing getLibPath.
-/// Used to call specific seq.erl functions from Replacements without affecting
-/// library-internal routing (Range.fs etc. still use fable_seq via getLibPath).
-let private seqCall r t fnName args =
-    let placeholders =
-        args |> List.mapi (fun i _ -> "$" + string i) |> String.concat ", "
-
-    emitExpr r t args $"seq:{fnName}({placeholders})"
-
 /// Beam-specific Seq module replacements.
 /// Sequences in Erlang are represented as eager lists.
 /// Scalar-returning operations (fold, find, exists, etc.) route through compiled
-/// seq.erl which accepts both lists and seq objects via fable_utils:get_enumerator.
+/// seq.erl via Helper.LibCall which provides SignatureArgTypes. This enables the
+/// uncurrySendingArgs FableTransform to automatically convert curried callbacks
+/// (fun(A) -> fun(B) -> end) to uncurried Delegates (fun(A, B) -> end).
 /// Sequence-returning operations stay as eager list implementations (BIFs/fable_list/fable_seq)
 /// since the rest of the codebase expects plain Erlang lists.
 /// Operations not in seq.erl (Distinct, GroupBy, etc.) stay in fable_seq.erl.
@@ -1618,54 +1611,112 @@ let private seqModule
     | "OfArray", [ arr ] -> Some arr
     // Empty
     | "Empty", _ -> Value(NewList(None, t), None) |> Some
-    // === Scalar-returning operations with 1-arg callbacks — use compiled seq.erl ===
-    // (seq.erl accepts plain lists via fable_utils:get_enumerator)
-    // NOTE: Only operations with 0-arg or 1-arg callbacks can use seq.erl.
-    // Operations with 2+ arg callbacks fail because seq.erl calls Fn(A, B) uncurried
-    // but the Beam target generates curried lambdas fun(A) -> fun(B) -> ... end.
-    // NOTE: seq:length/1 has infinite recursion (calls itself instead of erlang:length/1
-    // due to BIF name clash), so we use the BIF directly.
+    // === Scalar-returning operations — use compiled seq.erl via Helper.LibCall ===
+    // Helper.LibCall provides SignatureArgTypes which enables uncurrySendingArgs to
+    // automatically convert curried callbacks to uncurried Delegates.
+    // NOTE: seq:length/1 has infinite recursion (shadows erlang:length/1), use BIF directly.
+    // NOTE: seq:head uses try_head which conflates empty/None, use hd BIF directly.
     // Element access (no callback)
-    | "Head", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "hd($0)" |> Some
-    | "Last", [ seq ] -> seqCall r t "last" [ seq ] |> Some
-    | ("Length" | "Count"), [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "length($0)" |> Some
-    | "IsEmpty", [ seq ] -> seqCall r t "is_empty" [ seq ] |> Some
-    | "Item", [ idx; seq ] -> seqCall r t "item" [ idx; seq ] |> Some
-    | "TryHead", [ seq ] -> seqCall r t "try_head" [ seq ] |> Some
-    | "TryItem", [ idx; seq ] -> seqCall r t "try_item" [ idx; seq ] |> Some
-    | "TryLast", [ seq ] -> seqCall r t "try_last" [ seq ] |> Some
-    | "ExactlyOne", [ seq ] -> seqCall r t "exactly_one" [ seq ] |> Some
-    | "TryExactlyOne", [ seq ] -> seqCall r t "try_exactly_one" [ seq ] |> Some
-    // Predicates (1-arg callback — safe)
-    | "Exists", [ fn; seq ] -> seqCall r t "exists" [ fn; seq ] |> Some
-    | "ForAll", [ fn; seq ] -> seqCall r t "for_all" [ fn; seq ] |> Some
-    // Iteration (1-arg callback — safe)
-    | "Iterate", [ fn; seq ] -> seqCall r t "iterate" [ fn; seq ] |> Some
-    // Search (1-arg callback — safe)
-    | "Find", [ fn; seq ] -> seqCall r t "find" [ fn; seq ] |> Some
-    | "TryFind", [ fn; seq ] -> seqCall r t "try_find" [ fn; seq ] |> Some
-    | "FindBack", [ fn; seq ] -> seqCall r t "find_back" [ fn; seq ] |> Some
-    | "TryFindBack", [ fn; seq ] -> seqCall r t "try_find_back" [ fn; seq ] |> Some
-    | "FindIndex", [ fn; seq ] -> seqCall r t "find_index" [ fn; seq ] |> Some
-    | "TryFindIndex", [ fn; seq ] -> seqCall r t "try_find_index" [ fn; seq ] |> Some
-    | "FindIndexBack", [ fn; seq ] -> seqCall r t "find_index_back" [ fn; seq ] |> Some
-    | "TryFindIndexBack", [ fn; seq ] -> seqCall r t "try_find_index_back" [ fn; seq ] |> Some
-    | "Pick", [ fn; seq ] -> seqCall r t "pick" [ fn; seq ] |> Some
-    | "TryPick", [ fn; seq ] -> seqCall r t "try_pick" [ fn; seq ] |> Some
-    // === Operations with 2+ arg callbacks — use old eager implementations ===
-    // (seq.erl expects uncurried Fn(A, B) but Beam generates curried fun(A) -> fun(B) -> ... end)
-    | "Fold", [ fn; state; seq ] -> Helper.LibCall(com, "fable_list", "fold", t, [ fn; state; seq ]) |> Some
-    | "FoldBack", [ fn; seq; state ] -> Helper.LibCall(com, "fable_list", "fold_back", t, [ fn; seq; state ]) |> Some
-    | "Reduce", [ fn; seq ] -> Helper.LibCall(com, "fable_list", "reduce", t, [ fn; seq ]) |> Some
-    | "ReduceBack", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "reduce_back", t, [ fn; seq ]) |> Some
-    | "Exists2", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "exists2", t, [ fn; s1; s2 ]) |> Some
-    | "ForAll2", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "for_all2", t, [ fn; s1; s2 ]) |> Some
-    | "IterateIndexed", [ fn; seq ] -> Helper.LibCall(com, "fable_seq", "iter_indexed", t, [ fn; seq ]) |> Some
-    | "Iterate2", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "iter2", t, [ fn; s1; s2 ]) |> Some
-    | "Fold2", [ fn; state; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "fold2", t, [ fn; state; s1; s2 ]) |> Some
+    | "Head", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "erlang:hd($0)" |> Some
+    | "Last", [ seq ] -> Helper.LibCall(com, "seq", "last", t, [ seq ], info.SignatureArgTypes) |> Some
+    | ("Length" | "Count"), [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "erlang:length($0)" |> Some
+    | "IsEmpty", [ seq ] ->
+        Helper.LibCall(com, "seq", "is_empty", t, [ seq ], info.SignatureArgTypes)
+        |> Some
+    | "Item", [ idx; seq ] ->
+        Helper.LibCall(com, "seq", "item", t, [ idx; seq ], info.SignatureArgTypes)
+        |> Some
+    | "TryHead", [ seq ] ->
+        Helper.LibCall(com, "seq", "try_head", t, [ seq ], info.SignatureArgTypes)
+        |> Some
+    | "TryItem", [ idx; seq ] ->
+        Helper.LibCall(com, "seq", "try_item", t, [ idx; seq ], info.SignatureArgTypes)
+        |> Some
+    | "TryLast", [ seq ] ->
+        Helper.LibCall(com, "seq", "try_last", t, [ seq ], info.SignatureArgTypes)
+        |> Some
+    | "ExactlyOne", [ seq ] ->
+        Helper.LibCall(com, "seq", "exactly_one", t, [ seq ], info.SignatureArgTypes)
+        |> Some
+    | "TryExactlyOne", [ seq ] ->
+        Helper.LibCall(com, "seq", "try_exactly_one", t, [ seq ], info.SignatureArgTypes)
+        |> Some
+    // Predicates (1-arg callback)
+    | "Exists", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "exists", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    | "ForAll", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "for_all", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    // Iteration (1-arg callback)
+    | "Iterate", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "iterate", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    // Search (1-arg callback)
+    | "Find", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "find", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    | "TryFind", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "try_find", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    | "FindBack", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "find_back", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    | "TryFindBack", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "try_find_back", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    | "FindIndex", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "find_index", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    | "TryFindIndex", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "try_find_index", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    | "FindIndexBack", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "find_index_back", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    | "TryFindIndexBack", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "try_find_index_back", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    | "Pick", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "pick", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    | "TryPick", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "try_pick", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    // === Operations with 2+ arg callbacks — uncurrySendingArgs handles callback conversion ===
+    | "Fold", [ fn; state; seq ] ->
+        Helper.LibCall(com, "seq", "fold", t, [ fn; state; seq ], info.SignatureArgTypes)
+        |> Some
+    | "FoldBack", [ fn; seq; state ] ->
+        Helper.LibCall(com, "seq", "fold_back", t, [ fn; seq; state ], info.SignatureArgTypes)
+        |> Some
+    | "Reduce", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "reduce", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    | "ReduceBack", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "reduce_back", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    | "Exists2", [ fn; s1; s2 ] ->
+        Helper.LibCall(com, "seq", "exists2", t, [ fn; s1; s2 ], info.SignatureArgTypes)
+        |> Some
+    | "ForAll2", [ fn; s1; s2 ] ->
+        Helper.LibCall(com, "seq", "for_all2", t, [ fn; s1; s2 ], info.SignatureArgTypes)
+        |> Some
+    | "IterateIndexed", [ fn; seq ] ->
+        Helper.LibCall(com, "seq", "iterate_indexed", t, [ fn; seq ], info.SignatureArgTypes)
+        |> Some
+    | "Iterate2", [ fn; s1; s2 ] ->
+        Helper.LibCall(com, "seq", "iterate2", t, [ fn; s1; s2 ], info.SignatureArgTypes)
+        |> Some
+    | "Fold2", [ fn; state; s1; s2 ] ->
+        Helper.LibCall(com, "seq", "fold2", t, [ fn; state; s1; s2 ], info.SignatureArgTypes)
+        |> Some
     | "FoldBack2", [ fn; s1; s2; state ] ->
-        Helper.LibCall(com, "fable_seq", "fold_back2", t, [ fn; s1; s2; state ]) |> Some
-    | "CompareWith", [ fn; s1; s2 ] -> Helper.LibCall(com, "fable_seq", "compare_with", t, [ fn; s1; s2 ]) |> Some
+        Helper.LibCall(com, "seq", "fold_back2", t, [ fn; s1; s2; state ], info.SignatureArgTypes)
+        |> Some
+    | "CompareWith", [ fn; s1; s2 ] ->
+        Helper.LibCall(com, "seq", "compare_with", t, [ fn; s1; s2 ], info.SignatureArgTypes)
+        |> Some
     // === Sequence-returning operations — stay as eager list implementations ===
     // Simple BIF mappings (unwrap ResizeArray refs)
     | "Map", [ fn; seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ fn; seq ] "lists:map($0, $1)" |> Some
@@ -1677,7 +1728,7 @@ let private seqModule
         emitExpr r t [ s1; s2 ] "lists:append($0, $1)" |> Some
     | "Concat", [ seqs ] -> emitExpr r t [ seqs ] "lists:append($0)" |> Some
     | "Where", [ fn; seq ] -> emitExpr r t [ fn; seq ] "lists:filter($0, $1)" |> Some
-    | "Tail", [ seq ] -> emitExpr r t [ seq ] "tl($0)" |> Some
+    | "Tail", [ seq ] -> emitExpr r t [ seq ] "erlang:tl($0)" |> Some
     | "Partition", [ fn; seq ] ->
         let seq = unwrapSeqArg r seq in emitExpr r t [ fn; seq ] "lists:partition($0, $1)" |> Some
     | "Unzip", [ seq ] -> let seq = unwrapSeqArg r seq in emitExpr r t [ seq ] "lists:unzip($0)" |> Some
@@ -1783,7 +1834,7 @@ let private arrays
 
     match info.CompiledName, thisArg, args with
     | "get_Length", Some c, _ when isByteArray -> emitExpr r t [ c ] "byte_size($0)" |> Some
-    | "get_Length", Some c, _ -> emitExpr r t [ c ] "length($0)" |> Some
+    | "get_Length", Some c, _ -> emitExpr r t [ c ] "erlang:length($0)" |> Some
     | "get_Item", Some c, [ idx ] when isByteArray -> emitExpr r t [ c; idx ] "binary:at($0, $1)" |> Some
     | "get_Item", Some c, [ idx ] -> emitExpr r t [ c; idx ] "lists:nth($1 + 1, $0)" |> Some
     // System.Array.Copy(source, dest, length) — copy first N elements
@@ -1803,12 +1854,12 @@ let private arrayModule
     (args: Expr list)
     =
     match info.CompiledName, args with
-    | ("Length" | "Count"), [ arr ] -> emitExpr r t [ arr ] "length($0)" |> Some
+    | ("Length" | "Count"), [ arr ] -> emitExpr r t [ arr ] "erlang:length($0)" |> Some
     | "Item", [ idx; arr ] -> emitExpr r t [ arr; idx ] "lists:nth($1 + 1, $0)" |> Some
     | "Get", [ arr; idx ] -> emitExpr r t [ arr; idx ] "lists:nth($1 + 1, $0)" |> Some
-    | "Head", [ arr ] -> emitExpr r t [ arr ] "hd($0)" |> Some
+    | "Head", [ arr ] -> emitExpr r t [ arr ] "erlang:hd($0)" |> Some
     | "Last", [ arr ] -> emitExpr r t [ arr ] "lists:last($0)" |> Some
-    | "Tail", [ arr ] -> emitExpr r t [ arr ] "tl($0)" |> Some
+    | "Tail", [ arr ] -> emitExpr r t [ arr ] "erlang:tl($0)" |> Some
     | "IsEmpty", [ arr ] -> emitExpr r t [ arr ] "($0 =:= [])" |> Some
     | "Empty", _ -> Value(NewArray(ArrayValues [], t, MutableArray), None) |> Some
     | "Singleton", [ item ] -> emitExpr r t [ item ] "[$0]" |> Some
@@ -2296,7 +2347,7 @@ let private resizeArrays
         )
         |> fun newList -> emitExpr r Unit [ callee; newList ] "put($0, $1)" |> Some
     // get_Count
-    | "get_Count", Some callee, _ -> emitExpr r t [ callee ] "length(get($0))" |> Some
+    | "get_Count", Some callee, _ -> emitExpr r t [ callee ] "erlang:length(erlang:get($0))" |> Some
     // Add
     | "Add", Some callee, [ arg ] -> emitExpr r Unit [ callee; arg ] "put($0, get($0) ++ [$1])" |> Some
     // AddRange

@@ -42,8 +42,11 @@ get_enumerator(List) when is_list(List) ->
     put(Ref, #{items => List, current => undefined}),
     Ref;
 get_enumerator(Ref) when is_reference(Ref) ->
-    %% ResizeArray: unwrap the process dict list, then make enumerator
+    %% Process dict ref (ResizeArray, HashSet, etc.): unwrap and recurse
     get_enumerator(get(Ref));
+get_enumerator(Map) when is_map(Map) ->
+    %% HashSet internal map: iterate over keys
+    get_enumerator(maps:keys(Map));
 get_enumerator(Other) ->
     %% Fallback: treat as list
     get_enumerator(lists:flatten([Other])).
