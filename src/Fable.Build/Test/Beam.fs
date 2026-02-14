@@ -52,30 +52,34 @@ let handle (args: string list) =
         // Compile tests to Erlang
         Command.Fable(fableArgs, workingDirectory = buildDir)
 
-        // Copy test runner and fable-library-beam files, then compile all .erl files with erlc
+        // Copy test runner to build dir
         File.Copy(testRunnerSrc, Path.Combine(buildDir, "erl_test_runner.erl"), overwrite = true)
 
-        let libDir = Path.Resolve("src", "fable-library-beam")
+        // fable-library-beam files are auto-copied to fable_modules/fable-library-beam/ by the compiler
+        let fableModulesLibDir =
+            Path.Combine(buildDir, "fable_modules", "fable-library-beam")
 
-        if Directory.Exists(libDir) then
-            for erlFile in Directory.GetFiles(libDir, "*.erl") do
-                File.Copy(erlFile, Path.Combine(buildDir, Path.GetFileName(erlFile)), overwrite = true)
-
-        // Copy Fable-compiled library files (e.g., system_text.erl from System.Text.fs)
-        let compiledLibDir = Path.Resolve("temp", "fable-library-beam")
-
-        if Directory.Exists(compiledLibDir) then
-            for erlFile in Directory.GetFiles(compiledLibDir, "*.erl") do
-                File.Copy(erlFile, Path.Combine(buildDir, Path.GetFileName(erlFile)), overwrite = true)
-
-        let erlFiles = Directory.GetFiles(buildDir, "*.erl")
+        // Compile fable-library-beam .erl files first
         let mutable compileErrors = 0
+
+        if Directory.Exists(fableModulesLibDir) then
+            for erlFile in Directory.GetFiles(fableModulesLibDir, "*.erl") do
+                let fileName = Path.GetFileName(erlFile)
+
+                try
+                    Command.Run("erlc", fileName, workingDirectory = fableModulesLibDir)
+                with _ ->
+                    printfn $"WARNING: erlc failed for {fileName} (library), skipping"
+                    compileErrors <- compileErrors + 1
+
+        // Compile test .erl files with library on code path
+        let erlFiles = Directory.GetFiles(buildDir, "*.erl")
 
         for erlFile in erlFiles do
             let fileName = Path.GetFileName(erlFile)
 
             try
-                Command.Run("erlc", fileName, workingDirectory = buildDir)
+                Command.Run("erlc", $"-pa fable_modules/fable-library-beam {fileName}", workingDirectory = buildDir)
             with _ ->
                 printfn $"WARNING: erlc failed for {fileName}, skipping"
                 compileErrors <- compileErrors + 1
@@ -83,9 +87,9 @@ let handle (args: string list) =
         if compileErrors > 0 then
             printfn $"WARNING: {compileErrors} file(s) failed to compile with erlc"
 
-        // Run Erlang test runner
+        // Run Erlang test runner with library on code path
         Command.Run(
             "erl",
-            "-noshell -pa . -eval \"erl_test_runner:main([\\\".\\\"])\" -s init stop",
+            "-noshell -pa . -pa fable_modules/fable-library-beam -eval \"erl_test_runner:main([\\\".\\\"])\" -s init stop",
             workingDirectory = buildDir
         )
