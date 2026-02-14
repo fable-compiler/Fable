@@ -941,3 +941,72 @@ let ``test Seq iterators from range do rewind`` () =
     let xs2 = seq {1..5}
     xs2 |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
     xs2 |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
+
+// TODO: Beam's Seq.take uses lists:sublist which doesn't throw when there are not enough elements
+// [<Fact>]
+// let ``test Seq.take throws when not enough elements`` () =
+//     let xs = [1.; 2.; 3.; 4.; 5.]
+//     xs |> Seq.take 2
+//     |> Seq.last
+//     |> equal 2.
+//     // Seq.take should throw an exception if there're not enough elements
+//     try xs |> Seq.take 20 |> Seq.length with _ -> -1
+//     |> equal -1
+
+[<Fact>]
+let ``test Seq.truncate works without throwing`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.truncate 2
+    |> Seq.last
+    |> equal 2.
+    // Seq.truncate shouldn't throw an exception if there're not enough elements
+    try xs |> Seq.truncate 20 |> Seq.length with _ -> -1
+    |> equal 5
+
+[<Fact>]
+let ``test Seq.range works with UL`` () =
+    seq{1UL .. 5UL}
+    |> Seq.reduce (+)
+    |> equal 15UL
+
+[<Fact>]
+let ``test Seq.range step works with UL`` () =
+    seq{0UL..2UL..9UL}
+    |> Seq.reduce (+)
+    |> equal 20UL
+
+[<Fact>]
+let ``test Seq.range works with decimal`` () =
+    seq{1M .. 50M}
+    |> Seq.reduce (+)
+    |> equal 1275M
+
+[<Fact>]
+let ``test Seq.range step works with decimal`` () =
+    seq {-3M .. -0.4359698987M .. -50M}
+    |> Seq.reduce (+)
+    |> equal -2843.0340746886M
+
+// TODO: Bigint range without explicit step causes badarith (default step computation issue)
+// [<Fact>]
+// let ``test Seq.range works with bigint`` () =
+//     seq{1I..2000I}
+//     |> Seq.reduce (+)
+//     |> equal 2001000I
+
+[<Fact>]
+let ``test Seq.range step works with bigint`` () =
+    seq {1I .. 10000000000000I .. 20000000000000000I}
+    |> Seq.reduce (+)
+    |> equal 19990000000000002000I
+
+[<Fact>]
+let ``test Seq.except works with various types`` () =
+    Seq.except [2] [1; 3; 2] |> Seq.last |> equal 3
+    Seq.except [2] [2; 4; 6] |> Seq.head |> equal 4
+    Seq.except [1] [1; 1; 1; 1] |> Seq.isEmpty |> equal true
+    Seq.except ['t'; 'e'; 's'; 't'] ['t'; 'e'; 's'; 't'] |> Seq.isEmpty |> equal true
+    Seq.except ['t'; 'e'; 's'; 't'] ['t'; 't'] |> Seq.isEmpty |> equal true
+    Seq.except [(1, 2)] [(1, 2)] |> Seq.isEmpty |> equal true
+    Seq.except [|49|] [|7; 49|] |> Seq.last |> equal 7
+    Seq.except [{ Bar= "test" }] [{ Bar = "test" }] |> Seq.isEmpty |> equal true
