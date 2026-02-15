@@ -730,3 +730,16 @@ let ``test MathF.Min works`` () =
 [<Fact>]
 let ``test MathF.Max works`` () =
     MathF.Max(-4.0f, 3.0f) |> equal 3.0f
+
+[<Fact>]
+let ``test infinity works`` () =
+    infinity > 1000000.0 |> equal true
+
+[<Fact>]
+let ``test negative infinity works`` () =
+    -infinity < -1000000.0 |> equal true
+
+[<Fact>]
+let ``test infinity comparison works`` () =
+    let dist = infinity
+    dist = infinity |> equal true

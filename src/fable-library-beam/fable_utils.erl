@@ -1,7 +1,7 @@
 -module(fable_utils).
 -export([iface_get/2, apply_curried/2, new_ref/1, safe_dispose/1,
          get_enumerator/1, move_next/1, get_current/1,
-         pos_infinity/0, neg_infinity/0, nan/0,
+         pos_infinity/0, neg_infinity/0, nan/0, is_infinity/1,
          new_lazy/1, new_lazy_from_value/1, force_lazy/1, is_value_created/1]).
 
 %% Interface dispatch: works for both object expressions (maps) and class instances (refs).
@@ -66,11 +66,14 @@ get_current(EnumRef) ->
     State = get(EnumRef),
     maps:get(current, State).
 
-%% IEEE 754 special float values via binary construction.
-%% Erlang has no literals for infinity/NaN, but the BEAM VM supports them internally.
-pos_infinity() -> <<F/float>> = <<0:1, 2047:11, 0:52>>, F.
-neg_infinity() -> <<F/float>> = <<1:1, 2047:11, 0:52>>, F.
-nan() -> <<F/float>> = <<0:1, 2047:11, 1:52>>, F.
+%% IEEE 754 special float values.
+%% Erlang BEAM VM doesn't support infinity/NaN as float values.
+%% Use max finite float as stand-in for infinity, atom nan for NaN.
+pos_infinity() -> 1.7976931348623157e308.
+neg_infinity() -> -1.7976931348623157e308.
+nan() -> nan.
+is_infinity(X) when is_float(X) -> X >= 1.7976931348623157e308 orelse X =< -1.7976931348623157e308;
+is_infinity(_) -> false.
 
 %% Lazy<T> with memoization via process dictionary.
 new_lazy(Factory) ->

@@ -935,12 +935,14 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
     | NumberConstant(NumberValue.Int32 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
 
     | NumberConstant(NumberValue.Float64 f, _) ->
+        // Erlang BEAM VM doesn't support IEEE 754 special float values (infinity, NaN).
+        // Use max finite float as stand-in for infinity, atom nan for NaN.
         if System.Double.IsPositiveInfinity(f) then
-            Beam.ErlExpr.Call(Some "fable_utils", "pos_infinity", [])
+            Beam.ErlExpr.Literal(Beam.ErlLiteral.Float System.Double.MaxValue)
         elif System.Double.IsNegativeInfinity(f) then
-            Beam.ErlExpr.Call(Some "fable_utils", "neg_infinity", [])
+            Beam.ErlExpr.Literal(Beam.ErlLiteral.Float System.Double.MinValue)
         elif System.Double.IsNaN(f) then
-            Beam.ErlExpr.Call(Some "fable_utils", "nan", [])
+            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "nan"))
         else
             Beam.ErlExpr.Literal(Beam.ErlLiteral.Float f)
 
@@ -1024,11 +1026,11 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         let d = float f
 
         if System.Double.IsPositiveInfinity(d) then
-            Beam.ErlExpr.Call(Some "fable_utils", "pos_infinity", [])
+            Beam.ErlExpr.Literal(Beam.ErlLiteral.Float System.Double.MaxValue)
         elif System.Double.IsNegativeInfinity(d) then
-            Beam.ErlExpr.Call(Some "fable_utils", "neg_infinity", [])
+            Beam.ErlExpr.Literal(Beam.ErlLiteral.Float System.Double.MinValue)
         elif System.Double.IsNaN(d) then
-            Beam.ErlExpr.Call(Some "fable_utils", "nan", [])
+            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "nan"))
         else
             Beam.ErlExpr.Literal(Beam.ErlLiteral.Float d)
     | NumberConstant(NumberValue.NativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))

@@ -328,13 +328,12 @@ let private operators
         match ctx.CaughtException with
         | Some ex -> makeThrow r _t (IdentExpr ex) |> Some
         | None -> makeThrow r _t (Value(StringConstant "reraise", None)) |> Some
-    // Infinity and NaN — Erlang has no literals, use IEEE 754 binary construction
-    | ("Infinity" | "InfinitySingle"), _ ->
-        emitExpr r _t [] "(fun() -> <<F/float>> = <<0:1, 2047:11, 0:52>>, F end)()"
-        |> Some
+    // Infinity and NaN — Erlang BEAM VM doesn't support IEEE 754 special float values.
+    // Use max finite float (1.7976931348623157e308) as practical stand-in for infinity.
+    | ("Infinity" | "InfinitySingle"), _ -> emitExpr r _t [] "1.7976931348623157e308" |> Some
     | ("NaN" | "NaNSingle"), _ ->
-        emitExpr r _t [] "(fun() -> <<F/float>> = <<0:1, 2047:11, 1:52>>, F end)()"
-        |> Some
+        // Erlang has no NaN; use atom nan as sentinel
+        emitExpr r _t [] "nan" |> Some
     // Pow (for Double, via math:pow)
     | "Pow", [ base_; exp_ ] -> emitExpr r _t [ base_; exp_ ] "math:pow($0, $1)" |> Some
     | Patterns.SetContains Operators.standardSet, _ ->
