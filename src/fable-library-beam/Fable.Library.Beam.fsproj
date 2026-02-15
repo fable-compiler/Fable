@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <DefineConstants>$(DefineConstants);FABLE_COMPILER</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="FableGlobal.fs" />
+    <Compile Include="../fable-library-ts/FSharp.Collections.fs" Link="FSharp.Collections.fs" />
+    <Compile Include="../fable-library-ts/FSharp.Core.fs" Link="FSharp.Core.fs" />
+    <Compile Include="../fable-library-ts/Seq.fs" Link="Seq.fs" />
+    <Compile Include="Range.fs" />
+    <Compile Include="System.Text.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Fable.Core\Fable.Core.fsproj" />
+  </ItemGroup>
+
+</Project>

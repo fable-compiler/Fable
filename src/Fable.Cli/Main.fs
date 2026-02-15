@@ -152,6 +152,33 @@ module private Util =
                 IO.Path.Join(outDir, modules, fileName)
 
             Path.ChangeExtension(absPath, fileExt)
+        | Beam ->
+            let fileExt = cliArgs.CompilerOptions.FileExtension
+
+            if Naming.isInFableModules file then
+                // Library files in fable_modules: preserve subdirectory structure
+                // so they stay in fable_modules/fable-library-beam/
+                let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
+
+                let outDir =
+                    match cliArgs.OutDir with
+                    | Some outDir -> outDir
+                    | None -> projDir
+
+                let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
+                let dir = IO.Path.GetDirectoryName(absPath)
+                let fileName = Pipeline.Beam.normalizeFileName absPath
+                IO.Path.Combine(dir, fileName + fileExt)
+            else
+                // Project files: flat in outDir (Erlang uses flat module names)
+                let fileName = Pipeline.Beam.normalizeFileName file
+
+                match cliArgs.OutDir with
+                | Some outDir -> IO.Path.Combine(IO.Path.GetFullPath outDir, fileName + fileExt)
+                | None ->
+                    let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
+                    IO.Path.Combine(projDir, fileName + fileExt)
+
         | lang ->
             let changeExtension path fileExt =
                 match lang with

@@ -379,6 +379,7 @@ let transformToTargetAst (com: CompilerImpl) (fableAst: Fable.File) : IFableResu
     | Rust ->
         let ast = Rust.Fable2Rust.Compiler.transformFile com fableAst
         upcast RustResult(ast, errors)
+    | Beam -> failwith "Beam target is not supported in the standalone compiler"
 
 let compileToTargetAst (results: IParseAndCheckResults) fileName fableLibrary typedArrays language : IFableResult =
     let res = results :?> ParseAndCheckResults

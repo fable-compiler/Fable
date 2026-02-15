@@ -1,0 +1,103 @@
+namespace Fable.Beam
+
+module Naming =
+    open System.Text.RegularExpressions
+
+    // https://www.erlang.org/doc/system/expressions#reserved-words
+    let erlKeywords =
+        System.Collections.Generic.HashSet
+            [
+                "after"
+                "and"
+                "andalso"
+                "band"
+                "begin"
+                "bnot"
+                "bor"
+                "bsl"
+                "bsr"
+                "bxor"
+                "case"
+                "catch"
+                "cond"
+                "div"
+                "end"
+                "fun"
+                "if"
+                "let"
+                "not"
+                "of"
+                "or"
+                "orelse"
+                "receive"
+                "rem"
+                "try"
+                "when"
+                "xor"
+                "maybe"
+                "else"
+            ]
+
+    /// Auto-imported BIFs that cause "ambiguous call" errors when used as
+    /// module-level function names. These need no_auto_import in generated modules.
+    let erlAutoImportedBifs =
+        System.Collections.Generic.HashSet
+            [ "apply"; "now"; "self"; "throw"; "exit"; "error"; "spawn"; "link"; "monitor" ]
+
+    let checkErlKeywords name =
+        if erlKeywords.Contains name then
+            name + "_"
+        else
+            name
+
+    let toSnakeCase (name: string) =
+        let sb = System.Text.StringBuilder()
+
+        for i = 0 to name.Length - 1 do
+            let c = name.[i]
+
+            if System.Char.IsUpper(c) then
+                if i > 0 then
+                    sb.Append('_') |> ignore
+
+                sb.Append(System.Char.ToLowerInvariant(c)) |> ignore
+            else
+                sb.Append(c) |> ignore
+
+        sb.ToString()
+
+    let sanitizeErlangName (name: string) =
+        // Decode $XXXX hex sequences from F# compiled names (e.g. $0020 -> space -> _)
+        Regex.Replace(
+            name,
+            @"\$([0-9A-Fa-f]{4})",
+            fun m ->
+                let c = char (System.Convert.ToInt32(m.Groups.[1].Value, 16))
+
+                if System.Char.IsLetterOrDigit(c) then
+                    c.ToString()
+                else
+                    "_"
+        )
+        |> fun s -> s.Replace("'", "").Replace("$", "_").Replace("@", "").Replace(".", "_").Replace("`", "_")
+        |> toSnakeCase
+        |> fun s -> Regex.Replace(s, "_+", "_")
+        |> fun s -> s.Trim('_')
+        |> checkErlKeywords
+
+    let moduleNameFromFile (filePath: string) =
+        System.IO.Path.GetFileNameWithoutExtension(filePath)
+        |> fun s -> s.Replace(".", "_").Replace("-", "_")
+        |> Fable.Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+
+    let capitalizeFirst (s: string) =
+        if s.Length = 0 then
+            s
+        else
+            s.[0..0].ToUpperInvariant() + s.[1..]
+
+    /// Sanitize a string for use as an Erlang variable name (must start with uppercase or _)
+    let sanitizeErlangVar (name: string) =
+        // Remove/replace characters invalid in Erlang variable names
+        name.Replace("$", "_").Replace("@", "_")
+        |> fun s -> Regex.Replace(s, "[^a-zA-Z0-9_]", "_")

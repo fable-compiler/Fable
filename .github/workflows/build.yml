@@ -221,6 +221,26 @@ jobs:
       - name: Fable Tests - Dart
         run: ./build.sh test dart
 
+  # Separate build job for Beam (Erlang)
+  build-beam:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Setup Erlang/OTP
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27"
+
+      - name: Fable Tests - Beam
+        run: ./build.sh test beam
+
   # Separate job to run F# analyzers
   analyzers:
     runs-on: ubuntu-latest

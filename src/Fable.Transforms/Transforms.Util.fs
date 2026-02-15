@@ -1152,6 +1152,29 @@ module AST =
         | TypeScript -> com.LibraryDir + "/" + moduleName + ".ts"
         | JavaScript -> com.LibraryDir + "/" + moduleName + ".js"
         | Php -> com.LibraryDir + "/" + moduleName + ".php"
+        | Beam ->
+            // Beam library modules: names starting with "fable_" pass through as-is.
+            // Names from JS fallback (e.g., "Option") get fable_ prefix for backward compat.
+            // Dotted names from bclType (e.g., "System.Text") are F#-compiled modules.
+            // Fable-compiled .fs modules (e.g., "range" from Range.fs) use their name directly.
+            let fableCompiledModules = set [ "range"; "seq" ]
+
+            let beamModuleName =
+                if moduleName.StartsWith("fable_", System.StringComparison.Ordinal) then
+                    moduleName
+                elif moduleName.Contains(".") then
+                    // F#-compiled library module (e.g., "System.Text" -> "system_text")
+                    moduleName
+                    |> fun s -> s.Replace(".", "_").Replace("-", "_")
+                    |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+                elif fableCompiledModules.Contains(moduleName) then
+                    // Fable-compiled .fs module — use name as-is (no fable_ prefix)
+                    moduleName
+                else
+                    // JS fallback module name (e.g., "Option" -> "fable_option")
+                    "fable_" + (moduleName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase)
+
+            com.LibraryDir + "/" + beamModuleName + ".erl"
 
     let makeImportUserGenerated r t (selector: string) (path: string) =
         Import(

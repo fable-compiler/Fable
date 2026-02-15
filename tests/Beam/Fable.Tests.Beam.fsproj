@@ -1,0 +1,76 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <IsPackable>false</IsPackable>
+    <GenerateProgramFile>false</GenerateProgramFile>
+    <LangVersion>preview</LangVersion>
+    <RootNamespace>Fable.Tests</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="XUnit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Misc/Aether.fs" />
+    <Compile Include="Util.fs" />
+    <Compile Include="ArithmeticTests.fs" />
+    <Compile Include="ListTests.fs" />
+    <Compile Include="UnionTypeTests.fs" />
+    <Compile Include="PatternMatchTests.fs" />
+    <Compile Include="FnTests.fs" />
+    <Compile Include="RecordTests.fs" />
+    <Compile Include="StringTests.fs" />
+    <Compile Include="TryCatchTests.fs" />
+    <Compile Include="OptionTests.fs" />
+    <Compile Include="ConversionTests.fs" />
+    <Compile Include="LoopTests.fs" />
+    <Compile Include="ArrayTests.fs" />
+    <Compile Include="TupleTests.fs" />
+    <Compile Include="MapTests.fs" />
+    <Compile Include="SeqTests.fs" />
+    <Compile Include="SudokuTests.fs" />
+    <Compile Include="ResultTests.fs" />
+    <Compile Include="TypeTests.fs" />
+    <Compile Include="ReflectionTests.fs" />
+    <Compile Include="ComparisonTests.fs" />
+    <Compile Include="CharTests.fs" />
+    <Compile Include="TailCallTests.fs" />
+    <Compile Include="SeqExpressionTests.fs" />
+    <Compile Include="SetTests.fs" />
+    <Compile Include="EnumTests.fs" />
+    <Compile Include="ExceptionTests.fs" />
+    <Compile Include="AsyncTests.fs" />
+    <Compile Include="TaskTests.fs" />
+    <Compile Include="MailboxProcessorTests.fs" />
+    <Compile Include="RegexTests.fs" />
+    <Compile Include="ResizeArrayTests.fs" />
+    <Compile Include="DictionaryTests.fs" />
+    <Compile Include="HashSetTests.fs" />
+    <Compile Include="QueueTests.fs" />
+    <Compile Include="StackTests.fs" />
+    <Compile Include="EncodingTests.fs" />
+    <Compile Include="ApplicativeTests.fs" />
+    <Compile Include="MiscTests.fs" />
+    <Compile Include="TimeSpanTests.fs" />
+    <Compile Include="DateTimeTests.fs" />
+    <Compile Include="UriTests.fs" />
+    <Compile Include="DateTimeOffsetTests.fs" />
+    <Compile Include="GuidTests.fs" />
+    <Compile Include="AnonRecordTests.fs" />
+    <Compile Include="NonRegressionTests.fs" />
+    <Compile Include="NullnessTests.fs" />
+    <Compile Include="CustomOperatorTests.fs" />
+    <Compile Include="EnumerableTests.fs" />
+    <Compile Include="InteropTests.fs" />
+    <Compile Include="Main.fs" />
+  </ItemGroup>
+</Project>

@@ -502,6 +502,61 @@ module Rust =
                 do! RustPrinter.run writer crate
         }
 
+module Beam =
+    /// Erlang module names must be lowercase snake_case and match the filename
+    let normalizeFileName path =
+        Path.GetFileNameWithoutExtension(path).Replace(".", "_").Replace("-", "_")
+        |> Naming.applyCaseRule Core.CaseRules.SnakeCase
+
+    let getTargetPath (cliArgs: CliArgs) (targetPath: string) =
+        let fileExt = cliArgs.CompilerOptions.FileExtension
+        let targetDir = Path.GetDirectoryName(targetPath)
+        let fileName = normalizeFileName targetPath
+        Path.Combine(targetDir, fileName + fileExt)
+
+    type BeamWriter(com: Compiler, cliArgs: CliArgs, pathResolver, targetPath: string) =
+        let sourcePath = com.CurrentFile
+        let fileExt = cliArgs.CompilerOptions.FileExtension
+        let stream = new IO.StreamWriter(targetPath)
+
+        interface Printer.Writer with
+            member _.Write(str) =
+                stream.WriteAsync(str) |> Async.AwaitTask
+
+            member _.MakeImportPath(path) =
+                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
+
+                let path =
+                    Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
+
+                if path.EndsWith(".fs", StringComparison.Ordinal) then
+                    let path = Path.ChangeExtension(path, fileExt)
+                    // Convert filename to snake_case to match Erlang module naming
+                    let dir = Path.GetDirectoryName(path)
+                    let fileName = normalizeFileName path + Path.GetExtension(path)
+                    Path.Combine(dir, fileName)
+                else
+                    path
+
+            member _.AddSourceMapping(_, _, _, _, _, _) = ()
+
+            member _.AddLog(msg, severity, ?range) =
+                com.AddLog(msg, severity, ?range = range, fileName = com.CurrentFile)
+
+            member _.Dispose() = stream.Dispose()
+
+    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) =
+        async {
+            let erlModule =
+                FSharp2Fable.Compiler.transformFile com
+                |> FableTransforms.transformFile com
+                |> Fable.Transforms.Beam.Compiler.transformFile com
+
+            if not (isSilent || ErlangPrinter.isEmpty erlModule) then
+                use writer = new BeamWriter(com, cliArgs, pathResolver, outPath)
+                do! ErlangPrinter.run writer erlModule
+        }
+
 let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) =
     match com.Options.Language with
     | JavaScript
@@ -510,3 +565,4 @@ let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPat
     | Php -> Php.compileFile com cliArgs pathResolver isSilent outPath
     | Dart -> Dart.compileFile com cliArgs pathResolver isSilent outPath
     | Rust -> Rust.compileFile com cliArgs pathResolver isSilent outPath
+    | Beam -> Beam.compileFile com cliArgs pathResolver isSilent outPath
