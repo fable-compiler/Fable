@@ -763,20 +763,18 @@ let ``test Array.sub works`` () =
     let ys = Array.sub xs 5 10
     ys |> Array.sum |> equal 95
 
-// TODO: Array.fill requires mutable array support
-// [<Fact>]
-// let ``test Array.fill works`` () =
-//     let xs = Array.zeroCreate 4
-//     Array.fill xs 1 2 3
-//     xs |> Array.sum |> equal 6
+[<Fact>]
+let ``test Array.fill works`` () =
+    let xs = Array.zeroCreate 4
+    Array.fill xs 1 2 3
+    xs |> Array.sum |> equal 6
 
-// TODO: Array.blit requires mutable array support
-// [<Fact>]
-// let ``test Array.blit works`` () =
-//     let xs = [| 1..10 |]
-//     let ys = Array.zeroCreate 20
-//     Array.blit xs 3 ys 5 4
-//     ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal 22
+[<Fact>]
+let ``test Array.blit works`` () =
+    let xs = [| 1..10 |]
+    let ys = Array.zeroCreate 20
+    Array.blit xs 3 ys 5 4
+    ys.[5] + ys.[6] + ys.[7] + ys.[8] |> equal 22
 
 [<Fact>]
 let ``test Array.exists2 works`` () =
@@ -836,26 +834,23 @@ let ``test Array.iteri2 works`` () =
     Array.iteri2 (fun i x y -> total <- total + (float i) * x + (float i) * y) xs xs
     total |> equal 40.
 
-// TODO: Array.sortInPlace requires mutable array support (arrays are immutable lists in Beam)
-// [<Fact>]
-// let ``test Array.sortInPlace works`` () =
-//     let xs = [|3.; 4.; 1.; 2.; 10.|]
-//     Array.sortInPlace xs
-//     xs.[0] + xs.[1] |> equal 3.
+[<Fact>]
+let ``test Array.sortInPlace works`` () =
+    let xs = [|3.; 4.; 1.; 2.; 10.|]
+    Array.sortInPlace xs
+    xs.[0] + xs.[1] |> equal 3.
 
-// TODO: Array.sortInPlaceBy requires mutable array support
-// [<Fact>]
-// let ``test Array.sortInPlaceBy works`` () =
-//     let xs = [|3.; 4.; 1.; 2.; 10.|]
-//     Array.sortInPlaceBy (fun x -> -x) xs
-//     xs.[0] + xs.[1] |> equal 14.
+[<Fact>]
+let ``test Array.sortInPlaceBy works`` () =
+    let xs = [|3.; 4.; 1.; 2.; 10.|]
+    Array.sortInPlaceBy (fun x -> -x) xs
+    xs.[0] + xs.[1] |> equal 14.
 
-// TODO: Array.sortInPlaceWith requires mutable array support
-// [<Fact>]
-// let ``test Array.sortInPlaceWith works`` () =
-//     let xs = [|3.; 4.; 1.; 2.; 10.|]
-//     Array.sortInPlaceWith (fun x y -> int(x - y)) xs
-//     xs.[0] + xs.[1] |> equal 3.
+[<Fact>]
+let ``test Array.sortInPlaceWith works`` () =
+    let xs = [|3.; 4.; 1.; 2.; 10.|]
+    Array.sortInPlaceWith (fun x y -> int(x - y)) xs
+    xs.[0] + xs.[1] |> equal 3.
 
 [<Fact>]
 let ``test Array.sortByDescending works`` () =

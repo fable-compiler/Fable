@@ -1977,10 +1977,26 @@ let private arrayModule
     | "SplitAt", [ idx; arr ] -> Helper.LibCall(com, "fable_list", "split_at", t, [ idx; arr ]) |> Some
     | "AllPairs", [ a1; a2 ] -> Helper.LibCall(com, "fable_list", "all_pairs", t, [ a1; a2 ]) |> Some
     | "Unzip3", [ arr ] -> emitExpr r t [ arr ] "lists:unzip3($0)" |> Some
-    // In-place sort operations: since arrays are lists in Erlang, return sorted copy
-    | "SortInPlace", [ arr ] -> emitExpr r t [ arr ] "lists:sort($0)" |> Some
-    | "SortInPlaceBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; arr ]) |> Some
-    | "SortInPlaceWith", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; arr ]) |> Some
+    // In-place sort operations: return Set(arr, ValueSet, ...) so the Let handler stores back to ref
+    | "SortInPlace", [ arr ] ->
+        Fable.Set(arr, ValueSet, Type.Unit, emitExpr r t [ arr ] "lists:sort($0)", None)
+        |> Some
+    | "SortInPlaceBy", [ fn; arr ] ->
+        let sorted = Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; arr ])
+        Fable.Set(arr, ValueSet, Type.Unit, sorted, None) |> Some
+    | "SortInPlaceWith", [ fn; arr ] ->
+        let sorted = Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; arr ])
+        Fable.Set(arr, ValueSet, Type.Unit, sorted, None) |> Some
+    | "Fill", [ arr; start; count; value ] ->
+        let filled =
+            Helper.LibCall(com, "fable_resize_array", "fill", t, [ arr; start; count; value ])
+
+        Fable.Set(arr, ValueSet, Type.Unit, filled, None) |> Some
+    | "CopyTo", [ source; sourceIdx; target; targetIdx; count ] ->
+        let blitted =
+            Helper.LibCall(com, "fable_resize_array", "blit", t, [ source; sourceIdx; target; targetIdx; count ])
+
+        Fable.Set(target, ValueSet, Type.Unit, blitted, None) |> Some
     | _ -> None
 
 /// Beam-specific OperatorIntrinsics replacements (ranges).

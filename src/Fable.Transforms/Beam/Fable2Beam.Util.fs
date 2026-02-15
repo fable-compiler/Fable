@@ -67,58 +67,59 @@ let rec containsIdentRef (name: string) (expr: Expr) : bool =
         )
     | _ -> false
 
-/// Check if an expression contains an indexed-set (arr.[i] <- v) on a given identifier.
+/// Check if an expression contains any array mutation (indexed set or value set) on a given identifier.
 /// Used to detect non-mutable array bindings that need ref-wrapping for mutation.
-let rec containsIndexedSet (name: string) (expr: Expr) : bool =
+let rec containsArrayMutation (name: string) (expr: Expr) : bool =
     match expr with
-    | Set(IdentExpr ident, ExprSet _, _, _, _) when ident.Name = name -> true
-    | Set(e, _, _, v, _) -> containsIndexedSet name e || containsIndexedSet name v
+    | Set(IdentExpr ident, _, _, _, _) when ident.Name = name -> true
+    | Set(e, _, _, v, _) -> containsArrayMutation name e || containsArrayMutation name v
     | IdentExpr _ -> false
     | Call(callee, info, _, _) ->
-        containsIndexedSet name callee
-        || info.Args |> List.exists (containsIndexedSet name)
+        containsArrayMutation name callee
+        || info.Args |> List.exists (containsArrayMutation name)
     | CurriedApply(applied, args, _, _) ->
-        containsIndexedSet name applied || args |> List.exists (containsIndexedSet name)
-    | Let(_, value, body) -> containsIndexedSet name value || containsIndexedSet name body
+        containsArrayMutation name applied
+        || args |> List.exists (containsArrayMutation name)
+    | Let(_, value, body) -> containsArrayMutation name value || containsArrayMutation name body
     | LetRec(bindings, body) ->
-        bindings |> List.exists (fun (_, v) -> containsIndexedSet name v)
-        || containsIndexedSet name body
-    | Lambda(_, body, _) -> containsIndexedSet name body
-    | Delegate(_, body, _, _) -> containsIndexedSet name body
+        bindings |> List.exists (fun (_, v) -> containsArrayMutation name v)
+        || containsArrayMutation name body
+    | Lambda(_, body, _) -> containsArrayMutation name body
+    | Delegate(_, body, _, _) -> containsArrayMutation name body
     | IfThenElse(g, t, e, _) ->
-        containsIndexedSet name g
-        || containsIndexedSet name t
-        || containsIndexedSet name e
-    | Sequential exprs -> exprs |> List.exists (containsIndexedSet name)
+        containsArrayMutation name g
+        || containsArrayMutation name t
+        || containsArrayMutation name e
+    | Sequential exprs -> exprs |> List.exists (containsArrayMutation name)
     | Value(value, _) ->
         match value with
         | NewAnonymousRecord(values, _, _, _)
         | NewRecord(values, _, _)
         | NewUnion(values, _, _, _)
-        | NewTuple(values, _) -> values |> List.exists (containsIndexedSet name)
-        | NewList(Some(h, t), _) -> containsIndexedSet name h || containsIndexedSet name t
-        | NewOption(Some e, _, _) -> containsIndexedSet name e
-        | NewArray(NewArrayKind.ArrayValues values, _, _) -> values |> List.exists (containsIndexedSet name)
-        | StringTemplate(_, _, values) -> values |> List.exists (containsIndexedSet name)
+        | NewTuple(values, _) -> values |> List.exists (containsArrayMutation name)
+        | NewList(Some(h, t), _) -> containsArrayMutation name h || containsArrayMutation name t
+        | NewOption(Some e, _, _) -> containsArrayMutation name e
+        | NewArray(NewArrayKind.ArrayValues values, _, _) -> values |> List.exists (containsArrayMutation name)
+        | StringTemplate(_, _, values) -> values |> List.exists (containsArrayMutation name)
         | _ -> false
-    | TypeCast(e, _) -> containsIndexedSet name e
+    | TypeCast(e, _) -> containsArrayMutation name e
     | Operation(kind, _, _, _) ->
         match kind with
-        | Binary(_, l, r) -> containsIndexedSet name l || containsIndexedSet name r
-        | Unary(_, e) -> containsIndexedSet name e
-        | Logical(_, l, r) -> containsIndexedSet name l || containsIndexedSet name r
+        | Binary(_, l, r) -> containsArrayMutation name l || containsArrayMutation name r
+        | Unary(_, e) -> containsArrayMutation name e
+        | Logical(_, l, r) -> containsArrayMutation name l || containsArrayMutation name r
     | DecisionTree(e, targets) ->
-        containsIndexedSet name e
-        || targets |> List.exists (fun (_, t) -> containsIndexedSet name t)
-    | DecisionTreeSuccess(_, values, _) -> values |> List.exists (containsIndexedSet name)
-    | Test(e, _, _) -> containsIndexedSet name e
-    | Get(e, _, _, _) -> containsIndexedSet name e
-    | Emit(emitInfo, _, _) -> emitInfo.CallInfo.Args |> List.exists (containsIndexedSet name)
+        containsArrayMutation name e
+        || targets |> List.exists (fun (_, t) -> containsArrayMutation name t)
+    | DecisionTreeSuccess(_, values, _) -> values |> List.exists (containsArrayMutation name)
+    | Test(e, _, _) -> containsArrayMutation name e
+    | Get(e, _, _, _) -> containsArrayMutation name e
+    | Emit(emitInfo, _, _) -> emitInfo.CallInfo.Args |> List.exists (containsArrayMutation name)
     | ObjectExpr(members, _, baseCall) ->
-        members |> List.exists (fun m -> containsIndexedSet name m.Body)
+        members |> List.exists (fun m -> containsArrayMutation name m.Body)
         || (
             match baseCall with
-            | Some e -> containsIndexedSet name e
+            | Some e -> containsArrayMutation name e
             | None -> false
         )
     | _ -> false

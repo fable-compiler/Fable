@@ -9,7 +9,8 @@
     exists/2,
     sort_with/2,
     for_each/2,
-    convert_all/2
+    convert_all/2,
+    fill/4, blit/5
 ]).
 
 %% Replace item at index, return new list (or binary)
@@ -140,3 +141,16 @@ for_each(List, Fn) ->
 %% ConvertAll (map)
 convert_all(List, Fn) ->
     lists:map(Fn, List).
+
+%% Fill: replace Count elements starting at Start with Value
+fill(List, Start, Count, Value) ->
+    {Before, Rest} = lists:split(Start, List),
+    {_, After} = lists:split(Count, Rest),
+    Before ++ lists:duplicate(Count, Value) ++ After.
+
+%% Blit: copy Count elements from Source[SourceIdx..] to Target[TargetIdx..]
+blit(Source, SourceIdx, Target, TargetIdx, Count) ->
+    Slice = lists:sublist(Source, SourceIdx + 1, Count),
+    {Before, Rest} = lists:split(TargetIdx, Target),
+    {_, After} = lists:split(Count, Rest),
+    Before ++ Slice ++ After.
