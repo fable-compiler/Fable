@@ -1,5 +1,7 @@
 module Fable.Tests.ApplicativeTests
 
+#nowarn "64" // This construct causes code to be less generic than indicated by the type annotations
+
 open System
 open Aether
 open Util.Testing

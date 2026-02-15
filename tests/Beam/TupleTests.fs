@@ -1,5 +1,7 @@
 module Fable.Tests.TupleTest
 
+#nowarn "3370" // This method or property is not normally used from F# code
+
 open Fable.Tests.Util
 open Util.Testing
 

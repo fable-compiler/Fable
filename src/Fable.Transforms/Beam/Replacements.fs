@@ -693,7 +693,8 @@ let private chars
     | "IsSurrogate", [ str; idx ] ->
         Helper.LibCall(com, "fable_char", "is_surrogate", t, [ emitExpr r Type.Char [ str; idx ] "binary:at($0, $1)" ])
         |> Some
-    | "IsSurrogatePair", [ hi; lo ] -> Helper.LibCall(com, "fable_char", "is_surrogate_pair", t, [ hi; lo ]) |> Some
+    | "IsSurrogatePair", [ hi; lo ] when hi.Type = Type.Char ->
+        Helper.LibCall(com, "fable_char", "is_surrogate_pair", t, [ hi; lo ]) |> Some
     | "IsSurrogatePair", [ str; idx ] ->
         Helper.LibCall(
             com,
@@ -2551,7 +2552,8 @@ let private tuples
     (thisArg: Expr option)
     (args: Expr list)
     =
-    let isStruct = i.DeclaringEntityFullName.StartsWith("System.ValueTuple")
+    let isStruct =
+        i.DeclaringEntityFullName.StartsWith("System.ValueTuple", System.StringComparison.Ordinal)
 
     match i.CompiledName, thisArg with
     | (".ctor" | "Create"), _ -> Value(NewTuple(args, isStruct), r) |> Some
@@ -4075,7 +4077,7 @@ let tryCall
         | ".ctor", None, [ msg ] -> emitExpr r t [ msg ] "#{message => $0}" |> Some
         | ".ctor", None, [] ->
             let typeName = info.DeclaringEntityFullName
-            let msg = $"Exception of type '{typeName}' was thrown."
+            let msg = $"Exception of type '%s{typeName}' was thrown."
             emitExpr r t [] $"#{{message => <<\"{msg}\">>}}" |> Some
         | "get_Message", Some c, _ -> emitExpr r t [ c ] "maps:get(message, $0, $0)" |> Some
         | _ -> None
