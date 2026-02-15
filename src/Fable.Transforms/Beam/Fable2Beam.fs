@@ -141,6 +141,23 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 erlBody
             ]
 
+    | Let(ident, value, body) when not ident.IsMutable && containsIndexedSet ident.Name body ->
+        // Non-mutable array with indexed set (arr.[i] <- v): wrap in process dict ref
+        // so mutation works via the ExprSet handler (put/get pattern).
+        let refVarName = (capitalizeFirst ident.Name |> sanitizeErlangVar) + "_ref"
+        let erlValue = transformExpr com ctx value
+        let ctx' = { ctx with MutableVars = ctx.MutableVars.Add(ident.Name, refVarName) }
+        let erlBody = transformExpr com ctx' body
+
+        Beam.ErlExpr.Block
+            [
+                Beam.ErlExpr.Match(
+                    Beam.PVar(refVarName),
+                    Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ erlValue ])
+                )
+                erlBody
+            ]
+
     | Let(ident, value, body) ->
         let varName = capitalizeFirst ident.Name |> sanitizeErlangVar
 

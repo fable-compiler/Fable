@@ -2,7 +2,8 @@
 -export([iface_get/2, apply_curried/2, new_ref/1, safe_dispose/1,
          get_enumerator/1, move_next/1, get_current/1,
          pos_infinity/0, neg_infinity/0, nan/0, is_infinity/1,
-         new_lazy/1, new_lazy_from_value/1, force_lazy/1, is_value_created/1]).
+         new_lazy/1, new_lazy_from_value/1, force_lazy/1, is_value_created/1,
+         using/2]).
 
 %% Interface dispatch: works for both object expressions (maps) and class instances (refs).
 iface_get(Name, Obj) when is_map(Obj) -> maps:get(Name, Obj);
@@ -100,3 +101,9 @@ force_lazy(LazyRef) ->
 
 is_value_created(LazyRef) ->
     maps:get(is_value_created, get(LazyRef)).
+
+%% F# `use` / `using` — execute action with resource, dispose after.
+using(Resource, Action) ->
+    try Action(Resource)
+    after safe_dispose(Resource)
+    end.

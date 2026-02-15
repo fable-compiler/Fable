@@ -12,7 +12,10 @@
     convert_all/2
 ]).
 
-%% Replace item at index, return new list
+%% Replace item at index, return new list (or binary)
+set_item(Bin, Index, Value) when is_binary(Bin) ->
+    <<Before:Index/binary, _:1/binary, After/binary>> = Bin,
+    <<Before/binary, Value:8, After/binary>>;
 set_item(List, Index, Value) ->
     {Before, [_ | After]} = lists:split(Index, List),
     Before ++ [Value | After].

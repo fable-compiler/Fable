@@ -983,3 +983,11 @@ let ``test Mapping with typed arrays doesnt coerce`` () =
         |> Array.ofSeq
     test1 |> Array.concat |> Array.sum |> equal 78
     test2 |> Array.concat |> Array.sum |> equal 78
+
+[<Fact>]
+let ``test array indexed set works on zero-created array`` () =
+    let arr = Array.zeroCreate<int> 3
+    arr.[0] <- 10
+    arr.[1] <- 20
+    arr.[2] <- 30
+    arr.[0] + arr.[1] + arr.[2] |> equal 60
