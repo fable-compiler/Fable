@@ -289,6 +289,8 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
     | Lambda(arg, body, _name) ->
         let ctx' = { ctx with LocalVars = ctx.LocalVars.Add(arg.Name) }
+        let mutableVars', refInits = wrapMutatedParams [ arg ] body ctx'.MutableVars
+        let ctx' = { ctx' with MutableVars = mutableVars' }
         let erlBody = transformExpr com ctx' body
 
         let bodyExprs =
@@ -301,7 +303,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 {
                     Patterns = [ Beam.PVar(capitalizeFirst arg.Name |> sanitizeErlangVar) ]
                     Guard = []
-                    Body = bodyExprs
+                    Body = refInits @ bodyExprs
                 }
             ]
 
@@ -313,6 +315,8 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         let ctx' =
             { ctx with LocalVars = args |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars }
 
+        let mutableVars', refInits = wrapMutatedParams args body ctx'.MutableVars
+        let ctx' = { ctx' with MutableVars = mutableVars' }
         let erlBody = transformExpr com ctx' body
 
         let bodyExprs =
@@ -325,7 +329,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 {
                     Patterns = argPats
                     Guard = []
-                    Body = bodyExprs
+                    Body = refInits @ bodyExprs
                 }
             ]
 
@@ -456,19 +460,25 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             let clauses =
                 bindingInfos
                 |> List.map (fun (_ident, value, atomTag) ->
-                    let argPats, lambdaBody, lambdaCtx =
+                    let argPats, lambdaArgs, lambdaBody, lambdaCtx =
                         match value with
                         | Lambda(arg, lambdaBody, _) ->
                             [ Beam.PVar(capitalizeFirst arg.Name |> sanitizeErlangVar) ],
+                            [ arg ],
                             lambdaBody,
                             { ctx' with LocalVars = ctx'.LocalVars.Add(arg.Name) }
                         | Delegate(args, lambdaBody, _, _) ->
                             args
                             |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)),
+                            args,
                             lambdaBody,
                             { ctx' with LocalVars = args |> List.fold (fun s a -> s.Add(a.Name)) ctx'.LocalVars }
                         | _ -> failwith "unreachable: already checked allAreLambdas"
 
+                    let mutableVars', refInits =
+                        wrapMutatedParams lambdaArgs lambdaBody lambdaCtx.MutableVars
+
+                    let lambdaCtx = { lambdaCtx with MutableVars = mutableVars' }
                     let erlBody = transformExpr com lambdaCtx lambdaBody
 
                     let bodyExprs =
@@ -483,7 +493,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                                 {
                                     Beam.ErlFunClause.Patterns = argPats
                                     Guard = []
-                                    Body = bodyExprs
+                                    Body = refInits @ bodyExprs
                                 }
                             ]
 
@@ -521,19 +531,25 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             let varName = capitalizeFirst ident.Name |> sanitizeErlangVar
             let ctx' = { ctx with RecursiveBindings = ctx.RecursiveBindings.Add(ident.Name) }
 
-            let argPats, lambdaBody, lambdaCtx =
+            let argPats, lambdaArgs, lambdaBody, lambdaCtx =
                 match value with
                 | Lambda(arg, lambdaBody, _) ->
                     [ Beam.PVar(capitalizeFirst arg.Name |> sanitizeErlangVar) ],
+                    [ arg ],
                     lambdaBody,
                     { ctx' with LocalVars = ctx'.LocalVars.Add(arg.Name) }
                 | Delegate(args, lambdaBody, _, _) ->
                     args
                     |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)),
+                    args,
                     lambdaBody,
                     { ctx' with LocalVars = args |> List.fold (fun s a -> s.Add(a.Name)) ctx'.LocalVars }
                 | _ -> failwith "unreachable: already checked allAreLambdas"
 
+            let mutableVars', refInits =
+                wrapMutatedParams lambdaArgs lambdaBody lambdaCtx.MutableVars
+
+            let lambdaCtx = { lambdaCtx with MutableVars = mutableVars' }
             let erlLambdaBody = transformExpr com lambdaCtx lambdaBody
 
             let bodyExprs =
@@ -548,7 +564,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                         {
                             Patterns = argPats
                             Guard = []
-                            Body = bodyExprs
+                            Body = refInits @ bodyExprs
                         }
                     ]
                 )
@@ -2258,12 +2274,22 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
 
         let arity = args.Length
 
+        let nonThisArgs =
+            if info.IsInstance && memDecl.Args.Length > 0 then
+                memDecl.Args.[1..] |> FSharp2Fable.Util.discardUnitArg
+            else
+                FSharp2Fable.Util.discardUnitArg memDecl.Args
+
+        let mutableVars', refInits =
+            wrapMutatedParams nonThisArgs memDecl.Body memberCtx.MutableVars
+
+        let memberCtx = { memberCtx with MutableVars = mutableVars' }
         let bodyExpr = transformExpr com memberCtx memDecl.Body
 
         let body =
             match bodyExpr with
-            | Beam.ErlExpr.Block exprs -> exprs
-            | expr -> [ expr ]
+            | Beam.ErlExpr.Block exprs -> refInits @ exprs
+            | expr -> refInits @ [ expr ]
 
         let funcDef: Beam.ErlFunctionDef =
             {

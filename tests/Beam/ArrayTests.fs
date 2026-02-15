@@ -29,12 +29,11 @@ let ``test Array indexer getter works`` () =
     let x = [| 1.; 2.; 3.; 4.; 5. |]
     x.[2] |> equal 3.
 
-// TODO: SetArray on non-mutable arrays not supported in Beam (Erlang lists are immutable values)
-// [<Fact>]
-// let ``test Array indexer setter works`` () =
-//     let x = [| 1.; 2.; 3.; 4.; 5. |]
-//     x.[3] <- 10.
-//     equal 10. x.[3]
+[<Fact>]
+let ``test Array indexer setter works`` () =
+    let x = [| 1.; 2.; 3.; 4.; 5. |]
+    x.[3] <- 10.
+    equal 10. x.[3]
 
 [<Fact>]
 let ``test Array indexer setter works with mutable`` () =
@@ -47,12 +46,11 @@ let ``test Array getter works`` () =
     let x = [| 1.; 2.; 3.; 4.; 5. |]
     Array.get x 2 |> equal 3.
 
-// TODO: Array.Set on non-mutable arrays not supported in Beam (Erlang lists are immutable values)
-// [<Fact>]
-// let ``test Array setter works`` () =
-//     let x = [| 1.; 2.; 3.; 4.; 5. |]
-//     Array.set x 3 10.
-//     equal 10. x.[3]
+[<Fact>]
+let ``test Array setter works`` () =
+    let x = [| 1.; 2.; 3.; 4.; 5. |]
+    Array.set x 3 10.
+    equal 10. x.[3]
 
 [<Fact>]
 let ``test Array setter works with mutable`` () =
@@ -986,3 +984,53 @@ let ``test array indexed set works on zero-created array`` () =
     arr.[1] <- 20
     arr.[2] <- 30
     arr.[0] + arr.[1] + arr.[2] |> equal 60
+
+// --- Array mutation on function parameters (mutate + read in same function) ---
+
+[<Fact>]
+let ``test Array mutation in function parameter works`` () =
+    let mutateAndSum (arr: int[]) =
+        arr.[0] <- 10
+        arr.[1] <- 20
+        arr.[2] <- 30
+        arr.[0] + arr.[1] + arr.[2]
+    let data = [| 0; 0; 0 |]
+    mutateAndSum data |> equal 60
+
+[<Fact>]
+let ``test Array mutation in lambda parameter works`` () =
+    let fill = fun (arr: int[]) ->
+        arr.[0] <- 100
+        arr.[1] <- 200
+        arr.[0] + arr.[1]
+    let data = [| 0; 0 |]
+    fill data |> equal 300
+
+// TODO: ForLoop AST node not handled in containsArrayMutation, so for-loop array mutation
+// inside inlined functions doesn't get ref-wrapped
+// [<Fact>]
+// let ``test Array parameter mutation with loop works`` () =
+//     let fillAndSum (arr: int[]) =
+//         for i in 0 .. arr.Length - 1 do
+//             arr.[i] <- i * 10
+//         arr.[0] + arr.[1] + arr.[2] + arr.[3]
+//     let data = Array.zeroCreate<int> 4
+//     fillAndSum data |> equal 60
+
+[<Fact>]
+let ``test Multiple params only mutated one gets ref-wrapped`` () =
+    let addToArray (offset: int) (arr: int[]) =
+        arr.[0] <- arr.[0] + offset
+        arr.[1] <- arr.[1] + offset
+        arr.[0] + arr.[1]
+    let data = [| 10; 20 |]
+    addToArray 5 data |> equal 40
+
+[<Fact>]
+let ``test Array mutation and read in same delegate works`` () =
+    let compute = fun (data: int[]) (factor: int) ->
+        data.[0] <- data.[0] * factor
+        data.[1] <- data.[1] * factor
+        data.[0] + data.[1]
+    let arr = [| 3; 7 |]
+    compute arr 10 |> equal 100

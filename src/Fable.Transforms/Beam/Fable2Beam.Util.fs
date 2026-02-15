@@ -124,6 +124,45 @@ let rec containsArrayMutation (name: string) (expr: Expr) : bool =
         )
     | _ -> false
 
+/// Detect function parameters that get array-mutated in the body,
+/// and return an updated context (with those params in MutableVars)
+/// plus ref-init expressions to prepend to the body.
+let wrapMutatedParams (args: Ident list) (body: Expr) (mutableVars: Map<string, string>) =
+    let mutatedArgs =
+        args
+        |> List.filter (fun arg ->
+            arg.Name <> "_"
+            && not (arg.Name.StartsWith("_"))
+            && containsArrayMutation arg.Name body
+        )
+
+    let mutableVars' =
+        mutatedArgs
+        |> List.fold
+            (fun m arg ->
+                let refVarName =
+                    (Naming.capitalizeFirst arg.Name |> Naming.sanitizeErlangVar) + "_ref"
+
+                m |> Map.add arg.Name refVarName
+            )
+            mutableVars
+
+    let refInits =
+        mutatedArgs
+        |> List.map (fun arg ->
+            let refVarName =
+                (Naming.capitalizeFirst arg.Name |> Naming.sanitizeErlangVar) + "_ref"
+
+            let erlVarName = Naming.capitalizeFirst arg.Name |> Naming.sanitizeErlangVar
+
+            Beam.ErlExpr.Match(
+                Beam.PVar(refVarName),
+                Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ Beam.ErlExpr.Variable(erlVarName) ])
+            )
+        )
+
+    mutableVars', refInits
+
 /// Flatten nested Block expressions into a flat list
 let rec flattenBlock (expr: Beam.ErlExpr) : Beam.ErlExpr list =
     match expr with
