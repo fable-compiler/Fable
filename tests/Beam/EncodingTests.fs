@@ -61,6 +61,58 @@ let ``test Stopwatch elapsed time calculation works`` () =
     // Should be non-negative
     (elapsedMs >= 0.0) |> equal true
 
+[<Fact>]
+let ``test Stopwatch.StartNew and ElapsedMilliseconds work`` () =
+    let sw = System.Diagnostics.Stopwatch.StartNew()
+    // Do some work
+    let mutable sum = 0
+    for i in 1..10000 do
+        sum <- sum + i
+    sw.Stop()
+    let elapsed = sw.ElapsedMilliseconds
+    (elapsed >= 0L) |> equal true
+
+[<Fact>]
+let ``test Stopwatch Start and Stop work`` () =
+    let sw = System.Diagnostics.Stopwatch()
+    sw.Start()
+    let mutable sum = 0
+    for i in 1..10000 do
+        sum <- sum + i
+    sw.Stop()
+    let elapsed = sw.ElapsedMilliseconds
+    (elapsed >= 0L) |> equal true
+
+[<Fact>]
+let ``test Stopwatch.IsRunning works`` () =
+    let sw = System.Diagnostics.Stopwatch()
+    sw.IsRunning |> equal false
+    sw.Start()
+    sw.IsRunning |> equal true
+    sw.Stop()
+    sw.IsRunning |> equal false
+
+[<Fact>]
+let ``test Stopwatch.ElapsedTicks works`` () =
+    let sw = System.Diagnostics.Stopwatch.StartNew()
+    let mutable sum = 0
+    for i in 1..10000 do
+        sum <- sum + i
+    sw.Stop()
+    let ticks = sw.ElapsedTicks
+    (ticks >= 0L) |> equal true
+
+[<Fact>]
+let ``test Stopwatch.Reset works`` () =
+    let sw = System.Diagnostics.Stopwatch.StartNew()
+    let mutable sum = 0
+    for i in 1..10000 do
+        sum <- sum + i
+    sw.Stop()
+    sw.Reset()
+    sw.ElapsedMilliseconds |> equal 0L
+    sw.IsRunning |> equal false
+
 // --- BitConverter ---
 
 [<Fact>]
