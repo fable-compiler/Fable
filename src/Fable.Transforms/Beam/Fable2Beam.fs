@@ -407,6 +407,13 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             ]
         )
 
+    | Set(expr, ExprSet idx, _, value, _) ->
+        // Fallback: array index set without ref-wrapping — emit set_item call
+        let erlExpr = transformExpr com ctx expr
+        let erlIdx = transformExpr com ctx idx
+        let erlValue = transformExpr com ctx value
+        Beam.ErlExpr.Call(Some "fable_resize_array", "set_item", [ erlExpr; erlIdx; erlValue ])
+
     | Set _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_set"))
 
     | LetRec(bindings, body) ->

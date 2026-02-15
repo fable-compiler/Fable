@@ -3059,19 +3059,32 @@ let private encoding
 
 /// Beam-specific System.Diagnostics.Stopwatch replacements.
 let private stopwatch
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
     (info: CallInfo)
-    (_thisArg: Expr option)
+    (thisArg: Expr option)
     (_args: Expr list)
     =
-    match info.CompiledName with
+    match info.CompiledName, thisArg with
+    | ".ctor", _ -> Helper.LibCall(com, "fable_stopwatch", "create", t, [], ?loc = r) |> Some
+    | "StartNew", _ -> Helper.LibCall(com, "fable_stopwatch", "start_new", t, [], ?loc = r) |> Some
+    | "Start", Some x -> Helper.LibCall(com, "fable_stopwatch", "start", t, [ x ], ?loc = r) |> Some
+    | "Stop", Some x -> Helper.LibCall(com, "fable_stopwatch", "stop", t, [ x ], ?loc = r) |> Some
+    | "Reset", Some x -> Helper.LibCall(com, "fable_stopwatch", "reset", t, [ x ], ?loc = r) |> Some
+    | "get_IsRunning", Some x -> Helper.LibCall(com, "fable_stopwatch", "is_running", t, [ x ], ?loc = r) |> Some
+    | "get_ElapsedMilliseconds", Some x ->
+        Helper.LibCall(com, "fable_stopwatch", "elapsed_milliseconds", t, [ x ], ?loc = r)
+        |> Some
+    | "get_ElapsedTicks", Some x ->
+        Helper.LibCall(com, "fable_stopwatch", "elapsed_ticks", t, [ x ], ?loc = r)
+        |> Some
+    | "get_Elapsed", Some x -> Helper.LibCall(com, "fable_stopwatch", "elapsed", t, [ x ], ?loc = r) |> Some
     // Stopwatch.Frequency → 1_000_000 (microseconds per second)
-    | "get_Frequency" -> makeIntConst 1_000_000 |> Some
+    | "get_Frequency", _ -> makeIntConst 1_000_000 |> Some
     // Stopwatch.GetTimestamp() → erlang:monotonic_time(microsecond)
-    | "GetTimestamp" -> emitExpr r t [] "erlang:monotonic_time(microsecond)" |> Some
+    | "GetTimestamp", _ -> emitExpr r t [] "erlang:monotonic_time(microsecond)" |> Some
     | _ -> None
 
 /// Beam-specific Nullable<T> replacements.
