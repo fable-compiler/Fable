@@ -8,7 +8,6 @@
          cancellation_token/0, create_cancellation_token/0, create_cancellation_token/1]).
 
 %% Default context: run inline in current process
-default_ctx() -> default_ctx(undefined).
 default_ctx(CancelToken) ->
     #{on_success => fun(_) -> ok end,
       on_error => fun(E) -> erlang:error(E) end,

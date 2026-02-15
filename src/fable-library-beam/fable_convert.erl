@@ -13,11 +13,8 @@ to_float(Bin) when is_binary(Bin) ->
         Str ->
             case string:to_float(Str) of
                 {Float, []} -> Float;
-                {_Float, _Rest} ->
-                    %% Partial parse - try as integer
-                    try_as_integer(Str);
-                {error, no_float} ->
-                    %% No float found - try as integer
+                _ ->
+                    %% Partial parse or no float found - try as integer
                     try_as_integer(Str)
             end
     end;

@@ -89,7 +89,7 @@ clear(QRef) ->
 to_array(QRef) ->
     queue:to_list(get(QRef)).
 
-trim_excess(QRef) ->
+trim_excess(_QRef) ->
     %% No-op in Erlang (no pre-allocation)
     ok.
 

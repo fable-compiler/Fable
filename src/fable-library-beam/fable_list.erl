@@ -1,4 +1,5 @@
 -module(fable_list).
+-compile({no_auto_import,[ref_to_list/1]}).
 -export([fold/3, fold_back/3, fold2/4, fold_back2/4,
          reduce/2, reduce_back/2, map_indexed/2,
          sort_by/2, sort_by_descending/2, sort_with/2,
@@ -312,7 +313,7 @@ pick(Fn, List) ->
         V -> V
     end.
 
-try_pick(Fn, []) -> undefined;
+try_pick(_Fn, []) -> undefined;
 try_pick(Fn, [H|T]) ->
     case Fn(H) of
         undefined -> try_pick(Fn, T);
