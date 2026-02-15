@@ -17,7 +17,8 @@
          to_console/1, to_console/2, to_console/3, to_console/4, to_console/5,
          to_console_error/1, to_console_error/2, to_console_error/3,
          to_fail/1, to_fail/2, to_fail/3,
-         interpolate/2, format/2]).
+         interpolate/2, format/2,
+         console_writeline/1, console_write/1]).
 
 insert(Str, Idx, Value) ->
     iolist_to_binary([binary:part(Str, 0, Idx), Value, binary:part(Str, Idx, byte_size(Str) - Idx)]).
@@ -581,3 +582,26 @@ apply_width(Flags, Width, Str) when Width > 0 ->
             end
     end;
 apply_width(_, _, Str) -> Str.
+
+%% Console.WriteLine / Console.Write
+console_writeline(Value) when is_binary(Value) ->
+    io:format(<<"~s~n">>, [Value]);
+console_writeline(Value) when is_integer(Value) ->
+    io:format(<<"~B~n">>, [Value]);
+console_writeline(Value) when is_float(Value) ->
+    io:format(<<"~p~n">>, [Value]);
+console_writeline(Value) when is_boolean(Value) ->
+    io:format(<<"~s~n">>, [atom_to_binary(Value)]);
+console_writeline(Value) ->
+    io:format(<<"~p~n">>, [Value]).
+
+console_write(Value) when is_binary(Value) ->
+    io:format(<<"~s">>, [Value]);
+console_write(Value) when is_integer(Value) ->
+    io:format(<<"~B">>, [Value]);
+console_write(Value) when is_float(Value) ->
+    io:format(<<"~p">>, [Value]);
+console_write(Value) when is_boolean(Value) ->
+    io:format(<<"~s">>, [atom_to_binary(Value)]);
+console_write(Value) ->
+    io:format(<<"~p">>, [Value]).

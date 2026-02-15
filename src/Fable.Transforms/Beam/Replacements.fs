@@ -328,6 +328,13 @@ let private operators
         match ctx.CaughtException with
         | Some ex -> makeThrow r _t (IdentExpr ex) |> Some
         | None -> makeThrow r _t (Value(StringConstant "reraise", None)) |> Some
+    // Infinity and NaN — Erlang has no literals, use IEEE 754 binary construction
+    | ("Infinity" | "InfinitySingle"), _ ->
+        emitExpr r _t [] "(fun() -> <<F/float>> = <<0:1, 2047:11, 0:52>>, F end)()"
+        |> Some
+    | ("NaN" | "NaNSingle"), _ ->
+        emitExpr r _t [] "(fun() -> <<F/float>> = <<0:1, 2047:11, 1:52>>, F end)()"
+        |> Some
     // Pow (for Double, via math:pow)
     | "Pow", [ base_; exp_ ] -> emitExpr r _t [ base_; exp_ ] "math:pow($0, $1)" |> Some
     | Patterns.SetContains Operators.standardSet, _ ->
@@ -3862,6 +3869,16 @@ let tryCall
         | Some _ as res -> res
         | None -> conversions com ctx r t info thisArg args
     | "System.Convert" -> convert com ctx r t info thisArg args
+    | "System.Console" ->
+        match info.CompiledName, thisArg, args with
+        | "WriteLine", None, [] -> emitExpr r t [] "io:format(<<\"~n\">>)" |> Some
+        | "WriteLine", None, [ arg ] ->
+            Helper.LibCall(com, "fable_string", "console_writeline", t, [ arg ], ?loc = r)
+            |> Some
+        | "Write", None, [ arg ] ->
+            Helper.LibCall(com, "fable_string", "console_write", t, [ arg ], ?loc = r)
+            |> Some
+        | _ -> None
     | "System.Boolean" ->
         match info.CompiledName, thisArg, args with
         | "Parse", None, [ arg ] ->
