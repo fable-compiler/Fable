@@ -3,7 +3,9 @@
          get_enumerator/1, move_next/1, get_current/1,
          pos_infinity/0, neg_infinity/0, nan/0, is_infinity/1,
          new_lazy/1, new_lazy_from_value/1, force_lazy/1, is_value_created/1,
-         using/2, to_list/1]).
+         using/2, to_list/1,
+         new_byte_array/1, new_byte_array_zeroed/1, byte_array_to_list/1, is_byte_array/1,
+         byte_array_get/2, byte_array_set/3, byte_array_length/1]).
 
 %% Interface dispatch: works for both object expressions (maps) and class instances (refs).
 iface_get(Name, Obj) when is_map(Obj) -> maps:get(Name, Obj);
@@ -108,6 +110,63 @@ using(Resource, Action) ->
     after safe_dispose(Resource)
     end.
 
-%% Convert any value to a list — derefs array refs.
-to_list(V) when is_reference(V) -> get(V);
+%% Convert any value to a list — derefs array refs and atomics byte arrays.
+to_list(V) when is_reference(V) ->
+    case is_byte_array(V) of
+        true -> byte_array_to_list(V);
+        false -> get(V)
+    end;
 to_list(V) -> V.
+
+%% Atomics-backed byte arrays for O(1) read/write.
+new_byte_array({byte_array, _, _} = BA) ->
+    %% Already a byte array — copy it
+    new_byte_array(byte_array_to_list(BA));
+new_byte_array(Bin) when is_binary(Bin) ->
+    %% Binary to byte array
+    new_byte_array(binary_to_list(Bin));
+new_byte_array(Values) when is_list(Values) ->
+    Len = erlang:length(Values),
+    case Len of
+        0 ->
+            {byte_array, 0, atomics:new(1, [{signed, false}])};
+        _ ->
+            Ref = atomics:new(Len, [{signed, false}]),
+            populate_byte_array(Ref, 1, Values),
+            {byte_array, Len, Ref}
+    end.
+
+%% Create a zero-initialized byte array of given size (atomics are zero by default).
+new_byte_array_zeroed(0) ->
+    {byte_array, 0, atomics:new(1, [{signed, false}])};
+new_byte_array_zeroed(Len) ->
+    {byte_array, Len, atomics:new(Len, [{signed, false}])}.
+
+populate_byte_array(_, _, []) -> ok;
+populate_byte_array(Ref, Idx, [V|Rest]) ->
+    atomics:put(Ref, Idx, V),
+    populate_byte_array(Ref, Idx + 1, Rest).
+
+byte_array_to_list({byte_array, 0, _}) -> [];
+byte_array_to_list({byte_array, Size, Ref}) ->
+    [atomics:get(Ref, I) || I <- lists:seq(1, Size)].
+
+is_byte_array({byte_array, _, _}) -> true;
+is_byte_array(_) -> false.
+
+%% O(1) indexed get on byte array (0-based F# index).
+byte_array_get({byte_array, _, Ref}, Idx) ->
+    atomics:get(Ref, Idx + 1);
+byte_array_get(PdRef, Idx) when is_reference(PdRef) ->
+    byte_array_get(get(PdRef), Idx).
+
+%% O(1) indexed set on byte array (0-based F# index).
+byte_array_set({byte_array, _, Ref}, Idx, Value) ->
+    atomics:put(Ref, Idx + 1, Value);
+byte_array_set(PdRef, Idx, Value) when is_reference(PdRef) ->
+    byte_array_set(get(PdRef), Idx, Value).
+
+%% Length of byte array.
+byte_array_length({byte_array, Size, _}) -> Size;
+byte_array_length(PdRef) when is_reference(PdRef) ->
+    byte_array_length(get(PdRef)).

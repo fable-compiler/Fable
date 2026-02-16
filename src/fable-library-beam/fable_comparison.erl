@@ -1,9 +1,11 @@
 -module(fable_comparison).
 -export([compare/2, equals/2, hash/1]).
 
-%% Deep equality that handles ref-wrapped arrays (process dict refs).
-%% Refs are dereferenced before comparison so structural equality works.
+%% Deep equality that handles ref-wrapped arrays (process dict refs)
+%% and atomics-backed byte arrays ({byte_array, Size, AtomicsRef}).
 equals(A, A) -> true;
+equals({byte_array, _, _} = A, {byte_array, _, _} = B) ->
+    fable_utils:byte_array_to_list(A) =:= fable_utils:byte_array_to_list(B);
 equals(A, B) when is_reference(A), is_reference(B) ->
     deep_equals(get(A), get(B));
 equals(A, B) when is_reference(A) ->
@@ -19,6 +21,8 @@ equals(A, B) when is_map(A), is_map(B) ->
 equals(_, _) -> false.
 
 deep_equals(A, A) -> true;
+deep_equals({byte_array, _, _} = A, {byte_array, _, _} = B) ->
+    fable_utils:byte_array_to_list(A) =:= fable_utils:byte_array_to_list(B);
 deep_equals(A, B) when is_reference(A), is_reference(B) ->
     deep_equals(get(A), get(B));
 deep_equals(A, B) when is_reference(A) ->
@@ -49,7 +53,9 @@ deep_equals_map(A, B) ->
         maps:is_key(K, B) andalso deep_equals(maps:get(K, A), maps:get(K, B))
     end, maps:keys(A)).
 
-%% Deep compare that handles ref-wrapped arrays.
+%% Deep compare that handles ref-wrapped arrays and byte arrays.
+compare({byte_array, _, _} = A, {byte_array, _, _} = B) ->
+    compare_list(fable_utils:byte_array_to_list(A), fable_utils:byte_array_to_list(B));
 compare(A, B) when is_reference(A), is_reference(B) ->
     compare(get(A), get(B));
 compare(A, B) when is_reference(A) ->
@@ -80,10 +86,12 @@ compare_tuple(A, B, I, Size) ->
         R -> R
     end.
 
-%% Hash that derefs refs before hashing, so array refs hash by content.
+%% Hash that derefs refs and byte arrays before hashing.
+hash({byte_array, _, _} = V) -> erlang:phash2(fable_utils:byte_array_to_list(V));
 hash(V) when is_reference(V) -> erlang:phash2(deref_for_hash(get(V)));
 hash(V) -> erlang:phash2(deref_for_hash(V)).
 
+deref_for_hash({byte_array, _, _} = V) -> fable_utils:byte_array_to_list(V);
 deref_for_hash(V) when is_reference(V) -> deref_for_hash(get(V));
 deref_for_hash(L) when is_list(L) -> lists:map(fun deref_for_hash/1, L);
 deref_for_hash(T) when is_tuple(T) ->

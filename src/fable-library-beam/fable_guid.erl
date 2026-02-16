@@ -15,6 +15,8 @@ new_guid() ->
 
 %% Construct a GUID from a 16-byte array (binary or list of integers).
 %% .NET uses mixed-endian: first 3 groups are little-endian, last 2 are big-endian.
+from_bytes({byte_array, _, _} = BA) ->
+    from_bytes(list_to_binary(fable_utils:byte_array_to_list(BA)));
 from_bytes(Bytes) when is_binary(Bytes), byte_size(Bytes) =:= 16 ->
     <<B0,B1,B2,B3, B4,B5, B6,B7, B8,B9, B10,B11,B12,B13,B14,B15>> = Bytes,
     %% Group 1 (4 bytes, little-endian in .NET)
@@ -69,7 +71,7 @@ to_byte_array(Guid) when is_binary(Guid) ->
     %% Group 2 (2 bytes): little-endian swap
     %% Group 3 (2 bytes): little-endian swap
     %% Groups 4+5 (8 bytes): big-endian (no swap)
-    list_to_binary([B3,B2,B1,B0, B5,B4, B7,B6, B8,B9, B10,B11,B12,B13,B14,B15]).
+    fable_utils:new_byte_array([B3,B2,B1,B0, B5,B4, B7,B6, B8,B9, B10,B11,B12,B13,B14,B15]).
 
 hex_to_bytes([], Acc) -> lists:reverse(Acc);
 hex_to_bytes([H1, H2 | Rest], Acc) ->

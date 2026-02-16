@@ -382,24 +382,30 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
             Beam.ErlExpr.Call(Some "maps", "put", [ atomField; erlValue; erlExpr ])
 
-    | Set(expr, ExprSet idx, _, value, _) ->
-        // Array index set: all non-byte arrays are refs, so put(ref, set_item(get(ref), Idx, Value))
+    | Set(expr, ExprSet idx, typ, value, _) ->
         let erlExpr = transformExpr com ctx expr
         let erlIdx = transformExpr com ctx idx
         let erlValue = transformExpr com ctx value
 
-        Beam.ErlExpr.Call(
-            None,
-            "put",
-            [
-                erlExpr
-                Beam.ErlExpr.Call(
-                    Some "fable_resize_array",
-                    "set_item",
-                    [ Beam.ErlExpr.Call(None, "get", [ erlExpr ]); erlIdx; erlValue ]
-                )
-            ]
-        )
+        match expr.Type with
+        | Fable.AST.Fable.Type.Array(Fable.AST.Fable.Type.Number(UInt8, _), _) ->
+            // Byte array (atomics): fable_utils:byte_array_set(Arr, Idx, Value)
+            // Helper handles both direct {byte_array,...} tuples and process dict ref-wrapped ones
+            Beam.ErlExpr.Call(Some "fable_utils", "byte_array_set", [ erlExpr; erlIdx; erlValue ])
+        | _ ->
+            // Regular array ref: put(ref, set_item(get(ref), Idx, Value))
+            Beam.ErlExpr.Call(
+                None,
+                "put",
+                [
+                    erlExpr
+                    Beam.ErlExpr.Call(
+                        Some "fable_resize_array",
+                        "set_item",
+                        [ Beam.ErlExpr.Call(None, "get", [ erlExpr ]); erlIdx; erlValue ]
+                    )
+                ]
+            )
 
     | Set _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_set"))
 
@@ -977,14 +983,14 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         Beam.ErlExpr.ListCons(headExpr, tailExpr)
 
     | NewArray(ArrayValues values, Type.Number(UInt8, _), _kind) ->
-        // byte[] → Erlang binary <<v1, v2, ...>>
+        // byte[] → atomics-backed byte array via fable_utils:new_byte_array
         match values with
-        | [] -> Beam.ErlExpr.Emit("<<>>", [])
+        | [] -> Beam.ErlExpr.Call(Some "fable_utils", "new_byte_array", [ Beam.ErlExpr.List [] ])
         | _ ->
             let erlValues = values |> List.map (transformExpr com ctx)
             let hoisted, cleanValues = hoistBlocksFromArgs erlValues
 
-            Beam.ErlExpr.Call(None, "list_to_binary", [ Beam.ErlExpr.List cleanValues ])
+            Beam.ErlExpr.Call(Some "fable_utils", "new_byte_array", [ Beam.ErlExpr.List cleanValues ])
             |> wrapWithHoisted hoisted
 
     | NewArray(ArrayValues values, _typ, _kind) ->
@@ -994,13 +1000,17 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ Beam.ErlExpr.List cleanValues ])
         |> wrapWithHoisted hoisted
 
+    | NewArray(ArrayFrom expr, Type.Number(UInt8, _), _kind) ->
+        // byte[] from existing collection → convert to atomics byte array
+        Beam.ErlExpr.Call(Some "fable_utils", "new_byte_array", [ transformExpr com ctx expr ])
+
     | NewArray(ArrayFrom expr, _typ, _kind) ->
         Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ transformExpr com ctx expr ])
 
     | NewArray(ArrayAlloc size, Type.Number(UInt8, _), _kind) ->
-        // byte[] zero-alloc → binary of N zero bytes
+        // byte[] zero-alloc → atomics are already zero-initialized
         let erlSize = transformExpr com ctx size
-        Beam.ErlExpr.Call(Some "binary", "copy", [ Beam.ErlExpr.Emit("<<0>>", []); erlSize ])
+        Beam.ErlExpr.Call(Some "fable_utils", "new_byte_array_zeroed", [ erlSize ])
 
     | NewArray(ArrayAlloc size, _typ, _kind) ->
         // Create an array of N zeros: fable_utils:new_ref(lists:duplicate(N, 0))
@@ -1351,7 +1361,7 @@ and transformTest (com: IBeamCompiler) (ctx: Context) (kind: TestKind) (expr: Ex
         | Fable.AST.Fable.Type.Boolean -> Beam.ErlExpr.Call(None, "is_boolean", [ erlExpr ])
         | Fable.AST.Fable.Type.List _ -> Beam.ErlExpr.Call(None, "is_list", [ erlExpr ])
         | Fable.AST.Fable.Type.Array(Fable.AST.Fable.Type.Number(UInt8, _), _) ->
-            Beam.ErlExpr.Call(None, "is_binary", [ erlExpr ]) // byte arrays are binaries
+            Beam.ErlExpr.Call(Some "fable_utils", "is_byte_array", [ erlExpr ])
         | Fable.AST.Fable.Type.Array _ -> Beam.ErlExpr.Call(None, "is_reference", [ erlExpr ])
         | Fable.AST.Fable.Type.Tuple _ -> Beam.ErlExpr.Call(None, "is_tuple", [ erlExpr ])
         | Fable.AST.Fable.Type.DeclaredType(ref, _) ->
@@ -1436,8 +1446,9 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
 
         match expr.Type with
         | Fable.AST.Fable.Type.Array(Fable.AST.Fable.Type.Number(UInt8, _), _) ->
-            // byte[] (Erlang binary): binary:at(Bin, Idx)
-            Beam.ErlExpr.Call(Some "binary", "at", [ erlExpr; erlIndex ])
+            // byte[] (atomics): fable_utils:byte_array_get(Arr, Idx)
+            // Helper handles both direct {byte_array,...} tuples and process dict ref-wrapped ones
+            Beam.ErlExpr.Call(Some "fable_utils", "byte_array_get", [ erlExpr; erlIndex ])
         | Fable.AST.Fable.Type.Array _ ->
             // Array ref: deref via get() then index; lists:nth is 1-based, F# is 0-based
             Beam.ErlExpr.Call(

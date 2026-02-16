@@ -1034,3 +1034,57 @@ let ``test Array mutation and read in same delegate works`` () =
         data.[0] + data.[1]
     let arr = [| 3; 7 |]
     compute arr 10 |> equal 100
+
+// --- Byte array (atomics) tests ---
+
+[<Fact>]
+let ``test byte array zeroCreate and indexed set works`` () =
+    let data = Array.zeroCreate<byte> 4
+    data.[0] <- 10uy
+    data.[1] <- 20uy
+    data.[2] <- 30uy
+    data.[3] <- 255uy
+    data.[0] |> equal 10uy
+    data.[1] |> equal 20uy
+    data.[2] |> equal 30uy
+    data.[3] |> equal 255uy
+
+[<Fact>]
+let ``test byte array zeroCreate with large size works`` () =
+    let size = 1024 * 64
+    let data = Array.zeroCreate<byte> size
+    data.[0] <- 42uy
+    data.[size - 1] <- 99uy
+    data.[0] |> equal 42uy
+    data.[size - 1] |> equal 99uy
+    data.[1] |> equal 0uy
+
+[<Fact>]
+let ``test byte array mutation via function parameter works`` () =
+    let fillAndCheck (data: byte[]) (offset: int) =
+        data.[offset + 0] <- 10uy
+        data.[offset + 1] <- 20uy
+        data.[offset + 2] <- 30uy
+        data.[offset + 3] <- 255uy
+    let data = Array.zeroCreate<byte> 200
+    fillAndCheck data 0
+    fillAndCheck data 100
+    data.[0] |> equal 10uy
+    data.[1] |> equal 20uy
+    data.[2] |> equal 30uy
+    data.[3] |> equal 255uy
+    data.[100] |> equal 10uy
+    data.[101] |> equal 20uy
+
+[<Fact>]
+let ``test byte array length works`` () =
+    let data = Array.zeroCreate<byte> 42
+    data.Length |> equal 42
+
+[<Fact>]
+let ``test byte array from literal works`` () =
+    let data = [| 1uy; 2uy; 3uy |]
+    data.[0] |> equal 1uy
+    data.[1] |> equal 2uy
+    data.[2] |> equal 3uy
+    data.Length |> equal 3

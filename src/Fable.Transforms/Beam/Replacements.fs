@@ -27,18 +27,18 @@ let private compare (com: ICompiler) r (left: Expr) (right: Expr) =
     Helper.LibCall(com, "fable_comparison", "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
 
 /// Deref an array ref to its underlying list (for passing to list BIFs).
-/// Byte arrays (UInt8) are binaries, not refs — pass through unchanged.
+/// Byte arrays (UInt8) are atomics — convert to list via fable_utils:byte_array_to_list.
 let private derefArr r (expr: Expr) =
     match expr.Type with
-    | Array(Type.Number(UInt8, _), _) -> expr
+    | Array(Type.Number(UInt8, _), _) -> emitExpr r (List Any) [ expr ] "fable_utils:byte_array_to_list($0)"
     | Array _ -> emitExpr r (List Any) [ expr ] "erlang:get($0)"
     | _ -> expr
 
 /// Wrap a plain list result as an array ref.
-/// Byte arrays stay as binaries. Non-array types pass through.
+/// Byte arrays become atomics via fable_utils:new_byte_array. Non-array types pass through.
 let private wrapArr (com: ICompiler) r (t: Type) (expr: Expr) =
     match t with
-    | Array(Type.Number(UInt8, _), _) -> expr
+    | Array(Type.Number(UInt8, _), _) -> Helper.LibCall(com, "fable_utils", "new_byte_array", t, [ expr ], ?loc = r)
     | Array _ -> Helper.LibCall(com, "fable_utils", "new_ref", t, [ expr ], ?loc = r)
     | _ -> expr
 
@@ -1918,9 +1918,10 @@ let private arrays
         | None -> false
 
     match info.CompiledName, thisArg, args with
-    | "get_Length", Some c, _ when isByteArray -> emitExpr r t [ c ] "byte_size($0)" |> Some
+    | "get_Length", Some c, _ when isByteArray -> emitExpr r t [ c ] "fable_utils:byte_array_length($0)" |> Some
     | "get_Length", Some c, _ -> emitExpr r t [ c ] "erlang:length(erlang:get($0))" |> Some
-    | "get_Item", Some c, [ idx ] when isByteArray -> emitExpr r t [ c; idx ] "binary:at($0, $1)" |> Some
+    | "get_Item", Some c, [ idx ] when isByteArray ->
+        emitExpr r t [ c; idx ] "fable_utils:byte_array_get($0, $1)" |> Some
     | "get_Item", Some c, [ idx ] -> emitExpr r t [ c; idx ] "lists:nth($1 + 1, erlang:get($0))" |> Some
     | "set_Item", Some c, [ idx; value ] -> setExpr r c idx value |> Some
     // System.Array.Copy(source, dest, length) — copy first N elements
@@ -2374,31 +2375,60 @@ let private arrayModule
     // === Creation ops: wrap result only ===
     | "Empty", _ -> Value(NewArray(ArrayValues [], t, MutableArray), None) |> Some
     | "Singleton", [ item ] ->
-        Helper.LibCall(com, "fable_utils", "new_ref", t, [ emitExpr r t [ item ] "[$0]" ], ?loc = r)
-        |> Some
+        match t with
+        | Array(Type.Number(UInt8, _), _) ->
+            Helper.LibCall(com, "fable_utils", "new_byte_array", t, [ emitExpr r t [ item ] "[$0]" ], ?loc = r)
+            |> Some
+        | _ ->
+            Helper.LibCall(com, "fable_utils", "new_ref", t, [ emitExpr r t [ item ] "[$0]" ], ?loc = r)
+            |> Some
     | "ZeroCreate", [ count ] ->
-        Helper.LibCall(com, "fable_utils", "new_ref", t, [ emitExpr r t [ count ] "lists:duplicate($0, 0)" ], ?loc = r)
-        |> Some
+        match t with
+        | Array(Type.Number(UInt8, _), _) ->
+            Helper.LibCall(com, "fable_utils", "new_byte_array_zeroed", t, [ count ], ?loc = r)
+            |> Some
+        | _ ->
+            Helper.LibCall(
+                com,
+                "fable_utils",
+                "new_ref",
+                t,
+                [ emitExpr r t [ count ] "lists:duplicate($0, 0)" ],
+                ?loc = r
+            )
+            |> Some
     | "Create", [ count; value ] ->
-        Helper.LibCall(
-            com,
-            "fable_utils",
-            "new_ref",
-            t,
-            [ emitExpr r t [ count; value ] "lists:duplicate($0, $1)" ],
-            ?loc = r
-        )
-        |> Some
+        match t with
+        | Array(Type.Number(UInt8, _), _) ->
+            Helper.LibCall(
+                com,
+                "fable_utils",
+                "new_byte_array",
+                t,
+                [ emitExpr r t [ count; value ] "lists:duplicate($0, $1)" ],
+                ?loc = r
+            )
+            |> Some
+        | _ ->
+            Helper.LibCall(
+                com,
+                "fable_utils",
+                "new_ref",
+                t,
+                [ emitExpr r t [ count; value ] "lists:duplicate($0, $1)" ],
+                ?loc = r
+            )
+            |> Some
     | "Initialize", [ count; fn ] ->
         Helper.LibCall(com, "fable_list", "init", t, [ count; fn ])
         |> wrapArr com r t
         |> Some
     // === Conversion ops ===
     | "ToList", [ arr ] -> derefArr r arr |> Some
-    | "OfList", [ lst ] -> Helper.LibCall(com, "fable_utils", "new_ref", t, [ lst ], ?loc = r) |> Some
+    | "OfList", [ lst ] -> wrapArr com r t lst |> Some
     | "OfSeq", [ seq ] ->
         let seq = unwrapSeqArg r seq
-        Helper.LibCall(com, "fable_utils", "new_ref", t, [ seq ], ?loc = r) |> Some
+        wrapArr com r t seq |> Some
     | "ToSeq", [ arr ] -> derefArr r arr |> Some
     // === In-place mutation: deref for computation, put result back ===
     | "SortInPlace", [ arr ] ->
@@ -3501,16 +3531,24 @@ let private encoding
     match info.CompiledName, thisArg, args with
     // Encoding.UTF8 / Encoding.Unicode — return an atom tag (not used, but needed as callee)
     | ("get_UTF8" | "get_Unicode"), _, _ -> emitExpr r t [] "utf8" |> Some
-    // GetBytes(string) → string is already a binary in Erlang
-    | "GetBytes", Some _callee, [ arg ] -> Some arg
-    // GetBytes(string, index, count) → binary:part
+    // GetBytes(string) → convert string binary to atomics byte array
+    | "GetBytes", Some _callee, [ arg ] -> emitExpr r t [ arg ] "fable_utils:new_byte_array(binary_to_list($0))" |> Some
+    // GetBytes(string, index, count) → extract then convert to byte array
     | "GetBytes", Some _callee, [ str; idx; count ] ->
-        emitExpr r t [ str; idx; count ] "binary:part($0, $1, $2)" |> Some
-    // GetString(bytes) → bytes is already a string/binary in Erlang
-    | "GetString", Some _callee, [ arg ] -> Some arg
-    // GetString(bytes, index, count) → binary:part
+        emitExpr r t [ str; idx; count ] "fable_utils:new_byte_array(binary_to_list(binary:part($0, $1, $2)))"
+        |> Some
+    // GetString(bytes) → convert byte array to string binary
+    | "GetString", Some _callee, [ arg ] ->
+        emitExpr r t [ arg ] "list_to_binary(fable_utils:byte_array_to_list($0))"
+        |> Some
+    // GetString(bytes, index, count) → convert byte array subset to string
     | "GetString", Some _callee, [ bytes; idx; count ] ->
-        emitExpr r t [ bytes; idx; count ] "binary:part($0, $1, $2)" |> Some
+        emitExpr
+            r
+            t
+            [ bytes; idx; count ]
+            "list_to_binary(lists:sublist(fable_utils:byte_array_to_list($0), $1 + 1, $2))"
+        |> Some
     | _ -> None
 
 /// Beam-specific System.Diagnostics.Stopwatch replacements.
@@ -4403,7 +4441,8 @@ let tryCall
         match info.CompiledName, args with
         | "GetArray", [ ar; idx ] ->
             match ar.Type with
-            | Type.Array(Type.Number(UInt8, _), _) -> emitExpr r t [ ar; idx ] "binary:at($0, $1)" |> Some
+            | Type.Array(Type.Number(UInt8, _), _) ->
+                emitExpr r t [ ar; idx ] "fable_utils:byte_array_get($0, $1)" |> Some
             | _ ->
                 let ar = derefArr r ar
                 emitExpr r t [ ar; idx ] "lists:nth($1 + 1, $0)" |> Some

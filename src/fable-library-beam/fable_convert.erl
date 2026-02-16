@@ -76,13 +76,15 @@ to_string(Value) ->
 %% Base64 encoding/decoding
 %% .NET's Convert.ToBase64String takes byte[] and returns string
 %% .NET's Convert.FromBase64String takes string and returns byte[]
+to_base64({byte_array, _, _} = BA) ->
+    base64:encode(list_to_binary(fable_utils:byte_array_to_list(BA)));
 to_base64(Bytes) when is_list(Bytes) ->
     base64:encode(list_to_binary(Bytes));
 to_base64(Bin) when is_binary(Bin) ->
     base64:encode(Bin).
 
 from_base64(Str) when is_binary(Str) ->
-    base64:decode(Str).
+    fable_utils:new_byte_array(binary_to_list(base64:decode(Str))).
 
 %% TryParse: returns bool and sets out-param via put(OutRef, Value).
 %% F# uses out-parameter pattern: result = TryParse(str, &outRef).
