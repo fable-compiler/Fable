@@ -40,6 +40,8 @@ initialize(Count, Fn) ->
 take(N, List) ->
     lists:sublist(List, N).
 
+skip(N, List) when is_reference(List) ->
+    skip(N, get(List));
 skip(N, List) ->
     lists:nthtail(N, List).
 
@@ -52,6 +54,8 @@ take_while(Fn, List) ->
 skip_while(Fn, List) ->
     lists:dropwhile(Fn, List).
 
+pairwise(List) when is_reference(List) ->
+    pairwise(get(List));
 pairwise([]) -> [];
 pairwise([_]) -> [];
 pairwise(List) ->
@@ -107,6 +111,10 @@ distinct_by_acc(Fn, [H|T], Seen, Acc) ->
         false -> distinct_by_acc(Fn, T, maps:put(Key, true, Seen), [H | Acc])
     end.
 
+except(Excluded, List) when is_reference(Excluded) ->
+    except(get(Excluded), List);
+except(Excluded, List) when is_reference(List) ->
+    except(Excluded, get(List));
 except(Excluded, List) ->
     ExSet = maps:from_list([{E, true} || E <- Excluded]),
     [X || X <- List, not maps:is_key(X, ExSet)].

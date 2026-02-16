@@ -92,6 +92,8 @@ sleep(Milliseconds) ->
     end.
 
 %% Parallel: spawn one process per computation, collect results in order
+parallel(Computations) when is_reference(Computations) ->
+    parallel(get(Computations));
 parallel(Computations) ->
     fun(Ctx) ->
         Self = self(),
@@ -110,7 +112,7 @@ parallel(Computations) ->
         case Results of
             {ok, Map} ->
                 Ordered = [maps:get(I, Map) || I <- lists:seq(1, length(Computations))],
-                (maps:get(on_success, Ctx))(Ordered);
+                (maps:get(on_success, Ctx))(fable_utils:new_ref(Ordered));
             {error, Err} ->
                 (maps:get(on_error, Ctx))(Err)
         end

@@ -56,6 +56,8 @@ pad_right(Str, Width, PadChar) ->
 replace(Str, Old, New) ->
     iolist_to_binary(string:replace(Str, Old, New, all)).
 
+join(Sep, Items) when is_reference(Items) ->
+    join(Sep, get(Items));
 join(Sep, Items) ->
     iolist_to_binary(lists:join(Sep, Items)).
 
@@ -318,6 +320,8 @@ interpolate_loop(<<C/utf8, Rest/binary>>, Values, Acc) ->
     interpolate_loop(Rest, Values, [<<C/utf8>> | Acc]).
 
 %% format/2 — .NET String.Format("{0} {1}", [Arg0, Arg1]).
+format(FmtStr, Args) when is_reference(Args) ->
+    format(FmtStr, get(Args));
 format(FmtStr, Args) ->
     ArgList = case is_list(Args) of true -> Args; false -> [Args] end,
     format_dotnet(FmtStr, ArgList, []).

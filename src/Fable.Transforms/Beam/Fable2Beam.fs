@@ -141,23 +141,6 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 erlBody
             ]
 
-    | Let(ident, value, body) when not ident.IsMutable && containsArrayMutation ident.Name body ->
-        // Non-mutable array with indexed set (arr.[i] <- v): wrap in process dict ref
-        // so mutation works via the ExprSet handler (put/get pattern).
-        let refVarName = (capitalizeFirst ident.Name |> sanitizeErlangVar) + "_ref"
-        let erlValue = transformExpr com ctx value
-        let ctx' = { ctx with MutableVars = ctx.MutableVars.Add(ident.Name, refVarName) }
-        let erlBody = transformExpr com ctx' body
-
-        Beam.ErlExpr.Block
-            [
-                Beam.ErlExpr.Match(
-                    Beam.PVar(refVarName),
-                    Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ erlValue ])
-                )
-                erlBody
-            ]
-
     | Let(ident, value, body) ->
         let varName = capitalizeFirst ident.Name |> sanitizeErlangVar
 
@@ -289,8 +272,6 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
     | Lambda(arg, body, _name) ->
         let ctx' = { ctx with LocalVars = ctx.LocalVars.Add(arg.Name) }
-        let mutableVars', refInits = wrapMutatedParams [ arg ] body ctx'.MutableVars
-        let ctx' = { ctx' with MutableVars = mutableVars' }
         let erlBody = transformExpr com ctx' body
 
         let bodyExprs =
@@ -303,7 +284,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 {
                     Patterns = [ Beam.PVar(capitalizeFirst arg.Name |> sanitizeErlangVar) ]
                     Guard = []
-                    Body = refInits @ bodyExprs
+                    Body = bodyExprs
                 }
             ]
 
@@ -315,8 +296,6 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         let ctx' =
             { ctx with LocalVars = args |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars }
 
-        let mutableVars', refInits = wrapMutatedParams args body ctx'.MutableVars
-        let ctx' = { ctx' with MutableVars = mutableVars' }
         let erlBody = transformExpr com ctx' body
 
         let bodyExprs =
@@ -329,7 +308,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 {
                     Patterns = argPats
                     Guard = []
-                    Body = refInits @ bodyExprs
+                    Body = bodyExprs
                 }
             ]
 
@@ -360,6 +339,10 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             // Mutable variable: update via process dictionary using unique ref key
             let refVarName = ctx.MutableVars.[ident.Name]
             Beam.ErlExpr.Call(None, "put", [ Beam.ErlExpr.Variable(refVarName); transformExpr com ctx value ])
+        | IdentExpr ident when isRefArray expr.Type ->
+            // Array ref (non-byte): put the new value into the process dict ref
+            let erlExpr = transformExpr com ctx expr
+            Beam.ErlExpr.Call(None, "put", [ erlExpr; transformExpr com ctx value ])
         | IdentExpr ident -> Beam.ErlExpr.Match(Beam.PVar(capitalizeFirst ident.Name), transformExpr com ctx value)
         | _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_set"))
 
@@ -390,11 +373,9 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             // Record: existing behavior (maps:put returning new map)
             Beam.ErlExpr.Call(Some "maps", "put", [ atomField; erlValue; erlExpr ])
 
-    | Set(IdentExpr ident, ExprSet idx, _, value, _) when ctx.MutableVars.ContainsKey(ident.Name) ->
-        // Array index set on mutable variable: put(ref, fable_resize_array:set_item(get(ref), Idx, Value))
-        let refVarName = ctx.MutableVars.[ident.Name]
-        let refVar = Beam.ErlExpr.Variable(refVarName)
-
+    | Set(expr, ExprSet idx, _, value, _) ->
+        // Array index set: all non-byte arrays are refs, so put(ref, set_item(get(ref), Idx, Value))
+        let erlExpr = transformExpr com ctx expr
         let erlIdx = transformExpr com ctx idx
         let erlValue = transformExpr com ctx value
 
@@ -402,21 +383,14 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             None,
             "put",
             [
-                refVar
+                erlExpr
                 Beam.ErlExpr.Call(
                     Some "fable_resize_array",
                     "set_item",
-                    [ Beam.ErlExpr.Call(None, "get", [ refVar ]); erlIdx; erlValue ]
+                    [ Beam.ErlExpr.Call(None, "get", [ erlExpr ]); erlIdx; erlValue ]
                 )
             ]
         )
-
-    | Set(expr, ExprSet idx, _, value, _) ->
-        // Fallback: array index set without ref-wrapping — emit set_item call
-        let erlExpr = transformExpr com ctx expr
-        let erlIdx = transformExpr com ctx idx
-        let erlValue = transformExpr com ctx value
-        Beam.ErlExpr.Call(Some "fable_resize_array", "set_item", [ erlExpr; erlIdx; erlValue ])
 
     | Set _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_set"))
 
@@ -475,10 +449,6 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                             { ctx' with LocalVars = args |> List.fold (fun s a -> s.Add(a.Name)) ctx'.LocalVars }
                         | _ -> failwith "unreachable: already checked allAreLambdas"
 
-                    let mutableVars', refInits =
-                        wrapMutatedParams lambdaArgs lambdaBody lambdaCtx.MutableVars
-
-                    let lambdaCtx = { lambdaCtx with MutableVars = mutableVars' }
                     let erlBody = transformExpr com lambdaCtx lambdaBody
 
                     let bodyExprs =
@@ -493,7 +463,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                                 {
                                     Beam.ErlFunClause.Patterns = argPats
                                     Guard = []
-                                    Body = refInits @ bodyExprs
+                                    Body = bodyExprs
                                 }
                             ]
 
@@ -546,10 +516,6 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                     { ctx' with LocalVars = args |> List.fold (fun s a -> s.Add(a.Name)) ctx'.LocalVars }
                 | _ -> failwith "unreachable: already checked allAreLambdas"
 
-            let mutableVars', refInits =
-                wrapMutatedParams lambdaArgs lambdaBody lambdaCtx.MutableVars
-
-            let lambdaCtx = { lambdaCtx with MutableVars = mutableVars' }
             let erlLambdaBody = transformExpr com lambdaCtx lambdaBody
 
             let bodyExprs =
@@ -564,7 +530,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                         {
                             Patterns = argPats
                             Guard = []
-                            Body = refInits @ bodyExprs
+                            Body = bodyExprs
                         }
                     ]
                 )
@@ -1015,9 +981,12 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
     | NewArray(ArrayValues values, _typ, _kind) ->
         let erlValues = values |> List.map (transformExpr com ctx)
         let hoisted, cleanValues = hoistBlocksFromArgs erlValues
-        Beam.ErlExpr.List cleanValues |> wrapWithHoisted hoisted
 
-    | NewArray(ArrayFrom expr, _typ, _kind) -> transformExpr com ctx expr
+        Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ Beam.ErlExpr.List cleanValues ])
+        |> wrapWithHoisted hoisted
+
+    | NewArray(ArrayFrom expr, _typ, _kind) ->
+        Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ transformExpr com ctx expr ])
 
     | NewArray(ArrayAlloc size, Type.Number(UInt8, _), _kind) ->
         // byte[] zero-alloc → binary of N zero bytes
@@ -1025,9 +994,20 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         Beam.ErlExpr.Call(Some "binary", "copy", [ Beam.ErlExpr.Emit("<<0>>", []); erlSize ])
 
     | NewArray(ArrayAlloc size, _typ, _kind) ->
-        // Create an array of N zeros: lists:duplicate(N, 0)
+        // Create an array of N zeros: fable_utils:new_ref(lists:duplicate(N, 0))
         let erlSize = transformExpr com ctx size
-        Beam.ErlExpr.Call(Some "lists", "duplicate", [ erlSize; Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 0L) ])
+
+        Beam.ErlExpr.Call(
+            Some "fable_utils",
+            "new_ref",
+            [
+                Beam.ErlExpr.Call(
+                    Some "lists",
+                    "duplicate",
+                    [ erlSize; Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 0L) ]
+                )
+            ]
+        )
 
     | NewUnion(values, tag, _ref, _genArgs) ->
         let erlValues = values |> List.map (transformExpr com ctx)
@@ -1220,6 +1200,51 @@ and transformOperation
         | BinaryExponent ->
             Beam.ErlExpr.Call(Some "math", "pow", [ cleanLeft; cleanRight ])
             |> wrapWithHoisted allHoisted
+        | (BinaryLess | BinaryLessOrEqual | BinaryGreater | BinaryGreaterOrEqual) when
+            (match left.Type with
+             | Fable.AST.Fable.Type.Array _ -> true
+             | _ -> false)
+            || (
+                match right.Type with
+                | Fable.AST.Fable.Type.Array _ -> true
+                | _ -> false
+            )
+            ->
+            // Array refs need structural comparison via fable_comparison:compare
+            let cmpResult =
+                Beam.ErlExpr.Call(Some "fable_comparison", "compare", [ cleanLeft; cleanRight ])
+
+            let cmpOp =
+                match op with
+                | BinaryLess -> "<"
+                | BinaryLessOrEqual -> "=<"
+                | BinaryGreater -> ">"
+                | BinaryGreaterOrEqual -> ">="
+                | _ -> "<" // unreachable
+
+            Beam.ErlExpr.BinOp(cmpOp, cmpResult, Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 0))
+            |> wrapWithHoisted allHoisted
+        | (BinaryEqual | BinaryUnequal) when
+            (match left.Type with
+             | Fable.AST.Fable.Type.Array _ -> true
+             | _ -> false)
+            || (
+                match right.Type with
+                | Fable.AST.Fable.Type.Array _ -> true
+                | _ -> false
+            )
+            ->
+            // Array refs need structural equality via fable_comparison:compare
+            let cmpResult =
+                Beam.ErlExpr.Call(Some "fable_comparison", "compare", [ cleanLeft; cleanRight ])
+
+            let cmpOp =
+                match op with
+                | BinaryEqual -> "=:="
+                | _ -> "=/="
+
+            Beam.ErlExpr.BinOp(cmpOp, cmpResult, Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 0))
+            |> wrapWithHoisted allHoisted
         | _ ->
             let erlOp =
                 match op with
@@ -1316,7 +1341,9 @@ and transformTest (com: IBeamCompiler) (ctx: Context) (kind: TestKind) (expr: Ex
         | Fable.AST.Fable.Type.String -> Beam.ErlExpr.Call(None, "is_binary", [ erlExpr ])
         | Fable.AST.Fable.Type.Boolean -> Beam.ErlExpr.Call(None, "is_boolean", [ erlExpr ])
         | Fable.AST.Fable.Type.List _ -> Beam.ErlExpr.Call(None, "is_list", [ erlExpr ])
-        | Fable.AST.Fable.Type.Array _ -> Beam.ErlExpr.Call(None, "is_list", [ erlExpr ])
+        | Fable.AST.Fable.Type.Array(Fable.AST.Fable.Type.Number(UInt8, _), _) ->
+            Beam.ErlExpr.Call(None, "is_binary", [ erlExpr ]) // byte arrays are binaries
+        | Fable.AST.Fable.Type.Array _ -> Beam.ErlExpr.Call(None, "is_reference", [ erlExpr ])
         | Fable.AST.Fable.Type.Tuple _ -> Beam.ErlExpr.Call(None, "is_tuple", [ erlExpr ])
         | Fable.AST.Fable.Type.DeclaredType(ref, _) ->
             // For exception types, check __type tag: (is_map(X) andalso maps:get(__type, X, undefined) =:= type_name)
@@ -1399,13 +1426,13 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
             // byte[] (Erlang binary): binary:at(Bin, Idx)
             Beam.ErlExpr.Call(Some "binary", "at", [ erlExpr; erlIndex ])
         | Fable.AST.Fable.Type.Array _ ->
-            // Array (Erlang list): lists:nth is 1-based, F# is 0-based
+            // Array ref: deref via get() then index; lists:nth is 1-based, F# is 0-based
             Beam.ErlExpr.Call(
                 Some "lists",
                 "nth",
                 [
                     Beam.ErlExpr.BinOp("+", erlIndex, Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 1L))
-                    erlExpr
+                    Beam.ErlExpr.Call(None, "get", [ erlExpr ])
                 ]
             )
         | Fable.AST.Fable.Type.String ->
@@ -1461,7 +1488,7 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                 let tempExpectedH, useExpected = storeIfComplex "Assert_expected" cleanExpected
 
                 Beam.ErlExpr.Case(
-                    Beam.ErlExpr.BinOp("=:=", useActual, useExpected),
+                    Beam.ErlExpr.Call(Some "fable_comparison", "equals", [ useActual; useExpected ]),
                     [
                         {
                             Pattern = Beam.PLiteral(Beam.BoolLit true)
@@ -1516,15 +1543,15 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                 let tempExpectedH, useExpected = storeIfComplex "Assert_expected" cleanExpected
 
                 Beam.ErlExpr.Case(
-                    Beam.ErlExpr.BinOp("=/=", useActual, useExpected),
+                    Beam.ErlExpr.Call(Some "fable_comparison", "equals", [ useActual; useExpected ]),
                     [
                         {
-                            Pattern = Beam.PLiteral(Beam.BoolLit true)
+                            Pattern = Beam.PLiteral(Beam.BoolLit false)
                             Guard = []
                             Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "ok")) ]
                         }
                         {
-                            Pattern = Beam.PLiteral(Beam.BoolLit false)
+                            Pattern = Beam.PLiteral(Beam.BoolLit true)
                             Guard = []
                             Body =
                                 [
@@ -2280,16 +2307,12 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
             else
                 FSharp2Fable.Util.discardUnitArg memDecl.Args
 
-        let mutableVars', refInits =
-            wrapMutatedParams nonThisArgs memDecl.Body memberCtx.MutableVars
-
-        let memberCtx = { memberCtx with MutableVars = mutableVars' }
         let bodyExpr = transformExpr com memberCtx memDecl.Body
 
         let body =
             match bodyExpr with
-            | Beam.ErlExpr.Block exprs -> refInits @ exprs
-            | expr -> refInits @ [ expr ]
+            | Beam.ErlExpr.Block exprs -> exprs
+            | expr -> [ expr ]
 
         let funcDef: Beam.ErlFunctionDef =
             {

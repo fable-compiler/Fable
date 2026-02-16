@@ -87,6 +87,8 @@ while(Guard, Computation) ->
     end.
 
 %% For: iterate over list, bind body for each element
+for(List, Body) when is_reference(List) ->
+    for(get(List), Body);
 for(List, Body) ->
     case List of
         [] -> zero();

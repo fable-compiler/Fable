@@ -11,17 +11,36 @@ type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
-// Erlang's =:= does deep structural comparison for all types
-// (atoms, numbers, binaries, tuples, maps, lists), so we can
-// use BinaryEqual/BinaryUnequal directly instead of library calls.
-let private equals r equal (left: Expr) (right: Expr) =
+// Use fable_comparison:equals/2 for structural equality.
+// This handles ref-wrapped arrays (process dict refs) by dereferencing
+// before comparison, so structural equality works correctly.
+let private equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
+    let eqCall =
+        Helper.LibCall(com, "fable_comparison", "equals", Boolean, [ left; right ], ?loc = r)
+
     if equal then
-        makeBinOp r Boolean left right BinaryEqual
+        eqCall
     else
-        makeBinOp r Boolean left right BinaryUnequal
+        Operation(Unary(UnaryNot, eqCall), Tags.empty, Boolean, r)
 
 let private compare (com: ICompiler) r (left: Expr) (right: Expr) =
     Helper.LibCall(com, "fable_comparison", "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
+
+/// Deref an array ref to its underlying list (for passing to list BIFs).
+/// Byte arrays (UInt8) are binaries, not refs — pass through unchanged.
+let private derefArr r (expr: Expr) =
+    match expr.Type with
+    | Array(Type.Number(UInt8, _), _) -> expr
+    | Array _ -> emitExpr r (List Any) [ expr ] "erlang:get($0)"
+    | _ -> expr
+
+/// Wrap a plain list result as an array ref.
+/// Byte arrays stay as binaries. Non-array types pass through.
+let private wrapArr (com: ICompiler) r (t: Type) (expr: Expr) =
+    match t with
+    | Array(Type.Number(UInt8, _), _) -> expr
+    | Array _ -> Helper.LibCall(com, "fable_utils", "new_ref", t, [ expr ], ?loc = r)
+    | _ -> expr
 
 let private getOne (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
@@ -139,7 +158,7 @@ let private operators
     | "FailurePattern", [ exn ] -> emitExpr r _t [ exn ] "maps:get(message, $0, $0)" |> Some
     // LazyPattern — force a lazy value
     | "LazyPattern", [ arg ] -> Helper.LibCall(com, "fable_utils", "force_lazy", _t, [ arg ], ?loc = r) |> Some
-    | "Hash", [ arg ] -> emitExpr r _t [ arg ] "erlang:phash2($0)" |> Some
+    | "Hash", [ arg ] -> Helper.LibCall(com, "fable_comparison", "hash", _t, [ arg ], ?loc = r) |> Some
     | "Compare", [ left; right ] -> compare com r left right |> Some
     // Math operators
     | "Abs", [ arg ] -> emitExpr r _t [ arg ] "erlang:abs($0)" |> Some
@@ -174,8 +193,8 @@ let private operators
     | ("Min" | "Min_"), [ a; b ] -> emitExpr r _t [ a; b ] "erlang:min($0, $1)" |> Some
     | "Clamp", [ value; min_; max_ ] -> emitExpr r _t [ value; min_; max_ ] "erlang:min(erlang:max($0, $1), $2)" |> Some
     | "Log", [ x; base_ ] -> emitExpr r _t [ x; base_ ] "(math:log($0) / math:log($1))" |> Some
-    | (Operators.equality | "Eq"), [ left; right ] -> equals r true left right |> Some
-    | (Operators.inequality | "Neq"), [ left; right ] -> equals r false left right |> Some
+    | (Operators.equality | "Eq"), [ left; right ] -> equals com r true left right |> Some
+    | (Operators.inequality | "Neq"), [ left; right ] -> equals com r false left right |> Some
     | (Operators.lessThan | "Lt"), [ left; right ] -> makeBinOp r Boolean left right BinaryLess |> Some
     | (Operators.lessThanOrEqual | "Lte"), [ left; right ] -> makeBinOp r Boolean left right BinaryLessOrEqual |> Some
     | (Operators.greaterThan | "Gt"), [ left; right ] -> makeBinOp r Boolean left right BinaryGreater |> Some
@@ -418,21 +437,27 @@ let private languagePrimitives
     (args: Expr list)
     =
     match info.CompiledName, args with
-    | ("GenericEquality" | "GenericEqualityIntrinsic"), [ left; right ] -> equals r true left right |> Some
-    | ("GenericEqualityER" | "GenericEqualityERIntrinsic"), [ left; right ] -> equals r true left right |> Some
+    | ("GenericEquality" | "GenericEqualityIntrinsic"), [ left; right ] -> equals com r true left right |> Some
+    | ("GenericEqualityER" | "GenericEqualityERIntrinsic"), [ left; right ] -> equals com r true left right |> Some
     | ("GenericComparison" | "GenericComparisonIntrinsic"), [ left; right ] -> compare com r left right |> Some
     | ("GenericLessThan" | "GenericLessThanIntrinsic"), [ left; right ] ->
-        makeBinOp r Boolean left right BinaryLess |> Some
+        let cmp = compare com r left right
+        makeBinOp r Boolean cmp (makeIntConst 0) BinaryLess |> Some
     | ("GenericLessOrEqual" | "GenericLessOrEqualIntrinsic"), [ left; right ] ->
-        makeBinOp r Boolean left right BinaryLessOrEqual |> Some
+        let cmp = compare com r left right
+        makeBinOp r Boolean cmp (makeIntConst 0) BinaryLessOrEqual |> Some
     | ("GenericGreaterThan" | "GenericGreaterThanIntrinsic"), [ left; right ] ->
-        makeBinOp r Boolean left right BinaryGreater |> Some
+        let cmp = compare com r left right
+        makeBinOp r Boolean cmp (makeIntConst 0) BinaryGreater |> Some
     | ("GenericGreaterOrEqual" | "GenericGreaterOrEqualIntrinsic"), [ left; right ] ->
-        makeBinOp r Boolean left right BinaryGreaterOrEqual |> Some
+        let cmp = compare com r left right
+        makeBinOp r Boolean cmp (makeIntConst 0) BinaryGreaterOrEqual |> Some
     | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [ left; right ] ->
         makeBinOp r Boolean left right BinaryEqual |> Some
-    | ("GenericHash" | "GenericHashIntrinsic"), [ arg ] -> emitExpr r t [ arg ] "erlang:phash2($0)" |> Some
-    | ("PhysicalHash" | "PhysicalHashIntrinsic"), [ arg ] -> emitExpr r t [ arg ] "erlang:phash2($0)" |> Some
+    | ("GenericHash" | "GenericHashIntrinsic"), [ arg ] ->
+        Helper.LibCall(com, "fable_comparison", "hash", t, [ arg ], ?loc = r) |> Some
+    | ("PhysicalHash" | "PhysicalHashIntrinsic"), [ arg ] ->
+        Helper.LibCall(com, "fable_comparison", "hash", t, [ arg ], ?loc = r) |> Some
     // GenericZero/GenericOne
     | "GenericZero", _ ->
         match t with
@@ -515,15 +540,15 @@ let private unchecked
         | Char -> CharConstant '\u0000' |> makeValue None |> Some
         | String -> makeStrConst "" |> Some
         | _ -> Value(Null typ, r) |> Some
-    | "Hash", [ arg ] -> emitExpr r t [ arg ] "erlang:phash2($0)" |> Some
-    | "Equals", [ left; right ] -> equals r true left right |> Some
+    | "Hash", [ arg ] -> Helper.LibCall(com, "fable_comparison", "hash", t, [ arg ], ?loc = r) |> Some
+    | "Equals", [ left; right ] -> equals com r true left right |> Some
     | "Compare", [ left; right ] -> compare com r left right |> Some
     | "NonNull", [ arg ] -> Some arg // Identity - unchecked non-null assertion
     | _ -> None
 
 /// Beam-specific System.Object replacements.
 let private objects
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -534,9 +559,11 @@ let private objects
     match info.CompiledName, thisArg, args with
     | ".ctor", _, _ -> emitExpr r t [] "ok" |> Some
     | "ReferenceEquals", None, [ left; right ] -> makeBinOp r Boolean left right BinaryEqual |> Some
-    | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
-    | "Equals", None, [ left; right ] -> equals r true left right |> Some
-    | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
+    | "Equals", Some thisObj, [ arg ] -> equals com r true thisObj arg |> Some
+    | "Equals", None, [ left; right ] -> equals com r true left right |> Some
+    | "GetHashCode", Some thisObj, [] ->
+        Helper.LibCall(com, "fable_comparison", "hash", t, [ thisObj ], ?loc = r)
+        |> Some
     | "GetType", Some arg, _ -> makeTypeInfo r arg.Type |> Some
     | "ToString", Some thisObj, [] ->
         match thisObj.Type with
@@ -544,7 +571,7 @@ let private objects
         | Type.Number(kind, _) ->
             match kind with
             | Decimal ->
-                Helper.LibCall(_com, "fable_decimal", "to_string", t, [ thisObj ], ?loc = r)
+                Helper.LibCall(com, "fable_decimal", "to_string", t, [ thisObj ], ?loc = r)
                 |> Some
             | Float16
             | Float32
@@ -553,18 +580,17 @@ let private objects
         | Type.Boolean -> emitExpr r t [ thisObj ] "atom_to_binary($0)" |> Some
         | Type.String -> Some thisObj
         | DeclaredType(ent, _) when ent.FullName = Types.timespan ->
-            Helper.LibCall(_com, "fable_timespan", "to_string", t, [ thisObj ], ?loc = r)
+            Helper.LibCall(com, "fable_timespan", "to_string", t, [ thisObj ], ?loc = r)
             |> Some
         | DeclaredType(ent, _) when ent.FullName = Types.datetime ->
-            Helper.LibCall(_com, "fable_date", "to_string", t, [ thisObj ], ?loc = r)
-            |> Some
+            Helper.LibCall(com, "fable_date", "to_string", t, [ thisObj ], ?loc = r) |> Some
         | DeclaredType(ent, _) when ent.FullName = "System.Uri" ->
-            Helper.LibCall(_com, "fable_uri", "to_string", t, [ thisObj ], ?loc = r) |> Some
+            Helper.LibCall(com, "fable_uri", "to_string", t, [ thisObj ], ?loc = r) |> Some
         | DeclaredType(ent, _) when ent.FullName = "System.Text.StringBuilder" ->
             // StringBuilder.ToString() → iolist_to_binary(get(maps:get(buf, get(Sb))))
             emitExpr r t [ thisObj ] "iolist_to_binary(get(maps:get(buf, get($0))))" |> Some
         | _ ->
-            Helper.LibCall(_com, "fable_convert", "to_string", t, [ thisObj ], ?loc = r)
+            Helper.LibCall(com, "fable_convert", "to_string", t, [ thisObj ], ?loc = r)
             |> Some
     | _ -> None
 
@@ -581,9 +607,11 @@ let private valueTypes
     match info.CompiledName, thisArg with
     | "Equals", Some thisObj ->
         match _args with
-        | [ arg ] -> equals r true thisObj arg |> Some
+        | [ arg ] -> equals com r true thisObj arg |> Some
         | _ -> None
-    | "GetHashCode", Some thisObj -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
+    | "GetHashCode", Some thisObj ->
+        Helper.LibCall(com, "fable_comparison", "hash", t, [ thisObj ], ?loc = r)
+        |> Some
     | "CompareTo", Some thisObj ->
         match _args with
         | [ arg ] -> compare com r thisObj arg |> Some
@@ -738,8 +766,12 @@ let private strings
             | _ -> None
         | Type.Array _ ->
             match args with
-            | [ chars ] -> Helper.LibCall(com, "fable_string", "string_ctor_chars", t, [ chars ]) |> Some
+            | [ chars ] ->
+                let chars = derefArr r chars
+                Helper.LibCall(com, "fable_string", "string_ctor_chars", t, [ chars ]) |> Some
             | [ chars; start; len ] ->
+                let chars = derefArr r chars
+
                 Helper.LibCall(com, "fable_string", "string_ctor_chars_range", t, [ chars; start; len ])
                 |> Some
             | _ -> None
@@ -752,11 +784,17 @@ let private strings
     | ("ToLower" | "ToLowerInvariant"), Some c, _ -> emitExpr r t [ c ] "string:lowercase($0)" |> Some
     // str.Trim() → string:trim(Str)
     | "Trim", Some c, [] -> emitExpr r t [ c ] "string:trim($0)" |> Some
-    | "Trim", Some c, [ chars ] -> Helper.LibCall(com, "fable_string", "trim_chars", t, [ c; chars ]) |> Some
+    | "Trim", Some c, [ chars ] ->
+        let chars = derefArr r chars
+        Helper.LibCall(com, "fable_string", "trim_chars", t, [ c; chars ]) |> Some
     | "TrimStart", Some c, [] -> emitExpr r t [ c ] "string:trim($0, leading)" |> Some
-    | "TrimStart", Some c, [ chars ] -> Helper.LibCall(com, "fable_string", "trim_start_chars", t, [ c; chars ]) |> Some
+    | "TrimStart", Some c, [ chars ] ->
+        let chars = derefArr r chars
+        Helper.LibCall(com, "fable_string", "trim_start_chars", t, [ c; chars ]) |> Some
     | "TrimEnd", Some c, [] -> emitExpr r t [ c ] "string:trim($0, trailing)" |> Some
-    | "TrimEnd", Some c, [ chars ] -> Helper.LibCall(com, "fable_string", "trim_end_chars", t, [ c; chars ]) |> Some
+    | "TrimEnd", Some c, [ chars ] ->
+        let chars = derefArr r chars
+        Helper.LibCall(com, "fable_string", "trim_end_chars", t, [ c; chars ]) |> Some
     // str.StartsWith(prefix)
     | "StartsWith", Some c, [ prefix ] ->
         match prefix.Type with
@@ -787,17 +825,34 @@ let private strings
     | "Replace", Some c, [ oldVal; newVal ] ->
         Helper.LibCall(com, "fable_string", "replace", t, [ c; oldVal; newVal ]) |> Some
     // str.Split(sep) → binary:split(Str, Sep, [global])
-    | "Split", Some c, [ sep ] -> Helper.LibCall(com, "fable_string", "split", t, [ c; sep ]) |> Some
-    | "Split", Some c, [ sep; options ] -> Helper.LibCall(com, "fable_string", "split", t, [ c; sep; options ]) |> Some
+    | "Split", Some c, [ sep ] ->
+        let sep = derefArr r sep
+
+        Helper.LibCall(com, "fable_string", "split", t, [ c; sep ])
+        |> wrapArr com r t
+        |> Some
+    | "Split", Some c, [ sep; options ] ->
+        let sep = derefArr r sep
+
+        Helper.LibCall(com, "fable_string", "split", t, [ c; sep; options ])
+        |> wrapArr com r t
+        |> Some
     | "Split", Some c, [ sep; count; _options ] ->
+        let sep = derefArr r sep
+
         Helper.LibCall(com, "fable_string", "split_with_count", t, [ c; sep; count ])
+        |> wrapArr com r t
         |> Some
     // String.Join(sep, items)
-    | "Join", None, [ sep; items ] -> Helper.LibCall(com, "fable_string", "join", t, [ sep; items ]) |> Some
+    | "Join", None, [ sep; items ] ->
+        let items = derefArr r items
+        Helper.LibCall(com, "fable_string", "join", t, [ sep; items ]) |> Some
     // String.Concat(items) → iolist_to_binary(Items)
     | "Concat", None, args ->
         match args with
-        | [ items ] -> emitExpr r t [ items ] "iolist_to_binary($0)" |> Some
+        | [ items ] ->
+            let items = derefArr r items
+            emitExpr r t [ items ] "iolist_to_binary($0)" |> Some
         | [ a; b ] -> emitExpr r t [ a; b ] "iolist_to_binary([$0, $1])" |> Some
         | [ a; b; c ] -> emitExpr r t [ a; b; c ] "iolist_to_binary([$0, $1, $2])" |> Some
         | _ -> None
@@ -833,7 +888,7 @@ let private strings
         Helper.LibCall(com, "fable_string", "is_null_or_white_space", t, [ str ])
         |> Some
     // String.Equals static
-    | "Equals", None, [ a; b ] -> equals r true a b |> Some
+    | "Equals", None, [ a; b ] -> equals com r true a b |> Some
     | "Equals", None, [ a; b; compType ] ->
         // Dispatch on StringComparison: 5=OrdinalIgnoreCase → lowercase compare, else exact
         emitExpr
@@ -878,10 +933,11 @@ let private strings
         | _ ->
             Helper.LibCall(com, "fable_string", "last_index_of", t, [ c; sub; maxIdx ])
             |> Some
-    // str.ToCharArray() → binary_to_list(Str)
-    | "ToCharArray", Some c, [] -> emitExpr r t [ c ] "binary_to_list($0)" |> Some
+    // str.ToCharArray() → binary_to_list(Str), wrap as array ref
+    | "ToCharArray", Some c, [] -> emitExpr r t [ c ] "binary_to_list($0)" |> wrapArr com r t |> Some
     | "ToCharArray", Some c, [ start; len ] ->
         Helper.LibCall(com, "fable_string", "to_char_array", t, [ c; start; len ])
+        |> wrapArr com r t
         |> Some
     // str.Chars(idx) or str.[idx] → binary:at(Str, Idx)
     | ("get_Chars" | "get_Item"), Some c, [ idx ] -> emitExpr r t [ c; idx ] "binary:at($0, $1)" |> Some
@@ -894,7 +950,7 @@ let private strings
     // str.IndexOf(sub) — let it fall through to JS replacements which generates indexOf → handled in Fable2Beam
     // str.Contains(sub) — let it fall through to JS replacements which generates indexOf >= 0
     // Instance methods: Equals, CompareTo, GetHashCode
-    | "Equals", Some c, [ arg ] -> equals r true c arg |> Some
+    | "Equals", Some c, [ arg ] -> equals com r true c arg |> Some
     | "Equals", Some c, [ arg; compType ] ->
         // Dispatch on StringComparison: 5=OrdinalIgnoreCase → lowercase compare, else exact
         emitExpr
@@ -904,14 +960,18 @@ let private strings
             "(fun() -> case $2 of 5 -> string:lowercase($0) =:= string:lowercase($1); _ -> $0 =:= $1 end end)()"
         |> Some
     | "CompareTo", Some c, [ arg ] -> compare com r c arg |> Some
-    | "GetHashCode", Some c, [] -> emitExpr r t [ c ] "erlang:phash2($0)" |> Some
+    | "GetHashCode", Some c, [] -> Helper.LibCall(com, "fable_comparison", "hash", t, [ c ], ?loc = r) |> Some
     // str.GetEnumerator() → convert string to list of codepoints and create enumerator
     | "GetEnumerator", Some c, _ -> emitExpr r t [ c ] "fable_utils:get_enumerator(binary_to_list($0))" |> Some
     // String.Format("{0} {1}", arg0, arg1)
     | "Format", None, (fmtStr :: fmtArgs) ->
-        let argsArray = Value(NewArray(ArrayValues fmtArgs, Any, MutableArray), None)
+        let argsList =
+            List.foldBack
+                (fun arg acc -> Value(NewList(Some(arg, acc), Any), None))
+                fmtArgs
+                (Value(NewList(None, Any), None))
 
-        Helper.LibCall(com, "fable_string", "format", t, [ fmtStr; argsArray ], ?loc = r)
+        Helper.LibCall(com, "fable_string", "format", t, [ fmtStr; argsList ], ?loc = r)
         |> Some
     | _ -> None
 
@@ -950,7 +1010,10 @@ let private optionModule
     | "Filter", [ fn; opt ] -> Helper.LibCall(com, "fable_option", "filter", t, [ fn; opt ]) |> Some
     | "Fold", [ fn; state; opt ] -> Helper.LibCall(com, "fable_option", "fold", t, [ fn; state; opt ]) |> Some
     | "FoldBack", [ fn; opt; state ] -> Helper.LibCall(com, "fable_option", "fold_back", t, [ fn; opt; state ]) |> Some
-    | "ToArray", [ opt ] -> Helper.LibCall(com, "fable_option", "to_array", t, [ opt ]) |> Some
+    | "ToArray", [ opt ] ->
+        Helper.LibCall(com, "fable_option", "to_array", t, [ opt ])
+        |> wrapArr com r t
+        |> Some
     | "ToList", [ opt ] -> Helper.LibCall(com, "fable_option", "to_list", t, [ opt ]) |> Some
     | "Flatten", [ opt ] -> Helper.LibCall(com, "fable_option", "flatten", t, [ opt ]) |> Some
     | "Count", [ opt ] -> Helper.LibCall(com, "fable_option", "count", t, [ opt ]) |> Some
@@ -960,7 +1023,7 @@ let private optionModule
 
 /// Beam-specific FSharpOption instance method replacements.
 let private options
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -1008,7 +1071,10 @@ let private resultModule
         |> Some
     | "ForAll", [ fn; result ] -> Helper.LibCall(com, "fable_result", "forall", t, [ fn; result ]) |> Some
     | "Iterate", [ fn; result ] -> Helper.LibCall(com, "fable_result", "iter", t, [ fn; result ]) |> Some
-    | "ToArray", [ result ] -> Helper.LibCall(com, "fable_result", "to_array", t, [ result ]) |> Some
+    | "ToArray", [ result ] ->
+        Helper.LibCall(com, "fable_result", "to_array", t, [ result ])
+        |> wrapArr com _r t
+        |> Some
     | "ToList", [ result ] -> Helper.LibCall(com, "fable_result", "to_list", t, [ result ]) |> Some
     | "ToOption", [ result ] -> Helper.LibCall(com, "fable_result", "to_option", t, [ result ]) |> Some
     | _ -> None
@@ -1112,9 +1178,11 @@ let private numericTypes
     | "ToString", Some c, [ fmt ] ->
         Helper.LibCall(com, "fable_convert", "int_to_string_with_format", t, [ c; fmt ], ?loc = r)
         |> Some
-    | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
+    | "Equals", Some thisObj, [ arg ] -> equals com r true thisObj arg |> Some
     | "CompareTo", Some thisObj, [ arg ] -> compare com r thisObj arg |> Some
-    | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
+    | "GetHashCode", Some thisObj, [] ->
+        Helper.LibCall(com, "fable_comparison", "hash", t, [ thisObj ], ?loc = r)
+        |> Some
     // IEEE 754 special value checks (static methods on Double/Single)
     | "IsNaN", None, [ arg ] ->
         // NaN is the only value not equal to itself
@@ -1376,8 +1444,8 @@ let private listModule
     | "RemoveManyAt", [ idx; count; list ] ->
         Helper.LibCall(com, "fable_list", "remove_many_at", t, [ idx; count; list ])
         |> Some
-    | "ToArray", [ list ] -> Some(List.head args)
-    | "OfArray", [ arr ] -> Some(List.head args)
+    | "ToArray", [ list ] -> Helper.LibCall(com, "fable_utils", "new_ref", t, [ list ], ?loc = r) |> Some
+    | "OfArray", [ arr ] -> derefArr r arr |> Some
     | "OfSeq", [ seq ] -> Some(List.head args)
     | "ToSeq", [ list ] -> Some(List.head args)
     | _ -> None
@@ -1418,7 +1486,7 @@ let private mapModule
     match info.CompiledName, args with
     | "Empty", _ -> emitExpr r t [] "#{}" |> Some
     | "OfList", [ pairs ] -> emitExpr r t [ pairs ] "maps:from_list($0)" |> Some
-    | "OfArray", [ arr ] -> emitExpr r t [ arr ] "maps:from_list($0)" |> Some
+    | "OfArray", [ arr ] -> emitExpr r t [ derefArr r arr ] "maps:from_list($0)" |> Some
     | "OfSeq", [ seq ] -> emitExpr r t [ seq ] "maps:from_list($0)" |> Some
     | "Add", [ key; value; map ] -> emitExpr r t [ key; value; map ] "maps:put($0, $1, $2)" |> Some
     | "Find", [ key; map ] -> emitExpr r t [ key; map ] "maps:get($0, $1)" |> Some
@@ -1428,7 +1496,7 @@ let private mapModule
     | "IsEmpty", [ map ] -> emitExpr r t [ map ] "(maps:size($0) =:= 0)" |> Some
     | ("Count" | "Length"), [ map ] -> emitExpr r t [ map ] "maps:size($0)" |> Some
     | "ToList", [ map ] -> emitExpr r t [ map ] "maps:to_list($0)" |> Some
-    | "ToArray", [ map ] -> emitExpr r t [ map ] "maps:to_list($0)" |> Some
+    | "ToArray", [ map ] -> emitExpr r t [ map ] "maps:to_list($0)" |> wrapArr com r t |> Some
     | "ToSeq", [ map ] -> emitExpr r t [ map ] "maps:to_list($0)" |> Some
     | "Keys", [ map ] -> emitExpr r t [ map ] "maps:keys($0)" |> Some
     | "Values", [ map ] -> emitExpr r t [ map ] "maps:values($0)" |> Some
@@ -1488,7 +1556,8 @@ let private setModule
     match info.CompiledName, args with
     | "Empty", _ -> emitExpr r t [] "[]" |> Some
     | "Singleton", [ x ] -> emitExpr r t [ x ] "[$0]" |> Some
-    | ("OfList" | "OfArray" | "OfSeq"), [ xs ] -> emitExpr r t [ xs ] "ordsets:from_list($0)" |> Some
+    | "OfArray", [ xs ] -> emitExpr r t [ derefArr r xs ] "ordsets:from_list($0)" |> Some
+    | ("OfList" | "OfSeq"), [ xs ] -> emitExpr r t [ xs ] "ordsets:from_list($0)" |> Some
     | "Add", [ elem; set ] -> emitExpr r t [ elem; set ] "ordsets:add_element($0, $1)" |> Some
     | "Contains", [ elem; set ] -> emitExpr r t [ elem; set ] "ordsets:is_element($0, $1)" |> Some
     | "Remove", [ elem; set ] -> emitExpr r t [ elem; set ] "ordsets:del_element($0, $1)" |> Some
@@ -1503,7 +1572,8 @@ let private setModule
     | "IsProperSuperset", [ s1; s2 ] -> Helper.LibCall(com, "fable_set", "is_proper_superset", t, [ s1; s2 ]) |> Some
     | "MinElement", [ set ] -> emitExpr r t [ set ] "erlang:hd($0)" |> Some
     | "MaxElement", [ set ] -> emitExpr r t [ set ] "lists:last($0)" |> Some
-    | ("ToList" | "ToArray" | "ToSeq"), [ set ] -> Some set
+    | ("ToList" | "ToSeq"), [ set ] -> Some set
+    | "ToArray", [ set ] -> Helper.LibCall(com, "fable_utils", "new_ref", t, [ set ], ?loc = r) |> Some
     | "Filter", [ fn; set ] -> Helper.LibCall(com, "fable_set", "filter", t, [ fn; set ]) |> Some
     | "Map", [ fn; set ] -> Helper.LibCall(com, "fable_set", "map", t, [ fn; set ]) |> Some
     | "Fold", [ fn; state; set ] -> Helper.LibCall(com, "fable_set", "fold", t, [ fn; state; set ]) |> Some
@@ -1556,7 +1626,9 @@ let private stringModule
     (args: Expr list)
     =
     match info.CompiledName, args with
-    | "Concat", [ sep; items ] -> Helper.LibCall(com, "fable_string", "join", t, [ sep; items ]) |> Some
+    | "Concat", [ sep; items ] ->
+        let items = derefArr r items
+        Helper.LibCall(com, "fable_string", "join", t, [ sep; items ]) |> Some
     | "Length", [ str ] -> emitExpr r t [ str ] "byte_size($0)" |> Some
     | "IsNullOrEmpty", [ str ] -> Helper.LibCall(com, "fable_string", "is_null_or_empty", t, [ str ]) |> Some
     | "IsNullOrWhiteSpace", [ str ] ->
@@ -1584,8 +1656,15 @@ let rec private unwrapSeqArg r (expr: Expr) =
     | TypeCast(innerExpr, _) -> unwrapSeqArg r innerExpr
     | _ ->
         match expr.Type with
-        | Array(_, Fable.ResizeArray) -> emitExpr r (List Any) [ expr ] "get($0)"
+        | Array(Type.Number(UInt8, _), _) -> expr // byte arrays are binaries, no ref
+        | Array _ -> emitExpr r (List Any) [ expr ] "erlang:get($0)" // deref array ref
         | String -> emitExpr r (List Any) [ expr ] "binary_to_list($0)"
+        // For generic seq/list types, use runtime check — value might be array ref at runtime
+        | DeclaredType(entRef, _) when
+            entRef.FullName = Types.ienumerableGeneric
+            || entRef.FullName = Types.ienumerable
+            ->
+            emitExpr r (List Any) [ expr ] "fable_utils:to_list($0)"
         | _ -> expr
 
 /// Beam-specific Seq module replacements.
@@ -1611,9 +1690,9 @@ let private seqModule
     | "Cast", [ arg ] -> TypeCast(arg, t) |> Some
     // Identity conversions — seq is a list in Beam (unwrap ResizeArray refs)
     | "ToList", [ seq ] -> unwrapSeqArg r seq |> Some
-    | "ToArray", [ seq ] -> unwrapSeqArg r seq |> Some
+    | "ToArray", [ seq ] -> unwrapSeqArg r seq |> wrapArr com r t |> Some
     | "OfList", [ list ] -> Some list
-    | "OfArray", [ arr ] -> Some arr
+    | "OfArray", [ arr ] -> derefArr r arr |> Some
     // Empty
     | "Empty", _ -> Value(NewList(None, t), None) |> Some
     // === Scalar-returning operations — use compiled seq.erl via Helper.LibCall ===
@@ -1839,14 +1918,18 @@ let private arrays
 
     match info.CompiledName, thisArg, args with
     | "get_Length", Some c, _ when isByteArray -> emitExpr r t [ c ] "byte_size($0)" |> Some
-    | "get_Length", Some c, _ -> emitExpr r t [ c ] "erlang:length($0)" |> Some
+    | "get_Length", Some c, _ -> emitExpr r t [ c ] "erlang:length(erlang:get($0))" |> Some
     | "get_Item", Some c, [ idx ] when isByteArray -> emitExpr r t [ c; idx ] "binary:at($0, $1)" |> Some
-    | "get_Item", Some c, [ idx ] -> emitExpr r t [ c; idx ] "lists:nth($1 + 1, $0)" |> Some
+    | "get_Item", Some c, [ idx ] -> emitExpr r t [ c; idx ] "lists:nth($1 + 1, erlang:get($0))" |> Some
     | "set_Item", Some c, [ idx; value ] -> setExpr r c idx value |> Some
     // System.Array.Copy(source, dest, length) — copy first N elements
-    | "Copy", None, [ src; _dest; len ] -> emitExpr r t [ src; len ] "lists:sublist($0, $1)" |> Some
+    | "Copy", None, [ src; _dest; len ] ->
+        let src = derefArr r src
+        emitExpr r t [ src; len ] "lists:sublist($0, $1)" |> Some
     // System.Array.IndexOf(arr, value) — find index of value
-    | "IndexOf", None, [ arr; value ] -> Helper.LibCall(com, "fable_list", "index_of_value", t, [ value; arr ]) |> Some
+    | "IndexOf", None, [ arr; value ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "index_of_value", t, [ value; arr ]) |> Some
     | _ -> None
 
 /// Beam-specific Array module replacements.
@@ -1860,141 +1943,494 @@ let private arrayModule
     (args: Expr list)
     =
     match info.CompiledName, args with
-    | ("Length" | "Count"), [ arr ] -> emitExpr r t [ arr ] "erlang:length($0)" |> Some
-    | "Item", [ idx; arr ] -> emitExpr r t [ arr; idx ] "lists:nth($1 + 1, $0)" |> Some
-    | "Get", [ arr; idx ] -> emitExpr r t [ arr; idx ] "lists:nth($1 + 1, $0)" |> Some
+    // === Scalar-returning ops: deref array arg(s) ===
+    | ("Length" | "Count"), [ arr ] -> let arr = derefArr r arr in emitExpr r t [ arr ] "erlang:length($0)" |> Some
+    | "Item", [ idx; arr ] -> let arr = derefArr r arr in emitExpr r t [ arr; idx ] "lists:nth($1 + 1, $0)" |> Some
+    | "Get", [ arr; idx ] -> let arr = derefArr r arr in emitExpr r t [ arr; idx ] "lists:nth($1 + 1, $0)" |> Some
     | "Set", [ arr; idx; value ] -> setExpr r arr idx value |> Some
-    | "Head", [ arr ] -> emitExpr r t [ arr ] "erlang:hd($0)" |> Some
-    | "Last", [ arr ] -> emitExpr r t [ arr ] "lists:last($0)" |> Some
-    | "Tail", [ arr ] -> emitExpr r t [ arr ] "erlang:tl($0)" |> Some
-    | "IsEmpty", [ arr ] -> emitExpr r t [ arr ] "($0 =:= [])" |> Some
-    | "Empty", _ -> Value(NewArray(ArrayValues [], t, MutableArray), None) |> Some
-    | "Singleton", [ item ] -> emitExpr r t [ item ] "[$0]" |> Some
-    | "Map", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:map($0, $1)" |> Some
-    | "MapIndexed", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "map_indexed", t, [ fn; arr ]) |> Some
-    | "Filter", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:filter($0, $1)" |> Some
-    | "Exists", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:any($0, $1)" |> Some
-    | "ForAll", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:all($0, $1)" |> Some
-    | "Iterate", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:foreach($0, $1)" |> Some
-    | "Fold", [ fn; state; arr ] -> Helper.LibCall(com, "fable_list", "fold", t, [ fn; state; arr ]) |> Some
-    | "FoldBack", [ fn; arr; state ] -> Helper.LibCall(com, "fable_list", "fold_back", t, [ fn; arr; state ]) |> Some
-    | "Reduce", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "reduce", t, [ fn; arr ]) |> Some
-    | "Reverse", [ arr ] -> emitExpr r t [ arr ] "lists:reverse($0)" |> Some
-    | "Append", [ arr1; arr2 ] -> emitExpr r t [ arr1; arr2 ] "lists:append($0, $1)" |> Some
-    | "Concat", [ arrs ] -> emitExpr r t [ arrs ] "lists:append($0)" |> Some
-    | "Sum", [ arr ] -> emitExpr r t [ arr ] "lists:sum($0)" |> Some
-    | "SumBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sum_by", t, [ fn; arr ]) |> Some
-    | "Min", [ arr ] -> emitExpr r t [ arr ] "lists:min($0)" |> Some
-    | "Max", [ arr ] -> emitExpr r t [ arr ] "lists:max($0)" |> Some
-    | "MinBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "min_by", t, [ fn; arr ]) |> Some
-    | "MaxBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "max_by", t, [ fn; arr ]) |> Some
-    | "Contains", [ value; arr ] -> emitExpr r t [ value; arr ] "lists:member($0, $1)" |> Some
-    | "Find", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "find", t, [ fn; arr ]) |> Some
-    | "TryFind", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "try_find", t, [ fn; arr ]) |> Some
-    | "Choose", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "choose", t, [ fn; arr ]) |> Some
-    | "Collect", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "collect", t, [ fn; arr ]) |> Some
-    | "ToList", [ arr ] -> Some(List.head args) // arrays and lists are the same in Erlang
-    | "OfList", [ lst ] -> Some(List.head args) // arrays and lists are the same in Erlang
-    | "OfSeq", [ seq ] -> Some(List.head args)
-    | "ToSeq", [ arr ] -> Some(List.head args)
-    | "ZeroCreate", [ count ] -> emitExpr r t [ count ] "lists:duplicate($0, 0)" |> Some
-    | "Create", [ count; value ] -> emitExpr r t [ count; value ] "lists:duplicate($0, $1)" |> Some
-    | "Sort", [ arr ] -> emitExpr r t [ arr ] "lists:sort($0)" |> Some
-    | "SortDescending", [ arr ] -> emitExpr r t [ arr ] "lists:reverse(lists:sort($0))" |> Some
-    | "SortBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; arr ]) |> Some
-    | "SortWith", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; arr ]) |> Some
-    | "Zip", [ arr1; arr2 ] -> Helper.LibCall(com, "fable_list", "zip", t, [ arr1; arr2 ]) |> Some
-    | "Zip3", [ a1; a2; a3 ] -> Helper.LibCall(com, "fable_list", "zip3", t, [ a1; a2; a3 ]) |> Some
-    | "Unzip", [ arr ] -> emitExpr r t [ arr ] "lists:unzip($0)" |> Some
-    | "Initialize", [ count; fn ] -> Helper.LibCall(com, "fable_list", "init", t, [ count; fn ]) |> Some
-    | "Copy", [ arr ] -> emitExpr r t [ arr ] "lists:append($0, [])" |> Some
-    | "Scan", [ fn; state; arr ] -> Helper.LibCall(com, "fable_list", "scan", t, [ fn; state; arr ]) |> Some
-    | "ScanBack", [ fn; arr; state ] -> Helper.LibCall(com, "fable_list", "scan_back", t, [ fn; arr; state ]) |> Some
-    | "ReduceBack", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "reduce_back", t, [ fn; arr ]) |> Some
-    | "FindIndex", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "find_index", t, [ fn; arr ]) |> Some
-    | "TryFindIndex", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "try_find_index", t, [ fn; arr ]) |> Some
-    | "FindBack", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "find_back", t, [ fn; arr ]) |> Some
-    | "FindIndexBack", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "find_index_back", t, [ fn; arr ]) |> Some
-    | "TryFindBack", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "try_find_back", t, [ fn; arr ]) |> Some
+    | "Head", [ arr ] -> let arr = derefArr r arr in emitExpr r t [ arr ] "erlang:hd($0)" |> Some
+    | "Last", [ arr ] -> let arr = derefArr r arr in emitExpr r t [ arr ] "lists:last($0)" |> Some
+    | "Tail", [ arr ] -> let arr = derefArr r arr in emitExpr r t [ arr ] "erlang:tl($0)" |> wrapArr com r t |> Some
+    | "IsEmpty", [ arr ] -> let arr = derefArr r arr in emitExpr r t [ arr ] "($0 =:= [])" |> Some
+    | "Sum", [ arr ] -> let arr = derefArr r arr in emitExpr r t [ arr ] "lists:sum($0)" |> Some
+    | "Min", [ arr ] -> let arr = derefArr r arr in emitExpr r t [ arr ] "lists:min($0)" |> Some
+    | "Max", [ arr ] -> let arr = derefArr r arr in emitExpr r t [ arr ] "lists:max($0)" |> Some
+    | "Contains", [ value; arr ] ->
+        let arr = derefArr r arr in emitExpr r t [ value; arr ] "lists:member($0, $1)" |> Some
+    | "Exists", [ fn; arr ] -> let arr = derefArr r arr in emitExpr r t [ fn; arr ] "lists:any($0, $1)" |> Some
+    | "ForAll", [ fn; arr ] -> let arr = derefArr r arr in emitExpr r t [ fn; arr ] "lists:all($0, $1)" |> Some
+    | "Iterate", [ fn; arr ] -> let arr = derefArr r arr in emitExpr r t [ fn; arr ] "lists:foreach($0, $1)" |> Some
+    | "Fold", [ fn; state; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "fold", t, [ fn; state; arr ]) |> Some
+    | "FoldBack", [ fn; arr; state ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "fold_back", t, [ fn; arr; state ]) |> Some
+    | "Reduce", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "reduce", t, [ fn; arr ]) |> Some
+    | "SumBy", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "sum_by", t, [ fn; arr ]) |> Some
+    | "MinBy", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "min_by", t, [ fn; arr ]) |> Some
+    | "MaxBy", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "max_by", t, [ fn; arr ]) |> Some
+    | "Find", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "find", t, [ fn; arr ]) |> Some
+    | "TryFind", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "try_find", t, [ fn; arr ]) |> Some
+    | "FindIndex", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "find_index", t, [ fn; arr ]) |> Some
+    | "TryFindIndex", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "try_find_index", t, [ fn; arr ]) |> Some
+    | "FindBack", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "find_back", t, [ fn; arr ]) |> Some
+    | "FindIndexBack", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "find_index_back", t, [ fn; arr ]) |> Some
+    | "TryFindBack", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "try_find_back", t, [ fn; arr ]) |> Some
     | "TryFindIndexBack", [ fn; arr ] ->
+        let arr = derefArr r arr
         Helper.LibCall(com, "fable_list", "try_find_index_back", t, [ fn; arr ]) |> Some
-    | "Pick", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "pick", t, [ fn; arr ]) |> Some
-    | "TryPick", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "try_pick", t, [ fn; arr ]) |> Some
-    | "Partition", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:partition($0, $1)" |> Some
-    | "Permute", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "permute", t, [ fn; arr ]) |> Some
-    | "Map2", [ fn; a1; a2 ] -> Helper.LibCall(com, "fable_list", "map2", t, [ fn; a1; a2 ]) |> Some
-    | "Map3", [ fn; a1; a2; a3 ] -> Helper.LibCall(com, "fable_list", "map3", t, [ fn; a1; a2; a3 ]) |> Some
-    | "MapIndexed2", [ fn; a1; a2 ] -> Helper.LibCall(com, "fable_list", "mapi2", t, [ fn; a1; a2 ]) |> Some
-    | "MapFold", [ fn; state; arr ] -> Helper.LibCall(com, "fable_list", "map_fold", t, [ fn; state; arr ]) |> Some
+    | "Pick", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "pick", t, [ fn; arr ]) |> Some
+    | "TryPick", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "try_pick", t, [ fn; arr ]) |> Some
+    | "ReduceBack", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "reduce_back", t, [ fn; arr ]) |> Some
+    | "TryHead", [ arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "try_head", t, [ arr ]) |> Some
+    | "TryLast", [ arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "try_last", t, [ arr ]) |> Some
+    | "TryItem", [ idx; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "try_item", t, [ idx; arr ]) |> Some
+    | "ExactlyOne", [ arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "exactly_one", t, [ arr ]) |> Some
+    | "TryExactlyOne", [ arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "try_exactly_one", t, [ arr ]) |> Some
+    | "Average", [ arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "average", t, [ arr ]) |> Some
+    | "AverageBy", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "average_by", t, [ fn; arr ]) |> Some
+    | "IterateIndexed", [ fn; arr ] ->
+        let arr = derefArr r arr
+        Helper.LibCall(com, "fable_list", "iteri", t, [ fn; arr ]) |> Some
+    | "CompareWith", [ fn; a1; a2 ] ->
+        let a1 = derefArr r a1
+        let a2 = derefArr r a2
+        Helper.LibCall(com, "fable_list", "compare_with", t, [ fn; a1; a2 ]) |> Some
+    // === Transform ops: deref input(s) AND wrap result ===
+    | "Map", [ fn; arr ] ->
+        let arr = derefArr r arr
+        emitExpr r t [ fn; arr ] "lists:map($0, $1)" |> wrapArr com r t |> Some
+    | "MapIndexed", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "map_indexed", t, [ fn; arr ])
+        |> wrapArr com r t
+        |> Some
+    | "Filter", [ fn; arr ] ->
+        let arr = derefArr r arr
+        emitExpr r t [ fn; arr ] "lists:filter($0, $1)" |> wrapArr com r t |> Some
+    | "Choose", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "choose", t, [ fn; arr ])
+        |> wrapArr com r t
+        |> Some
+    | "Collect", [ fn; arr ] ->
+        let arr = derefArr r arr
+        // fn returns array refs, need to deref each before concatenating
+        emitExpr r t [ fn; arr ] "lists:append(lists:map(fun(X_collect) -> erlang:get($0(X_collect)) end, $1))"
+        |> wrapArr com r t
+        |> Some
+    | "Reverse", [ arr ] ->
+        let arr = derefArr r arr
+        emitExpr r t [ arr ] "lists:reverse($0)" |> wrapArr com r t |> Some
+    | "Append", [ arr1; arr2 ] ->
+        let arr1 = derefArr r arr1
+        let arr2 = derefArr r arr2
+        emitExpr r t [ arr1; arr2 ] "lists:append($0, $1)" |> wrapArr com r t |> Some
+    | "Concat", [ arrs ] ->
+        // arrs is a seq/array of arrays — unwrap outer (handles TypeCast+Array ref), deref each inner
+        let arrs = unwrapSeqArg r arrs
+
+        emitExpr r t [ arrs ] "lists:append(lists:map(fun erlang:get/1, $0))"
+        |> wrapArr com r t
+        |> Some
+    | "Sort", [ arr ] ->
+        let arr = derefArr r arr
+        emitExpr r t [ arr ] "lists:sort($0)" |> wrapArr com r t |> Some
+    | "SortDescending", [ arr ] ->
+        let arr = derefArr r arr
+        emitExpr r t [ arr ] "lists:reverse(lists:sort($0))" |> wrapArr com r t |> Some
+    | "SortBy", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; arr ])
+        |> wrapArr com r t
+        |> Some
+    | "SortWith", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; arr ])
+        |> wrapArr com r t
+        |> Some
+    | "SortByDescending", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "sort_by_descending", t, [ fn; arr ])
+        |> wrapArr com r t
+        |> Some
+    | "Zip", [ arr1; arr2 ] ->
+        let arr1 = derefArr r arr1
+        let arr2 = derefArr r arr2
+
+        Helper.LibCall(com, "fable_list", "zip", t, [ arr1; arr2 ])
+        |> wrapArr com r t
+        |> Some
+    | "Zip3", [ a1; a2; a3 ] ->
+        let a1 = derefArr r a1
+        let a2 = derefArr r a2
+        let a3 = derefArr r a3
+
+        Helper.LibCall(com, "fable_list", "zip3", t, [ a1; a2; a3 ])
+        |> wrapArr com r t
+        |> Some
+    | "Unzip", [ arr ] ->
+        let arr = derefArr r arr
+
+        emitExpr
+            r
+            t
+            [ arr ]
+            "(fun() -> {Uz_a, Uz_b} = lists:unzip($0), {fable_utils:new_ref(Uz_a), fable_utils:new_ref(Uz_b)} end)()"
+        |> Some
+    | "Unzip3", [ arr ] ->
+        let arr = derefArr r arr
+
+        emitExpr
+            r
+            t
+            [ arr ]
+            "(fun() -> {Uz_a, Uz_b, Uz_c} = lists:unzip3($0), {fable_utils:new_ref(Uz_a), fable_utils:new_ref(Uz_b), fable_utils:new_ref(Uz_c)} end)()"
+        |> Some
+    | "Copy", [ arr ] ->
+        let arr = derefArr r arr
+        emitExpr r t [ arr ] "lists:append($0, [])" |> wrapArr com r t |> Some
+    | "Scan", [ fn; state; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "scan", t, [ fn; state; arr ])
+        |> wrapArr com r t
+        |> Some
+    | "ScanBack", [ fn; arr; state ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "scan_back", t, [ fn; arr; state ])
+        |> wrapArr com r t
+        |> Some
+    | "Partition", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        emitExpr
+            r
+            t
+            [ fn; arr ]
+            "(fun() -> {Pt_a, Pt_b} = lists:partition($0, $1), {fable_utils:new_ref(Pt_a), fable_utils:new_ref(Pt_b)} end)()"
+        |> Some
+    | "Permute", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "permute", t, [ fn; arr ])
+        |> wrapArr com r t
+        |> Some
+    | "Map2", [ fn; a1; a2 ] ->
+        let a1 = derefArr r a1
+        let a2 = derefArr r a2
+
+        Helper.LibCall(com, "fable_list", "map2", t, [ fn; a1; a2 ])
+        |> wrapArr com r t
+        |> Some
+    | "Map3", [ fn; a1; a2; a3 ] ->
+        let a1 = derefArr r a1
+        let a2 = derefArr r a2
+        let a3 = derefArr r a3
+
+        Helper.LibCall(com, "fable_list", "map3", t, [ fn; a1; a2; a3 ])
+        |> wrapArr com r t
+        |> Some
+    | "MapIndexed2", [ fn; a1; a2 ] ->
+        let a1 = derefArr r a1
+        let a2 = derefArr r a2
+
+        Helper.LibCall(com, "fable_list", "mapi2", t, [ fn; a1; a2 ])
+        |> wrapArr com r t
+        |> Some
+    | "MapFold", [ fn; state; arr ] ->
+        let arr = derefArr r arr
+        // Returns {List, State} tuple — wrap the list part
+        emitExpr
+            r
+            t
+            [ Helper.LibCall(com, "fable_list", "map_fold", t, [ fn; state; arr ]) ]
+            "(fun() -> {Mf_list, Mf_state} = $0, {fable_utils:new_ref(Mf_list), Mf_state} end)()"
+        |> Some
     | "MapFoldBack", [ fn; arr; state ] ->
-        Helper.LibCall(com, "fable_list", "map_fold_back", t, [ fn; arr; state ])
+        let arr = derefArr r arr
+
+        emitExpr
+            r
+            t
+            [ Helper.LibCall(com, "fable_list", "map_fold_back", t, [ fn; arr; state ]) ]
+            "(fun() -> {Mf_list, Mf_state} = $0, {fable_utils:new_ref(Mf_list), Mf_state} end)()"
         |> Some
-    | "Distinct", [ arr ] -> Helper.LibCall(com, "fable_list", "distinct", t, [ arr ]) |> Some
-    | "DistinctBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "distinct_by", t, [ fn; arr ]) |> Some
-    | "Pairwise", [ arr ] -> Helper.LibCall(com, "fable_list", "pairwise", t, [ arr ]) |> Some
-    | "GroupBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "group_by", t, [ fn; arr ]) |> Some
-    | "CountBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "count_by", t, [ fn; arr ]) |> Some
-    | "Windowed", [ size; arr ] -> Helper.LibCall(com, "fable_list", "windowed", t, [ size; arr ]) |> Some
-    | "SplitInto", [ count; arr ] -> Helper.LibCall(com, "fable_list", "split_into", t, [ count; arr ]) |> Some
-    | "Transpose", [ arrs ] -> Helper.LibCall(com, "fable_list", "transpose", t, [ arrs ]) |> Some
-    | "Skip", [ count; arr ] -> emitExpr r t [ arr; count ] "lists:nthtail($1, $0)" |> Some
-    | "SkipWhile", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:dropwhile($0, $1)" |> Some
-    | "Take", [ count; arr ] -> emitExpr r t [ arr; count ] "lists:sublist($0, $1)" |> Some
-    | "TakeWhile", [ fn; arr ] -> emitExpr r t [ fn; arr ] "lists:takewhile($0, $1)" |> Some
-    | "Truncate", [ count; arr ] -> emitExpr r t [ arr; count ] "lists:sublist($0, $1)" |> Some
-    | "TryHead", [ arr ] -> Helper.LibCall(com, "fable_list", "try_head", t, [ arr ]) |> Some
-    | "TryLast", [ arr ] -> Helper.LibCall(com, "fable_list", "try_last", t, [ arr ]) |> Some
-    | "TryItem", [ idx; arr ] -> Helper.LibCall(com, "fable_list", "try_item", t, [ idx; arr ]) |> Some
-    | "ExactlyOne", [ arr ] -> Helper.LibCall(com, "fable_list", "exactly_one", t, [ arr ]) |> Some
-    | "TryExactlyOne", [ arr ] -> Helper.LibCall(com, "fable_list", "try_exactly_one", t, [ arr ]) |> Some
-    | "Average", [ arr ] -> Helper.LibCall(com, "fable_list", "average", t, [ arr ]) |> Some
-    | "AverageBy", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "average_by", t, [ fn; arr ]) |> Some
-    | "IterateIndexed", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "iteri", t, [ fn; arr ]) |> Some
-    | "Indexed", [ arr ] -> Helper.LibCall(com, "fable_list", "indexed", t, [ arr ]) |> Some
-    | "CompareWith", [ fn; a1; a2 ] -> Helper.LibCall(com, "fable_list", "compare_with", t, [ fn; a1; a2 ]) |> Some
-    | "UpdateAt", [ idx; value; arr ] -> Helper.LibCall(com, "fable_list", "update_at", t, [ idx; value; arr ]) |> Some
-    | "InsertAt", [ idx; value; arr ] -> Helper.LibCall(com, "fable_list", "insert_at", t, [ idx; value; arr ]) |> Some
+    | "Distinct", [ arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "distinct", t, [ arr ])
+        |> wrapArr com r t
+        |> Some
+    | "DistinctBy", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "distinct_by", t, [ fn; arr ])
+        |> wrapArr com r t
+        |> Some
+    | "Pairwise", [ arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "pairwise", t, [ arr ])
+        |> wrapArr com r t
+        |> Some
+    | "GroupBy", [ fn; arr ] ->
+        let arr = derefArr r arr
+        // Returns list of {Key, List} tuples — inner lists need wrapping as array refs
+        emitExpr
+            r
+            t
+            [ Helper.LibCall(com, "fable_list", "group_by", t, [ fn; arr ]) ]
+            "fable_utils:new_ref(lists:map(fun({Gb_k, Gb_v}) -> {Gb_k, fable_utils:new_ref(Gb_v)} end, $0))"
+        |> Some
+    | "CountBy", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "count_by", t, [ fn; arr ])
+        |> wrapArr com r t
+        |> Some
+    | "Windowed", [ size; arr ] ->
+        let arr = derefArr r arr
+        let result = Helper.LibCall(com, "fable_list", "windowed", t, [ size; arr ])
+        // Returns list of lists (windows) — wrap each inner as array ref, then wrap outer
+        emitExpr r t [ result ] "fable_utils:new_ref(lists:map(fun(Wn_x) -> fable_utils:new_ref(Wn_x) end, $0))"
+        |> Some
+    | "SplitInto", [ count; arr ] ->
+        let arr = derefArr r arr
+        let result = Helper.LibCall(com, "fable_list", "split_into", t, [ count; arr ])
+
+        emitExpr r t [ result ] "fable_utils:new_ref(lists:map(fun(Si_x) -> fable_utils:new_ref(Si_x) end, $0))"
+        |> Some
+    | "Transpose", [ arrs ] ->
+        // arrs is an array/seq ref containing array refs — unwrap outer (handles TypeCast), deref each inner
+        let arrs = unwrapSeqArg r arrs
+        let innerDerefed = emitExpr r t [ arrs ] "lists:map(fun erlang:get/1, $0)"
+        let result = Helper.LibCall(com, "fable_list", "transpose", t, [ innerDerefed ])
+        // Wrap each inner result and the outer
+        emitExpr r t [ result ] "fable_utils:new_ref(lists:map(fun(Tr_x) -> fable_utils:new_ref(Tr_x) end, $0))"
+        |> Some
+    | "Skip", [ count; arr ] ->
+        let arr = derefArr r arr
+        emitExpr r t [ arr; count ] "lists:nthtail($1, $0)" |> wrapArr com r t |> Some
+    | "SkipWhile", [ fn; arr ] ->
+        let arr = derefArr r arr
+        emitExpr r t [ fn; arr ] "lists:dropwhile($0, $1)" |> wrapArr com r t |> Some
+    | "Take", [ count; arr ] ->
+        let arr = derefArr r arr
+        emitExpr r t [ arr; count ] "lists:sublist($0, $1)" |> wrapArr com r t |> Some
+    | "TakeWhile", [ fn; arr ] ->
+        let arr = derefArr r arr
+        emitExpr r t [ fn; arr ] "lists:takewhile($0, $1)" |> wrapArr com r t |> Some
+    | "Truncate", [ count; arr ] ->
+        let arr = derefArr r arr
+        emitExpr r t [ arr; count ] "lists:sublist($0, $1)" |> wrapArr com r t |> Some
+    | ("Sub" | "GetSubArray"), [ arr; start; count ] ->
+        let arr = derefArr r arr
+
+        emitExpr r t [ arr; start; count ] "lists:sublist($0, $1 + 1, $2)"
+        |> wrapArr com r t
+        |> Some
+    | "Except", [ excludeArr; arr ] ->
+        let excludeArr = unwrapSeqArg r excludeArr
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "except", t, [ excludeArr; arr ])
+        |> wrapArr com r t
+        |> Some
+    | "ChunkBySize", [ size; arr ] ->
+        let arr = derefArr r arr
+        let result = Helper.LibCall(com, "fable_list", "chunk_by_size", t, [ size; arr ])
+
+        emitExpr r t [ result ] "fable_utils:new_ref(lists:map(fun(Ck_x) -> fable_utils:new_ref(Ck_x) end, $0))"
+        |> Some
+    | "SplitAt", [ idx; arr ] ->
+        let arr = derefArr r arr
+
+        emitExpr
+            r
+            t
+            [ Helper.LibCall(com, "fable_list", "split_at", t, [ idx; arr ]) ]
+            "(fun() -> {Sa_a, Sa_b} = $0, {fable_utils:new_ref(Sa_a), fable_utils:new_ref(Sa_b)} end)()"
+        |> Some
+    | "AllPairs", [ a1; a2 ] ->
+        let a1 = derefArr r a1
+        let a2 = derefArr r a2
+
+        Helper.LibCall(com, "fable_list", "all_pairs", t, [ a1; a2 ])
+        |> wrapArr com r t
+        |> Some
+    | "Indexed", [ arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "indexed", t, [ arr ])
+        |> wrapArr com r t
+        |> Some
+    | "UpdateAt", [ idx; value; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "update_at", t, [ idx; value; arr ])
+        |> wrapArr com r t
+        |> Some
+    | "InsertAt", [ idx; value; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "insert_at", t, [ idx; value; arr ])
+        |> wrapArr com r t
+        |> Some
     | "InsertManyAt", [ idx; values; arr ] ->
+        let arr = derefArr r arr
+
         Helper.LibCall(com, "fable_list", "insert_many_at", t, [ idx; values; arr ])
+        |> wrapArr com r t
         |> Some
-    | "RemoveAt", [ idx; arr ] -> Helper.LibCall(com, "fable_list", "remove_at", t, [ idx; arr ]) |> Some
+    | "RemoveAt", [ idx; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "remove_at", t, [ idx; arr ])
+        |> wrapArr com r t
+        |> Some
     | "RemoveManyAt", [ idx; count; arr ] ->
+        let arr = derefArr r arr
+
         Helper.LibCall(com, "fable_list", "remove_many_at", t, [ idx; count; arr ])
+        |> wrapArr com r t
         |> Some
-    | "Exists2", [ fn; a1; a2 ] -> Helper.LibCall(com, "fable_list", "exists2", t, [ fn; a1; a2 ]) |> Some
-    | "ForAll2", [ fn; a1; a2 ] -> Helper.LibCall(com, "fable_list", "forall2", t, [ fn; a1; a2 ]) |> Some
-    | "Fold2", [ fn; state; a1; a2 ] -> Helper.LibCall(com, "fable_list", "fold2", t, [ fn; state; a1; a2 ]) |> Some
+    | "Exists2", [ fn; a1; a2 ] ->
+        let a1 = derefArr r a1
+        let a2 = derefArr r a2
+        Helper.LibCall(com, "fable_list", "exists2", t, [ fn; a1; a2 ]) |> Some
+    | "ForAll2", [ fn; a1; a2 ] ->
+        let a1 = derefArr r a1
+        let a2 = derefArr r a2
+        Helper.LibCall(com, "fable_list", "forall2", t, [ fn; a1; a2 ]) |> Some
+    | "Fold2", [ fn; state; a1; a2 ] ->
+        let a1 = derefArr r a1
+        let a2 = derefArr r a2
+        Helper.LibCall(com, "fable_list", "fold2", t, [ fn; state; a1; a2 ]) |> Some
     | "FoldBack2", [ fn; a1; a2; state ] ->
+        let a1 = derefArr r a1
+        let a2 = derefArr r a2
+
         Helper.LibCall(com, "fable_list", "fold_back2", t, [ fn; a1; a2; state ])
         |> Some
-    | "Iterate2", [ fn; a1; a2 ] -> Helper.LibCall(com, "fable_list", "iter2", t, [ fn; a1; a2 ]) |> Some
-    | "IterateIndexed2", [ fn; a1; a2 ] -> Helper.LibCall(com, "fable_list", "iteri2", t, [ fn; a1; a2 ]) |> Some
-    | "SortByDescending", [ fn; arr ] -> Helper.LibCall(com, "fable_list", "sort_by_descending", t, [ fn; arr ]) |> Some
-    | ("Sub" | "GetSubArray"), [ arr; start; count ] ->
-        emitExpr r t [ arr; start; count ] "lists:sublist($0, $1 + 1, $2)" |> Some
-    | "Except", [ excludeArr; arr ] -> Helper.LibCall(com, "fable_list", "except", t, [ excludeArr; arr ]) |> Some
-    | "ChunkBySize", [ size; arr ] -> Helper.LibCall(com, "fable_list", "chunk_by_size", t, [ size; arr ]) |> Some
-    | "SplitAt", [ idx; arr ] -> Helper.LibCall(com, "fable_list", "split_at", t, [ idx; arr ]) |> Some
-    | "AllPairs", [ a1; a2 ] -> Helper.LibCall(com, "fable_list", "all_pairs", t, [ a1; a2 ]) |> Some
-    | "Unzip3", [ arr ] -> emitExpr r t [ arr ] "lists:unzip3($0)" |> Some
-    // In-place sort operations: return Set(arr, ValueSet, ...) so the Let handler stores back to ref
-    | "SortInPlace", [ arr ] ->
-        Fable.Set(arr, ValueSet, Type.Unit, emitExpr r t [ arr ] "lists:sort($0)", None)
+    | "Iterate2", [ fn; a1; a2 ] ->
+        let a1 = derefArr r a1
+        let a2 = derefArr r a2
+        Helper.LibCall(com, "fable_list", "iter2", t, [ fn; a1; a2 ]) |> Some
+    | "IterateIndexed2", [ fn; a1; a2 ] ->
+        let a1 = derefArr r a1
+        let a2 = derefArr r a2
+        Helper.LibCall(com, "fable_list", "iteri2", t, [ fn; a1; a2 ]) |> Some
+    // === Creation ops: wrap result only ===
+    | "Empty", _ -> Value(NewArray(ArrayValues [], t, MutableArray), None) |> Some
+    | "Singleton", [ item ] ->
+        Helper.LibCall(com, "fable_utils", "new_ref", t, [ emitExpr r t [ item ] "[$0]" ], ?loc = r)
         |> Some
+    | "ZeroCreate", [ count ] ->
+        Helper.LibCall(com, "fable_utils", "new_ref", t, [ emitExpr r t [ count ] "lists:duplicate($0, 0)" ], ?loc = r)
+        |> Some
+    | "Create", [ count; value ] ->
+        Helper.LibCall(
+            com,
+            "fable_utils",
+            "new_ref",
+            t,
+            [ emitExpr r t [ count; value ] "lists:duplicate($0, $1)" ],
+            ?loc = r
+        )
+        |> Some
+    | "Initialize", [ count; fn ] ->
+        Helper.LibCall(com, "fable_list", "init", t, [ count; fn ])
+        |> wrapArr com r t
+        |> Some
+    // === Conversion ops ===
+    | "ToList", [ arr ] -> derefArr r arr |> Some
+    | "OfList", [ lst ] -> Helper.LibCall(com, "fable_utils", "new_ref", t, [ lst ], ?loc = r) |> Some
+    | "OfSeq", [ seq ] ->
+        let seq = unwrapSeqArg r seq
+        Helper.LibCall(com, "fable_utils", "new_ref", t, [ seq ], ?loc = r) |> Some
+    | "ToSeq", [ arr ] -> derefArr r arr |> Some
+    // === In-place mutation: deref for computation, put result back ===
+    | "SortInPlace", [ arr ] ->
+        let derefed = derefArr r arr
+        let sorted = emitExpr r t [ derefed ] "lists:sort($0)"
+        Fable.Set(arr, ValueSet, Type.Unit, sorted, None) |> Some
     | "SortInPlaceBy", [ fn; arr ] ->
-        let sorted = Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; arr ])
+        let derefed = derefArr r arr
+        let sorted = Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; derefed ])
         Fable.Set(arr, ValueSet, Type.Unit, sorted, None) |> Some
     | "SortInPlaceWith", [ fn; arr ] ->
-        let sorted = Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; arr ])
+        let derefed = derefArr r arr
+        let sorted = Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; derefed ])
         Fable.Set(arr, ValueSet, Type.Unit, sorted, None) |> Some
     | "Fill", [ arr; start; count; value ] ->
+        let derefed = derefArr r arr
+
         let filled =
-            Helper.LibCall(com, "fable_resize_array", "fill", t, [ arr; start; count; value ])
+            Helper.LibCall(com, "fable_resize_array", "fill", t, [ derefed; start; count; value ])
 
         Fable.Set(arr, ValueSet, Type.Unit, filled, None) |> Some
     | "CopyTo", [ source; sourceIdx; target; targetIdx; count ] ->
+        let derefSource = derefArr r source
+        let derefTarget = derefArr r target
+
         let blitted =
-            Helper.LibCall(com, "fable_resize_array", "blit", t, [ source; sourceIdx; target; targetIdx; count ])
+            Helper.LibCall(
+                com,
+                "fable_resize_array",
+                "blit",
+                t,
+                [ derefSource; sourceIdx; derefTarget; targetIdx; count ]
+            )
 
         Fable.Set(target, ValueSet, Type.Unit, blitted, None) |> Some
     | _ -> None
@@ -2049,6 +2485,8 @@ let private intrinsicFunctions
             // s.[start..end] → binary:part(s, start, end - start + 1)  (F# slicing is inclusive)
             emitExpr r t [ ar; lower; upper ] "binary:part($0, $1, $2 - $1 + 1)" |> Some
     | "GetArraySlice", [ ar; lower; upper ] ->
+        let ar = derefArr r ar
+
         let lower =
             match lower with
             | Value(NewOption(Some lower, _, _), _) -> lower
@@ -2057,7 +2495,7 @@ let private intrinsicFunctions
         match upper with
         | Value(NewOption(None, _, _), _) ->
             // arr.[start..] → lists:nthtail(start, arr)
-            emitExpr r t [ ar; lower ] "lists:nthtail($1, $0)" |> Some
+            emitExpr r t [ ar; lower ] "lists:nthtail($1, $0)" |> wrapArr com r t |> Some
         | _ ->
             let upper =
                 match upper with
@@ -2066,6 +2504,7 @@ let private intrinsicFunctions
 
             // arr.[start..end] → lists:sublist(arr, start+1, end-start+1)  (1-based)
             emitExpr r t [ ar; lower; upper ] "lists:sublist($0, $1 + 1, $2 - $1 + 1)"
+            |> wrapArr com r t
             |> Some
     | _ -> None
 
@@ -2321,22 +2760,27 @@ let private regex
     | "Replace", None, [ input; pattern; evaluator ] ->
         Helper.LibCall(com, "fable_regex", "replace_evaluator", t, [ input; pattern; evaluator ], ?loc = r)
         |> Some
-    // Instance Split
+    // Instance Split — returns string[], wrap as array ref
     | "Split", Some callee, [ input ] ->
         Helper.LibCall(com, "fable_regex", "split", t, [ callee; input ], ?loc = r)
+        |> wrapArr com r t
         |> Some
     | "Split", Some callee, [ input; count ] ->
         Helper.LibCall(com, "fable_regex", "split", t, [ callee; input; count ], ?loc = r)
+        |> wrapArr com r t
         |> Some
     | "Split", Some callee, [ input; count; offset ] ->
         Helper.LibCall(com, "fable_regex", "split", t, [ callee; input; count; offset ], ?loc = r)
+        |> wrapArr com r t
         |> Some
-    // Static Split
+    // Static Split — returns string[], wrap as array ref
     | "Split", None, [ input; pattern ] ->
         Helper.LibCall(com, "fable_regex", "split", t, [ input; pattern ], ?loc = r)
+        |> wrapArr com r t
         |> Some
     | "Split", None, [ input; pattern; options ] ->
         Helper.LibCall(com, "fable_regex", "split", t, [ input; pattern; options ], ?loc = r)
+        |> wrapArr com r t
         |> Some
     // Escape / Unescape
     | "Escape", None, [ str ] -> Helper.LibCall(com, "fable_regex", "escape", t, [ str ], ?loc = r) |> Some
@@ -2382,18 +2826,19 @@ let private resizeArrays
     match info.CompiledName, thisArg, args with
     // Constructors - use process dictionary (same as Ref cells)
     | ".ctor", _, [] ->
-        let emptyList = Value(NewArray(ArrayValues [], Any, MutableArray), None)
+        let emptyList = Value(NewList(None, Any), None)
 
         Helper.LibCall(com, "fable_utils", "new_ref", t, [ emptyList ], ?loc = r)
         |> Some
     | ".ctor", _, [ ExprType(Number _) ] ->
         // Ignore size hint, just create empty
-        let emptyList = Value(NewArray(ArrayValues [], Any, MutableArray), None)
+        let emptyList = Value(NewList(None, Any), None)
 
         Helper.LibCall(com, "fable_utils", "new_ref", t, [ emptyList ], ?loc = r)
         |> Some
     | ".ctor", _, [ arg ] ->
-        // From IEnumerable/sequence
+        // From IEnumerable/sequence — unwrap array refs (handles TypeCast coercion)
+        let arg = unwrapSeqArg r arg
         Helper.LibCall(com, "fable_utils", "new_ref", t, [ arg ], ?loc = r) |> Some
     // get_Item: lists:nth is 1-based
     | "get_Item", Some callee, [ idx ] -> emitExpr r t [ callee; idx ] "lists:nth($1 + 1, get($0))" |> Some
@@ -2413,7 +2858,9 @@ let private resizeArrays
     // Add
     | "Add", Some callee, [ arg ] -> emitExpr r Unit [ callee; arg ] "put($0, get($0) ++ [$1])" |> Some
     // AddRange
-    | "AddRange", Some callee, [ arg ] -> emitExpr r Unit [ callee; arg ] "put($0, get($0) ++ $1)" |> Some
+    | "AddRange", Some callee, [ arg ] ->
+        let arg = derefArr r arg
+        emitExpr r Unit [ callee; arg ] "put($0, get($0) ++ $1)" |> Some
     // Contains
     | "Contains", Some callee, [ arg ] -> emitExpr r t [ callee; arg ] "lists:member($1, get($0))" |> Some
     // IndexOf
@@ -2492,7 +2939,9 @@ let private resizeArrays
 
         emitExpr r Unit [ callee; call ] "put($0, $1)" |> Some
     // ToArray
-    | "ToArray", Some callee, [] -> emitExpr r t [ callee ] "get($0)" |> Some
+    | "ToArray", Some callee, [] ->
+        Helper.LibCall(com, "fable_utils", "new_ref", t, [ emitExpr r t [ callee ] "get($0)" ], ?loc = r)
+        |> Some
     // Find — returns default value when not found (matching .NET List<T>.Find)
     | "Find", Some callee, [ pred ] ->
         let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
@@ -2816,7 +3265,10 @@ let private queues
         Helper.LibCall(com, "fable_queue", "contains", t, [ callee; item ], ?loc = r)
         |> Some
     | "Clear", Some callee, _ -> Helper.LibCall(com, "fable_queue", "clear", t, [ callee ], ?loc = r) |> Some
-    | "ToArray", Some callee, _ -> Helper.LibCall(com, "fable_queue", "to_array", t, [ callee ], ?loc = r) |> Some
+    | "ToArray", Some callee, _ ->
+        Helper.LibCall(com, "fable_queue", "to_array", t, [ callee ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
     | "TrimExcess", Some callee, _ ->
         Helper.LibCall(com, "fable_queue", "trim_excess", t, [ callee ], ?loc = r)
         |> Some
@@ -2867,7 +3319,10 @@ let private stacks
         Helper.LibCall(com, "fable_stack", "contains", t, [ callee; item ], ?loc = r)
         |> Some
     | "Clear", Some callee, _ -> Helper.LibCall(com, "fable_stack", "clear", t, [ callee ], ?loc = r) |> Some
-    | "ToArray", Some callee, _ -> Helper.LibCall(com, "fable_stack", "to_array", t, [ callee ], ?loc = r) |> Some
+    | "ToArray", Some callee, _ ->
+        Helper.LibCall(com, "fable_stack", "to_array", t, [ callee ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
     | "GetEnumerator", Some callee, _ ->
         Helper.LibCall(com, "fable_stack", "get_enumerator", t, [ callee ], ?loc = r)
         |> Some
@@ -3034,7 +3489,7 @@ let private bitConvert
 /// Beam-specific System.Text.Encoding replacements.
 /// In Erlang, strings are binaries (UTF-8 by default), so encoding is mostly identity.
 let private encoding
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -3090,7 +3545,7 @@ let private stopwatch
 /// Beam-specific Nullable<T> replacements.
 /// Nullable is erased in Erlang — Nullable(x) → x, Nullable<T>() → undefined.
 let private nullables
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -3160,11 +3615,11 @@ let private guids
         | None -> None
     | "Equals" ->
         match thisArg with
-        | Some c -> equals r true c args.Head |> Some
+        | Some c -> equals com r true c args.Head |> Some
         | None -> None
     | "GetHashCode" ->
         match thisArg with
-        | Some c -> emitExpr r t [ c ] "erlang:phash2($0)" |> Some
+        | Some c -> Helper.LibCall(com, "fable_comparison", "hash", t, [ c ], ?loc = r) |> Some
         | None -> None
     | _ -> None
 
@@ -3415,11 +3870,11 @@ let private dates
         | None -> None
     | "Equals" ->
         match thisArg with
-        | Some callee -> equals r true callee args.Head |> Some
+        | Some callee -> equals com r true callee args.Head |> Some
         | None -> None
     | "GetHashCode" ->
         match thisArg with
-        | Some callee -> emitExpr r t [ callee ] "erlang:phash2($0)" |> Some
+        | Some callee -> Helper.LibCall(com, "fable_comparison", "hash", t, [ callee ], ?loc = r) |> Some
         | None -> None
     | _ -> None
 
@@ -3535,11 +3990,11 @@ let private dateTimeOffsets
     | "TryParse" -> Helper.LibCall(com, "fable_date_offset", "try_parse", t, args, ?loc = r) |> Some
     | "Equals" ->
         match thisArg with
-        | Some callee -> equals r true callee args.Head |> Some
+        | Some callee -> equals com r true callee args.Head |> Some
         | None -> None
     | "GetHashCode" ->
         match thisArg with
-        | Some callee -> emitExpr r t [ callee ] "erlang:phash2($0)" |> Some
+        | Some callee -> Helper.LibCall(com, "fable_comparison", "hash", t, [ callee ], ?loc = r) |> Some
         | None -> None
     | _ -> None
 
@@ -3613,11 +4068,11 @@ let private uris
         | None -> None
     | "Equals" ->
         match thisArg with
-        | Some callee -> equals r true callee args.Head |> Some
+        | Some callee -> equals com r true callee args.Head |> Some
         | None -> None
     | "GetHashCode" ->
         match thisArg with
-        | Some callee -> emitExpr r t [ callee ] "erlang:phash2($0)" |> Some
+        | Some callee -> Helper.LibCall(com, "fable_comparison", "hash", t, [ callee ], ?loc = r) |> Some
         | None -> None
     | _ -> None
 
@@ -3700,11 +4155,11 @@ let private timeSpans
         | None -> None
     | "Equals" ->
         match thisArg with
-        | Some callee -> equals r true callee args.Head |> Some
+        | Some callee -> equals com r true callee args.Head |> Some
         | None -> None
     | "GetHashCode" ->
         match thisArg with
-        | Some callee -> emitExpr r t [ callee ] "erlang:phash2($0)" |> Some
+        | Some callee -> Helper.LibCall(com, "fable_comparison", "hash", t, [ callee ], ?loc = r) |> Some
         | None -> None
     // Instance properties: get_Days, get_Hours, get_Minutes, get_Seconds, get_Milliseconds, etc.
     | "get_Days" ->
@@ -3790,11 +4245,11 @@ let private timeSpans
         | _ -> None
     | "op_Equality" ->
         match args with
-        | [ left; right ] -> equals r true left right |> Some
+        | [ left; right ] -> equals com r true left right |> Some
         | _ -> None
     | "op_Inequality" ->
         match args with
-        | [ left; right ] -> equals r false left right |> Some
+        | [ left; right ] -> equals com r false left right |> Some
         | _ -> None
     | "op_LessThan" ->
         match args with
@@ -3915,18 +4370,22 @@ let tryCall
         | "TryParse", None, _ ->
             Helper.LibCall(com, "fable_convert", "boolean_try_parse", t, args, ?loc = r)
             |> Some
-        | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
+        | "Equals", Some thisObj, [ arg ] -> equals com r true thisObj arg |> Some
         | "CompareTo", Some thisObj, [ arg ] -> compare com r thisObj arg |> Some
-        | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
+        | "GetHashCode", Some thisObj, [] ->
+            Helper.LibCall(com, "fable_comparison", "hash", t, [ thisObj ], ?loc = r)
+            |> Some
         | _ -> None
     | "System.Char" ->
         match chars com ctx r t info thisArg args with
         | Some _ as res -> res
         | None ->
             match info.CompiledName, thisArg, args with
-            | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
+            | "Equals", Some thisObj, [ arg ] -> equals com r true thisObj arg |> Some
             | "CompareTo", Some thisObj, [ arg ] -> compare com r thisObj arg |> Some
-            | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
+            | "GetHashCode", Some thisObj, [] ->
+                Helper.LibCall(com, "fable_comparison", "hash", t, [ thisObj ], ?loc = r)
+                |> Some
             | _ -> conversions com ctx r t info thisArg args
     | "System.SByte"
     | "System.Byte"
@@ -3944,7 +4403,9 @@ let tryCall
         | "GetArray", [ ar; idx ] ->
             match ar.Type with
             | Type.Array(Type.Number(UInt8, _), _) -> emitExpr r t [ ar; idx ] "binary:at($0, $1)" |> Some
-            | _ -> emitExpr r t [ ar; idx ] "lists:nth($1 + 1, $0)" |> Some
+            | _ ->
+                let ar = derefArr r ar
+                emitExpr r t [ ar; idx ] "lists:nth($1 + 1, $0)" |> Some
         | "GetString", [ ar; idx ] -> emitExpr r t [ ar; idx ] "binary:at($0, $1)" |> Some
         | "SetArray", [ ar; idx; value ] -> setExpr r ar idx value |> Some
         | ("UnboxFast" | "UnboxGeneric" | "CheckThis"), [ arg ] -> TypeCast(arg, t) |> Some
@@ -3972,8 +4433,8 @@ let tryCall
         | "op_LessThanOrEqual", None, [ left; right ] -> makeBinOp r Boolean left right BinaryLessOrEqual |> Some
         | "op_GreaterThan", None, [ left; right ] -> makeBinOp r Boolean left right BinaryGreater |> Some
         | "op_GreaterThanOrEqual", None, [ left; right ] -> makeBinOp r Boolean left right BinaryGreaterOrEqual |> Some
-        | "op_Equality", None, [ left; right ] -> equals r true left right |> Some
-        | "op_Inequality", None, [ left; right ] -> equals r false left right |> Some
+        | "op_Equality", None, [ left; right ] -> equals com r true left right |> Some
+        | "op_Inequality", None, [ left; right ] -> equals com r false left right |> Some
         | ("get_Sign" | "Sign"), Some thisObj, _ ->
             emitExpr r t [ thisObj ] "case $0 > 0 of true -> 1; false -> case $0 < 0 of true -> -1; false -> 0 end end"
             |> Some
@@ -3987,8 +4448,10 @@ let tryCall
         | "get_Zero", _, _ -> Value(NumberConstant(NumberValue.Int32 0, NumberInfo.Empty), r) |> Some
         | "get_One", _, _ -> Value(NumberConstant(NumberValue.Int32 1, NumberInfo.Empty), r) |> Some
         | "CompareTo", Some thisObj, [ arg ] -> compare com r thisObj arg |> Some
-        | "Equals", Some thisObj, [ arg ] -> equals r true thisObj arg |> Some
-        | "GetHashCode", Some thisObj, [] -> emitExpr r t [ thisObj ] "erlang:phash2($0)" |> Some
+        | "Equals", Some thisObj, [ arg ] -> equals com r true thisObj arg |> Some
+        | "GetHashCode", Some thisObj, [] ->
+            Helper.LibCall(com, "fable_comparison", "hash", t, [ thisObj ], ?loc = r)
+            |> Some
         // NumericLiteralI special values
         | "FromZero", None, _ -> Value(NumberConstant(NumberValue.Int32 0, NumberInfo.Empty), r) |> Some
         | "FromOne", None, _ -> Value(NumberConstant(NumberValue.Int32 1, NumberInfo.Empty), r) |> Some
@@ -4098,8 +4561,8 @@ let tryCall
     // Testing assertions (used by our test framework)
     | "Fable.Core.Testing.Assert" ->
         match info.CompiledName, args with
-        | "AreEqual", [ expected; actual ] -> equals r true expected actual |> Some
-        | "NotEqual", [ expected; actual ] -> equals r false expected actual |> Some
+        | "AreEqual", [ expected; actual ] -> equals com r true expected actual |> Some
+        | "NotEqual", [ expected; actual ] -> equals com r false expected actual |> Some
         | _ -> None
     // IDisposable
     | "System.IDisposable" ->
