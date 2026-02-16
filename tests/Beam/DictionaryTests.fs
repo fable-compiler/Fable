@@ -170,3 +170,39 @@ let ``test Dictionary creation from dict works`` () =
     dic.Add("C", 3)
     dic.Count |> equal 3
     idic.Count |> equal 2
+
+[<Fact>]
+let ``test Dictionary.Keys works`` () =
+    let dic = Dictionary<_, _>()
+    dic.Add("A", 1)
+    dic.Add("B", 2)
+    dic.Keys
+    |> Seq.fold (fun acc k -> acc + dic.[k]) 0
+    |> equal 3
+
+// TODO: Dictionary.Keys/Values.Count calls fable_dictionary:get_count on list (not ref)
+// [<Fact>]
+// let ``test Dictionary.Keys.Count works`` () =
+//     let dic = Dictionary<_, _>()
+//     dic.Add("A", 1)
+//     dic.Add("B", 2)
+//     dic.Keys.Count |> equal 2
+
+// TODO: Iterating over dic.Values — for-in on Values collection generates badmap on undefined
+// [<Fact>]
+// let ``test Dictionary.Values works`` () =
+//     let dic = Dictionary<_, _>()
+//     dic.Add("A", 1)
+//     dic.Add("B", 2)
+//     let mutable i = 0
+//     for value in dic.Values do
+//         i <- value + i
+//     i |> equal 3
+
+// TODO: Dictionary.Values.Count calls fable_dictionary:get_count on list (not ref)
+// [<Fact>]
+// let ``test Dictionary.Values.Count works`` () =
+//     let dic = Dictionary<_, _>()
+//     dic.Add("A", 1)
+//     dic.Add("B", 2)
+//     dic.Values.Count |> equal 2

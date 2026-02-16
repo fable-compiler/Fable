@@ -2,6 +2,7 @@ module Fable.Tests.TupleTest
 
 #nowarn "3370" // This method or property is not normally used from F# code
 
+open System
 open Fable.Tests.Util
 open Util.Testing
 
@@ -101,3 +102,24 @@ let ``test Tuple comparison works`` () =
     (1, 2) < (2, 1) |> equal true
     (1, 2) > (1, 1) |> equal true
     (1, 2) >= (1, 2) |> equal true
+
+[<Fact>]
+let ``test Tuple constructor works`` () =
+    let t2 = Tuple<_,_>(2, 3)
+    let t3 = Tuple.Create("a", 14, "c")
+    equal (2, 3) t2
+    equal ("a", 14, "c") t3
+
+[<Fact>]
+let ``test ValueTuple constructor works`` () =
+    let t2 = ValueTuple<_,_>(2, 3)
+    let t3 = ValueTuple.Create("a", 14, "c")
+    equal (struct (2, 3)) t2
+    equal (struct ("a", 14, "c")) t3
+
+[<Fact>]
+let ``test Can create tuples of single element`` () =
+    let t1 = Tuple<_> 4
+    let t1b = Tuple.Create "b"
+    t1.Item1 |> equal 4
+    t1b.Item1 |> equal "b"

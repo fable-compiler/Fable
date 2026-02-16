@@ -693,13 +693,12 @@ let ``test Seq.range works with long`` () =
     |> Seq.reduce (+)
     |> equal 15L
 
-// TODO: char ranges not yet supported in Beam
-// [<Fact>]
-// let ``test Seq.range works with chars`` () =
-//     seq{'a' .. 'f'}
-//     |> Seq.toArray
-//     |> System.String
-//     |> equal "abcdef"
+[<Fact>]
+let ``test Seq.range works with chars`` () =
+    seq{'a' .. 'f'}
+    |> Seq.toArray
+    |> System.String
+    |> equal "abcdef"
 
 [<Fact>]
 let ``test Seq.head with option works`` () =

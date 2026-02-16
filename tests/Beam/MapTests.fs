@@ -333,3 +333,79 @@ let ``test Map.change works`` () =
     let m2 = Map["a",1; "b",3]
     m |> Map.change "c" (Option.map (fun v -> v + 1)) |> equal m
     m |> Map.change "b" (Option.map (fun v -> v + 1)) |> equal m2
+
+[<Fact>]
+let ``test Map.isEmpty works`` () =
+    let xs = Map []
+    Map.isEmpty xs |> equal true
+    let ys = Map [1,1]
+    Map.isEmpty ys |> equal false
+
+[<Fact>]
+let ``test xs.Count works`` () =
+    let xs = Map.empty<int, int>
+    xs.Count
+    |> equal 0
+
+[<Fact>]
+let ``test xs.Add works`` () =
+    let xs = Map.empty.Add(1, 1)
+    xs.Count
+    |> equal 1
+
+[<Fact>]
+let ``test xs.ContainsKey works`` () =
+    let xs = Map.empty |> Map.add 1 1
+    xs.ContainsKey 1 |> equal true
+    xs.ContainsKey 2 |> equal false
+
+[<Fact>]
+let ``test xs.Remove works`` () =
+    let xs = (Map.empty |> Map.add 1 1).Remove 1
+    xs.IsEmpty |> equal true
+
+[<Fact>]
+let ``test xs.TryFind works`` () =
+    let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
+    xs.TryFind 3
+    |> Option.isSome
+    |> equal true
+
+[<Fact>]
+let ``test Map.ofList works`` () =
+    let xs = Map.ofList [1,1.; 2,4.; 3,9.; 4,16.]
+    equal 4 xs.Count
+
+[<Fact>]
+let ``test Map.ofArray works`` () =
+    let xs = Map.ofArray [|1,1.; 2,4.; 3,9.; 4,16.|]
+    equal 4 xs.Count
+
+[<Fact>]
+let ``test Map.ofSeq works`` () =
+    let xs = Map.ofSeq [1,1.; 2,4.; 3,9.; 4,16.]
+    equal 4 xs.Count
+
+[<Fact>]
+let ``test Map.toList works`` () =
+    let xs = [1,1.; 2,4.; 3,9.; 4,16.]
+    let ys = Map.ofList xs
+    let zs = Map.toList ys
+    snd xs.[2] = snd zs.[2]
+    |> equal true
+
+[<Fact>]
+let ``test Map.toArray works`` () =
+    let xs = [|1,1.; 2,4.; 3,9.; 4,16.|]
+    let ys = Map.ofArray xs
+    let zs = Map.toArray ys
+    snd xs.[2] = snd zs.[2]
+    |> equal true
+
+[<Fact>]
+let ``test Map.toSeq works`` () =
+    let xs = seq [1,1.; 2,4.; 3,9.; 4,16.]
+    let ys = Map.ofSeq xs
+    let zs = Map.toSeq ys
+    (Seq.item 2 xs |> snd) = (Seq.item 2 zs |> snd)
+    |> equal true

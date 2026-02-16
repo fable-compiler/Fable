@@ -375,13 +375,14 @@ let ``test Inlined arguments with delayed resolution are only evaluated once`` (
     equal 1 x
 
 // -- Delegates --
-// TODO: Delegate/Func/Action conversion and .Invoke() not yet supported in Beam Replacements
 
+// TODO: Delegate unit arg mismatch — Lambda keeps unit param but .Invoke() strips it via dropUnitCallArg
 // [<Fact>]
 // let ``test Passing delegate works`` () =
 //     dtest1 dInvoke |> equal 42
 //     dtest2 dInvoke |> equal 43
 
+// TODO: Delegate unit arg mismatch — Func<int>(fn) where fn: unit->int generates arity-1 fun but Invoke() calls with 0 args
 // [<Fact>]
 // let ``test Conversion to delegate works`` () =
 //     (System.Func<_,_,_,_> f1).Invoke(1,2,3) |> equal 6
@@ -407,32 +408,34 @@ let ``test Inlined arguments with delayed resolution are only evaluated once`` (
 //     let func4 = Func<int, int, int>(fn4)
 //     func4.Invoke(4, 6) |> equal 21
 
+// TODO: Delegate unit arg mismatch — Func<int>(f3) where f3: unit->int
 // [<Fact>]
 // let ``test Conversion to Func works`` () =
 //     (System.Func<_> f3).Invoke() |> equal 5
 //     let f = Func<_>(fun () -> 6)
 //     f.Invoke() |> equal 6
 
+// TODO: Delegate unit arg mismatch — MyDelegate(f3) where f3: unit->int
 // [<Fact>]
 // let ``test Conversion to aliased Func works`` () =
 //     (MyDelegate f3).Invoke() |> equal 5
 //     let f = MyDelegate(fun () -> 6)
 //     f.Invoke() |> equal 6
 
-// [<Fact>]
-// let ``test Conversion to Action works`` () =
-//     let mutable myField = 0
-//     let f4' i = myField <- i
-//     let f6' i j = myField <- i * j
-//     let f1' = Action<int>(fun i -> myField <- i * 2)
-//     let f2' = Action<int>(f4')
-//     let f3' = Action<_>(f6' 4)
-//     f1'.Invoke(1)
-//     equal 2 myField
-//     f2'.Invoke(8)
-//     equal 8 myField
-//     f3'.Invoke(10)
-//     equal 40 myField
+[<Fact>]
+let ``test Conversion to Action works`` () =
+    let mutable myField = 0
+    let f4' i = myField <- i
+    let f6' i j = myField <- i * j
+    let f1' = Action<int>(fun i -> myField <- i * 2)
+    let f2' = Action<int>(f4')
+    let f3' = Action<_>(f6' 4)
+    f1'.Invoke(1)
+    equal 2 myField
+    f2'.Invoke(8)
+    equal 8 myField
+    f3'.Invoke(10)
+    equal 40 myField
 
 // -- Object Expressions --
 

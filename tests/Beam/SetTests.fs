@@ -300,3 +300,30 @@ let ``test Set.map re-sorts after mapping`` () =
     let xs = set [1; 2; 3]
     let ys = xs |> Set.map (fun x -> -x)
     Set.toList ys |> equal [-3; -2; -1]
+
+[<Fact>]
+let ``test Set.toSeq works`` () =
+    let xs = seq [1.; 2.; 3.; 4.]
+    let ys = Set.ofSeq xs
+    let zs = Set.toSeq ys
+    (Seq.item 2 xs) = (Seq.item 2 zs)
+    |> equal true
+
+[<Fact>]
+let ``test Seq.isEmpty function works on Set`` () =
+    let xs = set [1]
+    xs |> Seq.isEmpty
+    |> equal false
+
+[<Fact>]
+let ``test Comparing large sets works`` () =
+    let largeSetA = Set.ofArray [| for i in 1 .. 10_000 -> i |]
+    let largeSetB = Set.ofArray [| for i in 1 .. 10_000 -> i |]
+    let largeSetC = Set.ofArray [| for i in 1 .. 10_000 -> if i = 10_000 then -1 else i |]
+    let largeSetD = Set.ofArray [| for i in 1 .. 9_999 -> i |]
+    largeSetA = largeSetB |> equal true
+    largeSetA = largeSetC |> equal false
+    largeSetD = largeSetB |> equal false
+    compare largeSetA largeSetB |> equal 0
+    compare largeSetB largeSetC |> equal 1
+    compare largeSetC largeSetA |> equal -1
