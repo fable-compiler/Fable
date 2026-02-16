@@ -134,10 +134,12 @@ Erlang modules implementing F# core types:
 | fable_date_offset.erl | DateTimeOffset | 3-tuple {Ticks, OffsetTicks, Kind}, wraps fable_date | Done |
 | fable_guid.erl | Guid | UUID v4 generation, parse, toString, comparison | Done |
 | fable_uri.erl | Uri | URI parsing and manipulation | Done |
-| fable_utils.erl | Utilities | IEnumerator (lists/refs/maps/HashSet), apply_curried, infinity/NaN helpers | Done |
+| fable_utils.erl | Utilities | IEnumerator (lists/refs/maps/HashSet), apply_curried, infinity/NaN helpers, atomics byte arrays (new_byte_array, byte_array_get/set/length) | Done |
 | fable_bit_converter.erl | BitConverter | Byte conversion, endianness | Done |
 | fable_decimal.erl | Decimal | Fixed-scale integer (value × 10^28), multiply/divide/to_string/parse/from_parts | Done |
 | fable_mailbox.erl | MailboxProcessor | In-process CPS continuation model (same as JS/Python) | Done |
+| fable_cancellation.erl | CancellationToken | Process dict pattern, create/cancel/register/is_cancellation_requested, timer-based auto-cancel | Done |
+| fable_stopwatch.erl | Stopwatch | StartNew, Elapsed, ElapsedMilliseconds, Stop, Reset, Restart, IsRunning, Frequency, GetTimestamp | Done |
 
 ### Registration & CLI (modified existing files) -- All Done
 
@@ -339,30 +341,30 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 2. Compiles tests to `.erl` via Fable (library files auto-copied to `fable_modules/fable-library-beam/`)
 3. Compiles library `.erl` files in `fable_modules/fable-library-beam/` with `erlc`
 4. Compiles test `.erl` files with `erlc -pa fable_modules/fable-library-beam`
-5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions (1861 Erlang tests pass)
+5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions (1913 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
+| SeqTests.fs | 156 | Seq.map/filter/fold/head/length/append/concat/distinct/take/skip/unfold/init/scan/zip/chunkBySize, delay, sortByDescending, foldBack2, mapFold, range, iter, iteri, empty, findBack, tryFindBack, forall/forall2, exists2, map2/mapi, mapFoldBack, min/max/minBy/maxBy (incl. non-numeric types), sum/sumBy, pairwise, compareWith, exactlyOne, tryLast, groupBy w/ structural equality |
 | StringTests.fs | 153 | String methods, interpolation, concat, substring, replace, split, trim, pad, contains, startsWith, endsWith, sprintf, String.Format, exists, IsNullOrEmpty, IsNullOrWhiteSpace, filter, ctor, StringBuilder (Length, Clear, ToString w/ index) |
-| SeqTests.fs | 148 | Seq.map/filter/fold/head/length/append/concat/distinct/take/skip/unfold/init/scan/zip/chunkBySize, delay, sortByDescending, foldBack2, mapFold, range, iter, iteri, empty, findBack, tryFindBack, forall/forall2, exists2, map2/mapi, mapFoldBack, min/max/minBy/maxBy (incl. non-numeric types), sum/sumBy, pairwise, compareWith, exactlyOne, tryLast, groupBy w/ structural equality |
-| ListTests.fs | 136 | List operations, head/tail, map/filter/fold/fold2/foldBack2, append, sort, choose, collect, find/findBack, zip, chunkBySize, pairwise, windowed, insertAt/removeAt/updateAt, transpose, compareWith, etc. |
-| ArithmeticTests.fs | 136 | Arithmetic, bitwise, logical, comparison, Int64, BigInt, decimal (fixed-scale), exponentiation, sign, MathF.Min/Max, pown |
-| ArrayTests.fs | 127 | Array literal, map/filter/fold, mapi, append, sort, indexed, length, choose, collect, zip, pairwise, iter/iteri/iter2/iteri2, exactlyOne, groupBy, distinct/distinctBy, zip3/unzip3, exists2/forall2, fold2/foldBack2, sub, except, chunkBySize, splitAt, allPairs, sortByDescending |
+| ArrayTests.fs | 146 | Array literal, map/filter/fold, mapi, append, sort, indexed, length, choose, collect, zip, pairwise, iter/iteri/iter2/iteri2, exactlyOne, groupBy, distinct/distinctBy, zip3/unzip3, exists2/forall2, fold2/foldBack2, sub, except, chunkBySize, splitAt, allPairs, sortByDescending, fill, blit, sortInPlace, byte array atomics (zeroCreate, indexed set, mutation via function params) |
+| ArithmeticTests.fs | 139 | Arithmetic, bitwise, logical, comparison, Int64, BigInt, decimal (fixed-scale), exponentiation, sign, MathF.Min/Max, pown |
+| ListTests.fs | 137 | List operations, head/tail, map/filter/fold/fold2/foldBack2, append, sort, choose, collect, find/findBack, zip, chunkBySize, pairwise, windowed, insertAt/removeAt/updateAt, transpose, compareWith, etc. |
 | ConversionTests.fs | 100 | Type conversions, System.Convert, Parse, ToString, BigInt conversions, base conversion, Boolean.Parse, Decimal.Parse/ToString, FSharp.Core type converters |
-| ApplicativeTests.fs | 83 | Applicative-style programming, functors, CEs with and!, curried map/apply, generic applicatives, ZipList, local inline lambdas |
-| TimeSpanTests.fs | 81 | TimeSpan creation, from_*, component accessors, total_*, arithmetic, parse, try_parse, to_string, formatting |
+| ApplicativeTests.fs | 84 | Applicative-style programming, functors, CEs with and!, curried map/apply, generic applicatives, ZipList, local inline lambdas |
+| TimeSpanTests.fs | 83 | TimeSpan creation, from_*, component accessors, total_*, arithmetic, parse, try_parse, to_string, formatting |
 | ComparisonTests.fs | 66 | compare, hash, isNull, Equals, CompareTo, GetHashCode, structural comparison, Unchecked, LanguagePrimitives, Set equality/comparison |
-| MiscTests.fs | 58 | Partial functions, computation expressions, inline methods, object expressions, type extensions, pattern matching, exception handling, module shadowing, private modules, custom operators, units of measure, optional arguments |
-| DateTimeTests.fs | 52 | DateTime constructors, properties, formatting (custom + standard), parsing, arithmetic, add_years/months/days/hours/minutes/seconds, Now/UtcNow/Today, SpecifyKind, ToLocalTime/ToUniversalTime |
+| MiscTests.fs | 59 | Partial functions, computation expressions, inline methods, object expressions, type extensions, pattern matching, exception handling, module shadowing, private modules, custom operators, units of measure, optional arguments |
+| DateTimeTests.fs | 53 | DateTime constructors, properties, formatting (custom + standard), parsing, arithmetic, add_years/months/days/hours/minutes/seconds, Now/UtcNow/Today, SpecifyKind, ToLocalTime/ToUniversalTime |
+| TypeTests.fs | 50 | Class constructors, properties, methods, closures, object expressions, type testing (:?), inheritance, secondary constructors, abstract classes, value type unions/tuples, interface implementations, unit arguments |
 | OptionTests.fs | 50 | Option.map/bind/defaultValue/filter/isSome/isNone, Option module, nested options |
-| TypeTests.fs | 46 | Class constructors, properties, methods, closures, object expressions, type testing (:?), inheritance, secondary constructors, abstract classes, value type unions/tuples |
+| MapTests.fs | 50 | F# Map create/add/remove/find/containsKey/count, iteration, fold, filter, pick, tryPick, minKeyValue, maxKeyValue, change, keys, values |
 | SetTests.fs | 46 | Set construction, add/remove/contains, union/intersect/difference, subset/superset, fold/map/filter, partition, min/max |
-| MapTests.fs | 45 | F# Map create/add/remove/find/containsKey/count, iteration, fold, filter, pick, tryPick, minKeyValue, maxKeyValue, change, keys, values |
 | ResizeArrayTests.fs | 41 | ResizeArray construction, Add, indexer, Contains, IndexOf, Remove, Insert, Clear, Sort, Reverse, ToArray, iteration, Exists, FindIndex, AddRange, InsertRange, GetRange, RemoveAll, RemoveRange, FindAll, FindLast, ForEach |
 | CharTests.fs | 38 | Char.IsLetter/IsDigit/IsUpper/IsLower/IsWhiteSpace, char conversions, ToString, TryParse, IsHighSurrogate, IsLowSurrogate, IsSurrogate, IsSurrogatePair |
+| FnTests.fs | 38 | Functions, recursive lambdas, mutual recursion, closures, curry expressions, operator-as-value, partial application, curried functions |
 | RegexTests.fs | 37 | Regex IsMatch, Match, Matches, Replace (string/evaluator/macros), Split, Escape, Groups, Options, named groups |
-| FnTests.fs | 37 | Functions, recursive lambdas, mutual recursion, closures, curry expressions, operator-as-value, partial application, curried functions |
-| EncodingTests.fs | 30 | Encoding.UTF8.GetBytes/GetString, Stopwatch.Frequency/GetTimestamp, Nullable, DateTimeOffset, TimeSpan, Guid |
+| EncodingTests.fs | 35 | Encoding.UTF8.GetBytes/GetString, Stopwatch.Frequency/GetTimestamp/StartNew/Elapsed, Nullable, DateTimeOffset, TimeSpan, Guid |
 | PatternMatchTests.fs | 28 | Pattern matching with guards, options, nested patterns, when clauses |
 | RecordTests.fs | 22 | Creation, update, float fields, nesting, anonymous records, structural equality, methods, property access, optional fields, execution order |
 | UriTests.fs | 21 | Uri construction, TryCreate, AbsoluteUri, ToString, OriginalString |
@@ -370,15 +372,16 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | HashSetTests.fs | 20 | HashSet creation, Add, Remove, Contains, Count, Clear, UnionWith, IntersectWith, ExceptWith, iteration, records |
 | EnumTests.fs | 20 | Enum HasFlag, comparison, EnumOfValue/ToValue, pattern matching, bitwise ops, inlined EnumOfValue, decision targets |
 | UnionTypeTests.fs | 18 | Union construction, matching, structural equality, active patterns |
+| InteropTests.fs | 17 | Erlang interop, emitErl, Import attribute, module calls |
 | DictionaryTests.fs | 17 | Dictionary creation, Add, Count, indexer get/set, ContainsKey, ContainsValue, Remove, TryGetValue, Clear, dict function, integer keys, duplicate key throws, missing key throws, iteration, creation from existing dict |
-| TupleTests.fs | 15 | Tuple creation, destructuring, fst/snd, equality, nesting, struct tuples, map, comparison, Item1/Item2 |
+| AsyncTests.fs | 17 | Async return, let!/do!, return!, try-with, sleep, parallel, ignore, start immediate, cancellation |
+| QueueTests.fs | 17 | Queue creation, Enqueue, Dequeue, Peek, TryDequeue, TryPeek, Contains, Clear, ToArray, throws |
 | TailCallTests.fs | 15 | Tail call optimization, recursive functions, mutual recursion (parseTokens/parseNum) |
-| QueueTests.fs | 15 | Queue creation, Enqueue, Dequeue, Peek, TryDequeue, TryPeek, Contains, Clear, ToArray, throws |
+| TupleTests.fs | 15 | Tuple creation, destructuring, fst/snd, equality, nesting, struct tuples, map, comparison, Item1/Item2 |
 | LoopTests.fs | 12 | for loops, while loops, nested loops, mutable variables, for-in over list/array |
 | ReflectionTests.fs | 11 | Type info, FSharpType reflection |
 | GuidTests.fs | 10 | Guid.NewGuid, Parse, ToString, Empty, equality, comparison |
 | ExceptionTests.fs | 10 | Custom exceptions, type discrimination, nested catch, field access, Message property |
-| AsyncTests.fs | 10 | Async return, let!/do!, return!, try-with, sleep, parallel, ignore, start immediate |
 | StackTests.fs | 9 | Stack creation, Push, Pop, Peek, TryPop, TryPeek, Contains, ToArray, Clear |
 | SeqExpressionTests.fs | 9 | Seq expressions, yield, yield! |
 | CustomOperatorTests.fs | 8 | Custom operators on types, inline operators, operator overloads, SRTP with units of measure |
@@ -390,7 +393,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | NullnessTests.fs | 5 | Null operators, isNull, defaultof, Option.ofObj/toObj |
 | MailboxProcessorTests.fs | 3 | MailboxProcessor post, postAndAsyncReply, postAndAsyncReply with falsy values |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **1861** | |
+| **Total** | **1913** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -418,7 +421,7 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
 
 - [x] `list<T>` → Erlang lists (cons cells — natural fit)
 - [x] List module functions → `lists:` module calls + `fable_list.erl` library
-- [x] `array<T>` → Erlang lists (arrays represented as lists for simplicity)
+- [x] `array<T>` → process dict refs wrapping Erlang lists (mutable via `put`/`get`); byte arrays use `atomics` for O(1) read/write
 - [x] `Map<K,V>` → Erlang native `#{}` maps, `maps:` module calls + `fable_map.erl`
 - [x] `Set<T>` → Erlang `ordsets` (sorted lists), `ordsets:` module calls + `fable_set.erl`
 - [x] `Seq<T>` → eager Erlang lists with `fable_seq.erl` library
@@ -523,7 +526,7 @@ target since Erlang has no equivalent of .NET's hot Task distinction.
 - [x] `Async.FromContinuations` → lower-level CPS primitive
 - [x] `task { }` computation expression → alias for async builder
 - [x] `task.Result` → `fable_async:run_synchronously`
-- [ ] Cancellation tokens → process monitors (deferred)
+- [x] Cancellation tokens → process dict pattern with `fable_cancellation.erl`
 
 **Design decisions**:
 
@@ -577,7 +580,7 @@ for mutable state, `fable_async:from_continuations` for the receive/reply coordi
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 1861 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 1913 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
@@ -961,6 +964,32 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   `receive` → `receive_`). The `erlKeywords` set covers OTP 25+ keywords including
   `maybe` and `else`. This is needed because F# identifiers like `maybe` are valid but
   would generate Erlang syntax errors.
+- **Arrays as process-dict refs**: All non-byte arrays are now process-dict refs
+  (`make_ref()` + `put/get`), enabling cross-function mutation. `NewArray` wraps with
+  `fable_utils:new_ref([...])`. `derefArr`/`wrapArr` helpers in Replacements convert
+  between refs and plain lists for bulk operations. Binary comparison operators on arrays
+  use `fable_comparison:compare(A, B) op 0`. TypeTest for arrays uses `is_reference`.
+- **Byte arrays via atomics**: Byte arrays (`Array<byte>`) use Erlang's `atomics` module
+  for true O(1) mutable read/write. Represented as `{byte_array, Size, AtomicsRef}` tuples.
+  Runtime helpers in `fable_utils.erl` handle both direct tuples and process-dict
+  ref-wrapped byte arrays: `byte_array_get/2`, `byte_array_set/3`, `byte_array_length/1`.
+  `Array.zeroCreate<byte>` uses `new_byte_array_zeroed` (atomics are zero by default).
+  `Array.create n v` uses `new_byte_array_filled` (avoids intermediate list allocation).
+  This enabled a 2048x2048 raytracer demo to run at ~40s on BEAM with no hand-patches.
+- **Mutable variable ref erasure**: Process dict refs for mutable `let` bindings are erased
+  at scope exit (`erase(Key)`) to prevent leaks. The `EraseMutableRefs` expression is emitted
+  at the end of function bodies and appended to Block expressions containing mutable bindings.
+- **Stray ok atom removal**: The ErlangPrinter strips bare `ok` atoms (F# unit values) from
+  non-final positions in all body contexts: top-level functions, fun/named-fun clauses, case
+  clauses, try/catch bodies, and block expressions. Matches both `Literal(AtomLit "ok")` and
+  `Emit("ok", [])` forms (the latter from `System.Object..ctor`).
+- **CancellationToken**: Process dict pattern with `make_ref()` storing
+  `#{cancelled, listeners, next_id}`. Supports `create`, `cancel`, `cancel_after` (timer-based),
+  `register`/`unregister`, `is_cancellation_requested` (drains cancel messages from mailbox).
+  Sleep integration uses `receive` instead of `timer:sleep` when token is present.
+- **Stopwatch**: Runtime `fable_stopwatch.erl` using `erlang:monotonic_time(microsecond)`.
+  Supports `StartNew`, `Start`, `Stop`, `Reset`, `Restart`, `Elapsed`, `ElapsedMilliseconds`,
+  `IsRunning`, `Frequency`, `GetTimestamp`.
 
 ## Open Questions
 
