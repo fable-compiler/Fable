@@ -2400,14 +2400,9 @@ let private arrayModule
     | "Create", [ count; value ] ->
         match t with
         | Array(Type.Number(UInt8, _), _) ->
-            Helper.LibCall(
-                com,
-                "fable_utils",
-                "new_byte_array",
-                t,
-                [ emitExpr r t [ count; value ] "lists:duplicate($0, $1)" ],
-                ?loc = r
-            )
+            // Use new_byte_array_filled which avoids intermediate list
+            // and short-circuits to atomics:new for value 0
+            Helper.LibCall(com, "fable_utils", "new_byte_array_filled", t, [ count; value ], ?loc = r)
             |> Some
         | _ ->
             Helper.LibCall(

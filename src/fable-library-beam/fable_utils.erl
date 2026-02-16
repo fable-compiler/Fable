@@ -4,7 +4,8 @@
          pos_infinity/0, neg_infinity/0, nan/0, is_infinity/1,
          new_lazy/1, new_lazy_from_value/1, force_lazy/1, is_value_created/1,
          using/2, to_list/1,
-         new_byte_array/1, new_byte_array_zeroed/1, byte_array_to_list/1, is_byte_array/1,
+         new_byte_array/1, new_byte_array_zeroed/1, new_byte_array_filled/2,
+         byte_array_to_list/1, is_byte_array/1,
          byte_array_get/2, byte_array_set/3, byte_array_length/1]).
 
 %% Interface dispatch: works for both object expressions (maps) and class instances (refs).
@@ -141,6 +142,22 @@ new_byte_array_zeroed(0) ->
     {byte_array, 0, atomics:new(1, [{signed, false}])};
 new_byte_array_zeroed(Len) ->
     {byte_array, Len, atomics:new(Len, [{signed, false}])}.
+
+%% Create a byte array of given size filled with a constant value.
+%% For value 0, delegates to new_byte_array_zeroed (atomics are zero by default).
+new_byte_array_filled(Len, 0) ->
+    new_byte_array_zeroed(Len);
+new_byte_array_filled(0, _Value) ->
+    {byte_array, 0, atomics:new(1, [{signed, false}])};
+new_byte_array_filled(Len, Value) ->
+    Ref = atomics:new(Len, [{signed, false}]),
+    fill_byte_array(Ref, 1, Len, Value),
+    {byte_array, Len, Ref}.
+
+fill_byte_array(_Ref, Idx, Len, _Value) when Idx > Len -> ok;
+fill_byte_array(Ref, Idx, Len, Value) ->
+    atomics:put(Ref, Idx, Value),
+    fill_byte_array(Ref, Idx + 1, Len, Value).
 
 populate_byte_array(_, _, []) -> ok;
 populate_byte_array(Ref, Idx, [V|Rest]) ->
