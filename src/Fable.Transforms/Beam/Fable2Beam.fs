@@ -132,13 +132,17 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         let ctx' = { ctx with MutableVars = ctx.MutableVars.Add(ident.Name, refVarName) }
         let erlBody = transformExpr com ctx' body
 
+        let resultVarName = refVarName + "_result"
+
         Beam.ErlExpr.Block
             [
                 Beam.ErlExpr.Match(
                     Beam.PVar(refVarName),
                     Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ erlValue ])
                 )
-                erlBody
+                Beam.ErlExpr.Match(Beam.PVar(resultVarName), erlBody)
+                Beam.ErlExpr.Call(Some "erlang", "erase", [ Beam.ErlExpr.Variable(refVarName) ])
+                Beam.ErlExpr.Variable(resultVarName)
             ]
 
     | Let(ident, value, body) ->
