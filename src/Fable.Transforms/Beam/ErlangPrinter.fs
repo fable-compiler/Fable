@@ -3,6 +3,22 @@ module Fable.Transforms.ErlangPrinter
 open Fable.AST.Beam
 open Fable.Transforms
 
+/// Strip bare `ok` atoms from non-final positions in expression lists.
+/// These are stray unit values (F# unit → Erlang `ok`) that have no side effects.
+let private stripStrayOk (exprs: ErlExpr list) =
+    match exprs with
+    | []
+    | [ _ ] -> exprs
+    | _ ->
+        let isOkAtom =
+            function
+            | Literal(AtomLit(Atom "ok")) -> true
+            | Emit("ok", []) -> true
+            | _ -> false
+
+        let nonFinal = exprs.[.. exprs.Length - 2] |> List.filter (not << isOkAtom)
+        nonFinal @ [ exprs.[exprs.Length - 1] ]
+
 module Output =
     let escapeErlangString (s: string) =
         s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r").Replace("\t", "\\t")
@@ -242,13 +258,15 @@ module Output =
                 sb.Append(") ->") |> ignore
                 sb.AppendLine() |> ignore
 
-                clause.Body
+                let body = stripStrayOk clause.Body
+
+                body
                 |> List.iteri (fun j bodyExpr ->
                     writeIndent ()
                     sb.Append("    ") |> ignore
                     printExpr sb (indent + 1) bodyExpr
 
-                    if j < clause.Body.Length - 1 then
+                    if j < body.Length - 1 then
                         sb.Append(",") |> ignore
 
                     sb.AppendLine() |> ignore
@@ -278,13 +296,15 @@ module Output =
                 sb.Append(") ->") |> ignore
                 sb.AppendLine() |> ignore
 
-                clause.Body
+                let body = stripStrayOk clause.Body
+
+                body
                 |> List.iteri (fun j bodyExpr ->
                     writeIndent ()
                     sb.Append("    ") |> ignore
                     printExpr sb (indent + 1) bodyExpr
 
-                    if j < clause.Body.Length - 1 then
+                    if j < body.Length - 1 then
                         sb.Append(",") |> ignore
 
                     sb.AppendLine() |> ignore
@@ -320,13 +340,15 @@ module Output =
                 sb.Append(" ->") |> ignore
                 sb.AppendLine() |> ignore
 
-                clause.Body
+                let caseBody = stripStrayOk clause.Body
+
+                caseBody
                 |> List.iteri (fun j bodyExpr ->
                     writeIndent ()
                     sb.Append("        ") |> ignore
                     printExpr sb (indent + 2) bodyExpr
 
-                    if j < clause.Body.Length - 1 then
+                    if j < caseBody.Length - 1 then
                         sb.Append(",") |> ignore
 
                     sb.AppendLine() |> ignore
@@ -349,16 +371,17 @@ module Output =
             // Wrap multi-expression blocks in begin...end to avoid
             // comma-separated expressions being misinterpreted as
             // separate function call arguments
-            let needsBeginEnd = exprs.Length > 1
+            let filtered = stripStrayOk exprs
+            let needsBeginEnd = filtered.Length > 1
 
             if needsBeginEnd then
                 sb.Append("begin ") |> ignore
 
-            exprs
+            filtered
             |> List.iteri (fun i e ->
                 printExpr sb indent e
 
-                if i < exprs.Length - 1 then
+                if i < filtered.Length - 1 then
                     sb.Append(",") |> ignore
                     sb.AppendLine() |> ignore
                     writeIndent ()
@@ -383,13 +406,15 @@ module Output =
         | TryCatch(body, catchVar, catchBody, after) ->
             sb.AppendLine("try") |> ignore
 
-            body
+            let tryBody = stripStrayOk body
+
+            tryBody
             |> List.iteri (fun i bodyExpr ->
                 writeIndent ()
                 sb.Append("    ") |> ignore
                 printExpr sb (indent + 1) bodyExpr
 
-                if i < body.Length - 1 then
+                if i < tryBody.Length - 1 then
                     sb.Append(",") |> ignore
 
                 sb.AppendLine() |> ignore
@@ -400,13 +425,15 @@ module Output =
             writeIndent ()
             sb.AppendLine($"    _:%s{catchVar} ->") |> ignore
 
-            catchBody
+            let catchBody' = stripStrayOk catchBody
+
+            catchBody'
             |> List.iteri (fun i bodyExpr ->
                 writeIndent ()
                 sb.Append("        ") |> ignore
                 printExpr sb (indent + 2) bodyExpr
 
-                if i < catchBody.Length - 1 then
+                if i < catchBody'.Length - 1 then
                     sb.Append(",") |> ignore
 
                 sb.AppendLine() |> ignore
@@ -461,12 +488,14 @@ module Output =
         sb.Append(") ->") |> ignore
         sb.AppendLine() |> ignore
 
-        clause.Body
+        let topBody = stripStrayOk clause.Body
+
+        topBody
         |> List.iteri (fun i bodyExpr ->
             sb.Append("    ") |> ignore
             printExpr sb 1 bodyExpr
 
-            if i < clause.Body.Length - 1 then
+            if i < topBody.Length - 1 then
                 sb.Append(",") |> ignore
 
             sb.AppendLine() |> ignore
