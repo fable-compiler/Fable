@@ -54,6 +54,10 @@ type StringBuilder(value: string, capacity: int) =
         buf.Add(System.String.Format(fmt, o))
         x
 
+    member x.AppendFormat(fmt: string, o1: obj, o2: obj) =
+        buf.Add(System.String.Format(fmt, o1, o2))
+        x
+
     member x.AppendLine() =
         buf.Add(System.Environment.NewLine)
         x

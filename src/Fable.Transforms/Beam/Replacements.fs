@@ -288,6 +288,8 @@ let private operators
     // Erlang has native arbitrary-precision integers, so Int64/UInt64/BigInt
     // use direct binary ops instead of library calls (like Python's int)
     // Bitwise operators — Erlang has native bitwise support for all integer sizes
+    | Operators.booleanOr, [ left; right ] -> emitExpr r _t [ left; right ] "($0 orelse $1)" |> Some
+    | Operators.booleanAnd, [ left; right ] -> emitExpr r _t [ left; right ] "($0 andalso $1)" |> Some
     | Operators.bitwiseAnd, [ left; right ] -> emitExpr r _t [ left; right ] "($0 band $1)" |> Some
     | Operators.bitwiseOr, [ left; right ] -> emitExpr r _t [ left; right ] "($0 bor $1)" |> Some
     | Operators.exclusiveOr, [ left; right ] -> emitExpr r _t [ left; right ] "($0 bxor $1)" |> Some
@@ -1180,10 +1182,10 @@ let private conversions
         | Type.Char -> emitExpr r t [ arg ] "<<$0/utf8>>" |> Some
         | Type.Number(kind, _) ->
             match kind with
+            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", t, [ arg ], ?loc = r) |> Some
             | Float16
             | Float32
-            | Float64
-            | Decimal -> emitExpr r t [ arg ] "float_to_binary($0)" |> Some
+            | Float64 -> emitExpr r t [ arg ] "float_to_binary($0)" |> Some
             | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
         | Type.Boolean -> emitExpr r t [ arg ] "atom_to_binary($0)" |> Some
         | _ -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
@@ -1213,6 +1215,9 @@ let private numericTypes
         | _ ->
             // Int32, Int64, Byte, etc. — all parse to integer
             emitExpr r t [ arg ] "binary_to_integer($0)" |> Some
+    | "Parse", None, [ arg; _style ] ->
+        // NumberStyles.HexNumber — parse hex string to integer
+        emitExpr r t [ arg ] "binary_to_integer($0, 16)" |> Some
     | "ToString", Some c, [] ->
         match c.Type with
         | Type.Number(kind, _) ->
@@ -1330,10 +1335,10 @@ let private convert
         | Type.String -> Some arg
         | Type.Number(kind, _) ->
             match kind with
+            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", t, [ arg ], ?loc = r) |> Some
             | Float16
             | Float32
             | Float64 -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
-            | Decimal -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
             | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
         | _ -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
     | "ToString", [ arg; baseArg ] ->
@@ -1500,7 +1505,7 @@ let private listModule
 
 /// Beam-specific FSharpList instance method replacements.
 let private lists
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -1517,6 +1522,10 @@ let private lists
     | "get_Item", Some c ->
         match _args with
         | [ idx ] -> emitExpr r t [ c; idx ] "lists:nth($1 + 1, $0)" |> Some
+        | _ -> None
+    | "GetSlice", Some c ->
+        match _args with
+        | [ lower; upper ] -> Helper.LibCall(com, "fable_list", "get_slice", t, [ lower; upper; c ]) |> Some
         | _ -> None
     | _ -> None
 
@@ -2973,6 +2982,14 @@ let private resizeArrays
             Helper.LibCall(com, "fable_resize_array", "remove_at", t, [ listExpr; idx ], ?loc = r)
 
         emitExpr r Unit [ callee; call ] "put($0, $1)" |> Some
+    // RemoveRange
+    | "RemoveRange", Some callee, [ idx; count ] ->
+        let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
+
+        let call =
+            Helper.LibCall(com, "fable_resize_array", "remove_range", t, [ listExpr; idx; count ], ?loc = r)
+
+        emitExpr r Unit [ callee; call ] "put($0, $1)" |> Some
     // Insert
     | "Insert", Some callee, [ idx; arg ] ->
         let listExpr = emitExpr r (List Any) [ callee ] "get($0)"
@@ -4424,6 +4441,7 @@ let tryCall
     | "Microsoft.FSharp.Core.Operators"
     | "Microsoft.FSharp.Core.Operators.Checked"
     | "Microsoft.FSharp.Core.ExtraTopLevelOperators"
+    | "Microsoft.FSharp.Core.LanguagePrimitives.IntrinsicOperators"
     | "System.Math"
     | "System.MathF" -> operators com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.LanguagePrimitives"

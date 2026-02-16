@@ -316,15 +316,36 @@ split_impl(Input, #{compiled := MP}, Count, Offset) ->
     case Count of
         0 -> Result;
         _ ->
-            case length(Result) > Count of
-                true ->
-                    {First, Rest} = lists:split(Count - 1, Result),
-                    Joined = iolist_to_binary(lists:join(<<>>, Rest)),
-                    First ++ [Joined];
-                false ->
-                    Result
-            end
+            %% .NET Regex.Split(input, count) performs at most count-1 splits.
+            %% We can't just join remainder since delimiters are lost. Instead,
+            %% find the first count-1 match positions and split manually.
+            split_with_count(InputPart, MP, Count, Prefix)
     end.
+
+split_with_count(Input, MP, Count, Prefix) ->
+    case re:run(Input, MP, [global, {capture, first, index}]) of
+        nomatch -> [Input];
+        {match, AllMatches} ->
+            MaxSplits = Count - 1,
+            Matches = lists:sublist(AllMatches, MaxSplits),
+            split_at_positions(Input, Matches, 0, Prefix)
+    end.
+
+split_at_positions(Input, [], Pos, Prefix) ->
+    Remaining = binary:part(Input, Pos, byte_size(Input) - Pos),
+    case Prefix of
+        <<>> -> [Remaining];
+        _ when Pos =:= 0 -> [<<Prefix/binary, Remaining/binary>>];
+        _ -> [Remaining]
+    end;
+split_at_positions(Input, [[{Start, Len}] | Rest], Pos, Prefix) ->
+    Part = binary:part(Input, Pos, Start - Pos),
+    PartWithPrefix = case Prefix of
+        <<>> -> Part;
+        _ when Pos =:= 0 -> <<Prefix/binary, Part/binary>>;
+        _ -> Part
+    end,
+    [PartWithPrefix | split_at_positions(Input, Rest, Start + Len, <<>>)].
 
 %% --- Escape / Unescape ---
 

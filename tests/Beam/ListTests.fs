@@ -718,13 +718,12 @@ let ``test List.Item throws exception when index is out of range`` () =
     let xs = [0]
     (try (xs.Item 1) |> ignore; false with | _ -> true) |> equal true
 
-// TODO: List.GetSlice not yet supported by Fable Beam
-// [<Fact>]
-// let ``test List slice works`` () =
-//     let xs = [1; 2; 3; 4]
-//     xs.[..2] |> List.sum |> equal 6
-//     xs.[2..] |> List.sum |> equal 7
-//     xs.[1..2] |> List.sum |> equal 5
+[<Fact>]
+let ``test List slice works`` () =
+    let xs = [1; 2; 3; 4]
+    xs.[..2] |> List.sum |> equal 6
+    xs.[2..] |> List.sum |> equal 7
+    xs.[1..2] |> List.sum |> equal 5
 
 [<Fact>]
 let ``test List.groupBy maintains order`` () =

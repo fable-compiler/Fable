@@ -20,7 +20,7 @@
          transpose/1, compare_with/3,
          update_at/3, insert_at/3, insert_many_at/3,
          remove_at/2, remove_many_at/3,
-         index_of_value/2]).
+         index_of_value/2, get_slice/3]).
 
 %% Fable compiles multi-arg F# lambdas as curried functions:
 %%   fun acc x -> acc + x  =>  fun(Acc) -> fun(X) -> Acc + X end end
@@ -377,3 +377,8 @@ index_of_value(Value, List) ->
 index_of_value(_Value, [], _Idx) -> -1;
 index_of_value(Value, [Value|_], Idx) -> Idx;
 index_of_value(Value, [_|T], Idx) -> index_of_value(Value, T, Idx + 1).
+
+get_slice(Lower, Upper, List) ->
+    Start = case Lower of undefined -> 0; _ -> Lower end,
+    End = case Upper of undefined -> erlang:length(List) - 1; _ -> Upper end,
+    lists:sublist(List, Start + 1, End - Start + 1).

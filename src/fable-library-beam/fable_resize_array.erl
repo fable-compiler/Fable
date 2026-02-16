@@ -1,7 +1,7 @@
 -module(fable_resize_array).
 -export([
     set_item/3,
-    remove/2, remove_all/2, remove_at/2,
+    remove/2, remove_all/2, remove_at/2, remove_range/3,
     insert/3, insert_range/3,
     get_range/3,
     index_of/2, index_of/3,
@@ -45,6 +45,12 @@ remove_all(List, Pred) ->
 %% Remove at index
 remove_at(List, Index) ->
     {Before, [_ | After]} = lists:split(Index, List),
+    Before ++ After.
+
+%% Remove range: remove Count elements starting at Index
+remove_range(List, Index, Count) ->
+    {Before, Rest} = lists:split(Index, List),
+    {_, After} = lists:split(Count, Rest),
     Before ++ After.
 
 %% Insert item at index

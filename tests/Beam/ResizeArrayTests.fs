@@ -281,15 +281,14 @@ let ``test ResizeArray.RemoveAll works`` () =
     System.Predicate<_> (fun x -> x = "ab") |> li.RemoveAll |> equal 0
     li.[0] |> equal "ch"
 
-// TODO: RemoveRange not supported by Fable
-// [<Fact>]
-// let ``test ResizeArray.RemoveRange works`` () =
-//     let xs = ResizeArray<int>()
-//     for x in [1 .. 5] do xs.Add(x)
-//     xs.RemoveRange(1, 2)
-//     equal 1 xs[0]
-//     equal 4 xs[1]
-//     equal 5 xs[2]
+[<Fact>]
+let ``test ResizeArray.RemoveRange works`` () =
+    let xs = ResizeArray<int>()
+    for x in [1 .. 5] do xs.Add(x)
+    xs.RemoveRange(1, 2)
+    equal 1 xs[0]
+    equal 4 xs[1]
+    equal 5 xs[2]
 
 [<Fact>]
 let ``test ResizeArray.SortInPlaceWith works`` () =

@@ -60,17 +60,15 @@ let ``test Custom operators work`` () =
 let ``test Inline custom operators work`` () =
     5 >> 5 |> equal 50
 
-// TODO: op_BooleanOr not supported by Fable Beam
-// [<Fact>]
-// let ``test logical or`` () =
-//     let x = [true] |> List.fold (||) false
-//     x |> equal true
+[<Fact>]
+let ``test logical or`` () =
+    let x = [true] |> List.fold (||) false
+    x |> equal true
 
-// TODO: op_BooleanAnd not supported by Fable Beam
-// [<Fact>]
-// let ``test logical and`` () =
-//     let x = [true] |> List.fold (&&) false
-//     x |> equal false
+[<Fact>]
+let ``test logical and`` () =
+    let x = [true] |> List.fold (&&) false
+    x |> equal false
 
 type [<Measure>] px
 type [<Measure>] em

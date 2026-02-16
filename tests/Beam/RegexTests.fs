@@ -228,14 +228,13 @@ let ``test Regex.Replace with evaluator and limit works`` () =
 
 // --- Split with limit ---
 
-// TODO: Regex.Split with limit not yet supported
-// [<Fact>]
-// let ``test Regex.Split with limit works`` () =
-//     let r = Regex("\\d")
-//     let result = r.Split("a1b2c3", 2)
-//     result.Length |> equal 2
-//     result.[0] |> equal "a"
-//     result.[1] |> equal "b2c3"
+[<Fact>]
+let ``test Regex.Split with limit works`` () =
+    let r = Regex("\\d")
+    let result = r.Split("a1b2c3", 2)
+    result.Length |> equal 2
+    result.[0] |> equal "a"
+    result.[1] |> equal "b2c3"
 
 // --- Named groups ---
 

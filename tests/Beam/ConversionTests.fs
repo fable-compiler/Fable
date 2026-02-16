@@ -556,10 +556,9 @@ let ``test System.Int32.TryParse works`` () =
     success2 |> equal false
     value2 |> equal 0
 
-// TODO: Hex parsing requires NumberStyles support
-// [<Fact>]
-// let ``test System.Int32.Parse with hex works`` () =
-//     Int32.Parse("5f", System.Globalization.NumberStyles.HexNumber) |> equal 95
+[<Fact>]
+let ``test System.Int32.Parse with hex works`` () =
+    Int32.Parse("5f", System.Globalization.NumberStyles.HexNumber) |> equal 95
 
 [<Fact>]
 let ``test BitConverter.GetBytes Int32 works`` () =
@@ -757,10 +756,9 @@ let ``test System.Convert.ToString Single works`` () =
 let ``test System.Convert.ToString Double works`` () =
     Convert.ToString(101.) |> equal "101"
 
-// TODO: Decimal Convert.ToString not supported
-// [<Fact>]
-// let ``test System.Convert.ToString Decimal works`` () =
-//     Convert.ToString(101.m) |> equal "101"
+[<Fact>]
+let ``test System.Convert.ToString Decimal works`` () =
+    Convert.ToString(101.m) |> equal "101"
 
 // --- Decimal conversions ---
 

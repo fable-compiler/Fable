@@ -915,12 +915,11 @@ let ``test StringBuilder.Clear works`` () =
     sb.Clear() |> ignore
     sb.ToString() |> equal ""
 
-// TODO: StringBuilder.AppendFormat not yet supported in Beam
-// [<Fact>]
-// let ``test StringBuilder.AppendFormat works`` () =
-//     let sb = System.Text.StringBuilder()
-//     sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
-//     sb.ToString() |> equal "Hello World!"
+[<Fact>]
+let ``test StringBuilder.AppendFormat works`` () =
+    let sb = System.Text.StringBuilder()
+    sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
+    sb.ToString() |> equal "Hello World!"
 
 [<Fact>]
 let ``test StringBuilder.Chars works`` () =
