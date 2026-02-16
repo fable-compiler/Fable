@@ -63,7 +63,11 @@ to_string_with_base(N, Base, BitWidth) when is_integer(N), N < 0 ->
 %% the string as-is when the value is already a binary.
 to_string(Value) when is_binary(Value) -> Value;
 to_string(Value) when is_integer(Value) -> integer_to_binary(Value);
-to_string(Value) when is_float(Value) -> float_to_binary(Value);
+to_string(Value) when is_float(Value) ->
+    case Value == trunc(Value) of
+        true -> integer_to_binary(trunc(Value));
+        false -> float_to_binary(Value, [{decimals, 10}, compact])
+    end;
 to_string(Value) when is_atom(Value) -> atom_to_binary(Value);
 to_string(Value) when is_list(Value) ->
     %% Lists could be charlists or regular lists

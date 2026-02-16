@@ -832,12 +832,25 @@ let private strings
         Helper.LibCall(com, "fable_string", "split", t, [ c; sep ])
         |> wrapArr com r t
         |> Some
-    | "Split", Some c, [ sep; options ] ->
+    | "Split", Some c, [ sep; countOrOptions ] ->
         let sep = derefArr r sep
 
-        Helper.LibCall(com, "fable_string", "split", t, [ c; sep; options ])
-        |> wrapArr com r t
-        |> Some
+        match countOrOptions.Type with
+        | Number(_, NumberInfo.IsEnum _) ->
+            // Split(char[], StringSplitOptions)
+            Helper.LibCall(com, "fable_string", "split", t, [ c; sep; countOrOptions ])
+            |> wrapArr com r t
+            |> Some
+        | Number _ ->
+            // Split(char[], count) — split with count limit
+            Helper.LibCall(com, "fable_string", "split_with_count", t, [ c; sep; countOrOptions ])
+            |> wrapArr com r t
+            |> Some
+        | _ ->
+            // Default: treat as options (enum value may come as int in some contexts)
+            Helper.LibCall(com, "fable_string", "split", t, [ c; sep; countOrOptions ])
+            |> wrapArr com r t
+            |> Some
     | "Split", Some c, [ sep; count; _options ] ->
         let sep = derefArr r sep
 
@@ -846,8 +859,33 @@ let private strings
         |> Some
     // String.Join(sep, items)
     | "Join", None, [ sep; items ] ->
+        // Check element type BEFORE derefArr (which erases to List Any).
+        // Chars need special handling: convert to binaries before joining.
+        let rec getElemType (ty: Type) =
+            match ty with
+            | Type.Array(elemType, _)
+            | Type.List elemType -> Some elemType
+            | Type.DeclaredType(_, [ elemType ]) -> Some elemType
+            | _ -> None
+
+        let hasCharElements =
+            match getElemType items.Type with
+            | Some Type.Char -> true
+            | _ -> false
+
         let items = derefArr r items
-        Helper.LibCall(com, "fable_string", "join", t, [ sep; items ]) |> Some
+
+        if hasCharElements then
+            // Map chars to binaries: [<<C/utf8>> || C <- Items]
+            emitExpr r t [ sep; items ] "fable_string:join($0, [<<C/utf8>> || C <- $1])"
+            |> Some
+        else
+            Helper.LibCall(com, "fable_string", "join_strings", t, [ sep; items ]) |> Some
+    | "Join", None, [ sep; items; startIndex; count ] ->
+        let items = derefArr r items
+
+        Helper.LibCall(com, "fable_string", "join", t, [ sep; items; startIndex; count ])
+        |> Some
     // String.Concat(items) → iolist_to_binary(Items)
     | "Concat", None, args ->
         match args with
@@ -921,6 +959,15 @@ let private strings
             emitExpr r t [ c; sub; startIdx ] "fable_string:index_of($0, <<$1/utf8>>, $2)"
             |> Some
         | _ -> Helper.LibCall(com, "fable_string", "index_of", t, [ c; sub; startIdx ]) |> Some
+    // str.IndexOfAny(chars) / str.IndexOfAny(chars, startIdx)
+    | "IndexOfAny", Some c, [ chars ] ->
+        let chars = derefArr r chars
+        Helper.LibCall(com, "fable_string", "index_of_any", t, [ c; chars ]) |> Some
+    | "IndexOfAny", Some c, [ chars; startIdx ] ->
+        let chars = derefArr r chars
+
+        Helper.LibCall(com, "fable_string", "index_of_any", t, [ c; chars; startIdx ])
+        |> Some
     // str.LastIndexOf(sub) / str.LastIndexOf(sub, maxIdx)
     | "LastIndexOf", Some c, [ sub ] ->
         match sub.Type with
@@ -1285,8 +1332,8 @@ let private convert
             match kind with
             | Float16
             | Float32
-            | Float64
-            | Decimal -> emitExpr r t [ arg ] "float_to_binary($0)" |> Some
+            | Float64 -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
+            | Decimal -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
             | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
         | _ -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
     | "ToString", [ arg; baseArg ] ->
@@ -3471,20 +3518,25 @@ let private bitConvert
     match info.CompiledName, args with
     // GetBytes: convert a numeric value to a byte list (big-endian)
     | "GetBytes", [ arg ] ->
-        let bitSize =
-            match arg.Type with
-            | Number(Int16, _)
-            | Number(UInt16, _) -> 16
-            | Number(Int32, _)
-            | Number(UInt32, _)
-            | Number(Float32, _) -> 32
-            | Number(Int64, _)
-            | Number(UInt64, _)
-            | Number(Float64, _) -> 64
-            | _ -> 32
+        match arg.Type with
+        | Boolean ->
+            Helper.LibCall(com, "fable_bit_converter", "get_bytes_bool", t, [ arg ], ?loc = r)
+            |> Some
+        | _ ->
+            let bitSize =
+                match arg.Type with
+                | Number(Int16, _)
+                | Number(UInt16, _) -> 16
+                | Number(Int32, _)
+                | Number(UInt32, _)
+                | Number(Float32, _) -> 32
+                | Number(Int64, _)
+                | Number(UInt64, _)
+                | Number(Float64, _) -> 64
+                | _ -> 32
 
-        Helper.LibCall(com, "fable_bit_converter", "get_bytes", t, [ arg; makeIntConst bitSize ], ?loc = r)
-        |> Some
+            Helper.LibCall(com, "fable_bit_converter", "get_bytes", t, [ arg; makeIntConst bitSize ], ?loc = r)
+            |> Some
     // ToInt16, ToUInt16, ToInt32, ToUInt32, ToInt64, ToUInt64, ToSingle, ToDouble
     | "ToInt16", [ bytes; startIndex ] ->
         Helper.LibCall(com, "fable_bit_converter", "to_int", t, [ bytes; startIndex; makeIntConst 16 ], ?loc = r)
@@ -3509,6 +3561,18 @@ let private bitConvert
         |> Some
     | "ToDouble", [ bytes; startIndex ] ->
         Helper.LibCall(com, "fable_bit_converter", "to_float", t, [ bytes; startIndex; makeIntConst 64 ], ?loc = r)
+        |> Some
+    | "ToBoolean", [ bytes; startIndex ] ->
+        Helper.LibCall(com, "fable_bit_converter", "to_boolean", t, [ bytes; startIndex ], ?loc = r)
+        |> Some
+    | "ToString", [ bytes ] ->
+        Helper.LibCall(com, "fable_bit_converter", "to_string", t, [ bytes ], ?loc = r)
+        |> Some
+    | "ToString", [ bytes; startIndex ] ->
+        Helper.LibCall(com, "fable_bit_converter", "to_string", t, [ bytes; startIndex ], ?loc = r)
+        |> Some
+    | "ToString", [ bytes; startIndex; count ] ->
+        Helper.LibCall(com, "fable_bit_converter", "to_string", t, [ bytes; startIndex; count ], ?loc = r)
         |> Some
     | _ -> None
 
@@ -3631,7 +3695,7 @@ let private guids
             with _ ->
                 Helper.LibCall(com, "fable_guid", "parse", t, args, ?loc = r) |> Some
         | _ -> Helper.LibCall(com, "fable_guid", "parse", t, args, ?loc = r) |> Some
-    | "TryParse" -> None // TODO: needs out-param support
+    | "TryParse" -> Helper.LibCall(com, "fable_guid", "try_parse", t, args, ?loc = r) |> Some
     | "ToByteArray" ->
         match thisArg with
         | Some c -> Helper.LibCall(com, "fable_guid", "to_byte_array", t, [ c ], ?loc = r) |> Some
@@ -4108,6 +4172,12 @@ let private uris
         match thisArg with
         | Some callee -> Helper.LibCall(com, "fable_comparison", "hash", t, [ callee ], ?loc = r) |> Some
         | None -> None
+    | "UnescapeDataString" ->
+        Helper.LibCall(com, "fable_uri", "unescape_data_string", t, args, ?loc = r)
+        |> Some
+    | "EscapeDataString" ->
+        Helper.LibCall(com, "fable_uri", "escape_data_string", t, args, ?loc = r)
+        |> Some
     | _ -> None
 
 /// Beam-specific System.TimeSpan replacements.

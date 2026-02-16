@@ -1,5 +1,5 @@
 -module(fable_guid).
--export([new_guid/0, parse/1, from_bytes/1, to_byte_array/1, to_string_format/2]).
+-export([new_guid/0, parse/1, try_parse/1, try_parse/2, from_bytes/1, to_byte_array/1, to_string_format/2]).
 
 %% Generate a new random UUID v4.
 %% Format: "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" where y is [89ab].
@@ -51,6 +51,27 @@ parse(Bin) when is_binary(Bin) ->
             list_to_binary(string:lowercase(A ++ "-" ++ B ++ "-" ++ C ++ "-" ++ D ++ "-" ++ E));
         _ ->
             erlang:error({badarg, <<"Invalid GUID format">>})
+    end.
+
+%% TryParse: returns {true, Guid} or {false, EmptyGuid}
+try_parse(Bin) ->
+    try
+        Guid = parse(Bin),
+        {true, Guid}
+    catch
+        _:_ -> {false, <<"00000000-0000-0000-0000-000000000000">>}
+    end.
+
+%% TryParse with out-param: sets OutRef via process dict, returns bool
+try_parse(Bin, OutRef) ->
+    try
+        Guid = parse(Bin),
+        put(OutRef, Guid),
+        true
+    catch
+        _:_ ->
+            put(OutRef, <<"00000000-0000-0000-0000-000000000000">>),
+            false
     end.
 
 extract_hex(Str) ->

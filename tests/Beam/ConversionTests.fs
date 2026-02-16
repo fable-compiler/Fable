@@ -650,12 +650,11 @@ let ``test Convert.FromBase64String works`` () =
 
 // --- More BitConverter tests ---
 
-// TODO: BitConverter.GetBytes(Boolean) not yet supported
-// [<Fact>]
-// let ``test BitConverter.GetBytes Boolean works`` () =
-//     let value = true
-//     let bytes = BitConverter.GetBytes(value)
-//     bytes |> equal [| 1uy |]
+[<Fact>]
+let ``test BitConverter.GetBytes Boolean works`` () =
+    let value = true
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 1uy |]
 
 [<Fact>]
 let ``test BitConverter.GetBytes Int16 works`` () =
@@ -675,12 +674,11 @@ let ``test BitConverter.GetBytes Double works`` () =
     let bytes = BitConverter.GetBytes(value)
     bytes |> equal [| 0uy; 0uy; 0uy; 0uy; 0uy; 0uy; 240uy; 63uy |]
 
-// TODO: BitConverter.ToBoolean not yet supported by Beam Replacements
-// [<Fact>]
-// let ``test BitConverter.ToBoolean works`` () =
-//     let value = true
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToBoolean(bytes, 0) |> equal value
+[<Fact>]
+let ``test BitConverter.ToBoolean works`` () =
+    let value = true
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToBoolean(bytes, 0) |> equal value
 
 [<Fact>]
 let ``test BitConverter.ToInt16 works`` () =
@@ -700,24 +698,23 @@ let ``test BitConverter.ToDouble works`` () =
     let bytes = BitConverter.GetBytes(value)
     BitConverter.ToDouble(bytes, 0) |> equal value
 
-// TODO: BitConverter.ToString not yet supported by Beam Replacements
-// [<Fact>]
-// let ``test BitConverter.ToString works`` () =
-//     let value = 0x01020304
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToString(bytes) |> equal "04-03-02-01"
-//
-// [<Fact>]
-// let ``test BitConverter.ToString 2 works`` () =
-//     let value = 0x01020304
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToString(bytes, 1) |> equal "03-02-01"
-//
-// [<Fact>]
-// let ``test BitConverter.ToString 3 works`` () =
-//     let value = 0x01020304
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToString(bytes, 1, 2) |> equal "03-02"
+[<Fact>]
+let ``test BitConverter.ToString works`` () =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToString(bytes) |> equal "04-03-02-01"
+
+[<Fact>]
+let ``test BitConverter.ToString 2 works`` () =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToString(bytes, 1) |> equal "03-02-01"
+
+[<Fact>]
+let ``test BitConverter.ToString 3 works`` () =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToString(bytes, 1, 2) |> equal "03-02"
 
 // --- Guid tests (now implemented) ---
 
@@ -726,14 +723,13 @@ let ``test Guid.Parse works`` () =
     let g = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
     g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
 
-// TODO: Guid.TryParse not yet supported by Beam Replacements
-// [<Fact>]
-// let ``test Guid.TryParse works`` () =
-//     let success1, g1 = Guid.TryParse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
-//     success1 |> equal true
-//     g1.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
-//     let success2, _ = Guid.TryParse("not-a-guid")
-//     success2 |> equal false
+[<Fact>]
+let ``test Guid.TryParse works`` () =
+    let success1, g1 = Guid.TryParse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+    success1 |> equal true
+    g1.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+    let success2, _ = Guid.TryParse("not-a-guid")
+    success2 |> equal false
 
 [<Fact>]
 let ``test Parsed guids with different case are considered the same`` () =
@@ -753,14 +749,13 @@ let ``test System.Decimal.ToString works`` () =
 
 // --- Convert.ToString (Single/Double/Decimal only - others already exist above) ---
 
-// TODO: Float ToString returns scientific notation in Erlang (e.g., "1.01e+02" instead of "101")
-// [<Fact>]
-// let ``test System.Convert.ToString Single works`` () =
-//     Convert.ToString(101.f) |> equal "101"
+[<Fact>]
+let ``test System.Convert.ToString Single works`` () =
+    Convert.ToString(101.f) |> equal "101"
 
-// [<Fact>]
-// let ``test System.Convert.ToString Double works`` () =
-//     Convert.ToString(101.) |> equal "101"
+[<Fact>]
+let ``test System.Convert.ToString Double works`` () =
+    Convert.ToString(101.) |> equal "101"
 
 // TODO: Decimal Convert.ToString not supported
 // [<Fact>]

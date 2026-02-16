@@ -592,29 +592,25 @@ let ``test String.Split with remove empties works`` () =
     result.[2] |> equal "c"
     result.[3] |> equal "d"
 
-// TODO: String.Split 2-arg overload (char[], int) not matched by 3-arg Replacement pattern
-// [<Fact>]
-// let ``test String.Split with count works`` () =
-//     let array = "a b  c d".Split ([|' '|], 2)
-//     equal "a" array.[0]
-//     equal "b  c d" array.[1]
+[<Fact>]
+let ``test String.Split with count works`` () =
+    let array = "a b  c d".Split ([|' '|], 2)
+    equal "a" array.[0]
+    equal "b  c d" array.[1]
 
-// TODO: IndexOfAny requires array iteration
-// [<Fact>]
-// let ``test String.IndexOfAny works`` () =
-//     "abcdbcebc".IndexOfAny([|'b'|]) |> equal 1
-//     "abcdbcebc".IndexOfAny([|'b'|], 2) |> equal 4
-//     "abcdbcebc".IndexOfAny([|'f';'e'|]) |> equal 6
+[<Fact>]
+let ``test String.IndexOfAny works`` () =
+    "abcdbcebc".IndexOfAny([|'b'|]) |> equal 1
+    "abcdbcebc".IndexOfAny([|'b'|], 2) |> equal 4
+    "abcdbcebc".IndexOfAny([|'f';'e'|]) |> equal 6
 
-// TODO: String.Join with indices
-// [<Fact>]
-// let ``test String.Join with indices works`` () =
-//     String.Join("**", [|"a"; "b"; "c"; "d"|], 1, 2) |> equal "b**c"
+[<Fact>]
+let ``test String.Join with indices works`` () =
+    String.Join("**", [|"a"; "b"; "c"; "d"|], 1, 2) |> equal "b**c"
 
-// TODO: Uri encoding/decoding requires library support
-// [<Fact>]
-// let ``test System.Uri.UnescapeDataString works`` () =
-//     System.Uri.UnescapeDataString("Kevin%20van%20Zonneveld%21") |> equal "Kevin van Zonneveld!"
+[<Fact>]
+let ``test System.Uri.UnescapeDataString works`` () =
+    System.Uri.UnescapeDataString("Kevin%20van%20Zonneveld%21") |> equal "Kevin van Zonneveld!"
 
 // TODO: FormattableString not yet supported
 // [<Fact>]
@@ -802,11 +798,10 @@ let ``test String.Join with single argument works`` () =
     System.String.Join(",", [|"abc"|]) |> equal "abc"
     System.String.Join(",", ["abc"]) |> equal "abc"
 
-// TODO: String.Join doesn't call ToString on BigInt elements (raw bytes instead of string representation)
-// [<Fact>]
-// let ``test String.Join with big integers works`` () =
-//     System.String.Join("--", [|3I; 5I|])
-//     |> equal "3--5"
+[<Fact>]
+let ``test String.Join with big integers works`` () =
+    System.String.Join("--", [|3I; 5I|])
+    |> equal "3--5"
 
 // --- System.Environment.NewLine ---
 
@@ -927,23 +922,21 @@ let ``test StringBuilder.Clear works`` () =
 //     sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
 //     sb.ToString() |> equal "Hello World!"
 
-// TODO: StringBuilder.Chars (indexer) not yet supported in Beam
-// [<Fact>]
-// let ``test StringBuilder.Chars works`` () =
-//     let sb = System.Text.StringBuilder()
-//                         .Append("abc")
-//                         .Append("def")
-//     sb.Chars(0) |> equal 'a'
+[<Fact>]
+let ``test StringBuilder.Chars works`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
+                        .Append("def")
+    sb.Chars(0) |> equal 'a'
 
-// TODO: StringBuilder.Replace not yet supported in Beam
-// [<Fact>]
-// let ``test StringBuilder.Replace works`` () =
-//     let sb = System.Text.StringBuilder()
-//                         .Append("abc")
-//                         .Append("abc")
-//                         .Replace('a', 'x')
-//                         .Replace("cx", "yz")
-//     equal "xbyzbc" (sb.ToString())
+[<Fact>]
+let ``test StringBuilder.Replace works`` () =
+    let sb = System.Text.StringBuilder()
+                        .Append("abc")
+                        .Append("abc")
+                        .Replace('a', 'x')
+                        .Replace("cx", "yz")
+    equal "xbyzbc" (sb.ToString())
 
 [<Fact>]
 let ``test StringBuilder.ToString works with index and length`` () =

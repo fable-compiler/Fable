@@ -1,11 +1,12 @@
 -module(fable_string).
 -export([insert/3, remove/2, remove/3, starts_with/2, ends_with/2,
          pad_left/2, pad_left/3, pad_right/2, pad_right/3,
-         replace/3, join/2, concat/1, replicate/2,
+         replace/3, join/2, join/4, join_strings/2, concat/1, replicate/2,
          is_null_or_empty/1, is_null_or_white_space/1,
          forall/2, exists/2, init/2, collect/2,
          iter/2, iteri/2, map/2, mapi/2, filter/2,
-         index_of/2, index_of/3, last_index_of/2, last_index_of/3,
+         index_of/2, index_of/3, index_of_any/2, index_of_any/3,
+         last_index_of/2, last_index_of/3,
          contains/2, trim_chars/2, trim_start_chars/2, trim_end_chars/2,
          to_char_array/1, to_char_array/3,
          compare/2, compare_ignore_case/2,
@@ -53,6 +54,12 @@ pad_right(Str, Width) ->
 pad_right(Str, Width, PadChar) ->
     iolist_to_binary(string:pad(Str, Width, trailing, [PadChar])).
 
+replace(Str, Old, New) when is_integer(Old), is_integer(New) ->
+    iolist_to_binary(string:replace(Str, <<Old/utf8>>, <<New/utf8>>, all));
+replace(Str, Old, New) when is_integer(Old) ->
+    iolist_to_binary(string:replace(Str, <<Old/utf8>>, New, all));
+replace(Str, Old, New) when is_integer(New) ->
+    iolist_to_binary(string:replace(Str, Old, <<New/utf8>>, all));
 replace(Str, Old, New) ->
     iolist_to_binary(string:replace(Str, Old, New, all)).
 
@@ -60,6 +67,19 @@ join(Sep, Items) when is_reference(Items) ->
     join(Sep, get(Items));
 join(Sep, Items) ->
     iolist_to_binary(lists:join(Sep, Items)).
+
+join(Sep, Items, StartIndex, Count) when is_reference(Items) ->
+    join(Sep, get(Items), StartIndex, Count);
+join(Sep, Items, StartIndex, Count) ->
+    Sub = lists:sublist(Items, StartIndex + 1, Count),
+    iolist_to_binary(lists:join(Sep, Sub)).
+
+%% join_strings: same as join but ensures all items are converted to string (integer_to_binary etc.)
+join_strings(Sep, Items) when is_reference(Items) ->
+    join_strings(Sep, get(Items));
+join_strings(Sep, Items) ->
+    StrItems = [to_string(I) || I <- Items],
+    iolist_to_binary(lists:join(Sep, StrItems)).
 
 concat(Items) ->
     iolist_to_binary(Items).
@@ -134,6 +154,26 @@ index_of(Str, Sub, StartIdx) ->
         nomatch -> -1
     end.
 
+%% IndexOfAny: find first position of any char in the array
+index_of_any(Str, Chars) ->
+    index_of_any(Str, Chars, 0).
+
+index_of_any(Str, Chars, StartIdx) when is_reference(Chars) ->
+    index_of_any(Str, get(Chars), StartIdx);
+index_of_any(Str, Chars, StartIdx) ->
+    CharSet = Chars,
+    Bytes = binary_to_list(Str),
+    index_of_any_loop(Bytes, CharSet, 0, StartIdx).
+
+index_of_any_loop([], _CharSet, _Idx, _StartIdx) -> -1;
+index_of_any_loop([C | Rest], CharSet, Idx, StartIdx) when Idx < StartIdx ->
+    index_of_any_loop(Rest, CharSet, Idx + 1, StartIdx);
+index_of_any_loop([C | Rest], CharSet, Idx, StartIdx) ->
+    case lists:member(C, CharSet) of
+        true -> Idx;
+        false -> index_of_any_loop(Rest, CharSet, Idx + 1, StartIdx)
+    end.
+
 last_index_of(Str, Sub) ->
     last_index_of(Str, Sub, byte_size(Str) - 1).
 
@@ -203,6 +243,12 @@ string_ctor_chars_range(Chars, Start, Len) ->
 normalize_sep(Sep) when is_integer(Sep) -> <<Sep/utf8>>;
 normalize_sep(Sep) -> Sep.
 
+%% Normalize separator that may be a list of chars to a list of binaries
+normalize_sep_list(Sep) when is_integer(Sep) -> <<Sep/utf8>>;
+normalize_sep_list(Sep) when is_binary(Sep) -> Sep;
+normalize_sep_list(Sep) when is_list(Sep) ->
+    [<<C/utf8>> || C <- Sep].
+
 split(Str, Sep) ->
     binary:split(Str, normalize_sep(Sep), [global]).
 
@@ -218,7 +264,7 @@ split_remove_empty(Str, Seps) ->
     [P || P <- Parts, P =/= <<>>].
 
 split_with_count(Str, Seps, Count) ->
-    split_count_loop(Str, normalize_sep(Seps), Count, []).
+    split_count_loop(Str, normalize_sep_list(Seps), Count, []).
 
 split_count_loop(Str, _Seps, 1, Acc) ->
     lists:reverse([Str | Acc]);

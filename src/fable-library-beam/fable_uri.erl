@@ -5,7 +5,8 @@
     is_absolute_uri/1, scheme/1, host/1, absolute_path/1,
     absolute_uri/1, path_and_query/1, query/1, fragment/1,
     original_string/1, port/1,
-    to_string/1
+    to_string/1,
+    unescape_data_string/1
 ]).
 
 %% Uri is represented as a map:
@@ -266,3 +267,7 @@ is_default_port(<<"http">>, 80) -> true;
 is_default_port(<<"https">>, 443) -> true;
 is_default_port(<<"ftp">>, 21) -> true;
 is_default_port(_, _) -> false.
+
+%% Uri.UnescapeDataString — percent-decode %XX sequences
+unescape_data_string(Str) when is_binary(Str) ->
+    list_to_binary(uri_string:unquote(binary_to_list(Str))).
