@@ -209,6 +209,17 @@ module private MyPrivateModule =
             member this.Member (thing1: string) (thing2: string) =
                 sprintf "%s %s" thing2 thing1
 
+// Constructor param / interface method name collision
+type IHasNormal =
+    abstract member Normal: unit -> float
+
+type Vector3(x: float, y: float, normal: float) =
+    member _.X = x
+    member _.Y = y
+    member _.Normal = normal
+    interface IHasNormal with
+        member _.Normal() = normal
+
 // Trampoline module
 module Trampoline =
     type Result<'a, 'b> =
@@ -1005,3 +1016,11 @@ module FooModule =
 [<Fact>]
 let ``test Removing optional arguments not in tail position works`` () =
     Internal.MyType.Add(y=6) |> equal 26
+
+[<Fact>]
+let ``test Constructor param and interface method with same name don't collide`` () =
+    let v = Vector3(1.0, 2.0, 3.0)
+    v.X |> equal 1.0
+    v.Normal |> equal 3.0
+    let i = v :> IHasNormal
+    i.Normal() |> equal 3.0

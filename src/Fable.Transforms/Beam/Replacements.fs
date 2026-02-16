@@ -587,8 +587,9 @@ let private objects
         | DeclaredType(ent, _) when ent.FullName = "System.Uri" ->
             Helper.LibCall(com, "fable_uri", "to_string", t, [ thisObj ], ?loc = r) |> Some
         | DeclaredType(ent, _) when ent.FullName = "System.Text.StringBuilder" ->
-            // StringBuilder.ToString() → iolist_to_binary(get(maps:get(buf, get(Sb))))
-            emitExpr r t [ thisObj ] "iolist_to_binary(get(maps:get(buf, get($0))))" |> Some
+            // StringBuilder.ToString() → iolist_to_binary(get(maps:get(field_buf, get(Sb))))
+            emitExpr r t [ thisObj ] "iolist_to_binary(get(maps:get(field_buf, get($0))))"
+            |> Some
         | _ ->
             Helper.LibCall(com, "fable_convert", "to_string", t, [ thisObj ], ?loc = r)
             |> Some

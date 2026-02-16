@@ -350,11 +350,13 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         let erlExpr = transformExpr com ctx expr
         let erlValue = transformExpr com ctx value
 
-        let atomField =
-            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeErlangName fieldName)))
+        let sanitizedFieldName = sanitizeErlangName fieldName
 
         match expr.Type with
         | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isClassType com entityRef ->
+            // Use f$ prefix to avoid collision with interface method keys
+            let atomField =
+                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom("field_" + sanitizedFieldName)))
             // Class instance: update state in process dict
             // put(Ref, maps:put(field, Value, get(Ref)))
             Beam.ErlExpr.Call(
@@ -370,7 +372,10 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 ]
             )
         | _ ->
-            // Record: existing behavior (maps:put returning new map)
+            // Record: existing behavior (maps:put returning new map), no prefix
+            let atomField =
+                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom sanitizedFieldName))
+
             Beam.ErlExpr.Call(Some "maps", "put", [ atomField; erlValue; erlExpr ])
 
     | Set(expr, ExprSet idx, _, value, _) ->
@@ -1411,7 +1416,11 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
             | true, Some cachedExpr -> cachedExpr
             | _ ->
                 // Class instance: state is stored in process dict, ref is the key
-                Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; Beam.ErlExpr.Call(None, "get", [ erlExpr ]) ])
+                // Use f$ prefix to avoid collision with interface method keys
+                let classFieldAtom =
+                    Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom("field_" + fieldName)))
+
+                Beam.ErlExpr.Call(Some "maps", "get", [ classFieldAtom; Beam.ErlExpr.Call(None, "get", [ erlExpr ]) ])
         | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
             // Interface dispatch: works for both object expressions (maps) and class instances (refs)
             Beam.ErlExpr.Call(Some "fable_utils", "iface_get", [ fieldAtom; erlExpr ])
@@ -1915,7 +1924,7 @@ and transformClassDeclaration
                     |> List.fold
                         (fun (entries, fieldCtx: Context) (name, value) ->
                             let erlValue = transformExpr com fieldCtx value
-                            let entries' = entries @ [ atomLit (sanitizeErlangName name), erlValue ]
+                            let entries' = entries @ [ atomLit ("field_" + sanitizeErlangName name), erlValue ]
 
                             let fieldCtx' =
                                 { fieldCtx with CtorFieldExprs = fieldCtx.CtorFieldExprs.Add(name, erlValue) }
