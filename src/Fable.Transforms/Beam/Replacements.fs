@@ -351,9 +351,19 @@ let private operators
         | None -> makeThrow r _t (Value(StringConstant "reraise", None)) |> Some
     // Infinity and NaN — Erlang BEAM VM doesn't support IEEE 754 special float values.
     // Use max finite float (1.7976931348623157e308) as practical stand-in for infinity.
-    | ("Infinity" | "InfinitySingle"), _ -> emitExpr r _t [] "1.7976931348623157e308" |> Some
+    | ("Infinity" | "InfinitySingle"), _ ->
+        com.WarnOnlyOnce(
+            "Erlang BEAM VM does not support IEEE 754 Infinity. Using max finite float as approximation. Arithmetic with this value may cause 'badarith' errors.",
+            ?range = r
+        )
+
+        emitExpr r _t [] "1.7976931348623157e308" |> Some
     | ("NaN" | "NaNSingle"), _ ->
-        // Erlang has no NaN; use atom nan as sentinel
+        com.WarnOnlyOnce(
+            "Erlang BEAM VM does not support IEEE 754 NaN. Using atom 'nan' as sentinel. Arithmetic with this value will fail.",
+            ?range = r
+        )
+
         emitExpr r _t [] "nan" |> Some
     // Pow (for Double, via math:pow)
     | "Pow", [ base_; exp_ ] -> emitExpr r _t [ base_; exp_ ] "math:pow($0, $1)" |> Some

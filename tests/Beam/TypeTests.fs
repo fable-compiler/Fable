@@ -629,3 +629,24 @@ let ``test reraise works`` () =
     with
     | ex -> ex.Message
     |> equal "Will I be reraised?"
+
+type BaseClass(x: int) =
+    member _.BaseValue = x
+    member _.Greet(name: string) = sprintf "Hello %s from %d" name x
+
+type DerivedClass(x: int, y: int) =
+    inherit BaseClass(x)
+    member _.DerivedValue = y
+    member this.Sum = this.BaseValue + y
+
+[<Fact>]
+let ``test Base class field access works`` () =
+    let d = DerivedClass(10, 20)
+    d.BaseValue |> equal 10
+    d.DerivedValue |> equal 20
+    d.Sum |> equal 30
+
+[<Fact>]
+let ``test Base class method call works`` () =
+    let d = DerivedClass(42, 0)
+    d.Greet("World") |> equal "Hello World from 42"

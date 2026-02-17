@@ -291,3 +291,21 @@ let ``test Regex.Replace with evaluator works when regex has named capture group
         sprintf "%s" m.Groups.[1].Value
     let actual = r.Replace(text, replace)
     actual |> equal "Number 12345!"
+
+// --- Regex literal constants ---
+
+let (|RegexMatch|_|) pattern input =
+    let m = Regex.Match(input, pattern)
+    if m.Success then Some m.Groups.[1].Value else None
+
+[<Fact>]
+let ``test Regex literal in active pattern works`` () =
+    match "hello 42 world" with
+    | RegexMatch @"(\d+)" n -> n |> equal "42"
+    | _ -> failwith "Should have matched"
+
+[<Fact>]
+let ``test Regex literal in active pattern no match works`` () =
+    match "hello world" with
+    | RegexMatch @"(\d+)" _ -> failwith "Should not match"
+    | _ -> equal true true

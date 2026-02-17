@@ -22,6 +22,8 @@ let rec mustWrapOption =
 type IBeamCompiler =
     inherit Fable.Compiler
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
+    abstract RegisterConstructorName: entityFullName: string -> ctorFuncName: string -> unit
+    abstract TryGetConstructorName: entityFullName: string -> string option
 
 type Context =
     {
@@ -88,6 +90,11 @@ let resolveImportModuleName (com: IBeamCompiler) (importPath: string) =
 
 let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.ErlExpr =
     match expr with
+    | Unresolved(_, _, r) ->
+        com.WarnOnlyOnce("Unexpected unresolved expression (inline function with trait calls?)", ?range = r)
+
+        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "undefined"))
+
     | Value(kind, _range) -> transformValue com ctx kind
 
     | Call(callee, info, _typ, _range) -> transformCall com ctx callee info
@@ -963,6 +970,11 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
     | _ ->
         let exprName = expr.GetType().Name
+
+        com.WarnOnlyOnce(
+            $"Unhandled Fable expression type '%s{exprName}' — emitting placeholder atom. This may cause runtime errors."
+        )
+
         Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom $"todo_%s{exprName.ToLowerInvariant()}"))
 
 and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam.ErlExpr =
@@ -1214,8 +1226,47 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
 
     | TypeInfo(typ, _tags) -> Reflection.transformTypeInfo com None Map.empty typ
 
+    | BaseValue(None, _) ->
+        // BaseValue with no bound ident — in Erlang classes (process dict maps),
+        // there's no separate "super" object. Access goes through the same this ref.
+        match ctx.ThisArgVar with
+        | Some varName -> Beam.ErlExpr.Variable varName
+        | None -> Beam.ErlExpr.Variable "This"
+
+    | BaseValue(Some boundIdent, _) ->
+        // BaseValue with bound ident — reference the bound this argument
+        Beam.ErlExpr.Variable(capitalizeFirst boundIdent.Name)
+
+    | RegexConstant(source, flags) ->
+        let patternExpr = Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit source)
+
+        let flagBits =
+            flags
+            |> List.fold
+                (fun acc flag ->
+                    match flag with
+                    | RegexIgnoreCase -> acc ||| 1
+                    | RegexMultiline -> acc ||| 2
+                    | RegexSingleline -> acc ||| 16
+                    | RegexGlobal
+                    | RegexUnicode
+                    | RegexSticky -> acc
+                )
+                0
+
+        if flagBits = 0 then
+            Beam.ErlExpr.Call(Some "fable_regex", "create", [ patternExpr ])
+        else
+            let flagsExpr = Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 flagBits))
+            Beam.ErlExpr.Call(Some "fable_regex", "create", [ patternExpr; flagsExpr ])
+
     | _ ->
         let kindName = value.GetType().Name
+
+        com.WarnOnlyOnce(
+            $"Unhandled Fable value kind '%s{kindName}' — emitting placeholder atom. This may cause runtime errors."
+        )
+
         Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom $"todo_%s{kindName.ToLowerInvariant()}"))
 
 and transformOperation
@@ -1966,21 +2017,67 @@ and transformClassDeclaration
                         LocalVars = ctorArgs |> List.fold (fun (s: Set<string>) a -> s.Add(a.Name)) ctx.LocalVars
                     }
 
-                // If the class inherits from exn, extract the message from the base call
-                // and add it as a map entry so .Message works on caught exceptions.
-                let baseExnEntries =
+                // Handle base class inheritance:
+                // - For exn classes: extract the message from base call as a map entry
+                // - For general base classes: call base constructor, get its state, merge later
+                let baseEntries, baseCallPrelude =
                     match decl.BaseCall with
-                    | Some(Fable.Call(_, info, _, _)) when info.Args.Length > 0 ->
-                        let msgExpr = transformExpr com ctorCtx info.Args.[0]
-                        [ atomLit "message", msgExpr ]
-                    | Some(Fable.Call(_, _, _, _)) ->
-                        [
-                            atomLit "message",
-                            Beam.ErlExpr.Literal(
-                                Beam.ErlLiteral.StringLit "Exception of type 'System.Exception' was thrown."
-                            )
-                        ]
-                    | _ -> []
+                    | Some(Fable.Call(_, info, _, _)) when
+                        ent.IsFSharpExceptionDeclaration
+                        || (ent.BaseType
+                            |> Option.exists (fun bt -> bt.Entity.FullName = "System.Exception"))
+                        ->
+                        // Exception class: extract message field
+                        let entries =
+                            if info.Args.Length > 0 then
+                                let msgExpr = transformExpr com ctorCtx info.Args.[0]
+                                [ atomLit "message", msgExpr ]
+                            else
+                                [
+                                    atomLit "message",
+                                    Beam.ErlExpr.Literal(
+                                        Beam.ErlLiteral.StringLit "Exception of type 'System.Exception' was thrown."
+                                    )
+                                ]
+
+                        entries, []
+                    | Some(Fable.Call(_, info, _, _)) when not ent.IsFSharpExceptionDeclaration ->
+                        // General base class: call the base constructor to get a ref with base fields,
+                        // then extract the state map and merge it into the derived class's state.
+                        // Look up the base constructor name from the registry (populated when processing
+                        // the base class declaration earlier in the same module).
+                        let ctorNameOpt =
+                            match info.MemberRef with
+                            | Some(Fable.MemberRef(entityRef, _)) -> com.TryGetConstructorName entityRef.FullName
+                            | _ -> None
+
+                        match ctorNameOpt with
+                        | Some ctorName ->
+                            // Apply dropUnitCallArg to base call args (matching transformCall behavior)
+                            let baseArgs =
+                                FSharp2Fable.Util.dropUnitCallArg com info.Args info.SignatureArgTypes info.MemberRef
+
+                            let erlArgs = baseArgs |> List.map (transformExpr com ctorCtx)
+
+                            let prelude =
+                                [
+                                    // BaseRef = base_class_ctor(X)
+                                    Beam.ErlExpr.Match(Beam.PVar "BaseRef", Beam.ErlExpr.Call(None, ctorName, erlArgs))
+                                    // BaseState = get(BaseRef)
+                                    Beam.ErlExpr.Match(
+                                        Beam.PVar "BaseState",
+                                        Beam.ErlExpr.Call(None, "get", [ Beam.ErlExpr.Variable "BaseRef" ])
+                                    )
+                                    // erase(BaseRef) — clean up the temporary base ref
+                                    Beam.ErlExpr.Call(None, "erase", [ Beam.ErlExpr.Variable "BaseRef" ])
+                                ]
+
+                            [], prelude
+                        | None ->
+                            // Base class not in this module (e.g., BCL types like System.Attribute)
+                            // — skip the base call, no fields to merge
+                            [], []
+                    | _ -> [], []
 
                 // Process fields in order, progressively building a map of field name → Erlang expr.
                 // This allows later fields to reference earlier fields via this.FieldName
@@ -1997,7 +2094,7 @@ and transformClassDeclaration
 
                             entries', fieldCtx'
                         )
-                        (baseExnEntries, ctorCtx)
+                        (baseEntries, ctorCtx)
 
                 // Build interface entries from AttachedMembers that implement interfaces.
                 // These are stored in the process dict state map alongside field state,
@@ -2094,12 +2191,25 @@ and transformClassDeclaration
                 // Transform constructor `do` expressions (side effects like `do v.Value <- 10`)
                 let erlDoExprs = doExprs |> List.map (transformExpr com ctorCtx)
 
+                // Build the state expression: either a plain map or merged with base state
+                let stateExpr =
+                    if baseCallPrelude.IsEmpty then
+                        Beam.ErlExpr.Map mapEntries
+                    else
+                        // maps:merge(BaseState, #{derived_fields...})
+                        Beam.ErlExpr.Call(
+                            Some "maps",
+                            "merge",
+                            [ Beam.ErlExpr.Variable "BaseState"; Beam.ErlExpr.Map mapEntries ]
+                        )
+
                 let body =
-                    [
+                    baseCallPrelude
+                    @ [
                         // Ref = make_ref()
                         Beam.ErlExpr.Match(Beam.PVar "Ref", Beam.ErlExpr.Call(None, "make_ref", []))
-                        // put(Ref, #{field1 => Val1, field2 => Val2, ...})
-                        Beam.ErlExpr.Call(None, "put", [ Beam.ErlExpr.Variable "Ref"; Beam.ErlExpr.Map mapEntries ])
+                        // put(Ref, State) where State is either #{fields} or maps:merge(BaseState, #{fields})
+                        Beam.ErlExpr.Call(None, "put", [ Beam.ErlExpr.Variable "Ref"; stateExpr ])
                     ]
                     @ (if interfaceEntries.IsEmpty then
                            []
@@ -2132,6 +2242,9 @@ and transformClassDeclaration
 
                 // Use the constructor's compiled name so call sites can find it
                 let ctorFuncName = sanitizeErlangName cons.Name
+
+                // Register this constructor name so derived classes can find it for base calls
+                com.RegisterConstructorName ent.FullName ctorFuncName
 
                 let funcDef: Beam.ErlFunctionDef =
                     {
@@ -2475,10 +2588,20 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             CtorFieldExprs = Map.empty
         }
 
+    let ctorNameRegistry = System.Collections.Generic.Dictionary<string, string>()
+
     let beamCom =
         { new IBeamCompiler with
             member _.WarnOnlyOnce(msg, ?range) =
                 com.AddLog(msg, Severity.Warning, ?range = range, fileName = com.CurrentFile, tag = "FABLE")
+
+            member _.RegisterConstructorName entityFullName ctorFuncName =
+                ctorNameRegistry.[entityFullName] <- ctorFuncName
+
+            member _.TryGetConstructorName entityFullName =
+                match ctorNameRegistry.TryGetValue(entityFullName) with
+                | true, name -> Some name
+                | false, _ -> None
 
             member _.LibraryDir = com.LibraryDir
             member _.CurrentFile = com.CurrentFile
