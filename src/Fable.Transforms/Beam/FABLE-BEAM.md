@@ -341,7 +341,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 2. Compiles tests to `.erl` via Fable (library files auto-copied to `fable_modules/fable-library-beam/`)
 3. Compiles library `.erl` files in `fable_modules/fable-library-beam/` with `erlc`
 4. Compiles test `.erl` files with `erlc -pa fable_modules/fable-library-beam`
-5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions (2006 Erlang tests pass)
+5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions (2010 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -393,7 +393,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | NullnessTests.fs | 5 | Null operators, isNull, defaultof, Option.ofObj/toObj |
 | MailboxProcessorTests.fs | 3 | MailboxProcessor post, postAndAsyncReply, postAndAsyncReply with falsy values |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **2006** | |
+| **Total** | **2010** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -580,7 +580,7 @@ for mutable state, `fable_async:from_continuations` for the receive/reply coordi
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 1913 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 2010 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
@@ -990,6 +990,41 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
 - **Stopwatch**: Runtime `fable_stopwatch.erl` using `erlang:monotonic_time(microsecond)`.
   Supports `StartNew`, `Start`, `Stop`, `Reset`, `Restart`, `Elapsed`, `ElapsedMilliseconds`,
   `IsRunning`, `Frequency`, `GetTimestamp`.
+
+## Future Improvements
+
+### Mutable Collections: Process Dict vs ETS
+
+Currently, `Dictionary`, `HashSet`, `ResizeArray`, and `Array` use the process dictionary
+pattern: `make_ref()` + `put(Ref, EntireCollection)` / `get(Ref)`. Every mutation replaces
+the entire map or list — adding one key to a 10,000-entry Dictionary copies all 10,000
+entries (O(N) per mutation).
+
+**ETS (Erlang Term Storage)** is an alternative that provides O(1) in-place mutable tables.
+However, the current process dict approach is arguably the **better design** for BEAM:
+
+- **Process isolation preserved**: Mutations stay within a single process, matching the
+  BEAM philosophy of isolated processes with no shared mutable state
+- **No accidental sharing**: ETS tables are cross-process by default, which would break
+  the isolation model that makes BEAM reliable
+- **Simple cleanup**: `erase(Ref)` at scope exit vs explicit `ets:delete(Tab)` with no
+  finalizers to ensure cleanup
+- **Small collections are fine**: Most F# code uses small-to-medium collections where
+  the full-copy overhead is negligible
+
+| Aspect | Process Dict (current) | ETS |
+| --- | --- | --- |
+| Read | O(1) `get(Ref)` + O(1) `maps:get` | O(1) `ets:lookup` |
+| Write | O(N) full map copy via `put` | O(1) `ets:insert` |
+| Process isolation | Yes (process-local) | No (shared by default) |
+| Small collections | Fast (no table overhead) | Slower (table creation cost) |
+| Large collections | Slow (full copy per mutation) | Fast (in-place mutation) |
+| Cleanup | `erase(Ref)` | `ets:delete(Tab)` (must be explicit) |
+
+**Conclusion**: The process dict approach is the right default. ETS could be offered as
+an opt-in optimization (e.g., via an attribute) for specific cases where large collection
+mutation performance is critical, but it should not be the default since it introduces
+shared mutable state — exactly what BEAM is designed to avoid.
 
 ## Open Questions
 

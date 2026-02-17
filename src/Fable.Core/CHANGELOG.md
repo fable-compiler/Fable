@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Beam] Add `Fable.Core.BeamInterop` module with `emitErlExpr`, `emitErlStatement`, `import`, `importMember`, `importAll` helpers for Erlang interop (by @dbrattli)
+
 ## 5.0.0-beta.5 - 2026-02-03
 
 ### Added

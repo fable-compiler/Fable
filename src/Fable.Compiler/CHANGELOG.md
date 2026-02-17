@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Beam] Add Erlang/BEAM compilation support: Fable2Beam transform, Beam Replacements, ErlangPrinter, and 31 runtime `.erl` modules (by @dbrattli)
+
 ## 5.0.0-alpha.22 - 2026-02-03
 
 ### Changed

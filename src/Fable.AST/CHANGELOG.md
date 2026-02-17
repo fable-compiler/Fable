@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Beam] Add `Language.Beam` case and Erlang AST types (`Beam.AST.fs`) (by @dbrattli)
+
 ## 5.0.0-beta.3 - 2025-11-25
 
 * [All] Fix #4221 Fable.Type union case arg names (by @ncave)
