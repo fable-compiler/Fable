@@ -140,6 +140,7 @@ Erlang modules implementing F# core types:
 | fable_mailbox.erl | MailboxProcessor | In-process CPS continuation model (same as JS/Python) | Done |
 | fable_cancellation.erl | CancellationToken | Process dict pattern, create/cancel/register/is_cancellation_requested, timer-based auto-cancel | Done |
 | fable_stopwatch.erl | Stopwatch | StartNew, Elapsed, ElapsedMilliseconds, Stop, Reset, Restart, IsRunning, Frequency, GetTimestamp | Done |
+| fable_observable.erl | Observable | subscribe, add, choose, filter, map, merge, pairwise, partition, scan, split | Done |
 
 ### Registration & CLI (modified existing files) -- All Done
 
@@ -341,7 +342,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 2. Compiles tests to `.erl` via Fable (library files auto-copied to `fable_modules/fable-library-beam/`)
 3. Compiles library `.erl` files in `fable_modules/fable-library-beam/` with `erlc`
 4. Compiles test `.erl` files with `erlc -pa fable_modules/fable-library-beam`
-5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions (2010 Erlang tests pass)
+5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions (2022 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -393,7 +394,8 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | NullnessTests.fs | 5 | Null operators, isNull, defaultof, Option.ofObj/toObj |
 | MailboxProcessorTests.fs | 3 | MailboxProcessor post, postAndAsyncReply, postAndAsyncReply with falsy values |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **2010** | |
+| ObservableTests.fs | 12 | Observable.subscribe/add/choose/filter/map/merge/pairwise/partition/scan/split, IObservable.Subscribe, Disposing |
+| **Total** | **2022** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -580,7 +582,7 @@ for mutable state, `fable_async:from_continuations` for the receive/reply coordi
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 2010 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 2022 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
@@ -904,7 +906,7 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   not a binary — uses `binary_to_list(<<"~p">>)` to convert. String concatenation from
   Fable's Replacements (`string:concat`) is intercepted and replaced with
   `iolist_to_binary([A, B])` since `string:concat` returns charlists, not binaries.
-  TODO: Move `to_string` conversion to `fable-library-beam/strings.erl`.
+  `to_string` conversion lives in `fable_string:to_string/1`.
 - **Assert temp variables**: Complex expressions in assertEqual/assertNotEqual are stored
   in temp variables (`Assert_actual_N`, `Assert_expected_N`) to avoid duplicate
   evaluation and Erlang "unsafe variable" errors from variable bindings inside case
