@@ -2520,6 +2520,58 @@ let private arrayModule
         Fable.Set(target, ValueSet, Type.Unit, blitted, None) |> Some
     | _ -> None
 
+/// Beam-specific Array.Parallel module replacements — dispatches to fable_parallel.
+let private arrayParallelModule
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (info: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match info.CompiledName, args with
+    | "Map", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_parallel", "parallel_map", List Any, [ fn; arr ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
+    | "MapIndexed", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_parallel", "parallel_mapi", List Any, [ fn; arr ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
+    | "Iterate", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_parallel", "parallel_iter", t, [ fn; arr ], ?loc = r)
+        |> Some
+    | "IterateIndexed", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_parallel", "parallel_iteri", t, [ fn; arr ], ?loc = r)
+        |> Some
+    | "Initialize", [ count; fn ] ->
+        Helper.LibCall(com, "fable_parallel", "parallel_init", List Any, [ count; fn ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
+    | "Collect", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_parallel", "parallel_collect", List Any, [ fn; arr ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
+    | "Choose", [ fn; arr ] ->
+        let arr = derefArr r arr
+
+        Helper.LibCall(com, "fable_parallel", "parallel_choose", List Any, [ fn; arr ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
+    // Fall back to sequential for ops without parallel implementation
+    | _ -> arrayModule com _ctx r t info _thisArg args
+
 /// Beam-specific OperatorIntrinsics replacements (ranges).
 /// F# range expressions like [1..n] compile to RangeInt32(start, step, stop).
 /// Routes through Range.fs library for correctness with floats/decimals.
@@ -4475,8 +4527,8 @@ let tryCall
     | "Microsoft.FSharp.Collections.FSharpList`1" -> lists com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.ListModule" -> listModule com ctx r t info thisArg args
     | "System.Array" -> arrays com ctx r t info thisArg args
-    | "Microsoft.FSharp.Collections.ArrayModule"
-    | "Microsoft.FSharp.Collections.ArrayModule.Parallel" -> arrayModule com ctx r t info thisArg args
+    | "Microsoft.FSharp.Collections.ArrayModule" -> arrayModule com ctx r t info thisArg args
+    | "Microsoft.FSharp.Collections.ArrayModule.Parallel" -> arrayParallelModule com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.FSharpMap`2" -> maps com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.MapModule" -> mapModule com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.FSharpSet`1" -> sets com ctx r t info thisArg args
@@ -4624,6 +4676,12 @@ let tryCall
     | "System.Threading.Tasks.Task`1"
     | "System.Threading.Tasks.TaskCompletionSource`1"
     | "System.Runtime.CompilerServices.TaskAwaiter`1" -> tasks com ctx r t info thisArg args
+    | "System.Threading.Tasks.Parallel" ->
+        match info.CompiledName, args with
+        | "For", [ fromInclusive; toExclusive; body ] ->
+            Helper.LibCall(com, "fable_parallel", "parallel_for", t, [ fromInclusive; toExclusive; body ], ?loc = r)
+            |> Some
+        | _ -> None
     | Types.printfModule
     | Naming.StartsWith Types.printfFormat _ -> fsFormat com ctx r t info thisArg args
     | "System.Threading.CancellationToken"
