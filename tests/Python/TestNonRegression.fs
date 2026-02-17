@@ -284,3 +284,19 @@ let ``test named arguments are converted to snake_case`` () =
     let runner2 = NamedArgsSnakeCase.TestRunner(testCase = "test2", configArgs = [| "arg3" |])
     equal "test2" runner2.TestCase
     equal [| "arg3" |] runner2.ConfigArgs
+
+// Regression: type test pattern (:? T as x) inside closure should not cause
+// UnboundLocalError by reassigning the tested variable
+[<Fact>]
+let ``test type test pattern in closure does not shadow outer variable`` () =
+    let mutable result = ""
+    let processValue (value: obj) =
+        let inner () =
+            match value with
+            | :? string as s -> result <- s
+            | _ -> result <- "not a string"
+        inner ()
+    processValue (box "hello")
+    equal "hello" result
+    processValue (box 42)
+    equal "not a string" result

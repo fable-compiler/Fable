@@ -64,6 +64,40 @@ def add_to_set(v: object, st: MutableSet[object]) -> bool:
     return True
 
 
+def remove_from_set(v: object, st: MutableSet[object]) -> bool:
+    """Remove from set-like object - returns True if removed, False if not present."""
+    if v in st:
+        st.discard(v)
+        return True
+
+    return False
+
+
+def contains_in_set(v: object, st: MutableSet[object]) -> bool:
+    """Check if set-like object contains a value."""
+    return v in st
+
+
+def union_with_set(s1: MutableSet[object], s2: Iterable[object]) -> None:
+    """Add all elements from s2 to s1. Works with both native set and custom HashSet."""
+    for x in s2:
+        s1.add(x)
+
+
+def intersect_with_set(s1: MutableSet[object], s2: Iterable[object]) -> None:
+    """Remove elements from s1 that are not in s2. Works with both native set and custom HashSet."""
+    s2_items = set(s2)
+    to_remove = [x for x in s1 if x not in s2_items]
+    for x in to_remove:
+        s1.discard(x)
+
+
+def except_with_set(s1: MutableSet[object], s2: Iterable[object]) -> None:
+    """Remove all elements in s2 from s1. Works with both native set and custom HashSet."""
+    for x in s2:
+        s1.discard(x)
+
+
 def add_to_dict(di: dict[_K, _V], k: _K, v: _V) -> None:
     if k in di:
         raise Exception("An item with the same key has already been added. Key: " + str(k))

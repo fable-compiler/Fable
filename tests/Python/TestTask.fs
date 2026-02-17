@@ -154,3 +154,48 @@ let ``test TaskCompletionSource is executed correctly`` () =
         x |> fun tsk -> tsk.GetAwaiter().GetResult()
 
     equal 42 result
+
+// Regression: async functions returning Task from if/else branches must await both branches
+let skipPipeline () : Task<int option> = Task.FromResult None
+
+let httpVerb (validate: string -> bool) =
+    fun (value: string) ->
+        if validate value then
+            Task.FromResult(Some 42)
+        else
+            skipPipeline ()
+
+[<Fact>]
+let ``test async pass-through returns are awaited in if branches`` () =
+    let result =
+        httpVerb (fun s -> s = "GET") "GET"
+        |> fun tsk -> tsk.GetAwaiter().GetResult()
+    equal (Some 42) result
+
+    let result2 =
+        httpVerb (fun s -> s = "GET") "POST"
+        |> fun tsk -> tsk.GetAwaiter().GetResult()
+    equal None result2
+
+// Regression: await in nested try/with inside async
+[<Fact>]
+let ``test async returns in try-with are awaited`` () =
+    let getResult (fail: bool) : Task<int> =
+        if fail then
+            failwith "error"
+        else
+            Task.FromResult 99
+
+    let wrapper (fail: bool) =
+        task {
+            try
+                return! getResult fail
+            with
+            | _ -> return -1
+        }
+
+    let result = wrapper false |> fun tsk -> tsk.GetAwaiter().GetResult()
+    equal 99 result
+
+    let result2 = wrapper true |> fun tsk -> tsk.GetAwaiter().GetResult()
+    equal -1 result2

@@ -149,6 +149,9 @@ let generatePythonProtocolDunders (com: IPythonCompiler) ctx (classEnt: Fable.En
 
     // Generate IMapping dunders: __getitem__, __contains__, __len__, __iter__
     // Note: Method names use Python naming convention (lowercase with underscores)
+    // __iter__ always yields keys following Python's Mapping convention.
+    // F# iteration (for KeyValue(k,v) in map) compiles to GetEnumerator()/MoveNext()/Current
+    // and never uses __iter__, so this is purely for Python interop.
     let mappingDunders =
         if hasIMapping || hasIMutableMapping then
             [
@@ -170,9 +173,7 @@ let generatePythonProtocolDunders (com: IPythonCompiler) ctx (classEnt: Fable.En
                     Arguments.arguments [ Arg.arg "self" ],
                     body = [ Statement.return' (Expression.attribute (self, Identifier "Count", Load)) ]
                 )
-                // def __iter__(self):
-                //     for kv in to_iterator(self.GetEnumerator()):
-                //         yield kv[0]  # kv is a tuple (key, value)
+                // def __iter__(self): yields keys only (Python Mapping convention)
                 let toIterator = com.GetImportExpr(ctx, "fable_library.util", "to_iterator")
                 let kvVar = Expression.name "kv"
 
@@ -184,7 +185,7 @@ let generatePythonProtocolDunders (com: IPythonCompiler) ctx (classEnt: Fable.En
                             Statement.for' (
                                 kvVar,
                                 Expression.call (toIterator, [ selfCall "GetEnumerator" [] ]),
-                                // Access kv[0] since the enumerator yields tuples (key, value)
+                                // Yield kv[0] (key) since GetEnumerator yields (key, value) tuples
                                 [
                                     Statement.expr (
                                         Yield(Some(Expression.subscript (kvVar, Expression.intConstant 0, Load)))

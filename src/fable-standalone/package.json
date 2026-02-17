@@ -2,7 +2,7 @@
     "type": "module",
     "name": "@fable-org/fable-standalone",
     "private": false,
-    "version": "2.0.0-beta.14",
+    "version": "2.0.0-beta.15",
     "main": "./dist/bundle.min.js",
     "description": "Fable compiler",
     "keywords": [
