@@ -90,6 +90,10 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s - -y
 RUN echo "# Load rust path" >> .zshrc
 RUN echo 'export PATH="$HOME/.cargo/bin:$PATH"' >> .zshrc
 
+# Install Erlang/OTP (for Beam target)
+# Debian Trixie includes OTP 27+ in default repos
+RUN sudo apt-get update && sudo apt-get install -y erlang
+
 # Instal dart
 # Use custom dsm install script, because we broke it while
 #  trying to fix another issue with dsm
