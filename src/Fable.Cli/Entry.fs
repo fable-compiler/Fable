@@ -468,7 +468,7 @@ let getStatus =
     | Rust -> "alpha"
     | Dart -> "beta"
     | Php -> "experimental"
-    | Beam -> "experimental"
+    | Beam -> "alpha"
 
 let getLibPkgVersion =
     function
