@@ -89,9 +89,9 @@ let rec undentationLimit strict stack =
                 -> PositionWithColumn(limitCtxt.StartPos, limitCtxt.StartCol)
     | CtxtFun _ :: rest
                 -> undentationLimit false rest
-    | CtxtParen ((LBRACE _ | LBRACK | LBRACK_BAR), _) :: CtxtSeqBlock _ :: rest
-    | CtxtParen ((LBRACE _ | LBRACK | LBRACK_BAR), _) :: CtxtVanilla _ :: CtxtSeqBlock _ :: rest
-    | CtxtSeqBlock _ :: CtxtParen((LBRACE _ | LBRACK | LBRACK_BAR), _) :: CtxtVanilla _ :: CtxtSeqBlock _ :: rest
+    | CtxtParen ((LBRACE | LBRACK | LBRACK_BAR), _) :: CtxtSeqBlock _ :: rest
+    | CtxtParen ((LBRACE | LBRACK | LBRACK_BAR), _) :: CtxtVanilla _ :: CtxtSeqBlock _ :: rest
+    | CtxtSeqBlock _ :: CtxtParen((LBRACE | LBRACK | LBRACK_BAR), _) :: CtxtVanilla _ :: CtxtSeqBlock _ :: rest
                 -> undentationLimit false rest
     | CtxtElse _ :: (CtxtIf _ as limitCtxt) :: _rest
                 -> PositionWithColumn(limitCtxt.StartPos, limitCtxt.StartCol)
@@ -112,7 +112,7 @@ let rec undentationLimit strict stack =
             when relaxWhitespace2
             -> PositionWithColumn(limitCtxt.StartPos, limitCtxt.StartCol + 1)
     | CtxtSeqBlock _ :: CtxtParen((BEGIN | LPAREN | LBRACK | LBRACK_BAR), _) :: CtxtVanilla _ :: (CtxtSeqBlock _ as limitCtxt) :: _
-    | CtxtParen ((BEGIN | LPAREN | LBRACE _ | LBRACE_BAR | LBRACK | LBRACK_BAR), _) :: CtxtSeqBlock _ :: (CtxtTypeDefns _ | CtxtLetDecl _ | CtxtMemberBody _ | CtxtWithAsLet _ as limitCtxt) :: _
+    | CtxtParen ((BEGIN | LPAREN | LBRACE | LBRACE_BAR | LBRACK | LBRACK_BAR), _) :: CtxtSeqBlock _ :: (CtxtTypeDefns _ | CtxtLetDecl _ | CtxtMemberBody _ | CtxtWithAsLet _ as limitCtxt) :: _
                 -> PositionWithColumn(limitCtxt.StartPos, limitCtxt.StartCol + 1)
     | (CtxtIf _ as limitCtxt) :: _rest
                 -> PositionWithColumn(limitCtxt.StartPos, limitCtxt.StartCol)
