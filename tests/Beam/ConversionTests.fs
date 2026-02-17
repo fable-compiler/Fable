@@ -829,3 +829,64 @@ let ``test FSharp.Core type converters can combined via the >> operator`` () =
     "1" |> (float >> Ok) |> equal (Ok 1.)
     "1" |> (double >> Ok) |> equal (Ok 1.)
     "1" |> (decimal >> Ok) |> equal (Ok 1.m)
+
+// --- More BitConverter tests (ported from Python) ---
+
+[<Fact>]
+let ``test BitConverter.GetBytes UInt16 works`` () =
+    let value = 0xFF02us
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 2uy; 255uy |]
+
+[<Fact>]
+let ``test BitConverter.GetBytes UInt32 works`` () =
+    let value = 0xFF020304u
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 4uy; 3uy; 2uy; 255uy |]
+
+[<Fact>]
+let ``test BitConverter.GetBytes Single works`` () =
+    let value = 1.0f
+    let bytes = BitConverter.GetBytes(value)
+    bytes |> equal [| 0uy; 0uy; 128uy; 63uy |]
+
+[<Fact>]
+let ``test BitConverter.Int64BitsToDouble works`` () =
+    let f = BitConverter.Int64BitsToDouble(1L)
+    f |> equal 4.9406564584124654E-324
+
+[<Fact>]
+let ``test BitConverter.DoubleToInt64Bits works`` () =
+    let i = BitConverter.DoubleToInt64Bits(1.0)
+    i |> equal 4607182418800017408L
+
+[<Fact>]
+let ``test BitConverter.ToInt32 works`` () =
+    let value = 0x01020304
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToInt32(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToUInt16 works`` () =
+    let value = 0xFF02us
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToUInt16(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToUInt32 works`` () =
+    let value = 0xFF020304u
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToUInt32(bytes, 0) |> equal value
+
+// TODO: UInt64 values > Int64.MaxValue — Fable compiles UInt64 as Int64, round-trip fails
+// [<Fact>]
+// let ``test BitConverter.ToUInt64 works`` () =
+//     let value = 0xFF02030405060708UL
+//     let bytes = BitConverter.GetBytes(value)
+//     BitConverter.ToUInt64(bytes, 0) |> equal value
+
+[<Fact>]
+let ``test BitConverter.ToSingle works`` () =
+    let value = 1.0f
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToSingle(bytes, 0) |> equal value

@@ -1,6 +1,7 @@
 -module(fable_bit_converter).
 -export([get_bytes/2, get_bytes_bool/1, to_int/3, to_uint/3, to_float/3,
-         to_boolean/2, to_string/1, to_string/2, to_string/3]).
+         to_boolean/2, to_string/1, to_string/2, to_string/3,
+         int64_bits_to_double/1, double_to_int64_bits/1]).
 
 %% Convert a numeric value to a byte array (little-endian, matching .NET convention).
 get_bytes(Value, BitSize) when is_integer(Value) ->
@@ -71,3 +72,13 @@ to_float(Bytes, StartIndex, BitSize) when is_binary(Bytes) ->
     Value;
 to_float(Bytes, StartIndex, BitSize) when is_list(Bytes) ->
     to_float(list_to_binary(Bytes), StartIndex, BitSize).
+
+%% Reinterpret Int64 bits as Double (IEEE 754).
+int64_bits_to_double(I) ->
+    <<F:64/float>> = <<I:64/signed-integer>>,
+    F.
+
+%% Reinterpret Double bits as Int64.
+double_to_int64_bits(F) ->
+    <<I:64/signed-integer>> = <<F:64/float>>,
+    I.

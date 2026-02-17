@@ -180,15 +180,15 @@ let ``test Dictionary.Keys works`` () =
     |> Seq.fold (fun acc k -> acc + dic.[k]) 0
     |> equal 3
 
-// TODO: Dictionary.Keys/Values.Count calls fable_dictionary:get_count on list (not ref)
-// [<Fact>]
-// let ``test Dictionary.Keys.Count works`` () =
-//     let dic = Dictionary<_, _>()
-//     dic.Add("A", 1)
-//     dic.Add("B", 2)
-//     dic.Keys.Count |> equal 2
+[<Fact>]
+let ``test Dictionary.Keys.Count works`` () =
+    let dic = Dictionary<_, _>()
+    dic.Add("A", 1)
+    dic.Add("B", 2)
+    dic.Keys.Count |> equal 2
 
-// TODO: Iterating over dic.Values — for-in on Values collection generates badmap on undefined
+// TODO: for-in on dic.Values list — GetEnumerator on ValueCollection goes through collections handler
+// which routes to fable_dictionary:get_enumerator (expects dict ref, not list)
 // [<Fact>]
 // let ``test Dictionary.Values works`` () =
 //     let dic = Dictionary<_, _>()
@@ -199,10 +199,66 @@ let ``test Dictionary.Keys works`` () =
 //         i <- value + i
 //     i |> equal 3
 
-// TODO: Dictionary.Values.Count calls fable_dictionary:get_count on list (not ref)
+[<Fact>]
+let ``test Dictionary.Values.Count works`` () =
+    let dic = Dictionary<_, _>()
+    dic.Add("A", 1)
+    dic.Add("B", 2)
+    dic.Values.Count |> equal 2
+
+[<Fact>]
+let ``test Dictionary KeyValuePattern works`` () =
+    let dic = Dictionary<_, _>()
+    for i in 1. .. 10. do
+        dic.Add(i, i * i)
+    let mutable total = 0.
+    for KeyValue (x, y) in dic do
+        total <- y + total
+    equal 385. total
+
+// TODO: IDictionary created via dict — indexer access goes through IDictionary which expects dict ref
 // [<Fact>]
-// let ``test Dictionary.Values.Count works`` () =
+// let ``test Interface IDictionary creation works`` () =
+//     let dic =
+//         dict
+//         <| seq { for i in 1. .. 10. -> i.ToString(), i * i }
+//     equal 4. dic.["2"]
+
+[<Fact>]
+let ``test Dictionary creation from IDictionary works`` () =
+    let idic =
+        dict
+        <| seq { for i in 1..10 -> i.ToString(), i * i }
+    let dic = Dictionary<_, _>(idic)
+    dic.Add("100", 100)
+    equal 10 idic.Count
+    equal 11 dic.Count
+
+[<Fact>]
+let ``test Dictionary iteration works`` () =
+    let dic = Dictionary<_, _>()
+    for i in 1. .. 10. do
+        dic.Add(i, i * i)
+    let mutable total = 0.
+    for kv in dic do
+        total <- kv.Value + total
+    total + dic.[1.] |> equal 386.
+
+// TODO: Seq.fold on Dictionary — item.Value on KeyValuePair tuples causes badarg
+// [<Fact>]
+// let ``test Dictionary folding works`` () =
 //     let dic = Dictionary<_, _>()
-//     dic.Add("A", 1)
-//     dic.Add("B", 2)
-//     dic.Values.Count |> equal 2
+//     for i in 1. .. 10. do
+//         dic.Add(i, i * i)
+//     dic
+//     |> Seq.fold (fun acc item -> acc + item.Value) 0.
+//     |> equal 385.
+
+[<Fact>]
+let ``test Dictionary.Delete works`` () =
+    let dic = Dictionary<_, _>()
+    dic.Add("A", "Hello")
+    dic.Add("B", "World!")
+    dic.ContainsValue("Hello") |> equal true
+    dic.Remove("A") |> equal true
+    dic.ContainsValue("Hello") |> equal false

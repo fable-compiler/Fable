@@ -3427,7 +3427,12 @@ let private collections
     (thisArg: Expr option)
     (args: Expr list)
     =
+    let isKeyOrValueCollection =
+        info.DeclaringEntityFullName.EndsWith("KeyCollection", System.StringComparison.Ordinal)
+        || info.DeclaringEntityFullName.EndsWith("ValueCollection", System.StringComparison.Ordinal)
+
     match info.CompiledName, thisArg with
+    | "get_Count", Some callee when isKeyOrValueCollection -> emitExpr r t [ callee ] "erlang:length($0)" |> Some
     | "get_Count", Some callee ->
         Helper.LibCall(com, "fable_dictionary", "get_count", t, [ callee ], ?loc = r)
         |> Some
@@ -3590,6 +3595,12 @@ let private bitConvert
         |> Some
     | "ToString", [ bytes; startIndex; count ] ->
         Helper.LibCall(com, "fable_bit_converter", "to_string", t, [ bytes; startIndex; count ], ?loc = r)
+        |> Some
+    | "Int64BitsToDouble", [ arg ] ->
+        Helper.LibCall(com, "fable_bit_converter", "int64_bits_to_double", t, [ arg ], ?loc = r)
+        |> Some
+    | "DoubleToInt64Bits", [ arg ] ->
+        Helper.LibCall(com, "fable_bit_converter", "double_to_int64_bits", t, [ arg ], ?loc = r)
         |> Some
     | _ -> None
 
