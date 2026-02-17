@@ -72,6 +72,7 @@
     <Compile Include="EnumerableTests.fs" />
     <Compile Include="InteropTests.fs" />
     <Compile Include="ParallelTests.fs" />
+    <Compile Include="ObservableTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

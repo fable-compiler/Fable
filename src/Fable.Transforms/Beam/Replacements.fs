@@ -2685,6 +2685,42 @@ let cancels (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         |> Some
     | _ -> None
 
+let observable (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo) (_: Expr option) (args: Expr list) =
+    Helper.LibCall(
+        com,
+        "fable_observable",
+        Naming.lowerFirst i.CompiledName,
+        t,
+        args,
+        i.SignatureArgTypes,
+        genArgs = i.GenericArgs,
+        ?loc = r
+    )
+    |> Some
+
+let controlExtensions
+    (com: ICompiler)
+    (_ctx: Context)
+    (_: SourceLocation option)
+    t
+    (i: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match i.CompiledName with
+    | "AddToObservable" -> Some "add"
+    | "SubscribeToObservable" -> Some "subscribe"
+    | _ -> None
+    |> Option.map (fun meth ->
+        let args, argTypes =
+            thisArg
+            |> Option.map (fun thisArg -> thisArg :: args, thisArg.Type :: i.SignatureArgTypes)
+            |> Option.defaultValue (args, i.SignatureArgTypes)
+            |> fun (args, argTypes) -> List.rev args, List.rev argTypes
+
+        Helper.LibCall(com, "fable_observable", meth, t, args, argTypes)
+    )
+
 let mailbox (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg with
     | None ->
@@ -4628,6 +4664,8 @@ let tryCall
     | Naming.StartsWith Types.printfFormat _ -> fsFormat com ctx r t info thisArg args
     | "System.Threading.CancellationToken"
     | "System.Threading.CancellationTokenSource" -> cancels com ctx r t info thisArg args
+    | "Microsoft.FSharp.Control.CommonExtensions" -> controlExtensions com ctx r t info thisArg args
+    | "Microsoft.FSharp.Control.ObservableModule" -> observable com ctx r t info thisArg args
     | "Microsoft.FSharp.Control.FSharpMailboxProcessor`1"
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" -> mailbox com ctx r t info thisArg args
     | Types.regex
