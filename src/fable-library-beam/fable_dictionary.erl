@@ -23,8 +23,27 @@ create_from_list(Items) when is_list(Items) ->
     put(Ref, Map),
     Ref;
 create_from_list(Ref) when is_reference(Ref) ->
-    %% From another Dictionary ref: copy
-    create_from_list(maps:to_list(get(Ref))).
+    %% Could be another Dictionary ref (copy) or a lazy seq ref
+    Stored = get(Ref),
+    case is_map(Stored) of
+        true ->
+            case maps:is_key(get_enumerator, Stored) of
+                true ->
+                    %% Lazy seq ref: enumerate to list
+                    create_from_list(fable_utils:to_list(Ref));
+                false ->
+                    %% Dictionary ref: copy
+                    create_from_list(maps:to_list(Stored))
+            end;
+        false when is_list(Stored) ->
+            %% Array ref or list-backed ref
+            create_from_list(Stored);
+        false ->
+            create_from_list(fable_utils:to_list(Ref))
+    end;
+create_from_list(Other) ->
+    %% Any other enumerable (maps, lazy seq objects, etc.)
+    create_from_list(fable_utils:to_list(Other)).
 
 %% Add: throws if key already exists
 add(DictRef, Key, Value) ->

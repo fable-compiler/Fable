@@ -61,7 +61,7 @@ directly to Erlang built-ins:
 | **Structural comparison** | `Util.compare()` library call | Native `<`, `>`, `=<`, `>=` (works on all terms) |
 | **Hashing** | Custom hash functions | `erlang:phash2/1` |
 | **Pattern matching** | Compiled to if/else chains | Native pattern matching in `case` expressions |
-| **Sequences** | Lazy iterators | Eager lists (simple, correct — add lazy later if needed) |
+| **Sequences** | Lazy iterators | Lazy seqs via compiled `seq.erl`/`seq2.erl` |
 
 **Rule: If Erlang can do it natively, do it natively.** Only create library modules
 (`fable-library-beam/*.erl`) for operations that genuinely need helper code. Avoid
@@ -341,7 +341,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 2. Compiles tests to `.erl` via Fable (library files auto-copied to `fable_modules/fable-library-beam/`)
 3. Compiles library `.erl` files in `fable_modules/fable-library-beam/` with `erlc`
 4. Compiles test `.erl` files with `erlc -pa fable_modules/fable-library-beam`
-5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions (1913 Erlang tests pass)
+5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions (2006 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -393,7 +393,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | NullnessTests.fs | 5 | Null operators, isNull, defaultof, Option.ofObj/toObj |
 | MailboxProcessorTests.fs | 3 | MailboxProcessor post, postAndAsyncReply, postAndAsyncReply with falsy values |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| **Total** | **1913** | |
+| **Total** | **2006** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -432,8 +432,8 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
 
 **Design decisions**:
 
-- Sequences are **eager** (evaluated immediately as lists). `Seq.delay(f)` calls `f(ok)`.
-  This simplifies the implementation; lazy sequences can be added later if needed.
+- Sequences use **lazy evaluation** via Fable-compiled `seq.erl`/`seq2.erl` modules
+  (compiled from `Seq.fs`/`Seq2.fs`). List-backed operations delegate to `fable_list.erl` BIFs.
 - Seq operations intercepted in Beam Replacements (not JS fallback) to avoid
   injected comparers/adders that Erlang doesn't need.
 - Complex operations in `fable_list.erl`/`fable_seq.erl`, simple BIF mappings via `emitExpr`.

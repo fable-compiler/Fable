@@ -3,14 +3,19 @@
          get_enumerator/1, move_next/1, get_current/1,
          pos_infinity/0, neg_infinity/0, nan/0, is_infinity/1,
          new_lazy/1, new_lazy_from_value/1, force_lazy/1, is_value_created/1,
-         using/2, to_list/1,
+         using/2, to_list/1, enumerate_to_list/1,
          new_byte_array/1, new_byte_array_zeroed/1, new_byte_array_filled/2,
          byte_array_to_list/1, is_byte_array/1,
          byte_array_get/2, byte_array_set/3, byte_array_length/1]).
 
 %% Interface dispatch: works for both object expressions (maps) and class instances (refs).
-iface_get(Name, Obj) when is_map(Obj) -> maps:get(Name, Obj);
-iface_get(Name, Ref) -> maps:get(Name, get(Ref)).
+%% Class interface property getters are stored as {getter, Fun} tagged thunks — call Fun().
+%% ObjectExpr property getters are stored as plain values — return directly.
+iface_get(Name, Obj) when is_map(Obj) -> iface_unwrap(maps:get(Name, Obj));
+iface_get(Name, Ref) -> iface_unwrap(maps:get(Name, get(Ref))).
+
+iface_unwrap({getter, Fun}) -> Fun();
+iface_unwrap(Val) -> Val.
 
 %% Create a new process dictionary ref cell with the given initial value.
 %% Encapsulates make_ref() + put() to avoid variable name collisions in nested constructs.
@@ -47,28 +52,68 @@ get_enumerator(List) when is_list(List) ->
     put(Ref, #{items => List, current => undefined}),
     Ref;
 get_enumerator(Ref) when is_reference(Ref) ->
-    %% Process dict ref (ResizeArray, HashSet, etc.): unwrap and recurse
-    get_enumerator(get(Ref));
+    Stored = get(Ref),
+    case is_map(Stored) of
+        true ->
+            %% Could be a lazy seq object (has get_enumerator key) or a class instance
+            case maps:is_key(get_enumerator, Stored) of
+                true ->
+                    %% Lazy seq object: call its get_enumerator function
+                    (maps:get(get_enumerator, Stored))();
+                false ->
+                    %% Other map-based ref: try keys (e.g., HashSet-like)
+                    get_enumerator(maps:keys(Stored))
+            end;
+        false ->
+            case is_list(Stored) of
+                true ->
+                    %% Array ref: enumerate the list
+                    get_enumerator(Stored);
+                false ->
+                    %% Fallback
+                    get_enumerator(lists:flatten([Stored]))
+            end
+    end;
 get_enumerator(Map) when is_map(Map) ->
-    %% HashSet internal map: iterate over keys
-    get_enumerator(maps:keys(Map));
+    case maps:is_key(get_enumerator, Map) of
+        true ->
+            %% Lazy seq object (plain map, not ref-wrapped): call its get_enumerator
+            (maps:get(get_enumerator, Map))();
+        false ->
+            %% HashSet internal map: iterate over keys
+            get_enumerator(maps:keys(Map))
+    end;
 get_enumerator(Other) ->
     %% Fallback: treat as list
     get_enumerator(lists:flatten([Other])).
 
 move_next(EnumRef) ->
     State = get(EnumRef),
-    case maps:get(items, State) of
-        [H | T] ->
-            put(EnumRef, State#{items := T, current := H}),
-            true;
-        [] ->
-            false
+    case maps:is_key(items, State) of
+        true ->
+            %% Simple list-based enumerator
+            case maps:get(items, State) of
+                [H | T] ->
+                    put(EnumRef, State#{items := T, current := H}),
+                    true;
+                [] ->
+                    false
+            end;
+        false ->
+            %% Compiled seq.erl enumerator (has move_next function)
+            (maps:get(system_collections_i_enumerator_move_next, State))()
     end.
 
 get_current(EnumRef) ->
     State = get(EnumRef),
-    maps:get(current, State).
+    case maps:is_key(current, State) of
+        true ->
+            %% Simple list-based enumerator
+            maps:get(current, State);
+        false ->
+            %% Compiled seq.erl enumerator: call field_current fun
+            (maps:get(field_current, State))(ok)
+    end.
 
 %% IEEE 754 special float values.
 %% Erlang BEAM VM doesn't support infinity/NaN as float values.
@@ -111,13 +156,50 @@ using(Resource, Action) ->
     after safe_dispose(Resource)
     end.
 
-%% Convert any value to a list — derefs array refs and atomics byte arrays.
+%% Convert any value to a list — derefs array refs, atomics byte arrays, and lazy seq objects.
+to_list(V) when is_list(V) -> V;
 to_list(V) when is_reference(V) ->
     case is_byte_array(V) of
         true -> byte_array_to_list(V);
-        false -> get(V)
+        false ->
+            Stored = get(V),
+            case is_list(Stored) of
+                true -> Stored;  % array ref
+                false ->
+                    %% Lazy seq object (ref to map with get_enumerator) — enumerate to list
+                    enumerate_to_list(V)
+            end
     end;
+to_list(V) when is_map(V) ->
+    case maps:is_key(get_enumerator, V) of
+        true ->
+            %% Lazy seq object (plain map, not ref-wrapped)
+            enumerate_to_list(V);
+        false ->
+            %% HashSet (map) — return keys as list
+            maps:keys(V)
+    end;
+to_list(V) when is_binary(V) ->
+    %% String binary → list of Unicode codepoints
+    unicode:characters_to_list(V);
 to_list(V) -> V.
+
+%% Enumerate a lazy seq object to a plain list using get_enumerator/move_next/get_current.
+enumerate_to_list(Seq) ->
+    E = get_enumerator(Seq),
+    try
+        enumerate_to_list_loop(E, [])
+    after
+        safe_dispose(E)
+    end.
+
+enumerate_to_list_loop(E, Acc) ->
+    case move_next(E) of
+        true ->
+            enumerate_to_list_loop(E, [get_current(E) | Acc]);
+        false ->
+            lists:reverse(Acc)
+    end.
 
 %% Atomics-backed byte arrays for O(1) read/write.
 new_byte_array({byte_array, _, _} = BA) ->

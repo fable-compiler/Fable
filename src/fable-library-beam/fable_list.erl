@@ -80,7 +80,7 @@ find(Fn, List) ->
 
 try_find(Fn, List) ->
     case lists:dropwhile(fun(E) -> not Fn(E) end, List) of
-        [H|_] -> H;
+        [H|_] -> fable_option:some(H);
         [] -> undefined
     end.
 
@@ -105,7 +105,7 @@ try_find_back(Fn, List) ->
     try_find(Fn, lists:reverse(List)).
 
 choose(Fn, List) ->
-    lists:filtermap(fun(E) -> case Fn(E) of undefined -> false; V -> {true, V} end end, List).
+    lists:filtermap(fun(E) -> case Fn(E) of undefined -> false; V -> {true, fable_option:unwrap(V)} end end, List).
 
 collect(Fn, List) ->
     lists:append(lists:map(Fn, List)).
@@ -148,21 +148,21 @@ scan_back(Fn, List, State) ->
     end, State, List),
     Result ++ [State].
 
-try_head([H|_]) -> H;
+try_head([H|_]) -> fable_option:some(H);
 try_head([]) -> undefined.
 
 try_last([]) -> undefined;
-try_last(List) -> lists:last(List).
+try_last(List) -> fable_option:some(lists:last(List)).
 
 try_item(Index, List) when Index >= 0, Index < length(List) ->
-    lists:nth(Index + 1, List);
+    fable_option:some(lists:nth(Index + 1, List));
 try_item(_, _) ->
     undefined.
 
 exactly_one([X]) -> X;
 exactly_one(_) -> erlang:error(<<"Sequence contains more than one element">>).
 
-try_exactly_one([X]) -> X;
+try_exactly_one([X]) -> fable_option:some(X);
 try_exactly_one(_) -> undefined.
 
 distinct(List) ->

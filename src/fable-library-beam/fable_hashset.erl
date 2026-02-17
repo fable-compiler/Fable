@@ -24,9 +24,9 @@ create_from_list(Items) when is_list(Items) ->
     Map = lists:foldl(fun(Item, Acc) -> maps:put(Item, true, Acc) end, #{}, Items),
     put(Ref, Map),
     Ref;
-create_from_list(Ref) when is_reference(Ref) ->
-    %% From another HashSet ref: copy
-    create_from_list(maps:keys(get(Ref))).
+create_from_list(Other) ->
+    %% From any enumerable: convert to list first (handles refs, lazy seqs, strings, etc.)
+    create_from_list(fable_utils:to_list(Other)).
 
 %% Add: returns true if item was not already present
 add(SetRef, Item) ->

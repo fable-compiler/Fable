@@ -132,18 +132,30 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         let ctx' = { ctx with MutableVars = ctx.MutableVars.Add(ident.Name, refVarName) }
         let erlBody = transformExpr com ctx' body
 
-        let resultVarName = refVarName + "_result"
+        // If the mutable var is captured in a closure, don't erase it — the closure
+        // needs the process-dict ref to persist beyond this scope.
+        if Util.isCapturedInClosure ident.Name body then
+            Beam.ErlExpr.Block
+                [
+                    Beam.ErlExpr.Match(
+                        Beam.PVar(refVarName),
+                        Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ erlValue ])
+                    )
+                    erlBody
+                ]
+        else
+            let resultVarName = refVarName + "_result"
 
-        Beam.ErlExpr.Block
-            [
-                Beam.ErlExpr.Match(
-                    Beam.PVar(refVarName),
-                    Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ erlValue ])
-                )
-                Beam.ErlExpr.Match(Beam.PVar(resultVarName), erlBody)
-                Beam.ErlExpr.Call(Some "erlang", "erase", [ Beam.ErlExpr.Variable(refVarName) ])
-                Beam.ErlExpr.Variable(resultVarName)
-            ]
+            Beam.ErlExpr.Block
+                [
+                    Beam.ErlExpr.Match(
+                        Beam.PVar(refVarName),
+                        Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ erlValue ])
+                    )
+                    Beam.ErlExpr.Match(Beam.PVar(resultVarName), erlBody)
+                    Beam.ErlExpr.Call(Some "erlang", "erase", [ Beam.ErlExpr.Variable(refVarName) ])
+                    Beam.ErlExpr.Variable(resultVarName)
+                ]
 
     | Let(ident, value, body) ->
         let varName = capitalizeFirst ident.Name |> sanitizeErlangVar
@@ -858,9 +870,10 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
                 let erlBody = transformExpr com membCtx memb.Body
 
-                if memberInfo.IsGetter then
-                    // Property getter: store the evaluated value directly
-                    // Call site uses Get(obj, FieldGet(name)) → maps:get(name, obj)
+                if memberInfo.IsGetter || memberInfo.IsValue then
+                    // Property getter or value: store the body directly (evaluated at construction time).
+                    // This handles both ObjectExpr getters and synthetic values from objExpr
+                    // (e.g., comparers: #{compare => fun(X, Y) -> ... end}).
                     atomLit methodName, erlBody
                 else
                     let argPats = nonThisArgs |> List.map (fun a -> Beam.PVar(toErlangVar a))
@@ -1010,7 +1023,14 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         Beam.ErlExpr.Call(Some "fable_utils", "new_byte_array", [ transformExpr com ctx expr ])
 
     | NewArray(ArrayFrom expr, _typ, _kind) ->
-        Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ transformExpr com ctx expr ])
+        // Use to_list to handle refs (from seq:to_array), lazy seq objects, and plain lists
+        Beam.ErlExpr.Call(
+            Some "fable_utils",
+            "new_ref",
+            [
+                Beam.ErlExpr.Call(Some "fable_utils", "to_list", [ transformExpr com ctx expr ])
+            ]
+        )
 
     | NewArray(ArrayAlloc size, Type.Number(UInt8, _), _kind) ->
         // byte[] zero-alloc → atomics are already zero-initialized
@@ -1367,7 +1387,15 @@ and transformTest (com: IBeamCompiler) (ctx: Context) (kind: TestKind) (expr: Ex
         | Fable.AST.Fable.Type.List _ -> Beam.ErlExpr.Call(None, "is_list", [ erlExpr ])
         | Fable.AST.Fable.Type.Array(Fable.AST.Fable.Type.Number(UInt8, _), _) ->
             Beam.ErlExpr.Call(Some "fable_utils", "is_byte_array", [ erlExpr ])
-        | Fable.AST.Fable.Type.Array _ -> Beam.ErlExpr.Call(None, "is_reference", [ erlExpr ])
+        | Fable.AST.Fable.Type.Array _ ->
+            // Must check both is_reference AND that the stored value is a list,
+            // because lazy seq objects are also references (to maps).
+            let isRef = Beam.ErlExpr.Call(None, "is_reference", [ erlExpr ])
+
+            let isList =
+                Beam.ErlExpr.Call(None, "is_list", [ Beam.ErlExpr.Call(Some "erlang", "get", [ erlExpr ]) ])
+
+            Beam.ErlExpr.BinOp("andalso", isRef, isList)
         | Fable.AST.Fable.Type.Tuple _ -> Beam.ErlExpr.Call(None, "is_tuple", [ erlExpr ])
         | Fable.AST.Fable.Type.DeclaredType(ref, _) ->
             // For exception types, check __type tag: (is_map(X) andalso maps:get(__type, X, undefined) =:= type_name)
@@ -1441,7 +1469,9 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
 
                 Beam.ErlExpr.Call(Some "maps", "get", [ classFieldAtom; Beam.ErlExpr.Call(None, "get", [ erlExpr ]) ])
         | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
-            // Interface dispatch: works for both object expressions (maps) and class instances (refs)
+            // Interface dispatch: works for both object expressions (maps) and class instances (refs).
+            // Class interface property getters are stored as 0-arity thunks — iface_get calls them.
+            // ObjectExpr property getters are stored as plain values — iface_get returns them as-is.
             Beam.ErlExpr.Call(Some "fable_utils", "iface_get", [ fieldAtom; erlExpr ])
         | _ ->
             // Record/union: direct map access
@@ -1566,7 +1596,7 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                     | Beam.ErlExpr.Variable _ -> ([], expr)
                     | _ ->
                         let varName = $"%s{name}_%d{counter}"
-                        ([ Beam.ErlExpr.Match(Beam.PVar varName, expr) ], Beam.ErlExpr.Variable varName)
+                        [ Beam.ErlExpr.Match(Beam.PVar varName, expr) ], Beam.ErlExpr.Variable varName
 
                 let tempActualH, useActual = storeIfComplex "Assert_actual" cleanActual
                 let tempExpectedH, useExpected = storeIfComplex "Assert_expected" cleanExpected
@@ -1981,8 +2011,10 @@ and transformClassDeclaration
                             let memberName = sanitizeErlangName memb.Name
 
                             if sigInfo.IsGetter then
-                                // Property getter: evaluate the body in constructor context
-                                // to get the value. The body can reference `this` fields via get(Ref).
+                                // Property getter: store as tagged thunk {getter, fun() -> Body end}
+                                // for lazy evaluation. Must be lazy because getter body may depend on
+                                // mutable state (e.g., IEnumerator.Current reads from a mutable ref).
+                                // iface_get detects the {getter, Fun} tag and calls the thunk.
                                 let ifaceCtorCtx =
                                     match memb.Args with
                                     | first :: _ when first.IsThisArgument || first.Name = "this" ->
@@ -1990,7 +2022,27 @@ and transformClassDeclaration
                                     | _ -> ctorCtx
 
                                 let erlBody = transformExpr com ifaceCtorCtx memb.Body
-                                Some(atomLit memberName, erlBody)
+
+                                let bodyExprs =
+                                    match erlBody with
+                                    | Beam.ErlExpr.Block es -> es
+                                    | e -> [ e ]
+
+                                let thunk =
+                                    Beam.ErlExpr.Fun
+                                        [
+                                            {
+                                                Patterns = []
+                                                Guard = []
+                                                Body = bodyExprs
+                                            }
+                                        ]
+
+                                let taggedThunk =
+                                    Beam.ErlExpr.Tuple
+                                        [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "getter")); thunk ]
+
+                                Some(atomLit memberName, taggedThunk)
                             else
                                 // Method: create a closure with the body inlined directly.
                                 // Apply discardUnitArg to match dropUnitCallArg at call sites.

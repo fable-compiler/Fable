@@ -7,7 +7,7 @@
     fold/3, fold_back/3,
     to_array/1, to_list/1, flatten/1,
     count/1, for_all/2, exists/2,
-    some/1, value/1
+    some/1, unwrap/1, value/1
 ]).
 
 %% Unwrap an option value: {some, V} -> V, plain V -> V.

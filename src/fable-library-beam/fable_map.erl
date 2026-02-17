@@ -11,7 +11,7 @@
 try_find(Key, Map) ->
     case Map of
        #{Key := V} ->
-           V;
+           fable_option:some(V);
        #{} ->
            undefined
    end.
@@ -45,7 +45,7 @@ find_key(Fn, Map) ->
 
 try_find_key(Fn, Map) ->
     case lists:dropwhile(fun({K, V}) -> not (Fn(K))(V) end, maps:to_list(Map)) of
-        [{K, _}|_] -> K;
+        [{K, _}|_] -> fable_option:some(K);
         [] -> undefined
     end.
 

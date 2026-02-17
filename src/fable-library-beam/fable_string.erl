@@ -64,23 +64,33 @@ replace(Str, Old, New) ->
     iolist_to_binary(string:replace(Str, Old, New, all)).
 
 join(Sep, Items) when is_reference(Items) ->
-    join(Sep, get(Items));
+    join(Sep, fable_utils:to_list(Items));
+join(Sep, Items) when is_map(Items) ->
+    join(Sep, fable_utils:to_list(Items));
 join(Sep, Items) ->
     iolist_to_binary(lists:join(Sep, Items)).
 
 join(Sep, Items, StartIndex, Count) when is_reference(Items) ->
-    join(Sep, get(Items), StartIndex, Count);
+    join(Sep, fable_utils:to_list(Items), StartIndex, Count);
+join(Sep, Items, StartIndex, Count) when is_map(Items) ->
+    join(Sep, fable_utils:to_list(Items), StartIndex, Count);
 join(Sep, Items, StartIndex, Count) ->
     Sub = lists:sublist(Items, StartIndex + 1, Count),
     iolist_to_binary(lists:join(Sep, Sub)).
 
 %% join_strings: same as join but ensures all items are converted to string (integer_to_binary etc.)
 join_strings(Sep, Items) when is_reference(Items) ->
-    join_strings(Sep, get(Items));
+    join_strings(Sep, fable_utils:to_list(Items));
+join_strings(Sep, Items) when is_map(Items) ->
+    join_strings(Sep, fable_utils:to_list(Items));
 join_strings(Sep, Items) ->
     StrItems = [to_string(I) || I <- Items],
     iolist_to_binary(lists:join(Sep, StrItems)).
 
+concat(Items) when is_reference(Items) ->
+    concat(fable_utils:to_list(Items));
+concat(Items) when is_map(Items) ->
+    concat(fable_utils:to_list(Items));
 concat(Items) ->
     iolist_to_binary(Items).
 

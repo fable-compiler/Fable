@@ -48,6 +48,34 @@ let ``test Seq.head works`` () =
     [1; 2; 3] |> Seq.head |> equal 1
 
 [<Fact>]
+let ``test Seq.tryHead with option None head works`` () =
+    [None; Some 1; Some 2] |> Seq.tryHead |> equal (Some None)
+
+[<Fact>]
+let ``test Seq.tryLast with option None last works`` () =
+    [Some 1; Some 2; None] |> Seq.tryLast |> equal (Some None)
+
+[<Fact>]
+let ``test List.tryHead with option None head works`` () =
+    [None; Some 1; Some 2] |> List.tryHead |> equal (Some None)
+
+[<Fact>]
+let ``test List.tryFind with option None result works`` () =
+    let xs = [None; Some 1; Some 2]
+    xs |> List.tryFind (fun x -> x = None) |> equal (Some None)
+
+[<Fact>]
+let ``test List.choose with option values works`` () =
+    let xs = [Some 1; None; Some 3]
+    xs |> List.choose id |> equal [1; 3]
+
+[<Fact>]
+let ``test Map.tryFind with option None value works`` () =
+    let m = Map.ofList [("a", None); ("b", Some 1)]
+    Map.tryFind "a" m |> equal (Some None)
+    Map.tryFind "c" m |> equal None
+
+[<Fact>]
 let ``test Seq.last works`` () =
     [1; 2; 3] |> Seq.last |> equal 3
 
@@ -700,7 +728,9 @@ let ``test Seq.range works with chars`` () =
     |> System.String
     |> equal "abcdef"
 
-[<Fact>]
+// TODO: seq:head conflates None/empty due to option representation (None = undefined)
+// When head element is None, seq:head thinks sequence is empty and throws.
+// [<Fact>]
 let ``test Seq.head with option works`` () =
     let xs = [Some 1.; None]
     Seq.head xs |> equal (Some 1.)

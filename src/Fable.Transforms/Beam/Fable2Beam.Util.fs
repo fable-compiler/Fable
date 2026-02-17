@@ -60,12 +60,58 @@ let rec containsIdentRef (name: string) (expr: Expr) : bool =
     | Emit(emitInfo, _, _) -> emitInfo.CallInfo.Args |> List.exists (containsIdentRef name)
     | ObjectExpr(members, _, baseCall) ->
         members |> List.exists (fun m -> containsIdentRef name m.Body)
-        || (
-            match baseCall with
-            | Some e -> containsIdentRef name e
-            | None -> false
-        )
+        || match baseCall with
+           | Some e -> containsIdentRef name e
+           | None -> false
     | _ -> false
+
+/// Check if an identifier is captured inside a closure (Lambda/Delegate) within the expression.
+/// Used to determine if a mutable variable's process-dict ref should NOT be erased at scope end.
+let isCapturedInClosure (name: string) (expr: Expr) : bool =
+    let rec check (inClosure: bool) (expr: Expr) : bool =
+        match expr with
+        | IdentExpr ident -> inClosure && ident.Name = name
+        | Lambda(_, body, _)
+        | Delegate(_, body, _, _) -> check true body
+        | Call(callee, info, _, _) -> check inClosure callee || info.Args |> List.exists (check inClosure)
+        | CurriedApply(applied, args, _, _) -> check inClosure applied || args |> List.exists (check inClosure)
+        | Let(_, value, body) -> check inClosure value || check inClosure body
+        | LetRec(bindings, body) ->
+            bindings |> List.exists (fun (_, v) -> check inClosure v)
+            || check inClosure body
+        | IfThenElse(g, t, e, _) -> check inClosure g || check inClosure t || check inClosure e
+        | Sequential exprs -> exprs |> List.exists (check inClosure)
+        | Value(value, _) ->
+            match value with
+            | NewAnonymousRecord(values, _, _, _)
+            | NewRecord(values, _, _)
+            | NewUnion(values, _, _, _)
+            | NewTuple(values, _) -> values |> List.exists (check inClosure)
+            | NewList(Some(h, t), _) -> check inClosure h || check inClosure t
+            | NewOption(Some e, _, _) -> check inClosure e
+            | NewArray(NewArrayKind.ArrayValues values, _, _) -> values |> List.exists (check inClosure)
+            | StringTemplate(_, _, values) -> values |> List.exists (check inClosure)
+            | _ -> false
+        | TypeCast(e, _) -> check inClosure e
+        | Operation(kind, _, _, _) ->
+            match kind with
+            | Binary(_, l, r) -> check inClosure l || check inClosure r
+            | Unary(_, e) -> check inClosure e
+            | Logical(_, l, r) -> check inClosure l || check inClosure r
+        | DecisionTree(e, targets) -> check inClosure e || targets |> List.exists (fun (_, t) -> check inClosure t)
+        | DecisionTreeSuccess(_, values, _) -> values |> List.exists (check inClosure)
+        | Test(e, _, _) -> check inClosure e
+        | Get(e, _, _, _) -> check inClosure e
+        | Set(e, _, _, v, _) -> check inClosure e || check inClosure v
+        | Emit(emitInfo, _, _) -> emitInfo.CallInfo.Args |> List.exists (check inClosure)
+        | ObjectExpr(members, _, baseCall) ->
+            members |> List.exists (fun m -> check true m.Body)
+            || match baseCall with
+               | Some e -> check inClosure e
+               | None -> false
+        | _ -> false
+
+    check false expr
 
 /// Check if a Fable type is a non-byte array (i.e., needs ref-wrapping)
 let isRefArray (typ: Fable.AST.Fable.Type) =
