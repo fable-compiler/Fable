@@ -625,3 +625,47 @@ let ``test GetHashCode with records works`` () =
     ({a=1; b=2}.GetHashCode(), {a=1; b=2}.GetHashCode()) ||> equal
     ({a=2; b=1}.GetHashCode(), {a=1; b=2}.GetHashCode()) ||> notEqual
 
+// TODO: GetHashCode on arrays uses identity (ref) hashing, not content hashing
+// because arrays are process-dict refs. hash() function dereferences but GetHashCode() doesn't.
+// [<Fact>]
+// let ``test GetHashCode with arrays works`` () =
+//     ([|1; 2|].GetHashCode(), [|1; 2|].GetHashCode()) ||> equal
+//     ([|2; 1|].GetHashCode(), [|1; 2|].GetHashCode()) ||> notEqual
+
+[<Fact>]
+let ``test Set option equality works`` () =
+    let xs1 = Some (Set [ 1; 2; 3 ])
+    let xs2 = Some (Set [ 1; 2; 3 ])
+    let xs3 = Some (Set [ 1; 2; 4 ])
+    let xs4 = Some (Set [ 3; 2; 1 ])
+    let xs5 = Some (Set [ 1; 2; 3; 1 ])
+    let xs6 = None
+    equal true (xs1 = xs2)
+    equal false (xs1 = xs3)
+    equal true (xs1 <> xs3)
+    equal false (xs1 <> xs2)
+    equal true (xs1 = xs4)
+    equal false (xs1 <> xs5)
+    equal false (xs1 = xs6)
+    equal true (xs1 <> xs6)
+    equal true (xs6 = None)
+    equal false (xs6 <> None)
+
+[<Fact>]
+let ``test isNull with objects works`` () =
+    let s1: String = null
+    isNull s1 |> equal true
+    let s2: String = "hello"
+    isNull s2 |> equal false
+
+// TODO: PhysicalEquality on ResizeArray (ref) uses fable_comparison:compare instead of =:=
+// because BinaryEqual on array/ref types gets structural comparison
+// [<Fact>]
+// let ``test PhysicalEquality works`` () =
+//     let r1 = ResizeArray([1; 2])
+//     let r2 = ResizeArray([1; 2])
+//     let r3 = r1
+//     LanguagePrimitives.PhysicalEquality r1 r2 |> equal false
+//     LanguagePrimitives.PhysicalEquality r2 r2 |> equal true
+//     LanguagePrimitives.PhysicalEquality r3 r1 |> equal true
+

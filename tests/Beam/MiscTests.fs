@@ -644,6 +644,23 @@ let ``test use calls Dispose of an object expression at the end of the scope`` (
     res |> equal 10
     cell.Value |> equal 20
 
+[<Fact>]
+let ``test using function disposes the resource when action finishes`` () =
+    let mutable disposed = false
+    let resource = { new System.IDisposable with member _.Dispose() = disposed <- true }
+    using resource (fun _resource -> ())
+    equal true disposed
+
+[<Fact>]
+let ``test using function disposes the resource when action fails`` () =
+    let mutable disposed = false
+    let resource = { new System.IDisposable with member _.Dispose() = disposed <- true }
+    try
+        using resource (fun _resource -> failwith "action failed")
+    with
+    | _ -> ()
+    equal true disposed
+
 // -- Exception Handling --
 
 [<Fact>]

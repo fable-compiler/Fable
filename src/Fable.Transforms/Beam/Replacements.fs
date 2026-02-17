@@ -1069,6 +1069,7 @@ let private optionModule
     | "Count", [ opt ] -> Helper.LibCall(com, "fable_option", "count", t, [ opt ]) |> Some
     | "ForAll", [ fn; opt ] -> Helper.LibCall(com, "fable_option", "for_all", t, [ fn; opt ]) |> Some
     | "Exists", [ fn; opt ] -> Helper.LibCall(com, "fable_option", "exists", t, [ fn; opt ]) |> Some
+    | ("OfOption" | "ToOption" | "OfValueOption" | "ToValueOption"), [ arg ] -> Some arg
     | _ -> None
 
 /// Beam-specific FSharpOption instance method replacements.
@@ -1087,7 +1088,9 @@ let private options
     | "get_Value", Some c -> Some c
     | "get_IsSome", Some c -> Test(c, OptionTest true, r) |> Some
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
-    | _ -> None
+    // Static methods on ValueOption type (Bind, Map, DefaultValue, etc.)
+    // fall through to optionModule which handles them identically
+    | _ -> optionModule com _ctx r t info thisArg _args
 
 /// Beam-specific Result module replacements.
 /// Result in Erlang: Ok x = {0, X}, Error e = {1, E}.
@@ -4462,7 +4465,8 @@ let tryCall
     | "Microsoft.FSharp.Core.FSharpOption`1"
     | "Microsoft.FSharp.Core.FSharpValueOption`1" -> options com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.OptionModule"
-    | "Microsoft.FSharp.Core.ValueOptionModule" -> optionModule com ctx r t info thisArg args
+    | "Microsoft.FSharp.Core.ValueOptionModule"
+    | "Microsoft.FSharp.Core.ValueOption" -> optionModule com ctx r t info thisArg args
     | "Microsoft.FSharp.Core.ResultModule" -> resultModule com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.FSharpList`1" -> lists com ctx r t info thisArg args
     | "Microsoft.FSharp.Collections.ListModule" -> listModule com ctx r t info thisArg args

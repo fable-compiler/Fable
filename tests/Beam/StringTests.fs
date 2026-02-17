@@ -978,3 +978,9 @@ let ``test String.concat with long seq works`` () =
     let a = seq { for i in 1..n -> "a" }
     let s = String.concat "" a
     s.Length |> equal n
+
+[<Fact>]
+let ``test String.forall works`` () =
+    "aaa" |> String.forall (fun c -> c = 'a') |> equal true
+    "aab" |> String.forall (fun c -> c = 'a') |> equal false
+    "" |> String.forall (fun c -> c = 'a') |> equal true

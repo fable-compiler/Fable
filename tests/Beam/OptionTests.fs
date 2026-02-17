@@ -299,3 +299,66 @@ let ``test Generic option function works`` () =
     let makeSomeGeneric (x: 'a) : 'a option = Some x
     makeSomeGeneric 42 |> Option.isSome |> equal true
     makeSomeGeneric "hello" |> Option.isSome |> equal true
+
+// --- ValueOption ---
+
+[<Fact>]
+let ``test ValueOption.IsSome works`` () =
+    let x = ValueSome 42
+    x.IsSome |> equal true
+
+[<Fact>]
+let ``test ValueOption.IsNone works`` () =
+    let x: int voption = ValueNone
+    x.IsNone |> equal true
+
+[<Fact>]
+let ``test ValueOption module isSome works`` () =
+    ValueOption.isSome (ValueSome 42) |> equal true
+    ValueOption.isSome ValueNone |> equal false
+
+[<Fact>]
+let ``test ValueOption module isNone works`` () =
+    ValueOption.isNone ValueNone |> equal true
+    ValueOption.isNone (ValueSome 42) |> equal false
+
+[<Fact>]
+let ``test ValueOption.Value works`` () =
+    let x = ValueSome 42
+    x.Value |> equal 42
+
+[<Fact>]
+let ``test ValueOption.map works`` () =
+    ValueSome 21 |> ValueOption.map (fun v -> v * 2) |> equal (ValueSome 42)
+    ValueNone |> ValueOption.map (fun v -> v * 2) |> equal ValueNone
+
+[<Fact>]
+let ``test ValueOption.bind works`` () =
+    ValueSome 21 |> ValueOption.bind (fun v -> ValueSome(v * 2)) |> equal (ValueSome 42)
+    ValueNone |> ValueOption.bind (fun v -> ValueSome(v * 2)) |> equal ValueNone
+
+[<Fact>]
+let ``test ValueOption.defaultValue works`` () =
+    ValueSome 5 |> ValueOption.defaultValue 4 |> equal 5
+    ValueNone |> ValueOption.defaultValue 4 |> equal 4
+
+[<Fact>]
+let ``test ValueOption.defaultWith works`` () =
+    ValueSome 5 |> ValueOption.defaultWith (fun () -> 4) |> equal 5
+    ValueNone |> ValueOption.defaultWith (fun () -> 4) |> equal 4
+
+[<Fact>]
+let ``test ValueOption.toOption works`` () =
+    ValueSome 42 |> ValueOption.toOption |> equal (Some 42)
+    ValueNone |> ValueOption.toOption |> equal None
+
+[<Fact>]
+let ``test Option.toValueOption works`` () =
+    Some 42 |> Option.toValueOption |> equal (ValueSome 42)
+    None |> Option.toValueOption |> equal ValueNone
+
+// TODO: Some(box null) = undefined in Beam (None = Some null conflation)
+// [<Fact>]
+// let ``test Some box null is Some`` () =
+//     Some (box null) |> Option.isSome |> equal true
+//     Some (null) |> Option.isSome |> equal true
