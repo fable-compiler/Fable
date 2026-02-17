@@ -4741,7 +4741,7 @@ let tryCall
         | ".ctor", None, [] ->
             let typeName = info.DeclaringEntityFullName
             let msg = $"Exception of type '%s{typeName}' was thrown."
-            emitExpr r t [] $"#{{message => <<\"{msg}\">>}}" |> Some
+            emitExpr r t [] $"#{{message => <<\"%s{msg}\">>}}" |> Some
         | "get_Message", Some c, _ -> emitExpr r t [ c ] "maps:get(message, $0, $0)" |> Some
         | _ -> None
     // System.Type (reflection) — type info is a map #{fullname => ..., generics => [...]}

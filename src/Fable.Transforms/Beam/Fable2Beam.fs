@@ -426,8 +426,6 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 ]
             )
 
-    | Set _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "todo_set"))
-
     | LetRec(bindings, body) ->
         let allAreLambdas =
             bindings
