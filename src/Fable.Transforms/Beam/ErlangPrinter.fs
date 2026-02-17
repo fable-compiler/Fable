@@ -485,7 +485,22 @@ module Output =
             printPattern sb p
         )
 
-        sb.Append(") ->") |> ignore
+        sb.Append(")") |> ignore
+
+        match clause.Guard with
+        | [] -> ()
+        | guards ->
+            sb.Append(" when ") |> ignore
+
+            guards
+            |> List.iteri (fun gi g ->
+                if gi > 0 then
+                    sb.Append(", ") |> ignore
+
+                printExpr sb 1 g
+            )
+
+        sb.Append(" ->") |> ignore
         sb.AppendLine() |> ignore
 
         let topBody = stripStrayOk clause.Body
