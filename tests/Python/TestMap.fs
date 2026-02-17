@@ -333,3 +333,21 @@ let ``test Map works with keys with custom comparison`` () =
     |> Map.add { Bar = "a"; Foo = 10 } 2
     |> Map.count
     |> equal 1
+
+// Note: This compiles to GetEnumerator()/MoveNext()/Current, not __iter__
+[<Fact>]
+let ``test Map iteration with KeyValue yields key-value pairs`` () =
+    let myMap = Map [ "foo", 1; "bar", 2; "baz", 3 ]
+    let mutable keys = []
+    let mutable values = []
+    for KeyValue(key, value) in myMap do
+        keys <- key :: keys
+        values <- value :: values
+    keys |> List.sort |> equal ["bar"; "baz"; "foo"]
+    values |> List.sort |> equal [1; 2; 3]
+
+[<Fact>]
+let ``test Map keys and values work correctly`` () =
+    let myMap = Map [ "a", 10; "b", 20 ] :> IDictionary<_,_>
+    myMap.Keys |> Seq.toList |> equal ["a"; "b"]
+    myMap.Values |> Seq.toList |> equal [10; 20]

@@ -1760,12 +1760,9 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     | "GetEnumerator", Some ar, _ -> getEnumerator com r t ar |> Some
     | "get_Count", Some(MaybeCasted(ar)), _ ->
         match ar.Type with
-        // ResizeArray is Python list - use len() wrapped in int32()
-        | Array(_, ResizeArray) ->
+        | Array _ ->
             let lenExpr = Helper.GlobalCall("len", Int32.Number, [ ar ], ?loc = r)
             Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
-        // MutableArray/ImmutableArray are FSharpArray (Rust) with .length property returning Int32
-        | Array _ -> getFieldWith r t ar "length" |> Some
         | _ -> Helper.LibCall(com, "util", "count", t, [ ar ], ?loc = r) |> Some
     | "Clear", Some ar, _ -> Helper.LibCall(com, "Util", "clear", t, [ ar ], ?loc = r) |> Some
     | "Find", Some ar, [ arg ] ->
@@ -1894,8 +1891,8 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     // printfn "arrays: %A" i.CompiledName
     match i.CompiledName, thisArg, args with
     | "get_Length", Some arg, _ ->
-        // All arrays in Python are FSharpArray (Rust) which has .length property returning Int32
-        getFieldWith r t arg "length" |> Some
+        let lenExpr = Helper.GlobalCall("len", Int32.Number, [ arg ], ?loc = r)
+        Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
     | "get_Item", Some arg, [ idx ] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [ idx; value ] -> setExpr r arg idx value |> Some
     | "Copy", None, [ _source; _sourceIndex; _target; _targetIndex; _count ] -> copyToArray com r t i args
@@ -1946,13 +1943,8 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         Helper.LibCall(com, "list", "of_array", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("Length" | "Count"), [ arg ] ->
-        match arg.Type with
-        // ResizeArray is Python list - use len() wrapped in int32()
-        | Array(_, ResizeArray) ->
-            let lenExpr = Helper.GlobalCall("len", Int32.Number, [ arg ], ?loc = r)
-            Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
-        // MutableArray/ImmutableArray are FSharpArray (Rust) with .length property returning Int32
-        | _ -> getFieldWith r t arg "length" |> Some
+        let lenExpr = Helper.GlobalCall("len", Int32.Number, [ arg ], ?loc = r)
+        Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
     | "Item", [ idx; ar ] -> getExpr r t ar idx |> Some
     | "Get", [ ar; idx ] -> getExpr r t ar idx |> Some
     | "Set", [ ar; idx; value ] -> setExpr r ar idx value |> Some
@@ -1969,8 +1961,8 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         // Use library function to create empty FSharpArray (Rust) instead of raw Python list
         Helper.LibCall(com, "array", "empty", t, [], ?loc = r) |> Some
     | "IsEmpty", [ ar ] ->
-        // Use .length property (Int32) instead of len() which returns Python int
-        eq (getFieldWith r Int32.Number ar "length") (makeIntConst 0) |> Some
+        eq (Helper.GlobalCall("len", Int32.Number, [ ar ], ?loc = r)) (makeIntConst 0)
+        |> Some
     | "Concat", [ ar1; ar2 ] -> makeBinOp r t ar1 ar2 BinaryPlus |> Some
     | Patterns.DicContains nativeArrayFunctions meth, _ ->
         let args, thisArg = List.splitLast args
@@ -2638,17 +2630,25 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             |> makeHashSetWithComparer com r t (makeArray Any [])
             |> Some
         | _ -> None
-    | "get_Count", Some c, _ ->
-        Helper.LibCall(com, "mutable_set", "HashSet__get_Count", t, [ c ], ?loc = r)
-        |> Some
+    | "get_Count", Some c, _ -> Helper.GlobalCall("len", t, [ c ], ?loc = r) |> Some
     | "get_IsReadOnly", _, _ -> BoolConstant false |> makeValue r |> Some
-    | ReplaceName [ "Clear", "clear"; "Contains", "has"; "Remove", "delete" ] methName, Some c, args ->
-        Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc = r) |> Some
+    | "Clear", Some c, _ -> Helper.InstanceCall(c, "clear", t, args, i.SignatureArgTypes, ?loc = r) |> Some
+    | "Contains", Some c, [ arg ] ->
+        Helper.LibCall(com, "map_util", "containsInSet", t, [ arg; c ], ?loc = r)
+        |> Some
+    | "Remove", Some c, [ arg ] ->
+        Helper.LibCall(com, "map_util", "removeFromSet", t, [ arg; c ], ?loc = r)
+        |> Some
     | "GetEnumerator", Some c, _ -> getEnumerator com r t c |> Some
     | "Add", Some c, [ arg ] -> Helper.LibCall(com, "map_util", "addToSet", t, [ arg; c ], ?loc = r) |> Some
-    | ("IsProperSubsetOf" | "IsProperSupersetOf" | "UnionWith" | "IntersectWith" | "ExceptWith" | "IsSubsetOf" | "IsSupersetOf" as meth),
-      Some c,
-      args ->
+    | "UnionWith", Some c, [ arg ] -> Helper.LibCall(com, "map_util", "unionWithSet", t, [ c; arg ], ?loc = r) |> Some
+    | "IntersectWith", Some c, [ arg ] ->
+        Helper.LibCall(com, "map_util", "intersectWithSet", t, [ c; arg ], ?loc = r)
+        |> Some
+    | "ExceptWith", Some c, [ arg ] ->
+        Helper.LibCall(com, "map_util", "exceptWithSet", t, [ c; arg ], ?loc = r)
+        |> Some
+    | ("IsProperSubsetOf" | "IsProperSupersetOf" | "IsSubsetOf" | "IsSupersetOf" as meth), Some c, args ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Set" meth i.GenericArgs args
 
