@@ -3306,6 +3306,10 @@ let private hashSets
     | "IsProperSupersetOf", Some callee, [ other ] ->
         Helper.LibCall(com, "fable_hashset", "is_proper_superset_of", t, [ callee; other ], ?loc = r)
         |> Some
+    // CopyTo
+    | "CopyTo", Some callee, [ arr ] ->
+        Helper.LibCall(com, "fable_hashset", "copy_to", t, [ callee; arr ], ?loc = r)
+        |> Some
     // GetEnumerator
     | "GetEnumerator", Some callee, _ ->
         Helper.LibCall(com, "fable_hashset", "get_enumerator", t, [ callee ], ?loc = r)

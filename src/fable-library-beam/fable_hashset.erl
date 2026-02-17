@@ -6,6 +6,7 @@
     union_with/2, intersect_with/2, except_with/2,
     is_subset_of/2, is_superset_of/2,
     is_proper_subset_of/2, is_proper_superset_of/2,
+    copy_to/2,
     get_enumerator/1
 ]).
 
@@ -95,6 +96,12 @@ is_proper_subset_of(SetRef, OtherRef) ->
 
 is_proper_superset_of(SetRef, OtherRef) ->
     is_proper_subset_of(OtherRef, SetRef).
+
+%% CopyTo: copy elements into a target array (process-dict ref)
+copy_to(SetRef, ArrRef) ->
+    Items = maps:keys(get(SetRef)),
+    put(ArrRef, Items),
+    ok.
 
 %% GetEnumerator: return list of items for iteration
 get_enumerator(SetRef) ->

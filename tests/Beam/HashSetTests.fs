@@ -192,3 +192,44 @@ let ``test HashSet sum via iteration works`` () =
     for item in hs do
         sum <- sum + item
     sum |> equal 55
+
+// --- Subset / Superset ---
+
+[<Fact>]
+let ``test HashSet.IsSubsetOf works`` () =
+    let xs = HashSet<int>([1; 2])
+    let ys = HashSet<int>([1; 2; 3])
+    xs.IsSubsetOf(ys) |> equal true
+    ys.IsSubsetOf(xs) |> equal false
+    xs.IsSubsetOf(xs) |> equal true
+
+[<Fact>]
+let ``test HashSet.IsSupersetOf works`` () =
+    let xs = HashSet<int>([1; 2; 3])
+    let ys = HashSet<int>([1; 2])
+    xs.IsSupersetOf(ys) |> equal true
+    ys.IsSupersetOf(xs) |> equal false
+    xs.IsSupersetOf(xs) |> equal true
+
+[<Fact>]
+let ``test HashSet.IsProperSubsetOf works`` () =
+    let xs = HashSet<int>([1; 2])
+    let ys = HashSet<int>([1; 2; 3])
+    xs.IsProperSubsetOf(ys) |> equal true
+    ys.IsProperSubsetOf(xs) |> equal false
+    xs.IsProperSubsetOf(xs) |> equal false
+
+[<Fact>]
+let ``test HashSet.IsProperSupersetOf works`` () =
+    let xs = HashSet<int>([1; 2; 3])
+    let ys = HashSet<int>([1; 2])
+    xs.IsProperSupersetOf(ys) |> equal true
+    ys.IsProperSupersetOf(xs) |> equal false
+    xs.IsProperSupersetOf(xs) |> equal false
+
+[<Fact>]
+let ``test HashSet.CopyTo works`` () =
+    let hs = HashSet<int>([1; 2; 3])
+    let arr = Array.zeroCreate<int> 3
+    hs.CopyTo(arr)
+    arr |> Array.sort |> equal [| 1; 2; 3 |]
