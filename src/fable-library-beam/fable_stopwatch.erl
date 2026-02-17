@@ -2,6 +2,16 @@
 -export([create/0, start_new/0, start/1, stop/1, reset/1,
          is_running/1, elapsed_milliseconds/1, elapsed_ticks/1, elapsed/1]).
 
+-spec create() -> reference().
+-spec start_new() -> reference().
+-spec start(reference()) -> ok.
+-spec stop(reference()) -> ok.
+-spec reset(reference()) -> ok.
+-spec is_running(reference()) -> boolean().
+-spec elapsed_milliseconds(reference()) -> integer().
+-spec elapsed_ticks(reference()) -> integer().
+-spec elapsed(reference()) -> integer().
+
 create() ->
     Ref = make_ref(),
     put(Ref, #{start_time => undefined, elapsed => 0, is_running => false}),

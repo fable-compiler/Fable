@@ -3,6 +3,15 @@
          is_cancellation_requested/1, throw_if_cancellation_requested/1,
          register/2, register/3]).
 
+-spec create() -> reference().
+-spec create(undefined | boolean() | integer()) -> reference().
+-spec cancel(reference() | undefined) -> ok.
+-spec cancel_after(reference() | undefined, non_neg_integer()) -> ok.
+-spec is_cancellation_requested(reference() | undefined) -> boolean().
+-spec throw_if_cancellation_requested(reference() | undefined) -> ok.
+-spec register(reference() | undefined, fun()) -> {reference(), integer()} | undefined.
+-spec register(reference() | undefined, fun(), term()) -> {reference(), integer()} | undefined.
+
 %% CancellationToken/CancellationTokenSource runtime.
 %% Token = make_ref(), stored in process dict as:
 %%   #{cancelled => false, listeners => #{}, next_id => 1}

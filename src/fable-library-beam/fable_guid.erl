@@ -1,6 +1,14 @@
 -module(fable_guid).
 -export([new_guid/0, parse/1, try_parse/1, try_parse/2, from_bytes/1, to_byte_array/1, to_string_format/2]).
 
+-spec new_guid() -> binary().
+-spec parse(binary()) -> binary().
+-spec try_parse(binary()) -> {boolean(), binary()}.
+-spec try_parse(binary(), reference()) -> boolean().
+-spec from_bytes(binary() | tuple()) -> binary().
+-spec to_byte_array(binary()) -> tuple().
+-spec to_string_format(binary(), binary()) -> binary().
+
 %% Generate a new random UUID v4.
 %% Format: "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx" where y is [89ab].
 new_guid() ->

@@ -8,6 +8,22 @@
     get_enumerator/1
 ]).
 
+-spec create_empty() -> reference().
+-spec create_from_list(list()) -> reference().
+-spec enqueue(reference(), term()) -> ok.
+-spec dequeue(reference()) -> term().
+-spec try_dequeue(reference()) -> {boolean(), term()}.
+-spec try_dequeue(reference(), reference()) -> boolean().
+-spec peek(reference()) -> term().
+-spec try_peek(reference()) -> {boolean(), term()}.
+-spec try_peek(reference(), reference()) -> boolean().
+-spec contains(reference(), term()) -> boolean().
+-spec get_count(reference()) -> non_neg_integer().
+-spec clear(reference()) -> ok.
+-spec to_array(reference()) -> list().
+-spec trim_excess(reference()) -> ok.
+-spec get_enumerator(reference()) -> reference().
+
 %% Queue is a mutable FIFO stored in the process dictionary.
 %% Uses Erlang's queue module for amortized O(1) enqueue/dequeue.
 

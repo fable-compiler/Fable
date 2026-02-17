@@ -11,6 +11,32 @@
     to_string/1, to_string/2, to_string/3
 ]).
 
+-type datetimeoffset() :: {integer(), 0 | 1 | 2, integer()}.
+
+-spec create(integer(), integer(), integer(), integer(), integer(), integer(), integer()) -> datetimeoffset().
+-spec create(integer(), integer(), integer(), integer(), integer(), integer(), integer(), integer()) -> datetimeoffset().
+-spec from_date({integer(), integer()}, integer()) -> datetimeoffset().
+-spec from_ticks(integer(), integer()) -> datetimeoffset().
+-spec year(datetimeoffset()) -> integer().
+-spec month(datetimeoffset()) -> integer().
+-spec day(datetimeoffset()) -> integer().
+-spec hour(datetimeoffset()) -> integer().
+-spec minute(datetimeoffset()) -> integer().
+-spec second(datetimeoffset()) -> integer().
+-spec millisecond(datetimeoffset()) -> integer().
+-spec ticks(datetimeoffset()) -> integer().
+-spec offset(datetimeoffset()) -> integer().
+-spec date_time(datetimeoffset()) -> {integer(), integer()}.
+-spec now() -> datetimeoffset().
+-spec utc_now() -> datetimeoffset().
+-spec min_value() -> datetimeoffset().
+-spec to_local_time(datetimeoffset()) -> datetimeoffset().
+-spec to_universal_time(datetimeoffset()) -> datetimeoffset().
+-spec try_parse(binary(), reference()) -> boolean().
+-spec to_string(datetimeoffset()) -> binary().
+-spec to_string(datetimeoffset(), binary()) -> binary().
+-spec to_string(datetimeoffset(), binary(), term()) -> binary().
+
 %% DateTimeOffset is represented as a 3-tuple {Ticks, Kind, OffsetTicks}
 %% - Ticks: same as DateTime (100-ns intervals from Jan 1, 0001)
 %% - Kind: 0=Unspecified, 1=UTC, 2=Local

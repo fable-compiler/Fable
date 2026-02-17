@@ -1,6 +1,10 @@
 -module(fable_comparison).
 -export([compare/2, equals/2, hash/1]).
 
+-spec equals(term(), term()) -> boolean().
+-spec compare(term(), term()) -> -1 | 0 | 1.
+-spec hash(term()) -> non_neg_integer().
+
 %% Deep equality that handles ref-wrapped arrays (process dict refs)
 %% and atomics-backed byte arrays ({byte_array, Size, AtomicsRef}).
 equals(A, A) -> true;

@@ -4,6 +4,26 @@
          exists/2, fold/3, fold_back/3, forall/2, iter/2,
          to_array/1, to_list/1, to_option/1]).
 
+-type result() :: {0, term()} | {1, term()}.
+
+-spec map(fun(), result()) -> result().
+-spec map_error(fun(), result()) -> result().
+-spec bind(fun(), result()) -> result().
+-spec is_ok(result()) -> boolean().
+-spec is_error(result()) -> boolean().
+-spec contains(term(), result()) -> boolean().
+-spec count(result()) -> 0 | 1.
+-spec default_value(term(), result()) -> term().
+-spec default_with(fun(), result()) -> term().
+-spec exists(fun(), result()) -> boolean().
+-spec fold(fun(), term(), result()) -> term().
+-spec fold_back(fun(), result(), term()) -> term().
+-spec forall(fun(), result()) -> boolean().
+-spec iter(fun(), result()) -> ok.
+-spec to_array(result()) -> list().
+-spec to_list(result()) -> list().
+-spec to_option(result()) -> term() | undefined.
+
 %% Ok = {0, Value}, Error = {1, ErrValue}
 
 map(Fn, {0, V}) -> {0, Fn(V)};

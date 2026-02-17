@@ -13,6 +13,28 @@
     fill/4, blit/5
 ]).
 
+-spec set_item(list() | binary(), non_neg_integer(), term()) -> list() | binary().
+-spec remove(list(), term()) -> {boolean(), list()}.
+-spec remove_all(list(), fun()) -> {non_neg_integer(), list()}.
+-spec remove_at(list(), non_neg_integer()) -> list().
+-spec remove_range(list(), non_neg_integer(), non_neg_integer()) -> list().
+-spec insert(list(), non_neg_integer(), term()) -> list().
+-spec insert_range(list(), non_neg_integer(), list()) -> list().
+-spec get_range(list(), non_neg_integer(), non_neg_integer()) -> list().
+-spec index_of(list(), term()) -> integer().
+-spec index_of(list(), term(), non_neg_integer()) -> integer().
+-spec find(fun(), list(), term()) -> term().
+-spec find_last(list(), fun()) -> term().
+-spec find_all(list(), fun()) -> list().
+-spec find_index(list(), fun()) -> integer().
+-spec find_last_index(list(), fun()) -> integer().
+-spec exists(list(), fun()) -> boolean().
+-spec sort_with(list(), fun()) -> list().
+-spec for_each(list(), fun()) -> ok.
+-spec convert_all(list(), fun()) -> list().
+-spec fill(list(), non_neg_integer(), non_neg_integer(), term()) -> list().
+-spec blit(list(), non_neg_integer(), list(), non_neg_integer(), non_neg_integer()) -> list().
+
 %% Replace item at index, return new list (or binary)
 set_item(Bin, Index, Value) when is_binary(Bin) ->
     <<Before:Index/binary, _:1/binary, After/binary>> = Bin,

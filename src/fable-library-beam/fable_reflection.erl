@@ -2,6 +2,14 @@
 -export([full_name/1, namespace/1, is_generic_type/1, is_array/1,
          get_element_type/1, get_generics/1, make_tuple_type/1]).
 
+-spec full_name(map()) -> binary().
+-spec namespace(map()) -> binary().
+-spec is_generic_type(map()) -> boolean().
+-spec is_array(map()) -> boolean().
+-spec get_element_type(map()) -> map() | undefined.
+-spec get_generics(map()) -> list().
+-spec make_tuple_type(list()) -> map().
+
 full_name(TypeInfo) ->
     maps:get(fullname, TypeInfo).
 

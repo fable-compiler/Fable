@@ -21,6 +21,76 @@
          interpolate/2, format/2,
          console_writeline/1, console_write/1]).
 
+-spec insert(binary(), non_neg_integer(), binary()) -> binary().
+-spec remove(binary(), non_neg_integer()) -> binary().
+-spec remove(binary(), non_neg_integer(), non_neg_integer()) -> binary().
+-spec starts_with(binary(), binary()) -> boolean().
+-spec ends_with(binary(), binary()) -> boolean().
+-spec pad_left(binary(), non_neg_integer()) -> binary().
+-spec pad_left(binary(), non_neg_integer(), integer()) -> binary().
+-spec pad_right(binary(), non_neg_integer()) -> binary().
+-spec pad_right(binary(), non_neg_integer(), integer()) -> binary().
+-spec replace(binary(), binary() | integer(), binary() | integer()) -> binary().
+-spec join(binary(), list() | reference() | map()) -> binary().
+-spec join(binary(), list() | reference() | map(), non_neg_integer(), non_neg_integer()) -> binary().
+-spec join_strings(binary(), list() | reference() | map()) -> binary().
+-spec concat(list() | reference() | map()) -> binary().
+-spec replicate(non_neg_integer(), binary()) -> binary().
+-spec is_null_or_empty(binary() | undefined) -> boolean().
+-spec is_null_or_white_space(binary() | undefined) -> boolean().
+-spec forall(fun((integer()) -> boolean()), binary()) -> boolean().
+-spec exists(fun((integer()) -> boolean()), binary()) -> boolean().
+-spec init(non_neg_integer(), fun((non_neg_integer()) -> term())) -> binary().
+-spec collect(fun((integer()) -> term()), binary()) -> binary().
+-spec iter(fun((integer()) -> term()), binary()) -> ok.
+-spec iteri(fun((non_neg_integer()) -> fun((integer()) -> term())), binary()) -> ok.
+-spec map(fun((integer()) -> integer()), binary()) -> binary().
+-spec mapi(fun((non_neg_integer()) -> fun((integer()) -> integer())), binary()) -> binary().
+-spec filter(fun((integer()) -> boolean()), binary()) -> binary().
+-spec index_of(binary(), binary()) -> integer().
+-spec index_of(binary(), binary(), non_neg_integer()) -> integer().
+-spec index_of_any(binary(), list() | reference()) -> integer().
+-spec index_of_any(binary(), list() | reference(), non_neg_integer()) -> integer().
+-spec last_index_of(binary(), binary()) -> integer().
+-spec last_index_of(binary(), binary(), non_neg_integer()) -> integer().
+-spec contains(binary(), binary()) -> boolean().
+-spec trim_chars(binary(), list() | integer()) -> binary().
+-spec trim_start_chars(binary(), list() | integer()) -> binary().
+-spec trim_end_chars(binary(), list() | integer()) -> binary().
+-spec to_char_array(binary()) -> list().
+-spec to_char_array(binary(), non_neg_integer(), non_neg_integer()) -> list().
+-spec compare(binary(), binary()) -> -1 | 0 | 1.
+-spec compare_ignore_case(binary(), binary()) -> -1 | 0 | 1.
+-spec string_ctor_chars(list()) -> binary().
+-spec string_ctor_char_count(integer(), non_neg_integer()) -> binary().
+-spec string_ctor_chars_range(list(), non_neg_integer(), non_neg_integer()) -> binary().
+-spec split(binary(), binary() | integer()) -> list().
+-spec split(binary(), binary() | integer(), non_neg_integer()) -> list().
+-spec split_remove_empty(binary(), binary() | integer()) -> list().
+-spec split_with_count(binary(), binary() | integer() | list(), non_neg_integer()) -> list().
+-spec to_string(term()) -> binary().
+-spec printf(binary()) -> map().
+-spec to_text(map() | binary()) -> binary() | fun().
+-spec to_text(map() | binary(), term()) -> binary() | fun().
+-spec to_text(map() | binary(), term(), term()) -> binary() | fun().
+-spec to_text(map() | binary(), term(), term(), term()) -> binary() | fun().
+-spec to_text(map() | binary(), term(), term(), term(), term()) -> binary() | fun().
+-spec to_console(map() | binary()) -> ok | fun().
+-spec to_console(map() | binary(), term()) -> ok | fun().
+-spec to_console(map() | binary(), term(), term()) -> ok | fun().
+-spec to_console(map() | binary(), term(), term(), term()) -> ok | fun().
+-spec to_console(map() | binary(), term(), term(), term(), term()) -> ok | fun().
+-spec to_console_error(map() | binary()) -> ok | fun().
+-spec to_console_error(map() | binary(), term()) -> ok | fun().
+-spec to_console_error(map() | binary(), term(), term()) -> ok | fun().
+-spec to_fail(map() | binary()) -> no_return() | fun().
+-spec to_fail(map() | binary(), term()) -> no_return() | fun().
+-spec to_fail(map() | binary(), term(), term()) -> no_return() | fun().
+-spec interpolate(binary(), list() | term()) -> binary().
+-spec format(binary(), list() | reference() | term()) -> binary().
+-spec console_writeline(term()) -> ok.
+-spec console_write(term()) -> ok.
+
 insert(Str, Idx, Value) ->
     iolist_to_binary([binary:part(Str, 0, Idx), Value, binary:part(Str, Idx, byte_size(Str) - Idx)]).
 

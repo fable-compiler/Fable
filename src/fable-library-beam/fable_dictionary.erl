@@ -8,6 +8,22 @@
     get_enumerator/1
 ]).
 
+-spec create_empty() -> reference().
+-spec create_from_list(list() | reference() | term()) -> reference().
+-spec add(reference(), term(), term()) -> ok.
+-spec get_item(reference(), term()) -> term().
+-spec set_item(reference(), term(), term()) -> ok.
+-spec try_get_value(reference(), term()) -> {boolean(), term()}.
+-spec try_get_value(reference(), term(), reference()) -> boolean().
+-spec contains_key(reference(), term()) -> boolean().
+-spec contains_value(reference(), term()) -> boolean().
+-spec remove(reference(), term()) -> boolean().
+-spec clear(reference()) -> ok.
+-spec get_count(reference()) -> non_neg_integer().
+-spec get_keys(reference()) -> list().
+-spec get_values(reference()) -> list().
+-spec get_enumerator(reference()) -> reference().
+
 %% Dictionary is a mutable map stored in the process dictionary.
 %% Representation: a reference pointing to an Erlang map via put/get.
 

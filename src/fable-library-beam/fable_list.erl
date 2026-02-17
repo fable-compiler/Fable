@@ -22,6 +22,79 @@
          remove_at/2, remove_many_at/3,
          index_of_value/2, get_slice/3]).
 
+-spec fold(fun(), term(), list() | reference() | map()) -> term().
+-spec fold_back(fun(), list(), term()) -> term().
+-spec fold2(fun(), term(), list(), list()) -> term().
+-spec fold_back2(fun(), list(), list(), term()) -> term().
+-spec reduce(fun(), list()) -> term().
+-spec reduce_back(fun(), list()) -> term().
+-spec map_indexed(fun(), list()) -> list().
+-spec sort_by(fun(), list()) -> list().
+-spec sort_by_descending(fun(), list()) -> list().
+-spec sort_with(fun(), list()) -> list().
+-spec find(fun(), list()) -> term().
+-spec try_find(fun(), list()) -> term() | undefined.
+-spec find_index(fun(), list()) -> non_neg_integer().
+-spec try_find_index(fun(), list()) -> non_neg_integer() | undefined.
+-spec find_back(fun(), list()) -> term().
+-spec try_find_back(fun(), list()) -> term() | undefined.
+-spec find_index_back(fun(), list()) -> non_neg_integer().
+-spec try_find_index_back(fun(), list()) -> non_neg_integer() | undefined.
+-spec choose(fun(), list()) -> list().
+-spec collect(fun(), list()) -> list().
+-spec sum_by(fun(), list()) -> number().
+-spec min_by(fun(), list()) -> term().
+-spec max_by(fun(), list()) -> term().
+-spec indexed(list()) -> list({non_neg_integer(), term()}).
+-spec zip(list(), list()) -> list({term(), term()}).
+-spec zip3(list(), list(), list()) -> list({term(), term(), term()}).
+-spec init(non_neg_integer(), fun()) -> list().
+-spec replicate(non_neg_integer(), term()) -> list().
+-spec scan(fun(), term(), list()) -> list().
+-spec scan_back(fun(), list(), term()) -> list().
+-spec try_head(list()) -> term() | undefined.
+-spec try_last(list()) -> term() | undefined.
+-spec try_item(non_neg_integer(), list()) -> term() | undefined.
+-spec exactly_one(list()) -> term().
+-spec try_exactly_one(list()) -> term() | undefined.
+-spec distinct(list()) -> list().
+-spec distinct_by(fun(), list()) -> list().
+-spec pairwise(list()) -> list({term(), term()}).
+-spec exists2(fun(), list(), list()) -> boolean().
+-spec forall2(fun(), list(), list()) -> boolean().
+-spec map2(fun(), list(), list()) -> list().
+-spec map3(fun(), list(), list(), list()) -> list().
+-spec mapi2(fun(), list(), list()) -> list().
+-spec iter2(fun(), list(), list()) -> ok.
+-spec iteri(fun(), list()) -> ok.
+-spec iteri2(fun(), list(), list()) -> ok.
+-spec iter_indexed(fun(), list()) -> ok.
+-spec average(list()) -> number().
+-spec average_by(fun(), list()) -> number().
+-spec count_by(fun(), list()) -> list({term(), non_neg_integer()}).
+-spec group_by(fun(), list()) -> list({term(), list()}).
+-spec unfold(fun(), term()) -> list().
+-spec split_at(non_neg_integer(), list()) -> {list(), list()}.
+-spec chunk_by_size(pos_integer(), list()) -> list(list()).
+-spec windowed(pos_integer(), list()) -> list(list()).
+-spec split_into(pos_integer(), list()) -> list(list()).
+-spec except(list(), list()) -> list().
+-spec all_pairs(list(), list()) -> list({term(), term()}).
+-spec permute(fun(), list()) -> list().
+-spec map_fold(fun(), term(), list()) -> {list(), term()}.
+-spec map_fold_back(fun(), list(), term()) -> {list(), term()}.
+-spec pick(fun(), list()) -> term().
+-spec try_pick(fun(), list()) -> term() | undefined.
+-spec transpose(list(list())) -> list(list()).
+-spec compare_with(fun(), list(), list()) -> integer().
+-spec update_at(non_neg_integer(), term(), list()) -> list().
+-spec insert_at(non_neg_integer(), term(), list()) -> list().
+-spec insert_many_at(non_neg_integer(), list(), list()) -> list().
+-spec remove_at(non_neg_integer(), list()) -> list().
+-spec remove_many_at(non_neg_integer(), non_neg_integer(), list()) -> list().
+-spec index_of_value(term(), list()) -> integer().
+-spec get_slice(non_neg_integer() | undefined, non_neg_integer() | undefined, list()) -> list().
+
 %% Fable compiles multi-arg F# lambdas as curried functions:
 %%   fun acc x -> acc + x  =>  fun(Acc) -> fun(X) -> Acc + X end end
 %% So we use curried application: (Fn(Acc))(Item) instead of Fn(Acc, Item).

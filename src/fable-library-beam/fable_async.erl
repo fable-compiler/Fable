@@ -7,6 +7,26 @@
          start_as_task/1,
          cancellation_token/0, create_cancellation_token/0, create_cancellation_token/1]).
 
+-type async_ctx() :: #{on_success := fun(), on_error := fun(), on_cancel := fun(), cancel_token := reference() | undefined}.
+-type async(T) :: fun((async_ctx()) -> T).
+
+-spec start_immediate(async(term())) -> term().
+-spec start_immediate(async(term()), reference() | undefined) -> term().
+-spec run_synchronously(async(term())) -> term().
+-spec run_synchronously(async(term()), reference() | undefined) -> term().
+-spec start_with_continuations(async(term()), fun(), fun(), fun()) -> term().
+-spec start_with_continuations(async(term()), fun(), fun(), fun(), reference() | undefined) -> term().
+-spec sleep(non_neg_integer()) -> async(ok).
+-spec parallel(list() | reference()) -> async(reference()).
+-spec sequential(list()) -> async(list()).
+-spec catch_async(async(term())) -> async(term()).
+-spec ignore(async(term())) -> async(ok).
+-spec from_continuations(fun()) -> async(term()).
+-spec start_as_task(async(term())) -> term().
+-spec cancellation_token() -> async(reference() | undefined).
+-spec create_cancellation_token() -> reference().
+-spec create_cancellation_token(term()) -> reference().
+
 %% Default context: run inline in current process
 default_ctx(CancelToken) ->
     #{on_success => fun(_) -> ok end,

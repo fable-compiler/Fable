@@ -15,6 +15,46 @@
     zero/0
 ]).
 
+-spec create(integer()) -> integer().
+-spec create(integer(), integer(), integer()) -> integer().
+-spec create(integer(), integer(), integer(), integer()) -> integer().
+-spec create(integer(), integer(), integer(), integer(), integer()) -> integer().
+-spec create(integer(), integer(), integer(), integer(), integer(), integer()) -> integer().
+-spec from_ticks(integer()) -> integer().
+-spec from_days(number()) -> integer().
+-spec from_hours(number()) -> integer().
+-spec from_minutes(number()) -> integer().
+-spec from_seconds(number()) -> integer().
+-spec from_milliseconds(number()) -> integer().
+-spec from_microseconds(number()) -> integer().
+-spec days(integer()) -> integer().
+-spec hours(integer()) -> integer().
+-spec minutes(integer()) -> integer().
+-spec seconds(integer()) -> integer().
+-spec milliseconds(integer()) -> integer().
+-spec microseconds(integer()) -> integer().
+-spec ticks(integer()) -> integer().
+-spec total_days(integer()) -> float().
+-spec total_hours(integer()) -> float().
+-spec total_minutes(integer()) -> float().
+-spec total_seconds(integer()) -> float().
+-spec total_milliseconds(integer()) -> float().
+-spec total_microseconds(integer()) -> float().
+-spec add(integer(), integer()) -> integer().
+-spec subtract(integer(), integer()) -> integer().
+-spec negate(integer()) -> integer().
+-spec duration(integer()) -> integer().
+-spec multiply(integer(), number()) -> integer().
+-spec divide(integer(), number()) -> integer().
+-spec parse(binary()) -> integer().
+-spec parse(binary(), term()) -> integer().
+-spec try_parse(binary(), reference()) -> boolean().
+-spec try_parse(binary(), term(), reference()) -> boolean().
+-spec to_string(integer()) -> binary().
+-spec to_string(integer(), binary()) -> binary().
+-spec to_string(integer(), binary(), term()) -> binary().
+-spec zero() -> 0.
+
 %% TimeSpan is represented as an integer of ticks (100-nanosecond units).
 %% This matches .NET's System.TimeSpan internal representation.
 %%

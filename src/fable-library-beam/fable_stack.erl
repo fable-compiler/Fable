@@ -8,6 +8,21 @@
     get_enumerator/1
 ]).
 
+-spec create_empty() -> reference().
+-spec create_from_list(list()) -> reference().
+-spec push(reference(), term()) -> ok.
+-spec pop(reference()) -> term().
+-spec try_pop(reference()) -> {boolean(), term()}.
+-spec try_pop(reference(), reference()) -> boolean().
+-spec peek(reference()) -> term().
+-spec try_peek(reference()) -> {boolean(), term()}.
+-spec try_peek(reference(), reference()) -> boolean().
+-spec contains(reference(), term()) -> boolean().
+-spec get_count(reference()) -> non_neg_integer().
+-spec clear(reference()) -> ok.
+-spec to_array(reference()) -> list().
+-spec get_enumerator(reference()) -> reference().
+
 %% Stack is a mutable LIFO stored in the process dictionary.
 %% Uses a plain list (head = top of stack).
 

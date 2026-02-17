@@ -4,6 +4,25 @@
          partition/2, try_get_value/2, try_get_value/3,
          pick/2, try_pick/2, min_key_value/1, max_key_value/1, change/3]).
 
+-spec try_find(term(), map()) -> term() | undefined.
+-spec fold(fun((term()) -> fun((term()) -> fun((term()) -> term()))), term(), map()) -> term().
+-spec fold_back(fun((term()) -> fun((term()) -> fun((term()) -> term()))), map(), term()) -> term().
+-spec map(fun((term()) -> fun((term()) -> term())), map()) -> map().
+-spec filter(fun((term()) -> fun((term()) -> boolean())), map()) -> map().
+-spec exists(fun((term()) -> fun((term()) -> boolean())), map()) -> boolean().
+-spec forall(fun((term()) -> fun((term()) -> boolean())), map()) -> boolean().
+-spec iterate(fun((term()) -> fun((term()) -> term())), map()) -> ok.
+-spec find_key(fun((term()) -> fun((term()) -> boolean())), map()) -> term().
+-spec try_find_key(fun((term()) -> fun((term()) -> boolean())), map()) -> term() | undefined.
+-spec partition(fun((term()) -> fun((term()) -> boolean())), map()) -> {map(), map()}.
+-spec try_get_value(term(), map()) -> {boolean(), term()}.
+-spec try_get_value(term(), map(), reference()) -> boolean().
+-spec pick(fun((term()) -> fun((term()) -> term())), map()) -> term().
+-spec try_pick(fun((term()) -> fun((term()) -> term())), map() | list()) -> term() | undefined.
+-spec min_key_value(map()) -> {term(), term()}.
+-spec max_key_value(map()) -> {term(), term()}.
+-spec change(term(), fun((term()) -> term()), map()) -> map().
+
 %% Fable compiles multi-arg F# lambdas as curried functions:
 %%   fun k v -> ...  =>  fun(K) -> fun(V) -> ... end end
 %% So we use curried application: (Fn(K))(V) instead of Fn(K, V).

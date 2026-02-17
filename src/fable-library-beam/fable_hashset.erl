@@ -10,6 +10,23 @@
     get_enumerator/1
 ]).
 
+-spec create_empty() -> reference().
+-spec create_from_list(list() | term()) -> reference().
+-spec add(reference(), term()) -> boolean().
+-spec remove(reference(), term()) -> boolean().
+-spec contains(reference(), term()) -> boolean().
+-spec get_count(reference()) -> non_neg_integer().
+-spec clear(reference()) -> ok.
+-spec union_with(reference(), reference()) -> ok.
+-spec intersect_with(reference(), reference()) -> ok.
+-spec except_with(reference(), reference()) -> ok.
+-spec is_subset_of(reference(), reference()) -> boolean().
+-spec is_superset_of(reference(), reference()) -> boolean().
+-spec is_proper_subset_of(reference(), reference()) -> boolean().
+-spec is_proper_superset_of(reference(), reference()) -> boolean().
+-spec copy_to(reference(), reference()) -> ok.
+-spec get_enumerator(reference()) -> reference().
+
 %% HashSet is a mutable set stored in the process dictionary.
 %% Representation: a reference pointing to an Erlang map #{Item => true}.
 

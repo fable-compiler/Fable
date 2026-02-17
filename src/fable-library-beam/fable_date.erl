@@ -22,6 +22,64 @@
     try_parse/2, try_parse/3, try_parse/4
 ]).
 
+-type datetime() :: {integer(), 0 | 1 | 2}.
+
+-spec create(integer(), integer(), integer()) -> datetime().
+-spec create(integer(), integer(), integer(), integer(), integer(), integer()) -> datetime().
+-spec create(integer(), integer(), integer(), integer(), integer(), integer(), integer()) -> datetime().
+-spec create(integer(), integer(), integer(), integer(), integer(), integer(), integer(), integer()) -> datetime().
+-spec create(integer(), integer(), integer(), integer(), integer(), integer(), integer(), integer(), integer()) -> datetime().
+-spec from_ticks(integer()) -> datetime().
+-spec from_ticks(integer(), integer()) -> datetime().
+-spec year(datetime()) -> integer().
+-spec month(datetime()) -> integer().
+-spec day(datetime()) -> integer().
+-spec hour(datetime()) -> integer().
+-spec minute(datetime()) -> integer().
+-spec second(datetime()) -> integer().
+-spec millisecond(datetime()) -> integer().
+-spec microsecond(datetime()) -> integer().
+-spec ticks(datetime()) -> integer().
+-spec kind(datetime()) -> 0 | 1 | 2.
+-spec day_of_week(datetime()) -> 0..6.
+-spec day_of_year(datetime()) -> 1..366.
+-spec date(datetime()) -> datetime().
+-spec now() -> datetime().
+-spec utc_now() -> datetime().
+-spec today() -> datetime().
+-spec min_value() -> datetime().
+-spec max_value() -> datetime().
+-spec is_leap_year(integer()) -> boolean().
+-spec days_in_month(integer(), integer()) -> integer().
+-spec add(datetime(), integer()) -> datetime().
+-spec subtract(datetime(), integer()) -> datetime().
+-spec add_years(datetime(), integer()) -> datetime().
+-spec add_months(datetime(), integer()) -> datetime().
+-spec add_days(datetime(), number()) -> datetime().
+-spec add_hours(datetime(), number()) -> datetime().
+-spec add_minutes(datetime(), number()) -> datetime().
+-spec add_seconds(datetime(), number()) -> datetime().
+-spec add_milliseconds(datetime(), number()) -> datetime().
+-spec op_addition(datetime(), integer()) -> datetime().
+-spec op_subtraction(datetime(), datetime() | integer()) -> datetime() | integer().
+-spec specify_kind(datetime(), integer()) -> datetime().
+-spec to_local_time(datetime()) -> datetime().
+-spec to_universal_time(datetime()) -> datetime().
+-spec compare(datetime(), datetime()) -> -1 | 0 | 1.
+-spec equals(datetime(), datetime()) -> boolean().
+-spec to_string(datetime()) -> binary().
+-spec to_string(datetime(), binary()) -> binary().
+-spec to_string(datetime(), binary(), term()) -> binary().
+-spec to_short_date_string(datetime()) -> binary().
+-spec to_long_date_string(datetime()) -> binary().
+-spec to_short_time_string(datetime()) -> binary().
+-spec to_long_time_string(datetime()) -> binary().
+-spec parse(binary()) -> datetime().
+-spec parse(binary(), term()) -> datetime().
+-spec try_parse(binary(), reference()) -> boolean().
+-spec try_parse(binary(), term(), reference()) -> boolean().
+-spec try_parse(binary(), term(), term(), reference()) -> boolean().
+
 %% DateTime is represented as a 2-tuple {Ticks, Kind}
 %% Ticks: integer of 100-nanosecond intervals from Jan 1, 0001 (matching .NET)
 %% Kind: 0=Unspecified, 1=UTC, 2=Local

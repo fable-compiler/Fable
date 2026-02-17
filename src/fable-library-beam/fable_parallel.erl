@@ -4,6 +4,15 @@
          parallel_collect/2, parallel_choose/2,
          parallel_for/3]).
 
+-spec parallel_map(fun(), list()) -> list().
+-spec parallel_mapi(fun(), list()) -> list().
+-spec parallel_init(non_neg_integer(), fun()) -> list().
+-spec parallel_iter(fun(), list()) -> ok.
+-spec parallel_iteri(fun(), list()) -> ok.
+-spec parallel_collect(fun(), list()) -> list().
+-spec parallel_choose(fun(), list()) -> list().
+-spec parallel_for(integer(), integer(), fun()) -> ok.
+
 %% Map: apply Fn to each element in parallel, return results in order.
 %% Input List is already deref'd by Replacements.
 parallel_map(Fn, List) ->

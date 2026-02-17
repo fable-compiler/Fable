@@ -12,6 +12,34 @@
     get_groups/1, get_item/2, get_count/1, get_options/1
 ]).
 
+-spec create(binary()) -> map().
+-spec create(binary(), integer()) -> map().
+-spec is_match(map() | binary(), binary()) -> boolean().
+-spec is_match(map() | binary(), binary(), integer()) -> boolean().
+-spec match(map() | binary(), binary()) -> map().
+-spec match(map() | binary(), binary(), integer()) -> map().
+-spec matches(map() | binary(), binary()) -> list().
+-spec matches(map() | binary(), binary(), integer()) -> list().
+-spec replace(map() | binary(), binary(), binary()) -> binary().
+-spec replace(map() | binary(), binary(), binary() | integer(), integer() | binary()) -> binary().
+-spec replace(map(), binary(), binary(), integer(), integer()) -> binary().
+-spec replace_evaluator(map() | binary(), binary(), fun()) -> binary().
+-spec replace_evaluator(map(), binary(), fun(), integer()) -> binary().
+-spec replace_evaluator(map(), binary(), fun(), integer(), integer()) -> binary().
+-spec split(map() | binary(), binary()) -> list().
+-spec split(map() | binary(), binary(), integer()) -> list().
+-spec split(map(), binary(), integer(), integer()) -> list().
+-spec escape(binary()) -> binary().
+-spec unescape(binary()) -> binary().
+-spec get_value(map()) -> binary().
+-spec get_index(map()) -> integer().
+-spec get_length(map()) -> integer().
+-spec get_success(map()) -> boolean().
+-spec get_groups(map()) -> list().
+-spec get_item(list(), non_neg_integer()) -> term().
+-spec get_count(list()) -> non_neg_integer().
+-spec get_options(map()) -> integer().
+
 %% Regex object: #{pattern => Pat, compiled => MP, options => Opts}
 %% Match result: #{success => true, value => Bin, index => Idx, length => Len, groups => [Group, ...], input => Input}
 %% Group: #{success => Bool, value => Bin, index => Idx, length => Len}

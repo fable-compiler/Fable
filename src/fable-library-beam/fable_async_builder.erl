@@ -5,6 +5,24 @@
          try_with/2, try_finally/2, using/2,
          while/2, for/2]).
 
+-spec singleton() -> async_builder.
+-spec singleton(term()) -> async_builder.
+-spec task() -> task_builder.
+-spec task(term()) -> task_builder.
+-spec run(fun()) -> fun().
+-spec return(term()) -> fun().
+-spec return_from(fun()) -> fun().
+-spec delay(fun()) -> fun().
+-spec bind(fun(), fun()) -> fun().
+-spec combine(fun(), fun()) -> fun().
+-spec zero() -> fun().
+-spec zero(term()) -> fun().
+-spec try_with(fun(), fun()) -> fun().
+-spec try_finally(fun(), fun()) -> fun().
+-spec using(term(), fun()) -> fun().
+-spec while(fun(), fun()) -> fun().
+-spec for(list() | reference(), fun()) -> fun().
+
 %% The singleton builder instance (just an atom tag)
 singleton() -> async_builder.
 singleton(_Unit) -> async_builder.

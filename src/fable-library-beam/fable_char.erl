@@ -11,6 +11,29 @@
     get_unicode_category/1
 ]).
 
+-spec to_upper(integer()) -> integer().
+-spec to_lower(integer()) -> integer().
+-spec to_string(integer()) -> binary().
+-spec is_letter(integer()) -> boolean().
+-spec is_digit(integer()) -> boolean().
+-spec is_letter_or_digit(integer()) -> boolean().
+-spec is_upper(integer()) -> boolean().
+-spec is_lower(integer()) -> boolean().
+-spec is_number(integer()) -> boolean().
+-spec is_whitespace(integer()) -> boolean().
+-spec is_control(integer()) -> boolean().
+-spec is_punctuation(integer()) -> boolean().
+-spec is_separator(integer()) -> boolean().
+-spec is_symbol(integer()) -> boolean().
+-spec is_high_surrogate(integer()) -> boolean().
+-spec is_low_surrogate(integer()) -> boolean().
+-spec is_surrogate(integer()) -> boolean().
+-spec is_surrogate_pair(integer(), integer()) -> boolean().
+-spec char_at(binary(), non_neg_integer()) -> integer().
+-spec parse(binary()) -> integer().
+-spec try_parse(binary(), reference()) -> boolean().
+-spec get_unicode_category(integer()) -> non_neg_integer().
+
 to_upper(C) when C >= $a, C =< $z -> C - 32;
 to_upper(C) -> C.
 

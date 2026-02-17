@@ -8,6 +8,33 @@
          byte_array_to_list/1, is_byte_array/1,
          byte_array_get/2, byte_array_set/3, byte_array_length/1]).
 
+-spec iface_get(atom(), map() | reference()) -> term().
+-spec apply_curried(fun(), list()) -> term().
+-spec new_ref(term()) -> reference().
+-spec safe_dispose(term()) -> ok.
+-spec get_enumerator(list() | reference() | map() | term()) -> reference().
+-spec move_next(reference()) -> boolean().
+-spec get_current(reference()) -> term().
+-spec pos_infinity() -> float().
+-spec neg_infinity() -> float().
+-spec nan() -> nan.
+-spec is_infinity(term()) -> boolean().
+-spec new_lazy(fun()) -> reference().
+-spec new_lazy_from_value(term()) -> reference().
+-spec force_lazy(reference()) -> term().
+-spec is_value_created(reference()) -> boolean().
+-spec using(term(), fun()) -> term().
+-spec to_list(term()) -> list().
+-spec enumerate_to_list(term()) -> list().
+-spec new_byte_array(list() | binary() | tuple()) -> tuple().
+-spec new_byte_array_zeroed(non_neg_integer()) -> tuple().
+-spec new_byte_array_filled(non_neg_integer(), non_neg_integer()) -> tuple().
+-spec byte_array_to_list(tuple()) -> list().
+-spec is_byte_array(term()) -> boolean().
+-spec byte_array_get(tuple() | reference(), non_neg_integer()) -> non_neg_integer().
+-spec byte_array_set(tuple() | reference(), non_neg_integer(), non_neg_integer()) -> ok.
+-spec byte_array_length(tuple() | reference()) -> non_neg_integer().
+
 %% Interface dispatch: works for both object expressions (maps) and class instances (refs).
 %% Class interface property getters are stored as {getter, Fun} tagged thunks — call Fun().
 %% ObjectExpr property getters are stored as plain values — return directly.

@@ -3,6 +3,15 @@
          start_instance/1, receive_msg/1,
          post/2, post_and_async_reply/2]).
 
+-spec default(fun()) -> map().
+-spec default(fun(), term()) -> map().
+-spec start(fun()) -> map().
+-spec start(fun(), term()) -> map().
+-spec start_instance(map()) -> term().
+-spec receive_msg(map()) -> fun().
+-spec post(map(), term()) -> ok.
+-spec post_and_async_reply(map(), fun()) -> fun().
+
 %% Constructor: create agent with empty queue, not started.
 %% State stored in process dict keyed by a unique Ref.
 default(Body) -> default(Body, undefined).

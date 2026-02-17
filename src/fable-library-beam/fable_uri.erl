@@ -9,6 +9,24 @@
     unescape_data_string/1
 ]).
 
+-spec create(binary()) -> map().
+-spec create(binary() | map(), integer() | binary() | map()) -> map().
+-spec create(map(), binary() | map(), term()) -> map().
+-spec try_create(binary() | map(), integer() | binary() | map(), reference()) -> boolean().
+-spec try_create(term(), term(), term(), reference()) -> boolean().
+-spec is_absolute_uri(map()) -> boolean().
+-spec scheme(map()) -> binary().
+-spec host(map()) -> binary().
+-spec absolute_path(map()) -> binary().
+-spec absolute_uri(map()) -> binary().
+-spec path_and_query(map()) -> binary().
+-spec query(map()) -> binary().
+-spec fragment(map()) -> binary().
+-spec original_string(map()) -> binary().
+-spec port(map()) -> integer() | undefined.
+-spec to_string(map()) -> binary().
+-spec unescape_data_string(binary()) -> binary().
+
 %% Uri is represented as a map:
 %% #{
 %%   original_string => binary(),

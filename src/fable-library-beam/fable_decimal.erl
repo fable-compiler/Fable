@@ -14,6 +14,18 @@
     get_minus_one/0
 ]).
 
+-spec multiply(integer(), integer()) -> integer().
+-spec divide(integer(), integer()) -> integer().
+-spec divide_by_int(integer(), integer()) -> integer().
+-spec to_string(integer()) -> binary().
+-spec to_number(integer()) -> float().
+-spec to_int(integer()) -> integer().
+-spec from_parts(integer(), integer(), integer(), boolean(), non_neg_integer()) -> integer().
+-spec parse(binary()) -> integer().
+-spec try_parse(binary(), reference()) -> boolean().
+-spec get_one() -> integer().
+-spec get_minus_one() -> integer().
+
 %% Fixed-scale decimal representation: value × 10^28
 %% All decimal values are plain Erlang integers scaled by 10^28.
 %% Addition, subtraction, remainder, abs, sign, comparisons all work natively.

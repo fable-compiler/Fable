@@ -10,6 +10,32 @@
     some/1, unwrap/1, value/1
 ]).
 
+%% Option type: undefined = None, {some, V} = Some(wrapped), V = Some(unwrapped).
+-type option() :: undefined | {some, term()} | term().
+
+-spec unwrap(option()) -> term().
+-spec some(term()) -> option().
+-spec value(option()) -> term().
+-spec default_value(option(), term()) -> term().
+-spec default_with(option(), fun((ok) -> term())) -> term().
+-spec map(fun((term()) -> term()), option()) -> option().
+-spec bind(fun((term()) -> option()), option()) -> option().
+-spec or_else(option(), option()) -> option().
+-spec or_else_with(option(), fun((ok) -> option())) -> option().
+-spec iter(fun((term()) -> term()), option()) -> ok.
+-spec map2(fun((term()) -> fun((term()) -> term())), option(), option()) -> option().
+-spec map3(fun((term()) -> fun((term()) -> fun((term()) -> term()))), option(), option(), option()) -> option().
+-spec contains(term(), option()) -> boolean().
+-spec filter(fun((term()) -> boolean()), option()) -> option().
+-spec fold(fun((term()) -> fun((term()) -> term())), term(), option()) -> term().
+-spec fold_back(fun((term()) -> fun((term()) -> term())), option(), term()) -> term().
+-spec to_array(option()) -> list().
+-spec to_list(option()) -> list().
+-spec flatten(option()) -> option().
+-spec count(option()) -> non_neg_integer().
+-spec for_all(fun((term()) -> boolean()), option()) -> boolean().
+-spec exists(fun((term()) -> boolean()), option()) -> boolean().
+
 %% Unwrap an option value: {some, V} -> V, plain V -> V.
 %% Used internally to extract the inner value before passing to user callbacks.
 unwrap({some, V}) -> V;

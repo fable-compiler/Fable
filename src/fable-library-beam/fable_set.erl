@@ -3,6 +3,19 @@
          iterate/2, partition/2, union_many/1, intersect_many/1,
          is_proper_subset/2, is_proper_superset/2]).
 
+-spec fold(fun(), term(), list()) -> term().
+-spec fold_back(fun(), list(), term()) -> term().
+-spec map(fun(), list()) -> list().
+-spec filter(fun(), list()) -> list().
+-spec exists(fun(), list()) -> boolean().
+-spec forall(fun(), list()) -> boolean().
+-spec iterate(fun(), list()) -> ok.
+-spec partition(fun(), list()) -> {list(), list()}.
+-spec union_many(list()) -> list().
+-spec intersect_many(list()) -> list().
+-spec is_proper_subset(list(), list()) -> boolean().
+-spec is_proper_superset(list(), list()) -> boolean().
+
 %% Fable compiles multi-arg F# lambdas as curried functions:
 %%   fun acc elem -> ...  =>  fun(Acc) -> fun(Elem) -> ... end end
 %% So we use curried application: (Fn(Acc))(Elem) instead of Fn(Acc, Elem).

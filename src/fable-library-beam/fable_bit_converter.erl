@@ -3,6 +3,18 @@
          to_boolean/2, to_string/1, to_string/2, to_string/3,
          int64_bits_to_double/1, double_to_int64_bits/1]).
 
+-spec get_bytes(integer() | float(), integer()) -> tuple().
+-spec get_bytes_bool(boolean()) -> tuple().
+-spec to_int(tuple() | binary() | list(), non_neg_integer(), integer()) -> integer().
+-spec to_uint(tuple() | binary() | list(), non_neg_integer(), integer()) -> non_neg_integer().
+-spec to_float(tuple() | binary() | list(), non_neg_integer(), integer()) -> float().
+-spec to_boolean(tuple() | binary() | list(), non_neg_integer()) -> boolean().
+-spec to_string(tuple() | list() | binary()) -> binary().
+-spec to_string(tuple() | list() | binary(), non_neg_integer()) -> binary().
+-spec to_string(tuple() | list() | binary(), non_neg_integer(), non_neg_integer()) -> binary().
+-spec int64_bits_to_double(integer()) -> float().
+-spec double_to_int64_bits(float()) -> integer().
+
 %% Convert a numeric value to a byte array (little-endian, matching .NET convention).
 get_bytes(Value, BitSize) when is_integer(Value) ->
     fable_utils:new_byte_array(binary_to_list(<<Value:BitSize/little-signed-integer>>));

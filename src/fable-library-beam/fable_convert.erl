@@ -4,6 +4,19 @@
          int_to_string_with_format/2,
          try_parse_int/2, try_parse_float/2]).
 
+-spec to_float(binary() | integer() | float()) -> float().
+-spec to_int(binary() | integer() | float()) -> integer().
+-spec to_int_with_base(binary(), integer()) -> integer().
+-spec to_string(term()) -> binary().
+-spec to_string_with_base(integer(), integer(), integer()) -> binary().
+-spec to_base64(tuple() | list() | binary()) -> binary().
+-spec from_base64(binary()) -> tuple().
+-spec boolean_parse(binary()) -> boolean().
+-spec boolean_try_parse(binary(), reference()) -> boolean().
+-spec int_to_string_with_format(integer(), binary()) -> binary().
+-spec try_parse_int(binary(), reference()) -> boolean().
+-spec try_parse_float(binary(), reference()) -> boolean().
+
 %% Robust string-to-float conversion that handles edge cases
 %% Erlang's binary_to_float/1 is strict and rejects formats like "1." or "1"
 %% .NET accepts these, so we normalize before converting.
