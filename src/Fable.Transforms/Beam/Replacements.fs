@@ -2561,13 +2561,18 @@ let private intrinsicFunctions
 
 let error (_com: ICompiler) (msg: Expr) = msg
 
-let defaultof (_com: ICompiler) (_ctx: Context) (r: SourceLocation option) (typ: Type) =
+let rec defaultof (_com: ICompiler) (_ctx: Context) (r: SourceLocation option) (typ: Type) =
     match typ with
+    | Nullable _ -> Value(Null typ, r)
+    | Tuple(args, true) -> NewTuple(args |> List.map (defaultof _com _ctx r), true) |> makeValue None
     | Boolean -> makeBoolConst false
     | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
     | Char -> CharConstant '\u0000' |> makeValue None
     | String -> Value(Null typ, r)
-    | DeclaredType(ent, _) when ent.FullName = Types.guid -> makeStrConst "00000000-0000-0000-0000-000000000000"
+    | Builtin BclTimeSpan -> makeIntConst 0
+    | Builtin BclDateTime -> Value(NewTuple([ makeIntConst 0; makeIntConst 0 ], false), r)
+    | Builtin BclDateTimeOffset -> Value(NewTuple([ makeIntConst 0; makeIntConst 0; makeIntConst 0 ], false), r)
+    | Builtin BclGuid -> makeStrConst "00000000-0000-0000-0000-000000000000"
     | _ -> Value(Null typ, r)
 
 let getRefCell (_com: ICompiler) (r: SourceLocation option) (_typ: Type) (expr: Expr) =
