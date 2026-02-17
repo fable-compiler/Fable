@@ -24,7 +24,6 @@
 %%
 %% UriKind: 0 = RelativeOrAbsolute, 1 = Absolute, 2 = Relative
 
--define(URI_KIND_RELATIVE_OR_ABSOLUTE, 0).
 -define(URI_KIND_ABSOLUTE, 1).
 -define(URI_KIND_RELATIVE, 2).
 
@@ -42,7 +41,7 @@ create(UriStr, Kind) when is_binary(UriStr), is_integer(Kind) ->
     %% create(string, UriKind)
     S = binary_to_list(UriStr),
     Parsed = uri_string:parse(S),
-    IsAbsolute = is_map_key(scheme, Parsed) andalso maps:get(scheme, Parsed) =/= [],
+    IsAbsolute = is_map(Parsed) andalso is_map_key(scheme, Parsed) andalso maps:get(scheme, Parsed) =/= [],
     case Kind of
         ?URI_KIND_ABSOLUTE when not IsAbsolute ->
             erlang:error(<<"Invalid URI: The format of the URI could not be determined.">>);
@@ -185,10 +184,12 @@ build_uri(OrigStr, Parsed, true) ->
     %% Absolute URI
     Scheme = list_to_binary(string:lowercase(get_parsed(scheme, Parsed, ""))),
     Host = list_to_binary(get_parsed(host, Parsed, "")),
-    Port = case maps:find(port, Parsed) of
-        {ok, P} -> P;
-        error -> undefined
-    end,
+    Port = case Parsed of
+       #{port := P} ->
+           P;
+       #{} ->
+           undefined
+   end,
     Path = list_to_binary(get_parsed(path, Parsed, "/")),
     Query = list_to_binary(get_parsed(query, Parsed, "")),
     Fragment = list_to_binary(get_parsed(fragment, Parsed, "")),
@@ -217,10 +218,12 @@ build_uri(OrigStr, _Parsed, false) ->
     }.
 
 get_parsed(Key, Map, Default) ->
-    case maps:find(Key, Map) of
-        {ok, V} -> V;
-        error -> Default
-    end.
+    case Map of
+       #{Key := V} ->
+           V;
+       #{} ->
+           Default
+   end.
 
 %% Recompose absolute URI (for AbsoluteUri property)
 recompose_absolute(Scheme, Host, Port, Path, Query, Fragment) ->

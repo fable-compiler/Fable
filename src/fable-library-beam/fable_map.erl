@@ -9,7 +9,12 @@
 %% So we use curried application: (Fn(K))(V) instead of Fn(K, V).
 
 try_find(Key, Map) ->
-    case maps:find(Key, Map) of {ok, V} -> V; error -> undefined end.
+    case Map of
+       #{Key := V} ->
+           V;
+       #{} ->
+           undefined
+   end.
 
 fold(Fn, State, Map) ->
     maps:fold(fun(K, V, Acc) -> ((Fn(Acc))(K))(V) end, State, Map).
@@ -49,7 +54,12 @@ partition(Fn, Map) ->
      maps:filter(fun(K, V) -> not (Fn(K))(V) end, Map)}.
 
 try_get_value(Key, Map) ->
-    case maps:find(Key, Map) of {ok, V} -> {true, V}; error -> {false, undefined} end.
+    case Map of
+       #{Key := V} ->
+           {true, V};
+       #{} ->
+           {false, undefined}
+   end.
 
 %% TryGetValue with out-parameter: sets the out-ref and returns bool.
 try_get_value(Key, Map, OutRef) ->
@@ -80,15 +90,15 @@ max_key_value(Map) ->
     lists:max(maps:to_list(Map)).
 
 change(Key, Fn, Map) ->
-    case maps:find(Key, Map) of
-        {ok, V} ->
-            case Fn(V) of
+    case Map of
+       #{Key := V} ->
+           case Fn(V) of
                 undefined -> maps:remove(Key, Map);
                 NewV -> maps:put(Key, NewV, Map)
             end;
-        error ->
-            case Fn(undefined) of
+       #{} ->
+           case Fn(undefined) of
                 undefined -> Map;
                 NewV -> maps:put(Key, NewV, Map)
             end
-    end.
+   end.

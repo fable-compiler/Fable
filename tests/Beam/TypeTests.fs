@@ -595,40 +595,37 @@ let ``test Value Type tuples work`` () =
 //     let p = Point2D(2.)
 //     p.Y |> equal 2.
 
-// TODO: TypeTestGeneric (box e :? Exception) not supported by Fable Beam
-// [<Fact>]
-// let ``test Custom F# exceptions work`` () =
-//     try
-//         MyEx(4, "ERROR") |> raise
-//     with
-//     | MyEx (4, msg) as e -> (box e :? Exception, msg + "!!")
-//     | MyEx (_, msg) as e -> (box e :? Exception, msg + "??")
-//     | ex -> (false, "unknown")
-//     |> equal (true, "ERROR!!")
+[<Fact>]
+let ``test Custom F# exceptions work`` () =
+    try
+        MyEx(4, "ERROR") |> raise
+    with
+    | MyEx (4, msg) as e -> (box e :? Exception, msg + "!!")
+    | MyEx (_, msg) as e -> (box e :? Exception, msg + "??")
+    | ex -> (false, "unknown")
+    |> equal (true, "ERROR!!")
 
-// TODO: TypeTestGeneric (:? MyEx2) not supported by Fable Beam
-// [<Fact>]
-// let ``test Custom exceptions work`` () =
-//     try
-//         MyEx2(5.5) |> raise
-//     with
-//     | :? MyEx2 as ex -> (box ex :? Exception, ex.Message, ex.Code)
-//     | ex -> (false, "unknown", 0.)
-//     |> equal (true, "Code: 5", 5.5)
+[<Fact>]
+let ``test Custom exceptions work`` () =
+    try
+        MyEx2(5.5) |> raise
+    with
+    | :? MyEx2 as ex -> (box ex :? Exception, ex.Message, ex.Code)
+    | ex -> (false, "unknown", 0.)
+    |> equal (true, "Code: 5", 5.5)
 
-// TODO: System.Exception..ctor not supported by Fable Beam
-// [<Fact>]
-// let ``test reraise works`` () =
-//     try
-//         try
-//             Exception("Will I be reraised?") |> raise
-//         with
-//         | _ ->
-//             try
-//                 reraise ()
-//             with
-//             | _ -> reraise ()
-//         "foo"
-//     with
-//     | ex -> ex.Message
-//     |> equal "Will I be reraised?"
+[<Fact>]
+let ``test reraise works`` () =
+    try
+        try
+            Exception("Will I be reraised?") |> raise
+        with
+        | _ ->
+            try
+                reraise ()
+            with
+            | _ -> reraise ()
+        "foo"
+    with
+    | ex -> ex.Message
+    |> equal "Will I be reraised?"

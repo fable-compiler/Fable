@@ -28,7 +28,7 @@ remove(List, Item) ->
 remove_first([], _Item, _Acc) ->
     {false, lists:reverse(_Acc)};
 remove_first([Item | Rest], Item, Acc) ->
-    {true, lists:reverse(Acc) ++ Rest};
+    {true, lists:reverse(Acc, Rest)};
 remove_first([H | Rest], Item, Acc) ->
     remove_first(Rest, Item, [H | Acc]).
 

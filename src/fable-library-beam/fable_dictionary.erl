@@ -40,10 +40,12 @@ add(DictRef, Key, Value) ->
 %% get_Item: throws if key not found
 get_item(DictRef, Key) ->
     Map = get(DictRef),
-    case maps:find(Key, Map) of
-        {ok, Value} -> Value;
-        error -> erlang:error({badkey, Key})
-    end.
+    case Map of
+       #{Key := Value} ->
+           Value;
+       #{} ->
+           erlang:error({badkey, Key})
+   end.
 
 %% set_Item: upsert (add or update)
 set_item(DictRef, Key, Value) ->
@@ -53,10 +55,12 @@ set_item(DictRef, Key, Value) ->
 %% TryGetValue (2-arg): returns {true, Value} or {false, undefined}
 try_get_value(DictRef, Key) ->
     Map = get(DictRef),
-    case maps:find(Key, Map) of
-        {ok, Value} -> {true, Value};
-        error -> {false, undefined}
-    end.
+    case Map of
+       #{Key := Value} ->
+           {true, Value};
+       #{} ->
+           {false, undefined}
+   end.
 
 %% TryGetValue (3-arg): sets OutRef and returns just bool
 %% F# desugars `let ok, v = dic.TryGetValue(k)` using an out-ref

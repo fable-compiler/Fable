@@ -4,6 +4,10 @@ open System
 open Fable.Tests.Util
 open Util.Testing
 
+type MyException(value) =
+    inherit Exception()
+    member _.Value: int = value
+
 [<Fact>]
 let ``test async return works`` () =
     let comp = async { return 42 }
@@ -151,5 +155,23 @@ let ``test CancellationToken Dispose is no-op`` () =
     tcs.Dispose()
     // Should not throw - Dispose is a no-op
     equal false tcs.Token.IsCancellationRequested
+
+[<Fact>]
+let ``test Can use custom exceptions in async workflows`` () =
+    let workflow(): Async<unit> = async {
+        return MyException(7) |> raise
+    }
+    let parentWorkflow() =
+        async {
+            try
+                do! workflow()
+                return 100
+            with
+            | :? MyException as ex -> return ex.Value
+        }
+    async {
+        let! res = parentWorkflow()
+        equal 7 res
+    } |> Async.RunSynchronously
 
 #endif

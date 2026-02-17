@@ -166,7 +166,7 @@ index_of_any(Str, Chars, StartIdx) ->
     index_of_any_loop(Bytes, CharSet, 0, StartIdx).
 
 index_of_any_loop([], _CharSet, _Idx, _StartIdx) -> -1;
-index_of_any_loop([C | Rest], CharSet, Idx, StartIdx) when Idx < StartIdx ->
+index_of_any_loop([_C | Rest], CharSet, Idx, StartIdx) when Idx < StartIdx ->
     index_of_any_loop(Rest, CharSet, Idx + 1, StartIdx);
 index_of_any_loop([C | Rest], CharSet, Idx, StartIdx) ->
     case lists:member(C, CharSet) of

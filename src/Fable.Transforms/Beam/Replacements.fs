@@ -4603,6 +4603,8 @@ let tryCall
         | "GetString", [ ar; idx ] -> emitExpr r t [ ar; idx ] "binary:at($0, $1)" |> Some
         | "SetArray", [ ar; idx; value ] -> setExpr r ar idx value |> Some
         | ("UnboxFast" | "UnboxGeneric" | "CheckThis"), [ arg ] -> TypeCast(arg, t) |> Some
+        | ("TypeTestGeneric" | "TypeTestFast"), [ expr ] ->
+            Test(expr, TypeTest((genArg com ctx r 0 info.GenericArgs)), r) |> Some
         | "MakeDecimal", [ low; mid; high; isNegative; scale ] ->
             Helper.LibCall(com, "fable_decimal", "from_parts", t, [ low; mid; high; isNegative; scale ], ?loc = r)
             |> Some
@@ -4770,13 +4772,26 @@ let tryCall
         | "Dispose", Some c -> Helper.LibCall(com, "fable_utils", "safe_dispose", t, [ c ], ?loc = r) |> Some
         | _ -> None
     // Exception — caught exceptions are wrapped as #{message => Msg} by Fable2Beam
+    // ExceptionDispatchInfo is used to raise exceptions through different threads in async workflows
+    | "System.Runtime.ExceptionServices.ExceptionDispatchInfo" ->
+        match info.CompiledName, thisArg, args with
+        | "Capture", _, [ arg ] -> Some arg
+        | "Throw", Some arg, _ -> makeThrow r t arg |> Some
+        | _ -> None
     | "System.Exception" ->
         match info.CompiledName, thisArg, args with
         | ".ctor", None, [ msg ] -> emitExpr r t [ msg ] "#{message => $0}" |> Some
         | ".ctor", None, [] ->
             emitExpr r t [] "#{message => <<\"Exception of type 'System.Exception' was thrown.\">>}"
             |> Some
-        | "get_Message", Some c, _ -> emitExpr r t [ c ] "maps:get(message, $0, $0)" |> Some
+        | "get_Message", Some c, _ ->
+            // Handle both map exceptions and reference-based class exceptions
+            emitExpr
+                r
+                t
+                [ c ]
+                "case erlang:is_reference($0) of true -> maps:get(message, erlang:get($0), $0); false -> maps:get(message, $0, $0) end"
+            |> Some
         | _ -> None
     // Built-in .NET exception types — all become #{message => Msg} maps in Erlang
     | BuiltinSystemException _
@@ -4850,10 +4865,19 @@ let tryCall
 let tryBaseConstructor
     (_com: ICompiler)
     (_ctx: Context)
-    (_ent: EntityRef)
+    (ent: EntityRef)
     (_argTypes: Lazy<Type list>)
     (_genArgs: Type list)
-    (_args: Expr list)
-    : Expr option
+    (args: Expr list)
     =
-    None
+    match ent.FullName with
+    | Types.exception_ ->
+        // For classes inheriting from exn, the base constructor provides the message.
+        // transformClassDeclaration extracts the args to add a message field.
+        let baseExpr = emitExpr None Any [] "fable_exn_base"
+        Some(baseExpr, args)
+    | Types.attribute ->
+        // Attributes have no runtime representation in Beam
+        let baseExpr = emitExpr None Any [] "ok"
+        Some(baseExpr, [])
+    | _ -> None

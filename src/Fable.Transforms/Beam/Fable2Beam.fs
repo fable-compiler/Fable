@@ -641,7 +641,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                     ]
                 )
 
-            // If reason is already a map (custom exception with __type), use it directly.
+            // If reason is already a map (F# exception) or reference (class inheriting exn), use it directly.
             // Otherwise wrap in #{message => ...} for .Message access.
             let bindIdent =
                 Beam.ErlExpr.Match(
@@ -652,6 +652,11 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                             {
                                 Pattern = Beam.PWildcard
                                 Guard = [ Beam.ErlExpr.Call(None, "is_map", [ reasonRef ]) ]
+                                Body = [ reasonRef ]
+                            }
+                            {
+                                Pattern = Beam.PWildcard
+                                Guard = [ Beam.ErlExpr.Call(None, "is_reference", [ reasonRef ]) ]
                                 Body = [ reasonRef ]
                             }
                             {
@@ -1931,6 +1936,22 @@ and transformClassDeclaration
                         LocalVars = ctorArgs |> List.fold (fun (s: Set<string>) a -> s.Add(a.Name)) ctx.LocalVars
                     }
 
+                // If the class inherits from exn, extract the message from the base call
+                // and add it as a map entry so .Message works on caught exceptions.
+                let baseExnEntries =
+                    match decl.BaseCall with
+                    | Some(Fable.Call(_, info, _, _)) when info.Args.Length > 0 ->
+                        let msgExpr = transformExpr com ctorCtx info.Args.[0]
+                        [ atomLit "message", msgExpr ]
+                    | Some(Fable.Call(_, _, _, _)) ->
+                        [
+                            atomLit "message",
+                            Beam.ErlExpr.Literal(
+                                Beam.ErlLiteral.StringLit "Exception of type 'System.Exception' was thrown."
+                            )
+                        ]
+                    | _ -> []
+
                 // Process fields in order, progressively building a map of field name → Erlang expr.
                 // This allows later fields to reference earlier fields via this.FieldName
                 // (which would otherwise fail because put(Ref, #{...}) hasn't happened yet).
@@ -1946,7 +1967,7 @@ and transformClassDeclaration
 
                             entries', fieldCtx'
                         )
-                        ([], ctorCtx)
+                        (baseExnEntries, ctorCtx)
 
                 // Build interface entries from AttachedMembers that implement interfaces.
                 // These are stored in the process dict state map alongside field state,

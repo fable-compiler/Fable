@@ -123,10 +123,12 @@ group_by(Fn, List) ->
     Map = lists:foldl(
         fun(X, Acc) ->
             Key = Fn(X),
-            case maps:find(Key, Acc) of
-                {ok, Vals} -> maps:put(Key, Vals ++ [X], Acc);
-                error -> maps:put(Key, [X], Acc)
-            end
+            case Acc of
+       #{Key := Vals} ->
+           maps:put(Key, Vals ++ [X], Acc);
+       #{} ->
+           maps:put(Key, [X], Acc)
+   end
         end,
         #{},
         List),
@@ -136,10 +138,12 @@ count_by(Fn, List) ->
     Map = lists:foldl(
         fun(X, Acc) ->
             Key = Fn(X),
-            case maps:find(Key, Acc) of
-                {ok, Count} -> maps:put(Key, Count + 1, Acc);
-                error -> maps:put(Key, 1, Acc)
-            end
+            case Acc of
+       #{Key := Count} ->
+           maps:put(Key, Count + 1, Acc);
+       #{} ->
+           maps:put(Key, 1, Acc)
+   end
         end,
         #{},
         List),

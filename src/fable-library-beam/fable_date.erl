@@ -171,7 +171,7 @@ utc_now() ->
     {NetTicks, ?KIND_UTC}.
 
 today() ->
-    {Ticks, _} = now(),
+    {Ticks, _} = ?MODULE:now(),
     {Y, M, D, _, _, _, _} = ticks_to_datetime(Ticks),
     {ticks_from_components(Y, M, D, 0, 0, 0, 0, 0), ?KIND_LOCAL}.
 
@@ -668,7 +668,7 @@ try_parse_time_only(S) ->
             AmPm = safe_group(5, Groups),
             H = adjust_ampm(H0, AmPm),
             %% Use current date
-            {NowTicks, _} = now(),
+            {NowTicks, _} = ?MODULE:now(),
             {Y, M, D, _, _, _, _} = ticks_to_datetime(NowTicks),
             {ok, {ticks_from_components(Y, M, D, H, Min, Sec, 0, 0), ?KIND_UNSPECIFIED}};
         nomatch ->

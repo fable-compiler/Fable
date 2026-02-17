@@ -78,7 +78,7 @@ let ``test Tuple dereferencing can be generated`` () =
 
 [<Fact>]
 let ``test Tuple Item1 and Item2 work`` () =
-    let t = (1, 2)
+    let t = 1, 2
     t.Item1 |> equal 1
     t.Item2 |> equal 2
 
