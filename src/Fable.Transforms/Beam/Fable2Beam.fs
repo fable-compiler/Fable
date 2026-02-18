@@ -971,15 +971,6 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                     }
                 ]
 
-    | _ ->
-        let exprName = expr.GetType().Name
-
-        com.WarnOnlyOnce(
-            $"Unhandled Fable expression type '%s{exprName}' — emitting placeholder atom. This may cause runtime errors."
-        )
-
-        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom $"todo_%s{exprName.ToLowerInvariant()}"))
-
 and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam.ErlExpr =
     match value with
     | StringConstant s -> Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit s)
