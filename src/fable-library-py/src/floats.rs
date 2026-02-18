@@ -10,7 +10,7 @@ use std::ops::Deref;
 // Macro to generate float wrapper types (Float32, Float64)
 macro_rules! float_variant {
     ($name:ident, $type:ty) => {
-        #[pyclass(module = "fable", frozen)]
+        #[pyclass(module = "fable", frozen, from_py_object)]
         #[derive(Clone, Copy)] // Floats are typically Copy
         pub struct $name(pub $type);
 

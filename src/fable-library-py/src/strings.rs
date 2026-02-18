@@ -107,7 +107,7 @@ mod printf {
     /// def fail(msg): raise Exception(msg)
     /// printf("Error: %s").cont(fail)("something went wrong")  # raises Exception
     /// ```
-    #[pyclass(module = "fable")]
+    #[pyclass(module = "fable", from_py_object)]
     pub struct IPrintfFormat {
         /// The original format string with placeholders
         input: String,
@@ -633,7 +633,7 @@ mod printf {
     }
 
     /// Console printer wrapper that maintains F# currying semantics
-    #[pyclass]
+    #[pyclass(from_py_object)]
     #[derive(Clone)]
     pub struct ConsolePrinter {
         format: IPrintfFormat,
@@ -1676,7 +1676,7 @@ mod formatting {
     }
 
     /// String comparison enumeration
-    #[pyclass(module = "fable")]
+    #[pyclass(module = "fable", from_py_object)]
     #[derive(Clone, Copy)]
     pub struct StringComparison {
         pub value: i32,

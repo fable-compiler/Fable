@@ -16,7 +16,7 @@ use pyo3::{
 };
 use std::sync::{Arc, Mutex};
 
-#[pyclass(module = "fable", subclass)]
+#[pyclass(module = "fable", subclass, from_py_object)]
 #[derive(Clone, Debug)]
 
 pub struct FSharpArray {
@@ -480,7 +480,11 @@ impl FSharpArray {
     pub fn __iter__(slf: PyRef<'_, Self>, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let len = slf.storage.len();
         // SAFETY: slf.as_ptr() is valid and from_borrowed_ptr increments refcount
-        let array: Py<FSharpArray> = unsafe { Py::from_borrowed_ptr(py, slf.as_ptr()) };
+        let array: Py<FSharpArray> = unsafe {
+            Bound::from_borrowed_ptr(py, slf.as_ptr())
+                .cast_into_unchecked::<FSharpArray>()
+        }
+        .unbind();
         let iter = FSharpArrayIter {
             array,
             index: 0,
@@ -496,7 +500,11 @@ impl FSharpArray {
     pub fn GetEnumerator(slf: PyRef<'_, Self>, py: Python<'_>, _unit: Option<&Bound<'_, PyAny>>) -> PyResult<Py<PyAny>> {
         let len = slf.storage.len();
         // SAFETY: slf.as_ptr() is valid and from_borrowed_ptr increments refcount
-        let array: Py<FSharpArray> = unsafe { Py::from_borrowed_ptr(py, slf.as_ptr()) };
+        let array: Py<FSharpArray> = unsafe {
+            Bound::from_borrowed_ptr(py, slf.as_ptr())
+                .cast_into_unchecked::<FSharpArray>()
+        }
+        .unbind();
         let enumerator = FSharpArrayEnumerator {
             array,
             index: -1, // Before first element
@@ -4377,7 +4385,7 @@ pub fn of_seq(
 }
 
 // Constructor class for array allocation
-#[pyclass(module = "fable")]
+#[pyclass(module = "fable", from_py_object)]
 #[derive(Clone)]
 struct FSharpCons {
     #[pyo3(get, set)]

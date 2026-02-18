@@ -204,7 +204,7 @@ macro_rules! integer_variant {
         /// - Full Python special method support
         /// - Type-safe operations with automatic conversions
         /// - Direct access to the underlying value via Deref
-        #[pyclass(module = "fable", frozen)]
+        #[pyclass(module = "fable", frozen, from_py_object)]
         #[derive(Clone)]
         pub struct $name(pub $type); // Make the inner field public
 
