@@ -410,16 +410,25 @@ let ``test DateTime.ToString("d") works`` () =
 
 [<Fact>]
 let ``test DateTime.ToShortTimeString works`` () =
+#if !FABLE_COMPILER
+    Threading.Thread.CurrentThread.CurrentCulture <- CultureInfo.InvariantCulture
+#endif
     DateTime(2014, 9, 11, 16, 37, 0).ToShortTimeString()
     |> equal "16:37"
 
 [<Fact>]
 let ``test DateTime.ToLongTimeString works`` () =
+#if !FABLE_COMPILER
+    Threading.Thread.CurrentThread.CurrentCulture <- CultureInfo.InvariantCulture
+#endif
     DateTime(2014, 9, 11, 16, 37, 0).ToLongTimeString()
     |> equal "16:37:00"
 
 [<Fact>]
 let ``test DateTime.ToLongDateString works`` () =
+#if !FABLE_COMPILER
+    Threading.Thread.CurrentThread.CurrentCulture <- CultureInfo.InvariantCulture
+#endif
     DateTime(2014, 9, 11, 16, 37, 0).ToLongDateString()
     |> equal "Thursday, 11 September 2014"
 
@@ -433,6 +442,9 @@ let ``test DateTime.ToShortDateString works`` () =
 
 [<Fact>]
 let ``test DateTime.ToString("T") (upper) works`` () =
+#if !FABLE_COMPILER
+    Threading.Thread.CurrentThread.CurrentCulture <- CultureInfo.InvariantCulture
+#endif
     DateTime(2014, 9, 11, 3, 37, 11, 345).ToString("T")
     |> equal "03:37:11"
 
@@ -441,6 +453,9 @@ let ``test DateTime.ToString("T") (upper) works`` () =
 
 [<Fact>]
 let ``test DateTime.ToString("t") (lower) works`` () =
+#if !FABLE_COMPILER
+    Threading.Thread.CurrentThread.CurrentCulture <- CultureInfo.InvariantCulture
+#endif
     DateTime(2014, 9, 11, 3, 37, 11, 345).ToString("t")
     |> equal "03:37"
 
