@@ -265,8 +265,11 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             let allHoisted = appliedHoisted @ argsHoisted
 
             let result =
-                cleanArgs
-                |> List.fold (fun fn arg -> Beam.ErlExpr.Apply(fn, [ arg ])) cleanApplied
+                match cleanArgs with
+                | [] -> Beam.ErlExpr.Apply(cleanApplied, [])
+                | _ ->
+                    cleanArgs
+                    |> List.fold (fun fn arg -> Beam.ErlExpr.Apply(fn, [ arg ])) cleanApplied
 
             result |> wrapWithHoisted allHoisted
 
@@ -541,6 +544,8 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                     lambdaBody,
                     { ctx' with LocalVars = ctx'.LocalVars.Add(arg.Name) }
                 | Delegate(args, lambdaBody, _, _) ->
+                    let args = FSharp2Fable.Util.discardUnitArg args
+
                     args
                     |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar)),
                     args,
@@ -1870,8 +1875,28 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
             Beam.ErlExpr.Apply(bundleCall, allArgs) |> wrapWithHoisted allHoisted
         | None ->
             if ctx.RecursiveBindings.Contains(ident.Name) || ctx.LocalVars.Contains(ident.Name) then
-                Beam.ErlExpr.Apply(Beam.ErlExpr.Variable(capitalizeFirst ident.Name |> sanitizeErlangVar), allArgs)
-                |> wrapWithHoisted allHoisted
+                let varExpr = Beam.ErlExpr.Variable(capitalizeFirst ident.Name |> sanitizeErlangVar)
+
+                let apply =
+                    match allArgs with
+                    | [] when
+                        (match ident.Type with
+                         | Fable.AST.Fable.Type.DelegateType _ -> true
+                         | _ -> false)
+                        ->
+                        // Zero-arg delegate Invoke (e.g. `d.Invoke()` on `delegate of unit -> int`).
+                        // The underlying fun may be arity 0 (unit stripped at definition by discardUnitArg)
+                        // or arity 1 (unit kept in Delegate AST node). Erlang enforces arity, so check
+                        // at runtime. This is necessary because the Delegate AST node is shared by .NET
+                        // delegates (Invoke strips unit via dropUnitCallArg) and callbacks like Lazy
+                        // factories (called with explicit unit), preventing a uniform compile-time fix.
+                        Beam.ErlExpr.Emit(
+                            "case erlang:fun_info($0, arity) of {arity, 0} -> ($0)(); {arity, _} -> ($0)(ok) end",
+                            [ varExpr ]
+                        )
+                    | _ -> Beam.ErlExpr.Apply(varExpr, allArgs)
+
+                apply |> wrapWithHoisted allHoisted
             else
                 Beam.ErlExpr.Call(None, sanitizeErlangName ident.Name, allArgs)
                 |> wrapWithHoisted allHoisted

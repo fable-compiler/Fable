@@ -1820,6 +1820,9 @@ let rec private unwrapSeqArg r (expr: Expr) =
         | Array _ -> emitExpr r (List Any) [ expr ] "erlang:get($0)" // deref array ref
         | String -> emitExpr r (List Any) [ expr ] "binary_to_list($0)"
         // For generic seq/list types, use runtime check — value might be array ref at runtime
+        // Dictionary ref: convert to list of {Key, Value} tuples for Seq iteration
+        | DeclaredType(entRef, _) when entRef.FullName = Types.dictionary ->
+            emitExpr r (List Any) [ expr ] "maps:to_list(erlang:get($0))"
         | DeclaredType(entRef, _) when
             entRef.FullName = Types.ienumerableGeneric
             || entRef.FullName = Types.ienumerable
@@ -3497,6 +3500,10 @@ let private collections
             Helper.LibCall(com, "fable_dictionary", "contains_key", t, [ callee; key ], ?loc = r)
             |> Some
         | _ -> None
+    | "GetEnumerator", Some callee when isKeyOrValueCollection ->
+        // KeyCollection/ValueCollection are plain lists, use generic enumerator
+        Helper.LibCall(com, "fable_utils", "get_enumerator", t, [ callee ], ?loc = r)
+        |> Some
     | "GetEnumerator", Some callee ->
         Helper.LibCall(com, "fable_dictionary", "get_enumerator", t, [ callee ], ?loc = r)
         |> Some
@@ -4825,7 +4832,24 @@ let tryCall
     | Naming.StartsWith "Microsoft.FSharp.Core.FSharpFunc" _
     | Naming.StartsWith "Microsoft.FSharp.Core.OptimizedClosures.FSharpFunc" _ ->
         match info.CompiledName, thisArg with
-        | "Invoke", Some callee -> CurriedApply(callee, args, t, r) |> Some
+        | "Invoke", Some callee ->
+            // Delegates are uncurried in Erlang — apply all args at once, not curried.
+            match args with
+            | [] ->
+                // Zero-arg Invoke (e.g. Func<int>.Invoke(), Action.Invoke()).
+                // The underlying fun may be arity 0 (unit stripped at definition) or arity 1
+                // (unit kept in Delegate AST node). Erlang enforces arity, so check at runtime.
+                emitExpr
+                    r
+                    t
+                    [ callee ]
+                    "case erlang:fun_info($0, arity) of {arity, 0} -> ($0)(); {arity, _} -> ($0)(ok) end"
+                |> Some
+            | _ ->
+                let placeholders =
+                    args |> List.mapi (fun i _ -> $"$%d{i + 1}") |> String.concat ", "
+
+                emitExpr r t (callee :: args) $"($0)(%s{placeholders})" |> Some
         | _ -> None
     // F# Reflection — minimal support
     | "Microsoft.FSharp.Reflection.FSharpType" ->

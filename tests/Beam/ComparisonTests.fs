@@ -625,8 +625,8 @@ let ``test GetHashCode with records works`` () =
     ({a=1; b=2}.GetHashCode(), {a=1; b=2}.GetHashCode()) ||> equal
     ({a=2; b=1}.GetHashCode(), {a=1; b=2}.GetHashCode()) ||> notEqual
 
-// TODO: GetHashCode on arrays uses identity (ref) hashing, not content hashing
-// because arrays are process-dict refs. hash() function dereferences but GetHashCode() doesn't.
+// TODO: GetHashCode on arrays uses identity (ref) hashing on .NET, content hashing on Beam.
+// Test fails on .NET because two [|1; 2|] literals are different instances with different hash codes.
 // [<Fact>]
 // let ``test GetHashCode with arrays works`` () =
 //     ([|1; 2|].GetHashCode(), [|1; 2|].GetHashCode()) ||> equal

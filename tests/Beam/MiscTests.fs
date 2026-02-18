@@ -376,51 +376,47 @@ let ``test Inlined arguments with delayed resolution are only evaluated once`` (
 
 // -- Delegates --
 
-// TODO: Delegate unit arg mismatch — Lambda keeps unit param but .Invoke() strips it via dropUnitCallArg
-// [<Fact>]
-// let ``test Passing delegate works`` () =
-//     dtest1 dInvoke |> equal 42
-//     dtest2 dInvoke |> equal 43
+[<Fact>]
+let ``test Passing delegate works`` () =
+    dtest1 dInvoke |> equal 42
+    dtest2 dInvoke |> equal 43
 
-// TODO: Delegate unit arg mismatch — Func<int>(fn) where fn: unit->int generates arity-1 fun but Invoke() calls with 0 args
-// [<Fact>]
-// let ``test Conversion to delegate works`` () =
-//     (System.Func<_,_,_,_> f1).Invoke(1,2,3) |> equal 6
-//     let f = f1
-//     (System.Func<_,_,_,_> f).Invoke(1,2,3) |> equal 6
-//     let del = System.Func<_,_,_,_>(fun x y z -> x + y + z)
-//     del.Invoke(1,2,3) |> equal 6
-//     (System.Func<_,_> f2).Invoke(2) |> equal 4
-//     let func1 : Func<int> = Func<int>(fun () -> 8)
-//     func1.Invoke() |> equal 8
-//     let fn2 () = 9
-//     let func2 : Func<int> = Func<int>(fn2)
-//     func2.Invoke() |> equal 9
-//     let func2b = Func<unit, int>(fn2)
-//     func2b.Invoke() |> equal 9
-//     let fn2c () () = 9
-//     let func2c : Func<int> = Func<int>(fn2c())
-//     func2c.Invoke() |> equal 9
-//     let fn3 i = i + 4
-//     let func3 = Func<int, int>(fn3)
-//     func3.Invoke(7) |> equal 11
-//     let fn4 x y = x * y - 3
-//     let func4 = Func<int, int, int>(fn4)
-//     func4.Invoke(4, 6) |> equal 21
+[<Fact>]
+let ``test Conversion to delegate works`` () =
+    (System.Func<_,_,_,_> f1).Invoke(1,2,3) |> equal 6
+    let f = f1
+    (System.Func<_,_,_,_> f).Invoke(1,2,3) |> equal 6
+    let del = System.Func<_,_,_,_>(fun x y z -> x + y + z)
+    del.Invoke(1,2,3) |> equal 6
+    (System.Func<_,_> f2).Invoke(2) |> equal 4
+    let func1 : Func<int> = Func<int>(fun () -> 8)
+    func1.Invoke() |> equal 8
+    let fn2 () = 9
+    let func2 : Func<int> = Func<int>(fn2)
+    func2.Invoke() |> equal 9
+    let func2b = Func<unit, int>(fn2)
+    func2b.Invoke() |> equal 9
+    let fn2c () () = 9
+    let func2c : Func<int> = Func<int>(fn2c())
+    func2c.Invoke() |> equal 9
+    let fn3 i = i + 4
+    let func3 = Func<int, int>(fn3)
+    func3.Invoke(7) |> equal 11
+    let fn4 x y = x * y - 3
+    let func4 = Func<int, int, int>(fn4)
+    func4.Invoke(4, 6) |> equal 21
 
-// TODO: Delegate unit arg mismatch — Func<int>(f3) where f3: unit->int
-// [<Fact>]
-// let ``test Conversion to Func works`` () =
-//     (System.Func<_> f3).Invoke() |> equal 5
-//     let f = Func<_>(fun () -> 6)
-//     f.Invoke() |> equal 6
+[<Fact>]
+let ``test Conversion to Func works`` () =
+    (System.Func<_> f3).Invoke() |> equal 5
+    let f = Func<_>(fun () -> 6)
+    f.Invoke() |> equal 6
 
-// TODO: Delegate unit arg mismatch — MyDelegate(f3) where f3: unit->int
-// [<Fact>]
-// let ``test Conversion to aliased Func works`` () =
-//     (MyDelegate f3).Invoke() |> equal 5
-//     let f = MyDelegate(fun () -> 6)
-//     f.Invoke() |> equal 6
+[<Fact>]
+let ``test Conversion to aliased Func works`` () =
+    (MyDelegate f3).Invoke() |> equal 5
+    let f = MyDelegate(fun () -> 6)
+    f.Invoke() |> equal 6
 
 [<Fact>]
 let ``test Conversion to Action works`` () =
