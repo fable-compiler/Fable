@@ -90,6 +90,227 @@ let ``test async start immediate works`` () =
     Async.StartImmediate (async { x <- 42 })
     equal 42 x
 
+let asyncMap f a = async {
+    let! a = a
+    return f a
+}
+
+let successWork: Async<string> = Async.FromContinuations(fun (onSuccess,_,_) -> onSuccess "success")
+let errorWork: Async<string> = Async.FromContinuations(fun (_,onError,_) -> onError (exn "error"))
+
+[<Fact>]
+let ``test Async while binding works correctly`` () =
+    let mutable result = 0
+    async {
+        while result < 10 do
+            result <- result + 1
+    } |> Async.StartImmediate
+    equal result 10
+
+[<Fact>]
+let ``test Async for binding works correctly`` () =
+    let inputs = [|1; 2; 3|]
+    let mutable result = 0
+    async {
+        for inp in inputs do
+            result <- result + inp
+    } |> Async.StartImmediate
+    equal result 6
+
+[<Fact>]
+let ``test Async exceptions are handled correctly`` () =
+    let mutable result = 0
+    let f shouldThrow =
+        async {
+            try
+                if shouldThrow then failwith "boom!"
+                else result <- 12
+            with _ -> result <- 10
+        } |> Async.StartImmediate
+        result
+    f true + f false |> equal 22
+
+[<Fact>]
+let ``test Simple async is executed correctly`` () =
+    let mutable result = false
+    let x = async { return 99 }
+    async {
+        let! x = x
+        let y = 99
+        result <- x = y
+    }
+    |> Async.StartImmediate
+    equal result true
+
+[<Fact>]
+let ``test Try ... with ... expressions inside async expressions work the same`` () =
+    let result = ref ""
+    let throw() : unit =
+        raise(exn "Boo!")
+    let append(x) =
+        result.Value <- result.Value + x
+    let innerAsync() =
+        async {
+            append "b"
+            try append "c"
+                throw()
+                append "1"
+            with _ -> append "d"
+            append "e"
+        }
+    async {
+        append "a"
+        try do! innerAsync()
+        with _ -> append "2"
+        append "f"
+    } |> Async.StartImmediate
+    equal "abcdef" result.Value
+
+[<Fact>]
+let ``test Async StartWithContinuations works`` () =
+    let res1, res2 = ref "", ref ""
+    Async.StartWithContinuations(successWork, (fun x -> res1.Value <- x), ignore, ignore)
+    Async.StartWithContinuations(errorWork, ignore, (fun x -> res2.Value <- x.Message), ignore)
+    equal "success" res1.Value
+    equal "error" res2.Value
+
+[<Fact>]
+let ``test Async.Catch works`` () =
+    let assign (res: Ref<string>) = function
+        | Choice1Of2 msg -> res.Value <- msg
+        | Choice2Of2 (ex: Exception) -> res.Value <- "ERROR: " + ex.Message
+    let res1 = ref ""
+    let res2 = ref ""
+    async {
+        let! x1 = successWork |> Async.Catch
+        assign res1 x1
+        let! x2 = errorWork |> Async.Catch
+        assign res2 x2
+    } |> Async.StartImmediate
+    equal "success" res1.Value
+    equal "ERROR: error" res2.Value
+
+[<Fact>]
+let ``test Deep recursion with async doesn't cause stack overflow`` () =
+    async {
+        let result = ref false
+        let rec trampolineTest (res: bool ref) i = async {
+            if i > 100000
+            then res.Value <- true
+            else return! trampolineTest res (i+1)
+        }
+        do! trampolineTest result 0
+        equal result.Value true
+    } |> Async.StartImmediate
+
+[<Fact>]
+let ``test Nested failure propagates in async expressions`` () =
+    let data = ref ""
+    let f1 x =
+        async {
+            try
+                failwith "1"
+                return x
+            with
+            | e -> return! failwith ("2 " + e.Message)
+        }
+    let f2 x =
+        async {
+            try
+                return! f1 x
+            with
+            | e -> return! failwith ("3 " + e.Message)
+        }
+    let f() =
+        async {
+            try
+                let! _y = f2 4
+                return ()
+            with
+            | e -> data.Value <- e.Message
+        }
+        |> Async.StartImmediate
+    f()
+    equal "3 2 1" data.Value
+
+[<Fact>]
+let ``test Try .. finally expressions inside async expressions work`` () =
+    let data = ref ""
+    async {
+        try data.Value <- data.Value + "1 "
+        finally data.Value <- data.Value + "2 "
+    } |> Async.StartImmediate
+    async {
+        try
+            try failwith "boom!"
+            finally data.Value <- data.Value + "3"
+        with _ -> ()
+    } |> Async.StartImmediate
+    equal "1 2 3" data.Value
+
+[<Fact>]
+let ``test Final statement inside async expressions can throw`` () =
+    let data = ref ""
+    let f() = async {
+        try data.Value <- data.Value + "1 "
+        finally failwith "boom!"
+    }
+    async {
+        try
+            do! f()
+            return ()
+        with
+        | e -> data.Value <- data.Value + e.Message
+    }
+    |> Async.StartImmediate
+    equal "1 boom!" data.Value
+
+[<Fact>]
+let ``test Async.Bind propagates exceptions`` () =
+    async {
+        let task1 name = async {
+            if name = "fail" then
+                failwith "Invalid access credentials"
+            return "Ok"
+        }
+
+        let task2 name = async {
+            do! Async.Sleep 100
+            if name = "fail" then
+                failwith "Invalid access credentials"
+            return "Ok"
+        }
+
+        let doWork name task =
+            let catch comp = async {
+                let! res = Async.Catch comp
+                return
+                    match res with
+                    | Choice1Of2 str -> str
+                    | Choice2Of2 ex -> ex.Message
+            }
+            async {
+                let! a = task "work" |> catch
+                let! b = task "fail" |> catch
+                return a, b
+            }
+
+        let! res1 = doWork "task1" task1
+        let! res2 = doWork "task2" task2
+        equal ("Ok", "Invalid access credentials") res1
+        equal ("Ok", "Invalid access credentials") res2
+    } |> Async.StartImmediate
+
+[<Fact>]
+let ``test Unit arguments are erased`` () =
+    let mutable token = 0
+    async {
+        let! _res =
+            async.Return 5
+            |> asyncMap (fun x -> token <- x)
+        equal 5 token
+    } |> Async.StartImmediate
+
 #if FABLE_COMPILER
 
 [<Fact>]

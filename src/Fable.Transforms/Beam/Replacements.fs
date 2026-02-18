@@ -4797,7 +4797,8 @@ let tryCall
         | _ -> None
     // Built-in .NET exception types — all become #{message => Msg} maps in Erlang
     | BuiltinSystemException _
-    | "System.Collections.Generic.KeyNotFoundException" ->
+    | "System.Collections.Generic.KeyNotFoundException"
+    | "System.OperationCanceledException" ->
         match info.CompiledName, thisArg, args with
         | ".ctor", None, [ msg ] -> emitExpr r t [ msg ] "#{message => $0}" |> Some
         | ".ctor", None, [] ->

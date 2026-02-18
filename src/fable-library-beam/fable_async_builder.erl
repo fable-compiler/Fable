@@ -65,31 +65,35 @@ combine(Comp1, Comp2) ->
     bind(Comp1, fun(_) -> Comp2 end).
 
 %% TryWith: catch errors in computation, pass to handler
+%% Wrap raw errors (binaries from failwith) as exception maps so .Message works.
 try_with(Computation, Handler) ->
     fun(Ctx) ->
         Ctx2 = Ctx#{on_error => fun(Err) ->
-            try (Handler(Err))(Ctx)
-            catch _:Err2 -> (maps:get(on_error, Ctx))(Err2)
+            Err2 = fable_async:wrap_error(Err),
+            try (Handler(Err2))(Ctx)
+            catch _:Err3 -> (maps:get(on_error, Ctx))(Err3)
             end
         end},
         try Computation(Ctx2)
         catch _:Err ->
-            try (Handler(Err))(Ctx)
-            catch _:Err2 -> (maps:get(on_error, Ctx))(Err2)
+            Err2 = fable_async:wrap_error(Err),
+            try (Handler(Err2))(Ctx)
+            catch _:Err3 -> (maps:get(on_error, Ctx))(Err3)
             end
         end
     end.
 
 %% TryFinally: ensure compensation runs on any exit path
+%% Compensation is generated as fun(UnitVar) -> ... end (arity 1), so call with ok.
 try_finally(Computation, Compensation) ->
     fun(Ctx) ->
         Ctx2 = Ctx#{
-            on_success => fun(X) -> Compensation(), (maps:get(on_success, Ctx))(X) end,
-            on_error => fun(E) -> Compensation(), (maps:get(on_error, Ctx))(E) end,
-            on_cancel => fun(E) -> Compensation(), (maps:get(on_cancel, Ctx))(E) end
+            on_success => fun(X) -> Compensation(ok), (maps:get(on_success, Ctx))(X) end,
+            on_error => fun(E) -> Compensation(ok), (maps:get(on_error, Ctx))(E) end,
+            on_cancel => fun(E) -> Compensation(ok), (maps:get(on_cancel, Ctx))(E) end
         },
         try Computation(Ctx2)
-        catch _:Err -> Compensation(), (maps:get(on_error, Ctx))(Err)
+        catch _:Err -> Compensation(ok), (maps:get(on_error, Ctx))(Err)
         end
     end.
 

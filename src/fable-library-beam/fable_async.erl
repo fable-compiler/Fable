@@ -5,7 +5,8 @@
          sleep/1, parallel/1, sequential/1,
          catch_async/1, ignore/1, from_continuations/1,
          start_as_task/1,
-         cancellation_token/0, create_cancellation_token/0, create_cancellation_token/1]).
+         cancellation_token/0, create_cancellation_token/0, create_cancellation_token/1,
+         wrap_error/1]).
 
 -type async_ctx() :: #{on_success := fun(), on_error := fun(), on_cancel := fun(), cancel_token := reference() | undefined}.
 -type async(T) :: fun((async_ctx()) -> T).
@@ -155,16 +156,17 @@ sequential(Computations) ->
     end.
 
 %% Catch: wrap result in Choice (ok/error tuple)
+%% Uses integer tags matching Beam union representation: 0 = Choice1Of2, 1 = Choice2Of2
 catch_async(Computation) ->
     fun(Ctx) ->
         Ctx2 = #{
-            on_success => fun(V) -> (maps:get(on_success, Ctx))({choice1of2, V}) end,
-            on_error => fun(E) -> (maps:get(on_success, Ctx))({choice2of2, E}) end,
+            on_success => fun(V) -> (maps:get(on_success, Ctx))({0, V}) end,
+            on_error => fun(E) -> (maps:get(on_success, Ctx))({1, wrap_error(E)}) end,
             on_cancel => maps:get(on_cancel, Ctx),
             cancel_token => maps:get(cancel_token, Ctx)
         },
         try Computation(Ctx2)
-        catch _:Err -> (maps:get(on_success, Ctx))({choice2of2, Err})
+        catch _:Err -> (maps:get(on_success, Ctx))({1, wrap_error(Err)})
         end
     end.
 
@@ -192,3 +194,10 @@ cancellation_token() ->
 %% Create cancellation token (delegates to fable_cancellation)
 create_cancellation_token() -> fable_cancellation:create().
 create_cancellation_token(Arg) -> fable_cancellation:create(Arg).
+
+%% Wrap raw error values as exception maps so .Message accessor works.
+%% Errors from failwith are raw binaries; errors from raise(exn ...) are already maps.
+wrap_error(Err) when is_binary(Err) -> #{message => Err};
+wrap_error(Err) when is_map(Err) -> Err;
+wrap_error(Err) when is_reference(Err) -> Err;
+wrap_error(Err) -> #{message => erlang:iolist_to_binary(io_lib:format("~p", [Err]))}.
