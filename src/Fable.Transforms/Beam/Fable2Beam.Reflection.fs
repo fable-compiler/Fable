@@ -101,4 +101,42 @@ let rec transformTypeInfo
     | Fable.AnonymousRecordType _ -> makeTypeInfoMap "" []
     | Fable.DeclaredType(entRef, generics) ->
         let resolved = resolveGenerics generics
-        makeTypeInfoMap entRef.FullName resolved
+
+        match com.TryGetEntity(entRef) with
+        | Some ent when ent.IsFSharpRecord ->
+            let fields =
+                ent.FSharpFields
+                |> List.map (fun fi ->
+                    let fieldName = strLit fi.Name
+                    let typeInfo = transformTypeInfo com r genMap fi.FieldType
+                    Beam.ErlExpr.Tuple [ fieldName; typeInfo ]
+                )
+
+            Beam.ErlExpr.Map
+                [
+                    atomLit "fullname", strLit entRef.FullName
+                    atomLit "generics", Beam.ErlExpr.List resolved
+                    atomLit "fields", Beam.ErlExpr.List fields
+                ]
+        | Some ent when ent.IsFSharpUnion ->
+            let cases =
+                ent.UnionCases
+                |> List.map (fun uci ->
+                    let caseFields =
+                        uci.UnionCaseFields
+                        |> List.map (fun fi ->
+                            let fieldName = strLit fi.Name
+                            let typeInfo = transformTypeInfo com r genMap fi.FieldType
+                            Beam.ErlExpr.Tuple [ fieldName; typeInfo ]
+                        )
+
+                    Beam.ErlExpr.Tuple [ strLit uci.Name; Beam.ErlExpr.List caseFields ]
+                )
+
+            Beam.ErlExpr.Map
+                [
+                    atomLit "fullname", strLit entRef.FullName
+                    atomLit "generics", Beam.ErlExpr.List resolved
+                    atomLit "cases", Beam.ErlExpr.List cases
+                ]
+        | _ -> makeTypeInfoMap entRef.FullName resolved

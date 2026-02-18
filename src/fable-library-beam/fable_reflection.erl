@@ -1,6 +1,8 @@
 -module(fable_reflection).
 -export([full_name/1, namespace/1, is_generic_type/1, is_array/1,
-         get_element_type/1, get_generics/1, make_tuple_type/1]).
+         get_element_type/1, get_generics/1, make_tuple_type/1,
+         get_record_elements/1, is_record/1, is_union/1,
+         get_union_cases/1]).
 
 -spec full_name(map()) -> binary().
 -spec namespace(map()) -> binary().
@@ -46,3 +48,21 @@ make_tuple_type(TypeInfos) when is_list(TypeInfos) ->
     N = length(TypeInfos),
     FullName = iolist_to_binary([<<"System.Tuple`">>, integer_to_binary(N)]),
     #{fullname => FullName, generics => TypeInfos}.
+
+%% FSharpType.GetRecordFields — returns list of {Name, TypeInfo} tuples.
+get_record_elements(#{fields := Fields}) -> Fields;
+get_record_elements(TypeInfo) ->
+    erlang:error({not_record_type, maps:get(fullname, TypeInfo, <<"unknown">>)}).
+
+%% FSharpType.IsRecord
+is_record(TypeInfo) ->
+    maps:is_key(fields, TypeInfo).
+
+%% FSharpType.IsUnion
+is_union(TypeInfo) ->
+    maps:is_key(cases, TypeInfo).
+
+%% FSharpType.GetUnionCases — returns list of {Name, Fields} tuples.
+get_union_cases(#{cases := Cases}) -> Cases;
+get_union_cases(TypeInfo) ->
+    erlang:error({not_union_type, maps:get(fullname, TypeInfo, <<"unknown">>)}).

@@ -4862,13 +4862,22 @@ let tryCall
 
                 emitExpr r t (callee :: args) $"($0)(%s{placeholders})" |> Some
         | _ -> None
-    // F# Reflection — minimal support
+    // F# Reflection
     | "Microsoft.FSharp.Reflection.FSharpType" ->
         match info.CompiledName, args with
         | "MakeTupleType", [ typesArr ] ->
-            // Return a type info map for a tuple
             Helper.LibCall(com, "fable_reflection", "make_tuple_type", t, [ typesArr ], ?loc = r)
             |> Some
+        | "GetRecordFields", _ ->
+            Helper.LibCall(com, "fable_reflection", "get_record_elements", t, args, ?loc = r)
+            |> wrapArr com r t
+            |> Some
+        | "GetUnionCases", _ ->
+            Helper.LibCall(com, "fable_reflection", "get_union_cases", t, args, ?loc = r)
+            |> wrapArr com r t
+            |> Some
+        | "IsRecord", _ -> Helper.LibCall(com, "fable_reflection", "is_record", t, args, ?loc = r) |> Some
+        | "IsUnion", _ -> Helper.LibCall(com, "fable_reflection", "is_union", t, args, ?loc = r) |> Some
         | _ -> None
     | "Microsoft.FSharp.Reflection.FSharpValue" ->
         match info.CompiledName, args with

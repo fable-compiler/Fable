@@ -1073,3 +1073,8 @@ let ``test FSharp.UMX works`` () =
     lookupById orders order.id
     |> Option.map (fun o -> UMX.untag o.quantity)
     |> equal (Some 50)
+
+[<Fact>]
+let ``test FSharp.UMX: reflection info`` () =
+    let fields = Reflection.FSharpType.GetRecordFields typeof<Order>
+    fields.Length |> equal 3
