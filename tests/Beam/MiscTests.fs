@@ -3,6 +3,7 @@ module Fable.Tests.Misc
 #nowarn "40"
 
 open System
+open FSharp.UMX
 open Util.Testing
 
 // ============= Helper Types =============
@@ -73,6 +74,18 @@ let f2 x = x + x
 let f3 () = 5
 
 type MyDelegate = Func<int>
+
+// UMX types
+[<Measure>] type customerId
+[<Measure>] type orderId
+[<Measure>] type kg
+
+type Order =
+    {
+        id : string<orderId>
+        customer : string<customerId>
+        quantity : int<kg>
+    }
 
 // Disposable types
 type DisposableFoo() =
@@ -1040,3 +1053,23 @@ let ``test Constructor param and interface method with same name don't collide``
     v.Normal |> equal 3.0
     let i = v :> IHasNormal
     i.Normal() |> equal 3.0
+
+// --- FSharp.UMX ---
+
+[<Fact>]
+let ``test FSharp.UMX works`` () =
+    let lookupById (orders : Order list) (id : string<orderId>) =
+        orders |> List.tryFind (fun o -> o.id = id)
+
+    let order =
+        {
+            id = % "orderId"
+            customer = % "customerId"
+            quantity = % 42
+        }
+
+    // lookupById [] order.customer // compiler error
+    let orders = [{ order with quantity = %50 }]
+    lookupById orders order.id
+    |> Option.map (fun o -> UMX.untag o.quantity)
+    |> equal (Some 50)
