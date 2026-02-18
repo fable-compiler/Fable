@@ -26,7 +26,7 @@ RUN apt-get update && apt-get install -y xz-utils
 # Let it here to avoid conflicts with Microsoft options !!!
 ARG DOTNET_VERSION=10.0.100
 ARG NODE_VERSION=18.8.0
-ARG PYTHON_VERSION=3.10.0
+ARG PYTHON_VERSION=3.12
 ARG DART_VERSION=3.1.2
 
 USER vscode
@@ -71,19 +71,11 @@ RUN echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # 
 # Otherwise, the nvm command will not be available
 RUN source .zshrc && nvm install $NODE_VERSION
 
-# Install python
-# Install pyenv
-RUN curl https://pyenv.run | bash
-RUN echo "# Load pyenv path" >> .zshrc
-RUN echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.zshrc
-RUN echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.zshrc
-RUN echo 'eval "$(pyenv init -)"' >> ~/.zshrc
-RUN source .zshrc && pyenv install $PYTHON_VERSION
-# Make python point to the installed version
-RUN source .zshrc && pyenv global $PYTHON_VERSION
-RUN source .zshrc && curl -LsSf https://astral.sh/uv/install.sh | sh
+# Install python via uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 RUN echo "# Load uv path" >> .zshrc
 RUN echo 'export PATH="$HOME/.local/bin:$PATH"' >> .zshrc
+RUN source .zshrc && uv python install $PYTHON_VERSION
 
 # Install rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s - -y
