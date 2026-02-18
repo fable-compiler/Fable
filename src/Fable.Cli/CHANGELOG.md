@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-* [Beam] Add Erlang/BEAM target (`--lang beam`). Compiles F# to `.erl` source files. 2010 tests passing. (by @dbrattli)
+* [Beam] Add Erlang/BEAM target (`--lang beam`). Compiles F# to `.erl` source files. 2086 tests passing. (by @dbrattli)
 
 ## 5.0.0-alpha.24 - 2026-02-13
 
