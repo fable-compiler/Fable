@@ -20,7 +20,8 @@
          transpose/1, compare_with/3,
          update_at/3, insert_at/3, insert_many_at/3,
          remove_at/2, remove_many_at/3,
-         index_of_value/2, get_slice/3]).
+         index_of_value/2, get_slice/3,
+         take/2]).
 
 -spec fold(fun(), term(), list() | reference() | map()) -> term().
 -spec fold_back(fun(), list(), term()) -> term().
@@ -455,3 +456,10 @@ get_slice(Lower, Upper, List) ->
     Start = case Lower of undefined -> 0; _ -> Lower end,
     End = case Upper of undefined -> erlang:length(List) - 1; _ -> Upper end,
     lists:sublist(List, Start + 1, End - Start + 1).
+
+-spec take(non_neg_integer(), list()) -> list().
+take(Count, List) ->
+    case erlang:length(List) >= Count of
+        true -> lists:sublist(List, Count);
+        false -> erlang:error(<<"The input sequence has an insufficient number of elements.">>)
+    end.

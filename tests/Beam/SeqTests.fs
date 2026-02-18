@@ -971,16 +971,15 @@ let ``test Seq iterators from range do rewind`` () =
     xs2 |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
     xs2 |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
 
-// TODO: Beam's Seq.take uses lists:sublist which doesn't throw when there are not enough elements
-// [<Fact>]
-// let ``test Seq.take throws when not enough elements`` () =
-//     let xs = [1.; 2.; 3.; 4.; 5.]
-//     xs |> Seq.take 2
-//     |> Seq.last
-//     |> equal 2.
-//     // Seq.take should throw an exception if there're not enough elements
-//     try xs |> Seq.take 20 |> Seq.length with _ -> -1
-//     |> equal -1
+[<Fact>]
+let ``test Seq.take throws when not enough elements`` () =
+    let xs = [1.; 2.; 3.; 4.; 5.]
+    xs |> Seq.take 2
+    |> Seq.last
+    |> equal 2.
+    // Seq.take should throw an exception if there're not enough elements
+    try xs |> Seq.take 20 |> Seq.length with _ -> -1
+    |> equal -1
 
 [<Fact>]
 let ``test Seq.truncate works without throwing`` () =
@@ -1016,12 +1015,11 @@ let ``test Seq.range step works with decimal`` () =
     |> Seq.reduce (+)
     |> equal -2843.0340746886M
 
-// TODO: Bigint range without explicit step causes badarith (default step computation issue)
-// [<Fact>]
-// let ``test Seq.range works with bigint`` () =
-//     seq{1I..2000I}
-//     |> Seq.reduce (+)
-//     |> equal 2001000I
+[<Fact>]
+let ``test Seq.range works with bigint`` () =
+    seq{1I..2000I}
+    |> Seq.reduce (+)
+    |> equal 2001000I
 
 [<Fact>]
 let ``test Seq.range step works with bigint`` () =

@@ -57,6 +57,17 @@ let rec containsIdentRef (name: string) (expr: Expr) : bool =
     | Test(e, _, _) -> containsIdentRef name e
     | Get(e, _, _, _) -> containsIdentRef name e
     | Set(e, _, _, v, _) -> containsIdentRef name e || containsIdentRef name v
+    | WhileLoop(guard, body, _) -> containsIdentRef name guard || containsIdentRef name body
+    | ForLoop(_, start, limit, body, _, _) ->
+        containsIdentRef name start
+        || containsIdentRef name limit
+        || containsIdentRef name body
+    | TryCatch(body, catch, finalizer, _) ->
+        containsIdentRef name body
+        || (catch
+            |> Option.map (fun (_, e) -> containsIdentRef name e)
+            |> Option.defaultValue false)
+        || (finalizer |> Option.map (containsIdentRef name) |> Option.defaultValue false)
     | Emit(emitInfo, _, _) -> emitInfo.CallInfo.Args |> List.exists (containsIdentRef name)
     | ObjectExpr(members, _, baseCall) ->
         members |> List.exists (fun m -> containsIdentRef name m.Body)
@@ -103,6 +114,14 @@ let isCapturedInClosure (name: string) (expr: Expr) : bool =
         | Test(e, _, _) -> check inClosure e
         | Get(e, _, _, _) -> check inClosure e
         | Set(e, _, _, v, _) -> check inClosure e || check inClosure v
+        | WhileLoop(guard, body, _) -> check inClosure guard || check inClosure body
+        | ForLoop(_, start, limit, body, _, _) -> check inClosure start || check inClosure limit || check inClosure body
+        | TryCatch(body, catch, finalizer, _) ->
+            check inClosure body
+            || (catch
+                |> Option.map (fun (_, e) -> check inClosure e)
+                |> Option.defaultValue false)
+            || (finalizer |> Option.map (check inClosure) |> Option.defaultValue false)
         | Emit(emitInfo, _, _) -> emitInfo.CallInfo.Args |> List.exists (check inClosure)
         | ObjectExpr(members, _, baseCall) ->
             members |> List.exists (fun m -> check true m.Body)

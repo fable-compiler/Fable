@@ -1006,16 +1006,14 @@ let ``test Array mutation in lambda parameter works`` () =
     let data = [| 0; 0 |]
     fill data |> equal 300
 
-// TODO: ForLoop AST node not handled in containsArrayMutation, so for-loop array mutation
-// inside inlined functions doesn't get ref-wrapped
-// [<Fact>]
-// let ``test Array parameter mutation with loop works`` () =
-//     let fillAndSum (arr: int[]) =
-//         for i in 0 .. arr.Length - 1 do
-//             arr.[i] <- i * 10
-//         arr.[0] + arr.[1] + arr.[2] + arr.[3]
-//     let data = Array.zeroCreate<int> 4
-//     fillAndSum data |> equal 60
+[<Fact>]
+let ``test Array parameter mutation with loop works`` () =
+    let fillAndSum (arr: int[]) =
+        for i in 0 .. arr.Length - 1 do
+            arr.[i] <- i * 10
+        arr.[0] + arr.[1] + arr.[2] + arr.[3]
+    let data = Array.zeroCreate<int> 4
+    fillAndSum data |> equal 60
 
 [<Fact>]
 let ``test Multiple params only mutated one gets ref-wrapped`` () =

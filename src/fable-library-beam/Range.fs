@@ -40,6 +40,9 @@ let rangeInt64 start step stop =
 let rangeUInt64 start step stop =
     integralRangeStep start step stop 0UL (+)
 
+let rangeBigInt start step stop =
+    integralRangeStep start step stop 0I (+)
+
 let rangeChar (start: char) (stop: char) =
     let intStop = int stop
 

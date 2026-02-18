@@ -281,6 +281,7 @@ let private operators
             | Number(UInt32, _) -> "range", "range_u_int32", addStep args
             | Number(Int64, _) -> "range", "range_int64", addStep args
             | Number(UInt64, _) -> "range", "range_u_int64", addStep args
+            | Number(BigInt, _) -> "range", "range_big_int", addStep args
             | _ -> "range", "range_double", addStep args
 
         Helper.LibCall(com, modul, meth, _t, args, info.SignatureArgTypes, ?loc = r)
@@ -1440,7 +1441,7 @@ let private listModule
     | "Replicate", [ count; value ] -> Helper.LibCall(com, "fable_list", "replicate", t, [ count; value ]) |> Some
     | "Item", [ idx; list ] -> emitExpr r t [ idx; list ] "lists:nth($0 + 1, $1)" |> Some
     | "Skip", [ count; list ] -> emitExpr r t [ count; list ] "lists:nthtail($0, $1)" |> Some
-    | "Take", [ count; list ] -> emitExpr r t [ count; list ] "lists:sublist($1, $0)" |> Some
+    | "Take", [ count; list ] -> Helper.LibCall(com, "fable_list", "take", t, [ count; list ], ?loc = r) |> Some
     | "SkipWhile", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:dropwhile($0, $1)" |> Some
     | "TakeWhile", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:takewhile($0, $1)" |> Some
     | "Truncate", [ count; list ] -> emitExpr r t [ count; list ] "lists:sublist($1, $0)" |> Some
@@ -2241,7 +2242,10 @@ let private arrayModule
         emitExpr r t [ fn; arr ] "lists:dropwhile($0, $1)" |> wrapArr com r t |> Some
     | "Take", [ count; arr ] ->
         let arr = derefArr r arr
-        emitExpr r t [ arr; count ] "lists:sublist($0, $1)" |> wrapArr com r t |> Some
+
+        Helper.LibCall(com, "fable_list", "take", t, [ count; arr ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
     | "TakeWhile", [ fn; arr ] ->
         let arr = derefArr r arr
         emitExpr r t [ fn; arr ] "lists:takewhile($0, $1)" |> wrapArr com r t |> Some
