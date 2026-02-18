@@ -572,8 +572,9 @@ let ``test Convert.ToBase64String works`` () =
 
 // --- TryParse methods ---
 
-// TODO: TryParse via higher-order function with ref cells doesn't work in Beam
-// (ref cells use process dictionary, but lambda wrapping treats them as maps)
+// TODO: TryParse via higher-order function — auto-generated lambda unwraps ref.contents
+// instead of passing the ref directly to try_parse_float (which needs it for put/2).
+// Fixing requires changes to how byref method references are compiled.
 // [<Fact>]
 // let ``test System.Double.TryParse works`` () =
 //     tryParse Double.TryParse 0.0 "1" |> equal (true, 1.0)
@@ -598,7 +599,7 @@ let ``test System.Boolean.TryParse works`` () =
     Boolean.TryParse "tru" |> equal (false, false)
     Boolean.TryParse "falsee" |> equal (false, false)
 
-// TODO: TryParse via higher-order function with ref cells doesn't work in Beam
+// TODO: TryParse via higher-order function — same byref method reference issue as above
 // [<Fact>]
 // let ``test System.Int64.TryParse works`` () =
 //     tryParse Int64.TryParse 0L "99" |> equal (true, 99L)

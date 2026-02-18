@@ -92,18 +92,6 @@ let ``test Array.tryItem works`` () =
     Array.tryItem 4 xs |> equal None
     Array.tryItem -1 xs |> equal None
 
-// --- Pattern matching ---
-
-// TODO: Array pattern matching generates util:default_of() null checks
-// [<Fact>]
-// let ``test Pattern matching with arrays works`` () =
-//     match [||] with [||] -> true | _ -> false
-//     |> equal true
-//     match [|1|] with [||] -> 0 | [|x|] -> 1 | _ -> 2
-//     |> equal 1
-//     match [|"a";"b"|] with [|"a";"b"|] -> 1 | _ -> 2
-//     |> equal 1
-
 // --- Creation ---
 
 [<Fact>]

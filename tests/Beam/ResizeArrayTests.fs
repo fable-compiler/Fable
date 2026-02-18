@@ -193,11 +193,10 @@ let ``test ResizeArray creation with literal list works`` () =
     let li = ResizeArray<_> [1;2;3;4;5]
     Seq.sum li |> equal 15
 
-// TODO: Casting ResizeArray to seq<_> and assigning to variable loses type info for ref unwrapping
-// [<Fact>]
-// let ``test ResizeArray casting to seq works`` () =
-//     let xs = ResizeArray<_>(seq{1..5}) :> seq<_>
-//     Seq.sum xs |> equal 15
+[<Fact>]
+let ``test ResizeArray casting to seq works`` () =
+    let xs = ResizeArray<_>(seq{1..5}) :> seq<_>
+    Seq.sum xs |> equal 15
 
 [<Fact>]
 let ``test ResizeArray iteration with index works`` () =

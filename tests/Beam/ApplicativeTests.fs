@@ -1351,7 +1351,8 @@ let ``test Partial active patterns can return bool`` () =
 
 // --- Arity record tests ---
 
-// TODO: function_clause error in Beam — arity record with composed functions
+// TODO: Uncurrying naming collision — generates fun(X, X) -> which in Erlang
+// means both args must be equal (pattern matching), not two separate parameters.
 // [<Fact>]
 // let ``test Arity is checked also when constructing records`` () =
 //     let f i j = (i * 2) + (j * 3)
