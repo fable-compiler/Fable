@@ -1103,7 +1103,7 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
             Beam.ErlExpr.Literal(Beam.ErlLiteral.Float d)
     | NumberConstant(NumberValue.NativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
     | NumberConstant(NumberValue.UNativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
-    | NumberConstant(NumberValue.BigInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string i))
+    | NumberConstant(NumberValue.BigInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<bigint> i))
     | NumberConstant(NumberValue.Decimal d, _) ->
         // Decimal as fixed-scale integer: value × 10^28
         let bits = System.Decimal.GetBits(d)
