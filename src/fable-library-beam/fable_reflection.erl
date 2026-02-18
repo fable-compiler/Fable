@@ -13,6 +13,33 @@
          get_union_fields_value/2, make_union_value/2,
          get_value/2]).
 
+-spec full_name(map()) -> binary().
+-spec namespace(map()) -> binary().
+-spec name(map()) -> binary().
+-spec is_generic_type(map()) -> boolean().
+-spec is_array(map()) -> boolean().
+-spec get_element_type(map()) -> map() | undefined.
+-spec get_generics(map()) -> list().
+-spec get_generic_type_definition(map()) -> map().
+-spec make_tuple_type(list()) -> map().
+-spec get_record_elements(map()) -> list().
+-spec is_record(term()) -> boolean().
+-spec is_union(term()) -> boolean().
+-spec get_union_cases(map()) -> list().
+-spec is_tuple_type(map()) -> boolean().
+-spec get_tuple_elements(map()) -> list().
+-spec is_function_type(map()) -> boolean().
+-spec get_function_elements(map()) -> {map(), map()}.
+-spec get_record_fields_value(map(), map()) -> list().
+-spec get_record_field_value(map(), map()) -> term().
+-spec make_record_from_values(map(), list() | reference()) -> map().
+-spec get_tuple_fields_value(tuple()) -> list().
+-spec get_tuple_field_value(tuple(), non_neg_integer()) -> term().
+-spec get_union_case_fields(map()) -> list().
+-spec get_union_fields_value(term(), map()) -> {map(), list()}.
+-spec make_union_value(map(), list() | reference()) -> term().
+-spec get_value(map(), map()) -> term().
+
 full_name(TypeInfo) ->
     maps:get(fullname, TypeInfo).
 
