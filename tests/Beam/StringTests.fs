@@ -891,11 +891,13 @@ let ``test Enumerating string works`` () =
         res <- res + (string c)
     equal "HELLO" res
 
-// TODO: Typed format specifiers in string interpolation (%.8f{expr}) not yet supported by Beam target
-// [<Fact>]
-// let ``test string interpolation works with inline expressions`` () =
-//     $"I think {3.0 + 0.14} is close to %.8f{3.14159265}!"
-//     |> equal "I think 3.14 is close to 3.14159265!"
+[<Fact>]
+let ``test string interpolation works with inline expressions`` () =
+#if !FABLE_COMPILER
+    System.Threading.Thread.CurrentThread.CurrentCulture <- System.Globalization.CultureInfo.InvariantCulture
+#endif
+    $"I think {3.0 + 0.14} is close to %.8f{3.14159265}!"
+    |> equal "I think 3.14 is close to 3.14159265!"
 
 [<Fact>]
 let ``test printing strings with unicode characters`` () =

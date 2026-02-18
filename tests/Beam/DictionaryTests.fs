@@ -242,16 +242,14 @@ let ``test Dictionary iteration works`` () =
         total <- kv.Value + total
     total + dic.[1.] |> equal 386.
 
-// TODO: Seq.fold on Dictionary — Dictionary ref passed to seq:fold is treated as HashSet
-// by fable_utils:get_enumerator (enumerates keys only, not {K,V} tuples)
-// [<Fact>]
-// let ``test Dictionary folding works`` () =
-//     let dic = Dictionary<_, _>()
-//     for i in 1. .. 10. do
-//         dic.Add(i, i * i)
-//     dic
-//     |> Seq.fold (fun acc item -> acc + item.Value) 0.
-//     |> equal 385.
+[<Fact>]
+let ``test Dictionary folding works`` () =
+    let dic = Dictionary<_, _>()
+    for i in 1. .. 10. do
+        dic.Add(i, i * i)
+    dic
+    |> Seq.fold (fun acc item -> acc + item.Value) 0.
+    |> equal 385.
 
 [<Fact>]
 let ``test Dictionary.Delete works`` () =

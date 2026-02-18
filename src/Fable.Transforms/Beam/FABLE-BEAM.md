@@ -342,7 +342,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 2. Compiles tests to `.erl` via Fable (library files auto-copied to `fable_modules/fable-library-beam/`)
 3. Compiles library `.erl` files in `fable_modules/fable-library-beam/` with `erlc`
 4. Compiles test `.erl` files with `erlc -pa fable_modules/fable-library-beam`
-5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions (2031 Erlang tests pass)
+5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions (2038 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -395,7 +395,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | MailboxProcessorTests.fs | 3 | MailboxProcessor post, postAndAsyncReply, postAndAsyncReply with falsy values |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
 | ObservableTests.fs | 12 | Observable.subscribe/add/choose/filter/map/merge/pairwise/partition/scan/split, IObservable.Subscribe, Disposing |
-| **Total** | **2031** | |
+| **Total** | **2038** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -582,7 +582,7 @@ for mutable state, `fable_async:from_continuations` for the receive/reply coordi
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 2031 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 2038 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)

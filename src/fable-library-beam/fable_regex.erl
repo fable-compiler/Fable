@@ -406,11 +406,23 @@ get_index(#{index := I}) -> I.
 get_length(#{length := L}) -> L.
 get_success(#{success := S}) -> S.
 
+get_groups(#{groups := G, group_names := Names}) when map_size(Names) > 0 ->
+    {group_collection, G, Names};
 get_groups(#{groups := G}) -> G.
 
+get_item({group_collection, Items, Names}, Index) when is_binary(Index) ->
+    %% String-based group access: m.Groups.["name"]
+    case maps:find(Index, Names) of
+        {ok, Idx} -> lists:nth(Idx + 1, Items);
+        error -> #{success => false, value => <<>>, index => -1, length => 0}
+    end;
+get_item({group_collection, Items, _Names}, Index) when is_integer(Index) ->
+    lists:nth(Index + 1, Items);
 get_item(Collection, Index) when is_list(Collection) ->
     lists:nth(Index + 1, Collection).
 
+get_count({group_collection, Items, _Names}) ->
+    length(Items);
 get_count(Collection) when is_list(Collection) ->
     length(Collection).
 
@@ -461,8 +473,10 @@ build_match(Input, Captured, Regex) ->
     %% Pad with failed groups if re:run returned fewer captures than pattern groups
     PaddedGroups = pad_groups(BuiltGroups, NumExpectedGroups),
     Groups = [Group0 | PaddedGroups],
+    %% Extract named group name-to-index mapping from compiled pattern
+    GroupNames = extract_group_names(Regex),
     #{success => true, value => MatchValue, index => CharIndex, length => CharLength,
-      groups => Groups, input => Input}.
+      groups => Groups, group_names => GroupNames, input => Input}.
 
 build_groups(_Input, []) -> [];
 build_groups(Input, [{-1, 0} | Rest]) ->
@@ -527,7 +541,51 @@ char_index(Input, BytePos) ->
 failed_match(NumGroups) ->
     FailedGroup = #{success => false, value => <<>>, index => -1, length => 0},
     Groups = lists:duplicate(NumGroups + 1, FailedGroup),
-    #{success => false, value => <<>>, index => -1, length => 0, groups => Groups, input => <<>>}.
+    #{success => false, value => <<>>, index => -1, length => 0, groups => Groups, group_names => #{}, input => <<>>}.
+
+%% Extract named group name-to-index mapping from the regex pattern string.
+%% Returns #{<<"name">> => Index} where Index is the 1-based capturing group number.
+extract_group_names(#{pattern := Pattern}) ->
+    extract_names_from_pattern(Pattern, 0, #{});
+extract_group_names(_) -> #{}.
+
+extract_names_from_pattern(<<>>, _GroupIdx, Acc) -> Acc;
+extract_names_from_pattern(<<$\\, _, Rest/binary>>, GroupIdx, Acc) ->
+    %% Skip escaped character
+    extract_names_from_pattern(Rest, GroupIdx, Acc);
+extract_names_from_pattern(<<$[, Rest/binary>>, GroupIdx, Acc) ->
+    %% Skip character class contents
+    skip_char_class_names(Rest, GroupIdx, Acc);
+extract_names_from_pattern(<<$(, $?, $<, Rest/binary>>, GroupIdx, Acc) ->
+    %% (?<name>...) - named capturing group
+    NewIdx = GroupIdx + 1,
+    {Name, Rest2} = extract_group_name(Rest, <<>>),
+    extract_names_from_pattern(Rest2, NewIdx, maps:put(Name, NewIdx, Acc));
+extract_names_from_pattern(<<$(, $?, $P, $<, Rest/binary>>, GroupIdx, Acc) ->
+    %% (?P<name>...) - Python-style named group
+    NewIdx = GroupIdx + 1,
+    {Name, Rest2} = extract_group_name(Rest, <<>>),
+    extract_names_from_pattern(Rest2, NewIdx, maps:put(Name, NewIdx, Acc));
+extract_names_from_pattern(<<$(, $?, _/binary>> = Bin, GroupIdx, Acc) ->
+    %% (?:...) or (?=...) etc. - non-capturing, skip the (?
+    <<_, _, Rest/binary>> = Bin,
+    extract_names_from_pattern(Rest, GroupIdx, Acc);
+extract_names_from_pattern(<<$(, Rest/binary>>, GroupIdx, Acc) ->
+    %% Unnamed capturing group
+    extract_names_from_pattern(Rest, GroupIdx + 1, Acc);
+extract_names_from_pattern(<<_, Rest/binary>>, GroupIdx, Acc) ->
+    extract_names_from_pattern(Rest, GroupIdx, Acc).
+
+extract_group_name(<<$>, Rest/binary>>, NameAcc) -> {NameAcc, Rest};
+extract_group_name(<<C/utf8, Rest/binary>>, NameAcc) ->
+    extract_group_name(Rest, <<NameAcc/binary, C/utf8>>).
+
+skip_char_class_names(<<$\\, _, Rest/binary>>, GroupIdx, Acc) ->
+    skip_char_class_names(Rest, GroupIdx, Acc);
+skip_char_class_names(<<$], Rest/binary>>, GroupIdx, Acc) ->
+    extract_names_from_pattern(Rest, GroupIdx, Acc);
+skip_char_class_names(<<_, Rest/binary>>, GroupIdx, Acc) ->
+    skip_char_class_names(Rest, GroupIdx, Acc).
 
 %% Convert .NET replacement syntax ($1, $2, $0, $$) to Erlang re:replace syntax (\1, \2, \0, $)
 convert_replacement(Bin) ->

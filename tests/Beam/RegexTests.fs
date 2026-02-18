@@ -250,38 +250,37 @@ let ``test doesn't succeed when unmatched`` () =
     let m = r.Match "Hello World"
     m.Success |> equal false
 
-// TODO: Accessing groups by string name (m.Groups.["name"]) not yet supported
-// [<Fact>]
-// let ``test can get value of existing group`` () =
-//     let r = Regex "(?<number>\\d+)"
-//     let m = r.Match "Number 12345 is positive"
-//     m.Groups.["number"].Value |> equal "12345"
-//
-// [<Fact>]
-// let ``test can get values of multiple existing groups`` () =
-//     let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
-//     let m = r.Match "Number: +49 1234!"
-//     m.Groups.["country"].Value |> equal "49"
-//     m.Groups.["num"].Value |> equal "1234"
-//
-// [<Fact>]
-// let ``test doesn't succeed for not existing named group`` () =
-//     let r = Regex "(?<number>\\d+)"
-//     let m = r.Match "Number 12345 is positive"
-//     m.Groups.["nothing"].Success |> equal false
-//
-// [<Fact>]
-// let ``test doesn't succeed for existing unmatched group`` () =
-//     let r = Regex "(?<exact>42)|(?<number>\\d+)"
-//     let m = r.Match "Number 12345 is positive"
-//     m.Groups.["exact"].Success |> equal false
-//
-// [<Fact>]
-// let ``test named capture group group name from variable`` () =
-//     let r = Regex "(?<number>\\d+)"
-//     let m = r.Match "Number 12345 is positive"
-//     let g = "number"
-//     m.Groups.[g].Value |> equal "12345"
+[<Fact>]
+let ``test can get value of existing group`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+    m.Groups.["number"].Value |> equal "12345"
+
+[<Fact>]
+let ``test can get values of multiple existing groups`` () =
+    let r = Regex "\\+(?<country>\\d{1,3}) (?<num>\\d+)"
+    let m = r.Match "Number: +49 1234!"
+    m.Groups.["country"].Value |> equal "49"
+    m.Groups.["num"].Value |> equal "1234"
+
+[<Fact>]
+let ``test doesn't succeed for not existing named group`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+    m.Groups.["nothing"].Success |> equal false
+
+[<Fact>]
+let ``test doesn't succeed for existing unmatched group`` () =
+    let r = Regex "(?<exact>42)|(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+    m.Groups.["exact"].Success |> equal false
+
+[<Fact>]
+let ``test named capture group group name from variable`` () =
+    let r = Regex "(?<number>\\d+)"
+    let m = r.Match "Number 12345 is positive"
+    let g = "number"
+    m.Groups.[g].Value |> equal "12345"
 
 [<Fact>]
 let ``test Regex.Replace with evaluator works when regex has named capture group`` () =

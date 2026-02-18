@@ -1873,6 +1873,17 @@ let private seqModule
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq" meth info.GenericArgs args
+        // Unwrap Dictionary args so seq operations get {K,V} tuple lists
+        let rec unwrapDictArg (expr: Expr) =
+            match expr with
+            | TypeCast(innerExpr, _) -> unwrapDictArg innerExpr
+            | _ ->
+                match expr.Type with
+                | DeclaredType(entRef, _) when entRef.FullName = Types.dictionary ->
+                    emitExpr r (List Any) [ expr ] "maps:to_list(erlang:get($0))"
+                | _ -> expr
+
+        let args = args |> List.map unwrapDictArg
 
         Helper.LibCall(com, "seq", meth, t, args, info.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some

@@ -110,6 +110,9 @@ get_enumerator(Map) when is_map(Map) ->
             %% HashSet internal map: iterate over keys
             get_enumerator(maps:keys(Map))
     end;
+get_enumerator({group_collection, Items, _Names}) ->
+    %% Regex GroupCollection: iterate over the group items list
+    get_enumerator(Items);
 get_enumerator(Other) ->
     %% Fallback: treat as list
     get_enumerator(lists:flatten([Other])).

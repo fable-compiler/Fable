@@ -430,6 +430,8 @@ to_fail(FmtObj, A1) -> apply_curried(to_fail(FmtObj), [A1]).
 to_fail(FmtObj, A1, A2) -> apply_curried(to_fail(FmtObj), [A1, A2]).
 
 %% interpolate/2 — String interpolation: format string with %P() placeholders replaced by values.
+interpolate(Str, Values) when is_reference(Values) ->
+    interpolate(Str, get(Values));
 interpolate(Str, Values) ->
     ValList = case is_list(Values) of true -> Values; false -> [Values] end,
     interpolate_loop(Str, ValList, []).
@@ -438,12 +440,30 @@ interpolate_loop(<<>>, _Values, Acc) ->
     iolist_to_binary(lists:reverse(Acc));
 interpolate_loop(<<"%P()", Rest/binary>>, [V | Vs], Acc) ->
     interpolate_loop(Rest, Vs, [to_string(V) | Acc]);
-interpolate_loop(<<"%", Spec:1/binary, "%P()", Rest/binary>>, [V | Vs], Acc) ->
-    %% Handle format specifier before %P() like %s%P() or %i%P()
-    Formatted = format_value(binary_to_list(Spec), V),
-    interpolate_loop(Rest, Vs, [Formatted | Acc]);
+interpolate_loop(<<$%, Rest/binary>>, Values, Acc) ->
+    %% Try to match format specifier followed by %P()
+    case extract_spec_before_placeholder(Rest) of
+        {Spec, AfterPlaceholder, true} ->
+            [V | Vs] = Values,
+            Formatted = format_value(Spec, V),
+            interpolate_loop(AfterPlaceholder, Vs, [Formatted | Acc]);
+        _ ->
+            interpolate_loop(Rest, Values, [<<$%>> | Acc])
+    end;
 interpolate_loop(<<C/utf8, Rest/binary>>, Values, Acc) ->
     interpolate_loop(Rest, Values, [<<C/utf8>> | Acc]).
+
+%% Extract a printf format specifier that ends with %P().
+%% Returns {SpecString, RestAfterPlaceholder, true} or false.
+extract_spec_before_placeholder(Bin) ->
+    extract_spec_before_placeholder(Bin, []).
+
+extract_spec_before_placeholder(<<"%P()", Rest/binary>>, SpecAcc) ->
+    {lists:reverse(SpecAcc), Rest, true};
+extract_spec_before_placeholder(<<>>, _SpecAcc) ->
+    false;
+extract_spec_before_placeholder(<<C, Rest/binary>>, SpecAcc) ->
+    extract_spec_before_placeholder(Rest, [C | SpecAcc]).
 
 %% format/2 — .NET String.Format("{0} {1}", [Arg0, Arg1]).
 format(FmtStr, Args) when is_reference(Args) ->
