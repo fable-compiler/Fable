@@ -5,6 +5,7 @@ module Fable.Tests.Misc
 open System
 open FSharp.UMX
 open Util.Testing
+open Util2.Extensions
 
 // ============= Helper Types =============
 
@@ -1078,3 +1079,43 @@ let ``test FSharp.UMX works`` () =
 let ``test FSharp.UMX: reflection info`` () =
     let fields = Reflection.FSharpType.GetRecordFields typeof<Order>
     fields.Length |> equal 3
+
+// --- Util2 / Util3 tests ---
+
+[<Fact>]
+let ``test Type abbreviation in namespace compiles`` () = // See #140
+    let h = Util2.H(5)
+    equal "5" h.Value
+
+[<Fact>]
+let ``test Multiple namespaces in same file work`` () = // See #1218
+    A.C.Helper.Add5(9) |> equal 14
+
+[<Fact>]
+let ``test Inline extension methods in other files can be found`` () = // See #1667
+    "HOLA CARACOLA".StartsWith("hola") |> equal false
+    "HOLA CARACOLA".StartsWithIgnoreCase("hola") |> equal true
+
+[<Fact>]
+let ``test Calls to core lib from a subfolder work`` () =
+    Util2.Helper.Format("{0} + {0} = {1}", 2, 4)
+    |> equal "2 + 2 = 4"
+
+[<Fact>]
+let ``test Assignment block as expression is optimized`` () =
+    let foo x y = x - y
+    let mutable x = 15
+    let res = A.C.Helper.Add5(let mutable x = 2 in let mutable y = 3 in x + y)
+    let test () =
+        A.C.Helper.Add5(let mutable x = 4 in let mutable y = 3 in x + y)
+        |> equal 12
+    test()
+    equal 10 res
+    foo x 5 |> equal 10
+
+[<Fact>]
+let ``test Optimized assignment blocks inside try ... with work`` () =
+    let res =
+        try A.C.Helper.Add5(let mutable x = 2 in let mutable y = 3 in x + y)
+        with _ -> 1
+    equal 10 res

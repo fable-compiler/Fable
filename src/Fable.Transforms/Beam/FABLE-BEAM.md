@@ -118,7 +118,7 @@ Erlang modules implementing F# core types:
 | fable_comparison.erl | Comparison | compare/2 returning -1/0/1 | Done |
 | fable_char.erl | Char utilities | is_letter/digit/upper/lower/whitespace | Done |
 | fable_convert.erl | Type conversions | Robust to_float handling edge cases | Done |
-| fable_reflection.erl | Reflection helpers | Type info as Erlang maps | Done |
+| fable_reflection.erl | Reflection | Full FSharpType/FSharpValue support: TypeInfo as maps, record/union/tuple/function type tests, GetRecordFields/MakeRecord, GetUnionFields/MakeUnion, GetTupleFields/MakeTuple, PropertyInfo.GetValue | Done |
 | fable_result.erl | Result | {ok, V} or {error, E} | Done |
 | fable_set.erl | FSharpSet | ordsets (sorted lists), fold/map/filter/partition/union_many/intersect_many | Done |
 | fable_async_builder.erl | AsyncBuilder | CPS builder operations (bind, return, delay, etc.) | Done |
@@ -342,7 +342,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 2. Compiles tests to `.erl` via Fable (library files auto-copied to `fable_modules/fable-library-beam/`)
 3. Compiles library `.erl` files in `fable_modules/fable-library-beam/` with `erlc`
 4. Compiles test `.erl` files with `erlc -pa fable_modules/fable-library-beam`
-5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions (2038 Erlang tests pass)
+5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions (2077 Erlang tests pass)
 
 | Test File | Tests | Coverage |
 | --- | --- | --- |
@@ -375,12 +375,12 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | UnionTypeTests.fs | 18 | Union construction, matching, structural equality, active patterns |
 | InteropTests.fs | 17 | Erlang interop, emitErl, Import attribute, module calls |
 | DictionaryTests.fs | 17 | Dictionary creation, Add, Count, indexer get/set, ContainsKey, ContainsValue, Remove, TryGetValue, Clear, dict function, integer keys, duplicate key throws, missing key throws, iteration, creation from existing dict |
-| AsyncTests.fs | 17 | Async return, let!/do!, return!, try-with, sleep, parallel, ignore, start immediate, cancellation |
+| AsyncTests.fs | 31 | Async return, let!/do!, return!, try-with, sleep, parallel, ignore, start immediate, while/for binding, exception handling, nested try/with, StartWithContinuations, Async.Catch, FromContinuations, deep recursion, nested failure propagation, try/finally, Async.Bind propagation, unit argument erasure, cancellation (CTS create/cancel, register, multiple registers, pre-cancelled token, auto-cancel, Dispose, custom exceptions) |
 | QueueTests.fs | 17 | Queue creation, Enqueue, Dequeue, Peek, TryDequeue, TryPeek, Contains, Clear, ToArray, throws |
 | TailCallTests.fs | 15 | Tail call optimization, recursive functions, mutual recursion (parseTokens/parseNum) |
 | TupleTests.fs | 15 | Tuple creation, destructuring, fst/snd, equality, nesting, struct tuples, map, comparison, Item1/Item2 |
 | LoopTests.fs | 12 | for loops, while loops, nested loops, mutable variables, for-in over list/array |
-| ReflectionTests.fs | 11 | Type info, FSharpType reflection |
+| ReflectionTests.fs | 35 | Type info, typedefof, GetGenericTypeDefinition, Type.Name/FullName/Namespace, FSharpType (IsTuple, IsRecord, IsUnion, IsFunction, GetTupleElements, GetFunctionElements, MakeTupleType, GetRecordFields, GetUnionCases), FSharpValue (GetRecordFields, MakeRecord, GetTupleFields, MakeTuple, GetTupleField, GetUnionFields, MakeUnion), PropertyInfo.GetValue, Result/Choice reflection, units of measure type info |
 | GuidTests.fs | 10 | Guid.NewGuid, Parse, ToString, Empty, equality, comparison |
 | ExceptionTests.fs | 10 | Custom exceptions, type discrimination, nested catch, field access, Message property |
 | StackTests.fs | 9 | Stack creation, Push, Pop, Peek, TryPop, TryPeek, Contains, ToArray, Clear |
@@ -395,7 +395,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | MailboxProcessorTests.fs | 3 | MailboxProcessor post, postAndAsyncReply, postAndAsyncReply with falsy values |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
 | ObservableTests.fs | 12 | Observable.subscribe/add/choose/filter/map/merge/pairwise/partition/scan/split, IObservable.Subscribe, Disposing |
-| **Total** | **2038** | |
+| **Total** | **2077** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -582,7 +582,7 @@ for mutable state, `fable_async:from_continuations` for the receive/reply coordi
 ### Phase 10: Ecosystem
 
 - [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 2038 Erlang tests passing, `./build.sh test beam`)
+- [x] Test suite (`tests/Beam/` — 2077 Erlang tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
@@ -992,6 +992,21 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
 - **Stopwatch**: Runtime `fable_stopwatch.erl` using `erlang:monotonic_time(microsecond)`.
   Supports `StartNew`, `Start`, `Stop`, `Reset`, `Restart`, `Elapsed`, `ElapsedMilliseconds`,
   `IsRunning`, `Frequency`, `GetTimestamp`.
+- **FSharp.Reflection**: Full runtime support via `fable_reflection.erl` + compile-time type
+  info generation in `Fable2Beam.Reflection.fs`. TypeInfo = Erlang map with `fullname`,
+  `generics`, and optional `fields` (records) or `cases` (unions). PropertyInfo/CaseInfo are
+  maps with `name`, `typ`, `tag`, `fields`. Reflection functions renamed to avoid Erlang BIF
+  clashes: `is_tuple` → `is_tuple_type`, `is_function` → `is_function_type`. Union tag matching
+  uses integer tags (matching Beam's `{0, Field1, Field2}` representation). `MakeRecord`/
+  `MakeUnion` handle both plain lists and process-dict ref arrays. `GetRecordFields` resolves
+  concrete types through `TypeCast` wrappers via `getConcreteType` helper.
+- **Async error wrapping**: `wrap_error/1` in `fable_async.erl` normalizes raw errors so
+  `.Message` accessor works: raw binaries (from `failwith`) → `#{message => Bin}`, maps
+  (from `raise (exn ...)`) pass through, refs pass through, everything else → formatted map.
+  Used in `catch_async`, `try_with`, and `try_finally`. `catch_async` uses integer tags
+  `{0, V}` / `{1, wrap_error(E)}` matching Beam's Choice union representation.
+- **OperationCanceledException**: Added to the exception type pattern in Beam Replacements
+  alongside `BuiltinSystemException` and `KeyNotFoundException`.
 
 ## Future Improvements
 

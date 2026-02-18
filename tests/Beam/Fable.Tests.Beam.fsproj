@@ -24,6 +24,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Misc/Aether.fs" />
+    <Compile Include="Misc/Util2.fs" />
+    <Compile Include="Misc/Util3.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="ListTests.fs" />

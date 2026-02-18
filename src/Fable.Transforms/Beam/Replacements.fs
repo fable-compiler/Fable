@@ -1026,11 +1026,21 @@ let private strings
     | "GetEnumerator", Some c, _ -> emitExpr r t [ c ] "fable_utils:get_enumerator(binary_to_list($0))" |> Some
     // String.Format("{0} {1}", arg0, arg1)
     | "Format", None, (fmtStr :: fmtArgs) ->
+        // When a single array argument is passed (e.g. from ParamArray),
+        // pass it directly — format/2 already handles refs and lists.
         let argsList =
-            List.foldBack
-                (fun arg acc -> Value(NewList(Some(arg, acc), Any), None))
-                fmtArgs
-                (Value(NewList(None, Any), None))
+            match fmtArgs with
+            | [ singleArg ] when
+                (match singleArg.Type with
+                 | Array _ -> true
+                 | _ -> false)
+                ->
+                singleArg
+            | _ ->
+                List.foldBack
+                    (fun arg acc -> Value(NewList(Some(arg, acc), Any), None))
+                    fmtArgs
+                    (Value(NewList(None, Any), None))
 
         Helper.LibCall(com, "fable_string", "format", t, [ fmtStr; argsList ], ?loc = r)
         |> Some
