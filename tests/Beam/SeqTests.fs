@@ -762,13 +762,12 @@ let ``test Seq.iteri with index works`` () =
     xs |> Seq.iteri (fun i x -> total <- total + (float i) * x)
     total |> equal 20.
 
-// TODO: Seq.initInfinite not supported in Beam
-// [<Fact>]
-// let ``test Seq.initInfinite works`` () =
-//     Seq.initInfinite (fun i -> 2. * float i)
-//     |> Seq.take 10
-//     |> Seq.sum
-//     |> equal 90.
+[<Fact>]
+let ``test Seq.initInfinite works`` () =
+    Seq.initInfinite (fun i -> 2. * float i)
+    |> Seq.take 10
+    |> Seq.sum
+    |> equal 90.
 
 [<Fact>]
 let ``test Seq.collect works II`` () =
