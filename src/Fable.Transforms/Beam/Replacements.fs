@@ -345,6 +345,8 @@ let private operators
     | "op_Append", [ left; right ] -> emitExpr r _t [ left; right ] "($0 ++ $1)" |> Some
     // TypeOf: typeof<T> → TypeInfo
     | "TypeOf", _ -> (genArg com ctx r 0 info.GenericArgs) |> makeTypeInfo r |> Some
+    // TypeDefOf: typedefof<T> → TypeInfo with generics replaced by obj
+    | "TypeDefOf", _ -> (genArg com ctx r 0 info.GenericArgs) |> makeTypeDefinitionInfo r |> Some
     // Reraise
     | "Reraise", _ ->
         match ctx.CaughtException with
@@ -4809,10 +4811,21 @@ let tryCall
         match info.CompiledName, thisArg with
         | "get_FullName", Some c -> Helper.LibCall(com, "fable_reflection", "full_name", t, [ c ], ?loc = r) |> Some
         | "get_Namespace", Some c -> Helper.LibCall(com, "fable_reflection", "namespace", t, [ c ], ?loc = r) |> Some
+        | "get_Name", Some c -> Helper.LibCall(com, "fable_reflection", "name", t, [ c ], ?loc = r) |> Some
         | "get_IsGenericType", Some c ->
             Helper.LibCall(com, "fable_reflection", "is_generic_type", t, [ c ], ?loc = r)
             |> Some
         | "get_IsArray", Some c -> Helper.LibCall(com, "fable_reflection", "is_array", t, [ c ], ?loc = r) |> Some
+        | "GetGenericTypeDefinition", Some c ->
+            Helper.LibCall(com, "fable_reflection", "get_generic_type_definition", t, [ c ], ?loc = r)
+            |> Some
+        | "GetElementType", Some c ->
+            Helper.LibCall(com, "fable_reflection", "get_element_type", t, [ c ], ?loc = r)
+            |> Some
+        | "get_GenericTypeArguments", Some c ->
+            Helper.LibCall(com, "fable_reflection", "get_generics", t, [ c ], ?loc = r)
+            |> wrapArr com r t
+            |> Some
         | _ -> None
     // System.Enum
     | "System.Enum" ->
@@ -4866,7 +4879,9 @@ let tryCall
     | "Microsoft.FSharp.Reflection.FSharpType" ->
         match info.CompiledName, args with
         | "MakeTupleType", [ typesArr ] ->
-            Helper.LibCall(com, "fable_reflection", "make_tuple_type", t, [ typesArr ], ?loc = r)
+            let derefed = derefArr r typesArr
+
+            Helper.LibCall(com, "fable_reflection", "make_tuple_type", t, [ derefed ], ?loc = r)
             |> Some
         | "GetRecordFields", _ ->
             Helper.LibCall(com, "fable_reflection", "get_record_elements", t, args, ?loc = r)
@@ -4876,14 +4891,79 @@ let tryCall
             Helper.LibCall(com, "fable_reflection", "get_union_cases", t, args, ?loc = r)
             |> wrapArr com r t
             |> Some
+        | "GetTupleElements", _ ->
+            Helper.LibCall(com, "fable_reflection", "get_tuple_elements", t, args, ?loc = r)
+            |> wrapArr com r t
+            |> Some
+        | "GetFunctionElements", _ ->
+            Helper.LibCall(com, "fable_reflection", "get_function_elements", t, args, ?loc = r)
+            |> Some
         | "IsRecord", _ -> Helper.LibCall(com, "fable_reflection", "is_record", t, args, ?loc = r) |> Some
         | "IsUnion", _ -> Helper.LibCall(com, "fable_reflection", "is_union", t, args, ?loc = r) |> Some
+        | "IsTuple", _ ->
+            Helper.LibCall(com, "fable_reflection", "is_tuple_type", t, args, ?loc = r)
+            |> Some
+        | "IsFunction", _ ->
+            Helper.LibCall(com, "fable_reflection", "is_function_type", t, args, ?loc = r)
+            |> Some
         | _ -> None
     | "Microsoft.FSharp.Reflection.FSharpValue" ->
         match info.CompiledName, args with
         | "MakeTuple", [ values; _ ] ->
-            // MakeTuple(values, tupleType) — just return values as a tuple (list in Erlang)
-            emitExpr r t [ values ] "list_to_tuple($0)" |> Some
+            // MakeTuple(values, tupleType) — values is an array ref, convert to Erlang tuple
+            emitExpr r t [ values ] "list_to_tuple(erlang:get($0))" |> Some
+        | "GetTupleFields", [ tuple ] ->
+            Helper.LibCall(com, "fable_reflection", "get_tuple_fields_value", t, [ tuple ], ?loc = r)
+            |> wrapArr com r t
+            |> Some
+        | "GetTupleField", [ tuple; index ] ->
+            Helper.LibCall(com, "fable_reflection", "get_tuple_field_value", t, [ tuple; index ], ?loc = r)
+            |> Some
+        | "GetRecordFields", [ record ] ->
+            // Inject type info at compile time since Erlang maps don't preserve order
+            // Look through TypeCast to get the concrete type (since GetRecordFields takes obj)
+            let rec getConcreteType (expr: Expr) =
+                match expr with
+                | TypeCast(inner, _) -> getConcreteType inner
+                | _ -> expr.Type
+
+            let concreteType = getConcreteType record
+            let typeInfo = Value(TypeInfo(concreteType, []), None)
+
+            Helper.LibCall(com, "fable_reflection", "get_record_fields_value", t, [ record; typeInfo ], ?loc = r)
+            |> wrapArr com r t
+            |> Some
+        | "GetRecordField", [ record; propInfo ] ->
+            Helper.LibCall(com, "fable_reflection", "get_record_field_value", t, [ record; propInfo ], ?loc = r)
+            |> Some
+        | "MakeRecord", [ typ; values ] ->
+            Helper.LibCall(com, "fable_reflection", "make_record_from_values", t, [ typ; values ], ?loc = r)
+            |> Some
+        | "GetUnionFields", [ union; typ ] ->
+            Helper.LibCall(com, "fable_reflection", "get_union_fields_value", t, [ union; typ ], ?loc = r)
+            |> Some
+        | "MakeUnion", [ caseInfo; values ] ->
+            Helper.LibCall(com, "fable_reflection", "make_union_value", t, [ caseInfo; values ], ?loc = r)
+            |> Some
+        | _ -> None
+    // PropertyInfo and UnionCaseInfo
+    | "Microsoft.FSharp.Reflection.UnionCaseInfo"
+    | "System.Reflection.PropertyInfo"
+    | "System.Reflection.MemberInfo" ->
+        match thisArg, info.CompiledName with
+        | Some c, "get_Tag" -> emitExpr r t [ c ] "maps:get(tag, $0)" |> Some
+        | Some c, ("get_PropertyType" | "get_ParameterType") -> emitExpr r t [ c ] "maps:get(property_type, $0)" |> Some
+        | Some c, "GetFields" ->
+            Helper.LibCall(com, "fable_reflection", "get_union_case_fields", t, [ c ], ?loc = r)
+            |> wrapArr com r t
+            |> Some
+        | Some c, "GetValue" ->
+            Helper.LibCall(com, "fable_reflection", "get_value", t, c :: args, ?loc = r)
+            |> Some
+        | Some c, "get_Name" ->
+            match c.Type with
+            | MetaType -> Helper.LibCall(com, "fable_reflection", "name", t, [ c ], ?loc = r) |> Some
+            | _ -> emitExpr r t [ c ] "maps:get(name, $0)" |> Some
         | _ -> None
     | "System.Text.StringBuilder" -> bclType com ctx r t info thisArg args
     | _ -> None

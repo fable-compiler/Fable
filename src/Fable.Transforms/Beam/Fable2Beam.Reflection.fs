@@ -13,12 +13,33 @@ let private strLit s =
 let private atomLit s =
     Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom s))
 
+/// Create an integer literal Erlang expression
+let private intLit i =
+    Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+
 /// Build a type info map: #{fullname => <<"...">>, generics => [...]}
 let private makeTypeInfoMap (fullname: string) (generics: Beam.ErlExpr list) =
     Beam.ErlExpr.Map
         [
             atomLit "fullname", strLit fullname
             atomLit "generics", Beam.ErlExpr.List generics
+        ]
+
+/// Build a PropertyInfo map: #{name => <<"field_name">>, property_type => TypeInfo}
+let private makePropertyInfo (fieldName: string) (typeInfo: Beam.ErlExpr) =
+    let erlName = Fable.Beam.Naming.sanitizeErlangName fieldName
+    Beam.ErlExpr.Map [ atomLit "name", strLit erlName; atomLit "property_type", typeInfo ]
+
+/// Build a CaseInfo map: #{tag => N, name => <<"CaseName">>, erl_tag => case_name, fields => [...]}
+let private makeCaseInfo (tag: int) (caseName: string) (fields: Beam.ErlExpr list) =
+    let erlTag = Fable.Beam.Naming.sanitizeErlangName caseName
+
+    Beam.ErlExpr.Map
+        [
+            atomLit "tag", intLit tag
+            atomLit "name", strLit caseName
+            atomLit "erl_tag", atomLit erlTag
+            atomLit "fields", Beam.ErlExpr.List fields
         ]
 
 /// Get the full name for a number kind
@@ -107,9 +128,8 @@ let rec transformTypeInfo
             let fields =
                 ent.FSharpFields
                 |> List.map (fun fi ->
-                    let fieldName = strLit fi.Name
                     let typeInfo = transformTypeInfo com r genMap fi.FieldType
-                    Beam.ErlExpr.Tuple [ fieldName; typeInfo ]
+                    makePropertyInfo fi.Name typeInfo
                 )
 
             Beam.ErlExpr.Map
@@ -121,16 +141,15 @@ let rec transformTypeInfo
         | Some ent when ent.IsFSharpUnion ->
             let cases =
                 ent.UnionCases
-                |> List.map (fun uci ->
+                |> List.mapi (fun i uci ->
                     let caseFields =
                         uci.UnionCaseFields
                         |> List.map (fun fi ->
-                            let fieldName = strLit fi.Name
                             let typeInfo = transformTypeInfo com r genMap fi.FieldType
-                            Beam.ErlExpr.Tuple [ fieldName; typeInfo ]
+                            makePropertyInfo fi.Name typeInfo
                         )
 
-                    Beam.ErlExpr.Tuple [ strLit uci.Name; Beam.ErlExpr.List caseFields ]
+                    makeCaseInfo i uci.Name caseFields
                 )
 
             Beam.ErlExpr.Map
