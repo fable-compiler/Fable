@@ -598,19 +598,17 @@ let ``test Seq.foldBack2 works`` () =
     Seq.foldBack2 (fun x y acc -> x + y - acc) [1; 2; 3; 4] [1; 2; 3; 4] 0
     |> equal -4
 
-// TODO: Seq.forall laziness test fails because Beam sequences are eager lists;
-// Seq.map evaluates all elements before Seq.forall checks them
-// [<Fact>]
-// let ``test Seq.forall is lazy`` () =
-//     let mutable x = ""
-//     let one() = x <- "one"; false
-//     let two() = x <- "two"; true
-//     let ok =
-//         [one; two]
-//         |> Seq.map (fun c -> c())
-//         |> Seq.forall id
-//     ok |> equal false
-//     x |> equal "one"
+[<Fact>]
+let ``test Seq.forall is lazy`` () =
+    let mutable x = ""
+    let one() = x <- "one"; false
+    let two() = x <- "two"; true
+    let ok =
+        [one; two]
+        |> Seq.map (fun c -> c())
+        |> Seq.forall id
+    ok |> equal false
+    x |> equal "one"
 
 [<Fact>]
 let ``test Seq.fold with tupled arguments works`` () =
@@ -737,13 +735,13 @@ let ``test Seq.head with option works`` () =
     let xs = [None; Some 1.]
     Seq.head xs |> equal None
 
-// TODO: nested Option .Value.Value accessor doesn't unwrap correctly on Beam
-// [<Fact>]
-// let ``test Seq.tryHead with option works`` () =
-//     let xs = [Some 1.; None]
-//     Seq.tryHead xs |> equal (Some(Some 1.))
-//     let xs = [None; Some 1.]
-//     Seq.tryHead xs |> equal (Some(None))
+[<Fact>]
+let ``test Seq.tryHead with option works`` () =
+    let xs = [Some 1.; None]
+    Seq.tryHead xs |> equal (Some(Some 1.))
+    Seq.tryHead xs |> (fun v -> v.Value.Value) |> equal 1.
+    let xs = [None; Some 1.]
+    Seq.tryHead xs |> equal (Some(None))
 
 [<Fact>]
 let ``test seq empty works`` () =

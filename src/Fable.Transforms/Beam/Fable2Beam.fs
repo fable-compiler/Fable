@@ -1076,13 +1076,11 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         let erlValue = transformExpr com ctx value
 
         match typ with
-        | GenericParam _
-        | Any ->
-            // Runtime decision: use smart constructor that wraps only ambiguous values
-            Beam.ErlExpr.Call(Some "fable_option", "some", [ erlValue ])
         | _ when mustWrapOption typ ->
-            // Compile-time decision: we know wrapping is needed (e.g., Option<Option<T>>)
-            Beam.ErlExpr.Tuple [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "some")); erlValue ]
+            // Use runtime smart constructor for consistency with library code (e.g., tryHead).
+            // Both the compiler-generated values and library-produced values go through the
+            // same fable_option:some/1, ensuring equal representation for nested options.
+            Beam.ErlExpr.Call(Some "fable_option", "some", [ erlValue ])
         | _ -> erlValue
 
     | NewOption(None, _typ, _isStruct) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "undefined"))
