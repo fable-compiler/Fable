@@ -1865,7 +1865,17 @@ let private seqModule
         Helper.LibCall(com, "seq", "length", t, [ seq ], info.SignatureArgTypes, ?loc = r)
         |> Some
     | ("Readonly" | "ReadOnly" | "Cache"), [ seq ] -> Some seq
-    | "CreateEvent", _ -> None
+    | "CreateEvent", [ addHandler; removeHandler; _createHandler ] ->
+        Helper.LibCall(
+            com,
+            "fable_event",
+            "create_event",
+            t,
+            [ addHandler; removeHandler ],
+            info.SignatureArgTypes,
+            ?loc = r
+        )
+        |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "Seq" meth info.GenericArgs args
@@ -2682,6 +2692,30 @@ let cancels (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             | None -> args, i.SignatureArgTypes
 
         Helper.LibCall(com, "fable_cancellation", "register", t, args, argTypes, ?loc = r)
+        |> Some
+    | _ -> None
+
+let events (com: ICompiler) (_ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    | ".ctor", _ ->
+        Helper.LibCall(com, "fable_event", "new_event", t, [], i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "get_Publish", Some x ->
+        Helper.LibCall(com, "fable_event", "publish", t, [ x ], i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "Trigger", Some x ->
+        Helper.LibCall(com, "fable_event", "trigger", t, x :: args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "Add", Some x ->
+        Helper.LibCall(com, "fable_event", "add", t, args @ [ x ], i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "Subscribe", Some x ->
+        Helper.LibCall(com, "fable_observable", "subscribe", t, args @ [ x ], i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "AddHandler", Some x -> emitExpr r t (x :: args) "(maps:get(add_handler, $0))($1)" |> Some
+    | "RemoveHandler", Some x -> emitExpr r t (x :: args) "(maps:get(remove_handler, $0))($1)" |> Some
+    | meth, None ->
+        Helper.LibCall(com, "fable_event", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | _ -> None
 
@@ -4665,6 +4699,9 @@ let tryCall
     | "System.Threading.CancellationToken"
     | "System.Threading.CancellationTokenSource" -> cancels com ctx r t info thisArg args
     | "Microsoft.FSharp.Control.CommonExtensions" -> controlExtensions com ctx r t info thisArg args
+    | "Microsoft.FSharp.Control.FSharpEvent`1"
+    | "Microsoft.FSharp.Control.FSharpEvent`2"
+    | "Microsoft.FSharp.Control.EventModule" -> events com ctx r t info thisArg args
     | "Microsoft.FSharp.Control.ObservableModule" -> observable com ctx r t info thisArg args
     | "Microsoft.FSharp.Control.FSharpMailboxProcessor`1"
     | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" -> mailbox com ctx r t info thisArg args
