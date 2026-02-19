@@ -97,6 +97,9 @@ module Naming =
             s.[0..0].ToUpperInvariant() + s.[1..]
 
     /// Sanitize a string for use as an Erlang variable name (must start with uppercase or _)
+    /// Convert a field name to a safe Erlang atom (snake_case + keyword escaping)
+    let sanitizeFieldName (name: string) = toSnakeCase name |> checkErlKeywords
+
     let sanitizeErlangVar (name: string) =
         // Remove/replace characters invalid in Erlang variable names
         name.Replace("$", "_").Replace("@", "_")

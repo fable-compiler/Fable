@@ -13,6 +13,10 @@ type RecursiveRecord =
 type JSKiller =
    { ``for`` : float; ``class`` : float }
 
+// Record with Erlang reserved words as field names
+type ErlangKeywordRecord =
+    { Receive: string; Case: int; Fun: bool }
+
 // Note: Records with spaces/symbols in field names are not supported in Beam
 // as Erlang atoms can't contain these characters
 
@@ -108,6 +112,16 @@ let ``test record expression constructors can be generated`` () =
 let ``test records with key reserved words are mapped correctly`` () =
     let x = { ``for`` = 1.0; ``class`` = 2.0 }
     equal 2. x.``class``
+
+[<Fact>]
+let ``test records with Erlang reserved word fields work`` () =
+    let r = { Receive = "hello"; Case = 42; Fun = true }
+    equal "hello" r.Receive
+    equal 42 r.Case
+    equal true r.Fun
+    let r2 = { r with Receive = "world" }
+    equal "world" r2.Receive
+    equal 42 r2.Case
 
 // test records with special characters - skipped for Beam (Erlang atoms can't have spaces/symbols)
 
