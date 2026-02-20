@@ -54,7 +54,7 @@ let tryType (com: ICompiler) (t: Type) =
     | Rust -> Rust.Replacements.tryType t
     | Python -> Py.Replacements.tryType t
     | Dart -> Dart.Replacements.tryType t
-    //| Beam -> Beam.Replacements.tryType t
+    | Beam -> Beam.Replacements.tryType t
     | _ -> JS.Replacements.tryType t
 
 let tryCall (com: ICompiler) ctx r t info thisArg args =

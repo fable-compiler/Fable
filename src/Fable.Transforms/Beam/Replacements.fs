@@ -4539,7 +4539,7 @@ let private bclType (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg:
     Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
     |> Some
 
-let tryType (_t: Type) : Expr option = None
+let tryType (_t: Type) = None
 
 let tryCall
     (com: ICompiler)
