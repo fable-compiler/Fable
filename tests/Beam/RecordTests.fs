@@ -149,12 +149,11 @@ let ``test record equality when it has optional field`` () =
     equal false (a = c)
     equal false (c = b)
 
-// TODO: Erlang converts both firstName and FirstName to first_name (snake_case collision)
-// [<Fact>]
-// let ``test record with both camel-case and pascal-case fields do not conflict`` () =
-//     let x = { firstName = "John"; FirstName = "Jane" }
-//     equal "John" x.firstName
-//     equal "Jane" x.FirstName
+[<Fact>]
+let ``test record with both camel-case and pascal-case fields do not conflict`` () =
+    let x = { firstName = "John"; FirstName = "Jane" }
+    equal "John" x.firstName
+    equal "Jane" x.FirstName
 
 [<Fact>]
 let ``test anonymous records work with functions`` () =
