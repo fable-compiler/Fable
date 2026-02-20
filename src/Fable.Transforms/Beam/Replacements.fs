@@ -244,7 +244,7 @@ let private operators
     | "ToString", [ arg ] ->
         match arg.Type with
         | Type.String -> Some arg
-        | Type.Char -> emitExpr r _t [ arg ] "<<$0/utf8>>" |> Some
+        | Type.Char -> emitExpr r _t [ arg ] "<<($0)/utf8>>" |> Some
         | Type.Number(kind, _) ->
             match kind with
             | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", _t, [ arg ], ?loc = r) |> Some
@@ -582,7 +582,7 @@ let private objects
     | "GetType", Some arg, _ -> makeTypeInfo r arg.Type |> Some
     | "ToString", Some thisObj, [] ->
         match thisObj.Type with
-        | Type.Char -> emitExpr r t [ thisObj ] "<<$0/utf8>>" |> Some
+        | Type.Char -> emitExpr r t [ thisObj ] "<<($0)/utf8>>" |> Some
         | Type.Number(kind, _) ->
             match kind with
             | Decimal ->
@@ -814,7 +814,7 @@ let private strings
     // str.StartsWith(prefix)
     | "StartsWith", Some c, [ prefix ] ->
         match prefix.Type with
-        | Type.Char -> emitExpr r t [ c; prefix ] "fable_string:starts_with($0, <<$1/utf8>>)" |> Some
+        | Type.Char -> emitExpr r t [ c; prefix ] "fable_string:starts_with($0, <<($1)/utf8>>)" |> Some
         | _ -> Helper.LibCall(com, "fable_string", "starts_with", t, [ c; prefix ]) |> Some
     | "StartsWith", Some c, [ prefix; _compType ] ->
         emitExpr r t [ c; prefix ] "fable_string:starts_with(string:lowercase($0), string:lowercase($1))"
@@ -825,7 +825,7 @@ let private strings
     // str.EndsWith(suffix)
     | "EndsWith", Some c, [ suffix ] ->
         match suffix.Type with
-        | Type.Char -> emitExpr r t [ c; suffix ] "fable_string:ends_with($0, <<$1/utf8>>)" |> Some
+        | Type.Char -> emitExpr r t [ c; suffix ] "fable_string:ends_with($0, <<($1)/utf8>>)" |> Some
         | _ -> Helper.LibCall(com, "fable_string", "ends_with", t, [ c; suffix ]) |> Some
     | "EndsWith", Some c, [ suffix; _compType ] ->
         emitExpr r t [ c; suffix ] "fable_string:ends_with(string:lowercase($0), string:lowercase($1))"
@@ -964,12 +964,12 @@ let private strings
     // str.IndexOf(sub) / str.IndexOf(sub, startIdx)
     | "IndexOf", Some c, [ sub ] ->
         match sub.Type with
-        | Type.Char -> emitExpr r t [ c; sub ] "fable_string:index_of($0, <<$1/utf8>>)" |> Some
+        | Type.Char -> emitExpr r t [ c; sub ] "fable_string:index_of($0, <<($1)/utf8>>)" |> Some
         | _ -> Helper.LibCall(com, "fable_string", "index_of", t, [ c; sub ]) |> Some
     | "IndexOf", Some c, [ sub; startIdx ] ->
         match sub.Type with
         | Type.Char ->
-            emitExpr r t [ c; sub; startIdx ] "fable_string:index_of($0, <<$1/utf8>>, $2)"
+            emitExpr r t [ c; sub; startIdx ] "fable_string:index_of($0, <<($1)/utf8>>, $2)"
             |> Some
         | _ -> Helper.LibCall(com, "fable_string", "index_of", t, [ c; sub; startIdx ]) |> Some
     // str.IndexOfAny(chars) / str.IndexOfAny(chars, startIdx)
@@ -984,12 +984,12 @@ let private strings
     // str.LastIndexOf(sub) / str.LastIndexOf(sub, maxIdx)
     | "LastIndexOf", Some c, [ sub ] ->
         match sub.Type with
-        | Type.Char -> emitExpr r t [ c; sub ] "fable_string:last_index_of($0, <<$1/utf8>>)" |> Some
+        | Type.Char -> emitExpr r t [ c; sub ] "fable_string:last_index_of($0, <<($1)/utf8>>)" |> Some
         | _ -> Helper.LibCall(com, "fable_string", "last_index_of", t, [ c; sub ]) |> Some
     | "LastIndexOf", Some c, [ sub; maxIdx ] ->
         match sub.Type with
         | Type.Char ->
-            emitExpr r t [ c; sub; maxIdx ] "fable_string:last_index_of($0, <<$1/utf8>>, $2)"
+            emitExpr r t [ c; sub; maxIdx ] "fable_string:last_index_of($0, <<($1)/utf8>>, $2)"
             |> Some
         | _ ->
             Helper.LibCall(com, "fable_string", "last_index_of", t, [ c; sub; maxIdx ])
@@ -1203,7 +1203,7 @@ let private conversions
 
         match arg.Type with
         | Type.String -> Some arg
-        | Type.Char -> emitExpr r t [ arg ] "<<$0/utf8>>" |> Some
+        | Type.Char -> emitExpr r t [ arg ] "<<($0)/utf8>>" |> Some
         | Type.Number(kind, _) ->
             match kind with
             | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", t, [ arg ], ?loc = r) |> Some

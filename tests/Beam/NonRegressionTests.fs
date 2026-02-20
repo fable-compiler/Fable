@@ -128,3 +128,17 @@ let ``test issue 3912`` () =
         use x = x
         ()
     equal x.IsDisposed true
+
+// Char-to-string binary syntax needs parentheses around complex expressions
+// e.g. <<(erlang:element(2, Pair))/utf8>> not <<erlang:element(2, Pair)/utf8>>
+[<Fact>]
+let ``test char to string from tuple element`` () =
+    let pair = (1, 'A')
+    let result = string (snd pair)
+    equal "A" result
+
+[<Fact>]
+let ``test string StartsWith char from tuple element`` () =
+    let pair = (1, 'H')
+    let result = "Hello".StartsWith(snd pair)
+    equal true result
