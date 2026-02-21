@@ -594,7 +594,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             Beam.ErlExpr.Block(assignments @ [ erlBody ])
 
     | Emit(emitInfo, typ, _range) ->
-        if emitInfo.Macro.StartsWith("__fable_beam_receive") then
+        if emitInfo.Macro.StartsWith("__fable_beam_receive", System.StringComparison.Ordinal) then
             transformReceive com ctx emitInfo typ
         else
             let args = emitInfo.CallInfo.Args |> List.map (transformExpr com ctx)

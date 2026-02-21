@@ -121,7 +121,7 @@ module Naming =
         then
             name
         else
-            $"'{name}'"
+            $"'%s{name}'"
 
     let sanitizeErlangVar (name: string) =
         // Remove/replace characters invalid in Erlang variable names
