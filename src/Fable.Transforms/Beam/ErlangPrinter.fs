@@ -473,6 +473,76 @@ module Output =
 
             sb.Append(result) |> ignore
 
+        | Receive(clauses, after) ->
+            sb.AppendLine("receive") |> ignore
+
+            clauses
+            |> List.iteri (fun i clause ->
+                writeIndent ()
+                sb.Append("    ") |> ignore
+                printPattern sb clause.Pattern
+
+                match clause.Guard with
+                | [] -> ()
+                | guards ->
+                    sb.Append(" when ") |> ignore
+
+                    guards
+                    |> List.iteri (fun gi g ->
+                        if gi > 0 then
+                            sb.Append(", ") |> ignore
+
+                        printExpr sb indent g
+                    )
+
+                sb.Append(" ->") |> ignore
+                sb.AppendLine() |> ignore
+
+                let caseBody = stripStrayOk clause.Body
+
+                caseBody
+                |> List.iteri (fun j bodyExpr ->
+                    writeIndent ()
+                    sb.Append("        ") |> ignore
+                    printExpr sb (indent + 2) bodyExpr
+
+                    if j < caseBody.Length - 1 then
+                        sb.Append(",") |> ignore
+
+                    sb.AppendLine() |> ignore
+                )
+
+                if i < clauses.Length - 1 then
+                    writeIndent ()
+                    sb.AppendLine("    ;") |> ignore
+            )
+
+            match after with
+            | Some(timeoutExpr, bodyExprs) ->
+                writeIndent ()
+                sb.Append("after ") |> ignore
+                printExpr sb indent timeoutExpr
+                sb.Append(" ->") |> ignore
+                sb.AppendLine() |> ignore
+
+                let afterBody = stripStrayOk bodyExprs
+
+                afterBody
+                |> List.iteri (fun j bodyExpr ->
+                    writeIndent ()
+                    sb.Append("    ") |> ignore
+                    printExpr sb (indent + 1) bodyExpr
+
+                    if j < afterBody.Length - 1 then
+                        sb.Append(",") |> ignore
+
+                    sb.AppendLine() |> ignore
+                )
+            | None -> ()
+
+            writeIndent ()
+            sb.Append("end") |> ignore
+
     let printFunClause (sb: System.Text.StringBuilder) (name: Atom) (clause: ErlFunClause) =
         let (Atom atomName) = name
         sb.Append($"%s{atomName}(") |> ignore

@@ -4809,6 +4809,11 @@ let tryCall
                 emitTemplate r t args isStatement template |> Some
         | "op_BangBang", [ arg ] -> Some arg
         | _ -> None
+    | "Fable.Core.BeamInterop.Erlang" ->
+        match info.CompiledName, args with
+        | "receive", [ timeoutArg ] -> emitExpr r t [ timeoutArg ] "__fable_beam_receive__($0)" |> Some
+        | "receiveForever", _ -> emitExpr r t [] "__fable_beam_receive_forever__" |> Some
+        | _ -> None
     // Testing assertions (used by our test framework)
     | "Fable.Core.Testing.Assert" ->
         match info.CompiledName, args with

@@ -110,6 +110,19 @@ module Naming =
 
         checkErlKeywords disambiguated
 
+    /// Quote an Erlang atom if it needs quoting (starts with uppercase, contains special chars, etc.)
+    let quoteErlangAtom (name: string) =
+        if name.Length = 0 then
+            "''"
+        elif
+            System.Char.IsLower(name.[0])
+            && name
+               |> Seq.forall (fun c -> System.Char.IsLetterOrDigit(c) || c = '_' || c = '@')
+        then
+            name
+        else
+            $"'{name}'"
+
     let sanitizeErlangVar (name: string) =
         // Remove/replace characters invalid in Erlang variable names
         name.Replace("$", "_").Replace("@", "_")

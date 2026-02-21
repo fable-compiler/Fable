@@ -593,9 +593,12 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             let erlBody = transformExpr com ctx body
             Beam.ErlExpr.Block(assignments @ [ erlBody ])
 
-    | Emit(emitInfo, _typ, _range) ->
-        let args = emitInfo.CallInfo.Args |> List.map (transformExpr com ctx)
-        Beam.ErlExpr.Emit(emitInfo.Macro, args)
+    | Emit(emitInfo, typ, _range) ->
+        if emitInfo.Macro.StartsWith("__fable_beam_receive") then
+            transformReceive com ctx emitInfo typ
+        else
+            let args = emitInfo.CallInfo.Args |> List.map (transformExpr com ctx)
+            Beam.ErlExpr.Emit(emitInfo.Macro, args)
 
     | TryCatch(body, catch_, finalizer, _range) ->
         let erlBody = transformExpr com ctx body
@@ -1577,6 +1580,81 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
             | _ ->
                 // Integer index → tuple element (1-based)
                 Beam.ErlExpr.Call(Some "erlang", "element", [ erlIndex; erlExpr ])
+
+and transformReceive (com: IBeamCompiler) (ctx: Context) (emitInfo: EmitInfo) (typ: Type) : Beam.ErlExpr =
+    let isForever = emitInfo.Macro = "__fable_beam_receive_forever__"
+
+    // Extract DU entity ref from type:
+    // receive<'T> : 'T option  →  Option(DeclaredType(ref, _), _)
+    // receiveForever<'T> : 'T  →  DeclaredType(ref, _)
+    let entityRef =
+        match typ with
+        | Option(DeclaredType(ref, _), _) -> Some ref
+        | DeclaredType(ref, _) -> Some ref
+        | _ -> None
+
+    match entityRef with
+    | None ->
+        com.WarnOnlyOnce("Erlang.receive/receiveForever requires a DU type parameter")
+        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "undefined"))
+    | Some ref ->
+        match com.TryGetEntity(ref) with
+        | None ->
+            com.WarnOnlyOnce("Erlang.receive: could not resolve DU entity")
+            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "undefined"))
+        | Some entity ->
+            let ctr = com.IncrementCounter()
+
+            let clauses =
+                entity.UnionCases
+                |> List.mapi (fun tag uci ->
+                    // Determine atom tag: CompiledName if set, otherwise snake_case of Name
+                    let atomName =
+                        match uci.CompiledName with
+                        | Some name -> name
+                        | None -> sanitizeErlangName uci.Name
+
+                    let atomStr = quoteErlangAtom atomName
+                    let fields = uci.UnionCaseFields
+                    let fieldCount = fields.Length
+
+                    // Build pattern: bare atom for zero-field, tuple for 1+ fields
+                    let fieldVars = List.init fieldCount (fun i -> $"Recv_%d{ctr}_F%d{i}")
+
+                    let pattern =
+                        if fieldCount = 0 then
+                            Beam.ErlPattern.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom atomStr))
+                        else
+                            Beam.ErlPattern.PTuple(
+                                Beam.ErlPattern.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom atomStr))
+                                :: (fieldVars |> List.map Beam.ErlPattern.PVar)
+                            )
+
+                    // Build body: convert to Fable DU tuple representation {tag, field0, field1, ...}
+                    let body =
+                        Beam.ErlExpr.Tuple(
+                            Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 tag))
+                            :: (fieldVars |> List.map Beam.ErlExpr.Variable)
+                        )
+
+                    {
+                        Beam.ErlCaseClause.Pattern = pattern
+                        Beam.ErlCaseClause.Guard = []
+                        Beam.ErlCaseClause.Body = [ body ]
+                    }
+                )
+
+            if isForever then
+                // receiveForever: no after clause, returns DU directly
+                Beam.ErlExpr.Receive(clauses, None)
+            else
+                // receive: has after clause, returns Option (Some = DU value, None = undefined)
+                let timeoutArg = emitInfo.CallInfo.Args |> List.head |> transformExpr com ctx
+
+                let afterBody =
+                    [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "undefined")) ]
+
+                Beam.ErlExpr.Receive(clauses, Some(timeoutArg, afterBody))
 
 and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: CallInfo) : Beam.ErlExpr =
     let info =

@@ -21,3 +21,11 @@ let importMember<'T> (path: string) : 'T = nativeOnly
 /// F#: let myLib = importAll<obj> "my_module"
 /// Imports all exports from an Erlang module
 let importAll<'T> (path: string) : 'T = nativeOnly
+
+module Erlang =
+    /// Selective receive with timeout. Returns Some(msg) on match, None on timeout.
+    /// Each DU case maps to a receive clause with the case's CompiledName (or snake_case name)
+    /// as the Erlang atom tag.
+    let receive<'T> (timeoutMs: int) : 'T option = nativeOnly
+    /// Blocking selective receive (no timeout). Blocks until a matching message arrives.
+    let receiveForever<'T> () : 'T = nativeOnly

@@ -76,6 +76,15 @@ type MyCssOptions =
     | ContentBox
     | BorderBox
 
+// ============================================================
+// Erlang.receive tests
+// ============================================================
+
+type RecvMsg =
+    | Ping
+    | [<CompiledName("custom_tag")>] CustomTag of value: int
+    | DataMsg of x: int * y: string
+
 #endif
 
 // ============================================================
@@ -233,6 +242,72 @@ let ``test StringEnum with KebabCase works`` () =
     let value = MyCssOptions.ContentBox
     let expected: string = emitErlExpr () "<<\"content-box\">>"
     equal expected (string value)
+#else
+    ()
+#endif
+
+// ============================================================
+// Erlang.receive tests
+// ============================================================
+
+[<Fact>]
+let ``test Erlang receive with self-send returns Some`` () =
+#if FABLE_COMPILER
+    // Send a bare-atom message (Ping has zero fields) to self
+    emitErlExpr () "erlang:self() ! ping"
+    match Erlang.receive<RecvMsg> 1000 with
+    | Some Ping -> equal 1 1
+    | _ -> equal 0 1 // fail
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Erlang receive timeout returns None`` () =
+#if FABLE_COMPILER
+    // No message in mailbox, should timeout immediately
+    match Erlang.receive<RecvMsg> 0 with
+    | None -> equal 1 1
+    | Some _ -> equal 0 1 // fail
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Erlang receive with CompiledName atom tag`` () =
+#if FABLE_COMPILER
+    // Send {custom_tag, 42} to self
+    emitErlExpr () "erlang:self() ! {custom_tag, 42}"
+    match Erlang.receive<RecvMsg> 1000 with
+    | Some(CustomTag v) -> equal 42 v
+    | _ -> equal 0 1 // fail
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Erlang receive with multi-field DU case`` () =
+#if FABLE_COMPILER
+    // Send {data_msg, 7, <<"hello">>} to self
+    emitErlExpr () "erlang:self() ! {data_msg, 7, <<\"hello\">>}"
+    match Erlang.receive<RecvMsg> 1000 with
+    | Some(DataMsg(x, y)) ->
+        equal 7 x
+        equal "hello" y
+    | _ -> equal 0 1 // fail
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Erlang receiveForever with self-send`` () =
+#if FABLE_COMPILER
+    // Send a message before calling receiveForever so it doesn't block
+    emitErlExpr () "erlang:self() ! ping"
+    let msg = Erlang.receiveForever<RecvMsg> ()
+    match msg with
+    | Ping -> equal 1 1
+    | _ -> equal 0 1 // fail
 #else
     ()
 #endif
