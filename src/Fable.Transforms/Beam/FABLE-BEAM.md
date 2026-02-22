@@ -324,7 +324,7 @@ Core F# language features that map naturally to Erlang. All implemented in
 - [x] Get expressions (`TupleIndex`, `UnionTag`, `UnionField`, `ListHead`, `ListTail`, `OptionValue`, `FieldGet`, `ExprGet`)
 - [x] DecisionTree / DecisionTreeSuccess (following JS target pattern)
 - [x] NewList fix → `ListCons` (`[H | T]` instead of `[H, T]`)
-- [x] NewUnion → tagged tuples `{Tag, Field1, Field2, ...}`
+- [x] NewUnion → atom-tagged tuples `{atom_tag, Field1, Field2, ...}`, bare atoms for fieldless cases
 - [x] NewOption → value or `undefined` atom
 - [x] Set expressions (ValueSet → variable rebind, FieldSet → `maps:put`)
 - [x] LetRec → sequential fun assignments
@@ -843,8 +843,10 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   `put`/`get`).
 - **File structure**: Single `Fable2Beam.fs` for Phase 1 (PHP pattern), split later
   as complexity grows (Python pattern)
-- **DU representation**: Tagged tuples `{Tag, Field1, ...}` with integer tags,
-  accessed via `element/2`. Matches Erlang convention for variant types.
+- **DU representation**: Atom-tagged tuples `{atom_tag, Field1, ...}` for cases with
+  fields, bare atoms for fieldless cases. Tag names derived via `sanitizeErlangName`
+  (snake_case). `UnionCaseTest` guards non-fieldless checks with `is_tuple` to handle
+  mixed DUs. `UnionTag` uses `case is_atom(X)` to dispatch between bare atoms and tuples.
 - **If/else**: Uses `case Guard of true -> ...; false -> ... end` rather than
   Erlang's limited `if` (which only supports guard expressions)
 - **Division**: `div` for integer types, `/` for float — determined by Fable's
@@ -997,14 +999,14 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   `generics`, and optional `fields` (records) or `cases` (unions). PropertyInfo/CaseInfo are
   maps with `name`, `typ`, `tag`, `fields`. Reflection functions renamed to avoid Erlang BIF
   clashes: `is_tuple` → `is_tuple_type`, `is_function` → `is_function_type`. Union tag matching
-  uses integer tags (matching Beam's `{0, Field1, Field2}` representation). `MakeRecord`/
+  uses atom tags via `erl_tag` field (matching Beam's `{atom_tag, Field1, Field2}` representation). `MakeRecord`/
   `MakeUnion` handle both plain lists and process-dict ref arrays. `GetRecordFields` resolves
   concrete types through `TypeCast` wrappers via `getConcreteType` helper.
 - **Async error wrapping**: `wrap_error/1` in `fable_async.erl` normalizes raw errors so
   `.Message` accessor works: raw binaries (from `failwith`) → `#{message => Bin}`, maps
   (from `raise (exn ...)`) pass through, refs pass through, everything else → formatted map.
-  Used in `catch_async`, `try_with`, and `try_finally`. `catch_async` uses integer tags
-  `{0, V}` / `{1, wrap_error(E)}` matching Beam's Choice union representation.
+  Used in `catch_async`, `try_with`, and `try_finally`. `catch_async` uses atom tags
+  `{choice1_of2, V}` / `{choice2_of2, wrap_error(E)}` matching Beam's Choice union representation.
 - **OperationCanceledException**: Added to the exception type pattern in Beam Replacements
   alongside `BuiltinSystemException` and `KeyNotFoundException`.
 
