@@ -156,17 +156,17 @@ sequential(Computations) ->
     end.
 
 %% Catch: wrap result in Choice (ok/error tuple)
-%% Uses integer tags matching Beam union representation: 0 = Choice1Of2, 1 = Choice2Of2
+%% Uses atom tags matching Beam union representation: choice1_of2 = Choice1Of2, choice2_of2 = Choice2Of2
 catch_async(Computation) ->
     fun(Ctx) ->
         Ctx2 = #{
-            on_success => fun(V) -> (maps:get(on_success, Ctx))({0, V}) end,
-            on_error => fun(E) -> (maps:get(on_success, Ctx))({1, wrap_error(E)}) end,
+            on_success => fun(V) -> (maps:get(on_success, Ctx))({choice1_of2, V}) end,
+            on_error => fun(E) -> (maps:get(on_success, Ctx))({choice2_of2, wrap_error(E)}) end,
             on_cancel => maps:get(on_cancel, Ctx),
             cancel_token => maps:get(cancel_token, Ctx)
         },
         try Computation(Ctx2)
-        catch _:Err -> (maps:get(on_success, Ctx))({1, wrap_error(Err)})
+        catch _:Err -> (maps:get(on_success, Ctx))({choice2_of2, wrap_error(Err)})
         end
     end.
 

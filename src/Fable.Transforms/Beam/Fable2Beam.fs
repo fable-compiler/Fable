@@ -65,6 +65,23 @@ let private isClassType (com: IBeamCompiler) (entityRef: EntityRef) =
 let private atomLit name =
     Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom name))
 
+/// Resolve the atom tag name for a union case.
+/// Returns Some(atomStr, isFieldless) or None if the entity can't be resolved.
+let private getUnionCaseAtomExpr (com: IBeamCompiler) (ref: EntityRef) (tag: int) =
+    match com.TryGetEntity(ref) with
+    | Some entity ->
+        let uci = entity.UnionCases[tag]
+
+        let atomName =
+            match uci.CompiledName with
+            | Some name -> name
+            | None -> sanitizeErlangName uci.Name
+
+        let atomStr = quoteErlangAtom atomName
+        let isFieldless = uci.UnionCaseFields.IsEmpty
+        Some(atomStr, isFieldless)
+    | None -> None
+
 let private getDecisionTarget (ctx: Context) targetIndex =
     match List.tryItem targetIndex ctx.DecisionTargets with
     | None -> failwith $"Cannot find DecisionTree target %i{targetIndex}"
@@ -1072,9 +1089,20 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
             ]
         )
 
-    | NewUnion(values, tag, _ref, _genArgs) ->
+    | NewUnion(values, tag, ref, _genArgs) ->
         let erlValues = values |> List.map (transformExpr com ctx)
-        Beam.ErlExpr.Tuple(Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 tag)) :: erlValues)
+
+        match getUnionCaseAtomExpr com ref tag with
+        | Some(atomStr, isFieldless) ->
+            let atomExpr = Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomStr))
+
+            if isFieldless then
+                atomExpr // bare atom for fieldless cases
+            else
+                Beam.ErlExpr.Tuple(atomExpr :: erlValues)
+        | None ->
+            // Fallback: integer-tagged
+            Beam.ErlExpr.Tuple(Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 tag)) :: erlValues)
 
     | NewOption(Some value, typ, _isStruct) ->
         let erlValue = transformExpr com ctx value
@@ -1423,11 +1451,43 @@ and transformTest (com: IBeamCompiler) (ctx: Context) (kind: TestKind) (expr: Ex
 
     match kind with
     | UnionCaseTest tag ->
-        Beam.ErlExpr.BinOp(
-            "=:=",
-            Beam.ErlExpr.Call(Some "erlang", "element", [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 1L); erlExpr ]),
-            Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 tag))
-        )
+        let entityRef =
+            match expr.Type with
+            | DeclaredType(ref, _) -> Some ref
+            | _ -> None
+
+        match entityRef |> Option.bind (fun ref -> getUnionCaseAtomExpr com ref tag) with
+        | Some(atomStr, isFieldless) ->
+            let atomExpr = Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomStr))
+
+            if isFieldless then
+                Beam.ErlExpr.BinOp("=:=", erlExpr, atomExpr) // X =:= atom
+            else
+                // Guard with is_tuple to avoid badarg when X is a bare atom (fieldless case)
+                Beam.ErlExpr.BinOp(
+                    "andalso",
+                    Beam.ErlExpr.Call(None, "is_tuple", [ erlExpr ]),
+                    Beam.ErlExpr.BinOp(
+                        "=:=",
+                        Beam.ErlExpr.Call(
+                            Some "erlang",
+                            "element",
+                            [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 1L); erlExpr ]
+                        ),
+                        atomExpr
+                    )
+                ) // is_tuple(X) andalso element(1, X) =:= atom
+        | None ->
+            // Fallback: integer-tagged
+            Beam.ErlExpr.BinOp(
+                "=:=",
+                Beam.ErlExpr.Call(
+                    Some "erlang",
+                    "element",
+                    [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 1L); erlExpr ]
+                ),
+                Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 tag))
+            )
     | ListTest isCons ->
         if isCons then
             Beam.ErlExpr.BinOp("=/=", erlExpr, Beam.ErlExpr.Literal(Beam.ErlLiteral.NilLit))
@@ -1494,7 +1554,30 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
             [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 (i + 1))); erlExpr ]
         )
     | UnionTag ->
-        Beam.ErlExpr.Call(Some "erlang", "element", [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 1L); erlExpr ])
+        // If value is a bare atom (fieldless case), the atom itself is the tag.
+        // If value is a tuple (case with fields), element(1, X) is the tag.
+        Beam.ErlExpr.Case(
+            Beam.ErlExpr.Call(None, "is_atom", [ erlExpr ]),
+            [
+                {
+                    Pattern = Beam.ErlPattern.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom "true"))
+                    Guard = []
+                    Body = [ erlExpr ]
+                }
+                {
+                    Pattern = Beam.ErlPattern.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom "false"))
+                    Guard = []
+                    Body =
+                        [
+                            Beam.ErlExpr.Call(
+                                Some "erlang",
+                                "element",
+                                [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer 1L); erlExpr ]
+                            )
+                        ]
+                }
+            ]
+        )
     | UnionField info ->
         Beam.ErlExpr.Call(
             None,
@@ -1630,12 +1713,15 @@ and transformReceive (com: IBeamCompiler) (ctx: Context) (emitInfo: EmitInfo) (t
                                 :: (fieldVars |> List.map Beam.ErlPattern.PVar)
                             )
 
-                    // Build body: convert to Fable DU tuple representation {tag, field0, field1, ...}
+                    // Build body: atom-tagged DU representation
                     let body =
-                        Beam.ErlExpr.Tuple(
-                            Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 tag))
-                            :: (fieldVars |> List.map Beam.ErlExpr.Variable)
-                        )
+                        if fieldCount = 0 then
+                            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomStr)) // bare atom
+                        else
+                            Beam.ErlExpr.Tuple(
+                                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomStr))
+                                :: (fieldVars |> List.map Beam.ErlExpr.Variable)
+                            )
 
                     {
                         Beam.ErlCaseClause.Pattern = pattern

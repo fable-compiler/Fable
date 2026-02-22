@@ -179,18 +179,17 @@ get_union_case_fields(CaseInfo) ->
 %% FSharpValue.GetUnionFields(value, typeInfo) — returns {CaseInfo, FieldValues}.
 get_union_fields_value(Value, TypeInfo) ->
     Cases = maps:get(cases, TypeInfo),
-    %% Determine the Erlang tag from the value
-    %% Determine the integer tag from the value
+    %% Determine the atom tag from the value
     Tag = if
-        erlang:is_integer(Value) -> Value;
-        erlang:is_tuple(Value) -> erlang:element(1, Value);
+        erlang:is_atom(Value) -> Value;  % bare atom (fieldless case)
+        erlang:is_tuple(Value) -> erlang:element(1, Value);  % atom tag in first position
         true -> erlang:error({not_union_value, Value})
     end,
-    %% Find matching case by integer tag
+    %% Find matching case by atom tag (erl_tag field)
     CaseInfo = find_case_by_tag(Tag, Cases),
     %% Extract field values
     Fields = if
-        erlang:is_integer(Value) -> [];
+        erlang:is_atom(Value) -> [];
         erlang:is_tuple(Value) ->
             Elems = erlang:tuple_to_list(Value),
             lists:nthtail(1, Elems);  % skip the tag
@@ -200,14 +199,14 @@ get_union_fields_value(Value, TypeInfo) ->
 
 %% FSharpValue.MakeUnion(caseInfo, values) — create union value from case info.
 make_union_value(CaseInfo, Values) ->
-    Tag = maps:get(tag, CaseInfo),
+    Tag = maps:get(erl_tag, CaseInfo),
     ValList = case is_reference(Values) of
         true -> erlang:get(Values);
         false when is_list(Values) -> Values;
         false -> Values
     end,
     case ValList of
-        [] -> Tag;
+        [] -> Tag;  % bare atom for fieldless cases
         _ -> erlang:list_to_tuple([Tag | ValList])
     end.
 
@@ -228,7 +227,7 @@ starts_with(Bin, Prefix) ->
 find_case_by_tag(_Tag, []) ->
     erlang:error(case_not_found);
 find_case_by_tag(Tag, [Case | Rest]) ->
-    case maps:get(tag, Case) of
+    case maps:get(erl_tag, Case) of
         Tag -> Case;
         _ -> find_case_by_tag(Tag, Rest)
     end.

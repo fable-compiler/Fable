@@ -129,13 +129,13 @@ scan(Collector, State, SourceEvent) ->
 split(Splitter, SourceEvent) ->
     {choose(fun(V) ->
         case Splitter(V) of
-            {0, X} -> X;
+            {choice1_of2, X} -> X;
             _ -> undefined
         end
     end, SourceEvent),
      choose(fun(V) ->
         case Splitter(V) of
-            {1, X} -> X;
+            {choice2_of2, X} -> X;
             _ -> undefined
         end
     end, SourceEvent)}.
