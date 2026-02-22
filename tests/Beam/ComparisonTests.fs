@@ -4,6 +4,25 @@ open System
 open Fable.Tests.Util
 open Util.Testing
 
+#if FABLE_COMPILER
+open Fable.Core
+open Fable.Core.BeamInterop
+
+/// Creates a raw Erlang reference that is NOT stored in the process dictionary.
+/// This is different from refs created by Fable for mutable variables or class instances.
+[<Emit("erlang:make_ref()")>]
+let makeRawRef () : obj = nativeOnly
+
+[<Emit("fable_comparison:equals($0, $1)")>]
+let fableEquals (a: obj) (b: obj) : bool = nativeOnly
+
+[<Emit("fable_comparison:compare($0, $1)")>]
+let fableCompare (a: obj) (b: obj) : int = nativeOnly
+
+[<Emit("fable_comparison:hash($0)")>]
+let fableHash (a: obj) : int = nativeOnly
+#endif
+
 type UTest = A of int | B of int
 type RTest = { a: int; b: int }
 
@@ -668,4 +687,84 @@ let ``test isNull with objects works`` () =
 //     LanguagePrimitives.PhysicalEquality r1 r2 |> equal false
 //     LanguagePrimitives.PhysicalEquality r2 r2 |> equal true
 //     LanguagePrimitives.PhysicalEquality r3 r1 |> equal true
+
+// --- Raw Erlang reference comparison tests ---
+// These test that fable_comparison correctly handles Erlang references
+// that are NOT stored in the process dictionary (i.e., not mutable vars or class instances).
+// Before the fix, all non-process-dict refs were incorrectly equal because
+// get(Ref) returned 'undefined' for both, and deep_equals(undefined, undefined) = true.
+
+[<Fact>]
+let ``test Different raw references are not equal`` () =
+#if FABLE_COMPILER
+    let ref1 = makeRawRef ()
+    let ref2 = makeRawRef ()
+    fableEquals ref1 ref2 |> equal false
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Same raw reference is equal to itself`` () =
+#if FABLE_COMPILER
+    let ref1 = makeRawRef ()
+    fableEquals ref1 ref1 |> equal true
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Different raw references are not equal with inequality`` () =
+#if FABLE_COMPILER
+    let ref1 = makeRawRef ()
+    let ref2 = makeRawRef ()
+    fableEquals ref1 ref2 |> not |> equal true
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Raw reference compare with itself returns zero`` () =
+#if FABLE_COMPILER
+    let ref1 = makeRawRef ()
+    fableCompare ref1 ref1 |> equal 0
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Different raw references compare as non-zero`` () =
+#if FABLE_COMPILER
+    let ref1 = makeRawRef ()
+    let ref2 = makeRawRef ()
+    // Different refs should not compare as equal
+    (fableCompare ref1 ref2 <> 0) |> equal true
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Raw reference hash is consistent`` () =
+#if FABLE_COMPILER
+    let ref1 = makeRawRef ()
+    let h1 = fableHash ref1
+    let h2 = fableHash ref1
+    equal h1 h2
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Different raw references have different hashes`` () =
+#if FABLE_COMPILER
+    // While hash collisions are theoretically possible, erlang:make_ref()
+    // produces unique refs so phash2 should give different values
+    let ref1 = makeRawRef ()
+    let ref2 = makeRawRef ()
+    let h1 = fableHash ref1
+    let h2 = fableHash ref2
+    notEqual h1 h2
+#else
+    ()
+#endif
 

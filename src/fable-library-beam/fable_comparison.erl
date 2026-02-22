@@ -11,7 +11,10 @@ equals(A, A) -> true;
 equals({byte_array, _, _} = A, {byte_array, _, _} = B) ->
     fable_utils:byte_array_to_list(A) =:= fable_utils:byte_array_to_list(B);
 equals(A, B) when is_reference(A), is_reference(B) ->
-    deep_equals(get(A), get(B));
+    case {get(A), get(B)} of
+        {undefined, undefined} -> A =:= B;
+        {VA, VB} -> deep_equals(VA, VB)
+    end;
 equals(A, B) when is_reference(A) ->
     deep_equals(get(A), B);
 equals(A, B) when is_reference(B) ->
@@ -28,7 +31,10 @@ deep_equals(A, A) -> true;
 deep_equals({byte_array, _, _} = A, {byte_array, _, _} = B) ->
     fable_utils:byte_array_to_list(A) =:= fable_utils:byte_array_to_list(B);
 deep_equals(A, B) when is_reference(A), is_reference(B) ->
-    deep_equals(get(A), get(B));
+    case {get(A), get(B)} of
+        {undefined, undefined} -> A =:= B;
+        {VA, VB} -> deep_equals(VA, VB)
+    end;
 deep_equals(A, B) when is_reference(A) ->
     deep_equals(get(A), B);
 deep_equals(A, B) when is_reference(B) ->
@@ -61,7 +67,11 @@ deep_equals_map(A, B) ->
 compare({byte_array, _, _} = A, {byte_array, _, _} = B) ->
     compare_list(fable_utils:byte_array_to_list(A), fable_utils:byte_array_to_list(B));
 compare(A, B) when is_reference(A), is_reference(B) ->
-    compare(get(A), get(B));
+    case {get(A), get(B)} of
+        {undefined, undefined} ->
+            if A < B -> -1; A > B -> 1; true -> 0 end;
+        {VA, VB} -> compare(VA, VB)
+    end;
 compare(A, B) when is_reference(A) ->
     compare(get(A), B);
 compare(A, B) when is_reference(B) ->
@@ -92,11 +102,19 @@ compare_tuple(A, B, I, Size) ->
 
 %% Hash that derefs refs and byte arrays before hashing.
 hash({byte_array, _, _} = V) -> erlang:phash2(fable_utils:byte_array_to_list(V));
-hash(V) when is_reference(V) -> erlang:phash2(deref_for_hash(get(V)));
+hash(V) when is_reference(V) ->
+    case get(V) of
+        undefined -> erlang:phash2(V);
+        Val -> erlang:phash2(deref_for_hash(Val))
+    end;
 hash(V) -> erlang:phash2(deref_for_hash(V)).
 
 deref_for_hash({byte_array, _, _} = V) -> fable_utils:byte_array_to_list(V);
-deref_for_hash(V) when is_reference(V) -> deref_for_hash(get(V));
+deref_for_hash(V) when is_reference(V) ->
+    case get(V) of
+        undefined -> V;
+        Val -> deref_for_hash(Val)
+    end;
 deref_for_hash(L) when is_list(L) -> lists:map(fun deref_for_hash/1, L);
 deref_for_hash(T) when is_tuple(T) ->
     list_to_tuple(lists:map(fun deref_for_hash/1, tuple_to_list(T)));
