@@ -85,7 +85,10 @@ let makeStaticLibCall com r t (i: CallInfo) moduleName memberName args =
 
 let makeStaticMemberCall com r t (i: CallInfo) moduleName memberName args =
     let fullName = i.DeclaringEntityFullName
-    let entityName = fullName.Substring(fullName.LastIndexOf(".") + 1)
+
+    let entityName =
+        fullName.Substring(fullName.LastIndexOf(".", StringComparison.Ordinal) + 1)
+
     let memberName = entityName + "::" + memberName
     makeStaticLibCall com r t i moduleName memberName args
 
@@ -152,7 +155,7 @@ let toLowerFirstWithArgsCountSuffix (args: Expr list) meth =
     let meth = Naming.lowerFirst meth
 
     if argCount > 1 then
-        meth + (string argCount)
+        meth + (string (argCount: int))
     else
         meth
 
@@ -323,7 +326,7 @@ let toSeq com t (expr: Expr) =
         Helper.LibCall(com, "Seq", "ofArray", t, [ chars ])
     | _ -> TypeCast(expr, t)
 
-let emitRawString (s: string) = $"\"{s}\"" |> emitExpr None String []
+let emitRawString (s: string) = $"\"{s:s}\"" |> emitExpr None String []
 
 let emitFormat (com: ICompiler) r t (args: Expr list) macro =
     let args =
@@ -766,7 +769,7 @@ let refCells (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 let getMemberName isStatic (i: CallInfo) =
     let memberName = i.CompiledName |> FSharp2Fable.Helpers.cleanNameAsRustIdentifier
 
-    if i.OverloadSuffix = "" then
+    if String.IsNullOrEmpty(i.OverloadSuffix) then
         memberName
     else
         let sep =
@@ -851,7 +854,7 @@ let makeRustFormatString interpolated (fmt: string) =
                 let g5 = m.Groups[5].Value
 
                 let g4 =
-                    if g4 = "" && (g5 = "f" || g5 = "F") then
+                    if String.IsNullOrEmpty(g4) && (g5 = "f" || g5 = "F") then
                         ".6"
                     else
                         g4
@@ -867,7 +870,7 @@ let makeRustFormatString interpolated (fmt: string) =
                 let argFmt =
                     let formatting = g2 + g3 + g4 + g5
 
-                    if formatting = "" then
+                    if String.IsNullOrEmpty(formatting) then
                         g1 + "{}"
                     else
                         g1 + "{:" + formatting + "}"
@@ -2524,59 +2527,60 @@ let dateTimes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | ".ctor" ->
         match args with
         | [] -> "new_empty" |> Some
-        | ExprType(Number(Int64, _)) :: [] -> "new_ticks" |> Some
-        | ExprType(Number(Int64, _)) :: _kind :: [] -> "new_ticks_kind" |> Some
-        | ExprType(DeclaredType(ent, [])) :: _timeOnly :: [] when ent.FullName = Types.dateOnly ->
-            "new_date_time" |> Some
-        | ExprType(DeclaredType(ent, [])) :: _timeOnly :: _kind :: [] when ent.FullName = Types.dateOnly ->
+        | [ ExprType(Number(Int64, _)) ] -> "new_ticks" |> Some
+        | [ ExprType(Number(Int64, _)); _kind ] -> "new_ticks_kind" |> Some
+        | [ ExprType(DeclaredType(ent, [])); _timeOnly ] when ent.FullName = Types.dateOnly -> "new_date_time" |> Some
+        | [ ExprType(DeclaredType(ent, [])); _timeOnly; _kind ] when ent.FullName = Types.dateOnly ->
             "new_date_time_kind" |> Some
-        | ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: [] ->
-            "new_ymd" |> Some
-        | ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
-                                                                                                                    _)) :: ExprType(Number(Int32,
-                                                                                                                                           _)) :: ExprType(Number(Int32,
-                                                                                                                                                                  _)) :: ExprType(Number(_,
-                                                                                                                                                                                         NumberInfo.IsEnum ent)) :: [] when
-            ent.FullName = "System.DateTimeKind"
-            ->
+        | [ ExprType(Number(Int32, _)); ExprType(Number(Int32, _)); ExprType(Number(Int32, _)) ] -> "new_ymd" |> Some
+        | [ ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(_, NumberInfo.IsEnum ent)) ] when ent.FullName = "System.DateTimeKind" ->
             "new_ymdhms_kind" |> Some
-        | ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
-                                                                                                                    _)) :: ExprType(Number(Int32,
-                                                                                                                                           _)) :: ExprType(Number(Int32,
-                                                                                                                                                                  _)) :: ExprType(Number(Int32,
-                                                                                                                                                                                         _)) :: ExprType(Number(_,
-                                                                                                                                                                                                                NumberInfo.IsEnum ent)) :: [] when
-            ent.FullName = "System.DateTimeKind"
-            ->
+        | [ ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(_, NumberInfo.IsEnum ent)) ] when ent.FullName = "System.DateTimeKind" ->
             "new_ymdhms_milli_kind" |> Some
-        | ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
-                                                                                                                    _)) :: ExprType(Number(Int32,
-                                                                                                                                           _)) :: ExprType(Number(Int32,
-                                                                                                                                                                  _)) :: ExprType(Number(Int32,
-                                                                                                                                                                                         _)) :: ExprType(Number(Int32,
-                                                                                                                                                                                                                _)) :: ExprType(Number(_,
-                                                                                                                                                                                                                                       NumberInfo.IsEnum ent)) :: [] when
-            ent.FullName = "System.DateTimeKind"
-            ->
+        | [ ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(_, NumberInfo.IsEnum ent)) ] when ent.FullName = "System.DateTimeKind" ->
             "new_ymdhms_micro_kind" |> Some
-        | ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
-                                                                                                                    _)) :: ExprType(Number(Int32,
-                                                                                                                                           _)) :: ExprType(Number(Int32,
-                                                                                                                                                                  _)) :: [] ->
-            "new_ymdhms" |> Some
-        | ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
-                                                                                                                    _)) :: ExprType(Number(Int32,
-                                                                                                                                           _)) :: ExprType(Number(Int32,
-                                                                                                                                                                  _)) :: ExprType(Number(Int32,
-                                                                                                                                                                                         _)) :: [] ->
-            "new_ymdhms_milli" |> Some
-        | ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32, _)) :: ExprType(Number(Int32,
-                                                                                                                    _)) :: ExprType(Number(Int32,
-                                                                                                                                           _)) :: ExprType(Number(Int32,
-                                                                                                                                                                  _)) :: ExprType(Number(Int32,
-                                                                                                                                                                                         _)) :: ExprType(Number(Int32,
-                                                                                                                                                                                                                _)) :: [] ->
-            "new_ymdhms_micro" |> Some
+        | [ ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _)) ] -> "new_ymdhms" |> Some
+        | [ ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _)) ] -> "new_ymdhms_milli" |> Some
+        | [ ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _))
+            ExprType(Number(Int32, _)) ] -> "new_ymdhms_micro" |> Some
         | _ -> None
         |> Option.map (fun meth -> makeStaticMemberCall com r t i "DateTime" meth args)
     | "Compare"
@@ -2597,7 +2601,7 @@ let dateTimeOffsets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: 
         match args with
         | [] -> "new_empty" |> Some
         | ExprType(Number(Int64, _)) :: _ -> "new_ticks" |> Some
-        | ExprType(DeclaredType(ent, [])) :: [] when ent.FullName = Types.datetime -> "new_datetime" |> Some
+        | [ ExprType(DeclaredType(ent, [])) ] when ent.FullName = Types.datetime -> "new_datetime" |> Some
         | ExprType(DeclaredType(ent, [])) :: _ when ent.FullName = Types.datetime -> "new_datetime2" |> Some
         | ExprType(DeclaredType(ent, [])) :: _ when ent.FullName = Types.dateOnly -> "new_date_time" |> Some
         | [ ExprType(Number(Int32, _))
@@ -2733,7 +2737,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | _ ->
             // overloads with variable argument counts
             let argCount = List.length args
-            let meth = meth + (string argCount)
+            let meth = meth + (string (argCount: int))
             makeDateOrTimeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
     | meth -> makeDateOrTimeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
 
@@ -3638,6 +3642,6 @@ let tryType typ =
         | FSharpMap(key, value) -> Some(Types.fsharpMap, maps, [ key; value ])
         | FSharpSet genArg -> Some(Types.fsharpSet, sets, [ genArg ])
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [ genArg1; genArg2 ])
-        | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
+        | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric:s}`{List.length genArgs:d}", results, genArgs)
         | FSharpReference genArg -> Some(Types.refCell, refCells, [ genArg ])
     | _ -> None

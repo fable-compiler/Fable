@@ -272,7 +272,7 @@ module Path =
 #endif
 
     let ChangeExtension (path: string, ext: string) =
-        let i = path.LastIndexOf(".")
+        let i = path.LastIndexOf(".", StringComparison.Ordinal)
 
         if i < 0 then
             path
@@ -280,7 +280,7 @@ module Path =
             path.Substring(0, i) + ext
 
     let GetExtension (path: string) =
-        let i = path.LastIndexOf(".")
+        let i = path.LastIndexOf(".", StringComparison.Ordinal)
 
         if i < 0 then
             ""
@@ -289,12 +289,12 @@ module Path =
 
     let GetFileName (path: string) =
         let normPath = normalizePath path
-        let i = normPath.LastIndexOf("/")
+        let i = normPath.LastIndexOf("/", StringComparison.Ordinal)
         normPath.Substring(i + 1)
 
     let GetFileNameWithoutExtension (path: string) =
         let filename = GetFileName path
-        let i = filename.LastIndexOf(".")
+        let i = filename.LastIndexOf(".", StringComparison.Ordinal)
 
         if i < 0 then
             filename
@@ -303,7 +303,7 @@ module Path =
 
     let GetDirectoryName (path: string) =
         let normPath = normalizePath path
-        let i = normPath.LastIndexOf("/")
+        let i = normPath.LastIndexOf("/", StringComparison.Ordinal)
 
         if i < 0 then
             ""
@@ -312,7 +312,7 @@ module Path =
 
     let GetDirectoryAndFileNames (path: string) =
         let normPath = normalizePath path
-        let i = normPath.LastIndexOf("/")
+        let i = normPath.LastIndexOf("/", StringComparison.Ordinal)
 
         if i < 0 then
             "", normPath

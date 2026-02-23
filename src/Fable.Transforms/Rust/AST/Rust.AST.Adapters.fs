@@ -205,7 +205,7 @@ type System.String with
                 | '\'' -> @"\'"
                 | '\"' -> @"\"""
                 | c when System.Char.IsControl(c) -> System.String.Format(@"\u{0}{1:x4}{2}", "{", int c, "}")
-                | c -> string c
+                | c -> string (c: char)
             )
         else
             self
@@ -225,7 +225,7 @@ type System.String with
                 | '\'' -> @"\'"
                 | '\"' -> @"\"""
                 | c when c < '\x20' || c > '\x7e' -> System.String.Format(@"\u{0}{1:x4}{2}", "{", int c, "}")
-                | c -> string c
+                | c -> string (c: char)
             )
         else
             self

@@ -178,7 +178,7 @@ module Util =
             match transformAndCaptureExpr com ctx entRef with
             | [], IdentExpression ident -> Some ident
             | _ ->
-                addError com [] None $"Unexpected, entity ref for {ent.FullName} is not an identifier"
+                addError com [] None $"Unexpected, entity ref for {ent.FullName:s} is not an identifier"
 
                 None
         )
@@ -1953,17 +1953,17 @@ module Util =
             match transformCallArgs com ctx (CallInfo info) with
             | [], args -> args
             | _, args ->
-                $"Rewrite base arguments for {classDecl.Entity.FullName} so they can be compiled as Dart expressions"
+                $"Rewrite base arguments for {classDecl.Entity.FullName:s} so they can be compiled as Dart expressions"
                 |> addWarning com [] e.Range
 
                 args
         | Some(Fable.Value _ as e) ->
-            $"Ignoring base call for {classDecl.Entity.FullName}"
+            $"Ignoring base call for {classDecl.Entity.FullName:s}"
             |> addWarning com [] e.Range
 
             []
         | Some e ->
-            $"Unexpected base call for {classDecl.Entity.FullName}"
+            $"Unexpected base call for {classDecl.Entity.FullName:s}"
             |> addError com [] e.Range
 
             []
@@ -2309,7 +2309,7 @@ module Util =
                 let name =
                     match p.Name with
                     | Some name -> name
-                    | None -> $"arg{i}$"
+                    | None -> $"arg{i:d}$"
 
                 let t = transformType com ctx p.Type
                 FunctionArg(makeImmutableIdent t name) // TODO, isOptional=p.IsOptional, isNamed=p.IsNamed)
@@ -2384,7 +2384,7 @@ module Util =
         =
         match implementsIterable, baseType with
         | Some iterable, Some _ ->
-            $"Types implementing IEnumerable cannot inherit from another class: {classEnt.FullName}"
+            $"Types implementing IEnumerable cannot inherit from another class: {classEnt.FullName:s}"
             |> addError com [] None
 
             Some iterable

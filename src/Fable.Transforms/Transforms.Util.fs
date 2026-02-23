@@ -1257,7 +1257,7 @@ module AST =
             | [] -> ""
             | head :: tail ->
                 ((head, List.length args), tail)
-                ||> List.fold (fun (macro, pos) part -> $"{macro}$%i{pos}{part}", pos + 1)
+                ||> List.fold (fun (macro, pos) part -> $"{macro:s}$%i{pos}{part:s}", pos + 1)
                 |> fst
 
         emit r t (args @ templateValues) isStatement macro
@@ -1505,7 +1505,7 @@ module AST =
 
                 let genArgsLength = List.length genArgs
                 let genArgs = String.concat "," genArgs
-                $"System.{isStruct}Tuple`{genArgsLength}[{genArgs}]"
+                $"System.{isStruct:s}Tuple`{genArgsLength:d}[{genArgs:s}]"
         | Array(gen, _kind) -> // TODO: Check kind
             (getTypeFullName prettify gen) + "[]"
 
@@ -1513,9 +1513,9 @@ module AST =
             let gen = getTypeFullName prettify gen
 
             if isStruct then
-                $"System.Nullable<{gen}>"
+                $"System.Nullable<{gen:s}>"
             else
-                $"{gen} | null"
+                $"{gen:s} | null"
 
         | Option(gen, isStruct) ->
             let gen = getTypeFullName prettify gen

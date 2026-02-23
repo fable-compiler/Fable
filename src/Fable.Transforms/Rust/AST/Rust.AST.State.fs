@@ -273,7 +273,7 @@ let print_emit_expr self value (args: Vec<_>, printArgs) =
                 let i = int m.Groups[1].Value
 
                 for j = i to args.Length - 1 do
-                    rep.Add("$" + string j)
+                    rep.Add("$" + string (j: int))
 
                 String.concat ", " rep
             )

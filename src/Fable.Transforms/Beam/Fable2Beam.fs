@@ -1162,7 +1162,7 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
             else
                 adjusted
 
-        Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string value))
+        Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<System.Numerics.BigInteger> value))
 
     | NewRecord(values, ref, _genArgs) ->
         match com.TryGetEntity(ref) with

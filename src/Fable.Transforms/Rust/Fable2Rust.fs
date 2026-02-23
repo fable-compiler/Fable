@@ -1935,7 +1935,7 @@ module Util =
         sb.Append(List.head parts) |> ignore
 
         List.tail parts
-        |> List.iteri (fun i part -> sb.Append($"{{{i}}}" + part) |> ignore)
+        |> List.iteri (fun i part -> sb.Append($"{{{i:d}}}" + part) |> ignore)
 
         sb.ToString()
 
@@ -2576,7 +2576,7 @@ module Util =
             match fableExpr with
             | Fable.IdentExpr ident when isArmScoped ctx ident.Name ->
                 // if arm scoped, just output the ident value
-                let name = $"{ident.Name}_{0}_{0}"
+                let name = $"{ident.Name:s}_{0:d}_{0:d}"
                 mkGenericPathExpr [ name ] None
             | _ ->
                 // libCall com ctx range [] "Option" "getValue" [ fableExpr ]
@@ -2592,7 +2592,7 @@ module Util =
             match fableExpr with
             | Fable.IdentExpr ident when isArmScoped ctx ident.Name ->
                 // if ident is match arm scoped, just output the ident value
-                let name = $"{ident.Name}_{info.CaseIndex}_{info.FieldIndex}"
+                let name = $"{ident.Name:s}_{info.CaseIndex:d}_{info.FieldIndex:d}"
                 mkGenericPathExpr [ name ] None
             | _ ->
                 // Compile as: "match opt { MyUnion::Case(x, _) => x.clone() }"
@@ -2966,7 +2966,7 @@ module Util =
                 | 0 ->
                     match nameOpt with
                     | Some identName ->
-                        let fieldName = $"{identName}_{caseIndex}_{0}"
+                        let fieldName = $"{identName:s}_{caseIndex:d}_{0:d}"
                         [ makeFullNameIdentPat fieldName ]
                     | _ -> [ WILD_PAT ]
                 | _ -> []
@@ -2989,7 +2989,7 @@ module Util =
                     | Some identName ->
                         unionCase.UnionCaseFields
                         |> List.mapi (fun i _field ->
-                            let fieldName = $"{identName}_{caseIndex}_{i}"
+                            let fieldName = $"{identName:s}_{caseIndex:d}_{i:d}"
                             makeFullNameIdentPat fieldName
                         )
                     | _ -> unionCase.UnionCaseFields |> List.map (fun _field -> WILD_PAT)
@@ -3044,7 +3044,7 @@ module Util =
             | Fable.Option(genArg, _) ->
                 match evalName with
                 | Some idName ->
-                    let fieldName = $"{idName}_{caseIndex}_{0}"
+                    let fieldName = $"{idName:s}_{caseIndex:d}_{0:d}"
                     [ (fieldName, idName, genArg) ]
                 | _ -> []
             | Fable.DeclaredType(entRef, genArgs) ->
@@ -3057,7 +3057,7 @@ module Util =
                     | Some idName ->
                         unionCase.UnionCaseFields
                         |> List.mapi (fun i field ->
-                            let fieldName = $"{idName}_{caseIndex}_{i}"
+                            let fieldName = $"{idName:s}_{caseIndex:d}_{i:d}"
                             let fieldType = FableTransforms.uncurryType field.FieldType
                             (fieldName, idName, fieldType)
                         )
@@ -3587,8 +3587,8 @@ module Util =
 
             let strBody =
                 [
-                    $"let args = std::env::args().skip(1).map({asStr}).collect()"
-                    $"{mainName}({asArr}(args))"
+                    $"let args = std::env::args().skip(1).map({asStr:s}).collect()"
+                    $"{mainName:s}({asArr:s}(args))"
                 ]
 
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
@@ -4584,7 +4584,7 @@ module Util =
                 memb.CurriedParameterGroups
                 |> List.collect id
                 |> List.mapi (fun i p ->
-                    let name = defaultArg p.Name $"arg{i}"
+                    let name = defaultArg p.Name $"arg{i:d}"
                     let typ = FableTransforms.uncurryType p.Type
                     makeTypedIdent typ name
                 )
@@ -5329,9 +5329,9 @@ module Compiler =
                         import
 
                 if isMacro then
-                    $"{import.LocalIdent}!"
+                    $"{import.LocalIdent:s}!"
                 else
-                    $"{import.LocalIdent}"
+                    $"{import.LocalIdent:s}"
 
             member _.GetAllImports(ctx) =
                 imports.Values

@@ -1648,7 +1648,7 @@ let private applyJsPyDecorators
             let parameters =
                 memb.CurriedParameterGroups
                 |> Seq.collect id
-                |> Seq.mapi (fun i p -> defaultArg p.Name $"arg{i}", makeType Map.empty p.Type)
+                |> Seq.mapi (fun i p -> defaultArg p.Name $"arg{i:d}", makeType Map.empty p.Type)
                 |> Seq.toList
 
             Replacements.Api.makeMethodInfo com None name parameters returnType
@@ -2614,7 +2614,7 @@ type FableCompiler(com: Compiler) =
         |> List.filter (fun (i, v) ->
             if ctx.CapturedBindings.Contains(i.Name) && canHaveSideEffects com v then
                 if isIdentUsed i.Name resolved then
-                    $"Inlined argument {i.Name} is being captured but is also used somewhere else. "
+                    $"Inlined argument {i.Name:s} is being captured but is also used somewhere else. "
                     + "There's a risk of double evaluation."
                     |> addWarning com [] i.Range
 

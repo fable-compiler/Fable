@@ -60,7 +60,7 @@ let rec private getTypeFastFullName (genParams: IDictionary<_, _>) (t: Fable.Typ
         let typeName = getTypeFastFullName genParams genArg
 
         if isStruct then
-            $"System.Nullable<{typeName}>"
+            $"System.Nullable<{typeName:s}>"
         else
             // there is no overload distinction for nullable reference types,
             // so the name and overload suffix are the same as the inner type
@@ -130,7 +130,7 @@ let rec private getTypeFastFullName (genParams: IDictionary<_, _>) (t: Fable.Typ
             let genArgs = String.concat "," genArgs
 
             let genArgs =
-                if genArgs = "" then
+                if System.String.IsNullOrEmpty(genArgs) then
                     ""
                 else
                     "[" + genArgs + "]"

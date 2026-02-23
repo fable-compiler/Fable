@@ -1925,7 +1925,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
             let value = value |> Option.defaultWith (fun () -> getZero com ctx t2)
             Helper.LibCall(com, "array", "create", t, [ size; value ])
         | _ ->
-            $"Expecting an array type but got {t}"
+            $"Expecting an array type but got %A{t}"
             |> addErrorAndReturnNull com ctx.InlinePath r
 
     match i.CompiledName, args with
@@ -3210,7 +3210,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         match thisArg, args with
         | Some thisArg, args ->
             if args.Length > 2 then
-                $"Regex.{meth} doesn't support more than 2 arguments"
+                $"Regex.{meth:s} doesn't support more than 2 arguments"
                 |> addError com ctx.InlinePath r
 
             thisArg :: args |> Some
@@ -4017,7 +4017,7 @@ let tryType typ =
         | FSharpMap(key, value) -> Some(Types.fsharpMap, maps, [ key; value ])
         | FSharpSet genArg -> Some(Types.fsharpSet, sets, [ genArg ])
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [ genArg1; genArg2 ])
-        | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
+        | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric:s}`{List.length genArgs:d}", results, genArgs)
         | FSharpReference genArg -> Some(Types.refCell, refCells, [ genArg ])
         | BclDateOnly
         | BclTimeOnly -> None

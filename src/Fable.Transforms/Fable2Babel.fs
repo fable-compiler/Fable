@@ -743,10 +743,10 @@ module Annotation =
         | Replacements.Util.FSharpMap(key, value) ->
             makeFableLibImportTypeAnnotation com ctx [ key; value ] "Map" "FSharpMap"
         | Replacements.Util.FSharpResult(ok, err) ->
-            $"FSharpResult$2{Util.UnionHelpers.UNION_SUFFIX}"
+            $"FSharpResult$2{Util.UnionHelpers.UNION_SUFFIX:s}"
             |> makeFableLibImportTypeAnnotation com ctx [ ok; err ] "Result"
         | Replacements.Util.FSharpChoice genArgs ->
-            $"FSharpChoice${List.length genArgs}{Util.UnionHelpers.UNION_SUFFIX}"
+            $"FSharpChoice${List.length genArgs:d}{Util.UnionHelpers.UNION_SUFFIX:s}"
             |> makeFableLibImportTypeAnnotation com ctx genArgs "Choice"
         | Replacements.Util.FSharpReference genArg ->
             if isInRefOrAnyType com typ then
@@ -761,7 +761,7 @@ module Annotation =
             | _ -> argTypes
             |> List.mapi (fun i argType ->
                 FunctionTypeParam.functionTypeParam (
-                    Identifier.identifier ($"arg{i}"),
+                    Identifier.identifier ($"arg{i:d}"),
                     makeTypeAnnotation com ctx argType
                 )
             )
@@ -1022,7 +1022,7 @@ module Util =
                         if selector.StartsWith("*", StringComparison.Ordinal) then
                             selector
                         else
-                            $"default as {selector}"
+                            $"default as {selector:s}"
 
                     com.GetImportExpr(ctx, selector, path, r, noMangle = true) |> ignore
 
@@ -1402,7 +1402,7 @@ module Util =
             |> List.map (fun (a, p) ->
                 match p.Name with
                 | Some name when p.IsNamed && a.Name <> name ->
-                    $"Argument {name} is marked as named but conflicts with another name in scope"
+                    $"Argument {name:s} is marked as named but conflicts with another name in scope"
                     |> addWarning com [] a.Range
                 | _ -> ()
 
@@ -1612,7 +1612,7 @@ module Util =
                         Expression.callExpression (helperRef, values, typeArguments = typeParams)
                     | None -> callConstructor (Some case)
                 | None ->
-                    $"Unmatched union case tag: {tag} for {ent.FullName}" |> addWarning com [] r
+                    $"Unmatched union case tag: {tag:d} for {ent.FullName:s}" |> addWarning com [] r
 
                     callConstructor None
             else
@@ -2600,7 +2600,8 @@ but thanks to the optimisation done below we get
                 match List.tryItem tag ent.UnionCases with
                 | Some case -> Some case.Name
                 | None ->
-                    $"Unmatched union case tag: {tag} for {ent.FullName}" |> addWarning com [] range
+                    $"Unmatched union case tag: {tag:d} for {ent.FullName:s}"
+                    |> addWarning com [] range
 
                     None
             | _ -> None
@@ -4047,7 +4048,7 @@ but thanks to the optimisation done below we get
                 "Unable to find a valid constructor for generating interface via ParamObject, please make sure the constructor has at least one parameter."
 
             []
-        | members :: [] ->
+        | [ members ] ->
             Declaration.interfaceDeclaration (
                 Identifier.identifier decl.Name,
                 members,
@@ -4082,7 +4083,7 @@ but thanks to the optimisation done below we get
 
         let genericSuffix =
             if ent.GenericParameters.Length > 0 then
-                $"`{ent.GenericParameters.Length}"
+                $"`{ent.GenericParameters.Length:d}"
             else
                 ""
 
@@ -4565,7 +4566,7 @@ but thanks to the optimisation done below we get
                     let noConflict = ctx.UsedNames.RootScope.Add(alias)
 
                     if not noConflict then
-                        com.WarnOnlyOnce($"Import {alias} conflicts with existing identifier in root scope")
+                        com.WarnOnlyOnce($"Import {alias:s} conflicts with existing identifier in root scope")
 
                     alias
                 else

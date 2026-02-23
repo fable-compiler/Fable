@@ -237,11 +237,11 @@ module Naming =
             name
 
     let private printPart sanitize separator part overloadSuffix =
-        (if part = "" then
+        (if String.IsNullOrEmpty(part) then
              ""
          else
              separator + (sanitize part))
-        + (if overloadSuffix = "" then
+        + (if String.IsNullOrEmpty(overloadSuffix) then
                ""
            else
                "_" + overloadSuffix)

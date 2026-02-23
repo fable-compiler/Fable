@@ -1016,7 +1016,7 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
             // convert calls on Array object by string key.
             // in Php $a['Hello'] is equivalent to $a->Hello, we choose this representation.
 
-            let meth = m.Substring(m.LastIndexOf(".") + 1)
+            let meth = m.Substring(m.LastIndexOf(".", StringComparison.Ordinal) + 1)
 
             PhpMethodCall(convertExpr com target, PhpIdent(unscopedIdent meth), convertArgs com (args))
 

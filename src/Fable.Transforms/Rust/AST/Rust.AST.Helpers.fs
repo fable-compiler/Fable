@@ -20,13 +20,17 @@ module Naming =
     let rustPrelude = HashSet(kw.RustPrelude)
 
     let rawIdent (ident: string) =
-        if ident = "" || ident = "_" || ident.StartsWith("r#") then
+        if
+            System.String.IsNullOrEmpty(ident)
+            || ident = "_"
+            || ident.StartsWith("r#", System.StringComparison.Ordinal)
+        then
             ident
         else
             "r#" + ident
 
     let stripRaw (ident: string) =
-        if ident.StartsWith("r#") then
+        if ident.StartsWith("r#", System.StringComparison.Ordinal) then
             ident.Substring("r#".Length)
         else
             ident
@@ -191,14 +195,14 @@ module Literals =
 
     let mkBoolLit (value: bool) : Lit =
         {
-            token = mkBoolTokenLit ((string value).ToLowerInvariant())
+            token = mkBoolTokenLit ((string (value: bool)).ToLowerInvariant())
             kind = LitKind.Bool(value)
             span = DUMMY_SP
         }
 
     let mkCharLit (value: char) : Lit =
         {
-            token = mkCharTokenLit ((string value).escape_debug ())
+            token = mkCharTokenLit ((string (value: char)).escape_debug ())
             kind = LitKind.Char(value)
             span = DUMMY_SP
         }
@@ -882,7 +886,10 @@ module Exprs =
     let mkEmitExpr (value: string) args : Expr =
         let value =
             // if value starts and ends with ", escape inside the quotes
-            if value.StartsWith("\"") && value.EndsWith("\"") then
+            if
+                value.StartsWith("\"", System.StringComparison.Ordinal)
+                && value.EndsWith("\"", System.StringComparison.Ordinal)
+            then
                 "\"" + value[1 .. (value.Length - 2)].escape_debug () + "\""
             else
                 value

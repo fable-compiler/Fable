@@ -651,7 +651,7 @@ module Helpers =
 
         let join sep s o =
             (f s)
-            + (if o = "" then
+            + (if String.IsNullOrEmpty(o) then
                    ""
                else
                    sep + o)
@@ -1123,7 +1123,7 @@ module Patterns =
                 memb.IsPropertyGetterMethod
                 && not memb.IsDispatchSlot
                 && not memb.IsOverrideOrExplicitInterfaceImplementation
-                && memb.LogicalName.StartsWith("get_Is")
+                && memb.LogicalName.StartsWith("get_Is", StringComparison.Ordinal)
             then
                 let unionCaseName = memb.LogicalName |> Naming.replacePrefix "get_Is" ""
                 ent.UnionCases |> Seq.tryFind (fun uc -> uc.Name = unionCaseName)
@@ -2530,7 +2530,7 @@ module Util =
     let failReplace (com: IFableCompiler) ctx r (info: Fable.ReplaceCallInfo) (thisArg: Fable.Expr option) =
         let msg =
             if info.DeclaringEntityFullName.StartsWith("Fable.Core.", StringComparison.Ordinal) then
-                $"{info.DeclaringEntityFullName}.{info.CompiledName} is not supported, try updating fable tool"
+                $"{info.DeclaringEntityFullName:s}.{info.CompiledName:s} is not supported, try updating fable tool"
             else
                 com.WarnOnlyOnce(
                     "Fable only supports a subset of standard .NET API, please check https://fable.io/docs/dotnet/compatibility.html. For external libraries, check whether they are Fable-compatible in the package docs."
