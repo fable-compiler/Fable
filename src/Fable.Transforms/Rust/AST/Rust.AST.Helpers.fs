@@ -195,14 +195,14 @@ module Literals =
 
     let mkBoolLit (value: bool) : Lit =
         {
-            token = mkBoolTokenLit ((string (value: bool)).ToLowerInvariant())
+            token = mkBoolTokenLit ((string<bool> value).ToLowerInvariant())
             kind = LitKind.Bool(value)
             span = DUMMY_SP
         }
 
     let mkCharLit (value: char) : Lit =
         {
-            token = mkCharTokenLit ((string (value: char)).escape_debug ())
+            token = mkCharTokenLit ((string<char> value).escape_debug ())
             kind = LitKind.Char(value)
             span = DUMMY_SP
         }

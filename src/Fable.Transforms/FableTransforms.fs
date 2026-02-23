@@ -567,7 +567,7 @@ module private Transforms =
                 match expr with
                 | IdentExpr _ -> None, expr
                 | arg ->
-                    let ident = makeTypedIdent argType $"anonRec{com.IncrementCounter():d}"
+                    let ident = makeTypedIdent argType $"anonRec{com.IncrementCounter()}"
 
                     Some(ident, arg), IdentExpr ident
 

@@ -155,7 +155,7 @@ let toLowerFirstWithArgsCountSuffix (args: Expr list) meth =
     let meth = Naming.lowerFirst meth
 
     if argCount > 1 then
-        meth + (string (argCount: int))
+        meth + (string<int> argCount)
     else
         meth
 
@@ -326,7 +326,7 @@ let toSeq com t (expr: Expr) =
         Helper.LibCall(com, "Seq", "ofArray", t, [ chars ])
     | _ -> TypeCast(expr, t)
 
-let emitRawString (s: string) = $"\"{s:s}\"" |> emitExpr None String []
+let emitRawString (s: string) = $"\"{s}\"" |> emitExpr None String []
 
 let emitFormat (com: ICompiler) r t (args: Expr list) macro =
     let args =
@@ -2737,7 +2737,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | _ ->
             // overloads with variable argument counts
             let argCount = List.length args
-            let meth = meth + (string (argCount: int))
+            let meth = meth + (string<int> argCount)
             makeDateOrTimeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
     | meth -> makeDateOrTimeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
 
@@ -3642,6 +3642,6 @@ let tryType typ =
         | FSharpMap(key, value) -> Some(Types.fsharpMap, maps, [ key; value ])
         | FSharpSet genArg -> Some(Types.fsharpSet, sets, [ genArg ])
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [ genArg1; genArg2 ])
-        | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric:s}`{List.length genArgs:d}", results, genArgs)
+        | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
         | FSharpReference genArg -> Some(Types.refCell, refCells, [ genArg ])
     | _ -> None

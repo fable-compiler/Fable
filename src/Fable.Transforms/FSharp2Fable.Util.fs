@@ -2530,7 +2530,7 @@ module Util =
     let failReplace (com: IFableCompiler) ctx r (info: Fable.ReplaceCallInfo) (thisArg: Fable.Expr option) =
         let msg =
             if info.DeclaringEntityFullName.StartsWith("Fable.Core.", StringComparison.Ordinal) then
-                $"{info.DeclaringEntityFullName:s}.{info.CompiledName:s} is not supported, try updating fable tool"
+                $"{info.DeclaringEntityFullName}.{info.CompiledName} is not supported, try updating fable tool"
             else
                 com.WarnOnlyOnce(
                     "Fable only supports a subset of standard .NET API, please check https://fable.io/docs/dotnet/compatibility.html. For external libraries, check whether they are Fable-compatible in the package docs."
