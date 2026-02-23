@@ -1,8 +1,23 @@
 -module(fable_result).
--export([map/2, map_error/2, bind/2, is_ok/1, is_error/1,
-         contains/2, count/1, default_value/2, default_with/2,
-         exists/2, fold/3, fold_back/3, forall/2, iter/2,
-         to_array/1, to_list/1, to_option/1]).
+-export([
+    map/2,
+    map_error/2,
+    bind/2,
+    is_ok/1,
+    is_error/1,
+    contains/2,
+    count/1,
+    default_value/2,
+    default_with/2,
+    exists/2,
+    fold/3,
+    fold_back/3,
+    forall/2,
+    iter/2,
+    to_array/1,
+    to_list/1,
+    to_option/1
+]).
 
 -type result() :: {ok, term()} | {error, term()}.
 
@@ -69,8 +84,11 @@ fold_back(_Fn, _, State) -> State.
 forall(Fn, {ok, V}) -> Fn(V);
 forall(_Fn, _) -> true.
 
-iter(Fn, {ok, V}) -> Fn(V), ok;
-iter(_Fn, _) -> ok.
+iter(Fn, {ok, V}) ->
+    Fn(V),
+    ok;
+iter(_Fn, _) ->
+    ok.
 
 to_array({ok, V}) -> [V];
 to_array(_) -> [].

@@ -1,10 +1,17 @@
 -module(fable_queue).
 -export([
-    create_empty/0, create_from_list/1,
-    enqueue/2, dequeue/1, try_dequeue/1, try_dequeue/2,
-    peek/1, try_peek/1, try_peek/2,
-    contains/2, get_count/1, clear/1,
-    to_array/1, trim_excess/1,
+    create_empty/0,
+    create_from_list/1,
+    enqueue/2,
+    dequeue/1,
+    try_dequeue/1, try_dequeue/2,
+    peek/1,
+    try_peek/1, try_peek/2,
+    contains/2,
+    get_count/1,
+    clear/1,
+    to_array/1,
+    trim_excess/1,
     get_enumerator/1
 ]).
 

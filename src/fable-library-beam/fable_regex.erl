@@ -7,9 +7,16 @@
     replace/3, replace/4, replace/5,
     replace_evaluator/3, replace_evaluator/4, replace_evaluator/5,
     split/2, split/3, split/4,
-    escape/1, unescape/1,
-    get_value/1, get_index/1, get_length/1, get_success/1,
-    get_groups/1, get_item/2, get_count/1, get_options/1
+    escape/1,
+    unescape/1,
+    get_value/1,
+    get_index/1,
+    get_length/1,
+    get_success/1,
+    get_groups/1,
+    get_item/2,
+    get_count/1,
+    get_options/1
 ]).
 
 -spec create(binary()) -> map().
@@ -215,10 +222,11 @@ replace_impl(Input, #{compiled := MP}, Replacement, Count, Offset) ->
     ByteOffset = byte_offset(Input, Offset),
     ErlReplacement = convert_replacement(Replacement),
     Opts = [{offset, ByteOffset}, {return, binary}],
-    Opts2 = case Count of
-        0 -> [global | Opts];
-        _ -> Opts
-    end,
+    Opts2 =
+        case Count of
+            0 -> [global | Opts];
+            _ -> Opts
+        end,
     case Count > 1 of
         true ->
             %% re:replace doesn't support count > 1 directly, do it manually
@@ -274,24 +282,30 @@ replace_evaluator(Regex, Input, Evaluator, Count, Offset) ->
 
 replace_evaluator_impl(Input, #{compiled := MP} = Regex, Evaluator, Count, Offset) ->
     ByteOffset = byte_offset(Input, Offset),
-    AllMatches = case re:run(Input, MP, [global, {offset, ByteOffset}, {capture, all, index}]) of
-        {match, Ms} -> Ms;
-        nomatch -> []
-    end,
-    MatchesToProcess = case Count of
-        0 -> AllMatches;
-        _ -> lists:sublist(AllMatches, Count)
-    end,
+    AllMatches =
+        case re:run(Input, MP, [global, {offset, ByteOffset}, {capture, all, index}]) of
+            {match, Ms} -> Ms;
+            nomatch -> []
+        end,
+    MatchesToProcess =
+        case Count of
+            0 -> AllMatches;
+            _ -> lists:sublist(AllMatches, Count)
+        end,
     %% Process matches from right to left to preserve indices
     Sorted = lists:reverse(MatchesToProcess),
-    lists:foldl(fun(Captured, Acc) ->
-        M = build_match(Acc, Captured, Regex),
-        ReplacementText = Evaluator(M),
-        [{MatchStart, MatchLen} | _] = Captured,
-        Before = binary:part(Acc, 0, MatchStart),
-        After = binary:part(Acc, MatchStart + MatchLen, byte_size(Acc) - MatchStart - MatchLen),
-        <<Before/binary, ReplacementText/binary, After/binary>>
-    end, Input, Sorted).
+    lists:foldl(
+        fun(Captured, Acc) ->
+            M = build_match(Acc, Captured, Regex),
+            ReplacementText = Evaluator(M),
+            [{MatchStart, MatchLen} | _] = Captured,
+            Before = binary:part(Acc, 0, MatchStart),
+            After = binary:part(Acc, MatchStart + MatchLen, byte_size(Acc) - MatchStart - MatchLen),
+            <<Before/binary, ReplacementText/binary, After/binary>>
+        end,
+        Input,
+        Sorted
+    ).
 
 %% --- Split ---
 
@@ -328,21 +342,25 @@ split(Regex, Input, Count, Offset) ->
 
 split_impl(Input, #{compiled := MP}, Count, Offset) ->
     ByteOffset = byte_offset(Input, Offset),
-    InputPart = case ByteOffset of
-        0 -> Input;
-        _ -> binary:part(Input, ByteOffset, byte_size(Input) - ByteOffset)
-    end,
-    Prefix = case ByteOffset of
-        0 -> <<>>;
-        _ -> binary:part(Input, 0, ByteOffset)
-    end,
+    InputPart =
+        case ByteOffset of
+            0 -> Input;
+            _ -> binary:part(Input, ByteOffset, byte_size(Input) - ByteOffset)
+        end,
+    Prefix =
+        case ByteOffset of
+            0 -> <<>>;
+            _ -> binary:part(Input, 0, ByteOffset)
+        end,
     Parts = re:split(InputPart, MP, [{return, binary}]),
-    Result = case Prefix of
-        <<>> -> Parts;
-        _ -> [<<Prefix/binary, (hd(Parts))/binary>> | tl(Parts)]
-    end,
+    Result =
+        case Prefix of
+            <<>> -> Parts;
+            _ -> [<<Prefix/binary, (hd(Parts))/binary>> | tl(Parts)]
+        end,
     case Count of
-        0 -> Result;
+        0 ->
+            Result;
         _ ->
             %% .NET Regex.Split(input, count) performs at most count-1 splits.
             %% We can't just join remainder since delimiters are lost. Instead,
@@ -352,7 +370,8 @@ split_impl(Input, #{compiled := MP}, Count, Offset) ->
 
 split_with_count(Input, MP, Count, Prefix) ->
     case re:run(Input, MP, [global, {capture, first, index}]) of
-        nomatch -> [Input];
+        nomatch ->
+            [Input];
         {match, AllMatches} ->
             MaxSplits = Count - 1,
             Matches = lists:sublist(AllMatches, MaxSplits),
@@ -368,11 +387,12 @@ split_at_positions(Input, [], Pos, Prefix) ->
     end;
 split_at_positions(Input, [[{Start, Len}] | Rest], Pos, Prefix) ->
     Part = binary:part(Input, Pos, Start - Pos),
-    PartWithPrefix = case Prefix of
-        <<>> -> Part;
-        _ when Pos =:= 0 -> <<Prefix/binary, Part/binary>>;
-        _ -> Part
-    end,
+    PartWithPrefix =
+        case Prefix of
+            <<>> -> Part;
+            _ when Pos =:= 0 -> <<Prefix/binary, Part/binary>>;
+            _ -> Part
+        end,
     [PartWithPrefix | split_at_positions(Input, Rest, Start + Len, <<>>)].
 
 %% --- Escape / Unescape ---
@@ -380,7 +400,8 @@ split_at_positions(Input, [[{Start, Len}] | Rest], Pos, Prefix) ->
 escape(Str) ->
     escape_chars(Str, <<>>).
 
-escape_chars(<<>>, Acc) -> Acc;
+escape_chars(<<>>, Acc) ->
+    Acc;
 escape_chars(<<C/utf8, Rest/binary>>, Acc) ->
     case is_special_char(C) of
         true -> escape_chars(Rest, <<Acc/binary, $\\, C/utf8>>);
@@ -394,10 +415,8 @@ unescape(Str) ->
     unescape_chars(Str, <<>>).
 
 unescape_chars(<<>>, Acc) -> Acc;
-unescape_chars(<<$\\, C/utf8, Rest/binary>>, Acc) ->
-    unescape_chars(Rest, <<Acc/binary, C/utf8>>);
-unescape_chars(<<C/utf8, Rest/binary>>, Acc) ->
-    unescape_chars(Rest, <<Acc/binary, C/utf8>>).
+unescape_chars(<<$\\, C/utf8, Rest/binary>>, Acc) -> unescape_chars(Rest, <<Acc/binary, C/utf8>>);
+unescape_chars(<<C/utf8, Rest/binary>>, Acc) -> unescape_chars(Rest, <<Acc/binary, C/utf8>>).
 
 %% --- Property accessors ---
 
@@ -408,7 +427,8 @@ get_success(#{success := S}) -> S.
 
 get_groups(#{groups := G, group_names := Names}) when map_size(Names) > 0 ->
     {group_collection, G, Names};
-get_groups(#{groups := G}) -> G.
+get_groups(#{groups := G}) ->
+    G.
 
 get_item({group_collection, Items, Names}, Index) when is_binary(Index) ->
     %% String-based group access: m.Groups.["name"]
@@ -432,9 +452,24 @@ get_options(#{options := O}) -> O.
 
 options_to_erl(Options) when is_integer(Options) ->
     Flags = [],
-    F1 = case Options band 1 of 1 -> [caseless | Flags]; _ -> Flags end,     %% IgnoreCase
-    F2 = case Options band 2 of 2 -> [multiline | F1]; _ -> F1 end,          %% Multiline
-    F3 = case Options band 16 of 16 -> [dotall | F2]; _ -> F2 end,           %% Singleline
+    %% IgnoreCase
+    F1 =
+        case Options band 1 of
+            1 -> [caseless | Flags];
+            _ -> Flags
+        end,
+    %% Multiline
+    F2 =
+        case Options band 2 of
+            2 -> [multiline | F1];
+            _ -> F1
+        end,
+    %% Singleline
+    F3 =
+        case Options band 16 of
+            16 -> [dotall | F2];
+            _ -> F2
+        end,
     F3.
 
 byte_offset(_Input, CharOffset) when CharOffset =< 0 -> 0;
@@ -442,12 +477,14 @@ byte_offset(Input, CharOffset) ->
     %% Convert character offset to byte offset for UTF-8 binaries
     byte_offset_impl(Input, CharOffset, 0).
 
-byte_offset_impl(_Input, 0, BytePos) -> BytePos;
+byte_offset_impl(_Input, 0, BytePos) ->
+    BytePos;
 byte_offset_impl(Input, CharsLeft, BytePos) when BytePos < byte_size(Input) ->
     <<_:BytePos/binary, C/utf8, _/binary>> = Input,
     CharBytes = char_byte_size(C),
     byte_offset_impl(Input, CharsLeft - 1, BytePos + CharBytes);
-byte_offset_impl(_Input, _CharsLeft, BytePos) -> BytePos.
+byte_offset_impl(_Input, _CharsLeft, BytePos) ->
+    BytePos.
 
 char_byte_size(C) when C < 16#80 -> 1;
 char_byte_size(C) when C < 16#800 -> 2;
@@ -459,10 +496,11 @@ count_groups(#{pattern := Pattern}) ->
 
 build_match(Input, Captured, Regex) ->
     [{MatchStart, MatchLen} | GroupCaptures] = Captured,
-    MatchValue = case MatchLen of
-        0 -> <<>>;
-        _ -> binary:part(Input, MatchStart, MatchLen)
-    end,
+    MatchValue =
+        case MatchLen of
+            0 -> <<>>;
+            _ -> binary:part(Input, MatchStart, MatchLen)
+        end,
     %% Character index (not byte index)
     CharIndex = char_index(Input, MatchStart),
     CharLength = string:length(MatchValue),
@@ -475,31 +513,45 @@ build_match(Input, Captured, Regex) ->
     Groups = [Group0 | PaddedGroups],
     %% Extract named group name-to-index mapping from compiled pattern
     GroupNames = extract_group_names(Regex),
-    #{success => true, value => MatchValue, index => CharIndex, length => CharLength,
-      groups => Groups, group_names => GroupNames, input => Input}.
+    #{
+        success => true,
+        value => MatchValue,
+        index => CharIndex,
+        length => CharLength,
+        groups => Groups,
+        group_names => GroupNames,
+        input => Input
+    }.
 
-build_groups(_Input, []) -> [];
+build_groups(_Input, []) ->
+    [];
 build_groups(Input, [{-1, 0} | Rest]) ->
     [#{success => false, value => <<>>, index => -1, length => 0} | build_groups(Input, Rest)];
 build_groups(Input, [{Start, Len} | Rest]) ->
-    Value = case Len of
-        0 -> <<>>;
-        _ -> binary:part(Input, Start, Len)
-    end,
+    Value =
+        case Len of
+            0 -> <<>>;
+            _ -> binary:part(Input, Start, Len)
+        end,
     CharIndex = char_index(Input, Start),
     CharLength = string:length(Value),
-    [#{success => true, value => Value, index => CharIndex, length => CharLength} | build_groups(Input, Rest)].
+    [
+        #{success => true, value => Value, index => CharIndex, length => CharLength}
+        | build_groups(Input, Rest)
+    ].
 
 pad_groups(Groups, ExpectedCount) ->
     Len = length(Groups),
     case Len >= ExpectedCount of
-        true -> Groups;
+        true ->
+            Groups;
         false ->
             FailedGroup = #{success => false, value => <<>>, index => -1, length => 0},
             Groups ++ lists:duplicate(ExpectedCount - Len, FailedGroup)
     end.
 
-count_parens(<<>>, Count, _Escaped) -> Count;
+count_parens(<<>>, Count, _Escaped) ->
+    Count;
 count_parens(<<$\\, _, Rest/binary>>, Count, _Escaped) ->
     %% Skip escaped character
     count_parens(Rest, Count, false);
@@ -526,14 +578,12 @@ count_parens(<<_, Rest/binary>>, Count, _Escaped) ->
     count_parens(Rest, Count, false).
 
 skip_char_class(<<>>, Count) -> Count;
-skip_char_class(<<$\\, _, Rest/binary>>, Count) ->
-    skip_char_class(Rest, Count);
-skip_char_class(<<$], Rest/binary>>, Count) ->
-    count_parens(Rest, Count, false);
-skip_char_class(<<_, Rest/binary>>, Count) ->
-    skip_char_class(Rest, Count).
+skip_char_class(<<$\\, _, Rest/binary>>, Count) -> skip_char_class(Rest, Count);
+skip_char_class(<<$], Rest/binary>>, Count) -> count_parens(Rest, Count, false);
+skip_char_class(<<_, Rest/binary>>, Count) -> skip_char_class(Rest, Count).
 
-char_index(_Input, 0) -> 0;
+char_index(_Input, 0) ->
+    0;
 char_index(Input, BytePos) ->
     Prefix = binary:part(Input, 0, BytePos),
     string:length(Prefix).
@@ -541,15 +591,25 @@ char_index(Input, BytePos) ->
 failed_match(NumGroups) ->
     FailedGroup = #{success => false, value => <<>>, index => -1, length => 0},
     Groups = lists:duplicate(NumGroups + 1, FailedGroup),
-    #{success => false, value => <<>>, index => -1, length => 0, groups => Groups, group_names => #{}, input => <<>>}.
+    #{
+        success => false,
+        value => <<>>,
+        index => -1,
+        length => 0,
+        groups => Groups,
+        group_names => #{},
+        input => <<>>
+    }.
 
 %% Extract named group name-to-index mapping from the regex pattern string.
 %% Returns #{<<"name">> => Index} where Index is the 1-based capturing group number.
 extract_group_names(#{pattern := Pattern}) ->
     extract_names_from_pattern(Pattern, 0, #{});
-extract_group_names(_) -> #{}.
+extract_group_names(_) ->
+    #{}.
 
-extract_names_from_pattern(<<>>, _GroupIdx, Acc) -> Acc;
+extract_names_from_pattern(<<>>, _GroupIdx, Acc) ->
+    Acc;
 extract_names_from_pattern(<<$\\, _, Rest/binary>>, GroupIdx, Acc) ->
     %% Skip escaped character
     extract_names_from_pattern(Rest, GroupIdx, Acc);
@@ -576,7 +636,8 @@ extract_names_from_pattern(<<$(, Rest/binary>>, GroupIdx, Acc) ->
 extract_names_from_pattern(<<_, Rest/binary>>, GroupIdx, Acc) ->
     extract_names_from_pattern(Rest, GroupIdx, Acc).
 
-extract_group_name(<<$>, Rest/binary>>, NameAcc) -> {NameAcc, Rest};
+extract_group_name(<<$>, Rest/binary>>, NameAcc) ->
+    {NameAcc, Rest};
 extract_group_name(<<C/utf8, Rest/binary>>, NameAcc) ->
     extract_group_name(Rest, <<NameAcc/binary, C/utf8>>).
 
@@ -591,7 +652,8 @@ skip_char_class_names(<<_, Rest/binary>>, GroupIdx, Acc) ->
 convert_replacement(Bin) ->
     convert_replacement(Bin, <<>>).
 
-convert_replacement(<<>>, Acc) -> Acc;
+convert_replacement(<<>>, Acc) ->
+    Acc;
 convert_replacement(<<"$$", Rest/binary>>, Acc) ->
     %% $$ → literal $
     convert_replacement(Rest, <<Acc/binary, $$>>);

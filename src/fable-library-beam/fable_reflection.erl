@@ -1,17 +1,32 @@
 -module(fable_reflection).
--export([full_name/1, namespace/1, name/1, is_generic_type/1, is_array/1,
-         get_element_type/1, get_generics/1, make_tuple_type/1,
-         get_generic_type_definition/1,
-         get_record_elements/1, is_record/1, is_union/1,
-         get_union_cases/1,
-         is_tuple_type/1, get_tuple_elements/1,
-         is_function_type/1, get_function_elements/1,
-         get_record_fields_value/2, get_record_field_value/2,
-         make_record_from_values/2,
-         get_tuple_fields_value/1, get_tuple_field_value/2,
-         get_union_case_fields/1,
-         get_union_fields_value/2, make_union_value/2,
-         get_value/2]).
+-export([
+    full_name/1,
+    namespace/1,
+    name/1,
+    is_generic_type/1,
+    is_array/1,
+    get_element_type/1,
+    get_generics/1,
+    make_tuple_type/1,
+    get_generic_type_definition/1,
+    get_record_elements/1,
+    is_record/1,
+    is_union/1,
+    get_union_cases/1,
+    is_tuple_type/1,
+    get_tuple_elements/1,
+    is_function_type/1,
+    get_function_elements/1,
+    get_record_fields_value/2,
+    get_record_field_value/2,
+    make_record_from_values/2,
+    get_tuple_fields_value/1,
+    get_tuple_field_value/2,
+    get_union_case_fields/1,
+    get_union_fields_value/2,
+    make_union_value/2,
+    get_value/2
+]).
 
 -spec full_name(map()) -> binary().
 -spec namespace(map()) -> binary().
@@ -46,7 +61,8 @@ full_name(TypeInfo) ->
 namespace(TypeInfo) ->
     FullName = maps:get(fullname, TypeInfo),
     case binary:match(FullName, <<".">>) of
-        nomatch -> <<>>;
+        nomatch ->
+            <<>>;
         _ ->
             Parts = binary:split(FullName, <<".">>, [global]),
             iolist_to_binary(lists:join(<<".">>, lists:droplast(Parts)))
@@ -75,7 +91,8 @@ get_element_type(TypeInfo) ->
                 [Gen | _] -> Gen;
                 _ -> undefined
             end;
-        false -> undefined
+        false ->
+            undefined
     end.
 
 get_generics(TypeInfo) ->
@@ -94,22 +111,26 @@ make_tuple_type(TypeInfos) when is_list(TypeInfos) ->
     #{fullname => FullName, generics => TypeInfos}.
 
 %% FSharpType.GetRecordFields — returns list of PropertyInfo maps.
-get_record_elements(#{fields := Fields}) -> Fields;
+get_record_elements(#{fields := Fields}) ->
+    Fields;
 get_record_elements(TypeInfo) ->
     erlang:error({not_record_type, maps:get(fullname, TypeInfo, <<"unknown">>)}).
 
 %% FSharpType.IsRecord
 is_record(TypeInfo) when is_map(TypeInfo) ->
     maps:is_key(fields, TypeInfo);
-is_record(_) -> false.
+is_record(_) ->
+    false.
 
 %% FSharpType.IsUnion
 is_union(TypeInfo) when is_map(TypeInfo) ->
     maps:is_key(cases, TypeInfo);
-is_union(_) -> false.
+is_union(_) ->
+    false.
 
 %% FSharpType.GetUnionCases — returns list of CaseInfo maps.
-get_union_cases(#{cases := Cases}) -> Cases;
+get_union_cases(#{cases := Cases}) ->
+    Cases;
 get_union_cases(TypeInfo) ->
     erlang:error({not_union_type, maps:get(fullname, TypeInfo, <<"unknown">>)}).
 
@@ -117,8 +138,8 @@ get_union_cases(TypeInfo) ->
 is_tuple_type(TypeInfo) ->
     FullName = maps:get(fullname, TypeInfo),
     (starts_with(FullName, <<"System.Tuple">>) orelse
-     starts_with(FullName, <<"System.ValueTuple">>))
-    andalso not is_array(TypeInfo).
+        starts_with(FullName, <<"System.ValueTuple">>)) andalso
+        not is_array(TypeInfo).
 
 %% FSharpType.GetTupleElements — returns list of element TypeInfos.
 get_tuple_elements(TypeInfo) ->
@@ -158,10 +179,11 @@ get_record_field_value(Record, PropInfo) ->
 make_record_from_values(TypeInfo, Values) ->
     Fields = maps:get(fields, TypeInfo),
     FieldNames = [binary_to_atom(maps:get(name, F)) || F <- Fields],
-    ValList = case is_reference(Values) of
-        true -> erlang:get(Values);
-        false -> Values
-    end,
+    ValList =
+        case is_reference(Values) of
+            true -> erlang:get(Values);
+            false -> Values
+        end,
     maps:from_list(lists:zip(FieldNames, ValList)).
 
 %% FSharpValue.GetTupleFields(tuple)
@@ -180,33 +202,42 @@ get_union_case_fields(CaseInfo) ->
 get_union_fields_value(Value, TypeInfo) ->
     Cases = maps:get(cases, TypeInfo),
     %% Determine the atom tag from the value
-    Tag = if
-        erlang:is_atom(Value) -> Value;  % bare atom (fieldless case)
-        erlang:is_tuple(Value) -> erlang:element(1, Value);  % atom tag in first position
-        true -> erlang:error({not_union_value, Value})
-    end,
+    Tag =
+        if
+            % bare atom (fieldless case)
+            erlang:is_atom(Value) -> Value;
+            % atom tag in first position
+            erlang:is_tuple(Value) -> erlang:element(1, Value);
+            true -> erlang:error({not_union_value, Value})
+        end,
     %% Find matching case by atom tag (erl_tag field)
     CaseInfo = find_case_by_tag(Tag, Cases),
     %% Extract field values
-    Fields = if
-        erlang:is_atom(Value) -> [];
-        erlang:is_tuple(Value) ->
-            Elems = erlang:tuple_to_list(Value),
-            lists:nthtail(1, Elems);  % skip the tag
-        true -> []
-    end,
+    Fields =
+        if
+            erlang:is_atom(Value) ->
+                [];
+            erlang:is_tuple(Value) ->
+                Elems = erlang:tuple_to_list(Value),
+                % skip the tag
+                lists:nthtail(1, Elems);
+            true ->
+                []
+        end,
     {CaseInfo, Fields}.
 
 %% FSharpValue.MakeUnion(caseInfo, values) — create union value from case info.
 make_union_value(CaseInfo, Values) ->
     Tag = maps:get(erl_tag, CaseInfo),
-    ValList = case is_reference(Values) of
-        true -> erlang:get(Values);
-        false when is_list(Values) -> Values;
-        false -> Values
-    end,
+    ValList =
+        case is_reference(Values) of
+            true -> erlang:get(Values);
+            false when is_list(Values) -> Values;
+            false -> Values
+        end,
     case ValList of
-        [] -> Tag;  % bare atom for fieldless cases
+        % bare atom for fieldless cases
+        [] -> Tag;
         _ -> erlang:list_to_tuple([Tag | ValList])
     end.
 

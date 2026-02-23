@@ -1,13 +1,26 @@
 -module(fable_char).
 -export([
-    to_upper/1, to_lower/1, to_string/1,
-    is_letter/1, is_digit/1, is_letter_or_digit/1,
-    is_upper/1, is_lower/1, is_number/1,
-    is_whitespace/1, is_control/1,
-    is_punctuation/1, is_separator/1, is_symbol/1,
-    is_high_surrogate/1, is_low_surrogate/1,
-    is_surrogate/1, is_surrogate_pair/2,
-    char_at/2, parse/1, try_parse/2,
+    to_upper/1,
+    to_lower/1,
+    to_string/1,
+    is_letter/1,
+    is_digit/1,
+    is_letter_or_digit/1,
+    is_upper/1,
+    is_lower/1,
+    is_number/1,
+    is_whitespace/1,
+    is_control/1,
+    is_punctuation/1,
+    is_separator/1,
+    is_symbol/1,
+    is_high_surrogate/1,
+    is_low_surrogate/1,
+    is_surrogate/1,
+    is_surrogate_pair/2,
+    char_at/2,
+    parse/1,
+    try_parse/2,
     get_unicode_category/1
 ]).
 
@@ -72,13 +85,26 @@ is_lower(_) -> false.
 is_number(C) when C >= $0, C =< $9 -> true;
 is_number(_) -> false.
 
-is_whitespace(C) when C =:= $\s; C =:= $\t; C =:= $\n; C =:= $\r;
-                      C =:= 16#000B; C =:= 16#000C; C =:= 16#0085;
-                      C =:= 16#00A0; C =:= 16#1680;
-                      C >= 16#2000, C =< 16#200A;
-                      C =:= 16#2028; C =:= 16#2029;
-                      C =:= 16#202F; C =:= 16#205F; C =:= 16#3000 -> true;
-is_whitespace(_) -> false.
+is_whitespace(C) when
+    C =:= $\s;
+    C =:= $\t;
+    C =:= $\n;
+    C =:= $\r;
+    C =:= 16#000B;
+    C =:= 16#000C;
+    C =:= 16#0085;
+    C =:= 16#00A0;
+    C =:= 16#1680;
+    C >= 16#2000, C =< 16#200A;
+    C =:= 16#2028;
+    C =:= 16#2029;
+    C =:= 16#202F;
+    C =:= 16#205F;
+    C =:= 16#3000
+->
+    true;
+is_whitespace(_) ->
+    false.
 
 is_control(C) when C >= 0, C =< 16#001F -> true;
 is_control(C) when C >= 16#007F, C =< 16#009F -> true;
@@ -90,18 +116,38 @@ is_punctuation(C) when C =:= $,; C =:= $-; C =:= $.; C =:= $/ -> true;
 is_punctuation(C) when C =:= $:; C =:= $; -> true;
 is_punctuation(C) when C =:= $?; C =:= $@ -> true;
 is_punctuation(C) when C >= $[, C =< $] -> true;
-is_punctuation(C) when C =:= $_; C =:= ${ ; C =:= $}  -> true;
+is_punctuation(C) when C =:= $_; C =:= ${; C =:= $} -> true;
 is_punctuation(_) -> false.
 
-is_separator(C) when C =:= $\s; C =:= 16#00A0; C =:= 16#1680;
-                     C >= 16#2000, C =< 16#200A;
-                     C =:= 16#2028; C =:= 16#2029;
-                     C =:= 16#202F; C =:= 16#205F; C =:= 16#3000 -> true;
-is_separator(_) -> false.
+is_separator(C) when
+    C =:= $\s;
+    C =:= 16#00A0;
+    C =:= 16#1680;
+    C >= 16#2000, C =< 16#200A;
+    C =:= 16#2028;
+    C =:= 16#2029;
+    C =:= 16#202F;
+    C =:= 16#205F;
+    C =:= 16#3000
+->
+    true;
+is_separator(_) ->
+    false.
 
-is_symbol(C) when C =:= $$; C =:= $+; C =:= $<; C =:= $=; C =:= $>;
-                  C =:= $^; C =:= $`; C =:= $|; C =:= $~ -> true;
-is_symbol(_) -> false.
+is_symbol(C) when
+    C =:= $$;
+    C =:= $+;
+    C =:= $<;
+    C =:= $=;
+    C =:= $>;
+    C =:= $^;
+    C =:= $`;
+    C =:= $|;
+    C =:= $~
+->
+    true;
+is_symbol(_) ->
+    false.
 
 %% Extract character at index from a binary string
 char_at(Str, Idx) ->
@@ -144,8 +190,18 @@ get_unicode_category(C) when C >= $a, C =< $z -> 1;
 get_unicode_category(C) when C >= $0, C =< $9 -> 8;
 get_unicode_category(C) when C =:= $\s -> 11;
 get_unicode_category(C) when C =:= $- -> 18;
-get_unicode_category(C) when C =:= $+; C =:= $<; C =:= $=; C =:= $>;
-                             C =:= $|; C =:= $~; C =:= $^ -> 24;
+get_unicode_category(C) when
+    C =:= $+;
+    C =:= $<;
+    C =:= $=;
+    C =:= $>;
+    C =:= $|;
+    C =:= $~;
+    C =:= $^
+->
+    24;
 get_unicode_category(C) when C =:= $$ -> 25;
 get_unicode_category(C) when C =:= $_ -> 14;
-get_unicode_category(_) -> 28. %% OtherNotAssigned
+%% OtherNotAssigned
+get_unicode_category(_) ->
+    28.

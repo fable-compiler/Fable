@@ -114,7 +114,8 @@ from_parts(Low, Mid, High, IsNegative, Scale) ->
         false -> Adjusted
     end.
 
-pow10(0) -> 1;
+pow10(0) ->
+    1;
 pow10(N) when N > 0 -> 10 * pow10(N - 1);
 pow10(N) when N < 0 ->
     %% Should not happen with valid .NET decimals (scale 0..28)

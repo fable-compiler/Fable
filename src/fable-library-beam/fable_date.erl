@@ -1,23 +1,49 @@
 -module(fable_date).
--compile({no_auto_import,[now/0]}).
+-compile({no_auto_import, [now/0]}).
 -export([
     create/3, create/6, create/7, create/8, create/9,
     from_ticks/1, from_ticks/2,
-    year/1, month/1, day/1, hour/1, minute/1, second/1,
-    millisecond/1, microsecond/1, ticks/1, kind/1,
-    day_of_week/1, day_of_year/1, date/1,
-    now/0, utc_now/0, today/0,
-    min_value/0, max_value/0,
-    is_leap_year/1, days_in_month/2,
-    add/2, subtract/2,
-    add_years/2, add_months/2,
-    add_days/2, add_hours/2, add_minutes/2, add_seconds/2, add_milliseconds/2,
-    op_addition/2, op_subtraction/2,
-    specify_kind/2, to_local_time/1, to_universal_time/1,
-    compare/2, equals/2,
+    year/1,
+    month/1,
+    day/1,
+    hour/1,
+    minute/1,
+    second/1,
+    millisecond/1,
+    microsecond/1,
+    ticks/1,
+    kind/1,
+    day_of_week/1,
+    day_of_year/1,
+    date/1,
+    now/0,
+    utc_now/0,
+    today/0,
+    min_value/0,
+    max_value/0,
+    is_leap_year/1,
+    days_in_month/2,
+    add/2,
+    subtract/2,
+    add_years/2,
+    add_months/2,
+    add_days/2,
+    add_hours/2,
+    add_minutes/2,
+    add_seconds/2,
+    add_milliseconds/2,
+    op_addition/2,
+    op_subtraction/2,
+    specify_kind/2,
+    to_local_time/1,
+    to_universal_time/1,
+    compare/2,
+    equals/2,
     to_string/1, to_string/2, to_string/3,
-    to_short_date_string/1, to_long_date_string/1,
-    to_short_time_string/1, to_long_time_string/1,
+    to_short_date_string/1,
+    to_long_date_string/1,
+    to_short_time_string/1,
+    to_long_time_string/1,
     parse/1, parse/2,
     try_parse/2, try_parse/3, try_parse/4
 ]).
@@ -26,9 +52,22 @@
 
 -spec create(integer(), integer(), integer()) -> datetime().
 -spec create(integer(), integer(), integer(), integer(), integer(), integer()) -> datetime().
--spec create(integer(), integer(), integer(), integer(), integer(), integer(), integer()) -> datetime().
--spec create(integer(), integer(), integer(), integer(), integer(), integer(), integer(), integer()) -> datetime().
--spec create(integer(), integer(), integer(), integer(), integer(), integer(), integer(), integer(), integer()) -> datetime().
+-spec create(integer(), integer(), integer(), integer(), integer(), integer(), integer()) ->
+    datetime().
+-spec create(
+    integer(), integer(), integer(), integer(), integer(), integer(), integer(), integer()
+) -> datetime().
+-spec create(
+    integer(),
+    integer(),
+    integer(),
+    integer(),
+    integer(),
+    integer(),
+    integer(),
+    integer(),
+    integer()
+) -> datetime().
 -spec from_ticks(integer()) -> datetime().
 -spec from_ticks(integer(), integer()) -> datetime().
 -spec year(datetime()) -> integer().
@@ -203,7 +242,8 @@ kind({_Ticks, Kind}) -> Kind.
 day_of_week({Ticks, _Kind}) ->
     {Y, M, D, _, _, _, _} = ticks_to_datetime(Ticks),
     ErlDow = calendar:day_of_the_week({Y, M, D}),
-    ErlDow rem 7.  % 7(Sun)->0, 1(Mon)->1, ..., 6(Sat)->6
+    % 7(Sun)->0, 1(Mon)->1, ..., 6(Sat)->6
+    ErlDow rem 7.
 
 day_of_year({Ticks, _Kind}) ->
     {Y, M, D, _, _, _, _} = ticks_to_datetime(Ticks),
@@ -275,10 +315,11 @@ add_months({Ticks, Kind}, Months) ->
     NewY = TotalMonths div 12,
     NewM = (TotalMonths rem 12) + 1,
     %% Handle negative remainder
-    {FinalY, FinalM} = case NewM =< 0 of
-        true -> {NewY - 1, NewM + 12};
-        false -> {NewY, NewM}
-    end,
+    {FinalY, FinalM} =
+        case NewM =< 0 of
+            true -> {NewY - 1, NewM + 12};
+            false -> {NewY, NewM}
+        end,
     MaxDay = calendar:last_day_of_the_month(FinalY, FinalM),
     NewD = min(D, MaxDay),
     BaseTicks = ticks_from_components(FinalY, FinalM, NewD, H, Min, S, 0, 0),
@@ -353,20 +394,22 @@ to_string({Ticks, Kind}, Format, _Provider) ->
     {Y, M, D, H, Min, S, SubSecondTicks} = ticks_to_datetime(Ticks),
     Ms = SubSecondTicks div ?TICKS_PER_MILLISECOND,
     Mc = (SubSecondTicks rem ?TICKS_PER_MILLISECOND) div ?TICKS_PER_MICROSECOND,
-    FmtStr = case Format of
-        B when is_binary(B) -> binary_to_list(B);
-        L when is_list(L) -> L
-    end,
-    Result = case FmtStr of
-        "" -> format_default(Y, M, D, H, Min, S, Ms, Mc, Kind);
-        "d" -> format_short_date(Y, M, D);
-        "D" -> format_long_date(Y, M, D);
-        "t" -> format_short_time(H, Min);
-        "T" -> format_long_time(H, Min, S);
-        "O" -> format_roundtrip(Y, M, D, H, Min, S, SubSecondTicks, Kind);
-        "o" -> format_roundtrip(Y, M, D, H, Min, S, SubSecondTicks, Kind);
-        _ -> format_custom(FmtStr, Y, M, D, H, Min, S, SubSecondTicks, Kind)
-    end,
+    FmtStr =
+        case Format of
+            B when is_binary(B) -> binary_to_list(B);
+            L when is_list(L) -> L
+        end,
+    Result =
+        case FmtStr of
+            "" -> format_default(Y, M, D, H, Min, S, Ms, Mc, Kind);
+            "d" -> format_short_date(Y, M, D);
+            "D" -> format_long_date(Y, M, D);
+            "t" -> format_short_time(H, Min);
+            "T" -> format_long_time(H, Min, S);
+            "O" -> format_roundtrip(Y, M, D, H, Min, S, SubSecondTicks, Kind);
+            "o" -> format_roundtrip(Y, M, D, H, Min, S, SubSecondTicks, Kind);
+            _ -> format_custom(FmtStr, Y, M, D, H, Min, S, SubSecondTicks, Kind)
+        end,
     iolist_to_binary(Result).
 
 format_default(Y, M, D, H, Min, S, _Ms, _Mc, _Kind) ->
@@ -387,12 +430,15 @@ format_long_time(H, Min, S) ->
     io_lib:format("~2..0B:~2..0B:~2..0B", [H, Min, S]).
 
 format_roundtrip(Y, M, D, H, Min, S, SubSecondTicks, Kind) ->
-    KindSuffix = case Kind of
-        ?KIND_UTC -> "Z";
-        _ -> ""
-    end,
-    io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0B.~7..0B~s",
-                  [Y, M, D, H, Min, S, SubSecondTicks, KindSuffix]).
+    KindSuffix =
+        case Kind of
+            ?KIND_UTC -> "Z";
+            _ -> ""
+        end,
+    io_lib:format(
+        "~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0B.~7..0B~s",
+        [Y, M, D, H, Min, S, SubSecondTicks, KindSuffix]
+    ).
 
 %% Short helper methods
 to_short_date_string(DT) -> to_string(DT, <<"d">>).
@@ -407,8 +453,18 @@ to_long_time_string(DT) -> to_string(DT, <<"T">>).
 format_custom(FmtStr, Y, M, D, H, Min, S, SubSecondTicks, Kind) ->
     Ms = SubSecondTicks div ?TICKS_PER_MILLISECOND,
     Mc = (SubSecondTicks rem ?TICKS_PER_MILLISECOND) div ?TICKS_PER_MICROSECOND,
-    Ctx = #{y => Y, m => M, d => D, h => H, min => Min, s => S,
-            ms => Ms, mc => Mc, sub_ticks => SubSecondTicks, kind => Kind},
+    Ctx = #{
+        y => Y,
+        m => M,
+        d => D,
+        h => H,
+        min => Min,
+        s => S,
+        ms => Ms,
+        mc => Mc,
+        sub_ticks => SubSecondTicks,
+        kind => Kind
+    },
     parse_format(FmtStr, Ctx, []).
 
 parse_format([], _Ctx, Acc) ->
@@ -436,11 +492,21 @@ parse_format([$% | Rest], Ctx, Acc) ->
         [] ->
             parse_format([], Ctx, Acc)
     end;
-parse_format([C | Rest], Ctx, Acc) when C =:= $d; C =:= $f; C =:= $F;
-                                          C =:= $g; C =:= $h; C =:= $H;
-                                          C =:= $K; C =:= $m; C =:= $M;
-                                          C =:= $s; C =:= $t; C =:= $y;
-                                          C =:= $z ->
+parse_format([C | Rest], Ctx, Acc) when
+    C =:= $d;
+    C =:= $f;
+    C =:= $F;
+    C =:= $g;
+    C =:= $h;
+    C =:= $H;
+    C =:= $K;
+    C =:= $m;
+    C =:= $M;
+    C =:= $s;
+    C =:= $t;
+    C =:= $y;
+    C =:= $z
+->
     %% Count consecutive same characters
     {Count, Rest2} = count_repeat(C, Rest, 1),
     Token = format_token(C, Count, Ctx),
@@ -498,10 +564,11 @@ format_token($g, _Count, _Ctx) ->
     "A.D.";
 format_token($h, Count, Ctx) ->
     #{h := H} = Ctx,
-    H12 = case H rem 12 of
-        0 -> 12;
-        V -> V
-    end,
+    H12 =
+        case H rem 12 of
+            0 -> 12;
+            V -> V
+        end,
     if
         Count =:= 1 -> integer_to_list(H12);
         Count >= 2 -> io_lib:format("~2..0B", [H12])
@@ -540,10 +607,11 @@ format_token($s, Count, Ctx) ->
     end;
 format_token($t, Count, Ctx) ->
     #{h := H} = Ctx,
-    AmPm = case H < 12 of
-        true -> "AM";
-        false -> "PM"
-    end,
+    AmPm =
+        case H < 12 of
+            true -> "AM";
+            false -> "PM"
+        end,
     if
         Count =:= 1 -> [hd(AmPm)];
         Count >= 2 -> AmPm
@@ -551,14 +619,17 @@ format_token($t, Count, Ctx) ->
 format_token($y, Count, Ctx) ->
     #{y := Y} = Ctx,
     if
-        Count =:= 1 -> integer_to_list(Y rem 100);
-        Count =:= 2 -> io_lib:format("~2..0B", [Y rem 100]);
+        Count =:= 1 ->
+            integer_to_list(Y rem 100);
+        Count =:= 2 ->
+            io_lib:format("~2..0B", [Y rem 100]);
         Count =:= 3 ->
             case Y < 1000 of
                 true -> io_lib:format("~3..0B", [Y]);
                 false -> integer_to_list(Y)
             end;
-        Count =:= 4 -> io_lib:format("~4..0B", [Y]);
+        Count =:= 4 ->
+            io_lib:format("~4..0B", [Y]);
         Count >= 5 ->
             Fmt = lists:flatten(io_lib:format("~~~B..0B", [Count])),
             io_lib:format(Fmt, [Y])
@@ -567,13 +638,19 @@ format_token($z, Count, Ctx) ->
     #{kind := Kind} = Ctx,
     %% For UTC kind, offset is 0
     %% For Local/Unspecified, we'd need timezone info; use 0 for UTC
-    OffsetMinutes = case Kind of
-        ?KIND_UTC -> 0;
-        _ -> 0  % Simplified: treat as UTC offset
-    end,
+    OffsetMinutes =
+        case Kind of
+            ?KIND_UTC -> 0;
+            % Simplified: treat as UTC offset
+            _ -> 0
+        end,
     OffsetH = abs(OffsetMinutes) div 60,
     OffsetM = abs(OffsetMinutes) rem 60,
-    Sign = case OffsetMinutes >= 0 of true -> "+"; false -> "-" end,
+    Sign =
+        case OffsetMinutes >= 0 of
+            true -> "+";
+            false -> "-"
+        end,
     if
         Count =:= 1 -> io_lib:format("~s~B", [Sign, OffsetH]);
         Count =:= 2 -> io_lib:format("~s~2..0B", [Sign, OffsetH]);
@@ -643,23 +720,25 @@ parse(Str, _Provider) when is_binary(Str) ->
 parse_string(S, OrigStr) ->
     %% Try ISO 8601 first: "2014-09-10T13:50:34.0000000"
     case try_parse_iso(S) of
-        {ok, DT} -> DT;
+        {ok, DT} ->
+            DT;
         error ->
             %% Try US date format: "9/10/2014 1:50:34 PM" or "9/10/2014 13:50:34"
             case try_parse_us(S) of
-                {ok, DT} -> DT;
+                {ok, DT} ->
+                    DT;
                 error ->
                     %% Try time-only: "13:50:34" or "1:5:34 AM"
                     case try_parse_time_only(S) of
                         {ok, DT} -> DT;
-                        error ->
-                            parse_error(OrigStr)
+                        error -> parse_error(OrigStr)
                     end
             end
     end.
 
 try_parse_iso(S) ->
-    Pattern = "^(\\d{4})-(\\d{1,2})-(\\d{1,2})T(\\d{1,2}):(\\d{1,2}):(\\d{1,2})(?:\\.(\\d+))?([Zz])?$",
+    Pattern =
+        "^(\\d{4})-(\\d{1,2})-(\\d{1,2})T(\\d{1,2}):(\\d{1,2}):(\\d{1,2})(?:\\.(\\d+))?([Zz])?$",
     case re:run(S, Pattern, [{capture, all, list}]) of
         {match, Groups} ->
             Y = list_to_integer(lists:nth(2, Groups)),
@@ -671,11 +750,12 @@ try_parse_iso(S) ->
             FracStr = safe_group(8, Groups),
             SubSecondTicks = parse_frac_to_ticks(FracStr),
             KindStr = safe_group(9, Groups),
-            Kind = case KindStr of
-                "Z" -> ?KIND_UTC;
-                "z" -> ?KIND_UTC;
-                _ -> ?KIND_UNSPECIFIED
-            end,
+            Kind =
+                case KindStr of
+                    "Z" -> ?KIND_UTC;
+                    "z" -> ?KIND_UTC;
+                    _ -> ?KIND_UNSPECIFIED
+                end,
             BaseTicks = ticks_from_components(Y, M, D, H, Min, Sec, 0, 0),
             {ok, {BaseTicks + SubSecondTicks, Kind}};
         nomatch ->
@@ -683,7 +763,8 @@ try_parse_iso(S) ->
     end.
 
 try_parse_us(S) ->
-    Pattern = "^(\\d{1,2})/(\\d{1,2})/(\\d{4})(?:\\s+(\\d{1,2}):(\\d{1,2})(?::(\\d{1,2}))?(?:\\s+(AM|PM|am|pm))?)?$",
+    Pattern =
+        "^(\\d{1,2})/(\\d{1,2})/(\\d{4})(?:\\s+(\\d{1,2}):(\\d{1,2})(?::(\\d{1,2}))?(?:\\s+(AM|PM|am|pm))?)?$",
     case re:run(S, Pattern, [{capture, all, list}]) of
         {match, Groups} ->
             M = list_to_integer(lists:nth(2, Groups)),
@@ -691,20 +772,24 @@ try_parse_us(S) ->
             Y = list_to_integer(lists:nth(4, Groups)),
             %% Validate month and day
             case M >= 1 andalso M =< 12 andalso D >= 1 andalso D =< 31 of
-                false -> error;
+                false ->
+                    error;
                 true ->
-                    H0 = case safe_group(5, Groups) of
-                        "" -> 0;
-                        HS -> list_to_integer(HS)
-                    end,
-                    Min = case safe_group(6, Groups) of
-                        "" -> 0;
-                        MS -> list_to_integer(MS)
-                    end,
-                    Sec = case safe_group(7, Groups) of
-                        "" -> 0;
-                        SS -> list_to_integer(SS)
-                    end,
+                    H0 =
+                        case safe_group(5, Groups) of
+                            "" -> 0;
+                            HS -> list_to_integer(HS)
+                        end,
+                    Min =
+                        case safe_group(6, Groups) of
+                            "" -> 0;
+                            MS -> list_to_integer(MS)
+                        end,
+                    Sec =
+                        case safe_group(7, Groups) of
+                            "" -> 0;
+                            SS -> list_to_integer(SS)
+                        end,
                     AmPm = safe_group(8, Groups),
                     H = adjust_ampm(H0, AmPm),
                     {ok, {ticks_from_components(Y, M, D, H, Min, Sec, 0, 0), ?KIND_UNSPECIFIED}}
@@ -719,10 +804,11 @@ try_parse_time_only(S) ->
         {match, Groups} ->
             H0 = list_to_integer(lists:nth(2, Groups)),
             Min = list_to_integer(lists:nth(3, Groups)),
-            Sec = case safe_group(4, Groups) of
-                "" -> 0;
-                SS -> list_to_integer(SS)
-            end,
+            Sec =
+                case safe_group(4, Groups) of
+                    "" -> 0;
+                    SS -> list_to_integer(SS)
+                end,
             AmPm = safe_group(5, Groups),
             H = adjust_ampm(H0, AmPm),
             %% Use current date
@@ -745,10 +831,12 @@ adjust_ampm(H, AmPm) ->
                 true -> H - 12;
                 false -> H
             end;
-        _ -> H
+        _ ->
+            H
     end.
 
-parse_frac_to_ticks("") -> 0;
+parse_frac_to_ticks("") ->
+    0;
 parse_frac_to_ticks(FracStr) ->
     Len = length(FracStr),
     if
@@ -764,7 +852,9 @@ safe_group(N, List) when N > length(List) -> "";
 safe_group(N, List) -> lists:nth(N, List).
 
 parse_error(Str) ->
-    Msg = iolist_to_binary(io_lib:format("String '~s' was not recognized as a valid DateTime.", [Str])),
+    Msg = iolist_to_binary(
+        io_lib:format("String '~s' was not recognized as a valid DateTime.", [Str])
+    ),
     erlang:error(Msg).
 
 %% ============================================================

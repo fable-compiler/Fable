@@ -1,12 +1,32 @@
 -module(fable_utils).
--export([iface_get/2, apply_curried/2, new_ref/1, safe_dispose/1,
-         get_enumerator/1, move_next/1, get_current/1,
-         pos_infinity/0, neg_infinity/0, nan/0, is_infinity/1,
-         new_lazy/1, new_lazy_from_value/1, force_lazy/1, is_value_created/1,
-         using/2, to_list/1, enumerate_to_list/1,
-         new_byte_array/1, new_byte_array_zeroed/1, new_byte_array_filled/2,
-         byte_array_to_list/1, is_byte_array/1,
-         byte_array_get/2, byte_array_set/3, byte_array_length/1]).
+-export([
+    iface_get/2,
+    apply_curried/2,
+    new_ref/1,
+    safe_dispose/1,
+    get_enumerator/1,
+    move_next/1,
+    get_current/1,
+    pos_infinity/0,
+    neg_infinity/0,
+    nan/0,
+    is_infinity/1,
+    new_lazy/1,
+    new_lazy_from_value/1,
+    force_lazy/1,
+    is_value_created/1,
+    using/2,
+    to_list/1,
+    enumerate_to_list/1,
+    new_byte_array/1,
+    new_byte_array_zeroed/1,
+    new_byte_array_filled/2,
+    byte_array_to_list/1,
+    is_byte_array/1,
+    byte_array_get/2,
+    byte_array_set/3,
+    byte_array_length/1
+]).
 
 -spec iface_get(atom(), map() | reference()) -> term().
 -spec apply_curried(fun(), list()) -> term().
@@ -63,9 +83,11 @@ safe_dispose(Obj) when is_map(Obj) ->
                 {arity, 0} -> Fn();
                 {arity, _} -> Fn(ok)
             end;
-        false -> ok
+        false ->
+            ok
     end;
-safe_dispose(_) -> ok.
+safe_dispose(_) ->
+    ok.
 
 %% Apply a list of args one at a time to a curried function.
 %% Used by CurriedApply when the target is a qualified call returning a curried function.
@@ -169,7 +191,8 @@ new_lazy_from_value(Value) ->
 force_lazy(LazyRef) ->
     State = get(LazyRef),
     case maps:get(is_value_created, State) of
-        true -> maps:get(value, State);
+        true ->
+            maps:get(value, State);
         false ->
             Factory = maps:get(factory, State),
             Value = Factory(ok),
@@ -182,19 +205,24 @@ is_value_created(LazyRef) ->
 
 %% F# `use` / `using` — execute action with resource, dispose after.
 using(Resource, Action) ->
-    try Action(Resource)
-    after safe_dispose(Resource)
+    try
+        Action(Resource)
+    after
+        safe_dispose(Resource)
     end.
 
 %% Convert any value to a list — derefs array refs, atomics byte arrays, and lazy seq objects.
 to_list(V) when is_list(V) -> V;
 to_list(V) when is_reference(V) ->
     case is_byte_array(V) of
-        true -> byte_array_to_list(V);
+        true ->
+            byte_array_to_list(V);
         false ->
             Stored = get(V),
             case is_list(Stored) of
-                true -> Stored;  % array ref
+                % array ref
+                true ->
+                    Stored;
                 false ->
                     %% Lazy seq object (ref to map with get_enumerator) — enumerate to list
                     enumerate_to_list(V)
@@ -212,7 +240,8 @@ to_list(V) when is_map(V) ->
 to_list(V) when is_binary(V) ->
     %% String binary → list of Unicode codepoints
     unicode:characters_to_list(V);
-to_list(V) -> V.
+to_list(V) ->
+    V.
 
 %% Enumerate a lazy seq object to a plain list using get_enumerator/move_next/get_current.
 enumerate_to_list(Seq) ->
@@ -271,14 +300,14 @@ fill_byte_array(Ref, Idx, Len, Value) ->
     atomics:put(Ref, Idx, Value),
     fill_byte_array(Ref, Idx + 1, Len, Value).
 
-populate_byte_array(_, _, []) -> ok;
-populate_byte_array(Ref, Idx, [V|Rest]) ->
+populate_byte_array(_, _, []) ->
+    ok;
+populate_byte_array(Ref, Idx, [V | Rest]) ->
     atomics:put(Ref, Idx, V),
     populate_byte_array(Ref, Idx + 1, Rest).
 
 byte_array_to_list({byte_array, 0, _}) -> [];
-byte_array_to_list({byte_array, Size, Ref}) ->
-    [atomics:get(Ref, I) || I <- lists:seq(1, Size)].
+byte_array_to_list({byte_array, Size, Ref}) -> [atomics:get(Ref, I) || I <- lists:seq(1, Size)].
 
 is_byte_array({byte_array, _, _}) -> true;
 is_byte_array(_) -> false.
@@ -296,6 +325,7 @@ byte_array_set(PdRef, Idx, Value) when is_reference(PdRef) ->
     byte_array_set(get(PdRef), Idx, Value).
 
 %% Length of byte array.
-byte_array_length({byte_array, Size, _}) -> Size;
+byte_array_length({byte_array, Size, _}) ->
+    Size;
 byte_array_length(PdRef) when is_reference(PdRef) ->
     byte_array_length(get(PdRef)).

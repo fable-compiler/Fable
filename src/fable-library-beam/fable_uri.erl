@@ -2,9 +2,16 @@
 -export([
     create/1, create/2, create/3,
     try_create/3, try_create/4,
-    is_absolute_uri/1, scheme/1, host/1, absolute_path/1,
-    absolute_uri/1, path_and_query/1, query/1, fragment/1,
-    original_string/1, port/1,
+    is_absolute_uri/1,
+    scheme/1,
+    host/1,
+    absolute_path/1,
+    absolute_uri/1,
+    path_and_query/1,
+    query/1,
+    fragment/1,
+    original_string/1,
+    port/1,
     to_string/1,
     unescape_data_string/1
 ]).
@@ -59,7 +66,8 @@ create(UriStr, Kind) when is_binary(UriStr), is_integer(Kind) ->
     %% create(string, UriKind)
     S = binary_to_list(UriStr),
     Parsed = uri_string:parse(S),
-    IsAbsolute = is_map(Parsed) andalso is_map_key(scheme, Parsed) andalso maps:get(scheme, Parsed) =/= [],
+    IsAbsolute =
+        is_map(Parsed) andalso is_map_key(scheme, Parsed) andalso maps:get(scheme, Parsed) =/= [],
     case Kind of
         ?URI_KIND_ABSOLUTE when not IsAbsolute ->
             erlang:error(<<"Invalid URI: The format of the URI could not be determined.">>);
@@ -111,7 +119,6 @@ try_create(UriStr, Kind, OutRef) when is_binary(UriStr), is_integer(Kind) ->
     catch
         _:_ -> false
     end;
-
 %% try_create(BaseUri, RelativeUriOrString, OutRef)
 try_create(BaseUri, RelOrStr, OutRef) when is_map(BaseUri) ->
     try
@@ -161,7 +168,8 @@ absolute_uri(Uri) ->
 
 path_and_query(Uri) ->
     case maps:get(is_absolute_uri, Uri) of
-        false -> erlang:error(<<"This operation is not supported for a relative URI.">>);
+        false ->
+            erlang:error(<<"This operation is not supported for a relative URI.">>);
         true ->
             Path = maps:get(path, Uri, <<"/">>),
             Q = maps:get(query, Uri, <<>>),
@@ -202,12 +210,13 @@ build_uri(OrigStr, Parsed, true) ->
     %% Absolute URI
     Scheme = list_to_binary(string:lowercase(get_parsed(scheme, Parsed, ""))),
     Host = list_to_binary(get_parsed(host, Parsed, "")),
-    Port = case Parsed of
-       #{port := P} ->
-           P;
-       #{} ->
-           undefined
-   end,
+    Port =
+        case Parsed of
+            #{port := P} ->
+                P;
+            #{} ->
+                undefined
+        end,
     Path = list_to_binary(get_parsed(path, Parsed, "/")),
     Query = list_to_binary(get_parsed(query, Parsed, "")),
     Fragment = list_to_binary(get_parsed(fragment, Parsed, "")),
@@ -237,51 +246,59 @@ build_uri(OrigStr, _Parsed, false) ->
 
 get_parsed(Key, Map, Default) ->
     case Map of
-       #{Key := V} ->
-           V;
-       #{} ->
-           Default
-   end.
+        #{Key := V} ->
+            V;
+        #{} ->
+            Default
+    end.
 
 %% Recompose absolute URI (for AbsoluteUri property)
 recompose_absolute(Scheme, Host, Port, Path, Query, Fragment) ->
-    PortStr = case Port of
-        undefined -> <<>>;
-        _ ->
-            %% Omit default ports
-            case is_default_port(Scheme, Port) of
-                true -> <<>>;
-                false -> iolist_to_binary([<<":">>, integer_to_binary(Port)])
-            end
-    end,
-    QueryStr = case Query of
-        <<>> -> <<>>;
-        _ -> iolist_to_binary([<<"?">>, Query])
-    end,
-    FragStr = case Fragment of
-        <<>> -> <<>>;
-        _ -> iolist_to_binary([<<"#">>, Fragment])
-    end,
+    PortStr =
+        case Port of
+            undefined ->
+                <<>>;
+            _ ->
+                %% Omit default ports
+                case is_default_port(Scheme, Port) of
+                    true -> <<>>;
+                    false -> iolist_to_binary([<<":">>, integer_to_binary(Port)])
+                end
+        end,
+    QueryStr =
+        case Query of
+            <<>> -> <<>>;
+            _ -> iolist_to_binary([<<"?">>, Query])
+        end,
+    FragStr =
+        case Fragment of
+            <<>> -> <<>>;
+            _ -> iolist_to_binary([<<"#">>, Fragment])
+        end,
     iolist_to_binary([Scheme, <<"://">>, Host, PortStr, Path, QueryStr, FragStr]).
 
 %% Recompose for display (ToString) - with decoded path
 recompose_display(Scheme, Host, Port, DecodedPath, Query, Fragment) ->
-    PortStr = case Port of
-        undefined -> <<>>;
-        _ ->
-            case is_default_port(Scheme, Port) of
-                true -> <<>>;
-                false -> iolist_to_binary([<<":">>, integer_to_binary(Port)])
-            end
-    end,
-    QueryStr = case Query of
-        <<>> -> <<>>;
-        _ -> iolist_to_binary([<<"?">>, Query])
-    end,
-    FragStr = case Fragment of
-        <<>> -> <<>>;
-        _ -> iolist_to_binary([<<"#">>, Fragment])
-    end,
+    PortStr =
+        case Port of
+            undefined ->
+                <<>>;
+            _ ->
+                case is_default_port(Scheme, Port) of
+                    true -> <<>>;
+                    false -> iolist_to_binary([<<":">>, integer_to_binary(Port)])
+                end
+        end,
+    QueryStr =
+        case Query of
+            <<>> -> <<>>;
+            _ -> iolist_to_binary([<<"?">>, Query])
+        end,
+    FragStr =
+        case Fragment of
+            <<>> -> <<>>;
+            _ -> iolist_to_binary([<<"#">>, Fragment])
+        end,
     iolist_to_binary([Scheme, <<"://">>, Host, PortStr, DecodedPath, QueryStr, FragStr]).
 
 is_default_port(<<"http">>, 80) -> true;

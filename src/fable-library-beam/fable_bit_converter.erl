@@ -1,7 +1,15 @@
 -module(fable_bit_converter).
--export([get_bytes/2, get_bytes_bool/1, to_int/3, to_uint/3, to_float/3,
-         to_boolean/2, to_string/1, to_string/2, to_string/3,
-         int64_bits_to_double/1, double_to_int64_bits/1]).
+-export([
+    get_bytes/2,
+    get_bytes_bool/1,
+    to_int/3,
+    to_uint/3,
+    to_float/3,
+    to_boolean/2,
+    to_string/1, to_string/2, to_string/3,
+    int64_bits_to_double/1,
+    double_to_int64_bits/1
+]).
 
 -spec get_bytes(integer() | float(), integer()) -> tuple().
 -spec get_bytes_bool(boolean()) -> tuple().

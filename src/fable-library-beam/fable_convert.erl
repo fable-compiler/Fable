@@ -1,8 +1,18 @@
 -module(fable_convert).
--export([to_float/1, to_int/1, to_int_with_base/2, to_string/1, to_string_with_base/3,
-         to_base64/1, from_base64/1, boolean_parse/1, boolean_try_parse/2,
-         int_to_string_with_format/2,
-         try_parse_int/2, try_parse_float/2]).
+-export([
+    to_float/1,
+    to_int/1,
+    to_int_with_base/2,
+    to_string/1,
+    to_string_with_base/3,
+    to_base64/1,
+    from_base64/1,
+    boolean_parse/1,
+    boolean_try_parse/2,
+    int_to_string_with_format/2,
+    try_parse_int/2,
+    try_parse_float/2
+]).
 
 -spec to_float(binary() | integer() | float()) -> float().
 -spec to_int(binary() | integer() | float()) -> integer().
@@ -22,10 +32,12 @@
 %% .NET accepts these, so we normalize before converting.
 to_float(Bin) when is_binary(Bin) ->
     case binary_to_list(Bin) of
-        [] -> erlang:error(badarg);
+        [] ->
+            erlang:error(badarg);
         Str ->
             case string:to_float(Str) of
-                {Float, []} -> Float;
+                {Float, []} ->
+                    Float;
                 _ ->
                     %% Partial parse or no float found - try as integer
                     try_as_integer(Str)
@@ -37,7 +49,8 @@ to_float(F) when is_float(F) -> F.
 try_as_integer(Str) ->
     case string:to_integer(Str) of
         {Int, []} -> float(Int);
-        {Int, "."} -> float(Int);  %% Handle trailing dot like "1."
+        %% Handle trailing dot like "1."
+        {Int, "."} -> float(Int);
         _ -> erlang:error(badarg)
     end.
 
@@ -84,8 +97,10 @@ to_string(Value) when is_float(Value) ->
 to_string(Value) when is_atom(Value) -> atom_to_binary(Value);
 to_string(Value) when is_list(Value) ->
     %% Lists could be charlists or regular lists
-    try list_to_binary(Value)
-    catch _:_ -> iolist_to_binary(io_lib:format("~p", [Value]))
+    try
+        list_to_binary(Value)
+    catch
+        _:_ -> iolist_to_binary(io_lib:format("~p", [Value]))
     end;
 to_string(Value) ->
     iolist_to_binary(io_lib:format("~p", [Value])).
@@ -108,22 +123,32 @@ from_base64(Str) when is_binary(Str) ->
 try_parse_int(Bin, OutRef) when is_binary(Bin) ->
     Trimmed = string:trim(binary_to_list(Bin)),
     case string:to_integer(Trimmed) of
-        {Int, []} -> put(OutRef, Int), true;
-        _ -> false
+        {Int, []} ->
+            put(OutRef, Int),
+            true;
+        _ ->
+            false
     end;
-try_parse_int(_, _) -> false.
+try_parse_int(_, _) ->
+    false.
 
 try_parse_float(Bin, OutRef) when is_binary(Bin) ->
     Trimmed = string:trim(binary_to_list(Bin)),
     case string:to_float(Trimmed) of
-        {Float, []} -> put(OutRef, Float), true;
+        {Float, []} ->
+            put(OutRef, Float),
+            true;
         _ ->
             case string:to_integer(Trimmed) of
-                {Int, []} -> put(OutRef, float(Int)), true;
-                _ -> false
+                {Int, []} ->
+                    put(OutRef, float(Int)),
+                    true;
+                _ ->
+                    false
             end
     end;
-try_parse_float(_, _) -> false.
+try_parse_float(_, _) ->
+    false.
 
 %% Boolean.Parse - case insensitive, trims whitespace
 boolean_parse(Bin) when is_binary(Bin) ->
@@ -140,9 +165,15 @@ boolean_try_parse(Bin, OutRef) when is_binary(Bin) ->
     Trimmed = string:trim(binary_to_list(Bin)),
     Lower = string:lowercase(Trimmed),
     case Lower of
-        "true" -> put(OutRef, true), true;
-        "false" -> put(OutRef, false), true;
-        _ -> put(OutRef, false), false
+        "true" ->
+            put(OutRef, true),
+            true;
+        "false" ->
+            put(OutRef, false),
+            true;
+        _ ->
+            put(OutRef, false),
+            false
     end.
 
 %% Int32/Int64 ToString with format specifier
@@ -156,8 +187,9 @@ int_to_string_with_format(Value, Fmt) when is_binary(Fmt) ->
             Width = list_to_integer(WidthStr),
             S = integer_to_list(Value),
             Len = length(S),
-            if Len >= Width -> list_to_binary(S);
-               true -> list_to_binary(string:pad(S, Width, leading, $0))
+            if
+                Len >= Width -> list_to_binary(S);
+                true -> list_to_binary(string:pad(S, Width, leading, $0))
             end;
         [$x] ->
             list_to_binary(string:lowercase(integer_to_list(Value, 16)));
@@ -165,8 +197,9 @@ int_to_string_with_format(Value, Fmt) when is_binary(Fmt) ->
             Width = list_to_integer(WidthStr),
             S = string:lowercase(integer_to_list(Value, 16)),
             Len = length(S),
-            if Len >= Width -> list_to_binary(S);
-               true -> list_to_binary(string:pad(S, Width, leading, $0))
+            if
+                Len >= Width -> list_to_binary(S);
+                true -> list_to_binary(string:pad(S, Width, leading, $0))
             end;
         _ ->
             integer_to_binary(Value)

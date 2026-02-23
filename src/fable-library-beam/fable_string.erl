@@ -1,25 +1,54 @@
 -module(fable_string).
--export([insert/3, remove/2, remove/3, starts_with/2, ends_with/2,
-         pad_left/2, pad_left/3, pad_right/2, pad_right/3,
-         replace/3, join/2, join/4, join_strings/2, concat/1, replicate/2,
-         is_null_or_empty/1, is_null_or_white_space/1,
-         forall/2, exists/2, init/2, collect/2,
-         iter/2, iteri/2, map/2, mapi/2, filter/2,
-         index_of/2, index_of/3, index_of_any/2, index_of_any/3,
-         last_index_of/2, last_index_of/3,
-         contains/2, trim_chars/2, trim_start_chars/2, trim_end_chars/2,
-         to_char_array/1, to_char_array/3,
-         compare/2, compare_ignore_case/2,
-         string_ctor_chars/1, string_ctor_char_count/2, string_ctor_chars_range/3,
-         split/2, split/3, split_remove_empty/2, split_with_count/3,
-         to_string/1,
-         printf/1,
-         to_text/1, to_text/2, to_text/3, to_text/4, to_text/5,
-         to_console/1, to_console/2, to_console/3, to_console/4, to_console/5,
-         to_console_error/1, to_console_error/2, to_console_error/3,
-         to_fail/1, to_fail/2, to_fail/3,
-         interpolate/2, format/2,
-         console_writeline/1, console_write/1]).
+-export([
+    insert/3,
+    remove/2, remove/3,
+    starts_with/2,
+    ends_with/2,
+    pad_left/2, pad_left/3,
+    pad_right/2, pad_right/3,
+    replace/3,
+    join/2, join/4,
+    join_strings/2,
+    concat/1,
+    replicate/2,
+    is_null_or_empty/1,
+    is_null_or_white_space/1,
+    forall/2,
+    exists/2,
+    init/2,
+    collect/2,
+    iter/2,
+    iteri/2,
+    map/2,
+    mapi/2,
+    filter/2,
+    index_of/2, index_of/3,
+    index_of_any/2, index_of_any/3,
+    last_index_of/2, last_index_of/3,
+    contains/2,
+    trim_chars/2,
+    trim_start_chars/2,
+    trim_end_chars/2,
+    to_char_array/1, to_char_array/3,
+    compare/2,
+    compare_ignore_case/2,
+    string_ctor_chars/1,
+    string_ctor_char_count/2,
+    string_ctor_chars_range/3,
+    split/2, split/3,
+    split_remove_empty/2,
+    split_with_count/3,
+    to_string/1,
+    printf/1,
+    to_text/1, to_text/2, to_text/3, to_text/4, to_text/5,
+    to_console/1, to_console/2, to_console/3, to_console/4, to_console/5,
+    to_console_error/1, to_console_error/2, to_console_error/3,
+    to_fail/1, to_fail/2, to_fail/3,
+    interpolate/2,
+    format/2,
+    console_writeline/1,
+    console_write/1
+]).
 
 -spec insert(binary(), non_neg_integer(), binary()) -> binary().
 -spec remove(binary(), non_neg_integer()) -> binary().
@@ -32,7 +61,8 @@
 -spec pad_right(binary(), non_neg_integer(), integer()) -> binary().
 -spec replace(binary(), binary() | integer(), binary() | integer()) -> binary().
 -spec join(binary(), list() | reference() | map()) -> binary().
--spec join(binary(), list() | reference() | map(), non_neg_integer(), non_neg_integer()) -> binary().
+-spec join(binary(), list() | reference() | map(), non_neg_integer(), non_neg_integer()) ->
+    binary().
 -spec join_strings(binary(), list() | reference() | map()) -> binary().
 -spec concat(list() | reference() | map()) -> binary().
 -spec replicate(non_neg_integer(), binary()) -> binary().
@@ -98,8 +128,10 @@ remove(Str, StartIdx) ->
     binary:part(Str, 0, StartIdx).
 
 remove(Str, StartIdx, Count) ->
-    iolist_to_binary([binary:part(Str, 0, StartIdx),
-                      binary:part(Str, StartIdx + Count, byte_size(Str) - StartIdx - Count)]).
+    iolist_to_binary([
+        binary:part(Str, 0, StartIdx),
+        binary:part(Str, StartIdx + Count, byte_size(Str) - StartIdx - Count)
+    ]).
 
 starts_with(Str, Prefix) ->
     binary:match(Str, Prefix) =:= {0, byte_size(Prefix)}.
@@ -202,7 +234,8 @@ iteri(Fn, Str) ->
     iteri_loop(Fn, Chars, 0),
     ok.
 
-iteri_loop(_Fn, [], _Idx) -> ok;
+iteri_loop(_Fn, [], _Idx) ->
+    ok;
 iteri_loop(Fn, [C | Rest], Idx) ->
     ((Fn)(Idx))(C),
     iteri_loop(Fn, Rest, Idx + 1).
@@ -210,17 +243,17 @@ iteri_loop(Fn, [C | Rest], Idx) ->
 map(Fn, Str) ->
     Chars = binary_to_list(Str),
     Mapped = lists:map(Fn, Chars),
-    << <<C/utf8>> || C <- Mapped >>.
+    <<<<C/utf8>> || C <- Mapped>>.
 
 mapi(Fn, Str) ->
     Chars = binary_to_list(Str),
     {Mapped, _} = lists:mapfoldl(fun(C, I) -> {((Fn)(I))(C), I + 1} end, 0, Chars),
-    << <<C/utf8>> || C <- Mapped >>.
+    <<<<C/utf8>> || C <- Mapped>>.
 
 filter(Fn, Str) ->
     Chars = binary_to_list(Str),
     Filtered = lists:filter(Fn, Chars),
-    << <<C/utf8>> || C <- Filtered >>.
+    <<<<C/utf8>> || C <- Filtered>>.
 
 %% IndexOf/LastIndexOf with offset support
 
@@ -245,7 +278,8 @@ index_of_any(Str, Chars, StartIdx) ->
     Bytes = binary_to_list(Str),
     index_of_any_loop(Bytes, CharSet, 0, StartIdx).
 
-index_of_any_loop([], _CharSet, _Idx, _StartIdx) -> -1;
+index_of_any_loop([], _CharSet, _Idx, _StartIdx) ->
+    -1;
 index_of_any_loop([_C | Rest], CharSet, Idx, StartIdx) when Idx < StartIdx ->
     index_of_any_loop(Rest, CharSet, Idx + 1, StartIdx);
 index_of_any_loop([C | Rest], CharSet, Idx, StartIdx) ->
@@ -309,14 +343,14 @@ compare_ignore_case(A, B) ->
 %% String constructors
 
 string_ctor_chars(Chars) ->
-    << <<C/utf8>> || C <- Chars >>.
+    <<<<C/utf8>> || C <- Chars>>.
 
 string_ctor_char_count(Char, Count) ->
-    << <<Char/utf8>> || _ <- lists:seq(1, Count) >>.
+    <<<<Char/utf8>> || _ <- lists:seq(1, Count)>>.
 
 string_ctor_chars_range(Chars, Start, Len) ->
     SubChars = lists:sublist(Chars, Start + 1, Len),
-    << <<C/utf8>> || C <- SubChars >>.
+    <<<<C/utf8>> || C <- SubChars>>.
 
 %% Split functions
 
@@ -368,7 +402,10 @@ to_string(V) when is_float(V) ->
     end;
 to_string(V) when is_atom(V) -> atom_to_binary(V, utf8);
 to_string(V) when is_boolean(V) ->
-    case V of true -> <<"true">>; false -> <<"false">> end;
+    case V of
+        true -> <<"true">>;
+        false -> <<"false">>
+    end;
 to_string(V) ->
     iolist_to_binary(io_lib:format(binary_to_list(<<"~p">>), [V])).
 
@@ -401,7 +438,10 @@ to_text(FmtObj, A1, A2, A3, A4) -> apply_curried(to_text(FmtObj), [A1, A2, A3, A
 %% to_console — printfn: prints to stdout with newline.
 to_console(FmtObj) when is_map(FmtObj) ->
     Cont = maps:get(cont, FmtObj),
-    Cont(fun(X) -> io:format("~ts~n", [X]), ok end);
+    Cont(fun(X) ->
+        io:format("~ts~n", [X]),
+        ok
+    end);
 to_console(Str) when is_binary(Str) ->
     io:format("~ts~n", [Str]),
     ok.
@@ -413,7 +453,10 @@ to_console(FmtObj, A1, A2, A3, A4) -> apply_curried(to_console(FmtObj), [A1, A2,
 %% to_console_error — eprintfn: prints to stderr with newline.
 to_console_error(FmtObj) when is_map(FmtObj) ->
     Cont = maps:get(cont, FmtObj),
-    Cont(fun(X) -> io:format(standard_error, "~ts~n", [X]), ok end);
+    Cont(fun(X) ->
+        io:format(standard_error, "~ts~n", [X]),
+        ok
+    end);
 to_console_error(Str) when is_binary(Str) ->
     io:format(standard_error, "~ts~n", [Str]),
     ok.
@@ -433,7 +476,11 @@ to_fail(FmtObj, A1, A2) -> apply_curried(to_fail(FmtObj), [A1, A2]).
 interpolate(Str, Values) when is_reference(Values) ->
     interpolate(Str, get(Values));
 interpolate(Str, Values) ->
-    ValList = case is_list(Values) of true -> Values; false -> [Values] end,
+    ValList =
+        case is_list(Values) of
+            true -> Values;
+            false -> [Values]
+        end,
     interpolate_loop(Str, ValList, []).
 
 interpolate_loop(<<>>, _Values, Acc) ->
@@ -469,13 +516,17 @@ extract_spec_before_placeholder(<<C, Rest/binary>>, SpecAcc) ->
 format(FmtStr, Args) when is_reference(Args) ->
     format(FmtStr, get(Args));
 format(FmtStr, Args) ->
-    ArgList = case is_list(Args) of true -> Args; false -> [Args] end,
+    ArgList =
+        case is_list(Args) of
+            true -> Args;
+            false -> [Args]
+        end,
     format_dotnet(FmtStr, ArgList, []).
 
 format_dotnet(<<>>, _Args, Acc) ->
     iolist_to_binary(lists:reverse(Acc));
 format_dotnet(<<"{{", Rest/binary>>, Args, Acc) ->
-    format_dotnet(Rest, Args, [<<"{" >> | Acc]);
+    format_dotnet(Rest, Args, [<<"{">> | Acc]);
 format_dotnet(<<"}}", Rest/binary>>, Args, Acc) ->
     format_dotnet(Rest, Args, [<<"}">> | Acc]);
 format_dotnet(<<"{", Rest/binary>>, Args, Acc) ->
@@ -525,7 +576,7 @@ parse_format(<<C/utf8, Rest/binary>>, Current, Parts, Specs) ->
 
 %% parse_spec/2 — Parse a single format specifier after the %.
 %% Handles flags (0, -, +, space), width, precision (.N), and type char.
-parse_spec(<<C, Rest/binary>>, Acc) when C =:= $0; C =:= $-; C =:= $+; C =:= $  ->
+parse_spec(<<C, Rest/binary>>, Acc) when C =:= $0; C =:= $-; C =:= $+; C =:= $\s ->
     parse_spec(Rest, [C | Acc]);
 parse_spec(<<C, Rest/binary>>, Acc) when C >= $0, C =< $9 ->
     parse_spec_width(Rest, [C | Acc]);
@@ -576,7 +627,11 @@ format_value(Spec, Value) ->
 
 %% apply_sign_flag/3 — Apply '+' or ' ' flag for numeric values.
 apply_sign_flag(Flags, Raw, Value) ->
-    IsNeg = case Raw of <<$-, _/binary>> -> true; _ -> false end,
+    IsNeg =
+        case Raw of
+            <<$-, _/binary>> -> true;
+            _ -> false
+        end,
     case {IsNeg, lists:member($+, Flags)} of
         {false, true} when is_number(Value) -> <<$+, Raw/binary>>;
         {false, false} ->
@@ -584,7 +639,8 @@ apply_sign_flag(Flags, Raw, Value) ->
                 true when is_number(Value) -> <<$\s, Raw/binary>>;
                 _ -> Raw
             end;
-        _ -> Raw
+        _ ->
+            Raw
     end.
 
 %% parse_spec_parts/1 — Parse "%[flags][width][.prec]type" into components.
@@ -593,7 +649,7 @@ parse_spec_parts([$% | Rest]) ->
 parse_spec_parts(Rest) ->
     parse_spec_flags(Rest, []).
 
-parse_spec_flags([C | Rest], Flags) when C =:= $0; C =:= $-; C =:= $+; C =:= $  ->
+parse_spec_flags([C | Rest], Flags) when C =:= $0; C =:= $-; C =:= $+; C =:= $\s ->
     parse_spec_flags(Rest, [C | Flags]);
 parse_spec_flags(Rest, Flags) ->
     parse_spec_width_part(Rest, lists:reverse(Flags), 0).
@@ -622,7 +678,11 @@ format_raw($s, _Prec, Value) when is_binary(Value) ->
 format_raw($s, _Prec, Value) ->
     to_string(Value);
 format_raw($f, Prec, Value) ->
-    P = if Prec < 0 -> 6; true -> Prec end,
+    P =
+        if
+            Prec < 0 -> 6;
+            true -> Prec
+        end,
     F = float(Value),
     case P of
         0 ->
@@ -635,14 +695,22 @@ format_raw($f, Prec, Value) ->
 format_raw($F, Prec, Value) ->
     format_raw($f, Prec, Value);
 format_raw($e, Prec, Value) ->
-    P = if Prec < 0 -> 6; true -> Prec end,
+    P =
+        if
+            Prec < 0 -> 6;
+            true -> Prec
+        end,
     iolist_to_binary(io_lib:format("~.*e", [P, float(Value)]));
 format_raw($E, Prec, Value) ->
     S = format_raw($e, Prec, Value),
     string:uppercase(S);
 format_raw(Type, Prec, Value) when Type =:= $g; Type =:= $G ->
     %% %g: use shortest of %e and %f (default precision 6 significant digits)
-    P = if Prec < 0 -> 6; true -> Prec end,
+    P =
+        if
+            Prec < 0 -> 6;
+            true -> Prec
+        end,
     F = float(Value),
     Abs = abs(F),
     Threshold = math:pow(10, P),
@@ -651,10 +719,16 @@ format_raw(Type, Prec, Value) when Type =:= $g; Type =:= $G ->
             <<"0">>;
         Abs < 0.0001 ->
             S = format_raw($e, P - 1, F),
-            case Type of $G -> string:uppercase(S); _ -> S end;
+            case Type of
+                $G -> string:uppercase(S);
+                _ -> S
+            end;
         Abs >= Threshold ->
             S = format_raw($e, P - 1, F),
-            case Type of $G -> string:uppercase(S); _ -> S end;
+            case Type of
+                $G -> string:uppercase(S);
+                _ -> S
+            end;
         true ->
             %% Use fixed notation, trim trailing zeros
             S = format_raw($f, P, F),
@@ -685,22 +759,26 @@ format_raw(_, _Prec, Value) ->
 trim_trailing_zeros(Bin) ->
     S = binary_to_list(Bin),
     case lists:member($., S) of
-        false -> Bin;
+        false ->
+            Bin;
         true ->
             Trimmed = lists:reverse(drop_zeros(lists:reverse(S))),
             iolist_to_binary(Trimmed)
     end.
 
 drop_zeros([$0 | Rest]) -> drop_zeros(Rest);
-drop_zeros([$. | Rest]) -> Rest; %% Remove trailing dot too
+%% Remove trailing dot too
+drop_zeros([$. | Rest]) -> Rest;
 drop_zeros(Other) -> Other.
 
 %% apply_width/3 — Apply width padding and flags.
-apply_width(_Flags, 0, Str) -> Str;
+apply_width(_Flags, 0, Str) ->
+    Str;
 apply_width(Flags, Width, Str) when Width > 0 ->
     Len = byte_size(Str),
     if
-        Len >= Width -> Str;
+        Len >= Width ->
+            Str;
         true ->
             Pad = Width - Len,
             ZeroPad = lists:member($0, Flags),
@@ -731,7 +809,8 @@ apply_width(Flags, Width, Str) when Width > 0 ->
                     <<PadStr/binary, Str/binary>>
             end
     end;
-apply_width(_, _, Str) -> Str.
+apply_width(_, _, Str) ->
+    Str.
 
 %% Console.WriteLine / Console.Write
 console_writeline(Value) when is_binary(Value) ->

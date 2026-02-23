@@ -75,7 +75,11 @@ let handle (args: string list) =
                 let fileName = Path.GetFileName(erlFile)
 
                 try
-                    Command.Run("erlc", fileName, workingDirectory = fableModulesLibDir)
+                    Command.Run(
+                        "erlc",
+                        $"+nowarn_ignored +nowarn_failed +nowarn_shadow_vars {fileName}",
+                        workingDirectory = fableModulesLibDir
+                    )
                 with _ ->
                     printfn $"WARNING: erlc failed for {fileName} (library), skipping"
                     compileErrors <- compileErrors + 1
@@ -87,7 +91,11 @@ let handle (args: string list) =
             let fileName = Path.GetFileName(erlFile)
 
             try
-                Command.Run("erlc", $"-pa fable_modules/fable-library-beam {fileName}", workingDirectory = buildDir)
+                Command.Run(
+                    "erlc",
+                    $"+nowarn_ignored +nowarn_failed +nowarn_shadow_vars -pa fable_modules/fable-library-beam {fileName}",
+                    workingDirectory = buildDir
+                )
             with _ ->
                 printfn $"WARNING: erlc failed for {fileName}, skipping"
                 compileErrors <- compileErrors + 1

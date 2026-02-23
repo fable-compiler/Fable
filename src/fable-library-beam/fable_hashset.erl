@@ -1,11 +1,19 @@
 -module(fable_hashset).
 -export([
-    create_empty/0, create_from_list/1,
-    add/2, remove/2, contains/2,
-    get_count/1, clear/1,
-    union_with/2, intersect_with/2, except_with/2,
-    is_subset_of/2, is_superset_of/2,
-    is_proper_subset_of/2, is_proper_superset_of/2,
+    create_empty/0,
+    create_from_list/1,
+    add/2,
+    remove/2,
+    contains/2,
+    get_count/1,
+    clear/1,
+    union_with/2,
+    intersect_with/2,
+    except_with/2,
+    is_subset_of/2,
+    is_superset_of/2,
+    is_proper_subset_of/2,
+    is_proper_superset_of/2,
     copy_to/2,
     get_enumerator/1
 ]).

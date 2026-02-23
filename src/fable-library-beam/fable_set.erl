@@ -1,7 +1,18 @@
 -module(fable_set).
--export([fold/3, fold_back/3, map/2, filter/2, exists/2, forall/2,
-         iterate/2, partition/2, union_many/1, intersect_many/1,
-         is_proper_subset/2, is_proper_superset/2]).
+-export([
+    fold/3,
+    fold_back/3,
+    map/2,
+    filter/2,
+    exists/2,
+    forall/2,
+    iterate/2,
+    partition/2,
+    union_many/1,
+    intersect_many/1,
+    is_proper_subset/2,
+    is_proper_superset/2
+]).
 
 -spec fold(fun(), term(), list()) -> term().
 -spec fold_back(fun(), list(), term()) -> term().
@@ -47,7 +58,7 @@ partition(Fn, Set) ->
 union_many(Sets) ->
     lists:foldl(fun ordsets:union/2, [], Sets).
 
-intersect_many([H|T]) ->
+intersect_many([H | T]) ->
     lists:foldl(fun ordsets:intersection/2, H, T).
 
 is_proper_subset(A, B) ->

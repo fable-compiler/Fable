@@ -1,7 +1,12 @@
 -module(fable_mailbox).
--export([default/1, default/2, start/1, start/2,
-         start_instance/1, receive_msg/1,
-         post/2, post_and_async_reply/2]).
+-export([
+    default/1, default/2,
+    start/1, start/2,
+    start_instance/1,
+    receive_msg/1,
+    post/2,
+    post_and_async_reply/2
+]).
 
 -spec default(fun()) -> map().
 -spec default(fun(), term()) -> map().
@@ -65,9 +70,11 @@ post(Agent, Msg) ->
 post_and_async_reply(Agent, BuildMessage) ->
     fable_async:from_continuations(fun({OnSuccess, _OnError, _OnCancel}) ->
         ReplyRef = make_ref(),
-        ReplyChannel = #{reply => fun(Value) ->
-            put({reply_result, ReplyRef}, Value)
-        end},
+        ReplyChannel = #{
+            reply => fun(Value) ->
+                put({reply_result, ReplyRef}, Value)
+            end
+        },
         Msg = BuildMessage(ReplyChannel),
         post(Agent, Msg),
         Value = erase({reply_result, ReplyRef}),
@@ -79,8 +86,10 @@ process_events(Agent) ->
     Ref = maps:get(ref, Agent),
     State = get(Ref),
     case {maps:get(continuation, State), maps:get(messages, State)} of
-        {undefined, _} -> ok;
-        {_, []} -> ok;
+        {undefined, _} ->
+            ok;
+        {_, []} ->
+            ok;
         {Cont, [Msg | Rest]} ->
             put(Ref, State#{messages => Rest, continuation => undefined}),
             Cont(Msg)

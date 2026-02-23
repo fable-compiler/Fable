@@ -1,6 +1,15 @@
 -module(fable_stopwatch).
--export([create/0, start_new/0, start/1, stop/1, reset/1,
-         is_running/1, elapsed_milliseconds/1, elapsed_ticks/1, elapsed/1]).
+-export([
+    create/0,
+    start_new/0,
+    start/1,
+    stop/1,
+    reset/1,
+    is_running/1,
+    elapsed_milliseconds/1,
+    elapsed_ticks/1,
+    elapsed/1
+]).
 
 -spec create() -> reference().
 -spec start_new() -> reference().
@@ -25,7 +34,8 @@ start_new() ->
 start(Ref) ->
     State = get(Ref),
     case maps:get(is_running, State) of
-        true -> ok;
+        true ->
+            ok;
         false ->
             put(Ref, State#{start_time => erlang:monotonic_time(microsecond), is_running => true}),
             ok
@@ -34,7 +44,8 @@ start(Ref) ->
 stop(Ref) ->
     State = get(Ref),
     case maps:get(is_running, State) of
-        false -> ok;
+        false ->
+            ok;
         true ->
             Now = erlang:monotonic_time(microsecond),
             Start = maps:get(start_time, State),

@@ -1,14 +1,26 @@
 -module(fable_async).
--export([start_immediate/1, start_immediate/2,
-         run_synchronously/1, run_synchronously/2,
-         start_with_continuations/4, start_with_continuations/5,
-         sleep/1, parallel/1, sequential/1,
-         catch_async/1, ignore/1, from_continuations/1,
-         start_as_task/1,
-         cancellation_token/0, create_cancellation_token/0, create_cancellation_token/1,
-         wrap_error/1]).
+-export([
+    start_immediate/1, start_immediate/2,
+    run_synchronously/1, run_synchronously/2,
+    start_with_continuations/4, start_with_continuations/5,
+    sleep/1,
+    parallel/1,
+    sequential/1,
+    catch_async/1,
+    ignore/1,
+    from_continuations/1,
+    start_as_task/1,
+    cancellation_token/0,
+    create_cancellation_token/0, create_cancellation_token/1,
+    wrap_error/1
+]).
 
--type async_ctx() :: #{on_success := fun(), on_error := fun(), on_cancel := fun(), cancel_token := reference() | undefined}.
+-type async_ctx() :: #{
+    on_success := fun(),
+    on_error := fun(),
+    on_cancel := fun(),
+    cancel_token := reference() | undefined
+}.
 -type async(T) :: fun((async_ctx()) -> T).
 
 -spec start_immediate(async(term())) -> term().
@@ -16,7 +28,8 @@
 -spec run_synchronously(async(term())) -> term().
 -spec run_synchronously(async(term()), reference() | undefined) -> term().
 -spec start_with_continuations(async(term()), fun(), fun(), fun()) -> term().
--spec start_with_continuations(async(term()), fun(), fun(), fun(), reference() | undefined) -> term().
+-spec start_with_continuations(async(term()), fun(), fun(), fun(), reference() | undefined) ->
+    term().
 -spec sleep(non_neg_integer()) -> async(ok).
 -spec parallel(list() | reference()) -> async(reference()).
 -spec sequential(list()) -> async(list()).
@@ -30,10 +43,12 @@
 
 %% Default context: run inline in current process
 default_ctx(CancelToken) ->
-    #{on_success => fun(_) -> ok end,
-      on_error => fun(E) -> erlang:error(E) end,
-      on_cancel => fun(_) -> ok end,
-      cancel_token => CancelToken}.
+    #{
+        on_success => fun(_) -> ok end,
+        on_error => fun(E) -> erlang:error(E) end,
+        on_cancel => fun(_) -> ok end,
+        cancel_token => CancelToken
+    }.
 
 %% StartImmediate: run with default context (fire-and-forget)
 start_immediate(Computation) -> start_immediate(Computation, undefined).
@@ -45,12 +60,16 @@ run_synchronously(Computation) -> run_synchronously(Computation, undefined).
 run_synchronously(Computation, CancelToken) ->
     %% Use a unique ref as key to store result in process dict
     Ref = make_ref(),
-    Ctx = #{on_success => fun(V) -> put(Ref, {ok, V}) end,
-            on_error => fun(E) -> put(Ref, {error, E}) end,
-            on_cancel => fun(_) -> put(Ref, {cancelled}) end,
-            cancel_token => CancelToken},
-    try Computation(Ctx)
-    catch _:Err -> put(Ref, {error, Err})
+    Ctx = #{
+        on_success => fun(V) -> put(Ref, {ok, V}) end,
+        on_error => fun(E) -> put(Ref, {error, E}) end,
+        on_cancel => fun(_) -> put(Ref, {cancelled}) end,
+        cancel_token => CancelToken
+    },
+    try
+        Computation(Ctx)
+    catch
+        _:Err -> put(Ref, {error, Err})
     end,
     Result = erase(Ref),
     case Result of
@@ -64,10 +83,16 @@ run_synchronously(Computation, CancelToken) ->
 start_with_continuations(Comp, OnSuccess, OnError, OnCancel) ->
     start_with_continuations(Comp, OnSuccess, OnError, OnCancel, undefined).
 start_with_continuations(Comp, OnSuccess, OnError, OnCancel, Token) ->
-    Ctx = #{on_success => OnSuccess, on_error => OnError,
-            on_cancel => OnCancel, cancel_token => Token},
-    try Comp(Ctx)
-    catch _:Err -> OnError(Err)
+    Ctx = #{
+        on_success => OnSuccess,
+        on_error => OnError,
+        on_cancel => OnCancel,
+        cancel_token => Token
+    },
+    try
+        Comp(Ctx)
+    catch
+        _:Err -> OnError(Err)
     end.
 
 %% Sleep: pause current process, with cancellation support
@@ -119,16 +144,20 @@ parallel(Computations) ->
     fun(Ctx) ->
         Self = self(),
         Indexed = lists:zip(lists:seq(1, length(Computations)), Computations),
-        lists:foreach(fun({Idx, Comp}) ->
-            spawn(fun() ->
-                try
-                    Result = fable_async:run_synchronously(Comp),
-                    Self ! {async_parallel, Idx, {ok, Result}}
-                catch _:Err ->
-                    Self ! {async_parallel, Idx, {error, Err}}
-                end
-            end)
-        end, Indexed),
+        lists:foreach(
+            fun({Idx, Comp}) ->
+                spawn(fun() ->
+                    try
+                        Result = fable_async:run_synchronously(Comp),
+                        Self ! {async_parallel, Idx, {ok, Result}}
+                    catch
+                        _:Err ->
+                            Self ! {async_parallel, Idx, {error, Err}}
+                    end
+                end)
+            end,
+            Indexed
+        ),
         Results = collect_parallel(length(Computations), #{}),
         case Results of
             {ok, Map} ->
@@ -139,7 +168,8 @@ parallel(Computations) ->
         end
     end.
 
-collect_parallel(0, Acc) -> {ok, Acc};
+collect_parallel(0, Acc) ->
+    {ok, Acc};
 collect_parallel(N, Acc) ->
     receive
         {async_parallel, Idx, {ok, Val}} ->
@@ -165,8 +195,10 @@ catch_async(Computation) ->
             on_cancel => maps:get(on_cancel, Ctx),
             cancel_token => maps:get(cancel_token, Ctx)
         },
-        try Computation(Ctx2)
-        catch _:Err -> (maps:get(on_success, Ctx))({choice2_of2, wrap_error(Err)})
+        try
+            Computation(Ctx2)
+        catch
+            _:Err -> (maps:get(on_success, Ctx))({choice2_of2, wrap_error(Err)})
         end
     end.
 

@@ -1,16 +1,25 @@
 -module(fable_resize_array).
 -export([
     set_item/3,
-    remove/2, remove_all/2, remove_at/2, remove_range/3,
-    insert/3, insert_range/3,
+    remove/2,
+    remove_all/2,
+    remove_at/2,
+    remove_range/3,
+    insert/3,
+    insert_range/3,
     get_range/3,
     index_of/2, index_of/3,
-    find/3, find_last/2, find_all/2, find_index/2, find_last_index/2,
+    find/3,
+    find_last/2,
+    find_all/2,
+    find_index/2,
+    find_last_index/2,
     exists/2,
     sort_with/2,
     for_each/2,
     convert_all/2,
-    fill/4, blit/5
+    fill/4,
+    blit/5
 ]).
 
 -spec set_item(list() | binary(), non_neg_integer(), term()) -> list() | binary().
@@ -56,12 +65,16 @@ remove_first([H | Rest], Item, Acc) ->
 
 %% Remove all matching predicate, return count removed
 remove_all(List, Pred) ->
-    {Kept, Count} = lists:foldl(fun(X, {Acc, C}) ->
-        case Pred(X) of
-            true -> {Acc, C + 1};
-            false -> {[X | Acc], C}
-        end
-    end, {[], 0}, List),
+    {Kept, Count} = lists:foldl(
+        fun(X, {Acc, C}) ->
+            case Pred(X) of
+                true -> {Acc, C + 1};
+                false -> {[X | Acc], C}
+            end
+        end,
+        {[], 0},
+        List
+    ),
     {Count, lists:reverse(Kept)}.
 
 %% Remove at index
@@ -105,7 +118,8 @@ index_of_impl([Item | _], Item, Idx) -> Idx;
 index_of_impl([_ | Rest], Item, Idx) -> index_of_impl(Rest, Item, Idx + 1).
 
 %% Find first matching predicate, return Default when not found
-find(_Pred, [], Default) -> Default;
+find(_Pred, [], Default) ->
+    Default;
 find(Pred, [H | T], Default) ->
     case Pred(H) of
         true -> H;
@@ -116,7 +130,8 @@ find(Pred, [H | T], Default) ->
 find_last(List, Pred) ->
     find_last_impl(lists:reverse(List), Pred).
 
-find_last_impl([], _Pred) -> erlang:error(<<"Key not found">>);
+find_last_impl([], _Pred) ->
+    erlang:error(<<"Key not found">>);
 find_last_impl([H | T], Pred) ->
     case Pred(H) of
         true -> H;
@@ -131,7 +146,8 @@ find_all(List, Pred) ->
 find_index(List, Pred) ->
     find_index_impl(List, Pred, 0).
 
-find_index_impl([], _Pred, _Idx) -> -1;
+find_index_impl([], _Pred, _Idx) ->
+    -1;
 find_index_impl([H | T], Pred, Idx) ->
     case Pred(H) of
         true -> Idx;
@@ -142,7 +158,8 @@ find_index_impl([H | T], Pred, Idx) ->
 find_last_index(List, Pred) ->
     find_last_index_impl(lists:reverse(List), Pred, length(List) - 1).
 
-find_last_index_impl([], _Pred, _Idx) -> -1;
+find_last_index_impl([], _Pred, _Idx) ->
+    -1;
 find_last_index_impl([H | T], Pred, Idx) ->
     case Pred(H) of
         true -> Idx;
@@ -155,12 +172,15 @@ exists(List, Pred) ->
 
 %% Sort with comparison function (Comparison<T> delegate = 2-arg function)
 sort_with(List, CompareFn) ->
-    lists:sort(fun(A, B) ->
-        case CompareFn(A, B) of
-            R when R =< 0 -> true;
-            _ -> false
-        end
-    end, List).
+    lists:sort(
+        fun(A, B) ->
+            case CompareFn(A, B) of
+                R when R =< 0 -> true;
+                _ -> false
+            end
+        end,
+        List
+    ).
 
 %% ForEach
 for_each(List, Fn) ->

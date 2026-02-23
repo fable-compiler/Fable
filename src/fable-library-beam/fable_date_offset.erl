@@ -3,18 +3,32 @@
     create/7, create/8,
     from_date/2,
     from_ticks/2,
-    year/1, month/1, day/1, hour/1, minute/1, second/1,
-    millisecond/1, ticks/1, offset/1, date_time/1,
-    now/0, utc_now/0, min_value/0,
-    to_local_time/1, to_universal_time/1,
+    year/1,
+    month/1,
+    day/1,
+    hour/1,
+    minute/1,
+    second/1,
+    millisecond/1,
+    ticks/1,
+    offset/1,
+    date_time/1,
+    now/0,
+    utc_now/0,
+    min_value/0,
+    to_local_time/1,
+    to_universal_time/1,
     try_parse/2,
     to_string/1, to_string/2, to_string/3
 ]).
 
 -type datetimeoffset() :: {integer(), 0 | 1 | 2, integer()}.
 
--spec create(integer(), integer(), integer(), integer(), integer(), integer(), integer()) -> datetimeoffset().
--spec create(integer(), integer(), integer(), integer(), integer(), integer(), integer(), integer()) -> datetimeoffset().
+-spec create(integer(), integer(), integer(), integer(), integer(), integer(), integer()) ->
+    datetimeoffset().
+-spec create(
+    integer(), integer(), integer(), integer(), integer(), integer(), integer(), integer()
+) -> datetimeoffset().
 -spec from_date({integer(), integer()}, integer()) -> datetimeoffset().
 -spec from_ticks(integer(), integer()) -> datetimeoffset().
 -spec year(datetimeoffset()) -> integer().
@@ -58,20 +72,24 @@
 create(Y, M, D, H, Min, S, OffsetTicks) when is_integer(OffsetTicks) ->
     DT = fable_date:create(Y, M, D, H, Min, S),
     {Ticks, _Kind} = DT,
-    Kind = case OffsetTicks of
-        0 -> 1; % UTC
-        _ -> 0  % Unspecified
-    end,
+    Kind =
+        case OffsetTicks of
+            % UTC
+            0 -> 1;
+            % Unspecified
+            _ -> 0
+        end,
     {Ticks, Kind, OffsetTicks}.
 
 %% create(Y, M, D, H, Min, S, Ms, OffsetTimeSpan)
 create(Y, M, D, H, Min, S, Ms, OffsetTicks) when is_integer(OffsetTicks) ->
     DT = fable_date:create(Y, M, D, H, Min, S, Ms),
     {Ticks, _Kind} = DT,
-    Kind = case OffsetTicks of
-        0 -> 1;
-        _ -> 0
-    end,
+    Kind =
+        case OffsetTicks of
+            0 -> 1;
+            _ -> 0
+        end,
     {Ticks, Kind, OffsetTicks}.
 
 %% from_date(DateTime, OffsetTimeSpan)
@@ -80,10 +98,11 @@ from_date({Ticks, Kind}, OffsetTicks) ->
 
 %% from_ticks(Ticks, OffsetTimeSpan)
 from_ticks(Ticks, OffsetTicks) ->
-    Kind = case OffsetTicks of
-        0 -> 1;
-        _ -> 0
-    end,
+    Kind =
+        case OffsetTicks of
+            0 -> 1;
+            _ -> 0
+        end,
     {Ticks, Kind, OffsetTicks}.
 
 %% ============================================================
@@ -168,7 +187,11 @@ to_string({Ticks, Kind, OffsetTicks}, Format, Provider) ->
     end.
 
 format_offset(OffsetTicks) ->
-    Sign = case OffsetTicks >= 0 of true -> <<"+">>;  false -> <<"-">> end,
+    Sign =
+        case OffsetTicks >= 0 of
+            true -> <<"+">>;
+            false -> <<"-">>
+        end,
     AbsTicks = abs(OffsetTicks),
     H = AbsTicks div ?TICKS_PER_HOUR,
     M = (AbsTicks rem ?TICKS_PER_HOUR) div ?TICKS_PER_MINUTE,

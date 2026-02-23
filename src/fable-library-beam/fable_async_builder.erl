@@ -1,9 +1,20 @@
 -module(fable_async_builder).
--export([singleton/0, singleton/1, task/0, task/1, run/1,
-         delay/1, return/1, return_from/1,
-         bind/2, combine/2, zero/0, zero/1,
-         try_with/2, try_finally/2, using/2,
-         while/2, for/2]).
+-export([
+    singleton/0, singleton/1,
+    task/0, task/1,
+    run/1,
+    delay/1,
+    return/1,
+    return_from/1,
+    bind/2,
+    combine/2,
+    zero/0, zero/1,
+    try_with/2,
+    try_finally/2,
+    using/2,
+    while/2,
+    for/2
+]).
 
 -spec singleton() -> async_builder.
 -spec singleton(term()) -> async_builder.
@@ -52,11 +63,15 @@ delay(Generator) ->
 %% Bind: monadic bind — run computation, pass result to binder
 bind(Computation, Binder) ->
     fun(Ctx) ->
-        Ctx2 = Ctx#{on_success => fun(X) ->
-            try (Binder(X))(Ctx)
-            catch _:Err -> (maps:get(on_error, Ctx))(Err)
+        Ctx2 = Ctx#{
+            on_success => fun(X) ->
+                try
+                    (Binder(X))(Ctx)
+                catch
+                    _:Err -> (maps:get(on_error, Ctx))(Err)
+                end
             end
-        end},
+        },
         Computation(Ctx2)
     end.
 
@@ -68,18 +83,26 @@ combine(Comp1, Comp2) ->
 %% Wrap raw errors (binaries from failwith) as exception maps so .Message works.
 try_with(Computation, Handler) ->
     fun(Ctx) ->
-        Ctx2 = Ctx#{on_error => fun(Err) ->
-            Err2 = fable_async:wrap_error(Err),
-            try (Handler(Err2))(Ctx)
-            catch _:Err3 -> (maps:get(on_error, Ctx))(Err3)
+        Ctx2 = Ctx#{
+            on_error => fun(Err) ->
+                Err2 = fable_async:wrap_error(Err),
+                try
+                    (Handler(Err2))(Ctx)
+                catch
+                    _:Err3 -> (maps:get(on_error, Ctx))(Err3)
+                end
             end
-        end},
-        try Computation(Ctx2)
-        catch _:Err ->
-            Err2 = fable_async:wrap_error(Err),
-            try (Handler(Err2))(Ctx)
-            catch _:Err3 -> (maps:get(on_error, Ctx))(Err3)
-            end
+        },
+        try
+            Computation(Ctx2)
+        catch
+            _:Err ->
+                Err2 = fable_async:wrap_error(Err),
+                try
+                    (Handler(Err2))(Ctx)
+                catch
+                    _:Err3 -> (maps:get(on_error, Ctx))(Err3)
+                end
         end
     end.
 
@@ -88,12 +111,25 @@ try_with(Computation, Handler) ->
 try_finally(Computation, Compensation) ->
     fun(Ctx) ->
         Ctx2 = Ctx#{
-            on_success => fun(X) -> Compensation(ok), (maps:get(on_success, Ctx))(X) end,
-            on_error => fun(E) -> Compensation(ok), (maps:get(on_error, Ctx))(E) end,
-            on_cancel => fun(E) -> Compensation(ok), (maps:get(on_cancel, Ctx))(E) end
+            on_success => fun(X) ->
+                Compensation(ok),
+                (maps:get(on_success, Ctx))(X)
+            end,
+            on_error => fun(E) ->
+                Compensation(ok),
+                (maps:get(on_error, Ctx))(E)
+            end,
+            on_cancel => fun(E) ->
+                Compensation(ok),
+                (maps:get(on_cancel, Ctx))(E)
+            end
         },
-        try Computation(Ctx2)
-        catch _:Err -> Compensation(ok), (maps:get(on_error, Ctx))(Err)
+        try
+            Computation(Ctx2)
+        catch
+            _:Err ->
+                Compensation(ok),
+                (maps:get(on_error, Ctx))(Err)
         end
     end.
 
@@ -114,5 +150,5 @@ for(List, Body) when is_reference(List) ->
 for(List, Body) ->
     case List of
         [] -> zero();
-        [H|T] -> bind(Body(H), fun(_) -> for(T, Body) end)
+        [H | T] -> bind(Body(H), fun(_) -> for(T, Body) end)
     end.

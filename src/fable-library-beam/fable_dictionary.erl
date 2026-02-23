@@ -1,10 +1,18 @@
 -module(fable_dictionary).
 -export([
-    create_empty/0, create_from_list/1,
-    add/3, get_item/2, set_item/3,
-    try_get_value/2, try_get_value/3, contains_key/2, contains_value/2,
-    remove/2, clear/1,
-    get_count/1, get_keys/1, get_values/1,
+    create_empty/0,
+    create_from_list/1,
+    add/3,
+    get_item/2,
+    set_item/3,
+    try_get_value/2, try_get_value/3,
+    contains_key/2,
+    contains_value/2,
+    remove/2,
+    clear/1,
+    get_count/1,
+    get_keys/1,
+    get_values/1,
     get_enumerator/1
 ]).
 
@@ -76,11 +84,11 @@ add(DictRef, Key, Value) ->
 get_item(DictRef, Key) ->
     Map = get(DictRef),
     case Map of
-       #{Key := Value} ->
-           Value;
-       #{} ->
-           erlang:error({badkey, Key})
-   end.
+        #{Key := Value} ->
+            Value;
+        #{} ->
+            erlang:error({badkey, Key})
+    end.
 
 %% set_Item: upsert (add or update)
 set_item(DictRef, Key, Value) ->
@@ -91,11 +99,11 @@ set_item(DictRef, Key, Value) ->
 try_get_value(DictRef, Key) ->
     Map = get(DictRef),
     case Map of
-       #{Key := Value} ->
-           {true, Value};
-       #{} ->
-           {false, undefined}
-   end.
+        #{Key := Value} ->
+            {true, Value};
+        #{} ->
+            {false, undefined}
+    end.
 
 %% TryGetValue (3-arg): sets OutRef and returns just bool
 %% F# desugars `let ok, v = dic.TryGetValue(k)` using an out-ref
