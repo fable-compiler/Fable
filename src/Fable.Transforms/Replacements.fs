@@ -4040,7 +4040,7 @@ let types (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | _ -> None
     | None, None -> None
 
-let fsharpType com methName (r: SourceLocation option) t (i: CallInfo) (args: Expr list) =
+let fsharpType com (ctx: Context) methName (r: SourceLocation option) t (i: CallInfo) (args: Expr list) =
     match methName with
     | "MakeTupleType" ->
         Helper.LibCall(com, "Reflection", "tuple_type", t, args, i.SignatureArgTypes, hasSpread = true, ?loc = r)
@@ -4056,6 +4056,10 @@ let fsharpType com methName (r: SourceLocation option) t (i: CallInfo) (args: Ex
     | "IsRecord"
     | "IsTuple"
     | "IsFunction" ->
+        if List.length args > 1 then
+            $"FSharpType.%s{methName}(): second argument is ignored"
+            |> addWarning com ctx.InlinePath r
+        let args = [List.head args]
         Helper.LibCall(com, "Reflection", Naming.lowerFirst methName, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "IsExceptionRepresentation"
@@ -4269,7 +4273,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
     | Naming.StartsWith "System.Func" _
     | Naming.StartsWith "Microsoft.FSharp.Core.FSharpFunc" _
     | Naming.StartsWith "Microsoft.FSharp.Core.OptimizedClosures.FSharpFunc" _ -> funcs com ctx r t info thisArg args
-    | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType com info.CompiledName r t info args
+    | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType com ctx info.CompiledName r t info args
     | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue com info.CompiledName r t info args
     | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
         // In netcore F# Reflection methods become extensions
@@ -4280,7 +4284,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
         let methName = info.CompiledName |> Naming.extensionMethodName
 
         if isFSharpType then
-            fsharpType com methName r t info args
+            fsharpType com ctx methName r t info args
         else
             fsharpValue com methName r t info args
     | "Microsoft.FSharp.Reflection.UnionCaseInfo"

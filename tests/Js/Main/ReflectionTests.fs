@@ -575,6 +575,18 @@ let reflectionTests = [
     FSharpValue.MakeUnion(ucis.[2], [|box 3.5|]) |> equal (box (Choice<float,string list,_>.Choice3Of3 3.5))
     FSharpValue.MakeUnion(ucis.[2], [|box 3.5|]) |> (=) (box (Choice<float,string list,_>.Choice1Of3 3.5)) |> equal false
 
+  // See reflection part of https://github.com/fable-compiler/Fable/issues/3586
+  testCase "FSharp.Reflection: ignored args should not cause typescript error" <| fun () ->
+    let typ = typeof<SingleCaseUnion>
+    // In the typescript library, these functions only take 1 parameter
+    ignore <| FSharpType.GetUnionCases(typ, allowAccessToPrivateRepresentation = true)
+    ignore <| FSharpType.IsUnion(typ, allowAccessToPrivateRepresentation = true)
+    ignore <| FSharpType.IsRecord(typ, allowAccessToPrivateRepresentation = true)
+    ignore <| FSharpType.GetUnionCases(typ, System.Reflection.BindingFlags.Default)
+    ignore <| FSharpType.IsUnion(typ, System.Reflection.BindingFlags.Default)
+    ignore <| FSharpType.IsRecord(typ, System.Reflection.BindingFlags.Default)
+    ()
+
   testCase "Type.GenericTypeArguments works" <| fun () ->
     let recordType = typeof<AsyncRecord>
     let asyncProp = FSharpType.GetRecordFields recordType |> Array.head
