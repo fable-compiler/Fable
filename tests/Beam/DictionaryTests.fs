@@ -214,13 +214,12 @@ let ``test Dictionary KeyValuePattern works`` () =
         total <- y + total
     equal 385. total
 
-// TODO: IDictionary created via dict — indexer access goes through IDictionary which expects dict ref
-// [<Fact>]
-// let ``test Interface IDictionary creation works`` () =
-//     let dic =
-//         dict
-//         <| seq { for i in 1. .. 10. -> i.ToString(), i * i }
-//     equal 4. dic.["2"]
+[<Fact>]
+let ``test Interface IDictionary creation works`` () =
+    let dic =
+        dict
+        <| seq { for i in 1. .. 10. -> i.ToString(), i * i }
+    equal 4. dic.["2"]
 
 [<Fact>]
 let ``test Dictionary creation from IDictionary works`` () =

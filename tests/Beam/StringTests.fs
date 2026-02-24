@@ -517,9 +517,9 @@ let ``test sprintf "%X" works`` () =
     sprintf "255: %x" 255 |> equal "255: ff"
     sprintf "4095L: %X" 4095L |> equal "4095L: FFF"
 
-// TODO: Negative hex formatting requires two's complement masking which isn't implemented
-// sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
-// sprintf "-4095L: %X" -4095L |> equal "-4095L: FFFFFFFFFFFFF001"
+    sprintf "-255: %X" -255 |> equal "-255: FFFFFF01"
+    // TODO: int64 negative hex needs 64-bit mask but Erlang can't distinguish int32 from int64 at runtime
+    // sprintf "-4095L: %X" -4095L |> equal "-4095L: FFFFFFFFFFFFF001"
 
 [<Fact>]
 let ``test sprintf integers with sign and padding works`` () =

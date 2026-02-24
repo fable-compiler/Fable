@@ -677,16 +677,14 @@ let ``test isNull with objects works`` () =
     let s2: String = "hello"
     isNull s2 |> equal false
 
-// TODO: PhysicalEquality on ResizeArray (ref) uses fable_comparison:compare instead of =:=
-// because BinaryEqual on array/ref types gets structural comparison
-// [<Fact>]
-// let ``test PhysicalEquality works`` () =
-//     let r1 = ResizeArray([1; 2])
-//     let r2 = ResizeArray([1; 2])
-//     let r3 = r1
-//     LanguagePrimitives.PhysicalEquality r1 r2 |> equal false
-//     LanguagePrimitives.PhysicalEquality r2 r2 |> equal true
-//     LanguagePrimitives.PhysicalEquality r3 r1 |> equal true
+[<Fact>]
+let ``test PhysicalEquality works`` () =
+    let r1 = ResizeArray([1; 2])
+    let r2 = ResizeArray([1; 2])
+    let r3 = r1
+    LanguagePrimitives.PhysicalEquality r1 r2 |> equal false
+    LanguagePrimitives.PhysicalEquality r2 r2 |> equal true
+    LanguagePrimitives.PhysicalEquality r3 r1 |> equal true
 
 // --- Raw Erlang reference comparison tests ---
 // These test that fable_comparison correctly handles Erlang references

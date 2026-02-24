@@ -46,15 +46,14 @@ let ``test for in seq expressions works`` () =
     seq { for x in 1 .. 10 do yield x }
     |> Seq.length |> equal 10
 
-// TODO: while in seq generates (fable_seq:delay(...))(ok) double-evaluation — badfun error
-// [<Fact>]
-// let ``test while in seq expressions works`` () =
-//     let mutable n = 0
-//     seq {
-//         while n < 10 do
-//             n <- n + 1
-//             yield n
-//     } |> Seq.sum |> equal 55
+[<Fact>]
+let ``test while in seq expressions works`` () =
+    let mutable n = 0
+    seq {
+        while n < 10 do
+            n <- n + 1
+            yield n
+    } |> Seq.sum |> equal 55
 
 [<Fact>]
 let ``test recursive seq expressions work`` () =
@@ -69,18 +68,17 @@ let ``test recursive seq expressions work`` () =
     let t = Node(Node(Leaf, 1, Leaf), 2, Node(Leaf, 3, Leaf))
     traverse t |> Seq.sum |> equal 9
 
-// TODO: try/finally in seq generates (fable_seq:delay(...))(ok) double-evaluation + util:exception not available
-// [<Fact>]
-// let ``test try finally in seq expressions works`` () =
-//     let mutable n = 0
-//     try seq {
-//         try
-//             raise (exn "My message")
-//         finally
-//             n <- n + 1
-//         } |> Seq.iter ignore
-//     with _ -> ()
-//     equal 1 n
+[<Fact>]
+let ``test try finally in seq expressions works`` () =
+    let mutable n = 0
+    try seq {
+        try
+            raise (exn "My message")
+        finally
+            n <- n + 1
+        } |> Seq.iter ignore
+    with _ -> ()
+    equal 1 n
 
 [<Fact>]
 let ``test array expressions work`` () =

@@ -393,12 +393,10 @@ split_count_loop(Str, Seps, Count, Acc) ->
 to_string(V) when is_binary(V) -> V;
 to_string(V) when is_integer(V) -> integer_to_binary(V);
 to_string(V) when is_float(V) ->
-    %% Match Erlang float_to_binary default but trim trailing zeros
-    S = float_to_binary(V, [{decimals, 10}, compact]),
-    %% Ensure at least one decimal: "42" -> "42.0"
-    case binary:match(S, <<".">>) of
-        nomatch -> <<S/binary, ".0">>;
-        _ -> S
+    %% Match .NET ToString() "G" format: whole-number floats produce "2" not "2.0"
+    case V == trunc(V) of
+        true -> integer_to_binary(trunc(V));
+        false -> float_to_binary(V, [{decimals, 10}, compact])
     end;
 to_string(V) when is_atom(V) -> atom_to_binary(V, utf8);
 to_string(V) when is_boolean(V) ->
@@ -735,7 +733,12 @@ format_raw(Type, Prec, Value) when Type =:= $g; Type =:= $G ->
             trim_trailing_zeros(S)
     end;
 format_raw($x, _Prec, Value) ->
-    iolist_to_binary(io_lib:format("~.16b", [trunc(Value)]));
+    V = trunc(Value),
+    Masked = if V < 0, abs(V) > 16#FFFFFFFF -> V band 16#FFFFFFFFFFFFFFFF;
+                V < 0 -> V band 16#FFFFFFFF;
+                true -> V
+             end,
+    iolist_to_binary(io_lib:format("~.16b", [Masked]));
 format_raw($X, _Prec, Value) ->
     S = format_raw($x, _Prec, Value),
     string:uppercase(S);
