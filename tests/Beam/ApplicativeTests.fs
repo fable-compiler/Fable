@@ -1351,13 +1351,11 @@ let ``test Partial active patterns can return bool`` () =
 
 // --- Arity record tests ---
 
-// TODO: Uncurrying naming collision — generates fun(X, X) -> which in Erlang
-// means both args must be equal (pattern matching), not two separate parameters.
-// [<Fact>]
-// let ``test Arity is checked also when constructing records`` () =
-//     let f i j = (i * 2) + (j * 3)
-//     let r = { arity2 = fun x -> f x >> fun y -> sprintf "foo%i" y }
-//     r.arity2 4 5 |> equal "foo23"
+[<Fact>]
+let ``test Arity is checked also when constructing records`` () =
+    let f i j = (i * 2) + (j * 3)
+    let r = { arity2 = fun x -> f x >> fun y -> sprintf "foo%i" y }
+    r.arity2 4 5 |> equal "foo23"
 
 // --- Module/Class values returning lambdas ---
 

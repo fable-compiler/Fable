@@ -333,9 +333,24 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             ]
 
     | Delegate(args, body, _name, _tags) ->
+        // Deduplicate Erlang variable names in arg patterns.
+        // After uncurrying, inner lambda params that shadow outer ones appear at
+        // the same level. In Erlang, fun(X, X) -> requires both args to be equal,
+        // so we replace earlier duplicates with _ (anonymous/unused pattern).
+        let argNames =
+            args |> List.map (fun a -> capitalizeFirst a.Name |> sanitizeErlangVar)
+
         let argPats =
-            args
-            |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
+            let lastIndex = System.Collections.Generic.Dictionary<string, int>()
+            argNames |> List.iteri (fun i name -> lastIndex.[name] <- i)
+
+            argNames
+            |> List.mapi (fun i name ->
+                if lastIndex.[name] = i then
+                    Beam.PVar(name)
+                else
+                    Beam.PVar("_")
+            )
 
         let ctx' =
             { ctx with LocalVars = args |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars }

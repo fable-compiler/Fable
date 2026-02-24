@@ -323,19 +323,8 @@ let private operators
     | "op_PipeLeft2", [ f; x; y ] -> CurriedApply(f, [ x; y ], _t, r) |> Some
     | "op_PipeRight3", [ x; y; z; f ]
     | "op_PipeLeft3", [ f; x; y; z ] -> CurriedApply(f, [ x; y; z ], _t, r) |> Some
-    | "op_ComposeRight", [ f1; f2 ] ->
-        // fun x -> f2(f1(x))
-        let ident = makeTypedIdent _t "x"
-        let identExpr = IdentExpr ident
-        let innerCall = CurriedApply(f1, [ identExpr ], _t, None)
-        let outerCall = CurriedApply(f2, [ innerCall ], _t, None)
-        Lambda(ident, outerCall, None) |> Some
-    | "op_ComposeLeft", [ f2; f1 ] ->
-        let ident = makeTypedIdent _t "x"
-        let identExpr = IdentExpr ident
-        let innerCall = CurriedApply(f1, [ identExpr ], _t, None)
-        let outerCall = CurriedApply(f2, [ innerCall ], _t, None)
-        Lambda(ident, outerCall, None) |> Some
+    | "op_ComposeRight", [ f1; f2 ] -> compose com ctx r _t f1 f2 |> Some
+    | "op_ComposeLeft", [ f2; f1 ] -> compose com ctx r _t f1 f2 |> Some
     // Not (boolean negation)
     | "Not", [ operand ] -> makeUnOp r _t operand UnaryNot |> Some
     // Tuples
