@@ -58,6 +58,7 @@ let private isClassType (com: IBeamCompiler) (entityRef: EntityRef) =
             && not entity.IsFSharpModule
             && not entity.IsInterface
             && not entity.IsFSharpExceptionDeclaration
+            && not entity.IsValueType
         | None -> false
     | _ -> false
 
@@ -2228,6 +2229,41 @@ and transformClassDeclaration
                 // F# exception construction goes through NewRecord, not ClassDecl constructor.
                 // No need to generate a constructor function here.
                 []
+            elif ent.IsValueType then
+                // Struct/value type: return a plain map (not a ref) using sanitizeFieldName keys
+                // to match the record-style FieldGet path.
+                let ctorCtx =
+                    { ctx with
+                        LocalVars = ctorArgs |> List.fold (fun (s: Set<string>) a -> s.Add(a.Name)) ctx.LocalVars
+                    }
+
+                let mapEntries =
+                    fields
+                    |> List.map (fun (name, value) ->
+                        let erlValue = transformExpr com ctorCtx value
+                        atomLit (sanitizeFieldName name), erlValue
+                    )
+
+                let body = [ Beam.ErlExpr.Map mapEntries ]
+
+                let ctorFuncName = sanitizeErlangName cons.Name
+                com.RegisterConstructorName ent.FullName ctorFuncName
+
+                let funcDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom ctorFuncName
+                        Arity = argPatterns.Length
+                        Clauses =
+                            [
+                                {
+                                    Patterns = argPatterns
+                                    Guard = []
+                                    Body = body
+                                }
+                            ]
+                    }
+
+                [ Beam.ErlForm.Function funcDef ]
             else
                 // Regular class: object = make_ref(), state in process dict
                 let ctorCtx =

@@ -558,14 +558,13 @@ let areEqual (x: obj) (y: obj) = x = y
 // and typeof comparison require runtime type information not available in Erlang.
 // TypeCast is erased, so :?> only works for simple casts (e.g., obj to concrete type via box/unbox).
 
-// TODO: Struct types with val fields generate badmap on undefined
-// [<Fact>]
-// let ``test Value Type records work`` () =
-//     let foo1 = ValueType<_>("foo")
-//     let foo2 = ValueType<_>("foo")
-//     foo1.Value |> equal "foo"
-//     foo1.value |> equal "foo"
-//     foo1 = foo2 |> equal true
+[<Fact>]
+let ``test Value Type records work`` () =
+    let foo1 = ValueType<_>("foo")
+    let foo2 = ValueType<_>("foo")
+    foo1.Value |> equal "foo"
+    foo1.value |> equal "foo"
+    foo1 = foo2 |> equal true
 
 [<Fact>]
 let ``test Value Type unions work`` () =
@@ -579,21 +578,19 @@ let ``test Value Type tuples work`` () =
     let tu2 = struct ("a", "b")
     tu1 = tu2 |> equal true
 
-// TODO: Struct types with val fields generate badmap on undefined
-// [<Fact>]
-// let ``test Value Types work`` () =
-//     let bar1 = ValueType1("bar")
-//     let bar2 = ValueType1("bar")
-//     bar1.Value |> equal "bar"
-//     bar1 = bar2 |> equal true
+[<Fact>]
+let ``test Value Types work`` () =
+    let bar1 = ValueType1("bar")
+    let bar2 = ValueType1("bar")
+    bar1.Value |> equal "bar"
+    bar1 = bar2 |> equal true
 
-// TODO: Struct types with val fields generate badmap on undefined
-// [<Fact>]
-// let ``test Other Value Types work`` () =
-//     let test2 = ValueType2(3, 4)
-//     test2.Value |> equal 7
-//     let p = Point2D(2.)
-//     p.Y |> equal 2.
+[<Fact>]
+let ``test Other Value Types work`` () =
+    let test2 = ValueType2(3, 4)
+    test2.Value |> equal 7
+    let p = Point2D(2.)
+    p.Y |> equal 2.
 
 [<Fact>]
 let ``test Custom F# exceptions work`` () =

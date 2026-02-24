@@ -57,6 +57,17 @@ module Functions =
         | 0 -> x
         | _ -> iterate f (n - 1) (f x)
 
+    let recWithFinally () =
+        let mutable log = ""
+        let rec test n =
+          try
+            log <- log + string "abcde".[n]
+            if n < 4 then test (n+1)
+          finally
+            log <- log + string "ABCDE".[n]
+        test 0
+        log
+
 open Functions
 
 module Issue3301 =
@@ -195,12 +206,6 @@ let ``test Mutually recursive functions can be partially optimized`` () =
     |> Seq.concat |> Seq.map string |> String.concat ""
     |> equal "56"
 
-// TODO: recWithFinally generates syntax error in Erlang (try/finally in recursive function)
-// [<Fact>]
-// let ``test Recursive functions containing finally work`` () =
-//     recWithFinally () |> equal "abcdeEDCBA"
-
-// TODO: recWithUse generates syntax error in Erlang (object expression IDisposable)
-// [<Fact>]
-// let ``test Recursive functions containing use work`` () =
-//     recWithUse () |> equal "abcdeEDCBA"
+[<Fact>]
+let ``test Recursive functions containing finally work`` () =
+    recWithFinally () |> equal "abcdeEDCBA"
