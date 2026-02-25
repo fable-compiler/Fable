@@ -1684,8 +1684,8 @@ and transformReceive (com: IBeamCompiler) (ctx: Context) (emitInfo: EmitInfo) (t
     let isForever = emitInfo.Macro = "__fable_beam_receive_forever__"
 
     // Extract DU entity ref from type:
-    // receive<'T> : 'T option  →  Option(DeclaredType(ref, _), _)
-    // receiveForever<'T> : 'T  →  DeclaredType(ref, _)
+    // receive<'T>(timeoutMs) : 'T option  →  Option(DeclaredType(ref, _), _)
+    // receive<'T>() : 'T  →  DeclaredType(ref, _)
     let entityRef =
         match typ with
         | Option(DeclaredType(ref, _), _) -> Some ref
@@ -1694,7 +1694,7 @@ and transformReceive (com: IBeamCompiler) (ctx: Context) (emitInfo: EmitInfo) (t
 
     match entityRef with
     | None ->
-        com.WarnOnlyOnce("Erlang.receive/receiveForever requires a DU type parameter")
+        com.WarnOnlyOnce("Erlang.receive requires a DU type parameter")
         Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "undefined"))
     | Some ref ->
         match com.TryGetEntity(ref) with
@@ -1747,7 +1747,7 @@ and transformReceive (com: IBeamCompiler) (ctx: Context) (emitInfo: EmitInfo) (t
                 )
 
             if isForever then
-                // receiveForever: no after clause, returns DU directly
+                // receive() (no timeout): no after clause, returns DU directly
                 Beam.ErlExpr.Receive(clauses, None)
             else
                 // receive: has after clause, returns Option (Some = DU value, None = undefined)

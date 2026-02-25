@@ -30,7 +30,7 @@
     trim_start_chars/2,
     trim_end_chars/2,
     to_char_array/1, to_char_array/3,
-    compare/2,
+    compare/2, compare/3,
     compare_ignore_case/2,
     string_ctor_chars/1,
     string_ctor_char_count/2,
@@ -339,6 +339,13 @@ compare_ignore_case(A, B) ->
     LA = string:lowercase(A),
     LB = string:lowercase(B),
     compare(LA, LB).
+
+%% compare/3 — dispatch on ignoreCase (bool) or StringComparison enum (int)
+compare(A, B, true) -> compare_ignore_case(A, B);
+compare(A, B, 1) -> compare_ignore_case(A, B);   % CurrentCultureIgnoreCase
+compare(A, B, 3) -> compare_ignore_case(A, B);   % InvariantCultureIgnoreCase
+compare(A, B, 5) -> compare_ignore_case(A, B);   % OrdinalIgnoreCase
+compare(A, B, _) -> compare(A, B).
 
 %% String constructors
 

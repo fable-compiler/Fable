@@ -300,11 +300,11 @@ let ``test Erlang receive with multi-field DU case`` () =
 #endif
 
 [<Fact>]
-let ``test Erlang receiveForever with self-send`` () =
+let ``test Erlang receive blocking with self-send`` () =
 #if FABLE_COMPILER
-    // Send a message before calling receiveForever so it doesn't block
+    // Send a message before calling receive so it doesn't block
     emitErlExpr () "erlang:self() ! ping"
-    let msg = Erlang.receiveForever<RecvMsg> ()
+    let msg = Erlang.receive<RecvMsg> ()
     match msg with
     | Ping -> equal 1 1
     | _ -> equal 0 1 // fail

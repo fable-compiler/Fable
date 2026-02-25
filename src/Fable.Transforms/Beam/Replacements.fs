@@ -902,13 +902,7 @@ let private strings
     // String.Compare
     | "Compare", None, [ a; b ] -> Helper.LibCall(com, "fable_string", "compare", t, [ a; b ]) |> Some
     | "Compare", None, [ a; b; compType ] ->
-        // Dispatch on ignoreCase bool (true) or StringComparison enum (5=OrdinalIgnoreCase)
-        emitExpr
-            r
-            t
-            [ a; b; compType ]
-            "(fun() -> case $2 of true -> fable_string:compare_ignore_case($0, $1); 5 -> fable_string:compare_ignore_case($0, $1); _ -> fable_string:compare($0, $1) end end)()"
-        |> Some
+        Helper.LibCall(com, "fable_string", "compare", t, [ a; b; compType ]) |> Some
     | "Compare", None, [ a; startA; b; startB; len ] ->
         // String.Compare(a, startA, b, startB, len) — substring comparison
         emitExpr
@@ -923,7 +917,7 @@ let private strings
             r
             t
             [ a; startA; b; startB; len; compType ]
-            "(fun() -> case $5 of true -> fable_string:compare_ignore_case(binary:part($0, $1, $4), binary:part($2, $3, $4)); 5 -> fable_string:compare_ignore_case(binary:part($0, $1, $4), binary:part($2, $3, $4)); _ -> fable_string:compare(binary:part($0, $1, $4), binary:part($2, $3, $4)) end end)()"
+            "fable_string:compare(binary:part($0, $1, $4), binary:part($2, $3, $4), $5)"
         |> Some
     // String.IsNullOrEmpty / IsNullOrWhiteSpace (static on System.String)
     | "IsNullOrEmpty", None, [ str ] -> Helper.LibCall(com, "fable_string", "is_null_or_empty", t, [ str ]) |> Some
@@ -4803,7 +4797,7 @@ let tryCall
     | "Fable.Core.BeamInterop.Erlang" ->
         match info.CompiledName, args with
         | "receive", [ timeoutArg ] -> emitExpr r t [ timeoutArg ] "__fable_beam_receive__($0)" |> Some
-        | "receiveForever", _ -> emitExpr r t [] "__fable_beam_receive_forever__" |> Some
+        | "receive", [] -> emitExpr r t [] "__fable_beam_receive_forever__" |> Some
         | _ -> None
     // Testing assertions (used by our test framework)
     | "Fable.Core.Testing.Assert" ->
