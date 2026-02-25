@@ -3022,8 +3022,11 @@ let transformFunction
     let mutable isTailCallOptimized = false
 
     let argTypes = args |> List.map (fun id -> id.Type)
-    let genTypeParams = getGenericTypeParams (argTypes @ [ body.Type ])
-    let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
+    // Only track actually-declared (repeated) generic params in ScopedTypeParams.
+    // With PEP 695, type params are lexically scoped, so only params that appear
+    // in the function's [] declaration should be tracked. Non-repeated params
+    // (erased to Any) must not enter scope or inner functions will reference them.
+    let newTypeParams = Set.difference repeatedGenerics ctx.ScopedTypeParams
 
     let ctx =
         { ctx with
@@ -3739,13 +3742,35 @@ let transformModuleFunction
     (info: Fable.MemberFunctionOrValue)
     (membName: string)
     (fableArgs: Fable.Ident list)
-    body
+    (body: Fable.Expr)
     =
-    let args, body', returnType =
-        getMemberArgsAndBody com ctx (NonAttached membName) info.HasSpread fableArgs body
-
     let argTypes = fableArgs |> List.map _.Type
-    let typeParams = calculateTypeParams com ctx info argTypes body.Type
+
+    // Compute which type params will be declared in this function's PEP 695 []
+    // BEFORE transforming the body, so inner functions know these are already in scope
+    // and won't re-declare them (which would cause "TypeVar already in use" errors).
+    let explicitGenerics = Annotation.getMemberGenParams info.GenericParameters
+
+    let signatureGenerics =
+        (getGenericTypeParams (argTypes @ [ body.Type ]), ctx.ScopedTypeParams)
+        ||> Set.difference
+
+    let declaredTypeParams =
+        Set.empty
+        |> Set.union explicitGenerics
+        |> Set.union signatureGenerics
+        |> Set.difference
+        <| ctx.ScopedTypeParams
+
+    let ctxWithDeclaredParams =
+        { ctx with ScopedTypeParams = Set.union ctx.ScopedTypeParams declaredTypeParams }
+
+    let args, body', returnType =
+        getMemberArgsAndBody com ctxWithDeclaredParams (NonAttached membName) info.HasSpread fableArgs body
+
+    let typeParams =
+        Annotation.makeFunctionTypeParamsWithConstraints com ctx info.GenericParameters declaredTypeParams
+
     let name = com.GetIdentifier(ctx, membName |> Naming.toPythonNaming)
 
     let isAsync = isTaskType body.Type
