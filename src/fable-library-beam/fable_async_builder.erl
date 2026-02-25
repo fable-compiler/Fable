@@ -144,11 +144,14 @@ while(Guard, Computation) ->
         false -> zero()
     end.
 
-%% For: iterate over list, bind body for each element
-for(List, Body) when is_reference(List) ->
-    for(get(List), Body);
-for(List, Body) ->
+%% For: iterate over list or enumerable, bind body for each element
+for(List, Body) when is_list(List) ->
     case List of
         [] -> zero();
         [H | T] -> bind(Body(H), fun(_) -> for(T, Body) end)
-    end.
+    end;
+for(Ref, Body) when is_reference(Ref) ->
+    for(get(Ref), Body);
+for(Enumerable, Body) ->
+    %% Lazy seq or other enumerable — convert to list first
+    for(fable_utils:to_list(Enumerable), Body).

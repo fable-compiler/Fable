@@ -20,15 +20,15 @@
 %% Constructor: create agent with empty queue, not started.
 %% State stored in process dict keyed by a unique Ref.
 default(Body) -> default(Body, undefined).
-default(Body, _CancelToken) ->
+default(Body, CancelToken) ->
     Ref = make_ref(),
-    put(Ref, #{body => Body, messages => [], continuation => undefined}),
+    put(Ref, #{body => Body, messages => [], continuation => undefined, cancel_token => CancelToken}),
     #{ref => Ref}.
 
 %% Static Start: create + start + return agent
 start(Body) -> start(Body, undefined).
-start(Body, _CancelToken) ->
-    Agent = default(Body),
+start(Body, CancelToken) ->
+    Agent = default(Body, CancelToken),
     start_instance(Agent),
     Agent.
 
@@ -81,16 +81,27 @@ post_and_async_reply(Agent, BuildMessage) ->
         OnSuccess(Value)
     end).
 
-%% Internal: if continuation AND message available, invoke continuation with message
+%% Internal: if continuation AND message available, invoke continuation with message.
+%% Check cancellation token before processing.
 process_events(Agent) ->
     Ref = maps:get(ref, Agent),
     State = get(Ref),
-    case {maps:get(continuation, State), maps:get(messages, State)} of
-        {undefined, _} ->
+    case maps:get(continuation, State) of
+        undefined ->
             ok;
-        {_, []} ->
-            ok;
-        {Cont, [Msg | Rest]} ->
-            put(Ref, State#{messages => Rest, continuation => undefined}),
-            Cont(Msg)
+        Cont ->
+            CancelToken = maps:get(cancel_token, State, undefined),
+            case fable_cancellation:is_cancellation_requested(CancelToken) of
+                true ->
+                    put(Ref, State#{continuation => undefined}),
+                    ok;
+                false ->
+                    case maps:get(messages, State) of
+                        [] ->
+                            ok;
+                        [Msg | Rest] ->
+                            put(Ref, State#{messages => Rest, continuation => undefined}),
+                            Cont(Msg)
+                    end
+            end
     end.

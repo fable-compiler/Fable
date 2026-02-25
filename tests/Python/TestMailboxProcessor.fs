@@ -1,7 +1,6 @@
 module Fable.Tests.MailboxProcessorTests
 
 open System
-open Fable.Tests.Util
 open Util.Testing
 
 type Message = string * AsyncReplyChannel<string>
@@ -54,7 +53,7 @@ let ``test MailboxProcessor.postAndAsyncReply works`` () =
         let formatString = "Msg: {0} - {1}"
         let agent = MailboxProcessor<Message>.Start(fun inbox ->
             let rec loop n = async {
-                let! (message, replyChannel) = inbox.Receive()
+                let! message, replyChannel = inbox.Receive()
                 replyChannel.Reply(String.Format(formatString, n, message))
                 if message <> "Bye" then do! loop (n + 1)
             }

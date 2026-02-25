@@ -80,6 +80,7 @@
     <Compile Include="TestHashSet.fs" />
     <Compile Include="TestNestedAndRecursivePattern.fs" />
 
+    <Compile Include="TestMailboxProcessor.fs" />
     <Compile Include="TestNonRegression.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>

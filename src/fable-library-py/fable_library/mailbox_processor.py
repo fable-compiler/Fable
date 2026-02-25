@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from queue import SimpleQueue
 from threading import RLock
-from typing import Any, Generic, TypeVar
+from typing import Any
 
 from .async_ import from_continuations, start_immediate
 from .async_builder import (
@@ -14,11 +14,7 @@ from .async_builder import (
 )
 
 
-_Msg = TypeVar("_Msg")
-_Reply = TypeVar("_Reply")
-
-
-class AsyncReplyChannel(Generic[_Reply]):
+class AsyncReplyChannel[Reply]:
     def __init__(self, fn: Callable[[Any], None]) -> None:
         self.fn = fn
 
@@ -26,13 +22,13 @@ class AsyncReplyChannel(Generic[_Reply]):
         self.fn(r)
 
 
-class MailboxProcessor(Generic[_Msg]):
+class MailboxProcessor[Msg]:
     def __init__(
         self,
-        body: Callable[[MailboxProcessor[_Msg]], Async[None]],
+        body: Callable[[MailboxProcessor[Msg]], Async[None]],
         cancellation_token: CancellationToken | None = None,
     ):
-        self.messages: SimpleQueue[_Msg] = SimpleQueue()
+        self.messages: SimpleQueue[Msg] = SimpleQueue()
         self.token = cancellation_token or CancellationToken()
         self.lock = RLock()
         self.body = body
@@ -40,7 +36,7 @@ class MailboxProcessor(Generic[_Msg]):
         # Holds the continuation i.e the `done` callback of Async.from_continuations returned by `receive`.
         self.continuation: Continuations[Any] | None = None
 
-    def post(self, msg: _Msg) -> None:
+    def post(self, msg: Msg) -> None:
         """Post a message synchronously to the mailbox processor.
 
         This method is not asynchronous since it's very fast to execute.
@@ -56,7 +52,7 @@ class MailboxProcessor(Generic[_Msg]):
         self.messages.put(msg)
         self.__process_events()
 
-    def post_and_async_reply(self, build_message: Callable[[AsyncReplyChannel[_Reply]], _Msg]) -> Async[_Reply]:
+    def post_and_async_reply[Reply](self, build_message: Callable[[AsyncReplyChannel[Reply]], Msg]) -> Async[Reply]:
         """Post a message asynchronously to the mailbox processor and
         wait for the reply.
 
@@ -70,7 +66,7 @@ class MailboxProcessor(Generic[_Msg]):
             The reply from mailbox processor.
         """
 
-        result: _Reply | None = None
+        result: Reply | None = None
         continuation: Continuations[Any] | None = (
             None  # This is the continuation for the `done` callback of the awaiting poster.
         )
@@ -79,12 +75,12 @@ class MailboxProcessor(Generic[_Msg]):
             if result is not None and continuation is not None:
                 continuation[0](result)
 
-        def reply_callback(res: _Reply):
+        def reply_callback(res: Reply):
             nonlocal result
             result = res
             check_completion()
 
-        reply_channel: AsyncReplyChannel[_Reply] = AsyncReplyChannel(reply_callback)
+        reply_channel: AsyncReplyChannel[Reply] = AsyncReplyChannel(reply_callback)
         self.messages.put(build_message(reply_channel))
         self.__process_events()
 
@@ -95,7 +91,7 @@ class MailboxProcessor(Generic[_Msg]):
 
         return from_continuations(callback)
 
-    def receive(self) -> Async[_Msg]:
+    def receive(self) -> Async[Msg]:
         """Receive message from mailbox.
 
         Returns:
@@ -139,20 +135,26 @@ class MailboxProcessor(Generic[_Msg]):
     @classmethod
     def start(
         cls,
-        body: Callable[[MailboxProcessor[_Msg]], Async[None]],
+        body: Callable[[MailboxProcessor[Msg]], Async[None]],
         cancellation_token: CancellationToken | None = None,
-    ) -> MailboxProcessor[_Msg]:
-        mbox: MailboxProcessor[_Msg] = MailboxProcessor(body, cancellation_token)
+    ) -> MailboxProcessor[Msg]:
+        mbox: MailboxProcessor[Msg] = MailboxProcessor(body, cancellation_token)
         start_immediate(body(mbox))
         return mbox
 
 
-def receive(mbox: MailboxProcessor[_Msg]) -> Async[_Msg]:
+def receive[Msg](mbox: MailboxProcessor[Msg]) -> Async[Msg]:
     return mbox.receive()
 
 
-def post(mbox: MailboxProcessor[_Msg], msg: _Msg):
+def post[Msg](mbox: MailboxProcessor[Msg], msg: Msg):
     return mbox.post(msg)
+
+
+def post_and_async_reply[Msg, Reply](
+    mbox: MailboxProcessor[Msg], build_message: Callable[[AsyncReplyChannel[Reply]], Msg]
+) -> Async[Reply]:
+    return mbox.post_and_async_reply(build_message)
 
 
 def start_instance(mbox: MailboxProcessor[Any]) -> None:
@@ -160,10 +162,10 @@ def start_instance(mbox: MailboxProcessor[Any]) -> None:
     return start_immediate(body)
 
 
-def start(
-    body: Callable[[MailboxProcessor[_Msg]], Async[None]],
+def start[Msg](
+    body: Callable[[MailboxProcessor[Msg]], Async[None]],
     cancellationToken: CancellationToken | None = None,
-) -> MailboxProcessor[_Msg]:
+) -> MailboxProcessor[Msg]:
     mbox = MailboxProcessor(body, cancellationToken)
     start_instance(mbox)
     return mbox
@@ -173,6 +175,7 @@ __all__ = [
     "AsyncReplyChannel",
     "MailboxProcessor",
     "post",
+    "post_and_async_reply",
     "receive",
     "start",
     "start_instance",

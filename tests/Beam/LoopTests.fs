@@ -91,3 +91,26 @@ let ``test while loop with counter works`` () =
         x <- x - 3
         count <- count + 1
     count |> equal 4
+
+[<Fact>]
+let ``test for-in loop with negative step range works`` () =
+    let mutable result = []
+    for i in 5 .. -1 .. 1 do
+        result <- result @ [i]
+    result |> equal [5; 4; 3; 2; 1]
+
+[<Fact>]
+let ``test for-in loop with large negative step range works`` () =
+    let mutable count = 0
+    for _i in 1000 .. -1 .. 0 do
+        count <- count + 1
+    count |> equal 1001
+
+[<Fact>]
+let ``test for-in loop with negative step range works inside async`` () =
+    async {
+        let mutable count = 0
+        for _i in 5 .. -1 .. 1 do
+            count <- count + 1
+        equal 5 count
+    } |> Async.StartImmediate
