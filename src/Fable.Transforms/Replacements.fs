@@ -4059,7 +4059,9 @@ let fsharpType com (ctx: Context) methName (r: SourceLocation option) t (i: Call
         if List.length args > 1 then
             $"FSharpType.%s{methName}(): second argument is ignored"
             |> addWarning com ctx.InlinePath r
-        let args = [List.head args]
+
+        let args = [ List.head args ]
+
         Helper.LibCall(com, "Reflection", Naming.lowerFirst methName, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "IsExceptionRepresentation"
