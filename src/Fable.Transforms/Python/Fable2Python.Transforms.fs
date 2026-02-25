@@ -3022,10 +3022,8 @@ let transformFunction
     let mutable isTailCallOptimized = false
 
     let argTypes = args |> List.map (fun id -> id.Type)
-    // Only add actually-declared (repeated) generic params to scope.
-    // With PEP 695, type params are lexically scoped to their function declaration,
-    // so non-repeated params (erased to Any) must not leak into ScopedTypeParams.
-    let newTypeParams = Set.difference repeatedGenerics ctx.ScopedTypeParams
+    let genTypeParams = getGenericTypeParams (argTypes @ [ body.Type ])
+    let newTypeParams = Set.difference genTypeParams ctx.ScopedTypeParams
 
     let ctx =
         { ctx with
