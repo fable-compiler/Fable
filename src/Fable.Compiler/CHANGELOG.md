@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Beam] Add Erlang/BEAM compilation support: Fable2Beam transform, Beam Replacements, ErlangPrinter, and 31 runtime `.erl` modules. 2086 tests passing. (by @dbrattli)
 
+### Fixed
+
+* [Python] Fix type var scoping for PEP 695 annotations: emit `Any` for type vars outside function scope and prevent non-repeated generic params from leaking into `ScopedTypeParams` (by @dbrattli)
+
 ## 5.0.0-alpha.23 - 2026-02-13
 
 ### Fixed

@@ -424,8 +424,10 @@ let rec typeAnnotation
             com.AddTypeVar(ctx, name), []
         | Some _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
         | None ->
-            let name = Helpers.clean name
-            com.AddTypeVar(ctx, name), []
+            // No repeatedGenerics info means we're outside a function type param scope
+            // (e.g., class fields, variable annotations). With PEP 695, type vars are
+            // lexically scoped, so emit Any instead of an undefined type var reference.
+            stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
     | Fable.Unit -> Expression.none, []
     | Fable.Boolean -> Expression.name "bool", []
     | Fable.Char -> Expression.name "str", []
