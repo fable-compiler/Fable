@@ -14,6 +14,7 @@ let private packageDestination = Path.Resolve("temp", "packages")
 let handle (args: string list) =
     let skipFableLibrary = args |> List.contains "--skip-fable-library"
     // Build all the fable-libraries
+    BuildFableLibraryBeam().Run(skipFableLibrary)
     BuildFableLibraryDart().Run(skipFableLibrary)
     BuildFableLibraryJavaScript().Run(skipFableLibrary)
     BuildFableLibraryPython().Run(skipFableLibrary)
