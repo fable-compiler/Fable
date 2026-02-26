@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
-## Fixed
+### Fixed
 
 * [Beam] Bundle `fable-library-beam` in NuGet package so `dotnet fable --lang beam` works (by @dbrattli)
 
