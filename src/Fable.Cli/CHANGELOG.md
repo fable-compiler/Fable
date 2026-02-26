@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Python] Fix PyPI publish workflow version pattern to support `rc` tags (by @dbrattli)
+
 ## 5.0.0-rc.1 - 2026-02-26
 
 ### Added
