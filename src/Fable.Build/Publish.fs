@@ -87,6 +87,7 @@ let private publishNpm (projectDir: string) =
 
 let handle (args: string list) =
     // Build all the fable-libraries
+    BuildFableLibraryBeam().Run()
     BuildFableLibraryDart().Run()
     BuildFableLibraryJavaScript().Run()
     BuildFableLibraryPython().Run()
