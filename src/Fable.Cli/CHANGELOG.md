@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Python] Fix `:? T as x` type test pattern in closures causing `UnboundLocalError` due to `cast()` shadowing outer variable (by @dbrattli)
 * [All] Prevent Fable from freezing when running a sub-process via `--run` (fix #3631) (by @MangelMaxime)
 * [All] Improve console width detection when rewritting console output (by @MangelMaxime)
+* [JS/TS] Ignore extra args in FSharpType functions (by @olivercoad)
 
 ## 5.0.0-alpha.23 - 2026-02-03
 
