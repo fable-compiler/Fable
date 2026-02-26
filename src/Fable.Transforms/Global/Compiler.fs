@@ -2,10 +2,10 @@ namespace Fable
 
 module Literals =
     [<Literal>]
-    let VERSION = "5.0.0-alpha.24"
+    let VERSION = "5.0.0-rc.1"
 
     [<Literal>]
-    let JS_LIBRARY_VERSION = "2.0.0-beta.7"
+    let JS_LIBRARY_VERSION = "2.0.0-rc.1"
 
 type CompilerOptionsHelper =
     static member Make

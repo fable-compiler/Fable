@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-rc.1 - 2026-02-26
+
 ### Added
 
 * [Beam] Add Erlang/BEAM target (`--lang beam`). Compiles F# to `.erl` source files. 2086 tests passing. (by @dbrattli)
@@ -14,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [Python] Fix type var scoping for PEP 695 annotations: emit `Any` for type vars outside function scope and prevent non-repeated generic params from leaking into `ScopedTypeParams` (by @dbrattli)
+* [JS/TS] Ignore extra args in FSharpType functions (by @olivercoad)
 
 ## 5.0.0-alpha.24 - 2026-02-13
 
@@ -25,7 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Python] Fix `:? T as x` type test pattern in closures causing `UnboundLocalError` due to `cast()` shadowing outer variable (by @dbrattli)
 * [All] Prevent Fable from freezing when running a sub-process via `--run` (fix #3631) (by @MangelMaxime)
 * [All] Improve console width detection when rewritting console output (by @MangelMaxime)
-* [JS/TS] Ignore extra args in FSharpType functions (by @olivercoad)
 
 ## 5.0.0-alpha.23 - 2026-02-03
 
