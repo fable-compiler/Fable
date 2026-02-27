@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Beam] Fix object expression self-references, constructor `as self` patterns, and property get/set key collisions in object expressions (by @dbrattli)
 * [Python] Fix type var scoping for PEP 695 annotations: emit `Any` for type vars outside function scope and prevent non-repeated generic params from leaking into `ScopedTypeParams` (by @dbrattli)
 
 ## 5.0.0-alpha.24 - 2026-02-13
