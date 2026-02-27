@@ -436,6 +436,16 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                     )
                 ]
             )
+        | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
+            // Interface property setter: dispatch through set_ prefixed key
+            // (fable_utils:iface_get(set_bar, Obj))(Value)
+            let setterKey = "set_" + sanitizeErlangName fieldName
+            let setterAtom = Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom setterKey))
+
+            let lookup =
+                Beam.ErlExpr.Call(Some "fable_utils", "iface_get", [ setterAtom; erlExpr ])
+
+            Beam.ErlExpr.Apply(lookup, [ erlValue ])
         | _ ->
             // Record: use sanitizeFieldName for disambiguation of camelCase/PascalCase
             let sanitizedFieldName = sanitizeFieldName fieldName
@@ -905,52 +915,154 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         // methods are stored as closures.
         // Members include `this` as first arg (from bindMemberArgs). For simple cases
         // (no self-reference), we skip `this` and create a plain map.
-        let mapEntries =
+
+        // Check if any member references itself (e.g., `member x2.Test(i) = x2.Value - i`)
+        let anyMemberUsesSelf =
             members
-            |> List.map (fun memb ->
-                let memberInfo = com.GetMember(memb.MemberRef)
-                let methodName = sanitizeErlangName memb.Name
-                // Skip the `this` arg (first arg for instance members), then discard unit args.
-                // ObjectExpr members are interface method implementations, so discardUnitArg
-                // is safe and matches dropUnitCallArg at call sites.
-                let nonThisArgs =
-                    match memb.Args with
-                    | first :: rest when first.IsThisArgument -> rest
-                    | args -> args
-                    |> FSharp2Fable.Util.discardUnitArg
-
-                let membCtx =
-                    { ctx with LocalVars = nonThisArgs |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars }
-
-                let erlBody = transformExpr com membCtx memb.Body
-
-                if memberInfo.IsGetter || memberInfo.IsValue then
-                    // Property getter or value: store the body directly (evaluated at construction time).
-                    // This handles both ObjectExpr getters and synthetic values from objExpr
-                    // (e.g., comparers: #{compare => fun(X, Y) -> ... end}).
-                    atomLit methodName, erlBody
-                else
-                    let argPats = nonThisArgs |> List.map (fun a -> Beam.PVar(toErlangVar a))
-
-                    let bodyExprs =
-                        match erlBody with
-                        | Beam.ErlExpr.Block es -> es
-                        | e -> [ e ]
-
-                    let funExpr =
-                        Beam.ErlExpr.Fun
-                            [
-                                {
-                                    Patterns = argPats
-                                    Guard = []
-                                    Body = bodyExprs
-                                }
-                            ]
-
-                    atomLit methodName, funExpr
+            |> List.exists (fun memb ->
+                match memb.Args with
+                | first :: _ when first.IsThisArgument -> containsIdentRef first.Name memb.Body
+                | _ -> false
             )
 
-        Beam.ErlExpr.Map(mapEntries)
+        let buildMapEntry (memb: ObjectExprMember) (membCtx: Context) =
+            let memberInfo = com.GetMember(memb.MemberRef)
+            let methodName = sanitizeErlangName memb.Name
+
+            let nonThisArgs =
+                match memb.Args with
+                | first :: rest when first.IsThisArgument -> rest
+                | args -> args
+                |> FSharp2Fable.Util.discardUnitArg
+
+            let membCtx =
+                { membCtx with LocalVars = nonThisArgs |> List.fold (fun s a -> s.Add(a.Name)) membCtx.LocalVars }
+
+            let erlBody = transformExpr com membCtx memb.Body
+
+            if memberInfo.IsGetter then
+                // Property getter: always wrap as {getter, fun() -> Body end} thunk
+                // for lazy evaluation. Getter body may depend on mutable state
+                // (e.g., IFoo3.Bar reading a mutable ref) or self-references.
+                // iface_get detects the {getter, Fun} tag and calls the thunk.
+                let bodyExprs =
+                    match erlBody with
+                    | Beam.ErlExpr.Block es -> es
+                    | e -> [ e ]
+
+                let thunk =
+                    Beam.ErlExpr.Fun
+                        [
+                            {
+                                Patterns = []
+                                Guard = []
+                                Body = bodyExprs
+                            }
+                        ]
+
+                let taggedThunk =
+                    Beam.ErlExpr.Tuple [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "getter")); thunk ]
+
+                atomLit methodName, taggedThunk
+            elif memberInfo.IsValue then
+                // Value: store the body directly (evaluated at construction time).
+                // This handles synthetic values from objExpr
+                // (e.g., comparers: #{compare => fun(X, Y) -> ... end}).
+                atomLit methodName, erlBody
+            elif memberInfo.IsSetter then
+                // Property setter: store as fun(Value) -> ... end with set_ prefix
+                let argPats = nonThisArgs |> List.map (fun a -> Beam.PVar(toErlangVar a))
+
+                let bodyExprs =
+                    match erlBody with
+                    | Beam.ErlExpr.Block es -> es
+                    | e -> [ e ]
+
+                let funExpr =
+                    Beam.ErlExpr.Fun
+                        [
+                            {
+                                Patterns = argPats
+                                Guard = []
+                                Body = bodyExprs
+                            }
+                        ]
+
+                atomLit ("set_" + methodName), funExpr
+            else
+                let argPats = nonThisArgs |> List.map (fun a -> Beam.PVar(toErlangVar a))
+
+                let bodyExprs =
+                    match erlBody with
+                    | Beam.ErlExpr.Block es -> es
+                    | e -> [ e ]
+
+                let funExpr =
+                    Beam.ErlExpr.Fun
+                        [
+                            {
+                                Patterns = argPats
+                                Guard = []
+                                Body = bodyExprs
+                            }
+                        ]
+
+                atomLit methodName, funExpr
+
+        if not anyMemberUsesSelf then
+            // Simple case: plain map, no self-reference
+            let mapEntries = members |> List.map (fun memb -> buildMapEntry memb ctx)
+            Beam.ErlExpr.Map(mapEntries)
+        else
+            // Self-referencing: use process-dict ref pattern so closures can reference
+            // the object being constructed.
+            // Generated code:
+            //   ObjRef_N = make_ref(),
+            //   X2 = ObjRef_N,    % for each distinct self-ident
+            //   put(ObjRef_N, #{value => {getter, fun() -> ... end}, test => fun(I) -> ... end}),
+            //   ObjRef_N
+            let ctr = com.IncrementCounter()
+            let refVarName = $"ObjRef_%d{ctr}"
+
+            // Collect distinct self-ident names across all members
+            let selfIdentNames =
+                members
+                |> List.choose (fun memb ->
+                    match memb.Args with
+                    | first :: _ when first.IsThisArgument -> Some first.Name
+                    | _ -> None
+                )
+                |> List.distinct
+
+            // Build alias bindings: X2 = ObjRef_N (for each self-ident)
+            let aliasBindings =
+                selfIdentNames
+                |> List.map (fun name ->
+                    Beam.ErlExpr.Match(
+                        Beam.PVar(capitalizeFirst name |> sanitizeErlangVar),
+                        Beam.ErlExpr.Variable refVarName
+                    )
+                )
+
+            // Add self-ident names to LocalVars so they resolve as Erlang variables
+            let membCtx =
+                { ctx with LocalVars = selfIdentNames |> List.fold (fun s name -> s.Add(name)) ctx.LocalVars }
+
+            let mapEntries = members |> List.map (fun memb -> buildMapEntry memb membCtx)
+
+            Beam.ErlExpr.Block(
+                [
+                    // ObjRef_N = make_ref()
+                    Beam.ErlExpr.Match(Beam.PVar refVarName, Beam.ErlExpr.Call(None, "make_ref", []))
+                ]
+                @ aliasBindings
+                @ [
+                    // put(ObjRef_N, #{...})
+                    Beam.ErlExpr.Call(None, "put", [ Beam.ErlExpr.Variable refVarName; Beam.ErlExpr.Map(mapEntries) ])
+                    // Return the ref
+                    Beam.ErlExpr.Variable refVarName
+                ]
+            )
 
     | Extended(kind, _range) ->
         match kind with
@@ -2213,6 +2325,9 @@ and transformClassDeclaration
             // We collect all Set(FieldSet(name), _, value) into initial map entries.
             let rec extractFieldSets (expr: Expr) : (string * Expr) list =
                 match expr with
+                // Skip nested field mutations like `this.refCell.contents <- value`
+                // (from `as self` ref-cell initialization). These are do-expressions.
+                | Set(Get _, FieldSet _, _, _, _) -> []
                 | Set(_, FieldSet fieldName, _, value, _) -> [ (fieldName, value) ]
                 | Sequential exprs -> exprs |> List.collect extractFieldSets
                 | _ -> []
@@ -2222,6 +2337,7 @@ and transformClassDeclaration
             // in the constructor but not field assignments on the class itself.
             let rec extractDoExprs (expr: Expr) : Expr list =
                 match expr with
+                | Set(Get _, FieldSet _, _, _, _) -> [ expr ] // Nested field mutation is a do-expr
                 | Set(_, FieldSet _, _, _, _) -> [] // Handled by extractFieldSets
                 | ObjectExpr _ -> [] // Skip ObjectExpr (interface implementations)
                 | Sequential exprs -> exprs |> List.collect extractDoExprs
@@ -2230,11 +2346,24 @@ and transformClassDeclaration
             let fields = extractFieldSets cons.Body
             let doExprs = extractDoExprs cons.Body
 
-            // Constructor args: skip `this`, then discard unit args
+            // Constructor args: skip `this`/`as self` args, then discard unit args
             let ctorArgs =
                 cons.Args
-                |> List.filter (fun a -> a.Name <> "this")
+                |> List.filter (fun a -> not a.IsThisArgument)
                 |> FSharp2Fable.Util.discardUnitArg
+
+            // Detect `as self` ref-cell fields from the do-expressions.
+            // F# compiler stores `as self` as a ref-cell field + a do-expression that
+            // sets its contents to `this`: Set(Get(_, FieldGet "selfName"), FieldSet "contents", ...).
+            // Collect the field names of self-reference ref cells.
+            let selfRefFieldNames =
+                doExprs
+                |> List.choose (fun expr ->
+                    match expr with
+                    | Set(Get(_, FieldGet info, _, _), FieldSet "contents", _, _, _) -> Some info.Name
+                    | _ -> None
+                )
+                |> Set.ofList
 
             let argPatterns =
                 ctorArgs
@@ -2352,11 +2481,20 @@ and transformClassDeclaration
                 // Process fields in order, progressively building a map of field name → Erlang expr.
                 // This allows later fields to reference earlier fields via this.FieldName
                 // (which would otherwise fail because put(Ref, #{...}) hasn't happened yet).
+                // For `as self` ref-cell fields, initialize contents to Ref directly
+                // (the later Set(Get(...), FieldSet "contents"...) do-expr is redundant).
                 let mapEntries, _ =
                     fields
                     |> List.fold
                         (fun (entries, fieldCtx: Context) (name, value) ->
-                            let erlValue = transformExpr com fieldCtx value
+                            let erlValue =
+                                if selfRefFieldNames.Contains name then
+                                    // Self-reference ref cell: set contents to Ref immediately
+                                    // (the `Set(Get _, FieldSet "contents", ...)` do-expr is now redundant)
+                                    Beam.ErlExpr.Map [ atomLit "contents_", Beam.ErlExpr.Variable "Ref" ]
+                                else
+                                    transformExpr com fieldCtx value
+
                             let entries' = entries @ [ atomLit ("field_" + sanitizeErlangName name), erlValue ]
 
                             let fieldCtx' =
@@ -2411,7 +2549,7 @@ and transformClassDeclaration
 
                                 Some(atomLit memberName, taggedThunk)
                             else
-                                // Method: create a closure with the body inlined directly.
+                                // Method or setter: create a closure with the body inlined directly.
                                 // Apply discardUnitArg to match dropUnitCallArg at call sites.
                                 let nonThisArgs =
                                     memb.Args
@@ -2454,7 +2592,14 @@ and transformClassDeclaration
                                             }
                                         ]
 
-                                Some(atomLit memberName, closure)
+                                // Setters use set_ prefix to avoid key collision with getters
+                                let keyName =
+                                    if sigInfo.IsSetter then
+                                        "set_" + memberName
+                                    else
+                                        memberName
+
+                                Some(atomLit keyName, closure)
                         | None -> None
                     )
 

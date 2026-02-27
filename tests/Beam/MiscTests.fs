@@ -110,48 +110,45 @@ let (|NonEmpty|_|) (s: string) =
 
 // Object expression interfaces
 
-// TODO: Object expression self-references (x2, this) generate undefined function calls instead of referencing current object
-// type IFoo =
-//     abstract Bar: string -> string
-// type IFoo2 =
-//     abstract Value: int with get, set
-//     abstract Test: int -> int
-//     abstract MakeFoo: unit -> IFoo
-// type Foo(i) =
-//     let mutable j = 5
-//     member x.Value = i + j
-//     member x.MakeFoo2() = {
-//         new IFoo2 with
-//         member x2.Value
-//             with get() = x.Value * 2
-//             and set(i) = j <- j + i
-//         member x2.Test(i) = x2.Value - i
-//         member x2.MakeFoo() = {
-//             new IFoo with
-//             member x3.Bar(s: string) =
-//                 sprintf "%s: %i %i %i" s x.Value x2.Value j
-//         }
-//     }
-// type IFoo3 =
-//     abstract Bar: int with get, set
+type IFoo =
+    abstract Bar: string -> string
+type IFoo2 =
+    abstract Value: int with get, set
+    abstract Test: int -> int
+    abstract MakeFoo: unit -> IFoo
+type Foo(i) =
+    let mutable j = 5
+    member x.Value = i + j
+    member x.MakeFoo2() = {
+        new IFoo2 with
+        member x2.Value
+            with get() = x.Value * 2
+            and set(i) = j <- j + i
+        member x2.Test(i) = x2.Value - i
+        member x2.MakeFoo() = {
+            new IFoo with
+            member x3.Bar(s: string) =
+                sprintf "%s: %i %i %i" s x.Value x2.Value j
+        }
+    }
+type IFoo3 =
+    abstract Bar: int with get, set
 
-// TODO: RecursiveType "as self" constructor — self-reference generates badkey error
-// type RecursiveType(subscribe) as self =
-//     let foo = 3
-//     let getNumber() = 3
-//     do subscribe (getNumber >> self.Add2)
-//     member _.Add2(i) = self.MultiplyFoo(i) + 2
-//     member _.MultiplyFoo(i) = i * foo
+type RecursiveType(subscribe) as self =
+    let foo = 3
+    let getNumber() = 3
+    do subscribe (getNumber >> self.Add2)
+    member _.Add2(i) = self.MultiplyFoo(i) + 2
+    member _.MultiplyFoo(i) = i * foo
 
-// TODO: Interface inheritance in object expressions — self-ref generates this() call
-// type Eater =
-//     abstract Bite: unit -> int
-// type Taster =
-//     inherit Eater
-//     abstract Starter: float
-//     abstract Taste: quality: float * quantity: float -> int
-// let taste (com: Taster) qlty qty =
-//     com.Starter * qlty + qty |> int
+type Eater =
+    abstract Bite: unit -> int
+type Taster =
+    inherit Eater
+    abstract Starter: float
+    abstract Taste: quality: float * quantity: float -> int
+let taste (com: Taster) qlty qty =
+    com.Starter * qlty + qty |> int
 
 type IRenderer =
     abstract member doWork: unit -> string
@@ -361,16 +358,16 @@ let ``test Custom computation expressions work`` () =
 // -- Self References in Constructors --
 // TODO: "as myself" self-reference in constructors generates {badkey,x} — class constructor codegen issue
 
-// [<Fact>]
-// let ``test Self references in constructors work`` () =
-//     let t = MyTest(5)
-//     equal 12 t.Value
-//     equal 17 t.Value2
+[<Fact>]
+let ``test Self references in constructors work`` () =
+    let t = MyTest(5)
+    equal 12 t.Value
+    equal 17 t.Value2
 
-// [<Fact>]
-// let ``test Using self identifier from class definition in members works`` () =
-//     let t = MyTest(5)
-//     t.Foo() |> equal 24
+[<Fact>]
+let ``test Using self identifier from class definition in members works`` () =
+    let t = MyTest(5)
+    t.Foo() |> equal 24
 
 // -- Inline Methods --
 
@@ -449,54 +446,50 @@ let ``test Conversion to Action works`` () =
 
 // -- Object Expressions --
 
-// TODO: Object expression self-references (x2) — Foo.MakeFoo2() generates x2_2() undefined
-// [<Fact>]
-// let ``test Object expression can reference enclosing type and self`` () =
-//     let f = Foo(5)
-//     let f2 = f.MakeFoo2()
-//     f2.Value <- 2
-//     f.Value |> equal 12
-//     f2.Test(2) |> equal 22
+[<Fact>]
+let ``test Object expression can reference enclosing type and self`` () =
+    let f = Foo(5)
+    let f2 = f.MakeFoo2()
+    f2.Value <- 2
+    f.Value |> equal 12
+    f2.Test(2) |> equal 22
 
-// [<Fact>]
-// let ``test Nested object expressions work`` () =
-//     let f = Foo(5)
-//     let f2 = f.MakeFoo2()
-//     f2.MakeFoo().Bar("Numbers") |> equal "Numbers: 10 20 5"
+[<Fact>]
+let ``test Nested object expressions work`` () =
+    let f = Foo(5)
+    let f2 = f.MakeFoo2()
+    f2.MakeFoo().Bar("Numbers") |> equal "Numbers: 10 20 5"
 
-// TODO: Duplicate map keys for getter/setter — IFoo3.Bar get/set both map to 'bar' key
-// [<Fact>]
-// let ``test Properties in object expression work`` () =
-//     let mutable backend = 0
-//     let o = { new IFoo3 with member x.Bar with get() = backend and set(v) = backend <- v }
-//     o.Bar |> equal 0
-//     backend <- 5
-//     o.Bar |> equal 5
-//     o.Bar <- 10
-//     o.Bar |> equal 10
+[<Fact>]
+let ``test Properties in object expression work`` () =
+    let mutable backend = 0
+    let o = { new IFoo3 with member x.Bar with get() = backend and set(v) = backend <- v }
+    o.Bar |> equal 0
+    backend <- 5
+    o.Bar |> equal 5
+    o.Bar <- 10
+    o.Bar |> equal 10
 
-// TODO: Interface inheritance self-ref — this() undefined in Taster object expression
-// [<Fact>]
-// let ``test Object expressions don't optimize members away`` () =
-//     let o =
-//         { new Taster with
-//             member _.Starter = 5.5
-//             member this.Taste(quality, quantity) =
-//                 taste this quality quantity
-//           interface Eater with
-//             member _.Bite() = 25
-//         }
-//     o.Taste(4., 6.) |> equal 28
+[<Fact>]
+let ``test Object expressions don't optimize members away`` () =
+    let o =
+        { new Taster with
+            member _.Starter = 5.5
+            member this.Taste(quality, quantity) =
+                taste this quality quantity
+          interface Eater with
+            member _.Bite() = 25
+        }
+    o.Taste(4., 6.) |> equal 28
 
-// TODO: RecursiveType — do expressions in "as self" constructor body not executed
-// [<Fact>]
-// let ``test Composition with recursive this works`` () =
-//     let mutable x = 0
-//     RecursiveType(fun f -> x <- f()) |> ignore
-//     equal 11 x
+[<Fact>]
+let ``test Composition with recursive this works`` () =
+    let mutable x = 0
+    RecursiveType(fun f -> x <- f()) |> ignore
+    equal 11 x
 
-// TODO: MyComponent object expression generates badarith — sprintf in class with "as self" constructor
-
+// TODO: Re-enable when Beam target disambiguates local let bindings from same-named members
+// (MyComponent has `let work i = ...` and `member _.Work i = work i` which collide after sanitization)
 // [<Fact>]
 // let ``test References to enclosing type from object expression work`` () =
 //     MyComponent("TestA").works1().doWork() |> equal "TestA-1"
