@@ -59,6 +59,60 @@ type MyEx2(f: float) =
     inherit exn(sprintf "Code: %i" (int f))
     member _.Code = f
 
+// TODO: Optional arguments don't work in Beam — compiler generates wrong arity calls
+// type OptionalArgClass(?arg1: float, ?arg2: string, ?arg3: int) =
+//     member _.P1 = defaultArg arg1 1.0
+//     member _.P2 = defaultArg arg2 "1"
+//     member _.P3 = defaultArg arg3 1
+
+// Type abbreviation
+type SimpleType3() =
+    member _.Value = "Hi"
+
+type SimpleType4() =
+    inherit SimpleType3()
+    member _.Value2 = "Bye"
+
+type ST4 = SimpleType4
+
+// TODO: Abstract class properties — abstract dispatch not yet supported in Beam
+// [<AbstractClass>]
+// type AbstractClass3() =
+//     abstract MyProp: int with get, set
+//
+// type ConcreteClass3() =
+//     inherit AbstractClass3()
+//     let mutable v = 5
+//     override _.MyProp with get() = v and set(v2) = v <- v + v2
+
+// TODO: base.Member() calls not yet supported in Beam —
+// the compiler generates function names that don't exist
+// type BaseWithDefaults (x: int) =
+//     abstract member Init: unit -> int
+//     default _.Init () = x
+//     abstract member Prop: string
+//     default _.Prop = "base"
+//
+// type ExtendingDefaults () =
+//     inherit BaseWithDefaults(5)
+//     override _.Init() = base.Init() + 2
+//     override _.Prop = base.Prop + "-extension"
+//
+// type BaseWithField() =
+//     let field = 1
+//     member _.A() = field
+//
+// type ExtendedWithBase() =
+//     inherit BaseWithField()
+//     member _.A() = 2
+//     member _.B() = base.A()
+
+// TODO: Struct without explicit ctor — default constructor returns undefined in Beam
+// type ValueType3 =
+//   struct
+//     val mutable public X : int
+//   end
+
 [<Fact>]
 let ``test class constructor and property getter work`` () =
     let t = Type5Test("hello")
@@ -647,3 +701,35 @@ let ``test Base class field access works`` () =
 let ``test Base class method call works`` () =
     let d = DerivedClass(42, 0)
     d.Greet("World") |> equal "Hello World from 42"
+
+// --- Tests ported from Rust TypeTests ---
+
+// TODO: Optional arguments don't work in Beam
+// [<Fact>]
+// let ``test Optional arguments work`` () =
+//     let x = OptionalArgClass(?arg2 = Some "2")
+//     (x.P1, x.P2, x.P3) |> equal (1.0, "2", 1)
+
+[<Fact>]
+let ``test Type abbreviation works`` () =
+    let t = ST4()
+    t.Value2 |> equal "Bye"
+
+// TODO: Abstract class properties, base.Member() calls, and member hiding
+// with base. access not yet supported in Beam.
+// [<Fact>]
+// let ``test Abstract properties with getters and setters work`` () = ...
+// [<Fact>]
+// let ``test Calling default implementation of base members works`` () = ...
+// [<Fact>]
+// let ``test Calling default implementation of base properties works`` () = ...
+// [<Fact>]
+// let ``test Calling base members works`` () = ...
+
+// TODO: Struct without explicit ctor — default constructor returns undefined in Beam
+// [<Fact>]
+// let ``test struct without explicit ctor works`` () =
+//     let t1 = ValueType3(X=10)
+//     t1.X |> equal 10
+//     let mutable t2 = ValueType3()
+//     t2.X |> equal 0
