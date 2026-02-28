@@ -418,7 +418,7 @@ module Path =
             let toPath = addDummyFile toIsDir toFullPath |> normalizePath
 
             match (pathDifference fromPath toPath).Replace(dummyFile, "") with
-            | "" -> "."
+            | s when System.String.IsNullOrEmpty(s) -> "."
             // Some folders start with a period, see #1599
             | path when isRelativePath path -> path
             | path -> "./" + path
@@ -458,7 +458,7 @@ module Path =
 
         commonPrefix.Length >= parent.Length
 
-    let getCommonBaseDir (filePaths: seq<string>) =
+    let getCommonBaseDir (filePaths: string seq) =
         filePaths
         |> Seq.map (fun filePath ->
             filePath

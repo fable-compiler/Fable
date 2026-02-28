@@ -1233,7 +1233,7 @@ let private getExceptionTypeExpr (com: IPythonCompiler) ctx =
     | Fable.DeclaredType(entRef, _) -> Annotation.tryPyConstructor com ctx (com.GetEntity(entRef))
     | _ -> None
 
-let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: option<Fable.Ident * Fable.Expr>, finalizer) =
+let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: (Fable.Ident * Fable.Expr) option, finalizer) =
     // try .. catch statements cannot be tail call optimized
     let ctx = { ctx with TailCallOpportunity = None }
 
@@ -3278,32 +3278,35 @@ let declareDataClassType
     let interfaceBases =
         ent.AllInterfaces
         |> List.ofSeq
-        |> List.filter (fun int ->
+        |> List.choose (fun int ->
             let name = Helpers.removeNamespace (int.Entity.FullName)
-            allowedInterfaces |> List.contains name
-        )
-        |> List.map (fun int ->
-            // Filter out self-referential generic arguments to avoid forward reference errors
-            let genericArgs =
-                int.GenericArgs
-                |> List.filter (fun genArg ->
-                    match genArg with
-                    | Fable.DeclaredType({ FullName = fullName }, _) -> Helpers.removeNamespace (fullName) <> entName
-                    | _ -> true
-                )
 
-            // Generate the EnumerableBase reference from bases module
-            if List.isEmpty genericArgs then
-                libValue com ctx "bases" "EnumerableBase"
+            if not (allowedInterfaces |> List.contains name) then
+                None
             else
-                let typeArgs =
-                    genericArgs
-                    |> List.map (fun genArg ->
-                        let arg, _ = Annotation.typeAnnotation com ctx None genArg
-                        arg
+                // Filter out self-referential generic arguments to avoid forward reference errors
+                let genericArgs =
+                    int.GenericArgs
+                    |> List.filter (fun genArg ->
+                        match genArg with
+                        | Fable.DeclaredType({ FullName = fullName }, _) ->
+                            Helpers.removeNamespace (fullName) <> entName
+                        | _ -> true
                     )
 
-                Expression.subscript (libValue com ctx "bases" "EnumerableBase", Expression.tuple typeArgs)
+                // Generate the EnumerableBase reference from bases module
+                if List.isEmpty genericArgs then
+                    libValue com ctx "bases" "EnumerableBase" |> Some
+                else
+                    let typeArgs =
+                        genericArgs
+                        |> List.map (fun genArg ->
+                            let arg, _ = Annotation.typeAnnotation com ctx None genArg
+                            arg
+                        )
+
+                    Expression.subscript (libValue com ctx "bases" "EnumerableBase", Expression.tuple typeArgs)
+                    |> Some
         )
 
     let bases = (baseExpr |> Option.toList) @ interfaceBases
@@ -4473,8 +4476,12 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
             let interfaces =
                 classEnt.AllInterfaces
                 |> List.ofSeq
-                |> List.map (fun int -> int.Entity)
-                |> List.filter (fun ent -> ent.FullName <> classEnt.FullName)
+                |> List.choose (fun int ->
+                    if int.Entity.FullName <> classEnt.FullName then
+                        Some int.Entity
+                    else
+                        None
+                )
 
             for ref in interfaces do
                 let entity = com.TryGetEntity(ref)

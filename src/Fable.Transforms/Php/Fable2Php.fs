@@ -1205,7 +1205,7 @@ let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
         //| _ -> printfn "%A" t
 
         match fixNsName (Path.GetFileNameWithoutExtension(info.Path)) with
-        | "" ->
+        | s when System.String.IsNullOrEmpty(s) ->
             match com.IsImport info.Selector with
             | Some true ->
                 let name = fixName info.Selector

@@ -26,8 +26,8 @@ type Lrc<'T> = 'T
 type Into<'T> = 'T
 type From<'T> = 'T
 
-type Vec<'T> = ResizeArray<'T>
-type VecDeque<'T> = ResizeArray<'T> // TODO: use Deque impl
+type Vec<'T> = 'T ResizeArray
+type VecDeque<'T> = 'T ResizeArray // TODO: use Deque impl
 type Map<'K, 'V> = System.Collections.Generic.Dictionary<'K, 'V>
 
 type ToString =

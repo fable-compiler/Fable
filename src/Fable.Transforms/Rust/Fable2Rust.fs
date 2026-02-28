@@ -378,8 +378,12 @@ module TypeInfo =
 
     let getEntityGenParamNames (ent: Fable.Entity) =
         ent.GenericParameters
-        |> List.filter (fun p -> not p.IsMeasure)
-        |> List.map (fun p -> p.Name)
+        |> List.choose (fun p ->
+            if not p.IsMeasure then
+                Some p.Name
+            else
+                None
+        )
         |> Set.ofList
 
     let hasMutableFields (com: IRustCompiler) (ent: Fable.Entity) =
@@ -707,8 +711,12 @@ module TypeInfo =
 
     let transformGenTypes com ctx genArgs : Rust.Ty list =
         genArgs
-        |> List.filter (isUnitOfMeasure >> not)
-        |> List.map (transformType com ctx)
+        |> List.choose (fun g ->
+            if isUnitOfMeasure g then
+                None
+            else
+                Some(transformType com ctx g)
+        )
 
     let transformGenArgs com ctx genArgs : Rust.GenericArgs option =
         genArgs |> transformGenTypes com ctx |> mkTypesGenericArgs
@@ -1365,8 +1373,7 @@ module Util =
             let genParams =
                 argTypes @ [ body.Type ]
                 |> FSharp2Fable.Util.getGenParams
-                |> List.filter (fst >> isLambdaOrGenArgNotInScope)
-                |> List.filter (fst >> isNotLambdaOrGenArgInScope)
+                |> List.filter (fun (name, _) -> isLambdaOrGenArgNotInScope name && isNotLambdaOrGenArgInScope name)
 
             let genArgTypes = genParams |> List.map snd
             let genArgNames = genParams |> List.map fst |> Set.ofList
@@ -3989,11 +3996,13 @@ module Util =
 
     let makeGenericParams com ctx (genParams: Fable.GenericParam list) =
         genParams
-        |> List.filter (fun p -> not p.IsMeasure)
-        |> List.map (fun p ->
-            let typeBounds = makeTypeBounds com ctx p.Name p.Constraints
-            let typeBounds = typeBounds @ defaultTypeBounds
-            mkGenericParamFromName [] p.Name typeBounds
+        |> List.choose (fun p ->
+            if p.IsMeasure then
+                None
+            else
+                let typeBounds = makeTypeBounds com ctx p.Name p.Constraints
+                let typeBounds = typeBounds @ defaultTypeBounds
+                mkGenericParamFromName [] p.Name typeBounds |> Some
         )
 
     let makeGenericParamsFromArgs com ctx (genArgs: Fable.Type list) =
@@ -4928,8 +4937,12 @@ module Util =
         let nonInterfaceImpls =
             let memberItems =
                 nonInterfaceMembers
-                |> List.filter (snd >> isIgnoredMember >> not)
-                |> List.map (makeMemberItem com ctx true)
+                |> List.choose (fun m ->
+                    if isIgnoredMember (snd m) then
+                        None
+                    else
+                        Some(makeMemberItem com ctx true m)
+                )
 
             let memberItems =
                 if isObjectExpr then
@@ -4985,8 +4998,12 @@ module Util =
 
                 let memberItems =
                     interfaceMembers
-                    |> List.filter (fun (d, m) -> Set.contains m.FullName memberNames)
-                    |> List.map (makeMemberItem com ctx false)
+                    |> List.choose (fun (d, m) ->
+                        if Set.contains m.FullName memberNames then
+                            Some(makeMemberItem com ctx false (d, m))
+                        else
+                            None
+                    )
 
                 memberItems
                 |> makeInterfaceTraitImpls com ctx entName genParams ifcEntRef ifcGenArgs
@@ -5225,7 +5242,7 @@ module Util =
                         [ "crate" ]
 
                 match import.Selector with
-                | ""
+                | s when System.String.IsNullOrEmpty(s) -> []
                 | "*"
                 | "default" ->
                     // let useItem = mkGlobUseItem [] modPath
@@ -5248,7 +5265,7 @@ module Util =
 
     let getIdentForImport (ctx: Context) (path: string) (selector: string) =
         match selector with
-        | ""
+        | s when System.String.IsNullOrEmpty(s) -> Path.GetFileNameWithoutExtension(path)
         | "*"
         | "default" -> Path.GetFileNameWithoutExtension(path)
         | _ -> splitNameParts selector |> List.last
