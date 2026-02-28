@@ -98,8 +98,9 @@ class UTF16LE {
     } else if (index != null) {
       str = str.substring(index);
     }
-    if (typeof Buffer !== "undefined") {
-      const bytes = Buffer.from(str, "utf16le");
+    const g = globalThis as any;
+    if (typeof g.Buffer !== "undefined") {
+      const bytes = g.Buffer.from(str, "utf16le");
       return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     } else {
       return utf16le_encode(str); // polyfill
@@ -114,10 +115,11 @@ class UTF16LE {
     } else if (index != null) {
       buffer = buffer.subarray(index);
     }
+    const g = globalThis as any;
     if (typeof TextDecoder !== "undefined") {
       return new TextDecoder("utf-16le").decode(buffer);
-    } else if (typeof Buffer !== "undefined") {
-      return Buffer.from(buffer).toString("utf16le");
+    } else if (typeof g.Buffer !== "undefined") {
+      return g.Buffer.from(buffer).toString("utf16le");
     } else {
       return utf16le_decode(buffer); // polyfill
     }
@@ -134,10 +136,11 @@ class UTF8 {
     } else if (index != null) {
       str = str.substring(index);
     }
+    const g = globalThis as any;
     if (typeof TextEncoder !== "undefined") {
       return new TextEncoder().encode(str);
-    } else if (typeof Buffer !== "undefined") {
-      const bytes = Buffer.from(str, "utf8");
+    } else if (typeof g.Buffer !== "undefined") {
+      const bytes = g.Buffer.from(str, "utf8");
       return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     } else {
       return utf8_encode(str); // polyfill
@@ -152,10 +155,11 @@ class UTF8 {
     } else if (index != null) {
       buffer = buffer.subarray(index);
     }
+    const g = globalThis as any;
     if (typeof TextDecoder !== "undefined") {
       return new TextDecoder().decode(buffer);
-    } else if (typeof Buffer !== "undefined") {
-      return Buffer.from(buffer).toString("utf8");
+    } else if (typeof g.Buffer !== "undefined") {
+      return g.Buffer.from(buffer).toString("utf8");
     } else {
       return utf8_decode(buffer); // polyfill
     }
