@@ -24,6 +24,8 @@ type IBeamCompiler =
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
     abstract RegisterConstructorName: entityFullName: string -> ctorFuncName: string -> unit
     abstract TryGetConstructorName: entityFullName: string -> string option
+    abstract RegisterCtorParamNames: entityFullName: string -> paramNames: Set<string> -> unit
+    abstract TryGetCtorParamNames: entityFullName: string -> Set<string> option
 
 type Context =
     {
@@ -37,6 +39,8 @@ type Context =
         ThisArgVar: string option // Erlang variable name for `this` in class constructors/methods
         ThisIdentNames: Set<string> // original Fable ident names that refer to `this` (e.g., "_", "__")
         CtorFieldExprs: Map<string, Beam.ErlExpr> // field name -> Erlang expr during constructor
+        ClassFieldPrefix: bool // When true, NewRecord uses "field_" prefix for map keys (for explicit val field class ctors)
+        CtorParamNames: Set<string> // Constructor parameter names (stored as class fields)
     }
 
 /// Check if an entity ref refers to an interface type
@@ -1360,8 +1364,13 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
             let fieldEntries =
                 List.zip (entity.FSharpFields |> List.map (fun f -> f.Name)) values
                 |> List.map (fun (name, value) ->
-                    Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeFieldName name))),
-                    transformExpr com ctx value
+                    let fieldKey =
+                        if ctx.ClassFieldPrefix then
+                            atomLit ("field_" + sanitizeErlangName name)
+                        else
+                            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeFieldName name)))
+
+                    fieldKey, transformExpr com ctx value
                 )
 
             if entity.IsFSharpExceptionDeclaration then
@@ -2239,52 +2248,71 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
         let args = info.Args |> List.map (transformExpr com ctx)
         let hoisted, cleanArgs = hoistBlocksFromArgs args
 
-        // For instance method/property calls, prepend ThisArg to args
-        let allHoisted, allArgs =
-            match info.ThisArg with
-            | Some thisExpr ->
-                let erlThis = transformExpr com ctx thisExpr
-                let thisHoisted, cleanThis = extractBlock erlThis
-                hoisted @ thisHoisted, cleanThis :: cleanArgs
-            | None -> hoisted, cleanArgs
+        // Check for field-stored function invoke in class method body.
+        // When F# compiles `f x y` where `f: int -> int -> int` is a constructor param,
+        // multi-arg invocations produce Call(IdentExpr("f"), {ThisArg=Some(this), Args=[x,y]})
+        // instead of CurriedApply(Get(this, FieldGet("f")), [x,y]).
+        // Detect this: ident must match a known constructor parameter name (which is stored
+        // as a class field). This avoids confusing with method calls on self.
+        match info.ThisArg with
+        | Some thisExpr when ctx.ThisArgVar.IsSome && ctx.CtorParamNames.Contains(ident.Name) ->
+            // Field-stored function: (maps:get(field_<name>, get(This)))(Args)
+            let erlThis = transformExpr com ctx thisExpr
+            let thisH, cleanThis = extractBlock erlThis
+            let fieldAtom = atomLit ("field_" + sanitizeErlangName ident.Name)
 
-        match ctx.MutualRecBindings.TryFind(ident.Name) with
-        | Some(bundleName, atomTag) ->
-            // Mutual recursion: (Mk_rec_N(atom_tag))(args)
-            let bundleCall =
-                Beam.ErlExpr.Apply(
-                    Beam.ErlExpr.Variable(bundleName),
-                    [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomTag)) ]
-                )
+            let lookup =
+                Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; Beam.ErlExpr.Call(None, "get", [ cleanThis ]) ])
 
-            Beam.ErlExpr.Apply(bundleCall, allArgs) |> wrapWithHoisted allHoisted
-        | None ->
-            if ctx.RecursiveBindings.Contains(ident.Name) || ctx.LocalVars.Contains(ident.Name) then
-                let varExpr = Beam.ErlExpr.Variable(capitalizeFirst ident.Name |> sanitizeErlangVar)
+            Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted (hoisted @ thisH)
+        | _ ->
 
-                let apply =
-                    match allArgs with
-                    | [] when
-                        (match ident.Type with
-                         | Fable.AST.Fable.Type.DelegateType _ -> true
-                         | _ -> false)
-                        ->
-                        // Zero-arg delegate Invoke (e.g. `d.Invoke()` on `delegate of unit -> int`).
-                        // The underlying fun may be arity 0 (unit stripped at definition by discardUnitArg)
-                        // or arity 1 (unit kept in Delegate AST node). Erlang enforces arity, so check
-                        // at runtime. This is necessary because the Delegate AST node is shared by .NET
-                        // delegates (Invoke strips unit via dropUnitCallArg) and callbacks like Lazy
-                        // factories (called with explicit unit), preventing a uniform compile-time fix.
-                        Beam.ErlExpr.Emit(
-                            "case erlang:fun_info($0, arity) of {arity, 0} -> ($0)(); {arity, _} -> ($0)(ok) end",
-                            [ varExpr ]
-                        )
-                    | _ -> Beam.ErlExpr.Apply(varExpr, allArgs)
+            // For instance method/property calls, prepend ThisArg to args
+            let allHoisted, allArgs =
+                match info.ThisArg with
+                | Some thisExpr ->
+                    let erlThis = transformExpr com ctx thisExpr
+                    let thisHoisted, cleanThis = extractBlock erlThis
+                    hoisted @ thisHoisted, cleanThis :: cleanArgs
+                | None -> hoisted, cleanArgs
 
-                apply |> wrapWithHoisted allHoisted
-            else
-                Beam.ErlExpr.Call(None, sanitizeErlangName ident.Name, allArgs)
-                |> wrapWithHoisted allHoisted
+            match ctx.MutualRecBindings.TryFind(ident.Name) with
+            | Some(bundleName, atomTag) ->
+                // Mutual recursion: (Mk_rec_N(atom_tag))(args)
+                let bundleCall =
+                    Beam.ErlExpr.Apply(
+                        Beam.ErlExpr.Variable(bundleName),
+                        [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomTag)) ]
+                    )
+
+                Beam.ErlExpr.Apply(bundleCall, allArgs) |> wrapWithHoisted allHoisted
+            | None ->
+                if ctx.RecursiveBindings.Contains(ident.Name) || ctx.LocalVars.Contains(ident.Name) then
+                    let varExpr = Beam.ErlExpr.Variable(capitalizeFirst ident.Name |> sanitizeErlangVar)
+
+                    let apply =
+                        match allArgs with
+                        | [] when
+                            (match ident.Type with
+                             | Fable.AST.Fable.Type.DelegateType _ -> true
+                             | _ -> false)
+                            ->
+                            // Zero-arg delegate Invoke (e.g. `d.Invoke()` on `delegate of unit -> int`).
+                            // The underlying fun may be arity 0 (unit stripped at definition by discardUnitArg)
+                            // or arity 1 (unit kept in Delegate AST node). Erlang enforces arity, so check
+                            // at runtime. This is necessary because the Delegate AST node is shared by .NET
+                            // delegates (Invoke strips unit via dropUnitCallArg) and callbacks like Lazy
+                            // factories (called with explicit unit), preventing a uniform compile-time fix.
+                            Beam.ErlExpr.Emit(
+                                "case erlang:fun_info($0, arity) of {arity, 0} -> ($0)(); {arity, _} -> ($0)(ok) end",
+                                [ varExpr ]
+                            )
+                        | _ -> Beam.ErlExpr.Apply(varExpr, allArgs)
+
+                    apply |> wrapWithHoisted allHoisted
+                else
+                    Beam.ErlExpr.Call(None, sanitizeErlangName ident.Name, allArgs)
+                    |> wrapWithHoisted allHoisted
 
     | Get(calleeExpr, FieldGet fieldInfo, _, _) ->
         // Check if this is an interface method call (callee is an interface type)
@@ -2340,6 +2368,13 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                     Beam.ErlExpr.Call(None, "unknown_call", cleanCallee :: cleanArgs)
                     |> wrapWithHoisted allHoisted
             | methodName ->
+                // Check if this is a constructor-parameter field invoke in a class method body.
+                // When a class ctor param like `add: int -> int -> int` is used in a method body
+                // as `add x y`, the Fable AST produces Call(Get(this, FieldGet("add")), {Args=[x,y]}).
+                // We need to generate (maps:get(field_add, get(This)))(X, Y) instead of add(This, X, Y).
+                let isCtorFieldInvoke =
+                    ctx.ThisArgVar.IsSome && ctx.CtorParamNames.Contains(methodName)
+
                 // Check if callee is a record/anonymous record (function-valued field)
                 let isRecordLike =
                     match calleeExpr.Type with
@@ -2350,7 +2385,19 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                         | None -> false
                     | _ -> false
 
-                if isRecordLike then
+                if isCtorFieldInvoke then
+                    // Constructor param field invoke: (maps:get(field_<name>, get(This)))(Args)
+                    let fieldAtom = atomLit ("field_" + sanitizeErlangName methodName)
+
+                    let lookup =
+                        Beam.ErlExpr.Call(
+                            Some "maps",
+                            "get",
+                            [ fieldAtom; Beam.ErlExpr.Call(None, "get", [ cleanCallee ]) ]
+                        )
+
+                    Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted allHoisted
+                elif isRecordLike then
                     // Function-valued record field: (maps:get(field, Record))(Args)
                     let fieldAtom = atomLit (sanitizeFieldName methodName)
                     let lookup = Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; cleanCallee ])
@@ -2740,6 +2787,24 @@ and transformClassDeclaration
                 [ Beam.ErlForm.Function funcDef ]
         | None -> []
 
+    // Collect constructor parameter names so method bodies can detect field-stored function invokes.
+    // Register them in the compiler state so MemberDeclaration handlers can find them.
+    let ctorParamNames =
+        match decl.Constructor with
+        | Some cons ->
+            cons.Args
+            |> List.filter (fun a -> not a.IsThisArgument)
+            |> FSharp2Fable.Util.discardUnitArg
+            |> List.map (fun a -> a.Name)
+            |> Set.ofList
+        | None -> Set.empty
+
+    // Always register ctor param names when there's a primary constructor (even if empty set).
+    // This serves as a flag to distinguish classes with primary constructors from
+    // explicit val field classes (whose constructors come through MemberDeclaration).
+    if decl.Constructor.IsSome then
+        com.RegisterCtorParamNames ent.FullName ctorParamNames
+
     // Attached members: getters, setters, methods, secondary constructors
     let memberForms =
         decl.AttachedMembers
@@ -2776,14 +2841,16 @@ and transformClassDeclaration
                                 ThisArgVar = Some "This"
                                 ThisIdentNames = thisIdentNames
                                 LocalVars = argNames
+                                CtorParamNames = ctorParamNames
                             }
 
                         Some first, rest, memberCtx
                     | _ -> None, discardedArgs, { ctx with LocalVars = argNames }
 
                 if info.IsConstructor then
-                    // Secondary constructor: generates an additional function with different arity
-                    // The body typically calls the primary constructor
+                    // Secondary constructor in AttachedMembers: the body typically calls the primary constructor.
+                    // Note: explicit val field class constructors (no primary ctor) come through
+                    // MemberDeclaration, not AttachedMembers, so they are handled there instead.
                     let ctorArgs =
                         memb.Args
                         |> List.filter (fun a -> not a.IsThisArgument && a.Name <> "this")
@@ -2793,6 +2860,7 @@ and transformClassDeclaration
                         ctorArgs
                         |> List.map (fun a -> Beam.PVar(capitalizeFirst a.Name |> sanitizeErlangVar))
 
+                    // Regular secondary constructor: the body typically calls the primary constructor
                     let ctorCtx =
                         { ctx with LocalVars = ctorArgs |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars }
 
@@ -2950,6 +3018,14 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
 
         let name = sanitizeErlangName memDecl.Name
 
+        // Look up constructor parameter names for the owning class so method bodies
+        // can detect field-stored function invokes (e.g., ctor param `add: int -> int -> int`
+        // used as `add x y` in a method body).
+        let ctorParamNames =
+            match memDecl.MemberRef with
+            | MemberRef(entityRef, _) -> com.TryGetCtorParamNames entityRef.FullName |> Option.defaultValue Set.empty
+            | _ -> Set.empty
+
         // For instance members, the first arg is `this` (named `_` or `__` or `this$` etc.)
         // We need to rename it to a proper Erlang variable and set up the context.
         // Apply discardUnitArg to non-this args for symmetric unit stripping.
@@ -2979,6 +3055,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                     ThisArgVar = Some thisVarName
                     ThisIdentNames = Set.singleton thisArg.Name
                     LocalVars = allIdents |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars
+                    CtorParamNames = ctorParamNames
                 }
             else
                 let discardedArgs = FSharp2Fable.Util.discardUnitArg memDecl.Args
@@ -2994,28 +3071,154 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
             else
                 FSharp2Fable.Util.discardUnitArg memDecl.Args
 
-        let bodyExpr = transformExpr com memberCtx memDecl.Body
+        // Check if this is a constructor for an explicit val field class (no primary ctor).
+        // These constructors need ref-based construction (make_ref/put). We detect them by:
+        // 1. The member is a constructor
+        // 2. The owning entity is a class type
+        // 3. No primary constructor param names were registered for this class
+        //    (classes with primary constructors register their param names, even if empty,
+        //     so absence means this is an explicit val field class)
+        let isExplicitValClassCtor =
+            info.IsConstructor
+            && (
+                match memDecl.MemberRef with
+                | MemberRef(entityRef, _) ->
+                    isClassType com entityRef
+                    && (com.TryGetCtorParamNames entityRef.FullName).IsNone
+                | _ -> false
+            )
 
-        let body =
-            match bodyExpr with
-            | Beam.ErlExpr.Block exprs -> exprs
-            | expr -> [ expr ]
+        if isExplicitValClassCtor then
+            // Explicit val field class constructor: needs ref-based construction.
+            // The body contains a record construction (possibly preceded by a base ctor call).
+            // We need to:
+            // 1. Extract the base ctor call (if any)
+            // 2. Transform field init with ClassFieldPrefix for field_ naming
+            // 3. Wrap in make_ref()/put() pattern
 
-        let funcDef: Beam.ErlFunctionDef =
-            {
-                Name = Beam.Atom name
-                Arity = arity
-                Clauses =
-                    [
-                        {
-                            Patterns = args
-                            Guard = []
-                            Body = body
-                        }
+            // Detect base ctor calls in the body
+            let isCtorCall (e: Expr) =
+                match e with
+                | Call(_, callInfo, _, _) ->
+                    callInfo.MemberRef
+                    |> Option.exists (fun mr ->
+                        match mr with
+                        | MemberRef(_, mri) -> mri.CompiledName = ".ctor"
+                        | _ -> false
+                    )
+                | _ -> false
+
+            let baseCallOpt, bodyWithoutBaseCall =
+                match memDecl.Body with
+                | Sequential exprs ->
+                    match exprs |> List.partition isCtorCall with
+                    | [ ctorCall ], rest ->
+                        Some ctorCall,
+                        (match rest with
+                         | [ e ] -> e
+                         | _ -> Sequential rest)
+                    | _ -> None, memDecl.Body
+                | _ -> None, memDecl.Body
+
+            // Transform field initialization with ClassFieldPrefix for field_ naming
+            let fieldCtx =
+                { ctx with
+                    ClassFieldPrefix = true
+                    LocalVars = nonThisArgs |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars
+                }
+
+            let fieldExpr = transformExpr com fieldCtx bodyWithoutBaseCall
+
+            let fieldExprs =
+                match fieldExpr with
+                | Beam.ErlExpr.Block es -> es
+                | e -> [ e ]
+
+            let fieldMapExpr = List.last fieldExprs
+
+            // Handle base constructor call: capture ref, extract state, erase temp ref
+            let basePrelude =
+                match baseCallOpt with
+                | Some baseCallExpr ->
+                    let ctorCtx' =
+                        { ctx with LocalVars = nonThisArgs |> List.fold (fun s a -> s.Add(a.Name)) ctx.LocalVars }
+
+                    let erlBaseCall = transformExpr com ctorCtx' baseCallExpr
+                    let baseCallH, cleanBaseCall = extractBlock erlBaseCall
+
+                    baseCallH
+                    @ [
+                        Beam.ErlExpr.Match(Beam.PVar "BaseRef", cleanBaseCall)
+                        Beam.ErlExpr.Match(
+                            Beam.PVar "BaseState",
+                            Beam.ErlExpr.Call(None, "get", [ Beam.ErlExpr.Variable "BaseRef" ])
+                        )
+                        Beam.ErlExpr.Call(None, "erase", [ Beam.ErlExpr.Variable "BaseRef" ])
                     ]
-            }
+                | None -> []
 
-        [ Beam.ErlForm.Function funcDef ]
+            // If has base call, merge base state with derived fields
+            let stateExpr =
+                if basePrelude.Length > 0 then
+                    Beam.ErlExpr.Call(Some "maps", "merge", [ Beam.ErlExpr.Variable "BaseState"; fieldMapExpr ])
+                else
+                    fieldMapExpr
+
+            let body =
+                basePrelude
+                @ [
+                    Beam.ErlExpr.Match(Beam.PVar "Ref", Beam.ErlExpr.Call(Some "erlang", "make_ref", []))
+                    Beam.ErlExpr.Call(None, "put", [ Beam.ErlExpr.Variable "Ref"; stateExpr ])
+                    Beam.ErlExpr.Variable "Ref"
+                ]
+
+            // Register constructor name so derived classes can find it for base calls
+            let entityFullName =
+                match memDecl.MemberRef with
+                | MemberRef(entityRef, _) -> entityRef.FullName
+                | _ -> ""
+
+            if entityFullName <> "" then
+                com.RegisterConstructorName entityFullName name
+
+            let funcDef: Beam.ErlFunctionDef =
+                {
+                    Name = Beam.Atom name
+                    Arity = arity
+                    Clauses =
+                        [
+                            {
+                                Patterns = args
+                                Guard = []
+                                Body = body
+                            }
+                        ]
+                }
+
+            [ Beam.ErlForm.Function funcDef ]
+        else
+            let bodyExpr = transformExpr com memberCtx memDecl.Body
+
+            let body =
+                match bodyExpr with
+                | Beam.ErlExpr.Block exprs -> exprs
+                | expr -> [ expr ]
+
+            let funcDef: Beam.ErlFunctionDef =
+                {
+                    Name = Beam.Atom name
+                    Arity = arity
+                    Clauses =
+                        [
+                            {
+                                Patterns = args
+                                Guard = []
+                                Body = body
+                            }
+                        ]
+                }
+
+            [ Beam.ErlForm.Function funcDef ]
 
     | ActionDeclaration actionDecl ->
         let bodyExpr = transformExpr com ctx actionDecl.Body
@@ -3063,9 +3266,14 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             ThisArgVar = None
             ThisIdentNames = Set.empty
             CtorFieldExprs = Map.empty
+            ClassFieldPrefix = false
+            CtorParamNames = Set.empty
         }
 
     let ctorNameRegistry = System.Collections.Generic.Dictionary<string, string>()
+
+    let ctorParamNamesRegistry =
+        System.Collections.Generic.Dictionary<string, Set<string>>()
 
     let beamCom =
         { new IBeamCompiler with
@@ -3078,6 +3286,14 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             member _.TryGetConstructorName entityFullName =
                 match ctorNameRegistry.TryGetValue(entityFullName) with
                 | true, name -> Some name
+                | false, _ -> None
+
+            member _.RegisterCtorParamNames entityFullName paramNames =
+                ctorParamNamesRegistry.[entityFullName] <- paramNames
+
+            member _.TryGetCtorParamNames entityFullName =
+                match ctorParamNamesRegistry.TryGetValue(entityFullName) with
+                | true, names -> Some names
                 | false, _ -> None
 
             member _.LibraryDir = com.LibraryDir

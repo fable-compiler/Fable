@@ -6,7 +6,7 @@ main([Dir]) ->
     Beams = filelib:wildcard(filename:join(Dir, "*.beam")),
     Modules = [list_to_atom(filename:basename(F, ".beam")) || F <- Beams,
                filename:basename(F, ".beam") =/= "erl_test_runner",
-               lists:suffix("_tests", filename:basename(F, ".beam"))],
+               string:find(filename:basename(F, ".beam"), "_tests") =/= nomatch],
     %% For each module, find exported functions with arity 1 (test functions)
     Results = lists:foldl(fun(Mod, Acc) ->
         code:purge(Mod),

@@ -81,6 +81,7 @@
     <Compile Include="EventTests.fs" />
     <Compile Include="ControlFlowTests.fs" />
     <Compile Include="ClosureTests.fs" />
+    <Compile Include="MiscTests2.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
