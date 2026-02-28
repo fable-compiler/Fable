@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Python] Fix PyPI publish workflow version pattern to support `rc` tags (by @dbrattli)
 * [Beam] Bundle `fable-library-beam` in NuGet package so `dotnet fable --lang beam` works (by @dbrattli)
+* [Beam] Fix optional arguments by unwrapping at call sites and padding missing trailing args (by @dbrattli)
+* [Beam] Fix generic constraint interface dispatch (by @dbrattli)
+* [Beam] Fix class constructor field invokes and explicit val fields (by @dbrattli)
+* [Beam] Fix mutable record field mutation (by @dbrattli)
 
 ## 5.0.0-rc.1 - 2026-02-26
 
