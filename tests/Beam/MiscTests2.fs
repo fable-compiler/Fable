@@ -4,8 +4,17 @@ open Fable.Tests.Util
 open Util.Testing
 
 // --- Units of measure ---
+[<Measure>] type km
+[<Measure>] type mi
+[<Measure>] type h
 [<Measure>] type m
 [<Measure>] type s
+
+[<Measure>] type Measure1
+[<Measure>] type Measure2 = Measure1
+
+type MeasureTest() =
+    member _.Method(x: float<Measure2>) = x
 
 [<Fact>]
 let ``test Units of measure division works`` () =
@@ -69,3 +78,40 @@ let ``test Classes with explicit fields can call base constructors`` () =
     o1.string2 |> equal "B"
     o2.string1 |> equal "D"
     o2.string2 |> equal "C"
+
+// --- Additional UoM tests ---
+
+[<Fact>]
+let ``test Units of measure addition works`` () =
+    3<km/h> + 2<km/h> |> equal 5<km/h>
+
+[<Fact>]
+let ``test Units of measure work with longs`` () =
+    3L<km/h> + 2L<km/h> |> equal 5L<km/h>
+
+[<Fact>]
+let ``test Abbreviated units of measure work`` () =
+    let x = 5.<Measure1>
+    let c = MeasureTest()
+    c.Method(5.<Measure2>) |> equal x
+
+// --- Module bindings ---
+
+module ModuleBindings =
+    let modx = 3
+
+open ModuleBindings
+
+// TODO: Mutable module-level bindings don't work in Erlang because Erlang modules
+// don't support mutable state at module scope. The `<-` mutation is silently ignored.
+// [<Fact>]
+// let ``test Module let mutable bindings work`` () =
+//     let mutable mody = 4  // (originally a module-level mutable)
+//     mody <- mody + 1
+//     let z = modx + mody
+//     z |> equal 8
+
+[<Fact>]
+let ``test Module let bindings work`` () =
+    let z = modx + 5
+    z |> equal 8

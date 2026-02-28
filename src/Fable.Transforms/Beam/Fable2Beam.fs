@@ -2322,6 +2322,14 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                 match com.TryGetEntity(entityRef) with
                 | Some entity -> entity.IsInterface
                 | None -> false
+            | Fable.AST.Fable.Type.GenericParam(_, _, constraints) ->
+                constraints
+                |> List.exists (fun c ->
+                    match c with
+                    | Fable.AST.Fable.Constraint.CoercesTo(Fable.AST.Fable.Type.DeclaredType(entityRef, _)) ->
+                        isInterfaceType com entityRef
+                    | _ -> false
+                )
             | _ -> false
 
         let erlCallee = transformExpr com ctx calleeExpr

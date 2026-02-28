@@ -217,3 +217,65 @@ let ``test Updating nested record works`` () =
     let car2 = { car with Interior = { Seats = 5 } }
     car.Interior.Seats |> equal 4
     car2.Interior.Seats |> equal 5
+
+// --- Record pattern matching ---
+
+let recordPatternMatchFn = function
+    | { Name = "Alice"; Age = x } -> x
+    | _ -> -1
+
+[<Fact>]
+let ``test record pattern matching works`` () =
+    let resA = recordPatternMatchFn { Name = "Alice"; Age = 30 }
+    let resB = recordPatternMatchFn { Name = "Bob"; Age = 25 }
+    resA |> equal 30
+    resB |> equal -1
+
+// --- Struct records ---
+
+[<Struct>]
+type StructRecord = {
+    i: int
+    s: string
+}
+
+let processStructByValue (s: StructRecord) =
+    s, s.i + 1
+
+[<Fact>]
+let ``test Struct record works`` () =
+    let r1 = { i = 1; s = "hello" }
+    let r2 = { i = 1; s = "world" }
+    let (sres1, ires1) = r1 |> processStructByValue
+    let (sres2, ires2) = r1 |> processStructByValue
+    let (sres3, ires3) = r2 |> processStructByValue
+    ires2 |> equal 2
+    sres3.s |> equal "world"
+
+// --- Mutable record fields ---
+
+type MutableIntRecord = {
+    mutable MutValue: int
+}
+
+[<Fact>]
+let ``test Records with value-type interior mutability`` () =
+    let x = { MutValue = 1 }
+    x.MutValue |> equal 1
+    x.MutValue <- x.MutValue + 1
+    x.MutValue |> equal 2
+    x.MutValue <- x.MutValue + 1
+    x.MutValue |> equal 3
+
+type MutableRefRecord = {
+    mutable MutRefValue: string
+}
+
+[<Fact>]
+let ``test Records with ref-type interior mutability`` () =
+    let x = { MutRefValue = "a" }
+    x.MutRefValue |> equal "a"
+    x.MutRefValue <- x.MutRefValue + "b"
+    x.MutRefValue |> equal "ab"
+    x.MutRefValue <- x.MutRefValue + "c"
+    x.MutRefValue |> equal "abc"
