@@ -79,6 +79,8 @@
     <Compile Include="ParallelTests.fs" />
     <Compile Include="ObservableTests.fs" />
     <Compile Include="EventTests.fs" />
+    <Compile Include="ControlFlowTests.fs" />
+    <Compile Include="ClosureTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

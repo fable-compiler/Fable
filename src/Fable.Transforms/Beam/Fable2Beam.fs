@@ -62,6 +62,17 @@ let private isClassType (com: IBeamCompiler) (entityRef: EntityRef) =
         | None -> false
     | _ -> false
 
+/// Check if a type is a record with mutable fields.
+/// Such records need process-dict ref wrapping for field mutation to work correctly.
+let private hasMutableRecordFields (com: IBeamCompiler) (typ: Fable.AST.Fable.Type) =
+    match typ with
+    | Fable.AST.Fable.Type.DeclaredType(entityRef, _) ->
+        match com.TryGetEntity(entityRef) with
+        | Some entity ->
+            entity.IsFSharpRecord
+            && entity.FSharpFields |> List.exists (fun f -> f.IsMutable)
+        | None -> false
+    | _ -> false
 
 let private atomLit name =
     Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom name))
@@ -145,6 +156,38 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
     | Sequential exprs ->
         let erlExprs = exprs |> List.map (transformExpr com ctx)
         Beam.ErlExpr.Block erlExprs
+
+    | Let(ident, value, body) when not ident.IsMutable && hasMutableRecordFields com ident.Type ->
+        // Record with mutable fields: wrap in process-dict ref so FieldSet mutations
+        // are visible through closures and across rebinds (Erlang maps are immutable).
+        // Uses the same ref pattern as mutable variables.
+        let refVarName = (capitalizeFirst ident.Name |> sanitizeErlangVar) + "_ref"
+        let erlValue = transformExpr com ctx value
+        let ctx' = { ctx with MutableVars = ctx.MutableVars.Add(ident.Name, refVarName) }
+        let erlBody = transformExpr com ctx' body
+
+        if Util.isCapturedInClosure ident.Name body then
+            Beam.ErlExpr.Block
+                [
+                    Beam.ErlExpr.Match(
+                        Beam.PVar(refVarName),
+                        Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ erlValue ])
+                    )
+                    erlBody
+                ]
+        else
+            let resultVarName = refVarName + "_result"
+
+            Beam.ErlExpr.Block
+                [
+                    Beam.ErlExpr.Match(
+                        Beam.PVar(refVarName),
+                        Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ erlValue ])
+                    )
+                    Beam.ErlExpr.Match(Beam.PVar(resultVarName), erlBody)
+                    Beam.ErlExpr.Call(Some "erlang", "erase", [ Beam.ErlExpr.Variable(refVarName) ])
+                    Beam.ErlExpr.Variable(resultVarName)
+                ]
 
     | Let(ident, value, body) when
         ident.IsMutable
@@ -453,7 +496,26 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             let atomField =
                 Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom sanitizedFieldName))
 
-            Beam.ErlExpr.Call(Some "maps", "put", [ atomField; erlValue; erlExpr ])
+            match expr with
+            | IdentExpr ident when ctx.MutableVars.ContainsKey(ident.Name) ->
+                // Record with mutable fields wrapped in process-dict ref:
+                // put(Ref, maps:put(field, Value, get(Ref)))
+                let refVarName = ctx.MutableVars.[ident.Name]
+                let refVar = Beam.ErlExpr.Variable(refVarName)
+
+                Beam.ErlExpr.Call(
+                    None,
+                    "put",
+                    [
+                        refVar
+                        Beam.ErlExpr.Call(
+                            Some "maps",
+                            "put",
+                            [ atomField; erlValue; Beam.ErlExpr.Call(None, "get", [ refVar ]) ]
+                        )
+                    ]
+                )
+            | _ -> Beam.ErlExpr.Call(Some "maps", "put", [ atomField; erlValue; erlExpr ])
 
     | Set(expr, ExprSet idx, typ, value, _) ->
         let erlExpr = transformExpr com ctx expr
