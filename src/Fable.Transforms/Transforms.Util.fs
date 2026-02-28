@@ -1751,7 +1751,7 @@ module AST =
         | DecisionTreeSuccess(_, boundValues, _) -> boundValues
 
     let deepExists (f: Expr -> bool) expr =
-        let rec deepExistsInner (exprs: Expr ResizeArray) =
+        let rec deepExistsInner (exprs: ResizeArray<Expr>) =
             let mutable found = false
             let subExprs = FSharp.Collections.ResizeArray()
 

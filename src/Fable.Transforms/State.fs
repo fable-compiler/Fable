@@ -282,7 +282,7 @@ type CompilerImpl
         ?outType: OutputType,
         ?outDir: string,
         ?watchDependencies: HashSet<string>,
-        ?logs: LogEntry ResizeArray,
+        ?logs: ResizeArray<LogEntry>,
         ?isPrecompilingInlineFunction: bool
     )
     =

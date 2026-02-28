@@ -2503,7 +2503,7 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
 type private AttachedMembers =
     {|
         NonMangledNames: HashSet<string>
-        Members: Fable.MemberDecl ResizeArray
+        Members: ResizeArray<Fable.MemberDecl>
         Cons: Fable.MemberDecl option
         BaseCall: Fable.Expr option
     |}
