@@ -59,11 +59,10 @@ type MyEx2(f: float) =
     inherit exn(sprintf "Code: %i" (int f))
     member _.Code = f
 
-// TODO: Optional arguments don't work in Beam — compiler generates wrong arity calls
-// type OptionalArgClass(?arg1: float, ?arg2: string, ?arg3: int) =
-//     member _.P1 = defaultArg arg1 1.0
-//     member _.P2 = defaultArg arg2 "1"
-//     member _.P3 = defaultArg arg3 1
+type OptionalArgClass(?arg1: float, ?arg2: string, ?arg3: int) =
+    member _.P1 = defaultArg arg1 1.0
+    member _.P2 = defaultArg arg2 "1"
+    member _.P3 = defaultArg arg3 1
 
 // Type abbreviation
 type SimpleType3() =
@@ -704,11 +703,10 @@ let ``test Base class method call works`` () =
 
 // --- Tests ported from Rust TypeTests ---
 
-// TODO: Optional arguments don't work in Beam
-// [<Fact>]
-// let ``test Optional arguments work`` () =
-//     let x = OptionalArgClass(?arg2 = Some "2")
-//     (x.P1, x.P2, x.P3) |> equal (1.0, "2", 1)
+[<Fact>]
+let ``test Optional arguments work`` () =
+    let x = OptionalArgClass(?arg2 = Some "2")
+    (x.P1, x.P2, x.P3) |> equal (1.0, "2", 1)
 
 [<Fact>]
 let ``test Type abbreviation works`` () =

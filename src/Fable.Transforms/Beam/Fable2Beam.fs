@@ -19,6 +19,17 @@ let rec mustWrapOption =
     | Option _ -> true
     | _ -> false
 
+let unwrapOptionalArg (arg: Fable.Expr) =
+    match arg with
+    | Fable.Value(Fable.NewOption(Some inner, _, _), _) -> inner
+    | Fable.Value(Fable.NewOption(None, t, _), _) -> Fable.TypeCast(arg, t)
+    | _ ->
+        // At runtime, the arg is already the unwrapped value since
+        // Erlang optional params use `undefined` as None
+        match arg.Type with
+        | Fable.Option(_, _) when not (mustWrapOption arg.Type) -> arg
+        | _ -> arg
+
 type IBeamCompiler =
     inherit Fable.Compiler
     abstract WarnOnlyOnce: string * ?range: SourceLocation -> unit
@@ -1944,6 +1955,39 @@ and transformReceive (com: IBeamCompiler) (ctx: Context) (emitInfo: EmitInfo) (t
 and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: CallInfo) : Beam.ErlExpr =
     let info =
         { info with Args = FSharp2Fable.Util.dropUnitCallArg com info.Args info.SignatureArgTypes info.MemberRef }
+
+    // Unwrap optional arguments (same pattern as Babel target)
+    // In Erlang, we also need to pad missing trailing optional args with None
+    // because Erlang requires exact arity matching (unlike JS/Python).
+    let info =
+        let memberInfo = info.MemberRef |> Option.bind com.TryGetMember
+        let paramsInfo = memberInfo |> Option.map getParamsInfo
+
+        match paramsInfo with
+        | Some pi when info.Args.Length <= pi.Parameters.Length ->
+            let args =
+                List.zipSafe info.Args pi.Parameters
+                |> List.map (fun (a, p) ->
+                    if p.IsOptional then
+                        unwrapOptionalArg a
+                    else
+                        a
+                )
+
+            // Pad missing trailing optional args with None (undefined in Erlang)
+            let trailingParams = pi.Parameters |> List.skip info.Args.Length
+
+            let trailingArgs =
+                trailingParams
+                |> List.choose (fun p ->
+                    if p.IsOptional then
+                        Some(Fable.Expr.Value(Fable.NewOption(None, p.Type, false), None))
+                    else
+                        None
+                )
+
+            { info with Args = args @ trailingArgs }
+        | _ -> info
 
     match callee with
     | Import(importInfo, _typ, _range) ->
