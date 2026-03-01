@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Beam] Add arithmetic tests and support for DivRem, MinMagnitude, MaxMagnitude, Decimal rounding, BigInt.Log (by @dbrattli)
+* [Beam] Add `fable_random.erl` and fix Random seeded/NextBytes tests (by @dbrattli)
+
 ### Fixed
 
 * [Python] Fix PyPI publish workflow version pattern to support `rc` tags (by @dbrattli)
