@@ -16,7 +16,7 @@
 -spec next(pos_integer()) -> non_neg_integer().
 -spec next(integer(), integer()) -> integer().
 -spec next_double() -> float().
--spec next_bytes(reference()) -> ok.
+-spec next_bytes(tuple() | reference()) -> ok.
 
 %% System.Random() — no-op, uses default process-level PRNG state.
 new() ->
