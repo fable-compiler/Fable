@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from .array_ import Array
-from .core import FSharpRef
+from .core import FSharpRef, int32
 from .record import Record
 from .types import IntegerTypes
 from .union import Union
@@ -55,9 +55,9 @@ class TypeInfo:
         return equals(self, other)
 
     def __hash__(self) -> int:
-        hashes: list[int] = [hash(x) for x in self.generics or []]
-        hashes.append(hash(self.fullname))
-        return combine_hash_codes(hashes)
+        hashes: list[int32] = [int32(hash(x)) for x in self.generics or []]
+        hashes.append(int32(hash(self.fullname)))
+        return int(combine_hash_codes(hashes))
 
 
 def class_type(
