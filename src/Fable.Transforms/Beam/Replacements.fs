@@ -3885,7 +3885,7 @@ let private guids
 /// Beam-specific System.Random replacements.
 /// Uses Erlang's rand module for random number generation.
 let private randoms
-    (_com: ICompiler)
+    (com: ICompiler)
     (_ctx: Context)
     r
     (t: Type)
@@ -3894,19 +3894,22 @@ let private randoms
     (args: Expr list)
     =
     match info.CompiledName, thisArg with
-    | ".ctor", _ -> emitExpr r t [] "ok" |> Some // Random is stateless in Erlang
+    | ".ctor", _ ->
+        match args with
+        | [ seed ] -> Helper.LibCall(com, "fable_random", "new_seeded", t, [ seed ], ?loc = r) |> Some
+        | _ -> Helper.LibCall(com, "fable_random", "new", t, [], ?loc = r) |> Some
     | "Next", Some _ ->
         match args with
-        | [] -> emitExpr r t [] "rand:uniform(2147483647) - 1" |> Some
-        | [ maxVal ] -> emitExpr r t [ maxVal ] "rand:uniform($0) - 1" |> Some
-        | [ minVal; maxVal ] -> emitExpr r t [ minVal; maxVal ] "$0 + rand:uniform($1 - $0) - 1" |> Some
+        | [] -> Helper.LibCall(com, "fable_random", "next", t, [], ?loc = r) |> Some
+        | [ maxVal ] -> Helper.LibCall(com, "fable_random", "next", t, [ maxVal ], ?loc = r) |> Some
+        | [ minVal; maxVal ] ->
+            Helper.LibCall(com, "fable_random", "next", t, [ minVal; maxVal ], ?loc = r)
+            |> Some
         | _ -> None
-    | "NextDouble", Some _ -> emitExpr r t [] "rand:uniform()" |> Some
+    | "NextDouble", Some _ -> Helper.LibCall(com, "fable_random", "next_double", t, [], ?loc = r) |> Some
     | "NextBytes", Some _ ->
         match args with
-        | [ arr ] ->
-            emitExpr r t [ arr ] "binary_to_list(crypto:strong_rand_bytes(length(get($0))))"
-            |> Some
+        | [ arr ] -> Helper.LibCall(com, "fable_random", "next_bytes", t, [ arr ], ?loc = r) |> Some
         | _ -> None
     | _ -> None
 

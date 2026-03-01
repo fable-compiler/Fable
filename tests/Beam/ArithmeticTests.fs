@@ -968,21 +968,47 @@ let ``test Decimal floor works`` () =
 let ``test Decimal pown works`` () =
     pown 2.2M 3 |> equal 10.648M
 
-// --- Tests not feasible for Beam target ---
+// --- Random seeded tests ---
 
-// TODO: Random seeded tests require deterministic PRNG; Erlang's rand module uses process-level state
-// and doesn't produce the same sequence as .NET's Random(seed).
-// [<Fact>]
-// let ``test System.Random seeded works`` () =
-//     let rnd = Random(1234)
-//     rnd.Next() |> equal 857019877
+[<Fact>]
+let ``test System.Random seeded is deterministic`` () =
+    let rnd1 = Random(1234)
+    let a1 = rnd1.Next()
+    let a2 = rnd1.Next(100)
+    let a3 = rnd1.Next(1000, 10000)
+    let a4 = rnd1.NextDouble()
+    let rnd2 = Random(1234)
+    let b1 = rnd2.Next()
+    let b2 = rnd2.Next(100)
+    let b3 = rnd2.Next(1000, 10000)
+    let b4 = rnd2.NextDouble()
+    a1 |> equal b1
+    a2 |> equal b2
+    a3 |> equal b3
+    a4 |> equal b4
 
-// TODO: Random.NextBytes with null argument - Erlang doesn't have null arrays
-// [<Fact>]
-// let ``test System.Random.NextBytes works`` () =
-//     let buffer = Array.create 16 0uy
-//     Random().NextBytes(buffer)
-//     buffer.Length |> equal 16
+[<Fact>]
+let ``test System.Random seeded validates arguments`` () =
+    let rnd = Random(42)
+    throwsAnyError <| fun () -> rnd.Next(-10)
+    throwsAnyError <| fun () -> rnd.Next(14, 10)
+
+[<Fact>]
+let ``test System.Random.NextBytes works`` () =
+    let buffer = Array.create 16 0uy
+    Random().NextBytes(buffer)
+    buffer.Length |> equal 16
+    buffer = Array.create 16 0uy |> equal false
+
+[<Fact>]
+let ``test System.Random.NextBytes seeded is deterministic`` () =
+    let buffer1 = Array.create 4 0uy
+    let rnd1 = Random(5432)
+    rnd1.NextBytes(buffer1)
+    let buffer2 = Array.create 4 0uy
+    let rnd2 = Random(5432)
+    rnd2.NextBytes(buffer2)
+    buffer1 |> equal buffer2
 
 // TODO: Decimal constructors from GetBits require low/mid/high int32 representation
 // which doesn't map to the fixed-scale integer approach used in Beam.
