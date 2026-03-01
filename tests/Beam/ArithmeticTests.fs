@@ -743,3 +743,262 @@ let ``test negative infinity works`` () =
 let ``test infinity comparison works`` () =
     let dist = infinity
     dist = infinity |> equal true
+
+// --- Math.Log2 ---
+
+[<Fact>]
+let ``test Math.Log2 works`` () =
+    Math.Log2 8.0 |> checkTo3dp 3000.
+
+// --- Math.DivRem ---
+
+[<Fact>]
+let ``test Math.DivRem works with ints`` () =
+    Math.DivRem(5, 2) |> equal (2, 1)
+    Math.DivRem(4, 2) |> equal (2, 0)
+
+// TODO: DivRem with ref requires byref/address-of support which uses different
+// ref patterns in Beam (process dictionary refs vs map-based refs).
+// [<Fact>]
+// let ``test Math.DivRem works with ints and ref`` () =
+//     let rem = ref -1
+//     Math.DivRem(5, 2, rem) |> equal 2
+//     rem.Value |> equal 1
+//     Math.DivRem(4, 2, rem) |> equal 2
+//     rem.Value |> equal 0
+
+[<Fact>]
+let ``test Math.DivRem works with longs`` () =
+    Math.DivRem(5L, 2L) |> equal (2L, 1L)
+    Math.DivRem(4L, 2L) |> equal (2L, 0L)
+
+// TODO: DivRem with ref requires byref/address-of support which uses different
+// ref patterns in Beam (process dictionary refs vs map-based refs).
+// [<Fact>]
+// let ``test Math.DivRem works with longs and ref`` () =
+//     let rem = ref -1L
+//     Math.DivRem(5L, 2L, rem) |> equal 2L
+//     rem.Value |> equal 1L
+//     Math.DivRem(4L, 2L, rem) |> equal 2L
+//     rem.Value |> equal 0L
+
+// --- Math.MinMagnitude / MaxMagnitude ---
+
+[<Fact>]
+let ``test Math.MinMagnitude works`` () =
+    Math.MinMagnitude(-4.0, 3.0) |> equal 3.0
+    MathF.MinMagnitude(-4.0f, 3.0f) |> equal 3.0f
+
+[<Fact>]
+let ``test Math.MaxMagnitude works`` () =
+    Math.MaxMagnitude(-4.0, 3.0) |> equal -4.0
+    MathF.MaxMagnitude(-4.0f, 3.0f) |> equal -4.0f
+
+// --- BigInt.Log / Log10 / DivRem ---
+
+[<Fact>]
+let ``test BigInt.Log works`` () =
+    bigint.Log 123I |> checkTo3dp 4812.
+
+[<Fact>]
+let ``test BigInt.Log with base works`` () =
+    bigint.Log(123I, 10.0) |> checkTo3dp 2089.
+
+[<Fact>]
+let ``test BigInt.Log10 works`` () =
+    bigint.Log10 123I |> checkTo3dp 2089.
+
+[<Fact>]
+let ``test BigInt.DivRem works`` () =
+    let quotient, remainder = bigint.DivRem(5I, 2I)
+    2I |> equal quotient
+    1I |> equal remainder
+
+// --- Numeric type methods ---
+
+[<Fact>]
+let ``test Numeric Min works`` () =
+    Int32.Min(-4, 3) |> equal -4
+    Int64.Min(-4L, 3L) |> equal -4L
+    Double.Min(-4.0, 3.0) |> equal -4.0
+    Single.Min(-4.0f, 3.0f) |> equal -4.0f
+    Decimal.Min(-4.0M, 3.0M) |> equal -4.0M
+    bigint.Min(-4I, 3I) |> equal -4I
+
+[<Fact>]
+let ``test Numeric Max works`` () =
+    Int32.Max(-4, 3) |> equal 3
+    Int64.Max(-4L, 3L) |> equal 3L
+    Double.Max(-4.0, 3.0) |> equal 3.0
+    Single.Max(-4.0f, 3.0f) |> equal 3.0f
+    Decimal.Max(-4.0M, 3.0M) |> equal 3.0M
+    bigint.Max(-4I, 3I) |> equal 3I
+
+[<Fact>]
+let ``test Numeric MinMagnitude works`` () =
+    Int32.MinMagnitude(-4, 3) |> equal 3
+    Int64.MinMagnitude(-4L, 3L) |> equal 3L
+    Double.MinMagnitude(-4.0, 3.0) |> equal 3.0
+    Single.MinMagnitude(-4.0f, 3.0f) |> equal 3.0f
+    Decimal.MinMagnitude(-4.0M, 3.0M) |> equal 3.0M
+    bigint.MinMagnitude(-4I, 3I) |> equal 3I
+
+[<Fact>]
+let ``test Numeric MaxMagnitude works`` () =
+    Int32.MaxMagnitude(-4, 3) |> equal -4
+    Int64.MaxMagnitude(-4L, 3L) |> equal -4L
+    Double.MaxMagnitude(-4.0, 3.0) |> equal -4.0
+    Single.MaxMagnitude(-4.0f, 3.0f) |> equal -4.0f
+    Decimal.MaxMagnitude(-4.0M, 3.0M) |> equal -4.0M
+    bigint.MaxMagnitude(-4I, 3I) |> equal -4I
+
+[<Fact>]
+let ``test Numeric Clamp works`` () =
+    Int32.Clamp(5, -4, 3) |> equal 3
+    Int64.Clamp(5L, -4L, 3L) |> equal 3L
+    Double.Clamp(5.0, -4.0, 3.0) |> equal 3.0
+    Single.Clamp(5.0f, -4.0f, 3.0f) |> equal 3.0f
+    Decimal.Clamp(5.0M, -4.0M, 3.0M) |> equal 3.0M
+    bigint.Clamp(5I, -4I, 3I) |> equal 3I
+
+// TODO: Erlang math:log2 returns float, but Numeric Log2 for integer types expects integer result.
+// SByte.Log2, Int16.Log2, Byte.Log2, UInt16.Log2, UInt32.Log2, UInt64.Log2 would need trunc().
+// [<Fact>]
+// let ``test Numeric Log2 works`` () =
+//     Int32.Log2 8 |> equal 3
+//     Int64.Log2 8L |> equal 3L
+//     Double.Log2 8.0 |> equal 3.0
+//     Single.Log2 8.0f |> equal 3.0f
+//     bigint.Log2 8I |> equal 3I
+
+[<Fact>]
+let ``test Math.Clamp expanded works`` () =
+    Math.Clamp(5, -4, 3) |> equal 3
+    Math.Clamp(5L, -4L, 3L) |> equal 3L
+    Math.Clamp(5.0, -4.0, 3.0) |> equal 3.0
+    Math.Clamp(5.0f, -4.0f, 3.0f) |> equal 3.0f
+    Math.Clamp(5.0M, -4.0M, 3.0M) |> equal 3.0M
+
+// --- Decimal round/ceil/floor/truncate ---
+
+[<Fact>]
+let ``test Decimal round works`` () =
+    round 11.0M |> equal 11.M
+    round 11.01M |> equal 11.M
+    round 11.25M |> equal 11.M
+    round 11.50M |> equal 12.M
+    round 11.75M |> equal 12.M
+    round -11.0M |> equal -11.M
+    round -11.01M |> equal -11.M
+    round -11.25M |> equal -11.M
+    round -11.50M |> equal -12.M
+    round -11.75M |> equal -12.M
+    Math.Round 1.425M |> equal 1.M
+    Math.Round -1.425M |> equal -1.M
+    Math.Round 1.546M |> equal 2.M
+    Math.Round -1.546M |> equal -2.M
+
+[<Fact>]
+let ``test Decimal round half to even works`` () =
+    round 1.5M |> equal 2.M
+    round 2.5M |> equal 2.M
+    round 3.5M |> equal 4.M
+    round -1.5M |> equal -2.M
+    round -2.5M |> equal -2.M
+    round -3.5M |> equal -4.M
+
+[<Fact>]
+let ``test Decimal round with digits works`` () =
+    Math.Round(1.426M, 3) |> equal 1.426M
+    Math.Round(1.426M, 2) |> equal 1.43M
+    Math.Round(1.426M, 1) |> equal 1.4M
+    Math.Round(-1.426M, 3) |> equal -1.426M
+    Math.Round(-1.426M, 2) |> equal -1.43M
+    Math.Round(-1.426M, 1) |> equal -1.4M
+
+[<Fact>]
+let ``test Decimal truncate works`` () =
+    truncate 11.0M |> equal 11.M
+    truncate 11.01M |> equal 11.M
+    truncate 11.25M |> equal 11.M
+    truncate 11.50M |> equal 11.M
+    truncate 11.75M |> equal 11.M
+    truncate -11.0M |> equal -11.M
+    truncate -11.01M |> equal -11.M
+    truncate -11.25M |> equal -11.M
+    truncate -11.50M |> equal -11.M
+    truncate -11.75M |> equal -11.M
+    Math.Truncate -12.5M |> equal -12.M
+    Math.Truncate 1.425M |> equal 1.M
+    Math.Truncate -1.425M |> equal -1.M
+    Math.Truncate 1.546M |> equal 1.M
+    Math.Truncate -1.546M |> equal -1.M
+
+[<Fact>]
+let ``test Decimal ceil works`` () =
+    ceil 11.0M |> equal 11.M
+    ceil 11.01M |> equal 12.M
+    ceil 11.25M |> equal 12.M
+    ceil 11.50M |> equal 12.M
+    ceil 11.75M |> equal 12.M
+    ceil -11.0M |> equal -11.M
+    ceil -11.01M |> equal -11.M
+    ceil -11.25M |> equal -11.M
+    ceil -11.50M |> equal -11.M
+    ceil -11.75M |> equal -11.M
+    Math.Ceiling 11.25M |> equal 12.M
+    Math.Ceiling -11.25M |> equal -11.M
+
+[<Fact>]
+let ``test Decimal floor works`` () =
+    floor 11.0M |> equal 11.M
+    floor 11.01M |> equal 11.M
+    floor 11.25M |> equal 11.M
+    floor 11.50M |> equal 11.M
+    floor 11.75M |> equal 11.M
+    floor -11.0M |> equal -11.M
+    floor -11.01M |> equal -12.M
+    floor -11.25M |> equal -12.M
+    floor -11.50M |> equal -12.M
+    floor -11.75M |> equal -12.M
+    Math.Floor 11.25M |> equal 11.M
+    Math.Floor -11.25M |> equal -12.M
+
+[<Fact>]
+let ``test Decimal pown works`` () =
+    pown 2.2M 3 |> equal 10.648M
+
+// --- Tests not feasible for Beam target ---
+
+// TODO: Random seeded tests require deterministic PRNG; Erlang's rand module uses process-level state
+// and doesn't produce the same sequence as .NET's Random(seed).
+// [<Fact>]
+// let ``test System.Random seeded works`` () =
+//     let rnd = Random(1234)
+//     rnd.Next() |> equal 857019877
+
+// TODO: Random.NextBytes with null argument - Erlang doesn't have null arrays
+// [<Fact>]
+// let ``test System.Random.NextBytes works`` () =
+//     let buffer = Array.create 16 0uy
+//     Random().NextBytes(buffer)
+//     buffer.Length |> equal 16
+
+// TODO: Decimal constructors from GetBits require low/mid/high int32 representation
+// which doesn't map to the fixed-scale integer approach used in Beam.
+// [<Fact>]
+// let ``test Decimal constructors work`` () =
+//     let d = 1.2493M
+//     let bits = Decimal.GetBits(d)
+//     let d2 = Decimal(bits)
+//     d2 |> equal d
+
+// TODO: BigInt byte array conversion requires two's complement encoding
+// which isn't natively supported in Erlang.
+// [<Fact>]
+// let ``test Big integer to byte array works`` () =
+//     32767I.ToByteArray() |> equal [|255uy; 127uy|]
+
+// [<Fact>]
+// let ``test Big integer from byte array works`` () =
+//     Numerics.BigInteger([|255uy; 127uy|]) |> equal 32767I

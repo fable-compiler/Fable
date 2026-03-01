@@ -25,7 +25,8 @@
     is_byte_array/1,
     byte_array_get/2,
     byte_array_set/3,
-    byte_array_length/1
+    byte_array_length/1,
+    div_rem/3
 ]).
 
 -spec iface_get(atom(), map() | reference()) -> term().
@@ -54,6 +55,7 @@
 -spec byte_array_get(tuple() | reference(), non_neg_integer()) -> non_neg_integer().
 -spec byte_array_set(tuple() | reference(), non_neg_integer(), non_neg_integer()) -> ok.
 -spec byte_array_length(tuple() | reference()) -> non_neg_integer().
+-spec div_rem(integer(), integer(), reference()) -> integer().
 
 %% Interface dispatch: works for both object expressions (maps) and class instances (refs).
 %% Class interface property getters are stored as {getter, Fun} tagged thunks — call Fun().
@@ -329,3 +331,8 @@ byte_array_length({byte_array, Size, _}) ->
     Size;
 byte_array_length(PdRef) when is_reference(PdRef) ->
     byte_array_length(get(PdRef)).
+
+%% Math.DivRem with out-ref: computes quotient and sets remainder via process dictionary.
+div_rem(X, Y, RemRef) ->
+    put(RemRef, X rem Y),
+    X div Y.

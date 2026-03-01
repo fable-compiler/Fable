@@ -11,7 +11,13 @@
     parse/1,
     try_parse/2,
     get_one/0,
-    get_minus_one/0
+    get_minus_one/0,
+    round_decimal/1,
+    round_decimal/2,
+    ceil_decimal/1,
+    floor_decimal/1,
+    truncate_decimal/1,
+    pown/2
 ]).
 
 -spec multiply(integer(), integer()) -> integer().
@@ -25,6 +31,12 @@
 -spec try_parse(binary(), reference()) -> boolean().
 -spec get_one() -> integer().
 -spec get_minus_one() -> integer().
+-spec round_decimal(integer()) -> integer().
+-spec round_decimal(integer(), non_neg_integer()) -> integer().
+-spec ceil_decimal(integer()) -> integer().
+-spec floor_decimal(integer()) -> integer().
+-spec truncate_decimal(integer()) -> integer().
+-spec pown(integer(), integer()) -> integer().
 
 %% Fixed-scale decimal representation: value × 10^28
 %% All decimal values are plain Erlang integers scaled by 10^28.
@@ -161,3 +173,73 @@ get_one() ->
 
 get_minus_one() ->
     -?SCALE28.
+
+%% Round decimal to nearest integer (banker's rounding / round half to even).
+%% Returns a fixed-scale decimal (integer part × SCALE28).
+round_decimal(X) ->
+    round_decimal(X, 0).
+
+%% Round decimal to N decimal digits (0..28).
+round_decimal(X, Digits) when Digits >= 0, Digits =< 28 ->
+    %% Factor = 10^(28 - Digits), the scale unit for this precision
+    Factor = pow10(28 - Digits),
+    %% Split into units and remainder
+    Quotient = X div Factor,
+    Remainder = abs(X rem Factor),
+    Half = Factor div 2,
+    if
+        Remainder > Half ->
+            %% Round away from zero
+            RoundedQ = if X >= 0 -> Quotient + 1; true -> Quotient - 1 end,
+            RoundedQ * Factor;
+        Remainder < Half ->
+            %% Round toward zero
+            Quotient * Factor;
+        true ->
+            %% Exactly half: round to even (banker's rounding)
+            case Quotient rem 2 of
+                0 -> Quotient * Factor;
+                _ ->
+                    RoundedQ2 = if X >= 0 -> Quotient + 1; true -> Quotient - 1 end,
+                    RoundedQ2 * Factor
+            end
+    end.
+
+%% Ceiling: smallest integer >= X, returned as fixed-scale decimal.
+ceil_decimal(X) ->
+    IntPart = (X div ?SCALE28) * ?SCALE28,
+    Frac = X - IntPart,
+    if
+        Frac > 0 -> IntPart + ?SCALE28;
+        true -> IntPart
+    end.
+
+%% Floor: largest integer <= X, returned as fixed-scale decimal.
+floor_decimal(X) ->
+    IntPart = (X div ?SCALE28) * ?SCALE28,
+    Frac = X - IntPart,
+    if
+        Frac < 0 -> IntPart - ?SCALE28;
+        true -> IntPart
+    end.
+
+%% Truncate: remove fractional part (round toward zero), returned as fixed-scale decimal.
+truncate_decimal(X) ->
+    (X div ?SCALE28) * ?SCALE28.
+
+%% Power: raise a fixed-scale decimal to an integer exponent.
+pown(_, 0) ->
+    ?SCALE28; % 1.0M
+pown(Base, 1) ->
+    Base;
+pown(Base, N) when N > 0 ->
+    %% Multiply and rescale at each step
+    Half = pown(Base, N div 2),
+    Sq = multiply(Half, Half),
+    case N rem 2 of
+        0 -> Sq;
+        _ -> multiply(Sq, Base)
+    end;
+pown(Base, N) when N < 0 ->
+    %% x^(-n) = 1/x^n
+    divide(?SCALE28, pown(Base, -N)).
