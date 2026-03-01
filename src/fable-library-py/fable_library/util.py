@@ -645,9 +645,9 @@ def identity_hash(x: Any) -> int32:
     return number_hash(ObjectRef.id(x))
 
 
-def combine_hash_codes(hashes: list[int32]) -> int32:
+def combine_hash_codes(hashes: list[int]) -> int:
     if not hashes:
-        return int32(0)
+        return 0
 
     return functools.reduce(lambda h1, h2: ((h1 << 5) + h1) ^ h2, hashes)
 
@@ -656,10 +656,10 @@ def structural_hash(x: Any) -> int32:
     return int32(hash(x))
 
 
-def array_hash(xs: Iterable[object]) -> int32:
-    hashes: list[int32] = []
+def array_hash(xs: Iterable[object]) -> int:
+    hashes: list[int] = []
     for x in xs:
-        hashes.append(structural_hash(x))
+        hashes.append(hash(x))
 
     return combine_hash_codes(hashes)
 

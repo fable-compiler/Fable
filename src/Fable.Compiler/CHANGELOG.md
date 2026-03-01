@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Python] Fix `__hash__` to return native `int` instead of `int32` for Python 3.14 compatibility (by @dbrattli)
 * [Beam] Fix optional arguments by unwrapping at call sites and padding missing trailing args (by @dbrattli)
 * [Beam] Fix generic constraint interface dispatch (by @dbrattli)
 * [Beam] Fix class constructor field invokes and explicit val fields (by @dbrattli)
