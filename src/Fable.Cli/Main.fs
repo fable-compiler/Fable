@@ -1011,6 +1011,63 @@ let private checkRunProcess (state: State) (projCracked: ProjectCracked) (compil
             | JavaScript, Naming.placeholder ->
                 let lastFilePath = findLastFileRelativePath ()
                 "node", lastFilePath :: runProc.Args
+            | Beam, Naming.placeholder ->
+                let lastFilePath = findLastFileFullPath ()
+                let moduleName = IO.Path.GetFileNameWithoutExtension(lastFilePath)
+                let erlLibRelDir = IO.Path.Combine("fable_modules", "fable-library-beam")
+                let erlLibDir = IO.Path.Combine(workingDir, erlLibRelDir)
+
+                // Compile fable-library-beam .erl files if any .beam files are missing
+                if IO.Directory.Exists(erlLibDir) then
+                    let erlFiles = IO.Directory.GetFiles(erlLibDir, "*.erl")
+
+                    let needsCompile =
+                        erlFiles
+                        |> Array.exists (fun f -> not (IO.File.Exists(IO.Path.ChangeExtension(f, ".beam"))))
+
+                    if needsCompile then
+                        let erlFileNames = erlFiles |> Array.map IO.Path.GetFileName |> Array.toList
+
+                        Process.runSyncWithEnv
+                            []
+                            erlLibDir
+                            "erlc"
+                            ("+nowarn_ignored" :: "+nowarn_failed" :: "+nowarn_shadow_vars" :: erlFileNames)
+                        |> ignore
+
+                // Compile all .erl files in the working dir (project output files)
+                let mainErlFiles =
+                    IO.Directory.GetFiles(workingDir, "*.erl")
+                    |> Array.map IO.Path.GetFileName
+                    |> Array.toList
+
+                if not mainErlFiles.IsEmpty then
+                    Process.runSyncWithEnv
+                        []
+                        workingDir
+                        "erlc"
+                        ("+nowarn_ignored"
+                         :: "+nowarn_failed"
+                         :: "+nowarn_shadow_vars"
+                         :: "-pa"
+                         :: erlLibRelDir
+                         :: mainErlFiles)
+                    |> ignore
+
+                "erl",
+                [
+                    "-noshell"
+                    "-pa"
+                    "."
+                    "-pa"
+                    erlLibRelDir
+                    "-eval"
+                    $"{moduleName}:main()"
+                    "-s"
+                    "init"
+                    "stop"
+                ]
+                @ runProc.Args
             | (JavaScript | TypeScript), exeFile ->
                 File.tryNodeModulesBin workingDir exeFile |> Option.defaultValue exeFile, runProc.Args
             | _, exeFile -> exeFile, runProc.Args
