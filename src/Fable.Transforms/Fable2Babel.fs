@@ -1010,7 +1010,7 @@ module Util =
         str.Split('\n')
         |> Array.skipWhile (fun line ->
             match line.Trim() with
-            | "" -> true
+            | s when System.String.IsNullOrEmpty(s) -> true
             | Naming.Regex IMPORT_REGEX (_ :: selector :: path :: _) ->
                 if selector.StartsWith("{", StringComparison.Ordinal) then
                     for selector in selector.TrimStart('{').TrimEnd('}').Split(',') do

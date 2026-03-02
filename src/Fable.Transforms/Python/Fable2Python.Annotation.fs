@@ -336,7 +336,7 @@ let stdlibModuleTypeHint com ctx moduleName memberName genArgs repeatedGenerics 
 let makeGenTypeParamInst com ctx (genArgs: Fable.Type list) (repeatedGenerics: Set<string> option) =
     match genArgs with
     | [] -> []
-    | _ -> genArgs |> List.map (typeAnnotation com ctx repeatedGenerics) |> List.map fst
+    | _ -> genArgs |> List.map (typeAnnotation com ctx repeatedGenerics >> fst)
 
 let makeGenericTypeAnnotation
     (com: IPythonCompiler)

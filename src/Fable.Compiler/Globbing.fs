@@ -54,7 +54,7 @@ module Glob =
         | Drive name :: t ->
             let subDirs = List.collect (checkSubDirs true name) acc
             buildPaths subDirs t
-        | Recursive :: [] ->
+        | [ Recursive ] ->
             let dirs =
                 Seq.collect
                     (fun dir ->

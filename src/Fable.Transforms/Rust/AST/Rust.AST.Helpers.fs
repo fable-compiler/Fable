@@ -1198,7 +1198,7 @@ module Funcs =
 
     let mkExtern (extOpt: Symbol option) : Extern =
         match extOpt with
-        | Some("") -> Extern.Implicit
+        | Some(s) when System.String.IsNullOrEmpty(s) -> Extern.Implicit
         | Some(abi) -> Extern.Explicit(mkStrLitFrom abi None)
         | None -> Extern.None
 

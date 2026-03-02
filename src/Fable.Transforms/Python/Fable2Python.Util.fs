@@ -731,7 +731,7 @@ module Util =
     let makeStringArray strings =
         strings |> List.map (fun x -> Expression.stringConstant x) |> Expression.list
 
-    let makePyObject (pairs: seq<string * Expression>) =
+    let makePyObject (pairs: (string * Expression) seq) =
         pairs
         |> Seq.map (fun (name, value) ->
             let prop = Expression.stringConstant name

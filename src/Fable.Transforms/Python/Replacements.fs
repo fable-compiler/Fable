@@ -2510,13 +2510,13 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
         Helper.LibCall(com, "decimal", "pow", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangechar-function-%5bfsharp%5d
-    // Type: RangeChar : char -> char -> seq<char>
+    // Type: RangeChar : char -> char -> char seq
     // Usage: RangeChar start stop
     | "RangeChar", None, _ ->
         Helper.LibCall(com, "range", "rangeChar", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.rangedouble-function-%5bfsharp%5d
-    // Type: RangeDouble: float -> float -> float -> seq<float>
+    // Type: RangeDouble: float -> float -> float -> float seq
     // Usage: RangeDouble start step stop
     | ("RangeSByte" | "RangeByte" | "RangeInt16" | "RangeUInt16" | "RangeInt32" | "RangeUInt32" | "RangeSingle" | "RangeDouble"),
       None,

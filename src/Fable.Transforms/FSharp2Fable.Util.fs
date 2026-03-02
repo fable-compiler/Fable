@@ -710,7 +710,7 @@ module Helpers =
                 if ent.IsFSharpModule then
                     match trimRootModule, entName with
                     | TrimRootModule com, _ when com.Options.Language = Rust -> memb.CompiledName, Naming.NoMemberPart // module prefix for Rust
-                    | _, "" -> memb.CompiledName, Naming.NoMemberPart
+                    | _, s when System.String.IsNullOrEmpty(s) -> memb.CompiledName, Naming.NoMemberPart
                     | _, moduleName -> moduleName, Naming.StaticMemberPart(memb.CompiledName, "")
                 else
                     let overloadSuffix = getOverloadSuffixFrom ent memb
@@ -1374,7 +1374,7 @@ module TypeHelpers =
 
     // Filter measure generic arguments here? (for that we need to pass the compiler, which needs a bigger refactoring)
     // Currently for Dart we're doing it in the Fable2Dart step
-    let makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs (genArgs: seq<FSharpType>) =
+    let makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs (genArgs: FSharpType seq) =
         genArgs
         |> Seq.mapToList (fun genArg ->
             if genArg.IsGenericParameter then
@@ -1383,7 +1383,7 @@ module TypeHelpers =
                 makeTypeWithConstraints withConstraints ctxTypeArgs genArg
         )
 
-    let makeTypeGenArgs ctxTypeArgs (genArgs: seq<FSharpType>) =
+    let makeTypeGenArgs ctxTypeArgs (genArgs: FSharpType seq) =
         makeTypeGenArgsWithConstraints true ctxTypeArgs genArgs
 
     let makeTypeFromDelegate withConstraints ctxTypeArgs (genArgs: IList<FSharpType>) (tdef: FSharpEntity) =

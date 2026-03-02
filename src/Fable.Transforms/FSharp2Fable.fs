@@ -2009,7 +2009,7 @@ let rec private getUsedRootNames (com: Compiler) (usedNames: Set<string>) decls 
                     usedNames
                 else
                     match getEntityDeclarationName com entRef with
-                    | "" -> usedNames
+                    | s when System.String.IsNullOrEmpty(s) -> usedNames
                     | entName ->
                         let reflectionSuffix =
                             match com.Options.Language with
@@ -2056,7 +2056,7 @@ let rec private transformDeclarations (com: FableCompiler) ctx fsDecls =
                     // If the file is empty F# creates a class for the module, but Fable clears the name
                     // because it matches the root module so it becomes invalid JS, see #2350
                     match getEntityDeclarationName com entRef with
-                    | "" -> []
+                    | s when System.String.IsNullOrEmpty(s) -> []
                     | name ->
                         [
                             Fable.ClassDeclaration
