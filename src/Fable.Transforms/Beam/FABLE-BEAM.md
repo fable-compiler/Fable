@@ -11,6 +11,26 @@ An Erlang/BEAM target for Fable.
 - Bring F#'s agent model (`MailboxProcessor`) to the BEAM with compatible semantics
 - Explore what F# + OTP supervision trees + hot code reloading could look like
 
+## Minimum OTP Version: 25
+
+Fable.Beam requires **OTP 25 or later**. This is the oldest version still available
+via `apt install erlang` on current Linux LTS distributions (Ubuntu 22.04, Debian 12,
+Pop!_OS). Users should be able to install Erlang from their distro package manager
+and have it work without adding third-party repos.
+
+Key OTP features the runtime depends on:
+
+| Feature | Minimum OTP | Used In |
+| --- | --- | --- |
+| Maps (`#{}`) | 17 | All modules |
+| Named funs (`fun F(X) -> ...`) | 17 | Generated recursive lambdas |
+| `erlang:monotonic_time/1` | 18 | `fable_stopwatch.erl` |
+| `erlang:system_time/1` | 18 | `fable_date.erl` |
+| `atomics` module | 21 | `fable_utils.erl` (byte arrays), `fable_random.erl` |
+| `uri_string` module | 21 | `fable_uri.erl` |
+| JIT compiler | 24 (improved in 25) | Bit-syntax integer wrapping performance |
+| `maybe` keyword reserved | 25 | Escaped in `sanitizeErlangName` |
+
 ## Target Language: Erlang Source
 
 Generate `.erl` files (not Core Erlang, not Elixir). Rationale:
