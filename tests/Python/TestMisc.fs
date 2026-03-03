@@ -1501,3 +1501,28 @@ let ``test static properties work correctly`` () =
 
     // Test read-only explicit property
     StaticPropertiesTestClass.ReadOnlyProperty |> equal "ReadOnlyValue"
+
+[<Fact>]
+let ``test exception variable captured in deferred zero-arg closure`` () =
+    // Regression: Python deletes the `except ... as name` variable at the end of the
+    // except block. A closure that captures it and is called *after* the block would
+    // get a NameError. Fix: copy to `name_` inside the block and rename references.
+    let getMsg =
+        try
+            failwith "boom"
+            fun () -> "no error"
+        with ex ->
+            fun () -> ex.Message  // captured, called after block exits
+    getMsg () |> equal "boom"
+
+[<Fact>]
+let ``test exception variable captured in deferred single-arg closure`` () =
+    // Same fix, but the closure takes an argument (mirrors the AsyncRx `defer` pattern:
+    // `with ex -> ofAsyncWorker (fun obv _ -> obv.OnErrorAsync ex)`).
+    let sub =
+        try
+            failwith "boom"
+            (fun (_: int) -> "no error")
+        with ex ->
+            (fun (_: int) -> ex.Message)  // lambda-with-arg captures ex
+    sub 42 |> equal "boom"

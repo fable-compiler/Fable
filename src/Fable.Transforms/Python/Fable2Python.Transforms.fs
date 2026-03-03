@@ -1210,9 +1210,25 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: (Fable.I
     // try .. catch statements cannot be tail call optimized
     let ctx = { ctx with TailCallOpportunity = None }
 
-    let makeHandler exnType handlerBody identifier =
-        let transformedBody = transformBlock com ctx returnStrategy handlerBody
-        ExceptHandler.exceptHandler (``type`` = Some exnType, name = identifier, body = transformedBody)
+    let makeHandler exnType handlerBody (param: Fable.Ident) identifier =
+        // Python's `except E as name:` deletes `name` at the end of the except block.
+        // This breaks deferred closures that capture the exception variable, since the
+        // cell becomes unbound before the closure is invoked.
+        // Fix: keep the original name in the `except ... as` clause, then copy it to
+        // `name_` (a regular local Python won't delete) and rename all body references.
+        let (Identifier identName) = identifier
+        let safeIdentName = identName + "_"
+        let safeParam = { param with Name = safeIdentName }
+
+        let renamedBody =
+            FableTransforms.replaceValues (Map [ param.Name, Fable.IdentExpr safeParam ]) handlerBody
+
+        let transformedBody = transformBlock com ctx returnStrategy renamedBody
+        // Annotated assignment: ex_: ExceptionType = ex
+        let saveStmt =
+            Statement.assign (identAsExpr com ctx safeParam, exnType, value = Expression.name identName)
+
+        ExceptHandler.exceptHandler (``type`` = Some exnType, name = identifier, body = saveStmt :: transformedBody)
 
     let handlers, handlerStmts =
         match catch with
@@ -1228,7 +1244,8 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: (Fable.I
                 // No type tests found, use Exception to match F#/.NET semantics.
                 // Users can explicitly catch KeyboardInterrupt, SystemExit, GeneratorExit
                 // using type tests if needed.
-                let handler = makeHandler (Expression.identifier "Exception") catchBody identifier
+                let handler =
+                    makeHandler (Expression.identifier "Exception") catchBody param identifier
 
                 Some [ handler ], []
 
@@ -1239,7 +1256,7 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: (Fable.I
                     |> List.choose (fun (typ, handlerBody) ->
                         getExceptionTypeExpr com ctx typ
                         |> Option.map (fun (exnTypeExpr, stmts) ->
-                            makeHandler exnTypeExpr handlerBody identifier, stmts
+                            makeHandler exnTypeExpr handlerBody param identifier, stmts
                         )
                     )
                     |> List.unzip
@@ -1249,7 +1266,9 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: (Fable.I
                 let fallbackHandlers =
                     match fallback with
                     | Some fallbackExpr when not (ExceptionHandling.isReraise fallbackExpr) ->
-                        [ makeHandler (Expression.identifier "Exception") fallbackExpr identifier ]
+                        [
+                            makeHandler (Expression.identifier "Exception") fallbackExpr param identifier
+                        ]
                     | _ -> []
 
                 Some(handlers @ fallbackHandlers), List.concat stmts

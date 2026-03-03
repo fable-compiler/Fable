@@ -36,14 +36,24 @@ let throwsAnyError (f: unit -> 'a) : unit =
     if success then
         printfn "[ERROR EXPECTED]"
 
+// Reproduction: exception variable captured in a deferred closure (not immediately called)
+let testExCapturedInDeferredClosure () =
+    let getMsg =
+        try
+            failwith "boom"
+            fun () -> "no error"
+        with ex ->
+            fun () -> ex.Message // closure captures ex, not immediately called
+
+    getMsg () // called AFTER the try/with block
+
 [<EntryPoint>]
 let main argv =
     let name = Array.tryHead argv |> Option.defaultValue "Guest"
     printfn $"Hello {name}!"
 
-    // Open file with builtin `open`
-    // use file = builtins.``open``(StringPath "data.txt")
-    // file.read() |> printfn "File contents: %s"
+    let msg = testExCapturedInDeferredClosure ()
+    printfn $"Caught: {msg}"
 
     printfn "All tests passed!"
 
