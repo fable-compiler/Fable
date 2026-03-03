@@ -96,13 +96,16 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
 
                 let fieldTypes = makeTypeGenArgs ctx.GenericArgs fieldTypes
 
-                Fable.NewAnonymousRecord(
-                    tagExpr :: argExprs,
-                    Array.append [| tagName |] fieldNames,
-                    tagExpr.Type :: fieldTypes,
-                    false
-                )
-                |> makeValue r
+                let expr =
+                    Fable.NewAnonymousRecord(
+                        tagExpr :: argExprs,
+                        Array.append [| tagName |] fieldNames,
+                        tagExpr.Type :: fieldTypes,
+                        false
+                    )
+                    |> makeValue r
+
+                Fable.TypeCast(expr, makeType ctx.GenericArgs fsType)
 
     | StringEnum(tdef, rule) ->
         match argExprs with

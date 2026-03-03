@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [TS] Correctly resolve type references for `TypeScriptTaggedUnion` (by @MangelMaxime and @jrwone0)
+
 ## 5.0.0-rc.2 - 2026-03-03
 
 ### Added
