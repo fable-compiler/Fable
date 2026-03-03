@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Beam] Fix generic constraint interface dispatch (by @dbrattli)
 * [Beam] Fix class constructor field invokes and explicit val fields (by @dbrattli)
 * [Beam] Fix mutable record field mutation (by @dbrattli)
+* [JS/TS] Allows compiling `fable-library-ts` for Browser environment (by @goswinr)
 
 ## 5.0.0-rc.1 - 2026-02-26
 
