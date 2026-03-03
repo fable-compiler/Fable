@@ -98,6 +98,8 @@ class UTF16LE {
     } else if (index != null) {
       str = str.substring(index);
     }
+	// Allow to compile for Browser environment without @types/node being installed
+	// See https://github.com/fable-compiler/Fable/issues/4368
     const g = globalThis as any;
     if (typeof g.Buffer !== "undefined") {
       const bytes = g.Buffer.from(str, "utf16le");
