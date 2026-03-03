@@ -1211,24 +1211,28 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: (Fable.I
     let ctx = { ctx with TailCallOpportunity = None }
 
     let makeHandler exnType handlerBody (param: Fable.Ident) identifier =
-        // Python's `except E as name:` deletes `name` at the end of the except block.
-        // This breaks deferred closures that capture the exception variable, since the
-        // cell becomes unbound before the closure is invoked.
-        // Fix: keep the original name in the `except ... as` clause, then copy it to
-        // `name_` (a regular local Python won't delete) and rename all body references.
         let (Identifier identName) = identifier
-        let safeIdentName = identName + "_"
-        let safeParam = { param with Name = safeIdentName }
 
-        let renamedBody =
-            FableTransforms.replaceValues (Map [ param.Name, Fable.IdentExpr safeParam ]) handlerBody
+        // Python's `except E as name:` deletes `name` at the end of the except block.
+        // If the exception variable is used (e.g., captured in a deferred closure), copy
+        // it to a safe local with a unique name that Python won't delete, and rename all
+        // body references to use the safe copy.
+        if isIdentUsed param.Name handlerBody then
+            let safeIdentName = getUniqueNameInDeclarationScope ctx (identName + "_")
+            let safeParam = { param with Name = safeIdentName }
 
-        let transformedBody = transformBlock com ctx returnStrategy renamedBody
-        // Annotated assignment: ex_: ExceptionType = ex
-        let saveStmt =
-            Statement.assign (identAsExpr com ctx safeParam, exnType, value = Expression.name identName)
+            let renamedBody =
+                FableTransforms.replaceValues (Map [ param.Name, Fable.IdentExpr safeParam ]) handlerBody
 
-        ExceptHandler.exceptHandler (``type`` = Some exnType, name = identifier, body = saveStmt :: transformedBody)
+            let transformedBody = transformBlock com ctx returnStrategy renamedBody
+            // Annotated assignment: ex_: ExceptionType = ex
+            let saveStmt =
+                Statement.assign (identAsExpr com ctx safeParam, exnType, value = Expression.name identName)
+
+            ExceptHandler.exceptHandler (``type`` = Some exnType, name = identifier, body = saveStmt :: transformedBody)
+        else
+            let transformedBody = transformBlock com ctx returnStrategy handlerBody
+            ExceptHandler.exceptHandler (``type`` = Some exnType, name = identifier, body = transformedBody)
 
     let handlers, handlerStmts =
         match catch with
