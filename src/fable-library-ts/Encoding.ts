@@ -98,8 +98,8 @@ class UTF16LE {
     } else if (index != null) {
       str = str.substring(index);
     }
-	// Allow to compile for Browser environment without @types/node being installed
-	// See https://github.com/fable-compiler/Fable/issues/4368
+    // Allow to compile for Browser environment without @types/node being installed
+    // See https://github.com/fable-compiler/Fable/issues/4368
     const g = globalThis as any;
     if (typeof g.Buffer !== "undefined") {
       const bytes = g.Buffer.from(str, "utf16le");
@@ -117,6 +117,8 @@ class UTF16LE {
     } else if (index != null) {
       buffer = buffer.subarray(index);
     }
+    // Allow to compile for Browser environment without @types/node being installed
+    // See https://github.com/fable-compiler/Fable/issues/4368
     const g = globalThis as any;
     if (typeof TextDecoder !== "undefined") {
       return new TextDecoder("utf-16le").decode(buffer);
@@ -138,8 +140,8 @@ class UTF8 {
     } else if (index != null) {
       str = str.substring(index);
     }
-	// Allow to compile for Browser environment without @types/node being installed
-	// See https://github.com/fable-compiler/Fable/issues/4368
+    // Allow to compile for Browser environment without @types/node being installed
+    // See https://github.com/fable-compiler/Fable/issues/4368
     const g = globalThis as any;
     if (typeof TextEncoder !== "undefined") {
       return new TextEncoder().encode(str);
@@ -159,8 +161,8 @@ class UTF8 {
     } else if (index != null) {
       buffer = buffer.subarray(index);
     }
-	// Allow to compile for Browser environment without @types/node being installed
-	// See https://github.com/fable-compiler/Fable/issues/4368
+    // Allow to compile for Browser environment without @types/node being installed
+    // See https://github.com/fable-compiler/Fable/issues/4368
     const g = globalThis as any;
     if (typeof TextDecoder !== "undefined") {
       return new TextDecoder().decode(buffer);

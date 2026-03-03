@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [JS/TS] Allows compiling `fable-library-ts` for Browser environment (by @goswinr)
+
 ## 2.0.0-rc.1 - 2026-02-26
 
 ## 2.0.0-beta.7 - 2026-02-03
