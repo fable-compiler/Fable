@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-rc.2 - 2026-03-03
+
 ### Added
 
 * [Beam] Add arithmetic tests and support for DivRem, MinMagnitude, MaxMagnitude, Decimal rounding, BigInt.Log (by @dbrattli)
