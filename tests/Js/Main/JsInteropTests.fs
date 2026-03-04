@@ -339,6 +339,17 @@ module TaggedUnion =
         | [<CompiledValue(Kind.Bar)>] Bar of Bar<Kind>
         | [<CompiledValue(Kind.Baz)>] Baz of Baz<Kind>
 
+
+    [<RequireQualifiedAccess>]
+    [<TypeScriptTaggedUnion("type")>]
+    type SimpleFoo =
+        | Bar of baz: int
+
+    [<RequireQualifiedAccess>]
+    [<TypeScriptTaggedUnion("type")>]
+    type FooGeneric<'a> =
+        | Bar of baz: 'a
+
 #if FABLE_COMPILER
 module PojoDefinedByConsArgs =
     [<JS.Pojo; AllowNullLiteral>]
@@ -960,6 +971,28 @@ let tests =
         TaggedUnion.EnumTagged.Foo !!{| kind = TaggedUnion.Kind.Foo; foo = "hello" |} |> describe |> equal "foo: hello"
         TaggedUnion.EnumTagged.Bar !!{| kind = TaggedUnion.Kind.Bar; bar = 42 |} |> describe |> equal "bar: 42"
         TaggedUnion.EnumTagged.Baz !!{| kind = TaggedUnion.Kind.Baz; baz = false |} |> describe |> equal "baz: false"
+
+    // Fix https://github.com/fable-compiler/Fable/issues/4378
+    testCase "TypeScriptTaggedUnion produce the correct return type for a function" <| fun () ->
+        let getFoo (baz: int) =
+            (TaggedUnion.SimpleFoo.Bar baz)
+
+        let foo = getFoo 10
+
+        equal (TaggedUnion.SimpleFoo.Bar 10) foo
+
+    testCase "TypeScriptTaggedUnion produce the correct type for a value" <| fun () ->
+        let foo1 = TaggedUnion.SimpleFoo.Bar 10
+
+        equal (TaggedUnion.SimpleFoo.Bar 10) foo1
+
+    testCase "TypeScriptTaggedUnion produce the type even with generic type parameters" <| fun () ->
+        let getFooGeneric (baz: 'a) : TaggedUnion.FooGeneric<'a> =
+            (TaggedUnion.FooGeneric.Bar baz)
+
+        let fooGeneric = getFooGeneric 10
+
+        equal (TaggedUnion.FooGeneric.Bar 10) fooGeneric
 #endif
 
     testCase "Pattern matching with StringEnum works" <| fun () ->
