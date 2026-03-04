@@ -456,39 +456,87 @@ let makeStringTemplate
 
     StringTemplate(tag, parts, values)
 
-let makeStringTemplateFrom simpleFormats values =
+
+// Parses an F# interpolated string format, finds every %P() hole (optionally preceded by a
+// printf format specifier), and builds a StringTemplate from the literal parts and the
+// supplied value expressions.
+//
+// For each hole the caller supplies `handleFormatSpec`:
+//   - None   → the hole has no preceding format spec (or only a simple one from simpleFormats);
+//              the value is used as-is.
+//   - Some fmtSpec → the hole has a non-simple format spec; the callback receives the spec
+//              (e.g. "%0.2f") and the value expression.  Returning Some wraps the value;
+//              returning None aborts the whole template (None is returned for the string).
+let private makeStringTemplateFromWith
+    (simpleFormats: string array)
+    (handleFormatSpec: string -> Expr -> Expr option)
+    (values: Expr list)
+    =
     function
     | StringConst str ->
         // In the case of interpolated strings, the F# compiler doesn't resolve escaped %
         // (though it does resolve double braces {{ }})
         let str = str.Replace("%%", "%")
 
-        (Some [],
-         Regex.Matches(str, @"((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)")
-         |> Seq.cast<Match>)
+        let matches =
+            Regex.Matches(str, @"((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)")
+            |> Seq.cast<Match>
+
+        (Some([], values), matches)
         ||> Seq.fold (fun acc m ->
             match acc with
             | None -> None
-            | Some acc ->
-                // TODO: If arguments need format, format them individually
-                let doesNotNeedFormat =
-                    not m.Groups[1].Success || (Array.contains m.Groups[1].Value simpleFormats)
+            | Some(_, []) -> None // fewer values than matches
+            | Some(mapped, value :: restValues) ->
+                let needsFormat =
+                    m.Groups[1].Success && not (Array.contains m.Groups[1].Value simpleFormats)
 
-                if doesNotNeedFormat then
+                let resolved =
+                    if needsFormat then
+                        handleFormatSpec m.Groups[1].Value value
+                    else
+                        Some value
+
+                resolved |> Option.map (fun v -> v :: mapped, restValues)
+        )
+        |> Option.map (fun (mapped, _) ->
+            let holes =
+                matches
+                |> Seq.map (fun m ->
                     {|
                         Index = m.Index
                         Length = m.Length
                     |}
-                    :: acc
-                    |> Some
-                else
-                    None
-        )
-        |> Option.map (fun holes ->
-            let holes = List.toArray holes |> Array.rev
-            makeStringTemplate None str holes values
+                )
+                |> Seq.toArray
+
+            let mappedValues = List.rev mapped
+            makeStringTemplate None str holes mappedValues
         )
     | _ -> None
+
+/// Try to build a StringTemplate from an F# interpolated string.
+/// Returns None if any hole carries a format specifier that is not in simpleFormats,
+/// because those require runtime formatting that can't be inlined into a plain template.
+let makeStringTemplateFrom simpleFormats values strExpr =
+    // Abort (return None) for any non-simple format spec.
+    makeStringTemplateFromWith simpleFormats (fun _ _ -> None) values strExpr
+
+/// Like makeStringTemplateFrom but always succeeds for string literals.
+/// Values with format specifiers not in simpleFormats are individually wrapped in a
+/// String.interpolate call so they evaluate to strings.
+/// Used for JSX templates, where every hole must produce a value (formatted or not).
+let makeStringTemplateFromAllowingFormat (com: ICompiler) simpleFormats (values: Expr list) strExpr =
+    makeStringTemplateFromWith
+        simpleFormats
+        (fun fmtSpec value ->
+            // Wrap value in: String.interpolate("%fmtspec%P()", [| value |])
+            let fmtStr = Value(StringConstant(fmtSpec + "%P()"), None)
+            let valArr = Value(NewArray(ArrayValues [ value ], Any, MutableArray), None)
+            Helper.LibCall(com, "String", "interpolate", String, [ fmtStr; valArr ]) |> Some
+        )
+        values
+        strExpr
 
 let rec namesof com ctx acc e =
     match acc, e with

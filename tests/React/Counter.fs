@@ -42,3 +42,28 @@ let CounterJSX(init: int) =
             </button>
         </div>
         """
+
+// Regression test for https://github.com/fable-compiler/Fable/issues/3999
+// Single string hole: F# compiler lowers to String.Concat rather than printf
+[<JSX.Component>]
+let SingleHoleJSX(text: string) =
+    JSX.html
+        $"""
+        <div data-testid="single-hole">{text}</div>
+        """
+
+// Multiple string holes with no format specifier
+[<JSX.Component>]
+let MultiHoleJSX(first: string) (last: string) =
+    JSX.html
+        $"""
+        <div data-testid="multi-hole">{first} {last}</div>
+        """
+
+// Hole with a format specifier (the original issue #3999)
+[<JSX.Component>]
+let FormatSpecifierJSX(value: float) =
+    JSX.html
+        $"""
+        <div data-testid="format-specifier">%.3f{value}</div>
+        """

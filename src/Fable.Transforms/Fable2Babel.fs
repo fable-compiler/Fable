@@ -2265,6 +2265,35 @@ but thanks to the optimisation done below we get
 
                 let values = values |> List.mapToArray (transformAsExpr com ctx)
                 Expression.jsxTemplate (List.toArray parts, values) |> Some
+            | MaybeCasted(Fable.Call(Fable.Import({
+                                                      Selector = "concat"
+                                                      Path = Naming.EndsWith "/String.js" _
+                                                      Kind = Fable.LibraryImport _
+                                                  },
+                                                  _,
+                                                  _),
+                                     callInfo,
+                                     _,
+                                     _)) :: _ ->
+                // The F# compiler lowers a simple interpolated string (no format specifiers)
+                // to String.Concat(part1, value, part2, ...). Convert back to a StringTemplate.
+                // StringTemplate requires parts.Length = values.Length + 1, strictly alternating,
+                // starting and ending with a string part.
+                let rec buildParts currentPart parts values args =
+                    match args with
+                    | [] -> List.rev (currentPart :: parts), List.rev values
+                    | Fable.Value(Fable.StringConstant s, _) :: rest -> buildParts (currentPart + s) parts values rest
+                    | expr :: rest -> buildParts "" (currentPart :: parts) (expr :: values) rest
+
+                let parts, values = buildParts "" [] [] callInfo.Args
+
+                let parts =
+                    match parts with
+                    | head :: tail -> (stripImports com ctx range head) :: tail
+                    | parts -> parts
+
+                let values = values |> List.mapToArray (transformAsExpr com ctx)
+                Expression.jsxTemplate (List.toArray parts, values) |> Some
             | _ ->
                 "Expecting a string literal or interpolation without formatting"
                 |> addErrorAndReturnNull com range

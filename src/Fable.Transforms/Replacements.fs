@@ -1253,8 +1253,14 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         match makeStringTemplateFrom [| "%s"; "%i" |] templateArgs str with
         | Some v -> makeValue r v |> Some
         | None ->
-            Helper.LibCall(com, "String", "interpolate", t, [ str; values ], i.SignatureArgTypes, ?loc = r)
-            |> Some
+            // Try to build a StringTemplate where formatted values are individually wrapped
+            // in String.interpolate calls. This keeps the AST as a StringTemplate (rather than
+            // a single runtime interpolate call) so that JSX templates can still use it.
+            match makeStringTemplateFromAllowingFormat com [| "%s"; "%i" |] templateArgs str with
+            | Some v -> makeValue r v |> Some
+            | None ->
+                Helper.LibCall(com, "String", "interpolate", t, [ str; values ], i.SignatureArgTypes, ?loc = r)
+                |> Some
     | ".ctor", _, arg :: _ ->
         Helper.LibCall(com, "String", "printf", t, [ arg ], i.SignatureArgTypes, ?loc = r)
         |> Some
