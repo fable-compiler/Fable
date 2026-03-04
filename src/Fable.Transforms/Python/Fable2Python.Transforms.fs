@@ -1182,33 +1182,6 @@ let transformCurriedApplyAsStatements com ctx range t returnStrategy callee args
         let expr, stmts = transformCurriedApply com ctx range callee args
         stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
-let getNonLocals ctx (body: Statement list) =
-    let body, nonLocals =
-        body
-        |> List.partition (
-            function
-            | Statement.NonLocal _
-            | Statement.Global _ -> false
-            | _ -> true
-        )
-
-    let nonLocal =
-        nonLocals
-        |> List.collect (
-            function
-            | Statement.NonLocal nl -> nl.Names
-            | Statement.Global gl -> gl.Names
-            | _ -> []
-        )
-        |> List.distinct
-        |> (fun names ->
-            match ctx.BoundVars.Inceptions with
-            | 1 -> Statement.global' names
-            | _ -> Statement.nonLocal names
-        )
-
-    [ nonLocal ], body
-
 let transformBody (_com: IPythonCompiler) ctx _ret (body: Statement list) : Statement list =
     match body with
     | [] -> [ Pass ]
@@ -1237,9 +1210,29 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: (Fable.I
     // try .. catch statements cannot be tail call optimized
     let ctx = { ctx with TailCallOpportunity = None }
 
-    let makeHandler exnType handlerBody identifier =
-        let transformedBody = transformBlock com ctx returnStrategy handlerBody
-        ExceptHandler.exceptHandler (``type`` = Some exnType, name = identifier, body = transformedBody)
+    let makeHandler exnType handlerBody (param: Fable.Ident) identifier =
+        let (Identifier identName) = identifier
+
+        // Python's `except E as name:` deletes `name` at the end of the except block.
+        // If the exception variable is used (e.g., captured in a deferred closure), copy
+        // it to a safe local with a unique name that Python won't delete, and rename all
+        // body references to use the safe copy.
+        if isIdentUsed param.Name handlerBody then
+            let safeIdentName = getUniqueNameInDeclarationScope ctx (identName + "_")
+            let safeParam = { param with Name = safeIdentName }
+
+            let renamedBody =
+                FableTransforms.replaceValues (Map [ param.Name, Fable.IdentExpr safeParam ]) handlerBody
+
+            let transformedBody = transformBlock com ctx returnStrategy renamedBody
+            // Annotated assignment: ex_: ExceptionType = ex
+            let saveStmt =
+                Statement.assign (identAsExpr com ctx safeParam, exnType, value = Expression.name identName)
+
+            ExceptHandler.exceptHandler (``type`` = Some exnType, name = identifier, body = saveStmt :: transformedBody)
+        else
+            let transformedBody = transformBlock com ctx returnStrategy handlerBody
+            ExceptHandler.exceptHandler (``type`` = Some exnType, name = identifier, body = transformedBody)
 
     let handlers, handlerStmts =
         match catch with
@@ -1255,7 +1248,8 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: (Fable.I
                 // No type tests found, use Exception to match F#/.NET semantics.
                 // Users can explicitly catch KeyboardInterrupt, SystemExit, GeneratorExit
                 // using type tests if needed.
-                let handler = makeHandler (Expression.identifier "Exception") catchBody identifier
+                let handler =
+                    makeHandler (Expression.identifier "Exception") catchBody param identifier
 
                 Some [ handler ], []
 
@@ -1266,7 +1260,7 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: (Fable.I
                     |> List.choose (fun (typ, handlerBody) ->
                         getExceptionTypeExpr com ctx typ
                         |> Option.map (fun (exnTypeExpr, stmts) ->
-                            makeHandler exnTypeExpr handlerBody identifier, stmts
+                            makeHandler exnTypeExpr handlerBody param identifier, stmts
                         )
                     )
                     |> List.unzip
@@ -1276,7 +1270,9 @@ let transformTryCatch com (ctx: Context) r returnStrategy (body, catch: (Fable.I
                 let fallbackHandlers =
                     match fallback with
                     | Some fallbackExpr when not (ExceptionHandling.isReraise fallbackExpr) ->
-                        [ makeHandler (Expression.identifier "Exception") fallbackExpr identifier ]
+                        [
+                            makeHandler (Expression.identifier "Exception") fallbackExpr param identifier
+                        ]
                     | _ -> []
 
                 Some(handlers @ fallbackHandlers), List.concat stmts
@@ -1927,8 +1923,9 @@ let private transformDebugModeGuardPatternAsMatch
         let defaultCase = buildDefaultMatchCase com ctx returnStrategy targets defaultIndex
         let allCases = matchCases @ [ defaultCase ]
         let subjectExpr, stmts = com.TransformAsExpr(ctx, Fable.IdentExpr subjectIdent)
+        let liftedNonLocals, allCases = allCases |> getNonLocalsFromMatchCases ctx
         let matchStmt = Statement.match' (subjectExpr, allCases)
-        Some(stmts @ [ matchStmt ])
+        Some(stmts @ liftedNonLocals @ [ matchStmt ])
 
 /// Transforms release mode (inlined) guard pattern cases into a Python match statement.
 let private transformReleaseModeGuardPatternAsMatch
@@ -1954,8 +1951,9 @@ let private transformReleaseModeGuardPatternAsMatch
         let defaultCase = buildDefaultMatchCase com ctx returnStrategy targets defaultIndex
         let allCases = matchCases @ [ defaultCase ]
         let subjectExpr, stmts = com.TransformAsExpr(ctx, Fable.IdentExpr subjectIdent)
+        let liftedNonLocals, allCases = allCases |> getNonLocalsFromMatchCases ctx
         let matchStmt = Statement.match' (subjectExpr, allCases)
-        Some(stmts @ [ matchStmt ])
+        Some(stmts @ liftedNonLocals @ [ matchStmt ])
 
 /// Transforms switch-like pattern cases into a Python match statement.
 let private transformSwitchPatternAsMatch
@@ -2029,10 +2027,11 @@ let private transformSwitchPatternAsMatch
             // Transform the evaluation expression
             let subject, stmts = com.TransformAsExpr(ctx, evalExpr)
 
-            // Build the match statement
+            // Build the match statement, lifting nonlocals out of case bodies
+            let liftedNonLocals, allCases = allCases |> getNonLocalsFromMatchCases ctx
             let matchStmt = Statement.match' (subject, allCases)
 
-            Some(stmts @ [ matchStmt ])
+            Some(stmts @ liftedNonLocals @ [ matchStmt ])
 
 /// Transforms a tuple Option pattern into a Python match statement.
 /// Generates: match (x, y): case (None, _): ... case (_, None): ... case _: ...
@@ -2085,11 +2084,12 @@ let private transformTupleOptionPatternAsMatch
     let successBody = Util.ensureNonEmptyBody (bindingStmts @ successBodyStmts)
     let successCase = MatchCase.matchCase (Pattern.matchWildcard (), successBody)
 
-    // Combine all cases
+    // Combine all cases, lifting nonlocals out of case bodies
     let allCases = noneCases @ [ successCase ]
+    let liftedNonLocals, allCases = allCases |> getNonLocalsFromMatchCases ctx
     let matchStmt = Statement.match' (subject, allCases)
 
-    Some(subjectStmts @ [ matchStmt ])
+    Some(subjectStmts @ liftedNonLocals @ [ matchStmt ])
 
 /// Transform a tuple boolean+guard pattern into a Python match statement.
 /// Handles patterns like: match tuple with | true, _, i when i > -1 -> ... | _ -> ...
@@ -2181,8 +2181,10 @@ let private transformTupleBoolGuardPatternAsMatch
         let defaultBodyStmts = com.TransformAsStatements(ctx, returnStrategy, defaultExpr)
         let defaultBody = Util.ensureNonEmptyBody (defaultBindingStmts @ defaultBodyStmts)
         let defaultCase = MatchCase.matchCase (Pattern.matchWildcard (), defaultBody)
-        let matchStmt = Statement.match' (tupleExpr, matchCases @ [ defaultCase ])
-        Some(tupleStmts @ [ matchStmt ])
+        let allCases = matchCases @ [ defaultCase ]
+        let liftedNonLocals, allCases = allCases |> getNonLocalsFromMatchCases ctx
+        let matchStmt = Statement.match' (tupleExpr, allCases)
+        Some(tupleStmts @ liftedNonLocals @ [ matchStmt ])
 
 /// Transform a decision tree into a Python match statement.
 /// Returns None if the pattern is too complex for match statement conversion.
@@ -2890,10 +2892,12 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
 
         let tagPattern = MatchValue(Expression.intConstant tag)
         let wildcardPattern = Pattern.matchWildcard ()
+        let thenNonLocals, thenBody = getNonLocals ctx thenBody
+        let elseNonLocals, elseBody = getNonLocals ctx elseBody
         let thenCase = MatchCase.matchCase (tagPattern, thenBody)
         let elseCase = MatchCase.matchCase (wildcardPattern, elseBody)
         let matchStmt = Statement.match' (subject, [ thenCase; elseCase ])
-        subjectStmts @ [ matchStmt ]
+        subjectStmts @ thenNonLocals @ elseNonLocals @ [ matchStmt ]
     | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, r) ->
         let asStatement =
             match returnStrategy with

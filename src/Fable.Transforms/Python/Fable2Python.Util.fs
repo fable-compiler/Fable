@@ -1053,6 +1053,47 @@ module Util =
         [ Statement.return' (libCall com ctx None "util" "to_iterator" [ enumerator ]) ]
 
 
+    /// Extracts NonLocal and Global statements from a body, returning them separately.
+    /// The nonlocal/global declarations are consolidated into a single statement,
+    /// and global is used at the top inception level, nonlocal otherwise.
+    let getNonLocals ctx (body: Statement list) =
+        let body, nonLocals =
+            body
+            |> List.partition (
+                function
+                | Statement.NonLocal _
+                | Statement.Global _ -> false
+                | _ -> true
+            )
+
+        let nonLocal =
+            nonLocals
+            |> List.collect (
+                function
+                | Statement.NonLocal nl -> nl.Names
+                | Statement.Global gl -> gl.Names
+                | _ -> []
+            )
+            |> List.distinct
+            |> (fun names ->
+                match ctx.BoundVars.Inceptions with
+                | 1 -> Statement.global' names
+                | _ -> Statement.nonLocal names
+            )
+
+        [ nonLocal ], body
+
+    /// Lifts NonLocal/Global statements out of each match case body and ensures bodies are non-empty.
+    /// Delegates to getNonLocals for the actual partitioning logic.
+    let getNonLocalsFromMatchCases ctx (cases: MatchCase list) : Statement list * MatchCase list =
+        cases
+        |> List.map (fun case ->
+            let nonLocals, cleanBody = getNonLocals ctx case.Body
+            nonLocals, { case with Body = ensureNonEmptyBody cleanBody }
+        )
+        |> List.unzip
+        |> fun (nls, cases) -> List.concat nls, cases
+
 /// Common utilities for Python transformations
 module Helpers =
     /// Returns true if the first field type can be None in Python

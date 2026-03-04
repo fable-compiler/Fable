@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Python] Fix `nonlocal`/`global` declarations generated inside `match/case` bodies causing `SyntaxError` (by @dbrattli)
+* [Python] Fix exception variable captured in deferred closures causing `NameError` (PEP 3110 scoping) (by @dbrattli)
+
 ## 5.0.0-rc.2 - 2026-03-03
 
 ### Added
