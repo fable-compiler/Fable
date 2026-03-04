@@ -418,3 +418,71 @@ let ``test try get value pattern`` () =
     tryGetValuePattern "x" data |> equal (Some 10)
     tryGetValuePattern "y" data |> equal (Some 20)
     tryGetValuePattern "z" data |> equal None
+
+// ----------------------------------------------------------------------------
+// 8. Nonlocal in match/case (regression test)
+// Tests that mutable variables captured in closures work correctly when
+// assigned inside union pattern match statements (nonlocal must be hoisted
+// out of match/case blocks to avoid Python SyntaxError).
+// ----------------------------------------------------------------------------
+
+type Msg =
+    | OnNext of int
+    | OnError of exn
+    | OnCompleted
+
+/// Simulates a take(n) operator: processes at most `count` OnNext messages.
+let takeFn (count: int) (msgs: Msg list) : int list =
+    let mutable remaining = count
+    let results = System.Collections.Generic.List<int>()
+
+    let handle (msg: Msg) =
+        let remaining_snapshot = remaining
+        match msg with
+        | OnError _ -> ()
+        | OnCompleted -> ()
+        | OnNext value ->
+            if remaining_snapshot > 1 then
+                remaining <- remaining_snapshot - 1
+                results.Add(value)
+            elif remaining_snapshot = 1 then
+                remaining <- 0
+                results.Add(value)
+
+    msgs |> List.iter handle
+    results |> Seq.toList
+
+[<Fact>]
+let ``test nonlocal hoisted out of match case - take operator`` () =
+    let msgs = [ OnNext 1; OnNext 2; OnNext 3; OnNext 4; OnNext 5 ]
+    takeFn 3 msgs |> equal [ 1; 2; 3 ]
+    takeFn 1 msgs |> equal [ 1 ]
+    takeFn 5 msgs |> equal [ 1; 2; 3; 4; 5 ]
+
+/// Simulates nested union pattern matching with mutable captures.
+let nestedUnionMatch (msg: Msg) : string =
+    let mutable state = "initial"
+
+    let handle () =
+        let snapshot = state
+        match msg with
+        | OnError _ ->
+            state <- "error"
+            "error"
+        | _ ->
+            match msg with
+            | OnCompleted ->
+                state <- "completed"
+                "completed"
+            | _ ->
+                // OnNext case - uses snapshot (nonlocal must be hoisted)
+                state <- snapshot + "-processed"
+                "next:" + snapshot
+
+    handle ()
+
+[<Fact>]
+let ``test nonlocal hoisted out of nested match case`` () =
+    nestedUnionMatch (OnNext 42) |> equal "next:initial"
+    nestedUnionMatch OnCompleted |> equal "completed"
+    nestedUnionMatch (OnError(exn "err")) |> equal "error"

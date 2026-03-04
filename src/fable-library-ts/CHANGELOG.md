@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [TS] Expose optional `stack` property on `Exception` (by @MangelMaxime)
+
 ## 2.0.0-rc.2 - 2026-03-03
 
 ### Fixed

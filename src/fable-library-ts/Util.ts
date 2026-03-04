@@ -79,6 +79,7 @@ export interface ICollection<T> extends IEnumerable<T> {
 // Exception is intentionally not derived from Error, for performance reasons (see #2160)
 export class Exception {
   public message: string;
+  public stack?: string;
 
   constructor(msg?: string) {
     this.message = msg ?? "";
