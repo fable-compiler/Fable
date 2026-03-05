@@ -1805,38 +1805,50 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
         else
             erlExpr
     | FieldGet info ->
-        match expr.Type with
-        | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isClassType com entityRef ->
-            let fieldName = sanitizeErlangName info.Name
-
-            // During constructor, field values may reference other fields via this.FieldName.
-            // Since put(Ref, #{...}) hasn't happened yet, we use the precomputed Erlang expressions.
-            let isThisRef =
-                match ctx.ThisArgVar, erlExpr with
-                | Some thisVar, Beam.ErlExpr.Variable v -> v = thisVar
-                | _ -> false
-
-            match isThisRef, ctx.CtorFieldExprs.TryFind(info.Name) with
-            | true, Some cachedExpr -> cachedExpr
-            | _ ->
-                // Class instance: state is stored in process dict, ref is the key
-                // Use f$ prefix to avoid collision with interface method keys
-                let classFieldAtom =
-                    Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom("field_" + fieldName)))
-
-                Beam.ErlExpr.Call(Some "maps", "get", [ classFieldAtom; Beam.ErlExpr.Call(None, "get", [ erlExpr ]) ])
-        | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
-            let fieldName = sanitizeErlangName info.Name
-            let fieldAtom = Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom fieldName))
-            // Interface dispatch: works for both object expressions (maps) and class instances (refs).
-            // Class interface property getters are stored as 0-arity thunks — iface_get calls them.
-            // ObjectExpr property getters are stored as plain values — iface_get returns them as-is.
-            Beam.ErlExpr.Call(Some "fable_utils", "iface_get", [ fieldAtom; erlExpr ])
+        // ImportAll + Erase interface pattern (property access): os.name → os:name()
+        match expr with
+        | Import(importInfo, _, _) when importInfo.Selector = "*" ->
+            let moduleName = resolveImportModuleName com importInfo.Path
+            let funcName = sanitizeErlangName info.Name
+            Beam.ErlExpr.Call(moduleName, funcName, [])
         | _ ->
-            // Record/union/anonymous record: direct map access, use sanitizeFieldName for disambiguation
-            let fieldName = sanitizeFieldName info.Name
-            let fieldAtom = Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom fieldName))
-            Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; erlExpr ])
+
+            match expr.Type with
+            | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isClassType com entityRef ->
+                let fieldName = sanitizeErlangName info.Name
+
+                // During constructor, field values may reference other fields via this.FieldName.
+                // Since put(Ref, #{...}) hasn't happened yet, we use the precomputed Erlang expressions.
+                let isThisRef =
+                    match ctx.ThisArgVar, erlExpr with
+                    | Some thisVar, Beam.ErlExpr.Variable v -> v = thisVar
+                    | _ -> false
+
+                match isThisRef, ctx.CtorFieldExprs.TryFind(info.Name) with
+                | true, Some cachedExpr -> cachedExpr
+                | _ ->
+                    // Class instance: state is stored in process dict, ref is the key
+                    // Use f$ prefix to avoid collision with interface method keys
+                    let classFieldAtom =
+                        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom("field_" + fieldName)))
+
+                    Beam.ErlExpr.Call(
+                        Some "maps",
+                        "get",
+                        [ classFieldAtom; Beam.ErlExpr.Call(None, "get", [ erlExpr ]) ]
+                    )
+            | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
+                let fieldName = sanitizeErlangName info.Name
+                let fieldAtom = Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom fieldName))
+                // Interface dispatch: works for both object expressions (maps) and class instances (refs).
+                // Class interface property getters are stored as 0-arity thunks — iface_get calls them.
+                // ObjectExpr property getters are stored as plain values — iface_get returns them as-is.
+                Beam.ErlExpr.Call(Some "fable_utils", "iface_get", [ fieldAtom; erlExpr ])
+            | _ ->
+                // Record/union/anonymous record: direct map access, use sanitizeFieldName for disambiguation
+                let fieldName = sanitizeFieldName info.Name
+                let fieldAtom = Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom fieldName))
+                Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; erlExpr ])
     | ExprGet indexExpr ->
         let erlIndex = transformExpr com ctx indexExpr
 
@@ -2376,87 +2388,99 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                 )
             | _ -> false
 
-        let erlCallee = transformExpr com ctx calleeExpr
-        let args = info.Args |> List.map (transformExpr com ctx)
-        let calleeHoisted, cleanCallee = extractBlock erlCallee
-        let argsHoisted, cleanArgs = hoistBlocksFromArgs args
-        let allHoisted = calleeHoisted @ argsHoisted
+        // ImportAll + Erase interface pattern: factorActor.spawnActor(f) → factor_actor:spawn_actor(F)
+        // When the callee is an ImportAll (Selector = "*"), emit a direct remote call
+        // instead of going through fable_utils:iface_get runtime dispatch.
+        match calleeExpr with
+        | Import(importInfo, _, _) when importInfo.Selector = "*" ->
+            let moduleName = resolveImportModuleName com importInfo.Path
+            let funcName = sanitizeErlangName fieldInfo.Name
+            let args = info.Args |> List.map (transformExpr com ctx)
+            let hoisted, cleanArgs = hoistBlocksFromArgs args
+            Beam.ErlExpr.Call(moduleName, funcName, cleanArgs) |> wrapWithHoisted hoisted
+        | _ ->
 
-        if isInterfaceExpr then
-            // Interface method dispatch: (fable_utils:iface_get(method_name, Obj))(Args)
-            // Works for both object expressions (maps) and class instances (refs)
-            let methodAtom = atomLit (sanitizeErlangName fieldInfo.Name)
+            let erlCallee = transformExpr com ctx calleeExpr
+            let args = info.Args |> List.map (transformExpr com ctx)
+            let calleeHoisted, cleanCallee = extractBlock erlCallee
+            let argsHoisted, cleanArgs = hoistBlocksFromArgs args
+            let allHoisted = calleeHoisted @ argsHoisted
 
-            let lookup =
-                Beam.ErlExpr.Call(Some "fable_utils", "iface_get", [ methodAtom; cleanCallee ])
+            if isInterfaceExpr then
+                // Interface method dispatch: (fable_utils:iface_get(method_name, Obj))(Args)
+                // Works for both object expressions (maps) and class instances (refs)
+                let methodAtom = atomLit (sanitizeErlangName fieldInfo.Name)
 
-            Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted allHoisted
-        else
-            match fieldInfo.Name with
-            | "indexOf" ->
-                // str.indexOf(sub) → case binary:match(Str, Sub) of {Pos,_} -> Pos; nomatch -> -1 end
-                match cleanArgs with
-                | [ sub ] ->
-                    let ctr = com.IncrementCounter()
-                    let posVar = $"Idx_pos_%d{ctr}"
+                let lookup =
+                    Beam.ErlExpr.Call(Some "fable_utils", "iface_get", [ methodAtom; cleanCallee ])
 
-                    Beam.ErlExpr.Case(
-                        Beam.ErlExpr.Call(Some "binary", "match", [ cleanCallee; sub ]),
-                        [
-                            {
-                                Pattern = Beam.PTuple [ Beam.PVar posVar; Beam.PWildcard ]
-                                Guard = []
-                                Body = [ Beam.ErlExpr.Variable posVar ]
-                            }
-                            {
-                                Pattern = Beam.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom "nomatch"))
-                                Guard = []
-                                Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer -1L) ]
-                            }
-                        ]
-                    )
-                    |> wrapWithHoisted allHoisted
-                | _ ->
-                    Beam.ErlExpr.Call(None, "unknown_call", cleanCallee :: cleanArgs)
-                    |> wrapWithHoisted allHoisted
-            | methodName ->
-                // Check if this is a constructor-parameter field invoke in a class method body.
-                // When a class ctor param like `add: int -> int -> int` is used in a method body
-                // as `add x y`, the Fable AST produces Call(Get(this, FieldGet("add")), {Args=[x,y]}).
-                // We need to generate (maps:get(field_add, get(This)))(X, Y) instead of add(This, X, Y).
-                let isCtorFieldInvoke =
-                    ctx.ThisArgVar.IsSome && ctx.CtorParamNames.Contains(methodName)
+                Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted allHoisted
+            else
+                match fieldInfo.Name with
+                | "indexOf" ->
+                    // str.indexOf(sub) → case binary:match(Str, Sub) of {Pos,_} -> Pos; nomatch -> -1 end
+                    match cleanArgs with
+                    | [ sub ] ->
+                        let ctr = com.IncrementCounter()
+                        let posVar = $"Idx_pos_%d{ctr}"
 
-                // Check if callee is a record/anonymous record (function-valued field)
-                let isRecordLike =
-                    match calleeExpr.Type with
-                    | Fable.AST.Fable.Type.AnonymousRecordType _ -> true
-                    | Fable.AST.Fable.Type.DeclaredType(entityRef, _) ->
-                        match com.TryGetEntity(entityRef) with
-                        | Some entity -> entity.IsFSharpRecord
-                        | None -> false
-                    | _ -> false
-
-                if isCtorFieldInvoke then
-                    // Constructor param field invoke: (maps:get(field_<name>, get(This)))(Args)
-                    let fieldAtom = atomLit ("field_" + sanitizeErlangName methodName)
-
-                    let lookup =
-                        Beam.ErlExpr.Call(
-                            Some "maps",
-                            "get",
-                            [ fieldAtom; Beam.ErlExpr.Call(None, "get", [ cleanCallee ]) ]
+                        Beam.ErlExpr.Case(
+                            Beam.ErlExpr.Call(Some "binary", "match", [ cleanCallee; sub ]),
+                            [
+                                {
+                                    Pattern = Beam.PTuple [ Beam.PVar posVar; Beam.PWildcard ]
+                                    Guard = []
+                                    Body = [ Beam.ErlExpr.Variable posVar ]
+                                }
+                                {
+                                    Pattern = Beam.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom "nomatch"))
+                                    Guard = []
+                                    Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer -1L) ]
+                                }
+                            ]
                         )
+                        |> wrapWithHoisted allHoisted
+                    | _ ->
+                        Beam.ErlExpr.Call(None, "unknown_call", cleanCallee :: cleanArgs)
+                        |> wrapWithHoisted allHoisted
+                | methodName ->
+                    // Check if this is a constructor-parameter field invoke in a class method body.
+                    // When a class ctor param like `add: int -> int -> int` is used in a method body
+                    // as `add x y`, the Fable AST produces Call(Get(this, FieldGet("add")), {Args=[x,y]}).
+                    // We need to generate (maps:get(field_add, get(This)))(X, Y) instead of add(This, X, Y).
+                    let isCtorFieldInvoke =
+                        ctx.ThisArgVar.IsSome && ctx.CtorParamNames.Contains(methodName)
 
-                    Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted allHoisted
-                elif isRecordLike then
-                    // Function-valued record field: (maps:get(field, Record))(Args)
-                    let fieldAtom = atomLit (sanitizeFieldName methodName)
-                    let lookup = Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; cleanCallee ])
-                    Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted allHoisted
-                else
-                    Beam.ErlExpr.Call(None, sanitizeErlangName methodName, cleanCallee :: cleanArgs)
-                    |> wrapWithHoisted allHoisted
+                    // Check if callee is a record/anonymous record (function-valued field)
+                    let isRecordLike =
+                        match calleeExpr.Type with
+                        | Fable.AST.Fable.Type.AnonymousRecordType _ -> true
+                        | Fable.AST.Fable.Type.DeclaredType(entityRef, _) ->
+                            match com.TryGetEntity(entityRef) with
+                            | Some entity -> entity.IsFSharpRecord
+                            | None -> false
+                        | _ -> false
+
+                    if isCtorFieldInvoke then
+                        // Constructor param field invoke: (maps:get(field_<name>, get(This)))(Args)
+                        let fieldAtom = atomLit ("field_" + sanitizeErlangName methodName)
+
+                        let lookup =
+                            Beam.ErlExpr.Call(
+                                Some "maps",
+                                "get",
+                                [ fieldAtom; Beam.ErlExpr.Call(None, "get", [ cleanCallee ]) ]
+                            )
+
+                        Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted allHoisted
+                    elif isRecordLike then
+                        // Function-valued record field: (maps:get(field, Record))(Args)
+                        let fieldAtom = atomLit (sanitizeFieldName methodName)
+                        let lookup = Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; cleanCallee ])
+                        Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted allHoisted
+                    else
+                        Beam.ErlExpr.Call(None, sanitizeErlangName methodName, cleanCallee :: cleanArgs)
+                        |> wrapWithHoisted allHoisted
 
     | _ ->
         // Generic callee expression (e.g., operator value like (+) passed as function arg).
