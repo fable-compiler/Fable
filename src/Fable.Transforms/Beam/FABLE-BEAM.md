@@ -393,7 +393,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | HashSetTests.fs | 20 | HashSet creation, Add, Remove, Contains, Count, Clear, UnionWith, IntersectWith, ExceptWith, iteration, records |
 | EnumTests.fs | 20 | Enum HasFlag, comparison, EnumOfValue/ToValue, pattern matching, bitwise ops, inlined EnumOfValue, decision targets |
 | UnionTypeTests.fs | 18 | Union construction, matching, structural equality, active patterns |
-| InteropTests.fs | 17 | Erlang interop, emitErl, Import attribute, module calls |
+| InteropTests.fs | 20 | Erlang interop, emitErl, Import attribute, ImportAll + Erase interface, module calls |
 | DictionaryTests.fs | 17 | Dictionary creation, Add, Count, indexer get/set, ContainsKey, ContainsValue, Remove, TryGetValue, Clear, dict function, integer keys, duplicate key throws, missing key throws, iteration, creation from existing dict |
 | AsyncTests.fs | 31 | Async return, let!/do!, return!, try-with, sleep, parallel, ignore, start immediate, while/for binding, exception handling, nested try/with, StartWithContinuations, Async.Catch, FromContinuations, deep recursion, nested failure propagation, try/finally, Async.Bind propagation, unit argument erasure, cancellation (CTS create/cancel, register, multiple registers, pre-cancelled token, auto-cancel, Dispose, custom exceptions) |
 | QueueTests.fs | 17 | Queue creation, Enqueue, Dequeue, Peek, TryDequeue, TryPeek, Contains, Clear, ToArray, throws |
@@ -415,7 +415,7 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 | MailboxProcessorTests.fs | 3 | MailboxProcessor post, postAndAsyncReply, postAndAsyncReply with falsy values |
 | SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
 | ObservableTests.fs | 12 | Observable.subscribe/add/choose/filter/map/merge/pairwise/partition/scan/split, IObservable.Subscribe, Disposing |
-| **Total** | **2077** | |
+| **Total** | **2080** | |
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -946,6 +946,13 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   Detection: `transformCall`'s `Get(calleeExpr, FieldGet, _, _)` branch checks if
   `calleeExpr.Type` is a `DeclaredType` with `entity.IsInterface`. Self-referencing
   members (e.g., `x.Print()` inside another member) are not yet supported.
+- **ImportAll + Erase interface**: `[<ImportAll("module")>]` + `[<Erase>]` interface pattern
+  for typed FFI bindings. `myModule.someMethod(args)` → `module:some_method(Args)`.
+  Detected in both `transformCall` (method calls) and `transformGet` (property access) by
+  matching `calleeExpr` as `Import` with `Selector = "*"`. Emits direct Erlang remote calls
+  instead of `fable_utils:iface_get` dispatch. Method names are converted via
+  `sanitizeErlangName` (camelCase → snake_case). Same pattern as JS/Python but with `:` call
+  syntax instead of attribute access.
 
 - **Async/Task CE**: CPS (Continuation-Passing Style) implementation. `Async<T>` is a function
   `fun(Ctx) -> ok end` with context map `#{on_success, on_error, on_cancel, cancel_token}`.
@@ -1073,8 +1080,13 @@ shared mutable state — exactly what BEAM is designed to avoid.
   `maps:put/3` for update. Structural equality via native `=:=`.
 - **OTP project structure**: Generate a full OTP application structure with
   `rebar3`? Or just standalone `.erl` files initially?
-- **Interop**: How should F# code call existing Erlang/Elixir libraries?
-  Fable.Core attributes like `[<Import("lists", "map")>]`?
+- ~~**Interop**: How should F# code call existing Erlang/Elixir libraries?
+  Fable.Core attributes like `[<Import("lists", "map")>]`?~~
+  **Decided**: Three interop mechanisms: (1) `[<Import("func", "module")>]` for individual
+  function imports → `module:func(Args)`, (2) `[<Emit("erlang:expr($0)")>]` for inline
+  Erlang expressions, (3) `[<ImportAll("module")>]` + `[<Erase>]` interface for typed
+  module bindings → `module:method(Args)`. The ImportAll pattern mirrors JS/Python but
+  emits Erlang remote calls instead of attribute access.
 - ~~**Testing**: Use EUnit, Common Test, or just assert in generated code?~~
   **Decided**: xUnit with `[<Fact>]` on .NET side, `Fable.Core.Testing.Assert`
   when compiled to BEAM. Same pattern as Python/Rust targets.

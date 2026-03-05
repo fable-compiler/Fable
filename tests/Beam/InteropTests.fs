@@ -42,6 +42,19 @@ let add5Value: int -> int = nativeOnly
 let multiplyValue: int -> int -> int = nativeOnly
 
 // ============================================================
+// ImportAll + Erase interface tests
+// ============================================================
+
+[<Erase>]
+type INativeCode =
+    abstract getName: unit -> string
+    abstract addValues: x: int * y: int -> int
+    abstract concatStrings: a: string * b: string -> string
+
+[<ImportAll("native_code")>]
+let nativeCode: INativeCode = nativeOnly
+
+// ============================================================
 // Erased union tests
 // ============================================================
 
@@ -180,6 +193,30 @@ let ``test Import value binding works`` () =
 let ``test Import value binding with multiple arguments works`` () =
 #if FABLE_COMPILER
     multiplyValue 6 7 |> equal 42
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test ImportAll with Erase interface calls zero-arg method`` () =
+#if FABLE_COMPILER
+    nativeCode.getName () |> equal "native_code"
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test ImportAll with Erase interface calls multi-arg method`` () =
+#if FABLE_COMPILER
+    nativeCode.addValues (3, 4) |> equal 7
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test ImportAll with Erase interface calls string method`` () =
+#if FABLE_COMPILER
+    nativeCode.concatStrings ("Hello, ", "World!") |> equal "Hello, World!"
 #else
     ()
 #endif

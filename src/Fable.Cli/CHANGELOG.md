@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Beam] Support `[<ImportAll>]` + `[<Erase>]` interface pattern for typed FFI bindings (by @dbrattli)
+
 ### Fixed
 
 * [TS] Correctly resolve type references for `TypeScriptTaggedUnion` (by @MangelMaxime and @jrwone0)
