@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * [Python] Added collection protocol markers and interfaces for Python interop (by @dbrattli)
+* [JS] Add `AsyncIterator`, `AsyncGenerator`, and `IteratorResult` interfaces for the AsyncIterator protocol (by @Lanayx)
 
 ### Fixed
 
