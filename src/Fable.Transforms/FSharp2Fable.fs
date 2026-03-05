@@ -981,23 +981,55 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                         match witnesses with
                         | [] -> return ctx
                         | witnesses ->
+                            // Build a map from entity full name -> generic param name.
+                            // Each membGenArg corresponds to a GenericParameter at the same index.
+                            // When a concrete type (e.g. TestTypeA) satisfies a constraint for 'a,
+                            // membGenArgs contains TestTypeA's FSharpType at the position of 'a in
+                            // memb.GenericParameters. This lets us look up the param name from the
+                            // declaring entity of the called member inside the witness body,
+                            // without relying on witness ordering.
+                            let entityFullNameToParamName =
+                                (Map.empty, Seq.zip memb.GenericParameters membGenArgs)
+                                ||> Seq.fold (fun map (gp, fsType) ->
+                                    if fsType.HasTypeDefinition then
+                                        // Protect against primitive types (e.g. int) throwing when accessing FullName
+                                        match fsType.TypeDefinition.TryFullName with
+                                        | Some fullName -> Map.add fullName gp.Name map
+                                        | None -> map
+                                    else
+                                        map
+                                )
+
                             let witnesses =
                                 witnesses
-                                |> List.choose (
-                                    function
-                                    // Index is not reliable, just append witnesses from parent call
-                                    | FSharpExprPatterns.WitnessArg _idx -> None
+                                |> List.choose (fun w ->
+                                    match w with
+                                    // WitnessArg entries are pass-throughs from an outer scope;
+                                    // skip them so they are inherited from ctx.Witnesses as-is.
+                                    // | FSharpExprPatterns.WitnessArg _idx -> None
                                     | NestedLambda(args, body) ->
                                         match body with
-                                        | FSharpExprPatterns.Call(callee, memb, _, _, _args) ->
-                                            Some(memb.CompiledName, Option.isSome callee, args, body)
+                                        | FSharpExprPatterns.Call(callee, calledMemb, _, _, _args) ->
+                                            let genParamName =
+                                                calledMemb.DeclaringEntity
+                                                |> Option.bind (fun ent ->
+                                                    Map.tryFind ent.FullName entityFullNameToParamName
+                                                )
+
+                                            Some(
+                                                calledMemb.CompiledName,
+                                                Option.isSome callee,
+                                                args,
+                                                body,
+                                                genParamName
+                                            )
                                         | FSharpExprPatterns.AnonRecordGet(_, calleeType, fieldIndex) ->
                                             let fieldName =
                                                 calleeType.AnonRecordTypeDetails.SortedFieldNames[fieldIndex]
 
-                                            Some("get_" + fieldName, true, args, body)
+                                            Some("get_" + fieldName, true, args, body, None)
                                         | FSharpExprPatterns.FSharpFieldGet(_, _, field) ->
-                                            Some("get_" + field.Name, true, args, body)
+                                            Some("get_" + field.Name, true, args, body, None)
                                         | _ -> None
                                     | _ -> None
                                 )
@@ -1006,11 +1038,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                             // so a witness may need other witnesses to be resolved
                             return!
                                 (ctx, List.rev witnesses)
-                                ||> trampolineListFold (fun ctx (traitName, isInstance, args, body) ->
+                                ||> trampolineListFold (fun ctx (traitName, isInstance, args, body, genParamName) ->
                                     trampoline {
                                         let ctx, args = makeFunctionArgs com ctx args
 
                                         let! body = transformExpr com ctx [] body
+
+                                        printfn "genParamName: %A" genParamName
 
                                         let w: Fable.Witness =
                                             {
@@ -1018,6 +1052,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                                                 IsInstance = isInstance
                                                 FileName = com.CurrentFile
                                                 Expr = Fable.Delegate(args, body, None, Fable.Tags.empty)
+                                                GenericParamName = genParamName
                                             }
 
                                         return { ctx with Witnesses = w :: ctx.Witnesses }

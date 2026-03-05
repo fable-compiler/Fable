@@ -1743,52 +1743,32 @@ module TypeHelpers =
         | [] -> None
         | [ single ] -> Some single
         | multiple ->
-            // Multiple witnesses for the same trait - need to pick the right one
-            // based on which generic parameter is being resolved
-            match sourceTypes with
-            | [ sourceType ] ->
-                // First, resolve the source type in case it's a generic parameter
-                // that needs to be mapped to a concrete type
-                let resolvedSourceType =
-                    match sourceType with
-                    | Fable.GenericParam(name, _, _) ->
-                        // Check if this generic parameter has been mapped to a concrete type
-                        match Map.tryFind name ctx.GenericArgs with
-                        | Some concreteType -> concreteType
-                        | None -> sourceType
-                    | _ -> sourceType
+            // Multiple witnesses match by trait name and arg types.
+            // Use the source type to derive the original generic parameter name, then find
+            // the witness tagged with that name.
+            //
+            // Two cases:
+            // 1. sourceTypes contains a raw GenericParam (e.g. when compiling an inline function
+            //    whose body is not yet specialized): extract the param name directly.
+            // 2. sourceTypes contains a resolved DeclaredType (e.g. 'b was resolved to TestTypeB
+            //    via ctx.GenericArgs before being passed here): reverse-lookup in ctx.GenericArgs
+            //    to recover the original param name ("b").
+            let genParamName =
+                match sourceTypes with
+                | [ Fable.GenericParam(name, _, _) ] -> Some name
+                | [ resolvedType ] ->
+                    // Reverse-lookup: find the generic param name whose resolved type matches
+                    ctx.GenericArgs
+                    |> Map.tryFindKey (fun _paramName paramType -> typeEquals false paramType resolvedType)
+                | _ -> None
 
-                // Now find which witness to use based on the resolved source type
-                match resolvedSourceType with
-                | Fable.GenericParam(name, isMeasure, _) ->
-                    // For generic parameters, find their position in the original function signature
-                    let genParamNames = ctx.GenericArgs |> Map.toList |> List.map fst
-                    let genParamPosition = genParamNames |> List.tryFindIndex ((=) name)
-
-                    match genParamPosition with
-                    | Some idx when idx < List.length multiple ->
-                        // Witnesses are provided in order corresponding to generic parameters
-                        List.tryItem idx multiple
-                    | _ -> List.tryHead multiple
-
-                | Fable.DeclaredType(entity, _) ->
-                    // Find the position of this entity type in the generic arguments
-                    let genArgPosition =
-                        ctx.GenericArgs
-                        |> Map.toList
-                        |> List.tryFindIndex (fun (_, argType) ->
-                            match argType with
-                            | Fable.DeclaredType(e, _) -> e.FullName = entity.FullName
-                            | _ -> false
-                        )
-
-                    match genArgPosition with
-                    | Some idx when idx < List.length multiple ->
-                        // Witnesses are provided in order corresponding to generic parameters
-                        List.tryItem idx multiple
-                    | _ -> List.tryHead multiple
-                | _ -> List.tryHead multiple
-            | _ -> List.tryHead multiple
+            multiple
+            |> List.tryFind (fun w ->
+                match genParamName, w.GenericParamName with
+                | Some gpName, Some wGpName -> gpName = wGpName
+                | _ -> false
+            )
+            |> Option.orElse (List.tryHead multiple)
 
 module Identifiers =
     open Helpers
