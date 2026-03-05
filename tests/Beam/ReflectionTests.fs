@@ -57,6 +57,19 @@ type MyType =
 
 type GenericRecord<'A,'B> = { a: 'A; b: 'B }
 
+type MyInterface<'T> =
+    abstract Value: 'T
+
+type MyClass() =
+    class end
+
+type MyClass2() =
+    class end
+
+type MyClass3<'T>(v) =
+    interface MyInterface<'T> with
+        member _.Value = v
+
 [<Fact>]
 let ``test typedefof works`` () =
     let tdef1 = typedefof<int list>
@@ -341,3 +354,12 @@ let ``test Type.GetGenericArguments works`` () =
     let t = typeof<int list>
     t.GetGenericArguments().[0] = typeof<int> |> equal true
     t.GetGenericArguments().[0] = typeof<string> |> equal false
+
+[<Fact>]
+let ``test GetInterface works when types are known at compile time`` () =
+    let t = typeof<MyClass3<int>>.GetInterface("MyInterface`1")
+    t.GetGenericArguments().[0] = typeof<int> |> equal true
+    t.GetGenericArguments().[0] = typeof<string> |> equal false
+    typeof<MyClass3<int>>.GetInterface("myInterface`1") |> isNull |> equal true
+    typeof<MyClass3<int>>.GetInterface("myInterface`1", true) |> isNull |> equal false
+    typeof<MyClass2>.GetInterface("MyInterface`1") |> isNull |> equal true
