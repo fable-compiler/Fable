@@ -4574,6 +4574,67 @@ let private bclType (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg:
 
 let tryType (_t: Type) = None
 
+/// Compile-time resolution for System.Type methods when the type is known statically via TypeInfo.
+let tryResolveTypeInfo
+    (com: ICompiler)
+    (ctx: Context)
+    (r: SourceLocation option)
+    (t: Type)
+    (info: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match thisArg with
+    | Some(Value(TypeInfo(exprType, _), exprRange)) ->
+        match exprType with
+        | GenericParam(name = name) -> genericTypeInfoError name |> addError com ctx.InlinePath exprRange
+        | _ -> ()
+
+        match info.CompiledName with
+        | "GetInterface" ->
+            match exprType, args with
+            | DeclaredType(e, genArgs), [ StringConst name ] -> Some(e, genArgs, name, false)
+            | DeclaredType(e, genArgs), [ StringConst name; BoolConst ignoreCase ] -> Some(e, genArgs, name, ignoreCase)
+            | _ -> None
+            |> Option.map (fun (e, genArgs, name, ignoreCase) ->
+                let e = com.GetEntity(e)
+
+                let genMap =
+                    List.zip (e.GenericParameters |> List.map (fun p -> p.Name)) genArgs |> Map
+
+                let comp =
+                    if ignoreCase then
+                        System.StringComparison.OrdinalIgnoreCase
+                    else
+                        System.StringComparison.Ordinal
+
+                e.AllInterfaces
+                |> Seq.tryPick (fun ifc ->
+                    let ifcName = splitFullName ifc.Entity.FullName |> snd
+
+                    if ifcName.Equals(name, comp) then
+                        let genArgs =
+                            ifc.GenericArgs
+                            |> List.map (
+                                function
+                                | GenericParam(name = name) as gen ->
+                                    Map.tryFind name genMap |> Option.defaultValue gen
+                                | gen -> gen
+                            )
+
+                        Some(ifc.Entity, genArgs)
+                    else
+                        None
+                )
+                |> function
+                    | Some(ifcEnt, genArgs) ->
+                        DeclaredType(ifcEnt, genArgs)
+                        |> makeTypeInfo (changeRangeToCallSite ctx.InlinePath r)
+                    | None -> Value(Null t, r)
+            )
+        | _ -> None
+    | _ -> None
+
 let tryCall
     (com: ICompiler)
     (ctx: Context)
@@ -4915,26 +4976,30 @@ let tryCall
         | _ -> None
     // System.Type (reflection) — type info is a map #{fullname => ..., generics => [...]}
     | "System.Type" ->
-        match info.CompiledName, thisArg with
-        | "get_FullName", Some c -> Helper.LibCall(com, "fable_reflection", "full_name", t, [ c ], ?loc = r) |> Some
-        | "get_Namespace", Some c -> Helper.LibCall(com, "fable_reflection", "namespace", t, [ c ], ?loc = r) |> Some
-        | "get_Name", Some c -> Helper.LibCall(com, "fable_reflection", "name", t, [ c ], ?loc = r) |> Some
-        | "get_IsGenericType", Some c ->
-            Helper.LibCall(com, "fable_reflection", "is_generic_type", t, [ c ], ?loc = r)
-            |> Some
-        | "get_IsArray", Some c -> Helper.LibCall(com, "fable_reflection", "is_array", t, [ c ], ?loc = r) |> Some
-        | "GetGenericTypeDefinition", Some c ->
-            Helper.LibCall(com, "fable_reflection", "get_generic_type_definition", t, [ c ], ?loc = r)
-            |> Some
-        | "GetElementType", Some c ->
-            Helper.LibCall(com, "fable_reflection", "get_element_type", t, [ c ], ?loc = r)
-            |> Some
-        | "get_GenericTypeArguments", Some c
-        | "GetGenericArguments", Some c ->
-            Helper.LibCall(com, "fable_reflection", "get_generics", t, [ c ], ?loc = r)
-            |> wrapArr com r t
-            |> Some
-        | _ -> None
+        match tryResolveTypeInfo com ctx r t info thisArg args with
+        | Some _ as resolved -> resolved
+        | None ->
+            match info.CompiledName, thisArg with
+            | "get_FullName", Some c -> Helper.LibCall(com, "fable_reflection", "full_name", t, [ c ], ?loc = r) |> Some
+            | "get_Namespace", Some c ->
+                Helper.LibCall(com, "fable_reflection", "namespace", t, [ c ], ?loc = r) |> Some
+            | "get_Name", Some c -> Helper.LibCall(com, "fable_reflection", "name", t, [ c ], ?loc = r) |> Some
+            | "get_IsGenericType", Some c ->
+                Helper.LibCall(com, "fable_reflection", "is_generic_type", t, [ c ], ?loc = r)
+                |> Some
+            | "get_IsArray", Some c -> Helper.LibCall(com, "fable_reflection", "is_array", t, [ c ], ?loc = r) |> Some
+            | "GetGenericTypeDefinition", Some c ->
+                Helper.LibCall(com, "fable_reflection", "get_generic_type_definition", t, [ c ], ?loc = r)
+                |> Some
+            | "GetElementType", Some c ->
+                Helper.LibCall(com, "fable_reflection", "get_element_type", t, [ c ], ?loc = r)
+                |> Some
+            | "get_GenericTypeArguments", Some c
+            | "GetGenericArguments", Some c ->
+                Helper.LibCall(com, "fable_reflection", "get_generics", t, [ c ], ?loc = r)
+                |> wrapArr com r t
+                |> Some
+            | _ -> None
     // System.Enum
     | "System.Enum" ->
         match info.CompiledName, thisArg, args with
