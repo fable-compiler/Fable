@@ -1044,8 +1044,6 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
                                         let! body = transformExpr com ctx [] body
 
-                                        printfn "genParamName: %A" genParamName
-
                                         let w: Fable.Witness =
                                             {
                                                 TraitName = traitName
