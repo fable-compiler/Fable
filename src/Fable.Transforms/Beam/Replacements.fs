@@ -4929,7 +4929,8 @@ let tryCall
         | "GetElementType", Some c ->
             Helper.LibCall(com, "fable_reflection", "get_element_type", t, [ c ], ?loc = r)
             |> Some
-        | "get_GenericTypeArguments", Some c ->
+        | "get_GenericTypeArguments", Some c
+        | "GetGenericArguments", Some c ->
             Helper.LibCall(com, "fable_reflection", "get_generics", t, [ c ], ?loc = r)
             |> wrapArr com r t
             |> Some

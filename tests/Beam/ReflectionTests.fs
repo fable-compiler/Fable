@@ -124,6 +124,10 @@ type MyUnion =
 
 type RecordF = { F : int -> string }
 
+type AsyncRecord = {
+    asyncProp : Async<string>
+}
+
 let flip f b a = f a b
 
 [<Fact>]
@@ -325,3 +329,15 @@ let ``test FSharp.Reflection: Choice`` () =
 let ``test Reflection info of int64 decimal with units of measure works`` () =
     typeof< int64 > = typeof< int64<FSharp.Data.UnitSystems.SI.UnitSymbols.m> > |> equal true
     typeof< decimal > = typeof< decimal<FSharp.Data.UnitSystems.SI.UnitSymbols.m> > |> equal true
+
+[<Fact>]
+let ``test Type.GenericTypeArguments works`` () =
+    let recordType = typeof<AsyncRecord>
+    let asyncProp = FSharpType.GetRecordFields recordType |> Array.head
+    asyncProp.PropertyType.GenericTypeArguments |> Array.head |> equal typeof<string>
+
+[<Fact>]
+let ``test Type.GetGenericArguments works`` () =
+    let t = typeof<int list>
+    t.GetGenericArguments().[0] = typeof<int> |> equal true
+    t.GetGenericArguments().[0] = typeof<string> |> equal false
