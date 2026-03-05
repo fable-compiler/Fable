@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Beam] Support `Type.GetGenericArguments` and `Type.GetInterface` for reflection (by @dbrattli)
 * [TS] Correctly resolve type references for `TypeScriptTaggedUnion` (by @MangelMaxime and @jrwone0)
 * [TS] Expose optional `stack` property on `Exception` (by @MangelMaxime)
 * [Python] Fix `nonlocal`/`global` declarations generated inside `match/case` bodies causing `SyntaxError` (by @dbrattli)
