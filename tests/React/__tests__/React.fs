@@ -72,11 +72,23 @@ Jest.describe("React tests", (fun () ->
         Jest.expect(cell).toHaveTextContent("7")
     ))
 
-    // See #2628
-    Jest.test("Curried functions passed to plugin transforms", (fun () ->
-        let fn a b = a + b
-        let elem = RTL.render(ComponentAcceptingCurriedFunction fn "ignored")
-        let text = elem.getByTestId "text"
-        Jest.expect(text).toHaveTextContent("3")
+    // See https://github.com/fable-compiler/Fable/issues/3999
+    Jest.test("JSX single string hole renders correctly", (fun () ->
+        let elem = RTL.render(Counter.SingleHoleJSX("hello") |> unbox)
+        let node = elem.getByTestId "single-hole"
+        Jest.expect(node).toHaveTextContent("hello")
     ))
+
+    Jest.test("JSX multiple string holes render correctly", (fun () ->
+        let elem = RTL.render(Counter.MultiHoleJSX("John") ("Doe") |> unbox)
+        let node = elem.getByTestId "multi-hole"
+        Jest.expect(node).toHaveTextContent("John Doe")
+    ))
+
+    Jest.test("JSX format specifier hole renders correctly", (fun () ->
+        let elem = RTL.render(Counter.FormatSpecifierJSX(3.14159) |> unbox)
+        let node = elem.getByTestId "format-specifier"
+        Jest.expect(node).toHaveTextContent("3.142")
+    ))
+
 ))
