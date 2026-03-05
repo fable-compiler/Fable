@@ -2775,27 +2775,9 @@ module Util =
 
         let genArgs = List.zipSafe inExpr.GenericArgs info.GenericArgs |> Map
 
-        // For nested inline functions, we need to preserve the outer context's generic args
-        // and resolve any references through them
-        let resolveTypeWithOuterContext (typ: Fable.Type) =
-            match typ with
-            | Fable.GenericParam(name, _, _) ->
-                // If this generic parameter is mapped in the outer context, use that
-                match Map.tryFind name ctx.GenericArgs with
-                | Some resolvedType -> resolvedType
-                | None -> typ
-            | _ -> typ
-
-        // Create the composed generic args by resolving through the outer context
-        let composedGenArgs =
-            genArgs
-            |> Map.map (fun _ typ -> resolveTypeWithOuterContext typ)
-            // Also preserve any generic args from the outer context that aren't overridden
-            |> Map.fold (fun acc k v -> Map.add k v acc) ctx.GenericArgs
-
         let ctx =
             { ctx with
-                GenericArgs = composedGenArgs
+                GenericArgs = genArgs
                 InlinePath =
                     {
                         ToFile = inExpr.FileName
