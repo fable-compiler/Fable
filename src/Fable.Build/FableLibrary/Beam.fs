@@ -13,6 +13,10 @@ type BuildFableLibraryBeam() =
         )
 
     override this.CopyStage() =
-        // Copy hand-written .erl runtime files to the output directory
+        // Copy hand-written .erl runtime files into the src/ subdirectory so
+        // they sit alongside the Fable-compiled .erl files for rebar3.
+        let srcDir = Path.Combine(this.OutDir, "src")
+        Directory.CreateDirectory(srcDir) |> ignore
+
         for erlFile in Directory.GetFiles(this.SourceDir, "*.erl") do
-            File.Copy(erlFile, Path.Combine(this.OutDir, Path.GetFileName(erlFile)), overwrite = true)
+            File.Copy(erlFile, Path.Combine(srcDir, Path.GetFileName(erlFile)), overwrite = true)

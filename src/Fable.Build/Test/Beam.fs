@@ -10,6 +10,10 @@ let private buildDir = Path.Resolve("temp", "tests", "Beam")
 let private sourceDir = Path.Resolve("tests", "Beam")
 let private testRunnerSrc = Path.Resolve("tests", "Beam", "erl_test_runner.erl")
 
+// OTP app name derived from Fable.Tests.Beam.fsproj — must match
+// what generateBeamScaffold produces from the project file name.
+let private testProjectName = "fable_tests_beam"
+
 let handle (args: string list) =
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
@@ -49,63 +53,45 @@ let handle (args: string list) =
         // Test against .NET
         Command.Run("dotnet", "test -c Release", workingDirectory = sourceDir)
 
-        // Compile tests to Erlang
+        // Compile tests to Erlang.
+        // Fable automatically generates the rebar3 scaffold (rebar.config, .app.src,
+        // per-dep rebar.config and ebin/*.app) alongside the .erl files in src/.
         Command.Fable(fableArgs, workingDirectory = buildDir)
 
-        // Copy test runner to build dir
-        File.Copy(testRunnerSrc, Path.Combine(buildDir, "erl_test_runner.erl"), overwrite = true)
+        // Copy test runner and native Erlang helpers into src/ so rebar3 compiles them
+        // as part of the project.
+        let buildSrcDir = Path.Combine(buildDir, "src")
 
-        // Copy native Erlang test modules to build dir
+        File.Copy(testRunnerSrc, Path.Combine(buildSrcDir, "erl_test_runner.erl"), overwrite = true)
+
         let nativeErlDir = Path.Resolve("tests", "Beam", "erl")
 
         if Directory.Exists(nativeErlDir) then
             for erlFile in Directory.GetFiles(nativeErlDir, "*.erl") do
-                let fileName = Path.GetFileName(erlFile)
-                File.Copy(erlFile, Path.Combine(buildDir, fileName), overwrite = true)
+                File.Copy(erlFile, Path.Combine(buildSrcDir, Path.GetFileName(erlFile)), overwrite = true)
 
-        // fable-library-beam files are auto-copied to fable_modules/fable-library-beam/ by the compiler
-        let fableModulesLibDir =
-            Path.Combine(buildDir, "fable_modules", "fable-library-beam")
+        // Compile everything with rebar3 using the generated scaffold.
+        Command.Run("rebar3", "compile", workingDirectory = buildDir)
 
-        // Compile fable-library-beam .erl files first
-        let mutable compileErrors = 0
+        // Collect all ebin directories produced by rebar3 for the -pa flags.
+        let buildDefaultLib = Path.Combine(buildDir, "_build", "default", "lib")
 
-        if Directory.Exists(fableModulesLibDir) then
-            for erlFile in Directory.GetFiles(fableModulesLibDir, "*.erl") do
-                let fileName = Path.GetFileName(erlFile)
+        let ebinDirs =
+            if Directory.Exists(buildDefaultLib) then
+                Directory.GetDirectories(buildDefaultLib)
+                |> Array.map (fun d -> Path.Combine(d, "ebin"))
+                |> Array.filter Directory.Exists
+            else
+                [||]
 
-                try
-                    Command.Run(
-                        "erlc",
-                        $"+nowarn_ignored +nowarn_failed +nowarn_shadow_vars {fileName}",
-                        workingDirectory = fableModulesLibDir
-                    )
-                with _ ->
-                    printfn $"WARNING: erlc failed for {fileName} (library), skipping"
-                    compileErrors <- compileErrors + 1
+        let paArgs = ebinDirs |> Array.map (fun d -> $"-pa \"{d}\"") |> String.concat " "
 
-        // Compile test .erl files with library on code path
-        let erlFiles = Directory.GetFiles(buildDir, "*.erl")
+        // The test runner scans this directory for *_tests.beam modules.
+        let projectEbinDir = Path.Combine(buildDefaultLib, testProjectName, "ebin")
 
-        for erlFile in erlFiles do
-            let fileName = Path.GetFileName(erlFile)
-
-            try
-                Command.Run(
-                    "erlc",
-                    $"+nowarn_ignored +nowarn_failed +nowarn_shadow_vars -pa fable_modules/fable-library-beam {fileName}",
-                    workingDirectory = buildDir
-                )
-            with _ ->
-                printfn $"WARNING: erlc failed for {fileName}, skipping"
-                compileErrors <- compileErrors + 1
-
-        if compileErrors > 0 then
-            printfn $"WARNING: {compileErrors} file(s) failed to compile with erlc"
-
-        // Run Erlang test runner with library on code path
+        // Run Erlang test runner
         Command.Run(
             "erl",
-            "-noshell -pa . -pa fable_modules/fable-library-beam -eval \"erl_test_runner:main([\\\".\\\"])\" -s init stop",
+            $"-noshell {paArgs} -eval \"erl_test_runner:main([\\\"{projectEbinDir}\\\"])\" -s init stop",
             workingDirectory = buildDir
         )
