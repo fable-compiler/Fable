@@ -237,6 +237,7 @@ jobs:
         uses: erlef/setup-beam@v1
         with:
           otp-version: "27"
+          rebar3-version: "3"
 
       - name: Fable Tests - Beam
         run: ./build.sh test beam

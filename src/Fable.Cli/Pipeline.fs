@@ -508,6 +508,40 @@ module Beam =
         Path.GetFileNameWithoutExtension(path).Replace(".", "_").Replace("-", "_")
         |> Naming.applyCaseRule Core.CaseRules.SnakeCase
 
+    /// True when a dot-segment looks like a version number (starts with a digit).
+    let private isVersionSegment (s: string) = s.Length > 0 && Char.IsDigit(s.[0])
+
+    /// Normalize a name to a valid OTP application name (lowercase snake_case, no leading/trailing underscores).
+    ///   "Fable.Tests.Beam" → "fable_tests_beam"
+    ///   "fable-library-beam" → "fable_library_beam"
+    let normalizeAppName (name: string) =
+        name.Replace('.', '_').Replace('-', '_').ToLowerInvariant().Trim('_')
+
+    /// Derive an OTP application name from a fable_modules directory name.
+    ///   "Fable.Logging.0.10.0"         → "fable_logging"
+    ///   "fable-library-beam"           → "fable_library_beam"
+    ///   "Fable.Python.4.0.0-theta-003" → "fable_python"
+    let deriveDepAppName (dirName: string) =
+        let dotParts = dirName.Split('.')
+
+        let namePart =
+            match dotParts |> Array.tryFindIndex isVersionSegment with
+            | Some idx when idx > 0 -> dotParts.[.. idx - 1] |> String.concat "."
+            | _ -> dirName
+
+        normalizeAppName namePart
+
+    /// Extract the version string from a fable_modules directory name.
+    ///   "Fable.Logging.0.10.0"         → "0.10.0"
+    ///   "Fable.Python.4.0.0-theta-003" → "4.0.0-theta-003"
+    ///   "fable-library-beam"           → "0.1.0"
+    let extractDepVersion (dirName: string) =
+        let dotParts = dirName.Split('.')
+
+        match dotParts |> Array.tryFindIndex isVersionSegment with
+        | Some idx -> dotParts.[idx..] |> String.concat "."
+        | None -> "0.1.0"
+
     let getTargetPath (cliArgs: CliArgs) (targetPath: string) =
         let fileExt = cliArgs.CompilerOptions.FileExtension
         let targetDir = Path.GetDirectoryName(targetPath)

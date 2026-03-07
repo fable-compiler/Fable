@@ -34,6 +34,7 @@ Make sure the following **requirements** are installed in your system:
 - [Uv](https://docs.astral.sh/uv/)
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Dart](https://dart.dev/get-dart)
+- [Erlang/OTP](https://www.erlang.org/downloads) with [rebar3](https://rebar3.org/) (for Beam/Erlang target)
 
 ### Build
 
