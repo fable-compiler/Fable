@@ -530,6 +530,25 @@ let ``test sprintf integers with sign and padding works`` () =
     sprintf "%- 4i" 5 |> equal " 5  "
 
 [<Fact>]
+let ``test sprintf with 4 args applied at once works`` () =
+    let method = "GET"
+    let path = "/api/todos"
+    let status = 200
+    let elapsed = 42
+    sprintf "%s %s responded %d in %dms" method path status elapsed
+    |> equal "GET /api/todos responded 200 in 42ms"
+
+[<Fact>]
+let ``test sprintf with mixed types works`` () =
+    sprintf "%s: %d (%.1f%%)" "Score" 42 99.5
+    |> equal "Score: 42 (99.5%)"
+
+[<Fact>]
+let ``test printfn with multiple args works`` () =
+    let result = sprintf "%s %s %d %d" "a" "b" 1 2
+    result |> equal "a b 1 2"
+
+[<Fact>]
 let ``test failwithf works`` () =
     let mutable exceptionRaised = false
     try

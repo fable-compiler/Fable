@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Beam] Fix dropped top-level side effects — multiple `ActionDeclaration` `main/0` functions are now merged (by @dbrattli)
+* [Beam] Fix `%%` escape in string interpolation producing double `%` instead of single (by @dbrattli)
 * [Beam] Support `Type.GetGenericArguments` and `Type.GetInterface` for reflection (by @dbrattli)
 * [TS] Correctly resolve type references for `TypeScriptTaggedUnion` (by @MangelMaxime and @jrwone0)
 * [Python] Fix `nonlocal`/`global` declarations generated inside `match/case` bodies causing `SyntaxError` (by @dbrattli)

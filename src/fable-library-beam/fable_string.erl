@@ -492,6 +492,9 @@ interpolate_loop(<<>>, _Values, Acc) ->
     iolist_to_binary(lists:reverse(Acc));
 interpolate_loop(<<"%P()", Rest/binary>>, [V | Vs], Acc) ->
     interpolate_loop(Rest, Vs, [to_string(V) | Acc]);
+interpolate_loop(<<"%%", Rest/binary>>, Values, Acc) ->
+    %% Escaped percent sign → literal %
+    interpolate_loop(Rest, Values, [<<"%">> | Acc]);
 interpolate_loop(<<$%, Rest/binary>>, Values, Acc) ->
     %% Try to match format specifier followed by %P()
     case extract_spec_before_placeholder(Rest) of
