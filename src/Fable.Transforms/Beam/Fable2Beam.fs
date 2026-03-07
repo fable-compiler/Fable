@@ -3400,6 +3400,8 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
         // Deduplicate functions by name+arity at module level. This handles cases where
         // a property setter and a method mangle to the same Erlang function name, even
         // when they come from different declaration paths (ClassDeclaration vs MemberDeclaration).
+        // Special case: multiple main/0 functions (from ActionDeclarations) are merged into one
+        // so that all top-level side effects execute.
         |> List.fold
             (fun (seen, acc) form ->
                 match form with
@@ -3407,7 +3409,28 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
                     let key = (def.Name, def.Arity)
 
                     if Set.contains key seen then
-                        (seen, acc)
+                        if key = (Beam.Atom "main", 0) then
+                            // Merge main/0 bodies: append the new body to the existing main/0
+                            let acc' =
+                                acc
+                                |> List.map (fun f ->
+                                    match f with
+                                    | Beam.ErlForm.Function existingDef when
+                                        existingDef.Name = Beam.Atom "main" && existingDef.Arity = 0
+                                        ->
+                                        let mergedClauses =
+                                            match existingDef.Clauses, def.Clauses with
+                                            | [ existing ], [ newClause ] ->
+                                                [ { existing with Body = existing.Body @ newClause.Body } ]
+                                            | _ -> existingDef.Clauses
+
+                                        Beam.ErlForm.Function { existingDef with Clauses = mergedClauses }
+                                    | other -> other
+                                )
+
+                            (seen, acc')
+                        else
+                            (seen, acc)
                     else
                         (Set.add key seen, form :: acc)
                 | _ -> (seen, form :: acc)
