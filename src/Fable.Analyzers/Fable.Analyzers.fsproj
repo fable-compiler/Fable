@@ -10,7 +10,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="FSharp.Analyzers.SDK" Version="0.34.1"/>
+        <PackageReference Include="FSharp.Analyzers.SDK" Version="0.36.0"/>
     </ItemGroup>
 
 </Project>
