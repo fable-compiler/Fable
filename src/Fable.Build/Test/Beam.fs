@@ -10,9 +10,10 @@ let private buildDir = Path.Resolve("temp", "tests", "Beam")
 let private sourceDir = Path.Resolve("tests", "Beam")
 let private testRunnerSrc = Path.Resolve("tests", "Beam", "erl_test_runner.erl")
 
-// OTP app name derived from Fable.Tests.Beam.fsproj — must match
-// what generateBeamScaffold produces from the project file name.
-let private testProjectName = "fable_tests_beam"
+// OTP app name derived from Fable.Tests.Beam.fsproj — computed the same way
+// generateBeamScaffold does: replace dots/hyphens with underscores, lowercase.
+let private testProjectName =
+    Path.GetFileNameWithoutExtension("Fable.Tests.Beam.fsproj").Replace('.', '_').Replace('-', '_').ToLowerInvariant()
 
 let handle (args: string list) =
     let isWatch = args |> List.contains "--watch"

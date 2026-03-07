@@ -511,6 +511,12 @@ module Beam =
     /// True when a dot-segment looks like a version number (starts with a digit).
     let private isVersionSegment (s: string) = s.Length > 0 && Char.IsDigit(s.[0])
 
+    /// Normalize a name to a valid OTP application name (lowercase snake_case, no leading/trailing underscores).
+    ///   "Fable.Tests.Beam" → "fable_tests_beam"
+    ///   "fable-library-beam" → "fable_library_beam"
+    let normalizeAppName (name: string) =
+        name.Replace('.', '_').Replace('-', '_').ToLowerInvariant().Trim('_')
+
     /// Derive an OTP application name from a fable_modules directory name.
     ///   "Fable.Logging.0.10.0"         → "fable_logging"
     ///   "fable-library-beam"           → "fable_library_beam"
@@ -524,7 +530,7 @@ module Beam =
             | None -> dirName
             | Some _ -> dirName
 
-        namePart.Replace('.', '_').Replace('-', '_').ToLowerInvariant().Trim('_')
+        normalizeAppName namePart
 
     /// Extract the version string from a fable_modules directory name.
     ///   "Fable.Logging.0.10.0"         → "0.10.0"

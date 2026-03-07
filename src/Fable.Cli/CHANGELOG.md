@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+* [Beam] Auto-generate rebar3 scaffold (`rebar.config`, `.app.src`) after compilation; `.erl` files now placed in `src/` subdirectories (by @dbrattli)
 * [Beam] Support `[<ImportAll>]` + `[<Erase>]` interface pattern for typed FFI bindings (by @dbrattli)
 
 ### Fixed
