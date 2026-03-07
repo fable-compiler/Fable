@@ -527,8 +527,7 @@ module Beam =
         let namePart =
             match dotParts |> Array.tryFindIndex isVersionSegment with
             | Some idx when idx > 0 -> dotParts.[.. idx - 1] |> String.concat "."
-            | None -> dirName
-            | Some _ -> dirName
+            | _ -> dirName
 
         normalizeAppName namePart
 
