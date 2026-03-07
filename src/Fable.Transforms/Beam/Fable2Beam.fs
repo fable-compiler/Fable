@@ -104,9 +104,8 @@ let private getUnionCaseAtomExpr (com: IBeamCompiler) (ref: EntityRef) (tag: int
             | Some name -> name
             | None -> sanitizeErlangName uci.Name
 
-        let atomStr = quoteErlangAtom atomName
         let isFieldless = uci.UnionCaseFields.IsEmpty
-        Some(atomStr, isFieldless)
+        Some(atomName, isFieldless)
     | None -> None
 
 let private getDecisionTarget (ctx: Context) targetIndex =
@@ -1919,7 +1918,6 @@ and transformReceive (com: IBeamCompiler) (ctx: Context) (emitInfo: EmitInfo) (t
                         | Some name -> name
                         | None -> sanitizeErlangName uci.Name
 
-                    let atomStr = quoteErlangAtom atomName
                     let fields = uci.UnionCaseFields
                     let fieldCount = fields.Length
 
@@ -1928,20 +1926,20 @@ and transformReceive (com: IBeamCompiler) (ctx: Context) (emitInfo: EmitInfo) (t
 
                     let pattern =
                         if fieldCount = 0 then
-                            Beam.ErlPattern.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom atomStr))
+                            Beam.ErlPattern.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom atomName))
                         else
                             Beam.ErlPattern.PTuple(
-                                Beam.ErlPattern.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom atomStr))
+                                Beam.ErlPattern.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom atomName))
                                 :: (fieldVars |> List.map Beam.ErlPattern.PVar)
                             )
 
                     // Build body: atom-tagged DU representation
                     let body =
                         if fieldCount = 0 then
-                            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomStr)) // bare atom
+                            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomName)) // bare atom
                         else
                             Beam.ErlExpr.Tuple(
-                                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomStr))
+                                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomName))
                                 :: (fieldVars |> List.map Beam.ErlExpr.Variable)
                             )
 
