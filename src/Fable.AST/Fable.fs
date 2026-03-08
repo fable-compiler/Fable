@@ -757,6 +757,9 @@ type Witness =
         IsInstance: bool
         FileName: string
         Expr: Expr
+        /// The name of the generic parameter this witness satisfies (e.g. "'a" from `'a: (static member M: unit -> string)`).
+        /// Used to disambiguate when multiple witnesses match the same trait name and arg types.
+        GenericParamName: string option
     }
 
     member this.ArgTypes =
