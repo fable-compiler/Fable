@@ -97,6 +97,7 @@ type RecvMsg =
     | Ping
     | [<CompiledName("custom_tag")>] CustomTag of value: int
     | DataMsg of x: int * y: string
+    | [<CompiledName("EXIT")>] Exit of pid: int * reason: string
 
 #endif
 
@@ -331,6 +332,20 @@ let ``test Erlang receive with multi-field DU case`` () =
     | Some(DataMsg(x, y)) ->
         equal 7 x
         equal "hello" y
+    | _ -> equal 0 1 // fail
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Erlang receive with uppercase CompiledName atom tag`` () =
+#if FABLE_COMPILER
+    // Send {'EXIT', 1, <<"normal">>} to self — uppercase atoms must be single-quoted
+    emitErlExpr () "erlang:self() ! {'EXIT', 1, <<\"normal\">>}"
+    match Erlang.receive<RecvMsg> 1000 with
+    | Some(Exit(pid, reason)) ->
+        equal 1 pid
+        equal "normal" reason
     | _ -> equal 0 1 // fail
 #else
     ()

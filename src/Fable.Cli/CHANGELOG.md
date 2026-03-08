@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Beam] Fix dropped top-level side effects — multiple `ActionDeclaration` `main/0` functions are now merged (by @dbrattli)
 * [Beam] Fix `%%` escape in string interpolation producing double `%` instead of single (by @dbrattli)
+* [Beam] Fix double-quoted atoms for uppercase `CompiledName` on DU cases (e.g. `''EXIT''` → `'EXIT'`) (by @dbrattli)
+* [Beam] Fix cross-project imports producing self-recursive calls when source files share the same name (by @dbrattli)
 * [Beam] Support `Type.GetGenericArguments` and `Type.GetInterface` for reflection (by @dbrattli)
 * [TS] Correctly resolve type references for `TypeScriptTaggedUnion` (by @MangelMaxime and @jrwone0)
 * [TS] Expose optional `stack` property on `Exception` (by @MangelMaxime)

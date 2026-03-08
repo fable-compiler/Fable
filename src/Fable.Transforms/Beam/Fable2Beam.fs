@@ -104,9 +104,8 @@ let private getUnionCaseAtomExpr (com: IBeamCompiler) (ref: EntityRef) (tag: int
             | Some name -> name
             | None -> sanitizeErlangName uci.Name
 
-        let atomStr = quoteErlangAtom atomName
         let isFieldless = uci.UnionCaseFields.IsEmpty
-        Some(atomStr, isFieldless)
+        Some(atomName, isFieldless)
     | None -> None
 
 let private getDecisionTarget (ctx: Context) targetIndex =
@@ -125,9 +124,22 @@ let private matchTargetIdentAndValues idents values =
 /// Resolve the Erlang module name for an import, returning None if it's the current module.
 let resolveImportModuleName (com: IBeamCompiler) (importPath: string) =
     let name = moduleNameFromFile importPath
-    let currentModule = moduleNameFromFile com.CurrentFile
 
-    if name = currentModule then
+    // Resolve the import path to an absolute path so we can reliably compare
+    // against the current file. Import paths may be relative (e.g., "../Foo/Types.fs")
+    // or absolute. Without resolving, two different files with the same base name
+    // (e.g., Agent/Types.fs vs Reactive/Types.fs) would both produce module name "types"
+    // and the import would be incorrectly treated as a local (self-recursive) call.
+    let resolvedImportPath =
+        if System.IO.Path.IsPathRooted(importPath) then
+            System.IO.Path.GetFullPath(importPath)
+        else
+            let currentDir = System.IO.Path.GetDirectoryName(com.CurrentFile)
+            System.IO.Path.GetFullPath(System.IO.Path.Combine(currentDir, importPath))
+
+    let currentFileFull = System.IO.Path.GetFullPath(com.CurrentFile)
+
+    if resolvedImportPath = currentFileFull then
         None
     else
         Some name
@@ -1919,7 +1931,6 @@ and transformReceive (com: IBeamCompiler) (ctx: Context) (emitInfo: EmitInfo) (t
                         | Some name -> name
                         | None -> sanitizeErlangName uci.Name
 
-                    let atomStr = quoteErlangAtom atomName
                     let fields = uci.UnionCaseFields
                     let fieldCount = fields.Length
 
@@ -1928,20 +1939,20 @@ and transformReceive (com: IBeamCompiler) (ctx: Context) (emitInfo: EmitInfo) (t
 
                     let pattern =
                         if fieldCount = 0 then
-                            Beam.ErlPattern.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom atomStr))
+                            Beam.ErlPattern.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom atomName))
                         else
                             Beam.ErlPattern.PTuple(
-                                Beam.ErlPattern.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom atomStr))
+                                Beam.ErlPattern.PLiteral(Beam.ErlLiteral.AtomLit(Beam.Atom atomName))
                                 :: (fieldVars |> List.map Beam.ErlPattern.PVar)
                             )
 
                     // Build body: atom-tagged DU representation
                     let body =
                         if fieldCount = 0 then
-                            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomStr)) // bare atom
+                            Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomName)) // bare atom
                         else
                             Beam.ErlExpr.Tuple(
-                                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomStr))
+                                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom atomName))
                                 :: (fieldVars |> List.map Beam.ErlExpr.Variable)
                             )
 
