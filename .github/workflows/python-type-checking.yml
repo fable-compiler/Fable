@@ -116,7 +116,7 @@ jobs:
           echo "count=$COUNT" >> $GITHUB_OUTPUT
 
       - name: Find existing comment
-        uses: peter-evans/find-comment@v3
+        uses: peter-evans/find-comment@v4
         id: find-comment
         with:
           issue-number: ${{ github.event.pull_request.number }}
@@ -124,7 +124,9 @@ jobs:
           body-includes: Python Type Checking
 
       - name: Create or update PR comment
-        uses: peter-evans/create-or-update-comment@v4
+        # Skip if the PR event is triggered by a fork to avoid permission issues when trying to update comments
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        uses: peter-evans/create-or-update-comment@v5
         with:
           comment-id: ${{ steps.find-comment.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
