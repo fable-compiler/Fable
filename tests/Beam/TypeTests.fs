@@ -731,3 +731,83 @@ let ``test Type abbreviation works`` () =
 //     t1.X |> equal 10
 //     let mutable t2 = ValueType3()
 //     t2.X |> equal 0
+
+// Test types for generic parameter static member resolution
+type TestTypeA =
+    static member GetValue() = "A"
+    static member Combine(x: int, y: int) = x + y + 100
+
+type TestTypeB =
+    static member GetValue() = "B"
+    static member Combine(x: int, y: int) = x + y + 200
+
+type TestTypeC =
+    static member GetValue() = "C"
+    static member Combine(x: int, y: int) = x + y + 300
+
+// Inline functions for testing multiple generic parameters with static member constraints
+let inline getTwoValues<'a, 'b when 'a: (static member GetValue: unit -> string)
+                               and 'b: (static member GetValue: unit -> string)> () =
+    'a.GetValue(), 'b.GetValue()
+
+let inline getThreeValues<'a, 'b, 'c when 'a: (static member GetValue: unit -> string)
+                                     and 'b: (static member GetValue: unit -> string)
+                                     and 'c: (static member GetValue: unit -> string)> () =
+    'a.GetValue(), 'b.GetValue(), 'c.GetValue()
+
+let inline getValuesAndCombine<'a, 'b when 'a: (static member GetValue: unit -> string)
+                                       and 'a: (static member Combine: int * int -> int)
+                                       and 'b: (static member GetValue: unit -> string)
+                                       and 'b: (static member Combine: int * int -> int)> x y =
+    let aVal = 'a.GetValue()
+    let bVal = 'b.GetValue()
+    let aCombined = 'a.Combine(x, y)
+    let bCombined = 'b.Combine(x, y)
+    (aVal, aCombined), (bVal, bCombined)
+
+let inline getReversed<'x, 'y when 'x: (static member GetValue: unit -> string)
+                              and 'y: (static member GetValue: unit -> string)> () =
+    'y.GetValue(), 'x.GetValue()
+
+let inline innerGet<'t when 't: (static member GetValue: unit -> string)> () =
+    't.GetValue()
+
+let inline outerGet<'a, 'b when 'a: (static member GetValue: unit -> string)
+                            and 'b: (static member GetValue: unit -> string)> () =
+    innerGet<'a>(), innerGet<'b>()
+
+[<Fact>]
+let ``test Inline function with two generic parameters resolves static members correctly`` () =
+    let result = getTwoValues<TestTypeA, TestTypeB>()
+    result |> equal ("A", "B")
+
+[<Fact>]
+let ``test Inline function with three generic parameters resolves static members correctly`` () =
+    let result = getThreeValues<TestTypeA, TestTypeB, TestTypeC>()
+    result |> equal ("A", "B", "C")
+
+[<Fact>]
+let ``test Inline function with multiple constraints per type parameter works`` () =
+    let result = getValuesAndCombine<TestTypeA, TestTypeB> 10 20
+    result |> equal (("A", 130), ("B", 230))
+
+[<Fact>]
+let ``test Inline function with reversed type parameter order works`` () =
+    let result = getReversed<TestTypeA, TestTypeB>()
+    result |> equal ("B", "A")
+
+[<Fact>]
+let ``test Nested inline functions resolve generic parameters correctly`` () =
+    let result = outerGet<TestTypeA, TestTypeB>()
+    result |> equal ("A", "B")
+
+[<Fact>]
+let ``test Different type parameter combinations work correctly`` () =
+    let result1 = getTwoValues<TestTypeB, TestTypeA>()
+    result1 |> equal ("B", "A")
+
+    let result2 = getTwoValues<TestTypeC, TestTypeA>()
+    result2 |> equal ("C", "A")
+
+    let result3 = getTwoValues<TestTypeB, TestTypeC>()
+    result3 |> equal ("B", "C")
