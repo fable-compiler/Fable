@@ -1728,6 +1728,48 @@ module TypeHelpers =
             && listEquals (typeEquals false) argTypes w.ArgTypes
         )
 
+    // Enhanced version that handles multiple witnesses for the same trait
+    // by using source type information to pick the correct one
+    let tryFindWitnessWithSourceTypes (ctx: Context) sourceTypes argTypes isInstance traitName =
+        let matchingWitnesses =
+            ctx.Witnesses
+            |> List.filter (fun w ->
+                w.TraitName = traitName
+                && w.IsInstance = isInstance
+                && listEquals (typeEquals false) argTypes w.ArgTypes
+            )
+
+        match matchingWitnesses with
+        | [] -> None
+        | [ single ] -> Some single
+        | multiple ->
+            // Multiple witnesses match by trait name and arg types.
+            // Use the source type to derive the original generic parameter name, then find
+            // the witness tagged with that name.
+            //
+            // Two cases:
+            // 1. sourceTypes contains a raw GenericParam (e.g. when compiling an inline function
+            //    whose body is not yet specialized): extract the param name directly.
+            // 2. sourceTypes contains a resolved DeclaredType (e.g. 'b was resolved to TestTypeB
+            //    via ctx.GenericArgs before being passed here): reverse-lookup in ctx.GenericArgs
+            //    to recover the original param name ("b").
+            let genParamName =
+                match sourceTypes with
+                | [ Fable.GenericParam(name, _, _) ] -> Some name
+                | [ resolvedType ] ->
+                    // Reverse-lookup: find the generic param name whose resolved type matches
+                    ctx.GenericArgs
+                    |> Map.tryFindKey (fun _paramName paramType -> typeEquals false paramType resolvedType)
+                | _ -> None
+
+            multiple
+            |> List.tryFind (fun w ->
+                match genParamName, w.GenericParamName with
+                | Some gpName, Some wGpName -> gpName = wGpName
+                | _ -> false
+            )
+            |> Option.orElse (List.tryHead multiple)
+
 module Identifiers =
     open Helpers
     open TypeHelpers
