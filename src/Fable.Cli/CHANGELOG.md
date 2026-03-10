@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-rc.3 - 2026-03-10
+
 ### Added
 
 * [Beam] Auto-generate rebar3 scaffold (`rebar.config`, `.app.src`) after compilation; `.erl` files now placed in `src/` subdirectories (by @dbrattli)
