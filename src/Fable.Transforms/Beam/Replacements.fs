@@ -1887,6 +1887,10 @@ let private seqModule
     =
     match info.CompiledName, args with
     | "Cast", [ arg ] -> Some arg
+    | "ToList", [ arg ] ->
+        // Use fable_utils:to_list which handles binaries (strings), plain lists,
+        // ref-wrapped arrays, enumerator maps, and lazy seqs.
+        emitExpr r t [ arg ] "fable_utils:to_list($0)" |> Some
     | "ToArray", [ arg ] ->
         // seq:to_array already returns a ref-wrapped array, don't double-wrap
         Helper.LibCall(com, "seq", "to_array", t, [ arg ], info.SignatureArgTypes, ?loc = r)

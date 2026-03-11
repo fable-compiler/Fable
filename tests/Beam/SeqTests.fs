@@ -1034,3 +1034,9 @@ let ``test Seq.except works with various types`` () =
     Seq.except [(1, 2)] [(1, 2)] |> Seq.isEmpty |> equal true
     Seq.except [|49|] [|7; 49|] |> Seq.last |> equal 7
     Seq.except [{ Bar= "test" }] [{ Bar = "test" }] |> Seq.isEmpty |> equal true
+
+[<Fact>]
+let ``test Seq.toList on string works`` () =
+    let text = "ABC"
+    let chars = text |> Seq.toList
+    chars |> List.length |> equal 3
