@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Beam] Fix unused term warning in try/catch when exception variable is not referenced (by @dbrattli)
+* [Beam] Fix "no effect" warning for pure BIF calls (`self/0`, `node/0`) in non-final block positions (by @dbrattli)
+* [Beam] Fix `reraise()` generating unbound `MatchValue` variable — use raw Erlang reason variable for re-throw (by @dbrattli)
+
 ## 5.0.0-rc.3 - 2026-03-10
 
 ### Added
