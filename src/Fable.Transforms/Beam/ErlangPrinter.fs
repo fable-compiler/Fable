@@ -3,20 +3,25 @@ module Fable.Transforms.ErlangPrinter
 open Fable.AST.Beam
 open Fable.Transforms
 
-/// Strip bare `ok` atoms from non-final positions in expression lists.
-/// These are stray unit values (F# unit → Erlang `ok`) that have no side effects.
-let private stripStrayOk (exprs: ErlExpr list) =
+/// Strip expressions with no side effects from non-final positions in expression lists.
+/// This removes stray unit values (F# unit → Erlang `ok`), standalone variables,
+/// literals, and known pure BIF calls (e.g. `self()`, `node()`) that would otherwise
+/// produce "has no effect" warnings from the Erlang compiler.
+let private stripNoEffect (exprs: ErlExpr list) =
     match exprs with
     | []
     | [ _ ] -> exprs
     | _ ->
-        let isOkAtom =
+        let isNoEffect =
             function
-            | Literal(AtomLit(Atom "ok")) -> true
+            | Literal _ -> true
             | Emit("ok", []) -> true
+            | Variable _ -> true
+            | Call(None, ("self" | "node"), []) -> true
+            | Call(Some "erlang", ("self" | "node"), []) -> true
             | _ -> false
 
-        let nonFinal = exprs.[.. exprs.Length - 2] |> List.filter (not << isOkAtom)
+        let nonFinal = exprs.[.. exprs.Length - 2] |> List.filter (not << isNoEffect)
         nonFinal @ [ exprs.[exprs.Length - 1] ]
 
 module Output =
@@ -258,7 +263,7 @@ module Output =
                 sb.Append(") ->") |> ignore
                 sb.AppendLine() |> ignore
 
-                let body = stripStrayOk clause.Body
+                let body = stripNoEffect clause.Body
 
                 body
                 |> List.iteri (fun j bodyExpr ->
@@ -296,7 +301,7 @@ module Output =
                 sb.Append(") ->") |> ignore
                 sb.AppendLine() |> ignore
 
-                let body = stripStrayOk clause.Body
+                let body = stripNoEffect clause.Body
 
                 body
                 |> List.iteri (fun j bodyExpr ->
@@ -340,7 +345,7 @@ module Output =
                 sb.Append(" ->") |> ignore
                 sb.AppendLine() |> ignore
 
-                let caseBody = stripStrayOk clause.Body
+                let caseBody = stripNoEffect clause.Body
 
                 caseBody
                 |> List.iteri (fun j bodyExpr ->
@@ -371,7 +376,7 @@ module Output =
             // Wrap multi-expression blocks in begin...end to avoid
             // comma-separated expressions being misinterpreted as
             // separate function call arguments
-            let filtered = stripStrayOk exprs
+            let filtered = stripNoEffect exprs
             let needsBeginEnd = filtered.Length > 1
 
             if needsBeginEnd then
@@ -406,7 +411,7 @@ module Output =
         | TryCatch(body, catchVar, catchBody, after) ->
             sb.AppendLine("try") |> ignore
 
-            let tryBody = stripStrayOk body
+            let tryBody = stripNoEffect body
 
             tryBody
             |> List.iteri (fun i bodyExpr ->
@@ -425,7 +430,7 @@ module Output =
             writeIndent ()
             sb.AppendLine($"    _:%s{catchVar} ->") |> ignore
 
-            let catchBody' = stripStrayOk catchBody
+            let catchBody' = stripNoEffect catchBody
 
             catchBody'
             |> List.iteri (fun i bodyExpr ->
@@ -498,7 +503,7 @@ module Output =
                 sb.Append(" ->") |> ignore
                 sb.AppendLine() |> ignore
 
-                let caseBody = stripStrayOk clause.Body
+                let caseBody = stripNoEffect clause.Body
 
                 caseBody
                 |> List.iteri (fun j bodyExpr ->
@@ -525,7 +530,7 @@ module Output =
                 sb.Append(" ->") |> ignore
                 sb.AppendLine() |> ignore
 
-                let afterBody = stripStrayOk bodyExprs
+                let afterBody = stripNoEffect bodyExprs
 
                 afterBody
                 |> List.iteri (fun j bodyExpr ->
@@ -573,7 +578,7 @@ module Output =
         sb.Append(" ->") |> ignore
         sb.AppendLine() |> ignore
 
-        let topBody = stripStrayOk clause.Body
+        let topBody = stripNoEffect clause.Body
 
         topBody
         |> List.iteri (fun i bodyExpr ->
