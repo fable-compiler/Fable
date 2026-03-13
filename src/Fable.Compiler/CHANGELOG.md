@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Beam] Fix `Erlang.receive<'T>()` resolving to timeout overload due to F# unit argument (by @dbrattli)
+
 ## 5.0.0-rc.10 - 2026-03-10
 
 ### Added
