@@ -363,3 +363,19 @@ let ``test Erlang receive blocking with self-send`` () =
 #else
     ()
 #endif
+
+[<Fact>]
+let ``test Erlang receive blocking waits for delayed message`` () =
+#if FABLE_COMPILER
+    // Spawn a process that sends a message after a short delay.
+    // If receive generates an invalid "after ok" clause, BEAM will crash
+    // with {timeout_value, ...} before the message arrives.
+    let self: obj = emitErlExpr () "erlang:self()"
+    emitErlExpr self "erlang:spawn(fun() -> timer:sleep(50), $0 ! ping end)"
+    let msg = Erlang.receive<RecvMsg> ()
+    match msg with
+    | Ping -> equal 1 1
+    | _ -> equal 0 1 // fail
+#else
+    ()
+#endif
