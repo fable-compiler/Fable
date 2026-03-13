@@ -110,7 +110,7 @@ All transpiled Python code is type-checked with Pyright at standard settings (`.
 
 Quicktest is also preferred when adding debug output (e.g., `printfn` in compiler code) since running full tests with debug prints produces too much output.
 
-**Test suites** are in `tests/<target>/` (e.g., `tests/Python/`, `tests/Js/Main/`). Tests are first run on .NET, then transpiled to `temp/tests/<target>/` and executed with the target's test runner. Full test runs take several minutes.
+**Test suites** are in `tests/<target>/` (e.g., `tests/Python/`, `tests/Js/Main/`). Tests are first run on .NET, then transpiled to `temp/tests/<target>/` (e.g., `temp/tests/py/`, `temp/tests/js/`) and executed with the target's test runner. Full test runs take several minutes.
 
 When adding a test, check if other targets already have a test for the same case (e.g., look in `tests/Js/Main/` before adding to `tests/Python/`) — reuse or adapt existing test patterns where possible.
 
