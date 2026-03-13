@@ -74,6 +74,12 @@ let rec containsIdentRef (name: string) (expr: Expr) : bool =
         || match baseCall with
            | Some e -> containsIdentRef name e
            | None -> false
+    | Extended(kind, _) ->
+        match kind with
+        | Throw(Some e, _) -> containsIdentRef name e
+        | Throw(None, _)
+        | Debugger
+        | Curry _ -> false
     | _ -> false
 
 /// Check if an identifier is captured inside a closure (Lambda/Delegate) within the expression.
@@ -128,6 +134,12 @@ let isCapturedInClosure (name: string) (expr: Expr) : bool =
             || match baseCall with
                | Some e -> check inClosure e
                | None -> false
+        | Extended(kind, _) ->
+            match kind with
+            | Throw(Some e, _) -> check inClosure e
+            | Throw(None, _)
+            | Debugger
+            | Curry _ -> false
         | _ -> false
 
     check false expr

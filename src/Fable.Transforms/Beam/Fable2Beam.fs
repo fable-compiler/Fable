@@ -52,6 +52,7 @@ type Context =
         CtorFieldExprs: Map<string, Beam.ErlExpr> // field name -> Erlang expr during constructor
         ClassFieldPrefix: bool // When true, NewRecord uses "field_" prefix for map keys (for explicit val field class ctors)
         CtorParamNames: Set<string> // Constructor parameter names (stored as class fields)
+        CatchReasonVar: (string * string) option // (catch ident name, Erlang reason var name) for reraise support
     }
 
 /// Check if an entity ref refers to an interface type
@@ -759,7 +760,12 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             let reasonVar = $"Exn_reason_%d{ctr}"
             let identVar = capitalizeFirst ident.Name
 
-            let ctx' = { ctx with LocalVars = ctx.LocalVars.Add(ident.Name) }
+            let ctx' =
+                { ctx with
+                    LocalVars = ctx.LocalVars.Add(ident.Name)
+                    CatchReasonVar = Some(ident.Name, reasonVar)
+                }
+
             let erlCatchBody = transformExpr com ctx' catchExpr
 
             let catchBodyExprs =
@@ -767,80 +773,86 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 | Beam.ErlExpr.Block es -> es
                 | e -> [ e ]
 
-            let reasonRef = Beam.ErlExpr.Variable reasonVar
+            // Only generate the exception wrapping/binding when the catch body
+            // actually references the exception identifier. This avoids unused
+            // term warnings from the Erlang compiler.
+            if containsIdentRef ident.Name catchExpr then
+                let reasonRef = Beam.ErlExpr.Variable reasonVar
 
-            let formatExpr =
-                Beam.ErlExpr.Call(
-                    None,
-                    "iolist_to_binary",
-                    [
-                        Beam.ErlExpr.Call(
-                            Some "io_lib",
-                            "format",
-                            [
-                                Beam.ErlExpr.Call(
-                                    None,
-                                    "binary_to_list",
-                                    [ Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit "~p") ]
-                                )
-                                Beam.ErlExpr.List [ reasonRef ]
-                            ]
-                        )
-                    ]
-                )
+                let formatExpr =
+                    Beam.ErlExpr.Call(
+                        None,
+                        "iolist_to_binary",
+                        [
+                            Beam.ErlExpr.Call(
+                                Some "io_lib",
+                                "format",
+                                [
+                                    Beam.ErlExpr.Call(
+                                        None,
+                                        "binary_to_list",
+                                        [ Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit "~p") ]
+                                    )
+                                    Beam.ErlExpr.List [ reasonRef ]
+                                ]
+                            )
+                        ]
+                    )
 
-            let messageExpr =
-                Beam.ErlExpr.Case(
-                    reasonRef,
-                    [
-                        {
-                            Pattern = Beam.PWildcard
-                            Guard = [ Beam.ErlExpr.Call(None, "is_binary", [ reasonRef ]) ]
-                            Body = [ reasonRef ]
-                        }
-                        {
-                            Pattern = Beam.PWildcard
-                            Guard = []
-                            Body = [ formatExpr ]
-                        }
-                    ]
-                )
-
-            // If reason is already a map (F# exception) or reference (class inheriting exn), use it directly.
-            // Otherwise wrap in #{message => ...} for .Message access.
-            let bindIdent =
-                Beam.ErlExpr.Match(
-                    Beam.PVar identVar,
+                let messageExpr =
                     Beam.ErlExpr.Case(
                         reasonRef,
                         [
                             {
                                 Pattern = Beam.PWildcard
-                                Guard = [ Beam.ErlExpr.Call(None, "is_map", [ reasonRef ]) ]
-                                Body = [ reasonRef ]
-                            }
-                            {
-                                Pattern = Beam.PWildcard
-                                Guard = [ Beam.ErlExpr.Call(None, "is_reference", [ reasonRef ]) ]
+                                Guard = [ Beam.ErlExpr.Call(None, "is_binary", [ reasonRef ]) ]
                                 Body = [ reasonRef ]
                             }
                             {
                                 Pattern = Beam.PWildcard
                                 Guard = []
-                                Body =
-                                    [
-                                        Beam.ErlExpr.Map
-                                            [
-                                                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "message")),
-                                                messageExpr
-                                            ]
-                                    ]
+                                Body = [ formatExpr ]
                             }
                         ]
                     )
-                )
 
-            Beam.ErlExpr.TryCatch(bodyExprs, reasonVar, [ bindIdent ] @ catchBodyExprs, afterExprs)
+                // If reason is already a map (F# exception) or reference (class inheriting exn), use it directly.
+                // Otherwise wrap in #{message => ...} for .Message access.
+                let bindIdent =
+                    Beam.ErlExpr.Match(
+                        Beam.PVar identVar,
+                        Beam.ErlExpr.Case(
+                            reasonRef,
+                            [
+                                {
+                                    Pattern = Beam.PWildcard
+                                    Guard = [ Beam.ErlExpr.Call(None, "is_map", [ reasonRef ]) ]
+                                    Body = [ reasonRef ]
+                                }
+                                {
+                                    Pattern = Beam.PWildcard
+                                    Guard = [ Beam.ErlExpr.Call(None, "is_reference", [ reasonRef ]) ]
+                                    Body = [ reasonRef ]
+                                }
+                                {
+                                    Pattern = Beam.PWildcard
+                                    Guard = []
+                                    Body =
+                                        [
+                                            Beam.ErlExpr.Map
+                                                [
+                                                    Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "message")),
+                                                    messageExpr
+                                                ]
+                                        ]
+                                }
+                            ]
+                        )
+                    )
+
+                Beam.ErlExpr.TryCatch(bodyExprs, reasonVar, [ bindIdent ] @ catchBodyExprs, afterExprs)
+            else
+                Beam.ErlExpr.TryCatch(bodyExprs, reasonVar, catchBodyExprs, afterExprs)
         | None, [] ->
             // No catch handler and no finalizer
             erlBody
@@ -1156,8 +1168,14 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
     | Extended(kind, _range) ->
         match kind with
         | Throw(Some exprArg, _typ) ->
-            let erlExpr = transformExpr com ctx exprArg
-            Beam.ErlExpr.Call(Some "erlang", "error", [ erlExpr ])
+            // For reraise: if the thrown expression references the catch ident,
+            // use the raw Erlang reason variable to preserve the original exception.
+            match exprArg, ctx.CatchReasonVar with
+            | IdentExpr ident, Some(catchIdentName, reasonVar) when ident.Name = catchIdentName ->
+                Beam.ErlExpr.Call(Some "erlang", "error", [ Beam.ErlExpr.Variable reasonVar ])
+            | _ ->
+                let erlExpr = transformExpr com ctx exprArg
+                Beam.ErlExpr.Call(Some "erlang", "error", [ erlExpr ])
         | Throw(None, _typ) ->
             // Re-raise (should not normally happen outside catch context)
             Beam.ErlExpr.Call(
@@ -3355,6 +3373,7 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             CtorFieldExprs = Map.empty
             ClassFieldPrefix = false
             CtorParamNames = Set.empty
+            CatchReasonVar = None
         }
 
     let ctorNameRegistry = System.Collections.Generic.Dictionary<string, string>()
