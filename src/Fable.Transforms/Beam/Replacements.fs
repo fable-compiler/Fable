@@ -4930,8 +4930,9 @@ let tryCall
         | _ -> None
     | "Fable.Core.BeamInterop.Erlang" ->
         match info.CompiledName, args with
-        | "receive", [ timeoutArg ] -> emitExpr r t [ timeoutArg ] "__fable_beam_receive__($0)" |> Some
+        | "receive", [ MaybeCasted(Value(UnitConstant, _)) ]
         | "receive", [] -> emitExpr r t [] "__fable_beam_receive_forever__" |> Some
+        | "receive", [ timeoutArg ] -> emitExpr r t [ timeoutArg ] "__fable_beam_receive__($0)" |> Some
         | _ -> None
     // Testing assertions (used by our test framework)
     | "Fable.Core.Testing.Assert" ->
