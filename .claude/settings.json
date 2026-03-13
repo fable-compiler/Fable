@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./build.sh fable-library *)",
+      "Bash(./build.sh test *)"
+    ],
+    "deny": [
+      "Read(lib/fcs/**)",
+      "Read(src/fcs-fable/**)",
+      "Read(**/obj/**)",
+      "Read(**/bin/**)",
+      "Read(**/.venv/**)",
+      "Read(**/node_modules/**)",
+      "Read(src/fable-metadata/lib/**)",
+      "Read(src/fable-library-ts/lib/**)"
+    ]
+  }
+}
