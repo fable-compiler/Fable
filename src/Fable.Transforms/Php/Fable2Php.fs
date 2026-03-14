@@ -935,6 +935,7 @@ let rec tryFindMethod methodName (phpType: PhpType) =
 let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
     match expr with
     | Fable.Extended _ -> failwith "TODO: Extended instructions"
+    | Fable.Quote _ -> failwith "Quotations are not yet supported for PHP target"
 
     | Fable.Unresolved _ -> failwith "Unexpected unresolved expression"
 

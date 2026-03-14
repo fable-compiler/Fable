@@ -472,6 +472,18 @@ module Types =
     let refCell = "Microsoft.FSharp.Core.FSharpRef`1"
 
     [<Literal>]
+    let fsharpExpr = "Microsoft.FSharp.Quotations.FSharpExpr"
+
+    [<Literal>]
+    let fsharpExprGeneric = "Microsoft.FSharp.Quotations.FSharpExpr`1"
+
+    [<Literal>]
+    let fsharpVar = "Microsoft.FSharp.Quotations.FSharpVar"
+
+    [<Literal>]
+    let patternsModule = "Microsoft.FSharp.Quotations.PatternsModule"
+
+    [<Literal>]
     let printfModule = "Microsoft.FSharp.Core.PrintfModule"
 
     [<Literal>]
@@ -1659,6 +1671,7 @@ module AST =
             let targets = targets |> List.map (fun (idents, v) -> idents, f v)
             DecisionTree(f expr, targets)
         | DecisionTreeSuccess(idx, boundValues, t) -> DecisionTreeSuccess(idx, List.map f boundValues, t)
+        | Quote _ -> e // Quoted expressions are data — don't optimize/transform their contents
 
     let rec visitFromInsideOut f e = visit (visitFromInsideOut f) e |> f
 
@@ -1749,6 +1762,7 @@ module AST =
             | None -> body :: (Option.toList finalizer)
         | DecisionTree(expr, targets) -> expr :: (List.map snd targets)
         | DecisionTreeSuccess(_, boundValues, _) -> boundValues
+        | Quote _ -> [] // Quoted expressions are opaque data — don't traverse
 
     let deepExists (f: Expr -> bool) expr =
         let rec deepExistsInner (exprs: ResizeArray<Expr>) =

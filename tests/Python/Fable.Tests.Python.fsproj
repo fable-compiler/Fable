@@ -82,6 +82,7 @@
 
     <Compile Include="TestMailboxProcessor.fs" />
     <Compile Include="TestNonRegression.fs" />
+    <Compile Include="TestQuotation.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

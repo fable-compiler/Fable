@@ -4576,6 +4576,136 @@ let private bclType (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg:
     Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
     |> Some
 
+// F# Quotation: FSharpExpr static methods (e.g. Expr.Value, Expr.Lambda, etc.)
+let private quotationExprs
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (i: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match i.CompiledName, _thisArg, args with
+    | "Value", _, [ value; typeArg ] ->
+        Helper.LibCall(com, "fable_quotation", "mk_value", t, [ value; typeArg ], ?loc = r)
+        |> Some
+    | "Var", _, [ var ] ->
+        Helper.LibCall(com, "fable_quotation", "mk_var_expr", t, [ var ], ?loc = r)
+        |> Some
+    | "Lambda", _, [ var; body ] ->
+        Helper.LibCall(com, "fable_quotation", "mk_lambda", t, [ var; body ], ?loc = r)
+        |> Some
+    | "Application", _, [ func; arg ] ->
+        Helper.LibCall(com, "fable_quotation", "mk_app", t, [ func; arg ], ?loc = r)
+        |> Some
+    | "Let", _, [ var; value; body ] ->
+        Helper.LibCall(com, "fable_quotation", "mk_let", t, [ var; value; body ], ?loc = r)
+        |> Some
+    | "IfThenElse", _, [ guard; thenExpr; elseExpr ] ->
+        Helper.LibCall(com, "fable_quotation", "mk_if_then_else", t, [ guard; thenExpr; elseExpr ], ?loc = r)
+        |> Some
+    | "Call", _, [ instance; methodInfo; argList ] ->
+        Helper.LibCall(com, "fable_quotation", "mk_call", t, [ instance; methodInfo; argList ], ?loc = r)
+        |> Some
+    | "NewTuple", _, [ elements ] ->
+        Helper.LibCall(com, "fable_quotation", "mk_new_tuple", t, [ elements ], ?loc = r)
+        |> Some
+    | "Sequential", _, [ first; second ] ->
+        Helper.LibCall(com, "fable_quotation", "mk_sequential", t, [ first; second ], ?loc = r)
+        |> Some
+    | "get_Type", Some callee, _ ->
+        Helper.LibCall(com, "fable_quotation", "get_type", t, [ callee ], ?loc = r)
+        |> Some
+    | "GetFreeVars", Some callee, _ ->
+        Helper.LibCall(com, "fable_quotation", "get_free_vars", t, [ callee ], ?loc = r)
+        |> Some
+    | "Substitute", Some callee, [ fn ] ->
+        Helper.LibCall(com, "fable_quotation", "substitute", t, [ callee; fn ], ?loc = r)
+        |> Some
+    | "ToString", Some callee, _
+    | "ToString", Some callee, [ _ ] ->
+        Helper.LibCall(com, "fable_quotation", "expr_to_string", t, [ callee ], ?loc = r)
+        |> Some
+    | _ -> None
+
+// F# Quotation: FSharpVar (.ctor, get_Name, get_Type, get_IsMutable)
+let private quotationVars
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (i: CallInfo)
+    (thisArg: Expr option)
+    (args: Expr list)
+    =
+    match i.CompiledName, thisArg, args with
+    | ".ctor", None, [ name; typ; isMutable ] ->
+        Helper.LibCall(com, "fable_quotation", "mk_var", t, [ name; typ; isMutable ], ?loc = r)
+        |> Some
+    | ".ctor", None, [ name; typ ] ->
+        Helper.LibCall(com, "fable_quotation", "mk_var", t, [ name; typ; makeBoolConst false ], ?loc = r)
+        |> Some
+    | "get_Name", Some callee, _ ->
+        Helper.LibCall(com, "fable_quotation", "var_get_name", t, [ callee ], ?loc = r)
+        |> Some
+    | "get_Type", Some callee, _ ->
+        Helper.LibCall(com, "fable_quotation", "var_get_type", t, [ callee ], ?loc = r)
+        |> Some
+    | "get_IsMutable", Some callee, _ ->
+        Helper.LibCall(com, "fable_quotation", "var_get_is_mutable", t, [ callee ], ?loc = r)
+        |> Some
+    | _ -> None
+
+// F# Quotation: PatternsModule (active patterns like ValuePattern, LambdaPattern, etc.)
+let private quotationPatterns
+    (com: ICompiler)
+    (_ctx: Context)
+    r
+    (t: Type)
+    (i: CallInfo)
+    (_thisArg: Expr option)
+    (args: Expr list)
+    =
+    match i.CompiledName, args with
+    | ("ValuePattern" | "|Value|_|"), [ expr ] ->
+        Helper.LibCall(com, "fable_quotation", "is_value", t, [ expr ], ?loc = r)
+        |> Some
+    | ("VarPattern" | "|Var|_|"), [ expr ] ->
+        Helper.LibCall(com, "fable_quotation", "is_var", t, [ expr ], ?loc = r) |> Some
+    | ("LambdaPattern" | "|Lambda|_|"), [ expr ] ->
+        Helper.LibCall(com, "fable_quotation", "is_lambda", t, [ expr ], ?loc = r)
+        |> Some
+    | ("ApplicationPattern" | "|Application|_|"), [ expr ] ->
+        Helper.LibCall(com, "fable_quotation", "is_application", t, [ expr ], ?loc = r)
+        |> Some
+    | ("LetPattern" | "|Let|_|"), [ expr ] ->
+        Helper.LibCall(com, "fable_quotation", "is_let", t, [ expr ], ?loc = r) |> Some
+    | ("IfThenElsePattern" | "|IfThenElse|_|"), [ expr ] ->
+        Helper.LibCall(com, "fable_quotation", "is_if_then_else", t, [ expr ], ?loc = r)
+        |> Some
+    | ("CallPattern" | "|Call|_|"), [ expr ] ->
+        Helper.LibCall(com, "fable_quotation", "is_call", t, [ expr ], ?loc = r) |> Some
+    | ("NewTuplePattern" | "|NewTuple|_|"), [ expr ] ->
+        Helper.LibCall(com, "fable_quotation", "is_new_tuple", t, [ expr ], ?loc = r)
+        |> Some
+    | ("SequentialPattern" | "|Sequential|_|"), [ expr ] ->
+        Helper.LibCall(com, "fable_quotation", "is_sequential", t, [ expr ], ?loc = r)
+        |> Some
+    | ("NewUnionCasePattern" | "|NewUnionCase|_|"), [ expr ] ->
+        Helper.LibCall(com, "fable_quotation", "is_new_union", t, [ expr ], ?loc = r)
+        |> Some
+    | ("NewRecordPattern" | "|NewRecord|_|"), [ expr ] ->
+        Helper.LibCall(com, "fable_quotation", "is_new_record", t, [ expr ], ?loc = r)
+        |> Some
+    | ("TupleGetPattern" | "|TupleGet|_|"), [ expr ] ->
+        Helper.LibCall(com, "fable_quotation", "is_tuple_get", t, [ expr ], ?loc = r)
+        |> Some
+    | ("PropertyGetPattern" | "|PropertyGet|_|"), [ expr ] ->
+        Helper.LibCall(com, "fable_quotation", "is_field_get", t, [ expr ], ?loc = r)
+        |> Some
+    | _ -> None
+
 let tryType (_t: Type) = None
 
 /// Compile-time resolution for System.Type methods when the type is known statically via TypeInfo.
@@ -5144,6 +5274,17 @@ let tryCall
             | _ -> emitExpr r t [ c ] "maps:get(name, $0)" |> Some
         | _ -> None
     | "System.Text.StringBuilder" -> bclType com ctx r t info thisArg args
+    // F# Quotations
+    | Types.fsharpExpr
+    | Types.fsharpExprGeneric -> quotationExprs com ctx r t info thisArg args
+    | Types.fsharpVar -> quotationVars com ctx r t info thisArg args
+    | Types.patternsModule -> quotationPatterns com ctx r t info thisArg args
+    | "Microsoft.FSharp.Linq.RuntimeHelpers.LeafExpressionConverter" ->
+        match info.CompiledName, args with
+        | "EvaluateQuotation", [ expr ] ->
+            Helper.LibCall(com, "fable_quotation", "evaluate", t, [ expr ], ?loc = r)
+            |> Some
+        | _ -> None
     | _ -> None
 
 let tryBaseConstructor

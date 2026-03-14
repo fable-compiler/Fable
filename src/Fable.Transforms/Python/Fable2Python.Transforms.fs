@@ -2652,6 +2652,9 @@ let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expressi
         | Fable.Curry(e, arity) -> transformCurry com ctx e arity
         | Fable.Throw _
         | Fable.Debugger -> iife com ctx expr
+    | Fable.Quote(body, _isTyped) ->
+        let emitted = QuotationEmitter.emitQuotedExpr com body
+        transformAsExpr com ctx emitted
 
 let transformAsSlice (com: IPythonCompiler) ctx expr (info: Fable.CallInfo) : Expression * Statement list =
     Expression.withStmts {
@@ -2973,6 +2976,10 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
         let target = com.GetIdentifierAsExpr(ctx, var.Name)
 
         [ Statement.for' (target = target, iter = iter, body = body) ]
+
+    | Fable.Quote(body, _isTyped) ->
+        let emitted = QuotationEmitter.emitQuotedExpr com body
+        transformAsStatements com ctx returnStrategy emitted
 
 let transformFunction
     com

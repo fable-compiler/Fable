@@ -2188,6 +2188,10 @@ module Util =
             ],
             None
 
+        | Fable.Quote _ ->
+            addError com [] None "Quotations are not yet supported for Dart target"
+            [], None
+
     let getLocalFunctionGenericParams
         (_com: IDartCompiler)
         (ctx: Context)
