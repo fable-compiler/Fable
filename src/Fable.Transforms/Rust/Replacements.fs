@@ -3023,6 +3023,9 @@ let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | "Return", _, _ ->
         Helper.LibCall(com, "AsyncBuilder", "r_return", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "ReturnFrom", _, _ ->
+        Helper.LibCall(com, "AsyncBuilder", "return_from", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "Zero", _, _ ->
         Helper.LibCall(com, "AsyncBuilder", "zero", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some

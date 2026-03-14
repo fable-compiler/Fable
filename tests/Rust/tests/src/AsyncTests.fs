@@ -33,6 +33,55 @@ let shouldConvertTaskToASyncAndEvalCorrectly () =
     let t = task { return 1 } |> Async.AwaitTask
     t |> Async.RunSynchronously |> equal 1
 
+[<Fact>]
+let ``return! should compile in async CE`` () =
+    let inner () = async { return 42 }
+    let outer () = async { return! inner () }
+    let result = Async.RunSynchronously (outer ())
+    result |> equal 42
+
+[<Fact>]
+let ``return! works in recursive async CE`` () =
+    let rec loop n = async {
+        if n <= 0 then return 0
+        else return! loop (n - 1)
+    }
+    let result = Async.RunSynchronously (loop 5)
+    result |> equal 0
+
+[<Fact>]
+let ``return! is transparent through multiple layers`` () =
+    // Verifies return_from is identity: chaining return! does not double-wrap the computation
+    // or alter the value in any way.
+    let inner () = async { return 7 }
+    let passthrough (comp: Async<int>) = async { return! comp }
+    let result =
+        inner ()
+        |> passthrough
+        |> passthrough
+        |> passthrough
+        |> Async.RunSynchronously
+    result |> equal 7
+
+[<Fact>]
+let ``return! propagates value from async built with bind`` () =
+    // Verifies that a computation produced via let! / return is correctly
+    // passed through return!, not just a literal return value.
+    let doubled x = async {
+        let! v = async { return x }
+        return v * 2
+    }
+    let outer () = async { return! doubled 21 }
+    Async.RunSynchronously (outer ()) |> equal 42
+
+[<Fact>]
+let ``return! propagates error Result from inner async`` () =
+    // Both Ok and Error variants must flow through return! unchanged.
+    let inner (result: Result<int, string>) = async { return result }
+    let outer (result: Result<int, string>) = async { return! inner result }
+    Async.RunSynchronously (outer (Ok 99)) |> equal (Ok 99)
+    Async.RunSynchronously (outer (Error "oops")) |> equal (Error "oops")
+
 // [<Fact>]
 // let shouldExecAsParallelStructurallyCorrect () =
 //     let t = Async.Parallel [
