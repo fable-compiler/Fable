@@ -335,4 +335,4 @@ and private typeToString (t: Type) : string =
     | _ -> "obj"
 
 and private makeArray (elementType: Type) (elements: Expr list) : Expr =
-    Value(NewArray(ArrayValues elements, elementType, MutableArray), None)
+    Value(NewArray(ArrayValues elements, elementType, ImmutableArray), None)

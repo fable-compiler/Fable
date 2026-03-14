@@ -86,24 +86,24 @@ is_let(_) -> undefined.
 is_if_then_else({expr, if_then_else, G, T, E}) -> {G, T, E};
 is_if_then_else(_) -> undefined.
 
-%% Call pattern: returns {Instance, Method, Args}
-is_call({expr, call, I, M, A}) -> {I, M, A};
+%% Call pattern: returns {Instance, Method, Args} (dereference Args)
+is_call({expr, call, I, M, A}) -> {I, M, deref(A)};
 is_call(_) -> undefined.
 
 %% Sequential pattern: returns {First, Second}
 is_sequential({expr, sequential, F, S}) -> {F, S};
 is_sequential(_) -> undefined.
 
-%% NewTuple pattern: returns Elements list
-is_new_tuple({expr, new_tuple, E}) -> E;
+%% NewTuple pattern: returns Elements list (dereference if stored as Ref)
+is_new_tuple({expr, new_tuple, E}) -> deref(E);
 is_new_tuple(_) -> undefined.
 
-%% NewUnionCase pattern: returns {TypeName, Tag, Fields}
-is_new_union({expr, new_union, N, T, F}) -> {N, T, F};
+%% NewUnionCase pattern: returns {TypeName, Tag, Fields} (dereference Fields)
+is_new_union({expr, new_union, N, T, F}) -> {N, T, deref(F)};
 is_new_union(_) -> undefined.
 
-%% NewRecord pattern: returns {FieldNames, Values}
-is_new_record({expr, new_record, N, V}) -> {N, V};
+%% NewRecord pattern: returns {FieldNames, Values} (dereference both)
+is_new_record({expr, new_record, N, V}) -> {deref(N), deref(V)};
 is_new_record(_) -> undefined.
 
 %% TupleGet pattern: returns {Expr, Index}
@@ -119,6 +119,10 @@ is_field_get(_) -> undefined.
 %% ===================================================================
 
 evaluate(Expr) -> evaluate(Expr, #{}).
+
+%% Dereference a Fable array (stored as a Ref in the process dictionary) to a plain list.
+deref(Ref) when is_reference(Ref) -> get(Ref);
+deref(List) when is_list(List) -> List.
 
 evaluate({expr, value, V, _T}, _Env) -> V;
 evaluate({expr, var_expr, {var, Name, _, _}}, Env) ->
@@ -142,11 +146,11 @@ evaluate({expr, sequential, First, Second}, Env) ->
     evaluate(First, Env),
     evaluate(Second, Env);
 evaluate({expr, new_tuple, Elements}, Env) ->
-    list_to_tuple([evaluate(E, Env) || E <- Elements]);
+    list_to_tuple([evaluate(E, Env) || E <- deref(Elements)]);
 evaluate({expr, tuple_get, Inner, Index}, Env) ->
     element(Index + 1, evaluate(Inner, Env));
 evaluate({expr, call, _Instance, Method, Args}, Env) ->
-    EvaluatedArgs = [evaluate(A, Env) || A <- Args],
+    EvaluatedArgs = [evaluate(A, Env) || A <- deref(Args)],
     apply_operator(Method, EvaluatedArgs).
 
 apply_operator(<<"op_Addition">>, [A, B]) -> A + B;
