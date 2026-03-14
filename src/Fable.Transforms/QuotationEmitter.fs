@@ -202,7 +202,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
             Helper.LibCall(com, "fable_quotation", "mk_field_get", Any, [ target; makeStrConst info.Name ])
         | _ ->
             // ListHead, ListTail, OptionValue, ExprGet — fall through
-            let msg = $"Unsupported quotation Get kind"
+            let msg = "Unsupported quotation Get kind"
             Helper.LibCall(com, "fable_quotation", "mk_value", Any, [ makeStrConst msg; makeStrConst "string" ])
 
     | Set(expr, kind, _typ, value, _r) ->
@@ -216,7 +216,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         | FieldSet fieldName ->
             Helper.LibCall(com, "fable_quotation", "mk_field_set", Any, [ target; makeStrConst fieldName; valueExpr ])
         | _ ->
-            let msg = $"Unsupported quotation Set kind"
+            let msg = "Unsupported quotation Set kind"
             Helper.LibCall(com, "fable_quotation", "mk_value", Any, [ makeStrConst msg; makeStrConst "string" ])
 
     | TypeCast(innerExpr, _typ) ->
@@ -319,7 +319,7 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
 
     | _ ->
         // Fallback for other value kinds
-        let msg = $"Unsupported quotation value"
+        let msg = "Unsupported quotation value"
         Helper.LibCall(com, "fable_quotation", "mk_value", Any, [ makeStrConst msg; makeStrConst "string" ])
 
 and private typeToString (t: Type) : string =
@@ -330,7 +330,7 @@ and private typeToString (t: Type) : string =
     | String -> "string"
     | Unit -> "unit"
     | Any -> "obj"
-    | LambdaType(argType, returnType) -> $"{typeToString argType} -> {typeToString returnType}"
+    | LambdaType(argType, returnType) -> $"%s{typeToString argType} -> %s{typeToString returnType}"
     | Tuple(genArgs, _) -> genArgs |> List.map typeToString |> String.concat " * "
     | _ -> "obj"
 
