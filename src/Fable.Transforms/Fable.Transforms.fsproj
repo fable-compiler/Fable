@@ -28,6 +28,7 @@
     <Compile Include="Beam/Replacements.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="Replacements.Api.fs" />
+    <Compile Include="QuotationEmitter.fs" />
     <Compile Include="FSharp2Fable.fsi" />
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="FableTransforms.fsi" />

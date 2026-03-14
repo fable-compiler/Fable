@@ -554,6 +554,7 @@ module Util =
         | Fable.Operation _
         | Fable.Get _
         | Fable.Test _
+        | Fable.Quote _
         | Fable.TypeCast _ -> false
 
         | Fable.TryCatch _

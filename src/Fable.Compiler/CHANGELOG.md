@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [Python/Beam] Add F# quotation support — construction, pattern matching, and evaluation via `LeafExpressionConverter.EvaluateQuotation` (by @dbrattli)
+
 ### Fixed
 
 * [Beam] Fix unused term warning in try/catch when exception variable is not referenced (by @dbrattli)

@@ -1102,6 +1102,7 @@ module Util =
         | Fable.CurriedApply _
         | Fable.Operation _
         | Fable.Get _
+        | Fable.Quote _
         | Fable.Test _ -> false
 
         | Fable.TypeCast(e, _) -> isJsStatement ctx preferStatement e
@@ -3123,6 +3124,8 @@ but thanks to the optimisation done below we get
             | Fable.Throw _
             | Fable.Debugger -> iife com ctx expr
 
+        | Fable.Quote _ -> addErrorAndReturnNull com None "Quotations are not yet supported for JS/TS target"
+
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy (expr: Fable.Expr) : Statement array =
         match expr with
         | Fable.Unresolved(_, _, r) ->
@@ -3289,6 +3292,10 @@ but thanks to the optimisation done below we get
                     ?loc = range
                 )
             |]
+
+        | Fable.Quote _ ->
+            addError com [] None "Quotations are not yet supported for JS/TS target"
+            [||]
 
     let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr) : Parameter array * BlockStatement =
         let tailcallChance =

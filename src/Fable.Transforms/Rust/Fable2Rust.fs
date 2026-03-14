@@ -3512,6 +3512,10 @@ module Util =
 
                 mkUnitExpr ()
 
+        | Fable.Quote _ ->
+            addError com [] None "Quotations are not yet supported for Rust target"
+            mkUnitExpr ()
+
     let rec tryFindEntryPoint (com: IRustCompiler) decl : string list option =
         match decl with
         | Fable.ModuleDeclaration decl ->

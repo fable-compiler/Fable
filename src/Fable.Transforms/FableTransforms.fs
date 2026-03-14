@@ -160,7 +160,8 @@ let noSideEffectBeforeIdent identName expr =
             findIdentOrSideEffect e
         | Import _
         | Lambda _
-        | Delegate _ -> false
+        | Delegate _
+        | Quote _ -> false
         | Extended((Throw _ | Debugger), _) -> true
         | Extended(Curry(e, _), _) -> findIdentOrSideEffect e
         | CurriedApply(callee, args, _, _) -> callee :: args |> findIdentOrSideEffectInList |> orSideEffect
