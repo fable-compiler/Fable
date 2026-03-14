@@ -3197,14 +3197,17 @@ let getEntityFieldsAsIdents (com: IPythonCompiler) (ent: Fable.Entity) =
             Naming.toPythonNaming
 
     ent.FSharpFields
-    |> Seq.map (fun field ->
-        let name =
-            (entityNamingConvention field.Name, Naming.NoMemberPart)
-            ||> Naming.sanitizeIdent (fun _ -> false)
+    |> Seq.choose (fun field ->
+        if field.IsStatic then
+            None
+        else
+            let name =
+                (entityNamingConvention field.Name, Naming.NoMemberPart)
+                ||> Naming.sanitizeIdent (fun _ -> false)
 
-        let typ = field.FieldType
+            let typ = field.FieldType
 
-        { makeTypedIdent typ name with IsMutable = field.IsMutable }
+            Some { makeTypedIdent typ name with IsMutable = field.IsMutable }
     )
     |> Seq.toArray
 
@@ -3248,6 +3251,7 @@ let declareDataClassType
     // lambda types in the type annotations to match.
     let props =
         ent.FSharpFields
+        |> List.filter (fun field -> not field.IsStatic)
         |> List.mapi (fun i field ->
             // Get the argument name from consArgs (preserves the Python naming convention)
             let argName =
@@ -4142,6 +4146,7 @@ let transformClassWithCompilerGeneratedConstructor
             if classAttributes.Style = ClassStyle.Attributes then
                 yield!
                     ent.FSharpFields
+                    |> List.filter (fun field -> not field.IsStatic)
                     |> List.collect (fun field ->
                         let fieldName = field.Name |> Naming.toPropertyNaming
                         let left = get com ctx None thisExpr fieldName false
@@ -4155,6 +4160,7 @@ let transformClassWithCompilerGeneratedConstructor
             else
                 yield!
                     ent.FSharpFields
+                    |> List.filter (fun field -> not field.IsStatic)
                     |> List.collecti (fun i field ->
                         let fieldName =
                             if shouldUseRecordFieldNaming ent then

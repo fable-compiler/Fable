@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [JS/TS/Python] Fix record/struct types augmented with `static let` or `static member val` generating extra constructor parameters for each static field, causing constructor arguments to be assigned to wrong slots (by @MangelMaxime)
 * [TS] Annotate `System.Collections.Generic.IList<T>` as `MutableArray<T>` (by @MangelMaxime)
 * [JS/TS] Fix `ResizeArray` index getter/setter not throwing `IndexOutOfRangeException` when index is out of bounds (fix #3812) (by @MangelMaxime)
 * [Beam] Fix unused term warning in try/catch when exception variable is not referenced (by @dbrattli)

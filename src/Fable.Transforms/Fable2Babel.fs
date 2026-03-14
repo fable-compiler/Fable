@@ -3410,10 +3410,13 @@ but thanks to the optimisation done below we get
 
     let getEntityFieldsAsIdents (ent: Fable.Entity) =
         ent.FSharpFields
-        |> List.map (fun field ->
-            let name = sanitizeName field.Name
-            let typ = field.FieldType
-            { makeTypedIdent typ name with IsMutable = field.IsMutable }
+        |> List.choose (fun field ->
+            if field.IsStatic then
+                None
+            else
+                let name = sanitizeName field.Name
+                let typ = field.FieldType
+                Some { makeTypedIdent typ name with IsMutable = field.IsMutable }
         )
 
     let declareClassWithParams
@@ -3997,6 +4000,7 @@ but thanks to the optimisation done below we get
                         yield callSuperAsStatement []
                     yield!
                         ent.FSharpFields
+                        |> List.filter (fun field -> not field.IsStatic)
                         |> List.mapi (fun i field ->
                             let left = get None thisExpr field.Name
 
