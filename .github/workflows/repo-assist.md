@@ -117,6 +117,7 @@ steps:
           8:  'Performance Improvements',
           9:  'Testing Improvements',
           10: 'Take the Repository Forward',
+          12: 'Code Scanning Fixes',
       }
 
       weights = {
@@ -130,6 +131,7 @@ steps:
           8:  3   + 0.05 * open_issues,
           9:  3   + 0.05 * open_issues,
           10: 3   + 0.05 * open_issues,
+          12: 8,
       }
 
       # Seed with run ID for reproducibility within a run
@@ -319,6 +321,22 @@ Improve the quality and coverage of the test suite. Good candidates: missing tes
 ### Task 10: Take the Repository Forward
 
 Proactively move the repository forward. Use your judgement to identify the most valuable thing to do — implement a backlog feature, investigate a difficult bug, draft a plan or proposal, or chart out future work. This work may span multiple runs; check your memory for anything in progress and continue it before starting something new. Record progress and next steps in memory at the end of each run.
+
+### Task 12: Code Scanning Fixes
+
+Fix code scanning security alerts from GitHub's code scanning (CodeQL). The repository has a large backlog of alerts at `https://github.com/${{ github.repository }}/security/code-scanning`.
+
+1. Use `gh api` to list open code scanning alerts: `gh api repos/:owner/:repo/code-scanning/alerts?state=open&per_page=20` (paginate with `&page=N`).
+2. Resume from memory's backlog cursor — process alerts you haven't attempted yet.
+3. For each alert:
+   a. Read the alert details to understand the vulnerability type, file, and line number.
+   b. Read the affected code to understand the context.
+   c. **Only fix alerts you are confident about.** Many alerts are in generated JavaScript output (`temp/`) or test fixtures — skip those. Focus on alerts in source code (`src/`).
+   d. Create a fresh branch `repo-assist/codescan-<alert-number>-<desc>`. Group related alerts (same file or same vulnerability type) into a single PR where it makes sense.
+   e. Implement a minimal, correct fix. Do not refactor surrounding code.
+   f. Create a draft PR with: AI disclosure, which alerts are fixed (reference alert numbers), explanation of the vulnerability and the fix.
+4. **Batch where possible**: If multiple alerts have the same root cause or are in the same file, fix them together in one PR. Aim for 3–5 alerts per PR when they're related.
+5. Update memory with alerts processed, fixes attempted, and cursor position.
 
 ### Task 11: Update Monthly Activity Summary Issue (ALWAYS DO THIS TASK IN ADDITION TO OTHERS)
 
