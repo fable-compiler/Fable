@@ -1,0 +1,46 @@
+name: Claude Code Action
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  claude:
+    name: Claude
+    runs-on: ubuntu-latest
+
+    # Only trigger on @claude mentions from trusted contributors
+    # (NONE = first-time contributors with no prior contributions)
+    if: |
+      (
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
+      ) &&
+      github.event.comment.author_association != 'NONE'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Run Claude Code Action
+        uses: anthropics/claude-code-action@v1
+        with:
+          # Use your personal Max OAuth token (run `claude setup-token` locally to generate)
+          # OR use an ANTHROPIC_API_KEY if you prefer direct API billing
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+          claude_args: |
+            --model claude-sonnet-4-6
+            --max-turns 10
