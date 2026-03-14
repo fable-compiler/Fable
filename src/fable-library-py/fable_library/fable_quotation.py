@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .array_ import Array
-from .list import FSharpList, of_array  # pyright: ignore[reportMissingImports], auto-generated
+from .list import FSharpList, of_array
 
 
 # ===================================================================
