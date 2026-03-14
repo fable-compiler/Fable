@@ -11,6 +11,7 @@ import operator
 from dataclasses import dataclass
 from typing import Any
 
+from .array_ import Array
 from .list import FSharpList, of_array
 
 
@@ -88,7 +89,7 @@ class ExprIfThenElse:
 class ExprCall:
     instance: Any
     method: str
-    args: list[Any]
+    args: Array[Any]
 
 
 @dataclass
@@ -99,20 +100,20 @@ class ExprSequential:
 
 @dataclass
 class ExprNewTuple:
-    elements: list[Any]
+    elements: Array[Any]
 
 
 @dataclass
 class ExprNewUnion:
     type_name: str
     tag: int
-    fields: list[Any]
+    fields: Array[Any]
 
 
 @dataclass
 class ExprNewRecord:
-    field_names: list[str]
-    values: list[Any]
+    field_names: Array[str]
+    values: Array[Any]
 
 
 @dataclass
@@ -209,7 +210,7 @@ def mk_if_then_else(guard: Expr, then_expr: Expr, else_expr: Expr) -> ExprIfThen
     return ExprIfThenElse(guard, then_expr, else_expr)
 
 
-def mk_call(instance: Any, method: str, args: list[Any]) -> ExprCall:
+def mk_call(instance: Any, method: str, args: Array[Any]) -> ExprCall:
     return ExprCall(instance, method, args)
 
 
@@ -217,15 +218,15 @@ def mk_sequential(first: Expr, second: Expr) -> ExprSequential:
     return ExprSequential(first, second)
 
 
-def mk_new_tuple(elements: list[Any]) -> ExprNewTuple:
+def mk_new_tuple(elements: Array[Any]) -> ExprNewTuple:
     return ExprNewTuple(elements)
 
 
-def mk_new_union(type_name: str, tag: int, fields: list[Any]) -> ExprNewUnion:
+def mk_new_union(type_name: str, tag: int, fields: Array[Any]) -> ExprNewUnion:
     return ExprNewUnion(type_name, tag, fields)
 
 
-def mk_new_record(field_names: list[str], values: list[Any]) -> ExprNewRecord:
+def mk_new_record(field_names: Array[str], values: Array[Any]) -> ExprNewRecord:
     return ExprNewRecord(field_names, values)
 
 
@@ -313,7 +314,7 @@ def is_if_then_else(expr: Expr) -> tuple[Expr, Expr, Expr] | None:
     return None
 
 
-def is_call(expr: Expr) -> tuple[Any, str, list[Any]] | None:
+def is_call(expr: Expr) -> tuple[Any, str, Array[Any]] | None:
     if isinstance(expr, ExprCall):
         return (expr.instance, expr.method, expr.args)
     return None
@@ -331,13 +332,13 @@ def is_new_tuple(expr: Expr) -> FSharpList[Any] | None:
     return None
 
 
-def is_new_union(expr: Expr) -> tuple[str, int, list[Any]] | None:
+def is_new_union(expr: Expr) -> tuple[str, int, Array[Any]] | None:
     if isinstance(expr, ExprNewUnion):
         return (expr.type_name, expr.tag, expr.fields)
     return None
 
 
-def is_new_record(expr: Expr) -> tuple[list[str], list[Any]] | None:
+def is_new_record(expr: Expr) -> tuple[Array[str], Array[Any]] | None:
     if isinstance(expr, ExprNewRecord):
         return (expr.field_names, expr.values)
     return None
