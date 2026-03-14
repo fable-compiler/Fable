@@ -540,7 +540,7 @@ def expr_to_string(expr: Expr) -> str:
             return f"<{type(expr).__name__}>"
 
 
-def get_free_vars(expr: Expr) -> list[Var]:
+def get_free_vars(expr: Expr) -> Array[Var]:
     """Get the free variables in a quotation expression."""
     free: list[Var] = []
     seen: set[str] = set()
@@ -580,7 +580,7 @@ def get_free_vars(expr: Expr) -> list[Var]:
                 pass
 
     walk(expr, set())
-    return free
+    return Array[Var](free)
 
 
 def substitute(expr: Expr, fn: Any) -> Expr:
