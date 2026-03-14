@@ -56,6 +56,7 @@
     <Compile Include="EventTests.fs" />
     <Compile Include="HashSetTests.fs" />
     <Compile Include="ImportTests.fs" />
+    <Compile Include="InlineIfLambdaTests.fs" />
     <Compile Include="JsInteropTests.fs" />
     <Compile Include="ListCollectorTests.fs" />
     <Compile Include="ListTests.fs" />

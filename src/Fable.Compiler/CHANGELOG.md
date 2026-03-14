@@ -29,6 +29,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Beam] Fix non-ASCII characters in string literals being truncated to single bytes — emit `<<"..."/utf8>>` instead of `<<"...">>` (by @dbrattli)
 * [Beam] Fix `Emit` expressions with `case` leaking variables into surrounding scope — auto-wrap in IIFE for scope isolation (by @dbrattli)
 
+### Added
+
+[All] Add support for `[<InlineIfLambda>]` (by @MangelMaxime)
+
 ## 5.0.0-rc.10 - 2026-03-10
 
 ### Added
