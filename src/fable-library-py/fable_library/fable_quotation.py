@@ -11,6 +11,8 @@ import operator
 from dataclasses import dataclass
 from typing import Any
 
+from .list import FSharpList, of_array
+
 
 # ===================================================================
 # Var: represents an F# quotation variable
@@ -323,9 +325,9 @@ def is_sequential(expr: Expr) -> tuple[Expr, Expr] | None:
     return None
 
 
-def is_new_tuple(expr: Expr) -> list[Any] | None:
+def is_new_tuple(expr: Expr) -> FSharpList[Any] | None:
     if isinstance(expr, ExprNewTuple):
-        return expr.elements
+        return of_array(expr.elements)
     return None
 
 
