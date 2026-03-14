@@ -3795,6 +3795,16 @@ let private quotationExprs
     | "get_Type", Some callee, _ ->
         Helper.LibCall(com, "fable_quotation", "get_type", t, [ callee ], ?loc = r)
         |> Some
+    | "GetFreeVars", Some callee, _ ->
+        Helper.LibCall(com, "fable_quotation", "get_free_vars", t, [ callee ], ?loc = r)
+        |> Some
+    | "Substitute", Some callee, [ fn ] ->
+        Helper.LibCall(com, "fable_quotation", "substitute", t, [ callee; fn ], ?loc = r)
+        |> Some
+    | "ToString", Some callee, _
+    | "ToString", Some callee, [ _ ] ->
+        Helper.LibCall(com, "fable_quotation", "expr_to_string", t, [ callee ], ?loc = r)
+        |> Some
     | _ -> None
 
 // F# Quotation: FSharpVar (.ctor, get_Name, get_Type, get_IsMutable)

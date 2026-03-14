@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .array_ import Array
-from .list import FSharpList, of_array
+from .list import FSharpList, of_array  # pyright: ignore[reportMissingImports], auto-generated
 
 
 # ===================================================================
@@ -463,3 +463,173 @@ def evaluate(expr: Expr, env: dict[str, Any] | None = None) -> Any:
 
         case _:
             raise ValueError(f"Cannot evaluate expression: {type(expr).__name__}")
+
+
+# ===================================================================
+# FSharpExpr instance methods
+# ===================================================================
+
+_OP_SYMBOLS: dict[str, str] = {
+    "op_Addition": "+",
+    "op_Subtraction": "-",
+    "op_Multiply": "*",
+    "op_Division": "/",
+    "op_Modulus": "%",
+    "op_Exponentiation": "**",
+    "op_Equality": "=",
+    "op_Inequality": "<>",
+    "op_LessThan": "<",
+    "op_LessThanOrEqual": "<=",
+    "op_GreaterThan": ">",
+    "op_GreaterThanOrEqual": ">=",
+    "op_BooleanAnd": "&&",
+    "op_BooleanOr": "||",
+    "op_UnaryNegation": "-",
+    "op_LogicalNot": "not",
+}
+
+
+def expr_to_string(expr: Expr) -> str:
+    """Pretty-print a quotation AST as F#-like source code."""
+    match expr:
+        case ExprValue(value=v, type=t):
+            if t == "string":
+                return f'"{v}"'
+            if t == "unit":
+                return "()"
+            if t == "bool":
+                return "true" if v else "false"
+            return str(v)
+
+        case ExprVarExpr(var=var):
+            return var.name
+
+        case ExprLambda(var=var, body=body):
+            return f"fun {var.name} -> {expr_to_string(body)}"
+
+        case ExprApplication(func=func, arg=arg):
+            return f"{expr_to_string(func)} {expr_to_string(arg)}"
+
+        case ExprLet(var=var, value=value, body=body):
+            return f"let {var.name} = {expr_to_string(value)} in {expr_to_string(body)}"
+
+        case ExprIfThenElse(guard=guard, then_expr=then_expr, else_expr=else_expr):
+            return f"if {expr_to_string(guard)} then {expr_to_string(then_expr)} else {expr_to_string(else_expr)}"
+
+        case ExprCall(method=method, args=args):
+            if method in _OP_SYMBOLS and len(args) == 2:
+                return f"({expr_to_string(args[0])} {_OP_SYMBOLS[method]} {expr_to_string(args[1])})"
+            if method in _OP_SYMBOLS and len(args) == 1:
+                return f"{_OP_SYMBOLS[method]}{expr_to_string(args[0])}"
+            arg_strs = ", ".join(expr_to_string(a) for a in args)
+            return f"{method}({arg_strs})"
+
+        case ExprSequential(first=first, second=second):
+            return f"{expr_to_string(first)}; {expr_to_string(second)}"
+
+        case ExprNewTuple(elements=elements):
+            return "(" + ", ".join(expr_to_string(e) for e in elements) + ")"
+
+        case ExprTupleGet(expr=inner, index=index):
+            return f"Item{index + 1}({expr_to_string(inner)})"
+
+        case ExprFieldGet(expr=inner, field_name=name):
+            return f"{expr_to_string(inner)}.{name}"
+
+        case _:
+            return f"<{type(expr).__name__}>"
+
+
+def get_free_vars(expr: Expr) -> list[Var]:
+    """Get the free variables in a quotation expression."""
+    free: list[Var] = []
+    seen: set[str] = set()
+
+    def walk(e: Expr, bound: set[str]) -> None:
+        match e:
+            case ExprVarExpr(var=var):
+                if var.name not in bound and var.name not in seen:
+                    free.append(var)
+                    seen.add(var.name)
+            case ExprLambda(var=var, body=body):
+                walk(body, bound | {var.name})
+            case ExprLet(var=var, value=value, body=body):
+                walk(value, bound)
+                walk(body, bound | {var.name})
+            case ExprApplication(func=func, arg=arg):
+                walk(func, bound)
+                walk(arg, bound)
+            case ExprIfThenElse(guard=guard, then_expr=then_expr, else_expr=else_expr):
+                walk(guard, bound)
+                walk(then_expr, bound)
+                walk(else_expr, bound)
+            case ExprCall(args=args):
+                for a in args:
+                    walk(a, bound)
+            case ExprSequential(first=first, second=second):
+                walk(first, bound)
+                walk(second, bound)
+            case ExprNewTuple(elements=elements):
+                for e in elements:
+                    walk(e, bound)
+            case ExprTupleGet(expr=inner):
+                walk(inner, bound)
+            case ExprFieldGet(expr=inner):
+                walk(inner, bound)
+            case _:
+                pass
+
+    walk(expr, set())
+    return free
+
+
+def substitute(expr: Expr, fn: Any) -> Expr:
+    """Substitute variables in a quotation using a function Var -> Expr option."""
+
+    def sub(e: Expr) -> Expr:
+        match e:
+            case ExprVarExpr(var=var):
+                result = fn(var)
+                if result is not None:
+                    return result
+                return e
+            case ExprLambda(var=var, body=body):
+                return ExprLambda(var, sub(body))
+            case ExprLet(var=var, value=value, body=body):
+                return ExprLet(var, sub(value), sub(body))
+            case ExprApplication(func=func, arg=arg):
+                return ExprApplication(sub(func), sub(arg))
+            case ExprIfThenElse(guard=guard, then_expr=then_expr, else_expr=else_expr):
+                return ExprIfThenElse(sub(guard), sub(then_expr), sub(else_expr))
+            case ExprCall(instance=instance, method=method, args=args):
+                new_inst = (
+                    sub(instance)
+                    if isinstance(
+                        instance,
+                        (
+                            ExprValue,
+                            ExprVarExpr,
+                            ExprLambda,
+                            ExprApplication,
+                            ExprLet,
+                            ExprIfThenElse,
+                            ExprCall,
+                            ExprSequential,
+                            ExprNewTuple,
+                        ),
+                    )
+                    else instance
+                )
+                return ExprCall(new_inst, method, type(args)([sub(a) for a in args]))
+            case ExprSequential(first=first, second=second):
+                return ExprSequential(sub(first), sub(second))
+            case ExprNewTuple(elements=elements):
+                return ExprNewTuple(type(elements)([sub(e) for e in elements]))
+            case ExprTupleGet(expr=inner, index=index):
+                return ExprTupleGet(sub(inner), index)
+            case ExprFieldGet(expr=inner, field_name=name):
+                return ExprFieldGet(sub(inner), name)
+            case _:
+                return e
+
+    return sub(expr)

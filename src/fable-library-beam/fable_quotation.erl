@@ -12,7 +12,8 @@
     is_let/1, is_if_then_else/1, is_call/1, is_sequential/1,
     is_new_tuple/1, is_new_union/1, is_new_record/1,
     is_tuple_get/1, is_field_get/1,
-    evaluate/1
+    evaluate/1,
+    expr_to_string/1, get_free_vars/1, substitute/2
 ]).
 
 %% ===================================================================
@@ -173,3 +174,119 @@ apply_operator(<<"op_BitwiseAnd">>, [A, B]) -> A band B;
 apply_operator(<<"op_ExclusiveOr">>, [A, B]) -> A bxor B;
 apply_operator(<<"op_LeftShift">>, [A, B]) -> A bsl B;
 apply_operator(<<"op_RightShift">>, [A, B]) -> A bsr B.
+
+%% ===================================================================
+%% FSharpExpr instance methods
+%% ===================================================================
+
+expr_to_string({expr, value, V, T}) ->
+    case T of
+        <<"string">> -> iolist_to_binary(["\"", V, "\""]);
+        <<"bool">> -> case V of true -> <<"true">>; _ -> <<"false">> end;
+        <<"unit">> -> <<"()">>;
+        _ -> iolist_to_binary(io_lib:format("~w", [V]))
+    end;
+expr_to_string({expr, var_expr, {var, Name, _, _}}) -> Name;
+expr_to_string({expr, lambda, {var, Name, _, _}, Body}) ->
+    iolist_to_binary(["fun ", Name, " -> ", expr_to_string(Body)]);
+expr_to_string({expr, application, Func, Arg}) ->
+    iolist_to_binary([expr_to_string(Func), " ", expr_to_string(Arg)]);
+expr_to_string({expr, 'let', {var, Name, _, _}, Value, Body}) ->
+    iolist_to_binary(["let ", Name, " = ", expr_to_string(Value), " in ", expr_to_string(Body)]);
+expr_to_string({expr, if_then_else, Guard, Then, Else}) ->
+    iolist_to_binary(["if ", expr_to_string(Guard), " then ", expr_to_string(Then), " else ", expr_to_string(Else)]);
+expr_to_string({expr, call, _, Method, Args}) ->
+    ArgsList = deref(Args),
+    ArgsStr = lists:join(", ", [expr_to_string(A) || A <- ArgsList]),
+    case op_symbol(Method) of
+        {binary, Sym} when length(ArgsList) =:= 2 ->
+            [A1, A2] = ArgsList,
+            iolist_to_binary(["(", expr_to_string(A1), " ", Sym, " ", expr_to_string(A2), ")"]);
+        {unary, Sym} ->
+            [A1] = ArgsList,
+            iolist_to_binary([Sym, expr_to_string(A1)]);
+        none ->
+            iolist_to_binary([Method, "(", ArgsStr, ")"])
+    end;
+expr_to_string({expr, sequential, First, Second}) ->
+    iolist_to_binary([expr_to_string(First), "; ", expr_to_string(Second)]);
+expr_to_string({expr, new_tuple, Elements}) ->
+    Inner = lists:join(", ", [expr_to_string(E) || E <- deref(Elements)]),
+    iolist_to_binary(["(", Inner, ")"]);
+expr_to_string({expr, tuple_get, Inner, Index}) ->
+    iolist_to_binary(["Item", integer_to_binary(Index + 1), "(", expr_to_string(Inner), ")"]);
+expr_to_string({expr, field_get, Inner, Name}) ->
+    iolist_to_binary([expr_to_string(Inner), ".", Name]);
+expr_to_string(_) -> <<"<expr>">>.
+
+op_symbol(<<"op_Addition">>) -> {binary, <<"+">>};
+op_symbol(<<"op_Subtraction">>) -> {binary, <<"-">>};
+op_symbol(<<"op_Multiply">>) -> {binary, <<"*">>};
+op_symbol(<<"op_Division">>) -> {binary, <<"/">>};
+op_symbol(<<"op_Modulus">>) -> {binary, <<"%">>};
+op_symbol(<<"op_Equality">>) -> {binary, <<"=">>};
+op_symbol(<<"op_Inequality">>) -> {binary, <<"<>">>};
+op_symbol(<<"op_LessThan">>) -> {binary, <<"<">>};
+op_symbol(<<"op_LessThanOrEqual">>) -> {binary, <<"<=">>};
+op_symbol(<<"op_GreaterThan">>) -> {binary, <<">">>};
+op_symbol(<<"op_GreaterThanOrEqual">>) -> {binary, <<">=">>};
+op_symbol(<<"op_BooleanAnd">>) -> {binary, <<"&&">>};
+op_symbol(<<"op_BooleanOr">>) -> {binary, <<"||">>};
+op_symbol(<<"op_UnaryNegation">>) -> {unary, <<"-">>};
+op_symbol(<<"op_LogicalNot">>) -> {unary, <<"not">>};
+op_symbol(_) -> none.
+
+get_free_vars(Expr) ->
+    {Free, _} = collect_free_vars(Expr, sets:new()),
+    Free.
+
+collect_free_vars({expr, var_expr, {var, Name, _, _} = Var}, Bound) ->
+    case sets:is_element(Name, Bound) of
+        true -> {[], Bound};
+        false -> {[Var], Bound}
+    end;
+collect_free_vars({expr, lambda, {var, Name, _, _}, Body}, Bound) ->
+    collect_free_vars(Body, sets:add_element(Name, Bound));
+collect_free_vars({expr, 'let', {var, Name, _, _}, Value, Body}, Bound) ->
+    {FV, _} = collect_free_vars(Value, Bound),
+    {FB, _} = collect_free_vars(Body, sets:add_element(Name, Bound)),
+    {FV ++ FB, Bound};
+collect_free_vars({expr, application, Func, Arg}, Bound) ->
+    {F1, _} = collect_free_vars(Func, Bound),
+    {F2, _} = collect_free_vars(Arg, Bound),
+    {F1 ++ F2, Bound};
+collect_free_vars({expr, if_then_else, Guard, Then, Else}, Bound) ->
+    {F1, _} = collect_free_vars(Guard, Bound),
+    {F2, _} = collect_free_vars(Then, Bound),
+    {F3, _} = collect_free_vars(Else, Bound),
+    {F1 ++ F2 ++ F3, Bound};
+collect_free_vars({expr, call, _, _, Args}, Bound) ->
+    Fs = [F || A <- deref(Args), F <- element(1, collect_free_vars(A, Bound))],
+    {Fs, Bound};
+collect_free_vars({expr, sequential, First, Second}, Bound) ->
+    {F1, _} = collect_free_vars(First, Bound),
+    {F2, _} = collect_free_vars(Second, Bound),
+    {F1 ++ F2, Bound};
+collect_free_vars({expr, new_tuple, Elements}, Bound) ->
+    Fs = [F || E <- deref(Elements), F <- element(1, collect_free_vars(E, Bound))],
+    {Fs, Bound};
+collect_free_vars(_, Bound) -> {[], Bound}.
+
+substitute(Expr, Fn) -> sub(Expr, Fn).
+
+sub({expr, var_expr, Var} = E, Fn) ->
+    case Fn(Var) of
+        undefined -> E;
+        Replacement -> Replacement
+    end;
+sub({expr, lambda, Var, Body}, Fn) ->
+    {expr, lambda, Var, sub(Body, Fn)};
+sub({expr, 'let', Var, Value, Body}, Fn) ->
+    {expr, 'let', Var, sub(Value, Fn), sub(Body, Fn)};
+sub({expr, application, Func, Arg}, Fn) ->
+    {expr, application, sub(Func, Fn), sub(Arg, Fn)};
+sub({expr, if_then_else, Guard, Then, Else}, Fn) ->
+    {expr, if_then_else, sub(Guard, Fn), sub(Then, Fn), sub(Else, Fn)};
+sub({expr, sequential, First, Second}, Fn) ->
+    {expr, sequential, sub(First, Fn), sub(Second, Fn)};
+sub(E, _Fn) -> E.

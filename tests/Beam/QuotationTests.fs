@@ -138,3 +138,11 @@ let ``test Evaluate tuple`` () =
     let result = LeafExpressionConverter.EvaluateQuotation <@ (1, 2) @>
     let t = result :?> (int * int)
     equal (1, 2) t
+
+// --- FSharpExpr instance methods ---
+
+[<Fact>]
+let ``test Expr.GetFreeVars returns empty for closed expr`` () =
+    let q = <@ fun x -> x + 1 @>
+    let freeVars = q.GetFreeVars() |> Seq.length
+    equal 0 freeVars
