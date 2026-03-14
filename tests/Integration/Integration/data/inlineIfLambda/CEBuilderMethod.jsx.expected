@@ -1,0 +1,23 @@
+
+import { class_type } from "./fable_modules/fable-library-js.5.0.0-rc.3/Reflection.js";
+import { createAtom } from "./fable_modules/fable-library-js.5.0.0-rc.3/Util.js";
+
+export class TwiceBuilder {
+    constructor() {
+    }
+}
+
+export function TwiceBuilder_$reflection() {
+    return class_type("CEBuilderMethod.TwiceBuilder", undefined, TwiceBuilder);
+}
+
+export function TwiceBuilder_$ctor() {
+    return new TwiceBuilder();
+}
+
+export const twice = TwiceBuilder_$ctor();
+
+export let callCount = createAtom(0);
+
+export const result = ((callCount(callCount() + 1), callCount()), (callCount(callCount() + 1), callCount()));
+

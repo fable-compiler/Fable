@@ -1,0 +1,26 @@
+
+import { toArray } from "./fable_modules/fable-library-js.5.0.0-rc.3/Seq.js";
+import { rangeDouble } from "./fable_modules/fable-library-js.5.0.0-rc.3/Range.js";
+import { createAtom } from "./fable_modules/fable-library-js.5.0.0-rc.3/Util.js";
+import { item } from "./fable_modules/fable-library-js.5.0.0-rc.3/Array.js";
+
+export const arr = toArray(rangeDouble(1, 1, 100));
+
+export let sum = createAtom(0);
+
+export function myAction(x) {
+    sum(sum() + x);
+}
+
+(function () {
+    const array_1 = arr;
+    for (let i = 0; i <= (array_1.length - 1); i++) {
+        const x_1 = item(i, array_1) | 0;
+        sum(sum() + x_1);
+    }
+    for (let i_1 = 0; i_1 <= (array_1.length - 1); i_1++) {
+        const x_1 = item(i_1, array_1) | 0;
+        sum(sum() + x_1);
+    }
+})();
+
