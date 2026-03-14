@@ -3375,7 +3375,8 @@ but thanks to the optimisation done below we get
                 ?isAbstract = isAbstract,
                 ?superClass = superClass,
                 typeParameters = typeParameters,
-                implements = implements
+                implements = implements,
+                ?doc = info.JsDoc
             )
         | FunctionExpression(_, parameters, body, returnType, typeParameters, _) ->
             Declaration.functionDeclaration (
@@ -3420,6 +3421,7 @@ but thanks to the optimisation done below we get
         ctx
         (ent: Fable.Entity)
         entName
+        (doc: string option)
         (consArgs: Parameter[])
         (consArgsModifiers: AccessModifier[])
         (consBody: BlockStatement)
@@ -3504,15 +3506,25 @@ but thanks to the optimisation done below we get
                 ?implements = implements
             )
 
-        ModuleDecl(entName, isPublic = ent.IsPublic)
+        ModuleDecl(entName, isPublic = ent.IsPublic, ?doc = doc)
         |> declareModuleMember com ctx classExpr
 
-    let declareClass (com: IBabelCompiler) ctx ent entName consArgs consBody superClass classMembers =
+    let declareClass
+        (com: IBabelCompiler)
+        ctx
+        (ent: Fable.Entity)
+        entName
+        doc
+        consArgs
+        consBody
+        superClass
+        classMembers
+        =
         if com.IsTypeScript then
             FSharp2Fable.Util.getEntityGenArgs ent |> makeTypeParamDecl com ctx |> Some
         else
             None
-        |> declareClassWithParams com ctx ent entName consArgs [||] consBody superClass classMembers
+        |> declareClassWithParams com ctx ent entName doc consArgs [||] consBody superClass classMembers
 
     let declareTypeReflection (com: IBabelCompiler) ctx (ent: Fable.Entity) entName : ModuleDeclaration =
         let ta =
@@ -3542,6 +3554,7 @@ but thanks to the optimisation done below we get
         ctx
         (ent: Fable.Entity)
         entName
+        doc
         (consArgs: Parameter[])
         (consBody: BlockStatement)
         baseExpr
@@ -3549,7 +3562,7 @@ but thanks to the optimisation done below we get
         : ModuleDeclaration list
         =
         let typeDeclaration =
-            declareClass com ctx ent entName consArgs consBody baseExpr classMembers
+            declareClass com ctx ent entName doc consArgs consBody baseExpr classMembers
 
         if com.Options.NoReflection then
             [ typeDeclaration ]
@@ -3703,7 +3716,14 @@ but thanks to the optimisation done below we get
                 yield makeMethod "Symbol.iterator" [||] (enumerableThisToIterator com ctx) returnType None
         |]
 
-    let transformUnion (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
+    let transformUnion
+        (com: IBabelCompiler)
+        ctx
+        (ent: Fable.Entity)
+        (entName: string)
+        (doc: string option)
+        classMembers
+        =
         let isPublic = ent.IsPublic
         let tagArgName = "Tag"
         let tagArgTa = makeAliasTypeAnnotation com ctx tagArgName
@@ -3791,6 +3811,7 @@ but thanks to the optimisation done below we get
                 ctx
                 ent
                 entName
+                doc
                 args
                 consBody
                 baseExpr
@@ -3941,6 +3962,7 @@ but thanks to the optimisation done below we get
                     ctx
                     ent
                     union_cons.Name
+                    doc
                     consArgs
                     consArgsModifiers
                     consBody
@@ -3969,7 +3991,7 @@ but thanks to the optimisation done below we get
                     |]
 
             let classMembers = Array.append [| cases |] classMembers
-            declareType com ctx ent entName args body baseExpr classMembers
+            declareType com ctx ent entName doc args body baseExpr classMembers
 
     let transformClassWithCompilerGeneratedConstructor
         (com: IBabelCompiler)
@@ -4013,7 +4035,7 @@ but thanks to the optimisation done below we get
                 Parameter.parameter (fi.Name, ?typeAnnotation = makeFieldAnnotationIfTypeScript com ctx fi.Type)
             )
 
-        declareType com ctx ent decl.Name args body baseExpr classMembers
+        declareType com ctx ent decl.Name decl.XmlDoc args body baseExpr classMembers
 
     let transformPojoDefinedByConsArgsToInterface
         (com: IBabelCompiler)
@@ -4311,7 +4333,7 @@ but thanks to the optimisation done below we get
             |> Option.defaultValue (None, consBody)
 
         [
-            yield! declareType com ctx ent classDecl.Name consArgs consBody baseExpr classMembers
+            yield! declareType com ctx ent classDecl.Name classDecl.XmlDoc consArgs consBody baseExpr classMembers
 
             if not ent.IsAbstractClass then
                 yield
@@ -4511,7 +4533,7 @@ but thanks to the optimisation done below we get
                         <| fun ctx -> transformClassWithPrimaryConstructor com ctx ent decl classMembers cons
                     | None ->
                         if ent.IsFSharpUnion then
-                            transformUnion com ctx ent decl.Name classMembers
+                            transformUnion com ctx ent decl.Name decl.XmlDoc classMembers
                         else
                             transformClassWithCompilerGeneratedConstructor com ctx ent decl classMembers
 
