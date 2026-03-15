@@ -77,6 +77,7 @@
     <Compile Include="tests/src/TupleTests.fs" />
     <Compile Include="tests/src/TypeTests.fs" />
     <Compile Include="tests/src/UnionTests.fs" />
+    <Compile Include="tests/src/InlineIfLambdaTests.fs" />
     <!-- <Compile Include="tests/src/UriTests.fs" /> -->
     <Compile Include="tests/src/main.fs" />
   </ItemGroup>

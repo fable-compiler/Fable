@@ -25,6 +25,7 @@ let allTests =
     Event.tests
     HashSets.tests
     Import.tests
+    InlineIfLambda.tests
     JsInterop.tests
     Lists.tests
     Maps.tests

@@ -478,6 +478,7 @@ type Ident =
         IsThisArgument: bool
         IsCompilerGenerated: bool
         Range: SourceLocation option
+        IsInlineIfLambda: bool
     }
 
     member x.DisplayName =

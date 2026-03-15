@@ -7,6 +7,7 @@ import './src/DictionaryTests.dart' as dictionary;
 import './src/EnumTests.dart' as enum_;
 import './src/EnumerableTests.dart' as enumerable;
 import './src/HashSetTests.dart' as hash_set;
+import './src/InlineIfLambdaTests.dart' as inline_if_lambda;
 import './src/ListTests.dart' as list;
 import './src/MapTests.dart' as map;
 import './src/MiscTests.dart' as misc;
@@ -37,6 +38,7 @@ void main() {
   enum_.tests();
   enumerable.tests();
   hash_set.tests();
+  inline_if_lambda.tests();
   list.tests();
   map.tests();
   misc.tests();
