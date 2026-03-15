@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [JS/TS/Python] Fix record/struct types augmented with `static let` or `static member val` generating extra constructor parameters for each static field, causing constructor arguments to be assigned to wrong slots (by @MangelMaxime)
 * [Beam] Fix unused term warning in try/catch when exception variable is not referenced (by @dbrattli)
 * [Beam] Fix "no effect" warning for pure BIF calls (`self/0`, `node/0`) in non-final block positions (by @dbrattli)
 * [Beam] Fix `reraise()` generating unbound `MatchValue` variable — use raw Erlang reason variable for re-throw (by @dbrattli)

@@ -45,6 +45,17 @@ type Time =
 type CarInterior = { Seats: int }
 type Car = { Interior: CarInterior }
 
+// Issue #3923 - static let on a record shifts constructor arg indices
+type RecordWithStaticLet =
+    { id: int }
+    static let _a = 2
+    static member a = _a
+
+// Issue #4091 - static member val on a record causes shared mutable state
+type RecordWithStaticMemberVal =
+    { xs: ResizeArray<int> }
+    static member val empty = { xs = ResizeArray() }
+
 let tests =
   testList "RecordTypes" [
 
@@ -159,5 +170,19 @@ let tests =
         let car2 =
             {| car with Interior.Seats = 5 |}
         equal 5 car2.Interior.Seats
+
+    // Issue #3923
+    testCase "Record with static let has correct constructor" <| fun () ->
+        let x = { id = 1 }
+        equal 1 x.id
+        equal 2 RecordWithStaticLet.a
+
+    // Issue #4091
+    testCase "Record with static member val does not share state across instances" <| fun () ->
+        let a = RecordWithStaticMemberVal.empty
+        let b = RecordWithStaticMemberVal.empty
+        a.xs.Add 1
+        equal 1 a.xs.Count
+        equal 1 b.xs.Count
 
   ]
