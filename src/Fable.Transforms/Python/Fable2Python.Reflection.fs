@@ -32,16 +32,19 @@ let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics
 
     let fields, stmts =
         ent.FSharpFields
-        |> Seq.map (fun fi ->
-            let typeInfo, stmts = transformTypeInfo com ctx r genMap fi.FieldType
+        |> Seq.choose (fun fi ->
+            if fi.IsStatic then
+                None
+            else
+                let typeInfo, stmts = transformTypeInfo com ctx r genMap fi.FieldType
 
-            let name =
-                if Util.shouldUseRecordFieldNaming ent then
-                    fi.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
-                else
-                    fi.Name |> Naming.toSnakeCase |> Helpers.clean
+                let name =
+                    if Util.shouldUseRecordFieldNaming ent then
+                        fi.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                    else
+                        fi.Name |> Naming.toSnakeCase |> Helpers.clean
 
-            Expression.tuple [ Expression.stringConstant name; typeInfo ], stmts
+                Some(Expression.tuple [ Expression.stringConstant name; typeInfo ], stmts)
         )
         |> Seq.toList
         |> Helpers.unzipArgs
