@@ -2630,7 +2630,7 @@ type FableCompiler(com: Compiler) =
                 // If this parameter has [<InlineIfLambda>] and the argument is a lambda/delegate,
                 // force-inline it directly into the body (duplicate at each call site) rather
                 // than creating a Let binding that beta-reduction may refuse to inline.
-                let isInlineIfLambda = argId.AttributeFullNames |> List.contains Atts.inlineIfLambda
+                let isInlineIfLambda = argId.IsInlineIfLambda
 
                 // Helper: try to find a non-inline module-level declaration by its Fable name and
                 // reconstruct it as a Lambda/Delegate by binding its FSC args and transforming its body.
@@ -2873,13 +2873,7 @@ let getInlineExprs fileName (declarations: FSharpImplementationFileDeclaration l
                             |> List.mapi (fun i ident ->
                                 match List.tryItem (i - thisOffset) flatParams with
                                 | Some param when i >= thisOffset && hasAttrib Atts.inlineIfLambda param.Attributes ->
-                                    { ident with
-                                        AttributeFullNames =
-                                            if ident.AttributeFullNames |> List.contains Atts.inlineIfLambda then
-                                                ident.AttributeFullNames
-                                            else
-                                                Atts.inlineIfLambda :: ident.AttributeFullNames
-                                    }
+                                    { ident with IsInlineIfLambda = true }
                                 | _ -> ident
                             )
 

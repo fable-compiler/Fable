@@ -653,7 +653,7 @@ let transformObjectExpr
                             IsThisArgument = false
                             IsCompilerGenerated = true
                             Range = r
-                            AttributeFullNames = []
+                            IsInlineIfLambda = false
                         }
                 | e -> e
             )

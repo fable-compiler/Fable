@@ -971,7 +971,7 @@ module AST =
             IsThisArgument = false
             IsMutable = false
             Range = None
-            AttributeFullNames = []
+            IsInlineIfLambda = false
         }
 
     /// ATTENTION: Make sure the ident name is unique
