@@ -855,4 +855,22 @@ let tests =
         formatEuro 0.020M |> equal "0,02 €"
         formatEuro 0.20M |> equal "0,20 €"
         formatEuro 2.0M |> equal "2,00 €"
+
+    testCase "Negating a negative literal in a list CE doesn't emit --5 (GH #4251)" <| fun () ->
+        let f x = x
+        let result =
+            [
+                let x = -5.0
+                f (-x)
+            ]
+        result |> equal [5.0]
+
+    testCase "Negating a negative integer literal doesn't emit --5" <| fun () ->
+        let f x = x
+        let result =
+            [
+                let x = -3
+                f (-x)
+            ]
+        result |> equal [3]
 ]

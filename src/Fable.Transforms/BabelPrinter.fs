@@ -1272,7 +1272,20 @@ module PrinterExtensions =
                 printOp ()
             else
                 printOp ()
-                printer.ComplexExpressionWithParens(argument)
+                // Avoid emitting `--5` (invalid JS) or `--x`/`++x` (JS decrement/increment operators).
+                // When negating a negative numeric literal or another same-sign unary, wrap in parens.
+                let needsParens =
+                    match operator with
+                    | "-" | "+" ->
+                        match argument with
+                        | Literal(NumericLiteral(value, _)) -> value < 0.0
+                        | UnaryExpression(_, argOp, false, _) -> argOp = operator
+                        | _ -> false
+                    | _ -> false
+                if needsParens then
+                    printer.WithParens(argument)
+                else
+                    printer.ComplexExpressionWithParens(argument)
 
         member printer.PrintUpdateExpression(prefix, argument, operator, loc) =
             printer.AddLocation(loc)
