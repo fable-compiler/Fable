@@ -1824,10 +1824,9 @@ module Identifiers =
             IsCompilerGenerated = fsRef.IsCompilerGenerated
             IsMutable = isMutable
             Range = Some r
-            AttributeFullNames =
+            IsInlineIfLambda =
                 fsRef.Attributes
-                |> Seq.map (fun attr -> attr.AttributeType.FullName)
-                |> Seq.toList
+                |> Seq.exists (fun attr -> attr.AttributeType.FullName = Atts.inlineIfLambda)
         }
 
     let putIdentInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue) value : Context * Fable.Ident =

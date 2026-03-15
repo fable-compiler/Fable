@@ -478,10 +478,7 @@ type Ident =
         IsThisArgument: bool
         IsCompilerGenerated: bool
         Range: SourceLocation option
-        // We only store the attributes fullname otherwise deserialization of precompiled files fails
-        // System.Text.Json is not able to deserialize the standard Attribute type because it is an interface
-        // More about it here: https://github.com/fable-compiler/Fable/pull/3817
-        AttributeFullNames: string list
+        IsInlineIfLambda: bool
     }
 
     member x.DisplayName =
