@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-* [TypeScript] Fix interface upcast (e.g. `xs :> IList<_>`) generating `: any` type annotation on variable declarations — now omits the annotation so TypeScript can infer the type from the assigned expression
-* [JS/TS] Fix `ResizeArray` index getter/setter not throwing `IndexOutOfRangeException` when index is out of bounds (fix #3812)
+* [TS] Annotate `System.Collections.Generic.IList<T>` as `MutableArray<T>` (by @MangelMaxime)
+* [JS/TS] Fix `ResizeArray` index getter/setter not throwing `IndexOutOfRangeException` when index is out of bounds (fix #3812) (by @MangelMaxime)
 * [Beam] Fix unused term warning in try/catch when exception variable is not referenced (by @dbrattli)
 * [Beam] Fix "no effect" warning for pure BIF calls (`self/0`, `node/0`) in non-final block positions (by @dbrattli)
 * [Beam] Fix `reraise()` generating unbound `MatchValue` variable — use raw Erlang reason variable for re-throw (by @dbrattli)
