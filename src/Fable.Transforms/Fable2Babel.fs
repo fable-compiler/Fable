@@ -815,6 +815,7 @@ module Annotation =
         | Types.iobservableGeneric ->
             makeFableLibImportTypeAnnotation com ctx genArgs "Observable" "IObservable"
             |> Some
+        | Types.ilistGeneric -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "MutableArray" |> Some
         | "Microsoft.FSharp.Control.IEvent`1" ->
             makeFableLibImportTypeAnnotation com ctx genArgs "Event" "IEvent" |> Some
         | Types.ievent2 -> makeFableLibImportTypeAnnotation com ctx genArgs "Event" "IEvent$2" |> Some

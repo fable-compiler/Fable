@@ -2,6 +2,7 @@ module Fable.Tests.ResizeArrays
 
 open System.Collections.Generic
 open Util.Testing
+open Fable.Tests.Util
 
 type Animal = Duck of int | Dog of int
 
@@ -264,14 +265,9 @@ let tests =
         equal 3. li.[0]
         equal 2. ar.[0]
 
-    testCase "ResizeArray.Item is undefined when index is out of range" <| fun () ->
+    testCase "ResizeArray.Item throws on out of bounds access" <| fun _ ->
         let xs = ResizeArray [0]
-        #if FABLE_COMPILER
-        isNull <| box (xs.Item 1)
-        #else
-        try (xs.Item 1) |> ignore; false with _ -> true
-        #endif
-        |> equal true
+        throwsAnyError (fun () -> xs.Item 1 |> ignore)
 
     testCase "ResizeArray.Remove works with non-primitive types" <| fun _ ->
         let myResizeArray = new ResizeArray<Animal>()
@@ -369,4 +365,15 @@ let tests =
         coll.Remove(("D", 3)) |> equal false
         coll.Remove(("B", 2)) |> equal true
         coll.Count |> equal 2
+
+    testCase "ResizeArray index out of bounds get throws" <| fun _ -> // See #3812
+        let xs = ResizeArray [1; 2; 3]
+        throwsAnyError (fun () -> xs[-1] |> ignore)
+        throwsAnyError (fun () -> xs[10] |> ignore)
+
+
+    testCase "ResizeArray index out of bounds set throws" <| fun _ -> // See #3812
+        let xs = ResizeArray [1; 2; 3]
+        throwsAnyError (fun () -> xs.[-1] <- 42)
+        throwsAnyError (fun () -> xs.[10] <- 42)
   ]
