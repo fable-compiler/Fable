@@ -3347,8 +3347,33 @@ let declareDataClassType
             returns = Expression.name "int"
         )
 
+    // Generate ClassVar annotations for static fields so that Pyright recognizes
+    // the class-level attributes assigned by the static constructor (_cctor).
+    // With slots=True, unannotated class attributes are not allowed.
+    let staticFieldAnnotations =
+        ent.FSharpFields
+        |> List.choose (fun field ->
+            if
+                field.IsStatic
+                && not (field.Name.StartsWith("init@", System.StringComparison.Ordinal))
+            then
+                let fieldName = field.Name.TrimEnd('@') |> Naming.toPythonNaming
+                let ta, _ = Annotation.typeAnnotation com ctx None field.FieldType
+                let classVar = com.GetImportExpr(ctx, "typing", "ClassVar")
+                let classVarAnnotation = Expression.subscript (classVar, ta)
+                Some(Statement.annAssign (Expression.name fieldName, annotation = classVarAnnotation))
+            else
+                None
+        )
+
     let classBody =
-        let body = [ yield! props; yield! classMembers; yield hashMethod ]
+        let body =
+            [
+                yield! staticFieldAnnotations
+                yield! props
+                yield! classMembers
+                yield hashMethod
+            ]
 
         match body with
         | [] -> [ Statement.ellipsis ]
