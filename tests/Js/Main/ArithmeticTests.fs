@@ -855,4 +855,14 @@ let tests =
         formatEuro 0.020M |> equal "0,02 €"
         formatEuro 0.20M |> equal "0,20 €"
         formatEuro 2.0M |> equal "2,00 €"
+
+    testCase "float32 arithmetic preserves single-precision semantics" <| fun () ->
+        // float32 arithmetic should produce float32 results, not float64.
+        // float32(1.5 + 1.2) ≈ 2.700000048f, while float64(1.5 + 1.2) ≈ 2.7.
+        // See https://github.com/fable-compiler/Fable/issues/2652
+        let a = 1.5f
+        let b = 1.2f
+        let result32 = a + b
+        let result64 = 1.5 + 1.2
+        (float result32) <> result64 |> equal true
 ]

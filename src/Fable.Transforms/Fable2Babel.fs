@@ -1463,13 +1463,17 @@ module Util =
         let expr = com.TransformAsExpr(ctx, fableExpr)
         getExpr r expr (Expression.stringLiteral ("tag"))
 
-    /// Wrap int expressions with `| 0` to help optimization of JS VMs
+    /// Wrap int expressions with `| 0` to help optimization of JS VMs.
+    /// Wrap float32 expressions with `Math.fround()` to enforce single-precision semantics.
     let wrapIntExpression typ (e: Expression) =
         match e, typ with
         | Literal(NumericLiteral(_)), _ -> e
         // TODO: Unsigned ints seem to cause problems, should we check only Int32 here?
         | _, Fable.Number((Int8 | Int16 | Int32), Fable.NumberInfo.Empty) ->
             Expression.binaryExpression (BinaryOrBitwise, e, Expression.numericLiteral (0.))
+        | _, Fable.Number(Float32, _) ->
+            let math = Expression.memberExpression (Expression.identifier "Math", Expression.identifier "fround")
+            Expression.callExpression (math, [| e |])
         | _ -> e
 
     let wrapExprInBlockWithReturn e =
