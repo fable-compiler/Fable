@@ -1189,52 +1189,66 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "ok"))
 
     | Import(importInfo, typ, _range) ->
-        // Standalone import (function reference from another module, not a direct call).
-        // Generate a lambda wrapper: fun(A1, ..., AN) -> module:function(A1, ..., AN) end
         let moduleName = resolveImportModuleName com importInfo.Path
 
-        let funcName = sanitizeErlangName importInfo.Selector
+        if importInfo.Selector = "*" then
+            // ImportAll: represents a whole module (e.g., [<ImportAll("maps")>] let maps: IMaps = nativeOnly).
+            // When used as a value (assigned to variable), generate a tagged tuple
+            // {fable_import_all, module_atom} that fable_utils:iface_get recognizes
+            // and dispatches dynamically via erlang:make_fun/3.
+            let modAtom =
+                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(moduleName |> Option.defaultValue "unknown")))
 
-        // Count arity from the function type (follows all nested LambdaType levels)
-        let rec functionArity (t: Fable.AST.Fable.Type) =
-            match t with
-            | Fable.AST.Fable.Type.LambdaType(_, returnType) -> 1 + functionArity returnType
-            | Fable.AST.Fable.Type.DelegateType(argTypes, _) -> argTypes.Length
-            | _ -> 0
-
-        // Determine the actual Erlang arity of the imported function.
-        // For MemberImport, use NonCurriedArgTypes which gives us the actual parameter count.
-        // This is critical because functionArity(typ) follows the full curried type chain
-        // (including return type nesting), which over-counts when the return type is itself
-        // a function type (e.g., HttpHandler -> HttpHandler -> HttpHandler where HttpHandler
-        // is a function type — functionArity returns 4 but actual Erlang arity is 2).
-        let arity =
-            match importInfo.Kind with
-            | Fable.AST.Fable.MemberImport(Fable.AST.Fable.MemberRef(_, info)) ->
-                match info.NonCurriedArgTypes with
-                | Some argTypes -> argTypes.Length
-                | None -> 0 // Value binding (no explicit params) → 0-arity in Erlang
-            | _ -> functionArity typ
-
-        if arity = 0 then
-            // Not a function or value binding — call with no args to get the value
-            Beam.ErlExpr.Call(moduleName, funcName, [])
-        else
-            // Generate lambda wrapper for the function reference
-            let counter = com.IncrementCounter()
-
-            let argNames = List.init arity (fun i -> $"Import_arg_%d{i}_%d{counter}")
-            let argPats = argNames |> List.map Beam.PVar
-            let argExprs = argNames |> List.map Beam.ErlExpr.Variable
-
-            Beam.ErlExpr.Fun
+            Beam.ErlExpr.Tuple
                 [
-                    {
-                        Patterns = argPats
-                        Guard = []
-                        Body = [ Beam.ErlExpr.Call(moduleName, funcName, argExprs) ]
-                    }
+                    Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "fable_import_all"))
+                    modAtom
                 ]
+        else
+            // Standalone import (function reference from another module, not a direct call).
+            // Generate a lambda wrapper: fun(A1, ..., AN) -> module:function(A1, ..., AN) end
+            let funcName = sanitizeErlangName importInfo.Selector
+
+            // Count arity from the function type (follows all nested LambdaType levels)
+            let rec functionArity (t: Fable.AST.Fable.Type) =
+                match t with
+                | Fable.AST.Fable.Type.LambdaType(_, returnType) -> 1 + functionArity returnType
+                | Fable.AST.Fable.Type.DelegateType(argTypes, _) -> argTypes.Length
+                | _ -> 0
+
+            // Determine the actual Erlang arity of the imported function.
+            // For MemberImport, use NonCurriedArgTypes which gives us the actual parameter count.
+            // This is critical because functionArity(typ) follows the full curried type chain
+            // (including return type nesting), which over-counts when the return type is itself
+            // a function type (e.g., HttpHandler -> HttpHandler -> HttpHandler where HttpHandler
+            // is a function type — functionArity returns 4 but actual Erlang arity is 2).
+            let arity =
+                match importInfo.Kind with
+                | Fable.AST.Fable.MemberImport(Fable.AST.Fable.MemberRef(_, info)) ->
+                    match info.NonCurriedArgTypes with
+                    | Some argTypes -> argTypes.Length
+                    | None -> 0 // Value binding (no explicit params) → 0-arity in Erlang
+                | _ -> functionArity typ
+
+            if arity = 0 then
+                // Not a function or value binding — call with no args to get the value
+                Beam.ErlExpr.Call(moduleName, funcName, [])
+            else
+                // Generate lambda wrapper for the function reference
+                let counter = com.IncrementCounter()
+
+                let argNames = List.init arity (fun i -> $"Import_arg_%d{i}_%d{counter}")
+                let argPats = argNames |> List.map Beam.PVar
+                let argExprs = argNames |> List.map Beam.ErlExpr.Variable
+
+                Beam.ErlExpr.Fun
+                    [
+                        {
+                            Patterns = argPats
+                            Guard = []
+                            Body = [ Beam.ErlExpr.Call(moduleName, funcName, argExprs) ]
+                        }
+                    ]
 
 and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam.ErlExpr =
     match value with
@@ -2313,6 +2327,24 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
             | "toSeq" -> Beam.ErlExpr.Call(Some "maps", "to_list", cleanArgs)
             | _ -> Beam.ErlExpr.Call(Some "maps", sanitizeErlangName selector, cleanArgs)
             |> wrapWithHoisted hoisted
+        | "*" ->
+            // ImportAll: selector is "*" meaning the callee is a whole-module import.
+            // Use MemberRef to get the actual function name being called.
+            match info.MemberRef with
+            | Some(Fable.AST.Fable.MemberRef(_, memberInfo)) ->
+                let funcName = sanitizeErlangName memberInfo.CompiledName
+                let args = info.Args |> List.map (transformExpr com ctx)
+                let hoisted, cleanArgs = hoistBlocksFromArgs args
+
+                Beam.ErlExpr.Call(importModuleName, funcName, cleanArgs)
+                |> wrapWithHoisted hoisted
+            | _ ->
+                // Fallback: shouldn't normally happen, but generate a call using the module
+                let args = info.Args |> List.map (transformExpr com ctx)
+                let hoisted, cleanArgs = hoistBlocksFromArgs args
+
+                Beam.ErlExpr.Call(importModuleName, "unknown", cleanArgs)
+                |> wrapWithHoisted hoisted
         | selector ->
             let args = info.Args |> List.map (transformExpr com ctx)
             let hoisted, cleanArgs = hoistBlocksFromArgs args
