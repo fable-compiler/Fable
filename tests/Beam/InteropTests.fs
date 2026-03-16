@@ -248,7 +248,8 @@ let ``test ImportAll binding assigned to local variable`` () =
 #if FABLE_COMPILER
     // Test that ImportAll works when assigned to a local let binding
     let m = nativeCode
-    m.addValues (3, 4) |> equal 7
+    m.getName () |> equal "native_code"  // 0-arity (property-style)
+    m.addValues (3, 4) |> equal 7        // multi-arg method
 #else
     ()
 #endif

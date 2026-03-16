@@ -2338,13 +2338,7 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
 
                 Beam.ErlExpr.Call(importModuleName, funcName, cleanArgs)
                 |> wrapWithHoisted hoisted
-            | _ ->
-                // Fallback: shouldn't normally happen, but generate a call using the module
-                let args = info.Args |> List.map (transformExpr com ctx)
-                let hoisted, cleanArgs = hoistBlocksFromArgs args
-
-                Beam.ErlExpr.Call(importModuleName, "unknown", cleanArgs)
-                |> wrapWithHoisted hoisted
+            | _ -> failwith "ImportAll call without MemberRef — cannot resolve function name"
         | selector ->
             let args = info.Args |> List.map (transformExpr com ctx)
             let hoisted, cleanArgs = hoistBlocksFromArgs args
@@ -2468,12 +2462,14 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
             let allHoisted = calleeHoisted @ argsHoisted
 
             if isInterfaceExpr then
-                // Interface method dispatch: (fable_utils:iface_get(method_name, Obj))(Args)
-                // Works for both object expressions (maps) and class instances (refs)
+                // Interface method dispatch: (fable_utils:iface_get(method_name, arity, Obj))(Args)
+                // Works for object expressions (maps), class instances (refs), and ImportAll modules.
+                // Passing arity resolves ambiguity when a module exports the same name at multiple arities.
                 let methodAtom = atomLit (sanitizeErlangName fieldInfo.Name)
+                let arityLit = Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 cleanArgs.Length))
 
                 let lookup =
-                    Beam.ErlExpr.Call(Some "fable_utils", "iface_get", [ methodAtom; cleanCallee ])
+                    Beam.ErlExpr.Call(Some "fable_utils", "iface_get", [ methodAtom; arityLit; cleanCallee ])
 
                 Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted allHoisted
             else
