@@ -70,6 +70,12 @@ iface_get(Name, Arity, {fable_import_all, Mod}) ->
 iface_get(Name, _Arity, Obj) ->
     iface_get(Name, Obj).
 
+iface_get(Name, {fable_import_all, Mod}) ->
+    Exports = Mod:module_info(exports),
+    case lists:keyfind(Name, 1, Exports) of
+        {Name, Arity} -> erlang:make_fun(Mod, Name, Arity);
+        false -> erlang:error({no_export, Mod, Name})
+    end;
 iface_get(Name, Obj) when is_map(Obj) -> iface_unwrap(maps:get(Name, Obj));
 iface_get(Name, Ref) -> iface_unwrap(maps:get(Name, get(Ref))).
 
