@@ -1,6 +1,7 @@
 -module(fable_utils).
 -export([
     iface_get/2,
+    iface_get/3,
     apply_curried/2,
     new_ref/1,
     safe_dispose/1,
@@ -29,7 +30,8 @@
     div_rem/3
 ]).
 
--spec iface_get(atom(), map() | reference()) -> term().
+-spec iface_get(atom(), map() | reference() | {fable_import_all, atom()}) -> term().
+-spec iface_get(atom(), non_neg_integer(), {fable_import_all, atom()}) -> term().
 -spec apply_curried(fun(), list()) -> term().
 -spec new_ref(term()) -> reference().
 -spec safe_dispose(term()) -> ok.
@@ -60,6 +62,20 @@
 %% Interface dispatch: works for both object expressions (maps) and class instances (refs).
 %% Class interface property getters are stored as {getter, Fun} tagged thunks — call Fun().
 %% ObjectExpr property getters are stored as plain values — return directly.
+%% ImportAll modules are tagged as {fable_import_all, ModuleAtom} and dispatched via
+%% erlang:make_fun/3. The 3-arity overload passes explicit arity to avoid ambiguity
+%% when a module exports the same name at multiple arities (e.g., maps:get/2 and get/3).
+iface_get(Name, Arity, {fable_import_all, Mod}) ->
+    erlang:make_fun(Mod, Name, Arity);
+iface_get(Name, _Arity, Obj) ->
+    iface_get(Name, Obj).
+
+iface_get(Name, {fable_import_all, Mod}) ->
+    Exports = Mod:module_info(exports),
+    case lists:keyfind(Name, 1, Exports) of
+        {Name, Arity} -> erlang:make_fun(Mod, Name, Arity);
+        false -> erlang:error({no_export, Mod, Name})
+    end;
 iface_get(Name, Obj) when is_map(Obj) -> iface_unwrap(maps:get(Name, Obj));
 iface_get(Name, Ref) -> iface_unwrap(maps:get(Name, get(Ref))).
 

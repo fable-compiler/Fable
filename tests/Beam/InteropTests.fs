@@ -54,6 +54,15 @@ type INativeCode =
 [<ImportAll("native_code")>]
 let nativeCode: INativeCode = nativeOnly
 
+// ImportAll with Erlang stdlib module (maps)
+[<Erase>]
+type IMaps =
+    abstract from_list: list: obj -> obj
+    abstract get: key: obj * map: obj -> obj
+
+[<ImportAll("maps")>]
+let erlangMaps: IMaps = nativeOnly
+
 // ============================================================
 // Erased union tests
 // ============================================================
@@ -218,6 +227,38 @@ let ``test ImportAll with Erase interface calls multi-arg method`` () =
 let ``test ImportAll with Erase interface calls string method`` () =
 #if FABLE_COMPILER
     nativeCode.concatStrings ("Hello, ", "World!") |> equal "Hello, World!"
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test ImportAll with stdlib module single-arg method`` () =
+#if FABLE_COMPILER
+    // maps:from_list([{key, value}]) should work via ImportAll
+    let list: obj = emitErlExpr () "[{<<\"a\">>, 1}]"
+    let result = erlangMaps.from_list(list)
+    let value: obj = erlangMaps.get(box "a", result)
+    equal 1 (unbox<int> value)
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test ImportAll binding assigned to local variable`` () =
+#if FABLE_COMPILER
+    // Test that ImportAll works when assigned to a local let binding
+    let m = nativeCode
+    m.getName () |> equal "native_code"  // 0-arity (property-style)
+    m.addValues (3, 4) |> equal 7        // multi-arg method
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test ImportAll used with pipe operator`` () =
+#if FABLE_COMPILER
+    // Test that ImportAll works when used in a pipeline
+    (3, 4) |> nativeCode.addValues |> equal 7
 #else
     ()
 #endif
