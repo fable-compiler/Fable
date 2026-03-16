@@ -1921,8 +1921,9 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         Helper.GlobalCall("Array", t, args, memb = "from", ?loc = r)
         |> withTag "array"
         |> Some
-    | "get_Item", Some ar, [ idx ] -> getExpr r t ar idx |> Some
-    | "set_Item", Some ar, [ idx; value ] -> setExpr r ar idx value |> Some
+    | "get_Item", Some ar, [ idx ] -> Helper.LibCall(com, "Array", "item", t, [ idx; ar ], ?loc = r) |> Some
+    | "set_Item", Some ar, [ idx; value ] ->
+        Helper.LibCall(com, "Array", "setItem", t, [ ar; idx; value ], ?loc = r) |> Some
     | "CopyTo", Some ar, [ target ] ->
         let count = getFieldWith r t ar "length"
         copyToArray com r t i [ ar; makeIntConst 0; target; makeIntConst 0; count ]
