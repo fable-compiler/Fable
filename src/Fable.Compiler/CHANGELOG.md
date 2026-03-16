@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [JS/TS] Fix float32 arithmetic producing float64 results — wrap float32 variable bindings and returns with `Math.fround()` to enforce single-precision semantics (fixes #2652)
 * [Beam] Fix unused term warning in try/catch when exception variable is not referenced (by @dbrattli)
 * [Beam] Fix "no effect" warning for pure BIF calls (`self/0`, `node/0`) in non-final block positions (by @dbrattli)
 * [Beam] Fix `reraise()` generating unbound `MatchValue` variable — use raw Erlang reason variable for re-throw (by @dbrattli)
