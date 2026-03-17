@@ -3197,14 +3197,17 @@ let getEntityFieldsAsIdents (com: IPythonCompiler) (ent: Fable.Entity) =
             Naming.toPythonNaming
 
     ent.FSharpFields
-    |> Seq.map (fun field ->
-        let name =
-            (entityNamingConvention field.Name, Naming.NoMemberPart)
-            ||> Naming.sanitizeIdent (fun _ -> false)
+    |> Seq.choose (fun field ->
+        if field.IsStatic then
+            None
+        else
+            let name =
+                (entityNamingConvention field.Name, Naming.NoMemberPart)
+                ||> Naming.sanitizeIdent (fun _ -> false)
 
-        let typ = field.FieldType
+            let typ = field.FieldType
 
-        { makeTypedIdent typ name with IsMutable = field.IsMutable }
+            Some { makeTypedIdent typ name with IsMutable = field.IsMutable }
     )
     |> Seq.toArray
 
@@ -3248,6 +3251,7 @@ let declareDataClassType
     // lambda types in the type annotations to match.
     let props =
         ent.FSharpFields
+        |> List.filter (fun field -> not field.IsStatic)
         |> List.mapi (fun i field ->
             // Get the argument name from consArgs (preserves the Python naming convention)
             let argName =
@@ -3343,8 +3347,33 @@ let declareDataClassType
             returns = Expression.name "int"
         )
 
+    // Generate ClassVar annotations for static fields so that Pyright recognizes
+    // the class-level attributes assigned by the static constructor (_cctor).
+    // With slots=True, unannotated class attributes are not allowed.
+    let staticFieldAnnotations =
+        ent.FSharpFields
+        |> List.choose (fun field ->
+            if
+                field.IsStatic
+                && not (field.Name.StartsWith("init@", System.StringComparison.Ordinal))
+            then
+                let fieldName = field.Name.TrimEnd('@') |> Naming.toPythonNaming
+                let ta, _ = Annotation.typeAnnotation com ctx None field.FieldType
+                let classVar = com.GetImportExpr(ctx, "typing", "ClassVar")
+                let classVarAnnotation = Expression.subscript (classVar, ta)
+                Some(Statement.annAssign (Expression.name fieldName, annotation = classVarAnnotation))
+            else
+                None
+        )
+
     let classBody =
-        let body = [ yield! props; yield! classMembers; yield hashMethod ]
+        let body =
+            [
+                yield! staticFieldAnnotations
+                yield! props
+                yield! classMembers
+                yield hashMethod
+            ]
 
         match body with
         | [] -> [ Statement.ellipsis ]
@@ -4142,6 +4171,7 @@ let transformClassWithCompilerGeneratedConstructor
             if classAttributes.Style = ClassStyle.Attributes then
                 yield!
                     ent.FSharpFields
+                    |> List.filter (fun field -> not field.IsStatic)
                     |> List.collect (fun field ->
                         let fieldName = field.Name |> Naming.toPropertyNaming
                         let left = get com ctx None thisExpr fieldName false
@@ -4155,6 +4185,7 @@ let transformClassWithCompilerGeneratedConstructor
             else
                 yield!
                     ent.FSharpFields
+                    |> List.filter (fun field -> not field.IsStatic)
                     |> List.collecti (fun i field ->
                         let fieldName =
                             if shouldUseRecordFieldNaming ent then
