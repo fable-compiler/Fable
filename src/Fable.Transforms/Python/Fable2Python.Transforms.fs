@@ -3996,6 +3996,24 @@ let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFuncti
     let args, body, returnType =
         getMemberArgsAndBody com ctx (Attached isStatic) info.HasSpread memb.Args memb.Body
 
+    let args =
+        let declaredAsGenericSingleArg =
+            List.isEmpty args.Defaults
+            && List.length args.Args = 1
+            && (
+                match info.CurriedParameterGroups |> List.collect id with
+                | [ p ] ->
+                    match p.Type with
+                    | Fable.GenericParam _ -> true
+                    | _ -> false
+                | _ -> false
+            )
+
+        if declaredAsGenericSingleArg then
+            { args with Defaults = [ libValue com ctx "util" "UNIT" ] }
+        else
+            args
+
     let self = Arg.arg "self"
 
     let arguments =
