@@ -40,7 +40,7 @@ module Output =
             else
                 sb.Append(s + ".0") |> ignore
         | BigInt s -> sb.Append(s) |> ignore
-        | StringLit s -> sb.Append($"<<\"%s{escapeErlangString s}\">>") |> ignore
+        | StringLit s -> sb.Append($"<<\"%s{escapeErlangString s}\"/utf8>>") |> ignore
         | AtomLit(Atom a) -> sb.Append(Fable.Beam.Naming.quoteErlangAtom a) |> ignore
         | BoolLit true -> sb.Append("true") |> ignore
         | BoolLit false -> sb.Append("false") |> ignore

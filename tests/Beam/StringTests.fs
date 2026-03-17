@@ -673,6 +673,23 @@ let ``test String slicing to computed index works`` () =
     let path = "/api/users"
     s.[0 .. path.Length - 1] |> equal "/api/users"
 
+[<Fact>]
+let ``test String slicing with arithmetic index works`` () =
+    let s = "name: orchestrator"
+    let colonIdx = s.IndexOf(':')
+    s.[colonIdx + 2 ..] |> equal "orchestrator"
+
+[<Fact>]
+let ``test String.Substring with computed start works`` () =
+    let s = "name: orchestrator"
+    let colonIdx = s.IndexOf(':')
+    s.Substring(colonIdx + 2) |> equal "orchestrator"
+
+[<Fact>]
+let ``test String slicing with arithmetic start and end works`` () =
+    let s = "[hello]"
+    s.[1 .. s.Length - 2] |> equal "hello"
+
 // --- String conversion tests ---
 
 [<Fact>]
@@ -922,6 +939,15 @@ let ``test string interpolation works with inline expressions`` () =
 let ``test printing strings with unicode characters`` () =
     let result = sprintf "%s" "🚀"
     result |> equal "🚀"
+
+[<Fact>]
+let ``test sprintf with non-ASCII in format string works`` () =
+    sprintf "route → specialist '%s'" "test" |> equal "route → specialist 'test'"
+
+[<Fact>]
+let ``test string literal with non-ASCII characters works`` () =
+    let s = "hello → world"
+    s |> equal "hello → world"
 
 [<Fact>]
 let ``test StringBuilder.Length works`` () =
