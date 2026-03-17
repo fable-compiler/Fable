@@ -176,12 +176,15 @@ module Reflection =
 
         let fields =
             ent.FSharpFields
-            |> List.map (fun fi ->
-                let fieldName = sanitizeMemberName fi.Name |> Expression.stringLiteral
+            |> List.choose (fun fi ->
+                if fi.IsStatic then
+                    None
+                else
+                    let fieldName = sanitizeMemberName fi.Name |> Expression.stringLiteral
 
-                let typeInfo = transformTypeInfoFor Reflection com ctx r genMap fi.FieldType
+                    let typeInfo = transformTypeInfoFor Reflection com ctx r genMap fi.FieldType
 
-                Expression.arrayExpression ([| fieldName; typeInfo |])
+                    Some(Expression.arrayExpression ([| fieldName; typeInfo |]))
             )
             |> List.toArray
 
