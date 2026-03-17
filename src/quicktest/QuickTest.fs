@@ -12,44 +12,90 @@ open Fable.Core.JsInterop
 open Fable.Core.Testing
 open System.Globalization
 
+let log (o: obj) = JS.console.log (o)
+// printfn "%A" o
 
-// Report #1
+let equal expected actual =
+    let areEqual = expected = actual
+    printfn "%A = %A > %b" expected actual areEqual
 
-type Items =
-    {
-        xs: ResizeArray<int>
-    }
+    if not areEqual then
+        failwithf "[ASSERT ERROR] Expected %A but got %A" expected actual
 
-    static member val empty = { xs = ResizeArray() }
+let throwsError (expected: string) (f: unit -> 'a) : unit =
+    let success =
+        try
+            f () |> ignore
+            true
+        with e ->
+            if not <| String.IsNullOrEmpty(expected) then
+                equal e.Message expected
 
-let a = Items.empty
-let b = Items.empty
+            false
+    // TODO better error messages
+    equal false success
 
-a.xs.Add 1
-b.xs.Add 1
+let testCase (msg: string) f : unit =
+    try
+        printfn "%s" msg
+        f ()
+    with ex ->
+        printfn "%s" ex.Message
 
-printfn $"{a.xs.Count} should match {b.xs.Count}"
+        if
+            ex.Message <> null
+            && ex.Message.StartsWith("[ASSERT ERROR]", StringComparison.Ordinal) |> not
+        then
+            printfn "%s" (ex.StackTrace ??= "")
 
-// Report #2
+    printfn ""
 
-type X =
-    {
-        id: int
-    }
+let testCaseAsync msg f =
+    testCase
+        msg
+        (fun () ->
+            async {
+                try
+                    do! f ()
+                with ex ->
+                    printfn "%s" ex.Message
 
-    static let _a = 2
-    static member a = _a
+                    if
+                        ex.Message <> null
+                        && ex.Message.StartsWith("[ASSERT ERROR]", StringComparison.Ordinal) |> not
+                    then
+                        printfn "%s" (ex.StackTrace ??= "")
+            }
+            |> Async.StartImmediate
+        )
 
-// returns 0, since the generated constructor takes three params
-// and only one is provided when a static let is presnet
-let test1 = { id = 1 }
-JS.console.log (test1.id = 1)
+let throwsAnyError (f: unit -> 'a) : unit =
+    let success =
+        try
+            f () |> ignore
+            true
+        with e ->
+            printfn "Got expected error: %s" e.Message
+            false
 
-type Y(id: int) =
-    static let _a = 2
-    static member a = 2
-    member _.id = id
+    if success then
+        printfn "[ERROR EXPECTED]"
 
-// returns 1, as expected, since the constructor takes a single parameter
-let test2 = Y(id = 1)
-JS.console.log (test2.id = 1)
+let measureTime (f: unit -> unit) : unit =
+    emitJsStatement
+        ()
+        """
+   //js
+   const startTime = process.hrtime();
+   f();
+   const elapsed = process.hrtime(startTime);
+   console.log("Ms:", elapsed[0] * 1e3 + elapsed[1] / 1e6);
+   //!js
+"""
+
+printfn "Running quick tests..."
+
+// Write here your unit test, you can later move it
+// to Fable.Tests project. For example:
+// testCase "Addition works" <| fun () ->
+//     2 + 2 |> equal 4
