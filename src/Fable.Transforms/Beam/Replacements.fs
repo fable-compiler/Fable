@@ -864,7 +864,7 @@ let private strings
         emitExpr r t [ c; suffix ] "fable_string:ends_with(string:lowercase($0), string:lowercase($1))"
         |> Some
     // str.Substring(start) → binary:part(Str, Start, byte_size(Str) - Start)
-    | "Substring", Some c, [ start ] -> emitExpr r t [ c; start ] "binary:part($0, $1, byte_size($0) - $1)" |> Some
+    | "Substring", Some c, [ start ] -> emitExpr r t [ c; start ] "binary:part($0, $1, byte_size($0) - ($1))" |> Some
     // str.Substring(start, length) → binary:part(Str, Start, Length)
     | "Substring", Some c, [ start; len ] -> emitExpr r t [ c; start; len ] "binary:part($0, $1, $2)" |> Some
     // str.Replace(old, new)
@@ -2600,7 +2600,7 @@ let private intrinsicFunctions
         match upper with
         | Value(NewOption(None, _, _), _) ->
             // s.[start..] → binary:part(s, start, byte_size(s) - start)
-            emitExpr r t [ ar; lower ] "binary:part($0, $1, byte_size($0) - $1)" |> Some
+            emitExpr r t [ ar; lower ] "binary:part($0, $1, byte_size($0) - ($1))" |> Some
         | _ ->
             let upper =
                 match upper with
@@ -2608,7 +2608,8 @@ let private intrinsicFunctions
                 | _ -> makeIntConst 0
 
             // s.[start..end] → binary:part(s, start, end - start + 1)  (F# slicing is inclusive)
-            emitExpr r t [ ar; lower; upper ] "binary:part($0, $1, $2 - $1 + 1)" |> Some
+            emitExpr r t [ ar; lower; upper ] "binary:part($0, ($1), ($2) - ($1) + 1)"
+            |> Some
     | "GetArraySlice", [ ar; lower; upper ] ->
         let ar = derefArr r ar
 
@@ -2628,7 +2629,7 @@ let private intrinsicFunctions
                 | _ -> makeIntConst 0
 
             // arr.[start..end] → lists:sublist(arr, start+1, end-start+1)  (1-based)
-            emitExpr r t [ ar; lower; upper ] "lists:sublist($0, $1 + 1, $2 - $1 + 1)"
+            emitExpr r t [ ar; lower; upper ] "lists:sublist($0, ($1) + 1, ($2) - ($1) + 1)"
             |> wrapArr com r t
             |> Some
     | _ -> None
