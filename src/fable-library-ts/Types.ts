@@ -38,6 +38,13 @@ export function toString(x: any, callStack = 0): string {
   return String(x);
 }
 
+function unionFieldToString(x: any): string {
+  if (typeof x === "string") {
+    return '"' + x + '"';
+  }
+  return toString(x);
+}
+
 export function unionToString(name: string, fields: any[]) {
   if (fields.length === 0) {
     return name;
@@ -45,10 +52,10 @@ export function unionToString(name: string, fields: any[]) {
     let fieldStr;
     let withParens = true;
     if (fields.length === 1) {
-      fieldStr = toString(fields[0]);
+      fieldStr = unionFieldToString(fields[0]);
       withParens = fieldStr.indexOf(" ") >= 0;
     } else {
-      fieldStr = fields.map((x: any) => toString(x)).join(", ");
+      fieldStr = fields.map(unionFieldToString).join(", ");
     }
     return name + (withParens ? " (" : " ") + fieldStr + (withParens ? ")" : "");
   }

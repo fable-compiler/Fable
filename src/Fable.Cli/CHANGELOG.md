@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS] Fix `ResizeArray` index getter/setter not throwing `IndexOutOfRangeException` when index is out of bounds (fix #3812) (by @MangelMaxime)
 * [Beam] Fix unused term warning in try/catch when exception variable is not referenced (by @dbrattli)
 * [Beam] Fix "no effect" warning for pure BIF calls (`self/0`, `node/0`) in non-final block positions (by @dbrattli)
+* [JS/TS] Fix `sprintf "%A"` not quoting string fields in union case representations (fix #3820)
 * [Beam] Fix `reraise()` generating unbound `MatchValue` variable — use raw Erlang reason variable for re-throw (by @dbrattli)
 * [Beam] Fix `Erlang.receive<'T>()` resolving to timeout overload due to F# unit argument (by @dbrattli)
 * [Beam] Fix `[<ImportAll>]` generating invalid `module:*()` Erlang code when binding is used as a value (by @dbrattli)

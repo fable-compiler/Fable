@@ -272,4 +272,10 @@ let tests =
         let x = LangCode.``pt-Br``
 
         equal x LangCode.``pt-Br``
+
+    testCase "sprintf %A quotes string fields in union cases" <| fun () ->
+        // See https://github.com/fable-compiler/Fable/issues/3820
+        type S = S of string
+        let s = sprintf "%A" (S "1")
+        s |> equal "S \"1\""
   ]
