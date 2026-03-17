@@ -863,10 +863,14 @@ let private strings
     | "EndsWith", Some c, [ suffix; _ignoreCase; _culture ] ->
         emitExpr r t [ c; suffix ] "fable_string:ends_with(string:lowercase($0), string:lowercase($1))"
         |> Some
-    // str.Substring(start) → binary:part(Str, Start, byte_size(Str) - Start)
-    | "Substring", Some c, [ start ] -> emitExpr r t [ c; start ] "binary:part($0, $1, byte_size($0) - ($1))" |> Some
-    // str.Substring(start, length) → binary:part(Str, Start, Length)
-    | "Substring", Some c, [ start; len ] -> emitExpr r t [ c; start; len ] "binary:part($0, $1, $2)" |> Some
+    // str.Substring(start)
+    | "Substring", Some c, [ start ] ->
+        Helper.LibCall(com, "fable_string", "substring", t, [ c; start ], ?loc = r)
+        |> Some
+    // str.Substring(start, length)
+    | "Substring", Some c, [ start; len ] ->
+        Helper.LibCall(com, "fable_string", "substring", t, [ c; start; len ], ?loc = r)
+        |> Some
     // str.Replace(old, new)
     | "Replace", Some c, [ oldVal; newVal ] ->
         Helper.LibCall(com, "fable_string", "replace", t, [ c; oldVal; newVal ]) |> Some
@@ -2595,43 +2599,39 @@ let private intrinsicFunctions
         let lower =
             match lower with
             | Value(NewOption(Some lower, _, _), _) -> lower
-            | _ -> makeIntConst 0
+            | Value(NewOption(None, _, _), _) ->
+                Fable.AST.Fable.Expr.Value(Fable.AST.Fable.Null Fable.AST.Fable.Type.Any, None)
+            | _ -> Fable.AST.Fable.Expr.Value(Fable.AST.Fable.Null Fable.AST.Fable.Type.Any, None)
 
-        match upper with
-        | Value(NewOption(None, _, _), _) ->
-            // s.[start..] → binary:part(s, start, byte_size(s) - start)
-            emitExpr r t [ ar; lower ] "binary:part($0, $1, byte_size($0) - ($1))" |> Some
-        | _ ->
-            let upper =
-                match upper with
-                | Value(NewOption(Some upper, _, _), _) -> upper
-                | _ -> makeIntConst 0
+        let upper =
+            match upper with
+            | Value(NewOption(Some upper, _, _), _) -> upper
+            | Value(NewOption(None, _, _), _) ->
+                Fable.AST.Fable.Expr.Value(Fable.AST.Fable.Null Fable.AST.Fable.Type.Any, None)
+            | _ -> Fable.AST.Fable.Expr.Value(Fable.AST.Fable.Null Fable.AST.Fable.Type.Any, None)
 
-            // s.[start..end] → binary:part(s, start, end - start + 1)  (F# slicing is inclusive)
-            emitExpr r t [ ar; lower; upper ] "binary:part($0, ($1), ($2) - ($1) + 1)"
-            |> Some
+        Helper.LibCall(com, "fable_string", "get_slice", t, [ lower; upper; ar ], ?loc = r)
+        |> Some
     | "GetArraySlice", [ ar; lower; upper ] ->
         let ar = derefArr r ar
 
         let lower =
             match lower with
             | Value(NewOption(Some lower, _, _), _) -> lower
-            | _ -> makeIntConst 0
+            | Value(NewOption(None, _, _), _) ->
+                Fable.AST.Fable.Expr.Value(Fable.AST.Fable.Null Fable.AST.Fable.Type.Any, None)
+            | _ -> Fable.AST.Fable.Expr.Value(Fable.AST.Fable.Null Fable.AST.Fable.Type.Any, None)
 
-        match upper with
-        | Value(NewOption(None, _, _), _) ->
-            // arr.[start..] → lists:nthtail(start, arr)
-            emitExpr r t [ ar; lower ] "lists:nthtail($1, $0)" |> wrapArr com r t |> Some
-        | _ ->
-            let upper =
-                match upper with
-                | Value(NewOption(Some upper, _, _), _) -> upper
-                | _ -> makeIntConst 0
+        let upper =
+            match upper with
+            | Value(NewOption(Some upper, _, _), _) -> upper
+            | Value(NewOption(None, _, _), _) ->
+                Fable.AST.Fable.Expr.Value(Fable.AST.Fable.Null Fable.AST.Fable.Type.Any, None)
+            | _ -> Fable.AST.Fable.Expr.Value(Fable.AST.Fable.Null Fable.AST.Fable.Type.Any, None)
 
-            // arr.[start..end] → lists:sublist(arr, start+1, end-start+1)  (1-based)
-            emitExpr r t [ ar; lower; upper ] "lists:sublist($0, ($1) + 1, ($2) - ($1) + 1)"
-            |> wrapArr com r t
-            |> Some
+        Helper.LibCall(com, "fable_list", "get_slice", t, [ lower; upper; ar ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
     | _ -> None
 
 let error (_com: ICompiler) (msg: Expr) = msg

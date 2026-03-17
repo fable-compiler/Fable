@@ -47,7 +47,9 @@
     interpolate/2,
     format/2,
     console_writeline/1,
-    console_write/1
+    console_write/1,
+    substring/2, substring/3,
+    get_slice/3
 ]).
 
 -spec insert(binary(), non_neg_integer(), binary()) -> binary().
@@ -824,6 +826,31 @@ apply_width(Flags, Width, Str) when Width > 0 ->
     end;
 apply_width(_, _, Str) ->
     Str.
+
+%% Substring / GetStringSlice
+
+-spec substring(binary(), non_neg_integer()) -> binary().
+-spec substring(binary(), non_neg_integer(), non_neg_integer()) -> binary().
+-spec get_slice(non_neg_integer() | undefined, non_neg_integer() | undefined, binary()) -> binary().
+
+substring(Str, Start) ->
+    binary:part(Str, Start, byte_size(Str) - Start).
+
+substring(Str, Start, Length) ->
+    binary:part(Str, Start, Length).
+
+get_slice(Lower, Upper, Str) ->
+    Start =
+        case Lower of
+            undefined -> 0;
+            _ -> Lower
+        end,
+    End =
+        case Upper of
+            undefined -> byte_size(Str) - 1;
+            _ -> Upper
+        end,
+    binary:part(Str, Start, End - Start + 1).
 
 %% Console.WriteLine / Console.Write
 console_writeline(Value) when is_binary(Value) ->
