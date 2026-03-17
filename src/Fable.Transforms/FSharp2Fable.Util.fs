@@ -2939,7 +2939,7 @@ module Util =
             // When calling `super` in an override, it may happen the method is not originally declared
             // by the immediate parent, so we need to go through the hierarchy until we find the original declaration
             // (this is important to get the correct mangled name)
-            let entity =
+            let entity, memb =
                 match memb.IsOverrideOrExplicitInterfaceImplementation, callInfo.ThisArg with
                 | true, Some(Fable.Value(Fable.BaseValue _, _)) ->
                     // Only compare param types for overloads (single curried parameter group)
@@ -2952,13 +2952,24 @@ module Util =
                         else
                             None
 
-                    entity
-                    |> tryFindBaseEntity (fun ent ->
-                        tryFindAbstractMember com ent memb.CompiledName memb.IsInstanceMember paramTypes
-                        |> Option.isSome
-                    )
-                    |> Option.defaultValue entity
-                | _ -> entity
+                    let baseEntity =
+                        entity
+                        |> tryFindBaseEntity (fun ent ->
+                            tryFindAbstractMember com ent memb.CompiledName memb.IsInstanceMember paramTypes
+                            |> Option.isSome
+                        )
+                        |> Option.defaultValue entity
+
+                    // Also find the member from the base entity so the overload hash is computed
+                    // with matching generic parameter names. When 'memb' is an override from a
+                    // subclass with different generic param names than the base entity, the hash
+                    // would be wrong if we use the override member with the base entity. (#3895)
+                    let baseMember =
+                        tryFindAbstractMember com baseEntity memb.CompiledName memb.IsInstanceMember paramTypes
+                        |> Option.defaultValue memb
+
+                    baseEntity, baseMember
+                | _ -> entity, memb
 
             callAttachedMember com ctx r typ callInfo entity memb
 

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [JS/TS] Fix `super` call in multi-level generic class hierarchy generating wrong mangled method name (fix #3895)
 * [TS] Annotate `System.Collections.Generic.IList<T>` as `MutableArray<T>` (by @MangelMaxime)
 * [JS/TS] Fix `ResizeArray` index getter/setter not throwing `IndexOutOfRangeException` when index is out of bounds (fix #3812) (by @MangelMaxime)
 * [Beam] Fix unused term warning in try/catch when exception variable is not referenced (by @dbrattli)
