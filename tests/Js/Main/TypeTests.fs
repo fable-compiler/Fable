@@ -544,6 +544,30 @@ type MangledAbstractClass5(v) =
 type ConcreteClass1() =
     inherit MangledAbstractClass5(2)
 
+// See #3895 - super call with generic class hierarchy uses wrong overload hash
+type IGenericAttach3895<'C> =
+    abstract Attach: 'C -> unit
+
+[<AbstractClass>]
+type GenericAttachBase3895<'C>() =
+    let mutable _baseCallCount = 0
+    abstract Attach: 'C -> unit
+    default _.Attach(_owner: 'C) = _baseCallCount <- _baseCallCount + 1
+    member _.BaseCallCount = _baseCallCount
+
+    interface IGenericAttach3895<'C> with
+        member this.Attach(owner: 'C) = this.Attach(owner)
+
+type GenericAttachMid3895<'Container>() =
+    inherit GenericAttachBase3895<'Container>()
+    override this.Attach(owner) =
+        base.Attach(owner)
+
+type GenericAttachLeaf3895() =
+    inherit GenericAttachMid3895<string>()
+    override this.Attach(owner) =
+        base.Attach(owner)
+
 type IndexedProps(v: int) =
     let mutable v = v
     member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
@@ -1390,6 +1414,12 @@ let tests =
     testCase "Can call the base version of a mangled abstract method that was declared above in the hierarchy" <| fun () ->
         let c = ConcreteClass1()
         c.MyMethod(4) |> equal 58
+
+    // See #3895 - super call in generic class hierarchy was using wrong mangled name
+    testCase "Super call works correctly in multi-level generic class hierarchy" <| fun () ->
+        let obj = GenericAttachLeaf3895()
+        obj.Attach("hello")
+        obj.BaseCallCount |> equal 1
 
     // See #3328
     testCase "SRTP works with byref" <| fun () ->
