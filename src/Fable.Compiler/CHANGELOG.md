@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Beam] Fix `[<ImportAll>]` generating invalid `module:*()` Erlang code when binding is used as a value (by @dbrattli)
 * [Beam] Fix string slicing and `Substring` with compound expressions producing wrong `binary:part` length due to missing parentheses in emitted Erlang (by @dbrattli)
 * [Beam] Fix non-ASCII characters in string literals being truncated to single bytes — emit `<<"..."/utf8>>` instead of `<<"...">>` (by @dbrattli)
+* [Beam] Fix `Emit` expressions with `case` leaking variables into surrounding scope — auto-wrap in IIFE for scope isolation (by @dbrattli)
 
 ## 5.0.0-rc.10 - 2026-03-10
 

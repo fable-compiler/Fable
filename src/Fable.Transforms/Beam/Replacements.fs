@@ -975,7 +975,7 @@ let private strings
             r
             t
             [ a; b; compType ]
-            "(fun() -> case $2 of 5 -> string:lowercase($0) =:= string:lowercase($1); _ -> $0 =:= $1 end end)()"
+            "case $2 of 5 -> string:lowercase($0) =:= string:lowercase($1); _ -> $0 =:= $1 end"
         |> Some
     // str.PadLeft(width)
     | "PadLeft", Some c, [ width ] -> Helper.LibCall(com, "fable_string", "pad_left", t, [ c; width ]) |> Some
@@ -1046,7 +1046,7 @@ let private strings
             r
             t
             [ c; arg; compType ]
-            "(fun() -> case $2 of 5 -> string:lowercase($0) =:= string:lowercase($1); _ -> $0 =:= $1 end end)()"
+            "case $2 of 5 -> string:lowercase($0) =:= string:lowercase($1); _ -> $0 =:= $1 end"
         |> Some
     | "CompareTo", Some c, [ arg ] -> compare com r c arg |> Some
     | "GetHashCode", Some c, [] -> Helper.LibCall(com, "fable_comparison", "hash", t, [ c ], ?loc = r) |> Some
@@ -3326,11 +3326,7 @@ let private dictionaries
             // Fall back to inline emitExpr that returns {Bool, Value} as a tuple,
             // then extract just the first element (bool) since the F# desugaring
             // wraps this in {result, get(out_arg)}
-            emitExpr
-                r
-                t
-                [ callee; key ]
-                "(fun() -> case maps:find($1, get($0)) of {ok, _V_} -> _V_; error -> 0 end end)()"
+            emitExpr r t [ callee; key ] "case maps:find($1, get($0)) of {ok, _V_} -> _V_; error -> 0 end"
             |> Some
     | "TryGetValue", Some callee, [ key ] ->
         Helper.LibCall(com, "fable_dictionary", "try_get_value", t, [ callee; key ], ?loc = r)
