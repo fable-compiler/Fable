@@ -3417,12 +3417,12 @@ but thanks to the optimisation done below we get
         open Replacements.Util
         open Fable.Transforms
 
-        /// This function mirrors `Fable.Transforms.JS.Replacements.defaultof`
-        /// for the types we can handle without the full FSharp2Fable compiler context.
+        /// Mirrors `Fable.Transforms.JS.Replacements.defaultof` for the types we can handle
+        /// without the full FSharp2Fable compiler context (which that function requires).
         let rec forType (com: IBabelCompiler) ctx (t: Fable.Type) : Expression =
             match t with
             | Fable.Nullable _ -> Expression.nullLiteral ()
-            // Struct tuples are value types — initialize each element
+            // Struct tuples are value types — initialize each element to its zero
             | Fable.Tuple(args, true) -> Expression.arrayExpression (args |> List.map (forType com ctx) |> List.toArray)
             | Fable.Boolean -> Expression.booleanLiteral false
             | Fable.Char -> Expression.stringLiteral "\u0000"
@@ -3495,53 +3495,26 @@ but thanks to the optimisation done below we get
             ClassMember.classMethod (ClassPrimaryConstructor consArgsModifiers, consArgs, Some consBody)
 
         let classFields =
-            if not ent.IsFSharpUnion then
+            if com.IsTypeScript && not ent.IsFSharpUnion then
                 ent.FSharpFields
-                |> List.choose (fun field ->
+                |> List.mapToArray (fun field ->
                     let prop, isComputed = memberFromName field.Name
+                    let ta = makeFieldAnnotation com ctx field.FieldType
+                    // Static fields need to be initialized by static constructor
+                    let am =
+                        if field.IsMutable || field.IsStatic then
+                            None
+                        else
+                            Some Readonly
 
-                    if field.IsStatic then
-                        let defaultValue =
-                            if field.HasDefaultValueAttribute then
-                                DefaultValue.forType com ctx field.FieldType |> Some
-                            else
-                                None
-
-                        let ta =
-                            if com.IsTypeScript then
-                                makeFieldAnnotation com ctx field.FieldType |> Some
-                            else
-                                None
-
-                        ClassMember.classProperty (
-                            prop,
-                            ?value = defaultValue,
-                            isComputed = isComputed,
-                            isStatic = true,
-                            ?typeAnnotation = ta
-                        )
-                        |> Some
-                    elif com.IsTypeScript then
-                        let ta = makeFieldAnnotation com ctx field.FieldType
-
-                        let am =
-                            if field.IsMutable then
-                                None
-                            else
-                                Some Readonly
-
-                        ClassMember.classProperty (
-                            prop,
-                            isComputed = isComputed,
-                            isStatic = false,
-                            typeAnnotation = ta,
-                            ?accessModifier = am
-                        )
-                        |> Some
-                    else
-                        None
+                    ClassMember.classProperty (
+                        prop,
+                        isComputed = isComputed,
+                        isStatic = field.IsStatic,
+                        typeAnnotation = ta,
+                        ?accessModifier = am
+                    )
                 )
-                |> List.toArray
             else
                 Array.empty
 
@@ -3571,6 +3544,45 @@ but thanks to the optimisation done below we get
         else
             None
         |> declareClassWithParams com ctx ent entName consArgs [||] consBody superClass classMembers
+
+    /// Emits an IIFE that zero-initializes all static [<DefaultValue>] fields of a class.
+    ///
+    /// ```
+    /// [<DefaultValue>]
+    /// static val mutable MyField: int
+    /// ```
+    ///
+    /// This mirrors the pattern used for `static let mutable` bindings, which FCS compiles
+    /// to a `.cctor` that Fable emits as an IIFE.
+    let declareDefaultValueStaticFieldInits
+        (com: IBabelCompiler)
+        ctx
+        (ent: Fable.Entity)
+        (entName: string)
+        : ModuleDeclaration list
+        =
+        let defaultValueFields =
+            ent.FSharpFields
+            |> List.filter (fun f -> f.IsStatic && f.HasDefaultValueAttribute)
+
+        if defaultValueFields.IsEmpty then
+            []
+        else
+            let classIdent = Expression.identifier entName
+
+            let assignments =
+                defaultValueFields
+                |> List.map (fun field ->
+                    let left = get None classIdent field.Name
+                    let right = DefaultValue.forType com ctx field.FieldType
+                    assign None left right |> ExpressionStatement
+                )
+                |> List.toArray
+
+            let iife =
+                Expression.callExpression (Expression.functionExpression ([||], BlockStatement(assignments)), [||])
+
+            [ iife |> ExpressionStatement |> PrivateModuleDeclaration ]
 
     let declareTypeReflection (com: IBabelCompiler) ctx (ent: Fable.Entity) entName : ModuleDeclaration =
         let ta =
@@ -3609,12 +3621,14 @@ but thanks to the optimisation done below we get
         let typeDeclaration =
             declareClass com ctx ent entName consArgs consBody baseExpr classMembers
 
+        let fieldInits = declareDefaultValueStaticFieldInits com ctx ent entName
+
         if com.Options.NoReflection then
-            [ typeDeclaration ]
+            [ typeDeclaration; yield! fieldInits ]
         else
             let reflectionDeclaration = declareTypeReflection com ctx ent entName
 
-            [ typeDeclaration; reflectionDeclaration ]
+            [ typeDeclaration; reflectionDeclaration; yield! fieldInits ]
 
     let hasAttribute fullName (atts: Fable.Attribute seq) =
         atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
