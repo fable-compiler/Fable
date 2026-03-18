@@ -580,6 +580,11 @@ let tests =
         equal dt2.Hour dt.Hour
         equal dt2.Minute dt.Minute
 
+    testCase "Implicit conversion from DateTime to DateTimeOffset works" <| fun () ->
+        let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+        let dto: DateTimeOffset = d
+        dto.UtcDateTime |> equal d
+
     testCase "DateTime.Hour works" <| fun () ->
         let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
         d.Hour |> equal 13
