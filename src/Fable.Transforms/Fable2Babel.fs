@@ -3411,6 +3411,30 @@ but thanks to the optimisation done below we get
     let sanitizeName fieldName =
         fieldName |> Naming.sanitizeJsIdentForbiddenChars |> Naming.checkJsKeywords
 
+    [<RequireQualifiedAccess>]
+    module DefaultValue =
+
+        open Replacements.Util
+        open Fable.Transforms
+
+        /// This function mirrors `Fable.Transforms.JS.Replacements.defaultof`
+        /// for the types we can handle without the full FSharp2Fable compiler context.
+        let rec forType (com: IBabelCompiler) ctx (t: Fable.Type) : Expression =
+            match t with
+            | Fable.Nullable _ -> Expression.nullLiteral ()
+            // Struct tuples are value types — initialize each element
+            | Fable.Tuple(args, true) -> Expression.arrayExpression (args |> List.map (forType com ctx) |> List.toArray)
+            | Fable.Boolean -> Expression.booleanLiteral false
+            | Fable.Char -> Expression.stringLiteral "\u0000"
+            | Fable.Number(kind, uom) ->
+                com.TransformAsExpr(ctx, Fable.NumberConstant(Fable.NumberValue.GetZero kind, uom) |> makeValue None)
+            | Builtin(BclTimeSpan | BclTimeOnly) -> Expression.numericLiteral 0
+            | Builtin BclGuid -> Expression.stringLiteral "00000000-0000-0000-0000-000000000000"
+            | Builtin BclDateTime -> libCall com ctx None "Date" "minValue" [] []
+            | Builtin BclDateTimeOffset -> libCall com ctx None "DateOffset" "minValue" [] []
+            | Builtin BclDateOnly -> libCall com ctx None "DateOnly" "minValue" [] []
+            | _ -> libCall com ctx None "Util" "defaultOf" [] []
+
     let getEntityFieldsAsIdents (ent: Fable.Entity) =
         ent.FSharpFields
         |> List.choose (fun field ->
@@ -3471,26 +3495,53 @@ but thanks to the optimisation done below we get
             ClassMember.classMethod (ClassPrimaryConstructor consArgsModifiers, consArgs, Some consBody)
 
         let classFields =
-            if com.IsTypeScript && not ent.IsFSharpUnion then
+            if not ent.IsFSharpUnion then
                 ent.FSharpFields
-                |> List.mapToArray (fun field ->
+                |> List.choose (fun field ->
                     let prop, isComputed = memberFromName field.Name
-                    let ta = makeFieldAnnotation com ctx field.FieldType
-                    // Static fields need to be initialized by static constructor
-                    let am =
-                        if field.IsMutable || field.IsStatic then
-                            None
-                        else
-                            Some Readonly
 
-                    ClassMember.classProperty (
-                        prop,
-                        isComputed = isComputed,
-                        isStatic = field.IsStatic,
-                        typeAnnotation = ta,
-                        ?accessModifier = am
-                    )
+                    if field.IsStatic then
+                        let defaultValue =
+                            if field.HasDefaultValueAttribute then
+                                DefaultValue.forType com ctx field.FieldType |> Some
+                            else
+                                None
+
+                        let ta =
+                            if com.IsTypeScript then
+                                makeFieldAnnotation com ctx field.FieldType |> Some
+                            else
+                                None
+
+                        ClassMember.classProperty (
+                            prop,
+                            ?value = defaultValue,
+                            isComputed = isComputed,
+                            isStatic = true,
+                            ?typeAnnotation = ta
+                        )
+                        |> Some
+                    elif com.IsTypeScript then
+                        let ta = makeFieldAnnotation com ctx field.FieldType
+
+                        let am =
+                            if field.IsMutable then
+                                None
+                            else
+                                Some Readonly
+
+                        ClassMember.classProperty (
+                            prop,
+                            isComputed = isComputed,
+                            isStatic = false,
+                            typeAnnotation = ta,
+                            ?accessModifier = am
+                        )
+                        |> Some
+                    else
+                        None
                 )
+                |> List.toArray
             else
                 Array.empty
 

@@ -676,10 +676,10 @@ let makeHashSet (com: ICompiler) ctx r t sourceSeq =
 let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
-    | Char
+    | Char -> makeCharConst '\000'
     | String -> makeStrConst "" // TODO: Use null for string?
     | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
-    | Builtin(BclTimeSpan | BclTimeOnly) -> makeIntConst 0 // TODO: Type cast
+    | Builtin(BclTimeSpan | BclTimeOnly) -> TypeCast(makeIntConst 0, t)
     | Builtin BclDateTime as t -> Helper.LibCall(com, "Date", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
     | Builtin BclDateOnly as t -> Helper.LibCall(com, "DateOnly", "minValue", t, [])
@@ -994,6 +994,7 @@ let rec defaultof (com: ICompiler) (ctx: Context) r t =
             Helper.LibCall(com, "Util", "defaultOf", t, [], ?loc = r)
         )
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
+    | Char -> makeCharConst '\000'
     | _ ->
         // Null t |> makeValue None
         Helper.LibCall(com, "Util", "defaultOf", t, [], ?loc = r)

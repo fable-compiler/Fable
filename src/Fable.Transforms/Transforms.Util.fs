@@ -44,6 +44,9 @@ module Atts =
     let mangle = "Fable.Core.MangleAttribute" // typeof<Fable.Core.MangleAttribute>.FullName
 
     [<Literal>]
+    let defaultValue = "Microsoft.FSharp.Core.DefaultValueAttribute" // typeof<Microsoft.FSharp.Core.DefaultValueAttribute>.FullName
+
+    [<Literal>]
     let attachMembers = "Fable.Core.AttachMembersAttribute"
 
     [<Literal>]
@@ -1042,6 +1045,7 @@ module AST =
 
     let makeBoolConst (x: bool) = BoolConstant x |> makeValue None
     let makeStrConst (x: string) = StringConstant x |> makeValue None
+    let makeCharConst (x: char) = CharConstant x |> makeValue None
 
     let makeIntConst (x: int) =
         NumberConstant(NumberValue.Int32 x, NumberInfo.Empty) |> makeValue None

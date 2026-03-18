@@ -329,6 +329,107 @@ type Test_TestTypeWithParameterizedUnitMeasure = {
 //     [<DefaultValue>] val mutable StringValue: string
 //     [<DefaultValue>] val mutable ObjValue: System.Collections.Generic.Dictionary<string, string>
 
+[<AllowNullLiteral>]
+type MyUser =
+    class end
+
+// See #2739: static [<DefaultValue>] fields must be zero-initialized in JS/TS
+type ClassWithDefaultValueStaticFields() =
+
+    [<DefaultValue>]
+    static val mutable private int: int
+    [<DefaultValue>]
+    static val mutable private bool: bool
+    [<DefaultValue>]
+    static val mutable private string: string
+    [<DefaultValue>]
+    static val mutable private guid: Guid
+    [<DefaultValue>]
+    static val mutable private char: char
+
+    [<DefaultValue>]
+    static val mutable private dateTime: DateTime
+
+    [<DefaultValue>]
+    static val mutable private timeOnly : TimeOnly
+    [<DefaultValue>]
+    static val mutable private dateOnly : DateOnly
+    [<DefaultValue>]
+    static val mutable private dateTimeOffset : DateTimeOffset
+    [<DefaultValue>]
+    static val mutable private int8 : int8
+    [<DefaultValue>]
+    static val mutable private uInt8 : uint8
+    [<DefaultValue>]
+    static val mutable private int16 : Int16
+    [<DefaultValue>]
+    static val mutable private uInt16 : UInt16
+    [<DefaultValue>]
+    static val mutable private int32 : Int32
+    [<DefaultValue>]
+    static val mutable private uInt32 : UInt32
+    [<DefaultValue>]
+    static val mutable private int64 : Int64
+    [<DefaultValue>]
+    static val mutable private uInt64 : UInt64
+    [<DefaultValue>]
+    static val mutable private bigInt : bigint
+    [<DefaultValue>]
+    static val mutable private nativeInt : nativeint
+    [<DefaultValue>]
+    static val mutable private uNativeInt : unativeint
+    [<DefaultValue>]
+    static val mutable private float32 : float32
+    [<DefaultValue>]
+    static val mutable private float64 : float
+    [<DefaultValue>]
+    static val mutable private decimal : Decimal
+
+    [<DefaultValue>]
+    static val mutable private timeSpan: TimeSpan
+    [<DefaultValue>]
+    static val mutable private allowNullLiteralClass: MyUser
+    [<DefaultValue>]
+    static val mutable private nullableInt: Nullable<int>
+    [<DefaultValue>]
+    static val mutable private tuple2: TimeSpan * DateTime
+    [<DefaultValue>]
+    static val mutable private structTuple2: struct (TimeSpan * DateTime)
+
+    static member IncrCount() =
+        ClassWithDefaultValueStaticFields.int <- ClassWithDefaultValueStaticFields.int + 1
+        ClassWithDefaultValueStaticFields.int
+
+    static member Int = ClassWithDefaultValueStaticFields.int
+    static member Bool = ClassWithDefaultValueStaticFields.bool
+    static member String = ClassWithDefaultValueStaticFields.string
+    static member Guid = ClassWithDefaultValueStaticFields.guid
+    static member Char = ClassWithDefaultValueStaticFields.char
+    static member TimeSpan = ClassWithDefaultValueStaticFields.timeSpan
+    static member AllowNullLiteralClass = ClassWithDefaultValueStaticFields.allowNullLiteralClass
+    static member NullableInt = ClassWithDefaultValueStaticFields.nullableInt
+    static member Tuple2 = ClassWithDefaultValueStaticFields.tuple2
+    static member DateTime = ClassWithDefaultValueStaticFields.dateTime
+    static member TimeOnly = ClassWithDefaultValueStaticFields.timeOnly
+    static member DateOnly = ClassWithDefaultValueStaticFields.dateOnly
+    static member DateTimeOffset = ClassWithDefaultValueStaticFields.dateTimeOffset
+    static member Int8 = ClassWithDefaultValueStaticFields.int8
+    static member UInt8 = ClassWithDefaultValueStaticFields.uInt8
+    static member Int16 = ClassWithDefaultValueStaticFields.int16
+    static member UInt16 = ClassWithDefaultValueStaticFields.uInt16
+    static member Int32 = ClassWithDefaultValueStaticFields.int32
+    static member UInt32 = ClassWithDefaultValueStaticFields.uInt32
+    static member Int64 = ClassWithDefaultValueStaticFields.int64
+    static member UInt64 = ClassWithDefaultValueStaticFields.uInt64
+    static member BigInt = ClassWithDefaultValueStaticFields.bigInt
+    static member NativeInt = ClassWithDefaultValueStaticFields.nativeInt
+    static member UNativeInt = ClassWithDefaultValueStaticFields.uNativeInt
+    static member Float32 = ClassWithDefaultValueStaticFields.float32
+    static member Float64 = ClassWithDefaultValueStaticFields.float64
+    static member Decimal = ClassWithDefaultValueStaticFields.decimal
+    static member StructTuple2 = ClassWithDefaultValueStaticFields.structTuple2
+
+
 type Default1 = int
 
 type Distinct1 =
@@ -1470,4 +1571,33 @@ let tests =
 
         let result3 = getTwoValues<TestTypeB, TestTypeC>()
         result3 |> equal ("B", "C")
+
+    // See https://github.com/fable-compiler/Fable/issues/2739
+    testCase "Static [<DefaultValue>] fields are zero-initialized" <| fun () ->
+        ClassWithDefaultValueStaticFields.Int |> equal 0
+        ClassWithDefaultValueStaticFields.Bool |> equal false
+        ClassWithDefaultValueStaticFields.String |> equal null
+        ClassWithDefaultValueStaticFields.Guid |> equal Guid.Empty
+        ClassWithDefaultValueStaticFields.Char |> equal '\000'
+        ClassWithDefaultValueStaticFields.TimeSpan |> equal TimeSpan.Zero
+        ClassWithDefaultValueStaticFields.TimeOnly |> equal TimeOnly.MinValue
+        ClassWithDefaultValueStaticFields.DateOnly |> equal DateOnly.MinValue
+        ClassWithDefaultValueStaticFields.DateTime |> equal DateTime.MinValue
+        ClassWithDefaultValueStaticFields.DateTimeOffset |> equal DateTimeOffset.MinValue
+        ClassWithDefaultValueStaticFields.Int8 |> equal 0y
+        ClassWithDefaultValueStaticFields.UInt8 |> equal 0uy
+        ClassWithDefaultValueStaticFields.Int16 |> equal 0s
+        ClassWithDefaultValueStaticFields.UInt16 |> equal 0us
+        ClassWithDefaultValueStaticFields.Int32 |> equal 0
+        ClassWithDefaultValueStaticFields.UInt32 |> equal 0u
+        ClassWithDefaultValueStaticFields.Int64 |> equal 0L
+        ClassWithDefaultValueStaticFields.UInt64 |> equal 0UL
+        ClassWithDefaultValueStaticFields.BigInt |> equal 0I
+        ClassWithDefaultValueStaticFields.NativeInt |> equal 0n
+        ClassWithDefaultValueStaticFields.UNativeInt |> equal 0un
+        ClassWithDefaultValueStaticFields.Float32 |> equal 0.f
+        ClassWithDefaultValueStaticFields.Float64 |> equal 0.
+        ClassWithDefaultValueStaticFields.Decimal |> equal 0M
+
+        ClassWithDefaultValueStaticFields.IncrCount() |> equal 1
   ]
