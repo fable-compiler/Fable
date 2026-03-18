@@ -77,7 +77,7 @@ type FsField(fi: FSharpField) =
         member _.IsMutable = fi.IsMutable
 
         member _.HasDefaultValueAttribute =
-            fi.Attributes |> Helpers.tryFindAttrib Atts.defaultValue |> Option.isSome
+            fi.FieldAttributes |> Helpers.hasAttrib Atts.defaultValue
 
     static member FSharpFieldName(fi: FSharpField) =
         let rec countConflictingCases acc (ent: FSharpEntity) (name: string) =
