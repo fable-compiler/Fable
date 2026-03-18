@@ -39,16 +39,23 @@ export function toString(x: any, callStack = 0): string {
 }
 
 export function unionToString(name: string, fields: any[]) {
+  function unionFieldToString(x: any): string {
+    if (typeof x === "string") {
+      return '"' + x + '"';
+    }
+    return toString(x);
+  }
+
   if (fields.length === 0) {
     return name;
   } else {
     let fieldStr;
     let withParens = true;
     if (fields.length === 1) {
-      fieldStr = toString(fields[0]);
+      fieldStr = unionFieldToString(fields[0]);
       withParens = fieldStr.indexOf(" ") >= 0;
     } else {
-      fieldStr = fields.map((x: any) => toString(x)).join(", ");
+      fieldStr = fields.map((x: any) => unionFieldToString(x)).join(", ");
     }
     return name + (withParens ? " (" : " ") + fieldStr + (withParens ? ")" : "");
   }
