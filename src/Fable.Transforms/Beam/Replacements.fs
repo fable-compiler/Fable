@@ -128,14 +128,13 @@ let private operators
     // Nullable active patterns and helpers
     | "NullMatchPattern", [ arg ] ->
         // Returns {0, ok} (Some(())) if null, {1} (None) otherwise
-        emitExpr r _t [ arg ] "(case $0 of undefined -> {0, ok}; _ -> {1} end)" |> Some
+        emitExpr r _t [ arg ] "case $0 of undefined -> {0, ok}; _ -> {1} end" |> Some
     | ("NonNull" | "NonNullV"), [ arg ] -> Some arg // Identity - just return the value
     | ("NonNullQuickPattern" | "NonNullQuickValuePattern"), [ arg ] ->
         // Returns {0, x} (Some(x)) if non-null, {1} (None) otherwise
-        emitExpr r _t [ arg ] "(case $0 of undefined -> {1}; X___ -> {0, X___} end)"
+        emitExpr r _t [ arg ] "case $0 of undefined -> {1}; X___ -> {0, X___} end"
         |> Some
-    | "NullValueMatchPattern", [ arg ] ->
-        emitExpr r _t [ arg ] "(case $0 of undefined -> {0, ok}; _ -> {1} end)" |> Some
+    | "NullValueMatchPattern", [ arg ] -> emitExpr r _t [ arg ] "case $0 of undefined -> {0, ok}; _ -> {1} end" |> Some
     | ("WithNull" | "WithNullV"), [ arg ] -> Some arg // Identity
     | "NullV", [] -> Value(Null _t, r) |> Some
     | ("IsNullV"), [ arg ] -> emitExpr r _t [ arg ] "($0 =:= undefined)" |> Some
@@ -144,7 +143,7 @@ let private operators
             r
             _t
             [ argName; arg ]
-            "(case $1 of undefined -> erlang:error({badarg, <<\"Value cannot be null. Parameter name: \", $0/binary>>}); _ -> $1 end)"
+            "case $1 of undefined -> erlang:error({badarg, <<\"Value cannot be null. Parameter name: \", $0/binary>>}); _ -> $1 end"
         |> Some
     // Lock — no-op in Erlang (processes are isolated), just call the action
     | "Lock", [ _lockObj; action ] -> CurriedApply(action, [ Value(UnitConstant, None) ], _t, r) |> Some
