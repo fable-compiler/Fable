@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Beam] Fix "no effect" warning for pure BIF calls (`self/0`, `node/0`) in non-final block positions (by @dbrattli)
 * [Beam] Fix `reraise()` generating unbound `MatchValue` variable — use raw Erlang reason variable for re-throw (by @dbrattli)
 * [Beam] Fix `Erlang.receive<'T>()` resolving to timeout overload due to F# unit argument (by @dbrattli)
+* [JS/TS] Generate comments for members in class decorated with `[<AttachMembers>]` (by @MangelMaxime)
 * [Beam] Fix `[<ImportAll>]` generating invalid `module:*()` Erlang code when binding is used as a value (by @dbrattli)
 * [Beam] Fix string slicing and `Substring` with compound expressions producing wrong `binary:part` length due to missing parentheses in emitted Erlang (by @dbrattli)
 * [Beam] Fix non-ASCII characters in string literals being truncated to single bytes — emit `<<"..."/utf8>>` instead of `<<"...">>` (by @dbrattli)

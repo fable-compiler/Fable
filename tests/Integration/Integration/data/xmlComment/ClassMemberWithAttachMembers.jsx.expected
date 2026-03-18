@@ -1,0 +1,33 @@
+
+import { class_type } from "./fable_modules/fable-library-js.5.0.0-rc.3/Reflection.js";
+
+/**
+ * My superb class with attachments and doc comments
+ */
+export class ClassWithAttachmentsAndDoc {
+    constructor(v) {
+        this.v = (v | 0);
+    }
+    /**
+     * Gets the value
+     */
+    get Value() {
+        const _ = this;
+        return _.v | 0;
+    }
+    /**
+     * Returns a greeting
+     */
+    Greet(name) {
+        const _ = this;
+        return `Hello, ${name}! Value is ${_.v}.`;
+    }
+}
+
+export function ClassWithAttachmentsAndDoc_$reflection() {
+    return class_type("ClassMemberClassMemberWithAttachMembers.ClassWithAttachmentsAndDoc", undefined, ClassWithAttachmentsAndDoc);
+}
+
+export function ClassWithAttachmentsAndDoc_$ctor_Z524259A4(v) {
+    return new ClassWithAttachmentsAndDoc(v);
+}
