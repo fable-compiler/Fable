@@ -481,7 +481,9 @@ module Output =
             // template is expanded more than once in the same clause, the second
             // expansion reuses variable names causing "unsafe variable" errors.
             // Wrap binding-capable Emits in (fun() -> ... end)() to isolate scope.
-            let needsWrapping = not (result.StartsWith("(fun()")) && result.Contains("case ")
+            let needsWrapping =
+                not (result.StartsWith("(fun()", System.StringComparison.Ordinal))
+                && result.Contains("case ")
 
             if needsWrapping then
                 sb.Append("(fun() -> ") |> ignore
