@@ -745,7 +745,11 @@ module private Transforms =
             Emit({ emitInfo with CallInfo = { callInfo with Args = args } }, t, r)
         // Uncurry also values in setters or new record/union/tuple
         | Value(NewRecord(args, ent, genArgs), r) ->
-            let args = com.GetEntity(ent).FSharpFields |> uncurryConsArgs args
+            let args =
+                com.GetEntity(ent).FSharpFields
+                |> Seq.filter (fun f -> not f.IsStatic)
+                |> uncurryConsArgs args
+
             Value(NewRecord(args, ent, genArgs), r)
         | Value(NewAnonymousRecord(args, fieldNames, genArgs, isStruct), r) ->
             let args = uncurryArgs com false genArgs args

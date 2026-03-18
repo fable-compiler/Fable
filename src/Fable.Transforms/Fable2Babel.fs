@@ -176,12 +176,15 @@ module Reflection =
 
         let fields =
             ent.FSharpFields
-            |> List.map (fun fi ->
-                let fieldName = sanitizeMemberName fi.Name |> Expression.stringLiteral
+            |> List.choose (fun fi ->
+                if fi.IsStatic then
+                    None
+                else
+                    let fieldName = sanitizeMemberName fi.Name |> Expression.stringLiteral
 
-                let typeInfo = transformTypeInfoFor Reflection com ctx r genMap fi.FieldType
+                    let typeInfo = transformTypeInfoFor Reflection com ctx r genMap fi.FieldType
 
-                Expression.arrayExpression ([| fieldName; typeInfo |])
+                    Some(Expression.arrayExpression ([| fieldName; typeInfo |]))
             )
             |> List.toArray
 
@@ -815,6 +818,7 @@ module Annotation =
         | Types.iobservableGeneric ->
             makeFableLibImportTypeAnnotation com ctx genArgs "Observable" "IObservable"
             |> Some
+        | Types.ilistGeneric -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "MutableArray" |> Some
         | "Microsoft.FSharp.Control.IEvent`1" ->
             makeFableLibImportTypeAnnotation com ctx genArgs "Event" "IEvent" |> Some
         | Types.ievent2 -> makeFableLibImportTypeAnnotation com ctx genArgs "Event" "IEvent$2" |> Some
@@ -3410,10 +3414,13 @@ but thanks to the optimisation done below we get
 
     let getEntityFieldsAsIdents (ent: Fable.Entity) =
         ent.FSharpFields
-        |> List.map (fun field ->
-            let name = sanitizeName field.Name
-            let typ = field.FieldType
-            { makeTypedIdent typ name with IsMutable = field.IsMutable }
+        |> List.choose (fun field ->
+            if field.IsStatic then
+                None
+            else
+                let name = sanitizeName field.Name
+                let typ = field.FieldType
+                Some { makeTypedIdent typ name with IsMutable = field.IsMutable }
         )
 
     let declareClassWithParams
@@ -4018,6 +4025,7 @@ but thanks to the optimisation done below we get
                         yield callSuperAsStatement []
                     yield!
                         ent.FSharpFields
+                        |> List.filter (fun field -> not field.IsStatic)
                         |> List.mapi (fun i field ->
                             let left = get None thisExpr field.Name
 

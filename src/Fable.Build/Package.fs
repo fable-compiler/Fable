@@ -44,6 +44,7 @@ let handle (args: string list) =
         |> CmdLine.appendRaw Fsproj.fableCli
         |> CmdLine.appendPrefix "-c" "Release"
         // By pass the PackageVersion in the fsproj, without having to modify it on the disk
+        |> CmdLine.appendRaw "-p:EasyBuildPackageReleaseNotes_DisableSetVersion=true"
         |> CmdLine.appendRaw $"-p:PackageVersion={tempVersion}"
         |> CmdLine.appendPrefix "-o" packageDestination
         |> CmdLine.toString
@@ -56,6 +57,7 @@ let handle (args: string list) =
         |> CmdLine.appendRaw Fsproj.fableCompiler
         |> CmdLine.appendPrefix "-c" "Release"
         // By pass the PackageVersion in the fsproj, without having to modify it on the disk
+        |> CmdLine.appendRaw "-p:EasyBuildPackageReleaseNotes_DisableSetVersion=true"
         |> CmdLine.appendRaw $"-p:PackageVersion={tempVersion}"
         |> CmdLine.appendPrefix "-o" packageDestination
         |> CmdLine.toString
@@ -71,6 +73,7 @@ let handle (args: string list) =
         |> CmdLine.appendRaw Fsproj.fableCore
         |> CmdLine.appendPrefix "-c" "Release"
         // By pass the PackageVersion in the fsproj, without having to modify it on the disk
+        |> CmdLine.appendRaw "-p:EasyBuildPackageReleaseNotes_DisableSetVersion=true"
         |> CmdLine.appendRaw $"-p:PackageVersion={tempVersion}"
         |> CmdLine.appendPrefix "-o" packageDestination
         |> CmdLine.toString
