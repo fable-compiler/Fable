@@ -108,6 +108,11 @@ type RecvMsg =
     | DataMsg of x: int * y: string
     | [<CompiledName("EXIT")>] Exit of pid: int * reason: string
 
+// Emit with case expression — calling twice in the same function
+// would cause "unsafe variable" errors without scope isolation
+[<Emit("case $0 of true -> <<\"yes\">>; false -> <<\"no\">> end")>]
+let boolToString (x: bool) : string = nativeOnly
+
 #endif
 
 // ============================================================
@@ -163,6 +168,19 @@ let ``test emitErlExpr can call Erlang functions`` () =
 #if FABLE_COMPILER
     let result: int = emitErlExpr (3, 4) "erlang:max($0, $1)"
     equal 4 result
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Emit with case expression called twice does not leak variables`` () =
+#if FABLE_COMPILER
+    // Two calls to the same Emit-with-case in one function would cause
+    // Erlang "unsafe variable" errors without IIFE scope isolation
+    let a = boolToString true
+    let b = boolToString false
+    equal "yes" a
+    equal "no" b
 #else
     ()
 #endif

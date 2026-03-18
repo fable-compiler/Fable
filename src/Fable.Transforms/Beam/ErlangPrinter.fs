@@ -476,7 +476,21 @@ module Output =
                 result <- result.Replace($"$%d{i}", argSb.ToString())
             )
 
-            sb.Append(result) |> ignore
+            // Erlang has flat variable scoping — variables bound inside case/begin
+            // blocks leak into the surrounding function clause. When the same Emit
+            // template is expanded more than once in the same clause, the second
+            // expansion reuses variable names causing "unsafe variable" errors.
+            // Wrap binding-capable Emits in (fun() -> ... end)() to isolate scope.
+            let needsWrapping =
+                not (result.StartsWith("(fun()", System.StringComparison.Ordinal))
+                && result.Contains("case ")
+
+            if needsWrapping then
+                sb.Append("(fun() -> ") |> ignore
+                sb.Append(result) |> ignore
+                sb.Append(" end)()") |> ignore
+            else
+                sb.Append(result) |> ignore
 
         | Receive(clauses, after) ->
             sb.AppendLine("receive") |> ignore

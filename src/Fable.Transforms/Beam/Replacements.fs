@@ -128,14 +128,13 @@ let private operators
     // Nullable active patterns and helpers
     | "NullMatchPattern", [ arg ] ->
         // Returns {0, ok} (Some(())) if null, {1} (None) otherwise
-        emitExpr r _t [ arg ] "(case $0 of undefined -> {0, ok}; _ -> {1} end)" |> Some
+        emitExpr r _t [ arg ] "case $0 of undefined -> {0, ok}; _ -> {1} end" |> Some
     | ("NonNull" | "NonNullV"), [ arg ] -> Some arg // Identity - just return the value
     | ("NonNullQuickPattern" | "NonNullQuickValuePattern"), [ arg ] ->
         // Returns {0, x} (Some(x)) if non-null, {1} (None) otherwise
-        emitExpr r _t [ arg ] "(case $0 of undefined -> {1}; X___ -> {0, X___} end)"
+        emitExpr r _t [ arg ] "case $0 of undefined -> {1}; X___ -> {0, X___} end"
         |> Some
-    | "NullValueMatchPattern", [ arg ] ->
-        emitExpr r _t [ arg ] "(case $0 of undefined -> {0, ok}; _ -> {1} end)" |> Some
+    | "NullValueMatchPattern", [ arg ] -> emitExpr r _t [ arg ] "case $0 of undefined -> {0, ok}; _ -> {1} end" |> Some
     | ("WithNull" | "WithNullV"), [ arg ] -> Some arg // Identity
     | "NullV", [] -> Value(Null _t, r) |> Some
     | ("IsNullV"), [ arg ] -> emitExpr r _t [ arg ] "($0 =:= undefined)" |> Some
@@ -144,7 +143,7 @@ let private operators
             r
             _t
             [ argName; arg ]
-            "(case $1 of undefined -> erlang:error({badarg, <<\"Value cannot be null. Parameter name: \", $0/binary>>}); _ -> $1 end)"
+            "case $1 of undefined -> erlang:error({badarg, <<\"Value cannot be null. Parameter name: \", $0/binary>>}); _ -> $1 end"
         |> Some
     // Lock — no-op in Erlang (processes are isolated), just call the action
     | "Lock", [ _lockObj; action ] -> CurriedApply(action, [ Value(UnitConstant, None) ], _t, r) |> Some
@@ -975,7 +974,7 @@ let private strings
             r
             t
             [ a; b; compType ]
-            "(fun() -> case $2 of 5 -> string:lowercase($0) =:= string:lowercase($1); _ -> $0 =:= $1 end end)()"
+            "case $2 of 5 -> string:lowercase($0) =:= string:lowercase($1); _ -> $0 =:= $1 end"
         |> Some
     // str.PadLeft(width)
     | "PadLeft", Some c, [ width ] -> Helper.LibCall(com, "fable_string", "pad_left", t, [ c; width ]) |> Some
@@ -1046,7 +1045,7 @@ let private strings
             r
             t
             [ c; arg; compType ]
-            "(fun() -> case $2 of 5 -> string:lowercase($0) =:= string:lowercase($1); _ -> $0 =:= $1 end end)()"
+            "case $2 of 5 -> string:lowercase($0) =:= string:lowercase($1); _ -> $0 =:= $1 end"
         |> Some
     | "CompareTo", Some c, [ arg ] -> compare com r c arg |> Some
     | "GetHashCode", Some c, [] -> Helper.LibCall(com, "fable_comparison", "hash", t, [ c ], ?loc = r) |> Some
@@ -3326,11 +3325,7 @@ let private dictionaries
             // Fall back to inline emitExpr that returns {Bool, Value} as a tuple,
             // then extract just the first element (bool) since the F# desugaring
             // wraps this in {result, get(out_arg)}
-            emitExpr
-                r
-                t
-                [ callee; key ]
-                "(fun() -> case maps:find($1, get($0)) of {ok, _V_} -> _V_; error -> 0 end end)()"
+            emitExpr r t [ callee; key ] "case maps:find($1, get($0)) of {ok, _V_} -> _V_; error -> 0 end"
             |> Some
     | "TryGetValue", Some callee, [ key ] ->
         Helper.LibCall(com, "fable_dictionary", "try_get_value", t, [ callee; key ], ?loc = r)
