@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [JS/TS] Fix `Array.zeroCreate` producing `null` for user-defined struct (value type) elements instead of a default-initialized instance (by @MangelMaxime)
 * [All] Fix interpolated string holes missing format specifiers in State.fs and Python/Replacements.fs (code scanning alerts 1144, 1145, 1512)
 * [Rust] Replace unsafe `.IsSome && .Value` option pattern with `Option.exists` in Fable2Rust.fs (code scanning alert 1125)
 * [JS/TS] Fix `Unchecked.defaultof<char>` being emitted as `null` instead of `'\0'` (by @MangelMaxime)
