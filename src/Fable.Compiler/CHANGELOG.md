@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-rc.10 - 2026-03-19
+
 ### Fixed
 
 * [JS/TS] Fix `Array.zeroCreate` producing `null` for user-defined struct (value type) elements instead of a default-initialized instance (by @MangelMaxime)

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 2.0.0-rc.4 - 2026-03-19
+
+### Fixed
+
+* [JS/TS] Fix `Unchecked.defaultof<char>` being emitted as `null` instead of `'\0'` (by @MangelMaxime)
+
 ## 2.0.0-rc.3 - 2026-03-10
 
 ### Fixed
