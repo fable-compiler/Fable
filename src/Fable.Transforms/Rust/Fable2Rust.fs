@@ -1641,7 +1641,7 @@ module Util =
             expr
         elif isInRefType com typ then
             expr
-        elif nameOpt.IsSome && isRefScoped ctx nameOpt.Value then
+        elif nameOpt |> Option.exists (isRefScoped ctx) then
             expr
         elif shouldBeRefCountWrapped com ctx typ |> Option.isSome then
             expr |> makeAsRef
