@@ -2497,7 +2497,7 @@ let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
 
             Helper.ConstructorCall(constructor com ent, t, [], ?loc = r) |> Some
         | t ->
-            $"Cannot create instance of type unresolved at compile time: {t}"
+            $"Cannot create instance of type unresolved at compile time: %A{t}"
             |> addErrorAndReturnNull com ctx.InlinePath r
             |> Some
     // reference: https://msdn.microsoft.com/visualfsharpdocs/conceptual/operatorintrinsics.powdouble-function-%5bfsharp%5d

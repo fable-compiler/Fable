@@ -47,7 +47,7 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list, addLog: Severi
                                 // but keep the process going to mimic previous Fable behavior
                                 // and because these exception seems harmless
                                 let errorMessage =
-                                    $"Could not scan {path} for Fable plugins, skipping this assembly. Original error: {error.Message}"
+                                    $"Could not scan %s{path} for Fable plugins, skipping this assembly. Original error: %s{error.Message}"
 
                                 addLog Severity.Info errorMessage
 
