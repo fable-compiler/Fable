@@ -477,6 +477,15 @@ let tests = testList "Strings" [
         String.Format(CultureInfo.InvariantCulture, "{0:#}", 12343235354M) |> equal "12343235354"
         String.Format(CultureInfo.InvariantCulture, "{0:0}", 12343235354M) |> equal "12343235354"
 
+    testCase "String.Format works with N format specifier" <| fun () -> // See #2582
+        String.Format(CultureInfo.InvariantCulture, "{0:N0}", 1000) |> equal "1,000"
+        String.Format(CultureInfo.InvariantCulture, "{0:N0}", 12345678) |> equal "12,345,678"
+        String.Format(CultureInfo.InvariantCulture, "{0:N0}", -1000) |> equal "-1,000"
+        String.Format(CultureInfo.InvariantCulture, "{0:N2}", 1000) |> equal "1,000.00"
+        String.Format(CultureInfo.InvariantCulture, "{0:N}", 1000) |> equal "1,000.00"
+        (1000).ToString("N0") |> equal "1,000"
+        (1000).ToString("N2") |> equal "1,000.00"
+
     testCase "String.Format trims trailing zeroes when using # placeholder" <| fun () -> // Fix #2950
         String.Format(CultureInfo.InvariantCulture, "{0:######,###.000####}", -6789.5688) |> equal "-6,789.5688"
         String.Format(CultureInfo.InvariantCulture, "{0:######,###.000####}", 6789.5688) |> equal "6,789.5688"

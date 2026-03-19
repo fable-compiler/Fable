@@ -386,7 +386,11 @@ export function format(str: string | object, ...args: any[]) {
           precision = precision != null ? precision : 2;
           rep = toFixed(rep, precision);
           parts = splitIntAndDecimalPart(rep);
-          rep = thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0");
+          if (precision > 0) {
+            rep = thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0");
+          } else {
+            rep = thousandSeparate(parts.integral);
+          }
           break;
         case "p": case "P":
           precision = precision != null ? precision : 2;
