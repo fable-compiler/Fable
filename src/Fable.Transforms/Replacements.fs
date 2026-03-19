@@ -673,7 +673,54 @@ let makeHashSet (com: ICompiler) ctx r t sourceSeq =
         makeEqualityComparer com ctx key |> makeHashSetWithComparer com r t sourceSeq
     | _ -> Helper.GlobalCall("Set", t, [ sourceSeq ], isConstructor = true, ?loc = r)
 
-let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
+let tryEntityIdent (com: Compiler) entFullName =
+    match entFullName with
+    | BuiltinDefinition BclDateOnly
+    | BuiltinDefinition BclDateTime
+    | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "Date" |> Some
+    | BuiltinDefinition BclTimer -> makeImportLib com Any "default" "Timer" |> Some
+    | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
+    | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult$2" "Result" |> Some
+    | BuiltinDefinition(FSharpChoice genArgs) ->
+        let membName = $"FSharpChoice${List.length genArgs}"
+        makeImportLib com Any membName "Choice" |> Some
+    // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
+    // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
+    // | BuiltinDefinition BclHashSet _ -> fail "MutableSet" // TODO:
+    // | BuiltinDefinition BclDictionary _ -> fail "MutableMap" // TODO:
+    // | BuiltinDefinition BclKeyValuePair _ -> fail "KeyValuePair" // TODO:
+    // | BuiltinDefinition FSharpSet _ -> fail "Set" // TODO:
+    // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
+    | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
+    | Types.exception_ -> makeImportLib com Any "Exception" "Util" |> Some
+    | "System.OperationCanceledException" -> makeImportLib com Any "OperationCanceledException" "AsyncBuilder" |> Some
+    | "System.Collections.Generic.KeyNotFoundException" ->
+        makeImportLib com Any "KeyNotFoundException" "System.Collections.Generic"
+        |> Some
+    | BuiltinSystemException entName -> makeImportLib com Any entName "System" |> Some
+    // | Naming.EndsWith "Exception" _ -> makeImportLib com Any "Exception" "Util" |> Some
+    | Types.attribute -> makeImportLib com Any "Attribute" "Types" |> Some
+    | "System.Uri" -> makeImportLib com Any "Uri" "Uri" |> Some
+    | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" ->
+        makeImportLib com Any "AsyncReplyChannel" "AsyncBuilder" |> Some
+    | "Microsoft.FSharp.Control.FSharpEvent`1" -> makeImportLib com Any "Event" "Event" |> Some
+    | "Microsoft.FSharp.Control.FSharpEvent`2" -> makeImportLib com Any "Event$2" "Event" |> Some
+    | "Microsoft.FSharp.Core.CompilerServices.ListCollector`1" ->
+        makeImportLib com Any "ListCollector$1" "FSharp.Core.CompilerServices" |> Some
+    | _ -> None
+
+let tryConstructor com (ent: Entity) =
+    if FSharp2Fable.Util.isReplacementCandidate ent.Ref then
+        tryEntityIdent com ent.FullName
+    else
+        FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent
+
+let constructor com ent =
+    match tryConstructor com ent with
+    | Some e -> e
+    | None -> $"Cannot find %s{ent.FullName} constructor" |> addErrorAndReturnNull com [] None
+
+let rec private getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
     | Char -> makeCharConst '\000'
@@ -686,6 +733,30 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin(FSharpSet genArg) as t -> makeSet com ctx None t "Empty" [] genArg
     | Builtin(BclKeyValuePair(k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
+    | DeclaredType(entRef, _) ->
+        let ent = com.GetEntity(entRef)
+        // For user-defined value types (structs), call the constructor with zero values
+        // for each instance field so Array.zeroCreate produces properly initialized instances
+        // instead of null. Only instance fields are constructor parameters; static fields
+        // (from `static let` bindings) are not, and iterating them could cause deep recursion
+        // through static field type graphs.
+        if ent.IsValueType then
+            tryConstructor com ent
+            |> Option.map (fun e ->
+                let args =
+                    ent.FSharpFields
+                    |> List.choose (fun f ->
+                        if f.IsStatic then
+                            None
+                        else
+                            getZero com ctx f.FieldType |> Some
+                    )
+
+                Helper.ConstructorCall(e, t, args)
+            )
+            |> Option.defaultValue (Value(Null Any, None)) // null
+        else
+            Value(Null Any, None) // null
     | _ -> Value(Null Any, None) // null
 
 let getOne (com: ICompiler) (ctx: Context) (t: Type) =
@@ -910,53 +981,6 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
     |> function
         | None -> args
         | Some injectInfo -> injectArgInner args injectInfo
-
-let tryEntityIdent (com: Compiler) entFullName =
-    match entFullName with
-    | BuiltinDefinition BclDateOnly
-    | BuiltinDefinition BclDateTime
-    | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "Date" |> Some
-    | BuiltinDefinition BclTimer -> makeImportLib com Any "default" "Timer" |> Some
-    | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
-    | BuiltinDefinition(FSharpResult _) -> makeImportLib com Any "FSharpResult$2" "Result" |> Some
-    | BuiltinDefinition(FSharpChoice genArgs) ->
-        let membName = $"FSharpChoice${List.length genArgs}"
-        makeImportLib com Any membName "Choice" |> Some
-    // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
-    // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
-    // | BuiltinDefinition BclHashSet _ -> fail "MutableSet" // TODO:
-    // | BuiltinDefinition BclDictionary _ -> fail "MutableMap" // TODO:
-    // | BuiltinDefinition BclKeyValuePair _ -> fail "KeyValuePair" // TODO:
-    // | BuiltinDefinition FSharpSet _ -> fail "Set" // TODO:
-    // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
-    | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
-    | Types.exception_ -> makeImportLib com Any "Exception" "Util" |> Some
-    | "System.OperationCanceledException" -> makeImportLib com Any "OperationCanceledException" "AsyncBuilder" |> Some
-    | "System.Collections.Generic.KeyNotFoundException" ->
-        makeImportLib com Any "KeyNotFoundException" "System.Collections.Generic"
-        |> Some
-    | BuiltinSystemException entName -> makeImportLib com Any entName "System" |> Some
-    // | Naming.EndsWith "Exception" _ -> makeImportLib com Any "Exception" "Util" |> Some
-    | Types.attribute -> makeImportLib com Any "Attribute" "Types" |> Some
-    | "System.Uri" -> makeImportLib com Any "Uri" "Uri" |> Some
-    | "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1" ->
-        makeImportLib com Any "AsyncReplyChannel" "AsyncBuilder" |> Some
-    | "Microsoft.FSharp.Control.FSharpEvent`1" -> makeImportLib com Any "Event" "Event" |> Some
-    | "Microsoft.FSharp.Control.FSharpEvent`2" -> makeImportLib com Any "Event$2" "Event" |> Some
-    | "Microsoft.FSharp.Core.CompilerServices.ListCollector`1" ->
-        makeImportLib com Any "ListCollector$1" "FSharp.Core.CompilerServices" |> Some
-    | _ -> None
-
-let tryConstructor com (ent: Entity) =
-    if FSharp2Fable.Util.isReplacementCandidate ent.Ref then
-        tryEntityIdent com ent.FullName
-    else
-        FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent
-
-let constructor com ent =
-    match tryConstructor com ent with
-    | Some e -> e
-    | None -> $"Cannot find %s{ent.FullName} constructor" |> addErrorAndReturnNull com [] None
 
 let tryOp com r t op args =
     Helper.LibCall(com, "Option", "tryOp", t, op :: args, ?loc = r)
