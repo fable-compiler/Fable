@@ -71,6 +71,7 @@ type Field =
     abstract IsMutable: bool
     abstract IsStatic: bool
     abstract LiteralValue: obj option
+    abstract HasDefaultValueAttribute: bool
 
 type UnionCase =
     abstract Name: string

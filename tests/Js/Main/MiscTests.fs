@@ -1125,6 +1125,7 @@ let tests =
         Unchecked.defaultof<TimeSpan> |> equal (TimeSpan.FromMilliseconds 0.)
         Unchecked.defaultof<bool> |> equal false
         Unchecked.defaultof<string> |> equal null
+        Unchecked.defaultof<char> |> equal '\u0000'
         Unchecked.defaultof<Guid> |> equal Guid.Empty
 #if !FABLE_COMPILER_TYPESCRIPT
         let x = ValueType()
