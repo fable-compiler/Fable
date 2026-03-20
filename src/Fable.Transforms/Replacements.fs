@@ -720,7 +720,30 @@ let constructor com ent =
     | Some e -> e
     | None -> $"Cannot find %s{ent.FullName} constructor" |> addErrorAndReturnNull com [] None
 
-let rec private getZero (com: ICompiler) (ctx: Context) (t: Type) =
+/// For user-defined value types (structs), returns a constructor call initialized with
+/// a zero value for each instance field. Only instance fields are constructor parameters;
+/// static fields (from `static let` bindings) are excluded to avoid deep recursion through
+/// static field type graphs. Returns None if no constructor is available or the type is
+/// not a value type.
+let rec private tryZeroValueTypeConstructor (com: ICompiler) (ctx: Context) (t: Type) (ent: Entity) =
+    if ent.IsValueType then
+        tryConstructor com ent
+        |> Option.map (fun e ->
+            let args =
+                ent.FSharpFields
+                |> List.choose (fun f ->
+                    if f.IsStatic then
+                        None
+                    else
+                        getZero com ctx f.FieldType |> Some
+                )
+
+            Helper.ConstructorCall(e, t, args)
+        )
+    else
+        None
+
+and private getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
     | Char -> makeCharConst '\000'
@@ -734,29 +757,9 @@ let rec private getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin(BclKeyValuePair(k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
     | DeclaredType(entRef, _) ->
-        let ent = com.GetEntity(entRef)
-        // For user-defined value types (structs), call the constructor with zero values
-        // for each instance field so Array.zeroCreate produces properly initialized instances
-        // instead of null. Only instance fields are constructor parameters; static fields
-        // (from `static let` bindings) are not, and iterating them could cause deep recursion
-        // through static field type graphs.
-        if ent.IsValueType then
-            tryConstructor com ent
-            |> Option.map (fun e ->
-                let args =
-                    ent.FSharpFields
-                    |> List.choose (fun f ->
-                        if f.IsStatic then
-                            None
-                        else
-                            getZero com ctx f.FieldType |> Some
-                    )
-
-                Helper.ConstructorCall(e, t, args)
-            )
-            |> Option.defaultValue (Value(Null Any, None)) // null
-        else
-            Value(Null Any, None) // null
+        com.GetEntity(entRef)
+        |> tryZeroValueTypeConstructor com ctx t
+        |> Option.defaultValue (Value(Null Any, None)) // null
     | _ -> Value(Null Any, None) // null
 
 let getOne (com: ICompiler) (ctx: Context) (t: Type) =
@@ -1008,11 +1011,7 @@ let rec defaultof (com: ICompiler) (ctx: Context) r t =
     | DeclaredType(entRef, _) ->
         let ent = com.GetEntity(entRef)
         // TODO: For BCL types we cannot access the constructor, raise error or warning?
-        if ent.IsValueType then
-            tryConstructor com ent
-        else
-            None
-        |> Option.map (fun e -> Helper.ConstructorCall(e, t, []))
+        tryZeroValueTypeConstructor com ctx t ent
         |> Option.defaultWith (fun () ->
             // Null t |> makeValue None
             Helper.LibCall(com, "Util", "defaultOf", t, [], ?loc = r)
