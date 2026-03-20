@@ -292,3 +292,17 @@ let ``test Expressiones captured in a closure don't change after tail-call optim
 
     main init view update
     accValue |> equal 10
+
+// See https://github.com/fable-compiler/Fable/issues/3877
+[<Fact>]
+let ``test Passing a function reference in a TCO context does not capture unneeded outer args`` () =
+    let applyFn (f: unit -> int) = f()
+    let alwaysFortyTwo () = 42
+
+    // `alwaysFortyTwo` doesn't reference `_unused`, so it should not capture it
+    // even though `loop` is tail-call optimised with `_unused` in scope.
+    let rec loop (_unused: string) acc n =
+        if n <= 0 then acc
+        else loop _unused (acc + applyFn alwaysFortyTwo) (n - 1)
+
+    loop "ignored" 0 5 |> equal 210
