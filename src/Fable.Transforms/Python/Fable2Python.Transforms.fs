@@ -3002,6 +3002,12 @@ let transformFunction
                 let (Identifier name) = arg.Arg
                 let name = cleanName name
 
+                // Only capture TCO variables actually referenced in the function body.
+                // This avoids unnecessary default parameters on nested lambdas that don't
+                // use the outer TCO variables. See #3877.
+                if not (isIdentUsed name body) then None
+                else
+
                 match name with
                 | "tupled_arg_m" -> None // Remove these arguments (not sure why)
                 | _ ->

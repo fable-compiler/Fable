@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Python] Fix function references passed as arguments inside tail-call optimised functions gaining unnecessary default parameters for outer TCO variables they don't reference (fix #3877)
+
 ## 5.0.0-rc.10 - 2026-03-19
 
 ### Fixed
