@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [JS/TS] Fix `Unchecked.defaultof<'T>` for struct types with fields returning `undefined` instead of zero-initialized values (by @MangelMaxime)
+* [JS/TS] Fixed quotation for union string cases (by @MangelMaxime)
 * [Python] Fix `Unchecked.defaultof<'T>` for struct types with fields returning incorrect values instead of zero-initialized instances (by @MangelMaxime)
 * [Python] Fix `Unchecked.defaultof<char>` returning `""` (empty string) instead of `"\u0000"` (null character) (by @MangelMaxime)
 * [Python] Improve `Unchecked.defaultof<_>` for declared entities (by @MangelMaxime)
