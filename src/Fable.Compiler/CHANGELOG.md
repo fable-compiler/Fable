@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [JS/TS] Fix `Unchecked.defaultof<'T>` for struct types with fields returning `undefined` instead of zero-initialized values (by @MangelMaxime)
 * [Python] Fix `Unchecked.defaultof<'T>` for struct types with fields returning incorrect values instead of zero-initialized instances (by @MangelMaxime)
+* [Python] Fix `Unchecked.defaultof<char>` returning `""` (empty string) instead of `"\u0000"` (null character) (by @MangelMaxime)
 
 ## 5.0.0-rc.11 - 2026-03-20
 

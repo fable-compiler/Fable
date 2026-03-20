@@ -270,6 +270,18 @@ type StructUnion = Value of string
 [<Struct>]
 type SimpleRecord = { A: string; B: string }
 
+[<Struct>]
+type NestedStruct =
+    val A: float
+    val B: bool
+    new(a, b) = { A = a; B = b }
+
+[<Struct>]
+type TopLevelStruct =
+    val A: float
+    val B: NestedStruct
+    new(a, b) = { A = a; B = b }
+
 type Point2D =
    struct
       val X: float
@@ -1107,6 +1119,13 @@ let ``struct without explicit ctor works`` () =
     t2.X <- 10
     t1 |> equal t2
     (compare t1 t2) |> equal 0
+
+[<Fact>]
+let ``Unchecked.defaultof works for fields on nested structs`` () =
+    let top = TopLevelStruct()
+    top.A |> equal 0
+    top.B.A |> equal 0
+    top.B.B |> equal false
 
 [<Fact>]
 let ``copying struct records works`` () = // See #3371
