@@ -362,6 +362,18 @@ type TypeWithDefaultValueTest() =
     [<DefaultValue>]
     val mutable ObjValue: System.Collections.Generic.Dictionary<string, string>
 
+[<Struct>]
+type NestedStruct =
+    val A: float
+    val B: bool
+    new(a, b) = { A = a; B = b }
+
+[<Struct>]
+type TopLevelStruct =
+    val A: float
+    val B: NestedStruct
+    new(a, b) = { A = a; B = b }
+
 type Default1 = int
 
 type Distinct1 =
@@ -1757,3 +1769,10 @@ let ``test Different type parameter combinations work correctly`` () =
 
     let result3 = getTwoValues<TestTypeB, TestTypeC>()
     result3 |> equal ("B", "C")
+
+[<Fact>]
+let ``test Unchecked.defaultof works for fields on structs`` () =
+    let top = TopLevelStruct()
+    top.A |> equal 0
+    top.B.A |> equal 0
+    top.B.B |> equal false

@@ -727,7 +727,76 @@ let makeHashSet (com: ICompiler) ctx r t sourceSeq =
         makeEqualityComparer com ctx key |> makeHashSetWithComparer com r t sourceSeq
     | _ -> Helper.GlobalCall("set", t, [ sourceSeq ], isConstructor = true, ?loc = r)
 
-let rec getZero (com: ICompiler) ctx (t: Type) =
+let tryEntityIdent (com: Compiler) entFullName =
+    match entFullName with
+    | BuiltinDefinition BclDateOnly
+    | BuiltinDefinition BclDateTime
+    | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "Date" |> Some
+    | BuiltinDefinition BclTimer -> makeImportLib com Any "default" "Timer" |> Some
+    | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
+    | BuiltinDefinition(FSharpResult _) ->
+        // Import the underscore-prefixed base class (has cases() method), not the type alias
+        makeImportLib com Any "_FSharpResult_2" "Result" |> Some
+    | BuiltinDefinition(FSharpChoice genArgs) ->
+        // Import the underscore-prefixed base class (has cases() method), not the type alias
+        let membName = $"_FSharpChoice_%d{List.length genArgs}"
+        makeImportLib com Any membName "Choice" |> Some
+    // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
+    // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
+    // | BuiltinDefinition BclHashSet _ -> fail "MutableSet" // TODO:
+    // | BuiltinDefinition BclDictionary _ -> fail "MutableMap" // TODO:
+    // | BuiltinDefinition BclKeyValuePair _ -> fail "KeyValuePair" // TODO:
+    // | BuiltinDefinition FSharpSet _ -> fail "Set" // TODO:
+    // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
+    | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
+    | Types.exception_ -> makeIdentExpr "Exception" |> Some
+    // | "System.Collections.Generic.KeyNotFoundException" ->
+    //     makeImportLib com Any "KeyNotFoundException" "System.Collections.Generic" |> Some
+    | BuiltinSystemException entName -> makeImportLib com Any entName "System" |> Some
+    // | Naming.EndsWith "Exception" _ -> makeIdentExpr "Exception" |> Some
+    | _ -> None
+
+let tryConstructor com (ent: Entity) =
+    if FSharp2Fable.Util.isReplacementCandidate ent.Ref then
+        tryEntityIdent com (ent.FullName |> Naming.toPythonNaming)
+    else
+        match FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent with
+        | Some(IdentExpr ident) when ent.IsFSharpUnion ->
+            // For F# union types, the base class is prefixed with underscore (_UnionName)
+            // This is needed for both reflection (base class has cases() method) and
+            // type annotations (self inside base class methods)
+            Some(IdentExpr { ident with Name = "_" + ident.Name })
+        | other -> other
+
+let constructor com ent =
+    match tryConstructor com ent with
+    | Some e -> e
+    | None -> $"Cannot find %s{ent.FullName} constructor" |> addErrorAndReturnNull com [] None
+
+/// For user-defined value types (structs), returns a constructor call initialized with
+/// a zero value for each instance field. Only instance fields are constructor parameters;
+/// static fields (from `static let` bindings) are excluded to avoid deep recursion through
+/// static field type graphs. Returns None if no constructor is available or the type is
+/// not a value type.
+let rec private tryZeroValueTypeConstructor (com: ICompiler) (ctx: Context) (t: Type) (ent: Entity) =
+    if ent.IsValueType then
+        tryConstructor com ent
+        |> Option.map (fun e ->
+            let args =
+                ent.FSharpFields
+                |> List.choose (fun f ->
+                    if f.IsStatic then
+                        None
+                    else
+                        getZero com ctx f.FieldType |> Some
+                )
+
+            Helper.ConstructorCall(e, t, args)
+        )
+    else
+        None
+
+and private getZero (com: ICompiler) ctx (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
     | Number(BigInt, _) as t -> Helper.LibCall(com, "big_int", "fromInt32", t, [ makeIntConst 0 ])
@@ -741,6 +810,10 @@ let rec getZero (com: ICompiler) ctx (t: Type) =
     | Builtin(FSharpSet genArg) as t -> makeSet com ctx None t "Empty" [] genArg
     | Builtin(BclKeyValuePair(k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
+    | DeclaredType(entRef, _) ->
+        com.GetEntity(entRef)
+        |> tryZeroValueTypeConstructor com ctx t
+        |> Option.defaultValue (Value(Null Any, None)) // null
     | _ -> Value(Null Any, None) // null
 
 let getOne (com: ICompiler) ctx (t: Type) =
@@ -810,52 +883,6 @@ let injectArg (com: ICompiler) (ctx: Context) r moduleName methName (genArgs: Ty
         | None -> args
         | Some injectInfo -> injectArgInner args injectInfo
 
-let tryEntityIdent (com: Compiler) entFullName =
-    match entFullName with
-    | BuiltinDefinition BclDateOnly
-    | BuiltinDefinition BclDateTime
-    | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "Date" |> Some
-    | BuiltinDefinition BclTimer -> makeImportLib com Any "default" "Timer" |> Some
-    | BuiltinDefinition(FSharpReference _) -> makeImportLib com Any "FSharpRef" "Types" |> Some
-    | BuiltinDefinition(FSharpResult _) ->
-        // Import the underscore-prefixed base class (has cases() method), not the type alias
-        makeImportLib com Any "_FSharpResult_2" "Result" |> Some
-    | BuiltinDefinition(FSharpChoice genArgs) ->
-        // Import the underscore-prefixed base class (has cases() method), not the type alias
-        let membName = $"_FSharpChoice_%d{List.length genArgs}"
-        makeImportLib com Any membName "Choice" |> Some
-    // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
-    // | BuiltinDefinition BclTimeSpan -> jsTypeof "number" expr
-    // | BuiltinDefinition BclHashSet _ -> fail "MutableSet" // TODO:
-    // | BuiltinDefinition BclDictionary _ -> fail "MutableMap" // TODO:
-    // | BuiltinDefinition BclKeyValuePair _ -> fail "KeyValuePair" // TODO:
-    // | BuiltinDefinition FSharpSet _ -> fail "Set" // TODO:
-    // | BuiltinDefinition FSharpMap _ -> fail "Map" // TODO:
-    | Types.matchFail -> makeImportLib com Any "MatchFailureException" "Types" |> Some
-    | Types.exception_ -> makeIdentExpr "Exception" |> Some
-    // | "System.Collections.Generic.KeyNotFoundException" ->
-    //     makeImportLib com Any "KeyNotFoundException" "System.Collections.Generic" |> Some
-    | BuiltinSystemException entName -> makeImportLib com Any entName "System" |> Some
-    // | Naming.EndsWith "Exception" _ -> makeIdentExpr "Exception" |> Some
-    | _ -> None
-
-let tryConstructor com (ent: Entity) =
-    if FSharp2Fable.Util.isReplacementCandidate ent.Ref then
-        tryEntityIdent com (ent.FullName |> Naming.toPythonNaming)
-    else
-        match FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent with
-        | Some(IdentExpr ident) when ent.IsFSharpUnion ->
-            // For F# union types, the base class is prefixed with underscore (_UnionName)
-            // This is needed for both reflection (base class has cases() method) and
-            // type annotations (self inside base class methods)
-            Some(IdentExpr { ident with Name = "_" + ident.Name })
-        | other -> other
-
-let constructor com ent =
-    match tryConstructor com ent with
-    | Some e -> e
-    | None -> $"Cannot find %s{ent.FullName} constructor" |> addErrorAndReturnNull com [] None
-
 let tryOp com r t op args =
     Helper.LibCall(com, "option", "tryOp", t, op :: args, ?loc = r)
 
@@ -879,11 +906,7 @@ let rec defaultof com ctx r t =
     | DeclaredType(ent, _) ->
         let ent = com.GetEntity(ent)
         // TODO: For BCL types we cannot access the constructor, raise error or warning?
-        if ent.IsValueType then
-            tryConstructor com ent
-        else
-            None
-        |> Option.map (fun e -> Helper.ConstructorCall(e, t, []))
+        tryZeroValueTypeConstructor com ctx t ent
         |> Option.defaultWith (fun () -> Null t |> makeValue None)
     // TODO: Fail (or raise warning) if this is an unresolved generic parameter?
     | _ -> Null t |> makeValue None
