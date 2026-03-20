@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+[All] Add support for `[<InlineIfLambda>]` (by @MangelMaxime)
+
 ## 5.0.0-rc.10 - 2026-03-19
 
 ### Fixed

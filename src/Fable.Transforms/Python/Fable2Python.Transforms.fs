@@ -653,6 +653,7 @@ let transformObjectExpr
                             IsThisArgument = false
                             IsCompilerGenerated = true
                             Range = r
+                            IsInlineIfLambda = false
                         }
                 | e -> e
             )
