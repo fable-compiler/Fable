@@ -802,7 +802,7 @@ and private getZero (com: ICompiler) ctx (t: Type) =
     | Number(BigInt, _) as t -> Helper.LibCall(com, "big_int", "fromInt32", t, [ makeIntConst 0 ])
     | Number(Decimal, _) as t -> makeIntConst 0 |> makeDecimalFromExpr com None t
     | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
-    | Char
+    | Char -> makeCharConst '\u0000'
     | String -> makeStrConst "" // TODO: Use null for string?
     | Builtin BclTimeSpan -> Helper.LibCall(com, "time_span", "create", t, [ makeIntConst 0 ])
     | Builtin BclDateTime as t -> Helper.LibCall(com, "date", "minValue", t, [])
@@ -898,6 +898,7 @@ let rec defaultof com ctx r t =
     | Nullable _ -> Value(Null t, r)
     | Tuple(args, true) -> NewTuple(args |> List.map (defaultof com ctx r), true) |> makeValue None
     | Boolean
+    | Char
     | Number _
     | Builtin BclTimeSpan
     | Builtin BclDateTime

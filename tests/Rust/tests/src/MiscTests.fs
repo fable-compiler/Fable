@@ -1196,6 +1196,7 @@ let ``Unchecked.defaultof works`` () =
     Unchecked.defaultof<int64> |> equal 0L
     Unchecked.defaultof<bigint> |> equal 0I
     Unchecked.defaultof<decimal> |> equal 0M
+    Unchecked.defaultof<char> |> equal '\u0000'
     Unchecked.defaultof<DateTime> |> equal DateTime.MinValue
     Unchecked.defaultof<TimeSpan> |> equal (TimeSpan.FromMilliseconds 0.)
     Unchecked.defaultof<bool> |> equal false
