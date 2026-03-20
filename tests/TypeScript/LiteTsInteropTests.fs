@@ -13,6 +13,7 @@ open Fable.Core.Experimental
 type JsOptions =
     abstract foo: string with get, set
     abstract bar: int with get, set
+
 let tests =
   testList "LiteTsInterop" [
     #if FABLE_COMPILER
