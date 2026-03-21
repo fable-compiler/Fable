@@ -105,8 +105,7 @@ All transpiled Python code is type-checked with Pyright at standard settings (`.
 **Quicktest** is the fastest way to iterate (seconds vs minutes for full tests). Use it to investigate complex problems:
 
 1. Edit `src/quicktest/QuickTest.fs` (or `src/quicktest-py/QuickTest.fs`, etc.)
-2. Ask the user to run `./build.sh quicktest <target>` — this starts a watcher that never exits, so do not run it yourself
-3. Transpiled output goes to the quicktest directory itself (e.g., `src/quicktest-py/`)
+2. Transpiled output goes to the quicktest directory itself (e.g., `src/quicktest-py/`)
 
 Quicktest is also preferred when adding debug output (e.g., `printfn` in compiler code) since running full tests with debug prints produces too much output.
 
