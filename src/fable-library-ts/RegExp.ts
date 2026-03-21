@@ -22,11 +22,20 @@ export function create(pattern: string, options = 0) {
 // From http://stackoverflow.com/questions/3446170/escape-string-for-use-in-javascript-regex
 
 export function escape(str: string) {
-  return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+  // Matches the characters escaped by .NET's Regex.Escape.
+  // Note:
+  //
+  //  .NET also escapes space and # (relevant for IgnorePatternWhitespace mode),
+  //  but JS unicode-mode regex rejects \  and \# as invalid escapes, and we don't
+  //  support IgnorePatternWhitespace, so we omit them.
+  //
+  //  .NET does not escape ] and } but JS unicode-mode regex rejects bare ] and }
+  //  as invalid, so we escape them too for compatibility.
+  return str.replace(/[$()*+.?[\\\^{|}\]]/g, "\\$&");
 }
 
 export function unescape(str: string) {
-  return str.replace(/\\([\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|])/g, "$1");
+  return str.replace(/\\([$()*+.?[\\\^{|}\]])/g, "$1");
 }
 
 export function isMatch(reg: RegExp, input: string, startAt = 0) {
