@@ -33,6 +33,7 @@ Available commands:
 
         Options:
             --skip-fable-library    Skip building fable-library if folder already exists
+            --watch                 Watch for changes and re-run the tests
 
     test                            Run the main tests suite
         Subcommands:
