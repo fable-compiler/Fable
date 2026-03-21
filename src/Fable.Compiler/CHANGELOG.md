@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [JS/TS] Fix `C0` and `P0` format specifiers producing trailing dot (e.g., `"¤1,000."` → `"¤1,000"`)
 * [TS] Fix abstract instance methods not emitted in TypeScript when class uses `[<AttachMembers>]` (fixes #3506) (by @MangelMaxime)
 * [JS/TS] Fix `Unchecked.defaultof<'T>` for struct types with fields returning `undefined` instead of zero-initialized values (by @MangelMaxime)
 * [JS/TS] Fixed quotation for union string cases (by @MangelMaxime)
