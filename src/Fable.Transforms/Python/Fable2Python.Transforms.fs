@@ -3005,6 +3005,10 @@ let transformFunction
 
                 match name with
                 | "tupled_arg_m" -> None // Remove these arguments (not sure why)
+                // Only capture TCO variables actually referenced in the function body.
+                // This avoids unnecessary default parameters on nested lambdas that don't
+                // use the outer TCO variables. See #3877.
+                | _ when not (isIdentUsed name body) -> None
                 | _ ->
                     let annotation =
                         // Cleanup type annotations to avoid non-repeated generics

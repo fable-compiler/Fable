@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Python] Fix function references passed as arguments inside tail-call optimised functions gaining unnecessary default parameters for outer TCO variables they don't reference (fix #3877)
 * [TS] Fix abstract instance methods not emitted in TypeScript when class uses `[<AttachMembers>]` (fixes #3506) (by @MangelMaxime)
 * [JS/TS] Fix `Unchecked.defaultof<'T>` for struct types with fields returning `undefined` instead of zero-initialized values (by @MangelMaxime)
 * [JS/TS] Fixed quotation for union string cases (by @MangelMaxime)
