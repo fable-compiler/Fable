@@ -1000,14 +1000,34 @@ module Reflection =
 
         // The assembly may be already loaded, so use `LoadFrom` which takes
         // the copy in memory unlike `LoadFile`, see: http://stackoverflow.com/a/1477899
-        System.Reflection.Assembly.LoadFrom(r.DllPath)
+        // If the DLL path points to a reference assembly (obj/<config>/<tfm>/ref/), redirect
+        // to the actual implementation DLL in bin/, since reference assemblies have no method
+        // bodies and Activator.CreateInstance will fail when trying to invoke constructors.
+        let dllPath =
+            let normalizedPath = r.DllPath.Replace('\\', '/')
+
+            let m =
+                System.Text.RegularExpressions.Regex.Match(normalizedPath, @"(/obj/)([^/]+/[^/]+/)ref/")
+
+            if m.Success then
+                let candidate = normalizedPath.Replace(m.Value, m.Result("/bin/$2"))
+
+                if IO.File.Exists(candidate) then
+                    candidate
+                else
+                    failwith
+                        $"Cannot find implementation DLL for reference assembly {r.DllPath}, expected at {candidate}"
+            else
+                r.DllPath
+
+        Reflection.Assembly.LoadFrom(dllPath)
         |> getTypes
         // Normalize type name
         |> Seq.tryFind (fun t -> t.FullName.Replace("+", ".") = r.TypeFullName)
         |> function
             | Some t ->
-                $"Loaded %s{r.TypeFullName} from %s{IO.Path.GetRelativePath(cliArgs.RootDir, r.DllPath)}"
+                $"Loaded %s{r.TypeFullName} from %s{IO.Path.GetRelativePath(cliArgs.RootDir, dllPath)}"
                 |> Log.always
 
                 t
-            | None -> failwith $"Cannot find %s{r.TypeFullName} in %s{r.DllPath}"
+            | None -> failwith $"Cannot find %s{r.TypeFullName} in %s{dllPath}"
