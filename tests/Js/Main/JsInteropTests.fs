@@ -292,6 +292,18 @@ type ClassWithAttachmentsChild2() =
     inherit ClassWithAttachments(3, "?")
     member this.dileHola(name) = this.SaySomethingTo(name, "Hola, {0}")
 
+
+[<AbstractClass>]
+[<AttachMembers>]
+type AbstractAttachMembersBase() =
+    abstract GetValue: unit -> string
+    member this.GetValueWrapped() = "[" + this.GetValue() + "]"
+
+[<AttachMembers>]
+type ConcreteAttachMembersImpl() =
+    inherit AbstractAttachMembersBase()
+    override _.GetValue() = "hello"
+
 module TaggedUnion =
     type Base<'Kind> =
         abstract kind: 'Kind
@@ -461,6 +473,11 @@ let tests =
     testCase "Class with attached members can be inherited II" <| fun _ ->
         let x = ClassWithAttachmentsChild2()
         x.dileHola("Pepe") |> equal "Hola, Pepe???"
+
+    testCase "Abstract method on AttachMembers class without explicit constructor can be called" <| fun _ ->
+        let instance = ConcreteAttachMembersImpl() :> AbstractAttachMembersBase
+        instance.GetValue() |> equal "hello"
+        instance.GetValueWrapped() |> equal "[hello]"
 
 #if FABLE_COMPILER
     testCase "Can type test interfaces decorated with Global" <| fun () ->

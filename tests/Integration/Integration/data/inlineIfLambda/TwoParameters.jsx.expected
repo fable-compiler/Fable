@@ -1,0 +1,12 @@
+
+import { printf, toConsole } from "./fable_modules/fable-library-js.5.0.0-rc.3/String.js";
+
+export const result = (() => {
+    let a;
+    toConsole(printf("Adding %d and %d"))(10)(32);
+    a = 42;
+    toConsole(printf("Adding %d and %d"))(a)(32);
+    return (a + 32) | 0;
+})();
+
+toConsole(printf("result: %d"))(result);

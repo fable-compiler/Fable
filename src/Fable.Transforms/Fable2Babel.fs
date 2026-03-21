@@ -4220,7 +4220,10 @@ but thanks to the optimisation done below we get
     let transformAbstractMember com ctx (ent: Fable.Entity) (memb: Fable.MemberFunctionOrValue) =
         // TODO: replicate the mangling logic from FSharp2Fable.Util.getAbstractMemberInfo
         // let info = FSharp2Fable.Util.getAbstractMemberInfo com ent memb
-        let isMangled = ent.IsAbstractClass || hasAttribute Atts.mangle ent.Attributes
+        let isMangled =
+            (ent.IsAbstractClass && not (hasAttribute Atts.attachMembers ent.Attributes))
+            || hasAttribute Atts.mangle ent.Attributes
+
         let isGetter = memb.IsGetter
         let isSetter = memb.IsSetter
 

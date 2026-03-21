@@ -97,6 +97,8 @@ type LangCode =
     | EN
     | ``pt-Br``
 
+type S = S of string
+
 let tests =
   testList "Unions" [
     testCase "Union cases matches with no arguments can be generated" <| fun () ->
@@ -272,4 +274,8 @@ let tests =
         let x = LangCode.``pt-Br``
 
         equal x LangCode.``pt-Br``
+
+    testCase "sprintf formats strings cases correctly" <| fun () ->
+        let s = sprintf "%A" (S "1")
+        equal s "S \"1\""
   ]

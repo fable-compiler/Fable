@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="AnonymousLambda.fs" />
+    <Compile Include="NamedLambdaValue.fs" />
+    <Compile Include="NamedFunction.fs" />
+    <Compile Include="CEBuilderMethod.fs" />
+    <Compile Include="TwoParameters.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="4.5.0" />
+  </ItemGroup>
+
+</Project>

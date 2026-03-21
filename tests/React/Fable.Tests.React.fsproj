@@ -33,6 +33,6 @@
         <PackageReference Include="Fable.Jester" Version="0.33.0" />
         <PackageReference Include="Fable.React" Version="9.4.0" />
         <PackageReference Include="Fable.ReactTestingLibrary" Version="0.33.0" />
-        <PackageReference Include="Feliz" Version="2.9.0" />
+        <PackageReference Include="Feliz" Version="3.2.0" />
     </ItemGroup>
 </Project>

@@ -38,6 +38,9 @@ module Atts =
     let entryPoint = "Microsoft.FSharp.Core.EntryPointAttribute" // typeof<Microsoft.FSharp.Core.EntryPointAttribute>.FullName
 
     [<Literal>]
+    let inlineIfLambda = "Microsoft.FSharp.Core.InlineIfLambdaAttribute" // typeof<Microsoft.FSharp.Core.InlineIfLambdaAttribute>.FullName
+
+    [<Literal>]
     let sealed_ = "Microsoft.FSharp.Core.SealedAttribute" // typeof<Microsoft.FSharp.Core.SealedAttribute>.FullName
 
     [<Literal>]
@@ -968,6 +971,7 @@ module AST =
             IsThisArgument = false
             IsMutable = false
             Range = None
+            IsInlineIfLambda = false
         }
 
     /// ATTENTION: Make sure the ident name is unique

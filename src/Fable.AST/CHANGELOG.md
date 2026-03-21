@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 5.0.0-rc.3 - 2026-03-20
+
+### Added
+
+* Add `IsInlineIfLambda` to `Fable.AST.Fable.Ident` (by @MangelMaxime)
+
 ## 5.0.0-rc.2 - 2026-03-10
 
 ### Added

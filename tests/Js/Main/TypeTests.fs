@@ -429,6 +429,21 @@ type ClassWithDefaultValueStaticFields() =
     static member Decimal = ClassWithDefaultValueStaticFields.decimal
     static member StructTuple2 = ClassWithDefaultValueStaticFields.structTuple2
 
+[<Struct>]
+type NestedStruct =
+
+    val A : float
+    val B : bool
+
+    new (a, b) = { A = a; B = b }
+
+[<Struct>]
+type TopLevelStruct =
+
+    val A : float
+    val B : NestedStruct
+
+    new (a, b) = { A = a; B = b }
 
 type Default1 = int
 
@@ -1600,4 +1615,10 @@ let tests =
         ClassWithDefaultValueStaticFields.Decimal |> equal 0M
 
         ClassWithDefaultValueStaticFields.IncrCount() |> equal 1
+
+    testCase "Unchecked.defaultof works for fields on structs" <| fun () ->
+        let top = TopLevelStruct()
+        top.A |> equal 0
+        top.B.A |> equal 0
+        top.B.B |> equal false
   ]

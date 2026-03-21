@@ -20,6 +20,7 @@ type QuicktestConfig =
 
 let genericQuicktest (config: QuicktestConfig) (args: string list) =
     let skipFableLibrary = args |> List.contains "--skip-fable-library"
+    let runOnly = args |> List.contains "--run-only"
 
     config.FableLibBuilder.Run(skipFableLibrary)
 
@@ -44,7 +45,7 @@ let genericQuicktest (config: QuicktestConfig) (args: string list) =
         workingDirectory = projectDir
     )
 
-    Command.WatchFableAsync(
+    let fableArgs =
         CmdLine.empty
         |> CmdLine.appendRaw projectDir
         |> CmdLine.appendPrefix "--lang" config.Language
@@ -52,9 +53,11 @@ let genericQuicktest (config: QuicktestConfig) (args: string list) =
         |> CmdLine.appendPrefix "--exclude" "Fable.Core"
         |> CmdLine.appendRaw "--noCache"
         |> CmdLine.appendRaw "--verbose"
-        |> CmdLine.appendRaw "--watch"
-        |> appendRunMode,
-        workingDirectory = projectDir
-    )
-    |> Async.AwaitTask
-    |> Async.RunSynchronously
+        |> appendRunMode
+
+    if runOnly then
+        Command.Fable(fableArgs, workingDirectory = projectDir)
+    else
+        Command.WatchFableAsync(fableArgs |> CmdLine.appendRaw "--watch", workingDirectory = projectDir)
+        |> Async.AwaitTask
+        |> Async.RunSynchronously

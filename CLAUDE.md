@@ -25,8 +25,8 @@ The build system is implemented in F# at `src/Fable.Build/`. All commands go thr
 ./build.sh test python --skip-fable-library-core  # Skip slow Rust extension + .pyi rebuild (Python only)
 ./build.sh test python --type-check               # Run Pyright type checking on Python output
 
-# Quick iteration (watch mode on a minimal project)
-./build.sh quicktest javascript                   # Also: typescript, python, dart, rust, beam
+# Quick iteration (test on a minimal project)
+./build.sh quicktest javascript --run-only        # Also: typescript, python, dart, rust, beam
 ```
 
 `--skip-fable-library` is safe when changes are only in `src/Fable.Transforms/` or other compiler code. If you modified runtime library source (e.g., `src/fable-library-py/`, `src/fable-library-ts/`), do not skip. If you already ran `./build.sh fable-library` separately, use `--skip-fable-library` when running tests right afterwards to avoid rebuilding.
