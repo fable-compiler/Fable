@@ -3006,25 +3006,26 @@ let transformFunction
                 // Only capture TCO variables actually referenced in the function body.
                 // This avoids unnecessary default parameters on nested lambdas that don't
                 // use the outer TCO variables. See #3877.
-                if not (isIdentUsed name body) then None
+                if not (isIdentUsed name body) then
+                    None
                 else
 
-                match name with
-                | "tupled_arg_m" -> None // Remove these arguments (not sure why)
-                | _ ->
-                    let annotation =
-                        // Cleanup type annotations to avoid non-repeated generics
-                        match arg.Annotation with
-                        | Some(Expression.Name { Id = Identifier _name }) -> arg.Annotation
-                        | Some(Expression.Subscript {
-                                                        Value = value
-                                                        Slice = Expression.Name { Id = Identifier name }
-                                                    }) when name.StartsWith("_", StringComparison.Ordinal) ->
-                            Expression.subscript (value, stdlibModuleAnnotation com ctx "typing" "Any" [])
-                            |> Some
-                        | _ -> Some(stdlibModuleAnnotation com ctx "typing" "Any" [])
+                    match name with
+                    | "tupled_arg_m" -> None // Remove these arguments (not sure why)
+                    | _ ->
+                        let annotation =
+                            // Cleanup type annotations to avoid non-repeated generics
+                            match arg.Annotation with
+                            | Some(Expression.Name { Id = Identifier _name }) -> arg.Annotation
+                            | Some(Expression.Subscript {
+                                                            Value = value
+                                                            Slice = Expression.Name { Id = Identifier name }
+                                                        }) when name.StartsWith("_", StringComparison.Ordinal) ->
+                                Expression.subscript (value, stdlibModuleAnnotation com ctx "typing" "Any" [])
+                                |> Some
+                            | _ -> Some(stdlibModuleAnnotation com ctx "typing" "Any" [])
 
-                    (Arg.arg (name, ?annotation = annotation), Expression.name name) |> Some
+                        (Arg.arg (name, ?annotation = annotation), Expression.name name) |> Some
             )
             |> List.unzip
         | _ -> [], []
