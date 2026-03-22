@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * Add `IsInlineIfLambda` to `Fable.AST.Fable.Ident` (by @MangelMaxime)
+* Revert typo in `Fable.AST.Fable.Type.Tuple` genericArgs (by @ncave)
 
 ## 5.0.0-rc.2 - 2026-03-10
 
