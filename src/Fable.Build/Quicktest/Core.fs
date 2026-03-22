@@ -8,6 +8,7 @@ open Build.Utils
 type RunMode =
     | RunScript
     | RunCommand of string
+    | NoRun
 
 type QuicktestConfig =
     {
@@ -32,6 +33,7 @@ let genericQuicktest (config: QuicktestConfig) (args: string list) =
             // Use appendRaw to avoid quoting the command
             |> CmdLine.appendRaw "--run"
             |> CmdLine.appendRaw command
+        | NoRun -> cmdLine
 
     let projectDir = Path.Resolve config.ProjectDir
 
