@@ -12,11 +12,11 @@ let private fableDest = Path.Resolve("temp", "tests", "TypeScript")
 let private tscDest = Path.Resolve("temp", "tests", "TypeScriptCompiled")
 
 let handle (args: string list) =
-    let skipFableLibrary = args |> List.contains "--skip-fable-library"
+    let forceFableLibrary = args |> List.contains "--force-fable-library"
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
 
-    BuildFableLibraryTypeScript().Run(skipFableLibrary)
+    BuildFableLibraryTypeScript().Run(forceFableLibrary)
 
     Directory.clean fableDest
     Directory.clean tscDest

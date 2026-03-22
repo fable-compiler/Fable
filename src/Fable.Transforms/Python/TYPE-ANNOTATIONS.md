@@ -237,9 +237,9 @@ Protocol methods use uncurried types to match runtime behavior. A method paramet
 
 ```bash
 # Test rebuilding everything (fable-library + fable.library.core + tests)
+./build.sh test python --force-fable-library
+# Test rebuilding, but skipping fable-library rebuild (thanks to incremental build)
 ./build.sh test python
-# Test rebuilding, but skipping fable-library rebuild
-./build.sh test python --skip-fable-library
 # Test rebuilding tests and fable-library but skipping fable-library-core rebuild
 ./build.sh test python --skip-fable-library-core
 ```

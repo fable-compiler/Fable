@@ -13,7 +13,13 @@ type BuildFableLibraryPython(?skipCore: bool) =
             libraryDir = Path.Combine("src", "fable-library-py"),
             sourceDir = Path.Combine("src", "fable-library-py", "fable_library"),
             buildDir = Path.Combine("temp", "fable-library-py"),
-            outDir = Path.Combine("temp", "fable-library-py", "fable_library")
+            outDir = Path.Combine("temp", "fable-library-py", "fable_library"),
+            inputPatterns =
+                [
+                    Path.Combine("src", "fable-library-py", "**", "*.py")
+                    Path.Combine("src", "fable-library-py", "**", "*.fs")
+                    Path.Combine("src", "fable-library-ts", "**", "*.fs")
+                ]
         )
 
     let skipCore = defaultArg skipCore false

@@ -11,7 +11,7 @@ let private sourceDir = Path.Resolve("tests", "Python")
 let private fableLibraryBuildDir = Path.Resolve("temp", "fable-library-py")
 
 let handle (args: string list) =
-    let skipFableLibrary = args |> List.contains "--skip-fable-library"
+    let forceFableLibrary = args |> List.contains "--force-fable-library"
     let skipFableLibraryCore = args |> List.contains "--skip-fable-library-core"
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
@@ -19,7 +19,7 @@ let handle (args: string list) =
     let runTyping = args |> List.contains "--type-check"
     let runFormat = args |> List.contains "--format"
 
-    BuildFableLibraryPython(skipCore = skipFableLibraryCore).Run(skipFableLibrary)
+    BuildFableLibraryPython(skipCore = skipFableLibraryCore).Run(forceFableLibrary)
 
     Directory.clean buildDir
 

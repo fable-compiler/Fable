@@ -12,11 +12,11 @@ let private testsFolder = Path.Resolve("tests", "Dart")
 let private testsFsprojFolder = Path.Resolve("tests", "Dart", "src")
 
 let handle (args: string list) =
-    let skipFableLibrary = args |> List.contains "--skip-fable-library"
+    let forceFableLibrary = args |> List.contains "--force-fable-library"
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
 
-    BuildFableLibraryDart().Run(skipFableLibrary)
+    BuildFableLibraryDart().Run(forceFableLibrary)
 
     Directory.clean buildDir
 
