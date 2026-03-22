@@ -20,10 +20,10 @@ type QuicktestConfig =
     }
 
 let genericQuicktest (config: QuicktestConfig) (args: string list) =
-    let skipFableLibrary = args |> List.contains "--skip-fable-library"
+    let forceFableLibrary = args |> List.contains "--force-fable-library"
     let isWatch = args |> List.contains "--watch"
 
-    config.FableLibBuilder.Run(skipFableLibrary)
+    config.FableLibBuilder.Run(forceFableLibrary)
 
     let appendRunMode (cmdLine: CmdLine) =
         match config.RunMode with
