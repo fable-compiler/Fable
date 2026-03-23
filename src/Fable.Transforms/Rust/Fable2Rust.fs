@@ -2408,7 +2408,7 @@ module Util =
             match membOpt with
             | Some memb ->
                 let genArgsCount =
-                    (List.length callInfo.GenericArgs) - (List.length memb.GenericParameters)
+                    max 0 ((List.length callInfo.GenericArgs) - (List.length memb.GenericParameters))
 
                 let ownerGenArgs = callInfo.GenericArgs |> List.take genArgsCount
                 let membGenArgs = callInfo.GenericArgs |> List.skip genArgsCount
