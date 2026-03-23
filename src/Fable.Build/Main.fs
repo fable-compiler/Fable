@@ -32,7 +32,7 @@ Available commands:
             beam                    Run for BEAM (Erlang)
 
         Options:
-            --skip-fable-library    Skip building fable-library if folder already exists
+            --force-fable-library   Force building fable-library
             --watch                 Watch for changes and re-run the tests
 
     test                            Run the main tests suite
@@ -49,7 +49,7 @@ Available commands:
 
         Options for all except integration and standalone:
             --watch                 Watch for changes and re-run the tests
-            --skip-fable-library    Skip building fable-library if folder already exists
+            --force-fable-library   Force building fable-library
             --no-dotnet             When in watch mode, do not run the .NET tests
 
         Options for JavaScript:
@@ -73,20 +73,20 @@ Available commands:
                                     on top of of Node.js
 
         Options:
-            --skip-fable-library    Skip building fable-library if folder already exists
+            --force-fable-library   Force building fable-library
             --no-minify             Don't minify the JavaScript output
             --watch                 Watch for changes and recompile
 
     worker-js                       Compile the worker for the standalone version of Fable
 
         Options:
-            --skip-fable-library    Skip building fable-library if folder already exists
+            --force-fable-library   Force building fable-library
             --no-minify             Don't minify the JavaScript output
 
     compiler-js                     Compile the Fable compiler to JavaScript
 
         Options:
-            --skip-fable-library    Skip building fable-library if folder already exists
+            --force-fable-library   Force building fable-library
             --no-minify             Don't minify the JavaScript output
 
     package                         Generate local package for Fable.Cli and Fable.Core
@@ -94,7 +94,7 @@ Available commands:
                                     inside of other projects
 
         Options:
-            --skip-fable-library    Skip building fable-library if folder already exists
+            --force-fable-library   Force building fable-library
 
     publish                         Publish the different packages to NuGet and NPM
                                     based on the CHANGELOG.md files

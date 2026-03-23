@@ -19,7 +19,7 @@ The build system is implemented in F# at `src/Fable.Build/`. All commands go thr
 # Run tests (targets: javascript, typescript, python, dart, rust, beam, integration)
 ./build.sh test javascript
 ./build.sh test javascript --watch                # Watch mode (recompile on changes)
-./build.sh test javascript --skip-fable-library   # Skip fable-library rebuild (only if fable-library source is unchanged)
+./build.sh test javascript --force-fable-library  # Force fable-library rebuild (needed if you modified Fable compiler to fix the generation of `src/fable-library-*/**/*.fs` files)
 
 # Python-specific options
 ./build.sh test python --skip-fable-library-core  # Skip slow Rust extension + .pyi rebuild (Python only)
@@ -29,7 +29,7 @@ The build system is implemented in F# at `src/Fable.Build/`. All commands go thr
 ./build.sh quicktest javascript                   # Also: typescript, python, dart, rust, beam
 ```
 
-`--skip-fable-library` is safe when changes are only in `src/Fable.Transforms/` or other compiler code. If you modified runtime library source (e.g., `src/fable-library-py/`, `src/fable-library-ts/`), do not skip. If you already ran `./build.sh fable-library` separately, use `--skip-fable-library` when running tests right afterwards to avoid rebuilding.
+In most cases, you should not need to use `--force-fable-library`. Only use it if you modified compiler code that affects how F# files used in `src/fable-library-*/` are generated (e.g., changes to `FSharp2Fable.fs` that affect how F# AST is transformed into Fable AST for library files).
 
 Build output goes to `temp/`: transpiled runtime libraries in `temp/fable-library-<target>/` and test output in `temp/tests/<target>/` (e.g., `temp/fable-library-beam/` and `temp/tests/beam/`).
 

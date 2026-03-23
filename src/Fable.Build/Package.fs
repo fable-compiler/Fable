@@ -12,14 +12,14 @@ open EasyBuild.Tools.PackageJson
 let private packageDestination = Path.Resolve("temp", "packages")
 
 let handle (args: string list) =
-    let skipFableLibrary = args |> List.contains "--skip-fable-library"
+    let forceFableLibrary = args |> List.contains "--force-fable-library"
     // Build all the fable-libraries
-    BuildFableLibraryBeam().Run(skipFableLibrary)
-    BuildFableLibraryDart().Run(skipFableLibrary)
-    BuildFableLibraryJavaScript().Run(skipFableLibrary)
-    BuildFableLibraryPython().Run(skipFableLibrary)
-    BuildFableLibraryRust().Run(skipFableLibrary)
-    BuildFableLibraryTypeScript().Run(skipFableLibrary)
+    BuildFableLibraryBeam().Run(forceFableLibrary)
+    BuildFableLibraryDart().Run(forceFableLibrary)
+    BuildFableLibraryJavaScript().Run(forceFableLibrary)
+    BuildFableLibraryPython().Run(forceFableLibrary)
+    BuildFableLibraryRust().Run(forceFableLibrary)
+    BuildFableLibraryTypeScript().Run(forceFableLibrary)
 
     Directory.clean packageDestination
 
