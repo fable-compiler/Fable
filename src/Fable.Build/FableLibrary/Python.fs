@@ -4,9 +4,8 @@ open System.IO
 open Fake.IO
 open Build.Utils
 open SimpleExec
-open BlackFox.CommandLine
 
-type BuildFableLibraryPython(?skipCore: bool) =
+type BuildFableLibraryPython(?skipCore: bool, ?postFableBuildStage: unit -> unit) =
     inherit
         BuildFableLibrary(
             language = "python",
@@ -23,6 +22,7 @@ type BuildFableLibraryPython(?skipCore: bool) =
         )
 
     let skipCore = defaultArg skipCore false
+    let postFableBuildStage = defaultArg postFableBuildStage ignore
 
     override this.CopyStage() =
         // Copy all Python/F# files to the build directory
@@ -59,3 +59,6 @@ type BuildFableLibraryPython(?skipCore: bool) =
         Command.Run("uv", $"run ruff check --select I,F401 --fix {this.BuildDir}")
         // Run Ruff formatter on all generated files
         Command.Run("uv", $"run ruff format {this.BuildDir}")
+
+        // Run the post fable buil stage if provided (used for quicktest to install the library in editable mode)
+        postFableBuildStage ()
