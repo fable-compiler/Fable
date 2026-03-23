@@ -26,7 +26,7 @@ let rec containsIdentRef (name: string) (expr: Expr) : bool =
     | Call(callee, info, _, _) ->
         containsIdentRef name callee
         || info.Args |> List.exists (containsIdentRef name)
-        || (info.ThisArg |> Option.map (containsIdentRef name) |> Option.defaultValue false)
+        || (info.ThisArg |> Option.exists (containsIdentRef name))
     | CurriedApply(applied, args, _, _) -> containsIdentRef name applied || args |> List.exists (containsIdentRef name)
     | Let(_, value, body) -> containsIdentRef name value || containsIdentRef name body
     | LetRec(bindings, body) ->
