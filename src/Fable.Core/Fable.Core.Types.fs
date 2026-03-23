@@ -183,6 +183,7 @@ type EmitPropertyAttribute(propertyName: string) =
 /// <remarks>
 /// You can also use <c>[&lt;CompiledName>]</c> and <c>[&lt;CompiledValue>]</c> to
 /// specify the name or literal of the union case in the generated code:
+///
 /// <code lang="fsharp">
 /// [&lt;StringEnum>]
 /// type EventType =
@@ -191,6 +192,10 @@ type EmitPropertyAttribute(propertyName: string) =
 /// let eventType = EventType.MouseOver // Compiles: "Abracadabra"
 /// let magicPower = EventType.RealMagic // Compiles: false
 /// </code>
+///
+/// Note: <c>[&lt;CompiledName>]</c> takes precedence over <c>[&lt;CompiledValue>]</c>,
+/// which takes precedence over the default case name.
+///
 /// </remarks>
 /// <seealso href="https://fable.io/docs/javascript/features.html#caserules">
 /// Fable Documentation
