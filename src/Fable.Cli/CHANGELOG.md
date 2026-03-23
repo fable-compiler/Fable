@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [JS/TS] Fix invalid syntax emitted when negating negative literals (fix #4251) (by @MangelMaxime)
 * [Rust] Fixed negative counting in CallInfo.GenericArgs (by @ncave)
 * [JS/TS] Improve `Regex.Escape` and `Regex.Unescape` handling (by @MangelMaxime)
 * [All] Fix allow plugins to target .NET6 target framework (by @MangelMaxime)
