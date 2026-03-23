@@ -90,7 +90,7 @@ type BuildFableLibrary
             |> Seq.toList
 
         IncrementalBuild.run
-            $"fable-libary-%s{this.Language}"
+            $"fable-library-%s{this.Language}"
             (defaultArg forceBuild false)
             inputFiles
             [ Path.Resolve(this.OutDir) ]
