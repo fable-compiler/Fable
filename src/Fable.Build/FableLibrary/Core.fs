@@ -1,12 +1,8 @@
 namespace Build.FableLibrary
 
-open System
 open BlackFox.CommandLine
-open Fake.IO
 open System.IO
 open Build.Utils
-open Build.Utils
-open System.Diagnostics
 open SimpleExec
 open Microsoft.Extensions.FileSystemGlobbing
 open Microsoft.Extensions.FileSystemGlobbing.Abstractions
