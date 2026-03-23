@@ -12,7 +12,7 @@ type BuildFableLibraryDart() =
             Path.Combine("temp", "fable-library-dart"),
             Path.Combine("temp", "fable-library-dart"),
             [
-                Path.Combine("src", "fable-library-dart", "**", "dart")
+                Path.Combine("src", "fable-library-dart", "**", "*.dart")
                 Path.Combine("src", "fable-library-dart", "**", "*.fs")
             ],
             Path.Combine(".", "temp", "fable-library-dart")
