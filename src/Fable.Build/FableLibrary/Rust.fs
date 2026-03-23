@@ -17,6 +17,7 @@ type BuildFableLibraryRust() =
                 [
                     Path.Combine("src", "fable-library-rust", "**", "*.rs")
                     Path.Combine("src", "fable-library-rust", "**", "*.fs")
+                    Path.Combine("src", "fable-library-rust", "Cargo.toml")
                 ]
         )
 
