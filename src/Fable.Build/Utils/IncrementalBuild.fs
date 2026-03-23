@@ -67,3 +67,5 @@ let run (name: string) (forceBuild: bool) (inputs: string list) (outputs: string
         callback ()
 
         saveCache name inputHash
+    else
+        printfn "Skipping '%s' (inputs unchanged and outputs exist)" name
