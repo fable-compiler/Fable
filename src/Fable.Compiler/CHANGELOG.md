@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Rust] Fixed negative counting in CallInfo.GenericArgs (by @ncave)
 * [JS/TS] Improve `Regex.Escape` and `Regex.Unescape` handling (by @MangelMaxime)
 * [All] Fix allow plugins to target .NET6 target framework (by @MangelMaxime)
 * [Python] Fix function references passed as arguments inside tail-call optimised functions gaining unnecessary default parameters for outer TCO variables they don't reference (fix #3877)
