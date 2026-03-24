@@ -242,19 +242,22 @@ let canInlineArg (com: Compiler) identName value body =
     | _ ->
         let refCount = countReferencesUntil 2 identName body
 
-        // Inlining a plain identifier reference is always safe (it's just a rename),
-        // regardless of whether the ident is captured in a closure.
-        let isIdentValue =
+        // Don't inline values that create new mutable state (e.g. ResizeArray(), mutable arrays)
+        // when they're captured in a closure (e.g. object expression getter): inlining would create
+        // a new instance on each closure invocation instead of sharing the single instance.
+        // Lambdas, delegates, imports, ident refs, and immutable values are safe to inline.
+        let createsMutableState =
             match value with
-            | IdentExpr _ -> true
+            | Value(NewArray(_, _, kind), _) ->
+                match kind with
+                | MutableArray
+                | ResizeArray -> true
+                | ImmutableArray -> false
             | _ -> false
 
-        // Don't inline even side-effect-free values when they're captured in a closure (e.g. object expression
-        // getter): inlining would create a new value on each closure invocation instead of sharing one instance.
-        // Exception: plain ident values are always safe to inline (they don't create new objects).
         (refCount <= 1
          && not (canHaveSideEffects com value)
-         && (isIdentValue || not (isIdentCaptured identName body)))
+         && not (createsMutableState && isIdentCaptured identName body))
         // If it can have side effects, make sure is at least referenced once so the expression is not erased
         || (refCount = 1
             && noSideEffectBeforeIdent identName body
