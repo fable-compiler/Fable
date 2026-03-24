@@ -23,7 +23,10 @@ let isIntegerType (typ: Fable.AST.Fable.Type) =
 let rec containsIdentRef (name: string) (expr: Expr) : bool =
     match expr with
     | IdentExpr ident -> ident.Name = name
-    | Call(callee, info, _, _) -> containsIdentRef name callee || info.Args |> List.exists (containsIdentRef name)
+    | Call(callee, info, _, _) ->
+        containsIdentRef name callee
+        || info.Args |> List.exists (containsIdentRef name)
+        || (info.ThisArg |> Option.exists (containsIdentRef name))
     | CurriedApply(applied, args, _, _) -> containsIdentRef name applied || args |> List.exists (containsIdentRef name)
     | Let(_, value, body) -> containsIdentRef name value || containsIdentRef name body
     | LetRec(bindings, body) ->
@@ -80,6 +83,16 @@ let rec containsIdentRef (name: string) (expr: Expr) : bool =
         | Throw(None, _)
         | Debugger
         | Curry _ -> false
+    | _ -> false
+
+/// Check if an expression is effectively unit — either a direct UnitConstant
+/// or a Sequential containing only UnitConstants. This pattern arises when F#
+/// inlines `ignore` on a call: `let value = expr in ()` where the body may be
+/// `Sequential [UnitConstant; UnitConstant]` due to the Ignore replacement.
+let rec isEffectivelyUnit (expr: Expr) : bool =
+    match expr with
+    | Value(UnitConstant, _) -> true
+    | Sequential exprs -> exprs |> List.forall isEffectivelyUnit
     | _ -> false
 
 /// Check if an identifier is captured inside a closure (Lambda/Delegate) within the expression.
