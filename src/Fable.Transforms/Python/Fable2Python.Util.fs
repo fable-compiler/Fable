@@ -269,7 +269,9 @@ module Util =
                 match fieldInfo.FieldType with
                 | Some typ -> hasErasedOptionReturnType typ
                 | None -> false
-            | _ -> false
+            | _ ->
+                // For any other expression (e.g. CurriedApply, Call) check the expression type
+                hasErasedOptionReturnType argExpr.Type
         | _ -> false
 
     /// Wraps None values in cast(type, None) for type safety.
