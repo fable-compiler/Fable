@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [All] Fix captured side-effect-free values (e.g. empty ResizeArray) being incorrectly inlined into object expression getters in release mode, causing a new instance to be created on each getter call (fixes #3779) (by @MangelMaxime)
 * [Python] Fix missing `await` on else branch of ternary expressions in async closures (by @dbrattli)
 * [Beam] Fix `|> ignore` on cross-module Emit calls generating variable bindings that shadow Emit case-clause variables (by @dbrattli)
 * [Beam] Fix `containsIdentRef` not checking `Call` ThisArg (by @dbrattli)

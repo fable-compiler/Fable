@@ -577,6 +577,10 @@ type MangledAbstractClass5(v) =
     inherit MangledAbstractClass4(v + 5)
     override _.MyMethod(x: int) = base.MyMethod(x) + v + 7
 
+[<AbstractClass>]
+type AbstractClassWithResizeArrayProp() =
+    abstract Warnings: ResizeArray<string> with get
+
 type ConcreteClass1() =
     inherit MangledAbstractClass5(2)
 
@@ -1776,3 +1780,17 @@ let ``test Unchecked.defaultof works for fields on structs`` () =
     top.A |> equal 0
     top.B.A |> equal 0
     top.B.B |> equal false
+
+[<Fact>]
+let ``test Abstract class property backed by captured variable in object expression works`` () =
+    let warnings = ResizeArray<string>()
+
+    let reader =
+        { new AbstractClassWithResizeArrayProp() with
+            member __.Warnings = warnings
+        }
+
+    reader.Warnings.Add("Warning 1")
+    reader.Warnings.Add("Warning 2")
+
+    reader.Warnings.Count |> equal 2

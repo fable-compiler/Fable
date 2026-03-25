@@ -242,7 +242,22 @@ let canInlineArg (com: Compiler) identName value body =
     | _ ->
         let refCount = countReferencesUntil 2 identName body
 
-        (refCount <= 1 && not (canHaveSideEffects com value))
+        // Don't inline values that create new mutable state (e.g. ResizeArray(), mutable arrays)
+        // into closures: even though creation is side-effect-free, inlining into a closure
+        // called multiple times would create a new instance per call instead of sharing the
+        // single captured instance
+        let createsMutableState =
+            match value with
+            | Value(NewArray(_, _, kind), _) ->
+                match kind with
+                | MutableArray
+                | ResizeArray -> true
+                | ImmutableArray -> false
+            | _ -> false
+
+        (refCount <= 1
+         && not (canHaveSideEffects com value)
+         && not (createsMutableState && isIdentCaptured identName body))
         // If it can have side effects, make sure is at least referenced once so the expression is not erased
         || (refCount = 1
             && noSideEffectBeforeIdent identName body
