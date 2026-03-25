@@ -47,6 +47,7 @@
     <Compile Include="../Js/Main/EventTests.fs" />
     <Compile Include="../Js/Main/HashSetTests.fs" />
     <!-- <Compile Include="../Js/Main/ImportTests.fs" /> -->
+    <Compile Include="../Js/Main/InlineIfLambdaTests.fs" />
     <!-- <Compile Include="../Js/Main/JsInteropTests.fs" /> -->
     <!-- <Compile Include="../Js/Main/ListCollectorTests.fs" /> -->
     <Compile Include="../Js/Main/ListTests.fs" />

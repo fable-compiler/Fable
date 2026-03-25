@@ -46,6 +46,7 @@
     <!-- <Compile Include="tests/src/EventTests.fs" /> -->
     <Compile Include="tests/src/GuidTests.fs" />
     <Compile Include="tests/src/HashSetTests.fs" />
+    <Compile Include="tests/src/InlineIfLambdaTests.fs" />
     <Compile Include="tests/src/InterfaceTests.fs" />
     <Compile Include="tests/src/InteropTests.fs" />
     <!-- <Compile Include="tests/src/ImportTests.fs" /> -->
@@ -77,7 +78,6 @@
     <Compile Include="tests/src/TupleTests.fs" />
     <Compile Include="tests/src/TypeTests.fs" />
     <Compile Include="tests/src/UnionTests.fs" />
-    <Compile Include="tests/src/InlineIfLambdaTests.fs" />
     <!-- <Compile Include="tests/src/UriTests.fs" /> -->
     <Compile Include="tests/src/main.fs" />
   </ItemGroup>

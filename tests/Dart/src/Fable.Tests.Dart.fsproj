@@ -17,6 +17,7 @@
     <Compile Include="EnumerableTests.fs" />
     <Compile Include="EnumTests.fs" />
     <Compile Include="HashSetTests.fs" />
+    <Compile Include="InlineIfLambdaTests.fs" />
     <Compile Include="ListTests.fs" />
     <Compile Include="MapTests.fs" />
     <Compile Include="MiscTests.fs" />
@@ -36,7 +37,6 @@
     <Compile Include="TupleTests.fs" />
     <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTests.fs" />
-    <Compile Include="InlineIfLambdaTests.fs" />
     <Content Include="..\main.dart" />
   </ItemGroup>
 </Project>
