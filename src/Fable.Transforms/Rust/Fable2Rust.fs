@@ -1405,7 +1405,7 @@ module Util =
         let bindings = List.zip tempArgs args
         let emptyBody = Fable.Sequential []
 
-        let tempLetStmts, ctx = makeLetStmts com ctx bindings emptyBody Map.empty
+        let tempLetStmts, ctx = makeLetStmts com ctx bindings emptyBody Map.empty true
 
         let setArgStmts =
             List.zip tc.Args tempArgs
@@ -2766,15 +2766,16 @@ module Util =
         let isByRef = isAddrOfExpr value
         makeLocalStmt com ctx ident false false tyOpt initOpt isByRef usages
 
-    let makeLetStmts (com: IRustCompiler) ctx bindings letBody usages =
+    let makeLetStmts (com: IRustCompiler) ctx bindings letBody usages isTailCall =
         // Context will be threaded through all let bindings, appending itself to ScopedSymbols each time
         let ctx, letStmtsRev =
             ((ctx, []), bindings)
             ||> List.fold (fun (ctx, lst) (ident: Fable.Ident, value) ->
                 let stmt, ctxNext =
                     let isCaptured =
-                        (List.exists (fun (_i, v) -> FableTransforms.isIdentCaptured ident.Name v) bindings)
-                        || (FableTransforms.isIdentCaptured ident.Name letBody)
+                        not isTailCall
+                        && ((List.exists (fun (_i, v) -> FableTransforms.isIdentCaptured ident.Name v) bindings)
+                            || (FableTransforms.isIdentCaptured ident.Name letBody))
 
                     match value with
                     | Function(args, body, _name) when not (ident.IsMutable) ->
@@ -2800,7 +2801,7 @@ module Util =
             let exprs = body :: values
             calcIdentUsages idents exprs
 
-        let letStmts, ctx = makeLetStmts com ctx bindings body usages
+        let letStmts, ctx = makeLetStmts com ctx bindings body usages false
 
         let bodyStmts =
             match body with
@@ -3825,7 +3826,7 @@ module Util =
                 mutArgs |> List.map (fun arg -> arg.Name, Fable.IdentExpr arg) |> Map.ofList
 
             let body = FableTransforms.replaceValues argMap body
-            let letStmts, ctx = makeLetStmts com ctx bindings body Map.empty
+            let letStmts, ctx = makeLetStmts com ctx bindings body Map.empty true
             let loopBody = transformLeaveContext com ctx None body
             let loopExpr = mkBreakExpr (Some label) (Some(mkParenExpr loopBody))
             let loopStmt = mkLoopExpr (Some label) loopExpr |> mkExprStmt

@@ -9,12 +9,11 @@ let isIdentCaptured identName expr =
         | [] -> false
         | expr :: restExprs ->
             match expr with
-            | IdentExpr i when i.Name = identName -> isClosure
+            | IdentExpr i when i.Name = identName -> isClosure || loop isClosure restExprs
             | Lambda(_, body, _) -> loop true [ body ] || loop isClosure restExprs
             | Delegate(_, body, _, _) -> loop true [ body ] || loop isClosure restExprs
             | ObjectExpr(members, _, baseCall) ->
                 let memberExprs = members |> List.map (fun m -> m.Body)
-
                 loop true memberExprs || loop isClosure (Option.toList baseCall @ restExprs)
             | e ->
                 let sub = getSubExpressions e
@@ -338,12 +337,6 @@ module private Transforms =
                 | _ ->
                     countReferencesUntil 1 ident.Name lambdaBody = 0
                     && canInlineArg com ident.Name value letBody
-                    // If we inline the lambda Fable2Rust doesn't have
-                    // a chance to clone the mutable ident
-                    && (if com.Options.Language = Rust then
-                            referencesMutableIdent lambdaBody |> not
-                        else
-                            true)
             | _ -> canInlineArg com ident.Name value letBody
 
         if canInlineBinding then
