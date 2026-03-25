@@ -199,3 +199,23 @@ let ``test async returns in try-with are awaited`` () =
 
     let result2 = wrapper true |> fun tsk -> tsk.GetAwaiter().GetResult()
     equal -1 result2
+
+// Regression: closure with let binding before if/else returning Task emits ternary;
+// both branches of the ternary must be awaited.
+let asyncNone () : Task<int option> = Task.FromResult None
+
+let makeClosure (flag: bool) =
+    let captured = flag
+    fun (value: int) ->
+        let x = value + 1
+        if captured then Task.FromResult(Some x) else asyncNone ()
+
+[<Fact>]
+let ``test async ternary in closure awaits both branches`` () =
+    let fn = makeClosure true
+    let result = fn 41 |> fun tsk -> tsk.GetAwaiter().GetResult()
+    equal (Some 42) result
+
+    let fn2 = makeClosure false
+    let result2 = fn2 41 |> fun tsk -> tsk.GetAwaiter().GetResult()
+    equal None result2
