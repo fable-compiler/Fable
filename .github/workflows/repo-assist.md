@@ -14,11 +14,11 @@ description: |
   Always polite, constructive, and mindful of the project's goals.
 
 on:
-  schedule: every 12h
-  workflow_dispatch:
-  slash_command:
-    name: repo-assist
-  reaction: "eyes"
+  schedule: every 24h
+  # workflow_dispatch:
+  # slash_command:
+  #   name: repo-assist
+  # reaction: "eyes"
 
 timeout-minutes: 60
 

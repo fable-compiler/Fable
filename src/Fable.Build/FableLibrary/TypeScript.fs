@@ -13,6 +13,10 @@ type BuildFableLibraryTypeScript() =
             Path.Combine("src", "fable-library-ts"),
             Path.Combine("temp", "fable-library-ts"),
             Path.Combine("temp", "fable-library-ts"),
+            [
+                Path.Combine("src", "fable-library-ts", "**", "*.ts")
+                Path.Combine("src", "fable-library-ts", "**", "*.fs")
+            ],
             Path.Combine(".", "temp", "fable-library-ts")
         )
 

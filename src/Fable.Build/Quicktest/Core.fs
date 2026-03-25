@@ -8,6 +8,7 @@ open Build.Utils
 type RunMode =
     | RunScript
     | RunCommand of string
+    | NoRun
 
 type QuicktestConfig =
     {
@@ -19,10 +20,10 @@ type QuicktestConfig =
     }
 
 let genericQuicktest (config: QuicktestConfig) (args: string list) =
-    let skipFableLibrary = args |> List.contains "--skip-fable-library"
-    let runOnly = args |> List.contains "--run-only"
+    let forceFableLibrary = args |> List.contains "--force-fable-library"
+    let isWatch = args |> List.contains "--watch"
 
-    config.FableLibBuilder.Run(skipFableLibrary)
+    config.FableLibBuilder.Run(forceFableLibrary)
 
     let appendRunMode (cmdLine: CmdLine) =
         match config.RunMode with
@@ -32,6 +33,7 @@ let genericQuicktest (config: QuicktestConfig) (args: string list) =
             // Use appendRaw to avoid quoting the command
             |> CmdLine.appendRaw "--run"
             |> CmdLine.appendRaw command
+        | NoRun -> cmdLine
 
     let projectDir = Path.Resolve config.ProjectDir
 
@@ -52,12 +54,18 @@ let genericQuicktest (config: QuicktestConfig) (args: string list) =
         |> CmdLine.appendPrefix "--extension" config.Extension
         |> CmdLine.appendPrefix "--exclude" "Fable.Core"
         |> CmdLine.appendRaw "--noCache"
+        |> (fun cmdLine ->
+            if isWatch then
+                cmdLine |> CmdLine.appendRaw "--watch"
+            else
+                cmdLine
+        )
         |> CmdLine.appendRaw "--verbose"
         |> appendRunMode
 
-    if runOnly then
-        Command.Fable(fableArgs, workingDirectory = projectDir)
-    else
-        Command.WatchFableAsync(fableArgs |> CmdLine.appendRaw "--watch", workingDirectory = projectDir)
+    if isWatch then
+        Command.WatchFableAsync(fableArgs, workingDirectory = projectDir)
         |> Async.AwaitTask
         |> Async.RunSynchronously
+    else
+        Command.Fable(fableArgs, workingDirectory = projectDir)

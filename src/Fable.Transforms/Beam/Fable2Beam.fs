@@ -322,9 +322,19 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         | _ ->
             let erlValue = transformExpr com ctx value
             let hoisted, cleanValue = extractBlock erlValue
-            let ctx' = { ctx with LocalVars = ctx.LocalVars.Add(ident.Name) }
-            let erlBody = transformExpr com ctx' body
-            Beam.ErlExpr.Block(hoisted @ [ Beam.ErlExpr.Match(Beam.PVar varName, cleanValue); erlBody ])
+
+            match body with
+            | _ when ident.IsCompilerGenerated && Util.isEffectivelyUnit body ->
+                // Compiler-generated binding whose body is effectively unit —
+                // e.g., from F# inlining `ignore` on an Emit/Call.
+                // Emit the value for side effects only, without binding it to a
+                // named variable that could shadow variables in Emit strings.
+                let erlBody = transformExpr com ctx body
+                Beam.ErlExpr.Block(hoisted @ [ cleanValue; erlBody ])
+            | _ ->
+                let ctx' = { ctx with LocalVars = ctx.LocalVars.Add(ident.Name) }
+                let erlBody = transformExpr com ctx' body
+                Beam.ErlExpr.Block(hoisted @ [ Beam.ErlExpr.Match(Beam.PVar varName, cleanValue); erlBody ])
 
     | TypeCast(expr, _typ) -> transformExpr com ctx expr
 

@@ -9,7 +9,12 @@ type BuildFableLibraryBeam() =
             Path.Combine("src", "fable-library-beam"),
             Path.Combine("src", "fable-library-beam"),
             Path.Combine("temp", "fable-library-beam"),
-            Path.Combine("temp", "fable-library-beam")
+            Path.Combine("temp", "fable-library-beam"),
+            [
+                Path.Combine("src", "fable-library-beam", "**", "*.erl")
+                Path.Combine("src", "fable-library-beam", "**", "*.fs")
+                Path.Combine("src", "fable-library-ts", "**", "*.fs")
+            ]
         )
 
     override this.CopyStage() =

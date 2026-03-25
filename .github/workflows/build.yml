@@ -175,11 +175,11 @@ jobs:
 
       - name: Fable Tests - Python (linux)
         if: matrix.platform == 'ubuntu-latest'
-        run: ./build.sh test python --skip-fable-library
+        run: ./build.sh test python
 
       - name: Fable Tests - Python (Windows)
         if: matrix.platform == 'windows-latest'
-        run: .\build.bat test python --skip-fable-library
+        run: .\build.bat test python
 
   # Separate build job for Rust (will run in parallel)
   build-rust:
@@ -209,7 +209,7 @@ jobs:
         run: ./build.sh fable-library --rust
 
       - name: Fable Tests - Rust
-        run: ./build.sh test rust --skip-fable-library --${{ matrix.test }}
+        run: ./build.sh test rust --${{ matrix.test }}
 
   # Separate build job for Dart
   build-dart:

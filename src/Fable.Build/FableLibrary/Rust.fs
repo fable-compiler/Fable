@@ -12,7 +12,13 @@ type BuildFableLibraryRust() =
             Path.Combine("src", "fable-library-rust"),
             Path.Combine("src", "fable-library-rust", "src"),
             Path.Combine("temp", "fable-library-rust"),
-            Path.Combine("temp", "fable-library-rust", "src")
+            Path.Combine("temp", "fable-library-rust", "src"),
+            inputPatterns =
+                [
+                    Path.Combine("src", "fable-library-rust", "**", "*.rs")
+                    Path.Combine("src", "fable-library-rust", "**", "*.fs")
+                    Path.Combine("src", "fable-library-rust", "Cargo.toml")
+                ]
         )
 
     override this.PostFableBuildStage() =

@@ -113,6 +113,14 @@ type RecvMsg =
 [<Emit("case $0 of true -> <<\"yes\">>; false -> <<\"no\">> end")>]
 let boolToString (x: bool) : string = nativeOnly
 
+// Emit that uses `Value` as a case-clause variable WITHOUT an IIFE wrapper.
+// In Erlang's flat scope, if a previous `|> ignore` leaked `Value = ok`,
+// then `Value` in the case pattern becomes a bound-variable match (checking
+// if the input equals `ok`) instead of a fresh binding, causing case_clause
+// errors for any other value.
+[<Emit("case $0 of undefined -> <<\"none\">>; Value -> Value end")>]
+let emitWithValueCaseVar (x: string option) : string = nativeOnly
+
 #endif
 
 // ============================================================
@@ -181,6 +189,21 @@ let ``test Emit with case expression called twice does not leak variables`` () =
     let b = boolToString false
     equal "yes" a
     equal "no" b
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test ignore on wrapper function does not shadow Emit variables`` () =
+#if FABLE_COMPILER
+    // Piping cross-module Emit/wrapper functions to ignore should NOT
+    // generate `Value = <call>` which would shadow `Value` in
+    // subsequent Emit case clauses.
+    Fable.Tests.Imports.emitReturningUnit () |> ignore
+    Fable.Tests.Imports.emitReturningValue () |> ignore
+    Fable.Tests.Imports.wrapperReturningValue () |> ignore
+    let result = emitWithValueCaseVar (Some "hello")
+    equal "hello" result
 #else
     ()
 #endif

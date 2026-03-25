@@ -33,6 +33,15 @@ let tests =
     testCase "Unary negation with negative literal values works" <| fun () ->
         -literalNegativeValue |> equal 345
 
+    testCase "Negating negative literals inlined in computation expressions works" <| fun () -> // #4251
+        let f x = x
+        let result =
+            [
+                let x = -5.0
+                f (-x)
+            ]
+        result |> equal [5.0]
+
     testCase "Unary negation with integer MinValue works" <| fun () ->
         -(-128y) |> equal SByte.MinValue
         -(-32768s) |> equal Int16.MinValue

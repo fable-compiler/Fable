@@ -108,13 +108,10 @@ let build (minify: bool) =
 
 let handle (args: string list) =
     let minify = args |> List.contains "--no-minify" |> not
-    let isWatch = args |> List.contains "--watch"
-    let skipFableLibrary = args |> List.contains "--skip-fable-library"
 
     Command.Run("npm", "install", workingDirectory = projectDir)
 
-    BuildFableLibraryJavaScript().Run(skipFableLibrary)
+    BuildFableLibraryJavaScript().Run()
 
     build minify
-    // Force skip fable library for worker, because it's already built
-    WorkerJs.handle ("--skip-fable-library" :: args)
+    WorkerJs.handle args

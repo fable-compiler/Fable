@@ -232,3 +232,5 @@ Cargo.lock
 
 # This file is copied as part of the Restore task
 tests/React/Components.Copied.fs
+
+.build-cache/

@@ -10,6 +10,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [JS/TS] Fix `C0` and `P0` format specifiers producing trailing dot (e.g., `"¤1,000."` → `"¤1,000"`)
+* [All] Fix captured side-effect-free values (e.g. empty ResizeArray) being incorrectly inlined into object expression getters in release mode, causing a new instance to be created on each getter call (fixes #3779) (by @MangelMaxime)
+* [Python] Fix missing `await` on else branch of ternary expressions in async closures (by @dbrattli)
+* [Beam] Fix `|> ignore` on cross-module Emit calls generating variable bindings that shadow Emit case-clause variables (by @dbrattli)
+* [Beam] Fix `containsIdentRef` not checking `Call` ThisArg (by @dbrattli)
+* [JS/TS] `StringEnum` now respect `CompiledValue` and `CompiledName` (by @shayanhabibi)
+* [JS/TS] Fix invalid syntax emitted when negating negative literals (fix #4251) (by @MangelMaxime)
+* [Rust] Fixed negative counting in CallInfo.GenericArgs (by @ncave)
+* [JS/TS] Improve `Regex.Escape` and `Regex.Unescape` handling (by @MangelMaxime)
+* [All] Fix allow plugins to target .NET6 target framework (by @MangelMaxime)
+* [Python] Fix function references passed as arguments inside tail-call optimised functions gaining unnecessary default parameters for outer TCO variables they don't reference (fix #3877)
 * [TS] Fix abstract instance methods not emitted in TypeScript when class uses `[<AttachMembers>]` (fixes #3506) (by @MangelMaxime)
 * [JS/TS] Fix `Unchecked.defaultof<'T>` for struct types with fields returning `undefined` instead of zero-initialized values (by @MangelMaxime)
 * [JS/TS] Fixed quotation for union string cases (by @MangelMaxime)

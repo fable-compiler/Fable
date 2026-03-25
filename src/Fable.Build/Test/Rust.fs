@@ -24,7 +24,7 @@ let mainTestsDestinationDir = Path.Resolve("temp", "tests", "Rust")
 let mainTestsProjectDir = Path.Resolve("tests", "Rust")
 
 let handle (args: string list) =
-    let skipFableLibrary = args |> List.contains "--skip-fable-library"
+    let forceFableLibrary = args |> List.contains "--force-fable-library"
     let isWatch = args |> List.contains "--watch"
     let astOnly = args |> List.contains "--ast-only"
     let noStd = args |> List.contains "--no_std"
@@ -34,7 +34,7 @@ let handle (args: string list) =
     if noStd && threaded then
         failwith "Cannot use --no-std and --threaded at the same time"
 
-    BuildFableLibraryRust().Run(skipFableLibrary)
+    BuildFableLibraryRust().Run(forceFableLibrary)
 
     if astOnly then
         testAst isWatch

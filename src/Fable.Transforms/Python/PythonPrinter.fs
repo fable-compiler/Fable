@@ -816,7 +816,7 @@ module PrinterExtensions =
             | Name ex -> printer.Print(ex)
             | Await ex ->
                 printer.Print("await ")
-                printer.Print(ex)
+                printer.ComplexExpressionWithParens(ex)
             | Yield expr ->
                 printer.Print("yield")
 

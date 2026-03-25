@@ -193,7 +193,7 @@ type Type =
     | Regex
     | Number of kind: NumberKind * info: NumberInfo
     | Option of genericArg: Type * isStruct: bool
-    | Tuple of genericArg: Type list * isStruct: bool
+    | Tuple of genericArgs: Type list * isStruct: bool
     | Array of genericArg: Type * kind: ArrayKind
     | List of genericArg: Type
     | LambdaType of argType: Type * returnType: Type

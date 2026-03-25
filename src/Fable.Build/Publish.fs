@@ -87,12 +87,14 @@ let private publishNpm (projectDir: string) =
 
 let handle (args: string list) =
     // Build all the fable-libraries
-    BuildFableLibraryBeam().Run()
-    BuildFableLibraryDart().Run()
-    BuildFableLibraryJavaScript().Run()
-    BuildFableLibraryPython().Run()
-    BuildFableLibraryRust().Run()
-    BuildFableLibraryTypeScript().Run()
+    // Force rebuld of fable-libraries to make sure they are generated with the latest
+    // version of the compiler
+    BuildFableLibraryBeam().Run(true)
+    BuildFableLibraryDart().Run(true)
+    BuildFableLibraryJavaScript().Run(true)
+    BuildFableLibraryPython().Run(true)
+    BuildFableLibraryRust().Run(true)
+    BuildFableLibraryTypeScript().Run(true)
 
     // Handle the NPM packages
 
@@ -132,8 +134,8 @@ let handle (args: string list) =
     // Trigger fable-compiler-js target to make sure everything is ready for publish
     // Note: fable-standalone is built as part of fable-compiler-js
     // so no need to build it separately
-    // Note 2: We already built fable-library, so we skip it here
-    CompilerJs.handle [ "--skip-fable-library" ]
+    // Note 2: We already built fable-library, it will be skipped thanks to incremental build
+    CompilerJs.handle []
 
     publishNpm ProjectDir.fable_standalone
     publishNpm ProjectDir.fable_compiler_js

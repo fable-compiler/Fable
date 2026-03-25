@@ -1,19 +1,26 @@
 namespace Build.FableLibrary
 
 open BlackFox.CommandLine
-open Fake.IO
 open System.IO
 open Build.Utils
-open Build.Utils
-open System.Diagnostics
 open SimpleExec
+open Microsoft.Extensions.FileSystemGlobbing
+open Microsoft.Extensions.FileSystemGlobbing.Abstractions
 
 /// <summary>
 /// Building fable-library is similar enough for all the targets
 /// that we can use this class to standardise the process.
 /// </summary>
 type BuildFableLibrary
-    (language: string, libraryDir: string, sourceDir: string, buildDir: string, outDir: string, ?fableLibArg: string)
+    (
+        language: string,
+        libraryDir: string,
+        sourceDir: string,
+        buildDir: string,
+        outDir: string,
+        inputPatterns: string list,
+        ?fableLibArg: string
+    )
     =
 
     // It seems like the different target have a different way of supporting
@@ -62,37 +69,50 @@ type BuildFableLibrary
 
             tryDelete 3
 
-    member this.Run(?skipIfExist: bool) =
+    member this.Run(?forceBuild: bool) =
         let toConsole (s: string) = System.Console.WriteLine(s)
 
-        let skipIfExist = defaultArg skipIfExist false
+        let matcher = new Matcher()
+        matcher.AddIncludePatterns(inputPatterns)
+        // Ignore well-known build output folders from MSBuild
+        matcher.AddExcludePatterns([ "**/obj/**"; "**/bin/**" ])
 
-        if skipIfExist && Directory.Exists outDir then
-            "Skipping Fable build stage" |> toConsole
+        let directoryInfo = DirectoryInfo(Path.Resolve())
+        let dirWrapper = DirectoryInfoWrapper(directoryInfo)
 
-        else
+        let inputFiles =
+            matcher.Execute(dirWrapper).Files
+            |> Seq.map (fun file -> Path.Combine(directoryInfo.FullName, file.Path))
+            |> Seq.toList
 
-            "Cleaning build directory" |> toConsole
+        IncrementalBuild.run
+            $"fable-library-%s{this.Language}"
+            (defaultArg forceBuild false)
+            inputFiles
+            [ Path.Resolve(this.OutDir) ]
+            (fun () ->
+                "Cleaning build directory" |> toConsole
 
-            this.deleteDirectoryRobust buildDir
+                this.deleteDirectoryRobust buildDir
 
-            "Building Fable.Library" |> toConsole
+                "Building Fable.Library" |> toConsole
 
-            let args =
-                CmdLine.appendRaw sourceDir
-                >> CmdLine.appendPrefix "--outDir" outDir
-                >> CmdLine.appendPrefix "--fableLib" fableLibArg
-                >> CmdLine.appendPrefix "--lang" language
-                >> CmdLine.appendPrefix "--exclude" "Fable.Core"
-                >> CmdLine.appendPrefix "--define" "FABLE_LIBRARY"
-                >> CmdLine.appendRaw "--noCache"
-                // Target implementation can require additional arguments
-                >> this.FableArgsBuilder
+                let args =
+                    CmdLine.appendRaw sourceDir
+                    >> CmdLine.appendPrefix "--outDir" outDir
+                    >> CmdLine.appendPrefix "--fableLib" fableLibArg
+                    >> CmdLine.appendPrefix "--lang" language
+                    >> CmdLine.appendPrefix "--exclude" "Fable.Core"
+                    >> CmdLine.appendPrefix "--define" "FABLE_LIBRARY"
+                    >> CmdLine.appendRaw "--noCache"
+                    // Target implementation can require additional arguments
+                    >> this.FableArgsBuilder
 
-            Command.Fable(args)
+                Command.Fable(args)
 
-            "Copy stage" |> toConsole
-            this.CopyStage()
+                "Copy stage" |> toConsole
+                this.CopyStage()
 
-            "Post Fable build stage" |> toConsole
-            this.PostFableBuildStage()
+                "Post Fable build stage" |> toConsole
+                this.PostFableBuildStage()
+            )

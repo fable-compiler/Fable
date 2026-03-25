@@ -18,9 +18,9 @@ let private testProjectName =
 let handle (args: string list) =
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
-    let skipFableLibrary = args |> List.contains "--skip-fable-library"
+    let forceFableLibrary = args |> List.contains "--force-fable-library"
 
-    BuildFableLibraryBeam().Run(skipFableLibrary)
+    BuildFableLibraryBeam().Run(forceFableLibrary)
 
     Directory.clean buildDir
 

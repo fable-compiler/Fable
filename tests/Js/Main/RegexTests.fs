@@ -55,8 +55,18 @@ let tests =
         Regex.Escape(@"\*+?|{[()^$") |> equal @"\\\*\+\?\|\{\[\(\)\^\$"
         Regex.Escape(@"C:\Temp") |> equal @"C:\\Temp"
 
+        // Characters .NET does NOT escape
+        Regex.Escape("-") |> equal "-"
+        Regex.Escape("/") |> equal "/"
+        // Note: .NET does not escape ], } but JS unicode-mode regex rejects bare ] and },
+        // so we escape them too; only check the roundtrip works, not the exact escaped form
+        // Roundtrip: escaped pattern must match the original character
+        for c in "$()*+.?[\^{|/-}]" do
+            let escaped = Regex.Escape(string c)
+            Regex(escaped).IsMatch(string c) |> equal true
+
     testCase "Regex.Unescape works" <| fun _ ->
-        Regex.Unescape(@"\\\*\+\?\|\{\[\(\)\^\$") |> equal @"\*+?|{[()^$"
+        Regex.Unescape(@"\$\(\)\*\+\.\?\[\\\^\{\|/-}]") |> equal @"$()*+.?[\^{|/-}]"
         Regex.Unescape(@"C:\\Temp") |> equal @"C:\Temp"
 
     testCase "Regex instance IsMatch works" <| fun _ ->
