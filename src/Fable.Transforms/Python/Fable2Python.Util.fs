@@ -199,28 +199,6 @@ module Util =
             | _ -> false
         | _ -> false
 
-    /// Check if a value is a TypeCast chain from a generic parameter to a numeric type.
-    /// This happens with LanguagePrimitives.EnumToValue patterns like:
-    ///   let byte<'TEnum when 'TEnum: enum<byte>> (value: 'TEnum) = EnumToValue value |> byte
-    /// The binding `let value_1: byte = value` would fail Pyright because TENUM is object*.
-    /// In this case, skip the type annotation and let Python infer from the runtime value.
-    let isCastFromGenericParam (value: Fable.Expr) (varType: Fable.Type) =
-        match varType with
-        | Fable.Number _ ->
-            // Trace through TypeCast chains to see if the source is a generic param
-            let rec getInnerExpr expr =
-                match expr with
-                | Fable.TypeCast(inner, _) -> getInnerExpr inner
-                | _ -> expr
-
-            match getInnerExpr value with
-            | Fable.IdentExpr ident ->
-                match ident.Type with
-                | Fable.GenericParam _ -> true
-                | _ -> false
-            | _ -> false
-        | _ -> false
-
     /// Get narrowed contexts for then/else branches based on a guard expression
     /// Returns (thenCtx, elseCtx) with appropriate type narrowing applied
     let getNarrowedContexts (ctx: Context) (guardExpr: Fable.Expr) : Context * Context =
@@ -291,9 +269,7 @@ module Util =
                 match fieldInfo.FieldType with
                 | Some typ -> hasErasedOptionReturnType typ
                 | None -> false
-            | _ ->
-                // For any other expression (e.g. CurriedApply, Call) check the expression type
-                hasErasedOptionReturnType argExpr.Type
+            | _ -> false
         | _ -> false
 
     /// Wraps None values in cast(type, None) for type safety.

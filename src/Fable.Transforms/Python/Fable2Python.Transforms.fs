@@ -337,31 +337,8 @@ let optimizeTailCall (com: IPythonCompiler) (ctx: Context) range (tc: ITailCallO
         yield Statement.continue' (?loc = range)
     ]
 
-let transformCast (com: IPythonCompiler) (ctx: Context) (t: Fable.Type) (e: Fable.Expr) : Expression * Statement list =
+let transformCast (com: IPythonCompiler) (ctx: Context) t e : Expression * Statement list =
     // printfn "transformCast: %A" (t, e)
-    // When casting from a generic param to a numeric type, use typing.cast() instead of
-    // calling the constructor, since Pyright can't verify generic params satisfy numeric protocols.
-    // Trace through TypeCast chains to find the innermost source expression.
-    // This handles double-cast patterns like TypeCast(TypeCast(IdentExpr{TENUM}, Int32), Int32)
-    // that arise from EnumToValue + numeric conversion (e.g. int32(EnumToValue value)).
-    let rec getInnermostExpr (expr: Fable.Expr) =
-        match expr with
-        | Fable.TypeCast(inner, _) -> getInnermostExpr inner
-        | _ -> expr
-
-    let isGenericParamSource =
-        match (getInnermostExpr e).Type with
-        | Fable.GenericParam _ -> true
-        | _ -> false
-
-    let castFromGenericToNumeric () =
-        let ta, stmts = Annotation.typeAnnotation com ctx None t
-        // Use the innermost expression to avoid double-cast for TypeCast chain patterns
-        // like TypeCast(TypeCast(IdentExpr{TENUM}, Int32), Int32) → cast(int32, value)
-        let value, valueStmts = com.TransformAsExpr(ctx, getInnermostExpr e)
-        let cast = com.GetImportExpr(ctx, "typing", "cast")
-        Expression.call (cast, [ ta; value ]), stmts @ valueStmts
-
     match t, e with
     | IEnumerableOfKeyValuePair(kvpEnt) ->
         // Call .items() on the dictionary and wrap with to_enumerable for IEnumerable_1 compatibility
@@ -406,10 +383,6 @@ let transformCast (com: IPythonCompiler) (ctx: Context) (t: Fable.Type) (e: Fabl
             | _ -> libCall com ctx None "util" "to_enumerable" [ listExpr ], stmts
 
         | _ -> com.TransformAsExpr(ctx, e)
-    // When casting from a generic type param to any numeric type, use typing.cast() instead of
-    // calling the constructor. Pyright can't verify generic params satisfy numeric protocols
-    // (e.g. TENUM: enum<byte> → byte), so a constructor call like byte(value) would fail.
-    | Fable.Number _, _ when isGenericParamSource -> castFromGenericToNumeric ()
     | Fable.Number(Float32, _), _ ->
         let cons = libValue com ctx "core" "float32"
         let value, stmts = com.TransformAsExpr(ctx, e)
@@ -420,10 +393,6 @@ let transformCast (com: IPythonCompiler) (ctx: Context) (t: Fable.Type) (e: Fabl
         Expression.call (cons, [ value ], ?loc = None), stmts
     | Fable.Number(Int32, _), _ ->
         let cons = libValue com ctx "core" "int32"
-        let value, stmts = com.TransformAsExpr(ctx, e)
-        Expression.call (cons, [ value ], ?loc = None), stmts
-    | Fable.Number(UInt32, _), _ ->
-        let cons = libValue com ctx "core" "uint32"
         let value, stmts = com.TransformAsExpr(ctx, e)
         Expression.call (cons, [ value ], ?loc = None), stmts
     | _ -> com.TransformAsExpr(ctx, e)
@@ -1526,15 +1495,12 @@ let transformBindingAsExpr (com: IPythonCompiler) ctx (var: Fable.Ident) (value:
 let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
     let shouldTreatAsStatement = isPyStatement ctx false value
     let needsErase = needsOptionEraseForBinding value var.Type
-    // Skip type annotation to avoid type mismatch issues with Pyright:
+    // Skip type annotation to avoid Option[T] vs T | None mismatch issues with Pyright:
     // 1. When extracting from invariant containers (Array, List) with Options
     // 2. When assigning from a wrapped option after None check (narrowing issue)
-    // 3. When casting from a generic parameter to a concrete numeric type (e.g. EnumToValue)
-    //    In this case, transformCast emits a typing.cast() call which gives Pyright the type info.
     let skipAnnotation =
         valueExtractsFromInvariantContainer value var.Type
         || isWrappedOptionNarrowingAssignment value
-        || isCastFromGenericParam value var.Type
 
     if shouldTreatAsStatement then
         let varName, varExpr = Expression.name var.Name, identAsExpr com ctx var
@@ -1555,8 +1521,7 @@ let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (
         let varName = com.GetIdentifierAsExpr(ctx, Naming.toPythonNaming var.Name)
 
         if skipAnnotation then
-            // No type annotation - let Python infer the type from the RHS.
-            // For generic-to-numeric casts, transformCast already emits typing.cast() on the RHS.
+            // No type annotation - let Python infer from function return type
             let decl = varDeclaration ctx varName None expr
             stmts @ decl
         else

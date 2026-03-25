@@ -243,9 +243,9 @@ let canInlineArg (com: Compiler) identName value body =
         let refCount = countReferencesUntil 2 identName body
 
         // Don't inline values that create new mutable state (e.g. ResizeArray(), mutable arrays)
-        // when they're captured in a closure (e.g. object expression getter): inlining would create
-        // a new instance on each closure invocation instead of sharing the single instance.
-        // Lambdas, delegates, imports, ident refs, and immutable values are safe to inline.
+        // into closures: even though creation is side-effect-free, inlining into a closure
+        // called multiple times would create a new instance per call instead of sharing the
+        // single captured instance
         let createsMutableState =
             match value with
             | Value(NewArray(_, _, kind), _) ->
