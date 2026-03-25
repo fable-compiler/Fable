@@ -1016,7 +1016,7 @@ module Reflection =
                     candidate
                 else
                     failwith
-                        $"Cannot find implementation DLL for reference assembly {r.DllPath}, expected at {candidate}"
+                        $"Cannot find implementation DLL for reference assembly %s{r.DllPath}, expected at %s{candidate}"
             else
                 r.DllPath
 

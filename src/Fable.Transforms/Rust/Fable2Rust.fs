@@ -1942,7 +1942,7 @@ module Util =
         sb.Append(List.head parts) |> ignore
 
         List.tail parts
-        |> List.iteri (fun i part -> sb.Append($"{{{i}}}" + part) |> ignore)
+        |> List.iteri (fun i part -> sb.Append("{" + string i + "}" + part) |> ignore)
 
         sb.ToString()
 
@@ -2583,7 +2583,7 @@ module Util =
             match fableExpr with
             | Fable.IdentExpr ident when isArmScoped ctx ident.Name ->
                 // if arm scoped, just output the ident value
-                let name = $"{ident.Name}_{0}_{0}"
+                let name = $"%s{ident.Name}_%d{0}_%d{0}"
                 mkGenericPathExpr [ name ] None
             | _ ->
                 // libCall com ctx range [] "Option" "getValue" [ fableExpr ]
@@ -2599,7 +2599,7 @@ module Util =
             match fableExpr with
             | Fable.IdentExpr ident when isArmScoped ctx ident.Name ->
                 // if ident is match arm scoped, just output the ident value
-                let name = $"{ident.Name}_{info.CaseIndex}_{info.FieldIndex}"
+                let name = $"%s{ident.Name}_%d{info.CaseIndex}_%d{info.FieldIndex}"
                 mkGenericPathExpr [ name ] None
             | _ ->
                 // Compile as: "match opt { MyUnion::Case(x, _) => x.clone() }"
@@ -2973,7 +2973,7 @@ module Util =
                 | 0 ->
                     match nameOpt with
                     | Some identName ->
-                        let fieldName = $"{identName}_{caseIndex}_{0}"
+                        let fieldName = $"%s{identName}_%d{caseIndex}_%d{0}"
                         [ makeFullNameIdentPat fieldName ]
                     | _ -> [ WILD_PAT ]
                 | _ -> []
@@ -2996,7 +2996,7 @@ module Util =
                     | Some identName ->
                         unionCase.UnionCaseFields
                         |> List.mapi (fun i _field ->
-                            let fieldName = $"{identName}_{caseIndex}_{i}"
+                            let fieldName = $"%s{identName}_%d{caseIndex}_%d{i}"
                             makeFullNameIdentPat fieldName
                         )
                     | _ -> unionCase.UnionCaseFields |> List.map (fun _field -> WILD_PAT)
@@ -3594,8 +3594,8 @@ module Util =
 
             let strBody =
                 [
-                    $"let args = std::env::args().skip(1).map({asStr}).collect()"
-                    $"{mainName}({asArr}(args))"
+                    $"let args = std::env::args().skip(1).map(%s{asStr}).collect()"
+                    $"%s{mainName}(%s{asArr}(args))"
                 ]
 
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
@@ -4593,7 +4593,7 @@ module Util =
                 memb.CurriedParameterGroups
                 |> List.collect id
                 |> List.mapi (fun i p ->
-                    let name = defaultArg p.Name $"arg{i}"
+                    let name = defaultArg p.Name $"arg%d{i}"
                     let typ = FableTransforms.uncurryType p.Type
                     makeTypedIdent typ name
                 )
