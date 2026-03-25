@@ -483,6 +483,13 @@ let tests = testList "Strings" [
         String.Format(CultureInfo.InvariantCulture, "{0:0######,###.000####0}", -6789.5688) |> equal "-0,000,006,789.56880000"
         String.Format(CultureInfo.InvariantCulture, "{0:0######,###.000####0}", 6789.5688) |> equal "0,000,006,789.56880000"
 
+    testCase "C and P format specifiers work with zero precision" <| fun () -> // See #2582
+        String.Format(CultureInfo.InvariantCulture, "{0:C0}", 1000) |> equal "¤1,000"
+        String.Format(CultureInfo.InvariantCulture, "{0:C0}", -1000) |> equal "(¤1,000)"
+        String.Format(CultureInfo.InvariantCulture, "{0:P0}", 0.5) |> equal "50 %"
+        String.Format(CultureInfo.InvariantCulture, "{0:P2}", 0.1234) |> equal "12.34 %"
+        String.Format(CultureInfo.InvariantCulture, "{0:C2}", 1000) |> equal "¤1,000.00"
+
     testCase "ToString formatted works with decimals" <| fun () -> // See #2276
         let decimal = 78.6M
         decimal.ToString("0.000").Replace(",", ".") |> equal "78.600"
