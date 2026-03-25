@@ -1942,7 +1942,7 @@ module Util =
         sb.Append(List.head parts) |> ignore
 
         List.tail parts
-        |> List.iteri (fun i part -> sb.Append("{" + string i + "}" + part) |> ignore)
+        |> List.iteri (fun i part -> sb.Append("{" + string<int> i + "}" + part) |> ignore)
 
         sb.ToString()
 
