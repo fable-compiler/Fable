@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+* [JS/TS] Add regression tests for `N0`, `C0`, `P0` format specifiers producing no trailing dot (fixes #2582)
+
 ### Fixed
 
 * [JS/TS] Fix `N` format specifier (`ToString("N0")`, `String.Format("{0:N0}", ...)`) producing a trailing dot when precision is 0 (fix #2582) (by @MangelMaxime)
