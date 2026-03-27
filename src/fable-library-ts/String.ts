@@ -86,6 +86,55 @@ export function endsWith(str: string, pattern: string, ic: boolean | StringCompa
   return false;
 }
 
+export function indexOfWith(str: string, pattern: string, comparison: StringComparison, startIndex = 0): number {
+  if (pattern.length === 0) {
+    return startIndex <= str.length ? startIndex : -1;
+  }
+  if (comparison === StringComparison.Ordinal || comparison === StringComparison.InvariantCulture) {
+    return str.indexOf(pattern, startIndex);
+  }
+  const patLen = pattern.length;
+  if (comparison === StringComparison.OrdinalIgnoreCase || comparison === StringComparison.InvariantCultureIgnoreCase) {
+    const lPat = pattern.toLowerCase();
+    for (let i = startIndex; i <= str.length - patLen; i++) {
+      if (str.slice(i, i + patLen).toLowerCase() === lPat) { return i; }
+    }
+    return -1;
+  }
+  // CurrentCulture or CurrentCultureIgnoreCase
+  const sensitivity = comparison === StringComparison.CurrentCultureIgnoreCase ? "accent" as const : "variant" as const;
+  for (let i = startIndex; i <= str.length - patLen; i++) {
+    if (str.slice(i, i + patLen).localeCompare(pattern, undefined, { sensitivity }) === 0) { return i; }
+  }
+  return -1;
+}
+
+export function lastIndexOfWith(str: string, pattern: string, comparison: StringComparison, startIndex?: number): number {
+  const start = startIndex != null ? startIndex : str.length > 0 ? str.length - 1 : 0;
+  if (pattern.length === 0) {
+    return Math.min(start, str.length);
+  }
+  if (pattern.length > str.length) { return -1; }
+  if (comparison === StringComparison.Ordinal || comparison === StringComparison.InvariantCulture) {
+    return str.lastIndexOf(pattern, start);
+  }
+  const patLen = pattern.length;
+  const searchFrom = Math.min(start, str.length - patLen);
+  if (comparison === StringComparison.OrdinalIgnoreCase || comparison === StringComparison.InvariantCultureIgnoreCase) {
+    const lPat = pattern.toLowerCase();
+    for (let i = searchFrom; i >= 0; i--) {
+      if (str.slice(i, i + patLen).toLowerCase() === lPat) { return i; }
+    }
+    return -1;
+  }
+  // CurrentCulture or CurrentCultureIgnoreCase
+  const sensitivity = comparison === StringComparison.CurrentCultureIgnoreCase ? "accent" as const : "variant" as const;
+  for (let i = searchFrom; i >= 0; i--) {
+    if (str.slice(i, i + patLen).localeCompare(pattern, undefined, { sensitivity }) === 0) { return i; }
+  }
+  return -1;
+}
+
 export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
   if (str == null || str === "") {
     return -1;
