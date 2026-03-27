@@ -3083,12 +3083,10 @@ let transformFunction
             // Replace args, see NamedTailCallOpportunity constructor
             let args' =
                 List.zip args tc.Args
-                |> List.map (fun (_id, { Arg = Identifier tcArg }) ->
-                    let id = com.GetIdentifier(ctx, tcArg)
-
-                    let ta, _ = Annotation.typeAnnotation com ctx (Some repeatedGenerics) _id.Type
-
-                    Arg.arg (id, annotation = ta)
+                |> List.map (fun (id, { Arg = Identifier tcArg }) ->
+                    let id2 = com.GetIdentifier(ctx, tcArg)
+                    let ta, _ = Annotation.makeArgTypeAnnotation com ctx repeatedGenerics id
+                    Arg.arg (id2, annotation = ta)
                 )
 
             let varDecls =
@@ -3119,8 +3117,7 @@ let transformFunction
             let args' =
                 args
                 |> List.map (fun id ->
-                    let ta, _ = Annotation.typeAnnotation com ctx (Some repeatedGenerics) id.Type
-
+                    let ta, _ = Annotation.makeArgTypeAnnotation com ctx repeatedGenerics id
                     Arg.arg (ident com ctx id, annotation = ta)
                 )
 

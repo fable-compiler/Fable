@@ -265,6 +265,12 @@ type ValueType3 =
   end
 
 [<Struct>]
+type ValueTypeR =
+    val mutable X: float
+    new(x: float) = { X = x }
+    member this.IsEmpty() = this.X < 0.0
+
+[<Struct>]
 type StructUnion = Value of string
 
 [<Struct>]
@@ -1119,6 +1125,12 @@ let ``struct without explicit ctor works`` () =
     t2.X <- 10
     t1 |> equal t2
     (compare t1 t2) |> equal 0
+
+[<Fact>]
+let ``Struct with mutable fields works`` () =
+    let x = ValueTypeR(-10.0)
+    x.X |> equal -10.0
+    x.IsEmpty() |> equal true
 
 [<Fact>]
 let ``Unchecked.defaultof works for fields on nested structs`` () =
