@@ -127,6 +127,20 @@ let tests =
         0x80000000u >>> 1 |> equal 1073741824u
         0x80000000UL >>> 1 |> equal 1073741824UL
 
+    testCase "Zero fill right shift is logical for unsigned integer types" <| fun () ->
+        // For unsigned types, >>> is zero-fill (logical) - the high bit is NOT sign-extended
+        0xFFuy >>> 1 |> equal 127uy                      // uint8:  0x7F
+        0xFFFFus >>> 1 |> equal 32767us                  // uint16: 0x7FFF
+        0xFFFFFFFFu >>> 1 |> equal 2147483647u           // uint32: 0x7FFFFFFF
+        0xFFFFFFFFFFFFFFFFUL >>> 1 |> equal 9223372036854775807UL  // uint64: 0x7FFFFFFFFFFFFFFF
+
+    testCase "Arithmetic right shift preserves sign for signed integer types" <| fun () ->
+        // For signed types, >>> is arithmetic (sign-propagating) - the sign bit IS extended
+        -2y >>> 1 |> equal -1y   // int8:  0xFF = -1
+        -2s >>> 1 |> equal -1s   // int16: 0xFFFF = -1
+        -2 >>> 1 |> equal -1     // int32: 0xFFFFFFFF = -1
+        -2L >>> 1 |> equal -1L   // int64: 0xFFFFFFFFFFFFFFFF = -1
+
     testCase "UInt64 multiplication with 0 returns uint" <| fun () -> // See #1480
         0x0UL * 0x1UL |> equal 0x0UL
 
