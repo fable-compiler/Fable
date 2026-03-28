@@ -754,6 +754,12 @@ let makeBuiltinTypeAnnotation com ctx typ repeatedGenerics kind =
         fableModuleAnnotation com ctx "choice" name resolved, stmts
     | _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
 
+let makeArgTypeAnnotation com ctx repeatedGenerics (id: Fable.Ident) =
+    match id.Type, id with
+    | Replacements.Util.IsByRefType com typ, id when id.IsThisArgument ->
+        typeAnnotation com ctx (Some repeatedGenerics) typ
+    | _ -> typeAnnotation com ctx (Some repeatedGenerics) id.Type
+
 let transformFunctionWithAnnotations
     (com: IPythonCompiler)
     ctx

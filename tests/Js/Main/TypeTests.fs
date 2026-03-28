@@ -261,12 +261,17 @@ type ValueType2(i: int, j: int) =
     member x.Value = i + j
 
 #if !FABLE_COMPILER_TYPESCRIPT
-[<Struct>]
 type ValueType3 =
   struct
     val mutable public X : int
   end
 #endif
+
+[<Struct>]
+type ValueTypeR =
+    val mutable X: float
+    new(x: float) = { X = x }
+    member this.IsEmpty() = this.X < 0.0
 
 [<Struct>]
 type StructUnion = Value of string
@@ -1302,6 +1307,11 @@ let tests =
         t1 |> equal t2
         (compare t1 t2) |> equal 0
 #endif
+
+    testCase "Struct with mutable fields works" <| fun () ->
+        let x = ValueTypeR(-10.0)
+        x.X |> equal -10.0
+        x.IsEmpty() |> equal true
 
     testCase "copying struct records works" <| fun () -> // See #3371
         let simple : SimpleRecord = { A = ""; B = "B" }
