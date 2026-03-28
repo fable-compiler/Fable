@@ -299,6 +299,12 @@ type ValueType3 =
     end
 
 [<Struct>]
+type ValueTypeR =
+    val mutable X: float
+    new(x: float) = { X = x }
+    member this.IsEmpty() = this.X < 0.0
+
+[<Struct>]
 type StructUnion = Value of string
 
 type Point2D =
@@ -1245,6 +1251,12 @@ let ``test struct without explicit ctor works`` () =
     t1 |> equal t2
 
     (compare t1 t2) |> equal 0
+
+[<Fact>]
+let ``test Struct with mutable fields works`` () =
+    let x = ValueTypeR(-10.0)
+    x.X |> equal -10.0
+    x.IsEmpty() |> equal true
 
 [<Fact>]
 let ``test Custom F# exceptions work`` () =
