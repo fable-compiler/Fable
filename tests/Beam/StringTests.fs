@@ -410,6 +410,10 @@ let ``test String.Compare with StringComparison works`` () =
 let ``test System.String.Concat works`` () =
     String.Concat("a", "b", "c") |> equal "abc"
 
+[<Fact>]
+let ``test System.String.Concat with 4 args works`` () =
+    String.Concat("a", "b", "c", "d") |> equal "abcd"
+
 // --- String constructors ---
 
 [<Fact>]

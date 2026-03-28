@@ -940,7 +940,14 @@ let private strings
         | [ items ] -> emitExpr r t [ items ] "fable_string:concat($0)" |> Some
         | [ a; b ] -> emitExpr r t [ a; b ] "iolist_to_binary([$0, $1])" |> Some
         | [ a; b; c ] -> emitExpr r t [ a; b; c ] "iolist_to_binary([$0, $1, $2])" |> Some
-        | _ -> None
+        | _ ->
+            let argsList =
+                List.foldBack
+                    (fun arg acc -> Value(NewList(Some(arg, acc), String), None))
+                    args
+                    (Value(NewList(None, String), None))
+
+            emitExpr r t [ argsList ] "fable_string:concat($0)" |> Some
     // String.Compare
     | "Compare", None, [ a; b ] -> Helper.LibCall(com, "fable_string", "compare", t, [ a; b ]) |> Some
     | "Compare", None, [ a; b; compType ] ->

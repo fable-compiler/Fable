@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Beam] Fix `System.String.Concat` with 4+ arguments not being supported (by @dbrattli)
 * [TS/Python] Fix invalid `this` argument type in structs (#4453) (by @ncave)
 * [JS/TS] Fix `N` format specifier (`ToString("N0")`, `String.Format("{0:N0}", ...)`) producing a trailing dot when precision is 0 (fix #2582) (by @MangelMaxime)
 * [JS/TS] Fix `C0` and `P0` format specifiers producing trailing dot (e.g., `"¤1,000."` → `"¤1,000"`) (by @MangelMaxime)
