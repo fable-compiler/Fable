@@ -5360,14 +5360,15 @@ module Compiler =
                 |> Seq.toList
 
             member _.ClearAllImports(ctx) =
-                for import in imports do
+                let importsList = imports |> Seq.toList
+
+                for import in importsList do
                     import.Value.Depths <-
                         // remove all import depths at this module level or deeper
                         import.Value.Depths |> List.filter (fun d -> d < ctx.ModuleDepth)
 
                     if import.Value.Depths.Length = 0 then
                         imports.Remove(import.Key) |> ignore
-
                         ctx.UsedNames.RootScope.Remove(import.Value.LocalIdent) |> ignore
 
             member _.GetAllModules() = importModules.Keys |> Seq.toList

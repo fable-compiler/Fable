@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Dart] Enable explicit variable typing for more data types (by @ncave)
+* [Dart] Fix tests for `round`, `sign`, `truncate`, `log`, `log2`, `log10`, `pow`, `DivRem`, `Min`, `Max`, `Clamp`, `MinMagnitude`, `MaxMagnitude`, `cosh`, `sinh`, `tanh`, and float `Parse` (by @ncave)
 * [Python] Add `Math.DivRem` support for int, int64, and bigint (by @dbrattli)
 * [Python] Fix modulo with negative numbers using Python floored semantics instead of .NET truncated semantics for bigint (fixes #4462) (by @dbrattli)
 * [Beam] Fix `System.String.Concat` with 4+ arguments not being supported (by @dbrattli)
