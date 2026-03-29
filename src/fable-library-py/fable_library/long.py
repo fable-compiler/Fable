@@ -1,6 +1,6 @@
 from typing import Any, Literal, SupportsFloat, SupportsInt, overload
 
-from .core import float64, int32, int64, uint64
+from .core import FSharpRef, float64, int32, int64, uint64
 from .core._core import get_range_64 as get_range
 from .core._core import parse_int64 as parse
 from .core._core import try_parse_int64 as try_parse
@@ -125,6 +125,24 @@ def op_modulus(a: uint64, b: uint64) -> uint64: ...
 
 def op_modulus(a: int64 | uint64, b: int64 | uint64) -> int64 | uint64:
     return a % b
+
+
+@overload
+def div_rem(x: int64, y: int64) -> tuple[int64, int64]: ...
+
+
+@overload
+def div_rem(x: int64, y: int64, out: FSharpRef[int64]) -> int64: ...
+
+
+def div_rem(x: int64, y: int64, out: FSharpRef[int64] | None = None) -> int64 | tuple[int64, int64]:
+    # Rust wrapper types already use truncated division and remainder
+    q = x // y
+    r = x % y
+    if out is None:
+        return (q, r)
+    out.contents = r
+    return q
 
 
 @overload
@@ -278,6 +296,7 @@ def to_string(x: int64 | uint64) -> str:
 
 __all__ = [
     "compare",
+    "div_rem",
     "from_bits",
     "from_int",
     "from_integer",

@@ -1267,6 +1267,16 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         | _ ->
             Helper.ImportedCall("math", "trunc", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
+    | "DivRem", _ ->
+        let modName =
+            match i.SignatureArgTypes with
+            | Number(BigInt, _) :: _ -> "big_int"
+            | Number(Int64, _) :: _
+            | Number(UInt64, _) :: _ -> "long"
+            | _ -> "int32"
+
+        Helper.LibCall(com, modName, "div_rem", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "Sign", _ ->
         match args with
         | ExprType(Number(Decimal, _)) :: _ ->
@@ -2412,7 +2422,7 @@ let bigints (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: 
             Helper.LibCall(com, "BigInt", methodName, t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
     | None, "DivRem" ->
-        Helper.LibCall(com, "big_int", "divRem", t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, "big_int", "div_rem", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | None, meth when meth.StartsWith("get_", StringComparison.Ordinal) ->
         Helper.LibValue(com, "big_int", meth, t) |> Some
