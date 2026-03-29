@@ -99,6 +99,16 @@ bool removeKey<K, V>(Map<K, V> map, K key) {
   return false;
 }
 
+dynamic divRem(int x, int y, [FSharpRef<int>? remainder]) {
+  final quotient = x ~/ y;
+  final modulus = x.remainder(y);
+  if (remainder != null) {
+    remainder.contents = modulus;
+    return quotient;
+  }
+  return Tuple2(quotient, modulus);
+}
+
 Set<T> setWith<T>(IEqualityComparer<T> comparer, [Iterable<T>? initialValues]) {
   final set =
       LinkedHashSet<T>(equals: comparer.Equals, hashCode: comparer.GetHashCode);
