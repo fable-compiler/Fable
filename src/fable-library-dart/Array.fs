@@ -713,28 +713,24 @@ let splitAt (index: int) (array: 'T[]) : 'T[] * 'T[] =
 
     Native.sublist (array, 0, index), Native.sublist (array, index)
 
+// Note that, unlike the `compare` operator, Array.compareWith compares elements first,
+// then falls back to length comparison. See #2961.
 let compareWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) : int =
     // Null checks not necessary because Dart provides null safety
-    //    if isNull array1 then
-    //        if isNull array2 then 0 else -1
-    //    elif isNull array2 then
-    //        1
-    //    else
     let mutable i = 0
     let mutable result = 0
     let length1 = array1.Length
     let length2 = array2.Length
+    let minLength = if length1 < length2 then length1 else length2
 
-    if length1 > length2 then
-        1
-    elif length1 < length2 then
-        -1
-    else
-        while i < length1 && result = 0 do
-            result <- comparer array1[i] array2[i]
-            i <- i + 1
+    while i < minLength && result = 0 do
+        result <- comparer array1[i] array2[i]
+        i <- i + 1
 
-        result
+    if result <> 0 then result
+    elif length1 > length2 then 1
+    elif length1 < length2 then -1
+    else 0
 
 let equalsWith (equals: 'T -> 'T -> bool) (array1: 'T[]) (array2: 'T[]) : bool =
     // Null checks not necessary because Dart provides null safety
