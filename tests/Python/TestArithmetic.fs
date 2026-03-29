@@ -60,6 +60,12 @@ let ``test Integer division doesn't produce floats`` () =
 let ``test Infix modulo can be generated`` () =
     4 % 3 |> equal 1
 
+[<Fact>]
+let ``test Infix modulo with negative numbers`` () =
+    -5 % 3 |> equal -2
+    5 % -3 |> equal 2
+    -5 % -3 |> equal -2
+
 // [<Fact>]
 // let ``test Math.DivRem works with bytes`` () =
 //     Math.DivRem(5y, 2y) |> equal struct (2y, 1y)
@@ -385,6 +391,12 @@ let ``test Int64 Infix modulo can be generated`` () =
     4L % 3L |> equal 1L
 
 [<Fact>]
+let ``test Int64 Infix modulo with negative numbers`` () =
+    -5L % 3L |> equal -2L
+    5L % -3L |> equal 2L
+    -5L % -3L |> equal -2L
+
+[<Fact>]
 let ``test Int64 Evaluation order is preserved by generated code`` () =
     (4L - 2L) * 2L + 1L |> equal 5L
 
@@ -445,6 +457,12 @@ let ``test BigInt Integer division doesn't produce floats`` () =
 [<Fact>]
 let ``test BigInt Infix modulo can be generated`` () =
     4I % 3I |> equal 1I
+
+[<Fact>]
+let ``test BigInt Infix modulo with negative numbers`` () =
+    -5I % 3I |> equal -2I
+    5I % -3I |> equal 2I
+    -5I % -3I |> equal -2I
 
 // [<Fact>]
 // let ``test BigInt.DivRem works`` () = // See #1744

@@ -81,7 +81,12 @@ def op_division(a: int, b: int) -> int:
 
 
 def op_modulus(a: int, b: int) -> int:
-    return a % b
+    # .NET uses truncated remainder, Python uses floored remainder.
+    # They differ when the dividend and divisor have different signs.
+    r = a % b
+    if r != 0 and ((a < 0) != (b < 0)):
+        r -= b
+    return r
 
 
 def op_right_shift(a: int, num_bits: int) -> int:
