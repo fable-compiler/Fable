@@ -1,4 +1,5 @@
 // ignore_for_file: file_names
+import 'dart:math' as dart_math;
 
 final _curried = Expando();
 
@@ -1005,6 +1006,76 @@ T clamp<T>(int Function(T, T) comparer, T value, T min, T max) {
       : (comparer(value, max) > 0)
           ? max
           : value;
+}
+
+// Banker's rounding (round half to even), compatible with .NET Math.Round
+double round(double x, [int digits = 0]) {
+  if (digits == 0) {
+    final truncated = x.truncateToDouble();
+    final diff = (x - truncated).abs();
+    if (diff == 0.5) {
+      return truncated.remainder(2.0) == 0.0
+          ? truncated
+          : (x > 0 ? truncated + 1.0 : truncated - 1.0);
+    }
+    return x.roundToDouble();
+  } else {
+    final scale = dart_math.pow(10, digits).toDouble();
+    return round(x * scale) / scale;
+  }
+}
+
+int negateInt8(int x) => (((-x) + 0x80) & 0xFF) - 0x80;
+
+int negateInt16(int x) => (((-x) + 0x8000) & 0xFFFF) - 0x8000;
+
+int negateInt32(int x) => (((-x) + 0x80000000) & 0xFFFFFFFF) - 0x80000000;
+
+int toUInt64(int x) => BigInt.from(x).toUnsigned(64).toInt();
+
+int toInt64(int x) => BigInt.from(x).toUnsigned(64).toSigned(64).toInt();
+
+int negateInt64(int x) => toInt64(-x);
+
+int rightShiftUnsigned64(int x, int bits) =>
+    (BigInt.from(x).toUnsigned(64) >> bits).toInt();
+
+int sign(double x) {
+    return x > 0 ? 1 : x < 0 ? -1 : 0;
+}
+
+double cosh(double x) {
+    final expX = dart_math.exp(x);
+    final expNegX = dart_math.exp(-x);
+    return (expX + expNegX) / 2.0;
+}
+
+double sinh(double x) {
+    final expX = dart_math.exp(x);
+    final expNegX = dart_math.exp(-x);
+    return (expX - expNegX) / 2.0;
+}
+
+double tanh(double x) {
+    final expX = dart_math.exp(x);
+    final expNegX = dart_math.exp(-x);
+    return (expX - expNegX) / (expX + expNegX);
+}
+
+double log2(double x) {
+    return dart_math.log(x) / dart_math.ln2;
+}
+
+double log10(double x) {
+    return dart_math.log(x) / dart_math.ln10;
+}
+
+T minMagnitude<T extends num>(T x, T y) {
+    return x.abs() < y.abs() ? x : y;
+}
+
+T maxMagnitude<T extends num>(T x, T y) {
+    return x.abs() > y.abs() ? x : y;
 }
 
 String int16ToString(int i, [int radix = 10]) {

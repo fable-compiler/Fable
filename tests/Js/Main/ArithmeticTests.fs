@@ -65,6 +65,12 @@ let tests =
 
     testCase "Infix modulo can be generated" <| fun () ->
         4 % 3 |> equal 1
+        5 % 3 |> equal 2
+
+    testCase "Infix modulo with negative numbers" <| fun () ->
+        -5 % 3 |> equal -2
+        5 % -3 |> equal 2
+        -5 % -3 |> equal -2
 
     testCase "Math.DivRem works with ints" <| fun () ->
         Math.DivRem(5, 2) |> equal (2, 1)
@@ -350,6 +356,12 @@ let tests =
 
     testCase "Int64 Infix modulo can be generated" <| fun () ->
         4L % 3L |> equal 1L
+        5L % 3L |> equal 2L
+
+    testCase "Int64 Infix modulo with negative numbers" <| fun () ->
+        -5L % 3L |> equal -2L
+        5L % -3L |> equal 2L
+        -5L % -3L |> equal -2L
 
     testCase "Int64 Evaluation order is preserved by generated code" <| fun () ->
         (4L - 2L) * 2L + 1L |> equal 5L
@@ -398,6 +410,12 @@ let tests =
 
     testCase "BigInt Infix modulo can be generated" <| fun () ->
         4I % 3I |> equal 1I
+        5I % 3I |> equal 2I
+
+    testCase "BigInt Infix modulo with negative numbers" <| fun () ->
+        -5I % 3I |> equal -2I
+        5I % -3I |> equal 2I
+        -5I % -3I |> equal -2I
 
     testCase "BigInt.DivRem works" <| fun () -> // See #1744
         let quotient,remainder = bigint.DivRem(5I,2I)

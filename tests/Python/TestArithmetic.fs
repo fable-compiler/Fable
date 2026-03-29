@@ -59,6 +59,7 @@ let ``test Integer division doesn't produce floats`` () =
 [<Fact>]
 let ``test Infix modulo can be generated`` () =
     4 % 3 |> equal 1
+    5 % 3 |> equal 2
 
 [<Fact>]
 let ``test Infix modulo with negative numbers`` () =
@@ -405,6 +406,7 @@ let ``test Int64 Integer division doesn't produce floats`` () =
 [<Fact>]
 let ``test Int64 Infix modulo can be generated`` () =
     4L % 3L |> equal 1L
+    5L % 3L |> equal 2L
 
 [<Fact>]
 let ``test Int64 Infix modulo with negative numbers`` () =
@@ -473,6 +475,7 @@ let ``test BigInt Integer division doesn't produce floats`` () =
 [<Fact>]
 let ``test BigInt Infix modulo can be generated`` () =
     4I % 3I |> equal 1I
+    5I % 3I |> equal 2I
 
 [<Fact>]
 let ``test BigInt Infix modulo with negative numbers`` () =

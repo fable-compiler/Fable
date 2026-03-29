@@ -430,8 +430,11 @@ module PrinterExtensions =
             | DoubleLiteral value ->
                 let value =
                     match value.ToString(System.Globalization.CultureInfo.InvariantCulture) with
-                    | "∞" -> "double.infinity"
-                    | "-∞" -> "-double.infinity"
+                    | "∞"
+                    | "Infinity" -> "double.infinity"
+                    | "-∞"
+                    | "-Infinity" -> "double.negativeInfinity"
+                    | "NaN" -> "double.nan"
                     | value when not (value.Contains(".")) -> value + ".0"
                     | value -> value
 
@@ -1060,9 +1063,8 @@ module PrinterExtensions =
                     // Print type also if ident and expression types are different?
                     // (this usually happens when removing unnecessary casts)
                     match ident.Type with
-                    | Nullable _ -> true
                     | TypeReference(_, _, info) -> info.IsUnion
-                    | _ -> false
+                    | _ -> true
 
                 match kind with
                 | Const -> printer.Print("const ")
