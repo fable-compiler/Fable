@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, SupportsInt
+from typing import Any, SupportsInt, overload
 
 from .core import FSharpRef
 
@@ -87,6 +87,25 @@ def op_modulus(a: int, b: int) -> int:
     if r != 0 and ((a < 0) != (b < 0)):
         r -= b
     return r
+
+
+@overload
+def div_rem(x: int, y: int) -> tuple[int, int]: ...
+
+
+@overload
+def div_rem(x: int, y: int, out: FSharpRef[int]) -> int: ...
+
+
+def div_rem(x: int, y: int, out: FSharpRef[int] | None = None) -> int | tuple[int, int]:
+    # .NET uses truncated division; Python // floors toward -inf.
+    # Adjust when signs differ to get truncation toward zero.
+    q = -((-x) // y) if (x < 0) != (y < 0) else x // y
+    r = x - q * y
+    if out is None:
+        return (q, r)
+    out.contents = r
+    return q
 
 
 def op_right_shift(a: int, num_bits: int) -> int:
@@ -272,6 +291,7 @@ __all__ = [
     "abs",
     "add",
     "compare",
+    "div_rem",
     "divide",
     "equals",
     "from_int32",

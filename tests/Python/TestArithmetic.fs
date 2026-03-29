@@ -66,36 +66,36 @@ let ``test Infix modulo with negative numbers`` () =
     5 % -3 |> equal 2
     -5 % -3 |> equal -2
 
-// [<Fact>]
-// let ``test Math.DivRem works with bytes`` () =
-//     Math.DivRem(5y, 2y) |> equal struct (2y, 1y)
-//     Math.DivRem(4y, 2y) |> equal struct (2y, 0y)
+[<Fact>]
+let ``test Math.DivRem works with bytes`` () =
+    Math.DivRem(5y, 2y) |> equal struct (2y, 1y)
+    Math.DivRem(4y, 2y) |> equal struct (2y, 0y)
 
-// [<Fact>]
-// let ``test Math.DivRem works with ints`` () =
-//     Math.DivRem(5, 2) |> equal struct (2, 1)
-//     Math.DivRem(4, 2) |> equal struct (2, 0)
+[<Fact>]
+let ``test Math.DivRem works with ints`` () =
+    Math.DivRem(5, 2) |> equal struct (2, 1)
+    Math.DivRem(4, 2) |> equal struct (2, 0)
 
-// [<Fact>]
-// let ``test Math.DivRem works with longs`` () =
-//     Math.DivRem(5L, 2L) |> equal struct (2L, 1L)
-//     Math.DivRem(4L, 2L) |> equal struct (2L, 0L)
+[<Fact>]
+let ``test Math.DivRem works with longs`` () =
+    Math.DivRem(5L, 2L) |> equal struct (2L, 1L)
+    Math.DivRem(4L, 2L) |> equal struct (2L, 0L)
 
-// [<Fact>]
-// let ``test Math.DivRem works with ints and outref`` () =
-//     let mutable rem = -1
-//     Math.DivRem(5, 2, &rem) |> equal 2
-//     rem |> equal 1
-//     Math.DivRem(4, 2, &rem) |> equal 2
-//     rem |> equal 0
+[<Fact>]
+let ``test Math.DivRem works with ints and outref`` () =
+    let mutable rem = -1
+    Math.DivRem(5, 2, &rem) |> equal 2
+    rem |> equal 1
+    Math.DivRem(4, 2, &rem) |> equal 2
+    rem |> equal 0
 
-// [<Fact>]
-// let ``test Math.DivRem works with longs and outref`` () =
-//     let mutable rem = -1L
-//     Math.DivRem(5L, 2L, &rem) |> equal 2L
-//     rem |> equal 1L
-//     Math.DivRem(4L, 2L, &rem) |> equal 2L
-//     rem |> equal 0L
+[<Fact>]
+let ``test Math.DivRem works with longs and outref`` () =
+    let mutable rem = -1L
+    Math.DivRem(5L, 2L, &rem) |> equal 2L
+    rem |> equal 1L
+    Math.DivRem(4L, 2L, &rem) |> equal 2L
+    rem |> equal 0L
 
 [<Fact>]
 let ``test Evaluation order is preserved by generated code`` () =
@@ -464,11 +464,11 @@ let ``test BigInt Infix modulo with negative numbers`` () =
     5I % -3I |> equal 2I
     -5I % -3I |> equal -2I
 
-// [<Fact>]
-// let ``test BigInt.DivRem works`` () = // See #1744
-//     let quotient,remainder = bigint.DivRem(5I,2I)
-//     2I |> equal quotient
-//     1I |> equal remainder
+[<Fact>]
+let ``test BigInt.DivRem works`` () = // See #1744
+    let quotient,remainder = bigint.DivRem(5I,2I)
+    2I |> equal quotient
+    1I |> equal remainder
 
 [<Fact>]
 let ``test BigInt Evaluation order is preserved by generated code`` () =
