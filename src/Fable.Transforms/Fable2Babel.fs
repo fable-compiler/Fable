@@ -1346,6 +1346,12 @@ module Util =
                 let body =
                     // TODO: If ident is not captured maybe we can just replace it with "this"
                     if isIdentUsed thisArg.Name body then
+                        let thisArgType =
+                            match thisArg.Type with
+                            | Replacements.Util.IsByRefType com typ -> typ
+                            | typ -> typ
+
+                        let thisArg = { thisArg with Type = thisArgType }
                         let thisIdent = Fable.IdentExpr { thisArg with Name = "this" }
 
                         let thisIdent =
@@ -3331,7 +3337,6 @@ but thanks to the optimisation done below we get
                     List.zip args tc.Args
                     |> List.map (fun (id, tcArg) ->
                         let ta = makeArgTypeAnnotation com ctx id
-
                         Parameter.parameter (tcArg, ?typeAnnotation = ta)
                     )
 
