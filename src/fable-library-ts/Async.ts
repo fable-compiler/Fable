@@ -196,3 +196,27 @@ export function startAsPromise<T>(computation: Async<T>, cancellationToken?: Can
     startWithContinuations(computation, resolve, reject, reject,
       cancellationToken ? cancellationToken : defaultCancellationToken));
 }
+
+interface IDelegateEventLike<Del extends Function> {
+  AddHandler(h: Del): void;
+  RemoveHandler(h: Del): void;
+}
+
+export function awaitEvent<Del extends Function, T>(event: IDelegateEventLike<Del>, cancelAction?: () => void): Async<T> {
+  return protectedCont((ctx: IAsyncContext<T>) => {
+    let tokenId: number;
+    const handler = ((_sender: unknown, args: T) => {
+      ctx.cancelToken.removeListener(tokenId);
+      event.RemoveHandler(handler as unknown as Del);
+      ctx.onSuccess(args);
+    }) as unknown as Del;
+    tokenId = ctx.cancelToken.addListener(() => {
+      event.RemoveHandler(handler as unknown as Del);
+      if (cancelAction != null) {
+        cancelAction();
+      }
+      ctx.onCancel(new OperationCanceledException());
+    });
+    event.AddHandler(handler);
+  });
+}
