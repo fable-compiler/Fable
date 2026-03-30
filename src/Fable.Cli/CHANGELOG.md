@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS] Fix invalid syntax emitted when negating negative literals (fix #4251) (by @MangelMaxime)
 * [Rust] Fix negative counting in CallInfo.GenericArgs (by @ncave)
 * [Rust] Fix inline bindings and captured idents tracking (by @ncave)
+* [Rust] Fix `return!` in async computation expressions so inner async workflows are returned and awaited correctly (by @mizzle-mo)
 * [JS/TS] Improve `Regex.Escape` and `Regex.Unescape` handling (by @MangelMaxime)
 * [All] Fix allow plugins to target .NET6 target framework (by @MangelMaxime)
 * [Python] Fix function references passed as arguments inside tail-call optimised functions gaining unnecessary default parameters for outer TCO variables they don't reference (fix #3877)
