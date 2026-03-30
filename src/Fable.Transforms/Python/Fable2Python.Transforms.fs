@@ -83,6 +83,12 @@ let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.
 
             let body =
                 if isIdentUsed thisArg.Name body then
+                    let thisArgType =
+                        match thisArg.Type with
+                        | Replacements.Util.IsByRefType com typ -> typ
+                        | typ -> typ
+
+                    let thisArg = { thisArg with Type = thisArgType }
                     let thisKeyword = Fable.IdentExpr { thisArg with Name = "self" }
 
                     Fable.Let(thisArg, thisKeyword, body)
