@@ -721,16 +721,25 @@ let compareWith (comparer: 'T -> 'T -> int) (array1: 'T[]) (array2: 'T[]) : int 
     let mutable result = 0
     let length1 = array1.Length
     let length2 = array2.Length
-    let minLength = if length1 < length2 then length1 else length2
+
+    let minLength =
+        if length1 < length2 then
+            length1
+        else
+            length2
 
     while i < minLength && result = 0 do
         result <- comparer array1[i] array2[i]
         i <- i + 1
 
-    if result <> 0 then result
-    elif length1 > length2 then 1
-    elif length1 < length2 then -1
-    else 0
+    if result <> 0 then
+        result
+    elif length1 > length2 then
+        1
+    elif length1 < length2 then
+        -1
+    else
+        0
 
 let equalsWith (equals: 'T -> 'T -> bool) (array1: 'T[]) (array2: 'T[]) : bool =
     // Null checks not necessary because Dart provides null safety
