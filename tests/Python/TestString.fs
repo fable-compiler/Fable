@@ -567,6 +567,26 @@ let ``test String.LastIndexOf works with offset`` () =
     "abcdbcebc".LastIndexOf("bc", 3)
     |> equal 1
 
+[<Fact>]
+let ``test String.IndexOf with StringComparison works`` () =
+    "abcdbc".IndexOf("b", StringComparison.Ordinal)
+    |> equal 1
+
+[<Fact>]
+let ``test String.IndexOf with index and StringComparison works`` () =
+    "abcdbc".IndexOf("b", 3, StringComparison.Ordinal)
+    |> equal 4
+
+[<Fact>]
+let ``test String.LastIndexOf with StringComparison works`` () =
+    "abcdbc".LastIndexOf("b", StringComparison.Ordinal)
+    |> equal 4
+
+[<Fact>]
+let ``test String.LastIndexOf with index and StringComparison works`` () =
+    "abcdbc".LastIndexOf("b", 3, StringComparison.Ordinal)
+    |> equal 1
+
 
 [<Fact>]
 let ``test String.IndexOfAny works`` () =
