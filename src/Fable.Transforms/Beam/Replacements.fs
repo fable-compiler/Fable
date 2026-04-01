@@ -995,12 +995,24 @@ let private strings
         |> Some
     // str.Contains(sub) → fable_string:contains
     | "Contains", Some c, [ sub ] -> Helper.LibCall(com, "fable_string", "contains", t, [ c; sub ]) |> Some
-    // str.IndexOf(sub) / str.IndexOf(sub, startIdx)
+    // str.IndexOf(sub) / str.IndexOf(sub, startIdx) / str.IndexOf(sub, StringComparison) / str.IndexOf(sub, startIdx, StringComparison)
     | "IndexOf", Some c, [ sub ] ->
         match sub.Type with
         | Type.Char -> emitExpr r t [ c; sub ] "fable_string:index_of($0, <<($1)/utf8>>)" |> Some
         | _ -> Helper.LibCall(com, "fable_string", "index_of", t, [ c; sub ]) |> Some
+    | "IndexOf", Some c, [ sub; StringComparisonEnumValue ] ->
+        // Strip the StringComparison arg — Beam uses binary (ordinal) comparison by default
+        match sub.Type with
+        | Type.Char -> emitExpr r t [ c; sub ] "fable_string:index_of($0, <<($1)/utf8>>)" |> Some
+        | _ -> Helper.LibCall(com, "fable_string", "index_of", t, [ c; sub ]) |> Some
     | "IndexOf", Some c, [ sub; startIdx ] ->
+        match sub.Type with
+        | Type.Char ->
+            emitExpr r t [ c; sub; startIdx ] "fable_string:index_of($0, <<($1)/utf8>>, $2)"
+            |> Some
+        | _ -> Helper.LibCall(com, "fable_string", "index_of", t, [ c; sub; startIdx ]) |> Some
+    | "IndexOf", Some c, [ sub; startIdx; StringComparisonEnumValue ] ->
+        // Strip the StringComparison arg — Beam uses binary (ordinal) comparison by default
         match sub.Type with
         | Type.Char ->
             emitExpr r t [ c; sub; startIdx ] "fable_string:index_of($0, <<($1)/utf8>>, $2)"
@@ -1015,12 +1027,26 @@ let private strings
 
         Helper.LibCall(com, "fable_string", "index_of_any", t, [ c; chars; startIdx ])
         |> Some
-    // str.LastIndexOf(sub) / str.LastIndexOf(sub, maxIdx)
+    // str.LastIndexOf(sub) / str.LastIndexOf(sub, maxIdx) / str.LastIndexOf(sub, StringComparison) / str.LastIndexOf(sub, maxIdx, StringComparison)
     | "LastIndexOf", Some c, [ sub ] ->
         match sub.Type with
         | Type.Char -> emitExpr r t [ c; sub ] "fable_string:last_index_of($0, <<($1)/utf8>>)" |> Some
         | _ -> Helper.LibCall(com, "fable_string", "last_index_of", t, [ c; sub ]) |> Some
+    | "LastIndexOf", Some c, [ sub; StringComparisonEnumValue ] ->
+        // Strip the StringComparison arg — Beam uses binary (ordinal) comparison by default
+        match sub.Type with
+        | Type.Char -> emitExpr r t [ c; sub ] "fable_string:last_index_of($0, <<($1)/utf8>>)" |> Some
+        | _ -> Helper.LibCall(com, "fable_string", "last_index_of", t, [ c; sub ]) |> Some
     | "LastIndexOf", Some c, [ sub; maxIdx ] ->
+        match sub.Type with
+        | Type.Char ->
+            emitExpr r t [ c; sub; maxIdx ] "fable_string:last_index_of($0, <<($1)/utf8>>, $2)"
+            |> Some
+        | _ ->
+            Helper.LibCall(com, "fable_string", "last_index_of", t, [ c; sub; maxIdx ])
+            |> Some
+    | "LastIndexOf", Some c, [ sub; maxIdx; StringComparisonEnumValue ] ->
+        // Strip the StringComparison arg — Beam uses binary (ordinal) comparison by default
         match sub.Type with
         | Type.Char ->
             emitExpr r t [ c; sub; maxIdx ] "fable_string:last_index_of($0, <<($1)/utf8>>, $2)"
