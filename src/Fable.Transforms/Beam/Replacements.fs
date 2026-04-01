@@ -3855,10 +3855,7 @@ let private guids
             Helper.LibCall(com, "fable_guid", "from_bytes", t, [ arg ], ?loc = r) |> Some
         | _ -> None
     | "NewGuid" -> Helper.LibCall(com, "fable_guid", "new_guid", t, [], ?loc = r) |> Some
-    | "CreateVersion7" ->
-        match args with
-        | [] -> Helper.LibCall(com, "fable_guid", "create_version7", t, [], ?loc = r) |> Some
-        | _ -> Helper.LibCall(com, "fable_guid", "create_version7", t, args, ?loc = r) |> Some
+    | "CreateVersion7" -> Helper.LibCall(com, "fable_guid", "create_version7", t, args, ?loc = r) |> Some
     | "Parse" ->
         match args with
         | [ StringConst literalGuid ] ->
