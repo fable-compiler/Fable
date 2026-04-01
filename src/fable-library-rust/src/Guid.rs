@@ -54,7 +54,8 @@ pub mod Guid_ {
     }
 
     pub fn create_version7() -> Guid {
-        Guid(Uuid::now_v7())
+        let ts = uuid::Timestamp::now(uuid::NoContext);
+        Guid(Uuid::new_v7(ts))
     }
 
     pub fn create_version7_with_timestamp(dto: crate::DateTimeOffset_::DateTimeOffset) -> Guid {
