@@ -1119,6 +1119,27 @@ let tests =
         let g3 = Guid.Parse s1
         g1 = g3 |> equal true
 
+    testCase "Guid.CreateVersion7 works" <| fun () ->
+        let g1 = Guid.CreateVersion7()
+        let g2 = Guid.CreateVersion7()
+        g1 = g2 |> equal false
+        let s1 = string g1
+        equal 36 s1.Length
+        // Check version nibble is '7'
+        equal '7' s1.[14]
+        // Check variant nibble is 8, 9, a, or b
+        let variantChar = s1.[19]
+        (variantChar = '8' || variantChar = '9' || variantChar = 'a' || variantChar = 'b') |> equal true
+
+    testCase "Guid.CreateVersion7 with DateTimeOffset works" <| fun () ->
+        let dto = DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero)
+        let g1 = Guid.CreateVersion7(dto)
+        let s1 = string g1
+        equal 36 s1.Length
+        equal '7' s1.[14]
+        let variantChar = s1.[19]
+        (variantChar = '8' || variantChar = '9' || variantChar = 'a' || variantChar = 'b') |> equal true
+
     testCase "Guid.Empty works" <| fun () ->
         let g1 = Guid.Empty
         string g1 |> equal "00000000-0000-0000-0000-000000000000"

@@ -49,6 +49,17 @@ let ``Guid.NewGuid works`` () =
     let g3 = Guid.Parse s1
     g1 = g3 |> equal true
 
+[<Fact>]
+let ``Guid.CreateVersion7 works`` () =
+    let g1 = Guid.CreateVersion7()
+    let g2 = Guid.CreateVersion7()
+    g1 = g2 |> equal false
+    let s1 = string g1
+    equal 36 s1.Length
+    equal '7' s1.[14]
+    let variantChar = s1.[19]
+    (variantChar = '8' || variantChar = '9' || variantChar = 'a' || variantChar = 'b') |> equal true
+
 // id is prefixed for guid creation as we check at compile time (if able) to create a string const
 [<Fact>]
 let ``Guid.Parse works`` () =

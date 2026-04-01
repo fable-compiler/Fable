@@ -3121,6 +3121,10 @@ let guids
         | _ -> None
     // | "Empty", None, [] -> // it's a static field, see tryField
     | "NewGuid", None, [] -> Helper.LibCall(com, "Guid", "new_guid", t, args, ?loc = r) |> Some
+    | "CreateVersion7", None, [] -> Helper.LibCall(com, "Guid", "create_version7", t, [], ?loc = r) |> Some
+    | "CreateVersion7", None, _ ->
+        Helper.LibCall(com, "Guid", "create_version7_with_timestamp", t, args, ?loc = r)
+        |> Some
     | "Parse", None, [ ExprType String ] -> Helper.LibCall(com, "Guid", "parse", t, args, ?loc = r) |> Some
     | "TryParse", None, [ ExprType String; _ ] -> Helper.LibCall(com, "Guid", "tryParse", t, args, ?loc = r) |> Some
     | "ToByteArray", Some x, [] -> Helper.LibCall(com, "Guid", "toByteArray", t, [ x ], ?loc = r) |> Some

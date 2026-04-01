@@ -74,6 +74,28 @@ export function newGuid() {
   return b;
 }
 
+// RFC 9562 UUID v7
+export function createVersion7(timestamp?: Date): string {
+  const ms = timestamp != null ? timestamp.getTime() : Date.now();
+
+  // 48-bit timestamp as hex
+  const msHex = Math.floor(ms).toString(16).padStart(12, "0");
+
+  // random bits
+  const randA = Math.floor(Math.random() * 0x1000); // 12 bits
+  const randB1 = Math.floor(Math.random() * 0x4000); // 14 bits
+  const randB2 = Math.floor(Math.random() * 0x100000000); // 32 bits
+  const randB3 = Math.floor(Math.random() * 0x10000); // 16 bits
+
+  const timeLow = msHex.slice(0, 8);
+  const timeMid = msHex.slice(8, 12);
+  const ver = (0x7000 | randA).toString(16).padStart(4, "0");
+  const variantAndRandB = (0x8000 | randB1).toString(16).padStart(4, "0");
+  const node = randB2.toString(16).padStart(8, "0") + randB3.toString(16).padStart(4, "0");
+
+  return `${timeLow}-${timeMid}-${ver}-${variantAndRandB}-${node}`;
+}
+
 // Maps for number <-> hex string conversion
 let _convertMapsInitialized = false;
 let _byteToHex: string[];

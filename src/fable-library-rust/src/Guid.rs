@@ -52,4 +52,16 @@ pub mod Guid_ {
     pub fn toByteArray(x: Guid) -> Array<u8> {
         new_array(&x.0.to_bytes_le())
     }
+
+    pub fn create_version7() -> Guid {
+        Guid(Uuid::now_v7())
+    }
+
+    pub fn create_version7_with_timestamp(dto: crate::DateTimeOffset_::DateTimeOffset) -> Guid {
+        let millis = dto.toUnixTimeMilliseconds();
+        let secs = (millis / 1000) as u64;
+        let nanos = ((millis % 1000) * 1_000_000) as u32;
+        let ts = uuid::Timestamp::from_unix(uuid::NoContext, secs, nanos);
+        Guid(Uuid::new_v7(ts))
+    }
 }
