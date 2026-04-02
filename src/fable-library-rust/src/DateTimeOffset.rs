@@ -277,6 +277,10 @@ pub mod DateTimeOffset_ {
             self.0.timestamp()
         }
 
+        pub fn toUnixTimeSubsecNanos(&self) -> u32 {
+            self.0.timestamp_subsec_nanos()
+        }
+
         pub fn year(&self) -> i32 {
             self.0.year()
         }

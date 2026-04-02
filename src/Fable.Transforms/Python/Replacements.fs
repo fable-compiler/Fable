@@ -3494,6 +3494,9 @@ let guids
     =
     match i.CompiledName with
     | "NewGuid" -> Helper.LibCall(com, "guid", "new_guid", t, []) |> Some
+    | "CreateVersion7" ->
+        Helper.LibCall(com, "guid", "create_version7", t, args, i.SignatureArgTypes)
+        |> Some
     | "Parse" -> Helper.LibCall(com, "guid", "parse", t, args, i.SignatureArgTypes) |> Some
     | "TryParse" -> Helper.LibCall(com, "guid", "try_parse", t, args, i.SignatureArgTypes) |> Some
     | "ToByteArray" ->

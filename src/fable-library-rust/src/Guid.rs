@@ -1,9 +1,10 @@
 #[cfg(feature = "guid")]
 pub mod Guid_ {
+    use crate::DateTimeOffset_::DateTimeOffset;
     use crate::NativeArray_::{new_array, Array};
     use crate::Native_::{compare, MutCell};
     use crate::String_::{string, toString};
-    use uuid::Uuid;
+    use uuid::{NoContext, Timestamp, Uuid};
 
     #[derive(Clone, Copy, Debug, Default, PartialEq, PartialOrd)]
     pub struct Guid(Uuid);
@@ -51,5 +52,17 @@ pub mod Guid_ {
 
     pub fn toByteArray(x: Guid) -> Array<u8> {
         new_array(&x.0.to_bytes_le())
+    }
+
+    pub fn create_version7() -> Guid {
+        let dto = DateTimeOffset::utcNow();
+        create_version7_with_timestamp(dto)
+    }
+
+    pub fn create_version7_with_timestamp(dto: DateTimeOffset) -> Guid {
+        let seconds = dto.toUnixTimeSeconds() as u64;
+        let subsec_nanos = dto.toUnixTimeSubsecNanos();
+        let ts = Timestamp::from_unix(NoContext, seconds, subsec_nanos);
+        Guid(Uuid::new_v7(ts))
     }
 }

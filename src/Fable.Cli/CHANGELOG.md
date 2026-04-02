@@ -7,10 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [All] Add support for `Guid.CreateVersion7()` and `Guid.CreateVersion7(DateTimeOffset)`
+
 ### Fixed
 
 * [All] Replace unsafe option `.Value` unwrapping with safe alternatives in Python/Replacements.fs and Rust/Fable2Rust.fs (code scanning alerts IONIDE-006)
 * [All] Add `[<return: Struct>]` to partial active patterns in Dart and Rust targets to reduce allocations (code scanning alerts IONIDE-009)
+* [JS/TS] Fix `Guid` to use cryptographically strong random values (by @ncave)
+* [Python] Fix `DateTimeOffset` millisecond constructor and property (by @ncave)
 * [Python] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument emitting it as a start-index instead of a compile error (by @repo-assist)
 * [Beam] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument incorrectly treating the enum value as a start index
 
