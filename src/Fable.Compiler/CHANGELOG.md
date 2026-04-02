@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Beam] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument incorrectly treating the enum value as a start index
+
 ## 5.0.0-rc.12 - 2026-03-31
 
 ### Fixed

@@ -197,6 +197,16 @@ let ``test String.IndexOf char works`` () =
 let ``test String.IndexOf char works with offset`` () =
     "abcdbc".IndexOf('b', 3) |> equal 4
 
+[<Fact>]
+let ``test String.IndexOf with StringComparison`` () =
+    "abcdbc".IndexOf("b", StringComparison.Ordinal)
+    |> equal 1
+
+[<Fact>]
+let ``test String.IndexOf with index and StringComparison`` () =
+    "abcdbc".IndexOf("b", 3, StringComparison.Ordinal)
+    |> equal 4
+
 // --- LastIndexOf ---
 
 [<Fact>]
@@ -214,6 +224,16 @@ let ``test String.LastIndexOf char works`` () =
 [<Fact>]
 let ``test String.LastIndexOf char works with offset`` () =
     "abcdbcebc".LastIndexOf('b', 3) |> equal 1
+
+[<Fact>]
+let ``test String.LastIndexOf with StringComparison`` () =
+    "abcdbc".LastIndexOf("b", StringComparison.Ordinal)
+    |> equal 4
+
+[<Fact>]
+let ``test String.LastIndexOf with index and StringComparison`` () =
+    "abcdbcebc".LastIndexOf("b", 3, StringComparison.Ordinal)
+    |> equal 1
 
 // --- Access char by index ---
 
