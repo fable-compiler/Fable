@@ -491,3 +491,30 @@ let ``test DateTimeOffset.UtcDateTime works`` () =
     equal d.Year d2.Year
     equal d.Month d2.Month
     equal d.Day d2.Day
+
+[<Fact>]
+let ``test DateTimeOffset.UnixEpoch works`` () =
+    let epoch = DateTimeOffset.UnixEpoch
+    equal 1970 epoch.Year
+    equal 1 epoch.Month
+    equal 1 epoch.Day
+
+[<Fact>]
+let ``test DateTimeOffset.TotalOffsetMinutes works`` () =
+    let d = DateTimeOffset(2014, 10, 9, 13, 23, 30, TimeSpan.FromHours(5.0))
+    d.TotalOffsetMinutes |> equal 300
+
+[<Fact>]
+let ``test DateTimeOffset constructor from DateOnly and TimeOnly works`` () =
+    let d = DateOnly(2014, 10, 9)
+    let t = TimeOnly(13, 23, 30, 500)
+    let o = TimeSpan.FromHours 5.0
+    let dt = DateTimeOffset(d, t, o)
+    let dt_exp = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, o)
+    dt.Year |> equal dt_exp.Year
+    dt.Month |> equal dt_exp.Month
+    dt.Day |> equal dt_exp.Day
+    dt.Hour |> equal dt_exp.Hour
+    dt.Minute |> equal dt_exp.Minute
+    dt.Second |> equal dt_exp.Second
+    dt.Millisecond |> equal dt_exp.Millisecond

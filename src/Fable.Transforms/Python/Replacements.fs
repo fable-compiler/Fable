@@ -89,9 +89,9 @@ let coreModFor =
     | FSharpReference _ -> "core"
     | BclHashSet _ -> "mutable_set"
     | BclDictionary _ -> "mutable_map"
-    | BclKeyValuePair _
-    | BclDateOnly
-    | BclTimeOnly -> FableError "Cannot decide core module" |> raise
+    | BclDateOnly -> "date_only"
+    | BclTimeOnly -> "time_only"
+    | BclKeyValuePair _ -> FableError "Cannot decide core module" |> raise
 
 let makeDecimal com r t (x: decimal) =
     let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
@@ -809,7 +809,9 @@ and private getZero (com: ICompiler) ctx (t: Type) =
     | Char -> makeCharConst '\u0000'
     | String -> makeStrConst "" // TODO: Use null for string?
     | Builtin BclTimeSpan -> Helper.LibCall(com, "time_span", "create", t, [ makeIntConst 0 ])
+    | Builtin BclTimeOnly -> makeIntConst 0
     | Builtin BclDateTime as t -> Helper.LibCall(com, "date", "minValue", t, [])
+    | Builtin BclDateOnly as t -> Helper.LibCall(com, "DateOnly", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
     | Builtin(FSharpSet genArg) as t -> makeSet com ctx None t "Empty" [] genArg
     | Builtin(BclKeyValuePair(k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
@@ -905,7 +907,9 @@ let rec defaultof com ctx r t =
     | Char
     | Number _
     | Builtin BclTimeSpan
+    | Builtin BclTimeOnly
     | Builtin BclDateTime
+    | Builtin BclDateOnly
     | Builtin BclDateTimeOffset -> getZero com ctx t
     | Builtin BclGuid -> emptyGuid com t
     | DeclaredType(ent, _) ->
@@ -2897,6 +2901,119 @@ let private ignoreFormatProvider com (ctx: Context) r (moduleName: string) meth 
         [ input; defVal ]
     | _ -> args
 
+let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | ".ctor" when args.Length = 4 ->
+        "DateOnly constructor with the calendar parameter is not supported."
+        |> addError com ctx.InlinePath r
+
+        None
+    | ".ctor" ->
+        Helper.LibCall(com, "DateOnly", "create", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "ToString" ->
+        match args with
+        | [ ExprType String ]
+        | [ StringConst _ ] ->
+            "DateOnly.ToString without CultureInfo is not supported, please add CultureInfo.InvariantCulture"
+            |> addError com ctx.InlinePath r
+
+            None
+        | [ StringConst("d" | "o" | "O"); _ ] ->
+            Helper.LibCall(com, "DateOnly", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+            |> Some
+        | [ StringConst _; _ ] ->
+            "DateOnly.ToString doesn't support custom format. It only handles \"d\", \"o\", \"O\" format, with CultureInfo.InvariantCulture."
+            |> addError com ctx.InlinePath r
+
+            None
+        | [ _ ] ->
+            Helper.LibCall(
+                com,
+                "DateOnly",
+                "toString",
+                t,
+                makeStrConst "d" :: args,
+                i.SignatureArgTypes,
+                ?thisArg = thisArg,
+                ?loc = r
+            )
+            |> Some
+        | _ -> None
+    | "AddDays"
+    | "AddMonths"
+    | "AddYears" ->
+        let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
+
+        Helper.LibCall(com, "DateOnly", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+    | meth ->
+        let args = ignoreFormatProvider com ctx r i.DeclaringEntityFullName meth args
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+
+        Helper.LibCall(com, "DateOnly", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+
+let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | ".ctor" ->
+        match args with
+        | [ ExprType(Number(Int64, _)) ] ->
+            Helper.LibCall(com, "TimeOnly", "fromTicks", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+            |> Some
+        | _ ->
+            Helper.LibCall(com, "TimeOnly", "create", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+            |> Some
+    | "get_MinValue" -> makeIntConst 0 |> Some
+    | "ToTimeSpan" -> thisArg
+    | "get_Hour"
+    | "get_Minute"
+    | "get_Second"
+    | "get_Millisecond" ->
+        // Delegate to TimeSpan module with plural property names (hours, minutes, etc.)
+        let meth = (Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst) + "s"
+
+        Helper.LibCall(com, "time_span", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+    | "get_Ticks" ->
+        Helper.LibCall(com, "time_span", "ticks", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+    | "ToString" ->
+        match args with
+        | [ ExprType String ]
+        | [ StringConst _ ] ->
+            "TimeOnly.ToString without CultureInfo is not supported, please add CultureInfo.InvariantCulture"
+            |> addError com ctx.InlinePath r
+
+            None
+        | [ StringConst("r" | "R" | "o" | "O" | "t" | "T"); _ ] ->
+            Helper.LibCall(com, "TimeOnly", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+            |> Some
+        | [ StringConst _; _ ] ->
+            "TimeOnly.ToString doesn't support custom format. It only handles \"r\", \"R\", \"o\", \"O\", \"t\", \"T\" format, with CultureInfo.InvariantCulture."
+            |> addError com ctx.InlinePath r
+
+            None
+        | [ _ ] ->
+            Helper.LibCall(
+                com,
+                "TimeOnly",
+                "toString",
+                t,
+                makeStrConst "t" :: args,
+                i.SignatureArgTypes,
+                ?thisArg = thisArg,
+                ?loc = r
+            )
+            |> Some
+        | _ -> None
+    | meth ->
+        let args = ignoreFormatProvider com ctx r i.DeclaringEntityFullName meth args
+        let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
+
+        Helper.LibCall(com, "TimeOnly", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+
 let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let getTime (e: Expr) =
         Helper.InstanceCall(e, "getTime", t, [])
@@ -2930,6 +3047,9 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             |> Some
         | ExprType(DeclaredType(e, [])) :: _ when e.FullName = Types.datetime ->
             Helper.LibCall(com, "DateOffset", "fromDate", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | ExprType(DeclaredType(e, [])) :: _ when e.FullName = Types.dateOnly ->
+            Helper.LibCall(com, "DateOffset", "fromDateTime", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
         | _ ->
             let last = List.last args
@@ -3819,8 +3939,11 @@ let tryField com returnTyp ownerTyp fieldName =
     | Builtin BclDateTime, ("MaxValue" | "MinValue") ->
         Helper.LibCall(com, coreModFor BclDateTime, Naming.lowerFirst fieldName, returnTyp, [])
         |> Some
-    | Builtin BclDateTimeOffset, ("MaxValue" | "MinValue") ->
+    | Builtin BclDateTimeOffset, ("MaxValue" | "MinValue" | "UnixEpoch") ->
         Helper.LibCall(com, coreModFor BclDateTimeOffset, Naming.lowerFirst fieldName, returnTyp, [])
+        |> Some
+    | Builtin BclDateOnly, ("MaxValue" | "MinValue") ->
+        Helper.LibCall(com, coreModFor BclDateOnly, Naming.lowerFirst fieldName, returnTyp, [])
         |> Some
     | DeclaredType(ent, genArgs), fieldName ->
         match ent.FullName with
@@ -3926,6 +4049,8 @@ let private replacedModules =
             "System.Diagnostics.Stopwatch", stopwatch
             Types.datetime, dates
             Types.datetimeOffset, dates
+            Types.dateOnly, dateOnly
+            Types.timeOnly, timeOnly
             Types.timespan, timeSpans
             "System.Timers.Timer", timers
             "System.Environment", systemEnv
@@ -4098,6 +4223,6 @@ let tryType typ =
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [ genArg1; genArg2 ])
         | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
         | FSharpReference genArg -> Some(Types.refCell, refCells, [ genArg ])
-        | BclDateOnly
-        | BclTimeOnly -> None
+        | BclDateOnly -> Some(Types.dateOnly, dateOnly, [])
+        | BclTimeOnly -> Some(Types.timeOnly, timeOnly, [])
     | _ -> None

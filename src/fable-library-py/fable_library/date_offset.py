@@ -291,6 +291,24 @@ def from_ticks(ticks: SupportsInt, offset_ts: TimeSpan) -> DateTimeOffset:
     return DateTimeOffset(dt, offset_ms)
 
 
+def from_date_time(date_only: datetime, time_only: TimeSpan, offset_ts: TimeSpan) -> DateTimeOffset:
+    """Construct DateTimeOffset from DateOnly, TimeOnly, and offset TimeSpan."""
+    from .time_span import hours, microseconds, milliseconds, minutes, seconds
+
+    h = int(hours(time_only))
+    m = int(minutes(time_only))
+    s = int(seconds(time_only))
+    ms = int(milliseconds(time_only))
+    mc = int(microseconds(time_only))
+
+    offset_ms = int(time_span.total_microseconds(offset_ts) / 1000)
+    python_offset = timedelta(milliseconds=offset_ms)
+    dt = datetime(
+        date_only.year, date_only.month, date_only.day, h, m, s, ms * 1000 + mc, tzinfo=timezone(python_offset)
+    )
+    return DateTimeOffset(dt, offset_ms)
+
+
 # ---------------------------------------------------------------------------
 # Static fields
 # ---------------------------------------------------------------------------
@@ -315,6 +333,11 @@ def min_value() -> DateTimeOffset:
 
 def max_value() -> DateTimeOffset:
     dt = datetime.max.replace(tzinfo=UTC)
+    return DateTimeOffset(dt, 0)
+
+
+def unix_epoch() -> DateTimeOffset:
+    dt = datetime(1970, 1, 1, tzinfo=UTC)
     return DateTimeOffset(dt, 0)
 
 
@@ -361,6 +384,10 @@ def day_of_week(d: DateTimeOffset) -> int:
 
 def day_of_year(d: DateTimeOffset) -> int:
     return d.timetuple().tm_yday
+
+
+def total_offset_minutes(d: DateTimeOffset) -> int:
+    return d.offset_ms // (60 * 1000)
 
 
 def date(d: DateTimeOffset) -> datetime:
@@ -660,6 +687,7 @@ __all__ = [
     "equals",
     "equals_exact",
     "from_date",
+    "from_date_time",
     "from_ticks",
     "from_unix_time_milliseconds",
     "from_unix_time_seconds",
@@ -685,7 +713,9 @@ __all__ = [
     "to_universal_time",
     "to_unix_time_milliseconds",
     "to_unix_time_seconds",
+    "total_offset_minutes",
     "try_parse",
+    "unix_epoch",
     "utc_date_time",
     "utc_now",
     "year",
