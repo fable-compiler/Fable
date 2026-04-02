@@ -729,10 +729,13 @@ def from_ticks(ticks: SupportsInt, kind: int32 | None = None) -> datetime:
 
 
 def from_date_time_offset(date_time_offset: Any, _kind: int = 0) -> datetime:
-    """Convert a DateTimeOffset to a DateTime"""
-    # DateTimeOffset is a datetime subclass, so we can just return it as a datetime
-    # The _kind parameter is ignored for now (it's used in .NET for DateTimeKind)
-    return date_time_offset
+    """Convert a DateTimeOffset to a DateTime.
+
+    Returns a plain datetime with the same local date/time fields.
+    The _kind parameter maps to DateTimeKind (0=Unspecified, 1=UTC, 2=Local).
+    """
+    d = date_time_offset
+    return datetime(d.year, d.month, d.day, d.hour, d.minute, d.second, d.microsecond)
 
 
 __all__ = [

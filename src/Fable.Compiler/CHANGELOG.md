@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [JS/TS] Fix `Guid` to use cryptographically strong random values (by @ncave)
 * [Python] Fix `DateTimeOffset` millisecond constructor and property (by @ncave)
+* [Python] Implement missing `DateTimeOffset` members and fix equality/comparison to use UTC-normalized instants (by @dbrattli)
+* [Python] Add `DateOnly` and `TimeOnly` support (by @dbrattli)
 * [Python] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument emitting it as a start-index instead of a compile error (by @repo-assist)
 * [Beam] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument incorrectly treating the enum value as a start index
 
