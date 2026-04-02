@@ -37,6 +37,8 @@ let ``test DateTimeOffset constructors work`` () =
     d.Hour |> equal 13
     d.Minute |> equal 23
     d.Second |> equal 30
+    let d2 = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.Zero)
+    d2.Second + d2.Millisecond |> equal 530
 
 [<Fact>]
 let ``test DateTimeOffset.Offset works`` () =

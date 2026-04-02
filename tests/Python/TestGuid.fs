@@ -22,6 +22,37 @@ let ``test Guid.NewGuid creates different guids`` () =
     g = g2 |> equal false
 
 [<Fact>]
+let ``test Guid.CreateVersion7 works`` () =
+    let g1 = Guid.CreateVersion7()
+    let g2 = Guid.CreateVersion7()
+    g1 = g2 |> equal false
+    let s1 = string g1
+    equal 36 s1.Length
+    equal '7' s1[14]
+    let variantChar = s1[19]
+    (variantChar = '8' || variantChar = '9' || variantChar = 'a' || variantChar = 'b') |> equal true
+
+[<Fact>]
+let ``test Guid.CreateVersion7 with DateTimeOffset works`` () =
+    let dto = DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero)
+    let g1 = Guid.CreateVersion7(dto)
+    let g2 = Guid.CreateVersion7(dto)
+    g1 = g2 |> equal false
+    let s1 = string g1
+    equal 36 s1.Length
+    equal '7' s1[14]
+    let variantChar = s1[19]
+    (variantChar = '8' || variantChar = '9' || variantChar = 'a' || variantChar = 'b') |> equal true
+
+[<Fact>]
+let ``test Guid.CreateVersion7 is monotonic`` () =
+    [1 .. 100]
+    |> List.map (fun ms -> DateTimeOffset(2024, 1, 1, 0, 0, 0, ms, TimeSpan.Zero))
+    |> List.map (fun dto -> Guid.CreateVersion7(dto))
+    |> List.pairwise
+    |> List.iter (fun (g1, g2) -> g1 < g2 |> equal true)
+
+[<Fact>]
 let ``test Guid equality works`` () =
     let s = "f46d24f0-183e-4fca-9f47-e382afdfde8b"
     let g = Guid.Parse(s)
