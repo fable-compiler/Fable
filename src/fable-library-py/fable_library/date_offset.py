@@ -361,7 +361,7 @@ def date(d: DateTimeOffset) -> datetime:
     """Return the date component (time set to midnight) as a DateTime."""
     from . import date as date_mod
 
-    return date_mod.create(d.year, d.month, d.day, 0, 0, 0, 0, 0, 0)
+    return date_mod.create(d.year, d.month, d.day)
 
 
 def time_of_day(d: DateTimeOffset) -> TimeSpan:
