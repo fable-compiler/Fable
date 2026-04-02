@@ -261,9 +261,7 @@ def from_date(dt: datetime, offset_ts: TimeSpan | None = None) -> DateTimeOffset
     """Construct DateTimeOffset from a DateTime."""
     if offset_ts is not None:
         offset_ms = int(time_span.total_microseconds(offset_ts) / 1000)
-    elif dt.tzinfo is not None and dt.utcoffset() is not None:
-        offset_td = dt.utcoffset()
-        assert offset_td is not None
+    elif dt.tzinfo is not None and (offset_td := dt.utcoffset()) is not None:
         offset_ms = int(offset_td.total_seconds() * 1000)
     else:
         # Unspecified kind — use local offset
