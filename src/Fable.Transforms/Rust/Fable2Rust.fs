@@ -908,6 +908,7 @@ module TypeInfo =
             else
                 None
         )
+        |> Option.toValueOption
 
     type PointerType =
         | Lrc
@@ -932,6 +933,7 @@ module TypeInfo =
             else
                 None
         )
+        |> Option.toValueOption
 
     [<return: Struct>]
     let (|IsNonErasedInterface|_|) (com: Compiler) =
@@ -940,10 +942,10 @@ module TypeInfo =
             let ent = com.GetEntity(entRef)
 
             if ent.IsInterface && not (ent |> FSharp2Fable.Util.hasAttribute Atts.erase) then
-                Some(entRef, genArgs)
+                ValueSome(entRef, genArgs)
             else
-                None
-        | _ -> None
+                ValueNone
+        | _ -> ValueNone
 
     let transformEntityType (com: IRustCompiler) ctx (entRef: Fable.EntityRef) genArgs : Rust.Ty =
         match com.GetEntity(entRef) with
@@ -1182,47 +1184,47 @@ module Util =
     [<return: Struct>]
     let (|Function|_|) =
         function
-        | Fable.Lambda(arg, body, info) -> Some([ arg ], body, info)
-        | Fable.Delegate(args, body, info, []) -> Some(args, body, info)
-        | _ -> None
+        | Fable.Lambda(arg, body, info) -> ValueSome([ arg ], body, info)
+        | Fable.Delegate(args, body, info, []) -> ValueSome(args, body, info)
+        | _ -> ValueNone
 
     [<return: Struct>]
     let (|Lets|_|) =
         function
-        | Fable.Let(ident, value, body) -> Some([ ident, value ], body)
-        | Fable.LetRec(bindings, body) -> Some(bindings, body)
-        | _ -> None
+        | Fable.Let(ident, value, body) -> ValueSome([ ident, value ], body)
+        | Fable.LetRec(bindings, body) -> ValueSome(bindings, body)
+        | _ -> ValueNone
 
     [<return: Struct>]
     let (|IDisposable|_|) =
         function
-        | Replacements.Util.IsEntity (Types.idisposable) _ -> Some()
-        | _ -> None
+        | Replacements.Util.IsEntity (Types.idisposable) _ -> ValueSome()
+        | _ -> ValueNone
 
     [<return: Struct>]
     let (|IFormattable|_|) =
         function
-        | Replacements.Util.IsEntity (Types.iformattable) _ -> Some()
-        | _ -> None
+        | Replacements.Util.IsEntity (Types.iformattable) _ -> ValueSome()
+        | _ -> ValueNone
 
     [<return: Struct>]
     let (|IComparable|_|) =
         function
-        | Replacements.Util.IsEntity (Types.icomparableGeneric) (_, [ genArg ]) -> Some(genArg)
-        | _ -> None
+        | Replacements.Util.IsEntity (Types.icomparableGeneric) (_, [ genArg ]) -> ValueSome(genArg)
+        | _ -> ValueNone
 
     [<return: Struct>]
     let (|IEquatable|_|) =
         function
-        | Replacements.Util.IsEntity (Types.iequatableGeneric) (_, [ genArg ]) -> Some(genArg)
-        | _ -> None
+        | Replacements.Util.IsEntity (Types.iequatableGeneric) (_, [ genArg ]) -> ValueSome(genArg)
+        | _ -> ValueNone
 
     [<return: Struct>]
     let (|IEnumerable|_|) =
         function
-        | Replacements.Util.IsEntity (Types.ienumerableGeneric) (_, [ genArg ]) -> Some(genArg)
-        | Replacements.Util.IsEntity (Types.ienumerable) _ -> Some(Fable.Any)
-        | _ -> None
+        | Replacements.Util.IsEntity (Types.ienumerableGeneric) (_, [ genArg ]) -> ValueSome(genArg)
+        | Replacements.Util.IsEntity (Types.ienumerable) _ -> ValueSome(Fable.Any)
+        | _ -> ValueNone
 
     let isUnitArg (ident: Fable.Ident) =
         ident.IsCompilerGenerated
