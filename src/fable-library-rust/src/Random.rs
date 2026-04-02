@@ -57,8 +57,11 @@ pub mod Random_ {
         }
 
         fn next1(&self, max_value: i32) -> i32 {
-            if max_value <= 0 {
-                panic!("max_value must be positive");
+            if max_value < 0 {
+                panic!("max_value must be non-negative");
+            }
+            if max_value == 0 {
+                return 0;
             }
             self.rng.get_mut().random_range(0..max_value)
         }
