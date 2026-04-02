@@ -16,9 +16,9 @@ let private distDir = Path.Combine(projectDir, "dist")
 
 let handle (args: string list) =
     let minify = args |> List.contains "--no-minify" |> not
-    let skipFableLibrary = args |> List.contains "--skip-fable-library"
+    let forceFableLibrary = args |> List.contains "--force-fable-library"
 
-    BuildFableLibraryJavaScript().Run(skipFableLibrary)
+    BuildFableLibraryJavaScript().Run(forceFableLibrary)
 
     let fableArgs =
         CmdLine.empty

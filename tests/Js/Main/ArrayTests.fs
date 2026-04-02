@@ -45,6 +45,11 @@ type Things =
 
 type Animal = Duck of int | Dog of int
 
+[<Struct>]
+type MyStruct(value: int, flag: bool) =
+    member _.Value = value
+    member _.Flag = flag
+
 let tests =
   testList "Arrays" [
     testCase "Pattern matching with arrays works" <| fun () ->
@@ -239,6 +244,12 @@ let tests =
         let a = Array.zeroCreate<System.Collections.Generic.KeyValuePair<float,bool>> 3
         equal 0. a.[1].Key
         equal false a.[2].Value
+
+    testCase "Array.zeroCreate works with struct" <| fun () ->
+        let arr = Array.zeroCreate<MyStruct> 3
+        equal 0 arr.[0].Value
+        equal false arr.[0].Flag
+        equal 3 arr.Length
 
     testCase "Array.create works" <| fun () ->
         let xs = Array.create 2 5

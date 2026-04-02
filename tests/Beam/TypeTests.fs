@@ -44,6 +44,13 @@ type ValueType2(i: int, j: int) =
     member x.Value = i + j
 
 [<Struct>]
+type ValueTypeR =
+    val mutable X: float
+    new(x: float) = { X = x }
+    member this.IsEmpty() = this.X < 0.0
+    override this.ToString() = $"{this.X}"
+
+[<Struct>]
 type StructUnion = Value of string
 
 type Point2D =
@@ -646,6 +653,12 @@ let ``test Other Value Types work`` () =
     p.Y |> equal 2.
 
 [<Fact>]
+let ``test Struct with mutable fields works`` () =
+    let x = ValueTypeR(-10.0)
+    x.X |> equal -10.0
+    x.IsEmpty() |> equal true
+
+[<Fact>]
 let ``test Custom F# exceptions work`` () =
     try
         MyEx(4, "ERROR") |> raise
@@ -731,6 +744,7 @@ let ``test Type abbreviation works`` () =
 //     t1.X |> equal 10
 //     let mutable t2 = ValueType3()
 //     t2.X |> equal 0
+
 
 // Test types for generic parameter static member resolution
 type TestTypeA =

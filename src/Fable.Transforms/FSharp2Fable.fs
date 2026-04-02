@@ -2618,9 +2618,9 @@ type FableCompiler(com: Compiler) =
                 ResolvedIdents = Dictionary()
             }
 
-        let ctx, bindings =
-            ((ctx, []), foldArgs [] (inExpr.Args, args))
-            ||> List.fold (fun (ctx, bindings) (argId, arg) ->
+        let ctx, bindings, forceInlineMap =
+            (((ctx, [], Map.empty)), foldArgs [] (inExpr.Args, args))
+            ||> List.fold (fun (ctx, bindings, forceInlineMap) (argId, arg) ->
                 let argId = resolveInlineIdent ctx info argId
                 // Change type and mark argId as compiler-generated so Fable also
                 // tries to inline it in DEBUG mode (some patterns depend on this)
@@ -2630,9 +2630,101 @@ type FableCompiler(com: Compiler) =
                         IsCompilerGenerated = true
                     }
 
+                // If this parameter has [<InlineIfLambda>] and the argument is a lambda/delegate,
+                // force-inline it directly into the body (duplicate at each call site) rather
+                // than creating a Let binding that beta-reduction may refuse to inline.
+                let isInlineIfLambda = argId.IsInlineIfLambda
+
+                // Helper: try to find a non-inline module-level declaration by its Fable name and
+                // reconstruct it as a Lambda/Delegate by binding its FSC args and transforming its body.
+                let tryLambdaFromDeclarations (name: string) =
+                    let decls = com.GetImplementationFile(com.CurrentFile)
+
+                    let rec tryFindInDecls (decls: FSharpImplementationFileDeclaration list) =
+                        decls
+                        |> List.tryPick (fun decl ->
+                            match decl with
+                            | FSharpImplementationFileDeclaration.Entity(_, subDecls) -> tryFindInDecls subDecls
+                            | FSharpImplementationFileDeclaration.MemberOrFunctionOrValue(memb, membArgIds, fsBody) when
+                                not (isInline memb)
+                                ->
+                                let declName, _ = getMemberDeclarationName (this :> Compiler) memb
+
+                                if declName = name then
+                                    let flatArgs = List.concat membArgIds
+
+                                    match flatArgs with
+                                    | [] ->
+                                        // No args: transform body directly (may already be Lambda/Delegate)
+                                        let fableBody = (this :> IFableCompiler).Transform(ctx, fsBody)
+
+                                        match fableBody with
+                                        | Fable.Lambda _
+                                        | Fable.Delegate _ -> Some fableBody
+                                        | _ -> None
+                                    | _ ->
+                                        // Has args: bind them and wrap transformed body in a lambda
+                                        let bodyCtx, fableArgs = bindMemberArgs this ctx membArgIds
+                                        let fableBody = (this :> IFableCompiler).Transform(bodyCtx, fsBody)
+
+                                        match fableArgs with
+                                        | [ singleArg ] -> Some(Fable.Lambda(singleArg, fableBody, None))
+                                        | multiArgs ->
+                                            Some(Fable.Delegate(multiArgs, fableBody, None, Fable.Tags.empty))
+                                else
+                                    None
+                            | _ -> None
+                        )
+
+                    tryFindInDecls decls
+
+                let effectiveArg =
+                    match arg with
+                    | Fable.IdentExpr identRef ->
+                        // First try local scope (covers anonymous lambda pre-bound by FSC, Case 1)
+                        let fromScope =
+                            ctx.Scope
+                            |> List.tryPick (fun (_, scopeIdent, scopeValue) ->
+                                if scopeIdent.Name = identRef.Name then
+                                    scopeValue
+                                else
+                                    None
+                            )
+
+                        match fromScope with
+                        | Some _ -> fromScope |> Option.defaultValue arg
+                        | None ->
+                            // Second, try module-level declarations (IdentExpr case when scope lookup fails)
+                            if isInlineIfLambda then
+                                tryLambdaFromDeclarations identRef.Name |> Option.defaultValue arg
+                            else
+                                arg
+                    | Fable.Lambda(lambdaArg, Fable.Call(Fable.IdentExpr calleeIdent, callInfo, _, _), _) when
+                        isInlineIfLambda
+                        && callInfo.Args.Length = 1
+                        && (
+                            match callInfo.Args.[0] with
+                            | Fable.IdentExpr a -> a.Name = lambdaArg.Name
+                            | _ -> false
+                        )
+                        ->
+                        // FSC may eta-expand a named function: `myAction` → `fun x -> myAction(x)`.
+                        // Resolve the callee's body from declarations so we inline the real body.
+                        tryLambdaFromDeclarations calleeIdent.Name |> Option.defaultValue arg
+                    | _ -> arg
+
                 let ctx = { ctx with Scope = (None, argId, Some arg) :: ctx.Scope }
 
-                ctx, (argId, arg) :: bindings
+                let isLambdaOrDelegate =
+                    match effectiveArg with
+                    | Fable.Lambda _
+                    | Fable.Delegate _ -> true
+                    | _ -> false
+
+                if isInlineIfLambda && isLambdaOrDelegate then
+                    (ctx, bindings, Map.add argId.Name effectiveArg forceInlineMap)
+                else
+                    (ctx, (argId, arg) :: bindings, forceInlineMap)
             )
 
         let ctx =
@@ -2645,6 +2737,21 @@ type FableCompiler(com: Compiler) =
             }
 
         let resolved = resolveInlineExpr this ctx info inExpr.Body
+
+        // Substitute [<InlineIfLambda>] lambdas directly into the body at each use site
+        let resolved =
+            if Map.isEmpty forceInlineMap then
+                resolved
+            else
+                resolved
+                |> visitFromInsideOut (
+                    function
+                    | Fable.IdentExpr id as e ->
+                        match Map.tryFind id.Name forceInlineMap with
+                        | Some replacement -> replacement
+                        | None -> e
+                    | e -> e
+                )
 
         // Some patterns depend on inlined arguments being captured by "magic" Fable.Core functions like
         // importValueDynamic. If the value can have side effects, it won't be removed by beta binding
@@ -2750,11 +2857,34 @@ let getInlineExprs fileName (declarations: FSharpImplementationFileDeclaration l
                                 ctx, ident :: idents
                             )
 
+                        // CurriedParameterGroups is the authoritative source for parameter-level
+                        // attributes like [<InlineIfLambda>]. The argIds (FSharpMemberOrFunctionOrValue)
+                        // are body-level variables and may not carry parameter attributes on fsRef.Attributes.
+                        // So we zip the built idents with the flattened CurriedParameterGroups and annotate.
+                        // NOTE: for instance members the first ident is the `this` argument, which is NOT
+                        // included in CurriedParameterGroups — skip it when indexing into flatParams.
+                        let flatParams = memb.CurriedParameterGroups |> Seq.collect id |> Seq.toList
+
+                        let thisOffset =
+                            if memb.IsInstanceMember then
+                                1
+                            else
+                                0
+
+                        let args =
+                            List.rev idents
+                            |> List.mapi (fun i ident ->
+                                match List.tryItem (i - thisOffset) flatParams with
+                                | Some param when i >= thisOffset && hasAttrib Atts.inlineIfLambda param.Attributes ->
+                                    { ident with IsInlineIfLambda = true }
+                                | _ -> ident
+                            )
+
                         // It looks as we don't need memb.DeclaringEntity.GenericParameters here
                         let genArgs = memb.GenericParameters |> Seq.mapToList (genParamName)
 
                         {
-                            Args = List.rev idents
+                            Args = args
                             Body = com.Transform(ctx, body)
                             FileName = fileName
                             GenericArgs = genArgs

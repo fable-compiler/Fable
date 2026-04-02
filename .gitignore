@@ -16,6 +16,10 @@ src/quicktest/**/*.js
 src/quicktest-py/**/*.py
 src/quicktest-rust/**/*.rs
 src/quicktest-dart/**/*.dart
+src/quicktest-beam/**/*.beam
+src/quicktest-beam/**/*.erl
+src/quicktest-beam/src/*.src
+src/quicktest-beam/rebar.config
 **/fable_modules/**
 
 ## Ignore Visual Studio temporary files, build results, and
@@ -232,3 +236,5 @@ Cargo.lock
 
 # This file is copied as part of the Restore task
 tests/React/Components.Copied.fs
+
+.build-cache/

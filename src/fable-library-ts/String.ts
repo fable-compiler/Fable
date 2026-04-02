@@ -344,7 +344,11 @@ export function format(str: string | object, ...args: any[]) {
           precision = precision == null ? 2 : precision;
           rep = toFixed(rep, precision);
           parts = splitIntAndDecimalPart(rep);
-          rep = "¤" + thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0");
+          if (precision > 0) {
+            rep = "¤" + thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0");
+          } else {
+            rep = "¤" + thousandSeparate(parts.integral);
+          }
           if (isNegative) {
             rep = "(" + rep + ")";
           }
@@ -382,13 +386,21 @@ export function format(str: string | object, ...args: any[]) {
           precision = precision != null ? precision : 2;
           rep = toFixed(rep, precision);
           parts = splitIntAndDecimalPart(rep);
-          rep = thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0");
+          if (precision > 0) {
+            rep = thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0");
+          } else {
+            rep = thousandSeparate(parts.integral);
+          }
           break;
         case "p": case "P":
           precision = precision != null ? precision : 2;
           rep = toFixed(multiply(rep, 100), precision)
           parts = splitIntAndDecimalPart(rep);
-          rep = thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0") + " %";
+          if (precision > 0) {
+            rep = thousandSeparate(parts.integral) + "." + padRight(parts.decimal, precision, "0") + " %";
+          } else {
+            rep = thousandSeparate(parts.integral) + " %";
+          }
           break;
         case "r": case "R":
           throw new Exception("The round-trip format is not supported by Fable");

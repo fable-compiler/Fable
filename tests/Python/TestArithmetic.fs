@@ -59,37 +59,44 @@ let ``test Integer division doesn't produce floats`` () =
 [<Fact>]
 let ``test Infix modulo can be generated`` () =
     4 % 3 |> equal 1
+    5 % 3 |> equal 2
 
-// [<Fact>]
-// let ``test Math.DivRem works with bytes`` () =
-//     Math.DivRem(5y, 2y) |> equal struct (2y, 1y)
-//     Math.DivRem(4y, 2y) |> equal struct (2y, 0y)
+[<Fact>]
+let ``test Infix modulo with negative numbers`` () =
+    -5 % 3 |> equal -2
+    5 % -3 |> equal 2
+    -5 % -3 |> equal -2
 
-// [<Fact>]
-// let ``test Math.DivRem works with ints`` () =
-//     Math.DivRem(5, 2) |> equal struct (2, 1)
-//     Math.DivRem(4, 2) |> equal struct (2, 0)
+[<Fact>]
+let ``test Math.DivRem works with bytes`` () =
+    Math.DivRem(5y, 2y) |> equal struct (2y, 1y)
+    Math.DivRem(4y, 2y) |> equal struct (2y, 0y)
 
-// [<Fact>]
-// let ``test Math.DivRem works with longs`` () =
-//     Math.DivRem(5L, 2L) |> equal struct (2L, 1L)
-//     Math.DivRem(4L, 2L) |> equal struct (2L, 0L)
+[<Fact>]
+let ``test Math.DivRem works with ints`` () =
+    Math.DivRem(5, 2) |> equal struct (2, 1)
+    Math.DivRem(4, 2) |> equal struct (2, 0)
 
-// [<Fact>]
-// let ``test Math.DivRem works with ints and outref`` () =
-//     let mutable rem = -1
-//     Math.DivRem(5, 2, &rem) |> equal 2
-//     rem |> equal 1
-//     Math.DivRem(4, 2, &rem) |> equal 2
-//     rem |> equal 0
+[<Fact>]
+let ``test Math.DivRem works with longs`` () =
+    Math.DivRem(5L, 2L) |> equal struct (2L, 1L)
+    Math.DivRem(4L, 2L) |> equal struct (2L, 0L)
 
-// [<Fact>]
-// let ``test Math.DivRem works with longs and outref`` () =
-//     let mutable rem = -1L
-//     Math.DivRem(5L, 2L, &rem) |> equal 2L
-//     rem |> equal 1L
-//     Math.DivRem(4L, 2L, &rem) |> equal 2L
-//     rem |> equal 0L
+[<Fact>]
+let ``test Math.DivRem works with ints and outref`` () =
+    let mutable rem = -1
+    Math.DivRem(5, 2, &rem) |> equal 2
+    rem |> equal 1
+    Math.DivRem(4, 2, &rem) |> equal 2
+    rem |> equal 0
+
+[<Fact>]
+let ``test Math.DivRem works with longs and outref`` () =
+    let mutable rem = -1L
+    Math.DivRem(5L, 2L, &rem) |> equal 2L
+    rem |> equal 1L
+    Math.DivRem(4L, 2L, &rem) |> equal 2L
+    rem |> equal 0L
 
 [<Fact>]
 let ``test Evaluation order is preserved by generated code`` () =
@@ -139,7 +146,23 @@ let ``test Bitwise shift right can be generated`` () = // See #1530
 let ``test Zero fill shift right for unsigned`` () = // See #646
     0x80000000 >>> 1 |> equal -1073741824
     0x80000000u >>> 1 |> equal 1073741824u
-    0x80000000UL>>> 1 |> equal 1073741824UL
+    0x80000000UL >>> 1 |> equal 1073741824UL
+
+[<Fact>]
+let ``test Zero fill right shift is logical for unsigned integer types`` () =
+    // For unsigned types, >>> is zero-fill (logical) - the high bit is NOT sign-extended
+    0xFFuy >>> 1 |> equal 127uy                      // uint8:  0x7F
+    0xFFFFus >>> 1 |> equal 32767us                  // uint16: 0x7FFF
+    0xFFFFFFFFu >>> 1 |> equal 2147483647u           // uint32: 0x7FFFFFFF
+    0xFFFFFFFFFFFFFFFFUL >>> 1 |> equal 9223372036854775807UL  // uint64: 0x7FFFFFFFFFFFFFFF
+
+[<Fact>]
+let ``test Arithmetic right shift preserves sign for signed integer types`` () =
+    // For signed types, >>> is arithmetic (sign-propagating) - the sign bit IS extended
+    -2y >>> 1 |> equal -1y   // int8:  0xFF = -1
+    -2s >>> 1 |> equal -1s   // int16: 0xFFFF = -1
+    -2 >>> 1 |> equal -1     // int32: 0xFFFFFFFF = -1
+    -2L >>> 1 |> equal -1L   // int64: 0xFFFFFFFFFFFFFFFF = -1
 
 [<Fact>]
 let ``test UInt64 multiplication with 0 returns uint`` () = // See #1480
@@ -383,6 +406,13 @@ let ``test Int64 Integer division doesn't produce floats`` () =
 [<Fact>]
 let ``test Int64 Infix modulo can be generated`` () =
     4L % 3L |> equal 1L
+    5L % 3L |> equal 2L
+
+[<Fact>]
+let ``test Int64 Infix modulo with negative numbers`` () =
+    -5L % 3L |> equal -2L
+    5L % -3L |> equal 2L
+    -5L % -3L |> equal -2L
 
 [<Fact>]
 let ``test Int64 Evaluation order is preserved by generated code`` () =
@@ -445,12 +475,19 @@ let ``test BigInt Integer division doesn't produce floats`` () =
 [<Fact>]
 let ``test BigInt Infix modulo can be generated`` () =
     4I % 3I |> equal 1I
+    5I % 3I |> equal 2I
 
-// [<Fact>]
-// let ``test BigInt.DivRem works`` () = // See #1744
-//     let quotient,remainder = bigint.DivRem(5I,2I)
-//     2I |> equal quotient
-//     1I |> equal remainder
+[<Fact>]
+let ``test BigInt Infix modulo with negative numbers`` () =
+    -5I % 3I |> equal -2I
+    5I % -3I |> equal 2I
+    -5I % -3I |> equal -2I
+
+[<Fact>]
+let ``test BigInt.DivRem works`` () = // See #1744
+    let quotient,remainder = bigint.DivRem(5I,2I)
+    2I |> equal quotient
+    1I |> equal remainder
 
 [<Fact>]
 let ``test BigInt Evaluation order is preserved by generated code`` () =

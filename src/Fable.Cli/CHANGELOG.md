@@ -13,10 +13,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Python] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument emitting it as a start-index instead of a compile error (by @repo-assist)
+* [Beam] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument incorrectly treating the enum value as a start index
+
+## 5.0.0-rc.6 - 2026-03-31
+
+### Fixed
+
+* [Dart] Enable explicit variable typing for more data types (by @ncave)
+* [Dart] Fix tests for `round`, `sign`, `truncate`, `log`, `log2`, `log10`, `pow`, `DivRem`, `Min`, `Max`, `Clamp`, `MinMagnitude`, `MaxMagnitude`, `cosh`, `sinh`, `tanh`, and float `Parse` (by @ncave)
+* [Python] Add `Math.DivRem` support for int, int64, and bigint (by @dbrattli)
+* [Python] Fix modulo with negative numbers using Python floored semantics instead of .NET truncated semantics for bigint (fixes #4462) (by @dbrattli)
+* [Beam] Fix `System.String.Concat` with 4+ arguments not being supported (by @dbrattli)
+* [TS/Python] Fix thisArg type for overloads in structs (#4453) (by @ncave)
+* [TS/Python] Fix invalid `this` argument type in structs (#4453) (by @ncave)
+* [JS/TS] Fix `N` format specifier (`ToString("N0")`, `String.Format("{0:N0}", ...)`) producing a trailing dot when precision is 0 (fix #2582) (by @MangelMaxime)
+* [JS/TS] Fix `C0` and `P0` format specifiers producing trailing dot (e.g., `"¤1,000."` → `"¤1,000"`) (by @MangelMaxime)
+* [All] Fix captured side-effect-free values (e.g. empty ResizeArray) being incorrectly inlined into object expression getters in release mode, causing a new instance to be created on each getter call (fixes #3779) (by @MangelMaxime)
+* [Python] Fix missing `await` on else branch of ternary expressions in async closures (by @dbrattli)
+* [Beam] Fix `|> ignore` on cross-module Emit calls generating variable bindings that shadow Emit case-clause variables (by @dbrattli)
+* [Beam] Fix `containsIdentRef` not checking `Call` ThisArg (by @dbrattli)
+* [All] Fix CLI color not resetting after error messages (fixes #3755) (by @MangelMaxime)
+* [JS/TS] `StringEnum` now respect `CompiledValue` and `CompiledName` (by @shayanhabibi)
+* [JS/TS] Fix invalid syntax emitted when negating negative literals (fix #4251) (by @MangelMaxime)
+* [Rust] Fix negative counting in CallInfo.GenericArgs (by @ncave)
+* [Rust] Fix inline bindings and captured idents tracking (by @ncave)
+* [Rust] Fix `return!` in async computation expressions so inner async workflows are returned and awaited correctly (by @mizzle-mo)
+* [JS/TS] Improve `Regex.Escape` and `Regex.Unescape` handling (by @MangelMaxime)
+* [All] Fix allow plugins to target .NET6 target framework (by @MangelMaxime)
+* [Python] Fix function references passed as arguments inside tail-call optimised functions gaining unnecessary default parameters for outer TCO variables they don't reference (fix #3877)
+* [TS] Fix abstract instance methods not emitted in TypeScript when class uses `[<AttachMembers>]` (fixes #3506) (by @MangelMaxime)
+* [JS/TS] Fix `Unchecked.defaultof<'T>` for struct types with fields returning `undefined` instead of zero-initialized values (by @MangelMaxime)
+* [JS/TS] Fixed quotation for union string cases (by @MangelMaxime)
+* [Python] Fix `Unchecked.defaultof<'T>` for struct types with fields returning incorrect values instead of zero-initialized instances (by @MangelMaxime)
+* [Python] Fix `Unchecked.defaultof<char>` returning `""` (empty string) instead of `"\u0000"` (null character) (by @MangelMaxime)
+* [Python] Improve `Unchecked.defaultof<_>` for declared entities (by @MangelMaxime)
+
+## 5.0.0-rc.5 - 2026-03-20
+
+### Added
+
+[All] Add support for `[<InlineIfLambda>]` (by @MangelMaxime)
+
+## 5.0.0-rc.4 - 2026-03-19
+
+### Fixed
+
+* [JS/TS] Fix `Array.zeroCreate` producing `null` for user-defined struct (value type) elements instead of a default-initialized instance (by @MangelMaxime)
+* [All] Fix interpolated string holes missing format specifiers in State.fs and Python/Replacements.fs (code scanning alerts 1144, 1145, 1512)
+* [Rust] Replace unsafe `.IsSome && .Value` option pattern with `Option.exists` in Fable2Rust.fs (code scanning alert 1125)
+* [JS/TS] Fix `Unchecked.defaultof<char>` being emitted as `null` instead of `'\0'` (by @MangelMaxime)
+* [JS/TS] Fix `static val mutable` fields declared with `[<DefaultValue>]` not being zero-initialized (fix #2739) (by @MangelMaxime)
+* [JS/TS/Python] Fix record/struct types augmented with `static let` or `static member val` generating extra constructor parameters for each static field, causing constructor arguments to be assigned to wrong slots (by @MangelMaxime)
+* [TS] Annotate `System.Collections.Generic.IList<T>` as `MutableArray<T>` (by @MangelMaxime)
+* [JS/TS] Fix `ResizeArray` index getter/setter not throwing `IndexOutOfRangeException` when index is out of bounds (fix #3812) (by @MangelMaxime)
 * [Beam] Fix unused term warning in try/catch when exception variable is not referenced (by @dbrattli)
 * [Beam] Fix "no effect" warning for pure BIF calls (`self/0`, `node/0`) in non-final block positions (by @dbrattli)
 * [Beam] Fix `reraise()` generating unbound `MatchValue` variable — use raw Erlang reason variable for re-throw (by @dbrattli)
 * [Beam] Fix `Erlang.receive<'T>()` resolving to timeout overload due to F# unit argument (by @dbrattli)
+* [JS/TS] Generate comments for members in class decorated with `[<AttachMembers>]` (by @MangelMaxime)
+* [Beam] Fix `[<ImportAll>]` generating invalid `module:*()` Erlang code when binding is used as a value (by @dbrattli)
+* [Beam] Fix string slicing and `Substring` with compound expressions producing wrong `binary:part` length due to missing parentheses in emitted Erlang (by @dbrattli)
+* [Beam] Fix non-ASCII characters in string literals being truncated to single bytes — emit `<<"..."/utf8>>` instead of `<<"...">>` (by @dbrattli)
+* [Beam] Fix `Emit` expressions with `case` leaking variables into surrounding scope — auto-wrap in IIFE for scope isolation (by @dbrattli)
 
 ## 5.0.0-rc.3 - 2026-03-10
 

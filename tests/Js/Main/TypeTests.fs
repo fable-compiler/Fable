@@ -261,12 +261,18 @@ type ValueType2(i: int, j: int) =
     member x.Value = i + j
 
 #if !FABLE_COMPILER_TYPESCRIPT
-[<Struct>]
 type ValueType3 =
   struct
     val mutable public X : int
   end
 #endif
+
+[<Struct>]
+type ValueTypeR =
+    val mutable X: float
+    new(x: float) = { X = x }
+    member this.IsEmpty() = this.X < 0.0
+    override this.ToString() = $"{this.X}"
 
 [<Struct>]
 type StructUnion = Value of string
@@ -328,6 +334,122 @@ type Test_TestTypeWithParameterizedUnitMeasure = {
 //     [<DefaultValue>] val mutable IntValue: int
 //     [<DefaultValue>] val mutable StringValue: string
 //     [<DefaultValue>] val mutable ObjValue: System.Collections.Generic.Dictionary<string, string>
+
+[<AllowNullLiteral>]
+type MyUser =
+    class end
+
+// See #2739: static [<DefaultValue>] fields must be zero-initialized in JS/TS
+type ClassWithDefaultValueStaticFields() =
+
+    [<DefaultValue>]
+    static val mutable private int: int
+    [<DefaultValue>]
+    static val mutable private bool: bool
+    [<DefaultValue>]
+    static val mutable private string: string
+    [<DefaultValue>]
+    static val mutable private guid: Guid
+    [<DefaultValue>]
+    static val mutable private char: char
+
+    [<DefaultValue>]
+    static val mutable private dateTime: DateTime
+
+    [<DefaultValue>]
+    static val mutable private timeOnly : TimeOnly
+    [<DefaultValue>]
+    static val mutable private dateOnly : DateOnly
+    [<DefaultValue>]
+    static val mutable private dateTimeOffset : DateTimeOffset
+    [<DefaultValue>]
+    static val mutable private int8 : int8
+    [<DefaultValue>]
+    static val mutable private uInt8 : uint8
+    [<DefaultValue>]
+    static val mutable private int16 : Int16
+    [<DefaultValue>]
+    static val mutable private uInt16 : UInt16
+    [<DefaultValue>]
+    static val mutable private int32 : Int32
+    [<DefaultValue>]
+    static val mutable private uInt32 : UInt32
+    [<DefaultValue>]
+    static val mutable private int64 : Int64
+    [<DefaultValue>]
+    static val mutable private uInt64 : UInt64
+    [<DefaultValue>]
+    static val mutable private bigInt : bigint
+    [<DefaultValue>]
+    static val mutable private nativeInt : nativeint
+    [<DefaultValue>]
+    static val mutable private uNativeInt : unativeint
+    [<DefaultValue>]
+    static val mutable private float32 : float32
+    [<DefaultValue>]
+    static val mutable private float64 : float
+    [<DefaultValue>]
+    static val mutable private decimal : Decimal
+
+    [<DefaultValue>]
+    static val mutable private timeSpan: TimeSpan
+    [<DefaultValue>]
+    static val mutable private allowNullLiteralClass: MyUser
+    [<DefaultValue>]
+    static val mutable private nullableInt: Nullable<int>
+    [<DefaultValue>]
+    static val mutable private tuple2: TimeSpan * DateTime
+    [<DefaultValue>]
+    static val mutable private structTuple2: struct (TimeSpan * DateTime)
+
+    static member IncrCount() =
+        ClassWithDefaultValueStaticFields.int <- ClassWithDefaultValueStaticFields.int + 1
+        ClassWithDefaultValueStaticFields.int
+
+    static member Int = ClassWithDefaultValueStaticFields.int
+    static member Bool = ClassWithDefaultValueStaticFields.bool
+    static member String = ClassWithDefaultValueStaticFields.string
+    static member Guid = ClassWithDefaultValueStaticFields.guid
+    static member Char = ClassWithDefaultValueStaticFields.char
+    static member TimeSpan = ClassWithDefaultValueStaticFields.timeSpan
+    static member AllowNullLiteralClass = ClassWithDefaultValueStaticFields.allowNullLiteralClass
+    static member NullableInt = ClassWithDefaultValueStaticFields.nullableInt
+    static member Tuple2 = ClassWithDefaultValueStaticFields.tuple2
+    static member DateTime = ClassWithDefaultValueStaticFields.dateTime
+    static member TimeOnly = ClassWithDefaultValueStaticFields.timeOnly
+    static member DateOnly = ClassWithDefaultValueStaticFields.dateOnly
+    static member DateTimeOffset = ClassWithDefaultValueStaticFields.dateTimeOffset
+    static member Int8 = ClassWithDefaultValueStaticFields.int8
+    static member UInt8 = ClassWithDefaultValueStaticFields.uInt8
+    static member Int16 = ClassWithDefaultValueStaticFields.int16
+    static member UInt16 = ClassWithDefaultValueStaticFields.uInt16
+    static member Int32 = ClassWithDefaultValueStaticFields.int32
+    static member UInt32 = ClassWithDefaultValueStaticFields.uInt32
+    static member Int64 = ClassWithDefaultValueStaticFields.int64
+    static member UInt64 = ClassWithDefaultValueStaticFields.uInt64
+    static member BigInt = ClassWithDefaultValueStaticFields.bigInt
+    static member NativeInt = ClassWithDefaultValueStaticFields.nativeInt
+    static member UNativeInt = ClassWithDefaultValueStaticFields.uNativeInt
+    static member Float32 = ClassWithDefaultValueStaticFields.float32
+    static member Float64 = ClassWithDefaultValueStaticFields.float64
+    static member Decimal = ClassWithDefaultValueStaticFields.decimal
+    static member StructTuple2 = ClassWithDefaultValueStaticFields.structTuple2
+
+[<Struct>]
+type NestedStruct =
+
+    val A : float
+    val B : bool
+
+    new (a, b) = { A = a; B = b }
+
+[<Struct>]
+type TopLevelStruct =
+
+    val A : float
+    val B : NestedStruct
+
+    new (a, b) = { A = a; B = b }
 
 type Default1 = int
 
@@ -540,6 +662,10 @@ type MangledAbstractClass4(v) =
 type MangledAbstractClass5(v) =
     inherit MangledAbstractClass4(v + 5)
     override _.MyMethod(x: int) = base.MyMethod(x) + v + 7
+
+[<AbstractClass>]
+type AbstractClassWithResizeArrayProp() =
+    abstract Warnings: ResizeArray<string> with get
 
 type ConcreteClass1() =
     inherit MangledAbstractClass5(2)
@@ -1183,6 +1309,11 @@ let tests =
         (compare t1 t2) |> equal 0
 #endif
 
+    testCase "Struct with mutable fields works" <| fun () ->
+        let x = ValueTypeR(-10.0)
+        x.X |> equal -10.0
+        x.IsEmpty() |> equal true
+
     testCase "copying struct records works" <| fun () -> // See #3371
         let simple : SimpleRecord = { A = ""; B = "B" }
         let simpleRecord = { simple with A = "A" }
@@ -1470,4 +1601,52 @@ let tests =
 
         let result3 = getTwoValues<TestTypeB, TestTypeC>()
         result3 |> equal ("B", "C")
+
+    // See https://github.com/fable-compiler/Fable/issues/2739
+    testCase "Static [<DefaultValue>] fields are zero-initialized" <| fun () ->
+        ClassWithDefaultValueStaticFields.Int |> equal 0
+        ClassWithDefaultValueStaticFields.Bool |> equal false
+        ClassWithDefaultValueStaticFields.String |> equal null
+        ClassWithDefaultValueStaticFields.Guid |> equal Guid.Empty
+        ClassWithDefaultValueStaticFields.Char |> equal '\000'
+        ClassWithDefaultValueStaticFields.TimeSpan |> equal TimeSpan.Zero
+        ClassWithDefaultValueStaticFields.TimeOnly |> equal TimeOnly.MinValue
+        ClassWithDefaultValueStaticFields.DateOnly |> equal DateOnly.MinValue
+        ClassWithDefaultValueStaticFields.DateTime |> equal DateTime.MinValue
+        ClassWithDefaultValueStaticFields.DateTimeOffset |> equal DateTimeOffset.MinValue
+        ClassWithDefaultValueStaticFields.Int8 |> equal 0y
+        ClassWithDefaultValueStaticFields.UInt8 |> equal 0uy
+        ClassWithDefaultValueStaticFields.Int16 |> equal 0s
+        ClassWithDefaultValueStaticFields.UInt16 |> equal 0us
+        ClassWithDefaultValueStaticFields.Int32 |> equal 0
+        ClassWithDefaultValueStaticFields.UInt32 |> equal 0u
+        ClassWithDefaultValueStaticFields.Int64 |> equal 0L
+        ClassWithDefaultValueStaticFields.UInt64 |> equal 0UL
+        ClassWithDefaultValueStaticFields.BigInt |> equal 0I
+        ClassWithDefaultValueStaticFields.NativeInt |> equal 0n
+        ClassWithDefaultValueStaticFields.UNativeInt |> equal 0un
+        ClassWithDefaultValueStaticFields.Float32 |> equal 0.f
+        ClassWithDefaultValueStaticFields.Float64 |> equal 0.
+        ClassWithDefaultValueStaticFields.Decimal |> equal 0M
+
+        ClassWithDefaultValueStaticFields.IncrCount() |> equal 1
+
+    testCase "Unchecked.defaultof works for fields on structs" <| fun () ->
+        let top = TopLevelStruct()
+        top.A |> equal 0
+        top.B.A |> equal 0
+        top.B.B |> equal false
+
+    testCase "Abstract class property backed by captured variable in object expression works" <| fun () ->
+        let warnings = ResizeArray<string>()
+
+        let reader =
+            { new AbstractClassWithResizeArrayProp() with
+                member __.Warnings = warnings
+            }
+
+        reader.Warnings.Add("Warning 1")
+        reader.Warnings.Add("Warning 2")
+
+        reader.Warnings.Count |> equal 2
   ]

@@ -38,10 +38,16 @@ module Atts =
     let entryPoint = "Microsoft.FSharp.Core.EntryPointAttribute" // typeof<Microsoft.FSharp.Core.EntryPointAttribute>.FullName
 
     [<Literal>]
+    let inlineIfLambda = "Microsoft.FSharp.Core.InlineIfLambdaAttribute" // typeof<Microsoft.FSharp.Core.InlineIfLambdaAttribute>.FullName
+
+    [<Literal>]
     let sealed_ = "Microsoft.FSharp.Core.SealedAttribute" // typeof<Microsoft.FSharp.Core.SealedAttribute>.FullName
 
     [<Literal>]
     let mangle = "Fable.Core.MangleAttribute" // typeof<Fable.Core.MangleAttribute>.FullName
+
+    [<Literal>]
+    let defaultValue = "Microsoft.FSharp.Core.DefaultValueAttribute" // typeof<Microsoft.FSharp.Core.DefaultValueAttribute>.FullName
 
     [<Literal>]
     let attachMembers = "Fable.Core.AttachMembersAttribute"
@@ -977,6 +983,7 @@ module AST =
             IsThisArgument = false
             IsMutable = false
             Range = None
+            IsInlineIfLambda = false
         }
 
     /// ATTENTION: Make sure the ident name is unique
@@ -1054,6 +1061,7 @@ module AST =
 
     let makeBoolConst (x: bool) = BoolConstant x |> makeValue None
     let makeStrConst (x: string) = StringConstant x |> makeValue None
+    let makeCharConst (x: char) = CharConstant x |> makeValue None
 
     let makeIntConst (x: int) =
         NumberConstant(NumberValue.Int32 x, NumberInfo.Empty) |> makeValue None

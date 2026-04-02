@@ -806,9 +806,15 @@ module Util =
             | Float32 -> makeFloat com ctx None t "float32" 0.0 |> fst
             | Float64 -> makeFloat com ctx None t "float64" 0.0 |> fst
             | Decimal -> makeFloat com ctx None t "float64" 0.0 |> fst
-        | Fable.String
-        | Fable.Char -> Expression.stringConstant ""
-        | Fable.DeclaredType(ent, _) -> Expression.none
+        | Fable.Char -> Expression.stringConstant "\u0000"
+        | Fable.String -> Expression.stringConstant ""
+        | Fable.DeclaredType(entRef, _) ->
+            match com.TryGetEntity(entRef) with
+            | Some ent when ent.IsValueType ->
+                match tryPyConstructor com ctx ent with
+                | Some(ctorExpr, _stmts) -> Expression.call (ctorExpr, [])
+                | None -> Expression.none
+            | _ -> Expression.none
         | Fable.GenericParam _ -> libValue com ctx "util" "UNIT"
         | _ -> Expression.none
 

@@ -265,10 +265,29 @@ type ValueType3 =
   end
 
 [<Struct>]
+type ValueTypeR =
+    val mutable X: float
+    new(x: float) = { X = x }
+    member this.IsEmpty() = this.X < 0.0
+    override this.ToString() = $"{this.X}"
+
+[<Struct>]
 type StructUnion = Value of string
 
 [<Struct>]
 type SimpleRecord = { A: string; B: string }
+
+[<Struct>]
+type NestedStruct =
+    val A: float
+    val B: bool
+    new(a, b) = { A = a; B = b }
+
+[<Struct>]
+type TopLevelStruct =
+    val A: float
+    val B: NestedStruct
+    new(a, b) = { A = a; B = b }
 
 type Point2D =
    struct
@@ -1107,6 +1126,19 @@ let ``struct without explicit ctor works`` () =
     t2.X <- 10
     t1 |> equal t2
     (compare t1 t2) |> equal 0
+
+[<Fact>]
+let ``Struct with mutable fields works`` () =
+    let x = ValueTypeR(-10.0)
+    x.X |> equal -10.0
+    x.IsEmpty() |> equal true
+
+[<Fact>]
+let ``Unchecked.defaultof works for fields on nested structs`` () =
+    let top = TopLevelStruct()
+    top.A |> equal 0
+    top.B.A |> equal 0
+    top.B.B |> equal false
 
 [<Fact>]
 let ``copying struct records works`` () = // See #3371

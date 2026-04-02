@@ -299,6 +299,13 @@ type ValueType3 =
     end
 
 [<Struct>]
+type ValueTypeR =
+    val mutable X: float
+    new(x: float) = { X = x }
+    member this.IsEmpty() = this.X < 0.0
+    override this.ToString() = $"{this.X}"
+
+[<Struct>]
 type StructUnion = Value of string
 
 type Point2D =
@@ -361,6 +368,18 @@ type TypeWithDefaultValueTest() =
 
     [<DefaultValue>]
     val mutable ObjValue: System.Collections.Generic.Dictionary<string, string>
+
+[<Struct>]
+type NestedStruct =
+    val A: float
+    val B: bool
+    new(a, b) = { A = a; B = b }
+
+[<Struct>]
+type TopLevelStruct =
+    val A: float
+    val B: NestedStruct
+    new(a, b) = { A = a; B = b }
 
 type Default1 = int
 
@@ -564,6 +583,10 @@ type MangledAbstractClass4(v) =
 type MangledAbstractClass5(v) =
     inherit MangledAbstractClass4(v + 5)
     override _.MyMethod(x: int) = base.MyMethod(x) + v + 7
+
+[<AbstractClass>]
+type AbstractClassWithResizeArrayProp() =
+    abstract Warnings: ResizeArray<string> with get
 
 type ConcreteClass1() =
     inherit MangledAbstractClass5(2)
@@ -1231,6 +1254,12 @@ let ``test struct without explicit ctor works`` () =
     (compare t1 t2) |> equal 0
 
 [<Fact>]
+let ``test Struct with mutable fields works`` () =
+    let x = ValueTypeR(-10.0)
+    x.X |> equal -10.0
+    x.IsEmpty() |> equal true
+
+[<Fact>]
 let ``test Custom F# exceptions work`` () =
     try
         MyEx(4, "ERROR") |> raise
@@ -1757,3 +1786,24 @@ let ``test Different type parameter combinations work correctly`` () =
 
     let result3 = getTwoValues<TestTypeB, TestTypeC>()
     result3 |> equal ("B", "C")
+
+[<Fact>]
+let ``test Unchecked.defaultof works for fields on structs`` () =
+    let top = TopLevelStruct()
+    top.A |> equal 0
+    top.B.A |> equal 0
+    top.B.B |> equal false
+
+[<Fact>]
+let ``test Abstract class property backed by captured variable in object expression works`` () =
+    let warnings = ResizeArray<string>()
+
+    let reader =
+        { new AbstractClassWithResizeArrayProp() with
+            member __.Warnings = warnings
+        }
+
+    reader.Warnings.Add("Warning 1")
+    reader.Warnings.Add("Warning 2")
+
+    reader.Warnings.Count |> equal 2

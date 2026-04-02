@@ -135,7 +135,11 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
             let projDir =
                 normalizedDllPath.Split('/')
                 |> Array.rev
-                |> Array.skipWhile (fun part -> part <> "bin")
+                // Before .NET 6 (included) the path is
+                // .../bin/Release/net6.0/Oxpecker.Solid.FablePlugin.dll
+                // after .NET 6 it becomes ...
+                // .../obj/Release/net8.0/ref/Oxpecker.Solid.FablePlugin.dll
+                |> Array.skipWhile (fun part -> part <> "bin" && part <> "obj")
                 |> Array.skip 1
                 |> Array.rev
                 |> String.concat "/"

@@ -1265,6 +1265,18 @@ module PrinterExtensions =
                             operator + " "
                     )
 
+            // When negating a negative numeric literal (e.g. -(-5)), we must wrap
+            // it in parens to avoid emitting --5, which JS parses as a decrement.
+            let needsParens =
+                not isSuffix
+                && operator = "-"
+                && (
+                    match argument with
+                    | Literal(NumericLiteral(value, _)) -> value < 0.0
+                    | UnaryExpression(_, op, isSuffix, _) -> op = "-" && not isSuffix
+                    | _ -> false
+                )
+
             printer.AddLocation(loc)
 
             if isSuffix then
@@ -1272,7 +1284,11 @@ module PrinterExtensions =
                 printOp ()
             else
                 printOp ()
-                printer.ComplexExpressionWithParens(argument)
+
+                if needsParens then
+                    printer.WithParens(argument)
+                else
+                    printer.ComplexExpressionWithParens(argument)
 
         member printer.PrintUpdateExpression(prefix, argument, operator, loc) =
             printer.AddLocation(loc)

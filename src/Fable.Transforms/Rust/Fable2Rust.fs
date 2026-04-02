@@ -1405,7 +1405,7 @@ module Util =
         let bindings = List.zip tempArgs args
         let emptyBody = Fable.Sequential []
 
-        let tempLetStmts, ctx = makeLetStmts com ctx bindings emptyBody Map.empty
+        let tempLetStmts, ctx = makeLetStmts com ctx bindings emptyBody Map.empty true
 
         let setArgStmts =
             List.zip tc.Args tempArgs
@@ -1641,7 +1641,7 @@ module Util =
             expr
         elif isInRefType com typ then
             expr
-        elif nameOpt.IsSome && isRefScoped ctx nameOpt.Value then
+        elif nameOpt |> Option.exists (isRefScoped ctx) then
             expr
         elif shouldBeRefCountWrapped com ctx typ |> Option.isSome then
             expr |> makeAsRef
@@ -1942,7 +1942,7 @@ module Util =
         sb.Append(List.head parts) |> ignore
 
         List.tail parts
-        |> List.iteri (fun i part -> sb.Append($"{{{i}}}" + part) |> ignore)
+        |> List.iteri (fun i part -> sb.Append("{" + string<int> i + "}" + part) |> ignore)
 
         sb.ToString()
 
@@ -2408,7 +2408,7 @@ module Util =
             match membOpt with
             | Some memb ->
                 let genArgsCount =
-                    (List.length callInfo.GenericArgs) - (List.length memb.GenericParameters)
+                    max 0 ((List.length callInfo.GenericArgs) - (List.length memb.GenericParameters))
 
                 let ownerGenArgs = callInfo.GenericArgs |> List.take genArgsCount
                 let membGenArgs = callInfo.GenericArgs |> List.skip genArgsCount
@@ -2583,7 +2583,7 @@ module Util =
             match fableExpr with
             | Fable.IdentExpr ident when isArmScoped ctx ident.Name ->
                 // if arm scoped, just output the ident value
-                let name = $"{ident.Name}_{0}_{0}"
+                let name = $"%s{ident.Name}_%d{0}_%d{0}"
                 mkGenericPathExpr [ name ] None
             | _ ->
                 // libCall com ctx range [] "Option" "getValue" [ fableExpr ]
@@ -2599,7 +2599,7 @@ module Util =
             match fableExpr with
             | Fable.IdentExpr ident when isArmScoped ctx ident.Name ->
                 // if ident is match arm scoped, just output the ident value
-                let name = $"{ident.Name}_{info.CaseIndex}_{info.FieldIndex}"
+                let name = $"%s{ident.Name}_%d{info.CaseIndex}_%d{info.FieldIndex}"
                 mkGenericPathExpr [ name ] None
             | _ ->
                 // Compile as: "match opt { MyUnion::Case(x, _) => x.clone() }"
@@ -2766,15 +2766,16 @@ module Util =
         let isByRef = isAddrOfExpr value
         makeLocalStmt com ctx ident false false tyOpt initOpt isByRef usages
 
-    let makeLetStmts (com: IRustCompiler) ctx bindings letBody usages =
+    let makeLetStmts (com: IRustCompiler) ctx bindings letBody usages isTailCall =
         // Context will be threaded through all let bindings, appending itself to ScopedSymbols each time
         let ctx, letStmtsRev =
             ((ctx, []), bindings)
             ||> List.fold (fun (ctx, lst) (ident: Fable.Ident, value) ->
                 let stmt, ctxNext =
                     let isCaptured =
-                        (List.exists (fun (_i, v) -> FableTransforms.isIdentCaptured ident.Name v) bindings)
-                        || (FableTransforms.isIdentCaptured ident.Name letBody)
+                        not isTailCall
+                        && ((List.exists (fun (_i, v) -> FableTransforms.isIdentCaptured ident.Name v) bindings)
+                            || (FableTransforms.isIdentCaptured ident.Name letBody))
 
                     match value with
                     | Function(args, body, _name) when not (ident.IsMutable) ->
@@ -2800,7 +2801,7 @@ module Util =
             let exprs = body :: values
             calcIdentUsages idents exprs
 
-        let letStmts, ctx = makeLetStmts com ctx bindings body usages
+        let letStmts, ctx = makeLetStmts com ctx bindings body usages false
 
         let bodyStmts =
             match body with
@@ -2973,7 +2974,7 @@ module Util =
                 | 0 ->
                     match nameOpt with
                     | Some identName ->
-                        let fieldName = $"{identName}_{caseIndex}_{0}"
+                        let fieldName = $"%s{identName}_%d{caseIndex}_%d{0}"
                         [ makeFullNameIdentPat fieldName ]
                     | _ -> [ WILD_PAT ]
                 | _ -> []
@@ -2996,7 +2997,7 @@ module Util =
                     | Some identName ->
                         unionCase.UnionCaseFields
                         |> List.mapi (fun i _field ->
-                            let fieldName = $"{identName}_{caseIndex}_{i}"
+                            let fieldName = $"%s{identName}_%d{caseIndex}_%d{i}"
                             makeFullNameIdentPat fieldName
                         )
                     | _ -> unionCase.UnionCaseFields |> List.map (fun _field -> WILD_PAT)
@@ -3598,8 +3599,8 @@ module Util =
 
             let strBody =
                 [
-                    $"let args = std::env::args().skip(1).map({asStr}).collect()"
-                    $"{mainName}({asArr}(args))"
+                    $"let args = std::env::args().skip(1).map(%s{asStr}).collect()"
+                    $"%s{mainName}(%s{asArr}(args))"
                 ]
 
             let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
@@ -3829,7 +3830,7 @@ module Util =
                 mutArgs |> List.map (fun arg -> arg.Name, Fable.IdentExpr arg) |> Map.ofList
 
             let body = FableTransforms.replaceValues argMap body
-            let letStmts, ctx = makeLetStmts com ctx bindings body Map.empty
+            let letStmts, ctx = makeLetStmts com ctx bindings body Map.empty true
             let loopBody = transformLeaveContext com ctx None body
             let loopExpr = mkBreakExpr (Some label) (Some(mkParenExpr loopBody))
             let loopStmt = mkLoopExpr (Some label) loopExpr |> mkExprStmt
@@ -4597,7 +4598,7 @@ module Util =
                 memb.CurriedParameterGroups
                 |> List.collect id
                 |> List.mapi (fun i p ->
-                    let name = defaultArg p.Name $"arg{i}"
+                    let name = defaultArg p.Name $"arg%d{i}"
                     let typ = FableTransforms.uncurryType p.Type
                     makeTypedIdent typ name
                 )
@@ -5363,14 +5364,15 @@ module Compiler =
                 |> Seq.toList
 
             member _.ClearAllImports(ctx) =
-                for import in imports do
+                let importsList = imports |> Seq.toList
+
+                for import in importsList do
                     import.Value.Depths <-
                         // remove all import depths at this module level or deeper
                         import.Value.Depths |> List.filter (fun d -> d < ctx.ModuleDepth)
 
                     if import.Value.Depths.Length = 0 then
                         imports.Remove(import.Key) |> ignore
-
                         ctx.UsedNames.RootScope.Remove(import.Value.LocalIdent) |> ignore
 
             member _.GetAllModules() = importModules.Keys |> Seq.toList

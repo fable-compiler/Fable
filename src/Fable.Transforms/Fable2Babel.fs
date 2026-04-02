@@ -176,12 +176,15 @@ module Reflection =
 
         let fields =
             ent.FSharpFields
-            |> List.map (fun fi ->
-                let fieldName = sanitizeMemberName fi.Name |> Expression.stringLiteral
+            |> List.choose (fun fi ->
+                if fi.IsStatic then
+                    None
+                else
+                    let fieldName = sanitizeMemberName fi.Name |> Expression.stringLiteral
 
-                let typeInfo = transformTypeInfoFor Reflection com ctx r genMap fi.FieldType
+                    let typeInfo = transformTypeInfoFor Reflection com ctx r genMap fi.FieldType
 
-                Expression.arrayExpression ([| fieldName; typeInfo |])
+                    Some(Expression.arrayExpression ([| fieldName; typeInfo |]))
             )
             |> List.toArray
 
@@ -625,6 +628,14 @@ module Annotation =
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx typ kind
         | Fable.DeclaredType(entRef, genArgs) -> com.GetEntity(entRef) |> makeEntityTypeAnnotation com ctx genArgs
 
+    let makeArgTypeAnnotation (com: IBabelCompiler) ctx (id: Fable.Ident) =
+        if com.IsTypeScript then
+            match id.Type, id with
+            | Replacements.Util.IsByRefType com typ, id when id.IsThisArgument -> makeTypeAnnotation com ctx typ |> Some
+            | _ -> makeTypeAnnotation com ctx id.Type |> Some
+        else
+            None
+
     let makeTypeAnnotationIfTypeScript (com: IBabelCompiler) ctx typ expr =
         if com.IsTypeScript then
             match typ, expr with
@@ -815,6 +826,7 @@ module Annotation =
         | Types.iobservableGeneric ->
             makeFableLibImportTypeAnnotation com ctx genArgs "Observable" "IObservable"
             |> Some
+        | Types.ilistGeneric -> makeFableLibImportTypeAnnotation com ctx genArgs "Util" "MutableArray" |> Some
         | "Microsoft.FSharp.Control.IEvent`1" ->
             makeFableLibImportTypeAnnotation com ctx genArgs "Event" "IEvent" |> Some
         | Types.ievent2 -> makeFableLibImportTypeAnnotation com ctx genArgs "Event" "IEvent$2" |> Some
@@ -1335,6 +1347,12 @@ module Util =
                 let body =
                     // TODO: If ident is not captured maybe we can just replace it with "this"
                     if isIdentUsed thisArg.Name body then
+                        let thisArgType =
+                            match thisArg.Type with
+                            | Replacements.Util.IsByRefType com typ -> typ
+                            | typ -> typ
+
+                        let thisArg = { thisArg with Type = thisArgType }
                         let thisIdent = Fable.IdentExpr { thisArg with Name = "this" }
 
                         let thisIdent =
@@ -3325,8 +3343,7 @@ but thanks to the optimisation done below we get
                 let args' =
                     List.zip args tc.Args
                     |> List.map (fun (id, tcArg) ->
-                        let ta = makeTypeAnnotationIfTypeScript com ctx id.Type None
-
+                        let ta = makeArgTypeAnnotation com ctx id
                         Parameter.parameter (tcArg, ?typeAnnotation = ta)
                     )
 
@@ -3351,7 +3368,7 @@ but thanks to the optimisation done below we get
             | _ ->
                 args
                 |> List.map (fun a ->
-                    let ta = makeTypeAnnotationIfTypeScript com ctx a.Type None
+                    let ta = makeArgTypeAnnotation com ctx a
                     Parameter.parameter (a.Name, ?typeAnnotation = ta)
                 ),
                 body
@@ -3382,7 +3399,8 @@ but thanks to the optimisation done below we get
                 ?isAbstract = isAbstract,
                 ?superClass = superClass,
                 typeParameters = typeParameters,
-                implements = implements
+                implements = implements,
+                ?doc = info.JsDoc
             )
         | FunctionExpression(_, parameters, body, returnType, typeParameters, _) ->
             Declaration.functionDeclaration (
@@ -3414,12 +3432,39 @@ but thanks to the optimisation done below we get
     let sanitizeName fieldName =
         fieldName |> Naming.sanitizeJsIdentForbiddenChars |> Naming.checkJsKeywords
 
+    [<RequireQualifiedAccess>]
+    module DefaultValue =
+
+        open Replacements.Util
+        open Fable.Transforms
+
+        /// Mirrors `Fable.Transforms.JS.Replacements.defaultof` for the types we can handle
+        /// without the full FSharp2Fable compiler context (which that function requires).
+        let rec forType (com: IBabelCompiler) ctx (t: Fable.Type) : Expression =
+            match t with
+            | Fable.Nullable _ -> Expression.nullLiteral ()
+            // Struct tuples are value types — initialize each element to its zero
+            | Fable.Tuple(args, true) -> Expression.arrayExpression (args |> List.map (forType com ctx) |> List.toArray)
+            | Fable.Boolean -> Expression.booleanLiteral false
+            | Fable.Char -> Expression.stringLiteral "\u0000"
+            | Fable.Number(kind, uom) ->
+                com.TransformAsExpr(ctx, Fable.NumberConstant(Fable.NumberValue.GetZero kind, uom) |> makeValue None)
+            | Builtin(BclTimeSpan | BclTimeOnly) -> Expression.numericLiteral 0
+            | Builtin BclGuid -> Expression.stringLiteral "00000000-0000-0000-0000-000000000000"
+            | Builtin BclDateTime -> libCall com ctx None "Date" "minValue" [] []
+            | Builtin BclDateTimeOffset -> libCall com ctx None "DateOffset" "minValue" [] []
+            | Builtin BclDateOnly -> libCall com ctx None "DateOnly" "minValue" [] []
+            | _ -> libCall com ctx None "Util" "defaultOf" [] []
+
     let getEntityFieldsAsIdents (ent: Fable.Entity) =
         ent.FSharpFields
-        |> List.map (fun field ->
-            let name = sanitizeName field.Name
-            let typ = field.FieldType
-            { makeTypedIdent typ name with IsMutable = field.IsMutable }
+        |> List.choose (fun field ->
+            if field.IsStatic then
+                None
+            else
+                let name = sanitizeName field.Name
+                let typ = field.FieldType
+                Some { makeTypedIdent typ name with IsMutable = field.IsMutable }
         )
 
     let declareClassWithParams
@@ -3427,6 +3472,7 @@ but thanks to the optimisation done below we get
         ctx
         (ent: Fable.Entity)
         entName
+        (doc: string option)
         (consArgs: Parameter[])
         (consArgsModifiers: AccessModifier[])
         (consBody: BlockStatement)
@@ -3511,15 +3557,64 @@ but thanks to the optimisation done below we get
                 ?implements = implements
             )
 
-        ModuleDecl(entName, isPublic = ent.IsPublic)
+        ModuleDecl(entName, isPublic = ent.IsPublic, ?doc = doc)
         |> declareModuleMember com ctx classExpr
 
-    let declareClass (com: IBabelCompiler) ctx ent entName consArgs consBody superClass classMembers =
+    let declareClass
+        (com: IBabelCompiler)
+        ctx
+        (ent: Fable.Entity)
+        entName
+        doc
+        consArgs
+        consBody
+        superClass
+        classMembers
+        =
         if com.IsTypeScript then
             FSharp2Fable.Util.getEntityGenArgs ent |> makeTypeParamDecl com ctx |> Some
         else
             None
-        |> declareClassWithParams com ctx ent entName consArgs [||] consBody superClass classMembers
+        |> declareClassWithParams com ctx ent entName doc consArgs [||] consBody superClass classMembers
+
+    /// Emits an IIFE that zero-initializes all static [<DefaultValue>] fields of a class.
+    ///
+    /// ```
+    /// [<DefaultValue>]
+    /// static val mutable MyField: int
+    /// ```
+    ///
+    /// This mirrors the pattern used for `static let mutable` bindings, which FCS compiles
+    /// to a `.cctor` that Fable emits as an IIFE.
+    let declareDefaultValueStaticFieldInits
+        (com: IBabelCompiler)
+        ctx
+        (ent: Fable.Entity)
+        (entName: string)
+        : ModuleDeclaration list
+        =
+        let defaultValueFields =
+            ent.FSharpFields
+            |> List.filter (fun f -> f.IsStatic && f.HasDefaultValueAttribute)
+
+        if defaultValueFields.IsEmpty then
+            []
+        else
+            let classIdent = Expression.identifier entName
+
+            let assignments =
+                defaultValueFields
+                |> List.map (fun field ->
+                    let left = get None classIdent field.Name
+                    let right = DefaultValue.forType com ctx field.FieldType
+                    assign None left right |> ExpressionStatement
+                )
+                |> List.toArray
+
+            let iife =
+                Expression.callExpression (Expression.functionExpression ([||], BlockStatement(assignments)), [||])
+
+            [ iife |> ExpressionStatement |> PrivateModuleDeclaration ]
 
     let declareTypeReflection (com: IBabelCompiler) ctx (ent: Fable.Entity) entName : ModuleDeclaration =
         let ta =
@@ -3549,6 +3644,7 @@ but thanks to the optimisation done below we get
         ctx
         (ent: Fable.Entity)
         entName
+        doc
         (consArgs: Parameter[])
         (consBody: BlockStatement)
         baseExpr
@@ -3556,14 +3652,16 @@ but thanks to the optimisation done below we get
         : ModuleDeclaration list
         =
         let typeDeclaration =
-            declareClass com ctx ent entName consArgs consBody baseExpr classMembers
+            declareClass com ctx ent entName doc consArgs consBody baseExpr classMembers
+
+        let fieldInits = declareDefaultValueStaticFieldInits com ctx ent entName
 
         if com.Options.NoReflection then
-            [ typeDeclaration ]
+            [ typeDeclaration; yield! fieldInits ]
         else
             let reflectionDeclaration = declareTypeReflection com ctx ent entName
 
-            [ typeDeclaration; reflectionDeclaration ]
+            [ typeDeclaration; reflectionDeclaration; yield! fieldInits ]
 
     let hasAttribute fullName (atts: Fable.Attribute seq) =
         atts |> Seq.exists (fun att -> att.Entity.FullName = fullName)
@@ -3710,7 +3808,14 @@ but thanks to the optimisation done below we get
                 yield makeMethod "Symbol.iterator" [||] (enumerableThisToIterator com ctx) returnType None
         |]
 
-    let transformUnion (com: IBabelCompiler) ctx (ent: Fable.Entity) (entName: string) classMembers =
+    let transformUnion
+        (com: IBabelCompiler)
+        ctx
+        (ent: Fable.Entity)
+        (entName: string)
+        (doc: string option)
+        classMembers
+        =
         let isPublic = ent.IsPublic
         let tagArgName = "Tag"
         let tagArgTa = makeAliasTypeAnnotation com ctx tagArgName
@@ -3798,6 +3903,7 @@ but thanks to the optimisation done below we get
                 ctx
                 ent
                 entName
+                doc
                 args
                 consBody
                 baseExpr
@@ -3948,6 +4054,7 @@ but thanks to the optimisation done below we get
                     ctx
                     ent
                     union_cons.Name
+                    doc
                     consArgs
                     consArgsModifiers
                     consBody
@@ -3976,7 +4083,7 @@ but thanks to the optimisation done below we get
                     |]
 
             let classMembers = Array.append [| cases |] classMembers
-            declareType com ctx ent entName args body baseExpr classMembers
+            declareType com ctx ent entName doc args body baseExpr classMembers
 
     let transformClassWithCompilerGeneratedConstructor
         (com: IBabelCompiler)
@@ -4003,6 +4110,7 @@ but thanks to the optimisation done below we get
                         yield callSuperAsStatement []
                     yield!
                         ent.FSharpFields
+                        |> List.filter (fun field -> not field.IsStatic)
                         |> List.mapi (fun i field ->
                             let left = get None thisExpr field.Name
 
@@ -4020,7 +4128,7 @@ but thanks to the optimisation done below we get
                 Parameter.parameter (fi.Name, ?typeAnnotation = makeFieldAnnotationIfTypeScript com ctx fi.Type)
             )
 
-        declareType com ctx ent decl.Name args body baseExpr classMembers
+        declareType com ctx ent decl.Name decl.XmlDoc args body baseExpr classMembers
 
     let transformPojoDefinedByConsArgsToInterface
         (com: IBabelCompiler)
@@ -4132,7 +4240,10 @@ but thanks to the optimisation done below we get
     let transformAbstractMember com ctx (ent: Fable.Entity) (memb: Fable.MemberFunctionOrValue) =
         // TODO: replicate the mangling logic from FSharp2Fable.Util.getAbstractMemberInfo
         // let info = FSharp2Fable.Util.getAbstractMemberInfo com ent memb
-        let isMangled = ent.IsAbstractClass || hasAttribute Atts.mangle ent.Attributes
+        let isMangled =
+            (ent.IsAbstractClass && not (hasAttribute Atts.attachMembers ent.Attributes))
+            || hasAttribute Atts.mangle ent.Attributes
+
         let isGetter = memb.IsGetter
         let isSetter = memb.IsSetter
 
@@ -4318,7 +4429,7 @@ but thanks to the optimisation done below we get
             |> Option.defaultValue (None, consBody)
 
         [
-            yield! declareType com ctx ent classDecl.Name consArgs consBody baseExpr classMembers
+            yield! declareType com ctx ent classDecl.Name classDecl.XmlDoc consArgs consBody baseExpr classMembers
 
             if not ent.IsAbstractClass then
                 yield
@@ -4518,7 +4629,7 @@ but thanks to the optimisation done below we get
                         <| fun ctx -> transformClassWithPrimaryConstructor com ctx ent decl classMembers cons
                     | None ->
                         if ent.IsFSharpUnion then
-                            transformUnion com ctx ent decl.Name classMembers
+                            transformUnion com ctx ent decl.Name decl.XmlDoc classMembers
                         else
                             transformClassWithCompilerGeneratedConstructor com ctx ent decl classMembers
 

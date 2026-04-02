@@ -54,6 +54,15 @@ type INativeCode =
 [<ImportAll("native_code")>]
 let nativeCode: INativeCode = nativeOnly
 
+// ImportAll with Erlang stdlib module (maps)
+[<Erase>]
+type IMaps =
+    abstract from_list: list: obj -> obj
+    abstract get: key: obj * map: obj -> obj
+
+[<ImportAll("maps")>]
+let erlangMaps: IMaps = nativeOnly
+
 // ============================================================
 // Erased union tests
 // ============================================================
@@ -98,6 +107,19 @@ type RecvMsg =
     | [<CompiledName("custom_tag")>] CustomTag of value: int
     | DataMsg of x: int * y: string
     | [<CompiledName("EXIT")>] Exit of pid: int * reason: string
+
+// Emit with case expression — calling twice in the same function
+// would cause "unsafe variable" errors without scope isolation
+[<Emit("case $0 of true -> <<\"yes\">>; false -> <<\"no\">> end")>]
+let boolToString (x: bool) : string = nativeOnly
+
+// Emit that uses `Value` as a case-clause variable WITHOUT an IIFE wrapper.
+// In Erlang's flat scope, if a previous `|> ignore` leaked `Value = ok`,
+// then `Value` in the case pattern becomes a bound-variable match (checking
+// if the input equals `ok`) instead of a fresh binding, causing case_clause
+// errors for any other value.
+[<Emit("case $0 of undefined -> <<\"none\">>; Value -> Value end")>]
+let emitWithValueCaseVar (x: string option) : string = nativeOnly
 
 #endif
 
@@ -154,6 +176,34 @@ let ``test emitErlExpr can call Erlang functions`` () =
 #if FABLE_COMPILER
     let result: int = emitErlExpr (3, 4) "erlang:max($0, $1)"
     equal 4 result
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Emit with case expression called twice does not leak variables`` () =
+#if FABLE_COMPILER
+    // Two calls to the same Emit-with-case in one function would cause
+    // Erlang "unsafe variable" errors without IIFE scope isolation
+    let a = boolToString true
+    let b = boolToString false
+    equal "yes" a
+    equal "no" b
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test ignore on wrapper function does not shadow Emit variables`` () =
+#if FABLE_COMPILER
+    // Piping cross-module Emit/wrapper functions to ignore should NOT
+    // generate `Value = <call>` which would shadow `Value` in
+    // subsequent Emit case clauses.
+    Fable.Tests.Imports.emitReturningUnit () |> ignore
+    Fable.Tests.Imports.emitReturningValue () |> ignore
+    Fable.Tests.Imports.wrapperReturningValue () |> ignore
+    let result = emitWithValueCaseVar (Some "hello")
+    equal "hello" result
 #else
     ()
 #endif
@@ -218,6 +268,38 @@ let ``test ImportAll with Erase interface calls multi-arg method`` () =
 let ``test ImportAll with Erase interface calls string method`` () =
 #if FABLE_COMPILER
     nativeCode.concatStrings ("Hello, ", "World!") |> equal "Hello, World!"
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test ImportAll with stdlib module single-arg method`` () =
+#if FABLE_COMPILER
+    // maps:from_list([{key, value}]) should work via ImportAll
+    let list: obj = emitErlExpr () "[{<<\"a\">>, 1}]"
+    let result = erlangMaps.from_list(list)
+    let value: obj = erlangMaps.get(box "a", result)
+    equal 1 (unbox<int> value)
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test ImportAll binding assigned to local variable`` () =
+#if FABLE_COMPILER
+    // Test that ImportAll works when assigned to a local let binding
+    let m = nativeCode
+    m.getName () |> equal "native_code"  // 0-arity (property-style)
+    m.addValues (3, 4) |> equal 7        // multi-arg method
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test ImportAll used with pipe operator`` () =
+#if FABLE_COMPILER
+    // Test that ImportAll works when used in a pipeline
+    (3, 4) |> nativeCode.addValues |> equal 7
 #else
     ()
 #endif

@@ -19,17 +19,17 @@ The build system is implemented in F# at `src/Fable.Build/`. All commands go thr
 # Run tests (targets: javascript, typescript, python, dart, rust, beam, integration)
 ./build.sh test javascript
 ./build.sh test javascript --watch                # Watch mode (recompile on changes)
-./build.sh test javascript --skip-fable-library   # Skip fable-library rebuild (only if fable-library source is unchanged)
+./build.sh test javascript --force-fable-library  # Force fable-library rebuild (needed if you modified Fable compiler to fix the generation of `src/fable-library-*/**/*.fs` files)
 
 # Python-specific options
 ./build.sh test python --skip-fable-library-core  # Skip slow Rust extension + .pyi rebuild (Python only)
 ./build.sh test python --type-check               # Run Pyright type checking on Python output
 
-# Quick iteration (watch mode on a minimal project)
+# Quick iteration (test on a minimal project)
 ./build.sh quicktest javascript                   # Also: typescript, python, dart, rust, beam
 ```
 
-`--skip-fable-library` is safe when changes are only in `src/Fable.Transforms/` or other compiler code. If you modified runtime library source (e.g., `src/fable-library-py/`, `src/fable-library-ts/`), do not skip. If you already ran `./build.sh fable-library` separately, use `--skip-fable-library` when running tests right afterwards to avoid rebuilding.
+In most cases, you should not need to use `--force-fable-library`. Only use it if you modified compiler code that affects how F# files used in `src/fable-library-*/` are generated (e.g., changes to `FSharp2Fable.fs` that affect how F# AST is transformed into Fable AST for library files).
 
 Build output goes to `temp/`: transpiled runtime libraries in `temp/fable-library-<target>/` and test output in `temp/tests/<target>/` (e.g., `temp/fable-library-beam/` and `temp/tests/beam/`).
 
@@ -105,8 +105,7 @@ All transpiled Python code is type-checked with Pyright at standard settings (`.
 **Quicktest** is the fastest way to iterate (seconds vs minutes for full tests). Use it to investigate complex problems:
 
 1. Edit `src/quicktest/QuickTest.fs` (or `src/quicktest-py/QuickTest.fs`, etc.)
-2. Ask the user to run `./build.sh quicktest <target>` — this starts a watcher that never exits, so do not run it yourself
-3. Transpiled output goes to the quicktest directory itself (e.g., `src/quicktest-py/`)
+2. Transpiled output goes to the quicktest directory itself (e.g., `src/quicktest-py/`)
 
 Quicktest is also preferred when adding debug output (e.g., `printfn` in compiler code) since running full tests with debug prints produces too much output.
 

@@ -9,12 +9,11 @@ let isIdentCaptured identName expr =
         | [] -> false
         | expr :: restExprs ->
             match expr with
-            | IdentExpr i when i.Name = identName -> isClosure
+            | IdentExpr i when i.Name = identName -> isClosure || loop isClosure restExprs
             | Lambda(_, body, _) -> loop true [ body ] || loop isClosure restExprs
             | Delegate(_, body, _, _) -> loop true [ body ] || loop isClosure restExprs
             | ObjectExpr(members, _, baseCall) ->
                 let memberExprs = members |> List.map (fun m -> m.Body)
-
                 loop true memberExprs || loop isClosure (Option.toList baseCall @ restExprs)
             | e ->
                 let sub = getSubExpressions e
@@ -243,7 +242,22 @@ let canInlineArg (com: Compiler) identName value body =
     | _ ->
         let refCount = countReferencesUntil 2 identName body
 
-        (refCount <= 1 && not (canHaveSideEffects com value))
+        // Don't inline values that create new mutable state (e.g. ResizeArray(), mutable arrays)
+        // into closures: even though creation is side-effect-free, inlining into a closure
+        // called multiple times would create a new instance per call instead of sharing the
+        // single captured instance
+        let createsMutableState =
+            match value with
+            | Value(NewArray(_, _, kind), _) ->
+                match kind with
+                | MutableArray
+                | ResizeArray -> true
+                | ImmutableArray -> false
+            | _ -> false
+
+        (refCount <= 1
+         && not (canHaveSideEffects com value)
+         && not (createsMutableState && isIdentCaptured identName body))
         // If it can have side effects, make sure is at least referenced once so the expression is not erased
         || (refCount = 1
             && noSideEffectBeforeIdent identName body
@@ -324,12 +338,6 @@ module private Transforms =
                 | _ ->
                     countReferencesUntil 1 ident.Name lambdaBody = 0
                     && canInlineArg com ident.Name value letBody
-                    // If we inline the lambda Fable2Rust doesn't have
-                    // a chance to clone the mutable ident
-                    && (if com.Options.Language = Rust then
-                            referencesMutableIdent lambdaBody |> not
-                        else
-                            true)
             | _ -> canInlineArg com ident.Name value letBody
 
         if canInlineBinding then
@@ -746,7 +754,11 @@ module private Transforms =
             Emit({ emitInfo with CallInfo = { callInfo with Args = args } }, t, r)
         // Uncurry also values in setters or new record/union/tuple
         | Value(NewRecord(args, ent, genArgs), r) ->
-            let args = com.GetEntity(ent).FSharpFields |> uncurryConsArgs args
+            let args =
+                com.GetEntity(ent).FSharpFields
+                |> Seq.filter (fun f -> not f.IsStatic)
+                |> uncurryConsArgs args
+
             Value(NewRecord(args, ent, genArgs), r)
         | Value(NewAnonymousRecord(args, fieldNames, genArgs, isStruct), r) ->
             let args = uncurryArgs com false genArgs args

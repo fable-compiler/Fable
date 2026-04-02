@@ -536,8 +536,7 @@ export function createInstance(t: TypeInfo, consArgs?: any[]): any {
       case decimal_type.fullname:
         return new Decimal(0);
       case char_type.fullname:
-        // Even though char is a value type, it's erased to string, and Unchecked.defaultof<char> is null
-        return null;
+        return "\0";
       default:
         throw new Exception(`Cannot access constructor of ${t.fullname}`);
     }

@@ -76,6 +76,9 @@ type FsField(fi: FSharpField) =
         member _.IsStatic = fi.IsStatic
         member _.IsMutable = fi.IsMutable
 
+        member _.HasDefaultValueAttribute =
+            fi.FieldAttributes |> Helpers.hasAttrib Atts.defaultValue
+
     static member FSharpFieldName(fi: FSharpField) =
         let rec countConflictingCases acc (ent: FSharpEntity) (name: string) =
             match TypeHelpers.tryGetBaseEntity ent with
@@ -938,12 +941,14 @@ module Helpers =
         with _ ->
             failwith $"Cannot find case %s{unionCase.Name} in %s{FsEnt.FullName ent}"
 
-    /// Apply case rules to case name if there's no explicit compiled name
+    /// Apply case rules to case name if there's no explicit compiled name or compiled value
     let transformStringEnum (rule: CaseRules) (unionCase: FSharpUnionCase) =
-        match FsUnionCase.CompiledName unionCase with
-        | Some name -> name
-        | None -> Naming.applyCaseRule rule unionCase.Name
-        |> makeStrConst
+        match FsUnionCase.CompiledName unionCase, FsUnionCase.CompiledValue unionCase with
+        | Some name, _ -> name |> makeStrConst
+        | _, Some(CompiledValue.Boolean value) -> makeBoolConst value
+        | _, Some(CompiledValue.Float value) -> makeFloatConst value
+        | _, Some(CompiledValue.Integer value) -> makeIntConst value
+        | _ -> Naming.applyCaseRule rule unionCase.Name |> makeStrConst
 
     // let isModuleMember (memb: FSharpMemberOrFunctionOrValue) =
     //     match memb.DeclaringEntity with
@@ -1824,6 +1829,9 @@ module Identifiers =
             IsCompilerGenerated = fsRef.IsCompilerGenerated
             IsMutable = isMutable
             Range = Some r
+            IsInlineIfLambda =
+                fsRef.Attributes
+                |> Seq.exists (fun attr -> attr.AttributeType.FullName = Atts.inlineIfLambda)
         }
 
     let putIdentInScope com ctx (fsRef: FSharpMemberOrFunctionOrValue) value : Context * Fable.Ident =

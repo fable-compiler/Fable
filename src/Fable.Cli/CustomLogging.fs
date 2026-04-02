@@ -21,8 +21,6 @@ type CustomFormatter(options: IOptionsMonitor<CustomOptions>) as this =
 
     let mutable optionsReloadToken: IDisposable = null
     let mutable formatterOptions = options.CurrentValue
-    let origColor = Console.ForegroundColor
-
     do optionsReloadToken <- options.OnChange(fun x -> this.ReloadLoggerOptions(x))
 
     member private _.ReloadLoggerOptions(opts: CustomOptions) = formatterOptions <- opts
@@ -35,7 +33,7 @@ type CustomFormatter(options: IOptionsMonitor<CustomOptions>) as this =
         if formatterOptions.UseNoPrefixMsgStyle then
             this.SetColor(textWriter, logEntry.LogLevel)
             textWriter.WriteLine(message)
-            this.ResetColor()
+            this.ResetColor(textWriter)
         else
             this.WritePrefix(textWriter, logEntry.LogLevel)
             textWriter.WriteLine(message)
@@ -63,7 +61,7 @@ type CustomFormatter(options: IOptionsMonitor<CustomOptions>) as this =
 
         textWriter.Write(color)
 
-    member private _.ResetColor() = Console.ForegroundColor <- origColor
+    member private _.ResetColor(textWriter: TextWriter) = textWriter.Write("\x1B[39m\x1B[22m") // reset to default foreground color
 
     interface IDisposable with
         member _.Dispose() = optionsReloadToken.Dispose()

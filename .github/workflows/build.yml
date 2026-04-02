@@ -15,6 +15,7 @@ jobs:
   # Run `dotnet fantomas .` to format all code.
   verify-linting:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v5
@@ -35,6 +36,7 @@ jobs:
   restore-project:
     name: Check that solution can be restored
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v5
@@ -49,6 +51,7 @@ jobs:
 
   # Separate build job for JavaScript
   build-javascript:
+    timeout-minutes: 60
     strategy:
       matrix:
         platform: [ubuntu-latest, windows-latest]
@@ -76,6 +79,7 @@ jobs:
   # Separate build job for TypeScript
   build-typescript:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v5
@@ -97,6 +101,7 @@ jobs:
   # Separate build job for Integration
   build-integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v5
@@ -115,6 +120,7 @@ jobs:
   # Separate build job for Standalone
   build-standalone:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v5
@@ -132,6 +138,7 @@ jobs:
 
   # Separate build job for Python since we use a test matrix (will run in parallell)
   build-python:
+    timeout-minutes: 75
     strategy:
       matrix:
         platform: [ubuntu-latest, windows-latest]
@@ -168,14 +175,15 @@ jobs:
 
       - name: Fable Tests - Python (linux)
         if: matrix.platform == 'ubuntu-latest'
-        run: ./build.sh test python --skip-fable-library
+        run: ./build.sh test python
 
       - name: Fable Tests - Python (Windows)
         if: matrix.platform == 'windows-latest'
-        run: .\build.bat test python --skip-fable-library
+        run: .\build.bat test python
 
   # Separate build job for Rust (will run in parallel)
   build-rust:
+    timeout-minutes: 75
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -201,11 +209,12 @@ jobs:
         run: ./build.sh fable-library --rust
 
       - name: Fable Tests - Rust
-        run: ./build.sh test rust --skip-fable-library --${{ matrix.test }}
+        run: ./build.sh test rust --${{ matrix.test }}
 
   # Separate build job for Dart
   build-dart:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v5
@@ -224,6 +233,7 @@ jobs:
   # Separate build job for Beam (Erlang)
   build-beam:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - uses: actions/checkout@v5
@@ -245,6 +255,7 @@ jobs:
   # Separate job to run F# analyzers
   analyzers:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     strategy:
       matrix:

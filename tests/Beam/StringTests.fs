@@ -197,6 +197,16 @@ let ``test String.IndexOf char works`` () =
 let ``test String.IndexOf char works with offset`` () =
     "abcdbc".IndexOf('b', 3) |> equal 4
 
+[<Fact>]
+let ``test String.IndexOf with StringComparison`` () =
+    "abcdbc".IndexOf("b", StringComparison.Ordinal)
+    |> equal 1
+
+[<Fact>]
+let ``test String.IndexOf with index and StringComparison`` () =
+    "abcdbc".IndexOf("b", 3, StringComparison.Ordinal)
+    |> equal 4
+
 // --- LastIndexOf ---
 
 [<Fact>]
@@ -214,6 +224,16 @@ let ``test String.LastIndexOf char works`` () =
 [<Fact>]
 let ``test String.LastIndexOf char works with offset`` () =
     "abcdbcebc".LastIndexOf('b', 3) |> equal 1
+
+[<Fact>]
+let ``test String.LastIndexOf with StringComparison`` () =
+    "abcdbc".LastIndexOf("b", StringComparison.Ordinal)
+    |> equal 4
+
+[<Fact>]
+let ``test String.LastIndexOf with index and StringComparison`` () =
+    "abcdbcebc".LastIndexOf("b", 3, StringComparison.Ordinal)
+    |> equal 1
 
 // --- Access char by index ---
 
@@ -409,6 +429,10 @@ let ``test String.Compare with StringComparison works`` () =
 [<Fact>]
 let ``test System.String.Concat works`` () =
     String.Concat("a", "b", "c") |> equal "abc"
+
+[<Fact>]
+let ``test System.String.Concat with 4 args works`` () =
+    String.Concat("a", "b", "c", "d") |> equal "abcd"
 
 // --- String constructors ---
 
@@ -673,6 +697,23 @@ let ``test String slicing to computed index works`` () =
     let path = "/api/users"
     s.[0 .. path.Length - 1] |> equal "/api/users"
 
+[<Fact>]
+let ``test String slicing with arithmetic index works`` () =
+    let s = "name: orchestrator"
+    let colonIdx = s.IndexOf(':')
+    s.[colonIdx + 2 ..] |> equal "orchestrator"
+
+[<Fact>]
+let ``test String.Substring with computed start works`` () =
+    let s = "name: orchestrator"
+    let colonIdx = s.IndexOf(':')
+    s.Substring(colonIdx + 2) |> equal "orchestrator"
+
+[<Fact>]
+let ``test String slicing with arithmetic start and end works`` () =
+    let s = "[hello]"
+    s.[1 .. s.Length - 2] |> equal "hello"
+
 // --- String conversion tests ---
 
 [<Fact>]
@@ -922,6 +963,15 @@ let ``test string interpolation works with inline expressions`` () =
 let ``test printing strings with unicode characters`` () =
     let result = sprintf "%s" "🚀"
     result |> equal "🚀"
+
+[<Fact>]
+let ``test sprintf with non-ASCII in format string works`` () =
+    sprintf "route → specialist '%s'" "test" |> equal "route → specialist 'test'"
+
+[<Fact>]
+let ``test string literal with non-ASCII characters works`` () =
+    let s = "hello → world"
+    s |> equal "hello → world"
 
 [<Fact>]
 let ``test StringBuilder.Length works`` () =

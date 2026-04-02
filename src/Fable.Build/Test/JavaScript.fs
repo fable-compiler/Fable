@@ -159,7 +159,7 @@ let handle (args: string list) =
     let isReactOnly = args |> List.contains "--react-only"
     let isStandaloneOnly = args |> List.contains "--standalone-only"
     let isAdaptiveOnly = args |> List.contains "--adaptive-only"
-    let skipFableLibrary = args |> List.contains "--skip-fable-library"
+    let forceFableLibrary = args |> List.contains "--force-fable-library"
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
 
@@ -171,7 +171,7 @@ let handle (args: string list) =
 
     | _ -> ()
 
-    BuildFableLibraryJavaScript().Run(skipFableLibrary)
+    BuildFableLibraryJavaScript().Run(forceFableLibrary)
 
     if isReactOnly then
         testReact isWatch
