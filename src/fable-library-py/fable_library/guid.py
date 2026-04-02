@@ -1,9 +1,10 @@
-import os
+import secrets
 import time
 import uuid
 
 from .array_ import Array
 from .core import FSharpRef, byte
+from .date_offset import DateTimeOffset
 
 
 def parse(string: str) -> uuid.UUID:
@@ -34,7 +35,7 @@ def array_to_guid(guid: Array[byte]) -> uuid.UUID:
     return uuid.UUID(bytes_le=bytes(guid))
 
 
-def create_version7(timestamp: object | None = None) -> uuid.UUID:
+def create_version7(timestamp: DateTimeOffset | None = None) -> uuid.UUID:
     """Create a UUID v7 per RFC 9562."""
     if timestamp is None:
         ms = int(time.time() * 1000)
@@ -43,7 +44,7 @@ def create_version7(timestamp: object | None = None) -> uuid.UUID:
         ms = int(timestamp.getTime())  # type: ignore
 
     # Build 16 bytes per RFC 9562
-    rand_bytes = os.urandom(10)
+    rand_bytes = secrets.token_bytes(10)
 
     # Bytes 0-5: 48-bit big-endian ms timestamp
     ts_bytes = ms.to_bytes(6, byteorder="big")
