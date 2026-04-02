@@ -949,6 +949,10 @@ module TypeInfo =
             mkEmitTy value genArgs
         | ent when ent.IsInterface -> transformInterfaceType com ctx entRef genArgs
         | ent when ent.IsAbstractClass -> transformAbstractClassType com ctx entRef genArgs
+        | _ when entRef.FullName = "System.Random" ->
+            let entName = getLibraryImportName com ctx "Random" "Random"
+            let genArgsOpt = transformGenArgs com ctx genArgs
+            makeFullNamePathTy entName genArgsOpt
         | ent ->
             let entName = getEntityFullName com ctx entRef
             let genArgsOpt = transformGenArgs com ctx genArgs
@@ -1094,6 +1098,9 @@ module TypeInfo =
             | Replacements.Util.IsEntity (Types.taskBuilder) (_, []) -> transformTaskBuilderType com ctx
             | Replacements.Util.IsEntity (Types.taskBuilderModule) (_, []) -> transformTaskBuilderType com ctx
             | Replacements.Util.IsEntity (Types.thread) (_, []) -> transformThreadType com ctx
+
+            // implemented random type
+            | Replacements.Util.IsEntity (Types.random) (_, []) -> transformImportType com ctx [] "Random" "Random"
 
             // implemented regex types
             | Replacements.Util.IsEntity (Types.regexMatch) (_, []) -> transformImportType com ctx [] "RegExp" "Match"
