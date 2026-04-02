@@ -219,6 +219,17 @@ def try_parse(string: str, def_value: FSharpRef[DateTimeOffset]) -> bool:
         return False
 
 
+def _offset_to_ms_and_tz(offset_ts: TimeSpan) -> tuple[int, timezone]:
+    """Convert a TimeSpan offset to (offset_ms, timezone)."""
+    offset_ms = int(time_span.total_microseconds(offset_ts) / 1000)
+    return offset_ms, timezone(timedelta(microseconds=float(time_span.total_microseconds(offset_ts))))
+
+
+def _local_offset_ms(dt: datetime) -> int:
+    offset_td = dt.utcoffset()
+    return int(offset_td.total_seconds() * 1000) if offset_td else 0
+
+
 def create(
     year: int,
     month: int,
@@ -227,32 +238,36 @@ def create(
     m: int,
     s: int,
     ms: int | TimeSpan,
+    mc: int | TimeSpan | None = None,
     offset: TimeSpan | None = None,
 ) -> DateTimeOffset:
-    python_offset: timedelta | None = None
-    offset_ms = 0
+    # Normalize: detect when ms or mc is actually a TimeSpan offset
+    # 7-arg: create(y, mo, d, h, mi, s, offset)
+    if isinstance(ms, TimeSpan) and mc is None and offset is None:
+        offset_ms, tz = _offset_to_ms_and_tz(ms)
+        dt = datetime(year, month, day, h, m, s, 0, tzinfo=tz)
+        return DateTimeOffset(dt, offset_ms)
 
-    if isinstance(ms, TimeSpan):
-        python_offset = timedelta(microseconds=float(time_span.total_microseconds(ms)))
-        offset_ms = int(time_span.total_microseconds(ms) / 1000)
-        ms = 0
+    # 8-arg: create(y, mo, d, h, mi, s, ms, offset)
+    if isinstance(mc, TimeSpan) and offset is None:
+        offset_ms, tz = _offset_to_ms_and_tz(mc)
+        dt = datetime(year, month, day, h, m, s, int(ms) * 1000, tzinfo=tz)
+        return DateTimeOffset(dt, offset_ms)
 
-    if python_offset is None:
-        dt = datetime(year, month, day, h, m, s, ms * 1000)
-        if offset is not None:
-            offset_ms = int(time_span.total_microseconds(offset) / 1000)
-            python_offset = timedelta(microseconds=float(time_span.total_microseconds(offset)))
-            dt = dt.replace(tzinfo=timezone(python_offset))
-        else:
-            # Default to local timezone
+    mc_val = int(mc) if mc is not None else 0
+
+    match offset:
+        # 9-arg: create(y, mo, d, h, mi, s, ms, mc, offset)
+        case TimeSpan() as offset_ts:
+            offset_ms, tz = _offset_to_ms_and_tz(offset_ts)
+            dt = datetime(year, month, day, h, m, s, int(ms) * 1000 + mc_val, tzinfo=tz)
+            return DateTimeOffset(dt, offset_ms)
+
+        # No offset — default to local timezone
+        case _:
+            dt = datetime(year, month, day, h, m, s, int(ms) * 1000 + mc_val)
             dt = dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
-            offset_td = dt.utcoffset()
-            offset_ms = int(offset_td.total_seconds() * 1000) if offset_td else 0
-    else:
-        tzinfo = timezone(python_offset)
-        dt = datetime(year, month, day, h, m, s, ms, tzinfo=tzinfo)
-
-    return DateTimeOffset(dt, offset_ms)
+            return DateTimeOffset(dt, _local_offset_ms(dt))
 
 
 def from_date(dt: datetime, offset_ts: TimeSpan | None = None) -> DateTimeOffset:

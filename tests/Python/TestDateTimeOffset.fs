@@ -22,6 +22,12 @@ let ``test DateTimeOffset constructors work`` () =
     |> equal 530
 
 [<Fact>]
+let ``test DateTimeOffset constructor with microseconds works`` () =
+    let d = DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, 123, TimeSpan.Zero)
+    d.Millisecond |> equal 500
+    d.Microsecond |> equal 123
+
+[<Fact>]
 let ``test DateTimeOffset from Year 1 to 99 works`` () =
     let date = DateTimeOffset(1, 1, 2, 0, 0, 0, TimeSpan.Zero)
     date.Year |> equal 1
