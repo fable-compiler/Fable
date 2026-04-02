@@ -610,8 +610,11 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
                 BinaryUnequal
 
         makeBinOp r Boolean left right op
-    | Builtin(BclDateTime | BclDateTimeOffset) ->
+    | Builtin BclDateTime ->
         Helper.LibCall(com, "date", "equals", Boolean, [ left; right ], ?loc = r)
+        |> is equal
+    | Builtin BclDateTimeOffset ->
+        Helper.LibCall(com, "date_offset", "equals", Boolean, [ left; right ], ?loc = r)
         |> is equal
     | Builtin(FSharpSet _ | FSharpMap _) -> Helper.InstanceCall(left, "Equals", Boolean, [ right ]) |> is equal
     | DeclaredType _ ->
@@ -647,7 +650,8 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Char
     | String
     | Number _ -> Helper.LibCall(com, "util", "comparePrimitives", t, [ left; right ], ?loc = r)
-    | Builtin(BclDateTime | BclDateTimeOffset) -> Helper.LibCall(com, "date", "compare", t, [ left; right ], ?loc = r)
+    | Builtin BclDateTime -> Helper.LibCall(com, "date", "compare", t, [ left; right ], ?loc = r)
+    | Builtin BclDateTimeOffset -> Helper.LibCall(com, "date_offset", "compare", t, [ left; right ], ?loc = r)
     | DeclaredType _ -> Helper.LibCall(com, "util", "compare", t, [ left; right ], ?loc = r)
     | Array(genArg, _) ->
         let f = makeComparerFunction com ctx genArg
@@ -2958,13 +2962,13 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         |> getFieldWith r t thisArg.Value
         |> Some
     // DateTimeOffset
-    | "get_LocalDateTime" ->
-        Helper.LibCall(com, "date_offset", "to_local_time", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+    | "get_LocalDateTime" when i.DeclaringEntityFullName = Types.datetimeOffset ->
+        Helper.LibCall(com, "date_offset", "localDateTime", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
-    | "get_UtcDateTime" ->
-        Helper.LibCall(com, "date_offset", "to_universal_time", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+    | "get_UtcDateTime" when i.DeclaringEntityFullName = Types.datetimeOffset ->
+        Helper.LibCall(com, "date_offset", "utcDateTime", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
-    | "get_DateTime" ->
+    | "get_DateTime" when i.DeclaringEntityFullName = Types.datetimeOffset ->
         let kind = System.DateTimeKind.Unspecified |> int |> makeIntConst
 
         Helper.LibCall(
@@ -2977,40 +2981,43 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             ?loc = r
         )
         |> Some
-    | "FromUnixTimeSeconds"
+    | "FromUnixTimeSeconds" ->
+        let value =
+            Helper.LibCall(com, "Long", "toNumber", Float64.Number, args, i.SignatureArgTypes)
+
+        Helper.LibCall(com, "DateOffset", "fromUnixTimeSeconds", t, [ value ], [ value.Type ], ?loc = r)
+        |> Some
     | "FromUnixTimeMilliseconds" ->
         let value =
             Helper.LibCall(com, "Long", "toNumber", Float64.Number, args, i.SignatureArgTypes)
 
-        let value =
-            if i.CompiledName = "FromUnixTimeSeconds" then
-                makeBinOp r t value (makeIntConst 1000) BinaryMultiply
-            else
-                value
-
+        Helper.LibCall(com, "DateOffset", "fromUnixTimeMilliseconds", t, [ value ], [ value.Type ], ?loc = r)
+        |> Some
+    | "ToUnixTimeSeconds" ->
+        Helper.LibCall(com, "DateOffset", "toUnixTimeSeconds", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        |> Some
+    | "ToUnixTimeMilliseconds" ->
         Helper.LibCall(
             com,
             "DateOffset",
-            "datetime.fromtimestamp",
+            "toUnixTimeMilliseconds",
             t,
-            [ value; makeIntConst 0 ],
-            [ value.Type; Int32.Number ],
+            [ thisArg.Value ],
+            [ thisArg.Value.Type ],
             ?loc = r
         )
         |> Some
-    | "ToUnixTimeSeconds"
-    | "ToUnixTimeMilliseconds" ->
-        let ms = getTime thisArg.Value
-
-        let args =
-            if i.CompiledName = "ToUnixTimeSeconds" then
-                [ makeBinOp r t ms (makeIntConst 1000) BinaryDivide ]
-            else
-                [ ms ]
-
-        Helper.LibCall(com, "Long", "fromNumber", t, args, ?loc = r) |> Some
     | "get_UtcTicks" ->
         Helper.LibCall(com, "DateOffset", "getUtcTicks", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        |> Some
+    | "EqualsExact" ->
+        Helper.LibCall(com, "DateOffset", "equalsExact", Boolean, [ thisArg.Value; args.Head ], ?loc = r)
+        |> Some
+    | "Compare" ->
+        Helper.LibCall(com, "DateOffset", "compare", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "CompareTo" ->
+        Helper.LibCall(com, "DateOffset", "compareTo", t, [ thisArg.Value; args.Head ], ?loc = r)
         |> Some
     | "TryParse" ->
         let args =
