@@ -89,12 +89,14 @@ module Util =
 
     let (|TransformType|) (com: IDartCompiler) ctx e = com.TransformType(ctx, e)
 
+    [<return: Struct>]
     let (|Function|_|) =
         function
         | Fable.Lambda(arg, body, _) -> Some([ arg ], body)
         | Fable.Delegate(args, body, _, []) -> Some(args, body)
         | _ -> None
 
+    [<return: Struct>]
     let (|Lets|_|) =
         function
         | Fable.Let(ident, value, body) -> Some([ ident, value ], body)

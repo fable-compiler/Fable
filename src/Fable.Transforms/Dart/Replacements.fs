@@ -10,6 +10,7 @@ open Fable.AST.Fable
 open Fable.Transforms
 open Replacements.Util
 
+[<return: Struct>]
 let (|DartInt|_|) =
     function
     | Int8
@@ -22,6 +23,7 @@ let (|DartInt|_|) =
     | UInt64 -> Some DartInt
     | _ -> None
 
+[<return: Struct>]
 let (|DartDouble|_|) =
     function
     | Float32

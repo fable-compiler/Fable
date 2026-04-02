@@ -897,6 +897,7 @@ module TypeInfo =
             // most abstract classes are implemented as non-abstract
             makeFullNamePathTy entName genArgsOpt
 
+    [<return: Struct>]
     let (|HasEmitAttribute|_|) (ent: Fable.Entity) =
         ent.Attributes
         |> Seq.tryPick (fun att ->
@@ -914,6 +915,7 @@ module TypeInfo =
         | Arc
         | Box
 
+    [<return: Struct>]
     let (|HasReferenceTypeAttribute|_|) (ent: Fable.Entity) =
         ent.Attributes
         |> Seq.tryPick (fun att ->
@@ -931,6 +933,7 @@ module TypeInfo =
                 None
         )
 
+    [<return: Struct>]
     let (|IsNonErasedInterface|_|) (com: Compiler) =
         function
         | Fable.DeclaredType(entRef, genArgs) ->
@@ -1176,38 +1179,45 @@ module Util =
 
     let (|TransformExpr|) (com: IRustCompiler) ctx e = com.TransformExpr(ctx, e)
 
+    [<return: Struct>]
     let (|Function|_|) =
         function
         | Fable.Lambda(arg, body, info) -> Some([ arg ], body, info)
         | Fable.Delegate(args, body, info, []) -> Some(args, body, info)
         | _ -> None
 
+    [<return: Struct>]
     let (|Lets|_|) =
         function
         | Fable.Let(ident, value, body) -> Some([ ident, value ], body)
         | Fable.LetRec(bindings, body) -> Some(bindings, body)
         | _ -> None
 
+    [<return: Struct>]
     let (|IDisposable|_|) =
         function
         | Replacements.Util.IsEntity (Types.idisposable) _ -> Some()
         | _ -> None
 
+    [<return: Struct>]
     let (|IFormattable|_|) =
         function
         | Replacements.Util.IsEntity (Types.iformattable) _ -> Some()
         | _ -> None
 
+    [<return: Struct>]
     let (|IComparable|_|) =
         function
         | Replacements.Util.IsEntity (Types.icomparableGeneric) (_, [ genArg ]) -> Some(genArg)
         | _ -> None
 
+    [<return: Struct>]
     let (|IEquatable|_|) =
         function
         | Replacements.Util.IsEntity (Types.iequatableGeneric) (_, [ genArg ]) -> Some(genArg)
         | _ -> None
 
+    [<return: Struct>]
     let (|IEnumerable|_|) =
         function
         | Replacements.Util.IsEntity (Types.ienumerableGeneric) (_, [ genArg ]) -> Some(genArg)
@@ -3779,10 +3789,9 @@ module Util =
     let getFunctionBodyCtx com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) isTailRec =
 
         let tco =
-            if isTailRec then
-                Some(NamedTailCallOpportunity(com, ctx, name.Value, args) :> ITailCallOpportunity)
-            else
-                None
+            match isTailRec, name with
+            | true, Some n -> Some(NamedTailCallOpportunity(com, ctx, n, args) :> ITailCallOpportunity)
+            | _ -> None
 
         let usages = calcIdentUsages args [ body ]
 
@@ -3867,17 +3876,17 @@ module Util =
         let fnBody = transformFunctionBody com ctx args body
 
         let fnBody =
-            if isRecursive && not isTailRec then
+            match isRecursive && not isTailRec, name with
+            | true, Some n ->
                 // make the closure recursive with fixed-point combinator
-                let fixedArgs = (makeIdent name.Value) :: args
+                let fixedArgs = (makeIdent n) :: args
                 let fixedDecl = transformFunctionDecl com ctx fixedArgs [] Fable.Unit
                 let fixedBody = mkClosureExpr true fixedDecl fnBody
                 let argExprs = args |> List.map Fable.IdentExpr
                 let callArgs = transformCallArgs com ctx argExprs [] []
                 let fixCallArgs = (fixedBody |> mkAddrOfExpr) :: callArgs
                 makeLibCall com ctx None "Native" ("fix" + argCount) fixCallArgs
-            else
-                fnBody
+            | _ -> fnBody
 
         let cloneStmts =
             // clone captured idents (in 'move' closures)

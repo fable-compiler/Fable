@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [All] Replace unsafe option `.Value` unwrapping with safe alternatives in Python/Replacements.fs and Rust/Fable2Rust.fs (code scanning alerts IONIDE-006)
+* [All] Add `[<return: Struct>]` to partial active patterns in Dart and Rust targets to reduce allocations (code scanning alerts IONIDE-009)
+
 ## 5.0.0-rc.12 - 2026-03-31
 
 ### Fixed
