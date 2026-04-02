@@ -1497,6 +1497,14 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
       Some c,
       args -> Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc = r) |> Some
     | "IndexOf", Some c, _ ->
+        let args =
+            args
+            |> List.filter (
+                function
+                | StringComparisonEnumValue -> false
+                | _ -> true
+            )
+
         match args with
         | [ ExprType Char ]
         | [ ExprType String ]
@@ -1508,6 +1516,14 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             |> addErrorAndReturnNull com ctx.InlinePath r
             |> Some
     | "LastIndexOf", Some c, _ ->
+        let args =
+            args
+            |> List.filter (
+                function
+                | StringComparisonEnumValue -> false
+                | _ -> true
+            )
+
         match args with
         | [ ExprType Char ]
         | [ ExprType String ] -> Helper.InstanceCall(c, "rfind", t, args, i.SignatureArgTypes, ?loc = r) |> Some

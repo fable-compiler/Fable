@@ -10,11 +10,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [Dart] Fix `Array.compareWith` comparing lengths before elements, producing wrong results for arrays with common prefixes (fixes #2961)
+* [Python] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument emitting it as a start-index instead of a compile error (by @repo-assist)
+* [Beam] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument incorrectly treating the enum value as a start index
+
+## 5.0.0-rc.6 - 2026-03-31
+
+### Fixed
+
 * [Dart] Enable explicit variable typing for more data types (by @ncave)
 * [Dart] Fix tests for `round`, `sign`, `truncate`, `log`, `log2`, `log10`, `pow`, `DivRem`, `Min`, `Max`, `Clamp`, `MinMagnitude`, `MaxMagnitude`, `cosh`, `sinh`, `tanh`, and float `Parse` (by @ncave)
 * [Python] Add `Math.DivRem` support for int, int64, and bigint (by @dbrattli)
 * [Python] Fix modulo with negative numbers using Python floored semantics instead of .NET truncated semantics for bigint (fixes #4462) (by @dbrattli)
 * [Beam] Fix `System.String.Concat` with 4+ arguments not being supported (by @dbrattli)
+* [TS/Python] Fix thisArg type for overloads in structs (#4453) (by @ncave)
 * [TS/Python] Fix invalid `this` argument type in structs (#4453) (by @ncave)
 * [JS/TS] Fix `N` format specifier (`ToString("N0")`, `String.Format("{0:N0}", ...)`) producing a trailing dot when precision is 0 (fix #2582) (by @MangelMaxime)
 * [JS/TS] Fix `C0` and `P0` format specifiers producing trailing dot (e.g., `"¤1,000."` → `"¤1,000"`) (by @MangelMaxime)
@@ -27,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS] Fix invalid syntax emitted when negating negative literals (fix #4251) (by @MangelMaxime)
 * [Rust] Fix negative counting in CallInfo.GenericArgs (by @ncave)
 * [Rust] Fix inline bindings and captured idents tracking (by @ncave)
+* [Rust] Fix `return!` in async computation expressions so inner async workflows are returned and awaited correctly (by @mizzle-mo)
 * [JS/TS] Improve `Regex.Escape` and `Regex.Unescape` handling (by @MangelMaxime)
 * [All] Fix allow plugins to target .NET6 target framework (by @MangelMaxime)
 * [Python] Fix function references passed as arguments inside tail-call optimised functions gaining unnecessary default parameters for outer TCO variables they don't reference (fix #3877)

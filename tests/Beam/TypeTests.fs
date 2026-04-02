@@ -48,6 +48,7 @@ type ValueTypeR =
     val mutable X: float
     new(x: float) = { X = x }
     member this.IsEmpty() = this.X < 0.0
+    override this.ToString() = $"{this.X}"
 
 [<Struct>]
 type StructUnion = Value of string
