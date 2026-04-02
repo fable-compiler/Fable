@@ -89,7 +89,7 @@ pub mod Random_ {
         }
     }
 
-    /// Seeded random number generator using deterministic StdRng
+    /// Seeded random number generator using deterministic SmallRng
     pub struct SeededRandom {
         rng: MutCell<SmallRng>,
     }
