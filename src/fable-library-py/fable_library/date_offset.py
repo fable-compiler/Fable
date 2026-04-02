@@ -149,7 +149,7 @@ def create(
         ms = 0
 
     if python_offset is None:
-        dt = datetime(year, month, day, h, m, s, ms)
+        dt = datetime(year, month, day, h, m, s, ms * 1000)
         if offset is not None:
             offset_ms = int(time_span.total_microseconds(offset) / 1000)
             python_offset = timedelta(microseconds=float(time_span.total_microseconds(offset)))
@@ -207,6 +207,14 @@ def second(d: DateTimeOffset) -> int:
     return d.second
 
 
+def millisecond(d: DateTimeOffset) -> int:
+    return d.microsecond // 1000
+
+
+def microsecond(d: DateTimeOffset) -> int:
+    return d.microsecond % 1000
+
+
 def op_subtraction(x: DateTimeOffset, y: DateTimeOffset | TimeSpan) -> DateTimeOffset | TimeSpan:
     if isinstance(y, TimeSpan):
         # Subtract TimeSpan from DateTimeOffset
@@ -231,6 +239,8 @@ __all__ = [
     "op_subtraction",
     "parse",
     "second",
+    "millisecond",
+    "microsecond",
     "try_parse",
     "utc_now",
     "year",

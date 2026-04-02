@@ -28,19 +28,29 @@ let ``test Guid.CreateVersion7 works`` () =
     g1 = g2 |> equal false
     let s1 = string g1
     equal 36 s1.Length
-    equal '7' s1.[14]
-    let variantChar = s1.[19]
+    equal '7' s1[14]
+    let variantChar = s1[19]
     (variantChar = '8' || variantChar = '9' || variantChar = 'a' || variantChar = 'b') |> equal true
 
 [<Fact>]
 let ``test Guid.CreateVersion7 with DateTimeOffset works`` () =
     let dto = DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero)
     let g1 = Guid.CreateVersion7(dto)
+    let g2 = Guid.CreateVersion7(dto)
+    g1 = g2 |> equal false
     let s1 = string g1
     equal 36 s1.Length
-    equal '7' s1.[14]
-    let variantChar = s1.[19]
+    equal '7' s1[14]
+    let variantChar = s1[19]
     (variantChar = '8' || variantChar = '9' || variantChar = 'a' || variantChar = 'b') |> equal true
+
+[<Fact>]
+let ``test Guid.CreateVersion7 is monotonic`` () =
+    [1 .. 100]
+    |> List.map (fun ms -> DateTimeOffset(2024, 1, 1, 0, 0, 0, ms, TimeSpan.Zero))
+    |> List.map (fun dto -> Guid.CreateVersion7(dto))
+    |> List.pairwise
+    |> List.iter (fun (g1, g2) -> g1 < g2 |> equal true)
 
 [<Fact>]
 let ``test Guid equality works`` () =
