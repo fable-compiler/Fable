@@ -171,14 +171,11 @@ _DOTNET_EPOCH_MICROSECONDS = -62135596800000000
 
 
 def _to_utc_ms(d: DateTimeOffset) -> int:
-    """Return UTC instant in milliseconds since Unix epoch."""
-    # The datetime stores local time; subtract the offset to get UTC
-    local_ms = int(datetime.timestamp(d) * 1000)
-    return local_ms
+    """Return UTC instant in milliseconds since Unix epoch.
 
-
-def _ticks_per_millisecond() -> int:
-    return 10000
+    datetime.timestamp() already accounts for tzinfo offset.
+    """
+    return int(datetime.timestamp(d) * 1000)
 
 
 # ---------------------------------------------------------------------------
@@ -291,7 +288,11 @@ def from_ticks(ticks: SupportsInt, offset_ts: TimeSpan) -> DateTimeOffset:
 
 
 def from_date_time(date_only: datetime, time_only: TimeSpan, offset_ts: TimeSpan) -> DateTimeOffset:
-    """Construct DateTimeOffset from DateOnly, TimeOnly, and offset TimeSpan."""
+    """Construct DateTimeOffset from DateOnly, TimeOnly, and offset TimeSpan.
+
+    DateOnly is represented as a naive datetime (midnight).
+    TimeOnly is represented as a TimeSpan (ticks since midnight).
+    """
     h = int(hours(time_only))
     m = int(minutes(time_only))
     s = int(seconds(time_only))
@@ -406,8 +407,9 @@ def ticks(d: DateTimeOffset) -> int64:
     independent of the offset.
     """
     # Compute ticks from the local date/time fields
+    # Avoid float multiplication to prevent precision loss for large timestamps
     local_dt = datetime(d.year, d.month, d.day, d.hour, d.minute, d.second, d.microsecond, tzinfo=UTC)
-    us = int(local_dt.timestamp() * 1_000_000)
+    us = int(local_dt.timestamp()) * 1_000_000 + local_dt.microsecond
     return date_mod.unix_epoch_microseconds_to_ticks(int64(us), int64(0))
 
 
