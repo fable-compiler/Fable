@@ -1,7 +1,6 @@
 use pyo3::prelude::*;
 
 mod array;
-mod datetime_offset;
 mod floats;
 mod ints;
 mod native_array;
@@ -11,7 +10,6 @@ mod types;
 mod util;
 
 use crate::array::register_array_module;
-use crate::datetime_offset::register_datetime_offset_module;
 use crate::floats::*;
 use crate::ints::*;
 use crate::options::register_option_module;
@@ -31,7 +29,6 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<UInt64>()?;
 
     register_array_module(m)?;
-    register_datetime_offset_module(m)?;
     register_option_module(m)?;
     register_float_module(m)?;
     register_string_module(m)?;

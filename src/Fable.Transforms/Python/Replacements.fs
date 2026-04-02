@@ -2964,19 +2964,16 @@ let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         | _ ->
             Helper.LibCall(com, "TimeOnly", "create", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
             |> Some
-    | "get_MinValue" -> makeIntConst 0 |> Some
+    | "get_MinValue" -> Helper.LibCall(com, "TimeOnly", "minValue", t, [], [], ?loc = r) |> Some
     | "ToTimeSpan" -> thisArg
     | "get_Hour"
     | "get_Minute"
     | "get_Second"
-    | "get_Millisecond" ->
-        // Delegate to TimeSpan module with plural property names (hours, minutes, etc.)
-        let meth = (Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst) + "s"
-
-        Helper.LibCall(com, "time_span", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
-        |> Some
+    | "get_Millisecond"
     | "get_Ticks" ->
-        Helper.LibCall(com, "time_span", "ticks", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
+
+        Helper.LibCall(com, "TimeOnly", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "ToString" ->
         match args with

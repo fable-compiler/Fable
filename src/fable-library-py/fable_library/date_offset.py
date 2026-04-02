@@ -346,36 +346,36 @@ def unix_epoch() -> DateTimeOffset:
 # ---------------------------------------------------------------------------
 
 
-def year(d: DateTimeOffset) -> int:
-    return d.year
+def year(d: DateTimeOffset) -> int32:
+    return int32(d.year)
 
 
-def month(d: DateTimeOffset) -> int:
-    return d.month
+def month(d: DateTimeOffset) -> int32:
+    return int32(d.month)
 
 
-def day(d: DateTimeOffset) -> int:
-    return d.day
+def day(d: DateTimeOffset) -> int32:
+    return int32(d.day)
 
 
-def hour(d: DateTimeOffset) -> int:
-    return d.hour
+def hour(d: DateTimeOffset) -> int32:
+    return int32(d.hour)
 
 
-def minute(d: DateTimeOffset) -> int:
-    return d.minute
+def minute(d: DateTimeOffset) -> int32:
+    return int32(d.minute)
 
 
-def second(d: DateTimeOffset) -> int:
-    return d.second
+def second(d: DateTimeOffset) -> int32:
+    return int32(d.second)
 
 
-def millisecond(d: DateTimeOffset) -> int:
-    return d.microsecond // 1000
+def millisecond(d: DateTimeOffset) -> int32:
+    return int32(d.microsecond // 1000)
 
 
-def microsecond(d: DateTimeOffset) -> int:
-    return d.microsecond % 1000
+def microsecond(d: DateTimeOffset) -> int32:
+    return int32(d.microsecond % 1000)
 
 
 def day_of_week(d: DateTimeOffset) -> int:

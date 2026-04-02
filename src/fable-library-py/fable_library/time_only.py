@@ -6,7 +6,7 @@ This is consistent with the Python TimeSpan representation which stores ticks.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, SupportsFloat
 
 from .core import FSharpRef, int32
 from .time_span import (
@@ -16,7 +16,7 @@ from .time_span import (
     milliseconds,
     minutes,
     seconds,
-    ticks,
+    ticks as _ts_ticks,
 )
 from .util import pad_with_zeros
 
@@ -70,6 +70,26 @@ def min_value() -> TimeSpan:
     return TimeSpan(0)
 
 
+def hour(t: TimeSpan) -> int32:
+    return int32(hours(t))
+
+
+def minute(t: TimeSpan) -> int32:
+    return int32(minutes(t))
+
+
+def second(t: TimeSpan) -> int32:
+    return int32(seconds(t))
+
+
+def millisecond(t: TimeSpan) -> int32:
+    return int32(milliseconds(t))
+
+
+def ticks(t: TimeSpan) -> int:
+    return int(_ts_ticks(t))
+
+
 def add(t: TimeSpan, ts: TimeSpan, wrapped_days: FSharpRef[int] | None = None) -> TimeSpan:
     """Add a TimeSpan to a TimeOnly, wrapping around midnight."""
     t_val = int(t)
@@ -92,11 +112,11 @@ def add(t: TimeSpan, ts: TimeSpan, wrapped_days: FSharpRef[int] | None = None) -
     return TimeSpan(new_ticks)
 
 
-def add_hours(t: TimeSpan, h: float) -> TimeSpan:
+def add_hours(t: TimeSpan, h: SupportsFloat) -> TimeSpan:
     return add(t, TimeSpan(int(float(h) * _TICKS_PER_HOUR)))
 
 
-def add_minutes(t: TimeSpan, m: float) -> TimeSpan:
+def add_minutes(t: TimeSpan, m: SupportsFloat) -> TimeSpan:
     return add(t, TimeSpan(int(float(m) * _TICKS_PER_MINUTE)))
 
 
