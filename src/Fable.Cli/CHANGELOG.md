@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [All] Replace unsafe option `.Value` unwrapping with safe alternatives in Python/Replacements.fs and Rust/Fable2Rust.fs (code scanning alerts IONIDE-006)
 * [All] Add `[<return: Struct>]` to partial active patterns in Dart and Rust targets to reduce allocations (code scanning alerts IONIDE-009)
+* [Python] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument emitting it as a start-index instead of a compile error (by @repo-assist)
+* [Beam] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument incorrectly treating the enum value as a start index
 
 ## 5.0.0-rc.6 - 2026-03-31
 
