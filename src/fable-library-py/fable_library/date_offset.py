@@ -4,9 +4,10 @@ from datetime import UTC, datetime, timedelta, timezone
 from math import fmod
 from typing import Any, SupportsFloat, SupportsIndex, SupportsInt, overload
 
+from . import date as date_mod
 from . import time_span
 from .core import FSharpRef, int32, int64
-from .time_span import TimeSpan
+from .time_span import TimeSpan, hours, microseconds, milliseconds, minutes, seconds
 
 
 class DateTimeOffset(datetime):
@@ -291,8 +292,6 @@ def from_ticks(ticks: SupportsInt, offset_ts: TimeSpan) -> DateTimeOffset:
 
 def from_date_time(date_only: datetime, time_only: TimeSpan, offset_ts: TimeSpan) -> DateTimeOffset:
     """Construct DateTimeOffset from DateOnly, TimeOnly, and offset TimeSpan."""
-    from .time_span import hours, microseconds, milliseconds, minutes, seconds
-
     h = int(hours(time_only))
     m = int(minutes(time_only))
     s = int(seconds(time_only))
@@ -390,8 +389,6 @@ def total_offset_minutes(d: DateTimeOffset) -> int:
 
 def date(d: DateTimeOffset) -> datetime:
     """Return the date component (time set to midnight) as a DateTime."""
-    from . import date as date_mod
-
     return date_mod.create(d.year, d.month, d.day)
 
 
@@ -409,8 +406,6 @@ def ticks(d: DateTimeOffset) -> int64:
     independent of the offset.
     """
     # Compute ticks from the local date/time fields
-    from . import date as date_mod
-
     local_dt = datetime(d.year, d.month, d.day, d.hour, d.minute, d.second, d.microsecond, tzinfo=UTC)
     us = int(local_dt.timestamp() * 1_000_000)
     return date_mod.unix_epoch_microseconds_to_ticks(int64(us), int64(0))
@@ -418,8 +413,6 @@ def ticks(d: DateTimeOffset) -> int64:
 
 def get_utc_ticks(d: DateTimeOffset) -> int64:
     """Return UTC ticks."""
-    from . import date as date_mod
-
     utc_ms = _to_utc_ms(d)
     us = utc_ms * 1000
     return date_mod.unix_epoch_microseconds_to_ticks(int64(us), int64(0))

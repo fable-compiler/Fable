@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime
+import re
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from .core import FSharpRef, int32
+from .date import add_months as date_add_months
+from .date import add_years as date_add_years
 from .date import days_in_month
-from .time_span import TimeSpan
+from .singleton_local_time_zone import local_time_zone
+from .time_span import TimeSpan, hours, microseconds, milliseconds, minutes, seconds
 
 
 def create(year: int, month: int, day: int) -> datetime:
@@ -31,8 +35,6 @@ def from_day_number(day_num: int) -> datetime:
     """Create a DateOnly from a day number (days since 0001-01-01)."""
     ticks = day_num * 864000000000
     us = (ticks // 10) + _DOTNET_EPOCH_MICROSECONDS
-    from datetime import UTC
-
     dt = datetime.fromtimestamp(us / 1_000_000, tz=UTC)
     return datetime(dt.year, dt.month, dt.day)
 
@@ -63,22 +65,16 @@ def day_of_year(d: datetime) -> int:
 
 
 def add_days(d: datetime, v: int) -> datetime:
-    from datetime import timedelta
-
     new_dt = d + timedelta(days=int(v))
     return datetime(new_dt.year, new_dt.month, new_dt.day)
 
 
 def add_months(d: datetime, v: int) -> datetime:
-    from .date import add_months as date_add_months
-
     result = date_add_months(d, v)
     return datetime(result.year, result.month, result.day)
 
 
 def add_years(d: datetime, v: int) -> datetime:
-    from .date import add_years as date_add_years
-
     result = date_add_years(d, v)
     return datetime(result.year, result.month, result.day)
 
@@ -89,11 +85,6 @@ def to_date_time(d: datetime, time: TimeSpan, kind: int = 0) -> datetime:
     time is a TimeOnly value (ticks since midnight).
     kind: 0=Unspecified, 1=UTC, 2=Local
     """
-    from datetime import UTC as _UTC
-
-    from .singleton_local_time_zone import local_time_zone
-    from .time_span import hours, microseconds, milliseconds, minutes, seconds
-
     h = int(hours(time))
     m = int(minutes(time))
     s = int(seconds(time))
@@ -101,7 +92,7 @@ def to_date_time(d: datetime, time: TimeSpan, kind: int = 0) -> datetime:
     mc = int(microseconds(time))
 
     if kind == 1:  # UTC
-        return datetime(d.year, d.month, d.day, h, m, s, ms * 1000 + mc, tzinfo=_UTC)
+        return datetime(d.year, d.month, d.day, h, m, s, ms * 1000 + mc, tzinfo=UTC)
     elif kind == 2:  # Local
         return datetime(d.year, d.month, d.day, h, m, s, ms * 1000 + mc, tzinfo=local_time_zone)
     else:
@@ -121,8 +112,6 @@ def to_string(d: datetime, format: str = "d", _provider: Any = None) -> str:
 
 def parse(string: str) -> datetime:
     """Parse a string into a DateOnly value."""
-    import re
-
     # yyyy-mm-dd or yyyy/mm/dd
     match = re.match(r"^\s*(\d{4})\s*[-/.,]\s*(\d{1,2})\s*[-/.,]\s*(\d{1,2})\s*$", string)
     if match:
@@ -165,9 +154,7 @@ _DOTNET_EPOCH_MICROSECONDS = -62135596800000000
 
 def _to_ticks(d: datetime) -> int:
     """Convert a naive datetime to .NET ticks."""
-    from datetime import UTC as _UTC
-
-    utc_dt = datetime(d.year, d.month, d.day, tzinfo=_UTC)
+    utc_dt = datetime(d.year, d.month, d.day, tzinfo=UTC)
     us = int(utc_dt.timestamp() * 1_000_000)
     return (us - _DOTNET_EPOCH_MICROSECONDS) * 10
 

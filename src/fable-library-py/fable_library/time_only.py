@@ -6,6 +6,7 @@ This is consistent with the Python TimeSpan representation which stores ticks.
 
 from __future__ import annotations
 
+import re
 from typing import Any, SupportsFloat
 
 from .core import FSharpRef, int32
@@ -151,8 +152,6 @@ def to_string(t: TimeSpan, format: str = "t", _provider: Any = None) -> str:
 
 def parse(string: str) -> TimeSpan:
     """Parse a time string into a TimeOnly value."""
-    import re
-
     match = re.match(
         r"^\s*([0-1]?\d|2[0-3])\s*:\s*([0-5]?\d)(\s*:\s*([0-5]?\d)(\.(\d+))?)?\s*$",
         string,
