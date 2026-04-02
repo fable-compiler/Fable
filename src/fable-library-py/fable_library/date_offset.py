@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta, timezone
 from math import fmod
-from typing import Any, SupportsIndex, overload
+from typing import Any, SupportsFloat, SupportsIndex, SupportsInt, overload
 
 from . import time_span
-from .core import FSharpRef, int64
+from .core import FSharpRef, int32, int64
 from .time_span import TimeSpan
 
 
@@ -72,9 +72,9 @@ class DateTimeOffset(datetime):
         return hash(_to_utc_ms(self))
 
     @overload
-    def __sub__(self, other: timedelta) -> DateTimeOffset: ...
-    @overload
     def __sub__(self, other: datetime) -> timedelta: ...
+    @overload
+    def __sub__(self, other: timedelta) -> DateTimeOffset: ...
 
     def __sub__(self, other: timedelta | datetime) -> DateTimeOffset | timedelta:
         if isinstance(other, timedelta) and not isinstance(other, datetime):
@@ -84,8 +84,14 @@ class DateTimeOffset(datetime):
             )
             new_dt = plain - other
             return DateTimeOffset(new_dt, self.offset_ms)
-        # datetime - datetime → timedelta (use datetime's implementation)
-        return datetime.__sub__(self, other)  # type: ignore[return-value]
+        # datetime - datetime → timedelta
+        plain_self = datetime(
+            self.year, self.month, self.day, self.hour, self.minute, self.second, self.microsecond, self.tzinfo
+        )
+        plain_other = datetime(
+            other.year, other.month, other.day, other.hour, other.minute, other.second, other.microsecond, other.tzinfo
+        )
+        return plain_self - plain_other
 
     def __add__(self, other: timedelta) -> DateTimeOffset:
         plain = datetime(
@@ -271,12 +277,12 @@ def from_date(dt: datetime, offset_ts: TimeSpan | None = None) -> DateTimeOffset
     return DateTimeOffset(dt, offset_ms)
 
 
-def from_ticks(ticks: int, offset_ts: TimeSpan) -> DateTimeOffset:
+def from_ticks(ticks: SupportsInt, offset_ts: TimeSpan) -> DateTimeOffset:
     """Construct DateTimeOffset from ticks and offset."""
     offset_ms = int(time_span.total_microseconds(offset_ts) / 1000)
     # Ticks are 100-nanosecond intervals since 0001-01-01
     # Convert to microseconds from Unix epoch
-    us = (ticks // 10) + _DOTNET_EPOCH_MICROSECONDS
+    us = (int(ticks) // 10) + _DOTNET_EPOCH_MICROSECONDS
     python_offset = timedelta(milliseconds=offset_ms)
     dt = datetime.fromtimestamp(us / 1_000_000, tz=UTC)
     # Shift from UTC to the specified offset
@@ -479,16 +485,16 @@ def add(d: DateTimeOffset, ts: TimeSpan) -> DateTimeOffset:
     return _add_timedelta(d, timedelta(microseconds=float(us)))
 
 
-def add_years(d: DateTimeOffset, v: int) -> DateTimeOffset:
+def add_years(d: DateTimeOffset, v: SupportsInt) -> DateTimeOffset:
     new_month = d.month
-    new_year = d.year + v
+    new_year = d.year + int(v)
     _days_in_month = _get_days_in_month(new_year, new_month)
     new_day = min(_days_in_month, d.day)
     return create(new_year, new_month, new_day, d.hour, d.minute, d.second, d.microsecond // 1000, d.offset)
 
 
-def add_months(d: DateTimeOffset, v: int) -> DateTimeOffset:
-    new_month = d.month + v
+def add_months(d: DateTimeOffset, v: SupportsInt) -> DateTimeOffset:
+    new_month = d.month + int(v)
     new_month_ = 0
     year_offset = 0
     if new_month > 12:
@@ -505,38 +511,44 @@ def add_months(d: DateTimeOffset, v: int) -> DateTimeOffset:
     return create(new_year, new_month, new_day, d.hour, d.minute, d.second, d.microsecond // 1000, d.offset)
 
 
-def add_days(d: DateTimeOffset, v: float) -> DateTimeOffset:
+def add_days(d: DateTimeOffset, v: SupportsFloat) -> DateTimeOffset:
     return _add_timedelta(d, timedelta(days=float(v)))
 
 
-def add_hours(d: DateTimeOffset, v: float) -> DateTimeOffset:
+def add_hours(d: DateTimeOffset, v: SupportsFloat) -> DateTimeOffset:
     return _add_timedelta(d, timedelta(hours=float(v)))
 
 
-def add_minutes(d: DateTimeOffset, v: float) -> DateTimeOffset:
+def add_minutes(d: DateTimeOffset, v: SupportsFloat) -> DateTimeOffset:
     return _add_timedelta(d, timedelta(minutes=float(v)))
 
 
-def add_seconds(d: DateTimeOffset, v: float) -> DateTimeOffset:
+def add_seconds(d: DateTimeOffset, v: SupportsFloat) -> DateTimeOffset:
     return _add_timedelta(d, timedelta(seconds=float(v)))
 
 
-def add_milliseconds(d: DateTimeOffset, v: float) -> DateTimeOffset:
+def add_milliseconds(d: DateTimeOffset, v: SupportsFloat) -> DateTimeOffset:
     return _add_timedelta(d, timedelta(milliseconds=float(v)))
 
 
-def add_microseconds(d: DateTimeOffset, v: float) -> DateTimeOffset:
+def add_microseconds(d: DateTimeOffset, v: SupportsFloat) -> DateTimeOffset:
     return _add_timedelta(d, timedelta(microseconds=float(v)))
 
 
-def add_ticks(d: DateTimeOffset, v: int) -> DateTimeOffset:
-    ms = v / 10000
+def add_ticks(d: DateTimeOffset, v: SupportsFloat) -> DateTimeOffset:
+    ms = float(v) / 10000
     return add_milliseconds(d, ms)
 
 
 # ---------------------------------------------------------------------------
 # Subtract / Operators
 # ---------------------------------------------------------------------------
+
+
+@overload
+def subtract(x: DateTimeOffset, y: DateTimeOffset) -> TimeSpan: ...
+@overload
+def subtract(x: DateTimeOffset, y: TimeSpan) -> DateTimeOffset: ...
 
 
 def subtract(x: DateTimeOffset, y: DateTimeOffset | TimeSpan) -> DateTimeOffset | TimeSpan:
@@ -547,6 +559,12 @@ def subtract(x: DateTimeOffset, y: DateTimeOffset | TimeSpan) -> DateTimeOffset 
     # TimeSpan subtraction (TimeSpan is an int subclass, not timedelta)
     us = time_span.total_microseconds(y)
     return _add_timedelta(x, timedelta(microseconds=float(-us)))
+
+
+@overload
+def op_subtraction(x: DateTimeOffset, y: DateTimeOffset) -> TimeSpan: ...
+@overload
+def op_subtraction(x: DateTimeOffset, y: TimeSpan) -> DateTimeOffset: ...
 
 
 def op_subtraction(x: DateTimeOffset, y: DateTimeOffset | TimeSpan) -> DateTimeOffset | TimeSpan:
@@ -570,17 +588,17 @@ def equals_exact(d1: DateTimeOffset, d2: DateTimeOffset) -> bool:
     return _to_utc_ms(d1) == _to_utc_ms(d2) and d1.offset_ms == d2.offset_ms
 
 
-def compare(d1: DateTimeOffset, d2: DateTimeOffset) -> int:
+def compare(d1: DateTimeOffset, d2: DateTimeOffset) -> int32:
     a = _to_utc_ms(d1)
     b = _to_utc_ms(d2)
     if a < b:
-        return -1
+        return int32(-1)
     if a > b:
-        return 1
-    return 0
+        return int32(1)
+    return int32(0)
 
 
-def compare_to(d1: DateTimeOffset, d2: DateTimeOffset) -> int:
+def compare_to(d1: DateTimeOffset, d2: DateTimeOffset) -> int32:
     return compare(d1, d2)
 
 
@@ -589,13 +607,13 @@ def compare_to(d1: DateTimeOffset, d2: DateTimeOffset) -> int:
 # ---------------------------------------------------------------------------
 
 
-def from_unix_time_milliseconds(ms: int) -> DateTimeOffset:
-    dt = datetime.fromtimestamp(ms / 1000, tz=UTC)
+def from_unix_time_milliseconds(ms: SupportsFloat) -> DateTimeOffset:
+    dt = datetime.fromtimestamp(float(ms) / 1000, tz=UTC)
     return DateTimeOffset(dt, 0)
 
 
-def from_unix_time_seconds(s: int) -> DateTimeOffset:
-    dt = datetime.fromtimestamp(s, tz=UTC)
+def from_unix_time_seconds(s: SupportsFloat) -> DateTimeOffset:
+    dt = datetime.fromtimestamp(float(s), tz=UTC)
     return DateTimeOffset(dt, 0)
 
 

@@ -2963,24 +2963,33 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         |> Some
     // DateTimeOffset
     | "get_LocalDateTime" when i.DeclaringEntityFullName = Types.datetimeOffset ->
-        Helper.LibCall(com, "date_offset", "localDateTime", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
-        |> Some
+        match thisArg with
+        | Some thisArg ->
+            Helper.LibCall(com, "date_offset", "localDateTime", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
+            |> Some
+        | None -> None
     | "get_UtcDateTime" when i.DeclaringEntityFullName = Types.datetimeOffset ->
-        Helper.LibCall(com, "date_offset", "utcDateTime", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
-        |> Some
+        match thisArg with
+        | Some thisArg ->
+            Helper.LibCall(com, "date_offset", "utcDateTime", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
+            |> Some
+        | None -> None
     | "get_DateTime" when i.DeclaringEntityFullName = Types.datetimeOffset ->
-        let kind = System.DateTimeKind.Unspecified |> int |> makeIntConst
+        match thisArg with
+        | Some thisArg ->
+            let kind = System.DateTimeKind.Unspecified |> int |> makeIntConst
 
-        Helper.LibCall(
-            com,
-            "Date",
-            "fromDateTimeOffset",
-            t,
-            [ thisArg.Value; kind ],
-            [ thisArg.Value.Type; kind.Type ],
-            ?loc = r
-        )
-        |> Some
+            Helper.LibCall(
+                com,
+                "Date",
+                "fromDateTimeOffset",
+                t,
+                [ thisArg; kind ],
+                [ thisArg.Type; kind.Type ],
+                ?loc = r
+            )
+            |> Some
+        | None -> None
     | "FromUnixTimeSeconds" ->
         let value =
             Helper.LibCall(com, "Long", "toNumber", Float64.Number, args, i.SignatureArgTypes)
@@ -2994,31 +3003,38 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         Helper.LibCall(com, "DateOffset", "fromUnixTimeMilliseconds", t, [ value ], [ value.Type ], ?loc = r)
         |> Some
     | "ToUnixTimeSeconds" ->
-        Helper.LibCall(com, "DateOffset", "toUnixTimeSeconds", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
-        |> Some
+        match thisArg with
+        | Some thisArg ->
+            Helper.LibCall(com, "DateOffset", "toUnixTimeSeconds", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
+            |> Some
+        | None -> None
     | "ToUnixTimeMilliseconds" ->
-        Helper.LibCall(
-            com,
-            "DateOffset",
-            "toUnixTimeMilliseconds",
-            t,
-            [ thisArg.Value ],
-            [ thisArg.Value.Type ],
-            ?loc = r
-        )
-        |> Some
+        match thisArg with
+        | Some thisArg ->
+            Helper.LibCall(com, "DateOffset", "toUnixTimeMilliseconds", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
+            |> Some
+        | None -> None
     | "get_UtcTicks" ->
-        Helper.LibCall(com, "DateOffset", "getUtcTicks", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
-        |> Some
+        match thisArg with
+        | Some thisArg ->
+            Helper.LibCall(com, "DateOffset", "getUtcTicks", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
+            |> Some
+        | None -> None
     | "EqualsExact" ->
-        Helper.LibCall(com, "DateOffset", "equalsExact", Boolean, [ thisArg.Value; args.Head ], ?loc = r)
-        |> Some
+        match thisArg with
+        | Some thisArg ->
+            Helper.LibCall(com, "DateOffset", "equalsExact", Boolean, [ thisArg; args.Head ], ?loc = r)
+            |> Some
+        | None -> None
     | "Compare" ->
         Helper.LibCall(com, "DateOffset", "compare", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "CompareTo" ->
-        Helper.LibCall(com, "DateOffset", "compareTo", t, [ thisArg.Value; args.Head ], ?loc = r)
-        |> Some
+        match thisArg with
+        | Some thisArg ->
+            Helper.LibCall(com, "DateOffset", "compareTo", t, [ thisArg; args.Head ], ?loc = r)
+            |> Some
+        | None -> None
     | "TryParse" ->
         let args =
             ignoreFormatProvider com ctx r i.DeclaringEntityFullName i.CompiledName args
@@ -3028,14 +3044,17 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "AddTicks" ->
         match thisArg, args with
         | Some c, [ ticks ] ->
+            let divisor =
+                NumberConstant(NumberValue.Int64 10000L, NumberInfo.Empty) |> makeValue None
+
             let ms =
                 Helper.LibCall(
                     com,
                     "long",
                     "op_Division",
                     i.SignatureArgTypes.Head,
-                    [ ticks; makeIntConst 10000 ],
-                    [ ticks.Type; Int32.Number ]
+                    [ ticks; divisor ],
+                    [ ticks.Type; Int64.Number ]
                 )
 
             let ms =
