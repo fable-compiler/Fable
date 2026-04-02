@@ -1,9 +1,12 @@
 -module(fable_guid).
 -export([
-    new_guid/0, parse/1, try_parse/1, try_parse/2, from_bytes/1, to_byte_array/1, to_string_format/2
+    new_guid/0, create_version7/0, create_version7/1,
+    parse/1, try_parse/1, try_parse/2, from_bytes/1, to_byte_array/1, to_string_format/2
 ]).
 
 -spec new_guid() -> binary().
+-spec create_version7() -> binary().
+-spec create_version7(integer()) -> binary().
 -spec parse(binary()) -> binary().
 -spec try_parse(binary()) -> {boolean(), binary()}.
 -spec try_parse(binary(), reference()) -> boolean().
@@ -19,6 +22,37 @@ new_guid() ->
     C = (C0 band 16#0FFF) bor 16#4000,
     %% Set variant: top 2 bits of D = 10
     D = (D0 band 16#3FFF) bor 16#8000,
+    list_to_binary(
+        io_lib:format(
+            "~8.16.0b-~4.16.0b-~4.16.0b-~4.16.0b-~12.16.0b",
+            [A, B, C, D, E]
+        )
+    ).
+
+%% Generate a new UUID v7 (RFC 9562) with current timestamp.
+create_version7() ->
+    Ms = erlang:system_time(millisecond),
+    create_version7(Ms).
+
+%% Generate a new UUID v7 (RFC 9562) with given DateTimeOffset or ms since Unix epoch.
+create_version7({Ticks, _Kind, _Offset}) ->
+    %% DateTimeOffset tuple: convert .NET ticks to Unix epoch milliseconds
+    %% .NET ticks are 100ns intervals since 0001-01-01
+    %% Unix epoch in .NET ticks = 621355968000000000
+    Ms = (Ticks - 621355968000000000) div 10000,
+    create_version7(Ms);
+create_version7(Timestamp) when is_integer(Timestamp) ->
+    <<RandA0:16, RandB0:64>> = crypto:strong_rand_bytes(10),
+    RandA = RandA0 band 16#0FFF,
+    RandB = RandB0 band 16#3FFFFFFFFFFFFFFF,
+    %% 48-bit timestamp split into A (high 32 bits) and B (low 16 bits)
+    A = (Timestamp bsr 16) band 16#FFFFFFFF,
+    B = Timestamp band 16#FFFF,
+    %% Version 7: top 4 bits = 0111
+    C = 16#7000 bor RandA,
+    %% Variant: top 2 bits = 10
+    D = 16#8000 bor ((RandB bsr 48) band 16#3FFF),
+    E = RandB band 16#FFFFFFFFFFFF,
     list_to_binary(
         io_lib:format(
             "~8.16.0b-~4.16.0b-~4.16.0b-~4.16.0b-~12.16.0b",
