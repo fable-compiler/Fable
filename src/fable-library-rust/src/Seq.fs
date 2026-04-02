@@ -1262,6 +1262,41 @@ let distinctBy<'T, 'Key when 'Key: equality and 'Key: not null> (projection: 'T 
         xs |> filter (fun x -> hashSet.Add(projection x))
     )
 
+let randomShuffleBy (randomizer: unit -> float) (xs: 'T seq) : 'T seq =
+    xs |> toArray |> Array.randomShuffleBy randomizer |> ofArray
+
+let randomShuffleWith (random: System.Random) (xs: 'T seq) : 'T seq =
+    xs |> toArray |> Array.randomShuffleWith random |> ofArray
+
+let randomShuffle (xs: 'T seq) : 'T seq =
+    xs |> toArray |> Array.randomShuffle |> ofArray
+
+let randomChoiceBy (randomizer: unit -> float) (xs: 'T seq) : 'T =
+    xs |> toArray |> Array.randomChoiceBy randomizer
+
+let randomChoiceWith (random: System.Random) (xs: 'T seq) : 'T =
+    xs |> toArray |> Array.randomChoiceWith random
+
+let randomChoice (xs: 'T seq) : 'T = xs |> toArray |> Array.randomChoice
+
+let randomChoicesBy (randomizer: unit -> float) (count: int) (xs: 'T seq) : 'T seq =
+    xs |> toArray |> Array.randomChoicesBy randomizer count |> ofArray
+
+let randomChoicesWith (random: System.Random) (count: int) (xs: 'T seq) : 'T seq =
+    xs |> toArray |> Array.randomChoicesWith random count |> ofArray
+
+let randomChoices (count: int) (xs: 'T seq) : 'T seq =
+    xs |> toArray |> Array.randomChoices count |> ofArray
+
+let randomSampleBy (randomizer: unit -> float) (count: int) (xs: 'T seq) : 'T seq =
+    xs |> toArray |> Array.randomSampleBy randomizer count |> ofArray
+
+let randomSampleWith (random: System.Random) (count: int) (xs: 'T seq) : 'T seq =
+    xs |> toArray |> Array.randomSampleWith random count |> ofArray
+
+let randomSample (count: int) (xs: 'T seq) : 'T seq =
+    xs |> toArray |> Array.randomSample count |> ofArray
+
 let except<'T when 'T: equality> (itemsToExclude: 'T seq) (xs: 'T seq) =
     delay (fun () ->
         let hashSet = HashSet<'T>(toArray itemsToExclude)

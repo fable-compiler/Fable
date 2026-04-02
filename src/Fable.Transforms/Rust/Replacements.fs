@@ -2782,27 +2782,22 @@ let globalization
         ObjectExpr([], t, None) |> Some
     | _ -> None
 
-let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | ".ctor" -> ObjectExpr([], t, None) |> Some
-    | "Next" ->
-        let min, max =
-            match args with
-            | [] -> makeIntConst 0, makeIntConst System.Int32.MaxValue
-            | [ max ] -> makeIntConst 0, max
-            | [ min; max ] -> min, max
-            | _ -> FableError "Unexpected arg count for Random.Next" |> raise
+let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    | ".ctor", _ ->
+        match args with
+        | [] -> Helper.LibCall(com, "Random", "new", t, [], [], ?loc = r) |> Some
+        | args ->
+            Helper.LibCall(com, "Random", "new_seeded", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+    | meth, Some thisArg ->
+        let meth =
+            if meth = "Next" then
+                $"next{List.length args}"
+            else
+                meth |> Naming.lowerFirst
 
-        Helper.LibCall(com, "Util", "randomNext", t, [ min; max ], [ min.Type; max.Type ], ?loc = r)
-        |> Some
-    | "NextDouble" -> Helper.GlobalCall("Math", t, [], memb = "random") |> Some
-    | "NextBytes" ->
-        let byteArray =
-            match args with
-            | [ b ] -> b
-            | _ -> FableError "Unexpected arg count for Random.NextBytes" |> raise
-
-        Helper.LibCall(com, "Util", "randomBytes", t, [ byteArray ], [ byteArray.Type ], ?loc = r)
+        Helper.InstanceCall(thisArg, meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | _ -> None
 
