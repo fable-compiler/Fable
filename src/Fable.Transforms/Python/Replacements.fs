@@ -1497,45 +1497,38 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
       Some c,
       args -> Helper.InstanceCall(c, methName, t, args, i.SignatureArgTypes, ?loc = r) |> Some
     | "IndexOf", Some c, _ ->
+        let args =
+            args
+            |> List.filter (
+                function
+                | StringComparisonEnumValue -> false
+                | _ -> true
+            )
+
         match args with
         | [ ExprType Char ]
         | [ ExprType String ]
         | [ ExprType Char; ExprType(Number(Int32, NumberInfo.Empty)) ]
         | [ ExprType String; ExprType(Number(Int32, NumberInfo.Empty)) ] ->
             Helper.InstanceCall(c, "find", t, args, i.SignatureArgTypes, ?loc = r) |> Some
-        | [ ExprType String; StringComparisonEnumValue ] ->
-            Helper.InstanceCall(c, "find", t, [ List.head args ], i.SignatureArgTypes, ?loc = r)
-            |> Some
-        | [ ExprType String; ExprType(Number(Int32, NumberInfo.Empty)); StringComparisonEnumValue ] ->
-            Helper.InstanceCall(c, "find", t, List.take 2 args, i.SignatureArgTypes, ?loc = r)
-            |> Some
         | _ ->
             "The only extra argument accepted for String.IndexOf/LastIndexOf is startIndex."
             |> addErrorAndReturnNull com ctx.InlinePath r
             |> Some
     | "LastIndexOf", Some c, _ ->
+        let args =
+            args
+            |> List.filter (
+                function
+                | StringComparisonEnumValue -> false
+                | _ -> true
+            )
+
         match args with
         | [ ExprType Char ]
         | [ ExprType String ] -> Helper.InstanceCall(c, "rfind", t, args, i.SignatureArgTypes, ?loc = r) |> Some
         | [ ExprType Char as str; ExprType(Number(Int32, NumberInfo.Empty)) as start ]
         | [ ExprType String as str; ExprType(Number(Int32, NumberInfo.Empty)) as start ] ->
-            Helper.InstanceCall(
-                c,
-                "rfind",
-                t,
-                [
-                    str
-                    Value(NumberConstant(NumberValue.Int32 0, NumberInfo.Empty), None)
-                    start
-                ],
-                i.SignatureArgTypes,
-                ?loc = r
-            )
-            |> Some
-        | [ ExprType String; StringComparisonEnumValue ] ->
-            Helper.InstanceCall(c, "rfind", t, [ List.head args ], i.SignatureArgTypes, ?loc = r)
-            |> Some
-        | [ ExprType String as str; ExprType(Number(Int32, NumberInfo.Empty)) as start; StringComparisonEnumValue ] ->
             Helper.InstanceCall(
                 c,
                 "rfind",

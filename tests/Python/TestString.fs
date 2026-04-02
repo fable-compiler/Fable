@@ -573,6 +573,11 @@ let ``test String.IndexOf with StringComparison works`` () =
     |> equal 1
 
 [<Fact>]
+let ``test String.IndexOf char with StringComparison works`` () =
+    "abcdbc".IndexOf('b', StringComparison.Ordinal)
+    |> equal 1
+
+[<Fact>]
 let ``test String.IndexOf with index and StringComparison works`` () =
     "abcdbc".IndexOf("b", 3, StringComparison.Ordinal)
     |> equal 4
