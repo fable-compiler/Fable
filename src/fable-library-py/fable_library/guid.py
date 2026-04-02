@@ -41,7 +41,7 @@ def create_version7(timestamp: DateTimeOffset | None = None) -> uuid.UUID:
         ms = int(time.time() * 1000)
     else:
         # DateTimeOffset has getTime() returning ms since epoch
-        ms = int(timestamp.getTime())  # type: ignore
+        ms = int(timestamp.getTime())
 
     # Build 16 bytes per RFC 9562
     rand_bytes = secrets.token_bytes(10)
