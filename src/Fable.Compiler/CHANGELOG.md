@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * [All] Add support for `Guid.CreateVersion7()` and `Guid.CreateVersion7(DateTimeOffset)`
+* [Beam] Implement missing DateTimeOffset members, add DateOnly and TimeOnly support
 
 ### Fixed
 
