@@ -1445,3 +1445,135 @@ module AnonRecords =
                 | [] -> Ok()
                 | errors -> Error errors
         | _ -> Ok() // TODO: Error instead if we cannot check the interface?
+
+/// Shared quotation replacement functions for all targets.
+/// Each target calls these with its own library module name (e.g., "fableQuotation" for Python/Beam, "Quotation" for JS).
+/// Python and Beam auto-convert camelCase to snake_case in imports.
+module Quotations =
+
+    // F# Quotation: FSharpExpr static methods (e.g. Expr.Value, Expr.Lambda, etc.)
+    let quotationExprs
+        (libModule: string)
+        (com: ICompiler)
+        (_ctx: Context)
+        r
+        (t: Type)
+        (i: CallInfo)
+        (thisArg: Expr option)
+        (args: Expr list)
+        =
+        match i.CompiledName, thisArg, args with
+        | "Value", _, [ value; typeArg ] ->
+            Helper.LibCall(com, libModule, "mkValue", t, [ value; typeArg ], ?loc = r)
+            |> Some
+        | "Var", _, [ var ] -> Helper.LibCall(com, libModule, "mkVarExpr", t, [ var ], ?loc = r) |> Some
+        | "Lambda", _, [ var; body ] -> Helper.LibCall(com, libModule, "mkLambda", t, [ var; body ], ?loc = r) |> Some
+        | "Application", _, [ func; arg ] -> Helper.LibCall(com, libModule, "mkApp", t, [ func; arg ], ?loc = r) |> Some
+        | "Let", _, [ var; value; body ] ->
+            Helper.LibCall(com, libModule, "mkLet", t, [ var; value; body ], ?loc = r)
+            |> Some
+        | "IfThenElse", _, [ guard; thenExpr; elseExpr ] ->
+            Helper.LibCall(com, libModule, "mkIfThenElse", t, [ guard; thenExpr; elseExpr ], ?loc = r)
+            |> Some
+        | "Call", _, [ instance; methodInfo; argList ] ->
+            Helper.LibCall(com, libModule, "mkCall", t, [ instance; methodInfo; argList ], ?loc = r)
+            |> Some
+        | "NewTuple", _, [ elements ] -> Helper.LibCall(com, libModule, "mkNewTuple", t, [ elements ], ?loc = r) |> Some
+        | "Sequential", _, [ first; second ] ->
+            Helper.LibCall(com, libModule, "mkSequential", t, [ first; second ], ?loc = r)
+            |> Some
+        | "get_Type", Some callee, _ -> Helper.LibCall(com, libModule, "getType", t, [ callee ], ?loc = r) |> Some
+        | "GetFreeVars", Some callee, _ ->
+            Helper.LibCall(com, libModule, "getFreeVars", t, [ callee ], ?loc = r) |> Some
+        | "Substitute", Some callee, [ fn ] ->
+            Helper.LibCall(com, libModule, "substitute", t, [ callee; fn ], ?loc = r)
+            |> Some
+        | "ToString", Some callee, _
+        | "ToString", Some callee, [ _ ] ->
+            Helper.LibCall(com, libModule, "exprToString", t, [ callee ], ?loc = r) |> Some
+        | _ -> None
+
+    // F# Quotation: FSharpVar (.ctor, get_Name, get_Type, get_IsMutable)
+    let quotationVars
+        (libModule: string)
+        (com: ICompiler)
+        (_ctx: Context)
+        r
+        (t: Type)
+        (i: CallInfo)
+        (thisArg: Expr option)
+        (args: Expr list)
+        =
+        match i.CompiledName, thisArg, args with
+        | ".ctor", None, [ name; typ; isMutable ] ->
+            Helper.LibCall(com, libModule, "mkVar", t, [ name; typ; isMutable ], ?loc = r)
+            |> Some
+        | ".ctor", None, [ name; typ ] ->
+            Helper.LibCall(com, libModule, "mkVar", t, [ name; typ; makeBoolConst false ], ?loc = r)
+            |> Some
+        | "get_Name", Some callee, _ -> Helper.LibCall(com, libModule, "varGetName", t, [ callee ], ?loc = r) |> Some
+        | "get_Type", Some callee, _ -> Helper.LibCall(com, libModule, "varGetType", t, [ callee ], ?loc = r) |> Some
+        | "get_IsMutable", Some callee, _ ->
+            Helper.LibCall(com, libModule, "varGetIsMutable", t, [ callee ], ?loc = r)
+            |> Some
+        | _ -> None
+
+    // F# Quotation: PatternsModule (active patterns like ValuePattern, LambdaPattern, etc.)
+    let quotationPatterns
+        (libModule: string)
+        (com: ICompiler)
+        (_ctx: Context)
+        r
+        (t: Type)
+        (i: CallInfo)
+        (_thisArg: Expr option)
+        (args: Expr list)
+        =
+        match i.CompiledName, args with
+        | ("ValuePattern" | "|Value|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isValue", t, [ expr ], ?loc = r) |> Some
+        | ("VarPattern" | "|Var|_|"), [ expr ] -> Helper.LibCall(com, libModule, "isVar", t, [ expr ], ?loc = r) |> Some
+        | ("LambdaPattern" | "|Lambda|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isLambda", t, [ expr ], ?loc = r) |> Some
+        | ("ApplicationPattern" | "|Application|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isApplication", t, [ expr ], ?loc = r) |> Some
+        | ("LetPattern" | "|Let|_|"), [ expr ] -> Helper.LibCall(com, libModule, "isLet", t, [ expr ], ?loc = r) |> Some
+        | ("IfThenElsePattern" | "|IfThenElse|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isIfThenElse", t, [ expr ], ?loc = r) |> Some
+        | ("CallPattern" | "|Call|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isCall", t, [ expr ], ?loc = r) |> Some
+        | ("NewTuplePattern" | "|NewTuple|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isNewTuple", t, [ expr ], ?loc = r) |> Some
+        | ("SequentialPattern" | "|Sequential|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isSequential", t, [ expr ], ?loc = r) |> Some
+        | ("NewUnionCasePattern" | "|NewUnionCase|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isNewUnion", t, [ expr ], ?loc = r) |> Some
+        | ("NewRecordPattern" | "|NewRecord|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isNewRecord", t, [ expr ], ?loc = r) |> Some
+        | ("TupleGetPattern" | "|TupleGet|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isTupleGet", t, [ expr ], ?loc = r) |> Some
+        | ("PropertyGetPattern" | "|PropertyGet|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isFieldGet", t, [ expr ], ?loc = r) |> Some
+        | _ -> None
+
+    let tryQuotationCall
+        (libModule: string)
+        (com: ICompiler)
+        (ctx: Context)
+        r
+        (t: Type)
+        (info: CallInfo)
+        (thisArg: Expr option)
+        (args: Expr list)
+        (typeName: string)
+        =
+        match typeName with
+        | Types.fsharpExpr
+        | Types.fsharpExprGeneric -> quotationExprs libModule com ctx r t info thisArg args
+        | Types.fsharpVar -> quotationVars libModule com ctx r t info thisArg args
+        | Types.patternsModule -> quotationPatterns libModule com ctx r t info thisArg args
+        | "Microsoft.FSharp.Linq.RuntimeHelpers.LeafExpressionConverter" ->
+            match info.CompiledName, args with
+            | "EvaluateQuotation", [ expr ] -> Helper.LibCall(com, libModule, "evaluate", t, [ expr ], ?loc = r) |> Some
+            | _ -> None
+        | _ -> None
