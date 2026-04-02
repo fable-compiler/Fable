@@ -7,7 +7,7 @@ This is consistent with the Python TimeSpan representation which stores ticks.
 from __future__ import annotations
 
 import re
-from typing import Any, SupportsFloat
+from typing import Any, SupportsFloat, SupportsInt
 
 from .core import FSharpRef, int32
 from .time_span import (
@@ -30,19 +30,17 @@ _TICKS_PER_HOUR = 36000000000
 _TICKS_PER_DAY = 864000000000
 
 
-def create(h: int = 0, m: int = 0, s: int = 0, ms: int = 0) -> TimeSpan:
+def create(h: SupportsInt = 0, m: SupportsInt = 0, s: SupportsInt = 0, ms: SupportsInt = 0) -> TimeSpan:
     """Create a TimeOnly value from hours, minutes, seconds, milliseconds.
 
     Returns a TimeSpan (ticks since midnight).
     """
-    if h < 0 or m < 0 or s < 0 or ms < 0:
+    _h, _m, _s, _ms = int(h), int(m), int(s), int(ms)
+    if _h < 0 or _m < 0 or _s < 0 or _ms < 0:
         raise Exception("The parameters describe an unrepresentable TimeOnly.")
 
     return TimeSpan(
-        int(h) * _TICKS_PER_HOUR
-        + int(m) * _TICKS_PER_MINUTE
-        + int(s) * _TICKS_PER_SECOND
-        + int(ms) * _TICKS_PER_MILLISECOND
+        _h * _TICKS_PER_HOUR + _m * _TICKS_PER_MINUTE + _s * _TICKS_PER_SECOND + _ms * _TICKS_PER_MILLISECOND
     )
 
 
@@ -167,22 +165,22 @@ def parse(string: str) -> TimeSpan:
 
         if match.group(6) is not None:
             frac = match.group(6)
-            length = len(frac)
             val = int(frac)
-            if length == 1:
-                ms = val * 100
-            elif length == 2:
-                ms = val * 10
-            elif length == 3:
-                ms = val
-            elif length == 4:
-                ms = val // 10
-            elif length == 5:
-                ms = val // 100
-            elif length == 6:
-                ms = val // 1000
-            else:
-                ms = int(frac[:7]) // 10000
+            match len(frac):
+                case 1:
+                    ms = val * 100
+                case 2:
+                    ms = val * 10
+                case 3:
+                    ms = val
+                case 4:
+                    ms = val // 10
+                case 5:
+                    ms = val // 100
+                case 6:
+                    ms = val // 1000
+                case _:
+                    ms = int(frac[:7]) // 10000
 
         return create(h, m, s, ms)
 
