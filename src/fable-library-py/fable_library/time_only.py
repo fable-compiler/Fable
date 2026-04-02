@@ -12,13 +12,15 @@ from .core import FSharpRef, int32
 from .time_span import (
     TimeSpan,
     hours,
-    microseconds,
     milliseconds,
     minutes,
     seconds,
+)
+from .time_span import (
     ticks as _ts_ticks,
 )
 from .util import pad_with_zeros
+
 
 _TICKS_PER_MILLISECOND = 10000
 _TICKS_PER_SECOND = 10000000

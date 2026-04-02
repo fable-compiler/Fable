@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from .core import FSharpRef, int32, int64
+from .core import FSharpRef, int32
 from .date import days_in_month
 from .time_span import TimeSpan
 
