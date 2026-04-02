@@ -923,6 +923,7 @@ let ``System.Random works`` () =
     x >= 0 |> equal true
     let x = rnd.Next(5)
     (x >= 0 && x < 5) |> equal true
+    rnd.Next(0) |> equal 0
     let x = rnd.Next(14, 20)
     (x >= 14 && x < 20) |> equal true
     let x = rnd.Next(-14, -10)
