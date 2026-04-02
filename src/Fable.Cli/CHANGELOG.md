@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * [Python] Fix `DateTimeOffset` millisecond constructor and property (by @ncave)
 * [All] Add support for `Guid.CreateVersion7()` and `Guid.CreateVersion7(DateTimeOffset)`
+### Fixed
+
+* [Python] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument emitting it as a start-index instead of a compile error (by @repo-assist)
+* [Beam] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument incorrectly treating the enum value as a start index
 
 ## 5.0.0-rc.6 - 2026-03-31
 
