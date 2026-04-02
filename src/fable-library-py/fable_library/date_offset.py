@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta, timezone
 from math import fmod
-from typing import Any, SupportsIndex
+from typing import Any, SupportsIndex, overload
 
 from . import time_span
 from .core import FSharpRef, int64
@@ -71,6 +71,11 @@ class DateTimeOffset(datetime):
     def __hash__(self) -> int:
         return hash(_to_utc_ms(self))
 
+    @overload
+    def __sub__(self, other: timedelta) -> DateTimeOffset: ...
+    @overload
+    def __sub__(self, other: datetime) -> timedelta: ...
+
     def __sub__(self, other: timedelta | datetime) -> DateTimeOffset | timedelta:
         if isinstance(other, timedelta) and not isinstance(other, datetime):
             # datetime - timedelta → new DateTimeOffset preserving offset
@@ -80,7 +85,7 @@ class DateTimeOffset(datetime):
             new_dt = plain - other
             return DateTimeOffset(new_dt, self.offset_ms)
         # datetime - datetime → timedelta (use datetime's implementation)
-        return datetime.__sub__(self, other)  # type: ignore
+        return datetime.__sub__(self, other)  # type: ignore[return-value]
 
     def __add__(self, other: timedelta) -> DateTimeOffset:
         plain = datetime(
