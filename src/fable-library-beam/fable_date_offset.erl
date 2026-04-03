@@ -55,6 +55,66 @@
 ]).
 
 -type datetimeoffset() :: {integer(), 0 | 1 | 2, integer()}.
+-type datetime() :: {integer(), 0 | 1 | 2}.
+
+-spec create(integer(), integer(), integer(), integer(), integer(), integer(), integer()) ->
+    datetimeoffset().
+-spec create(
+    integer(), integer(), integer(), integer(), integer(), integer(), integer(), integer()
+) -> datetimeoffset().
+-spec from_date(datetime(), integer()) -> datetimeoffset().
+-spec from_ticks(integer(), integer()) -> datetimeoffset().
+-spec from_date_time(datetime(), integer(), integer()) -> datetimeoffset().
+-spec year(datetimeoffset()) -> integer().
+-spec month(datetimeoffset()) -> integer().
+-spec day(datetimeoffset()) -> integer().
+-spec hour(datetimeoffset()) -> integer().
+-spec minute(datetimeoffset()) -> integer().
+-spec second(datetimeoffset()) -> integer().
+-spec millisecond(datetimeoffset()) -> integer().
+-spec microsecond(datetimeoffset()) -> integer().
+-spec ticks(datetimeoffset()) -> integer().
+-spec offset(datetimeoffset()) -> integer().
+-spec date_time(datetimeoffset()) -> datetime().
+-spec date(datetimeoffset()) -> datetime().
+-spec time_of_day(datetimeoffset()) -> integer().
+-spec day_of_week(datetimeoffset()) -> integer().
+-spec day_of_year(datetimeoffset()) -> integer().
+-spec total_offset_minutes(datetimeoffset()) -> integer().
+-spec utc_ticks(datetimeoffset()) -> integer().
+-spec now() -> datetimeoffset().
+-spec utc_now() -> datetimeoffset().
+-spec min_value() -> datetimeoffset().
+-spec max_value() -> datetimeoffset().
+-spec unix_epoch() -> datetimeoffset().
+-spec local_date_time(datetimeoffset()) -> datetime().
+-spec utc_date_time(datetimeoffset()) -> datetime().
+-spec to_local_time(datetimeoffset()) -> datetimeoffset().
+-spec to_universal_time(datetimeoffset()) -> datetimeoffset().
+-spec to_offset(datetimeoffset(), integer()) -> datetimeoffset().
+-spec add(datetimeoffset(), integer()) -> datetimeoffset().
+-spec subtract(datetimeoffset(), datetimeoffset() | integer()) -> datetimeoffset() | integer().
+-spec add_years(datetimeoffset(), integer()) -> datetimeoffset().
+-spec add_months(datetimeoffset(), integer()) -> datetimeoffset().
+-spec add_days(datetimeoffset(), number()) -> datetimeoffset().
+-spec add_hours(datetimeoffset(), number()) -> datetimeoffset().
+-spec add_minutes(datetimeoffset(), number()) -> datetimeoffset().
+-spec add_seconds(datetimeoffset(), number()) -> datetimeoffset().
+-spec add_milliseconds(datetimeoffset(), number()) -> datetimeoffset().
+-spec add_ticks(datetimeoffset(), integer()) -> datetimeoffset().
+-spec op_addition(datetimeoffset(), integer()) -> datetimeoffset().
+-spec op_subtraction(datetimeoffset(), datetimeoffset() | integer()) -> datetimeoffset() | integer().
+-spec compare(datetimeoffset(), datetimeoffset()) -> -1 | 0 | 1.
+-spec equals(datetimeoffset(), datetimeoffset()) -> boolean().
+-spec equals_exact(datetimeoffset(), datetimeoffset()) -> boolean().
+-spec from_unix_time_seconds(integer()) -> datetimeoffset().
+-spec from_unix_time_milliseconds(integer()) -> datetimeoffset().
+-spec to_unix_time_seconds(datetimeoffset()) -> integer().
+-spec to_unix_time_milliseconds(datetimeoffset()) -> integer().
+-spec try_parse(binary(), reference()) -> boolean().
+-spec to_string(datetimeoffset()) -> binary().
+-spec to_string(datetimeoffset(), binary()) -> binary().
+-spec to_string(datetimeoffset(), binary(), term()) -> binary().
 
 %% DateTimeOffset is represented as a 3-tuple {Ticks, Kind, OffsetTicks}
 %% - Ticks: same as DateTime (100-ns intervals from Jan 1, 0001)
