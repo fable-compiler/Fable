@@ -10,12 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * [All] Add support for `Guid.CreateVersion7()` and `Guid.CreateVersion7(DateTimeOffset)`
+* [Rust] Add missing `System.Random` implementation and tests (by @ncave)
+* [Rust] Add missing `Array`, `List` and `Seq` module members and tests: `randomChoice`, `randomChoiceBy`, `randomChoiceWith`, `randomChoices`, `randomChoicesBy`, `randomChoicesWith`, `randomSample`, `randomSampleBy`, `randomSampleWith`, `randomShuffle`, `randomShuffleBy`, `randomShuffleWith` (by @ncave)
+* [Beam] Implement missing DateTimeOffset members, add DateOnly and TimeOnly support
 
 ### Fixed
 
 * [Dart] Fix `Array.compareWith` comparing lengths before elements, producing wrong results for arrays with common prefixes (fixes #2961)
+* [Python] Fix unsafe option unwrapping in `DateTimeOffset.get_Offset` and regex replacements (by @dbrattli)
+* [All] Replace unsafe option `.Value` unwrapping with safe alternatives in Python/Replacements.fs and Rust/Fable2Rust.fs (code scanning alerts IONIDE-006)
+* [All] Add `[<return: Struct>]` to partial active patterns in Dart and Rust targets to reduce allocations (code scanning alerts IONIDE-009)
 * [JS/TS] Fix `Guid` to use cryptographically strong random values (by @ncave)
 * [Python] Fix `DateTimeOffset` millisecond constructor and property (by @ncave)
+* [Python] Implement missing `DateTimeOffset` members and fix equality/comparison to use UTC-normalized instants (by @dbrattli)
+* [Python] Add `DateOnly` and `TimeOnly` support (by @dbrattli)
 * [Python] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument emitting it as a start-index instead of a compile error (by @repo-assist)
 * [Beam] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument incorrectly treating the enum value as a start index
 

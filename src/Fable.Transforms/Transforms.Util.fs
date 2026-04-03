@@ -304,6 +304,9 @@ module Types =
     let regexCaptureCollection = "System.Text.RegularExpressions.CaptureCollection"
 
     [<Literal>]
+    let random = "System.Random"
+
+    [<Literal>]
     let unit = "Microsoft.FSharp.Core.Unit"
 
     [<Literal>]

@@ -1198,3 +1198,119 @@ let ``List.removeManyAt works`` () =
     throwsAnyError (fun () -> List.removeManyAt<int> 0 2 [] |> ignore)
     throwsAnyError (fun () -> List.removeManyAt -1 2 [1] |> ignore)
     throwsAnyError (fun () -> List.removeManyAt 2 2 [1] |> ignore)
+
+[<Fact>]
+let ``List.randomShuffle works`` () =
+    let xs = [1; 2; 3; 4; 5]
+    let shuffled = List.randomShuffle xs
+    List.sort shuffled |> equal xs
+    List.length shuffled |> equal 5
+
+[<Fact>]
+let ``List.randomShuffleWith works`` () =
+    let xs = [1; 2; 3; 4; 5]
+    let rng = System.Random(42)
+    let shuffled = List.randomShuffleWith rng xs
+    List.sort shuffled |> equal xs
+    List.length shuffled |> equal 5
+
+[<Fact>]
+let ``List.randomShuffleBy works`` () =
+    // Use deterministic randomizer: always returns 0.0 (picks first remaining element)
+    let shuffled = List.randomShuffleBy (fun () -> 0.0) [1; 2; 3; 4; 5]
+    List.sort shuffled |> equal [1; 2; 3; 4; 5]
+    // Out-of-range randomizer should throw
+    throwsAnyError (fun () -> List.randomShuffleBy (fun () -> 1.0) [1; 2] |> ignore)
+    throwsAnyError (fun () -> List.randomShuffleBy (fun () -> -0.1) [1; 2] |> ignore)
+
+[<Fact>]
+let ``List.randomChoice works`` () =
+    let xs = [1; 2; 3; 4; 5]
+    let x = List.randomChoice xs
+    List.contains x xs |> equal true
+    // empty list should throw
+    throwsAnyError (fun () -> List.randomChoice<int> [] |> ignore)
+
+[<Fact>]
+let ``List.randomChoiceWith works`` () =
+    let xs = [10; 20; 30]
+    let rng = System.Random(42)
+    let x = List.randomChoiceWith rng xs
+    List.contains x xs |> equal true
+
+[<Fact>]
+let ``List.randomChoiceBy works`` () =
+    // randomizer always picks index 0
+    let x = List.randomChoiceBy (fun () -> 0.0) [42; 99; 7]
+    x |> equal 42
+    // Out-of-range should throw
+    throwsAnyError (fun () -> List.randomChoiceBy (fun () -> 1.0) [1] |> ignore)
+    // empty list should throw
+    throwsAnyError (fun () -> List.randomChoiceBy (fun () -> 0.5) [] |> ignore)
+
+[<Fact>]
+let ``List.randomChoices works`` () =
+    let xs = [1; 2; 3]
+    let choices = List.randomChoices 5 xs
+    List.length choices |> equal 5
+    choices |> List.forall (fun x -> List.contains x xs) |> equal true
+    // zero count
+    List.randomChoices 0 xs |> equal []
+    // negative count should throw
+    throwsAnyError (fun () -> List.randomChoices -1 xs |> ignore)
+    // empty source with count > 0 should throw
+    throwsAnyError (fun () -> List.randomChoices 1 [] |> ignore)
+
+[<Fact>]
+let ``List.randomChoicesWith works`` () =
+    let xs = [10; 20; 30]
+    let rng = System.Random(42)
+    let choices = List.randomChoicesWith rng 4 xs
+    List.length choices |> equal 4
+    choices |> List.forall (fun x -> List.contains x xs) |> equal true
+
+[<Fact>]
+let ``List.randomChoicesBy works`` () =
+    // always picks index 1
+    let choices = List.randomChoicesBy (fun () -> 0.5) 3 [10; 20; 30]
+    List.length choices |> equal 3
+    choices |> List.forall (fun x -> x = 20) |> equal true
+
+[<Fact>]
+let ``List.randomSample works`` () =
+    let xs = [1; 2; 3; 4; 5]
+    let sample = List.randomSample 3 xs
+    List.length sample |> equal 3
+    // all elements are from the source
+    sample |> List.forall (fun x -> List.contains x xs) |> equal true
+    // all elements are distinct
+    List.distinct sample |> List.length |> equal 3
+    // count = 0 returns empty
+    List.randomSample 0 xs |> equal []
+    // count = length returns all elements (sorted to compare)
+    List.randomSample 5 xs |> List.sort |> equal xs
+    // negative count should throw
+    throwsAnyError (fun () -> List.randomSample -1 xs |> ignore)
+    // count > length should throw
+    throwsAnyError (fun () -> List.randomSample 6 xs |> ignore)
+    // empty source with count > 0 should throw (count > len)
+    throwsAnyError (fun () -> List.randomSample 1 [] |> ignore)
+
+[<Fact>]
+let ``List.randomSampleWith works`` () =
+    let xs = [1; 2; 3; 4; 5]
+    let rng = System.Random(42)
+    let sample = List.randomSampleWith rng 3 xs
+    List.length sample |> equal 3
+    sample |> List.forall (fun x -> List.contains x xs) |> equal true
+    List.distinct sample |> List.length |> equal 3
+
+[<Fact>]
+let ``List.randomSampleBy works`` () =
+    // Deterministic: always 0.0, picks first remaining element each time
+    let sample = List.randomSampleBy (fun () -> 0.0) 3 [1; 2; 3; 4; 5]
+    List.length sample |> equal 3
+    List.distinct sample |> List.length |> equal 3
+    // Out-of-range randomizer should throw
+    throwsAnyError (fun () -> List.randomSampleBy (fun () -> 1.0) 1 [1; 2] |> ignore)
+    throwsAnyError (fun () -> List.randomSampleBy (fun () -> -0.1) 1 [1; 2] |> ignore)

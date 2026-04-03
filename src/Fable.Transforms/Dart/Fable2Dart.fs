@@ -89,17 +89,19 @@ module Util =
 
     let (|TransformType|) (com: IDartCompiler) ctx e = com.TransformType(ctx, e)
 
+    [<return: Struct>]
     let (|Function|_|) =
         function
-        | Fable.Lambda(arg, body, _) -> Some([ arg ], body)
-        | Fable.Delegate(args, body, _, []) -> Some(args, body)
-        | _ -> None
+        | Fable.Lambda(arg, body, _) -> ValueSome([ arg ], body)
+        | Fable.Delegate(args, body, _, []) -> ValueSome(args, body)
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|Lets|_|) =
         function
-        | Fable.Let(ident, value, body) -> Some([ ident, value ], body)
-        | Fable.LetRec(bindings, body) -> Some(bindings, body)
-        | _ -> None
+        | Fable.Let(ident, value, body) -> ValueSome([ ident, value ], body)
+        | Fable.LetRec(bindings, body) -> ValueSome(bindings, body)
+        | _ -> ValueNone
 
     let makeTypeRefFromName typeName genArgs =
         let ident = makeImmutableIdent MetaType typeName

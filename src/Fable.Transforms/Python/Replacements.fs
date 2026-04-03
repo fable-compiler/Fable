@@ -89,9 +89,9 @@ let coreModFor =
     | FSharpReference _ -> "core"
     | BclHashSet _ -> "mutable_set"
     | BclDictionary _ -> "mutable_map"
-    | BclKeyValuePair _
-    | BclDateOnly
-    | BclTimeOnly -> FableError "Cannot decide core module" |> raise
+    | BclDateOnly -> "date_only"
+    | BclTimeOnly -> "time_only"
+    | BclKeyValuePair _ -> FableError "Cannot decide core module" |> raise
 
 let makeDecimal com r t (x: decimal) =
     let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
@@ -610,8 +610,11 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
                 BinaryUnequal
 
         makeBinOp r Boolean left right op
-    | Builtin(BclDateTime | BclDateTimeOffset) ->
+    | Builtin BclDateTime ->
         Helper.LibCall(com, "date", "equals", Boolean, [ left; right ], ?loc = r)
+        |> is equal
+    | Builtin BclDateTimeOffset ->
+        Helper.LibCall(com, "date_offset", "equals", Boolean, [ left; right ], ?loc = r)
         |> is equal
     | Builtin(FSharpSet _ | FSharpMap _) -> Helper.InstanceCall(left, "Equals", Boolean, [ right ]) |> is equal
     | DeclaredType _ ->
@@ -647,7 +650,8 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Char
     | String
     | Number _ -> Helper.LibCall(com, "util", "comparePrimitives", t, [ left; right ], ?loc = r)
-    | Builtin(BclDateTime | BclDateTimeOffset) -> Helper.LibCall(com, "date", "compare", t, [ left; right ], ?loc = r)
+    | Builtin BclDateTime -> Helper.LibCall(com, "date", "compare", t, [ left; right ], ?loc = r)
+    | Builtin BclDateTimeOffset -> Helper.LibCall(com, "date_offset", "compare", t, [ left; right ], ?loc = r)
     | DeclaredType _ -> Helper.LibCall(com, "util", "compare", t, [ left; right ], ?loc = r)
     | Array(genArg, _) ->
         let f = makeComparerFunction com ctx genArg
@@ -805,7 +809,9 @@ and private getZero (com: ICompiler) ctx (t: Type) =
     | Char -> makeCharConst '\u0000'
     | String -> makeStrConst "" // TODO: Use null for string?
     | Builtin BclTimeSpan -> Helper.LibCall(com, "time_span", "create", t, [ makeIntConst 0 ])
+    | Builtin BclTimeOnly -> makeIntConst 0
     | Builtin BclDateTime as t -> Helper.LibCall(com, "date", "minValue", t, [])
+    | Builtin BclDateOnly as t -> Helper.LibCall(com, "DateOnly", "minValue", t, [])
     | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
     | Builtin(FSharpSet genArg) as t -> makeSet com ctx None t "Empty" [] genArg
     | Builtin(BclKeyValuePair(k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
@@ -901,7 +907,9 @@ let rec defaultof com ctx r t =
     | Char
     | Number _
     | Builtin BclTimeSpan
+    | Builtin BclTimeOnly
     | Builtin BclDateTime
+    | Builtin BclDateOnly
     | Builtin BclDateTimeOffset -> getZero com ctx t
     | Builtin BclGuid -> emptyGuid com t
     | DeclaredType(ent, _) ->
@@ -2893,6 +2901,116 @@ let private ignoreFormatProvider com (ctx: Context) r (moduleName: string) meth 
         [ input; defVal ]
     | _ -> args
 
+let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | ".ctor" when args.Length = 4 ->
+        "DateOnly constructor with the calendar parameter is not supported."
+        |> addError com ctx.InlinePath r
+
+        None
+    | ".ctor" ->
+        Helper.LibCall(com, "DateOnly", "create", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "ToString" ->
+        match args with
+        | [ ExprType String ]
+        | [ StringConst _ ] ->
+            "DateOnly.ToString without CultureInfo is not supported, please add CultureInfo.InvariantCulture"
+            |> addError com ctx.InlinePath r
+
+            None
+        | [ StringConst("d" | "o" | "O"); _ ] ->
+            Helper.LibCall(com, "DateOnly", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+            |> Some
+        | [ StringConst _; _ ] ->
+            "DateOnly.ToString doesn't support custom format. It only handles \"d\", \"o\", \"O\" format, with CultureInfo.InvariantCulture."
+            |> addError com ctx.InlinePath r
+
+            None
+        | [ _ ] ->
+            Helper.LibCall(
+                com,
+                "DateOnly",
+                "toString",
+                t,
+                makeStrConst "d" :: args,
+                i.SignatureArgTypes,
+                ?thisArg = thisArg,
+                ?loc = r
+            )
+            |> Some
+        | _ -> None
+    | "AddDays"
+    | "AddMonths"
+    | "AddYears" ->
+        let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
+
+        Helper.LibCall(com, "DateOnly", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+    | meth ->
+        let args = ignoreFormatProvider com ctx r i.DeclaringEntityFullName meth args
+        let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
+
+        Helper.LibCall(com, "DateOnly", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+
+let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | ".ctor" ->
+        match args with
+        | [ ExprType(Number(Int64, _)) ] ->
+            Helper.LibCall(com, "TimeOnly", "fromTicks", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+            |> Some
+        | _ ->
+            Helper.LibCall(com, "TimeOnly", "create", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+            |> Some
+    | "get_MinValue" -> Helper.LibCall(com, "TimeOnly", "minValue", t, [], [], ?loc = r) |> Some
+    | "ToTimeSpan" -> thisArg
+    | "get_Hour"
+    | "get_Minute"
+    | "get_Second"
+    | "get_Millisecond"
+    | "get_Ticks" ->
+        let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
+
+        Helper.LibCall(com, "TimeOnly", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+    | "ToString" ->
+        match args with
+        | [ ExprType String ]
+        | [ StringConst _ ] ->
+            "TimeOnly.ToString without CultureInfo is not supported, please add CultureInfo.InvariantCulture"
+            |> addError com ctx.InlinePath r
+
+            None
+        | [ StringConst("r" | "R" | "o" | "O" | "t" | "T"); _ ] ->
+            Helper.LibCall(com, "TimeOnly", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+            |> Some
+        | [ StringConst _; _ ] ->
+            "TimeOnly.ToString doesn't support custom format. It only handles \"r\", \"R\", \"o\", \"O\", \"t\", \"T\" format, with CultureInfo.InvariantCulture."
+            |> addError com ctx.InlinePath r
+
+            None
+        | [ _ ] ->
+            Helper.LibCall(
+                com,
+                "TimeOnly",
+                "toString",
+                t,
+                makeStrConst "t" :: args,
+                i.SignatureArgTypes,
+                ?thisArg = thisArg,
+                ?loc = r
+            )
+            |> Some
+        | _ -> None
+    | meth ->
+        let args = ignoreFormatProvider com ctx r i.DeclaringEntityFullName meth args
+        let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
+
+        Helper.LibCall(com, "TimeOnly", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+
 let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     let getTime (e: Expr) =
         Helper.InstanceCall(e, "getTime", t, [])
@@ -2927,6 +3045,9 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         | ExprType(DeclaredType(e, [])) :: _ when e.FullName = Types.datetime ->
             Helper.LibCall(com, "DateOffset", "fromDate", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
+        | ExprType(DeclaredType(e, [])) :: _ when e.FullName = Types.dateOnly ->
+            Helper.LibCall(com, "DateOffset", "fromDateTime", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
         | _ ->
             let last = List.last args
 
@@ -2953,65 +3074,78 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         Helper.LibCall(com, "Date", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "get_Offset" ->
-        Naming.removeGetSetPrefix i.CompiledName
-        |> Naming.lowerFirst
-        |> getFieldWith r t thisArg.Value
-        |> Some
-    // DateTimeOffset
-    | "get_LocalDateTime" ->
-        Helper.LibCall(com, "date_offset", "to_local_time", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
-        |> Some
-    | "get_UtcDateTime" ->
-        Helper.LibCall(com, "date_offset", "to_universal_time", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
-        |> Some
-    | "get_DateTime" ->
-        let kind = System.DateTimeKind.Unspecified |> int |> makeIntConst
-
-        Helper.LibCall(
-            com,
-            "Date",
-            "fromDateTimeOffset",
-            t,
-            [ thisArg.Value; kind ],
-            [ thisArg.Value.Type; kind.Type ],
-            ?loc = r
+        thisArg
+        |> Option.map (fun thisArg ->
+            Naming.removeGetSetPrefix i.CompiledName
+            |> Naming.lowerFirst
+            |> getFieldWith r t thisArg
         )
+    // DateTimeOffset
+    | "get_LocalDateTime" when i.DeclaringEntityFullName = Types.datetimeOffset ->
+        thisArg
+        |> Option.map (fun thisArg ->
+            Helper.LibCall(com, "date_offset", "localDateTime", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
+        )
+    | "get_UtcDateTime" when i.DeclaringEntityFullName = Types.datetimeOffset ->
+        thisArg
+        |> Option.map (fun thisArg ->
+            Helper.LibCall(com, "date_offset", "utcDateTime", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
+        )
+    | "get_DateTime" when i.DeclaringEntityFullName = Types.datetimeOffset ->
+        thisArg
+        |> Option.map (fun thisArg ->
+            let kind = System.DateTimeKind.Unspecified |> int |> makeIntConst
+
+            Helper.LibCall(
+                com,
+                "Date",
+                "fromDateTimeOffset",
+                t,
+                [ thisArg; kind ],
+                [ thisArg.Type; kind.Type ],
+                ?loc = r
+            )
+        )
+    | "FromUnixTimeSeconds" ->
+        let value =
+            Helper.LibCall(com, "Long", "toNumber", Float64.Number, args, i.SignatureArgTypes)
+
+        Helper.LibCall(com, "DateOffset", "fromUnixTimeSeconds", t, [ value ], [ value.Type ], ?loc = r)
         |> Some
-    | "FromUnixTimeSeconds"
     | "FromUnixTimeMilliseconds" ->
         let value =
             Helper.LibCall(com, "Long", "toNumber", Float64.Number, args, i.SignatureArgTypes)
 
-        let value =
-            if i.CompiledName = "FromUnixTimeSeconds" then
-                makeBinOp r t value (makeIntConst 1000) BinaryMultiply
-            else
-                value
-
-        Helper.LibCall(
-            com,
-            "DateOffset",
-            "datetime.fromtimestamp",
-            t,
-            [ value; makeIntConst 0 ],
-            [ value.Type; Int32.Number ],
-            ?loc = r
+        Helper.LibCall(com, "DateOffset", "fromUnixTimeMilliseconds", t, [ value ], [ value.Type ], ?loc = r)
+        |> Some
+    | "ToUnixTimeSeconds" ->
+        thisArg
+        |> Option.map (fun thisArg ->
+            Helper.LibCall(com, "DateOffset", "toUnixTimeSeconds", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
         )
-        |> Some
-    | "ToUnixTimeSeconds"
     | "ToUnixTimeMilliseconds" ->
-        let ms = getTime thisArg.Value
-
-        let args =
-            if i.CompiledName = "ToUnixTimeSeconds" then
-                [ makeBinOp r t ms (makeIntConst 1000) BinaryDivide ]
-            else
-                [ ms ]
-
-        Helper.LibCall(com, "Long", "fromNumber", t, args, ?loc = r) |> Some
+        thisArg
+        |> Option.map (fun thisArg ->
+            Helper.LibCall(com, "DateOffset", "toUnixTimeMilliseconds", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
+        )
     | "get_UtcTicks" ->
-        Helper.LibCall(com, "DateOffset", "getUtcTicks", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        thisArg
+        |> Option.map (fun thisArg ->
+            Helper.LibCall(com, "DateOffset", "getUtcTicks", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
+        )
+    | "EqualsExact" ->
+        thisArg
+        |> Option.map (fun thisArg ->
+            Helper.LibCall(com, "DateOffset", "equalsExact", Boolean, [ thisArg; args.Head ], ?loc = r)
+        )
+    | "Compare" ->
+        Helper.LibCall(com, "DateOffset", "compare", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "CompareTo" ->
+        thisArg
+        |> Option.map (fun thisArg ->
+            Helper.LibCall(com, "DateOffset", "compareTo", t, [ thisArg; args.Head ], ?loc = r)
+        )
     | "TryParse" ->
         let args =
             ignoreFormatProvider com ctx r i.DeclaringEntityFullName i.CompiledName args
@@ -3021,14 +3155,17 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
     | "AddTicks" ->
         match thisArg, args with
         | Some c, [ ticks ] ->
+            let divisor =
+                NumberConstant(NumberValue.Int64 10000L, NumberInfo.Empty) |> makeValue None
+
             let ms =
                 Helper.LibCall(
                     com,
                     "long",
                     "op_Division",
                     i.SignatureArgTypes.Head,
-                    [ ticks; makeIntConst 10000 ],
-                    [ ticks.Type; Int32.Number ]
+                    [ ticks; divisor ],
+                    [ ticks.Type; Int64.Number ]
                 )
 
             let ms =
@@ -3213,39 +3350,47 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         Helper.LibCall(com, "reg_exp", "create", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "get_Options" ->
-        Helper.LibCall(com, "reg_exp", "options", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
-        |> Some
+        thisArg
+        |> Option.map (fun thisArg ->
+            Helper.LibCall(com, "reg_exp", "options", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
+        )
     // Capture
     | "get_Index" ->
-        if not isGroup then
-            Helper.InstanceCall(thisArg.Value, "start", t, [], i.SignatureArgTypes, ?loc = r)
-            |> Some
-        else
-            "Accessing index of Regex groups is not supported"
-            |> addErrorAndReturnNull com ctx.InlinePath r
-            |> Some
+        thisArg
+        |> Option.map (fun thisArg ->
+            if not isGroup then
+                Helper.InstanceCall(thisArg, "start", t, [], i.SignatureArgTypes, ?loc = r)
+            else
+                "Accessing index of Regex groups is not supported"
+                |> addErrorAndReturnNull com ctx.InlinePath r
+        )
     | "get_Value" ->
-        if
-            isGroup
-        // In JS Regex group values can be undefined, ensure they're empty strings #838
-        then
-            Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), Tags.empty, t, r)
-            |> Some
-        else
-            propInt 0 thisArg.Value |> Some
+        thisArg
+        |> Option.map (fun thisArg ->
+            if isGroup then
+                // In JS Regex group values can be undefined, ensure they're empty strings #838
+                Operation(Logical(LogicalOr, thisArg, makeStrConst ""), Tags.empty, t, r)
+            else
+                propInt 0 thisArg
+        )
     | "get_Length" ->
-        if isGroup then
-            Helper.GlobalCall("len", t, [ thisArg.Value ], [ t ], ?loc = r) |> Some
-        else
-            let prop = propInt 0 thisArg.Value
-            Helper.GlobalCall("len", t, [ prop ], [ t ], ?loc = r) |> Some
+        thisArg
+        |> Option.map (fun thisArg ->
+            if isGroup then
+                Helper.GlobalCall("len", t, [ thisArg ], [ t ], ?loc = r)
+            else
+                let prop = propInt 0 thisArg
+                Helper.GlobalCall("len", t, [ prop ], [ t ], ?loc = r)
+        )
     // Group
-    | "get_Success" -> nullCheck r false thisArg.Value |> Some
+    | "get_Success" -> thisArg |> Option.map (fun thisArg -> nullCheck r false thisArg)
     // MatchCollection & GroupCollection
     | "get_Item" when i.DeclaringEntityFullName = Types.regexGroupCollection ->
-        Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg.Value; args.Head ], [ thisArg.Value.Type ], ?loc = r)
-        |> Some
-    | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
+        thisArg
+        |> Option.map (fun thisArg ->
+            Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg; args.Head ], [ thisArg.Type ], ?loc = r)
+        )
+    | "get_Item" -> thisArg |> Option.map (fun thisArg -> getExpr r t thisArg args.Head)
     | "get_Count" ->
         // Use int32(len()) to ensure consistent return type
         thisArg
@@ -3253,7 +3398,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             let lenExpr = Helper.GlobalCall("len", Int32.Number, [ c ], ?loc = r)
             Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r)
         )
-    | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some
+    | "GetEnumerator" -> thisArg |> Option.map (fun thisArg -> getEnumerator com r t thisArg)
     | "IsMatch"
     | "Match"
     | "Matches" as meth ->
@@ -3793,8 +3938,11 @@ let tryField com returnTyp ownerTyp fieldName =
     | Builtin BclDateTime, ("MaxValue" | "MinValue") ->
         Helper.LibCall(com, coreModFor BclDateTime, Naming.lowerFirst fieldName, returnTyp, [])
         |> Some
-    | Builtin BclDateTimeOffset, ("MaxValue" | "MinValue") ->
+    | Builtin BclDateTimeOffset, ("MaxValue" | "MinValue" | "UnixEpoch") ->
         Helper.LibCall(com, coreModFor BclDateTimeOffset, Naming.lowerFirst fieldName, returnTyp, [])
+        |> Some
+    | Builtin BclDateOnly, ("MaxValue" | "MinValue") ->
+        Helper.LibCall(com, coreModFor BclDateOnly, Naming.lowerFirst fieldName, returnTyp, [])
         |> Some
     | DeclaredType(ent, genArgs), fieldName ->
         match ent.FullName with
@@ -3900,6 +4048,8 @@ let private replacedModules =
             "System.Diagnostics.Stopwatch", stopwatch
             Types.datetime, dates
             Types.datetimeOffset, dates
+            Types.dateOnly, dateOnly
+            Types.timeOnly, timeOnly
             Types.timespan, timeSpans
             "System.Timers.Timer", timers
             "System.Environment", systemEnv
@@ -4072,6 +4222,6 @@ let tryType typ =
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [ genArg1; genArg2 ])
         | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
         | FSharpReference genArg -> Some(Types.refCell, refCells, [ genArg ])
-        | BclDateOnly
-        | BclTimeOnly -> None
+        | BclDateOnly -> Some(Types.dateOnly, dateOnly, [])
+        | BclTimeOnly -> Some(Types.timeOnly, timeOnly, [])
     | _ -> None
