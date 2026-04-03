@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [All] Replace unsafe option `.Value` unwrapping with safe alternatives in Python/Replacements.fs and Rust/Fable2Rust.fs (code scanning alerts IONIDE-006)
+* [All] Add `[<return: Struct>]` to partial active patterns in Dart and Rust targets to reduce allocations (code scanning alerts IONIDE-009)
 * [JS/TS] Fix `Guid` to use cryptographically strong random values (by @ncave)
 * [Python] Fix `DateTimeOffset` millisecond constructor and property (by @ncave)
 * [Python] Implement missing `DateTimeOffset` members and fix equality/comparison to use UTC-normalized instants (by @dbrattli)

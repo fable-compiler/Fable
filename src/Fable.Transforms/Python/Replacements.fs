@@ -3388,7 +3388,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | "get_Item" when i.DeclaringEntityFullName = Types.regexGroupCollection ->
         Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg.Value; args.Head ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
-    | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
+    | "get_Item" -> thisArg |> Option.map (fun this -> getExpr r t this args.Head)
     | "get_Count" ->
         // Use int32(len()) to ensure consistent return type
         thisArg

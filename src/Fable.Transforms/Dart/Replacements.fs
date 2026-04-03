@@ -10,6 +10,7 @@ open Fable.AST.Fable
 open Fable.Transforms
 open Replacements.Util
 
+[<return: Struct>]
 let (|DartInt|_|) =
     function
     | Int8
@@ -19,14 +20,15 @@ let (|DartInt|_|) =
     | Int32
     | UInt32
     | Int64
-    | UInt64 -> Some DartInt
-    | _ -> None
+    | UInt64 -> ValueSome DartInt
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|DartDouble|_|) =
     function
     | Float32
-    | Float64 -> Some DartDouble
-    | _ -> None
+    | Float64 -> ValueSome DartDouble
+    | _ -> ValueNone
 
 let error com msg =
     let e = makeImportLib com Any "ExceptionBase" "Types"
@@ -1201,10 +1203,12 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         let meth = Naming.lowerFirst meth
 
         match meth, t with
-        | ("min" | "max"), Number((DartInt | DartDouble), NumberInfo.Empty) ->
+        | ("min" | "max"), Number(DartInt, NumberInfo.Empty)
+        | ("min" | "max"), Number(DartDouble, NumberInfo.Empty) ->
             Helper.ImportedCall("dart:math", meth, t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
-        | ("minMagnitude" | "maxMagnitude"), Number((DartInt | DartDouble), NumberInfo.Empty) ->
+        | ("minMagnitude" | "maxMagnitude"), Number(DartInt, NumberInfo.Empty)
+        | ("minMagnitude" | "maxMagnitude"), Number(DartDouble, NumberInfo.Empty) ->
             Helper.LibCall(com, "Util", meth, t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
         | _ ->
