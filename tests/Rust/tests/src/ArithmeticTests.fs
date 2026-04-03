@@ -56,6 +56,13 @@ let ``Integer division doesn't produce floats`` () =
 [<Fact>]
 let ``Infix modulo can be generated`` () =
     4 % 3 |> equal 1
+    5 % 3 |> equal 2
+
+[<Fact>]
+let ``Infix modulo with negative numbers`` () =
+    -5 % 3 |> equal -2
+    5 % -3 |> equal 2
+    -5 % -3 |> equal -2
 
 [<Fact>]
 let ``Math.DivRem works with bytes`` () =
@@ -136,7 +143,23 @@ let ``Bitwise shift right can be generated`` () = // See #1530
 let ``Zero fill shift right for unsigned`` () = // See #646
     0x80000000 >>> 1 |> equal -1073741824
     0x80000000u >>> 1 |> equal 1073741824u
-    0x80000000UL>>> 1 |> equal 1073741824UL
+    0x80000000UL >>> 1 |> equal 1073741824UL
+
+[<Fact>]
+let ``Zero fill right shift is logical for unsigned integer types`` () =
+    // For unsigned types, >>> is zero-fill (logical) - the high bit is NOT sign-extended
+    0xFFuy >>> 1 |> equal 127uy                      // uint8:  0x7F
+    0xFFFFus >>> 1 |> equal 32767us                  // uint16: 0x7FFF
+    0xFFFFFFFFu >>> 1 |> equal 2147483647u           // uint32: 0x7FFFFFFF
+    0xFFFFFFFFFFFFFFFFUL >>> 1 |> equal 9223372036854775807UL  // uint64: 0x7FFFFFFFFFFFFFFF
+
+[<Fact>]
+let ``Arithmetic right shift preserves sign for signed integer types`` () =
+    // For signed types, >>> is arithmetic (sign-propagating) - the sign bit IS extended
+    -2y >>> 1 |> equal -1y   // int8:  0xFF = -1
+    -2s >>> 1 |> equal -1s   // int16: 0xFFFF = -1
+    -2 >>> 1 |> equal -1     // int32: 0xFFFFFFFF = -1
+    -2L >>> 1 |> equal -1L   // int64: 0xFFFFFFFFFFFFFFFF = -1
 
 [<Fact>]
 let ``UInt64 multiplication with 0 returns uint`` () = // See #1480
@@ -379,6 +402,13 @@ let ``Int64 Integer division doesn't produce floats`` () =
 [<Fact>]
 let ``Int64 Infix modulo can be generated`` () =
     4L % 3L |> equal 1L
+    5L % 3L |> equal 2L
+
+[<Fact>]
+let ``Int64 Infix modulo with negative numbers`` () =
+    -5L % 3L |> equal -2L
+    5L % -3L |> equal 2L
+    -5L % -3L |> equal -2L
 
 [<Fact>]
 let ``Int64 Evaluation order is preserved by generated code`` () =
@@ -441,6 +471,13 @@ let ``BigInt Integer division doesn't produce floats`` () =
 [<Fact>]
 let ``BigInt Infix modulo can be generated`` () =
     4I % 3I |> equal 1I
+    5I % 3I |> equal 2I
+
+[<Fact>]
+let ``BigInt Infix modulo with negative numbers`` () =
+    -5I % 3I |> equal -2I
+    5I % -3I |> equal 2I
+    -5I % -3I |> equal -2I
 
 [<Fact>]
 let ``BigInt.DivRem works`` () = // See #1744
@@ -879,47 +916,54 @@ let ``decr works`` () =
     i.Value <- i.Value - 1
     i.Value |> equal 2
 
-// [<Fact>]
-// let ``System.Random works`` () =
-//     let rnd = Random()
-//     let x = rnd.Next()
-//     x >= 0 |> equal true
-//     let x = rnd.Next(5)
-//     (x >= 0 && x < 5) |> equal true
-//     let x = rnd.Next(14, 20)
-//     (x >= 14 && x < 20) |> equal true
-//     let x = rnd.Next(-14, -10)
-//     (x >= -14 && x < -10) |> equal true
-//     let x = rnd.NextDouble()
-//     (x >= 0.0 && x < 1.0) |> equal true
-//     throwsAnyError <| fun () -> rnd.Next(-10)
-//     throwsAnyError <| fun () -> rnd.Next(14, 10)
+[<Fact>]
+let ``System.Random works`` () =
+    let rnd = Random()
+    let x = rnd.Next()
+    x >= 0 |> equal true
+    let x = rnd.Next(5)
+    (x >= 0 && x < 5) |> equal true
+    rnd.Next(0) |> equal 0
+    let x = rnd.Next(14, 20)
+    (x >= 14 && x < 20) |> equal true
+    let x = rnd.Next(-14, -10)
+    (x >= -14 && x < -10) |> equal true
+    let x = rnd.NextDouble()
+    (x >= 0.0 && x < 1.0) |> equal true
+    throwsAnyError <| fun () -> rnd.Next(-10)
+    throwsAnyError <| fun () -> rnd.Next(14, 10)
 
-// // Note: Test could fail sometime during life of universe, if it picks all zeroes.
-// [<Fact>]
-// let ``System.Random.NextBytes works`` () =
-//     let buffer = Array.create 16 0uy // guid-sized buffer
-//     Random().NextBytes(buffer)
-//     buffer.Length |> equal 16
-//     buffer = Array.create 16 0uy |> equal false
-//     throwsAnyError <| fun () -> Random().NextBytes(null)
+// Note: Test could fail sometime during life of universe, if it picks all zeroes.
+[<Fact>]
+let ``System.Random.NextBytes works`` () =
+    let buffer = Array.create 16 0uy // guid-sized buffer
+    Random().NextBytes(buffer)
+    buffer.Length |> equal 16
+    buffer = Array.create 16 0uy |> equal false
+    // throwsAnyError <| fun () -> Random().NextBytes(null)
 
-// [<Fact>]
-// let ``System.Random seeded works`` () =
-//     let rnd = Random(1234)
-//     rnd.Next() |> equal 857019877
-//     rnd.Next(100) |> equal 89
-//     rnd.Next(1000, 10000) |> equal 3872
-//     rnd.NextDouble() |> equal 0.9467375338760845
-//     throwsAnyError <| fun () -> rnd.Next(-10)
-//     throwsAnyError <| fun () -> rnd.Next(14, 10)
+[<Fact>]
+let ``System.Random seeded works`` () =
+    let rnd = Random(1234)
+    let x = rnd.Next()
+    x >= 0 |> equal true
+    let x = rnd.Next(100)
+    (x >= 0 && x < 100) |> equal true
+    let x = rnd.Next(1000, 10000)
+    (x >= 1000 && x < 10000) |> equal true
+    let x = rnd.NextDouble()
+    (x >= 0.0 && x < 1.0) |> equal true
+    throwsAnyError <| fun () -> rnd.Next(-10)
+    throwsAnyError <| fun () -> rnd.Next(14, 10)
 
-// [<Fact>]
-// let ``System.Random.NextBytes seeded works`` () =
-//     let buffer = Array.create 4 0uy // guid-sized buffer
-//     Random(5432).NextBytes(buffer)
-//     buffer |> equal [|152uy; 238uy; 227uy; 30uy|]
-//     throwsAnyError <| fun () -> Random().NextBytes(null)
+[<Fact>]
+let ``System.Random.NextBytes seeded works`` () =
+    let buffer = Array.create 4 0uy // guid-sized buffer
+    Random(5432).NextBytes(buffer)
+    buffer.Length |> equal 4
+    // Just verify it's not all zeros
+    buffer <> Array.create 4 0uy |> equal true
+    // throwsAnyError <| fun () -> Random().NextBytes(null)
 
 [<Fact>]
 let ``Long integer equality works`` () =

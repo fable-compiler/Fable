@@ -628,6 +628,14 @@ module Annotation =
         | Replacements.Util.Builtin kind -> makeBuiltinTypeAnnotation com ctx typ kind
         | Fable.DeclaredType(entRef, genArgs) -> com.GetEntity(entRef) |> makeEntityTypeAnnotation com ctx genArgs
 
+    let makeArgTypeAnnotation (com: IBabelCompiler) ctx (id: Fable.Ident) =
+        if com.IsTypeScript then
+            match id.Type, id with
+            | Replacements.Util.IsByRefType com typ, id when id.IsThisArgument -> makeTypeAnnotation com ctx typ |> Some
+            | _ -> makeTypeAnnotation com ctx id.Type |> Some
+        else
+            None
+
     let makeTypeAnnotationIfTypeScript (com: IBabelCompiler) ctx typ expr =
         if com.IsTypeScript then
             match typ, expr with
@@ -1338,6 +1346,12 @@ module Util =
                 let body =
                     // TODO: If ident is not captured maybe we can just replace it with "this"
                     if isIdentUsed thisArg.Name body then
+                        let thisArgType =
+                            match thisArg.Type with
+                            | Replacements.Util.IsByRefType com typ -> typ
+                            | typ -> typ
+
+                        let thisArg = { thisArg with Type = thisArgType }
                         let thisIdent = Fable.IdentExpr { thisArg with Name = "this" }
 
                         let thisIdent =
@@ -3322,8 +3336,7 @@ but thanks to the optimisation done below we get
                 let args' =
                     List.zip args tc.Args
                     |> List.map (fun (id, tcArg) ->
-                        let ta = makeTypeAnnotationIfTypeScript com ctx id.Type None
-
+                        let ta = makeArgTypeAnnotation com ctx id
                         Parameter.parameter (tcArg, ?typeAnnotation = ta)
                     )
 
@@ -3348,7 +3361,7 @@ but thanks to the optimisation done below we get
             | _ ->
                 args
                 |> List.map (fun a ->
-                    let ta = makeTypeAnnotationIfTypeScript com ctx a.Type None
+                    let ta = makeArgTypeAnnotation com ctx a
                     Parameter.parameter (a.Name, ?typeAnnotation = ta)
                 ),
                 body

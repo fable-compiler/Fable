@@ -3822,6 +3822,9 @@ let guids
 
     match i.CompiledName with
     | "NewGuid" -> Helper.LibCall(com, "Guid", "newGuid", t, []) |> Some
+    | "CreateVersion7" ->
+        Helper.LibCall(com, "Guid", "createVersion7", t, args, i.SignatureArgTypes)
+        |> Some
     | "Parse" ->
         match args with
         | [ StringConst literalGuid ] -> parseGuid literalGuid

@@ -7,9 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [All] Add support for `Guid.CreateVersion7()` and `Guid.CreateVersion7(DateTimeOffset)`
+* [Rust] Add missing `System.Random` implementation and tests (by @ncave)
+* [Rust] Add missing `Array`, `List` and `Seq` module members and tests: `randomChoice`, `randomChoiceBy`, `randomChoiceWith`, `randomChoices`, `randomChoicesBy`, `randomChoicesWith`, `randomSample`, `randomSampleBy`, `randomSampleWith`, `randomShuffle`, `randomShuffleBy`, `randomShuffleWith` (by @ncave)
+* [Beam] Implement missing DateTimeOffset members, add DateOnly and TimeOnly support
+
 ### Fixed
 
 * [All] Fix unnecessary object allocations during AST traversal when visiting `Import` expressions (by Repo Assist)
+* [Dart] Fix `Array.compareWith` comparing lengths before elements, producing wrong results for arrays with common prefixes (fixes #2961)
+* [Python] Fix unsafe option unwrapping in `DateTimeOffset.get_Offset` and regex replacements (by @dbrattli)
+* [All] Replace unsafe option `.Value` unwrapping with safe alternatives in Python/Replacements.fs and Rust/Fable2Rust.fs (code scanning alerts IONIDE-006)
+* [All] Add `[<return: Struct>]` to partial active patterns in Dart and Rust targets to reduce allocations (code scanning alerts IONIDE-009)
+* [JS/TS] Fix `Guid` to use cryptographically strong random values (by @ncave)
+* [Python] Fix `DateTimeOffset` millisecond constructor and property (by @ncave)
+* [Python] Implement missing `DateTimeOffset` members and fix equality/comparison to use UTC-normalized instants (by @dbrattli)
+* [Python] Add `DateOnly` and `TimeOnly` support (by @dbrattli)
+* [Python] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument emitting it as a start-index instead of a compile error (by @repo-assist)
+* [Beam] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument incorrectly treating the enum value as a start index
+
+## 5.0.0-rc.12 - 2026-03-31
+
+### Fixed
+
+* [Dart] Enable explicit variable typing for more data types (by @ncave)
+* [Dart] Fix tests for `round`, `sign`, `truncate`, `log`, `log2`, `log10`, `pow`, `DivRem`, `Min`, `Max`, `Clamp`, `MinMagnitude`, `MaxMagnitude`, `cosh`, `sinh`, `tanh`, and float `Parse` (by @ncave)
+* [Python] Add `Math.DivRem` support for int, int64, and bigint (by @dbrattli)
+* [Python] Fix modulo with negative numbers using Python floored semantics instead of .NET truncated semantics for bigint (fixes #4462) (by @dbrattli)
+* [Beam] Fix `System.String.Concat` with 4+ arguments not being supported (by @dbrattli)
+* [TS/Python] Fix thisArg type for overloads in structs (#4453) (by @ncave)
+* [TS/Python] Fix invalid `this` argument type in structs (#4453) (by @ncave)
 * [JS/TS] Fix `N` format specifier (`ToString("N0")`, `String.Format("{0:N0}", ...)`) producing a trailing dot when precision is 0 (fix #2582) (by @MangelMaxime)
 * [JS/TS] Fix `C0` and `P0` format specifiers producing trailing dot (e.g., `"¤1,000."` → `"¤1,000"`) (by @MangelMaxime)
 * [All] Fix captured side-effect-free values (e.g. empty ResizeArray) being incorrectly inlined into object expression getters in release mode, causing a new instance to be created on each getter call (fixes #3779) (by @MangelMaxime)
@@ -20,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [JS/TS] Fix invalid syntax emitted when negating negative literals (fix #4251) (by @MangelMaxime)
 * [Rust] Fix negative counting in CallInfo.GenericArgs (by @ncave)
 * [Rust] Fix inline bindings and captured idents tracking (by @ncave)
+* [Rust] Fix `return!` in async computation expressions so inner async workflows are returned and awaited correctly (by @mizzle-mo)
 * [JS/TS] Improve `Regex.Escape` and `Regex.Unescape` handling (by @MangelMaxime)
 * [All] Fix allow plugins to target .NET6 target framework (by @MangelMaxime)
 * [Python] Fix function references passed as arguments inside tail-call optimised functions gaining unnecessary default parameters for outer TCO variables they don't reference (fix #3877)

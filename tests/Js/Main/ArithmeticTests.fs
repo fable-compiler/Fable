@@ -65,6 +65,12 @@ let tests =
 
     testCase "Infix modulo can be generated" <| fun () ->
         4 % 3 |> equal 1
+        5 % 3 |> equal 2
+
+    testCase "Infix modulo with negative numbers" <| fun () ->
+        -5 % 3 |> equal -2
+        5 % -3 |> equal 2
+        -5 % -3 |> equal -2
 
     testCase "Math.DivRem works with ints" <| fun () ->
         Math.DivRem(5, 2) |> equal (2, 1)
@@ -126,6 +132,20 @@ let tests =
         0x80000000 >>> 1 |> equal -1073741824
         0x80000000u >>> 1 |> equal 1073741824u
         0x80000000UL >>> 1 |> equal 1073741824UL
+
+    testCase "Zero fill right shift is logical for unsigned integer types" <| fun () ->
+        // For unsigned types, >>> is zero-fill (logical) - the high bit is NOT sign-extended
+        0xFFuy >>> 1 |> equal 127uy                      // uint8:  0x7F
+        0xFFFFus >>> 1 |> equal 32767us                  // uint16: 0x7FFF
+        0xFFFFFFFFu >>> 1 |> equal 2147483647u           // uint32: 0x7FFFFFFF
+        0xFFFFFFFFFFFFFFFFUL >>> 1 |> equal 9223372036854775807UL  // uint64: 0x7FFFFFFFFFFFFFFF
+
+    testCase "Arithmetic right shift preserves sign for signed integer types" <| fun () ->
+        // For signed types, >>> is arithmetic (sign-propagating) - the sign bit IS extended
+        -2y >>> 1 |> equal -1y   // int8:  0xFF = -1
+        -2s >>> 1 |> equal -1s   // int16: 0xFFFF = -1
+        -2 >>> 1 |> equal -1     // int32: 0xFFFFFFFF = -1
+        -2L >>> 1 |> equal -1L   // int64: 0xFFFFFFFFFFFFFFFF = -1
 
     testCase "UInt64 multiplication with 0 returns uint" <| fun () -> // See #1480
         0x0UL * 0x1UL |> equal 0x0UL
@@ -336,6 +356,12 @@ let tests =
 
     testCase "Int64 Infix modulo can be generated" <| fun () ->
         4L % 3L |> equal 1L
+        5L % 3L |> equal 2L
+
+    testCase "Int64 Infix modulo with negative numbers" <| fun () ->
+        -5L % 3L |> equal -2L
+        5L % -3L |> equal 2L
+        -5L % -3L |> equal -2L
 
     testCase "Int64 Evaluation order is preserved by generated code" <| fun () ->
         (4L - 2L) * 2L + 1L |> equal 5L
@@ -384,6 +410,12 @@ let tests =
 
     testCase "BigInt Infix modulo can be generated" <| fun () ->
         4I % 3I |> equal 1I
+        5I % 3I |> equal 2I
+
+    testCase "BigInt Infix modulo with negative numbers" <| fun () ->
+        -5I % 3I |> equal -2I
+        5I % -3I |> equal 2I
+        -5I % -3I |> equal -2I
 
     testCase "BigInt.DivRem works" <| fun () -> // See #1744
         let quotient,remainder = bigint.DivRem(5I,2I)

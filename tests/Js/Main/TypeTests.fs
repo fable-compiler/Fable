@@ -261,12 +261,18 @@ type ValueType2(i: int, j: int) =
     member x.Value = i + j
 
 #if !FABLE_COMPILER_TYPESCRIPT
-[<Struct>]
 type ValueType3 =
   struct
     val mutable public X : int
   end
 #endif
+
+[<Struct>]
+type ValueTypeR =
+    val mutable X: float
+    new(x: float) = { X = x }
+    member this.IsEmpty() = this.X < 0.0
+    override this.ToString() = $"{this.X}"
 
 [<Struct>]
 type StructUnion = Value of string
@@ -1113,6 +1119,36 @@ let tests =
         let g3 = Guid.Parse s1
         g1 = g3 |> equal true
 
+    testCase "Guid.CreateVersion7 works" <| fun () ->
+        let g1 = Guid.CreateVersion7()
+        let g2 = Guid.CreateVersion7()
+        g1 = g2 |> equal false
+        let s1 = string g1
+        equal 36 s1.Length
+        // Check version nibble is '7'
+        equal '7' s1[14]
+        // Check variant nibble is 8, 9, a, or b
+        let variantChar = s1[19]
+        (variantChar = '8' || variantChar = '9' || variantChar = 'a' || variantChar = 'b') |> equal true
+
+    testCase "Guid.CreateVersion7 with DateTimeOffset works" <| fun () ->
+        let dto = DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero)
+        let g1 = Guid.CreateVersion7(dto)
+        let g2 = Guid.CreateVersion7(dto)
+        g1 = g2 |> equal false
+        let s1 = string g1
+        equal 36 s1.Length
+        equal '7' s1[14]
+        let variantChar = s1[19]
+        (variantChar = '8' || variantChar = '9' || variantChar = 'a' || variantChar = 'b') |> equal true
+
+    testCase "Guid.CreateVersion7 is monotonic" <| fun () ->
+        [1 .. 100]
+        |> List.map (fun ms -> DateTimeOffset(2024, 1, 1, 0, 0, 0, ms, TimeSpan.Zero))
+        |> List.map (fun dto -> Guid.CreateVersion7(dto))
+        |> List.pairwise
+        |> List.iter (fun (g1, g2) -> g1 < g2 |> equal true)
+
     testCase "Guid.Empty works" <| fun () ->
         let g1 = Guid.Empty
         string g1 |> equal "00000000-0000-0000-0000-000000000000"
@@ -1302,6 +1338,11 @@ let tests =
         t1 |> equal t2
         (compare t1 t2) |> equal 0
 #endif
+
+    testCase "Struct with mutable fields works" <| fun () ->
+        let x = ValueTypeR(-10.0)
+        x.X |> equal -10.0
+        x.IsEmpty() |> equal true
 
     testCase "copying struct records works" <| fun () -> // See #3371
         let simple : SimpleRecord = { A = ""; B = "B" }

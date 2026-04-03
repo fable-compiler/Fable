@@ -10,6 +10,7 @@ open Fable.AST.Fable
 open Fable.Transforms
 open Replacements.Util
 
+[<return: Struct>]
 let (|DartInt|_|) =
     function
     | Int8
@@ -19,14 +20,15 @@ let (|DartInt|_|) =
     | Int32
     | UInt32
     | Int64
-    | UInt64 -> Some DartInt
-    | _ -> None
+    | UInt64 -> ValueSome DartInt
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|DartDouble|_|) =
     function
     | Float32
-    | Float64 -> Some DartDouble
-    | _ -> None
+    | Float64 -> ValueSome DartDouble
+    | _ -> ValueNone
 
 let error com msg =
     let e = makeImportLib com Any "ExceptionBase" "Types"
@@ -303,6 +305,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     let truncateUnsigned operation = // see #1550
         match t with
         | Number(UInt32, _) -> Operation(Binary(BinaryShiftRightZeroFill, operation, makeIntConst 0), Tags.empty, t, r)
+        | Number(UInt64, _) -> Helper.LibCall(com, "Util", "toUInt64", t, [ operation ], ?loc = r)
         | _ -> operation
 
     let logicOp op left right =
@@ -326,6 +329,8 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         | Operators.rightShift, [ left; right ] ->
             match argTypes with
             | Number(UInt32, _) :: _ -> binOp BinaryShiftRightZeroFill left right // See #646
+            | Number(UInt64, _) :: _ ->
+                Helper.LibCall(com, "Util", "rightShiftUnsigned64", t, [ left; right ], argTypes, ?loc = r)
             | _ -> binOp BinaryShiftRightSignPropagating left right
         | Operators.bitwiseAnd, [ left; right ] -> binOp BinaryAndBitwise left right |> truncateUnsigned
         | Operators.bitwiseOr, [ left; right ] -> binOp BinaryOrBitwise left right |> truncateUnsigned
@@ -334,13 +339,12 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         | Operators.booleanOr, [ left; right ] -> logicOp LogicalOr left right
         | Operators.logicalNot, [ operand ] -> unOp UnaryNotBitwise operand |> truncateUnsigned
         | Operators.unaryNegation, [ operand ] ->
-            // TODO: Check for min value, see "Unary negation with integer MinValue works" test
-            unOp UnaryMinus operand
-        // match argTypes with
-        // | Number(Int8,_)::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int8", t, args, ?loc=r)
-        // | Number(Int16,_)::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int16", t, args, ?loc=r)
-        // | Number(Int32,_)::_ -> Helper.LibCall(com, "Int32", "op_UnaryNegation_Int32", t, args, ?loc=r)
-        // | _ -> unOp UnaryMinus operand
+            match argTypes with
+            | Number(Int8, _) :: _ -> Helper.LibCall(com, "Util", "negateInt8", t, args, ?loc = r)
+            | Number(Int16, _) :: _ -> Helper.LibCall(com, "Util", "negateInt16", t, args, ?loc = r)
+            | Number(Int32, _) :: _ -> Helper.LibCall(com, "Util", "negateInt32", t, args, ?loc = r)
+            | Number(Int64, _) :: _ -> Helper.LibCall(com, "Util", "negateInt64", t, args, ?loc = r)
+            | _ -> unOp UnaryMinus operand
         | Operators.unaryPlus, [ operand ] -> unOp UnaryPlus operand
         | _ ->
             $"Operator %s{opName} not found in %A{argTypes}"
@@ -944,10 +948,14 @@ let defaultValue com ctx r t defValue option =
         |> Some
 
 let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let math r t (args: Expr list) argTypes genArgs methName =
+    let math r t (args: Expr list) argTypes methName =
         let meth = Naming.lowerFirst methName
 
-        Helper.ImportedCall("dart:math", meth, t, args, argTypes, genArgs = genArgs, ?loc = r)
+        let call = Helper.ImportedCall("dart:math", meth, t, args, argTypes, ?loc = r)
+
+        match meth, t with
+        | "pow", Number((Float32 | Float64), _) -> Helper.InstanceCall(call, "toDouble", t, [], ?loc = r)
+        | _ -> call
 
     match i.CompiledName, args with
     | ("DefaultArg" | "DefaultValueArg"), [ option; defValue ] -> defaultValue com ctx r t defValue option
@@ -1037,7 +1045,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             )
             |> Some
         | CustomOp com ctx r t "Pow" args e -> Some e
-        | _ -> math r t args i.SignatureArgTypes i.GenericArgs "pow" |> Some
+        | _ -> math r t args i.SignatureArgTypes "pow" |> Some
     | ("Ceiling" | "Floor" as meth), [ arg ] ->
         let meth = Naming.lowerFirst meth
 
@@ -1065,11 +1073,14 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             Helper.InstanceCall(arg, meth, t, [], ?loc = r) |> Some
     | "Log", [ arg1; arg2 ] ->
         // "Math.log($0) / Math.log($1)"
-        let dividend = math None t [ arg1 ] [] (List.take 1 i.SignatureArgTypes) "log"
+        let dividend = math None t [ arg1 ] (List.take 1 i.SignatureArgTypes) "log"
 
-        let divisor = math None t [ arg2 ] [] (List.skip 1 i.SignatureArgTypes) "log"
+        let divisor = math None t [ arg2 ] (List.skip 1 i.SignatureArgTypes) "log"
 
         makeBinOp r t dividend divisor BinaryDivide |> Some
+    | ("Cosh" | "Sinh" | "Tanh" | "Log2" | "Log10" as meth), _ ->
+        Helper.LibCall(com, "Util", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "Abs", [ arg ] ->
         match arg with
         | ExprType(Number(BigInt | Decimal as kind, _)) ->
@@ -1096,17 +1107,13 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Atan", _
     | "Atan2", _
     | "Cos", _
-    | "Cosh", _
     | "Exp", _
     | "Log", _
-    | "Log10", _
     | "Sin", _
-    | "Sinh", _
     | "Sqrt", _
-    | "Tan", _
-    | "Tanh", _ ->
+    | "Tan", _ ->
         match args with
-        | ExprType(Number(_, _)) :: _ -> math r t args i.SignatureArgTypes [] i.CompiledName |> Some
+        | ExprType(Number(_, _)) :: _ -> math r t args i.SignatureArgTypes i.CompiledName |> Some
         | _ -> applyOp com ctx r t i.CompiledName args |> Some
     | "Round", _ ->
         match args with
@@ -1124,17 +1131,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             )
             |> Some
         | _ ->
-            Helper.LibCall(
-                com,
-                "Util",
-                "round",
-                t,
-                args,
-                i.SignatureArgTypes,
-                genArgs = i.GenericArgs,
-                ?thisArg = thisArg,
-                ?loc = r
-            )
+            Helper.LibCall(com, "Util", "round", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
             |> Some
     | "Truncate", _ ->
         match args with
@@ -1151,21 +1148,14 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
                 ?loc = r
             )
             |> Some
-        | _ ->
-            Helper.GlobalCall("Math", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, memb = "trunc", ?loc = r)
-            |> Some
+        | _ -> Helper.InstanceCall(args.Head, "truncateToDouble", t, [], ?loc = r) |> Some
     | "Sign", _ ->
         let args = toFloat com ctx r t args |> List.singleton
 
-        Helper.LibCall(com, "Util", "sign", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        Helper.LibCall(com, "Util", "sign", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "DivRem", _ ->
-        let modName =
-            match i.SignatureArgTypes with
-            | Number(Int64, _) :: _ -> "Long"
-            | _ -> "Int32"
-
-        Helper.LibCall(com, modName, "divRem", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        Helper.LibCall(com, "Types", "divRem", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     // Numbers
     | ("Infinity" | "InfinitySingle"), _ -> Helper.GlobalIdent("Number", "POSITIVE_INFINITY", t, ?loc = r) |> Some
@@ -1209,12 +1199,17 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | (Operators.greaterThan | "Gt"), [ left; right ] -> booleanCompare com ctx r left right BinaryGreater |> Some
     | (Operators.greaterThanOrEqual | "Gte"), [ left; right ] ->
         booleanCompare com ctx r left right BinaryGreaterOrEqual |> Some
-    | ("Min" | "Max" | "Clamp" as meth), _ ->
+    | ("Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp" as meth), _ ->
         let meth = Naming.lowerFirst meth
 
         match meth, t with
-        | ("min" | "max"), Number((DartInt | DartDouble), NumberInfo.Empty) ->
-            Helper.ImportedCall("dart:math", meth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        | ("min" | "max"), Number(DartInt, NumberInfo.Empty)
+        | ("min" | "max"), Number(DartDouble, NumberInfo.Empty) ->
+            Helper.ImportedCall("dart:math", meth, t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | ("minMagnitude" | "maxMagnitude"), Number(DartInt, NumberInfo.Empty)
+        | ("minMagnitude" | "maxMagnitude"), Number(DartDouble, NumberInfo.Empty) ->
+            Helper.LibCall(com, "Util", meth, t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
         | _ ->
             let f = makeComparerFunction com ctx t
@@ -2046,8 +2041,11 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
                 [ str; makeIntConst style; makeBoolConst unsigned; makeIntConst bitsize ]
                 @ outValue
 
-        Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t, args, ?loc = r)
-        |> Some
+        match kind, meth with
+        | (Float32 | Float64), "Parse" -> Helper.GlobalCall("double", t, [ str ], memb = "parse", ?loc = r) |> Some
+        | _ ->
+            Helper.LibCall(com, numberModule, Naming.lowerFirst meth, t, args, ?loc = r)
+            |> Some
 
     let isFloat =
         match i.SignatureArgTypes with
@@ -2055,37 +2053,19 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         | _ -> false
 
     match i.CompiledName, args with
-    | "IsNaN", [ _ ] when isFloat -> Helper.GlobalCall("Number", t, args, memb = "isNaN", ?loc = r) |> Some
-    | "IsPositiveInfinity", [ _ ] when isFloat ->
-        Helper.LibCall(
-            com,
-            "Double",
-            "isPositiveInfinity",
-            t,
-            args,
-            i.SignatureArgTypes,
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
-        |> Some
-    | "IsNegativeInfinity", [ _ ] when isFloat ->
-        Helper.LibCall(
-            com,
-            "Double",
-            "isNegativeInfinity",
-            t,
-            args,
-            i.SignatureArgTypes,
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
-        |> Some
-    | "IsInfinity", [ _ ] when isFloat ->
-        Helper.LibCall(com, "Double", "isInfinity", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
-        |> Some
-    | "IsInfinity", [ _ ] when isFloat ->
-        Helper.LibCall(com, "Double", "isInfinity", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
-        |> Some
+    | "IsNaN", [ _ ] when isFloat -> emitExpr r t args "$0.isNaN" |> Some
+    | "Log2", _ ->
+        let log =
+            Helper.LibCall(com, "Util", "log2", Float64.Number, args, i.SignatureArgTypes, ?loc = r)
+
+        match t with
+        | Number((Float32 | Float64), _) -> TypeCast(log, t) |> Some
+        | Number _ -> toInt com ctx r t [ log ] |> Some
+        | _ -> log |> Some
+    | "IsPositiveInfinity", [ _ ] when isFloat -> emitExpr r t args "$0 == double.infinity" |> Some
+    | "IsNegativeInfinity", [ _ ] when isFloat -> emitExpr r t args "$0 == double.negativeInfinity" |> Some
+    | "IsInfinity", [ _ ] when isFloat -> emitExpr r t args "$0.isInfinite" |> Some
+    | ("Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp"), _ -> operators com ctx r t i thisArg args
     | ("Parse" | "TryParse") as meth, str :: NumberConst(NumberValue.Int32 style, _) :: _ ->
         let hexConst = int System.Globalization.NumberStyles.HexNumber
         let intConst = int System.Globalization.NumberStyles.Integer
@@ -3474,6 +3454,9 @@ let guids
 
     match i.CompiledName with
     | "NewGuid" -> Helper.LibCall(com, "Guid", "newGuid", t, []) |> Some
+    | "CreateVersion7" ->
+        Helper.LibCall(com, "Guid", "createVersion7", t, args, i.SignatureArgTypes)
+        |> Some
     | "Parse" ->
         match args with
         | [ StringConst literalGuid ] -> parseGuid literalGuid

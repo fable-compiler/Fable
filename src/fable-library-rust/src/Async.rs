@@ -129,6 +129,10 @@ pub mod AsyncBuilder_ {
         })
     }
 
+    pub fn return_from<T: Send + Sync + 'static>(computation: Arc<Async<T>>) -> Arc<Async<T>> {
+        computation
+    }
+
     pub fn zero<T: Send + Sync + 'static>() -> Arc<Async<()>> {
         r_return(())
     }
