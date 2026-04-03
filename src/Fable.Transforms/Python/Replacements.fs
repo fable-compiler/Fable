@@ -3359,38 +3359,56 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         Helper.LibCall(com, "reg_exp", "create", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "get_Options" ->
-        Helper.LibCall(com, "reg_exp", "options", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
-        |> Some
+        match thisArg with
+        | Some thisArg ->
+            Helper.LibCall(com, "reg_exp", "options", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
+            |> Some
+        | None -> None
     // Capture
     | "get_Index" ->
-        if not isGroup then
-            Helper.InstanceCall(thisArg.Value, "start", t, [], i.SignatureArgTypes, ?loc = r)
-            |> Some
-        else
-            "Accessing index of Regex groups is not supported"
-            |> addErrorAndReturnNull com ctx.InlinePath r
-            |> Some
+        match thisArg with
+        | Some thisArg ->
+            if not isGroup then
+                Helper.InstanceCall(thisArg, "start", t, [], i.SignatureArgTypes, ?loc = r)
+                |> Some
+            else
+                "Accessing index of Regex groups is not supported"
+                |> addErrorAndReturnNull com ctx.InlinePath r
+                |> Some
+        | None -> None
     | "get_Value" ->
-        if
-            isGroup
-        // In JS Regex group values can be undefined, ensure they're empty strings #838
-        then
-            Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), Tags.empty, t, r)
-            |> Some
-        else
-            propInt 0 thisArg.Value |> Some
+        match thisArg with
+        | Some thisArg ->
+            if
+                isGroup
+            // In JS Regex group values can be undefined, ensure they're empty strings #838
+            then
+                Operation(Logical(LogicalOr, thisArg, makeStrConst ""), Tags.empty, t, r)
+                |> Some
+            else
+                propInt 0 thisArg |> Some
+        | None -> None
     | "get_Length" ->
-        if isGroup then
-            Helper.GlobalCall("len", t, [ thisArg.Value ], [ t ], ?loc = r) |> Some
-        else
-            let prop = propInt 0 thisArg.Value
-            Helper.GlobalCall("len", t, [ prop ], [ t ], ?loc = r) |> Some
+        match thisArg with
+        | Some thisArg ->
+            if isGroup then
+                Helper.GlobalCall("len", t, [ thisArg ], [ t ], ?loc = r) |> Some
+            else
+                let prop = propInt 0 thisArg
+                Helper.GlobalCall("len", t, [ prop ], [ t ], ?loc = r) |> Some
+        | None -> None
     // Group
-    | "get_Success" -> nullCheck r false thisArg.Value |> Some
+    | "get_Success" ->
+        match thisArg with
+        | Some thisArg -> nullCheck r false thisArg |> Some
+        | None -> None
     // MatchCollection & GroupCollection
     | "get_Item" when i.DeclaringEntityFullName = Types.regexGroupCollection ->
-        Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg.Value; args.Head ], [ thisArg.Value.Type ], ?loc = r)
-        |> Some
+        match thisArg with
+        | Some thisArg ->
+            Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg; args.Head ], [ thisArg.Type ], ?loc = r)
+            |> Some
+        | None -> None
     | "get_Item" ->
         match thisArg with
         | Some thisArg -> getExpr r t thisArg args.Head |> Some
@@ -3402,7 +3420,10 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             let lenExpr = Helper.GlobalCall("len", Int32.Number, [ c ], ?loc = r)
             Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r)
         )
-    | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some
+    | "GetEnumerator" ->
+        match thisArg with
+        | Some thisArg -> getEnumerator com r t thisArg |> Some
+        | None -> None
     | "IsMatch"
     | "Match"
     | "Matches" as meth ->
