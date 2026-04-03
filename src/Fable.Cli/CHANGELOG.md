@@ -10,12 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * [All] Add support for `Guid.CreateVersion7()` and `Guid.CreateVersion7(DateTimeOffset)`
-<<<<<<< beam-datetimeoffset
-* [Beam] Implement missing DateTimeOffset members, add DateOnly and TimeOnly support
-=======
 * [Rust] Add missing `System.Random` implementation and tests (by @ncave)
 * [Rust] Add missing `Array`, `List` and `Seq` module members and tests: `randomChoice`, `randomChoiceBy`, `randomChoiceWith`, `randomChoices`, `randomChoicesBy`, `randomChoicesWith`, `randomSample`, `randomSampleBy`, `randomSampleWith`, `randomShuffle`, `randomShuffleBy`, `randomShuffleWith` (by @ncave)
->>>>>>> main
+* [Beam] Implement missing DateTimeOffset members, add DateOnly and TimeOnly support
 
 ### Fixed
 
