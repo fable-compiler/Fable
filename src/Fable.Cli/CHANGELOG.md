@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Python] Fix unsafe option unwrapping in `DateTimeOffset.get_Offset` and regex `get_Item` replacements
 * [JS/TS] Fix `Guid` to use cryptographically strong random values (by @ncave)
 * [Python] Fix `DateTimeOffset` millisecond constructor and property (by @ncave)
 * [Python] Implement missing `DateTimeOffset` members and fix equality/comparison to use UTC-normalized instants (by @dbrattli)

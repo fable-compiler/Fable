@@ -3074,10 +3074,13 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         Helper.LibCall(com, "Date", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "get_Offset" ->
-        Naming.removeGetSetPrefix i.CompiledName
-        |> Naming.lowerFirst
-        |> getFieldWith r t thisArg.Value
-        |> Some
+        match thisArg with
+        | Some thisArg ->
+            Naming.removeGetSetPrefix i.CompiledName
+            |> Naming.lowerFirst
+            |> getFieldWith r t thisArg
+            |> Some
+        | None -> None
     // DateTimeOffset
     | "get_LocalDateTime" when i.DeclaringEntityFullName = Types.datetimeOffset ->
         match thisArg with
@@ -3388,7 +3391,10 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | "get_Item" when i.DeclaringEntityFullName = Types.regexGroupCollection ->
         Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg.Value; args.Head ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
-    | "get_Item" -> getExpr r t thisArg.Value args.Head |> Some
+    | "get_Item" ->
+        match thisArg with
+        | Some thisArg -> getExpr r t thisArg args.Head |> Some
+        | None -> None
     | "get_Count" ->
         // Use int32(len()) to ensure consistent return type
         thisArg
