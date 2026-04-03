@@ -3074,26 +3074,26 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         Helper.LibCall(com, "Date", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "get_Offset" ->
-        Naming.removeGetSetPrefix i.CompiledName
-        |> Naming.lowerFirst
-        |> getFieldWith r t thisArg.Value
-        |> Some
+        thisArg
+        |> Option.map (fun thisArg ->
+            Naming.removeGetSetPrefix i.CompiledName
+            |> Naming.lowerFirst
+            |> getFieldWith r t thisArg
+        )
     // DateTimeOffset
     | "get_LocalDateTime" when i.DeclaringEntityFullName = Types.datetimeOffset ->
-        match thisArg with
-        | Some thisArg ->
+        thisArg
+        |> Option.map (fun thisArg ->
             Helper.LibCall(com, "date_offset", "localDateTime", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
-            |> Some
-        | None -> None
+        )
     | "get_UtcDateTime" when i.DeclaringEntityFullName = Types.datetimeOffset ->
-        match thisArg with
-        | Some thisArg ->
+        thisArg
+        |> Option.map (fun thisArg ->
             Helper.LibCall(com, "date_offset", "utcDateTime", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
-            |> Some
-        | None -> None
+        )
     | "get_DateTime" when i.DeclaringEntityFullName = Types.datetimeOffset ->
-        match thisArg with
-        | Some thisArg ->
+        thisArg
+        |> Option.map (fun thisArg ->
             let kind = System.DateTimeKind.Unspecified |> int |> makeIntConst
 
             Helper.LibCall(
@@ -3105,8 +3105,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
                 [ thisArg.Type; kind.Type ],
                 ?loc = r
             )
-            |> Some
-        | None -> None
+        )
     | "FromUnixTimeSeconds" ->
         let value =
             Helper.LibCall(com, "Long", "toNumber", Float64.Number, args, i.SignatureArgTypes)
@@ -3120,38 +3119,33 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         Helper.LibCall(com, "DateOffset", "fromUnixTimeMilliseconds", t, [ value ], [ value.Type ], ?loc = r)
         |> Some
     | "ToUnixTimeSeconds" ->
-        match thisArg with
-        | Some thisArg ->
+        thisArg
+        |> Option.map (fun thisArg ->
             Helper.LibCall(com, "DateOffset", "toUnixTimeSeconds", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
-            |> Some
-        | None -> None
+        )
     | "ToUnixTimeMilliseconds" ->
-        match thisArg with
-        | Some thisArg ->
+        thisArg
+        |> Option.map (fun thisArg ->
             Helper.LibCall(com, "DateOffset", "toUnixTimeMilliseconds", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
-            |> Some
-        | None -> None
+        )
     | "get_UtcTicks" ->
-        match thisArg with
-        | Some thisArg ->
+        thisArg
+        |> Option.map (fun thisArg ->
             Helper.LibCall(com, "DateOffset", "getUtcTicks", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
-            |> Some
-        | None -> None
+        )
     | "EqualsExact" ->
-        match thisArg with
-        | Some thisArg ->
+        thisArg
+        |> Option.map (fun thisArg ->
             Helper.LibCall(com, "DateOffset", "equalsExact", Boolean, [ thisArg; args.Head ], ?loc = r)
-            |> Some
-        | None -> None
+        )
     | "Compare" ->
         Helper.LibCall(com, "DateOffset", "compare", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "CompareTo" ->
-        match thisArg with
-        | Some thisArg ->
+        thisArg
+        |> Option.map (fun thisArg ->
             Helper.LibCall(com, "DateOffset", "compareTo", t, [ thisArg; args.Head ], ?loc = r)
-            |> Some
-        | None -> None
+        )
     | "TryParse" ->
         let args =
             ignoreFormatProvider com ctx r i.DeclaringEntityFullName i.CompiledName args
@@ -3356,39 +3350,47 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         Helper.LibCall(com, "reg_exp", "create", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "get_Options" ->
-        Helper.LibCall(com, "reg_exp", "options", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
-        |> Some
+        thisArg
+        |> Option.map (fun thisArg ->
+            Helper.LibCall(com, "reg_exp", "options", t, [ thisArg ], [ thisArg.Type ], ?loc = r)
+        )
     // Capture
     | "get_Index" ->
-        if not isGroup then
-            Helper.InstanceCall(thisArg.Value, "start", t, [], i.SignatureArgTypes, ?loc = r)
-            |> Some
-        else
-            "Accessing index of Regex groups is not supported"
-            |> addErrorAndReturnNull com ctx.InlinePath r
-            |> Some
+        thisArg
+        |> Option.map (fun thisArg ->
+            if not isGroup then
+                Helper.InstanceCall(thisArg, "start", t, [], i.SignatureArgTypes, ?loc = r)
+            else
+                "Accessing index of Regex groups is not supported"
+                |> addErrorAndReturnNull com ctx.InlinePath r
+        )
     | "get_Value" ->
-        if
-            isGroup
-        // In JS Regex group values can be undefined, ensure they're empty strings #838
-        then
-            Operation(Logical(LogicalOr, thisArg.Value, makeStrConst ""), Tags.empty, t, r)
-            |> Some
-        else
-            propInt 0 thisArg.Value |> Some
+        thisArg
+        |> Option.map (fun thisArg ->
+            if isGroup then
+                // In JS Regex group values can be undefined, ensure they're empty strings #838
+                Operation(Logical(LogicalOr, thisArg, makeStrConst ""), Tags.empty, t, r)
+            else
+                propInt 0 thisArg
+        )
     | "get_Length" ->
-        if isGroup then
-            Helper.GlobalCall("len", t, [ thisArg.Value ], [ t ], ?loc = r) |> Some
-        else
-            let prop = propInt 0 thisArg.Value
-            Helper.GlobalCall("len", t, [ prop ], [ t ], ?loc = r) |> Some
+        thisArg
+        |> Option.map (fun thisArg ->
+            if isGroup then
+                Helper.GlobalCall("len", t, [ thisArg ], [ t ], ?loc = r)
+            else
+                let prop = propInt 0 thisArg
+                Helper.GlobalCall("len", t, [ prop ], [ t ], ?loc = r)
+        )
     // Group
-    | "get_Success" -> nullCheck r false thisArg.Value |> Some
+    | "get_Success" -> thisArg |> Option.map (fun thisArg -> nullCheck r false thisArg)
     // MatchCollection & GroupCollection
     | "get_Item" when i.DeclaringEntityFullName = Types.regexGroupCollection ->
-        Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg.Value; args.Head ], [ thisArg.Value.Type ], ?loc = r)
-        |> Some
-    | "get_Item" -> thisArg |> Option.map (fun this -> getExpr r t this args.Head)
+        thisArg
+        |> Option.map (fun thisArg ->
+            Helper.LibCall(com, "RegExp", "get_item", t, [ thisArg; args.Head ], [ thisArg.Type ], ?loc = r)
+        )
+    | "get_Item" -> thisArg |> Option.map (fun thisArg -> getExpr r t thisArg args.Head)
     | "get_Count" ->
         // Use int32(len()) to ensure consistent return type
         thisArg
@@ -3396,7 +3398,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
             let lenExpr = Helper.GlobalCall("len", Int32.Number, [ c ], ?loc = r)
             Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r)
         )
-    | "GetEnumerator" -> getEnumerator com r t thisArg.Value |> Some
+    | "GetEnumerator" -> thisArg |> Option.map (fun thisArg -> getEnumerator com r t thisArg)
     | "IsMatch"
     | "Match"
     | "Matches" as meth ->
