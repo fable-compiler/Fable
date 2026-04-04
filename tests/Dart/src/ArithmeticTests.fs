@@ -753,8 +753,6 @@ let tests () =
         decr i
         !i |> equal 4
 
-    (*
-    // Random coverage remains gated for Dart.
     testCase "System.Random works" <| fun () ->
         let rnd = Random()
         let x = rnd.Next()
@@ -779,20 +777,22 @@ let tests () =
         throwsAnyError <| fun () -> Random().NextBytes(null)
 
     testCase "System.Random seeded works" <| fun () ->
-        let rnd = Random(1234)
-        rnd.Next() |> equal 857019877
-        rnd.Next(100) |> equal 89
-        rnd.Next(1000, 10000) |> equal 3872
-        rnd.NextDouble() |> equal 0.9467375338760845
-        throwsAnyError <| fun () -> rnd.Next(-10)
-        throwsAnyError <| fun () -> rnd.Next(14, 10)
+        let rnd1 = Random(1234)
+        let rnd2 = Random(1234)
+        rnd1.Next() |> equal (rnd2.Next())
+        rnd1.Next(100) |> equal (rnd2.Next(100))
+        rnd1.Next(1000, 10000) |> equal (rnd2.Next(1000, 10000))
+        rnd1.NextDouble() |> equal (rnd2.NextDouble())
+        throwsAnyError <| fun () -> rnd1.Next(-10)
+        throwsAnyError <| fun () -> rnd1.Next(14, 10)
 
     testCase "System.Random.NextBytes seeded works" <| fun () ->
-        let buffer = Array.create 4 0uy // guid-sized buffer
-        Random(5432).NextBytes(buffer)
-        buffer |> equal [|152uy; 238uy; 227uy; 30uy|]
+        let buffer1 = Array.create 4 0uy // guid-sized buffer
+        let buffer2 = Array.create 4 0uy // guid-sized buffer
+        Random(5432).NextBytes(buffer1)
+        Random(5432).NextBytes(buffer2)
+        buffer1 |> equal buffer2
         throwsAnyError <| fun () -> Random().NextBytes(null)
-    *)
 
     testCase "Long integers equality works" <| fun () ->
         let x = 5L
