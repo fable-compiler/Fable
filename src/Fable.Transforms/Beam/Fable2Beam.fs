@@ -1175,7 +1175,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 ]
             )
 
-    | Quote(body, _isTyped) ->
+    | Quote(body, _isTyped, _r) ->
         let emitted = QuotationEmitter.emitQuotedExpr com body
         transformExpr com ctx emitted
 

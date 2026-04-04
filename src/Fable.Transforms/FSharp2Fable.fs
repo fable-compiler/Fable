@@ -1460,7 +1460,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             let! body = transformExpr com ctx [] quotedExpr
             let exprType = fsExpr.Type
             let isTyped = exprType.GenericArguments.Count > 0
-            return Fable.Quote(body, isTyped)
+            return Fable.Quote(body, isTyped, makeRangeFrom fsExpr)
 
         | FSharpExprPatterns.AddressOf expr ->
             let r = makeRangeFrom fsExpr
@@ -2476,7 +2476,7 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
             |> makeValue r
         | Fable.TypeInfo(t, d) -> Fable.TypeInfo(resolveInlineType ctx.GenericArgs t, d) |> makeValue r
 
-    | Fable.Quote(e, isTyped) -> Fable.Quote(resolveInlineExpr com ctx info e, isTyped)
+    | Fable.Quote(e, isTyped, r) -> Fable.Quote(resolveInlineExpr com ctx info e, isTyped, r)
 
     | Fable.Extended(kind, r) as e ->
         match kind with

@@ -836,7 +836,7 @@ type Expr =
 
     | Unresolved of expr: UnresolvedExpr * typ: Type * range: SourceLocation option
     | Extended of expr: ExtendedSet * range: SourceLocation option
-    | Quote of quotedExpr: Expr * isTyped: bool
+    | Quote of quotedExpr: Expr * isTyped: bool * range: SourceLocation option
 
     member this.Type =
         match this with
@@ -894,7 +894,7 @@ type Expr =
         | Set(_, _, _, _, r)
         | ForLoop(_, _, _, _, _, r)
         | WhileLoop(_, _, r) -> r
-        | Quote(e, _) -> e.Range
+        | Quote(_, _, r) -> r
 
 // module PrettyPrint =
 //     let rec printType (t: Type) = "T" // TODO
