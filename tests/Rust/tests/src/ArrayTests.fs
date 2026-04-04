@@ -1325,6 +1325,103 @@ let ``Array.exactlyOne works II`` () =
     throwsAnyError (fun () -> Array.exactlyOne<int> [||] |> ignore)
 
 [<Fact>]
+let ``Array.randomShuffle works`` () =
+    let xs = [|1; 2; 3; 4; 5|]
+    let shuffled = Array.randomShuffle xs
+    Array.sort shuffled |> equal xs
+    Array.length shuffled |> equal 5
+
+[<Fact>]
+let ``Array.randomShuffleWith works`` () =
+    let xs = [|1; 2; 3; 4; 5|]
+    let rng = System.Random(42)
+    let shuffled = Array.randomShuffleWith rng xs
+    Array.sort shuffled |> equal xs
+    Array.length shuffled |> equal 5
+
+[<Fact>]
+let ``Array.randomShuffleBy works`` () =
+    let shuffled = Array.randomShuffleBy (fun () -> 0.0) [|1; 2; 3; 4; 5|]
+    Array.sort shuffled |> equal [|1; 2; 3; 4; 5|]
+    throwsAnyError (fun () -> Array.randomShuffleBy (fun () -> 1.0) [|1; 2|] |> ignore)
+    throwsAnyError (fun () -> Array.randomShuffleBy (fun () -> -0.1) [|1; 2|] |> ignore)
+
+[<Fact>]
+let ``Array.randomChoice works`` () =
+    let xs = [|1; 2; 3; 4; 5|]
+    let x = Array.randomChoice xs
+    Array.contains x xs |> equal true
+    throwsAnyError (fun () -> Array.randomChoice<int> [||] |> ignore)
+
+[<Fact>]
+let ``Array.randomChoiceWith works`` () =
+    let xs = [|10; 20; 30|]
+    let rng = System.Random(42)
+    let x = Array.randomChoiceWith rng xs
+    Array.contains x xs |> equal true
+
+[<Fact>]
+let ``Array.randomChoiceBy works`` () =
+    let x = Array.randomChoiceBy (fun () -> 0.0) [|42; 99; 7|]
+    x |> equal 42
+    throwsAnyError (fun () -> Array.randomChoiceBy (fun () -> 1.0) [|1|] |> ignore)
+    throwsAnyError (fun () -> Array.randomChoiceBy (fun () -> 0.5) [||] |> ignore)
+
+[<Fact>]
+let ``Array.randomChoices works`` () =
+    let xs = [|1; 2; 3|]
+    let choices = Array.randomChoices 5 xs
+    Array.length choices |> equal 5
+    choices |> Array.forall (fun x -> Array.contains x xs) |> equal true
+    Array.randomChoices 0 xs |> equal [||]
+    throwsAnyError (fun () -> Array.randomChoices -1 xs |> ignore)
+    throwsAnyError (fun () -> Array.randomChoices 1 [||] |> ignore)
+
+[<Fact>]
+let ``Array.randomChoicesWith works`` () =
+    let xs = [|10; 20; 30|]
+    let rng = System.Random(42)
+    let choices = Array.randomChoicesWith rng 4 xs
+    Array.length choices |> equal 4
+    choices |> Array.forall (fun x -> Array.contains x xs) |> equal true
+
+[<Fact>]
+let ``Array.randomChoicesBy works`` () =
+    let choices = Array.randomChoicesBy (fun () -> 0.5) 3 [|10; 20; 30|]
+    Array.length choices |> equal 3
+    choices |> Array.forall (fun x -> x = 20) |> equal true
+
+[<Fact>]
+let ``Array.randomSample works`` () =
+    let xs = [|1; 2; 3; 4; 5|]
+    let sample = Array.randomSample 3 xs
+    Array.length sample |> equal 3
+    sample |> Array.forall (fun x -> Array.contains x xs) |> equal true
+    Array.distinct sample |> Array.length |> equal 3
+    Array.randomSample 0 xs |> equal [||]
+    Array.randomSample 5 xs |> Array.sort |> equal xs
+    throwsAnyError (fun () -> Array.randomSample -1 xs |> ignore)
+    throwsAnyError (fun () -> Array.randomSample 6 xs |> ignore)
+    throwsAnyError (fun () -> Array.randomSample 1 [||] |> ignore)
+
+[<Fact>]
+let ``Array.randomSampleWith works`` () =
+    let xs = [|1; 2; 3; 4; 5|]
+    let rng = System.Random(42)
+    let sample = Array.randomSampleWith rng 3 xs
+    Array.length sample |> equal 3
+    sample |> Array.forall (fun x -> Array.contains x xs) |> equal true
+    Array.distinct sample |> Array.length |> equal 3
+
+[<Fact>]
+let ``Array.randomSampleBy works`` () =
+    let sample = Array.randomSampleBy (fun () -> 0.0) 3 [|1; 2; 3; 4; 5|]
+    Array.length sample |> equal 3
+    Array.distinct sample |> Array.length |> equal 3
+    throwsAnyError (fun () -> Array.randomSampleBy (fun () -> 1.0) 1 [|1; 2|] |> ignore)
+    throwsAnyError (fun () -> Array.randomSampleBy (fun () -> -0.1) 1 [|1; 2|] |> ignore)
+
+[<Fact>]
 let ``Array.transpose works`` () =
     // integer array
     Array.transpose (seq [[|1..3|]; [|4..6|]])

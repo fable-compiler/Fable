@@ -63,15 +63,38 @@ export function tryParse(str: string, defValue: FSharpRef<string>): boolean {
   }
 }
 
-// From https://gist.github.com/LeverOne/1308368
 export function newGuid() {
-  let b = "";
-  for (let a = 0; a++ < 36;) {
-    b += a * 51 & 52
-      ? (a ^ 15 ? 8 ^ Math.random() * (a ^ 20 ? 16 : 4) : 4).toString(16)
-      : "-";
-  }
-  return b;
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 1
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+// RFC 9562 UUID v7
+export function createVersion7(timestamp?: Date): string {
+  const ms = timestamp != null ? timestamp.getTime() : Date.now();
+
+  // 48-bit timestamp as hex
+  const msHex = Math.floor(ms).toString(16).padStart(12, "0");
+
+  // random bits
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  const view = new DataView(bytes.buffer);
+  const randA = view.getUint16(0) & 0x0fff; // 12 bits
+  const randB1 = view.getUint16(2) & 0x3fff; // 14 bits
+  const randB2 = view.getUint32(4); // 32 bits
+  const randB3 = view.getUint16(8); // 16 bits
+
+  const timeLow = msHex.slice(0, 8);
+  const timeMid = msHex.slice(8, 12);
+  const ver = (0x7000 | randA).toString(16).padStart(4, "0");
+  const variantAndRandB = (0x8000 | randB1).toString(16).padStart(4, "0");
+  const node = randB2.toString(16).padStart(8, "0") + randB3.toString(16).padStart(4, "0");
+
+  return `${timeLow}-${timeMid}-${ver}-${variantAndRandB}-${node}`;
 }
 
 // Maps for number <-> hex string conversion

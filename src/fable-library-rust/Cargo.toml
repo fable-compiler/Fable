@@ -13,10 +13,11 @@ enum_string = []
 guid = ["dep:uuid"]
 lrc_ptr = []
 no_std = ["dep:hashbrown"]
+random = ["dep:rand"]
 regexp = ["dep:regex"]
 static_do_bindings = ["dep:startup"]
 threaded = ["atomic", "dep:futures", "dep:futures-timer"]
-default = ["bigint", "datetime", "decimal", "enum_func", "enum_string", "guid", "regexp"]
+default = ["bigint", "datetime", "decimal", "enum_func", "enum_string", "guid", "random", "regexp"]
 
 [dependencies]
 chrono = { version = "0.4", optional = true }
@@ -26,12 +27,13 @@ hashbrown = { version = "0.16", optional = true }
 num-bigint = { version = "0.4", optional = true }
 num-integer = { version = "0.1", optional = true }
 num-traits = { version = "0.2", optional = true }
+rand = { version = "0.10", features = ["alloc", "thread_rng"], default-features = false, optional = true }
 regex = { version = "1.12", optional = true }
 rust_decimal = { version = "1.40", features = ["maths"], default-features = false, optional = true }
 startup = { version = "0.1", path = "vendored/startup", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-uuid = { version = "1.22", features = ["v4"], default-features = false, optional = true }
+uuid = { version = "1.23", features = ["v4", "v7"], default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-uuid = { version = "1.22", features = ["v4", "js"], default-features = false, optional = true }
+uuid = { version = "1.23", features = ["v4", "v7", "js"], default-features = false, optional = true }

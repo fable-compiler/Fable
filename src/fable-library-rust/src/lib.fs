@@ -21,6 +21,7 @@ let _imports () =
     importAll "./Native.rs"
     importAll "./NativeArray.rs"
     importAll "./Numeric.rs"
+    importAll "./Random.rs"
     importAll "./Reflection.rs"
     importAll "./RegExp.rs"
     importAll "./String.rs"

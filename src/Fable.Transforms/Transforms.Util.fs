@@ -304,6 +304,9 @@ module Types =
     let regexCaptureCollection = "System.Text.RegularExpressions.CaptureCollection"
 
     [<Literal>]
+    let random = "System.Random"
+
+    [<Literal>]
     let unit = "Microsoft.FSharp.Core.Unit"
 
     [<Literal>]
@@ -1580,15 +1583,7 @@ module AST =
         | Unresolved _ -> e // Unresolved expressions must be matched explicitly
         | IdentExpr _ -> e
         | TypeCast(e, t) -> TypeCast(f e, t)
-        | Import(info, t, r) ->
-            Import(
-                { info with
-                    Selector = info.Selector
-                    Path = info.Path
-                },
-                t,
-                r
-            )
+        | Import _ -> e // Import has no sub-expressions to visit
         | Extended(kind, r) ->
             match kind with
             | Curry(e, arity) -> Extended(Curry(f e, arity), r)

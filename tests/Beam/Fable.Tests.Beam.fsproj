@@ -69,6 +69,8 @@
     <Compile Include="TimeSpanTests.fs" />
     <Compile Include="DateTimeTests.fs" />
     <Compile Include="UriTests.fs" />
+    <Compile Include="DateOnlyTests.fs" />
+    <Compile Include="TimeOnlyTests.fs" />
     <Compile Include="DateTimeOffsetTests.fs" />
     <Compile Include="GuidTests.fs" />
     <Compile Include="AnonRecordTests.fs" />

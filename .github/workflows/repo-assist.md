@@ -15,15 +15,15 @@ description: |
 
 on:
   schedule: every 24h
-  # workflow_dispatch:
-  # slash_command:
-  #   name: repo-assist
-  # reaction: "eyes"
+  workflow_dispatch:
+  slash_command:
+    name: repo-assist
+  reaction: "eyes"
 
 timeout-minutes: 60
 
 engine:
-  id: claude
+  id: copilot
 
 permissions: read-all
 
