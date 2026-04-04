@@ -1466,9 +1466,11 @@ module Quotations =
         | "Value", _, [ value; typeArg ] ->
             Helper.LibCall(com, libModule, "mkValue", t, [ value; typeArg ], ?loc = r)
             |> Some
-        | "Var", _, [ var ] -> Helper.LibCall(com, libModule, "mkVarExpr", t, [ var ], ?loc = r) |> Some
+        | "Var", _, [ var ] -> Helper.LibCall(com, libModule, "mkVar", t, [ var ], ?loc = r) |> Some
         | "Lambda", _, [ var; body ] -> Helper.LibCall(com, libModule, "mkLambda", t, [ var; body ], ?loc = r) |> Some
-        | "Application", _, [ func; arg ] -> Helper.LibCall(com, libModule, "mkApp", t, [ func; arg ], ?loc = r) |> Some
+        | "Application", _, [ func; arg ] ->
+            Helper.LibCall(com, libModule, "mkApplication", t, [ func; arg ], ?loc = r)
+            |> Some
         | "Let", _, [ var; value; body ] ->
             Helper.LibCall(com, libModule, "mkLet", t, [ var; value; body ], ?loc = r)
             |> Some
@@ -1506,10 +1508,10 @@ module Quotations =
         =
         match i.CompiledName, thisArg, args with
         | ".ctor", None, [ name; typ; isMutable ] ->
-            Helper.LibCall(com, libModule, "mkVar", t, [ name; typ; isMutable ], ?loc = r)
+            Helper.LibCall(com, libModule, "mkQuotVar", t, [ name; typ; isMutable ], ?loc = r)
             |> Some
         | ".ctor", None, [ name; typ ] ->
-            Helper.LibCall(com, libModule, "mkVar", t, [ name; typ; makeBoolConst false ], ?loc = r)
+            Helper.LibCall(com, libModule, "mkQuotVar", t, [ name; typ; makeBoolConst false ], ?loc = r)
             |> Some
         | "get_Name", Some callee, _ -> Helper.LibCall(com, libModule, "varGetName", t, [ callee ], ?loc = r) |> Some
         | "get_Type", Some callee, _ -> Helper.LibCall(com, libModule, "varGetType", t, [ callee ], ?loc = r) |> Some
@@ -1547,7 +1549,7 @@ module Quotations =
         | ("SequentialPattern" | "|Sequential|_|"), [ expr ] ->
             Helper.LibCall(com, libModule, "isSequential", t, [ expr ], ?loc = r) |> Some
         | ("NewUnionCasePattern" | "|NewUnionCase|_|"), [ expr ] ->
-            Helper.LibCall(com, libModule, "isNewUnion", t, [ expr ], ?loc = r) |> Some
+            Helper.LibCall(com, libModule, "isNewUnionCase", t, [ expr ], ?loc = r) |> Some
         | ("NewRecordPattern" | "|NewRecord|_|"), [ expr ] ->
             Helper.LibCall(com, libModule, "isNewRecord", t, [ expr ], ?loc = r) |> Some
         | ("TupleGetPattern" | "|TupleGet|_|"), [ expr ] ->

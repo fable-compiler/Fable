@@ -27,7 +27,7 @@ class Var:
     is_mutable: bool
 
 
-def mk_var(name: str, type: str, is_mutable: bool = False) -> Var:
+def mk_quot_var(name: str, type: str, is_mutable: bool = False) -> Var:
     return Var(name, type, is_mutable)
 
 
@@ -190,7 +190,7 @@ def mk_value(value: Any, type: str) -> ExprValue:
     return ExprValue(value, type)
 
 
-def mk_var_expr(var: Var) -> ExprVarExpr:
+def mk_var(var: Var) -> ExprVarExpr:
     return ExprVarExpr(var)
 
 
@@ -198,7 +198,7 @@ def mk_lambda(var: Var, body: Expr) -> ExprLambda:
     return ExprLambda(var, body)
 
 
-def mk_app(func: Expr, arg: Expr) -> ExprApplication:
+def mk_application(func: Expr, arg: Expr) -> ExprApplication:
     return ExprApplication(func, arg)
 
 
@@ -332,7 +332,7 @@ def is_new_tuple(expr: Expr) -> FSharpList[Any] | None:
     return None
 
 
-def is_new_union(expr: Expr) -> tuple[str, int, Array[Any]] | None:
+def is_new_union_case(expr: Expr) -> tuple[str, int, Array[Any]] | None:
     if isinstance(expr, ExprNewUnion):
         return (expr.type_name, expr.tag, expr.fields)
     return None

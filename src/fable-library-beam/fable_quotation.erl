@@ -1,7 +1,7 @@
 -module(fable_quotation).
 -export([
-    mk_var/3, mk_var_expr/1, mk_value/2, mk_lambda/2,
-    mk_app/2, mk_let/3, mk_if_then_else/3, mk_call/3,
+    mk_quot_var/3, mk_var/1, mk_value/2, mk_lambda/2,
+    mk_application/2, mk_let/3, mk_if_then_else/3, mk_call/3,
     mk_sequential/2, mk_new_tuple/1,
     mk_new_union/3, mk_new_record/2, mk_new_list/2,
     mk_tuple_get/2, mk_union_tag/1, mk_union_field/2,
@@ -10,7 +10,7 @@
     get_type/1,
     is_value/1, is_var/1, is_lambda/1, is_application/1,
     is_let/1, is_if_then_else/1, is_call/1, is_sequential/1,
-    is_new_tuple/1, is_new_union/1, is_new_record/1,
+    is_new_tuple/1, is_new_union_case/1, is_new_record/1,
     is_tuple_get/1, is_field_get/1,
     evaluate/1,
     expr_to_string/1, get_free_vars/1, substitute/2
@@ -20,7 +20,7 @@
 %% Var constructor: {var, Name, Type, IsMutable}
 %% ===================================================================
 
-mk_var(Name, Type, IsMutable) -> {var, Name, Type, IsMutable}.
+mk_quot_var(Name, Type, IsMutable) -> {var, Name, Type, IsMutable}.
 
 %% Var accessors
 var_get_name({var, Name, _, _}) -> Name.
@@ -31,10 +31,10 @@ var_get_is_mutable({var, _, _, IsMutable}) -> IsMutable.
 %% Expr node constructors: {expr, Tag, ...fields}
 %% ===================================================================
 
-mk_var_expr(Var) -> {expr, var_expr, Var}.
+mk_var(Var) -> {expr, var_expr, Var}.
 mk_value(Value, Type) -> {expr, value, Value, Type}.
 mk_lambda(Var, Body) -> {expr, lambda, Var, Body}.
-mk_app(Func, Arg) -> {expr, application, Func, Arg}.
+mk_application(Func, Arg) -> {expr, application, Func, Arg}.
 mk_let(Var, Value, Body) -> {expr, 'let', Var, Value, Body}.
 mk_if_then_else(Guard, Then, Else) -> {expr, if_then_else, Guard, Then, Else}.
 mk_call(Instance, Method, Args) -> {expr, call, Instance, Method, Args}.
@@ -100,8 +100,8 @@ is_new_tuple({expr, new_tuple, E}) -> deref(E);
 is_new_tuple(_) -> undefined.
 
 %% NewUnionCase pattern: returns {TypeName, Tag, Fields} (dereference Fields)
-is_new_union({expr, new_union, N, T, F}) -> {N, T, deref(F)};
-is_new_union(_) -> undefined.
+is_new_union_case({expr, new_union, N, T, F}) -> {N, T, deref(F)};
+is_new_union_case(_) -> undefined.
 
 %% NewRecord pattern: returns {FieldNames, Values} (dereference both)
 is_new_record({expr, new_record, N, V}) -> {deref(N), deref(V)};
