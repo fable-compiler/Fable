@@ -1048,7 +1048,7 @@ let randomChoicesBy (randomizer: unit -> float) (count: int) (xs: 'T list) : 'T 
         invalidArg "count" SR.inputMustBeNonNegative
 
     if count > 0 && isEmpty xs then
-        invalidArg "source" SR.notEnoughElements
+        invalidArg "source" SR.inputSequenceEmpty
 
     let arr = toArray xs
     let len = arr.Length
@@ -1076,6 +1076,9 @@ let randomSampleBy (randomizer: unit -> float) (count: int) (xs: 'T list) : 'T l
 
     let arr = toArray xs
     let len = arr.Length
+
+    if len = 0 && count > 0 then
+        invalidArg "source" SR.inputSequenceEmpty
 
     if count > len then
         invalidArg "count" SR.notEnoughElements
