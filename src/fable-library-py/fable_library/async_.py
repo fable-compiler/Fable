@@ -115,19 +115,6 @@ def parallel[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
     return delay(delayed)
 
 
-def parallel2[T, U](a: Async[T], b: Async[U]) -> Async[Array[T | U]]:
-    def delayed() -> Async[Array[T | U]]:
-        tasks: Iterable[Future[T | U]] = map(start_as_task, [a, b])  # type: ignore
-        all: Future[list[T | U]] = asyncio.gather(*tasks)
-
-        def to_array(results: list[T | U]) -> Async[Array[T | U]]:
-            return protected_return(Array[T | U](results))
-
-        return protected_bind(await_task(all), to_array)
-
-    return delay(delayed)
-
-
 def sequential[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
     def delayed() -> Async[Array[T]]:
         results: list[T] = []
@@ -282,34 +269,23 @@ def start_as_task[T](
     return tcs.get_task()
 
 
-def throw_after(milliseconds_due_time: int | TimeSpan) -> Async[None]:
-    def cont(ctx: IAsyncContext[None]) -> None:
-        def cancel() -> None:
-            ctx.on_cancel(OperationCanceledError())
-
-        token_id = ctx.cancel_token.add_listener(cancel)
-
-        def timeout() -> None:
-            ctx.cancel_token.remove_listener(token_id)
-            ctx.on_error(TimeoutError())
-
-        due_time_ms = to_milliseconds(milliseconds_due_time)
-        ctx.trampoline.run_later(timeout, due_time_ms / 1000.0)
-
-    return protected_cont(cont)
-
-
 def start_child[T](computation: Async[T], ms: int | TimeSpan | None = None) -> Async[Async[T]]:
     if ms is not None:
+        # Race the computation against a timeout: whichever settles first wins.
+        # asyncio.gather (the previous implementation via parallel2) waited for BOTH to settle,
+        # which meant the timeout always fired even when the computation finished first.
+        task = start_as_task(computation)
 
-        def binder(results: Array[T | None]) -> Async[T]:
-            # TODO: the implementation looks suspicious since we use parallel2
-            # which will wait for both computations to finish
-            return protected_return(results[0])  # type: ignore
+        async def with_timeout() -> T:
+            try:
+                return await asyncio.wait_for(task, timeout=to_milliseconds(ms) / 1000.0)
+            except TimeoutError:
+                raise TimeoutError()
 
-        computation_with_timeout: Async[T] = protected_bind(parallel2(computation, throw_after(ms)), binder)
+        def cont(ctx: IAsyncContext[Async[T]]) -> None:
+            protected_return(await_task(with_timeout()))(ctx)
 
-        return start_child(computation_with_timeout)
+        return protected_cont(cont)
 
     task = start_as_task(computation)
 

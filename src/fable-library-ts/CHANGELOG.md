@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [JS/TS] Fix `Async.StartChild` with timeout always timing out even when the computation finishes before the deadline (fixes #4481) (by @MangelMaxime)
+
 ## 2.0.0-rc.5 - 2026-03-31
 
 ### Fixed
