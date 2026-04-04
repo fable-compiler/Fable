@@ -5560,7 +5560,7 @@ let tryCall
         | _ -> None
     | "System.Text.StringBuilder" -> bclType com ctx r t info thisArg args
     // F# Quotations
-    | typeName -> Quotations.tryQuotationCall "fable_quotation" com ctx r t info thisArg args typeName
+    | typeName -> Quotations.tryQuotationCall "fableQuotation" com ctx r t info thisArg args typeName
 
 let tryBaseConstructor
     (_com: ICompiler)

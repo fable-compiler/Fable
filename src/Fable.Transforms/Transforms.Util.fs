@@ -1194,8 +1194,15 @@ module AST =
                     // Fable-compiled .fs module — use name as-is (no fable_ prefix)
                     moduleName
                 else
-                    // JS fallback module name (e.g., "Option" -> "fable_option")
-                    "fable_" + (moduleName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase)
+                    // Apply snake_case first, then add fable_ prefix only if not already present
+                    // e.g., "fableQuotation" -> "fable_quotation" (already has fable_ prefix after snake_case)
+                    // e.g., "Option" -> "option" -> "fable_option"
+                    let snaked = moduleName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+
+                    if snaked.StartsWith("fable_", System.StringComparison.Ordinal) then
+                        snaked
+                    else
+                        "fable_" + snaked
 
             com.LibraryDir + "/" + beamModuleName + ".erl"
 
