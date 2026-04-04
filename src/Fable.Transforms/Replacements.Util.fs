@@ -1447,8 +1447,8 @@ module AnonRecords =
         | _ -> Ok() // TODO: Error instead if we cannot check the interface?
 
 /// Shared quotation replacement functions for all targets.
-/// Each target calls these with its own library module name (e.g., "fableQuotation" for Python/Beam, "Quotation" for JS).
-/// Python and Beam auto-convert camelCase to snake_case in imports.
+/// Each target calls these with its own library module name (e.g., "quotation" for Python/Beam, "Quotation" for JS).
+/// Python converts to snake_case (quotation.py). Beam adds fable_ prefix (fable_quotation.erl).
 module Quotations =
 
     // F# Quotation: FSharpExpr static methods (e.g. Expr.Value, Expr.Lambda, etc.)

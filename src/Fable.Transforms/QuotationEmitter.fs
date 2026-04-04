@@ -9,19 +9,19 @@ open Replacements.Util
 /// Emits a Fable expression that, when compiled, produces runtime calls
 /// to construct a quotation AST. The input is the Fable.Expr captured
 /// inside a Quote node; the output is a Fable.Expr that calls the
-/// fable_quotation runtime library to build the AST at runtime.
+/// quotation runtime library to build the AST at runtime.
 let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
     match expr with
     | Value(kind, r) -> emitQuotedValue com kind r
 
     | IdentExpr ident ->
         // Reference to a variable already introduced by a lambda/let in the quotation.
-        // Emit: fableQuotation.mkVar(Var)
+        // Emit: quotation.mkVar(Var)
         // We need a var reference. Create a var and then wrap it.
         let varExpr =
             Helper.LibCall(
                 com,
-                "fableQuotation",
+                "quotation",
                 "mkQuotVar",
                 Any,
                 [
@@ -31,13 +31,13 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
                 ]
             )
 
-        Helper.LibCall(com, "fableQuotation", "mkVar", Any, [ varExpr ])
+        Helper.LibCall(com, "quotation", "mkVar", Any, [ varExpr ])
 
     | Lambda(arg, body, _name) ->
         let varExpr =
             Helper.LibCall(
                 com,
-                "fableQuotation",
+                "quotation",
                 "mkQuotVar",
                 Any,
                 [
@@ -48,7 +48,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
             )
 
         let bodyExpr = emitQuotedExpr com body
-        Helper.LibCall(com, "fableQuotation", "mkLambda", Any, [ varExpr; bodyExpr ])
+        Helper.LibCall(com, "quotation", "mkLambda", Any, [ varExpr; bodyExpr ])
 
     | Delegate(args, body, _name, _tags) ->
         // Multi-arg delegate: nest as curried lambdas
@@ -59,7 +59,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
                 let varExpr =
                     Helper.LibCall(
                         com,
-                        "fableQuotation",
+                        "quotation",
                         "mkQuotVar",
                         Any,
                         [
@@ -70,7 +70,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
                     )
 
                 let innerBody = nestLambdas rest body
-                Helper.LibCall(com, "fableQuotation", "mkLambda", Any, [ varExpr; innerBody ])
+                Helper.LibCall(com, "quotation", "mkLambda", Any, [ varExpr; innerBody ])
 
         nestLambdas args body
 
@@ -78,7 +78,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         let varExpr =
             Helper.LibCall(
                 com,
-                "fableQuotation",
+                "quotation",
                 "mkQuotVar",
                 Any,
                 [
@@ -91,13 +91,13 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         let valueExpr = emitQuotedExpr com value
         let bodyExpr = emitQuotedExpr com body
 
-        Helper.LibCall(com, "fableQuotation", "mkLet", Any, [ varExpr; valueExpr; bodyExpr ])
+        Helper.LibCall(com, "quotation", "mkLet", Any, [ varExpr; valueExpr; bodyExpr ])
 
     | IfThenElse(guardExpr, thenExpr, elseExpr, _r) ->
         let guard = emitQuotedExpr com guardExpr
         let thenE = emitQuotedExpr com thenExpr
         let elseE = emitQuotedExpr com elseExpr
-        Helper.LibCall(com, "fableQuotation", "mkIfThenElse", Any, [ guard; thenE; elseE ])
+        Helper.LibCall(com, "quotation", "mkIfThenElse", Any, [ guard; thenE; elseE ])
 
     | CurriedApply(applied, args, _typ, _r) ->
         // Emit nested applications: Application(Application(f, a1), a2)
@@ -107,7 +107,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         |> List.fold
             (fun acc arg ->
                 let argExpr = emitQuotedExpr com arg
-                Helper.LibCall(com, "fableQuotation", "mkApplication", Any, [ acc; argExpr ])
+                Helper.LibCall(com, "quotation", "mkApplication", Any, [ acc; argExpr ])
             )
             appliedExpr
 
@@ -126,7 +126,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
 
         let argExprs = info.Args |> List.map (emitQuotedExpr com) |> makeArray Any
 
-        Helper.LibCall(com, "fableQuotation", "mkCall", Any, [ instanceExpr; methodExpr; argExprs ])
+        Helper.LibCall(com, "quotation", "mkCall", Any, [ instanceExpr; methodExpr; argExprs ])
 
     | Sequential exprs ->
         match exprs with
@@ -135,7 +135,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         | first :: rest ->
             let restExpr = emitQuotedExpr com (Sequential rest)
             let firstExpr = emitQuotedExpr com first
-            Helper.LibCall(com, "fableQuotation", "mkSequential", Any, [ firstExpr; restExpr ])
+            Helper.LibCall(com, "quotation", "mkSequential", Any, [ firstExpr; restExpr ])
 
     | Operation(kind, _tags, _typ, _r) ->
         // Represent operations as calls to the operator method
@@ -187,21 +187,21 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
 
         let argExprs = args |> List.map (emitQuotedExpr com) |> makeArray Any
 
-        Helper.LibCall(com, "fableQuotation", "mkCall", Any, [ instanceExpr; methodExpr; argExprs ])
+        Helper.LibCall(com, "quotation", "mkCall", Any, [ instanceExpr; methodExpr; argExprs ])
 
     | Get(expr, kind, _typ, _r) ->
         let target = emitQuotedExpr com expr
 
         match kind with
-        | TupleIndex index -> Helper.LibCall(com, "fableQuotation", "mkTupleGet", Any, [ target; makeIntConst index ])
-        | UnionTag -> Helper.LibCall(com, "fableQuotation", "mkUnionTag", Any, [ target ])
+        | TupleIndex index -> Helper.LibCall(com, "quotation", "mkTupleGet", Any, [ target; makeIntConst index ])
+        | UnionTag -> Helper.LibCall(com, "quotation", "mkUnionTag", Any, [ target ])
         | UnionField info ->
-            Helper.LibCall(com, "fableQuotation", "mkUnionField", Any, [ target; makeIntConst info.FieldIndex ])
-        | FieldGet info -> Helper.LibCall(com, "fableQuotation", "mkFieldGet", Any, [ target; makeStrConst info.Name ])
+            Helper.LibCall(com, "quotation", "mkUnionField", Any, [ target; makeIntConst info.FieldIndex ])
+        | FieldGet info -> Helper.LibCall(com, "quotation", "mkFieldGet", Any, [ target; makeStrConst info.Name ])
         | _ ->
             // ListHead, ListTail, OptionValue, ExprGet — fall through
             let msg = "Unsupported quotation Get kind"
-            Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
+            Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
 
     | Set(expr, kind, _typ, value, _r) ->
         let target = emitQuotedExpr com expr
@@ -210,12 +210,12 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         match kind with
         | ValueSet ->
             // Mutable variable set: expr is the ident, value is the new value
-            Helper.LibCall(com, "fableQuotation", "mkVarSet", Any, [ target; valueExpr ])
+            Helper.LibCall(com, "quotation", "mkVarSet", Any, [ target; valueExpr ])
         | FieldSet fieldName ->
-            Helper.LibCall(com, "fableQuotation", "mkFieldSet", Any, [ target; makeStrConst fieldName; valueExpr ])
+            Helper.LibCall(com, "quotation", "mkFieldSet", Any, [ target; makeStrConst fieldName; valueExpr ])
         | _ ->
             let msg = "Unsupported quotation Set kind"
-            Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
+            Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
 
     | TypeCast(innerExpr, _typ) ->
         // Coerce/cast: just emit the inner expression for now
@@ -228,7 +228,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         | [ ([], body) ] -> emitQuotedExpr com body
         | _ ->
             let msg = "Unsupported quotation node: DecisionTree"
-            Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
+            Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
 
     | DecisionTreeSuccess(idx, boundValues, _typ) ->
         match boundValues with
@@ -236,40 +236,39 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         | [ single ] -> emitQuotedExpr com single
         | _ ->
             let msg = "Unsupported quotation node: DecisionTreeSuccess"
-            Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
+            Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
 
     | _ ->
         // Unsupported node: emit an error value
         let msg = $"Unsupported quotation node: %A{expr.GetType().Name}"
 
-        Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
+        Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
 
 and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocation option) : Expr =
     match kind with
-    | BoolConstant b -> Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ makeBoolConst b; makeStrConst "bool" ])
+    | BoolConstant b -> Helper.LibCall(com, "quotation", "mkValue", Any, [ makeBoolConst b; makeStrConst "bool" ])
 
     | NumberConstant(NumberValue.Int32 i, _) ->
-        Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ makeIntConst i; makeStrConst "int32" ])
+        Helper.LibCall(com, "quotation", "mkValue", Any, [ makeIntConst i; makeStrConst "int32" ])
 
     | NumberConstant(NumberValue.Float64 f, _) ->
         let floatExpr = Value(NumberConstant(NumberValue.Float64 f, NumberInfo.Empty), None)
-        Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ floatExpr; makeStrConst "float64" ])
+        Helper.LibCall(com, "quotation", "mkValue", Any, [ floatExpr; makeStrConst "float64" ])
 
-    | StringConstant s ->
-        Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ makeStrConst s; makeStrConst "string" ])
+    | StringConstant s -> Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst s; makeStrConst "string" ])
 
     | UnitConstant ->
-        Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ Value(UnitConstant, None); makeStrConst "unit" ])
+        Helper.LibCall(com, "quotation", "mkValue", Any, [ Value(UnitConstant, None); makeStrConst "unit" ])
 
-    | Null _ -> Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ Value(Null Any, None); makeStrConst "null" ])
+    | Null _ -> Helper.LibCall(com, "quotation", "mkValue", Any, [ Value(Null Any, None); makeStrConst "null" ])
 
     | CharConstant c ->
-        Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ Value(CharConstant c, None); makeStrConst "char" ])
+        Helper.LibCall(com, "quotation", "mkValue", Any, [ Value(CharConstant c, None); makeStrConst "char" ])
 
     | NewTuple(values, _isStruct) ->
         let emittedValues = values |> List.map (emitQuotedExpr com) |> makeArray Any
 
-        Helper.LibCall(com, "fableQuotation", "mkNewTuple", Any, [ emittedValues ])
+        Helper.LibCall(com, "quotation", "mkNewTuple", Any, [ emittedValues ])
 
     | NewUnion(values, tag, entRef, _genArgs) ->
         let entName =
@@ -279,13 +278,7 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
 
         let emittedValues = values |> List.map (emitQuotedExpr com) |> makeArray Any
 
-        Helper.LibCall(
-            com,
-            "fableQuotation",
-            "mkNewUnion",
-            Any,
-            [ makeStrConst entName; makeIntConst tag; emittedValues ]
-        )
+        Helper.LibCall(com, "quotation", "mkNewUnion", Any, [ makeStrConst entName; makeIntConst tag; emittedValues ])
 
     | NewRecord(values, entRef, _genArgs) ->
         let fieldNames =
@@ -295,28 +288,27 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
 
         let emittedValues = values |> List.map (emitQuotedExpr com) |> makeArray Any
 
-        Helper.LibCall(com, "fableQuotation", "mkNewRecord", Any, [ fieldNames; emittedValues ])
+        Helper.LibCall(com, "quotation", "mkNewRecord", Any, [ fieldNames; emittedValues ])
 
     | NewOption(value, _typ, _isStruct) ->
         match value with
         | Some v ->
             let emitted = emitQuotedExpr com v
-            Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ emitted; makeStrConst "option" ])
-        | None ->
-            Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ Value(Null Any, None); makeStrConst "option" ])
+            Helper.LibCall(com, "quotation", "mkValue", Any, [ emitted; makeStrConst "option" ])
+        | None -> Helper.LibCall(com, "quotation", "mkValue", Any, [ Value(Null Any, None); makeStrConst "option" ])
 
     | NewList(headAndTail, _typ) ->
         match headAndTail with
         | Some(head, tail) ->
             let headExpr = emitQuotedExpr com head
             let tailExpr = emitQuotedExpr com tail
-            Helper.LibCall(com, "fableQuotation", "mkNewList", Any, [ headExpr; tailExpr ])
-        | None -> Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ Value(Null Any, None); makeStrConst "list" ])
+            Helper.LibCall(com, "quotation", "mkNewList", Any, [ headExpr; tailExpr ])
+        | None -> Helper.LibCall(com, "quotation", "mkValue", Any, [ Value(Null Any, None); makeStrConst "list" ])
 
     | _ ->
         // Fallback for other value kinds
         let msg = "Unsupported quotation value"
-        Helper.LibCall(com, "fableQuotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
+        Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
 
 and private typeToString (t: Type) : string =
     match t with
