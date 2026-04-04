@@ -18,9 +18,9 @@ Homepage = "https://fable.io"
 
 [dependency-groups]
 dev = [
-    "pytest>=8.3.5,<9",
-    "ruff>=0.11.6,<0.12",
-    "maturin>=1.8.3,<2",
+    "pytest>=9.0.2,<10",
+    "ruff>=0.15.9,<0.16",
+    "maturin>=1.12.6,<2",
     "dunamai>=1.23.1,<2",
     "pydantic>=2.11.7",
     "attrs>=25.3.0",
