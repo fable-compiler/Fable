@@ -702,6 +702,11 @@ let tests = testList "Strings" [
         "ABC".Contains("B") |> equal true
         "ABC".Contains("Z") |> equal false
 
+    testCase "String.Contains with StringComparison works" <| fun () ->
+        "ABC".Contains("b", StringComparison.Ordinal) |> equal false
+        "ABC".Contains("b", StringComparison.OrdinalIgnoreCase) |> equal true
+        "ABC".Contains("b", StringComparison.InvariantCultureIgnoreCase) |> equal true
+
     testCase "String.Split works" <| fun () ->
         "a b c  d".Split(' ')
         |> equal [|"a";"b";"c";"";"d"|]

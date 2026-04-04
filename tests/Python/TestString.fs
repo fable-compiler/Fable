@@ -488,6 +488,12 @@ let ``test String.Contains works`` () =
     "ABC".Contains("Z") |> equal false
 
 [<Fact>]
+let ``test String.Contains with StringComparison works`` () =
+    "ABC".Contains("b", StringComparison.Ordinal) |> equal false
+    "ABC".Contains("b", StringComparison.OrdinalIgnoreCase) |> equal true
+    "ABC".Contains("b", StringComparison.InvariantCultureIgnoreCase) |> equal true
+
+[<Fact>]
 let ``test String.Split works`` () =
     "a b c  d".Split(' ')
     |> (=) [|"a";"b";"c";"";"d"|] |> equal true
