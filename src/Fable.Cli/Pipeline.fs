@@ -161,12 +161,13 @@ module Js =
                         defaultArg file sourcePath
                         |> Path.getRelativeFileOrDirPath false targetPath false
 
-                    // This is a workaround for:
-                    // https://github.com/fable-compiler/Fable/issues/3980
-                    // We are still investigating why some of the F# code don't have source information
-                    // I believe for now we can ship it like that because it only deteriorate the source map
-                    // it should not break them completely.
-                    if srcLine <> 0 && srcCol <> 0 && file <> Some "unknown" then
+                    // Workaround for https://github.com/fable-compiler/Fable/issues/3980
+                    // FCS uses FileName="unknown" and StartLine=0 for synthetic expressions
+                    // generated during computation expression desugaring. SourceMapSharp
+                    // rejects line 0 (it expects 1-indexed lines). We skip such mappings to
+                    // avoid crashing; the source map will be slightly incomplete but valid.
+                    // Note: srcCol=0 is valid (first column of a line) and must NOT be filtered.
+                    if srcLine > 0 && file <> Some "unknown" then
                         mapGenerator.Force().AddMapping(generated, original, source = sourcePath, ?name = displayName)
 
     let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) =

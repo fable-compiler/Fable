@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [JS/TS] Fix source maps dropping valid mappings at column 0 (start of line) due to over-broad filter in `--sourceMaps` workaround (fixes #3980) (by Repo Assist)
 * [All] Fix unnecessary object allocations during AST traversal when visiting `Import` expressions (by Repo Assist)
 * [Dart] Fix `Array.compareWith` comparing lengths before elements, producing wrong results for arrays with common prefixes (fixes #2961)
 * [Python] Fix unsafe option unwrapping in `DateTimeOffset.get_Offset` and regex replacements (by @dbrattli)
