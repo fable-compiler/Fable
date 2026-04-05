@@ -14,7 +14,12 @@ class Random {
 
   int Next0() => _random.nextInt(0x7fffffff);
 
-  int Next1(int maxValue) => Next2(0, maxValue);
+  int Next1(int maxValue) {
+    if (maxValue < 0) {
+      throw _outOfRange('maxValue');
+    }
+    return Next2(0, maxValue);
+  }
 
   int Next2(int minValue, int maxValue) {
     if (maxValue < minValue) {
