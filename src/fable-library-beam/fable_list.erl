@@ -639,7 +639,7 @@ random_choice_by(Randomizer, Xs) ->
     R = Randomizer(ok),
     if
         R < 0.0; R >= 1.0 ->
-            erlang:error(<<"The randomizer function should return a float in [0, 1).">>);
+            erlang:error(iolist_to_binary(io_lib:format("The index is outside the legal range.~nrandomizer returned ~w, should be in range [0.0, 1.0).", [R])));
         true ->
             lists:nth(erlang:trunc(R * Len) + 1, Xs)
     end.
@@ -657,25 +657,25 @@ random_choices_by(Randomizer, Count, Xs) ->
     if
         Count < 0 ->
             erlang:error(<<"The input must be non-negative.">>);
+        Count > 0 andalso Xs =:= [] ->
+            erlang:error(<<"The input sequence was empty.">>);
         true ->
-            case {Count > 0, Xs} of
-                {true, []} ->
-                    erlang:error(<<"The input sequence was empty.">>);
-                _ ->
-                    Len = erlang:length(Xs),
-                    lists:map(
-                        fun(_) ->
-                            R = Randomizer(ok),
-                            if
-                                R < 0.0; R >= 1.0 ->
-                                    erlang:error(<<"The randomizer function should return a float in [0, 1).">>);
-                                true ->
-                                    lists:nth(erlang:trunc(R * Len) + 1, Xs)
-                            end
-                        end,
-                        lists:seq(1, Count)
-                    )
-            end
+            Arr = erlang:list_to_tuple(Xs),
+            Len = erlang:tuple_size(Arr),
+            choices_loop(Randomizer, Arr, Len, Count, [])
+    end.
+
+%% Tail-recursive helper for random_choices_by: builds result in reverse then flips.
+choices_loop(_Randomizer, _Arr, _Len, 0, Acc) ->
+    lists:reverse(Acc);
+choices_loop(Randomizer, Arr, Len, N, Acc) ->
+    R = Randomizer(ok),
+    if
+        R < 0.0; R >= 1.0 ->
+            erlang:error(iolist_to_binary(io_lib:format("The index is outside the legal range.~nrandomizer returned ~w, should be in range [0.0, 1.0).", [R])));
+        true ->
+            E = erlang:element(erlang:trunc(R * Len) + 1, Arr),
+            choices_loop(Randomizer, Arr, Len, N - 1, [E | Acc])
     end.
 
 -spec random_choices_with(ok, non_neg_integer(), list()) -> list().
@@ -694,7 +694,7 @@ random_sample_by(Randomizer, Count, Xs) ->
         true ->
             Len = erlang:length(Xs),
             if
-                Len =:= 0, Count > 0 ->
+                Len =:= 0 andalso Count > 0 ->
                     erlang:error(<<"The input sequence was empty.">>);
                 Count > Len ->
                     erlang:error(<<"The input sequence has an insufficient number of elements.">>);
@@ -718,7 +718,7 @@ sample_loop(Randomizer, Arr, Len, Count, I) ->
     R = Randomizer(ok),
     if
         R < 0.0; R >= 1.0 ->
-            erlang:error(<<"The randomizer function should return a float in [0, 1).">>);
+            erlang:error(iolist_to_binary(io_lib:format("The index is outside the legal range.~nrandomizer returned ~w, should be in range [0.0, 1.0).", [R])));
         true ->
             J = I + erlang:trunc(R * (Len - I)),
             EI = erlang:element(I + 1, Arr),
@@ -734,7 +734,7 @@ shuffle_loop(Randomizer, Arr, I) ->
     R = Randomizer(ok),
     if
         R < 0.0; R >= 1.0 ->
-            erlang:error(<<"The randomizer function should return a float in [0, 1).">>);
+            erlang:error(iolist_to_binary(io_lib:format("The index is outside the legal range.~nrandomizer returned ~w, should be in range [0.0, 1.0).", [R])));
         true ->
             J = erlang:trunc(R * (I + 1)),
             EI = erlang:element(I + 1, Arr),

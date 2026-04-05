@@ -3283,7 +3283,10 @@ impl FSharpArray {
         for i in (1..len).rev() {
             let r: f64 = randomizer.call0()?.extract()?;
             if r < 0.0 || r >= 1.0 {
-                return Err(PyErr::new::<exceptions::PyException, _>("randomizer"));
+                return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+                    "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
+                    r
+                )));
             }
             let j = (r * (i + 1) as f64) as usize;
             self.swap_items(i, j);
@@ -3340,11 +3343,16 @@ impl FSharpArray {
     ) -> PyResult<Py<PyAny>> {
         let len = self.storage.len();
         if len == 0 {
-            return Err(PyErr::new::<exceptions::PyException, _>("source"));
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input sequence was empty.",
+            ));
         }
         let r: f64 = randomizer.call0()?.extract()?;
         if r < 0.0 || r >= 1.0 {
-            return Err(PyErr::new::<exceptions::PyException, _>("randomizer"));
+            return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+                "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
+                r
+            )));
         }
         self.storage.get(py, (r * len as f64) as usize)
     }
@@ -3372,12 +3380,16 @@ impl FSharpArray {
         count: isize,
     ) -> PyResult<FSharpArray> {
         if count < 0 {
-            return Err(PyErr::new::<exceptions::PyException, _>("count"));
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input must be non-negative.",
+            ));
         }
         let count = count as usize;
         let xs_len = self.storage.len();
         if count > 0 && xs_len == 0 {
-            return Err(PyErr::new::<exceptions::PyException, _>("source"));
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input sequence was empty.",
+            ));
         }
         if count == 0 {
             if xs_len == 0 {
@@ -3391,7 +3403,10 @@ impl FSharpArray {
         for i in 0..count {
             let r: f64 = randomizer.call0()?.extract()?;
             if r < 0.0 || r >= 1.0 {
-                return Err(PyErr::new::<exceptions::PyException, _>("randomizer"));
+                return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+                    "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
+                    r
+                )));
             }
             let src_idx = (r * xs_len as f64) as usize;
             let val = self.storage.get(py, src_idx)?;
@@ -3424,21 +3439,30 @@ impl FSharpArray {
         count: isize,
     ) -> PyResult<FSharpArray> {
         if count < 0 {
-            return Err(PyErr::new::<exceptions::PyException, _>("count"));
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input must be non-negative.",
+            ));
         }
         let count = count as usize;
         let mut arr = self.clone();
         let length = arr.storage.len();
         if length == 0 && count > 0 {
-            return Err(PyErr::new::<exceptions::PyException, _>("source"));
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input sequence was empty.",
+            ));
         }
         if count > length {
-            return Err(PyErr::new::<exceptions::PyException, _>("count"));
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input sequence has an insufficient number of elements.",
+            ));
         }
         for i in 0..count {
             let r: f64 = randomizer.call0()?.extract()?;
             if r < 0.0 || r >= 1.0 {
-                return Err(PyErr::new::<exceptions::PyException, _>("randomizer"));
+                return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+                    "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
+                    r
+                )));
             }
             let j = i + (r * (length - i) as f64) as usize;
             arr.swap_items(i, j);
