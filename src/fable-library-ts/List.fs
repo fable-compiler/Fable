@@ -1013,3 +1013,39 @@ let updateAt (index: int) (y: 'T) (xs: 'T list) : 'T list =
         invalidArg "index" SR.indexOutOfBounds
 
     ys
+
+let randomShuffleBy (randomizer: unit -> float) (xs: 'T list) : 'T list =
+    let arr = toArray xs
+    Array.randomShuffleInPlaceBy randomizer arr
+    ofArray arr
+
+let randomShuffleWith (random: System.Random) (xs: 'T list) : 'T list =
+    randomShuffleBy (fun () -> random.NextDouble()) xs
+
+let randomShuffle (xs: 'T list) : 'T list = randomShuffleWith (System.Random()) xs
+
+let randomChoiceBy (randomizer: unit -> float) (xs: 'T list) : 'T =
+    toArray xs |> Array.randomChoiceBy randomizer
+
+let randomChoiceWith (random: System.Random) (xs: 'T list) : 'T =
+    randomChoiceBy (fun () -> random.NextDouble()) xs
+
+let randomChoice (xs: 'T list) : 'T = randomChoiceWith (System.Random()) xs
+
+let randomChoicesBy (randomizer: unit -> float) (count: int) (xs: 'T list) : 'T list =
+    toArray xs |> Array.randomChoicesBy randomizer count |> ofArray
+
+let randomChoicesWith (random: System.Random) (count: int) (xs: 'T list) : 'T list =
+    randomChoicesBy (fun () -> random.NextDouble()) count xs
+
+let randomChoices (count: int) (xs: 'T list) : 'T list =
+    randomChoicesWith (System.Random()) count xs
+
+let randomSampleBy (randomizer: unit -> float) (count: int) (xs: 'T list) : 'T list =
+    toArray xs |> Array.randomSampleBy randomizer count |> ofArray
+
+let randomSampleWith (random: System.Random) (count: int) (xs: 'T list) : 'T list =
+    randomSampleBy (fun () -> random.NextDouble()) count xs
+
+let randomSample (count: int) (xs: 'T list) : 'T list =
+    randomSampleWith (System.Random()) count xs

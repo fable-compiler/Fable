@@ -10,10 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * [All] Add support for `Guid.CreateVersion7()` and `Guid.CreateVersion7(DateTimeOffset)`
-* [Dart] Implement `System.Random` runtime support using Dart's built-in `Random` and re-enable Dart tests
-* [Rust] Add missing `Array` members and tests: `randomShuffleInPlaceBy`, `randomShuffleInPlaceWith`, `randomShuffleInPlace`
-* [Rust] Add missing `System.Random` implementation and tests (by @ncave)
-* [Rust] Add missing `Array`, `List` and `Seq` module members and tests: `randomChoice`, `randomChoiceBy`, `randomChoiceWith`, `randomChoices`, `randomChoicesBy`, `randomChoicesWith`, `randomSample`, `randomSampleBy`, `randomSampleWith`, `randomShuffle`, `randomShuffleBy`, `randomShuffleWith` (by @ncave)
+* [All] Add missing `Array`, `List`, and `Seq` random choice/shuffle/sample members and tests (by @ncave)
+* [Dart/Rust] Add missing `System.Random` implementations and tests (by @ncave)
 * [Beam] Implement missing DateTimeOffset members, add DateOnly and TimeOnly support
 
 ### Fixed
