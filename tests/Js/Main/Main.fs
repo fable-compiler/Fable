@@ -6,6 +6,7 @@ let allTests =
     UtilTests.tests
     Applicative.tests
     Arithmetic.tests
+    RandomTests.tests
     Arrays.tests
     Async.tests
     Chars.tests

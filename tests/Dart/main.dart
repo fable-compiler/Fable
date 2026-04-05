@@ -1,4 +1,5 @@
 import './src/ArithmeticTests.dart' as arithmetic;
+import './src/RandomTests.dart' as random;
 import './src/ArrayTests.dart' as array;
 import './src/ComparisonTests.dart' as comparison;
 import './src/CustomOperatorTests.dart' as custom_operator;
@@ -30,6 +31,7 @@ import './src/UnionTests.dart' as union;
 
 void main() {
   arithmetic.tests();
+  random.tests();
   array.tests();
   comparison.tests();
   custom_operator.tests();

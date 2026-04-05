@@ -13,7 +13,7 @@
 -spec new() -> ok.
 -spec new_seeded(integer()) -> ok.
 -spec next() -> non_neg_integer().
--spec next(pos_integer()) -> non_neg_integer().
+-spec next(integer()) -> non_neg_integer().
 -spec next(integer(), integer()) -> integer().
 -spec next_double() -> float().
 -spec next_bytes(tuple() | reference()) -> ok.
@@ -32,6 +32,8 @@ next() ->
     rand:uniform(2147483647) - 1.
 
 %% Random.Next(maxValue) — returns a non-negative integer less than maxValue.
+next(0) ->
+    0;
 next(MaxValue) when MaxValue > 0 ->
     rand:uniform(MaxValue) - 1;
 next(_) ->

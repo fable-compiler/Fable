@@ -29,6 +29,7 @@
     <Compile Include="Misc/Util3.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="ArithmeticTests.fs" />
+    <Compile Include="RandomTests.fs" />
     <Compile Include="ListTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
     <Compile Include="PatternMatchTests.fs" />
