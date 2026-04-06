@@ -10,10 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 * [Python/Beam] Add F# quotation support — construction, pattern matching, and evaluation via `LeafExpressionConverter.EvaluateQuotation` (by @dbrattli)
-* [All] Add support for `Guid.CreateVersion7()` and `Guid.CreateVersion7(DateTimeOffset)`
-* [Rust] Add missing `System.Random` implementation and tests (by @ncave)
-* [Rust] Add missing `Array`, `List` and `Seq` module members and tests: `randomChoice`, `randomChoiceBy`, `randomChoiceWith`, `randomChoices`, `randomChoicesBy`, `randomChoicesWith`, `randomSample`, `randomSampleBy`, `randomSampleWith`, `randomShuffle`, `randomShuffleBy`, `randomShuffleWith` (by @ncave)
-* [Beam] Implement missing DateTimeOffset members, add DateOnly and TimeOnly support
 * [All] Add support for `Guid.CreateVersion7()` and `Guid.CreateVersion7(DateTimeOffset)` (by @OnurGumus)
 * [All] Add missing `Array`, `List`, and `Seq` random choice/shuffle/sample members and tests (by @ncave)
 * [Dart/Rust] Add missing `System.Random` implementations and tests (by @ncave)
