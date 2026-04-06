@@ -1005,19 +1005,7 @@ let updateAt (index: int) (y: 'T) (xs: 'T list) : 'T list =
 
 let randomShuffleBy (randomizer: unit -> float) (xs: 'T list) : 'T list =
     let arr = toArray xs
-    let len = arr.Length
-
-    for i = len - 1 downto 1 do
-        let r = randomizer ()
-
-        if r < 0.0 || r >= 1.0 then
-            invalidArg "randomizer" SR.Arg_ArgumentOutOfRangeException
-
-        let j = int (r * float (i + 1))
-        let tmp = arr[i]
-        arr[i] <- arr[j]
-        arr[j] <- tmp
-
+    Array.randomShuffleInPlaceBy randomizer arr
     ofArray arr
 
 let randomShuffleWith (random: System.Random) (xs: 'T list) : 'T list =
@@ -1026,17 +1014,7 @@ let randomShuffleWith (random: System.Random) (xs: 'T list) : 'T list =
 let randomShuffle (xs: 'T list) : 'T list = randomShuffleWith (System.Random()) xs
 
 let randomChoiceBy (randomizer: unit -> float) (xs: 'T list) : 'T =
-    if isEmpty xs then
-        invalidArg "source" SR.inputSequenceEmpty
-
-    let arr = toArray xs
-    let len = arr.Length
-    let r = randomizer ()
-
-    if r < 0.0 || r >= 1.0 then
-        invalidArg "randomizer" SR.Arg_ArgumentOutOfRangeException
-
-    arr[int (r * float len)]
+    toArray xs |> Array.randomChoiceBy randomizer
 
 let randomChoiceWith (random: System.Random) (xs: 'T list) : 'T =
     randomChoiceBy (fun () -> random.NextDouble()) xs
@@ -1044,25 +1022,7 @@ let randomChoiceWith (random: System.Random) (xs: 'T list) : 'T =
 let randomChoice (xs: 'T list) : 'T = randomChoiceWith (System.Random()) xs
 
 let randomChoicesBy (randomizer: unit -> float) (count: int) (xs: 'T list) : 'T list =
-    if count < 0 then
-        invalidArg "count" SR.inputMustBeNonNegative
-
-    if count > 0 && isEmpty xs then
-        invalidArg "source" SR.notEnoughElements
-
-    let arr = toArray xs
-    let len = arr.Length
-
-    initialize
-        count
-        (fun _ ->
-            let r = randomizer ()
-
-            if r < 0.0 || r >= 1.0 then
-                invalidArg "randomizer" SR.Arg_ArgumentOutOfRangeException
-
-            arr[int (r * float len)]
-        )
+    toArray xs |> Array.randomChoicesBy randomizer count |> ofArray
 
 let randomChoicesWith (random: System.Random) (count: int) (xs: 'T list) : 'T list =
     randomChoicesBy (fun () -> random.NextDouble()) count xs
@@ -1071,34 +1031,7 @@ let randomChoices (count: int) (xs: 'T list) : 'T list =
     randomChoicesWith (System.Random()) count xs
 
 let randomSampleBy (randomizer: unit -> float) (count: int) (xs: 'T list) : 'T list =
-    if count < 0 then
-        invalidArg "count" SR.inputMustBeNonNegative
-
-    let arr = toArray xs
-    let len = arr.Length
-
-    if count > len then
-        invalidArg "count" SR.notEnoughElements
-
-    // Partial Fisher-Yates: select count distinct elements
-    for i = 0 to count - 1 do
-        let r = randomizer ()
-
-        if r < 0.0 || r >= 1.0 then
-            invalidArg "randomizer" SR.Arg_ArgumentOutOfRangeException
-
-        let j = i + int (r * float (len - i))
-        let tmp = arr[i]
-        arr[i] <- arr[j]
-        arr[j] <- tmp
-
-    // Build result list from first count elements
-    let mutable result = empty ()
-
-    for i = count - 1 downto 0 do
-        result <- cons arr[i] result
-
-    result
+    toArray xs |> Array.randomSampleBy randomizer count |> ofArray
 
 let randomSampleWith (random: System.Random) (count: int) (xs: 'T list) : 'T list =
     randomSampleBy (fun () -> random.NextDouble()) count xs

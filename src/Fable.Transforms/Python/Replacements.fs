@@ -3254,10 +3254,12 @@ let globalization
         ObjectExpr([], t, None) |> Some
     | _ -> None
 
-let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
-    match i.CompiledName with
-    | ".ctor" -> ObjectExpr([], t, None) |> Some
-    | "Next" ->
+let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg with
+    | ".ctor", _ ->
+        Helper.LibCall(com, "util", "create_random", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "Next", Some thisArg ->
         let min, max =
             match args with
             | [] -> makeIntConst 0, makeIntConst System.Int32.MaxValue
@@ -3265,19 +3267,19 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (a
             | [ min; max ] -> min, max
             | _ -> FableError "Unexpected arg count for Random.Next" |> raise
 
-        Helper.LibCall(com, "util", "randint", t, [ min; max ], [ min.Type; max.Type ], ?loc = r)
-        |> Some
-    | "NextDouble" ->
-        let ranExpr = Helper.ImportedCall("random", "random", t, [], [])
-        Helper.LibCall(com, "core", "float64", t, [ ranExpr ], ?loc = r) |> Some
-    | "NextBytes" ->
-        let byteArray =
-            match args with
-            | [ b ] -> b
-            | _ -> FableError "Unexpected arg count for Random.NextBytes" |> raise
+        let args = [ thisArg; min; max ]
+        let argTypes = [ thisArg.Type; min.Type; max.Type ]
+        Helper.LibCall(com, "util", "random_int", t, args, argTypes, ?loc = r) |> Some
+    | "NextDouble", Some thisArg ->
+        let args = [ thisArg ]
+        let argTypes = [ thisArg.Type ]
 
-        Helper.LibCall(com, "util", "random_bytes", t, [ byteArray ], [ byteArray.Type ], ?loc = r)
+        Helper.LibCall(com, "util", "random_double", t, args, argTypes, ?loc = r)
         |> Some
+    | "NextBytes", Some thisArg ->
+        let args = thisArg :: args
+        let argTypes = thisArg.Type :: i.SignatureArgTypes
+        Helper.LibCall(com, "util", "random_bytes", t, args, argTypes, ?loc = r) |> Some
     | _ -> None
 
 let cancels (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

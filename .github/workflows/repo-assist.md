@@ -183,7 +183,7 @@ source: githubnext/agentics/workflows/repo-assist.md@346204513ecfa08b81566450d7d
 
 Take heed of **instructions**: "${{ steps.sanitized.outputs.text }}"
 
-If these are non-empty (not ""), then you have been triggered via `/repo-assist <instructions>`. Follow the user's instructions instead of the normal scheduled workflow. Focus exclusively on those instructions. Apply all the same guidelines (read CLAUDE.md, run formatters/linters/tests, be polite, use AI disclosure). Skip the weighted task selection and Task 11 reporting, and instead directly do what the user requested. If no specific instructions were provided (empty or blank), proceed with the normal scheduled workflow below.
+If these are non-empty (not ""), then you have been triggered via `/repo-assist <instructions>`. Follow the user's instructions instead of the normal scheduled workflow. Focus exclusively on those instructions. Apply all the same guidelines (read AGENTS.md, run formatters/linters/tests, be polite, use AI disclosure). Skip the weighted task selection and Task 11 reporting, and instead directly do what the user requested. If no specific instructions were provided (empty or blank), proceed with the normal scheduled workflow below.
 
 Then exit — do not run the normal workflow after completing the instructions.
 
@@ -251,7 +251,7 @@ Update memory with labels applied and cursor position.
    - **Target-specific issues** → check if other targets handle the same case correctly. If so, reference the working implementation as a guide.
    - **Feature requests** → consider whether the feature benefits multiple targets or is target-specific. For .NET API support requests, check if the API is mapped in `Replacements.fs`.
    - **Questions** → answer concisely with references to relevant code.
-   - **Onboarding** → point to README, CLAUDE.md, and the quicktest workflow for rapid iteration.
+   - **Onboarding** → point to README, AGENTS.md, and the quicktest workflow for rapid iteration.
    Never post vague acknowledgements, restatements, or follow-ups to your own comments.
 4. Begin every comment with: `🤖 *This is an automated response from Repo Assist.*`
 5. Update memory with comments made and the new cursor position.
@@ -414,7 +414,7 @@ Maintain a single open issue titled `[Repo Assist] Monthly Activity {YYYY}-{MM}`
 - **No breaking changes** without maintainer approval via a tracked issue.
 - **No new dependencies** without discussion in an issue first.
 - **Small, focused PRs** — one concern per PR.
-- **Read CLAUDE.md first**: before starting work on any pull request, read the repository's `CLAUDE.md` file to understand project-specific conventions, coding standards, and contribution requirements.
+- **Read AGENTS.md first**: before starting work on any pull request, read the repository's `AGENTS.md` file to understand project-specific conventions, coding standards, and contribution requirements.
 - **CI validates PRs**: Do not run builds or tests locally. Create the PR and let CI validate. If CI fails due to your changes, fix and push updates (Task 6).
 - **Update changelogs**: PRs must update `src/Fable.Cli/CHANGELOG.md` and `src/Fable.Compiler/CHANGELOG.md` under `## Unreleased` with target prefix (e.g., `* [Python] Fix ...`).
 - **Respect existing style** — match code formatting and naming conventions.

@@ -1159,3 +1159,100 @@ let ``test Seq.removeManyAt works`` () =
     throwsAnyError (fun () -> Seq.removeManyAt 0 2 [] |> Seq.toList |> ignore)
     throwsAnyError (fun () -> Seq.removeManyAt -1 2 [1] |> Seq.toList |> ignore)
     throwsAnyError (fun () -> Seq.removeManyAt 2 2 [1] |> Seq.toList |> ignore)
+
+[<Fact>]
+let ``test Seq.randomShuffle works`` () =
+    let xs = seq { 1; 2; 3; 4; 5 }
+    let shuffled = Seq.randomShuffle xs |> Seq.toArray
+    Array.sort shuffled |> equal [|1; 2; 3; 4; 5|]
+    Array.length shuffled |> equal 5
+
+[<Fact>]
+let ``test Seq.randomShuffleWith works`` () =
+    let xs = seq { 1; 2; 3; 4; 5 }
+    let rng = System.Random(42)
+    let shuffled = Seq.randomShuffleWith rng xs |> Seq.toArray
+    Array.sort shuffled |> equal [|1; 2; 3; 4; 5|]
+    Array.length shuffled |> equal 5
+
+[<Fact>]
+let ``test Seq.randomShuffleBy works`` () =
+    let shuffled = Seq.randomShuffleBy (fun () -> 0.0) [1; 2; 3; 4; 5] |> Seq.toArray
+    Array.sort shuffled |> equal [|1; 2; 3; 4; 5|]
+    throwsAnyError (fun () -> Seq.randomShuffleBy (fun () -> 1.0) [1; 2] |> Seq.toArray |> ignore)
+    throwsAnyError (fun () -> Seq.randomShuffleBy (fun () -> -0.1) [1; 2] |> Seq.toArray |> ignore)
+
+[<Fact>]
+let ``test Seq.randomChoice works`` () =
+    let xs = seq { 1; 2; 3; 4; 5 }
+    let x = Seq.randomChoice xs
+    Seq.contains x xs |> equal true
+    throwsAnyError (fun () -> Seq.randomChoice<int> Seq.empty |> ignore)
+
+[<Fact>]
+let ``test Seq.randomChoiceWith works`` () =
+    let xs = seq { 10; 20; 30 }
+    let rng = System.Random(42)
+    let x = Seq.randomChoiceWith rng xs
+    Seq.contains x xs |> equal true
+
+[<Fact>]
+let ``test Seq.randomChoiceBy works`` () =
+    let x = Seq.randomChoiceBy (fun () -> 0.0) [42; 99; 7]
+    x |> equal 42
+    throwsAnyError (fun () -> Seq.randomChoiceBy (fun () -> 1.0) [1] |> ignore)
+    throwsAnyError (fun () -> Seq.randomChoiceBy (fun () -> 0.5) Seq.empty<int> |> ignore)
+
+[<Fact>]
+let ``test Seq.randomChoices works`` () =
+    let xs = seq { 1; 2; 3 }
+    let choices = Seq.randomChoices 5 xs |> Seq.toArray
+    Array.length choices |> equal 5
+    choices |> Array.forall (fun x -> Seq.contains x xs) |> equal true
+    Seq.randomChoices 0 xs |> Seq.toArray |> equal [||]
+    throwsAnyError (fun () -> Seq.randomChoices -1 xs |> Seq.toArray |> ignore)
+    throwsAnyError (fun () -> Seq.randomChoices 1 Seq.empty<int> |> Seq.toArray |> ignore)
+
+[<Fact>]
+let ``test Seq.randomChoicesWith works`` () =
+    let xs = seq { 10; 20; 30 }
+    let rng = System.Random(42)
+    let choices = Seq.randomChoicesWith rng 4 xs |> Seq.toArray
+    Array.length choices |> equal 4
+    choices |> Array.forall (fun x -> Seq.contains x xs) |> equal true
+
+[<Fact>]
+let ``test Seq.randomChoicesBy works`` () =
+    let choices = Seq.randomChoicesBy (fun () -> 0.5) 3 [10; 20; 30] |> Seq.toArray
+    Array.length choices |> equal 3
+    choices |> Array.forall (fun x -> x = 20) |> equal true
+
+[<Fact>]
+let ``test Seq.randomSample works`` () =
+    let xs = seq { 1; 2; 3; 4; 5 }
+    let sample = Seq.randomSample 3 xs |> Seq.toArray
+    Array.length sample |> equal 3
+    sample |> Array.forall (fun x -> Seq.contains x xs) |> equal true
+    Array.distinct sample |> Array.length |> equal 3
+    Seq.randomSample 0 xs |> Seq.toArray |> equal [||]
+    Seq.randomSample 5 xs |> Seq.toArray |> Array.sort |> equal [|1; 2; 3; 4; 5|]
+    throwsAnyError (fun () -> Seq.randomSample -1 xs |> Seq.toArray |> ignore)
+    throwsAnyError (fun () -> Seq.randomSample 6 xs |> Seq.toArray |> ignore)
+    throwsAnyError (fun () -> Seq.randomSample 1 Seq.empty<int> |> Seq.toArray |> ignore)
+
+[<Fact>]
+let ``test Seq.randomSampleWith works`` () =
+    let xs = seq { 1; 2; 3; 4; 5 }
+    let rng = System.Random(42)
+    let sample = Seq.randomSampleWith rng 3 xs |> Seq.toArray
+    Array.length sample |> equal 3
+    sample |> Array.forall (fun x -> Seq.contains x xs) |> equal true
+    Array.distinct sample |> Array.length |> equal 3
+
+[<Fact>]
+let ``test Seq.randomSampleBy works`` () =
+    let sample = Seq.randomSampleBy (fun () -> 0.0) 3 [1; 2; 3; 4; 5] |> Seq.toArray
+    Array.length sample |> equal 3
+    Array.distinct sample |> Array.length |> equal 3
+    throwsAnyError (fun () -> Seq.randomSampleBy (fun () -> 1.0) 1 [1; 2] |> Seq.toArray |> ignore)
+    throwsAnyError (fun () -> Seq.randomSampleBy (fun () -> -0.1) 1 [1; 2] |> Seq.toArray |> ignore)

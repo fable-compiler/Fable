@@ -3249,6 +3249,243 @@ impl FSharpArray {
 
         Ok(FSharpArray { storage: result })
     }
+
+    // --- Internal swap helper ---
+
+    fn swap_items(&mut self, i: usize, j: usize) {
+        match &mut self.storage {
+            NativeArray::Int8(vec) => vec.swap(i, j),
+            NativeArray::UInt8(vec) => vec.swap(i, j),
+            NativeArray::Int16(vec) => vec.swap(i, j),
+            NativeArray::UInt16(vec) => vec.swap(i, j),
+            NativeArray::Int32(vec) => vec.swap(i, j),
+            NativeArray::UInt32(vec) => vec.swap(i, j),
+            NativeArray::Int64(vec) => vec.swap(i, j),
+            NativeArray::UInt64(vec) => vec.swap(i, j),
+            NativeArray::Float32(vec) => vec.swap(i, j),
+            NativeArray::Float64(vec) => vec.swap(i, j),
+            NativeArray::Bool(vec) => vec.swap(i, j),
+            NativeArray::PyObject(arc) => {
+                let mut vec = arc.lock().unwrap();
+                vec.swap(i, j);
+            }
+        }
+    }
+
+    // --- Random functions ---
+
+    pub fn random_shuffle_in_place_by(
+        &mut self,
+        _py: Python<'_>,
+        randomizer: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let len = self.storage.len();
+        for i in (1..len).rev() {
+            let r: f64 = randomizer.call0()?.extract()?;
+            if r < 0.0 || r >= 1.0 {
+                return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+                    "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
+                    r
+                )));
+            }
+            let j = (r * (i + 1) as f64) as usize;
+            self.swap_items(i, j);
+        }
+        Ok(())
+    }
+
+    pub fn random_shuffle_in_place_with(
+        &mut self,
+        py: Python<'_>,
+        _random: &Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_shuffle_in_place_by(py, &randomizer)
+    }
+
+    pub fn random_shuffle_in_place(&mut self, py: Python<'_>) -> PyResult<()> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_shuffle_in_place_by(py, &randomizer)
+    }
+
+    pub fn random_shuffle_by(
+        &self,
+        py: Python<'_>,
+        randomizer: &Bound<'_, PyAny>,
+    ) -> PyResult<FSharpArray> {
+        let mut arr = self.clone();
+        arr.random_shuffle_in_place_by(py, randomizer)?;
+        Ok(arr)
+    }
+
+    pub fn random_shuffle_with(
+        &self,
+        py: Python<'_>,
+        _random: &Bound<'_, PyAny>,
+    ) -> PyResult<FSharpArray> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_shuffle_by(py, &randomizer)
+    }
+
+    pub fn random_shuffle(&self, py: Python<'_>) -> PyResult<FSharpArray> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_shuffle_by(py, &randomizer)
+    }
+
+    pub fn random_choice_by(
+        &self,
+        py: Python<'_>,
+        randomizer: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let len = self.storage.len();
+        if len == 0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input sequence was empty.",
+            ));
+        }
+        let r: f64 = randomizer.call0()?.extract()?;
+        if r < 0.0 || r >= 1.0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+                "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
+                r
+            )));
+        }
+        self.storage.get(py, (r * len as f64) as usize)
+    }
+
+    pub fn random_choice_with(
+        &self,
+        py: Python<'_>,
+        _random: &Bound<'_, PyAny>,
+    ) -> PyResult<Py<PyAny>> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_choice_by(py, &randomizer)
+    }
+
+    pub fn random_choice(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_choice_by(py, &randomizer)
+    }
+
+    pub fn random_choices_by(
+        &self,
+        py: Python<'_>,
+        randomizer: &Bound<'_, PyAny>,
+        count: isize,
+    ) -> PyResult<FSharpArray> {
+        if count < 0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input must be non-negative.",
+            ));
+        }
+        let count = count as usize;
+        let xs_len = self.storage.len();
+        if count > 0 && xs_len == 0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input sequence was empty.",
+            ));
+        }
+        if count == 0 {
+            if xs_len == 0 {
+                return FSharpArray::empty(py, None);
+            }
+            let first = self.storage.get(py, 0)?;
+            return FSharpArray::create(py, 0, first.bind(py));
+        }
+        let first = self.storage.get(py, 0)?;
+        let mut result = FSharpArray::create(py, count, first.bind(py))?;
+        for i in 0..count {
+            let r: f64 = randomizer.call0()?.extract()?;
+            if r < 0.0 || r >= 1.0 {
+                return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+                    "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
+                    r
+                )));
+            }
+            let src_idx = (r * xs_len as f64) as usize;
+            let val = self.storage.get(py, src_idx)?;
+            result.__setitem__(i as isize, val.bind(py), py)?;
+        }
+        Ok(result)
+    }
+
+    pub fn random_choices_with(
+        &self,
+        py: Python<'_>,
+        _random: &Bound<'_, PyAny>,
+        count: isize,
+    ) -> PyResult<FSharpArray> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_choices_by(py, &randomizer, count)
+    }
+
+    pub fn random_choices(&self, py: Python<'_>, count: isize) -> PyResult<FSharpArray> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_choices_by(py, &randomizer, count)
+    }
+
+    pub fn random_sample_by(
+        &self,
+        py: Python<'_>,
+        randomizer: &Bound<'_, PyAny>,
+        count: isize,
+    ) -> PyResult<FSharpArray> {
+        if count < 0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input must be non-negative.",
+            ));
+        }
+        let count = count as usize;
+        let mut arr = self.clone();
+        let length = arr.storage.len();
+        if length == 0 && count > 0 {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input sequence was empty.",
+            ));
+        }
+        if count > length {
+            return Err(PyErr::new::<exceptions::PyValueError, _>(
+                "The input sequence has an insufficient number of elements.",
+            ));
+        }
+        for i in 0..count {
+            let r: f64 = randomizer.call0()?.extract()?;
+            if r < 0.0 || r >= 1.0 {
+                return Err(PyErr::new::<exceptions::PyValueError, _>(format!(
+                    "The index is outside the legal range.\nrandomizer returned {}, should be in range [0.0, 1.0).",
+                    r
+                )));
+            }
+            let j = i + (r * (length - i) as f64) as usize;
+            arr.swap_items(i, j);
+        }
+        arr.get_sub_array(py, 0, count, None)
+    }
+
+    pub fn random_sample_with(
+        &self,
+        py: Python<'_>,
+        _random: &Bound<'_, PyAny>,
+        count: isize,
+    ) -> PyResult<FSharpArray> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_sample_by(py, &randomizer, count)
+    }
+
+    pub fn random_sample(&self, py: Python<'_>, count: isize) -> PyResult<FSharpArray> {
+        let random_module = py.import("random")?;
+        let randomizer = random_module.getattr("random")?;
+        self.random_sample_by(py, &randomizer, count)
+    }
 }
 
 // Loose functions that delegate to member functions
@@ -4060,6 +4297,145 @@ pub fn contains(
 pub fn copy(py: Python<'_>, array: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
     let array = ensure_array(py, array)?;
     array.copy(py)
+}
+
+#[pyfunction]
+pub fn random_shuffle_in_place_by(
+    py: Python<'_>,
+    randomizer: &Bound<'_, PyAny>,
+    xs: &mut FSharpArray,
+) -> PyResult<()> {
+    xs.random_shuffle_in_place_by(py, randomizer)
+}
+
+#[pyfunction]
+pub fn random_shuffle_in_place_with(
+    py: Python<'_>,
+    random: &Bound<'_, PyAny>,
+    xs: &mut FSharpArray,
+) -> PyResult<()> {
+    xs.random_shuffle_in_place_with(py, random)
+}
+
+#[pyfunction]
+pub fn random_shuffle_in_place(py: Python<'_>, xs: &mut FSharpArray) -> PyResult<()> {
+    xs.random_shuffle_in_place(py)
+}
+
+#[pyfunction]
+pub fn random_shuffle_by(
+    py: Python<'_>,
+    randomizer: &Bound<'_, PyAny>,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_shuffle_by(py, randomizer)
+}
+
+#[pyfunction]
+pub fn random_shuffle_with(
+    py: Python<'_>,
+    random: &Bound<'_, PyAny>,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_shuffle_with(py, random)
+}
+
+#[pyfunction]
+pub fn random_shuffle(py: Python<'_>, xs: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_shuffle(py)
+}
+
+#[pyfunction]
+pub fn random_choice_by(
+    py: Python<'_>,
+    randomizer: &Bound<'_, PyAny>,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<Py<PyAny>> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_choice_by(py, randomizer)
+}
+
+#[pyfunction]
+pub fn random_choice_with(
+    py: Python<'_>,
+    random: &Bound<'_, PyAny>,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<Py<PyAny>> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_choice_with(py, random)
+}
+
+#[pyfunction]
+pub fn random_choice(py: Python<'_>, xs: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_choice(py)
+}
+
+#[pyfunction]
+pub fn random_choices_by(
+    py: Python<'_>,
+    randomizer: &Bound<'_, PyAny>,
+    count: isize,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_choices_by(py, randomizer, count)
+}
+
+#[pyfunction]
+pub fn random_choices_with(
+    py: Python<'_>,
+    random: &Bound<'_, PyAny>,
+    count: isize,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_choices_with(py, random, count)
+}
+
+#[pyfunction]
+pub fn random_choices(
+    py: Python<'_>,
+    count: isize,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_choices(py, count)
+}
+
+#[pyfunction]
+pub fn random_sample_by(
+    py: Python<'_>,
+    randomizer: &Bound<'_, PyAny>,
+    count: isize,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_sample_by(py, randomizer, count)
+}
+
+#[pyfunction]
+pub fn random_sample_with(
+    py: Python<'_>,
+    random: &Bound<'_, PyAny>,
+    count: isize,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_sample_with(py, random, count)
+}
+
+#[pyfunction]
+pub fn random_sample(
+    py: Python<'_>,
+    count: isize,
+    xs: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
+    let xs = ensure_array(py, xs)?;
+    xs.random_sample(py, count)
 }
 
 #[pyfunction]
@@ -4938,6 +5314,21 @@ pub fn register_array_module(parent_module: &Bound<'_, PyModule>) -> PyResult<()
     m.add_function(wrap_pyfunction!(windowed, &m)?)?;
     m.add_function(wrap_pyfunction!(zip, &m)?)?;
     m.add_function(wrap_pyfunction!(compare_to, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_shuffle_in_place_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_shuffle_in_place_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_shuffle_in_place, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_shuffle_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_shuffle_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_shuffle, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_choice_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_choice_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_choice, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_choices_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_choices_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_choices, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_sample_by, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_sample_with, &m)?)?;
+    m.add_function(wrap_pyfunction!(random_sample, &m)?)?;
 
     m.add_function(wrap_pyfunction!(allocate_array_from_cons, &m)?)?;
 

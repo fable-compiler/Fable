@@ -1587,6 +1587,35 @@ let private listModule
     | "OfArray", [ arr ] -> derefArr r arr |> Some
     | "OfSeq", [ seq ] -> emitExpr r t [ seq ] "fable_utils:to_list($0)" |> Some
     | "ToSeq", [ list ] -> Some(List.head args)
+    | "RandomShuffleBy", [ randomizer; list ] ->
+        Helper.LibCall(com, "fable_list", "random_shuffle_by", t, [ randomizer; list ])
+        |> Some
+    | "RandomShuffleWith", [ random; list ] ->
+        Helper.LibCall(com, "fable_list", "random_shuffle_with", t, [ random; list ])
+        |> Some
+    | "RandomShuffle", [ list ] -> Helper.LibCall(com, "fable_list", "random_shuffle", t, [ list ]) |> Some
+    | "RandomChoiceBy", [ randomizer; list ] ->
+        Helper.LibCall(com, "fable_list", "random_choice_by", t, [ randomizer; list ])
+        |> Some
+    | "RandomChoiceWith", [ random; list ] ->
+        Helper.LibCall(com, "fable_list", "random_choice_with", t, [ random; list ])
+        |> Some
+    | "RandomChoice", [ list ] -> Helper.LibCall(com, "fable_list", "random_choice", t, [ list ]) |> Some
+    | "RandomChoicesBy", [ randomizer; count; list ] ->
+        Helper.LibCall(com, "fable_list", "random_choices_by", t, [ randomizer; count; list ])
+        |> Some
+    | "RandomChoicesWith", [ random; count; list ] ->
+        Helper.LibCall(com, "fable_list", "random_choices_with", t, [ random; count; list ])
+        |> Some
+    | "RandomChoices", [ count; list ] ->
+        Helper.LibCall(com, "fable_list", "random_choices", t, [ count; list ]) |> Some
+    | "RandomSampleBy", [ randomizer; count; list ] ->
+        Helper.LibCall(com, "fable_list", "random_sample_by", t, [ randomizer; count; list ])
+        |> Some
+    | "RandomSampleWith", [ random; count; list ] ->
+        Helper.LibCall(com, "fable_list", "random_sample_with", t, [ random; count; list ])
+        |> Some
+    | "RandomSample", [ count; list ] -> Helper.LibCall(com, "fable_list", "random_sample", t, [ count; list ]) |> Some
     | _ -> None
 
 /// Beam-specific FSharpList instance method replacements.
@@ -2119,6 +2148,91 @@ let private arrayModule
         let a1 = derefArr r a1
         let a2 = derefArr r a2
         Helper.LibCall(com, "fable_list", "compare_with", t, [ fn; a1; a2 ]) |> Some
+    | "RandomShuffleBy", [ randomizer; arr ] ->
+        let lst = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "random_shuffle_by", t, [ randomizer; lst ])
+        |> wrapArr com r t
+        |> Some
+    | "RandomShuffleWith", [ random; arr ] ->
+        let lst = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "random_shuffle_with", t, [ random; lst ])
+        |> wrapArr com r t
+        |> Some
+    | "RandomShuffle", [ arr ] ->
+        let lst = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "random_shuffle", t, [ lst ])
+        |> wrapArr com r t
+        |> Some
+    | "RandomShuffleInPlaceBy", [ randomizer; arr ] ->
+        let lst = derefArr r arr
+
+        let shuffled =
+            Helper.LibCall(com, "fable_list", "random_shuffle_by", Any, [ randomizer; lst ])
+
+        emitExpr r t [ arr; shuffled ] "begin erlang:put($0, $1), ok end" |> Some
+    | "RandomShuffleInPlaceWith", [ random; arr ] ->
+        let lst = derefArr r arr
+
+        let shuffled =
+            Helper.LibCall(com, "fable_list", "random_shuffle_with", Any, [ random; lst ])
+
+        emitExpr r t [ arr; shuffled ] "begin erlang:put($0, $1), ok end" |> Some
+    | "RandomShuffleInPlace", [ arr ] ->
+        let lst = derefArr r arr
+        let shuffled = Helper.LibCall(com, "fable_list", "random_shuffle", Any, [ lst ])
+        emitExpr r t [ arr; shuffled ] "begin erlang:put($0, $1), ok end" |> Some
+    | "RandomChoiceBy", [ randomizer; arr ] ->
+        let lst = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "random_choice_by", t, [ randomizer; lst ])
+        |> Some
+    | "RandomChoiceWith", [ random; arr ] ->
+        let lst = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "random_choice_with", t, [ random; lst ])
+        |> Some
+    | "RandomChoice", [ arr ] ->
+        let lst = derefArr r arr
+        Helper.LibCall(com, "fable_list", "random_choice", t, [ lst ]) |> Some
+    | "RandomChoicesBy", [ randomizer; count; arr ] ->
+        let lst = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "random_choices_by", t, [ randomizer; count; lst ])
+        |> wrapArr com r t
+        |> Some
+    | "RandomChoicesWith", [ random; count; arr ] ->
+        let lst = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "random_choices_with", t, [ random; count; lst ])
+        |> wrapArr com r t
+        |> Some
+    | "RandomChoices", [ count; arr ] ->
+        let lst = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "random_choices", t, [ count; lst ])
+        |> wrapArr com r t
+        |> Some
+    | "RandomSampleBy", [ randomizer; count; arr ] ->
+        let lst = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "random_sample_by", t, [ randomizer; count; lst ])
+        |> wrapArr com r t
+        |> Some
+    | "RandomSampleWith", [ random; count; arr ] ->
+        let lst = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "random_sample_with", t, [ random; count; lst ])
+        |> wrapArr com r t
+        |> Some
+    | "RandomSample", [ count; arr ] ->
+        let lst = derefArr r arr
+
+        Helper.LibCall(com, "fable_list", "random_sample", t, [ count; lst ])
+        |> wrapArr com r t
+        |> Some
     // === Transform ops: deref input(s) AND wrap result ===
     | "Map", [ fn; arr ] ->
         let arr = derefArr r arr
@@ -3936,18 +4050,24 @@ let private randoms
         match args with
         | [ seed ] -> Helper.LibCall(com, "fable_random", "new_seeded", t, [ seed ], ?loc = r) |> Some
         | _ -> Helper.LibCall(com, "fable_random", "new", t, [], ?loc = r) |> Some
-    | "Next", Some _ ->
+    | "Next", Some thisArg ->
         match args with
-        | [] -> Helper.LibCall(com, "fable_random", "next", t, [], ?loc = r) |> Some
-        | [ maxVal ] -> Helper.LibCall(com, "fable_random", "next", t, [ maxVal ], ?loc = r) |> Some
+        | [] -> Helper.LibCall(com, "fable_random", "next", t, [ thisArg ], ?loc = r) |> Some
+        | [ maxVal ] ->
+            Helper.LibCall(com, "fable_random", "next", t, [ thisArg; maxVal ], ?loc = r)
+            |> Some
         | [ minVal; maxVal ] ->
-            Helper.LibCall(com, "fable_random", "next", t, [ minVal; maxVal ], ?loc = r)
+            Helper.LibCall(com, "fable_random", "next", t, [ thisArg; minVal; maxVal ], ?loc = r)
             |> Some
         | _ -> None
-    | "NextDouble", Some _ -> Helper.LibCall(com, "fable_random", "next_double", t, [], ?loc = r) |> Some
-    | "NextBytes", Some _ ->
+    | "NextDouble", Some thisArg ->
+        Helper.LibCall(com, "fable_random", "next_double", t, [ thisArg ], ?loc = r)
+        |> Some
+    | "NextBytes", Some thisArg ->
         match args with
-        | [ arr ] -> Helper.LibCall(com, "fable_random", "next_bytes", t, [ arr ], ?loc = r) |> Some
+        | [ arr ] ->
+            Helper.LibCall(com, "fable_random", "next_bytes", t, [ thisArg; arr ], ?loc = r)
+            |> Some
         | _ -> None
     | _ -> None
 

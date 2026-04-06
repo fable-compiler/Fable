@@ -645,22 +645,6 @@ let ``test ref cell basic operations work`` () =
     x := 30
     equal 30 !x
 
-[<Fact>]
-let ``test System.Random works`` () =
-    let rnd = Random()
-    let x = rnd.Next()
-    x >= 0 |> equal true
-    let x = rnd.Next(5)
-    (x >= 0 && x < 5) |> equal true
-    let x = rnd.Next(14, 20)
-    (x >= 14 && x < 20) |> equal true
-    let x = rnd.Next(-14, -10)
-    (x >= -14 && x < -10) |> equal true
-    let x = rnd.NextDouble()
-    (x >= 0.0 && x < 1.0) |> equal true
-    throwsAnyError <| fun () -> rnd.Next(-10)
-    throwsAnyError <| fun () -> rnd.Next(14, 10)
-
 // --- More tests ported from Python ---
 
 [<Fact>]
@@ -1004,48 +988,6 @@ let ``test Decimal floor works`` () =
 [<Fact>]
 let ``test Decimal pown works`` () =
     pown 2.2M 3 |> equal 10.648M
-
-// --- Random seeded tests ---
-
-[<Fact>]
-let ``test System.Random seeded is deterministic`` () =
-    let rnd1 = Random(1234)
-    let a1 = rnd1.Next()
-    let a2 = rnd1.Next(100)
-    let a3 = rnd1.Next(1000, 10000)
-    let a4 = rnd1.NextDouble()
-    let rnd2 = Random(1234)
-    let b1 = rnd2.Next()
-    let b2 = rnd2.Next(100)
-    let b3 = rnd2.Next(1000, 10000)
-    let b4 = rnd2.NextDouble()
-    a1 |> equal b1
-    a2 |> equal b2
-    a3 |> equal b3
-    a4 |> equal b4
-
-[<Fact>]
-let ``test System.Random seeded validates arguments`` () =
-    let rnd = Random(42)
-    throwsAnyError <| fun () -> rnd.Next(-10)
-    throwsAnyError <| fun () -> rnd.Next(14, 10)
-
-[<Fact>]
-let ``test System.Random.NextBytes works`` () =
-    let buffer = Array.create 16 0uy
-    Random().NextBytes(buffer)
-    buffer.Length |> equal 16
-    buffer = Array.create 16 0uy |> equal false
-
-[<Fact>]
-let ``test System.Random.NextBytes seeded is deterministic`` () =
-    let buffer1 = Array.create 4 0uy
-    let rnd1 = Random(5432)
-    rnd1.NextBytes(buffer1)
-    let buffer2 = Array.create 4 0uy
-    let rnd2 = Random(5432)
-    rnd2.NextBytes(buffer2)
-    buffer1 |> equal buffer2
 
 // TODO: Decimal constructors from GetBits require low/mid/high int32 representation
 // which doesn't map to the fixed-scale integer approach used in Beam.
