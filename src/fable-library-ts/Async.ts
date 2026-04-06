@@ -58,37 +58,25 @@ export function throwIfCancellationRequested(token: CancellationToken) {
   }
 }
 
-function throwAfter(millisecondsDueTime: number): Async<void> {
-  return protectedCont((ctx: IAsyncContext<void>) => {
-    let tokenId: number;
-    const timeoutId = setTimeout(() => {
-      ctx.cancelToken.removeListener(tokenId);
-      ctx.onError(TimeoutException_$ctor());
-    }, millisecondsDueTime);
-    tokenId = ctx.cancelToken.addListener(() => {
-      clearTimeout(timeoutId);
-      ctx.onCancel(new OperationCanceledException());
-    });
-  });
-}
-
 export function startChild<T>(computation: Async<T>, ms?: number): Async<Async<T>> {
-  if (ms) {
-    const computationWithTimeout = protectedBind(
-      parallel2(
-        computation,
-        throwAfter(ms)),
-      xs => protectedReturn(xs[0]));
-
-    return startChild(computationWithTimeout);
-  }
-
   const promise = startAsPromise(computation);
+  let promiseToRun = promise;
+
+  if (ms) {
+    // Race the computation against a timeout: whichever settles first wins.
+    promiseToRun = new Promise<T>((resolve, reject) => {
+      const timeoutId = setTimeout(() => reject(TimeoutException_$ctor()), ms);
+      promise.then(
+        value => { clearTimeout(timeoutId); resolve(value); },
+        error => { clearTimeout(timeoutId); reject(error); }
+      );
+    });
+  }
 
   // JS Promises are hot, computation has already started
   // but we delay returning the result
   return protectedCont((ctx) =>
-    protectedReturn(awaitPromise(promise))(ctx));
+    protectedReturn(awaitPromise(promiseToRun))(ctx));
 }
 
 export function awaitPromise<T>(p: Promise<T>) {
@@ -127,10 +115,6 @@ export function ignore<T>(computation: Async<T>) {
 
 export function parallel<T>(computations: Iterable<Async<T>>) {
   return delay(() => awaitPromise(Promise.all(Array.from(computations, (w) => startAsPromise(w)))));
-}
-
-function parallel2<T, U>(a: Async<T>, b: Async<U>): Async<[T, U]> {
-  return delay(() => awaitPromise(Promise.all([startAsPromise(a), startAsPromise(b)])));
 }
 
 export function sequential<T>(computations: Iterable<Async<T>>) {

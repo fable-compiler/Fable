@@ -462,6 +462,43 @@ let ``test Async.StartChild works`` () =
     } |> Async.StartImmediate
 
 [<Fact>]
+let ``test Async.StartChild applies timeout`` () =
+    async {
+        let mutable x = ""
+
+        let task = async {
+            x <- x + "A"
+            do! Async.Sleep 1_000
+            x <- x + "X" // Never hit
+        }
+
+        try
+            let! childTask = Async.StartChild (task, 200)
+
+            do! childTask
+        with
+            | :? TimeoutException ->
+                x <- x + "B"
+
+        x <- x + "C"
+
+        equal x "ABC"
+    } |> Async.StartImmediate
+
+[<Fact>]
+let ``test Async.StartChild with timeout completes when computation finishes before timeout`` () = // See #4481
+    async {
+        let fast = async { do! Async.Sleep 10 }
+        try
+            let! child = Async.StartChild(fast, 1_000)
+            do! child
+            equal true true // should reach here
+        with
+            | :? TimeoutException ->
+                failwith "should not time out"
+    } |> Async.StartImmediate
+
+[<Fact>]
 let ``test Unit arguments are erased`` () = // See #1832
     let mutable token = 0
     async {

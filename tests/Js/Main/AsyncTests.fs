@@ -591,6 +591,18 @@ let tests =
             equal x "ABC"
         }
 
+    testCaseAsync "Async.StartChild with timeout completes when computation finishes before timeout" <| fun () -> // See #4481
+        async {
+            let fast = async { do! Async.Sleep 10 }
+            try
+                let! child = Async.StartChild(fast, 1_000)
+                do! child
+                equal true true // should reach here
+            with
+                | :? TimeoutException ->
+                    failwith "should not time out"
+        }
+
     testCaseAsync "Unit arguments are erased" <| fun () -> // See #1832
         let mutable token = 0
         async {
