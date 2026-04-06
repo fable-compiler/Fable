@@ -1130,3 +1130,108 @@ let updateAt (index: int) (y: 'T) (xs: 'T[]) : 'T[] =
             else
                 xs[i]
         )
+
+let randomShuffleInPlaceBy (randomizer: unit -> float) (xs: 'T[]) : unit =
+    let len = xs.Length
+
+    for i = len - 1 downto 1 do
+        let r = randomizer ()
+
+        if r < 0.0 || r >= 1.0 then
+            invalidArg "randomizer" SR.Arg_ArgumentOutOfRangeException
+
+        let j = int (r * float (i + 1))
+        let tmp = xs[i]
+        xs[i] <- xs[j]
+        xs[j] <- tmp
+
+let randomShuffleInPlaceWith (random: System.Random) (xs: 'T[]) : unit =
+    randomShuffleInPlaceBy (fun () -> random.NextDouble()) xs
+
+let randomShuffleInPlace (xs: 'T[]) : unit =
+    randomShuffleInPlaceWith (System.Random()) xs
+
+let randomShuffleBy (randomizer: unit -> float) (xs: 'T[]) : 'T[] =
+    let arr = copy xs
+    randomShuffleInPlaceBy randomizer arr
+    arr
+
+let randomShuffleWith (random: System.Random) (xs: 'T[]) : 'T[] =
+    randomShuffleBy (fun () -> random.NextDouble()) xs
+
+let randomShuffle (xs: 'T[]) : 'T[] = randomShuffleWith (System.Random()) xs
+
+let randomChoiceBy (randomizer: unit -> float) (xs: 'T[]) : 'T =
+    if xs.Length = 0 then
+        invalidArg "source" SR.inputSequenceEmpty
+
+    let len = xs.Length
+    let r = randomizer ()
+
+    if r < 0.0 || r >= 1.0 then
+        invalidArg "randomizer" SR.Arg_ArgumentOutOfRangeException
+
+    xs[int (r * float len)]
+
+let randomChoiceWith (random: System.Random) (xs: 'T[]) : 'T =
+    randomChoiceBy (fun () -> random.NextDouble()) xs
+
+let randomChoice (xs: 'T[]) : 'T = randomChoiceWith (System.Random()) xs
+
+let randomChoicesBy (randomizer: unit -> float) (count: int) (xs: 'T[]) : 'T[] =
+    if count < 0 then
+        invalidArg "count" SR.inputMustBeNonNegative
+
+    if count > 0 && xs.Length = 0 then
+        invalidArg "source" SR.inputSequenceEmpty
+
+    let len = xs.Length
+
+    initialize
+        count
+        (fun _ ->
+            let r = randomizer ()
+
+            if r < 0.0 || r >= 1.0 then
+                invalidArg "randomizer" SR.Arg_ArgumentOutOfRangeException
+
+            xs[int (r * float len)]
+        )
+
+let randomChoicesWith (random: System.Random) (count: int) (xs: 'T[]) : 'T[] =
+    randomChoicesBy (fun () -> random.NextDouble()) count xs
+
+let randomChoices (count: int) (xs: 'T[]) : 'T[] =
+    randomChoicesWith (System.Random()) count xs
+
+let randomSampleBy (randomizer: unit -> float) (count: int) (xs: 'T[]) : 'T[] =
+    if count < 0 then
+        invalidArg "count" SR.inputMustBeNonNegative
+
+    let arr = copy xs
+    let len = arr.Length
+
+    if len = 0 && count > 0 then
+        invalidArg "source" SR.inputSequenceEmpty
+
+    if count > len then
+        invalidArg "count" SR.notEnoughElements
+
+    for i = 0 to count - 1 do
+        let r = randomizer ()
+
+        if r < 0.0 || r >= 1.0 then
+            invalidArg "randomizer" SR.Arg_ArgumentOutOfRangeException
+
+        let j = i + int (r * float (len - i))
+        let tmp = arr[i]
+        arr[i] <- arr[j]
+        arr[j] <- tmp
+
+    getSubArray arr 0 count
+
+let randomSampleWith (random: System.Random) (count: int) (xs: 'T[]) : 'T[] =
+    randomSampleBy (fun () -> random.NextDouble()) count xs
+
+let randomSample (count: int) (xs: 'T[]) : 'T[] =
+    randomSampleWith (System.Random()) count xs

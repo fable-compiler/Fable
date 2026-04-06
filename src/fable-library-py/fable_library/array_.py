@@ -137,6 +137,22 @@ skip_while = array.skip_while
 compare_to = array.compare_to
 sort_with = array.sort_with
 choose = array.choose
+random_choice = array.random_choice
+random_choice_by = array.random_choice_by
+random_choice_with = array.random_choice_with
+random_choices = array.random_choices
+random_choices_by = array.random_choices_by
+random_choices_with = array.random_choices_with
+random_sample = array.random_sample
+random_sample_by = array.random_sample_by
+random_sample_with = array.random_sample_with
+random_shuffle = array.random_shuffle
+random_shuffle_by = array.random_shuffle_by
+random_shuffle_in_place = array.random_shuffle_in_place
+random_shuffle_in_place_by = array.random_shuffle_in_place_by
+random_shuffle_in_place_with = array.random_shuffle_in_place_with
+random_shuffle_with = array.random_shuffle_with
+
 
 Array = array.FSharpArray
 FSharpCons = array.FSharpCons
@@ -229,6 +245,21 @@ __all__ = [
     "pick",
     "reduce",
     "reduce_back",
+    "random_choice",
+    "random_choice_by",
+    "random_choice_with",
+    "random_choices",
+    "random_choices_by",
+    "random_choices_with",
+    "random_sample",
+    "random_sample_by",
+    "random_sample_with",
+    "random_shuffle",
+    "random_shuffle_by",
+    "random_shuffle_in_place",
+    "random_shuffle_in_place_by",
+    "random_shuffle_in_place_with",
+    "random_shuffle_with",
     "remove_at",
     "remove_in_place",
     "remove_many_at",

@@ -73,7 +73,19 @@
     remove_many_at/3,
     index_of_value/2,
     get_slice/3,
-    take/2
+    take/2,
+    random_shuffle_by/2,
+    random_shuffle_with/2,
+    random_shuffle/1,
+    random_choice_by/2,
+    random_choice_with/2,
+    random_choice/1,
+    random_choices_by/3,
+    random_choices_with/3,
+    random_choices/2,
+    random_sample_by/3,
+    random_sample_with/3,
+    random_sample/2
 ]).
 
 -spec fold(fun(), term(), list() | reference() | map()) -> term().
@@ -598,4 +610,135 @@ take(Count, List) ->
     case erlang:length(List) >= Count of
         true -> lists:sublist(List, Count);
         false -> erlang:error(<<"The input sequence has an insufficient number of elements.">>)
+    end.
+
+%% ---- Random functions --------------------------------------------------------
+%% These implement Array/List random* operations directly on plain Erlang lists,
+%% avoiding any delegation through seq.erl (which would cause circular recursion).
+%%
+%% Calling convention: Randomizer is fun(ok) -> float()  (F# unit -> float curried).
+%% Random (System.Random) is a reference() holding per-instance PRNG state.
+
+-spec random_shuffle_by(fun((ok) -> float()), list()) -> list().
+random_shuffle_by(Randomizer, Xs) ->
+    shuffle_loop(Randomizer, erlang:list_to_tuple(Xs), erlang:length(Xs) - 1).
+
+-spec random_shuffle_with(reference(), list()) -> list().
+random_shuffle_with(Random, Xs) ->
+    random_shuffle_by(fun(_) -> fable_random:next_double(Random) end, Xs).
+
+-spec random_shuffle(list()) -> list().
+random_shuffle(Xs) ->
+    random_shuffle_with(fable_random:new(), Xs).
+
+-spec random_choice_by(fun((ok) -> float()), list()) -> term().
+random_choice_by(_Randomizer, []) ->
+    erlang:error(<<"The input sequence was empty.">>);
+random_choice_by(Randomizer, Xs) ->
+    Len = erlang:length(Xs),
+    R = Randomizer(ok),
+    if
+        R < 0.0; R >= 1.0 ->
+            erlang:error(iolist_to_binary(io_lib:format("The index is outside the legal range.~nrandomizer returned ~w, should be in range [0.0, 1.0).", [R])));
+        true ->
+            lists:nth(erlang:trunc(R * Len) + 1, Xs)
+    end.
+
+-spec random_choice_with(reference(), list()) -> term().
+random_choice_with(Random, Xs) ->
+    random_choice_by(fun(_) -> fable_random:next_double(Random) end, Xs).
+
+-spec random_choice(list()) -> term().
+random_choice(Xs) ->
+    random_choice_with(fable_random:new(), Xs).
+
+-spec random_choices_by(fun((ok) -> float()), non_neg_integer(), list()) -> list().
+random_choices_by(Randomizer, Count, Xs) ->
+    if
+        Count < 0 ->
+            erlang:error(<<"The input must be non-negative.">>);
+        Count > 0 andalso Xs =:= [] ->
+            erlang:error(<<"The input sequence was empty.">>);
+        true ->
+            Arr = erlang:list_to_tuple(Xs),
+            Len = erlang:tuple_size(Arr),
+            choices_loop(Randomizer, Arr, Len, Count, [])
+    end.
+
+%% Tail-recursive helper for random_choices_by: builds result in reverse then flips.
+choices_loop(_Randomizer, _Arr, _Len, 0, Acc) ->
+    lists:reverse(Acc);
+choices_loop(Randomizer, Arr, Len, N, Acc) ->
+    R = Randomizer(ok),
+    if
+        R < 0.0; R >= 1.0 ->
+            erlang:error(iolist_to_binary(io_lib:format("The index is outside the legal range.~nrandomizer returned ~w, should be in range [0.0, 1.0).", [R])));
+        true ->
+            E = erlang:element(erlang:trunc(R * Len) + 1, Arr),
+            choices_loop(Randomizer, Arr, Len, N - 1, [E | Acc])
+    end.
+
+-spec random_choices_with(reference(), non_neg_integer(), list()) -> list().
+random_choices_with(Random, Count, Xs) ->
+    random_choices_by(fun(_) -> fable_random:next_double(Random) end, Count, Xs).
+
+-spec random_choices(non_neg_integer(), list()) -> list().
+random_choices(Count, Xs) ->
+    random_choices_with(fable_random:new(), Count, Xs).
+
+-spec random_sample_by(fun((ok) -> float()), non_neg_integer(), list()) -> list().
+random_sample_by(Randomizer, Count, Xs) ->
+    if
+        Count < 0 ->
+            erlang:error(<<"The input must be non-negative.">>);
+        true ->
+            Len = erlang:length(Xs),
+            if
+                Len =:= 0 andalso Count > 0 ->
+                    erlang:error(<<"The input sequence was empty.">>);
+                Count > Len ->
+                    erlang:error(<<"The input sequence has an insufficient number of elements.">>);
+                true ->
+                    sample_loop(Randomizer, erlang:list_to_tuple(Xs), Len, Count, 0)
+            end
+    end.
+
+-spec random_sample_with(reference(), non_neg_integer(), list()) -> list().
+random_sample_with(Random, Count, Xs) ->
+    random_sample_by(fun(_) -> fable_random:next_double(Random) end, Count, Xs).
+
+-spec random_sample(non_neg_integer(), list()) -> list().
+random_sample(Count, Xs) ->
+    random_sample_with(fable_random:new(), Count, Xs).
+
+%% Partial Fisher-Yates: after Count swaps the first Count positions hold the sample.
+sample_loop(_Randomizer, Arr, _Len, Count, I) when I >= Count ->
+    lists:sublist(erlang:tuple_to_list(Arr), Count);
+sample_loop(Randomizer, Arr, Len, Count, I) ->
+    R = Randomizer(ok),
+    if
+        R < 0.0; R >= 1.0 ->
+            erlang:error(iolist_to_binary(io_lib:format("The index is outside the legal range.~nrandomizer returned ~w, should be in range [0.0, 1.0).", [R])));
+        true ->
+            J = I + erlang:trunc(R * (Len - I)),
+            EI = erlang:element(I + 1, Arr),
+            EJ = erlang:element(J + 1, Arr),
+            Arr2 = erlang:setelement(I + 1, erlang:setelement(J + 1, Arr, EI), EJ),
+            sample_loop(Randomizer, Arr2, Len, Count, I + 1)
+    end.
+
+%% Full Fisher-Yates shuffle: builds result from index Len-1 downto 1.
+shuffle_loop(_Randomizer, Arr, I) when I =< 0 ->
+    erlang:tuple_to_list(Arr);
+shuffle_loop(Randomizer, Arr, I) ->
+    R = Randomizer(ok),
+    if
+        R < 0.0; R >= 1.0 ->
+            erlang:error(iolist_to_binary(io_lib:format("The index is outside the legal range.~nrandomizer returned ~w, should be in range [0.0, 1.0).", [R])));
+        true ->
+            J = erlang:trunc(R * (I + 1)),
+            EI = erlang:element(I + 1, Arr),
+            EJ = erlang:element(J + 1, Arr),
+            Arr2 = erlang:setelement(I + 1, erlang:setelement(J + 1, Arr, EI), EJ),
+            shuffle_loop(Randomizer, Arr2, I - 1)
     end.

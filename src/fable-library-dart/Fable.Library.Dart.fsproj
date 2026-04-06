@@ -23,6 +23,7 @@
         <Compile Include="System.fs" />
         <Compile Include="System.Text.fs" />
         <Content Include="Date.dart" />
+        <Content Include="Random.dart" />
         <Content Include="RegExp.dart" />
         <Content Include="String.dart" />
         <Content Include="Types.dart" />

@@ -978,3 +978,88 @@ let tests() =
         throwsAnyError (fun () -> List.removeManyAt 0 2 [] |> ignore)
         throwsAnyError (fun () -> List.removeManyAt -1 2 [1] |> ignore)
         throwsAnyError (fun () -> List.removeManyAt 2 2 [1] |> ignore)
+
+    testCase "List.randomShuffle works" <| fun () ->
+        let xs = [1; 2; 3; 4; 5]
+        let shuffled = List.randomShuffle xs
+        List.sort shuffled |> equal xs
+        List.length shuffled |> equal 5
+
+    testCase "List.randomShuffleWith works" <| fun () ->
+        let xs = [1; 2; 3; 4; 5]
+        let rng = System.Random(42)
+        let shuffled = List.randomShuffleWith rng xs
+        List.sort shuffled |> equal xs
+        List.length shuffled |> equal 5
+
+    testCase "List.randomShuffleBy works" <| fun () ->
+        let shuffled = List.randomShuffleBy (fun () -> 0.0) [1; 2; 3; 4; 5]
+        List.sort shuffled |> equal [1; 2; 3; 4; 5]
+        throwsAnyError (fun () -> List.randomShuffleBy (fun () -> 1.0) [1; 2] |> ignore)
+        throwsAnyError (fun () -> List.randomShuffleBy (fun () -> -0.1) [1; 2] |> ignore)
+
+    testCase "List.randomChoice works" <| fun () ->
+        let xs = [1; 2; 3; 4; 5]
+        let x = List.randomChoice xs
+        List.exists ((=) x) xs |> equal true
+        throwsAnyError (fun () -> List.randomChoice<int> [] |> ignore)
+
+    testCase "List.randomChoiceWith works" <| fun () ->
+        let xs = [10; 20; 30]
+        let rng = System.Random(42)
+        let x = List.randomChoiceWith rng xs
+        List.exists ((=) x) xs |> equal true
+
+    testCase "List.randomChoiceBy works" <| fun () ->
+        let x = List.randomChoiceBy (fun () -> 0.0) [42; 99; 7]
+        x |> equal 42
+        throwsAnyError (fun () -> List.randomChoiceBy (fun () -> 1.0) [1] |> ignore)
+        throwsAnyError (fun () -> List.randomChoiceBy (fun () -> 0.5) [] |> ignore)
+
+    testCase "List.randomChoices works" <| fun () ->
+        let xs = [1; 2; 3]
+        let choices = List.randomChoices 5 xs
+        List.length choices |> equal 5
+        choices |> List.forall (fun x -> List.exists ((=) x) xs) |> equal true
+        List.randomChoices 0 xs |> equal []
+        throwsAnyError (fun () -> List.randomChoices -1 xs |> ignore)
+        throwsAnyError (fun () -> List.randomChoices 1 [] |> ignore)
+
+    testCase "List.randomChoicesWith works" <| fun () ->
+        let xs = [10; 20; 30]
+        let rng = System.Random(42)
+        let choices = List.randomChoicesWith rng 4 xs
+        List.length choices |> equal 4
+        choices |> List.forall (fun x -> List.exists ((=) x) xs) |> equal true
+
+    testCase "List.randomChoicesBy works" <| fun () ->
+        let choices = List.randomChoicesBy (fun () -> 0.5) 3 [10; 20; 30]
+        List.length choices |> equal 3
+        choices |> List.forall (fun x -> x = 20) |> equal true
+
+    testCase "List.randomSample works" <| fun () ->
+        let xs = [1; 2; 3; 4; 5]
+        let sample = List.randomSample 3 xs
+        List.length sample |> equal 3
+        sample |> List.forall (fun x -> List.exists ((=) x) xs) |> equal true
+        List.distinct sample |> List.length |> equal 3
+        List.randomSample 0 xs |> equal []
+        List.randomSample 5 xs |> List.sort |> equal xs
+        throwsAnyError (fun () -> List.randomSample -1 xs |> ignore)
+        throwsAnyError (fun () -> List.randomSample 6 xs |> ignore)
+        throwsAnyError (fun () -> List.randomSample 1 [] |> ignore)
+
+    testCase "List.randomSampleWith works" <| fun () ->
+        let xs = [1; 2; 3; 4; 5]
+        let rng = System.Random(42)
+        let sample = List.randomSampleWith rng 3 xs
+        List.length sample |> equal 3
+        sample |> List.forall (fun x -> List.exists ((=) x) xs) |> equal true
+        List.distinct sample |> List.length |> equal 3
+
+    testCase "List.randomSampleBy works" <| fun () ->
+        let sample = List.randomSampleBy (fun () -> 0.0) 3 [1; 2; 3; 4; 5]
+        List.length sample |> equal 3
+        List.distinct sample |> List.length |> equal 3
+        throwsAnyError (fun () -> List.randomSampleBy (fun () -> 1.0) 1 [1; 2] |> ignore)
+        throwsAnyError (fun () -> List.randomSampleBy (fun () -> -0.1) 1 [1; 2] |> ignore)

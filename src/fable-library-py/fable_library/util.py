@@ -41,7 +41,7 @@ from .bases import (
     SizedBase,
     StringableBase,
 )
-from .core import float32, float64, int32
+from .core import float32, float64, int32, uint8
 
 # Re-export protocols for backward compatibility
 from .exceptions import ObjectDisposedException
@@ -680,8 +680,24 @@ def round(value: float64 | float32, digits: int = 0) -> float64 | float32:
     return value.round(digits)
 
 
-def randint(a: int32, b: int32) -> int32:
-    return int32(random.randint(int(a), int(b) - 1))
+def create_random(seed: int32 | None = None) -> random.Random:
+    return random.Random(None if seed is None else int(seed))
+
+
+def random_int(rand: random.Random, a: int32, b: int32) -> int32:
+    if a == b:
+        return int32(a)
+
+    return int32(rand.randrange(int(a), int(b)))
+
+
+def random_double(rand: random.Random) -> float64:
+    return float64(rand.random())
+
+
+def random_bytes(rand: random.Random, buffer: Array[uint8]) -> None:
+    for i in builtins.range(len(buffer)):
+        buffer[i] = uint8(rand.getrandbits(8))
 
 
 def unescape_data_string(s: str) -> str:
@@ -882,13 +898,16 @@ __all__ = [
     "copy_to_array",
     "escape_data_string",
     "escape_uri_string",
+    "create_random",
     "get_platform",
     "identity_hash",
     "ignore",
     "nullable",
     "number_hash",
     "physical_hash",
-    "randint",
+    "random_int",
+    "random_bytes",
+    "random_double",
     "range",
     "round",
     "to_iterable",

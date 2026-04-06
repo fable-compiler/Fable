@@ -1347,6 +1347,27 @@ let ``Array.randomShuffleBy works`` () =
     throwsAnyError (fun () -> Array.randomShuffleBy (fun () -> -0.1) [|1; 2|] |> ignore)
 
 [<Fact>]
+let ``Array.randomShuffleInPlace works`` () =
+    let xs = [|1; 2; 3; 4; 5|]
+    Array.randomShuffleInPlace xs
+    Array.sort xs |> equal [|1; 2; 3; 4; 5|]
+
+[<Fact>]
+let ``Array.randomShuffleInPlaceWith works`` () =
+    let xs = [|1; 2; 3; 4; 5|]
+    let rng = System.Random(42)
+    Array.randomShuffleInPlaceWith rng xs
+    Array.sort xs |> equal [|1; 2; 3; 4; 5|]
+
+[<Fact>]
+let ``Array.randomShuffleInPlaceBy works`` () =
+    let xs = [|1; 2; 3; 4; 5|]
+    Array.randomShuffleInPlaceBy (fun () -> 0.0) xs
+    Array.sort xs |> equal [|1; 2; 3; 4; 5|]
+    throwsAnyError (fun () -> Array.randomShuffleInPlaceBy (fun () -> 1.0) [|1; 2|])
+    throwsAnyError (fun () -> Array.randomShuffleInPlaceBy (fun () -> -0.1) [|1; 2|])
+
+[<Fact>]
 let ``Array.randomChoice works`` () =
     let xs = [|1; 2; 3; 4; 5|]
     let x = Array.randomChoice xs

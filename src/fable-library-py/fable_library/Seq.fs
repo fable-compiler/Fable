@@ -1297,3 +1297,39 @@ let updateAt (index: int) (y: 'T) (xs: seq<'T>) : seq<'T> =
                 None
         )
         (fun e -> e.Dispose())
+
+let randomShuffleBy (randomizer: unit -> float) (xs: 'T seq) : 'T seq =
+    let arr = toArray xs
+    Array.randomShuffleInPlaceBy randomizer arr
+    ofArray arr
+
+let randomShuffleWith (random: System.Random) (xs: 'T seq) : 'T seq =
+    randomShuffleBy (fun () -> random.NextDouble()) xs
+
+let randomShuffle (xs: 'T seq) : 'T seq = randomShuffleWith (System.Random()) xs
+
+let randomChoiceBy (randomizer: unit -> float) (xs: 'T seq) : 'T =
+    xs |> toArray |> Array.randomChoiceBy randomizer
+
+let randomChoiceWith (random: System.Random) (xs: 'T seq) : 'T =
+    xs |> toArray |> Array.randomChoiceWith random
+
+let randomChoice (xs: 'T seq) : 'T = xs |> toArray |> Array.randomChoice
+
+let randomChoicesBy (randomizer: unit -> float) (count: int) (xs: 'T seq) : 'T seq =
+    xs |> toArray |> Array.randomChoicesBy randomizer count |> ofArray
+
+let randomChoicesWith (random: System.Random) (count: int) (xs: 'T seq) : 'T seq =
+    randomChoicesBy (fun () -> random.NextDouble()) count xs
+
+let randomChoices (count: int) (xs: 'T seq) : 'T seq =
+    randomChoicesWith (System.Random()) count xs
+
+let randomSampleBy (randomizer: unit -> float) (count: int) (xs: 'T seq) : 'T seq =
+    xs |> toArray |> Array.randomSampleBy randomizer count |> ofArray
+
+let randomSampleWith (random: System.Random) (count: int) (xs: 'T seq) : 'T seq =
+    randomSampleBy (fun () -> random.NextDouble()) count xs
+
+let randomSample (count: int) (xs: 'T seq) : 'T seq =
+    randomSampleWith (System.Random()) count xs
