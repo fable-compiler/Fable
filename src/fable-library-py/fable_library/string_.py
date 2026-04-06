@@ -122,7 +122,7 @@ def contains(string: str, value: str, comparison: int) -> bool:
         StringComparison.ORDINAL_IGNORE_CASE,
     )
     if ignore_case:
-        return value.lower() in string.lower()
+        return value.casefold() in string.casefold()
     return value in string
 
 
