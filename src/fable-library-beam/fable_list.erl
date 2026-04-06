@@ -617,19 +617,19 @@ take(Count, List) ->
 %% avoiding any delegation through seq.erl (which would cause circular recursion).
 %%
 %% Calling convention: Randomizer is fun(ok) -> float()  (F# unit -> float curried).
-%% Random (System.Random) is the atom ok; all randomness goes through fable_random.
+%% Random (System.Random) is a reference() holding per-instance PRNG state.
 
 -spec random_shuffle_by(fun((ok) -> float()), list()) -> list().
 random_shuffle_by(Randomizer, Xs) ->
     shuffle_loop(Randomizer, erlang:list_to_tuple(Xs), erlang:length(Xs) - 1).
 
--spec random_shuffle_with(ok, list()) -> list().
-random_shuffle_with(_Random, Xs) ->
-    random_shuffle_by(fun(_) -> fable_random:next_double() end, Xs).
+-spec random_shuffle_with(reference(), list()) -> list().
+random_shuffle_with(Random, Xs) ->
+    random_shuffle_by(fun(_) -> fable_random:next_double(Random) end, Xs).
 
 -spec random_shuffle(list()) -> list().
 random_shuffle(Xs) ->
-    random_shuffle_with(ok, Xs).
+    random_shuffle_with(fable_random:new(), Xs).
 
 -spec random_choice_by(fun((ok) -> float()), list()) -> term().
 random_choice_by(_Randomizer, []) ->
@@ -644,13 +644,13 @@ random_choice_by(Randomizer, Xs) ->
             lists:nth(erlang:trunc(R * Len) + 1, Xs)
     end.
 
--spec random_choice_with(ok, list()) -> term().
-random_choice_with(_Random, Xs) ->
-    random_choice_by(fun(_) -> fable_random:next_double() end, Xs).
+-spec random_choice_with(reference(), list()) -> term().
+random_choice_with(Random, Xs) ->
+    random_choice_by(fun(_) -> fable_random:next_double(Random) end, Xs).
 
 -spec random_choice(list()) -> term().
 random_choice(Xs) ->
-    random_choice_with(ok, Xs).
+    random_choice_with(fable_random:new(), Xs).
 
 -spec random_choices_by(fun((ok) -> float()), non_neg_integer(), list()) -> list().
 random_choices_by(Randomizer, Count, Xs) ->
@@ -678,13 +678,13 @@ choices_loop(Randomizer, Arr, Len, N, Acc) ->
             choices_loop(Randomizer, Arr, Len, N - 1, [E | Acc])
     end.
 
--spec random_choices_with(ok, non_neg_integer(), list()) -> list().
-random_choices_with(_Random, Count, Xs) ->
-    random_choices_by(fun(_) -> fable_random:next_double() end, Count, Xs).
+-spec random_choices_with(reference(), non_neg_integer(), list()) -> list().
+random_choices_with(Random, Count, Xs) ->
+    random_choices_by(fun(_) -> fable_random:next_double(Random) end, Count, Xs).
 
 -spec random_choices(non_neg_integer(), list()) -> list().
 random_choices(Count, Xs) ->
-    random_choices_with(ok, Count, Xs).
+    random_choices_with(fable_random:new(), Count, Xs).
 
 -spec random_sample_by(fun((ok) -> float()), non_neg_integer(), list()) -> list().
 random_sample_by(Randomizer, Count, Xs) ->
@@ -703,13 +703,13 @@ random_sample_by(Randomizer, Count, Xs) ->
             end
     end.
 
--spec random_sample_with(ok, non_neg_integer(), list()) -> list().
-random_sample_with(_Random, Count, Xs) ->
-    random_sample_by(fun(_) -> fable_random:next_double() end, Count, Xs).
+-spec random_sample_with(reference(), non_neg_integer(), list()) -> list().
+random_sample_with(Random, Count, Xs) ->
+    random_sample_by(fun(_) -> fable_random:next_double(Random) end, Count, Xs).
 
 -spec random_sample(non_neg_integer(), list()) -> list().
 random_sample(Count, Xs) ->
-    random_sample_with(ok, Count, Xs).
+    random_sample_with(fable_random:new(), Count, Xs).
 
 %% Partial Fisher-Yates: after Count swaps the first Count positions hold the sample.
 sample_loop(_Randomizer, Arr, _Len, Count, I) when I >= Count ->

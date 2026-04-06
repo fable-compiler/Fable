@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [All] Fix unnecessary object allocations during AST traversal when visiting `Import` expressions (by Repo Assist)
 * [Beam] Fix `System.Random.Next(0)` implementation (by @ncave)
 * [Python] Fix `System.Random` seeded implementation  (by @ncave)
+* [Beam] Fix `System.Random` seeded implementation to use per-instance state (by @dbrattli)
 * [Dart] Fix `Array.compareWith` comparing lengths before elements, producing wrong results for arrays with common prefixes (fixes #2961)
 * [Python] Fix unsafe option unwrapping in `DateTimeOffset.get_Offset` and regex replacements (by @dbrattli)
 * [All] Replace unsafe option `.Value` unwrapping with safe alternatives in Python/Replacements.fs and Rust/Fable2Rust.fs (code scanning alerts IONIDE-006)

@@ -4050,18 +4050,24 @@ let private randoms
         match args with
         | [ seed ] -> Helper.LibCall(com, "fable_random", "new_seeded", t, [ seed ], ?loc = r) |> Some
         | _ -> Helper.LibCall(com, "fable_random", "new", t, [], ?loc = r) |> Some
-    | "Next", Some _ ->
+    | "Next", Some thisArg ->
         match args with
-        | [] -> Helper.LibCall(com, "fable_random", "next", t, [], ?loc = r) |> Some
-        | [ maxVal ] -> Helper.LibCall(com, "fable_random", "next", t, [ maxVal ], ?loc = r) |> Some
+        | [] -> Helper.LibCall(com, "fable_random", "next", t, [ thisArg ], ?loc = r) |> Some
+        | [ maxVal ] ->
+            Helper.LibCall(com, "fable_random", "next", t, [ thisArg; maxVal ], ?loc = r)
+            |> Some
         | [ minVal; maxVal ] ->
-            Helper.LibCall(com, "fable_random", "next", t, [ minVal; maxVal ], ?loc = r)
+            Helper.LibCall(com, "fable_random", "next", t, [ thisArg; minVal; maxVal ], ?loc = r)
             |> Some
         | _ -> None
-    | "NextDouble", Some _ -> Helper.LibCall(com, "fable_random", "next_double", t, [], ?loc = r) |> Some
-    | "NextBytes", Some _ ->
+    | "NextDouble", Some thisArg ->
+        Helper.LibCall(com, "fable_random", "next_double", t, [ thisArg ], ?loc = r)
+        |> Some
+    | "NextBytes", Some thisArg ->
         match args with
-        | [ arr ] -> Helper.LibCall(com, "fable_random", "next_bytes", t, [ arr ], ?loc = r) |> Some
+        | [ arr ] ->
+            Helper.LibCall(com, "fable_random", "next_bytes", t, [ thisArg; arr ], ?loc = r)
+            |> Some
         | _ -> None
     | _ -> None
 
