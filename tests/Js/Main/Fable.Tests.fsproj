@@ -87,6 +87,7 @@
     <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
     <Compile Include="UriTests.fs" />
+    <Compile Include="QuotationTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

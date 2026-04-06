@@ -65,6 +65,7 @@
     <TypeScriptCompile Include="Timer.ts" />
     <TypeScriptCompile Include="TimeSpan.ts" />
     <Content Include="tsconfig.json" />
+    <TypeScriptCompile Include="quotation.ts" />
     <TypeScriptCompile Include="Types.ts" />
     <TypeScriptCompile Include="Unicode.13.0.0.ts" />
     <TypeScriptCompile Include="Uri.ts" />
