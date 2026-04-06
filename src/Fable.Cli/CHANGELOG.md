@@ -14,10 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Rust] Add missing `System.Random` implementation and tests (by @ncave)
 * [Rust] Add missing `Array`, `List` and `Seq` module members and tests: `randomChoice`, `randomChoiceBy`, `randomChoiceWith`, `randomChoices`, `randomChoicesBy`, `randomChoicesWith`, `randomSample`, `randomSampleBy`, `randomSampleWith`, `randomShuffle`, `randomShuffleBy`, `randomShuffleWith` (by @ncave)
 * [Beam] Implement missing DateTimeOffset members, add DateOnly and TimeOnly support
+* [All] Add support for `Guid.CreateVersion7()` and `Guid.CreateVersion7(DateTimeOffset)` (by @OnurGumus)
+* [All] Add missing `Array`, `List`, and `Seq` random choice/shuffle/sample members and tests (by @ncave)
+* [Dart/Rust] Add missing `System.Random` implementations and tests (by @ncave)
+* [Beam] Implement missing DateTimeOffset members, add DateOnly and TimeOnly support (by @dbrattli)
 
 ### Fixed
 
 * [All] Fix unnecessary object allocations during AST traversal when visiting `Import` expressions (by Repo Assist)
+* [Beam] Fix `System.Random.Next(0)` implementation (by @ncave)
+* [Python] Fix `System.Random` seeded implementation  (by @ncave)
+* [Beam] Fix `System.Random` seeded implementation to use per-instance state (by @dbrattli)
 * [Dart] Fix `Array.compareWith` comparing lengths before elements, producing wrong results for arrays with common prefixes (fixes #2961)
 * [Python] Fix unsafe option unwrapping in `DateTimeOffset.get_Offset` and regex replacements (by @dbrattli)
 * [All] Replace unsafe option `.Value` unwrapping with safe alternatives in Python/Replacements.fs and Rust/Fable2Rust.fs (code scanning alerts IONIDE-006)

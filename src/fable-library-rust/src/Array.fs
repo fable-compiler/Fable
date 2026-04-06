@@ -985,9 +985,8 @@ let distinctBy<'T, 'Key when 'Key: equality and 'Key: not null> (projection: 'T 
     let hashSet = System.Collections.Generic.HashSet<'Key>()
     xs |> filter (fun x -> hashSet.Add(projection x))
 
-let randomShuffleBy (randomizer: unit -> float) (xs: 'T[]) : 'T[] =
-    let arr = copy xs
-    let len = arr.Length
+let randomShuffleInPlaceBy (randomizer: unit -> float) (xs: 'T[]) : unit =
+    let len = xs.Length
 
     for i = len - 1 downto 1 do
         let r = randomizer ()
@@ -996,10 +995,19 @@ let randomShuffleBy (randomizer: unit -> float) (xs: 'T[]) : 'T[] =
             invalidArg "randomizer" SR.Arg_ArgumentOutOfRangeException
 
         let j = int (r * float (i + 1))
-        let tmp = arr[i]
-        arr[i] <- arr[j]
-        arr[j] <- tmp
+        let tmp = xs[i]
+        xs[i] <- xs[j]
+        xs[j] <- tmp
 
+let randomShuffleInPlaceWith (random: System.Random) (xs: 'T[]) : unit =
+    randomShuffleInPlaceBy (fun () -> random.NextDouble()) xs
+
+let randomShuffleInPlace (xs: 'T[]) : unit =
+    randomShuffleInPlaceWith (System.Random()) xs
+
+let randomShuffleBy (randomizer: unit -> float) (xs: 'T[]) : 'T[] =
+    let arr = copy xs
+    randomShuffleInPlaceBy randomizer arr
     arr
 
 let randomShuffleWith (random: System.Random) (xs: 'T[]) : 'T[] =
@@ -1029,7 +1037,7 @@ let randomChoicesBy (randomizer: unit -> float) (count: int) (xs: 'T[]) : 'T[] =
         invalidArg "count" SR.inputMustBeNonNegative
 
     if count > 0 && isEmpty xs then
-        invalidArg "source" SR.notEnoughElements
+        invalidArg "source" SR.inputSequenceEmpty
 
     let len = xs.Length
 
@@ -1056,6 +1064,9 @@ let randomSampleBy (randomizer: unit -> float) (count: int) (xs: 'T[]) : 'T[] =
 
     let arr = copy xs
     let len = arr.Length
+
+    if len = 0 && count > 0 then
+        invalidArg "source" SR.inputSequenceEmpty
 
     if count > len then
         invalidArg "count" SR.notEnoughElements

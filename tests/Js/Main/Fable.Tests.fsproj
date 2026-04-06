@@ -39,6 +39,7 @@
     <Compile Include="Global.fs" />
     <Compile Include="ApplicativeTests.fs" />
     <Compile Include="ArithmeticTests.fs" />
+    <Compile Include="RandomTests.fs" />
     <Compile Include="ArrayTests.fs" />
     <Compile Include="AsyncTests.fs" />
     <Compile Include="CharTests.fs" />

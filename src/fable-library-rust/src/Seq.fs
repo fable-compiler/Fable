@@ -1263,13 +1263,14 @@ let distinctBy<'T, 'Key when 'Key: equality and 'Key: not null> (projection: 'T 
     )
 
 let randomShuffleBy (randomizer: unit -> float) (xs: 'T seq) : 'T seq =
-    xs |> toArray |> Array.randomShuffleBy randomizer |> ofArray
+    let arr = toArray xs
+    Array.randomShuffleInPlaceBy randomizer arr
+    ofArray arr
 
 let randomShuffleWith (random: System.Random) (xs: 'T seq) : 'T seq =
-    xs |> toArray |> Array.randomShuffleWith random |> ofArray
+    randomShuffleBy (fun () -> random.NextDouble()) xs
 
-let randomShuffle (xs: 'T seq) : 'T seq =
-    xs |> toArray |> Array.randomShuffle |> ofArray
+let randomShuffle (xs: 'T seq) : 'T seq = randomShuffleWith (System.Random()) xs
 
 let randomChoiceBy (randomizer: unit -> float) (xs: 'T seq) : 'T =
     xs |> toArray |> Array.randomChoiceBy randomizer
@@ -1283,19 +1284,19 @@ let randomChoicesBy (randomizer: unit -> float) (count: int) (xs: 'T seq) : 'T s
     xs |> toArray |> Array.randomChoicesBy randomizer count |> ofArray
 
 let randomChoicesWith (random: System.Random) (count: int) (xs: 'T seq) : 'T seq =
-    xs |> toArray |> Array.randomChoicesWith random count |> ofArray
+    randomChoicesBy (fun () -> random.NextDouble()) count xs
 
 let randomChoices (count: int) (xs: 'T seq) : 'T seq =
-    xs |> toArray |> Array.randomChoices count |> ofArray
+    randomChoicesWith (System.Random()) count xs
 
 let randomSampleBy (randomizer: unit -> float) (count: int) (xs: 'T seq) : 'T seq =
     xs |> toArray |> Array.randomSampleBy randomizer count |> ofArray
 
 let randomSampleWith (random: System.Random) (count: int) (xs: 'T seq) : 'T seq =
-    xs |> toArray |> Array.randomSampleWith random count |> ofArray
+    randomSampleBy (fun () -> random.NextDouble()) count xs
 
 let randomSample (count: int) (xs: 'T seq) : 'T seq =
-    xs |> toArray |> Array.randomSample count |> ofArray
+    randomSampleWith (System.Random()) count xs
 
 let except<'T when 'T: equality> (itemsToExclude: 'T seq) (xs: 'T seq) =
     delay (fun () ->

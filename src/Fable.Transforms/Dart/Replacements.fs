@@ -1816,6 +1816,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         let t = genArg com ctx r 0 i.GenericArgs
         makeArrayWithRange r t [] |> Some
     | "IsEmpty", [ ar ] -> getFieldWith r t ar "isEmpty" |> Some
+    | "Contains", [ value; ar ] -> Helper.LibCall(com, "Array", "contains", t, [ value; ar ], ?loc = r) |> Some
     | "CopyTo", args -> copyToArray com r t i args
     | ("Distinct" | "DistinctBy" | "Except" | "GroupBy" | "CountBy" as meth), args ->
         let meth = Naming.lowerFirst meth
@@ -3076,11 +3077,18 @@ let globalization
 let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ ->
-        match args with
-        | [] -> Helper.LibCall(com, "Random", "nonSeeded", t, [], [], ?loc = r) |> Some
-        | args ->
-            Helper.LibCall(com, "Random", "seeded", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
-            |> Some
+        Helper.LibCall(
+            com,
+            "Random",
+            "Random",
+            t,
+            args,
+            i.SignatureArgTypes,
+            genArgs = i.GenericArgs,
+            isConstructor = true,
+            ?loc = r
+        )
+        |> Some
     // Not yet supported
     | ("NextInt64" | "NextSingle"), _ -> None
     | meth, Some thisArg ->
