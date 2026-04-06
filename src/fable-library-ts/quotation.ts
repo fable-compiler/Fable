@@ -36,92 +36,130 @@ export function varGetIsMutable(v: Var): boolean { return v.IsMutable; }
 
 export class ExprValue {
     readonly tag = "Value";
-    constructor(readonly value: any, readonly type: string) {}
+    value: any;
+    type: string;
+    constructor(value: any, type: string) { this.value = value; this.type = type; }
 }
 
 export class ExprVarExpr {
     readonly tag = "Var";
-    constructor(readonly var_: Var) {}
+    var_: Var;
+    constructor(var_: Var) { this.var_ = var_; }
 }
 
 export class ExprLambda {
     readonly tag = "Lambda";
-    constructor(readonly var_: Var, readonly body: Expr) {}
+    var_: Var;
+    body: Expr;
+    constructor(var_: Var, body: Expr) { this.var_ = var_; this.body = body; }
 }
 
 export class ExprApplication {
     readonly tag = "Application";
-    constructor(readonly func: Expr, readonly arg: Expr) {}
+    func: Expr;
+    arg: Expr;
+    constructor(func: Expr, arg: Expr) { this.func = func; this.arg = arg; }
 }
 
 export class ExprLet {
     readonly tag = "Let";
-    constructor(readonly var_: Var, readonly value: Expr, readonly body: Expr) {}
+    var_: Var;
+    value: Expr;
+    body: Expr;
+    constructor(var_: Var, value: Expr, body: Expr) { this.var_ = var_; this.value = value; this.body = body; }
 }
 
 export class ExprIfThenElse {
     readonly tag = "IfThenElse";
-    constructor(readonly guard: Expr, readonly thenExpr: Expr, readonly elseExpr: Expr) {}
+    guard: Expr;
+    thenExpr: Expr;
+    elseExpr: Expr;
+    constructor(guard: Expr, thenExpr: Expr, elseExpr: Expr) { this.guard = guard; this.thenExpr = thenExpr; this.elseExpr = elseExpr; }
 }
 
 export class ExprCall {
     readonly tag = "Call";
-    constructor(readonly instance: any, readonly method: string, readonly args: any[]) {}
+    instance: any;
+    method: string;
+    args: any[];
+    constructor(instance: any, method: string, args: any[]) { this.instance = instance; this.method = method; this.args = args; }
 }
 
 export class ExprSequential {
     readonly tag = "Sequential";
-    constructor(readonly first: Expr, readonly second: Expr) {}
+    first: Expr;
+    second: Expr;
+    constructor(first: Expr, second: Expr) { this.first = first; this.second = second; }
 }
 
 export class ExprNewTuple {
     readonly tag = "NewTuple";
-    constructor(readonly elements: any[]) {}
+    elements: any[];
+    constructor(elements: any[]) { this.elements = elements; }
 }
 
 export class ExprNewUnion {
     readonly tag = "NewUnion";
-    constructor(readonly typeName: string, readonly unionTag: number, readonly fields: any[]) {}
+    typeName: string;
+    unionTag: number;
+    fields: any[];
+    constructor(typeName: string, unionTag: number, fields: any[]) { this.typeName = typeName; this.unionTag = unionTag; this.fields = fields; }
 }
 
 export class ExprNewRecord {
     readonly tag = "NewRecord";
-    constructor(readonly fieldNames: any[], readonly values: any[]) {}
+    fieldNames: any[];
+    values: any[];
+    constructor(fieldNames: any[], values: any[]) { this.fieldNames = fieldNames; this.values = values; }
 }
 
 export class ExprNewList {
     readonly tag = "NewList";
-    constructor(readonly head: Expr, readonly tail: Expr) {}
+    head: Expr;
+    tail: Expr;
+    constructor(head: Expr, tail: Expr) { this.head = head; this.tail = tail; }
 }
 
 export class ExprTupleGet {
     readonly tag = "TupleGet";
-    constructor(readonly expr: Expr, readonly index: number) {}
+    expr: Expr;
+    index: number;
+    constructor(expr: Expr, index: number) { this.expr = expr; this.index = index; }
 }
 
 export class ExprUnionTag {
     readonly tag = "UnionTag";
-    constructor(readonly expr: Expr) {}
+    expr: Expr;
+    constructor(expr: Expr) { this.expr = expr; }
 }
 
 export class ExprUnionField {
     readonly tag = "UnionField";
-    constructor(readonly expr: Expr, readonly fieldIndex: number) {}
+    expr: Expr;
+    fieldIndex: number;
+    constructor(expr: Expr, fieldIndex: number) { this.expr = expr; this.fieldIndex = fieldIndex; }
 }
 
 export class ExprFieldGet {
     readonly tag = "FieldGet";
-    constructor(readonly expr: Expr, readonly fieldName: string) {}
+    expr: Expr;
+    fieldName: string;
+    constructor(expr: Expr, fieldName: string) { this.expr = expr; this.fieldName = fieldName; }
 }
 
 export class ExprFieldSet {
     readonly tag = "FieldSet";
-    constructor(readonly expr: Expr, readonly fieldName: string, readonly value: Expr) {}
+    expr: Expr;
+    fieldName: string;
+    value: Expr;
+    constructor(expr: Expr, fieldName: string, value: Expr) { this.expr = expr; this.fieldName = fieldName; this.value = value; }
 }
 
 export class ExprVarSet {
     readonly tag = "VarSet";
-    constructor(readonly target: Expr, readonly value: Expr) {}
+    target: Expr;
+    value: Expr;
+    constructor(target: Expr, value: Expr) { this.target = target; this.value = value; }
 }
 
 export type Expr =
