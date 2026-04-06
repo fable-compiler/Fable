@@ -1456,10 +1456,11 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                     $"Cannot compile ILFieldGet(%A{ownerTyp}, %s{fieldName})"
                     |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 
-        | FSharpExprPatterns.Quote _ ->
-            return
-                "Quotes are not currently supported by Fable"
-                |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
+        | FSharpExprPatterns.Quote quotedExpr ->
+            let! body = transformExpr com ctx [] quotedExpr
+            let exprType = fsExpr.Type
+            let isTyped = exprType.GenericArguments.Count > 0
+            return Fable.Quote(body, isTyped, makeRangeFrom fsExpr)
 
         | FSharpExprPatterns.AddressOf expr ->
             let r = makeRangeFrom fsExpr
@@ -2474,6 +2475,8 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
             Fable.BaseValue(Option.map (resolveInlineIdent ctx info) i, resolveInlineType ctx.GenericArgs t)
             |> makeValue r
         | Fable.TypeInfo(t, d) -> Fable.TypeInfo(resolveInlineType ctx.GenericArgs t, d) |> makeValue r
+
+    | Fable.Quote(e, isTyped, r) -> Fable.Quote(resolveInlineExpr com ctx info e, isTyped, r)
 
     | Fable.Extended(kind, r) as e ->
         match kind with

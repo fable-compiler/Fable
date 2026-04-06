@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+* [Python/Beam] Add F# quotation support — construction, pattern matching, and evaluation via `LeafExpressionConverter.EvaluateQuotation` (by @dbrattli)
 * [All] Add support for `Guid.CreateVersion7()` and `Guid.CreateVersion7(DateTimeOffset)` (by @OnurGumus)
 * [All] Add missing `Array`, `List`, and `Seq` random choice/shuffle/sample members and tests (by @ncave)
 * [Dart/Rust] Add missing `System.Random` implementations and tests (by @ncave)

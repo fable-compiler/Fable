@@ -5679,7 +5679,8 @@ let tryCall
             | _ -> emitExpr r t [ c ] "maps:get(name, $0)" |> Some
         | _ -> None
     | "System.Text.StringBuilder" -> bclType com ctx r t info thisArg args
-    | _ -> None
+    // F# Quotations
+    | typeName -> Quotations.tryQuotationCall "quotation" com ctx r t info thisArg args typeName
 
 let tryBaseConstructor
     (_com: ICompiler)
