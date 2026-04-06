@@ -8,7 +8,6 @@ pub mod Random_ {
 
     use crate::Native_::{LrcPtr, MutCell};
     use crate::NativeArray_::Array;
-    use core::fmt;
 
     #[repr(transparent)]
     pub struct Random(MutCell<RngImpl>);
@@ -62,8 +61,8 @@ pub mod Random_ {
     //     }
     // }
 
-    impl fmt::Debug for Random {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    impl core::fmt::Debug for Random {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
             f.debug_struct("Random").finish()
         }
     }
@@ -74,5 +73,54 @@ pub mod Random_ {
 
     pub fn new_seeded(seed: i32) -> LrcPtr<Random> {
         LrcPtr::new(Random::new_seeded(seed))
+    }
+}
+
+// stub implementation of System.Random for when the "random" feature is not enabled
+#[cfg(not(feature = "random"))]
+pub mod Random_ {
+    use crate::Native_::{LrcPtr, MutCell};
+    use crate::NativeArray_::Array;
+
+    pub struct Random;
+
+    const MSG: &str = "Using System.Random requires enabling the 'random' feature";
+
+    impl Random {
+        pub fn new() -> Self {
+            unimplemented!("{}", MSG)
+        }
+
+        pub fn new_seeded(seed: i32) -> Self {
+            unimplemented!("{}", MSG)
+        }
+
+        pub fn next0(&self) -> i32 {
+            unimplemented!("{}", MSG)
+        }
+
+        pub fn next1(&self, max_value: i32) -> i32 {
+            unimplemented!("{}", MSG)
+        }
+
+        pub fn next2(&self, min_value: i32, max_value: i32) -> i32 {
+            unimplemented!("{}", MSG)
+        }
+
+        pub fn nextDouble(&self) -> f64 {
+            unimplemented!("MSG")
+        }
+
+        pub fn nextBytes(&self, buffer: Array<u8>) {
+            unimplemented!("{}", MSG)
+        }
+    }
+
+    pub fn new() -> LrcPtr<Random> {
+        unimplemented!("{}", MSG)
+    }
+
+    pub fn new_seeded(seed: i32) -> LrcPtr<Random> {
+        unimplemented!("{}", MSG)
     }
 }

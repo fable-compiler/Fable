@@ -29,7 +29,7 @@ num-integer = { version = "0.1", optional = true }
 num-traits = { version = "0.2", optional = true }
 rand = { version = "0.10", features = ["std_rng"], default-features = false, optional = true }
 regex = { version = "1.12", optional = true }
-rust_decimal = { version = "1.40", features = ["maths"], default-features = false, optional = true }
+rust_decimal = { version = "1.41", features = ["maths"], default-features = false, optional = true }
 startup = { version = "0.1", path = "vendored/startup", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
