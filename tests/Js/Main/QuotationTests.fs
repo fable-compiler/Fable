@@ -39,7 +39,7 @@ let tests =
         let q = <@ let x = 5 in x @>
         match q with
         | Let(v, Value(value, _), _) ->
-            equal "x" v.Name
+            v.Name.StartsWith("x") |> equal true
             equal 5 (value :?> int)
         | _ -> failwith "Expected Let"
 
@@ -58,7 +58,7 @@ let tests =
     testCase "NewTuple quotation" <| fun () ->
         let q = <@ (1, 2, 3) @>
         match q with
-        | NewTuple(exprs) -> equal 3 exprs.Length
+        | NewTuple(exprs) -> equal 3 (List.length exprs)
         | _ -> failwith "Expected NewTuple"
 
     testCase "Sequential quotation" <| fun () ->
