@@ -58,7 +58,7 @@ let tests =
     testCase "NewTuple quotation" <| fun () ->
         let q = <@ (1, 2, 3) @>
         match q with
-        | NewTuple(exprs) -> equal 3 (List.length exprs)
+        | NewTuple(exprs) -> equal 3 (Seq.length exprs)
         | _ -> failwith "Expected NewTuple"
 
     testCase "Sequential quotation" <| fun () ->
