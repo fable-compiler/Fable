@@ -39,14 +39,14 @@ export class ExprValue {
     value: any;
     type: string;
     constructor(value: any, type: string) { this.value = value; this.type = type; }
-    toJSON() { return ["Value", this.value, this.type]; }
+    toJSON() { return { Case: "Value", Fields: [this.value, this.type] }; }
 }
 
 export class ExprVarExpr {
     readonly tag = "Var";
     var_: Var;
     constructor(var_: Var) { this.var_ = var_; }
-    toJSON() { return ["Var", this.var_]; }
+    toJSON() { return { Case: "Var", Fields: [this.var_] }; }
 }
 
 export class ExprLambda {
@@ -54,7 +54,7 @@ export class ExprLambda {
     var_: Var;
     body: Expr;
     constructor(var_: Var, body: Expr) { this.var_ = var_; this.body = body; }
-    toJSON() { return ["Lambda", this.var_, this.body]; }
+    toJSON() { return { Case: "Lambda", Fields: [this.var_, this.body] }; }
 }
 
 export class ExprApplication {
@@ -62,7 +62,7 @@ export class ExprApplication {
     func: Expr;
     arg: Expr;
     constructor(func: Expr, arg: Expr) { this.func = func; this.arg = arg; }
-    toJSON() { return ["Application", this.func, this.arg]; }
+    toJSON() { return { Case: "Application", Fields: [this.func, this.arg] }; }
 }
 
 export class ExprLet {
@@ -71,7 +71,7 @@ export class ExprLet {
     value: Expr;
     body: Expr;
     constructor(var_: Var, value: Expr, body: Expr) { this.var_ = var_; this.value = value; this.body = body; }
-    toJSON() { return ["Let", this.var_, this.value, this.body]; }
+    toJSON() { return { Case: "Let", Fields: [this.var_, this.value, this.body] }; }
 }
 
 export class ExprIfThenElse {
@@ -80,7 +80,7 @@ export class ExprIfThenElse {
     thenExpr: Expr;
     elseExpr: Expr;
     constructor(guard: Expr, thenExpr: Expr, elseExpr: Expr) { this.guard = guard; this.thenExpr = thenExpr; this.elseExpr = elseExpr; }
-    toJSON() { return ["IfThenElse", this.guard, this.thenExpr, this.elseExpr]; }
+    toJSON() { return { Case: "IfThenElse", Fields: [this.guard, this.thenExpr, this.elseExpr] }; }
 }
 
 export class ExprCall {
@@ -89,7 +89,7 @@ export class ExprCall {
     method: string;
     args: Expr[];
     constructor(instance: Expr | null, method: string, args: Expr[]) { this.instance = instance; this.method = method; this.args = args; }
-    toJSON() { return ["Call", this.instance, this.method, this.args]; }
+    toJSON() { return { Case: "Call", Fields: [this.instance, this.method, this.args] }; }
 }
 
 export class ExprSequential {
@@ -97,14 +97,14 @@ export class ExprSequential {
     first: Expr;
     second: Expr;
     constructor(first: Expr, second: Expr) { this.first = first; this.second = second; }
-    toJSON() { return ["Sequential", this.first, this.second]; }
+    toJSON() { return { Case: "Sequential", Fields: [this.first, this.second] }; }
 }
 
 export class ExprNewTuple {
     readonly tag = "NewTuple";
     elements: Expr[];
     constructor(elements: Expr[]) { this.elements = elements; }
-    toJSON() { return ["NewTuple", this.elements]; }
+    toJSON() { return { Case: "NewTuple", Fields: [this.elements] }; }
 }
 
 export class ExprNewUnion {
@@ -113,7 +113,7 @@ export class ExprNewUnion {
     unionTag: number;
     fields: Expr[];
     constructor(typeName: string, unionTag: number, fields: Expr[]) { this.typeName = typeName; this.unionTag = unionTag; this.fields = fields; }
-    toJSON() { return ["NewUnion", this.typeName, this.unionTag, this.fields]; }
+    toJSON() { return { Case: "NewUnion", Fields: [this.typeName, this.unionTag, this.fields] }; }
 }
 
 export class ExprNewRecord {
@@ -121,7 +121,7 @@ export class ExprNewRecord {
     fieldNames: string[];
     values: Expr[];
     constructor(fieldNames: string[], values: Expr[]) { this.fieldNames = fieldNames; this.values = values; }
-    toJSON() { return ["NewRecord", this.fieldNames, this.values]; }
+    toJSON() { return { Case: "NewRecord", Fields: [this.fieldNames, this.values] }; }
 }
 
 export class ExprNewList {
@@ -129,7 +129,7 @@ export class ExprNewList {
     head: Expr;
     tail: Expr;
     constructor(head: Expr, tail: Expr) { this.head = head; this.tail = tail; }
-    toJSON() { return ["NewList", this.head, this.tail]; }
+    toJSON() { return { Case: "NewList", Fields: [this.head, this.tail] }; }
 }
 
 export class ExprTupleGet {
@@ -137,14 +137,14 @@ export class ExprTupleGet {
     expr: Expr;
     index: number;
     constructor(expr: Expr, index: number) { this.expr = expr; this.index = index; }
-    toJSON() { return ["TupleGet", this.expr, this.index]; }
+    toJSON() { return { Case: "TupleGet", Fields: [this.expr, this.index] }; }
 }
 
 export class ExprUnionTag {
     readonly tag = "UnionTag";
     expr: Expr;
     constructor(expr: Expr) { this.expr = expr; }
-    toJSON() { return ["UnionTag", this.expr]; }
+    toJSON() { return { Case: "UnionTag", Fields: [this.expr] }; }
 }
 
 export class ExprUnionField {
@@ -152,7 +152,7 @@ export class ExprUnionField {
     expr: Expr;
     fieldIndex: number;
     constructor(expr: Expr, fieldIndex: number) { this.expr = expr; this.fieldIndex = fieldIndex; }
-    toJSON() { return ["UnionField", this.expr, this.fieldIndex]; }
+    toJSON() { return { Case: "UnionField", Fields: [this.expr, this.fieldIndex] }; }
 }
 
 export class ExprFieldGet {
@@ -160,7 +160,7 @@ export class ExprFieldGet {
     expr: Expr;
     fieldName: string;
     constructor(expr: Expr, fieldName: string) { this.expr = expr; this.fieldName = fieldName; }
-    toJSON() { return ["FieldGet", this.expr, this.fieldName]; }
+    toJSON() { return { Case: "FieldGet", Fields: [this.expr, this.fieldName] }; }
 }
 
 export class ExprFieldSet {
@@ -169,7 +169,7 @@ export class ExprFieldSet {
     fieldName: string;
     value: Expr;
     constructor(expr: Expr, fieldName: string, value: Expr) { this.expr = expr; this.fieldName = fieldName; this.value = value; }
-    toJSON() { return ["FieldSet", this.expr, this.fieldName, this.value]; }
+    toJSON() { return { Case: "FieldSet", Fields: [this.expr, this.fieldName, this.value] }; }
 }
 
 export class ExprVarSet {
@@ -177,7 +177,7 @@ export class ExprVarSet {
     target: Expr;
     value: Expr;
     constructor(target: Expr, value: Expr) { this.target = target; this.value = value; }
-    toJSON() { return ["VarSet", this.target, this.value]; }
+    toJSON() { return { Case: "VarSet", Fields: [this.target, this.value] }; }
 }
 
 export type Expr =
@@ -618,8 +618,11 @@ function varFromJSON(json: any): Var {
 }
 
 export function exprFromJSON(json: any): Expr {
-    if (!Array.isArray(json)) return new ExprValue(json, typeof json);
-    const [tag, ...fields] = json;
+    if (json == null || typeof json !== "object" || !("Case" in json)) {
+        return new ExprValue(json, typeof json);
+    }
+    const tag = json.Case as string;
+    const fields = json.Fields as any[];
     switch (tag) {
         case "Value": return new ExprValue(fields[0], fields[1]);
         case "Var": return new ExprVarExpr(varFromJSON(fields[0]));

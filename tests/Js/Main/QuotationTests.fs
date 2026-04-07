@@ -134,16 +134,20 @@ let tests =
         let freeVars = q.GetFreeVars() |> Seq.length
         equal 0 freeVars
 
-    testCase "JSON serialization produces valid output" <| fun () ->
+    testCase "JSON serialization produces Thoth-compatible format" <| fun () ->
         let q = <@ 42 @>
         let json = Fable.Core.JS.JSON.stringify(q)
+        // Thoth.Json format: {"Case":"Value","Fields":[42,"int32"]}
+        json.Contains("Case") |> equal true
         json.Contains("Value") |> equal true
+        json.Contains("Fields") |> equal true
         json.Contains("42") |> equal true
 
     testCase "JSON round-trip preserves structure" <| fun () ->
         let q = <@ 1 + 2 @>
         let json = Fable.Core.JS.JSON.stringify(q)
-        let parsed = Fable.Core.JS.JSON.parse(json) :?> obj[]
-        parsed[0] |> unbox<string> |> equal "Call"
+        let parsed = Fable.Core.JS.JSON.parse(json)
+        // Thoth format: {"Case":"Call","Fields":[...]}
+        parsed?Case |> unbox<string> |> equal "Call"
 #endif
   ]
