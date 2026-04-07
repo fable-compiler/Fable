@@ -85,10 +85,10 @@ export class ExprIfThenElse {
 
 export class ExprCall {
     readonly tag = "Call";
-    instance: any;
+    instance: Expr | null;
     method: string;
-    args: any[];
-    constructor(instance: any, method: string, args: any[]) { this.instance = instance; this.method = method; this.args = args; }
+    args: Expr[];
+    constructor(instance: Expr | null, method: string, args: Expr[]) { this.instance = instance; this.method = method; this.args = args; }
     toJSON() { return ["Call", this.instance, this.method, this.args]; }
 }
 
@@ -102,8 +102,8 @@ export class ExprSequential {
 
 export class ExprNewTuple {
     readonly tag = "NewTuple";
-    elements: any[];
-    constructor(elements: any[]) { this.elements = elements; }
+    elements: Expr[];
+    constructor(elements: Expr[]) { this.elements = elements; }
     toJSON() { return ["NewTuple", this.elements]; }
 }
 
@@ -111,16 +111,16 @@ export class ExprNewUnion {
     readonly tag = "NewUnion";
     typeName: string;
     unionTag: number;
-    fields: any[];
-    constructor(typeName: string, unionTag: number, fields: any[]) { this.typeName = typeName; this.unionTag = unionTag; this.fields = fields; }
+    fields: Expr[];
+    constructor(typeName: string, unionTag: number, fields: Expr[]) { this.typeName = typeName; this.unionTag = unionTag; this.fields = fields; }
     toJSON() { return ["NewUnion", this.typeName, this.unionTag, this.fields]; }
 }
 
 export class ExprNewRecord {
     readonly tag = "NewRecord";
-    fieldNames: any[];
-    values: any[];
-    constructor(fieldNames: any[], values: any[]) { this.fieldNames = fieldNames; this.values = values; }
+    fieldNames: string[];
+    values: Expr[];
+    constructor(fieldNames: string[], values: Expr[]) { this.fieldNames = fieldNames; this.values = values; }
     toJSON() { return ["NewRecord", this.fieldNames, this.values]; }
 }
 
@@ -228,7 +228,7 @@ export function mkIfThenElse(guard: Expr, thenExpr: Expr, elseExpr: Expr): ExprI
     return new ExprIfThenElse(guard, thenExpr, elseExpr);
 }
 
-export function mkCall(instance: any, method: string, args: any[]): ExprCall {
+export function mkCall(instance: Expr | null, method: string, args: Expr[]): ExprCall {
     return new ExprCall(instance, method, args);
 }
 
@@ -236,7 +236,7 @@ export function mkSequential(first: Expr, second: Expr): ExprSequential {
     return new ExprSequential(first, second);
 }
 
-export function mkNewTuple(elements: any[]): ExprNewTuple {
+export function mkNewTuple(elements: Expr[]): ExprNewTuple {
     return new ExprNewTuple(elements);
 }
 
@@ -264,11 +264,11 @@ export function mkVarSet(target: Expr, value: Expr): ExprVarSet {
     return new ExprVarSet(target, value);
 }
 
-export function mkNewUnion(typeName: string, tag: number, fields: any[]): ExprNewUnion {
+export function mkNewUnion(typeName: string, tag: number, fields: Expr[]): ExprNewUnion {
     return new ExprNewUnion(typeName, tag, fields);
 }
 
-export function mkNewRecord(fieldNames: any[], values: any[]): ExprNewRecord {
+export function mkNewRecord(fieldNames: string[], values: Expr[]): ExprNewRecord {
     return new ExprNewRecord(fieldNames, values);
 }
 
@@ -322,7 +322,7 @@ export function isIfThenElse(expr: Expr): [Expr, Expr, Expr] | undefined {
     return undefined;
 }
 
-export function isCall(expr: Expr): [any, string, any[]] | undefined {
+export function isCall(expr: Expr): [Expr | null, string, Expr[]] | undefined {
     if (expr instanceof ExprCall) return [expr.instance, expr.method, expr.args];
     return undefined;
 }
@@ -332,17 +332,17 @@ export function isSequential(expr: Expr): [Expr, Expr] | undefined {
     return undefined;
 }
 
-export function isNewTuple(expr: Expr): any[] | undefined {
+export function isNewTuple(expr: Expr): Expr[] | undefined {
     if (expr instanceof ExprNewTuple) return expr.elements;
     return undefined;
 }
 
-export function isNewUnionCase(expr: Expr): [string, any[]] | undefined {
+export function isNewUnionCase(expr: Expr): [string, Expr[]] | undefined {
     if (expr instanceof ExprNewUnion) return [expr.typeName, expr.fields];
     return undefined;
 }
 
-export function isNewRecord(expr: Expr): [any[], any[]] | undefined {
+export function isNewRecord(expr: Expr): [string[], Expr[]] | undefined {
     if (expr instanceof ExprNewRecord) return [expr.fieldNames, expr.values];
     return undefined;
 }
@@ -365,7 +365,7 @@ const OPERATORS: Record<string, (...args: any[]) => any> = {
     "op_Addition": (a: any, b: any) => a + b,
     "op_Subtraction": (a: any, b: any) => a - b,
     "op_Multiply": (a: any, b: any) => a * b,
-    "op_Division": (a: any, b: any) => (a / b) | 0,
+    "op_Division": (a: any, b: any) => a / b,
     "op_Modulus": (a: any, b: any) => a % b,
     "op_Exponentiation": (a: any, b: any) => a ** b,
     "op_UnaryNegation": (a: any) => -a,
@@ -552,8 +552,25 @@ export function getFreeVars(expr: Expr): Var[] {
             for (const el of e.elements) walk(el, bound);
         } else if (e instanceof ExprTupleGet) {
             walk(e.expr, bound);
+        } else if (e instanceof ExprNewUnion) {
+            for (const f of e.fields) walk(f, bound);
+        } else if (e instanceof ExprNewRecord) {
+            for (const v of e.values) walk(v, bound);
+        } else if (e instanceof ExprNewList) {
+            walk(e.head, bound);
+            walk(e.tail, bound);
+        } else if (e instanceof ExprUnionTag) {
+            walk(e.expr, bound);
+        } else if (e instanceof ExprUnionField) {
+            walk(e.expr, bound);
         } else if (e instanceof ExprFieldGet) {
             walk(e.expr, bound);
+        } else if (e instanceof ExprFieldSet) {
+            walk(e.expr, bound);
+            walk(e.value, bound);
+        } else if (e instanceof ExprVarSet) {
+            walk(e.target, bound);
+            walk(e.value, bound);
         }
     }
 
@@ -572,18 +589,20 @@ export function substitute(expr: Expr, fn: (v: Var) => Expr | undefined): Expr {
         if (e instanceof ExprApplication) return new ExprApplication(sub(e.func), sub(e.arg));
         if (e instanceof ExprIfThenElse) return new ExprIfThenElse(sub(e.guard), sub(e.thenExpr), sub(e.elseExpr));
         if (e instanceof ExprCall) {
-            const newInst = e.instance instanceof ExprVarExpr || e.instance instanceof ExprValue
-                || e.instance instanceof ExprLambda || e.instance instanceof ExprApplication
-                || e.instance instanceof ExprLet || e.instance instanceof ExprIfThenElse
-                || e.instance instanceof ExprCall || e.instance instanceof ExprSequential
-                || e.instance instanceof ExprNewTuple
-                ? sub(e.instance) : e.instance;
+            const newInst = e.instance != null ? sub(e.instance) : e.instance;
             return new ExprCall(newInst, e.method, e.args.map(sub));
         }
         if (e instanceof ExprSequential) return new ExprSequential(sub(e.first), sub(e.second));
         if (e instanceof ExprNewTuple) return new ExprNewTuple(e.elements.map(sub));
         if (e instanceof ExprTupleGet) return new ExprTupleGet(sub(e.expr), e.index);
+        if (e instanceof ExprNewUnion) return new ExprNewUnion(e.typeName, e.unionTag, e.fields.map(sub));
+        if (e instanceof ExprNewRecord) return new ExprNewRecord(e.fieldNames, e.values.map(sub));
+        if (e instanceof ExprNewList) return new ExprNewList(sub(e.head), sub(e.tail));
+        if (e instanceof ExprUnionTag) return new ExprUnionTag(sub(e.expr));
+        if (e instanceof ExprUnionField) return new ExprUnionField(sub(e.expr), e.fieldIndex);
         if (e instanceof ExprFieldGet) return new ExprFieldGet(sub(e.expr), e.fieldName);
+        if (e instanceof ExprFieldSet) return new ExprFieldSet(sub(e.expr), e.fieldName, sub(e.value));
+        if (e instanceof ExprVarSet) return new ExprVarSet(sub(e.target), sub(e.value));
         return e;
     }
     return sub(expr);
