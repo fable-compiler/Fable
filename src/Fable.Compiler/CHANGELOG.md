@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [JS/TS] Fix source maps dropping valid mappings at column 0 (start of line) due to over-broad filter in `--sourceMaps` workaround (fixes #3980) (by Repo Assist)
 * [All] Fix unnecessary object allocations during AST traversal when visiting `Import` expressions (by Repo Assist)
 * [Beam] Fix `System.Random.Next(0)` implementation (by @ncave)
 * [Python] Fix `System.Random` seeded implementation  (by @ncave)
