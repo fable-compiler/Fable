@@ -6,6 +6,7 @@ open Util.Testing
 
 #if FABLE_COMPILER
 open Microsoft.FSharp.Linq.RuntimeHelpers
+open Fable.Core.JsInterop
 #endif
 
 let tests =
