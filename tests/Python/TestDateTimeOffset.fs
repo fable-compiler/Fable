@@ -472,6 +472,13 @@ let ``test DateTimeOffset.TryParse works`` () =
     f "2014-09-10T13:50:34" |> equal true
 
 [<Fact>]
+let ``test DateTimeOffset.TryParse with timezone offset returns correct value`` () =
+    let expected = DateTimeOffset(2018, 7, 2, 12, 23, 45, 0, TimeSpan.FromHours(2.))
+    let (isSuccess, actual) = DateTimeOffset.TryParse("2018-07-02T12:23:45+02:00")
+    isSuccess |> equal true
+    actual |> equal expected
+
+[<Fact>]
 let ``test DateTimeOffset.ToString() default works`` () =
     let d = DateTimeOffset(2014, 10, 9, 13, 23, 30, TimeSpan.Zero)
     let str = d.ToString()

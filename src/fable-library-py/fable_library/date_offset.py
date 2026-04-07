@@ -190,9 +190,13 @@ def timedelta_total_microseconds(td: timedelta) -> int:
 
 
 def parse(string: str, detectUTC: bool = False) -> DateTimeOffset:
-    from dateutil import parser  # noqa: PLC0415 - lazy import to avoid top-level dependency
+    # Try Python's built-in ISO 8601 parser first (handles offset strings reliably in Python 3.12+)
+    try:
+        parsed_dt = datetime.fromisoformat(string)
+    except ValueError:
+        from dateutil import parser  # noqa: PLC0415 - lazy import for non-ISO formats
 
-    parsed_dt = parser.parse(string)
+        parsed_dt = parser.parse(string)
 
     # Calculate offset in milliseconds
     if parsed_dt.tzinfo is not None:
