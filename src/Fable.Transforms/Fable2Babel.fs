@@ -3142,7 +3142,9 @@ but thanks to the optimisation done below we get
             | Fable.Throw _
             | Fable.Debugger -> iife com ctx expr
 
-        | Fable.Quote _ -> addErrorAndReturnNull com None "Quotations are not yet supported for JS/TS target"
+        | Fable.Quote(quotedExpr, _isTyped, _r) ->
+            let emitted = QuotationEmitter.emitQuotedExpr com quotedExpr
+            transformAsExpr com ctx emitted
 
     let rec transformAsStatements (com: IBabelCompiler) ctx returnStrategy (expr: Fable.Expr) : Statement array =
         match expr with
@@ -3311,9 +3313,9 @@ but thanks to the optimisation done below we get
                 )
             |]
 
-        | Fable.Quote _ ->
-            addError com [] None "Quotations are not yet supported for JS/TS target"
-            [||]
+        | Fable.Quote(quotedExpr, _isTyped, _r) ->
+            let emitted = QuotationEmitter.emitQuotedExpr com quotedExpr
+            [| transformAsExpr com ctx emitted |> resolveExpr Fable.Any returnStrategy |]
 
     let transformFunction com ctx name (args: Fable.Ident list) (body: Fable.Expr) : Parameter array * BlockStatement =
         let tailcallChance =

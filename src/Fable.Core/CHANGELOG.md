@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* Add `Fable.Core.Quotations` namespace with `QuotExpr` and `QuotVar` types for .NET-side deserialization of Fable quotation ASTs
+
 ## 5.0.0-rc.1 - 2026-02-26
 
 ### Added

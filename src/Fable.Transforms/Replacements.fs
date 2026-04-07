@@ -1309,6 +1309,8 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     // Erased operators.
     // KeyValuePair is already compiled as a tuple
     | ("KeyValuePattern" | "Identity" | "Box" | "Unbox" | "ToEnum"), [ arg ] -> TypeCast(arg, t) |> Some
+    // Quotation splice: %expr inside a quotation. The arg is already a QuotExpr at runtime.
+    | ("SpliceExpression" | "SpliceUntypedExpression"), [ arg ] -> Some arg
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
     | "Ignore", _ -> TypeCast(args.Head, Unit) |> Some
     // Number and String conversions
@@ -4344,7 +4346,8 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
                 getTypeName com ctx loc exprType |> StringConstant |> makeValue r |> Some
             | c -> Helper.LibCall(com, "Reflection", "name", t, [ c ], ?loc = r) |> Some
         | _ -> None
-    | _ -> None
+    // F# Quotations
+    | typeName -> Quotations.tryQuotationCall "quotation" com ctx r t info thisArg args typeName
 
 let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
