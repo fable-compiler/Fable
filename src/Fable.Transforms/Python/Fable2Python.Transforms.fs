@@ -4428,10 +4428,10 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
             |> List.filter (fun memb -> gr.Length = 1 || (memb.IsGetter || memb.IsSetter))
         )
 
-    // [<CLIEvent>] properties are represented in FCS as both an event property (e.g.
-    // "SomethingChanged") and add_/remove_ accessor methods. Object expressions only implement
-    // the add_/remove_ methods, so we must exclude the event property from the Protocol to
-    // avoid generating an unimplementable abstract member.
+    // [<CLIEvent>] properties are represented in FCS as both an event property getter (e.g.
+    // "Event" with CompiledName "get_Event") and add_/remove_ accessor methods. Object
+    // expressions only implement the add_/remove_ methods, so we must exclude the event
+    // property getter from the Protocol to avoid an unimplementable abstract member.
     let eventPropertyNames =
         members
         |> List.choose (fun m ->
@@ -4444,7 +4444,7 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
 
     let members =
         members
-        |> List.filter (fun m -> not (eventPropertyNames.Contains(m.CompiledName)))
+        |> List.filter (fun m -> not (eventPropertyNames.Contains(m.DisplayName)))
 
     let classMembers =
         [
