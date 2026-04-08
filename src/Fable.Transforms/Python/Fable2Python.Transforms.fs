@@ -4435,7 +4435,7 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
     let eventPropertyNames =
         members
         |> List.choose (fun m ->
-            if m.CompiledName.StartsWith("add_") then
+            if m.CompiledName.StartsWith("add_", System.StringComparison.Ordinal) then
                 Some(m.CompiledName.Substring(4))
             else
                 None
