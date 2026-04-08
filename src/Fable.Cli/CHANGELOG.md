@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [Python] Fix `DateTime.TryParse` incorrectly assigning `DateTimeKind.Local` to naive datetime strings (should be `DateTimeKind.Unspecified`) (fixes #3654)
-* [Python] Use `datetime.fromisoformat` before `dateutil` in `DateTimeOffset.parse` to improve reliability for ISO 8601 strings on Python 3.12+
+* [Python] Remove `python-dateutil` dependency from fable-library; use stdlib `datetime.fromisoformat` with `strptime` fallback
 * [All] Fix unnecessary object allocations during AST traversal when visiting `Import` expressions (by Repo Assist)
 * [Beam] Fix `System.Random.Next(0)` implementation (by @ncave)
 * [Python] Fix `System.Random` seeded implementation  (by @ncave)
