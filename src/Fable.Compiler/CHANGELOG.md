@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [Python] Fix object expressions implementing interfaces with `[<CLIEvent>]` members no longer produce unimplementable abstract Protocol members (fixes #3039)
+* [Python] Fix `DateTime.TryParse` incorrectly assigning `DateTimeKind.Local` to naive datetime strings (should be `DateTimeKind.Unspecified`) (fixes #3654)
 
 ## 5.0.0-rc.13 - 2026-04-07
 
@@ -24,7 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-* [Python] Fix `DateTime.TryParse` incorrectly assigning `DateTimeKind.Local` to naive datetime strings (should be `DateTimeKind.Unspecified`) (fixes #3654)
 * [Python] Remove `python-dateutil` dependency from fable-library; use stdlib `datetime.fromisoformat` with `strptime` fallback
 * [All] Fix unnecessary object allocations during AST traversal when visiting `Import` expressions (by Repo Assist)
 * [Beam] Fix `System.Random.Next(0)` implementation (by @ncave)
