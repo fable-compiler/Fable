@@ -4428,6 +4428,24 @@ let transformInterface (com: IPythonCompiler) ctx (classEnt: Fable.Entity) (_cla
             |> List.filter (fun memb -> gr.Length = 1 || (memb.IsGetter || memb.IsSetter))
         )
 
+    // [<CLIEvent>] properties are represented in FCS as both an event property getter (e.g.
+    // "Event" with CompiledName "get_Event") and add_/remove_ accessor methods. Object
+    // expressions only implement the add_/remove_ methods, so we must exclude the event
+    // property getter from the Protocol to avoid an unimplementable abstract member.
+    let eventPropertyNames =
+        members
+        |> List.choose (fun m ->
+            if m.CompiledName.StartsWith("add_", System.StringComparison.Ordinal) then
+                Some(m.CompiledName.Substring(4))
+            else
+                None
+        )
+        |> Set.ofList
+
+    let members =
+        members
+        |> List.filter (fun m -> not (eventPropertyNames.Contains(m.DisplayName)))
+
     let classMembers =
         [
             for memb in members do
