@@ -50,7 +50,7 @@ let updateLibraryVersionInFableTransforms
     // Save changes on the disk
     File.WriteAllText(filePath, fileContent)
 
-let private publishNuget (fsprojDir: string) (noSymbols: bool) =
+let publishNuget (fsprojDir: string) (noSymbols: bool) =
     let fsprojFiles = Directory.GetFiles(fsprojDir, "*.fsproj")
 
     if Array.length fsprojFiles <> 1 then
@@ -69,7 +69,7 @@ let private publishNuget (fsprojDir: string) (noSymbols: bool) =
     // This is because we make an optimistic release and delegate the version set to EasyBuild.PackageReleaseNotes.Tasks
     DotNet.nugetPush (nupkgPath, apiKey = nugetKey, noSymbols = noSymbols, skipDuplicate = true)
 
-let private publishNpm (projectDir: string) =
+let publishNpm (projectDir: string) =
     let packageJsonFile = Path.Combine(projectDir, "package.json") |> FileInfo
 
     let lastChangelogVersion =

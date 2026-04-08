@@ -1,3 +1,7 @@
+---
+last_commit_released: 8db5354262492b0ca0c5d49da239cfbcf0dcfc45
+---
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
