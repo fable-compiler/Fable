@@ -788,6 +788,18 @@ let ``test DateTime.TryParse works`` () =
 
 
 [<Fact>]
+let ``test DateTime.TryParse preserves Unspecified kind for naive strings`` () =
+    let (isSuccess, dt) = DateTime.TryParse("2018-10-01T11:12:55")
+    isSuccess |> equal true
+    dt.Kind |> equal DateTimeKind.Unspecified
+    dt.Year |> equal 2018
+    dt.Month |> equal 10
+    dt.Day |> equal 1
+    dt.Hour |> equal 11
+    dt.Minute |> equal 12
+    dt.Second |> equal 55
+
+[<Fact>]
 let ``test "Parsing doesn't succeed for invalid dates`` () =
     let invalidAmericanDate = "13/1/2020"
     let r, _date = DateTime.TryParse(invalidAmericanDate, CultureInfo.InvariantCulture, DateTimeStyles.None)

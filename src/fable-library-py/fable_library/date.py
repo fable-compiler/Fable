@@ -510,7 +510,12 @@ def add(x: datetime, y: TimeSpan) -> datetime:
 
 def parse(string: str) -> datetime:
     try:
-        return datetime.fromisoformat(string).astimezone()
+        parsed = datetime.fromisoformat(string)
+        # Only convert to local time when the string had an explicit timezone.
+        # Naive strings represent DateTimeKind.Unspecified and must stay naive.
+        if parsed.tzinfo is not None:
+            return parsed.astimezone()
+        return parsed
     except ValueError:
         pass
 
