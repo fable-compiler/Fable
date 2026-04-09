@@ -601,8 +601,8 @@ let private objects
     match info.CompiledName, thisArg, args with
     | ".ctor", _, _ -> emitExpr r t [] "ok" |> Some
     | "ReferenceEquals", None, [ left; right ] -> makeBinOp r Boolean left right BinaryEqual |> Some
-    | "Equals", Some thisObj, [ arg ] -> equals com r true thisObj arg |> Some
-    | "Equals", None, [ left; right ] -> equals com r true left right |> Some
+    | "Equals", Some(MaybeCasted thisObj), [ MaybeCasted arg ] -> equals com r true thisObj arg |> Some
+    | "Equals", None, [ MaybeCasted left; MaybeCasted right ] -> equals com r true left right |> Some
     | "GetHashCode", Some thisObj, [] ->
         Helper.LibCall(com, "fable_comparison", "hash", t, [ thisObj ], ?loc = r)
         |> Some

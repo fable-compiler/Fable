@@ -75,9 +75,10 @@ let ``test Array.Equals works`` () =
     let a3 = [|1; 2; 4|]
     let a4 = [|1; 2; 3; 4|]
     a1.Equals(a1) |> equal true
-    a1.Equals(a2) |> equal false
+    a1.Equals(a2) |> equal false // reference equality
     a1.Equals(a3) |> equal false
     a1.Equals(a4) |> equal false
+    (a1 :> obj).Equals(a2 :> obj) |> equal false // reference equality
 
 [<Fact>]
 let ``test Array comparison works`` () =

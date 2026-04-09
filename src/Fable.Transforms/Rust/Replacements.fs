@@ -1177,8 +1177,8 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [ arg ] |> Some
     | "ReferenceEquals", None, [ arg1; arg2 ] -> referenceEquals com ctx r arg1 arg2 |> Some
-    | "Equals", Some arg1, [ arg2 ]
-    | "Equals", None, [ arg1; arg2 ] -> objectEquals com ctx r arg1 arg2 |> Some
+    | "Equals", Some(MaybeCasted arg1), [ MaybeCasted arg2 ]
+    | "Equals", None, [ MaybeCasted arg1; MaybeCasted arg2 ] -> objectEquals com ctx r arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> objectHash com ctx r arg |> Some
     | "GetType", Some arg, _ ->
         if arg.Type = Any then

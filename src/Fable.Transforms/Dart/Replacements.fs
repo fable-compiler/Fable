@@ -1238,8 +1238,8 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [ arg ] |> Some
     | "ReferenceEquals", _, [ left; right ] -> Helper.GlobalCall("identical", t, [ left; right ], ?loc = r) |> Some
-    | "Equals", Some arg1, [ arg2 ]
-    | "Equals", None, [ arg1; arg2 ] ->
+    | "Equals", Some(MaybeCasted arg1), [ MaybeCasted arg2 ]
+    | "Equals", None, [ MaybeCasted arg1; MaybeCasted arg2 ] ->
         match arg1.Type with
         | Array _ -> Helper.GlobalCall("identical", t, [ arg1; arg2 ], ?loc = r) |> Some
         | _ -> equals com ctx r true arg1 arg2 |> Some
