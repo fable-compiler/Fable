@@ -11,6 +11,10 @@ updates:
       all-npm:
         patterns:
           - "*"
+    ignore:
+      # TypeScript 6 is a major breaking version — update manually when ready.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "nuget"
     directory: "/"
@@ -75,6 +79,12 @@ updates:
       all-npm:
         patterns:
           - "*"
+    ignore:
+      # React 19 is a major breaking version — update manually when ready.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "cargo"
     directory: "/src/fable-library-rust"
