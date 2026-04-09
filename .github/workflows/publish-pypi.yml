@@ -17,7 +17,7 @@ jobs:
       env:
         UV_LINK_MODE: copy
       steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
@@ -65,7 +65,7 @@ jobs:
         UV_LINK_MODE: copy
 
       steps:
-        - uses: actions/checkout@v5
+        - uses: actions/checkout@v6
         - name: Set up Python ${{ matrix.python-version }}
           uses: actions/setup-python@v6
           with:
@@ -110,7 +110,7 @@ jobs:
             - runner: ubuntu-22.04
               target: ppc64le
       steps:
-        - uses: actions/checkout@v5
+        - uses: actions/checkout@v6
         - uses: actions/setup-python@v6
           with:
             python-version: 3.x
@@ -148,7 +148,7 @@ jobs:
             - runner: ubuntu-22.04
               target: armv7
       steps:
-        - uses: actions/checkout@v5
+        - uses: actions/checkout@v6
         - uses: actions/setup-python@v6
           with:
             python-version: 3.x
@@ -182,7 +182,7 @@ jobs:
             - runner: windows-latest
               target: x86
       steps:
-        - uses: actions/checkout@v5
+        - uses: actions/checkout@v6
         - uses: actions/setup-python@v6
           with:
             python-version: 3.x
@@ -217,7 +217,7 @@ jobs:
             - runner: macos-15
               target: aarch64
       steps:
-        - uses: actions/checkout@v5
+        - uses: actions/checkout@v6
         - uses: actions/setup-python@v6
           with:
             python-version: 3.x
@@ -243,7 +243,7 @@ jobs:
       needs: build-fable-library
       runs-on: ubuntu-latest
       steps:
-        - uses: actions/checkout@v5
+        - uses: actions/checkout@v6
         - name: Download fable-library-py
           uses: actions/download-artifact@v4
           with:
