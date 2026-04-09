@@ -27,7 +27,7 @@
     "nodemon": "^3.1.14",
     "rollup": "^4.60.1",
     "terser": "^5.46.1",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.2"
   },
   "devDependencies": {
     "markdownlint-cli": "^0.48.0"
