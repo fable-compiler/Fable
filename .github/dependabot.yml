@@ -32,6 +32,22 @@ updates:
     labels:
       - "dependencies"
 
+  - package-ecosystem: "pip"
+    directory: "/src/fable-library-py"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+
+  - package-ecosystem: "npm"
+    directory: "/tests/React"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+
   - package-ecosystem: "cargo"
     directory: "/src/fable-library-rust"
     schedule:
