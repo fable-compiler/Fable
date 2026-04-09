@@ -1634,6 +1634,10 @@ let private lists
     | "get_Length", Some c -> emitExpr r t [ c ] "erlang:length($0)" |> Some
     | "get_IsEmpty", Some c -> emitExpr r t [ c ] "($0 =:= [])" |> Some
     | "get_Empty", _ -> Value(NewList(None, t), None) |> Some
+    | "Cons", None ->
+        match _args with
+        | [ head; tail ] -> Value(NewList(Some(head, tail), t), None) |> Some
+        | _ -> None
     | "get_Item", Some c ->
         match _args with
         | [ idx ] -> emitExpr r t [ c; idx ] "lists:nth($1 + 1, $0)" |> Some

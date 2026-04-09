@@ -136,6 +136,84 @@ let tests () =
         Array.set x 3 10.
         equal 10. x.[3]
 
+    testCase "Array equality works" <| fun () ->
+        let a1 = [|1; 2; 3|]
+        let a2 = [|1; 2; 3|]
+        let a3 = [|1; 2; 4|]
+        let a4 = [|1; 2; 3; 4|]
+        a1 = a1 |> equal true
+        a1 = a2 |> equal true
+        a1 = a3 |> equal false
+        a1 = a4 |> equal false
+        a1 <> a1 |> equal false
+        a1 <> a2 |> equal false
+        a1 <> a3 |> equal true
+        a1 <> a4 |> equal true
+
+    testCase "Array.Equals works" <| fun () ->
+        let a1 = [|1; 2; 3|]
+        let a2 = [|1; 2; 3|]
+        let a3 = [|1; 2; 4|]
+        let a4 = [|1; 2; 3; 4|]
+        a1.Equals(a1) |> equal true
+        a1.Equals(a2) |> equal false
+        a1.Equals(a3) |> equal false
+        a1.Equals(a4) |> equal false
+
+    testCase "Array comparison works" <| fun () ->
+        let a1 = [|1; 2; 3|]
+        let a2 = [|1; 2; 3|]
+        let a3 = [|1; 2; 4|]
+        let a4 = [|1; 2; 3; 4|]
+        a1 < a1 |> equal false
+        a1 < a2 |> equal false
+        a1 < a3 |> equal true
+        a1 < a4 |> equal true
+        a3 < a4 |> equal true
+        a3 < a2 |> equal false
+        a4 < a2 |> equal false
+        a4 < a3 |> equal false
+
+    testCase "Array compare works" <| fun () ->
+        let a1 = [|1; 2; 3|]
+        let a2 = [|1; 2; 3|]
+        let a3 = [|1; 2; 4|]
+        let a4 = [|1; 2; 3; 4|]
+        compare a1 a1 |> equal 0
+        compare a1 a2 |> equal 0
+        compare a1 a3 |> equal -1
+        compare a1 a4 |> equal -1
+        compare a3 a4 |> equal -1
+        compare a3 a2 |> equal 1
+        compare a4 a2 |> equal 1
+        compare a4 a3 |> equal 1
+
+    testCase "Array get by index works" <| fun () ->
+        let arr = [|1; 2; 3|]
+        arr[0] |> equal 1
+        arr[1] |> equal 2
+        arr[2] |> equal 3
+
+    testCase "Array set by index works" <| fun () ->
+        let arr = [|1; 2; 3|]
+        arr[1] <- arr[2] + 1
+        arr |> equal [|1; 4; 3|]
+
+    testCase "Array pass by reference works" <| fun () ->
+        let incElem (arr: int[]) index =
+            arr[index] <- arr[index] + 1
+            arr
+        let incElem2 (arr: int[]) index =
+            arr[index] <- arr[index] + 1
+            arr
+        let arr = [|1; 2; 3|]
+        incElem arr 2 |> equal [|1; 2; 4|]
+        arr |> equal [|1; 2; 4|]
+        let _ = incElem arr 1
+        arr |> equal [|1; 3; 4|]
+        let _ = incElem2 arr 0
+        arr |> equal [|2; 3; 4|]
+
     testCase "Array.Length works" <| fun () ->
         let xs = [| 1.; 2.; 3.; 4. |]
         xs.Length |> equal 4
@@ -224,6 +302,10 @@ let tests () =
         let xs = Array.empty<int>
         xs.Length |> equal 0
 
+    testCase "Array.empty generic works" <| fun () ->
+        let xs = [||]
+        xs.Length |> equal 0
+
     testCase "Array.append works" <| fun () ->
         let xs1 = [|1; 2; 3; 4|]
         let zs1 = Array.append [|0|] xs1
@@ -264,6 +346,24 @@ let tests () =
         result.[0] + result.[1]
         |> equal 7L
 
+    testCase "Array.create with struct tuple works" <| fun () ->
+        let xs = Array.create 3 struct (2, "a")
+        xs.Length |> equal 3
+        xs |> equal [|struct (2, "a"); struct (2, "a"); struct (2, "a")|]
+
+    testCase "Array.create with object tuple works" <| fun () ->
+        let xs = Array.create 3 (2, "a")
+        xs.Length |> equal 3
+        xs |> equal [|(2, "a"); (2, "a"); (2, "a")|]
+
+    testCase "Array.zeroCreate with string works" <| fun () ->
+        let xs = Array.zeroCreate<string> 3
+        xs.Length |> equal 3
+
+    testCase "Array.zeroCreate with struct tuple works" <| fun () ->
+        let xs = Array.zeroCreate<struct (int * string)> 3
+        xs.Length |> equal 3
+
     testCase "Array.choose must construct array of output type" <| fun () -> // See #1658
         let source = [|1; 3; 5; 7|]
         let target = source |> Array.choose (fun x -> Some { MainThing=x; OtherThing="asd" })
@@ -303,10 +403,20 @@ let tests () =
         Array.exists2 (fun x y -> x * y = 16UL) xs ys
         |> equal true
 
+    testCase "Array.contains works" <| fun () ->
+        let xs = [|1; 2; 3; 4|]
+        xs |> Array.contains 2 |> equal true
+        xs |> Array.contains 0 |> equal false
+
     testCase "Array.filter works" <| fun () ->
         let xs = [|1s; 2s; 3s; 4s|]
         let ys = xs |> Array.filter (fun x -> x > 2s)
         ys.Length |> equal 2
+
+    testCase "Array.where works" <| fun () ->
+        let xs = [|1; 2; 3; 4|]
+        let ys = xs |> Array.where (fun x -> x % 2 = 1)
+        ys |> equal [|1; 3|]
 
 // TODO: Char.IsLetter
     // testCase "Array.filter with chars works" <| fun () ->
@@ -877,11 +987,11 @@ let tests () =
         [|1..8|] |> Array.chunkBySize 4 |> equal [| [|1..4|]; [|5..8|] |]
         [|1..10|] |> Array.chunkBySize 4 |> equal [| [|1..4|]; [|5..8|]; [|9..10|] |]
 
-    // testCase "Array.splitAt works" <| fun () ->
-    //     let ar = [|1;2;3;4|]
-    //     Array.splitAt 0 ar |> equal ([||], [|1;2;3;4|])
-    //     Array.splitAt 3 ar |> equal ([|1;2;3|], [|4|])
-    //     Array.splitAt 4 ar |> equal ([|1;2;3;4|], [||])
+    testCase "Array.splitAt works" <| fun () ->
+        let ar = [|1; 2; 3; 4|]
+        Array.splitAt 0 ar |> equal ([||], [|1; 2; 3; 4|])
+        Array.splitAt 3 ar |> equal ([|1; 2; 3|], [|4|])
+        Array.splitAt 4 ar |> equal ([|1; 2; 3; 4|], [||])
 
     testCase "Arrays are independent from type of the elements" <| fun () ->
         let fromArrayToListAndBack a = a |> Array.toList |> List.toArray

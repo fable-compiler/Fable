@@ -57,9 +57,18 @@ let ``test Can test untyped enumerables`` () =
 
 [<Fact>]
 let ``test Seq.length works`` () =
-    let xs = [1.; 2.; 3.; 4.]
-    Seq.length xs
-    |> equal 4
+    let xs = seq { 1; 2; 3; 4 }
+    Seq.length xs |> equal 4
+
+[<Fact>]
+let ``test Seq.length works with arrays`` () =
+    let xs = [|1; 2; 3; 4|]
+    Seq.length xs |> equal 4
+
+[<Fact>]
+let ``test Seq.length works with lists`` () =
+    let xs = [1; 2; 3; 4]
+    Seq.length xs |> equal 4
 
 [<Fact>]
 let ``test Seq.delay works`` () =
@@ -81,6 +90,29 @@ let ``test Seq.empty works`` () =
     let xs = Seq.empty<int>
     Seq.length xs
     |> equal 0
+
+[<Fact>]
+let ``test Seq equality works`` () =
+    let a1 = seq {1; 2; 3}
+    let a2 = seq {1; 2; 3}
+    let a3 = seq {1; 2; 4}
+    let a4 = seq {1; 2; 3; 4}
+    a1 = a1 |> equal true
+    a1 = a3 |> equal false
+    a1 = a4 |> equal false
+    a1 <> a1 |> equal false
+    a1 <> a3 |> equal true
+    a1 <> a4 |> equal true
+    a2 |> Seq.length |> equal 3
+
+[<Fact>]
+let ``test Seq.Equals works`` () =
+    let a1 = seq {1; 2; 3}
+    let a3 = seq {1; 2; 4}
+    let a4 = seq {1; 2; 3; 4}
+    a1.Equals(a1) |> equal true
+    a1.Equals(a3) |> equal false
+    a1.Equals(a4) |> equal false
 
 [<Fact>]
 let ``test Seq.append works`` () =
@@ -267,6 +299,13 @@ let ``test Seq.fold works`` () =
     total |> equal 10.
 
 [<Fact>]
+let ``test Seq.fold2 works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [1; 2; 3; 4; 5]
+    let total = Seq.fold2 (fun acc x y -> acc + x + y) 0 xs ys
+    total |> equal 20
+
+[<Fact>]
 let ``test Seq.fold with tupled arguments works`` () =
     let a, b =
         ((1, 5), [1;2;3;4])
@@ -274,6 +313,19 @@ let ``test Seq.fold with tupled arguments works`` () =
             a * i, b + i)
     equal 24 a
     equal 15 b
+
+[<Fact>]
+let ``test Seq.foldBack works`` () =
+    let xs = [1; 2; 3; 4]
+    let total = Seq.foldBack (fun x acc -> acc - x) xs 0
+    total |> equal -10
+
+[<Fact>]
+let ``test Seq.foldBack2 works`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = [1; 2; 3; 4; 5]
+    let total = Seq.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
+    total |> equal -4
 
 [<Fact>]
 let ``test Seq.forall works`` () =
@@ -913,11 +965,22 @@ let ``test Seq.pairwise works with empty input`` () = // See #1941
     [1; 2] |> Seq.pairwise |> Seq.toList |> equal [(1, 2)]
 
 [<Fact>]
+let ``test Seq.permute works`` () =
+    let xs = [1; 2; 3; 4; 5; 6]
+    let ys = xs |> Seq.permute (fun i -> i + 1 - 2 * (i % 2))
+    ys |> Seq.toArray |> equal [|2; 1; 4; 3; 6; 5|]
+
+[<Fact>]
 let ``test Seq.readonly works`` () =
     let xs = [1.; 2.; 3.; 4.]
     xs |> Seq.readonly
     |> Seq.head
     |> equal 1.
+
+[<Fact>]
+let ``test Seq.replicate works`` () =
+    let xs = Seq.replicate 3 4
+    xs |> Seq.toArray |> equal [|4; 4; 4|]
 
 [<Fact>]
 let ``test Seq.singleton works`` () =

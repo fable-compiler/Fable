@@ -45,6 +45,127 @@ type Things =
 type Animal = Duck of int | Dog of int
 
 [<Fact>]
+let ``test Array expressions works`` () =
+    let a1: int[] = [||]
+    a1 |> equal [||]
+    a1.Length |> equal 0
+    let a2 = [|1; 2; 3|]
+    a2 |> equal [|1; 2; 3|]
+    a2.Length |> equal 3
+
+[<Fact>]
+let ``test Array equality works`` () =
+    let a1 = [|1; 2; 3|]
+    let a2 = [|1; 2; 3|]
+    let a3 = [|1; 2; 4|]
+    let a4 = [|1; 2; 3; 4|]
+    a1 = a1 |> equal true
+    a1 = a2 |> equal true
+    a1 = a3 |> equal false
+    a1 = a4 |> equal false
+    a1 <> a1 |> equal false
+    a1 <> a2 |> equal false
+    a1 <> a3 |> equal true
+    a1 <> a4 |> equal true
+
+[<Fact>]
+let ``test Array.Equals works`` () =
+    let a1 = [|1; 2; 3|]
+    let a2 = [|1; 2; 3|]
+    let a3 = [|1; 2; 4|]
+    let a4 = [|1; 2; 3; 4|]
+    a1.Equals(a1) |> equal true
+    a1.Equals(a2) |> equal false
+    a1.Equals(a3) |> equal false
+    a1.Equals(a4) |> equal false
+
+[<Fact>]
+let ``test Array comparison works`` () =
+    let a1 = [|1; 2; 3|]
+    let a2 = [|1; 2; 3|]
+    let a3 = [|1; 2; 4|]
+    let a4 = [|1; 2; 3; 4|]
+    a1 < a1 |> equal false
+    a1 < a2 |> equal false
+    a1 < a3 |> equal true
+    a1 < a4 |> equal true
+    a3 < a4 |> equal true
+    a3 < a2 |> equal false
+    a4 < a2 |> equal false
+    a4 < a3 |> equal false
+
+[<Fact>]
+let ``test Array compare works`` () =
+    let a1 = [|1; 2; 3|]
+    let a2 = [|1; 2; 3|]
+    let a3 = [|1; 2; 4|]
+    let a4 = [|1; 2; 3; 4|]
+    compare a1 a1 |> equal 0
+    compare a1 a2 |> equal 0
+    compare a1 a3 |> equal -1
+    compare a1 a4 |> equal -1
+    compare a3 a4 |> equal -1
+    compare a3 a2 |> equal 1
+    compare a4 a2 |> equal 1
+    compare a4 a3 |> equal 1
+
+[<Fact>]
+let ``test Array get by index works`` () =
+    let arr = [|1; 2; 3|]
+    arr[0] |> equal 1
+    arr[1] |> equal 2
+    arr[2] |> equal 3
+
+[<Fact>]
+let ``test Array set by index works`` () =
+    let arr = [|1; 2; 3|]
+    arr[1] <- arr[2] + 1
+    arr |> equal [|1; 4; 3|]
+
+[<Fact>]
+let ``test Array pass by reference works`` () =
+    let incElem (arr: int[]) index =
+        arr[index] <- arr[index] + 1
+        arr
+    let incElem2 (arr: int[]) index =
+        arr[index] <- arr[index] + 1
+        arr
+    let arr = [|1; 2; 3|]
+    incElem arr 2 |> equal [|1; 2; 4|]
+    arr |> equal [|1; 2; 4|]
+    let _ = incElem arr 1
+    arr |> equal [|1; 3; 4|]
+    let _ = incElem2 arr 0
+    arr |> equal [|2; 3; 4|]
+
+[<Fact>]
+let ``test Array.empty generic works`` () =
+    let xs = [||]
+    xs.Length |> equal 0
+
+[<Fact>]
+let ``test Array.create with struct tuple works`` () =
+    let xs = Array.create 3 struct (2, "a")
+    xs.Length |> equal 3
+    xs |> equal [|struct (2, "a"); struct (2, "a"); struct (2, "a")|]
+
+[<Fact>]
+let ``test Array.create with object tuple works`` () =
+    let xs = Array.create 3 (2, "a")
+    xs.Length |> equal 3
+    xs |> equal [|(2, "a"); (2, "a"); (2, "a")|]
+
+[<Fact>]
+let ``test Array.zeroCreate with string works`` () =
+    let xs = Array.zeroCreate<string> 3
+    xs.Length |> equal 3
+
+[<Fact>]
+let ``test Array.zeroCreate with struct tuple works`` () =
+    let xs = Array.zeroCreate<struct (int * string)> 3
+    xs.Length |> equal 3
+
+[<Fact>]
 let ``test Pattern matching with arrays works`` () =
     match [||] with [||] -> true | _ -> false
     |> equal true
@@ -177,11 +298,11 @@ let ``test Array.create works`` () =
     equal 2 xs.Length
     Array.sum xs |> equal 10
 
-// // [<Fact>]
-// // let ``test System.Array.ConvertAll works`` () =
-// //     let xs = [| 1.; 2.; 3.; 4. |]
-// //     let ys = System.Array.ConvertAll(xs, System.Converter(fun x -> int x))
-// //     ys |> Seq.toList |> equal [1;2;3;4]
+[<Fact>]
+let ``test System.Array.ConvertAll works`` () =
+    let xs = [| 1.; 2.; 3.; 4. |]
+    let ys = System.Array.ConvertAll(xs, System.Converter(fun x -> int x))
+    ys |> Seq.toList |> equal [1;2;3;4]
 
 [<Fact>]
 let ``test Array.blit works`` () =
@@ -211,40 +332,40 @@ let ``test Array.distinct works`` () =
     ys |> Array.length |> equal 3
     ys |> Array.sum |> equal 6
 
-// [<Fact>]
-// let ``test Array.distinct with tuples works`` () =
-//     let xs = [|(1, 2); (2, 3); (1, 2)|]
-//     let ys = xs |> Array.distinct
-//     ys |> Array.length |> equal 2
-//     ys |> Array.sumBy fst |> equal 3
+[<Fact>]
+let ``test Array.distinct with tuples works`` () =
+    let xs = [|(1, 2); (2, 3); (1, 2)|]
+    let ys = xs |> Array.distinct
+    ys |> Array.length |> equal 2
+    ys |> Array.sumBy fst |> equal 3
 
-// [<Fact>]
-// let ``test Array.distinctBy works`` () =
-//     let xs = [| 4; 4; 4; 6; 6; 5; 5 |]
-//     let ys = xs |> Array.distinctBy (fun x -> x % 2)
-//     ys |> Array.length |> equal 2
-//     ys |> Array.head >= 4 |> equal true
+[<Fact>]
+let ``test Array.distinctBy works`` () =
+    let xs = [| 4; 4; 4; 6; 6; 5; 5 |]
+    let ys = xs |> Array.distinctBy (fun x -> x % 2)
+    ys |> Array.length |> equal 2
+    ys |> Array.head >= 4 |> equal true
 
-// [<Fact>]
-// let ``test Array.distinctBy with tuples works`` () =
-//       let xs = [| 4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7 |]
-//       let ys = xs |> Array.distinctBy (fun (x,_) -> x % 2)
-//       ys |> Array.length |> equal 2
-//       ys |> Array.head |> fst >= 4 |> equal true
+[<Fact>]
+let ``test Array.distinctBy with tuples works`` () =
+    let xs = [| 4,1; 4,2; 4,3; 6,4; 6,5; 5,6; 5,7 |]
+    let ys = xs |> Array.distinctBy (fun (x,_) -> x % 2)
+    ys |> Array.length |> equal 2
+    ys |> Array.head |> fst >= 4 |> equal true
 
-// [<Fact>]
-// let ``test Array distinctBy works on not so large array`` () =
-//      let xs = [| 0 .. 500 |]
-//      let ys =
-//          Array.append xs xs
-//          |> Array.distinctBy(fun x -> x.ToString())
-//      ys |> equal xs
+[<Fact>]
+let ``test Array distinctBy works on not so large array`` () =
+    let xs = [| 0 .. 500 |]
+    let ys =
+        Array.append xs xs
+        |> Array.distinctBy (fun x -> x.ToString())
+    ys |> equal xs
 
-// [<Fact>]
-// let ``test Array.sub works`` () =
-//     let xs = [|0..99|]
-//     let ys = Array.sub xs 5 10    // [|5; 6; 7; 8; 9; 10; 11; 12; 13; 14|]
-//     ys |> Array.sum |> equal 95
+[<Fact>]
+let ``test Array.sub works`` () =
+    let xs = [|0..99|]
+    let ys = Array.sub xs 5 10    // [|5; 6; 7; 8; 9; 10; 11; 12; 13; 14|]
+    ys |> Array.sum |> equal 95
 
 [<Fact>]
 let ``test Array.fill works`` () =
@@ -352,12 +473,12 @@ let ``test Array.contains works`` () =
     ys |> Array.contains "banana" |> equal true
     ys |> Array.contains "grape" |> equal false
 
-// [<Fact>]
-// let ``test Array.exists2 works`` () =
-//     let xs = [|1UL; 2UL; 3UL; 4UL|]
-//     let ys = [|1UL; 2UL; 3UL; 4UL|]
-//     Array.exists2 (fun x y -> x * y = 16UL) xs ys
-//     |> equal true
+[<Fact>]
+let ``test Array.exists2 works`` () =
+    let xs = [|1UL; 2UL; 3UL; 4UL|]
+    let ys = [|1UL; 2UL; 3UL; 4UL|]
+    Array.exists2 (fun x y -> x * y = 16UL) xs ys
+    |> equal true
 
 [<Fact>]
 let ``test Array.filter works`` () =
@@ -370,6 +491,12 @@ let ``test Array.filter with chars works`` () =
     let xs = [|'a'; '2'; 'b'; 'c'|]
     let ys = xs |> Array.filter System.Char.IsLetter
     ys.Length |> equal 3
+
+[<Fact>]
+let ``test Array.where works`` () =
+    let xs = [|1; 2; 3; 4|]
+    let ys = xs |> Array.where (fun x -> x % 2 = 1)
+    ys |> equal [|1; 3|]
 
 [<Fact>]
 let ``test Array.find works`` () =
@@ -426,12 +553,12 @@ let ``test Array.fold works`` () =
     let total = xs |> Array.fold (+) 0y
     total |> equal 10y
 
-// [<Fact>]
-// let ``test Array.fold2 works`` () =
-//     let xs = [|1uy; 2uy; 3uy; 4uy|]
-//     let ys = [|1uy; 2uy; 3uy; 4uy|]
-//     let total = Array.fold2 (fun x y z -> x + y + z) 0uy xs ys
-//     total |> equal 20uy
+[<Fact>]
+let ``test Array.fold2 works`` () =
+    let xs = [|1uy; 2uy; 3uy; 4uy|]
+    let ys = [|1uy; 2uy; 3uy; 4uy|]
+    let total = Array.fold2 (fun x y z -> x + y + z) 0uy xs ys
+    total |> equal 20uy
 
 [<Fact>]
 let ``test Array.foldBack works`` () =
@@ -439,12 +566,12 @@ let ``test Array.foldBack works`` () =
     let total = Array.foldBack (fun x acc -> acc - x) xs 0.
     total |> equal -10.
 
-// [<Fact>]
-// let ``test Array.foldBack2 works`` () =
-//     let xs = [|1; 2; 3; 4|]
-//     let ys = [|1; 2; 3; 4|]
-//     let total = Array.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
-//     total |> equal -4
+[<Fact>]
+let ``test Array.foldBack2 works`` () =
+    let xs = [|1; 2; 3; 4|]
+    let ys = [|1; 2; 3; 4|]
+    let total = Array.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
+    total |> equal -4
 
 [<Fact>]
 let ``test Array.forall works`` () =
@@ -452,14 +579,14 @@ let ``test Array.forall works`` () =
     Array.forall ((>) 5.) xs
     |> equal true
 
-// [<Fact>]
-// let ``test Array.forall2 works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     let ys = [|1.; 2.; 3.; 5.|]
-//     Array.forall2 (=) xs ys
-//     |> equal false
-//     Array.forall2 (fun x y -> x <= 4. && y <= 5.) xs ys
-//     |> equal true
+[<Fact>]
+let ``test Array.forall2 works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let ys = [|1.; 2.; 3.; 5.|]
+    Array.forall2 (=) xs ys
+    |> equal false
+    Array.forall2 (fun x y -> x <= 4. && y <= 5.) xs ys
+    |> equal true
 
 [<Fact>]
 let ``test Array.init works`` () =
@@ -483,32 +610,32 @@ let ``test Array.iter works`` () =
     )
     total.Value |> equal 10.
 
-// [<Fact>]
-// let ``test Array.iter2 works`` () =
-//     let xs = [|1; 2; 3; 4|]
-//     let mutable total = 0
-//     Array.iter2 (fun x y ->
-//        total <- total - x - y
-//     ) xs xs
-//     total |> equal -20
+[<Fact>]
+let ``test Array.iter2 works`` () =
+    let xs = [|1; 2; 3; 4|]
+    let mutable total = 0
+    Array.iter2 (fun x y ->
+       total <- total - x - y
+    ) xs xs
+    total |> equal -20
 
-// [<Fact>]
-// let ``test Array.iteri works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     let total = ref 0.
-//     xs |> Array.iteri (fun i x ->
-//        total.Value <- total.Value + (float i) * x
-//     )
-//     total.Value |> equal 20.
+[<Fact>]
+let ``test Array.iteri works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let total = ref 0.
+    xs |> Array.iteri (fun i x ->
+       total.Value <- total.Value + (float i) * x
+    )
+    total.Value |> equal 20.
 
-// [<Fact>]
-// let ``test Array.iteri2 works`` () =
-//     let xs = [|1.; 2.; 3.; 4.|]
-//     let total = ref 0.
-//     Array.iteri2 (fun i x y ->
-//        total.Value <- total.Value + (float i) * x + (float i) * y
-//     ) xs xs
-//     total.Value |> equal 40.
+[<Fact>]
+let ``test Array.iteri2 works`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let total = ref 0.
+    Array.iteri2 (fun i x y ->
+       total.Value <- total.Value + (float i) * x + (float i) * y
+    ) xs xs
+    total.Value |> equal 40.
 
 [<Fact>]
 let ``test Array.length works`` () =
@@ -743,14 +870,14 @@ let ``test Array.takeWhile works`` () =
     xs |> Array.takeWhile (fun x -> x < 6) |> equal [|1; 2; 3; 4; 5|]
     [||] |> Array.takeWhile (fun x -> x < 3) |> equal [||]
 
-// [<Fact>]
-// let ``test Array.sortDescending works`` () =
-//     let xs = [|3; 4; 1; -3; 2; 10|]
-//     xs |> Array.sortDescending |> Array.take 3 |> Array.sum |> equal 17
-//     xs.[0] |> equal 3  // Make sure there is no side effects
+[<Fact>]
+let ``test Array.sortDescending works`` () =
+    let xs = [|3; 4; 1; -3; 2; 10|]
+    xs |> Array.sortDescending |> Array.take 3 |> Array.sum |> equal 17
+    xs.[0] |> equal 3
 
-//     let ys = [|"a"; "c"; "B"; "d"|]
-//     ys |> Array.sortDescending |> Array.item 1 |> equal "c"
+    let ys = [|"a"; "c"; "B"; "d"|]
+    ys |> Array.sortDescending |> Array.item 1 |> equal "c"
 
 [<Fact>]
 let ``test Array.sortBy works`` () =
@@ -759,12 +886,12 @@ let ``test Array.sortBy works`` () =
     ys.[0] + ys.[1]
     |> equal 7.
 
-// [<Fact>]
-// let ``test Array.sortByDescending works`` () =
-//     let xs = [|3.; 4.; 1.; 2.|]
-//     let ys = xs |> Array.sortByDescending (fun x -> -x)
-//     ys.[0] + ys.[1]
-//     |> equal 3.
+[<Fact>]
+let ``test Array.sortByDescending works`` () =
+    let xs = [|3.; 4.; 1.; 2.|]
+    let ys = xs |> Array.sortByDescending (fun x -> -x)
+    ys.[0] + ys.[1]
+    |> equal 3.
 
 [<Fact>]
 let ``test Array.sortWith works`` () =
@@ -884,12 +1011,12 @@ let ``test Array.unzip works`` () =
     ys.[0] + zs.[0]
     |> equal 3.
 
-// [<Fact>]
-// let ``test Array.unzip3 works`` () =
-//     let xs = [|1., 2., 3.|]
-//     let ys, zs, ks = xs |> Array.unzip3
-//     ys.[0] + zs.[0] + ks.[0]
-//     |> equal 6.
+[<Fact>]
+let ``test Array.unzip3 works`` () =
+    let xs = [|1., 2., 3.|]
+    let ys, zs, ks = xs |> Array.unzip3
+    ys.[0] + zs.[0] + ks.[0]
+    |> equal 6.
 
 [<Fact>]
 let ``test Array.zip works`` () =
@@ -899,14 +1026,14 @@ let ``test Array.zip works`` () =
     let x, y = zs.[0]
     x + y |> equal 2.
 
-// [<Fact>]
-// let ``test Array.zip3 works`` () =
-//     let xs = [|1.; 2.; 3.|]
-//     let ys = [|1.; 2.; 3.|]
-//     let zs = [|1.; 2.; 3.|]
-//     let ks = Array.zip3 xs ys zs
-//     let x, y, z = ks.[0]
-//     x + y + z |> equal 3.
+[<Fact>]
+let ``test Array.zip3 works`` () =
+    let xs = [|1.; 2.; 3.|]
+    let ys = [|1.; 2.; 3.|]
+    let zs = [|1.; 2.; 3.|]
+    let ks = Array.zip3 xs ys zs
+    let x, y, z = ks.[0]
+    x + y + z |> equal 3.
 
 [<Fact>]
 let ``test Array as IList indexer has same behaviour`` () =
@@ -1001,16 +1128,16 @@ let ``test Array.windowed works`` () = // See #1716
     Array.windowed 6 nums |> equal [|[| 1.0; 1.5; 2.0; 1.5; 1.0; 1.5 |]|]
     Array.windowed 7 nums |> Array.isEmpty |> equal true
 
-// [<Fact>]
-// let ``test Array.allPairs works`` () =
-//     let xs = [|1;2;3;4|]
-//     let ys = [|'a';'b';'c';'d';'e';'f'|]
-//     Array.allPairs xs ys
-//     |> equal
-//         [|(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
-//           (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
-//           (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
-//           (4, 'd'); (4, 'e'); (4, 'f')|]
+[<Fact>]
+let ``test Array.allPairs works`` () =
+    let xs = [|1;2;3;4|]
+    let ys = [|'a';'b';'c';'d';'e';'f'|]
+    Array.allPairs xs ys
+    |> equal
+        [|(1, 'a'); (1, 'b'); (1, 'c'); (1, 'd'); (1, 'e'); (1, 'f'); (2, 'a');
+          (2, 'b'); (2, 'c'); (2, 'd'); (2, 'e'); (2, 'f'); (3, 'a'); (3, 'b');
+          (3, 'c'); (3, 'd'); (3, 'e'); (3, 'f'); (4, 'a'); (4, 'b'); (4, 'c');
+          (4, 'd'); (4, 'e'); (4, 'f')|]
 
 [<Fact>]
 let ``test Casting to System.Array works`` () =
@@ -1054,17 +1181,17 @@ let ``test Array.splitInto works`` () =
    [|1..5|] |> Array.splitInto 4 |> equal [| [|1..2|]; [|3|]; [|4|]; [|5|] |]
    [|1..4|] |> Array.splitInto 20 |> equal [| [|1|]; [|2|]; [|3|]; [|4|] |]
 
-// [<Fact>]
-// let ``test Array.exactlyOne works`` () =
-//     [|1.|] |> Array.exactlyOne |> equal 1.
-//     (try Array.exactlyOne [|1.;2.|] |> ignore; false with | _ -> true) |> equal true
-//     (try Array.exactlyOne [||] |> ignore; false with | _ -> true) |> equal true
+[<Fact>]
+let ``test Array.exactlyOne works`` () =
+    [|1.|] |> Array.exactlyOne |> equal 1.
+    (try Array.exactlyOne [|1.;2.|] |> ignore; false with | _ -> true) |> equal true
+    (try Array.exactlyOne [||] |> ignore; false with | _ -> true) |> equal true
 
-// [<Fact>]
-// let ``test Array.tryExactlyOne works`` () =
-//     [|1.|] |> Array.tryExactlyOne |> equal (Some 1.)
-//     [|1.;2.|] |> Array.tryExactlyOne |> equal None
-//     [||] |> Array.tryExactlyOne |> equal None
+[<Fact>]
+let ``test Array.tryExactlyOne works`` () =
+    [|1.|] |> Array.tryExactlyOne |> equal (Some 1.)
+    [|1.;2.|] |> Array.tryExactlyOne |> equal None
+    [||] |> Array.tryExactlyOne |> equal None
 
 [<Fact>]
 let ``test Array.pairwise works`` () =

@@ -6,7 +6,7 @@ open System.Collections.Generic
 // type MyRefType(i: int) =
 //     member x.Value = i
 
-let inline private hashset xs =
+let inline private hashSet xs =
     let res = HashSet<_>()
     xs |> List.iter (fun x -> res.Add x |> ignore)
     res
@@ -41,7 +41,7 @@ let ``HashSet ctor from IEnumerable works`` () =
 //     let x = MyRefType(4)
 //     let y = MyRefType(4)
 //     let z = MyRefType(6)
-//     let set2 = HashSet<_>()
+//     let set1 = HashSet<_>()
 //     set1.Add(x) |> equal true
 //     set1.Contains(x) |> equal true
 //     set1.Contains(y) |> equal false
@@ -85,16 +85,16 @@ let ``HashSet.Remove works when item is not present`` () =
 
 // [<Fact>]
 // let ``HashSet.UnionWith works`` () =
-//     let xs = hashset [1; 2]
-//     let ys = hashset [2; 4]
+//     let xs = hashSet [1; 2]
+//     let ys = hashSet [2; 4]
 //     xs.UnionWith ys
 //     (xs.Contains 1 && xs.Contains 2 && xs.Contains 4)
 //     |> equal true
 
 // [<Fact>]
 // let ``HashSet.IntersectWith works`` () =
-//     let xs = hashset [1; 2]
-//     let ys = hashset [2; 4]
+//     let xs = hashSet [1; 2]
+//     let ys = hashSet [2; 4]
 //     xs.IntersectWith ys
 //     xs.Contains 1 |> equal false
 //     xs.Contains 2 |> equal true
@@ -106,20 +106,20 @@ let ``HashSet.Remove works when item is not present`` () =
 //             member _.Equals(s1: string, s2: string) =
 //                 s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
 //             member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
-//     let hashset = new HashSet<string>(["Foo"; "bar"], ignoreCase)
-//     set.Contains("foo") |> equal true
-//     set.Contains("Foo") |> equal true
-//     set.Contains("bar") |> equal true
-//     set.Contains("Bar") |> equal true
-//     set.IntersectWith(["foo"; "bar"])
-//     set.Count |> equal 2
-//     set.IntersectWith(["Foo"; "Bar"])
-//     set.Count |> equal 2
+//     let xs = new HashSet<string>(["Foo"; "bar"], ignoreCase)
+//     xs.Contains("foo") |> equal true
+//     xs.Contains("Foo") |> equal true
+//     xs.Contains("bar") |> equal true
+//     xs.Contains("Bar") |> equal true
+//     xs.IntersectWith(["foo"; "bar"])
+//     xs.Count |> equal 2
+//     xs.IntersectWith(["Foo"; "Bar"])
+//     xs.Count |> equal 2
 
 // [<Fact>]
 // let ``HashSet.ExceptWith works`` () =
-//     let xs = hashset [1; 2]
-//     let ys = hashset [2; 4]
+//     let xs = hashSet [1; 2]
+//     let ys = hashSet [2; 4]
 //     xs.ExceptWith ys
 //     xs.Contains 1 |> equal true
 //     xs.Contains 2 |> equal false
@@ -150,13 +150,13 @@ let ``HashSet.Count works`` () =
 
 // [<Fact>]
 // let ``HashSet.Count works II`` () =
-//     let xs = hashset []
+//     let xs = hashSet []
 //     xs.Count |> equal 0
-//     let ys = hashset [1]
+//     let ys = hashSet [1]
 //     ys.Count |> equal 1
-//     let zs = hashset [1; 1]
+//     let zs = hashSet [1; 1]
 //     zs.Count |> equal 1
-//     let zs' = hashset [1; 2]
+//     let zs' = hashSet [1; 2]
 //     zs'.Count |> equal 2
 
 [<Fact>]

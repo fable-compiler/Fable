@@ -6,7 +6,7 @@ open Util.Testing
 type MyRefType(i: int) =
     member x.Value = i
 
-let inline set l =
+let inline hashSet l =
     let xs = HashSet<_>()
     for x in l do
         xs.Add x |> ignore
@@ -38,10 +38,10 @@ let tests =
         let x = MyRefType(4)
         let y = MyRefType(4)
         let z = MyRefType(6)
-        let set = HashSet<_>()
-        set.Add(x) |> equal true
-        set.Contains(x) |> equal true
-        set.Contains(y) |> equal false
+        let set1 = HashSet<_>()
+        set1.Add(x) |> equal true
+        set1.Contains(x) |> equal true
+        set1.Contains(y) |> equal false
 
         let comparer =
             { new IEqualityComparer<MyRefType> with
@@ -54,35 +54,35 @@ let tests =
         set2.Contains(z) |> equal false
 
     testCase "HashSet.Add returns true if not present" <| fun () ->
-        let xs = set []
+        let xs = hashSet []
         xs.Add(1) |> equal true
         xs.Count |> equal 1
 
     testCase "HashSet.Add returns false if already present" <| fun () ->
-        let xs = set [1]
+        let xs = hashSet [1]
         xs.Add(1) |> equal false
         xs.Count |> equal 1
 
     testCase "HashSet.Remove works when item is present" <| fun () ->
-        let xs = set [1]
+        let xs = hashSet [1]
         xs.Remove 1 |> equal true
         xs.Count |> equal 0
 
     testCase "HashSet.Remove works when item is not present" <| fun () ->
-        let xs = set [1; 2]
+        let xs = hashSet [1; 2]
         xs.Remove 3 |> equal false
         xs.Count |> equal 2
 
     testCase "HashSet.UnionWith works" <| fun () ->
-        let xs = set [1; 2]
-        let ys = set [2; 4]
+        let xs = hashSet [1; 2]
+        let ys = hashSet [2; 4]
         xs.UnionWith ys
         (xs.Contains 1 && xs.Contains 2 && xs.Contains 4)
         |> equal true
 
     testCase "HashSet.IntersectWith works" <| fun () ->
-        let xs = set [1; 2]
-        let ys = set [2; 4]
+        let xs = hashSet [1; 2]
+        let ys = hashSet [2; 4]
         xs.IntersectWith ys
         xs.Contains 1 |> equal false
         xs.Contains 2 |> equal true
@@ -93,19 +93,19 @@ let tests =
                 member _.Equals(s1: string, s2: string) =
                     s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
                 member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
-        let set = new HashSet<string>(["Foo"; "bar"], ignoreCase)
-        set.Contains("foo") |> equal true
-        set.Contains("Foo") |> equal true
-        set.Contains("bar") |> equal true
-        set.Contains("Bar") |> equal true
-        set.IntersectWith(["foo"; "bar"])
-        set.Count |> equal 2
-        set.IntersectWith(["Foo"; "Bar"])
-        set.Count |> equal 2
+        let xs = new HashSet<string>(["Foo"; "bar"], ignoreCase)
+        xs.Contains("foo") |> equal true
+        xs.Contains("Foo") |> equal true
+        xs.Contains("bar") |> equal true
+        xs.Contains("Bar") |> equal true
+        xs.IntersectWith(["foo"; "bar"])
+        xs.Count |> equal 2
+        xs.IntersectWith(["Foo"; "Bar"])
+        xs.Count |> equal 2
 
     testCase "HashSet.ExceptWith works" <| fun () ->
-        let xs = set [1; 2]
-        let ys = set [2; 4]
+        let xs = hashSet [1; 2]
+        let ys = hashSet [2; 4]
         xs.ExceptWith ys
         xs.Contains 1 |> equal true
         xs.Contains 2 |> equal false
@@ -134,13 +134,13 @@ let tests =
         for i in 1. .. 10. do hs.Add(i*i) |> ignore
         hs.Count
         |> equal 10
-        let xs = set []
+        let xs = hashSet []
         xs.Count |> equal 0
-        let ys = set [1]
+        let ys = hashSet [1]
         ys.Count |> equal 1
-        let zs = set [1; 1]
+        let zs = hashSet [1; 1]
         zs.Count |> equal 1
-        let zs' = set [1; 2]
+        let zs' = hashSet [1; 2]
         zs'.Count |> equal 2
 
     testCase "HashSet.Add works" <| fun () ->

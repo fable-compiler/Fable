@@ -1352,8 +1352,15 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [ arg ] |> Some
     | "ReferenceEquals", _, [ left; right ] -> makeEqOpStrict r left right BinaryEqual |> Some
-    | "Equals", Some arg1, [ arg2 ]
-    | "Equals", None, [ arg1; arg2 ] -> equals com ctx r true arg1 arg2 |> Some
+    | "Equals", Some arg1, [ arg2 ] ->
+        match arg1.Type with
+        | Array _ -> makeEqOpStrict r arg1 arg2 BinaryEqual |> Some
+        | _ -> equals com ctx r true arg1 arg2 |> Some
+    | "Equals", None, [ arg1; arg2 ] ->
+        match arg1.Type, arg2.Type with
+        | Array _, _
+        | _, Array _ -> makeEqOpStrict r arg1 arg2 BinaryEqual |> Some
+        | _ -> equals com ctx r true arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
     | "GetType", Some arg, _ ->
         if arg.Type = Any then
@@ -1953,9 +1960,13 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
         Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
     | "get_Item", Some arg, [ idx ] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [ idx; value ] -> setExpr r arg idx value |> Some
+    | "Equals", Some arg1, [ arg2 ] -> makeEqOpStrict r arg1 arg2 BinaryEqual |> Some
+    | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
     | "Copy", None, [ _source; _sourceIndex; _target; _targetIndex; _count ] -> copyToArray com r t i args
     | "Copy", None, [ source; target; count ] ->
         copyToArray com r t i [ source; makeIntConst 0; target; makeIntConst 0; count ]
+    | "ConvertAll", None, [ source; mapping ] ->
+        Helper.LibCall(com, "array", "map", t, [ mapping; source ], ?loc = r) |> Some
     | "IndexOf", None, args ->
         let args = injectIndexOfArgs com ctx r i.GenericArgs args
 
