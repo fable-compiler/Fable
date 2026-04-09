@@ -23,7 +23,7 @@
         <None Include="$(MSBuildThisFileDirectory)\..\README.md" Pack="true" PackagePath="\"/>
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.103" PrivateAssets="All" />
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.201" PrivateAssets="All" />
         <PackageReference Include="FSharp.Analyzers.Build" Version="0.5.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>build</IncludeAssets>
