@@ -16,6 +16,6 @@
     "jest": "^30",
     "jest-environment-jsdom": "^30",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^19"
   }
 }
