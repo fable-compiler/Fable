@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [All] Integration tests now support TypeScript output: add `*.tsx.expected` files alongside `*.jsx.expected` to test TypeScript compilation; set `UPDATE_SNAPSHOTS=true` to regenerate expected files (fixes #4022)
+
 ### Fixed
 
 * [Python] Fix object expressions implementing interfaces with `[<CLIEvent>]` members no longer produce unimplementable abstract Protocol members (fixes #3039)
