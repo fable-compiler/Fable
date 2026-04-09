@@ -75,7 +75,7 @@ jobs:
         - name: Install Uv
           run: pipx install uv
         - name: Download fable-library-py
-          uses: actions/download-artifact@v4
+          uses: actions/download-artifact@v8
           with:
             name: fable-library-py
             path: ./src/fable-library-py
@@ -115,7 +115,7 @@ jobs:
           with:
             python-version: 3.x
         - name: Download fable-library-py
-          uses: actions/download-artifact@v4
+          uses: actions/download-artifact@v8
           with:
             name: fable-library-py
             path: ./temp/fable-library-py
@@ -153,7 +153,7 @@ jobs:
           with:
             python-version: 3.x
         - name: Download fable-library-py
-          uses: actions/download-artifact@v4
+          uses: actions/download-artifact@v8
           with:
             name: fable-library-py
             path: ./temp/fable-library-py
@@ -188,7 +188,7 @@ jobs:
             python-version: 3.x
             architecture: ${{ matrix.platform.target }}
         - name: Download fable-library-py
-          uses: actions/download-artifact@v4
+          uses: actions/download-artifact@v8
           with:
             name: fable-library-py
             path: ./temp/fable-library-py
@@ -222,7 +222,7 @@ jobs:
           with:
             python-version: 3.x
         - name: Download fable-library-py
-          uses: actions/download-artifact@v4
+          uses: actions/download-artifact@v8
           with:
             name: fable-library-py
             path: ./temp/fable-library-py
@@ -245,7 +245,7 @@ jobs:
       steps:
         - uses: actions/checkout@v6
         - name: Download fable-library-py
-          uses: actions/download-artifact@v4
+          uses: actions/download-artifact@v8
           with:
             name: fable-library-py
             path: ./temp/fable-library-py
@@ -274,7 +274,7 @@ jobs:
         # Used to generate artifact attestation
         attestations: write
       steps:
-        - uses: actions/download-artifact@v4
+        - uses: actions/download-artifact@v8
         - name: Generate artifact attestation
           uses: actions/attest-build-provenance@v2
           with:
