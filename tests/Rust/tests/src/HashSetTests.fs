@@ -83,63 +83,101 @@ let ``HashSet.Remove works when item is not present`` () =
     xs.Remove 3 |> equal false
     xs.Count |> equal 2
 
-// [<Fact>]
-// let ``HashSet.UnionWith works`` () =
-//     let xs = hashSet [1; 2]
-//     let ys = hashSet [2; 4]
-//     xs.UnionWith ys
-//     (xs.Contains 1 && xs.Contains 2 && xs.Contains 4)
-//     |> equal true
+[<Fact>]
+let ``HashSet.UnionWith works`` () =
+    let xs = hashSet [1; 2]
+    let ys = hashSet [2; 4]
+    xs.UnionWith ys
+    (xs.Contains 1 && xs.Contains 2 && xs.Contains 4)
+    |> equal true
 
-// [<Fact>]
-// let ``HashSet.IntersectWith works`` () =
-//     let xs = hashSet [1; 2]
-//     let ys = hashSet [2; 4]
-//     xs.IntersectWith ys
-//     xs.Contains 1 |> equal false
-//     xs.Contains 2 |> equal true
+[<Fact>]
+let ``HashSet.IntersectWith works`` () =
+    let xs = hashSet [1; 2]
+    let ys = hashSet [2; 4]
+    xs.IntersectWith ys
+    xs.Contains 1 |> equal false
+    xs.Contains 2 |> equal true
 
-// [<Fact>]
-// let ``IntersectWith works with custom comparison`` () = // See #2566
-//     let ignoreCase =
-//         { new IEqualityComparer<string> with
-//             member _.Equals(s1: string, s2: string) =
-//                 s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
-//             member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
-//     let xs = new HashSet<string>(["Foo"; "bar"], ignoreCase)
-//     xs.Contains("foo") |> equal true
-//     xs.Contains("Foo") |> equal true
-//     xs.Contains("bar") |> equal true
-//     xs.Contains("Bar") |> equal true
-//     xs.IntersectWith(["foo"; "bar"])
-//     xs.Count |> equal 2
-//     xs.IntersectWith(["Foo"; "Bar"])
-//     xs.Count |> equal 2
+[<Fact>]
+let ``HashSet.IntersectWith works with custom comparison`` () = // See #2566
+    let ignoreCase =
+        { new IEqualityComparer<string> with
+            member _.Equals(s1: string, s2: string) =
+                s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
+            member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
+    let xs = new HashSet<string>(["Foo"; "bar"], ignoreCase)
+    xs.Contains("foo") |> equal true
+    xs.Contains("Foo") |> equal true
+    xs.Contains("bar") |> equal true
+    xs.Contains("Bar") |> equal true
+    xs.IntersectWith(["foo"; "bar"])
+    xs.Count |> equal 2
+    xs.IntersectWith(["Foo"; "Bar"])
+    xs.Count |> equal 2
 
-// [<Fact>]
-// let ``HashSet.ExceptWith works`` () =
-//     let xs = hashSet [1; 2]
-//     let ys = hashSet [2; 4]
-//     xs.ExceptWith ys
-//     xs.Contains 1 |> equal true
-//     xs.Contains 2 |> equal false
+[<Fact>]
+let ``HashSet.ExceptWith works`` () =
+    let xs = hashSet [1; 2]
+    let ys = hashSet [2; 4]
+    xs.ExceptWith ys
+    xs.Contains 1 |> equal true
+    xs.Contains 2 |> equal false
 
-// [<Fact>]
-// let ``HashSet iteration works`` () =
-//     let xs = HashSet<_>()
-//     for i in 1. .. 10. do
-//         xs.Add(i*i) |> ignore
-//     let mutable i = 0.
-//     for v in xs do
-//         i <- v + i
-//     equal 385. i
+[<Fact>]
+let ``HashSet.ExceptWith works with custom comparison`` () =
+    let ignoreCase =
+        { new IEqualityComparer<string> with
+            member _.Equals(s1: string, s2: string) =
+                s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
+            member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
+    let xs = HashSet<string>(["Foo"; "bar"], ignoreCase)
+    xs.ExceptWith(["foo"; "baz"])
+    xs.Count |> equal 1
+    xs.Contains("foo") |> equal false
+    xs.Contains("bar") |> equal true
+    xs.Contains("baz") |> equal false
 
-// [<Fact>]
-// let ``HashSet folding works`` () =
-//     let xs = HashSet<_>()
-//     for i in 1. .. 10. do xs.Add(i*i) |> ignore
-//     xs |> Seq.fold (fun acc item -> acc + item) 0.
-//     |> equal 385.
+[<Fact>]
+let ``HashSet.SymmetricExceptWith works`` () =
+    let xs = hashSet [1; 2]
+    let ys = hashSet [2; 4]
+    xs.SymmetricExceptWith ys
+    xs.Count |> equal 2
+    xs.Contains 1 |> equal true
+    xs.Contains 2 |> equal false
+    xs.Contains 4 |> equal true
+
+[<Fact>]
+let ``HashSet.SymmetricExceptWith works with custom comparison`` () =
+    let ignoreCase =
+        { new IEqualityComparer<string> with
+            member _.Equals(s1: string, s2: string) =
+                s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
+            member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
+    let xs = HashSet<string>(["Foo"; "bar"], ignoreCase)
+    xs.SymmetricExceptWith(["foo"; "baz"])
+    xs.Count |> equal 2
+    xs.Contains("foo") |> equal false
+    xs.Contains("bar") |> equal true
+    xs.Contains("baz") |> equal true
+
+[<Fact>]
+let ``HashSet iteration works`` () =
+    let xs = HashSet<_>()
+    for i in 1 .. 10 do
+        xs.Add(i*i) |> ignore
+    let mutable i = 0
+    for v in xs do
+        i <- v + i
+    equal 385. i
+
+[<Fact>]
+let ``HashSet folding works`` () =
+    let xs = HashSet<_>()
+    for i in 1 .. 10 do xs.Add(i*i) |> ignore
+    xs |> Seq.fold (fun acc item -> acc + item) 0
+    |> equal 385
 
 [<Fact>]
 let ``HashSet.Count works`` () =
@@ -148,16 +186,16 @@ let ``HashSet.Count works`` () =
         xs.Add(i*i) |> ignore
     xs.Count |> equal 10
 
-// [<Fact>]
-// let ``HashSet.Count works II`` () =
-//     let xs = hashSet []
-//     xs.Count |> equal 0
-//     let ys = hashSet [1]
-//     ys.Count |> equal 1
-//     let zs = hashSet [1; 1]
-//     zs.Count |> equal 1
-//     let zs' = hashSet [1; 2]
-//     zs'.Count |> equal 2
+[<Fact>]
+let ``HashSet.Count works II`` () =
+    let xs = hashSet ([]: int list)
+    xs.Count |> equal 0
+    let ys = hashSet [1]
+    ys.Count |> equal 1
+    let zs = hashSet [1; 1]
+    zs.Count |> equal 1
+    let zs' = hashSet [1; 2]
+    zs'.Count |> equal 2
 
 [<Fact>]
 let ``HashSet.Add works`` () =

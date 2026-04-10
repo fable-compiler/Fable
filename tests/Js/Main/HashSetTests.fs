@@ -87,7 +87,7 @@ let tests =
         xs.Contains 1 |> equal false
         xs.Contains 2 |> equal true
 
-    testCase "IntersectWith works with custom comparison" <| fun () -> // See #2566
+    testCase "HashSet.IntersectWith works with custom comparison" <| fun () -> // See #2566
         let ignoreCase =
             { new IEqualityComparer<string> with
                 member _.Equals(s1: string, s2: string) =

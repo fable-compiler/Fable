@@ -2368,10 +2368,10 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "GetEnumerator", Some c ->
         let ar = Helper.LibCall(com, "HashSet", "entries", t, [ c ])
         Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r) |> Some
-    | ("IsProperSubsetOf" | "IsProperSupersetOf" | "UnionWith" | "IntersectWith" | "ExceptWith" | "IsSubsetOf" | "IsSupersetOf" as meth),
-      Some c ->
-        let meth = Naming.lowerFirst meth
-        Helper.LibCall(com, "Set", meth, t, c :: args, ?loc = r) |> Some
+    | ("UnionWith" | "IntersectWith" | "ExceptWith" | "SymmetricExceptWith"), Some _
+    | ("IsProperSubsetOf" | "IsProperSupersetOf" | "IsSubsetOf" | "IsSupersetOf"), Some _ ->
+        let meth = Naming.lowerFirst i.CompiledName
+        makeLibModuleCall com r t i "HashSet" meth thisArg args |> Some
     // TODO!!!
     // | "CopyTo"
     // | "SetEquals"

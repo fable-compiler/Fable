@@ -66,6 +66,15 @@ pub mod HashSet_ {
         set.iter().map(|k| k.key.clone())
     }
 
+    fn seq_to_hash_set<T: Clone + 'static>(
+        seq: Seq<T>,
+        comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
+    ) -> collections::HashSet<HashKey<T>> {
+        seq_to_iter(seq)
+            .map(|v| HashKey::new(v, comparer.clone()))
+            .collect()
+    }
+
     pub fn new_empty<T>() -> HashSet<T>
     where
         T: Clone + Hash + PartialEq + 'static,
@@ -136,6 +145,57 @@ pub mod HashSet_ {
 
     pub fn clear<T: Clone>(set: HashSet<T>) {
         set.get_mut().clear();
+    }
+
+    pub fn unionWith<T: Clone + 'static>(set: HashSet<T>, other: Seq<T>) {
+        let other = seq_to_hash_set(other, set.comparer.clone());
+        let hash_set = set.get_mut();
+        for key in other {
+            hash_set.insert(key);
+        }
+    }
+
+    pub fn intersectWith<T: Clone + 'static>(set: HashSet<T>, other: Seq<T>) {
+        let other = seq_to_hash_set(other, set.comparer.clone());
+        set.get_mut().retain(|key| other.contains(key));
+    }
+
+    pub fn exceptWith<T: Clone + 'static>(set: HashSet<T>, other: Seq<T>) {
+        let other = seq_to_hash_set(other, set.comparer.clone());
+        let hash_set = set.get_mut();
+        for key in other {
+            hash_set.remove(&key);
+        }
+    }
+
+    pub fn symmetricExceptWith<T: Clone + 'static>(set: HashSet<T>, other: Seq<T>) {
+        let other = seq_to_hash_set(other, set.comparer.clone());
+        let hash_set = set.get_mut();
+        for key in other {
+            if !hash_set.remove(&key) {
+                hash_set.insert(key);
+            }
+        }
+    }
+
+    pub fn isSubsetOf<T: Clone + 'static>(set: HashSet<T>, other: Seq<T>) -> bool {
+        let other = seq_to_hash_set(other, set.comparer.clone());
+        set.is_subset(&other)
+    }
+
+    pub fn isSupersetOf<T: Clone + 'static>(set: HashSet<T>, other: Seq<T>) -> bool {
+        let other = seq_to_hash_set(other, set.comparer.clone());
+        set.is_superset(&other)
+    }
+
+    pub fn isProperSubsetOf<T: Clone + 'static>(set: HashSet<T>, other: Seq<T>) -> bool {
+        let other = seq_to_hash_set(other, set.comparer.clone());
+        set.len() < other.len() && set.is_subset(&other)
+    }
+
+    pub fn isProperSupersetOf<T: Clone + 'static>(set: HashSet<T>, other: Seq<T>) -> bool {
+        let other = seq_to_hash_set(other, set.comparer.clone());
+        set.len() > other.len() && set.is_superset(&other)
     }
 
     pub fn entries<T: Clone>(set: HashSet<T>) -> Array<T> {
