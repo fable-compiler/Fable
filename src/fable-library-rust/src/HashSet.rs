@@ -9,7 +9,8 @@ pub mod HashSet_ {
     #[cfg(not(feature = "no_std"))]
     use std::collections;
 
-    use crate::NativeArray_::{array_from, copyTo4, Array};
+    use crate::Global_::SR::indexOutOfBounds;
+    use crate::NativeArray_::{array_from, Array};
     use crate::Native_::{default_eq_comparer, seq_to_iter};
     use crate::Native_::{HashKey, LrcPtr, MutCell, Seq, Vec};
     use crate::System::Collections::Generic::IEqualityComparer_1;
@@ -198,7 +199,16 @@ pub mod HashSet_ {
     }
 
     pub fn copyTo3<T: Clone>(set: HashSet<T>, dest: Array<T>, destIndex: i32, count: i32) {
-        copyTo4(entries(set), 0, dest, destIndex, count);
+        let set_len = set.len() as i32;
+        let dest_len = dest.len() as i32;
+        if destIndex < 0 || count < 0 || count > set_len || destIndex + count > dest_len {
+            panic!("{}", indexOutOfBounds());
+        }
+        let mut dest = dest.get_mut();
+        let it = to_iter(&set).take(count as usize);
+        for (offset, item) in it.enumerate() {
+            dest[destIndex as usize + offset] = item;
+        }
     }
 
     pub fn isSubsetOf<T: Clone + 'static>(set: HashSet<T>, other: Seq<T>) -> bool {
