@@ -9,7 +9,7 @@ pub mod HashSet_ {
     #[cfg(not(feature = "no_std"))]
     use std::collections;
 
-    use crate::NativeArray_::{array_from, Array};
+    use crate::NativeArray_::{array_from, copyTo4, Array};
     use crate::Native_::{default_eq_comparer, seq_to_iter};
     use crate::Native_::{HashKey, LrcPtr, MutCell, Seq, Vec};
     use crate::System::Collections::Generic::IEqualityComparer_1;
@@ -176,6 +176,29 @@ pub mod HashSet_ {
                 hash_set.insert(key);
             }
         }
+    }
+
+    pub fn overlaps<T: Clone + 'static>(set: HashSet<T>, other: Seq<T>) -> bool {
+        let other = seq_to_hash_set(other, set.comparer.clone());
+        set.iter().any(|key| other.contains(key))
+    }
+
+    pub fn setEquals<T: Clone + 'static>(set: HashSet<T>, other: Seq<T>) -> bool {
+        let other = seq_to_hash_set(other, set.comparer.clone());
+        set.len() == other.len() && set.is_subset(&other)
+    }
+
+    pub fn copyTo<T: Clone>(set: HashSet<T>, dest: Array<T>) {
+        copyTo2(set, dest, 0)
+    }
+
+    pub fn copyTo2<T: Clone>(set: HashSet<T>, dest: Array<T>, destIndex: i32) {
+        let count = set.len() as i32;
+        copyTo3(set, dest, destIndex, count)
+    }
+
+    pub fn copyTo3<T: Clone>(set: HashSet<T>, dest: Array<T>, destIndex: i32, count: i32) {
+        copyTo4(entries(set), 0, dest, destIndex, count);
     }
 
     pub fn isSubsetOf<T: Clone + 'static>(set: HashSet<T>, other: Seq<T>) -> bool {
