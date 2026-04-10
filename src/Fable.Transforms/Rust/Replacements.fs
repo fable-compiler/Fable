@@ -496,11 +496,6 @@ let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
         // Helper.LibCall(com, "Native", "equals", t, [left; right], ?loc=r)
         makeEqOp r left right BinaryEqual
 
-let objectEquals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
-    match left.Type with
-    | Array _ -> referenceEquals com ctx r left right
-    | _ -> TypeCast(right, left.Type) |> equals com ctx r left
-
 /// Compare function that will call Util.compare or instance `CompareTo` as appropriate
 let compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     let t = Int32.Number
@@ -1177,8 +1172,12 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [ arg ] |> Some
     | "ReferenceEquals", None, [ arg1; arg2 ] -> referenceEquals com ctx r arg1 arg2 |> Some
-    | "Equals", Some arg1, [ arg2 ]
-    | "Equals", None, [ arg1; arg2 ] -> objectEquals com ctx r arg1 arg2 |> Some
+    | "Equals", Some(MaybeCasted arg1), [ MaybeCasted arg2 ]
+    | "Equals", None, [ MaybeCasted arg1; MaybeCasted arg2 ] ->
+        match arg1.Type, arg2.Type with
+        | Array _, _
+        | _, Array _ -> referenceEquals com ctx r arg1 arg2 |> Some
+        | _ -> TypeCast(arg2, arg1.Type) |> equals com ctx r arg1 |> Some
     | "GetHashCode", Some arg, _ -> objectHash com ctx r arg |> Some
     | "GetType", Some arg, _ ->
         if arg.Type = Any then

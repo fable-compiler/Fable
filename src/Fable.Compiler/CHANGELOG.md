@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Beam] Fix `List.Cons` call replacement and test (by @ncave)
+* [Beam/Dart/Python/TypeScript] Fix `Array.Equals` to use reference equality instead of structural equality (by @ncave)
+* [Dart/Python/TypeScript/Rust] Fix `Seq.foldBack2` for sequences with different lengths (by @ncave)
+* [Python] Fix missing `Array` module implementations and tests (by @ncave)
 * [Python] Fix object expressions implementing interfaces with `[<CLIEvent>]` members no longer produce unimplementable abstract Protocol members (fixes #3039)
 * [Python] Fix `DateTime.TryParse` incorrectly assigning `DateTimeKind.Local` to naive datetime strings (should be `DateTimeKind.Unspecified`) (fixes #3654)
 

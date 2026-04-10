@@ -14,9 +14,22 @@ let ``test Empty list works`` () =
     xs.Length |> equal 0
 
 [<Fact>]
+let ``test List.empty generic works`` () =
+    let xs = []
+    List.isEmpty xs |> equal true
+
+[<Fact>]
 let ``test List cons works`` () =
     let xs = 1 :: [2; 3]
     xs.Length |> equal 3
+
+[<Fact>]
+let ``test List.Cons works II`` () =
+    let xs = [1; 2; 3; 4]
+    let ys = 3 :: xs
+    let zs = List.Cons(4, xs)
+    ys.Head + xs.Head
+    |> equal zs.Head
 
 [<Fact>]
 let ``test List.head works`` () =

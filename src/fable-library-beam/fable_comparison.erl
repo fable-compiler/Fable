@@ -71,7 +71,7 @@ deep_equals_map(A, B) ->
 
 %% Deep compare that handles ref-wrapped arrays and byte arrays.
 compare({byte_array, _, _} = A, {byte_array, _, _} = B) ->
-    compare_list(fable_utils:byte_array_to_list(A), fable_utils:byte_array_to_list(B));
+    compare_array_list(fable_utils:byte_array_to_list(A), fable_utils:byte_array_to_list(B));
 compare(A, B) when is_reference(A), is_reference(B) ->
     case {get(A), get(B)} of
         {undefined, undefined} ->
@@ -80,6 +80,8 @@ compare(A, B) when is_reference(A), is_reference(B) ->
                 A > B -> 1;
                 true -> 0
             end;
+        {VA, VB} when is_list(VA), is_list(VB) ->
+            compare_array_list(VA, VB);
         {VA, VB} ->
             compare(VA, VB)
     end;
@@ -113,6 +115,13 @@ compare_tuple(A, B, I, Size) ->
     case compare(erlang:element(I, A), erlang:element(I, B)) of
         0 -> compare_tuple(A, B, I + 1, Size);
         R -> R
+    end.
+
+compare_array_list(A, B) ->
+    case erlang:length(A) - erlang:length(B) of
+        Diff when Diff < 0 -> -1;
+        Diff when Diff > 0 -> 1;
+        _ -> compare_list(A, B)
     end.
 
 %% Hash that derefs refs and byte arrays before hashing.

@@ -42,10 +42,10 @@ let tests() =
         let x = MyRefType(4)
         let y = MyRefType(4)
         let z = MyRefType(6)
-        let set = HashSet<_>()
-        set.Add(x) |> equal true
-        set.Contains(x) |> equal true
-        set.Contains(y) |> equal false
+        let set1 = HashSet<_>()
+        set1.Add(x) |> equal true
+        set1.Contains(x) |> equal true
+        set1.Contains(y) |> equal false
 
         let set2 = HashSet<_>(MyRefTypeComparer())
         set2.Add(x) |> equal true
@@ -95,15 +95,15 @@ let tests() =
 //                member _.Equals(s1: string, s2: string) =
 //                    s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
 //                member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
-//        let set = new HashSet<string>(["Foo"; "bar"], ignoreCase)
-//        set.Contains("foo") |> equal true
-//        set.Contains("Foo") |> equal true
-//        set.Contains("bar") |> equal true
-//        set.Contains("Bar") |> equal true
-//        set.IntersectWith(["foo"; "bar"])
-//        set.Count |> equal 2
-//        set.IntersectWith(["Foo"; "Bar"])
-//        set.Count |> equal 2
+//        let xs = new HashSet<string>(["Foo"; "bar"], ignoreCase)
+//        xs.Contains("foo") |> equal true
+//        xs.Contains("Foo") |> equal true
+//        xs.Contains("bar") |> equal true
+//        xs.Contains("Bar") |> equal true
+//        xs.IntersectWith(["foo"; "bar"])
+//        xs.Count |> equal 2
+//        xs.IntersectWith(["Foo"; "Bar"])
+//        xs.Count |> equal 2
 
     // TODO
 //    testCase "HashSet.ExceptWith works" <| fun () ->
@@ -224,4 +224,3 @@ let tests() =
         apa.Add({ i = 5; s = "foo"})
         apa.Contains ({ i = 5; s = "foo"}) |> equal true
         apa.Contains ({ i = 5; s = "fo"}) |> equal false
-
