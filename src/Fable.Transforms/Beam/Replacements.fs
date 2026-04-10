@@ -26,6 +26,9 @@ let private equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
 let private compare (com: ICompiler) r (left: Expr) (right: Expr) =
     Helper.LibCall(com, "fable_comparison", "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
 
+let private physicalEquals r (left: Expr) (right: Expr) =
+    emitExpr r Boolean [ left; right ] "($0 =:= $1)"
+
 /// Deref an array ref to its underlying list (for passing to list BIFs).
 /// Byte arrays (UInt8) are atomics — convert to list via fable_utils:byte_array_to_list.
 let private derefArr r (expr: Expr) =
@@ -600,9 +603,13 @@ let private objects
     =
     match info.CompiledName, thisArg, args with
     | ".ctor", _, _ -> emitExpr r t [] "ok" |> Some
-    | "ReferenceEquals", None, [ left; right ] -> makeBinOp r Boolean left right BinaryEqual |> Some
-    | "Equals", Some(MaybeCasted thisObj), [ MaybeCasted arg ] -> equals com r true thisObj arg |> Some
-    | "Equals", None, [ MaybeCasted left; MaybeCasted right ] -> equals com r true left right |> Some
+    | "ReferenceEquals", None, [ left; right ] -> physicalEquals r left right |> Some
+    | "Equals", Some(MaybeCasted arg1), [ MaybeCasted arg2 ]
+    | "Equals", None, [ MaybeCasted arg1; MaybeCasted arg2 ] ->
+        match arg1.Type, arg2.Type with
+        | Array _, _
+        | _, Array _ -> physicalEquals r arg1 arg2 |> Some
+        | _ -> equals com r true arg1 arg2 |> Some
     | "GetHashCode", Some thisObj, [] ->
         Helper.LibCall(com, "fable_comparison", "hash", t, [ thisObj ], ?loc = r)
         |> Some
@@ -1626,26 +1633,18 @@ let private lists
     (t: Type)
     (info: CallInfo)
     (thisArg: Expr option)
-    (_args: Expr list)
+    (args: Expr list)
     =
-    match info.CompiledName, thisArg with
-    | "get_Head", Some c -> emitExpr r t [ c ] "erlang:hd($0)" |> Some
-    | "get_Tail", Some c -> emitExpr r t [ c ] "erlang:tl($0)" |> Some
-    | "get_Length", Some c -> emitExpr r t [ c ] "erlang:length($0)" |> Some
-    | "get_IsEmpty", Some c -> emitExpr r t [ c ] "($0 =:= [])" |> Some
-    | "get_Empty", _ -> Value(NewList(None, t), None) |> Some
-    | "Cons", None ->
-        match _args with
-        | [ head; tail ] -> Value(NewList(Some(head, tail), t), None) |> Some
-        | _ -> None
-    | "get_Item", Some c ->
-        match _args with
-        | [ idx ] -> emitExpr r t [ c; idx ] "lists:nth($1 + 1, $0)" |> Some
-        | _ -> None
-    | "GetSlice", Some c ->
-        match _args with
-        | [ lower; upper ] -> Helper.LibCall(com, "fable_list", "get_slice", t, [ lower; upper; c ]) |> Some
-        | _ -> None
+    match info.CompiledName, thisArg, args with
+    | "get_Head", Some c, _ -> emitExpr r t [ c ] "erlang:hd($0)" |> Some
+    | "get_Tail", Some c, _ -> emitExpr r t [ c ] "erlang:tl($0)" |> Some
+    | "get_Length", Some c, _ -> emitExpr r t [ c ] "erlang:length($0)" |> Some
+    | "get_IsEmpty", Some c, _ -> emitExpr r t [ c ] "($0 =:= [])" |> Some
+    | "get_Empty", None, _ -> Value(NewList(None, t), None) |> Some
+    | "Cons", None, [ head; tail ] -> Value(NewList(Some(head, tail), t), None) |> Some
+    | "get_Item", Some c, [ idx ] -> emitExpr r t [ c; idx ] "lists:nth($1 + 1, $0)" |> Some
+    | "GetSlice", Some c, [ lower; upper ] ->
+        Helper.LibCall(com, "fable_list", "get_slice", t, [ lower; upper; c ]) |> Some
     | _ -> None
 
 /// Beam-specific Map module replacements.

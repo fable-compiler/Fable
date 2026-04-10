@@ -1524,8 +1524,9 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "ReferenceEquals", _, [ left; right ] -> makeEqOp r left right BinaryEqual |> Some
     | "Equals", Some(MaybeCasted arg1), [ MaybeCasted arg2 ]
     | "Equals", None, [ MaybeCasted arg1; MaybeCasted arg2 ] ->
-        match arg1.Type with
-        | Array _ -> makeEqOp r arg1 arg2 BinaryEqual |> Some
+        match arg1.Type, arg2.Type with
+        | Array _, _
+        | _, Array _ -> makeEqOp r arg1 arg2 BinaryEqual |> Some
         | _ -> equals com ctx r true arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
     | "GetType", Some arg, _ ->

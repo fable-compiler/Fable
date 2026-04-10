@@ -5,6 +5,128 @@ open Util.Testing
 
 type Animal = Duck of int | Dog of int
 
+[<Fact>]
+let ``test Array expressions works`` () =
+    let a1: int[] = [||]
+    a1 |> equal [||]
+    a1.Length |> equal 0
+    let a2 = [|1; 2; 3|]
+    a2 |> equal [|1; 2; 3|]
+    a2.Length |> equal 3
+
+[<Fact>]
+let ``test Array equality works`` () =
+    let a1 = [|1; 2; 3|]
+    let a2 = [|1; 2; 3|]
+    let a3 = [|1; 2; 4|]
+    let a4 = [|1; 2; 3; 4|]
+    a1 = a1 |> equal true
+    a1 = a2 |> equal true
+    a1 = a3 |> equal false
+    a1 = a4 |> equal false
+    a1 <> a1 |> equal false
+    a1 <> a2 |> equal false
+    a1 <> a3 |> equal true
+    a1 <> a4 |> equal true
+
+[<Fact>]
+let ``test Array.Equals works`` () =
+    let a1 = [|1; 2; 3|]
+    let a2 = [|1; 2; 3|]
+    let a3 = [|1; 2; 4|]
+    let a4 = [|1; 2; 3; 4|]
+    a1.Equals(a1) |> equal true
+    a1.Equals(a2) |> equal false // reference equality
+    a1.Equals(a3) |> equal false
+    a1.Equals(a4) |> equal false
+    (a1 :> obj).Equals(a2 :> obj) |> equal false // reference equality
+
+[<Fact>]
+let ``test Array comparison works`` () =
+    let a1 = [|1; 2; 3|]
+    let a2 = [|1; 2; 3|]
+    let a3 = [|1; 2; 4|]
+    let a4 = [|1; 2; 3; 4|]
+    a1 < a1 |> equal false
+    a1 < a2 |> equal false
+    a1 < a3 |> equal true
+    a1 < a4 |> equal true
+    a3 < a4 |> equal true
+    a3 < a2 |> equal false
+    a4 < a2 |> equal false
+    a4 < a3 |> equal false
+
+[<Fact>]
+let ``test Array compare works`` () =
+    let a1 = [|1; 2; 3|]
+    let a2 = [|1; 2; 3|]
+    let a3 = [|1; 2; 4|]
+    let a4 = [|1; 2; 3; 4|]
+    compare a1 a1 |> equal 0
+    compare a1 a2 |> equal 0
+    compare a1 a3 |> equal -1
+    compare a1 a4 |> equal -1
+    compare a3 a4 |> equal -1
+    compare a3 a2 |> equal 1
+    compare a4 a2 |> equal 1
+    compare a4 a3 |> equal 1
+
+[<Fact>]
+let ``test Array get by index works`` () =
+    let arr = [|1; 2; 3|]
+    arr[0] |> equal 1
+    arr[1] |> equal 2
+    arr[2] |> equal 3
+
+[<Fact>]
+let ``test Array set by index works`` () =
+    let arr = [|1; 2; 3|]
+    arr[1] <- arr[2] + 1
+    arr |> equal [|1; 4; 3|]
+
+[<Fact>]
+let ``test Array pass by reference works`` () =
+    let incElem (arr: int[]) index =
+        arr[index] <- arr[index] + 1
+        arr
+    let incElem2 (arr: int[]) index =
+        arr[index] <- arr[index] + 1
+        arr
+    let arr = [|1; 2; 3|]
+    incElem arr 2 |> equal [|1; 2; 4|]
+    arr |> equal [|1; 2; 4|]
+    let _ = incElem arr 1
+    arr |> equal [|1; 3; 4|]
+    let _ = incElem2 arr 0
+    arr |> equal [|2; 3; 4|]
+
+[<Fact>]
+let ``test Array.empty generic works`` () =
+    let xs = [||]
+    xs.Length |> equal 0
+
+[<Fact>]
+let ``test Array.create with struct tuple works`` () =
+    let xs = Array.create 3 struct (2, "a")
+    xs.Length |> equal 3
+    xs |> equal [|struct (2, "a"); struct (2, "a"); struct (2, "a")|]
+
+[<Fact>]
+let ``test Array.create with object tuple works`` () =
+    let xs = Array.create 3 (2, "a")
+    xs.Length |> equal 3
+    xs |> equal [|(2, "a"); (2, "a"); (2, "a")|]
+
+[<Fact>]
+let ``test Array.zeroCreate with string works`` () =
+    let xs = Array.zeroCreate<string> 3
+    xs.Length |> equal 3
+
+[<Fact>]
+let ``test Array.zeroCreate with struct tuple works`` () =
+    let xs = Array.zeroCreate<struct (int * string)> 3
+    xs.Length |> equal 3
+
 // --- Literals, Indexing, Length ---
 
 [<Fact>]

@@ -1352,10 +1352,7 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [ arg ] |> Some
     | "ReferenceEquals", _, [ left; right ] -> makeEqOpStrict r left right BinaryEqual |> Some
-    | "Equals", Some(MaybeCasted arg1), [ MaybeCasted arg2 ] ->
-        match arg1.Type with
-        | Array _ -> makeEqOpStrict r arg1 arg2 BinaryEqual |> Some
-        | _ -> equals com ctx r true arg1 arg2 |> Some
+    | "Equals", Some(MaybeCasted arg1), [ MaybeCasted arg2 ]
     | "Equals", None, [ MaybeCasted arg1; MaybeCasted arg2 ] ->
         match arg1.Type, arg2.Type with
         | Array _, _
