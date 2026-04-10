@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [JS/TS] Fix `DateTimeOffset.ToString` with format specifiers `D`, `d`, `T`, `t`, and custom patterns using wrong local timezone instead of the DateTimeOffset's stored offset (fixes #4375)
 * [Python] Fix object expressions implementing interfaces with `[<CLIEvent>]` members no longer produce unimplementable abstract Protocol members (fixes #3039)
 * [Python] Fix `DateTime.TryParse` incorrectly assigning `DateTimeKind.Local` to naive datetime strings (should be `DateTimeKind.Unspecified`) (fixes #3654)
 

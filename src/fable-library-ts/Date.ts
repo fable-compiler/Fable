@@ -403,7 +403,11 @@ function dateToISOStringWithOffset(dateWithOffset: Date, offset: number) {
 }
 
 function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
-  const d = new Date(date.getTime() + (date.offset ?? 0));
+  // Shift by the stored offset so we can read the "wall clock" values via UTC
+  // methods — using `new Date()` here would cause `day()`, `month()`, etc. to
+  // fall back to *local* timezone methods, producing wrong results for runners
+  // in non-UTC timezones (e.g. Australia/Melbourne). See #4375.
+  const d = DateTime(date.getTime() + (date.offset ?? 0), DateTimeKind.Utc);
   if (typeof format !== "string") {
     return d.toISOString().replace(/\.\d+/, "").replace(/[A-Z]|\.\d+/g, " ") + dateOffsetToString((date.offset ?? 0));
   } else if (format.length === 1) {
