@@ -24,6 +24,8 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/*.fsproj"
 
       - name: Restore tools
         run: dotnet tool restore
@@ -45,6 +47,8 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/*.fsproj"
 
       - name: Restore project
         run: dotnet restore Fable.sln
@@ -64,9 +68,13 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/*.fsproj"
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v5
+        with:
+          cache: npm
 
       - name: Fable Tests - JavaScript (linux)
         if: matrix.platform == 'ubuntu-latest'
@@ -88,9 +96,13 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/*.fsproj"
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v5
+        with:
+          cache: npm
 
       - name: Fable Tests - TypeScript
         run: ./build.sh test typescript
@@ -110,9 +122,13 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/*.fsproj"
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v5
+        with:
+          cache: npm
 
       - name: Fable Tests
         run: ./build.sh test integration
@@ -129,9 +145,13 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/*.fsproj"
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v5
+        with:
+          cache: npm
 
       - name: Fable Tests
         run: ./build.sh test standalone
@@ -154,6 +174,8 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/*.fsproj"
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
@@ -196,9 +218,13 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/*.fsproj"
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v5
+        with:
+          cache: npm
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -223,6 +249,8 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/*.fsproj"
 
       - name: Setup Dart SDK
         uses: dart-lang/setup-dart@v1
@@ -242,6 +270,8 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/*.fsproj"
 
       - name: Setup Erlang/OTP
         uses: erlef/setup-beam@v1
@@ -274,6 +304,8 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+          cache: true
+          cache-dependency-path: "**/*.fsproj"
 
       - name: Restore tools
         run: dotnet tool restore
