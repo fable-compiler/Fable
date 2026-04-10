@@ -10,47 +10,48 @@ pub mod HashSet_ {
     use std::collections;
 
     use crate::NativeArray_::{array_from, Array};
-    use crate::Native_::{default_eq_comparer, mkRefMut, seq_to_iter};
+    use crate::Native_::{default_eq_comparer, seq_to_iter};
     use crate::Native_::{HashKey, LrcPtr, MutCell, Seq, Vec};
     use crate::System::Collections::Generic::IEqualityComparer_1;
 
     use core::fmt::{Debug, Display, Formatter, Result};
     use core::hash::Hash;
 
-    type MutHashSet<T> = MutCell<collections::HashSet<HashKey<T>>>;
-
     #[derive(Clone)] //, Debug, Default, PartialEq, PartialOrd, Eq, Hash, Ord)]
-    pub struct HashSet<T: Clone> {
-        hash_set: LrcPtr<MutHashSet<T>>,
+    pub struct MutHashSet<T: Clone> {
+        hash_set: MutCell<collections::HashSet<HashKey<T>>>,
         comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
     }
 
-    // impl<T> Default for HashSet<T>
-    // where
-    //     T: Clone + Hash + PartialEq + 'static,
-    // {
-    //     fn default() -> HashSet<T> {
-    //         new_empty()
-    //     }
-    // }
+    pub type HashSet<T> = LrcPtr<MutHashSet<T>>;
 
-    impl<T: Clone> core::ops::Deref for HashSet<T> {
-        type Target = LrcPtr<MutHashSet<T>>;
+    impl<T: Clone> core::ops::Deref for MutHashSet<T> {
+        type Target = MutCell<collections::HashSet<HashKey<T>>>;
         fn deref(&self) -> &Self::Target {
             &self.hash_set
         }
     }
 
-    impl<T: Clone + Debug> Debug for HashSet<T> {
+    impl<T: Clone + Debug> Debug for MutHashSet<T> {
         fn fmt(&self, f: &mut Formatter) -> Result {
             write!(f, "{:?}", self.hash_set) //TODO:
         }
     }
 
-    impl<T: Clone + Debug> Display for HashSet<T> {
+    impl<T: Clone + Debug> Display for MutHashSet<T> {
         fn fmt(&self, f: &mut Formatter) -> Result {
             write!(f, "{:?}", self.hash_set) //TODO:
         }
+    }
+
+    fn make_hash_set<T: Clone>(
+        hash_set: collections::HashSet<HashKey<T>>,
+        comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
+    ) -> HashSet<T> {
+        LrcPtr::new(MutHashSet {
+            hash_set: MutCell::new(hash_set),
+            comparer,
+        })
     }
 
     fn from_iter<T: Clone + 'static, I: Iterator<Item = T>>(
@@ -58,10 +59,7 @@ pub mod HashSet_ {
         comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
     ) -> HashSet<T> {
         let it = iter.map(|v| HashKey::new(v, comparer.clone()));
-        HashSet {
-            hash_set: mkRefMut(collections::HashSet::from_iter(it)),
-            comparer,
-        }
+        make_hash_set(collections::HashSet::from_iter(it), comparer)
     }
 
     fn to_iter<T: Clone>(set: &HashSet<T>) -> impl Iterator<Item = T> + '_ {
@@ -72,37 +70,31 @@ pub mod HashSet_ {
     where
         T: Clone + Hash + PartialEq + 'static,
     {
-        HashSet {
-            hash_set: mkRefMut(collections::HashSet::new()),
-            comparer: default_eq_comparer::<T>(),
-        }
+        make_hash_set(collections::HashSet::new(), default_eq_comparer::<T>())
     }
 
     pub fn new_with_capacity<T>(capacity: i32) -> HashSet<T>
     where
         T: Clone + Hash + PartialEq + 'static,
     {
-        HashSet {
-            hash_set: mkRefMut(collections::HashSet::with_capacity(capacity as usize)),
-            comparer: default_eq_comparer::<T>(),
-        }
+        make_hash_set(
+            collections::HashSet::with_capacity(capacity as usize),
+            default_eq_comparer::<T>(),
+        )
     }
 
     pub fn new_with_comparer<T: Clone>(comparer: LrcPtr<dyn IEqualityComparer_1<T>>) -> HashSet<T> {
-        HashSet {
-            hash_set: mkRefMut(collections::HashSet::new()),
-            comparer,
-        }
+        make_hash_set(collections::HashSet::new(), comparer)
     }
 
     pub fn new_with_capacity_comparer<T: Clone>(
         capacity: i32,
         comparer: LrcPtr<dyn IEqualityComparer_1<T>>,
     ) -> HashSet<T> {
-        HashSet {
-            hash_set: mkRefMut(collections::HashSet::with_capacity(capacity as usize)),
+        make_hash_set(
+            collections::HashSet::with_capacity(capacity as usize),
             comparer,
-        }
+        )
     }
 
     pub fn new_from_enumerable<T>(seq: Seq<T>) -> HashSet<T>
