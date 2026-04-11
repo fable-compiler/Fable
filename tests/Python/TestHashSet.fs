@@ -6,13 +6,18 @@ open Util.Testing
 type MyRefType(i: int) =
     member x.Value = i
 
+type MyRefTypeComparer() =
+    interface IEqualityComparer<MyRefType> with
+        member _.Equals(x, y) = x.Value = y.Value
+        member _.GetHashCode(x) = x.Value
+
 type IgnoreCaseComparer() =
     interface IEqualityComparer<string> with
         member _.Equals(s1, s2) =
-            s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
+            System.String.Equals(s1, s2, System.StringComparison.InvariantCultureIgnoreCase)
 
         member _.GetHashCode(s) =
-            s.ToLowerInvariant().GetHashCode()
+            if System.String.IsNullOrEmpty(s) then 0 else s.ToLowerInvariant().GetHashCode()
 
 let inline hashSet l =
     let xs = HashSet<_>()
@@ -57,11 +62,7 @@ let ``test HashSets with IEqualityComparer work`` () =
     set1.Contains(x) |> equal true
     set1.Contains(y) |> equal false
 
-    let comparer =
-        { new IEqualityComparer<MyRefType> with
-            member _.Equals(x, y) = x.Value = y.Value
-            member _.GetHashCode(x) = x.Value }
-    let set2 = HashSet<_>(comparer)
+    let set2 = HashSet<_>(MyRefTypeComparer())
     set2.Add(x) |> equal true
     set2.Contains(x) |> equal true
     set2.Contains(y) |> equal true
@@ -180,11 +181,6 @@ let ``test HashSet.SetEquals works with custom comparison`` () =
     xs.SetEquals ["foo"; "baz"] |> equal false
 
 [<Fact>]
-let ``test HashSet creation works`` () =
-    let hs = HashSet<_>()
-    equal 0 hs.Count
-
-[<Fact>]
 let ``test HashSet iteration works`` () =
     let hs = HashSet<_>()
     for i in 1. .. 10. do hs.Add(i*i) |> ignore
@@ -227,7 +223,7 @@ let ``test HashSet.Add works`` () =
     hs.Count |> equal 2
 
 [<Fact>]
-let ``test HashSet.Add works ||`` () =
+let ``test HashSet.Add works II`` () =
     let hs = HashSet<_>()
     hs.Add("A") |> equal true
     hs.Add("B") |> equal true

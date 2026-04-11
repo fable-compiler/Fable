@@ -14,10 +14,10 @@ type MyRefTypeComparer() =
 type IgnoreCaseComparer() =
     interface IEqualityComparer<string> with
         member _.Equals(s1, s2) =
-            s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
+            System.String.Equals(s1, s2, System.StringComparison.InvariantCultureIgnoreCase)
 
         member _.GetHashCode(s) =
-            s.ToLowerInvariant().GetHashCode()
+            if System.String.IsNullOrEmpty(s) then 0 else s.ToLowerInvariant().GetHashCode()
 
 let hashSet l =
     let xs = HashSet<_>()
@@ -162,10 +162,6 @@ let tests() =
         xs.SetEquals ["foo"; "BAR"; "foo"] |> equal true
         xs.SetEquals ["foo"; "baz"] |> equal false
 
-    testCase "HashSet creation works" <| fun () ->
-        let hs = HashSet<_>()
-        equal 0 hs.Count
-
     testCase "HashSet iteration works" <| fun () ->
         let hs = HashSet<_>()
         for i in 1. .. 10. do hs.Add(i*i) |> ignore
@@ -203,7 +199,7 @@ let tests() =
         hs.Add(3) |> equal true
         hs.Count |> equal 2
 
-    testCase "HashSet.Add works ||" <| fun () ->
+    testCase "HashSet.Add works II" <| fun () ->
         let hs = HashSet<_>()
         hs.Add("A") |> equal true
         hs.Add("B") |> equal true

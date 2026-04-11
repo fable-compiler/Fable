@@ -3,16 +3,21 @@
 open Util.Testing
 open System.Collections.Generic
 
-// type MyRefType(i: int) =
-//     member x.Value = i
+type MyRefType(i: int) =
+    member x.Value = i
+
+type MyRefTypeComparer() =
+    interface IEqualityComparer<MyRefType> with
+        member _.Equals(x, y) = x.Value = y.Value
+        member _.GetHashCode(x) = x.Value
 
 type IgnoreCaseComparer() =
     interface IEqualityComparer<string> with
         member _.Equals(s1, s2) =
-            s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
+            System.String.Equals(s1, s2, System.StringComparison.InvariantCultureIgnoreCase)
 
         member _.GetHashCode(s) =
-            s.ToLowerInvariant().GetHashCode()
+            if System.String.IsNullOrEmpty(s) then 0 else s.ToLowerInvariant().GetHashCode()
 
 let inline private hashSet xs =
     let res = HashSet<_>()
@@ -29,7 +34,7 @@ type Apa<'t when 't : equality>() =
     member _.Contains t = state.Contains t
 
 [<Fact>]
-let ``HashSet ctor works`` () =
+let ``HashSet ctor creates empty HashSet`` () =
     let xs = HashSet<int>()
     xs.Count |> equal 0
 
@@ -39,29 +44,26 @@ let ``HashSet ctor with capacity works`` () =
     xs.Count |> equal 0
 
 [<Fact>]
-let ``HashSet ctor from IEnumerable works`` () =
+let ``HashSet ctor from Enumerable works`` () =
     let s = List.toSeq [1;2;2;3]
     let xs = HashSet<int>(s)
     xs.Count |> equal 3
 
-// [<Fact>]
-// let ``HashSets with IEqualityComparer work`` () =
-//     let x = MyRefType(4)
-//     let y = MyRefType(4)
-//     let z = MyRefType(6)
-//     let set1 = HashSet<_>()
-//     set1.Add(x) |> equal true
-//     set1.Contains(x) |> equal true
-//     set1.Contains(y) |> equal false
-//     let comparer =
-//         { new IEqualityComparer<MyRefType> with
-//             member _.Equals(x, y) = x.Value = y.Value
-//             member _.GetHashCode(x) = x.Value }
-//     let set2 = HashSet<_>(comparer)
-//     set2.Add(x) |> equal true
-//     set2.Contains(x) |> equal true
-//     set2.Contains(y) |> equal true
-//     set2.Contains(z) |> equal false
+[<Fact>]
+let ``HashSets with IEqualityComparer work`` () =
+    let x = MyRefType(4)
+    let y = MyRefType(4)
+    let z = MyRefType(6)
+    let set1 = HashSet<_>()
+    set1.Add(x) |> equal true
+    set1.Contains(x) |> equal true
+    set1.Contains(y) |> equal false
+
+    let set2 = HashSet<_>(MyRefTypeComparer())
+    set2.Add(x) |> equal true
+    set2.Contains(x) |> equal true
+    set2.Contains(y) |> equal true
+    set2.Contains(z) |> equal false
 
 [<Fact>]
 let ``HashSet.Add returns true if not present`` () =
@@ -222,7 +224,7 @@ let ``HashSet.Add works`` () =
     xs.Count |> equal 2
 
 [<Fact>]
-let ``HashSet.Add works ||`` () =
+let ``HashSet.Add works II`` () =
     let xs = HashSet<_>()
     xs.Add("A") |> equal true
     xs.Add("B") |> equal true

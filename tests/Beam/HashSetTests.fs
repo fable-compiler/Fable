@@ -4,13 +4,21 @@ open System.Collections.Generic
 open Fable.Tests.Util
 open Util.Testing
 
+type MyRefType(i: int) =
+    member x.Value = i
+
+type MyRefTypeComparer() =
+    interface IEqualityComparer<MyRefType> with
+        member _.Equals(x, y) = x.Value = y.Value
+        member _.GetHashCode(x) = x.Value
+
 type IgnoreCaseComparer() =
     interface IEqualityComparer<string> with
         member _.Equals(s1, s2) =
-            s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
+            System.String.Equals(s1, s2, System.StringComparison.InvariantCultureIgnoreCase)
 
         member _.GetHashCode(s) =
-            s.ToLowerInvariant().GetHashCode()
+            if System.String.IsNullOrEmpty(s) then 0 else s.ToLowerInvariant().GetHashCode()
 
 type MyRecord = { a: int }
 
@@ -31,18 +39,21 @@ let ``test HashSet ctor creates empty HashSet`` () =
 // [<Fact>]
 // let ``test HashSets with IEqualityComparer work`` () =
 //     // Beam ignores IEqualityComparer — custom comparer behaviour is not supported
-//     let comparer =
-//         { new IEqualityComparer<string> with
-//             member _.Equals(s1: string, s2: string) =
-//                 s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
-//             member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
-//     let set2 = HashSet<string>(["Foo"], comparer)
-//     set2.Contains("foo") |> equal true
-//     set2.Contains("FOO") |> equal true
-//     set2.Contains("bar") |> equal false
+//     let x = MyRefType(4)
+//     let y = MyRefType(4)
+//     let z = MyRefType(6)
+//     let set1 = HashSet<_>()
+//     set1.Add(x) |> equal true
+//     set1.Contains(x) |> equal true
+//     set1.Contains(y) |> equal false
+//     let set2 = HashSet<_>(MyRefTypeComparer())
+//     set2.Add(x) |> equal true
+//     set2.Contains(x) |> equal true
+//     set2.Contains(y) |> equal true
+//     set2.Contains(z) |> equal false
 
 [<Fact>]
-let ``test HashSet ctor from list works`` () =
+let ``test HashSet ctor from Enumerable works`` () =
     let xs = HashSet<int>([1; 2; 2; 3])
     xs.Count |> equal 3
     xs.Contains(1) |> equal true
@@ -72,7 +83,7 @@ let ``test HashSet.Add works`` () =
     hs.Count |> equal 2
 
 [<Fact>]
-let ``test HashSet.Add works ||`` () =
+let ``test HashSet.Add works II`` () =
     let hs = HashSet<string>()
     hs.Add("A") |> equal true
     hs.Add("B") |> equal true
@@ -164,11 +175,6 @@ let ``test HashSet.Count works II`` () =
     zs.Count |> equal 1
     let zs' = HashSet<int>([1; 2])
     zs'.Count |> equal 2
-
-[<Fact>]
-let ``test HashSet creation works`` () =
-    let hs = HashSet<int>()
-    equal 0 hs.Count
 
 // --- Clear ---
 
@@ -284,31 +290,21 @@ let ``test HashSet.SetEquals works`` () =
 // --- Iteration ---
 
 [<Fact>]
-let ``test HashSet iteration with for-in works`` () =
-    let hs = HashSet<int>()
-    hs.Add(1) |> ignore
-    hs.Add(2) |> ignore
-    hs.Add(3) |> ignore
-    let mutable sum = 0
-    for v in hs do
-        sum <- sum + v
-    sum |> equal 6
+let ``test HashSet iteration works`` () =
+    let xs = HashSet<_>()
+    for i in 1 .. 10 do
+        xs.Add(i*i) |> ignore
+    let mutable i = 0
+    for v in xs do
+        i <- v + i
+    equal 385 i
 
 [<Fact>]
 let ``test HashSet folding works`` () =
-    let hs = HashSet<int>()
-    for i in 1 .. 10 do hs.Add(i) |> ignore
-    hs |> Seq.fold (fun acc item -> acc + item) 0
-    |> equal 55
-
-[<Fact>]
-let ``test HashSet sum via iteration works`` () =
-    let hs = HashSet<int>()
-    for i in 1 .. 10 do hs.Add(i) |> ignore
-    let mutable sum = 0
-    for item in hs do
-        sum <- sum + item
-    sum |> equal 55
+    let xs = HashSet<_>()
+    for i in 1 .. 10 do xs.Add(i*i) |> ignore
+    xs |> Seq.fold (fun acc item -> acc + item) 0
+    |> equal 385
 
 // --- Subset / Superset ---
 
