@@ -376,4 +376,12 @@ let tests =
         let xs = ResizeArray [1; 2; 3]
         throwsAnyError (fun () -> xs.[-1] <- 42)
         throwsAnyError (fun () -> xs.[10] <- 42)
+
+    testCase "ResizeArray uses reference equality not structural equality" <| fun _ -> // See #3718
+        let xs = ResizeArray [0; 1; 2]
+        let ys = ResizeArray [0; 1; 2]
+        equal false (xs = ys)
+        equal true (xs = xs)
+        equal true (xs <> ys)
+        equal false (xs <> xs)
   ]

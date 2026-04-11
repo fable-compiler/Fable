@@ -620,6 +620,9 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | DeclaredType _ ->
         Helper.LibCall(com, "util", "equals", Boolean, [ left; right ], ?loc = r)
         |> is equal
+    | Array(_, ResizeArray) ->
+        // ResizeArray (System.Collections.Generic.List) uses reference equality in .NET, see #3718
+        makeEqOpStrict r left right (if equal then BinaryEqual else BinaryUnequal)
     | Array(t, _) ->
         let f = makeEqualityFunction com ctx t
 
