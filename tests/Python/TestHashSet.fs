@@ -97,7 +97,7 @@ let ``test HashSet.IntersectWith works`` () =
 // TODO: IntersectWith with custom comparison needs IEqualityComparer
 // support in intersect_with_set helper
 // [<Fact>]
-// let ``test IntersectWith works with custom comparison`` () = // See #2566
+// let ``test HashSet.IntersectWith works with custom comparison`` () = // See #2566
 //     let ignoreCase =
 //         { new IEqualityComparer<string> with
 //             member _.Equals(s1: string, s2: string) =
