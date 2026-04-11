@@ -118,6 +118,177 @@ Set<T> setWith<T>(IEqualityComparer<T> comparer, [Iterable<T>? initialValues]) {
   return set;
 }
 
+bool _containsEquivalentInSet<T>(Set<T> set, Iterable<T> other, T item) {
+  for (final candidate in other) {
+    final matched = set.lookup(candidate);
+    if (matched != null && util.equalsDynamic(matched, item)) {
+      return true;
+    }
+    if (matched == null && set.contains(candidate) && util.equalsDynamic(candidate, item)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool _containsCanonical<T>(List<T> values, T candidate) {
+  for (final value in values) {
+    if (util.equalsDynamic(value, candidate)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+T _canonicalValue<T>(Set<T> set, T candidate) {
+  final matched = set.lookup(candidate);
+  if (matched != null) {
+    return matched;
+  }
+  return candidate;
+}
+
+void hashSetUnionWith<T>(Set<T> set, Iterable<T> other) {
+  set.addAll(other);
+}
+
+void hashSetIntersectWith<T>(Set<T> set, Iterable<T> other) {
+  final otherValues = other.toList(growable: false);
+  final toRemove = <T>[];
+
+  for (final item in set) {
+    if (!_containsEquivalentInSet(set, otherValues, item)) {
+      toRemove.add(item);
+    }
+  }
+
+  for (final item in toRemove) {
+    set.remove(item);
+  }
+}
+
+void hashSetExceptWith<T>(Set<T> set, Iterable<T> other) {
+  final otherValues = other.toList(growable: false);
+  for (final item in otherValues) {
+    set.remove(item);
+  }
+}
+
+bool hashSetIsSubsetOf<T>(Set<T> set, Iterable<T> other) {
+  final otherValues = other.toList(growable: false);
+  for (final item in set) {
+    if (!_containsEquivalentInSet(set, otherValues, item)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool hashSetIsSupersetOf<T>(Set<T> set, Iterable<T> other) {
+  for (final item in other) {
+    if (!set.contains(item)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool hashSetIsProperSubsetOf<T>(Set<T> set, Iterable<T> other) {
+  final otherValues = other.toList(growable: false);
+  final distinct = <T>[];
+
+  for (final item in otherValues) {
+    final canonical = _canonicalValue(set, item);
+    if (!_containsCanonical(distinct, canonical)) {
+      distinct.add(canonical);
+    }
+  }
+
+  return distinct.length > set.length && hashSetIsSubsetOf(set, otherValues);
+}
+
+bool hashSetIsProperSupersetOf<T>(Set<T> set, Iterable<T> other) {
+  final otherValues = other.toList(growable: false);
+  final distinct = <T>[];
+
+  for (final item in otherValues) {
+    final canonical = _canonicalValue(set, item);
+    if (!_containsCanonical(distinct, canonical)) {
+      distinct.add(canonical);
+    }
+  }
+
+  return set.length > distinct.length && hashSetIsSupersetOf(set, otherValues);
+}
+
+bool hashSetOverlaps<T>(Set<T> set, Iterable<T> other) {
+  for (final item in other) {
+    if (set.contains(item)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool hashSetSetEquals<T>(Set<T> set, Iterable<T> other) {
+  final otherValues = other.toList(growable: false);
+  final matched = <T>[];
+
+  for (final item in otherValues) {
+    if (!set.contains(item)) {
+      return false;
+    }
+
+    final canonical = _canonicalValue(set, item);
+    if (!_containsCanonical(matched, canonical)) {
+      matched.add(canonical);
+    }
+  }
+
+  return matched.length == set.length;
+}
+
+void hashSetSymmetricExceptWith<T>(Set<T> set, Iterable<T> other) {
+  final otherValues = other.toList(growable: false);
+  final seen = <T>[];
+  final toRemove = <T>[];
+  final toAdd = <T>[];
+
+  for (final item in otherValues) {
+    final canonical = _canonicalValue(set, item);
+    if (_containsCanonical(seen, canonical)) {
+      continue;
+    }
+
+    seen.add(canonical);
+
+    if (set.contains(item)) {
+      toRemove.add(item);
+    } else {
+      toAdd.add(item);
+    }
+  }
+
+  for (final item in toRemove) {
+    set.remove(item);
+  }
+
+  set.addAll(toAdd);
+}
+
+void hashSetCopyToArray<T>(
+  Set<T> set,
+  List<T> target,
+  int sourceIndex,
+  int targetIndex,
+  int count,
+) {
+  final values = set.toList(growable: false);
+  for (var index = 0; index < count; index++) {
+    target[targetIndex + index] = values[sourceIndex + index];
+  }
+}
+
 abstract class IDisposable {
   void Dispose();
 }

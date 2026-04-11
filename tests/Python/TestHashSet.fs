@@ -6,6 +6,14 @@ open Util.Testing
 type MyRefType(i: int) =
     member x.Value = i
 
+type IgnoreCaseComparer() =
+    interface IEqualityComparer<string> with
+        member _.Equals(s1, s2) =
+            s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
+
+        member _.GetHashCode(s) =
+            s.ToLowerInvariant().GetHashCode()
+
 let inline hashSet l =
     let xs = HashSet<_>()
     for x in l do
@@ -33,6 +41,11 @@ let ``test HashSet ctor creates empty HashSet`` () =
     let xs = HashSet<int>()
     xs |> Seq.isEmpty
     |> equal true
+
+[<Fact>]
+let ``test HashSet ctor with capacity works`` () =
+    let xs = HashSet<int>(10)
+    xs.Count |> equal 0
 
 [<Fact>]
 let ``test HashSets with IEqualityComparer work`` () =
@@ -94,24 +107,17 @@ let ``test HashSet.IntersectWith works`` () =
     xs.Contains 1 |> equal false
     xs.Contains 2 |> equal true
 
-// TODO: IntersectWith with custom comparison needs IEqualityComparer
-// support in intersect_with_set helper
-// [<Fact>]
-// let ``test HashSet.IntersectWith works with custom comparison`` () = // See #2566
-//     let ignoreCase =
-//         { new IEqualityComparer<string> with
-//             member _.Equals(s1: string, s2: string) =
-//                 s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
-//             member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
-//     let xs = new HashSet<string>(["Foo"; "bar"], ignoreCase)
-//     xs.Contains("foo") |> equal true
-//     xs.Contains("Foo") |> equal true
-//     xs.Contains("bar") |> equal true
-//     xs.Contains("Bar") |> equal true
-//     xs.IntersectWith(["foo"; "bar"])
-//     xs.Count |> equal 2
-//     xs.IntersectWith(["Foo"; "Bar"])
-//     xs.Count |> equal 2
+[<Fact>]
+let ``test HashSet.IntersectWith works with custom comparison`` () = // See #2566
+    let xs = new HashSet<string>(["Foo"; "bar"], IgnoreCaseComparer())
+    xs.Contains("foo") |> equal true
+    xs.Contains("Foo") |> equal true
+    xs.Contains("bar") |> equal true
+    xs.Contains("Bar") |> equal true
+    xs.IntersectWith(["foo"; "bar"])
+    xs.Count |> equal 2
+    xs.IntersectWith(["Foo"; "Bar"])
+    xs.Count |> equal 2
 
 [<Fact>]
 let ``test HashSet.ExceptWith works`` () =
@@ -120,6 +126,58 @@ let ``test HashSet.ExceptWith works`` () =
     xs.ExceptWith ys
     xs.Contains 1 |> equal true
     xs.Contains 2 |> equal false
+
+[<Fact>]
+let ``test HashSet.ExceptWith works with custom comparison`` () =
+    let xs = HashSet<string>(["Foo"; "bar"], IgnoreCaseComparer())
+    xs.ExceptWith(["foo"; "baz"])
+    xs.Count |> equal 1
+    xs.Contains("foo") |> equal false
+    xs.Contains("bar") |> equal true
+    xs.Contains("baz") |> equal false
+
+[<Fact>]
+let ``test HashSet.SymmetricExceptWith works`` () =
+    let xs = hashSet [1; 2]
+    let ys = hashSet [2; 4]
+    xs.SymmetricExceptWith ys
+    xs.Count |> equal 2
+    xs.Contains 1 |> equal true
+    xs.Contains 2 |> equal false
+    xs.Contains 4 |> equal true
+
+[<Fact>]
+let ``test HashSet.SymmetricExceptWith works with custom comparison`` () =
+    let xs = HashSet<string>(["Foo"; "bar"], IgnoreCaseComparer())
+    xs.SymmetricExceptWith(["foo"; "baz"])
+    xs.Count |> equal 2
+    xs.Contains("foo") |> equal false
+    xs.Contains("bar") |> equal true
+    xs.Contains("baz") |> equal true
+
+[<Fact>]
+let ``test HashSet.Overlaps works`` () =
+    let xs = hashSet [1; 2]
+    xs.Overlaps [2; 4] |> equal true
+    xs.Overlaps [3; 4] |> equal false
+
+[<Fact>]
+let ``test HashSet.Overlaps works with custom comparison`` () =
+    let xs = HashSet<string>(["Foo"; "bar"], IgnoreCaseComparer())
+    xs.Overlaps ["foo"; "baz"] |> equal true
+    xs.Overlaps ["baz"; "qux"] |> equal false
+
+[<Fact>]
+let ``test HashSet.SetEquals works`` () =
+    let xs = hashSet [1; 2]
+    xs.SetEquals [2; 1; 1] |> equal true
+    xs.SetEquals [2; 3] |> equal false
+
+[<Fact>]
+let ``test HashSet.SetEquals works with custom comparison`` () =
+    let xs = HashSet<string>(["Foo"; "bar"], IgnoreCaseComparer())
+    xs.SetEquals ["foo"; "BAR"; "foo"] |> equal true
+    xs.SetEquals ["foo"; "baz"] |> equal false
 
 [<Fact>]
 let ``test HashSet creation works`` () =
@@ -149,6 +207,9 @@ let ``test HashSet.Count works`` () =
     for i in 1. .. 10. do hs.Add(i*i) |> ignore
     hs.Count
     |> equal 10
+
+[<Fact>]
+let ``test HashSet.Count works II`` () =
     let xs = hashSet []
     xs.Count |> equal 0
     let ys = hashSet [1]
@@ -160,6 +221,13 @@ let ``test HashSet.Count works`` () =
 
 [<Fact>]
 let ``test HashSet.Add works`` () =
+    let hs = HashSet<_>()
+    hs.Add(1) |> equal true
+    hs.Add(3) |> equal true
+    hs.Count |> equal 2
+
+[<Fact>]
+let ``test HashSet.Add works ||`` () =
     let hs = HashSet<_>()
     hs.Add("A") |> equal true
     hs.Add("B") |> equal true
@@ -187,10 +255,43 @@ let ``test HashSet.Clear works`` () =
 [<Fact>]
 let ``test HashSet.Contains works`` () =
     let hs = HashSet<_>()
+    hs.Add(1) |> equal true
+    hs.Add(2) |> equal true
+    hs.Contains(1) |> equal true
+    hs.Contains(3) |> equal false
+
+[<Fact>]
+let ``test HashSet.Contains works II`` () =
+    let hs = HashSet<_>()
     hs.Add("Hello") |> equal true
     hs.Add("World!") |> equal true
     hs.Contains("Hello") |> equal true
     hs.Contains("Everybody!") |> equal false
+
+[<Fact>]
+let ``test HashSet.CopyTo works`` () =
+    let xs = HashSet<_>()
+    for i in 1 .. 9 do xs.Add(i) |> ignore
+
+    let arr1 = Array.zeroCreate 9
+    let arr2 = Array.zeroCreate 11
+    let arr3 = Array.zeroCreate 7
+
+    xs.CopyTo(arr1)         // [|x;x;x;x;x;x;x;x;x|]
+    xs.CopyTo(arr2, 2)      // [|0;0;x;x;x;x;x;x;x;x;x|]
+    xs.CopyTo(arr3, 3, 4)   // [|0;0;0;x;x;x;x|]
+
+    let sum = fun acc item -> acc + item
+    arr1 |> Seq.fold sum 0 |> equal 45
+    arr1.Length |> equal 9
+
+    arr2 |> Seq.fold sum 0 |> equal 45
+    arr2.Length |> equal 11
+
+    arr3[0..2] |> Array.forall ((=) 0) |> equal true
+    arr3[3..] |> Array.forall xs.Contains |> equal true
+    arr3[3..] |> Array.distinct |> Array.length |> equal 4
+    arr3.Length |> equal 7
 
 [<Fact>]
 let ``test HashSet.Remove works`` () =
@@ -221,9 +322,47 @@ let ``test HashSet equality works with generics`` () = // See #1712
     apa.Contains ({ i = 5; s = "foo"}) |> equal true
     apa.Contains ({ i = 5; s = "fo"}) |> equal false
 
+[<Fact>]
+let ``test HashSet.IsSubsetOf works`` () =
+    let xs = hashSet [1; 2]
+    let ys = hashSet [1; 2; 3]
+    xs.IsSubsetOf(ys) |> equal true
+    ys.IsSubsetOf(xs) |> equal false
+    xs.IsSubsetOf(xs) |> equal true
+
+[<Fact>]
+let ``test HashSet.IsSupersetOf works`` () =
+    let xs = hashSet [1; 2; 3]
+    let ys = hashSet [1; 2]
+    xs.IsSupersetOf(ys) |> equal true
+    ys.IsSupersetOf(xs) |> equal false
+    xs.IsSupersetOf(xs) |> equal true
+
+[<Fact>]
+let ``test HashSet.IsProperSubsetOf works`` () =
+    let xs = hashSet [1; 2]
+    let ys = hashSet [1; 2; 3]
+    xs.IsProperSubsetOf(ys) |> equal true
+    ys.IsProperSubsetOf(xs) |> equal false
+    xs.IsProperSubsetOf(xs) |> equal false
+
+[<Fact>]
+let ``test HashSet.IsProperSupersetOf works`` () =
+    let xs = hashSet [1; 2; 3]
+    let ys = hashSet [1; 2]
+    xs.IsProperSupersetOf(ys) |> equal true
+    ys.IsProperSupersetOf(xs) |> equal false
+    xs.IsProperSupersetOf(xs) |> equal false
+
 // TODO: ICollection interface tests are disabled for Python because ICollection
 // interface dispatch has a separate issue with comparer arguments.
 // See: HashSet ICollection.Contains, ICollection.Remove, etc.
+
+// [<Fact>]
+// let ``test HashSet IReadOnlyCollection.Count works`` () =
+//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+//     let coll = (HashSet xs) :> IReadOnlyCollection<_>
+//     coll.Count |> equal 3
 
 // [<Fact>]
 // let ``test HashSet ICollection.IsReadOnly works`` () =
@@ -244,6 +383,14 @@ let ``test HashSet equality works with generics`` () = // See #1712
 //     coll.Contains(("B", 3)) |> equal false
 //     coll.Contains(("D", 3)) |> equal false
 //     coll.Contains(("B", 2)) |> equal true
+
+// [<Fact>]
+// let ``test HashSet ICollection.CopyTo works`` () =
+//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+//     let coll = (HashSet xs) :> ICollection<_>
+//     let ys = [| ("D", 4); ("E", 5); ("F", 6) |]
+//     coll.CopyTo(ys, 0)
+//     ys = xs |> equal true
 
 // [<Fact>]
 // let ``test HashSet ICollection.Clear works`` () =

@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Beam] Fix `List.Cons` call replacement and test (by @ncave)
 * [Beam/Dart/Python/TypeScript] Fix `Array.Equals` to use reference equality instead of structural equality (by @ncave)
 * [Dart/Python/TypeScript/Rust] Fix `Seq.foldBack2` for sequences with different lengths (by @ncave)
+* [All] Fix missing `HashSet` implementations and tests (by @ncave)
 * [Rust] Fix `Array/HashMap/HashSet` internal representation (by @ncave)
 * [Rust] Fix missing `HashSet` implementations and tests (by @ncave)
 * [Python] Fix missing `Array` module implementations and tests (by @ncave)

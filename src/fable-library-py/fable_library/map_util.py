@@ -86,7 +86,7 @@ def union_with_set(s1: MutableSet[object], s2: Iterable[object]) -> None:
 
 def intersect_with_set(s1: MutableSet[object], s2: Iterable[object]) -> None:
     """Remove elements from s1 that are not in s2. Works with both native set and custom HashSet."""
-    s2_items = set(s2)
+    s2_items = _create_set_like(s1, s2)
     to_remove = [x for x in s1 if x not in s2_items]
     for x in to_remove:
         s1.discard(x)
@@ -96,6 +96,75 @@ def except_with_set(s1: MutableSet[object], s2: Iterable[object]) -> None:
     """Remove all elements in s2 from s1. Works with both native set and custom HashSet."""
     for x in s2:
         s1.discard(x)
+
+
+def _create_set_like(s1: MutableSet[object], values: Iterable[object]) -> MutableSet[object]:
+    comparer = getattr(s1, "Comparer", None)
+    if comparer is None:
+        comparer = getattr(s1, "comparer", None)
+    if comparer is None:
+        return set(values)
+
+    return type(s1)(values, comparer)
+
+
+def overlaps_with_set(s1: MutableSet[object], s2: Iterable[object]) -> bool:
+    """Check whether two set-like objects overlap."""
+    return any(x in s1 for x in s2)
+
+
+def is_subset_of_set(s1: MutableSet[object], s2: Iterable[object]) -> bool:
+    """Check whether s1 is a subset of s2, preserving custom comparers when present."""
+    s2_items = _create_set_like(s1, s2)
+    return all(x in s2_items for x in s1)
+
+
+def is_superset_of_set(s1: MutableSet[object], s2: Iterable[object]) -> bool:
+    """Check whether s1 is a superset of s2."""
+    return all(x in s1 for x in s2)
+
+
+def is_proper_subset_of_set(s1: MutableSet[object], s2: Iterable[object]) -> bool:
+    """Check whether s1 is a strict subset of s2, preserving custom comparers when present."""
+    s2_items = _create_set_like(s1, s2)
+    return len(s2_items) > len(s1) and all(x in s2_items for x in s1)
+
+
+def is_proper_superset_of_set(s1: MutableSet[object], s2: Iterable[object]) -> bool:
+    """Check whether s1 is a strict superset of s2, preserving custom comparers when present."""
+    s2_items = _create_set_like(s1, s2)
+    return len(s1) > len(s2_items) and all(x in s1 for x in s2_items)
+
+
+def set_equals_set(s1: MutableSet[object], s2: Iterable[object]) -> bool:
+    """Check whether two set-like objects contain the same unique elements."""
+    s2_items = _create_set_like(s1, s2)
+    return len(s1) == len(s2_items) and all(x in s1 for x in s2_items)
+
+
+def symmetric_except_with_set(s1: MutableSet[object], s2: Iterable[object]) -> None:
+    """Toggle items in s1 against a deduplicated view of s2."""
+    s2_items = _create_set_like(s1, s2)
+    for x in s2_items:
+        if x in s1:
+            s1.discard(x)
+        else:
+            s1.add(x)
+
+
+def copy_to_array_from_set(
+    s1: MutableSet[object],
+    target: Array[object],
+    source_index: int,
+    target_index: int,
+    count: int,
+) -> None:
+    """Copy set contents into an array with HashSet.CopyTo semantics."""
+    items = list(s1)
+    slice_ = items[source_index : source_index + count]
+
+    for index, value in enumerate(slice_):
+        target[target_index + index] = value
 
 
 def add_to_dict(di: dict[_K, _V], k: _K, v: _V) -> None:
