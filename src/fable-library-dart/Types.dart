@@ -3,6 +3,8 @@
 import 'dart:collection';
 import 'Util.dart' as util;
 
+final Expando<Object> _setComparerExpando = Expando<Object>('fable.setComparer');
+
 class ExceptionBase implements Exception {
   final String message;
   const ExceptionBase([this.message = ""]);
@@ -112,28 +114,32 @@ dynamic divRem(int x, int y, [FSharpRef<int>? remainder]) {
 Set<T> setWith<T>(IEqualityComparer<T> comparer, [Iterable<T>? initialValues]) {
   final set =
       LinkedHashSet<T>(equals: comparer.Equals, hashCode: comparer.GetHashCode);
+  _setComparerExpando[set] = comparer;
   if (initialValues != null) {
     set.addAll(initialValues);
   }
   return set;
 }
 
+IEqualityComparer<T>? _getSetComparer<T>(Set<T> set) {
+  return _setComparerExpando[set] as IEqualityComparer<T>?;
+}
+
+Set<T> _newCanonicalSet<T>(Set<T> source) {
+  final comparer = _getSetComparer(source);
+  if (comparer != null) {
+    return setWith(comparer);
+  }
+  return <T>{};
+}
+
 bool _containsEquivalentInSet<T>(Set<T> set, Iterable<T> other, T item) {
   for (final candidate in other) {
     final matched = set.lookup(candidate);
-    if (matched != null && util.equalsDynamic(matched, item)) {
+    if (matched != null && identical(matched, item)) {
       return true;
     }
-    if (matched == null && set.contains(candidate) && util.equalsDynamic(candidate, item)) {
-      return true;
-    }
-  }
-  return false;
-}
-
-bool _containsCanonical<T>(List<T> values, T candidate) {
-  for (final value in values) {
-    if (util.equalsDynamic(value, candidate)) {
+    if (matched == null && set.contains(candidate) && item == null) {
       return true;
     }
   }
@@ -195,13 +201,11 @@ bool hashSetIsSupersetOf<T>(Set<T> set, Iterable<T> other) {
 
 bool hashSetIsProperSubsetOf<T>(Set<T> set, Iterable<T> other) {
   final otherValues = other.toList(growable: false);
-  final distinct = <T>[];
+  final distinct = _newCanonicalSet(set);
 
   for (final item in otherValues) {
     final canonical = _canonicalValue(set, item);
-    if (!_containsCanonical(distinct, canonical)) {
-      distinct.add(canonical);
-    }
+    distinct.add(canonical);
   }
 
   return distinct.length > set.length && hashSetIsSubsetOf(set, otherValues);
@@ -209,13 +213,11 @@ bool hashSetIsProperSubsetOf<T>(Set<T> set, Iterable<T> other) {
 
 bool hashSetIsProperSupersetOf<T>(Set<T> set, Iterable<T> other) {
   final otherValues = other.toList(growable: false);
-  final distinct = <T>[];
+  final distinct = _newCanonicalSet(set);
 
   for (final item in otherValues) {
     final canonical = _canonicalValue(set, item);
-    if (!_containsCanonical(distinct, canonical)) {
-      distinct.add(canonical);
-    }
+    distinct.add(canonical);
   }
 
   return set.length > distinct.length && hashSetIsSupersetOf(set, otherValues);
@@ -232,7 +234,7 @@ bool hashSetOverlaps<T>(Set<T> set, Iterable<T> other) {
 
 bool hashSetSetEquals<T>(Set<T> set, Iterable<T> other) {
   final otherValues = other.toList(growable: false);
-  final matched = <T>[];
+  final matched = _newCanonicalSet(set);
 
   for (final item in otherValues) {
     if (!set.contains(item)) {
@@ -240,9 +242,7 @@ bool hashSetSetEquals<T>(Set<T> set, Iterable<T> other) {
     }
 
     final canonical = _canonicalValue(set, item);
-    if (!_containsCanonical(matched, canonical)) {
-      matched.add(canonical);
-    }
+    matched.add(canonical);
   }
 
   return matched.length == set.length;
@@ -250,17 +250,15 @@ bool hashSetSetEquals<T>(Set<T> set, Iterable<T> other) {
 
 void hashSetSymmetricExceptWith<T>(Set<T> set, Iterable<T> other) {
   final otherValues = other.toList(growable: false);
-  final seen = <T>[];
+  final seen = _newCanonicalSet(set);
   final toRemove = <T>[];
   final toAdd = <T>[];
 
   for (final item in otherValues) {
     final canonical = _canonicalValue(set, item);
-    if (_containsCanonical(seen, canonical)) {
+    if (!seen.add(canonical)) {
       continue;
     }
-
-    seen.add(canonical);
 
     if (set.contains(item)) {
       toRemove.add(item);
