@@ -30,7 +30,7 @@
 -spec contains(reference(), term()) -> boolean().
 -spec get_count(reference()) -> non_neg_integer().
 -spec clear(reference()) -> ok.
--spec union_with(reference(), reference()) -> ok.
+-spec union_with(reference(), reference() | term()) -> ok.
 -spec intersect_with(reference(), reference() | term()) -> ok.
 -spec except_with(reference(), reference() | term()) -> ok.
 -spec symmetric_except_with(reference(), reference() | term()) -> ok.
