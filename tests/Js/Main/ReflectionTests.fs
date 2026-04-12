@@ -562,6 +562,24 @@ let reflectionTests = [
     FSharpValue.MakeUnion(ucis.[0], [|box 5|]) |> equal (box (Result<_,string>.Ok 5))
     FSharpValue.MakeUnion(ucis.[1], [|box "foo"|]) |> equal (box (Result<int,_>.Error "foo"))
 
+  // See https://github.com/fable-compiler/Fable/issues/4082
+  testCase "FSharp.Reflection: Option is a union type" <| fun () ->
+    let typ = typeof<int option>
+    FSharpType.IsUnion(typ) |> equal true
+    let ucis = FSharpType.GetUnionCases(typ)
+    ucis.Length |> equal 2
+    ucis.[0].Name |> equal "None"
+    ucis.[1].Name |> equal "Some"
+    FSharpValue.MakeUnion(ucis.[0], [||]) |> equal (box (None: int option))
+    FSharpValue.MakeUnion(ucis.[1], [|box 42|]) |> equal (box (Some 42))
+    let noneCase, noneFields = FSharpValue.GetUnionFields(None: int option |> box, typ)
+    noneCase.Name |> equal "None"
+    noneFields.Length |> equal 0
+    let someCase, someFields = FSharpValue.GetUnionFields(Some 42 |> box, typ)
+    someCase.Name |> equal "Some"
+    someFields.Length |> equal 1
+    someFields.[0] |> equal (box 42)
+
   testCase "FSharp.Reflection: Choice" <| fun () ->
     let typ = typeof<Choice<int,string>>
     let ucis = FSharpType.GetUnionCases typ

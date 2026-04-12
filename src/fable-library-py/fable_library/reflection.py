@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from .array_ import Array
 from .core import FSharpRef, int32
+from .core import option as option_module
 from .record import Record
 from .types import IntegerTypes
 from .union import Union
@@ -111,7 +112,13 @@ def anon_record_type(*fields: FieldInfo) -> TypeInfo:
 
 
 def option_type(generic: TypeInfo) -> TypeInfo:
-    return TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", Array([generic]))
+    def make_cases() -> list[CaseInfo]:
+        return [
+            CaseInfo(t, 0, "None", []),
+            CaseInfo(t, 1, "Some", [("value", generic)]),
+        ]
+    t = TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", Array([generic]), None, None, None, make_cases)
+    return t
 
 
 def list_type(generic: TypeInfo) -> TypeInfo:
@@ -427,6 +434,10 @@ def make_union(uci: CaseInfo, values: Array[Any]) -> Any:
     if len(values) != expectedLength:
         raise ValueError(f"Expected an array of length {expectedLength} but got {len(values)}")
 
+    # Special handling for option types
+    if uci.declaringType.fullname == "Microsoft.FSharp.Core.FSharpOption`1":
+        return None if uci.tag == 0 else option_module.some(values[0])
+
     # Use case constructor if available (new tagged_union pattern)
     if uci.case_constructor is not None:
         return uci.case_constructor(*values)
@@ -442,10 +453,16 @@ def get_union_cases(t: TypeInfo) -> Array[CaseInfo]:
         raise ValueError(f"{t.fullname} is not an F# union type")
 
 
-def get_union_fields(v: Union, t: TypeInfo) -> tuple[CaseInfo, Array[Any]]:
+def get_union_fields(v: Any, t: TypeInfo) -> tuple[CaseInfo, Array[Any]]:
     cases: Array[CaseInfo] = get_union_cases(t)
+    # Special handling for option types (None is Python None, Some wraps value)
+    if t.fullname == "Microsoft.FSharp.Core.FSharpOption`1":
+        if v is None:
+            return (cases[0], Array[Any]([]))  # None case
+        else:
+            inner = v.value if isinstance(v, option_module.SomeWrapper) else v
+            return (cases[1], Array[Any]([inner]))  # Some case
     case: CaseInfo = cases[v.tag]
-
     return (case, Array[Any](v.fields))
 
 
