@@ -72,7 +72,7 @@ jobs:
           cache-dependency-path: "**/*.fsproj"
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           cache: npm
 
@@ -100,7 +100,7 @@ jobs:
           cache-dependency-path: "**/*.fsproj"
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           cache: npm
 
@@ -126,7 +126,7 @@ jobs:
           cache-dependency-path: "**/*.fsproj"
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           cache: npm
 
@@ -149,7 +149,7 @@ jobs:
           cache-dependency-path: "**/*.fsproj"
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           cache: npm
 
@@ -222,7 +222,7 @@ jobs:
           cache-dependency-path: "**/*.fsproj"
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           cache: npm
 
