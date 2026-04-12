@@ -152,13 +152,17 @@ is_subset_of(SetRef, OtherRef) ->
     maps:fold(fun(K, _V, Acc) -> Acc andalso maps:is_key(K, OtherMap) end, true, Map).
 
 is_superset_of(SetRef, OtherRef) ->
-    is_subset_of(OtherRef, SetRef).
+    Map = get(SetRef),
+    OtherMap = other_to_map(OtherRef),
+    maps:fold(fun(K, _V, Acc) -> Acc andalso maps:is_key(K, Map) end, true, OtherMap).
 
 is_proper_subset_of(SetRef, OtherRef) ->
-    is_subset_of(SetRef, OtherRef) andalso (get_count(SetRef) < get_count(OtherRef)).
+    OtherMap = other_to_map(OtherRef),
+    is_subset_of(SetRef, OtherMap) andalso (get_count(SetRef) < maps:size(OtherMap)).
 
 is_proper_superset_of(SetRef, OtherRef) ->
-    is_proper_subset_of(OtherRef, SetRef).
+    OtherMap = other_to_map(OtherRef),
+    is_superset_of(SetRef, OtherMap) andalso (maps:size(OtherMap) < get_count(SetRef)).
 
 overlaps(SetRef, OtherRef) ->
     Map = get(SetRef),

@@ -25,6 +25,9 @@ let hashSet l =
         xs.Add x |> ignore
     xs
 
+[<ReferenceEquality>]
+type RefEqRecord = { a: int; b: int }
+
 type MyRecord = { a: int }
 
 type R = { i: int; s: string }
@@ -50,7 +53,7 @@ let tests() =
         let xs = HashSet<int>(10)
         xs.Count |> equal 0
 
-    testCase "HashSets with IEqualityComparer work" <| fun () ->
+    testCase "HashSet with IEqualityComparer works" <| fun () ->
         let x = MyRefType(4)
         let y = MyRefType(4)
         let z = MyRefType(6)
@@ -214,6 +217,16 @@ let tests() =
         hs.Add(x2) |> equal false
         hs.Add(x3) |> equal true
         hs.Count |> equal 2
+
+    // testCase "HashSet.Add with reference records works" <| fun () ->
+    //     let x1 = { a = 5; b = 10 }
+    //     let x2 = { a = 5; b = 10 }
+    //     let x3 = { a = 10; b = 20 }
+    //     let hs = HashSet<RefEqRecord>()
+    //     hs.Add(x1) |> equal true
+    //     hs.Add(x2) |> equal true
+    //     hs.Add(x3) |> equal true
+    //     hs.Count |> equal 3
 
     testCase "HashSet.Clear works" <| fun () ->
         let hs = HashSet<_>()

@@ -24,6 +24,9 @@ let inline private hashSet xs =
     xs |> List.iter (fun x -> res.Add x |> ignore)
     res
 
+[<ReferenceEquality>]
+type RefEqRecord = { a: int; b: int }
+
 type MyRecord = { a: int }
 
 type R = { i: int; s: string }
@@ -50,7 +53,7 @@ let ``HashSet ctor from Enumerable works`` () =
     xs.Count |> equal 3
 
 [<Fact>]
-let ``HashSets with IEqualityComparer work`` () =
+let ``HashSet with IEqualityComparer works`` () =
     let x = MyRefType(4)
     let y = MyRefType(4)
     let z = MyRefType(6)
@@ -240,6 +243,17 @@ let ``HashSet.Add with records works`` () =
     xs.Add x2 |> equal false
     xs.Add x3 |> equal true
     xs.Count |> equal 2
+
+[<Fact>]
+let ``HashSet.Add with reference records works`` () =
+    let x1 = { a = 5; b = 10 }
+    let x2 = { a = 5; b = 10 }
+    let x3 = { a = 10; b = 20 }
+    let xs = HashSet<RefEqRecord>()
+    xs.Add x1 |> equal true
+    xs.Add x2 |> equal true
+    xs.Add x3 |> equal true
+    xs.Count |> equal 3
 
 [<Fact>]
 let ``HashSet.Clear works`` () =

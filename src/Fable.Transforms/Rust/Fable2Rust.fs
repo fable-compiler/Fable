@@ -4811,7 +4811,7 @@ module Util =
         // impl Eq for {self_ty} {}
         // impl core::hash::Hash for {self_ty} {
         //     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
-        //         (self as *const Self as usize).hash(state)
+        //         core::hash::Hash::hash(&(self as *const Self as usize), state)
         //     }
         // }
 
@@ -4837,7 +4837,10 @@ module Util =
             assocItems |> makeTraitImpl com ctx entName genArgs ofTrait
 
         let hashFnItem =
-            let bodyStmt = "(self as *const Self as usize).hash(state)" |> mkEmitExprStmt
+            let bodyStmt =
+                "core::hash::Hash::hash(&(self as *const Self as usize), state)"
+                |> mkEmitExprStmt
+
             let fnBody = [ bodyStmt ] |> mkBlock |> Some
             let hasherBound = mkTypeTraitGenericBound ("core" :: "hash" :: "Hasher" :: []) None
             let hParam = mkGenericParamFromName [] "H" [ hasherBound ]
