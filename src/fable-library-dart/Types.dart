@@ -3,6 +3,8 @@
 import 'dart:collection';
 import 'Util.dart' as util;
 
+final Expando<Object> _setComparerExpando = Expando<Object>('fable.setComparer');
+
 class ExceptionBase implements Exception {
   final String message;
   const ExceptionBase([this.message = ""]);
@@ -112,10 +114,177 @@ dynamic divRem(int x, int y, [FSharpRef<int>? remainder]) {
 Set<T> setWith<T>(IEqualityComparer<T> comparer, [Iterable<T>? initialValues]) {
   final set =
       LinkedHashSet<T>(equals: comparer.Equals, hashCode: comparer.GetHashCode);
+  _setComparerExpando[set] = comparer;
   if (initialValues != null) {
     set.addAll(initialValues);
   }
   return set;
+}
+
+IEqualityComparer<T>? _getSetComparer<T>(Set<T> set) {
+  return _setComparerExpando[set] as IEqualityComparer<T>?;
+}
+
+Set<T> _newCanonicalSet<T>(Set<T> source) {
+  final comparer = _getSetComparer(source);
+  if (comparer != null) {
+    return setWith(comparer);
+  }
+  return <T>{};
+}
+
+bool _containsEquivalentInSet<T>(Set<T> set, Iterable<T> other, T item) {
+  for (final candidate in other) {
+    final matched = set.lookup(candidate);
+    if (matched != null && identical(matched, item)) {
+      return true;
+    }
+    if (matched == null && set.contains(candidate) && item == null) {
+      return true;
+    }
+  }
+  return false;
+}
+
+T _canonicalValue<T>(Set<T> set, T candidate) {
+  final matched = set.lookup(candidate);
+  if (matched != null) {
+    return matched;
+  }
+  return candidate;
+}
+
+void hashSetUnionWith<T>(Set<T> set, Iterable<T> other) {
+  set.addAll(other);
+}
+
+void hashSetIntersectWith<T>(Set<T> set, Iterable<T> other) {
+  final otherValues = other.toList(growable: false);
+  final toRemove = <T>[];
+
+  for (final item in set) {
+    if (!_containsEquivalentInSet(set, otherValues, item)) {
+      toRemove.add(item);
+    }
+  }
+
+  for (final item in toRemove) {
+    set.remove(item);
+  }
+}
+
+void hashSetExceptWith<T>(Set<T> set, Iterable<T> other) {
+  final otherValues = other.toList(growable: false);
+  for (final item in otherValues) {
+    set.remove(item);
+  }
+}
+
+bool hashSetIsSubsetOf<T>(Set<T> set, Iterable<T> other) {
+  final otherValues = other.toList(growable: false);
+  for (final item in set) {
+    if (!_containsEquivalentInSet(set, otherValues, item)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool hashSetIsSupersetOf<T>(Set<T> set, Iterable<T> other) {
+  for (final item in other) {
+    if (!set.contains(item)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool hashSetIsProperSubsetOf<T>(Set<T> set, Iterable<T> other) {
+  final otherValues = other.toList(growable: false);
+  final distinct = _newCanonicalSet(set);
+
+  for (final item in otherValues) {
+    final canonical = _canonicalValue(set, item);
+    distinct.add(canonical);
+  }
+
+  return distinct.length > set.length && hashSetIsSubsetOf(set, otherValues);
+}
+
+bool hashSetIsProperSupersetOf<T>(Set<T> set, Iterable<T> other) {
+  final otherValues = other.toList(growable: false);
+  final distinct = _newCanonicalSet(set);
+
+  for (final item in otherValues) {
+    final canonical = _canonicalValue(set, item);
+    distinct.add(canonical);
+  }
+
+  return set.length > distinct.length && hashSetIsSupersetOf(set, otherValues);
+}
+
+bool hashSetOverlaps<T>(Set<T> set, Iterable<T> other) {
+  for (final item in other) {
+    if (set.contains(item)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool hashSetSetEquals<T>(Set<T> set, Iterable<T> other) {
+  final otherValues = other.toList(growable: false);
+  final matched = _newCanonicalSet(set);
+
+  for (final item in otherValues) {
+    if (!set.contains(item)) {
+      return false;
+    }
+
+    final canonical = _canonicalValue(set, item);
+    matched.add(canonical);
+  }
+
+  return matched.length == set.length;
+}
+
+void hashSetSymmetricExceptWith<T>(Set<T> set, Iterable<T> other) {
+  final otherValues = other.toList(growable: false);
+  final seen = _newCanonicalSet(set);
+  final toRemove = <T>[];
+  final toAdd = <T>[];
+
+  for (final item in otherValues) {
+    final canonical = _canonicalValue(set, item);
+    if (!seen.add(canonical)) {
+      continue;
+    }
+
+    if (set.contains(item)) {
+      toRemove.add(item);
+    } else {
+      toAdd.add(item);
+    }
+  }
+
+  for (final item in toRemove) {
+    set.remove(item);
+  }
+
+  set.addAll(toAdd);
+}
+
+void hashSetCopyToArray<T>(
+  Set<T> set,
+  List<T> target,
+  int sourceIndex,
+  int targetIndex,
+  int count,
+) {
+  final values = set.toList(growable: false);
+  for (var index = 0; index < count; index++) {
+    target[targetIndex + index] = values[sourceIndex + index];
+  }
 }
 
 abstract class IDisposable {

@@ -1078,5 +1078,5 @@ let isProperSubsetOf (s1: Fable.Collections.MutableSet<'T>) (s2: 'T seq) =
     s2.Count > s1.Count && (s1 |> Seq.forall s2.Contains)
 
 let isProperSupersetOf (s1: Fable.Collections.MutableSet<'T>) (s2: 'T seq) =
-    let s2 = Seq.cache s2
-    s2 |> Seq.exists (s1.Contains >> not) && s2 |> Seq.forall s1.Contains
+    let s2 = newMutableSetWith s1 s2
+    s1.Count > s2.Count && (s2 |> Seq.forall s1.Contains)

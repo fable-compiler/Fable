@@ -13,9 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Beam] Fix `List.Cons` call replacement and test (by @ncave)
 * [Beam/Dart/Python/TypeScript] Fix `Array.Equals` to use reference equality instead of structural equality (by @ncave)
 * [Dart/Python/TypeScript/Rust] Fix `Seq.foldBack2` for sequences with different lengths (by @ncave)
+* [All] Fix missing `HashSet` implementations and tests (by @ncave)
+* [Rust] Fix `Array/HashMap/HashSet` internal representation (by @ncave)
+* [Rust] Fix F# classes reference equality semantics (by @ncave)
 * [Python] Fix missing `Array` module implementations and tests (by @ncave)
 * [Python] Fix object expressions implementing interfaces with `[<CLIEvent>]` members no longer produce unimplementable abstract Protocol members (fixes #3039)
 * [Python] Fix `DateTime.TryParse` incorrectly assigning `DateTimeKind.Local` to naive datetime strings (should be `DateTimeKind.Unspecified`) (fixes #3654)
+* [JS/TS] Fix `String.Contains` ignoring `StringComparison` argument (second argument was silently discarded)
+* [Python] Fix `String.Contains` ignoring `StringComparison` argument (second argument was silently discarded)
 
 ## 5.0.0-rc.13 - 2026-04-07
 

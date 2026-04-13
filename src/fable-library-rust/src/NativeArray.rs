@@ -8,58 +8,46 @@ pub mod NativeArray_ {
     // Arrays
     // -----------------------------------------------------------
 
-    type MutArray<T> = Lrc<MutCell<Vec<T>>>;
-
     #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
     #[repr(transparent)]
-    pub struct Array<T>(Option<MutArray<T>>);
+    pub struct MutArray<T>(MutCell<Vec<T>>);
 
-    impl<T> NullableRef for Array<T> {
-        #[inline]
-        fn null() -> Self {
-            Array(None)
-        }
+    pub type Array<T> = LrcPtr<MutArray<T>>;
 
-        #[inline]
-        fn is_null(&self) -> bool {
-            self.0.is_none()
-        }
-    }
-
-    impl<T: Clone> core::ops::Deref for Array<T> {
-        type Target = MutArray<T>;
+    impl<T: Clone> core::ops::Deref for MutArray<T> {
+        type Target = MutCell<Vec<T>>;
         fn deref(&self) -> &Self::Target {
-            &self.0.as_ref().expect("Null reference exception.")
+            &self.0
         }
     }
 
-    impl<T: Clone + core::fmt::Debug> core::fmt::Display for Array<T> {
+    impl<T: Clone + core::fmt::Debug> core::fmt::Display for MutArray<T> {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
             write!(f, "{:?}", self.0) //TODO: improve
         }
     }
 
-    impl<T: Clone> From<Vec<T>> for Array<T> {
+    impl<T: Clone> From<Vec<T>> for MutArray<T> {
         fn from(v: Vec<T>) -> Self {
-            array_from(v)
+            MutArray(MutCell::from(v))
         }
     }
 
-    impl<T: Clone> From<&Vec<T>> for Array<T> {
+    impl<T: Clone> From<&Vec<T>> for MutArray<T> {
         fn from(v: &Vec<T>) -> Self {
             let v2: Vec<T> = v.iter().map(|item| item.clone()).collect();
-            array_from(v2)
+            MutArray(MutCell::from(v2))
         }
     }
 
-    impl<T: Clone> Into<Vec<T>> for Array<T> {
+    impl<T: Clone> Into<Vec<T>> for MutArray<T> {
         fn into(self) -> Vec<T> {
-            self.get().iter().cloned().collect()
+            self.0.get().iter().cloned().collect()
         }
     }
 
     pub fn array_from<T: Clone>(v: Vec<T>) -> Array<T> {
-        Array(Some(Lrc::new(MutCell::from(v))))
+        LrcPtr::new(MutArray(MutCell::from(v)))
     }
 
     pub fn new_array<T: Clone>(a: &[T]) -> Array<T> {
