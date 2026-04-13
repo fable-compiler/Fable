@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [JS/TS] Fix `String.Contains` ignoring `StringComparison` argument (second argument was silently discarded)
+
 ## 2.0.0-rc.6 - 2026-04-07
 
 ### Fixed
