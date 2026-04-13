@@ -82,6 +82,7 @@ let ``Array.Equals works`` () =
     a1.Equals(a2) |> equal false // reference equality
     a1.Equals(a3) |> equal false
     a1.Equals(a4) |> equal false
+    (a1 :> obj).Equals(a2 :> obj) |> equal false // reference equality
 
 [<Fact>]
 let ``Array comparison works`` () =

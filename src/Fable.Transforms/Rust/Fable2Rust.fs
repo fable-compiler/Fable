@@ -3532,6 +3532,10 @@ module Util =
 
                 mkUnitExpr ()
 
+        | Fable.Quote _ ->
+            addError com [] None "Quotations are not yet supported for Rust target"
+            mkUnitExpr ()
+
     let rec tryFindEntryPoint (com: IRustCompiler) decl : string list option =
         match decl with
         | Fable.ModuleDeclaration decl ->
@@ -4796,6 +4800,67 @@ module Util =
         else
             [ makeItem "Display" ]
 
+    let makeRefEqualityTraitImpls com ctx entName genArgs =
+        // For F# class types without structural equality, use pointer-based
+        // PartialEq, Eq, and Hash so they can be used as HashSet/HashMap keys
+        // with reference (pointer) equality semantics, matching .NET behavior.
+        // expected output:
+        // impl PartialEq for {self_ty} {
+        //     fn eq(&self, other: &Self) -> bool { core::ptr::eq(self, other) }
+        // }
+        // impl Eq for {self_ty} {}
+        // impl core::hash::Hash for {self_ty} {
+        //     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        //         core::hash::Hash::hash(&(self as *const Self as usize), state)
+        //     }
+        // }
+
+        let eqFnItem =
+            let bodyStmt = "core::ptr::eq(self, other)" |> mkEmitExprStmt
+            let fnBody = [ bodyStmt ] |> mkBlock |> Some
+
+            let fnDecl =
+                let selfTy = mkImplSelfTy () |> mkRefTy None
+
+                let inputs =
+                    [ mkImplSelfParam false false; mkTypedParam "other" selfTy false false ]
+
+                let output = mkGenericPathTy [ "bool" ] None |> mkFnRetTy
+                mkFnDecl inputs output
+
+            let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
+            mkFnAssocItem [] "eq" fnKind
+
+        let makeImpl traitPath assocItems =
+            let path = mkGenericPath traitPath None None
+            let ofTrait = mkTraitRef path |> Some
+            assocItems |> makeTraitImpl com ctx entName genArgs ofTrait
+
+        let hashFnItem =
+            let bodyStmt =
+                "core::hash::Hash::hash(&(self as *const Self as usize), state)"
+                |> mkEmitExprStmt
+
+            let fnBody = [ bodyStmt ] |> mkBlock |> Some
+            let hasherBound = mkTypeTraitGenericBound ("core" :: "hash" :: "Hasher" :: []) None
+            let hParam = mkGenericParamFromName [] "H" [ hasherBound ]
+            let hTy = mkGenericPathTy [ "H" ] None |> mkMutRefTy None
+
+            let fnDecl =
+                let inputs = [ mkImplSelfParam false false; mkTypedParam "state" hTy false false ]
+                let output = mkUnitTy () |> mkFnRetTy
+                mkFnDecl inputs output
+
+            let generics = [ hParam ] |> mkGenerics
+            let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics fnBody
+            mkFnAssocItem [] "hash" fnKind
+
+        [
+            makeImpl ("core" :: "cmp" :: rawIdent "PartialEq" :: []) [ eqFnItem ]
+            makeImpl ("core" :: "cmp" :: rawIdent "Eq" :: []) []
+            makeImpl ("core" :: "hash" :: "Hash" :: []) [ hashFnItem ]
+        ]
+
     let op_impl_map =
         Map
             [
@@ -4998,6 +5063,25 @@ module Util =
         let operatorTraitImpls =
             nonInterfaceMembers |> makeOpTraitImpls com ctx ent entName genArgs
 
+        let refEqualityTraitImpls =
+            // Generate pointer-based PartialEq/Eq/Hash for class types without
+            // structural equality, matching .NET reference equality semantics.
+            let isClass =
+                not ent.IsFSharpUnion
+                && not ent.IsValueType
+                && not ent.IsFSharpExceptionDeclaration
+                && not isObjectExpr
+
+            let needsRefEquality =
+                isClass
+                && not (isEquatableEntity com Set.empty ent)
+                && not (isHashableEntity com Set.empty ent)
+
+            if needsRefEquality then
+                makeRefEqualityTraitImpls com ctx entName genParams
+            else
+                []
+
         let interfaceTraitImpls =
             interfaceMembers
             |> List.choose (fun (d, m) -> m.DeclaringEntity)
@@ -5032,6 +5116,7 @@ module Util =
         @ nonInterfaceImpls
         @ displayTraitImpls
         @ operatorTraitImpls
+        @ refEqualityTraitImpls
         @ interfaceTraitImpls
 
     let transformClassDecl (com: IRustCompiler) ctx (decl: Fable.ClassDecl) =

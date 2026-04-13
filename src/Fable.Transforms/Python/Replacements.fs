@@ -1352,8 +1352,12 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | ".ctor", _, _ -> typedObjExpr t [] |> Some
     | "ToString", Some arg, _ -> toString com ctx r [ arg ] |> Some
     | "ReferenceEquals", _, [ left; right ] -> makeEqOpStrict r left right BinaryEqual |> Some
-    | "Equals", Some arg1, [ arg2 ]
-    | "Equals", None, [ arg1; arg2 ] -> equals com ctx r true arg1 arg2 |> Some
+    | "Equals", Some(MaybeCasted arg1), [ MaybeCasted arg2 ]
+    | "Equals", None, [ MaybeCasted arg1; MaybeCasted arg2 ] ->
+        match arg1.Type, arg2.Type with
+        | Array _, _
+        | _, Array _ -> makeEqOpStrict r arg1 arg2 BinaryEqual |> Some
+        | _ -> equals com ctx r true arg1 arg2 |> Some
     | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
     | "GetType", Some arg, _ ->
         if arg.Type = Any then
@@ -1953,9 +1957,13 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
         Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
     | "get_Item", Some arg, [ idx ] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [ idx; value ] -> setExpr r arg idx value |> Some
+    | "Equals", Some arg1, [ arg2 ] -> makeEqOpStrict r arg1 arg2 BinaryEqual |> Some
+    | "GetHashCode", Some arg, _ -> identityHash com r arg |> Some
     | "Copy", None, [ _source; _sourceIndex; _target; _targetIndex; _count ] -> copyToArray com r t i args
     | "Copy", None, [ source; target; count ] ->
         copyToArray com r t i [ source; makeIntConst 0; target; makeIntConst 0; count ]
+    | "ConvertAll", None, [ source; mapping ] ->
+        Helper.LibCall(com, "array", "map", t, [ mapping; source ], ?loc = r) |> Some
     | "IndexOf", None, args ->
         let args = injectIndexOfArgs com ctx r i.GenericArgs args
 
@@ -2677,13 +2685,14 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ ->
         match i.SignatureArgTypes, args with
-        | [], _ -> makeHashSet com ctx r t (makeArray Any []) |> Some
+        | ([] | [ Number _ ]), _ -> makeHashSet com ctx r t (makeArray Any []) |> Some
         | [ IEnumerable ], [ arg ] -> makeHashSet com ctx r t arg |> Some
         | [ IEnumerable; IEqualityComparer ], [ arg; eqComp ] ->
             makeComparerFromEqualityComparer eqComp
             |> makeHashSetWithComparer com r t arg
             |> Some
-        | [ IEqualityComparer ], [ eqComp ] ->
+        | [ IEqualityComparer ], [ eqComp ]
+        | [ Number _; IEqualityComparer ], [ _; eqComp ] ->
             makeComparerFromEqualityComparer eqComp
             |> makeHashSetWithComparer com r t (makeArray Any [])
             |> Some
@@ -2706,15 +2715,62 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "ExceptWith", Some c, [ arg ] ->
         Helper.LibCall(com, "map_util", "exceptWithSet", t, [ c; arg ], ?loc = r)
         |> Some
-    | ("IsProperSubsetOf" | "IsProperSupersetOf" | "IsSubsetOf" | "IsSupersetOf" as meth), Some c, args ->
-        let meth = Naming.lowerFirst meth
-        let args = injectArg com ctx r "Set" meth i.GenericArgs args
+    | "IsProperSubsetOf", Some c, [ arg ] ->
+        Helper.LibCall(com, "map_util", "isProperSubsetOfSet", t, [ c; arg ], ?loc = r)
+        |> Some
+    | "IsProperSupersetOf", Some c, [ arg ] ->
+        Helper.LibCall(com, "map_util", "isProperSupersetOfSet", t, [ c; arg ], ?loc = r)
+        |> Some
+    | "IsSubsetOf", Some c, [ arg ] ->
+        Helper.LibCall(com, "map_util", "isSubsetOfSet", t, [ c; arg ], ?loc = r)
+        |> Some
+    | "IsSupersetOf", Some c, [ arg ] ->
+        Helper.LibCall(com, "map_util", "isSupersetOfSet", t, [ c; arg ], ?loc = r)
+        |> Some
+    | "CopyTo", Some c, args ->
+        let count = Helper.GlobalCall("len", Int32.Number, [ c ], ?loc = r)
 
-        Helper.LibCall(com, "Set", meth, t, c :: args, ?loc = r) |> Some
-    // | "CopyTo" // TODO!!!
-    // | "SetEquals"
-    // | "Overlaps"
-    // | "SymmetricExceptWith"
+        match args with
+        | [ target ] ->
+            Helper.LibCall(
+                com,
+                "map_util",
+                "copyToArrayFromSet",
+                t,
+                [ c; target; makeIntConst 0; makeIntConst 0; count ],
+                ?loc = r
+            )
+            |> Some
+        | [ target; targetIndex ] ->
+            Helper.LibCall(
+                com,
+                "map_util",
+                "copyToArrayFromSet",
+                t,
+                [ c; target; makeIntConst 0; targetIndex; count ],
+                ?loc = r
+            )
+            |> Some
+        | [ target; targetIndex; copyCount ] ->
+            Helper.LibCall(
+                com,
+                "map_util",
+                "copyToArrayFromSet",
+                t,
+                [ c; target; makeIntConst 0; targetIndex; copyCount ],
+                ?loc = r
+            )
+            |> Some
+        | _ -> None
+    | "SetEquals", Some c, [ other ] ->
+        Helper.LibCall(com, "map_util", "setEqualsSet", t, [ c; other ], ?loc = r)
+        |> Some
+    | "Overlaps", Some c, [ other ] ->
+        Helper.LibCall(com, "map_util", "overlapsWithSet", t, [ c; other ], ?loc = r)
+        |> Some
+    | "SymmetricExceptWith", Some c, [ other ] ->
+        Helper.LibCall(com, "map_util", "symmetricExceptWithSet", t, [ c; other ], ?loc = r)
+        |> Some
     | _ -> None
 
 let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -4157,7 +4213,8 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
                 getTypeName com ctx loc exprType |> StringConstant |> makeValue r |> Some
             | c -> Helper.LibCall(com, "Reflection", "name", t, [ c ], ?loc = r) |> Some
         | _ -> None
-    | _ -> None
+    // F# Quotations
+    | typeName -> Quotations.tryQuotationCall "quotation" com ctx r t info thisArg args typeName
 
 let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
@@ -4179,10 +4236,12 @@ let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genA
     | Types.hashset ->
         let args =
             match argTypes.Value, args with
-            | [], _ -> [ makeArray Any []; makeEqualityComparer com ctx (Seq.head genArgs) ]
+            | ([] | [ Number _ ]), _ -> [ makeArray Any []; makeEqualityComparer com ctx (Seq.head genArgs) ]
             | [ IEnumerable ], [ arg ] -> [ arg; makeEqualityComparer com ctx (Seq.head genArgs) ]
             | [ IEnumerable; IEqualityComparer ], [ arg; eqComp ] -> [ arg; makeComparerFromEqualityComparer eqComp ]
-            | [ IEqualityComparer ], [ eqComp ] -> [ makeArray Any []; makeComparerFromEqualityComparer eqComp ]
+            | [ IEqualityComparer ], [ eqComp ]
+            | [ Number _; IEqualityComparer ], [ _; eqComp ] ->
+                [ makeArray Any []; makeComparerFromEqualityComparer eqComp ]
             | _ -> FableError "Unexpected hashset constructor" |> raise
 
         let entityName = Naming.cleanNameAsPyIdentifier "HashSet"

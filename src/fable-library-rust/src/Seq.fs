@@ -714,7 +714,15 @@ let fold2 (folder: 'State -> 'T1 -> 'T2 -> 'State) (state: 'State) (xs: 'T1 seq)
     acc
 
 let foldBack2 (folder: 'T1 -> 'T2 -> 'State -> 'State) (xs: 'T1 seq) (ys: 'T2 seq) (state: 'State) =
-    Array.foldBack2 folder (toArray xs) (toArray ys) state
+    let xs = toArray xs
+    let ys = toArray ys
+    let len = System.Math.Min(xs.Length, ys.Length)
+    let mutable acc = state
+
+    for i = len - 1 downto 0 do
+        acc <- folder xs[i] ys[i] acc
+
+    acc
 
 let forAll predicate (xs: 'T seq) =
     not (exists (fun x -> not (predicate x)) xs)

@@ -33,31 +33,57 @@ BoolArray = array.BoolArray
 GenericArray = array.GenericArray
 
 # Import loose functions directly from array module
+add_in_place = array.add_in_place
+add_range_in_place = array.add_range_in_place
+all_pairs = array.all_pairs
 append = array.append
+average = array.average
+average_by = array.average_by
+choose = array.choose
 chunk_by_size = array.chunk_by_size
-compare_with = array.compare_with
-create = array.create
-zero_create = array.zero_create
 collect = array.collect
+compare_to = array.compare_to
+compare_with = array.compare_with
+concat = array.concat
+contains = array.contains
+copy = array.copy
+copy_to = array.copy_to
+create = array.create
 empty = array.empty
 equals_with = array.equals_with
+exactly_one = array.exactly_one
 exists = array.exists
+exists2 = array.exists2
 exists_offset = array.exists_offset
 fill = array.fill
 filter = array.filter
+find = array.find
+find_back = array.find_back
+find_index = array.find_index
+find_index_back = array.find_index_back
+find_last_index = array.find_last_index
 fold = array.fold
+fold2 = array.fold2
 fold_back = array.fold_back
 fold_back2 = array.fold_back2
 fold_back_indexed = array.fold_back_indexed
 fold_back_indexed2 = array.fold_back_indexed2
 fold_indexed = array.fold_indexed
+for_all = array.for_all
+for_all2 = array.for_all2
+get_sub_array = array.get_sub_array
 head = array.head
+index_of = array.index_of
+indexed = array.indexed
 initialize = array.initialize
 insert_at = array.insert_at
 insert_many_at = array.insert_many_at
+insert_range_in_place = array.insert_range_in_place
 item = array.item
 iterate = array.iterate
+iterate2 = array.iterate2
 iterate_indexed = array.iterate_indexed
+iterate_indexed2 = array.iterate_indexed2
 last = array.last
 map = array.map
 map2 = array.map2
@@ -67,76 +93,15 @@ map_fold_back = array.map_fold_back
 map_indexed = array.map_indexed
 map_indexed2 = array.map_indexed2
 map_indexed3 = array.map_indexed3
+max = array.max
+max_by = array.max_by
+min = array.min
+min_by = array.min_by
 of_seq = array.of_seq
 pairwise = array.pairwise
-permute = array.permute
-reduce = array.reduce
-reduce_back = array.reduce_back
-remove_at = array.remove_at
-remove_many_at = array.remove_many_at
-reverse = array.reverse
-scan = array.scan
-scan_back = array.scan_back
-set_slice = array.set_slice
-singleton = array.singleton
-sort = array.sort
-sort_in_place = array.sort_in_place
-sort_in_place_with = array.sort_in_place_with
-sort_in_place_by = array.sort_in_place_by
-split_into = array.split_into
-sum = array.sum
-tail = array.tail
-transpose = array.transpose
-try_find = array.try_find
-try_find_back = array.try_find_back
-try_find_index_back = array.try_find_index_back
-try_find_index = array.try_find_index
-try_head = array.try_head
-try_item = array.try_item
-update_at = array.update_at
-windowed = array.windowed
-index_of = array.index_of
-remove_in_place = array.remove_in_place
-copy_to = array.copy_to
-zip = array.zip
-for_all = array.for_all
-find = array.find
-find_back = array.find_back
-find_last_index = array.find_last_index
-find_index_back = array.find_index_back
-add_in_place = array.add_in_place
-add_range_in_place = array.add_range_in_place
-insert_range_in_place = array.insert_range_in_place
-get_sub_array = array.get_sub_array
-contains = array.contains
-max = array.max
-min = array.min
-max_by = array.max_by
-min_by = array.min_by
-average = array.average
-average_by = array.average_by
-pick = array.pick
-try_pick = array.try_pick
-remove_all_in_place = array.remove_all_in_place
-indexed = array.indexed
-last = array.last
-try_last = array.try_last
-truncate = array.truncate
 partition = array.partition
-concat = array.concat
-find_index = array.find_index
-sort_by = array.sort_by
-sum_by = array.sum_by
-resize = array.resize
-unzip = array.unzip
-copy = array.copy
-take = array.take
-take_while = array.take_while
-skip = array.skip
-skip_while = array.skip_while
-compare_to = array.compare_to
-sort_with = array.sort_with
-choose = array.choose
+permute = array.permute
+pick = array.pick
 random_choice = array.random_choice
 random_choice_by = array.random_choice_by
 random_choice_with = array.random_choice_with
@@ -152,7 +117,53 @@ random_shuffle_in_place = array.random_shuffle_in_place
 random_shuffle_in_place_by = array.random_shuffle_in_place_by
 random_shuffle_in_place_with = array.random_shuffle_in_place_with
 random_shuffle_with = array.random_shuffle_with
-
+reduce = array.reduce
+reduce_back = array.reduce_back
+remove_all_in_place = array.remove_all_in_place
+remove_at = array.remove_at
+remove_in_place = array.remove_in_place
+remove_many_at = array.remove_many_at
+resize = array.resize
+reverse = array.reverse
+scan = array.scan
+scan_back = array.scan_back
+set_slice = array.set_slice
+singleton = array.singleton
+skip = array.skip
+skip_while = array.skip_while
+sort = array.sort
+sort_by = array.sort_by
+sort_by_descending = array.sort_by_descending
+sort_descending = array.sort_descending
+sort_in_place = array.sort_in_place
+sort_in_place_by = array.sort_in_place_by
+sort_in_place_with = array.sort_in_place_with
+sort_with = array.sort_with
+split_into = array.split_into
+sum = array.sum
+sum_by = array.sum_by
+tail = array.tail
+take = array.take
+take_while = array.take_while
+transpose = array.transpose
+truncate = array.truncate
+try_exactly_one = array.try_exactly_one
+try_find = array.try_find
+try_find_back = array.try_find_back
+try_find_index = array.try_find_index
+try_find_index_back = array.try_find_index_back
+try_head = array.try_head
+try_item = array.try_item
+try_last = array.try_last
+try_pick = array.try_pick
+unzip = array.unzip
+unzip3 = array.unzip3
+update_at = array.update_at
+where = array.where
+windowed = array.windowed
+zero_create = array.zero_create
+zip = array.zip
+zip3 = array.zip3
 
 Array = array.FSharpArray
 FSharpCons = array.FSharpCons
@@ -161,6 +172,7 @@ __all__ = [
     "Array",
     "BoolArray",
     "BoolArrayCons",
+    "FSharpCons",
     "Float32Array",
     "Float32ArrayCons",
     "Float64Array",
@@ -189,6 +201,7 @@ __all__ = [
     "average_by",
     "choose",
     "chunk_by_size",
+    "collect",
     "compare_to",
     "compare_with",
     "concat",
@@ -199,6 +212,7 @@ __all__ = [
     "empty",
     "equals_with",
     "exists",
+    "exists2",
     "exists_offset",
     "fill",
     "filter",
@@ -208,12 +222,14 @@ __all__ = [
     "find_index_back",
     "find_last_index",
     "fold",
+    "fold2",
     "fold_back",
     "fold_back2",
     "fold_back_indexed",
     "fold_back_indexed2",
     "fold_indexed",
     "for_all",
+    "for_all2",
     "get_sub_array",
     "head",
     "index_of",
@@ -224,7 +240,9 @@ __all__ = [
     "insert_range_in_place",
     "item",
     "iterate",
+    "iterate2",
     "iterate_indexed",
+    "iterate_indexed2",
     "last",
     "map",
     "map2",
@@ -260,6 +278,7 @@ __all__ = [
     "random_shuffle_in_place_by",
     "random_shuffle_in_place_with",
     "random_shuffle_with",
+    "remove_all_in_place",
     "remove_at",
     "remove_in_place",
     "remove_many_at",
@@ -273,6 +292,8 @@ __all__ = [
     "skip_while",
     "sort",
     "sort_by",
+    "sort_by_descending",
+    "sort_descending",
     "sort_in_place",
     "sort_in_place_by",
     "sort_in_place_with",
@@ -280,21 +301,28 @@ __all__ = [
     "split_into",
     "sum",
     "sum_by",
+    "all_pairs",
+    "exactly_one",
     "tail",
     "take",
     "take_while",
     "transpose",
     "truncate",
+    "try_exactly_one",
     "try_find",
     "try_find_back",
     "try_find_index",
     "try_find_index_back",
     "try_head",
     "try_item",
+    "try_last",
     "try_pick",
     "unzip",
+    "unzip3",
     "update_at",
     "windowed",
+    "where",
     "zero_create",
     "zip",
+    "zip3",
 ]

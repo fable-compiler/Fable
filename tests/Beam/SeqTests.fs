@@ -81,7 +81,18 @@ let ``test Seq.last works`` () =
 
 [<Fact>]
 let ``test Seq.length works`` () =
-    [1; 2; 3] |> Seq.length |> equal 3
+    let xs = seq { 1; 2; 3; 4 }
+    Seq.length xs |> equal 4
+
+[<Fact>]
+let ``test Seq.length works with arrays`` () =
+    let xs = [|1; 2; 3; 4|]
+    Seq.length xs |> equal 4
+
+[<Fact>]
+let ``test Seq.length works with lists`` () =
+    let xs = [1; 2; 3; 4]
+    Seq.length xs |> equal 4
 
 [<Fact>]
 let ``test Seq.isEmpty works`` () =
@@ -641,8 +652,10 @@ let ``test Seq.compareWith works`` () =
 
 [<Fact>]
 let ``test Seq.fold2 works`` () =
-    Seq.fold2 (fun acc a b -> acc + a + b) 0 [1; 2; 3] [10; 20; 30]
-    |> equal 66
+    let xs = [1; 2; 3; 4]
+    let ys = [1; 2; 3; 4; 5]
+    let total = Seq.fold2 (fun acc x y -> acc + x + y) 0 xs ys
+    total |> equal 20
 
 [<Fact>]
 let ``test Seq.scanBack works`` () =
@@ -692,8 +705,10 @@ let ``test Seq.distinctBy with tuples works`` () =
 
 [<Fact>]
 let ``test Seq.foldBack2 works`` () =
-    Seq.foldBack2 (fun x y acc -> x + y - acc) [1; 2; 3; 4] [1; 2; 3; 4] 0
-    |> equal -4
+    let xs = [1; 2; 3; 4]
+    let ys = [1; 2; 3; 4; 5]
+    let total = Seq.foldBack2 (fun x y acc -> x + y - acc) xs ys 0
+    total |> equal -4
 
 [<Fact>]
 let ``test Seq.forall is lazy`` () =

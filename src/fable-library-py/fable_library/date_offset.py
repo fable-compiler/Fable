@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime, timedelta, timezone
 from math import fmod
 from typing import Any, SupportsFloat, SupportsIndex, SupportsInt, overload
@@ -189,10 +190,26 @@ def timedelta_total_microseconds(td: timedelta) -> int:
     return td.days * (24 * 3600) + td.seconds * 10**6 + td.microseconds
 
 
-def parse(string: str, detectUTC: bool = False) -> DateTimeOffset:
-    from dateutil import parser  # noqa: PLC0415 - lazy import to avoid top-level dependency
+_NON_ISO_FORMATS: dict[str, str] = {
+    # 9/10/2014 1:50:34 PM
+    r"^(0?[1-9]|1[0-2])\/(0?[1-9]|1[0-2])\/\d{4} ([0-9]|(0|1)[0-9]|2[0-4]):([0-5][0-9]|0?[0-9]):([0-5][0-9]|0?[0-9]) [AP]M$": "%m/%d/%Y %I:%M:%S %p",
+    # 9/10/2014 1:50:34
+    r"^(0?[1-9]|1[0-2])\/(0?[1-9]|1[0-2])\/\d{4} ([0-9]|(0|1)[0-9]|2[0-4]):([0-5][0-9]|0?[0-9]):([0-5][0-9]|0?[0-9])$": "%m/%d/%Y %H:%M:%S",
+}
 
-    parsed_dt = parser.parse(string)
+
+def _parse_non_iso(string: str) -> datetime:
+    for pattern, fmt in _NON_ISO_FORMATS.items():
+        if re.fullmatch(pattern, string):
+            return datetime.strptime(string, fmt)
+    raise ValueError(f"Unsupported format by Fable: {string}")
+
+
+def parse(string: str, detectUTC: bool = False) -> DateTimeOffset:
+    try:
+        parsed_dt = datetime.fromisoformat(string)
+    except ValueError:
+        parsed_dt = _parse_non_iso(string)
 
     # Calculate offset in milliseconds
     if parsed_dt.tzinfo is not None:

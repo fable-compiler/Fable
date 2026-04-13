@@ -1,0 +1,111 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:
+      all-npm:
+        patterns:
+          - "*"
+    ignore:
+      # TypeScript 6 is a major breaking version — update manually when ready.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:
+      all-nuget:
+        patterns:
+          - "*"
+    ignore:
+      # Fable.Core targets the lowest compatible FSharp.Core to avoid forcing
+      # downstream users to upgrade. Update this manually and intentionally.
+      - dependency-name: "FSharp.Core"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+    groups:
+      all-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:
+      all-pip:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "pip"
+    directory: "/src/fable-library-py"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:
+      all-pip:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "npm"
+    directory: "/tests/React"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:
+      all-npm:
+        patterns:
+          - "*"
+    ignore:
+      # React 19 is a major breaking version — update manually when ready.
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "cargo"
+    directory: "/src/fable-library-rust"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:
+      all-cargo:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "cargo"
+    directory: "/src/fable-library-py"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    groups:
+      all-cargo:
+        patterns:
+          - "*"

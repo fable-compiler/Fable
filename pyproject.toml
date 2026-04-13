@@ -9,9 +9,7 @@ authors = [
 requires-python = ">= 3.12, < 4.0"
 readme = "README.md"
 license = "MIT"
-dependencies = [
-    "python-dateutil>=2.9.0,<3",
-]
+dependencies = []
 
 [project.urls]
 Homepage = "https://fable.io"

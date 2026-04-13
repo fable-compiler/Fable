@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Extract command to run
-        uses: actions/github-script@v3
+        uses: actions/github-script@v8
         id: command-extractor
         with:
           result-encoding: string
@@ -28,7 +28,7 @@ jobs:
 
             return command[1];
       - name: Get github ref
-        uses: actions/github-script@v3
+        uses: actions/github-script@v8
         id: get-pr
         with:
           script: |
@@ -39,7 +39,7 @@ jobs:
             });
             return { "ref": result.data.head.ref, "repository": result.data.head.repo.full_name};
       - name: Checkout repo
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           repository: ${{ fromJson(steps.get-pr.outputs.result).repository }}
           ref: ${{ fromJson(steps.get-pr.outputs.result).ref }}
@@ -63,7 +63,7 @@ jobs:
           git push
       - name: Post command comment
         if: steps.fantomas.outcome == 'success'
-        uses: actions/github-script@v3
+        uses: actions/github-script@v8
         with:
           script: |
             // Probably, there's more universal way of getting outputs, but my gh-actions-fu is not that good.
@@ -82,7 +82,7 @@ jobs:
             });
       - name: Post command failed comment
         if: failure()
-        uses: actions/github-script@v3
+        uses: actions/github-script@v8
         with:
           script: |
             const body = `Failed to run ${{ steps.command-extractor.outputs.result }}: https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;

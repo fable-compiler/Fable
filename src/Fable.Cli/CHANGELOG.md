@@ -7,8 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+
+* [Beam] Fix `List.Cons` call replacement and test (by @ncave)
+* [Beam/Dart/Python/TypeScript] Fix `Array.Equals` to use reference equality instead of structural equality (by @ncave)
+* [Dart/Python/TypeScript/Rust] Fix `Seq.foldBack2` for sequences with different lengths (by @ncave)
+* [All] Fix missing `HashSet` implementations and tests (by @ncave)
+* [Rust] Fix `Array/HashMap/HashSet` internal representation (by @ncave)
+* [Rust] Fix F# classes reference equality semantics (by @ncave)
+* [Python] Fix missing `Array` module implementations and tests (by @ncave)
+* [Python] Fix object expressions implementing interfaces with `[<CLIEvent>]` members no longer produce unimplementable abstract Protocol members (fixes #3039)
+* [Python] Fix `DateTime.TryParse` incorrectly assigning `DateTimeKind.Local` to naive datetime strings (should be `DateTimeKind.Unspecified`) (fixes #3654)
+* [JS/TS] Fix `String.Contains` ignoring `StringComparison` argument (second argument was silently discarded)
+* [Python] Fix `String.Contains` ignoring `StringComparison` argument (second argument was silently discarded)
+
+## 5.0.0-rc.7 - 2026-04-07
+
 ### Added
 
+* [Python/Beam] Add F# quotation support — construction, pattern matching, and evaluation via `LeafExpressionConverter.EvaluateQuotation` (by @dbrattli)
+* [JS/TS] Add F# quotation support — construction, pattern matching, and evaluation (by @OnurGumus)
 * [All] Add support for `Guid.CreateVersion7()` and `Guid.CreateVersion7(DateTimeOffset)` (by @OnurGumus)
 * [All] Add missing `Array`, `List`, and `Seq` random choice/shuffle/sample members and tests (by @ncave)
 * [Dart/Rust] Add missing `System.Random` implementations and tests (by @ncave)
@@ -16,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Python] Remove `python-dateutil` dependency from fable-library; use stdlib `datetime.fromisoformat` with `strptime` fallback
 * [All] Fix unnecessary object allocations during AST traversal when visiting `Import` expressions (by Repo Assist)
 * [Beam] Fix `System.Random.Next(0)` implementation (by @ncave)
 * [Python] Fix `System.Random` seeded implementation  (by @ncave)
@@ -30,8 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Python] Add `DateOnly` and `TimeOnly` support (by @dbrattli)
 * [Python] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument emitting it as a start-index instead of a compile error (by @repo-assist)
 * [Beam] Fix `String.IndexOf`/`LastIndexOf` with `StringComparison` argument incorrectly treating the enum value as a start index
-* [JS/TS] Fix `String.Contains` ignoring `StringComparison` argument (second argument was silently discarded)
-* [Python] Fix `String.Contains` ignoring `StringComparison` argument (second argument was silently discarded)
+* [JS/TS/Python] Fix `Async.StartChild` with timeout always timing out even when the computation finishes before the deadline (fixes #4481) (by @MangelMaxime)
 
 ## 5.0.0-rc.6 - 2026-03-31
 

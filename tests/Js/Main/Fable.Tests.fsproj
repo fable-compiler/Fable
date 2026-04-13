@@ -12,7 +12,7 @@
 
  <ItemGroup>
     <PackageReference Include="Expecto" Version="10.2.3" />
-    <PackageReference Include="AltCover" Version="5.3.675" />
+    <PackageReference Include="AltCover" Version="9.0.102" />
     <PackageReference Include="Fable.JsonProvider" Version="1.1.1" />
     <PackageReference Include="FSharp.UMX" Version="1.1.0" />
   </ItemGroup>
@@ -87,6 +87,7 @@
     <Compile Include="TypeTests.fs" />
     <Compile Include="UnionTypeTests.fs" />
     <Compile Include="UriTests.fs" />
+    <Compile Include="QuotationTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

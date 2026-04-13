@@ -10,47 +10,48 @@ pub mod HashMap_ {
     use std::collections;
 
     use crate::NativeArray_::{array_from, Array};
-    use crate::Native_::{default_eq_comparer, mkRefMut, seq_to_iter};
+    use crate::Native_::{default_eq_comparer, seq_to_iter};
     use crate::Native_::{HashKey, LrcPtr, MutCell, Seq, Vec};
     use crate::System::Collections::Generic::IEqualityComparer_1;
 
     use core::fmt::{Debug, Display, Formatter, Result};
     use core::hash::{Hash, Hasher};
 
-    type MutHashMap<K, V> = MutCell<collections::HashMap<HashKey<K>, V>>;
-
     #[derive(Clone)] //, Debug, Default, PartialEq, PartialOrd, Eq, Hash, Ord)]
-    pub struct HashMap<K: Clone, V: Clone> {
-        hash_map: LrcPtr<MutHashMap<K, V>>,
+    pub struct MutHashMap<K: Clone, V: Clone> {
+        hash_map: MutCell<collections::HashMap<HashKey<K>, V>>,
         comparer: LrcPtr<dyn IEqualityComparer_1<K>>,
     }
 
-    // impl<K, V: Clone> Default for HashMap<K, V>
-    // where
-    //     K: Clone + Hash + PartialEq + 'static,
-    // {
-    //     fn default() -> HashMap<K, V> {
-    //         new_empty()
-    //     }
-    // }
+    pub type HashMap<K, V> = LrcPtr<MutHashMap<K, V>>;
 
-    impl<K: Clone, V: Clone> core::ops::Deref for HashMap<K, V> {
-        type Target = LrcPtr<MutHashMap<K, V>>;
+    impl<K: Clone, V: Clone> core::ops::Deref for MutHashMap<K, V> {
+        type Target = MutCell<collections::HashMap<HashKey<K>, V>>;
         fn deref(&self) -> &Self::Target {
             &self.hash_map
         }
     }
 
-    impl<K: Clone + Debug, V: Clone + Debug> Debug for HashMap<K, V> {
+    impl<K: Clone + Debug, V: Clone + Debug> Debug for MutHashMap<K, V> {
         fn fmt(&self, f: &mut Formatter) -> Result {
             write!(f, "{:?}", self.hash_map) //TODO:
         }
     }
 
-    impl<K: Clone + Debug, V: Clone + Debug> Display for HashMap<K, V> {
+    impl<K: Clone + Debug, V: Clone + Debug> Display for MutHashMap<K, V> {
         fn fmt(&self, f: &mut Formatter) -> Result {
             write!(f, "{:?}", self.hash_map) //TODO:
         }
+    }
+
+    fn make_hash_map<K: Clone, V: Clone>(
+        hash_map: collections::HashMap<HashKey<K>, V>,
+        comparer: LrcPtr<dyn IEqualityComparer_1<K>>,
+    ) -> HashMap<K, V> {
+        LrcPtr::new(MutHashMap {
+            hash_map: MutCell::new(hash_map),
+            comparer,
+        })
     }
 
     fn from_iter<K: Clone + 'static, V: Clone, I: Iterator<Item = (K, V)>>(
@@ -61,10 +62,7 @@ pub mod HashMap_ {
             let key = HashKey::new(k, comparer.clone());
             (key, v)
         });
-        HashMap {
-            hash_map: mkRefMut(collections::HashMap::from_iter(it)),
-            comparer: comparer.clone(),
-        }
+        make_hash_map(collections::HashMap::from_iter(it), comparer.clone())
     }
 
     fn to_iter<K: Clone, V: Clone>(map: &HashMap<K, V>) -> impl Iterator<Item = (K, V)> + '_ {
@@ -75,39 +73,33 @@ pub mod HashMap_ {
     where
         K: Clone + Hash + PartialEq + 'static,
     {
-        HashMap {
-            hash_map: mkRefMut(collections::HashMap::new()),
-            comparer: default_eq_comparer::<K>(),
-        }
+        make_hash_map(collections::HashMap::new(), default_eq_comparer::<K>())
     }
 
     pub fn new_with_capacity<K, V: Clone>(capacity: i32) -> HashMap<K, V>
     where
         K: Clone + Hash + PartialEq + 'static,
     {
-        HashMap {
-            hash_map: mkRefMut(collections::HashMap::with_capacity(capacity as usize)),
-            comparer: default_eq_comparer::<K>(),
-        }
+        make_hash_map(
+            collections::HashMap::with_capacity(capacity as usize),
+            default_eq_comparer::<K>(),
+        )
     }
 
     pub fn new_with_comparer<K: Clone, V: Clone>(
         comparer: LrcPtr<dyn IEqualityComparer_1<K>>,
     ) -> HashMap<K, V> {
-        HashMap {
-            hash_map: mkRefMut(collections::HashMap::new()),
-            comparer,
-        }
+        make_hash_map(collections::HashMap::new(), comparer)
     }
 
     pub fn new_with_capacity_comparer<K: Clone, V: Clone>(
         capacity: i32,
         comparer: LrcPtr<dyn IEqualityComparer_1<K>>,
     ) -> HashMap<K, V> {
-        HashMap {
-            hash_map: mkRefMut(collections::HashMap::with_capacity(capacity as usize)),
+        make_hash_map(
+            collections::HashMap::with_capacity(capacity as usize),
             comparer,
-        }
+        )
     }
 
     pub fn new_from_enumerable<K, V: Clone + 'static>(seq: Seq<(K, V)>) -> HashMap<K, V>

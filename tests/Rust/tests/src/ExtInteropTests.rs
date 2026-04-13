@@ -41,15 +41,15 @@ pub mod ExtInteropTests {
 
     pub mod ArrayTests {
         //Work in progress - Array needs a built in wrapper as first class citizen before this can be fleshed out
-        use fable_library_rust::NativeArray_::Array;
+        use fable_library_rust::NativeArray_::array_from;
         use fable_library_rust::Native_::Vec;
 
         #[test]
         pub fn can_interop_between_array_and_vec() {
             //todo
             let raw = Vec::from([1, 2, 3]);
-            let arr = Array::from(&raw);
-            let tgt: Vec<i32> = arr.clone().into();
+            let arr = array_from(raw.clone());
+            let tgt: Vec<i32> = arr.get().clone();
             assert_eq!(raw, tgt);
         }
     }
