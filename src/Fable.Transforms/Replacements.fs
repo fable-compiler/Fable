@@ -1647,12 +1647,12 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
 
         makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
     | "GetEnumerator", Some c, _ -> stringToCharArray c |> getEnumerator com r t |> Some
-    | "Contains", Some c, arg :: _ ->
-        if (List.length args) > 1 then
-            addWarning com ctx.InlinePath r "String.Contains: second argument is ignored"
-
+    | "Contains", Some c, [ arg ] ->
         let left = Helper.InstanceCall(c, "indexOf", Int32.Number, [ arg ])
         makeEqOp r left (makeIntConst 0) BinaryGreaterOrEqual |> Some
+    | "Contains", Some c, [ _arg; _comp ] ->
+        Helper.LibCall(com, "String", "contains", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
+        |> Some
     | "StartsWith", Some c, [ _str ] -> Helper.InstanceCall(c, "startsWith", Boolean, args) |> Some
     | "StartsWith", Some c, [ _str; _comp ] ->
         Helper.LibCall(com, "String", "startsWith", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
