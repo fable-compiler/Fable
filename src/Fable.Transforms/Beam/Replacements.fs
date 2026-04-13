@@ -11,12 +11,19 @@ type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
+let private physicalEquals r (left: Expr) (right: Expr) =
+    emitExpr r Boolean [ left; right ] "($0 =:= $1)"
+
 // Use fable_comparison:equals/2 for structural equality.
 // This handles ref-wrapped arrays (process dict refs) by dereferencing
 // before comparison, so structural equality works correctly.
 let private equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
     let eqCall =
-        Helper.LibCall(com, "fable_comparison", "equals", Boolean, [ left; right ], ?loc = r)
+        match left.Type with
+        // ResizeArray (System.Collections.Generic.List) uses reference equality in .NET, see #3718.
+        // Two distinct refs are never =:=, so this matches .NET semantics directly.
+        | Array(_, ResizeArray) -> physicalEquals r left right
+        | _ -> Helper.LibCall(com, "fable_comparison", "equals", Boolean, [ left; right ], ?loc = r)
 
     if equal then
         eqCall
@@ -25,9 +32,6 @@ let private equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
 
 let private compare (com: ICompiler) r (left: Expr) (right: Expr) =
     Helper.LibCall(com, "fable_comparison", "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
-
-let private physicalEquals r (left: Expr) (right: Expr) =
-    emitExpr r Boolean [ left; right ] "($0 =:= $1)"
 
 /// Deref an array ref to its underlying list (for passing to list BIFs).
 /// Byte arrays (UInt8) are atomics — convert to list via fable_utils:byte_array_to_list.
