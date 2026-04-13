@@ -3,13 +3,29 @@
 open Util.Testing
 open System.Collections.Generic
 
-// type MyRefType(i: int) =
-//     member x.Value = i
+type MyRefType(i: int) =
+    member x.Value = i
+
+type MyRefTypeComparer() =
+    interface IEqualityComparer<MyRefType> with
+        member _.Equals(x, y) = x.Value = y.Value
+        member _.GetHashCode(x) = x.Value
+
+type IgnoreCaseComparer() =
+    interface IEqualityComparer<string> with
+        member _.Equals(s1, s2) =
+            System.String.Equals(s1, s2, System.StringComparison.InvariantCultureIgnoreCase)
+
+        member _.GetHashCode(s) =
+            if System.String.IsNullOrEmpty(s) then 0 else s.ToLowerInvariant().GetHashCode()
 
 let inline private hashSet xs =
     let res = HashSet<_>()
     xs |> List.iter (fun x -> res.Add x |> ignore)
     res
+
+[<ReferenceEquality>]
+type RefEqRecord = { a: int; b: int }
 
 type MyRecord = { a: int }
 
@@ -21,7 +37,7 @@ type Apa<'t when 't : equality>() =
     member _.Contains t = state.Contains t
 
 [<Fact>]
-let ``HashSet ctor works`` () =
+let ``HashSet ctor creates empty HashSet`` () =
     let xs = HashSet<int>()
     xs.Count |> equal 0
 
@@ -31,29 +47,26 @@ let ``HashSet ctor with capacity works`` () =
     xs.Count |> equal 0
 
 [<Fact>]
-let ``HashSet ctor from IEnumerable works`` () =
+let ``HashSet ctor from Enumerable works`` () =
     let s = List.toSeq [1;2;2;3]
     let xs = HashSet<int>(s)
     xs.Count |> equal 3
 
-// [<Fact>]
-// let ``HashSets with IEqualityComparer work`` () =
-//     let x = MyRefType(4)
-//     let y = MyRefType(4)
-//     let z = MyRefType(6)
-//     let set1 = HashSet<_>()
-//     set1.Add(x) |> equal true
-//     set1.Contains(x) |> equal true
-//     set1.Contains(y) |> equal false
-//     let comparer =
-//         { new IEqualityComparer<MyRefType> with
-//             member _.Equals(x, y) = x.Value = y.Value
-//             member _.GetHashCode(x) = x.Value }
-//     let set2 = HashSet<_>(comparer)
-//     set2.Add(x) |> equal true
-//     set2.Contains(x) |> equal true
-//     set2.Contains(y) |> equal true
-//     set2.Contains(z) |> equal false
+[<Fact>]
+let ``HashSet with IEqualityComparer works`` () =
+    let x = MyRefType(4)
+    let y = MyRefType(4)
+    let z = MyRefType(6)
+    let set1 = HashSet<_>()
+    set1.Add(x) |> equal true
+    set1.Contains(x) |> equal true
+    set1.Contains(y) |> equal false
+
+    let set2 = HashSet<_>(MyRefTypeComparer())
+    set2.Add(x) |> equal true
+    set2.Contains(x) |> equal true
+    set2.Contains(y) |> equal true
+    set2.Contains(z) |> equal false
 
 [<Fact>]
 let ``HashSet.Add returns true if not present`` () =
@@ -101,12 +114,7 @@ let ``HashSet.IntersectWith works`` () =
 
 [<Fact>]
 let ``HashSet.IntersectWith works with custom comparison`` () = // See #2566
-    let ignoreCase =
-        { new IEqualityComparer<string> with
-            member _.Equals(s1: string, s2: string) =
-                s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
-            member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
-    let xs = new HashSet<string>(["Foo"; "bar"], ignoreCase)
+    let xs = new HashSet<string>(["Foo"; "bar"], IgnoreCaseComparer())
     xs.Contains("foo") |> equal true
     xs.Contains("Foo") |> equal true
     xs.Contains("bar") |> equal true
@@ -126,12 +134,7 @@ let ``HashSet.ExceptWith works`` () =
 
 [<Fact>]
 let ``HashSet.ExceptWith works with custom comparison`` () =
-    let ignoreCase =
-        { new IEqualityComparer<string> with
-            member _.Equals(s1: string, s2: string) =
-                s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
-            member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
-    let xs = HashSet<string>(["Foo"; "bar"], ignoreCase)
+    let xs = HashSet<string>(["Foo"; "bar"], IgnoreCaseComparer())
     xs.ExceptWith(["foo"; "baz"])
     xs.Count |> equal 1
     xs.Contains("foo") |> equal false
@@ -150,12 +153,7 @@ let ``HashSet.SymmetricExceptWith works`` () =
 
 [<Fact>]
 let ``HashSet.SymmetricExceptWith works with custom comparison`` () =
-    let ignoreCase =
-        { new IEqualityComparer<string> with
-            member _.Equals(s1: string, s2: string) =
-                s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
-            member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
-    let xs = HashSet<string>(["Foo"; "bar"], ignoreCase)
+    let xs = HashSet<string>(["Foo"; "bar"], IgnoreCaseComparer())
     xs.SymmetricExceptWith(["foo"; "baz"])
     xs.Count |> equal 2
     xs.Contains("foo") |> equal false
@@ -170,12 +168,7 @@ let ``HashSet.Overlaps works`` () =
 
 [<Fact>]
 let ``HashSet.Overlaps works with custom comparison`` () =
-    let ignoreCase =
-        { new IEqualityComparer<string> with
-            member _.Equals(s1: string, s2: string) =
-                s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
-            member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
-    let xs = HashSet<string>(["Foo"; "bar"], ignoreCase)
+    let xs = HashSet<string>(["Foo"; "bar"], IgnoreCaseComparer())
     xs.Overlaps ["foo"; "baz"] |> equal true
     xs.Overlaps ["baz"; "qux"] |> equal false
 
@@ -187,12 +180,7 @@ let ``HashSet.SetEquals works`` () =
 
 [<Fact>]
 let ``HashSet.SetEquals works with custom comparison`` () =
-    let ignoreCase =
-        { new IEqualityComparer<string> with
-            member _.Equals(s1: string, s2: string) =
-                s1.Equals(s2, System.StringComparison.InvariantCultureIgnoreCase)
-            member _.GetHashCode(s: string) = s.ToLowerInvariant().GetHashCode() }
-    let xs = HashSet<string>(["Foo"; "bar"], ignoreCase)
+    let xs = HashSet<string>(["Foo"; "bar"], IgnoreCaseComparer())
     xs.SetEquals ["foo"; "BAR"; "foo"] |> equal true
     xs.SetEquals ["foo"; "baz"] |> equal false
 
@@ -239,7 +227,7 @@ let ``HashSet.Add works`` () =
     xs.Count |> equal 2
 
 [<Fact>]
-let ``HashSet.Add works ||`` () =
+let ``HashSet.Add works II`` () =
     let xs = HashSet<_>()
     xs.Add("A") |> equal true
     xs.Add("B") |> equal true
@@ -255,6 +243,17 @@ let ``HashSet.Add with records works`` () =
     xs.Add x2 |> equal false
     xs.Add x3 |> equal true
     xs.Count |> equal 2
+
+[<Fact>]
+let ``HashSet.Add with reference records works`` () =
+    let x1 = { a = 5; b = 10 }
+    let x2 = { a = 5; b = 10 }
+    let x3 = { a = 10; b = 20 }
+    let xs = HashSet<RefEqRecord>()
+    xs.Add x1 |> equal true
+    xs.Add x2 |> equal true
+    xs.Add x3 |> equal true
+    xs.Count |> equal 3
 
 [<Fact>]
 let ``HashSet.Clear works`` () =
@@ -335,3 +334,94 @@ let ``HashSet equality works with generics`` () = // See #1712
     apa.Add({ i = 5; s = "foo"})
     apa.Contains ({ i = 5; s = "foo"}) |> equal true
     apa.Contains ({ i = 5; s = "fo"}) |> equal false
+
+[<Fact>]
+let ``HashSet.IsSubsetOf works`` () =
+    let xs = hashSet [1; 2]
+    let ys = hashSet [1; 2; 3]
+    xs.IsSubsetOf(ys) |> equal true
+    ys.IsSubsetOf(xs) |> equal false
+    xs.IsSubsetOf(xs) |> equal true
+
+[<Fact>]
+let ``HashSet.IsSupersetOf works`` () =
+    let xs = hashSet [1; 2; 3]
+    let ys = hashSet [1; 2]
+    xs.IsSupersetOf(ys) |> equal true
+    ys.IsSupersetOf(xs) |> equal false
+    xs.IsSupersetOf(xs) |> equal true
+
+[<Fact>]
+let ``HashSet.IsProperSubsetOf works`` () =
+    let xs = hashSet [1; 2]
+    let ys = hashSet [1; 2; 3]
+    xs.IsProperSubsetOf(ys) |> equal true
+    ys.IsProperSubsetOf(xs) |> equal false
+    xs.IsProperSubsetOf(xs) |> equal false
+
+[<Fact>]
+let ``HashSet.IsProperSupersetOf works`` () =
+    let xs = hashSet [1; 2; 3]
+    let ys = hashSet [1; 2]
+    xs.IsProperSupersetOf(ys) |> equal true
+    ys.IsProperSupersetOf(xs) |> equal false
+    xs.IsProperSupersetOf(xs) |> equal false
+
+// [<Fact>]
+// let ``HashSet IReadOnlyCollection.Count works`` () =
+//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+//     let coll = (HashSet xs) :> IReadOnlyCollection<_>
+//     coll.Count |> equal 3
+
+// [<Fact>]
+// let ``HashSet ICollection.IsReadOnly works`` () =
+//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+//     let coll = (HashSet xs) :> ICollection<_>
+//     coll.IsReadOnly |> equal false
+
+// [<Fact>]
+// let ``HashSet ICollection.Count works`` () =
+//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+//     let coll = (HashSet xs) :> ICollection<_>
+//     coll.Count |> equal 3
+
+// [<Fact>]
+// let ``HashSet ICollection.Contains works`` () =
+//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+//     let coll = (HashSet xs) :> ICollection<_>
+//     coll.Contains(("B", 3)) |> equal false
+//     coll.Contains(("D", 3)) |> equal false
+//     coll.Contains(("B", 2)) |> equal true
+
+// [<Fact>]
+// let ``HashSet ICollection.CopyTo works`` () =
+//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+//     let coll = (HashSet xs) :> ICollection<_>
+//     let ys = [| ("D", 4); ("E", 5); ("F", 6) |]
+//     coll.CopyTo(ys, 0)
+//     ys = xs |> equal true
+
+// [<Fact>]
+// let ``HashSet ICollection.Clear works`` () =
+//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+//     let coll = (HashSet xs) :> ICollection<_>
+//     coll.Clear()
+//     coll.Count |> equal 0
+
+// [<Fact>]
+// let ``HashSet ICollection.Add works`` () =
+//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+//     let coll = (HashSet xs) :> ICollection<_>
+//     coll.Add(("A", 1))
+//     coll.Add(("A", 2))
+//     coll.Add(("D", 4))
+//     coll.Count |> equal 5
+
+// [<Fact>]
+// let ``HashSet ICollection.Remove works`` () =
+//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+//     let coll = (HashSet xs) :> ICollection<_>
+//     coll.Remove(("B", 3)) |> equal false
+//     coll.Remove(("D", 3)) |> equal false
+//     coll.Remove(("B", 2)) |> equal true
+//     coll.Count |> equal 2

@@ -1096,5 +1096,28 @@ let isProperSubsetOf (s1: JS.Set<'T>) (s2: 'T seq) =
     s2.size > s1.size && s1.values () |> Seq.forall s2.has
 
 let isProperSupersetOf (s1: JS.Set<'T>) (s2: 'T seq) =
-    let s2 = Seq.cache s2
-    s2 |> Seq.exists (s1.has >> not) && s2 |> Seq.forall s1.has
+    let s2 = newMutableSetWith s1 s2
+    s1.size > s2.size && s2.values () |> Seq.forall s1.has
+
+let symmetricExceptWith (s1: JS.Set<'T>) (s2: 'T seq) =
+    let s2 = newMutableSetWith s1 s2
+
+    s2.values ()
+    |> Seq.iter (fun x ->
+        if s1.has (x) then
+            s1.delete x |> ignore
+        else
+            s1.add x |> ignore
+    )
+
+let overlaps (s1: JS.Set<'T>) (s2: 'T seq) = s2 |> Seq.exists s1.has
+
+let setEquals (s1: JS.Set<'T>) (s2: 'T seq) =
+    let s2 = newMutableSetWith s1 s2
+    s1.size = s2.size && s1.values () |> Seq.forall s2.has
+
+let copyToArray (s1: JS.Set<'T>) (target: 'T[]) (sourceIndex: int) (targetIndex: int) (count: int) =
+    s1.values ()
+    |> Seq.skip sourceIndex
+    |> Seq.truncate count
+    |> Seq.iteri (fun index value -> target[targetIndex + index] <- value)
