@@ -86,6 +86,19 @@ export function endsWith(str: string, pattern: string, ic: boolean | StringCompa
   return false;
 }
 
+export function contains(str: string, pattern: string, ic: boolean | StringComparison) {
+  if (ic === StringComparison.Ordinal) { // fast path
+    return str.includes(pattern);
+  }
+  const len = pattern.length;
+  for (let i = 0; i <= str.length - len; i++) {
+    if (cmp(str.slice(i, i + len), pattern, ic) === 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
   if (str == null || str === "") {
     return -1;

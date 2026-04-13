@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 * [JS/TS] Fix `ResizeArray` (`System.Collections.Generic.List`) equality to use reference equality instead of structural equality (fixes #3718)
+* [JS/TS] Fix `String.Contains` ignoring `StringComparison` argument (second argument was silently discarded)
 
 ## 2.0.0-rc.6 - 2026-04-07
 

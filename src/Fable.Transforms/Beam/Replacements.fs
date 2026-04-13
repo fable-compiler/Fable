@@ -3567,6 +3567,9 @@ let private hashSets
     | "ExceptWith", Some callee, [ other ] ->
         Helper.LibCall(com, "fable_hashset", "except_with", t, [ callee; other ], ?loc = r)
         |> Some
+    | "SymmetricExceptWith", Some callee, [ other ] ->
+        Helper.LibCall(com, "fable_hashset", "symmetric_except_with", t, [ callee; other ], ?loc = r)
+        |> Some
     // IsSubsetOf / IsSupersetOf / IsProperSubsetOf / IsProperSupersetOf
     | "IsSubsetOf", Some callee, [ other ] ->
         Helper.LibCall(com, "fable_hashset", "is_subset_of", t, [ callee; other ], ?loc = r)
@@ -3580,10 +3583,25 @@ let private hashSets
     | "IsProperSupersetOf", Some callee, [ other ] ->
         Helper.LibCall(com, "fable_hashset", "is_proper_superset_of", t, [ callee; other ], ?loc = r)
         |> Some
-    // CopyTo
-    | "CopyTo", Some callee, [ arr ] ->
-        Helper.LibCall(com, "fable_hashset", "copy_to", t, [ callee; arr ], ?loc = r)
+    | "Overlaps", Some callee, [ other ] ->
+        Helper.LibCall(com, "fable_hashset", "overlaps", t, [ callee; other ], ?loc = r)
         |> Some
+    | "SetEquals", Some callee, [ other ] ->
+        Helper.LibCall(com, "fable_hashset", "set_equals", t, [ callee; other ], ?loc = r)
+        |> Some
+    // CopyTo
+    | "CopyTo", Some callee, args ->
+        match args with
+        | [ arr ] ->
+            Helper.LibCall(com, "fable_hashset", "copy_to", t, [ callee; arr ], ?loc = r)
+            |> Some
+        | [ arr; targetIndex ] ->
+            Helper.LibCall(com, "fable_hashset", "copy_to", t, [ callee; arr; targetIndex ], ?loc = r)
+            |> Some
+        | [ arr; targetIndex; count ] ->
+            Helper.LibCall(com, "fable_hashset", "copy_to", t, [ callee; arr; targetIndex; count ], ?loc = r)
+            |> Some
+        | _ -> None
     // GetEnumerator
     | "GetEnumerator", Some callee, _ ->
         Helper.LibCall(com, "fable_hashset", "get_enumerator", t, [ callee ], ?loc = r)
