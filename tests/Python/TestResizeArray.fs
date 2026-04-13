@@ -348,3 +348,12 @@ let ``test ResizeArray works with Seq.item`` () =
     equal 2 secondItem
     let thirdItem = Seq.item 2 li
     equal 3 thirdItem
+
+[<Fact>]
+let ``test ResizeArray uses reference equality not structural equality`` () = // See #3718
+    let xs = ResizeArray [0; 1; 2]
+    let ys = ResizeArray [0; 1; 2]
+    equal false (xs = ys)
+    equal true (xs = xs)
+    equal true (xs <> ys)
+    equal false (xs <> xs)
