@@ -1404,7 +1404,14 @@ module Util =
 
                 let declaredTypeParams =
                     if isAttached then
-                        info.GenericParameters
+                        match kind with
+                        | Attached(isStatic = true) ->
+                            // Static methods cannot access class type params implicitly;
+                            // they must re-declare them on the method itself.
+                            entGenParams @ info.GenericParameters
+                        | _ ->
+                            // Instance methods inherit class type params; don't re-declare them.
+                            info.GenericParameters
                     else
                         entGenParams @ info.GenericParameters
                     |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints))
