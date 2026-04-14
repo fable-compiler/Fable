@@ -2322,6 +2322,13 @@ module Util =
             if hasOverloadSuffix then
                 com.AddWatchDependency(file)
 
+            // When precompiling an inline function, all referenced values are compiled as imports.
+            // If a referenced value is private, it won't be exported, causing a runtime import error.
+            // Emit a compile-time error matching fsc's behavior.
+            if com.IsPrecompilingInlineFunction && memb.Accessibility.IsPrivate then
+                $"The value '%s{memb.DisplayName}' was marked inline but its implementation makes use of an internal or private function which is not sufficiently accessible"
+                |> addError com [] r
+
             makeInternalMemberImport com typ membRef memberName file
 
     let getFunctionMemberRef (memb: FSharpMemberOrFunctionOrValue) =
