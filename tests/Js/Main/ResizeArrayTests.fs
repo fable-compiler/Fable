@@ -371,7 +371,6 @@ let tests =
         throwsAnyError (fun () -> xs[-1] |> ignore)
         throwsAnyError (fun () -> xs[10] |> ignore)
 
-
     testCase "ResizeArray index out of bounds set throws" <| fun _ -> // See #3812
         let xs = ResizeArray [1; 2; 3]
         throwsAnyError (fun () -> xs.[-1] <- 42)

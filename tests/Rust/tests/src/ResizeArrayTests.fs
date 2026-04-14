@@ -401,3 +401,12 @@ let ``ResizeArray.CopyTo works III`` () =
     let ys = [|5;6;7;8;9|]
     xs.CopyTo(2, ys, 1, 2)
     ys |> equal [|5;3;4;8;9|]
+
+[<Fact>]
+let ``ResizeArray uses reference equality not structural equality`` () =
+    let xs = ResizeArray [0; 1; 2]
+    let ys = ResizeArray [0; 1; 2]
+    equal false (xs = ys)
+    equal true (xs = xs)
+    equal true (xs <> ys)
+    equal false (xs <> xs)

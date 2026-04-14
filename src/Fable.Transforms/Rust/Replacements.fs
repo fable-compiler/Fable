@@ -480,6 +480,7 @@ let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Number _
     | Builtin(FSharpChoice _ | FSharpResult _) -> makeEqOp r left right BinaryEqual
     | Builtin kind -> Helper.LibCall(com, coreModFor kind, "equals", t, [ left; right ], ?loc = r)
+    | Array(_, ResizeArray) -> referenceEquals com ctx r left right
     | Array _ -> Helper.LibCall(com, "Array", "equals", t, [ left; right ], ?loc = r)
     | List _ -> Helper.LibCall(com, "List", "equals", t, [ left; right ], ?loc = r)
     | IEnumerable -> Helper.LibCall(com, "Seq", "equals", t, [ left; right ], ?loc = r)

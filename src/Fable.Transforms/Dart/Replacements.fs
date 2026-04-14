@@ -441,6 +441,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
             makeUnOp None Boolean expr UnaryNot
 
     match left.Type with
+    | Array(_, ResizeArray) -> Helper.GlobalCall("identical", Boolean, [ left; right ], ?loc = r) |> is equal
     | Array(t, _) ->
         match left, right with
         // F# compiler introduces null checks in array pattern matching
