@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [All] Emit a compile-time error when an `inline` function references a private value, instead of generating a broken import that fails at runtime (fixes #3866)
 * [JS/TS/Python/Beam] Fix `ResizeArray` (`System.Collections.Generic.List`) equality to use reference equality instead of structural equality (fixes #3718)
 * [Beam] Fix `List.Cons` call replacement and test (by @ncave)
 * [Beam/Dart/Python/TypeScript] Fix `Array.Equals` to use reference equality instead of structural equality (by @ncave)
