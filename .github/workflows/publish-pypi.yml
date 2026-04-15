@@ -48,7 +48,7 @@ jobs:
           mkdir -p fable_library
           echo "__version__ = \"$VERSION\"" > fable_library/_version.py
       - name: Upload fable-library-py
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: fable-library-py
           path: ./temp/fable-library-py
@@ -128,7 +128,7 @@ jobs:
             manylinux: auto
             working-directory: ./temp/fable-library-py
         - name: Upload wheels
-          uses: actions/upload-artifact@v7
+          uses: actions/upload-artifact@v7.0.1
           with:
             name: wheels-linux-${{ matrix.platform.target }}
             path: ./temp/fable-library-py/dist
@@ -166,7 +166,7 @@ jobs:
             manylinux: musllinux_1_2
             working-directory: ./temp/fable-library-py
         - name: Upload wheels
-          uses: actions/upload-artifact@v7
+          uses: actions/upload-artifact@v7.0.1
           with:
             name: wheels-musllinux-${{ matrix.platform.target }}
             path: ./temp/fable-library-py/dist
@@ -200,7 +200,7 @@ jobs:
             sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
             working-directory: ./temp/fable-library-py
         - name: Upload wheels
-          uses: actions/upload-artifact@v7
+          uses: actions/upload-artifact@v7.0.1
           with:
             name: wheels-windows-${{ matrix.platform.target }}
             path: ./temp/fable-library-py/dist
@@ -234,7 +234,7 @@ jobs:
             sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
             working-directory: ./temp/fable-library-py
         - name: Upload wheels
-          uses: actions/upload-artifact@v7
+          uses: actions/upload-artifact@v7.0.1
           with:
             name: wheels-macos-${{ matrix.platform.target }}
             path: ./temp/fable-library-py/dist
@@ -256,7 +256,7 @@ jobs:
             args: --out dist
             working-directory: ./temp/fable-library-py
         - name: Upload sdist
-          uses: actions/upload-artifact@v7
+          uses: actions/upload-artifact@v7.0.1
           with:
             name: wheels-sdist
             path: ./temp/fable-library-py/dist
