@@ -20,7 +20,7 @@
     "posttest-ts": "mocha build/tests/TypeScriptCompiled/build/tests/TypeScript -reporter dot -t 10000"
   },
   "dependencies": {
-    "@types/node": "^25.5.2",
+    "@types/node": "^25.6.0",
     "concurrently": "^9.2.1",
     "ghreleases": "^3.0.2",
     "mocha": "^11.7.5",
