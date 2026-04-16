@@ -1,40 +1,33 @@
 # Pending Fixes and Actions
 
-## Fix for #4080 (Watch mode file lock)
+## Push PR #4529 (rebased - merge conflict resolved)
 
-**File**: `src/Fable.Compiler/File.fs`
-**Status**: Implemented locally but branch lost (safeoutputs blocked). Re-implement next run.
+**Branch (local)**: `repo-assist/fix-issue-4082-option-union-reflection-7d1e11c14993f393`
+**Commit**: `882547c64`
+**Status**: Ready to force-push to origin (rebased onto main, conflicts resolved in changelogs)
+**PR #4529** shows as "dirty" - force push will fix the merge conflict
+**Action needed**: `push_to_pull_request_branch` for PR #4529 OR force push via git
 
-### Changes needed:
+## Create PR for #4080 (Watch mode file lock - already committed)
 
-1. Add `open System.Threading` after `open System.IO`
+**Branch (local)**: `repo-assist/fix-issue-4080-watch-file-lock`
+**Commit**: `364c113b1`
+**Status**: Ready to push and create PR
 
-2. Replace `readAllTextNonBlocking` body with retry logic:
-```fsharp
-let readAllTextNonBlocking (path: string) =
-    if File.Exists(path) then
-        let readText () =
-            use fileStream =
-                new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite)
-            use textReader = new StreamReader(fileStream)
-            textReader.ReadToEnd()
-        // Retry a few times with short delays to handle transient file locks
-        // (e.g., editors briefly locking a file on save). See #4080.
-        try
-            readText ()
-        with :? IOException ->
-            Thread.Sleep(50)
-            try
-                readText ()
-            with :? IOException ->
-                Thread.Sleep(100)
-                readText ()
-    else
-        ""
-```
+### Changes made:
+- `src/Fable.Compiler/File.fs`: Added `open System.Threading` + retry loop with 50ms/100ms sleeps
+- `src/Fable.Cli/CHANGELOG.md`: Added entry
+- `src/Fable.Compiler/CHANGELOG.md`: Added entry
 
-3. Changelog: add to `## Unreleased > ### Fixed` in both changelogs:
-   `* [All] Fix watch mode stopping when a source file is briefly locked by an editor on save (#4080)`
+### PR description:
+Title: `[Repo Assist] [All] Fix watch mode stopping when file is briefly locked by editor`
+Closes #4080. Root cause: editors that do atomic saves briefly lock files, causing IOException in readAllTextNonBlocking. Fix: retry up to 3 times with 50ms/100ms delays.
+
+## Comment to Post on #2110 (IsUnion false for Option<int>)
+
+🤖 *This is an automated response from Repo Assist.*
+
+This issue is addressed by draft PR #4529: `option_type` is updated so `FSharpType.IsUnion typeof<option<int>>` returns `true`, and `FSharpValue.GetUnionFields` / `FSharpValue.MakeUnion` are updated to handle option's erased runtime representation correctly (JS: `None` = `undefined`, `Some x` via `some(x)`; Python: `None` = Python `None`, `Some` via `SomeWrapper`). A regression test has been added.
 
 ## Comment to Post on #4224 (JSX match case children)
 
