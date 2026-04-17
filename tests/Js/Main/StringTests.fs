@@ -208,6 +208,13 @@ let tests = testList "Strings" [
         printer "morning" |> equal "Hi Alfonso, good morning!"
         printer "evening" |> equal "Hi Alfonso, good evening!"
 
+    testCase "sprintf %g strips trailing zeros" <| fun () ->
+        sprintf "%.6g" 5. |> equal "5"
+        sprintf "%.10g" 1.23 |> equal "1.23"
+        sprintf "%.6g" 0.0001 |> equal "0.0001"
+        sprintf "%g" 123.456 |> equal "123.456"
+        sprintf "%.4g" 1234.5 |> equal "1234"
+
     testCase "sprintf works II" <| fun () ->
         let printer2 = sprintf "Hi %s, good %s%s" "Maxime"
         let printer2 = printer2 "afternoon"

@@ -211,6 +211,9 @@ function formatReplacement(rep: any, flags: any, padLength: any, precision: any,
         break;
       case "g": case "G":
         rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
+        // C printf %g strips trailing zeros from the mantissa
+        rep = rep.replace(/0+(e[+-]?\d+)$/, "$1").replace(/\.(e[+-]?\d+)$/, "$1");
+        rep = trimEnd(trimEnd(rep, "0"), ".");
         break;
       case "e": case "E":
         rep = precision != null ? toExponential(rep, precision) : toExponential(rep);
@@ -392,7 +395,8 @@ export function format(str: string | object, ...args: any[]) {
           break;
         case "g": case "G":
           rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
-          // TODO: Check why some numbers are formatted with decimal part
+          // Strip trailing zeros from mantissa (handles both fixed and scientific notation)
+          rep = rep.replace(/0+(e[+-]?\d+)$/, "$1").replace(/\.(e[+-]?\d+)$/, "$1");
           rep = trimEnd(trimEnd(rep, "0"), ".");
           break;
         case "n": case "N":
