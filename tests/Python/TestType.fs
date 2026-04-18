@@ -591,6 +591,22 @@ type AbstractClassWithResizeArrayProp() =
 type ConcreteClass1() =
     inherit MangledAbstractClass5(2)
 
+// Generic abstract class with members - regression test for Python name-mangling
+// where abstract stubs and overrides produced mismatched names for generic arities.
+[<AbstractClass>]
+type GenericAbstractRunner<'A, 'B>() =
+    abstract Encode: 'A -> string
+    abstract Decode: string -> 'A
+    abstract MapAToB: 'A -> 'B
+    abstract SomeProp: int with get
+
+type ConcreteGenericRunner() =
+    inherit GenericAbstractRunner<int, string>()
+    override _.Encode(a: int) = string a
+    override _.Decode(s: string) = int s
+    override _.MapAToB(a: int) = string a
+    override _.SomeProp = 42
+
 type IndexedProps(v: int) =
     let mutable v = v
     member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
@@ -1793,6 +1809,14 @@ let ``test Unchecked.defaultof works for fields on structs`` () =
     top.A |> equal 0
     top.B.A |> equal 0
     top.B.B |> equal false
+
+[<Fact>]
+let ``test Generic abstract class can be instantiated through derived class`` () =
+    let runner = ConcreteGenericRunner() :> GenericAbstractRunner<int, string>
+    runner.Encode 7 |> equal "7"
+    runner.Decode "42" |> equal 42
+    runner.MapAToB 3 |> equal "3"
+    runner.SomeProp |> equal 42
 
 [<Fact>]
 let ``test Abstract class property backed by captured variable in object expression works`` () =
