@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+* [Python] Fix derived classes of generic abstract classes not being instantiable due to mismatched mangled method names between abstract stubs and overrides (by @dbrattli)
 * [Dart/Rust] Fix `ResizeArray` reference equality (by @ncave)
 * [JS/TS/Python/Beam] Fix `ResizeArray` (`System.Collections.Generic.List`) equality to use reference equality instead of structural equality (fixes #3718)
 * [Beam] Fix `List.Cons` call replacement and test (by @ncave)
