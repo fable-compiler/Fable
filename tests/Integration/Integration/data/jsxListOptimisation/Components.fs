@@ -162,3 +162,11 @@ let propsCanUseUnbox =
     Html.div [
         unbox<JSX_IReactProperty> ("id", "myid")
     ]
+
+// Regression test for https://github.com/fable-compiler/Fable/issues/3839
+// String values longer than ~100 chars were wrapped in a Let binding by Fable,
+// causing transformJsxProps to fail with "Cannot detect JSX prop key at compile time".
+let divWithLongClassName =
+    Html.div [
+        prop.className "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ]

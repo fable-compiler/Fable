@@ -110,3 +110,5 @@ export function divWithConditionalWithoutElseBranchWorks(show) {
 }
 
 export const propsCanUseUnbox = <div id="myid" />;
+
+export const divWithLongClassName = <div className="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" />;
