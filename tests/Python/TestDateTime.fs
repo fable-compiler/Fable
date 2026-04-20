@@ -572,22 +572,22 @@ let ``test DateTime.ToString("u") works`` () =
     |> equal "2014-09-01 16:37:02Z"
 
 [<Fact>]
-let ``test DateTime.ToString("F") works`` () =
+let ``test DateTime.ToString full date long time format works`` () =
     DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("F", CultureInfo.InvariantCulture)
     |> equal "Monday, 01 September 2014 16:37:02"
 
 [<Fact>]
-let ``test DateTime.ToString("f") works`` () =
+let ``test DateTime.ToString full date short time format works`` () =
     DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("f", CultureInfo.InvariantCulture)
     |> equal "Monday, 01 September 2014 16:37"
 
 [<Fact>]
-let ``test DateTime.ToString("G") works`` () =
+let ``test DateTime.ToString general long time format works`` () =
     DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("G", CultureInfo.InvariantCulture)
     |> equal "09/01/2014 16:37:02"
 
 [<Fact>]
-let ``test DateTime.ToString("g") works`` () =
+let ``test DateTime.ToString general short time format works`` () =
     DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("g", CultureInfo.InvariantCulture)
     |> equal "09/01/2014 16:37"
 
