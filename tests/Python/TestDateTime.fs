@@ -594,12 +594,12 @@ let ``test DateTime.ToString general short time format works`` () =
 [<Fact>]
 let ``test DateTime.ToString("M") works`` () =
     DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("M", CultureInfo.InvariantCulture)
-    |> equal "September 1"
+    |> equal "September 01"
 
 [<Fact>]
 let ``test DateTime.ToString("Y") works`` () =
     DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("Y", CultureInfo.InvariantCulture)
-    |> equal "September 2014"
+    |> equal "2014 September"
 
 [<Fact>]
 let ``test DateTime from Year 1 to 99 works`` () =

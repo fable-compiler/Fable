@@ -191,13 +191,13 @@ def to_universal_sortable_string(date: datetime) -> str:
 
 
 def to_month_day_string(date: datetime) -> str:
-    """Month/day: "June 15" """
-    return long_months[date.month - 1] + " " + str(date.day)
+    """Month/day (InvariantCulture "MMMM dd"): "June 15" """
+    return long_months[date.month - 1] + " " + f"{date.day:02d}"
 
 
 def to_year_month_string(date: datetime) -> str:
-    """Year/month: "June 2009" """
-    return long_months[date.month - 1] + " " + str(date.year)
+    """Year/month (InvariantCulture "yyyy MMMM"): "2009 June" """
+    return str(date.year) + " " + long_months[date.month - 1]
 
 
 def parse_repeat_token(format: str, pos: int, pattern_char: str) -> int:

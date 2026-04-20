@@ -549,13 +549,13 @@ let tests =
         let format (d: DateTime) = d.ToString("M", CultureInfo.InvariantCulture)
         DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
         |> format
-        |> equal "September 1"
+        |> equal "September 01"
 
     testCase "DateTime.ToString('Y') works" <| fun _ ->
         let format (d: DateTime) = d.ToString("Y", CultureInfo.InvariantCulture)
         DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
         |> format
-        |> equal "September 2014"
+        |> equal "2014 September"
 
     testCase "DateTime from Year 1 to 99 works" <| fun () ->
         let date = DateTime(1, 1, 2)

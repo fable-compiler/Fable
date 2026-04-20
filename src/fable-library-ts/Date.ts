@@ -496,14 +496,14 @@ function dateToString_u(date: IDateTime) {
     + padWithZeros(second(utcDate), 2) + "Z";
 }
 
-// Month/day: "June 15"
+// Month/day (InvariantCulture "MMMM dd"): "June 15"
 function dateToString_M(date: IDateTime) {
-  return longMonths[month(date) - 1] + " " + day(date);
+  return longMonths[month(date) - 1] + " " + padWithZeros(day(date), 2);
 }
 
-// Year/month: "June 2009"
+// Year/month (InvariantCulture "yyyy MMMM"): "2009 June"
 function dateToString_Y(date: IDateTime) {
-  return longMonths[month(date) - 1] + " " + year(date);
+  return year(date) + " " + longMonths[month(date) - 1];
 }
 
 function dateToStringWithKind(date: IDateTime, format?: string) {
