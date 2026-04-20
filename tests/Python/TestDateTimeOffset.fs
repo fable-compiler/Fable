@@ -490,6 +490,24 @@ let ``test DateTimeOffset.ToString with custom format works`` () =
     |> equal "16:37"
 
 [<Fact>]
+let ``test DateTimeOffset.ToString("R") works`` () =
+    // R always formats in UTC
+    DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.FromHours 2).ToString("R", CultureInfo.InvariantCulture)
+    |> equal "Mon, 01 Sep 2014 14:37:02 GMT"
+
+[<Fact>]
+let ``test DateTimeOffset.ToString("u") works`` () =
+    // u always formats in UTC
+    DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.FromHours 2).ToString("u", CultureInfo.InvariantCulture)
+    |> equal "2014-09-01 14:37:02Z"
+
+[<Fact>]
+let ``test DateTimeOffset.ToString("s") works`` () =
+    // s uses the offset-local time with no timezone designator
+    DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.Zero).ToString("s", CultureInfo.InvariantCulture)
+    |> equal "2014-09-01T16:37:02"
+
+[<Fact>]
 let ``test DateTimeOffset.LocalDateTime works`` () =
     let d = DateTimeOffset(2014, 10, 9, 13, 23, 30, TimeSpan.Zero)
     let d2 = d.LocalDateTime
