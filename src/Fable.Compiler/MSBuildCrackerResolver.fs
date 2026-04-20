@@ -142,7 +142,11 @@ Exception:
             let targets =
                 "ResolveAssemblyReferencesDesignTime,ResolveProjectReferencesDesignTime,ResolvePackageDependenciesDesignTime,FindReferenceAssembliesForReferences,_GenerateCompileDependencyCache,_ComputeNonExistentFileProperty,BeforeBuild,BeforeCompile,CoreCompile"
 
-            let restoreArg = if options.NoRestore then "" else "/restore"
+            let restoreArg =
+                if options.NoRestore then
+                    ""
+                else
+                    "/restore"
 
             let arguments =
                 $"%s{restoreArg} /t:%s{targets} %s{properties} --getItem:FscCommandLineArgs --getItem:ProjectReference --getProperty:OutputType -warnAsMessage:NU1608"
