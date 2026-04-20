@@ -557,7 +557,7 @@ let tests =
         |> format
         |> equal "September 2014"
 
-
+    testCase "DateTime from Year 1 to 99 works" <| fun () ->
         let date = DateTime(1, 1, 2)
         date.Year |> equal 1
         let date = DateTime(99, 1, 2)
