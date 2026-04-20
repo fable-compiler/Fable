@@ -142,8 +142,14 @@ Exception:
             let targets =
                 "ResolveAssemblyReferencesDesignTime,ResolveProjectReferencesDesignTime,ResolvePackageDependenciesDesignTime,FindReferenceAssembliesForReferences,_GenerateCompileDependencyCache,_ComputeNonExistentFileProperty,BeforeBuild,BeforeCompile,CoreCompile"
 
+            let restoreArg =
+                if options.NoRestore then
+                    ""
+                else
+                    "/restore"
+
             let arguments =
-                $"/restore /t:%s{targets} %s{properties} --getItem:FscCommandLineArgs --getItem:ProjectReference --getProperty:OutputType -warnAsMessage:NU1608"
+                $"%s{restoreArg} /t:%s{targets} %s{properties} --getItem:FscCommandLineArgs --getItem:ProjectReference --getProperty:OutputType -warnAsMessage:NU1608"
 
             let! json =
                 dotnet_msbuild_with_defines options.RootDir fsproj.FullName arguments options.FableOptions.Define

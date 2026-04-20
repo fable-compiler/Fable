@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Python] Fix `DateTime.TryParse` incorrectly assigning `DateTimeKind.Local` to naive datetime strings (should be `DateTimeKind.Unspecified`) (fixes #3654)
 * [JS/TS] Fix `String.Contains` ignoring `StringComparison` argument (second argument was silently discarded)
 * [Python] Fix `String.Contains` ignoring `StringComparison` argument (second argument was silently discarded)
+* [All] Fix `--noRestore` not skipping MSBuildCracker restores (by @ randrag)
 
 ## 5.0.0-rc.7 - 2026-04-07
 
