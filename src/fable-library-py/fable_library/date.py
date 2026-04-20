@@ -167,6 +167,39 @@ def to_long_time_string(date: datetime) -> str:
     return datetime.strftime(date, "%H:%M:%S")
 
 
+def to_rfc1123_string(date: datetime) -> str:
+    """RFC 1123: "Thu, 01 Jan 2009 00:00:00 GMT" — always UTC"""
+    utc_date = date.astimezone(UTC)
+    return (
+        short_days[day_of_week(utc_date)]
+        + ", "
+        + utc_date.strftime("%d ")
+        + short_months[utc_date.month - 1]
+        + utc_date.strftime(" %Y %H:%M:%S GMT")
+    )
+
+
+def to_sortable_string(date: datetime) -> str:
+    """Sortable ISO 8601, no timezone: "2009-06-15T13:45:30" """
+    return date.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def to_universal_sortable_string(date: datetime) -> str:
+    """Universal sortable: "2009-06-15 13:45:30Z" — always UTC"""
+    utc_date = date.astimezone(UTC)
+    return utc_date.strftime("%Y-%m-%d %H:%M:%SZ")
+
+
+def to_month_day_string(date: datetime) -> str:
+    """Month/day: "June 15" """
+    return long_months[date.month - 1] + " " + str(date.day)
+
+
+def to_year_month_string(date: datetime) -> str:
+    """Year/month: "June 2009" """
+    return long_months[date.month - 1] + " " + str(date.year)
+
+
 def parse_repeat_token(format: str, pos: int, pattern_char: str) -> int:
     token_length = 0
     internal_pos = pos
@@ -426,6 +459,35 @@ def date_to_string_with_offset(date: datetime, format: str | None = None) -> str
                 return date.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
         case "O" | "o":
             return date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        case "D":
+            return to_long_date_string(date)
+        case "d":
+            return to_short_date_string(date)
+        case "F":
+            return to_long_date_string(date) + " " + to_long_time_string(date)
+        case "f":
+            return to_long_date_string(date) + " " + to_short_time_string(date)
+        case "G":
+            return to_short_date_string(date) + " " + to_long_time_string(date)
+        case "g":
+            return to_short_date_string(date) + " " + to_short_time_string(date)
+        case "M" | "m":
+            return to_month_day_string(date)
+        case "R" | "r":
+            return to_rfc1123_string(date)
+        case "s":
+            return to_sortable_string(date)
+        case "T":
+            return to_long_time_string(date)
+        case "t":
+            return to_short_time_string(date)
+        case "u":
+            return to_universal_sortable_string(date)
+        case "U":
+            utc_date = date.astimezone(UTC)
+            return to_long_date_string(utc_date) + " " + to_long_time_string(utc_date)
+        case "Y" | "y":
+            return to_year_month_string(date)
         case _ if len(format) == 1:
             raise Exception("Unrecognized Date print format")
         case _:
@@ -442,12 +504,33 @@ def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
             return to_short_date_string(date)
         elif format == "D":
             return to_long_date_string(date)
+        elif format == "F":
+            return to_long_date_string(date) + " " + to_long_time_string(date)
+        elif format == "f":
+            return to_long_date_string(date) + " " + to_short_time_string(date)
+        elif format == "G":
+            return to_short_date_string(date) + " " + to_long_time_string(date)
+        elif format == "g":
+            return to_short_date_string(date) + " " + to_short_time_string(date)
+        elif format == "M" or format == "m":
+            return to_month_day_string(date)
+        elif format == "O" or format == "o":
+            return date.astimezone().isoformat(timespec="milliseconds")
+        elif format == "R" or format == "r":
+            return to_rfc1123_string(date)
+        elif format == "s":
+            return to_sortable_string(date)
         elif format == "T":
             return to_long_time_string(date)
         elif format == "t":
             return to_short_time_string(date)
-        elif format == "O" or format == "o":
-            return date.astimezone().isoformat(timespec="milliseconds")
+        elif format == "u":
+            return to_universal_sortable_string(date)
+        elif format == "U":
+            utc_date = date.astimezone(UTC)
+            return to_long_date_string(utc_date) + " " + to_long_time_string(utc_date)
+        elif format == "Y" or format == "y":
+            return to_year_month_string(date)
         else:
             raise Exception("Unrecognized Date print format")
 

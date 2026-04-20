@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+* [JS/TS/Python] Add missing standard DateTime format specifiers: `R`/`r` (RFC 1123), `s` (sortable), `u` (universal sortable), `F`, `f`, `G`, `g`, `M`/`m`, `U`, `Y`/`y` (fixes #3976)
+
 ### Fixed
 
 * [Python] Fix derived classes of generic abstract classes not being instantiable due to mismatched mangled method names between abstract stubs and overrides (by @dbrattli)
