@@ -1,27 +1,20 @@
 # Pending Fixes and Actions
 
-## DONE THIS RUN: #3839 JSX long string fix
+## DONE THIS RUN: DateTime format specifiers fix
 
-**Branch**: `repo-assist/fix-issue-3839-jsx-long-string-prop-v2`
+**Branch**: `repo-assist/fix-datetime-format-specifiers-20260419`
 **Status**: COMMITTED + PR CREATED (via safeoutputs, awaiting PR number assignment)
-**Issue**: #3839 — JSX props with string values > 100 chars cause "Cannot detect JSX prop key at compile time"
-**Fix**: Added `MaybeCasted(Fable.Let(_, letValue, MaybeCasted(Fable.Value(Fable.NewTuple([ StringConst key; _ ], _), _))))` match arm in `transformJsxProps`
+**Issues fixed**: #3976 — Missing DateTime format specifiers (R, s, u, F, f, G, g, M, U, Y)
+**Fix**: Added helper functions and switch cases for all missing standard specifiers in:
+- `src/fable-library-ts/Date.ts`: added `dateToString_R/s/u/M/Y` helpers
+- `src/fable-library-py/fable_library/date.py`: added `to_rfc1123_string/to_sortable_string/etc` helpers
+- Tests in `tests/Js/Main/DateTimeTests.fs` and `tests/Python/TestDateTime.fs`
 
-## DONE THIS RUN: Comment on #3861
+## DONE PREV RUN: #3839 JSX long string fix → PR #4545
 
-Root cause posted: `groupByGetter` in `makePojoFromLambda` (Replacements.fs) only handles FieldSet on IdentExpr/Get patterns. `abstract fn: int -> int` (MemberKind.Member) generates byref/FSharpRef assignment pattern which doesn't match, silently ignored, then copyOfStruct referenced but never declared. Workaround: use `with get, set`.
+## printf %g trailing zeros fix → PR #4543
 
-## printf %g trailing zeros fix
-
-**Branch**: `repo-assist/fix-printf-g-trailing-zeros-80d5cf0dc636481e`
-**PR**: #4543
-**Status**: PR created (draft, open)
-
-## #4080 Watch Mode File Lock (ABANDONED)
-
-Branch was lost between runs and re-implementation is non-trivial. Defer.
-
-## Open Repo Assist PRs (14 total)
+## Open Repo Assist PRs (16 total)
 
 - #4411: [JS/TS] Fix float32 arithmetic producing float64 results
 - #4414: [JS/TS] Fix super call in generic class hierarchy using wrong mangled name
@@ -37,12 +30,15 @@ Branch was lost between runs and re-implementation is non-trivial. Defer.
 - #4532: [All] Emit compile-time error when inline function references private value (closes #3866)
 - #4533: [TypeScript] Fix static class members not re-declaring class-level type parameters (closes #3504)
 - #4543: [JS/TS] Fix sprintf %g/%G not stripping trailing zeros when explicit precision is given
-- branch `repo-assist/fix-issue-3839-jsx-long-string-prop-v2`: [JS/TS] Fix JSX props > 100 chars (PR created this run)
+- #4545: [JS/TS] Fix JSX props > 100 chars (closes #3839)
+- #4546: [Eng] Add CI concurrency settings
+- branch `repo-assist/fix-datetime-format-specifiers-20260419`: [JS/TS/Python] Fix missing DateTime format specifiers (PR created this run)
 
 ## Future investigation targets
 
+- #2654: G-format exponent notation bug (trimEnd strips trailing zero from exponent) — root cause posted
 - #4224: JSX match-case children (Unroller in Fable2Babel.fs needs new case)
 - #3919: importValueDynamic multi-arg (needs arity-aware lambda wrapping in Replacements.fs)
-- #3976: Missing DateTime format specifiers
 - #3853: Erased union case
 - #3861: jsOptions/copyOfStruct (root cause posted, fix is non-trivial)
+
