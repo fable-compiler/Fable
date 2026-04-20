@@ -167,9 +167,18 @@ def to_long_time_string(date: datetime) -> str:
     return datetime.strftime(date, "%H:%M:%S")
 
 
+def _to_plain_utc(date: datetime) -> datetime:
+    # Strip any datetime subclass (e.g. DateTimeOffset) so astimezone's internal
+    # reconstruction doesn't hit an incompatible __new__ signature.
+    plain = datetime(
+        date.year, date.month, date.day, date.hour, date.minute, date.second, date.microsecond, tzinfo=date.tzinfo
+    )
+    return plain.astimezone(UTC)
+
+
 def to_rfc1123_string(date: datetime) -> str:
     """RFC 1123: "Thu, 01 Jan 2009 00:00:00 GMT" — always UTC"""
-    utc_date = date.astimezone(UTC)
+    utc_date = _to_plain_utc(date)
     return (
         short_days[day_of_week(utc_date)]
         + ", "
@@ -186,7 +195,7 @@ def to_sortable_string(date: datetime) -> str:
 
 def to_universal_sortable_string(date: datetime) -> str:
     """Universal sortable: "2009-06-15 13:45:30Z" — always UTC"""
-    utc_date = date.astimezone(UTC)
+    utc_date = _to_plain_utc(date)
     return utc_date.strftime("%Y-%m-%d %H:%M:%SZ")
 
 
@@ -484,7 +493,7 @@ def date_to_string_with_offset(date: datetime, format: str | None = None) -> str
         case "u":
             return to_universal_sortable_string(date)
         case "U":
-            utc_date = date.astimezone(UTC)
+            utc_date = _to_plain_utc(date)
             return to_long_date_string(utc_date) + " " + to_long_time_string(utc_date)
         case "Y" | "y":
             return to_year_month_string(date)
@@ -527,7 +536,7 @@ def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
         elif format == "u":
             return to_universal_sortable_string(date)
         elif format == "U":
-            utc_date = date.astimezone(UTC)
+            utc_date = _to_plain_utc(date)
             return to_long_date_string(utc_date) + " " + to_long_time_string(utc_date)
         elif format == "Y" or format == "y":
             return to_year_month_string(date)
