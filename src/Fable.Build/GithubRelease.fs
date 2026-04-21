@@ -1,12 +1,13 @@
 module Build.GithubRelease
 
+open System
 open System.IO
 open Build.Workspace
 open SimpleExec
 open BlackFox.CommandLine
 open EasyBuild.Tools.Git
 
-let private createGithubRelease (version: LastVersionFinder.Version) =
+let createGithubRelease (version: LastVersionFinder.Version) =
 
     let struct (lastestTag, _) =
         Command.ReadAsync("git", "describe --abbrev=0 --tags")
@@ -47,7 +48,6 @@ let handle (args: string list) =
     if currentBranch.Trim() <> "main" then
         failwith "You must be on the main branch to release"
 
-    // Check if the user is authenticated
     Command.Run("gh", "auth status")
 
     let skipPublish = args |> List.contains "--skip-publish"

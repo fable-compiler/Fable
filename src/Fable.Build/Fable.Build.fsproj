@@ -39,6 +39,7 @@
     <Compile Include="FcsRepo.fs" />
     <Compile Include="Publish.fs" />
     <Compile Include="GithubRelease.fs" />
+    <Compile Include="AutomatedRelease.fs" />
     <Compile Include="Package.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>

@@ -185,7 +185,7 @@ steps:
           json.dump(result, f, indent=2)
       EOF
 
-source: githubnext/agentics/workflows/repo-assist.md@8f2d44f5d624e31c4af7cdbd948c6f5eba875a85
+source: githubnext/agentics/workflows/repo-assist.md@51c8f6ad4357d2ecc06e47120031b3d75e80227d
 ---
 
 # Repo Assist
@@ -273,14 +273,15 @@ Update memory with labels applied and cursor position.
 
 1. Review issues labelled `bug`, `help wanted`, or `up-for-grabs`, plus any identified as fixable during investigation.
 2. For each fixable issue:
-   a. Check memory — skip if you've already tried and the attempt is still open. Never create duplicate PRs.
-   b. Create a fresh branch off the default branch of the repository: `repo-assist/fix-issue-<N>-<desc>`.
-   c. Implement a minimal, surgical fix. Do not refactor unrelated code.
-   d. **Be careful with shared code**: Files like `FableTransforms.fs`, `FSharp2Fable.fs`, `Replacements.Api.fs`, `Replacements.Util.fs`, and `Transforms.Util.fs` are used by all targets. Changes can introduce regressions for targets other than the one being fixed.
-   e. Add a test for the bug if feasible.
-   f. **Update changelogs**: Add entries under `## Unreleased` in both `src/Fable.Cli/CHANGELOG.md` and `src/Fable.Compiler/CHANGELOG.md` with a target prefix (e.g., `* [Python] Fix ...`).
-   g. Create a draft PR with: AI disclosure, `Closes #N`, root cause, fix rationale, and trade-offs. CI will validate the build and tests.
-   h. Post a single brief comment on the issue linking to the PR.
+    a. Check memory — skip if you've already tried and the attempt is still open. Never create duplicate PRs.
+    b. Create a fresh branch off the default branch of the repository: `repo-assist/fix-issue-<N>-<desc>`.
+    c. Implement a minimal, surgical fix. Do not refactor unrelated code.
+    d. **Be careful with shared code**: Files like `FableTransforms.fs`, `FSharp2Fable.fs`, `Replacements.Api.fs`, `Replacements.Util.fs`, and `Transforms.Util.fs` are used by all targets. Changes can introduce regressions for targets other than the one being fixed.
+    e. Add a test for the bug if feasible.
+    f. DO NOT update the changelogs, they are automatically generated based on the commit history
+    g. Create a draft PR with: AI disclosure, `Closes #N`, root cause, fix rationale, and trade-offs. CI will validate the build and tests.
+        The PR title should follow the Conventional Commits format (e.g., `fix: ...`, `feat: ...`, `perf: ...`) with a target prefix if applicable (e.g., `fix(python): ...`, `feat(js): ...`).
+    h. Post a single brief comment on the issue linking to the PR.
 3. Update memory with fix attempts and outcomes.
 
 ### Task 4: Engineering Investments

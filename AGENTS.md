@@ -117,7 +117,7 @@ When adding a test, check if other targets already have a test for the same case
 
 ## Changelogs
 
-PRs must update changelogs. Always update both `src/Fable.Cli/CHANGELOG.md` and `src/Fable.Compiler/CHANGELOG.md` for changes to Fable.Transforms or fable-library. If the change touches `Fable.Core` (attributes, interop types), also update `src/Fable.Core/CHANGELOG.md`. Add entries under the `## Unreleased` section following the Keep a Changelog format with target prefix (e.g., `* [Python] Fix ...`, `* [Beam] Add ...`, `* [All] Fix ...`).
+DO NOT update the changelog files. These files are automatically generated based on the commit history.
 
 ## Requirements
 

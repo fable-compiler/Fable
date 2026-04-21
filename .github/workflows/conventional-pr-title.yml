@@ -1,0 +1,30 @@
+# conventional-pr-title.yml
+name: 'Lint PR'
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - edited
+      # - synchronize (if you use required Actions)
+
+jobs:
+  main:
+    name: Validate PR title
+    runs-on: ubuntu-slim
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          scopes: |
+            js
+            ts
+            dart
+            python
+            rust
+            beam
+            js/ts

@@ -1,11 +1,29 @@
+---
+last_commit_released: b471dc16fc3b5132af77b5974d1669c9b8220cca
+include:
+  - ../fable-library-beam/
+  - ../fable-library-dart/
+  - ../fable-library-php/
+  - ../fable-library-php/
+  - ../fable-library-py/
+  - ../fable-library-rust/
+  - ../fable-library-ts/
+  - ../Fable.Compiler/
+  - ../Fable.Transforms/
+  - ../Fable.AST/
+  - ../../lib/
+updaters:
+  - regex:
+      file: ./../Fable.Transforms/Global/Compiler.fs
+      pattern: (?<=let VERSION = ").*(?=")
+---
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## Unreleased
 
 ## 5.0.0 - 2026-04-21
 

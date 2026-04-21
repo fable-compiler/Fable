@@ -1,0 +1,91 @@
+on:
+  workflow_run:
+    workflows: ["build"]
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+name: EasyBuild ShipIt
+
+jobs:
+  # Run tests and generate a Pull Request to prepare a release
+  shipit-pr:
+    name: ShipIt - Pull Request
+    runs-on: ubuntu-latest
+    # Only run if the build workflow succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # We need to fetch more than the last commit to be able to generate the changelog based on the commit history.
+          # Adapt this value based on your needs.
+          fetch-depth: 50
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      # Run your tests before generating the changelog to make sure everything is working fine before creating a pull request.
+      - name: Prepare for release
+        run: ./build.sh prepare-release
+      - name: ShipIt (Pull Request)
+        run: dotnet shipit --pre-release "rc"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: "github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_commit.message, 'chore: release ')"
+    steps:
+      - uses: actions/checkout@v6
+      # Configure how you want to publish your package, e.g. using the NuGet CLI, dotnet CLI, NPM, etc.
+      # It is recommanded to use Trusted Publishing to avoid having to manage API keys in your repository.
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Setup Dart SDK
+        uses: dart-lang/setup-dart@v1
+
+      - name: Setup Erlang/OTP
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: "27"
+          rebar3-version: "3"
+
+      # Python libraries are distributed using PyPi (pip install fable-library)
+      # So we don't need Python runtime for publishing Fable packages
+
+      # Below is an example, for NuGet packages (to demonstrate that we are getting
+      # the API key from the OIDC token exchange and not from a secret in the repository).
+      - name: NuGet login (OIDC → temp API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          # Secret is your NuGet username, e.g. andrewlock
+          # This is actually a public information, so we can using a secret is probably overkill
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Build, and Release
+        run: |
+            ./build.sh automated-release
+        env:
+          FABLE_NUGET_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

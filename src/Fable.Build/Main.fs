@@ -109,6 +109,11 @@ Available commands:
             --skip-publish          Skip the publish step (dangerous, use with care)
                                     This is useful when the publish step had an issue and we
                                     are trying to recover from it.
+
+    automated-release               Create a GitHub released based on the CHANGELOG.md files
+                                    This tasks needs to be run after a release commit created
+                                    by EasyBuild.ShipIt has been merged.
+                                    The CI is configured to call it when needed
         """
 
     printfn "%s" helpText
@@ -162,6 +167,7 @@ let main argv =
         | "publish" :: args -> Publish.handle args
         | "github-release" :: args -> GithubRelease.handle args
         | "package" :: args -> Package.handle args
+        | "automated-release" :: args -> AutomatedRelease.handle args
         | "help" :: _
         | "--help" :: _
         | _ -> printHelp ()
