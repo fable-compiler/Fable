@@ -34,7 +34,8 @@ jobs:
       - name: Prepare for release
         run: ./build.sh prepare-release
       - name: ShipIt (Pull Request)
-        run: dotnet shipit --pre-release "rc"
+        # Configure add --pre-release below when we want to create a pre-release, e.g. --pre-release beta
+        run: dotnet shipit
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
