@@ -1,5 +1,5 @@
 ---
-last_commit_released: 64c4dfdc595ed6720fcd053bee1f2d2930e4ead1
+last_commit_released: b471dc16fc3b5132af77b5974d1669c9b8220cca
 include:
   - ../Fable.Core/
   - ../fable-standalone/

@@ -1,5 +1,5 @@
 ---
-last_commit_released: 514fc3601aba2d9bb608a520cb16d2819fa2eb28
+last_commit_released: b471dc16fc3b5132af77b5974d1669c9b8220cca
 updaters:
   - package.json:
       file: package.json

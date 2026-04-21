@@ -1,5 +1,5 @@
 ---
-last_commit_released: 8db5354262492b0ca0c5d49da239cfbcf0dcfc45
+last_commit_released: b471dc16fc3b5132af77b5974d1669c9b8220cca
 ---
 
 # Changelog
