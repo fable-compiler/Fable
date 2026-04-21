@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## 2.0.0 - 2026-04-21
+
 ### Fixed
 
 * [JS/TS] Fix `ResizeArray` (`System.Collections.Generic.List`) equality to use reference equality instead of structural equality (fixes #3718)

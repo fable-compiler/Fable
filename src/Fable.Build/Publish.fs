@@ -80,7 +80,7 @@ let private publishNpm (projectDir: string) =
     PackageJson.replaceVersion (packageJsonFile, lastChangelogVersion)
 
     if PackageJson.needPublishing packageJsonFile then
-        Npm.publish (projectDir, tag = "rc")
+        Npm.publish (projectDir)
         printfn $"Published!"
     else
         printfn $"Already up-to-date, skipping..."
