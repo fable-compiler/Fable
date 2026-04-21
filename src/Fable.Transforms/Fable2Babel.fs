@@ -2078,6 +2078,17 @@ module Util =
                     | value -> Some(props, [ value ])
                 else
                     Some((key, value) :: props, children)
+            // When the string value exceeds ~100 chars, Fable wraps it in a Let binding.
+            // The Let body still contains the tuple with the prop key and a reference to the bound var;
+            // we use the bound value (letValue) as the actual prop value.
+            | Some(props, children),
+              MaybeCasted(Fable.Let(_, letValue, MaybeCasted(Fable.Value(Fable.NewTuple([ StringConst key; _ ], _), _)))) ->
+                if key = "children" then
+                    match letValue with
+                    | Replacements.Util.ArrayOrListLiteral(children, _) -> Some(props, children)
+                    | _ -> Some(props, [ letValue ])
+                else
+                    Some((key, letValue) :: props, children)
             | Some _, e ->
                 addError com [] e.Range "Cannot detect JSX prop key at compile time"
 
