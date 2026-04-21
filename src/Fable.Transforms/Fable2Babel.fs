@@ -2081,7 +2081,8 @@ module Util =
             // When the string value exceeds ~100 chars, Fable wraps it in a Let binding.
             // The Let body still contains the tuple with the prop key and a reference to the bound var;
             // we use the bound value (letValue) as the actual prop value.
-            | Some(props, children), MaybeCasted(Fable.Let(_, letValue, MaybeCasted(Fable.Value(Fable.NewTuple([ StringConst key; _ ], _), _)))) ->
+            | Some(props, children),
+              MaybeCasted(Fable.Let(_, letValue, MaybeCasted(Fable.Value(Fable.NewTuple([ StringConst key; _ ], _), _)))) ->
                 if key = "children" then
                     match letValue with
                     | Replacements.Util.ArrayOrListLiteral(children, _) -> Some(props, children)
