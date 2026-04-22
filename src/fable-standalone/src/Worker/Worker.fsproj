@@ -11,7 +11,7 @@
     <Content Include="util.js" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Fable.Core" Version="4.5.0" />
+    <PackageReference Include="Fable.Core" Version="5.0.0" />
     <PackageReference Include="Thoth.Json" Version="10.4.1" />
   </ItemGroup>
 </Project>
