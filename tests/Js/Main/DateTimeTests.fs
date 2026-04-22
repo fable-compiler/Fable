@@ -1145,4 +1145,11 @@ let tests =
     testCase "Adding days to a local date works even if daylight saving time changes" <| fun () ->
         let dt = DateTime(2019, 10, 20, 0, 0, 0, DateTimeKind.Local)
         dt.AddDays(9.).Day |> equal 29
+
+    testCase "Using format strings should respect local time" <| fun () ->
+        let dt = DateTime.Parse("2025-01-01T00:00:00+0100")
+        let utc = dt.ToUniversalTime()
+        let str = utc.ToString("yyyy-MM-dd HH:mm")
+
+        str |> equal "2024-12-31 23:00"
   ]
