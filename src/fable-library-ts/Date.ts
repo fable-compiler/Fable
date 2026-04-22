@@ -273,13 +273,13 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
         cursorPos += tokenLength;
         switch (tokenLength) {
           case 1:
-            result += localizedDate.getFullYear() % 100;
+            result += year(localizedDate) % 100;
             break;
           case 2:
-            result += padWithZeros(localizedDate.getFullYear() % 100, 2);
+            result += padWithZeros(year(localizedDate) % 100, 2);
             break;
           default:
-            result += padWithZeros(localizedDate.getFullYear(), tokenLength);
+            result += padWithZeros(year(localizedDate), tokenLength);
             break;
         }
         break;
