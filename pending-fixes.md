@@ -1,20 +1,6 @@
 # Pending Fixes and Actions
 
-## DONE THIS RUN: DateTime format specifiers fix
-
-**Branch**: `repo-assist/fix-datetime-format-specifiers-20260419`
-**Status**: COMMITTED + PR CREATED (via safeoutputs, awaiting PR number assignment)
-**Issues fixed**: #3976 — Missing DateTime format specifiers (R, s, u, F, f, G, g, M, U, Y)
-**Fix**: Added helper functions and switch cases for all missing standard specifiers in:
-- `src/fable-library-ts/Date.ts`: added `dateToString_R/s/u/M/Y` helpers
-- `src/fable-library-py/fable_library/date.py`: added `to_rfc1123_string/to_sortable_string/etc` helpers
-- Tests in `tests/Js/Main/DateTimeTests.fs` and `tests/Python/TestDateTime.fs`
-
-## DONE PREV RUN: #3839 JSX long string fix → PR #4545
-
-## printf %g trailing zeros fix → PR #4543
-
-## Open Repo Assist PRs (16 total)
+## Open Repo Assist PRs (18 total)
 
 - #4411: [JS/TS] Fix float32 arithmetic producing float64 results
 - #4414: [JS/TS] Fix super call in generic class hierarchy using wrong mangled name
@@ -32,7 +18,13 @@
 - #4543: [JS/TS] Fix sprintf %g/%G not stripping trailing zeros when explicit precision is given
 - #4545: [JS/TS] Fix JSX props > 100 chars (closes #3839)
 - #4546: [Eng] Add CI concurrency settings
-- branch `repo-assist/fix-datetime-format-specifiers-20260419`: [JS/TS/Python] Fix missing DateTime format specifiers (PR created this run)
+- #4547: [JS/TS/Python] Add missing DateTime format specifiers (R, s, u, F, f, G, g, M, U, Y) — fixes #3976
+- #4553: [JS] Fix .NET format specifiers in F# interpolated strings (closes #4046 items 3+4)
+
+## Notes on blocked engineering work
+
+- setup-uv CI change: blocked by protected file policy (safeoutputs cannot create PRs for .github/workflows/ changes)
+- Branch `repo-assist/eng-setup-uv-action-20260421` was committed locally but PR was never created successfully
 
 ## Future investigation targets
 
@@ -41,4 +33,9 @@
 - #3919: importValueDynamic multi-arg (needs arity-aware lambda wrapping in Replacements.fs)
 - #3853: Erased union case
 - #3861: jsOptions/copyOfStruct (root cause posted, fix is non-trivial)
+- Fix Python/Dart/Beam .NET format specifiers in interpolated strings (follow-up to #4553)
 
+## Issues suggested for closing
+
+- #4527: --noRestore bug fixed by merged PR #4548 (commented 2026-04-23)
+- #4368: Buffer browser-compat fix already in Encoding.ts (commented 2026-04-23)
