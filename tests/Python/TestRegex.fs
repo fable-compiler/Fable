@@ -636,3 +636,17 @@ let ``test doesn't succeed when not existing group without any named groups`` ()
     let actual = r.Replace(text, replace)
 
     actual |> equal expected
+
+[<Fact>]
+let ``test positive lookbehind works`` () =
+    let r = Regex @"(?<=A)\w+"
+    let text = "AB AC AD BD"
+    let ms = r.Matches(text) |> Seq.map (fun m -> m.Value) |> Seq.toList
+    ms |> equal [ "B"; "C"; "D" ]
+
+[<Fact>]
+let ``test negative lookbehind works`` () =
+    let r = Regex @"(?<!A)\b\w+"
+    let text = "AB AC BD"
+    let ms = r.Matches(text) |> Seq.map (fun m -> m.Value) |> Seq.toList
+    ms |> equal [ "BD" ]

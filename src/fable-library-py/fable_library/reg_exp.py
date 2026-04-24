@@ -71,7 +71,10 @@ def _options_to_flags(options: int) -> int:
 def create(pattern: str, options: int = 0) -> Pattern[str]:
     # raw_pattern = pattern.encode("unicode_escape").decode("utf-8")
     flags = _options_to_flags(options)
-    pattern = pattern.replace("?<", "?P<")
+    # Convert .NET named group syntax (?<name>...) to Python (?P<name>...).
+    # Only replace ?< when followed by a word character (name start), not by
+    # = or ! which are part of lookbehind assertions (?<=...) and (?<!...).
+    pattern = re.sub(r"\?<(?=[A-Za-z_])", "?P<", pattern)
     return re.compile(pattern, flags=flags)
 
 
