@@ -66,7 +66,7 @@ module private MSBuildCrackerResolver =
 
             let fullCommand = $"dotnet %s{psi.Arguments}"
 
-            if not (String.IsNullOrWhiteSpace error) then
+            if ps.ExitCode <> 0 then
                 failwithf $"In %s{psi.WorkingDirectory}:\n%s{fullCommand}\nfailed with\n%s{error}"
 
             return output.Trim()
