@@ -262,6 +262,19 @@ let ``test StringBuilder.Append works with various overloads`` () =
     actual |> equal "aaabcd/true5.234xxxx"
 
 [<Fact>]
+let ``test StringBuilder.Append works with numeric type overloads`` () =
+    let sb = System.Text.StringBuilder()
+    sb.Append(1y) |> ignore   // int8
+    sb.Append(2uy) |> ignore  // byte
+    sb.Append(3s) |> ignore   // int16
+    sb.Append(4us) |> ignore  // uint16
+    sb.Append(5u) |> ignore   // uint32
+    sb.Append(6L) |> ignore   // int64
+    sb.Append(7UL) |> ignore  // uint64
+    sb.Append(8.0f) |> ignore // float32
+    sb.ToString() |> equal "12345678"
+
+[<Fact>]
 let ``test StringBuilder.AppendFormat works`` () =
     let sb = System.Text.StringBuilder()
     sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
