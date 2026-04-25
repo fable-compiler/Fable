@@ -646,7 +646,7 @@ let ``test positive lookbehind works`` () =
 
 [<Fact>]
 let ``test negative lookbehind works`` () =
-    let r = Regex @"(?<!A)\b\w+"
-    let text = "AB AC BD"
+    let r = Regex @"(?<!A)\d"
+    let text = "A1 B2 A3 C4"
     let ms = r.Matches(text) |> Seq.map (fun m -> m.Value) |> Seq.toList
-    ms |> equal [ "BD" ]
+    ms |> equal [ "2"; "4" ]
