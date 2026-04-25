@@ -68,11 +68,18 @@ safe-outputs:
     labels: [automation, repo-assist]
     protected-files: fallback-to-issue
     max: 4
+    # Push an extra empty commit under a PAT so that `pull_request` /
+    # `pull_request_target` workflows (e.g. Lint PR, build) actually fire on
+    # PRs created here. Commits authored by GITHUB_TOKEN do not trigger
+    # downstream workflows. Requires the GH_AW_CI_TRIGGER_TOKEN secret to
+    # be set in repo settings (fine-grained PAT with contents:write).
+    github-token-for-extra-empty-commit: ${{ secrets.GH_AW_CI_TRIGGER_TOKEN }}
   push-to-pull-request-branch:
     target: "*"
     title-prefix: "[Repo Assist] "
     max: 4
     protected-files: fallback-to-issue
+    github-token-for-extra-empty-commit: ${{ secrets.GH_AW_CI_TRIGGER_TOKEN }}
   create-issue:
     title-prefix: "[Repo Assist] "
     labels: [automation, repo-assist]
