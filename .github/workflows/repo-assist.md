@@ -73,7 +73,10 @@ safe-outputs:
     hide-older-comments: true
   create-pull-request:
     draft: true
-    title-prefix: "[Repo Assist] "
+    # No title-prefix here: PR titles must satisfy Conventional Commits
+    # (validated by .github/workflows/conventional-pr-title.yml). Bot PRs
+    # are identified by the `repo-assist` label and the `repo-assist/*`
+    # branch naming convention instead.
     labels: [automation, repo-assist]
     protected-files: fallback-to-issue
     max: 4
@@ -83,7 +86,9 @@ safe-outputs:
     github-token-for-extra-empty-commit: app
   push-to-pull-request-branch:
     target: "*"
-    title-prefix: "[Repo Assist] "
+    # Restrict pushes to PRs the agent itself created — same identification
+    # as create-pull-request (label-based), since title-prefix is gone.
+    labels: [repo-assist]
     max: 4
     protected-files: fallback-to-issue
     github-token-for-extra-empty-commit: app
@@ -114,8 +119,8 @@ steps:
       # Fetch open issues with labels (up to 500)
       gh issue list --state open --limit 500 --json number,labels > /tmp/gh-aw/issues.json
 
-      # Fetch open PRs with titles (up to 200)
-      gh pr list --state open --limit 200 --json number,title > /tmp/gh-aw/prs.json
+      # Fetch open PRs with titles and labels (up to 200)
+      gh pr list --state open --limit 200 --json number,title,labels > /tmp/gh-aw/prs.json
 
       # Compute task weights and select two tasks for this run
       python3 - << 'EOF'
@@ -128,8 +133,10 @@ steps:
 
       open_issues     = len(issues)
       unlabelled      = sum(1 for i in issues if not i.get('labels'))
-      repo_assist_prs = sum(1 for p in prs if p['title'].startswith('[Repo Assist]'))
-      other_prs       = sum(1 for p in prs if not p['title'].startswith('[Repo Assist]'))
+      def is_repo_assist(p):
+          return any(l.get('name') == 'repo-assist' for l in p.get('labels') or [])
+      repo_assist_prs = sum(1 for p in prs if is_repo_assist(p))
+      other_prs       = sum(1 for p in prs if not is_repo_assist(p))
 
       task_names = {
           1:  'Issue Labelling',
@@ -321,14 +328,14 @@ Check memory for already-submitted ideas; do not re-propose them. Create a fresh
 
 ### Task 6: Maintain Repo Assist PRs
 
-1. List all open PRs with the `[Repo Assist]` title prefix.
+1. List all open PRs with the `repo-assist` label (e.g. `gh pr list --label repo-assist --state open`). PR titles follow Conventional Commits and no longer carry a `[Repo Assist]` prefix; the label and the `repo-assist/*` branch name are how you identify your own PRs.
 2. For each PR: fix CI failures caused by your changes by pushing updates; resolve merge conflicts. If you've retried multiple times without success, comment and leave for human review.
 3. Do not push updates for infrastructure-only failures — comment instead.
 4. Update memory.
 
 ### Task 7: Stale PR Nudges
 
-1. List open non-Repo-Assist PRs not updated in 14+ days.
+1. List open PRs without the `repo-assist` label that haven't been updated in 14+ days (e.g. `gh pr list --state open --search "-label:repo-assist updated:<$(date -u -d '14 days ago' +%Y-%m-%d)"`).
 2. For each (check memory — skip if already nudged): if the PR is waiting on the author, post a single polite comment asking if they need help or want to hand off. Do not comment if the PR is waiting on a maintainer.
 3. **Maximum 3 nudges per run.** Update memory.
 
