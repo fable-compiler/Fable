@@ -21,4 +21,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           scopes: |
-            ^(?:all|(?:js/ts|dart|python|rust|beam)(?:/(?:js/ts|dart|python|rust|beam))*)$
+            (?:all|(?:js|ts|dart|python|rust|beam)(?:/(?:js|ts|dart|python|rust|beam))*)
