@@ -127,7 +127,7 @@ type Literal =
     | FloatLiteral of float
     | IntLiteral of obj
     | BoolLiteral of bool
-    | BytesLiteral of byte[]
+    | BytesLiteral of byte array
     | StringLiteral of string
     | NoneLiteral
     | TupleLiteral of Literal list

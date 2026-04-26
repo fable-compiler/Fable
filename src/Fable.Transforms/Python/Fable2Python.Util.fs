@@ -432,11 +432,12 @@ module Util =
 
     let (|TransformExpr|) (com: IPythonCompiler) ctx e : Expression * Statement list = com.TransformAsExpr(ctx, e)
 
+    [<return: Struct>]
     let (|Function|_|) =
         function
-        | Fable.Lambda(arg, body, _) -> Some([ arg ], body)
-        | Fable.Delegate(args, body, _, []) -> Some(args, body)
-        | _ -> None
+        | Fable.Lambda(arg, body, _) -> ValueSome([ arg ], body)
+        | Fable.Delegate(args, body, _, []) -> ValueSome(args, body)
+        | _ -> ValueNone
 
     let getUniqueNameInRootScope (ctx: Context) name =
         let name =
@@ -910,6 +911,7 @@ module Util =
 
 
     // Active patterns for type matching
+    [<return: Struct>]
     let (|IEnumerableOfKeyValuePair|_|) (targetType: Fable.Type, sourceExpr: Fable.Expr) =
         match targetType, sourceExpr.Type with
         | Fable.DeclaredType(ent, [ Fable.DeclaredType(kvpEnt, [ _; _ ]) ]), Fable.DeclaredType(sourceEnt, _) when
@@ -917,8 +919,8 @@ module Util =
             && kvpEnt.FullName = Types.keyValuePair
             && (sourceEnt.FullName = Types.dictionary || sourceEnt.FullName = Types.idictionary)
             ->
-            Some(kvpEnt)
-        | _ -> None
+            ValueSome(kvpEnt)
+        | _ -> ValueNone
 
     let makeFieldGet (expr: Expression) (field: string) =
         Expression.attribute (expr, Identifier field, ctx = Load), []
@@ -1104,7 +1106,7 @@ module Util =
 /// Common utilities for Python transformations
 module Helpers =
     /// Returns true if the first field type can be None in Python
-    let isOptional (fields: Fable.Ident[]) =
+    let isOptional (fields: Fable.Ident array) =
         if fields.Length < 1 then
             false
         else
