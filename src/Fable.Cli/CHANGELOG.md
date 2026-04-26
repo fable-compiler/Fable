@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 5.0.0 - 2026-04-21
 
+### Changed
+
+* [JS/TS] Add regression tests for `N0`, `C0`, `P0` format specifiers producing no trailing dot (fixes #2582)
+
 ### Fixed
 
 * [Python] Fix derived classes of generic abstract classes not being instantiable due to mismatched mangled method names between abstract stubs and overrides (by @dbrattli)

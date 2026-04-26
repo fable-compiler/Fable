@@ -327,6 +327,11 @@ let tests =
 
         (235672367).ToString("C2", CultureInfo.InvariantCulture) |> equal "¤235,672,367.00"
 
+        // C0 should produce no trailing dot
+        (255).ToString("C0", CultureInfo.InvariantCulture) |> equal "¤255"
+        (-255).ToString("C0", CultureInfo.InvariantCulture) |> equal "(¤255)"
+        (235672367).ToString("C0", CultureInfo.InvariantCulture) |> equal "¤235,672,367"
+
     testCase "uint32.ToString 'C' works" <| fun () ->
         (255u).ToString("C2", CultureInfo.InvariantCulture) |> equal "¤255.00"
         (255u).ToString("C15", CultureInfo.InvariantCulture) |> equal "¤255.000000000000000"
@@ -943,6 +948,11 @@ let tests =
 
         (235672367).ToString("N2", CultureInfo.InvariantCulture) |> equal "235,672,367.00"
 
+        // See #2582 - N0 should produce no trailing dot
+        (255).ToString("N0", CultureInfo.InvariantCulture) |> equal "255"
+        (-255).ToString("N0", CultureInfo.InvariantCulture) |> equal "-255"
+        (1000000).ToString("N0", CultureInfo.InvariantCulture) |> equal "1,000,000"
+
     testCase "uint32.ToString 'N' works"
     <| fun () ->
         (255u).ToString("N2", CultureInfo.InvariantCulture) |> equal "255.00"
@@ -976,6 +986,10 @@ let tests =
         (255.2357).ToString("N4", CultureInfo.InvariantCulture) |> equal "255.2357"
 
         (-255.2357).ToString("N", CultureInfo.InvariantCulture) |> equal "-255.24"
+
+        // See #2582 - N0 should produce no trailing dot
+        (255.7).ToString("N0", CultureInfo.InvariantCulture) |> equal "256"
+        (-255.7).ToString("N0", CultureInfo.InvariantCulture) |> equal "-256"
 
     testCase "float32.ToString 'N' works"
     <| fun () ->
@@ -1032,6 +1046,11 @@ let tests =
         (235672367).ToString("P2", CultureInfo.InvariantCulture) |> equal "23,567,236,700.00 %"
         (1).ToString("P2", CultureInfo.InvariantCulture) |> equal "100.00 %"
         (0.34).ToString("P2", CultureInfo.InvariantCulture) |> equal "34.00 %"
+
+        // P0 should produce no trailing dot
+        (1).ToString("P0", CultureInfo.InvariantCulture) |> equal "100 %"
+        (-1).ToString("P0", CultureInfo.InvariantCulture) |> equal "-100 %"
+        (0.5).ToString("P0", CultureInfo.InvariantCulture) |> equal "50 %"
 
     testCase "uint32.ToString 'P' works"
     <| fun () ->
