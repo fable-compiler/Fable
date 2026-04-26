@@ -27,6 +27,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 5.0.0 - 2026-04-21
 
+### Added
+
+* [All] Integration tests now support TypeScript output: add `*.tsx.expected` files alongside `*.jsx.expected` to test TypeScript compilation; set `UPDATE_SNAPSHOTS=true` to regenerate expected files (fixes #4022)
+
 ### Fixed
 
 * [Python] Fix derived classes of generic abstract classes not being instantiable due to mismatched mangled method names between abstract stubs and overrides (by @dbrattli)
