@@ -17,7 +17,7 @@
     </PackageReference>
     <PackageReference Include="FSharp.UMX" Version="1.1.0" />
     <PackageReference Include="Thoth.Json.Python" Version="0.5.1" />
-    <PackageReference Include="Fable.Python" Version="4.24.0" />
+    <PackageReference Include="Fable.Python" Version="5.1.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
