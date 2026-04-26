@@ -31,22 +31,25 @@ module PrinterExtensions =
         | ExpressionStatement(expr) -> hasSideEffects (expr)
         | _ -> true
 
+    [<return: Struct>]
     let (|UndefinedOrVoid|_|) =
         function
-        | Undefined _ -> Some()
-        | UnaryExpression(argument, "void", false, _loc) when not (hasSideEffects (argument)) -> Some()
-        | _ -> None
+        | Undefined _ -> ValueSome()
+        | UnaryExpression(argument, "void", false, _loc) when not (hasSideEffects (argument)) -> ValueSome()
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|NullOrUndefinedOrVoid|_|) =
         function
         | Literal(NullLiteral _)
-        | UndefinedOrVoid _ -> Some()
-        | _ -> None
+        | UndefinedOrVoid _ -> ValueSome()
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|StringConstant|_|) =
         function
-        | Literal(Literal.StringLiteral(StringLiteral(value = value))) -> Some value
-        | _ -> None
+        | Literal(Literal.StringLiteral(StringLiteral(value = value))) -> ValueSome value
+        | _ -> ValueNone
 
     type Printer with
 
@@ -233,7 +236,7 @@ module PrinterExtensions =
                 id: Identifier option,
                 isAbstract: bool option,
                 superClass: SuperClass option,
-                typeParameters: TypeParameter[],
+                typeParameters: TypeParameter array,
                 implements: TypeAnnotation array,
                 members: ClassMember array,
                 loc
@@ -278,7 +281,7 @@ module PrinterExtensions =
                 id: Identifier option,
                 parameters: Parameter array,
                 body: BlockStatement,
-                typeParameters: TypeParameter[],
+                typeParameters: TypeParameter array,
                 returnType: TypeAnnotation option,
                 loc,
                 ?isDeclaration,
@@ -1521,7 +1524,7 @@ module PrinterExtensions =
             printer.PrintOptional(bound, " extends ")
         // printer.PrintOptional(``default``)
 
-        member printer.Print(parameters: TypeParameter[]) =
+        member printer.Print(parameters: TypeParameter array) =
             if parameters.Length > 0 then
                 printer.Print("<")
                 printer.PrintCommaSeparatedArray(parameters)
