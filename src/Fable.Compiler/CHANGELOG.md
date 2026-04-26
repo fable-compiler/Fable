@@ -1,5 +1,5 @@
 ---
-last_commit_released: b471dc16fc3b5132af77b5974d1669c9b8220cca
+last_commit_released: f395662b4b5954db688a474f9c09eed8acd99c35
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -20,6 +20,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.0.1 - 2026-04-26
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Fix JSX props with long string values causing compile error (fixes #3839) (#4545) ([d828a46](https://github.com/fable-compiler/Fable/commit/d828a461797e3f33bf4ab99b46030d16b29771e6))
+* *(js/ts)* Fix datetime custom format off by one year (#4558) ([83bdbb5](https://github.com/fable-compiler/Fable/commit/83bdbb5b34e70eae203831a3a442d477d15911e1))
+* *(python)* Fix regex lookbehind patterns being incorrectly converted (#4560) ([4ce5cd7](https://github.com/fable-compiler/Fable/commit/4ce5cd7b14a533aa3a08fe14c108ec30d662623f))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/b471dc16fc3b5132af77b5974d1669c9b8220cca..f395662b4b5954db688a474f9c09eed8acd99c35)</small></strong>
 
 ## 5.0.0 - 2026-04-21
 
