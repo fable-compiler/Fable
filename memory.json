@@ -1,6 +1,7 @@
 {
-  "last_run": "2026-04-25T11:11:52Z",
+  "last_run": "2026-04-26T01:10:22Z",
   "comments_made": {
+    "3477": "2026-04-26T01:10:22Z",
     "3858": "2026-04-25T01:16:00Z",
     "4046": "2026-04-22",
     "3775": "2026-04-22",
@@ -53,12 +54,14 @@
     "3918": {"pr": 4560, "status": "open", "date": "2026-04-24"},
     "4368": {"pr": 4563, "status": "open", "date": "2026-04-24"},
     "4562": {"pr": 4564, "status": "open", "date": "2026-04-25"},
-    "3858": {"pr": null, "status": "open_pr_created_this_run", "date": "2026-04-25"},
+    "3858": {"pr": null, "status": "investigated", "date": "2026-04-25"},
     "4022": {"pr": 4495, "status": "open", "date": "2026-04-09"},
-    "2636": {"pr": null, "status": "pr_created_this_run", "date": "2026-04-25", "branch": "repo-assist/improve-stringbuilder-append-overloads"}
+    "2636": {"pr": null, "status": "pr_created_this_run", "date": "2026-04-25", "branch": "repo-assist/improve-stringbuilder-append-overloads"},
+    "codescan_1056_1181": {"pr": null, "status": "pr_created", "date": "2026-04-26", "branch": "repo-assist/codescan-1056-1181-struct-patterns-postfix-array"}
   },
-  "notes": "Large backlog of open Repo Assist PRs (18+). StringBuilder.Append overloads PR created this run (branch: repo-assist/improve-stringbuilder-append-overloads). Future: fix G-format trimEnd exponent bug (#2654), count-based floating range fix (#2946), JSX match-case children (#4224), importValueDynamic multi-arg (#3919), Date.TryParse parseRaw pre-validation fix (#3858). Add StringBuilder overloads to Dart/Beam targets as follow-up.",
-  "issue_cursor": 194,
+  "notes": "Code scanning PR created for IONIDE-009/002 alerts. Commented on #3477 with root cause: BabelPrinter filters undefined properties (line 1211), so None anonymous record fields are omitted from object literal. Future: fix G-format trimEnd exponent (#2654), floating range (#2946), JSX match-case children (#4224), importValueDynamic (#3919), #3477 None field filtering fix.",
+  "issue_cursor": 200,
   "monthly_activity_issue": 4471,
-  "eng_investments_checked": ["CI concurrency (PR #4546)", "NuGet/npm caching (PR #4525)", "npm security bundled PR this run"]
+  "eng_investments_checked": ["CI concurrency (PR #4546)", "NuGet/npm caching (PR #4525)"],
+  "codescan_cursor": 1083
 }
