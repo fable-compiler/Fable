@@ -629,4 +629,17 @@ let tests =
             let! res = parentWorkflow()
             equal 7 res
         }
+
+    testCaseAsync "Async.AwaitEvent works #4239" <| fun () ->
+        let event = Event<int>()
+        async {
+            // Trigger the event after a short delay so AwaitEvent is already waiting
+            let triggerAsync = async {
+                do! Async.Sleep(10)
+                event.Trigger(42)
+            }
+            Async.Start(triggerAsync)
+            let! result = Async.AwaitEvent(event.Publish)
+            equal 42 result
+        }
   ]

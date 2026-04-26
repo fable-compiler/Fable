@@ -77,6 +77,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 5.0.0-rc.6 - 2026-03-31
 
+### Added
+
+* [JS/TS] Add `Async.AwaitEvent` support (fixes #4239)
+
 ### Fixed
 
 * [Dart] Enable explicit variable typing for more data types (by @ncave)
