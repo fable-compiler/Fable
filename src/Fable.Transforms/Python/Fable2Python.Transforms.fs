@@ -2693,6 +2693,7 @@ let transformAsArray (com: IPythonCompiler) ctx expr (info: Fable.CallInfo) : Ex
 
 /// Active pattern to detect F# `use` statements compiled as TryCatch with Dispose
 /// This helps us to transform F# `use` (i.e. TryCatch) as Python `with` statements
+[<return: Struct>]
 let (|UsePattern|_|) (body: Fable.Expr) =
     match body with
     | Fable.TryCatch(tryBody,
@@ -2707,8 +2708,8 @@ let (|UsePattern|_|) (body: Fable.Expr) =
                                                       _),
                                            _,
                                            _)),
-                     _) -> Some(disposeName, tryBody)
-    | _ -> None
+                     _) -> ValueSome(disposeName, tryBody)
+    | _ -> ValueNone
 
 let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: Fable.Expr) : Statement list =
     // printfn "transformAsStatements: %A" expr
