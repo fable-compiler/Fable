@@ -301,7 +301,7 @@ Update memory with labels applied and cursor position.
     e. Add a test for the bug if feasible.
     f. DO NOT update the changelogs, they are automatically generated based on the commit history
     g. Create a draft PR with: AI disclosure, `Closes #N`, root cause, fix rationale, and trade-offs. CI will validate the build and tests.
-        The PR title should follow the Conventional Commits format (e.g., `fix: ...`, `feat: ...`, `perf: ...`) with a target prefix if applicable (e.g., `fix(python): ...`, `feat(js): ...`).
+        The PR title should follow the Conventional Commits format (e.g., `fix: ...`, `feat: ...`, `perf: ...`) with a target scope if applicable. Allowed scopes: `js/ts`, `dart`, `python`, `rust`, `beam`, `all`. JS and TS must always be combined as `js/ts` (never used separately). Multi-target changes use slash-separated combinations such as `fix(js/ts/python): ...` or `fix(python/beam): ...`. Use `all` for changes affecting every target, and omit the scope entirely for non-target-specific changes.
     h. Post a single brief comment on the issue linking to the PR.
 3. Update memory with fix attempts and outcomes.
 
