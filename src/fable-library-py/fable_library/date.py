@@ -506,45 +506,44 @@ def date_to_string_with_offset(date: datetime, format: str | None = None) -> str
 def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
     utc = date.tzinfo == UTC
 
-    if not format:
-        return date.isoformat() if utc else str(date)
-    elif len(format) == 1:
-        if format == "d":
+    match format:
+        case None | "":
+            return date.isoformat() if utc else str(date)
+        case "d":
             return to_short_date_string(date)
-        elif format == "D":
+        case "D":
             return to_long_date_string(date)
-        elif format == "F":
+        case "F":
             return to_long_date_string(date) + " " + to_long_time_string(date)
-        elif format == "f":
+        case "f":
             return to_long_date_string(date) + " " + to_short_time_string(date)
-        elif format == "G":
+        case "G":
             return to_short_date_string(date) + " " + to_long_time_string(date)
-        elif format == "g":
+        case "g":
             return to_short_date_string(date) + " " + to_short_time_string(date)
-        elif format == "M" or format == "m":
+        case "M" | "m":
             return to_month_day_string(date)
-        elif format == "O" or format == "o":
+        case "O" | "o":
             return date.astimezone().isoformat(timespec="milliseconds")
-        elif format == "R" or format == "r":
+        case "R" | "r":
             return to_rfc1123_string(date)
-        elif format == "s":
+        case "s":
             return to_sortable_string(date)
-        elif format == "T":
+        case "T":
             return to_long_time_string(date)
-        elif format == "t":
+        case "t":
             return to_short_time_string(date)
-        elif format == "u":
+        case "u":
             return to_universal_sortable_string(date)
-        elif format == "U":
+        case "U":
             utc_date = _to_plain_utc(date)
             return to_long_date_string(utc_date) + " " + to_long_time_string(utc_date)
-        elif format == "Y" or format == "y":
+        case "Y" | "y":
             return to_year_month_string(date)
-        else:
+        case _ if len(format) == 1:
             raise Exception("Unrecognized Date print format")
-
-    else:
-        return date_to_string_with_custom_format(date, format, utc)
+        case _:
+            return date_to_string_with_custom_format(date, format, utc)
 
 
 def to_string(date: datetime, format: str | None = None, provider: Any | None = None) -> str:
