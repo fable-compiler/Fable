@@ -17,7 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * [Python] Fix missing `Array` module implementations and tests (by @ncave)
 * [Python] Fix object expressions implementing interfaces with `[<CLIEvent>]` members no longer produce unimplementable abstract Protocol members (fixes #3039)
 * [Python] Fix `DateTime.TryParse` incorrectly assigning `DateTimeKind.Local` to naive datetime strings (should be `DateTimeKind.Unspecified`) (fixes #3654)
-* [JS/TS/Python] Fix `FSharpType.IsUnion` and `FSharpType.GetUnionCases` not recognising `option<'T>` as a union type; also fix `FSharpValue.GetUnionFields` and `FSharpValue.MakeUnion` for option values (fixes #4082)
 
 ## 5.0.0-rc.7 - 2026-04-07
 

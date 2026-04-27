@@ -479,13 +479,26 @@ let ``test FSharp.Reflection: Option is a union type`` () =
     ucis.[1].Name |> equal "Some"
     FSharpValue.MakeUnion(ucis.[0], [||]) |> equal (box (None: int option))
     FSharpValue.MakeUnion(ucis.[1], [|box 42|]) |> equal (box (Some 42))
-    let noneCase, noneFields = FSharpValue.GetUnionFields(None: int option |> box, typ)
+    let noneCase, noneFields = FSharpValue.GetUnionFields(box (None: int option), typ)
     noneCase.Name |> equal "None"
     noneFields.Length |> equal 0
-    let someCase, someFields = FSharpValue.GetUnionFields(Some 42 |> box, typ)
+    let someCase, someFields = FSharpValue.GetUnionFields(box (Some 42), typ)
     someCase.Name |> equal "Some"
     someFields.Length |> equal 1
     someFields.[0] |> equal (box 42)
+
+[<Fact>]
+let ``test FSharp.Reflection: Option round-trips through Some(None) and Some(Some x)`` () =
+    let typ = typeof<int option option>
+    let ucis = FSharpType.GetUnionCases(typ)
+    let someCase, someFields = FSharpValue.GetUnionFields(box (Some (None: int option)), typ)
+    someCase.Name |> equal "Some"
+    someFields.[0] |> equal (box (None: int option))
+    let someCase2, someFields2 = FSharpValue.GetUnionFields(box (Some (Some 42)), typ)
+    someCase2.Name |> equal "Some"
+    someFields2.[0] |> equal (box (Some 42))
+    FSharpValue.MakeUnion(ucis.[1], [|box (None: int option)|]) |> equal (box (Some (None: int option)))
+    FSharpValue.MakeUnion(ucis.[1], [|box (Some 42)|]) |> equal (box (Some (Some 42)))
 
 [<Fact>]
 let ``test FSharp.Reflection: Choice`` () =
