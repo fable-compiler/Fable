@@ -28,8 +28,40 @@ type StringBuilder(value: string, capacity: int) =
         buf.Add(s)
         x
 
+    member x.Append(o: int8) =
+        buf.Add(string<int8> o)
+        x
+
+    member x.Append(o: byte) =
+        buf.Add(string<byte> o)
+        x
+
+    member x.Append(o: int16) =
+        buf.Add(string<int16> o)
+        x
+
+    member x.Append(o: uint16) =
+        buf.Add(string<uint16> o)
+        x
+
     member x.Append(o: int) =
         buf.Add(string<int> o)
+        x
+
+    member x.Append(o: uint32) =
+        buf.Add(string<uint32> o)
+        x
+
+    member x.Append(o: int64) =
+        buf.Add(string<int64> o)
+        x
+
+    member x.Append(o: uint64) =
+        buf.Add(string<uint64> o)
+        x
+
+    member x.Append(o: float32) =
+        buf.Add(string<float32> o)
         x
 
     member x.Append(o: float) =
