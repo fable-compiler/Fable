@@ -97,6 +97,21 @@ let tests =
         |> format
         |> equal "05:07"
 
+    testCase "DateTimeOffset.ToString('R') works" <| fun _ ->
+        // R always formats in UTC
+        DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.FromHours 2).ToString("R", CultureInfo.InvariantCulture)
+        |> equal "Mon, 01 Sep 2014 14:37:02 GMT"
+
+    testCase "DateTimeOffset.ToString('u') works" <| fun _ ->
+        // u always formats in UTC
+        DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.FromHours 2).ToString("u", CultureInfo.InvariantCulture)
+        |> equal "2014-09-01 14:37:02Z"
+
+    testCase "DateTimeOffset.ToString('s') works" <| fun _ ->
+        // s uses the offset-local time with no timezone designator
+        DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.Zero).ToString("s", CultureInfo.InvariantCulture)
+        |> equal "2014-09-01T16:37:02"
+
     testCase "DateTimeOffset from Year 1 to 99 works" <| fun () ->
         let date = DateTimeOffset(1, 1, 2, 0, 0, 0, TimeSpan.Zero)
         date.Year |> equal 1

@@ -503,6 +503,60 @@ let tests =
     //     DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Local).ToString("O")
     //     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europe/Paris (GMT+2)
 
+    testCase "DateTime.ToString('R') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("R", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "Mon, 01 Sep 2014 16:37:02 GMT"
+
+    testCase "DateTime.ToString('s') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("s", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "2014-09-01T16:37:02"
+
+    testCase "DateTime.ToString('u') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("u", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "2014-09-01 16:37:02Z"
+
+    testCase "DateTime.ToString('F') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("F", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "Monday, 01 September 2014 16:37:02"
+
+    testCase "DateTime.ToString('f') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("f", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "Monday, 01 September 2014 16:37"
+
+    testCase "DateTime.ToString('G') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("G", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "09/01/2014 16:37:02"
+
+    testCase "DateTime.ToString('g') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("g", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "09/01/2014 16:37"
+
+    testCase "DateTime.ToString('M') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("M", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "September 01"
+
+    testCase "DateTime.ToString('Y') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("Y", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "2014 September"
+
     testCase "DateTime from Year 1 to 99 works" <| fun () ->
         let date = DateTime(1, 1, 2)
         date.Year |> equal 1
