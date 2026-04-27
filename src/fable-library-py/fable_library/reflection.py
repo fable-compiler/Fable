@@ -6,10 +6,9 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from .array_ import Array
-from .core import FSharpRef, int32
+from .core import FSharpRef, int32, option
 from .record import Record
 from .types import IntegerTypes
-from .union import Union
 from .union import Union as FsUnion
 from .util import combine_hash_codes, equal_arrays_with
 
@@ -111,7 +110,12 @@ def anon_record_type(*fields: FieldInfo) -> TypeInfo:
 
 
 def option_type(generic: TypeInfo) -> TypeInfo:
-    return TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", Array([generic]))
+    t = TypeInfo("Microsoft.FSharp.Core.FSharpOption`1", Array([generic]))
+    t.cases = lambda: [
+        CaseInfo(t, 0, "None", []),
+        CaseInfo(t, 1, "Some", [("value", generic)]),
+    ]
+    return t
 
 
 def list_type(generic: TypeInfo) -> TypeInfo:
@@ -427,6 +431,10 @@ def make_union(uci: CaseInfo, values: Array[Any]) -> Any:
     if len(values) != expectedLength:
         raise ValueError(f"Expected an array of length {expectedLength} but got {len(values)}")
 
+    # Options are erased at runtime: None -> None, Some(x) -> x or SomeWrapper
+    if uci.declaringType.fullname == "Microsoft.FSharp.Core.FSharpOption`1":
+        return None if uci.tag == 0 else option.some(values[0])
+
     # Use case constructor if available (new tagged_union pattern)
     if uci.case_constructor is not None:
         return uci.case_constructor(*values)
@@ -442,8 +450,16 @@ def get_union_cases(t: TypeInfo) -> Array[CaseInfo]:
         raise ValueError(f"{t.fullname} is not an F# union type")
 
 
-def get_union_fields(v: Union, t: TypeInfo) -> tuple[CaseInfo, Array[Any]]:
+# `v` is `Any` because option values are erased at runtime (None / raw value /
+# SomeWrapper) and don't share a base class with `Union`.
+def get_union_fields(v: Any, t: TypeInfo) -> tuple[CaseInfo, Array[Any]]:
     cases: Array[CaseInfo] = get_union_cases(t)
+    # Options are erased at runtime: None -> None, Some(x) -> x or SomeWrapper
+    if t.fullname == "Microsoft.FSharp.Core.FSharpOption`1":
+        if v is None:
+            return (cases[0], Array[Any]([]))
+        inner = v.value if isinstance(v, option.SomeWrapper) else v
+        return (cases[1], Array[Any]([inner]))
     case: CaseInfo = cases[v.tag]
 
     return (case, Array[Any](v.fields))
