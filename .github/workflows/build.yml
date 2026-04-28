@@ -160,10 +160,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install uv
-        run: |
-          pipx install uv
-          pipx install maturin
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install maturin
+        run: uv tool install maturin
 
       - name: Fable Library - Python (linux)
         if: matrix.platform == 'ubuntu-latest'
