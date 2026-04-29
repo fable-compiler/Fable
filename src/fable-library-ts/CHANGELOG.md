@@ -1,5 +1,5 @@
 ---
-last_commit_released: b471dc16fc3b5132af77b5974d1669c9b8220cca
+last_commit_released: 1b67f038a33c0d515441104bde30e62746c477b4
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.1.0 - 2026-04-29
+
+### 🚀 Features
+
+* *(js/ts/python)* Add missing standard DateTime format specifiers for JS/TS and Python (#4547) ([90f5eb7](https://github.com/fable-compiler/Fable/commit/90f5eb7f61710bc679f6fdec30ff5d864984ac08))
+* *(js/ts/python)* Add missing StringBuilder.Append overloads for numeric types (#4568) ([b402c30](https://github.com/fable-compiler/Fable/commit/b402c30d04bfca8644314ba4b21894abfff6a713))
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Fix datetime custom format off by one year (#4558) ([83bdbb5](https://github.com/fable-compiler/Fable/commit/83bdbb5b34e70eae203831a3a442d477d15911e1))
+* *(js/ts/python)* Fix FSharpOption not recognized as union type in F# reflection (#4529) ([d78a37d](https://github.com/fable-compiler/Fable/commit/d78a37db9f4c25eb51fac8afcd320b4ea36c60a7))
+* *(ts)* Enforce browser-only compatibility in fable-library-ts tsconfig (#4563) ([10c81c1](https://github.com/fable-compiler/Fable/commit/10c81c1361208eb61f5fa78c6704e6fccc068fb1))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/b471dc16fc3b5132af77b5974d1669c9b8220cca..1b67f038a33c0d515441104bde30e62746c477b4)</small></strong>
 
 ## 2.0.0 - 2026-04-21
 
