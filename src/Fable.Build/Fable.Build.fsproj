@@ -45,7 +45,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="BlackFox.CommandLine" Version="1.0.0" />
-    <PackageReference Include="EasyBuild.Tools" Version="7.0.0" />
+    <PackageReference Include="EasyBuild.Tools" Version="8.0.0" />
     <PackageReference Include="Fake.IO.FileSystem" Version="6.1.4" />
     <PackageReference Include="FsToolkit.ErrorHandling" Version="5.2.0" />
     <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.7" />

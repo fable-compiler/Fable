@@ -9,14 +9,14 @@
     <RootNamespace>Fable.Tests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.4.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
     <PackageReference Include="XUnit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="FSharp.UMX" Version="1.1.0" />
-    <PackageReference Include="Thoth.Json.Python" Version="0.5.1" />
+    <PackageReference Include="Thoth.Json.Python" Version="0.6.0" />
     <PackageReference Include="Fable.Python" Version="5.1.0" />
   </ItemGroup>
   <ItemGroup>
