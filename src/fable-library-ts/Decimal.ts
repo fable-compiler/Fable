@@ -248,14 +248,16 @@ export function fromParts(low: number, mid: number, high: number, isNegative: bo
 
 export function getBits(d: Decimal) {
   const bitSize = 96;
-  const decDigits = Uint8Array.from(d.c);
+  const decStr = d.toString();
+  const absStr = decStr[0] === "-" ? decStr.slice(1) : decStr;
+  const dotPos = absStr.indexOf(".");
+  const scale = dotPos < 0 ? 0 : absStr.length - dotPos - 1;
+  const mantissaStr = dotPos < 0 ? absStr : absStr.slice(0, dotPos) + absStr.slice(dotPos + 1);
+  const decDigits = Uint8Array.from(mantissaStr, ch => ch.charCodeAt(0) - 48);
   const hexDigits = decimalToHex(decDigits, bitSize);
   const low = getInt32Bits(hexDigits, 0);
   const mid = getInt32Bits(hexDigits, 8);
   const high = getInt32Bits(hexDigits, 16);
-  const decStr = d.toString();
-  const dotPos = decStr.indexOf(".");
-  const scale = dotPos < 0 ? 0 : decStr.length - dotPos - 1;
   const signExp = ((scale & 0x7F) << 16) | (d.s < 0 ? 0x80000000 : 0);
   return [low, mid, high, signExp];
 }

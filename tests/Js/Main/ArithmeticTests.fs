@@ -253,6 +253,18 @@ let tests =
         d2 |> equal d
         d3 |> equal -d
 
+    testCase "Decimal GetBits works with arithmetic operations" <| fun () ->
+        let check (d: decimal) =
+            let bits = Decimal.GetBits(d)
+            Decimal(bits) |> equal d
+
+        check (10M + 10M)
+        check (100.5M - 0.5M)
+        check (5M * 200M)
+        check (-0.1M * 100M)
+        check (2000M / 10M)
+        check (1.5M + 0.5M)
+
     testCase "Decimal abs works" <| fun () ->
         abs -4M |> equal 4M
 
