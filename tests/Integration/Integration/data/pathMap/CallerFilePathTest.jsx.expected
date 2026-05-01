@@ -1,0 +1,19 @@
+
+import { class_type } from "./fable_modules/fable-library-js/Reflection.js";
+import { printf, toConsole } from "./fable_modules/fable-library-js/String.js";
+
+export class Log {
+    constructor() {
+    }
+}
+
+export function Log_$reflection() {
+    return class_type("CallerFilePathTest.Log", undefined, Log);
+}
+
+export function Log_info_Z384F8060(message, path = "") {
+    toConsole(printf("%s: %s"))(path)(message);
+}
+
+Log_info_Z384F8060("hello", "./CallerFilePathTest.fs");
+
