@@ -1,5 +1,5 @@
 {
-  "last_run": "2026-05-01T01:18:59Z",
+  "last_run": "2026-05-02T01:09:44Z",
   "comments_made": {
     "3477": "2026-04-26T01:10:22Z",
     "3858": "2026-04-25T01:16:00Z",
@@ -8,7 +8,7 @@
     "2825": "2026-04-21",
     "2946": "2026-04-21",
     "2506": "2026-04-21",
-    "2654": "2026-04-19",
+    "2654": "2026-05-02T01:09:44Z",
     "3861": "2026-04-19",
     "3839": "2026-04-19",
     "2110": "2026-04-18",
@@ -36,136 +36,35 @@
     "4061": "2026-05-01T01:18:59Z"
   },
   "fix_attempts": {
-    "4411": {
-      "pr": 4411,
-      "status": "open",
-      "date": "earlier"
-    },
-    "4414": {
-      "pr": 4414,
-      "status": "open",
-      "date": "earlier"
-    },
-    "4417": {
-      "pr": 4417,
-      "status": "open",
-      "date": "earlier"
-    },
-    "4451": {
-      "pr": 4451,
-      "status": "open",
-      "date": "earlier"
-    },
-    "4487": {
-      "pr": 4487,
-      "status": "open",
-      "date": "earlier"
-    },
-    "4465": {
-      "pr": 4465,
-      "status": "open",
-      "date": "earlier"
-    },
-    "4529": {
-      "pr": 4529,
-      "status": "open",
-      "date": "2026-04-12"
-    },
-    "4082": {
-      "pr": 4529,
-      "status": "open",
-      "date": "2026-04-12"
-    },
-    "2110": {
-      "pr": 4529,
-      "status": "open",
-      "date": "2026-04-12"
-    },
-    "4532": {
-      "pr": 4532,
-      "status": "open",
-      "date": "2026-04-12"
-    },
-    "3866": {
-      "pr": 4532,
-      "status": "open",
-      "date": "2026-04-12"
-    },
-    "4533": {
-      "pr": 4533,
-      "status": "open",
-      "date": "2026-04-12"
-    },
-    "3504": {
-      "pr": 4533,
-      "status": "open",
-      "date": "2026-04-12"
-    },
-    "4521": {
-      "pr": 4521,
-      "status": "open",
-      "date": "earlier"
-    },
-    "3976": {
-      "pr": 4547,
-      "status": "open",
-      "date": "2026-04-19"
-    },
-    "4046": {
-      "pr": 4553,
-      "status": "open",
-      "date": "2026-04-22"
-    },
-    "3918": {
-      "pr": 4560,
-      "status": "open",
-      "date": "2026-04-24"
-    },
-    "4368": {
-      "pr": 4563,
-      "status": "open",
-      "date": "2026-04-24"
-    },
-    "4562": {
-      "pr": 4564,
-      "status": "open",
-      "date": "2026-04-25"
-    },
-    "3858": {
-      "pr": null,
-      "status": "investigated",
-      "date": "2026-04-25"
-    },
-    "4022": {
-      "pr": 4495,
-      "status": "open",
-      "date": "2026-04-09"
-    },
-    "2636": {
-      "pr": null,
-      "status": "pr_created_this_run",
-      "date": "2026-04-25",
-      "branch": "repo-assist/improve-stringbuilder-append-overloads"
-    },
-    "codescan_1056_1181": {
-      "pr": null,
-      "status": "pr_created",
-      "date": "2026-04-26",
-      "branch": "repo-assist/codescan-1056-1181-struct-patterns-postfix-array"
-    },
-    "4061": {
-      "pr": null,
-      "status": "pr_created_this_run",
-      "date": "2026-05-01",
-      "branch": "repo-assist/fix-pathmap-caller-file-path-4061"
-    }
+    "4411": {"pr": 4411, "status": "open", "date": "earlier"},
+    "4414": {"pr": 4414, "status": "open", "date": "earlier"},
+    "4417": {"pr": 4417, "status": "open", "date": "earlier"},
+    "4451": {"pr": 4451, "status": "open", "date": "earlier"},
+    "4487": {"pr": 4487, "status": "open", "date": "earlier"},
+    "4465": {"pr": 4465, "status": "open", "date": "earlier"},
+    "4529": {"pr": 4529, "status": "open", "date": "2026-04-12"},
+    "4082": {"pr": 4529, "status": "open", "date": "2026-04-12"},
+    "2110": {"pr": 4529, "status": "open", "date": "2026-04-12"},
+    "4532": {"pr": 4532, "status": "open", "date": "2026-04-12"},
+    "3866": {"pr": 4532, "status": "open", "date": "2026-04-12"},
+    "4533": {"pr": 4533, "status": "open", "date": "2026-04-12"},
+    "3504": {"pr": 4533, "status": "open", "date": "2026-04-12"},
+    "4521": {"pr": 4521, "status": "open", "date": "earlier"},
+    "3976": {"pr": 4547, "status": "open", "date": "2026-04-19"},
+    "4046": {"pr": 4553, "status": "open", "date": "2026-04-22"},
+    "3918": {"pr": 4560, "status": "open", "date": "2026-04-24"},
+    "4368": {"pr": 4563, "status": "open", "date": "2026-04-24"},
+    "4562": {"pr": 4564, "status": "open", "date": "2026-04-25"},
+    "3858": {"pr": null, "status": "investigated", "date": "2026-04-25"},
+    "4022": {"pr": 4495, "status": "open", "date": "2026-04-09"},
+    "2636": {"pr": null, "status": "pr_created", "date": "2026-04-25", "branch": "repo-assist/improve-stringbuilder-append-overloads"},
+    "codescan_1056_1181": {"pr": null, "status": "pr_created", "date": "2026-04-26", "branch": "repo-assist/codescan-1056-1181-struct-patterns-postfix-array"},
+    "4061": {"pr": 4585, "status": "open", "date": "2026-05-01", "branch": "repo-assist/fix-pathmap-caller-file-path-4061"},
+    "2654": {"pr": null, "status": "pr_created_this_run", "date": "2026-05-02", "branch": "repo-assist/fix-g-format-exponential-2654"}
   },
-  "notes": "Monthly issue rotated: Apr #4471 closed, May created. Fix PR for #4061 (--pathmap: forwarding). Many old RA PRs still open awaiting review.",
+  "notes": "G17 fix submitted (PR pending, branch repo-assist/fix-g-format-exponential-2654). Many old RA PRs still open awaiting review.",
   "issue_cursor": null,
-  "monthly_activity_issue": 4471,
-  "eng_investments_checked": [
-    "CI concurrency (PR #4546)",
-    "NuGet/npm caching (PR #4525)"
-  ],
+  "monthly_activity_issue": 4586,
+  "eng_investments_checked": ["CI concurrency (PR #4546)", "NuGet/npm caching (PR #4525)"],
   "codescan_cursor": 1083
 }
