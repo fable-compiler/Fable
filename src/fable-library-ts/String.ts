@@ -392,8 +392,15 @@ export function format(str: string | object, ...args: any[]) {
           break;
         case "g": case "G":
           rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
-          // TODO: Check why some numbers are formatted with decimal part
-          rep = trimEnd(trimEnd(rep, "0"), ".");
+          // Handle exponential notation: only trim trailing zeros from mantissa, not from exponent
+          const eIdx = rep.indexOf("e");
+          if (eIdx >= 0) {
+            const mantissa = trimEnd(trimEnd(rep.slice(0, eIdx), "0"), ".");
+            const exponent = rep.slice(eIdx);
+            rep = mantissa + (format === "G" ? exponent.toUpperCase() : exponent);
+          } else {
+            rep = trimEnd(trimEnd(rep, "0"), ".");
+          }
           break;
         case "n": case "N":
           precision = precision != null ? precision : 2;

@@ -511,6 +511,14 @@ let tests = testList "Strings" [
         String.Format(CultureInfo.InvariantCulture, "{0:P2}", 0.1234) |> equal "12.34 %"
         String.Format(CultureInfo.InvariantCulture, "{0:C2}", 1000) |> equal "¤1,000.00"
 
+    testCase "G format specifier trims trailing zeros without corrupting exponential notation" <| fun () -> // Fix #2654
+        (123.45).ToString("G17", CultureInfo.InvariantCulture) |> equal "123.45"
+        (10000.0).ToString("G17", CultureInfo.InvariantCulture) |> equal "10000"
+        (0.000222).ToString("G17", CultureInfo.InvariantCulture) |> equal "0.000222"
+        (1e-10).ToString("G17", CultureInfo.InvariantCulture) |> equal "1E-10"
+        (1e-10).ToString("g17", CultureInfo.InvariantCulture) |> equal "1e-10"
+        (1.5e10).ToString("G17", CultureInfo.InvariantCulture) |> equal "15000000000"
+
     testCase "ToString formatted works with decimals" <| fun () -> // See #2276
         let decimal = 78.6M
         decimal.ToString("0.000").Replace(",", ".") |> equal "78.600"
