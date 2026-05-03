@@ -1,6 +1,8 @@
-# Open Repo Assist PRs (as of 2026-04-25)
+# Open Repo Assist PRs (as of 2026-05-03)
 
-- NEW (PR# TBD): fix: check MSBuild exit code instead of stderr for compile failure (closes #4562)
+- NEW (PR# TBD): fix(js/ts): reject JS-permissive date strings that .NET TryParse rejects (closes #3858)
+- #4587: fix(js/ts): fix G/g format specifier corrupting exponential notation (closes #2654)
+- #4585: fix: forward --pathmap: option to FCS so CallerFilePath respects path (closes #4061)
 - #4563: [TS] Enforce browser-only compatibility in fable-library-ts tsconfig (closes #4368)
 - #4560: fix(python): fix regex lookbehind patterns being incorrectly converted (fixes #3918)
 - #4553: fix(js): handle .NET format specifiers in F# interpolated strings
@@ -22,8 +24,8 @@
 - #4411: [JS/TS] Fix float32 arithmetic producing float64 results
 
 # Future Investigation Targets
-- #2654 G17 format: trimEnd("0") corrupts exponent (e.g. 1e-10) - root cause known
-- #3858 DateTime.TryParse too forgiving: parseRaw needs pre-validation before new Date() call; fix approach: run strict regex first
+- #4580 [<Erase>] + static member inline: inline not expanded (Inlined active pattern not matching for erased types)
 - #4224 JSX match-case children bug (Unroller in Fable2Babel.fs needs new case)
 - #3919 importValueDynamic multi-arg functions (arity-aware lambda wrapping needed)
+- #3477 anonymous record None fields filtered from object literal (BabelPrinter line 1211)
 - Python/Dart/Beam .NET format specifiers in interpolated strings (follow-up to #4553)

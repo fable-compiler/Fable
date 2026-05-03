@@ -1,8 +1,8 @@
 {
-  "last_run": "2026-05-02T01:09:44Z",
+  "last_run": "2026-05-03T01:16:49Z",
   "comments_made": {
     "3477": "2026-04-26T01:10:22Z",
-    "3858": "2026-04-25T01:16:00Z",
+    "3858": "2026-05-03T01:16:49Z",
     "4046": "2026-04-22",
     "3775": "2026-04-22",
     "2825": "2026-04-21",
@@ -55,16 +55,16 @@
     "3918": {"pr": 4560, "status": "open", "date": "2026-04-24"},
     "4368": {"pr": 4563, "status": "open", "date": "2026-04-24"},
     "4562": {"pr": 4564, "status": "open", "date": "2026-04-25"},
-    "3858": {"pr": null, "status": "investigated", "date": "2026-04-25"},
+    "3858": {"pr": null, "status": "pr_created_this_run", "date": "2026-05-03", "branch": "repo-assist/fix-datetime-tryparse-permissive-3858"},
     "4022": {"pr": 4495, "status": "open", "date": "2026-04-09"},
     "2636": {"pr": null, "status": "pr_created", "date": "2026-04-25", "branch": "repo-assist/improve-stringbuilder-append-overloads"},
     "codescan_1056_1181": {"pr": null, "status": "pr_created", "date": "2026-04-26", "branch": "repo-assist/codescan-1056-1181-struct-patterns-postfix-array"},
     "4061": {"pr": 4585, "status": "open", "date": "2026-05-01", "branch": "repo-assist/fix-pathmap-caller-file-path-4061"},
-    "2654": {"pr": null, "status": "pr_created_this_run", "date": "2026-05-02", "branch": "repo-assist/fix-g-format-exponential-2654"}
+    "2654": {"pr": 4587, "status": "open", "date": "2026-05-02", "branch": "repo-assist/fix-g-format-exponential-2654"}
   },
-  "notes": "G17 fix submitted (PR pending, branch repo-assist/fix-g-format-exponential-2654). Many old RA PRs still open awaiting review.",
+  "notes": "Task 4 (Eng Investments): protected workflow files + dependabot covers deps; skip next time unless new PRs open. DateTime fix PR for #3858 submitted. #4580 (Erase+inline bug) noted for future investigation.",
   "issue_cursor": null,
   "monthly_activity_issue": 4586,
-  "eng_investments_checked": ["CI concurrency (PR #4546)", "NuGet/npm caching (PR #4525)"],
+  "eng_investments_checked": ["CI concurrency (PR #4546)", "NuGet/npm caching (PR #4525)", "dependabot comprehensive config present", "workflow files protected"],
   "codescan_cursor": 1083
 }
