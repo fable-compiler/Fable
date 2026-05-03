@@ -292,6 +292,16 @@ Update memory with labels applied and cursor position.
 
 **Only attempt fixes you are confident about.** It is fine to work on issues you have previously commented on.
 
+**Load balancing across targets**: each target has a different maintainer, so concentrating PRs on one target overloads that person. Before picking an issue to fix, list the open Repo Assist PRs and tally them by target scope:
+
+```bash
+gh pr list --label repo-assist --state open --json title --jq '.[].title'
+```
+
+For each title, identify its target from the Conventional Commits scope (e.g. `fix(python):`, `fix(js/ts):`) or the legacy bracket tag (`[Python]`, `[JS/TS]`). Targets are: `js/ts`, `python`, `rust`, `dart`, `beam`. If **any** target already has **more than 2** open PRs, do not open another PR scoped to that target this run — pick an issue for a less-represented target instead, even if it means skipping a higher-priority issue. Cross-target (`all`) and non-target-scoped fixes are always allowed.
+
+If the load-balancing rule blocks every fixable issue this run (e.g. all targets are over the threshold, or the only fixable issues are scoped to overloaded targets), skip Task 3 and do Task 2 (Issue Investigation and Comment) instead. Note the substitution in the Task 11 run history entry.
+
 1. Review issues labelled `bug`, `help wanted`, or `up-for-grabs`, plus any identified as fixable during investigation.
 2. For each fixable issue:
     a. Check memory — skip if you've already tried and the attempt is still open. Never create duplicate PRs.
