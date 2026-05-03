@@ -876,6 +876,20 @@ let tests =
         let r, _date = DateTime.TryParse(invalidAmericanDate, CultureInfo.InvariantCulture, DateTimeStyles.None)
         r |> equal false
 
+    testCase "DateTime.TryParse rejects JS-permissive strings that .NET rejects" <| fun () ->
+        // V8's Date constructor accepts "ABC 6" by treating "ABC" as a timezone abbreviation.
+        // .NET DateTime.TryParse must reject it. See #3858.
+        let r1, _ = DateTime.TryParse("ABC 6")
+        r1 |> equal false
+
+        let r2, _ = DateTime.TryParse("XYZ 2024")
+        r2 |> equal false
+
+        // Valid dates must still parse
+        let r3, d = DateTime.TryParse("9/10/2014 1:50:34 PM")
+        r3 |> equal true
+        d.Year |> equal 2014
+
     testCase "DateTime.Today works" <| fun () ->
         let d = DateTime.Today
         equal 0 d.Hour

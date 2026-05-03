@@ -599,6 +599,15 @@ export function parseRaw(input: string): [Date, Offset] {
     fail();
   }
 
+  // Pre-validate: reject strings that JavaScript's Date constructor accepts but .NET does not.
+  // JS Date (V8) is overly permissive — e.g. "ABC 6" is accepted because V8 treats "ABC" as a
+  // timezone abbreviation. .NET DateTime.TryParse requires a recognisable date format.
+  // Valid date strings must start with a digit, or with a recognised month name (Jan–Dec).
+  // See #3858.
+  if (!/^\s*(?:\d|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i.test(input)) {
+    fail();
+  }
+
   // ISO dates without TZ are parsed as UTC. Adding time without TZ keeps them local.
   if (input.length === 10 && input[4] === "-" && input[7] === "-") {
     input += "T00:00:00";
