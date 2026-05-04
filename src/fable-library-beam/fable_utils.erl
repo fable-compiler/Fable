@@ -153,6 +153,9 @@ get_enumerator(Map) when is_map(Map) ->
 get_enumerator({group_collection, Items, _Names}) ->
     %% Regex GroupCollection: iterate over the group items list
     get_enumerator(Items);
+get_enumerator(Bin) when is_binary(Bin) ->
+    %% String binary used as seq<char>: enumerate Unicode codepoints.
+    get_enumerator(unicode:characters_to_list(Bin));
 get_enumerator(Other) ->
     %% Fallback: treat as list
     get_enumerator(lists:flatten([Other])).
