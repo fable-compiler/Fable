@@ -2227,7 +2227,7 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
 
     | Fable.LetRec(bindings, b) ->
         let ctx, bindings =
-            ((ctx, bindings), bindings)
+            ((ctx, []), bindings)
             ||> List.fold (fun (ctx, bindings) (i, e) ->
                 let i = resolveInlineIdent ctx info i
                 let e = resolveInlineExpr com ctx info e

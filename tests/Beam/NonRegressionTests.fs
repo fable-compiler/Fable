@@ -142,3 +142,25 @@ let ``test string StartsWith char from tuple element`` () =
     let pair = (1, 'H')
     let result = "Hello".StartsWith(snd pair)
     equal true result
+
+// Inline outer + nested non-inline helper + innermost `let rec ... and ...`
+// referencing an outer-scope capture: the inliner used to emit each binding
+// twice, with the first (unresolved) copy losing the capture.
+module IssueInlineMutualRec =
+    let inline outer<'T> (capture: int) =
+        let inner () =
+            let rec a () =
+                if capture = 0 then
+                    "ok"
+                else
+                    b ()
+
+            and b () = a () + "!"
+
+            a ()
+
+        inner ()
+
+[<Fact>]
+let ``test inline outer with nested mutual recursion captures outer scope`` () =
+    IssueInlineMutualRec.outer<int> 0 |> equal "ok"
