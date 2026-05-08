@@ -420,7 +420,7 @@ function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
         const utcDate = DateTime(date.getTime(), DateTimeKind.Utc);
         return dateToString_R(utcDate);
       }
-      case "s": return dateToString_s(d);
+      case "s": return dateToString_s(toUniversalTime(d));
       case "T": return dateToString_T(toUniversalTime(d));
       case "t": return dateToString_t(toUniversalTime(d));
       case "u": {
