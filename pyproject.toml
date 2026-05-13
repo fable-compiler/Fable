@@ -18,12 +18,12 @@ Homepage = "https://fable.io"
 dev = [
     "pytest>=9.0.3,<10",
     "ruff>=0.15.12,<0.16",
-    "maturin>=1.13.1,<2",
+    "maturin>=1.13.3,<2",
     "dunamai>=1.26.1,<2",
-    "pydantic>=2.13.3",
+    "pydantic>=2.13.4",
     "attrs>=26.1.0",
     "pyright>=1.1.409",
-    "ty>=0.0.34",
+    "ty>=0.0.35",
 ]
 
 [tool.hatch.build.targets.sdist]
