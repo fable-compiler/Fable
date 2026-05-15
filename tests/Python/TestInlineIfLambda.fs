@@ -72,7 +72,7 @@ let ``test InlineIfLambda with two parameters works`` () =
     let result =
         applyPairTwice
             (fun a b ->
-                printfn "Adding %d and %d" a b
+                // printfn "Adding %d and %d" a b
                 a + b
             )
             10
