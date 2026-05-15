@@ -67,8 +67,8 @@ open Fable.Core.JsInterop
 // but not available in node.js runtime
 importSideEffects "./js/polyfill.js"
 
-let [<Global>] describe (name: string) (f: unit->unit) : unit = jsNative
-let [<Global>] it (msg: string) (f: unit->unit) : unit = jsNative
+let inline describe (name: string) (f: unit->unit) : unit = import "describe" "node:test"
+let inline it (msg: string) (f: unit->unit) : unit = import "it" "node:test"
 
 
 let rec flattenTest (test: Util.Testing.TestKind) : unit =

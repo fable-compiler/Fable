@@ -24,7 +24,9 @@ let handle (args: string list) =
     Shell.copyFile fableDest (projectDir </> "tsconfig.json")
 
     let tscArgs = $"tsc --outDir {tscDest}"
-    let mochaArgs = "mocha temp/tests/TypeScript --reporter dot -t 10000"
+
+    let testArgs =
+        "--test-reporter spec --test-timeout 10000 --test temp/tests/TypeScript/Main.js"
 
     let fableArgs =
         CmdLine.concat
@@ -53,8 +55,8 @@ let handle (args: string list) =
         // Avoid polluting the logs when a lot of files change at once
         |> CmdLine.appendPrefix "--delay" "1s"
         |> CmdLine.appendRaw "--exec"
-        |> CmdLine.appendRaw "\""
-        |> CmdLine.appendRaw mochaArgs
+        |> CmdLine.appendRaw "\"node"
+        |> CmdLine.appendRaw testArgs
         |> CmdLine.appendRaw "\""
         |> CmdLine.toString
 
@@ -80,4 +82,4 @@ let handle (args: string list) =
 
         Command.Run("npx", tscArgs, workingDirectory = fableDest)
 
-        Command.Run("npx", mochaArgs, workingDirectory = tscDest)
+        Command.Run("node", testArgs, workingDirectory = tscDest)

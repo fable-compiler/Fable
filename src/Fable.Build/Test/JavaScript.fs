@@ -52,13 +52,12 @@ let private testAdaptive (isWatch: bool) =
 
     let destinationDir = Path.Resolve("temp", "tests", "JavaScript", folderName)
 
-    let mochaCommand =
+    let testCommand =
         CmdLine.empty
-        |> CmdLine.appendRaw "npx"
-        |> CmdLine.appendRaw "mocha"
-        |> CmdLine.appendRaw destinationDir
-        |> CmdLine.appendPrefix "--reporter" "dot"
-        |> CmdLine.appendPrefix "-t" "10000"
+        |> CmdLine.appendRaw "node"
+        |> CmdLine.appendPrefix "--test-reporter" "spec"
+        |> CmdLine.appendPrefix "--test-timeout" "10000"
+        |> CmdLine.appendPrefix "--test" (destinationDir </> "Main.js")
         |> CmdLine.toString
 
     Directory.clean destinationDir
@@ -77,9 +76,9 @@ let private testAdaptive (isWatch: bool) =
                     CmdLine.empty
                     |> CmdLine.appendRaw "--watch"
                     |> CmdLine.appendRaw "--runWatch"
-                    |> CmdLine.appendRaw mochaCommand
+                    |> CmdLine.appendRaw testCommand
                 else
-                    CmdLine.empty |> CmdLine.appendRaw "--run" |> CmdLine.appendRaw mochaCommand
+                    CmdLine.empty |> CmdLine.appendRaw "--run" |> CmdLine.appendRaw testCommand
             ]
 
     if isWatch then
@@ -93,13 +92,12 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
 
     let destinationDir = Path.Resolve("temp", "tests", "JavaScript", folderName)
 
-    let mochaCommand =
+    let testCommand =
         CmdLine.empty
-        |> CmdLine.appendRaw "npx"
-        |> CmdLine.appendRaw "mocha"
-        |> CmdLine.appendRaw destinationDir
-        |> CmdLine.appendPrefix "--reporter" "dot"
-        |> CmdLine.appendPrefix "-t" "10000"
+        |> CmdLine.appendRaw "node"
+        |> CmdLine.appendPrefix "--test-reporter" "spec"
+        |> CmdLine.appendPrefix "--test-timeout" "10000"
+        |> CmdLine.appendPrefix "--test" (destinationDir </> "Main.js")
         |> CmdLine.toString
 
     Directory.clean destinationDir
@@ -118,9 +116,9 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
                     CmdLine.empty
                     |> CmdLine.appendRaw "--watch"
                     |> CmdLine.appendRaw "--runWatch"
-                    |> CmdLine.appendRaw mochaCommand
+                    |> CmdLine.appendRaw testCommand
                 else
-                    CmdLine.empty |> CmdLine.appendRaw "--run" |> CmdLine.appendRaw mochaCommand
+                    CmdLine.empty |> CmdLine.appendRaw "--run" |> CmdLine.appendRaw testCommand
             ]
 
     if isWatch then

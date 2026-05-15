@@ -11,7 +11,7 @@ open SimpleExec
 let private mainTestProject =
     Path.Resolve("tests", "Js", "Main", "Fable.Tests.fsproj")
 
-let private mochaCommand = "npx mocha . --reporter dot -t 10000"
+let private testArgs = "--test-reporter spec --test-timeout 10000 --test Main.js"
 
 let handleStandaloneFast () =
     let fableCompilerJsDir = Path.Resolve("src", "fable-compiler-js", "src")
@@ -41,7 +41,7 @@ let handleStandaloneFast () =
         workingDirectory = fableCompilerJsDir
     )
 
-    Command.Run("npx", mochaCommand, workingDirectory = standaloneBuildDest)
+    Command.Run("node", testArgs, workingDirectory = standaloneBuildDest)
 
 let handle (args: string list) =
     BuildFableLibraryJavaScript().Run()

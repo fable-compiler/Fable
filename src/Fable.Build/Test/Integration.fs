@@ -29,9 +29,11 @@ let private testProjectConfig (projectDirName: string) (configuration: string op
         |> CmdLine.appendPrefix "--exclude" "Fable.Core"
         |> CmdLine.appendPrefixIfSome "--configuration" configuration
 
+    let testArgs = "--test-reporter spec --test-timeout 10000 --test Main.js"
+
     Command.Fable(fableArgs)
 
-    Command.Run("npx", "npx mocha . --reporter dot -t 10000", workingDirectory = destinationDir)
+    Command.Run("node", testArgs, workingDirectory = destinationDir)
 
 let handle (args: string list) =
     BuildFableLibraryJavaScript().Run()

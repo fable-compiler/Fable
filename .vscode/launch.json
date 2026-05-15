@@ -151,8 +151,8 @@
     //     "type": "node",
     //     "request": "launch",
     //     "name": "Run bench-compiler JS tests",
-    //     "program": "${workspaceFolder}/node_modules/mocha/bin/_mocha",
-    //     "args": ["out-tests"],
+    //     "program": "out-tests/Main.js",
+    //     "args": ["--test"],
     //     "cwd": "${workspaceRoot}/src/fable-standalone/test/bench-compiler"
     // },
     // {
