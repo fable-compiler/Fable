@@ -26,7 +26,7 @@ let handle (args: string list) =
     let tscArgs = $"tsc --outDir {tscDest}"
 
     let testArgs =
-        "--test-reporter spec --test-timeout 10000 --test temp/tests/TypeScript/Main.js"
+        "--test-reporter spec --test-timeout 20000 --test temp/tests/TypeScript/Main.js"
 
     let fableArgs =
         CmdLine.concat

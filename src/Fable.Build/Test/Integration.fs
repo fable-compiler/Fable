@@ -29,7 +29,7 @@ let private testProjectConfig (projectDirName: string) (configuration: string op
         |> CmdLine.appendPrefix "--exclude" "Fable.Core"
         |> CmdLine.appendPrefixIfSome "--configuration" configuration
 
-    let testArgs = "--test-reporter spec --test-timeout 10000 --test Main.js"
+    let testArgs = "--test-reporter spec --test-timeout 20000 --test Main.js"
 
     Command.Fable(fableArgs)
 

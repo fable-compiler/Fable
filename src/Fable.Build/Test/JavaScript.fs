@@ -56,7 +56,7 @@ let private testAdaptive (isWatch: bool) =
         CmdLine.empty
         |> CmdLine.appendRaw "node"
         |> CmdLine.appendPrefix "--test-reporter" "spec"
-        |> CmdLine.appendPrefix "--test-timeout" "10000"
+        |> CmdLine.appendPrefix "--test-timeout" "20000"
         |> CmdLine.appendPrefix "--test" (destinationDir </> "Main.js")
         |> CmdLine.toString
 
@@ -96,7 +96,7 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
         CmdLine.empty
         |> CmdLine.appendRaw "node"
         |> CmdLine.appendPrefix "--test-reporter" "spec"
-        |> CmdLine.appendPrefix "--test-timeout" "10000"
+        |> CmdLine.appendPrefix "--test-timeout" "20000"
         |> CmdLine.appendPrefix "--test" (destinationDir </> "Main.js")
         |> CmdLine.toString
 

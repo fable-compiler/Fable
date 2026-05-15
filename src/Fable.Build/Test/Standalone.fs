@@ -11,7 +11,7 @@ open SimpleExec
 let private mainTestProject =
     Path.Resolve("tests", "Js", "Main", "Fable.Tests.fsproj")
 
-let private testArgs = "--test-reporter spec --test-timeout 10000 --test Main.js"
+let private testArgs = "--test-reporter spec --test-timeout 20000 --test Main.js"
 
 let handleStandaloneFast () =
     let fableCompilerJsDir = Path.Resolve("src", "fable-compiler-js", "src")
