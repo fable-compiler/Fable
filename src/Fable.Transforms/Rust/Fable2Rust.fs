@@ -3041,6 +3041,18 @@ module Util =
     let transformCurry (com: IRustCompiler) (ctx: Context) arity (expr: Fable.Expr) : Rust.Expr =
         com.TransformExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
+    let tryGetCurriedApplyArgAndReturnTypes typ =
+        match typ with
+        | Fable.LambdaType(argType, returnType) -> Some(argType, returnType)
+        | Fable.DelegateType([ argType ], returnType) -> Some(argType, returnType)
+        | _ -> None
+
+    let isErasedUnitClosureType typ =
+        match typ with
+        | Fable.LambdaType(Fable.Unit, _)
+        | Fable.DelegateType([ Fable.Unit ], _) -> true
+        | _ -> false
+
     let transformCurriedApply (com: IRustCompiler) ctx r typ calleeExpr args =
         match ctx.TailCallOpportunity with
         | Some tc when tc.IsRecursiveRef(calleeExpr) && List.length tc.Args = List.length args ->
@@ -3048,11 +3060,33 @@ module Util =
         | _ ->
             let callee = transformCallee com ctx calleeExpr
 
-            (callee, args)
-            ||> List.fold (fun expr arg ->
-                let args = FSharp2Fable.Util.dropUnitCallArg com [ arg ] [] None
-                callFunction com ctx r expr args
+            ((callee, Some calleeExpr, calleeExpr.Type), args)
+            ||> List.fold (fun (expr, currentExpr, currentType) arg ->
+                let expectedArgType, nextType =
+                    match tryGetCurriedApplyArgAndReturnTypes currentType with
+                    | Some(argType, returnType) -> argType, returnType
+                    | None -> arg.Type, typ
+
+                if arg.Type = Fable.Unit then
+                    let appliedExpr =
+                        match currentExpr with
+                        | Some(Fable.IdentExpr ident) when isFuncScoped ctx ident.Name -> mkCallExpr expr []
+                        | _ -> makeLibCall com ctx None "Native" "applyUnit" [ expr |> makeClone ]
+
+                    appliedExpr, None, nextType
+                else
+                    let argExpr =
+                        transformCallArgs com ctx [ arg ] [ expectedArgType ] [] |> List.exactlyOne
+
+                    let argExpr =
+                        if isErasedUnitClosureType expectedArgType then
+                            makeLibCall com ctx None "Native" "eraseUnitArg" [ argExpr |> makeClone ]
+                        else
+                            argExpr
+
+                    mkCallExpr expr [ argExpr ], None, nextType
             )
+            |> fun (expr, _, _) -> expr
 
     let makeUnionCasePat unionCaseName fields =
         if List.isEmpty fields then

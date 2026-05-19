@@ -320,6 +320,56 @@ pub mod Native_ {
     }
 
     // -----------------------------------------------------------
+    // Unit arg curried applications
+    // -----------------------------------------------------------
+
+    pub trait ApplyUnit<R> {
+        fn apply_unit(self) -> R;
+    }
+
+    pub trait EraseUnitArg<R> {
+        fn erase_unit_arg(self) -> Func0<R>;
+    }
+
+    impl<R: 'static> ApplyUnit<R> for Func0<R> {
+        #[inline]
+        fn apply_unit(self) -> R {
+            self()
+        }
+    }
+
+    impl<R: 'static> ApplyUnit<R> for Func1<(), R> {
+        #[inline]
+        fn apply_unit(self) -> R {
+            self(())
+        }
+    }
+
+    impl<R: 'static> EraseUnitArg<R> for Func0<R> {
+        #[inline]
+        fn erase_unit_arg(self) -> Func0<R> {
+            self
+        }
+    }
+
+    impl<R: 'static> EraseUnitArg<R> for Func1<(), R> {
+        #[inline]
+        fn erase_unit_arg(self) -> Func0<R> {
+            Func0::new(move || self(()))
+        }
+    }
+
+    #[inline]
+    pub fn applyUnit<R, F: ApplyUnit<R>>(f: F) -> R {
+        f.apply_unit()
+    }
+
+    #[inline]
+    pub fn eraseUnitArg<R, F: EraseUnitArg<R>>(f: F) -> Func0<R> {
+        f.erase_unit_arg()
+    }
+
+    // -----------------------------------------------------------
     // Fixed-point combinators
     // -----------------------------------------------------------
 

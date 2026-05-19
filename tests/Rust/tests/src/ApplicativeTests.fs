@@ -1116,12 +1116,12 @@ let ``SRTP with ActivePattern works`` () =
 //     equal (1,5) baz
 //     equal (1,5) baz2
 
-// [<Fact>]
-// let ``Applying to a function returned by a local function works`` () =
-//     let foo a b c d = a , b + c d
-//     let bar a = foo 1 a
-//     let baz = bar 2 (fun _ -> 3) ()
-//     equal (1,5) baz
+[<Fact>]
+let ``Applying to a function returned by a local function works`` () =
+    let foo a b c d = a , b + c d
+    let bar a = foo 1 a
+    let baz = bar 2 (fun _ -> 3) ()
+    equal (1,5) baz
 
 [<Fact>]
 let ``Partially applied functions don't duplicate side effects`` () = // See #1156
