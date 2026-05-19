@@ -2017,7 +2017,7 @@ module Util =
         sb.Append(List.head parts) |> ignore
 
         List.tail parts
-        |> List.iteri (fun i part -> sb.Append("{" + string<int> i + "}" + part) |> ignore)
+        |> List.iteri (fun i part -> sb.Append('{').Append(i).Append('}').Append(part) |> ignore)
 
         sb.ToString()
 
@@ -2777,6 +2777,12 @@ module Util =
         | Fable.DelegateType _ -> true
         | t -> t.Generics |> List.exists hasFuncOrAnyType
 
+    let prepareLambdaArgsAndCtx ctx args body =
+        let ctx = { ctx with IsLambda = true }
+        let genArgs, ctx = getNewGenArgsAndCtx ctx args body
+        let args = args |> discardUnitArg genArgs
+        genArgs, ctx, args
+
     let getLetCapturedNames bindings letBody =
         let capturedNames = HashSet<string>()
 
@@ -2806,7 +2812,15 @@ module Util =
         let ctx = getScopedIdentCtx com ctx ident false isByRef false false usages
         mkLocalStmt local, ctx
 
-    let makeLetStmt com ctx (ident: Fable.Ident) value isCaptured usages =
+    let makeLetStmt
+        com
+        ctx
+        (ident: Fable.Ident)
+        value
+        isCaptured
+        usages
+        (capturedIdentsOpt: Map<string, Fable.Ident> option)
+        =
         // TODO: traverse body and follow references to decide if this should be wrapped or not
         // For Box/Rc it's not needed cause the Rust compiler will optimize the allocation away
         let tyOpt =
@@ -2829,7 +2843,8 @@ module Util =
                 ->
                 transformIdent com ctx None ident2 |> Some
             | Fable.Value(Fable.Null Fable.MetaType, _) -> None // special init value to skip initialization
-            | Function(args, body, _name) -> transformLambda com ctx (Some ident.Name) args body |> Some
+            | Function(args, body, _name) ->
+                transformLambda com ctx (Some ident.Name) args body capturedIdentsOpt |> Some
             | _ ->
                 transformLeaveContext com ctx None value
                 // |> BLOCK_COMMENT_SUFFIX (sprintf "usages - %i" (usageCount ident.Name usages))
@@ -2853,7 +2868,8 @@ module Util =
 
     let makeLetStmts (com: IRustCompiler) ctx bindings letBody usages isTailCall =
         let capturedNames =
-            if isTailCall then
+            // Only mutable bindings consult `isCaptured`, so skip the captured-name walk for all-immutable blocks.
+            if isTailCall || not (bindings |> List.exists (fun (ident, _) -> ident.IsMutable)) then
                 None
             else
                 Some(getLetCapturedNames bindings letBody)
@@ -2870,11 +2886,16 @@ module Util =
 
                     match value with
                     | Function(args, body, _name) when not (ident.IsMutable) ->
-                        if hasCapturedIdents com ctx ident.Name args body then
-                            makeLetStmt com ctx ident value isCaptured usages
-                        else
+                        let _, lambdaCtx, lambdaArgs = prepareLambdaArgsAndCtx ctx args body
+
+                        let capturedIdents =
+                            getCapturedIdents com lambdaCtx (Some ident.Name) lambdaArgs body
+
+                        if Map.isEmpty capturedIdents then
                             transformNestedFunction com ctx ident args body usages
-                    | _ -> makeLetStmt com ctx ident value isCaptured usages
+                        else
+                            makeLetStmt com ctx ident value isCaptured usages (Some capturedIdents)
+                    | _ -> makeLetStmt com ctx ident value isCaptured usages None
 
                 (ctxNext, stmt :: lst)
             )
@@ -2992,7 +3013,7 @@ module Util =
             // try...finally
             match finalizer with
             | Some finBody ->
-                let f = transformLambda com ctx None [] finBody
+                let f = transformLambda com ctx None [] finBody None
                 let finCall = makeLibCall com ctx None "Exception" "finally" [ f ]
                 let finPat = makeFullNameIdentPat "__finally__"
                 let letExpr = mkLetExpr finPat finCall
@@ -3413,23 +3434,26 @@ module Util =
     //         | cases -> cases
 
     let getTargetsWithMultipleReferences expr =
-        let rec findSuccess (targetRefs: Map<int, int>) =
-            function
-            | [] -> targetRefs
-            | expr :: exprs ->
-                match expr with
-                // We shouldn't actually see this, but short-circuit just in case
-                | Fable.DecisionTree _ -> findSuccess targetRefs exprs
-                | Fable.DecisionTreeSuccess(idx, _, _) ->
-                    let count = Map.tryFind idx targetRefs |> Option.defaultValue 0
+        let targetRefs = System.Collections.Generic.Dictionary<int, int>()
+        let queue = System.Collections.Generic.Queue<Fable.Expr>()
+        queue.Enqueue(expr)
 
-                    let targetRefs = Map.add idx (count + 1) targetRefs
-                    findSuccess targetRefs exprs
-                | expr ->
-                    let exprs2 = getSubExpressions expr
-                    findSuccess targetRefs (exprs @ exprs2)
+        while queue.Count > 0 do
+            match queue.Dequeue() with
+            // We shouldn't actually see this, but short-circuit just in case
+            | Fable.DecisionTree _ -> ()
+            | Fable.DecisionTreeSuccess(idx, _, _) ->
+                let count =
+                    match targetRefs.TryGetValue(idx) with
+                    | true, c -> c
+                    | false, _ -> 0
 
-        findSuccess Map.empty [ expr ]
+                targetRefs[idx] <- count + 1
+            | expr ->
+                for sub in getSubExpressions expr do
+                    queue.Enqueue(sub)
+
+        targetRefs
         |> Seq.choose (fun kv ->
             if kv.Value > 1 then
                 Some kv.Key
@@ -3550,8 +3574,8 @@ module Util =
         | Fable.IdentExpr ident -> transformIdentGet com ctx None ident
         | Fable.Import(info, t, r) -> transformImport com ctx r t info None
         | Fable.Test(expr, kind, range) -> transformTest com ctx range kind expr
-        | Fable.Lambda(arg, body, name) -> transformLambda com ctx name [ arg ] body
-        | Fable.Delegate(args, body, name, _) -> transformLambda com ctx name args body
+        | Fable.Lambda(arg, body, name) -> transformLambda com ctx name [ arg ] body None
+        | Fable.Delegate(args, body, name, _) -> transformLambda com ctx name args body None
         | Fable.ObjectExpr(members, typ, baseCall) -> transformObjectExpr com ctx typ members baseCall
         | Fable.Call(callee, info, typ, range) -> transformCall com ctx range typ callee info
         | Fable.CurriedApply(callee, args, typ, range) -> transformCurriedApply com ctx range typ callee args
@@ -3842,14 +3866,6 @@ module Util =
         let allNames = name |> Option.fold (fun xs x -> x :: xs) argNames
         allNames |> Set.ofList
 
-    let hasCapturedIdents com ctx (name: string) (args: Fable.Ident list) (body: Fable.Expr) =
-        let ignoredNames = HashSet(getIgnoredNames (Some name) args)
-
-        let isClosedOver expr =
-            tryFindClosedOverIdent com ctx ignoredNames expr |> Option.isSome
-
-        deepExists isClosedOver body
-
     let getCapturedIdents com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
         let ignoredNames = HashSet(getIgnoredNames name args)
         let mutable capturedIdents = Map.empty
@@ -3944,14 +3960,22 @@ module Util =
         let fnBody = transformFunctionBody com ctx args body
         fnDecl, fnBody, genArgs
 
-    let transformLambda com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
-        let ctx = { ctx with IsLambda = true }
-        let genArgs, ctx = getNewGenArgsAndCtx ctx args body
-        let args = args |> discardUnitArg genArgs
+    let transformLambda
+        com
+        ctx
+        (name: string option)
+        (args: Fable.Ident list)
+        (body: Fable.Expr)
+        (capturedIdentsOpt: Map<string, Fable.Ident> option)
+        =
+        let genArgs, ctx, args = prepareLambdaArgsAndCtx ctx args body
         let isRecursive, isTailRec = isTailRecursive name body
         let fnDecl = transformFunctionDecl com ctx args [] Fable.Unit
         let ctx = getFunctionBodyCtx com ctx name args body isTailRec
-        let capturedIdents = getCapturedIdents com ctx name args body
+
+        let capturedIdents =
+            capturedIdentsOpt
+            |> Option.defaultWith (fun () -> getCapturedIdents com ctx name args body)
 
         let capturedCloneMap =
             capturedIdents
@@ -5560,16 +5584,18 @@ module Compiler =
                 |> Seq.toList
 
             member _.ClearAllImports(ctx) =
-                let importsList = imports |> Seq.toList
+                let keys = imports.Keys |> Seq.toList
 
-                for import in importsList do
-                    import.Value.Depths <-
+                for key in keys do
+                    let import = imports[key]
+
+                    import.Depths <-
                         // remove all import depths at this module level or deeper
-                        import.Value.Depths |> List.filter (fun d -> d < ctx.ModuleDepth)
+                        import.Depths |> List.filter (fun d -> d < ctx.ModuleDepth)
 
-                    if import.Value.Depths.Length = 0 then
-                        imports.Remove(import.Key) |> ignore
-                        ctx.UsedNames.RootScope.Remove(import.Value.LocalIdent) |> ignore
+                    if import.Depths.Length = 0 then
+                        imports.Remove(key) |> ignore
+                        ctx.UsedNames.RootScope.Remove(import.LocalIdent) |> ignore
 
             member _.GetAllModules() = importModules.Keys |> Seq.toList
 
