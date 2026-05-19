@@ -2316,8 +2316,10 @@ let exceptionDispatchInfo (com: ICompiler) (ctx: Context) r t (i: CallInfo) this
 
 let funcs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
-    // Just use Emit to change the type of the arg, Fable will automatically uncurry the function
-    | "Adapt", _ -> emitExpr r t args "$0" |> Some
+    | "Adapt", _ ->
+        match args, t with
+        | [ arg ], DeclaredType(_, genArgs) -> uncurryExprAtRuntime com (List.length genArgs - 1) arg |> Some
+        | _ -> emitExpr r t args "$0" |> Some
     | "Invoke", Some callee -> Helper.Application(callee, t, args, i.SignatureArgTypes, ?loc = r) |> Some
     | _ -> None
 

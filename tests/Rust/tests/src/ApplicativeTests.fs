@@ -578,14 +578,14 @@ let ``Multiple nested lambdas can be partially applied`` () =
     let f2 = f 1 2
     f2 3 4 5 |> equal 15
 
-// [<Fact>]
-// let ``Partial application of optimized closures works`` () =
-//     let mutable m = 1
-//     let f x = m <- m + 1; (fun y z -> x + y + z)
-//     let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
-//     let r = f.Invoke(1, 2, 3)
-//     m |> equal 2
-//     r |> equal 6
+[<Fact>]
+let ``Partial application of optimized closures works`` () =
+    let mutable m = 1
+    let f x = m <- m + 1; (fun y z -> x + y + z)
+    let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
+    let r = f.Invoke(1, 2, 3)
+    m |> equal 2
+    r |> equal 6
 
 [<Fact>]
 let ``No errors because references to missing unit args`` () =
