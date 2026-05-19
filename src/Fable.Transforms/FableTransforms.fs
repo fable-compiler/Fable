@@ -3,23 +3,46 @@ module Fable.Transforms.FableTransforms
 open Fable
 open Fable.AST.Fable
 
-let isIdentCaptured identName expr =
-    let rec loop isClosure exprs =
-        match exprs with
-        | [] -> false
-        | expr :: restExprs ->
-            match expr with
-            | IdentExpr i when i.Name = identName -> isClosure || loop isClosure restExprs
-            | Lambda(_, body, _) -> loop true [ body ] || loop isClosure restExprs
-            | Delegate(_, body, _, _) -> loop true [ body ] || loop isClosure restExprs
-            | ObjectExpr(members, _, baseCall) ->
-                let memberExprs = members |> List.map (fun m -> m.Body)
-                loop true memberExprs || loop isClosure (Option.toList baseCall @ restExprs)
-            | e ->
-                let sub = getSubExpressions e
-                loop isClosure (sub @ restExprs)
+let private walkCapturedIdents (f: string -> bool) expr =
+    let exprs = FSharp.Collections.ResizeArray [| struct (false, expr) |]
+    let mutable index = 0
+    let mutable found = false
 
-    loop false [ expr ]
+    while not found && index < exprs.Count do
+        let struct (isClosure, expr) = exprs[index]
+        index <- index + 1
+
+        match expr with
+        | IdentExpr ident when isClosure -> found <- f ident.Name
+        | Lambda(_, body, _) -> exprs.Add(struct (true, body))
+        | Delegate(_, body, _, _) -> exprs.Add(struct (true, body))
+        | ObjectExpr(members, _, baseCall) ->
+            members
+            |> List.iter (fun memberDecl -> exprs.Add(struct (true, memberDecl.Body)))
+
+            baseCall
+            |> Option.iter (fun baseCall -> exprs.Add(struct (isClosure, baseCall)))
+        | e ->
+            getSubExpressions e
+            |> List.iter (fun subExpr -> exprs.Add(struct (isClosure, subExpr)))
+
+    found
+
+let getCapturedNames expr =
+    let capturedNames = System.Collections.Generic.HashSet<string>()
+
+    walkCapturedIdents
+        (fun identName ->
+            capturedNames.Add(identName) |> ignore
+            false
+        )
+        expr
+    |> ignore
+
+    capturedNames |> Seq.toList
+
+let isIdentCaptured identName expr =
+    walkCapturedIdents (fun candidate -> candidate = identName) expr
 
 let isTailRecursive identName expr =
     let mutable isTailRec = true
