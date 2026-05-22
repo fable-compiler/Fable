@@ -511,14 +511,21 @@ let tests = testList "Strings" [
         String.Format(CultureInfo.InvariantCulture, "{0:P2}", 0.1234) |> equal "12.34 %"
         String.Format(CultureInfo.InvariantCulture, "{0:C2}", 1000) |> equal "¤1,000.00"
 
-    testCase "G format specifier trims trailing zeros without corrupting exponential notation" <| fun () -> // Fix #2654
+    testCase "G format specifier trims trailing zeros without corrupting exponential notation" <| fun () ->
         (123.45).ToString("G17", CultureInfo.InvariantCulture) |> equal "123.45"
         (10000.0).ToString("G17", CultureInfo.InvariantCulture) |> equal "10000"
         (0.000222).ToString("G17", CultureInfo.InvariantCulture) |> equal "0.000222"
         (1e-10).ToString("G17", CultureInfo.InvariantCulture) |> equal "1E-10"
         (1e-10).ToString("g17", CultureInfo.InvariantCulture) |> equal "1e-10"
         (1.5e10).ToString("G17", CultureInfo.InvariantCulture) |> equal "15000000000"
-        
+
+    testCase "G format specifier pads exponent to at least 2 digits" <| fun () ->
+        (1e-7).ToString("G2", CultureInfo.InvariantCulture) |> equal "1E-07"
+        (1e7).ToString("G2", CultureInfo.InvariantCulture) |> equal "1E+07"
+        (1.5e-7).ToString("G2", CultureInfo.InvariantCulture) |> equal "1.5E-07"
+        (-1e-7).ToString("G2", CultureInfo.InvariantCulture) |> equal "-1E-07"
+        (1e-7).ToString("g2", CultureInfo.InvariantCulture) |> equal "1e-07"
+
     testCase "x and X format specifiers work with no defined precision" <| fun () ->
         String.Format(CultureInfo.InvariantCulture, "{0:X}", 0) |> equal "0"
         String.Format(CultureInfo.InvariantCulture, "{0:X}", 0u) |> equal "0"
