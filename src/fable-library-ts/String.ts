@@ -390,11 +390,23 @@ export function format(str: string | object, ...args: any[]) {
             rep = parts.integral + "." + padRight(parts.decimal, precision, "0");
           }
           break;
-        case "g": case "G":
+        case "g": case "G": {
           rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
-          // TODO: Check why some numbers are formatted with decimal part
-          rep = trimEnd(trimEnd(rep, "0"), ".");
+          // Handle exponential notation: only trim trailing zeros from mantissa, not from exponent.
+          // .NET G format guarantees an exponent of at least 2 digits with an explicit sign (e.g. "E-07").
+          const eIdx = rep.indexOf("e");
+          if (eIdx >= 0) {
+            const mantissa = trimEnd(trimEnd(rep.slice(0, eIdx), "0"), ".");
+            const expSign = rep[eIdx + 1]; // toPrecision always emits "+" or "-"
+            const expDigits = rep.slice(eIdx + 2);
+            const paddedExpDigits = expDigits.length < 2 ? "0" + expDigits : expDigits;
+            const eChar = format === "G" ? "E" : "e";
+            rep = mantissa + eChar + expSign + paddedExpDigits;
+          } else {
+            rep = trimEnd(trimEnd(rep, "0"), ".");
+          }
           break;
+        }
         case "n": case "N":
           precision = precision != null ? precision : 2;
           rep = toFixed(rep, precision);
