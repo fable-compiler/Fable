@@ -252,7 +252,7 @@ export function getBits(d: Decimal) {
   const absStr = decStr[0] === "-" ? decStr.slice(1) : decStr;
   const dotPos = absStr.indexOf(".");
   const scale = dotPos < 0 ? 0 : absStr.length - dotPos - 1;
-  const mantissaStr = dotPos < 0 ? absStr : absStr.slice(0, dotPos) + absStr.slice(dotPos + 1);
+  const mantissaStr = absStr.replace(".", "");
   const decDigits = Uint8Array.from(mantissaStr, ch => ch.charCodeAt(0) - 48);
   const hexDigits = decimalToHex(decDigits, bitSize);
   const low = getInt32Bits(hexDigits, 0);
