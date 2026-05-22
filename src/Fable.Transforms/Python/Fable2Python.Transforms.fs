@@ -3007,6 +3007,16 @@ let transformFunction
     let cleanName (input: string) =
         Regex.Replace(input, @"_mut(_\d+)?$", "")
 
+    // Names of this function's own arguments. TCO capture parameters must not
+    // collide with these, otherwise we emit a duplicate argument (see #4610).
+    let ownArgNames =
+        args
+        |> List.map (fun id ->
+            let (Identifier name) = ident com ctx id
+            name
+        )
+        |> Set.ofList
+
     // For Python we need to append the TC-arguments to any declared (arrow) function inside the while-loop of the
     // TCO. We will set them as default values to themselves e.g `i=i` to capture the value and not the variable.
     let tcArgs, tcDefaults =
@@ -3019,6 +3029,11 @@ let transformFunction
 
                 match name with
                 | "tupled_arg_m" -> None // Remove these arguments (not sure why)
+                // Don't capture a TCO variable as a default parameter when this
+                // function already declares an argument with the same name: the
+                // local argument shadows the outer one and a duplicate parameter
+                // is a Python syntax error. See #4610.
+                | _ when ownArgNames.Contains name -> None
                 // Only capture TCO variables actually referenced in the function body.
                 // This avoids unnecessary default parameters on nested lambdas that don't
                 // use the outer TCO variables. See #3877.
