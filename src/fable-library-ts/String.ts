@@ -428,7 +428,7 @@ export function format(str: string | object, ...args: any[]) {
           if (!isIntegral(rep)) {
             throw new Exception("Format specifier was invalid.");
           }
-          precision = precision != null ? precision : 2;
+          precision = precision != null ? precision : 1;
           rep = padLeft(toHex(rep), precision, "0");
           if (format === "X") {
             rep = rep.toUpperCase();

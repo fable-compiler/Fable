@@ -1127,18 +1127,6 @@ let tests =
 
         t |> equal (TimeSpan(0, 13, 23, 30, 1))
 
-    testCaseAsync "Timer with AutoReset = true works" <| fun () ->
-        async {
-            let res = ref 0
-            let t = new Timers.Timer(50.)
-            t.Elapsed.Add(fun ev -> res := !res + 5)
-            t.Start()
-            do! Async.Sleep 125
-            t.Stop()
-            do! Async.Sleep 50
-            equal 10 !res
-        }
-
     testCaseAsync "Timer with AutoReset = false works" <| fun () ->
         async {
             let res = ref 0
@@ -1149,6 +1137,18 @@ let tests =
             t.Enabled <- true
             do! Async.Sleep 100
             equal 5 !res
+        }
+
+    testCaseAsync "Timer with AutoReset = true works" <| fun () ->
+        async {
+            let res = ref 0
+            let t = new Timers.Timer(50.)
+            t.Elapsed.Add(fun ev -> res := !res + 5)
+            t.Start()
+            do! Async.Sleep 125
+            t.Stop()
+            do! Async.Sleep 50
+            equal 10 !res
         }
 
     testCaseAsync "Timer.Elapsed.Subscribe works" <| fun () ->

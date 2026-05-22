@@ -438,6 +438,9 @@ let private extractUsefulOptionsAndSources
         // Only forward the nullness flag if it is coming from the main project
         elif line.StartsWith("--checknulls+", StringComparison.Ordinal) && isMainProj then
             accSources, line :: accOptions
+        // Forward pathmap from the main project so CallerFilePath respects <PathMap>/<DeterministicSourcePaths>
+        elif line.StartsWith("--pathmap:", StringComparison.Ordinal) && isMainProj then
+            accSources, line :: accOptions
         elif
             line.StartsWith("--nowarn", StringComparison.Ordinal)
             || line.StartsWith("--warnon", StringComparison.Ordinal)

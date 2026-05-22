@@ -1055,3 +1055,25 @@ let ``test String.forall works`` () =
     "aaa" |> String.forall (fun c -> c = 'a') |> equal true
     "aab" |> String.forall (fun c -> c = 'a') |> equal false
     "" |> String.forall (fun c -> c = 'a') |> equal true
+
+[<Fact>]
+let ``test Seq.mapi over string works`` () =
+    "Hello"
+    |> Seq.mapi (fun _ c -> string c)
+    |> String.concat ""
+    |> equal "Hello"
+
+[<Fact>]
+let ``test Seq.map over string works`` () =
+    "abc"
+    |> Seq.map (fun c -> string c)
+    |> String.concat "-"
+    |> equal "a-b-c"
+
+[<Fact>]
+let ``test Seq.toList over string works`` () =
+    "abc" |> Seq.toList |> equal [ 'a'; 'b'; 'c' ]
+
+[<Fact>]
+let ``test Seq.length over string works`` () =
+    "Hello" |> Seq.length |> equal 5

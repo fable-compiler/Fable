@@ -70,8 +70,8 @@
     "build-tests-ts": "npm run build-tests-js -- --fableLib ./out-lib-ts --lang TypeScript",
     "build-tests-opt": "npm run build-tests-js -- --optimize",
     "build-tests-node": "npm run fable-node -- ../../../../tests/Js/Main/Fable.Tests.fsproj --outDir ./out-tests --fableLib ./out-lib-js --sourceMaps",
-    "postbuild-tests-js": "npm run mocha -- out-tests --colors --reporter dot -t 10000",
-    "postbuild-tests-node": "npm run mocha -- out-tests --colors --reporter dot -t 10000",
+    "postbuild-tests-js": "node --test-reporter spec --test-timeout 20000 --test out-tests/Main.js",
+    "postbuild-tests-node": "node --test-reporter spec --test-timeout 20000 --test out-tests/Main.js",
 
     "build-tests-rust": "npm run fable -- ../../../../tests/Rust/Fable.Tests.Rust.fsproj --outDir ./out-tests-rust --fableLib ./out-lib-rust --lang Rust",
     "build-tests-dart": "npm run fable -- ../../../../tests/Dart/src/Fable.Tests.Dart.fsproj --outDir ./out-tests-dart --fableLib ./out-lib-dart --lang Dart",
@@ -84,7 +84,6 @@
 
     "tsc": "node ../../../../node_modules/typescript/bin/tsc",
     "babel": "node ../../../../node_modules/@babel/cli/bin/babel",
-    "mocha": "node ../../../../node_modules/mocha/bin/mocha",
     "rollup": "node ../../../../node_modules/rollup/dist/bin/rollup",
     "terser": "node ../../../../node_modules/terser/bin/terser",
     "webpack": "node ../../../../node_modules/webpack-cli/bin/cli.js",
