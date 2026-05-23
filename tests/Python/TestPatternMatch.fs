@@ -237,6 +237,22 @@ let ``test guard expression capture with 5 cases`` () =
     guardCaptureMultiple 5 |> equal "small: 5"
     guardCaptureMultiple 0 |> equal "zero or negative"
 
+// Guard that uses the bound value multiple times. The guard is hoisted into a
+// helper function and must not capture the outer argument as a duplicate
+// default parameter (see #4610).
+let mkTag (tag: string option) =
+    match tag with
+    | None -> ""
+    | Some s when s.StartsWith("!") && not (s.StartsWith("!!")) -> s + " "
+    | Some s -> "!<" + s + "> "
+
+[<Fact>]
+let ``test guard reusing binding does not duplicate captured argument`` () =
+    mkTag None |> equal ""
+    mkTag (Some "!foo") |> equal "!foo "
+    mkTag (Some "!!foo") |> equal "!<!!foo> "
+    mkTag (Some "foo") |> equal "!<foo> "
+
 // ----------------------------------------------------------------------------
 // 6. Nested Matching
 // ----------------------------------------------------------------------------
