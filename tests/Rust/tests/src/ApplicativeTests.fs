@@ -59,12 +59,12 @@ let zipSorted (arr1:('k*'v1)[]) (arr2:('k*'v2)[]) =
         i2 <- i2 + 2
     Array.ofSeq res
 
-// let zipAny (arr1:('k*'v1)[]) (arr2:('k*'v2)[]) =
-//     let inline (<=.) (a:'k) (b:'k) = compare a b <= 0
-//     let inline (>=.) (a:'k) (b:'k) = compare a b >= 0
-//     if isSortedUsing (<=.) fst arr1 && isSortedUsing (<=.) fst arr2 then zipSorted arr1 arr2
-//     elif isSortedUsing (>=.) fst arr1 && isSortedUsing (>=.) fst arr2 then Array.rev (zipSorted (Array.rev arr1) (Array.rev arr2))
-//     else zipUnsorted arr1 arr2
+let zipAny (arr1:('k*'v1)[]) (arr2:('k*'v2)[]) =
+    let inline (<=.) (a:'k) (b:'k) = compare a b <= 0
+    let inline (>=.) (a:'k) (b:'k) = compare a b >= 0
+    if isSortedUsing (<=.) fst arr1 && isSortedUsing (<=.) fst arr2 then zipSorted arr1 arr2
+    elif isSortedUsing (>=.) fst arr1 && isSortedUsing (>=.) fst arr2 then Array.rev (zipSorted (Array.rev arr1) (Array.rev arr2))
+    else zipUnsorted arr1 arr2
 
 type Result<'s, 'f> =
     | Ok of 's
@@ -200,16 +200,17 @@ let ``Local inline typed lambdas work`` () =
     equal 7 <| localFoo x1
     equal 14 <| localFoo x2
 
-// [<Fact>]
-// let ``Local inline values work`` () =
-//     let res = zipAny [|("a",1);("b",2)|] [|("c",5.);("a",4.)|]
-//     res.Length |> equal 3
-//     res[0] |> fst |> equal "a"
-//     res[0] |> snd |> equal (Some 1, Some 4.)
-//     res[1] |> fst |> equal "b"
-//     res[1] |> snd |> equal (Some 2, None)
-//     res[2] |> fst |> equal "c"
-//     res[2] |> snd |> equal (None, Some 5.)
+[<Fact>]
+let ``Local inline values work`` () =
+    let res = zipAny [|("a",1);("b",2)|] [|("c",5.);("a",4.)|]
+    let res = res |> Array.sortBy fst // sort it because zipAny doesn't guarantee order
+    res.Length |> equal 3
+    res[0] |> fst |> equal "a"
+    res[0] |> snd |> equal (Some 1, Some 4.)
+    res[1] |> fst |> equal "b"
+    res[1] |> snd |> equal (Some 2, None)
+    res[2] |> fst |> equal "c"
+    res[2] |> snd |> equal (None, Some 5.)
 
 // [<Fact>]
 // let ``Local inline lambdas work standalone`` () = // See #1234

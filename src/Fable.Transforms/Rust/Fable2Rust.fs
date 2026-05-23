@@ -579,7 +579,6 @@ module TypeInfo =
         | Fable.Unit
         | Fable.Measure _
         | Fable.MetaType
-        | Fable.Number((Float32 | Float64), _)
         | Fable.LambdaType _
         | Fable.DelegateType _ -> false
         | _ -> isTypeOfType com isHashableType isHashableEntity entNames typ
@@ -2323,7 +2322,7 @@ module Util =
                     exprField :: exprFields
                 | _ -> exprFields
 
-            let attrs = [ mkAttr "derive" (makeDerivedFrom com ent) ]
+            let attrs = [ mkAttr "derive" (makeDerivedFrom com ctx ent) ]
             let generics = makeGenerics com ctx genArgs
             let genParams = FSharp2Fable.Util.getGenParamTypes genArgs
 
@@ -4143,9 +4142,9 @@ module Util =
             | Fable.Constraint.IsReferenceType -> [ makeImportBound com ctx "Native" "NullableRef" ]
             | Fable.Constraint.HasDefaultConstructor -> []
             | Fable.Constraint.HasAllowsRefStruct -> []
-            | Fable.Constraint.HasComparison -> [ makeRawBound "PartialOrd" ]
-            | Fable.Constraint.HasEquality ->
-                [ makeGenBound ("core" :: "hash" :: "Hash" :: []) []; makeRawBound "PartialEq" ]
+            | Fable.Constraint.HasComparison ->
+                [ makeImportBound com ctx "Native" "Hashable"; makeRawBound "PartialOrd" ]
+            | Fable.Constraint.HasEquality -> [ makeImportBound com ctx "Native" "Hashable"; makeRawBound "PartialEq" ]
             | Fable.Constraint.IsUnmanaged -> []
             | Fable.Constraint.IsDelegate _ -> []
             | Fable.Constraint.IsEnum _ -> []
@@ -4532,7 +4531,7 @@ module Util =
         let fnItem = mkFnAssocItem attrs name fnKind
         fnItem
 
-    let makeDerivedFrom com (ent: Fable.Entity) =
+    let makeDerivedFrom com ctx (ent: Fable.Entity) =
         let isCopyable = false //ent |> isCopyableEntity com Set.empty
         let isCloneable = true //ent |> isCloneableEntity com Set.empty
         let isPrintable = ent |> isPrintableEntity com Set.empty
@@ -4552,7 +4551,7 @@ module Util =
                 if isDefaultable then
                     rawIdent "Default"
                 if isHashable then
-                    rawIdent "Hash"
+                    getLibraryImportName com ctx "Native" "Hashable"
                 if isEquatable then
                     rawIdent "PartialEq"
                 if isComparable then
@@ -4601,7 +4600,7 @@ module Util =
             )
 
         let attrs = transformAttributes com ctx ent.Attributes decl.XmlDoc
-        let attrs = attrs @ [ mkAttr "derive" (makeDerivedFrom com ent) ]
+        let attrs = attrs @ [ mkAttr "derive" (makeDerivedFrom com ctx ent) ]
         let enumItem = mkEnumItem attrs entName variants generics
         enumItem
 
@@ -4641,7 +4640,7 @@ module Util =
         let fields = List.append fields phantomFields
 
         let attrs = transformAttributes com ctx ent.Attributes decl.XmlDoc
-        let attrs = attrs @ [ mkAttr "derive" (makeDerivedFrom com ent) ]
+        let attrs = attrs @ [ mkAttr "derive" (makeDerivedFrom com ctx ent) ]
         let structItem = mkStructItem attrs entName fields generics
         structItem
 

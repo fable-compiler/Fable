@@ -10,7 +10,7 @@ pub mod TimeOnly_ {
     use core::ops::Sub;
 
     #[repr(transparent)]
-    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+    #[derive(Clone, Copy, Debug, Hash, PartialEq, PartialOrd)]
     pub struct TimeOnly(NaiveTime);
 
     impl core::fmt::Display for TimeOnly {

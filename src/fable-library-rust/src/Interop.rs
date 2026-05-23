@@ -1,7 +1,7 @@
 pub mod ListExt {
     // use core::ops::Deref;
-    use crate::List_::{cons, empty, isEmpty, reverse, List};
-    use crate::Native_::{seq_to_iter, NullableRef, Vec};
+    use crate::List_::{List, cons, empty, isEmpty, reverse};
+    use crate::Native_::{NullableRef, Vec, seq_to_iter};
     use crate::Seq_::ofList;
 
     impl<T: Clone> List<T> {
@@ -75,12 +75,12 @@ pub mod ListExt {
 }
 
 pub mod SetExt {
-    use crate::Native_::{make_compare, seq_to_iter, Func2, NullableRef, Vec};
-    use crate::Set_::{add, compareTo, empty, equals, isEmpty, toSeq, Set};
+    use crate::Native_::{Func2, Hashable, NullableRef, Vec, make_compare, seq_to_iter};
+    use crate::Set_::{Set, add, compareTo, empty, equals, isEmpty, toSeq};
     use core::cmp::Ordering;
     use core::hash::{Hash, Hasher};
 
-    impl<T: Clone + PartialOrd> Set<T> {
+    impl<T: Clone + Hashable + PartialOrd> Set<T> {
         //todo - non-consuming iter by ref
         // pub fn iter<'a>(&self) -> impl Iterator<Item = & 'a T> {
         //     let s = toSeq(self.clone());
@@ -105,34 +105,34 @@ pub mod SetExt {
         }
     }
 
-    impl<T: Clone + PartialOrd> PartialEq for Set<T> {
+    impl<T: Clone + Hashable + PartialOrd> PartialEq for Set<T> {
         fn eq(&self, other: &Self) -> bool {
             equals(self.clone(), other.clone())
         }
     }
 
-    impl<T: Clone + PartialOrd> Eq for Set<T> {}
+    impl<T: Clone + Hashable + PartialOrd> Eq for Set<T> {}
 
-    impl<T: Clone + PartialOrd + Hash> Hash for Set<T> {
+    impl<T: Clone + Hashable + PartialOrd + Hash> Hash for Set<T> {
         fn hash<H: Hasher>(&self, state: &mut H) {
             let s = toSeq(self.clone());
             seq_to_iter(s).for_each(|x| x.hash(state))
         }
     }
 
-    impl<T: Clone + PartialOrd> PartialOrd for Set<T> {
+    impl<T: Clone + Hashable + PartialOrd> PartialOrd for Set<T> {
         fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
             Some(make_compare(Func2::from(compareTo))(self, other))
         }
     }
 
-    impl<T: Clone + PartialOrd> Ord for Set<T> {
+    impl<T: Clone + Hashable + PartialOrd> Ord for Set<T> {
         fn cmp(&self, other: &Self) -> Ordering {
             make_compare(Func2::from(compareTo))(self, other)
         }
     }
 
-    impl<T: Clone + PartialOrd> From<Vec<T>> for Set<T> {
+    impl<T: Clone + Hashable + PartialOrd> From<Vec<T>> for Set<T> {
         fn from(vec: Vec<T>) -> Self {
             let mut set = empty();
             for v in vec.iter() {
@@ -142,7 +142,7 @@ pub mod SetExt {
         }
     }
 
-    impl<T: Clone + PartialOrd> From<&Vec<T>> for Set<T> {
+    impl<T: Clone + Hashable + PartialOrd> From<&Vec<T>> for Set<T> {
         fn from(vec: &Vec<T>) -> Self {
             let mut set = empty();
             for v in vec.iter() {
@@ -152,7 +152,7 @@ pub mod SetExt {
         }
     }
 
-    impl<T: Clone + PartialOrd> FromIterator<T> for Set<T> {
+    impl<T: Clone + Hashable + PartialOrd> FromIterator<T> for Set<T> {
         fn from_iter<U: IntoIterator<Item = T>>(iter: U) -> Self {
             let mut set = empty();
             for v in iter.into_iter() {
@@ -162,7 +162,7 @@ pub mod SetExt {
         }
     }
 
-    impl<T: Clone + PartialOrd> Into<Vec<T>> for Set<T> {
+    impl<T: Clone + Hashable + PartialOrd> Into<Vec<T>> for Set<T> {
         fn into(self) -> Vec<T> {
             self.into_iter().collect()
         }
@@ -170,12 +170,12 @@ pub mod SetExt {
 }
 
 pub mod MapExt {
-    use crate::Map_::{add, compareTo, empty, equals, isEmpty, iterate, toSeq, Map};
-    use crate::Native_::{make_compare, seq_to_iter, Func2, NullableRef, Vec};
+    use crate::Map_::{Map, add, compareTo, empty, equals, isEmpty, iterate, toSeq};
+    use crate::Native_::{Func2, Hashable, NullableRef, Vec, make_compare, seq_to_iter};
     use core::cmp::Ordering;
     use core::hash::{Hash, Hasher};
 
-    impl<K: Clone + PartialOrd, V: Clone> Map<K, V> {
+    impl<K: Clone + Hashable + PartialOrd, V: Clone> Map<K, V> {
         //todo - non-consuming iter by ref
         // pub fn iter<'a>(&self) -> impl Iterator<Item = (& 'a K, & 'a V)> {
         //     let s = toSeq(self.clone());
@@ -188,7 +188,7 @@ pub mod MapExt {
         }
     }
 
-    impl<K: Clone + PartialOrd, V: Clone> NullableRef for Map<K, V> {
+    impl<K: Clone + Hashable + PartialOrd, V: Clone> NullableRef for Map<K, V> {
         #[inline]
         fn null() -> Self {
             empty()
@@ -200,34 +200,34 @@ pub mod MapExt {
         }
     }
 
-    impl<K: Clone + PartialOrd, V: Clone + PartialOrd> PartialEq for Map<K, V> {
+    impl<K: Clone + Hashable + PartialOrd, V: Clone + Hashable + PartialOrd> PartialEq for Map<K, V> {
         fn eq(&self, other: &Self) -> bool {
             equals(self.clone(), other.clone())
         }
     }
 
-    impl<K: Clone + PartialOrd, V: Clone + PartialOrd> Eq for Map<K, V> {}
+    impl<K: Clone + Hashable + PartialOrd, V: Clone + Hashable + PartialOrd> Eq for Map<K, V> {}
 
-    impl<K: Clone + PartialOrd + Hash, V: Clone + Hash> Hash for Map<K, V> {
+    impl<K: Clone + Hashable + PartialOrd + Hash, V: Clone + Hash> Hash for Map<K, V> {
         fn hash<H: Hasher>(&self, state: &mut H) {
             let s = toSeq(self.clone());
             seq_to_iter(s).for_each(|kvp| kvp.hash(state))
         }
     }
 
-    impl<K: Clone + PartialOrd, V: Clone + PartialOrd> PartialOrd for Map<K, V> {
+    impl<K: Clone + Hashable + PartialOrd, V: Clone + Hashable + PartialOrd> PartialOrd for Map<K, V> {
         fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
             Some(make_compare(Func2::from(compareTo))(self, other))
         }
     }
 
-    impl<K: Clone + PartialOrd, V: Clone + PartialOrd> Ord for Map<K, V> {
+    impl<K: Clone + Hashable + PartialOrd, V: Clone + Hashable + PartialOrd> Ord for Map<K, V> {
         fn cmp(&self, other: &Self) -> Ordering {
             make_compare(Func2::from(compareTo))(self, other)
         }
     }
 
-    impl<K: Clone + PartialOrd, V: Clone> From<&Vec<(K, V)>> for Map<K, V> {
+    impl<K: Clone + Hashable + PartialOrd, V: Clone> From<&Vec<(K, V)>> for Map<K, V> {
         fn from(vec: &Vec<(K, V)>) -> Self {
             let mut map: Map<K, V> = empty();
             for (i, (k, v)) in vec.iter().rev().enumerate() {
@@ -237,7 +237,7 @@ pub mod MapExt {
         }
     }
 
-    impl<K: Clone + PartialOrd, V: Clone> FromIterator<(K, V)> for Map<K, V> {
+    impl<K: Clone + Hashable + PartialOrd, V: Clone> FromIterator<(K, V)> for Map<K, V> {
         fn from_iter<U: IntoIterator<Item = (K, V)>>(iter: U) -> Self {
             let mut map: Map<K, V> = empty();
             for (k, v) in iter.into_iter() {
@@ -247,7 +247,7 @@ pub mod MapExt {
         }
     }
 
-    impl<K: Clone + PartialOrd, V: Clone> Into<Vec<(K, V)>> for Map<K, V> {
+    impl<K: Clone + Hashable + PartialOrd, V: Clone> Into<Vec<(K, V)>> for Map<K, V> {
         fn into(self) -> Vec<(K, V)> {
             self.into_iter().collect()
         }

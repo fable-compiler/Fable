@@ -12,7 +12,7 @@ pub mod HashSet_ {
     use crate::Global_::SR::indexOutOfBounds;
     use crate::NativeArray_::{array_from, Array};
     use crate::Native_::{default_eq_comparer, seq_to_iter};
-    use crate::Native_::{HashKey, LrcPtr, MutCell, Seq, Vec};
+    use crate::Native_::{HashKey, Hashable, LrcPtr, MutCell, Seq, Vec};
     use crate::System::Collections::Generic::IEqualityComparer_1;
 
     use core::fmt::{Debug, Display, Formatter, Result};
@@ -78,14 +78,14 @@ pub mod HashSet_ {
 
     pub fn new_empty<T>() -> HashSet<T>
     where
-        T: Clone + Hash + PartialEq + 'static,
+        T: Clone + Hashable + PartialEq + 'static,
     {
         make_hash_set(collections::HashSet::new(), default_eq_comparer::<T>())
     }
 
     pub fn new_with_capacity<T>(capacity: i32) -> HashSet<T>
     where
-        T: Clone + Hash + PartialEq + 'static,
+        T: Clone + Hashable + PartialEq + 'static,
     {
         make_hash_set(
             collections::HashSet::with_capacity(capacity as usize),
@@ -109,7 +109,7 @@ pub mod HashSet_ {
 
     pub fn new_from_enumerable<T>(seq: Seq<T>) -> HashSet<T>
     where
-        T: Clone + Hash + PartialEq + 'static,
+        T: Clone + Hashable + PartialEq + 'static,
     {
         from_iter(seq_to_iter(seq), default_eq_comparer::<T>())
     }
@@ -204,7 +204,7 @@ pub mod HashSet_ {
         if destIndex < 0 || count < 0 || count > set_len || destIndex + count > dest_len {
             panic!("{}", indexOutOfBounds());
         }
-        let mut dest = dest.get_mut();
+        let dest = dest.get_mut();
         let it = to_iter(&set).take(count as usize);
         for (offset, item) in it.enumerate() {
             dest[destIndex as usize + offset] = item;

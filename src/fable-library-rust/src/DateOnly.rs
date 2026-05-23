@@ -10,7 +10,7 @@ pub mod DateOnly_ {
     use chrono::{DateTime as CDateTime, Datelike, Months, NaiveDate, NaiveTime, ParseResult};
 
     #[repr(transparent)]
-    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+    #[derive(Clone, Copy, Debug, Hash, PartialEq, PartialOrd)]
     pub struct DateOnly(NaiveDate);
 
     impl core::fmt::Display for DateOnly {

@@ -14,7 +14,6 @@ pub mod Decimal_ {
     pub const MaxValue: decimal = Decimal::MAX;
     pub const MinValue: decimal = Decimal::MIN;
 
-    // pub fn getHashCode(x: decimal) = x.GetHashCode()
     pub fn equals(x: decimal, y: decimal) -> bool { x.eq(&y) }
     pub fn compareTo(x: decimal, y: decimal) -> i32 { compare(&x, &y) }
 

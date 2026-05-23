@@ -6,7 +6,9 @@ open FSharp.Data.UnitSystems.SI.UnitSymbols
 
 type UTest = A of int | B of int
 type RTest = { a: int; b: int }
+type RFloatTest = { a: float; b: int }
 type STest = struct val A: int; new(a: int) = { A = a }; end
+type SFloatTest = struct val A: float; new(a: float) = { A = a }; end
 type OTest(a) = member val A = a with get, set
 
 // [<CustomEquality; CustomComparison>]
@@ -512,9 +514,19 @@ let ``GetHashCode with records works`` () =
     ({a=2; b=1}.GetHashCode(), {a=1; b=2}.GetHashCode()) ||> notEqual
 
 [<Fact>]
+let ``GetHashCode with float records works`` () =
+    ({ a = 0.0; b = 1 }.GetHashCode(), { a = -0.0; b = 1 }.GetHashCode()) ||> equal
+    ({ a = 2.0; b = 1 }.GetHashCode(), { a = 1.0; b = 1 }.GetHashCode()) ||> notEqual
+
+[<Fact>]
 let ``GetHashCode with structs works`` () =
     (STest(1).GetHashCode(), STest(1).GetHashCode()) ||> equal
     (STest(2).GetHashCode(), STest(1).GetHashCode()) ||> notEqual
+
+[<Fact>]
+let ``GetHashCode with float structs works`` () =
+    SFloatTest(0.0).GetHashCode() |> equal (SFloatTest(-0.0).GetHashCode())
+    SFloatTest(2.0).GetHashCode() |> notEqual (SFloatTest(1.0).GetHashCode())
 
 [<Fact>]
 let ``GetHashCode with objects works`` () =
@@ -850,6 +862,11 @@ let ``EqualityComparer.Equals works`` () =
 let ``EqualityComparer.GetHashCode works`` () =
     genericHash 1 |> equal ((1).GetHashCode())
     genericHash "1" |> equal ("1".GetHashCode())
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with float records works`` () =
+    genericHash { a = 0.0; b = 1 }
+    |> equal ({ a = -0.0; b = 1 }.GetHashCode())
 
 [<Fact>]
 let ``Comparer.Compare works`` () =

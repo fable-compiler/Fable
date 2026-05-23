@@ -445,13 +445,13 @@ let referenceHash (com: ICompiler) ctx r (arg: Expr) =
     | Boolean
     | Char
     | String
-    | Number _ -> Helper.LibCall(com, "Native", "getHashCode", Int32.Number, [ arg ], ?loc = r)
+    | Number _ -> Helper.InstanceCall(arg, "getHashCode", Int32.Number, [], [], [], ?loc = r)
     | _ -> Helper.LibCall(com, "Native", "referenceHash", Int32.Number, [ makeRef arg ], ?loc = r)
 
 let getHashCode (com: ICompiler) ctx r (arg: Expr) =
     match arg.Type with
     | HasReferenceEquality com _ -> referenceHash com ctx r arg
-    | _ -> Helper.LibCall(com, "Native", "getHashCode", Int32.Number, [ arg ], ?loc = r)
+    | _ -> Helper.InstanceCall(arg, "getHashCode", Int32.Number, [], [], [], ?loc = r)
 
 let objectHash (com: ICompiler) ctx r (arg: Expr) =
     match arg.Type with

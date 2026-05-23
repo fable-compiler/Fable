@@ -66,6 +66,12 @@ pub mod Native_ {
         value
     }
 
+    use crate::BigInt_::bigint;
+    use crate::DateOnly_::DateOnly;
+    use crate::Decimal_::decimal;
+    use crate::String_::string;
+    use crate::TimeOnly_::TimeOnly;
+
     use crate::System::Collections::Generic::EqualityComparer_1;
     use crate::System::Collections::Generic::IEnumerable_1;
     use crate::System::Collections::Generic::IEqualityComparer_1;
@@ -138,6 +144,110 @@ pub mod Native_ {
     // pub trait IObject: Clone + Debug + 'static {}
 
     // -----------------------------------------------------------
+    // Hashable
+    // -----------------------------------------------------------
+
+    pub use crate::hashable;
+    pub use hashable::Hashable;
+
+    pub trait Hashable {
+        fn getHashCode(&self) -> i32;
+    }
+
+    impl Hashable for f64 {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            if *self == 0.0 {
+                return 0; // treat +0.0 and -0.0 as equal
+            }
+            let x = self.to_bits();
+            ((x >> 32) ^ x) as i32
+        }
+    }
+
+    impl Hashable for f32 {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            if *self == 0.0 {
+                return 0; // treat +0.0 and -0.0 as equal
+            }
+            let x = self.to_bits();
+            x as i32
+        }
+    }
+
+    #[inline]
+    pub fn hash_f64<H: Hasher>(value: &f64, state: &mut H) {
+        Hash::hash(&value.getHashCode(), state);
+    }
+
+    #[inline]
+    pub fn hash_f32<H: Hasher>(value: &f32, state: &mut H) {
+        Hash::hash(&value.getHashCode(), state);
+    }
+
+    #[inline]
+    pub fn hash_mutcell_f64<H: Hasher>(value: &MutCell<f64>, state: &mut H) {
+        hash_f64(value.get(), state);
+    }
+
+    #[inline]
+    pub fn hash_mutcell_f32<H: Hasher>(value: &MutCell<f32>, state: &mut H) {
+        hash_f32(value.get(), state);
+    }
+
+    impl<T: Hash> Hashable for Lrc<T> {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            getHashCode(self)
+        }
+    }
+
+    impl<T: Hashable> Hashable for Option<T> {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            if let Some(value) = self {
+                value.getHashCode()
+            } else {
+                0
+            }
+        }
+    }
+
+    #[macro_export]
+    macro_rules! hashable {
+        ($ident:ident) => {
+            impl Hashable for $ident {
+                #[inline]
+                fn getHashCode(&self) -> i32 {
+                    getHashCode(self)
+                }
+            }
+        };
+    }
+
+    hashable!(bool);
+    hashable!(char);
+    hashable!(i8);
+    hashable!(u8);
+    hashable!(i16);
+    hashable!(u16);
+    hashable!(i32);
+    hashable!(u32);
+    hashable!(i64);
+    hashable!(u64);
+    hashable!(isize);
+    hashable!(usize);
+    hashable!(i128);
+    hashable!(u128);
+
+    hashable!(bigint);
+    hashable!(decimal);
+    hashable!(DateOnly);
+    hashable!(TimeOnly);
+    hashable!(string);
+
+    // -----------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------
 
@@ -173,11 +283,19 @@ pub mod Native_ {
     }
 
     pub fn min<T: PartialOrd>(x: T, y: T) -> T {
-        if x < y { x } else { y }
+        if x < y {
+            x
+        } else {
+            y
+        }
     }
 
     pub fn max<T: PartialOrd>(x: T, y: T) -> T {
-        if x > y { x } else { y }
+        if x > y {
+            x
+        } else {
+            y
+        }
     }
 
     pub fn equals<T: PartialEq>(x: T, y: T) -> bool {
@@ -188,7 +306,7 @@ pub mod Native_ {
         core::ptr::eq(left, right)
     }
 
-    pub fn getHashCode<T: Hash>(x: T) -> i32 {
+    pub fn getHashCode<T: Hash>(x: &T) -> i32 {
         #[cfg(feature = "no_std")]
         type DefaultHashBuilder = hashbrown::DefaultHashBuilder;
         #[cfg(not(feature = "no_std"))]
@@ -203,7 +321,7 @@ pub mod Native_ {
     }
 
     pub fn referenceHash<T: ?Sized>(p: &T) -> i32 {
-        getHashCode(p as *const T)
+        getHashCode(&(p as *const T))
     }
 
     pub fn compare<T: PartialOrd>(x: T, y: T) -> i32 {
@@ -238,7 +356,7 @@ pub mod Native_ {
 
     pub fn default_eq_comparer<T>() -> LrcPtr<dyn IEqualityComparer_1<T>>
     where
-        T: Clone + Hash + PartialEq + 'static,
+        T: Clone + Hashable + PartialEq + 'static,
     {
         interface_cast!(
             EqualityComparer_1::<T>::get_Default(),
