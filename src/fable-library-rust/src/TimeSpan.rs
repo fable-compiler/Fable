@@ -1,5 +1,5 @@
 pub mod TimeSpan_ {
-    use crate::Native_::{compare, MutCell, ToString, Vec};
+    use crate::Native_::{compare, getHashCode, Hashable, MutCell, ToString, Vec};
     use crate::String_::{fromString, string};
     use core::ops::{Add, Div, Mul, Sub};
 
@@ -23,6 +23,13 @@ pub mod TimeSpan_ {
     impl core::fmt::Display for TimeSpan {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
             write!(f, "{}", self.toString(string("")))
+        }
+    }
+
+    impl Hashable for TimeSpan {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            getHashCode(&self.ticks())
         }
     }
 

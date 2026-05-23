@@ -75,7 +75,7 @@ pub mod ListExt {
 }
 
 pub mod SetExt {
-    use crate::Native_::{Func2, Hashable, NullableRef, Vec, make_compare, seq_to_iter};
+    use crate::Native_::{Func2, Hashable, NullableRef, Vec, combineHashCodes, make_compare, seq_to_iter};
     use crate::Set_::{Set, add, compareTo, empty, equals, isEmpty, toSeq};
     use core::cmp::Ordering;
     use core::hash::{Hash, Hasher};
@@ -112,6 +112,17 @@ pub mod SetExt {
     }
 
     impl<T: Clone + Hashable + PartialOrd> Eq for Set<T> {}
+
+    impl<T: Clone + Hashable + PartialOrd> Hashable for Set<T> {
+        fn getHashCode(&self) -> i32 {
+            let s = toSeq(self.clone());
+            let mut res = 0_i32;
+            for value in seq_to_iter(s) {
+                res = combineHashCodes(res, value.getHashCode());
+            }
+            res
+        }
+    }
 
     impl<T: Clone + Hashable + PartialOrd + Hash> Hash for Set<T> {
         fn hash<H: Hasher>(&self, state: &mut H) {
@@ -171,7 +182,7 @@ pub mod SetExt {
 
 pub mod MapExt {
     use crate::Map_::{Map, add, compareTo, empty, equals, isEmpty, iterate, toSeq};
-    use crate::Native_::{Func2, Hashable, NullableRef, Vec, make_compare, seq_to_iter};
+    use crate::Native_::{Func2, Hashable, NullableRef, Vec, combineHashCodes, make_compare, seq_to_iter};
     use core::cmp::Ordering;
     use core::hash::{Hash, Hasher};
 
@@ -207,6 +218,19 @@ pub mod MapExt {
     }
 
     impl<K: Clone + Hashable + PartialOrd, V: Clone + Hashable + PartialOrd> Eq for Map<K, V> {}
+
+    impl<K: Clone + Hashable + PartialOrd, V: Clone + Hashable + PartialOrd> Hashable for Map<K, V> {
+        fn getHashCode(&self) -> i32 {
+            let s = toSeq(self.clone());
+            let mut res = 0_i32;
+            for kvp in seq_to_iter(s) {
+                let (key, value) = kvp.as_ref();
+                res = combineHashCodes(res, key.getHashCode());
+                res = combineHashCodes(res, value.getHashCode());
+            }
+            res
+        }
+    }
 
     impl<K: Clone + Hashable + PartialOrd + Hash, V: Clone + Hash> Hash for Map<K, V> {
         fn hash<H: Hasher>(&self, state: &mut H) {

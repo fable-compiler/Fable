@@ -2,7 +2,7 @@
 pub mod Guid_ {
     use crate::DateTimeOffset_::DateTimeOffset;
     use crate::NativeArray_::{new_array, Array};
-    use crate::Native_::{compare, MutCell};
+    use crate::Native_::{compare, getHashCode, Hashable, MutCell};
     use crate::String_::{string, toString};
     use uuid::{NoContext, Timestamp, Uuid};
 
@@ -14,6 +14,14 @@ pub mod Guid_ {
     impl core::fmt::Display for Guid {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
             write!(f, "{}", toString(&self.0))
+        }
+    }
+
+    impl Hashable for Guid {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            let bytes = toByteArray(*self);
+            getHashCode(&bytes.as_slice())
         }
     }
 

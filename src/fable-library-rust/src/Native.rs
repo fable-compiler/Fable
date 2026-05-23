@@ -66,12 +66,6 @@ pub mod Native_ {
         value
     }
 
-    use crate::BigInt_::bigint;
-    use crate::DateOnly_::DateOnly;
-    use crate::Decimal_::decimal;
-    use crate::String_::string;
-    use crate::TimeOnly_::TimeOnly;
-
     use crate::System::Collections::Generic::EqualityComparer_1;
     use crate::System::Collections::Generic::IEnumerable_1;
     use crate::System::Collections::Generic::IEqualityComparer_1;
@@ -140,6 +134,11 @@ pub mod Native_ {
     use core::fmt::{Debug, Display, Formatter, Result};
     use core::hash::{BuildHasher, BuildHasherDefault, Hash, Hasher};
 
+    #[cfg(feature = "no_std")]
+    type DefaultHashBuilder = hashbrown::DefaultHashBuilder;
+    #[cfg(not(feature = "no_std"))]
+    type DefaultHashBuilder = BuildHasherDefault<std::collections::hash_map::DefaultHasher>;
+
     // default object trait
     // pub trait IObject: Clone + Debug + 'static {}
 
@@ -152,6 +151,13 @@ pub mod Native_ {
 
     pub trait Hashable {
         fn getHashCode(&self) -> i32;
+    }
+
+    impl Hashable for () {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            0 // hash code for unit type is always 0
+        }
     }
 
     impl Hashable for f64 {
@@ -176,30 +182,10 @@ pub mod Native_ {
         }
     }
 
-    #[inline]
-    pub fn hash_f64<H: Hasher>(value: &f64, state: &mut H) {
-        Hash::hash(&value.getHashCode(), state);
-    }
-
-    #[inline]
-    pub fn hash_f32<H: Hasher>(value: &f32, state: &mut H) {
-        Hash::hash(&value.getHashCode(), state);
-    }
-
-    #[inline]
-    pub fn hash_mutcell_f64<H: Hasher>(value: &MutCell<f64>, state: &mut H) {
-        hash_f64(value.get(), state);
-    }
-
-    #[inline]
-    pub fn hash_mutcell_f32<H: Hasher>(value: &MutCell<f32>, state: &mut H) {
-        hash_f32(value.get(), state);
-    }
-
-    impl<T: Hash> Hashable for Lrc<T> {
+    impl<T: Hashable + ?Sized> Hashable for Lrc<T> {
         #[inline]
         fn getHashCode(&self) -> i32 {
-            getHashCode(self)
+            self.as_ref().getHashCode()
         }
     }
 
@@ -213,6 +199,62 @@ pub mod Native_ {
             }
         }
     }
+
+    impl<T: Hashable, E: Hashable> Hashable for core::result::Result<T, E> {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            hash_to_i32(|hasher| match self {
+                Ok(value) => {
+                    0_usize.hash(hasher);
+                    value.getHashCode().hash(hasher);
+                }
+                Err(error) => {
+                    1_usize.hash(hasher);
+                    error.getHashCode().hash(hasher);
+                }
+            })
+        }
+    }
+
+    impl<T: Hashable> Hashable for MutCell<T> {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            self.get().getHashCode()
+        }
+    }
+
+    impl<T: Hashable> Hashable for Vec<T> {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            hash_to_i32(|hasher| {
+                self.len().hash(hasher);
+                for value in self.iter() {
+                    value.getHashCode().hash(hasher);
+                }
+            })
+        }
+    }
+
+    macro_rules! hashable_tuple {
+        ($($ty:ident),+ $(,)?) => {
+            impl<$($ty: Hashable),+> Hashable for ($($ty,)+) {
+                #[inline]
+                fn getHashCode(&self) -> i32 {
+                    #[allow(non_snake_case)]
+                    let ($($ty,)+) = self;
+                    getHashCodeFromHashCodes([$($ty.getHashCode(),)+])
+                }
+            }
+        };
+    }
+
+    hashable_tuple!(T1, T2);
+    hashable_tuple!(T1, T2, T3);
+    hashable_tuple!(T1, T2, T3, T4);
+    hashable_tuple!(T1, T2, T3, T4, T5);
+    hashable_tuple!(T1, T2, T3, T4, T5, T6);
+    hashable_tuple!(T1, T2, T3, T4, T5, T6, T7);
+    hashable_tuple!(T1, T2, T3, T4, T5, T6, T7, T8);
 
     #[macro_export]
     macro_rules! hashable {
@@ -240,12 +282,6 @@ pub mod Native_ {
     hashable!(usize);
     hashable!(i128);
     hashable!(u128);
-
-    hashable!(bigint);
-    hashable!(decimal);
-    hashable!(DateOnly);
-    hashable!(TimeOnly);
-    hashable!(string);
 
     // -----------------------------------------------------------
     // Helpers
@@ -306,18 +342,37 @@ pub mod Native_ {
         core::ptr::eq(left, right)
     }
 
-    pub fn getHashCode<T: Hash>(x: &T) -> i32 {
-        #[cfg(feature = "no_std")]
-        type DefaultHashBuilder = hashbrown::DefaultHashBuilder;
-        #[cfg(not(feature = "no_std"))]
-        type DefaultHashBuilder = BuildHasherDefault<std::collections::hash_map::DefaultHasher>;
-
-        static builder: OnceInit<DefaultHashBuilder> = OnceInit::new();
-        let default_builder = builder.get_or_init(move || DefaultHashBuilder::default());
+    #[inline]
+    fn hash_to_i32<F>(hash: F) -> i32
+    where
+        F: FnOnce(&mut <DefaultHashBuilder as BuildHasher>::Hasher),
+    {
+        static BUILDER: OnceInit<DefaultHashBuilder> = OnceInit::new();
+        let default_builder = BUILDER.get_or_init(move || DefaultHashBuilder::default());
         let mut hasher = default_builder.build_hasher();
-        x.hash(&mut hasher);
+        hash(&mut hasher);
         let h = hasher.finish();
         ((h >> 32) ^ h) as i32
+    }
+
+    pub fn getHashCode<T: Hash>(x: &T) -> i32 {
+        hash_to_i32(|hasher| x.hash(hasher))
+    }
+
+    #[inline]
+    pub fn combineHashCodes(x: i32, y: i32) -> i32 {
+        x.wrapping_shl(1).wrapping_add(y).wrapping_add(631)
+    }
+
+    pub fn getHashCodeFromHashCodes<I>(hash_codes: I) -> i32
+    where
+        I: IntoIterator<Item = i32>,
+    {
+        hash_to_i32(|hasher| {
+            for hash_code in hash_codes {
+                hash_code.hash(hasher);
+            }
+        })
     }
 
     pub fn referenceHash<T: ?Sized>(p: &T) -> i32 {

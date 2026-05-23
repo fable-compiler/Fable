@@ -3,7 +3,7 @@ pub mod DateTime_ {
     use crate::{
         DateOnly_::DateOnly,
         DateTimeOffset_::DateTimeOffset,
-        Native_::{compare, MutCell, ToString},
+        Native_::{compare, getHashCode, Hashable, MutCell, ToString},
         String_::{fromString, string},
         TimeOnly_::TimeOnly,
         TimeSpan_::{nanoseconds_per_tick, ticks_per_second, TimeSpan},
@@ -42,6 +42,13 @@ pub mod DateTime_ {
     impl PartialOrd for DateTime {
         fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
             self.ticks().partial_cmp(&other.ticks())
+        }
+    }
+
+    impl Hashable for DateTime {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            getHashCode(&self.ticks())
         }
     }
 

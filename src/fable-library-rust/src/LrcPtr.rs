@@ -1,4 +1,4 @@
-use crate::Native_::{Any, Lrc, NullableRef};
+use crate::Native_::{Any, Hashable, Lrc, NullableRef};
 use core::cmp::Ordering;
 use core::hash::{Hash, Hasher};
 use core::ops::*;
@@ -45,6 +45,13 @@ impl<T: ?Sized> Clone for LrcPtr<T> {
     #[inline]
     fn clone(&self) -> Self {
         LrcPtr(self.0.clone())
+    }
+}
+
+impl<T: Hashable + ?Sized> Hashable for LrcPtr<T> {
+    #[inline]
+    fn getHashCode(&self) -> i32 {
+        self.0.as_ref().map_or(0, |value| value.getHashCode())
     }
 }
 

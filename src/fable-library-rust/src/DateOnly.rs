@@ -2,7 +2,7 @@
 pub mod DateOnly_ {
     use crate::{
         DateTime_::{ticks_to_duration, DateTime, DateTimeKind},
-        Native_::{compare, MutCell, ToString},
+        Native_::{compare, getHashCode, Hashable, MutCell, ToString},
         String_::{fromString, string},
         TimeOnly_::TimeOnly,
         TimeSpan_::ticks_per_day,
@@ -16,6 +16,13 @@ pub mod DateOnly_ {
     impl core::fmt::Display for DateOnly {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
             write!(f, "{}", self.toString(string("")))
+        }
+    }
+
+    impl Hashable for DateOnly {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            getHashCode(self)
         }
     }
 

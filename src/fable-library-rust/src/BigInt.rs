@@ -2,7 +2,7 @@
 pub mod BigInt_ {
     use crate::Decimal_::{decimal, truncate};
     use crate::NativeArray_::{array_from, Array};
-    use crate::Native_::{compare, Lrc, MutCell, ToString, Vec};
+    use crate::Native_::{compare, getHashCode, Hashable, Lrc, MutCell, ToString, Vec};
     use crate::String_::{string, toString as toString_1};
 
     use num_bigint::*;
@@ -30,6 +30,13 @@ pub mod BigInt_ {
     impl core::fmt::Display for bigint {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
             write!(f, "{}", self.as_ref()) //TODO: improve
+        }
+    }
+
+    impl Hashable for bigint {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            getHashCode(self)
         }
     }
 

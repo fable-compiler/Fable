@@ -4956,7 +4956,7 @@ module Util =
 
     let makeRefEqualityTraitImpls com ctx entName genArgs =
         // For F# class types without structural equality, use pointer-based
-        // PartialEq, Eq, and Hash so they can be used as HashSet/HashMap keys
+        // PartialEq, Eq, Hash, and Hashable so they can be used as HashSet/HashMap keys
         // with reference (pointer) equality semantics, matching .NET behavior.
         // expected output:
         // impl PartialEq for {self_ty} {
@@ -4967,6 +4967,9 @@ module Util =
         //     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         //         core::hash::Hash::hash(&(self as *const Self as usize), state)
         //     }
+        // }
+        // impl Native_::Hashable for {self_ty} {
+        //     fn getHashCode(&self) -> i32 { Native_::referenceHash(self) }
         // }
 
         let eqFnItem =
@@ -5009,10 +5012,24 @@ module Util =
             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics fnBody
             mkFnAssocItem [] "hash" fnKind
 
+        let getHashCodeFnItem =
+            let referenceHashName = getLibraryImportName com ctx "Native" "referenceHash"
+            let bodyStmt = $"{referenceHashName}(self)" |> mkEmitExprStmt
+            let fnBody = [ bodyStmt ] |> mkBlock |> Some
+
+            let fnDecl =
+                let inputs = [ mkImplSelfParam false false ]
+                let output = mkGenericPathTy [ "i32" ] None |> mkFnRetTy
+                mkFnDecl inputs output
+
+            let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
+            mkFnAssocItem [ mkAttr "inline" [] ] "getHashCode" fnKind
+
         [
             makeImpl ("core" :: "cmp" :: rawIdent "PartialEq" :: []) [ eqFnItem ]
             makeImpl ("core" :: "cmp" :: rawIdent "Eq" :: []) []
             makeImpl ("core" :: "hash" :: "Hash" :: []) [ hashFnItem ]
+            makeImpl (getLibraryImportName com ctx "Native" "Hashable" |> splitNameParts) [ getHashCodeFnItem ]
         ]
 
     let op_impl_map =

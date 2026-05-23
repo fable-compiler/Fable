@@ -3,7 +3,7 @@ pub mod DateTimeOffset_ {
     use crate::{
         DateOnly_::DateOnly,
         DateTime_::{duration_to_ticks, ticks_to_duration, DateTime, DateTimeKind},
-        Native_::{compare, MutCell, ToString},
+        Native_::{compare, getHashCode, Hashable, MutCell, ToString},
         String_::{fromString, string},
         TimeOnly_::TimeOnly,
         TimeSpan_::{
@@ -35,6 +35,13 @@ pub mod DateTimeOffset_ {
     impl PartialOrd for DateTimeOffset {
         fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
             self.utcDateTime().partial_cmp(&other.utcDateTime())
+        }
+    }
+
+    impl Hashable for DateTimeOffset {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            getHashCode(&self.utcTicks())
         }
     }
 
