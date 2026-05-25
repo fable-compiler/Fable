@@ -2,15 +2,15 @@
 pub mod BigInt_ {
     use crate::Decimal_::{decimal, truncate};
     use crate::NativeArray_::{array_from, Array};
-    use crate::Native_::{compare, getHashCode, Hashable, Lrc, MutCell, ToString, Vec};
+    use crate::Native_::{compare, getHashCode, DivideByInt, Hashable, Lrc, MutCell, ToString, Vec};
     use crate::String_::{string, toString as toString_1};
 
     use num_bigint::*;
     use num_integer::*;
     use num_traits::*;
 
-    #[repr(transparent)]
     #[derive(Clone, Debug, Default, Eq, Hash, PartialEq, PartialOrd, Ord)]
+    #[repr(transparent)]
     pub struct bigint(Lrc<BigInt>);
 
     impl From<BigInt> for bigint {
@@ -30,6 +30,13 @@ pub mod BigInt_ {
     impl core::fmt::Display for bigint {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
             write!(f, "{}", self.as_ref()) //TODO: improve
+        }
+    }
+
+    impl DivideByInt for bigint {
+        #[inline]
+        fn divide_by_int(self, rhs: i32) -> Self {
+            self / fromInt32(rhs)
         }
     }
 

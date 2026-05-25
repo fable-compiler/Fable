@@ -3,7 +3,7 @@ pub mod DateTime_ {
     use crate::{
         DateOnly_::DateOnly,
         DateTimeOffset_::DateTimeOffset,
-        Native_::{compare, getHashCode, Hashable, MutCell, ToString},
+        Native_::{compare, format, getHashCode, Hashable, MutCell, ToString},
         String_::{fromString, string},
         TimeOnly_::TimeOnly,
         TimeSpan_::{nanoseconds_per_tick, ticks_per_second, TimeSpan},
@@ -12,19 +12,26 @@ pub mod DateTime_ {
         DateTime as CDateTime, Datelike, Duration, FixedOffset, Local, Months, NaiveDate,
         NaiveDateTime, NaiveTime, Offset, ParseResult, TimeZone, Timelike, Utc, Weekday,
     };
+    use core::hash::{Hash, Hasher};
     use core::ops::{Add, Sub};
 
-    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub enum DateTimeKind {
         Unspecified,
         Utc,
         Local,
     }
 
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Copy)]
     pub struct DateTime {
         ndt: NaiveDateTime,
         kind: DateTimeKind,
+    }
+
+    impl core::fmt::Debug for DateTime {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", self.toString(string("")))
+        }
     }
 
     impl core::fmt::Display for DateTime {
@@ -42,6 +49,20 @@ pub mod DateTime_ {
     impl PartialOrd for DateTime {
         fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
             self.ticks().partial_cmp(&other.ticks())
+        }
+    }
+
+    impl Eq for DateTime {}
+
+    impl Ord for DateTime {
+        fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+            self.ticks().cmp(&other.ticks())
+        }
+    }
+
+    impl Hash for DateTime {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.ticks().hash(state)
         }
     }
 
@@ -456,20 +477,28 @@ pub mod DateTime_ {
         }
 
         pub fn toString(&self, format: string) -> string {
+            if matches!(format.as_str(), "o" | "O") {
+                let cdt = self.to_cdt_fixed();
+                let frac = (self.ticks() % ticks_per_second).abs();
+                let date = cdt.format("%Y-%m-%dT%H:%M:%S");
+                let s = match self.kind {
+                    DateTimeKind::Utc => format!("{}.{:07}Z", date, frac),
+                    DateTimeKind::Local => format!("{}.{:07}{}", date, frac, cdt.format("%:z")),
+                    DateTimeKind::Unspecified => format!("{}.{:07}", date, frac),
+                };
+                return fromString(s);
+            }
+
             let fmt = match format.as_str() {
                 "" => "%m/%d/%Y %H:%M:%S".to_string(),
                 "g" => "%m/%d/%Y %H:%M".to_string(),
                 "G" => "%m/%d/%Y %H:%M:%S".to_string(),
-                "o" | "O" => match self.kind {
-                    DateTimeKind::Utc => "%Y-%m-%dT%H:%M:%S%.fZ".to_string(),
-                    DateTimeKind::Local => "%Y-%m-%dT%H:%M:%S%.f%:z".to_string(),
-                    DateTimeKind::Unspecified => "%Y-%m-%dT%H:%M:%S%.f".to_string(),
-                },
                 //TODO: support more formats, custom formats, etc.
                 _ => format
                     .replace("yyyy", "%Y")
                     .replace("MM", "%m")
                     .replace("dd", "%d")
+                    .replace("HH", "%H")
                     .replace("hh", "%H")
                     .replace("mm", "%M")
                     .replace("ss", "%S")

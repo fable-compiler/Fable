@@ -18,10 +18,10 @@ let thatYearSeconds (dt: DateTime) =
 let thatYearMilliseconds (dt: DateTime) =
     (dt - DateTime(dt.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds
 
-// [<Fact>]
-// let ``DateTime.ToString with custom format works`` () =
-//     DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm", CultureInfo.InvariantCulture)
-//     |> equal "16:37"
+[<Fact>]
+let ``DateTime.ToString with custom format works`` () =
+    DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm", CultureInfo.InvariantCulture)
+    |> equal "16:37"
 
 [<Fact>]
 let ``DateTime.ToString without separator works`` () = // See #1131
@@ -33,11 +33,11 @@ let ``DateTime.ToString with milliseconds`` () = // See #1726
     DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("ss.fff")
     |> equal "11.345"
 
-// [<Fact>]
-// let ``DateTime.ToString with Round-trip format works for Utc`` () =
-//     let str = DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("O")
-//     System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
-//     |> equal "2014-09-11T16:37:02.000Z"
+[<Fact>]
+let ``DateTime.ToString with Round-trip format works for Utc`` () =
+    let str = DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("O")
+    System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
+    |> equal "2014-09-11T16:37:02.000Z"
 
 // TODO
 // Next test is disabled because it's depends on the time zone of the machine

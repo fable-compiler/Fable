@@ -3,7 +3,8 @@ pub mod TimeSpan_ {
     use crate::String_::{fromString, string};
     use core::ops::{Add, Div, Mul, Sub};
 
-    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+    #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    #[repr(transparent)]
     pub struct TimeSpan {
         ticks: i64,
     }
@@ -19,6 +20,12 @@ pub mod TimeSpan_ {
     pub const zero: TimeSpan = TimeSpan { ticks: 0 };
     pub const min_value: TimeSpan = TimeSpan { ticks: i64::MIN };
     pub const max_value: TimeSpan = TimeSpan { ticks: i64::MAX };
+
+    impl core::fmt::Debug for TimeSpan {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", self.toString(string("")))
+        }
+    }
 
     impl core::fmt::Display for TimeSpan {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
@@ -251,7 +258,7 @@ pub mod TimeSpan_ {
         pub fn toString(&self, format: string) -> string {
             let sign = if self.ticks < 0 { "-" } else { "" };
             let days = self.days().abs();
-            let days = if days == 0 {
+            let days_for_c = if days == 0 {
                 "".to_string()
             } else {
                 format_args!("{}.", days).to_string()
@@ -260,21 +267,50 @@ pub mod TimeSpan_ {
             let mins = self.minutes().abs();
             let secs = self.seconds().abs();
             let frac = (self.ticks % ticks_per_second).abs();
-            let frac = if frac == 0 {
+            let frac_for_c = if frac == 0 {
                 "".to_string()
             } else {
                 format_args!(".{:07}", frac).to_string()
             };
+            let frac_for_g = if frac == 0 {
+                "".to_string()
+            } else {
+                let mut fraction = format_args!("{:07}", frac).to_string();
+
+                while fraction.ends_with('0') {
+                    fraction.pop();
+                }
+
+                format_args!(".{}", fraction).to_string()
+            };
             let s = match format.as_str() {
                 "" | "c" => format_args!(
                     "{}{}{:02}:{:02}:{:02}{}",
+                    sign, days_for_c, hours, mins, secs, frac_for_c
+                )
+                .to_string(),
+                "g" => {
+                    let days = if days == 0 {
+                        "".to_string()
+                    } else {
+                        format_args!("{}:", days).to_string()
+                    };
+
+                    format_args!(
+                        "{}{}{}:{:02}:{:02}{}",
+                        sign, days, hours, mins, secs, frac_for_g
+                    )
+                    .to_string()
+                }
+                "G" => format_args!(
+                    "{}{}:{:02}:{:02}:{:02}.{:07}",
                     sign, days, hours, mins, secs, frac
                 )
                 .to_string(),
                 //TODO: support more formats, custom formats, etc.
                 _ => format_args!(
                     "{}{}{:02}:{:02}:{:02}{}",
-                    sign, days, hours, mins, secs, frac
+                    sign, days_for_c, hours, mins, secs, frac_for_c
                 )
                 .to_string(),
             };

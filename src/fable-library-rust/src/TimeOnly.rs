@@ -9,8 +9,8 @@ pub mod TimeOnly_ {
     use chrono::{DateTime as CDateTime, NaiveTime, ParseResult, Timelike};
     use core::ops::Sub;
 
+    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     #[repr(transparent)]
-    #[derive(Clone, Copy, Debug, Hash, PartialEq, PartialOrd)]
     pub struct TimeOnly(NaiveTime);
 
     impl core::fmt::Display for TimeOnly {

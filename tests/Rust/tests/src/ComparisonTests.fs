@@ -605,6 +605,46 @@ let ``GetHashCode with DateTimeOffset works`` () =
     (dto3.GetHashCode(), dto1.GetHashCode()) ||> notEqual
 
 [<Fact>]
+let ``GetHashCode with DateOnly works`` () =
+    let date1 = System.DateOnly(2024, 1, 2)
+    let date2 = System.DateOnly.FromDayNumber(date1.DayNumber)
+    let date3 = date1.AddDays 1
+    date1 = date2 |> equal true
+    (date1.GetHashCode(), date2.GetHashCode()) ||> equal
+    date1 = date3 |> equal false
+    (date3.GetHashCode(), date1.GetHashCode()) ||> notEqual
+
+[<Fact>]
+let ``GetHashCode with TimeOnly works`` () =
+    let time1 = System.TimeOnly(3, 4, 5)
+    let time2 = System.TimeOnly.FromDateTime(System.DateTime(2024, 1, 2, 3, 4, 5))
+    let time3 = time1.Add(System.TimeSpan.FromSeconds 1.0)
+    time1 = time2 |> equal true
+    (time1.GetHashCode(), time2.GetHashCode()) ||> equal
+    time1 = time3 |> equal false
+    (time3.GetHashCode(), time1.GetHashCode()) ||> notEqual
+
+[<Fact>]
+let ``GetHashCode with decimal works`` () =
+    let decimal1 = 1.0m
+    let decimal2 = 1.00m
+    let decimal3 = 1.01m
+    decimal1 = decimal2 |> equal true
+    (decimal1.GetHashCode(), decimal2.GetHashCode()) ||> equal
+    decimal1 = decimal3 |> equal false
+    (decimal3.GetHashCode(), decimal1.GetHashCode()) ||> notEqual
+
+[<Fact>]
+let ``GetHashCode with bigint works`` () =
+    let bigint1 = 123456789123456789123456789I
+    let bigint2 = System.Numerics.BigInteger.Parse("123456789123456789123456789")
+    let bigint3 = bigint1 + 1I
+    bigint1 = bigint2 |> equal true
+    (bigint1.GetHashCode(), bigint2.GetHashCode()) ||> equal
+    bigint1 = bigint3 |> equal false
+    (bigint3.GetHashCode(), bigint1.GetHashCode()) ||> notEqual
+
+[<Fact>]
 let ``GetHashCode with Guid works`` () =
     let guid1 = System.Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
     let guid2 = System.Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
@@ -665,19 +705,6 @@ let ``GetHashCode with mutable float structs works`` () =
     h2 |> equal (SMutableFloatTest(2.0).GetHashCode())
 
 [<Fact>]
-let ``GetHashCode with floats works`` () =
-    ((0.0f).GetHashCode(), (-0.0f).GetHashCode()) ||> equal
-    ((2.0f).GetHashCode(), (1.0f).GetHashCode()) ||> notEqual
-    ((0.0).GetHashCode(), (-0.0).GetHashCode()) ||> equal
-    ((2.0).GetHashCode(), (1.0).GetHashCode()) ||> notEqual
-    (System.Single.NaN.GetHashCode(), System.Single.NaN.GetHashCode()) ||> equal
-    (System.Double.NaN.GetHashCode(), System.Double.NaN.GetHashCode()) ||> equal
-    (System.Single.PositiveInfinity.GetHashCode(), System.Single.NegativeInfinity.GetHashCode())
-    ||> notEqual
-    (System.Double.PositiveInfinity.GetHashCode(), System.Double.NegativeInfinity.GetHashCode())
-    ||> notEqual
-
-[<Fact>]
 let ``GetHashCode with objects works`` () =
     let o1 = OTest(1)
     let o2 = OTest(1)
@@ -700,11 +727,31 @@ let ``GetHashCode with same object works`` () =
     (h1, h2) ||> equal
 
 [<Fact>]
+let ``GetHashCode with longs works`` () =
+    ((1L<<<33).GetHashCode(), (1L<<<33).GetHashCode()) ||> equal
+    ((1L<<<34).GetHashCode(), (1L<<<33).GetHashCode()) ||> notEqual
+    ((3L).GetHashCode(), (3L + (1L<<<33)).GetHashCode()) ||> notEqual
+    ((-3L).GetHashCode(), (3L).GetHashCode()) ||> notEqual
+
+[<Fact>]
 let ``GetHashCode with primitives works`` () =
     ((1).GetHashCode(), (1).GetHashCode()) ||> equal
     ((2).GetHashCode(), (1).GetHashCode()) ||> notEqual
     ("1".GetHashCode(), "1".GetHashCode()) ||> equal
     ("2".GetHashCode(), "1".GetHashCode()) ||> notEqual
+
+[<Fact>]
+let ``GetHashCode with floats works`` () =
+    ((0.0f).GetHashCode(), (-0.0f).GetHashCode()) ||> equal
+    ((2.0f).GetHashCode(), (1.0f).GetHashCode()) ||> notEqual
+    ((0.0).GetHashCode(), (-0.0).GetHashCode()) ||> equal
+    ((2.0).GetHashCode(), (1.0).GetHashCode()) ||> notEqual
+    (System.Single.NaN.GetHashCode(), System.Single.NaN.GetHashCode()) ||> equal
+    (System.Double.NaN.GetHashCode(), System.Double.NaN.GetHashCode()) ||> equal
+    (System.Single.PositiveInfinity.GetHashCode(), System.Single.NegativeInfinity.GetHashCode())
+    ||> notEqual
+    (System.Double.PositiveInfinity.GetHashCode(), System.Double.NegativeInfinity.GetHashCode())
+    ||> notEqual
 
 [<Fact>]
 let ``Equals with primitives works`` () =
@@ -871,6 +918,46 @@ let ``hash with DateTimeOffset works`` () =
     (hash dto3, hash dto1) ||> notEqual
 
 [<Fact>]
+let ``hash with DateOnly works`` () =
+    let date1 = System.DateOnly(2024, 1, 2)
+    let date2 = System.DateOnly.FromDayNumber(date1.DayNumber)
+    let date3 = date1.AddDays 1
+    date1 = date2 |> equal true
+    (hash date1, hash date2) ||> equal
+    date1 = date3 |> equal false
+    (hash date3, hash date1) ||> notEqual
+
+[<Fact>]
+let ``hash with TimeOnly works`` () =
+    let time1 = System.TimeOnly(3, 4, 5)
+    let time2 = System.TimeOnly.FromDateTime(System.DateTime(2024, 1, 2, 3, 4, 5))
+    let time3 = time1.Add(System.TimeSpan.FromSeconds 1.0)
+    time1 = time2 |> equal true
+    (hash time1, hash time2) ||> equal
+    time1 = time3 |> equal false
+    (hash time3, hash time1) ||> notEqual
+
+[<Fact>]
+let ``hash with decimal works`` () =
+    let decimal1 = 1.0m
+    let decimal2 = 1.00m
+    let decimal3 = 1.01m
+    decimal1 = decimal2 |> equal true
+    (hash decimal1, hash decimal2) ||> equal
+    decimal1 = decimal3 |> equal false
+    (hash decimal3, hash decimal1) ||> notEqual
+
+[<Fact>]
+let ``hash with bigint works`` () =
+    let bigint1 = 123456789123456789123456789I
+    let bigint2 = System.Numerics.BigInteger.Parse("123456789123456789123456789")
+    let bigint3 = bigint1 + 1I
+    bigint1 = bigint2 |> equal true
+    (hash bigint1, hash bigint2) ||> equal
+    bigint1 = bigint3 |> equal false
+    (hash bigint3, hash bigint1) ||> notEqual
+
+[<Fact>]
 let ``hash with Guid works`` () =
     let guid1 = System.Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
     let guid2 = System.Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
@@ -980,34 +1067,14 @@ let ``hash with floats works`` () =
     (hash System.Double.PositiveInfinity, hash System.Double.NegativeInfinity) ||> notEqual
 
 [<Fact>]
-let ``Unchecked.hash with primitives works`` () =
-    (Unchecked.hash 111, Unchecked.hash 111) ||> equal
-    (Unchecked.hash 222, Unchecked.hash 333) ||> notEqual
-    (Unchecked.hash "1", Unchecked.hash "1") ||> equal
-    (Unchecked.hash "2", Unchecked.hash "3") ||> notEqual
-
-[<Fact>]
-let ``Unchecked.hash with floats works`` () =
-    (Unchecked.hash 0.0f, Unchecked.hash -0.0f) ||> equal
-    (Unchecked.hash 2.0f, Unchecked.hash 1.0f) ||> notEqual
-    (Unchecked.hash 0.0, Unchecked.hash -0.0) ||> equal
-    (Unchecked.hash 2.0, Unchecked.hash 1.0) ||> notEqual
-    (Unchecked.hash System.Single.NaN, Unchecked.hash System.Single.NaN) ||> equal
-    (Unchecked.hash System.Double.NaN, Unchecked.hash System.Double.NaN) ||> equal
-    (Unchecked.hash System.Single.PositiveInfinity, Unchecked.hash System.Single.NegativeInfinity)
-    ||> notEqual
-    (Unchecked.hash System.Double.PositiveInfinity, Unchecked.hash System.Double.NegativeInfinity)
-    ||> notEqual
+let ``Unchecked.hash with arrays works`` () =
+    (Unchecked.hash [|1;2|], Unchecked.hash [|1;2|]) ||> equal
+    (Unchecked.hash [|2;1|], Unchecked.hash [|1;2|]) ||> notEqual
 
 [<Fact>]
 let ``Unchecked.hash with lists works`` () =
     (Unchecked.hash [1;2], Unchecked.hash [1;2]) ||> equal
     (Unchecked.hash [2;1], Unchecked.hash [1;2]) ||> notEqual
-
-[<Fact>]
-let ``Unchecked.hash with arrays works`` () =
-    (Unchecked.hash [|1;2|], Unchecked.hash [|1;2|]) ||> equal
-    (Unchecked.hash [|2;1|], Unchecked.hash [|1;2|]) ||> notEqual
 
 [<Fact>]
 let ``Unchecked.hash with tuples works`` () =
@@ -1020,6 +1087,24 @@ let ``Unchecked.hash with float tuples works`` () =
     (Unchecked.hash (2.0f, 1), Unchecked.hash (1.0f, 1)) ||> notEqual
     (Unchecked.hash (0.0, 1), Unchecked.hash (-0.0, 1)) ||> equal
     (Unchecked.hash (2.0, 1), Unchecked.hash (1.0, 1)) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with options works`` () =
+    let None_0: int option option = Some None
+    (Unchecked.hash (Some 1), Unchecked.hash (Some 1)) ||> equal
+    (Unchecked.hash (Some 2), Unchecked.hash (Some 1)) ||> notEqual
+    (Unchecked.hash (None_0), Unchecked.hash (Some 1)) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with float options works`` () =
+    let none32: float32 option option = Some None
+    let none64: float option option = Some None
+    (Unchecked.hash (Some 0.0f), Unchecked.hash (Some -0.0f)) ||> equal
+    (Unchecked.hash (Some 2.0f), Unchecked.hash (Some 1.0f)) ||> notEqual
+    (Unchecked.hash none32, Unchecked.hash (Some (Some 1.0f))) ||> notEqual
+    (Unchecked.hash (Some 0.0), Unchecked.hash (Some -0.0)) ||> equal
+    (Unchecked.hash (Some 2.0), Unchecked.hash (Some 1.0)) ||> notEqual
+    (Unchecked.hash none64, Unchecked.hash (Some (Some 1.0))) ||> notEqual
 
 [<Fact>]
 let ``Unchecked.hash with results works`` () =
@@ -1050,6 +1135,38 @@ let ``Unchecked.hash with float results works`` () =
     (Unchecked.hash error64One, Unchecked.hash ok64One) ||> notEqual
 
 [<Fact>]
+let ``Unchecked.hash with unions works`` () =
+    (Unchecked.hash (UTest.A 1), Unchecked.hash (UTest.A 1)) ||> equal
+    (Unchecked.hash (UTest.A 2), Unchecked.hash (UTest.A 1)) ||> notEqual
+    (Unchecked.hash (UTest.B 1), Unchecked.hash (UTest.A 1)) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with float unions works`` () =
+    (Unchecked.hash (UFloatTest.AFloat 0.0), Unchecked.hash (UFloatTest.AFloat -0.0)) ||> equal
+    (Unchecked.hash (UFloatTest.AFloat 2.0), Unchecked.hash (UFloatTest.AFloat 1.0)) ||> notEqual
+    (Unchecked.hash (UFloatTest.BFloat 1.0), Unchecked.hash (UFloatTest.AFloat 1.0)) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with records works`` () =
+    (Unchecked.hash {a=1; b=2}, Unchecked.hash {a=1; b=2}) ||> equal
+    (Unchecked.hash {a=2; b=1}, Unchecked.hash {a=1; b=2}) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with float records works`` () =
+    (Unchecked.hash { a = 0.0; b = 1 }, Unchecked.hash { a = -0.0; b = 1 }) ||> equal
+    (Unchecked.hash { a = 2.0; b = 1 }, Unchecked.hash { a = 1.0; b = 1 }) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with mutable float records works`` () =
+    (Unchecked.hash { value = 0.0; tag = 1 }, Unchecked.hash { value = -0.0; tag = 1 }) ||> equal
+    let record = { value = 1.0; tag = 1 }
+    let h1 = Unchecked.hash record
+    record.value <- 2.0
+    let h2 = Unchecked.hash record
+    (h1, h2) ||> notEqual
+    (h2, Unchecked.hash { value = 2.0; tag = 1 }) ||> equal
+
+[<Fact>]
 let ``Unchecked.hash with DateTime works`` () =
     let ticks = System.DateTime(2024, 1, 2, 3, 4, 5, System.DateTimeKind.Utc).Ticks
     let dt1 = System.DateTime(ticks, System.DateTimeKind.Utc)
@@ -1069,6 +1186,46 @@ let ``Unchecked.hash with DateTimeOffset works`` () =
     (Unchecked.hash dto1, Unchecked.hash dto2) ||> equal
     dto1 = dto3 |> equal false
     (Unchecked.hash dto3, Unchecked.hash dto1) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with DateOnly works`` () =
+    let date1 = System.DateOnly(2024, 1, 2)
+    let date2 = System.DateOnly.FromDayNumber(date1.DayNumber)
+    let date3 = date1.AddDays 1
+    date1 = date2 |> equal true
+    (Unchecked.hash date1, Unchecked.hash date2) ||> equal
+    date1 = date3 |> equal false
+    (Unchecked.hash date3, Unchecked.hash date1) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with TimeOnly works`` () =
+    let time1 = System.TimeOnly(3, 4, 5)
+    let time2 = System.TimeOnly.FromDateTime(System.DateTime(2024, 1, 2, 3, 4, 5))
+    let time3 = time1.Add(System.TimeSpan.FromSeconds 1.0)
+    time1 = time2 |> equal true
+    (Unchecked.hash time1, Unchecked.hash time2) ||> equal
+    time1 = time3 |> equal false
+    (Unchecked.hash time3, Unchecked.hash time1) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with decimal works`` () =
+    let decimal1 = 1.0m
+    let decimal2 = 1.00m
+    let decimal3 = 1.01m
+    decimal1 = decimal2 |> equal true
+    (Unchecked.hash decimal1, Unchecked.hash decimal2) ||> equal
+    decimal1 = decimal3 |> equal false
+    (Unchecked.hash decimal3, Unchecked.hash decimal1) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with bigint works`` () =
+    let bigint1 = 123456789123456789123456789I
+    let bigint2 = System.Numerics.BigInteger.Parse("123456789123456789123456789")
+    let bigint3 = bigint1 + 1I
+    bigint1 = bigint2 |> equal true
+    (Unchecked.hash bigint1, Unchecked.hash bigint2) ||> equal
+    bigint1 = bigint3 |> equal false
+    (Unchecked.hash bigint3, Unchecked.hash bigint1) ||> notEqual
 
 [<Fact>]
 let ``Unchecked.hash with Guid works`` () =
@@ -1109,6 +1266,74 @@ let ``Unchecked.hash with float maps works`` () =
     (Unchecked.hash m1, Unchecked.hash m2) ||> equal
     m1 = m3 |> equal false
     (Unchecked.hash m3, Unchecked.hash m1) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with structs works`` () =
+    (Unchecked.hash (STest(1)), Unchecked.hash (STest(1))) ||> equal
+    (Unchecked.hash (STest(2)), Unchecked.hash (STest(1))) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with float structs works`` () =
+    (Unchecked.hash (SFloatTest(0.0)), Unchecked.hash (SFloatTest(-0.0))) ||> equal
+    (Unchecked.hash (SFloatTest(2.0)), Unchecked.hash (SFloatTest(1.0))) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with mutable float structs works`` () =
+    (Unchecked.hash (SMutableFloatTest(0.0)), Unchecked.hash (SMutableFloatTest(-0.0))) ||> equal
+    let mutable s = SMutableFloatTest(1.0)
+    let h1 = Unchecked.hash s
+    s.A <- 2.0
+    let h2 = Unchecked.hash s
+    (h1, h2) ||> notEqual
+    (h2, Unchecked.hash (SMutableFloatTest(2.0))) ||> equal
+
+[<Fact>]
+let ``Unchecked.hash with objects works`` () =
+    // In Release mode for Rust, sequentially allocated objects that
+    // are immediately released can get allocated at the same address.
+    // This breaks referential equality, so delaying their release by
+    // increasing their scope makes it work. See ReferenceEquals tests.
+    let o1 = OTest(1)
+    let o2 = OTest(1)
+    let o3 = OTest(2)
+    (Unchecked.hash o1, Unchecked.hash o1) ||> equal
+    (Unchecked.hash o2, Unchecked.hash o1) ||> notEqual
+    (Unchecked.hash o3, Unchecked.hash o1) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with same object works`` () =
+    let o = OTest(1)
+    let h1 = Unchecked.hash o
+    o.A <- 2
+    let h2 = Unchecked.hash o
+    (h1, h2) ||> equal
+
+[<Fact>]
+let ``Unchecked.hash with longs works`` () =
+    (Unchecked.hash (1L<<<33), Unchecked.hash (1L<<<33)) ||> equal
+    (Unchecked.hash (1L<<<34), Unchecked.hash (1L<<<33)) ||> notEqual
+    (Unchecked.hash 3L, Unchecked.hash (3L + (1L<<<33))) ||> notEqual
+    (Unchecked.hash (-3L), Unchecked.hash (3L)) ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with primitives works`` () =
+    (Unchecked.hash 111, Unchecked.hash 111) ||> equal
+    (Unchecked.hash 222, Unchecked.hash 333) ||> notEqual
+    (Unchecked.hash "1", Unchecked.hash "1") ||> equal
+    (Unchecked.hash "2", Unchecked.hash "3") ||> notEqual
+
+[<Fact>]
+let ``Unchecked.hash with floats works`` () =
+    (Unchecked.hash 0.0f, Unchecked.hash -0.0f) ||> equal
+    (Unchecked.hash 2.0f, Unchecked.hash 1.0f) ||> notEqual
+    (Unchecked.hash 0.0, Unchecked.hash -0.0) ||> equal
+    (Unchecked.hash 2.0, Unchecked.hash 1.0) ||> notEqual
+    (Unchecked.hash System.Single.NaN, Unchecked.hash System.Single.NaN) ||> equal
+    (Unchecked.hash System.Double.NaN, Unchecked.hash System.Double.NaN) ||> equal
+    (Unchecked.hash System.Single.PositiveInfinity, Unchecked.hash System.Single.NegativeInfinity)
+    ||> notEqual
+    (Unchecked.hash System.Double.PositiveInfinity, Unchecked.hash System.Double.NegativeInfinity)
+    ||> notEqual
 
 [<Fact>]
 let ``Unchecked.equals works`` () =
@@ -1293,52 +1518,57 @@ let ``EqualityComparer.Equals works`` () =
     genericEquals "1" "2" |> equal false
 
 [<Fact>]
-let ``EqualityComparer.GetHashCode works`` () =
-    genericHash 1 |> equal ((1).GetHashCode())
-    genericHash "1" |> equal ("1".GetHashCode())
+let ``EqualityComparer.GetHashCode with arrays works`` () =
+    let o1 = [|1; 2|]
+    let o2 = [|1; 2|]
+    let o3 = [|2; 1|]
+    (genericHash o1, genericHash o1) ||> equal
+    (genericHash o2, genericHash o2) ||> equal
+    (genericHash o3, genericHash o1) ||> notEqual
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with lists works`` () =
+    (genericHash [1; 2], genericHash [1; 2]) ||> equal
+    (genericHash [2; 1], genericHash [1; 2]) ||> notEqual
 
 [<Fact>]
 let ``EqualityComparer.GetHashCode with tuples works`` () =
-    genericHash (1, 2) |> equal ((1, 2).GetHashCode())
-    genericHash (2, 1) |> notEqual ((1, 2).GetHashCode())
-
-[<Fact>]
-let ``EqualityComparer.GetHashCode with floats works`` () =
-    (genericHash 0.0f, genericHash -0.0f) ||> equal
-    (genericHash 2.0f, genericHash 1.0f) ||> notEqual
-    (genericHash 0.0, genericHash -0.0) ||> equal
-    (genericHash 2.0, genericHash 1.0) ||> notEqual
-    (genericHash System.Single.NaN, genericHash System.Single.NaN) ||> equal
-    (genericHash System.Double.NaN, genericHash System.Double.NaN) ||> equal
-    (genericHash System.Single.PositiveInfinity, genericHash System.Single.NegativeInfinity) ||> notEqual
-    (genericHash System.Double.PositiveInfinity, genericHash System.Double.NegativeInfinity) ||> notEqual
+    (genericHash (1, 2), genericHash (1, 2)) ||> equal
+    (genericHash (2, 1), genericHash (1, 2)) ||> notEqual
 
 [<Fact>]
 let ``EqualityComparer.GetHashCode with float tuples works`` () =
-    genericHash (0.0f, 1) |> equal ((-0.0f, 1).GetHashCode())
-    genericHash (2.0f, 1) |> notEqual ((1.0f, 1).GetHashCode())
-    genericHash (0.0, 1) |> equal ((-0.0, 1).GetHashCode())
-    genericHash (2.0, 1) |> notEqual ((1.0, 1).GetHashCode())
+    (genericHash (0.0f, 1), genericHash (-0.0f, 1)) ||> equal
+    (genericHash (2.0f, 1), genericHash (1.0f, 1)) ||> notEqual
+    (genericHash (0.0, 1), genericHash (-0.0, 1)) ||> equal
+    (genericHash (2.0, 1), genericHash (1.0, 1)) ||> notEqual
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with options works`` () =
+    let None_0: int option option = Some None
+    (genericHash (Some 1), genericHash (Some 1)) ||> equal
+    (genericHash (Some 2), genericHash (Some 1)) ||> notEqual
+    (genericHash (None_0), genericHash (Some 1)) ||> notEqual
 
 [<Fact>]
 let ``EqualityComparer.GetHashCode with float options works`` () =
     let none32: float32 option option = Some None
     let none64: float option option = Some None
-    genericHash (Some 0.0f) |> equal ((Some -0.0f).GetHashCode())
-    genericHash (Some 2.0f) |> notEqual ((Some 1.0f).GetHashCode())
-    genericHash none32 |> notEqual ((Some (Some 1.0f)).GetHashCode())
-    genericHash (Some 0.0) |> equal ((Some -0.0).GetHashCode())
-    genericHash (Some 2.0) |> notEqual ((Some 1.0).GetHashCode())
-    genericHash none64 |> notEqual ((Some (Some 1.0)).GetHashCode())
+    (genericHash (Some 0.0f), genericHash (Some -0.0f)) ||> equal
+    (genericHash (Some 2.0f), genericHash (Some 1.0f)) ||> notEqual
+    (genericHash none32, genericHash (Some (Some 1.0f))) ||> notEqual
+    (genericHash (Some 0.0), genericHash (Some -0.0)) ||> equal
+    (genericHash (Some 2.0), genericHash (Some 1.0)) ||> notEqual
+    (genericHash none64, genericHash (Some (Some 1.0))) ||> notEqual
 
 [<Fact>]
 let ``EqualityComparer.GetHashCode with results works`` () =
     let ok1: Result<int, int> = Ok 1
     let ok2: Result<int, int> = Ok 2
     let error1: Result<int, int> = Error 1
-    genericHash ok1 |> equal (ok1.GetHashCode())
-    genericHash ok2 |> notEqual (ok1.GetHashCode())
-    genericHash error1 |> notEqual (ok1.GetHashCode())
+    (genericHash ok1, genericHash ok1) ||> equal
+    (genericHash ok2, genericHash ok1) ||> notEqual
+    (genericHash error1, genericHash ok1) ||> notEqual
 
 [<Fact>]
 let ``EqualityComparer.GetHashCode with float results works`` () =
@@ -1352,12 +1582,44 @@ let ``EqualityComparer.GetHashCode with float results works`` () =
     let ok64One: Result<float, float> = Ok 1.0
     let ok64Two: Result<float, float> = Ok 2.0
     let error64One: Result<float, float> = Error 1.0
-    genericHash ok32Zero |> equal (ok32NegZero.GetHashCode())
-    genericHash ok32Two |> notEqual (ok32One.GetHashCode())
-    genericHash error32One |> notEqual (ok32One.GetHashCode())
-    genericHash ok64Zero |> equal (ok64NegZero.GetHashCode())
-    genericHash ok64Two |> notEqual (ok64One.GetHashCode())
-    genericHash error64One |> notEqual (ok64One.GetHashCode())
+    (genericHash ok32Zero, genericHash ok32NegZero) ||> equal
+    (genericHash ok32Two, genericHash ok32One) ||> notEqual
+    (genericHash error32One, genericHash ok32One) ||> notEqual
+    (genericHash ok64Zero, genericHash ok64NegZero) ||> equal
+    (genericHash ok64Two, genericHash ok64One) ||> notEqual
+    (genericHash error64One, genericHash ok64One) ||> notEqual
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with unions works`` () =
+    (genericHash (UTest.A 1), genericHash (UTest.A 1)) ||> equal
+    (genericHash (UTest.A 2), genericHash (UTest.A 1)) ||> notEqual
+    (genericHash (UTest.B 1), genericHash (UTest.A 1)) ||> notEqual
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with float unions works`` () =
+    (genericHash (UFloatTest.AFloat 0.0), genericHash (UFloatTest.AFloat -0.0)) ||> equal
+    (genericHash (UFloatTest.AFloat 2.0), genericHash (UFloatTest.AFloat 1.0)) ||> notEqual
+    (genericHash (UFloatTest.BFloat 1.0), genericHash (UFloatTest.AFloat 1.0)) ||> notEqual
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with records works`` () =
+    (genericHash {a=1; b=2}, genericHash {a=1; b=2}) ||> equal
+    (genericHash {a=2; b=1}, genericHash {a=1; b=2}) ||> notEqual
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with float records works`` () =
+    (genericHash { a = 0.0; b = 1 }, genericHash { a = -0.0; b = 1 }) ||> equal
+    (genericHash { a = 2.0; b = 1 }, genericHash { a = 1.0; b = 1 }) ||> notEqual
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with mutable float records works`` () =
+    (genericHash { value = 0.0; tag = 1 }, genericHash { value = -0.0; tag = 1 }) ||> equal
+    let record = { value = 1.0; tag = 1 }
+    let h1 = genericHash record
+    record.value <- 2.0
+    let h2 = genericHash record
+    (h1, h2) ||> notEqual
+    (h2, genericHash { value = 2.0; tag = 1 }) ||> equal
 
 [<Fact>]
 let ``EqualityComparer.GetHashCode with DateTime works`` () =
@@ -1379,6 +1641,46 @@ let ``EqualityComparer.GetHashCode with DateTimeOffset works`` () =
     (genericHash dto1, genericHash dto2) ||> equal
     dto1 = dto3 |> equal false
     (genericHash dto3, genericHash dto1) ||> notEqual
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with DateOnly works`` () =
+    let date1 = System.DateOnly(2024, 1, 2)
+    let date2 = System.DateOnly.FromDayNumber(date1.DayNumber)
+    let date3 = date1.AddDays 1
+    date1 = date2 |> equal true
+    (genericHash date1, genericHash date2) ||> equal
+    date1 = date3 |> equal false
+    (genericHash date3, genericHash date1) ||> notEqual
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with TimeOnly works`` () =
+    let time1 = System.TimeOnly(3, 4, 5)
+    let time2 = System.TimeOnly.FromDateTime(System.DateTime(2024, 1, 2, 3, 4, 5))
+    let time3 = time1.Add(System.TimeSpan.FromSeconds 1.0)
+    time1 = time2 |> equal true
+    (genericHash time1, genericHash time2) ||> equal
+    time1 = time3 |> equal false
+    (genericHash time3, genericHash time1) ||> notEqual
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with decimal works`` () =
+    let decimal1 = 1.0m
+    let decimal2 = 1.00m
+    let decimal3 = 1.01m
+    decimal1 = decimal2 |> equal true
+    (genericHash decimal1, genericHash decimal2) ||> equal
+    decimal1 = decimal3 |> equal false
+    (genericHash decimal3, genericHash decimal1) ||> notEqual
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with bigint works`` () =
+    let bigint1 = 123456789123456789123456789I
+    let bigint2 = System.Numerics.BigInteger.Parse("123456789123456789123456789")
+    let bigint3 = bigint1 + 1I
+    bigint1 = bigint2 |> equal true
+    (genericHash bigint1, genericHash bigint2) ||> equal
+    bigint1 = bigint3 |> equal false
+    (genericHash bigint3, genericHash bigint1) ||> notEqual
 
 [<Fact>]
 let ``EqualityComparer.GetHashCode with Guid works`` () =
@@ -1421,40 +1723,68 @@ let ``EqualityComparer.GetHashCode with float maps works`` () =
     (genericHash m3, genericHash m1) ||> notEqual
 
 [<Fact>]
-let ``EqualityComparer.GetHashCode with float unions works`` () =
-    genericHash (UFloatTest.AFloat 0.0) |> equal ((UFloatTest.AFloat -0.0).GetHashCode())
-    genericHash (UFloatTest.AFloat 2.0) |> notEqual ((UFloatTest.AFloat 1.0).GetHashCode())
-    genericHash (UFloatTest.BFloat 1.0) |> notEqual ((UFloatTest.AFloat 1.0).GetHashCode())
-
-[<Fact>]
-let ``EqualityComparer.GetHashCode with float records works`` () =
-    genericHash { a = 0.0; b = 1 } |> equal ({ a = -0.0; b = 1 }.GetHashCode())
-    genericHash { a = 2.0; b = 1 } |> notEqual ({ a = 1.0; b = 1 }.GetHashCode())
-
-[<Fact>]
-let ``EqualityComparer.GetHashCode with mutable float records works`` () =
-    genericHash { value = 0.0; tag = 1 } |> equal ({ value = -0.0; tag = 1 }.GetHashCode())
-    let record = { value = 1.0; tag = 1 }
-    let h1 = genericHash record
-    record.value <- 2.0
-    let h2 = genericHash record
-    (h1, h2) ||> notEqual
-    h2 |> equal ({ value = 2.0; tag = 1 }.GetHashCode())
+let ``EqualityComparer.GetHashCode with structs works`` () =
+    (genericHash (STest(1)), genericHash (STest(1))) ||> equal
+    (genericHash (STest(2)), genericHash (STest(1))) ||> notEqual
 
 [<Fact>]
 let ``EqualityComparer.GetHashCode with float structs works`` () =
-    genericHash (SFloatTest(0.0)) |> equal (SFloatTest(-0.0).GetHashCode())
-    genericHash (SFloatTest(2.0)) |> notEqual (SFloatTest(1.0).GetHashCode())
+    (genericHash (SFloatTest(0.0)), genericHash (SFloatTest(-0.0))) ||> equal
+    (genericHash (SFloatTest(2.0)), genericHash (SFloatTest(1.0))) ||> notEqual
 
 [<Fact>]
 let ``EqualityComparer.GetHashCode with mutable float structs works`` () =
-    genericHash (SMutableFloatTest(0.0)) |> equal (SMutableFloatTest(-0.0).GetHashCode())
+    (genericHash (SMutableFloatTest(0.0)), genericHash (SMutableFloatTest(-0.0))) ||> equal
     let mutable s = SMutableFloatTest(1.0)
     let h1 = genericHash s
     s.A <- 2.0
     let h2 = genericHash s
     (h1, h2) ||> notEqual
-    h2 |> equal (SMutableFloatTest(2.0).GetHashCode())
+    (h2, genericHash (SMutableFloatTest(2.0))) ||> equal
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with objects works`` () =
+    let cmp = EqualityComparer<OTest>.Default
+    let o1 = OTest(1)
+    let o2 = OTest(1)
+    let o3 = OTest(2)
+    (cmp.GetHashCode(o1), cmp.GetHashCode(o1)) ||> equal
+    (cmp.GetHashCode(o2), cmp.GetHashCode(o1)) ||> notEqual
+    (cmp.GetHashCode(o3), cmp.GetHashCode(o1)) ||> notEqual
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with same object works`` () =
+    let cmp = EqualityComparer<OTest>.Default
+    let o = OTest(1)
+    let h1 = cmp.GetHashCode(o)
+    o.A <- 2
+    let h2 = cmp.GetHashCode(o)
+    (h1, h2) ||> equal
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with longs works`` () =
+    (genericHash (1L<<<33), genericHash (1L<<<33)) ||> equal
+    (genericHash (1L<<<34), genericHash (1L<<<33)) ||> notEqual
+    (genericHash 3L, genericHash (3L + (1L<<<33))) ||> notEqual
+    (genericHash (-3L), genericHash (3L)) ||> notEqual
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with primitives works`` () =
+    (genericHash 111, genericHash 111) ||> equal
+    (genericHash 222, genericHash 111) ||> notEqual
+    (genericHash "1", genericHash "1") ||> equal
+    (genericHash "2", genericHash "1") ||> notEqual
+
+[<Fact>]
+let ``EqualityComparer.GetHashCode with floats works`` () =
+    (genericHash 0.0f, genericHash -0.0f) ||> equal
+    (genericHash 2.0f, genericHash 1.0f) ||> notEqual
+    (genericHash 0.0, genericHash -0.0) ||> equal
+    (genericHash 2.0, genericHash 1.0) ||> notEqual
+    (genericHash System.Single.NaN, genericHash System.Single.NaN) ||> equal
+    (genericHash System.Double.NaN, genericHash System.Double.NaN) ||> equal
+    (genericHash System.Single.PositiveInfinity, genericHash System.Single.NegativeInfinity) ||> notEqual
+    (genericHash System.Double.PositiveInfinity, genericHash System.Double.NegativeInfinity) ||> notEqual
 
 [<Fact>]
 let ``Comparer.Compare works`` () =

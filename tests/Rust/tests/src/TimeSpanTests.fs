@@ -34,19 +34,19 @@ let ``TimeSpan.ToString(\"c\", CultureInfo.InvariantCulture) works`` () =
     TimeSpan.FromDays(18.).ToString("c", CultureInfo.InvariantCulture) |> equal "18.00:00:00"
     TimeSpan.FromMilliseconds(25.).ToString("c", CultureInfo.InvariantCulture) |> equal "00:00:00.0250000"
 
-// [<Fact>]
-// let ``TimeSpan.ToString(\"g\", CultureInfo.InvariantCulture) works`` () =
-//     TimeSpan(0L).ToString("g", CultureInfo.InvariantCulture) |> equal "0:00:00"
-//     TimeSpan.FromSeconds(12345.).ToString("g", CultureInfo.InvariantCulture) |> equal "3:25:45"
-//     TimeSpan.FromDays(18.).ToString("g", CultureInfo.InvariantCulture) |> equal "18:0:00:00"
-//     TimeSpan.FromMilliseconds(25.).ToString("g", CultureInfo.InvariantCulture) |> equal "0:00:00.025"
+[<Fact>]
+let ``TimeSpan.ToString("g", CultureInfo.InvariantCulture) works`` () =
+    TimeSpan(0L).ToString("g", CultureInfo.InvariantCulture) |> equal "0:00:00"
+    TimeSpan.FromSeconds(12345.).ToString("g", CultureInfo.InvariantCulture) |> equal "3:25:45"
+    TimeSpan.FromDays(18.).ToString("g", CultureInfo.InvariantCulture) |> equal "18:0:00:00"
+    TimeSpan.FromMilliseconds(25.).ToString("g", CultureInfo.InvariantCulture) |> equal "0:00:00.025"
 
-// [<Fact>]
-// let ``TimeSpan.ToString(\"G\", CultureInfo.InvariantCulture) works`` () =
-//     TimeSpan(0L).ToString("G", CultureInfo.InvariantCulture) |> equal "0:00:00:00.0000000"
-//     TimeSpan.FromSeconds(12345.).ToString("G", CultureInfo.InvariantCulture) |> equal "0:03:25:45.0000000"
-//     TimeSpan.FromDays(18.).ToString("G", CultureInfo.InvariantCulture) |> equal "18:00:00:00.0000000"
-//     TimeSpan.FromMilliseconds(25.).ToString("G", CultureInfo.InvariantCulture) |> equal "0:00:00:00.0250000"
+[<Fact>]
+let ``TimeSpan.ToString("G", CultureInfo.InvariantCulture) works`` () =
+    TimeSpan(0L).ToString("G", CultureInfo.InvariantCulture) |> equal "0:00:00:00.0000000"
+    TimeSpan.FromSeconds(12345.).ToString("G", CultureInfo.InvariantCulture) |> equal "0:03:25:45.0000000"
+    TimeSpan.FromDays(18.).ToString("G", CultureInfo.InvariantCulture) |> equal "18:00:00:00.0000000"
+    TimeSpan.FromMilliseconds(25.).ToString("G", CultureInfo.InvariantCulture) |> equal "0:00:00:00.0250000"
 
 // [<Fact>]
 // let ``TimeSpan.ToString with custom format works`` () =

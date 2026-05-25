@@ -318,6 +318,10 @@ pub mod Native_ {
         Default::default()
     }
 
+    pub fn divideByInt<T: DivideByInt>(x: T, y: i32) -> T {
+        x.divide_by_int(y)
+    }
+
     pub fn min<T: PartialOrd>(x: T, y: T) -> T {
         if x < y {
             x
@@ -594,6 +598,25 @@ pub mod Native_ {
     // Operator traits
     // -----------------------------------------------------------
 
+    pub trait DivideByInt: Sized {
+        fn divide_by_int(self, rhs: i32) -> Self;
+    }
+
+    macro_rules! divide_by_int_impl {
+        ($($t:ty),* $(,)?) => {
+            $(
+                impl DivideByInt for $t {
+                    #[inline]
+                    fn divide_by_int(self, rhs: i32) -> Self {
+                        self / (rhs as $t)
+                    }
+                }
+            )*
+        };
+    }
+
+    divide_by_int_impl!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
+
     #[macro_export]
     macro_rules! un_op {
         ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $($args:ty),*) => {
@@ -620,7 +643,20 @@ pub mod Native_ {
         };
     }
 
+    #[macro_export]
+    macro_rules! div_int_op {
+        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $rhs:ty, $($args:ty,)*) => {
+            impl<$($args),*> $crate::Native_::DivideByInt for $obj {
+                #[inline]
+                fn divide_by_int(self, rhs: i32) -> Self {
+                    <$obj>::$op(self, rhs)
+                }
+            }
+        };
+    }
+
     pub use crate::bin_op;
+    pub use crate::div_int_op;
     pub use crate::un_op;
 
     // -----------------------------------------------------------

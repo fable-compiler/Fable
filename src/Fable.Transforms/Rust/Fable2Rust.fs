@@ -4095,8 +4095,7 @@ module Util =
 
         let makeImportBound com ctx moduleName typeName =
             let importName = getLibraryImportName com ctx moduleName typeName
-            let objectBound = mkTypeTraitGenericBound [ importName ] None
-            objectBound
+            mkTypeTraitGenericBound [ importName ] None
 
         let makeRawBound id = makeGenBound [ rawIdent id ] []
 
@@ -4104,7 +4103,6 @@ module Util =
             // makes ops type bound, e.g. T: Add(Output=T)
             let ty = mkGenericPathTy [ argName ] None
             let genArgsOpt = mkConstraintArgs [] [ "Output", ty ]
-
             mkTypeTraitGenericBound ("core" :: "ops" :: op :: []) genArgsOpt
 
         let makeConstraint c =
@@ -4117,7 +4115,7 @@ module Util =
                 | Operators.division, true -> [ makeOpBound "Div" ]
                 | Operators.modulus, true -> [ makeOpBound "Rem" ]
                 | Operators.unaryNegation, true -> [ makeOpBound "Neg" ]
-                | Operators.divideByInt, true -> [ makeOpBound "Div"; makeGenBound [ rawIdent "From" ] [ "i32" ] ]
+                | Operators.divideByInt, true -> [ makeImportBound com ctx "Native" "DivideByInt" ]
                 | "get_Zero", true -> [ makeRawBound "Default" ]
                 | _ -> []
             | Fable.Constraint.CoercesTo(targetType) ->
@@ -5043,6 +5041,7 @@ module Util =
                 Operators.multiply, ("bin_op", "Mul", "mul") // The multiplication operator *.
                 Operators.division, ("bin_op", "Div", "div") // The division operator /.
                 Operators.modulus, ("bin_op", "Rem", "rem") // The remainder operator %.
+                Operators.divideByInt, ("div_int_op", "DivideByInt", "divide_by_int") // The integer division operator DivideByInt.
 
                 Operators.bitwiseAnd, ("bin_op", "BitAnd", "bitand") // The bitwise AND operator &.
                 Operators.bitwiseOr, ("bin_op", "BitOr", "bitor") // The bitwise OR operator |.
@@ -5098,6 +5097,55 @@ module Util =
                 implItem
             )
         )
+
+    let makeDefaultTraitImpls
+        com
+        ctx
+        (ent: Fable.Entity)
+        entName
+        genArgs
+        (members: (Fable.MemberDecl * Fable.MemberFunctionOrValue) list)
+        =
+        // For value types that are not defaultable (e.g. unions),
+        // generate a Default impl delegating to the static Zero member:
+        //
+        // impl<...> core::default::Default for EntName<...> {
+        //     fn default() -> Self { Self::get_Zero() }
+        // }
+        let needsExplicitDefault =
+            ent.IsValueType && not (ent |> isDefaultableEntity com Set.empty)
+
+        if not needsExplicitDefault then
+            []
+        else
+            members
+            |> List.tryPick (fun (decl, memb) ->
+                if
+                    not memb.IsInstance
+                    && (memb.CompiledName = "get_Zero"
+                        || memb.CompiledName = "Zero"
+                        || decl.Name = "get_Zero")
+                then
+                    let zeroMemberName = Fable.Naming.splitLast decl.Name
+                    let bodyExpr = makeCall [ "Self"; zeroMemberName ] None []
+                    let fnBody = bodyExpr |> mkExprBlock |> Some
+
+                    let fnDecl =
+                        let output = mkGenericPathTy [ "Self" ] None |> mkFnRetTy
+                        mkFnDecl [] output
+
+                    let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
+                    let fnItem = mkFnAssocItem [] "default" fnKind
+
+                    let path =
+                        mkGenericPath ("core" :: "default" :: (rawIdent "Default") :: []) None None
+
+                    let ofTrait = mkTraitRef path |> Some
+                    [ fnItem ] |> makeTraitImpl com ctx entName genArgs ofTrait |> Some
+                else
+                    None
+            )
+            |> Option.toList
 
     let withCurrentScope ctx (usedNames: Set<string>) f =
         let ctx =
@@ -5224,6 +5272,9 @@ module Util =
             (baseTypeOpt, "&self." + baseName)
             ||> makeDerefTraitImpls com ctx entName genArgs
 
+        let defaultTraitImpls =
+            nonInterfaceMembers |> makeDefaultTraitImpls com ctx ent entName genArgs
+
         let displayTraitImpls =
             let hasToString =
                 nonInterfaceMembers |> List.exists (fun (d, m) -> m.CompiledName = "ToString")
@@ -5283,8 +5334,9 @@ module Util =
                 |> makeInterfaceTraitImpls com ctx entName genParams ifcEntRef ifcGenArgs
             )
 
-        derefTraitImpls
-        @ nonInterfaceImpls
+        nonInterfaceImpls
+        @ derefTraitImpls
+        @ defaultTraitImpls
         @ displayTraitImpls
         @ operatorTraitImpls
         @ refEqualityTraitImpls

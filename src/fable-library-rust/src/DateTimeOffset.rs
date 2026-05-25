@@ -14,11 +14,18 @@ pub mod DateTimeOffset_ {
         DateTime as CDateTime, Datelike, FixedOffset, Local, Months, NaiveDate, NaiveDateTime,
         NaiveTime, ParseResult, TimeZone, Timelike, Utc,
     };
+    use core::hash::{Hash, Hasher};
     use core::ops::{Add, Sub};
 
+    #[derive(Clone, Copy)]
     #[repr(transparent)]
-    #[derive(Clone, Copy, Debug)]
     pub struct DateTimeOffset(CDateTime<FixedOffset>);
+
+    impl core::fmt::Debug for DateTimeOffset {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", self.toString(string("")))
+        }
+    }
 
     impl core::fmt::Display for DateTimeOffset {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
@@ -35,6 +42,20 @@ pub mod DateTimeOffset_ {
     impl PartialOrd for DateTimeOffset {
         fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
             self.utcDateTime().partial_cmp(&other.utcDateTime())
+        }
+    }
+
+    impl Eq for DateTimeOffset {}
+
+    impl Ord for DateTimeOffset {
+        fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+            self.utcTicks().cmp(&other.utcTicks())
+        }
+    }
+
+    impl Hash for DateTimeOffset {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.utcTicks().hash(state)
         }
     }
 

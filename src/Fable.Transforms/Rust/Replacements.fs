@@ -383,7 +383,8 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             | _ -> binOp BinaryMinus left right
         | Operators.multiply, [ left; right ] -> binOp BinaryMultiply left right
         | Operators.division, [ left; right ] -> binOp BinaryDivide left right
-        | Operators.divideByInt, [ left; right ] -> binOp BinaryDivide left (TypeCast(right, t))
+        | Operators.divideByInt, [ left; right ] ->
+            Helper.LibCall(com, "Native", "divideByInt", t, [ left; right ], argTypes, ?loc = r)
         | Operators.modulus, [ left; right ] -> binOp BinaryModulus left right
         | Operators.leftShift, [ left; right ] -> binOp BinaryShiftLeft left right |> truncateUnsigned // See #1530
         | Operators.rightShift, [ left; right ] ->
@@ -950,8 +951,14 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             |> Some
     | "DefaultAsyncBuilder", _ -> makeImportLib com t "singleton" "AsyncBuilder" |> Some
     // Erased operators.
-    // KeyValuePair is already compiled as a tuple
-    | ("KeyValuePattern" | "Identity" | "Box" | "Unbox" | "ToEnum"), [ arg ] -> TypeCast(arg, t) |> Some
+    // Rust compiles KeyValuePair as a struct tuple, but the KeyValue active pattern expects a regular tuple.
+    | "KeyValuePattern", [ arg ] ->
+        match arg.Type with
+        | Builtin(BclKeyValuePair(keyType, valueType)) ->
+            makeTuple r false [ Get(arg, TupleIndex 0, keyType, r); Get(arg, TupleIndex 1, valueType, r) ]
+            |> Some
+        | _ -> TypeCast(arg, t) |> Some
+    | ("Identity" | "Box" | "Unbox" | "ToEnum"), [ arg ] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
     | "Ignore", _ -> Value(UnitConstant, r) |> Some
     // Number and String conversions
@@ -2514,7 +2521,7 @@ let ignoreFormatProvider compiledName args =
     | "TryParse", input :: _culture :: defVal :: _ -> [ input; defVal ]
     | _ -> args
 
-let makeDateOrTimeMemberCall com ctx r t i moduleName memberName (thisArg: Expr option) (args: Expr list) =
+let makeMemberCall com ctx r t i moduleName memberName (thisArg: Expr option) (args: Expr list) =
     let memberName = Naming.removeGetSetPrefix memberName |> Naming.lowerFirst
     let args = ignoreFormatProvider i.CompiledName args
 
@@ -2593,7 +2600,7 @@ let dateTimes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Subtract" ->
         Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r)
         |> Some
-    | meth -> makeDateOrTimeMemberCall com ctx r t i "DateTime" meth thisArg args |> Some
+    | meth -> makeMemberCall com ctx r t i "DateTime" meth thisArg args |> Some
 
 let dateTimeOffsets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -2640,9 +2647,7 @@ let dateTimeOffsets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: 
     | "Subtract" ->
         Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r)
         |> Some
-    | meth ->
-        makeDateOrTimeMemberCall com ctx r t i "DateTimeOffset" meth thisArg args
-        |> Some
+    | meth -> makeMemberCall com ctx r t i "DateTimeOffset" meth thisArg args |> Some
 
 let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -2656,7 +2661,7 @@ let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "Equals"
     | "GetHashCode" -> valueTypes com ctx r t i thisArg args
     | "ToDateTime" when args.Length = 2 -> makeInstanceCall r t i thisArg.Value "toDateTime2" args |> Some
-    | meth -> makeDateOrTimeMemberCall com ctx r t i "DateOnly" meth thisArg args |> Some
+    | meth -> makeMemberCall com ctx r t i "DateOnly" meth thisArg args |> Some
 
 let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -2681,7 +2686,7 @@ let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "Equals"
     | "GetHashCode" -> valueTypes com ctx r t i thisArg args
     | "Add" when args.Length = 2 -> makeInstanceCall r t i thisArg.Value "add2" args |> Some
-    | meth -> makeDateOrTimeMemberCall com ctx r t i "TimeOnly" meth thisArg args |> Some
+    | meth -> makeMemberCall com ctx r t i "TimeOnly" meth thisArg args |> Some
 
 let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
@@ -2733,13 +2738,13 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         match args with
         | [ ExprType(Number(Float64, _)) ] ->
             // overloads that take a float
-            makeDateOrTimeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
+            makeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
         | _ ->
             // overloads with variable argument counts
             let argCount = List.length args
             let meth = meth + (string<int> argCount)
-            makeDateOrTimeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
-    | meth -> makeDateOrTimeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
+            makeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
+    | meth -> makeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
 
 let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -3109,20 +3114,19 @@ let guids
     | ".ctor", None, _ ->
         match args with
         | [] -> Helper.LibCall(com, "Guid", "empty", t, [], ?loc = r) |> Some
-        | [ ExprType String ] -> Helper.LibCall(com, "Guid", "parse", t, args, ?loc = r) |> Some
+        | [ ExprType String ] -> makeMemberCall com ctx r t i "Guid" "parse" None args |> Some
         | [ ExprType(Array(Number(UInt8, _), _)) ] ->
-            Helper.LibCall(com, "Guid", "new_from_array", t, args, ?loc = r) |> Some
+            makeMemberCall com ctx r t i "Guid" "new_from_array" thisArg args |> Some
         // TODO: other constructor overrides
         | _ -> None
     // | "Empty", None, [] -> // it's a static field, see tryField
-    | "NewGuid", None, [] -> Helper.LibCall(com, "Guid", "new_guid", t, args, ?loc = r) |> Some
-    | "CreateVersion7", None, [] -> Helper.LibCall(com, "Guid", "create_version7", t, [], ?loc = r) |> Some
-    | "CreateVersion7", None, _ ->
-        Helper.LibCall(com, "Guid", "create_version7_with_timestamp", t, args, ?loc = r)
-        |> Some
-    | "Parse", None, [ ExprType String ] -> Helper.LibCall(com, "Guid", "parse", t, args, ?loc = r) |> Some
-    | "TryParse", None, [ ExprType String; _ ] -> Helper.LibCall(com, "Guid", "tryParse", t, args, ?loc = r) |> Some
-    | "ToByteArray", Some x, [] -> Helper.LibCall(com, "Guid", "toByteArray", t, [ x ], ?loc = r) |> Some
+    | "NewGuid", None, [] -> makeMemberCall com ctx r t i "Guid" "new_guid" thisArg args |> Some
+    | "CreateVersion7", None, [] -> makeMemberCall com ctx r t i "Guid" "create_version7" thisArg args |> Some
+    | "CreateVersion7", None, _ -> makeMemberCall com ctx r t i "Guid" "create_version7_with" thisArg args |> Some
+    | "Parse", None, [ ExprType String ] -> makeMemberCall com ctx r t i "Guid" "parse" thisArg args |> Some
+    | "TryParse", None, [ ExprType String; _ ] -> makeMemberCall com ctx r t i "Guid" "tryParse" thisArg args |> Some
+    | "ToByteArray", Some x, [] -> makeMemberCall com ctx r t i "Guid" "toByteArray" thisArg [] |> Some
+    | "ToString", Some x, [ ExprType String ] -> makeMemberCall com ctx r t i "Guid" "toString" thisArg args |> Some
     | "ToString", Some x, [] -> toString com ctx r [ x ] |> Some
     // TODO: other methods and overrides
     | _ -> None

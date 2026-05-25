@@ -18,8 +18,8 @@ pub mod String_ {
     mod HeapString {
         use crate::Native_::{Lrc, NullableRef, String};
 
-        #[repr(transparent)]
         #[derive(Clone)]
+        #[repr(transparent)]
         pub struct LrcStr(Option<Lrc<str>>);
 
         pub type string = LrcStr;

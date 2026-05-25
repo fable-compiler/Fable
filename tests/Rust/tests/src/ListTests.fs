@@ -7,9 +7,9 @@ type List(x: int) =
 
 type ExceptFoo = { Bar:string }
 
-// let testListChoose xss =
-//     let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
-//     xss |> f |> List.collect (fun xs -> [ for s in xs do yield s ])
+let testListChoose (xss: 'T list option list) =
+    let f xss = xss |> List.choose (function Some a -> Some a | _ -> None)
+    xss |> f |> List.collect id
 
 let rec sumFirstList (zs: float list) (n: int): float =
     match n with
@@ -17,22 +17,24 @@ let rec sumFirstList (zs: float list) (n: int): float =
     | 1 -> zs.Head
     | _ -> zs.Head + sumFirstList zs.Tail (n-1)
 
+[<Struct>]
 type Point =
     { x: int; y: int }
     static member Zero = { x=0; y=0 }
     static member Neg(p: Point) = { x = -p.x; y = -p.y }
     static member (+) (p1, p2) = { x = p1.x + p2.x; y = p1.y + p2.y }
 
-// type MyNumber =
-//     | MyNumber of int
-//     static member Zero = MyNumber 0
-//     static member (+) (MyNumber x, MyNumber y) =
-//         MyNumber(x + y)
-//     static member DivideByInt (MyNumber x, i: int) =
-//         MyNumber(x / i)
+[<Struct>]
+type MyNumber =
+    | MyNumber of int
+    static member Zero = MyNumber 0
+    static member (+) (MyNumber x, MyNumber y) =
+        MyNumber(x + y)
+    static member DivideByInt (MyNumber x, i: int) =
+        MyNumber(x / i)
 
-// type MyNumberWrapper =
-//     { MyNumber: MyNumber }
+type MyNumberWrapper =
+    { MyNumber: MyNumber }
 
 [<Fact>]
 let ``List.Empty works`` () =
@@ -571,17 +573,17 @@ let ``List.sumBy works`` () =
     [1; 2] |> List.sumBy (fun x -> x*2)
     |> equal 6
 
-// [<Fact>]
-// let ``List.sum with non numeric types works`` () =
-//     let p1 = {x=1; y=10}
-//     let p2 = {x=2; y=20}
-//     [p1; p2] |> List.sum |> (=) {x=3;y=30} |> equal true
+[<Fact>]
+let ``List.sum with non numeric types works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [p1; p2] |> List.sum |> (=) {x=3;y=30} |> equal true
 
-// [<Fact>]
-// let ``List.sumBy with non numeric types works`` () =
-//     let p1 = {x=1; y=10}
-//     let p2 = {x=2; y=20}
-//     [p1; p2] |> List.sumBy Point.Neg |> (=) {x = -3; y = -30} |> equal true
+[<Fact>]
+let ``List.sumBy with non numeric types works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [p1; p2] |> List.sumBy Point.Neg |> (=) {x = -3; y = -30} |> equal true
 
 [<Fact>]
 let ``List.sumBy with numeric projection works`` () =
@@ -589,17 +591,17 @@ let ``List.sumBy with numeric projection works`` () =
     let p2 = {x=2; y=20}
     [p1; p2] |> List.sumBy (fun p -> p.y) |> equal 30
 
-// [<Fact>]
-// let ``List.sum with non numeric types works II`` () =
-//     [MyNumber 1; MyNumber 2; MyNumber 3]
-//     |> List.sum
-//     |> equal (MyNumber 6)
+[<Fact>]
+let ``List.sum with non numeric types works II`` () =
+    [MyNumber 1; MyNumber 2; MyNumber 3]
+    |> List.sum
+    |> equal (MyNumber 6)
 
-// [<Fact>]
-// let ``List.sumBy with non numeric types works II`` () =
-//     [{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }]
-//     |> List.sumBy (fun x -> x.MyNumber)
-//     |> equal (MyNumber 12)
+[<Fact>]
+let ``List.sumBy with non numeric types works II`` () =
+    [{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }]
+    |> List.sumBy (fun x -> x.MyNumber)
+    |> equal (MyNumber 12)
 
 [<Fact>]
 let ``List.skip works`` () =
@@ -737,19 +739,19 @@ let ``List.truncate works`` () =
     let ys = List.truncate 3 xs
     ys |> List.toArray |> equal [|1;2;3|]
 
-// [<Fact>]
-// let ``List.truncate works II`` () =
-//     [1..3] = (List.truncate 3 [1..5]) |> equal true
-//     [1..5] = (List.truncate 10 [1..5]) |> equal true
-//     [] = (List.truncate 0 [1..5]) |> equal true
-//     ["str1";"str2"] = (List.truncate 2 ["str1";"str2";"str3"]) |> equal true
-//     [] = (List.truncate 0 []) |> equal true
-//     [] = (List.truncate 1 []) |> equal true
+[<Fact>]
+let ``List.truncate works II`` () =
+    [1..3] = (List.truncate 3 [1..5]) |> equal true
+    [1..5] = (List.truncate 10 [1..5]) |> equal true
+    [] = (List.truncate 0 [1..5]) |> equal true
+    ["str1";"str2"] = (List.truncate 2 ["str1";"str2";"str3"]) |> equal true
+    ([]: int list) = (List.truncate 0 ([]: int list)) |> equal true
+    ([]: int list) = (List.truncate 1 ([]: int list)) |> equal true
 
-// [<Fact>]
-// let ``List.choose works with generic arguments`` () =
-//     let res = testListChoose [ Some [ "a" ] ]
-//     equal ["a"] res
+[<Fact>]
+let ``List.choose works with generic arguments`` () =
+    let res = testListChoose [ Some [ "a" ] ]
+    equal ["a"] res
 
 [<Fact>]
 let ``List.collect works`` () =
@@ -800,14 +802,14 @@ let ``List.averageBy works`` () =
     |> List.averageBy (fun x -> x * 2.)
     |> equal 5.
 
-// [<Fact>]
-// let ``List.average works with custom types`` () =
-//     [MyNumber 1; MyNumber 2; MyNumber 3] |> List.average |> equal (MyNumber 2)
+[<Fact>]
+let ``List.average works with custom types`` () =
+    [MyNumber 1; MyNumber 2; MyNumber 3] |> List.average |> equal (MyNumber 2)
 
-// [<Fact>]
-// let ``List.averageBy works with custom types`` () =
-//     [{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }]
-//     |> List.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
+[<Fact>]
+let ``List.averageBy works with custom types`` () =
+    [{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }]
+    |> List.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
 
 [<Fact>]
 let ``List.distinct works`` () =
@@ -1045,10 +1047,10 @@ let ``List iterators from range do rewind`` () =
     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
     xs |> Seq.map string |> String.concat "," |> equal "1,2,3,4,5"
 
-// [<Fact>]
-// let ``List comprehensions returning None work`` () =
-//     let spam : string option list = [for _ in 0..5 -> None]
-//     List.length spam |> equal 6
+[<Fact>]
+let ``List comprehensions returning None work`` () =
+    let spam : string option list = [for _ in 0..5 -> None]
+    List.length spam |> equal 6
 
 [<Fact>]
 let ``Int list tail doesn't get wrapped with | 0`` () = // See #1447
