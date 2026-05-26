@@ -18,10 +18,10 @@ let thatYearSeconds (dt: DateTime) =
 let thatYearMilliseconds (dt: DateTime) =
     (dt - DateTime(dt.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc)).TotalMilliseconds
 
-// [<Fact>]
-// let ``DateTime.ToString with custom format works`` () =
-//     DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm", CultureInfo.InvariantCulture)
-//     |> equal "16:37"
+[<Fact>]
+let ``DateTime.ToString with custom format works`` () =
+    DateTime(2014, 9, 11, 16, 37, 0).ToString("HH:mm", CultureInfo.InvariantCulture)
+    |> equal "16:37"
 
 [<Fact>]
 let ``DateTime.ToString without separator works`` () = // See #1131
@@ -33,20 +33,185 @@ let ``DateTime.ToString with milliseconds`` () = // See #1726
     DateTime(2014, 9, 11, 16, 37, 11, 345).ToString("ss.fff")
     |> equal "11.345"
 
-// [<Fact>]
-// let ``DateTime.ToString with Round-trip format works for Utc`` () =
-//     let str = DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("O")
-//     System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
-//     |> equal "2014-09-11T16:37:02.000Z"
+[<Fact>]
+let ``DateTime.ToString with extended custom format tokens works`` () =
+    let dt = DateTime.Parse("2009-06-15T13:45:30.6175425")
+    dt.ToString("dddd, MMMM d yyyyyy h:m:s tt FFFFFFF", CultureInfo.InvariantCulture)
+    |> equal "Monday, June 15 002009 1:45:30 PM 6175425"
+
+[<Fact>]
+let ``DateTime.ToString custom timezone and literal tokens work`` () =
+    DateTime(2014, 7, 1, 16, 37, 0, DateTimeKind.Utc)
+        .ToString("'z:' z 'zz:' zz 'zzz:' zzz 'K:' K %h \\m", CultureInfo.InvariantCulture)
+    |> equal "z: +0 zz: +00 zzz: +00:00 K: Z 4 m"
+
+[<Fact>]
+let ``DateTime.ToString ordered replacement widths work`` () =
+    DateTime(2014, 7, 13, 16, 37, 0)
+        .ToString("dddddd MMMMM yyyyyyyyyy", CultureInfo.InvariantCulture)
+    |> equal "Sunday July 0000002014"
+
+[<Fact>]
+let ``DateTime.ToString with Round-trip format works for Utc`` () =
+    let str = DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("O")
+    System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
+    |> equal "2014-09-11T16:37:02.000Z"
 
 // TODO
 // Next test is disabled because it's depends on the time zone of the machine
 //A fix could be to use a regex or detect the time zone
 //
-// [<Fact>]
-// let ``DateTime.ToString with Round-trip format works for local`` () =
-//     DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Local).ToString("O")
-//     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europe/Paris (GMT+2)
+[<Fact>]
+let ``DateTime.ToString with Round-trip format works for local`` () =
+    let str = DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Local).ToString("O")
+    let normalized = System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
+    System.Text.RegularExpressions.Regex.IsMatch(normalized, "^2014-09-11T16:37:02\\.000[+-]\\d{2}:\\d{2}$")
+    |> equal true
+
+[<Fact>]
+let ``DateTime.ToString with d specifiers work`` () =
+    // %d: day-of-month, no leading zero (1-31)
+    // dd: day-of-month, with leading zero (01-31)
+    // ddd: abbreviated day name
+    // dddd: full day name
+    let dt = DateTime(2009, 6, 15, 13, 45, 30)
+    dt.ToString("%d", CultureInfo.InvariantCulture)   |> equal "15"
+    dt.ToString("dd", CultureInfo.InvariantCulture)   |> equal "15"
+    dt.ToString("ddd", CultureInfo.InvariantCulture)  |> equal "Mon"
+    dt.ToString("dddd", CultureInfo.InvariantCulture) |> equal "Monday"
+    let dt2 = DateTime(2009, 6, 3, 13, 45, 30)
+    dt2.ToString("%d", CultureInfo.InvariantCulture)  |> equal "3"
+    dt2.ToString("dd", CultureInfo.InvariantCulture)  |> equal "03"
+
+[<Fact>]
+let ``DateTime.ToString with M specifiers work`` () =
+    // %M: month number, no leading zero (1-12)
+    // MM: month number, with leading zero (01-12)
+    // MMM: abbreviated month name
+    // MMMM: full month name
+    let dt = DateTime(2009, 6, 15, 13, 45, 30)
+    dt.ToString("%M", CultureInfo.InvariantCulture)   |> equal "6"
+    dt.ToString("MM", CultureInfo.InvariantCulture)   |> equal "06"
+    dt.ToString("MMM", CultureInfo.InvariantCulture)  |> equal "Jun"
+    dt.ToString("MMMM", CultureInfo.InvariantCulture) |> equal "June"
+    let dt2 = DateTime(2009, 11, 15, 13, 45, 30)
+    dt2.ToString("%M", CultureInfo.InvariantCulture)  |> equal "11"
+    dt2.ToString("MM", CultureInfo.InvariantCulture)  |> equal "11"
+    dt2.ToString("MMM", CultureInfo.InvariantCulture) |> equal "Nov"
+
+[<Fact>]
+let ``DateTime.ToString with y specifiers work`` () =
+    // %y: year mod 100 without leading zero
+    // yy: year mod 100 with leading zero
+    // yyy: 3-digit year
+    // yyyy: 4-digit year
+    // yyyyy: 5-digit year
+    let dt = DateTime(2009, 6, 15, 13, 45, 30)
+    dt.ToString("%y", CultureInfo.InvariantCulture)    |> equal "9"
+    dt.ToString("yy", CultureInfo.InvariantCulture)    |> equal "09"
+    dt.ToString("yyy", CultureInfo.InvariantCulture)   |> equal "2009"
+    dt.ToString("yyyy", CultureInfo.InvariantCulture)  |> equal "2009"
+    dt.ToString("yyyyy", CultureInfo.InvariantCulture) |> equal "02009"
+
+[<Fact>]
+let ``DateTime.ToString with h and hh specifiers work`` () =
+    // h: 12-hour clock, no leading zero (1-12)
+    // hh: 12-hour clock, with leading zero (01-12)
+    let dt = DateTime(2009, 6, 15, 13, 45, 30)
+    dt.ToString("%h", CultureInfo.InvariantCulture)  |> equal "1"
+    dt.ToString("hh", CultureInfo.InvariantCulture)  |> equal "01"
+    let dt2 = DateTime(2009, 6, 15, 0, 45, 30)
+    dt2.ToString("%h", CultureInfo.InvariantCulture) |> equal "12"
+    dt2.ToString("hh", CultureInfo.InvariantCulture) |> equal "12"
+    let dt3 = DateTime(2009, 6, 15, 12, 45, 30)
+    dt3.ToString("%h", CultureInfo.InvariantCulture) |> equal "12"
+    dt3.ToString("hh", CultureInfo.InvariantCulture) |> equal "12"
+
+[<Fact>]
+let ``DateTime.ToString with H and HH specifiers work`` () =
+    // H: 24-hour clock, no leading zero (0-23)
+    // HH: 24-hour clock, with leading zero (00-23)
+    let dt = DateTime(2009, 6, 15, 13, 45, 30)
+    dt.ToString("%H", CultureInfo.InvariantCulture)  |> equal "13"
+    dt.ToString("HH", CultureInfo.InvariantCulture)  |> equal "13"
+    let dt2 = DateTime(2009, 6, 15, 1, 45, 30)
+    dt2.ToString("%H", CultureInfo.InvariantCulture) |> equal "1"
+    dt2.ToString("HH", CultureInfo.InvariantCulture) |> equal "01"
+    let dt3 = DateTime(2009, 6, 15, 0, 45, 30)
+    dt3.ToString("%H", CultureInfo.InvariantCulture) |> equal "0"
+    dt3.ToString("HH", CultureInfo.InvariantCulture) |> equal "00"
+
+[<Fact>]
+let ``DateTime.ToString with m and mm specifiers work`` () =
+    // %m: minute, no leading zero (0-59)
+    // mm: minute, with leading zero (00-59)
+    let dt = DateTime(2009, 6, 15, 13, 5, 30)
+    dt.ToString("%m", CultureInfo.InvariantCulture)  |> equal "5"
+    dt.ToString("mm", CultureInfo.InvariantCulture)  |> equal "05"
+    let dt2 = DateTime(2009, 6, 15, 13, 45, 30)
+    dt2.ToString("%m", CultureInfo.InvariantCulture) |> equal "45"
+    dt2.ToString("mm", CultureInfo.InvariantCulture) |> equal "45"
+
+[<Fact>]
+let ``DateTime.ToString with s and ss specifiers work`` () =
+    // %s: second, no leading zero (0-59)
+    // ss: second, with leading zero (00-59)
+    let dt = DateTime(2009, 6, 15, 13, 45, 3)
+    dt.ToString("%s", CultureInfo.InvariantCulture)  |> equal "3"
+    dt.ToString("ss", CultureInfo.InvariantCulture)  |> equal "03"
+    let dt2 = DateTime(2009, 6, 15, 13, 45, 30)
+    dt2.ToString("%s", CultureInfo.InvariantCulture) |> equal "30"
+    dt2.ToString("ss", CultureInfo.InvariantCulture) |> equal "30"
+
+[<Fact>]
+let ``DateTime.ToString with f fraction specifiers work`` () =
+    // 617ms = 6170000 ticks of sub-second fraction
+    let dt = DateTime(2009, 6, 15, 13, 45, 30, 617)
+    dt.ToString("ss.f", CultureInfo.InvariantCulture)       |> equal "30.6"
+    dt.ToString("ss.ff", CultureInfo.InvariantCulture)      |> equal "30.61"
+    dt.ToString("ss.fff", CultureInfo.InvariantCulture)     |> equal "30.617"
+    dt.ToString("ss.ffff", CultureInfo.InvariantCulture)    |> equal "30.6170"
+    dt.ToString("ss.fffff", CultureInfo.InvariantCulture)   |> equal "30.61700"
+    dt.ToString("ss.ffffff", CultureInfo.InvariantCulture)  |> equal "30.617000"
+    dt.ToString("ss.fffffff", CultureInfo.InvariantCulture) |> equal "30.6170000"
+
+[<Fact>]
+let ``DateTime.ToString with F fraction specifiers work`` () =
+    // F: like f but trailing zeros are stripped; dot is suppressed when empty
+    let dt = DateTime(2009, 6, 15, 13, 45, 30, 617)
+    dt.ToString("ss.F", CultureInfo.InvariantCulture)       |> equal "30.6"
+    dt.ToString("ss.FF", CultureInfo.InvariantCulture)      |> equal "30.61"
+    dt.ToString("ss.FFF", CultureInfo.InvariantCulture)     |> equal "30.617"
+    dt.ToString("ss.FFFF", CultureInfo.InvariantCulture)    |> equal "30.617"
+    dt.ToString("ss.FFFFF", CultureInfo.InvariantCulture)   |> equal "30.617"
+    dt.ToString("ss.FFFFFF", CultureInfo.InvariantCulture)  |> equal "30.617"
+    dt.ToString("ss.FFFFFFF", CultureInfo.InvariantCulture) |> equal "30.617"
+    // all-zero fraction: dot and fraction entirely suppressed
+    let dt0 = DateTime(2009, 6, 15, 13, 45, 30)
+    dt0.ToString("ss.FFFFFFF", CultureInfo.InvariantCulture) |> equal "30"
+    dt0.ToString("ss.F", CultureInfo.InvariantCulture)       |> equal "30"
+
+[<Fact>]
+let ``DateTime.ToString with t and tt specifiers work`` () =
+    // t: first character of AM/PM designator
+    // tt: full AM/PM designator
+    let dtAm = DateTime(2009, 6, 15, 5, 45, 30)
+    dtAm.ToString("%t", CultureInfo.InvariantCulture)   |> equal "A"
+    dtAm.ToString("tt", CultureInfo.InvariantCulture)   |> equal "AM"
+    let dtPm = DateTime(2009, 6, 15, 13, 45, 30)
+    dtPm.ToString("%t", CultureInfo.InvariantCulture)   |> equal "P"
+    dtPm.ToString("tt", CultureInfo.InvariantCulture)   |> equal "PM"
+    let dtMid = DateTime(2009, 6, 15, 0, 0, 0)
+    dtMid.ToString("tt", CultureInfo.InvariantCulture)  |> equal "AM"
+    let dtNoon = DateTime(2009, 6, 15, 12, 0, 0)
+    dtNoon.ToString("tt", CultureInfo.InvariantCulture) |> equal "PM"
+
+[<Fact>]
+let ``DateTime.ToString with g and gg specifiers work`` () =
+    // g / gg: era ("A.D." in Gregorian calendar with InvariantCulture)
+    let dt = DateTime(2009, 6, 15, 13, 45, 30)
+    dt.ToString("%g", CultureInfo.InvariantCulture) |> equal "A.D."
+    dt.ToString("gg", CultureInfo.InvariantCulture) |> equal "A.D."
 
 [<Fact>]
 let ``DateTime from Year 1 to 99 works`` () =
@@ -98,12 +263,11 @@ let ``Creating DateTimeOffset from DateTime and back works`` () =
     let d' = dto.DateTime
     d' |> equal d
 
-// [<Fact>]
-// let ``Formatting DateTimeOffset works`` () =
-//     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
-//     let dto = DateTimeOffset(d)
-//     // dto.ToString() |> equal "2014-10-09 13:23:30 +00:00"
-//     dto.ToString("HH:mm:ss", CultureInfo.InvariantCulture) |> equal "13:23:30"
+[<Fact>]
+let ``Formatting DateTimeOffset works`` () =
+    let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Utc)
+    let dto = DateTimeOffset(d)
+    dto.ToString("HH:mm:ss", CultureInfo.InvariantCulture) |> equal "13:23:30"
 
 [<Fact>]
 let ``DateTime.Parse without offset works`` () =
@@ -129,35 +293,33 @@ let ``DateTime.Hour works`` () =
     let d = DateTime(2014, 10, 9, 13, 23, 30, DateTimeKind.Local)
     d.Hour |> equal 13
 
-// // TODO: These four tests don't match exactly between .NET and JS
-// // Think of a way to compare the results approximately
-// [<Fact>]
-// let ``DateTime.ToLongDateString works`` () =
-//     let dt = DateTime(2014, 9, 11, 16, 37, 0)
-//     let s = dt.ToLongDateString()
-//     s.Length > 0
-//     |> equal true
+[<Fact>]
+let ``DateTime.ToLongDateString works`` () =
+    let dt = DateTime(2014, 9, 11, 16, 37, 0)
+    let s = dt.ToLongDateString()
+    s.Length > 0
+    |> equal true
 
-// [<Fact>]
-// let ``DateTime.ToShortDateString works`` () =
-//     let dt = DateTime(2014, 9, 11, 16, 37, 0)
-//     let s = dt.ToShortDateString()
-//     s.Length > 0
-//     |> equal true
+[<Fact>]
+let ``DateTime.ToShortDateString works`` () =
+    let dt = DateTime(2014, 9, 11, 16, 37, 0)
+    let s = dt.ToShortDateString()
+    s.Length > 0
+    |> equal true
 
-// [<Fact>]
-// let ``DateTime.ToLongTimeString works`` () =
-//     let dt = DateTime(2014, 9, 11, 16, 37, 0)
-//     let s = dt.ToLongTimeString()
-//     s.Length > 0
-//     |> equal true
+[<Fact>]
+let ``DateTime.ToLongTimeString works`` () =
+    let dt = DateTime(2014, 9, 11, 16, 37, 0)
+    let s = dt.ToLongTimeString()
+    s.Length > 0
+    |> equal true
 
-// [<Fact>]
-// let ``DateTime.ToShortTimeString works`` () =
-//     let dt = DateTime(2014, 9, 11, 16, 37, 0)
-//     let s = dt.ToShortTimeString()
-//     s.Length > 0
-//     |> equal true
+[<Fact>]
+let ``DateTime.ToShortTimeString works`` () =
+    let dt = DateTime(2014, 9, 11, 16, 37, 0)
+    let s = dt.ToShortTimeString()
+    s.Length > 0
+    |> equal true
 
 [<Fact>]
 let ``DateTime constructors work`` () =
@@ -257,13 +419,20 @@ let ``DateTime.IsLeapYear works`` () =
     DateTime.IsLeapYear(2014) |> equal false
     DateTime.IsLeapYear(2016) |> equal true
 
-// // TODO: Re-enable this test when we can fix it in the CI servers
-// // [<Fact>]
-// // let ``DateTime.IsDaylightSavingTime works`` () =
-// //     let d1 = DateTime(2017, 7, 18, 2, 0, 0)
-// //     let d2 = DateTime(2017, 12, 18, 2, 0, 0)
-// //     d1.IsDaylightSavingTime() |> equal true
-// //     d2.IsDaylightSavingTime() |> equal false
+[<Fact>]
+let ``DateTime.IsDaylightSavingTime works`` () =
+    let offsetMinutes (s: string) =
+        let sign = if s[0] = '-' then -1 else 1
+        let hours = Int32.Parse(s[1..2], CultureInfo.InvariantCulture)
+        let minutes = Int32.Parse(s[4..5], CultureInfo.InvariantCulture)
+        sign * (hours * 60 + minutes)
+
+    let jan = DateTime(2017, 1, 15, 12, 0, 0, DateTimeKind.Local)
+    let jul = DateTime(2017, 7, 15, 12, 0, 0, DateTimeKind.Local)
+    let janOffset = jan.ToString("zzz", CultureInfo.InvariantCulture) |> offsetMinutes
+    let julOffset = jul.ToString("zzz", CultureInfo.InvariantCulture) |> offsetMinutes
+    jan.IsDaylightSavingTime() |> equal (janOffset > julOffset)
+    jul.IsDaylightSavingTime() |> equal (julOffset > janOffset)
 
 [<Fact>]
 let ``DateTime.DaysInMonth works`` () =
@@ -302,14 +471,14 @@ let ``DateTime.Parse with provider works`` () =
     d.Year + d.Month + d.Day + d.Hour + d.Minute
     |> equal 2096
 
-// [<Fact>]
-// let ``DateTime.Parse with time-only string works`` () = // See #1045
-//     let d = DateTime.Parse("13:50:34", CultureInfo.InvariantCulture)
-//     d.Hour + d.Minute + d.Second |> equal 97
-//     let d = DateTime.Parse("1:5:34 AM", CultureInfo.InvariantCulture)
-//     d.Hour + d.Minute + d.Second |> equal 40
-//     let d = DateTime.Parse("1:5:34 PM", CultureInfo.InvariantCulture)
-//     d.Hour + d.Minute + d.Second |> equal 52
+[<Fact>]
+let ``DateTime.Parse with time-only string works`` () = // See #1045
+    let d = DateTime.Parse("13:50:34", CultureInfo.InvariantCulture)
+    d.Hour + d.Minute + d.Second |> equal 97
+    let d = DateTime.Parse("1:5:34 AM", CultureInfo.InvariantCulture)
+    d.Hour + d.Minute + d.Second |> equal 40
+    let d = DateTime.Parse("1:5:34 PM", CultureInfo.InvariantCulture)
+    d.Hour + d.Minute + d.Second |> equal 52
 
 [<Fact>]
 let ``DateTime.TryParse works`` () =
@@ -319,13 +488,13 @@ let ``DateTime.TryParse works`` () =
         | false, _ -> false
     f "foo" |> equal false
     f "9/10/2014 1:50:34 PM" |> equal true
-    // f "1:50:34" |> equal true //TODO:
+    f "1:50:34" |> equal true
 
-// [<Fact>]
-// let ``Parsing doesn't succeed for invalid dates`` () =
-//     let invalidAmericanDate = "13/1/2020"
-//     let r, _date = DateTime.TryParse(invalidAmericanDate, CultureInfo.InvariantCulture, DateTimeStyles.None)
-//     r |> equal false
+[<Fact>]
+let ``Parsing doesn't succeed for invalid dates`` () =
+    let invalidAmericanDate = "13/1/2020"
+    let r, _date = DateTime.TryParse(invalidAmericanDate, CultureInfo.InvariantCulture, DateTimeStyles.None)
+    r |> equal false
 
 [<Fact>]
 let ``DateTime.Today works`` () =

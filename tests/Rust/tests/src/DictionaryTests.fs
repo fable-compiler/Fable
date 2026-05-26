@@ -10,14 +10,14 @@ type MyRecord = { a: int }
 
 // type R = { i: int; s: string }
 
-// [<Fact>]
-// let ``Dictionary KeyValuePattern works`` () = // See #509
-//     let dict = Dictionary<_,_>()
-//     for i in 1 .. 10 do dict.Add(i, i*i)
-//     let mutable i = 0
-//     for KeyValue(x,y) in dict do
-//         i <- i + y
-//     i |> equal 385
+[<Fact>]
+let ``Dictionary KeyValuePattern works`` () = // See #509
+    let dict = Dictionary<_,_>()
+    for i in 1 .. 10 do dict.Add(i, i*i)
+    let mutable i = 0
+    for KeyValue(x,y) in dict do
+        i <- i + y
+    i |> equal 385
 
 [<Fact>]
 let ``Dictionary ctor works`` () =

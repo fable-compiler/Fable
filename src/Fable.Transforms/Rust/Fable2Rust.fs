@@ -288,27 +288,83 @@ module UsageTracking =
     // (the reason is that we want to count usage in loops as multiple uses)
     // (i.e. usage can be tested for zero, one, or more than one (not exact))
     // TODO: also adjust usage count in tail call loops
-    let rec countIdentUsage name (expr: Fable.Expr) : int =
-        let subCount =
-            getSubExpressions expr |> List.sumBy (fun e -> countIdentUsage name e) // depth-first
+    // Each lambda that captures the ident counts as a single outer use (not the full inner count),
+    // so no post-hoc subtraction is needed after processing the lambda.
+    let addUsageCount name count (counts: System.Collections.Generic.Dictionary<string, int>) =
+        if count <> 0 then
+            match counts.TryGetValue name with
+            | true, current -> counts[name] <- current + count
+            | false, _ -> counts[name] <- count
 
-        match expr with
-        | Fable.IdentExpr ident when ident.Name = name -> subCount + 1 // count each ident with the same name
-        | Fable.ForLoop _
-        | Fable.WhileLoop _ -> subCount * 2 // usage in loops counts as multiple uses
-        | Fable.DecisionTree _ -> subCount * 2 // usage in complex decision trees can vary
-        | _ -> subCount + 0 // anything else is zero
+    let removeTrackedNames trackedNames names =
+        (trackedNames, names)
+        ||> List.fold (fun trackedNames name -> Set.remove name trackedNames)
+
+    // Accumulate usage counts into a caller-supplied dictionary, applying `multiplier` to all counts.
+    // Lambda/Delegate bodies use a temporary dict so each captured ident contributes at most 1 (× multiplier).
+    let rec collectUsageCounts
+        (counts: System.Collections.Generic.Dictionary<string, int>)
+        multiplier
+        trackedNames
+        (expr: Fable.Expr)
+        =
+        if not (Set.isEmpty trackedNames) && multiplier <> 0 then
+            match expr with
+            | Fable.IdentExpr ident when Set.contains ident.Name trackedNames ->
+                addUsageCount ident.Name multiplier counts
+            | Fable.Lambda(arg, body, _) ->
+                let trackedNames = Set.remove arg.Name trackedNames
+
+                if not (Set.isEmpty trackedNames) then
+                    // recurse with fresh dict to cap inner counts at 1 per captured ident
+                    let capturedCounts = System.Collections.Generic.Dictionary<string, int>()
+                    collectUsageCounts capturedCounts 1 trackedNames body
+
+                    for kvp in capturedCounts do
+                        if kvp.Value > 0 then
+                            addUsageCount kvp.Key multiplier counts
+            | Fable.Delegate(args, body, _, _) ->
+                let trackedNames =
+                    args |> List.map (fun arg -> arg.Name) |> removeTrackedNames trackedNames
+
+                if not (Set.isEmpty trackedNames) then
+                    let capturedCounts = System.Collections.Generic.Dictionary<string, int>()
+                    collectUsageCounts capturedCounts 1 trackedNames body
+
+                    for kvp in capturedCounts do
+                        if kvp.Value > 0 then
+                            addUsageCount kvp.Key multiplier counts
+            | Fable.ForLoop _
+            | Fable.WhileLoop _ ->
+                for sub in getSubExpressions expr do
+                    collectUsageCounts counts (multiplier * 2) trackedNames sub
+            | Fable.DecisionTree _ ->
+                for sub in getSubExpressions expr do
+                    collectUsageCounts counts (multiplier * 2) trackedNames sub
+            | _ ->
+                for sub in getSubExpressions expr do
+                    collectUsageCounts counts multiplier trackedNames sub
 
     let calcIdentUsages idents exprs =
+        let trackedNames =
+            idents |> List.map (fun (ident: Fable.Ident) -> ident.Name) |> Set.ofList
+
         let usageCounts =
-            idents
-            |> List.map (fun (ident: Fable.Ident) ->
-                let count = exprs |> List.map (fun e -> countIdentUsage ident.Name e) |> List.sum
+            System.Collections.Generic.Dictionary<string, int>(trackedNames.Count)
 
-                ident.Name, count
-            )
+        for expr in exprs do
+            collectUsageCounts usageCounts 1 trackedNames expr
 
-        usageCounts |> Map
+        trackedNames
+        |> Seq.map (fun name ->
+            let count =
+                match usageCounts.TryGetValue name with
+                | true, count -> count
+                | false, _ -> 0
+
+            name, count
+        )
+        |> Map
 
 module TypeInfo =
 
@@ -523,7 +579,6 @@ module TypeInfo =
         | Fable.Unit
         | Fable.Measure _
         | Fable.MetaType
-        | Fable.Number((Float32 | Float64), _)
         | Fable.LambdaType _
         | Fable.DelegateType _ -> false
         | _ -> isTypeOfType com isHashableType isHashableEntity entNames typ
@@ -1961,7 +2016,7 @@ module Util =
         sb.Append(List.head parts) |> ignore
 
         List.tail parts
-        |> List.iteri (fun i part -> sb.Append("{" + string<int> i + "}" + part) |> ignore)
+        |> List.iteri (fun i part -> sb.Append('{').Append(i).Append('}').Append(part) |> ignore)
 
         sb.ToString()
 
@@ -2267,7 +2322,7 @@ module Util =
                     exprField :: exprFields
                 | _ -> exprFields
 
-            let attrs = [ mkAttr "derive" (makeDerivedFrom com ent) ]
+            let attrs = [ mkAttr "derive" (makeDerivedFrom com ctx ent) ]
             let generics = makeGenerics com ctx genArgs
             let genParams = FSharp2Fable.Util.getGenParamTypes genArgs
 
@@ -2721,6 +2776,22 @@ module Util =
         | Fable.DelegateType _ -> true
         | t -> t.Generics |> List.exists hasFuncOrAnyType
 
+    let prepareLambdaArgsAndCtx ctx args body =
+        let ctx = { ctx with IsLambda = true }
+        let genArgs, ctx = getNewGenArgsAndCtx ctx args body
+        let args = args |> discardUnitArg genArgs
+        genArgs, ctx, args
+
+    let getLetCapturedNames bindings letBody =
+        let capturedNames = HashSet<string>()
+
+        let addCapturedNames expr =
+            capturedNames.UnionWith(FableTransforms.getCapturedNames expr)
+
+        bindings |> List.iter (snd >> addCapturedNames)
+        addCapturedNames letBody
+        capturedNames
+
     let getScopedIdentCtx com ctx (ident: Fable.Ident) isArm isRef isBox isFunc usages =
         let scopedVarAttrs =
             {
@@ -2740,7 +2811,15 @@ module Util =
         let ctx = getScopedIdentCtx com ctx ident false isByRef false false usages
         mkLocalStmt local, ctx
 
-    let makeLetStmt com ctx (ident: Fable.Ident) value isCaptured usages =
+    let makeLetStmt
+        com
+        ctx
+        (ident: Fable.Ident)
+        value
+        isCaptured
+        usages
+        (capturedIdentsOpt: Map<string, Fable.Ident> option)
+        =
         // TODO: traverse body and follow references to decide if this should be wrapped or not
         // For Box/Rc it's not needed cause the Rust compiler will optimize the allocation away
         let tyOpt =
@@ -2763,7 +2842,8 @@ module Util =
                 ->
                 transformIdent com ctx None ident2 |> Some
             | Fable.Value(Fable.Null Fable.MetaType, _) -> None // special init value to skip initialization
-            | Function(args, body, _name) -> transformLambda com ctx (Some ident.Name) args body |> Some
+            | Function(args, body, _name) ->
+                transformLambda com ctx (Some ident.Name) args body capturedIdentsOpt |> Some
             | _ ->
                 transformLeaveContext com ctx None value
                 // |> BLOCK_COMMENT_SUFFIX (sprintf "usages - %i" (usageCount ident.Name usages))
@@ -2786,23 +2866,35 @@ module Util =
         makeLocalStmt com ctx ident false false tyOpt initOpt isByRef usages
 
     let makeLetStmts (com: IRustCompiler) ctx bindings letBody usages isTailCall =
+        let capturedNames =
+            // Only mutable bindings consult `isCaptured`, so skip the captured-name walk for all-immutable blocks.
+            if isTailCall || not (bindings |> List.exists (fun (ident, _) -> ident.IsMutable)) then
+                None
+            else
+                Some(getLetCapturedNames bindings letBody)
+
         // Context will be threaded through all let bindings, appending itself to ScopedSymbols each time
         let ctx, letStmtsRev =
             ((ctx, []), bindings)
             ||> List.fold (fun (ctx, lst) (ident: Fable.Ident, value) ->
                 let stmt, ctxNext =
                     let isCaptured =
-                        not isTailCall
-                        && ((List.exists (fun (_i, v) -> FableTransforms.isIdentCaptured ident.Name v) bindings)
-                            || (FableTransforms.isIdentCaptured ident.Name letBody))
+                        capturedNames
+                        |> Option.map (fun capturedNames -> capturedNames.Contains ident.Name)
+                        |> Option.defaultValue false
 
                     match value with
                     | Function(args, body, _name) when not (ident.IsMutable) ->
-                        if hasCapturedIdents com ctx ident.Name args body then
-                            makeLetStmt com ctx ident value isCaptured usages
-                        else
+                        let _, lambdaCtx, lambdaArgs = prepareLambdaArgsAndCtx ctx args body
+
+                        let capturedIdents =
+                            getCapturedIdents com lambdaCtx (Some ident.Name) lambdaArgs body
+
+                        if Map.isEmpty capturedIdents then
                             transformNestedFunction com ctx ident args body usages
-                    | _ -> makeLetStmt com ctx ident value isCaptured usages
+                        else
+                            makeLetStmt com ctx ident value isCaptured usages (Some capturedIdents)
+                    | _ -> makeLetStmt com ctx ident value isCaptured usages None
 
                 (ctxNext, stmt :: lst)
             )
@@ -2920,7 +3012,7 @@ module Util =
             // try...finally
             match finalizer with
             | Some finBody ->
-                let f = transformLambda com ctx None [] finBody
+                let f = transformLambda com ctx None [] finBody None
                 let finCall = makeLibCall com ctx None "Exception" "finally" [ f ]
                 let finPat = makeFullNameIdentPat "__finally__"
                 let letExpr = mkLetExpr finPat finCall
@@ -2948,6 +3040,18 @@ module Util =
     let transformCurry (com: IRustCompiler) (ctx: Context) arity (expr: Fable.Expr) : Rust.Expr =
         com.TransformExpr(ctx, Replacements.Api.curryExprAtRuntime com arity expr)
 
+    let tryGetCurriedApplyArgAndReturnTypes typ =
+        match typ with
+        | Fable.LambdaType(argType, returnType) -> Some(argType, returnType)
+        | Fable.DelegateType([ argType ], returnType) -> Some(argType, returnType)
+        | _ -> None
+
+    let isErasedUnitClosureType typ =
+        match typ with
+        | Fable.LambdaType(Fable.Unit, _)
+        | Fable.DelegateType([ Fable.Unit ], _) -> true
+        | _ -> false
+
     let transformCurriedApply (com: IRustCompiler) ctx r typ calleeExpr args =
         match ctx.TailCallOpportunity with
         | Some tc when tc.IsRecursiveRef(calleeExpr) && List.length tc.Args = List.length args ->
@@ -2955,11 +3059,33 @@ module Util =
         | _ ->
             let callee = transformCallee com ctx calleeExpr
 
-            (callee, args)
-            ||> List.fold (fun expr arg ->
-                let args = FSharp2Fable.Util.dropUnitCallArg com [ arg ] [] None
-                callFunction com ctx r expr args
+            ((callee, Some calleeExpr, calleeExpr.Type), args)
+            ||> List.fold (fun (expr, currentExpr, currentType) arg ->
+                let expectedArgType, nextType =
+                    match tryGetCurriedApplyArgAndReturnTypes currentType with
+                    | Some(argType, returnType) -> argType, returnType
+                    | None -> arg.Type, typ
+
+                if arg.Type = Fable.Unit then
+                    let appliedExpr =
+                        match currentExpr with
+                        | Some(Fable.IdentExpr ident) when isFuncScoped ctx ident.Name -> mkCallExpr expr []
+                        | _ -> makeLibCall com ctx None "Native" "applyUnit" [ expr |> makeClone ]
+
+                    appliedExpr, None, nextType
+                else
+                    let argExpr =
+                        transformCallArgs com ctx [ arg ] [ expectedArgType ] [] |> List.exactlyOne
+
+                    let argExpr =
+                        if isErasedUnitClosureType expectedArgType then
+                            makeLibCall com ctx None "Native" "eraseUnitArg" [ argExpr |> makeClone ]
+                        else
+                            argExpr
+
+                    mkCallExpr expr [ argExpr ], None, nextType
             )
+            |> fun (expr, _, _) -> expr
 
     let makeUnionCasePat unionCaseName fields =
         if List.isEmpty fields then
@@ -3341,23 +3467,26 @@ module Util =
     //         | cases -> cases
 
     let getTargetsWithMultipleReferences expr =
-        let rec findSuccess (targetRefs: Map<int, int>) =
-            function
-            | [] -> targetRefs
-            | expr :: exprs ->
-                match expr with
-                // We shouldn't actually see this, but short-circuit just in case
-                | Fable.DecisionTree _ -> findSuccess targetRefs exprs
-                | Fable.DecisionTreeSuccess(idx, _, _) ->
-                    let count = Map.tryFind idx targetRefs |> Option.defaultValue 0
+        let targetRefs = System.Collections.Generic.Dictionary<int, int>()
+        let queue = System.Collections.Generic.Queue<Fable.Expr>()
+        queue.Enqueue(expr)
 
-                    let targetRefs = Map.add idx (count + 1) targetRefs
-                    findSuccess targetRefs exprs
-                | expr ->
-                    let exprs2 = getSubExpressions expr
-                    findSuccess targetRefs (exprs @ exprs2)
+        while queue.Count > 0 do
+            match queue.Dequeue() with
+            // We shouldn't actually see this, but short-circuit just in case
+            | Fable.DecisionTree _ -> ()
+            | Fable.DecisionTreeSuccess(idx, _, _) ->
+                let count =
+                    match targetRefs.TryGetValue(idx) with
+                    | true, c -> c
+                    | false, _ -> 0
 
-        findSuccess Map.empty [ expr ]
+                targetRefs[idx] <- count + 1
+            | expr ->
+                for sub in getSubExpressions expr do
+                    queue.Enqueue(sub)
+
+        targetRefs
         |> Seq.choose (fun kv ->
             if kv.Value > 1 then
                 Some kv.Key
@@ -3478,8 +3607,8 @@ module Util =
         | Fable.IdentExpr ident -> transformIdentGet com ctx None ident
         | Fable.Import(info, t, r) -> transformImport com ctx r t info None
         | Fable.Test(expr, kind, range) -> transformTest com ctx range kind expr
-        | Fable.Lambda(arg, body, name) -> transformLambda com ctx name [ arg ] body
-        | Fable.Delegate(args, body, name, _) -> transformLambda com ctx name args body
+        | Fable.Lambda(arg, body, name) -> transformLambda com ctx name [ arg ] body None
+        | Fable.Delegate(args, body, name, _) -> transformLambda com ctx name args body None
         | Fable.ObjectExpr(members, typ, baseCall) -> transformObjectExpr com ctx typ members baseCall
         | Fable.Call(callee, info, typ, range) -> transformCall com ctx range typ callee info
         | Fable.CurriedApply(callee, args, typ, range) -> transformCurriedApply com ctx range typ callee args
@@ -3717,9 +3846,9 @@ module Util =
 
     let isClosedOverIdent com ctx (ident: Fable.Ident) =
         not (ident.IsCompilerGenerated && ident.Name = "matchValue")
+        // isValueScoped || isRefScoped covers all scoped symbols (value or ref), collapsing two Map.tryFind calls into one
         && (ident.IsMutable
-            || isValueScoped ctx ident.Name
-            || isRefScoped ctx ident.Name
+            || ctx.ScopedSymbols |> Map.containsKey ident.Name
             || shouldBeCloned com ctx ident.Type)
         // skip non-local idents (e.g. module let bindings)
         && not (ident.Name.Contains("."))
@@ -3769,14 +3898,6 @@ module Util =
         let argNames = args |> List.map (fun arg -> arg.Name)
         let allNames = name |> Option.fold (fun xs x -> x :: xs) argNames
         allNames |> Set.ofList
-
-    let hasCapturedIdents com ctx (name: string) (args: Fable.Ident list) (body: Fable.Expr) =
-        let ignoredNames = HashSet(getIgnoredNames (Some name) args)
-
-        let isClosedOver expr =
-            tryFindClosedOverIdent com ctx ignoredNames expr |> Option.isSome
-
-        deepExists isClosedOver body
 
     let getCapturedIdents com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
         let ignoredNames = HashSet(getIgnoredNames name args)
@@ -3872,46 +3993,79 @@ module Util =
         let fnBody = transformFunctionBody com ctx args body
         fnDecl, fnBody, genArgs
 
-    let transformLambda com ctx (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
-        let ctx = { ctx with IsLambda = true }
-        let genArgs, ctx = getNewGenArgsAndCtx ctx args body
-        let args = args |> discardUnitArg genArgs
+    let transformLambda
+        com
+        ctx
+        (name: string option)
+        (args: Fable.Ident list)
+        (body: Fable.Expr)
+        (capturedIdentsOpt: Map<string, Fable.Ident> option)
+        =
+        let genArgs, ctx, args = prepareLambdaArgsAndCtx ctx args body
         let isRecursive, isTailRec = isTailRecursive name body
         let fnDecl = transformFunctionDecl com ctx args [] Fable.Unit
         let ctx = getFunctionBodyCtx com ctx name args body isTailRec
-        let capturedIdents = getCapturedIdents com ctx name args body
 
-        // remove captured idents from scoped symbols, as they will be cloned
+        let capturedIdents =
+            capturedIdentsOpt
+            |> Option.defaultWith (fun () -> getCapturedIdents com ctx name args body)
+
+        let capturedCloneMap =
+            capturedIdents
+            |> Map.map (fun name ident ->
+                ident.IsMutable
+                // single Map.tryFind instead of three separate isRefScoped/isBoxScoped/isFuncScoped calls
+                || (
+                    match ctx.ScopedSymbols |> Map.tryFind name with
+                    | Some s -> s.IsRef || s.IsBox || s.IsFunc
+                    | None -> false
+                )
+                || not (typeImplementsCopyTrait com ctx ident.Type)
+            )
+
+        // Captured idents become closure-owned, so inner uses should not consume outer usage counts.
         let scopedSymbols = ctx.ScopedSymbols |> Helpers.Map.except capturedIdents
 
-        let ctx = { ctx with ScopedSymbols = scopedSymbols } //; HasMultipleUses = true }
+        let ctxBody = { ctx with ScopedSymbols = scopedSymbols } //; HasMultipleUses = true }
         let argCount = args |> List.length |> string<int>
-        let fnBody = transformFunctionBody com ctx args body
+        let fnBody = transformFunctionBody com ctxBody args body
 
         let fnBody =
             match isRecursive && not isTailRec, name with
             | true, Some n ->
                 // make the closure recursive with fixed-point combinator
                 let fixedArgs = (makeIdent n) :: args
-                let fixedDecl = transformFunctionDecl com ctx fixedArgs [] Fable.Unit
+                let fixedDecl = transformFunctionDecl com ctxBody fixedArgs [] Fable.Unit
                 let fixedBody = mkClosureExpr true fixedDecl fnBody
                 let argExprs = args |> List.map Fable.IdentExpr
-                let callArgs = transformCallArgs com ctx argExprs [] []
+                let callArgs = transformCallArgs com ctxBody argExprs [] []
                 let fixCallArgs = (fixedBody |> mkAddrOfExpr) :: callArgs
-                makeLibCall com ctx None "Native" ("fix" + argCount) fixCallArgs
+                makeLibCall com ctxBody None "Native" ("fix" + argCount) fixCallArgs
             | _ -> fnBody
 
         let cloneStmts =
-            // clone captured idents (in 'move' closures)
-            Map.keys capturedIdents
-            |> Seq.map (fun name ->
-                let pat = makeFullNameIdentPat name
-                let expr = com.TransformExpr(ctx, makeIdentExpr name)
-                let value = expr |> makeClone
-                let letExpr = mkLetExpr pat value
-                letExpr |> mkSemiStmt
+            // Only plain Copy value captures skip the explicit pre-clone; wrapped captures keep the existing behavior.
+            capturedIdents
+            |> Map.toSeq
+            |> Seq.choose (fun (name, _ident) ->
+                if capturedCloneMap |> Map.find name then
+                    let pat = makeFullNameIdentPat name
+                    let expr = com.TransformExpr(ctx, makeIdentExpr name)
+                    let value = expr |> makeClone
+                    let letExpr = mkLetExpr pat value
+                    Some(letExpr |> mkSemiStmt)
+                else
+                    None
             )
             |> Seq.toList
+
+        // For non-clone captures (Copy types), consume the single "capture" count in the outer scope.
+        // Clone captures are handled by the com.TransformExpr call in cloneStmts above.
+        capturedIdents
+        |> Map.iter (fun name ident ->
+            if not (capturedCloneMap |> Map.find name) then
+                updateUsageCount com ctx ident
+        )
 
         let closureExpr =
             if List.isEmpty cloneStmts then
@@ -3927,7 +4081,7 @@ module Util =
                 let closureExpr = mkClosureExpr true fnDecl fnBody
                 cloneStmts @ [ closureExpr |> mkExprStmt ] |> mkStmtBlockExpr
 
-        let funcWrap = getLibraryImportName com ctx "Native" ("Func" + argCount)
+        let funcWrap = getLibraryImportName com ctxBody "Native" ("Func" + argCount)
 
         makeCall [ funcWrap; "new" ] None [ closureExpr ]
 
@@ -3941,8 +4095,7 @@ module Util =
 
         let makeImportBound com ctx moduleName typeName =
             let importName = getLibraryImportName com ctx moduleName typeName
-            let objectBound = mkTypeTraitGenericBound [ importName ] None
-            objectBound
+            mkTypeTraitGenericBound [ importName ] None
 
         let makeRawBound id = makeGenBound [ rawIdent id ] []
 
@@ -3950,7 +4103,6 @@ module Util =
             // makes ops type bound, e.g. T: Add(Output=T)
             let ty = mkGenericPathTy [ argName ] None
             let genArgsOpt = mkConstraintArgs [] [ "Output", ty ]
-
             mkTypeTraitGenericBound ("core" :: "ops" :: op :: []) genArgsOpt
 
         let makeConstraint c =
@@ -3963,7 +4115,7 @@ module Util =
                 | Operators.division, true -> [ makeOpBound "Div" ]
                 | Operators.modulus, true -> [ makeOpBound "Rem" ]
                 | Operators.unaryNegation, true -> [ makeOpBound "Neg" ]
-                | Operators.divideByInt, true -> [ makeOpBound "Div"; makeGenBound [ rawIdent "From" ] [ "i32" ] ]
+                | Operators.divideByInt, true -> [ makeImportBound com ctx "Native" "DivideByInt" ]
                 | "get_Zero", true -> [ makeRawBound "Default" ]
                 | _ -> []
             | Fable.Constraint.CoercesTo(targetType) ->
@@ -3988,9 +4140,9 @@ module Util =
             | Fable.Constraint.IsReferenceType -> [ makeImportBound com ctx "Native" "NullableRef" ]
             | Fable.Constraint.HasDefaultConstructor -> []
             | Fable.Constraint.HasAllowsRefStruct -> []
-            | Fable.Constraint.HasComparison -> [ makeRawBound "PartialOrd" ]
-            | Fable.Constraint.HasEquality ->
-                [ makeGenBound ("core" :: "hash" :: "Hash" :: []) []; makeRawBound "PartialEq" ]
+            | Fable.Constraint.HasComparison ->
+                [ makeImportBound com ctx "Native" "Hashable"; makeRawBound "PartialOrd" ]
+            | Fable.Constraint.HasEquality -> [ makeImportBound com ctx "Native" "Hashable"; makeRawBound "PartialEq" ]
             | Fable.Constraint.IsUnmanaged -> []
             | Fable.Constraint.IsDelegate _ -> []
             | Fable.Constraint.IsEnum _ -> []
@@ -4377,7 +4529,7 @@ module Util =
         let fnItem = mkFnAssocItem attrs name fnKind
         fnItem
 
-    let makeDerivedFrom com (ent: Fable.Entity) =
+    let makeDerivedFrom com ctx (ent: Fable.Entity) =
         let isCopyable = false //ent |> isCopyableEntity com Set.empty
         let isCloneable = true //ent |> isCloneableEntity com Set.empty
         let isPrintable = ent |> isPrintableEntity com Set.empty
@@ -4397,7 +4549,7 @@ module Util =
                 if isDefaultable then
                     rawIdent "Default"
                 if isHashable then
-                    rawIdent "Hash"
+                    getLibraryImportName com ctx "Native" "Hashable"
                 if isEquatable then
                     rawIdent "PartialEq"
                 if isComparable then
@@ -4446,7 +4598,7 @@ module Util =
             )
 
         let attrs = transformAttributes com ctx ent.Attributes decl.XmlDoc
-        let attrs = attrs @ [ mkAttr "derive" (makeDerivedFrom com ent) ]
+        let attrs = attrs @ [ mkAttr "derive" (makeDerivedFrom com ctx ent) ]
         let enumItem = mkEnumItem attrs entName variants generics
         enumItem
 
@@ -4486,7 +4638,7 @@ module Util =
         let fields = List.append fields phantomFields
 
         let attrs = transformAttributes com ctx ent.Attributes decl.XmlDoc
-        let attrs = attrs @ [ mkAttr "derive" (makeDerivedFrom com ent) ]
+        let attrs = attrs @ [ mkAttr "derive" (makeDerivedFrom com ctx ent) ]
         let structItem = mkStructItem attrs entName fields generics
         structItem
 
@@ -4802,7 +4954,7 @@ module Util =
 
     let makeRefEqualityTraitImpls com ctx entName genArgs =
         // For F# class types without structural equality, use pointer-based
-        // PartialEq, Eq, and Hash so they can be used as HashSet/HashMap keys
+        // PartialEq, Eq, Hash, and Hashable so they can be used as HashSet/HashMap keys
         // with reference (pointer) equality semantics, matching .NET behavior.
         // expected output:
         // impl PartialEq for {self_ty} {
@@ -4813,6 +4965,9 @@ module Util =
         //     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         //         core::hash::Hash::hash(&(self as *const Self as usize), state)
         //     }
+        // }
+        // impl Native_::Hashable for {self_ty} {
+        //     fn getHashCode(&self) -> i32 { Native_::referenceHash(self) }
         // }
 
         let eqFnItem =
@@ -4855,10 +5010,24 @@ module Util =
             let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl generics fnBody
             mkFnAssocItem [] "hash" fnKind
 
+        let getHashCodeFnItem =
+            let referenceHashName = getLibraryImportName com ctx "Native" "referenceHash"
+            let bodyStmt = $"{referenceHashName}(self)" |> mkEmitExprStmt
+            let fnBody = [ bodyStmt ] |> mkBlock |> Some
+
+            let fnDecl =
+                let inputs = [ mkImplSelfParam false false ]
+                let output = mkGenericPathTy [ "i32" ] None |> mkFnRetTy
+                mkFnDecl inputs output
+
+            let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
+            mkFnAssocItem [ mkAttr "inline" [] ] "getHashCode" fnKind
+
         [
             makeImpl ("core" :: "cmp" :: rawIdent "PartialEq" :: []) [ eqFnItem ]
             makeImpl ("core" :: "cmp" :: rawIdent "Eq" :: []) []
             makeImpl ("core" :: "hash" :: "Hash" :: []) [ hashFnItem ]
+            makeImpl (getLibraryImportName com ctx "Native" "Hashable" |> splitNameParts) [ getHashCodeFnItem ]
         ]
 
     let op_impl_map =
@@ -4872,6 +5041,7 @@ module Util =
                 Operators.multiply, ("bin_op", "Mul", "mul") // The multiplication operator *.
                 Operators.division, ("bin_op", "Div", "div") // The division operator /.
                 Operators.modulus, ("bin_op", "Rem", "rem") // The remainder operator %.
+                Operators.divideByInt, ("div_int_op", "DivideByInt", "divide_by_int") // The integer division operator DivideByInt.
 
                 Operators.bitwiseAnd, ("bin_op", "BitAnd", "bitand") // The bitwise AND operator &.
                 Operators.bitwiseOr, ("bin_op", "BitOr", "bitor") // The bitwise OR operator |.
@@ -4927,6 +5097,55 @@ module Util =
                 implItem
             )
         )
+
+    let makeDefaultTraitImpls
+        com
+        ctx
+        (ent: Fable.Entity)
+        entName
+        genArgs
+        (members: (Fable.MemberDecl * Fable.MemberFunctionOrValue) list)
+        =
+        // For value types that are not defaultable (e.g. unions),
+        // generate a Default impl delegating to the static Zero member:
+        //
+        // impl<...> core::default::Default for EntName<...> {
+        //     fn default() -> Self { Self::get_Zero() }
+        // }
+        let needsExplicitDefault =
+            ent.IsValueType && not (ent |> isDefaultableEntity com Set.empty)
+
+        if not needsExplicitDefault then
+            []
+        else
+            members
+            |> List.tryPick (fun (decl, memb) ->
+                if
+                    not memb.IsInstance
+                    && (memb.CompiledName = "get_Zero"
+                        || memb.CompiledName = "Zero"
+                        || decl.Name = "get_Zero")
+                then
+                    let zeroMemberName = Fable.Naming.splitLast decl.Name
+                    let bodyExpr = makeCall [ "Self"; zeroMemberName ] None []
+                    let fnBody = bodyExpr |> mkExprBlock |> Some
+
+                    let fnDecl =
+                        let output = mkGenericPathTy [ "Self" ] None |> mkFnRetTy
+                        mkFnDecl [] output
+
+                    let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
+                    let fnItem = mkFnAssocItem [] "default" fnKind
+
+                    let path =
+                        mkGenericPath ("core" :: "default" :: (rawIdent "Default") :: []) None None
+
+                    let ofTrait = mkTraitRef path |> Some
+                    [ fnItem ] |> makeTraitImpl com ctx entName genArgs ofTrait |> Some
+                else
+                    None
+            )
+            |> Option.toList
 
     let withCurrentScope ctx (usedNames: Set<string>) f =
         let ctx =
@@ -5053,6 +5272,9 @@ module Util =
             (baseTypeOpt, "&self." + baseName)
             ||> makeDerefTraitImpls com ctx entName genArgs
 
+        let defaultTraitImpls =
+            nonInterfaceMembers |> makeDefaultTraitImpls com ctx ent entName genArgs
+
         let displayTraitImpls =
             let hasToString =
                 nonInterfaceMembers |> List.exists (fun (d, m) -> m.CompiledName = "ToString")
@@ -5112,8 +5334,9 @@ module Util =
                 |> makeInterfaceTraitImpls com ctx entName genParams ifcEntRef ifcGenArgs
             )
 
-        derefTraitImpls
-        @ nonInterfaceImpls
+        nonInterfaceImpls
+        @ derefTraitImpls
+        @ defaultTraitImpls
         @ displayTraitImpls
         @ operatorTraitImpls
         @ refEqualityTraitImpls
@@ -5463,16 +5686,18 @@ module Compiler =
                 |> Seq.toList
 
             member _.ClearAllImports(ctx) =
-                let importsList = imports |> Seq.toList
+                let keys = imports.Keys |> Seq.toList
 
-                for import in importsList do
-                    import.Value.Depths <-
+                for key in keys do
+                    let import = imports[key]
+
+                    import.Depths <-
                         // remove all import depths at this module level or deeper
-                        import.Value.Depths |> List.filter (fun d -> d < ctx.ModuleDepth)
+                        import.Depths |> List.filter (fun d -> d < ctx.ModuleDepth)
 
-                    if import.Value.Depths.Length = 0 then
-                        imports.Remove(import.Key) |> ignore
-                        ctx.UsedNames.RootScope.Remove(import.Value.LocalIdent) |> ignore
+                    if import.Depths.Length = 0 then
+                        imports.Remove(key) |> ignore
+                        ctx.UsedNames.RootScope.Remove(import.LocalIdent) |> ignore
 
             member _.GetAllModules() = importModules.Keys |> Seq.toList
 

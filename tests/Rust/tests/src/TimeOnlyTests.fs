@@ -184,11 +184,11 @@ let ``ToString works`` () =
     t1.ToString("R", CultureInfo.InvariantCulture) |> equal "05:00:02"
     t2.ToString("R", CultureInfo.InvariantCulture) |> equal "14:02:00"
 
-    // t1.ToString("o", CultureInfo.InvariantCulture) |> equal "05:00:02.0220000"
-    // t2.ToString("o", CultureInfo.InvariantCulture) |> equal "14:02:00.0000000"
+    t1.ToString("o", CultureInfo.InvariantCulture) |> equal "05:00:02.0220000"
+    t2.ToString("o", CultureInfo.InvariantCulture) |> equal "14:02:00.0000000"
 
-    // t1.ToString("O", CultureInfo.InvariantCulture) |> equal "05:00:02.0220000"
-    // t2.ToString("O", CultureInfo.InvariantCulture) |> equal "14:02:00.0000000"
+    t1.ToString("O", CultureInfo.InvariantCulture) |> equal "05:00:02.0220000"
+    t2.ToString("O", CultureInfo.InvariantCulture) |> equal "14:02:00.0000000"
 
     t1.ToString("t", CultureInfo.InvariantCulture) |> equal "05:00"
     t2.ToString("t", CultureInfo.InvariantCulture) |> equal "14:02"
@@ -197,19 +197,139 @@ let ``ToString works`` () =
     t2.ToString("T", CultureInfo.InvariantCulture) |> equal "14:02:00"
 
 [<Fact>]
+let ``TimeOnly.ToString with custom format works`` () =
+    TimeOnly(16, 3, 5, 7, 89).ToString("h:m:s tt ffffff", CultureInfo.InvariantCulture)
+    |> equal "4:3:5 PM 007089"
+
+[<Fact>]
+let ``TimeOnly.ToString with h specifier works`` () =
+    // h: 12-hour clock, no leading zero (1-12)
+    TimeOnly(1, 30, 0).ToString("%h", CultureInfo.InvariantCulture)  |> equal "1"
+    TimeOnly(9, 30, 0).ToString("%h", CultureInfo.InvariantCulture)  |> equal "9"
+    TimeOnly(12, 0, 0).ToString("%h", CultureInfo.InvariantCulture)  |> equal "12"
+    TimeOnly(13, 0, 0).ToString("%h", CultureInfo.InvariantCulture)  |> equal "1"
+    TimeOnly(23, 0, 0).ToString("%h", CultureInfo.InvariantCulture)  |> equal "11"
+    TimeOnly(0, 0, 0).ToString("%h", CultureInfo.InvariantCulture)   |> equal "12"
+
+[<Fact>]
+let ``TimeOnly.ToString with hh specifier works`` () =
+    // hh: 12-hour clock, with leading zero (01-12)
+    TimeOnly(1, 30, 0).ToString("hh", CultureInfo.InvariantCulture)  |> equal "01"
+    TimeOnly(9, 30, 0).ToString("hh", CultureInfo.InvariantCulture)  |> equal "09"
+    TimeOnly(12, 0, 0).ToString("hh", CultureInfo.InvariantCulture)  |> equal "12"
+    TimeOnly(13, 0, 0).ToString("hh", CultureInfo.InvariantCulture)  |> equal "01"
+    TimeOnly(0, 0, 0).ToString("hh", CultureInfo.InvariantCulture)   |> equal "12"
+
+[<Fact>]
+let ``TimeOnly.ToString with H specifier works`` () =
+    // H: 24-hour clock, no leading zero (0-23)
+    TimeOnly(1, 30, 0).ToString("%H", CultureInfo.InvariantCulture)  |> equal "1"
+    TimeOnly(9, 30, 0).ToString("%H", CultureInfo.InvariantCulture)  |> equal "9"
+    TimeOnly(13, 0, 0).ToString("%H", CultureInfo.InvariantCulture)  |> equal "13"
+    TimeOnly(0, 0, 0).ToString("%H", CultureInfo.InvariantCulture)   |> equal "0"
+
+[<Fact>]
+let ``TimeOnly.ToString with HH specifier works`` () =
+    // HH: 24-hour clock, with leading zero (00-23)
+    TimeOnly(1, 30, 0).ToString("HH", CultureInfo.InvariantCulture)  |> equal "01"
+    TimeOnly(9, 30, 0).ToString("HH", CultureInfo.InvariantCulture)  |> equal "09"
+    TimeOnly(13, 0, 0).ToString("HH", CultureInfo.InvariantCulture)  |> equal "13"
+    TimeOnly(0, 0, 0).ToString("HH", CultureInfo.InvariantCulture)   |> equal "00"
+
+[<Fact>]
+let ``TimeOnly.ToString with m and mm specifiers work`` () =
+    // m: minutes, no leading zero (0-59)
+    TimeOnly(5, 9, 0).ToString("H:m", CultureInfo.InvariantCulture)    |> equal "5:9"
+    TimeOnly(5, 45, 0).ToString("H:m", CultureInfo.InvariantCulture)   |> equal "5:45"
+    // mm: minutes, with leading zero (00-59)
+    TimeOnly(5, 9, 0).ToString("HH:mm", CultureInfo.InvariantCulture)  |> equal "05:09"
+    TimeOnly(5, 45, 0).ToString("HH:mm", CultureInfo.InvariantCulture) |> equal "05:45"
+
+[<Fact>]
+let ``TimeOnly.ToString with s and ss specifiers work`` () =
+    // s: seconds, no leading zero (0-59)
+    TimeOnly(5, 9, 3).ToString("H:m:s", CultureInfo.InvariantCulture)    |> equal "5:9:3"
+    TimeOnly(5, 45, 30).ToString("H:m:s", CultureInfo.InvariantCulture)  |> equal "5:45:30"
+    // ss: seconds, with leading zero (00-59)
+    TimeOnly(5, 9, 3).ToString("HH:mm:ss", CultureInfo.InvariantCulture)   |> equal "05:09:03"
+    TimeOnly(5, 45, 30).ToString("HH:mm:ss", CultureInfo.InvariantCulture) |> equal "05:45:30"
+
+[<Fact>]
+let ``TimeOnly.ToString with f fraction specifiers work`` () =
+    // 18 ms = 0.018 seconds; sub-second fraction in 7-digit form: 0180000
+    let t = TimeOnly(7, 27, 15, 18)
+    t.ToString("hh:mm:ss.f", CultureInfo.InvariantCulture)       |> equal "07:27:15.0"       // tenths
+    t.ToString("hh:mm:ss.ff", CultureInfo.InvariantCulture)      |> equal "07:27:15.01"      // hundredths
+    t.ToString("hh:mm:ss.fff", CultureInfo.InvariantCulture)     |> equal "07:27:15.018"     // milliseconds
+    t.ToString("hh:mm:ss.ffff", CultureInfo.InvariantCulture)    |> equal "07:27:15.0180"    // ten-thousandths
+    t.ToString("hh:mm:ss.fffff", CultureInfo.InvariantCulture)   |> equal "07:27:15.01800"   // hundred-thousandths
+    t.ToString("hh:mm:ss.ffffff", CultureInfo.InvariantCulture)  |> equal "07:27:15.018000"  // millionths
+    t.ToString("hh:mm:ss.fffffff", CultureInfo.InvariantCulture) |> equal "07:27:15.0180000" // ten-millionths (ticks)
+
+[<Fact>]
+let ``TimeOnly.ToString with F fraction specifiers work`` () =
+    // 18 ms: tenths digit is 0, so F suppresses output; trailing zeros are stripped
+    let t = TimeOnly(7, 27, 15, 18)
+    t.ToString("hh:mm:ss.F", CultureInfo.InvariantCulture)       |> equal "07:27:15"        // 0 → entirely suppressed
+    t.ToString("hh:mm:ss.FF", CultureInfo.InvariantCulture)      |> equal "07:27:15.01"     // 01 → no trailing zeros
+    t.ToString("hh:mm:ss.FFF", CultureInfo.InvariantCulture)     |> equal "07:27:15.018"    // 018 → no trailing zeros
+    t.ToString("hh:mm:ss.FFFF", CultureInfo.InvariantCulture)    |> equal "07:27:15.018"    // 0180 → trailing 0 stripped
+    t.ToString("hh:mm:ss.FFFFF", CultureInfo.InvariantCulture)   |> equal "07:27:15.018"    // 01800 → trailing zeros stripped
+    t.ToString("hh:mm:ss.FFFFFF", CultureInfo.InvariantCulture)  |> equal "07:27:15.018"    // 018000 → stripped
+    t.ToString("hh:mm:ss.FFFFFFF", CultureInfo.InvariantCulture) |> equal "07:27:15.018"    // 0180000 → stripped
+    // all-zero fraction → decimal point and fraction entirely omitted
+    let t0 = TimeOnly(7, 27, 15)
+    t0.ToString("hh:mm:ss.FFFFFFF", CultureInfo.InvariantCulture) |> equal "07:27:15"
+
+[<Fact>]
+let ``TimeOnly.ToString with t and tt specifiers work`` () =
+    // t: first character of AM/PM designator
+    TimeOnly(6, 0, 0).ToString("h:m:s t", CultureInfo.InvariantCulture)    |> equal "6:0:0 A"
+    TimeOnly(18, 0, 0).ToString("h:m:s t", CultureInfo.InvariantCulture)   |> equal "6:0:0 P"
+    TimeOnly(0, 0, 0).ToString("h:m:s t", CultureInfo.InvariantCulture)    |> equal "12:0:0 A"
+    TimeOnly(12, 0, 0).ToString("h:m:s t", CultureInfo.InvariantCulture)   |> equal "12:0:0 P"
+    // tt: full AM/PM designator
+    TimeOnly(0, 0, 0).ToString("hh:mm:ss tt", CultureInfo.InvariantCulture)  |> equal "12:00:00 AM"
+    TimeOnly(6, 0, 0).ToString("hh:mm:ss tt", CultureInfo.InvariantCulture)  |> equal "06:00:00 AM"
+    TimeOnly(12, 0, 0).ToString("hh:mm:ss tt", CultureInfo.InvariantCulture) |> equal "12:00:00 PM"
+    TimeOnly(18, 0, 0).ToString("hh:mm:ss tt", CultureInfo.InvariantCulture) |> equal "06:00:00 PM"
+    TimeOnly(23, 59, 59).ToString("hh:mm:ss tt", CultureInfo.InvariantCulture) |> equal "11:59:59 PM"
+
+[<Fact>]
+let ``TimeOnly.ToString with percent specifier works`` () =
+    // %: prefix to use a single custom format specifier without it being
+    // interpreted as a standard format specifier
+    TimeOnly(13, 45, 30).ToString("%H", CultureInfo.InvariantCulture) |> equal "13"
+    TimeOnly(13, 45, 30).ToString("%h", CultureInfo.InvariantCulture) |> equal "1"
+    TimeOnly(13, 45, 30).ToString("%m", CultureInfo.InvariantCulture) |> equal "45"
+    TimeOnly(13, 45, 30).ToString("%s", CultureInfo.InvariantCulture) |> equal "30"
+
+[<Fact>]
+let ``TimeOnly.ToString with escape character works`` () =
+    // \: escape the next character so it is treated as a literal
+    TimeOnly(13, 45, 30).ToString("h \\h m \\m", CultureInfo.InvariantCulture) |> equal "1 h 45 m"
+    TimeOnly(13, 45, 30).ToString("HH\\:mm\\:ss", CultureInfo.InvariantCulture) |> equal "13:45:30"
+
+[<Fact>]
+let ``TimeOnly.ToString with literal string delimiters work`` () =
+    // 'string' and "string": enclose literal text in single or double quotes
+    TimeOnly(13, 45, 30).ToString("'Time:' HH:mm:ss", CultureInfo.InvariantCulture)  |> equal "Time: 13:45:30"
+    TimeOnly(13, 45, 30).ToString("\"At\" HH:mm:ss", CultureInfo.InvariantCulture)   |> equal "At 13:45:30"
+
+[<Fact>]
 let ``Parse parses valid TimeOnly`` () =
     equal (TimeOnly (23, 0)) (TimeOnly.Parse "23:00:00")
-    // equal (TimeOnly (23, 0)) (TimeOnly.Parse "23:00")
-    // equal (TimeOnly (3, 0)) (TimeOnly.Parse "3:00")
-    // equal (TimeOnly (0, 0, 5)) (TimeOnly.Parse "00:0:5   ")
-    // equal TimeOnly.MinValue (TimeOnly.Parse "   0   :   0    : 0   ")
-    // equal (TimeOnly (0, 40, 5, 3)) (TimeOnly.Parse "00:40:5.003")
-    // equal (TimeOnly (0, 0, 5, 3)) (TimeOnly.Parse "00:0:5.003")
-    // equal (TimeOnly 50031000L) (TimeOnly.Parse "00:0:5.0031")
-    // equal (TimeOnly 50031321L) (TimeOnly.Parse "00:0:5.00313213213213")
-    // equal (TimeOnly (0, 0, 59, 30)) (TimeOnly.Parse "00:  0:  59.03")
-    // equal (TimeOnly (0, 3, 5, 300)) (TimeOnly.Parse "00 :03:5.3")
-    // equal (TimeOnly (2, 0, 5, 300)) (TimeOnly.Parse "  02:0:5.30")
+    equal (TimeOnly (23, 0)) (TimeOnly.Parse "23:00")
+    equal (TimeOnly (3, 0)) (TimeOnly.Parse "3:00")
+    equal (TimeOnly (0, 0, 5)) (TimeOnly.Parse "00:0:5   ")
+    equal TimeOnly.MinValue (TimeOnly.Parse "   0   :   0    : 0   ")
+    equal (TimeOnly (0, 40, 5, 3)) (TimeOnly.Parse "00:40:5.003")
+    equal (TimeOnly (0, 0, 5, 3)) (TimeOnly.Parse "00:0:5.003")
+    equal (TimeOnly 50031000L) (TimeOnly.Parse "00:0:5.0031")
+    equal (TimeOnly 50031321L) (TimeOnly.Parse "00:0:5.00313213213213")
+    equal (TimeOnly (0, 0, 59, 30)) (TimeOnly.Parse "00:  0:  59.03")
+    equal (TimeOnly (0, 3, 5, 300)) (TimeOnly.Parse "00 :03:5.3")
+    equal (TimeOnly (2, 0, 5, 300)) (TimeOnly.Parse "  02:0:5.30")
 
 [<Fact>]
 let ``TryParse returns false for invalid TimeOnly`` () =
@@ -221,7 +341,7 @@ let ``TryParse returns false for invalid TimeOnly`` () =
     test "24:00"
     test "22:60"
     test "002:10"
-    // test "22:50:60" // TODO:
+    test "22:50:60"
     test "-04:00"
     // test "02:00:00,333" // not invalid in NET8_0
     test "02:00:00:33"
@@ -234,17 +354,17 @@ let ``TryParse returns true and correct TimeOnly for valid TimeOnly`` () =
         t |> equal expected
 
     test (TimeOnly (23, 0)) "23:00:00"
-    // test (TimeOnly (23, 0)) "23:00"
-    // test (TimeOnly (3, 0)) "3:00"
-    // test (TimeOnly (0, 0, 5)) "00:0:5"
-    // test (TimeOnly.MinValue) "0:0:0"
-    // test (TimeOnly (0, 40, 5, 3)) "00:40:5.003"
-    // test (TimeOnly (0, 0, 59, 30)) "00:0:59.03"
-    // test (TimeOnly (0, 3, 5, 300)) "00:03:5.3"
-    // test (TimeOnly (2, 0, 5, 300)) "02:0:5.30"
-    // test (TimeOnly (0, 0, 5, 3)) "00:0:5.003"
-    // test (TimeOnly 50031000L) "00:0:5.0031"
-    // test (TimeOnly 50031321L) "00:0:5.00313213213213"
+    test (TimeOnly (23, 0)) "23:00"
+    test (TimeOnly (3, 0)) "3:00"
+    test (TimeOnly (0, 0, 5)) "00:0:5"
+    test TimeOnly.MinValue "0:0:0"
+    test (TimeOnly (0, 40, 5, 3)) "00:40:5.003"
+    test (TimeOnly (0, 0, 59, 30)) "00:0:59.03"
+    test (TimeOnly (0, 3, 5, 300)) "00:03:5.3"
+    test (TimeOnly (2, 0, 5, 300)) "02:0:5.30"
+    test (TimeOnly (0, 0, 5, 3)) "00:0:5.003"
+    test (TimeOnly 50031000L) "00:0:5.0031"
+    test (TimeOnly 50031321L) "00:0:5.00313213213213"
 
 [<Fact>]
 let ``Comparison works`` () =

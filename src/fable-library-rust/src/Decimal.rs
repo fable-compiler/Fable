@@ -1,6 +1,6 @@
 #[cfg(feature = "decimal")]
 pub mod Decimal_ {
-    use crate::Native_::{compare, Lrc, MutCell, Vec};
+    use crate::Native_::{compare, getHashCode, DivideByInt, Hashable, Lrc, MutCell, Vec};
     use crate::NativeArray_::{new_array, Array};
     use crate::String_::{string, toString as toString_1};
     use core::cmp::Ordering;
@@ -14,7 +14,20 @@ pub mod Decimal_ {
     pub const MaxValue: decimal = Decimal::MAX;
     pub const MinValue: decimal = Decimal::MIN;
 
-    // pub fn getHashCode(x: decimal) = x.GetHashCode()
+    impl DivideByInt for decimal {
+        #[inline]
+        fn divide_by_int(self, rhs: i32) -> Self {
+            self / Decimal::from_i32(rhs).unwrap()
+        }
+    }
+
+    impl Hashable for decimal {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            getHashCode(self)
+        }
+    }
+
     pub fn equals(x: decimal, y: decimal) -> bool { x.eq(&y) }
     pub fn compareTo(x: decimal, y: decimal) -> i32 { compare(&x, &y) }
 

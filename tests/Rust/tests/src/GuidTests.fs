@@ -165,16 +165,16 @@ let ``Convert byte array to Guid works`` () =
     let g = Guid [|6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy|]
     g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
 
-// [<Fact>]
-// let ``Guid.ToString works with formats`` () =
-//     let g = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
-//     let g2 = Guid.Parse(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
-//     let testGuid (g: Guid) =
-//         g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
-//         g.ToString("N") |> equal "96258006c4ba4a7f80c4de7f2b2898c5"
-//         g.ToString("D") |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
-//         g.ToString("B") |> equal "{96258006-c4ba-4a7f-80c4-de7f2b2898c5}"
-//         g.ToString("P") |> equal "(96258006-c4ba-4a7f-80c4-de7f2b2898c5)"
-//         g.ToString("X") |> equal "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}"
-//     testGuid g
-//     testGuid g2
+[<Fact>]
+let ``Guid.ToString works with formats`` () =
+    let g = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+    let g2 = Guid.Parse(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
+    let testGuid (g: Guid) =
+        g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+        g.ToString("N") |> equal "96258006c4ba4a7f80c4de7f2b2898c5"
+        g.ToString("D") |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+        g.ToString("B") |> equal "{96258006-c4ba-4a7f-80c4-de7f2b2898c5}"
+        g.ToString("P") |> equal "(96258006-c4ba-4a7f-80c4-de7f2b2898c5)"
+        g.ToString("X") |> equal "{0x96258006,0xc4ba,0x4a7f,{0x80,0xc4,0xde,0x7f,0x2b,0x28,0x98,0xc5}}"
+    testGuid g
+    testGuid g2

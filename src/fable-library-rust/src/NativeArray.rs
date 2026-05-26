@@ -1,7 +1,7 @@
 pub mod NativeArray_ {
     use crate::Global_::SR::indexOutOfBounds;
+    use crate::Native_::{Func1, Func2, Hashable, Lrc, LrcPtr, MutCell, NullableRef, Seq, Vec};
     use crate::Native_::{make_compare, mkRefMut, partial_compare, seq_to_iter, vec};
-    use crate::Native_::{Func1, Func2, Lrc, LrcPtr, MutCell, NullableRef, Seq, Vec};
     use crate::System::Collections::Generic::IComparer_1;
 
     // -----------------------------------------------------------
@@ -24,6 +24,13 @@ pub mod NativeArray_ {
     impl<T: Clone + core::fmt::Debug> core::fmt::Display for MutArray<T> {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
             write!(f, "{:?}", self.0) //TODO: improve
+        }
+    }
+
+    impl<T: Hashable> Hashable for MutArray<T> {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            self.0.getHashCode()
         }
     }
 

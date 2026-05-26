@@ -2,29 +2,39 @@
 pub mod DateTime_ {
     use crate::{
         DateOnly_::DateOnly,
-        DateTimeOffset_::DateTimeOffset,
-        Native_::{compare, MutCell, ToString},
+        Format::DateTime::{
+            format_dotnet_custom, format_offset_token, format_roundtrip_datetime,
+            try_parse_datetime_str,
+        },
+        Native_::{Hashable, MutCell, String, ToString, compare, getHashCode},
         String_::{fromString, string},
         TimeOnly_::TimeOnly,
-        TimeSpan_::{nanoseconds_per_tick, ticks_per_second, TimeSpan},
+        TimeSpan_::{TimeSpan, nanoseconds_per_tick, ticks_per_second},
     };
     use chrono::{
         DateTime as CDateTime, Datelike, Duration, FixedOffset, Local, Months, NaiveDate,
         NaiveDateTime, NaiveTime, Offset, ParseResult, TimeZone, Timelike, Utc, Weekday,
     };
+    use core::hash::{Hash, Hasher};
     use core::ops::{Add, Sub};
 
-    #[derive(Clone, Copy, PartialEq, PartialOrd, Debug)]
+    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub enum DateTimeKind {
         Unspecified,
         Utc,
         Local,
     }
 
-    #[derive(Clone, Copy, Debug)]
+    #[derive(Clone, Copy)]
     pub struct DateTime {
         ndt: NaiveDateTime,
         kind: DateTimeKind,
+    }
+
+    impl core::fmt::Debug for DateTime {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", self.toString(string("")))
+        }
     }
 
     impl core::fmt::Display for DateTime {
@@ -42,6 +52,27 @@ pub mod DateTime_ {
     impl PartialOrd for DateTime {
         fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
             self.ticks().partial_cmp(&other.ticks())
+        }
+    }
+
+    impl Eq for DateTime {}
+
+    impl Ord for DateTime {
+        fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+            self.ticks().cmp(&other.ticks())
+        }
+    }
+
+    impl Hash for DateTime {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.ticks().hash(state)
+        }
+    }
+
+    impl Hashable for DateTime {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            getHashCode(&self.ticks())
         }
     }
 
@@ -85,7 +116,9 @@ pub mod DateTime_ {
                 0 => DateTimeKind::Unspecified,
                 1 => DateTimeKind::Utc,
                 2 => DateTimeKind::Local,
-                _ => panic!("Unsupported date kind. Only valid values are: 0 - Unspecified, 1 - Utc, 2 -> Local")
+                _ => panic!(
+                    "Unsupported date kind. Only valid values are: 0 - Unspecified, 1 - Utc, 2 -> Local"
+                ),
             };
             Self::new(ndt, dtKind)
         }
@@ -449,43 +482,78 @@ pub mod DateTime_ {
         }
 
         pub fn toString(&self, format: string) -> string {
-            let fmt = match format.as_str() {
-                "" => "%m/%d/%Y %H:%M:%S".to_string(),
-                "g" => "%m/%d/%Y %H:%M".to_string(),
-                "G" => "%m/%d/%Y %H:%M:%S".to_string(),
-                "o" | "O" => match self.kind {
-                    DateTimeKind::Utc => "%Y-%m-%dT%H:%M:%S%.fZ".to_string(),
-                    DateTimeKind::Local => "%Y-%m-%dT%H:%M:%S%.f%:z".to_string(),
-                    DateTimeKind::Unspecified => "%Y-%m-%dT%H:%M:%S%.f".to_string(),
-                },
-                //TODO: support more formats, custom formats, etc.
-                _ => format
-                    .replace("yyyy", "%Y")
-                    .replace("MM", "%m")
-                    .replace("dd", "%d")
-                    .replace("hh", "%H")
-                    .replace("mm", "%M")
-                    .replace("ss", "%S")
-                    .replace("ffffff", "%6f")
-                    .replace("fff", "%3f"),
-            };
             let cdt = self.to_cdt_fixed();
-            let df = cdt.format(&fmt);
-            fromString(df.to_string())
+            let offset_minutes = cdt.offset().local_minus_utc() / 60;
+            let suffix = match self.kind {
+                DateTimeKind::Utc => "Z".to_string(),
+                DateTimeKind::Local => format_offset_token(offset_minutes, 3),
+                DateTimeKind::Unspecified => String::new(),
+            };
+            let fraction_ticks =
+                self.ndt.and_utc().timestamp_subsec_nanos() as i64 / nanoseconds_per_tick;
+            let text = match format.as_str() {
+                "" => self.ndt.format("%m/%d/%Y %H:%M:%S").to_string(),
+                "g" => self.ndt.format("%m/%d/%Y %H:%M").to_string(),
+                "G" => self.ndt.format("%m/%d/%Y %H:%M:%S").to_string(),
+                "o" | "O" => format_roundtrip_datetime(self.ndt, fraction_ticks, suffix.as_str()),
+                _ => {
+                    format_dotnet_custom(self.ndt, fraction_ticks, suffix.as_str(), format.as_str())
+                }
+            };
+            fromString(text)
+        }
+
+        pub fn toLongDateString(&self) -> string {
+            fromString(self.ndt.format("%A, %d %B %Y").to_string())
+        }
+
+        pub fn toShortDateString(&self) -> string {
+            fromString(self.ndt.format("%m/%d/%Y").to_string())
+        }
+
+        pub fn toLongTimeString(&self) -> string {
+            fromString(self.ndt.format("%H:%M:%S").to_string())
+        }
+
+        pub fn toShortTimeString(&self) -> string {
+            fromString(self.ndt.format("%H:%M").to_string())
+        }
+
+        fn local_offset_seconds(ndt: NaiveDateTime) -> i32 {
+            match Local.from_local_datetime(&ndt) {
+                chrono::LocalResult::Single(dt) => dt.offset().local_minus_utc(),
+                chrono::LocalResult::Ambiguous(earliest, latest) => earliest
+                    .offset()
+                    .local_minus_utc()
+                    .max(latest.offset().local_minus_utc()),
+                chrono::LocalResult::None => {
+                    Local.from_utc_datetime(&ndt).offset().local_minus_utc()
+                }
+            }
+        }
+
+        pub fn isDaylightSavingTime(&self) -> bool {
+            match self.kind {
+                DateTimeKind::Utc => false,
+                DateTimeKind::Local | DateTimeKind::Unspecified => {
+                    let jan = NaiveDate::from_ymd_opt(self.year(), 1, 1)
+                        .unwrap()
+                        .and_hms_opt(12, 0, 0)
+                        .unwrap();
+                    let jul = NaiveDate::from_ymd_opt(self.year(), 7, 1)
+                        .unwrap()
+                        .and_hms_opt(12, 0, 0)
+                        .unwrap();
+                    let jan_offset = Self::local_offset_seconds(jan);
+                    let jul_offset = Self::local_offset_seconds(jul);
+                    jan_offset != jul_offset
+                        && Self::local_offset_seconds(self.ndt) == jan_offset.max(jul_offset)
+                }
+            }
         }
 
         fn try_parse_str(s: &str) -> ParseResult<DateTime> {
-            match s
-                .parse::<NaiveDateTime>()
-                .or(NaiveDateTime::parse_from_str(s, "%m/%d/%Y %H:%M:%S%.f"))
-                .or(NaiveDateTime::parse_from_str(s, "%m/%d/%Y %I:%M:%S %P"))
-            {
-                Ok(ndt) => Ok(Self::new(ndt, DateTimeKind::Unspecified)),
-                Err(e) => DateTimeOffset::try_parse_str(s).map(|cdt| {
-                    let ndt = Local.from_utc_datetime(&cdt.naive_utc()).naive_local();
-                    Self::new(ndt, DateTimeKind::Local)
-                }),
-            }
+            try_parse_datetime_str(s)
         }
 
         pub fn tryParse(s: string, res: &MutCell<DateTime>) -> bool {
@@ -506,12 +574,15 @@ pub mod DateTime_ {
         }
 
         pub(crate) fn to_cdt_fixed(&self) -> CDateTime<FixedOffset> {
-            let now = Local::now();
-            let localTz = now.offset();
             match self.kind {
                 DateTimeKind::Utc => Utc.from_utc_datetime(&self.ndt).into(),
-                DateTimeKind::Local => localTz.from_local_datetime(&self.ndt).unwrap(),
-                DateTimeKind::Unspecified => localTz.from_local_datetime(&self.ndt).unwrap(),
+                DateTimeKind::Local | DateTimeKind::Unspecified => {
+                    match Local.from_local_datetime(&self.ndt) {
+                        chrono::LocalResult::Single(dt) => dt.into(),
+                        chrono::LocalResult::Ambiguous(earliest, _) => earliest.into(),
+                        chrono::LocalResult::None => Local.from_utc_datetime(&self.ndt).into(),
+                    }
+                }
             }
         }
     }

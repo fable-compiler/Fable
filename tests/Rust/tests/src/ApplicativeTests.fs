@@ -59,12 +59,12 @@ let zipSorted (arr1:('k*'v1)[]) (arr2:('k*'v2)[]) =
         i2 <- i2 + 2
     Array.ofSeq res
 
-// let zipAny (arr1:('k*'v1)[]) (arr2:('k*'v2)[]) =
-//     let inline (<=.) (a:'k) (b:'k) = compare a b <= 0
-//     let inline (>=.) (a:'k) (b:'k) = compare a b >= 0
-//     if isSortedUsing (<=.) fst arr1 && isSortedUsing (<=.) fst arr2 then zipSorted arr1 arr2
-//     elif isSortedUsing (>=.) fst arr1 && isSortedUsing (>=.) fst arr2 then Array.rev (zipSorted (Array.rev arr1) (Array.rev arr2))
-//     else zipUnsorted arr1 arr2
+let zipAny (arr1:('k*'v1)[]) (arr2:('k*'v2)[]) =
+    let inline (<=.) (a:'k) (b:'k) = compare a b <= 0
+    let inline (>=.) (a:'k) (b:'k) = compare a b >= 0
+    if isSortedUsing (<=.) fst arr1 && isSortedUsing (<=.) fst arr2 then zipSorted arr1 arr2
+    elif isSortedUsing (>=.) fst arr1 && isSortedUsing (>=.) fst arr2 then Array.rev (zipSorted (Array.rev arr1) (Array.rev arr2))
+    else zipUnsorted arr1 arr2
 
 type Result<'s, 'f> =
     | Ok of 's
@@ -200,16 +200,17 @@ let ``Local inline typed lambdas work`` () =
     equal 7 <| localFoo x1
     equal 14 <| localFoo x2
 
-// [<Fact>]
-// let ``Local inline values work`` () =
-//     let res = zipAny [|("a",1);("b",2)|] [|("c",5.);("a",4.)|]
-//     res.Length |> equal 3
-//     res[0] |> fst |> equal "a"
-//     res[0] |> snd |> equal (Some 1, Some 4.)
-//     res[1] |> fst |> equal "b"
-//     res[1] |> snd |> equal (Some 2, None)
-//     res[2] |> fst |> equal "c"
-//     res[2] |> snd |> equal (None, Some 5.)
+[<Fact>]
+let ``Local inline values work`` () =
+    let res = zipAny [|("a",1);("b",2)|] [|("c",5.);("a",4.)|]
+    let res = res |> Array.sortBy fst // sort it because zipAny doesn't guarantee order
+    res.Length |> equal 3
+    res[0] |> fst |> equal "a"
+    res[0] |> snd |> equal (Some 1, Some 4.)
+    res[1] |> fst |> equal "b"
+    res[1] |> snd |> equal (Some 2, None)
+    res[2] |> fst |> equal "c"
+    res[2] |> snd |> equal (None, Some 5.)
 
 // [<Fact>]
 // let ``Local inline lambdas work standalone`` () = // See #1234
@@ -578,14 +579,14 @@ let ``Multiple nested lambdas can be partially applied`` () =
     let f2 = f 1 2
     f2 3 4 5 |> equal 15
 
-// [<Fact>]
-// let ``Partial application of optimized closures works`` () =
-//     let mutable m = 1
-//     let f x = m <- m + 1; (fun y z -> x + y + z)
-//     let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
-//     let r = f.Invoke(1, 2, 3)
-//     m |> equal 2
-//     r |> equal 6
+[<Fact>]
+let ``Partial application of optimized closures works`` () =
+    let mutable m = 1
+    let f x = m <- m + 1; (fun y z -> x + y + z)
+    let f = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(f)
+    let r = f.Invoke(1, 2, 3)
+    m |> equal 2
+    r |> equal 6
 
 [<Fact>]
 let ``No errors because references to missing unit args`` () =
@@ -1116,12 +1117,12 @@ let ``SRTP with ActivePattern works`` () =
 //     equal (1,5) baz
 //     equal (1,5) baz2
 
-// [<Fact>]
-// let ``Applying to a function returned by a local function works`` () =
-//     let foo a b c d = a , b + c d
-//     let bar a = foo 1 a
-//     let baz = bar 2 (fun _ -> 3) ()
-//     equal (1,5) baz
+[<Fact>]
+let ``Applying to a function returned by a local function works`` () =
+    let foo a b c d = a , b + c d
+    let bar a = foo 1 a
+    let baz = bar 2 (fun _ -> 3) ()
+    equal (1,5) baz
 
 [<Fact>]
 let ``Partially applied functions don't duplicate side effects`` () = // See #1156

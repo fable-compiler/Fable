@@ -2,17 +2,17 @@ module Fable.Tests.ArrayTests
 
 open Util.Testing
 
-// type ParamArrayTest =
-//     static member Add([<System.ParamArray>] xs: int[]) = Array.sum xs
+type ParamArrayTest =
+    static member Add([<System.ParamArray>] xs: int[]) = Array.sum xs
 
-// let add (xs: int[]) = ParamArrayTest.Add(xs)
+let add (xs: int[]) = ParamArrayTest.Add(xs)
 
 type ExceptFoo = { Bar: string }
 
 // let f (x:obj) (y:obj) (z:obj) = (string x) + (string y) + (string z)
 let inline f x y z = (string x) + (string y) + (string z) //TODO: non-inline
 
-// let map f ar = Array.map f ar
+let map f ar = Array.map f ar
 
 let inc_elem2 (a: _[]) i =
     a[i] <- a[i] + 1
@@ -31,6 +31,7 @@ type PointObj =
     static member Neg (p: PointObj) = { x = -p.x; y = -p.y; z = -p.z }
     static member (+) (p1, p2) = { x = p1.x + p2.x; y = p1.y + p2.y; z = p1.z + p2.z }
 
+[<Struct>]
 type MyNumber =
     | MyNumber of int
     static member Zero = MyNumber 0
@@ -207,18 +208,18 @@ let ``Array.zeroCreate with struct tuple works`` () =
     xs.Length |> equal 3
     //xs |> equal [|(0, null); (0, null); (0, null)|]
 
-// [<Fact>]
-// let ``Array.zeroCreate with object tuple works`` () =
-//     let xs = Array.zeroCreate<int * string> 3
-//     xs.Length |> equal 3
-//     //xs |> equal [|null; null; null|]
+[<Fact>]
+let ``Array.zeroCreate with object tuple works`` () =
+    let xs = Array.zeroCreate<int * string> 3
+    xs.Length |> equal 3
+    //xs |> equal [|null; null; null|]
 
-// // See https://github.com/fable-compiler/repl/issues/96
-// [<Fact>]
-// let ``Array.zeroCreate works with KeyValuePair`` () =
-//     let a = Array.zeroCreate<System.Collections.Generic.KeyValuePair<float,bool>> 3
-//     equal 0. a[1].Key
-//     equal false a[2].Value
+// See https://github.com/fable-compiler/repl/issues/96
+[<Fact>]
+let ``Array.zeroCreate works with KeyValuePair`` () =
+    let a = Array.zeroCreate<System.Collections.Generic.KeyValuePair<float,bool>> 3
+    equal 0. a[1].Key
+    equal false a[2].Value
 
 [<Fact>]
 let ``Array.copy works`` () =
@@ -236,23 +237,23 @@ let ``Pattern matching with arrays works`` () =
     match [|"a";"b"|] with [|"a";"b"|] -> 1 | _ -> 2
     |> equal 1
 
-// [<Fact>]
-// let ``ParamArrayAttribute works`` () =
-//     ParamArrayTest.Add(1, 2) |> equal 3
+[<Fact>]
+let ``ParamArrayAttribute works`` () =
+    ParamArrayTest.Add(1, 2) |> equal 3
 
-// [<Fact>]
-// let ``Passing an array to ParamArrayAttribute works`` () =
-//     ParamArrayTest.Add([|3; 2|]) |> equal 5
+[<Fact>]
+let ``Passing an array to ParamArrayAttribute works`` () =
+    ParamArrayTest.Add([|3; 2|]) |> equal 5
 
-// [<Fact>]
-// let ``Passing an array to ParamArrayAttribute from another function works`` () =
-//     add [|5;-7|] |> equal -2
+[<Fact>]
+let ``Passing an array to ParamArrayAttribute from another function works`` () =
+    add [|5;-7|] |> equal -2
 
-// [<Fact>]
-// let ``Can spread a complex expression`` () =
-//     let sideEffect (ar: int[]) = ar[1] <- 5
-//     ParamArrayTest.Add(let ar = [|1;2;3|] in sideEffect ar; ar)
-//     |> equal 9
+[<Fact>]
+let ``Can spread a complex expression`` () =
+    let sideEffect (ar: int[]) = ar[1] <- 5
+    ParamArrayTest.Add(let ar = [|1;2;3|] in sideEffect ar; ar)
+    |> equal 9
 
 [<Fact>]
 let ``Mapping from values to functions works`` () =
@@ -271,12 +272,12 @@ let ``Mapping from values to functions works`` () =
     let f2 = f
     a |> Array.mapi f2 |> Array.item 2 <| "x" |> equal "2cx"
 
-// [<Fact>]
-// let ``Mapping from typed arrays to non-numeric arrays doesn't coerce values`` () = // See #120, #171
-//     let xs = map string [|1;2|]
-//     (box xs[0]) :? string |> equal true
-//     let xs2 = Array.map string [|1;2|]
-//     (box xs2[1]) :? string |> equal true
+[<Fact>]
+let ``Mapping from typed arrays to non-numeric arrays doesn't coerce values`` () = // See #120, #171
+    let xs = map string [|1;2|]
+    (box xs[0]) :? string |> equal true
+    let xs2 = Array.map string [|1;2|]
+    (box xs2[1]) :? string |> equal true
 
 [<Fact>]
 let ``Array slice with upper index work`` () =
@@ -451,14 +452,14 @@ let ``Array.averageBy works`` () =
     Array.averageBy (fun x -> x * 2.) xs
     |> equal 5.
 
-// [<Fact>]
-// let ``Array.average works with custom types`` () =
-//     [|MyNumber 1; MyNumber 2; MyNumber 3|] |> Array.average |> equal (MyNumber 2)
+[<Fact>]
+let ``Array.average works with custom types`` () =
+    [|MyNumber 1; MyNumber 2; MyNumber 3|] |> Array.average |> equal (MyNumber 2)
 
-// [<Fact>]
-// let ``Array.averageBy works with custom types`` () =
-//     [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
-//     |> Array.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
+[<Fact>]
+let ``Array.averageBy works with custom types`` () =
+    [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
+    |> Array.averageBy (fun x -> x.MyNumber) |> equal (MyNumber 4)
 
 [<Fact>]
 let ``Array.choose with ints works`` () =
@@ -964,15 +965,15 @@ let ``Array.sumBy with structs works`` () =
 //     [|p1; p2|] |> Array.sumBy (fun p -> p.y) |> equal 30
 //     [|p1; p2|] |> Array.sumBy PointObj.Neg |> equal {x = -3; y = -30; z = -3}
 
-// [<Fact>]
-// let ``Array.sum with unions works`` () =
-//     [|MyNumber 1; MyNumber 2; MyNumber 3|]
-//     |> Array.sum |> equal (MyNumber 6)
+[<Fact>]
+let ``Array.sum with unions works`` () =
+    [|MyNumber 1; MyNumber 2; MyNumber 3|]
+    |> Array.sum |> equal (MyNumber 6)
 
-// [<Fact>]
-// let ``Array.sumBy with unions works`` () =
-//     [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
-//     |> Array.sumBy (fun x -> x.MyNumber) |> equal (MyNumber 12)
+[<Fact>]
+let ``Array.sumBy with unions works`` () =
+    [|{ MyNumber = MyNumber 5 }; { MyNumber = MyNumber 4 }; { MyNumber = MyNumber 3 }|]
+    |> Array.sumBy (fun x -> x.MyNumber) |> equal (MyNumber 12)
 
 [<Fact>]
 let ``Array.toList works`` () =

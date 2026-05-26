@@ -12,6 +12,7 @@ let _imports () =
     importAll "./DateTime.rs"
     importAll "./DateTimeOffset.rs"
     importAll "./Decimal.rs"
+    importAll "./Format.rs"
     importAll "./Encoding.rs"
     importAll "./Exception.rs"
     importAll "./Guid.rs"

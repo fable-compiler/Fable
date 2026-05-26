@@ -9,9 +9,9 @@ pub mod HashMap_ {
     #[cfg(not(feature = "no_std"))]
     use std::collections;
 
-    use crate::NativeArray_::{array_from, Array};
+    use crate::Native_::{HashKey, Hashable, LrcPtr, MutCell, Seq, Vec};
     use crate::Native_::{default_eq_comparer, seq_to_iter};
-    use crate::Native_::{HashKey, LrcPtr, MutCell, Seq, Vec};
+    use crate::NativeArray_::{Array, array_from};
     use crate::System::Collections::Generic::IEqualityComparer_1;
 
     use core::fmt::{Debug, Display, Formatter, Result};
@@ -71,14 +71,14 @@ pub mod HashMap_ {
 
     pub fn new_empty<K, V: Clone>() -> HashMap<K, V>
     where
-        K: Clone + Hash + PartialEq + 'static,
+        K: Clone + Hashable + PartialEq + 'static,
     {
         make_hash_map(collections::HashMap::new(), default_eq_comparer::<K>())
     }
 
     pub fn new_with_capacity<K, V: Clone>(capacity: i32) -> HashMap<K, V>
     where
-        K: Clone + Hash + PartialEq + 'static,
+        K: Clone + Hashable + PartialEq + 'static,
     {
         make_hash_map(
             collections::HashMap::with_capacity(capacity as usize),
@@ -104,7 +104,7 @@ pub mod HashMap_ {
 
     pub fn new_from_enumerable<K, V: Clone + 'static>(seq: Seq<(K, V)>) -> HashMap<K, V>
     where
-        K: Clone + Hash + PartialEq + 'static,
+        K: Clone + Hashable + PartialEq + 'static,
     {
         from_iter(seq_to_iter(seq), default_eq_comparer::<K>())
     }
@@ -129,7 +129,7 @@ pub mod HashMap_ {
 
     pub fn new_from_tuple_array<K, V: Clone>(a: Array<LrcPtr<(K, V)>>) -> HashMap<K, V>
     where
-        K: Clone + Hash + PartialEq + 'static,
+        K: Clone + Hashable + PartialEq + 'static,
     {
         let it = a.iter().map(|tup| tup.as_ref().clone());
         from_iter(it, default_eq_comparer::<K>())

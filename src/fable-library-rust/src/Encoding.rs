@@ -1,6 +1,6 @@
 pub mod Encoding_ {
-    use crate::NativeArray_::{array_from, Array};
     use crate::Native_::{Lrc, LrcPtr, OnceInit, String, Vec};
+    use crate::NativeArray_::{Array, array_from};
     use crate::String_::{fromChars2, fromSlice, fromString, string, substring2_safe};
 
     pub trait Encoding: Send + Sync {
