@@ -54,6 +54,97 @@ let ``TimeSpan.ToString("G", CultureInfo.InvariantCulture) works`` () =
 //     |> equal "03:54:00"
 
 [<Fact>]
+let ``TimeSpan.ToString with d specifier works`` () =
+    // d: number of whole days, no leading zero
+    TimeSpan(2, 3, 4, 5, 18).ToString("%d", CultureInfo.InvariantCulture)  |> equal "2"
+    TimeSpan(0, 3, 4, 5, 18).ToString("%d", CultureInfo.InvariantCulture)  |> equal "0"
+    TimeSpan(15, 3, 4, 5, 18).ToString("%d", CultureInfo.InvariantCulture) |> equal "15"
+    // dd: two-digit day (minimum width 2)
+    TimeSpan(2, 3, 4, 5, 18).ToString("dd", CultureInfo.InvariantCulture)  |> equal "02"
+    TimeSpan(15, 3, 4, 5, 18).ToString("dd", CultureInfo.InvariantCulture) |> equal "15"
+    // ddd: minimum width 3
+    TimeSpan(2, 3, 4, 5, 18).ToString("ddd", CultureInfo.InvariantCulture) |> equal "002"
+
+[<Fact>]
+let ``TimeSpan.ToString with h and hh specifiers work`` () =
+    // h: hours component, no leading zero (0-23)
+    TimeSpan(0, 0, 4, 5, 18).ToString("%h", CultureInfo.InvariantCulture)  |> equal "0"
+    TimeSpan(0, 9, 4, 5, 18).ToString("%h", CultureInfo.InvariantCulture)  |> equal "9"
+    TimeSpan(0, 23, 4, 5, 18).ToString("%h", CultureInfo.InvariantCulture) |> equal "23"
+    // hh: hours component, with leading zero
+    TimeSpan(0, 0, 4, 5, 18).ToString("hh", CultureInfo.InvariantCulture)  |> equal "00"
+    TimeSpan(0, 9, 4, 5, 18).ToString("hh", CultureInfo.InvariantCulture)  |> equal "09"
+    TimeSpan(0, 23, 4, 5, 18).ToString("hh", CultureInfo.InvariantCulture) |> equal "23"
+
+[<Fact>]
+let ``TimeSpan.ToString with m and mm specifiers work`` () =
+    // m: minutes component, no leading zero (0-59)
+    TimeSpan(0, 1, 9, 5, 18).ToString("h\\:m", CultureInfo.InvariantCulture)    |> equal "1:9"
+    TimeSpan(0, 1, 45, 5, 18).ToString("h\\:m", CultureInfo.InvariantCulture)   |> equal "1:45"
+    // mm: minutes component, with leading zero
+    TimeSpan(0, 1, 9, 5, 18).ToString("hh\\:mm", CultureInfo.InvariantCulture)  |> equal "01:09"
+    TimeSpan(0, 1, 45, 5, 18).ToString("hh\\:mm", CultureInfo.InvariantCulture) |> equal "01:45"
+
+[<Fact>]
+let ``TimeSpan.ToString with s and ss specifiers work`` () =
+    // s: seconds component, no leading zero (0-59)
+    TimeSpan(0, 0, 0, 3, 18).ToString("%s", CultureInfo.InvariantCulture)  |> equal "3"
+    TimeSpan(0, 0, 0, 30, 18).ToString("%s", CultureInfo.InvariantCulture) |> equal "30"
+    // ss: seconds component, with leading zero
+    TimeSpan(0, 0, 0, 3, 18).ToString("ss", CultureInfo.InvariantCulture)  |> equal "03"
+    TimeSpan(0, 0, 0, 30, 18).ToString("ss", CultureInfo.InvariantCulture) |> equal "30"
+
+[<Fact>]
+let ``TimeSpan.ToString with f fraction specifiers work`` () =
+    // 18 ms = 0.018 seconds; sub-second fraction in 7-digit form: 0180000
+    let t = TimeSpan(0, 0, 0, 15, 18)
+    t.ToString("ss\\.f", CultureInfo.InvariantCulture)       |> equal "15.0"       // tenths
+    t.ToString("ss\\.ff", CultureInfo.InvariantCulture)      |> equal "15.01"      // hundredths
+    t.ToString("ss\\.fff", CultureInfo.InvariantCulture)     |> equal "15.018"     // milliseconds
+    t.ToString("ss\\.ffff", CultureInfo.InvariantCulture)    |> equal "15.0180"    // ten-thousandths
+    t.ToString("ss\\.fffff", CultureInfo.InvariantCulture)   |> equal "15.01800"   // hundred-thousandths
+    t.ToString("ss\\.ffffff", CultureInfo.InvariantCulture)  |> equal "15.018000"  // millionths
+    t.ToString("ss\\.fffffff", CultureInfo.InvariantCulture) |> equal "15.0180000" // ten-millionths (ticks)
+
+[<Fact>]
+let ``TimeSpan.ToString with F fraction specifiers work`` () =
+    // 18 ms = 0.018 seconds; tenths digit is 0, so F outputs nothing (but
+    // the preceding literal dot \. is always kept — it is not suppressed)
+    let t = TimeSpan(0, 0, 0, 15, 18)
+    t.ToString("ss\\.F", CultureInfo.InvariantCulture)       |> equal "15."       // F=0 → empty; literal dot remains
+    t.ToString("ss\\.FF", CultureInfo.InvariantCulture)      |> equal "15.01"     // 01 → no trailing zeros
+    t.ToString("ss\\.FFF", CultureInfo.InvariantCulture)     |> equal "15.018"    // 018 → no trailing zeros
+    t.ToString("ss\\.FFFF", CultureInfo.InvariantCulture)    |> equal "15.018"    // 0180 → trailing 0 stripped
+    t.ToString("ss\\.FFFFF", CultureInfo.InvariantCulture)   |> equal "15.018"    // 01800 → trailing zeros stripped
+    t.ToString("ss\\.FFFFFF", CultureInfo.InvariantCulture)  |> equal "15.018"    // 018000 → stripped
+    t.ToString("ss\\.FFFFFFF", CultureInfo.InvariantCulture) |> equal "15.018"    // 0180000 → stripped
+    // all-zero fraction: FFFFFFF outputs nothing; preceding literal dot remains
+    TimeSpan(0, 0, 0, 15, 0).ToString("ss\\.FFFFFFF", CultureInfo.InvariantCulture) |> equal "15."
+
+[<Fact>]
+let ``TimeSpan.ToString with escape character works`` () =
+    // \: escape the next character so it is treated as a literal
+    TimeSpan.FromMinutes(234.).ToString("hh\\:mm\\:ss", CultureInfo.InvariantCulture)           |> equal "03:54:00"
+    TimeSpan(2, 3, 4, 5, 18).ToString("d\\.hh\\:mm\\:ss", CultureInfo.InvariantCulture)        |> equal "2.03:04:05"
+    TimeSpan(2, 3, 4, 5, 0).ToString("d\\.hh\\:mm\\:ss\\.fff", CultureInfo.InvariantCulture)   |> equal "2.03:04:05.000"
+
+[<Fact>]
+let ``TimeSpan.ToString with literal string delimiters work`` () =
+    // 'string' and "string": enclose literal text in single or double quotes
+    TimeSpan(2, 3, 4, 5, 18).ToString("d' days 'h\\:mm\\:ss", CultureInfo.InvariantCulture)   |> equal "2 days 3:04:05"
+    TimeSpan(2, 3, 4, 5, 18).ToString("d\" days \"hh\\:mm\\:ss", CultureInfo.InvariantCulture) |> equal "2 days 03:04:05"
+
+[<Fact>]
+let ``TimeSpan.ToString with percent specifier works`` () =
+    // %: prefix to use a single custom format specifier without it being
+    // interpreted as a standard format specifier
+    TimeSpan(5, 0, 0, 0).ToString("%d", CultureInfo.InvariantCulture)         |> equal "5"
+    TimeSpan.FromHours(3.).ToString("%h", CultureInfo.InvariantCulture)        |> equal "3"
+    TimeSpan.FromMinutes(45.).ToString("%m", CultureInfo.InvariantCulture)     |> equal "45"
+    TimeSpan.FromSeconds(30.).ToString("%s", CultureInfo.InvariantCulture)     |> equal "30"
+    TimeSpan.FromMilliseconds(500.).ToString("%f", CultureInfo.InvariantCulture) |> equal "5"
+
+[<Fact>]
 let ``TimeSpan constructors work`` () =
     let t1 = TimeSpan(20000L)
     let t2 = TimeSpan(3, 3, 3)

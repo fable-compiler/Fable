@@ -17,21 +17,172 @@ let thatYearSeconds (dt: DateTimeOffset) =
 let thatYearMilliseconds (dt: DateTimeOffset) =
     (dt - DateTimeOffset(dt.Year, 1, 1, 0, 0, 0, TimeSpan.Zero)).TotalMilliseconds
 
-// [<Fact>]
-// let ``DateTimeOffset.ToString with custom format works`` () =
-//     DateTimeOffset(2014, 9, 11, 16, 37, 0, TimeSpan.Zero).ToString("HH:mm", CultureInfo.InvariantCulture)
-//     |> equal "16:37"
+[<Fact>]
+let ``DateTimeOffset.ToString with custom format works`` () =
+    DateTimeOffset(2014, 9, 11, 16, 37, 0, TimeSpan.Zero).ToString("HH:mm", CultureInfo.InvariantCulture)
+    |> equal "16:37"
 
 [<Fact>]
 let ``DateTimeOffset.ToString without separator works`` () = // See #1131
     DateTimeOffset(2017, 9, 5, 0, 0, 0, TimeSpan.Zero).ToString("yyyyMM")
     |> equal "201709"
 
-// [<Fact>]
-// let ``DateTimeOffset.ToString with Roundtrip format works for Utc`` () =
-//     let str = DateTimeOffset(2014, 9, 11, 16, 37, 2, TimeSpan.Zero).ToString("O")
-//     System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
-//     |> equal "2014-09-11T16:37:02.000+00:00"
+[<Fact>]
+let ``DateTimeOffset.ToString custom format with offset and fractions works`` () =
+    DateTimeOffset(1, 2, 3, 4, 5, 6, 7, 89, TimeSpan.FromHours 5.0)
+        .ToString("yyyy-MM-ddTHH:mm:ss.fffffff z zz zzz K", CultureInfo.InvariantCulture)
+    |> equal "0001-02-03T04:05:06.0070890 +5 +05 +05:00 +05:00"
+
+[<Fact>]
+let ``DateTimeOffset.ToString with Roundtrip format works for Utc`` () =
+    let str = DateTimeOffset(2014, 9, 11, 16, 37, 2, TimeSpan.Zero).ToString("O")
+    System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
+    |> equal "2014-09-11T16:37:02.000+00:00"
+
+[<Fact>]
+let ``DateTimeOffset.ToString with d specifiers work`` () =
+    // %d: day-of-month, no leading zero (1-31)
+    // dd: day-of-month, with leading zero (01-31)
+    // ddd: abbreviated day name
+    // dddd: full day name
+    let dt = DateTimeOffset(2009, 6, 15, 13, 45, 30, TimeSpan.Zero)
+    dt.ToString("%d", CultureInfo.InvariantCulture)   |> equal "15"
+    dt.ToString("dd", CultureInfo.InvariantCulture)   |> equal "15"
+    dt.ToString("ddd", CultureInfo.InvariantCulture)  |> equal "Mon"
+    dt.ToString("dddd", CultureInfo.InvariantCulture) |> equal "Monday"
+    let dt2 = DateTimeOffset(2009, 6, 3, 13, 45, 30, TimeSpan.Zero)
+    dt2.ToString("%d", CultureInfo.InvariantCulture)  |> equal "3"
+    dt2.ToString("dd", CultureInfo.InvariantCulture)  |> equal "03"
+
+[<Fact>]
+let ``DateTimeOffset.ToString with M specifiers work`` () =
+    // %M: month number, no leading zero (1-12)
+    // MM: month number, with leading zero (01-12)
+    // MMM: abbreviated month name
+    // MMMM: full month name
+    let dt = DateTimeOffset(2009, 6, 15, 13, 45, 30, TimeSpan.Zero)
+    dt.ToString("%M", CultureInfo.InvariantCulture)   |> equal "6"
+    dt.ToString("MM", CultureInfo.InvariantCulture)   |> equal "06"
+    dt.ToString("MMM", CultureInfo.InvariantCulture)  |> equal "Jun"
+    dt.ToString("MMMM", CultureInfo.InvariantCulture) |> equal "June"
+    let dt2 = DateTimeOffset(2009, 11, 15, 13, 45, 30, TimeSpan.Zero)
+    dt2.ToString("%M", CultureInfo.InvariantCulture)  |> equal "11"
+    dt2.ToString("MM", CultureInfo.InvariantCulture)  |> equal "11"
+    dt2.ToString("MMM", CultureInfo.InvariantCulture) |> equal "Nov"
+
+[<Fact>]
+let ``DateTimeOffset.ToString with y specifiers work`` () =
+    // %y: year mod 100 without leading zero
+    // yy: year mod 100 with leading zero
+    // yyy: 3-digit year
+    // yyyy: 4-digit year
+    // yyyyy: 5-digit year
+    let dt = DateTimeOffset(2009, 6, 15, 13, 45, 30, TimeSpan.Zero)
+    dt.ToString("%y", CultureInfo.InvariantCulture)    |> equal "9"
+    dt.ToString("yy", CultureInfo.InvariantCulture)    |> equal "09"
+    dt.ToString("yyy", CultureInfo.InvariantCulture)   |> equal "2009"
+    dt.ToString("yyyy", CultureInfo.InvariantCulture)  |> equal "2009"
+    dt.ToString("yyyyy", CultureInfo.InvariantCulture) |> equal "02009"
+
+[<Fact>]
+let ``DateTimeOffset.ToString with h and hh specifiers work`` () =
+    // h: 12-hour clock, no leading zero (1-12)
+    // hh: 12-hour clock, with leading zero (01-12)
+    let dt = DateTimeOffset(2009, 6, 15, 13, 45, 30, TimeSpan.Zero)
+    dt.ToString("%h", CultureInfo.InvariantCulture)  |> equal "1"
+    dt.ToString("hh", CultureInfo.InvariantCulture)  |> equal "01"
+    let dt2 = DateTimeOffset(2009, 6, 15, 0, 45, 30, TimeSpan.Zero)
+    dt2.ToString("%h", CultureInfo.InvariantCulture) |> equal "12"
+    dt2.ToString("hh", CultureInfo.InvariantCulture) |> equal "12"
+    let dt3 = DateTimeOffset(2009, 6, 15, 12, 45, 30, TimeSpan.Zero)
+    dt3.ToString("%h", CultureInfo.InvariantCulture) |> equal "12"
+    dt3.ToString("hh", CultureInfo.InvariantCulture) |> equal "12"
+
+[<Fact>]
+let ``DateTimeOffset.ToString with H and HH specifiers work`` () =
+    // H: 24-hour clock, no leading zero (0-23)
+    // HH: 24-hour clock, with leading zero (00-23)
+    let dt = DateTimeOffset(2009, 6, 15, 13, 45, 30, TimeSpan.Zero)
+    dt.ToString("%H", CultureInfo.InvariantCulture)  |> equal "13"
+    dt.ToString("HH", CultureInfo.InvariantCulture)  |> equal "13"
+    let dt2 = DateTimeOffset(2009, 6, 15, 1, 45, 30, TimeSpan.Zero)
+    dt2.ToString("%H", CultureInfo.InvariantCulture) |> equal "1"
+    dt2.ToString("HH", CultureInfo.InvariantCulture) |> equal "01"
+    let dt3 = DateTimeOffset(2009, 6, 15, 0, 45, 30, TimeSpan.Zero)
+    dt3.ToString("%H", CultureInfo.InvariantCulture) |> equal "0"
+    dt3.ToString("HH", CultureInfo.InvariantCulture) |> equal "00"
+
+[<Fact>]
+let ``DateTimeOffset.ToString with m and mm specifiers work`` () =
+    // %m: minute, no leading zero (0-59)
+    // mm: minute, with leading zero (00-59)
+    let dt = DateTimeOffset(2009, 6, 15, 13, 5, 30, TimeSpan.Zero)
+    dt.ToString("%m", CultureInfo.InvariantCulture)  |> equal "5"
+    dt.ToString("mm", CultureInfo.InvariantCulture)  |> equal "05"
+    let dt2 = DateTimeOffset(2009, 6, 15, 13, 45, 30, TimeSpan.Zero)
+    dt2.ToString("%m", CultureInfo.InvariantCulture) |> equal "45"
+    dt2.ToString("mm", CultureInfo.InvariantCulture) |> equal "45"
+
+[<Fact>]
+let ``DateTimeOffset.ToString with s and ss specifiers work`` () =
+    // %s: second, no leading zero (0-59)
+    // ss: second, with leading zero (00-59)
+    let dt = DateTimeOffset(2009, 6, 15, 13, 45, 3, TimeSpan.Zero)
+    dt.ToString("%s", CultureInfo.InvariantCulture)  |> equal "3"
+    dt.ToString("ss", CultureInfo.InvariantCulture)  |> equal "03"
+    let dt2 = DateTimeOffset(2009, 6, 15, 13, 45, 30, TimeSpan.Zero)
+    dt2.ToString("%s", CultureInfo.InvariantCulture) |> equal "30"
+    dt2.ToString("ss", CultureInfo.InvariantCulture) |> equal "30"
+
+[<Fact>]
+let ``DateTimeOffset.ToString with f fraction specifiers work`` () =
+    // 617ms = 6170000 ticks of sub-second fraction
+    let dt = DateTimeOffset(2009, 6, 15, 13, 45, 30, 617, TimeSpan.Zero)
+    dt.ToString("ss.f", CultureInfo.InvariantCulture)       |> equal "30.6"
+    dt.ToString("ss.ff", CultureInfo.InvariantCulture)      |> equal "30.61"
+    dt.ToString("ss.fff", CultureInfo.InvariantCulture)     |> equal "30.617"
+    dt.ToString("ss.ffff", CultureInfo.InvariantCulture)    |> equal "30.6170"
+    dt.ToString("ss.fffff", CultureInfo.InvariantCulture)   |> equal "30.61700"
+    dt.ToString("ss.ffffff", CultureInfo.InvariantCulture)  |> equal "30.617000"
+    dt.ToString("ss.fffffff", CultureInfo.InvariantCulture) |> equal "30.6170000"
+
+[<Fact>]
+let ``DateTimeOffset.ToString with F fraction specifiers work`` () =
+    // F: like f but trailing zeros are stripped; dot is suppressed when empty
+    let dt = DateTimeOffset(2009, 6, 15, 13, 45, 30, 617, TimeSpan.Zero)
+    dt.ToString("ss.F", CultureInfo.InvariantCulture)       |> equal "30.6"
+    dt.ToString("ss.FF", CultureInfo.InvariantCulture)      |> equal "30.61"
+    dt.ToString("ss.FFF", CultureInfo.InvariantCulture)     |> equal "30.617"
+    dt.ToString("ss.FFFF", CultureInfo.InvariantCulture)    |> equal "30.617"
+    dt.ToString("ss.FFFFF", CultureInfo.InvariantCulture)   |> equal "30.617"
+    dt.ToString("ss.FFFFFF", CultureInfo.InvariantCulture)  |> equal "30.617"
+    dt.ToString("ss.FFFFFFF", CultureInfo.InvariantCulture) |> equal "30.617"
+    // all-zero fraction: dot and fraction entirely suppressed
+    let dt0 = DateTimeOffset(2009, 6, 15, 13, 45, 30, TimeSpan.Zero)
+    dt0.ToString("ss.FFFFFFF", CultureInfo.InvariantCulture) |> equal "30"
+    dt0.ToString("ss.F", CultureInfo.InvariantCulture)       |> equal "30"
+
+[<Fact>]
+let ``DateTimeOffset.ToString with t and tt specifiers work`` () =
+    // t: first character of AM/PM designator
+    // tt: full AM/PM designator
+    let dtAm = DateTimeOffset(2009, 6, 15, 5, 45, 30, TimeSpan.Zero)
+    dtAm.ToString("%t", CultureInfo.InvariantCulture)   |> equal "A"
+    dtAm.ToString("tt", CultureInfo.InvariantCulture)   |> equal "AM"
+    let dtPm = DateTimeOffset(2009, 6, 15, 13, 45, 30, TimeSpan.Zero)
+    dtPm.ToString("%t", CultureInfo.InvariantCulture)   |> equal "P"
+    dtPm.ToString("tt", CultureInfo.InvariantCulture)   |> equal "PM"
+    let dtMid = DateTimeOffset(2009, 6, 15, 0, 0, 0, TimeSpan.Zero)
+    dtMid.ToString("tt", CultureInfo.InvariantCulture)  |> equal "AM"
+    let dtNoon = DateTimeOffset(2009, 6, 15, 12, 0, 0, TimeSpan.Zero)
+    dtNoon.ToString("tt", CultureInfo.InvariantCulture) |> equal "PM"
+
+[<Fact>]
+let ``DateTimeOffset.ToString with g and gg specifiers work`` () =
+    // g / gg: era ("A.D." in Gregorian calendar with InvariantCulture)
+    let dt = DateTimeOffset(2009, 6, 15, 13, 45, 30, TimeSpan.Zero)
+    dt.ToString("%g", CultureInfo.InvariantCulture) |> equal "A.D."
+    dt.ToString("gg", CultureInfo.InvariantCulture) |> equal "A.D."
 
 [<Fact>]
 let ``DateTimeOffset from Year 1 to 99 works`` () =
@@ -171,8 +322,8 @@ let ``DateTimeOffset to Ticks isomorphism`` () =
     checkIsomorphism DateTimeOffset.Now
     checkIsomorphism DateTimeOffset.UtcNow
     checkIsomorphism <| DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.Zero)
-    // checkIsomorphism <| DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.FromHours 1.0)
-    // checkIsomorphism <| DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.FromHours -5.0)
+    checkIsomorphism <| DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.FromHours 1.0)
+    checkIsomorphism <| DateTimeOffset(2014, 10, 9, 13, 23, 30, 500, TimeSpan.FromHours -5.0)
 
 // DateTimeOffset specific tests -----------------------
 
@@ -246,17 +397,17 @@ let ``DateTimeOffset.UtcNow works`` () =
     let d = DateTimeOffset.UtcNow
     d > DateTimeOffset.MinValue |> equal true
 
-// [<Fact>]
-// let ``DateTimeOffset.Parse Now works`` () =
-//     let d = DateTimeOffset.Now
-//     let d2 = DateTimeOffset.Parse(d.ToString("o"))
-//     d2 |> equal d
+[<Fact>]
+let ``DateTimeOffset.Parse Now works`` () =
+    let d = DateTimeOffset.Now
+    let d2 = DateTimeOffset.Parse(d.ToString("o"))
+    d2 |> equal d
 
-// [<Fact>]
-// let ``DateTimeOffset.Parse UtcNow works`` () =
-//     let d = DateTimeOffset.UtcNow
-//     let d2 = DateTimeOffset.Parse(d.ToString("o"))
-//     d2 |> equal d
+[<Fact>]
+let ``DateTimeOffset.Parse UtcNow works`` () =
+    let d = DateTimeOffset.UtcNow
+    let d2 = DateTimeOffset.Parse(d.ToString("o"))
+    d2 |> equal d
 
 [<Fact>]
 let ``DateTimeOffset.Parse works`` () =
@@ -267,33 +418,33 @@ let ``DateTimeOffset.Parse works`` () =
     d.Minute |> equal 50
     d.Second |> equal 34
 
-// [<Fact>]
-// let ``DateTimeOffset.Parse with time-only string works`` () = // See #1045
-//     let d = DateTimeOffset.Parse("13:50:34")
-//     d.Hour + d.Minute + d.Second |> equal 97
-//     let d = DateTimeOffset.Parse("1:5:34 AM")
-//     d.Hour + d.Minute + d.Second |> equal 40
-//     let d = DateTimeOffset.Parse("1:5:34 PM")
-//     d.Hour + d.Minute + d.Second |> equal 52
+[<Fact>]
+let ``DateTimeOffset.Parse with time-only string works`` () = // See #1045
+    let d = DateTimeOffset.Parse("13:50:34")
+    d.Hour + d.Minute + d.Second |> equal 97
+    let d = DateTimeOffset.Parse("1:5:34 AM")
+    d.Hour + d.Minute + d.Second |> equal 40
+    let d = DateTimeOffset.Parse("1:5:34 PM")
+    d.Hour + d.Minute + d.Second |> equal 52
 
-// [<Fact>]
-// let ``DateTimeOffset.Parse with only date and offset works`` () = // See #1422
-//     let d = DateTimeOffset.Parse("05/01/2008 +03:00")
-//     d.Year + d.Month + d.Day |> equal 2014
-//     d.Offset |> equal (TimeSpan.FromHours(3.))
+[<Fact>]
+let ``DateTimeOffset.Parse with only date and offset works`` () = // See #1422
+    let d = DateTimeOffset.Parse("05/01/2008 +03:00")
+    d.Year + d.Month + d.Day |> equal 2014
+    d.Offset |> equal (TimeSpan.FromHours(3.))
 
-// [<Fact>]
-// let ``DateTimeOffset.Parse doesn't confuse day and offset`` () =
-//     let d = DateTimeOffset.Parse("2021-11-15")
-//     d.Year |> equal 2021
-//     d.Month |> equal 11
-//     d.Day |> equal 15
-//     d.Offset = (TimeSpan.FromHours(1.) + TimeSpan.FromMinutes(5.)) |> equal false
-//     d.Offset = (TimeSpan.FromHours(1.) + TimeSpan.FromMinutes(50.)) |> equal false
-//     d.Offset = (TimeSpan.FromHours(15.)) |> equal false
-//     let d = DateTimeOffset.Parse("2021-11-08-08")
-//     d.Year + d.Month + d.Day |> equal 2040
-//     d.Offset |> equal (TimeSpan.FromHours(-8.))
+[<Fact>]
+let ``DateTimeOffset.Parse doesn't confuse day and offset`` () =
+    let d = DateTimeOffset.Parse("2021-11-15")
+    d.Year |> equal 2021
+    d.Month |> equal 11
+    d.Day |> equal 15
+    d.Offset = (TimeSpan.FromHours(1.) + TimeSpan.FromMinutes(5.)) |> equal false
+    d.Offset = (TimeSpan.FromHours(1.) + TimeSpan.FromMinutes(50.)) |> equal false
+    d.Offset = (TimeSpan.FromHours(15.)) |> equal false
+    let d = DateTimeOffset.Parse("2021-11-08-08")
+    d.Year + d.Month + d.Day |> equal 2040
+    d.Offset |> equal (TimeSpan.FromHours(-8.))
 
 [<Fact>]
 let ``DateTimeOffset.TryParse works`` () =
@@ -308,7 +459,7 @@ let ``DateTimeOffset.TryParse works`` () =
     f "9/10/2014 1:50:34 -05:00" |> equal true
     f "2014-09-10 01:50:34 +03:00" |> equal true
     f "2014-09-10 01:50:34.1234567 -05:00" |> equal true
-    // f "1:50:34" |> equal true //TODO:
+    f "1:50:34" |> equal true
 
 [<Fact>]
 let ``DateTimeOffset.Date works`` () =

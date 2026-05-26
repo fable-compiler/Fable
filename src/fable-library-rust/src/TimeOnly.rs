@@ -1,12 +1,13 @@
 #[cfg(feature = "datetime")]
 pub mod TimeOnly_ {
     use crate::{
-        DateTime_::{duration_to_ticks, ticks_to_duration, DateTime},
-        Native_::{compare, getHashCode, Hashable, MutCell, ToString},
+        DateTime_::{DateTime, duration_to_ticks, ticks_to_duration},
+        Format::DateTime::{format_dotnet_custom, split_meridiem_suffix, try_parse_time_str},
+        Native_::{Hashable, MutCell, ToString, compare, format, getHashCode},
         String_::{fromString, string},
-        TimeSpan_::{nanoseconds_per_tick, ticks_per_day, TimeSpan},
+        TimeSpan_::{TimeSpan, nanoseconds_per_tick, ticks_per_day},
     };
-    use chrono::{DateTime as CDateTime, NaiveTime, ParseResult, Timelike};
+    use chrono::{DateTime as CDateTime, NaiveDate, NaiveTime, ParseResult, Timelike};
     use core::ops::Sub;
 
     #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -202,26 +203,21 @@ pub mod TimeOnly_ {
         }
 
         pub fn toString(&self, format: string) -> string {
-            let fmt = match format.as_str() {
-                "" | "t" => "%H:%M".to_string(),
-                "o" | "O" => "%H:%M:%S%.f".to_string(),
-                "r" | "R" | "T" => "%H:%M:%S".to_string(),
-                //TODO: support more formats, custom formats, etc.
-                _ => format
-                    .replace("hh", "%H")
-                    .replace("mm", "%M")
-                    .replace("ss", "%S")
-                    .replace("ffffff", "%6f")
-                    .replace("fff", "%3f"),
+            let ndt = NaiveDate::from_ymd_opt(1, 1, 1).unwrap().and_time(self.0);
+            let fraction_ticks = self.0.nanosecond() as i64 / nanoseconds_per_tick;
+            let text = match format.as_str() {
+                "" | "t" => self.0.format("%H:%M").to_string(),
+                "o" | "O" => format!("{}.{:07}", self.0.format("%H:%M:%S"), fraction_ticks),
+                "r" | "R" | "T" => self.0.format("%H:%M:%S").to_string(),
+                _ => format_dotnet_custom(ndt, fraction_ticks, "", format.as_str()),
             };
-            let df = self.0.format(&fmt);
-            fromString(df.to_string())
+            fromString(text)
         }
 
-        fn try_parse_str(s: &str) -> ParseResult<NaiveTime> {
-            s.parse::<NaiveTime>()
-                .or(NaiveTime::parse_from_str(s, "%m/%d/%Y %H:%M:%S%.f"))
-                .or(NaiveTime::parse_from_str(s, "%m/%d/%Y %I:%M:%S %P"))
+        pub(crate) fn try_parse_str(s: &str) -> ParseResult<NaiveTime> {
+            let (body, meridiem) = split_meridiem_suffix(s);
+            try_parse_time_str(body, meridiem)
+                .ok_or_else(|| NaiveTime::parse_from_str("", "%H:%M").unwrap_err())
         }
 
         pub fn tryParse(s: string, res: &MutCell<TimeOnly>) -> bool {

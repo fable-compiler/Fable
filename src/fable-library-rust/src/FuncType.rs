@@ -1,4 +1,4 @@
-use crate::Native_::{referenceEquals, referenceHash, Lrc, NullableRef};
+use crate::Native_::{Lrc, NullableRef, referenceEquals, referenceHash};
 
 macro_rules! func {
     ($f:ident $(,$i:ident)*) => {

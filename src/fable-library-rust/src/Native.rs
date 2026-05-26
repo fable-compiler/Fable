@@ -323,19 +323,11 @@ pub mod Native_ {
     }
 
     pub fn min<T: PartialOrd>(x: T, y: T) -> T {
-        if x < y {
-            x
-        } else {
-            y
-        }
+        if x < y { x } else { y }
     }
 
     pub fn max<T: PartialOrd>(x: T, y: T) -> T {
-        if x > y {
-            x
-        } else {
-            y
-        }
+        if x > y { x } else { y }
     }
 
     pub fn equals<T: PartialEq>(x: T, y: T) -> bool {
@@ -615,7 +607,9 @@ pub mod Native_ {
         };
     }
 
-    divide_by_int_impl!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
+    divide_by_int_impl!(
+        i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64
+    );
 
     #[macro_export]
     macro_rules! un_op {

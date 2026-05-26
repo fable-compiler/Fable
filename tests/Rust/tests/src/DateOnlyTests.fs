@@ -148,41 +148,111 @@ let ``ToString works`` () =
     date.ToString("O", CultureInfo.InvariantCulture) |> equal $"{date.Year}-{fill date.Month}-{fill date.Day}"
 
 [<Fact>]
+let ``DateOnly.ToString with custom format works`` () =
+    DateOnly(2014, 9, 1).ToString("yyyy/MMMM/d 'day'", CultureInfo.InvariantCulture)
+    |> equal "2014/September/1 day"
+
+[<Fact>]
+let ``DateOnly.ToString with d specifiers work`` () =
+    // %d: day-of-month, no leading zero (1-31)
+    // dd: day-of-month, with leading zero (01-31)
+    // ddd: abbreviated day name
+    // dddd: full day name
+    let d = DateOnly(2009, 6, 15)
+    d.ToString("%d", CultureInfo.InvariantCulture)   |> equal "15"
+    d.ToString("dd", CultureInfo.InvariantCulture)   |> equal "15"
+    d.ToString("ddd", CultureInfo.InvariantCulture)  |> equal "Mon"
+    d.ToString("dddd", CultureInfo.InvariantCulture) |> equal "Monday"
+    let d2 = DateOnly(2009, 6, 3)
+    d2.ToString("%d", CultureInfo.InvariantCulture)  |> equal "3"
+    d2.ToString("dd", CultureInfo.InvariantCulture)  |> equal "03"
+
+[<Fact>]
+let ``DateOnly.ToString with M specifiers work`` () =
+    // %M: month number, no leading zero (1-12)
+    // MM: month number, with leading zero (01-12)
+    // MMM: abbreviated month name
+    // MMMM: full month name
+    let d = DateOnly(2009, 6, 15)
+    d.ToString("%M", CultureInfo.InvariantCulture)   |> equal "6"
+    d.ToString("MM", CultureInfo.InvariantCulture)   |> equal "06"
+    d.ToString("MMM", CultureInfo.InvariantCulture)  |> equal "Jun"
+    d.ToString("MMMM", CultureInfo.InvariantCulture) |> equal "June"
+    let d2 = DateOnly(2009, 11, 15)
+    d2.ToString("%M", CultureInfo.InvariantCulture)  |> equal "11"
+    d2.ToString("MM", CultureInfo.InvariantCulture)  |> equal "11"
+    d2.ToString("MMM", CultureInfo.InvariantCulture) |> equal "Nov"
+
+[<Fact>]
+let ``DateOnly.ToString with y specifiers work`` () =
+    // %y: year mod 100 without leading zero
+    // yy: year mod 100 with leading zero
+    // yyy: 3-digit year
+    // yyyy: 4-digit year
+    let d = DateOnly(2009, 6, 15)
+    d.ToString("%y", CultureInfo.InvariantCulture)   |> equal "9"
+    d.ToString("yy", CultureInfo.InvariantCulture)   |> equal "09"
+    d.ToString("yyy", CultureInfo.InvariantCulture)   |> equal "2009"
+    d.ToString("yyyy", CultureInfo.InvariantCulture) |> equal "2009"
+
+[<Fact>]
+let ``DateOnly.ToString with percent specifier works`` () =
+    // %: prefix to use a single custom format specifier
+    let d = DateOnly(2009, 6, 15)
+    d.ToString("%d", CultureInfo.InvariantCulture) |> equal "15"
+    d.ToString("%M", CultureInfo.InvariantCulture) |> equal "6"
+    d.ToString("%y", CultureInfo.InvariantCulture) |> equal "9"
+
+[<Fact>]
+let ``DateOnly.ToString with escape character works`` () =
+    // \: escape the next character so it is treated as a literal
+    let d = DateOnly(2009, 6, 15)
+    d.ToString("yyyy\\/MM\\/dd", CultureInfo.InvariantCulture) |> equal "2009/06/15"
+    d.ToString("dd\\ MMMM\\ yyyy", CultureInfo.InvariantCulture) |> equal "15 June 2009"
+
+[<Fact>]
+let ``DateOnly.ToString with literal string delimiters work`` () =
+    // 'string' and "string": enclose literal text in single or double quotes
+    let d = DateOnly(2009, 6, 15)
+    d.ToString("'Date:' dd/MM/yyyy", CultureInfo.InvariantCulture)  |> equal "Date: 15/06/2009"
+    d.ToString("\"Year:\" yyyy", CultureInfo.InvariantCulture)    |> equal "Year: 2009"
+
+[<Fact>]
 let ``Parse parses valid DateOnly`` () =
     let test expected (s: string) =
         DateOnly.Parse(s, CultureInfo.InvariantCulture) |> equal expected
 
     test DateOnly.MaxValue "9999-12-31"
     test DateOnly.MaxValue "12/31/9999"
-    // test DateOnly.MinValue "1/01/001"
-    // test DateOnly.MinValue "001-1-01"
-    // test DateOnly.MinValue "1/01/0001"
-    // test DateOnly.MinValue "0001.1.01"
+    test DateOnly.MinValue "1/01/001"
+    test DateOnly.MinValue "001-1-01"
+    test DateOnly.MinValue "1/01/0001"
+    test DateOnly.MinValue "0001.1.01"
 
-    // test (DateOnly (2001, 1, 1)) "   01/1/01"
-    // test (DateOnly (2001, 1, 1)) "1-01-01   "
-    // test (DateOnly (2005, 1, 1)) "01/1/5"
-    // test (DateOnly (2001, 5, 1)) "5-01-01"
-    // test (DateOnly (2000, 11, 30)) "2000-11-30"
-    // test (DateOnly (2000, 11, 30)) "11/30/2000"
-    // test (DateOnly (2020, 1, 3)) "01/03/20"
-    // test (DateOnly (1999, 1, 3)) "01,03,99"
-    // #if FABLE_COMPILER
-    //     test (DateOnly (1930, 1, 3)) "01 -03- 30"
-    // #else //NET8_0_OR_GREATER
-    //     test (DateOnly (2030, 1, 3)) "01 -03- 30"
-    // #endif
-    // test (DateOnly (2000, 12, 3)) "12.03.00"
-    // test (DateOnly (2000, 1, 12)) "01-12-00"
+    test (DateOnly (2001, 1, 1)) "   01/1/01"
+    test (DateOnly (2001, 1, 1)) "1-01-01   "
+    test (DateOnly (2005, 1, 1)) "01/1/5"
+    test (DateOnly (2001, 5, 1)) "5-01-01"
+    test (DateOnly (2000, 11, 30)) "2000-11-30"
+    test (DateOnly (2000, 11, 30)) "11/30/2000"
+    test (DateOnly (2020, 1, 3)) "01/03/20"
+    test (DateOnly (1999, 1, 3)) "01,03,99"
+    #if FABLE_COMPILER
+    test (DateOnly (1930, 1, 3)) "01 -03- 30"
+    #else //NET8_0_OR_GREATER
+    test (DateOnly (2030, 1, 3)) "01 -03- 30"
+    #endif
+    test (DateOnly (2000, 12, 3)) "12.03.00"
+    test (DateOnly (2000, 1, 12)) "01-12-00"
 
-    // test (DateOnly (20, 1, 3)) "020,01,3"
-    // test (DateOnly (20, 1, 3)) "01 /   3  /   020"
-    // test (DateOnly (20, 1, 30)) "0020-1-30"
-    // test (DateOnly (20, 1, 30)) "1/30/0020"
+    test (DateOnly (20, 1, 3)) "020,01,3"
+    test (DateOnly (20, 1, 3)) "01 /   3  /   020"
+    test (DateOnly (20, 1, 30)) "0020-1-30"
+    test (DateOnly (20, 1, 30)) "1/30/0020"
 
-    // test (DateOnly (DateTime.Now.Year, 10, 30)) "10/30"
-    // test (DateOnly (300, 10, 1)) "10,300"
-    // test (DateOnly (2000, 12, 1)) "2000-12"
+    test (DateOnly (DateTime.Now.Year, 10, 30)) "10/30"
+    test (DateOnly (300, 10, 1)) "10,300"
+    test (DateOnly (2000, 12, 1)) "2000-12"
 
 [<Fact>]
 let ``TryParse returns false for invalid DateOnly`` () =
@@ -190,15 +260,15 @@ let ``TryParse returns false for invalid DateOnly`` () =
         let isValid, _ = DateOnly.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None)
         isValid |> equal false
     test "4"
-    // test "0000-2-5"
-    // test "2000-2-30"
-    // test "2000-2?2"
-    // test "13/01/2000"
-    // test "01/00/2000"
-    // test "0/10/2000"
-    // test "20/2000"
-    // test "20/200"
-    // test "200/20"
+    test "0000-2-5"
+    test "2000-2-30"
+    test "2000-2?2"
+    test "13/01/2000"
+    test "01/00/2000"
+    test "0/10/2000"
+    test "20/2000"
+    test "20/200"
+    test "200/20"
 
 [<Fact>]
 let ``Comparison works`` () =

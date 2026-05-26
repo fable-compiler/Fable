@@ -1,7 +1,7 @@
 pub mod NativeArray_ {
     use crate::Global_::SR::indexOutOfBounds;
-    use crate::Native_::{make_compare, mkRefMut, partial_compare, seq_to_iter, vec};
     use crate::Native_::{Func1, Func2, Hashable, Lrc, LrcPtr, MutCell, NullableRef, Seq, Vec};
+    use crate::Native_::{make_compare, mkRefMut, partial_compare, seq_to_iter, vec};
     use crate::System::Collections::Generic::IComparer_1;
 
     // -----------------------------------------------------------

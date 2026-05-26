@@ -1,6 +1,9 @@
 pub mod TimeSpan_ {
-    use crate::Native_::{compare, getHashCode, Hashable, MutCell, ToString, Vec};
-    use crate::String_::{fromString, string};
+    use crate::{
+        Format::TimeSpan::{format_time_span, try_parse_time_span_str},
+        Native_::{Hashable, MutCell, ToString, compare, getHashCode},
+        String_::{fromString, string},
+    };
     use core::ops::{Add, Div, Mul, Sub};
 
     #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -256,106 +259,11 @@ pub mod TimeSpan_ {
         }
 
         pub fn toString(&self, format: string) -> string {
-            let sign = if self.ticks < 0 { "-" } else { "" };
-            let days = self.days().abs();
-            let days_for_c = if days == 0 {
-                "".to_string()
-            } else {
-                format_args!("{}.", days).to_string()
-            };
-            let hours = self.hours().abs();
-            let mins = self.minutes().abs();
-            let secs = self.seconds().abs();
-            let frac = (self.ticks % ticks_per_second).abs();
-            let frac_for_c = if frac == 0 {
-                "".to_string()
-            } else {
-                format_args!(".{:07}", frac).to_string()
-            };
-            let frac_for_g = if frac == 0 {
-                "".to_string()
-            } else {
-                let mut fraction = format_args!("{:07}", frac).to_string();
-
-                while fraction.ends_with('0') {
-                    fraction.pop();
-                }
-
-                format_args!(".{}", fraction).to_string()
-            };
-            let s = match format.as_str() {
-                "" | "c" => format_args!(
-                    "{}{}{:02}:{:02}:{:02}{}",
-                    sign, days_for_c, hours, mins, secs, frac_for_c
-                )
-                .to_string(),
-                "g" => {
-                    let days = if days == 0 {
-                        "".to_string()
-                    } else {
-                        format_args!("{}:", days).to_string()
-                    };
-
-                    format_args!(
-                        "{}{}{}:{:02}:{:02}{}",
-                        sign, days, hours, mins, secs, frac_for_g
-                    )
-                    .to_string()
-                }
-                "G" => format_args!(
-                    "{}{}:{:02}:{:02}:{:02}.{:07}",
-                    sign, days, hours, mins, secs, frac
-                )
-                .to_string(),
-                //TODO: support more formats, custom formats, etc.
-                _ => format_args!(
-                    "{}{}{:02}:{:02}:{:02}{}",
-                    sign, days_for_c, hours, mins, secs, frac_for_c
-                )
-                .to_string(),
-            };
-            fromString(s)
+            fromString(format_time_span(self, format.as_str()))
         }
 
         fn try_parse_str(s: &str) -> Result<TimeSpan, ()> {
-            let error = Err(());
-            let s = s.trim();
-            let isNeg = s.starts_with('-');
-            let s = if isNeg { &s[1..] } else { s };
-            let hms = s.split(':').collect::<Vec<&str>>();
-            if s.contains('-') || hms.len() > 3 {
-                error
-            } else {
-                let (d, h, m, s) = if hms.len() == 1 {
-                    (hms[0], "0", "0", "0")
-                } else {
-                    let (d, h) = if let Some(dh) = hms[0].split_once('.') {
-                        dh
-                    } else {
-                        ("0", hms[0])
-                    };
-                    let m = hms[1];
-                    let s = if hms.len() > 2 { hms[2] } else { "0" };
-                    (d, h, m, s)
-                };
-                let d = d.parse::<u32>();
-                let h = h.parse::<u32>();
-                let m = m.parse::<u32>();
-                let s = s.parse::<f64>();
-                match (d, h, m, s) {
-                    (Ok(d), Ok(h), Ok(m), Ok(s))
-                        if d < 10675200 && h < 24 && m < 60 && s < 60.0 =>
-                    {
-                        let ticks = d as i64 * ticks_per_day
-                            + h as i64 * ticks_per_hour
-                            + m as i64 * ticks_per_minute
-                            + (s * ticks_per_second as f64) as i64;
-                        let ticks = if isNeg { -ticks } else { ticks };
-                        Ok(Self::fromTicks(ticks))
-                    }
-                    _ => error,
-                }
-            }
+            try_parse_time_span_str(s)
         }
 
         pub fn tryParse(s: string, res: &MutCell<TimeSpan>) -> bool {

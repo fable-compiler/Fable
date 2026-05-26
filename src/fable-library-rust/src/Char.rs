@@ -1,6 +1,6 @@
 pub mod Char_ {
-    use crate::NativeArray_::{array_from, Array};
-    use crate::Native_::{compare, MutCell, ToString};
+    use crate::Native_::{MutCell, ToString, compare};
+    use crate::NativeArray_::{Array, array_from};
     use crate::String_::{getCharAt, length, string, toString};
 
     // https://docs.microsoft.com/en-us/dotnet/api/system.globalization.unicodecategory?view=net-6.0
@@ -319,7 +319,7 @@ pub mod Char_ {
             c.is_ascii_punctuation()
         } else {
             c.is_ascii_punctuation() //TODO: imprecise, fix this
-                                     // isUnicodeCategory(c, isPunctuationMask)
+            // isUnicodeCategory(c, isPunctuationMask)
         }
     }
 

@@ -10,9 +10,9 @@ pub mod HashSet_ {
     use std::collections;
 
     use crate::Global_::SR::indexOutOfBounds;
-    use crate::NativeArray_::{array_from, Array};
-    use crate::Native_::{default_eq_comparer, seq_to_iter};
     use crate::Native_::{HashKey, Hashable, LrcPtr, MutCell, Seq, Vec};
+    use crate::Native_::{default_eq_comparer, seq_to_iter};
+    use crate::NativeArray_::{Array, array_from};
     use crate::System::Collections::Generic::IEqualityComparer_1;
 
     use core::fmt::{Debug, Display, Formatter, Result};

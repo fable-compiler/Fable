@@ -1,8 +1,9 @@
 #[cfg(feature = "datetime")]
 pub mod DateOnly_ {
     use crate::{
-        DateTime_::{ticks_to_duration, DateTime, DateTimeKind},
-        Native_::{compare, getHashCode, Hashable, MutCell, ToString},
+        DateTime_::{DateTime, DateTimeKind, ticks_to_duration},
+        Format::DateTime::{format_dotnet_custom, try_parse_date_str},
+        Native_::{Hashable, MutCell, ToString, compare, getHashCode},
         String_::{fromString, string},
         TimeOnly_::TimeOnly,
         TimeSpan_::ticks_per_day,
@@ -133,23 +134,18 @@ pub mod DateOnly_ {
         }
 
         pub fn toString(&self, format: string) -> string {
-            let fmt = match format.as_str() {
-                "" | "d" => "%m/%d/%Y".to_string(),
-                "o" | "O" => "%Y-%m-%d".to_string(),
-                //TODO: support more formats, custom formats, etc.
-                _ => format
-                    .replace("yyyy", "%Y")
-                    .replace("MM", "%m")
-                    .replace("dd", "%d"),
+            let ndt = self.0.and_time(NaiveTime::MIN);
+            let text = match format.as_str() {
+                "" | "d" => self.0.format("%m/%d/%Y").to_string(),
+                "o" | "O" => self.0.format("%Y-%m-%d").to_string(),
+                _ => format_dotnet_custom(ndt, 0, "", format.as_str()),
             };
-            let df = self.0.format(&fmt);
-            fromString(df.to_string())
+            fromString(text)
         }
 
-        fn try_parse_str(s: &str) -> ParseResult<NaiveDate> {
-            s.parse::<NaiveDate>()
-                .or(NaiveDate::parse_from_str(s, "%m/%d/%Y"))
-                .or(NaiveDate::parse_from_str(s, "%m/%d/%Y"))
+        pub(crate) fn try_parse_str(s: &str) -> ParseResult<NaiveDate> {
+            try_parse_date_str(s)
+                .ok_or_else(|| NaiveDate::parse_from_str("", "%Y-%m-%d").unwrap_err())
         }
 
         pub fn tryParse(s: string, res: &MutCell<DateOnly>) -> bool {

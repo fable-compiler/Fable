@@ -1,8 +1,8 @@
 #[cfg(feature = "guid")]
 pub mod Guid_ {
     use crate::DateTimeOffset_::DateTimeOffset;
-    use crate::NativeArray_::{new_array, Array};
-    use crate::Native_::{compare, format, getHashCode, Hashable, MutCell, ToString};
+    use crate::Native_::{Hashable, MutCell, ToString, compare, format, getHashCode};
+    use crate::NativeArray_::{Array, new_array};
     use crate::String_::{fromString, string};
     use uuid::{NoContext, Timestamp, Uuid};
 
@@ -89,18 +89,18 @@ pub mod Guid_ {
                     let data3 = u16::from_be_bytes([bytes[6], bytes[7]]);
                     fromString(format!(
                         "{{0x{:08x},0x{:04x},0x{:04x},{{0x{:02x},0x{:02x},0x{:02x},0x{:02x},0x{:02x},0x{:02x},0x{:02x},0x{:02x}}}}}",
-                    data1,
-                    data2,
-                    data3,
-                    bytes[8],
-                    bytes[9],
-                    bytes[10],
-                    bytes[11],
-                    bytes[12],
-                    bytes[13],
-                    bytes[14],
-                    bytes[15]
-                ))
+                        data1,
+                        data2,
+                        data3,
+                        bytes[8],
+                        bytes[9],
+                        bytes[10],
+                        bytes[11],
+                        bytes[12],
+                        bytes[13],
+                        bytes[14],
+                        bytes[15]
+                    ))
                 }
                 _ => panic!("Format specifier was invalid."),
             }
