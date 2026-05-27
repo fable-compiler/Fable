@@ -24,7 +24,7 @@
     "ghreleases": "^3.0.2",
     "nodemon": "^3.1.14",
     "rollup": "^4.60.4",
-    "terser": "^5.47.1",
+    "terser": "^5.48.0",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
