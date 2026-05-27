@@ -2142,6 +2142,13 @@ but thanks to the optimisation done below we get
 
         ***)
 
+        // A sequence lambda can only be flattened away when its body is a single `return`
+        // (handled by the ArrowFunctionExpression cases of the Unroller below).
+        let isFlattenableSeqLambdaBody (body: Statement array) =
+            match body with
+            | [| ReturnStatement _ |] -> true
+            | _ -> false
+
         // Check if the provided expression is equal to the expected identiferText (as a string)
         let rec (|IdentifierIs|_|) (identifierText: string) expression =
             match expression with
@@ -2171,6 +2178,16 @@ but thanks to the optimisation done below we get
             | expr :: Unroller rest ->
                 match expr with
                 | CalledExpression "toList" exprs -> exprs @ rest
+                // A `delay(fun () -> ...)` whose lambda body cannot be flattened (e.g. a `match`
+                // arm that binds a value before a `for` loop) must not be stripped down to a bare
+                // lambda, which React rejects ("Functions are not valid as a React child"). The
+                // `delay` only adds laziness, which is pointless for a JSX child, so invoke the
+                // lambda directly and let React render the produced sequence.
+                | CallExpression(IdentifierIs "delay",
+                                 [| (ArrowFunctionExpression([||], BlockStatement body, _, _, _)) as lambda |],
+                                 _,
+                                 _) when not (isFlattenableSeqLambdaBody body) ->
+                    CallExpression(lambda, [||], [||], None) :: rest
                 | CalledExpression "delay" exprs -> exprs @ rest
                 | ArrowFunctionExpression([||],
                                           BlockStatement [| ReturnStatement(ArrayExpression(UnrollerFromArray exprs, _),

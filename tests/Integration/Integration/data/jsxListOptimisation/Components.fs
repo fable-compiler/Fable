@@ -163,6 +163,33 @@ let propsCanUseUnbox =
         unbox<JSX_IReactProperty> ("id", "myid")
     ]
 
+let divWithMatchContainingForLoop (counter: int) =
+    Html.div [
+        match counter with
+        | 0 -> Html.div "No items!"
+        | items ->
+            let total = items + 1
+            for i in 1..total do
+                Html.div [
+                    prop.key i
+                    prop.text (i + total)
+                ]
+    ]
+
+let divWithElementBeforeMatchContainingForLoop (counter: int) =
+    Html.div [
+        Html.div "Header"
+        match counter with
+        | 0 -> Html.div "No items!"
+        | items ->
+            let total = items + 1
+            for i in 1..total do
+                Html.div [
+                    prop.key i
+                    prop.text (i + total)
+                ]
+    ]
+
 // Regression test for https://github.com/fable-compiler/Fable/issues/3839
 // String values longer than ~100 chars were wrapped in a Let binding by Fable,
 // causing transformJsxProps to fail with "Cannot detect JSX prop key at compile time".
