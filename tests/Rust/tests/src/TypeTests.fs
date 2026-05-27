@@ -512,6 +512,30 @@ type MangledAbstractClass5(v) =
 type ConcreteClass1() =
     inherit MangledAbstractClass5(2)
 
+// See #3895 - super call in multi-level generic class hierarchy used wrong mangled name
+type IGenericAttach3895<'C> =
+    abstract Attach: 'C -> unit
+
+[<AbstractClass>]
+type GenericAttachBase3895<'C>(log: ResizeArray<string>) =
+    abstract Attach: 'C -> unit
+    default _.Attach(_owner: 'C) = log.Add("Base")
+
+    interface IGenericAttach3895<'C> with
+        member this.Attach(owner: 'C) = this.Attach(owner)
+
+type GenericAttachMid3895<'Container>(log: ResizeArray<string>) =
+    inherit GenericAttachBase3895<'Container>(log)
+    override this.Attach(owner) =
+        base.Attach(owner)
+        log.Add("Mid")
+
+type GenericAttachLeaf3895(log: ResizeArray<string>) =
+    inherit GenericAttachMid3895<string>(log)
+    override this.Attach(owner) =
+        base.Attach(owner)
+        log.Add("Leaf")
+
 type IndexedProps(v: int) =
     let mutable v = v
     member _.Item with get (v2: int) = v + v2 and set v2 (s: string) = v <- v2 + int s
@@ -1372,3 +1396,12 @@ let ``Non-mangled interfaces work with classes`` () =
 let ``Can call the base version of a mangled abstract method that was declared above in the hierarchy`` () =
     let c = ConcreteClass1()
     c.MyMethod(4) |> equal 58
+
+// See #3895 - super call in generic class hierarchy was using wrong mangled name
+[<Fact>]
+let ``Super call works correctly in multi-level generic class hierarchy`` () =
+    let log = ResizeArray<string>()
+    let obj = GenericAttachLeaf3895(log)
+    obj.Attach("hello")
+    // Each override delegates to base before logging, so the chain unwinds Base -> Mid -> Leaf
+    List.ofSeq log |> equal [ "Base"; "Mid"; "Leaf" ]
