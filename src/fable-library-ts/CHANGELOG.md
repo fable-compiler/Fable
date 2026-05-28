@@ -1,5 +1,5 @@
 ---
-last_commit_released: b471dc16fc3b5132af77b5974d1669c9b8220cca
+last_commit_released: 63bcd3d90f37cb3934edcc59b5f54f49ffab3896
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.1.0 - 2026-05-28
+
+### 🚀 Features
+
+* *(js/ts/python)* Add missing standard DateTime format specifiers for JS/TS and Python (#4547) ([90f5eb7](https://github.com/fable-compiler/Fable/commit/90f5eb7f61710bc679f6fdec30ff5d864984ac08))
+* *(js/ts/python)* Add missing StringBuilder.Append overloads for numeric types (#4568) ([b402c30](https://github.com/fable-compiler/Fable/commit/b402c30d04bfca8644314ba4b21894abfff6a713))
+
+### 🐞 Bug Fixes
+
+* [JS/TS] Fix DatetimeOffset.ToString("s") (#4596) ([3ce6f3f](https://github.com/fable-compiler/Fable/commit/3ce6f3fd88cc7f67e34e2bbc311e722c55ffbf45))
+* *(js/ts)* Fix datetime custom format off by one year (#4558) ([83bdbb5](https://github.com/fable-compiler/Fable/commit/83bdbb5b34e70eae203831a3a442d477d15911e1))
+* *(js/ts)* Hex format specifier uses no padding unless precision is specified (#4603) ([ba9857a](https://github.com/fable-compiler/Fable/commit/ba9857a4dcbf7ab1f936241f6619fda43e039040))
+* *(js/ts)* Fix Decimal.GetBits returning incorrect mantissa after round arithmetic result (#4561) ([345bcd4](https://github.com/fable-compiler/Fable/commit/345bcd4b99417b304c71059966126fad74cf3a97))
+* *(js/ts)* Fix G/g format specifier corrupting exponential notation when trimming trailing zeros (#4587) ([773c098](https://github.com/fable-compiler/Fable/commit/773c098a8f7ac7e8db1d4e490dec1294a80321ee))
+* *(js/ts/python)* Fix FSharpOption not recognized as union type in F# reflection (#4529) ([d78a37d](https://github.com/fable-compiler/Fable/commit/d78a37db9f4c25eb51fac8afcd320b4ea36c60a7))
+* *(ts)* Enforce browser-only compatibility in fable-library-ts tsconfig (#4563) ([10c81c1](https://github.com/fable-compiler/Fable/commit/10c81c1361208eb61f5fa78c6704e6fccc068fb1))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/b471dc16fc3b5132af77b5974d1669c9b8220cca..63bcd3d90f37cb3934edcc59b5f54f49ffab3896)</small></strong>
 
 ## 2.0.0 - 2026-04-21
 

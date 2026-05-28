@@ -1,5 +1,5 @@
 ---
-last_commit_released: b471dc16fc3b5132af77b5974d1669c9b8220cca
+last_commit_released: 63bcd3d90f37cb3934edcc59b5f54f49ffab3896
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -24,6 +24,37 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.1.0 - 2026-05-28
+
+### 🚀 Features
+
+* *(js/ts/python)* Add missing standard DateTime format specifiers for JS/TS and Python (#4547) ([90f5eb7](https://github.com/fable-compiler/Fable/commit/90f5eb7f61710bc679f6fdec30ff5d864984ac08))
+* *(js/ts/python)* Add missing StringBuilder.Append overloads for numeric types (#4568) ([b402c30](https://github.com/fable-compiler/Fable/commit/b402c30d04bfca8644314ba4b21894abfff6a713))
+
+### 🐞 Bug Fixes
+
+* Check MSBuild exit code instead of stderr for project cracker failure detection (#4564) ([914a616](https://github.com/fable-compiler/Fable/commit/914a61665f0a264bf04da6c7bce6fb3cc87eab4c))
+* [JS/TS] Fix DatetimeOffset.ToString("s") (#4596) ([3ce6f3f](https://github.com/fable-compiler/Fable/commit/3ce6f3fd88cc7f67e34e2bbc311e722c55ffbf45))
+* [Rust] Update hashing and datetime tests (#4613) ([9d39037](https://github.com/fable-compiler/Fable/commit/9d390376fd2c81f76fde70c522b59f61a9c9175d))
+* *(all)* Duplicate LetRec bindings during inline expansion (#4592) ([62612a5](https://github.com/fable-compiler/Fable/commit/62612a5bb42644934b7573b7cf8f9db930c5dc37))
+* *(all)* Forward --pathmap: option to FCS so CallerFilePath respects (PathMap) (#4585) ([764c383](https://github.com/fable-compiler/Fable/commit/764c3838bc7057e119435ddeb12febc5c171d838))
+* *(all)* Fix super call in multi-level generic class hierarchy using wrong mangled name (#4414) ([db1d4d2](https://github.com/fable-compiler/Fable/commit/db1d4d2e8cdbb9d5a16856c91192c1f0fab3f783))
+* *(beam)* Handle string binaries in Seq enumerator (#4591) ([6e78058](https://github.com/fable-compiler/Fable/commit/6e780589b5dba114ffe2238c973f26e329e048aa))
+* *(js/ts)* Fix JSX props with long string values causing compile error (fixes #3839) (#4545) ([d828a46](https://github.com/fable-compiler/Fable/commit/d828a461797e3f33bf4ab99b46030d16b29771e6))
+* *(js/ts)* Fix datetime custom format off by one year (#4558) ([83bdbb5](https://github.com/fable-compiler/Fable/commit/83bdbb5b34e70eae203831a3a442d477d15911e1))
+* *(js/ts)* Hex format specifier uses no padding unless precision is specified (#4603) ([ba9857a](https://github.com/fable-compiler/Fable/commit/ba9857a4dcbf7ab1f936241f6619fda43e039040))
+* *(js/ts)* Fix Decimal.GetBits returning incorrect mantissa after round arithmetic result (#4561) ([345bcd4](https://github.com/fable-compiler/Fable/commit/345bcd4b99417b304c71059966126fad74cf3a97))
+* *(js/ts)* Fix G/g format specifier corrupting exponential notation when trimming trailing zeros (#4587) ([773c098](https://github.com/fable-compiler/Fable/commit/773c098a8f7ac7e8db1d4e490dec1294a80321ee))
+* *(js/ts)* Add support for `match` clauses in `JSX.create` (#4620) ([616edca](https://github.com/fable-compiler/Fable/commit/616edca568890549ff81cfa18ab32ca0b807c8eb))
+* *(js/ts)* Don't spread last arg in String.Concat call (#4621) ([3de580e](https://github.com/fable-compiler/Fable/commit/3de580e4447ed0090a79648caa8f1e5003bac91d))
+* *(js/ts)* Inline AttachMembers members at call sites (#4622) ([63bcd3d](https://github.com/fable-compiler/Fable/commit/63bcd3d90f37cb3934edcc59b5f54f49ffab3896))
+* *(js/ts/python)* Fix FSharpOption not recognized as union type in F# reflection (#4529) ([d78a37d](https://github.com/fable-compiler/Fable/commit/d78a37db9f4c25eb51fac8afcd320b4ea36c60a7))
+* *(python)* Fix regex lookbehind patterns being incorrectly converted (#4560) ([4ce5cd7](https://github.com/fable-compiler/Fable/commit/4ce5cd7b14a533aa3a08fe14c108ec30d662623f))
+* *(python)* Avoid duplicate captured argument in hoisted guards (#4610) (#4611) ([90aec48](https://github.com/fable-compiler/Fable/commit/90aec483296d26549aedf9eaf46f0825d70a4022))
+* *(ts)* Enforce browser-only compatibility in fable-library-ts tsconfig (#4563) ([10c81c1](https://github.com/fable-compiler/Fable/commit/10c81c1361208eb61f5fa78c6704e6fccc068fb1))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/b471dc16fc3b5132af77b5974d1669c9b8220cca..63bcd3d90f37cb3934edcc59b5f54f49ffab3896)</small></strong>
 
 ## 5.0.0 - 2026-04-21
 
