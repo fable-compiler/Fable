@@ -316,6 +316,13 @@ type ConcreteAttachMembersImpl() =
     inherit AbstractAttachMembersBase()
     override _.GetValue() = "hello"
 
+[<AttachMembers>]
+type ClassWithInlineAttachments() =
+    static member inline one = ClassWithInlineAttachments()
+    static member inline create (label: string) = label + "!"
+    member inline _.greet name = "hi " + name
+    member _.regular x = x + 1
+
 module TaggedUnion =
     type Base<'Kind> =
         abstract kind: 'Kind
@@ -490,6 +497,13 @@ let tests =
         let instance = ConcreteAttachMembersImpl() :> AbstractAttachMembersBase
         instance.GetValue() |> equal "hello"
         instance.GetValueWrapped() |> equal "[hello]"
+
+    testCase "Inline members on AttachMembers class are inlined at call site" <| fun _ ->
+        ClassWithInlineAttachments.one |> ignore
+        ClassWithInlineAttachments.create "ok" |> equal "ok!"
+        let instance = ClassWithInlineAttachments()
+        instance.greet "Pepe" |> equal "hi Pepe"
+        instance.regular 3 |> equal 4
 
 #if FABLE_COMPILER
     testCase "Can type test interfaces decorated with Global" <| fun () ->
