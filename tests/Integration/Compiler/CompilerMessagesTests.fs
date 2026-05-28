@@ -43,4 +43,36 @@ let tests =
       |> Assert.Exists.warningWith "Incomplete pattern matches on this expression"
       |> Assert.Exists.warningWith "The result of this expression has type 'int' and is implicitly ignored."
       |> ignore
+
+    testCase "Setting a non-property member in jsOptions results in specific error" <| fun _ ->
+      let source =
+        """
+open Fable.Core.JsInterop
+
+type Response =
+    abstract fn: int -> int
+    abstract prop: bool with get, set
+
+let res = jsOptions<Response> (fun o -> o.fn <- (fun i -> i))
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cannot set a non-property member in 'jsOptions'"
+      |> ignore
+
+    testCase "Setting only settable properties in jsOptions succeeds" <| fun _ ->
+      let source =
+        """
+open Fable.Core.JsInterop
+
+type Response =
+    abstract fnProp: (int -> int) with get, set
+    abstract prop: bool with get, set
+
+let res = jsOptions<Response> (fun o ->
+    o.fnProp <- (fun i -> i)
+    o.prop <- false)
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
   ]
