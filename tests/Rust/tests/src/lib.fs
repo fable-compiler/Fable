@@ -8,8 +8,8 @@ let _imports() =
 
 // [<OuterAttr("cfg", [|"not(feature = \"no_std\")"|])>]
 #if FABLE_COMPILER
-// On .NET, xunit.v3 generates the test runner entry point; only emit our own
-// entry point when transpiling (Rust needs a `fn main`).
+// Rust needs a `fn main`, so emit the entry point when transpiling. On .NET,
+// xunit.v3 generates the test runner entry point instead (see the .fsproj).
 [<EntryPoint>]
 let main _args = 0
 #endif
