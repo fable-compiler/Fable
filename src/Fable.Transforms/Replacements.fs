@@ -884,6 +884,24 @@ let makePojoFromLambda com (arg: Expr) =
 
                     // This is a nested property
                     groupByGetter updatedAcc tail
+
+                // Assigning to a non-property interface member (a plain abstract method
+                // declared without `with get, set`) is invalid F#: the compiler rejects it
+                // with `FS0971: Undefined value 'copyOfStruct'`. Fable's FCS fork doesn't
+                // surface that diagnostic, instead handing us the address of a throwaway
+                // local (`&copyOfStruct`) compiled as `let addr = FSharpRef(...) in addr.contents <- value`.
+                | Let(addrIdent,
+                      Call(Import(importInfo, _, _), callInfo, _, _),
+                      Set(IdentExpr setIdent, ExprSet _, _, _, r)) when
+                    importInfo.Selector = "FSharpRef"
+                    && List.contains "new" callInfo.Tags
+                    && setIdent.Name = addrIdent.Name
+                    ->
+                    "Cannot set a non-property member in 'jsOptions'. Declare the interface member as a settable property, e.g. `abstract X: T with get, set`."
+                    |> addError com [] r
+
+                    groupByGetter acc tail
+
                 | _ -> groupByGetter acc tail
 
         let root = groupByGetter (MakePojoFromLambdaContext("/")) flattened
