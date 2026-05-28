@@ -2,5 +2,7 @@
 module Program
 ()
 #else
-module Program = let [<EntryPoint>] main _ = 0
+module Program
+// On .NET, xunit.v3 generates the test runner entry point automatically.
+()
 #endif
