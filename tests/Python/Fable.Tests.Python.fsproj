@@ -30,6 +30,13 @@
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Run xunit serially: several MailboxProcessor/async tests assert from a
+         fire-and-forget `Async.StartImmediate`, whose continuation can run after
+         its test collection is torn down. xunit.v3 reports such background-thread
+         exceptions as catastrophic (v2 ignored them), which fails on Windows. -->
+    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="../Js/Main/Globs/*.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="Misc/Util2.fs" />
