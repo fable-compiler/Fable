@@ -9,17 +9,19 @@ open EasyBuild.Tools.Git
 
 let createGithubRelease (version: LastVersionFinder.Version) =
 
-    let struct (lastestTag, _) =
-        Command.ReadAsync("git", "describe --abbrev=0 --tags")
-        |> Async.AwaitTask
-        |> Async.RunSynchronously
-
     let versionText = version.Version.ToString()
+
+    let releaseExists =
+        try
+            Command.Run("gh", $"release view {versionText}")
+            true
+        with :? ExitCodeException ->
+            false
 
     // Only create a Github release if the tag doesn't exist
     // It can happens that we trigger a release where Fable.Cli
     // is already up to date.
-    if lastestTag.Trim() <> versionText then
+    if not releaseExists then
         Command.Run(
             "gh",
             CmdLine.empty
@@ -59,6 +61,6 @@ let handle (args: string list) =
 
     match LastVersionFinder.tryFindLastVersion changelogContent with
     | Ok version ->
-        createReleaseCommitAndPush version
+        // createReleaseCommitAndPush version
         createGithubRelease version
     | Error err -> err.ToText() |> failwith
