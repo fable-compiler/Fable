@@ -1135,6 +1135,22 @@ let tests = testList "Strings" [
         String.Concat(seq { yield "a"; yield "b"; yield "c" })
         |> equal "abc"
 
+    testCase "System.String.Concat with long string arg works" <| fun () ->
+        // Fixed-arity overload (string, string) must not spread the last argument
+        // as characters, otherwise large strings overflow the call stack.
+        let n = 1_000_000
+        let big = String.replicate n "a"
+        let s = String.Concat("p", big)
+        s.Length |> equal (n + 1)
+
+    testCase "Interpolated string with %s and long string value works" <| fun () ->
+        // Lowered by the F# compiler to String.Concat(prefix, value), which must
+        // not spread the value as characters into the runtime call.
+        let n = 1_000_000
+        let data = String.replicate n "a"
+        let s = $"prefix:%s{data}"
+        s.Length |> equal (n + 7)
+
     testCase "System.String.Normalize works" <| fun () ->
         let name1 = "\u0041\u006d\u00e9\u006c\u0069\u0065";
         let name2 = "\u0041\u006d\u0065\u0301\u006c\u0069\u0065";
