@@ -2730,9 +2730,14 @@ module Util =
                 match tryGlobalOrImportedFSharpEntity com e with
                 | Some expr -> Some expr
                 // AttachMembers/Pojo classes behave
-                // the same as global/imported classes
+                // the same as global/imported classes — except for inline members,
+                // whose declaration is erased from the emitted class. Returning a
+                // class expression here would route the call to `callAttachedMember`
+                // and emit a property access on a member that does not exist.
+                // Skipping it lets the call fall through to the `Inlined` pattern.
                 | None when
                     com.Options.Language <> Rust
+                    && not (isInline memb)
                     && (isAttachMembersEntity com e || isPojoDefinedByConsArgsFSharpEntity e)
                     ->
                     FsEnt.Ref e |> entityIdent com |> Some
