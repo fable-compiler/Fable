@@ -1776,9 +1776,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [ MaybeNullable(Array _) | MaybeNullable(IEnumerable) ] ->
             Helper.LibCall(com, "String", "join", t, ((makeStrConst "") :: args), ?loc = r)
             |> Some
-        | _ ->
-            Helper.LibCall(com, "String", "concat", t, args, hasSpread = true, ?loc = r)
-            |> Some
+        | _ -> Helper.LibCall(com, "String", "concat", t, args, ?loc = r) |> Some
     | "CompareOrdinal", None, _ -> Helper.LibCall(com, "String", "compareOrdinal", t, args, ?loc = r) |> Some
     | "Normalize", Some str, _ ->
         match args with
