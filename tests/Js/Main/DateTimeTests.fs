@@ -876,6 +876,31 @@ let tests =
         let r, _date = DateTime.TryParse(invalidAmericanDate, CultureInfo.InvariantCulture, DateTimeStyles.None)
         r |> equal false
 
+    testCase "DateTime.TryParse rejects JS-permissive strings that .NET rejects" <| fun () ->
+        // JS's Date constructor treats unrecognised words as timezone abbreviations, so it
+        // accepts strings .NET rejects: "ABC 6" (ABC), "XYZ 2024" (XYZ), and words that merely
+        // start with a month name like "Maybe 6" (May) or "Junk 2024" (Jun).
+        [ "ABC 6"; "XYZ 2024"; "Maybe 6"; "Junk 2024" ]
+        |> List.map (fun s -> fst (DateTime.TryParse s))
+        |> equal [ false; false; false; false ]
+
+        // Recognised date words (weekday / month names, GMT) must still parse, matching .NET.
+        let r1, d1 = DateTime.TryParse("Sun, 06 Nov 1994 08:49:37 GMT")
+        r1 |> equal true
+        d1.Year |> equal 1994
+
+        let r2, d2 = DateTime.TryParse("Mon, 15 Jan 2024")
+        r2 |> equal true
+        d2.Year |> equal 2024
+
+        let r3, d3 = DateTime.TryParse("January 15, 2024")
+        r3 |> equal true
+        d3.Year |> equal 2024
+
+        let r4, d4 = DateTime.TryParse("9/10/2014 1:50:34 PM")
+        r4 |> equal true
+        d4.Year |> equal 2014
+
     testCase "DateTime.Today works" <| fun () ->
         let d = DateTime.Today
         equal 0 d.Hour
