@@ -590,6 +590,18 @@ export function maxValue() {
   return DateTime(253402300799999, DateTimeKind.Utc);
 }
 
+// The only date words .NET's invariant parser recognises: month names, weekday names,
+// meridiem designators and zone markers (plus the ISO "T" separator). Anything else is
+// rejected. Used to reject JS-permissive inputs (see `parseRaw`).
+const recognizedDateWords = new Set([
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+  "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
+  "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+  "mon", "tue", "wed", "thu", "fri", "sat", "sun",
+  "am", "pm", "gmt", "utc", "ut", "t", "z",
+]);
+
 export function parseRaw(input: string): [Date, Offset] {
   function fail() {
     throw new Exception(`The string is not a valid Date: ${input}`);
@@ -599,12 +611,7 @@ export function parseRaw(input: string): [Date, Offset] {
     fail();
   }
 
-  // Pre-validate: reject strings that JavaScript's Date constructor accepts but .NET does not.
-  // JS Date (V8) is overly permissive — e.g. "ABC 6" is accepted because V8 treats "ABC" as a
-  // timezone abbreviation. .NET DateTime.TryParse requires a recognisable date format.
-  // Valid date strings must start with a digit, or with a recognised month name (Jan–Dec).
-  // See #3858.
-  if (!/^\s*(?:\d|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/i.test(input)) {
+  if ((input.match(/[a-z]+/gi) ?? []).some(word => !recognizedDateWords.has(word.toLowerCase()))) {
     fail();
   }
 
