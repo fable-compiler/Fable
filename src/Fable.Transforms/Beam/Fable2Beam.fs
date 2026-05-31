@@ -19,6 +19,44 @@ let rec mustWrapOption =
     | Option _ -> true
     | _ -> false
 
+/// Simplify the process-dict ref round-trip that arises when an immutable array
+/// *literal* is passed to an FFI/Emit binding that immediately derefs it.
+///
+/// Fable-BEAM materialises an array literal as a fresh, inline process-dict ref
+/// (`fable_utils:new_ref([...])`). A binding that reads it back with `erlang:get($N)`
+/// (or bare `get($N)`) therefore produces `erlang:get(fable_utils:new_ref([...]))` —
+/// a round-trip that yields the literal straight back while leaking a never-erased
+/// process-dict entry.
+///
+/// This is recognised on the Beam AST: when argument N is an inline `new_ref(list)`
+/// and *every* occurrence of `$N` in the (short, authored) macro template is wrapped
+/// by a deref, the deref is dropped from the template and the underlying list is
+/// passed directly. Gating on the argument's AST shape — instead of parsing rendered
+/// Erlang — keeps this robust; a ref-typed *variable* (a bound/mutable array) is left
+/// untouched, so its deref is preserved.
+let private simplifyArrayRefDerefs (macro: string) (args: Beam.ErlExpr list) : string * Beam.ErlExpr list =
+    let folder (macroAcc: string, argsAcc) (i, arg) =
+        match arg with
+        | Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ inner ]) ->
+            let ph = $"$%d{i}"
+            // A control-char sentinel (never present in a macro template) marks the
+            // deref-wrapped placeholders. `erlang:get` is replaced first so its inner
+            // `get(` isn't consumed by the bare form below.
+            let sentinel = "\u0000"
+
+            let stripped =
+                macroAcc.Replace($"erlang:get(%s{ph})", sentinel).Replace($"get(%s{ph})", sentinel)
+
+            // Collapse only when the placeholder was present and every occurrence was
+            // deref-wrapped — a surviving bare `$N` means some use site still needs the ref.
+            if stripped.Contains(sentinel) && not (stripped.Contains(ph)) then
+                stripped.Replace(sentinel, ph), argsAcc @ [ inner ]
+            else
+                macroAcc, argsAcc @ [ arg ]
+        | _ -> macroAcc, argsAcc @ [ arg ]
+
+    args |> List.indexed |> List.fold folder (macro, [])
+
 let unwrapOptionalArg (arg: Fable.Expr) =
     match arg with
     | Fable.Value(Fable.NewOption(Some inner, _, _), _) -> inner
@@ -741,7 +779,8 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             transformReceive com ctx emitInfo typ
         else
             let args = emitInfo.CallInfo.Args |> List.map (transformExpr com ctx)
-            Beam.ErlExpr.Emit(emitInfo.Macro, args)
+            let macro, args = simplifyArrayRefDerefs emitInfo.Macro args
+            Beam.ErlExpr.Emit(macro, args)
 
     | TryCatch(body, catch_, finalizer, _range) ->
         let erlBody = transformExpr com ctx body

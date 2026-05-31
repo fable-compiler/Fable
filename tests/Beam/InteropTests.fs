@@ -121,6 +121,16 @@ let boolToString (x: bool) : string = nativeOnly
 [<Emit("case $0 of undefined -> <<\"none\">>; Value -> Value end")>]
 let emitWithValueCaseVar (x: string option) : string = nativeOnly
 
+// FFI binding that derefs its array argument. Fable-BEAM represents arrays as
+// process-dict refs, so an array literal passed here would otherwise generate a
+// `erlang:get(fable_utils:new_ref([...]))` round-trip; the compiler must collapse
+// that to a plain list so the BIF receives `[{...}]` directly.
+[<Emit("maps:from_list(erlang:get($0))")>]
+let mapFromPairs (pairs: (string * int) array) : obj = nativeOnly
+
+[<Emit("maps:get($0, $1)")>]
+let mapGet (key: string) (m: obj) : int = nativeOnly
+
 #endif
 
 // ============================================================
@@ -176,6 +186,17 @@ let ``test emitErlExpr can call Erlang functions`` () =
 #if FABLE_COMPILER
     let result: int = emitErlExpr (3, 4) "erlang:max($0, $1)"
     equal 4 result
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test array literal passed to deref FFI binding round-trips correctly`` () =
+#if FABLE_COMPILER
+    // The literal flows straight into maps:from_list without a process-dict ref.
+    let m = mapFromPairs [| ("a", 1); ("b", 2) |]
+    equal 1 (mapGet "a" m)
+    equal 2 (mapGet "b" m)
 #else
     ()
 #endif
