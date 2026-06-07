@@ -1000,6 +1000,17 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   `fable_utils:new_ref([...])`. `derefArr`/`wrapArr` helpers in Replacements convert
   between refs and plain lists for bulk operations. Binary comparison operators on arrays
   use `fable_comparison:compare(A, B) op 0`. TypeTest for arrays uses `is_reference`.
+  When an array *literal* flows directly into an FFI/Emit binding that derefs its
+  argument (e.g. `maps:from_list(erlang:get($0))`), the naive output is
+  `...erlang:get(fable_utils:new_ref([...]))` — a pointless process-dict round-trip
+  on an immutable literal (it also leaks an un-erased process-dict entry).
+  `simplifyArrayRefDerefs` in `Fable2Beam.fs` cancels it on the Beam AST when
+  building an `Emit` node: if an argument is an inline `new_ref(list)` and *every*
+  occurrence of its `$N` placeholder in the macro template is deref-wrapped
+  (`erlang:get($N)`/`get($N)`), the deref is dropped from the template and the
+  underlying list is passed directly. Gating on the argument's AST shape (rather than
+  parsing rendered Erlang) keeps it robust; a ref-typed *variable* (a bound/mutable
+  array) keeps its deref.
 - **Byte arrays via atomics**: Byte arrays (`Array<byte>`) use Erlang's `atomics` module
   for true O(1) mutable read/write. Represented as `{byte_array, Size, AtomicsRef}` tuples.
   Runtime helpers in `fable_utils.erl` handle both direct tuples and process-dict
