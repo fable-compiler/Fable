@@ -20,6 +20,30 @@ let listLength (xs: 'a list) : int = nativeOnly
 [<Emit("<<$0/binary, $1/binary>>")>]
 let concatBinaries (a: string) (b: string) : string = nativeOnly
 
+// Substitution must be a single left-to-right pass:
+// a `$N` sequence appearing inside an already-substituted argument
+// (here the string literal "$1") must NOT be re-substituted.
+[<Emit("{$0, $1}")>]
+let emitPair (a: string) (b: int) : string * int = nativeOnly
+
+// `$1` substitution must not corrupt the `$10` placeholder (full integer
+// index is parsed, not a naive textual replace).
+[<Emit("[$0, $1, $10]")>]
+let emitIndex10
+    (a0: int)
+    (a1: int)
+    (a2: int)
+    (a3: int)
+    (a4: int)
+    (a5: int)
+    (a6: int)
+    (a7: int)
+    (a8: int)
+    (a9: int)
+    (a10: int)
+    : int list =
+    nativeOnly
+
 // ============================================================
 // Import tests
 // ============================================================
@@ -157,6 +181,27 @@ let ``test Emit can call Erlang BIFs`` () =
 let ``test Emit can use binary syntax`` () =
 #if FABLE_COMPILER
     concatBinaries "Hello" "World" |> equal "HelloWorld"
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Emit does not re-substitute $N inside argument text`` () =
+#if FABLE_COMPILER
+    // The string argument "$1" must survive verbatim — the substituter must
+    // not replace the "$1" that appears inside the already-printed argument.
+    let a, b = emitPair "$1" 7
+    equal "$1" a
+    equal 7 b
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Emit $1 does not corrupt $10 placeholder`` () =
+#if FABLE_COMPILER
+    let result = emitIndex10 0 99 2 3 4 5 6 7 8 9 1010
+    equal [ 0; 99; 1010 ] result
 #else
     ()
 #endif
