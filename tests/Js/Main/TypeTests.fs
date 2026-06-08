@@ -1393,6 +1393,15 @@ let tests =
         | ex -> (false, "unknown", 0.)
         |> equal (true, "Code: 5", 5.5)
 
+    testCase "Exception ToString contains the message" <| fun () -> // See #4197
+        let msg =
+            try
+                failwith "test message"
+                ""
+            with ex -> ex.ToString()
+        // .NET returns "System.Exception: test message", Fable returns just the message
+        msg.Contains("test message") |> equal true
+
     testCase "reraise works" <| fun () ->
         try
             try
