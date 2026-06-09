@@ -1678,8 +1678,8 @@ let formattableString
     (args: Expr list)
     =
     match i.CompiledName, thisArg, args with
-    | "Create", None, [ str; args ] -> objExpr [ "str", str; "args", args ] |> Some
-    | "get_Format", Some x, _ -> getFieldWith r t x "str" |> Some
+    | "Create", None, [ str; args ] -> objExpr [ "fmt", str; "args", args ] |> Some
+    | "get_Format", Some x, _ -> getFieldWith r t x "fmt" |> Some
     | "get_ArgumentCount", Some x, _ ->
         // Use int32(len()) to ensure consistent return type
         let lenExpr =
