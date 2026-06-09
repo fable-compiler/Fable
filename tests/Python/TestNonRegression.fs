@@ -199,6 +199,13 @@ let ``test attached static members on union work`` () =
     equal (Issue4634.A "prop") Issue4634.Demo.propDefault
     equal (Issue4634.A "meth") (Issue4634.Demo.methDefault())
 
+[<Fact>]
+let ``test attached static members on union work across modules`` () =
+    // CrossModuleDemo is defined in MiscTestsHelper.fs, so these use sites compile to an
+    // import of the union rather than a same-file identifier — covering the cross-file path.
+    equal (Fable.Tests.MiscTestsHelper.A "prop") Fable.Tests.MiscTestsHelper.CrossModuleDemo.propDefault
+    equal (Fable.Tests.MiscTestsHelper.A "meth") (Fable.Tests.MiscTestsHelper.CrossModuleDemo.methDefault())
+
 module Issue3972 =
     type IInterface =
         abstract member LOL : int

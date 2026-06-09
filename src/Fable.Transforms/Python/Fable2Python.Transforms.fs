@@ -4706,15 +4706,21 @@ let transformStaticProperty
 
         // Check if the property type references the current class (forward reference needed)
         let typeAnnotation =
-            match propType with
-            | Fable.DeclaredType(entRef, _) when
-                (let e = com.GetEntity(entRef) in e.DisplayName = name || e.FullName = ent.FullName)
-                ->
-                // Use string forward reference for self-referencing types. For unions the
-                // type alias (`name`) is only defined after the base class that holds this
-                // descriptor, so a bare name would raise NameError at class-body evaluation.
+            // The property type is self-referencing when it is the enclosing entity. Compare by
+            // FullName as well as DisplayName: for unions the descriptor lives on the base class
+            // and the type alias (`name`) is only defined afterwards, so a bare name would raise
+            // NameError at class-body evaluation.
+            let isSelfReference =
+                match propType with
+                | Fable.DeclaredType(entRef, _) ->
+                    let e = com.GetEntity(entRef)
+                    e.DisplayName = name || e.FullName = ent.FullName
+                | _ -> false
+
+            if isSelfReference then
+                // Use string forward reference for self-referencing types
                 Expression.stringConstant name
-            | _ ->
+            else
                 // Use normal type annotation
                 let ta, _ = Annotation.typeAnnotation com ctx None propType
                 ta

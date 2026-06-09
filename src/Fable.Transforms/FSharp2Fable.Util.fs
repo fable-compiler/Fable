@@ -2745,9 +2745,13 @@ module Util =
                     // plus a private base class (`_Demo`) that actually holds the attached static
                     // members. Referencing the type alias to access a static member fails at runtime,
                     // so use the underscore-prefixed base class instead (same convention as reflection).
+                    // `entityIdent` yields a bare identifier for a same-file union and an import for a
+                    // union defined in another file; both must be redirected to the base class.
                     match com.Options.Language, classExpr with
                     | Python, Fable.IdentExpr ident when e.IsFSharpUnion ->
                         Fable.IdentExpr { ident with Name = "_" + ident.Name } |> Some
+                    | Python, Fable.Import(info, typ, range) when e.IsFSharpUnion ->
+                        Fable.Import({ info with Selector = "_" + info.Selector }, typ, range) |> Some
                     | _ -> Some classExpr
                 | None -> None
 
