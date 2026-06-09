@@ -1399,7 +1399,7 @@ let tests =
                 failwith "test message"
                 ""
             with ex -> ex.ToString()
-        // .NET returns "System.Exception: test message", Fable returns just the message
+
         msg.Contains("test message") |> equal true
 
     testCase "reraise works" <| fun () ->
