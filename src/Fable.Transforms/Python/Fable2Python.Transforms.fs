@@ -4621,6 +4621,7 @@ let getInitialValue
     (className: string)
     (getterMemb: Fable.MemberDecl)
     (wrapInLambda: bool)
+    (isUnion: bool)
     (fallback: Expression)
     : (Expression * bool * string list * Statement list)
     =
@@ -4628,7 +4629,16 @@ let getInitialValue
     | Fable.Value(kind, r) ->
         // Use transformValue for literal values - never wrapped
         let value, stmts = transformValue com ctx r kind
-        value, false, [], stmts
+
+        if isUnion && wrapInLambda then
+            // A union is emitted as a base class (`_Demo`) holding the static property
+            // followed by the case classes (`Demo_A`, ...). Constructing a case eagerly in
+            // the class body raises `NameError` because the case class doesn't exist yet.
+            // Defer with a lambda (StaticLazyProperty); this also matches F# getter
+            // semantics where the body is re-evaluated on each access.
+            Expression.lambda (Arguments.arguments [], value), true, [], stmts
+        else
+            value, false, [], stmts
     | Fable.Get(Fable.IdentExpr _, Fable.FieldGet fieldInfo, _, _) when
         fieldInfo.Name.EndsWith("@", System.StringComparison.Ordinal)
         ->
@@ -4697,8 +4707,12 @@ let transformStaticProperty
         // Check if the property type references the current class (forward reference needed)
         let typeAnnotation =
             match propType with
-            | Fable.DeclaredType(entRef, _) when com.GetEntity(entRef).DisplayName = name ->
-                // Use string forward reference for self-referencing types
+            | Fable.DeclaredType(entRef, _) when
+                (let e = com.GetEntity(entRef) in e.DisplayName = name || e.FullName = ent.FullName)
+                ->
+                // Use string forward reference for self-referencing types. For unions the
+                // type alias (`name`) is only defined after the base class that holds this
+                // descriptor, so a bare name would raise NameError at class-body evaluation.
                 Expression.stringConstant name
             | _ ->
                 // Use normal type annotation
@@ -4727,7 +4741,7 @@ let transformStaticProperty
         let fallback = Util.getDefaultValueForType com ctx getterMemb.Body.Type
 
         let initialValue, isFactory, externalFields, initialValueStmts =
-            getInitialValue com ctx name getterMemb true fallback
+            getInitialValue com ctx name getterMemb true ent.IsFSharpUnion fallback
 
         let propExpr = makeStaticProperty getterMemb.Body.Type [ initialValue ] isFactory
 
@@ -4744,7 +4758,7 @@ let transformStaticProperty
         let fallback = Util.getDefaultValueForType com ctx getterMemb.Body.Type
 
         let initialValue, isFactory, externalFields, initialValueStmts =
-            getInitialValue com ctx name getterMemb true fallback
+            getInitialValue com ctx name getterMemb true false fallback
 
         // Check if setter has custom logic beyond simple assignment to the property itself
         // For simple properties, we don't need setter functions since StaticProperty handles storage

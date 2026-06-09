@@ -2740,7 +2740,15 @@ module Util =
                     && not (isInline memb)
                     && (isAttachMembersEntity com e || isPojoDefinedByConsArgsFSharpEntity e)
                     ->
-                    FsEnt.Ref e |> entityIdent com |> Some
+                    let classExpr = FsEnt.Ref e |> entityIdent com
+                    // In Python a union is emitted as a public type alias (`Demo = Demo_A | Demo_B`)
+                    // plus a private base class (`_Demo`) that actually holds the attached static
+                    // members. Referencing the type alias to access a static member fails at runtime,
+                    // so use the underscore-prefixed base class instead (same convention as reflection).
+                    match com.Options.Language, classExpr with
+                    | Python, Fable.IdentExpr ident when e.IsFSharpUnion ->
+                        Fable.IdentExpr { ident with Name = "_" + ident.Name } |> Some
+                    | _ -> Some classExpr
                 | None -> None
 
             match moduleOrClassExpr, callInfo.ThisArg with
