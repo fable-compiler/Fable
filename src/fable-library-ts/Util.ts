@@ -84,6 +84,10 @@ export class Exception {
   constructor(msg?: string) {
     this.message = msg ?? "";
   }
+
+  toString() {
+    return this.message;
+  }
 }
 
 export function isException(x: any) {
