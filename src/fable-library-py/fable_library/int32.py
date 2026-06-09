@@ -24,8 +24,8 @@ def div_rem[T: SupportsInt](x: T, y: T, out: FSharpRef[T]) -> T: ...
 
 def div_rem[T: SupportsInt](x: T, y: T, out: FSharpRef[T] | None = None) -> T | tuple[T, T]:
     # Rust wrapper types already use truncated division and remainder
-    q = x // y  # type: ignore[operator]
-    r = x % y  # type: ignore[operator]
+    q = x // y  # type: ignore[operator]  # ty: ignore[unsupported-operator]
+    r = x % y  # type: ignore[operator]  # ty: ignore[unsupported-operator]
     if out is None:
         return (q, r)
     out.contents = r
