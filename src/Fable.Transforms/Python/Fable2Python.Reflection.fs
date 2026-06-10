@@ -40,7 +40,7 @@ let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics
 
                 let name =
                     if Util.shouldUseRecordFieldNaming ent then
-                        fi.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                        fi.Name |> Naming.toFieldSnakeCase |> Helpers.clean
                     else
                         fi.Name |> Naming.toSnakeCase |> Helpers.clean
 
