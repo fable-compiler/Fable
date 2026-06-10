@@ -4097,9 +4097,13 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
             let fieldAnnotations =
                 uci.UnionCaseFields
                 |> List.map (fun field ->
-                    // Convert to snake_case and clean to remove invalid characters like apostrophes
-                    // Handles: "Item" -> "item", "Item1" -> "item1", "MyField" -> "my_field"
-                    let fieldName = field.Name |> Naming.toSnakeCase |> Helpers.clean
+                    // Convert to snake_case and clean to remove invalid characters like apostrophes.
+                    // Use the record field naming convention (appends '_' to camelCase names) so a
+                    // field like "name" becomes "name_" and does not collide with the inherited
+                    // `Union.name` property, which @dataclass would otherwise treat as a default value
+                    // (causing "non-default argument follows default argument"). See #4645.
+                    // Handles: "Item" -> "item", "Item1" -> "item1", "MyField" -> "my_field", "name" -> "name_"
+                    let fieldName = field.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
                     // Uncurry lambda types for field annotations since union case fields
                     // store uncurried functions at runtime (same as record fields)
                     let fieldType =
