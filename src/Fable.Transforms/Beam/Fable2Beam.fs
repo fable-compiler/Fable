@@ -170,13 +170,13 @@ let resolveImportModuleName (com: IBeamCompiler) (importPath: string) =
     // (e.g., Agent/Types.fs vs Reactive/Types.fs) would both produce module name "types"
     // and the import would be incorrectly treated as a local (self-recursive) call.
     let resolvedImportPath =
-        if System.IO.Path.IsPathRooted(importPath) then
-            System.IO.Path.GetFullPath(importPath)
+        if Path.IsPathRooted(importPath) then
+            Path.GetFullPath(importPath)
         else
-            let currentDir = System.IO.Path.GetDirectoryName(com.CurrentFile)
-            System.IO.Path.GetFullPath(System.IO.Path.Combine(currentDir, importPath))
+            let currentDir = Path.GetDirectoryName(com.CurrentFile)
+            Path.GetFullPath(Path.Combine(currentDir, importPath))
 
-    let currentFileFull = System.IO.Path.GetFullPath(com.CurrentFile)
+    let currentFileFull = Path.GetFullPath(com.CurrentFile)
 
     if resolvedImportPath = currentFileFull then
         None

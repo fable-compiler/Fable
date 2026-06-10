@@ -87,7 +87,7 @@ module Naming =
         |> checkErlKeywords
 
     let moduleNameFromFile (filePath: string) =
-        System.IO.Path.GetFileNameWithoutExtension(filePath)
+        Fable.Path.GetFileNameWithoutExtension(filePath)
         |> fun s -> s.Replace(".", "_").Replace("-", "_")
         |> Fable.Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
 

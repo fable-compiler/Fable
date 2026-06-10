@@ -55,6 +55,22 @@ type State =
         CurrentResults: Map<string, IParseAndCheckResults>
     }
 
+/// Map a REPL language string to its fable-library directory name (used as the
+/// base path for generated library imports).
+let private fableLibraryDir (language: string) =
+    match language.ToLowerInvariant() with
+    | "ts"
+    | "typescript" -> "fable-library-ts"
+    | "py"
+    | "python" -> "fable-library-py"
+    | "php" -> "fable-library-php"
+    | "dart" -> "fable-library-dart"
+    | "rs"
+    | "rust" -> "fable-library-rust"
+    | "beam"
+    | "erlang" -> "fable-library-beam"
+    | _ -> "fable-library-js"
+
 type SourceWriter(sourceMaps: bool, language: string) =
     let sb = System.Text.StringBuilder()
 
@@ -164,7 +180,7 @@ let private compileCode fable fileName fsharpNames fsharpCodes language otherFSh
                         measureTime
                             (fun () ->
                                 fable.Manager.CompileToTargetAst(
-                                    "fable-library-js",
+                                    fableLibraryDir language,
                                     parseResults,
                                     fileName,
                                     typedArrays,
