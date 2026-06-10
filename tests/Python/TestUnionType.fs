@@ -211,3 +211,17 @@ type S = S of string
 let ``test sprintf formats strings cases correctly`` () =
     let s = sprintf "%A" (S "1")
     s |> equal "S \"1\""
+
+// See https://github.com/fable-compiler/Fable/issues/4645
+// A named union case field called `name` collided with the inherited `Union.name`
+// property, which Python's @dataclass treated as a default value.
+type NamedFieldUnion =
+    | NamedCase of name: string * optional: string
+
+[<Fact>]
+let ``test Named union case fields work when a field is called name`` () =
+    let value = NamedCase("v1", "v2")
+    match value with
+    | NamedCase(name, optional) ->
+        name |> equal "v1"
+        optional |> equal "v2"

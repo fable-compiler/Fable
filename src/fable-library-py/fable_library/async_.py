@@ -104,7 +104,7 @@ def ignore(computation: Async[Any]) -> Async[None]:
 
 def parallel[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
     def delayed() -> Async[Array[T]]:
-        tasks: Iterable[Awaitable[T]] = map(start_as_task, computations)  # type: ignore[arg-type]
+        tasks: Iterable[Awaitable[T]] = map(start_as_task, computations)  # type: ignore[arg-type]  # ty: ignore[invalid-assignment, invalid-argument-type]
         all: Future[list[T]] = asyncio.gather(*tasks)
 
         def to_array(results: list[T]) -> Async[Array[T]]:
