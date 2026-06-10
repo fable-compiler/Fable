@@ -380,7 +380,7 @@ let getElementType =
     | _ -> Any
 
 let genericTypeInfoError (name: string) =
-    $"Cannot get type info of generic parameter {name}. Fable erases generics at runtime, try inlining the functions so generics can be resolved at compile time."
+    $"Cannot get type info of generic parameter %s{name}. Fable erases generics at runtime, try inlining the functions so generics can be resolved at compile time."
 
 // This is mainly intended for typeof errors because we want to show the user where the function is originally called
 let changeRangeToCallSite (inlinePath: InlinePath list) (range: SourceLocation option) =
@@ -615,7 +615,7 @@ let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Exp
             | partialArgs -> curriedApply None t curried partialArgs
     | _ ->
         // Check if argTypes.Length < arity?
-        let makeArgIdent i typ = makeTypedIdent typ $"a{i}" // $"a{com.IncrementCounter()}$"
+        let makeArgIdent i typ = makeTypedIdent typ $"a%d{i}" // $"a{com.IncrementCounter()}$"
         let argTypes, returnType = uncurryLambdaType arity [] t
         let argIdents = argTypes |> List.mapi makeArgIdent
         let args = argIdents |> List.map Fable.IdentExpr
@@ -684,7 +684,7 @@ let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
                 | Fable.DelegateType(argTypes, returnType) -> argTypes, returnType
                 | _ -> [], expr.Type
 
-            let makeArgIdent i typ = makeTypedIdent typ $"b{i}" // $"a{com.IncrementCounter()}$"
+            let makeArgIdent i typ = makeTypedIdent typ $"b%d{i}" // $"a{com.IncrementCounter()}$"
             let argIdents = argTypes |> List.mapi makeArgIdent
             let args = argIdents |> List.map Fable.IdentExpr
             let body = curriedApply None returnType expr args
@@ -1027,7 +1027,7 @@ let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: Call
             com
             ctx.InlinePath
             r
-            $"{i.CompiledName} is being compiled without replacement, this will fail at runtime."
+            $"%s{i.CompiledName} is being compiled without replacement, this will fail at runtime."
 
         let runtimeMsg =
             "A function supposed to be replaced by native code has been called, please check."
@@ -1248,10 +1248,10 @@ module AnonRecords =
             | [] -> unreachable ()
             | [ expectedType ] ->
                 let expectedType = expectedType |> formatType
-                $"Object doesn't contain field '{fieldName}' of type '{expectedType}' required by interface '{interfaceName}'"
+                $"Object doesn't contain field '%s{fieldName}' of type '%s{expectedType}' required by interface '%s{interfaceName}'"
             | _ ->
                 let expectedTypes = expectedTypes |> formatTypes
-                $"Object doesn't contain field '{fieldName}' of any type [{expectedTypes}] required by interface '{interfaceName}'"
+                $"Object doesn't contain field '%s{fieldName}' of any type [%s{expectedTypes}] required by interface '%s{interfaceName}'"
 
         (range, fieldName, msg)
 
@@ -1279,10 +1279,10 @@ module AnonRecords =
                 | [] -> unreachable ()
                 | [ expectedType ] ->
                     let expectedType = expectedType |> formatType
-                    $"Expected type '{expectedType}' for field '{fieldName}' in interface '{interfaceName}', but is '{actualType}'"
+                    $"Expected type '%s{expectedType}' for field '%s{fieldName}' in interface '%s{interfaceName}', but is '%s{actualType}'"
                 | _ ->
                     let expectedTypes = expectedTypes |> formatTypes
-                    $"Expected any type of [{expectedTypes}] for field '{fieldName}' in interface '{interfaceName}', but is '{actualType}'"
+                    $"Expected any type of [%s{expectedTypes}] for field '%s{fieldName}' in interface '%s{interfaceName}', but is '%s{actualType}'"
             | Some indexers ->
                 assert (indexers |> List.isEmpty |> not)
 
@@ -1295,10 +1295,10 @@ module AnonRecords =
                     | [] -> unreachable ()
                     | [ expectedType ] ->
                         let expectedType = expectedType |> formatType
-                        $"Expected type '{expectedType}' for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
+                        $"Expected type '%s{expectedType}' for field '%s{fieldName}' because of Indexer '%s{indexerName}' in interface '%s{interfaceName}', but is '%s{actualType}'"
                     | _ ->
                         let expectedTypes = expectedTypes |> formatTypes
-                        $"Expected any type of [{expectedTypes}] for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
+                        $"Expected any type of [%s{expectedTypes}] for field '%s{fieldName}' because of Indexer '%s{indexerName}' in interface '%s{interfaceName}', but is '%s{actualType}'"
                 | _ ->
                     let indexerNames = indexers |> List.map (quote) |> String.concat "; "
 
@@ -1306,10 +1306,10 @@ module AnonRecords =
                     | [] -> unreachable ()
                     | [ expectedType ] ->
                         let expectedType = expectedType |> formatType
-                        $"Expected type '{expectedType}' for field '{fieldName}' because of Indexers [{indexerNames}] in interface '{interfaceName}', but is '{actualType}'"
+                        $"Expected type '%s{expectedType}' for field '%s{fieldName}' because of Indexers [%s{indexerNames}] in interface '%s{interfaceName}', but is '%s{actualType}'"
                     | _ ->
                         let expectedTypes = expectedTypes |> formatTypes
-                        $"Expected any type of [{expectedTypes}] for field '{fieldName}' because of Indexers [{indexerNames}] in interface '{interfaceName}', but is '{actualType}'"
+                        $"Expected any type of [%s{expectedTypes}] for field '%s{fieldName}' because of Indexers [%s{indexerNames}] in interface '%s{interfaceName}', but is '%s{actualType}'"
 
         let r = r |> Option.orElse range // fall back to anon record range
 

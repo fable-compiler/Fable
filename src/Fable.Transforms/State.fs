@@ -69,7 +69,7 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list, addLog: Severi
                                 with ex ->
                                     let errorMessage =
                                         [
-                                            $"Error while loading plugin: {e.FullName}"
+                                            $"Error while loading plugin: %s{e.FullName}"
                                             ""
                                             "This error often happens if you are trying to use a plugin that is not compatible with the current version of Fable."
                                             "If you see this error please open an issue at https://github.com/fable-compiler/Fable/"
@@ -353,7 +353,7 @@ type CompilerImpl
                 | Some r -> r, None
                 | None ->
                     let msg =
-                        $"Cannot find root module for {fileName}. If this belongs to a package, make sure it includes the source files."
+                        $"Cannot find root module for %s{fileName}. If this belongs to a package, make sure it includes the source files."
 
                     (this :> Compiler).AddLog(msg, Severity.Warning, fileName = currentFile)
 

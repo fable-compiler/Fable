@@ -640,7 +640,7 @@ let tryEntityIdent (com: Compiler) entFullName =
     | BuiltinDefinition(FSharpReference _) -> makeImportLib com MetaType "FSharpRef" "Types" |> Some
     | BuiltinDefinition(FSharpResult _) -> makeImportLib com MetaType "FSharpResult$2" "Result" |> Some
     | BuiltinDefinition(FSharpChoice genArgs) ->
-        let membName = $"FSharpChoice${List.length genArgs}"
+        let membName = $"FSharpChoice$%d{List.length genArgs}"
         makeImportLib com MetaType membName "Choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     | BuiltinDefinition(BclHashSet _)
@@ -1387,7 +1387,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "GetEnumerator", Some c, _ -> stringToCharSeq c |> getEnumerator com r t |> Some
     | ("Contains" | "StartsWith" | "EndsWith" as meth), Some c, arg :: _ ->
         if List.isMultiple args then
-            addWarning com ctx.InlinePath r $"String.{meth}: second argument is ignored"
+            addWarning com ctx.InlinePath r $"String.%s{meth}: second argument is ignored"
 
         Helper.InstanceCall(c, Naming.lowerFirst meth, t, [ arg ], ?loc = r) |> Some
     | ReplaceName [ "ToUpper", "toUpperCase"
@@ -3158,7 +3158,7 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
     | meth, Some thisArg ->
         let meth =
             if meth = "Next" then
-                $"Next{List.length args}"
+                $"Next%d{List.length args}"
             else
                 meth
 
@@ -3273,7 +3273,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         match thisArg, args with
         | Some thisArg, args ->
             if args.Length > 2 then
-                $"Regex.{meth} doesn't support more than 2 arguments"
+                $"Regex.%s{meth} doesn't support more than 2 arguments"
                 |> addError com ctx.InlinePath r
 
             thisArg :: args |> Some
@@ -4194,6 +4194,6 @@ let tryType typ =
         | FSharpMap(key, value) -> Some(Types.fsharpMap, maps, [ key; value ])
         | FSharpSet genArg -> Some(Types.fsharpSet, sets, [ genArg ])
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [ genArg1; genArg2 ])
-        | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
+        | FSharpChoice genArgs -> Some($"%s{Types.choiceNonGeneric}`%d{List.length genArgs}", results, genArgs)
         | FSharpReference genArg -> Some(Types.refCell, refCells, [ genArg ])
     | _ -> None
