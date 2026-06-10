@@ -775,11 +775,10 @@ let tryConstructor com (ent: Entity) =
         tryEntityIdent com (ent.FullName |> Naming.toPythonNaming)
     else
         match FSharp2Fable.Util.tryEntityIdentMaybeGlobalOrImported com ent with
-        | Some(IdentExpr ident) when ent.IsFSharpUnion ->
-            // For F# union types, the base class is prefixed with underscore (_UnionName)
-            // This is needed for both reflection (base class has cases() method) and
-            // type annotations (self inside base class methods)
-            Some(IdentExpr { ident with Name = "_" + ident.Name })
+        | Some expr when ent.IsFSharpUnion ->
+            // The union runtime members (e.g. the cases() method used by reflection) live
+            // on the private base class, not the type alias. See PYTHON-UNION.md.
+            FSharp2Fable.Util.redirectUnionToPythonBaseClass expr |> Some
         | other -> other
 
 let constructor com ent =

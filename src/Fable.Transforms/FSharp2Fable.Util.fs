@@ -2276,6 +2276,21 @@ module Util =
 
     let entityIdent (com: Compiler) (ent: Fable.EntityRef) = entityIdentWithSuffix com ent ""
 
+    /// In Python a union is emitted as a public type alias (`type Demo = Demo_A | Demo_B`)
+    /// plus a private base class (`_Demo`) that holds the runtime members: attached static
+    /// members and the `cases()` method used by reflection. The type alias is typing-only,
+    /// so a reference to the union as a runtime value must be redirected to the base class.
+    /// Handles the two shapes `entityIdent` produces: a bare identifier for a same-file
+    /// union and an internal class import for a union defined in another file. References
+    /// to external entities (`[<Import>]`, kind `UserImport`) are left untouched.
+    /// See Python/PYTHON-UNION.md.
+    let redirectUnionToPythonBaseClass (expr: Fable.Expr) =
+        match expr with
+        | Fable.IdentExpr ident -> Fable.IdentExpr { ident with Name = "_" + ident.Name }
+        | Fable.Import({ Kind = Fable.ClassImport _ } as info, typ, range) ->
+            Fable.Import({ info with Selector = "_" + info.Selector }, typ, range)
+        | expr -> expr
+
     /// First checks if the entity is global or imported
     let tryEntityIdentMaybeGlobalOrImported (com: Compiler) (ent: Fable.Entity) =
         match tryGlobalOrImportedEntity com ent with
@@ -2740,7 +2755,14 @@ module Util =
                     && not (isInline memb)
                     && (isAttachMembersEntity com e || isPojoDefinedByConsArgsFSharpEntity e)
                     ->
-                    FsEnt.Ref e |> entityIdent com |> Some
+                    let classExpr = FsEnt.Ref e |> entityIdent com
+
+                    // In Python the union type alias carries no members, so attached static
+                    // members must be accessed on the private base class.
+                    if com.Options.Language = Python && e.IsFSharpUnion then
+                        redirectUnionToPythonBaseClass classExpr |> Some
+                    else
+                        Some classExpr
                 | None -> None
 
             match moduleOrClassExpr, callInfo.ThisArg with
