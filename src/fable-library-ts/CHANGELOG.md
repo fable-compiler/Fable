@@ -1,5 +1,5 @@
 ---
-last_commit_released: 63bcd3d90f37cb3934edcc59b5f54f49ffab3896
+last_commit_released: 15eb83ed36657f75073fb0e1b4cac677e24fc9bb
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.1.1 - 2026-06-10
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Reject JS-permissive date strings that .NET TryParse rejects (#4588) ([09003de](https://github.com/fable-compiler/Fable/commit/09003de8bc72e4f73281828d905d49aab7db3f55))
+* *(js/ts)* Make Exception.ToString() return the message instead of "Exception" (#4635) ([4c36f76](https://github.com/fable-compiler/Fable/commit/4c36f761bd378da800e30657c58355bd5324a653))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/63bcd3d90f37cb3934edcc59b5f54f49ffab3896..15eb83ed36657f75073fb0e1b4cac677e24fc9bb)</small></strong>
 
 ## 2.1.0 - 2026-05-28
 
