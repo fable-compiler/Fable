@@ -49,8 +49,8 @@ class MyUnion_CaseB(_MyUnion):
 
 @tagged_union(2)
 class MyUnion_CaseC(_MyUnion):
-    x: float
-    y: float
+    x_: float
+    y_: float
 
 
 # Type alias - THE public union type for annotations
@@ -114,6 +114,27 @@ class ModuleB_Result_Error(_ModuleB_Result):
 ```
 
 The scoped name is derived from `FSharp2Fable.Helpers.getEntityDeclarationName`, which includes the module path to ensure unique names across the entire compilation.
+
+### Case Field Naming: `toFieldSnakeCase`
+
+Case class field annotations use `Naming.toFieldSnakeCase` (in `Prelude.fs`), the same
+convention as record fields:
+
+- PascalCase names (including the compiler-generated `Item`, `Item1`, ...) convert to
+  plain snake_case: `Item` → `item`, `MyField` → `my_field`.
+- camelCase/lowercase names convert to snake_case **with a trailing underscore**:
+  `x` → `x_`, `name` → `name_`.
+
+The suffix exists because the `Union` base class defines properties such as `name`. A
+field annotation that shadows an inherited property is treated by `@dataclass` as having
+a *default value* (the inherited property object found via `getattr`), which breaks
+construction with "non-default argument follows default argument" as soon as another
+field without a default follows (issue #4645, PR #4647).
+
+This is safe because the dataclass field name is purely internal: union construction is
+positional (`Union_Case("v1", "v2")`) and compiled field access goes through the case
+class attributes generated with the same convention, while indexed access uses
+`self.fields[i]`.
 
 ### Library Types Keep Simple Names
 
@@ -234,15 +255,15 @@ def make_union(uci: CaseInfo, values: Array[Any]) -> Any:
 u = MyUnion_CaseA(42)
 u = MyUnion_CaseC(1.0, 2.0)
 
-# Field access - direct attributes with F# names
+# Field access - direct attributes (camelCase F# names get a '_' suffix, see Case Field Naming)
 print(u.item)      # For CaseA/CaseB
-print(u.x, u.y)    # For CaseC
+print(u.x_, u.y_)  # For CaseC
 
 # Pattern matching - __match_args__ automatic from dataclass
 match u:
     case MyUnion_CaseA(item=value):
         print(f"CaseA: {value}")
-    case MyUnion_CaseC(x=x, y=y):
+    case MyUnion_CaseC(x_=x, y_=y):
         print(f"CaseC: {x}, {y}")
 
 # isinstance works with base class (underscore-prefixed)
@@ -319,14 +340,39 @@ In `Fable2Python.Annotation.fs`, the `makeEntityTypeAnnotation` function:
 1. If inside the same union base class (`ctx.EnclosingUnionBaseClass = Some name`): use base class name with underscore
 2. Otherwise: use type alias (strip underscore prefix)
 
-### Reflection Constructor
+### Runtime References Target the Base Class
 
-In `Replacements.fs`, `tryConstructor` adds underscore prefix for union types so reflection gets the base class:
+The type alias (`Demo`) is typing-only: at runtime it is a `TypeAliasType` that carries no
+members. Whenever the compiler needs to reference the union as a *runtime value*, the
+reference must be redirected to the private base class (`_Demo`). This redirect is
+centralized in one helper, `FSharp2Fable.Util.redirectUnionToPythonBaseClass`:
 
 ```fsharp
-| Some(IdentExpr ident) when ent.IsFSharpUnion ->
-    Some(IdentExpr { ident with Name = "_" + ident.Name })
+let redirectUnionToPythonBaseClass (expr: Fable.Expr) =
+    match expr with
+    | Fable.IdentExpr ident -> Fable.IdentExpr { ident with Name = "_" + ident.Name }
+    | Fable.Import({ Kind = Fable.ClassImport _ } as info, typ, range) ->
+        Fable.Import({ info with Selector = "_" + info.Selector }, typ, range)
+    | expr -> expr
 ```
+
+It handles both shapes a union entity reference can take — a bare identifier for a
+same-file union and an internal class import for a union defined in another file — and
+leaves external entities (`[<Import>]`, kind `UserImport`) untouched.
+
+Current call sites:
+
+1. **Reflection constructor** — `tryConstructor` in `Python/Replacements.fs` redirects so
+   reflection gets the base class (which has the `cases()` method).
+2. **Attached static members** — in `FSharp2Fable.Util.fs`, when resolving a call to a
+   static member of an `[<AttachMembers>]` union (issue #4634). The static members live on
+   the base class; accessing them on the type alias raises `AttributeError` at runtime.
+
+Note that call site 2 lives in a *shared* compiler file (`FSharp2Fable.Util.fs`), gated on
+`com.Options.Language = Python` — it is the one place that still knows both the entity
+(`IsFSharpUnion`) and that the reference is for static member access. If the naming
+convention ever changes, update the helper and the emission sites in
+`Fable2Python.Transforms.fs` together.
 
 ## Files Modified
 
@@ -336,7 +382,8 @@ In `Replacements.fs`, `tryConstructor` adds underscore prefix for union types so
 4. [src/Fable.Transforms/Python/Fable2Python.Transforms.fs](src/Fable.Transforms/Python/Fable2Python.Transforms.fs) - `transformUnion`, context tracking
 5. [src/Fable.Transforms/Python/Fable2Python.Annotation.fs](src/Fable.Transforms/Python/Fable2Python.Annotation.fs) - Type annotation logic for union types
 6. [src/Fable.Transforms/Python/Fable2Python.Reflection.fs](src/Fable.Transforms/Python/Fable2Python.Reflection.fs) - Case constructor generation
-7. [src/Fable.Transforms/Python/Replacements.fs](src/Fable.Transforms/Python/Replacements.fs) - `tryConstructor` adds underscore for unions
+7. [src/Fable.Transforms/Python/Replacements.fs](src/Fable.Transforms/Python/Replacements.fs) - `tryConstructor` redirects unions to the base class
+8. [src/Fable.Transforms/FSharp2Fable.Util.fs](../FSharp2Fable.Util.fs) - `redirectUnionToPythonBaseClass` helper; static member access on `[<AttachMembers>]` unions (Python-gated)
 
 ## Comparison with Original Fable Design
 
