@@ -3223,7 +3223,7 @@ let getUnionFieldsAsIdents (_com: IPythonCompiler) _ctx (_ent: Fable.Entity) =
 let getEntityFieldsAsIdents (com: IPythonCompiler) (ent: Fable.Entity) =
     let entityNamingConvention =
         if shouldUseRecordFieldNaming ent then
-            Naming.toRecordFieldSnakeCase
+            Naming.toFieldSnakeCase
         else
             Naming.toPythonNaming
 
@@ -3248,7 +3248,7 @@ let getEntityFieldsAsProps (com: IPythonCompiler) ctx (ent: Fable.Entity) =
     else
         let namingConvention =
             if shouldUseRecordFieldNaming ent then
-                Naming.toRecordFieldSnakeCase
+                Naming.toFieldSnakeCase
             else
                 Naming.toPythonNaming
 
@@ -3290,7 +3290,7 @@ let declareDataClassType
                     consArgs.Args.[i].Arg
                 else
                     // Fallback to field name if consArgs doesn't have enough args
-                    com.GetIdentifier(ctx, field.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean)
+                    com.GetIdentifier(ctx, field.Name |> Naming.toFieldSnakeCase |> Helpers.clean)
 
             // Uncurry lambda types for field annotations since fields store uncurried functions
             let fieldType =
@@ -3943,7 +3943,7 @@ let transformAttachedProperty
             // Apply the same naming convention as record fields for record types
             let propertyName =
                 //if shouldUseRecordFieldNaming ent then
-                //    memb.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                //    memb.Name |> Naming.toFieldSnakeCase |> Helpers.clean
                 //else
                 memb.Name |> Naming.toPropertyNaming
 
@@ -4097,9 +4097,10 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
             let fieldAnnotations =
                 uci.UnionCaseFields
                 |> List.map (fun field ->
-                    // Convert to snake_case and clean to remove invalid characters like apostrophes
-                    // Handles: "Item" -> "item", "Item1" -> "item1", "MyField" -> "my_field"
-                    let fieldName = field.Name |> Naming.toSnakeCase |> Helpers.clean
+                    // toFieldSnakeCase appends '_' to camelCase names ("name" -> "name_") so a
+                    // field can't collide with the inherited `Union.name` property, which @dataclass
+                    // would treat as a default value ("non-default argument follows default"). See #4645.
+                    let fieldName = field.Name |> Naming.toFieldSnakeCase |> Helpers.clean
                     // Uncurry lambda types for field annotations since union case fields
                     // store uncurried functions at runtime (same as record fields)
                     let fieldType =
@@ -4238,7 +4239,7 @@ let transformClassWithCompilerGeneratedConstructor
                     |> List.collecti (fun i field ->
                         let fieldName =
                             if shouldUseRecordFieldNaming ent then
-                                field.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                                field.Name |> Naming.toFieldSnakeCase |> Helpers.clean
                             else
                                 match Util.getFieldNamingKind com field.FieldType field.Name with
                                 | InstancePropertyBacking -> field.Name |> Naming.toPropertyBackingFieldNaming
@@ -4680,7 +4681,7 @@ let transformStaticProperty
     // printfn "transformStaticProperty: %A" propName
     let propertyName =
         if shouldUseRecordFieldNaming ent then
-            propName |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+            propName |> Naming.toFieldSnakeCase |> Helpers.clean
         else
             propName |> Naming.toPropertyNaming
 

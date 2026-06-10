@@ -463,13 +463,13 @@ module Util =
 
         name
 
-    /// Determines if we should use the special record field naming convention (toRecordFieldSnakeCase)
+    /// Determines if we should use the special field naming convention (toFieldSnakeCase)
     /// for the given entity. Returns true for user-defined F# records, false for built-in types.
     let shouldUseRecordFieldNaming (ent: Fable.Entity) =
         ent.IsFSharpRecord
         && not (ent.FullName.StartsWith("Microsoft.FSharp.Core", StringComparison.Ordinal))
 
-    /// Determines if we should use the special record field naming convention (toRecordFieldSnakeCase)
+    /// Determines if we should use the special field naming convention (toFieldSnakeCase)
     /// for the given entity reference. Returns true for user-defined F# records, false for built-in types.
     let shouldUseRecordFieldNamingForRef (entityRef: Fable.EntityRef) (ent: Fable.Entity) =
         ent.IsFSharpRecord
@@ -510,7 +510,7 @@ module Util =
             | Fable.DeclaredType(entityRef, _) ->
                 match com.TryGetEntity entityRef with
                 | Some ent when shouldUseRecordFieldNamingForRef entityRef ent && isRecordField ent fieldName ->
-                    fieldName |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                    fieldName |> Naming.toFieldSnakeCase |> Helpers.clean
                 | _ -> fieldName |> Naming.toPythonNaming // Fallback to Python naming for other types
             | _ -> fieldName |> Naming.toPropertyNaming
 
