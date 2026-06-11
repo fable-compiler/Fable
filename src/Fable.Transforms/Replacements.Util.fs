@@ -458,18 +458,25 @@ let makeStringTemplate
 
 
 // Parses an F# interpolated string format, finds every %P() hole (optionally preceded by a
-// printf format specifier), and builds a StringTemplate from the literal parts and the
-// supplied value expressions.
+// printf format specifier or a .NET format specifier), and builds a StringTemplate from the
+// literal parts and the supplied value expressions.
 //
-// For each hole the caller supplies `handleFormatSpec`:
-//   - None   → the hole has no preceding format spec (or only a simple one from simpleFormats);
-//              the value is used as-is.
-//   - Some fmtSpec → the hole has a non-simple format spec; the callback receives the spec
-//              (e.g. "%0.2f") and the value expression.  Returning Some wraps the value;
-//              returning None aborts the whole template (None is returned for the string).
+// The F# compiler encodes holes as:
+//   %P()         – plain hole, no format specifier
+//   %0.2f%P()    – hole with a printf-style format specifier
+//   %P(N0)       – hole with a .NET format specifier (e.g. N0, C2, X)
+//
+// For each hole the caller supplies:
+//   `handleFormatSpec`:
+//     - called when a hole has a non-simple printf format spec (e.g. "%0.2f")
+//     - returning None aborts the whole template
+//   `handleDotNetSpec`:
+//     - called when a hole has a .NET format specifier inside %P(...)
+//     - returning None aborts the whole template
 let private makeStringTemplateFromWith
     (simpleFormats: string array)
     (handleFormatSpec: string -> Expr -> Expr option)
+    (handleDotNetSpec: string -> Expr -> Expr option)
     (values: Expr list)
     =
     function
@@ -478,8 +485,10 @@ let private makeStringTemplateFromWith
         // (though it does resolve double braces {{ }})
         let str = str.Replace("%%", "%")
 
+        // Group 1: optional printf format spec (e.g. "%0.2f")
+        // Group 2: optional .NET format spec inside %P(...) (e.g. "N0", "C2")
         let matches =
-            Regex.Matches(str, @"((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)")
+            Regex.Matches(str, @"((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(([^)]*)\)")
             |> Seq.cast<Match>
 
         (Some([], values), matches)
@@ -488,11 +497,15 @@ let private makeStringTemplateFromWith
             | None -> None
             | Some(_, []) -> None // fewer values than matches
             | Some(mapped, value :: restValues) ->
+                let dotNetSpec = m.Groups[2].Value
+
                 let needsFormat =
                     m.Groups[1].Success && not (Array.contains m.Groups[1].Value simpleFormats)
 
                 let resolved =
-                    if needsFormat then
+                    if dotNetSpec.Length > 0 then
+                        handleDotNetSpec dotNetSpec value
+                    elif needsFormat then
                         handleFormatSpec m.Groups[1].Value value
                     else
                         Some value
@@ -520,12 +533,13 @@ let private makeStringTemplateFromWith
 /// because those require runtime formatting that can't be inlined into a plain template.
 let makeStringTemplateFrom simpleFormats values strExpr =
     // Abort (return None) for any non-simple format spec.
-    makeStringTemplateFromWith simpleFormats (fun _ _ -> None) values strExpr
+    makeStringTemplateFromWith simpleFormats (fun _ _ -> None) (fun _ _ -> None) values strExpr
 
 /// Like makeStringTemplateFrom but always succeeds for string literals.
-/// Values with format specifiers not in simpleFormats are individually wrapped in a
-/// String.interpolate call so they evaluate to strings.
-/// Used for JSX templates, where every hole must produce a value (formatted or not).
+/// Values with printf format specifiers not in simpleFormats are individually wrapped in a
+/// String.interpolate call, and values with .NET format specifiers are wrapped in a
+/// String.format call so they evaluate to formatted strings.
+/// Used for JSX templates and sprintf where every hole must produce a string value.
 let makeStringTemplateFromAllowingFormat (com: ICompiler) simpleFormats (values: Expr list) strExpr =
     makeStringTemplateFromWith
         simpleFormats
@@ -534,6 +548,11 @@ let makeStringTemplateFromAllowingFormat (com: ICompiler) simpleFormats (values:
             let fmtStr = Value(StringConstant(fmtSpec + "%P()"), None)
             let valArr = Value(NewArray(ArrayValues [ value ], Any, MutableArray), None)
             Helper.LibCall(com, "String", "interpolate", String, [ fmtStr; valArr ]) |> Some
+        )
+        (fun dotNetSpec value ->
+            // Wrap value in: String.format("{0:spec}", value)
+            let fmtStr = Value(StringConstant("{0:" + dotNetSpec + "}"), None)
+            Helper.LibCall(com, "String", "format", String, [ fmtStr; value ]) |> Some
         )
         values
         strExpr
