@@ -1,5 +1,5 @@
 ---
-last_commit_released: 63bcd3d90f37cb3934edcc59b5f54f49ffab3896
+last_commit_released: 15eb83ed36657f75073fb0e1b4cac677e24fc9bb
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -20,6 +20,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.2.0 - 2026-06-10
+
+### 🚀 Features
+
+* *(beam)* Support Erlang/BEAM target in standalone compiler (#4644) ([30310e4](https://github.com/fable-compiler/Fable/commit/30310e4f915443524cf5f2c1b326840ee556c7ae))
+
+### 🐞 Bug Fixes
+
+* *(beam)* Collapse array-literal process-dict ref round-trips in FFI/Emit calls (#4626) ([234ee08](https://github.com/fable-compiler/Fable/commit/234ee0846cf848dbad18d409c341755ad8d11da7))
+* *(beam)* Make Emit $N substitution a single left-to-right pass (#4631) ([48af8db](https://github.com/fable-compiler/Fable/commit/48af8dba6a92d91115505c62f6a51c6aaa88ac19))
+* *(js/ts)* Throw an error when trying to set non-property memeber inside of `jsOptions` (#4624) ([2d9673f](https://github.com/fable-compiler/Fable/commit/2d9673fb609f6ae3273576c913929e0f601d8f5d))
+* *(js/ts)* Reject JS-permissive date strings that .NET TryParse rejects (#4588) ([09003de](https://github.com/fable-compiler/Fable/commit/09003de8bc72e4f73281828d905d49aab7db3f55))
+* *(js/ts)* Make Exception.ToString() return the message instead of "Exception" (#4635) ([4c36f76](https://github.com/fable-compiler/Fable/commit/4c36f761bd378da800e30657c58355bd5324a653))
+* *(python)* Avoid union case field name collision with Union.name (#4647) ([ff5df24](https://github.com/fable-compiler/Fable/commit/ff5df24191a1b3aef5c86efa25f87fa69b3462d9))
+* *(python)* Make [<AttachMembers>] union static members work (#4634) (#4636) ([15eb83e](https://github.com/fable-compiler/Fable/commit/15eb83ed36657f75073fb0e1b4cac677e24fc9bb))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/63bcd3d90f37cb3934edcc59b5f54f49ffab3896..15eb83ed36657f75073fb0e1b4cac677e24fc9bb)</small></strong>
 
 ## 5.1.0 - 2026-05-28
 
