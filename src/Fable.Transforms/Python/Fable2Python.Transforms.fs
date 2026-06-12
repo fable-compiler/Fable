@@ -1994,19 +1994,23 @@ let private transformSwitchPatternAsMatch
         else
             let ctx = { ctx with DecisionTargets = targets }
 
-            // Group cases by target index to create or-patterns
+            // Group cases by target index to create or-patterns. Drop cases routing to the
+            // default's target since the always-emitted wildcard already covers them (#4649).
             let groupedCases =
                 convertedCases
                 |> List.groupBy snd
-                |> List.map (fun (targetIndex, patterns) ->
-                    let patterns = patterns |> List.map fst
+                |> List.choose (fun (targetIndex, patterns) ->
+                    if targetIndex = defaultIndex then
+                        None
+                    else
+                        let patterns = patterns |> List.map fst
 
-                    let pattern =
-                        match patterns with
-                        | [ single ] -> single
-                        | multiple -> MatchOr multiple
+                        let pattern =
+                            match patterns with
+                            | [ single ] -> single
+                            | multiple -> MatchOr multiple
 
-                    (pattern, targetIndex)
+                        Some(pattern, targetIndex)
                 )
 
             // Build match cases
@@ -2018,18 +2022,9 @@ let private transformSwitchPatternAsMatch
                     MatchCase.matchCase (pattern, body)
                 )
 
-            // Build default case (wildcard)
+            // Build default case (wildcard) and always append it last
             let defaultCase = buildDefaultMatchCase com ctx returnStrategy targets defaultIndex
-
-            // Check if the default case is already covered by the grouped cases
-            let defaultAlreadyCovered =
-                groupedCases |> List.exists (fun (_, idx) -> idx = defaultIndex)
-
-            let allCases =
-                if defaultAlreadyCovered then
-                    matchCases
-                else
-                    matchCases @ [ defaultCase ]
+            let allCases = matchCases @ [ defaultCase ]
 
             // Transform the evaluation expression
             let subject, stmts = com.TransformAsExpr(ctx, evalExpr)

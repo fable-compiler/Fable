@@ -135,6 +135,18 @@ let colorMatch3 c =
     | Blue -> "blue"
     | _ -> "other"
 
+type Case =
+    | BestCase
+    | MidCase
+    | WorstCase
+
+// Or-pattern over union cases where the grouped cases share the same target
+// as the default branch. See https://github.com/fable-compiler/Fable/issues/4649
+let atLeastMid c =
+    match c with
+    | BestCase | MidCase -> true
+    | WorstCase -> false
+
 [<Fact>]
 let ``test union match with field extraction`` () =
     unionMatch (Circle 5.0) |> equal "Circle 5"
@@ -158,6 +170,12 @@ let ``test simple union match with 3 cases`` () =
     colorMatch3 Red |> equal "red"
     colorMatch3 Blue |> equal "blue"
     colorMatch3 Green |> equal "other"
+
+[<Fact>]
+let ``test or-pattern over union cases sharing default target`` () =
+    atLeastMid BestCase |> equal true
+    atLeastMid MidCase |> equal true
+    atLeastMid WorstCase |> equal false
 
 // ----------------------------------------------------------------------------
 // 5. Guard Expressions (when clauses)
