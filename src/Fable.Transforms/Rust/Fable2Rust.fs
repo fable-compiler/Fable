@@ -3197,7 +3197,7 @@ module Util =
             | Fable.Option(genArg, _) ->
                 match evalName with
                 | Some idName ->
-                    let fieldName = $"{idName}_{caseIndex}_{0}"
+                    let fieldName = $"%s{idName}_%d{caseIndex}_%d{0}"
                     [ (fieldName, idName, genArg) ]
                 | _ -> []
             | Fable.DeclaredType(entRef, genArgs) ->
@@ -3210,7 +3210,7 @@ module Util =
                     | Some idName ->
                         unionCase.UnionCaseFields
                         |> List.mapi (fun i field ->
-                            let fieldName = $"{idName}_{caseIndex}_{i}"
+                            let fieldName = $"%s{idName}_%d{caseIndex}_%d{i}"
                             let fieldType = FableTransforms.uncurryType field.FieldType
                             (fieldName, idName, fieldType)
                         )
@@ -5673,9 +5673,9 @@ module Compiler =
                         import
 
                 if isMacro then
-                    $"{import.LocalIdent}!"
+                    $"%s{import.LocalIdent}!"
                 else
-                    $"{import.LocalIdent}"
+                    $"%s{import.LocalIdent}"
 
             member _.GetAllImports(ctx) =
                 imports.Values

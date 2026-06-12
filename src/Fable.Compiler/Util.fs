@@ -316,16 +316,16 @@ module File =
                             let creationTime = File.GetCreationTime(lockFile)
 
                             if (DateTime.Now - creationTime).TotalMilliseconds > float timeoutMs then
-                                Log.always $"Found old lock file {relPathToCurDir lockFile} ({creationTime})"
+                                Log.always $"Found old lock file %s{relPathToCurDir lockFile} (%O{creationTime})"
 
                                 try
                                     File.Delete(lockFile)
                                 with _ ->
                                     ()
                             else
-                                Log.always $"Directory is locked, waiting for max {timeoutMs / 1000}s"
+                                Log.always $"Directory is locked, waiting for max %d{timeoutMs / 1000}s"
 
-                                Log.always $"If compiler gets stuck, delete {relPathToCurDir lockFile}"
+                                Log.always $"If compiler gets stuck, delete %s{relPathToCurDir lockFile}"
                         elif waitedMs >= timeoutMs then
                             Fable.AST.Fable.FableError "LockTimeOut" |> raise
 
@@ -348,7 +348,7 @@ module File =
                 if fileCreated then
                     File.Delete(lockFile)
             with e ->
-                Log.always $"Could not delete lock file: {lockFile} ({e.Message})"
+                Log.always $"Could not delete lock file: %s{lockFile} (%s{e.Message})"
 
 [<RequireQualifiedAccess>]
 module Process =
@@ -388,7 +388,7 @@ module Process =
     let findInPath (exec: string) =
         match tryFindInPath exec with
         | Some exec -> exec
-        | None -> failwith $"Cannot find {exec} in PATH"
+        | None -> failwith $"Cannot find %s{exec} in PATH"
 
     let getCurrentAssembly () = typeof<TypeInThisAssembly>.Assembly
 
@@ -413,7 +413,7 @@ module Process =
         // TODO: We should use cliArgs.RootDir instead of Directory.GetCurrentDirectory here but it's only informative
         // so let's leave it as is for now to avoid having to pass the cliArgs through all the call sites
         if not redirectOutput then
-            Log.always $"""{File.relPathToCurDir workingDir}> {exePath} {String.concat " " args}"""
+            Log.always $"""%s{File.relPathToCurDir workingDir}> %s{exePath} %s{String.concat " " args}"""
 
         let psi = ProcessStartInfo(exePath)
 
@@ -616,7 +616,7 @@ module Imports =
             let importPath = Path.Combine(projDir, importPath)
             let targetDir = Path.GetDirectoryName(targetPath)
             getRelativePath targetDir importPath
-        | Some macro, _ -> failwith $"Unknown import macro: {macro}"
+        | Some macro, _ -> failwith $"Unknown import macro: %s{macro}"
         | None, None ->
             if isAbsolutePath importPath then
                 let sourceDir = Path.GetDirectoryName(sourcePath)
@@ -934,7 +934,7 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
         IO.Path.Combine(fableModulesDir, "precompiled_info.json")
 
     static member GetInlineExprsPath(fableModulesDir, index: int) =
-        IO.Path.Combine(fableModulesDir, "inline_exprs", $"inline_exprs_{index}.json")
+        IO.Path.Combine(fableModulesDir, "inline_exprs", $"inline_exprs_%d{index}.json")
 
     static member Load(fableModulesDir: string) =
         try

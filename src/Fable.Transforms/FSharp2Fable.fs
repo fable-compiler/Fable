@@ -111,7 +111,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
         match argExprs with
         | [] -> transformStringEnum rule unionCase
         | _ ->
-            $"StringEnum types cannot have fields: {tdef.TryFullName}"
+            $"StringEnum types cannot have fields: %O{tdef.TryFullName}"
             |> addErrorAndReturnNull com ctx.InlinePath r
 
     | OptionUnion(typ, isStruct) ->
@@ -723,7 +723,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 let! limit = transformExpr com ctx [] limit
                 let! body = transformExpr com newContext [] body
                 return makeForLoop r isUp ident start limit body
-            | _ -> return failwithf $"Unexpected loop {r}: %A{fsExpr}"
+            | _ -> return failwithf $"Unexpected loop %O{r}: %A{fsExpr}"
 
         | FSharpExprPatterns.WhileLoop(guardExpr, bodyExpr, _) ->
             let! guardExpr = transformExpr com ctx [] guardExpr
@@ -1686,7 +1686,7 @@ let private applyJsPyDecorators
             let parameters =
                 memb.CurriedParameterGroups
                 |> Seq.collect id
-                |> Seq.mapi (fun i p -> defaultArg p.Name $"arg{i}", makeType Map.empty p.Type)
+                |> Seq.mapi (fun i p -> defaultArg p.Name $"arg%d{i}", makeType Map.empty p.Type)
                 |> Seq.toList
 
             Replacements.Api.makeMethodInfo com None name parameters returnType
@@ -2760,7 +2760,7 @@ type FableCompiler(com: Compiler) =
         |> List.filter (fun (i, v) ->
             if ctx.CapturedBindings.Contains(i.Name) && canHaveSideEffects com v then
                 if isIdentUsed i.Name resolved then
-                    $"Inlined argument {i.Name} is being captured but is also used somewhere else. "
+                    $"Inlined argument %s{i.Name} is being captured but is also used somewhere else. "
                     + "There's a risk of double evaluation."
                     |> addWarning com [] i.Range
 

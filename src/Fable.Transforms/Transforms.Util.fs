@@ -1099,7 +1099,7 @@ module AST =
         | :? float as x -> NumberConstant(NumberValue.Float64 x, NumberInfo.Empty) |> makeValue None
         | :? decimal as x -> NumberConstant(NumberValue.Decimal x, NumberInfo.Empty) |> makeValue None
         | _ ->
-            FableError $"Cannot create expression for object {value} (%s{value.GetType().FullName})"
+            FableError $"Cannot create expression for object %O{value} (%s{value.GetType().FullName})"
             |> raise
 
     let makeTypeConst r (typ: Type) (value: obj) =
@@ -1157,7 +1157,7 @@ module AST =
 
             NewArray(ArrayValues values, Number(kind, uom), arrayKind) |> makeValue r
         | _ ->
-            FableError $"Unexpected type %A{typ} for literal {value} (%s{value.GetType().FullName})"
+            FableError $"Unexpected type %A{typ} for literal %O{value} (%s{value.GetType().FullName})"
             |> raise
 
     let getLibPath (com: Compiler) (moduleName: string) =
@@ -1280,7 +1280,7 @@ module AST =
             | [] -> ""
             | head :: tail ->
                 ((head, List.length args), tail)
-                ||> List.fold (fun (macro, pos) part -> $"{macro}$%i{pos}{part}", pos + 1)
+                ||> List.fold (fun (macro, pos) part -> $"%s{macro}$%i{pos}%s{part}", pos + 1)
                 |> fst
 
         emit r t (args @ templateValues) isStatement macro
@@ -1528,7 +1528,7 @@ module AST =
 
                 let genArgsLength = List.length genArgs
                 let genArgs = String.concat "," genArgs
-                $"System.{isStruct}Tuple`{genArgsLength}[{genArgs}]"
+                $"System.%s{isStruct}Tuple`%d{genArgsLength}[%s{genArgs}]"
         | Array(gen, _kind) -> // TODO: Check kind
             (getTypeFullName prettify gen) + "[]"
 
@@ -1536,9 +1536,9 @@ module AST =
             let gen = getTypeFullName prettify gen
 
             if isStruct then
-                $"System.Nullable<{gen}>"
+                $"System.Nullable<%s{gen}>"
             else
-                $"{gen} | null"
+                $"%s{gen} | null"
 
         | Option(gen, isStruct) ->
             let gen = getTypeFullName prettify gen

@@ -706,7 +706,7 @@ let getFableLibraryPath (opts: CrackerOptions) (shouldCopy: bool) =
                 |}
             |> Option.defaultWith (fun () ->
                 Fable.FableError
-                    $"Cannot find [temp/]{buildDir} from {baseDir}.\nPlease, make sure you build {buildDir}"
+                    $"Cannot find [temp/]%s{buildDir} from %s{baseDir}.\nPlease, make sure you build %s{buildDir}"
                 |> raise
             )
 
@@ -786,7 +786,7 @@ let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
         // Check if precompiled compiler version and options match
         if info.CompilerVersion <> Literals.VERSION then
             Fable.FableError(
-                $"Library was precompiled using Fable v{info.CompilerVersion} but you're using v{Literals.VERSION}. Please use same version."
+                $"Library was precompiled using Fable v%s{info.CompilerVersion} but you're using v%s{Literals.VERSION}. Please use same version."
             )
             |> raise
 
@@ -816,7 +816,7 @@ let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
                         |> List.map (fun f -> "    " + File.relPathToCurDir f)
                         |> String.concat Log.newLine
                     // TODO: This should likely be an error but make it a warning for now
-                    Log.warning ($"Detected outdated files in precompiled lib:{Log.newLine}{outdated}")
+                    Log.warning ($"Detected outdated files in precompiled lib:%s{Log.newLine}%s{outdated}")
         with er ->
             Log.warning ("Cannot check timestamp of precompiled files: " + er.Message)
 
@@ -849,7 +849,7 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
                 if not isOlder then
                     Log.verbose (
                         lazy
-                            $"Cached project info ({cacheTimestamp}) will be discarded because {File.relPathToCurDir filePath} ({fileTimestamp}) is newer"
+                            $"Cached project info (%O{cacheTimestamp}) will be discarded because %s{File.relPathToCurDir filePath} (%O{fileTimestamp}) is newer"
                     )
 
                 isOlder
@@ -911,7 +911,7 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
                                 else
                                     "Debug"
 
-                            $"Won't reuse compiled files because last compilation was for {otherMode} mode"
+                            $"Won't reuse compiled files because last compilation was for %s{otherMode} mode"
                     )
 
                 isMostRecent

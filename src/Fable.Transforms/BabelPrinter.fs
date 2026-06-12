@@ -450,7 +450,7 @@ module PrinterExtensions =
                 |> List.iter (
                     function
                     | _, NullOrUndefinedOrVoid -> ()
-                    | key, StringConstant value -> printProp (fun () -> printer.Print($"{key}=\"{value}\""))
+                    | key, StringConstant value -> printProp (fun () -> printer.Print($"%s{key}=\"%s{value}\""))
                     | key, value ->
                         printProp (fun () ->
                             printer.Print(key + "={")

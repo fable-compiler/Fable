@@ -326,7 +326,7 @@ let toSeq com t (expr: Expr) =
         Helper.LibCall(com, "Seq", "ofArray", t, [ chars ])
     | _ -> TypeCast(expr, t)
 
-let emitRawString (s: string) = $"\"{s}\"" |> emitExpr None String []
+let emitRawString (s: string) = $"\"%s{s}\"" |> emitExpr None String []
 
 let emitFormat (com: ICompiler) r t (args: Expr list) macro =
     let args =
@@ -3648,6 +3648,6 @@ let tryType typ =
         | FSharpMap(key, value) -> Some(Types.fsharpMap, maps, [ key; value ])
         | FSharpSet genArg -> Some(Types.fsharpSet, sets, [ genArg ])
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [ genArg1; genArg2 ])
-        | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
+        | FSharpChoice genArgs -> Some($"%s{Types.choiceNonGeneric}`%d{List.length genArgs}", results, genArgs)
         | FSharpReference genArg -> Some(Types.refCell, refCells, [ genArg ])
     | _ -> None
