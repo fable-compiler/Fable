@@ -453,7 +453,10 @@ let clean (args: CliArgs) language rootDir =
                 recClean subdir
         )
 
-    recClean cleanDir
+    if IO.Directory.Exists(cleanDir) then
+        recClean cleanDir
+    else
+        Log.always ($"Directory does not exist: {cleanDir}")
 
     if fileCount = 0 && not fableModulesDeleted then
         Log.always ("No files have been deleted. If Fable output is in another directory, pass it as argument.")
