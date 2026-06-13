@@ -5208,6 +5208,8 @@ let tryCall
     : Expr option
     =
     match info.DeclaringEntityFullName with
+    // Implicit cast for erased unions (U2, U3...) via `!^`; the cast is erased.
+    | _ when info.CompiledName = "op_ErasedCast" -> List.tryHead args
     | "Microsoft.FSharp.Core.Operators"
     | "Microsoft.FSharp.Core.Operators.Checked"
     | "Microsoft.FSharp.Core.ExtraTopLevelOperators"
@@ -5486,7 +5488,9 @@ let tryCall
                 let args = destructureTupleArgs [ args ]
                 let isStatement = rest = "Statement"
                 emitTemplate r t args isStatement template |> Some
+        // Dynamic casting (op_BangBang) and implicit erased-union cast (op_BangHat), both erased
         | "op_BangBang", [ arg ] -> Some arg
+        | "op_BangHat", [ arg ] -> Some arg
         | _ -> None
     | "Fable.Core.BeamInterop.Erlang" ->
         match info.CompiledName, args with
