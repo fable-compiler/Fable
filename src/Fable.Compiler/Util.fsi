@@ -154,7 +154,7 @@ type PrecompiledInfoJson =
         CompilerOptions: Fable.CompilerOptions
         FableLibDir: string
         Files: Map<string, PrecompiledFileJson>
-        InlineExprHeaders: string[]
+        InlineExprHeaders: string array
     }
 
 type PrecompiledInfoImpl =

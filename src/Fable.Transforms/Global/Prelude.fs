@@ -6,7 +6,7 @@ open System
 module Extensions =
     type String with
 
-        member str.StartsWithAny([<ParamArray>] patterns: string[]) =
+        member str.StartsWithAny([<ParamArray>] patterns: string array) =
             patterns |> Array.exists (fun p -> str.StartsWith(p, StringComparison.Ordinal))
 
 module Dictionary =
@@ -56,7 +56,7 @@ module Seq =
     let mapToList (f: 'a -> 'b) (xs: 'a seq) : 'b list =
         ([], xs) ||> Seq.fold (fun li x -> (f x) :: li) |> List.rev
 
-    let mapToArray (f: 'a -> 'b) (xs: 'a seq) : 'b[] =
+    let mapToArray (f: 'a -> 'b) (xs: 'a seq) : 'b array =
         let ar = ResizeArray()
         xs |> Seq.iter (fun x -> ar.Add(f x))
         ar.ToArray()
@@ -82,7 +82,7 @@ module Seq =
 
 [<RequireQualifiedAccess>]
 module Array =
-    let filteri (filter: int -> 'a -> bool) (xs: 'a[]) : 'a[] =
+    let filteri (filter: int -> 'a -> bool) (xs: 'a array) : 'a array =
         let mutable i = -1
 
         xs
@@ -91,7 +91,7 @@ module Array =
             filter i x
         )
 
-    let partitionBy (f: 'T -> Choice<'T1, 'T2>) (xs: 'T[]) =
+    let partitionBy (f: 'T -> Choice<'T1, 'T2>) (xs: 'T array) =
         let r1 = ResizeArray()
         let r2 = ResizeArray()
 
@@ -181,12 +181,12 @@ module List =
         ar.ToArray()
 
     let mapToArray (f: 'a -> 'b) (xs: 'a list) =
-        let ar: 'b[] = List.length xs |> Array.zeroCreate
+        let ar: 'b array = List.length xs |> Array.zeroCreate
         xs |> List.iteri (fun i x -> ar.[i] <- f x)
         ar
 
     let mapiToArray (f: int -> 'a -> 'b) (xs: 'a list) =
-        let ar: 'b[] = List.length xs |> Array.zeroCreate
+        let ar: 'b array = List.length xs |> Array.zeroCreate
         xs |> List.iteri (fun i x -> ar.[i] <- f i x)
         ar
 
@@ -430,11 +430,11 @@ module Path =
         // let isDir = IO.Directory.Exists
         getRelativeFileOrDirPath (isDir fromFullPath) fromFullPath (isDir toFullPath) toFullPath
 
-    let getCommonPrefix (xs: string[] list) =
-        let rec getCommonPrefix (prefix: string[]) =
+    let getCommonPrefix (xs: string array list) =
+        let rec getCommonPrefix (prefix: string array) =
             function
             | [] -> prefix
-            | (x: string[]) :: xs ->
+            | (x: string array) :: xs ->
                 let mutable i = 0
 
                 while i < prefix.Length && i < x.Length && x.[i] = prefix.[i] do

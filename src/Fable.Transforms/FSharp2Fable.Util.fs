@@ -12,7 +12,7 @@ open Fable.Transforms
 open Fable.Transforms.FSharp2Fable
 
 module Extensions =
-    let areParamTypesEqual genArgs (args1: Fable.Type[]) (args2: IList<IList<FSharpParameter>>) =
+    let areParamTypesEqual genArgs (args1: Fable.Type array) (args2: IList<IList<FSharpParameter>>) =
         // Not entirely sure why, but it seems members with a single unit argument sometimes have this parameter
         // and sometimes none, so just to be sure always remove single unit arguments
         let args2 =
@@ -411,7 +411,7 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
         (
             compiledName: string,
             isInstance: bool,
-            ?argTypes: Fable.Type[],
+            ?argTypes: Fable.Type array,
             ?genArgs,
             // ?searchHierarchy: bool,
             ?requireDispatchSlot: bool
@@ -1713,7 +1713,7 @@ module TypeHelpers =
         (ent: FSharpEntity)
         (compiledName: string)
         (isInstance: bool)
-        (argTypes: Fable.Type[] option)
+        (argTypes: Fable.Type array option)
         =
         let entRef = FsEnt.Ref ent
 

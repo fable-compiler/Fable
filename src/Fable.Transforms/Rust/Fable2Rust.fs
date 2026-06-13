@@ -4262,7 +4262,7 @@ module Util =
                 match a.ConstructorArgs with
                 | [ :? string as name ] -> [ mkAttr name [] ]
                 | [ :? string as name; :? string as value ] -> [ mkEqAttr name value ]
-                | [ :? string as name; :? (obj[]) as items ] -> [ mkAttr name (items |> Array.map string<obj>) ]
+                | [ :? string as name; :? (obj array) as items ] -> [ mkAttr name (items |> Array.map string<obj>) ]
                 | _ -> []
             // translate test methods attributes
             // TODO: support more test frameworks
@@ -4282,7 +4282,8 @@ module Util =
                 match att.ConstructorArgs with
                 | [ :? string as name ] -> [ mkInnerAttr name [] ]
                 | [ :? string as name; :? string as value ] -> [ mkInnerEqAttr name value ]
-                | [ :? string as name; :? (obj[]) as items ] -> [ mkInnerAttr name (items |> Array.map string<obj>) ]
+                | [ :? string as name; :? (obj array) as items ] ->
+                    [ mkInnerAttr name (items |> Array.map string<obj>) ]
                 | _ -> []
             else
                 []

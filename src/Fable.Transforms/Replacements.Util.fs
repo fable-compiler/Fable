@@ -439,7 +439,7 @@ let makeStringTemplate
         {|
             Index: int
             Length: int
-        |}[])
+        |} array)
     values
     =
     let mutable prevIndex = 0
