@@ -393,6 +393,21 @@ let ``test Erased unions with multiple fields work`` () =
 #endif
 
 [<Fact>]
+let ``test !^ implicit cast for erased unions works`` () =
+#if FABLE_COMPILER
+    let strify (x: U2<int, string>) =
+        match x with
+        | U2.Case1 i -> "i: " + string i
+        | U2.Case2 s -> "s: " + s
+    let i: U2<int, string> = !^42
+    let s: U2<int, string> = !^"foo"
+    strify i |> equal "i: 42"
+    strify s |> equal "s: foo"
+#else
+    ()
+#endif
+
+[<Fact>]
 let ``test StringEnum works`` () =
 #if FABLE_COMPILER
     let value = Vertical
