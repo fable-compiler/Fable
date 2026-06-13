@@ -16,19 +16,20 @@ type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
+[<return: Struct>]
 let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
     match arrayKind, t with
-    | ResizeArray, _ -> None
+    | ResizeArray, _ -> ValueNone
     | _, Number(kind, _) when com.Options.TypedArrays ->
         match kind with
-        | Int8 -> Some "Int8ArrayCons"
-        | UInt8 -> Some "UInt8ArrayCons"
-        | Int16 -> Some "Int16ArrayCons"
-        | UInt16 -> Some "UInt16ArrayCons"
-        | Int32 -> Some "Int32ArrayCons"
-        | UInt32 -> Some "UInt32ArrayCons"
-        | Float32 -> Some "Float32ArrayCons"
-        | Float64 -> Some "Float64ArrayCons"
+        | Int8 -> ValueSome "Int8ArrayCons"
+        | UInt8 -> ValueSome "UInt8ArrayCons"
+        | Int16 -> ValueSome "Int16ArrayCons"
+        | UInt16 -> ValueSome "UInt16ArrayCons"
+        | Int32 -> ValueSome "Int32ArrayCons"
+        | UInt32 -> ValueSome "UInt32ArrayCons"
+        | Float32 -> ValueSome "Float32ArrayCons"
+        | Float64 -> ValueSome "Float64ArrayCons"
         // Don't use typed array for int64 until we remove our int64 polyfill
         // and use JS BigInt to represent int64
         //        | Int64 -> Some "BigInt64ArrayCons"
@@ -41,8 +42,8 @@ let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
         | BigInt
         | Decimal
         | NativeInt
-        | UNativeInt -> None
-    | _ -> None
+        | UNativeInt -> ValueNone
+    | _ -> ValueNone
 
 let error com msg =
     Helper.ConstructorCall(makeIdentExpr "Exception", Any, [ msg ])

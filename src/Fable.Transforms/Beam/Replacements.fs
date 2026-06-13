@@ -458,8 +458,8 @@ let private operators
             let opName = info.CompiledName
 
             match (|CustomOp|_|) com ctx r _t opName args argTypes with
-            | Some _ as e -> e
-            | None ->
+            | ValueSome e -> Some e
+            | ValueNone ->
                 match opName, args with
                 | Operators.addition, [ left; right ] -> makeBinOp r _t left right BinaryPlus |> Some
                 | Operators.subtraction, [ left; right ] -> makeBinOp r _t left right BinaryMinus |> Some
@@ -542,8 +542,8 @@ let private languagePrimitives
             let argTypes = args |> List.map (fun a -> a.Type)
             // Check for custom operator on DeclaredType before falling back to native ops
             match (|CustomOp|_|) com ctx r t operation args argTypes with
-            | Some _ as e -> e
-            | None ->
+            | ValueSome e -> Some e
+            | ValueNone ->
                 // For Dynamic ops, map to standard binary operations
                 match operation, args with
                 | "op_Addition", [ left; right ] -> makeBinOp r t left right BinaryPlus |> Some

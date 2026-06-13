@@ -319,20 +319,21 @@ let private uncurryType' typ =
 let uncurryType typ = uncurryType' typ |> snd
 
 module private Transforms =
+    [<return: Struct>]
     let rec (|ImmediatelyApplicable|_|) appliedArgsLen expr =
         if appliedArgsLen = 0 then
-            None
+            ValueNone
         else
             match expr with
             | Lambda(arg, body, _) ->
                 let appliedArgsLen = appliedArgsLen - 1
 
                 if appliedArgsLen = 0 then
-                    Some([ arg ], body)
+                    ValueSome([ arg ], body)
                 else
                     match body with
-                    | ImmediatelyApplicable appliedArgsLen (args, body) -> Some(arg :: args, body)
-                    | _ -> Some([ arg ], body)
+                    | ImmediatelyApplicable appliedArgsLen (args, body) -> ValueSome(arg :: args, body)
+                    | _ -> ValueSome([ arg ], body)
             // If the lambda is immediately applied we don't need the closures
             | NestedRevLets(bindings, Lambda(arg, body, _)) ->
                 let body = List.fold (fun body (i, v) -> Let(i, v, body)) body bindings
@@ -340,12 +341,12 @@ module private Transforms =
                 let appliedArgsLen = appliedArgsLen - 1
 
                 if appliedArgsLen = 0 then
-                    Some([ arg ], body)
+                    ValueSome([ arg ], body)
                 else
                     match body with
-                    | ImmediatelyApplicable appliedArgsLen (args, body) -> Some(arg :: args, body)
-                    | _ -> Some([ arg ], body)
-            | _ -> None
+                    | ImmediatelyApplicable appliedArgsLen (args, body) -> ValueSome(arg :: args, body)
+                    | _ -> ValueSome([ arg ], body)
+            | _ -> ValueNone
 
     let tryInlineBinding (com: Compiler) (ident: Ident) value letBody =
         let canInlineBinding =
@@ -706,19 +707,21 @@ module private Transforms =
             Body = body
         }
 
+    [<return: Struct>]
     let (|GetField|_|) (com: Compiler) =
         function
         | Get(callee, kind, _, r) ->
             match kind with
-            | FieldGet { FieldType = Some fieldType } -> Some(callee, fieldType, r)
+            | FieldGet { FieldType = Some fieldType } -> ValueSome(callee, fieldType, r)
             | UnionField info ->
                 let e = com.GetEntity(info.Entity)
 
                 List.tryItem info.CaseIndex e.UnionCases
                 |> Option.bind (fun c -> List.tryItem info.FieldIndex c.UnionCaseFields)
                 |> Option.map (fun f -> callee, f.FieldType, r)
-            | _ -> None
-        | _ -> None
+                |> ValueOption.ofOption
+            | _ -> ValueNone
+        | _ -> ValueNone
 
     let isGetterOrValueWithoutGenerics (memb: MemberFunctionOrValue) =
         memb.IsGetter || (memb.IsValue && List.isEmpty memb.GenericParameters)
