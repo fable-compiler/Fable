@@ -489,10 +489,11 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
   Beam `operators` via `Builtin(FSharpSet _)` arg type matching. `set [1;2;3]` handled
   via `CreateSet` → `ordsets:from_list`.
 
-### Phase 5: Modules & Imports -- PARTIALLY COMPLETE
+### Phase 5: Modules & Imports -- COMPLETE
 
-- [x] F# modules → Erlang modules (one `.erl` per module)
-- [ ] Nested modules → flattened names or separate files
+- [x] F# modules → Erlang modules (one `.erl` per file)
+- [x] Nested modules → flattened into the enclosing file's Erlang module via qualified
+  member names (incl. private, deeply-nested, and shadowed modules — see `MiscTests.fs`)
 - [x] Module function calls → `module:function(args)` syntax
 - [x] Import resolution and path handling
 - [x] Export lists (`-export([...])`)
@@ -985,7 +986,10 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   `maps:get(name, Obj)`. Interface method calls use `(maps:get(method, Obj))(Args)`.
   Detection: `transformCall`'s `Get(calleeExpr, FieldGet, _, _)` branch checks if
   `calleeExpr.Type` is a `DeclaredType` with `entity.IsInterface`. Self-referencing
-  members (e.g., `x.Print()` inside another member) are not yet supported.
+  members (e.g., `member x2.Test(i) = x2.Value - i`) are supported: when any member
+  references its `this` arg, the object is built behind a process-dict ref
+  (`ObjRef_N = make_ref()`, aliased to each self-ident, `put` the closure map, return the
+  ref) so closures can reach the object under construction.
 - **ImportAll + Erase interface**: `[<ImportAll("module")>]` + `[<Erase>]` interface pattern
   for typed FFI bindings. `myModule.someMethod(args)` → `module:some_method(Args)`.
   Detected in both `transformCall` (method calls) and `transformGet` (property access) by
