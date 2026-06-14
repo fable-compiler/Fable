@@ -226,7 +226,13 @@ Erlang modules implementing F# core types:
 | **Nested modules**                | Flat module names: `My_Module_Sub`                | One file per module                  |
 | **Computation expressions**       | Transformed at Fable AST level; async/task → CPS  | —                                    |
 
-## The Interesting Parts: OTP Integration
+## Concurrency & Async
+
+This compiler/runtime implements F#'s async and agent model **in-process** (CPS-based),
+keeping mutable process-dict state reachable. Real OTP process concurrency (`gen_server`,
+supervision, distribution) is layered on top via the separate
+[Fable.Beam](https://github.com/fable-compiler/Fable.Beam) bindings — see
+"OTP Processes, Supervision & Actors" below.
 
 ### MailboxProcessor — In-Process CPS Model (IMPLEMENTED)
 
@@ -252,47 +258,74 @@ The implementation mirrors `src/fable-library-py/fable_library/mailbox_processor
 | `agent.PostAndAsyncReply(f)` | `fable_mailbox:post_and_async_reply(Agent, F)` — reply channel + `Async<Reply>` |
 | `replyChannel.Reply(v)` | `(maps:get(reply, Channel))(V)` — emitExpr inline |
 
-**Future direction**: A separate `actor { }` CE in `Fable.Core.Beam` could map directly
-to OTP gen_server/gen_statem for users who want real process isolation, supervision trees,
-and fault tolerance — the actual reasons to target BEAM.
+**OTP actors live in Fable.Beam**: Real process-isolated actors (`gen_server` /
+`gen_statem`, supervision, fault tolerance) are provided by the separate
+[Fable.Beam](https://github.com/fable-compiler/Fable.Beam) OTP bindings and the
+[Fable.Actor](https://github.com/fable-hub/Fable.Actor) library — not this in-process
+MailboxProcessor.
 
-### Async → CPS with Erlang Concurrency (IMPLEMENTED)
+### Async & Task — In-Process CPS (IMPLEMENTED)
 
-CPS (Continuation-Passing Style) with Erlang processes for parallelism:
+`Async<T>` compiles to a **continuation-passing-style (CPS) function**, not an Erlang
+process:
 
-| F# | Erlang |
+```erlang
+Async<T> = fun(Ctx) -> ok end
+Ctx      = #{on_success, on_error, on_cancel, cancel_token}
+```
+
+The function is *cold* — it does nothing until invoked with a context, matching F#'s
+cold-async semantics. Composition (`bind`, `return`, `try/with`, `while`, `for`, …) just
+threads new contexts through these functions; see `fable_async_builder.erl`.
+
+**Everything runs inline in the caller's process.** This is deliberate, not a
+limitation: the CPS body reaches mutable state stored in the process dictionary (mutable
+`let`, ref cells, arrays, MailboxProcessor queues), and running in the same process keeps
+that state reachable. `RunSynchronously`, `StartImmediate`, and `StartWithContinuations`
+all execute the chain in the current process — no `spawn`, no trampoline (Erlang has
+native TCO).
+
+| F# | Erlang (`fable_async` / `fable_async_builder`) |
 | --- | --- |
 | `async { return x }` | `fun(Ctx) -> (maps:get(on_success, Ctx))(X) end` |
-| `let! x = comp` | `bind(Comp, fun(X) -> ... end)` — CPS monadic bind |
-| `Async.StartImmediate` | Direct CPS invocation with default context |
-| `Async.RunSynchronously` | CPS invocation in same process (preserves process dict) |
-| `Async.Parallel` | `spawn` per computation, `receive` to collect results |
-| `Async.Sleep` | `timer:sleep(Ms)` then invoke on_success |
-| `task { return x }` | Same as async (Task is alias for Async on Beam) |
+| `let! x = comp` / `do!` | `bind(Comp, fun(X) -> ... end)` — CPS monadic bind |
+| `return` / `return!` | `return/1` / `return_from/1` |
+| `try/with`, `try/finally` | `try_with/2`, `try_finally/2` (CPS `on_error`/compensation + Erlang try/catch) |
+| `while` / `for` | `while/2` / `for/2` (recursive bind) |
+| `Async.StartImmediate` | `start_immediate/1` — inline, default context (fire-and-forget) |
+| `Async.RunSynchronously` | `run_synchronously/1` — inline, result stashed via a process-dict ref |
+| `Async.StartWithContinuations` | `start_with_continuations/4` — inline with caller continuations |
+| `Async.Sleep` | `timer:sleep(Ms)` inline; with a cancel token, `receive` waits on a timer/cancel message (still same process) |
+| `Async.Sequential` | run each computation inline via `run_synchronously` |
+| `Async.Catch` | `catch_async/1` — wraps result in `{choice1_of2,_}` / `{choice2_of2,_}` |
+| `Async.Ignore` | `bind` + `return ok` |
+| `Async.FromContinuations` | `from_continuations/1` — lower-level CPS primitive |
+| `task { ... }` | alias for async (Task is an alias for Async on Beam) |
 | `task.Result` | `fable_async:run_synchronously(Comp)` |
 
-### Supervision (future — needs F# API design)
+**The one exception — `Async.Parallel` spawns.** To get real parallelism it `spawn`s one
+process per child computation and collects results in order via message passing
+(`fable_async:parallel/1`). Each child runs `run_synchronously` in its own process, so
+parallel children do **not** share the parent's process-dict state. This is the only
+place the async runtime leaves the caller's process.
 
-Possible directions:
+Cancellation (`fable_cancellation.erl`) is also in-process: a token is a `make_ref()`
+keying a process-dict map `#{cancelled, listeners, next_id}`. `Async.Sleep` is the only
+operation that observes it cooperatively (via the `receive` path above).
 
-```fsharp
-// Option A: Attributes
-[<Supervisor(Strategy.OneForOne)>]
-module MyApp =
-    [<Child>]
-    let counter = CounterAgent.start
+### OTP Processes, Supervision & Actors — Provided by Fable.Beam (separate library)
 
-// Option B: Computation expression
-let app = supervisor {
-    strategy OneForOne
-    child "counter" CounterAgent.start
-    child "logger" LoggerAgent.start
-}
+Real BEAM concurrency — spawning processes, `gen_server`, `supervisor`, supervision
+trees, applications, ETS, distribution — is **not** part of this compiler or runtime
+library. It lives in the separate
+[Fable.Beam](https://github.com/fable-compiler/Fable.Beam) bindings library, which provides
+typed F# bindings to OTP modules (`Fable.Beam.GenServer`, `Fable.Beam.Supervisor`,
+`Fable.Beam.Application`, `Fable.Beam.Erlang`, `Fable.Beam.Ets`, …) plus an actor model
+([Fable.Actor](https://github.com/fable-hub/Fable.Actor)).
 
-// Option C: Direct OTP interop via Fable.Core attributes
-[<Import("gen_server", "start_link")>]
-let startLink: ... = nativeOnly
-```
+The compiler's job is only to emit correct Erlang; OTP behaviours are opt-in F# bindings
+layered on top. Speculative OTP API design (attributes, `supervisor { }` CEs, direct
+`gen_server` interop, etc.) belongs in the Fable.Beam repo, not here.
 
 ## Implementation Phases
 
@@ -527,7 +560,7 @@ Extend type system support for common F# patterns.
     - Handles binary/integer/float/atom natively, falls back to `~p` for complex terms
 - [x] **Curry expressions** — uses `Replacements.Api.curryExprAtRuntime` to generate nested lambdas at compile time (no runtime module needed)
 
-### Phase 7: Async, Task & Processes -- COMPLETE
+### Phase 7: Async & Task -- COMPLETE
 
 CPS (Continuation-Passing Style) implementation. `Async<T>` = `fun(Ctx) -> ok end` where
 `Ctx = #{on_success, on_error, on_cancel, cancel_token}`. CPS naturally gives cold semantics
@@ -555,8 +588,12 @@ target since Erlang has no equivalent of .NET's hot Task distinction.
 - **CPS over spawn**: `Async<T>` is a function `fun(Ctx) -> ok end`, not a spawned process.
   CPS naturally gives cold semantics matching F# Async. No trampoline needed — Erlang has
   native tail call optimization.
-- **RunSynchronously runs in same process**: Uses process dict ref to store result, NOT
-  `spawn` + `receive`. This preserves mutable variable (process dict) access from async body.
+- **Everything runs inline in the caller's process** — `RunSynchronously`, `StartImmediate`,
+  `StartWithContinuations`, and `Sequential` never `spawn`. The only exception is
+  `Async.Parallel`, which spawns one process per child for real parallelism (children run
+  `run_synchronously` in their own process and don't share the parent's process-dict state).
+- **RunSynchronously runs in same process**: Uses a process-dict ref to store the result, NOT
+  `spawn` + `receive`. This preserves mutable variable (process dict) access from the async body.
 - **Task = Async alias**: Task CE builder methods route to `fable_async_builder`, Task
   instance methods (`.Result`, `.GetAwaiter().GetResult()`) route to `run_synchronously`.
 - **try_with dual handler**: Both the CPS `on_error` override AND the `try/catch` must invoke
@@ -589,15 +626,18 @@ for mutable state, `fable_async:from_continuations` for the receive/reply coordi
   the inbox has processed the message and called Reply, so the value is available immediately.
 - **Named `receive_msg`**: Erlang's `receive` is a reserved keyword, so the function is named
   `receive_msg`. The Replacements dispatch maps `"Receive"` → `receive_msg`.
-- **Future OTP integration**: A separate `actor { }` CE could map to gen_server for users who
-  want real process isolation and supervision trees.
+- **OTP actors live in Fable.Beam**: Process-isolated actors and supervision are provided by
+  the separate [Fable.Beam](https://github.com/fable-compiler/Fable.Beam) OTP bindings and
+  [Fable.Actor](https://github.com/fable-hub/Fable.Actor) — not this in-process MailboxProcessor.
 
-### Phase 9: OTP Patterns (exploratory)
+### Phase 9: OTP Patterns — Moved to Fable.Beam
 
-- [ ] Supervision trees
-- [ ] Application behaviour
-- [ ] Hot code reloading
-- [ ] Distribution / multi-node
+OTP integration (supervision trees, application behaviour, hot code reloading,
+distribution / multi-node) is **out of scope for the compiler**. It is provided by the
+separate [Fable.Beam](https://github.com/fable-compiler/Fable.Beam) bindings library
+(`gen_server`, `supervisor`, `application`, `ets`, `erlang` process BIFs, …) and the
+[Fable.Actor](https://github.com/fable-hub/Fable.Actor) actor model. The compiler only
+needs to emit correct Erlang that those bindings can call.
 
 ### Phase 10: Ecosystem
 
