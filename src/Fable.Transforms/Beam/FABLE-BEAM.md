@@ -8,8 +8,14 @@ An Erlang/BEAM target for Fable.
   approach that made Fable.Python a success for learning Python)
 - Bring F#'s type system, pattern matching, and computation expressions to the
   BEAM ecosystem
-- Bring F#'s agent model (`MailboxProcessor`) to the BEAM with compatible semantics
-- Explore what F# + OTP supervision trees + hot code reloading could look like
+- Bring F#'s `MailboxProcessor` to the BEAM as an in-process, source-compatible
+  abstraction (so existing F# async/agent code just compiles) — note this is a
+  same-process CPS model, **not** an OTP actor; `MailboxProcessor` turned out not to be
+  the right surface for real process-isolated OTP actors
+- Provide real OTP concurrency (process-isolated actors, supervision trees, hot code
+  reloading) through the separate [Fable.Beam](https://github.com/fable-compiler/Fable.Beam)
+  bindings library and the [Fable.Actor](https://github.com/fable-hub/Fable.Actor) model,
+  rather than overloading `MailboxProcessor`
 
 ## Minimum OTP Version: 25
 
