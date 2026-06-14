@@ -8,8 +8,14 @@ An Erlang/BEAM target for Fable.
   approach that made Fable.Python a success for learning Python)
 - Bring F#'s type system, pattern matching, and computation expressions to the
   BEAM ecosystem
-- Bring F#'s agent model (`MailboxProcessor`) to the BEAM with compatible semantics
-- Explore what F# + OTP supervision trees + hot code reloading could look like
+- Bring F#'s `MailboxProcessor` to the BEAM as an in-process, source-compatible
+  abstraction (so existing F# async/agent code just compiles) — note this is a
+  same-process CPS model, **not** an OTP actor; `MailboxProcessor` turned out not to be
+  the right surface for real process-isolated OTP actors
+- Provide real OTP concurrency (process-isolated actors, supervision trees, hot code
+  reloading) through the separate [Fable.Beam](https://github.com/fable-compiler/Fable.Beam)
+  bindings library and the [Fable.Actor](https://github.com/fable-hub/Fable.Actor) model,
+  rather than overloading `MailboxProcessor`
 
 ## Minimum OTP Version: 25
 
@@ -51,9 +57,9 @@ F# Source
 Fable AST
     ↓  FableTransforms (existing)
 Fable AST (optimized)
-    ↓  Fable2Beam (NEW)
+    ↓  Fable2Beam
 Erlang AST
-    ↓  ErlangPrinter (NEW)
+    ↓  ErlangPrinter
 .erl source files
 ```
 
@@ -113,16 +119,19 @@ Reserve the JS fallback only for operations that genuinely work the same way.
 
 ### Compiler transforms (`src/Fable.Transforms/Beam/`)
 
-|        File        |                    Purpose                    |               Reference               | Status |
-| ------------------ | --------------------------------------------- | ------------------------------------- | ------ |
-| `Beam.AST.fs`      | Erlang AST type definitions (minimal for now) | `Python/Python.AST.fs` (~1,500 lines) | Done   |
-| `Fable2Beam.fs`    | Combined transforms + compiler (single file)  | `Fable2Php.fs` pattern                | Done   |
-| `Replacements.fs`  | .NET BCL → Erlang library mappings (stubs)    | `Python/Replacements.fs`              | Done   |
-| `ErlangPrinter.fs` | Erlang AST → `.erl` source code               | `Python/PythonPrinter.fs`             | Done   |
+| File                       | Purpose                                             | Reference                     | Status |
+| -------------------------- | --------------------------------------------------- | ----------------------------- | ------ |
+| `Beam.AST.fs`              | Erlang AST type definitions (intentionally minimal) | `Python/Python.AST.fs`        | Done   |
+| `Fable2Beam.fs`            | Main Fable AST → Erlang AST transforms              | `Fable2Php.fs` / Python       | Done   |
+| `Fable2Beam.Util.fs`       | Shared helpers for the transforms                   | `Python/Fable2Python.Util.fs` | Done   |
+| `Fable2Beam.Reflection.fs` | Compile-time reflection type-info generation        | Python reflection             | Done   |
+| `Replacements.fs`          | .NET BCL → Erlang mappings (full implementation)    | `Python/Replacements.fs`      | Done   |
+| `ErlangPrinter.fs`         | Erlang AST → `.erl` source code                     | `Python/PythonPrinter.fs`     | Done   |
+| `Prelude.fs`               | Name sanitization + Erlang keyword escaping         | —                             | Done   |
 
-Phase 1 uses a single `Fable2Beam.fs` (following the PHP pattern). Can split into
-`Fable2Beam.Types.fs`, `Fable2Beam.Util.fs`, `Fable2Beam.Transforms.fs`, and
-`BeamCompiler.fs` later as complexity grows (following the Python pattern).
+Started as a single `Fable2Beam.fs` (PHP pattern) and has since split out
+`Fable2Beam.Util.fs` and `Fable2Beam.Reflection.fs` as complexity grew (Python pattern).
+The Erlang AST (`Beam.AST.fs`) deliberately stayed small — see "Erlang AST" below.
 
 ### Runtime library (`src/fable-library-beam/`)
 
@@ -161,6 +170,11 @@ Erlang modules implementing F# core types:
 | fable_cancellation.erl | CancellationToken | Process dict pattern, create/cancel/register/is_cancellation_requested, timer-based auto-cancel | Done |
 | fable_stopwatch.erl | Stopwatch | StartNew, Elapsed, ElapsedMilliseconds, Stop, Reset, Restart, IsRunning, Frequency, GetTimestamp | Done |
 | fable_observable.erl | Observable | subscribe, add, choose, filter, map, merge, pairwise, partition, scan, split | Done |
+| fable_event.erl | Event / IEvent | trigger/publish/add, choose/filter/map/merge/pairwise/partition/scan/split | Done |
+| fable_date_only.erl | DateOnly | create/components/day_number/add_*/from_date_time/to_string/parse | Done |
+| fable_time_only.erl | TimeOnly | create/from_*/components/ticks/add_*/is_between/to_time_span/to_string/parse | Done |
+| fable_parallel.erl | Array.Parallel | spawn-based parallel_map/mapi/init/iter/iteri/collect/choose/for | Done |
+| fable_quotation.erl | F# Quotations (Expr) | `mk_*` constructors, `is_*` tests, evaluate, substitute, get_free_vars | Done |
 
 ### Registration & CLI (modified existing files) -- All Done
 
@@ -226,7 +240,13 @@ Erlang modules implementing F# core types:
 | **Nested modules**                | Flat module names: `My_Module_Sub`                | One file per module                  |
 | **Computation expressions**       | Transformed at Fable AST level; async/task → CPS  | —                                    |
 
-## The Interesting Parts: OTP Integration
+## Concurrency & Async
+
+This compiler/runtime implements F#'s async and agent model **in-process** (CPS-based),
+keeping mutable process-dict state reachable. Real OTP process concurrency (`gen_server`,
+supervision, distribution) is layered on top via the separate
+[Fable.Beam](https://github.com/fable-compiler/Fable.Beam) bindings — see
+"OTP Processes, Supervision & Actors" below.
 
 ### MailboxProcessor — In-Process CPS Model (IMPLEMENTED)
 
@@ -252,47 +272,74 @@ The implementation mirrors `src/fable-library-py/fable_library/mailbox_processor
 | `agent.PostAndAsyncReply(f)` | `fable_mailbox:post_and_async_reply(Agent, F)` — reply channel + `Async<Reply>` |
 | `replyChannel.Reply(v)` | `(maps:get(reply, Channel))(V)` — emitExpr inline |
 
-**Future direction**: A separate `actor { }` CE in `Fable.Core.Beam` could map directly
-to OTP gen_server/gen_statem for users who want real process isolation, supervision trees,
-and fault tolerance — the actual reasons to target BEAM.
+**OTP actors live in Fable.Beam**: Real process-isolated actors (`gen_server` /
+`gen_statem`, supervision, fault tolerance) are provided by the separate
+[Fable.Beam](https://github.com/fable-compiler/Fable.Beam) OTP bindings and the
+[Fable.Actor](https://github.com/fable-hub/Fable.Actor) library — not this in-process
+MailboxProcessor.
 
-### Async → CPS with Erlang Concurrency (IMPLEMENTED)
+### Async & Task — In-Process CPS (IMPLEMENTED)
 
-CPS (Continuation-Passing Style) with Erlang processes for parallelism:
+`Async<T>` compiles to a **continuation-passing-style (CPS) function**, not an Erlang
+process:
 
-| F# | Erlang |
+```erlang
+Async<T> = fun(Ctx) -> ok end
+Ctx      = #{on_success, on_error, on_cancel, cancel_token}
+```
+
+The function is *cold* — it does nothing until invoked with a context, matching F#'s
+cold-async semantics. Composition (`bind`, `return`, `try/with`, `while`, `for`, …) just
+threads new contexts through these functions; see `fable_async_builder.erl`.
+
+**Everything runs inline in the caller's process.** This is deliberate, not a
+limitation: the CPS body reaches mutable state stored in the process dictionary (mutable
+`let`, ref cells, arrays, MailboxProcessor queues), and running in the same process keeps
+that state reachable. `RunSynchronously`, `StartImmediate`, and `StartWithContinuations`
+all execute the chain in the current process — no `spawn`, no trampoline (Erlang has
+native TCO).
+
+| F# | Erlang (`fable_async` / `fable_async_builder`) |
 | --- | --- |
 | `async { return x }` | `fun(Ctx) -> (maps:get(on_success, Ctx))(X) end` |
-| `let! x = comp` | `bind(Comp, fun(X) -> ... end)` — CPS monadic bind |
-| `Async.StartImmediate` | Direct CPS invocation with default context |
-| `Async.RunSynchronously` | CPS invocation in same process (preserves process dict) |
-| `Async.Parallel` | `spawn` per computation, `receive` to collect results |
-| `Async.Sleep` | `timer:sleep(Ms)` then invoke on_success |
-| `task { return x }` | Same as async (Task is alias for Async on Beam) |
+| `let! x = comp` / `do!` | `bind(Comp, fun(X) -> ... end)` — CPS monadic bind |
+| `return` / `return!` | `return/1` / `return_from/1` |
+| `try/with`, `try/finally` | `try_with/2`, `try_finally/2` (CPS `on_error`/compensation + Erlang try/catch) |
+| `while` / `for` | `while/2` / `for/2` (recursive bind) |
+| `Async.StartImmediate` | `start_immediate/1` — inline, default context (fire-and-forget) |
+| `Async.RunSynchronously` | `run_synchronously/1` — inline, result stashed via a process-dict ref |
+| `Async.StartWithContinuations` | `start_with_continuations/4` — inline with caller continuations |
+| `Async.Sleep` | `timer:sleep(Ms)` inline; with a cancel token, `receive` waits on a timer/cancel message (still same process) |
+| `Async.Sequential` | run each computation inline via `run_synchronously` |
+| `Async.Catch` | `catch_async/1` — wraps result in `{choice1_of2,_}` / `{choice2_of2,_}` |
+| `Async.Ignore` | `bind` + `return ok` |
+| `Async.FromContinuations` | `from_continuations/1` — lower-level CPS primitive |
+| `task { ... }` | alias for async (Task is an alias for Async on Beam) |
 | `task.Result` | `fable_async:run_synchronously(Comp)` |
 
-### Supervision (future — needs F# API design)
+**The one exception — `Async.Parallel` spawns.** To get real parallelism it `spawn`s one
+process per child computation and collects results in order via message passing
+(`fable_async:parallel/1`). Each child runs `run_synchronously` in its own process, so
+parallel children do **not** share the parent's process-dict state. This is the only
+place the async runtime leaves the caller's process.
 
-Possible directions:
+Cancellation (`fable_cancellation.erl`) is also in-process: a token is a `make_ref()`
+keying a process-dict map `#{cancelled, listeners, next_id}`. `Async.Sleep` is the only
+operation that observes it cooperatively (via the `receive` path above).
 
-```fsharp
-// Option A: Attributes
-[<Supervisor(Strategy.OneForOne)>]
-module MyApp =
-    [<Child>]
-    let counter = CounterAgent.start
+### OTP Processes, Supervision & Actors — Provided by Fable.Beam (separate library)
 
-// Option B: Computation expression
-let app = supervisor {
-    strategy OneForOne
-    child "counter" CounterAgent.start
-    child "logger" LoggerAgent.start
-}
+Real BEAM concurrency — spawning processes, `gen_server`, `supervisor`, supervision
+trees, applications, ETS, distribution — is **not** part of this compiler or runtime
+library. It lives in the separate
+[Fable.Beam](https://github.com/fable-compiler/Fable.Beam) bindings library, which provides
+typed F# bindings to OTP modules (`Fable.Beam.GenServer`, `Fable.Beam.Supervisor`,
+`Fable.Beam.Application`, `Fable.Beam.Erlang`, `Fable.Beam.Ets`, …) plus an actor model
+([Fable.Actor](https://github.com/fable-hub/Fable.Actor)).
 
-// Option C: Direct OTP interop via Fable.Core attributes
-[<Import("gen_server", "start_link")>]
-let startLink: ... = nativeOnly
-```
+The compiler's job is only to emit correct Erlang; OTP behaviours are opt-in F# bindings
+layered on top. Speculative OTP API design (attributes, `supervisor { }` CEs, direct
+`gen_server` interop, etc.) belongs in the Fable.Beam repo, not here.
 
 ## Implementation Phases
 
@@ -362,60 +409,26 @@ decision trees, and let/letrec bindings all produce correct Erlang output.
 2. Compiles tests to `.erl` via Fable (library files auto-copied to `fable_modules/fable-library-beam/`)
 3. Compiles library `.erl` files in `fable_modules/fable-library-beam/` with `erlc`
 4. Compiles test `.erl` files with `erlc -pa fable_modules/fable-library-beam`
-5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions (2077 Erlang tests pass)
+5. Runs an Erlang test runner (`erl_test_runner.erl`) with `-pa fable_modules/fable-library-beam` that discovers and executes all `test_`-prefixed functions
 
-| Test File | Tests | Coverage |
-| --- | --- | --- |
-| SeqTests.fs | 156 | Seq.map/filter/fold/head/length/append/concat/distinct/take/skip/unfold/init/scan/zip/chunkBySize, delay, sortByDescending, foldBack2, mapFold, range, iter, iteri, empty, findBack, tryFindBack, forall/forall2, exists2, map2/mapi, mapFoldBack, min/max/minBy/maxBy (incl. non-numeric types), sum/sumBy, pairwise, compareWith, exactlyOne, tryLast, groupBy w/ structural equality |
-| StringTests.fs | 153 | String methods, interpolation, concat, substring, replace, split, trim, pad, contains, startsWith, endsWith, sprintf, String.Format, exists, IsNullOrEmpty, IsNullOrWhiteSpace, filter, ctor, StringBuilder (Length, Clear, ToString w/ index) |
-| ArrayTests.fs | 146 | Array literal, map/filter/fold, mapi, append, sort, indexed, length, choose, collect, zip, pairwise, iter/iteri/iter2/iteri2, exactlyOne, groupBy, distinct/distinctBy, zip3/unzip3, exists2/forall2, fold2/foldBack2, sub, except, chunkBySize, splitAt, allPairs, sortByDescending, fill, blit, sortInPlace, byte array atomics (zeroCreate, indexed set, mutation via function params) |
-| ArithmeticTests.fs | 139 | Arithmetic, bitwise, logical, comparison, Int64, BigInt, decimal (fixed-scale), exponentiation, sign, MathF.Min/Max, pown |
-| ListTests.fs | 137 | List operations, head/tail, map/filter/fold/fold2/foldBack2, append, sort, choose, collect, find/findBack, zip, chunkBySize, pairwise, windowed, insertAt/removeAt/updateAt, transpose, compareWith, etc. |
-| ConversionTests.fs | 100 | Type conversions, System.Convert, Parse, ToString, BigInt conversions, base conversion, Boolean.Parse, Decimal.Parse/ToString, FSharp.Core type converters |
-| ApplicativeTests.fs | 84 | Applicative-style programming, functors, CEs with and!, curried map/apply, generic applicatives, ZipList, local inline lambdas |
-| TimeSpanTests.fs | 83 | TimeSpan creation, from_*, component accessors, total_*, arithmetic, parse, try_parse, to_string, formatting |
-| ComparisonTests.fs | 66 | compare, hash, isNull, Equals, CompareTo, GetHashCode, structural comparison, Unchecked, LanguagePrimitives, Set equality/comparison |
-| MiscTests.fs | 59 | Partial functions, computation expressions, inline methods, object expressions, type extensions, pattern matching, exception handling, module shadowing, private modules, custom operators, units of measure, optional arguments |
-| DateTimeTests.fs | 53 | DateTime constructors, properties, formatting (custom + standard), parsing, arithmetic, add_years/months/days/hours/minutes/seconds, Now/UtcNow/Today, SpecifyKind, ToLocalTime/ToUniversalTime |
-| TypeTests.fs | 50 | Class constructors, properties, methods, closures, object expressions, type testing (:?), inheritance, secondary constructors, abstract classes, value type unions/tuples, interface implementations, unit arguments |
-| OptionTests.fs | 50 | Option.map/bind/defaultValue/filter/isSome/isNone, Option module, nested options |
-| MapTests.fs | 50 | F# Map create/add/remove/find/containsKey/count, iteration, fold, filter, pick, tryPick, minKeyValue, maxKeyValue, change, keys, values |
-| SetTests.fs | 46 | Set construction, add/remove/contains, union/intersect/difference, subset/superset, fold/map/filter, partition, min/max |
-| ResizeArrayTests.fs | 41 | ResizeArray construction, Add, indexer, Contains, IndexOf, Remove, Insert, Clear, Sort, Reverse, ToArray, iteration, Exists, FindIndex, AddRange, InsertRange, GetRange, RemoveAll, RemoveRange, FindAll, FindLast, ForEach |
-| CharTests.fs | 38 | Char.IsLetter/IsDigit/IsUpper/IsLower/IsWhiteSpace, char conversions, ToString, TryParse, IsHighSurrogate, IsLowSurrogate, IsSurrogate, IsSurrogatePair |
-| FnTests.fs | 38 | Functions, recursive lambdas, mutual recursion, closures, curry expressions, operator-as-value, partial application, curried functions |
-| RegexTests.fs | 37 | Regex IsMatch, Match, Matches, Replace (string/evaluator/macros), Split, Escape, Groups, Options, named groups |
-| EncodingTests.fs | 35 | Encoding.UTF8.GetBytes/GetString, Stopwatch.Frequency/GetTimestamp/StartNew/Elapsed, Nullable, DateTimeOffset, TimeSpan, Guid |
-| PatternMatchTests.fs | 28 | Pattern matching with guards, options, nested patterns, when clauses |
-| RecordTests.fs | 22 | Creation, update, float fields, nesting, anonymous records, structural equality, methods, property access, optional fields, execution order |
-| UriTests.fs | 21 | Uri construction, TryCreate, AbsoluteUri, ToString, OriginalString |
-| ResultTests.fs | 21 | Result.map/bind/mapError, Result module functions |
-| HashSetTests.fs | 20 | HashSet creation, Add, Remove, Contains, Count, Clear, UnionWith, IntersectWith, ExceptWith, iteration, records |
-| EnumTests.fs | 20 | Enum HasFlag, comparison, EnumOfValue/ToValue, pattern matching, bitwise ops, inlined EnumOfValue, decision targets |
-| UnionTypeTests.fs | 18 | Union construction, matching, structural equality, active patterns |
-| InteropTests.fs | 20 | Erlang interop, emitErl, Import attribute, ImportAll + Erase interface, module calls |
-| DictionaryTests.fs | 17 | Dictionary creation, Add, Count, indexer get/set, ContainsKey, ContainsValue, Remove, TryGetValue, Clear, dict function, integer keys, duplicate key throws, missing key throws, iteration, creation from existing dict |
-| AsyncTests.fs | 31 | Async return, let!/do!, return!, try-with, sleep, parallel, ignore, start immediate, while/for binding, exception handling, nested try/with, StartWithContinuations, Async.Catch, FromContinuations, deep recursion, nested failure propagation, try/finally, Async.Bind propagation, unit argument erasure, cancellation (CTS create/cancel, register, multiple registers, pre-cancelled token, auto-cancel, Dispose, custom exceptions) |
-| QueueTests.fs | 17 | Queue creation, Enqueue, Dequeue, Peek, TryDequeue, TryPeek, Contains, Clear, ToArray, throws |
-| TailCallTests.fs | 15 | Tail call optimization, recursive functions, mutual recursion (parseTokens/parseNum) |
-| TupleTests.fs | 15 | Tuple creation, destructuring, fst/snd, equality, nesting, struct tuples, map, comparison, Item1/Item2 |
-| LoopTests.fs | 12 | for loops, while loops, nested loops, mutable variables, for-in over list/array |
-| ReflectionTests.fs | 35 | Type info, typedefof, GetGenericTypeDefinition, Type.Name/FullName/Namespace, FSharpType (IsTuple, IsRecord, IsUnion, IsFunction, GetTupleElements, GetFunctionElements, MakeTupleType, GetRecordFields, GetUnionCases), FSharpValue (GetRecordFields, MakeRecord, GetTupleFields, MakeTuple, GetTupleField, GetUnionFields, MakeUnion), PropertyInfo.GetValue, Result/Choice reflection, units of measure type info |
-| GuidTests.fs | 10 | Guid.NewGuid, Parse, ToString, Empty, equality, comparison |
-| ExceptionTests.fs | 10 | Custom exceptions, type discrimination, nested catch, field access, Message property |
-| StackTests.fs | 9 | Stack creation, Push, Pop, Peek, TryPop, TryPeek, Contains, ToArray, Clear |
-| SeqExpressionTests.fs | 9 | Seq expressions, yield, yield! |
-| CustomOperatorTests.fs | 8 | Custom operators on types, inline operators, operator overloads, SRTP with units of measure |
-| AnonRecordTests.fs | 8 | Anonymous record creation, equality, functions, optional fields |
-| TryCatchTests.fs | 8 | try/catch, failwith, exception messages, nested try/catch |
-| TaskTests.fs | 8 | Task return, let!/do!, return!, try-with, while, for, sequential composition |
-| DateTimeOffsetTests.fs | 7 | DateTimeOffset constructors, Offset, DateTime, ToString, TryParse, IsDateTime compatible |
-| NonRegressionTests.fs | 6 | Regression tests for specific bug fixes |
-| NullnessTests.fs | 5 | Null operators, isNull, defaultof, Option.ofObj/toObj |
-| MailboxProcessorTests.fs | 3 | MailboxProcessor post, postAndAsyncReply, postAndAsyncReply with falsy values |
-| SudokuTests.fs | 1 | Integration test: Sudoku solver using Seq, Array, ranges |
-| ObservableTests.fs | 12 | Observable.subscribe/add/choose/filter/map/merge/pairwise/partition/scan/split, IObservable.Subscribe, Disposing |
-| **Total** | **2080** | |
+The Erlang test runner discovers and runs every `test_`-prefixed arity-1 function. The
+suite currently has **2446 passing tests across 63 test files** — more than the Python
+target. Coverage spans the F# core library and language features:
+
+- **Collections**: Seq, List, Array (incl. byte arrays via `atomics`), Map, Set,
+  ResizeArray, Dictionary, HashSet, Queue, Stack
+- **Primitives & text**: arithmetic (incl. Int64, BigInt, decimal), bitwise/logical/
+  comparison, string, char, regex, conversions, encoding
+- **Types**: records, unions, tuples, anonymous records, enums, classes/interfaces,
+  object expressions, units of measure, structural equality/comparison, reflection
+- **Date/time**: DateTime, DateTimeOffset, DateOnly, TimeOnly, TimeSpan, Guid, Uri,
+  Stopwatch
+- **Control flow & effects**: pattern matching, active patterns, loops, exceptions,
+  type testing, tail calls, async/task, MailboxProcessor, cancellation, observables/events
+- **Interop**: `emitErl`, `Import`, `ImportAll` + `Erase` interfaces, module calls
+- **Integration**: a Sudoku solver and a raytracer demo
+
+See `tests/Beam/` for the individual test files.
 
 ### Phase 3: Discriminated Unions & Records -- COMPLETE
 
@@ -476,10 +489,11 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
   Beam `operators` via `Builtin(FSharpSet _)` arg type matching. `set [1;2;3]` handled
   via `CreateSet` → `ordsets:from_list`.
 
-### Phase 5: Modules & Imports -- PARTIALLY COMPLETE
+### Phase 5: Modules & Imports -- COMPLETE
 
-- [x] F# modules → Erlang modules (one `.erl` per module)
-- [ ] Nested modules → flattened names or separate files
+- [x] F# modules → Erlang modules (one `.erl` per file)
+- [x] Nested modules → flattened into the enclosing file's Erlang module via qualified
+  member names (incl. private, deeply-nested, and shadowed modules — see `MiscTests.fs`)
 - [x] Module function calls → `module:function(args)` syntax
 - [x] Import resolution and path handling
 - [x] Export lists (`-export([...])`)
@@ -489,7 +503,7 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
 - [x] Inline `assertEqual`/`assertNotEqual` assertions (no util dependency needed)
 - [x] `fable_modules/fable-library-beam/` output structure (aligned with JS/Dart/Rust targets)
 
-### Phase 6: Error Handling -- PARTIALLY COMPLETE
+### Phase 6: Error Handling -- COMPLETE
 
 - [x] try/with → try/catch with `erlang:error` for exceptions
 - [x] `failwith` → `erlang:error(<<"message">>)`
@@ -527,7 +541,7 @@ Extend type system support for common F# patterns.
     - Handles binary/integer/float/atom natively, falls back to `~p` for complex terms
 - [x] **Curry expressions** — uses `Replacements.Api.curryExprAtRuntime` to generate nested lambdas at compile time (no runtime module needed)
 
-### Phase 7: Async, Task & Processes -- COMPLETE
+### Phase 7: Async & Task -- COMPLETE
 
 CPS (Continuation-Passing Style) implementation. `Async<T>` = `fun(Ctx) -> ok end` where
 `Ctx = #{on_success, on_error, on_cancel, cancel_token}`. CPS naturally gives cold semantics
@@ -555,8 +569,12 @@ target since Erlang has no equivalent of .NET's hot Task distinction.
 - **CPS over spawn**: `Async<T>` is a function `fun(Ctx) -> ok end`, not a spawned process.
   CPS naturally gives cold semantics matching F# Async. No trampoline needed — Erlang has
   native tail call optimization.
-- **RunSynchronously runs in same process**: Uses process dict ref to store result, NOT
-  `spawn` + `receive`. This preserves mutable variable (process dict) access from async body.
+- **Everything runs inline in the caller's process** — `RunSynchronously`, `StartImmediate`,
+  `StartWithContinuations`, and `Sequential` never `spawn`. The only exception is
+  `Async.Parallel`, which spawns one process per child for real parallelism (children run
+  `run_synchronously` in their own process and don't share the parent's process-dict state).
+- **RunSynchronously runs in same process**: Uses a process-dict ref to store the result, NOT
+  `spawn` + `receive`. This preserves mutable variable (process dict) access from the async body.
 - **Task = Async alias**: Task CE builder methods route to `fable_async_builder`, Task
   instance methods (`.Result`, `.GetAwaiter().GetResult()`) route to `run_synchronously`.
 - **try_with dual handler**: Both the CPS `on_error` override AND the `try/catch` must invoke
@@ -589,29 +607,45 @@ for mutable state, `fable_async:from_continuations` for the receive/reply coordi
   the inbox has processed the message and called Reply, so the value is available immediately.
 - **Named `receive_msg`**: Erlang's `receive` is a reserved keyword, so the function is named
   `receive_msg`. The Replacements dispatch maps `"Receive"` → `receive_msg`.
-- **Future OTP integration**: A separate `actor { }` CE could map to gen_server for users who
-  want real process isolation and supervision trees.
+- **OTP actors live in Fable.Beam**: Process-isolated actors and supervision are provided by
+  the separate [Fable.Beam](https://github.com/fable-compiler/Fable.Beam) OTP bindings and
+  [Fable.Actor](https://github.com/fable-hub/Fable.Actor) — not this in-process MailboxProcessor.
 
-### Phase 9: OTP Patterns (exploratory)
+### Phase 9: OTP Patterns — Moved to Fable.Beam
 
-- [ ] Supervision trees
-- [ ] Application behaviour
-- [ ] Hot code reloading
-- [ ] Distribution / multi-node
+OTP integration (supervision trees, application behaviour, hot code reloading,
+distribution / multi-node) is **out of scope for the compiler**. It is provided by the
+separate [Fable.Beam](https://github.com/fable-compiler/Fable.Beam) bindings library
+(`gen_server`, `supervisor`, `application`, `ets`, `erlang` process BIFs, …) and the
+[Fable.Actor](https://github.com/fable-hub/Fable.Actor) actor model. The compiler only
+needs to emit correct Erlang that those bindings can call.
 
 ### Phase 10: Ecosystem
 
-- [ ] Build integration (`rebar3` or `mix` project generation)
-- [x] Test suite (`tests/Beam/` — 2077 Erlang tests passing, `./build.sh test beam`)
+- [x] Build integration: `rebar3` project generation — `Main.fs` lays out files under
+  `src/` (rebar3 convention), generates the root `rebar.config`, and per-dependency
+  `src/<app>.app.src` + `rebar.config`. Fable-generated configs are regenerated; user-owned
+  ones are detected and left untouched.
+- [x] Test suite (`tests/Beam/` — 2446 tests passing, `./build.sh test beam`)
 - [x] Erlang test runner (`tests/Beam/erl_test_runner.erl` — discovers and runs all `test_`-prefixed arity-1 functions)
 - [x] `erlc` compilation step in build pipeline (per-file with graceful failure)
 - [x] Quicktest setup (`src/quicktest-beam/`, `Fable.Build/Quicktest/Beam.fs`)
 - [ ] Documentation
 
-## Erlang AST Sketch (Full Target)
+## Erlang AST
 
-The current implementation in `Beam.AST.fs` is a minimal subset. Below is the full
-target AST to expand towards as more features are implemented:
+`Beam.AST.fs` is deliberately small (~80 lines) and that proved sufficient for the entire
+test suite. Operators are plain strings (not typed DUs), `if` lowers to `case`, and there
+is no dedicated `ListComprehension` / `BinaryExpr` / `MapUpdate` node — those F#
+constructs are expressed with the existing nodes plus `Emit` as a raw-Erlang escape hatch.
+The actual node set: `ErlLiteral`; `ErlPattern` (`PVar`/`PLiteral`/`PTuple`/`PList`/
+`PWildcard`); `ErlExpr` (literals, variables, tuples, lists/`ListCons`, maps, `Call`/
+`Apply`, `Fun`/`NamedFun`, `Case`, `Match`, `Block`, `BinOp`/`UnaryOp`, `TryCatch`,
+`Emit`, `Receive`); attributes; function defs; and modules.
+
+The richer AST below was the *original* aspirational design. It was **never needed** and
+is kept only as a reference for what a fuller Erlang AST could look like if a future
+feature (e.g. native list comprehensions or bit-syntax literals) ever warrants it:
 
 ```fsharp
 module rec Fable.AST.Beam
@@ -698,6 +732,12 @@ type Module =
 ```
 
 ## Sized & Signed Integer Semantics
+
+> **Status: not yet implemented.** Erlang's native arbitrary-precision integers make
+> `int`, `int64`, and `bigint` work out of the box, so the test suite passes today without
+> fixed-width wrapping. True sized-integer overflow semantics (`int8`/`int16`/`int32` and
+> unsigned wrapping) are **not** implemented yet — the rest of this section is the design
+> plan for when they are. Strategy A (bit-syntax wrapping) remains the recommendation.
 
 ### The Problem
 
@@ -920,7 +960,8 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
 - **Recursive lambdas**: Self-recursive `let rec f x = ... f (x-1) ...` inside function
   bodies generates Erlang named funs: `fun F(X) -> ... F(X-1) ... end` (OTP 17+).
   Detected via `containsIdentRef` which checks if a lambda body references its own
-  binding ident. Mutual recursion (`let rec ... and ...`) not yet supported.
+  binding ident. Mutual recursion (`let rec ... and ...`) is supported by bundling the
+  group into a single named fun dispatched by atom tag (`MutualRecBindings`).
 - **String interpolation**: `$"text: {value}"` generates
   `iolist_to_binary([<<"text: ">>, integer_to_binary(Value)])`. Integer values use
   `integer_to_binary/1`, string values pass through, other types use
@@ -945,7 +986,10 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   `maps:get(name, Obj)`. Interface method calls use `(maps:get(method, Obj))(Args)`.
   Detection: `transformCall`'s `Get(calleeExpr, FieldGet, _, _)` branch checks if
   `calleeExpr.Type` is a `DeclaredType` with `entity.IsInterface`. Self-referencing
-  members (e.g., `x.Print()` inside another member) are not yet supported.
+  members (e.g., `member x2.Test(i) = x2.Value - i`) are supported: when any member
+  references its `this` arg, the object is built behind a process-dict ref
+  (`ObjRef_N = make_ref()`, aliased to each self-ident, `put` the closure map, return the
+  ref) so closures can reach the object under construction.
 - **ImportAll + Erase interface**: `[<ImportAll("module")>]` + `[<Erase>]` interface pattern
   for typed FFI bindings. `myModule.someMethod(args)` → `module:some_method(Args)`.
   Detected in both `transformCall` (method calls) and `transformGet` (property access) by
