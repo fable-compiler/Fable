@@ -1173,7 +1173,11 @@ let private options
     match info.CompiledName, thisArg with
     | "Some", _ -> NewOption(List.tryHead _args, t.Generics.Head, false) |> makeValue r |> Some
     | "get_None", _ -> NewOption(None, t.Generics.Head, false) |> makeValue r |> Some
-    | "get_Value", Some c -> Some c
+    // Option is erased (Some x → x), so `.Value` is runtime-identity. Cast to
+    // the element type `t` so the result carries the unwrapped type (e.g. an
+    // interface) rather than `Option<t>`, which downstream codegen needs (e.g.
+    // interface method dispatch).
+    | "get_Value", Some c -> TypeCast(c, t) |> Some
     | "get_IsSome", Some c -> Test(c, OptionTest true, r) |> Some
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
     // Static methods on ValueOption type (Bind, Map, DefaultValue, etc.)

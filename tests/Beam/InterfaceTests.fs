@@ -86,3 +86,24 @@ let ``test Interface generic interface constraints work`` () =
     let w = AdderWrapper2(a)
     let res = (w :> IConstrained<_>).AddThroughCaptured 2 5
     res |> equal 6
+
+// Regression: calling an interface member on `option.Value` must go through
+// dynamic interface dispatch. On BEAM, options are erased so `.Value` is
+// runtime-identity; previously the receiver lost its interface type and the
+// backend emitted an unqualified (undefined) direct call instead of iface_get.
+type IRunner =
+    abstract member Run: unit -> int
+
+type Runner(n: int) =
+    interface IRunner with
+        member _.Run() = n + 1
+
+[<Fact>]
+let ``test Interface method call via Option.Value works`` () =
+    let s: IRunner option = Some(Runner(41) :> IRunner)
+    let res =
+        if s.IsSome then
+            s.Value.Run()
+        else
+            0
+    res |> equal 42
