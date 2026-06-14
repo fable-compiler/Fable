@@ -218,30 +218,37 @@ module Result =
         | Error e -> extractError e
 
 module Patterns =
-    let (|Try|_|) (f: 'a -> 'b option) a = f a
+    [<return: Struct>]
+    let (|Try|_|) (f: 'a -> 'b option) a =
+        match f a with
+        | Some x -> ValueSome x
+        | None -> ValueNone
 
     let (|Run|) (f: 'a -> 'b) a = f a
 
+    [<return: Struct>]
     let (|DicContains|_|) (dic: System.Collections.Generic.IDictionary<'k, 'v>) key =
         let success, value = dic.TryGetValue key
 
         if success then
-            Some value
+            ValueSome value
         else
-            None
+            ValueNone
 
+    [<return: Struct>]
     let (|SetContains|_|) set item =
         if Set.contains item set then
-            Some SetContains
+            ValueSome SetContains
         else
-            None
+            ValueNone
 
+    [<return: Struct>]
     let (|ListLast|_|) (xs: 'a list) =
         if List.isEmpty xs then
-            None
+            ValueNone
         else
             let xs, last = List.splitLast xs
-            Some(xs, last)
+            ValueSome(xs, last)
 
 module Path =
     open System

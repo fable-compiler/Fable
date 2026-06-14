@@ -1078,6 +1078,7 @@ module Patterns =
     let inline (|Transform|) (com: IFableCompiler) ctx e = com.Transform(ctx, e)
     let inline (|FieldName|) (fi: FSharpField) = fi.Name
 
+    [<return: Struct>]
     let (|CommonNamespace|_|) =
         function
         | (FSharpImplementationFileDeclaration.Entity(ent, subDecls)) :: restDecls when ent.IsNamespace ->
@@ -1094,7 +1095,8 @@ module Patterns =
                 | _ -> None
             )
             |> Option.map (fun subDecls -> ent, subDecls)
-        | _ -> None
+            |> ValueOption.ofOption
+        | _ -> ValueNone
 
     let inline (|NonAbbreviatedType|) (t: FSharpType) = nonAbbreviatedType t
 
@@ -1103,23 +1105,28 @@ module Patterns =
         | AddressOf value -> value
         | _ -> expr
 
+    [<return: Struct>]
     let (|TypeDefinition|_|) (NonAbbreviatedType t) =
         if t.HasTypeDefinition then
-            Some t.TypeDefinition
+            ValueSome t.TypeDefinition
         else
-            None
+            ValueNone
 
     /// DOES NOT check if the type is abbreviated, mainly intended to identify Fable.Core.Applicable
+    [<return: Struct>]
     let (|FSharpExprTypeFullName|_|) (e: FSharpExpr) =
         let t = e.Type
 
         if t.HasTypeDefinition then
-            t.TypeDefinition.TryFullName
+            match t.TypeDefinition.TryFullName with
+            | Some n -> ValueSome n
+            | None -> ValueNone
         else
-            None
+            ValueNone
 
     let (|MemberFullName|) (memb: FSharpMemberOrFunctionOrValue) = memb.FullName
 
+    [<return: Struct>]
     let (|UnionCaseTesterFor|_|) (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
         | Some ent when ent.IsFSharpUnion ->
@@ -1131,17 +1138,22 @@ module Patterns =
                 && memb.LogicalName.StartsWith("get_Is", StringComparison.Ordinal)
             then
                 let unionCaseName = memb.LogicalName |> Naming.replacePrefix "get_Is" ""
-                ent.UnionCases |> Seq.tryFind (fun uc -> uc.Name = unionCaseName)
-            else
-                None
-        | _ -> None
 
+                match ent.UnionCases |> Seq.tryFind (fun uc -> uc.Name = unionCaseName) with
+                | Some uc -> ValueSome uc
+                | None -> ValueNone
+            else
+                ValueNone
+        | _ -> ValueNone
+
+    [<return: Struct>]
     let (|RefType|_|) =
         function
-        | TypeDefinition tdef as t when tdef.TryFullName = Some Types.refCell -> Some t
-        | _ -> None
+        | TypeDefinition tdef as t when tdef.TryFullName = Some Types.refCell -> ValueSome t
+        | _ -> ValueNone
 
     /// Detects AST pattern of "raise MatchFailureException()"
+    [<return: Struct>]
     let (|RaisingMatchFailureExpr|_|) (expr: FSharpExpr) =
         match expr with
         | Call(None, methodInfo, [], [ _unitType ], [ value ]) ->
@@ -1150,12 +1162,13 @@ module Patterns =
                 match value with
                 | NewRecord(recordType, [ Const(value, _valueT); _rangeFrom; _rangeTo ]) ->
                     match recordType.TypeDefinition.TryFullName with
-                    | Some Types.matchFail -> Some(value.ToString())
-                    | _ -> None
-                | _ -> None
-            | _ -> None
-        | _ -> None
+                    | Some Types.matchFail -> ValueSome(value.ToString())
+                    | _ -> ValueNone
+                | _ -> ValueNone
+            | _ -> ValueNone
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|NestedLambda|_|) x =
         let rec nestedLambda args =
             function
@@ -1163,9 +1176,10 @@ module Patterns =
             | body -> List.rev args, body
 
         match x with
-        | Lambda(arg, body) -> nestedLambda [ arg ] body |> Some
-        | _ -> None
+        | Lambda(arg, body) -> nestedLambda [ arg ] body |> ValueSome
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|ForOf|_|) =
         function
         | Let((_, value, _), // Coercion to seq
@@ -1176,25 +1190,26 @@ module Patterns =
             meth.CompiledName = "GetEnumerator"
             ->
             // when meth.FullName = "System.Collections.Generic.IEnumerable.GetEnumerator" ->
-            Some(ident, value, body)
+            ValueSome(ident, value, body)
         // optimized "for x in list"
         | Let((_, UnionCaseGet(value, typ, unionCase, field), _), WhileLoop(_, Let((ident, _, _), body), _)) when
             (getFsTypeFullName typ) = Types.list
             && unionCase.Name = "op_ColonColon"
             && field.Name = "Tail"
             ->
-            Some(ident, value, body)
+            ValueSome(ident, value, body)
         // optimized "for _x in list"
         | Let((ident, UnionCaseGet(value, typ, unionCase, field), _), WhileLoop(_, body, _)) when
             (getFsTypeFullName typ) = Types.list
             && unionCase.Name = "op_ColonColon"
             && field.Name = "Tail"
             ->
-            Some(ident, value, body)
-        | _ -> None
+            ValueSome(ident, value, body)
+        | _ -> ValueNone
 
     /// This matches the boilerplate generated for TryGetValue/TryParse/DivRem (see #154, or #1744)
     /// where the F# compiler automatically passes a byref arg and returns it as a tuple
+    [<return: Struct>]
     let (|ByrefArgToTuple|_|) =
         function
         | Let((outArg1, (DefaultValue _ as def), _),
@@ -1203,11 +1218,12 @@ module Patterns =
             ->
             match List.splitLast callArgs with
             | callArgs, AddressOf(Value outArg2) when outArg1 = outArg2 ->
-                Some(callee, memb, ownerGenArgs, membGenArgs, callArgs @ [ def ])
-            | _ -> None
-        | _ -> None
+                ValueSome(callee, memb, ownerGenArgs, membGenArgs, callArgs @ [ def ])
+            | _ -> ValueNone
+        | _ -> ValueNone
 
     /// This matches the boilerplate generated for TryGetValue/TryParse/DivRem (--optimize+)
+    [<return: Struct>]
     let (|ByrefArgToTupleOptimizedIf|_|) =
         function
         | Let((outArg1, (DefaultValue _ as def), _),
@@ -1216,11 +1232,12 @@ module Patterns =
             ->
             match List.splitLast callArgs with
             | callArgs, AddressOf(Value outArg2) when outArg1 = outArg2 ->
-                Some(outArg1, callee, memb, ownerGenArgs, membGenArgs, callArgs @ [ def ], thenExpr, elseExpr)
-            | _ -> None
-        | _ -> None
+                ValueSome(outArg1, callee, memb, ownerGenArgs, membGenArgs, callArgs @ [ def ], thenExpr, elseExpr)
+            | _ -> ValueNone
+        | _ -> ValueNone
 
     /// This matches another boilerplate generated for TryGetValue/TryParse/DivRem (--optimize+)
+    [<return: Struct>]
     let (|ByrefArgToTupleOptimizedTree|_|) =
         function
         | Let((outArg1, (DefaultValue _ as def), _),
@@ -1228,7 +1245,7 @@ module Patterns =
                            targetsExpr)) when List.isMultiple callArgs && outArg1.IsCompilerGenerated ->
             match List.splitLast callArgs with
             | callArgs, AddressOf(Value outArg2) when outArg1 = outArg2 ->
-                Some(
+                ValueSome(
                     outArg1,
                     callee,
                     memb,
@@ -1239,10 +1256,11 @@ module Patterns =
                     elseExpr,
                     targetsExpr
                 )
-            | _ -> None
-        | _ -> None
+            | _ -> ValueNone
+        | _ -> ValueNone
 
     /// This matches another boilerplate generated for TryGetValue/TryParse/DivRem (--crossoptimize-)
+    [<return: Struct>]
     let (|ByrefArgToTupleOptimizedLet|_|) =
         function
         | Let((outArg1, (DefaultValue _ as def), _),
@@ -1251,11 +1269,12 @@ module Patterns =
             ->
             match List.splitLast callArgs with
             | callArgs, AddressOf(Value outArg2) when outArg1 = outArg2 ->
-                Some(arg_0, outArg1, callee, memb, ownerGenArgs, membGenArgs, callArgs @ [ def ], restExpr)
-            | _ -> None
-        | _ -> None
+                ValueSome(arg_0, outArg1, callee, memb, ownerGenArgs, membGenArgs, callArgs @ [ def ], restExpr)
+            | _ -> ValueNone
+        | _ -> ValueNone
 
     /// This matches the boilerplate generated to wrap .NET events from F#
+    [<return: Struct>]
     let (|CreateEvent|_|) =
         function
         | Call(None,
@@ -1280,18 +1299,20 @@ module Patterns =
                 klass.MembersFunctionsAndValues
                 |> Seq.tryFind (fun m -> m.LogicalName = eventName)
                 |> function
-                    | Some memb -> Some(callee, memb)
-                    | _ -> None
-            | _ -> None
-        | _ -> None
+                    | Some memb -> ValueSome(callee, memb)
+                    | _ -> ValueNone
+            | _ -> ValueNone
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|ConstructorCall|_|) =
         function
-        | NewObject(baseCall, genArgs, baseArgs) -> Some(baseCall, genArgs, baseArgs)
+        | NewObject(baseCall, genArgs, baseArgs) -> ValueSome(baseCall, genArgs, baseArgs)
         | Call(None, baseCall, genArgs1, genArgs2, baseArgs) when baseCall.IsConstructor ->
-            Some(baseCall, genArgs1 @ genArgs2, baseArgs)
-        | _ -> None
+            ValueSome(baseCall, genArgs1 @ genArgs2, baseArgs)
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|OptimizedOperator|_|) (com: Compiler) fsExpr =
         if com.Options.OptimizeFSharpAst then
             match fsExpr with
@@ -1303,13 +1324,13 @@ module Patterns =
                 && vv.FullName = "matchValue"
                 && (getFsTypeFullName tt) = "System.IFormattable"
                 ->
-                Some(memb, None, "toString", membArgTypes, membArgs)
+                ValueSome(memb, None, "toString", membArgTypes, membArgs)
             // work-around for optimized hash operator (Operators.hash)
             | Call(Some expr, memb, _, [], [ Call(None, comp, [], [], []) ]) when
                 memb.FullName.EndsWith(".GetHashCode", StringComparison.Ordinal)
                 && comp.FullName = "Microsoft.FSharp.Core.LanguagePrimitives.GenericEqualityERComparer"
                 ->
-                Some(memb, Some comp, "GenericHash", [ expr.Type ], [ expr ])
+                ValueSome(memb, Some comp, "GenericHash", [ expr.Type ], [ expr ])
             // work-around for optimized equality operator (Operators.(=))
             | Call(Some e1, memb, _, [], [ Coerce(t2, e2); Call(None, comp, [], [], []) ]) when
                 memb.FullName.EndsWith(".Equals", StringComparison.Ordinal)
@@ -1317,10 +1338,10 @@ module Patterns =
                 && t2.TypeDefinition.CompiledName = "obj"
                 && comp.FullName = "Microsoft.FSharp.Core.LanguagePrimitives.GenericEqualityComparer"
                 ->
-                Some(memb, Some comp, "GenericEquality", [ e1.Type; e2.Type ], [ e1; e2 ])
-            | _ -> None
+                ValueSome(memb, Some comp, "GenericEquality", [ e1.Type; e2.Type ], [ e1; e2 ])
+            | _ -> ValueNone
         else
-            None
+            ValueNone
 
     let inline (|FableType|) _com (ctx: Context) t = TypeHelpers.makeType ctx.GenericArgs t
 
@@ -2611,6 +2632,7 @@ module Util =
 
         msg |> addErrorAndReturnNull com ctx.InlinePath r
 
+    [<return: Struct>]
     let (|Replaced|_|)
         (com: IFableCompiler)
         (ctx: Context)
@@ -2642,7 +2664,7 @@ module Util =
                 // Deal with reraise so we don't need to save caught exception every time
                 match ctx.CaughtException, info.DeclaringEntityFullName, info.CompiledName with
                 | Some ex, "Microsoft.FSharp.Core.Operators", "Reraise" when com.Options.Language <> Dart ->
-                    makeThrow r typ (Fable.IdentExpr ex) |> Some
+                    makeThrow r typ (Fable.IdentExpr ex) |> ValueSome
                 | _ ->
                     // If it's an interface compile the call to the attached member just in case
                     let attachedCall =
@@ -2654,19 +2676,20 @@ module Util =
                     let e =
                         Fable.UnresolvedReplaceCall(callInfo.ThisArg, callInfo.Args, info, attachedCall)
 
-                    Fable.Unresolved(e, typ, r) |> Some
+                    Fable.Unresolved(e, typ, r) |> ValueSome
             | None ->
                 match com.TryReplace(ctx, r, typ, info, callInfo.ThisArg, callInfo.Args) with
-                | Some e -> Some e
-                | None when info.IsInterface -> callAttachedMember com ctx r typ callInfo ent memb |> Some
-                | None -> failReplace com ctx r info callInfo.ThisArg |> Some
-        | _ -> None
+                | Some e -> ValueSome e
+                | None when info.IsInterface -> callAttachedMember com ctx r typ callInfo ent memb |> ValueSome
+                | None -> failReplace com ctx r info callInfo.ThisArg |> ValueSome
+        | _ -> ValueNone
 
     let addWatchDependencyFromMember (com: Compiler) (memb: FSharpMemberOrFunctionOrValue) =
         memb.DeclaringEntity
         |> Option.bind (fun ent -> FsEnt.Ref(ent).SourcePath)
         |> Option.iter com.AddWatchDependency
 
+    [<return: Struct>]
     let (|Emitted|_|)
         (com: Compiler)
         (ctx: Context)
@@ -2712,7 +2735,9 @@ module Util =
                 Fable.Emit(emitInfo, typ, r) |> Some
             | _ -> None
         )
+        |> ValueOption.ofOption
 
+    [<return: Struct>]
     let (|Imported|_|)
         (com: Compiler)
         (ctx: Context)
@@ -2793,6 +2818,7 @@ module Util =
             | None, _ -> None
         | _ -> None
         |> Option.tap (fun _ -> addWatchDependencyFromMember com memb)
+        |> ValueOption.ofOption
 
     let inlineExpr (com: IFableCompiler) (ctx: Context) r t callee (info: Fable.CallInfo) membUniqueName =
         let args: Fable.Expr list =
@@ -2863,6 +2889,7 @@ module Util =
 
             List.fold (fun body (ident, value) -> Fable.Let(ident, value, body)) body bindings
 
+    [<return: Struct>]
     let (|Inlined|_|) (com: IFableCompiler) (ctx: Context) r t callee info (memb: FSharpMemberOrFunctionOrValue) =
         if isInline memb then
             let membUniqueName = getMemberUniqueName memb
@@ -2871,14 +2898,14 @@ module Util =
             | Some memb2 when memb.Equals(memb2) ->
                 $"Recursive functions cannot be inlined: (%s{memb.FullName})"
                 |> addErrorAndReturnNull com [] r
-                |> Some
+                |> ValueSome
             | Some _ ->
                 let e = Fable.UnresolvedInlineCall(membUniqueName, ctx.Witnesses, callee, info)
 
-                Fable.Unresolved(e, t, r) |> Some
-            | None -> inlineExpr com ctx r t callee info membUniqueName |> Some
+                Fable.Unresolved(e, t, r) |> ValueSome
+            | None -> inlineExpr com ctx r t callee info membUniqueName |> ValueSome
         else
-            None
+            ValueNone
 
     /// Removes optional arguments set to None in tail position
     let transformOptionalArguments

@@ -1045,17 +1045,19 @@ module Util =
 
     let (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformAsExpr(ctx, e)
 
+    [<return: Struct>]
     let (|Function|_|) =
         function
-        | Fable.Lambda(arg, body, _) -> Some([ arg ], body)
-        | Fable.Delegate(args, body, _, []) -> Some(args, body)
-        | _ -> None
+        | Fable.Lambda(arg, body, _) -> ValueSome([ arg ], body)
+        | Fable.Delegate(args, body, _, []) -> ValueSome(args, body)
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|Lets|_|) =
         function
-        | Fable.Let(ident, value, body) -> Some([ ident, value ], body)
-        | Fable.LetRec(bindings, body) -> Some(bindings, body)
-        | _ -> None
+        | Fable.Let(ident, value, body) -> ValueSome([ ident, value ], body)
+        | Fable.LetRec(bindings, body) -> ValueSome(bindings, body)
+        | _ -> ValueNone
 
     let getUniqueNameInRootScope (ctx: Context) name =
         let name =
@@ -2150,16 +2152,18 @@ but thanks to the optimisation done below we get
             | _ -> false
 
         // Check if the provided expression is equal to the expected identiferText (as a string)
+        [<return: Struct>]
         let rec (|IdentifierIs|_|) (identifierText: string) expression =
             match expression with
-            | Expression.Identifier(Identifier(currentCallerText, _)) when identifierText = currentCallerText -> Some()
-            | _ -> None
+            | Expression.Identifier(Identifier(currentCallerText, _)) when identifierText = currentCallerText ->
+                ValueSome()
+            | _ -> ValueNone
 
         // Make it easy to check if we are calling the expected function
-        and (|CalledExpression|_|) (callerText: string) value =
+        and [<return: Struct>] (|CalledExpression|_|) (callerText: string) value =
             match value with
-            | CallExpression(IdentifierIs callerText, UnrollerFromArray exprs, _, _) -> Some exprs
-            | _ -> None
+            | CallExpression(IdentifierIs callerText, UnrollerFromArray exprs, _, _) -> ValueSome exprs
+            | _ -> ValueNone
 
         and (|UnrollerFromSingleton|) (expr: Expression) : Expression list =
             [ expr ]

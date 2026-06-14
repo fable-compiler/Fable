@@ -304,48 +304,52 @@ type BuiltinType =
     | FSharpResult of ok: Type * err: Type
     | FSharpReference of Type
 
+[<return: Struct>]
 let (|BuiltinDefinition|_|) =
     function
-    | Types.guid -> Some BclGuid
-    | Types.timespan -> Some BclTimeSpan
-    | Types.datetime -> Some BclDateTime
-    | Types.datetimeOffset -> Some BclDateTimeOffset
-    | Types.dateOnly -> Some BclDateOnly
-    | Types.timeOnly -> Some BclTimeOnly
-    | "System.Timers.Timer" -> Some BclTimer
-    | Types.fsharpSet -> Some(FSharpSet(Any))
-    | Types.fsharpMap -> Some(FSharpMap(Any, Any))
-    | Types.hashset -> Some(BclHashSet(Any))
-    | Types.dictionary -> Some(BclDictionary(Any, Any))
-    | Types.keyValuePair -> Some(BclKeyValuePair(Any, Any))
-    | Types.result -> Some(FSharpResult(Any, Any))
-    | Types.byref -> Some(FSharpReference(Any))
-    | Types.byref2 -> Some(FSharpReference(Any))
-    | Types.refCell -> Some(FSharpReference(Any))
-    | Naming.StartsWith Types.choiceNonGeneric genArgs -> List.replicate (int genArgs[1..]) Any |> FSharpChoice |> Some
-    | _ -> None
+    | Types.guid -> ValueSome BclGuid
+    | Types.timespan -> ValueSome BclTimeSpan
+    | Types.datetime -> ValueSome BclDateTime
+    | Types.datetimeOffset -> ValueSome BclDateTimeOffset
+    | Types.dateOnly -> ValueSome BclDateOnly
+    | Types.timeOnly -> ValueSome BclTimeOnly
+    | "System.Timers.Timer" -> ValueSome BclTimer
+    | Types.fsharpSet -> ValueSome(FSharpSet(Any))
+    | Types.fsharpMap -> ValueSome(FSharpMap(Any, Any))
+    | Types.hashset -> ValueSome(BclHashSet(Any))
+    | Types.dictionary -> ValueSome(BclDictionary(Any, Any))
+    | Types.keyValuePair -> ValueSome(BclKeyValuePair(Any, Any))
+    | Types.result -> ValueSome(FSharpResult(Any, Any))
+    | Types.byref -> ValueSome(FSharpReference(Any))
+    | Types.byref2 -> ValueSome(FSharpReference(Any))
+    | Types.refCell -> ValueSome(FSharpReference(Any))
+    | Naming.StartsWith Types.choiceNonGeneric genArgs ->
+        List.replicate (int genArgs[1..]) Any |> FSharpChoice |> ValueSome
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|BuiltinEntity|_|) (ent: string, genArgs) =
     match ent, genArgs with
-    | BuiltinDefinition(FSharpSet _), [ t ] -> Some(FSharpSet(t))
-    | BuiltinDefinition(FSharpMap _), [ k; v ] -> Some(FSharpMap(k, v))
-    | BuiltinDefinition(BclHashSet _), [ t ] -> Some(BclHashSet(t))
-    | BuiltinDefinition(BclDictionary _), [ k; v ] -> Some(BclDictionary(k, v))
-    | BuiltinDefinition(BclKeyValuePair _), [ k; v ] -> Some(BclKeyValuePair(k, v))
-    | BuiltinDefinition(FSharpResult _), [ k; v ] -> Some(FSharpResult(k, v))
-    | BuiltinDefinition(FSharpReference _), [ t ] -> Some(FSharpReference(t))
-    | BuiltinDefinition(FSharpReference _), [ t; _ ] -> Some(FSharpReference(t))
-    | BuiltinDefinition(FSharpChoice _), genArgs -> Some(FSharpChoice genArgs)
-    | BuiltinDefinition t, _ -> Some t
-    | _ -> None
+    | BuiltinDefinition(FSharpSet _), [ t ] -> ValueSome(FSharpSet(t))
+    | BuiltinDefinition(FSharpMap _), [ k; v ] -> ValueSome(FSharpMap(k, v))
+    | BuiltinDefinition(BclHashSet _), [ t ] -> ValueSome(BclHashSet(t))
+    | BuiltinDefinition(BclDictionary _), [ k; v ] -> ValueSome(BclDictionary(k, v))
+    | BuiltinDefinition(BclKeyValuePair _), [ k; v ] -> ValueSome(BclKeyValuePair(k, v))
+    | BuiltinDefinition(FSharpResult _), [ k; v ] -> ValueSome(FSharpResult(k, v))
+    | BuiltinDefinition(FSharpReference _), [ t ] -> ValueSome(FSharpReference(t))
+    | BuiltinDefinition(FSharpReference _), [ t; _ ] -> ValueSome(FSharpReference(t))
+    | BuiltinDefinition(FSharpChoice _), genArgs -> ValueSome(FSharpChoice genArgs)
+    | BuiltinDefinition t, _ -> ValueSome t
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|Builtin|_|) =
     function
     | DeclaredType(ent, genArgs) ->
         match ent.FullName, genArgs with
-        | BuiltinEntity x -> Some x
-        | _ -> None
-    | _ -> None
+        | BuiltinEntity x -> ValueSome x
+        | _ -> ValueNone
+    | _ -> ValueNone
 
 let (|BuiltinSystemException|_|) (ent: string) =
     match ent with
@@ -706,11 +710,19 @@ let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
         Helper.LibCall(com, "Option", "map", Option(uncurried.Type, isStruct), [ fn; expr ])
     | expr -> uncurry expr
 
-let (|Namesof|_|) com ctx e = namesof com ctx [] e
+[<return: Struct>]
+let (|Namesof|_|) com ctx e =
+    match namesof com ctx [] e with
+    | Some x -> ValueSome x
+    | None -> ValueNone
 
+[<return: Struct>]
 let (|Nameof|_|) com ctx e =
-    namesof com ctx [] e |> Option.bind List.tryLast
+    match namesof com ctx [] e |> Option.bind List.tryLast with
+    | Some x -> ValueSome x
+    | None -> ValueNone
 
+[<return: Struct>]
 let (|ReplaceName|_|) (namesAndReplacements: (string * string) list) name =
     namesAndReplacements
     |> List.tryPick (fun (name2, replacement) ->
@@ -719,32 +731,38 @@ let (|ReplaceName|_|) (namesAndReplacements: (string * string) list) name =
         else
             None
     )
+    |> function
+        | Some x -> ValueSome x
+        | None -> ValueNone
 
 let (|OrDefault|) (def: 'T) =
     function
     | Some v -> v
     | None -> def
 
+[<return: Struct>]
 let (|IsByRefType|_|) (com: Compiler) =
     function
     | DeclaredType(entRef, genArgs) ->
         let ent = com.GetEntity(entRef)
 
         match ent.IsByRef, genArgs with
-        | true, (genArg :: _) -> Some genArg
-        | _ -> None
-    | _ -> None
+        | true, (genArg :: _) -> ValueSome genArg
+        | _ -> ValueNone
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|IsInRefType|_|) (com: Compiler) =
     function
     | DeclaredType(entRef, genArgs) ->
         let ent = com.GetEntity(entRef)
 
         match ent.IsByRef, genArgs with
-        | true, [ genArg; DeclaredType(byRefKind, _) ] when byRefKind.FullName = Types.byrefKindIn -> Some genArg
-        | _ -> None
-    | _ -> None
+        | true, [ genArg; DeclaredType(byRefKind, _) ] when byRefKind.FullName = Types.byrefKindIn -> ValueSome genArg
+        | _ -> ValueNone
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|IsReferenceType|_|) (com: Compiler) (t: Type) =
     match t with
     | Measure _
@@ -752,43 +770,44 @@ let (|IsReferenceType|_|) (com: Compiler) (t: Type) =
     | Unit
     | Boolean
     | Char
-    | Number _ -> None
+    | Number _ -> ValueNone
 
     | Any
     | Regex
     | String
     | LambdaType _
-    | DelegateType _ -> Some t
+    | DelegateType _ -> ValueSome t
 
     | Array _
-    | List _ -> Some t
+    | List _ -> ValueSome t
 
     | Nullable(_, isStruct)
     | Option(_, isStruct)
     | Tuple(_, isStruct)
     | AnonymousRecordType(_, _, isStruct) ->
         if isStruct then
-            None
+            ValueNone
         else
-            Some t
+            ValueSome t
 
     | GenericParam(_name, _isMeasure, constraints) ->
         let isNullable = constraints |> List.contains Fable.Constraint.IsNullable
         let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
 
         if isNullable || isReferenceType then
-            Some t
+            ValueSome t
         else
-            None
+            ValueNone
 
     | DeclaredType(entRef, _) ->
         let ent = com.GetEntity(entRef)
 
         if ent.IsValueType then
-            None
+            ValueNone
         else
-            Some t
+            ValueSome t
 
+[<return: Struct>]
 let rec (|HasReferenceEquality|_|) (com: Compiler) (t: Type) =
     match t with
     | Measure _
@@ -796,44 +815,45 @@ let rec (|HasReferenceEquality|_|) (com: Compiler) (t: Type) =
     | Unit
     | Boolean
     | Char
-    | Number _ -> None
+    | Number _ -> ValueNone
 
     | Any
     | Regex
     | String
     | LambdaType _
-    | DelegateType _ -> Some t
+    | DelegateType _ -> ValueSome t
 
     | Array _
-    | List _ -> None
+    | List _ -> ValueNone
 
     | Nullable(genArg, isStruct) ->
         if isStruct then
-            None
+            ValueNone
         else
             (|HasReferenceEquality|_|) com genArg
 
     | Option _
     | Tuple _
-    | AnonymousRecordType _ -> None
+    | AnonymousRecordType _ -> ValueNone
 
     | GenericParam(_name, _isMeasure, constraints) ->
         let isNullable = constraints |> List.contains Fable.Constraint.IsNullable
         let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
 
         if isNullable || isReferenceType then
-            Some t
+            ValueSome t
         else
-            None
+            ValueNone
 
     | DeclaredType(entRef, _) ->
         let ent = com.GetEntity(entRef)
 
         if ent |> FSharp2Fable.Util.hasStructuralEquality then
-            None
+            ValueNone
         else
-            Some t
+            ValueSome t
 
+[<return: Struct>]
 let (|ListLiteral|_|) expr =
     let rec untail t acc =
         function
@@ -842,23 +862,28 @@ let (|ListLiteral|_|) expr =
         | _ -> None
 
     match expr with
-    | NewList(None, t) -> Some([], t)
-    | NewList(Some(head, tail), t) -> untail t [ head ] tail
-    | _ -> None
+    | NewList(None, t) -> ValueSome([], t)
+    | NewList(Some(head, tail), t) ->
+        match untail t [ head ] tail with
+        | Some x -> ValueSome x
+        | None -> ValueNone
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|ArrayOrListLiteral|_|) =
     function
-    | MaybeCasted(Value((NewArray(ArrayValues vals, t, _) | ListLiteral(vals, t)), _)) -> Some(vals, t)
-    | _ -> None
+    | MaybeCasted(Value((NewArray(ArrayValues vals, t, _) | ListLiteral(vals, t)), _)) -> ValueSome(vals, t)
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|IsEntity|_|) fullName =
     function
     | DeclaredType(entRef, genArgs) ->
         if entRef.FullName = fullName then
-            Some(entRef, genArgs)
+            ValueSome(entRef, genArgs)
         else
-            None
-    | _ -> None
+            ValueNone
+    | _ -> ValueNone
 
 let (|IDictionary|IEqualityComparer|Other|) =
     function
@@ -890,23 +915,25 @@ let (|Enumerator|Other|) =
     | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator" -> Enumerator
     | _ -> Other
 
+[<return: Struct>]
 let (|IsEnumerator|_|) =
     function
     | MaybeNullable(DeclaredType(entRef, genArgs))
     | DeclaredType(entRef, genArgs) ->
         match entRef.FullName with
-        | Enumerator -> Some(entRef, genArgs)
-        | _ -> None
-    | _ -> None
+        | Enumerator -> ValueSome(entRef, genArgs)
+        | _ -> ValueNone
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|IsNewAnonymousRecord|_|) =
     function
     // The F# compiler may create some bindings of expression arguments to fix https://github.com/dotnet/fsharp/issues/6487
     | NestedRevLets(bindings, Value(NewAnonymousRecord(exprs, fieldNames, genArgs, isStruct), r)) ->
-        Some(List.rev bindings, exprs, fieldNames, genArgs, isStruct, r)
+        ValueSome(List.rev bindings, exprs, fieldNames, genArgs, isStruct, r)
     | Value(NewAnonymousRecord(exprs, fieldNames, genArgs, isStruct), r) ->
-        Some([], exprs, fieldNames, genArgs, isStruct, r)
-    | _ -> None
+        ValueSome([], exprs, fieldNames, genArgs, isStruct, r)
+    | _ -> ValueNone
 
 let (|ListSingleton|) x = [ x ]
 
@@ -938,13 +965,14 @@ let (|MaybeInScope|) (ctx: Context) e =
         | None -> e
     | e -> e
 
+[<return: Struct>]
 let rec (|MaybeInScopeStringConst|_|) ctx =
     function
     | MaybeInScope ctx expr ->
         match expr with
-        | StringConst s -> Some s
+        | StringConst s -> ValueSome s
         | Operation(Binary(BinaryPlus, (MaybeInScopeStringConst ctx s1), (MaybeInScopeStringConst ctx s2)), _, _, _) ->
-            Some(s1 + s2)
+            ValueSome(s1 + s2)
         | Value(StringTemplate(None, start :: parts, values), _) ->
             (Some [], values)
             ||> List.fold (fun acc value ->
@@ -958,7 +986,10 @@ let rec (|MaybeInScopeStringConst|_|) ctx =
 
                 (start, valuesAndParts) ||> List.fold (fun acc (v, p) -> acc + v + p)
             )
-        | _ -> None
+            |> function
+                | Some x -> ValueSome x
+                | None -> ValueNone
+        | _ -> ValueNone
 
 let rec (|RequireStringConst|) com (ctx: Context) r e =
     match e with
@@ -977,13 +1008,14 @@ let rec (|RequireStringConstOrTemplate|) com (ctx: Context) r e =
         addError com ctx.InlinePath r "Expecting string literal"
         [ "" ], []
 
+[<return: Struct>]
 let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr list) sourceTypes =
     let argTypes = argExprs |> List.map (fun a -> a.Type)
 
     match FSharp2Fable.TypeHelpers.tryFindWitness ctx argTypes false opName with
     | Some w ->
         let callInfo = makeCallInfo None argExprs w.ArgTypes
-        makeCall r t callInfo w.Expr |> Some
+        makeCall r t callInfo w.Expr |> ValueSome
     | None ->
         sourceTypes
         |> List.tryPick (
@@ -995,7 +1027,11 @@ let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr li
             | _ -> None
         )
         |> Option.map (FSharp2Fable.Util.makeCallFrom com ctx r t [] None argExprs)
+        |> function
+            | Some x -> ValueSome x
+            | None -> ValueNone
 
+[<return: Struct>]
 let (|RegexFlags|_|) e =
     let rec getFlags =
         function
@@ -1013,12 +1049,18 @@ let (|RegexFlags|_|) e =
             | _ -> None
         | _ -> None
 
-    getFlags e
+    match getFlags e with
+    | Some x -> ValueSome x
+    | None -> ValueNone
 
+[<return: Struct>]
 let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: CallInfo) args error =
     function
-    | "op_ErasedCast" -> List.tryHead args
-    | ".ctor" -> typedObjExpr t [] |> Some
+    | "op_ErasedCast" ->
+        match List.tryHead args with
+        | Some x -> ValueSome x
+        | None -> ValueNone
+    | ".ctor" -> typedObjExpr t [] |> ValueSome
     | "jsNative"
     | "pyNative"
     | "nativeOnly" ->
@@ -1034,19 +1076,19 @@ let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: Call
             |> StringConstant
             |> makeValue None
 
-        makeThrow r t (error com runtimeMsg) |> Some
+        makeThrow r t (error com runtimeMsg) |> ValueSome
 
     | "nameof"
     | "nameof2" as meth ->
         match args with
         | [ Nameof com ctx name as arg ] ->
             if meth = "nameof2" then
-                makeTuple r true [ makeStrConst name; arg ] |> Some
+                makeTuple r true [ makeStrConst name; arg ] |> ValueSome
             else
-                makeStrConst name |> Some
+                makeStrConst name |> ValueSome
         | _ ->
             "Cannot infer name of expression" |> addError com ctx.InlinePath r
-            makeStrConst Naming.unknown |> Some
+            makeStrConst Naming.unknown |> ValueSome
 
     | "nameofLambda"
     | "namesofLambda" as meth ->
@@ -1059,9 +1101,11 @@ let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: Call
         )
         |> fun names ->
             if meth = "namesofLambda" then
-                List.map makeStrConst names |> makeArray String |> Some
+                List.map makeStrConst names |> makeArray String |> ValueSome
             else
-                List.tryHead names |> Option.map makeStrConst
+                match List.tryHead names |> Option.map makeStrConst with
+                | Some x -> ValueSome x
+                | None -> ValueNone
 
     | "casenameWithFieldCount"
     | "casenameWithFieldIndex" as meth ->
@@ -1106,8 +1150,11 @@ let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: Call
             Some(Naming.unknown, -1)
         )
         |> Option.map (fun (s, i) -> makeTuple r true [ makeStrConst s; makeIntConst i ])
+        |> function
+            | Some x -> ValueSome x
+            | None -> ValueNone
 
-    | _ -> None
+    | _ -> ValueNone
 
 module AnonRecords =
     open System
@@ -1166,16 +1213,16 @@ module AnonRecords =
             tys |> List.map (fun t -> Fable.Option(makeType t, isStruct)) |> List.distinct
         | _ -> makeType ty |> List.singleton
 
-    and private (|OptionType|_|) (ty: FSharpType) =
+    and [<return: Struct>] private (|OptionType|_|) (ty: FSharpType) =
         match ty with
         | Patterns.TypeDefinition tdef ->
             match FsEnt.FullName tdef with
-            | Types.valueOption -> Some(Helpers.nonAbbreviatedType ty.GenericArguments[0], true)
-            | Types.option -> Some(Helpers.nonAbbreviatedType ty.GenericArguments[0], false)
-            | _ -> None
-        | _ -> None
+            | Types.valueOption -> ValueSome(Helpers.nonAbbreviatedType ty.GenericArguments[0], true)
+            | Types.option -> ValueSome(Helpers.nonAbbreviatedType ty.GenericArguments[0], false)
+            | _ -> ValueNone
+        | _ -> ValueNone
 
-    and private (|UType|_|) (ty: FSharpType) =
+    and [<return: Struct>] private (|UType|_|) (ty: FSharpType) =
         let (|UName|_|) (tdef: FSharpEntity) =
             if
                 tdef.Namespace = Some "Fable.Core"
@@ -1187,8 +1234,8 @@ module AnonRecords =
                 None
 
         match ty with
-        | Patterns.TypeDefinition UName -> ty.GenericArguments |> Seq.mapToList Helpers.nonAbbreviatedType |> Some
-        | _ -> None
+        | Patterns.TypeDefinition UName -> ty.GenericArguments |> Seq.mapToList Helpers.nonAbbreviatedType |> ValueSome
+        | _ -> ValueNone
 
     /// Special Rules mostly for Indexers:
     ///     For direct interface member implementation we want to be precise (-> exact_ish match)
