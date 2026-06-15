@@ -1150,6 +1150,11 @@ let tests =
             nullArgCheck "str" null
         )
 
+    testCase "invalidArg formats the message like .NET" <| fun () ->
+        throwsError "This is invalid (Parameter 'arg')" (fun () ->
+            invalidArg "arg" "This is invalid"
+        )
+
     testCase "Pattern matching optimization works (switch statement)" <| fun () ->
         let mutable x = ""
         let i = 4
