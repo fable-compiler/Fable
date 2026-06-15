@@ -1127,6 +1127,12 @@ let ``test nullArgCheck throws exception if argument is null`` () =
         nullArgCheck "str" null
     )
 
+[<Fact>]
+let ``test invalidArg formats the message like .NET`` () =
+    throwsError "This is invalid (Parameter 'arg')" (fun () ->
+        invalidArg "arg" "This is invalid"
+    )
+
 # nowarn "26" //  This rule will never be matched (code 26)
 
 [<Fact>]

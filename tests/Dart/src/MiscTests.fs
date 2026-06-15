@@ -124,3 +124,8 @@ let tests() =
     //     throwsAnyError (fun () ->
     //         nullArgCheck<string> "str" null
     //     )
+
+    testCase "invalidArg formats the message like .NET" <| fun () ->
+        throwsError "This is invalid (Parameter 'arg')" (fun () ->
+            invalidArg "arg" "This is invalid"
+        )

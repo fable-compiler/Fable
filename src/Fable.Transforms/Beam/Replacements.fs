@@ -120,14 +120,16 @@ let private operators
     | "FailWith", [ msg ]
     | "InvalidOp", [ msg ] -> makeThrow r _t msg |> Some
     | "InvalidArg", [ argName; msg ] ->
-        let msg = add (add msg (Value(StringConstant "\\nParameter name: ", None))) argName
+        let msg =
+            add msg (add (add (Value(StringConstant " (Parameter '", None)) argName) (Value(StringConstant "')", None)))
+
         makeThrow r _t msg |> Some
     | "Raise", [ arg ] -> makeThrow r _t arg |> Some
     | "NullArg", [ arg ] ->
         let msg =
             add
-                (Value(StringConstant "Value cannot be null.", None))
-                (add (Value(StringConstant "\\nParameter name: ", None)) arg)
+                (Value(StringConstant "Value cannot be null. (Parameter '", None))
+                (add arg (Value(StringConstant "')", None)))
 
         makeThrow r _t msg |> Some
     | "IsNull", [ arg ] -> emitExpr r _t [ arg ] "($0 =:= undefined)" |> Some
@@ -150,7 +152,7 @@ let private operators
             r
             _t
             [ argName; arg ]
-            "case $1 of undefined -> erlang:error({badarg, <<\"Value cannot be null. Parameter name: \", $0/binary>>}); _ -> $1 end"
+            "case $1 of undefined -> erlang:error({badarg, <<\"Value cannot be null. (Parameter '\", $0/binary, \"')\">>}); _ -> $1 end"
         |> Some
     // Lock — no-op in Erlang (processes are isolated), just call the action
     | "Lock", [ _lockObj; action ] -> CurriedApply(action, [ Value(UnitConstant, None) ], _t, r) |> Some
