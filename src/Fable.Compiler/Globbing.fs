@@ -18,11 +18,12 @@ module Glob =
     let inline normalizePath (path: string) =
         path.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar)
 
+    [<Struct>]
     type private SearchOption =
-        | Directory of string
-        | Drive of string
+        | Directory of dir: string
+        | Drive of drive: string
         | Recursive
-        | FilePattern of string
+        | FilePattern of pattern: string
 
     let private checkSubDirs absolute (dir: string) root =
         if dir.Contains "*" then

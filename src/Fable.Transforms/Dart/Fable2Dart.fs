@@ -62,6 +62,7 @@ type Context =
 
         { this with EntityAndMemberGenericParams = this.EntityAndMemberGenericParams @ genParams }
 
+[<Struct>]
 type MemberKind =
     | ClassConstructor
     | NonAttached of funcName: string

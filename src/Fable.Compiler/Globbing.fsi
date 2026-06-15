@@ -15,11 +15,12 @@ module Glob =
 
     val inline normalizePath: path: string -> string
 
+    [<Struct>]
     type private SearchOption =
-        | Directory of string
-        | Drive of string
+        | Directory of dir: string
+        | Drive of drive: string
         | Recursive
-        | FilePattern of string
+        | FilePattern of pattern: string
 
     val internal getRoot: baseDirectory: string -> pattern: string -> string
     val internal search: baseDir: string -> originalInput: string -> string list

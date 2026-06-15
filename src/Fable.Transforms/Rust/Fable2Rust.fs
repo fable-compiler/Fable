@@ -965,6 +965,7 @@ module TypeInfo =
         )
         |> Option.toValueOption
 
+    [<Struct>]
     type PointerType =
         | Lrc
         | Rc

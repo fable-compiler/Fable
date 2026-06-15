@@ -30,11 +30,13 @@ open Fable.Transforms.Rust.AST.Spans
 module token =
 
     [<RequireQualifiedAccess>]
+    [<Struct>]
     type CommentKind =
         | Line
         | Block
 
     [<RequireQualifiedAccess>]
+    [<Struct>]
     type BinOpToken =
         | Plus
         | Minus
@@ -49,6 +51,7 @@ module token =
 
     /// A delimiter token.
     [<RequireQualifiedAccess>]
+    [<Struct>]
     type DelimToken =
         /// A round parenthesis (i.e., `(` or `)`).
         | Paren
@@ -187,6 +190,7 @@ module token =
     type TreeAndSpacing = (TokenTree * Spacing)
 
     [<RequireQualifiedAccess>]
+    [<Struct>]
     type Spacing =
         | Alone
         | Joint
@@ -319,6 +323,7 @@ type ParenthesizedArgs =
 ///
 /// Negative bounds should also be handled here.
 [<RequireQualifiedAccess>]
+[<Struct>]
 type TraitBoundModifier =
     /// No modifiers
     | None
@@ -349,6 +354,7 @@ type GenericBounds = Vec<GenericBound>
 /// if we wanted to relax this order, we could override `PartialEq` and
 /// `PartialOrd`, to allow the kinds to be unordered.
 [<RequireQualifiedAccess>]
+[<Struct>]
 type ParamKindOrd =
     | Lifetime
     | Type
@@ -553,6 +559,7 @@ type RangeEnd =
     | Excluded
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type RangeSyntax =
     /// `...`
     | DotDotDot
@@ -626,6 +633,7 @@ type PatKind =
     | MacCall of MacCall
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type Mutability =
     | Mut
     | Not
@@ -633,6 +641,7 @@ type Mutability =
 /// The kind of borrow in an `AddrOf` expression,
 /// e.g., `&place` or `&raw const place`.
 [<RequireQualifiedAccess>]
+[<Struct>]
 type BorrowKind =
     /// A normal borrow, `&$expr` or `&mut $expr`.
     /// The resulting type is either `&'a T` or `&'a mut T`
@@ -644,6 +653,7 @@ type BorrowKind =
     | Raw
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type BinOpKind =
     /// The `+` operator (addition)
     | Add
@@ -688,6 +698,7 @@ type BinOp = Spanned<BinOpKind>
 ///
 /// Note that `&data` is not an operator, it's an `AddrOf` expression.
 [<RequireQualifiedAccess>]
+[<Struct>]
 type UnOp =
     /// The `*` operator for dereferencing
     | Deref
@@ -728,6 +739,7 @@ type MacCallStmt =
     }
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type MacStmtStyle =
     /// The macro statement had a trailing semicolon (e.g., `foo! { ... };`
     /// `foo!(...);`, `foo![...];`).
@@ -794,6 +806,7 @@ type BlockCheckMode =
     | Unsafe of UnsafeSource
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type UnsafeSource =
     | CompilerGenerated
     | UserProvided
@@ -821,6 +834,7 @@ type Expr =
 
 /// Limit types of a range (inclusive or exclusive)
 [<RequireQualifiedAccess>]
+[<Struct>]
 type RangeLimits =
     /// Inclusive at the beginning, exclusive at the end
     | HalfOpen
@@ -1018,6 +1032,7 @@ type QSelf =
 
 /// A capture clause used in closures and `async` blocks.
 [<RequireQualifiedAccess>]
+[<Struct>]
 type CaptureBy =
     /// `move |x| y + x`.
     | Value
@@ -1027,6 +1042,7 @@ type CaptureBy =
 /// The movability of a generator / closure literal:
 /// whether a generator contains self-references, causing it to be `!Unpin`.
 [<RequireQualifiedAccess>]
+[<Struct>]
 type Movability =
     /// May contain self-references, `!Unpin`.
     | Static
@@ -1057,6 +1073,7 @@ type MacArgs =
         token.Token
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type MacDelimiter =
     | Parenthesis
     | Bracket
@@ -1162,11 +1179,13 @@ type FnSig =
     }
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type FloatTy =
     | F32
     | F64
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type IntTy =
     | Isize
     | I8
@@ -1176,6 +1195,7 @@ type IntTy =
     | I128
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type UintTy =
     | Usize
     | U8
@@ -1272,6 +1292,7 @@ type TyKind =
 
 /// Syntax used to declare a trait object.
 [<RequireQualifiedAccess>]
+[<Struct>]
 type TraitObjectSyntax =
     | Dyn
     | None
@@ -1327,6 +1348,7 @@ type InlineAsm =
 ///
 /// E.g., `"intel"` as in `llvm_asm!("mov eax, 2" : "={eax}"(result) : : : "intel")`.
 [<RequireQualifiedAccess>]
+[<Struct>]
 type LlvmAsmDialect =
     | Att
     | Intel
@@ -1398,6 +1420,7 @@ type FnDecl =
 
 /// Is the trait definition an auto trait?
 [<RequireQualifiedAccess>]
+[<Struct>]
 type IsAuto =
     | Yes
     | No
@@ -1442,6 +1465,7 @@ type FnRetTy =
     | Ty of P<Ty>
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type Inline =
     | Yes
     | No
@@ -1524,6 +1548,7 @@ type UseTree =
 /// are contained as statements within items. These two cases need to be
 /// distinguished for pretty-printing.
 [<RequireQualifiedAccess>]
+[<Struct>]
 type AttrStyle =
     | Outer
     | Inner
@@ -1590,6 +1615,7 @@ type PolyTraitRef =
     }
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type CrateSugar =
     /// Source is `pub(crate)`.
     | PubCrate

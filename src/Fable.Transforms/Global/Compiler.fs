@@ -35,12 +35,14 @@ type CompilerOptionsHelper =
         }
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type Severity =
     | Warning
     | Error
     | Info
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type OutputType =
     | Library
     | Exe
