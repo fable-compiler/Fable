@@ -10,13 +10,15 @@ open Fable.AST.Fable
 open Fable.Transforms
 open Replacements.Util
 
+[<return: Struct>]
 let (|Floats|_|) =
     function
     | Float16
     | Float32
-    | Float64 as kind -> Some kind
-    | _ -> None
+    | Float64 as kind -> ValueSome kind
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|Integers|_|) =
     function
     | Int8
@@ -24,9 +26,10 @@ let (|Integers|_|) =
     | Int16
     | UInt16
     | Int32
-    | UInt32 as kind -> Some kind
-    | _ -> None
+    | UInt32 as kind -> ValueSome kind
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|BigIntegers|_|) =
     function
     | Int64
@@ -35,31 +38,33 @@ let (|BigIntegers|_|) =
     | UInt128
     | NativeInt
     | UNativeInt
-    | BigInt as kind -> Some kind
-    | _ -> None
+    | BigInt as kind -> ValueSome kind
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|Numbers|_|) =
     function
-    | Integers kind -> Some kind
-    | Floats kind -> Some kind
-    | _ -> None
+    | Integers kind -> ValueSome kind
+    | Floats kind -> ValueSome kind
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
     match arrayKind, t with
-    | ResizeArray, _ -> None
+    | ResizeArray, _ -> ValueNone
     | _, Number(kind, _) when com.Options.TypedArrays ->
         match kind with
-        | Int8 -> Some "Int8Array"
-        | UInt8 when com.Options.ClampByteArrays -> Some "Uint8ClampedArray"
-        | UInt8 -> Some "Uint8Array"
-        | Int16 -> Some "Int16Array"
-        | UInt16 -> Some "Uint16Array"
-        | Int32 -> Some "Int32Array"
-        | UInt32 -> Some "Uint32Array"
-        | Int64 -> Some "BigInt64Array"
-        | UInt64 -> Some "BigUint64Array"
-        | Float32 -> Some "Float32Array"
-        | Float64 -> Some "Float64Array"
+        | Int8 -> ValueSome "Int8Array"
+        | UInt8 when com.Options.ClampByteArrays -> ValueSome "Uint8ClampedArray"
+        | UInt8 -> ValueSome "Uint8Array"
+        | Int16 -> ValueSome "Int16Array"
+        | UInt16 -> ValueSome "Uint16Array"
+        | Int32 -> ValueSome "Int32Array"
+        | UInt32 -> ValueSome "Uint32Array"
+        | Int64 -> ValueSome "BigInt64Array"
+        | UInt64 -> ValueSome "BigUint64Array"
+        | Float32 -> ValueSome "Float32Array"
+        | Float64 -> ValueSome "Float64Array"
 
         | Float16
         | Int128
@@ -67,8 +72,8 @@ let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
         | NativeInt
         | UNativeInt
         | Decimal
-        | BigInt -> None
-    | _ -> None
+        | BigInt -> ValueNone
+    | _ -> ValueNone
 
 let error com msg =
     Helper.LibCall(com, "Util", "Exception", Any, [ msg ], isConstructor = true)
