@@ -868,7 +868,7 @@ let printJsTaggedTemplate
         {|
             Index: int
             Length: int
-        |}[])
+        |} array)
     (printHoleContent: int -> string)
     =
     // Escape ` quotations for JS. Note F# escapes for {, } and % are already replaced by the compiler

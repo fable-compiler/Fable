@@ -762,7 +762,7 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
     getFableLibraryPath opts shouldCopy, pkgRefs
 
 // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it
-let removeFilesInObjFolder (sourceFiles: string[]) =
+let removeFilesInObjFolder (sourceFiles: string array) =
     let reg = Regex(@"[\\\/]obj[\\\/]")
     sourceFiles |> Array.filter (reg.IsMatch >> not)
 

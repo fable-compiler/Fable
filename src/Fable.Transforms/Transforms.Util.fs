@@ -1142,14 +1142,14 @@ module AST =
         | Unit, _ -> UnitConstant |> makeValue r
         // Arrays with small data type (ushort, byte) are represented
         // in F# AST as BasicPatterns.Const
-        | Array(Number(kind, uom), arrayKind), (:? (byte[]) as arr) ->
+        | Array(Number(kind, uom), arrayKind), (:? (byte array) as arr) ->
             let values =
                 arr
                 |> Array.map (fun x -> NumberConstant(NumberValue.UInt8 x, uom) |> makeValue None)
                 |> Seq.toList
 
             NewArray(ArrayValues values, Number(kind, uom), arrayKind) |> makeValue r
-        | Array(Number(kind, uom), arrayKind), (:? (uint16[]) as arr) ->
+        | Array(Number(kind, uom), arrayKind), (:? (uint16 array) as arr) ->
             let values =
                 arr
                 |> Array.map (fun x -> NumberConstant(NumberValue.UInt16 x, uom) |> makeValue None)
