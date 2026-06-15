@@ -81,9 +81,9 @@ type IDartCompiler =
     abstract TransformFunction:
         Context * string option * Fable.Ident list * Fable.Expr -> Ident list * Statement list * Type
 
-    abstract WarnOnlyOnce: string * ?values: obj[] * ?range: SourceLocation -> unit
+    abstract WarnOnlyOnce: string * ?values: obj array * ?range: SourceLocation -> unit
 
-    abstract ErrorOnlyOnce: string * ?values: obj[] * ?range: SourceLocation -> unit
+    abstract ErrorOnlyOnce: string * ?values: obj array * ?range: SourceLocation -> unit
 
 module Util =
 

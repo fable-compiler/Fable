@@ -81,7 +81,7 @@ module PrinterExtensions =
                 printer.Print(s)
                 printSeparator |> Option.iter (fun f -> f printer)
 
-        member printer.PrintProductiveStatements(statements: Statement[]) =
+        member printer.PrintProductiveStatements(statements: Statement array) =
             for s in statements do
                 printer.PrintProductiveStatement(s, (fun p -> p.PrintStatementSeparator()))
 
@@ -140,7 +140,7 @@ module PrinterExtensions =
                 if i < items.Length - 1 then
                     printSeparator printer
 
-        member printer.PrintParameters(items: Parameter array, ?accessModifers: AccessModifier[]) =
+        member printer.PrintParameters(items: Parameter array, ?accessModifers: AccessModifier array) =
             let accessModifiers = defaultArg accessModifers [||]
             let len = items.Length
             let mutable i = 0
@@ -400,7 +400,7 @@ module PrinterExtensions =
             printer.Print(" " + operator + " ")
             printer.ComplexExpressionWithParens(right)
 
-        member printer.PrintJsxTemplate(parts: string[], values: Expression[]) =
+        member printer.PrintJsxTemplate(parts: string array, values: Expression array) =
             // Do we need to escape backslashes here?
             let escape str = str //Regex.Replace(str, @"(?<!\\)\\", @"\\")
 
@@ -1154,7 +1154,7 @@ module PrinterExtensions =
                     printer.Print(": ")
                     printer.Print(returnType)
 
-        member printer.PrintAbstractMembers(members: AbstractMember[], ?singleLine: bool) =
+        member printer.PrintAbstractMembers(members: AbstractMember array, ?singleLine: bool) =
             let singleLine = defaultArg singleLine false
 
             if singleLine then
@@ -1530,7 +1530,7 @@ module PrinterExtensions =
                 printer.PrintCommaSeparatedArray(parameters)
                 printer.Print(">")
 
-        member printer.Print(parameters: TypeAnnotation[]) =
+        member printer.Print(parameters: TypeAnnotation array) =
             if parameters.Length > 0 then
                 printer.Print("<")
                 printer.PrintCommaSeparatedArray(parameters)

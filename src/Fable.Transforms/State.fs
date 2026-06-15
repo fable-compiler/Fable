@@ -237,7 +237,7 @@ type Project
         |> Dictionary.tryFind memberUniqueName
         |> Option.map (fun e -> e.Calculate(com))
 
-    member _.GetFileInlineExprs(com: Compiler) : (string * InlineExpr)[] =
+    member _.GetFileInlineExprs(com: Compiler) : (string * InlineExpr) array =
         match Map.tryFind com.CurrentFile implFiles with
         | None -> [||]
         | Some implFile ->

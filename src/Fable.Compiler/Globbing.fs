@@ -237,7 +237,7 @@ module Glob =
         let path = normalizePath path
 
         let regex =
-            let outRegex: ref<Regex> = ref null
+            let outRegex: Regex ref = ref null
 
             if globRegexCache.TryGetValue(pattern, outRegex) then
                 outRegex.Value

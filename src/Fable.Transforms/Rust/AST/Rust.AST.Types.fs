@@ -1130,7 +1130,7 @@ type LitKind =
     /// A string literal (`"foo"`).
     | Str of Symbol * StrStyle
     /// A byte string (`b"foo"`).
-    | ByteStr of Lrc<u8[]>
+    | ByteStr of Lrc<u8 array>
     /// A byte char (`b'f'`).
     | Byte of u8
     /// A character literal (`'a'`).

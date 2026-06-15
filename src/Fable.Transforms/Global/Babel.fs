@@ -25,7 +25,7 @@ type AssignmentOperator =
 type Expression =
     | CommentedExpression of comment: string * expr: Expression
     | JsxElement of componentOrTag: Expression * props: (string * Expression) list * children: Expression list
-    | JsxTemplate of parts: string[] * values: Expression[]
+    | JsxTemplate of parts: string array * values: Expression array
     | Literal of Literal
     | Identifier of Identifier
     | ClassExpression of
@@ -474,7 +474,7 @@ type ClassMember =
 
 
 type ClassMethodKind =
-    | ClassPrimaryConstructor of AccessModifier[]
+    | ClassPrimaryConstructor of AccessModifier array
     | ClassFunction of key: Expression * isComputed: bool
     | ClassGetter of key: Expression * isComputed: bool
     | ClassSetter of key: Expression * isComputed: bool

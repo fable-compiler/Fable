@@ -2725,7 +2725,7 @@ but thanks to the optimisation done below we get
         (evalExpr: Fable.Expr)
         cases
         defaultCase
-        : Statement[]
+        : Statement array
         =
         let transformGuard =
             function
@@ -2821,7 +2821,7 @@ but thanks to the optimisation done below we get
         returnStrategy
         targetIndex
         boundValues
-        : Statement[]
+        : Statement array
         =
         match returnStrategy with
         | Some(Target targetId) ->
@@ -3035,7 +3035,7 @@ but thanks to the optimisation done below we get
         returnStrategy
         (targets: (Fable.Ident list * Fable.Expr) list)
         (treeExpr: Fable.Expr)
-        : Statement[]
+        : Statement array
         =
 
         let doesNotNeedExtraSwitch cases defaultCase =
@@ -3508,8 +3508,8 @@ but thanks to the optimisation done below we get
         (ent: Fable.Entity)
         entName
         (doc: string option)
-        (consArgs: Parameter[])
-        (consArgsModifiers: AccessModifier[])
+        (consArgs: Parameter array)
+        (consArgsModifiers: AccessModifier array)
         (consBody: BlockStatement)
         (superClass: SuperClass option)
         classMembers
@@ -3680,7 +3680,7 @@ but thanks to the optimisation done below we get
         (ent: Fable.Entity)
         entName
         doc
-        (consArgs: Parameter[])
+        (consArgs: Parameter array)
         (consBody: BlockStatement)
         baseExpr
         classMembers

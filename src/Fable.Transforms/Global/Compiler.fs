@@ -69,7 +69,7 @@ type Compiler =
     abstract OutputType: OutputType
     abstract ProjectFile: string
     abstract ProjectOptions: FSharpProjectOptions
-    abstract SourceFiles: string[]
+    abstract SourceFiles: string array
     abstract Options: CompilerOptions
     abstract Plugins: CompilerPlugins
     abstract IncrementCounter: unit -> int
