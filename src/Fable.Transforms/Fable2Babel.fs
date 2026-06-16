@@ -13,6 +13,7 @@ type ReturnStrategy =
     | Assign of Expression
     | Target of Identifier
 
+[<Struct>]
 type ConstructorRef =
     | Annotation
     | ActualConsRef
@@ -1329,6 +1330,7 @@ module Util =
 
         scopedTypeParams, typeParams
 
+    [<Struct>]
     type MemberKind =
         | ClassConstructor
         | NonAttached of funcName: string

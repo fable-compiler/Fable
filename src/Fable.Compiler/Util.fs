@@ -705,11 +705,12 @@ module Json =
     open Fable.AST
 
     // TODO: Check which other parameters are accepted by attributes (arrays?)
+    [<Struct>]
     type AttParam =
-        | Int of int
-        | Float of float
-        | Bool of bool
-        | String of string
+        | Int of intValue: int
+        | Float of floatValue: float
+        | Bool of boolValue: bool
+        | String of stringValue: string
 
         static member From(values: obj list) =
             (Ok [], values)

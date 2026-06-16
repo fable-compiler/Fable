@@ -25,6 +25,7 @@ type ITailCallOpportunity =
     abstract Args: Arg list
     abstract IsRecursiveRef: Fable.Expr -> bool
 
+[<Struct>]
 type MemberKind =
     | ClassConstructor
     | NonAttached of funcName: string

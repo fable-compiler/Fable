@@ -756,15 +756,16 @@ let convertRecord (com: IPhpCompiler) (decl: Fable.ClassDecl) (info: Fable.Entit
 /// F# is expression based, but some constructs have to be transpiled as
 /// statements in other languages. This types indicates how the result
 /// should be passed to the resto of the code.
+[<Struct>]
 type ReturnStrategy =
     /// The statement should return the value
     | Return
     /// The statement should define a new variable and assign it
-    | Let of string
+    | Let of varName: string
     /// No return value
     | Do
     /// used in decision tree when multiple cases result in the same code
-    | Target of string
+    | Target of targetName: string
 
 let nsreplacement (ns: string) =
     match ns.Replace(".", @"\") with

@@ -141,6 +141,7 @@ open type Macros
 
 /// How to break. Described in more detail in the module docs.
 [<RequireQualifiedAccess>]
+[<Struct>]
 type Breaks =
     | Consistent
     | Inconsistent

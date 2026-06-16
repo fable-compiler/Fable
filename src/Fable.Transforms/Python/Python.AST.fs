@@ -133,6 +133,7 @@ type Literal =
     | TupleLiteral of Literal list
     | FrozensetLiteral of Literal list
 
+[<Struct>]
 type Operator =
     | Add
     | Sub
@@ -148,10 +149,12 @@ type Operator =
     | BitAnd
     | MatMult
 
+[<Struct>]
 type BoolOperator =
     | And
     | Or
 
+[<Struct>]
 type ComparisonOperator =
     | Eq
     | NotEq
@@ -164,17 +167,20 @@ type ComparisonOperator =
     | In
     | NotIn
 
+[<Struct>]
 type UnaryOperator =
     | Invert
     | Not
     | UAdd
     | USub
 
+[<Struct>]
 type ExpressionContext =
     | Load
     | Del
     | Store
 
+[<Struct>]
 type Identifier =
     | Identifier of name: string
 

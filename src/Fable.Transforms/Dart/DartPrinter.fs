@@ -6,6 +6,7 @@ open Fable.AST
 open Fable.AST.Dart
 open Fable.Transforms.Printer
 
+[<Struct>]
 type ListPos =
     | IsFirst
     | IsMiddle

@@ -105,10 +105,11 @@ type FsField(fi: FSharpField) =
             | n -> name + "_" + (string<int> n)
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type CompiledValue =
-    | Integer of int
-    | Float of float
-    | Boolean of bool
+    | Integer of intValue: int
+    | Float of floatValue: float
+    | Boolean of boolValue: bool
 
 type FsUnionCase(uci: FSharpUnionCase) =
     /// FSharpUnionCase.CompiledName doesn't give the value of CompiledNameAttribute
