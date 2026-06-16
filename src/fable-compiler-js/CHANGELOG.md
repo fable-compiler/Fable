@@ -1,5 +1,5 @@
 ---
-last_commit_released: 15eb83ed36657f75073fb0e1b4cac677e24fc9bb
+last_commit_released: 477b8c693d948f74d8d2d5c38ac4d8e1f9287a51
 include:
   - ../Fable.Core/
   - ../fable-standalone/
@@ -12,6 +12,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.2.0 - 2026-06-16
+
+### 🚀 Features
+
+* *(beam)* Add !^ erased-cast operator to BeamInterop (#4659) ([206776b](https://github.com/fable-compiler/Fable/commit/206776bfcc7068f9953bf6e70aafcc24c4082248))
+
+### 🐞 Bug Fixes
+
+* Add type specifiers to interpolated strings (#4646) ([512ae4d](https://github.com/fable-compiler/Fable/commit/512ae4d1901d6ed3c4c10bb5b4f99e73c49a2056))
+* *(all)* Align `invalidArg` error message with .NET format (#4662) ([e672eb7](https://github.com/fable-compiler/Fable/commit/e672eb7ff6c38e15bada7520142024456b0dbb61))
+* *(beam)* Preserve element type through Option.Value for interface dispatch (#4661) ([e5521b6](https://github.com/fable-compiler/Fable/commit/e5521b63f70ea25c3b42447ef4327f95245002da))
+* *(python)* Emit wildcard default for union or-patterns (#4649) (#4653) ([c96f0ec](https://github.com/fable-compiler/Fable/commit/c96f0ecfe40d6be0fe8d95766ba279c3be4f6f7b))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/15eb83ed36657f75073fb0e1b4cac677e24fc9bb..477b8c693d948f74d8d2d5c38ac4d8e1f9287a51)</small></strong>
 
 ## 2.1.0 - 2026-06-10
 
