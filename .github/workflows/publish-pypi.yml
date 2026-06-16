@@ -15,6 +15,11 @@ jobs:
         UV_LINK_MODE: copy
       steps:
       - uses: actions/checkout@v6
+        with:
+          # Fetch the full history including tags so `dunamai --latest-tag`
+          # can resolve the release version. Without this, the default shallow
+          # checkout has no tags and dunamai falls back to 0.0.0.
+          fetch-depth: 0
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
