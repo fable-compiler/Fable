@@ -5088,8 +5088,8 @@ impl FSharpCons {
 impl Int8Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
-        Ok((Int8Array {}, FSharpArray::new(py, elements, Some("Int8"))?))
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
+        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int8"))?).add_subclass(Int8Array {}))
     }
 }
 
@@ -5097,11 +5097,8 @@ impl Int8Array {
 impl UInt8Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
-        Ok((
-            UInt8Array {},
-            FSharpArray::new(py, elements, Some("UInt8"))?,
-        ))
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
+        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt8"))?).add_subclass(UInt8Array {}))
     }
 }
 
@@ -5109,11 +5106,8 @@ impl UInt8Array {
 impl Int16Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
-        Ok((
-            Int16Array {},
-            FSharpArray::new(py, elements, Some("Int16"))?,
-        ))
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
+        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int16"))?).add_subclass(Int16Array {}))
     }
 }
 
@@ -5121,11 +5115,8 @@ impl Int16Array {
 impl UInt16Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
-        Ok((
-            UInt16Array {},
-            FSharpArray::new(py, elements, Some("UInt16"))?,
-        ))
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
+        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt16"))?).add_subclass(UInt16Array {}))
     }
 }
 
@@ -5133,11 +5124,8 @@ impl UInt16Array {
 impl Int32Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
-        Ok((
-            Int32Array {},
-            FSharpArray::new(py, elements, Some("Int32"))?,
-        ))
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
+        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int32"))?).add_subclass(Int32Array {}))
     }
 }
 
@@ -5145,11 +5133,8 @@ impl Int32Array {
 impl UInt32Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
-        Ok((
-            UInt32Array {},
-            FSharpArray::new(py, elements, Some("UInt32"))?,
-        ))
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
+        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt32"))?).add_subclass(UInt32Array {}))
     }
 }
 
@@ -5157,11 +5142,8 @@ impl UInt32Array {
 impl Int64Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
-        Ok((
-            Int64Array {},
-            FSharpArray::new(py, elements, Some("Int64"))?,
-        ))
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
+        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int64"))?).add_subclass(Int64Array {}))
     }
 }
 
@@ -5169,11 +5151,8 @@ impl Int64Array {
 impl UInt64Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
-        Ok((
-            UInt64Array {},
-            FSharpArray::new(py, elements, Some("UInt64"))?,
-        ))
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
+        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt64"))?).add_subclass(UInt64Array {}))
     }
 }
 
@@ -5181,11 +5160,8 @@ impl UInt64Array {
 impl Float32Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
-        Ok((
-            Float32Array {},
-            FSharpArray::new(py, elements, Some("Float32"))?,
-        ))
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
+        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Float32"))?).add_subclass(Float32Array {}))
     }
 }
 
@@ -5193,11 +5169,8 @@ impl Float32Array {
 impl Float64Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
-        Ok((
-            Float64Array {},
-            FSharpArray::new(py, elements, Some("Float64"))?,
-        ))
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
+        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Float64"))?).add_subclass(Float64Array {}))
     }
 }
 
@@ -5205,8 +5178,8 @@ impl Float64Array {
 impl BoolArray {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
-        Ok((BoolArray {}, FSharpArray::new(py, elements, Some("Bool"))?))
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
+        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Bool"))?).add_subclass(BoolArray {}))
     }
 }
 
@@ -5214,11 +5187,8 @@ impl BoolArray {
 impl GenericArray {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<(Self, FSharpArray)> {
-        Ok((
-            GenericArray {},
-            FSharpArray::new(py, elements, Some("generic"))?,
-        ))
+    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
+        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("generic"))?).add_subclass(GenericArray {}))
     }
 }
 
