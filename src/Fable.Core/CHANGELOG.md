@@ -1,5 +1,5 @@
 ---
-last_commit_released: b471dc16fc3b5132af77b5974d1669c9b8220cca
+last_commit_released: 477b8c693d948f74d8d2d5c38ac4d8e1f9287a51
 ---
 
 # Changelog
@@ -8,6 +8,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.1.0 - 2026-06-16
+
+### 🚀 Features
+
+* *(beam)* Add !^ erased-cast operator to BeamInterop (#4659) ([206776b](https://github.com/fable-compiler/Fable/commit/206776bfcc7068f9953bf6e70aafcc24c4082248))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/b471dc16fc3b5132af77b5974d1669c9b8220cca..477b8c693d948f74d8d2d5c38ac4d8e1f9287a51)</small></strong>
 
 ## 5.0.0 - 2026-04-21
 
