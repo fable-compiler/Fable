@@ -1924,16 +1924,13 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
                 match isThisRef, ctx.CtorFieldExprs.TryFind(info.Name) with
                 | true, Some cachedExpr -> cachedExpr
                 | _ ->
-                    // Class instance: state is stored in process dict, ref is the key
-                    // Use f$ prefix to avoid collision with interface method keys
+                    // Class instance: read via fable_utils:field_get, which supports both
+                    // a self-contained map (immutable class) and a process-dict ref (mutable class).
+                    // Use field_ prefix to avoid collision with interface method keys.
                     let classFieldAtom =
                         Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom("field_" + fieldName)))
 
-                    Beam.ErlExpr.Call(
-                        Some "maps",
-                        "get",
-                        [ classFieldAtom; Beam.ErlExpr.Call(None, "get", [ erlExpr ]) ]
-                    )
+                    Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ classFieldAtom; erlExpr ])
             | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
                 let fieldName = sanitizeErlangName info.Name
                 let fieldAtom = Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom fieldName))
@@ -2420,13 +2417,13 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
         // as a class field). This avoids confusing with method calls on self.
         match info.ThisArg with
         | Some thisExpr when ctx.ThisArgVar.IsSome && ctx.CtorParamNames.Contains(ident.Name) ->
-            // Field-stored function: (maps:get(field_<name>, get(This)))(Args)
+            // Field-stored function: (fable_utils:field_get(field_<name>, This))(Args)
             let erlThis = transformExpr com ctx thisExpr
             let thisH, cleanThis = extractBlock erlThis
             let fieldAtom = atomLit ("field_" + sanitizeErlangName ident.Name)
 
             let lookup =
-                Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; Beam.ErlExpr.Call(None, "get", [ cleanThis ]) ])
+                Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ fieldAtom; cleanThis ])
 
             Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted (hoisted @ thisH)
         | _ ->
@@ -2572,15 +2569,11 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                         | _ -> false
 
                     if isCtorFieldInvoke then
-                        // Constructor param field invoke: (maps:get(field_<name>, get(This)))(Args)
+                        // Constructor param field invoke: (fable_utils:field_get(field_<name>, This))(Args)
                         let fieldAtom = atomLit ("field_" + sanitizeErlangName methodName)
 
                         let lookup =
-                            Beam.ErlExpr.Call(
-                                Some "maps",
-                                "get",
-                                [ fieldAtom; Beam.ErlExpr.Call(None, "get", [ cleanCallee ]) ]
-                            )
+                            Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ fieldAtom; cleanCallee ])
 
                         Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted allHoisted
                     elif isRecordLike then
@@ -2760,7 +2753,11 @@ and transformClassDeclaration
                                     // BaseState = get(BaseRef)
                                     Beam.ErlExpr.Match(
                                         Beam.PVar "BaseState",
-                                        Beam.ErlExpr.Call(None, "get", [ Beam.ErlExpr.Variable "BaseRef" ])
+                                        Beam.ErlExpr.Call(
+                                            Some "fable_utils",
+                                            "inst_state",
+                                            [ Beam.ErlExpr.Variable "BaseRef" ]
+                                        )
                                     )
                                     // erase(BaseRef) — clean up the temporary base ref
                                     Beam.ErlExpr.Call(None, "erase", [ Beam.ErlExpr.Variable "BaseRef" ])
@@ -2772,6 +2769,63 @@ and transformClassDeclaration
                             // — skip the base call, no fields to merge
                             [], []
                     | _ -> [], []
+
+                // Decide the instance representation. An immutable class is emitted as a
+                // self-contained map (the instance term), exactly like a non-self-referencing
+                // object expression — so it is process-portable: field reads and method calls
+                // work in any process, not just the constructing one. A class is map-representable
+                // when it has no mutable instance fields, no `as self` self-reference, no base
+                // class state to merge, and none of its stored interface closures / `do` bodies use
+                // `this` as a value (only as the object of a field read — those become reads from
+                // the captured instance map). Classes with mutable instance fields keep the
+                // process-dict ref representation: BEAM has no shared mutable memory across
+                // processes, so cross-process mutation is intentionally unsupported (use actors).
+                // Interface members are stored as closures inside the instance. They may read
+                // `this.Field` (which we redirect to the captured instance map), but using `this`
+                // itself as a value — passing it, calling a sibling instance method on it — needs a
+                // reference to the whole instance, which a self-contained map cannot give a closure
+                // stored inside it. Such classes keep the process-dict ref representation.
+                let ifaceMembersPortable =
+                    decl.AttachedMembers
+                    |> List.filter (fun m -> m.ImplementedSignatureRef.IsSome)
+                    |> List.forall (fun memb ->
+                        match memb.Args with
+                        | first :: _ when first.IsThisArgument || first.Name = "this" ->
+                            not (Util.thisUsedAsValue first.Name memb.Body)
+                            && not (Util.containsThisValue memb.Body)
+                        | _ -> not (Util.containsThisValue memb.Body)
+                    )
+
+                // Field initializers and `do` bodies reference the constructor's `this` as the
+                // `ThisValue` value kind. The self-contained map is only built after they run, so
+                // any reference to `this` there is unsupportable in the map form — fall back to refs.
+                let fieldsPortable =
+                    fields |> List.forall (fun (_, v) -> not (Util.containsThisValue v))
+
+                let doExprsPortable =
+                    doExprs |> List.forall (fun e -> not (Util.containsThisValue e))
+
+                let hasMutableInstanceFields =
+                    ent.FSharpFields |> List.exists (fun f -> f.IsMutable)
+
+                let useMapRepr =
+                    not hasMutableInstanceFields
+                    && selfRefFieldNames.IsEmpty
+                    && baseEntries.IsEmpty
+                    && baseCallPrelude.IsEmpty
+                    && ifaceMembersPortable
+                    && fieldsPortable
+                    && doExprsPortable
+
+                // The Erlang variable that holds the instance inside the constructor:
+                // the self-contained fields map (`State0`) for map representation, or the
+                // process-dict ref (`Ref`) otherwise. Interface closures read `this.Field`
+                // from this variable via fable_utils:field_get.
+                let instanceVar =
+                    if useMapRepr then
+                        "State0"
+                    else
+                        "Ref"
 
                 // Process fields in order, progressively building a map of field name → Erlang expr.
                 // This allows later fields to reference earlier fields via this.FieldName
@@ -2800,8 +2854,12 @@ and transformClassDeclaration
                         (baseEntries, ctorCtx)
 
                 // Build interface entries from AttachedMembers that implement interfaces.
-                // These are stored in the process dict state map alongside field state,
-                // so interface dispatch (fable_utils:iface_get) can find them.
+                // These are stored in the instance map alongside field state, so interface
+                // dispatch (fable_utils:iface_get) can find them. Inside their closures,
+                // `this` resolves to the instance variable (the captured fields map for the
+                // map representation, or the process-dict ref otherwise).
+                let ifaceCtx = { ctorCtx with ThisArgVar = Some instanceVar }
+
                 let interfaceEntries =
                     decl.AttachedMembers
                     |> List.choose (fun memb ->
@@ -2818,8 +2876,8 @@ and transformClassDeclaration
                                 let ifaceCtorCtx =
                                     match memb.Args with
                                     | first :: _ when first.IsThisArgument || first.Name = "this" ->
-                                        { ctorCtx with ThisIdentNames = Set.singleton first.Name }
-                                    | _ -> ctorCtx
+                                        { ifaceCtx with ThisIdentNames = Set.singleton first.Name }
+                                    | _ -> ifaceCtx
 
                                 let erlBody = transformExpr com ifaceCtorCtx memb.Body
 
@@ -2860,15 +2918,15 @@ and transformClassDeclaration
                                 let ifaceCtorCtx =
                                     let argNames =
                                         nonThisArgs
-                                        |> List.fold (fun (s: Set<string>) a -> s.Add(a.Name)) ctorCtx.LocalVars
+                                        |> List.fold (fun (s: Set<string>) a -> s.Add(a.Name)) ifaceCtx.LocalVars
 
                                     match memb.Args with
                                     | first :: _ when first.IsThisArgument || first.Name = "this" ->
-                                        { ctorCtx with
+                                        { ifaceCtx with
                                             ThisIdentNames = Set.singleton first.Name
                                             LocalVars = argNames
                                         }
-                                    | _ -> { ctorCtx with LocalVars = argNames }
+                                    | _ -> { ifaceCtx with LocalVars = argNames }
 
                                 let erlBody = transformExpr com ifaceCtorCtx memb.Body
 
@@ -2898,57 +2956,84 @@ and transformClassDeclaration
                         | None -> None
                     )
 
-                // Transform constructor `do` expressions (side effects like `do v.Value <- 10`)
+                // Transform constructor `do` expressions (side effects like `do v.Value <- 10`).
+                // Under the map representation these never reference `this` (the gate excludes such
+                // classes), so the base constructor context is sufficient.
                 let erlDoExprs = doExprs |> List.map (transformExpr com ctorCtx)
 
-                // Build the state expression: either a plain map or merged with base state
-                let stateExpr =
-                    if baseCallPrelude.IsEmpty then
-                        Beam.ErlExpr.Map mapEntries
-                    else
-                        // maps:merge(BaseState, #{derived_fields...})
-                        Beam.ErlExpr.Call(
-                            Some "maps",
-                            "merge",
-                            [ Beam.ErlExpr.Variable "BaseState"; Beam.ErlExpr.Map mapEntries ]
-                        )
-
                 let body =
-                    baseCallPrelude
-                    @ [
-                        // Ref = make_ref()
-                        Beam.ErlExpr.Match(Beam.PVar "Ref", Beam.ErlExpr.Call(None, "make_ref", []))
-                        // put(Ref, State) where State is either #{fields} or maps:merge(BaseState, #{fields})
-                        Beam.ErlExpr.Call(None, "put", [ Beam.ErlExpr.Variable "Ref"; stateExpr ])
-                    ]
-                    @ (if interfaceEntries.IsEmpty then
-                           []
-                       else
-                           // Step 2: merge interface entries into state (separate put so getter bodies
-                           // that reference this.SomeField via get(Ref) work correctly)
-                           [
-                               Beam.ErlExpr.Call(
-                                   None,
-                                   "put",
-                                   [
-                                       Beam.ErlExpr.Variable "Ref"
-                                       Beam.ErlExpr.Call(
-                                           Some "maps",
-                                           "merge",
-                                           [
-                                               Beam.ErlExpr.Call(None, "get", [ Beam.ErlExpr.Variable "Ref" ])
-                                               Beam.ErlExpr.Map interfaceEntries
-                                           ]
-                                       )
-                                   ]
-                               )
-                           ])
-                    // Constructor `do` body expressions (side effects)
-                    @ erlDoExprs
-                    @ [
-                        // Return Ref
-                        Beam.ErlExpr.Variable "Ref"
-                    ]
+                    if useMapRepr then
+                        // Immutable class: the instance IS a self-contained map (process-portable).
+                        // Interface closures capture the fields map (`State0`) so they read fields
+                        // from the value itself, never from a per-process dictionary.
+                        if interfaceEntries.IsEmpty && erlDoExprs.IsEmpty then
+                            [ Beam.ErlExpr.Map mapEntries ]
+                        else
+                            [
+                                // State0 = #{fields}
+                                Beam.ErlExpr.Match(Beam.PVar instanceVar, Beam.ErlExpr.Map mapEntries)
+                            ]
+                            @ erlDoExprs
+                            @ [
+                                if interfaceEntries.IsEmpty then
+                                    Beam.ErlExpr.Variable instanceVar
+                                else
+                                    // Return State0 extended with the interface closures.
+                                    Beam.ErlExpr.Call(
+                                        Some "maps",
+                                        "merge",
+                                        [ Beam.ErlExpr.Variable instanceVar; Beam.ErlExpr.Map interfaceEntries ]
+                                    )
+                            ]
+                    else
+                        // Mutable class: state lives in the process dictionary, keyed by a ref.
+                        // Build the state expression: either a plain map or merged with base state.
+                        let stateExpr =
+                            if baseCallPrelude.IsEmpty then
+                                Beam.ErlExpr.Map mapEntries
+                            else
+                                // maps:merge(BaseState, #{derived_fields...})
+                                Beam.ErlExpr.Call(
+                                    Some "maps",
+                                    "merge",
+                                    [ Beam.ErlExpr.Variable "BaseState"; Beam.ErlExpr.Map mapEntries ]
+                                )
+
+                        baseCallPrelude
+                        @ [
+                            // Ref = make_ref()
+                            Beam.ErlExpr.Match(Beam.PVar "Ref", Beam.ErlExpr.Call(None, "make_ref", []))
+                            // put(Ref, State) where State is either #{fields} or maps:merge(BaseState, #{fields})
+                            Beam.ErlExpr.Call(None, "put", [ Beam.ErlExpr.Variable "Ref"; stateExpr ])
+                        ]
+                        @ (if interfaceEntries.IsEmpty then
+                               []
+                           else
+                               // Step 2: merge interface entries into state (separate put so getter bodies
+                               // that reference this.SomeField via get(Ref) work correctly)
+                               [
+                                   Beam.ErlExpr.Call(
+                                       None,
+                                       "put",
+                                       [
+                                           Beam.ErlExpr.Variable "Ref"
+                                           Beam.ErlExpr.Call(
+                                               Some "maps",
+                                               "merge",
+                                               [
+                                                   Beam.ErlExpr.Call(None, "get", [ Beam.ErlExpr.Variable "Ref" ])
+                                                   Beam.ErlExpr.Map interfaceEntries
+                                               ]
+                                           )
+                                       ]
+                                   )
+                               ])
+                        // Constructor `do` body expressions (side effects)
+                        @ erlDoExprs
+                        @ [
+                            // Return Ref
+                            Beam.ErlExpr.Variable "Ref"
+                        ]
 
                 // Use the constructor's compiled name so call sites can find it
                 let ctorFuncName = sanitizeErlangName cons.Name
@@ -3337,7 +3422,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                         Beam.ErlExpr.Match(Beam.PVar "BaseRef", cleanBaseCall)
                         Beam.ErlExpr.Match(
                             Beam.PVar "BaseState",
-                            Beam.ErlExpr.Call(None, "get", [ Beam.ErlExpr.Variable "BaseRef" ])
+                            Beam.ErlExpr.Call(Some "fable_utils", "inst_state", [ Beam.ErlExpr.Variable "BaseRef" ])
                         )
                         Beam.ErlExpr.Call(None, "erase", [ Beam.ErlExpr.Variable "BaseRef" ])
                     ]
