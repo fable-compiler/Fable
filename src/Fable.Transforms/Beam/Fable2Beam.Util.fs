@@ -146,7 +146,9 @@ let rec containsThisValue (expr: Expr) : bool =
             |> Option.map (fun (_, e) -> containsThisValue e)
             |> Option.defaultValue false)
         || (finalizer |> Option.map containsThisValue |> Option.defaultValue false)
-    | Emit(emitInfo, _, _) -> emitInfo.CallInfo.Args |> List.exists containsThisValue
+    | Emit(emitInfo, _, _) ->
+        emitInfo.CallInfo.Args |> List.exists containsThisValue
+        || (emitInfo.CallInfo.ThisArg |> Option.exists containsThisValue)
     | ObjectExpr(members, _, baseCall) ->
         members |> List.exists (fun m -> containsThisValue m.Body)
         || (
@@ -228,7 +230,9 @@ let rec thisUsedAsValue (name: string) (expr: Expr) : bool =
             |> Option.map (fun (_, e) -> thisUsedAsValue name e)
             |> Option.defaultValue false)
         || (finalizer |> Option.map (thisUsedAsValue name) |> Option.defaultValue false)
-    | Emit(emitInfo, _, _) -> emitInfo.CallInfo.Args |> List.exists (thisUsedAsValue name)
+    | Emit(emitInfo, _, _) ->
+        emitInfo.CallInfo.Args |> List.exists (thisUsedAsValue name)
+        || (emitInfo.CallInfo.ThisArg |> Option.exists (thisUsedAsValue name))
     | ObjectExpr(members, _, baseCall) ->
         members |> List.exists (fun m -> thisUsedAsValue name m.Body)
         || (

@@ -201,8 +201,9 @@ move_next(EnumRef) ->
     end.
 
 get_current(Enum) when is_map(Enum) ->
-    %% Map-represented compiled enumerator: call its field_current fun.
-    (maps:get(field_current, Enum))(ok);
+    %% Map-represented compiled enumerator (immutable instance fields): the instance
+    %% map is the state.
+    current_of_state(Enum);
 get_current(EnumRef) ->
     State = get(EnumRef),
     case maps:is_key(current, State) of
@@ -210,8 +211,23 @@ get_current(EnumRef) ->
             %% Simple list-based enumerator
             maps:get(current, State);
         false ->
-            %% Compiled seq.erl enumerator: call field_current fun
-            (maps:get(field_current, State))(ok)
+            current_of_state(State)
+    end.
+
+%% Resolve the "current" value from a compiled enumerator's state map. Two shapes
+%% occur and the representation (map vs ref) is orthogonal to which one applies:
+%%   - compiled seq.erl enumerators store a `field_current` thunk;
+%%   - a class implementing IEnumerator stores its Current getter under the interface
+%%     key as a {getter, Fun} pair (generic IEnumerator<T> and/or non-generic).
+current_of_state(State) ->
+    case maps:is_key(field_current, State) of
+        true ->
+            (maps:get(field_current, State))(ok);
+        false ->
+            case maps:is_key(system_collections_generic_i_enumerator_1_get_current, State) of
+                true -> iface_unwrap(maps:get(system_collections_generic_i_enumerator_1_get_current, State));
+                false -> iface_unwrap(maps:get(system_collections_i_enumerator_get_current, State))
+            end
     end.
 
 %% IEEE 754 special float values.
