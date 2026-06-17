@@ -240,6 +240,27 @@ Erlang modules implementing F# core types:
 | **Nested modules**                | Flat module names: `My_Module_Sub`                | One file per module                  |
 | **Computation expressions**       | Transformed at Fable AST level; async/task → CPS  | —                                    |
 
+### Class instance representation: map vs process-dict ref
+
+A class instance has two possible representations, chosen per class at construction:
+
+- **Immutable classes** (no mutable instance fields, no `as self`, no base-class
+  state to merge, and whose stored interface closures / field initializers don't use
+  `this` as a value) are emitted as a **self-contained map** — the instance term *is*
+  the state map, exactly like a non-self-referencing object expression. These are
+  process-portable: an interface or regular method invoked from another process reads
+  fields from the value itself, not from the constructing process's dictionary.
+- **Mutable classes** (any `let mutable` / `val mutable` instance field, self-reference,
+  etc.) keep their state in the **process dictionary**, keyed by a `make_ref()`. The BEAM
+  has no shared mutable memory across processes, so mutation is single-process by design
+  — cross-process object sharing of mutable instances is intentionally unsupported (use
+  actors / message passing for that).
+
+Field reads are decoupled from the representation: `fable_utils:field_get/2` (and
+`iface_get`, `inst_state`, `move_next`, `get_current`, `safe_dispose`) accept both a map
+and a ref, so call sites and runtime helpers work regardless of which form the
+constructor chose. See `transformClassDeclaration` in `Fable2Beam.fs`.
+
 ## Concurrency & Async
 
 This compiler/runtime implements F#'s async and agent model **in-process** (CPS-based),

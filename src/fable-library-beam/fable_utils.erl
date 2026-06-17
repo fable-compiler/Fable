@@ -2,6 +2,8 @@
 -export([
     iface_get/2,
     iface_get/3,
+    field_get/2,
+    inst_state/1,
     apply_curried/2,
     new_ref/1,
     safe_dispose/1,
@@ -32,12 +34,14 @@
 
 -spec iface_get(atom(), map() | reference() | {fable_import_all, atom()}) -> term().
 -spec iface_get(atom(), non_neg_integer(), {fable_import_all, atom()}) -> term().
+-spec field_get(atom(), map() | reference()) -> term().
+-spec inst_state(map() | reference()) -> map().
 -spec apply_curried(fun(), list()) -> term().
 -spec new_ref(term()) -> reference().
 -spec safe_dispose(term()) -> ok.
 -spec get_enumerator(list() | reference() | map() | term()) -> reference().
--spec move_next(reference()) -> boolean().
--spec get_current(reference()) -> term().
+-spec move_next(map() | reference()) -> boolean().
+-spec get_current(map() | reference()) -> term().
 -spec pos_infinity() -> float().
 -spec neg_infinity() -> float().
 -spec nan() -> nan.
@@ -81,6 +85,20 @@ iface_get(Name, Ref) -> iface_unwrap(maps:get(Name, get(Ref))).
 
 iface_unwrap({getter, Fun}) -> Fun();
 iface_unwrap(Val) -> Val.
+
+%% Read an instance field, supporting both representations of a class instance:
+%% an immutable self-contained map (process-portable, like object expressions) and
+%% a process-dict ref (used for classes with mutable instance fields — single-process).
+%% Decoupling the read site from the representation lets the constructor alone decide
+%% which form to emit.
+field_get(Field, Obj) when is_map(Obj) -> maps:get(Field, Obj);
+field_get(Field, Ref) -> maps:get(Field, get(Ref)).
+
+%% Resolve a class instance to its state map, supporting both representations.
+%% Used when merging a base class's state into a derived class: the base
+%% constructor may return a self-contained map or a process-dict ref.
+inst_state(Obj) when is_map(Obj) -> Obj;
+inst_state(Ref) -> get(Ref).
 
 %% Create a new process dictionary ref cell with the given initial value.
 %% Encapsulates make_ref() + put() to avoid variable name collisions in nested constructs.
@@ -160,6 +178,11 @@ get_enumerator(Other) ->
     %% Fallback: treat as list
     get_enumerator(lists:flatten([Other])).
 
+%% A compiled enumerator class can be represented either as a self-contained map
+%% (immutable instance fields) or as a process-dict ref; resolve to the state map.
+move_next(Enum) when is_map(Enum) ->
+    %% Map-represented compiled enumerator: the instance map is the state.
+    (maps:get(system_collections_i_enumerator_move_next, Enum))();
 move_next(EnumRef) ->
     State = get(EnumRef),
     case maps:is_key(items, State) of
@@ -177,6 +200,10 @@ move_next(EnumRef) ->
             (maps:get(system_collections_i_enumerator_move_next, State))()
     end.
 
+get_current(Enum) when is_map(Enum) ->
+    %% Map-represented compiled enumerator (immutable instance fields): the instance
+    %% map is the state.
+    current_of_state(Enum);
 get_current(EnumRef) ->
     State = get(EnumRef),
     case maps:is_key(current, State) of
@@ -184,8 +211,23 @@ get_current(EnumRef) ->
             %% Simple list-based enumerator
             maps:get(current, State);
         false ->
-            %% Compiled seq.erl enumerator: call field_current fun
-            (maps:get(field_current, State))(ok)
+            current_of_state(State)
+    end.
+
+%% Resolve the "current" value from a compiled enumerator's state map. Two shapes
+%% occur and the representation (map vs ref) is orthogonal to which one applies:
+%%   - compiled seq.erl enumerators store a `field_current` thunk;
+%%   - a class implementing IEnumerator stores its Current getter under the interface
+%%     key as a {getter, Fun} pair (generic IEnumerator<T> and/or non-generic).
+current_of_state(State) ->
+    case maps:is_key(field_current, State) of
+        true ->
+            (maps:get(field_current, State))(ok);
+        false ->
+            case maps:is_key(system_collections_generic_i_enumerator_1_get_current, State) of
+                true -> iface_unwrap(maps:get(system_collections_generic_i_enumerator_1_get_current, State));
+                false -> iface_unwrap(maps:get(system_collections_i_enumerator_get_current, State))
+            end
     end.
 
 %% IEEE 754 special float values.

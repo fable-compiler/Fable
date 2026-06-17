@@ -85,6 +85,169 @@ let rec containsIdentRef (name: string) (expr: Expr) : bool =
         | Curry _ -> false
     | _ -> false
 
+/// Check whether an expression references the constructor's `this` (the `ThisValue`
+/// value kind — which, per the Fable AST, only appears inside constructors). The
+/// self-contained map representation builds the instance after evaluating field
+/// initializers and `do` bodies, so any such body that references `this` cannot use
+/// that representation and must keep the process-dict ref form.
+let rec containsThisValue (expr: Expr) : bool =
+    match expr with
+    | Value(ThisValue _, _) -> true
+    | Value(value, _) ->
+        match value with
+        | NewAnonymousRecord(values, _, _, _)
+        | NewRecord(values, _, _)
+        | NewUnion(values, _, _, _)
+        | NewTuple(values, _) -> values |> List.exists containsThisValue
+        | NewList(Some(h, t), _) -> containsThisValue h || containsThisValue t
+        | NewOption(Some e, _, _) -> containsThisValue e
+        | NewArray(NewArrayKind.ArrayValues values, _, _) -> values |> List.exists containsThisValue
+        | StringTemplate(_, _, values) -> values |> List.exists containsThisValue
+        | _ -> false
+    | IdentExpr _ -> false
+    | Call(callee, info, _, _) ->
+        containsThisValue callee
+        || info.Args |> List.exists containsThisValue
+        || (info.ThisArg |> Option.exists containsThisValue)
+    | CurriedApply(applied, args, _, _) -> containsThisValue applied || args |> List.exists containsThisValue
+    | Let(_, value, body) -> containsThisValue value || containsThisValue body
+    | LetRec(bindings, body) ->
+        bindings |> List.exists (fun (_, v) -> containsThisValue v)
+        || containsThisValue body
+    | Lambda(_, body, _) -> containsThisValue body
+    | Delegate(_, body, _, _) -> containsThisValue body
+    | IfThenElse(g, t, e, _) -> containsThisValue g || containsThisValue t || containsThisValue e
+    | Sequential exprs -> exprs |> List.exists containsThisValue
+    | TypeCast(e, _) -> containsThisValue e
+    | Operation(kind, _, _, _) ->
+        match kind with
+        | Binary(_, l, r) -> containsThisValue l || containsThisValue r
+        | Unary(_, e) -> containsThisValue e
+        | Logical(_, l, r) -> containsThisValue l || containsThisValue r
+    | DecisionTree(e, targets) ->
+        containsThisValue e
+        || targets |> List.exists (fun (_, t) -> containsThisValue t)
+    | DecisionTreeSuccess(_, values, _) -> values |> List.exists containsThisValue
+    | Test(e, _, _) -> containsThisValue e
+    | Get(e, kind, _, _) ->
+        containsThisValue e
+        || (
+            match kind with
+            | ExprGet idx -> containsThisValue idx
+            | _ -> false
+        )
+    | Set(e, _, _, v, _) -> containsThisValue e || containsThisValue v
+    | WhileLoop(guard, body, _) -> containsThisValue guard || containsThisValue body
+    | ForLoop(_, start, limit, body, _, _) ->
+        containsThisValue start || containsThisValue limit || containsThisValue body
+    | TryCatch(body, catch, finalizer, _) ->
+        containsThisValue body
+        || (catch
+            |> Option.map (fun (_, e) -> containsThisValue e)
+            |> Option.defaultValue false)
+        || (finalizer |> Option.map containsThisValue |> Option.defaultValue false)
+    | Emit(emitInfo, _, _) ->
+        emitInfo.CallInfo.Args |> List.exists containsThisValue
+        || (emitInfo.CallInfo.ThisArg |> Option.exists containsThisValue)
+    | ObjectExpr(members, _, baseCall) ->
+        members |> List.exists (fun m -> containsThisValue m.Body)
+        || (
+            match baseCall with
+            | Some e -> containsThisValue e
+            | None -> false
+        )
+    | Extended(kind, _) ->
+        match kind with
+        | Throw(Some e, _) -> containsThisValue e
+        | Throw(None, _)
+        | Debugger
+        | Curry _ -> false
+    | _ -> false
+
+/// Check whether `name` (an instance's `this`/self identifier) is ever used as a
+/// runtime value, i.e. anywhere other than as the object of a field read
+/// (`this.Field`). Field reads can be compiled to read from the captured instance
+/// map, but using `this` itself as a value (passing it, calling a sibling method on
+/// it, etc.) requires a reference to the whole instance — which a self-contained
+/// immutable map cannot provide to closures stored inside it. Used to decide whether
+/// a class can be represented as a portable map rather than a process-dict ref.
+let rec thisUsedAsValue (name: string) (expr: Expr) : bool =
+    match expr with
+    | IdentExpr ident -> ident.Name = name
+    // `this.Field` — the ident in the object position is a field read, not a value use.
+    | Get(IdentExpr ident, FieldGet _, _, _) when ident.Name = name -> false
+    | Get(e, kind, _, _) ->
+        thisUsedAsValue name e
+        || (
+            match kind with
+            | ExprGet idx -> thisUsedAsValue name idx
+            | _ -> false
+        )
+    | Call(callee, info, _, _) ->
+        thisUsedAsValue name callee
+        || info.Args |> List.exists (thisUsedAsValue name)
+        || (info.ThisArg |> Option.exists (thisUsedAsValue name))
+    | CurriedApply(applied, args, _, _) -> thisUsedAsValue name applied || args |> List.exists (thisUsedAsValue name)
+    | Let(_, value, body) -> thisUsedAsValue name value || thisUsedAsValue name body
+    | LetRec(bindings, body) ->
+        bindings |> List.exists (fun (_, v) -> thisUsedAsValue name v)
+        || thisUsedAsValue name body
+    | Lambda(_, body, _) -> thisUsedAsValue name body
+    | Delegate(_, body, _, _) -> thisUsedAsValue name body
+    | IfThenElse(g, t, e, _) -> thisUsedAsValue name g || thisUsedAsValue name t || thisUsedAsValue name e
+    | Sequential exprs -> exprs |> List.exists (thisUsedAsValue name)
+    | Value(value, _) ->
+        match value with
+        | NewAnonymousRecord(values, _, _, _)
+        | NewRecord(values, _, _)
+        | NewUnion(values, _, _, _)
+        | NewTuple(values, _) -> values |> List.exists (thisUsedAsValue name)
+        | NewList(Some(h, t), _) -> thisUsedAsValue name h || thisUsedAsValue name t
+        | NewOption(Some e, _, _) -> thisUsedAsValue name e
+        | NewArray(NewArrayKind.ArrayValues values, _, _) -> values |> List.exists (thisUsedAsValue name)
+        | StringTemplate(_, _, values) -> values |> List.exists (thisUsedAsValue name)
+        | _ -> false
+    | TypeCast(e, _) -> thisUsedAsValue name e
+    | Operation(kind, _, _, _) ->
+        match kind with
+        | Binary(_, l, r) -> thisUsedAsValue name l || thisUsedAsValue name r
+        | Unary(_, e) -> thisUsedAsValue name e
+        | Logical(_, l, r) -> thisUsedAsValue name l || thisUsedAsValue name r
+    | DecisionTree(e, targets) ->
+        thisUsedAsValue name e
+        || targets |> List.exists (fun (_, t) -> thisUsedAsValue name t)
+    | DecisionTreeSuccess(_, values, _) -> values |> List.exists (thisUsedAsValue name)
+    | Test(e, _, _) -> thisUsedAsValue name e
+    | Set(e, _, _, v, _) -> thisUsedAsValue name e || thisUsedAsValue name v
+    | WhileLoop(guard, body, _) -> thisUsedAsValue name guard || thisUsedAsValue name body
+    | ForLoop(_, start, limit, body, _, _) ->
+        thisUsedAsValue name start
+        || thisUsedAsValue name limit
+        || thisUsedAsValue name body
+    | TryCatch(body, catch, finalizer, _) ->
+        thisUsedAsValue name body
+        || (catch
+            |> Option.map (fun (_, e) -> thisUsedAsValue name e)
+            |> Option.defaultValue false)
+        || (finalizer |> Option.map (thisUsedAsValue name) |> Option.defaultValue false)
+    | Emit(emitInfo, _, _) ->
+        emitInfo.CallInfo.Args |> List.exists (thisUsedAsValue name)
+        || (emitInfo.CallInfo.ThisArg |> Option.exists (thisUsedAsValue name))
+    | ObjectExpr(members, _, baseCall) ->
+        members |> List.exists (fun m -> thisUsedAsValue name m.Body)
+        || (
+            match baseCall with
+            | Some e -> thisUsedAsValue name e
+            | None -> false
+        )
+    | Extended(kind, _) ->
+        match kind with
+        | Throw(Some e, _) -> thisUsedAsValue name e
+        | Throw(None, _)
+        | Debugger
+        | Curry _ -> false
+    | _ -> false
+
 /// Check if an expression is effectively unit — either a direct UnitConstant
 /// or a Sequential containing only UnitConstants. This pattern arises when F#
 /// inlines `ignore` on a call: `let value = expr in ()` where the body may be
