@@ -215,6 +215,9 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             | None ->
                 if ctx.LocalVars.Contains(ident.Name) || ctx.RecursiveBindings.Contains(ident.Name) then
                     Beam.ErlExpr.Variable(capitalizeFirst ident.Name |> sanitizeErlangVar)
+                elif ident.IsMutable then
+                    // Module-level mutable: read current value from process dictionary
+                    Beam.ErlExpr.Call(None, "get", [ atomLit (sanitizeErlangName ident.Name) ])
                 else
                     // Module-level function reference: call as 0-arity function
                     Beam.ErlExpr.Call(None, sanitizeErlangName ident.Name, [])
@@ -521,6 +524,9 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             // Array ref (non-byte): put the new value into the process dict ref
             let erlExpr = transformExpr com ctx expr
             Beam.ErlExpr.Call(None, "put", [ erlExpr; transformExpr com ctx value ])
+        | IdentExpr ident when ident.IsMutable ->
+            // Module-level mutable: update via process dictionary using name atom
+            Beam.ErlExpr.Call(None, "put", [ atomLit (sanitizeErlangName ident.Name); transformExpr com ctx value ])
         | IdentExpr ident -> Beam.ErlExpr.Match(Beam.PVar(capitalizeFirst ident.Name), transformExpr com ctx value)
         | _ ->
             com.WarnOnlyOnce("Set with non-identifier target is not supported for Beam target")
@@ -3475,21 +3481,45 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                 | Beam.ErlExpr.Block exprs -> exprs
                 | expr -> [ expr ]
 
-            let funcDef: Beam.ErlFunctionDef =
-                {
-                    Name = Beam.Atom name
-                    Arity = arity
-                    Clauses =
-                        [
-                            {
-                                Patterns = args
-                                Guard = []
-                                Body = body
-                            }
-                        ]
-                }
+            // Module-level mutable values (no args, IsMutable) are stored in the process
+            // dictionary so they can be updated. Emit a main/0 that initializes the value
+            // instead of a constant-returning function — the main/0 merges with the
+            // ActionDeclaration main/0 so the initialization runs before use.
+            if info.IsValue && info.IsMutable && arity = 0 then
+                let initStmt = Beam.ErlExpr.Call(None, "put", [ atomLit name; List.head body ])
 
-            [ Beam.ErlForm.Function funcDef ]
+                let funcDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom "main"
+                        Arity = 0
+                        Clauses =
+                            [
+                                {
+                                    Patterns = []
+                                    Guard = []
+                                    Body = [ initStmt ]
+                                }
+                            ]
+                    }
+
+                [ Beam.ErlForm.Function funcDef ]
+            else
+
+                let funcDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom name
+                        Arity = arity
+                        Clauses =
+                            [
+                                {
+                                    Patterns = args
+                                    Guard = []
+                                    Body = body
+                                }
+                            ]
+                    }
+
+                [ Beam.ErlForm.Function funcDef ]
 
     | ActionDeclaration actionDecl ->
         let bodyExpr = transformExpr com ctx actionDecl.Body
