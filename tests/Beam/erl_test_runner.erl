@@ -12,8 +12,20 @@ main([Dir]) ->
         code:purge(Mod),
         code:load_file(Mod),
         Exports = Mod:module_info(exports),
+        %% Run the module initializer (main/0) before the module's tests, if present.
+        %% F# evaluates module-level bindings (including mutable values and `do` actions)
+        %% once before any module code runs; main/0 carries that initialization, so it must
+        %% execute before the test functions that read module-level state.
+        case lists:member({main, 0}, Exports) of
+            true ->
+                try Mod:main()
+                catch _:_ -> ok
+                end;
+            false -> ok
+        end,
         TestFuns = [{Mod, F} || {F, 0} <- Exports,
                      F =/= module_info,
+                     F =/= main,
                      lists:prefix("test_", atom_to_list(F))],
         lists:foldl(fun({M, F}, {Pass, Fail}) ->
             try

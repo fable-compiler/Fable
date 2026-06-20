@@ -935,11 +935,38 @@ let ``test Binding doesn't shadow top-level functions`` () =
     equal 4 B.d
     equal 0 B.D.e
 
-// TODO: Module-level `do` side effects on mutable values don't execute during Erlang module load
-// [<Fact>]
-// let ``test Setting a top-level value doesn't alter values at same level`` () =
-//     equal 15 topA
-//     equal 25 B.a
+[<Fact>]
+let ``test Setting a top-level value doesn't alter values at same level`` () =
+    equal 15 topA
+    equal 25 B.a
+
+// --- Module-level mutable variables ---
+// On BEAM these are backed by the process dictionary; module initialization (main/0)
+// runs before the tests, and reads/writes go through get/put on the value's name atom.
+
+let mutable moduleCounter = 0
+
+let private bumpModuleCounter () = moduleCounter <- moduleCounter + 1
+let private readModuleCounter () = moduleCounter
+
+[<Fact>]
+let ``test Module-level mutable can be read and written`` () =
+    moduleCounter <- 42
+    equal 42 moduleCounter
+
+[<Fact>]
+let ``test Module-level mutable supports multiple assignments`` () =
+    moduleCounter <- 1
+    moduleCounter <- 2
+    moduleCounter <- moduleCounter + 10
+    equal 12 moduleCounter
+
+[<Fact>]
+let ``test Module-level mutable is shared across functions`` () =
+    moduleCounter <- 5
+    bumpModuleCounter ()
+    bumpModuleCounter ()
+    equal 7 (readModuleCounter ())
 
 // TODO: Recursive value bindings use Lazy internally, which is not yet supported by Fable Beam
 // let mutable recMutableValue = 0
