@@ -1112,8 +1112,60 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   `{choice1_of2, V}` / `{choice2_of2, wrap_error(E)}` matching Beam's Choice union representation.
 - **OperationCanceledException**: Added to the exception type pattern in Beam Replacements
   alongside `BuiltinSystemException` and `KeyNotFoundException`.
+- **Module-level mutable variables**: `let mutable x = v` at module level is routed through
+  the process dictionary (same mechanism as local mutable `let` bindings). The declaration
+  emits a `main/0` fragment that initialises the value (`put(x, v)`); reads of the ident emit
+  `get(x)` and writes (`x <- e`) emit `put(x, e)` (see the `IdentExpr`/`Set` branches and the
+  `MemberDeclaration` value case in `Fable2Beam.fs`). All `main/0` fragments — mutable inits,
+  snapshot inits (below), and `do` actions — are merged in declaration order, so module
+  initialisation runs as a single ordered sequence, mirroring F#.
+    - **Snapshotting immutable values that read a mutable**: an *immutable* module value whose
+      initializer reads a module-level mutable (e.g. `let c = topA`) must capture the value at
+      binding time, because F# evaluates module bindings once, in order, before any later
+      reassignment. Compiled naively as a lazy 0-arity accessor it would re-read the *live*
+      process-dict value and observe later writes. Such values are therefore also eagerly
+      initialised in `main/0` (`put(c, <value>)`, emitted in declaration order so it captures
+      the mutable's value at that point) plus an accessor that reads the snapshot (`c() ->
+      get(c)`). Detection is `readsFreeMutable`, which walks the Fable body tracking locally
+      bound names and triggers only on a *free* (module-level) mutable reference —
+      self-contained bodies whose only mutables are local stay lazy, so they don't gain a
+      spurious dependency on `main/0`.
+    - **Module init runs before tests**: the Erlang test runner (`erl_test_runner.erl`) calls
+      `test_*/0` functions directly and would never run `main/0`, so module-level
+      initialisation (mutable inits and `do` actions) would never execute and reads would
+      return `undefined`. The runner now invokes each module's `main/0` (if exported) before
+      its tests, mirroring .NET module initialisation (which runs before any module code).
+      This is safe because Beam test modules contain no top-level side effects beyond these
+      initialisers.
 
 ## Future Improvements
+
+### Module-level mutable state: per-process, requires `main/0`
+
+Module-level mutables live in the **process dictionary** and are initialised by `main/0`.
+That makes their semantics correct only when `main/0` actually runs in the process that later
+reads the state:
+
+- **Works**: entry-point programs (the `main/0` Fable emits is the program entry — quicktest,
+  real apps) and the test harness (now calls `main/0` before each module's tests).
+- **Does not work**: a *library* module whose functions are called by other code without that
+  module's `main/0` having run — its module-level mutables/snapshots read `undefined`. Reads
+  from a **different process** than the one that ran `main/0` also see `undefined`, since the
+  process dictionary is process-local.
+
+This matches the broader Beam design (mutation is single-process by design; see "Class instance
+representation" and "Mutable Collections" above), but it means module-level mutable global state
+is not a fully general feature. Follow-up options if true cross-process / load-time module state
+is ever needed:
+
+- **`persistent_term`** + `-on_load` for global, load-time initialisation (reads visible from
+  any process). Downside: writes are global-GC-heavy and meant for write-rarely data, so
+  frequently-mutated module values would be slow.
+- **ETS** table per module for shared mutable state — O(1) writes, but cross-process shared
+  state, against the isolation model.
+
+Neither is implemented; the current per-process approach is the right default for typical F#
+programs where module-level mutables are entry-point/program state.
 
 ### Mutable Collections: Process Dict vs ETS
 
