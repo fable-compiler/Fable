@@ -2606,6 +2606,7 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
             Helper.ConstructorCall(e, t, args, ?loc = r) |> Some
     | "get_Message", Some e -> Helper.InstanceCall(e, "toString", t, [], ?loc = r) |> Some
     // | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
+    | "get_InnerException", Some e -> getFieldWith r t e "innerException" |> Some
     | _ -> None
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =

@@ -80,9 +80,15 @@ export interface ICollection<T> extends IEnumerable<T> {
 export class Exception {
   public message: string;
   public stack?: string;
+  // Typed non-nullable to match how Fable models .NET reference types: nullability
+  // annotations are erased, so consumers (and `get_InnerException`) see `Exception`.
+  // At runtime this is `undefined` when no inner exception was provided, just like
+  // a `defaultOf()` value, which is fine for code that reads `.InnerException`.
+  public innerException!: Exception;
 
-  constructor(msg?: string) {
+  constructor(msg?: string, innerException?: Exception) {
     this.message = msg ?? "";
+    this.innerException = innerException as Exception;
   }
 
   toString() {

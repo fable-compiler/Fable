@@ -2411,6 +2411,7 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
     | ".ctor", None -> bclType com ctx r t i thisArg args
     | "get_Message", Some ex -> makeInstanceCall r t i ex i.CompiledName args |> Some
     | "get_StackTrace", Some ex -> makeInstanceCall r t i ex i.CompiledName args |> Some
+    | "get_InnerException", Some ex -> makeInstanceCall r t i ex i.CompiledName args |> Some
     | _ -> None
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =

@@ -1405,3 +1405,15 @@ let ``Super call works correctly in multi-level generic class hierarchy`` () =
     obj.Attach("hello")
     // Each override delegates to base before logging, so the chain unwinds Base -> Mid -> Leaf
     List.ofSeq log |> equal [ "Base"; "Mid"; "Leaf" ]
+
+[<Fact>]
+let ``ArgumentException with message and inner exception works`` () =
+    let inner = exn "the inner cause"
+    let ex = System.ArgumentException("outer message", inner)
+    ex.Message |> equal "outer message"
+    ex.InnerException.Message |> equal "the inner cause"
+
+[<Fact>]
+let ``Exception InnerException is null when not provided`` () =
+    let ex = System.ArgumentException("no inner")
+    isNull (box ex.InnerException) |> equal true

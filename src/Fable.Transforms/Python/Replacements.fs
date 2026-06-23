@@ -2789,9 +2789,12 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
         match i.DeclaringEntityFullName with
         // | "System.Collections.Generic.KeyNotFoundException"
         | BuiltinSystemException _ -> bclType com ctx r t i thisArg args
-        | _ -> Helper.ConstructorCall(makeIdentExpr "Exception", t, args, ?loc = r) |> Some
+        | _ ->
+            let e = makeImportLib com Any "ExceptionBase" "Types"
+            Helper.ConstructorCall(e, t, args, ?loc = r) |> Some
     | "get_Message", Some e -> Helper.GlobalCall("str", t, [ thisArg.Value ], ?loc = r) |> Some
     | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
+    | "get_InnerException", Some e -> getFieldWith r t e "inner_exception" |> Some
     | _ -> None
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -4228,7 +4231,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
 
 let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
-    | Types.exception_ -> Some(makeIdentExpr ("Exception"), args)
+    | Types.exception_ -> Some(makeImportLib com Any "ExceptionBase" "Types", args)
     | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)
     | Types.dictionary ->
         let args =

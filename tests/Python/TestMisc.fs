@@ -1067,6 +1067,18 @@ let ``test try-with with unmatched exception type reraises`` () =
     caught |> equal "arg"
 
 [<Fact>]
+let ``test ArgumentException with message and inner exception works`` () =
+    let inner = exn "the inner cause"
+    let ex = System.ArgumentException("outer message", inner)
+    ex.Message |> equal "outer message"
+    ex.InnerException.Message |> equal "the inner cause"
+
+[<Fact>]
+let ``test Exception InnerException is null when not provided`` () =
+    let ex = System.ArgumentException("no inner")
+    isNull (box ex.InnerException) |> equal true
+
+[<Fact>]
 let ``test use doesn't return on finally clause`` () = // See #211
     let foo() =
         use c = new DisposableFoo()
