@@ -34,6 +34,21 @@ let createGithubRelease (version: LastVersionFinder.Version) =
             |> CmdLine.toString
         )
 
+        // Creating the release above with the default GITHUB_TOKEN does not
+        // trigger the `release: published` event in other workflows (GitHub
+        // suppresses it to avoid recursive runs). `workflow_dispatch` is one of
+        // the two exceptions that CAN be triggered by GITHUB_TOKEN, so we
+        // explicitly dispatch the PyPI publish workflow for the freshly created tag.
+        Command.Run(
+            "gh",
+            CmdLine.empty
+            |> CmdLine.appendRaw "workflow"
+            |> CmdLine.appendRaw "run"
+            |> CmdLine.appendRaw "publish-pypi.yml"
+            |> CmdLine.appendPrefix "--ref" versionText
+            |> CmdLine.toString
+        )
+
 let private createReleaseCommitAndPush (version: LastVersionFinder.Version) =
     let versionText = version.Version.ToString()
 
