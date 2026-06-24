@@ -76,7 +76,10 @@ let IsOptimizationDataResourceB (r: ILResource) =
 
 let decompressResource (r: ILResource) =
 #if FABLE_COMPILER
-    r.GetBytes() // no support for gunzip
+    // System.IO.Compression is not available when running as JavaScript, so use
+    // the pure-managed inflate (RFC 1951) instead of DeflateStream.
+    let inflated = FableInflate.inflateRaw (r.GetBytes().ToArray())
+    ByteMemory.FromArray(inflated).AsReadOnly()
 #else
     use raw = r.GetBytes().AsStream()
     use decompressed = new MemoryStream()
