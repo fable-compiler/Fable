@@ -79,6 +79,7 @@ type IBeamCompiler =
 type Context =
     {
         File: string
+        ModuleName: string // Emitting Erlang module name (namespaces module-level mutable state keys)
         UsedNames: Set<string>
         DecisionTargets: (Ident list * Expr) list
         RecursiveBindings: Set<string>
@@ -242,7 +243,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                     Beam.ErlExpr.Variable(capitalizeFirst ident.Name |> sanitizeErlangVar)
                 elif ident.IsMutable then
                     // Module-level mutable: read current value from process dictionary
-                    Beam.ErlExpr.Call(None, "get", [ atomLit (sanitizeErlangName ident.Name) ])
+                    Beam.ErlExpr.Call(None, "get", [ atomLit (mutableStateKey ctx.ModuleName ident.Name) ])
                 else
                     // Module-level function reference: call as 0-arity function
                     Beam.ErlExpr.Call(None, sanitizeErlangName ident.Name, [])
@@ -551,7 +552,14 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             Beam.ErlExpr.Call(None, "put", [ erlExpr; transformExpr com ctx value ])
         | IdentExpr ident when ident.IsMutable ->
             // Module-level mutable: update via process dictionary using name atom
-            Beam.ErlExpr.Call(None, "put", [ atomLit (sanitizeErlangName ident.Name); transformExpr com ctx value ])
+            Beam.ErlExpr.Call(
+                None,
+                "put",
+                [
+                    atomLit (mutableStateKey ctx.ModuleName ident.Name)
+                    transformExpr com ctx value
+                ]
+            )
         | IdentExpr ident -> Beam.ErlExpr.Match(Beam.PVar(capitalizeFirst ident.Name), transformExpr com ctx value)
         | _ ->
             com.WarnOnlyOnce("Set with non-identifier target is not supported for Beam target")
@@ -3319,6 +3327,8 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
             |> Option.defaultWith (fun () -> com.GetMember(memDecl.MemberRef))
 
         let name = sanitizeErlangName memDecl.Name
+        // Process-dict key for module-level mutable/snapshot values, namespaced by module.
+        let stateKey = mutableStateKey ctx.ModuleName memDecl.Name
 
         // Look up constructor parameter names for the owning class so method bodies
         // can detect field-stored function invokes (e.g., ctor param `add: int -> int -> int`
@@ -3533,7 +3543,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
             // instead of a constant-returning function — the main/0 merges with the
             // ActionDeclaration main/0 so the initialization runs before use.
             if info.IsValue && info.IsMutable && arity = 0 then
-                let initStmt = Beam.ErlExpr.Call(None, "put", [ atomLit name; initValue ])
+                let initStmt = Beam.ErlExpr.Call(None, "put", [ atomLit stateKey; initValue ])
 
                 let funcDef: Beam.ErlFunctionDef =
                     {
@@ -3556,7 +3566,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                 // mutable, so it must be snapshotted. Emit a main/0 fragment that stores the
                 // value in the process dictionary (in declaration order, so it captures the
                 // mutable's value at this point) plus an accessor that reads the snapshot.
-                let initStmt = Beam.ErlExpr.Call(None, "put", [ atomLit name; initValue ])
+                let initStmt = Beam.ErlExpr.Call(None, "put", [ atomLit stateKey; initValue ])
 
                 let initDef: Beam.ErlFunctionDef =
                     {
@@ -3581,7 +3591,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                                 {
                                     Patterns = []
                                     Guard = []
-                                    Body = [ Beam.ErlExpr.Call(None, "get", [ atomLit name ]) ]
+                                    Body = [ Beam.ErlExpr.Call(None, "get", [ atomLit stateKey ]) ]
                                 }
                             ]
                     }
@@ -3642,6 +3652,7 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
     let ctx =
         {
             File = com.CurrentFile
+            ModuleName = moduleName
             UsedNames = file.UsedNamesInRootScope
             DecisionTargets = []
             RecursiveBindings = Set.empty

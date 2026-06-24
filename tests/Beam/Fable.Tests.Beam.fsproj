@@ -89,6 +89,8 @@
     <Compile Include="InterfaceTests.fs" />
     <Compile Include="MiscTests2.fs" />
     <Compile Include="QuotationTests.fs" />
+    <Compile Include="ModuleMutableOneTests.fs" />
+    <Compile Include="ModuleMutableTwoTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
