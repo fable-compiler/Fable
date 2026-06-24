@@ -183,6 +183,31 @@ let resolveImportModuleName (com: IBeamCompiler) (importPath: string) =
     else
         Some name
 
+/// Detect whether an expression reads a *free* mutable ident — a module-level mutable
+/// not bound locally within the expression. Such reads must be snapshotted at module-init
+/// time (eager) rather than recomputed lazily on each access, because the module-level
+/// mutable may be reassigned (via a `do` action or later binding) after this value is bound.
+/// Locally-bound mutables are excluded: their initializers are self-contained, so lazy
+/// recomputation yields the same value and avoids creating a spurious dependency on main/0.
+let rec readsFreeMutable (bound: Set<string>) (expr: Expr) : bool =
+    match expr with
+    | IdentExpr ident -> ident.IsMutable && not (bound.Contains ident.Name)
+    | Let(ident, value, body) -> readsFreeMutable bound value || readsFreeMutable (Set.add ident.Name bound) body
+    | LetRec(bindings, body) ->
+        let bound = bindings |> List.fold (fun s (i, _) -> Set.add i.Name s) bound
+
+        (bindings |> List.exists (fun (_, v) -> readsFreeMutable bound v))
+        || readsFreeMutable bound body
+    | Lambda(arg, body, _) -> readsFreeMutable (Set.add arg.Name bound) body
+    | Delegate(args, body, _, _) ->
+        let bound = args |> List.fold (fun s a -> Set.add a.Name s) bound
+        readsFreeMutable bound body
+    | ForLoop(ident, start, limit, body, _, _) ->
+        readsFreeMutable bound start
+        || readsFreeMutable bound limit
+        || readsFreeMutable (Set.add ident.Name bound) body
+    | _ -> getSubExpressions expr |> List.exists (readsFreeMutable bound)
+
 let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.ErlExpr =
     match expr with
     | Unresolved(_, _, r) ->
@@ -215,6 +240,9 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             | None ->
                 if ctx.LocalVars.Contains(ident.Name) || ctx.RecursiveBindings.Contains(ident.Name) then
                     Beam.ErlExpr.Variable(capitalizeFirst ident.Name |> sanitizeErlangVar)
+                elif ident.IsMutable then
+                    // Module-level mutable: read current value from process dictionary
+                    Beam.ErlExpr.Call(None, "get", [ atomLit (sanitizeErlangName ident.Name) ])
                 else
                     // Module-level function reference: call as 0-arity function
                     Beam.ErlExpr.Call(None, sanitizeErlangName ident.Name, [])
@@ -521,6 +549,9 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             // Array ref (non-byte): put the new value into the process dict ref
             let erlExpr = transformExpr com ctx expr
             Beam.ErlExpr.Call(None, "put", [ erlExpr; transformExpr com ctx value ])
+        | IdentExpr ident when ident.IsMutable ->
+            // Module-level mutable: update via process dictionary using name atom
+            Beam.ErlExpr.Call(None, "put", [ atomLit (sanitizeErlangName ident.Name); transformExpr com ctx value ])
         | IdentExpr ident -> Beam.ErlExpr.Match(Beam.PVar(capitalizeFirst ident.Name), transformExpr com ctx value)
         | _ ->
             com.WarnOnlyOnce("Set with non-identifier target is not supported for Beam target")
@@ -3475,21 +3506,104 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                 | Beam.ErlExpr.Block exprs -> exprs
                 | expr -> [ expr ]
 
-            let funcDef: Beam.ErlFunctionDef =
-                {
-                    Name = Beam.Atom name
-                    Arity = arity
-                    Clauses =
-                        [
-                            {
-                                Patterns = args
-                                Guard = []
-                                Body = body
-                            }
-                        ]
-                }
+            // The value initializer of a module-level mutable/snapshot is spliced into the
+            // shared main/0 clause. A multi-statement body binds local Erlang variables (from
+            // F# `let`s); since Erlang `begin...end` does not introduce a new scope, two such
+            // initializers reusing the same variable name would clash in main/0. Wrap a
+            // multi-statement body in an immediately-invoked `fun` so its locals stay isolated.
+            // A single-expression body needs no wrapper.
+            let initValue =
+                match body with
+                | [ single ] -> single
+                | _ ->
+                    Beam.ErlExpr.Apply(
+                        Beam.ErlExpr.Fun
+                            [
+                                {
+                                    Patterns = []
+                                    Guard = []
+                                    Body = body
+                                }
+                            ],
+                        []
+                    )
 
-            [ Beam.ErlForm.Function funcDef ]
+            // Module-level mutable values (no args, IsMutable) are stored in the process
+            // dictionary so they can be updated. Emit a main/0 that initializes the value
+            // instead of a constant-returning function — the main/0 merges with the
+            // ActionDeclaration main/0 so the initialization runs before use.
+            if info.IsValue && info.IsMutable && arity = 0 then
+                let initStmt = Beam.ErlExpr.Call(None, "put", [ atomLit name; initValue ])
+
+                let funcDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom "main"
+                        Arity = 0
+                        Clauses =
+                            [
+                                {
+                                    Patterns = []
+                                    Guard = []
+                                    Body = [ initStmt ]
+                                }
+                            ]
+                    }
+
+                [ Beam.ErlForm.Function funcDef ]
+            elif info.IsValue && arity = 0 && readsFreeMutable Set.empty memDecl.Body then
+                // Immutable module-level value whose initializer reads a module-level mutable.
+                // F# evaluates it once at module-init, before any later reassignment of that
+                // mutable, so it must be snapshotted. Emit a main/0 fragment that stores the
+                // value in the process dictionary (in declaration order, so it captures the
+                // mutable's value at this point) plus an accessor that reads the snapshot.
+                let initStmt = Beam.ErlExpr.Call(None, "put", [ atomLit name; initValue ])
+
+                let initDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom "main"
+                        Arity = 0
+                        Clauses =
+                            [
+                                {
+                                    Patterns = []
+                                    Guard = []
+                                    Body = [ initStmt ]
+                                }
+                            ]
+                    }
+
+                let accessorDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom name
+                        Arity = 0
+                        Clauses =
+                            [
+                                {
+                                    Patterns = []
+                                    Guard = []
+                                    Body = [ Beam.ErlExpr.Call(None, "get", [ atomLit name ]) ]
+                                }
+                            ]
+                    }
+
+                [ Beam.ErlForm.Function initDef; Beam.ErlForm.Function accessorDef ]
+            else
+
+                let funcDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom name
+                        Arity = arity
+                        Clauses =
+                            [
+                                {
+                                    Patterns = args
+                                    Guard = []
+                                    Body = body
+                                }
+                            ]
+                    }
+
+                [ Beam.ErlForm.Function funcDef ]
 
     | ActionDeclaration actionDecl ->
         let bodyExpr = transformExpr com ctx actionDecl.Body
