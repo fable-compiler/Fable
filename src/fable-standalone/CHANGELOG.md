@@ -1,5 +1,5 @@
 ---
-last_commit_released: 477b8c693d948f74d8d2d5c38ac4d8e1f9287a51
+last_commit_released: c9b3ee2429a4688946c1936e27df730837428070
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
@@ -12,6 +12,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.3.0 - 2026-06-24
+
+### 🚀 Features
+
+* *(all)* Support Exception.InnerException across all targets (#4677) ([c9b3ee24](https://github.com/fable-compiler/Fable/commit/c9b3ee2429a4688946c1936e27df730837428070))
+
+### 🐞 Bug Fixes
+
+* *(beam)* Make immutable class instances process-portable (#4670) ([182eebef](https://github.com/fable-compiler/Fable/commit/182eebefacb58b7c72270c8d651936f87c3cbbcc))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/477b8c693d948f74d8d2d5c38ac4d8e1f9287a51..c9b3ee2429a4688946c1936e27df730837428070)</small></strong>
 
 ## 2.2.0 - 2026-06-16
 
