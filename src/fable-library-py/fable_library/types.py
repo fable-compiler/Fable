@@ -42,6 +42,22 @@ class Attribute:
     ...
 
 
+class ExceptionBase(Exception):
+    """Base class for .NET ``System.Exception`` and its subclasses.
+
+    Subclasses the built-in ``Exception`` so ``raise``/``except``/``isinstance``
+    keep working as before. Only the message is forwarded to the built-in
+    initializer, so ``str(exc)`` still returns the message even when an inner
+    exception is supplied (the built-in would otherwise stringify the whole
+    argument tuple). The inner exception is kept on a dedicated attribute so it
+    can be read back through ``System.Exception.InnerException``.
+    """
+
+    def __init__(self, message: str | None = None, inner_exception: Exception | None = None) -> None:
+        super().__init__(message if message is not None else "")
+        self.inner_exception: Exception | None = inner_exception
+
+
 # We don't use type aliases here because we need to do isinstance checks
 IntegerTypes = int | byte | sbyte | int16 | uint16 | int32 | uint32 | int64 | uint64
 FloatTypes = float | float32 | float64
@@ -50,6 +66,7 @@ FloatTypes = float | float32 | float64
 __all__ = [
     "UNIT",
     "Attribute",
+    "ExceptionBase",
     "FSharpRef",
     "FloatTypes",
     "IntegerTypes",

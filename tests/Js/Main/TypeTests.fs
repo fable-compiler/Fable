@@ -1414,6 +1414,12 @@ let tests =
         with ex -> ex.Message
         |> equal "Will I be reraised?"
 
+    testCase "ArgumentException with message and inner exception works" <| fun () ->
+        let inner = exn "the inner cause"
+        let ex = System.ArgumentException("outer message", inner)
+        ex.Message |> equal "outer message"
+        ex.InnerException.Message |> equal "the inner cause"
+
     testCase "This context is not lost in closures within implicit constructor" <| fun () -> // See #1444
         ThisContextInConstructor(7).Value() |> equal 7
 
