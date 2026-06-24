@@ -430,6 +430,32 @@ let private transformObjExpr
             let info =
                 getImplementedSignatureInfo com ctx r nonMangledNameConflicts None signature true
 
+            // The override's own method type parameters are compiler-generated (e.g. `$a`),
+            // but the implemented signature carries the user-facing names (e.g. `JsonValue`).
+            // Map the former to the latter so the generated argument, return and body types
+            // line up with the type-parameter declaration emitted from the signature.
+            let ctx =
+                let implGenParams = over.GenericParameters
+                let signGenParams = signature.MethodGenericParameters
+
+                if
+                    not (Seq.isEmpty implGenParams)
+                    && Seq.length implGenParams = Seq.length signGenParams
+                then
+                    (ctx, Seq.zip implGenParams signGenParams)
+                    ||> Seq.fold (fun ctx (implParam, signParam) ->
+                        let resolved =
+                            Fable.GenericParam(
+                                genParamName signParam,
+                                signParam.IsMeasure,
+                                signParam.Constraints |> Seq.chooseToList FsGenParam.Constraint
+                            )
+
+                        { ctx with GenericArgs = Map.add (genParamName implParam) resolved ctx.GenericArgs }
+                    )
+                else
+                    ctx
+
             let ctx, args = bindMemberArgs com ctx over.CurriedParameterGroups
             let! body = transformExpr com ctx [] over.Body
 
