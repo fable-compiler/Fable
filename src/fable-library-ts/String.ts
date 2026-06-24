@@ -99,6 +99,32 @@ export function contains(str: string, pattern: string, ic: boolean | StringCompa
   return false;
 }
 
+export function indexOf(str: string, searchValue: string, comparison: StringComparison, startIndex: number = 0): number {
+  if (comparison === StringComparison.Ordinal) { // fast path
+    return str.indexOf(searchValue, startIndex);
+  }
+  const len = searchValue.length;
+  for (let i = Math.max(startIndex, 0); i <= str.length - len; i++) {
+    if (cmp(str.slice(i, i + len), searchValue, comparison) === 0) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+export function lastIndexOf(str: string, searchValue: string, comparison: StringComparison, startIndex: number = str.length - 1): number {
+  if (comparison === StringComparison.Ordinal) { // fast path
+    return str.lastIndexOf(searchValue, startIndex);
+  }
+  const len = searchValue.length;
+  for (let i = Math.min(startIndex, str.length - len); i >= 0; i--) {
+    if (cmp(str.slice(i, i + len), searchValue, comparison) === 0) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
   if (str == null || str === "") {
     return -1;

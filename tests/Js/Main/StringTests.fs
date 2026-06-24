@@ -922,6 +922,15 @@ let tests = testList "Strings" [
         "abcdbc".IndexOf("b", 3, StringComparison.Ordinal)
         |> equal 4
 
+    testCase "String.IndexOf with OrdinalIgnoreCase StringComparison" <| fun () ->
+        "ABCDBC".IndexOf("b", StringComparison.OrdinalIgnoreCase) |> equal 1
+        "ABCDBC".IndexOf("b", StringComparison.Ordinal) |> equal -1
+        "ABCDBC".IndexOf("b", StringComparison.InvariantCultureIgnoreCase) |> equal 1
+
+    testCase "String.IndexOf with index and OrdinalIgnoreCase StringComparison" <| fun () ->
+        "ABCDBC".IndexOf("b", 2, StringComparison.OrdinalIgnoreCase) |> equal 4
+        "ABCDBC".IndexOf("b", 2, StringComparison.Ordinal) |> equal -1
+
     testCase "String.LastIndexOf char works" <| fun () ->
         "abcdbc".LastIndexOf('b') * 100 + "abcd".LastIndexOf('e')
         |> equal 399
@@ -933,6 +942,15 @@ let tests = testList "Strings" [
     testCase "String.LastIndexOf with StringComparison" <| fun () ->
         "abcdbc".LastIndexOf("b", StringComparison.Ordinal)
         |> equal 4
+
+    testCase "String.LastIndexOf with OrdinalIgnoreCase StringComparison" <| fun () ->
+        "ABCDBC".LastIndexOf("b", StringComparison.OrdinalIgnoreCase) |> equal 4
+        "ABCDBC".LastIndexOf("b", StringComparison.Ordinal) |> equal -1
+        "ABCDBC".LastIndexOf("b", StringComparison.InvariantCultureIgnoreCase) |> equal 4
+
+    testCase "String.LastIndexOf with index and OrdinalIgnoreCase StringComparison" <| fun () ->
+        "ABCDBC".LastIndexOf("b", 3, StringComparison.OrdinalIgnoreCase) |> equal 1
+        "ABCDBC".LastIndexOf("b", 3, StringComparison.Ordinal) |> equal -1
 
     testCase "String.LastIndexOf with index and StringComparison" <| fun () ->
         "abcdbc".LastIndexOf("b", 3, StringComparison.Ordinal)
