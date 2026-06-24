@@ -1,5 +1,5 @@
 ---
-last_commit_released: 15eb83ed36657f75073fb0e1b4cac677e24fc9bb
+last_commit_released: c9b3ee2429a4688946c1936e27df730837428070
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.2.0 - 2026-06-24
+
+### 🚀 Features
+
+* *(all)* Support Exception.InnerException across all targets (#4677) ([c9b3ee24](https://github.com/fable-compiler/Fable/commit/c9b3ee2429a4688946c1936e27df730837428070))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/15eb83ed36657f75073fb0e1b4cac677e24fc9bb..c9b3ee2429a4688946c1936e27df730837428070)</small></strong>
 
 ## 2.1.1 - 2026-06-10
 
