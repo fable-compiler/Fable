@@ -667,6 +667,12 @@ type MangledAbstractClass5(v) =
 type AbstractClassWithResizeArrayProp() =
     abstract Warnings: ResizeArray<string> with get
 
+type IGenericMethodHelpers<'JsonValue> =
+    abstract encodeString: string -> 'JsonValue
+
+type IGenericMethodEncodable =
+    abstract member Encode<'JsonValue> : helpers: IGenericMethodHelpers<'JsonValue> -> 'JsonValue
+
 type ConcreteClass1() =
     inherit MangledAbstractClass5(2)
 
@@ -1726,4 +1732,17 @@ let tests =
         reader.Warnings.Add("Warning 2")
 
         reader.Warnings.Count |> equal 2
+
+    testCase "Object expression implementing a generic interface method works" <| fun () ->
+        let helpers =
+            { new IGenericMethodHelpers<string> with
+                member _.encodeString v = "S:" + v
+            }
+
+        let encodable =
+            { new IGenericMethodEncodable with
+                member _.Encode(helpers) = helpers.encodeString "x"
+            }
+
+        encodable.Encode(helpers) |> equal "S:x"
   ]
