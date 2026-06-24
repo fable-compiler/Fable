@@ -3506,12 +3506,34 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                 | Beam.ErlExpr.Block exprs -> exprs
                 | expr -> [ expr ]
 
+            // The value initializer of a module-level mutable/snapshot is spliced into the
+            // shared main/0 clause. A multi-statement body binds local Erlang variables (from
+            // F# `let`s); since Erlang `begin...end` does not introduce a new scope, two such
+            // initializers reusing the same variable name would clash in main/0. Wrap a
+            // multi-statement body in an immediately-invoked `fun` so its locals stay isolated.
+            // A single-expression body needs no wrapper.
+            let initValue =
+                match body with
+                | [ single ] -> single
+                | _ ->
+                    Beam.ErlExpr.Apply(
+                        Beam.ErlExpr.Fun
+                            [
+                                {
+                                    Patterns = []
+                                    Guard = []
+                                    Body = body
+                                }
+                            ],
+                        []
+                    )
+
             // Module-level mutable values (no args, IsMutable) are stored in the process
             // dictionary so they can be updated. Emit a main/0 that initializes the value
             // instead of a constant-returning function — the main/0 merges with the
             // ActionDeclaration main/0 so the initialization runs before use.
             if info.IsValue && info.IsMutable && arity = 0 then
-                let initStmt = Beam.ErlExpr.Call(None, "put", [ atomLit name; List.head body ])
+                let initStmt = Beam.ErlExpr.Call(None, "put", [ atomLit name; initValue ])
 
                 let funcDef: Beam.ErlFunctionDef =
                     {
@@ -3534,7 +3556,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                 // mutable, so it must be snapshotted. Emit a main/0 fragment that stores the
                 // value in the process dictionary (in declaration order, so it captures the
                 // mutable's value at this point) plus an accessor that reads the snapshot.
-                let initStmt = Beam.ErlExpr.Call(None, "put", [ atomLit name; List.head body ])
+                let initStmt = Beam.ErlExpr.Call(None, "put", [ atomLit name; initValue ])
 
                 let initDef: Beam.ErlFunctionDef =
                     {

@@ -968,6 +968,33 @@ let ``test Module-level mutable is shared across functions`` () =
     bumpModuleCounter ()
     equal 7 (readModuleCounter ())
 
+// Regression: initializers that compile to a multi-statement block must store the
+// block's final value, not just its first statement. `let t = ... in t + t` survives
+// as a Let (t is used twice, so it isn't inlined) and lowers to a two-statement block.
+// Both initializers deliberately reuse the local name `t`: their inits are spliced into
+// the shared module-init clause, so their locals must not clash.
+
+let mutable mlTopMulti = 10
+
+let mlSnapMulti =
+    let t = mlTopMulti
+    t + t
+
+do mlTopMulti <- mlTopMulti + 5
+
+let mutable mlMutMulti =
+    let t = f8 3 4
+    t + t
+
+[<Fact>]
+let ``test Module-level mutable with multi-statement initializer`` () =
+    equal 14 mlMutMulti
+
+[<Fact>]
+let ``test Snapshot reading a mutable with multi-statement initializer`` () =
+    equal 20 mlSnapMulti
+    equal 15 mlTopMulti
+
 // TODO: Recursive value bindings use Lazy internally, which is not yet supported by Fable Beam
 // let mutable recMutableValue = 0
 // let rec recursive1 = delay (fun () -> recursive2())

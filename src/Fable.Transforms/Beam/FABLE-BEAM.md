@@ -1118,7 +1118,12 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   `get(x)` and writes (`x <- e`) emit `put(x, e)` (see the `IdentExpr`/`Set` branches and the
   `MemberDeclaration` value case in `Fable2Beam.fs`). All `main/0` fragments — mutable inits,
   snapshot inits (below), and `do` actions — are merged in declaration order, so module
-  initialisation runs as a single ordered sequence, mirroring F#.
+  initialisation runs as a single ordered sequence, mirroring F#. A value initialiser that
+  lowers to a multi-statement block (e.g. it contains a `let`) is stored as `put(x, <block>)`
+  using the *whole* block (its final expression is the value), and is wrapped in an
+  immediately-invoked `fun` so its local Erlang variables stay isolated — Erlang `begin...end`
+  does not introduce a scope, so two initialisers reusing the same local name would otherwise
+  clash in the shared `main/0` clause.
     - **Snapshotting immutable values that read a mutable**: an *immutable* module value whose
       initializer reads a module-level mutable (e.g. `let c = topA`) must capture the value at
       binding time, because F# evaluates module bindings once, in order, before any later
