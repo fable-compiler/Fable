@@ -1716,17 +1716,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [ ExprType Char ]
         | [ ExprType String ]
         | [ ExprType Char; ExprType(Number(Int32, NumberInfo.Empty)) ]
-        | [ ExprType String; ExprType(Number(Int32, NumberInfo.Empty)) ]
-        | [ ExprType String; StringComparisonEnumValue ]
-        | [ ExprType String; ExprType(Number(Int32, NumberInfo.Empty)); StringComparisonEnumValue ] ->
-            let args =
-                args
-                |> List.filter (
-                    function
-                    | StringComparisonEnumValue -> false
-                    | _ -> true
-                )
-
+        | [ ExprType String; ExprType(Number(Int32, NumberInfo.Empty)) ] ->
             Helper.InstanceCall(
                 c,
                 Naming.lowerFirst i.CompiledName,
@@ -1734,6 +1724,32 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 args,
                 i.SignatureArgTypes,
                 genArgs = i.GenericArgs,
+                ?loc = r
+            )
+            |> Some
+        // The runtime functions take the comparison before the (optional) start index,
+        // so the arguments are reordered to match their signature.
+        | [ (ExprType String as value); (StringComparisonEnumValue as comparison) ] ->
+            Helper.LibCall(
+                com,
+                "String",
+                Naming.lowerFirst i.CompiledName,
+                t,
+                [ value; comparison ],
+                thisArg = c,
+                ?loc = r
+            )
+            |> Some
+        | [ (ExprType String as value)
+            (ExprType(Number(Int32, NumberInfo.Empty)) as startIndex)
+            (StringComparisonEnumValue as comparison) ] ->
+            Helper.LibCall(
+                com,
+                "String",
+                Naming.lowerFirst i.CompiledName,
+                t,
+                [ value; comparison; startIndex ],
+                thisArg = c,
                 ?loc = r
             )
             |> Some
