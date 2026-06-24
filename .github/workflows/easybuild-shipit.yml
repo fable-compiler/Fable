@@ -21,7 +21,7 @@ jobs:
     # Only run if the build workflow succeeded
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           # We need to fetch more than the last commit to be able to generate the changelog based on the commit history.
           # Adapt this value based on your needs.
@@ -44,7 +44,7 @@ jobs:
     runs-on: ubuntu-latest
     if: "github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_commit.message, 'chore: release ')"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       # Configure how you want to publish your package, e.g. using the NuGet CLI, dotnet CLI, NPM, etc.
       # It is recommanded to use Trusted Publishing to avoid having to manage API keys in your repository.
       - name: Setup .NET
