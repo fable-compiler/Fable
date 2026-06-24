@@ -19,7 +19,12 @@ main([Dir]) ->
         case lists:member({main, 0}, Exports) of
             true ->
                 try Mod:main()
-                catch _:_ -> ok
+                catch InitClass:InitReason ->
+                    %% Don't abort the run on a broken initializer, but log it so a
+                    %% failing main/0 is diagnosable instead of surfacing later as
+                    %% silent `undefined` reads of module-level state.
+                    io:format("  WARN init failed ~s:main/0 - ~p:~p~n", [Mod, InitClass, InitReason]),
+                    ok
                 end;
             false -> ok
         end,

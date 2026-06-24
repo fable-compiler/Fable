@@ -1113,10 +1113,15 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
 - **OperationCanceledException**: Added to the exception type pattern in Beam Replacements
   alongside `BuiltinSystemException` and `KeyNotFoundException`.
 - **Module-level mutable variables**: `let mutable x = v` at module level is routed through
-  the process dictionary (same mechanism as local mutable `let` bindings). The declaration
-  emits a `main/0` fragment that initialises the value (`put(x, v)`); reads of the ident emit
-  `get(x)` and writes (`x <- e`) emit `put(x, e)` (see the `IdentExpr`/`Set` branches and the
-  `MemberDeclaration` value case in `Fable2Beam.fs`). All `main/0` fragments — mutable inits,
+  the process dictionary (same mechanism as local mutable `let` bindings). The process-dict
+  key is namespaced by the emitting Erlang module name — `<module>_<name>` (e.g. `x` in module
+  `foo` → key `foo_x`) — so identically-named mutables in different modules don't collide in
+  the shared, process-local process dictionary. The key is built by the single `mutableStateKey`
+  helper (`Fable2Beam.Util.fs`) and used at every site so reads, writes and the initialiser
+  always agree. The declaration emits a `main/0` fragment that initialises the value
+  (`put(foo_x, v)`); reads of the ident emit `get(foo_x)` and writes (`x <- e`) emit
+  `put(foo_x, e)` (see the `IdentExpr`/`Set` branches and the `MemberDeclaration` value case in
+  `Fable2Beam.fs`). All `main/0` fragments — mutable inits,
   snapshot inits (below), and `do` actions — are merged in declaration order, so module
   initialisation runs as a single ordered sequence, mirroring F#. A value initialiser that
   lowers to a multi-statement block (e.g. it contains a `let`) is stored as `put(x, <block>)`
@@ -1129,9 +1134,10 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
       binding time, because F# evaluates module bindings once, in order, before any later
       reassignment. Compiled naively as a lazy 0-arity accessor it would re-read the *live*
       process-dict value and observe later writes. Such values are therefore also eagerly
-      initialised in `main/0` (`put(c, <value>)`, emitted in declaration order so it captures
-      the mutable's value at that point) plus an accessor that reads the snapshot (`c() ->
-      get(c)`). Detection is `readsFreeMutable`, which walks the Fable body tracking locally
+      initialised in `main/0` (`put(foo_c, <value>)`, using the same module-namespaced key and
+      emitted in declaration order so it captures the mutable's value at that point) plus an
+      accessor — named by the bare value name — that reads the snapshot (`c() -> get(foo_c)`).
+      Detection is `readsFreeMutable`, which walks the Fable body tracking locally
       bound names and triggers only on a *free* (module-level) mutable reference —
       self-contained bodies whose only mutables are local stay lazy, so they don't gain a
       spurious dependency on `main/0`.
@@ -1157,6 +1163,10 @@ reads the state:
   module's `main/0` having run — its module-level mutables/snapshots read `undefined`. Reads
   from a **different process** than the one that ran `main/0` also see `undefined`, since the
   process dictionary is process-local.
+
+Keys are namespaced by module (`<module>_<name>`), so multiple modules' mutables with the same
+name running in the **same** process no longer collide — the remaining limitation is purely the
+process-locality above, not naming.
 
 This matches the broader Beam design (mutation is single-process by design; see "Class instance
 representation" and "Mutable Collections" above), but it means module-level mutable global state

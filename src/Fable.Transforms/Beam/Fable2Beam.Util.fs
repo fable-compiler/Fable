@@ -360,3 +360,11 @@ let wrapWithHoisted (hoisted: Beam.ErlExpr list) (expr: Beam.ErlExpr) : Beam.Erl
 
 let atomLit name =
     Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom name))
+
+/// Process-dictionary key (atom name) for a module-level mutable or snapshot value.
+/// Namespaced by the emitting Erlang module so identically-named values in different
+/// modules don't collide in the shared, process-local process dictionary. Reads, writes
+/// and the declaration/initializer must all derive their key through this helper or state
+/// silently breaks.
+let mutableStateKey (moduleName: string) (name: string) =
+    moduleName + "_" + Naming.sanitizeErlangName name
