@@ -7,7 +7,7 @@ authors = [
 ]
 requires-python = ">= 3.10, < 4.0"
 readme = "README.md"
-license = "MIT License"
+license = "MIT"
 dependencies = []
 
 [project.urls]
