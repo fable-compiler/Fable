@@ -679,6 +679,16 @@ type GenericMethodEncodableClass() =
     interface IGenericMethodEncodable with
         member _.Encode<'json>(helpers: IGenericMethodHelpers<'json>) = helpers.encodeString "x"
 
+type IGenericMethodBox<'T> =
+    abstract Get: unit -> 'T
+
+// The lambda inside `Get` references the outer generic parameter 'item (via the
+// captured `value`); it must not redeclare and shadow it.
+let mapGenericMethodBox<'item> (value: 'item) : IGenericMethodBox<'item seq> =
+    { new IGenericMethodBox<'item seq> with
+        member _.Get() : 'item seq = Seq.map (fun (x: 'item) -> value) [ value ]
+    }
+
 type ConcreteClass1() =
     inherit MangledAbstractClass5(2)
 
@@ -1760,4 +1770,8 @@ let tests =
 
         let encodable = GenericMethodEncodableClass() :> IGenericMethodEncodable
         encodable.Encode(helpers) |> equal "S:x"
+
+    testCase "Nested lambda does not shadow an outer generic type parameter" <| fun () ->
+        let box = mapGenericMethodBox 42
+        box.Get() |> List.ofSeq |> equal [ 42 ]
   ]
