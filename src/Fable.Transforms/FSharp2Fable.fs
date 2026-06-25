@@ -410,6 +410,38 @@ let private getImplementedSignatureInfo
         |}
     )
 
+/// When a generic interface method is implemented (by an object expression or a class),
+/// the implementation may name the method's type parameters differently from the
+/// signature — either compiler-generated names (e.g. `$a`) or just another user name.
+/// The TypeScript type-parameter declaration is emitted from the signature, so map the
+/// implementation's method type parameters to the signature's names in the context, so
+/// the generated argument/return/body type annotations line up with it. See #3586.
+let private addImplementedSignatureGenericArgs
+    (ctx: Context)
+    (implGenParams: FSharpGenericParameter seq)
+    (signGenParams: FSharpGenericParameter seq)
+    =
+    let signCount = Seq.length signGenParams
+    let implParams = Seq.toList implGenParams
+
+    if signCount > 0 && List.length implParams >= signCount then
+        // A generic method's own type parameters come after the declaring type's.
+        let implMethodParams = implParams |> List.skip (List.length implParams - signCount)
+
+        (ctx, Seq.zip implMethodParams signGenParams)
+        ||> Seq.fold (fun ctx (implParam, signParam) ->
+            let resolved =
+                Fable.GenericParam(
+                    genParamName signParam,
+                    signParam.IsMeasure,
+                    signParam.Constraints |> Seq.chooseToList FsGenParam.Constraint
+                )
+
+            { ctx with GenericArgs = Map.add (genParamName implParam) resolved ctx.GenericArgs }
+        )
+    else
+        ctx
+
 let private transformObjExpr
     (com: IFableCompiler)
     (ctx: Context)
@@ -430,31 +462,8 @@ let private transformObjExpr
             let info =
                 getImplementedSignatureInfo com ctx r nonMangledNameConflicts None signature true
 
-            // The override's own method type parameters are compiler-generated (e.g. `$a`),
-            // but the implemented signature carries the user-facing names (e.g. `JsonValue`).
-            // Map the former to the latter so the generated argument, return and body types
-            // line up with the type-parameter declaration emitted from the signature.
             let ctx =
-                let implGenParams = over.GenericParameters
-                let signGenParams = signature.MethodGenericParameters
-
-                if
-                    not (Seq.isEmpty implGenParams)
-                    && Seq.length implGenParams = Seq.length signGenParams
-                then
-                    (ctx, Seq.zip implGenParams signGenParams)
-                    ||> Seq.fold (fun ctx (implParam, signParam) ->
-                        let resolved =
-                            Fable.GenericParam(
-                                genParamName signParam,
-                                signParam.IsMeasure,
-                                signParam.Constraints |> Seq.chooseToList FsGenParam.Constraint
-                            )
-
-                        { ctx with GenericArgs = Map.add (genParamName implParam) resolved ctx.GenericArgs }
-                    )
-                else
-                    ctx
+                addImplementedSignatureGenericArgs ctx over.GenericParameters signature.MethodGenericParameters
 
             let ctx, args = bindMemberArgs com ctx over.CurriedParameterGroups
             let! body = transformExpr com ctx [] over.Body
@@ -1885,6 +1894,9 @@ let private transformImplementedSignature
     args
     (body: FSharpExpr)
     =
+    let ctx =
+        addImplementedSignatureGenericArgs ctx memb.GenericParameters signature.MethodGenericParameters
+
     let bodyCtx, args = bindMemberArgs com ctx args
     let body = transformExpr com bodyCtx [] body |> run
     let entFullName = implementingEntity.FullName

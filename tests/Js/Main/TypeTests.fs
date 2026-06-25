@@ -673,6 +673,12 @@ type IGenericMethodHelpers<'JsonValue> =
 type IGenericMethodEncodable =
     abstract member Encode<'JsonValue> : helpers: IGenericMethodHelpers<'JsonValue> -> 'JsonValue
 
+// Class implementation that names the method's type parameter ('json) differently
+// from the interface ('JsonValue)
+type GenericMethodEncodableClass() =
+    interface IGenericMethodEncodable with
+        member _.Encode<'json>(helpers: IGenericMethodHelpers<'json>) = helpers.encodeString "x"
+
 type ConcreteClass1() =
     inherit MangledAbstractClass5(2)
 
@@ -1744,5 +1750,14 @@ let tests =
                 member _.Encode(helpers) = helpers.encodeString "x"
             }
 
+        encodable.Encode(helpers) |> equal "S:x"
+
+    testCase "Class implementing a generic interface method with a renamed type parameter works" <| fun () ->
+        let helpers =
+            { new IGenericMethodHelpers<string> with
+                member _.encodeString v = "S:" + v
+            }
+
+        let encodable = GenericMethodEncodableClass() :> IGenericMethodEncodable
         encodable.Encode(helpers) |> equal "S:x"
   ]
