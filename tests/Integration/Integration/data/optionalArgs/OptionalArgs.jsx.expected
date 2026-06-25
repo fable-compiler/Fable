@@ -1,0 +1,41 @@
+import { class_type } from "./fable_modules/fable-library-js.5.4.0/Reflection.js";
+import { int32ToString } from "./fable_modules/fable-library-js.5.4.0/Util.js";
+import { toString } from "./fable_modules/fable-library-js.5.4.0/Types.js";
+import { some, defaultArg } from "./fable_modules/fable-library-js.5.4.0/Option.js";
+
+export function jsBinding(v, sp) {
+    return JSON.stringify(v, undefined, sp);
+}
+
+export function imported(t, n) {
+    return t.doIt(1, n);
+}
+
+export function erased(e, n) {
+    return e.run(1, n);
+}
+
+export function emitted(foo, n) {
+    return foo.foo(1, n);
+}
+
+export class Native {
+    constructor() {
+    }
+}
+
+export function Native_$reflection() {
+    return class_type("OptionalArgs.Native", undefined, Native);
+}
+
+export function Native_$ctor() {
+    return new Native();
+}
+
+export function Native_Show_21A309C4(x, y) {
+    return int32ToString(x) + toString(defaultArg(y, "-"));
+}
+
+export function fSharpMember(n) {
+    return Native_Show_21A309C4(1, some(n));
+}

@@ -560,6 +560,13 @@ let tests =
         parsed.widget.text.vOffset |> equal 500.
 #endif
 
+    testCase "Named optional argument to a JS binding is not wrapped in an option" <| fun () ->
+        // `space` is an optional parameter of the JSON.stringify binding; passing it as a
+        // named argument must forward the raw value (not a Fable option), otherwise the
+        // generated TypeScript references an Option<number> and fails to type-check.
+        let json = Fable.Core.JS.JSON.stringify({| value = 1 |}, space = 2)
+        json.Contains("\n") |> equal true
+
     testCase "Lambdas returning member expression accessing JS object work" <| fun () -> // #2311
         let x = inlineLambdaWithAnonRecord (fun x -> x.A)
         x() |> equal 1
