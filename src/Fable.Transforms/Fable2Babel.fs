@@ -1406,6 +1406,9 @@ module Util =
                     List.append entGenParams info.GenericParameters
                     |> List.map (fun g -> g.Name)
                     |> set
+                    // Keep type parameters already in scope (e.g. from an enclosing generic
+                    // function) so nested members/lambdas don't redeclare and shadow them.
+                    |> Set.union ctx.ScopedTypeParams
 
                 let declaredTypeParams =
                     if isAttached then
