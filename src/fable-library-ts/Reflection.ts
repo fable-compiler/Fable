@@ -389,7 +389,7 @@ export function getEnumName(t: TypeInfo, v: number): string {
   return getEnumCase(t, v)[0];
 }
 
-export function isEnumDefined(t: TypeInfo, v: string | number): boolean {
+export function isEnumDefined(t: TypeInfo, v: any): boolean {
   try {
     const kv = getEnumCase(t, v);
     return kv[0] != null && kv[0] !== "";
