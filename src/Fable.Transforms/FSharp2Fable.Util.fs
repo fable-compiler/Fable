@@ -2908,6 +2908,21 @@ module Util =
         else
             ValueNone
 
+    /// Member bound to native code (binding) rather than implemented in F#.
+    let private callsExternalBinding (memb: FSharpMemberOrFunctionOrValue) =
+        isEmittedOrImportedMember memb
+        || match memb.DeclaringEntity with
+           | Some ent ->
+               isGlobalOrImportedFSharpEntity ent
+               || isErasedOrStringEnumFSharpEntity ent
+               // Fable's own bindings carry no attribute, match by namespace.
+               || (
+                   match ent.TryFullName with
+                   | Some name -> name.StartsWithAny("Fable.Core.JS.", "Fable.Core.Py.")
+                   | None -> false
+               )
+           | None -> false
+
     /// Removes optional arguments set to None in tail position
     let transformOptionalArguments
         (com: IFableCompiler)
@@ -2923,11 +2938,16 @@ module Util =
         then
             args
         else
+            // Native bindings expect the raw value, not F#'s `Some` wrapper for `?` args.
+            let unwrapProvidedOptional = callsExternalBinding memb
+
             (memb.CurriedParameterGroups[0], args, (true, []))
             |||> Seq.foldBack2 (fun par arg (keepChecking, acc) ->
-                if keepChecking && par.IsOptionalArg then
+                if par.IsOptionalArg then
                     match arg with
-                    | Fable.Value(Fable.NewOption(None, _, _), _) -> true, acc
+                    | Fable.Value(Fable.NewOption(None, _, _), _) when keepChecking -> true, acc
+                    | Fable.Value(Fable.NewOption(Some value, _, _), _) when unwrapProvidedOptional ->
+                        false, value :: acc
                     | _ -> false, arg :: acc
                 else
                     false, arg :: acc
