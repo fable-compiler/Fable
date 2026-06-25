@@ -567,6 +567,7 @@ module Annotation =
                     |> List.choose (
                         function
                         | Fable.Constraint.CoercesTo t -> makeTypeAnnotation com ctx t |> Some
+                        | Fable.Constraint.IsEnum _ -> Some NumberTypeAnnotation
                         | _ -> None
                     )
                     |> function
