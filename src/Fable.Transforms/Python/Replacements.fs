@@ -3967,7 +3967,8 @@ let fsharpType com methName (r: SourceLocation option) t (i: CallInfo) (args: Ex
         |> Some
     // Prevent name clash with FSharpValue.GetRecordFields
     | "GetRecordFields" ->
-        Helper.LibCall(com, "Reflection", "get_record_elements", t, args, i.SignatureArgTypes, ?loc = r)
+        // Drop the trailing `allowAccessToPrivateRepresentation` flag (no meaning in Python)
+        Helper.LibCall(com, "Reflection", "get_record_elements", t, List.truncate 1 args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "GetUnionCases"
     | "GetTupleElements"
@@ -3992,6 +3993,16 @@ let fsharpValue com methName (r: SourceLocation option) t (i: CallInfo) (args: E
     | "MakeUnion"
     | "MakeRecord"
     | "MakeTuple" ->
+        // Drop the trailing `allowAccessToPrivateRepresentation` flag, a .NET-only
+        // concept the runtime helpers don't accept.
+        let args =
+            match methName with
+            | "GetRecordFields" -> List.truncate 1 args
+            | "GetUnionFields"
+            | "MakeUnion"
+            | "MakeRecord" -> List.truncate 2 args
+            | _ -> args
+
         Helper.LibCall(com, "Reflection", Naming.lowerFirst methName, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "GetExceptionFields" -> None // TODO!!!
