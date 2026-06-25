@@ -1,5 +1,3 @@
-// Copyright (c) Microsoft Corporation.  All Rights Reserved.  See License.txt in the project root for license information.
-
 // Fable-only: a small, dependency-free, synchronous raw-DEFLATE (RFC 1951)
 // decompressor.
 //
