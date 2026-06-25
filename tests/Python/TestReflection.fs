@@ -218,6 +218,25 @@ let ``test Reflection Array`` () =
     typeof<bool> = elType |> equal false
     liType.GetElementType() |> equal null
 
+[<Fact>]
+let ``test reflection functions accept allowAccessToPrivateRepresentation`` () =
+    let recordType = typeof<MyRecord>
+    let record = { String = "a"; Int = 1 }
+
+    FSharpType.GetRecordFields(recordType, allowAccessToPrivateRepresentation = true).Length |> equal 2
+
+    let values = FSharpValue.GetRecordFields(record, allowAccessToPrivateRepresentation = true)
+    let rebuilt =
+        FSharpValue.MakeRecord(recordType, values, allowAccessToPrivateRepresentation = true) :?> MyRecord
+    rebuilt |> equal record
+
+    let unionType = typeof<MyUnion>
+    let intCase = FSharpType.GetUnionCases(unionType).[1]
+    let u = FSharpValue.MakeUnion(intCase, [| box 5 |], allowAccessToPrivateRepresentation = true) :?> MyUnion
+    let info, fields = FSharpValue.GetUnionFields(u, unionType, allowAccessToPrivateRepresentation = true)
+    info.Name |> equal "IntCase"
+    fields.[0] |> equal (box 5)
+
 #if FABLE_COMPILER
 [<Fact>]
 let ``test FSharp.Reflection Record`` () =

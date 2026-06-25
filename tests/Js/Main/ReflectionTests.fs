@@ -381,6 +381,24 @@ let reflectionTests = [
     let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
     all |> equal true
 
+  testCase "Reflection functions accept allowAccessToPrivateRepresentation" <| fun () ->
+    let recordType = typeof<TestRecord>
+    let record = { String = "a"; Int = 1 }
+
+    FSharpType.GetRecordFields(recordType, allowAccessToPrivateRepresentation = true).Length |> equal 2
+
+    let values = FSharpValue.GetRecordFields(record, allowAccessToPrivateRepresentation = true)
+    let rebuilt =
+        FSharpValue.MakeRecord(recordType, values, allowAccessToPrivateRepresentation = true) :?> TestRecord
+    rebuilt |> equal record
+
+    let unionType = typeof<TestUnion>
+    let intCase = FSharpType.GetUnionCases(unionType).[1]
+    let u = FSharpValue.MakeUnion(intCase, [| box 5 |], allowAccessToPrivateRepresentation = true) :?> TestUnion
+    let info, fields = FSharpValue.GetUnionFields(u, unionType, allowAccessToPrivateRepresentation = true)
+    info.Name |> equal "IntCase"
+    fields.[0] |> equal (box 5)
+
   testCase "PropertyInfo.GetValue works" <| fun () ->
     let value: obj = { Firstname = "Maxime"; Age = 12 } :> obj
 
