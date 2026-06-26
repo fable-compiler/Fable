@@ -1187,7 +1187,11 @@ let ``test Compiler target flags have correct value per target`` () =
     equal false Compiler.isPython
     equal false Compiler.isDart
     equal false Compiler.isRust
+#if FABLE_COMPILER_BEAM
     equal true Compiler.isBeam
+#else
+    equal false Compiler.isBeam
+#endif
 #if FABLE_COMPILER
     equal false Compiler.isDotnet
 #else
@@ -1205,4 +1209,8 @@ let ``test Compiler target flags eliminate dead branches`` () =
         elif Compiler.isRust then "rust"
         elif Compiler.isBeam then "beam"
         else "dotnet"
+#if FABLE_COMPILER_BEAM
     equal "beam" target
+#else
+    equal "dotnet" target
+#endif

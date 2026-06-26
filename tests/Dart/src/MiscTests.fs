@@ -135,7 +135,11 @@ let tests() =
         equal false Compiler.isJavaScript
         equal false Compiler.isTypeScript
         equal false Compiler.isPython
+#if FABLE_COMPILER_DART
         equal true Compiler.isDart
+#else
+        equal false Compiler.isDart
+#endif
         equal false Compiler.isRust
 #if FABLE_COMPILER
         equal false Compiler.isDotnet
@@ -152,4 +156,8 @@ let tests() =
             elif Compiler.isDart then "dart"
             elif Compiler.isRust then "rust"
             else "dotnet"
+#if FABLE_COMPILER_DART
         equal "dart" target
+#else
+        equal "dotnet" target
+#endif
