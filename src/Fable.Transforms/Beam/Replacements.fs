@@ -5478,6 +5478,29 @@ let tryCall
         match info.CompiledName with
         | "get_InvariantCulture" -> emitExpr r t [] "undefined" |> Some
         | _ -> None
+    | "Fable.Core.Compiler" ->
+        match info.CompiledName with
+        | "version" -> makeStrConst Literals.VERSION |> Some
+        | "majorMinorVersion" ->
+            try
+                let m = System.Text.RegularExpressions.Regex.Match(Literals.VERSION, @"^\d+\.\d+")
+                float m.Value |> makeFloatConst |> Some
+            with _ ->
+                "Cannot parse compiler version"
+                |> addErrorAndReturnNull com ctx.InlinePath r
+                |> Some
+        | "debugMode" -> makeBoolConst com.Options.DebugMode |> Some
+        | "typedArrays" -> makeBoolConst com.Options.TypedArrays |> Some
+        | "extension" -> makeStrConst com.Options.FileExtension |> Some
+        | "triggeredByDependency" -> makeBoolConst com.Options.TriggeredByDependency |> Some
+        | "isJavaScript" -> makeBoolConst (com.Options.Language = JavaScript) |> Some
+        | "isTypeScript" -> makeBoolConst (com.Options.Language = TypeScript) |> Some
+        | "isPython" -> makeBoolConst (com.Options.Language = Python) |> Some
+        | "isDart" -> makeBoolConst (com.Options.Language = Dart) |> Some
+        | "isRust" -> makeBoolConst (com.Options.Language = Rust) |> Some
+        | "isPhp" -> makeBoolConst (com.Options.Language = Php) |> Some
+        | "isBeam" -> makeBoolConst (com.Options.Language = Beam) |> Some
+        | _ -> None
     | "Fable.Core.BeamInterop" ->
         match info.CompiledName, args with
         | Naming.StartsWith "import" suffix, _ ->

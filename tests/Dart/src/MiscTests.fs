@@ -1,6 +1,7 @@
 module Fable.Tests.Dart.Misc
 
 open System
+open Fable.Core
 open Util
 
 let increase (x: int ref) =
@@ -129,3 +130,21 @@ let tests() =
         throwsError "This is invalid (Parameter 'arg')" (fun () ->
             invalidArg "arg" "This is invalid"
         )
+
+    testCase "Compiler target flags have correct value per target" <| fun () ->
+        equal false Compiler.isJavaScript
+        equal false Compiler.isTypeScript
+        equal false Compiler.isPython
+        equal true Compiler.isDart
+        equal false Compiler.isRust
+        equal false (Compiler.isJavaScript || Compiler.isTypeScript)
+
+    testCase "Compiler target flags eliminate dead branches" <| fun () ->
+        let target =
+            if Compiler.isJavaScript then "javascript"
+            elif Compiler.isTypeScript then "typescript"
+            elif Compiler.isPython then "python"
+            elif Compiler.isDart then "dart"
+            elif Compiler.isRust then "rust"
+            else "dotnet"
+        equal "dart" target

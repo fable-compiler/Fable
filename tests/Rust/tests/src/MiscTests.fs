@@ -587,6 +587,26 @@ let ``Can check compiler version with constant`` () =
 // let ``Can access extension for generated files`` () =
 //     Compiler.extension.EndsWith(".js") |> equal true
 
+[<Fact>]
+let ``Compiler target flags have correct value per target`` () =
+    equal false Compiler.isJavaScript
+    equal false Compiler.isTypeScript
+    equal false Compiler.isPython
+    equal false Compiler.isDart
+    equal true Compiler.isRust
+    equal false (Compiler.isJavaScript || Compiler.isTypeScript)
+
+[<Fact>]
+let ``Compiler target flags eliminate dead branches`` () =
+    let target =
+        if Compiler.isJavaScript then "javascript"
+        elif Compiler.isTypeScript then "typescript"
+        elif Compiler.isPython then "python"
+        elif Compiler.isDart then "dart"
+        elif Compiler.isRust then "rust"
+        else "dotnet"
+    equal "rust" target
+
 #endif
 
 [<Fact>]

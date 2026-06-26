@@ -69,3 +69,24 @@ module Compiler =
     /// In watch compilations, indicates if the file is being recompiled
     /// not because of a direct change, but because a dependency has changed
     let triggeredByDependency: bool = false
+
+    /// Indicates if Fable is compiling to JavaScript
+    let isJavaScript: bool = false
+
+    /// Indicates if Fable is compiling to TypeScript
+    let isTypeScript: bool = false
+
+    /// Indicates if Fable is compiling to Python
+    let isPython: bool = false
+
+    /// Indicates if Fable is compiling to Dart
+    let isDart: bool = false
+
+    /// Indicates if Fable is compiling to Rust
+    let isRust: bool = false
+
+    /// Indicates if Fable is compiling to PHP
+    let isPhp: bool = false
+
+    /// Indicates if Fable is compiling to Erlang/BEAM
+    let isBeam: bool = false
