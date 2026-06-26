@@ -137,6 +137,11 @@ let tests() =
         equal false Compiler.isPython
         equal true Compiler.isDart
         equal false Compiler.isRust
+#if FABLE_COMPILER
+        equal false Compiler.isDotnet
+#else
+        equal true Compiler.isDotnet
+#endif
         equal false (Compiler.isJavaScript || Compiler.isTypeScript)
 
     testCase "Compiler target flags eliminate dead branches" <| fun () ->

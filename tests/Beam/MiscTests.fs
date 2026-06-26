@@ -1188,6 +1188,11 @@ let ``test Compiler target flags have correct value per target`` () =
     equal false Compiler.isDart
     equal false Compiler.isRust
     equal true Compiler.isBeam
+#if FABLE_COMPILER
+    equal false Compiler.isDotnet
+#else
+    equal true Compiler.isDotnet
+#endif
     equal false (Compiler.isJavaScript || Compiler.isTypeScript)
 
 [<Fact>]

@@ -70,6 +70,9 @@ module Compiler =
     /// not because of a direct change, but because a dependency has changed
     let triggeredByDependency: bool = false
 
+    /// Indicates if code is running on .NET (not compiled by Fable)
+    let isDotnet: bool = true
+
     /// Indicates if Fable is compiling to JavaScript
     let isJavaScript: bool = false
 
