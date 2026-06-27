@@ -122,6 +122,10 @@ Available commands:
 let main argv =
     let argv = argv |> Array.map (fun x -> x.ToLower()) |> Array.toList
 
+    // Prevent uv run and uv sync from updating the uv.lock file
+    // Updating uv.lock should be done manucally by the user outside of the build system
+    System.Environment.SetEnvironmentVariable("UV_FROZEN", "true")
+
     SimpleExec.Command.Run(name = "dotnet", args = "tool restore")
     SimpleExec.Command.Run(name = "dotnet", args = "husky install --allow-roll-forward")
 
