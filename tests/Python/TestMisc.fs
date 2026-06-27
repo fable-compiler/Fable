@@ -531,6 +531,29 @@ let ``test Can access compiler options`` () =
 let ``test Can access extension for generated files`` () =
     Compiler.extension.EndsWith(".py") |> equal true
 
+[<Fact>]
+let ``test Compiler target flags have correct value per target`` () =
+    equal false Compiler.isJavaScript
+    equal false Compiler.isTypeScript
+    equal true Compiler.isPython
+    equal false Compiler.isDart
+    equal false Compiler.isRust
+#if FABLE_COMPILER
+    equal false Compiler.isDotnet
+#else
+    equal true Compiler.isDotnet
+#endif
+    equal false (Compiler.isJavaScript || Compiler.isTypeScript)
+
+[<Fact>]
+let ``test Compiler target flags eliminate dead branches`` () =
+    let target =
+        if Compiler.isJavaScript then "javascript"
+        elif Compiler.isTypeScript then "typescript"
+        elif Compiler.isPython then "python"
+        else "dotnet"
+    equal "python" target
+
 #endif
 
 [<Fact>]

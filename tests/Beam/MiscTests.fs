@@ -3,6 +3,7 @@ module Fable.Tests.Misc
 #nowarn "40"
 
 open System
+open Fable.Core
 open FSharp.UMX
 open Util.Testing
 open Util2.Extensions
@@ -1178,3 +1179,38 @@ let ``test Optimized assignment blocks inside try ... with work`` () =
         try A.C.Helper.Add5(let mutable x = 2 in let mutable y = 3 in x + y)
         with _ -> 1
     equal 10 res
+
+[<Fact>]
+let ``test Compiler target flags have correct value per target`` () =
+    equal false Compiler.isJavaScript
+    equal false Compiler.isTypeScript
+    equal false Compiler.isPython
+    equal false Compiler.isDart
+    equal false Compiler.isRust
+#if FABLE_COMPILER_BEAM
+    equal true Compiler.isBeam
+#else
+    equal false Compiler.isBeam
+#endif
+#if FABLE_COMPILER
+    equal false Compiler.isDotnet
+#else
+    equal true Compiler.isDotnet
+#endif
+    equal false (Compiler.isJavaScript || Compiler.isTypeScript)
+
+[<Fact>]
+let ``test Compiler target flags eliminate dead branches`` () =
+    let target =
+        if Compiler.isJavaScript then "javascript"
+        elif Compiler.isTypeScript then "typescript"
+        elif Compiler.isPython then "python"
+        elif Compiler.isDart then "dart"
+        elif Compiler.isRust then "rust"
+        elif Compiler.isBeam then "beam"
+        else "dotnet"
+#if FABLE_COMPILER_BEAM
+    equal "beam" target
+#else
+    equal "dotnet" target
+#endif
