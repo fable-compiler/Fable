@@ -115,6 +115,7 @@ let ``test string interpolation works with .NET format specifiers`` () = // See 
     $"{i:X4}" |> equal "007B"
     $"{i:x4}" |> equal "007b"
     $"{i:D5}" |> equal "00123"
+    $"{5:B}" |> equal "101"
     $"\\u{i:X4}" |> equal "\\u007B"
     $"{3.14159:F2}" |> equal "3.14"
 

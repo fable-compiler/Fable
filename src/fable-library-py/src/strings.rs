@@ -1003,6 +1003,7 @@ mod formatting {
         match format_type {
             "d" | "D" => apply_decimal_format(value, params),
             "x" | "X" => apply_hexadecimal_format(value, params, format_type == "X"),
+            "b" | "B" => apply_binary_format(value, params),
             "f" | "F" => apply_fixed_point_format(value, params),
             "g" | "G" => apply_general_format(value),
             _ => value.to_string(), // Fallback for unknown formats
@@ -1045,6 +1046,20 @@ mod formatting {
                             format!("{:x}", num)
                         }
                     }),
+            },
+            Err(_) => value.to_string(),
+        }
+    }
+
+    /// Format binary integers with optional zero-padding (.NET "B"/"b" specifier).
+    fn apply_binary_format(value: &str, width_str: &str) -> String {
+        match value.parse::<i64>() {
+            Ok(num) => match width_str.is_empty() {
+                true => format!("{:b}", num),
+                false => width_str
+                    .parse::<usize>()
+                    .map(|width| format!("{:0width$b}", num, width = width))
+                    .unwrap_or_else(|_| format!("{:b}", num)),
             },
             Err(_) => value.to_string(),
         }
