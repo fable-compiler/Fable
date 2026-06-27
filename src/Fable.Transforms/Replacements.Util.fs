@@ -461,17 +461,24 @@ let makeStringTemplate
     StringTemplate(tag, parts, values)
 
 
-// Parses an F# interpolated string format, finds every %P() hole (optionally preceded by a
+// Parses an F# interpolated string format, finds every %P(...) hole (optionally preceded by a
 // printf format specifier), and builds a StringTemplate from the literal parts and the
 // supplied value expressions.
 //
-// For each hole the caller supplies `handleFormatSpec`:
-//   - None   → the hole has no preceding format spec (or only a simple one from simpleFormats);
-//              the value is used as-is.
-//   - Some fmtSpec → the hole has a non-simple format spec; the callback receives the spec
-//              (e.g. "%0.2f") and the value expression.  Returning Some wraps the value;
-//              returning None aborts the whole template (None is returned for the string).
+// A hole takes one of these shapes:
+//   - `%P()`            → no format; the value is used as-is.
+//   - `%<spec>%P()`     → a printf-style format spec (e.g. `%0.2f`); handled by `handleFormatSpec`.
+//   - `%P(<spec>)`      → a .NET format spec (e.g. `X4` from `$"{x:X4}"`).
+//   - `%<align>P(...)`  → an alignment width (e.g. `%6P()` from `$"{x,6}"`, `%-6P(X4)` from
+//                         `$"{x,-6:X4}"`).
+// Alignment and/or .NET format holes are always wrapped in a `String.format("{0,align:spec}", value)`
+// call (parts omitted when absent), which every target implements.
+//
+// For each printf hole the caller supplies `handleFormatSpec`:
+//   - Some fmtSpec → wraps the value (the callback receives the spec, e.g. "%0.2f").
+//   - None         → aborts the whole template (None is returned for the string).
 let private makeStringTemplateFromWith
+    (com: ICompiler)
     (simpleFormats: string array)
     (handleFormatSpec: string -> Expr -> Expr option)
     (values: Expr list)
@@ -483,7 +490,7 @@ let private makeStringTemplateFromWith
         let str = str.Replace("%%", "%")
 
         let matches =
-            Regex.Matches(str, @"((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)")
+            Regex.Matches(str, @"((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%([0+\- ]*\d*)P\(([^)]*)\)")
             |> Seq.cast<Match>
 
         (Some([], values), matches)
@@ -492,11 +499,28 @@ let private makeStringTemplateFromWith
             | None -> None
             | Some(_, []) -> None // fewer values than matches
             | Some(mapped, value :: restValues) ->
-                let needsFormat =
-                    m.Groups[1].Success && not (Array.contains m.Groups[1].Value simpleFormats)
+                let alignment = m.Groups[2].Value
+                let dotnetFormat = m.Groups[3].Value
 
                 let resolved =
-                    if needsFormat then
+                    if alignment <> "" || dotnetFormat <> "" then
+                        // Alignment (`$"{x,6}"`) and/or .NET format spec (`$"{x:X4}"`).
+                        // Wrap value in: String.format("{0[,<align>][:<spec>]}", value)
+                        let alignPart =
+                            if alignment <> "" then
+                                "," + alignment
+                            else
+                                ""
+
+                        let fmtPart =
+                            if dotnetFormat <> "" then
+                                ":" + dotnetFormat
+                            else
+                                ""
+
+                        let fmtStr = Value(StringConstant("{0" + alignPart + fmtPart + "}"), None)
+                        Helper.LibCall(com, "String", "format", String, [ fmtStr; value ]) |> Some
+                    elif m.Groups[1].Success && not (Array.contains m.Groups[1].Value simpleFormats) then
                         handleFormatSpec m.Groups[1].Value value
                     else
                         Some value
@@ -520,11 +544,12 @@ let private makeStringTemplateFromWith
     | _ -> None
 
 /// Try to build a StringTemplate from an F# interpolated string.
-/// Returns None if any hole carries a format specifier that is not in simpleFormats,
+/// Returns None if any hole carries a printf format specifier that is not in simpleFormats,
 /// because those require runtime formatting that can't be inlined into a plain template.
-let makeStringTemplateFrom simpleFormats values strExpr =
-    // Abort (return None) for any non-simple format spec.
-    makeStringTemplateFromWith simpleFormats (fun _ _ -> None) values strExpr
+/// Holes carrying a .NET format spec (e.g. `%P(X4)`) are always inlined as a String.format call.
+let makeStringTemplateFrom com simpleFormats values strExpr =
+    // Abort (return None) for any non-simple printf format spec.
+    makeStringTemplateFromWith com simpleFormats (fun _ _ -> None) values strExpr
 
 /// Like makeStringTemplateFrom but always succeeds for string literals.
 /// Values with format specifiers not in simpleFormats are individually wrapped in a
@@ -532,6 +557,7 @@ let makeStringTemplateFrom simpleFormats values strExpr =
 /// Used for JSX templates, where every hole must produce a value (formatted or not).
 let makeStringTemplateFromAllowingFormat (com: ICompiler) simpleFormats (values: Expr list) strExpr =
     makeStringTemplateFromWith
+        com
         simpleFormats
         (fun fmtSpec value ->
             // Wrap value in: String.interpolate("%fmtspec%P()", [| value |])
