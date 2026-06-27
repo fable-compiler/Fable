@@ -4,6 +4,9 @@ include:
   - ../Fable.Core/
   - ../fable-standalone/
   - ../Fable.Transforms/
+updaters:
+  - package.json:
+      file: package.json
 ---
 
 # Changelog
