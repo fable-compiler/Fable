@@ -1,5 +1,9 @@
 ---
 last_commit_released: b471dc16fc3b5132af77b5974d1669c9b8220cca
+updaters:
+  - regex:
+      file: ../fable-compiler-js/package.json
+      pattern: '(?<="@fable-org/fable-metadata": "\^)\d+\.\d+\.\d+'
 ---
 
 # Changelog

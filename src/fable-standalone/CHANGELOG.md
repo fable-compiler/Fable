@@ -3,6 +3,10 @@ last_commit_released: c9b3ee2429a4688946c1936e27df730837428070
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
+updaters:
+  - regex:
+      file: ../fable-compiler-js/package.json
+      pattern: '(?<="@fable-org/fable-standalone": "\^)\d+\.\d+\.\d+'
   - ../Fable.AST/
 ---
 
