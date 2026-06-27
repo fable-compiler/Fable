@@ -4,6 +4,7 @@
     run_synchronously/1, run_synchronously/2,
     start_with_continuations/4, start_with_continuations/5,
     sleep/1,
+    await_event/1, await_event/2,
     parallel/1,
     sequential/1,
     catch_async/1,
@@ -135,6 +136,35 @@ sleep(Milliseconds) ->
                         end
                 end
         end
+    end.
+
+%% AwaitEvent: subscribe once; complete async when event fires.
+await_event(Event) -> await_event(Event, undefined).
+await_event(Event, CancelAction) ->
+    fun(Ctx) ->
+        OnSuccess = maps:get(on_success, Ctx),
+        OnCancel = maps:get(on_cancel, Ctx),
+        Token = maps:get(cancel_token, Ctx),
+
+        Handler = fun F(_Sender, Value) ->
+            (maps:get(remove_handler, Event))(F),
+            OnSuccess(Value)
+        end,
+
+        case Token of
+            undefined -> ok;
+            _ ->
+                fable_cancellation:register(Token, fun(_) ->
+                    (maps:get(remove_handler, Event))(Handler),
+                    case CancelAction of
+                        undefined -> ok;
+                        _ -> CancelAction(ok)
+                    end,
+                    OnCancel(ok)
+                end)
+        end,
+
+        (maps:get(add_handler, Event))(Handler)
     end.
 
 %% Parallel: spawn one process per computation, collect results in order

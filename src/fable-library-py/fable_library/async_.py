@@ -30,6 +30,7 @@ from .choice import (
     Choice_makeChoice2Of2,
     FSharpChoice_2,
 )
+from .event import IEvent_2
 from .protocols import IEnumerable_1
 from .task import TaskCompletionSource
 from .time_span import TimeSpan, to_milliseconds
@@ -91,6 +92,27 @@ def sleep(milliseconds_duetime: int | TimeSpan) -> Async[None]:
 
         due_time = to_milliseconds(milliseconds_duetime) / 1000.0
         ctx.trampoline.run_later(timeout, due_time)
+
+    return protected_cont(cont)
+
+
+def await_event[T](event: IEvent_2[Any, T], cancel_action: Callable[[], None] | None = None) -> Async[T]:
+    def cont(ctx: IAsyncContext[T]) -> None:
+        token_id: list[int] = [0]
+
+        def handler(_sender: Any, arg: T) -> None:
+            ctx.cancel_token.remove_listener(token_id[0])
+            event.RemoveHandler(handler)
+            ctx.on_success(arg)
+
+        def cancel() -> None:
+            event.RemoveHandler(handler)
+            if cancel_action is not None:
+                cancel_action()
+            ctx.on_cancel(OperationCanceledError())
+
+        token_id[0] = ctx.cancel_token.add_listener(cancel)
+        event.AddHandler(handler)
 
     return protected_cont(cont)
 
@@ -362,6 +384,7 @@ def run_synchronously[T](
 
 
 __all__ = [
+    "await_event",
     "await_task",
     "cancel",
     "cancel_after",
