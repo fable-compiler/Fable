@@ -9,6 +9,7 @@ let allTests =
     RandomTests.tests
     Arrays.tests
     Async.tests
+    Task.tests
     Chars.tests
     Comparison.tests
     ConditionalWeakTable.tests

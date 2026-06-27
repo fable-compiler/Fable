@@ -3871,11 +3871,80 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
         Helper.LibCall(com, "Async", "catchAsync", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
     | "RunSynchronously" -> None
+    // Task<T> is Promise<T> in JS/TS
+    | "AwaitTask" ->
+        Helper.LibCall(com, "Async", "awaitPromise", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        |> Some
     // Fable.Core extensions
     | meth ->
         Helper.LibCall(
             com,
             "Async",
+            Naming.lowerFirst meth,
+            t,
+            args,
+            i.SignatureArgTypes,
+            genArgs = i.GenericArgs,
+            ?loc = r
+        )
+        |> Some
+
+let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName, args with
+    | _, "Singleton", _ -> makeImportLib com t "singleton" "TaskBuilder" |> Some
+    | Some x, "Using", [ arg; f ]
+    | Some x, "TaskBuilderBase.Using", [ arg; f ] ->
+        Helper.InstanceCall(x, "Using", t, [ arg; f ], i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        |> Some
+    | Some x, "TaskBuilderBase.Bind", [ arg; f ] ->
+        Helper.InstanceCall(x, "Bind", t, [ arg; f ], i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        |> Some
+    | Some x, "TaskBuilderBase.ReturnFrom", [ arg ] ->
+        Helper.InstanceCall(x, "ReturnFrom", t, [ arg ], i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        |> Some
+    | Some x, meth, _ ->
+        Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        |> Some
+    | None, meth, _ ->
+        Helper.LibCall(
+            com,
+            "TaskBuilder",
+            Naming.lowerFirst meth,
+            t,
+            args,
+            i.SignatureArgTypes,
+            genArgs = i.GenericArgs,
+            ?loc = r
+        )
+        |> Some
+
+let tasks (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName with
+    | Some x, ("GetAwaiter" | "GetResult" | "get_Result" | "Result") ->
+        // Task<T> = Promise<T>; return the promise - callers use Async.AwaitTask to extract the value
+        Some x
+    | None, "FromResult" ->
+        Helper.LibCall(com, "Task", "fromResult", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | None, ".ctor" ->
+        Helper.LibCall(
+            com,
+            "Task",
+            "TaskCompletionSource",
+            t,
+            args,
+            i.SignatureArgTypes,
+            isConstructor = true,
+            ?loc = r
+        )
+        |> Some
+    | Some x, meth ->
+        Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        |> Some
+    | None, meth ->
+        Helper.LibCall(
+            com,
+            "Task",
             Naming.lowerFirst meth,
             t,
             args,
@@ -4371,6 +4440,15 @@ let private replacedModules =
             "Microsoft.FSharp.Control.AsyncActivation`1", asyncBuilder
             "Microsoft.FSharp.Control.FSharpAsync", asyncs
             "Microsoft.FSharp.Control.AsyncPrimitives", asyncs
+            Types.task, tasks
+            Types.taskGeneric, tasks
+            "System.Threading.Tasks.TaskCompletionSource`1", tasks
+            "System.Runtime.CompilerServices.TaskAwaiter`1", tasks
+            "Microsoft.FSharp.Control.TaskBuilder", taskBuilder
+            "Microsoft.FSharp.Control.TaskBuilderBase", taskBuilder
+            "Microsoft.FSharp.Control.TaskBuilderModule", taskBuilder
+            "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority", taskBuilder
+            "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority", taskBuilder
             Types.guid, guids
             "System.Uri", uris
             "System.Lazy`1", laziness
