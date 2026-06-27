@@ -2,6 +2,7 @@ import { OperationCanceledException, Trampoline } from "./AsyncBuilder.ts";
 import { Continuation, Continuations } from "./AsyncBuilder.ts";
 import { Async, IAsyncContext, CancellationToken } from "./AsyncBuilder.ts";
 import { protectedCont, protectedBind, protectedReturn } from "./AsyncBuilder.ts";
+import type { IEvent$2 } from "./Event.ts";
 import { FSharpChoice$2_$union, Choice_makeChoice1Of2, Choice_makeChoice2Of2 } from "./Choice.ts";
 import { TimeoutException_$ctor } from "./System.ts";
 import { Exception } from "./Util.ts";
@@ -84,6 +85,23 @@ export function awaitPromise<T>(p: Promise<T>) {
     p.then(conts[0]).catch((err) =>
       (err instanceof OperationCanceledException
         ? conts[2] : conts[1])(err)));
+}
+
+export function awaitEvent<Del extends Function, T>(event: IEvent$2<Del, T>, cancelAction?: () => void): Async<T> {
+  return protectedCont((ctx: IAsyncContext<T>) => {
+    let tokenId: number;
+    const handler = ((_sender: unknown, arg: T) => {
+      ctx.cancelToken.removeListener(tokenId);
+      event.RemoveHandler(handler as unknown as Del);
+      ctx.onSuccess(arg);
+    }) as unknown as Del;
+    tokenId = ctx.cancelToken.addListener(() => {
+      event.RemoveHandler(handler);
+      if (cancelAction != null) { cancelAction(); }
+      ctx.onCancel(new OperationCanceledException());
+    });
+    event.AddHandler(handler);
+  });
 }
 
 export function cancellationToken() {

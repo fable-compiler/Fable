@@ -395,4 +395,25 @@ let ``test Can use custom exceptions in async workflows`` () =
         equal 7 res
     } |> Async.RunSynchronously
 
+[<Fact>]
+let ``test Async.AwaitEvent fires continuation when event is triggered`` () =
+    let ev = Event<int>()
+    Async.StartImmediate(async {
+        let! v = Async.AwaitEvent ev.Publish
+        equal 42 v
+    })
+    ev.Trigger(42)
+
+[<Fact>]
+let ``test Async.AwaitEvent with cancelAction invokes it on cancellation`` () =
+    let ev = Event<int>()
+    let cts = new System.Threading.CancellationTokenSource()
+    let mutable cancelCalled = false
+    Async.StartImmediate(async {
+        let! _ = Async.AwaitEvent(ev.Publish, fun () -> cancelCalled <- true)
+        ()
+    }, cts.Token)
+    cts.Cancel()
+    equal true cancelCalled
+
 #endif
