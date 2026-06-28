@@ -663,6 +663,18 @@ let ``test String.Format with standard numeric specifiers works`` () =
     String.Format(ci, "{0:B}", 5) |> equal "101"
 
 [<Fact>]
+let ``test String.Format with the general (G) specifier works`` () =
+    let ci = System.Globalization.CultureInfo.InvariantCulture
+    // No precision: integers shown in full, not forced into scientific notation.
+    String.Format(ci, "{0:G}", 1234567) |> equal "1234567"
+    // Precision is significant digits, choosing fixed-point...
+    String.Format(ci, "{0:G4}", 123.456) |> equal "123.5"
+    String.Format(ci, "{0:G3}", 3.14159) |> equal "3.14"
+    String.Format(ci, "{0:G2}", 0.0001234) |> equal "0.00012"
+    // ...or scientific (2-digit exponent) when the magnitude is >= 10^precision.
+    String.Format(ci, "{0:G3}", 1234567.0) |> equal "1.23E+06"
+
+[<Fact>]
 let ``test String.Split with remove empties works`` () =
     let result = "a b c  d ".Split([|" "|], StringSplitOptions.RemoveEmptyEntries)
     result.Length |> equal 4

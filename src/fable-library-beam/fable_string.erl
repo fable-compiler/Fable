@@ -637,7 +637,7 @@ apply_dotnet_numeric(Type, Prec, Value) when Type =:= $E; Type =:= $e ->
     P = default_prec(Prec, 6),
     format_exponential(Type, P, Value);
 apply_dotnet_numeric(Type, Prec, Value) when Type =:= $G; Type =:= $g ->
-    format_raw(Type, Prec, Value);
+    format_general(Type, Prec, Value);
 apply_dotnet_numeric(Type, Prec, Value) when Type =:= $N; Type =:= $n ->
     P = default_prec(Prec, 2),
     {IntB, DecB} = split_int_dec(format_raw($f, P, Value)),
@@ -690,6 +690,49 @@ format_exponential(TypeChar, P, Value) ->
             _ -> <<"e">>
         end,
     <<Mantissa/binary, EChar/binary, ExpSign, ExpPadded/binary>>.
+
+%% format_general/3 — .NET "G"/"g" (general) format. The value is shown with
+%% `Prec` significant digits, choosing fixed-point or scientific notation
+%% (scientific when the exponent is < -4 or >= Prec), with trailing zeros
+%% removed. Unlike "E"/"e", the exponent uses a 2-digit minimum. When no
+%% precision is given, the value uses its default representation (integers in
+%% full), matching bare interpolation (`$"{x}"`).
+format_general(_Type, Prec, Value) when Prec =< 0 ->
+    to_string(Value);
+format_general(Type, Prec, Value) ->
+    F = float(Value),
+    case F == 0.0 of
+        true ->
+            <<"0">>;
+        false ->
+            Exp = trunc(math:floor(math:log10(abs(F)))),
+            EChar =
+                case Type of
+                    $G -> $E;
+                    _ -> $e
+                end,
+            case Exp < -4 orelse Exp >= Prec of
+                true -> general_scientific(EChar, Prec, F);
+                false -> general_fixed(Prec, F, Exp)
+            end
+    end.
+
+%% general_fixed/3 — Fixed-point notation with (Prec - 1 - Exp) decimals so the
+%% result carries Prec significant digits, trailing zeros trimmed.
+general_fixed(Prec, F, Exp) ->
+    Decimals = max(0, Prec - 1 - Exp),
+    trim_trailing_zeros(format_raw($f, Decimals, F)).
+
+%% general_scientific/3 — Scientific notation with Prec significant digits
+%% (one leading digit + Prec-1 decimals), trailing zeros trimmed, and a
+%% 2-digit minimum exponent (e.g. "1.23E+06").
+general_scientific(EChar, Prec, F) ->
+    Sci = float_to_binary(F, [{scientific, max(0, Prec - 1)}]),
+    [Mantissa0, ExpPart] = binary:split(Sci, <<"e">>),
+    Mantissa = trim_trailing_zeros(Mantissa0),
+    <<ExpSign, ExpDigits/binary>> = ExpPart,
+    ExpPadded = pad_left(ExpDigits, 2, $0),
+    <<Mantissa/binary, EChar, ExpSign, ExpPadded/binary>>.
 
 abs_num(V) when V < 0 -> -V;
 abs_num(V) -> V.
