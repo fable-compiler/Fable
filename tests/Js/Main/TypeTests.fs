@@ -765,6 +765,16 @@ let genericByrefFunc(n: byref<'t[]>) =
 type GenericClassWithStaticMember<'T>() =
     static member Length(xs: 'T list) = xs.Length
 
+[<Fable.Core.AttachMembers>]
+type GenericClassWithLetBinding<'TKey, 'TItem when 'TKey: comparison>(maker: 'TKey -> 'TItem) =
+    let mutable cache = Map.empty
+    let makeForKey key =
+        let v = maker key
+        cache <- cache.Add(key, v)
+        v
+    member _.Get(key: 'TKey) : 'TItem =
+        cache.TryFind key |> Option.defaultWith (fun () -> makeForKey key)
+
 [<AttachMembersAttribute>]
 type MyOptionalClass(?arg1: float, ?arg2: string, ?arg3: int) =
     member val P1 = defaultArg arg1 1.0
@@ -1548,6 +1558,11 @@ let tests =
 
     testCase "Generic static member on generic attached class re-declares type param" <| fun () ->
         GenericClassWithStaticMember<int>.Length([1; 2; 3]) |> equal 3
+
+    testCase "Generic attached class with let-binding helper does not shadow class type params" <| fun () ->
+        let src = GenericClassWithLetBinding<string, int>(fun k -> k.Length)
+        src.Get("hello") |> equal 5
+        src.Get("hi") |> equal 2
 
     testCase "Two unions of different type with same shape are not equal" <| fun () ->
         areEqual (MyUnion1.Foo(1,2)) (MyUnion2.Foo(1,2)) |> equal false

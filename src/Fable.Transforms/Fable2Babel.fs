@@ -1412,7 +1412,9 @@ module Util =
 
                 let declaredTypeParams =
                     if isAttached && kind <> Attached(isStatic = true) then
+                        // Instance attached methods inherit class type params; only declare method-specific ones
                         info.GenericParameters
+                        |> List.filter (fun g -> entGenParams |> List.forall (fun e -> e.Name <> g.Name))
                     else
                         entGenParams @ info.GenericParameters
                     |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints))
