@@ -171,7 +171,18 @@ export function option_type(generic: TypeInfo): TypeInfo {
 }
 
 export function list_type(generic: TypeInfo): TypeInfo {
-  return new TypeInfo("Microsoft.FSharp.Collections.FSharpList`1", [generic]);
+  const t: TypeInfo = new TypeInfo(
+    "Microsoft.FSharp.Collections.FSharpList`1",
+    [generic],
+    undefined,
+    undefined,
+    undefined,
+    () => [
+      new CaseInfo(t, 0, "Empty"),
+      new CaseInfo(t, 1, "Cons", [["Head", generic], ["Tail", t]])
+    ]
+  );
+  return t;
 }
 
 export function array_type(generic: TypeInfo): TypeInfo {
