@@ -885,5 +885,10 @@ let tests =
             let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
             (fun _ -> source.ToOffset(TimeSpan(0, 0, -10)))
             |> Util.throwsErrorContaining "Offset must be specified in whole minutes"
+
+        testCase "Implicit conversion from DateTime preserves value" <| fun () ->
+            let d = DateTime(2024, 1, 15, 0, 0, 0, DateTimeKind.Utc)
+            let dto: DateTimeOffset = d
+            dto.UtcDateTime |> equal d
     ]
   ]

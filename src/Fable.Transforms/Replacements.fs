@@ -3296,6 +3296,9 @@ let dateTimeOffset (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: E
                 |> addError com ctx.InlinePath r
 
                 None
+    | "op_Implicit" ->
+        Helper.LibCall(com, moduleName, "fromDate", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "ToString" ->
         Helper.LibCall(com, "Date", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
