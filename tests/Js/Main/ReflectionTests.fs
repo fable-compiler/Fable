@@ -598,6 +598,14 @@ let reflectionTests = [
     someFields.Length |> equal 1
     someFields.[0] |> equal (box 42)
 
+  testCase "FSharp.Reflection: List is a union type" <| fun () ->
+    let typ = typeof<int list>
+    FSharpType.IsUnion(typ) |> equal true
+    let ucis = FSharpType.GetUnionCases(typ)
+    ucis.Length |> equal 2
+    ucis.[0].Name |> equal "Empty"
+    ucis.[1].Name |> equal "Cons"
+
   testCase "FSharp.Reflection: Option round-trips through Some(None) and Some(Some x)" <| fun () ->
     let typ = typeof<int option option>
     let ucis = FSharpType.GetUnionCases(typ)
