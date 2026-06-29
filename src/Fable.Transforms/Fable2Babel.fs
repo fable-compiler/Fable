@@ -1411,7 +1411,7 @@ module Util =
                     |> Set.union ctx.ScopedTypeParams
 
                 let declaredTypeParams =
-                    if isAttached then
+                    if isAttached && kind <> Attached(isStatic = true) then
                         info.GenericParameters
                     else
                         entGenParams @ info.GenericParameters

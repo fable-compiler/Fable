@@ -761,6 +761,10 @@ let inline inlinedFunc(n: 't[]) =
 let genericByrefFunc(n: byref<'t[]>) =
     inlinedFunc n
 
+[<Fable.Core.AttachMembers>]
+type GenericClassWithStaticMember<'T>() =
+    static member Length(xs: 'T list) = xs.Length
+
 [<AttachMembersAttribute>]
 type MyOptionalClass(?arg1: float, ?arg2: string, ?arg3: int) =
     member val P1 = defaultArg arg1 1.0
@@ -1541,6 +1545,9 @@ let tests =
 
     testCase "Multiple `this` references work in nested attached members" <| fun _ ->
         (MixedThese(2) :> Interface1).Create(3).Add() |> equal 5
+
+    testCase "Generic static member on generic attached class re-declares type param" <| fun () ->
+        GenericClassWithStaticMember<int>.Length([1; 2; 3]) |> equal 3
 
     testCase "Two unions of different type with same shape are not equal" <| fun () ->
         areEqual (MyUnion1.Foo(1,2)) (MyUnion2.Foo(1,2)) |> equal false
