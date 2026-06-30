@@ -92,6 +92,7 @@ let z = y ()
         """
 let x = 1
 let inline y () = x
+let z = y ()
 """
       compile source
       |> Assert.Is.success
