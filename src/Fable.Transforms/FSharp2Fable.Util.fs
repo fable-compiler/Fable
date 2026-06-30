@@ -2359,6 +2359,12 @@ module Util =
             if hasOverloadSuffix then
                 com.AddWatchDependency(file)
 
+            // Private values are not exported so they can't be imported by call sites in other files.
+            // We need to handle it manually because Fable handle resolve inline function itself
+            if com.IsPrecompilingInlineFunction && memb.Accessibility.IsPrivate then
+                $"The value '%s{memb.DisplayName}' was marked inline but its implementation makes use of an internal or private function which is not sufficiently accessible"
+                |> addError com [] r
+
             makeInternalMemberImport com typ membRef memberName file
 
     let getFunctionMemberRef (memb: FSharpMemberOrFunctionOrValue) =

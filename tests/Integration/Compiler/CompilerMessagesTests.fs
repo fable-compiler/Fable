@@ -75,4 +75,25 @@ let res = jsOptions<Response> (fun o ->
       compile source
       |> Assert.Is.success
       |> ignore
+
+    testCase "Inline function referencing private value emits error" <| fun _ ->
+      let source =
+        """
+let private x = 1
+let inline y () = x
+let z = y ()
+"""
+      compile source
+      |> Assert.Exists.errorWith "was marked inline but its implementation makes use of an internal or private function"
+      |> ignore
+
+    testCase "Inline function referencing non-private value succeeds" <| fun _ ->
+      let source =
+        """
+let x = 1
+let inline y () = x
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
   ]
