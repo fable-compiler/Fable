@@ -131,11 +131,12 @@ let handle (args: string list) =
     // Release fable-compiler-js and fable-standalone after Fable.Cli
     // otherwise the reported version for Fable will be wrong
 
-    // Trigger fable-compiler-js target to make sure everything is ready for publish
-    // Note: fable-standalone is built as part of fable-compiler-js
-    // so no need to build it separately
-    // Note 2: We already built fable-library, it will be skipped thanks to incremental build
-    CompilerJs.handle []
-
+    // Build and publish fable-standalone before running CompilerJs.handle.
+    // The release commit bumps fable-compiler-js's dependency on fable-standalone
+    // to the new version before that version is on npm.
+    Standalone.handle []
     publishNpm ProjectDir.fable_standalone
+
+    CompilerJs.handle [ "--skip-fable-standalone" ]
+
     publishNpm ProjectDir.fable_compiler_js
