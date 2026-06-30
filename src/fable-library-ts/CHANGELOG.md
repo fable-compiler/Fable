@@ -1,5 +1,5 @@
 ---
-last_commit_released: c9b3ee2429a4688946c1936e27df730837428070
+last_commit_released: c977d78b39225a51c7bd051a1fe363ed0ccbe201
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.3.0 - 2026-06-30
+
+### 🚀 Features
+
+* *(js/ts)* Map task { } to Promise<T> ([97f54d36](https://github.com/fable-compiler/Fable/commit/97f54d3692e5ba881c249b289c20b4fad5ac27e2))
+* *(js/ts/python/beam)* Add support for `Async.AwaitEvent` (#4693) ([71c98179](https://github.com/fable-compiler/Fable/commit/71c981792b6ff99cd417bb2e70a13a9d55ed72cf))
+
+### 🐞 Bug Fixes
+
+* *(js)* Respect StringComparison in String.IndexOf/LastIndexOf (#4681) ([7cb92d52](https://github.com/fable-compiler/Fable/commit/7cb92d522e5dc8dfe51351565504c59a94c2f408))
+* *(js/ts)* Int list is not a union type (#4698) ([ecbecbe7](https://github.com/fable-compiler/Fable/commit/ecbecbe756610fd83a621c005e97eda92bbc332a))
+* *(js/ts)* Pass TypeInfo to getRecordFields to handle None fields in anonymous records (#4704) ([c977d78b](https://github.com/fable-compiler/Fable/commit/c977d78b39225a51c7bd051a1fe363ed0ccbe201))
+* *(ts)* Widen isEnumDefined value parameter to accept any value (#4690) ([0d6498dd](https://github.com/fable-compiler/Fable/commit/0d6498ddf65e0e18918690633da23b04b78479f6))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/c9b3ee2429a4688946c1936e27df730837428070..c977d78b39225a51c7bd051a1fe363ed0ccbe201)</small></strong>
 
 ## 2.2.0 - 2026-06-24
 

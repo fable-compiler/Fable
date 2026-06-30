@@ -1,5 +1,5 @@
 ---
-last_commit_released: c9b3ee2429a4688946c1936e27df730837428070
+last_commit_released: c977d78b39225a51c7bd051a1fe363ed0ccbe201
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
@@ -18,6 +18,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.4.0 - 2026-06-30
+
+### 🚀 Features
+
+* *(all)* Add `Compiler.is*` target detection flags for conditional branching (#4692) ([621dea31](https://github.com/fable-compiler/Fable/commit/621dea31daaef6a9dcf8a2ac5ceb144a063bb873))
+* *(js/ts)* Map task { } to Promise<T> ([97f54d36](https://github.com/fable-compiler/Fable/commit/97f54d3692e5ba881c249b289c20b4fad5ac27e2))
+
+### 🐞 Bug Fixes
+
+* *(all)* Pass raw value for optional arguments of native bindings (#4688) ([a4c75483](https://github.com/fable-compiler/Fable/commit/a4c7548313fcbefc0ff0eddc7a95d8d0599d68a6))
+* *(all)* Support .NET format specifiers and alignment in interpolated strings (#4695) ([7c50a3af](https://github.com/fable-compiler/Fable/commit/7c50a3af39aee935ce318f44e04247da32b33f0f))
+* *(all)* Error on inline function referencing private value (#4701) ([cea6806e](https://github.com/fable-compiler/Fable/commit/cea6806ea388e73cf42fb673960f7862bb497fc2))
+* *(beam)* Support module-level mutable variables via process dictionary (#4676) ([535b9af0](https://github.com/fable-compiler/Fable/commit/535b9af06969bcd7bdf118bdfb633ccadd5e4177))
+* *(beam)* Namespace module-level mutable state keys by module (#4683) ([1ec28ab1](https://github.com/fable-compiler/Fable/commit/1ec28ab10923623eaf04b90bf8ffbeb54469d454))
+* *(js)* Respect StringComparison in String.IndexOf/LastIndexOf (#4681) ([7cb92d52](https://github.com/fable-compiler/Fable/commit/7cb92d522e5dc8dfe51351565504c59a94c2f408))
+* *(js/ts)* Decompress F#-compressed signature data in fcs-fable (#4684) ([62bfc612](https://github.com/fable-compiler/Fable/commit/62bfc61270d55ab65cffef62b9ea1e129eabe97d))
+* *(js/ts)* Implicit DateTime to DateTimeOffset conversion (#4697) ([fcbd9b91](https://github.com/fable-compiler/Fable/commit/fcbd9b91397a41226df4bed25c1bd1f0667efb64))
+* *(js/ts)* Hoist emitJsStatement imports with trailing comments (#4702) ([e820eb72](https://github.com/fable-compiler/Fable/commit/e820eb7239b2ffe0f2cb4bf3e6c040a1c7dca57f))
+* *(js/ts)* Uncurry mutable module value alias calls (#4703) ([0de0d218](https://github.com/fable-compiler/Fable/commit/0de0d2187a68db0ac35bd2546dd98eb1c67397e5))
+* *(js/ts)* Pass TypeInfo to getRecordFields to handle None fields in anonymous records (#4704) ([c977d78b](https://github.com/fable-compiler/Fable/commit/c977d78b39225a51c7bd051a1fe363ed0ccbe201))
+* *(js/ts/python)* Drop allowAccessToPrivateRepresentation arg from reflection calls (#4689) ([ec3cded7](https://github.com/fable-compiler/Fable/commit/ec3cded78cc98dc740ce978d3bb078f2603f4846))
+* *(ts)* Use declared type-param names in object expression generic methods (#4685) ([1c3e7d99](https://github.com/fable-compiler/Fable/commit/1c3e7d99653c7119c615b6dfd095a45e36add5b3))
+* *(ts)* Use signature type-param names when implementing generic interface methods (#4686) ([03e5deee](https://github.com/fable-compiler/Fable/commit/03e5deeedaa35be2974f40e439e520526cf4c1ba))
+* *(ts)* Bound enum-constrained type parameters with `extends number` (#4687) ([15daf624](https://github.com/fable-compiler/Fable/commit/15daf6245212ddb8b7ac6296631381711e34c98d))
+* *(ts)* Keep enclosing type parameters in scope for nested members (#4691) ([f5723a2d](https://github.com/fable-compiler/Fable/commit/f5723a2d008408e1bca140256a452ac556c69c00))
+* *(ts)* Re-declare class type params on generic static attached members (#4696) ([2da50780](https://github.com/fable-compiler/Fable/commit/2da50780b8254cfad05f3a645780f60999cae4ee))
+* *(ts)* Filter class type params from attached let-binding methods (#4700) ([d3a6a1dd](https://github.com/fable-compiler/Fable/commit/d3a6a1dd09066b25d876e28446d70fea58162abd))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/c9b3ee2429a4688946c1936e27df730837428070..c977d78b39225a51c7bd051a1fe363ed0ccbe201)</small></strong>
 
 ## 2.3.0 - 2026-06-24
 
