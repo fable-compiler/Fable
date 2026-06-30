@@ -25,6 +25,24 @@ let ``test String interpolation with expression works`` () =
     $"the answer is {x * 2}" |> equal "the answer is 42"
 
 [<Fact>]
+let ``test String interpolation with .NET format specifiers works`` () = // See Fable.Python #36
+    let i = 123
+    $"{i:X4}" |> equal "007B"
+    $"{i:x4}" |> equal "007b"
+    $"{i:D5}" |> equal "00123"
+    $"{5:B}" |> equal "101"
+    $"\\u{i:X4}" |> equal "\\u007B"
+    $"{3.14159:F2}" |> equal "3.14"
+
+[<Fact>]
+let ``test String interpolation with alignment works`` () =
+    let i = 123
+    $"[{i,6}]" |> equal "[   123]"
+    $"[{i,-6}]" |> equal "[123   ]"
+    $"[{i,6:X4}]" |> equal "[  007B]"
+    $"[{i,-6:X4}]" |> equal "[007B  ]"
+
+[<Fact>]
 let ``test String equality works`` () =
     ("hello" = "hello") |> equal true
     ("hello" = "world") |> equal false
@@ -625,6 +643,36 @@ let ``test String.Format works`` () =
     let arg1, arg2, arg3 = "F#", "Fable", "Babel"
     String.Format("{2} is to {1} what {1} is to {0}", arg1, arg2, arg3)
     |> equal "Babel is to Fable what Fable is to F#"
+
+[<Fact>]
+let ``test String.Format with IFormatProvider works`` () =
+    let ci = System.Globalization.CultureInfo.InvariantCulture
+    // The leading IFormatProvider argument must be ignored, not treated as the format string.
+    String.Format(ci, "{0} is to {1}", "F#", "Fable") |> equal "F# is to Fable"
+    String.Format(ci, "{0:N2}", 1234.5) |> equal "1,234.50"
+    String.Format(ci, "{0:C2}", 1234.5) |> equal "¤1,234.50"
+    String.Format(ci, "{0:E2}", 1234.5) |> equal "1.23E+003"
+    String.Format(ci, "{0:X4}", 123) |> equal "007B"
+
+[<Fact>]
+let ``test String.Format with standard numeric specifiers works`` () =
+    let ci = System.Globalization.CultureInfo.InvariantCulture
+    String.Format(ci, "{0:D5}", 123) |> equal "00123"
+    String.Format(ci, "{0:F2}", 3.14159) |> equal "3.14"
+    String.Format(ci, "{0:N2}", -1234.5) |> equal "-1,234.50"
+    String.Format(ci, "{0:B}", 5) |> equal "101"
+
+[<Fact>]
+let ``test String.Format with the general (G) specifier works`` () =
+    let ci = System.Globalization.CultureInfo.InvariantCulture
+    // No precision: integers shown in full, not forced into scientific notation.
+    String.Format(ci, "{0:G}", 1234567) |> equal "1234567"
+    // Precision is significant digits, choosing fixed-point...
+    String.Format(ci, "{0:G4}", 123.456) |> equal "123.5"
+    String.Format(ci, "{0:G3}", 3.14159) |> equal "3.14"
+    String.Format(ci, "{0:G2}", 0.0001234) |> equal "0.00012"
+    // ...or scientific (2-digit exponent) when the magnitude is >= 10^precision.
+    String.Format(ci, "{0:G3}", 1234567.0) |> equal "1.23E+06"
 
 [<Fact>]
 let ``test String.Split with remove empties works`` () =

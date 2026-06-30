@@ -817,10 +817,78 @@ let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, ?loc = r)
     |> Some
 
-let makeRustFormatString interpolated (fmt: string) =
-    let pattern1 = @"([^%]?)%([0+\- ]*)(\*|\d+)?(\.\d+)?(\w)"
+// Maps a .NET standard numeric format specifier (e.g. "X4", "D5", "F2") to a
+// Rust format spec body { flags; width; precision; type } so it can be merged
+// into a `format!` placeholder. Returns None for specifiers Rust's `format!`
+// can't express (N, C, P, custom numeric patterns) so the value is emitted plain.
+let private mapDotnetSpecToRust (spec: string) =
+    match Regex.Match(spec, @"^([A-Za-z])(\d*)$") with
+    | m when m.Success ->
+        let typ = m.Groups[1].Value
+        let n = m.Groups[2].Value
+        // A width on hex/binary/octal/decimal means zero-pad to that width.
+        let zeroPad =
+            if n <> "" then
+                "0"
+            else
+                ""
 
-    let pattern2 = @"([^%]?)%([0+\- ]*)(\*|\d+)?(\.\d+)?(?:P\(\)|(\w)(?:%P\(\))?)"
+        match typ with
+        | "X"
+        | "x" -> Some(zeroPad, n, "", typ)
+        | "B"
+        | "b" -> Some(zeroPad, n, "", "b")
+        | "O"
+        | "o" -> Some(zeroPad, n, "", "o")
+        | "D"
+        | "d" -> Some(zeroPad, n, "", "")
+        | "F"
+        | "f" ->
+            Some(
+                "",
+                "",
+                "."
+                + (if n = "" then
+                       "2"
+                   else
+                       n),
+                ""
+            )
+        | "E" ->
+            Some(
+                "",
+                "",
+                "."
+                + (if n = "" then
+                       "6"
+                   else
+                       n),
+                "E"
+            )
+        | "e" ->
+            Some(
+                "",
+                "",
+                "."
+                + (if n = "" then
+                       "6"
+                   else
+                       n),
+                "e"
+            )
+        | "G"
+        | "g"
+        | "R"
+        | "r" -> Some("", "", "", "")
+        | _ -> None
+    | _ -> None
+
+let makeRustFormatString interpolated (fmt: string) =
+    let pattern1 =
+        @"(?<pre>[^%]?)%(?<flags>[0+\- ]*)(?<width>\*|\d+)?(?<prec>\.\d+)?(?<type>\w)"
+
+    let pattern2 =
+        @"(?<pre>[^%]?)%(?<flags>[0+\- ]*)(?<width>\*|\d+)?(?<prec>\.\d+)?(?:P\((?<dotnet>[^)]*)\)|(?<type>\w)(?:%P\(\))?)"
 
     let pattern =
         if interpolated then
@@ -852,35 +920,63 @@ let makeRustFormatString interpolated (fmt: string) =
             pattern,
             fun m ->
                 argCount <- argCount + 1
-                let g1 = m.Groups[1].Value
-                let g2 = m.Groups[2].Value |> formatFlags
-                let g3 = m.Groups[3].Value.Replace("*", "$") // width parameter
-                let g4 = m.Groups[4].Value
-                let g5 = m.Groups[5].Value
+                let pre = m.Groups["pre"].Value
+                let flags = m.Groups["flags"].Value |> formatFlags
+                let width = m.Groups["width"].Value.Replace("*", "$") // width parameter
+                let prec = m.Groups["prec"].Value
 
-                let g4 =
-                    if String.IsNullOrEmpty(g4) && (g5 = "f" || g5 = "F") then
-                        ".6"
+                let formatting =
+                    if m.Groups["dotnet"].Success then
+                        // .NET interpolation hole: %<align>P(<spec>) from e.g. $"{x,6:X4}"
+                        let dotnet = m.Groups["dotnet"].Value
+
+                        if dotnet = "" then
+                            // Plain or alignment-only hole, e.g. %P() or %6P()
+                            flags + width + prec
+                        else
+                            match mapDotnetSpecToRust dotnet with
+                            | Some(specFlags, specWidth, specPrec, specType) ->
+                                // An explicit alignment width takes the field width (space-padded);
+                                // otherwise use the specifier's own (zero-padded) width.
+                                let f =
+                                    if width <> "" then
+                                        flags
+                                    else
+                                        specFlags
+
+                                let w =
+                                    if width <> "" then
+                                        width
+                                    else
+                                        specWidth
+
+                                f + w + specPrec + specType
+                            | None ->
+                                // Unsupported specifier: keep any alignment, drop the rest.
+                                flags + width + prec
                     else
-                        g4
+                        let typ = m.Groups["type"].Value
 
-                let g5 =
-                    match g5 with
-                    | "A" -> "?"
-                    | "B" -> "b"
-                    | ("b" | "c" | "d" | "i" | "s" | "u") -> ""
-                    | ("o" | "x" | "X" | "e" | "E") as t -> t
-                    | _ -> ""
+                        let prec =
+                            if String.IsNullOrEmpty(prec) && (typ = "f" || typ = "F") then
+                                ".6"
+                            else
+                                prec
 
-                let argFmt =
-                    let formatting = g2 + g3 + g4 + g5
+                        let typ =
+                            match typ with
+                            | "A" -> "?"
+                            | "B" -> "b"
+                            | ("b" | "c" | "d" | "i" | "s" | "u") -> ""
+                            | ("o" | "x" | "X" | "e" | "E") as t -> t
+                            | _ -> ""
 
-                    if String.IsNullOrEmpty(formatting) then
-                        g1 + "{}"
-                    else
-                        g1 + "{:" + formatting + "}"
+                        flags + width + prec + typ
 
-                argFmt
+                if String.IsNullOrEmpty(formatting) then
+                    pre + "{}"
+                else
+                    pre + "{:" + formatting + "}"
         )
 
     rustFmt, argCount

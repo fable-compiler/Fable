@@ -110,6 +110,24 @@ let ``test string interpolation works with inline expressions`` () =
 #endif
 
 [<Fact>]
+let ``test string interpolation works with .NET format specifiers`` () = // See Fable.Python #36
+    let i = 123
+    $"{i:X4}" |> equal "007B"
+    $"{i:x4}" |> equal "007b"
+    $"{i:D5}" |> equal "00123"
+    $"{5:B}" |> equal "101"
+    $"\\u{i:X4}" |> equal "\\u007B"
+    $"{3.14159:F2}" |> equal "3.14"
+
+[<Fact>]
+let ``test string interpolation works with alignment`` () =
+    let i = 123
+    $"[{i,6}]" |> equal "[   123]"
+    $"[{i,-6}]" |> equal "[123   ]"
+    $"[{i,6:X4}]" |> equal "[  007B]"
+    $"[{i,-6:X4}]" |> equal "[007B  ]"
+
+[<Fact>]
 let ``test string interpolation works with anonymous records`` () =
     let person =
         {|

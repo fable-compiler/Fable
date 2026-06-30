@@ -1111,7 +1111,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
       _,
       _ -> fsharpModule com ctx r t i thisArg args
     | ".ctor", _, str :: (Value(NewArray(ArrayValues templateArgs, _, _), _) as values) :: _ ->
-        match makeStringTemplateFrom [| "%s"; "%i" |] templateArgs str with
+        match makeStringTemplateFrom com [| "%s"; "%i" |] templateArgs str with
         | Some v -> makeValue r v |> Some
         | None ->
             Helper.LibCall(com, "string", "interpolate", t, [ str; values ], i.SignatureArgTypes, ?loc = r)

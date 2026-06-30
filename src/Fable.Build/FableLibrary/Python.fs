@@ -17,6 +17,8 @@ type BuildFableLibraryPython(?skipCore: bool, ?postFableBuildStage: unit -> unit
                 [
                     Path.Combine("src", "fable-library-py", "**", "*.py")
                     Path.Combine("src", "fable-library-py", "**", "*.fs")
+                    // Rust extension sources, so edits to them trigger a maturin rebuild
+                    Path.Combine("src", "fable-library-py", "**", "*.rs")
                     Path.Combine("src", "fable-library-ts", "**", "*.fs")
                 ]
         )

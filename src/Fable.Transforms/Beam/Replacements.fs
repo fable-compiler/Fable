@@ -94,7 +94,7 @@ let private fsFormat
         | _ -> None
     | "PrintFormatThen", _, arg :: callee :: _ -> emitExpr r t [ callee; arg ] "(maps:get(cont, $0))($1)" |> Some
     | ".ctor", _, str :: (Value(NewArray(ArrayValues templateArgs, _, _), _) as values) :: _ ->
-        match makeStringTemplateFrom [| "%s"; "%i" |] templateArgs str with
+        match makeStringTemplateFrom com [| "%s"; "%i" |] templateArgs str with
         | Some v -> makeValue r v |> Some
         | None ->
             Helper.LibCall(com, "fable_string", "interpolate", t, [ str; values ], i.SignatureArgTypes, ?loc = r)
@@ -1094,7 +1094,17 @@ let private strings
     // str.GetEnumerator() → convert string to list of codepoints and create enumerator
     | "GetEnumerator", Some c, _ -> emitExpr r t [ c ] "fable_utils:get_enumerator(binary_to_list($0))" |> Some
     // String.Format("{0} {1}", arg0, arg1)
+    // Also String.Format(provider, "{0}", arg0): the optional leading IFormatProvider/CultureInfo
+    // argument is ignored (the format string is the first argument typed as `String`).
     | "Format", None, (fmtStr :: fmtArgs) ->
+        let fmtStr, fmtArgs =
+            match fmtStr.Type with
+            | String -> fmtStr, fmtArgs
+            | _ ->
+                match fmtArgs with
+                | realFmt :: rest -> realFmt, rest
+                | [] -> fmtStr, fmtArgs
+
         // When a single array argument is passed (e.g. from ParamArray),
         // pass it directly — format/2 already handles refs and lists.
         let argsList =

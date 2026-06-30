@@ -320,6 +320,22 @@ let tests = testList "Strings" [
         $"I think {3.0 + 0.14} is close to %.8f{Math.PI}!".Replace(",", ".")
         |> equal "I think 3.14 is close to 3.14159265!"
 
+    testCase "string interpolation works with .NET format specifiers" <| fun () -> // See Fable.Python #36
+        let i = 123
+        $"{i:X4}" |> equal "007B"
+        $"{i:x4}" |> equal "007b"
+        $"{i:D5}" |> equal "00123"
+        $"{5:B}" |> equal "101"
+        $"\\u{i:X4}" |> equal "\\u007B"
+        $"{3.14159:F2}" |> equal "3.14"
+
+    testCase "string interpolation works with alignment" <| fun () ->
+        let i = 123
+        $"[{i,6}]" |> equal "[   123]"
+        $"[{i,-6}]" |> equal "[123   ]"
+        $"[{i,6:X4}]" |> equal "[  007B]"
+        $"[{i,-6:X4}]" |> equal "[007B  ]"
+
     testCase "string interpolation works with anonymous records" <| fun () ->
         let person =
             {|
