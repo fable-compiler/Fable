@@ -4270,7 +4270,13 @@ let fsharpValue com methName (r: SourceLocation option) t (i: CallInfo) (args: E
         // concept the runtime helpers don't accept.
         let args =
             match methName with
-            | "GetRecordFields" -> List.truncate 1 args
+            | "GetRecordFields" ->
+                let recordArg = List.head args
+                // For anonymous records, None fields are omitted from the JS object so
+                // Object.keys cannot enumerate them. Pass the TypeInfo so the runtime can
+                // use field names from the type instead of from the object's own keys.
+                let (MaybeCasted innerArg) = recordArg
+                [ recordArg; makeTypeInfo r innerArg.Type ]
             | "GetUnionFields"
             | "MakeUnion"
             | "MakeRecord" -> List.truncate 2 args
