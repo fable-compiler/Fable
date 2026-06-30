@@ -747,6 +747,20 @@ module private Transforms =
         // Uncurry also values received from getters
         | GetField com (_callee, Arity arity, r) when arity > 1 -> Extended(Curry(e, arity), r)
 
+        // Uncurry public mutable module values (compiled as atoms in JS/TS/Python).
+        // These are accessed as a no-arg getter call tagged "value". The stored value
+        // is always uncurried (uncurrySendingArgs converts it when passing to createAtom),
+        // so the call site must use uncurried application too.
+        | Call(IdentExpr { IsMutable = true }, callInfo, t, r) when
+            callInfo.Args.IsEmpty && List.contains "value" callInfo.Tags
+            ->
+            let (Arity arity) = t
+
+            if arity > 1 then
+                Extended(Curry(e, arity), r)
+            else
+                e
+
         | ObjectExpr(members, t, baseCall) ->
             let members =
                 members

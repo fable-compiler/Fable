@@ -331,6 +331,9 @@ module StyleBuilderHelper =
 module Mutable =
     let mutable prop = 10
 
+    let private add3 a b c = a + b + c
+    let mutable mutAdd3 = add3
+
 module Same =
     let a = 5
     module Same =
@@ -1025,6 +1028,9 @@ let tests =
         equal 10 Mutable.prop
         Mutable.prop <- 5
         equal 5 Mutable.prop
+
+    testCase "Mutable alias to multi-arg function applies arguments correctly" <| fun () ->
+        Mutable.mutAdd3 1 2 3 |> equal 6
 
     testCase "Accessing members of parent module with same name works" <| fun () ->
         equal 5 Same.Same.shouldEqual5
