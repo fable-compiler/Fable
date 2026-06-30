@@ -105,7 +105,19 @@ let makeDecimalFromExpr com r t (e: Expr) =
 
 let createAtom com (value: Expr) =
     let typ = value.Type
-    Helper.LibCall(com, "Util", "createAtom", typ, [ value ], [ typ ], genArgs = [ typ ])
+    // TS annotation uses delegate type so mutX1()(a, b, c) type-checks;
+    // the Fable type stays LambdaType so curryReceivedArgs detects arity.
+    let tsTyp =
+        let rec loop acc =
+            function
+            | LambdaType(arg, rest) -> loop (arg :: acc) rest
+            | ret -> DelegateType(List.rev acc, ret)
+
+        match typ with
+        | LambdaType _ -> loop [] typ
+        | _ -> typ
+
+    Helper.LibCall(com, "Util", "createAtom", typ, [ value ], [ typ ], genArgs = [ tsTyp ])
 
 let getRefCell com r typ (expr: Expr) = getFieldWith r typ expr "contents"
 
