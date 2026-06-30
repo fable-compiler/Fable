@@ -385,6 +385,19 @@ let tests = testList "Strings" [
         let cssNew = $$""".{{classAttr}}:hover {background-color: #eee;}"""
         cssNew |> equal ".item-panel:hover {background-color: #eee;}"
 
+    testCase "Interpolated strings with .NET numeric format specifiers work" <| fun () -> // See #4046
+        let n = 1000000
+        $"{n:N0}" |> equal "1,000,000"
+        $"{n:N2}" |> equal "1,000,000.00"
+        $"Count: {n:N0} items" |> equal "Count: 1,000,000 items"
+        let f = 1234.5
+        $"{f:F2}" |> equal "1234.50"
+
+    testCase "Interpolated strings with .NET custom format specifiers work" <| fun () -> // See #4046
+        let n = 1000
+        $"{n:#,#}" |> equal "1,000"
+        $"{n:#,#} items" |> equal "1,000 items"
+
     testCase "sprintf \"%A\" with lists works" <| fun () ->
         let xs = ["Hi"; "Hello"; "Hola"]
         (sprintf "%A" xs).Replace("\"", "") |> equal "[Hi; Hello; Hola]"
