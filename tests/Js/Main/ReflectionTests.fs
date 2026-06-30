@@ -381,6 +381,13 @@ let reflectionTests = [
     let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
     all |> equal true
 
+  testCase "FSharpValue.GetRecordFields with anonymous record returns all fields including None" <| fun () ->
+    let fields = FSharpValue.GetRecordFields {| a = 3; b = (None: int option); c = Some 89 |}
+    fields.Length |> equal 3
+    fields.[0] |> equal (box 3)
+    fields.[1] |> equal (box None)
+    fields.[2] |> equal (box (Some 89))
+
   testCase "Reflection functions accept allowAccessToPrivateRepresentation" <| fun () ->
     let recordType = typeof<TestRecord>
     let record = { String = "a"; Int = 1 }
