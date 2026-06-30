@@ -1016,7 +1016,7 @@ module Util =
         let UNION_SUFFIX = "_$union"
 
     let IMPORT_REGEX =
-        Regex("""^import\b\s*(\{?.*?\}?)\s*\bfrom\s+["'](.*?)["'](?:\s*;)?$""")
+        Regex("""^import\b\s*(\{?.*?\}?)\s*\bfrom\s+["'](.*?)["'](?:\s*;)?(?:\s*//.*)?$""")
 
     let IMPORT_SELECTOR_REGEX = Regex(@"^(\*|\w+)(?:\s+as\s+(\w+))?$")
 
