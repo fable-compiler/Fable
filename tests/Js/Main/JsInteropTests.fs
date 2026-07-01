@@ -237,6 +237,16 @@ type RespectValues =
     | [<CompiledName("Bar"); CompiledValue(1)>] Bar
 //    | [<CompiledValue(null)>] Undefined // Error: Expected: undefined - Actual: undefined
 
+// TypeScript enum cases with non-literal float values like Infinity cannot use CompiledValue
+// because F# attribute arguments must be compile-time constants.
+// [<Emit>] lets you emit any raw JS expression as the case value instead.
+[<StringEnum; RequireQualifiedAccess>]
+type ParseSpeeds =
+    | [<Emit("Infinity")>] Fastest
+    | [<CompiledValue(1500)>] Fast
+    | [<CompiledValue(500)>] Medium
+    | [<CompiledValue(100)>] Slow
+
 [<StringEnum>]
 #endif
 type Field = OldPassword | NewPassword | ConfirmPassword
@@ -896,6 +906,23 @@ let tests =
 
     testCase "StringEnum CompiledName over CompiledValue" <| fun () ->
         RespectValues.Bar |> unbox |> equal "Bar"
+
+    testCase "StringEnum with Emit emits raw JS expression as case value" <| fun () ->
+        ParseSpeeds.Fastest |> unbox<float> |> infinity.Equals |> equal true
+        ParseSpeeds.Fast |> unbox |> equal 1500
+        ParseSpeeds.Medium |> unbox |> equal 500
+        ParseSpeeds.Slow |> unbox |> equal 100
+
+    testCase "StringEnum with Emit pattern match works" <| fun () ->
+        let assertThat speed =
+            match speed with
+            | ParseSpeeds.Fastest -> "infinity"
+            | ParseSpeeds.Fast -> "fast"
+            | ParseSpeeds.Medium -> "medium"
+            | ParseSpeeds.Slow -> "slow"
+        assertThat ParseSpeeds.Fastest |> equal "infinity"
+        assertThat ParseSpeeds.Fast |> equal "fast"
+        assertThat ParseSpeeds.Slow |> equal "slow"
 
     // See https://github.com/fable-compiler/fable-import/issues/72
     testCase "Can use values and functions from global modules" <| fun () ->
