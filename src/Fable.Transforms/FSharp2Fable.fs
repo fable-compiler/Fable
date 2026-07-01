@@ -560,8 +560,16 @@ let private transformUnionCaseTest
                     else
                         fi.FieldType
 
-                let kind = makeType ctx.GenericArgs typ |> Fable.TypeTest
-                return Fable.Test(unionExpr, kind, r)
+                let fableType = makeType ctx.GenericArgs typ
+
+                match fableType with
+                | Fable.Any ->
+                    return
+                        $"Erased union case '{unionCase.Name}' is typed as 'obj' which cannot be tested at runtime (type test always evaluates to true). Use a more specific type or TypeScriptTaggedUnion instead."
+                        |> addErrorAndReturnNull com ctx.InlinePath r
+                | _ ->
+                    let kind = fableType |> Fable.TypeTest
+                    return Fable.Test(unionExpr, kind, r)
             | _ ->
                 return
                     "Erased unions with multiple cases cannot have more than one field: "
