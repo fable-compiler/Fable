@@ -687,9 +687,17 @@ module Helpers =
         | _ ->
             let entGenParams = ent.GenericParameters |> Seq.mapToList TypeHelpers.genParamName
 
-            memb.CurriedParameterGroups
-            |> Seq.mapToList (Seq.mapToList (fun p -> TypeHelpers.makeType Map.empty p.Type))
-            |> OverloadSuffix.getHash entGenParams
+            let paramTypeGroups =
+                memb.CurriedParameterGroups
+                |> Seq.mapToList (Seq.mapToList (fun p -> TypeHelpers.makeType Map.empty p.Type))
+
+            // op_Implicit/op_Explicit can be overloaded by return type, so include it in the hash
+            match memb.CompiledName with
+            | "op_Implicit"
+            | "op_Explicit" ->
+                let returnType = TypeHelpers.makeType Map.empty memb.ReturnParameter.Type
+                OverloadSuffix.getHashWithReturnType entGenParams paramTypeGroups returnType
+            | _ -> OverloadSuffix.getHash entGenParams paramTypeGroups
 
     let private getMemberMangledName trimRootModule (memb: FSharpMemberOrFunctionOrValue) =
         if memb.IsExtensionMember then

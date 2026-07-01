@@ -194,6 +194,21 @@ let getHash (entityGenericParams: string list) (curriedParamTypeGroups: Fable.Ty
     // but I don't know how to identify them in the AST
     | _ -> ""
 
+/// For op_Implicit/op_Explicit, the return type is part of the overload signature.
+/// This function includes the return type in the hash to distinguish overloads that differ only by return type.
+let getHashWithReturnType
+    (entityGenericParams: string list)
+    (curriedParamTypeGroups: Fable.Type list list)
+    (returnType: Fable.Type)
+    =
+    match curriedParamTypeGroups with
+    | [ paramTypes ] ->
+        let genParams =
+            entityGenericParams |> List.mapi (fun i p -> p, string<int> i) |> dict
+
+        getHashPrivate (paramTypes @ [ returnType ]) genParams
+    | _ -> ""
+
 /// Used for extension members
 let getExtensionHash (curriedParamTypeGroups: Fable.Type list list) =
     match curriedParamTypeGroups with
