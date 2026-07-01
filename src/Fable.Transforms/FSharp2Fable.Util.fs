@@ -949,7 +949,20 @@ module Helpers =
         | _, Some(CompiledValue.Boolean value) -> makeBoolConst value
         | _, Some(CompiledValue.Float value) -> makeFloatConst value
         | _, Some(CompiledValue.Integer value) -> makeIntConst value
-        | _ -> Naming.applyCaseRule rule unionCase.Name |> makeStrConst
+        | _ ->
+            match unionCase.Attributes |> tryFindAttrib Atts.emitAttr with
+            | Some att ->
+                let macro = tryAttribConsArg att 0 "" tryString
+
+                let emitInfo: Fable.EmitInfo =
+                    {
+                        Macro = macro
+                        IsStatement = false
+                        CallInfo = Fable.CallInfo.Create()
+                    }
+
+                Fable.Emit(emitInfo, Fable.Any, None)
+            | None -> Naming.applyCaseRule rule unionCase.Name |> makeStrConst
 
     // let isModuleMember (memb: FSharpMemberOrFunctionOrValue) =
     //     match memb.DeclaringEntity with
