@@ -355,6 +355,11 @@ let implicitMethod (arg: ImplicitType<string, int>) (i: int) =
     | ImplicitType.Case1 _ -> 1
     | ImplicitType.Case2 _ -> 2
 
+type ImplicitReturnTypeOverload =
+    { Field: int }
+    static member op_Implicit(s: string) : int = s.Length
+    static member op_Implicit(s: string) : float = float s.Length + 0.5
+
 type ArityRecord = { arity2: int->int->string }
 
 type RecordB = {
@@ -515,6 +520,12 @@ let tests5 = [
     testCase "TraitCall can resolve overloads with a single generic argument" <| fun () ->
         implicitMethod !+"hello" 5 |> equal 1
         implicitMethod !+6       5 |> equal 2
+
+    testCase "op_Implicit overloads can be distinguished by return type" <| fun () ->
+        let i: int = ImplicitReturnTypeOverload.op_Implicit "hello"
+        let f: float = ImplicitReturnTypeOverload.op_Implicit "hello"
+        i |> equal 5
+        f |> equal 5.5
 
     testCase "NestedLambdas" <| fun () ->
         let mutable m = 0
