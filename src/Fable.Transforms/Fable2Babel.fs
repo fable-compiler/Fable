@@ -4225,6 +4225,15 @@ but thanks to the optimisation done below we get
             |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints))
             |> makeTypeParamDecl com ctx
 
+        let extends =
+            ent.BaseType
+            |> Option.bind (fun d ->
+                com.TryGetEntity(d.Entity)
+                |> Option.filter FSharp2Fable.Util.isPojoDefinedByConsArgsEntity
+                |> Option.map (makeEntityTypeAnnotation com ctx d.GenericArgs)
+            )
+            |> Option.toArray
+
         match constructors with
         | [] ->
             addError
@@ -4238,17 +4247,22 @@ but thanks to the optimisation done below we get
             Declaration.interfaceDeclaration (
                 Identifier.identifier decl.Name,
                 members,
-                [||],
+                extends,
                 typeParameters,
                 ?doc = decl.XmlDoc
             )
             |> asModuleDeclaration ent.IsPublic
             |> List.singleton
         | _ ->
-            let typ =
+            let unionTyp =
                 List.map ObjectTypeAnnotation constructors
                 |> Array.ofList
                 |> UnionTypeAnnotation
+
+            let typ =
+                match extends with
+                | [| parentTyp |] -> IntersectionTypeAnnotation [| unionTyp; parentTyp |]
+                | _ -> unionTyp
 
             TypeAliasDeclaration(decl.Name, typeParameters, typ)
             |> asModuleDeclaration ent.IsPublic
