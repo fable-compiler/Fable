@@ -2647,8 +2647,18 @@ but thanks to the optimisation done below we get
         transformBindingExprBody com ctx var value |> assign var.Range (identAsExpr var)
 
     let transformBindingAsStatements (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
+        // Compiler-generated copy-update locals (inputRecord, copyOfStruct) are treated as plain
+        // values at runtime even though their Fable type is byref. Strip the wrapper for TS annotation.
+        let varType =
+            if var.IsCompilerGenerated then
+                match var.Type with
+                | Replacements.Util.IsByRefType com innerType -> innerType
+                | typ -> typ
+            else
+                var.Type
+
         if isJsStatement ctx false value then
-            let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx var.Type None
+            let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx varType None
 
             let decl =
                 Statement.variableDeclaration (Let, var.Name, ?annotation = ta, typeParameters = tp, ?loc = var.Range)
@@ -2660,7 +2670,7 @@ but thanks to the optimisation done below we get
             let value = transformBindingExprBody com ctx var value
 
             let ta, tp =
-                makeTypeAnnotationWithParametersIfTypeScript com ctx var.Type (Some value)
+                makeTypeAnnotationWithParametersIfTypeScript com ctx varType (Some value)
 
             let kind =
                 if var.IsMutable then
