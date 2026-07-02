@@ -358,7 +358,7 @@ let toString com (ctx: Context) r (args: Expr list) =
         | String -> head
         | Char -> TypeCast(head, String)
         | Builtin BclGuid when tail.IsEmpty -> head
-        | Builtin(BclGuid | BclTimeSpan | BclTimeOnly | BclDateOnly as bt) ->
+        | Builtin(BclGuid | BclTimeSpan | BclTimeOnly | BclDateOnly | BclDateTime | BclDateTimeOffset as bt) ->
             Helper.LibCall(com, coreModFor bt, "toString", String, args)
         | Number(Int16, _) -> Helper.LibCall(com, "Util", "int16ToString", String, args)
         | Number(Int32, _) -> Helper.LibCall(com, "Util", "int32ToString", String, args)

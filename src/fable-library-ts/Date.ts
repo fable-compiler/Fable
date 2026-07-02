@@ -509,7 +509,7 @@ function dateToString_Y(date: IDateTime) {
 function dateToStringWithKind(date: IDateTime, format?: string) {
   const utc = date.kind === DateTimeKind.Utc;
   if (typeof format !== "string") {
-    return utc ? date.toUTCString() : date.toLocaleString();
+    return dateToString_d(date) + " " + dateToString_T(date);
   } else if (format.length === 1) {
     switch (format) {
       case "D": return dateToString_D(date);
