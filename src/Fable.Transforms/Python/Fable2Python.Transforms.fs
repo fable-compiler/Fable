@@ -4983,6 +4983,35 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
                 else
                     ctx
 
+            decl.AttachedMembers
+            |> List.choose (fun memb ->
+                if memb.IsMangled then
+                    None
+                else
+                    let info =
+                        memb.ImplementedSignatureRef
+                        |> Option.map com.GetMember
+                        |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
+
+                    Some
+                        {|
+                            name = memb.Name
+                            isGetter = info.IsGetter
+                            isSetter = info.IsSetter
+                        |}
+            )
+            |> List.groupBy (fun m -> m.name)
+            |> List.iter (fun (name, entries) ->
+                let isValidGetterSetterPair =
+                    entries.Length = 2
+                    && entries |> List.exists _.isGetter
+                    && entries |> List.exists _.isSetter
+
+                if entries.Length > 1 && not isValidGetterSetterPair then
+                    $"Overloads are not supported when using [<AttachMembers>]: '{name}' in {decl.Name} is defined more than once. Rename one of the members."
+                    |> addWarning com [] None
+            )
+
             let classMembers =
                 decl.AttachedMembers
                 |> List.collect (fun memb ->
