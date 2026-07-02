@@ -1231,4 +1231,14 @@ let tests =
         let str = utc.ToString("yyyy-MM-dd HH:mm")
 
         str |> equal "2024-12-31 23:00"
+
+    testCase "DateTime.ToString without format is consistent across kinds" <| fun () ->
+        let local = DateTime(2020, 2, 20, 20, 20, 20, DateTimeKind.Local)
+        let utc = DateTime(2020, 2, 20, 20, 20, 20, DateTimeKind.Utc)
+        local.ToString() |> equal (utc.ToString())
+
+    testCase "DateTime %A format is consistent across kinds" <| fun () ->
+        let local = DateTime(2020, 2, 20, 20, 20, 20, DateTimeKind.Local)
+        let utc = DateTime(2020, 2, 20, 20, 20, 20, DateTimeKind.Utc)
+        sprintf "%A" local |> equal (sprintf "%A" utc)
   ]
