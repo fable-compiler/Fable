@@ -278,7 +278,11 @@ type ValueTypeR =
 type StructUnion = Value of string
 
 [<Struct>]
-type SimpleRecord = { A: string; B: string }
+type SimpleRecord =
+    { A: string; B: string }
+    member this.WithA(a: string) =
+        let this = this
+        { this with A = a }
 
 type Point2D =
    struct
@@ -1411,6 +1415,12 @@ let tests =
         simpleRecord.B |> equal "B"
         simple.A |> equal ""
         simple.B |> equal "B"
+
+    testCase "copy-update expression on this in struct member works" <| fun () -> // See #3828
+        let r : SimpleRecord = { A = "hello"; B = "world" }
+        let r2 = r.WithA("foo")
+        r2.A |> equal "foo"
+        r2.B |> equal "world"
 
     testCase "Custom F# exceptions work" <| fun () ->
         try
