@@ -1,5 +1,5 @@
 ---
-last_commit_released: c977d78b39225a51c7bd051a1fe363ed0ccbe201
+last_commit_released: 1e072ed297ab9b8a4623a17bbc2be87af05f81fd
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
@@ -18,6 +18,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.5.0 - 2026-07-02
+
+### 🚀 Features
+
+* *(all)* Allow `[<Emit>]` on StringEnum cases (#4711) ([0b1f61ee](https://github.com/fable-compiler/Fable/commit/0b1f61eef50d8225602ec4fd1fe641126302983a))
+* *(js/ts/python)* Warn on duplicate attached member names (#4715) ([fd06aa64](https://github.com/fable-compiler/Fable/commit/fd06aa64c42b9ce28a1195f67bf88e50ca04644c))
+
+### 🐞 Bug Fixes
+
+* Generate an error on erased union case typed as obj (#4710) ([bf2134d5](https://github.com/fable-compiler/Fable/commit/bf2134d5d3715de3025cbeb9e0f98763a2cfff3c))
+* *(all)* Include return type in overload suffix for op_Implicit/op_Explicit (#4712) ([a6846010](https://github.com/fable-compiler/Fable/commit/a68460107bb640c04bf88edae935f018d364c9dd))
+* *(js/ts)* DateTime.ToString() and %A are now consistent across all DateTimeKind values (#4714) ([de98b0e4](https://github.com/fable-compiler/Fable/commit/de98b0e466c8824b0ba8b941d20efae70d232abb))
+* *(ts)* Strip byref annotation from compiler-generated copy-update locals (#4716) ([1e072ed2](https://github.com/fable-compiler/Fable/commit/1e072ed297ab9b8a4623a17bbc2be87af05f81fd))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/c977d78b39225a51c7bd051a1fe363ed0ccbe201..1e072ed297ab9b8a4623a17bbc2be87af05f81fd)</small></strong>
 
 ## 2.4.0 - 2026-06-30
 
