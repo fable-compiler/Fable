@@ -1,5 +1,5 @@
 ---
-last_commit_released: c977d78b39225a51c7bd051a1fe363ed0ccbe201
+last_commit_released: 1e072ed297ab9b8a4623a17bbc2be87af05f81fd
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.3.1 - 2026-07-02
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* DateTime.ToString() and %A are now consistent across all DateTimeKind values (#4714) ([de98b0e4](https://github.com/fable-compiler/Fable/commit/de98b0e466c8824b0ba8b941d20efae70d232abb))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/c977d78b39225a51c7bd051a1fe363ed0ccbe201..1e072ed297ab9b8a4623a17bbc2be87af05f81fd)</small></strong>
 
 ## 2.3.0 - 2026-06-30
 
