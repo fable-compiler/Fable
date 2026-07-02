@@ -4666,6 +4666,34 @@ but thanks to the optimisation done below we get
                                             transformAttachedMethod com ctx ent info memb
                         )
 
+                    let tryKeyName =
+                        function
+                        | Expression.Identifier(Identifier(name, _)) -> Some name
+                        | _ -> None
+
+                    classMembers
+                    |> Array.choose (
+                        function
+                        | ClassMethod(ClassFunction(key, _), _, _, _, _, _, _, _, _) ->
+                            tryKeyName key |> Option.map (fun n -> n, false, false)
+                        | ClassMethod(ClassGetter(key, _), _, _, _, _, _, _, _, _) ->
+                            tryKeyName key |> Option.map (fun n -> n, true, false)
+                        | ClassMethod(ClassSetter(key, _), _, _, _, _, _, _, _, _) ->
+                            tryKeyName key |> Option.map (fun n -> n, false, true)
+                        | _ -> None
+                    )
+                    |> Array.groupBy (fun (name, _, _) -> name)
+                    |> Array.iter (fun (name, entries) ->
+                        let isValidGetterSetterPair =
+                            entries.Length = 2
+                            && entries |> Array.exists (fun (_, isGetter, _) -> isGetter)
+                            && entries |> Array.exists (fun (_, _, isSetter) -> isSetter)
+
+                        if entries.Length > 1 && not isValidGetterSetterPair then
+                            $"Overloads are not supported when using [<AttachMembers>]: '{name}' in {decl.Name} is defined more than once. Rename one of the members."
+                            |> addWarning com [] None
+                    )
+
                     match decl.Constructor with
                     | Some cons ->
                         withCurrentScope ctx cons.UsedNames

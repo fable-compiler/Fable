@@ -97,4 +97,32 @@ let z = y ()
       compile source
       |> Assert.Is.success
       |> ignore
+
+    testCase "Duplicate attached member names emit a warning" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<AttachMembers>]
+type MyClass() =
+    member _.Foo(x: int) = x
+    member _.Foo(x: string) = x.Length
+"""
+      compile source
+      |> Assert.Exists.warningWith "Overloads are not supported when using [<AttachMembers>]"
+      |> ignore
+
+    testCase "Getter and setter pair with same name does not emit a warning" <| fun _ ->
+      let source =
+        """
+open Fable.Core
+
+[<AttachMembers>]
+type MyClass() =
+    let mutable _x = 0
+    member _.Value with get() = _x and set(v) = _x <- v
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
   ]
