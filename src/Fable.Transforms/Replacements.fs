@@ -1284,7 +1284,26 @@ let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
     |> Some
 
+/// Matches printf("constant") where constant has no format specifiers.
+/// These can be passed directly to console.log/error instead of going through toConsole.
+let (|PrintfNoFormatSpecifiers|_|) (arg: Expr) =
+    match arg with
+    | MaybeCasted(Call(Import({ Selector = "printf" }, _, _), callInfo, _, _)) ->
+        match callInfo.Args with
+        | [ Value(StringConstant str, _) ] when not (str.Contains("%")) -> Some str
+        | _ -> None
+    | _ -> None
+
 let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let consoleCall consoleMember libMember args =
+        match args with
+        | [ PrintfNoFormatSpecifiers str ] ->
+            Helper.GlobalCall("console", t, [ makeStrConst str ], memb = consoleMember, ?loc = r)
+            |> Some
+        | _ ->
+            Helper.LibCall(com, "String", libMember, t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+
     match i.CompiledName, thisArg, args with
     | "get_Value", Some callee, _ -> getFieldWith None t callee "input" |> Some
     | "PrintFormatToStringThen", _, _ ->
@@ -1300,21 +1319,14 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         | _ ->
             Helper.LibCall(com, "String", "toText", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
-    | "PrintFormatLine", _, _ ->
-        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | ("PrintFormatToError" | "PrintFormatLineToError"), _, _ ->
-        // addWarning com ctx.FileName r "eprintf will behave as eprintfn"
-        Helper.LibCall(com, "String", "toConsoleError", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | "PrintFormatLine", _, _ -> consoleCall "log" "toConsole" args
+    | ("PrintFormatToError" | "PrintFormatLineToError"), _, _ -> consoleCall "error" "toConsoleError" args
     | ("PrintFormatToTextWriter" | "PrintFormatLineToTextWriter"), _, _ :: args ->
         // addWarning com ctx.FileName r "fprintfn will behave as printfn"
-        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        consoleCall "log" "toConsole" args
     | "PrintFormat", _, _ ->
         // addWarning com ctx.FileName r "Printf will behave as printfn"
-        Helper.LibCall(com, "String", "toConsole", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        consoleCall "log" "toConsole" args
     | "PrintFormatThen", _, arg :: callee :: _ -> Helper.InstanceCall(callee, "cont", t, [ arg ]) |> Some
     | "PrintFormatToStringThenFail", _, _ ->
         Helper.LibCall(com, "String", "toFail", t, args, i.SignatureArgTypes, ?loc = r)
