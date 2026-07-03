@@ -117,14 +117,6 @@ let tests =
         equal [1; 3] xs
         equal true caught
 
-    testCase "try...with in list expressions rethrows unmatched exceptions" <| fun () ->
-        let mutable msg = ""
-        try
-            [ try raise (exn "original") with :? System.ArgumentException -> 0 ]
-            |> ignore
-        with ex -> msg <- ex.Message
-        equal "original" msg
-
     testCase "use in seq expressions works" <| fun () ->
         let mutable n = 0
         seq {

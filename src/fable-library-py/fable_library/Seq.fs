@@ -439,75 +439,68 @@ let enumerateWhile (guard: unit -> bool) (xs: seq<'T>) =
             0
     )
 
+// State for `enumerateTryWith`, threaded through `generate` as a parameter (rather than captured
+// mutables) so Fable's Python codegen never emits a `nonlocal` for the swapped enumerator — a
+// plain `mutable` would produce conflicting `nonlocal e` declarations across the try/except.
+// A record (not a `ref` cell) is used on purpose: Fable's ref-cell -> mutable optimization could
+// reintroduce the `nonlocal`, whereas a record field is always an attribute assignment.
+type private EnumerateTryWithState<'T> =
+    {
+        mutable Source: IEnumerator<'T> option
+        mutable Caught: bool // switched to the handler sequence
+    }
+
 let enumerateTryWith (source: seq<'T>) (catchFilter: exn -> int) (catchHandler: exn -> seq<'T>) : seq<'T> =
-    mkSeq (fun () ->
-        let mutable e: IEnumerator<'T> option = None
-        let mutable caught = false // switched to the handler sequence
-        let mutable started = false
-        let mutable finished = false
-        let mutable curr = None
+    generate
+        (fun () ->
+            {
+                Source = None
+                Caught = false
+            }
+        )
+        (fun (state: EnumerateTryWithState<'T>) ->
+            let mutable result = None
+            let mutable go = true
 
-        let current () =
-            if not started then
-                Enumerator.notStarted ()
-            elif finished then
-                Enumerator.alreadyFinished ()
+            while go do
+                try
+                    let en =
+                        match state.Source with
+                        | Some en -> en
+                        | None ->
+                            let en = source.GetEnumerator()
+                            state.Source <- Some en
+                            en
 
-            match curr with
-            | None -> Enumerator.alreadyFinished ()
-            | Some x -> x
+                    if en.MoveNext() then
+                        result <- Some en.Current
+                        go <- false
+                    else
+                        // exhausted: leave result = None so `generate` finishes
+                        go <- false
+                with ex ->
+                    if (not state.Caught) && catchFilter ex <> 0 then
+                        match state.Source with
+                        | Some en ->
+                            (try
+                                en.Dispose()
+                             with _ ->
+                                 ())
+                        | None -> ()
 
-        let rec tryNext () =
-            try
-                let en =
-                    match e with
-                    | Some en -> en
-                    | None ->
-                        let en = source.GetEnumerator()
-                        e <- Some en
-                        en
+                        state.Source <- Some((catchHandler ex).GetEnumerator())
+                        state.Caught <- true
+                    // else: loop again, pulling from the handler sequence
+                    else
+                        reraise ()
 
-                if en.MoveNext() then
-                    curr <- Some en.Current
-                    true
-                else
-                    finished <- true
-                    false
-            with ex when not caught ->
-                if catchFilter ex <> 0 then
-                    caught <- true
-
-                    match e with
-                    | Some en ->
-                        (try
-                            en.Dispose()
-                         with _ ->
-                             ())
-
-                        e <- None
-                    | None -> ()
-
-                    e <- Some((catchHandler ex).GetEnumerator())
-                    tryNext ()
-                else
-                    reraise ()
-
-        let next () =
-            if not started then
-                started <- true
-
-            if finished then
-                false
-            else
-                tryNext ()
-
-        let dispose () =
-            match e with
+            result
+        )
+        (fun (state: EnumerateTryWithState<'T>) ->
+            match state.Source with
             | Some en -> en.Dispose()
             | None -> ()
-
-        Enumerator.fromFunctions current next dispose
-    )
+        )
 
 [<Import("filter", "fable_library.seq_native")>]
 let filter (predicate: 'T -> bool) (xs: seq<'T>) : seq<'T> = nativeOnly
