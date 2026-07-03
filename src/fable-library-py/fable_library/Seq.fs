@@ -439,6 +439,76 @@ let enumerateWhile (guard: unit -> bool) (xs: seq<'T>) =
             0
     )
 
+let enumerateTryWith (source: seq<'T>) (catchFilter: exn -> int) (catchHandler: exn -> seq<'T>) : seq<'T> =
+    mkSeq (fun () ->
+        let mutable e: IEnumerator<'T> option = None
+        let mutable caught = false // switched to the handler sequence
+        let mutable started = false
+        let mutable finished = false
+        let mutable curr = None
+
+        let current () =
+            if not started then
+                Enumerator.notStarted ()
+            elif finished then
+                Enumerator.alreadyFinished ()
+
+            match curr with
+            | None -> Enumerator.alreadyFinished ()
+            | Some x -> x
+
+        let rec tryNext () =
+            try
+                let en =
+                    match e with
+                    | Some en -> en
+                    | None ->
+                        let en = source.GetEnumerator()
+                        e <- Some en
+                        en
+
+                if en.MoveNext() then
+                    curr <- Some en.Current
+                    true
+                else
+                    finished <- true
+                    false
+            with ex when not caught ->
+                if catchFilter ex <> 0 then
+                    caught <- true
+
+                    match e with
+                    | Some en ->
+                        (try
+                            en.Dispose()
+                         with _ ->
+                             ())
+
+                        e <- None
+                    | None -> ()
+
+                    e <- Some((catchHandler ex).GetEnumerator())
+                    tryNext ()
+                else
+                    reraise ()
+
+        let next () =
+            if not started then
+                started <- true
+
+            if finished then
+                false
+            else
+                tryNext ()
+
+        let dispose () =
+            match e with
+            | Some en -> en.Dispose()
+            | None -> ()
+
+        Enumerator.fromFunctions current next dispose
+    )
+
 [<Import("filter", "fable_library.seq_native")>]
 let filter (predicate: 'T -> bool) (xs: seq<'T>) : seq<'T> = nativeOnly
 

@@ -92,6 +92,33 @@ let tests() =
         with _ -> ()
         equal 1 n
 
+    testCase "try...with in list expressions works" <| fun () ->
+        [ try 1 with _ -> 0 ]
+        |> equal [1]
+
+    testCase "try...with in list expressions catches exceptions" <| fun () ->
+        [ try raise (exn "boom") with _ -> 42 ]
+        |> equal [42]
+
+    testCase "try...with in array expressions works" <| fun () ->
+        [| try raise (exn "boom") with _ -> 7 |]
+        |> equal [| 7 |]
+
+    testCase "try...with in seq expressions preserves yielded elements before the exception" <| fun () ->
+        let mutable caught = false
+        let xs =
+            seq {
+                try
+                    yield 1
+                    raise (exn "boom")
+                    yield 2
+                with _ ->
+                    caught <- true
+                    yield 3
+            } |> Seq.toList
+        equal [1; 3] xs
+        equal true caught
+
     testCase "use in seq expressions works" <| fun () ->
         let mutable n = 0
         seq {
