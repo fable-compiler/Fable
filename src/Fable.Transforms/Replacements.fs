@@ -3192,11 +3192,19 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
 
 let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "get_Out" -> typedObjExpr t [] |> Some // empty object
+    | "get_Out" -> Helper.GlobalIdent("console", "log", t) |> Some
+    | "get_Error" -> Helper.GlobalIdent("console", "error", t) |> Some
     | "Write" ->
         addWarning com ctx.InlinePath r "Write will behave as WriteLine"
         log com r t i thisArg args |> Some
     | "WriteLine" -> log com r t i thisArg args |> Some
+    | _ -> None
+
+/// System.IO.TextWriter, as returned by Console.Out/Console.Error: `thisArg`
+/// is the console.log/console.error function itself, so WriteLine just calls it.
+let textWriter (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName with
+    | Some writeFn, "WriteLine" -> Helper.Application(writeFn, t, args, ?loc = r) |> Some
     | _ -> None
 
 let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -3532,17 +3540,14 @@ let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
     | meth, Some x, args -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc = r) |> Some
     | _ -> None
 
-let systemEnv
-    (com: ICompiler)
-    (ctx: Context)
-    (_: SourceLocation option)
-    (_: Type)
-    (i: CallInfo)
-    (_: Expr option)
-    (_: Expr list)
-    =
+let systemEnv (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "get_NewLine" -> Some(makeStrConst "\n")
+    | "GetEnvironmentVariable" ->
+        Helper.LibCall(com, "Environment", "getEnvironmentVariable", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "get_CurrentDirectory" -> Helper.GlobalCall("process", t, [], memb = "cwd", ?loc = r) |> Some
+    | "set_CurrentDirectory" -> Helper.GlobalCall("process", t, args, memb = "chdir", ?loc = r) |> Some
     | _ -> None
 
 let paths (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -4499,6 +4504,7 @@ let private replacedModules =
             "System.Timers.Timer", timers
             "System.IO.File", files
             "System.IO.Path", paths
+            "System.IO.TextWriter", textWriter
             "System.Environment", systemEnv
             "System.Globalization.CultureInfo", globalization
             "System.Random", random

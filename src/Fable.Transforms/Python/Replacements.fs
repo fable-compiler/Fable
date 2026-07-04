@@ -2911,12 +2911,21 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
 
 let console (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "get_Out" -> typedObjExpr t [] |> Some // empty object
+    | "get_Out" -> Helper.ImportedValue(com, "sys", "stdout", t) |> Some
+    | "get_Error" -> Helper.ImportedValue(com, "sys", "stderr", t) |> Some
     | "Write" ->
         addWarning com ctx.InlinePath r "Write will behave as WriteLine"
         log com r t i thisArg args |> Some
     | "ReadLine" -> Helper.GlobalCall("input", t, args, ?loc = r) |> Some
     | "WriteLine" -> log com r t i thisArg args |> Some
+    | _ -> None
+
+/// System.IO.TextWriter, as returned by Console.Out/Console.Error (sys.stdout/sys.stderr).
+let textWriter (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match thisArg, i.CompiledName with
+    | Some writer, "WriteLine" ->
+        Helper.LibCall(com, "text_writer", "write_line", t, writer :: args, ?loc = r)
+        |> Some
     | _ -> None
 
 let stopwatch (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -3300,17 +3309,14 @@ let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
     | meth, Some x, args -> Helper.InstanceCall(x, meth, t, args, i.SignatureArgTypes, ?loc = r) |> Some
     | _ -> None
 
-let systemEnv
-    (com: ICompiler)
-    (ctx: Context)
-    (_: SourceLocation option)
-    (_: Type)
-    (i: CallInfo)
-    (_: Expr option)
-    (_: Expr list)
-    =
+let systemEnv (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
     | "get_NewLine" -> Some(makeStrConst "\n")
+    | "GetEnvironmentVariable" ->
+        let environ = Helper.ImportedValue(com, "os", "environ", Any)
+        Helper.InstanceCall(environ, "get", t, args, ?loc = r) |> Some
+    | "get_CurrentDirectory" -> Helper.ImportedCall("os", "getcwd", t, [], ?loc = r) |> Some
+    | "set_CurrentDirectory" -> Helper.ImportedCall("os", "chdir", t, args, ?loc = r) |> Some
     | _ -> None
 
 // Initial support, making at least InvariantCulture compile-able
@@ -4160,6 +4166,7 @@ let private replacedModules =
             "System.IO.File", files
             "System.IO.Directory", directories
             "System.IO.Path", paths
+            "System.IO.TextWriter", textWriter
             "System.Random", random
             "System.Threading.CancellationToken", cancels
             "System.Threading.CancellationTokenSource", cancels
