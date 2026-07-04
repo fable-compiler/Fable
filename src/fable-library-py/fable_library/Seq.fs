@@ -486,6 +486,8 @@ let enumerateTryWith (source: seq<'T>) (catchFilter: exn -> int) (catchHandler: 
                                 en.Dispose()
                              with _ ->
                                  ())
+
+                            state.Source <- None
                         | None -> ()
 
                         state.Source <- Some((catchHandler ex).GetEnumerator())

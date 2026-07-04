@@ -624,8 +624,7 @@ let enumerateTryWith (source: 'T seq) (catchFilter: exn -> int) (catchHandler: e
                             e <- Some((catchHandler ex).GetEnumerator())
                             again <- true // pull the next element from the handler sequence
                         else
-                            // reraise()
-                            failwith ex.Message
+                            reraise ()
 
             res
 

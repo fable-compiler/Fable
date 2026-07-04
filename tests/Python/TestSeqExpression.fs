@@ -130,6 +130,24 @@ let ``test try...with in seq expressions preserves yielded elements before the e
     equal true caught
 
 [<Fact>]
+let ``test try...with in seq expressions rethrows unmatched exceptions`` () =
+    let mutable propagated = false
+    try
+        seq {
+            try
+                yield 1
+                raise (System.InvalidOperationException "boom")
+                yield 2
+            with :? System.ArgumentException ->
+                yield 0
+        }
+        |> Seq.toList
+        |> ignore
+    with :? System.InvalidOperationException ->
+        propagated <- true
+    equal true propagated
+
+[<Fact>]
 let ``test use in seq expressions works`` () =
     let mutable n = 0
     seq {

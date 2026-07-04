@@ -117,6 +117,23 @@ let tests =
         equal [1; 3] xs
         equal true caught
 
+    testCase "try...with in seq expressions rethrows unmatched exceptions" <| fun () ->
+        let mutable propagated = false
+        try
+            seq {
+                try
+                    yield 1
+                    raise (System.InvalidOperationException "boom")
+                    yield 2
+                with :? System.ArgumentException ->
+                    yield 0
+            }
+            |> Seq.toList
+            |> ignore
+        with :? System.InvalidOperationException ->
+            propagated <- true
+        equal true propagated
+
     testCase "use in seq expressions works" <| fun () ->
         let mutable n = 0
         seq {
