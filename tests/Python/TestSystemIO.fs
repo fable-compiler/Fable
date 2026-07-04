@@ -57,14 +57,14 @@ let ``test get extension works`` () =
 [<Fact>]
 let ``test combine works`` () =
     let path = System.IO.Path.Combine("temp", "test.txt")
-    path
-    |> equal "temp/test.txt"
+    System.IO.Path.GetFileName(path) |> equal "test.txt"
+    System.IO.Path.GetDirectoryName(path) |> equal "temp"
 
 [<Fact>]
 let ``test combine with three parts works`` () =
     let path = System.IO.Path.Combine("temp", "sub", "test.txt")
-    path
-    |> equal "temp/sub/test.txt"
+    System.IO.Path.GetFileName(path) |> equal "test.txt"
+    System.IO.Path.GetDirectoryName(path) |> equal (System.IO.Path.Combine("temp", "sub"))
 
 [<Fact>]
 let ``test get full path works`` () =

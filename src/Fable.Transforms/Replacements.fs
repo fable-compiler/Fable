@@ -3547,8 +3547,63 @@ let systemEnv
 
 let paths (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
+    | "GetDirectoryName" ->
+        Helper.ImportedCall("path", "dirname", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "GetExtension" ->
+        Helper.ImportedCall("path", "extname", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "GetFileName" ->
+        Helper.ImportedCall("path", "basename", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "GetFileNameWithoutExtension" ->
+        Helper.LibCall(com, "Path", "getFileNameWithoutExtension", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "GetFullPath" ->
+        Helper.ImportedCall("path", "resolve", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "GetRandomFileName" -> Helper.LibCall(com, "Path", "getRandomFileName", t, [], ?loc = r) |> Some
+    | "GetTempFileName" -> Helper.LibCall(com, "Path", "getTempFileName", t, [], ?loc = r) |> Some
+    | "GetTempPath" -> Helper.ImportedCall("os", "tmpdir", t, [], ?loc = r) |> Some
+    | "HasExtension" ->
+        Helper.LibCall(com, "Path", "hasExtension", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "Combine" ->
         Helper.ImportedCall("path", "join", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | _ -> None
+
+let files (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Copy" ->
+        Helper.ImportedCall("fs", "copyFileSync", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "Delete" ->
+        Helper.ImportedCall("fs", "unlinkSync", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "Exists" ->
+        Helper.ImportedCall("fs", "existsSync", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "Move" ->
+        Helper.ImportedCall("fs", "renameSync", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "ReadAllBytes" ->
+        Helper.LibCall(com, "File", "readAllBytes", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "ReadAllLines" ->
+        Helper.LibCall(com, "File", "readAllLines", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "ReadAllText" ->
+        Helper.LibCall(com, "File", "readAllText", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "WriteAllBytes" ->
+        Helper.LibCall(com, "File", "writeAllBytes", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "WriteAllLines" ->
+        Helper.LibCall(com, "File", "writeAllLines", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "WriteAllText" ->
+        Helper.ImportedCall("fs", "writeFileSync", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | _ -> None
 
@@ -4442,6 +4497,7 @@ let private replacedModules =
             Types.timeOnly, timeOnly
             Types.timespan, timeSpans
             "System.Timers.Timer", timers
+            "System.IO.File", files
             "System.IO.Path", paths
             "System.Environment", systemEnv
             "System.Globalization.CultureInfo", globalization
