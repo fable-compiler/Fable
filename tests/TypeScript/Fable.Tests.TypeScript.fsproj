@@ -59,6 +59,7 @@
     <Compile Include="../Js/Main/NullnessTests.fs" />
     <Compile Include="../Js/Main/ObservableTests.fs" />
     <Compile Include="../Js/Main/OptionTests.fs" />
+    <Compile Include="../Js/Main/SystemIOTests.fs" />
     <Compile Include="../Js/Main/QueueTests.fs" />
     <Compile Include="../Js/Main/RecordTypeTests.fs" />
     <Compile Include="../Js/Main/ReflectionTests.fs" />
