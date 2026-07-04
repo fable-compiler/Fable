@@ -24,6 +24,7 @@ let allTests =
 #endif
     Enumerable.tests
     Enum.tests
+    Environment.tests
     Event.tests
     HashSets.tests
     // Import.tests

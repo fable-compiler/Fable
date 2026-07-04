@@ -55,6 +55,7 @@
     <Compile Include="ElmishParserTests.fs" />
     <Compile Include="EnumerableTests.fs" />
     <Compile Include="EnumTests.fs" />
+    <Compile Include="EnvironmentTests.fs" />
     <Compile Include="EventTests.fs" />
     <Compile Include="HashSetTests.fs" />
     <Compile Include="ImportTests.fs" />
