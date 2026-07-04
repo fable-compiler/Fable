@@ -18,7 +18,7 @@
     <Compile Include="../../Fable.AST/Plugins.fs" />
 
     <!-- Fable.Transforms -->
-    <Compile Include="../../Fable.Transforms/Global/Babel.fs" />
+    <Compile Include="../../Fable.Transforms/Babel/Babel.fs" />
     <Compile Include="../../Fable.Transforms/Global/Fable.Core.fs" />
     <Compile Include="../../Fable.Transforms/Global/Metadata.fs" />
     <Compile Include="../../Fable.Transforms/Global/Prelude.fs" />
@@ -42,9 +42,9 @@
     <Compile Include="../../Fable.Transforms/QuotationEmitter.fs" />
     <Compile Include="../../Fable.Transforms/FSharp2Fable.fs" />
     <Compile Include="../../Fable.Transforms/FableTransforms.fs" />
-    <Compile Include="../../Fable.Transforms/Fable2Babel.fs" />
+    <Compile Include="../../Fable.Transforms/Babel/Fable2Babel.fs" />
     <Compile Include="../../Fable.Transforms/Printer.fs" />
-    <Compile Include="../../Fable.Transforms/BabelPrinter.fs" />
+    <Compile Include="../../Fable.Transforms/Babel/BabelPrinter.fs" />
     <Compile Include="../../Fable.Transforms/Python/Python.AST.fs" />
     <Compile Include="../../Fable.Transforms/Python/PythonPrinter.fs" />
     <Compile Include="../../Fable.Transforms/Python/Fable2Python.Types.fs" />
