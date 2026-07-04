@@ -3645,6 +3645,9 @@ let paths com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
     | "HasExtension" as meth ->
         Helper.LibCall(com, "path", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "Combine" ->
+        Helper.ImportedCall("os.path", "join", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | _ -> None
 
 let files com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

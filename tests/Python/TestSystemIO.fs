@@ -55,6 +55,18 @@ let ``test get extension works`` () =
     |> equal ".txt"
 
 [<Fact>]
+let ``test combine works`` () =
+    let path = System.IO.Path.Combine("temp", "test.txt")
+    path
+    |> equal "temp/test.txt"
+
+[<Fact>]
+let ``test combine with three parts works`` () =
+    let path = System.IO.Path.Combine("temp", "sub", "test.txt")
+    path
+    |> equal "temp/sub/test.txt"
+
+[<Fact>]
 let ``test get full path works`` () =
     let path = System.IO.Path.GetFullPath("temp/test.txt")
     path.Length > 0
