@@ -5,6 +5,9 @@
     <RollForward>Major</RollForward>
     <IsPackable>false</IsPackable>
     <GenerateProgramFile>false</GenerateProgramFile>
+    <!-- Opt out of Fable.Transforms/Directory.Build.props: this project uses the implicit/NuGet
+         FSharp.Core, not the vendored lib/fcs one the other Fable.Transforms.* projects use. -->
+    <DisableImplicitFSharpCoreReference>false</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
 
   <ItemGroup>
