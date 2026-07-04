@@ -69,6 +69,7 @@
     <Compile Include="NullnessTests.fs" />
     <Compile Include="ObservableTests.fs" />
     <Compile Include="OptionTests.fs" />
+    <Compile Include="SystemIOTests.fs" />
     <Compile Include="QueueTests.fs" />
     <Compile Include="RecordTypeTests.fs" />
     <Compile Include="ReflectionTests.fs" />

@@ -3545,6 +3545,13 @@ let systemEnv
     | "get_NewLine" -> Some(makeStrConst "\n")
     | _ -> None
 
+let paths (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Combine" ->
+        Helper.ImportedCall("path", "join", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | _ -> None
+
 // Initial support, making at least InvariantCulture compile-able
 // to be used System.Double.Parse and System.Single.Parse
 // see https://github.com/fable-compiler/Fable/pull/1197#issuecomment-348034660
@@ -4435,6 +4442,7 @@ let private replacedModules =
             Types.timeOnly, timeOnly
             Types.timespan, timeSpans
             "System.Timers.Timer", timers
+            "System.IO.Path", paths
             "System.Environment", systemEnv
             "System.Globalization.CultureInfo", globalization
             "System.Random", random
