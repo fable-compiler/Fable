@@ -3666,6 +3666,16 @@ let files com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         |> Some
     | _ -> None
 
+let directories com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Exists" ->
+        Helper.ImportedCall("os.path", "isdir", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "CreateDirectory" ->
+        Helper.LibCall(com, "directory", "create_directory", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | _ -> None
+
 let tasks com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg, i.CompiledName with
     | Some x, "GetAwaiter" ->
@@ -4148,6 +4158,7 @@ let private replacedModules =
             "System.Environment", systemEnv
             "System.Globalization.CultureInfo", globalization
             "System.IO.File", files
+            "System.IO.Directory", directories
             "System.IO.Path", paths
             "System.Random", random
             "System.Threading.CancellationToken", cancels
