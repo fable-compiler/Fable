@@ -2,6 +2,9 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <!-- Opt out of Fable.Transforms/Directory.Build.props: this project uses the implicit/NuGet
+         FSharp.Core, not the vendored lib/fcs one the other Fable.Transforms.* projects use. -->
+    <DisableImplicitFSharpCoreReference>false</DisableImplicitFSharpCoreReference>
   </PropertyGroup>
 
   <ItemGroup>

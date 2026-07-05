@@ -1,13 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <DisableImplicitFSharpCoreReference>true</DisableImplicitFSharpCoreReference>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <OtherFlags>$(OtherFlags) --nowarn:3536</OtherFlags>
-    <DebugType>embedded</DebugType>
-  </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Global/Babel.fs" />
     <Compile Include="Global/Fable.Core.fs" />
     <Compile Include="Global/Metadata.fs" />
     <Compile Include="Global/Prelude.fs" />
@@ -20,11 +13,10 @@
     <Compile Include="FSharp2Fable.Util.fs" />
     <Compile Include="ReplacementsInject.fs" />
     <Compile Include="Replacements.Util.fs" />
+    <Compile Include="Printer.fs" />
     <Compile Include="Python/Replacements.fs" />
     <Compile Include="Rust/Replacements.fs" />
     <Compile Include="Dart/Replacements.fs" />
-    <Compile Include="Beam/Prelude.fs" />
-    <Compile Include="Beam/Beam.AST.fs" />
     <Compile Include="Beam/Replacements.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="Replacements.Api.fs" />
@@ -33,35 +25,10 @@
     <Compile Include="FSharp2Fable.fs" />
     <Compile Include="FableTransforms.fsi" />
     <Compile Include="FableTransforms.fs" />
-    <Compile Include="Fable2Babel.fs" />
-    <Compile Include="Printer.fs" />
-    <Compile Include="BabelPrinter.fs" />
-    <Compile Include="Python/Python.AST.fs" />
-    <Compile Include="Python/Fable2Python.Types.fs" />
-    <Compile Include="Python/Fable2Python.Util.fs" />
-    <Compile Include="Python/Fable2Python.Annotation.fs" />
-    <Compile Include="Python/Fable2Python.Bases.fs" />
-    <Compile Include="Python/Fable2Python.Reflection.fs" />
-    <Compile Include="Python/Fable2Python.Transforms.fs" />
-    <Compile Include="Python/PythonPrinter.fs" />
-    <Compile Include="Python/PythonCompiler.fs" />
-    <Compile Include="Beam/Fable2Beam.Util.fs" />
-    <Compile Include="Beam/Fable2Beam.Reflection.fs" />
-    <Compile Include="Beam/Fable2Beam.fs" />
-    <Compile Include="Beam/ErlangPrinter.fs" />
-    <Compile Include="Php/Php.fs" />
-    <Compile Include="Php/Fable2Php.fs" />
-    <Compile Include="Php/PhpPrinter.fs" />
-    <Compile Include="Dart/Dart.fs" />
-    <Compile Include="Dart/Fable2Dart.fs" />
-    <Compile Include="Dart/DartPrinter.fs" />
-    <Compile Include="Rust/RustPrinter.fs" />
-    <Compile Include="Rust/Fable2Rust.fs" />
     <Compile Include="State.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Fable.AST/Fable.AST.fsproj" />
-    <ProjectReference Include="Rust/AST/Rust.AST.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
