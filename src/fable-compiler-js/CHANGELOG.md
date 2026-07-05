@@ -1,5 +1,5 @@
 ---
-last_commit_released: c977d78b39225a51c7bd051a1fe363ed0ccbe201
+last_commit_released: 7f915f1dd66b9a5fbbd56f858b07d39b98519b65
 include:
   - ../Fable.Core/
   - ../fable-standalone/
@@ -15,6 +15,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.5.0 - 2026-07-05
+
+### 🚀 Features
+
+* *(all)* Allow `[<Emit>]` on StringEnum cases (#4711) ([0b1f61ee](https://github.com/fable-compiler/Fable/commit/0b1f61eef50d8225602ec4fd1fe641126302983a))
+* *(js/ts)* Optimize `printfn` with constant string to `console.log` (#4718) ([2d6d083a](https://github.com/fable-compiler/Fable/commit/2d6d083a0ce552b9ccac5128977cc4390132010a))
+* *(js/ts)* Add `Path.Combine` support ([b1b1e273](https://github.com/fable-compiler/Fable/commit/b1b1e273b25c2c50b29a901dc40ec9dd522e1bb1))
+* *(js/ts)* Add `System.IO.Path` and `System.IO.File` API support ([ec99fac5](https://github.com/fable-compiler/Fable/commit/ec99fac5fd7a9428ee54f66f878ef4edad0904cb))
+* *(js/ts/python)* Warn on duplicate attached member names (#4715) ([fd06aa64](https://github.com/fable-compiler/Fable/commit/fd06aa64c42b9ce28a1195f67bf88e50ca04644c))
+* *(js/ts/python)* Add Environment and Console.Error support ([6e082f95](https://github.com/fable-compiler/Fable/commit/6e082f955140676da3388a43b55378ea4ad20f1c))
+* *(py)* Add `Path.Combine` support ([4c901c65](https://github.com/fable-compiler/Fable/commit/4c901c6567e9144a9167c9bcb6c749a236076b3d))
+* *(python)* Add `Directory.Exists`, `Directory.CreateDirectory` ([f4b4eabc](https://github.com/fable-compiler/Fable/commit/f4b4eabc846d20a91b390f73193d3f0276c70310))
+* *(ts)* [<Pojo>] interfaces extend parent [<Pojo>] type (#4717) ([4f4243cd](https://github.com/fable-compiler/Fable/commit/4f4243cd26e3bd10048001500e99f1f7ee92e35a))
+
+### 🐞 Bug Fixes
+
+* Generate an error on erased union case typed as obj (#4710) ([bf2134d5](https://github.com/fable-compiler/Fable/commit/bf2134d5d3715de3025cbeb9e0f98763a2cfff3c))
+* *(all)* Include return type in overload suffix for op_Implicit/op_Explicit (#4712) ([a6846010](https://github.com/fable-compiler/Fable/commit/a68460107bb640c04bf88edae935f018d364c9dd))
+* *(js/ts)* DateTime.ToString() and %A are now consistent across all DateTimeKind values (#4714) ([de98b0e4](https://github.com/fable-compiler/Fable/commit/de98b0e466c8824b0ba8b941d20efae70d232abb))
+* *(python)* Accept allowAccessToPrivateRepresentation in FSharpType.IsUnion/IsRecord/GetUnionCases (#4722) ([7f915f1d](https://github.com/fable-compiler/Fable/commit/7f915f1dd66b9a5fbbd56f858b07d39b98519b65))
+* *(ts)* Strip byref annotation from compiler-generated copy-update locals (#4716) ([1e072ed2](https://github.com/fable-compiler/Fable/commit/1e072ed297ab9b8a4623a17bbc2be87af05f81fd))
+
+### ⚡ Performance Improvements
+
+* Split Fable.Transforms into per-target projects for faster incremental builds (#4720) ([260c962f](https://github.com/fable-compiler/Fable/commit/260c962fe754ab9810c2a977223720d2f78dca74))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/c977d78b39225a51c7bd051a1fe363ed0ccbe201..7f915f1dd66b9a5fbbd56f858b07d39b98519b65)</small></strong>
 
 ## 2.4.0 - 2026-06-30
 
