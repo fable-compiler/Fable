@@ -12,7 +12,7 @@ module Extensions =
 module Dictionary =
     open System.Collections.Generic
 
-    let tryFind key (dic: #IDictionary<'Key, 'Value>) =
+    let tryFind key (dic: IDictionary<'Key, 'Value>) =
         match dic.TryGetValue(key) with
         | true, v -> Some v
         | false, _ -> None
@@ -20,7 +20,7 @@ module Dictionary =
 module ReadOnlyDictionary =
     open System.Collections.Generic
 
-    let tryFind key (dic: #IReadOnlyDictionary<'Key, 'Value>) =
+    let tryFind key (dic: IReadOnlyDictionary<'Key, 'Value>) =
         match dic.TryGetValue(key) with
         | true, v -> Some v
         | false, _ -> None
