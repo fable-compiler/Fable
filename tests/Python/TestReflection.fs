@@ -223,6 +223,7 @@ let ``test reflection functions accept allowAccessToPrivateRepresentation`` () =
     let recordType = typeof<MyRecord>
     let record = { String = "a"; Int = 1 }
 
+    FSharpType.IsRecord(recordType, allowAccessToPrivateRepresentation = true) |> equal true
     FSharpType.GetRecordFields(recordType, allowAccessToPrivateRepresentation = true).Length |> equal 2
 
     let values = FSharpValue.GetRecordFields(record, allowAccessToPrivateRepresentation = true)
@@ -231,7 +232,8 @@ let ``test reflection functions accept allowAccessToPrivateRepresentation`` () =
     rebuilt |> equal record
 
     let unionType = typeof<MyUnion>
-    let intCase = FSharpType.GetUnionCases(unionType).[1]
+    FSharpType.IsUnion(unionType, allowAccessToPrivateRepresentation = true) |> equal true
+    let intCase = FSharpType.GetUnionCases(unionType, allowAccessToPrivateRepresentation = true).[1]
     let u = FSharpValue.MakeUnion(intCase, [| box 5 |], allowAccessToPrivateRepresentation = true) :?> MyUnion
     let info, fields = FSharpValue.GetUnionFields(u, unionType, allowAccessToPrivateRepresentation = true)
     info.Name |> equal "IntCase"
