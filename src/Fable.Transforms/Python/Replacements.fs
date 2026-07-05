@@ -4004,7 +4004,16 @@ let fsharpType com methName (r: SourceLocation option) t (i: CallInfo) (args: Ex
     | "IsRecord"
     | "IsTuple"
     | "IsFunction" ->
-        Helper.LibCall(com, "Reflection", Naming.lowerFirst methName, t, args, i.SignatureArgTypes, ?loc = r)
+        // Drop the trailing `allowAccessToPrivateRepresentation` flag (no meaning in Python)
+        Helper.LibCall(
+            com,
+            "Reflection",
+            Naming.lowerFirst methName,
+            t,
+            List.truncate 1 args,
+            i.SignatureArgTypes,
+            ?loc = r
+        )
         |> Some
     | "IsExceptionRepresentation"
     | "GetExceptionFields" -> None // TODO!!!
