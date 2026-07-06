@@ -1605,47 +1605,56 @@ module Util =
     let transformNewUnion (com: IBabelCompiler) (ctx: Context) r (ent: Fable.Entity) genArgs (tag: int) values =
         let values = values |> List.mapToArray (transformAsExpr com ctx)
 
-        if List.isSingle ent.UnionCases then
-            let typeParamInst = makeTypeParamInstantiationIfTypeScript com ctx genArgs
+        // A case with no fields is exposed as a static singleton (see makeUnionCaseSingletonMember),
+        // so use that instead of allocating a new instance on every reference.
+        let singletonCase =
+            List.tryItem tag ent.UnionCases
+            |> Option.filter (fun case -> List.isEmpty case.UnionCaseFields)
 
-            Expression.newExpression (jsConstructor com ctx ent, values, ?typeArguments = typeParamInst, ?loc = r)
-        else
-            let callConstructor (case: Fable.UnionCase option) =
-                let tagExpr =
-                    match case with
-                    | Some case -> CommentedExpression(case.Name, ofInt tag)
-                    | None -> ofInt tag
+        match singletonCase with
+        | Some case -> get r (jsConstructor com ctx ent) (sanitizeName case.Name)
+        | None ->
+            if List.isSingle ent.UnionCases then
+                let typeParamInst = makeTypeParamInstantiationIfTypeScript com ctx genArgs
 
-                let consRef = jsConstructor com ctx ent
+                Expression.newExpression (jsConstructor com ctx ent, values, ?typeArguments = typeParamInst, ?loc = r)
+            else
+                let callConstructor (case: Fable.UnionCase option) =
+                    let tagExpr =
+                        match case with
+                        | Some case -> CommentedExpression(case.Name, ofInt tag)
+                        | None -> ofInt tag
 
-                let typeParamInst =
-                    makeTypeParamInstantiationIfTypeScript com ctx genArgs
-                    |> Option.map (fun typeParams ->
-                        Array.append typeParams [| LiteralTypeAnnotation(Literal.numericLiteral (tag)) |]
+                    let consRef = jsConstructor com ctx ent
+
+                    let typeParamInst =
+                        makeTypeParamInstantiationIfTypeScript com ctx genArgs
+                        |> Option.map (fun typeParams ->
+                            Array.append typeParams [| LiteralTypeAnnotation(Literal.numericLiteral (tag)) |]
+                        )
+
+                    Expression.newExpression (
+                        consRef,
+                        [| tagExpr; Expression.arrayExpression values |],
+                        ?typeArguments = typeParamInst,
+                        ?loc = r
                     )
 
-                Expression.newExpression (
-                    consRef,
-                    [| tagExpr; Expression.arrayExpression values |],
-                    ?typeArguments = typeParamInst,
-                    ?loc = r
-                )
+                if com.IsTypeScript then
+                    match List.tryItem tag ent.UnionCases with
+                    | Some case ->
+                        match tryJsConstructorWithSuffix com ctx ent ("_" + sanitizeName case.Name) with
+                        | Some helperRef ->
+                            let typeParams = makeTypeParamInstantiation com ctx genArgs
 
-            if com.IsTypeScript then
-                match List.tryItem tag ent.UnionCases with
-                | Some case ->
-                    match tryJsConstructorWithSuffix com ctx ent ("_" + sanitizeName case.Name) with
-                    | Some helperRef ->
-                        let typeParams = makeTypeParamInstantiation com ctx genArgs
+                            Expression.callExpression (helperRef, values, typeArguments = typeParams)
+                        | None -> callConstructor (Some case)
+                    | None ->
+                        $"Unmatched union case tag: %d{tag} for %s{ent.FullName}" |> addWarning com [] r
 
-                        Expression.callExpression (helperRef, values, typeArguments = typeParams)
-                    | None -> callConstructor (Some case)
-                | None ->
-                    $"Unmatched union case tag: %d{tag} for %s{ent.FullName}" |> addWarning com [] r
-
-                    callConstructor None
-            else
-                callConstructor None
+                        callConstructor None
+                else
+                    callConstructor (List.tryItem tag ent.UnionCases)
 
     let transformValue (com: IBabelCompiler) (ctx: Context) r value : Expression =
         match value with
@@ -3861,6 +3870,54 @@ but thanks to the optimisation done below we get
                 yield makeMethod "Symbol.iterator" [||] (enumerableThisToIterator com ctx) returnType None
         |]
 
+    /// fsc represents a union case with no fields as a single shared instance, so e.g.
+    /// `LanguagePrimitives.PhysicalEquality X.A X.A` is true. Mirror that by exposing the
+    /// case as a static, precomputed instance instead of constructing a new one on every access.
+    let makeUnionCaseSingletonMember
+        (com: IBabelCompiler)
+        (entName: string)
+        genArgsCount
+        (tag: int option)
+        (case: Fable.UnionCase)
+        : ClassMember
+        =
+        let typeArguments =
+            if com.IsTypeScript then
+                let anyArgs = Array.create genArgsCount AnyTypeAnnotation
+
+                match tag with
+                | Some tag ->
+                    Array.append anyArgs [| LiteralTypeAnnotation(Literal.numericLiteral (tag)) |]
+                    |> Some
+                | None when Array.isEmpty anyArgs -> None
+                | None -> Some anyArgs
+            else
+                None
+
+        let consArgs =
+            match tag with
+            | Some tag -> [| ofInt tag; Expression.arrayExpression [||] |]
+            | None -> [||]
+
+        let value =
+            Expression.newExpression (Expression.identifier entName, consArgs, ?typeArguments = typeArguments)
+
+        ClassMember.classProperty (
+            Expression.identifier (sanitizeName case.Name),
+            value = value,
+            isStatic = true,
+            ?typeAnnotation =
+                (if com.IsTypeScript then
+                     Some AnyTypeAnnotation
+                 else
+                     None),
+            ?accessModifier =
+                (if com.IsTypeScript then
+                     Some Readonly
+                 else
+                     None)
+        )
+
     let transformUnion
         (com: IBabelCompiler)
         ctx
@@ -3974,6 +4031,8 @@ but thanks to the optimisation done below we get
                             accessModifier = Readonly
                         )
                     cases
+                    if List.isEmpty singleCase.UnionCaseFields then
+                        makeUnionCaseSingletonMember com entName entParamsDecl.Length None singleCase
                     yield! classMembers
                 |]
 
@@ -4042,6 +4101,16 @@ but thanks to the optimisation done below we get
                         accessModifier = Readonly
                     )
                     cases
+                    yield!
+                        ent.UnionCases
+                        |> List.mapi (fun i case -> i, case)
+                        |> List.choose (fun (i, case) ->
+                            if List.isEmpty case.UnionCaseFields then
+                                makeUnionCaseSingletonMember com entName entParamsDecl.Length (Some i) case
+                                |> Some
+                            else
+                                None
+                        )
                     yield! classMembers
                 |]
 
@@ -4076,11 +4145,14 @@ but thanks to the optimisation done below we get
                         let body =
                             BlockStatement
                                 [|
-                                    Expression.newExpression (
-                                        Expression.Identifier union_cons,
-                                        [| Expression.Literal tag; passedArgs |],
-                                        typeArguments = consTypeArgs
-                                    )
+                                    (if List.isEmpty case.UnionCaseFields then
+                                         get None (Expression.Identifier union_cons) (sanitizeName case.Name)
+                                     else
+                                         Expression.newExpression (
+                                             Expression.Identifier union_cons,
+                                             [| Expression.Literal tag; passedArgs |],
+                                             typeArguments = consTypeArgs
+                                         ))
                                     |> Statement.returnStatement
                                 |]
 
@@ -4135,7 +4207,21 @@ but thanks to the optimisation done below we get
                             )
                     |]
 
-            let classMembers = Array.append [| cases |] classMembers
+            let singletonMembers =
+                ent.UnionCases
+                |> List.mapi (fun i case -> i, case)
+                |> List.choose (fun (i, case) ->
+                    if List.isEmpty case.UnionCaseFields then
+                        makeUnionCaseSingletonMember com entName entParamsDecl.Length (Some i) case
+                        |> Some
+                    else
+                        None
+                )
+                |> List.toArray
+
+            let classMembers =
+                Array.append [| cases |] (Array.append singletonMembers classMembers)
+
             declareType com ctx ent entName doc args body baseExpr classMembers
 
     let transformClassWithCompilerGeneratedConstructor
