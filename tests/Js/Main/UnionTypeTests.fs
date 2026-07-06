@@ -278,4 +278,11 @@ let tests =
     testCase "sprintf formats strings cases correctly" <| fun () ->
         let s = sprintf "%A" (S "1")
         equal s "S \"1\""
+
+    testCase "Union cases with no fields are physically equal" <| fun () ->
+        obj.ReferenceEquals(Gender.Male, Gender.Male) |> equal true
+        obj.ReferenceEquals(Gender.Male, Gender.Female) |> equal false
+        obj.ReferenceEquals(TestUnion.Case0, TestUnion.Case0) |> equal true
+        obj.ReferenceEquals(TestUnion.Case1 "a", TestUnion.Case1 "a") |> equal false
+        obj.ReferenceEquals(T1, T1) |> equal true
   ]
