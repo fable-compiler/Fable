@@ -116,6 +116,10 @@ let getUnionCaseName (uci: Fable.UnionCase) =
     | Some cname -> cname
     | None -> uci.Name
 
+/// Attribute holding the precomputed singleton instance of a zero-field union case (see transformUnion).
+let unionCaseSingletonAttrName = "singleton"
+let unionCaseSingletonAttr = Identifier unionCaseSingletonAttrName
+
 /// Gets the unique case class name by prefixing with the union type name.
 /// This prevents collisions when different union types have cases with the same name.
 /// Library types (Result, Choice) use simple case names without prefix.
@@ -555,7 +559,13 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
                     // Local - just get identifier
                     com.GetIdentifierAsExpr(ctx, caseClassName)
 
-        Expression.call (caseRef, values, ?loc = r), stmts
+        // fsc represents a union case with no fields as a single shared instance, so e.g.
+        // `LanguagePrimitives.PhysicalEquality X.A X.A` is true. Mirror that by reusing the
+        // precomputed singleton instead of constructing a new instance.
+        if not (isLibraryUnionType entRef.FullName) && List.isEmpty uci.UnionCaseFields then
+            Expression.attribute (caseRef, unionCaseSingletonAttr), stmts
+        else
+            Expression.call (caseRef, values, ?loc = r), stmts
     | _ -> failwith $"transformValue: value %A{value} not supported!"
 
 let extractBaseExprFromBaseCall (com: IPythonCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
@@ -4069,7 +4079,8 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
     // Generate case classes with @tagged_union decorator
     let caseClasses =
         ent.UnionCases
-        |> List.mapi (fun tag uci ->
+        |> List.indexed
+        |> List.collect (fun (tag, uci) ->
             // Use full case class name (UnionName_CaseName) to avoid collisions
             // Pass the entity name to ensure consistent scoping with base class
             let caseClassName = getUnionCaseClassName com ent uci (Some entName)
@@ -4109,10 +4120,28 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
                     Statement.annAssign (target, annotation = ta, simple = true)
                 )
 
+            // Declare the singleton as a ClassVar (assigned below, once the class exists) so
+            // Pyright recognizes the attribute; ClassVar is excluded from dataclass fields.
+            // The type is a quoted forward reference since the class isn't defined yet here.
+            let singletonAnnotation =
+                if List.isEmpty uci.UnionCaseFields then
+                    let classVar = com.GetImportExpr(ctx, "typing", "ClassVar")
+                    let selfType = Expression.stringConstant caseClassName
+                    let classVarAnnotation = Expression.subscript (classVar, selfType)
+
+                    [
+                        Statement.annAssign (
+                            Expression.name unionCaseSingletonAttrName,
+                            annotation = classVarAnnotation
+                        )
+                    ]
+                else
+                    []
+
             let caseClassBody =
-                match fieldAnnotations with
+                match fieldAnnotations @ singletonAnnotation with
                 | [] -> [ Statement.ellipsis ]
-                | _ -> fieldAnnotations
+                | body -> body
 
             // The case class inherits from the parameterized base union class
             // e.g., class Either_Left[TL, TR](_Either_2[TL, TR]): ...
@@ -4120,13 +4149,31 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
                 Expression.name ("_" + entName)
                 |> Annotation.makeGenericParamSubscript genParamNames
 
-            Statement.classDef (
-                caseClassIdent,
-                bases = [ baseClassExpr ],
-                body = caseClassBody,
-                decoratorList = [ taggedUnionDecorator ],
-                typeParams = typeParams
-            )
+            let caseClassDef =
+                Statement.classDef (
+                    caseClassIdent,
+                    bases = [ baseClassExpr ],
+                    body = caseClassBody,
+                    decoratorList = [ taggedUnionDecorator ],
+                    typeParams = typeParams
+                )
+
+            // fsc represents a union case with no fields as a single shared instance, so e.g.
+            // `LanguagePrimitives.PhysicalEquality X.A X.A` is true. Mirror that by precomputing
+            // one instance and reusing it (see the NewUnion case above) instead of constructing
+            // a new one on every access.
+            let singletonDecl =
+                if List.isEmpty uci.UnionCaseFields then
+                    let target =
+                        Expression.attribute (Expression.name caseClassIdent, unionCaseSingletonAttr, Store)
+
+                    [
+                        Statement.assign ([ target ], Expression.call (Expression.name caseClassIdent, []))
+                    ]
+                else
+                    []
+
+            caseClassDef :: singletonDecl
         )
 
     // Generate type alias: type MyUnion[T] = MyUnion_CaseA[T] | MyUnion_CaseB[T] | ...
