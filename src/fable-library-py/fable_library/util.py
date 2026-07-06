@@ -482,7 +482,10 @@ class Enumerator[T](EnumeratorBase[T], DisposableBase, IEnumerator[T]):
         raise Exception("Python iterators cannot be reset")
 
     def Dispose(self) -> None:
-        return
+        # Runs `finally` blocks via GeneratorExit; guarded since not all iterators support `close`.
+        close = getattr(self.iter, "close", None)
+        if close is not None:
+            close()
 
     def __next__(self) -> T:
         return next(self.iter)
