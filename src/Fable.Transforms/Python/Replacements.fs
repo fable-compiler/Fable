@@ -497,14 +497,12 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     let argTypes = args |> List.map (fun a -> a.Type)
 
     match argTypes with
-    | Number(Int64 | UInt64 | BigInt | Decimal as kind, _) :: _ ->
+    | Number(BigInt | Decimal as kind, _) :: _ ->
         let modName, opName =
             match kind, opName with
-            // | UInt64, Operators.rightShift -> "long", "op_RightShiftUnsigned" // See #1482
             | Decimal, Operators.divideByInt -> "decimal", Operators.division
             | Decimal, _ -> "decimal", opName
-            | BigInt, _ -> "big_int", opName
-            | _ -> "long", opName
+            | _ -> "big_int", opName
 
         Helper.LibCall(com, modName, opName, t, args, argTypes, ?loc = r)
 
