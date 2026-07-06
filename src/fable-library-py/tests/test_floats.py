@@ -205,6 +205,43 @@ def test_float64_power():
     assert f64_a**2.0 == 10.5**2.0
 
 
+def test_float64_math_functions_accept_native_float():
+    """The double module's free functions must accept a native float, not
+    just a Float64 instance, since e.g. big_int.to_double returns a native
+    float rather than a Float64 instance."""
+    from fable_library import double
+
+    native_float: float = float(10.5)
+
+    assert double.pow(native_float, float64(2.0)) == 10.5**2.0
+    assert double.pow(float64(10.5), float64(2.0)) == 10.5**2.0
+
+    assert double.floor(native_float) == 10.0
+    assert double.ceil(native_float) == 11.0
+    assert double.degrees(native_float) == math.degrees(10.5)
+    assert double.radians(native_float) == math.radians(10.5)
+    assert double.is_nan(native_float) is False
+    assert double.is_infinity(native_float) is False
+    assert double.is_positive_inf(native_float) is False
+    assert double.is_negative_inf(native_float) is False
+    assert double.sqrt(native_float) == math.sqrt(10.5)
+    assert double.cos(native_float) == math.cos(10.5)
+    assert double.sin(native_float) == math.sin(10.5)
+    assert double.tan(native_float) == math.tan(10.5)
+    assert double.cosh(native_float) == math.cosh(10.5)
+    assert double.sinh(native_float) == math.sinh(10.5)
+    assert double.tanh(native_float) == math.tanh(10.5)
+    assert double.acos(0.5) == math.acos(0.5)
+    assert double.asin(0.5) == math.asin(0.5)
+    assert double.atan(native_float) == math.atan(10.5)
+    assert double.atan2(native_float, native_float) == math.atan2(10.5, 10.5)
+    assert double.exp(native_float) == math.exp(10.5)
+    assert double.log(native_float) == math.log(10.5)
+    assert double.log10(native_float) == math.log10(10.5)
+    assert double.log2(native_float) == math.log2(10.5)
+    assert double.abs(-native_float) == 10.5
+
+
 def test_float64_unary_operations():
     """Test Float64 unary operations."""
     f64_a = float64(10.5)
