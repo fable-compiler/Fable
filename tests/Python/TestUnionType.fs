@@ -4,6 +4,8 @@ open Util.Testing
 
 type Gender = Male | Female
 
+type T1 = T1
+
 type Either<'TL,'TR> =
     | Left of 'TL
     | Right of 'TR
@@ -225,3 +227,11 @@ let ``test Named union case fields work when a field is called name`` () =
     | NamedCase(name, optional) ->
         name |> equal "v1"
         optional |> equal "v2"
+
+[<Fact>]
+let ``test Union cases with no fields are physically equal`` () =
+    obj.ReferenceEquals(Gender.Male, Gender.Male) |> equal true
+    obj.ReferenceEquals(Gender.Male, Gender.Female) |> equal false
+    obj.ReferenceEquals(MyUnion.Case0, MyUnion.Case0) |> equal true
+    obj.ReferenceEquals(MyUnion.Case1 "a", MyUnion.Case1 "a") |> equal false
+    obj.ReferenceEquals(T1, T1) |> equal true
