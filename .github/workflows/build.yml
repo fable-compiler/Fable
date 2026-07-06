@@ -55,7 +55,10 @@ jobs:
 
   # Separate build job for JavaScript
   build-javascript:
-    timeout-minutes: 60
+    # Expecto has been hanging randomly (started a few days ago, cause unknown) - keep this
+    # tight so a hang fails fast instead of burning the full hour. See:
+    # https://github.com/fable-compiler/Fable/actions/runs/28803363016/job/85412364876
+    timeout-minutes: 10
     strategy:
       matrix:
         platform: [ubuntu-latest, windows-latest]
