@@ -143,6 +143,33 @@ let getUnionCaseClassName
 
         $"%s{unionName}_%s{caseName}"
 
+/// Resolves the expression referring to a union case's class (constructor / type),
+/// handling both library types (Result, Choice - simple names from fable_library)
+/// and user-defined unions (full case class name, imported from another module if needed).
+let getUnionCaseRef (com: IPythonCompiler) ctx (entRef: Fable.EntityRef) (ent: Fable.Entity) (uci: Fable.UnionCase) =
+    if isLibraryUnionType entRef.FullName then
+        let caseName = getUnionCaseName uci
+        // Result uses "result" module, Choice uses "choice" module
+        let moduleName =
+            if entRef.FullName = Types.result then
+                "result"
+            else
+                "choice"
+
+        libValue com ctx moduleName caseName
+    else
+        // User-defined union - use full case class name (UnionName_CaseName)
+        let caseClassName = getUnionCaseClassName com ent uci None
+
+        match entRef.SourcePath with
+        | Some path when path <> com.CurrentFile ->
+            // Import from another module
+            let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+            com.GetImportExpr(ctx, importPath, caseClassName)
+        | _ ->
+            // Local - just get identifier
+            com.GetIdentifierAsExpr(ctx, caseClassName)
+
 let getUnionExprTag (com: IPythonCompiler) ctx r (fableExpr: Fable.Expr) =
     Expression.withStmts {
         let! expr = com.TransformAsExpr(ctx, fableExpr)
@@ -532,32 +559,7 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
 
         // Get the union case
         let uci = ent.UnionCases |> List.item tag
-
-        // Determine the import path based on the entity type
-        let caseRef =
-            // Library types (Result, Choice) use simple case names from fable_library
-            if isLibraryUnionType entRef.FullName then
-                let caseName = getUnionCaseName uci
-                // Result uses "result" module, Choice uses "choice" module
-                let moduleName =
-                    if entRef.FullName = Types.result then
-                        "result"
-                    else
-                        "choice"
-
-                libValue com ctx moduleName caseName
-            else
-                // User-defined union - use full case class name (UnionName_CaseName)
-                let caseClassName = getUnionCaseClassName com ent uci None
-                // Check if it's from another file
-                match entRef.SourcePath with
-                | Some path when path <> com.CurrentFile ->
-                    // Import from another module
-                    let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
-                    com.GetImportExpr(ctx, importPath, caseClassName)
-                | _ ->
-                    // Local - just get identifier
-                    com.GetIdentifierAsExpr(ctx, caseClassName)
+        let caseRef = getUnionCaseRef com ctx entRef ent uci
 
         // fsc represents a union case with no fields as a single shared instance, so e.g.
         // `LanguagePrimitives.PhysicalEquality X.A X.A` is true. Mirror that by reusing the
@@ -1457,8 +1459,19 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
     | Fable.UnionField i ->
         Expression.withStmts {
             let! baseExpr = com.TransformAsExpr(ctx, fableExpr)
-            let! fieldsExpr = getExpr com ctx range baseExpr (Expression.stringConstant "fields")
-            let! finalExpr = getExpr com ctx range fieldsExpr (Expression.intConstant i.FieldIndex)
+            // Read the field directly by name (`x.width_`) instead of going through the
+            // `.fields` property (`x.fields[i]`), which rebuilds an Array on every access.
+            let ent = com.GetEntity(i.Entity)
+            let uci = ent.UnionCases |> List.item i.CaseIndex
+            let field = uci.UnionCaseFields |> List.item i.FieldIndex
+            let fieldName = field.Name |> Naming.toFieldSnakeCase |> Helpers.clean
+            // `fableExpr` is statically typed as the union base, which doesn't declare this
+            // field, so tell Pyright which case class we're reading from (cast is a no-op
+            // at runtime). See reportUnnecessaryCast in pyrightconfig.json.
+            let caseRef = getUnionCaseRef com ctx i.Entity ent uci
+            let cast = com.GetImportExpr(ctx, "typing", "cast")
+            let castedExpr = Expression.call (cast, [ caseRef; baseExpr ])
+            let! finalExpr = getExpr com ctx range castedExpr (Expression.stringConstant fieldName)
             return finalExpr
         }
 
