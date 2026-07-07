@@ -9,9 +9,9 @@
   "reportConstantRedefinition": false, // Fable preserves casing for variables starting with uppercase
   "reportUnnecessaryIsInstance": false, // Not a problem in generated code (look into this later)
   "reportUnnecessaryComparison": false, // Generated tests do this on purpose
-  "reportUnnecessaryCast": false, // Generated code for union case field need addional cast otherwise Pyrigh cannot infer the resolved typed
   "reportImportCycles": true,
   "reportMissingImports": true,
+  "reportUnnecessaryCast": true,
   "reportDuplicateImport": true,
   "reportOverlappingOverload": true,
   "reportInconsistentConstructor": true,

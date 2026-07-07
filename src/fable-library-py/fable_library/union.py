@@ -101,6 +101,24 @@ class Union(StringableBase, EquatableBase, ComparableBase, HashableBase, ICompar
         return -1 if self.tag < other.tag else 1
 
 
+def narrow[T](case: type[T], value: object) -> T:
+    """Narrow a union value to one of its case classes for the type checker.
+
+    F# discriminated unions compile to a base ``Union`` class plus one case
+    class per case (e.g. ``Tree`` -> ``Tree_Leaf | Tree_Node``). Reading a
+    case-specific field such as ``x.left_`` requires the value to be typed as
+    that case class, but after a ``match`` on ``tag`` it is still statically
+    typed as the union. ``narrow(Tree_Node, x)`` re-types ``x`` so the field
+    read resolves, playing the same role as ``typing.cast`` but scoped to
+    unions. Keeping it in the library (instead of emitting ``cast`` inline)
+    lets generated code stay ``cast``-free and preserves ``reportUnnecessaryCast``.
+
+    ``case`` is only used by the type checker to bind ``T``; this is an identity
+    function at runtime.
+    """
+    return value  # pyright: ignore[reportReturnType]
+
+
 @dataclass_transform()
 def tagged_union(tag: int):
     """Decorator for union case classes.
@@ -135,4 +153,4 @@ def tagged_union(tag: int):
     return decorator
 
 
-__all__ = ["Union", "tagged_union"]
+__all__ = ["Union", "narrow", "tagged_union"]
