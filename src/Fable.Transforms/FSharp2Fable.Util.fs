@@ -2016,6 +2016,40 @@ module Util =
 
         Fable.TryCatch(body, catchClause, finalizer, r)
 
+    /// Temporary fix for try/with with filtered (typed or `when`) handlers in seq expressions.
+    /// FCS compiles the handler of RuntimeHelpers.EnumerateTryWith with FailFilter as the
+    /// match-failure action (CheckSequenceExpressions.fs), so the handler's unmatched fallback
+    /// branch is emitted as a mistyped `0` (int) where seq<'T> is expected. The branch is
+    /// unreachable at runtime (Seq.enumerateTryWith only calls the handler after the filter
+    /// matched), but the wrong type breaks statically-typed targets (TypeScript/Dart).
+    /// Rewrite the mistyped leaf into a rethrow of the caught exception, which is bottom-typed
+    /// on all targets and semantically correct if it were ever reached.
+    /// TODO: Remove when FCS compiles the handler with Rethrow like normal try/with does
+    /// (see CheckExpressions.fs vs CheckSequenceExpressions.fs).
+    let fixEnumerateTryWithHandler (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Expr list) =
+        if memb.FullName = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.EnumerateTryWith" then
+            match args with
+            | [ source; filterLambda; Fable.Lambda(exIdent, handlerBody, name) ] ->
+                let expectedType = handlerBody.Type
+
+                let rec fixLeaf (expr: Fable.Expr) =
+                    match expr with
+                    | Fable.Value(Fable.NumberConstant _, r) when expr.Type <> expectedType ->
+                        makeThrow r expectedType (Fable.IdentExpr exIdent)
+                    | Fable.IfThenElse(guardExpr, thenExpr, elseExpr, r) ->
+                        Fable.IfThenElse(guardExpr, fixLeaf thenExpr, fixLeaf elseExpr, r)
+                    | Fable.DecisionTree(tree, targets) ->
+                        let targets = targets |> List.map (fun (idents, e) -> idents, fixLeaf e)
+
+                        Fable.DecisionTree(tree, targets)
+                    | Fable.Let(ident, value, body) -> Fable.Let(ident, value, fixLeaf body)
+                    | _ -> expr
+
+                [ source; filterLambda; Fable.Lambda(exIdent, fixLeaf handlerBody, name) ]
+            | _ -> args
+        else
+            args
+
     let addGenArgsToContext (ctx: Context) (memb: FSharpMemberOrFunctionOrValue) (genArgs: Fable.Type list) =
         if not (List.isEmpty genArgs) then
             let genParams =

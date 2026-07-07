@@ -1002,6 +1002,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 else
                     args
 
+            // Fix the mistyped fallback FCS generates for filtered try/with handlers in seq expressions
+            let args = fixEnumerateTryWithHandler memb args
+
             match callee, memb with
             | Some(CreateEvent(callee, event) as createEvent), _ ->
                 let! callee = transformExpr com ctx [] callee
