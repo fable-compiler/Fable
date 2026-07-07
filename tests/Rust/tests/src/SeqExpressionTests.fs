@@ -112,6 +112,9 @@ let ``try...with in list expressions works`` () =
     [ try 1 with _ -> 0 ]
     |> equal [1]
 
+// Exceptions cannot be caught in no_std mode (no std::panic::catch_unwind),
+// so tests that raise and catch are excluded there
+#if !NO_STD_NO_EXCEPTIONS
 [<Fact>]
 let ``try...with in list expressions catches exceptions`` () =
     [ try raise (exn "boom") with _ -> 42 ]
@@ -157,6 +160,7 @@ let ``try...with in seq expressions rethrows unmatched exceptions`` () =
     with e when e.Message = "boom" ->
         propagated <- true
     equal true propagated
+#endif
 
 // TODO: enable when the Rust target supports type-testing caught exceptions
 // against BCL exception types (e.g. :? System.ArgumentException)
