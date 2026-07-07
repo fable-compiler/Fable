@@ -57,11 +57,13 @@ def _source_iter[T](xs: IEnumerable_1[T]) -> Iterator[T]:
     `__iter__` yields keys only, diverging from the `KeyValuePair` tuples `Current` produces -
     those need the explicit bridge.
     """
-    if isinstance(xs, Mapping):
-        return to_iterator(get_enumerator(xs))
-    if isinstance(xs, Iterable):
-        return iter(xs)
-    return to_iterator(get_enumerator(xs))
+    match xs:
+        case Mapping():
+            return to_iterator(get_enumerator(xs))
+        case Iterable():
+            return iter(xs)
+        case _:
+            return to_iterator(get_enumerator(xs))
 
 
 def map[T, U](mapping: Callable[[T], U], xs: IEnumerable_1[T]) -> NativeSeq[U]:
@@ -171,13 +173,14 @@ def take[T](count: int, xs: IEnumerable_1[T]) -> NativeSeq[T]:
 # Eager terminal ops: pull via _source_iter instead of the Option-per-element `generate`
 # protocol the generic (non-Array/FSharpList) fallback used before.
 def try_head[T](xs: IEnumerable_1[T]) -> Option[T]:
-    if isinstance(xs, Array):
-        return array_try_head(xs)
-    if isinstance(xs, FSharpList):
-        return list_try_head(xs)
-
-    v = next(_source_iter(xs), _SENTINEL)
-    return None if v is _SENTINEL else some(v)
+    match xs:
+        case Array():
+            return array_try_head(xs)
+        case FSharpList():
+            return list_try_head(xs)
+        case _:
+            v = next(_source_iter(xs), _SENTINEL)
+            return None if v is _SENTINEL else some(v)
 
 
 def head[T](xs: IEnumerable_1[T]) -> T:
@@ -188,20 +191,22 @@ def head[T](xs: IEnumerable_1[T]) -> T:
 
 
 def try_item[T](index: int32, xs: IEnumerable_1[T]) -> Option[T]:
-    if isinstance(xs, Array):
-        return array_try_item(index, xs)
-    if isinstance(xs, FSharpList):
-        return list_try_item(index, xs)
-    if index < 0:
-        return None
+    match xs:
+        case Array():
+            return array_try_item(index, xs)
+        case FSharpList():
+            return list_try_item(index, xs)
+        case _:
+            if index < 0:
+                return None
 
-    it = _source_iter(xs)
-    for _ in range(index):
-        if next(it, _SENTINEL) is _SENTINEL:
-            return None
+            it = _source_iter(xs)
+            for _ in range(index):
+                if next(it, _SENTINEL) is _SENTINEL:
+                    return None
 
-    v = next(it, _SENTINEL)
-    return None if v is _SENTINEL else some(v)
+            v = next(it, _SENTINEL)
+            return None if v is _SENTINEL else some(v)
 
 
 def item[T](index: int32, xs: IEnumerable_1[T]) -> T:
@@ -209,3 +214,25 @@ def item[T](index: int32, xs: IEnumerable_1[T]) -> T:
     if result is None:
         raise Exception("The input sequence has an insufficient number of elements. (Parameter 'index')")
     return value(result)
+
+
+__all__ = [
+    "NativeSeq",
+    "append",
+    "choose",
+    "collect",
+    "filter",
+    "head",
+    "item",
+    "map",
+    "map2",
+    "map3",
+    "map_indexed",
+    "map_indexed2",
+    "take",
+    "take_while",
+    "truncate",
+    "try_head",
+    "try_item",
+    "unfold",
+]
