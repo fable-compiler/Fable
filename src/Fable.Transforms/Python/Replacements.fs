@@ -1777,6 +1777,20 @@ let seqModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
         let elementType = getElementType t
         makeArrayFrom elementType arg |> Some
 
+    // Native-generator impls live in `seq_native` (see Seq.fs)
+    | ("Map" | "Filter" | "Collect" | "Append" | "Truncate" | "Unfold" | "TryHead" | "Head" | "TryItem" | "Item" | "Choose" | "MapIndexed" | "Map2" | "MapIndexed2" | "Map3" | "TakeWhile" | "Take") as meth,
+      _ ->
+        let meth = Naming.lowerFirst meth
+        let args = wrapLastArgIfString i.CompiledName args
+
+        let args =
+            match args with
+            | [] -> args
+            | _ -> args |> List.replaceLast (wrapDictToItems com)
+
+        Helper.LibCall(com, "seq_native", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
+
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = wrapLastArgIfString i.CompiledName args

@@ -6,6 +6,7 @@
 module SeqModule
 
 open Fable.Core
+open Fable.Core.PyInterop
 
 type IEnumerator<'T> = System.Collections.Generic.IEnumerator<'T>
 type IEnumerable<'T> = System.Collections.Generic.IEnumerable<'T>
@@ -302,8 +303,8 @@ let delay (generator: unit -> seq<'T>) =
 let concat<'Collection, 'T when 'Collection :> seq<'T>> (sources: seq<'Collection>) : seq<'T> =
     mkSeq (fun () -> Enumerator.concat sources)
 
-let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) =
-    mkSeq (fun () -> Enumerator.unfold generator state)
+[<Import("unfold", "fable_library.seq_native")>]
+let unfold (generator: 'State -> ('T * 'State) option) (state: 'State) : seq<'T> = nativeOnly
 
 let empty () =
     delay (fun () -> Array.empty :> seq<'T>)
@@ -346,7 +347,7 @@ let generateIndexed create compute dispose =
 // let inline generateUsing (openf: unit -> ('U :> System.IDisposable)) compute =
 //     generate openf compute (fun (s: 'U) -> s.Dispose())
 
-let append (xs: seq<'T>) (ys: seq<'T>) = concat [| xs; ys |]
+// `append`: no F# impl - Python's Replacements.fs redirects `Seq.append` straight to `seq_native`.
 
 let cast (xs: IEnumerable<'T>) =
     mkSeq (fun () ->
@@ -354,18 +355,7 @@ let cast (xs: IEnumerable<'T>) =
         xs.GetEnumerator() |> Enumerator.cast
     )
 
-let choose (chooser: 'T -> 'U option) (xs: seq<'T>) =
-    generate
-        (fun () -> ofSeq xs)
-        (fun e ->
-            let mutable curr = None
-
-            while (Option.isNone curr && e.MoveNext()) do
-                curr <- chooser e.Current
-
-            curr
-        )
-        (fun e -> e.Dispose())
+// `choose`: no F# impl - Python's Replacements.fs redirects `Seq.choose` straight to `seq_native`.
 
 let compareWith (comparer: 'T -> 'T -> int) (xs: seq<'T>) (ys: seq<'T>) : int =
     use e1 = ofSeq xs
@@ -449,14 +439,8 @@ let enumerateWhile (guard: unit -> bool) (xs: seq<'T>) =
             0
     )
 
-let filter f (xs: seq<'T>) =
-    xs
-    |> choose (fun x ->
-        if f x then
-            Some x
-        else
-            None
-    )
+[<Import("filter", "fable_library.seq_native")>]
+let filter (predicate: 'T -> bool) (xs: seq<'T>) : seq<'T> = nativeOnly
 
 let exists predicate (xs: seq<'T>) =
     use e = ofSeq xs
@@ -598,22 +582,7 @@ let forAll predicate xs =
 let forAll2 predicate xs ys =
     not (exists2 (fun x y -> not (predicate x y)) xs ys)
 
-let tryHead (xs: seq<'T>) =
-    match xs with
-    | :? array<'T> as a -> Array.tryHead a
-    | :? list<'T> as a -> List.tryHead a
-    | _ ->
-        use e = ofSeq xs
-
-        if e.MoveNext() then
-            Some(e.Current)
-        else
-            None
-
-let head (xs: seq<'T>) =
-    match tryHead xs with
-    | Some x -> x
-    | None -> invalidArg "source" SR.inputSequenceEmpty
+// `tryHead`/`head`: no F# impl - Replacements.fs redirects both straight to `seq_native`.
 
 let initialize count f =
     unfold
@@ -635,27 +604,7 @@ let isEmpty (xs: seq<'T>) =
         use e = ofSeq xs
         not (e.MoveNext())
 
-let tryItem index (xs: seq<'T>) =
-    match xs with
-    | :? array<'T> as a -> Array.tryItem index a
-    | :? list<'T> as a -> List.tryItem index a
-    | _ ->
-        use e = ofSeq xs
-
-        let rec loop index =
-            if not (e.MoveNext()) then
-                None
-            elif index = 0 then
-                Some e.Current
-            else
-                loop (index - 1)
-
-        loop index
-
-let item index (xs: seq<'T>) =
-    match tryItem index xs with
-    | Some x -> x
-    | None -> invalidArg "index" SR.notEnoughElements
+// `tryItem`/`item`: no F# impl, same reason as `tryHead`/`head` above.
 
 let iterate action xs = fold (fun () x -> action x) () xs
 
@@ -717,80 +666,21 @@ let length (xs: seq<'T>) =
 
         count
 
-let map (mapping: 'T -> 'U) (xs: seq<'T>) =
-    generate
-        (fun () -> ofSeq xs)
-        (fun e ->
-            if e.MoveNext() then
-                Some(mapping e.Current)
-            else
-                None
-        )
-        (fun e -> e.Dispose())
+[<Import("map", "fable_library.seq_native")>]
+let map (mapping: 'T -> 'U) (xs: seq<'T>) : seq<'U> = nativeOnly
 
-let mapIndexed (mapping: int -> 'T -> 'U) (xs: seq<'T>) =
-    generateIndexed
-        (fun () -> ofSeq xs)
-        (fun i e ->
-            if e.MoveNext() then
-                Some(mapping i e.Current)
-            else
-                None
-        )
-        (fun e -> e.Dispose())
+[<Import("map_indexed", "fable_library.seq_native")>]
+let mapIndexed (mapping: int -> 'T -> 'U) (xs: seq<'T>) : seq<'U> = nativeOnly
 
 let indexed (xs: seq<'T>) = xs |> mapIndexed (fun i x -> (i, x))
 
-let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) =
-    generate
-        (fun () -> (ofSeq xs, ofSeq ys))
-        (fun (e1, e2) ->
-            if e1.MoveNext() && e2.MoveNext() then
-                Some(mapping e1.Current e2.Current)
-            else
-                None
-        )
-        (fun (e1, e2) ->
-            try
-                e1.Dispose()
-            finally
-                e2.Dispose()
-        )
+[<Import("map2", "fable_library.seq_native")>]
+let map2 (mapping: 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) : seq<'U> = nativeOnly
 
-let mapIndexed2 (mapping: int -> 'T1 -> 'T2 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) =
-    generateIndexed
-        (fun () -> (ofSeq xs, ofSeq ys))
-        (fun i (e1, e2) ->
-            if e1.MoveNext() && e2.MoveNext() then
-                Some(mapping i e1.Current e2.Current)
-            else
-                None
-        )
-        (fun (e1, e2) ->
-            try
-                e1.Dispose()
-            finally
-                e2.Dispose()
-        )
+// `mapIndexed2`: no F# impl - Replacements.fs redirects `Seq.mapIndexed2` straight to `seq_native`.
 
-let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) (zs: seq<'T3>) =
-    generate
-        (fun () -> (ofSeq xs, ofSeq ys, ofSeq zs))
-        (fun (e1, e2, e3) ->
-            if e1.MoveNext() && e2.MoveNext() && e3.MoveNext() then
-                Some(mapping e1.Current e2.Current e3.Current)
-            else
-                None
-        )
-        (fun (e1, e2, e3) ->
-            try
-                e1.Dispose()
-            finally
-                try
-                    e2.Dispose()
-                finally
-                    e3.Dispose()
-        )
+[<Import("map3", "fable_library.seq_native")>]
+let map3 (mapping: 'T1 -> 'T2 -> 'T3 -> 'U) (xs: seq<'T1>) (ys: seq<'T2>) (zs: seq<'T3>) : seq<'U> = nativeOnly
 
 let readOnly (xs: seq<'T>) =
     let xs = nullArgCheck "source" xs
@@ -992,48 +882,13 @@ let skipWhile predicate (xs: seq<'T>) =
 
 let tail (xs: seq<'T>) = skip 1 xs
 
-let take count (xs: seq<'T>) =
-    generateIndexed
-        (fun () -> ofSeq xs)
-        (fun i e ->
-            if i < count then
-                if e.MoveNext() then
-                    Some(e.Current)
-                else
-                    invalidArg "source" SR.notEnoughElements
-            else
-                None
-        )
-        (fun e -> e.Dispose())
+// `take`/`takeWhile`: no F# impl - Replacements.fs redirects both straight to `seq_native`.
 
-let takeWhile predicate (xs: seq<'T>) =
-    generate
-        (fun () -> ofSeq xs)
-        (fun e ->
-            if e.MoveNext() && predicate e.Current then
-                Some(e.Current)
-            else
-                None
-        )
-        (fun e -> e.Dispose())
-
-let truncate count (xs: seq<'T>) =
-    generateIndexed
-        (fun () -> ofSeq xs)
-        (fun i e ->
-            if i < count && e.MoveNext() then
-                Some(e.Current)
-            else
-                None
-        )
-        (fun e -> e.Dispose())
+// `truncate`/`collect`: no F# impl, same reason as `append` above.
 
 let zip (xs: seq<'T1>) (ys: seq<'T2>) = map2 (fun x y -> (x, y)) xs ys
 
 let zip3 (xs: seq<'T1>) (ys: seq<'T2>) (zs: seq<'T3>) = map3 (fun x y z -> (x, y, z)) xs ys zs
-
-let collect<'T, 'Collection, 'U when 'Collection :> 'U seq> (mapping: 'T -> 'Collection) (xs: seq<'T>) : seq<'U> =
-    delay (fun () -> xs |> map mapping |> concat)
 
 let where predicate (xs: seq<'T>) = filter predicate xs
 
