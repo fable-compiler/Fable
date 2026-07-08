@@ -371,6 +371,26 @@ let tests =
         equal 1 (compare c1 c3)
         equal true (c1 > c3)
 
+    testCase "compare with NaN follows .NET total ordering" <| fun () ->
+        equal 0 (compare nan nan)
+        equal -1 (compare nan 1.0)
+        equal 1 (compare 1.0 nan)
+        equal -1 (compare nan infinity)
+        equal 1 (compare infinity nan)
+        equal -1 (compare nan (-infinity))
+        equal (compare nan 1.0) (-(compare 1.0 nan))
+
+    testCase "List.sort with NaN puts NaN first" <| fun () ->
+        let sorted = List.sort [ 3.; nan; 1.; 2. ]
+        Double.IsNaN(List.head sorted) |> equal true
+        equal [ 1.; 2.; 3. ] (List.tail sorted)
+
+    testCase "min and max propagate NaN like .NET" <| fun () ->
+        Double.IsNaN(min nan 1.0) |> equal true
+        Double.IsNaN(min 1.0 nan) |> equal true
+        Double.IsNaN(max nan 1.0) |> equal true
+        Double.IsNaN(max 1.0 nan) |> equal true
+
     testCase "max works with primitives" <| fun () ->
         max 1 2 |> equal 2
         max 10m 2m |> equal 10m
