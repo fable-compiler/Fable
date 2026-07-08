@@ -23,6 +23,7 @@ type CliArgs =
         Configuration: string
         NoRestore: bool
         NoCache: bool
+        NoGitignore: bool
         NoParallelTypeCheck: bool
         SourceMaps: bool
         SourceMapsRoot: string option

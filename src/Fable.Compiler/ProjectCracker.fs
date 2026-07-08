@@ -80,7 +80,10 @@ type CacheInfo =
 let getFableModulesFromDir (baseDir: string) : string =
     IO.Path.Combine(baseDir, Naming.fableModules) |> Path.normalizePath
 
-let getFableModulesFromProject (projDir: string, outDir: string option, noCache: bool, evaluateOnly: bool) : string =
+let getFableModulesFromProject
+    (projDir: string, outDir: string option, noCache: bool, noGitignore: bool, evaluateOnly: bool)
+    : string
+    =
     let fableModulesDir =
         outDir |> Option.defaultWith (fun () -> projDir) |> getFableModulesFromDir
 
@@ -95,7 +98,8 @@ let getFableModulesFromProject (projDir: string, outDir: string option, noCache:
     if File.isDirectoryEmpty fableModulesDir then
         IO.Directory.CreateDirectory(fableModulesDir) |> ignore
 
-        IO.File.WriteAllText(IO.Path.Combine(fableModulesDir, ".gitignore"), "**/*")
+        if not noGitignore then
+            IO.File.WriteAllText(IO.Path.Combine(fableModulesDir, ".gitignore"), "**/*")
 
     fableModulesDir
 
@@ -103,7 +107,7 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
     let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
 
     let fableModulesDir =
-        getFableModulesFromProject (projDir, cliArgs.OutDir, cliArgs.NoCache, evaluateOnly)
+        getFableModulesFromProject (projDir, cliArgs.OutDir, cliArgs.NoCache, cliArgs.NoGitignore, evaluateOnly)
 
     let builtDlls = HashSet()
 
@@ -157,7 +161,8 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
 
         IO.Directory.CreateDirectory(fableModulesDir) |> ignore
 
-        IO.File.WriteAllText(IO.Path.Combine(fableModulesDir, ".gitignore"), "**/*")
+        if not cliArgs.NoGitignore then
+            IO.File.WriteAllText(IO.Path.Combine(fableModulesDir, ".gitignore"), "**/*")
 
 type CrackerResponse =
     {
