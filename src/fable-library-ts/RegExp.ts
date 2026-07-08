@@ -117,28 +117,32 @@ export function replace(
     input = tmp;
     limit = undefined;
   }
-  if (typeof replacement === "function") {
-    limit = limit == null ? -1 : limit;
-    return input.substring(0, offset) + input.substring(offset).replace(reg as RegExp, replacer);
-  } else {
-    replacement =
-      replacement
-      // $0 doesn't work with JS regex, see #1155
-      .replace(/\$0/g, (_s) => "$&")
-      // named groups in replacement are `${name}` in .Net, but `$<name>` in JS (in regex: groups are `(?<name>...)` in both)
-      .replace(/\${([^}]+)}/g, "\$<$1>")
-      ;
-    if (limit != null) {
-      let m: RegExpExecArray;
-      const sub1 = input.substring(offset);
-      const _matches = matches(reg, sub1);
-      const sub2 = matches.length > limit ? (m = _matches[limit - 1], sub1.substring(0, m.index + m[0].length)) : sub1;
-      return input.substring(0, offset) + sub2.replace(reg as RegExp, replacement as string)
-        + input.substring(offset + sub2.length);
-    } else {
-      return input.replace(reg as RegExp, replacement as string);
-    }
+  if (typeof replacement === "string") {
+    const rep = replacement as string;
+    // .NET replacement patterns cannot be rewritten as JS replacement strings unambiguously
+    // (e.g. `$$0` must stay literal "$0", `$0` doesn't work with JS regex (see #1155), and
+    // `${1}` followed by a digit must not become `$1` + digit), so interpret them with an
+    // evaluator instead, honoring the `$$` escape left-to-right
+    replacement = (match: any): string =>
+      rep.replace(/\$(?:(\$)|(&)|(`)|(')|(\d+)|\{(\d+)\}|\{([^}]+)\})/g,
+        (s, dollar?: string, and?: string, before?: string, after?: string, num?: string, numBraced?: string, name?: string) => {
+          if (dollar != null) { return "$"; }
+          if (and != null) { return match[0]; }
+          if (before != null) { return match.input.substring(0, match.index); }
+          if (after != null) { return match.input.substring(match.index + match[0].length); }
+          const n = num ?? numBraced;
+          if (n != null) {
+            const i = parseInt(n, 10);
+            // Same as .NET: an unmatched group is replaced by an empty string,
+            // a nonexistent group number keeps the substitution pattern literally
+            return i < match.length ? (match[i] ?? "") : s;
+          }
+          // Named groups are `${name}` in .NET (in regex: groups are `(?<name>...)` in both)
+          return match.groups != null && (name as string) in match.groups ? (match.groups[name as string] ?? "") : s;
+        });
   }
+  limit = limit == null ? -1 : limit;
+  return input.substring(0, offset) + input.substring(offset).replace(reg as RegExp, replacer);
 }
 
 export function split(reg: string | RegExp, input: string, limit?: number, offset: number = 0) {
@@ -148,6 +152,26 @@ export function split(reg: string | RegExp, input: string, limit?: number, offse
     input = tmp;
     limit = undefined;
   }
-  input = input.substring(offset);
-  return input.split(reg as RegExp, limit);
+  // JS String.split(regex, limit) truncates the result and discards the remainder,
+  // whereas .NET keeps it in the last element (`limit` is the max number of elements),
+  // keeps the text before `offset` in the first element and includes the values of
+  // matched capture groups, so iterate the matches manually like .NET Regex.Split does
+  const result: string[] = [];
+  let prev = 0;
+  let count = limit == null ? -1 : limit - 1;
+  for (const m of matches(reg as RegExp, input, offset)) {
+    if (count === 0) {
+      break;
+    }
+    result.push(input.substring(prev, m.index));
+    prev = m.index + m[0].length;
+    for (let i = 1; i < m.length; i++) {
+      if (m[i] !== undefined) {
+        result.push(m[i]);
+      }
+    }
+    count--;
+  }
+  result.push(input.substring(prev));
+  return result;
 }
