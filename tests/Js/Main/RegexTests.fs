@@ -298,6 +298,33 @@ let tests =
         let s = Regex.Replace("1234567890", ".{2}", "$0-")
         equal "12-34-56-78-90-" s
 
+    testCase "Regex.Replace with count limit replaces exactly count matches" <| fun _ ->
+        let r = Regex("a")
+        r.Replace("aaaa", "b", 1) |> equal "baaa"
+        r.Replace("aaaa", "b", 2) |> equal "bbaa"
+        r.Replace("aaaa", "b", 3) |> equal "bbba"
+
+    testCase "Regex.Replace with numbered group substitution works" <| fun _ ->
+        Regex.Replace("abc", "(b)", "[${1}]") |> equal "a[b]c"
+        Regex.Replace("abc", "(b)", "[$1]") |> equal "a[b]c"
+
+    testCase "Regex.Replace with $$ escape works" <| fun _ ->
+        Regex.Replace("abc", "b", "$$") |> equal "a$c"
+        Regex.Replace("abc", "b", "$$0") |> equal "a$0c"
+
+    testCase "Regex.Replace with whole match works" <| fun _ ->
+        Regex.Replace("abc", "b", "$0") |> equal "abc"
+        Regex.Replace("abc", "b", "[$&]") |> equal "a[b]c"
+
+    testCase "Regex.Split with count keeps remainder" <| fun _ ->
+        Regex(",").Split("a,b,c", 2) |> equal [| "a"; "b,c" |]
+
+    testCase "Regex.Split without count works" <| fun _ ->
+        Regex.Split("1a2b3", "[a-z]") |> equal [| "1"; "2"; "3" |]
+
+    testCase "Regex.Split with capturing group includes captures" <| fun _ ->
+        Regex.Split("a1b2c", "([0-9])") |> equal [| "a"; "1"; "b"; "2"; "c" |]
+
     // See #838
     testCase "Group values are correct and empty when not being matched" <| fun _ ->
         Regex.Matches("\n\n\n", @"(?:([^\n\r]+)|\r\n|\n\r|\n|\r)")
