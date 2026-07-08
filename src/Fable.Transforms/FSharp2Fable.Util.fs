@@ -2026,6 +2026,8 @@ module Util =
     /// on all targets and semantically correct if it were ever reached.
     /// TODO: Remove when FCS compiles the handler with Rethrow like normal try/with does
     /// (see CheckExpressions.fs vs CheckSequenceExpressions.fs).
+    /// FCS issue: https://github.com/dotnet/fsharp/issues/20040
+    /// Fable PR: https://github.com/fable-compiler/Fable/pull/4719
     let fixEnumerateTryWithHandler (memb: FSharpMemberOrFunctionOrValue) (args: Fable.Expr list) =
         if memb.FullName = "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers.EnumerateTryWith" then
             match args with
