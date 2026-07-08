@@ -951,7 +951,7 @@ type Set<[<EqualityConditionalOn>] 'T when 'T: comparison>(comparer: IComparer<'
     //     Set(comparer, SetTree.ofArray comparer arr)
 
     override this.ToString() =
-        "set [" + System.String.Join("; ", this) + "]"
+        structuredCollectionToString "set [" this "]"
 
 // [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 // [<RequireQualifiedAccess>]

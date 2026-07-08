@@ -158,15 +158,36 @@ let ``test sprintf \"%A\" formats booleans as lowercase`` () =
     let optResult = sprintf "Some(%A)" true
     equal "Some(true)" optResult
 
+// See https://github.com/fable-compiler/Fable/issues/4732
+[<Fact>]
+let ``test sprintf \"%A\" quotes strings`` () =
+    sprintf "%A" "test" |> equal "\"test\""
+    sprintf "%A" "" |> equal "\"\""
+    // %O and %s don't quote a bare string
+    sprintf "%O" "test" |> equal "test"
+    sprintf "%s" "test" |> equal "test"
+
+// See https://github.com/fable-compiler/Fable/issues/4732
+[<Fact>]
+let ``test sprintf \"%A\" wraps strings without escaping`` () =
+    // F#'s %A only wraps a string in quotes; it does NOT escape embedded
+    // double-quotes, backslashes, or control characters (verified on .NET).
+    sprintf "%A" "a\"b" |> equal "\"a\"b\""
+    sprintf "%A" "a\\b" |> equal "\"a\\b\""
+    sprintf "%A" "a\nb" |> equal "\"a\nb\""
+    sprintf "%A" "a\tb" |> equal "\"a\tb\""
+    // Same behavior when the string is nested inside a container
+    sprintf "%A" [ "a\"b" ] |> equal "[\"a\"b\"]"
+
 [<Fact>]
 let ``test sprintf \"%A\" with lists works`` () =
     let xs = ["Hi"; "Hello"; "Hola"]
-    (sprintf "%A" xs).Replace("\"", "") |> equal "[Hi; Hello; Hola]"
+    sprintf "%A" xs |> equal "[\"Hi\"; \"Hello\"; \"Hola\"]"
 
 [<Fact>]
 let ``test sprintf \"%A\" with nested lists works`` () =
     let xs = [["Hi"]; ["Hello"]; ["Hola"]]
-    (sprintf "%A" xs).Replace("\"", "") |> equal "[[Hi]; [Hello]; [Hola]]"
+    sprintf "%A" xs |> equal "[[\"Hi\"]; [\"Hello\"]; [\"Hola\"]]"
 
 [<Fact>]
 let ``test sprintf \"%A\" with sequences works`` () =
