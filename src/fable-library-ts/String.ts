@@ -81,7 +81,7 @@ export function endsWith(str: string, pattern: string, ic: boolean | StringCompa
     return str.endsWith(pattern);
   }
   if (str.length >= pattern.length) {
-    return cmp(str.slice(-pattern.length), pattern, ic) === 0;
+    return cmp(str.slice(str.length - pattern.length), pattern, ic) === 0;
   }
   return false;
 }
