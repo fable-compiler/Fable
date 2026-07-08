@@ -35,8 +35,16 @@ export class Event$2<Delegate extends Function, Args> {
   public Trigger(value: Args): void;
   public Trigger(sender: any, value: Args): void
   public Trigger(senderOrValue: any, valueOrUndefined?: Args): void {
+    // Disambiguate the overloads by arity, not by value: a two-argument call may
+    // legitimately pass `undefined` as the event value (e.g. unit events).
     let sender: any = null;
-    const value = valueOrUndefined === undefined ? senderOrValue as Args : (sender = senderOrValue, valueOrUndefined);
+    let value: Args;
+    if (arguments.length <= 1) {
+      value = senderOrValue as Args;
+    } else {
+      sender = senderOrValue;
+      value = valueOrUndefined as Args;
+    }
     this.delegates.forEach(f => { f(sender, value) });
   }
 }
