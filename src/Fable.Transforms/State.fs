@@ -69,7 +69,7 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list, addLog: Severi
                                 with ex ->
                                     let errorMessage =
                                         [
-                                            $"Error while loading plugin: %s{e.FullName}"
+                                            $"Error while loading plugin: %s{e.FullName}. Original error: %s{ex.Message}"
                                             ""
                                             "This error often happens if you are trying to use a plugin that is not compatible with the current version of Fable."
                                             "If you see this error please open an issue at https://github.com/fable-compiler/Fable/"
