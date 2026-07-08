@@ -1466,12 +1466,13 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
             let field = uci.UnionCaseFields |> List.item i.FieldIndex
             let fieldName = field.Name |> Naming.toFieldSnakeCase |> Helpers.clean
             // `fableExpr` is statically typed as the union base, which doesn't declare this
-            // field, so tell Pyright which case class we're reading from (cast is a no-op
-            // at runtime). See reportUnnecessaryCast in pyrightconfig.json.
+            // field, so tell Pyright which case class we're reading from via the library's
+            // `narrow` helper (a no-op at runtime). Keeping the "cast" inside `narrow`
+            // leaves generated code cast-free and preserves reportUnnecessaryCast.
             let caseRef = getUnionCaseRef com ctx i.Entity ent uci
-            let cast = com.GetImportExpr(ctx, "typing", "cast")
-            let castedExpr = Expression.call (cast, [ caseRef; baseExpr ])
-            let! finalExpr = getExpr com ctx range castedExpr (Expression.stringConstant fieldName)
+            let narrow = libValue com ctx "union" "narrow"
+            let narrowedExpr = Expression.call (narrow, [ caseRef; baseExpr ])
+            let! finalExpr = getExpr com ctx range narrowedExpr (Expression.stringConstant fieldName)
             return finalExpr
         }
 
