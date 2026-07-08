@@ -412,6 +412,20 @@ let tests =
         test -20 2050
         test -100 2046
 
+    testCase "DateTimeOffset.AddMonths keeps last day when delta is a multiple of 12" <| fun () ->
+        let dt = DateTimeOffset(2020, 12, 31, 0, 0, 0, TimeSpan.Zero).AddMonths(12)
+        dt.Year |> equal 2021
+        dt.Month |> equal 12
+        dt.Day |> equal 31
+
+    testCase "DateTimeOffset.AddYears keeps offset-local wall clock" <| fun () ->
+        let dt = DateTimeOffset(2020, 1, 1, 2, 0, 0, TimeSpan.FromHours 5.).AddYears(1)
+        dt.Year |> equal 2021
+        dt.Month |> equal 1
+        dt.Day |> equal 1
+        dt.Hour |> equal 2
+        dt.Offset |> equal (TimeSpan.FromHours 5.)
+
     testCase "DateTimeOffset.AddDays works" <| fun () ->
         let test v expected =
             let dt = DateTimeOffset(2014,9,12,0,0,0,TimeSpan.Zero).AddDays(v)
