@@ -1060,6 +1060,27 @@ let tests = testList "Strings" [
             "ABCD".EndsWith(fst arg, true, CultureInfo.InvariantCulture)
             |> equal (snd arg)
 
+    testCase "String.EndsWith with empty pattern and StringComparison works" <| fun () ->
+        // .NET: every string ends with "" for all StringComparison values
+        "hello".EndsWith("", StringComparison.CurrentCulture) |> equal true
+        "hello".EndsWith("", StringComparison.InvariantCulture) |> equal true
+        "hello".EndsWith("", StringComparison.Ordinal) |> equal true
+        "hello".EndsWith("", StringComparison.OrdinalIgnoreCase) |> equal true
+        "hello".EndsWith("", StringComparison.InvariantCultureIgnoreCase) |> equal true
+        "".EndsWith("", StringComparison.CurrentCulture) |> equal true
+        "hello".StartsWith("", StringComparison.CurrentCulture) |> equal true
+        "hello".StartsWith("", StringComparison.Ordinal) |> equal true
+        "hello".StartsWith("", StringComparison.OrdinalIgnoreCase) |> equal true
+
+    testCase "String.EndsWith with non-empty pattern and StringComparison works" <| fun () ->
+        "hello".EndsWith("LO", StringComparison.OrdinalIgnoreCase) |> equal true
+        "hello".EndsWith("LO", StringComparison.InvariantCultureIgnoreCase) |> equal true
+        "hello".EndsWith("lo", StringComparison.Ordinal) |> equal true
+        "hello".EndsWith("LO", StringComparison.Ordinal) |> equal false
+        "hello".EndsWith("he", StringComparison.Ordinal) |> equal false
+        "hello".EndsWith("hello", StringComparison.CurrentCulture) |> equal true
+        "hello".EndsWith("xhello", StringComparison.Ordinal) |> equal false
+
     testCase "String.Trim works" <| fun () ->
         "   abc   ".Trim()
         |> equal "abc"
