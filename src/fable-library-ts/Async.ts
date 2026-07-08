@@ -11,11 +11,6 @@ function emptyContinuation<T>(_x: T) {
   // NOP
 }
 
-// see AsyncBuilder.Delay
-function delay<T>(generator: () => Async<T>) {
-  return protectedCont((ctx: IAsyncContext<T>) => generator()(ctx));
-}
-
 // MakeAsync: body:(AsyncActivation<'T> -> AsyncReturn) -> Async<'T>
 export function makeAsync<T>(body: Async<T>) {
   return body;
@@ -60,24 +55,33 @@ export function throwIfCancellationRequested(token: CancellationToken) {
 }
 
 export function startChild<T>(computation: Async<T>, ms?: number): Async<Async<T>> {
-  const promise = startAsPromise(computation);
-  let promiseToRun = promise;
+  return protectedCont((ctx) => {
+    // Share the parent's cancellation token so cancelling the parent
+    // cancels the child, like .NET Async.StartChild
+    const promise = startAsPromise(computation, ctx.cancelToken);
+    let promiseToRun = promise;
 
-  if (ms) {
-    // Race the computation against a timeout: whichever settles first wins.
-    promiseToRun = new Promise<T>((resolve, reject) => {
-      const timeoutId = setTimeout(() => reject(TimeoutException_$ctor()), ms);
-      promise.then(
-        value => { clearTimeout(timeoutId); resolve(value); },
-        error => { clearTimeout(timeoutId); reject(error); }
-      );
-    });
-  }
+    if (ms) {
+      // Race the computation against a timeout: whichever settles first wins.
+      promiseToRun = new Promise<T>((resolve, reject) => {
+        const timeoutId = setTimeout(() => reject(TimeoutException_$ctor()), ms);
+        promise.then(
+          value => { clearTimeout(timeoutId); resolve(value); },
+          error => { clearTimeout(timeoutId); reject(error); }
+        );
+      });
+    }
 
-  // JS Promises are hot, computation has already started
-  // but we delay returning the result
-  return protectedCont((ctx) =>
-    protectedReturn(awaitPromise(promiseToRun))(ctx));
+    // Prevent an unhandled rejection when the child is cancelled or fails
+    // while nobody awaits it (in F# an unobserved child's cancellation or
+    // failure is simply not propagated). awaitPromise attaches its own
+    // handlers to the same promise, so awaiting still observes the result.
+    promiseToRun.catch(emptyContinuation);
+
+    // JS Promises are hot, computation has already started
+    // but we delay returning the result
+    protectedReturn(awaitPromise(promiseToRun))(ctx);
+  });
 }
 
 export function awaitPromise<T>(p: Promise<T>) {
@@ -132,20 +136,24 @@ export function ignore<T>(computation: Async<T>) {
 }
 
 export function parallel<T>(computations: Iterable<Async<T>>) {
-  return delay(() => awaitPromise(Promise.all(Array.from(computations, (w) => startAsPromise(w)))));
+  // Children share the parent's cancellation token, like .NET Async.Parallel
+  return protectedCont((ctx: IAsyncContext<T[]>) =>
+    awaitPromise(Promise.all(Array.from(computations, (w) => startAsPromise(w, ctx.cancelToken))))(ctx));
 }
 
 export function sequential<T>(computations: Iterable<Async<T>>) {
 
-  function _sequential<T>(computations: Iterable<Async<T>>): Promise<T[]> {
+  function _sequential(computations: Iterable<Async<T>>, cancelToken: CancellationToken): Promise<T[]> {
     let pr: Promise<T[]> = Promise.resolve([]);
     for (const c of computations) {
-      pr = pr.then(results => startAsPromise(c).then(r => results.concat([r])))
+      pr = pr.then(results => startAsPromise(c, cancelToken).then(r => results.concat([r])))
     }
     return pr;
   }
 
-  return delay(() => awaitPromise<T[]>(_sequential<T>(computations)));
+  // Children share the parent's cancellation token, like .NET Async.Sequential
+  return protectedCont((ctx: IAsyncContext<T[]>) =>
+    awaitPromise<T[]>(_sequential(computations, ctx.cancelToken))(ctx));
 }
 
 export function sleep(millisecondsDueTime: number) {
@@ -184,10 +192,15 @@ export function startWithContinuations<T>(
   cancelToken?: CancellationToken) {
 
   const trampoline = new Trampoline();
+  // Mark the computation completed as soon as a terminal continuation is entered
+  // so protectedCont lets exceptions from continuation code propagate instead of
+  // routing them to onError (see Trampoline.completed).
+  const done = <U>(cont: Continuation<U>): Continuation<U> =>
+    (x: U) => { trampoline.completed = true; return cont(x); };
   computation({
-    onSuccess: continuation ? continuation as Continuation<T> : emptyContinuation,
-    onError: exceptionContinuation,
-    onCancel: cancellationContinuation,
+    onSuccess: done(continuation ? continuation as Continuation<T> : emptyContinuation),
+    onError: done(exceptionContinuation),
+    onCancel: done(cancellationContinuation),
     cancelToken: cancelToken ? cancelToken : defaultCancellationToken,
     trampoline,
   });

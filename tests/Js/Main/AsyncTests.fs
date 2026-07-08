@@ -649,4 +649,57 @@ let tests =
         }, cts.Token)
         cts.Cancel()
         async { equal true cancelCalled }
+
+    testCase "Async try .. with does not run 'with' branch when body succeeds" <| fun () ->
+        let work = async {
+            try
+              return 1
+            with _ ->
+              return 99 }
+        let mutable result = 0
+        Async.StartWithContinuations(work, (fun r -> result <- r), ignore, ignore)
+        equal result 1
+
+    testCaseAsync "Async.StartChild cancels the child when the parent's token is cancelled" <| fun () ->
+        async {
+            let mutable finallyRan = false
+            let mutable completed = false
+            let cts = new System.Threading.CancellationTokenSource()
+            let child = async {
+                try
+                    do! Async.Sleep 500
+                    completed <- true
+                finally
+                    finallyRan <- true
+            }
+            let parent = async {
+                let! childResult = Async.StartChild child
+                do! childResult
+            }
+            Async.StartImmediate(parent, cts.Token)
+            do! Async.Sleep 200
+            cts.Cancel()
+            do! Async.Sleep 600
+            equal true finallyRan
+            equal false completed
+        }
+
+    testCaseAsync "Async.Parallel children are cancelled when the parent's token is cancelled" <| fun () ->
+        async {
+            let mutable completed = 0
+            let cts = new System.Threading.CancellationTokenSource()
+            let mkChild () = async {
+                do! Async.Sleep 500
+                completed <- completed + 1
+            }
+            let work = async {
+                let! _ = Async.Parallel [ mkChild(); mkChild(); mkChild() ]
+                return ()
+            }
+            Async.StartImmediate(work, cts.Token)
+            do! Async.Sleep 200
+            cts.Cancel()
+            do! Async.Sleep 600
+            equal 0 completed
+        }
   ]
