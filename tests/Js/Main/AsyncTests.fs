@@ -414,6 +414,40 @@ let tests =
             equal 0 resp
         }
 
+    testCaseAsync "MailboxProcessor delivers falsy messages in order" <| fun () -> // See #1588
+        async {
+            let mutable collected = []
+            let agent = MailboxProcessor<int>.Start(fun inbox ->
+                let rec loop () = async {
+                    let! msg = inbox.Receive()
+                    if msg = -1 then ()
+                    else
+                        collected <- msg :: collected
+                        return! loop ()
+                }
+                loop ())
+            for msg in [1; 0; 2; 0; 3] do
+                agent.Post(msg)
+            agent.Post(-1)
+            do! Async.Sleep 200
+            equal [1; 0; 2; 0; 3] (List.rev collected)
+        }
+
+    testCaseAsync "MailboxProcessor.postAndAsyncReply completes with unit reply" <| fun () ->
+        async {
+            let mutable ran = false
+            let agent = MailboxProcessor<AsyncReplyChannel<unit>>.Start(fun inbox ->
+                let rec loop () = async {
+                    let! chan = inbox.Receive()
+                    chan.Reply()
+                    return! loop ()
+                }
+                loop ())
+            do! agent.PostAndAsyncReply(fun ch -> ch)
+            ran <- true
+            equal true ran
+        }
+
     testCase "Async try .. with returns correctly from 'with' branch" <| fun () ->
         let work = async {
             try
