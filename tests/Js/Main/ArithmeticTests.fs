@@ -702,6 +702,16 @@ let tests =
         Decimal.MaxMagnitude(-4.0M, 3.0M) |> equal -4.0M
         bigint.MaxMagnitude(-4I, 3I) |> equal -4I
 
+    testCase "Numeric Min/Max/MinMagnitude/MaxMagnitude propagate NaN" <| fun () ->
+        Double.IsNaN(Double.Min(nan, 1.0)) |> equal true
+        Double.IsNaN(Double.Min(1.0, nan)) |> equal true
+        Double.IsNaN(Double.Max(nan, 1.0)) |> equal true
+        Double.IsNaN(Double.Max(1.0, nan)) |> equal true
+        Double.IsNaN(Double.MinMagnitude(nan, 1.0)) |> equal true
+        Double.IsNaN(Double.MinMagnitude(1.0, nan)) |> equal true
+        Double.IsNaN(Double.MaxMagnitude(nan, 1.0)) |> equal true
+        Double.IsNaN(Double.MaxMagnitude(1.0, nan)) |> equal true
+
     testCase "Numeric Clamp works" <| fun () ->
         SByte.Clamp(5y, -4y, 3y) |> equal 3y
         Int16.Clamp(5s, -4s, 3s) |> equal 3s
@@ -744,6 +754,26 @@ let tests =
     testCase "Math.MaxMagnitude works" <| fun () ->
         Math.MaxMagnitude(-4.0, 3.0) |> equal -4.0
         MathF.MaxMagnitude(-4.0f, 3.0f) |> equal -4.0f
+
+    testCase "Math.Min/Max/MinMagnitude/MaxMagnitude propagate NaN" <| fun () ->
+        Double.IsNaN(Math.Min(nan, 1.0)) |> equal true
+        Double.IsNaN(Math.Min(1.0, nan)) |> equal true
+        Double.IsNaN(Math.Max(nan, 1.0)) |> equal true
+        Double.IsNaN(Math.Max(1.0, nan)) |> equal true
+        Double.IsNaN(Math.MinMagnitude(nan, 1.0)) |> equal true
+        Double.IsNaN(Math.MinMagnitude(1.0, nan)) |> equal true
+        Double.IsNaN(Math.MaxMagnitude(nan, 1.0)) |> equal true
+        Double.IsNaN(Math.MaxMagnitude(1.0, nan)) |> equal true
+
+    // fable-compiler-js (used by both the npm package and the Standalone build) loses the sign
+    // when printing a `-0.0` literal, so this can only be tested against Fable.Cli.
+#if !NPM_PACKAGE_FABLE_COMPILER_JAVASCRIPT
+    testCase "Math.Min/Max prefer +0.0 over -0.0 regardless of operand order" <| fun () ->
+        Double.IsPositiveInfinity(1.0 / Math.Max(0.0, -0.0)) |> equal true
+        Double.IsPositiveInfinity(1.0 / Math.Max(-0.0, 0.0)) |> equal true
+        Double.IsNegativeInfinity(1.0 / Math.Min(0.0, -0.0)) |> equal true
+        Double.IsNegativeInfinity(1.0 / Math.Min(-0.0, 0.0)) |> equal true
+#endif
 
     testCase "incr works" <| fun () ->
         let i = ref 5
