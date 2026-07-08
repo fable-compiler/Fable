@@ -816,6 +816,40 @@ let tests =
         Numerics.BigInteger([|231uy; 216uy; 2uy; 164uy; 86uy; 149uy; 8uy; 199uy; 62uy; 0uy; 92uy|]) |> equal 111222333444555666777888999I
         Numerics.BigInteger([|25uy; 39uy; 253uy; 91uy; 169uy; 106uy; 247uy; 56uy; 193uy; 255uy; 163uy|]) |> equal -111222333444555666777888999I
 
+    testCase "Big integer to byte array round-trips negatives" <| fun () ->
+        // See regression where -62837 corrupted the sign extension
+        (bigint -62837).ToByteArray() |> equal [|0x8Buy; 0x0Auy; 0xFFuy|]
+        Numerics.BigInteger((bigint -62837).ToByteArray()) |> equal -62837I
+        (bigint -129).ToByteArray() |> equal [|0x7Fuy; 0xFFuy|]
+        Numerics.BigInteger((bigint -129).ToByteArray()) |> equal -129I
+        (bigint -256).ToByteArray() |> equal [|0x00uy; 0xFFuy|]
+        Numerics.BigInteger((bigint -256).ToByteArray()) |> equal -256I
+        (bigint 255).ToByteArray() |> equal [|0xFFuy; 0x00uy|]
+        Numerics.BigInteger((bigint 255).ToByteArray()) |> equal 255I
+
+    testCase "BigInteger.GreatestCommonDivisor works with negatives" <| fun () ->
+        bigint.GreatestCommonDivisor(-4I, 6I) |> equal 2I
+        bigint.GreatestCommonDivisor(4I, -6I) |> equal 2I
+        bigint.GreatestCommonDivisor(-4I, -6I) |> equal 2I
+        bigint.GreatestCommonDivisor(0I, -5I) |> equal 5I
+
+    testCase "BigInteger.Log2 works for non-powers-of-two" <| fun () ->
+        bigint.Log2 5I |> equal 2I
+        bigint.Log2 8I |> equal 3I
+
+    testCase "BigInteger.GetBitLength works" <| fun () ->
+        (0I).GetBitLength() |> equal 0L
+        (-1I).GetBitLength() |> equal 0L
+        (255I).GetBitLength() |> equal 8L
+        (-8I).GetBitLength() |> equal 3L
+
+    testCase "BigInteger checked conversions throw on overflow" <| fun () ->
+        (fun () -> int8 200I) |> throwsError ""
+        (fun () -> uint8 -1I) |> throwsError ""
+        (fun () -> int32 3000000000I) |> throwsError ""
+        (fun () -> byte 256I) |> throwsError ""
+        (fun () -> sbyte 200I) |> throwsError ""
+
     testCase "Member values of decimal type can be compared" <| fun () -> // See #747
         decimalOne < decimalTwo |> equal true
         decimalOne > decimalTwo |> equal false
