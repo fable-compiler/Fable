@@ -439,6 +439,71 @@ let enumerateWhile (guard: unit -> bool) (xs: seq<'T>) =
             0
     )
 
+// State for `enumerateTryWith`, threaded through `generate` as a parameter (rather than captured
+// mutables) so Fable's Python codegen never emits a `nonlocal` for the swapped enumerator — a
+// plain `mutable` would produce conflicting `nonlocal e` declarations across the try/except.
+// A record (not a `ref` cell) is used on purpose: Fable's ref-cell -> mutable optimization could
+// reintroduce the `nonlocal`, whereas a record field is always an attribute assignment.
+type private EnumerateTryWithState<'T> =
+    {
+        mutable Source: IEnumerator<'T> option
+        mutable Caught: bool // switched to the handler sequence
+    }
+
+let enumerateTryWith (source: seq<'T>) (catchFilter: exn -> int) (catchHandler: exn -> seq<'T>) : seq<'T> =
+    generate
+        (fun () ->
+            {
+                Source = None
+                Caught = false
+            }
+        )
+        (fun (state: EnumerateTryWithState<'T>) ->
+            let mutable result = None
+            let mutable go = true
+
+            while go do
+                try
+                    let en =
+                        match state.Source with
+                        | Some en -> en
+                        | None ->
+                            let en = source.GetEnumerator()
+                            state.Source <- Some en
+                            en
+
+                    if en.MoveNext() then
+                        result <- Some en.Current
+                        go <- false
+                    else
+                        // exhausted: leave result = None so `generate` finishes
+                        go <- false
+                with ex ->
+                    if (not state.Caught) && catchFilter ex <> 0 then
+                        match state.Source with
+                        | Some en ->
+                            (try
+                                en.Dispose()
+                             with _ ->
+                                 ())
+
+                            state.Source <- None
+                        | None -> ()
+
+                        state.Source <- Some((catchHandler ex).GetEnumerator())
+                        state.Caught <- true
+                    // else: loop again, pulling from the handler sequence
+                    else
+                        reraise ()
+
+            result
+        )
+        (fun (state: EnumerateTryWithState<'T>) ->
+            match state.Source with
+            | Some en -> en.Dispose()
+            | None -> ()
+        )
+
 [<Import("filter", "fable_library.seq_native")>]
 let filter (predicate: 'T -> bool) (xs: seq<'T>) : seq<'T> = nativeOnly
 
