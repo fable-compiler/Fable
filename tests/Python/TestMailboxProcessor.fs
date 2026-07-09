@@ -86,6 +86,22 @@ let ``test MailboxProcessor.postAndAsyncReply works with falsy values`` () =
         equal 0 resp
     } |> Async.StartImmediate
 
+[<Fact>]
+let ``test MailboxProcessor.postAndAsyncReply completes with unit reply`` () =
+    async {
+        let mutable ran = false
+        let agent = MailboxProcessor<AsyncReplyChannel<unit>>.Start(fun inbox ->
+            let rec loop () = async {
+                let! chan = inbox.Receive()
+                chan.Reply()
+                return! loop ()
+            }
+            loop ())
+        do! agent.PostAndAsyncReply(fun ch -> ch)
+        ran <- true
+        equal true ran
+    } |> Async.StartImmediate
+
 // Message ordering
 
 [<Fact>]
