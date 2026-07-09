@@ -172,6 +172,16 @@ let ``test String.EndsWith with OrdinalIgnoreCase works`` () =
     "ABCD".EndsWith("xabcd", StringComparison.OrdinalIgnoreCase) |> equal false
     "ABCD".EndsWith("abcd", StringComparison.OrdinalIgnoreCase) |> equal true
 
+[<Fact>]
+let ``test String.StartsWith and String.EndsWith with empty pattern works`` () =
+    // .NET: every string starts/ends with ""
+    "abcd".StartsWith("") |> equal true
+    "abcd".EndsWith("") |> equal true
+    "".StartsWith("") |> equal true
+    "".EndsWith("") |> equal true
+    "abcd".StartsWith("", StringComparison.OrdinalIgnoreCase) |> equal true
+    "abcd".EndsWith("", StringComparison.OrdinalIgnoreCase) |> equal true
+
 // --- Substring ---
 
 [<Fact>]
@@ -197,6 +207,12 @@ let ``test String.Contains works`` () =
     "ABC".Contains("B") |> equal true
     "ABC".Contains("Z") |> equal false
 
+[<Fact>]
+let ``test String.Contains with empty pattern works`` () =
+    // .NET: every string contains ""
+    "ABC".Contains("") |> equal true
+    "".Contains("") |> equal true
+
 // --- IndexOf ---
 
 [<Fact>]
@@ -206,6 +222,12 @@ let ``test String.IndexOf works`` () =
 [<Fact>]
 let ``test String.IndexOf works with offset`` () =
     "abcdbc".IndexOf("bc", 3) |> equal 4
+
+[<Fact>]
+let ``test String.IndexOf with empty pattern works`` () =
+    "abcdbc".IndexOf("") |> equal 0
+    "abcdbc".IndexOf("", 3) |> equal 3
+    "abcdbc".IndexOf("", 6) |> equal 6
 
 [<Fact>]
 let ``test String.IndexOf char works`` () =
@@ -252,6 +274,12 @@ let ``test String.LastIndexOf with StringComparison`` () =
 let ``test String.LastIndexOf with index and StringComparison`` () =
     "abcdbcebc".LastIndexOf("b", 3, StringComparison.Ordinal)
     |> equal 1
+
+[<Fact>]
+let ``test String.LastIndexOf with empty pattern works`` () =
+    "abcdbc".LastIndexOf("") |> equal 6
+    "abcdbc".LastIndexOf("", 3) |> equal 4
+    "abcdbc".LastIndexOf("", 0) |> equal 1
 
 // --- Access char by index ---
 
