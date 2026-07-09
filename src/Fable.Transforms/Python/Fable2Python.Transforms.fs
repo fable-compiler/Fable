@@ -4761,22 +4761,60 @@ let transformStaticProperty
 
         let staticPropertyClass = libValue com ctx "util" className
 
-        // Check if the property type references the current class (forward reference needed)
-        let typeAnnotation =
-            // The property type is self-referencing when it is the enclosing entity. Compare by
-            // FullName as well as DisplayName: for unions the descriptor lives on the base class
-            // and the type alias (`name`) is only defined afterwards, so a bare name would raise
-            // NameError at class-body evaluation.
-            let isSelfReference =
-                match propType with
-                | Fable.DeclaredType(entRef, _) ->
+        // The `StaticProperty[T]` subscript is a value expression evaluated in the class body, so
+        // any name it references must already be bound. A self-referencing type breaks this: for
+        // unions the descriptor lives on the base class (`_Example`) and the type alias (`Example`)
+        // is only defined afterwards, so a bare name raises `NameError` at class-body evaluation.
+        // Detect a reference to the enclosing entity anywhere in the type (including nested inside
+        // `Array<Example>`, `Example option`, tuples, etc.) and emit the whole annotation as a
+        // string forward reference, which the type checker still resolves at module scope.
+        let referencesEnclosingEntity (propType: Fable.Type) =
+            let rec check (t: Fable.Type) =
+                match t with
+                | Fable.DeclaredType(entRef, genArgs) ->
                     let e = com.GetEntity(entRef)
-                    e.DisplayName = name || e.FullName = ent.FullName
+                    e.DisplayName = name || e.FullName = ent.FullName || List.exists check genArgs
+                | Fable.Option(gen, _)
+                | Fable.Array(gen, _)
+                | Fable.List gen -> check gen
+                | Fable.Tuple(gens, _) -> List.exists check gens
                 | _ -> false
 
-            if isSelfReference then
-                // Use string forward reference for self-referencing types
-                Expression.stringConstant name
+            check propType
+
+        // Serialize an annotation expression to its Python source form so it can be emitted as a
+        // string forward reference (e.g. `Array[Example]` -> "Array[Example]").
+        let rec annotationToString (expr: Expression) =
+            match expr with
+            | Expression.Name { Id = Identifier id } -> id
+            | Expression.Attribute {
+                                       Value = value
+                                       Attr = Identifier attr
+                                   } -> $"{annotationToString value}.{attr}"
+            | Expression.Subscript {
+                                       Value = value
+                                       Slice = slice
+                                   } -> $"{annotationToString value}[{annotationToString slice}]"
+            | Expression.Tuple { Elements = elements } -> elements |> List.map annotationToString |> String.concat ", "
+            | Expression.List(elements, _) ->
+                let inner = elements |> List.map annotationToString |> String.concat ", "
+                $"[{inner}]"
+            | Expression.BinOp {
+                                   Left = left
+                                   Right = right
+                                   Operator = BitOr
+                               } -> $"{annotationToString left} | {annotationToString right}"
+            | Expression.Constant(StringLiteral s, _) -> s
+            | Expression.Constant(NoneLiteral, _) -> "None"
+            | _ -> "Any"
+
+        let typeAnnotation =
+            if referencesEnclosingEntity propType then
+                // Render with the type alias (not the `_Example` base name) so the forward
+                // reference resolves to the public type at module scope.
+                let ctx = { ctx with EnclosingUnionBaseClass = None }
+                let ta, _ = Annotation.typeAnnotation com ctx None propType
+                Expression.stringConstant (annotationToString ta)
             else
                 // Use normal type annotation
                 let ta, _ = Annotation.typeAnnotation com ctx None propType

@@ -235,3 +235,22 @@ let ``test Union cases with no fields are physically equal`` () =
     obj.ReferenceEquals(MyUnion.Case0, MyUnion.Case0) |> equal true
     obj.ReferenceEquals(MyUnion.Case1 "a", MyUnion.Case1 "a") |> equal false
     obj.ReferenceEquals(T1, T1) |> equal true
+
+// See https://github.com/fable-compiler/Fable/issues/4736
+// A static member whose type references the enclosing union (here `Example[]`) used to emit a
+// class-body `StaticLazyProperty[Array[_Example]]` subscript that evaluated `_Example` before the
+// class name was bound, raising `NameError` at import time.
+[<Fable.Core.AttachMembers>]
+[<RequireQualifiedAccess>]
+type Example =
+    | First
+    | Second
+    | Other of string
+
+    static member All = [| Example.First; Example.Second |]
+
+[<Fact>]
+let ``test Static union member returning the union type works`` () =
+    Example.All |> Array.length |> equal 2
+    Example.All.[0] |> equal Example.First
+    Example.All.[1] |> equal Example.Second
