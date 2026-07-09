@@ -4778,33 +4778,6 @@ let transformStaticProperty
 
             check propType
 
-        // Serialize an annotation expression to its Python source form for use as a forward
-        // reference (e.g. `Array[Example] | None` -> "Array[Example] | None"). Only the shapes
-        // `Annotation.typeAnnotation` can produce need handling.
-        let rec annotationToString (expr: Expression) =
-            match expr with
-            | Expression.Name { Id = Identifier id } -> id
-            | Expression.Attribute {
-                                       Value = value
-                                       Attr = Identifier attr
-                                   } -> $"{annotationToString value}.{attr}"
-            | Expression.Subscript {
-                                       Value = value
-                                       Slice = slice
-                                   } -> $"{annotationToString value}[{annotationToString slice}]"
-            | Expression.Tuple { Elements = elements } -> elements |> List.map annotationToString |> String.concat ", "
-            | Expression.List(elements, _) ->
-                let inner = elements |> List.map annotationToString |> String.concat ", "
-                $"[{inner}]"
-            | Expression.BinOp {
-                                   Left = left
-                                   Right = right
-                                   Operator = BitOr
-                               } -> $"{annotationToString left} | {annotationToString right}"
-            | Expression.Constant(StringLiteral s, _) -> s
-            | Expression.Constant(NoneLiteral, _) -> "None"
-            | _ -> "Any"
-
         let typeAnnotation =
             if referencesEnclosingEntity propType then
                 // Render the enclosing union with its base-class name (`_Example`, not the alias
@@ -4816,7 +4789,7 @@ let transformStaticProperty
                 let ctx = { ctx with EnclosingUnionBaseClass = Some ent.DisplayName }
 
                 let ta, _ = Annotation.typeAnnotation com ctx None propType
-                Expression.stringConstant (annotationToString ta)
+                Expression.stringConstant (Annotation.annotationToString ta)
             else
                 let ta, _ = Annotation.typeAnnotation com ctx None propType
                 ta
