@@ -27,7 +27,7 @@
 
 use crate::array::FSharpArray;
 use pyo3::prelude::*;
-use pyo3::types::PyAny;
+use pyo3::types::{PyAny, PyString};
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -113,6 +113,10 @@ mod printf {
         input: String,
         /// Accumulated arguments with type annotations
         args: Vec<String>,
+        /// Parallel to `args`: whether each argument was originally a Python `str`.
+        /// Used so that `%A` (structured formatting) can quote bare strings while
+        /// `%s`/`%O` leave them unquoted.
+        arg_is_str: Vec<bool>,
         /// Optional continuation function to apply to the final formatted string
         continuation: Option<Py<PyAny>>,
         /// Cached count of format placeholders (computed once at creation)
@@ -124,6 +128,7 @@ mod printf {
             Python::attach(|py| Self {
                 input: self.input.clone(),
                 args: self.args.clone(),
+                arg_is_str: self.arg_is_str.clone(),
                 continuation: self.continuation.as_ref().map(|c| c.clone_ref(py)),
                 placeholder_count: self.placeholder_count,
             })
@@ -138,6 +143,7 @@ mod printf {
             Self {
                 input,
                 args: Vec::new(),
+                arg_is_str: Vec::new(),
                 continuation: None,
                 placeholder_count,
             }
@@ -172,6 +178,9 @@ mod printf {
                 }
             };
 
+            // Remember whether the original argument was a string so that `%A`
+            // can quote it (structured formatting) while `%s`/`%O` do not.
+            new_format.arg_is_str.push(arg.is_instance_of::<PyString>());
             new_format.args.push(arg_str);
 
             // Use cached placeholder count instead of recomputing
@@ -274,9 +283,10 @@ mod printf {
 
                 // Parse type information if present (only for known type annotations)
                 let (value_str, type_info) = parse_type_annotation(arg_value);
+                let is_str = self.arg_is_str.get(arg_index).copied().unwrap_or(false);
 
                 let formatted_value =
-                    format_value(value_str, type_info, format_type, flags, precision)?;
+                    format_value(value_str, type_info, format_type, flags, precision, is_str)?;
 
                 // Apply padding if width is specified
                 let final_value = apply_padding(&formatted_value, width, flags);
@@ -286,7 +296,8 @@ mod printf {
             }
 
             // Handle remaining simple patterns that the regex might have missed
-            handle_remaining_patterns(&mut result, &self.args[arg_index..]);
+            let remaining_is_str: &[bool] = self.arg_is_str.get(arg_index..).unwrap_or(&[]);
+            handle_remaining_patterns(&mut result, &self.args[arg_index..], remaining_is_str);
 
             // Handle %% escape sequences at the end
             result = result.replace("%%", "%");
@@ -356,6 +367,7 @@ mod printf {
         format_type: &str,
         flags: &str,
         precision: Option<i32>,
+        is_str: bool,
     ) -> PyResult<String> {
         match format_type {
             "d" | "i" => format_integer(value_str, flags),
@@ -363,6 +375,10 @@ mod printf {
             "g" | "G" => format_general(value_str, flags),
             "x" => format_hex_lower(value_str, type_info),
             "X" => format_hex_upper(value_str, type_info),
+            // `%A` uses structured formatting, which quotes a bare string
+            // (e.g. `"test"`). Containers already quote their nested strings in
+            // their own `__str__`, so this only affects the top-level value.
+            "A" if is_str => Ok(format!("\"{value_str}\"")),
             "s" | "A" => Ok(value_str.to_string()),
             "O" => Ok(value_str.to_string()), // Object display
             "b" => format_boolean(value_str),
@@ -552,8 +568,8 @@ mod printf {
     }
 
     /// Handle remaining simple patterns
-    fn handle_remaining_patterns(result: &mut String, remaining_args: &[String]) {
-        for arg in remaining_args {
+    fn handle_remaining_patterns(result: &mut String, remaining_args: &[String], remaining_is_str: &[bool]) {
+        for (i, arg) in remaining_args.iter().enumerate() {
             if let Some(pos) = result.find("%s") {
                 result.replace_range(pos..pos + 2, arg);
             } else if let Some(pos) = result.find("%d") {
@@ -565,7 +581,12 @@ mod printf {
             } else if let Some(pos) = result.find("%i") {
                 result.replace_range(pos..pos + 2, arg);
             } else if let Some(pos) = result.find("%A") {
-                result.replace_range(pos..pos + 2, arg);
+                let is_str = remaining_is_str.get(i).copied().unwrap_or(false);
+                if is_str {
+                    result.replace_range(pos..pos + 2, &format!("\"{arg}\""));
+                } else {
+                    result.replace_range(pos..pos + 2, arg);
+                }
             } else {
                 break;
             }

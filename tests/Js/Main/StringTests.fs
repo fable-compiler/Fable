@@ -281,6 +281,25 @@ let tests = testList "Strings" [
     testCase "Fix #2398: Exception when two successive string format placeholders and value of first one ends in `%`" <| fun () ->
         sprintf "%c%s" '%' "text" |> equal "%text"
 
+    // See https://github.com/fable-compiler/Fable/issues/4732
+    testCase "sprintf \"%A\" quotes strings" <| fun () ->
+        sprintf "%A" "test" |> equal "\"test\""
+        sprintf "%A" "" |> equal "\"\""
+        // %O and %s don't quote a bare string
+        sprintf "%O" "test" |> equal "test"
+        sprintf "%s" "test" |> equal "test"
+
+    // See https://github.com/fable-compiler/Fable/issues/4732
+    testCase "sprintf \"%A\" wraps strings without escaping" <| fun () ->
+        // F#'s %A only wraps a string in quotes; it does NOT escape embedded
+        // double-quotes, backslashes, or control characters (verified on .NET).
+        sprintf "%A" "a\"b" |> equal "\"a\"b\""
+        sprintf "%A" "a\\b" |> equal "\"a\\b\""
+        sprintf "%A" "a\nb" |> equal "\"a\nb\""
+        sprintf "%A" "a\tb" |> equal "\"a\tb\""
+        // Same behavior when the string is nested inside a container
+        sprintf "%A" [ "a\"b" ] |> equal "[\"a\"b\"]"
+
     testCase "Unions with sprintf %A" <| fun () ->
         Bar(1,5) |> sprintf "%A" |> equal "Bar (1, 5)"
         Foo1 4.5 |> sprintf "%A" |> equal "Foo1 4.5"
@@ -350,8 +369,8 @@ let tests = testList "Strings" [
     testCase "Printf %A works with anonymous records" <| fun () -> // See #4029
         let person  = {| FirstName = "John"; LastName = "Doe" |}
         let s = sprintf "%A" person
-        System.Text.RegularExpressions.Regex.Replace(s.Replace("\"", ""), @"\s+", " ")
-        |> equal """{ FirstName = John LastName = Doe }"""
+        System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ")
+        |> equal """{ FirstName = "John" LastName = "Doe" }"""
 
     testCase "Interpolated strings keep empty lines" <| fun () ->
         let s1 = $"""1
@@ -403,11 +422,11 @@ let tests = testList "Strings" [
 
     testCase "sprintf \"%A\" with lists works" <| fun () ->
         let xs = ["Hi"; "Hello"; "Hola"]
-        (sprintf "%A" xs).Replace("\"", "") |> equal "[Hi; Hello; Hola]"
+        sprintf "%A" xs |> equal "[\"Hi\"; \"Hello\"; \"Hola\"]"
 
     testCase "sprintf \"%A\" with nested lists works" <| fun () ->
         let xs = [["Hi"]; ["Hello"]; ["Hola"]]
-        (sprintf "%A" xs).Replace("\"", "") |> equal "[[Hi]; [Hello]; [Hola]]"
+        sprintf "%A" xs |> equal "[[\"Hi\"]; [\"Hello\"]; [\"Hola\"]]"
 
     testCase "sprintf \"%A\" with sequences works" <| fun () ->
         let xs = seq { "Hi"; "Hello"; "Hola" }

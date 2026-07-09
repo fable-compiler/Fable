@@ -12,6 +12,34 @@ type Cons<'T> =
     [<Emit("new $0($1)")>]
     abstract Allocate: len: int -> 'T[]
 
+/// Renders a collection the way F#'s structured formatting (%A) does, quoting
+/// string elements: e.g. `structuredCollectionToString "[" xs "]"` -> `["a"; "b"]`
+///
+/// Notes:
+/// `inline` and the manual `for` loop (rather than `Seq.map`) are deliberate:
+/// they keep the generated code free of extra module imports, which otherwise
+/// caused a circular import (`list` <-> `seq_native`).
+let inline structuredCollectionToString (opening: string) (xs: 'T seq) (closing: string) : string =
+    let mutable result = opening
+    let mutable first = true
+
+    let toStringQuoted (x: 'T) : string =
+        match box x with
+        | :? string as s -> "\"" + s + "\""
+        | _ -> string x
+
+    for x in xs do
+        result <-
+            (if first then
+                 result
+             else
+                 result + "; ")
+            + toStringQuoted x
+
+        first <- false
+
+    result + closing
+
 module Helpers =
     [<Emit("$0")>]
     let inline internal asArray (a: ResizeArray<'T>) : 'T[] = nativeOnly

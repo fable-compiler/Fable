@@ -71,11 +71,22 @@ def record_equals[T](self: T, other: T) -> bool:
     return self == other
 
 
+def _field_to_string(value: object) -> str:
+    # F#'s structured formatting quotes strings, e.g. `{ Name = "John" }`.
+    if isinstance(value, str):
+        return f'"{value}"'
+    return str(value)
+
+
 def record_to_string(self: Record) -> str:
     if hasattr(self, "__slots__"):
-        return "{ " + "\n  ".join(map(lambda slot: slot + " = " + str(getattr(self, slot)), self.__slots__)) + " }"
+        return (
+            "{ "
+            + "\n  ".join(map(lambda slot: slot + " = " + _field_to_string(getattr(self, slot)), self.__slots__))
+            + " }"
+        )
     else:
-        return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + str(kv[1]), self.__dict__.items())) + " }"
+        return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + _field_to_string(kv[1]), self.__dict__.items())) + " }"
 
 
 def record_get_hashcode(self: Record) -> int:

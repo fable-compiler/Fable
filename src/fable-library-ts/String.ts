@@ -253,6 +253,8 @@ function formatReplacement(rep: any, flags: any, padLength: any, precision: any,
     }
   } else if (rep instanceof Date) {
     rep = dateToString(rep);
+  } else if (format === "A" && typeof rep === "string") {
+    rep = "\"" + rep + "\"";
   } else {
     rep = toString(rep);
   }

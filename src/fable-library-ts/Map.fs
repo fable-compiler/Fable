@@ -956,6 +956,8 @@ type Map<[<EqualityConditionalOn>] 'Key, [<EqualityConditionalOn; ComparisonCond
             m |> Seq.iter (fun p -> f p.Value p.Key m)
 
     override this.ToString() =
+        // Note: .NET's FSharpMap.ToString renders keys/values with `%O` (not `%A`),
+        // so strings are intentionally *not* quoted here (e.g. `map [(Age, 12)]`).
         let inline toStr (kv: KeyValuePair<'Key, 'Value>) =
             System.String.Format("({0}, {1})", kv.Key, kv.Value)
 
