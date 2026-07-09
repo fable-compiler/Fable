@@ -1565,6 +1565,11 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | [ ExprType String ] -> Helper.InstanceCall(c, "rfind", t, args, i.SignatureArgTypes, ?loc = r) |> Some
         | [ ExprType Char as str; ExprType(Number(Int32, NumberInfo.Empty)) as start ]
         | [ ExprType String as str; ExprType(Number(Int32, NumberInfo.Empty)) as start ] ->
+            // .NET's LastIndexOf(value, startIndex) searches the inclusive window [0, startIndex],
+            // so the exclusive end passed to Python's rfind must be startIndex + 1.
+            let endIdx =
+                makeBinOp r (Number(Int32, NumberInfo.Empty)) start (makeIntConst 1) BinaryPlus
+
             Helper.InstanceCall(
                 c,
                 "rfind",
@@ -1572,7 +1577,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
                 [
                     str
                     Value(NumberConstant(NumberValue.Int32 0, NumberInfo.Empty), None)
-                    start
+                    endIdx
                 ],
                 i.SignatureArgTypes,
                 ?loc = r
