@@ -135,9 +135,13 @@ remove(Str, StartIdx, Count) ->
         binary:part(Str, StartIdx + Count, byte_size(Str) - StartIdx - Count)
     ]).
 
+starts_with(_Str, <<>>) ->
+    true;
 starts_with(Str, Prefix) ->
     binary:match(Str, Prefix) =:= {0, byte_size(Prefix)}.
 
+ends_with(_Str, <<>>) ->
+    true;
 ends_with(Str, Suffix) ->
     SuffixLen = byte_size(Suffix),
     StrLen = byte_size(Str),
@@ -262,6 +266,8 @@ filter(Fn, Str) ->
 index_of(Str, Sub) ->
     index_of(Str, Sub, 0).
 
+index_of(_Str, <<>>, StartIdx) ->
+    StartIdx;
 index_of(Str, Sub, StartIdx) ->
     SearchStr = binary:part(Str, StartIdx, byte_size(Str) - StartIdx),
     case binary:match(SearchStr, Sub) of
@@ -293,6 +299,8 @@ index_of_any_loop([C | Rest], CharSet, Idx, StartIdx) ->
 last_index_of(Str, Sub) ->
     last_index_of(Str, Sub, byte_size(Str) - 1).
 
+last_index_of(Str, <<>>, MaxIdx) ->
+    erlang:min(MaxIdx + 1, byte_size(Str));
 last_index_of(Str, Sub, MaxIdx) ->
     SubLen = byte_size(Sub),
     SearchLen = erlang:min(MaxIdx + SubLen, byte_size(Str)),
@@ -302,6 +310,8 @@ last_index_of(Str, Sub, MaxIdx) ->
         Matches -> element(1, lists:last(Matches))
     end.
 
+contains(_Str, <<>>) ->
+    true;
 contains(Str, Sub) ->
     binary:match(Str, Sub) =/= nomatch.
 
