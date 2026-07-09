@@ -308,7 +308,15 @@ def equal_arrays[T](x: Sequence[T], y: Sequence[T]) -> bool:
 
 
 def compare_primitives[TSupportsLessThan: SupportsLessThan](x: TSupportsLessThan, y: TSupportsLessThan) -> int32:
-    return int32(0 if x == y else (-1 if x < y else 1))
+    if x == y:
+        return int32(0)
+    if x < y:
+        return int32(-1)
+    if y < x:
+        return int32(1)
+    # Neither equal, less, nor greater: at least one operand is NaN.
+    # Match .NET Double.CompareTo: NaN equals NaN and is less than any other value.
+    return int32(0 if x != x and y != y else (-1 if x != x else 1))
 
 
 def min[T](comparer: Callable[[T, T], int], x: T, y: T) -> T:

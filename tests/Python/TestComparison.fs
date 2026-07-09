@@ -448,6 +448,29 @@ let ``test Comparison with objects implementing IComparable works`` () =
     equal true (c1 > c3)
 
 [<Fact>]
+let ``test compare with NaN follows .NET total ordering`` () =
+    equal 0 (compare nan nan)
+    equal -1 (compare nan 1.0)
+    equal 1 (compare 1.0 nan)
+    equal -1 (compare nan infinity)
+    equal 1 (compare infinity nan)
+    equal -1 (compare nan (-infinity))
+    equal (compare nan 1.0) (-(compare 1.0 nan))
+
+[<Fact>]
+let ``test List.sort with NaN puts NaN first`` () =
+    let sorted = List.sort [ 3.; nan; 1.; 2. ]
+    Double.IsNaN(List.head sorted) |> equal true
+    equal [ 1.; 2.; 3. ] (List.tail sorted)
+
+[<Fact>]
+let ``test min and max propagate NaN like .NET`` () =
+    Double.IsNaN(min nan 1.0) |> equal true
+    Double.IsNaN(min 1.0 nan) |> equal true
+    Double.IsNaN(max nan 1.0) |> equal true
+    Double.IsNaN(max 1.0 nan) |> equal true
+
+[<Fact>]
 let ``test max works with primitives`` () =
     max 1 2 |> equal 2
     max 10m 2m |> equal 10m

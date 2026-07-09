@@ -889,6 +889,20 @@ let ``test Math.Max works`` () =
     Math.Max(-4.0, 3.0) |> equal 3.0
     MathF.Max(-4.0f, 3.0f) |> equal 3.0f
 
+[<Fact>]
+let ``test Math.Min/Max propagate NaN`` () =
+    Double.IsNaN(Math.Min(nan, 1.0)) |> equal true
+    Double.IsNaN(Math.Min(1.0, nan)) |> equal true
+    Double.IsNaN(Math.Max(nan, 1.0)) |> equal true
+    Double.IsNaN(Math.Max(1.0, nan)) |> equal true
+
+[<Fact>]
+let ``test Math.Min/Max prefer +0.0 over -0.0 regardless of operand order`` () =
+    Double.IsPositiveInfinity(1.0 / Math.Max(0.0, -0.0)) |> equal true
+    Double.IsPositiveInfinity(1.0 / Math.Max(-0.0, 0.0)) |> equal true
+    Double.IsNegativeInfinity(1.0 / Math.Min(0.0, -0.0)) |> equal true
+    Double.IsNegativeInfinity(1.0 / Math.Min(-0.0, 0.0)) |> equal true
+
 // [<Fact>]
 // let ``test Math.MinMagnitude works`` () =
 //     Math.MinMagnitude(-4.0, 3.0) |> equal 3.0
