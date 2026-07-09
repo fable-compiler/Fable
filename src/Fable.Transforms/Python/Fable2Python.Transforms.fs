@@ -4761,24 +4761,36 @@ let transformStaticProperty
 
         let staticPropertyClass = libValue com ctx "util" className
 
-        // Check if the property type references the current class (forward reference needed)
-        let typeAnnotation =
-            // The property type is self-referencing when it is the enclosing entity. Compare by
-            // FullName as well as DisplayName: for unions the descriptor lives on the base class
-            // and the type alias (`name`) is only defined afterwards, so a bare name would raise
-            // NameError at class-body evaluation.
-            let isSelfReference =
-                match propType with
-                | Fable.DeclaredType(entRef, _) ->
-                    let e = com.GetEntity(entRef)
-                    e.DisplayName = name || e.FullName = ent.FullName
-                | _ -> false
+        // `StaticProperty[T]` is a value expression evaluated in the class body, so a type
+        // referencing the enclosing entity (not yet bound there) raises `NameError`. Quoting just
+        // the name is not enough — an operator like the `|` in `Example | None` still runs eagerly
+        // and fails on a string operand. So emit the whole annotation as one string forward
+        // reference: it never evaluates at runtime, yet the type checker resolves it at module scope.
+        let referencesEnclosingEntity (propType: Fable.Type) =
+            // Walk the type structurally via `Type.Generics`, which enumerates the generic args of
+            // every case (Array, Option, List, Tuple, Lambda/Delegate, Nullable, anonymous records,
+            // nested declared types), so no shape is missed as new cases are added.
+            let rec check (t: Fable.Type) =
+                (match t with
+                 | Fable.DeclaredType(entRef, _) -> (com.GetEntity entRef).FullName = ent.FullName
+                 | _ -> false)
+                || List.exists check t.Generics
 
-            if isSelfReference then
-                // Use string forward reference for self-referencing types
-                Expression.stringConstant name
+            check propType
+
+        let typeAnnotation =
+            if referencesEnclosingEntity propType then
+                // Render the enclosing union with its base-class name (`_Example`, not the alias
+                // `Example`): both resolve at module scope inside the forward-reference string, but
+                // the generated *value* is typed against the base class (e.g. a `unit -> Example`
+                // factory produces `() -> _Example`), so the base name keeps the annotation and the
+                // value consistent for the type checker. `typeAnnotation` still registers the
+                // imports the string references (e.g. `Array`) as a side effect.
+                let ctx = { ctx with EnclosingUnionBaseClass = Some ent.DisplayName }
+
+                let ta, _ = Annotation.typeAnnotation com ctx None propType
+                Expression.stringConstant (Annotation.annotationToString ta)
             else
-                // Use normal type annotation
                 let ta, _ = Annotation.typeAnnotation com ctx None propType
                 ta
 
