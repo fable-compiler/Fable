@@ -153,4 +153,15 @@ let tests =
         source.Trigger 2
         source.Trigger 3
         equal [(1, 2); (2, 3)] (List.ofSeq pairs)
+
+    testCase "Observable.pairwise does not drop pairs around a null element" <| fun () ->
+        let pairs = ResizeArray()
+        let source = MyObservable()
+        source
+        |> Observable.pairwise
+        |> Observable.add (fun p -> pairs.Add p)
+        source.Trigger "a"
+        source.Trigger null
+        source.Trigger "b"
+        equal [("a", null); (null, "b")] (List.ofSeq pairs)
   ]
