@@ -19,7 +19,7 @@
     "posttests-compiler-js": "node --test-reporter spec --test-timeout 20000 --test temp/tests-compiler-js/Main.js"
   },
   "dependencies": {
-    "@types/node": "^26.0.1",
+    "@types/node": "^26.1.0",
     "concurrently": "^10.0.3",
     "ghreleases": "^3.0.2",
     "nodemon": "^3.1.14",
