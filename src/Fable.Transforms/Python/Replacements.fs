@@ -1351,10 +1351,18 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | (Operators.greaterThanOrEqual | "Gte"), [ left; right ] ->
         booleanCompare com ctx r left right BinaryGreaterOrEqual |> Some
     | ("Min" | "Max" | "Clamp" as meth), _ ->
-        let f = makeComparerFunction com ctx t
+        let meth = Naming.lowerFirst meth
 
-        Helper.LibCall(com, "util", Naming.lowerFirst meth, t, f :: args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        match args with
+        // Floats need NaN-propagating Min/Max/Clamp
+        | ExprType(Number((Float16 | Float32 | Float64), _)) :: _ ->
+            Helper.LibCall(com, "double", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+            |> Some
+        | _ ->
+            let f = makeComparerFunction com ctx t
+
+            Helper.LibCall(com, "util", meth, t, f :: args, i.SignatureArgTypes, ?loc = r)
+            |> Some
     | "Not", [ operand ] -> // TODO: Check custom operator?
         makeUnOp r t operand UnaryNot |> Some
     | Patterns.SetContains Operators.standardSet, _ -> applyOp com ctx r t i.CompiledName args |> Some
