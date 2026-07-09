@@ -298,6 +298,63 @@ let tests =
         let s = Regex.Replace("1234567890", ".{2}", "$0-")
         equal "12-34-56-78-90-" s
 
+    testCase "Regex.Replace with count limit replaces exactly count matches" <| fun _ ->
+        let r = Regex("a")
+        r.Replace("aaaa", "b", 1) |> equal "baaa"
+        r.Replace("aaaa", "b", 2) |> equal "bbaa"
+        r.Replace("aaaa", "b", 3) |> equal "bbba"
+
+    testCase "Regex.Replace with numbered group substitution works" <| fun _ ->
+        Regex.Replace("abc", "(b)", "[${1}]") |> equal "a[b]c"
+        Regex.Replace("abc", "(b)", "[$1]") |> equal "a[b]c"
+
+    testCase "Regex.Replace with $$ escape works" <| fun _ ->
+        Regex.Replace("abc", "b", "$$") |> equal "a$c"
+        Regex.Replace("abc", "b", "$$0") |> equal "a$0c"
+
+    testCase "Regex.Replace with whole match works" <| fun _ ->
+        Regex.Replace("abc", "b", "$0") |> equal "abc"
+        Regex.Replace("abc", "b", "[$&]") |> equal "a[b]c"
+
+    testCase "Regex.Split with count keeps remainder" <| fun _ ->
+        Regex(",").Split("a,b,c", 2) |> equal [| "a"; "b,c" |]
+
+    testCase "Regex.Split without count works" <| fun _ ->
+        Regex.Split("1a2b3", "[a-z]") |> equal [| "1"; "2"; "3" |]
+
+    testCase "Regex.Split with capturing group includes captures" <| fun _ ->
+        Regex.Split("a1b2c", "([0-9])") |> equal [| "a"; "1"; "b"; "2"; "c" |]
+
+    testCase "Regex.Replace with $` and $' works" <| fun _ ->
+        Regex.Replace("abc", "b", "[$`]") |> equal "a[a]c"
+        Regex.Replace("abc", "b", "[$']") |> equal "a[c]c"
+
+    testCase "Regex.Replace with ambiguous multi-digit group number keeps it literal" <| fun _ ->
+        // .NET does not shrink an ambiguous multi-digit group number down to a valid prefix:
+        // since group 12 doesn't exist, the whole token is kept literally, both for $12 and $11
+        // (even though group 1 exists in both cases)
+        Regex.Replace("ab", "(a)b", "$12") |> equal "$12"
+        Regex.Replace("ab", "(a)b", "$11") |> equal "$11"
+        Regex.Replace("ab", "(a)b", "[${12}]") |> equal "[${12}]"
+        // a non-digit right after the number is not part of it, so it substitutes normally
+        Regex.Replace("ab", "(a)b", "$1x") |> equal "ax"
+
+    testCase "Regex.Replace with nonexistent group number keeps it literal" <| fun _ ->
+        Regex.Replace("abc", "b", "$99") |> equal "a$99c"
+        Regex.Replace("abc", "b", "[${99}]") |> equal "a[${99}]c"
+
+    testCase "Regex.Replace with nonexistent named group keeps it literal" <| fun _ ->
+        Regex.Replace("abc", "(a)", "[${foo}]") |> equal "[${foo}]bc"
+
+    testCase "Regex.Replace with count 0 makes no replacements" <| fun _ ->
+        Regex("a").Replace("aaaa", "b", 0) |> equal "aaaa"
+
+    testCase "Regex.Split with count 0 is unlimited" <| fun _ ->
+        Regex(",").Split("a,b,c", 0) |> equal [| "a"; "b"; "c" |]
+
+    testCase "Regex.Split with count 1 makes no split" <| fun _ ->
+        Regex(",").Split("a,b,c", 1) |> equal [| "a,b,c" |]
+
     // See #838
     testCase "Group values are correct and empty when not being matched" <| fun _ ->
         Regex.Matches("\n\n\n", @"(?:([^\n\r]+)|\r\n|\n\r|\n|\r)")
