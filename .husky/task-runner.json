@@ -20,6 +20,7 @@
             "command": "uv",
             "args": [
                 "run",
+                "--frozen",
                 "ruff",
                 "format",
                 "${staged}"
