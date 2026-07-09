@@ -1,5 +1,5 @@
 ---
-last_commit_released: 7f915f1dd66b9a5fbbd56f858b07d39b98519b65
+last_commit_released: d6ae6bd3790b57b31941a118cdffaeb6a59155c3
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.4.1 - 2026-07-09
+
+### 🐞 Bug Fixes
+
+* MailboxProcessor dropping falsy messages and unit replies ([8299b2e7](https://github.com/fable-compiler/Fable/commit/8299b2e7f690e9136906653155883a08607aa4a4))
+* *(all)* Add `Seq.enumerateTryWith` for try/with in seq, list, array comprehensions (#4750) ([448c90d7](https://github.com/fable-compiler/Fable/commit/448c90d7ccba80ee3d3c38432a2a1d1407f6dc69))
+* *(js/ts)* Match .NET NaN semantics in JS comparison, min and max ([7e5106f9](https://github.com/fable-compiler/Fable/commit/7e5106f9d93cb55ae4aca4656868fa0c53493991))
+* *(js/ts)* BigInteger byte-array corruption, checked conversions, gcd, log2 (#4743) ([f3cb7f2b](https://github.com/fable-compiler/Fable/commit/f3cb7f2bfc9e46e558763867d6c1ba323bcf281c))
+* *(js/ts)* Observable/Event dropping null/undefined/unit values (#4742) ([75bff73b](https://github.com/fable-compiler/Fable/commit/75bff73be3743fe0af37f99c541b10f6978150f3))
+* *(js/ts)* EndsWith regression for empty pattern with non-ordinal comparison ([7793ed7b](https://github.com/fable-compiler/Fable/commit/7793ed7b0fc1f33bf3da6c0ea31607e172726267))
+* *(js/ts/python)* Quote strings with the %A format specifier (#4749) ([75321f3b](https://github.com/fable-compiler/Fable/commit/75321f3b2cb70ea345a0a45d6343cbb6e0de466f))
+* *(ts/js)* `Regex.Replace` count/substitutions and `Regex.Split` semantics (#4741) ([d6ae6bd3](https://github.com/fable-compiler/Fable/commit/d6ae6bd3790b57b31941a118cdffaeb6a59155c3))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/7f915f1dd66b9a5fbbd56f858b07d39b98519b65..d6ae6bd3790b57b31941a118cdffaeb6a59155c3)</small></strong>
 
 ## 2.4.0 - 2026-07-05
 
