@@ -237,9 +237,11 @@ let ``test Union cases with no fields are physically equal`` () =
     obj.ReferenceEquals(T1, T1) |> equal true
 
 // See https://github.com/fable-compiler/Fable/issues/4736
-// A static member whose type references the enclosing union (here `Example[]`) used to emit a
-// class-body `StaticLazyProperty[Array[_Example]]` subscript that evaluated `_Example` before the
-// class name was bound, raising `NameError` at import time.
+// A static member whose type references the enclosing union used to emit a class-body
+// `StaticLazyProperty[...]` subscript that evaluated the union type before its name was bound,
+// raising `NameError` at import time. The reference can be nested in any type shape, so each
+// member below exercises a different one: array, option (rendered with `|`), nested list/array,
+// tuple, and a function type (`unit -> Example`).
 [<Fable.Core.AttachMembers>]
 [<RequireQualifiedAccess>]
 type Example =
@@ -248,9 +250,25 @@ type Example =
     | Other of string
 
     static member All = [| Example.First; Example.Second |]
+    static member Head = Some Example.First
+    static member Nested = [ [| Example.First |] ]
+    static member Pair = (Example.First, Example.Second)
+    static member Factory: unit -> Example = fun () -> Example.First
 
 [<Fact>]
 let ``test Static union member returning the union type works`` () =
     Example.All |> Array.length |> equal 2
     Example.All.[0] |> equal Example.First
     Example.All.[1] |> equal Example.Second
+
+[<Fact>]
+let ``test Static union member with nested self-reference works`` () =
+    // Option (`_Example | None`): a bare quoted leaf would leave the `|` to run eagerly and fail.
+    Example.Head |> equal (Some Example.First)
+    // Nested list of array (`FSharpList[Array[_Example]]`).
+    Example.Nested |> List.head |> Array.head |> equal Example.First
+    // Tuple (`tuple[_Example, _Example]`).
+    Example.Pair |> fst |> equal Example.First
+    Example.Pair |> snd |> equal Example.Second
+    // Function type (`Callable[[], _Example]`) — missed by the original narrower detection.
+    Example.Factory() |> equal Example.First

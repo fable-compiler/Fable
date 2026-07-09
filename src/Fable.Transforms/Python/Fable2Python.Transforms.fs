@@ -4762,28 +4762,28 @@ let transformStaticProperty
         let staticPropertyClass = libValue com ctx "util" className
 
         // The `StaticProperty[T]` subscript is a value expression evaluated in the class body, so
-        // any name it references must already be bound. A self-referencing type breaks this: for
-        // unions the descriptor lives on the base class (`_Example`) and the type alias (`Example`)
-        // is only defined afterwards, so a bare name raises `NameError` at class-body evaluation.
-        // Detect a reference to the enclosing entity anywhere in the type (including nested inside
-        // `Array<Example>`, `Example option`, tuples, etc.) and emit the whole annotation as a
-        // string forward reference, which the type checker still resolves at module scope.
+        // the whole annotation must evaluate without error. A type referencing the enclosing entity
+        // breaks this: for unions the descriptor lives on the base class (`_Example`) and the type
+        // alias (`Example`) is only defined afterwards, so a bare name raises `NameError`. Quoting
+        // just that name is not enough either — an operator like the `|` in `Example | None` still
+        // runs eagerly and fails on a string operand. So when the type references the enclosing
+        // entity anywhere, emit the whole annotation as a single string forward reference, which
+        // never evaluates at runtime yet the type checker still resolves at module scope.
         let referencesEnclosingEntity (propType: Fable.Type) =
+            // Walk the type structurally via `Type.Generics`, which enumerates the generic args of
+            // every case (Array, Option, List, Tuple, Lambda/Delegate, Nullable, anonymous records,
+            // nested declared types), so no shape is missed as new cases are added.
             let rec check (t: Fable.Type) =
-                match t with
-                | Fable.DeclaredType(entRef, genArgs) ->
-                    let e = com.GetEntity(entRef)
-                    e.DisplayName = name || e.FullName = ent.FullName || List.exists check genArgs
-                | Fable.Option(gen, _)
-                | Fable.Array(gen, _)
-                | Fable.List gen -> check gen
-                | Fable.Tuple(gens, _) -> List.exists check gens
-                | _ -> false
+                (match t with
+                 | Fable.DeclaredType(entRef, _) -> (com.GetEntity entRef).FullName = ent.FullName
+                 | _ -> false)
+                || List.exists check t.Generics
 
             check propType
 
-        // Serialize an annotation expression to its Python source form so it can be emitted as a
-        // string forward reference (e.g. `Array[Example]` -> "Array[Example]").
+        // Serialize an annotation expression to its Python source form for use as a forward
+        // reference (e.g. `Array[Example] | None` -> "Array[Example] | None"). Only the shapes
+        // `Annotation.typeAnnotation` can produce need handling.
         let rec annotationToString (expr: Expression) =
             match expr with
             | Expression.Name { Id = Identifier id } -> id
@@ -4810,13 +4810,17 @@ let transformStaticProperty
 
         let typeAnnotation =
             if referencesEnclosingEntity propType then
-                // Render with the type alias (not the `_Example` base name) so the forward
-                // reference resolves to the public type at module scope.
-                let ctx = { ctx with EnclosingUnionBaseClass = None }
+                // Render the enclosing union with its base-class name (`_Example`, not the alias
+                // `Example`): both resolve at module scope inside the forward-reference string, but
+                // the generated *value* is typed against the base class (e.g. a `unit -> Example`
+                // factory produces `() -> _Example`), so the base name keeps the annotation and the
+                // value consistent for the type checker. `typeAnnotation` still registers the
+                // imports the string references (e.g. `Array`) as a side effect.
+                let ctx = { ctx with EnclosingUnionBaseClass = Some ent.DisplayName }
+
                 let ta, _ = Annotation.typeAnnotation com ctx None propType
                 Expression.stringConstant (annotationToString ta)
             else
-                // Use normal type annotation
                 let ta, _ = Annotation.typeAnnotation com ctx None propType
                 ta
 
