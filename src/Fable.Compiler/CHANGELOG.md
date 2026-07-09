@@ -1,5 +1,5 @@
 ---
-last_commit_released: 7f915f1dd66b9a5fbbd56f858b07d39b98519b65
+last_commit_released: d6ae6bd3790b57b31941a118cdffaeb6a59155c3
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -20,6 +20,40 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.7.0 - 2026-07-09
+
+### 🚀 Features
+
+* Add `--noGitignore` flag to skip generating fable_modules/.gitignore (#4730) ([3742b950](https://github.com/fable-compiler/Fable/commit/3742b95070df0bd43abfe0c5a20609a790757651))
+
+### 🐞 Bug Fixes
+
+* MailboxProcessor dropping falsy messages and unit replies ([8299b2e7](https://github.com/fable-compiler/Fable/commit/8299b2e7f690e9136906653155883a08607aa4a4))
+* *(all)* Include original exception message when loading a Fable plugin fails (#4739) ([659e73a4](https://github.com/fable-compiler/Fable/commit/659e73a4c59db397fb0821de371ea5c48731d505))
+* *(all)* Add `Seq.enumerateTryWith` for try/with in seq, list, array comprehensions (#4750) ([448c90d7](https://github.com/fable-compiler/Fable/commit/448c90d7ccba80ee3d3c38432a2a1d1407f6dc69))
+* *(beam)* EndsWith regression for empty pattern with non-ordinal comparison ([eee2ad3f](https://github.com/fable-compiler/Fable/commit/eee2ad3f09071fe3d924e3375f26897fd69753d2))
+* *(js/ts)* Represent union cases with no fields as singletons ([3f6e618e](https://github.com/fable-compiler/Fable/commit/3f6e618eb33b7344437476dc5f2f7334a29662aa))
+* *(js/ts)* Match .NET NaN semantics in JS comparison, min and max ([7e5106f9](https://github.com/fable-compiler/Fable/commit/7e5106f9d93cb55ae4aca4656868fa0c53493991))
+* *(js/ts)* BigInteger byte-array corruption, checked conversions, gcd, log2 (#4743) ([f3cb7f2b](https://github.com/fable-compiler/Fable/commit/f3cb7f2bfc9e46e558763867d6c1ba323bcf281c))
+* *(js/ts)* Observable/Event dropping null/undefined/unit values (#4742) ([75bff73b](https://github.com/fable-compiler/Fable/commit/75bff73be3743fe0af37f99c541b10f6978150f3))
+* *(js/ts)* EndsWith regression for empty pattern with non-ordinal comparison ([7793ed7b](https://github.com/fable-compiler/Fable/commit/7793ed7b0fc1f33bf3da6c0ea31607e172726267))
+* *(js/ts/python)* Quote strings with the %A format specifier (#4749) ([75321f3b](https://github.com/fable-compiler/Fable/commit/75321f3b2cb70ea345a0a45d6343cbb6e0de466f))
+* *(python)* Accept native floats in fable-library float functions (#4724) ([ea4a9853](https://github.com/fable-compiler/Fable/commit/ea4a98531e1dc1c55b902bb00753018ae48a3de3))
+* *(python)* Represent union cases with no fields as singletons ([0211b4cc](https://github.com/fable-compiler/Fable/commit/0211b4ccf19b4eb8ea4677a6734d7e691020cb68))
+* *(python)* Emit forward reference for self-referencing static union members (#4752) ([452b85f2](https://github.com/fable-compiler/Fable/commit/452b85f26bcec34bfdc61405162948bf7d8810c0))
+* *(python)* Match .NET NaN and signed-zero semantics in comparison, min and max ([383bb93c](https://github.com/fable-compiler/Fable/commit/383bb93ccd35e03dfaa1bbf897ef9ac83ae1ec95))
+* *(python)* `LastIndexOf(value, startIndex)` off-by-one on inclusive boundary ([bad6bcac](https://github.com/fable-compiler/Fable/commit/bad6bcacf8d8d17337ae3bdb988da648f23c9640))
+* *(python)* MailboxProcessor dropping unit replies ([8e83ebe3](https://github.com/fable-compiler/Fable/commit/8e83ebe3c676c02af2ff1c37199f5680d320cfb0))
+* *(ts/js)* `Regex.Replace` count/substitutions and `Regex.Split` semantics (#4741) ([d6ae6bd3](https://github.com/fable-compiler/Fable/commit/d6ae6bd3790b57b31941a118cdffaeb6a59155c3))
+
+### ⚡ Performance Improvements
+
+* *(python)* Use native operators for int64/uint64 arithmetic (#4727) ([f062d668](https://github.com/fable-compiler/Fable/commit/f062d668f3514e5f43d5307e7504e7ca124efcce))
+* *(python)* Rewrite hot Seq combinators as native Python generators (#4728) ([73e0eab9](https://github.com/fable-compiler/Fable/commit/73e0eab9c3071f44fd87da38658a8b73acfa3ccc))
+* *(python)* Read union case fields directly instead of rebuilding Array (#4725) ([e4eaa80b](https://github.com/fable-compiler/Fable/commit/e4eaa80b1e9390abee0d2d53bcdb026a5633b7c6))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/7f915f1dd66b9a5fbbd56f858b07d39b98519b65..d6ae6bd3790b57b31941a118cdffaeb6a59155c3)</small></strong>
 
 ## 5.6.0 - 2026-07-05
 
