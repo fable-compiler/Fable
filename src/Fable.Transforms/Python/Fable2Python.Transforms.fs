@@ -4761,14 +4761,11 @@ let transformStaticProperty
 
         let staticPropertyClass = libValue com ctx "util" className
 
-        // The `StaticProperty[T]` subscript is a value expression evaluated in the class body, so
-        // the whole annotation must evaluate without error. A type referencing the enclosing entity
-        // breaks this: for unions the descriptor lives on the base class (`_Example`) and the type
-        // alias (`Example`) is only defined afterwards, so a bare name raises `NameError`. Quoting
-        // just that name is not enough either — an operator like the `|` in `Example | None` still
-        // runs eagerly and fails on a string operand. So when the type references the enclosing
-        // entity anywhere, emit the whole annotation as a single string forward reference, which
-        // never evaluates at runtime yet the type checker still resolves at module scope.
+        // `StaticProperty[T]` is a value expression evaluated in the class body, so a type
+        // referencing the enclosing entity (not yet bound there) raises `NameError`. Quoting just
+        // the name is not enough — an operator like the `|` in `Example | None` still runs eagerly
+        // and fails on a string operand. So emit the whole annotation as one string forward
+        // reference: it never evaluates at runtime, yet the type checker resolves it at module scope.
         let referencesEnclosingEntity (propType: Fable.Type) =
             // Walk the type structurally via `Type.Generics`, which enumerates the generic args of
             // every case (Array, Option, List, Tuple, Lambda/Delegate, Nullable, anonymous records,
