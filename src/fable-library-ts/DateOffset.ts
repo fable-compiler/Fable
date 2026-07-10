@@ -249,28 +249,20 @@ export function addTicks(d: IDateTimeOffset, v: int64) {
 }
 
 export function addYears(d: IDateTimeOffset, v: number) {
-  const newMonth = d.getUTCMonth() + 1;
-  const newYear = d.getUTCFullYear() + v;
+  const d2 = new Date(d.getTime() + offset(d));
+  const newMonth = d2.getUTCMonth() + 1;
+  const newYear = d2.getUTCFullYear() + v;
   const _daysInMonth = daysInMonth(newYear, newMonth);
-  const newDay = Math.min(_daysInMonth, d.getUTCDate());
-  return create(newYear, newMonth, newDay, d.getUTCHours(), d.getUTCMinutes(),
-    d.getUTCSeconds(), d.getUTCMilliseconds(), offset(d));
+  const newDay = Math.min(_daysInMonth, d2.getUTCDate());
+  return create(newYear, newMonth, newDay, d2.getUTCHours(), d2.getUTCMinutes(),
+    d2.getUTCSeconds(), d2.getUTCMilliseconds(), offset(d));
 }
 
 export function addMonths(d: IDateTimeOffset, v: number) {
   const d2 = new Date(d.getTime() + offset(d));
-  let newMonth = d2.getUTCMonth() + 1 + v;
-  let newMonth_ = 0;
-  let yearOffset = 0;
-  if (newMonth > 12) {
-    newMonth_ = newMonth % 12;
-    yearOffset = Math.floor(newMonth / 12);
-    newMonth = newMonth_;
-  } else if (newMonth < 1) {
-    newMonth_ = 12 + newMonth % 12;
-    yearOffset = Math.floor(newMonth / 12) + (newMonth_ === 12 ? -1 : 0);
-    newMonth = newMonth_;
-  }
+  const totalMonths = d2.getUTCMonth() + 1 + v;
+  const newMonth = ((totalMonths - 1) % 12 + 12) % 12 + 1;
+  const yearOffset = Math.floor((totalMonths - 1) / 12);
   const newYear = d2.getUTCFullYear() + yearOffset;
   const _daysInMonth = daysInMonth(newYear, newMonth);
   const newDay = Math.min(_daysInMonth, d2.getUTCDate());

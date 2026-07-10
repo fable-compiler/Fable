@@ -848,6 +848,19 @@ let tests =
         d3.Hour + d3.Minute + d3.Second |> equal 54
 
 
+    testCase "DateTime.Parse handles AM/PM designator correctly" <| fun () ->
+        // Time-only strings parse to clock fields that are timezone-independent
+        let d = DateTime.Parse("1:05:34 PM", CultureInfo.InvariantCulture)
+        d.Hour |> equal 13
+        d.Minute |> equal 5
+        d.Second |> equal 34
+        let d = DateTime.Parse("12:05 AM", CultureInfo.InvariantCulture)
+        d.Hour |> equal 0
+        d.Minute |> equal 5
+        let d = DateTime.Parse("12:05 PM", CultureInfo.InvariantCulture)
+        d.Hour |> equal 12
+        d.Minute |> equal 5
+
     testCase "DateTime.TryParse works" <| fun () ->
         let (isSuccess, _) = DateTime.TryParse("foo", CultureInfo.InvariantCulture, DateTimeStyles.None)
         isSuccess |> equal false
@@ -1004,6 +1017,12 @@ let tests =
         test -5 2054
         test -20 2050
         test -100 2046
+
+    testCase "DateTime.AddMonths keeps last day when delta is a multiple of 12" <| fun () ->
+        let dt = DateTime(2020, 12, 31, 0, 0, 0, DateTimeKind.Utc).AddMonths(12)
+        dt.Year |> equal 2021
+        dt.Month |> equal 12
+        dt.Day |> equal 31
 
     testCase "DateTime.AddDays works" <| fun () ->
         let test v expected =

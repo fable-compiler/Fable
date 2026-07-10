@@ -636,7 +636,9 @@ export function parseRaw(input: string): [Date, Offset] {
           parseInt(timeParts[1] || "0", 10) * 60 +
           parseFloat(timeParts[2] || "0");
         if (m[3] != null && m[3].toUpperCase() === "PM" && hourPart < 12) {
-          timeInSeconds += 720;
+          timeInSeconds += 12 * 3600;
+        } else if (m[3] != null && m[3].toUpperCase() === "AM" && hourPart === 12) {
+          timeInSeconds -= 12 * 3600;
         }
       }
       if (m[4] != null) { // There's an offset, parse as UTC
@@ -854,18 +856,9 @@ export function addYears(d: IDateTime, v: number) {
 }
 
 export function addMonths(d: IDateTime, v: number) {
-  let newMonth = month(d) + v;
-  let newMonth_ = 0;
-  let yearOffset = 0;
-  if (newMonth > 12) {
-    newMonth_ = newMonth % 12;
-    yearOffset = Math.floor(newMonth / 12);
-    newMonth = newMonth_;
-  } else if (newMonth < 1) {
-    newMonth_ = 12 + newMonth % 12;
-    yearOffset = Math.floor(newMonth / 12) + (newMonth_ === 12 ? -1 : 0);
-    newMonth = newMonth_;
-  }
+  const totalMonths = month(d) + v;
+  const newMonth = ((totalMonths - 1) % 12 + 12) % 12 + 1;
+  const yearOffset = Math.floor((totalMonths - 1) / 12);
   const newYear = year(d) + yearOffset;
   const _daysInMonth = daysInMonth(newYear, newMonth);
   const newDay = Math.min(_daysInMonth, day(d));
