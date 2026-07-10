@@ -1,12 +1,12 @@
 use crate::floats::{Float32, Float64};
 use crate::ints::{Int16, Int32, Int64, Int8, UInt16, UInt32, UInt64, UInt8};
 use pyo3::class::basic::CompareOp;
+use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::PyAnyMethods;
 use pyo3::IntoPyObjectExt;
 use std::cell::RefCell;
 use std::cmp::Ordering;
-use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ArrayType {
@@ -127,7 +127,17 @@ pub enum NativeArray {
     Float32(Vec<f32>),
     Float64(Vec<f64>),
     Bool(Vec<bool>),
-    PyObject(Arc<Mutex<Vec<Py<PyAny>>>>),
+    // Generic storage. No Mutex needed: all mutation goes through `&mut` receivers,
+    // which PyO3 borrow-checks per pyclass instance (atomic `try_borrow_mut`), so a
+    // racing conflict raises `AlreadyBorrowed` instead of tearing the Vec — on both
+    // GIL and no-GIL builds. This works only *because* the Arc is also gone: the
+    // borrow flag is per-instance, so the old `Arc<Mutex>` aliasing (two arrays, one
+    // Vec) needed the Mutex; with one owner per Vec, the borrow checker suffices.
+    // (Like .NET arrays, this is still not thread-safe for unsynchronized writes —
+    // the Mutex only gave memory safety, not logical safety.)
+    //
+    // Cloning deep-copies the element references (F# value semantics, no aliasing).
+    PyObject(Vec<Py<PyAny>>),
 }
 
 impl Clone for NativeArray {
@@ -144,9 +154,12 @@ impl Clone for NativeArray {
             NativeArray::Float32(vec) => NativeArray::Float32(vec.clone()),
             NativeArray::Float64(vec) => NativeArray::Float64(vec.clone()),
             NativeArray::Bool(vec) => NativeArray::Bool(vec.clone()),
-            NativeArray::PyObject(arc) => {
-                // Clone the Arc, which increments the reference count
-                NativeArray::PyObject(Arc::clone(arc))
+            NativeArray::PyObject(vec) => {
+                // Deep-copy: increment the refcount of each element so the clone
+                // owns independent references (value semantics, no aliasing).
+                Python::attach(|py| {
+                    NativeArray::PyObject(vec.iter().map(|o| o.clone_ref(py)).collect())
+                })
             }
         }
     }
@@ -240,7 +253,7 @@ impl NativeArray {
             NativeArray::Float32(vec) => vec.len(),
             NativeArray::Float64(vec) => vec.len(),
             NativeArray::Bool(vec) => vec.len(),
-            NativeArray::PyObject(vec) => vec.lock().unwrap().len(),
+            NativeArray::PyObject(vec) => vec.len(),
         }
     }
 
@@ -252,7 +265,7 @@ impl NativeArray {
     pub fn equals(&self, other: &NativeArray, py: Python<'_>) -> bool {
         // Helper for comparing PyObject with other types
         fn compare_pyobject_with<T: PartialEq + for<'a, 'py> pyo3::FromPyObject<'a, 'py>>(
-            py_vec: &std::sync::MutexGuard<Vec<Py<PyAny>>>,
+            py_vec: &[Py<PyAny>],
             other_vec: &[T],
             py: Python<'_>,
         ) -> bool {
@@ -277,8 +290,8 @@ impl NativeArray {
             (NativeArray::Float64(vec), NativeArray::Float64(other_vec)) => vec == other_vec,
             (NativeArray::Bool(vec), NativeArray::Bool(other_vec)) => vec == other_vec,
             (NativeArray::PyObject(vec), NativeArray::PyObject(other_vec)) => {
-                let xs = vec.lock().unwrap();
-                let ys = other_vec.lock().unwrap();
+                let xs = vec;
+                let ys = other_vec;
                 if xs.len() != ys.len() {
                     return false;
                 }
@@ -290,36 +303,36 @@ impl NativeArray {
                 })
             }
             (NativeArray::PyObject(vec), other) => {
-                let xs = vec.lock().unwrap();
+                let xs = vec;
                 match other {
-                    NativeArray::Int8(vec) => compare_pyobject_with(&xs, vec, py),
-                    NativeArray::UInt8(vec) => compare_pyobject_with(&xs, vec, py),
-                    NativeArray::Int16(vec) => compare_pyobject_with(&xs, vec, py),
-                    NativeArray::UInt16(vec) => compare_pyobject_with(&xs, vec, py),
-                    NativeArray::Int32(vec) => compare_pyobject_with(&xs, vec, py),
-                    NativeArray::UInt32(vec) => compare_pyobject_with(&xs, vec, py),
-                    NativeArray::Int64(vec) => compare_pyobject_with(&xs, vec, py),
-                    NativeArray::UInt64(vec) => compare_pyobject_with(&xs, vec, py),
-                    NativeArray::Float32(vec) => compare_pyobject_with(&xs, vec, py),
-                    NativeArray::Float64(vec) => compare_pyobject_with(&xs, vec, py),
-                    NativeArray::Bool(vec) => compare_pyobject_with(&xs, vec, py),
+                    NativeArray::Int8(vec) => compare_pyobject_with(xs, vec, py),
+                    NativeArray::UInt8(vec) => compare_pyobject_with(xs, vec, py),
+                    NativeArray::Int16(vec) => compare_pyobject_with(xs, vec, py),
+                    NativeArray::UInt16(vec) => compare_pyobject_with(xs, vec, py),
+                    NativeArray::Int32(vec) => compare_pyobject_with(xs, vec, py),
+                    NativeArray::UInt32(vec) => compare_pyobject_with(xs, vec, py),
+                    NativeArray::Int64(vec) => compare_pyobject_with(xs, vec, py),
+                    NativeArray::UInt64(vec) => compare_pyobject_with(xs, vec, py),
+                    NativeArray::Float32(vec) => compare_pyobject_with(xs, vec, py),
+                    NativeArray::Float64(vec) => compare_pyobject_with(xs, vec, py),
+                    NativeArray::Bool(vec) => compare_pyobject_with(xs, vec, py),
                     _ => false,
                 }
             }
             (other, NativeArray::PyObject(vec)) => {
-                let ys = vec.lock().unwrap();
+                let ys = vec;
                 match other {
-                    NativeArray::Int8(vec) => compare_pyobject_with(&ys, vec, py),
-                    NativeArray::UInt8(vec) => compare_pyobject_with(&ys, vec, py),
-                    NativeArray::Int16(vec) => compare_pyobject_with(&ys, vec, py),
-                    NativeArray::UInt16(vec) => compare_pyobject_with(&ys, vec, py),
-                    NativeArray::Int32(vec) => compare_pyobject_with(&ys, vec, py),
-                    NativeArray::UInt32(vec) => compare_pyobject_with(&ys, vec, py),
-                    NativeArray::Int64(vec) => compare_pyobject_with(&ys, vec, py),
-                    NativeArray::UInt64(vec) => compare_pyobject_with(&ys, vec, py),
-                    NativeArray::Float32(vec) => compare_pyobject_with(&ys, vec, py),
-                    NativeArray::Float64(vec) => compare_pyobject_with(&ys, vec, py),
-                    NativeArray::Bool(vec) => compare_pyobject_with(&ys, vec, py),
+                    NativeArray::Int8(vec) => compare_pyobject_with(ys, vec, py),
+                    NativeArray::UInt8(vec) => compare_pyobject_with(ys, vec, py),
+                    NativeArray::Int16(vec) => compare_pyobject_with(ys, vec, py),
+                    NativeArray::UInt16(vec) => compare_pyobject_with(ys, vec, py),
+                    NativeArray::Int32(vec) => compare_pyobject_with(ys, vec, py),
+                    NativeArray::UInt32(vec) => compare_pyobject_with(ys, vec, py),
+                    NativeArray::Int64(vec) => compare_pyobject_with(ys, vec, py),
+                    NativeArray::UInt64(vec) => compare_pyobject_with(ys, vec, py),
+                    NativeArray::Float32(vec) => compare_pyobject_with(ys, vec, py),
+                    NativeArray::Float64(vec) => compare_pyobject_with(ys, vec, py),
+                    NativeArray::Bool(vec) => compare_pyobject_with(ys, vec, py),
                     _ => false,
                 }
             }
@@ -403,8 +416,6 @@ impl NativeArray {
                 Ok(())
             }
             (NativeArray::PyObject(src), NativeArray::PyObject(dst)) => {
-                let src = src.lock().unwrap();
-                let mut dst = dst.lock().unwrap();
                 for i in 0..count {
                     dst[target_index + i] = src[source_index + i].clone_ref(py);
                 }
@@ -436,9 +447,9 @@ impl NativeArray {
             ArrayType::Float32 => NativeArray::Float32(Vec::with_capacity(capacity.unwrap_or(0))),
             ArrayType::Float64 => NativeArray::Float64(Vec::with_capacity(capacity.unwrap_or(0))),
             ArrayType::Bool => NativeArray::Bool(Vec::with_capacity(capacity.unwrap_or(0))),
-            ArrayType::Generic => NativeArray::PyObject(Arc::new(Mutex::new(Vec::with_capacity(
-                capacity.unwrap_or(0),
-            )))),
+            ArrayType::Generic => {
+                NativeArray::PyObject(Vec::with_capacity(capacity.unwrap_or(0)))
+            }
         }
     }
 
@@ -496,7 +507,7 @@ impl NativeArray {
             ArrayType::Float32 => NativeArray::Float32(Vec::new()),
             ArrayType::Float64 => NativeArray::Float64(Vec::new()),
             ArrayType::Bool => NativeArray::Bool(Vec::new()),
-            ArrayType::Generic => NativeArray::PyObject(Arc::new(Mutex::new(Vec::new()))),
+            ArrayType::Generic => NativeArray::PyObject(Vec::new()),
         }
     }
 
@@ -528,9 +539,7 @@ impl NativeArray {
             (NativeArray::Float64(dst), NativeArray::Float64(src)) => dst.push(src[index]),
             (NativeArray::Bool(dst), NativeArray::Bool(src)) => dst.push(src[index]),
             (NativeArray::PyObject(dst), NativeArray::PyObject(src)) => {
-                let src_guard = src.lock().unwrap();
-                let mut dst_guard = dst.lock().unwrap();
-                dst_guard.push(src_guard[index].clone_ref(py));
+                dst.push(src[index].clone_ref(py));
             }
             _ => panic!("Cannot push between different array types"),
         }
@@ -556,8 +565,7 @@ impl NativeArray {
             NativeArray::Float64(vec) => push_typed_value!(vec, value),
             NativeArray::Bool(vec) => push_typed_value!(vec, value),
             NativeArray::PyObject(vec) => {
-                let mut guard = vec.lock().unwrap();
-                guard.push(value.clone().unbind());
+                vec.push(value.clone().unbind());
             }
         }
         Ok(())
@@ -597,10 +605,9 @@ impl NativeArray {
                 }
             }
             NativeArray::PyObject(vec) => {
-                let mut guard = vec.lock().unwrap();
                 let py_value = value.into_py_any(value.py())?;
                 for i in 0..count {
-                    guard[target_index + i] = py_value.clone_ref(value.py());
+                    vec[target_index + i] = py_value.clone_ref(value.py());
                 }
             }
         }
@@ -623,15 +630,12 @@ impl NativeArray {
             NativeArray::Float32(vec) => NativeArray::Float32(reverse_vec!(vec)),
             NativeArray::Float64(vec) => NativeArray::Float64(reverse_vec!(vec)),
             NativeArray::Bool(vec) => NativeArray::Bool(reverse_vec!(vec)),
-            NativeArray::PyObject(arc) => {
-                let mut new_vec = Vec::with_capacity(arc.lock().unwrap().len());
-                {
-                    let guard = arc.lock().unwrap();
-                    for i in (0..guard.len()).rev() {
-                        new_vec.push(guard[i].clone_ref(py));
-                    }
+            NativeArray::PyObject(vec) => {
+                let mut new_vec = Vec::with_capacity(vec.len());
+                for i in (0..vec.len()).rev() {
+                    new_vec.push(vec[i].clone_ref(py));
                 }
-                NativeArray::PyObject(Arc::new(Mutex::new(new_vec)))
+                NativeArray::PyObject(new_vec)
             }
         }
     }
@@ -653,8 +657,8 @@ impl NativeArray {
             NativeArray::Float32(vec) => simple_vec_operation!(vec, remove, index),
             NativeArray::Float64(vec) => simple_vec_operation!(vec, remove, index),
             NativeArray::Bool(vec) => simple_vec_operation!(vec, remove, index),
-            NativeArray::PyObject(arc_vec) => {
-                arc_vec.lock().unwrap().remove(index);
+            NativeArray::PyObject(vec) => {
+                vec.remove(index);
             }
         }
     }
@@ -692,8 +696,7 @@ impl NativeArray {
                 let bool_value: bool = value.extract()?;
                 vec.insert(index, bool_value);
             }
-            NativeArray::PyObject(arc_mutex_vec) => {
-                let mut vec = arc_mutex_vec.lock().unwrap();
+            NativeArray::PyObject(vec) => {
                 vec.insert(index, value.clone().into());
             }
         }
@@ -717,9 +720,7 @@ impl NativeArray {
             NativeArray::Float64(vec) => simple_vec_operation!(vec, truncate, new_size),
             NativeArray::Bool(vec) => simple_vec_operation!(vec, truncate, new_size),
             NativeArray::PyObject(vec) => {
-                if let Ok(mut vec) = vec.lock() {
-                    vec.truncate(new_size);
-                }
+                vec.truncate(new_size);
             }
         }
     }
@@ -827,8 +828,7 @@ impl NativeArray {
             }
             NativeArray::PyObject(vec) => {
                 let error: RefCell<Option<PyErr>> = RefCell::new(None);
-                let mut guard = vec.lock().unwrap();
-                guard.sort_by(|a, b| {
+                vec.sort_by(|a, b| {
                     if error.borrow().is_some() {
                         return Ordering::Equal;
                     }
@@ -899,7 +899,7 @@ impl NativeArray {
             let proj_a = projection.call1((py_a,))?;
             let proj_b = projection.call1((py_b,))?;
             // Call the Compare method on the IComparer object
-            let result = comparer.call_method1("Compare", (proj_a, proj_b))?;
+            let result = comparer.call_method1(intern!(py, "Compare"), (proj_a, proj_b))?;
             Ok(result.extract::<i32>()?.cmp(&0))
         }
 
@@ -941,12 +941,7 @@ impl NativeArray {
             NativeArray::Bool(vec) => sort_projection_with_error!(vec, Bool),
             NativeArray::PyObject(vec) => {
                 let error: RefCell<Option<PyErr>> = RefCell::new(None);
-                let mut new_vec = vec
-                    .lock()
-                    .unwrap()
-                    .iter()
-                    .map(|x| x.clone_ref(py))
-                    .collect::<Vec<_>>();
+                let mut new_vec = vec.iter().map(|x| x.clone_ref(py)).collect::<Vec<_>>();
                 new_vec.sort_by(|a, b| {
                     if error.borrow().is_some() {
                         return Ordering::Equal;
@@ -956,7 +951,7 @@ impl NativeArray {
                         let py_b = b.bind(py);
                         let proj_a = projection.call1((py_a,))?;
                         let proj_b = projection.call1((py_b,))?;
-                        let cmp_result = comparer.call_method1("Compare", (proj_a, proj_b))?;
+                        let cmp_result = comparer.call_method1(intern!(py, "Compare"), (proj_a, proj_b))?;
                         Ok(cmp_result.extract::<i32>()?.cmp(&0))
                     })();
                     match result {
@@ -970,7 +965,7 @@ impl NativeArray {
                 if let Some(e) = error.into_inner() {
                     return Err(e);
                 }
-                NativeArray::PyObject(Arc::new(Mutex::new(new_vec)))
+                NativeArray::PyObject(new_vec)
             }
         };
         Ok(result)
@@ -994,10 +989,153 @@ impl NativeArray {
             NativeArray::Float32(vec) => Ok(vec[index].into_py_any(py)?),
             NativeArray::Float64(vec) => Ok(vec[index].into_py_any(py)?),
             NativeArray::Bool(vec) => Ok(vec[index].into_py_any(py)?),
-            NativeArray::PyObject(vec) => {
-                let guard = vec.lock().unwrap();
-                Ok(guard[index].clone_ref(py))
-            }
+            NativeArray::PyObject(vec) => Ok(vec[index].clone_ref(py)),
+        }
+    }
+
+    /// Native `sum` fast path for numeric storage.
+    ///
+    /// Returns `Some(result)` for the numeric variants, computing the sum in a
+    /// tight unboxed loop and boxing only the final value; returns `None` for
+    /// `Bool`/`Generic` storage so the caller falls back to the Python-callback
+    /// path.
+    ///
+    /// Semantics match the Python `IGenericAdder` path: integer types use
+    /// **wrapping** arithmetic at the element width and the result is boxed as the
+    /// corresponding wrapper type (`Int32`, …) — the same type `GetZero`/`Add`
+    /// would produce — while floats use IEEE addition.
+    pub fn try_native_sum(&self, py: Python<'_>) -> Option<PyResult<Py<PyAny>>> {
+        macro_rules! sum_int {
+            ($vec:expr, $w:ident, $t:ty) => {{
+                let mut acc: $t = 0;
+                for &x in $vec.iter() {
+                    acc = acc.wrapping_add(x);
+                }
+                Some($w(acc).into_py_any(py))
+            }};
+        }
+        macro_rules! sum_float {
+            ($vec:expr, $w:ident, $t:ty) => {{
+                let mut acc: $t = 0.0;
+                for &x in $vec.iter() {
+                    acc += x;
+                }
+                Some($w(acc).into_py_any(py))
+            }};
+        }
+        match self {
+            NativeArray::Int8(v) => sum_int!(v, Int8, i8),
+            NativeArray::UInt8(v) => sum_int!(v, UInt8, u8),
+            NativeArray::Int16(v) => sum_int!(v, Int16, i16),
+            NativeArray::UInt16(v) => sum_int!(v, UInt16, u16),
+            NativeArray::Int32(v) => sum_int!(v, Int32, i32),
+            NativeArray::UInt32(v) => sum_int!(v, UInt32, u32),
+            NativeArray::Int64(v) => sum_int!(v, Int64, i64),
+            NativeArray::UInt64(v) => sum_int!(v, UInt64, u64),
+            NativeArray::Float32(v) => sum_float!(v, Float32, f32),
+            NativeArray::Float64(v) => sum_float!(v, Float64, f64),
+            NativeArray::Bool(_) | NativeArray::PyObject(_) => None,
+        }
+    }
+
+    /// Native `max` fast path for **integer** storage.
+    ///
+    /// Returns `Some(result)` for non-empty integer variants, boxing the largest
+    /// element as a plain Python int (matching `get`, i.e. the value the existing
+    /// `reduce_impl`/comparer path returns). Returns `None` for empty arrays (so
+    /// the caller's `reduce_impl` produces the canonical empty-array error) and for
+    /// float/bool/generic storage (floats fall back to the comparer path to
+    /// preserve its NaN ordering semantics).
+    pub fn try_native_max(&self, py: Python<'_>) -> Option<PyResult<Py<PyAny>>> {
+        macro_rules! max_int {
+            ($vec:expr) => {{
+                if $vec.is_empty() {
+                    None
+                } else {
+                    let mut acc = $vec[0];
+                    for &x in &$vec[1..] {
+                        if x > acc {
+                            acc = x;
+                        }
+                    }
+                    Some(acc.into_py_any(py))
+                }
+            }};
+        }
+        match self {
+            NativeArray::Int8(v) => max_int!(v),
+            NativeArray::UInt8(v) => max_int!(v),
+            NativeArray::Int16(v) => max_int!(v),
+            NativeArray::UInt16(v) => max_int!(v),
+            NativeArray::Int32(v) => max_int!(v),
+            NativeArray::UInt32(v) => max_int!(v),
+            NativeArray::Int64(v) => max_int!(v),
+            NativeArray::UInt64(v) => max_int!(v),
+            _ => None,
+        }
+    }
+
+    /// Native `min` fast path for **integer** storage. See [`try_native_max`].
+    pub fn try_native_min(&self, py: Python<'_>) -> Option<PyResult<Py<PyAny>>> {
+        macro_rules! min_int {
+            ($vec:expr) => {{
+                if $vec.is_empty() {
+                    None
+                } else {
+                    let mut acc = $vec[0];
+                    for &x in &$vec[1..] {
+                        if x < acc {
+                            acc = x;
+                        }
+                    }
+                    Some(acc.into_py_any(py))
+                }
+            }};
+        }
+        match self {
+            NativeArray::Int8(v) => min_int!(v),
+            NativeArray::UInt8(v) => min_int!(v),
+            NativeArray::Int16(v) => min_int!(v),
+            NativeArray::UInt16(v) => min_int!(v),
+            NativeArray::Int32(v) => min_int!(v),
+            NativeArray::UInt32(v) => min_int!(v),
+            NativeArray::Int64(v) => min_int!(v),
+            NativeArray::UInt64(v) => min_int!(v),
+            _ => None,
+        }
+    }
+
+    /// Native `contains` fast path for numeric/bool storage.
+    ///
+    /// Only used when no custom equality comparer is supplied. Extracts `value` to
+    /// the element type and scans natively; if `value` cannot be represented as the
+    /// element type, returns `None` so the caller falls back to the general
+    /// `rich_compare` path (which preserves Python cross-type equality semantics).
+    pub fn try_native_contains(
+        &self,
+        value: &Bound<'_, PyAny>,
+    ) -> Option<PyResult<bool>> {
+        macro_rules! contains_prim {
+            ($vec:expr, $t:ty) => {{
+                match value.extract::<$t>() {
+                    Ok(v) => Some(Ok($vec.iter().any(|&x| x == v))),
+                    Err(_) => None,
+                }
+            }};
+        }
+        match self {
+            NativeArray::Int8(v) => contains_prim!(v, i8),
+            NativeArray::UInt8(v) => contains_prim!(v, u8),
+            NativeArray::Int16(v) => contains_prim!(v, i16),
+            NativeArray::UInt16(v) => contains_prim!(v, u16),
+            NativeArray::Int32(v) => contains_prim!(v, i32),
+            NativeArray::UInt32(v) => contains_prim!(v, u32),
+            NativeArray::Int64(v) => contains_prim!(v, i64),
+            NativeArray::UInt64(v) => contains_prim!(v, u64),
+            NativeArray::Float32(v) => contains_prim!(v, f32),
+            NativeArray::Float64(v) => contains_prim!(v, f64),
+            NativeArray::Bool(v) => contains_prim!(v, bool),
+            NativeArray::PyObject(_) => None,
         }
     }
 }

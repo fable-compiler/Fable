@@ -20,3 +20,12 @@ regex = "1.12.4"
 [features]
 # must be enabled when building with `cargo build`, maturin enables this automatically
 extension-module = ["pyo3/extension-module"]
+
+# Release profile tuned for the extension module. maturin builds with `--release`,
+# so it honors these settings. opt-level defaults to 3 for release; do NOT set
+# `panic = "abort"` — PyO3 relies on unwinding to convert boundary panics into a
+# Python `PanicException` rather than aborting the interpreter process.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
