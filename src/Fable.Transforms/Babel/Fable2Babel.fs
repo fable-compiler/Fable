@@ -745,8 +745,16 @@ module Annotation =
         | Replacements.Util.BclTimeSpan -> NumberTypeAnnotation
         | Replacements.Util.BclDateTime -> makeAliasTypeAnnotation com ctx "Date"
         | Replacements.Util.BclDateTimeOffset -> makeAliasTypeAnnotation com ctx "Date"
-        | Replacements.Util.BclDateOnly -> makeAliasTypeAnnotation com ctx "Date"
-        | Replacements.Util.BclTimeOnly -> NumberTypeAnnotation
+        | Replacements.Util.BclDateOnly ->
+            if com.Options.JsTemporal then
+                makeFableLibImportTypeAnnotation com ctx [] "DateOnlyTemporal" "PlainDate"
+            else
+                makeAliasTypeAnnotation com ctx "Date"
+        | Replacements.Util.BclTimeOnly ->
+            if com.Options.JsTemporal then
+                makeFableLibImportTypeAnnotation com ctx [] "TimeOnlyTemporal" "PlainTime"
+            else
+                NumberTypeAnnotation
         | Replacements.Util.BclTimer -> makeFableLibImportTypeAnnotation com ctx [] "Timer" "Timer"
         | Replacements.Util.BclHashSet key -> makeFableLibImportTypeAnnotation com ctx [ key ] "Util" "ISet"
         | Replacements.Util.BclDictionary(key, value) ->
@@ -3511,11 +3519,13 @@ but thanks to the optimisation done below we get
             | Fable.Char -> Expression.stringLiteral "\u0000"
             | Fable.Number(kind, uom) ->
                 com.TransformAsExpr(ctx, Fable.NumberConstant(Fable.NumberValue.GetZero kind, uom) |> makeValue None)
+            | Builtin BclTimeOnly when com.Options.JsTemporal ->
+                libCall com ctx None "TimeOnlyTemporal" "minValue" [] []
             | Builtin(BclTimeSpan | BclTimeOnly) -> Expression.numericLiteral 0
             | Builtin BclGuid -> Expression.stringLiteral "00000000-0000-0000-0000-000000000000"
             | Builtin BclDateTime -> libCall com ctx None "Date" "minValue" [] []
             | Builtin BclDateTimeOffset -> libCall com ctx None "DateOffset" "minValue" [] []
-            | Builtin BclDateOnly -> libCall com ctx None "DateOnly" "minValue" [] []
+            | Builtin BclDateOnly -> libCall com ctx None (JS.Replacements.dateOnlyModule com) "minValue" [] []
             | _ -> libCall com ctx None "Util" "defaultOf" [] []
 
     let getEntityFieldsAsIdents (ent: Fable.Entity) =
