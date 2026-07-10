@@ -1203,6 +1203,50 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
       its tests, mirroring .NET module initialisation (which runs before any module code).
       This is safe because Beam test modules contain no top-level side effects beyond these
       initialisers.
+- **Function reference identity** (`LanguagePrimitives.PhysicalEquality` / `ReferenceEquals`):
+  the *same* F# function value is represented by different Erlang funs at different sites —
+  uncurried (a single N-arity fun), re-curried (`fun(A0) -> fun(A1) -> F(A0, A1) end end`, from a
+  `Curry` node), or wrapped in an uncurrying (eta) adapter to fill an uncurried slot. Erlang
+  compares funs by closure identity, so these are never `=:=` even though they denote one value —
+  which made `PhysicalEquality` wrongly return `false` (e.g. a stored callback could never be
+  removed by identity). Fix: both adapter kinds are built through tagged helpers in `fable_utils` —
+  `make_curry/2` (routed from the `Curry` node in `Fable2Beam.fs`) and `make_eta/2` (routed from
+  the `EtaAdapterDelegate` pattern) — each capturing an underlying `F` inside a
+  `{fable_curry_adapter, F, N}` / `{fable_eta_adapter, F, N}` marker as the outermost fun's ONLY
+  captured variable. `fun_ref_eq/2` then peels those markers via `erlang:fun_info(F, env)` before
+  `=:=`, normalising every representation of a value to the same `F`. Both helpers apply `F` exactly
+  as the default lowering would (`make_eta` via `apply_curried`, `make_curry` via `erlang:apply` —
+  all args at once, matching the multi-arg `Apply`), so they are behaviour-identical bar the marker.
+  Key points:
+    - **Adapter cancellation** (mirrors the Python target's `curry.py` memoization, where
+      `curry(uncurry(g))` returns the cached original `g`): if `make_eta`/`make_curry` receives a
+      value that is already the *opposite*, same-arity adapter, it returns the original underlying
+      fun instead of stacking a second wrapper — `uncurry ∘ curry = curry ∘ uncurry = id`. A
+      round-tripped value is then literally the *same* fun (native `=:=` holds with no unwrap and no
+      wrapper cost), and adapters never accumulate. The marker travels inside the closure env, so
+      unlike Python's process-local `WeakKeyDictionary` this survives a fun being sent between
+      processes. The arity in the marker guards the cancellation (a mismatch wraps instead of
+      cancelling — no `badarity`). `unwrap_fun` still covers the non-round-trip case (a value stored
+      in one representation and compared against the other).
+    - This is **precise reference identity, not structural equality**: only Fable's own
+      compiler-generated adapters carry a marker, so a hand-written eta expansion (`fun x -> g x`)
+      or a partial application (which captures the collected args, so its outermost fun has >1
+      captured variable) is left intact and stays distinct — matching .NET. An earlier version used
+      a *shape heuristic* (unwrap any 1-arity fun capturing a single function) which wrongly
+      collapsed `fun x -> g x` onto `g`; the marker approach replaces it. Regression-guarded by
+      `test PhysicalEquality distinguishes eta expansion from the original`.
+    - **Arity cap 2..7** (matching `make_eta`). Functions with 8+ curried args fall back to the
+      default lowering and are not identity-preserved; extend the `make_curry_marked`/
+      `make_eta_marked` clauses if needed.
+    - **Generic call sites**: routing to `fun_ref_eq` is gated on the operand being a
+      `LambdaType`/`DelegateType` at the call site (`isFunctionType` in `Beam/Replacements.fs`). A
+      value typed as a bare generic `'T` (Fable does not monomorphise) falls back to plain `=:=`, so
+      wrapping `PhysicalEquality` in a generic helper does not get the function-aware path.
+    - **Correctness over performance**: `make_curry` sits on the pervasive currying path and adds a
+      marker allocation + `erlang:apply` per call versus the inline nested lambdas — but this is the
+      same shape of incremental-application cost the Python target already pays (`_curry_n` /
+      `_uncurry_n`), and adapter cancellation removes it entirely on round-trips. Any residue is an
+      accepted alpha-stage trade-off — a passing unit test wins over the micro-cost.
 
 ## Future Improvements
 

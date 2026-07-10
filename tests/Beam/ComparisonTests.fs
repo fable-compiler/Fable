@@ -28,6 +28,33 @@ type RTest = { a: int; b: int }
 
 exception Ex of int
 
+// Helpers for testing reference identity (PhysicalEquality) of curried 2-argument function
+// values. A value is stored one way (curried) and passed/compared another way (uncurried)
+// across argument sites, but must still compare as the *same* value. Mirrors the
+// Scriptorium.Parchment sink registration/removal pattern.
+type Sink = int -> string -> unit
+
+let physEqStore (a: Sink) (b: Sink) : Sink list = [ a; b ]
+
+let physEqRemove (sinks: Sink list) (sink: Sink) : Sink list =
+    sinks |> List.filter (fun s -> not (LanguagePrimitives.PhysicalEquality s sink))
+
+// Closer to the real Parchment shape: the sink originates from a tuple deconstruction
+// (captureSink) and is stored/removed via a class. This forces the curried function value to
+// be normalised to an uncurried arity at *both* the store site and the compare site, each via
+// a separately-built adapter — which must still preserve reference identity.
+let captureSink () : Sink * (unit -> string list) =
+    let received = System.Collections.Generic.List<string>()
+    let sink: Sink = fun _sev msg -> received.Add(msg)
+    let reader () = List.ofSeq received
+    sink, reader
+
+type SinkRegistry(a: Sink, b: Sink) =
+    let mutable sinks: Sink list = [ a; b ]
+    member _.Remove(sink: Sink) =
+        sinks <- sinks |> List.filter (fun s -> not (LanguagePrimitives.PhysicalEquality s sink))
+    member _.Count = List.length sinks
+
 [<Fact>]
 let ``test Typed array equality works`` () =
     let xs1 = [| 1; 2; 3 |]
@@ -685,6 +712,79 @@ let ``test PhysicalEquality works`` () =
     LanguagePrimitives.PhysicalEquality r1 r2 |> equal false
     LanguagePrimitives.PhysicalEquality r2 r2 |> equal true
     LanguagePrimitives.PhysicalEquality r3 r1 |> equal true
+
+[<Fact>]
+let ``test PhysicalEquality on a function value stored in a list works`` () =
+    // A curried 2-arg function value, captured once and stored in a list, must be found by
+    // reference identity — even though it is stored one way (curried) and passed another way
+    // (uncurried) across argument sites. Mirrors Scriptorium.Parchment sink registration.
+    let s1: Sink = fun _sev _msg -> ()
+    let s2: Sink = fun _sev _msg -> ()
+    let stored = physEqStore s1 s2
+    stored |> List.exists (fun g -> LanguagePrimitives.PhysicalEquality g s2) |> equal true
+    stored |> List.exists (fun g -> LanguagePrimitives.PhysicalEquality g s1) |> equal true
+    // A distinct function (identical body but a different value) must NOT be found.
+    let other: Sink = fun _sev _msg -> ()
+    stored |> List.exists (fun g -> LanguagePrimitives.PhysicalEquality g other) |> equal false
+
+[<Fact>]
+let ``test PhysicalEquality-based removal removes the right function`` () =
+    let s1: Sink = fun _sev _msg -> ()
+    let s2: Sink = fun _sev _msg -> ()
+    let stored = physEqStore s1 s2
+    // Remove an element that is stored: it is actually removed.
+    let afterRemove = physEqRemove stored s2
+    List.length afterRemove |> equal 1
+    afterRemove |> List.exists (fun g -> LanguagePrimitives.PhysicalEquality g s1) |> equal true
+    afterRemove |> List.exists (fun g -> LanguagePrimitives.PhysicalEquality g s2) |> equal false
+    // Removing a non-stored element is a no-op.
+    let other: Sink = fun _sev _msg -> ()
+    physEqRemove stored other |> List.length |> equal 2
+
+[<Fact>]
+let ``test PhysicalEquality is identity not structural on functions`` () =
+    // Two distinct closures with identical bodies must not be reference-equal.
+    let f1: int -> int -> int = fun a b -> a + b
+    let f2: int -> int -> int = fun a b -> a + b
+    LanguagePrimitives.PhysicalEquality f1 f2 |> equal false
+    // But the same value compares equal to itself, even when stored in a list.
+    LanguagePrimitives.PhysicalEquality f1 f1 |> equal true
+    [ f1 ] |> List.exists (fun g -> LanguagePrimitives.PhysicalEquality g f1) |> equal true
+
+[<Fact>]
+let ``test PhysicalEquality removal works for a tuple-sourced function via a class`` () =
+    // Mirrors Scriptorium.Parchment: sink comes from a tuple deconstruction and is stored/removed
+    // through a class. The same curried value is uncurried by separately-built adapters at the
+    // store and compare sites, but must still be removed by reference identity.
+    let sink1, _ = captureSink ()
+    let sink2, _ = captureSink ()
+    let registry = SinkRegistry(sink1, sink2)
+    registry.Count |> equal 2
+    registry.Remove(sink2)
+    registry.Count |> equal 1
+    // Removing the remaining one empties the registry.
+    registry.Remove(sink1)
+    registry.Count |> equal 0
+    // Removing a non-stored sink is a no-op.
+    let registry2 = SinkRegistry(sink1, sink2)
+    let other, _ = captureSink ()
+    registry2.Remove(other)
+    registry2.Count |> equal 2
+
+[<Fact>]
+let ``test PhysicalEquality distinguishes eta expansion from the original`` () =
+    // A user-written eta expansion `fun x -> g x` is a distinct closure from `g`, so reference
+    // identity must return false — same as .NET. Fable's reference-identity recovery (fun_ref_eq
+    // in fable_utils.erl) only unwraps its own compiler-generated curry/eta adapters, which carry
+    // a marker; a hand-written eta expansion carries none and stays distinct. Regression guard
+    // for the earlier 1-arity shape heuristic, which wrongly unwrapped `fun x -> g x` to `g`.
+    let g: int -> int = fun x -> x + 1
+    let etaG: int -> int = fun x -> g x
+    LanguagePrimitives.PhysicalEquality etaG g |> equal false
+    // 2-arg eta expansion is likewise distinct from the original.
+    let h: int -> int -> int = fun a b -> a + b
+    let etaH: int -> int -> int = fun a b -> h a b
+    LanguagePrimitives.PhysicalEquality etaH h |> equal false
 
 // --- Raw Erlang reference comparison tests ---
 // These test that fable_comparison correctly handles Erlang references

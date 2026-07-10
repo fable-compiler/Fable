@@ -209,6 +209,28 @@ let rec readsFreeMutable (bound: Set<string>) (expr: Expr) : bool =
         || readsFreeMutable (Set.add ident.Name bound) body
     | _ -> getSubExpressions expr |> List.exists (readsFreeMutable bound)
 
+/// Matches an eta/uncurry adapter delegate: `fun(B0..Bn) -> f B0 B1 .. Bn`, where the applied
+/// arguments are exactly the delegate's parameters (same names, in order) and `f` is a captured
+/// value that does not reference any of them. Returns `(arity, f)`. Used to recognise the adapters
+/// Fable inserts to normalise a curried function to an uncurried arity, so they can be built
+/// through fable_utils:make_eta (which preserves reference identity across sites).
+let (|EtaAdapterDelegate|_|) (expr: Expr) : (int * Expr) option =
+    match expr with
+    | Delegate(args, CurriedApply(f, appArgs, _, _), _, _) when
+        List.length appArgs = List.length args
+        && List.forall2
+            (fun (a: Ident) (e: Expr) ->
+                match e with
+                | IdentExpr id -> id.Name = a.Name
+                | _ -> false
+            )
+            args
+            appArgs
+        && not (args |> List.exists (fun a -> containsIdentRef a.Name f))
+        ->
+        Some(List.length args, f)
+    | _ -> None
+
 let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.ErlExpr =
     match expr with
     | Unresolved(_, _, r) ->
@@ -479,6 +501,23 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                     Body = bodyExprs
                 }
             ]
+
+    // Uncurrying (eta) adapter: fun(B0..Bn) -> f B0 .. Bn, where f is a captured function value
+    // not referencing any Bi. Fable inserts these at argument sites to normalise a curried function
+    // to the arity an uncurried slot expects. Each inline adapter is a fresh closure, so two
+    // adapters built over the same f compare unequal, breaking reference identity
+    // (LanguagePrimitives.PhysicalEquality). Route through fable_utils:make_eta, which tags the
+    // adapter so fun_ref_eq can recover f and treat them as reference-equal.
+    | EtaAdapterDelegate(arity, f) when arity >= 2 && arity <= 7 ->
+        let fExpr = transformExpr com ctx f
+        let hoisted, cleanF = extractBlock fExpr
+
+        Beam.ErlExpr.Call(
+            Some "fable_utils",
+            "make_eta",
+            [ cleanF; Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 arity)) ]
+        )
+        |> wrapWithHoisted hoisted
 
     | Delegate(args, body, _name, _tags) ->
         // Deduplicate Erlang variable names in arg patterns.
@@ -1275,6 +1314,36 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 "error",
                 [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "rethrow")) ]
             )
+        | Curry(e, arity) when
+            arity >= 2
+            && arity <= 7
+            && (
+                match e with
+                | Value(Null _, _) -> false
+                | _ ->
+                    match e.Type with
+                    | LambdaType _
+                    | DelegateType _ -> true
+                    | _ -> false
+            )
+            ->
+            // Re-curry an uncurried function into `arity` nested 1-arg funs. The default lowering
+            // (curryExprAtRuntime) builds a fresh nested-lambda closure at each site, so two curry
+            // adapters over the *same* underlying function compare unequal, breaking reference
+            // identity (LanguagePrimitives.PhysicalEquality). Route through fable_utils:make_curry,
+            // which tags the adapter with a `{fable_curry_adapter, F}` marker so fun_ref_eq can
+            // recover F and treat all adapters over it as reference-equal. make_curry applies F with
+            // all args at once (erlang:apply), matching the default multi-arg Apply lowering exactly,
+            // so it is behaviour-identical bar the marker. See Beam/FABLE-BEAM.md.
+            let eExpr = transformExpr com ctx e
+            let hoisted, cleanE = extractBlock eExpr
+
+            Beam.ErlExpr.Call(
+                Some "fable_utils",
+                "make_curry",
+                [ cleanE; Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 arity)) ]
+            )
+            |> wrapWithHoisted hoisted
         | Curry(e, arity) -> transformExpr com ctx (Replacements.Api.curryExprAtRuntime com arity e)
         | Debugger ->
             com.WarnOnlyOnce("System.Diagnostics.Debugger is not supported for Beam target, ignoring")

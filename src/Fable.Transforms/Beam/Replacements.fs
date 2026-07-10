@@ -12,8 +12,22 @@ type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
+let private isFunctionType (t: Type) =
+    match t with
+    | LambdaType _
+    | DelegateType _ -> true
+    | _ -> false
+
 let private physicalEquals r (left: Expr) (right: Expr) =
-    emitExpr r Boolean [ left; right ] "($0 =:= $1)"
+    // Reference identity. For function values, the same F# value can be represented as either an
+    // uncurried fun or a re-curried nested adapter at different sites, which Erlang's `=:=` sees as
+    // distinct closures. Route those through fable_utils:fun_ref_eq, which unwraps curry adapters
+    // to the underlying function before comparing (see fun_ref_eq in fable_utils.erl). Non-function
+    // values keep plain `=:=`.
+    if isFunctionType left.Type || isFunctionType right.Type then
+        emitExpr r Boolean [ left; right ] "fable_utils:fun_ref_eq($0, $1)"
+    else
+        emitExpr r Boolean [ left; right ] "($0 =:= $1)"
 
 // Use fable_comparison:equals/2 for structural equality.
 // This handles ref-wrapped arrays (process dict refs) by dereferencing
@@ -561,8 +575,7 @@ let private languagePrimitives
     | ("GenericGreaterOrEqual" | "GenericGreaterOrEqualIntrinsic"), [ left; right ] ->
         let cmp = compare com r left right
         makeBinOp r Boolean cmp (makeIntConst 0) BinaryGreaterOrEqual |> Some
-    | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [ left; right ] ->
-        emitExpr r Boolean [ left; right ] "$0 =:= $1" |> Some
+    | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [ left; right ] -> physicalEquals r left right |> Some
     | ("GenericHash" | "GenericHashIntrinsic"), [ arg ] ->
         Helper.LibCall(com, "fable_comparison", "hash", t, [ arg ], ?loc = r) |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [ arg ] ->
