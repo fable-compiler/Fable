@@ -14,7 +14,6 @@ use pyo3::{
     prelude::*,
     types::{PyAnyMethods, PyList},
 };
-use std::sync::{Arc, Mutex};
 
 #[pyclass(module = "fable", subclass, from_py_object)]
 #[derive(Clone, Debug)]
@@ -237,8 +236,7 @@ impl FSharpArray {
         }
 
         // Fallback to PyObject storage if type extraction fails.
-        // This allows for generic or mixed-type arrays, at the cost of dynamic dispatch and locking.
-        // Arc<Mutex<...>> is used for thread safety and Python interop.
+        // This allows for generic or mixed-type arrays, at the cost of dynamic dispatch.
         let len = elements.len().unwrap_or(0);
         let mut vec = Vec::with_capacity(len);
 
@@ -248,7 +246,7 @@ impl FSharpArray {
         })?;
 
         Ok(FSharpArray {
-            storage: NativeArray::PyObject(Arc::new(Mutex::new(vec))),
+            storage: NativeArray::PyObject(vec),
         })
     }
 
@@ -369,7 +367,7 @@ impl FSharpArray {
         }
 
         Ok(FSharpArray {
-            storage: NativeArray::PyObject(Arc::new(Mutex::new(vec))),
+            storage: NativeArray::PyObject(vec),
         })
     }
 
@@ -946,8 +944,7 @@ impl FSharpArray {
             NativeArray::Bool(vec) => {
                 vec[idx as usize] = value.extract()?;
             }
-            NativeArray::PyObject(arc_mutex_vec) => {
-                let mut vec = arc_mutex_vec.lock().unwrap(); // Acquire the lock
+            NativeArray::PyObject(vec) => {
                 vec[idx as usize] = value.clone().into();
             }
         }
@@ -1162,12 +1159,10 @@ impl FSharpArray {
         let mut results = NativeArray::new(&original_type, None); // No initial capacity needed
 
         for i in 0..len {
-            // Avoid cloning item_obj if possible, only clone for predicate call
-            let item_obj = self.get_item_at_index(i as isize, py)?;
-            let keep = predicate.call1((item_obj.clone_ref(py),))?.is_truthy()?;
-
-            if keep {
-                // Push the original item (by index) into the results collector
+            // The predicate consumes the fetched item; the kept value is copied
+            // straight from storage by index, so no extra clone is needed.
+            let item = self.storage.get(py, i)?;
+            if predicate.call1((item,))?.is_truthy()? {
                 results.push_from_storage(&self.storage, i, py);
             }
         }
@@ -1274,12 +1269,12 @@ impl FSharpArray {
         if len == 0 {
             // Return an empty array
             return Ok(FSharpArray {
-                storage: NativeArray::PyObject(Arc::new(Mutex::new(vec![]))),
+                storage: NativeArray::PyObject(vec![]),
             });
         }
 
         // Create an array of arrays (chunks)
-        let mut chunks = NativeArray::PyObject(Arc::new(Mutex::new(vec![])));
+        let mut chunks = NativeArray::PyObject(vec![]);
 
         // Create each chunk
         for x in 0..len.div_ceil(chunk_size) {
@@ -1651,6 +1646,11 @@ impl FSharpArray {
     }
 
     pub fn sum(&self, py: Python<'_>, adder: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        // Fast path: numeric storage sums natively without per-element Python calls.
+        if let Some(result) = self.storage.try_native_sum(py) {
+            return result;
+        }
+
         let len = self.storage.len();
         let mut acc = adder.call_method0("GetZero")?;
 
@@ -1668,6 +1668,14 @@ impl FSharpArray {
             return Err(PyErr::new::<exceptions::PyValueError, _>(
                 "The input array was empty",
             ));
+        }
+
+        // Fast path: sum numeric storage natively, then delegate the final
+        // DivideByInt to the averager so division/truncation semantics match exactly.
+        if let Some(sum_res) = self.storage.try_native_sum(py) {
+            let acc = sum_res?;
+            let result = averager.call_method1("DivideByInt", (acc, len))?;
+            return Ok(result.into());
         }
 
         let mut acc = averager.call_method0("GetZero")?;
@@ -1931,7 +1939,7 @@ impl FSharpArray {
         let len = self.storage.len();
         if len == 0 {
             return Ok(FSharpArray {
-                storage: NativeArray::PyObject(Arc::new(Mutex::new(vec![]))),
+                storage: NativeArray::PyObject(vec![]),
             });
         }
 
@@ -2852,6 +2860,14 @@ impl FSharpArray {
         value: &Bound<'_, PyAny>,
         eq: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<bool> {
+        // Fast path: with no custom equality comparer, numeric/bool storage scans
+        // natively (falls back when `value` isn't representable as the element type).
+        if eq.is_none() {
+            if let Some(result) = self.storage.try_native_contains(value) {
+                return result;
+            }
+        }
+
         let len = self.storage.len();
         for i in 0..len {
             let item = self.get_item_at_index(i as isize, py)?;
@@ -2877,6 +2893,12 @@ impl FSharpArray {
 
     // let max (xs: 'a[]) ([<Inject>] comparer: IComparer<'a>) : 'a =
     pub fn max(&self, py: Python<'_>, comparer: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        // Fast path: integer storage compares natively (floats fall back to the
+        // comparer path to preserve its NaN ordering; empty falls back to the
+        // canonical empty-array error in reduce_impl).
+        if let Some(result) = self.storage.try_native_max(py) {
+            return result;
+        }
         reduce_impl(self, py, |acc, item, py| {
             let comparison =
                 comparer.call_method1("Compare", (acc.clone_ref(py), item.clone_ref(py)))?;
@@ -2886,6 +2908,10 @@ impl FSharpArray {
     }
 
     pub fn min(&self, py: Python<'_>, comparer: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+        // Fast path: integer storage compares natively (see `max`).
+        if let Some(result) = self.storage.try_native_min(py) {
+            return result;
+        }
         reduce_impl(self, py, |acc, item, py| {
             let comparison =
                 comparer.call_method1("Compare", (acc.clone_ref(py), item.clone_ref(py)))?;
@@ -2947,7 +2973,7 @@ impl FSharpArray {
         let mut results = NativeArray::new(&target_type, None);
         for i in 0..len {
             let item = self.get_item_at_index(i as isize, py)?;
-            let chosen = chooser.call1((item.clone_ref(py),))?;
+            let chosen = chooser.call1((item,))?;
             if !chosen.is_none() {
                 results.push_value(&chosen, py)?;
             }
@@ -3282,8 +3308,7 @@ impl FSharpArray {
             NativeArray::Float32(vec) => vec.swap(i, j),
             NativeArray::Float64(vec) => vec.swap(i, j),
             NativeArray::Bool(vec) => vec.swap(i, j),
-            NativeArray::PyObject(arc) => {
-                let mut vec = arc.lock().unwrap();
+            NativeArray::PyObject(vec) => {
                 vec.swap(i, j);
             }
         }

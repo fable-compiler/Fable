@@ -1439,3 +1439,169 @@ def test_pydantic_array_round_trip():
     restored = Data.model_validate_json(json_str)
     assert list(restored.values) == [10, 20, 30]
     assert type(restored.values).__name__ == "FSharpArray"
+
+
+# ---------------------------------------------------------------------------
+# Native numeric aggregate fast paths (sum / average / min / max / contains)
+#
+# These assert the native typed-storage fast path is equivalent to the
+# Python-callback path, which is exercised by building a Generic array from the
+# SAME wrapper objects: the callback path's wrapper arithmetic wraps identically,
+# so it is a faithful oracle for the native path.
+# ---------------------------------------------------------------------------
+
+# Numeric element strategies keyed by array type (reuse the module-level ones).
+_NUMERIC_ARRAY_TYPES = ["Int8", "UInt8", "Int16", "UInt16", "Int32", "UInt32", "Int64", "UInt64", "Float32", "Float64"]
+_INT_ARRAY_TYPES = ["Int8", "UInt8", "Int16", "UInt16", "Int32", "UInt32", "Int64", "UInt64"]
+
+_ZERO = {
+    "Int8": sbyte(0),
+    "UInt8": byte(0),
+    "Int16": int16(0),
+    "UInt16": uint16(0),
+    "Int32": int32(0),
+    "UInt32": uint32(0),
+    "Int64": int64(0),
+    "UInt64": uint64(0),
+    "Float32": float32(0.0),
+    "Float64": float64(0.0),
+}
+
+
+class _Adder:
+    """Minimal IGenericAdder; GetZero returns a typed wrapper so callback-path
+    arithmetic wraps at the element width (matching the native path)."""
+
+    def __init__(self, zero: Any) -> None:
+        self._zero = zero
+
+    def GetZero(self) -> Any:
+        return self._zero
+
+    def Add(self, a: Any, b: Any) -> Any:
+        return a + b
+
+
+class _Averager(_Adder):
+    def DivideByInt(self, a: Any, n: int) -> Any:
+        return a / n
+
+
+class _Comparer:
+    def Compare(self, a: Any, b: Any) -> int:
+        return (a > b) - (a < b)
+
+
+def _typed_and_generic(array_type: str, elements: list[Any]) -> tuple[Any, Any]:
+    typed = Array(array_type=array_type, elements=list(elements))
+    generic = Array(array_type="Generic", elements=list(elements))
+    return typed, generic
+
+
+def _agg_eq(a: Any, b: Any) -> bool:
+    """Equality that treats two NaNs as equal (float inf + -inf sums produce NaN)."""
+    import math
+
+    fa, fb = float(a), float(b)
+    if math.isnan(fa) and math.isnan(fb):
+        return True
+    return bool(a == b)
+
+
+@pytest.mark.parametrize("array_type", _NUMERIC_ARRAY_TYPES)
+@given(data=st.data())
+def test_native_sum_matches_callback(array_type: str, data: st.DataObject) -> None:
+    """Native sum on typed storage equals the callback path (value and type)."""
+    elements = data.draw(st.lists(array_types[array_type], min_size=0, max_size=64))
+    typed, generic = _typed_and_generic(array_type, elements)
+    adder = _Adder(_ZERO[array_type])
+    typed_sum = typed.sum(adder)
+    generic_sum = generic.sum(adder)
+    assert _agg_eq(typed_sum, generic_sum)
+    # Result wrapper type is preserved (Int32 sum -> Int32, etc.)
+    assert type(typed_sum).__name__ == array_type
+
+
+@pytest.mark.parametrize("array_type", _NUMERIC_ARRAY_TYPES)
+@given(data=st.data())
+def test_native_average_matches_callback(array_type: str, data: st.DataObject) -> None:
+    """Native average on typed storage equals the callback path."""
+    elements = data.draw(st.lists(array_types[array_type], min_size=1, max_size=64))
+    typed, generic = _typed_and_generic(array_type, elements)
+    averager = _Averager(_ZERO[array_type])
+    assert _agg_eq(typed.average(averager), generic.average(averager))
+
+
+@pytest.mark.parametrize("array_type", _NUMERIC_ARRAY_TYPES)
+def test_native_average_empty_raises(array_type: str) -> None:
+    """Average of an empty typed array raises, like the callback path."""
+    empty = Array(array_type=array_type, elements=[])
+    with pytest.raises(Exception):
+        empty.average(_Averager(_ZERO[array_type]))
+
+
+@pytest.mark.parametrize("array_type", _INT_ARRAY_TYPES)
+@given(data=st.data())
+def test_native_min_max_matches_callback(array_type: str, data: st.DataObject) -> None:
+    """Native min/max on integer storage equals the callback path (by value)."""
+    elements = data.draw(st.lists(array_types[array_type], min_size=1, max_size=64))
+    typed, generic = _typed_and_generic(array_type, elements)
+    comparer = _Comparer()
+    assert typed.max(comparer) == generic.max(comparer)
+    assert typed.min(comparer) == generic.min(comparer)
+
+
+@pytest.mark.parametrize("array_type", _INT_ARRAY_TYPES)
+def test_native_min_max_empty_raises(array_type: str) -> None:
+    """Min/max of an empty typed array raises, like the callback path."""
+    empty = Array(array_type=array_type, elements=[])
+    with pytest.raises(Exception):
+        empty.max(_Comparer())
+    with pytest.raises(Exception):
+        empty.min(_Comparer())
+
+
+@pytest.mark.parametrize("array_type", _NUMERIC_ARRAY_TYPES)
+@given(data=st.data())
+def test_native_contains_matches_callback(array_type: str, data: st.DataObject) -> None:
+    """Native contains on typed storage equals the callback path."""
+    elements = data.draw(st.lists(array_types[array_type], min_size=0, max_size=64))
+    typed, generic = _typed_and_generic(array_type, elements)
+    # Draw a probe value of the same element type (present or absent).
+    value = data.draw(array_types[array_type])
+    assert typed.contains(value, None) == generic.contains(value, None)
+
+
+# ---------------------------------------------------------------------------
+# Value semantics for generic (PyObject) storage.
+#
+# Generic storage is a plain Vec: cloning deep-copies element references, so a
+# copy/sort never aliases the source's storage. These guard against the previous
+# Arc<Mutex> sharing where sort()/copy() mutated the source in place.
+# ---------------------------------------------------------------------------
+
+
+def test_generic_copy_is_independent() -> None:
+    arr = Array(array_type="Generic", elements=[3, 1, 2])
+    copied = arr.copy()
+    copied[0] = 99
+    assert list(arr) == [3, 1, 2], "mutating the copy must not affect the source"
+    assert list(copied) == [99, 1, 2]
+
+
+def test_generic_sort_does_not_mutate_source() -> None:
+    arr = Array(array_type="Generic", elements=[3, 1, 2])
+    result = arr.sort(_Comparer())
+    assert list(arr) == [3, 1, 2], "sort() must not mutate the source array"
+    assert list(result) == [1, 2, 3]
+
+
+@given(elements=st.lists(st.integers(), min_size=0, max_size=64))
+def test_generic_copy_round_trip(elements: list[int]) -> None:
+    arr = Array(array_type="Generic", elements=list(elements))
+    copied = arr.copy()
+    assert list(copied) == list(elements)
+    # Independent: appending/replacing in the copy leaves the source untouched.
+    if elements:
+        copied[0] = "changed"
+        assert list(arr) == list(elements)
