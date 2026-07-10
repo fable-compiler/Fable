@@ -5,6 +5,7 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable
 open Fable.Transforms
+open Fable.Beam.Naming
 open Replacements.Util
 
 type Context = FSharp2Fable.Context
@@ -30,8 +31,54 @@ let private equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
     else
         Operation(Unary(UnaryNot, eqCall), Tags.empty, Boolean, r)
 
+/// The Erlang atom tag used to represent a union case (mirrors `getUnionCaseAtomExpr`
+/// in Fable2Beam.fs, which is the authoritative construction site).
+let private unionCaseAtomName (uci: UnionCase) =
+    uci.CompiledName |> Option.defaultValue (sanitizeErlangName uci.Name)
+
+/// If `t` is an F# discriminated union, returns its case tag names (as an F# string
+/// list expression, in declaration order) for `fable_comparison:compare_union/3`.
+/// The tagless Beam representation (bare atom / {atom, fields}) carries no case index,
+/// so the compiler supplies the declaration order at the comparison site.
+let private unionTagOrderExpr (com: ICompiler) (t: Type) : Expr option =
+    match t with
+    | DeclaredType(entRef, _) ->
+        match com.TryGetEntity entRef with
+        | Some ent when ent.IsFSharpUnion ->
+            (ent.UnionCases, Value(NewList(None, String), None))
+            ||> List.foldBack (fun uci tail ->
+                Value(NewList(Some(makeStrConst (unionCaseAtomName uci), tail), String), None)
+            )
+            |> Some
+        | _ -> None
+    | _ -> None
+
+let private isFableUnion (com: ICompiler) (t: Type) = (unionTagOrderExpr com t).IsSome
+
 let private compare (com: ICompiler) r (left: Expr) (right: Expr) =
-    Helper.LibCall(com, "fable_comparison", "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
+    // F# unions must compare by declaration order, but their tagless Beam representation
+    // (bare atoms / {atom, fields}) makes Erlang's native term ordering alphabetical.
+    // Route through compare_union with the compiler-supplied case order.
+    match unionTagOrderExpr com left.Type with
+    | Some tagOrder ->
+        Helper.LibCall(
+            com,
+            "fable_comparison",
+            "compare_union",
+            Number(Int32, NumberInfo.Empty),
+            [ tagOrder; left; right ],
+            ?loc = r
+        )
+    | None ->
+        Helper.LibCall(com, "fable_comparison", "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
+
+/// Relational operator (`<`, `<=`, `>`, `>=`): native Erlang term ordering for most
+/// types, but structural `compare_union` ordering for F# unions.
+let private makeRelational (com: ICompiler) r (left: Expr) (right: Expr) op =
+    if isFableUnion com left.Type then
+        makeBinOp r Boolean (compare com r left right) (makeIntConst 0) op
+    else
+        makeBinOp r Boolean left right op
 
 /// Deref an array ref to its underlying list (for passing to list BIFs).
 /// Byte arrays (UInt8) are atomics — convert to list via fable_utils:byte_array_to_list.
@@ -226,8 +273,19 @@ let private operators
             Helper.LibCall(com, "fable_decimal", "truncate_decimal", _t, [ arg ], ?loc = r)
             |> Some
         | _ -> emitExpr r _t [ arg ] "float(trunc($0))" |> Some
-    | ("Max" | "Max_"), [ a; b ] -> emitExpr r _t [ a; b ] "erlang:max($0, $1)" |> Some
-    | ("Min" | "Min_"), [ a; b ] -> emitExpr r _t [ a; b ] "erlang:min($0, $1)" |> Some
+    | ("Max" | "Max_"), [ a; b ] ->
+        // F# unions order by declaration index, not native atom order.
+        if isFableUnion com a.Type then
+            emitExpr r _t [ compare com r a b; a; b ] "case $0 >= 0 of true -> $1; false -> $2 end"
+            |> Some
+        else
+            emitExpr r _t [ a; b ] "erlang:max($0, $1)" |> Some
+    | ("Min" | "Min_"), [ a; b ] ->
+        if isFableUnion com a.Type then
+            emitExpr r _t [ compare com r a b; a; b ] "case $0 =< 0 of true -> $1; false -> $2 end"
+            |> Some
+        else
+            emitExpr r _t [ a; b ] "erlang:min($0, $1)" |> Some
     | "Clamp", [ value; min_; max_ ] -> emitExpr r _t [ value; min_; max_ ] "erlang:min(erlang:max($0, $1), $2)" |> Some
     | "Log", [ x; base_ ] -> emitExpr r _t [ x; base_ ] "(math:log($0) / math:log($1))" |> Some
     | "DivRem", [ x; y ] -> emitExpr r _t [ x; y ] "{$0 div $1, $0 rem $1}" |> Some
@@ -242,11 +300,11 @@ let private operators
         |> Some
     | (Operators.equality | "Eq"), [ left; right ] -> equals com r true left right |> Some
     | (Operators.inequality | "Neq"), [ left; right ] -> equals com r false left right |> Some
-    | (Operators.lessThan | "Lt"), [ left; right ] -> makeBinOp r Boolean left right BinaryLess |> Some
-    | (Operators.lessThanOrEqual | "Lte"), [ left; right ] -> makeBinOp r Boolean left right BinaryLessOrEqual |> Some
-    | (Operators.greaterThan | "Gt"), [ left; right ] -> makeBinOp r Boolean left right BinaryGreater |> Some
+    | (Operators.lessThan | "Lt"), [ left; right ] -> makeRelational com r left right BinaryLess |> Some
+    | (Operators.lessThanOrEqual | "Lte"), [ left; right ] -> makeRelational com r left right BinaryLessOrEqual |> Some
+    | (Operators.greaterThan | "Gt"), [ left; right ] -> makeRelational com r left right BinaryGreater |> Some
     | (Operators.greaterThanOrEqual | "Gte"), [ left; right ] ->
-        makeBinOp r Boolean left right BinaryGreaterOrEqual |> Some
+        makeRelational com r left right BinaryGreaterOrEqual |> Some
     | Operators.unaryNegation, [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, _t, r) |> Some
     // Type conversions: int(x), float(x), string(x), etc.
     | ("ToSByte" | "ToByte" | "ToInt8" | "ToUInt8" | "ToInt16" | "ToUInt16" | "ToInt" | "ToUInt" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"),
@@ -1515,9 +1573,35 @@ let private listModule
     | "Fold", [ fn; state; list ] -> Helper.LibCall(com, "fable_list", "fold", t, [ fn; state; list ]) |> Some
     | "FoldBack", [ fn; list; state ] -> Helper.LibCall(com, "fable_list", "fold_back", t, [ fn; list; state ]) |> Some
     | "Reduce", [ fn; list ] -> Helper.LibCall(com, "fable_list", "reduce", t, [ fn; list ]) |> Some
-    | "Sort", [ list ] -> emitExpr r t [ list ] "lists:sort($0)" |> Some
+    | "Sort", [ list ] ->
+        match
+            (match list.Type with
+             | List et -> unionTagOrderExpr com et
+             | _ -> None)
+        with
+        | Some tagOrder ->
+            emitExpr
+                r
+                t
+                [ tagOrder; list ]
+                "lists:sort(fun(A, B) -> fable_comparison:compare_union($0, A, B) =< 0 end, $1)"
+            |> Some
+        | None -> emitExpr r t [ list ] "lists:sort($0)" |> Some
     | "SortBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; list ]) |> Some
-    | "SortDescending", [ list ] -> emitExpr r t [ list ] "lists:reverse(lists:sort($0))" |> Some
+    | "SortDescending", [ list ] ->
+        match
+            (match list.Type with
+             | List et -> unionTagOrderExpr com et
+             | _ -> None)
+        with
+        | Some tagOrder ->
+            emitExpr
+                r
+                t
+                [ tagOrder; list ]
+                "lists:reverse(lists:sort(fun(A, B) -> fable_comparison:compare_union($0, A, B) =< 0 end, $1))"
+            |> Some
+        | None -> emitExpr r t [ list ] "lists:reverse(lists:sort($0))" |> Some
     | "SortByDescending", [ fn; list ] ->
         Helper.LibCall(com, "fable_list", "sort_by_descending", t, [ fn; list ]) |> Some
     | "SortWith", [ fn; list ] -> Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; list ]) |> Some
@@ -2294,11 +2378,41 @@ let private arrayModule
         |> wrapArr com r t
         |> Some
     | "Sort", [ arr ] ->
+        let elemTagOrder =
+            match arr.Type with
+            | Array(et, _) -> unionTagOrderExpr com et
+            | _ -> None
+
         let arr = derefArr r arr
-        emitExpr r t [ arr ] "lists:sort($0)" |> wrapArr com r t |> Some
+
+        match elemTagOrder with
+        | Some tagOrder ->
+            emitExpr
+                r
+                t
+                [ tagOrder; arr ]
+                "lists:sort(fun(A, B) -> fable_comparison:compare_union($0, A, B) =< 0 end, $1)"
+            |> wrapArr com r t
+            |> Some
+        | None -> emitExpr r t [ arr ] "lists:sort($0)" |> wrapArr com r t |> Some
     | "SortDescending", [ arr ] ->
+        let elemTagOrder =
+            match arr.Type with
+            | Array(et, _) -> unionTagOrderExpr com et
+            | _ -> None
+
         let arr = derefArr r arr
-        emitExpr r t [ arr ] "lists:reverse(lists:sort($0))" |> wrapArr com r t |> Some
+
+        match elemTagOrder with
+        | Some tagOrder ->
+            emitExpr
+                r
+                t
+                [ tagOrder; arr ]
+                "lists:reverse(lists:sort(fun(A, B) -> fable_comparison:compare_union($0, A, B) =< 0 end, $1))"
+            |> wrapArr com r t
+            |> Some
+        | None -> emitExpr r t [ arr ] "lists:reverse(lists:sort($0))" |> wrapArr com r t |> Some
     | "SortBy", [ fn; arr ] ->
         let arr = derefArr r arr
 

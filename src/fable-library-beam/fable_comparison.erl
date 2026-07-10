@@ -1,8 +1,9 @@
 -module(fable_comparison).
--export([compare/2, equals/2, hash/1]).
+-export([compare/2, compare_union/3, equals/2, hash/1]).
 
 -spec equals(term(), term()) -> boolean().
 -spec compare(term(), term()) -> -1 | 0 | 1.
+-spec compare_union([binary()], term(), term()) -> -1 | 0 | 1.
 -spec hash(term()) -> non_neg_integer().
 
 %% Deep equality that handles ref-wrapped arrays (process dict refs)
@@ -123,6 +124,33 @@ compare_array_list(A, B) ->
         Diff when Diff > 0 -> 1;
         _ -> compare_list(A, B)
     end.
+
+%% Ordered comparison of F# discriminated union values by DECLARATION order.
+%%
+%% DU values use a tagless representation (bare atom for nullary cases,
+%% {atom, Field...} tuples otherwise), so a value carries no case index and
+%% Erlang's native term ordering falls back to alphabetical atom order, which
+%% does not match F# semantics. The compiler therefore passes TagOrder: the list
+%% of case tag names (as binaries) in declaration order. We order by case index
+%% first and, for equal cases, fall back to field-wise structural comparison.
+compare_union(TagOrder, A, B) ->
+    IA = union_tag_index(TagOrder, union_tag_name(A)),
+    IB = union_tag_index(TagOrder, union_tag_name(B)),
+    if
+        IA < IB -> -1;
+        IA > IB -> 1;
+        % Same case: compare fields (skip the tag atom in element 1).
+        is_tuple(A) andalso is_tuple(B) -> compare_tuple(A, B, 2, erlang:tuple_size(A));
+        true -> 0
+    end.
+
+union_tag_name(V) when is_atom(V) -> erlang:atom_to_binary(V, utf8);
+union_tag_name(V) when is_tuple(V) -> erlang:atom_to_binary(erlang:element(1, V), utf8).
+
+union_tag_index(TagOrder, Name) -> union_tag_index(TagOrder, Name, 0).
+union_tag_index([Name | _], Name, I) -> I;
+union_tag_index([_ | T], Name, I) -> union_tag_index(T, Name, I + 1);
+union_tag_index([], _, _) -> -1.
 
 %% Hash that derefs refs and byte arrays before hashing.
 hash({byte_array, _, _} = V) ->
