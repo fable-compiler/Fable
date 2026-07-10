@@ -2021,8 +2021,6 @@ let tests =
     testCase "BitConverter.ToString uppercase works" <| fun () ->
         BitConverter.ToString([|0uy; 1uy; 0xABuy; 0xFFuy|]) |> equal "00-01-AB-FF"
 
-
-
     // System.Decimal
     //-------------------------------------
 
