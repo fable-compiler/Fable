@@ -660,6 +660,21 @@ let tests =
         Async.StartWithContinuations(work, (fun r -> result <- r), ignore, ignore)
         equal result 1
 
+    testCase "Exception thrown by the continuation is not redirected to the 'with' branch" <| fun () ->
+        let work = async {
+            try
+              return 1
+            with _ ->
+              return 99 }
+        let mutable calls = 0
+        throwsAnyError (fun () ->
+            Async.StartWithContinuations(
+                work,
+                (fun _ -> calls <- calls + 1; failwith "boom from continuation"),
+                ignore,
+                ignore))
+        equal 1 calls
+
     testCaseAsync "Async.StartChild cancels the child when the parent's token is cancelled" <| fun () ->
         async {
             let mutable finallyRan = false
@@ -694,6 +709,25 @@ let tests =
             }
             let work = async {
                 let! _ = Async.Parallel [ mkChild(); mkChild(); mkChild() ]
+                return ()
+            }
+            Async.StartImmediate(work, cts.Token)
+            do! Async.Sleep 200
+            cts.Cancel()
+            do! Async.Sleep 600
+            equal 0 completed
+        }
+
+    testCaseAsync "Async.Sequential children are cancelled when the parent's token is cancelled" <| fun () ->
+        async {
+            let mutable completed = 0
+            let cts = new System.Threading.CancellationTokenSource()
+            let mkChild () = async {
+                do! Async.Sleep 500
+                completed <- completed + 1
+            }
+            let work = async {
+                let! _ = Async.Sequential [ mkChild(); mkChild(); mkChild() ]
                 return ()
             }
             Async.StartImmediate(work, cts.Token)
