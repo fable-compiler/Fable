@@ -998,6 +998,19 @@ let tests =
         options.level2.level3.valueA |> equal 17
         options.level2.level3.valueB |> equal 20
 
+    // See https://github.com/fable-compiler/Fable/issues/4753
+    testCase "jsOptions doesn't drop statements that can't be inlined as a POJO" <| fun () ->
+        let data = [| "bar", 10 |]
+
+        let opts = jsOptions<JsOptions>(fun o ->
+            o.foo <- "bar"
+            for key, value in data do
+                o?(key) <- value
+        )
+
+        opts.foo |> equal "bar"
+        opts.bar |> equal 10
+
     testCase "Stringifying a JS object works" <| fun () ->
         let fooOptional = importMember "./js/1foo.js"
         string fooOptional |> equal "much foo, much awesome"

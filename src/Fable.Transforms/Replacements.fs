@@ -879,9 +879,11 @@ let makePojoFromLambda com (arg: Expr) =
     | Lambda(_, lambdaBody, _) ->
         let flattened = flattenSequential lambdaBody
 
+        // Returns None on the first unsupported statement, so the caller falls back
+        // to the runtime call instead of silently dropping it.
         let rec groupByGetter (acc: MakePojoFromLambdaContext) (body: Expr list) =
             match body with
-            | [] -> acc
+            | [] -> Some acc
             | head :: tail ->
                 match head with
                 | Set(IdentExpr _, FieldSet(fieldName), _, value, _) ->
@@ -919,9 +921,8 @@ let makePojoFromLambda com (arg: Expr) =
 
                     groupByGetter acc tail
 
-                | _ -> groupByGetter acc tail
-
-        let root = groupByGetter (MakePojoFromLambdaContext("/")) flattened
+                // Anything else (dynamic sets, loops, conditionals, etc.) can't be inlined.
+                | _ -> None
 
         let rec mapToExpression (node: MakePojoFromLambdaItem) =
             match node with
@@ -932,10 +933,13 @@ let makePojoFromLambda com (arg: Expr) =
 
         // Note: If the user mix nested getter and jsOptions then the last one will bein effect
         // We could try to generate a warning/error in this case but it seems complicated for little gain
-        if root.Children.Count = 0 then
-            None
-        else
-            root.Children |> Seq.map mapToExpression |> Seq.toList |> Some
+        match groupByGetter (MakePojoFromLambdaContext("/")) flattened with
+        | None -> None
+        | Some root ->
+            if root.Children.Count = 0 then
+                None
+            else
+                root.Children |> Seq.map mapToExpression |> Seq.toList |> Some
     | _ -> None
     |> Option.map (fun members -> ObjectExpr(members, typ, None))
     |> Option.defaultWith (fun () ->
