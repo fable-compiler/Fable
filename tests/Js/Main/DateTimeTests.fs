@@ -848,7 +848,7 @@ let tests =
         d3.Hour + d3.Minute + d3.Second |> equal 54
 
 
-    testCase "DateTime.Parse handles AM/PM designator correctly" <| fun () -> // PM = 12 hours, not 720 seconds
+    testCase "DateTime.Parse handles AM/PM designator correctly" <| fun () ->
         // Time-only strings parse to clock fields that are timezone-independent
         let d = DateTime.Parse("1:05:34 PM", CultureInfo.InvariantCulture)
         d.Hour |> equal 13
