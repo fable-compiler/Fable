@@ -5,6 +5,7 @@
     field_get/2,
     inst_state/1,
     apply_curried/2,
+    make_eta/2,
     fun_ref_eq/2,
     new_ref/1,
     safe_dispose/1,
@@ -38,6 +39,7 @@
 -spec field_get(atom(), map() | reference()) -> term().
 -spec inst_state(map() | reference()) -> map().
 -spec apply_curried(fun(), list()) -> term().
+-spec make_eta(fun(), 2..7) -> fun().
 -spec fun_ref_eq(term(), term()) -> boolean().
 -spec new_ref(term()) -> reference().
 -spec safe_dispose(term()) -> ok.
@@ -132,27 +134,52 @@ safe_dispose(_) ->
 apply_curried(Fun, []) -> Fun;
 apply_curried(Fun, [Arg | Rest]) -> apply_curried(Fun(Arg), Rest).
 
+%% Build an N-arity uncurrying (eta) adapter around curried function F.
+%%
+%% Fable inserts `fun(B0, ..., Bn) -> ((F(B0))...)(Bn) end` at argument sites to normalise a
+%% curried function value to the arity an uncurried slot expects. Each such adapter is a fresh
+%% closure, so two adapters built over the *same* F at different sites are never `=:=` — which
+%% breaks LanguagePrimitives.PhysicalEquality (e.g. removing a stored callback by identity).
+%% We build the adapter here, capturing F inside a tagged marker so fun_ref_eq/2 can recover F
+%% and treat all adapters over the same F as reference-equal. The marker is the adapter's ONLY
+%% captured variable, which keeps the fun_info/env recovery below unambiguous.
+make_eta(F, N) -> make_eta_marked({fable_eta_adapter, F}, N).
+
+make_eta_marked(M, 2) -> fun(B0, B1) -> apply_curried(erlang:element(2, M), [B0, B1]) end;
+make_eta_marked(M, 3) -> fun(B0, B1, B2) -> apply_curried(erlang:element(2, M), [B0, B1, B2]) end;
+make_eta_marked(M, 4) -> fun(B0, B1, B2, B3) -> apply_curried(erlang:element(2, M), [B0, B1, B2, B3]) end;
+make_eta_marked(M, 5) ->
+    fun(B0, B1, B2, B3, B4) -> apply_curried(erlang:element(2, M), [B0, B1, B2, B3, B4]) end;
+make_eta_marked(M, 6) ->
+    fun(B0, B1, B2, B3, B4, B5) -> apply_curried(erlang:element(2, M), [B0, B1, B2, B3, B4, B5]) end;
+make_eta_marked(M, 7) ->
+    fun(B0, B1, B2, B3, B4, B5, B6) -> apply_curried(erlang:element(2, M), [B0, B1, B2, B3, B4, B5, B6]) end.
+
 %% Reference identity for function values (LanguagePrimitives.PhysicalEquality / ReferenceEquals).
 %%
 %% Fable-BEAM represents the *same* F# function value with different Erlang funs at different
-%% sites: sometimes uncurried (a single N-arity fun) and sometimes re-curried into a nested
-%% 1-arity adapter (`fun(A0) -> fun(A1) -> F(A0, A1) end end`) to satisfy a curried-typed slot.
-%% Erlang compares funs by closure identity, so those two representations are never `=:=` even
-%% though they denote one value — which would make PhysicalEquality wrongly return `false`.
+%% sites: sometimes uncurried (a single N-arity fun), sometimes re-curried into a nested 1-arity
+%% adapter (`fun(A0) -> fun(A1) -> F(A0, A1) end end`), and sometimes wrapped in an N-arity
+%% uncurrying (eta) adapter built by make_eta/2 to satisfy an uncurried slot. Erlang compares funs
+%% by closure identity, so these representations are never `=:=` even though they denote one value
+%% — which would make PhysicalEquality wrongly return `false`.
 %%
-%% A curry adapter is a 1-arity fun whose only captured variable is the underlying function it
-%% wraps. We normalise by unwrapping such adapters to that underlying fun before comparing, so
-%% curried and uncurried representations of the same value compare equal. Crucially this does NOT
-%% degrade into structural equality: two genuinely distinct closures (identical body but no shared
-%% captured fun, or more than one captured variable — e.g. partial applications) are left intact
-%% and still compare unequal. Non-function values pass through untouched, so this is a safe drop-in
-%% for `=:=` on any operand type.
+%% We normalise to the underlying function before comparing:
+%%   * an eta adapter (built by make_eta/2) captures exactly the `{fable_eta_adapter, F}` marker —
+%%     unwrap it to F. This is precise: only make_eta's own adapters carry the marker;
+%%   * a curry adapter is a 1-arity fun whose only captured variable is itself a function —
+%%     unwrap it to that function.
+%% This does NOT degrade into structural equality: genuinely distinct closures (no shared captured
+%% fun, or more than one captured variable — e.g. partial applications) are left intact and still
+%% compare unequal. Non-function values pass through untouched, so this is a safe drop-in for `=:=`.
 fun_ref_eq(A, B) -> unwrap_fun(A) =:= unwrap_fun(B).
 
-unwrap_fun(F) when is_function(F, 1) ->
+unwrap_fun(F) when is_function(F) ->
     case erlang:fun_info(F, env) of
-        %% Exactly one captured variable, and it is itself a function: a curry adapter — unwrap it.
-        {env, [Inner]} when is_function(Inner) -> unwrap_fun(Inner);
+        %% An eta adapter built by make_eta/2: recover the underlying function from the marker.
+        {env, [{fable_eta_adapter, Inner}]} -> unwrap_fun(Inner);
+        %% A 1-arity curry adapter whose only captured variable is itself a function.
+        {env, [Inner]} when is_function(Inner), is_function(F, 1) -> unwrap_fun(Inner);
         _ -> F
     end;
 unwrap_fun(V) -> V.

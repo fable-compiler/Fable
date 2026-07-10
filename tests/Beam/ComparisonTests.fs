@@ -39,6 +39,22 @@ let physEqStore (a: Sink) (b: Sink) : Sink list = [ a; b ]
 let physEqRemove (sinks: Sink list) (sink: Sink) : Sink list =
     sinks |> List.filter (fun s -> not (LanguagePrimitives.PhysicalEquality s sink))
 
+// Closer to the real Parchment shape: the sink originates from a tuple deconstruction
+// (captureSink) and is stored/removed via a class. This forces the curried function value to
+// be normalised to an uncurried arity at *both* the store site and the compare site, each via
+// a separately-built adapter — which must still preserve reference identity.
+let captureSink () : Sink * (unit -> string list) =
+    let received = System.Collections.Generic.List<string>()
+    let sink: Sink = fun _sev msg -> received.Add(msg)
+    let reader () = List.ofSeq received
+    sink, reader
+
+type SinkRegistry(a: Sink, b: Sink) =
+    let mutable sinks: Sink list = [ a; b ]
+    member _.Remove(sink: Sink) =
+        sinks <- sinks |> List.filter (fun s -> not (LanguagePrimitives.PhysicalEquality s sink))
+    member _.Count = List.length sinks
+
 [<Fact>]
 let ``test Typed array equality works`` () =
     let xs1 = [| 1; 2; 3 |]
@@ -734,6 +750,26 @@ let ``test PhysicalEquality is identity not structural on functions`` () =
     // But the same value compares equal to itself, even when stored in a list.
     LanguagePrimitives.PhysicalEquality f1 f1 |> equal true
     [ f1 ] |> List.exists (fun g -> LanguagePrimitives.PhysicalEquality g f1) |> equal true
+
+[<Fact>]
+let ``test PhysicalEquality removal works for a tuple-sourced function via a class`` () =
+    // Mirrors Scriptorium.Parchment: sink comes from a tuple deconstruction and is stored/removed
+    // through a class. The same curried value is uncurried by separately-built adapters at the
+    // store and compare sites, but must still be removed by reference identity.
+    let sink1, _ = captureSink ()
+    let sink2, _ = captureSink ()
+    let registry = SinkRegistry(sink1, sink2)
+    registry.Count |> equal 2
+    registry.Remove(sink2)
+    registry.Count |> equal 1
+    // Removing the remaining one empties the registry.
+    registry.Remove(sink1)
+    registry.Count |> equal 0
+    // Removing a non-stored sink is a no-op.
+    let registry2 = SinkRegistry(sink1, sink2)
+    let other, _ = captureSink ()
+    registry2.Remove(other)
+    registry2.Count |> equal 2
 
 // --- Raw Erlang reference comparison tests ---
 // These test that fable_comparison correctly handles Erlang references
