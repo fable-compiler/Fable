@@ -127,13 +127,29 @@ pub enum NativeArray {
     Float32(Vec<f32>),
     Float64(Vec<f64>),
     Bool(Vec<bool>),
-    // Generic storage. A plain Vec is sufficient — no Mutex needed. The soundness
-    // comes from PyO3's pyclass borrow model, not the GIL: mutating methods take
-    // `&mut self`, so PyO3 enforces exclusive access at runtime (a conflicting
-    // borrow raises `AlreadyBorrowed`). That holds even on free-threaded/no-GIL
-    // builds, where the GIL no longer serializes anything. Cloning deep-copies the
-    // element references, giving correct F# value semantics (a clone never aliases
-    // the source's mutable storage).
+    // Generic storage. A plain Vec is sufficient — no Mutex needed — but only
+    // *because* we also dropped the `Arc`: the two changes are coupled.
+    //
+    // Every mutation of this Vec goes through a `&mut` receiver (with a plain Vec
+    // it can't be otherwise — there is no interior mutability). PyO3 atomically
+    // borrow-checks each pyclass method at entry (`try_borrow_mut`, backed by an
+    // AtomicUsize CAS), so two threads can never hold conflicting borrows of the
+    // same FSharpArray; a racing conflict raises `AlreadyBorrowed` rather than
+    // tearing the Vec. This holds on both GIL and free-threaded/no-GIL builds.
+    //
+    // The Mutex was only load-bearing under the old `Arc<Mutex<Vec>>`: the borrow
+    // flag is per pyclass instance, so two *distinct* FSharpArray objects aliasing
+    // one Vec (the old sharing bug) each passed their own borrow check and could
+    // race on the same buffer — the Mutex was the only guard. With the Arc gone,
+    // every Vec has exactly one owning instance and the borrow checker covers it.
+    //
+    // Note this does not make concurrent *mutation* logically correct: like .NET
+    // arrays, these are not thread-safe for unsynchronized writes (the Mutex never
+    // gave logical safety either, only memory safety). Callers must synchronize
+    // shared mutation exactly as they would in .NET.
+    //
+    // Cloning deep-copies the element references, giving correct F# value semantics
+    // (a clone never aliases the source's mutable storage).
     PyObject(Vec<Py<PyAny>>),
 }
 
