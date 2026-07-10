@@ -1314,6 +1314,36 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 "error",
                 [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "rethrow")) ]
             )
+        | Curry(e, arity) when
+            arity >= 2
+            && arity <= 7
+            && (
+                match e with
+                | Value(Null _, _) -> false
+                | _ ->
+                    match e.Type with
+                    | LambdaType _
+                    | DelegateType _ -> true
+                    | _ -> false
+            )
+            ->
+            // Re-curry an uncurried function into `arity` nested 1-arg funs. The default lowering
+            // (curryExprAtRuntime) builds a fresh nested-lambda closure at each site, so two curry
+            // adapters over the *same* underlying function compare unequal, breaking reference
+            // identity (LanguagePrimitives.PhysicalEquality). Route through fable_utils:make_curry,
+            // which tags the adapter with a `{fable_curry_adapter, F}` marker so fun_ref_eq can
+            // recover F and treat all adapters over it as reference-equal. make_curry applies F with
+            // all args at once (erlang:apply), matching the default multi-arg Apply lowering exactly,
+            // so it is behaviour-identical bar the marker. See Beam/FABLE-BEAM.md.
+            let eExpr = transformExpr com ctx e
+            let hoisted, cleanE = extractBlock eExpr
+
+            Beam.ErlExpr.Call(
+                Some "fable_utils",
+                "make_curry",
+                [ cleanE; Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 arity)) ]
+            )
+            |> wrapWithHoisted hoisted
         | Curry(e, arity) -> transformExpr com ctx (Replacements.Api.curryExprAtRuntime com arity e)
         | Debugger ->
             com.WarnOnlyOnce("System.Diagnostics.Debugger is not supported for Beam target, ignoring")

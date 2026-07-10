@@ -771,6 +771,21 @@ let ``test PhysicalEquality removal works for a tuple-sourced function via a cla
     registry2.Remove(other)
     registry2.Count |> equal 2
 
+[<Fact>]
+let ``test PhysicalEquality distinguishes eta expansion from the original`` () =
+    // A user-written eta expansion `fun x -> g x` is a distinct closure from `g`, so reference
+    // identity must return false — same as .NET. Fable's reference-identity recovery (fun_ref_eq
+    // in fable_utils.erl) only unwraps its own compiler-generated curry/eta adapters, which carry
+    // a marker; a hand-written eta expansion carries none and stays distinct. Regression guard
+    // for the earlier 1-arity shape heuristic, which wrongly unwrapped `fun x -> g x` to `g`.
+    let g: int -> int = fun x -> x + 1
+    let etaG: int -> int = fun x -> g x
+    LanguagePrimitives.PhysicalEquality etaG g |> equal false
+    // 2-arg eta expansion is likewise distinct from the original.
+    let h: int -> int -> int = fun a b -> a + b
+    let etaH: int -> int -> int = fun a b -> h a b
+    LanguagePrimitives.PhysicalEquality etaH h |> equal false
+
 // --- Raw Erlang reference comparison tests ---
 // These test that fable_comparison correctly handles Erlang references
 // that are NOT stored in the process dictionary (i.e., not mutable vars or class instances).
