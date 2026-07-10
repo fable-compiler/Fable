@@ -49,9 +49,9 @@ macro_rules! float_variant {
             // --- Arithmetic Methods ---
             // Fast path: check if other is our type first to avoid __float__ call
             pub fn __add__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-                // Fast path: other is same type
-                if let Ok(other_val) = other.extract::<Self>() {
-                    return Ok(Self(self.0 + other_val.0));
+                // Fast path: other is same type (cast avoids a discarded PyErr on miss)
+                if let Ok(other_val) = other.cast::<Self>() {
+                    return Ok(Self(self.0 + other_val.get().0));
                 }
                 // Slow path: extract as primitive
                 let other_val = other.extract::<$type>()?;
@@ -63,8 +63,8 @@ macro_rules! float_variant {
             }
 
             pub fn __sub__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-                if let Ok(other_val) = other.extract::<Self>() {
-                    return Ok(Self(self.0 - other_val.0));
+                if let Ok(other_val) = other.cast::<Self>() {
+                    return Ok(Self(self.0 - other_val.get().0));
                 }
                 let other_val = other.extract::<$type>()?;
                 Ok(Self(self.0 - other_val))
@@ -79,8 +79,8 @@ macro_rules! float_variant {
             }
 
             pub fn __mul__(&self, other: &Bound<'_, PyAny>) -> PyResult<Self> {
-                if let Ok(other_val) = other.extract::<Self>() {
-                    return Ok(Self(self.0 * other_val.0));
+                if let Ok(other_val) = other.cast::<Self>() {
+                    return Ok(Self(self.0 * other_val.get().0));
                 }
                 let other_val = other.extract::<$type>()?;
                 Ok(Self(self.0 * other_val))
@@ -196,6 +196,19 @@ macro_rules! float_variant {
                 op: CompareOp,
                 py: Python<'py>,
             ) -> PyResult<Borrowed<'py, 'py, PyAny>> {
+                // Fast path: same type (cast avoids a discarded PyErr and a __float__ hop)
+                if let Ok(other_val) = other.cast::<Self>() {
+                    let other_float = other_val.get().0;
+                    let result = match op {
+                        CompareOp::Eq => self.0 == other_float,
+                        CompareOp::Ne => self.0 != other_float,
+                        CompareOp::Lt => self.0 < other_float,
+                        CompareOp::Le => self.0 <= other_float,
+                        CompareOp::Gt => self.0 > other_float,
+                        CompareOp::Ge => self.0 >= other_float,
+                    };
+                    return Ok(PyBool::new(py, result).into_any());
+                }
                 // Try to convert other to our type first
                 if let Ok(other_float) = other.extract::<$type>() {
                     let result = match op {
