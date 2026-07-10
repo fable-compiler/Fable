@@ -1,6 +1,7 @@
 -module(fable_async).
 -export([
     start_immediate/1, start_immediate/2,
+    start_child/1, start_child/2,
     run_synchronously/1, run_synchronously/2,
     start_with_continuations/4, start_with_continuations/5,
     sleep/1,
@@ -26,6 +27,8 @@
 
 -spec start_immediate(async(term())) -> term().
 -spec start_immediate(async(term()), reference() | undefined) -> term().
+-spec start_child(async(term())) -> async(async(term())).
+-spec start_child(async(term()), non_neg_integer() | undefined) -> async(async(term())).
 -spec run_synchronously(async(term())) -> term().
 -spec run_synchronously(async(term()), reference() | undefined) -> term().
 -spec start_with_continuations(async(term()), fun(), fun(), fun()) -> term().
@@ -55,6 +58,44 @@ default_ctx(CancelToken) ->
 start_immediate(Computation) -> start_immediate(Computation, undefined).
 start_immediate(Computation, CancelToken) ->
     Computation(default_ctx(CancelToken)).
+
+%% StartChild: run the computation concurrently and return an inner async that
+%% waits for (and yields) its result. Mirrors .NET Async.StartChild: the child
+%% starts immediately, and awaiting the returned inner async blocks until it
+%% finishes. The optional timeout raises a timeout error if the child does not
+%% finish in time. A unique ResultRef tags the reply so several children in the
+%% same process (or nested under parallel/1 workers) do not cross-talk.
+start_child(Computation) -> start_child(Computation, undefined).
+start_child(Computation, Timeout) ->
+    fun(Ctx) ->
+        Self = self(),
+        ResultRef = make_ref(),
+        Pid = spawn(fun() ->
+            try
+                Result = fable_async:run_synchronously(Computation),
+                Self ! {async_child, ResultRef, {ok, Result}}
+            catch
+                _:Err -> Self ! {async_child, ResultRef, {error, Err}}
+            end
+        end),
+        TimeoutMs =
+            case Timeout of
+                undefined -> infinity;
+                _ -> Timeout
+            end,
+        Inner = fun(InnerCtx) ->
+            OnSuccess = maps:get(on_success, InnerCtx),
+            OnError = maps:get(on_error, InnerCtx),
+            receive
+                {async_child, ResultRef, {ok, Value}} -> OnSuccess(Value);
+                {async_child, ResultRef, {error, Err}} -> OnError(wrap_error(Err))
+            after TimeoutMs ->
+                exit(Pid, kill),
+                OnError(#{message => <<"The operation has timed out."/utf8>>})
+            end
+        end,
+        (maps:get(on_success, Ctx))(Inner)
+    end.
 
 %% RunSynchronously: run CPS chain in current process, capture result
 run_synchronously(Computation) -> run_synchronously(Computation, undefined).
