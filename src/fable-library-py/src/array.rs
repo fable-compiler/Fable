@@ -1647,6 +1647,10 @@ impl FSharpArray {
 
     pub fn sum(&self, py: Python<'_>, adder: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         // Fast path: numeric storage sums natively without per-element Python calls.
+        // This bypasses `adder` entirely, which is safe because Fable only ever
+        // injects the standard numeric adder for primitive-typed arrays (custom
+        // monoids reach the runtime through `sum_by`, not `sum`). If that invariant
+        // ever changes, this fast path must be gated accordingly.
         if let Some(result) = self.storage.try_native_sum(py) {
             return result;
         }
@@ -2895,7 +2899,9 @@ impl FSharpArray {
     pub fn max(&self, py: Python<'_>, comparer: &Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
         // Fast path: integer storage compares natively (floats fall back to the
         // comparer path to preserve its NaN ordering; empty falls back to the
-        // canonical empty-array error in reduce_impl).
+        // canonical empty-array error in reduce_impl). Bypassing `comparer` is safe
+        // because Fable always injects the standard comparer here; a custom key
+        // comparer reaches the runtime through `max_by`, which is not fast-pathed.
         if let Some(result) = self.storage.try_native_max(py) {
             return result;
         }

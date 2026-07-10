@@ -1572,6 +1572,36 @@ def test_native_contains_matches_callback(array_type: str, data: st.DataObject) 
     assert typed.contains(value, None) == generic.contains(value, None)
 
 
+# Cross-type probes: the probe value is not representable as the element type, so
+# the native fast path bails out (`try_native_contains` returns None) and the
+# scan falls back to `rich_compare`, preserving Python's cross-type equality
+# (2 == 2.0, True == 1). The typed (native) path must agree with the generic
+# (callback) oracle in every case.
+@pytest.mark.parametrize(
+    ("array_type", "elements", "probe", "expected"),
+    [
+        # int storage probed with a float that equals / doesn't equal an element
+        ("Int32", [1, 2, 3], 2.0, True),
+        ("Int32", [1, 2, 3], 2.5, False),
+        # int storage probed with a bool (True == 1 in Python)
+        ("Int32", [0, 1], True, True),
+        # float storage probed with an int
+        ("Float64", [1.0, 2.0], 2, True),
+        ("Float64", [1.0, 2.0], 3, False),
+        # bool storage probed with an int (extract::<bool> rejects a plain int)
+        ("Bool", [True, False], 1, True),
+        ("Bool", [True, False], 0, True),
+        ("Bool", [True], 2, False),
+    ],
+)
+def test_native_contains_cross_type_fallback(array_type: str, elements: list[Any], probe: Any, expected: bool) -> None:
+    """Cross-type probes fall back to rich_compare; native == callback == Python."""
+    typed = Array(array_type=array_type, elements=list(elements))
+    generic = Array(array_type="Generic", elements=list(elements))
+    assert typed.contains(probe, None) == expected
+    assert typed.contains(probe, None) == generic.contains(probe, None)
+
+
 # ---------------------------------------------------------------------------
 # Value semantics for generic (PyObject) storage.
 #

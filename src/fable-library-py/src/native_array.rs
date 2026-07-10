@@ -127,9 +127,11 @@ pub enum NativeArray {
     Float32(Vec<f32>),
     Float64(Vec<f64>),
     Bool(Vec<bool>),
-    // Generic storage. A plain Vec is sufficient: the GIL serializes all access
-    // (every method that touches storage holds a `Python` token / uses `&mut self`
-    // through PyO3's borrow model), so no Mutex is needed. Cloning deep-copies the
+    // Generic storage. A plain Vec is sufficient — no Mutex needed. The soundness
+    // comes from PyO3's pyclass borrow model, not the GIL: mutating methods take
+    // `&mut self`, so PyO3 enforces exclusive access at runtime (a conflicting
+    // borrow raises `AlreadyBorrowed`). That holds even on free-threaded/no-GIL
+    // builds, where the GIL no longer serializes anything. Cloning deep-copies the
     // element references, giving correct F# value semantics (a clone never aliases
     // the source's mutable storage).
     PyObject(Vec<Py<PyAny>>),
