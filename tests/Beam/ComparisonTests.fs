@@ -28,6 +28,17 @@ type RTest = { a: int; b: int }
 
 exception Ex of int
 
+// Helpers for testing reference identity (PhysicalEquality) of curried 2-argument function
+// values. A value is stored one way (curried) and passed/compared another way (uncurried)
+// across argument sites, but must still compare as the *same* value. Mirrors the
+// Scriptorium.Parchment sink registration/removal pattern.
+type Sink = int -> string -> unit
+
+let physEqStore (a: Sink) (b: Sink) : Sink list = [ a; b ]
+
+let physEqRemove (sinks: Sink list) (sink: Sink) : Sink list =
+    sinks |> List.filter (fun s -> not (LanguagePrimitives.PhysicalEquality s sink))
+
 [<Fact>]
 let ``test Typed array equality works`` () =
     let xs1 = [| 1; 2; 3 |]
@@ -685,6 +696,44 @@ let ``test PhysicalEquality works`` () =
     LanguagePrimitives.PhysicalEquality r1 r2 |> equal false
     LanguagePrimitives.PhysicalEquality r2 r2 |> equal true
     LanguagePrimitives.PhysicalEquality r3 r1 |> equal true
+
+[<Fact>]
+let ``test PhysicalEquality on a function value stored in a list works`` () =
+    // A curried 2-arg function value, captured once and stored in a list, must be found by
+    // reference identity — even though it is stored one way (curried) and passed another way
+    // (uncurried) across argument sites. Mirrors Scriptorium.Parchment sink registration.
+    let s1: Sink = fun _sev _msg -> ()
+    let s2: Sink = fun _sev _msg -> ()
+    let stored = physEqStore s1 s2
+    stored |> List.exists (fun g -> LanguagePrimitives.PhysicalEquality g s2) |> equal true
+    stored |> List.exists (fun g -> LanguagePrimitives.PhysicalEquality g s1) |> equal true
+    // A distinct function (identical body but a different value) must NOT be found.
+    let other: Sink = fun _sev _msg -> ()
+    stored |> List.exists (fun g -> LanguagePrimitives.PhysicalEquality g other) |> equal false
+
+[<Fact>]
+let ``test PhysicalEquality-based removal removes the right function`` () =
+    let s1: Sink = fun _sev _msg -> ()
+    let s2: Sink = fun _sev _msg -> ()
+    let stored = physEqStore s1 s2
+    // Remove an element that is stored: it is actually removed.
+    let afterRemove = physEqRemove stored s2
+    List.length afterRemove |> equal 1
+    afterRemove |> List.exists (fun g -> LanguagePrimitives.PhysicalEquality g s1) |> equal true
+    afterRemove |> List.exists (fun g -> LanguagePrimitives.PhysicalEquality g s2) |> equal false
+    // Removing a non-stored element is a no-op.
+    let other: Sink = fun _sev _msg -> ()
+    physEqRemove stored other |> List.length |> equal 2
+
+[<Fact>]
+let ``test PhysicalEquality is identity not structural on functions`` () =
+    // Two distinct closures with identical bodies must not be reference-equal.
+    let f1: int -> int -> int = fun a b -> a + b
+    let f2: int -> int -> int = fun a b -> a + b
+    LanguagePrimitives.PhysicalEquality f1 f2 |> equal false
+    // But the same value compares equal to itself, even when stored in a list.
+    LanguagePrimitives.PhysicalEquality f1 f1 |> equal true
+    [ f1 ] |> List.exists (fun g -> LanguagePrimitives.PhysicalEquality g f1) |> equal true
 
 // --- Raw Erlang reference comparison tests ---
 // These test that fable_comparison correctly handles Erlang references

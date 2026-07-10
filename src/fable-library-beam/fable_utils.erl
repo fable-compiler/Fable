@@ -5,6 +5,7 @@
     field_get/2,
     inst_state/1,
     apply_curried/2,
+    fun_ref_eq/2,
     new_ref/1,
     safe_dispose/1,
     get_enumerator/1,
@@ -37,6 +38,7 @@
 -spec field_get(atom(), map() | reference()) -> term().
 -spec inst_state(map() | reference()) -> map().
 -spec apply_curried(fun(), list()) -> term().
+-spec fun_ref_eq(term(), term()) -> boolean().
 -spec new_ref(term()) -> reference().
 -spec safe_dispose(term()) -> ok.
 -spec get_enumerator(list() | reference() | map() | term()) -> reference().
@@ -129,6 +131,31 @@ safe_dispose(_) ->
 %% Used by CurriedApply when the target is a qualified call returning a curried function.
 apply_curried(Fun, []) -> Fun;
 apply_curried(Fun, [Arg | Rest]) -> apply_curried(Fun(Arg), Rest).
+
+%% Reference identity for function values (LanguagePrimitives.PhysicalEquality / ReferenceEquals).
+%%
+%% Fable-BEAM represents the *same* F# function value with different Erlang funs at different
+%% sites: sometimes uncurried (a single N-arity fun) and sometimes re-curried into a nested
+%% 1-arity adapter (`fun(A0) -> fun(A1) -> F(A0, A1) end end`) to satisfy a curried-typed slot.
+%% Erlang compares funs by closure identity, so those two representations are never `=:=` even
+%% though they denote one value — which would make PhysicalEquality wrongly return `false`.
+%%
+%% A curry adapter is a 1-arity fun whose only captured variable is the underlying function it
+%% wraps. We normalise by unwrapping such adapters to that underlying fun before comparing, so
+%% curried and uncurried representations of the same value compare equal. Crucially this does NOT
+%% degrade into structural equality: two genuinely distinct closures (identical body but no shared
+%% captured fun, or more than one captured variable — e.g. partial applications) are left intact
+%% and still compare unequal. Non-function values pass through untouched, so this is a safe drop-in
+%% for `=:=` on any operand type.
+fun_ref_eq(A, B) -> unwrap_fun(A) =:= unwrap_fun(B).
+
+unwrap_fun(F) when is_function(F, 1) ->
+    case erlang:fun_info(F, env) of
+        %% Exactly one captured variable, and it is itself a function: a curry adapter — unwrap it.
+        {env, [Inner]} when is_function(Inner) -> unwrap_fun(Inner);
+        _ -> F
+    end;
+unwrap_fun(V) -> V.
 
 %% Enumerator support for for-in loops over lists.
 %% Enumerator is a process dict ref pointing to #{items => List, current => undefined}.
