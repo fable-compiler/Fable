@@ -766,3 +766,79 @@ let ``test Different raw references have different hashes`` () =
     ()
 #endif
 
+
+// Ordered comparison of discriminated unions must follow F# declaration order
+// (case tag index), not Erlang's native atom/term ordering. See fix for
+// Beam DU ordered comparison.
+type Severity =
+    | Error
+    | Warning
+    | Info
+    | Verbose
+    | Debug
+    | Silly
+
+// Case declaration order differs from alphabetical atom order (alpha < zeta).
+type Alphabetized =
+    | Zeta of int
+    | Alpha of int
+
+[<Fact>]
+let ``test DU relational operators follow declaration order`` () =
+    // F#: Error < Warning < Info < Verbose < Debug < Silly
+    equal true (Warning <= Info) // atoms: "warning" > "info" would say false
+    equal false (Debug <= Info) // atoms: "debug" < "info" would say true
+    equal true (Verbose <= Silly) // atoms: "verbose" > "silly" would say false
+    equal true (Error < Silly)
+    equal false (Silly < Error)
+    equal true (Silly >= Debug)
+    equal true (Info > Warning)
+
+[<Fact>]
+let ``test DU List.sort uses declaration order`` () =
+    let sorted = List.sort [ Silly; Error; Info; Warning ]
+    equal [ Error; Warning; Info; Silly ] sorted
+
+[<Fact>]
+let ``test DU Array.sort uses declaration order`` () =
+    let sorted = Array.sort [| Silly; Error; Info; Warning |]
+    equal [| Error; Warning; Info; Silly |] sorted
+
+[<Fact>]
+let ``test DU List.sortDescending uses declaration order`` () =
+    let sorted = List.sortDescending [ Warning; Silly; Error; Info ]
+    equal [ Silly; Info; Warning; Error ] sorted
+
+[<Fact>]
+let ``test compare on DUs follows declaration order`` () =
+    equal true (compare Warning Info < 0)
+    equal true (compare Debug Info > 0)
+    equal 0 (compare Info Info)
+    equal true (compare Error Silly < 0)
+
+[<Fact>]
+let ``test DU with fields orders by declaration order then fields`` () =
+    // Zeta declared before Alpha, so Zeta _ < Alpha _ despite alphabetical atom order.
+    equal true (Zeta 1 < Alpha 1)
+    equal false (Alpha 1 < Zeta 1)
+    equal true (compare (Zeta 1) (Alpha 1) < 0)
+    // Same case: fall back to field comparison.
+    equal true (Alpha 1 < Alpha 2)
+    equal true (Zeta 5 > Zeta 3)
+    equal 0 (compare (Alpha 7) (Alpha 7))
+
+[<Fact>]
+let ``test DU min and max follow declaration order`` () =
+    // Discriminating: "info" < "warning" alphabetically, but Warning is declared before Info.
+    equal Warning (min Warning Info)
+    equal Info (max Warning Info)
+    equal Error (min Warning Error)
+    equal Silly (max Warning Silly)
+
+[<Fact>]
+let ``test DU equality is unaffected by ordering fix`` () =
+    equal true (Info = Info)
+    equal false (Info = Warning)
+    equal true (Zeta 1 = Zeta 1)
+    equal false (Zeta 1 = Zeta 2)
+    equal false (Zeta 1 = Alpha 1)

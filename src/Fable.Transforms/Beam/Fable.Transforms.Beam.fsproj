@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <Compile Include="Prelude.fs" />
     <Compile Include="Beam.AST.fs" />
     <Compile Include="Fable2Beam.Util.fs" />
     <Compile Include="Fable2Beam.Reflection.fs" />

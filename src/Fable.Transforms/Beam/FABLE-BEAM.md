@@ -84,7 +84,7 @@ directly to Erlang built-ins:
 | **Maps** | Library objects/dicts | Native `#{}` maps, `maps:*` |
 | **Sets** | Library Set class | Native `ordsets` (sorted lists) |
 | **Structural equality** | `Util.equals()` library call | Native `=:=` (deep comparison on all types) |
-| **Structural comparison** | `Util.compare()` library call | Native `<`, `>`, `=<`, `>=` (works on all terms) |
+| **Structural comparison** | `Util.compare()` library call | Native `<`, `>`, `=<`, `>=` for most types; `fable_comparison:compare_union/3` for DUs (see below) |
 | **Hashing** | Custom hash functions | `erlang:phash2/1` |
 | **Pattern matching** | Compiled to if/else chains | Native pattern matching in `case` expressions |
 | **Sequences** | Lazy iterators | Lazy seqs via compiled `seq.erl`/`seq2.erl` |
@@ -92,6 +92,61 @@ directly to Erlang built-ins:
 **Rule: If Erlang can do it natively, do it natively.** Only create library modules
 (`fable-library-beam/*.erl`) for operations that genuinely need helper code. Avoid
 falling through to the JS Replacements fallback for Beam-specific operations.
+
+#### Exception: ordered comparison of discriminated unions
+
+F# requires `<`, `<=`, `>`, `>=`, `compare`, sorting, `min`/`max` on a DU to order cases
+by **declaration order** (the case tag index). The Beam DU representation is tagless —
+nullary cases are bare atoms (`error`, `warning`, …) and other cases are `{atom, Field…}`
+tuples — so Erlang's native term ordering falls back to **alphabetical atom order**, which
+does not match F# semantics (e.g. `Warning <= Info` is `true` in F# but `false` for atoms).
+
+Since a value carries no case index, the compiler supplies the declaration order at the
+comparison site and routes DU comparisons through `fable_comparison:compare_union(TagOrder, A, B)`,
+where `TagOrder` is the list of case tag names in declaration order. This is wired up in
+`Beam/Replacements.fs`:
+
+- `compare` helper → `compare_union` when the operand type is an F# union (covers `compare`,
+  `GenericComparison`, `CompareTo`, and the comparer used by `List.sortWith` when the user
+  passes `compare`). Note this does **not** reach `Set`/`Map`, which use native `ordsets`/`#{}`
+  and never call `fable_comparison` — see the gaps below.
+- `makeRelational` → relational operators on unions.
+- `min`/`max` operators on unions (via the union-aware `compare` helper).
+- `List.sort`/`List.sortDescending` and `Array.sort`/`Array.sortDescending` → an inline
+  `lists:sort/2` with a `compare_union` comparator when the element type is a union.
+
+Equality (`=:=`) is already correct for unions and is left untouched.
+
+**Known gaps (routing is site-driven, so only statically-typed union comparisons are covered):**
+comparisons that reach the *generic runtime* `fable_comparison:compare/2` — or Erlang's native
+term ordering — on a union value still use alphabetical order. This affects:
+
+- `List.sortBy`/`sortByDescending` with a **union key**.
+- `List.min`/`max` and `Array.min`/`max` (native `lists:min`/`lists:max`).
+- A union used as a **field of another union** (nested comparison when outer tags are equal).
+- **`Set<union>` and `Map<union key>`** — F# Sets/Maps are ordered collections, but the Beam
+  representation is native `ordsets`/`#{}`, which order by native term ordering and never call
+  `fable_comparison`. So `Set.minElement`/`maxElement`, `Set`/`Map` iteration order,
+  `Map.toList`/`Keys`, etc. sort union elements/keys **alphabetically**, not by declaration
+  order. (Set/Map *membership* and *equality* are unaffected — those rely on `=:=`, which is
+  correct.)
+
+These are not currently exercised by the test suite.
+
+**Possible future follow-up — make the representation carry the tag index.** The complete,
+uniform fix is to encode the case's declaration index in the value itself (e.g. an
+index-first tuple `{Index, atom, Field…}`, nullary → `{Index, atom}`). Then the *generic*
+`fable_comparison:compare/2` orders correctly for **every** path — relational ops, `sortBy`,
+`min`/`max`, nested unions, generic containers — with no per-site tag lists and no gaps.
+Why it was **not** done here: (1) the tagless bare-atom / `{atom, Field…}` shape is a
+deliberate, idiomatic-Erlang design goal and is FFI-exposed (DU values flow through
+`Erlang.receive` message-passing and hand-written interop); (2) Erlang orders tuples by
+**size first**, so even an index-carrying tuple can't rely on native `=<`/`lists:sort` for
+mixed-arity unions — union comparison would still have to route through `fable_comparison`;
+(3) the blast radius is broad and must move in lockstep — `NewUnion`, `UnionCaseTest`,
+`UnionTag`, `UnionField` (offset), `Erlang.receive`, `fable_reflection` (make/get union),
+the `Result` shape (`{ok, V}` → `{Index, ok, V}`), and `%A`/`~p` printed output. If the gaps
+above start to matter in real code, revisit this representation change.
 
 ### Never modify F# tests to accommodate Erlang quirks
 
