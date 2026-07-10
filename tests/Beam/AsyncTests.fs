@@ -149,6 +149,35 @@ let ``test Async.StartChild with timeout completes when computation finishes bef
     }
     Async.RunSynchronously comp |> equal 99
 
+[<Fact>]
+let ``test Async.StartChild result can be awaited multiple times`` () =
+    let comp = async {
+        let! c = Async.StartChild(async { return 21 })
+        let! r1 = c
+        let! r2 = c
+        return r1 + r2
+    }
+    Async.RunSynchronously comp |> equal 42
+
+[<Fact>]
+let ``test Async.StartChild result can be awaited from another process`` () =
+    // On Beam, Async.Parallel runs each computation in its own process, so
+    // awaiting the child from inside a parallel worker exercises cross-process
+    // await: the awaiter is not the process that called StartChild.
+    let comp = async {
+        let! c = Async.StartChild(async {
+            do! Async.Sleep 50
+            return 7
+        })
+        let! results =
+            Async.Parallel [ async {
+                let! r = c
+                return r
+            } ]
+        return Array.sum results
+    }
+    Async.RunSynchronously comp |> equal 7
+
 let asyncMap f a = async {
     let! a = a
     return f a

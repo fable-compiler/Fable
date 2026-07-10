@@ -63,20 +63,33 @@ start_immediate(Computation, CancelToken) ->
 %% waits for (and yields) its result. Mirrors .NET Async.StartChild: the child
 %% starts immediately, and awaiting the returned inner async blocks until it
 %% finishes. The optional timeout raises a timeout error if the child does not
-%% finish in time. A unique ResultRef tags the reply so several children in the
-%% same process (or nested under parallel/1 workers) do not cross-talk.
+%% finish in time.
+%%
+%% The child runs the computation to completion in its own process, then becomes
+%% a small "result holder" that replies to on-demand requests. Because each
+%% awaiter sends its own pid and the holder replies to that pid, the inner async
+%% can be awaited from any process (not only the one that called start_child)
+%% and any number of times — both matching .NET semantics. A unique ResultRef
+%% tags every reply so several children never cross-talk. The holder lives until
+%% it is killed (e.g. on timeout) or the VM stops, so a child whose result is
+%% never awaited leaves an idle process behind.
+%%
+%% Cancellation tokens are intentionally not propagated to the child: tokens are
+%% held in the process dictionary (see fable_cancellation), so they are only
+%% meaningful within a single process and cannot be shared with the child's
+%% separate process. This matches parallel/1.
 start_child(Computation) -> start_child(Computation, undefined).
 start_child(Computation, Timeout) ->
     fun(Ctx) ->
-        Self = self(),
         ResultRef = make_ref(),
         Pid = spawn(fun() ->
-            try
-                Result = fable_async:run_synchronously(Computation),
-                Self ! {async_child, ResultRef, {ok, Result}}
-            catch
-                _:Err -> Self ! {async_child, ResultRef, {error, Err}}
-            end
+            Result =
+                try
+                    {ok, fable_async:run_synchronously(Computation)}
+                catch
+                    _:Err -> {error, Err}
+                end,
+            child_result_holder(ResultRef, Result)
         end),
         TimeoutMs =
             case Timeout of
@@ -86,15 +99,30 @@ start_child(Computation, Timeout) ->
         Inner = fun(InnerCtx) ->
             OnSuccess = maps:get(on_success, InnerCtx),
             OnError = maps:get(on_error, InnerCtx),
+            Pid ! {get_child_result, ResultRef, self()},
             receive
                 {async_child, ResultRef, {ok, Value}} -> OnSuccess(Value);
                 {async_child, ResultRef, {error, Err}} -> OnError(wrap_error(Err))
             after TimeoutMs ->
                 exit(Pid, kill),
+                %% Drop a reply that may have raced in just before the kill so
+                %% it does not linger in our mailbox.
+                receive
+                    {async_child, ResultRef, _} -> ok
+                after 0 -> ok
+                end,
                 OnError(#{message => <<"The operation has timed out."/utf8>>})
             end
         end,
         (maps:get(on_success, Ctx))(Inner)
+    end.
+
+%% Serve a computed child result to any awaiter, any number of times.
+child_result_holder(ResultRef, Result) ->
+    receive
+        {get_child_result, ResultRef, Requester} ->
+            Requester ! {async_child, ResultRef, Result},
+            child_result_holder(ResultRef, Result)
     end.
 
 %% RunSynchronously: run CPS chain in current process, capture result
