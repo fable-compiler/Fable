@@ -1334,7 +1334,7 @@ let tests =
         uint64 "0x9fffffff_ffffffff" |> equal 11529215046068469759UL
         uint64 "0x9fff_ffff_ffff_ffff" |> equal 11529215046068469759UL
 
-    testCase "Special cases conversion to Int64 work" <| fun () -> // hex/two's-complement wrap
+    testCase "Special cases conversion to Int64 work" <| fun () ->
         int64 "0xFFFFFFFFFFFFFFFF" |> equal -1L
         int64 "0x8000000000000000" |> equal -9223372036854775808L
         int64 "0x7FFFFFFFFFFFFFFF" |> equal 9223372036854775807L
