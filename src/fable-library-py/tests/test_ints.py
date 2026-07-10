@@ -1,6 +1,8 @@
 from array import array
 from decimal import Decimal
 
+import pytest
+
 from fable_library.core import byte, int16, int32, int64, sbyte, uint16, uint32, uint64
 from pydantic import BaseModel
 
@@ -177,6 +179,24 @@ def test_divide():
     assert 10 / uint64(3) == 3.3333333333333335
     assert byte(10) / 3 == 3
     assert byte(10) / 3.0 == 3.3333333333333335
+
+
+def test_divide_same_type():
+    # Same-type division uses the typed integer fast path (truncates toward
+    # zero, matching .NET) rather than a float fallback.
+    assert int32(100) / int32(7) == 14
+    assert int32(-100) / int32(7) == -14
+    assert int32(100) / int32(-7) == -14
+    assert int64(100) / int64(7) == 14
+    assert byte(10) / byte(3) == 3
+    # uint64 operand exceeding i64::MAX: the old OtherType path fell back to
+    # f64 division and lost precision; the typed path is exact.
+    assert uint64(18446744073709551615) / uint64(7) == 2635249153387078802
+
+
+def test_divide_same_type_by_zero():
+    with pytest.raises(ZeroDivisionError):
+        int32(1) / int32(0)
 
 
 def test_hash():
