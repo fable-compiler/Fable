@@ -142,10 +142,21 @@ apply_curried(Fun, [Arg | Rest]) -> apply_curried(Fun(Arg), Rest).
 %% curried function value to the arity an uncurried slot expects. Each such adapter is a fresh
 %% closure, so two adapters built over the *same* F at different sites are never `=:=` — which
 %% breaks LanguagePrimitives.PhysicalEquality (e.g. removing a stored callback by identity).
-%% We build the adapter here, capturing F inside a tagged marker so fun_ref_eq/2 can recover F
-%% and treat all adapters over the same F as reference-equal. The marker is the adapter's ONLY
-%% captured variable, which keeps the fun_info/env recovery below unambiguous.
-make_eta(F, N) -> make_eta_marked({fable_eta_adapter, F}, N).
+%% We build the adapter here, capturing F inside a tagged `{fable_eta_adapter, F, N}` marker so
+%% fun_ref_eq/2 can recover F and treat all adapters over the same F as reference-equal. The marker
+%% is the adapter's ONLY captured variable, which keeps the fun_info/env recovery below unambiguous.
+%%
+%% Adapter cancellation (mirrors the Python target's curry.py memoization): if F is itself a
+%% same-arity curry adapter (built by make_curry/2 over some G), then uncurry ∘ curry = identity, so
+%% we hand back the original G unchanged rather than stacking a second wrapper. This keeps
+%% round-tripped values as the *same* fun (native `=:=` holds, no wrapper cost) and stops adapters
+%% accumulating. The arity guard avoids a `badarity` if a value were ever round-tripped at a
+%% different arity (does not happen in practice — a value has one arity — but is cheap insurance).
+make_eta(F, N) ->
+    case adapter_marker(F) of
+        {fable_curry_adapter, G, N} -> G;
+        _ -> make_eta_marked({fable_eta_adapter, F, N}, N)
+    end.
 
 make_eta_marked(M, 2) -> fun(B0, B1) -> apply_curried(erlang:element(2, M), [B0, B1]) end;
 make_eta_marked(M, 3) -> fun(B0, B1, B2) -> apply_curried(erlang:element(2, M), [B0, B1, B2]) end;
@@ -165,10 +176,18 @@ make_eta_marked(M, 7) ->
 %% LanguagePrimitives.PhysicalEquality. We build the adapter here, capturing F inside a tagged marker
 %% so fun_ref_eq/2 can recover F and treat all adapters over it as reference-equal. F is applied with
 %% all args at once (erlang:apply), matching the default multi-arg lowering exactly, so this is
-%% behaviour-identical bar the marker. The marker is the OUTERMOST fun's only captured variable
-%% (referenced only in the innermost body), keeping the fun_info/env recovery unambiguous; a
-%% partially-applied intermediate captures the collected args too, so it is correctly left distinct.
-make_curry(F, N) -> make_curry_marked({fable_curry_adapter, F}, N).
+%% behaviour-identical bar the marker. The `{fable_curry_adapter, F, N}` marker is the OUTERMOST
+%% fun's only captured variable (referenced only in the innermost body), keeping the fun_info/env
+%% recovery unambiguous; a partially-applied intermediate captures the collected args too, so it is
+%% correctly left distinct.
+%%
+%% Adapter cancellation (see make_eta/2): if F is itself a same-arity eta adapter over some G, then
+%% curry ∘ uncurry = identity, so we return the original G unchanged instead of wrapping again.
+make_curry(F, N) ->
+    case adapter_marker(F) of
+        {fable_eta_adapter, G, N} -> G;
+        _ -> make_curry_marked({fable_curry_adapter, F, N}, N)
+    end.
 
 make_curry_marked(M, 2) ->
     fun(A0) -> fun(A1) -> erlang:apply(erlang:element(2, M), [A0, A1]) end end;
@@ -219,23 +238,34 @@ make_curry_marked(M, 7) ->
 %% — which would make PhysicalEquality wrongly return `false`.
 %%
 %% We normalise to the underlying function before comparing: both the eta adapter (make_eta/2) and
-%% the curry adapter (make_curry/2) capture exactly their `{fable_eta_adapter, F}` /
-%% `{fable_curry_adapter, F}` marker as their outermost fun's only captured variable — unwrap to F.
-%% This is precise: ONLY Fable's own compiler-generated adapters carry a marker, so an unrelated
+%% the curry adapter (make_curry/2) capture exactly their `{fable_eta_adapter, F, N}` /
+%% `{fable_curry_adapter, F, N}` marker as their outermost fun's only captured variable — unwrap to
+%% F. This is precise: ONLY Fable's own compiler-generated adapters carry a marker, so an unrelated
 %% closure (including a hand-written eta expansion like `fun x -> g x`) is left intact and still
 %% compares unequal — this is reference identity, not structural equality. Non-function values pass
-%% through untouched, so this is a safe drop-in for `=:=`.
+%% through untouched, so this is a safe drop-in for `=:=`. (Adapter cancellation in make_eta/2 and
+%% make_curry/2 already collapses round-trips to the same fun; this handles the remaining case where
+%% a value is stored in one representation and compared against the other without a round-trip.)
 fun_ref_eq(A, B) -> unwrap_fun(A) =:= unwrap_fun(B).
 
 unwrap_fun(F) when is_function(F) ->
-    case erlang:fun_info(F, env) of
-        %% An eta adapter built by make_eta/2: recover the underlying function from the marker.
-        {env, [{fable_eta_adapter, Inner}]} -> unwrap_fun(Inner);
-        %% A curry adapter built by make_curry/2: recover the underlying function from the marker.
-        {env, [{fable_curry_adapter, Inner}]} -> unwrap_fun(Inner);
-        _ -> F
+    case adapter_marker(F) of
+        {_Tag, Inner, _N} -> unwrap_fun(Inner);
+        none -> F
     end;
 unwrap_fun(V) -> V.
+
+%% Return the `{fable_eta_adapter, F, N}` / `{fable_curry_adapter, F, N}` marker of a
+%% Fable-generated curry/eta adapter, or `none` for anything else. An adapter captures its marker as
+%% its outermost fun's single environment entry, so a one-element env holding a tagged 3-tuple is an
+%% unambiguous signature — no other closure Fable emits carries it.
+adapter_marker(F) when is_function(F) ->
+    case erlang:fun_info(F, env) of
+        {env, [{fable_eta_adapter, _, _} = M]} -> M;
+        {env, [{fable_curry_adapter, _, _} = M]} -> M;
+        _ -> none
+    end;
+adapter_marker(_) -> none.
 
 %% Enumerator support for for-in loops over lists.
 %% Enumerator is a process dict ref pointing to #{items => List, current => undefined}.
