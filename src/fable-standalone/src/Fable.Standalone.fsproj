@@ -34,6 +34,7 @@
     <Compile Include="../../Fable.Transforms/Python/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Rust/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Dart/Replacements.fs" />
+    <Compile Include="../../Fable.Transforms/Beam/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/Beam/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Replacements.Api.fs" />
@@ -69,7 +70,6 @@
     <Compile Include="../../Fable.Transforms/Rust/RustPrinter.fs" />
     <Compile Include="../../Fable.Transforms/Rust/Fable2Rust.fs" />
 
-    <Compile Include="../../Fable.Transforms/Beam/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/Beam/Beam.AST.fs" />
     <Compile Include="../../Fable.Transforms/Beam/Fable2Beam.Util.fs" />
     <Compile Include="../../Fable.Transforms/Beam/Fable2Beam.Reflection.fs" />

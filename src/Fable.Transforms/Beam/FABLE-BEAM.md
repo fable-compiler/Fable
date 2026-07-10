@@ -107,7 +107,9 @@ where `TagOrder` is the list of case tag names in declaration order. This is wir
 `Beam/Replacements.fs`:
 
 - `compare` helper → `compare_union` when the operand type is an F# union (covers `compare`,
-  `GenericComparison`, `CompareTo`, and the injected comparers used by `Set`/`Map`/`List.sortWith`).
+  `GenericComparison`, `CompareTo`, and the comparer used by `List.sortWith` when the user
+  passes `compare`). Note this does **not** reach `Set`/`Map`, which use native `ordsets`/`#{}`
+  and never call `fable_comparison` — see the gaps below.
 - `makeRelational` → relational operators on unions.
 - `min`/`max` operators on unions (via the union-aware `compare` helper).
 - `List.sort`/`List.sortDescending` and `Array.sort`/`Array.sortDescending` → an inline
@@ -116,11 +118,20 @@ where `TagOrder` is the list of case tag names in declaration order. This is wir
 Equality (`=:=`) is already correct for unions and is left untouched.
 
 **Known gaps (routing is site-driven, so only statically-typed union comparisons are covered):**
-comparisons that reach the *generic runtime* `fable_comparison:compare/2` on a union value
-still use alphabetical order. This affects: `List.sortBy`/`sortByDescending` with a **union
-key**, `List.min`/`max` and `Array.min`/`max` (native `lists:min`/`lists:max`), and a union
-used as a **field of another union** (nested comparison when outer tags are equal). These are
-not currently exercised by the test suite.
+comparisons that reach the *generic runtime* `fable_comparison:compare/2` — or Erlang's native
+term ordering — on a union value still use alphabetical order. This affects:
+
+- `List.sortBy`/`sortByDescending` with a **union key**.
+- `List.min`/`max` and `Array.min`/`max` (native `lists:min`/`lists:max`).
+- A union used as a **field of another union** (nested comparison when outer tags are equal).
+- **`Set<union>` and `Map<union key>`** — F# Sets/Maps are ordered collections, but the Beam
+  representation is native `ordsets`/`#{}`, which order by native term ordering and never call
+  `fable_comparison`. So `Set.minElement`/`maxElement`, `Set`/`Map` iteration order,
+  `Map.toList`/`Keys`, etc. sort union elements/keys **alphabetically**, not by declaration
+  order. (Set/Map *membership* and *equality* are unaffected — those rely on `=:=`, which is
+  correct.)
+
+These are not currently exercised by the test suite.
 
 **Possible future follow-up — make the representation carry the tag index.** The complete,
 uniform fix is to encode the case's declaration index in the value itself (e.g. an
