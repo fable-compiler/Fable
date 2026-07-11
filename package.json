@@ -2,6 +2,9 @@
   "private": true,
   "type": "module",
   "name": "fable-compiler",
+  "engines": {
+    "node": "26"
+  },
   "scripts": {
     "tsc": "tsc",
     "rollup": "rollup",
