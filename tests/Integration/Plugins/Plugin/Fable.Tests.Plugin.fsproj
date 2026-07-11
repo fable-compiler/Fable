@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../../../src/Fable.AST/Fable.AST.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Plugin.fs" />
+  </ItemGroup>
+</Project>
