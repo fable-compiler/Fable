@@ -74,6 +74,8 @@ jobs:
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v6
+        with:
+          node-version: 26
 
       - name: Fable Tests - JavaScript (linux)
         if: matrix.platform == 'ubuntu-latest'
@@ -98,6 +100,8 @@ jobs:
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v6
+        with:
+          node-version: 26
 
       - name: Fable Tests - TypeScript
         run: ./build.sh test typescript
@@ -120,6 +124,8 @@ jobs:
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v6
+        with:
+          node-version: 26
 
       - name: Fable Tests
         run: ./build.sh test integration
@@ -139,6 +145,8 @@ jobs:
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v6
+        with:
+          node-version: 26
 
       - name: Fable Tests
         run: ./build.sh test standalone
@@ -209,6 +217,8 @@ jobs:
 
       - name: Setup Node.js environment
         uses: actions/setup-node@v6
+        with:
+          node-version: 26
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
