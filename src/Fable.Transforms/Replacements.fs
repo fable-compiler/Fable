@@ -108,6 +108,24 @@ let timeOnlyModule (com: Compiler) =
     else
         "TimeOnly"
 
+let timeSpanModule (com: Compiler) =
+    if com.Options.JsTemporal then
+        "TimeSpanTemporal"
+    else
+        "TimeSpan"
+
+let dateTimeModule (com: Compiler) =
+    if com.Options.JsTemporal then
+        "DateTimeTemporal"
+    else
+        "Date"
+
+let dateTimeOffsetModule (com: Compiler) =
+    if com.Options.JsTemporal then
+        "DateTimeOffsetTemporal"
+    else
+        "DateOffset"
+
 let makeDecimal com r t (x: decimal) =
     let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
     Helper.LibCall(com, "Decimal", "default", t, [ makeStrConst str ], isConstructor = true, ?loc = r)
@@ -372,6 +390,12 @@ let toString com (ctx: Context) r (args: Expr list) =
         | Builtin BclGuid when tail.IsEmpty -> head
         | Builtin BclDateOnly -> Helper.LibCall(com, dateOnlyModule com, "toString", String, args)
         | Builtin BclTimeOnly -> Helper.LibCall(com, timeOnlyModule com, "toString", String, args)
+        | Builtin BclTimeSpan when com.Options.JsTemporal ->
+            Helper.LibCall(com, timeSpanModule com, "toString", String, args)
+        | Builtin BclDateTime when com.Options.JsTemporal ->
+            Helper.LibCall(com, dateTimeModule com, "toString", String, args)
+        | Builtin BclDateTimeOffset when com.Options.JsTemporal ->
+            Helper.LibCall(com, dateTimeOffsetModule com, "toString", String, args)
         | Builtin(BclGuid | BclTimeSpan | BclDateTime | BclDateTimeOffset as bt) ->
             Helper.LibCall(com, coreModFor bt, "toString", String, args)
         | Number(Int16, _) -> Helper.LibCall(com, "Util", "int16ToString", String, args)
@@ -482,6 +506,10 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             op
         else
             wrapLong com ctx r t op
+    | Builtin BclDateTime :: _ when com.Options.JsTemporal ->
+        Helper.LibCall(com, "DateTimeTemporal", opName, t, args, argTypes, ?loc = r)
+    | Builtin BclDateTimeOffset :: _ when com.Options.JsTemporal ->
+        Helper.LibCall(com, "DateTimeOffsetTemporal", opName, t, args, argTypes, ?loc = r)
     | Builtin(BclDateTime | BclDateTimeOffset | BclDateOnly as bt) :: _ ->
         Helper.LibCall(com, coreModFor bt, opName, t, args, argTypes, ?loc = r)
     | Builtin(FSharpSet _) :: _ ->
@@ -491,15 +519,17 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     // | Builtin (FSharpMap _)::_ ->
     //     let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" true opName overloadSuffix.Value
     //     Helper.LibCall(com, "Map", mangledName, t, args, argTypes, ?loc=r)
+    | Builtin BclTimeSpan :: _ when com.Options.JsTemporal ->
+        Helper.LibCall(com, "TimeSpanTemporal", opName, t, args, argTypes, ?loc = r)
     | Builtin BclTimeSpan :: _ -> nativeOp opName argTypes args
     | CustomOp com ctx r t opName args e -> e
     | _ -> nativeOp opName argTypes args
 
 let isCompatibleWithNativeComparison (com: Compiler) typ =
     match typ with
-    // Temporal.PlainTime cannot be compared natively (its valueOf throws)
-    | Builtin BclTimeOnly -> not com.Options.JsTemporal
-    | Builtin(BclGuid | BclTimeSpan)
+    // Temporal.PlainTime and Temporal.Duration cannot be compared natively
+    | Builtin(BclTimeOnly | BclTimeSpan) -> not com.Options.JsTemporal
+    | Builtin BclGuid
     | Boolean
     | Char
     | String
@@ -517,6 +547,8 @@ let identityHash (com: ICompiler) r (arg: Expr) =
     match arg.Type with
     | Builtin BclTimeOnly when com.Options.JsTemporal ->
         Helper.LibCall(com, "TimeOnlyTemporal", "hash", Int32.Number, [ arg ], ?loc = r)
+    | Builtin BclTimeSpan when com.Options.JsTemporal ->
+        Helper.LibCall(com, "TimeSpanTemporal", "hash", Int32.Number, [ arg ], ?loc = r)
     | _ ->
         let methodName =
             match arg.Type with
@@ -545,6 +577,12 @@ let structuralHash (com: ICompiler) r (arg: Expr) =
         Helper.LibCall(com, "DateOnlyTemporal", "hash", Int32.Number, [ arg ], ?loc = r)
     | Builtin BclTimeOnly when com.Options.JsTemporal ->
         Helper.LibCall(com, "TimeOnlyTemporal", "hash", Int32.Number, [ arg ], ?loc = r)
+    | Builtin BclTimeSpan when com.Options.JsTemporal ->
+        Helper.LibCall(com, "TimeSpanTemporal", "hash", Int32.Number, [ arg ], ?loc = r)
+    | Builtin BclDateTime when com.Options.JsTemporal ->
+        Helper.LibCall(com, "DateTimeTemporal", "hash", Int32.Number, [ arg ], ?loc = r)
+    | Builtin BclDateTimeOffset when com.Options.JsTemporal ->
+        Helper.LibCall(com, "DateTimeOffsetTemporal", "hash", Int32.Number, [ arg ], ?loc = r)
     | _ ->
 
         let methodName =
@@ -591,6 +629,9 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     | Builtin BclTimeOnly when com.Options.JsTemporal ->
         Helper.LibCall(com, "TimeOnlyTemporal", "equals", Boolean, [ left; right ], ?loc = r)
         |> is equal
+    | Builtin BclTimeSpan when com.Options.JsTemporal ->
+        Helper.LibCall(com, "TimeSpanTemporal", "equals", Boolean, [ left; right ], ?loc = r)
+        |> is equal
     | Builtin(BclGuid | BclTimeSpan | BclTimeOnly)
     | Boolean
     | Char
@@ -608,6 +649,12 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
     //| MetaType -> Helper.LibCall(com, "Reflection", "equals", Boolean, [left; right], ?loc=r) |> is equal
     | Builtin BclDateOnly when com.Options.JsTemporal ->
         Helper.LibCall(com, "DateOnlyTemporal", "equals", Boolean, [ left; right ], ?loc = r)
+        |> is equal
+    | Builtin BclDateTime when com.Options.JsTemporal ->
+        Helper.LibCall(com, "DateTimeTemporal", "equals", Boolean, [ left; right ], ?loc = r)
+        |> is equal
+    | Builtin BclDateTimeOffset when com.Options.JsTemporal ->
+        Helper.LibCall(com, "DateTimeOffsetTemporal", "equals", Boolean, [ left; right ], ?loc = r)
         |> is equal
     | Builtin(BclDateTime | BclDateTimeOffset | BclDateOnly) ->
         Helper.LibCall(com, "Date", "equals", Boolean, [ left; right ], ?loc = r)
@@ -646,6 +693,8 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Number(BigIntegers _, _) -> Helper.LibCall(com, "BigInt", "compare", t, [ left; right ], ?loc = r)
     | Builtin BclTimeOnly when com.Options.JsTemporal ->
         Helper.LibCall(com, "TimeOnlyTemporal", "compare", t, [ left; right ], ?loc = r)
+    | Builtin BclTimeSpan when com.Options.JsTemporal ->
+        Helper.LibCall(com, "TimeSpanTemporal", "compare", t, [ left; right ], ?loc = r)
     | Builtin(BclGuid | BclTimeSpan | BclTimeOnly)
     | Boolean
     | Char
@@ -653,6 +702,10 @@ and compare (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Number _ -> Helper.LibCall(com, "Util", "comparePrimitives", t, [ left; right ], ?loc = r)
     | Builtin BclDateOnly when com.Options.JsTemporal ->
         Helper.LibCall(com, "DateOnlyTemporal", "compare", t, [ left; right ], ?loc = r)
+    | Builtin BclDateTime when com.Options.JsTemporal ->
+        Helper.LibCall(com, "DateTimeTemporal", "compare", t, [ left; right ], ?loc = r)
+    | Builtin BclDateTimeOffset when com.Options.JsTemporal ->
+        Helper.LibCall(com, "DateTimeOffsetTemporal", "compare", t, [ left; right ], ?loc = r)
     | Builtin(BclDateTime | BclDateTimeOffset | BclDateOnly) ->
         Helper.LibCall(com, "Date", "compare", t, [ left; right ], ?loc = r)
     | DeclaredType _ -> Helper.LibCall(com, "Util", "compare", t, [ left; right ], ?loc = r)
@@ -739,6 +792,12 @@ let tryEntityIdent (com: Compiler) entFullName =
         makeImportLib com Any "PlainDate" "DateOnlyTemporal" |> Some
     | BuiltinDefinition BclTimeOnly when com.Options.JsTemporal ->
         makeImportLib com Any "PlainTime" "TimeOnlyTemporal" |> Some
+    | BuiltinDefinition BclTimeSpan when com.Options.JsTemporal ->
+        makeImportLib com Any "Duration" "TimeSpanTemporal" |> Some
+    | BuiltinDefinition BclDateTime when com.Options.JsTemporal ->
+        makeImportLib com Any "PlainDateTime" "DateTimeTemporal" |> Some
+    | BuiltinDefinition BclDateTimeOffset when com.Options.JsTemporal ->
+        makeImportLib com Any "ZonedDateTime" "DateTimeOffsetTemporal" |> Some
     | BuiltinDefinition BclDateOnly
     | BuiltinDefinition BclDateTime
     | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "Date" |> Some
@@ -814,9 +873,10 @@ and private getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | String -> makeStrConst "" // TODO: Use null for string?
     | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
     | Builtin BclTimeOnly when com.Options.JsTemporal -> Helper.LibCall(com, "TimeOnlyTemporal", "minValue", t, [])
+    | Builtin BclTimeSpan when com.Options.JsTemporal -> Helper.LibCall(com, "TimeSpanTemporal", "zero", t, [])
     | Builtin(BclTimeSpan | BclTimeOnly) -> TypeCast(makeIntConst 0, t)
-    | Builtin BclDateTime as t -> Helper.LibCall(com, "Date", "minValue", t, [])
-    | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, "DateOffset", "minValue", t, [])
+    | Builtin BclDateTime as t -> Helper.LibCall(com, dateTimeModule com, "minValue", t, [])
+    | Builtin BclDateTimeOffset as t -> Helper.LibCall(com, dateTimeOffsetModule com, "minValue", t, [])
     | Builtin BclDateOnly as t -> Helper.LibCall(com, dateOnlyModule com, "minValue", t, [])
     | Builtin(FSharpSet genArg) as t -> makeSet com ctx None t "Empty" [] genArg
     | Builtin(BclKeyValuePair(k, v)) -> makeTuple None true [ getZero com ctx k; getZero com ctx v ]
@@ -3294,7 +3354,7 @@ let ignoreFormatProvider meth args =
     | _ -> args
 
 let dateTime (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let moduleName = "Date"
+    let moduleName = dateTimeModule com
 
     match i.CompiledName with
     | ".ctor" ->
@@ -3319,7 +3379,7 @@ let dateTime (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
                 let argTypes = (List.take 6 i.SignatureArgTypes) @ [ Int32.Number; last.Type ]
 
-                Helper.LibCall(com, "Date", "create", t, args, argTypes, ?loc = r) |> Some
+                Helper.LibCall(com, moduleName, "create", t, args, argTypes, ?loc = r) |> Some
 
             // JavaScript Date doesn't support microseconds precision
             | 8, Number(Int32, NumberInfo.Empty) ->
@@ -3335,14 +3395,26 @@ let dateTime (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
                 Helper.LibCall(com, moduleName, "create", t, args, i.SignatureArgTypes, ?loc = r)
                 |> Some
     | "ToString" ->
-        Helper.LibCall(com, "Date", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        Helper.LibCall(com, moduleName, "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "get_Kind" ->
-        Helper.LibCall(com, "Date", "getKind", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        Helper.LibCall(com, moduleName, "getKind", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
     | "get_Ticks" ->
-        Helper.LibCall(com, "Date", "getTicks", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        Helper.LibCall(com, moduleName, "getTicks", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
+    | "get_Year"
+    | "get_Month"
+    | "get_Day"
+    | "get_Hour"
+    | "get_Minute"
+    | "get_Second"
+    | "get_Millisecond"
+    | "get_DayOfYear" when com.Options.JsTemporal ->
+        // These map one-to-one onto the equivalent Temporal.PlainDateTime properties
+        let fieldName = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
+
+        getFieldWith r t thisArg.Value fieldName |> Some
     | meth ->
         let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
@@ -3352,7 +3424,7 @@ let dateTime (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
 
 
 let dateTimeOffset (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let moduleName = "DateOffset"
+    let moduleName = dateTimeOffsetModule com
 
     match i.CompiledName with
     | ".ctor" ->
@@ -3386,13 +3458,26 @@ let dateTimeOffset (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: E
         Helper.LibCall(com, moduleName, "fromDate", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "ToString" ->
-        Helper.LibCall(com, "Date", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        // The Temporal module formats itself; the JS-Date one delegates to Date.toString (dispatches on offset)
+        let toStringModule =
+            if com.Options.JsTemporal then
+                moduleName
+            else
+                "Date"
+
+        Helper.LibCall(com, toStringModule, "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "get_Offset" ->
         Helper.LibCall(com, moduleName, "offset", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
+    | "get_UtcDateTime" when com.Options.JsTemporal ->
+        Helper.LibCall(com, moduleName, "utcDateTime", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        |> Some
     | "get_UtcDateTime" ->
         Helper.LibCall(com, "DateOffset", "toUniversalTime", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        |> Some
+    | "get_DateTime" when com.Options.JsTemporal ->
+        Helper.LibCall(com, moduleName, "dateTimeProp", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
     | "get_DateTime" ->
         let kind = DateTimeKind.Unspecified |> int |> makeIntConst
@@ -3408,11 +3493,30 @@ let dateTimeOffset (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: E
         )
         |> Some
     | "get_Ticks" ->
-        Helper.LibCall(com, "Date", "getTicks", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        // Non-temporal DateTimeOffset reuses Date.getTicks; the Temporal module has its own
+        let ticksModule =
+            if com.Options.JsTemporal then
+                moduleName
+            else
+                "Date"
+
+        Helper.LibCall(com, ticksModule, "getTicks", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
     | "get_UtcTicks" ->
-        Helper.LibCall(com, "DateOffset", "getUtcTicks", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        Helper.LibCall(com, moduleName, "getUtcTicks", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
+    | "get_Year"
+    | "get_Month"
+    | "get_Day"
+    | "get_Hour"
+    | "get_Minute"
+    | "get_Second"
+    | "get_Millisecond"
+    | "get_DayOfYear" when com.Options.JsTemporal ->
+        // These map one-to-one onto the equivalent Temporal.ZonedDateTime properties
+        let fieldName = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
+
+        getFieldWith r t thisArg.Value fieldName |> Some
     | meth ->
         let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
@@ -3484,11 +3588,13 @@ let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         |> Some
 
 let timeSpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let moduleName = timeSpanModule com
+
     let timeSpanLibCall meth args =
         let args = ignoreFormatProvider meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
 
-        Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
 
     let isNotDefaultInt64ZeroValue (expr: Expr) =
@@ -3518,9 +3624,17 @@ let timeSpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
             | [ _ticks ] -> "fromTicks"
             | _ -> "create"
 
-        Helper.LibCall(com, "TimeSpan", meth, t, args, i.SignatureArgTypes, ?loc = r)
+        Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
-    | "get_TotalMilliseconds" -> TypeCast(thisArg.Value, t) |> Some
+    | "get_TotalMilliseconds" when not com.Options.JsTemporal -> TypeCast(thisArg.Value, t) |> Some
+    | "get_Days"
+    | "get_Hours"
+    | "get_Minutes"
+    | "get_Seconds"
+    | "get_Milliseconds" when com.Options.JsTemporal ->
+        let fieldName = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
+
+        getFieldWith r t thisArg.Value fieldName |> Some
     | "ToString" when (args.Length = 1) ->
         "TimeSpan.ToString with one argument is not supported, because it depends on local culture, please add CultureInfo.InvariantCulture"
         |> addError com ctx.InlinePath r
@@ -3531,7 +3645,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
         | StringConst "c"
         | StringConst "g"
         | StringConst "G" ->
-            Helper.LibCall(com, "TimeSpan", "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+            Helper.LibCall(com, moduleName, "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
             |> Some
         | _ ->
             "TimeSpan.ToString don't support custom format. It only handles \"c\", \"g\" and \"G\" format, with CultureInfo.InvariantCulture."
@@ -4140,6 +4254,24 @@ let guids
 
     match i.CompiledName with
     | "NewGuid" -> Helper.LibCall(com, "Guid", "newGuid", t, []) |> Some
+    | "CreateVersion7" when com.Options.JsTemporal ->
+        // The Temporal DateTimeOffset is not a JS Date, so pass its Unix milliseconds instead
+        let args =
+            match args with
+            | [ dto ] ->
+                [
+                    Helper.LibCall(
+                        com,
+                        "DateTimeOffsetTemporal",
+                        "toUnixTimeMilliseconds",
+                        Int64.Number,
+                        [ dto ],
+                        [ dto.Type ]
+                    )
+                ]
+            | _ -> args
+
+        Helper.LibCall(com, "Guid", "createVersion7", t, args) |> Some
     | "CreateVersion7" ->
         Helper.LibCall(com, "Guid", "createVersion7", t, args, i.SignatureArgTypes)
         |> Some
@@ -4474,6 +4606,8 @@ let tryField com returnTyp ownerTyp fieldName =
     | Number(Decimal, _), _ -> Helper.LibValue(com, "Decimal", "get_" + fieldName, returnTyp) |> Some
     | String, "Empty" -> makeStrConst "" |> Some
     | Builtin BclGuid, "Empty" -> emptyGuid () |> Some
+    | Builtin BclTimeSpan, "Zero" when com.Options.JsTemporal ->
+        Helper.LibCall(com, "TimeSpanTemporal", "zero", returnTyp, []) |> Some
     | Builtin BclTimeSpan, "Zero" -> makeIntConst 0 |> Some
     | Builtin BclDateOnly, ("MaxValue" | "MinValue") ->
         Helper.LibCall(com, dateOnlyModule com, Naming.lowerFirst fieldName, returnTyp, [])
@@ -4481,8 +4615,11 @@ let tryField com returnTyp ownerTyp fieldName =
     | Builtin BclTimeOnly, ("MaxValue" | "MinValue") ->
         Helper.LibCall(com, timeOnlyModule com, Naming.lowerFirst fieldName, returnTyp, [])
         |> Some
-    | Builtin(BclDateTime | BclDateTimeOffset as t), ("MaxValue" | "MinValue") ->
-        Helper.LibCall(com, coreModFor t, Naming.lowerFirst fieldName, returnTyp, [])
+    | Builtin BclDateTime, ("MaxValue" | "MinValue") ->
+        Helper.LibCall(com, dateTimeModule com, Naming.lowerFirst fieldName, returnTyp, [])
+        |> Some
+    | Builtin BclDateTimeOffset, ("MaxValue" | "MinValue") ->
+        Helper.LibCall(com, dateTimeOffsetModule com, Naming.lowerFirst fieldName, returnTyp, [])
         |> Some
     | DeclaredType(ent, genArgs), fieldName ->
         match ent.FullName with

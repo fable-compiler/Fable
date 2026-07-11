@@ -1,8 +1,9 @@
 import { FSharpRef } from "./Types.ts";
-import { DateTime, year as Date_year, month as Date_month, day as Date_day } from "./Date.ts";
-import DateTimeOffset from "./DateOffset.ts";
-import { TimeOnly, toTimeSpan as TimeOnly_toTimeSpan } from "./TimeOnlyTemporal.ts";
-import { Exception, IDateTime, IDateTimeOffset, DateTimeKind, padWithZeros } from "./Util.ts";
+import { TimeOnly } from "./TimeOnlyTemporal.ts";
+import { TimeSpan } from "./TimeSpanTemporal.ts";
+import { DateTime, dateTime as DateTime_stamp } from "./DateTimeTemporal.ts";
+import { DateTimeOffset, fromDate as DateTimeOffset_fromDate } from "./DateTimeOffsetTemporal.ts";
+import { Exception, DateTimeKind, padWithZeros } from "./Util.ts";
 
 declare global {
   namespace Temporal {
@@ -16,9 +17,10 @@ declare global {
       readonly dayOfYear: number;
       add(duration: { years?: number, months?: number, days?: number }): PlainDate;
       until(other: PlainDate): Duration;
+      toPlainDateTime(time: PlainTime): PlainDateTime;
       equals(other: PlainDate): boolean;
     }
-    class Duration {
+    interface Duration {
       readonly days: number;
     }
     namespace Now {
@@ -61,8 +63,9 @@ export function fromDayNumber(dayNumber: number): DateOnly {
   return minValue().add({ days: dayNumber });
 }
 
-export function fromDateTime(d: IDateTime): DateOnly {
-  return new Temporal.PlainDate(Date_year(d), Date_month(d), Date_day(d));
+export function fromDateTime(d: Temporal.PlainDateTime): DateOnly {
+  // Under the Temporal representation a DateTime is a PlainDateTime (kind-agnostic wall-clock)
+  return new Temporal.PlainDate(d.year, d.month, d.day);
 }
 
 export function dayOfWeek(d: DateOnly): number {
@@ -70,24 +73,12 @@ export function dayOfWeek(d: DateOnly): number {
   return d.dayOfWeek % 7;
 }
 
-// Unix milliseconds of midnight UTC on the given date
-function toUnixMilliseconds(d: DateOnly): number {
-  const ms = Date.UTC(d.year, d.month - 1, d.day);
-  if (d.year <= 99) {
-    const date = new Date(ms);
-    date.setUTCFullYear(d.year);
-    return date.getTime();
-  }
-  return ms;
+export function toDateTime(d: DateOnly, time: TimeOnly, kind: DateTimeKind = DateTimeKind.Unspecified): DateTime {
+  return DateTime_stamp(d.toPlainDateTime(time), kind);
 }
 
-export function toDateTime(d: DateOnly, time: TimeOnly, kind: DateTimeKind = DateTimeKind.Unspecified): IDateTime {
-  const utcMidnight = new Date(toUnixMilliseconds(d));
-  return DateTime(utcMidnight.getTime() + TimeOnly_toTimeSpan(time) + (kind !== DateTimeKind.Utc ? utcMidnight.getTimezoneOffset() : 0) * 60_000, kind);
-}
-
-export function toDateTimeOffset(d: DateOnly, time: TimeOnly, offset: number): IDateTimeOffset {
-  return DateTimeOffset(toUnixMilliseconds(d) - offset + TimeOnly_toTimeSpan(time), offset);
+export function toDateTimeOffset(d: DateOnly, time: TimeOnly, offset: TimeSpan): DateTimeOffset {
+  return DateTimeOffset_fromDate(DateTime_stamp(d.toPlainDateTime(time), DateTimeKind.Unspecified), offset);
 }
 
 export function addDays(d: DateOnly, v: number): DateOnly {

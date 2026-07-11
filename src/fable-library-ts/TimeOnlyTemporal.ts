@@ -1,6 +1,7 @@
 import { FSharpRef } from "./Types.ts";
 import { toInt64, fromFloat64, int64 } from "./BigInt.ts";
-import { Exception, DateTimeKind, IDateTime, padWithZeros } from "./Util.ts";
+import { TimeSpan, fromTicks as TimeSpan_fromTicks, totalNanoseconds as TimeSpan_totalNanoseconds } from "./TimeSpanTemporal.ts";
+import { Exception } from "./Util.ts";
 
 declare global {
   namespace Temporal {
@@ -14,6 +15,7 @@ declare global {
       readonly microsecond: number;
       readonly nanosecond: number;
       equals(other: PlainTime): boolean;
+      toString(options?: { smallestUnit?: "minute" | "second", fractionalSecondDigits?: number }): string;
     }
   }
 }
@@ -55,17 +57,17 @@ export function fromTicks(ticks: number | bigint): TimeOnly {
   return fromNanoseconds(Number(BigInt(ticks) * 100n));
 }
 
-export function fromTimeSpan(timeSpan: number): TimeOnly {
-  if (timeSpan < 0 || timeSpan >= 86400000)
+export function fromTimeSpan(timeSpan: TimeSpan): TimeOnly {
+  const ns = Number(TimeSpan_totalNanoseconds(timeSpan));
+  if (ns < 0 || ns >= nanosecondsPerDay)
     throw new Exception("The TimeSpan describes an unrepresentable TimeOnly.");
 
-  return fromNanoseconds(Math.round(timeSpan * 1_000_000));
+  return fromNanoseconds(ns);
 }
 
-export function fromDateTime(d: IDateTime): TimeOnly {
-  return d.kind === DateTimeKind.Utc
-    ? create(d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds(), d.getUTCMilliseconds())
-    : create(d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
+export function fromDateTime(d: Temporal.PlainDateTime): TimeOnly {
+  // Under the Temporal representation a DateTime is a PlainDateTime (kind-agnostic wall-clock)
+  return new Temporal.PlainTime(d.hour, d.minute, d.second, d.millisecond, d.microsecond, d.nanosecond);
 }
 
 export function minValue(): TimeOnly {
@@ -81,12 +83,13 @@ export function ticks(t: TimeOnly): int64 {
   return toInt64(fromFloat64(totalNanoseconds(t) / 100));
 }
 
-export function toTimeSpan(t: TimeOnly): number {
-  return totalNanoseconds(t) / 1_000_000;
+export function toTimeSpan(t: TimeOnly): TimeSpan {
+  // TimeOnly is tick-precise, so the nanosecond count is always a multiple of 100.
+  return TimeSpan_fromTicks(Math.round(totalNanoseconds(t) / 100));
 }
 
-export function add(t: TimeOnly, ts: number, wrappedDays?: FSharpRef<number>): TimeOnly {
-  const totalNs = totalNanoseconds(t) + Math.round(ts * 1_000_000);
+function addNanoseconds(t: TimeOnly, deltaNs: number, wrappedDays?: FSharpRef<number>): TimeOnly {
+  const totalNs = totalNanoseconds(t) + deltaNs;
   const days = Math.floor(totalNs / nanosecondsPerDay);
 
   if (wrappedDays !== undefined) {
@@ -96,12 +99,16 @@ export function add(t: TimeOnly, ts: number, wrappedDays?: FSharpRef<number>): T
   return fromNanoseconds(totalNs - days * nanosecondsPerDay);
 }
 
+export function add(t: TimeOnly, ts: TimeSpan, wrappedDays?: FSharpRef<number>): TimeOnly {
+  return addNanoseconds(t, Number(TimeSpan_totalNanoseconds(ts)), wrappedDays);
+}
+
 export function addHours(t: TimeOnly, h: number): TimeOnly {
-  return add(t, h * 3600000);
+  return addNanoseconds(t, Math.round(h * 3_600_000_000_000));
 }
 
 export function addMinutes(t: TimeOnly, m: number): TimeOnly {
-  return add(t, m * 60_000);
+  return addNanoseconds(t, Math.round(m * 60_000_000_000));
 }
 
 export function isBetween(t: TimeOnly, start: TimeOnly, end: TimeOnly): boolean {
@@ -122,26 +129,24 @@ export function hash(t: TimeOnly): number {
   return totalNanoseconds(t) % 2147483647;
 }
 
-export function op_Subtraction(left: TimeOnly, right: TimeOnly): number {
-  // Returns the elapsed TimeSpan (milliseconds), wrapping around midnight
-  return ((totalNanoseconds(left) - totalNanoseconds(right) + nanosecondsPerDay) % nanosecondsPerDay) / 1_000_000;
+export function op_Subtraction(left: TimeOnly, right: TimeOnly): TimeSpan {
+  // Returns the elapsed TimeSpan, wrapping around midnight
+  const ns = (totalNanoseconds(left) - totalNanoseconds(right) + nanosecondsPerDay) % nanosecondsPerDay;
+  return TimeSpan_fromTicks(Math.round(ns / 100));
 }
 
 export function toString(t: TimeOnly, format = "t", _provider?: any): string {
-  const base = `${padWithZeros(t.hour, 2)}:${padWithZeros(t.minute, 2)}`;
-
   switch (format) {
     case "t":
-      return base;
+      return t.toString({ smallestUnit: "minute" });
     case "r":
     case "R":
     case "T":
-      return `${base}:${padWithZeros(t.second, 2)}`;
+      return t.toString({ smallestUnit: "second" });
     case "o":
-    case "O": {
-      const fraction = t.millisecond * 10000 + t.microsecond * 10 + Math.floor(t.nanosecond / 100);
-      return `${base}:${padWithZeros(t.second, 2)}.${padWithZeros(fraction, 7)}`;
-    }
+    case "O":
+      // .NET tick precision is 7 fractional digits
+      return t.toString({ fractionalSecondDigits: 7 });
     default:
       throw new Exception("Custom formats are not supported");
   }

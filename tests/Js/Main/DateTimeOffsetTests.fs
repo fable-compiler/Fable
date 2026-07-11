@@ -613,10 +613,16 @@ let tests =
         /// NOTE: local utc offset of `usedDate`, NOT `DateTime.Now`
         /// -> `usedDate` is in september -> summer time in Europe (`+2`)!
         let localOffset: TimeSpan =
+#if FABLE_COMPILER_JAVASCRIPT_TEMPORAL
+            // usedDate is a Temporal.PlainDateTime (no getTimezoneOffset); the host offset for
+            // that wall-clock is what a DateTimeOffset built from an Unspecified DateTime uses.
+            DateTimeOffset(usedDate).Offset
+#else
 #if FABLE_COMPILER
             !!(usedDate?getTimezoneOffset() * -60_000)
 #else
             TimeZoneInfo.Local.GetUtcOffset(usedDate)
+#endif
 #endif
 
         let shouldSucceed = Ok ()
