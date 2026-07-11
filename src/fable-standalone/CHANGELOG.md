@@ -1,5 +1,5 @@
 ---
-last_commit_released: d6ae6bd3790b57b31941a118cdffaeb6a59155c3
+last_commit_released: a8d9bf5f0b7cc4560bb107963348e765695c22b6
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
@@ -18,6 +18,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.6.1 - 2026-07-11
+
+### 🐞 Bug Fixes
+
+* *(beam)* Order discriminated union comparison by declaration order (#4761) ([3597a582](https://github.com/fable-compiler/Fable/commit/3597a5829dbdf276ab9fef9d43e8be52b14e3c88))
+* *(beam)* Preserve function-value identity for PhysicalEquality (#4762) ([727673f3](https://github.com/fable-compiler/Fable/commit/727673f343eba9e234dc122153ce50b96abe6b38))
+* *(js/ts)* Don't drop unsupported `jsOptions` statements when inlining as POJO (#4754) ([4cbc44fc](https://github.com/fable-compiler/Fable/commit/4cbc44fc4219f34dc0c52752ea2b2049e82b410c))
+* *(python)* Propagate [<EntryPoint>] return value as process exit code (#4763) ([a8d9bf5f](https://github.com/fable-compiler/Fable/commit/a8d9bf5f0b7cc4560bb107963348e765695c22b6))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/d6ae6bd3790b57b31941a118cdffaeb6a59155c3..a8d9bf5f0b7cc4560bb107963348e765695c22b6)</small></strong>
 
 ## 2.6.0 - 2026-07-09
 
