@@ -3216,7 +3216,14 @@ let declareEntryPoint (com: IPythonCompiler) (ctx: Context) (funcExpr: Expressio
             [ Expression.stringConstant "__main__" ]
         )
 
-    let main = Expression.call (funcExpr, [ args ]) |> Statement.expr |> List.singleton
+    let mainCall = Expression.call (funcExpr, [ args ])
+
+    // Propagate the entry point's return value as the process exit code.
+    // int(...) coercion is required because fable-library-python's Int32 is not an int subclass.
+    let main =
+        emitExpression None "sys.exit(int($0))" [ mainCall ]
+        |> Statement.expr
+        |> List.singleton
 
     Statement.if' (test, main)
 
