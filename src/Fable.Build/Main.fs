@@ -46,6 +46,7 @@ Available commands:
             integration             Run the integration test suite
             standalone              Tests the standalone version of Fable
                                     (Fable running on top of Node.js)
+            plugins                 Run the plugin test suite (tests MemberDeclarationPluginAttribute)
 
         Options for all except integration and standalone:
             --watch                 Watch for changes and re-run the tests
@@ -153,6 +154,7 @@ let main argv =
             // This test is using quicktest project for now,
             // because it can't compile (yet?) the Main JavaScript tests
             | "compiler-js" :: _ -> Test.CompilerJs.handle args
+            | "plugins" :: args -> Test.Plugins.handle args
             | _ -> printHelp ()
         | "quicktest" :: args ->
             match args with

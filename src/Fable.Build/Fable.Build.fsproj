@@ -29,6 +29,7 @@
     <Compile Include="Test/Beam.fs" />
     <Compile Include="Test/Integration.fs" />
     <Compile Include="Test/CompilerJs.fs" />
+    <Compile Include="Test/Plugins.fs" />
     <Compile Include="Quicktest/Core.fs" />
     <Compile Include="Quicktest/TypeScript.fs" />
     <Compile Include="Quicktest/JavaScript.fs" />
