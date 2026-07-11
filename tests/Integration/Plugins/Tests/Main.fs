@@ -1,11 +1,9 @@
 module Fable.Tests.Main
 
-let allTests = [| PluginsTests.tests |]
-
-#if FABLE_COMPILER
-
 open Fable.Core
 open Fable.Core.JsInterop
+
+let allTests = [| PluginsTests.tests |]
 
 let inline describe (name: string) (f: unit -> unit) : unit = import "describe" "node:test"
 let inline it (msg: string) (f: unit -> unit) : unit = import "it" "node:test"
@@ -22,12 +20,8 @@ let run () =
     for t in allTests do
         flattenTest t
 
-run ()
-
-#else
-
 // This project only ever runs through Fable; this branch just keeps it a valid .NET project.
 [<EntryPoint>]
-let main _ = 0
-
-#endif
+let main _ =
+    run ()
+    0
