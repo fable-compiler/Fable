@@ -302,8 +302,15 @@ Naming lives in one place, `Fable.Beam.Naming.erlangModuleName` (`Beam/Prelude.f
 code generator (which must resolve an import to the atom the imported file declared) and the CLI
 (which must write the file under the name of the module inside it) have to agree exactly.
 
-If two source files ever do map to the same module name, Fable **fails with an error** naming both
-files rather than silently overwriting one — see `checkBeamModuleNames` in `Fable.Cli/Main.fs`.
+Qualification is a convention, not a guarantee, so `checkBeamModuleNames` (`Fable.Cli/Main.fs`)
+**fails the build** on the two ways it can still go wrong, rather than letting either surface as an
+`undef` at runtime:
+
+- two source files mapping to the same module name — it names both files;
+- a module name that is one of OTP's own (`Naming.otpModules`). Qualification rules out the bare
+  names, but a two-segment name can still land on a real OTP module — an app named `Gen` with a
+  `Server.fs` produces `gen_server` — and fable-library's exempt modules are not qualified at all,
+  so a `Timer.fs` added to it would silently shadow OTP's `timer`.
 
 ### Entry point
 

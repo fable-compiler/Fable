@@ -1018,39 +1018,56 @@ let private compileBeamFiles (workingDir: string) =
 /// Erlang's module namespace is flat and global, and an .erl file must be named after the module
 /// it declares. Two source files that map to the same module name therefore write the same output
 /// file, and whichever is compiled last silently overwrites the other — its functions simply
-/// disappear from the output, with the failure only surfacing as `undef` at runtime. Fail here
-/// instead, while we can still say which files are to blame.
+/// disappear from the output. A module named after one of OTP's own is just as fatal: the two
+/// names are the same atom, and whichever module loses the lookup is unreachable. Both failures
+/// surface only as `undef` at runtime, so fail here instead, while we can still say which files
+/// are to blame.
 let private checkBeamModuleNames (cliArgs: CliArgs) (sourceFiles: string seq) =
-    let collisions =
+    let modules =
         sourceFiles
-        |> Seq.filter (fun path -> path.EndsWith(".fs") || path.EndsWith(".fsx"))
+        |> Seq.filter Fable.Beam.Naming.isGeneratedModuleSource
         |> Seq.map (fun path -> Pipeline.Beam.moduleName cliArgs path, path)
-        |> Seq.groupBy fst
-        |> Seq.choose (fun (moduleName, files) ->
-            let paths = files |> Seq.map snd |> Seq.toArray
+        |> Seq.toArray
 
-            if paths.Length > 1 then
+    let fail (message: string) (details: string seq) =
+        let details = details |> String.concat Log.newLine
+        Fable.FableError($"{message}{Log.newLine}{details}") |> raise
+
+    let duplicates =
+        modules
+        |> Array.groupBy fst
+        |> Array.choose (fun (moduleName, files) ->
+            if files.Length > 1 then
                 let paths =
-                    paths
-                    |> Array.map (fun path -> "  " + File.relPathToCurDir path)
+                    files
+                    |> Array.map (fun (_, path) -> "  " + File.relPathToCurDir path)
                     |> String.concat Log.newLine
 
                 Some $"'{moduleName}' is generated from more than one file:{Log.newLine}{paths}"
             else
                 None
         )
-        |> Seq.toArray
 
-    if not (Array.isEmpty collisions) then
-        let details = collisions |> String.concat Log.newLine
+    if not (Array.isEmpty duplicates) then
+        fail
+            ("Erlang module names must be unique across the whole compilation: the module namespace "
+             + "is global and each module is written to a file named after it, so one of these would "
+             + "silently overwrite the other. Rename one of the files, or move it to a different "
+             + "assembly.")
+            duplicates
 
-        Fable.FableError(
-            "Erlang module names must be unique across the whole compilation: the module namespace "
-            + "is global and each module is written to a file named after it, so one of these would "
-            + $"silently overwrite the other.{Log.newLine}{details}{Log.newLine}"
-            + "Rename one of the files, or move it to a different assembly."
-        )
-        |> raise
+    let shadowed =
+        modules
+        |> Array.filter (fst >> Fable.Beam.Naming.otpModules.Contains)
+        |> Array.map (fun (moduleName, path) -> $"  '{moduleName}' from {File.relPathToCurDir path}")
+
+    if not (Array.isEmpty shadowed) then
+        fail
+            ("These files generate Erlang modules that shadow OTP's own: the module namespace is "
+             + "global, so the generated module and OTP's would be the same atom and one of them "
+             + "unreachable. Rename the file, or move it to a directory or assembly whose name does "
+             + "not produce a clashing module name.")
+            shadowed
 
 let private generateBeamScaffold (cliArgs: CliArgs) (entryModule: string) =
     let outDir =

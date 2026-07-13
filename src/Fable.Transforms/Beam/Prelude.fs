@@ -143,9 +143,237 @@ module Naming =
         | Some idx -> dotParts.[idx..] |> String.concat "."
         | None -> "0.1.0"
 
-    let private isFSharpSource (path: string) =
+    /// True for a source file Fable compiles into a generated Erlang module. A signature file
+    /// declares no module of its own, so it is not one.
+    let isGeneratedModuleSource (path: string) =
         let ext = Fable.Path.GetExtension(path)
-        ext = ".fs" || ext = ".fsx" || ext = ".fsi"
+        ext = ".fs" || ext = ".fsx"
+
+    /// True for a path naming an F# source file. Anything else (a native Erlang module named in
+    /// a `BeamInterop` import, one of fable-library's hand-written `.erl` files) names a module
+    /// Fable does not generate, and keeps its own name.
+    let isFSharpSource (path: string) =
+        isGeneratedModuleSource path || Fable.Path.GetExtension(path) = ".fsi"
+
+    /// Modules of OTP's own `erts`, `kernel` and `stdlib` applications. The module namespace is
+    /// flat and global, so a generated module named after one of these shadows it (or is shadowed
+    /// by it) everywhere in the release, and calls to either raise `undef` at runtime.
+    ///
+    /// Qualifying generated names by their app rules out the bare ones (`gen`, `string`, ...),
+    /// but a two-segment name can still land on `gen_server` or `erl_eval` — an app named `Gen`
+    /// with a `Server.fs` does exactly that — and fable-library's exempt modules are not
+    /// qualified at all. `checkBeamModuleNames` fails the build on any name in this set.
+    let otpModules =
+        System.Collections.Generic.HashSet
+            [
+                // erts (preloaded)
+                "atomics"
+                "counters"
+                "erl_init"
+                "erl_prim_loader"
+                "erl_tracer"
+                "erlang"
+                "erts_code_purger"
+                "erts_dirty_process_signal_handler"
+                "erts_internal"
+                "erts_literal_area_collector"
+                "erts_trace_cleaner"
+                "init"
+                "persistent_term"
+                "prim_buffer"
+                "prim_eval"
+                "prim_file"
+                "prim_inet"
+                "prim_net"
+                "prim_socket"
+                "prim_zip"
+                "socket_registry"
+                "zlib"
+                // kernel + stdlib
+                "application"
+                "application_controller"
+                "application_master"
+                "application_starter"
+                "array"
+                "auth"
+                "base64"
+                "beam_lib"
+                "binary"
+                "c"
+                "calendar"
+                "code"
+                "code_server"
+                "dets"
+                "dets_server"
+                "dets_sup"
+                "dets_utils"
+                "dets_v9"
+                "dict"
+                "digraph"
+                "digraph_utils"
+                "disk_log"
+                "disk_log_1"
+                "disk_log_server"
+                "disk_log_sup"
+                "dist_ac"
+                "dist_util"
+                "edlin"
+                "edlin_expand"
+                "epp"
+                "erl_abstract_code"
+                "erl_anno"
+                "erl_bits"
+                "erl_boot_server"
+                "erl_compile"
+                "erl_compile_server"
+                "erl_ddll"
+                "erl_distribution"
+                "erl_epmd"
+                "erl_error"
+                "erl_erts_errors"
+                "erl_eval"
+                "erl_expand_records"
+                "erl_features"
+                "erl_internal"
+                "erl_kernel_errors"
+                "erl_lint"
+                "erl_parse"
+                "erl_posix_msg"
+                "erl_pp"
+                "erl_reply"
+                "erl_scan"
+                "erl_signal_handler"
+                "erl_stdlib_errors"
+                "erl_tar"
+                "erpc"
+                "error_handler"
+                "error_logger"
+                "error_logger_file_h"
+                "error_logger_tty_h"
+                "erts_debug"
+                "escript"
+                "ets"
+                "eval_bits"
+                "file"
+                "file_io_server"
+                "file_server"
+                "file_sorter"
+                "filelib"
+                "filename"
+                "gb_sets"
+                "gb_trees"
+                "gen"
+                "gen_event"
+                "gen_fsm"
+                "gen_sctp"
+                "gen_server"
+                "gen_statem"
+                "gen_tcp"
+                "gen_tcp_socket"
+                "gen_udp"
+                "gen_udp_socket"
+                "global"
+                "global_group"
+                "global_search"
+                "group"
+                "group_history"
+                "heart"
+                "inet"
+                "inet6_sctp"
+                "inet6_tcp"
+                "inet6_tcp_dist"
+                "inet6_udp"
+                "inet_config"
+                "inet_db"
+                "inet_dns"
+                "inet_gethost_native"
+                "inet_hosts"
+                "inet_parse"
+                "inet_res"
+                "inet_sctp"
+                "inet_tcp"
+                "inet_tcp_dist"
+                "inet_udp"
+                "io"
+                "io_lib"
+                "io_lib_format"
+                "io_lib_fread"
+                "io_lib_pretty"
+                "kernel"
+                "kernel_config"
+                "kernel_refc"
+                "lists"
+                "local_tcp"
+                "local_udp"
+                "log_mf_h"
+                "logger"
+                "logger_backend"
+                "logger_config"
+                "logger_disk_log_h"
+                "logger_filters"
+                "logger_formatter"
+                "logger_h_common"
+                "logger_handler_watcher"
+                "logger_olp"
+                "logger_proxy"
+                "logger_server"
+                "logger_simple_h"
+                "logger_std_h"
+                "logger_sup"
+                "maps"
+                "math"
+                "ms_transform"
+                "net"
+                "net_adm"
+                "net_kernel"
+                "orddict"
+                "ordsets"
+                "os"
+                "otp_internal"
+                "peer"
+                "pg"
+                "pg2"
+                "pool"
+                "proc_lib"
+                "proplists"
+                "qlc"
+                "qlc_pt"
+                "queue"
+                "ram_file"
+                "rand"
+                "random"
+                "raw_file_io"
+                "raw_file_io_compressed"
+                "raw_file_io_deflate"
+                "raw_file_io_delayed"
+                "raw_file_io_inflate"
+                "raw_file_io_list"
+                "re"
+                "rpc"
+                "seq_trace"
+                "sets"
+                "shell"
+                "shell_default"
+                "shell_docs"
+                "slave"
+                "socket"
+                "sofs"
+                "standard_error"
+                "string"
+                "supervisor"
+                "supervisor_bridge"
+                "sys"
+                "timer"
+                "unicode"
+                "unicode_util"
+                "uri_string"
+                "user"
+                "user_drv"
+                "user_sup"
+                "win32reg"
+                "wrap_log_reader"
+                "zip"
+            ]
 
     /// True for a path inside fable-library — its own sources, or its sources copied into a
     /// consumer's fable_modules.
@@ -212,15 +440,20 @@ module Naming =
                 let projSegs = splitPath (Fable.Path.GetDirectoryName(projectFile))
                 let shared = commonPrefixLength projSegs fileSegs
                 let belowProjDir = fileSegs.[shared..]
+                let appName = Fable.Path.GetFileNameWithoutExtension(projectFile)
 
                 // A file outside the project directory belongs to a referenced project, and its
                 // path below the shared ancestor starts with that project's own directory —
                 // conventionally its name — which is the qualifier we want. Unless there is no
                 // such directory (the file sits directly in the shared ancestor, as a linked
                 // `../Gen.fs` does), in which case the only assembly it can belong to is this one.
-                if shared = projSegs.Length || belowProjDir.Length < 2 then
-                    let appName = Fable.Path.GetFileNameWithoutExtension(projectFile)
-
+                if projSegs.Length > 0 && shared = 0 then
+                    // The two paths have no ancestor in common at all (different Windows drives,
+                    // say). "Below the shared ancestor" is then the whole absolute path, which
+                    // would bake the machine's directory layout into the module name — qualify by
+                    // the project and keep only the file name.
+                    joinModuleName [| appName; Array.last fileSegs |]
+                elif shared = projSegs.Length || belowProjDir.Length < 2 then
                     Array.append [| appName |] belowProjDir |> joinModuleName
                 else
                     belowProjDir |> joinModuleName

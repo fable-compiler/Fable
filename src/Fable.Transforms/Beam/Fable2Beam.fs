@@ -166,7 +166,7 @@ let resolveImportModuleName (com: IBeamCompiler) (importPath: string) =
     // Imports that don't point at an F# source file name a module Fable doesn't generate:
     // a native Erlang module (`string`, `lists`, ...) or a fable-library `.erl` file. Those
     // are referenced by their own name.
-    if not (importPath.EndsWith(".fs", System.StringComparison.Ordinal)) then
+    if not (isFSharpSource importPath) then
         Some(moduleNameFromFile importPath)
     else
         // Resolve the import path to an absolute path so we can reliably compare against the
