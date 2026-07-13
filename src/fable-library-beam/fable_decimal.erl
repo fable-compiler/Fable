@@ -12,6 +12,8 @@
     try_parse/2,
     get_one/0,
     get_minus_one/0,
+    min_value/0,
+    max_value/0,
     round_decimal/1,
     round_decimal/2,
     ceil_decimal/1,
@@ -31,6 +33,8 @@
 -spec try_parse(binary(), reference()) -> boolean().
 -spec get_one() -> integer().
 -spec get_minus_one() -> integer().
+-spec min_value() -> integer().
+-spec max_value() -> integer().
 -spec round_decimal(integer()) -> integer().
 -spec round_decimal(integer(), non_neg_integer()) -> integer().
 -spec ceil_decimal(integer()) -> integer().
@@ -173,6 +177,16 @@ get_one() ->
 
 get_minus_one() ->
     -?SCALE28.
+
+%% System.Decimal.MinValue / MaxValue — the .NET decimal range (±(2^96 - 1)),
+%% expressed in the fixed-scale representation.
+-define(DECIMAL_LIMIT, 79228162514264337593543950335).
+
+min_value() ->
+    -?DECIMAL_LIMIT * ?SCALE28.
+
+max_value() ->
+    ?DECIMAL_LIMIT * ?SCALE28.
 
 %% Round decimal to nearest integer (banker's rounding / round half to even).
 %% Returns a fixed-scale decimal (integer part × SCALE28).

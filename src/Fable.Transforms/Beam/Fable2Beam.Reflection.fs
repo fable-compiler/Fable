@@ -114,6 +114,32 @@ let rec private transformTypeInfoRec
     | Fable.Boolean -> makeTypeInfoMap Types.bool []
     | Fable.Char -> makeTypeInfoMap Types.char []
     | Fable.String -> makeTypeInfoMap Types.string []
+    | Fable.Number(kind, Fable.NumberInfo.IsEnum entRef) ->
+        // An enum keeps its underlying numeric kind in the Fable AST, so its type info carries
+        // the declared cases alongside the underlying type (as the single generic).
+        let ent = com.GetEntity(entRef)
+
+        let enumCases =
+            ent.FSharpFields
+            |> List.choose (fun fi ->
+                match fi.Name with
+                | "value__" -> None
+                | name ->
+                    let value =
+                        match fi.LiteralValue with
+                        | Some v -> System.Convert.ToInt64 v
+                        | None -> 0L
+
+                    Beam.ErlExpr.Tuple [ strLit name; Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer value) ]
+                    |> Some
+            )
+
+        Beam.ErlExpr.Map
+            [
+                atomLit "fullname", strLit entRef.FullName
+                atomLit "generics", Beam.ErlExpr.List [ makeTypeInfoMap (getNumberFullName kind) [] ]
+                atomLit "enum_cases", Beam.ErlExpr.List enumCases
+            ]
     | Fable.Number(kind, _) -> makeTypeInfoMap (getNumberFullName kind) []
     | Fable.GenericParam(name = name) ->
         match Map.tryFind name genMap with

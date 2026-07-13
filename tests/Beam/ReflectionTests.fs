@@ -466,3 +466,128 @@ let ``test MakeRecord round-trips a recursive record`` () =
 let ``test recursive type FullName works`` () =
     typeof<Tree>.FullName.EndsWith("Tree") |> equal true
     typeof<LinkedNode>.FullName.EndsWith("LinkedNode") |> equal true
+
+// === FSharpReflectionExtensions (the allowAccessToPrivateRepresentation overloads) ===
+
+// Same test as the JS suite (tests/Js/Main/ReflectionTests.fs)
+[<Fact>]
+let ``test Reflection functions accept allowAccessToPrivateRepresentation`` () =
+    let recordType = typeof<MyRecord>
+    let record = { String = "a"; Int = 1 }
+
+    FSharpType
+        .GetRecordFields(recordType, allowAccessToPrivateRepresentation = true)
+        .Length
+    |> equal 2
+
+    let values =
+        FSharpValue.GetRecordFields(record, allowAccessToPrivateRepresentation = true)
+
+    let rebuilt =
+        FSharpValue.MakeRecord(recordType, values, allowAccessToPrivateRepresentation = true) :?> MyRecord
+
+    rebuilt |> equal record
+
+    let unionType = typeof<MyUnion>
+    let intCase = FSharpType.GetUnionCases(unionType).[1]
+
+    let u =
+        FSharpValue.MakeUnion(intCase, [| box 5 |], allowAccessToPrivateRepresentation = true) :?> MyUnion
+
+    let info, fields =
+        FSharpValue.GetUnionFields(u, unionType, allowAccessToPrivateRepresentation = true)
+
+    info.Name |> equal "IntCase"
+    fields.[0] |> equal (box 5)
+
+[<Fact>]
+let ``test IsRecord and IsUnion accept allowAccessToPrivateRepresentation`` () =
+    FSharpType.IsRecord(typeof<MyRecord>, allowAccessToPrivateRepresentation = true)
+    |> equal true
+
+    FSharpType.IsUnion(typeof<MyUnion>, allowAccessToPrivateRepresentation = true)
+    |> equal true
+
+    FSharpType.IsRecord(typeof<MyUnion>, allowAccessToPrivateRepresentation = true)
+    |> equal false
+
+// === Enums ===
+
+type MyEnum =
+    | Foo = 1y
+    | Bar = 5y
+    | Baz = 8y
+
+// Same test as the JS suite (tests/Js/Main/ReflectionTests.fs)
+[<Fact>]
+let ``test Reflection works with enums`` () =
+    typeof<MyEnum>.IsEnum |> equal true
+    typeof<int>.IsEnum |> equal false
+    let t = typeof<MyEnum>
+    t.IsEnum |> equal true
+    t.GetEnumUnderlyingType() |> equal typeof<sbyte>
+    System.Enum.GetUnderlyingType(t) |> equal typeof<sbyte>
+
+[<Fact>]
+let ``test Enum.GetValues works`` () =
+    let values = System.Enum.GetValues(typeof<MyEnum>)
+    values.Length |> equal 3
+
+    // Iterating the non-generic System.Array is what needs Array.GetEnumerator
+    let mutable count = 0
+
+    for v in values do
+        System.Enum.IsDefined(typeof<MyEnum>, v) |> equal true
+        count <- count + 1
+
+    count |> equal 3
+
+[<Fact>]
+let ``test Enum.GetNames works`` () =
+    let names = System.Enum.GetNames(typeof<MyEnum>)
+    names.Length |> equal 3
+    names.[0] |> equal "Foo"
+    names.[2] |> equal "Baz"
+
+[<Fact>]
+let ``test Enum.GetName and IsDefined work`` () =
+    System.Enum.GetName(typeof<MyEnum>, MyEnum.Bar) |> equal "Bar"
+    System.Enum.IsDefined(typeof<MyEnum>, MyEnum.Baz) |> equal true
+
+// === Type.MakeGenericType / Activator.CreateInstance ===
+
+// Portable Fable code guards .NET-only reflection behind `Compiler.isDotnet`. On Fable the
+// branch is dead, but it still has to survive the replacement stage, which runs before DCE.
+// Both branches must agree, since .NET takes the first one and Beam the second.
+let defaultOf (t: System.Type) : obj =
+    if Fable.Core.Compiler.isDotnet then
+        System.Activator.CreateInstance(t)
+    else
+        box 0
+
+[<Fact>]
+let ``test Activator.CreateInstance guarded by Compiler.isDotnet compiles`` () =
+    defaultOf typeof<int> |> equal (box 0)
+
+[<Fact>]
+let ``test Type.MakeGenericType substitutes the generic arguments`` () =
+    let t = typedefof<RecGeneric<obj>>.MakeGenericType [| typeof<string> |]
+    t.GetGenericArguments().[0] |> equal typeof<string>
+
+// === Decimal ===
+
+[<Fact>]
+let ``test Decimal MinValue and MaxValue work`` () =
+    string System.Decimal.MinValue
+    |> equal "-79228162514264337593543950335"
+
+    string System.Decimal.MaxValue |> equal "79228162514264337593543950335"
+    System.Decimal.MinValue < 0M |> equal true
+    System.Decimal.MaxValue > 0M |> equal true
+
+[<Fact>]
+let ``test Decimal explicit conversions work`` () =
+    int 3.75M |> equal 3
+    float 3.75M |> equal 3.75
+    int64 3.75M |> equal 3L
+    decimal 3 |> equal 3M
