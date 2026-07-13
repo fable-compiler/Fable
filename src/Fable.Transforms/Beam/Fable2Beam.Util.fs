@@ -31,11 +31,68 @@ let maskShiftCount (bits: int) (count: Beam.ErlExpr) =
     | Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer n) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(n &&& mask))
     | _ -> Beam.ErlExpr.BinOp("band", count, Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer mask))
 
-/// Wrap an expression to the fixed width of `typ`. A no-op for unsized types.
+// Constant folding of the wrapped operations. Every one of them is exact modulo 2^64, so
+// the fold can be done in (unchecked, wrapping) int64 arithmetic and the literal carries
+// the bit pattern; truncating that to a narrower width afterwards gives the same answer as
+// truncating the true mathematical result would.
+
+/// Bit pattern of an integer literal. Unsigned values above `Int64.MaxValue` are emitted as
+/// `BigInt` literals, so both shapes have to be recognised. A genuine (unbounded) bigint
+/// literal does not parse as a `uint64` and is left alone — those are never wrapped.
+let private literalBits (expr: Beam.ErlExpr) =
+    match expr with
+    | Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer n) -> Some n
+    | Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt s) ->
+        match System.UInt64.TryParse(s) with
+        | true, n -> Some(int64 n)
+        | _ -> None
+    | _ -> None
+
+/// The value `fable_int:wrap_*` would produce, as a literal.
+let private wrappedLiteral (bits: int, signed: bool) (value: int64) =
+    let truncated =
+        if bits = 64 then
+            value
+        else
+            let shift = 64 - bits
+
+            if signed then
+                (value <<< shift) >>> shift // sign-extend the low bits
+            else
+                int64 ((uint64 value <<< shift) >>> shift) // zero-extend them
+
+    if not signed && truncated < 0L then
+        // 64-bit unsigned above Int64.MaxValue: does not fit an Erlang int64 literal
+        Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<uint64> (uint64 truncated)))
+    else
+        Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer truncated)
+
+/// Fold a wrapped operation over integer literals, so constant expressions do not pay for a
+/// runtime wrapping call. `None` when the operands are not all statically known.
+let private foldConstant (expr: Beam.ErlExpr) =
+    let binary op left right =
+        match literalBits left, literalBits right with
+        | Some a, Some b -> Some(op a b)
+        | _ -> None
+
+    match expr with
+    | Beam.ErlExpr.BinOp("+", left, right) -> binary (+) left right
+    | Beam.ErlExpr.BinOp("-", left, right) -> binary (-) left right
+    | Beam.ErlExpr.BinOp("*", left, right) -> binary (*) left right
+    | Beam.ErlExpr.BinOp("bsl", left, right) -> binary (fun a b -> a <<< int b) left right
+    | Beam.ErlExpr.UnaryOp("-", operand) -> literalBits operand |> Option.map (~-)
+    | Beam.ErlExpr.UnaryOp("bnot", operand) -> literalBits operand |> Option.map (~~~)
+    | _ -> literalBits expr
+
+/// Wrap an expression to the fixed width of `typ`. A no-op for unsized types, and folded at
+/// compile time when the operands are literals.
 let wrapToIntType (typ: Fable.AST.Fable.Type) (expr: Beam.ErlExpr) =
     match Integers.sizedIntInfo typ with
-    | Some info -> Beam.ErlExpr.Call(Some "fable_int", Integers.wrapFunctionName info, [ expr ])
     | None -> expr
+    | Some info ->
+        match foldConstant expr with
+        | Some value -> wrappedLiteral info value
+        | None -> Beam.ErlExpr.Call(Some "fable_int", Integers.wrapFunctionName info, [ expr ])
 
 /// Check if a Fable expression contains a reference to the given identifier name
 let rec containsIdentRef (name: string) (expr: Expr) : bool =

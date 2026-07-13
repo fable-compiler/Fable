@@ -1834,6 +1834,25 @@ and transformOperation
                     maskShiftCount bits cleanRight
                 | _ -> cleanRight
 
+            // Erlang's `bsr` propagates the sign, so a zero-filling shift of a *signed*
+            // value has to shift its unsigned reinterpretation instead.
+            let unsignedTyp =
+                match op, typ with
+                | BinaryShiftRightZeroFill, Fable.AST.Fable.Type.Number(kind, info) ->
+                    match kind with
+                    | Int8 -> Some(Fable.AST.Fable.Type.Number(UInt8, info))
+                    | Int16 -> Some(Fable.AST.Fable.Type.Number(UInt16, info))
+                    | Int32 -> Some(Fable.AST.Fable.Type.Number(UInt32, info))
+                    | Int64 -> Some(Fable.AST.Fable.Type.Number(UInt64, info))
+                    | NativeInt -> Some(Fable.AST.Fable.Type.Number(UNativeInt, info))
+                    | _ -> None
+                | _ -> None
+
+            let cleanLeft =
+                match unsignedTyp with
+                | Some unsignedTyp -> wrapToIntType unsignedTyp cleanLeft
+                | None -> cleanLeft
+
             let result = Beam.ErlExpr.BinOp(erlOp, cleanLeft, cleanRight)
 
             // Erlang integers are unbounded, so anything that can leave the width of a
@@ -1845,6 +1864,9 @@ and transformOperation
                 | BinaryMinus
                 | BinaryMultiply
                 | BinaryShiftLeft -> wrapToIntType typ result
+                // A zero-filled shift of a signed value was done on the unsigned
+                // reinterpretation, so it has to come back to the signed one.
+                | BinaryShiftRightZeroFill when unsignedTyp.IsSome -> wrapToIntType typ result
                 | _ -> result
 
             result |> wrapWithHoisted allHoisted

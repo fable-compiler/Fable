@@ -1023,16 +1023,21 @@ let private addInt16 (a: int16) (b: int16) = a + b
 let private addUInt16 (a: uint16) (b: uint16) = a + b
 let private addUInt32 (a: uint32) (b: uint32) = a + b
 let private addUInt64 (a: uint64) (b: uint64) = a + b
+let private mulUInt32 (a: uint32) (b: uint32) = a * b
+let private mulUInt64 (a: uint64) (b: uint64) = a * b
 let private notUInt32 (a: uint32) = ~~~a
 let private shiftLeftInt32 (a: int) (n: int) = a <<< n
 let private shiftLeftInt64 (a: int64) (n: int) = a <<< n
 let private shiftLeftUInt64 (a: uint64) (n: int) = a <<< n
+let private shiftLeftByte (a: byte) (n: int) = a <<< n
+let private shiftLeftInt16 (a: int16) (n: int) = a <<< n
 let private toByte (n: int) = byte n
 let private toSByte (n: int) = sbyte n
 let private toInt16 (n: int) = int16 n
 let private toInt32 (n: int64) = int n
 let private toUInt32 (n: int) = uint32 n
 let private toUInt64 (n: int64) = uint64 n
+let private toChar (n: int) = char n
 
 [<Fact>]
 let ``test Int32 addition wraps on overflow`` () =
@@ -1082,10 +1087,22 @@ let ``test Shift left wraps out of the width`` () =
     shiftLeftInt32 1 31 |> equal Int32.MinValue
 
 [<Fact>]
+let ``test Unsigned multiplication wraps on overflow`` () =
+    mulUInt32 UInt32.MaxValue 3u |> equal 4294967293u
+    mulUInt64 UInt64.MaxValue 2UL |> equal 18446744073709551614UL
+
+[<Fact>]
 let ``test Shift count is masked to the width`` () =
     // .NET only uses the low 5 bits of an int32 shift count, and the low 6 of an int64 one
     shiftLeftInt32 1 32 |> equal 1
     shiftLeftInt64 1L 64 |> equal 1L
+
+[<Fact>]
+let ``test Shift count is masked per width for narrow integers`` () =
+    // F# masks the count to the width of the type, not to 31 the way C# and JavaScript do:
+    // the low 3 bits for an 8-bit shift and the low 4 for a 16-bit one
+    shiftLeftByte 1uy 9 |> equal 2uy
+    shiftLeftInt16 1s 17 |> equal 2s
 
 [<Fact>]
 let ``test Narrowing conversions truncate`` () =
@@ -1093,6 +1110,11 @@ let ``test Narrowing conversions truncate`` () =
     toSByte 200 |> equal -56y
     toInt16 70000 |> equal 4464s
     toInt32 4294967297L |> equal 1
+
+[<Fact>]
+let ``test Narrowing conversion to char truncates`` () =
+    toChar 70000 |> equal (char 4464)
+    toChar 65 |> equal 'A'
 
 [<Fact>]
 let ``test Signed to unsigned conversions reinterpret the bits`` () =

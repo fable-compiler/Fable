@@ -342,7 +342,8 @@ let private operators
     | ("ToSByte" | "ToByte" | "ToInt8" | "ToUInt8" | "ToInt16" | "ToUInt16" | "ToInt" | "ToUInt" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"),
       [ arg ] ->
         match arg.Type with
-        // Parsing raises on out-of-range input, so there is nothing to truncate
+        // TODO: `fable_convert:to_int` does not range-check against the target type, so
+        // out-of-range input yields the parsed value instead of raising the way .NET does.
         | Type.String -> Helper.LibCall(com, "fable_convert", "to_int", _t, [ arg ], ?loc = r) |> Some
         | Type.Number(kind, _) ->
             match kind with
@@ -399,8 +400,12 @@ let private operators
         match arg.Type with
         | Type.String -> emitExpr r _t [ arg ] "binary:first($0)" |> Some
         // Decimals are fixed-scale integers, so they need unscaling first
-        | Type.Number(Decimal, _) -> Helper.LibCall(com, "fable_decimal", "to_int", _t, [ arg ], ?loc = r) |> Some
-        | _ -> Some arg // other numbers are already chars in Erlang
+        | Type.Number(Decimal, _) ->
+            Helper.LibCall(com, "fable_decimal", "to_int", _t, [ arg ], ?loc = r)
+            |> wrapToIntType com r _t arg.Type
+            |> Some
+        // Other numbers are already chars in Erlang, but `char` truncates like a uint16
+        | _ -> arg |> wrapToIntType com r _t arg.Type |> Some
     // CreateSet: the `set [1;2;3]` syntax
     | "CreateSet", [ arg ] -> emitExpr r _t [ arg ] "ordsets:from_list($0)" |> Some
     // CreateDictionary: the `dict [...]` syntax
@@ -636,7 +641,9 @@ let private languagePrimitives
                 "op_" + operation
 
         if operation = "op_Explicit" then
-            Some arg
+            // Narrowing still truncates when the conversion is reached through an inline
+            // generic, the same as when it is written directly
+            arg |> wrapToIntType com r t arg.Type |> Some
         else
             let argTypes = args |> List.map (fun a -> a.Type)
             // Check for custom operator on DeclaredType before falling back to native ops
@@ -661,7 +668,6 @@ let private languagePrimitives
                 | "op_ExclusiveOr", [ left; right ] -> makeBinOp r t left right BinaryXorBitwise |> Some
                 | "op_LeftShift", [ left; right ] -> makeBinOp r t left right BinaryShiftLeft |> Some
                 | "op_RightShift", [ left; right ] -> makeBinOp r t left right BinaryShiftRightSignPropagating |> Some
-                | "op_Explicit", [ arg ] -> Some arg
                 | _ -> None
     | "DivideByInt", [ left; right ] -> makeBinOp r t left right BinaryDivide |> Some
     // IntrinsicFunctions within LanguagePrimitives
@@ -1402,8 +1408,12 @@ let private conversions
         match arg.Type with
         | Type.String -> emitExpr r t [ arg ] "binary:first($0)" |> Some
         // Decimals are fixed-scale integers, so they need unscaling first
-        | Type.Number(Decimal, _) -> Helper.LibCall(com, "fable_decimal", "to_int", t, [ arg ], ?loc = r) |> Some
-        | _ -> Some arg // other numbers are already chars in Erlang
+        | Type.Number(Decimal, _) ->
+            Helper.LibCall(com, "fable_decimal", "to_int", t, [ arg ], ?loc = r)
+            |> wrapToIntType com r t arg.Type
+            |> Some
+        // Other numbers are already chars in Erlang, but `char` truncates like a uint16
+        | _ -> arg |> wrapToIntType com r t arg.Type |> Some
     | _ -> None
 
 /// Beam-specific numeric type method replacements (Parse, ToString, Equals, CompareTo, GetHashCode).
@@ -1510,7 +1520,10 @@ let private numericTypes
         | Number((Float16 | Float32 | Float64), _), _ ->
             Helper.LibCall(com, "fable_decimal", "to_number", t, [ arg ], ?loc = r) |> Some
         // Chars are integers on Beam, so `char d` truncates like the integer conversions
-        | (Number(_, _) | Char), _ -> Helper.LibCall(com, "fable_decimal", "to_int", t, [ arg ], ?loc = r) |> Some
+        | (Number(_, _) | Char), _ ->
+            Helper.LibCall(com, "fable_decimal", "to_int", t, [ arg ], ?loc = r)
+            |> wrapToIntType com r t arg.Type
+            |> Some
         | _ -> None
     | _ -> None
 
@@ -5625,8 +5638,10 @@ let tryCall
         | "Abs", None, [ arg ] -> emitExpr r t [ arg ] "erlang:abs($0)" |> Some
         | ("get_IsZero" | "IsZero"), Some thisObj, _ -> emitExpr r t [ thisObj ] "($0 =:= 0)" |> Some
         | ("get_IsOne" | "IsOne"), Some thisObj, _ -> emitExpr r t [ thisObj ] "($0 =:= 1)" |> Some
+        // A bigint is unbounded, so converting out of it narrows and has to truncate.
+        // `ToInt64Unchecked` is the one that keeps .NET's non-throwing wrap either way.
         | ("ToInt64" | "ToInt64Unchecked" | "ToInt32" | "ToInt16" | "ToByte" | "ToSByte" | "op_Explicit"), None, [ arg ] ->
-            Some arg // identity in Erlang
+            arg |> wrapToIntType com r t arg.Type |> Some
         | "Parse", None, [ str ] -> emitExpr r t [ str ] "binary_to_integer($0)" |> Some
         | "Pow", None, [ base_; exp_ ] -> emitExpr r t [ base_; exp_ ] "math:pow($0, $1)" |> Some
         | "Log", None, [ arg ] -> emitExpr r t [ arg ] "math:log(float($0))" |> Some
