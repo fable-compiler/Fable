@@ -5,12 +5,23 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable
 open Fable.Transforms
+open Fable.Beam
 open Fable.Beam.Naming
 open Replacements.Util
 
 type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
+
+/// Truncate a value of type `sourceType` into the fixed width of the target integer type
+/// `t`, the way .NET's unchecked narrowing conversions do (`byte 300 = 44uy`). Erlang
+/// integers are unbounded, so without this the value would simply keep its old magnitude.
+/// Left alone when the source range already fits in the target.
+let private wrapToIntType (com: ICompiler) r (t: Type) (sourceType: Type) (expr: Expr) =
+    match Integers.sizedIntInfo t with
+    | Some info when Integers.conversionNeedsWrap sourceType t ->
+        Helper.LibCall(com, "fable_int", Integers.wrapFunctionName info, t, [ expr ], ?loc = r)
+    | _ -> expr
 
 let private isFunctionType (t: Type) =
     match t with
@@ -331,15 +342,19 @@ let private operators
     | ("ToSByte" | "ToByte" | "ToInt8" | "ToUInt8" | "ToInt16" | "ToUInt16" | "ToInt" | "ToUInt" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"),
       [ arg ] ->
         match arg.Type with
+        // Parsing raises on out-of-range input, so there is nothing to truncate
         | Type.String -> Helper.LibCall(com, "fable_convert", "to_int", _t, [ arg ], ?loc = r) |> Some
         | Type.Number(kind, _) ->
             match kind with
-            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_int", _t, [ arg ], ?loc = r) |> Some
+            | Decimal ->
+                Helper.LibCall(com, "fable_decimal", "to_int", _t, [ arg ], ?loc = r)
+                |> wrapToIntType com r _t arg.Type
+                |> Some
             | Float16
             | Float32
-            | Float64 -> emitExpr r _t [ arg ] "trunc($0)" |> Some
-            | _ -> Some arg
-        | Type.Char -> Some arg
+            | Float64 -> emitExpr r _t [ arg ] "trunc($0)" |> wrapToIntType com r _t arg.Type |> Some
+            | _ -> arg |> wrapToIntType com r _t arg.Type |> Some
+        | Type.Char -> arg |> wrapToIntType com r _t arg.Type |> Some
         | _ -> Some arg
     | ("ToSingle" | "ToDouble"), [ arg ] ->
         match arg.Type with
@@ -416,15 +431,17 @@ let private operators
         |> Some
     // Erlang has native arbitrary-precision integers, so Int64/UInt64/BigInt
     // use direct binary ops instead of library calls (like Python's int)
-    // Bitwise operators — Erlang has native bitwise support for all integer sizes
+    // Bitwise operators — Erlang has native bitwise support for all integer sizes.
+    // These go through the regular Fable operations (rather than being emitted directly)
+    // so that codegen can apply fixed-width wrapping and shift-count masking to them.
     | Operators.booleanOr, [ left; right ] -> emitExpr r _t [ left; right ] "($0 orelse $1)" |> Some
     | Operators.booleanAnd, [ left; right ] -> emitExpr r _t [ left; right ] "($0 andalso $1)" |> Some
-    | Operators.bitwiseAnd, [ left; right ] -> emitExpr r _t [ left; right ] "($0 band $1)" |> Some
-    | Operators.bitwiseOr, [ left; right ] -> emitExpr r _t [ left; right ] "($0 bor $1)" |> Some
-    | Operators.exclusiveOr, [ left; right ] -> emitExpr r _t [ left; right ] "($0 bxor $1)" |> Some
-    | Operators.leftShift, [ left; right ] -> emitExpr r _t [ left; right ] "($0 bsl $1)" |> Some
-    | Operators.rightShift, [ left; right ] -> emitExpr r _t [ left; right ] "($0 bsr $1)" |> Some
-    | Operators.logicalNot, [ operand ] -> emitExpr r _t [ operand ] "(bnot $0)" |> Some
+    | Operators.bitwiseAnd, [ left; right ] -> makeBinOp r _t left right BinaryAndBitwise |> Some
+    | Operators.bitwiseOr, [ left; right ] -> makeBinOp r _t left right BinaryOrBitwise |> Some
+    | Operators.exclusiveOr, [ left; right ] -> makeBinOp r _t left right BinaryXorBitwise |> Some
+    | Operators.leftShift, [ left; right ] -> makeBinOp r _t left right BinaryShiftLeft |> Some
+    | Operators.rightShift, [ left; right ] -> makeBinOp r _t left right BinaryShiftRightSignPropagating |> Some
+    | Operators.logicalNot, [ operand ] -> Operation(Unary(UnaryNotBitwise, operand), Tags.empty, _t, r) |> Some
     // Erlang has native arbitrary-precision integers, so Int64/UInt64/BigInt
     // use direct binary ops instead of library calls
     // Ref cells: ref, !, :=, incr, decr
@@ -636,11 +653,14 @@ let private languagePrimitives
                 | ("DivideByInt" | Operators.divideByInt), [ left; right ] ->
                     makeBinOp r t left right BinaryDivide |> Some
                 | "op_UnaryNegation", [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, t, r) |> Some
-                | "op_BitwiseAnd", [ left; right ] -> emitExpr r t [ left; right ] "($0 band $1)" |> Some
-                | "op_BitwiseOr", [ left; right ] -> emitExpr r t [ left; right ] "($0 bor $1)" |> Some
-                | "op_ExclusiveOr", [ left; right ] -> emitExpr r t [ left; right ] "($0 bxor $1)" |> Some
-                | "op_LeftShift", [ left; right ] -> emitExpr r t [ left; right ] "($0 bsl $1)" |> Some
-                | "op_RightShift", [ left; right ] -> emitExpr r t [ left; right ] "($0 bsr $1)" |> Some
+                | "op_LogicalNot", [ operand ] -> Operation(Unary(UnaryNotBitwise, operand), Tags.empty, t, r) |> Some
+                // Routed through the regular binary operations rather than emitted directly,
+                // so that they pick up fixed-width wrapping for sized integer types
+                | "op_BitwiseAnd", [ left; right ] -> makeBinOp r t left right BinaryAndBitwise |> Some
+                | "op_BitwiseOr", [ left; right ] -> makeBinOp r t left right BinaryOrBitwise |> Some
+                | "op_ExclusiveOr", [ left; right ] -> makeBinOp r t left right BinaryXorBitwise |> Some
+                | "op_LeftShift", [ left; right ] -> makeBinOp r t left right BinaryShiftLeft |> Some
+                | "op_RightShift", [ left; right ] -> makeBinOp r t left right BinaryShiftRightSignPropagating |> Some
                 | "op_Explicit", [ arg ] -> Some arg
                 | _ -> None
     | "DivideByInt", [ left; right ] -> makeBinOp r t left right BinaryDivide |> Some
@@ -1338,9 +1358,10 @@ let private conversions
             | Float16
             | Float32
             | Float64
-            | Decimal -> emitExpr r t [ arg ] "trunc($0)" |> Some
-            | _ -> Some arg // int-to-int: no conversion needed in Erlang
-        | Type.Char -> Some arg // char is already an integer in Erlang
+            | Decimal -> emitExpr r t [ arg ] "trunc($0)" |> wrapToIntType com r t arg.Type |> Some
+            // int-to-int: no conversion needed in Erlang, but narrowing still truncates
+            | _ -> arg |> wrapToIntType com r t arg.Type |> Some
+        | Type.Char -> arg |> wrapToIntType com r t arg.Type |> Some // char is already an integer in Erlang
         | _ -> Some arg
     // float(x), double(x) → convert to float
     | ("ToSingle" | "ToDouble"), [ arg ] ->

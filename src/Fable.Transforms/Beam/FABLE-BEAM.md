@@ -809,11 +809,15 @@ type Module =
 
 ## Sized & Signed Integer Semantics
 
-> **Status: not yet implemented.** Erlang's native arbitrary-precision integers make
-> `int`, `int64`, and `bigint` work out of the box, so the test suite passes today without
-> fixed-width wrapping. True sized-integer overflow semantics (`int8`/`int16`/`int32` and
-> unsigned wrapping) are **not** implemented yet — the rest of this section is the design
-> plan for when they are. Strategy A (bit-syntax wrapping) remains the recommendation.
+> **Status: implemented** using Strategy A (bit-syntax wrapping), described below.
+> The wrapping helpers live in `src/fable-library-beam/fable_int.erl` (`wrap_i8`..`wrap_i64`,
+> `wrap_u8`..`wrap_u64`). Codegen routes the operations that can leave a type's width —
+> `+`, `-`, `*`, `bsl`, negation, `bnot` and narrowing conversions — through them, and masks
+> shift counts to the width the way .NET does. `band`/`bor`/`bxor`/`bsr`/`rem` cannot grow an
+> in-range value, so they stay bare. `bigint` and the fixed-scale `decimal` are never wrapped.
+>
+> Unsigned types are represented as their unsigned value (0..2^n-1), not as a signed bit
+> pattern, so `UInt64.MaxValue` is `18446744073709551615` and `bsr` is a logical shift.
 
 ### The Problem
 

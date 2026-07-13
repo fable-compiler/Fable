@@ -19,6 +19,24 @@ let isIntegerType (typ: Fable.AST.Fable.Type) =
         | _ -> true // Decimal is now a fixed-scale integer
     | _ -> true // default to integer division
 
+/// Bit width and signedness of a .NET sized integer type, if it has one.
+let sizedIntInfo = Integers.sizedIntInfo
+
+/// .NET only uses the low bits of a shift count: `x <<< 32` is `x` for an int32,
+/// where Erlang's `bsl` would shift the value out entirely.
+let maskShiftCount (bits: int) (count: Beam.ErlExpr) =
+    let mask = int64 bits - 1L
+
+    match count with
+    | Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer n) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(n &&& mask))
+    | _ -> Beam.ErlExpr.BinOp("band", count, Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer mask))
+
+/// Wrap an expression to the fixed width of `typ`. A no-op for unsized types.
+let wrapToIntType (typ: Fable.AST.Fable.Type) (expr: Beam.ErlExpr) =
+    match Integers.sizedIntInfo typ with
+    | Some info -> Beam.ErlExpr.Call(Some "fable_int", Integers.wrapFunctionName info, [ expr ])
+    | None -> expr
+
 /// Check if a Fable expression contains a reference to the given identifier name
 let rec containsIdentRef (name: string) (expr: Expr) : bool =
     match expr with

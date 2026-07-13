@@ -1540,7 +1540,10 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
     | NumberConstant(NumberValue.Int16 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
     | NumberConstant(NumberValue.UInt16 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
     | NumberConstant(NumberValue.UInt32 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
-    | NumberConstant(NumberValue.UInt64 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+    // Unsigned 64-bit values are represented as the unsigned integer they are, so the
+    // upper half of the range does not fit in an int64 literal (`UInt64.MaxValue` would
+    // otherwise print as -1). Erlang integers are unbounded, so print the digits directly.
+    | NumberConstant(NumberValue.UInt64 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<uint64> i))
     | NumberConstant(NumberValue.Float32 f, _) ->
         let d = float f
 
@@ -1553,7 +1556,7 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         else
             Beam.ErlExpr.Literal(Beam.ErlLiteral.Float d)
     | NumberConstant(NumberValue.NativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
-    | NumberConstant(NumberValue.UNativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+    | NumberConstant(NumberValue.UNativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<unativeint> i))
     | NumberConstant(NumberValue.BigInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<bigint> i))
     | NumberConstant(NumberValue.Decimal d, _) ->
         // Decimal as fixed-scale integer: value × 10^28
@@ -1823,7 +1826,28 @@ and transformOperation
                 | BinaryAndBitwise -> "band"
                 | BinaryExponent -> "+" // unreachable, handled above
 
-            Beam.ErlExpr.BinOp(erlOp, cleanLeft, cleanRight) |> wrapWithHoisted allHoisted
+            // .NET only uses the low bits of a shift count (`x <<< 32` is `x` for an
+            // int32); Erlang would shift by the full amount.
+            let cleanRight =
+                match op, sizedIntInfo typ with
+                | (BinaryShiftLeft | BinaryShiftRightSignPropagating | BinaryShiftRightZeroFill), Some(bits, _) ->
+                    maskShiftCount bits cleanRight
+                | _ -> cleanRight
+
+            let result = Beam.ErlExpr.BinOp(erlOp, cleanLeft, cleanRight)
+
+            // Erlang integers are unbounded, so anything that can leave the width of a
+            // sized .NET integer has to be truncated back into it. `band`/`bor`/`bxor`/
+            // `bsr`/`rem` cannot grow an in-range value, so they stay bare.
+            let result =
+                match op with
+                | BinaryPlus
+                | BinaryMinus
+                | BinaryMultiply
+                | BinaryShiftLeft -> wrapToIntType typ result
+                | _ -> result
+
+            result |> wrapWithHoisted allHoisted
 
     | Unary(op, operand) ->
         let erlOperand = transformExpr com ctx operand
@@ -1831,10 +1855,13 @@ and transformOperation
 
         let result =
             match op with
-            | UnaryMinus -> Beam.ErlExpr.UnaryOp("-", cleanOperand)
+            // Negation leaves the width for the minimum signed value (`-Int32.MinValue`
+            // is `Int32.MinValue`) and for every non-zero unsigned value.
+            | UnaryMinus -> Beam.ErlExpr.UnaryOp("-", cleanOperand) |> wrapToIntType typ
             | UnaryPlus -> cleanOperand
             | UnaryNot -> Beam.ErlExpr.UnaryOp("not", cleanOperand)
-            | UnaryNotBitwise -> Beam.ErlExpr.UnaryOp("bnot", cleanOperand)
+            // `bnot` of an unsigned value is negative in Erlang, so it needs wrapping back.
+            | UnaryNotBitwise -> Beam.ErlExpr.UnaryOp("bnot", cleanOperand) |> wrapToIntType typ
             | UnaryAddressOf ->
                 // For mutable variables, pass the atom key (process dict key)
                 // instead of the dereferenced value. This enables out-parameter support
