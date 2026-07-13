@@ -243,13 +243,8 @@ let ``test FSharp.Reflection: GetRecordFields returns field names`` () =
     let typ = typeof<MyRecord>
     let fields = FSharpType.GetRecordFields typ
     fields.Length |> equal 2
-    #if FABLE_COMPILER
-    fields.[0].Name |> equal "string"
-    fields.[1].Name |> equal "int"
-    #else
     fields.[0].Name |> equal "String"
     fields.[1].Name |> equal "Int"
-    #endif
 
 [<Fact>]
 let ``test FSharp.Reflection Record`` () =
@@ -258,19 +253,11 @@ let ``test FSharp.Reflection Record`` () =
     let recordTypeFields = FSharpType.GetRecordFields typ
     let recordValueFields = FSharpValue.GetRecordFields record
 
-    #if FABLE_COMPILER
-    let expectedRecordFields =
-        [|
-            "string", box "a"
-            "int", box 1
-        |]
-    #else
     let expectedRecordFields =
         [|
             "String", box "a"
             "Int", box 1
         |]
-    #endif
 
     let recordFields =
         recordTypeFields
@@ -573,3 +560,48 @@ let ``test Activator.CreateInstance guarded by Compiler.isDotnet compiles`` () =
 let ``test Type.MakeGenericType substitutes the generic arguments`` () =
     let t = typedefof<RecGeneric<obj>>.MakeGenericType [| typeof<string> |]
     t.GetGenericArguments().[0] |> equal typeof<string>
+
+// === Cross-file reflection ===
+// The types below live in Misc/Util2.fs, so their type info is a remote call into that file's
+// module (`util2:cross_file_tree_reflection()`) rather than a local one. This is the path the
+// per-entity reflection function exists for, so it needs its own coverage.
+
+[<Fact>]
+let ``test reflection over a record from another file works`` () =
+    let fields = FSharpType.GetRecordFields typeof<Fable.Tests.Util2.CrossFileRecord>
+    fields.Length |> equal 2
+    fields.[0].Name |> equal "Name"
+    fields.[0].PropertyType |> equal typeof<string>
+    fields.[1].PropertyType |> equal typeof<int>
+
+[<Fact>]
+let ``test reflection over a recursive union from another file works`` () =
+    let cases = FSharpType.GetUnionCases typeof<Fable.Tests.Util2.CrossFileTree>
+    cases.Length |> equal 2
+    cases.[1].Name |> equal "CrossFileBranch"
+
+    let branchFields = cases.[1].GetFields()
+    branchFields.Length |> equal 2
+
+    branchFields.[0].PropertyType
+    |> equal typeof<Fable.Tests.Util2.CrossFileTree>
+
+[<Fact>]
+let ``test reflection over a generic record from another file works`` () =
+    // The remote call has to pass the resolved generic argument, so its arity must line up
+    // with the reflection function generated in the other file.
+    let fields =
+        FSharpType.GetRecordFields typeof<Fable.Tests.Util2.CrossFileGeneric<string>>
+
+    fields.Length |> equal 2
+    fields.[0].PropertyType |> equal typeof<string>
+
+[<Fact>]
+let ``test round-tripping a value of a type from another file works`` () =
+    let recordType = typeof<Fable.Tests.Util2.CrossFileRecord>
+    let record: Fable.Tests.Util2.CrossFileRecord = { Name = "a"; Count = 1 }
+
+    let values = FSharpValue.GetRecordFields record
+
+    FSharpValue.MakeRecord(recordType, values) :?> Fable.Tests.Util2.CrossFileRecord
+    |> equal record

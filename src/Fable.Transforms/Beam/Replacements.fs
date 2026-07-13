@@ -361,12 +361,12 @@ let private operators
             | Float16
             | Float32
             | Float64 ->
-                // float → fixed-scale: trunc(x * 10^28)
-                emitExpr r _t [ arg ] "trunc($0 * 10000000000000000000000000000)" |> Some
-            | _ ->
-                // int → fixed-scale: x * 10^28
-                emitExpr r _t [ arg ] "($0 * 10000000000000000000000000000)" |> Some
-        | _ -> emitExpr r _t [ arg ] "($0 * 10000000000000000000000000000)" |> Some
+                // float → fixed-scale. Scaling by 10^28 in float arithmetic would be lossy
+                // (10^28 is not a representable double), so go via the float's decimal string.
+                Helper.LibCall(com, "fable_decimal", "from_float", _t, [ arg ], ?loc = r)
+                |> Some
+            | _ -> Helper.LibCall(com, "fable_decimal", "from_int", _t, [ arg ], ?loc = r) |> Some
+        | _ -> Helper.LibCall(com, "fable_decimal", "from_int", _t, [ arg ], ?loc = r) |> Some
     | "ToString", [ arg ] ->
         match arg.Type with
         | Type.String -> Some arg
@@ -1477,13 +1477,15 @@ let private numericTypes
     | "get_MaxValue", None, _ -> Helper.LibCall(com, "fable_decimal", "max_value", t, [], ?loc = r) |> Some
     | "get_MinValue", None, _ -> Helper.LibCall(com, "fable_decimal", "min_value", t, [], ?loc = r) |> Some
     // Explicit conversions to and from decimal (`decimal x`, `int d`, `float d`).
-    // Decimals are fixed-scale integers (value × 10^28), so converting is scaling.
+    // Decimals are fixed-scale integers (value × 10^28), so converting is scaling. The scale
+    // lives in fable_decimal, so go through it rather than inlining the factor here — scaling
+    // a float by 10^28 in float arithmetic is lossy, since 10^28 is not a representable double.
     | "op_Explicit", None, [ arg ] ->
         match t, arg.Type with
         | Number(Decimal, _), Number(Decimal, _) -> Some arg
         | Number(Decimal, _), Number((Float16 | Float32 | Float64), _) ->
-            emitExpr r t [ arg ] "trunc($0 * 10000000000000000000000000000)" |> Some
-        | Number(Decimal, _), _ -> emitExpr r t [ arg ] "($0 * 10000000000000000000000000000)" |> Some
+            Helper.LibCall(com, "fable_decimal", "from_float", t, [ arg ], ?loc = r) |> Some
+        | Number(Decimal, _), _ -> Helper.LibCall(com, "fable_decimal", "from_int", t, [ arg ], ?loc = r) |> Some
         | Number((Float16 | Float32 | Float64), _), _ ->
             Helper.LibCall(com, "fable_decimal", "to_number", t, [ arg ], ?loc = r) |> Some
         // Chars are integers on Beam, so `char d` truncates like the integer conversions
@@ -2183,8 +2185,14 @@ let private arrays
     | "IndexOf", None, [ arr; value ] ->
         let arr = derefArr r arr
         Helper.LibCall(com, "fable_list", "index_of_value", t, [ value; arr ]) |> Some
-    // Iterating an array as a non-generic IEnumerable (e.g. `for v in Enum.GetValues t do`)
-    | "GetEnumerator", Some c, _ -> emitExpr r t [ c ] "fable_utils:get_enumerator(erlang:get($0))" |> Some
+    // Iterating an array as a non-generic IEnumerable (e.g. `for v in Enum.GetValues t do`).
+    // Deref via derefArr so byte arrays (atomics, not process-dict refs) are handled too;
+    // the non-generic System.Array of Enum.GetValues stays a ref, which get_enumerator accepts.
+    | "GetEnumerator", Some c, _ ->
+        let arr = derefArr r c
+
+        Helper.LibCall(com, "fable_utils", "get_enumerator", t, [ arr ], ?loc = r)
+        |> Some
     | _ -> None
 
 /// Beam-specific Array module replacements.

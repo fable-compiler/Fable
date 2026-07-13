@@ -763,6 +763,19 @@ let ``test System.Convert.ToString Decimal works`` () =
 
 // --- Decimal conversions ---
 
+// Float-to-decimal must be exact, not a float multiply by the 10^28 scale: 10^28 is not a
+// representable double, so scaling in float arithmetic makes `decimal 1.0` land just short of
+// `1.0M`. The ToSingle/ToDouble tests below cannot catch that, since converting back divides
+// the error away again — these compare against the literal and the string instead.
+[<Fact>]
+let ``test Decimal from float is exact`` () =
+    decimal 1.0 |> equal 1.0M
+    decimal 0.1 |> equal 0.1M
+    decimal -2.5 |> equal -2.5M
+    decimal 1.0f |> equal 1.0M
+    string (decimal 1.0) |> equal "1"
+    string (decimal 0.1) |> equal "0.1"
+
 [<Fact>]
 let ``test Decimal.ToChar works`` () =
     let value = 'A'

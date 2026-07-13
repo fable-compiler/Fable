@@ -12,6 +12,17 @@ type Helper3(i: int) =
 
 type H = Helper3
 
+// Reflection fixtures declared away from ReflectionTests.fs, so that reflecting over them
+// exercises the cross-module path: the type info is a remote call to the reflection function
+// generated in this file's module, rather than a local call.
+type CrossFileRecord = { Name: string; Count: int }
+
+type CrossFileTree =
+    | CrossFileLeaf of int
+    | CrossFileBranch of CrossFileTree * CrossFileTree
+
+type CrossFileGeneric<'T> = { Item: 'T; Rest: CrossFileGeneric<'T> option }
+
 
 module Extensions =
     type String with

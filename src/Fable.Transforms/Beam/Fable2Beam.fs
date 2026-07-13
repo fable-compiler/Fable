@@ -3388,6 +3388,34 @@ and transformClassDeclaration
         else
             []
 
+    // The reflection function shares the Erlang function namespace with the entity's members,
+    // and `sanitizeErlangName` is lossy enough that a member can mangle onto its name (a member
+    // `TreeReflection` on a type `Tree` both give `tree_reflection`). The dedup below keeps the
+    // first form, so the collision would silently drop the reflection function and leave every
+    // `typeof` for this entity calling the member instead. Report it rather than miscompile.
+    for form in reflectionForms do
+        match form with
+        | Beam.ErlForm.Function reflectionDef ->
+            let clashes =
+                memberForms
+                |> List.exists (fun memberForm ->
+                    match memberForm with
+                    | Beam.ErlForm.Function memberDef ->
+                        memberDef.Name = reflectionDef.Name && memberDef.Arity = reflectionDef.Arity
+                    | _ -> false
+                )
+
+            if clashes then
+                let (Beam.Atom name) = reflectionDef.Name
+
+                com.AddLog(
+                    $"Member of '%s{decl.Name}' collides with its generated reflection function '%s{name}/%d{reflectionDef.Arity}'. Rename the member.",
+                    Severity.Error,
+                    fileName = com.CurrentFile,
+                    tag = "FABLE"
+                )
+        | _ -> ()
+
     // Deduplicate functions by name+arity. This can happen when a property setter
     // (e.g., `set StatusCode`) and a method (e.g., `SetStatusCode`) both mangle to
     // the same Erlang function name. Unlike JS/Python which have native getter/setter

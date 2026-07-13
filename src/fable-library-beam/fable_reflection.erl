@@ -68,7 +68,7 @@
 -spec get_enum_underlying_type(map()) -> map().
 -spec get_enum_values(map()) -> list().
 -spec get_enum_names(map()) -> list().
--spec get_enum_name(map(), integer()) -> binary().
+-spec get_enum_name(map(), integer()) -> binary() | undefined.
 -spec is_enum_defined(map(), integer() | binary()) -> boolean().
 -spec parse_enum(map(), binary()) -> integer().
 -spec try_parse_enum(map(), binary(), reference()) -> boolean().
@@ -186,19 +186,20 @@ get_function_elements(TypeInfo) ->
 
 %% FSharpValue.GetRecordFields(record) — extract values in field order.
 %% TypeInfo is injected by the compiler since Erlang maps don't preserve order.
+%% Fields are keyed in the record map by `erl_name`, the sanitized name; `name` holds the
+%% F# name that PropertyInfo.Name reports and is not a valid key.
 get_record_fields_value(Record, TypeInfo) ->
     Fields = force(maps:get(fields, TypeInfo)),
-    [maps:get(binary_to_atom(maps:get(name, F)), Record) || F <- Fields].
+    [maps:get(maps:get(erl_name, F), Record) || F <- Fields].
 
 %% FSharpValue.GetRecordField(record, propertyInfo) — get single field value.
 get_record_field_value(Record, PropInfo) ->
-    Name = maps:get(name, PropInfo),
-    maps:get(binary_to_atom(Name), Record).
+    maps:get(maps:get(erl_name, PropInfo), Record).
 
 %% FSharpValue.MakeRecord(typeInfo, values) — create record from type info and values.
 make_record_from_values(TypeInfo, Values) ->
     Fields = force(maps:get(fields, TypeInfo)),
-    FieldNames = [binary_to_atom(maps:get(name, F)) || F <- Fields],
+    FieldNames = [maps:get(erl_name, F) || F <- Fields],
     ValList =
         case is_reference(Values) of
             true -> erlang:get(Values);
@@ -265,16 +266,16 @@ make_union_value(CaseInfo, Values) ->
 
 %% PropertyInfo.GetValue(propInfo, obj)
 get_value(PropInfo, Obj) ->
-    Name = maps:get(name, PropInfo),
-    maps:get(binary_to_atom(Name), Obj).
+    maps:get(maps:get(erl_name, PropInfo), Obj).
 
 %% --- Enums ---
 %% An enum type info carries `enum_cases => [{Name, Value}]` and its underlying
 %% numeric type as the single entry in `generics`.
 
-%% Type.IsEnum
+%% Type.IsEnum — keyed on the presence of `enum_cases`, not on it being non-empty,
+%% since an enum with no cases is still an enum.
 is_enum(TypeInfo) when is_map(TypeInfo) ->
-    maps:get(enum_cases, TypeInfo, []) =/= [];
+    maps:is_key(enum_cases, TypeInfo);
 is_enum(_) ->
     false.
 
@@ -373,9 +374,9 @@ deref(Values) when is_list(Values) ->
     Values.
 
 enum_cases(TypeInfo) ->
-    case maps:get(enum_cases, TypeInfo, []) of
-        [] -> erlang:error({not_enum_type, maps:get(fullname, TypeInfo, <<"unknown">>)});
-        Cases -> Cases
+    case maps:find(enum_cases, TypeInfo) of
+        {ok, Cases} -> Cases;
+        error -> erlang:error({not_enum_type, maps:get(fullname, TypeInfo, <<"unknown">>)})
     end.
 
 %% Record fields and union cases are emitted as zero-arity funs so that a recursive type
