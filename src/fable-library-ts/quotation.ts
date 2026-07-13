@@ -88,7 +88,8 @@ export class ExprCall {
     instance: Expr | null;
     method: string;
     args: Expr[];
-    constructor(instance: Expr | null, method: string, args: Expr[]) { this.instance = instance; this.method = method; this.args = args; }
+    declaringType: string;
+    constructor(instance: Expr | null, method: string, args: Expr[], declaringType: string = "") { this.instance = instance; this.method = method; this.args = args; this.declaringType = declaringType; }
     toJSON() { return ["Call", this.instance, this.method, this.args]; }
 }
 
@@ -208,6 +209,11 @@ export function mkValue(value: any, type: string): ExprValue {
     return new ExprValue(value, type);
 }
 
+export function mkNull(type: string): ExprValue {
+    // A null-value node (no instance / null literal / empty option or list).
+    return new ExprValue(null, type);
+}
+
 export function mkVar(v: Var): ExprVarExpr {
     return new ExprVarExpr(v);
 }
@@ -228,8 +234,8 @@ export function mkIfThenElse(guard: Expr, thenExpr: Expr, elseExpr: Expr): ExprI
     return new ExprIfThenElse(guard, thenExpr, elseExpr);
 }
 
-export function mkCall(instance: Expr | null, method: string, args: Expr[]): ExprCall {
-    return new ExprCall(instance, method, args);
+export function mkCall(instance: Expr | null, method: string, args: Expr[], declaringType: string = ""): ExprCall {
+    return new ExprCall(instance, method, args, declaringType);
 }
 
 export function mkSequential(first: Expr, second: Expr): ExprSequential {
@@ -323,8 +329,17 @@ export function isIfThenElse(expr: Expr): [Expr, Expr, Expr] | undefined {
 }
 
 export function isCall(expr: Expr): [Expr | null, string, Expr[]] | undefined {
-    if (expr instanceof ExprCall) return [expr.instance, expr.method, expr.args];
+    if (expr instanceof ExprCall) {
+        // A static/operator call carries the null-value node as its instance
+        // (see QuotationEmitter). Expose it as null so Patterns.Call matches F#.
+        const instance = (expr.instance instanceof ExprValue && expr.instance.type === "null") ? null : expr.instance;
+        return [instance, expr.method, expr.args];
+    }
     return undefined;
+}
+
+export function callDeclaringType(expr: Expr): string {
+    return expr instanceof ExprCall ? expr.declaringType : "";
 }
 
 export function isSequential(expr: Expr): [Expr, Expr] | undefined {
@@ -590,7 +605,7 @@ export function substitute(expr: Expr, fn: (v: Var) => Expr | undefined): Expr {
         if (e instanceof ExprIfThenElse) return new ExprIfThenElse(sub(e.guard), sub(e.thenExpr), sub(e.elseExpr));
         if (e instanceof ExprCall) {
             const newInst = e.instance != null ? sub(e.instance) : e.instance;
-            return new ExprCall(newInst, e.method, e.args.map(sub));
+            return new ExprCall(newInst, e.method, e.args.map(sub), e.declaringType);
         }
         if (e instanceof ExprSequential) return new ExprSequential(sub(e.first), sub(e.second));
         if (e instanceof ExprNewTuple) return new ExprNewTuple(e.elements.map(sub));

@@ -3662,9 +3662,10 @@ module Util =
 
                 mkUnitExpr ()
 
-        | Fable.Quote _ ->
-            addError com [] None "Quotations are not yet supported for Rust target"
-            mkUnitExpr ()
+        | Fable.Quote(body, _isTyped, _r) ->
+            // Lower the quoted body to runtime calls that build the quotation AST,
+            // then transform those like any other expression (mirrors JS/Python/Beam).
+            QuotationEmitter.emitQuotedExpr com body |> transformExpr com ctx
 
     let rec tryFindEntryPoint (com: IRustCompiler) decl : string list option =
         match decl with

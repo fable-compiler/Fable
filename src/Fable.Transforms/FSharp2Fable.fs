@@ -1503,7 +1503,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                     |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 
         | FSharpExprPatterns.Quote quotedExpr ->
-            let! body = transformExpr com ctx [] quotedExpr
+            // Translate the quoted body in "capturing" mode so member calls keep their
+            // .NET metadata (not replaced/emitted/inlined) — the body is data, not code.
+            let! body = transformExpr com { ctx with CapturingQuotation = true } [] quotedExpr
             let exprType = fsExpr.Type
             let isTyped = exprType.GenericArguments.Count > 0
             return Fable.Quote(body, isTyped, makeRangeFrom fsExpr)

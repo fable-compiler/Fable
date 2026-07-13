@@ -537,6 +537,10 @@ type Context =
         InlinePath: Log.InlinePath list
         CaptureBaseConsCall: (FSharpEntity * (Fable.Expr -> unit)) option
         Witnesses: Fable.Witness list
+        // When true we are translating the body of a code quotation (<@ @>). The body is
+        // data, never executed, so member calls are kept as-is (not replaced/emitted/inlined)
+        // to preserve their .NET member metadata for QuotationEmitter.
+        CapturingQuotation: bool
     }
 
     static member Create(?usedRootNames) =
@@ -555,6 +559,7 @@ type Context =
             InlinePath = []
             CaptureBaseConsCall = None
             Witnesses = []
+            CapturingQuotation = false
         }
 
 type IFableCompiler =
@@ -3058,6 +3063,13 @@ module Util =
         (callInfo: Fable.CallInfo)
         =
         match memb, memb.DeclaringEntity with
+        // Inside a quotation the body is data, never executed. Preserve the original member
+        // call (skip replace/emit/import/inline) so its .NET member metadata survives for
+        // QuotationEmitter. Skipping inlining here also matches real F# quotation semantics.
+        | _ when ctx.CapturingQuotation ->
+            let membTyp = makeType ctx.GenericArgs memb.FullType
+            memberIdent com r membTyp memb membRef |> makeCall r typ callInfo
+
         | Emitted com ctx r typ (Some callInfo) emitted, _ -> emitted
         | Imported com ctx r typ (Some callInfo) imported -> imported
         | Replaced com ctx r typ callInfo replaced -> replaced
