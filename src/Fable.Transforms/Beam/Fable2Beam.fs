@@ -3822,6 +3822,10 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
         transformClassDeclaration com ctx className ent decl
 
 let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
+    // The file that declares a pinned name is the one place to report it as invalid — every file
+    // that imports it resolves the same name, and would otherwise report it again.
+    checkPinnedModuleName com com.CurrentFile
+
     let moduleName = erlangModuleNameFor com com.CurrentFile
 
     let ctx =

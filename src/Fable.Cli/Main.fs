@@ -117,11 +117,13 @@ module private Util =
             LogEntry.Make(severity, msg, fileName = er.FileName, range = range, tag = "FSHARP")
         )
 
-    /// `com` is the compiler for the file being compiled, when there is one. Only Beam needs it,
-    /// and only to see a module name pinned with `[<Beam.ModuleName>]`, which lives in the F# AST.
-    /// Callers that are merely predicting an out path (watch's up-to-date check, `--printAst`)
-    /// pass None and get the derived name; the worst that costs them is a needless recompile.
-    let getOutPath (cliArgs: CliArgs) (com: Compiler option) pathResolver file =
+    /// `beamModuleName` resolves a source file to the module name pinned with `[<Beam.ModuleName>]`,
+    /// if any. Only Beam needs it, and only because an `.erl` file must be named after the module it
+    /// declares. A pinned name lives in the F# AST, so while compiling we ask the compiler; callers
+    /// that only *predict* an out path (watch's up-to-date check) instead look it up in the map from
+    /// the previous cycle — otherwise they would predict the derived name, never find that file on
+    /// disk, and recompile every pinned file on every cycle forever.
+    let getOutPath (cliArgs: CliArgs) (beamModuleName: string -> string option) pathResolver file =
         match cliArgs.CompilerOptions.Language with
         // For Python we must have an outDir since all compiled files must be inside the same subdir, so if `outDir` is not
         // set we set `outDir` to the directory of the project file being compiled.
@@ -162,9 +164,8 @@ module private Util =
             // An Erlang module's file name must match the `-module` atom it declares, so the
             // output file is named after the module, not after the F# source file.
             let moduleName =
-                match com with
-                | Some com -> Fable.Beam.Naming.erlangModuleNameFor com file
-                | None -> Pipeline.Beam.moduleName cliArgs file
+                beamModuleName file
+                |> Option.defaultWith (fun () -> Pipeline.Beam.moduleName cliArgs file)
 
             let fileName = moduleName + fileExt
 
@@ -215,7 +216,12 @@ module private Util =
             let fileName = (com :> Compiler).CurrentFile
 
             try
-                let outPath = getOutPath cliArgs (Some(com :> Compiler)) pathResolver fileName
+                // We are compiling this file, so the F# AST is right here: ask it for a pinned name.
+                let beamModuleName path =
+                    Fable.Beam.Naming.tryPinnedModuleName (com :> Compiler) path
+                    |> Option.filter Fable.Beam.Naming.isValidModuleName
+
+                let outPath = getOutPath cliArgs beamModuleName pathResolver fileName
 
                 // ensure directory exists
                 let dir = IO.Path.GetDirectoryName outPath
@@ -622,7 +628,10 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
 
                         // Print F# AST to file
                         if projCracked.CliArgs.PrintAst then
-                            let outPath = getOutPath projCracked.CliArgs None state.PathResolver file.FileName
+                            // --printAst only needs the directory, so the file name doesn't matter.
+                            let outPath =
+                                getOutPath projCracked.CliArgs (fun _ -> None) state.PathResolver file.FileName
+
                             let outDir = IO.Path.GetDirectoryName(outPath)
                             Printers.printAst outDir [ file ]
 
@@ -856,7 +865,16 @@ type State =
         Watcher: Watcher option
         SilentCompilation: bool
         RecompileAllFiles: bool
+        /// Beam only: module names pinned with `[<Beam.ModuleName>]`, as of the last compilation.
+        /// A pinned name lives in the F# AST, so it cannot be known before a file is type checked;
+        /// this is how the next cycle predicts the out path of a file it hasn't compiled yet.
+        BeamPinnedModuleNames: Map<string, string>
     }
+
+    /// The Erlang module name pinned for a source file, if any. Empty until the first compilation
+    /// finishes, which only means an out path predicted before then falls back to the derived name.
+    member this.BeamPinnedModuleName(path: string) =
+        Map.tryFind path this.BeamPinnedModuleNames
 
     member this.TriggeredByDependency(path: string, changes: ISet<string>) =
         match Map.tryFind path this.WatchDependencies with
@@ -891,6 +909,7 @@ type State =
             PendingFiles = [||]
             SilentCompilation = false
             RecompileAllFiles = defaultArg recompileAllFiles false
+            BeamPinnedModuleNames = Map.empty
         }
 
 let private getFilesToCompile
@@ -925,7 +944,7 @@ let private getFilesToCompile
             )
             || (
                 // If files have been deleted, we should likely recompile after first deletion
-                let outPath = getOutPath state.CliArgs None pathResolver path
+                let outPath = getOutPath state.CliArgs state.BeamPinnedModuleName pathResolver path
 
                 let wasDeleted =
                     (path.EndsWith(".fs") || path.EndsWith(".fsx")) && not (IO.File.Exists outPath)
@@ -949,7 +968,8 @@ let private areCompiledFilesUpToDate (state: State) (filesToCompile: string[]) =
                 || file.EndsWith(".fsx", StringComparison.Ordinal)
             )
             |> Array.forall (fun source ->
-                let outPath = getOutPath state.CliArgs None pathResolver source
+                let outPath =
+                    getOutPath state.CliArgs state.BeamPinnedModuleName pathResolver source
                 // Empty files are not written to disk so we only check date for existing files
                 if IO.File.Exists(outPath) then
                     foundCompiledFile <- true
@@ -1025,11 +1045,15 @@ let private compileBeamFiles (workingDir: string) =
         |> ignore
 
 /// Module names pinned with `[<Beam.ModuleName>]`, keyed by source file. The CLI has to know
-/// them too: it names each output file after the module inside it, and it is where duplicate
-/// module names are caught. Invalid names are dropped — Fable2Beam reports those against the
-/// offending file and falls back to the derived name, and this must agree with it.
+/// them too: it names each output file after the module inside it, it is where duplicate module
+/// names are caught, and in watch mode it predicts an out path before there is a compiler to ask.
+///
+/// This must agree with `Fable.Beam.Naming.erlangModuleNameFor`, which the code generator uses —
+/// hence the same `canPinModuleName` rule, and the same dropping of invalid names (Fable2Beam
+/// reports those against the offending file and falls back to the derived name).
 let private beamPinnedModuleNames (fableProj: Project) =
     fableProj.ImplementationFiles
+    |> Seq.filter (fun kv -> Fable.Beam.Naming.canPinModuleName kv.Key)
     |> Seq.choose (fun kv ->
         ReadOnlyDictionary.tryFind kv.Value.RootModule kv.Value.Entities
         |> Option.bind Fable.Beam.Naming.tryModuleNameAttribute
@@ -1243,7 +1267,7 @@ let private checkRunProcess (state: State) (projCracked: ProjectCracked) (compil
         let findLastFileFullPath () =
             let pathResolver = state.GetPathResolver()
             let lastFile = Array.last projCracked.SourceFiles
-            getOutPath cliArgs None pathResolver lastFile.NormalizedFullPath
+            getOutPath cliArgs state.BeamPinnedModuleName pathResolver lastFile.NormalizedFullPath
 
         // Fable's getRelativePath version ensures there's always a period in front of the path: ./
         let findLastFileRelativePath () =
@@ -1417,7 +1441,6 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                 | None -> FableCompiler.Init(projCracked)
                 | Some fableCompiler -> async.Return fableCompiler
 
-
             let! fsharpLogs, fableResults =
                 fableCompiler.StartCompilation(
                     projCracked.SourceFiles, // Make sure to pass the up-to-date source files (with cleared hashes for changed files)
@@ -1571,28 +1594,39 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                 }
 
             // Generate rebar3 scaffold for BEAM target after successful compilation
-            if cliArgs.CompilerOptions.Language = Beam && not hasError then
-                // A module name pinned with [<Beam.ModuleName>] lives in the F# AST, which only
-                // exists once the files have been type checked — hence after compilation, not
-                // before. It can't be derived from the path, and checking the derived names early
-                // would reject a clash that a pinned name resolves.
-                let! fableProj = fableCompiler.GetFableProject()
-                let pinned = beamPinnedModuleNames fableProj
+            let! beamPinned =
+                if cliArgs.CompilerOptions.Language <> Beam || hasError then
+                    async.Return state.BeamPinnedModuleNames
+                else
+                    async {
+                        // A module name pinned with [<Beam.ModuleName>] lives in the F# AST, which
+                        // only exists once the files have been type checked — hence after
+                        // compilation, not before. It can't be derived from the path, and checking
+                        // the derived names early would reject a clash that a pinned name resolves.
+                        let! fableProj = fableCompiler.GetFableProject()
+                        let pinned = beamPinnedModuleNames fableProj
 
-                projCracked.SourceFiles
-                |> Array.map (fun f -> f.NormalizedFullPath)
-                |> checkBeamModuleNames cliArgs pinned
+                        projCracked.SourceFiles
+                        |> Array.map (fun f -> f.NormalizedFullPath)
+                        |> checkBeamModuleNames cliArgs pinned
 
-                // The last source file is the entry point of a Fable program: its module-level
-                // actions compile to that module's main/0.
-                let lastFile = (Array.last projCracked.SourceFiles).NormalizedFullPath
+                        // The last source file is the entry point of a Fable program: its
+                        // module-level actions compile to that module's main/0.
+                        let lastFile = (Array.last projCracked.SourceFiles).NormalizedFullPath
 
-                let entryModule =
-                    match Map.tryFind lastFile pinned with
-                    | Some name -> name
-                    | None -> Pipeline.Beam.moduleName cliArgs lastFile
+                        let entryModule =
+                            match Map.tryFind lastFile pinned with
+                            | Some name -> name
+                            | None -> Pipeline.Beam.moduleName cliArgs lastFile
 
-                generateBeamScaffold cliArgs entryModule
+                        generateBeamScaffold cliArgs entryModule
+
+                        return pinned
+                    }
+
+            // Remembered so the next cycle can predict the out path of a pinned file it has not
+            // compiled yet, instead of deriving a name that will never match what is on disk.
+            let state = { state with BeamPinnedModuleNames = beamPinned }
 
             // Run process
             let exitCode, state =

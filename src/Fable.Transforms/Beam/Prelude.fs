@@ -479,42 +479,55 @@ module Naming =
     let isValidModuleName (name: string) =
         Regex.IsMatch(name, @"^[a-z][a-zA-Z0-9_]*$") && not (erlKeywords.Contains name)
 
+    /// Whether a file's module name can be pinned at all. fable-library's modules keep their bare,
+    /// hand-maintained names, and a path that names no F# source names a module Fable does not
+    /// generate. The CLI and the code generator both have to apply this rule, or they would
+    /// disagree on the name of the very file they are compiling.
+    let canPinModuleName (filePath: string) =
+        isFSharpSource filePath && not (isFableLibraryPath filePath)
+
+    /// The name pinned on a file's root module with `[<Fable.Core.Beam.ModuleName("...")>]`, as
+    /// written — it may not be a valid atom. Reporting that is `checkPinnedModuleName`'s job, so
+    /// that an invalid name is reported once, against the file that declares it, rather than once
+    /// per file that imports it.
+    let tryPinnedModuleName (com: Fable.Compiler) (filePath: string) =
+        if not (canPinModuleName filePath) then
+            None
+        else
+            match com.GetRootModule(filePath) with
+            | "", _ -> None // a file with no root module has nothing to carry the attribute
+            | rootModule, _ ->
+                com.TryGetEntity(
+                    {
+                        FullName = rootModule
+                        Path = Fable.AST.Fable.SourcePath filePath
+                    }
+                )
+                |> Option.bind tryModuleNameAttribute
+
     /// The Erlang module name of a source file: the name pinned on its root module by
     /// `[<Fable.Core.Beam.ModuleName>]`, or else the name derived from its path.
     ///
     /// Resolving this from a path alone is what lets an *importing* file name the module it is
     /// calling into — an import carries the imported file's path, never its entity.
     let erlangModuleNameFor (com: Fable.Compiler) (filePath: string) =
-        let derived () =
-            erlangModuleName com.ProjectFile filePath
+        match tryPinnedModuleName com filePath with
+        | Some name when isValidModuleName name -> name
+        | _ -> erlangModuleName com.ProjectFile filePath
 
-        if not (isFSharpSource filePath) || isFableLibraryPath filePath then
-            derived ()
-        else
-            let pinned =
-                match com.GetRootModule(filePath) with
-                | "", _ -> None // a file with no root module has nothing to carry the attribute
-                | rootModule, _ ->
-                    com.TryGetEntity(
-                        {
-                            FullName = rootModule
-                            Path = Fable.AST.Fable.SourcePath filePath
-                        }
-                    )
-                    |> Option.bind tryModuleNameAttribute
-
-            match pinned with
-            | None -> derived ()
-            | Some name when isValidModuleName name -> name
-            | Some name ->
-                com.AddLog(
-                    $"'%s{name}' is not a valid Erlang module name. It must start with a lowercase "
-                    + "letter and contain only letters, digits and underscores.",
-                    Fable.Severity.Error,
-                    fileName = filePath
-                )
-
-                derived ()
+    /// Report a pinned name that is not a plain Erlang atom. Called once for the file being
+    /// compiled, which is the only file the name is declared in; `erlangModuleNameFor` falls back
+    /// to the derived name so that compilation of the rest of the file can proceed.
+    let checkPinnedModuleName (com: Fable.Compiler) (filePath: string) =
+        match tryPinnedModuleName com filePath with
+        | Some name when not (isValidModuleName name) ->
+            com.AddLog(
+                $"'%s{name}' is not a valid Erlang module name. It must start with a lowercase "
+                + "letter and contain only letters, digits and underscores.",
+                Fable.Severity.Error,
+                fileName = filePath
+            )
+        | _ -> ()
 
     let capitalizeFirst (s: string) =
         if s.Length = 0 then

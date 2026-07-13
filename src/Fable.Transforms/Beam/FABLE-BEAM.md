@@ -328,11 +328,18 @@ on an `open`. The name has to be a plain unquoted Erlang atom (lowercase first l
 letters, digits, underscores) — anything else is a compile error — and it must not collide with
 another module, which the duplicate check above enforces.
 
+A pinned name is checked like any other: it must not collide with another module, and it must not
+be one of OTP's own — pinning is for naming a module its contract requires, not for taking a name
+OTP already has.
+
 Resolving this is the one place the naming scheme needs more than the path: an import carries the
 imported file's *path*, never its entity, so `erlangModuleNameFor` maps path → root module
 (`GetRootModule`) → entity (`TryGetEntity`) → attribute. The CLI needs the same answer to name the
 output file, and it can only get it *after* type checking — which is why the duplicate check runs
-after compilation rather than before it.
+after compilation rather than before it, and why the CLI remembers the pinned names it found
+(`State.BeamPinnedModuleNames`). Without that memory, watch mode would predict the *derived* out
+path for a pinned file, never find it on disk, and conclude the file had been deleted — recompiling
+it on every cycle, forever.
 
 ### Entry point
 
