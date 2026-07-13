@@ -128,3 +128,56 @@ module Naming =
         // Remove/replace characters invalid in Erlang variable names
         name.Replace("$", "_").Replace("@", "_")
         |> fun s -> Regex.Replace(s, "[^a-zA-Z0-9_]", "_")
+
+/// Fixed-width integer semantics. Erlang integers are arbitrary precision and never
+/// overflow, so operations that can leave the width of a .NET sized integer are routed
+/// through the `fable_int` runtime module to truncate them back (two's complement).
+module Integers =
+    open Fable.AST // NumberKind
+    open Fable.AST.Fable
+
+    /// Bit width and signedness of a .NET sized integer type. `None` for types whose
+    /// Erlang representation is legitimately unbounded (bigint, the fixed-scale decimal)
+    /// or not an integer at all — those must never be wrapped.
+    let sizedIntInfo (typ: Type) : (int * bool) option =
+        match typ with
+        // Chars are integers on Erlang, and .NET truncates conversions into them like a uint16
+        | Type.Char -> Some(16, false)
+        | Type.Number(kind, _) ->
+            match kind with
+            | Int8 -> Some(8, true)
+            | UInt8 -> Some(8, false)
+            | Int16 -> Some(16, true)
+            | UInt16 -> Some(16, false)
+            | Int32 -> Some(32, true)
+            | UInt32 -> Some(32, false)
+            | Int64 -> Some(64, true)
+            | UInt64 -> Some(64, false)
+            | NativeInt -> Some(64, true)
+            | UNativeInt -> Some(64, false)
+            | _ -> None
+        | _ -> None
+
+    /// Name of the `fable_int` function that wraps a value to the given width/signedness.
+    let wrapFunctionName (bits: int, signed: bool) =
+        let prefix =
+            if signed then
+                "i"
+            else
+                "u"
+
+        $"wrap_%s{prefix}%d{bits}"
+
+    /// Whether converting a value of type `source` to type `target` can leave `target`'s
+    /// range, i.e. whether the conversion needs truncating.
+    let conversionNeedsWrap (source: Type) (target: Type) =
+        match sizedIntInfo target, sizedIntInfo source with
+        | None, _ -> false
+        | Some _, None -> true // unbounded or non-integer source (float, bigint, decimal)
+        | Some(targetBits, targetSigned), Some(sourceBits, sourceSigned) ->
+            if sourceSigned = targetSigned then
+                sourceBits > targetBits
+            elif targetSigned then
+                sourceBits >= targetBits // unsigned source only fits in a strictly wider signed target
+            else
+                true // a signed source can be negative, which never fits an unsigned target
