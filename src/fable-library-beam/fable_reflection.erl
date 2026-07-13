@@ -224,6 +224,20 @@ get_union_case_fields(CaseInfo) ->
 %% tuple, so the compiler cannot wrap it at the call site the way it does for GetRecordFields.
 get_union_fields_value(Value, TypeInfo) ->
     Cases = force(maps:get(cases, TypeInfo)),
+    case Cases of
+        %% An erased option carries no tag of its own: `undefined` is None, anything else is Some.
+        [#{erased_option := true} | _] ->
+            case Value of
+                undefined ->
+                    {find_case_by_tag_num(0, Cases), fable_utils:new_ref([])};
+                _ ->
+                    {find_case_by_tag_num(1, Cases), fable_utils:new_ref([fable_option:value(Value)])}
+            end;
+        _ ->
+            get_union_fields_general(Value, Cases)
+    end.
+
+get_union_fields_general(Value, Cases) ->
     %% Determine the atom tag from the value
     Tag =
         if
@@ -250,18 +264,36 @@ get_union_fields_value(Value, TypeInfo) ->
     {CaseInfo, fable_utils:new_ref(Fields)}.
 
 %% FSharpValue.MakeUnion(caseInfo, values) — create union value from case info.
+%% `option` is erased on Beam (None = undefined, Some V = V), so its cases cannot be built as the
+%% generic bare-atom / tagged-tuple shape — fable_option:some/1 does the wrapping the value needs.
+make_union_value(#{erased_option := true, tag := 0}, _Values) ->
+    undefined;
+make_union_value(#{erased_option := true, tag := 1}, Values) ->
+    case to_value_list(Values) of
+        [V] -> fable_option:some(V);
+        Other -> erlang:error({bad_option_fields, Other})
+    end;
 make_union_value(CaseInfo, Values) ->
     Tag = maps:get(erl_tag, CaseInfo),
-    ValList =
-        case is_reference(Values) of
-            true -> erlang:get(Values);
-            false when is_list(Values) -> Values;
-            false -> Values
-        end,
+    ValList = to_value_list(Values),
     case ValList of
         % bare atom for fieldless cases
         [] -> Tag;
         _ -> erlang:list_to_tuple([Tag | ValList])
+    end.
+
+%% The compiler types a union/record's field values as `obj[]`, which reaches here either as an
+%% array ref or as a plain list depending on the call site.
+to_value_list(Values) ->
+    case is_reference(Values) of
+        true -> erlang:get(Values);
+        false -> Values
+    end.
+
+find_case_by_tag_num(Tag, Cases) ->
+    case lists:search(fun(C) -> maps:get(tag, C) =:= Tag end, Cases) of
+        {value, Case} -> Case;
+        false -> erlang:error({union_case_not_found, Tag})
     end.
 
 %% PropertyInfo.GetValue(propInfo, obj)
