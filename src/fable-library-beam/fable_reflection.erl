@@ -25,7 +25,17 @@
     get_union_case_fields/1,
     get_union_fields_value/2,
     make_union_value/2,
-    get_value/2
+    get_value/2,
+    is_enum/1,
+    get_enum_underlying_type/1,
+    get_enum_values/1,
+    get_enum_names/1,
+    get_enum_name/2,
+    is_enum_defined/2,
+    parse_enum/2,
+    try_parse_enum/3,
+    make_generic_type/2,
+    create_instance/2
 ]).
 
 -spec full_name(map()) -> binary().
@@ -54,6 +64,16 @@
 -spec get_union_fields_value(term(), map()) -> {map(), list()}.
 -spec make_union_value(map(), list() | reference()) -> term().
 -spec get_value(map(), map()) -> term().
+-spec is_enum(term()) -> boolean().
+-spec get_enum_underlying_type(map()) -> map().
+-spec get_enum_values(map()) -> list().
+-spec get_enum_names(map()) -> list().
+-spec get_enum_name(map(), integer()) -> binary() | undefined.
+-spec is_enum_defined(map(), integer() | binary()) -> boolean().
+-spec parse_enum(map(), binary()) -> integer().
+-spec try_parse_enum(map(), binary(), reference()) -> boolean().
+-spec make_generic_type(map(), list() | reference()) -> map().
+-spec create_instance(map(), list() | reference()) -> term().
 
 full_name(TypeInfo) ->
     maps:get(fullname, TypeInfo).
@@ -112,7 +132,7 @@ make_tuple_type(TypeInfos) when is_list(TypeInfos) ->
 
 %% FSharpType.GetRecordFields — returns list of PropertyInfo maps.
 get_record_elements(#{fields := Fields}) ->
-    Fields;
+    force(Fields);
 get_record_elements(TypeInfo) ->
     erlang:error({not_record_type, maps:get(fullname, TypeInfo, <<"unknown">>)}).
 
@@ -130,7 +150,7 @@ is_union(_) ->
 
 %% FSharpType.GetUnionCases — returns list of CaseInfo maps.
 get_union_cases(#{cases := Cases}) ->
-    Cases;
+    force(Cases);
 get_union_cases(TypeInfo) ->
     erlang:error({not_union_type, maps:get(fullname, TypeInfo, <<"unknown">>)}).
 
@@ -166,19 +186,20 @@ get_function_elements(TypeInfo) ->
 
 %% FSharpValue.GetRecordFields(record) — extract values in field order.
 %% TypeInfo is injected by the compiler since Erlang maps don't preserve order.
+%% Fields are keyed in the record map by `erl_name`, the sanitized name; `name` holds the
+%% F# name that PropertyInfo.Name reports and is not a valid key.
 get_record_fields_value(Record, TypeInfo) ->
-    Fields = maps:get(fields, TypeInfo),
-    [maps:get(binary_to_atom(maps:get(name, F)), Record) || F <- Fields].
+    Fields = force(maps:get(fields, TypeInfo)),
+    [maps:get(maps:get(erl_name, F), Record) || F <- Fields].
 
 %% FSharpValue.GetRecordField(record, propertyInfo) — get single field value.
 get_record_field_value(Record, PropInfo) ->
-    Name = maps:get(name, PropInfo),
-    maps:get(binary_to_atom(Name), Record).
+    maps:get(maps:get(erl_name, PropInfo), Record).
 
 %% FSharpValue.MakeRecord(typeInfo, values) — create record from type info and values.
 make_record_from_values(TypeInfo, Values) ->
-    Fields = maps:get(fields, TypeInfo),
-    FieldNames = [binary_to_atom(maps:get(name, F)) || F <- Fields],
+    Fields = force(maps:get(fields, TypeInfo)),
+    FieldNames = [maps:get(erl_name, F) || F <- Fields],
     ValList =
         case is_reference(Values) of
             true -> erlang:get(Values);
@@ -196,11 +217,13 @@ get_tuple_field_value(Tuple, Index) ->
 
 %% UnionCaseInfo.GetFields(caseInfo) — returns the case's field list.
 get_union_case_fields(CaseInfo) ->
-    maps:get(fields, CaseInfo, []).
+    force(maps:get(fields, CaseInfo, [])).
 
 %% FSharpValue.GetUnionFields(value, typeInfo) — returns {CaseInfo, FieldValues}.
+%% FieldValues is typed `obj[]` by the compiler, so it must be an array ref. The result is a
+%% tuple, so the compiler cannot wrap it at the call site the way it does for GetRecordFields.
 get_union_fields_value(Value, TypeInfo) ->
-    Cases = maps:get(cases, TypeInfo),
+    Cases = force(maps:get(cases, TypeInfo)),
     %% Determine the atom tag from the value
     Tag =
         if
@@ -224,7 +247,7 @@ get_union_fields_value(Value, TypeInfo) ->
             true ->
                 []
         end,
-    {CaseInfo, Fields}.
+    {CaseInfo, fable_utils:new_ref(Fields)}.
 
 %% FSharpValue.MakeUnion(caseInfo, values) — create union value from case info.
 make_union_value(CaseInfo, Values) ->
@@ -243,10 +266,127 @@ make_union_value(CaseInfo, Values) ->
 
 %% PropertyInfo.GetValue(propInfo, obj)
 get_value(PropInfo, Obj) ->
-    Name = maps:get(name, PropInfo),
-    maps:get(binary_to_atom(Name), Obj).
+    maps:get(maps:get(erl_name, PropInfo), Obj).
+
+%% --- Enums ---
+%% An enum type info carries `enum_cases => [{Name, Value}]` and its underlying
+%% numeric type as the single entry in `generics`.
+
+%% Type.IsEnum — keyed on the presence of `enum_cases`, not on it being non-empty,
+%% since an enum with no cases is still an enum.
+is_enum(TypeInfo) when is_map(TypeInfo) ->
+    maps:is_key(enum_cases, TypeInfo);
+is_enum(_) ->
+    false.
+
+%% Type.GetEnumUnderlyingType / Enum.GetUnderlyingType
+get_enum_underlying_type(TypeInfo) ->
+    case maps:get(generics, TypeInfo, []) of
+        [Underlying | _] -> Underlying;
+        [] -> erlang:error({not_enum_type, maps:get(fullname, TypeInfo, <<"unknown">>)})
+    end.
+
+%% Enum.GetValues
+get_enum_values(TypeInfo) ->
+    [Value || {_Name, Value} <- enum_cases(TypeInfo)].
+
+%% Enum.GetNames
+get_enum_names(TypeInfo) ->
+    [Name || {Name, _Value} <- enum_cases(TypeInfo)].
+
+%% Enum.GetName — .NET returns undefined when no case matches.
+get_enum_name(TypeInfo, Value) ->
+    case lists:keyfind(Value, 2, enum_cases(TypeInfo)) of
+        {Name, _} -> Name;
+        false -> undefined
+    end.
+
+%% Enum.IsDefined — accepts either a case name or a value.
+is_enum_defined(TypeInfo, NameOrValue) ->
+    Cases = enum_cases(TypeInfo),
+
+    case is_binary(NameOrValue) of
+        true -> lists:keyfind(NameOrValue, 1, Cases) =/= false;
+        false -> lists:keyfind(NameOrValue, 2, Cases) =/= false
+    end.
+
+%% Enum.Parse
+parse_enum(TypeInfo, Name) ->
+    case lists:keyfind(Name, 1, enum_cases(TypeInfo)) of
+        {_, Value} ->
+            Value;
+        false ->
+            erlang:error(
+                {enum_case_not_found, maps:get(fullname, TypeInfo, <<"unknown">>), Name}
+            )
+    end.
+
+%% Enum.TryParse — F# out-parameter pattern: sets the out-ref and returns a boolean.
+try_parse_enum(TypeInfo, Name, OutRef) ->
+    case lists:keyfind(Name, 1, enum_cases(TypeInfo)) of
+        {_, Value} ->
+            erlang:put(OutRef, Value),
+            true;
+        false ->
+            erlang:put(OutRef, 0),
+            false
+    end.
+
+%% --- Type construction ---
+
+%% Type.MakeGenericType — substitute the generic arguments, keeping the rest of the type
+%% info (including the lazy fields/cases) intact. Mirrors makeGenericType in fable-library-ts.
+make_generic_type(TypeInfo, Generics) ->
+    maps:put(generics, deref(Generics), TypeInfo).
+
+%% Activator.CreateInstance. Beam has no runtime constructors attached to type infos, so this
+%% covers records (built from their field values) and the primitives that have a zero value.
+create_instance(TypeInfo, Args) ->
+    case is_record(TypeInfo) of
+        true ->
+            make_record_from_values(TypeInfo, deref(Args));
+        false ->
+            case maps:get(fullname, TypeInfo, <<>>) of
+                <<"System.String">> -> <<>>;
+                <<"System.Boolean">> -> false;
+                <<"System.Char">> -> 0;
+                <<"System.Double">> -> 0.0;
+                <<"System.Single">> -> 0.0;
+                <<"System.SByte">> -> 0;
+                <<"System.Byte">> -> 0;
+                <<"System.Int16">> -> 0;
+                <<"System.UInt16">> -> 0;
+                <<"System.Int32">> -> 0;
+                <<"System.UInt32">> -> 0;
+                <<"System.Int64">> -> 0;
+                <<"System.UInt64">> -> 0;
+                <<"System.Decimal">> -> 0;
+                FullName -> erlang:error({cannot_create_instance, FullName})
+            end
+    end.
 
 %% --- Internal helpers ---
+
+%% Fable passes arrays as refs into the process dictionary.
+deref(Values) when is_reference(Values) ->
+    erlang:get(Values);
+deref(Values) when is_list(Values) ->
+    Values.
+
+enum_cases(TypeInfo) ->
+    case maps:find(enum_cases, TypeInfo) of
+        {ok, Cases} -> Cases;
+        error -> erlang:error({not_enum_type, maps:get(fullname, TypeInfo, <<"unknown">>)})
+    end.
+
+%% Record fields and union cases are emitted as zero-arity funs so that a recursive type
+%% (whose fields mention the type itself) terminates: forcing a thunk yields a type info
+%% map whose own fields/cases are still unforced. Plain lists are accepted too, for the
+%% type infos that are still inlined (types with no generated Erlang module).
+force(Thunk) when is_function(Thunk, 0) ->
+    Thunk();
+force(List) when is_list(List) ->
+    List.
 
 starts_with(Bin, Prefix) ->
     PLen = byte_size(Prefix),

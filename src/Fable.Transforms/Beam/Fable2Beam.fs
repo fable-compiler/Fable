@@ -3361,11 +3361,66 @@ and transformClassDeclaration
                     [ Beam.ErlForm.Function funcDef ]
         )
 
+    // Reflection function for records and unions: `<entity>_reflection(Gen0, ..., GenN)`.
+    // Emitting it here (rather than inlining the type info at each `typeof`) gives the
+    // by-name indirection that lets recursive types describe themselves.
+    let reflectionForms =
+        if ent.IsFSharpRecord || ent.IsFSharpUnion then
+            let genArgPatterns =
+                ent.GenericParameters
+                |> List.mapi (fun i _ -> Beam.PVar(Reflection.reflectionGenArgVar i))
+
+            let funcDef: Beam.ErlFunctionDef =
+                {
+                    Name = Beam.Atom(Reflection.reflectionFuncName decl.Name)
+                    Arity = genArgPatterns.Length
+                    Clauses =
+                        [
+                            {
+                                Patterns = genArgPatterns
+                                Guard = []
+                                Body = [ Reflection.transformEntityReflectionBody com ent ]
+                            }
+                        ]
+                }
+
+            [ Beam.ErlForm.Function funcDef ]
+        else
+            []
+
+    // The reflection function shares the Erlang function namespace with the entity's members,
+    // and `sanitizeErlangName` is lossy enough that a member can mangle onto its name (a member
+    // `TreeReflection` on a type `Tree` both give `tree_reflection`). The dedup below keeps the
+    // first form, so the collision would silently drop the reflection function and leave every
+    // `typeof` for this entity calling the member instead. Report it rather than miscompile.
+    for form in reflectionForms do
+        match form with
+        | Beam.ErlForm.Function reflectionDef ->
+            let clashes =
+                memberForms
+                |> List.exists (fun memberForm ->
+                    match memberForm with
+                    | Beam.ErlForm.Function memberDef ->
+                        memberDef.Name = reflectionDef.Name && memberDef.Arity = reflectionDef.Arity
+                    | _ -> false
+                )
+
+            if clashes then
+                let (Beam.Atom name) = reflectionDef.Name
+
+                com.AddLog(
+                    $"Member of '%s{decl.Name}' collides with its generated reflection function '%s{name}/%d{reflectionDef.Arity}'. Rename the member.",
+                    Severity.Error,
+                    fileName = com.CurrentFile,
+                    tag = "FABLE"
+                )
+        | _ -> ()
+
     // Deduplicate functions by name+arity. This can happen when a property setter
     // (e.g., `set StatusCode`) and a method (e.g., `SetStatusCode`) both mangle to
     // the same Erlang function name. Unlike JS/Python which have native getter/setter
     // syntax, Erlang uses plain functions so name collisions produce duplicate definitions.
-    let allForms = constructorForms @ memberForms
+    let allForms = constructorForms @ memberForms @ reflectionForms
 
     let dedup =
         allForms

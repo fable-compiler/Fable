@@ -243,13 +243,8 @@ let ``test FSharp.Reflection: GetRecordFields returns field names`` () =
     let typ = typeof<MyRecord>
     let fields = FSharpType.GetRecordFields typ
     fields.Length |> equal 2
-    #if FABLE_COMPILER
-    fields.[0].Name |> equal "string"
-    fields.[1].Name |> equal "int"
-    #else
     fields.[0].Name |> equal "String"
     fields.[1].Name |> equal "Int"
-    #endif
 
 [<Fact>]
 let ``test FSharp.Reflection Record`` () =
@@ -258,19 +253,11 @@ let ``test FSharp.Reflection Record`` () =
     let recordTypeFields = FSharpType.GetRecordFields typ
     let recordValueFields = FSharpValue.GetRecordFields record
 
-    #if FABLE_COMPILER
-    let expectedRecordFields =
-        [|
-            "string", box "a"
-            "int", box 1
-        |]
-    #else
     let expectedRecordFields =
         [|
             "String", box "a"
             "Int", box 1
         |]
-    #endif
 
     let recordFields =
         recordTypeFields
@@ -363,3 +350,258 @@ let ``test GetInterface works when types are known at compile time`` () =
     typeof<MyClass3<int>>.GetInterface("myInterface`1") |> isNull |> equal true
     typeof<MyClass3<int>>.GetInterface("myInterface`1", true) |> isNull |> equal false
     typeof<MyClass2>.GetInterface("MyInterface`1") |> isNull |> equal true
+
+// === Recursive types ===
+// Reflecting over a type whose fields mention the type itself must terminate, both when
+// emitting the type info and when forcing it at runtime.
+
+type Tree =
+    | Leaf of int
+    | Branch of Tree * Tree
+
+type LinkedNode = { Value: int; Next: LinkedNode option }
+
+type RecGeneric<'T> = { Head: 'T; Tail: RecGeneric<'T> option }
+
+type OddExpr =
+    | OddLit of int
+    | OddPair of EvenExpr
+
+and EvenExpr = { Left: OddExpr; Right: OddExpr }
+
+type MyList<'T> =
+    | Nil
+    | Cons of 'T * MyList<'T>
+
+// Same test as the JS and Python suites (tests/Js/Main/ReflectionTests.fs)
+[<Fact>]
+let ``test Recursive types work`` () =
+    let cons =
+        FSharpType.GetUnionCases(typeof<MyList<int>>)
+        |> Array.find (fun x -> x.Name = "Cons")
+
+    let fieldTypes = cons.GetFields()
+    fieldTypes.[0].PropertyType.FullName |> equal typeof<int>.FullName
+
+    fieldTypes.[1].PropertyType.GetGenericTypeDefinition().FullName
+    |> equal typedefof<MyList<obj>>.FullName
+
+[<Fact>]
+let ``test reflection of self-recursive union works`` () =
+    let cases = FSharpType.GetUnionCases typeof<Tree>
+    cases.Length |> equal 2
+    cases.[0].Name |> equal "Leaf"
+    cases.[1].Name |> equal "Branch"
+
+[<Fact>]
+let ``test reflection of self-recursive union case fields works`` () =
+    let cases = FSharpType.GetUnionCases typeof<Tree>
+    let branchFields = cases.[1].GetFields()
+    branchFields.Length |> equal 2
+    branchFields.[0].PropertyType |> equal typeof<Tree>
+    branchFields.[1].PropertyType |> equal typeof<Tree>
+
+[<Fact>]
+let ``test reflection of self-recursive record works`` () =
+    let fields = FSharpType.GetRecordFields typeof<LinkedNode>
+    fields.Length |> equal 2
+    fields.[0].PropertyType |> equal typeof<int>
+    fields.[1].PropertyType |> equal typeof<LinkedNode option>
+
+[<Fact>]
+let ``test reflection of recursive generic record works`` () =
+    let fields = FSharpType.GetRecordFields typeof<RecGeneric<string>>
+    fields.Length |> equal 2
+    fields.[0].PropertyType |> equal typeof<string>
+    fields.[1].PropertyType |> equal typeof<RecGeneric<string> option>
+
+[<Fact>]
+let ``test reflection of mutually recursive types works`` () =
+    let cases = FSharpType.GetUnionCases typeof<OddExpr>
+    cases.Length |> equal 2
+    let fields = FSharpType.GetRecordFields typeof<EvenExpr>
+    fields.Length |> equal 2
+    fields.[0].PropertyType |> equal typeof<OddExpr>
+
+[<Fact>]
+let ``test IsUnion and IsRecord work for recursive types`` () =
+    FSharpType.IsUnion typeof<Tree> |> equal true
+    FSharpType.IsRecord typeof<LinkedNode> |> equal true
+    FSharpType.IsRecord typeof<Tree> |> equal false
+    FSharpType.IsUnion typeof<LinkedNode> |> equal false
+
+[<Fact>]
+let ``test MakeUnion round-trips a recursive union`` () =
+    let cases = FSharpType.GetUnionCases typeof<Tree>
+    let leaf = FSharpValue.MakeUnion(cases.[0], [| box 42 |])
+    leaf |> equal (box (Leaf 42))
+
+    let branch =
+        FSharpValue.MakeUnion(cases.[1], [| box (Leaf 1); box (Leaf 2) |])
+
+    branch |> equal (box (Branch(Leaf 1, Leaf 2)))
+
+[<Fact>]
+let ``test MakeRecord round-trips a recursive record`` () =
+    let node =
+        FSharpValue.MakeRecord(typeof<LinkedNode>, [| box 1; box (Some { Value = 2; Next = None }) |])
+
+    node
+    |> equal (box { Value = 1; Next = Some { Value = 2; Next = None } })
+
+[<Fact>]
+let ``test recursive type FullName works`` () =
+    typeof<Tree>.FullName.EndsWith("Tree") |> equal true
+    typeof<LinkedNode>.FullName.EndsWith("LinkedNode") |> equal true
+
+// === FSharpReflectionExtensions (the allowAccessToPrivateRepresentation overloads) ===
+
+// Same test as the JS suite (tests/Js/Main/ReflectionTests.fs)
+[<Fact>]
+let ``test Reflection functions accept allowAccessToPrivateRepresentation`` () =
+    let recordType = typeof<MyRecord>
+    let record = { String = "a"; Int = 1 }
+
+    FSharpType
+        .GetRecordFields(recordType, allowAccessToPrivateRepresentation = true)
+        .Length
+    |> equal 2
+
+    let values =
+        FSharpValue.GetRecordFields(record, allowAccessToPrivateRepresentation = true)
+
+    let rebuilt =
+        FSharpValue.MakeRecord(recordType, values, allowAccessToPrivateRepresentation = true) :?> MyRecord
+
+    rebuilt |> equal record
+
+    let unionType = typeof<MyUnion>
+    let intCase = FSharpType.GetUnionCases(unionType).[1]
+
+    let u =
+        FSharpValue.MakeUnion(intCase, [| box 5 |], allowAccessToPrivateRepresentation = true) :?> MyUnion
+
+    let info, fields =
+        FSharpValue.GetUnionFields(u, unionType, allowAccessToPrivateRepresentation = true)
+
+    info.Name |> equal "IntCase"
+    fields.[0] |> equal (box 5)
+
+[<Fact>]
+let ``test IsRecord and IsUnion accept allowAccessToPrivateRepresentation`` () =
+    FSharpType.IsRecord(typeof<MyRecord>, allowAccessToPrivateRepresentation = true)
+    |> equal true
+
+    FSharpType.IsUnion(typeof<MyUnion>, allowAccessToPrivateRepresentation = true)
+    |> equal true
+
+    FSharpType.IsRecord(typeof<MyUnion>, allowAccessToPrivateRepresentation = true)
+    |> equal false
+
+// === Enums ===
+
+type MyEnum =
+    | Foo = 1y
+    | Bar = 5y
+    | Baz = 8y
+
+// Same test as the JS suite (tests/Js/Main/ReflectionTests.fs)
+[<Fact>]
+let ``test Reflection works with enums`` () =
+    typeof<MyEnum>.IsEnum |> equal true
+    typeof<int>.IsEnum |> equal false
+    let t = typeof<MyEnum>
+    t.IsEnum |> equal true
+    t.GetEnumUnderlyingType() |> equal typeof<sbyte>
+    System.Enum.GetUnderlyingType(t) |> equal typeof<sbyte>
+
+[<Fact>]
+let ``test Enum.GetValues works`` () =
+    let values = System.Enum.GetValues(typeof<MyEnum>)
+    values.Length |> equal 3
+
+    // Iterating the non-generic System.Array is what needs Array.GetEnumerator
+    let mutable count = 0
+
+    for v in values do
+        System.Enum.IsDefined(typeof<MyEnum>, v) |> equal true
+        count <- count + 1
+
+    count |> equal 3
+
+[<Fact>]
+let ``test Enum.GetNames works`` () =
+    let names = System.Enum.GetNames(typeof<MyEnum>)
+    names.Length |> equal 3
+    names.[0] |> equal "Foo"
+    names.[2] |> equal "Baz"
+
+[<Fact>]
+let ``test Enum.GetName and IsDefined work`` () =
+    System.Enum.GetName(typeof<MyEnum>, MyEnum.Bar) |> equal "Bar"
+    System.Enum.IsDefined(typeof<MyEnum>, MyEnum.Baz) |> equal true
+
+// === Type.MakeGenericType / Activator.CreateInstance ===
+
+// Portable Fable code guards .NET-only reflection behind `Compiler.isDotnet`. On Fable the
+// branch is dead, but it still has to survive the replacement stage, which runs before DCE.
+// Both branches must agree, since .NET takes the first one and Beam the second.
+let defaultOf (t: System.Type) : obj =
+    if Fable.Core.Compiler.isDotnet then
+        System.Activator.CreateInstance(t)
+    else
+        box 0
+
+[<Fact>]
+let ``test Activator.CreateInstance guarded by Compiler.isDotnet compiles`` () =
+    defaultOf typeof<int> |> equal (box 0)
+
+[<Fact>]
+let ``test Type.MakeGenericType substitutes the generic arguments`` () =
+    let t = typedefof<RecGeneric<obj>>.MakeGenericType [| typeof<string> |]
+    t.GetGenericArguments().[0] |> equal typeof<string>
+
+// === Cross-file reflection ===
+// The types below live in Misc/Util2.fs, so their type info is a remote call into that file's
+// module (`util2:cross_file_tree_reflection()`) rather than a local one. This is the path the
+// per-entity reflection function exists for, so it needs its own coverage.
+
+[<Fact>]
+let ``test reflection over a record from another file works`` () =
+    let fields = FSharpType.GetRecordFields typeof<Fable.Tests.Util2.CrossFileRecord>
+    fields.Length |> equal 2
+    fields.[0].Name |> equal "Name"
+    fields.[0].PropertyType |> equal typeof<string>
+    fields.[1].PropertyType |> equal typeof<int>
+
+[<Fact>]
+let ``test reflection over a recursive union from another file works`` () =
+    let cases = FSharpType.GetUnionCases typeof<Fable.Tests.Util2.CrossFileTree>
+    cases.Length |> equal 2
+    cases.[1].Name |> equal "CrossFileBranch"
+
+    let branchFields = cases.[1].GetFields()
+    branchFields.Length |> equal 2
+
+    branchFields.[0].PropertyType
+    |> equal typeof<Fable.Tests.Util2.CrossFileTree>
+
+[<Fact>]
+let ``test reflection over a generic record from another file works`` () =
+    // The remote call has to pass the resolved generic argument, so its arity must line up
+    // with the reflection function generated in the other file.
+    let fields =
+        FSharpType.GetRecordFields typeof<Fable.Tests.Util2.CrossFileGeneric<string>>
+
+    fields.Length |> equal 2
+    fields.[0].PropertyType |> equal typeof<string>
+
+[<Fact>]
+let ``test round-tripping a value of a type from another file works`` () =
+    let recordType = typeof<Fable.Tests.Util2.CrossFileRecord>
+    let record: Fable.Tests.Util2.CrossFileRecord = { Name = "a"; Count = 1 }
+
+    let values = FSharpValue.GetRecordFields record
+
+    FSharpValue.MakeRecord(recordType, values) :?> Fable.Tests.Util2.CrossFileRecord
+    |> equal record

@@ -7,11 +7,15 @@
     to_string/1,
     to_number/1,
     to_int/1,
+    from_int/1,
+    from_float/1,
     from_parts/5,
     parse/1,
     try_parse/2,
     get_one/0,
     get_minus_one/0,
+    min_value/0,
+    max_value/0,
     round_decimal/1,
     round_decimal/2,
     ceil_decimal/1,
@@ -26,11 +30,15 @@
 -spec to_string(integer()) -> binary().
 -spec to_number(integer()) -> float().
 -spec to_int(integer()) -> integer().
+-spec from_int(integer()) -> integer().
+-spec from_float(float() | integer()) -> integer().
 -spec from_parts(integer(), integer(), integer(), boolean(), non_neg_integer()) -> integer().
 -spec parse(binary()) -> integer().
 -spec try_parse(binary(), reference()) -> boolean().
 -spec get_one() -> integer().
 -spec get_minus_one() -> integer().
+-spec min_value() -> integer().
+-spec max_value() -> integer().
 -spec round_decimal(integer()) -> integer().
 -spec round_decimal(integer(), non_neg_integer()) -> integer().
 -spec ceil_decimal(integer()) -> integer().
@@ -111,6 +119,35 @@ to_number(X) ->
 to_int(X) ->
     X div ?SCALE28.
 
+%% Convert an integer to a fixed-scale decimal.
+from_int(X) when is_integer(X) ->
+    X * ?SCALE28.
+
+%% Convert a float to a fixed-scale decimal, via the float's shortest round-tripping
+%% decimal string. Scaling with float arithmetic (`trunc(X * 10^28)`) would not do: 10^28
+%% is not representable as a double, so `decimal 1.0` would come out as
+%% 9999999999999999583119736832 rather than 10^28 and compare unequal to the literal `1.0M`.
+from_float(X) when is_float(X) ->
+    parse_float_string(float_to_binary(X, [short]));
+from_float(X) when is_integer(X) ->
+    from_int(X).
+
+%% `float_to_binary/2` falls back to scientific notation for large/small magnitudes
+%% (`<<"1.0e30">>`), which `parse/1` does not accept, so split the exponent off here.
+parse_float_string(Bin) ->
+    case binary:split(Bin, [<<"e">>, <<"E">>]) of
+        [Mantissa] ->
+            parse(Mantissa);
+        [Mantissa, Exp] ->
+            shift(parse(Mantissa), binary_to_integer(Exp))
+    end.
+
+%% Multiply a fixed-scale decimal by 10^Exp.
+shift(Value, Exp) when Exp >= 0 ->
+    Value * pow10(Exp);
+shift(Value, Exp) ->
+    Value div pow10(-Exp).
+
 %% MakeDecimal(low, mid, high, isNegative, scale)
 %% low/mid/high are signed int32 from .NET — mask to unsigned
 from_parts(Low, Mid, High, IsNegative, Scale) ->
@@ -173,6 +210,16 @@ get_one() ->
 
 get_minus_one() ->
     -?SCALE28.
+
+%% System.Decimal.MinValue / MaxValue — the .NET decimal range (±(2^96 - 1)),
+%% expressed in the fixed-scale representation.
+-define(DECIMAL_LIMIT, 79228162514264337593543950335).
+
+min_value() ->
+    -?DECIMAL_LIMIT * ?SCALE28.
+
+max_value() ->
+    ?DECIMAL_LIMIT * ?SCALE28.
 
 %% Round decimal to nearest integer (banker's rounding / round half to even).
 %% Returns a fixed-scale decimal (integer part × SCALE28).
