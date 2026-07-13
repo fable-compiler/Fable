@@ -117,12 +117,6 @@ module private Util =
             LogEntry.Make(severity, msg, fileName = er.FileName, range = range, tag = "FSHARP")
         )
 
-    /// `beamModuleName` resolves a source file to the module name pinned with `[<Beam.ModuleName>]`,
-    /// if any. Only Beam needs it, and only because an `.erl` file must be named after the module it
-    /// declares. A pinned name lives in the F# AST, so while compiling we ask the compiler; callers
-    /// that only *predict* an out path (watch's up-to-date check) instead look it up in the map from
-    /// the previous cycle — otherwise they would predict the derived name, never find that file on
-    /// disk, and recompile every pinned file on every cycle forever.
     let getOutPath (cliArgs: CliArgs) (beamModuleName: string -> string option) pathResolver file =
         match cliArgs.CompilerOptions.Language with
         // For Python we must have an outDir since all compiled files must be inside the same subdir, so if `outDir` is not
@@ -161,8 +155,13 @@ module private Util =
         | Beam ->
             let fileExt = cliArgs.CompilerOptions.FileExtension
 
-            // An Erlang module's file name must match the `-module` atom it declares, so the
-            // output file is named after the module, not after the F# source file.
+            // An Erlang module's file name must match the `-module` atom it declares, so the output
+            // file is named after the module, not after the F# source file. `beamModuleName` sees a
+            // name pinned with [<Beam.ModuleName>], which lives in the F# AST: while compiling we
+            // ask the compiler, but a caller that only *predicts* an out path (watch's up-to-date
+            // check) has no compiler and looks the name up in the map from the last cycle instead.
+            // Predicting the derived name for a pinned file would never match what is on disk, and
+            // watch would recompile that file on every cycle, forever.
             let moduleName =
                 beamModuleName file
                 |> Option.defaultWith (fun () -> Pipeline.Beam.moduleName cliArgs file)
