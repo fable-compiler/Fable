@@ -155,9 +155,13 @@ module private Util =
         | Beam ->
             let fileExt = cliArgs.CompilerOptions.FileExtension
 
+            // An Erlang module's file name must match the `-module` atom it declares, so the
+            // output file is named after the module, not after the F# source file.
+            let fileName = Pipeline.Beam.moduleName cliArgs file + fileExt
+
             if Naming.isInFableModules file then
-                // Library files in fable_modules: preserve subdirectory structure
-                // so they stay in fable_modules/fable-library-beam/src/
+                // Package and library sources in fable_modules: preserve the containing
+                // directory so each stays its own OTP app (fable_modules/<dep>/src/)
                 let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
 
                 let outDir =
@@ -167,17 +171,14 @@ module private Util =
 
                 let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
                 let dir = IO.Path.GetDirectoryName(absPath)
-                let fileName = Pipeline.Beam.normalizeFileName absPath
-                IO.Path.Combine(dir, "src", fileName + fileExt)
+                IO.Path.Combine(dir, "src", fileName)
             else
                 // Project files: go into src/ so rebar3 picks them up
-                let fileName = Pipeline.Beam.normalizeFileName file
-
                 match cliArgs.OutDir with
-                | Some outDir -> IO.Path.Combine(IO.Path.GetFullPath outDir, "src", fileName + fileExt)
+                | Some outDir -> IO.Path.Combine(IO.Path.GetFullPath outDir, "src", fileName)
                 | None ->
                     let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
-                    IO.Path.Combine(projDir, "src", fileName + fileExt)
+                    IO.Path.Combine(projDir, "src", fileName)
 
         | lang ->
             let changeExtension path fileExt =
@@ -1014,7 +1015,61 @@ let private compileBeamFiles (workingDir: string) =
              :: mainErlFiles)
         |> ignore
 
-let private generateBeamScaffold (cliArgs: CliArgs) =
+/// Erlang's module namespace is flat and global, and an .erl file must be named after the module
+/// it declares. Two source files that map to the same module name therefore write the same output
+/// file, and whichever is compiled last silently overwrites the other — its functions simply
+/// disappear from the output. A module named after one of OTP's own is just as fatal: the two
+/// names are the same atom, and whichever module loses the lookup is unreachable. Both failures
+/// surface only as `undef` at runtime, so fail here instead, while we can still say which files
+/// are to blame.
+let private checkBeamModuleNames (cliArgs: CliArgs) (sourceFiles: string seq) =
+    let modules =
+        sourceFiles
+        |> Seq.filter Fable.Beam.Naming.isGeneratedModuleSource
+        |> Seq.map (fun path -> Pipeline.Beam.moduleName cliArgs path, path)
+        |> Seq.toArray
+
+    let fail (message: string) (details: string seq) =
+        let details = details |> String.concat Log.newLine
+        Fable.FableError($"{message}{Log.newLine}{details}") |> raise
+
+    let duplicates =
+        modules
+        |> Array.groupBy fst
+        |> Array.choose (fun (moduleName, files) ->
+            if files.Length > 1 then
+                let paths =
+                    files
+                    |> Array.map (fun (_, path) -> "  " + File.relPathToCurDir path)
+                    |> String.concat Log.newLine
+
+                Some $"'{moduleName}' is generated from more than one file:{Log.newLine}{paths}"
+            else
+                None
+        )
+
+    if not (Array.isEmpty duplicates) then
+        fail
+            ("Erlang module names must be unique across the whole compilation: the module namespace "
+             + "is global and each module is written to a file named after it, so one of these would "
+             + "silently overwrite the other. Rename one of the files, or move it to a different "
+             + "assembly.")
+            duplicates
+
+    let shadowed =
+        modules
+        |> Array.filter (fst >> Fable.Beam.Naming.otpModules.Contains)
+        |> Array.map (fun (moduleName, path) -> $"  '{moduleName}' from {File.relPathToCurDir path}")
+
+    if not (Array.isEmpty shadowed) then
+        fail
+            ("These files generate Erlang modules that shadow OTP's own: the module namespace is "
+             + "global, so the generated module and OTP's would be the same atom and one of them "
+             + "unreachable. Rename the file, or move it to a directory or assembly whose name does "
+             + "not produce a clashing module name.")
+            shadowed
+
+let private generateBeamScaffold (cliArgs: CliArgs) (entryModule: string) =
     let outDir =
         cliArgs.OutDir
         |> Option.defaultWith (fun () -> IO.Path.GetDirectoryName cliArgs.ProjectFile)
@@ -1072,6 +1127,29 @@ let private generateBeamScaffold (cliArgs: CliArgs) =
     let srcDir = IO.Path.Combine(outDir, "src")
     IO.Directory.CreateDirectory(srcDir) |> ignore
     writeIfChanged (IO.Path.Combine(srcDir, projectName + ".app.src")) (appContent projectName "0.1.0")
+
+    // Module names are qualified by the app they belong to, so the entry point of a project
+    // compiled from Program.fs is `my_app_program:main/0`, not `main:main/0`. Emit a `main`
+    // shim forwarding to it so runners have a stable, well-known entry module to call.
+    //
+    // Not for fable-library: its compiled output is copied into every consuming app's
+    // fable_modules, so a `main` module of its own would collide with the app's.
+    if
+        entryModule <> "main"
+        && not (Fable.Beam.Naming.isFableLibraryPath cliArgs.ProjectFile)
+        && IO.File.Exists(IO.Path.Combine(srcDir, entryModule + ".erl"))
+    then
+        let mainShim =
+            $"""{generatedMarker}
+-module(main).
+-export([main/0, main/1]).
+
+main() -> {entryModule}:main().
+
+main(_Args) -> {entryModule}:main().
+"""
+
+        writeIfChanged (IO.Path.Combine(srcDir, "main.erl")) mainShim
 
     // Write root rebar.config
     let rootRebarConfig = IO.Path.Combine(outDir, "rebar.config")
@@ -1303,6 +1381,11 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                     cliArgs
                 | _ -> state, cliArgs
 
+            if cliArgs.CompilerOptions.Language = Beam then
+                projCracked.SourceFiles
+                |> Array.map (fun f -> f.NormalizedFullPath)
+                |> checkBeamModuleNames cliArgs
+
             let! fableCompiler =
                 match fableCompiler with
                 | None -> FableCompiler.Init(projCracked)
@@ -1462,7 +1545,14 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
 
             // Generate rebar3 scaffold for BEAM target after successful compilation
             if cliArgs.CompilerOptions.Language = Beam && not hasError then
-                generateBeamScaffold cliArgs
+                // The last source file is the entry point of a Fable program: its module-level
+                // actions compile to that module's main/0.
+                let entryModule =
+                    projCracked.SourceFiles
+                    |> Array.last
+                    |> fun f -> Pipeline.Beam.moduleName cliArgs f.NormalizedFullPath
+
+                generateBeamScaffold cliArgs entryModule
 
             // Run process
             let exitCode, state =

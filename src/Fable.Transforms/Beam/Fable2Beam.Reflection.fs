@@ -211,7 +211,7 @@ let rec private transformTypeInfoRec
                 if sourcePath = com.CurrentFile then
                     None // local call
                 else
-                    Some(Fable.Beam.Naming.moduleNameFromFile sourcePath)
+                    Some(Fable.Beam.Naming.erlangModuleName com.ProjectFile sourcePath)
 
             let funcName =
                 FSharp2Fable.Helpers.getEntityDeclarationName com entRef |> reflectionFuncName

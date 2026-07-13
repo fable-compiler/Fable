@@ -163,26 +163,28 @@ let private matchTargetIdentAndValues idents values =
 
 /// Resolve the Erlang module name for an import, returning None if it's the current module.
 let resolveImportModuleName (com: IBeamCompiler) (importPath: string) =
-    let name = moduleNameFromFile importPath
-
-    // Resolve the import path to an absolute path so we can reliably compare
-    // against the current file. Import paths may be relative (e.g., "../Foo/Types.fs")
-    // or absolute. Without resolving, two different files with the same base name
-    // (e.g., Agent/Types.fs vs Reactive/Types.fs) would both produce module name "types"
-    // and the import would be incorrectly treated as a local (self-recursive) call.
-    let resolvedImportPath =
-        if Path.IsPathRooted(importPath) then
-            Path.GetFullPath(importPath)
-        else
-            let currentDir = Path.GetDirectoryName(com.CurrentFile)
-            Path.GetFullPath(Path.Combine(currentDir, importPath))
-
-    let currentFileFull = Path.GetFullPath(com.CurrentFile)
-
-    if resolvedImportPath = currentFileFull then
-        None
+    // Imports that don't point at an F# source file name a module Fable doesn't generate:
+    // a native Erlang module (`string`, `lists`, ...) or a fable-library `.erl` file. Those
+    // are referenced by their own name.
+    if not (isFSharpSource importPath) then
+        Some(moduleNameFromFile importPath)
     else
-        Some name
+        // Resolve the import path to an absolute path so we can reliably compare against the
+        // current file, and so the module name is derived from the file's real location.
+        // Import paths may be relative (e.g., "../Foo/Types.fs") or absolute.
+        let resolvedImportPath =
+            if Path.IsPathRooted(importPath) then
+                Path.GetFullPath(importPath)
+            else
+                let currentDir = Path.GetDirectoryName(com.CurrentFile)
+                Path.GetFullPath(Path.Combine(currentDir, importPath))
+
+        let currentFileFull = Path.GetFullPath(com.CurrentFile)
+
+        if resolvedImportPath = currentFileFull then
+            None
+        else
+            Some(erlangModuleName com.ProjectFile resolvedImportPath)
 
 /// Detect whether an expression reads a *free* mutable ident — a module-level mutable
 /// not bound locally within the expression. Such reads must be snapshotted at module-init
@@ -3820,7 +3822,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
         transformClassDeclaration com ctx className ent decl
 
 let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
-    let moduleName = moduleNameFromFile com.CurrentFile
+    let moduleName = erlangModuleName com.ProjectFile com.CurrentFile
 
     let ctx =
         {

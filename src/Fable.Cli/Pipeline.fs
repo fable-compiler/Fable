@@ -503,74 +503,27 @@ module Rust =
         }
 
 module Beam =
-    /// Erlang module names must be lowercase snake_case and match the filename
-    let normalizeFileName path =
-        Path.GetFileNameWithoutExtension(path).Replace(".", "_").Replace("-", "_")
-        |> Naming.applyCaseRule Core.CaseRules.SnakeCase
+    // Module naming lives in Fable.Transforms so the code generator and the CLI agree on the
+    // name of every generated module — an Erlang module's file name must match its `-module`
+    // atom, and an import must resolve to the same atom the imported file declared.
+    let normalizeAppName = Fable.Beam.Naming.normalizeAppName
+    let deriveDepAppName = Fable.Beam.Naming.deriveDepAppName
+    let extractDepVersion = Fable.Beam.Naming.extractDepVersion
 
-    /// True when a dot-segment looks like a version number (starts with a digit).
-    let private isVersionSegment (s: string) = s.Length > 0 && Char.IsDigit(s.[0])
+    /// The Erlang module name of an F# source file, qualified by the assembly it belongs to.
+    let moduleName (cliArgs: CliArgs) (sourcePath: string) =
+        Fable.Beam.Naming.erlangModuleName cliArgs.ProjectFile sourcePath
 
-    /// Normalize a name to a valid OTP application name (lowercase snake_case, no leading/trailing underscores).
-    ///   "Fable.Tests.Beam" → "fable_tests_beam"
-    ///   "fable-library-beam" → "fable_library_beam"
-    let normalizeAppName (name: string) =
-        name.Replace('.', '_').Replace('-', '_').ToLowerInvariant().Trim('_')
-
-    /// Derive an OTP application name from a fable_modules directory name.
-    ///   "Fable.Logging.0.10.0"         → "fable_logging"
-    ///   "fable-library-beam"           → "fable_library_beam"
-    ///   "Fable.Python.4.0.0-theta-003" → "fable_python"
-    let deriveDepAppName (dirName: string) =
-        let dotParts = dirName.Split('.')
-
-        let namePart =
-            match dotParts |> Array.tryFindIndex isVersionSegment with
-            | Some idx when idx > 0 -> dotParts.[.. idx - 1] |> String.concat "."
-            | _ -> dirName
-
-        normalizeAppName namePart
-
-    /// Extract the version string from a fable_modules directory name.
-    ///   "Fable.Logging.0.10.0"         → "0.10.0"
-    ///   "Fable.Python.4.0.0-theta-003" → "4.0.0-theta-003"
-    ///   "fable-library-beam"           → "0.1.0"
-    let extractDepVersion (dirName: string) =
-        let dotParts = dirName.Split('.')
-
-        match dotParts |> Array.tryFindIndex isVersionSegment with
-        | Some idx -> dotParts.[idx..] |> String.concat "."
-        | None -> "0.1.0"
-
-    let getTargetPath (cliArgs: CliArgs) (targetPath: string) =
-        let fileExt = cliArgs.CompilerOptions.FileExtension
-        let targetDir = Path.GetDirectoryName(targetPath)
-        let fileName = normalizeFileName targetPath
-        Path.Combine(targetDir, fileName + fileExt)
-
-    type BeamWriter(com: Compiler, cliArgs: CliArgs, pathResolver, targetPath: string) =
-        let sourcePath = com.CurrentFile
-        let fileExt = cliArgs.CompilerOptions.FileExtension
+    type BeamWriter(com: Compiler, targetPath: string) =
         let stream = new IO.StreamWriter(targetPath)
 
         interface Printer.Writer with
             member _.Write(str) =
                 stream.WriteAsync(str) |> Async.AwaitTask
 
-            member _.MakeImportPath(path) =
-                let projDir = IO.Path.GetDirectoryName(cliArgs.ProjectFile)
-
-                let path =
-                    Imports.getImportPath pathResolver sourcePath targetPath projDir cliArgs.OutDir path
-
-                if path.EndsWith(".fs", StringComparison.Ordinal) then
-                    let path = Path.ChangeExtension(path, fileExt)
-                    // Convert filename to snake_case to match Erlang module naming
-                    let dir = Path.GetDirectoryName(path)
-                    let fileName = normalizeFileName path + Path.GetExtension(path)
-                    Path.Combine(dir, fileName)
-                else
-                    path
+            // Erlang has no import paths: a module is referenced by its atom alone, and the
+            // Erlang printer never asks for one. Module names are resolved in Fable2Beam.
+            member _.MakeImportPath(path) = path
 
             member _.AddSourceMapping(_, _, _, _, _, _) = ()
 
@@ -579,7 +532,7 @@ module Beam =
 
             member _.Dispose() = stream.Dispose()
 
-    let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPath: string) =
+    let compileFile (com: Compiler) isSilent (outPath: string) =
         async {
             let erlModule =
                 FSharp2Fable.Compiler.transformFile com
@@ -587,7 +540,7 @@ module Beam =
                 |> Fable.Transforms.Beam.Compiler.transformFile com
 
             if not (isSilent || ErlangPrinter.isEmpty erlModule) then
-                use writer = new BeamWriter(com, cliArgs, pathResolver, outPath)
+                use writer = new BeamWriter(com, outPath)
                 do! ErlangPrinter.run writer erlModule
         }
 
@@ -599,4 +552,4 @@ let compileFile (com: Compiler) (cliArgs: CliArgs) pathResolver isSilent (outPat
     | Php -> Php.compileFile com cliArgs pathResolver isSilent outPath
     | Dart -> Dart.compileFile com cliArgs pathResolver isSilent outPath
     | Rust -> Rust.compileFile com cliArgs pathResolver isSilent outPath
-    | Beam -> Beam.compileFile com cliArgs pathResolver isSilent outPath
+    | Beam -> Beam.compileFile com isSilent outPath
