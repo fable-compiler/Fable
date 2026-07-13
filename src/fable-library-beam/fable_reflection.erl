@@ -112,7 +112,7 @@ make_tuple_type(TypeInfos) when is_list(TypeInfos) ->
 
 %% FSharpType.GetRecordFields — returns list of PropertyInfo maps.
 get_record_elements(#{fields := Fields}) ->
-    Fields;
+    force(Fields);
 get_record_elements(TypeInfo) ->
     erlang:error({not_record_type, maps:get(fullname, TypeInfo, <<"unknown">>)}).
 
@@ -130,7 +130,7 @@ is_union(_) ->
 
 %% FSharpType.GetUnionCases — returns list of CaseInfo maps.
 get_union_cases(#{cases := Cases}) ->
-    Cases;
+    force(Cases);
 get_union_cases(TypeInfo) ->
     erlang:error({not_union_type, maps:get(fullname, TypeInfo, <<"unknown">>)}).
 
@@ -167,7 +167,7 @@ get_function_elements(TypeInfo) ->
 %% FSharpValue.GetRecordFields(record) — extract values in field order.
 %% TypeInfo is injected by the compiler since Erlang maps don't preserve order.
 get_record_fields_value(Record, TypeInfo) ->
-    Fields = maps:get(fields, TypeInfo),
+    Fields = force(maps:get(fields, TypeInfo)),
     [maps:get(binary_to_atom(maps:get(name, F)), Record) || F <- Fields].
 
 %% FSharpValue.GetRecordField(record, propertyInfo) — get single field value.
@@ -177,7 +177,7 @@ get_record_field_value(Record, PropInfo) ->
 
 %% FSharpValue.MakeRecord(typeInfo, values) — create record from type info and values.
 make_record_from_values(TypeInfo, Values) ->
-    Fields = maps:get(fields, TypeInfo),
+    Fields = force(maps:get(fields, TypeInfo)),
     FieldNames = [binary_to_atom(maps:get(name, F)) || F <- Fields],
     ValList =
         case is_reference(Values) of
@@ -196,11 +196,11 @@ get_tuple_field_value(Tuple, Index) ->
 
 %% UnionCaseInfo.GetFields(caseInfo) — returns the case's field list.
 get_union_case_fields(CaseInfo) ->
-    maps:get(fields, CaseInfo, []).
+    force(maps:get(fields, CaseInfo, [])).
 
 %% FSharpValue.GetUnionFields(value, typeInfo) — returns {CaseInfo, FieldValues}.
 get_union_fields_value(Value, TypeInfo) ->
-    Cases = maps:get(cases, TypeInfo),
+    Cases = force(maps:get(cases, TypeInfo)),
     %% Determine the atom tag from the value
     Tag =
         if
@@ -247,6 +247,15 @@ get_value(PropInfo, Obj) ->
     maps:get(binary_to_atom(Name), Obj).
 
 %% --- Internal helpers ---
+
+%% Record fields and union cases are emitted as zero-arity funs so that a recursive type
+%% (whose fields mention the type itself) terminates: forcing a thunk yields a type info
+%% map whose own fields/cases are still unforced. Plain lists are accepted too, for the
+%% type infos that are still inlined (types with no generated Erlang module).
+force(Thunk) when is_function(Thunk, 0) ->
+    Thunk();
+force(List) when is_list(List) ->
+    List.
 
 starts_with(Bin, Prefix) ->
     PLen = byte_size(Prefix),

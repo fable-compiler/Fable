@@ -363,3 +363,106 @@ let ``test GetInterface works when types are known at compile time`` () =
     typeof<MyClass3<int>>.GetInterface("myInterface`1") |> isNull |> equal true
     typeof<MyClass3<int>>.GetInterface("myInterface`1", true) |> isNull |> equal false
     typeof<MyClass2>.GetInterface("MyInterface`1") |> isNull |> equal true
+
+// === Recursive types ===
+// Reflecting over a type whose fields mention the type itself must terminate, both when
+// emitting the type info and when forcing it at runtime.
+
+type Tree =
+    | Leaf of int
+    | Branch of Tree * Tree
+
+type LinkedNode = { Value: int; Next: LinkedNode option }
+
+type RecGeneric<'T> = { Head: 'T; Tail: RecGeneric<'T> option }
+
+type OddExpr =
+    | OddLit of int
+    | OddPair of EvenExpr
+
+and EvenExpr = { Left: OddExpr; Right: OddExpr }
+
+type MyList<'T> =
+    | Nil
+    | Cons of 'T * MyList<'T>
+
+// Same test as the JS and Python suites (tests/Js/Main/ReflectionTests.fs)
+[<Fact>]
+let ``test Recursive types work`` () =
+    let cons =
+        FSharpType.GetUnionCases(typeof<MyList<int>>)
+        |> Array.find (fun x -> x.Name = "Cons")
+
+    let fieldTypes = cons.GetFields()
+    fieldTypes.[0].PropertyType.FullName |> equal typeof<int>.FullName
+
+    fieldTypes.[1].PropertyType.GetGenericTypeDefinition().FullName
+    |> equal typedefof<MyList<obj>>.FullName
+
+[<Fact>]
+let ``test reflection of self-recursive union works`` () =
+    let cases = FSharpType.GetUnionCases typeof<Tree>
+    cases.Length |> equal 2
+    cases.[0].Name |> equal "Leaf"
+    cases.[1].Name |> equal "Branch"
+
+[<Fact>]
+let ``test reflection of self-recursive union case fields works`` () =
+    let cases = FSharpType.GetUnionCases typeof<Tree>
+    let branchFields = cases.[1].GetFields()
+    branchFields.Length |> equal 2
+    branchFields.[0].PropertyType |> equal typeof<Tree>
+    branchFields.[1].PropertyType |> equal typeof<Tree>
+
+[<Fact>]
+let ``test reflection of self-recursive record works`` () =
+    let fields = FSharpType.GetRecordFields typeof<LinkedNode>
+    fields.Length |> equal 2
+    fields.[0].PropertyType |> equal typeof<int>
+    fields.[1].PropertyType |> equal typeof<LinkedNode option>
+
+[<Fact>]
+let ``test reflection of recursive generic record works`` () =
+    let fields = FSharpType.GetRecordFields typeof<RecGeneric<string>>
+    fields.Length |> equal 2
+    fields.[0].PropertyType |> equal typeof<string>
+    fields.[1].PropertyType |> equal typeof<RecGeneric<string> option>
+
+[<Fact>]
+let ``test reflection of mutually recursive types works`` () =
+    let cases = FSharpType.GetUnionCases typeof<OddExpr>
+    cases.Length |> equal 2
+    let fields = FSharpType.GetRecordFields typeof<EvenExpr>
+    fields.Length |> equal 2
+    fields.[0].PropertyType |> equal typeof<OddExpr>
+
+[<Fact>]
+let ``test IsUnion and IsRecord work for recursive types`` () =
+    FSharpType.IsUnion typeof<Tree> |> equal true
+    FSharpType.IsRecord typeof<LinkedNode> |> equal true
+    FSharpType.IsRecord typeof<Tree> |> equal false
+    FSharpType.IsUnion typeof<LinkedNode> |> equal false
+
+[<Fact>]
+let ``test MakeUnion round-trips a recursive union`` () =
+    let cases = FSharpType.GetUnionCases typeof<Tree>
+    let leaf = FSharpValue.MakeUnion(cases.[0], [| box 42 |])
+    leaf |> equal (box (Leaf 42))
+
+    let branch =
+        FSharpValue.MakeUnion(cases.[1], [| box (Leaf 1); box (Leaf 2) |])
+
+    branch |> equal (box (Branch(Leaf 1, Leaf 2)))
+
+[<Fact>]
+let ``test MakeRecord round-trips a recursive record`` () =
+    let node =
+        FSharpValue.MakeRecord(typeof<LinkedNode>, [| box 1; box (Some { Value = 2; Next = None }) |])
+
+    node
+    |> equal (box { Value = 1; Next = Some { Value = 2; Next = None } })
+
+[<Fact>]
+let ``test recursive type FullName works`` () =
+    typeof<Tree>.FullName.EndsWith("Tree") |> equal true
+    typeof<LinkedNode>.FullName.EndsWith("LinkedNode") |> equal true

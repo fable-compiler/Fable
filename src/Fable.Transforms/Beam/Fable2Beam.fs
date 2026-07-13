@@ -3361,11 +3361,38 @@ and transformClassDeclaration
                     [ Beam.ErlForm.Function funcDef ]
         )
 
+    // Reflection function for records and unions: `<entity>_reflection(Gen0, ..., GenN)`.
+    // Emitting it here (rather than inlining the type info at each `typeof`) gives the
+    // by-name indirection that lets recursive types describe themselves.
+    let reflectionForms =
+        if ent.IsFSharpRecord || ent.IsFSharpUnion then
+            let genArgPatterns =
+                ent.GenericParameters
+                |> List.mapi (fun i _ -> Beam.PVar(Reflection.reflectionGenArgVar i))
+
+            let funcDef: Beam.ErlFunctionDef =
+                {
+                    Name = Beam.Atom(Reflection.reflectionFuncName decl.Name)
+                    Arity = genArgPatterns.Length
+                    Clauses =
+                        [
+                            {
+                                Patterns = genArgPatterns
+                                Guard = []
+                                Body = [ Reflection.transformEntityReflectionBody com ent ]
+                            }
+                        ]
+                }
+
+            [ Beam.ErlForm.Function funcDef ]
+        else
+            []
+
     // Deduplicate functions by name+arity. This can happen when a property setter
     // (e.g., `set StatusCode`) and a method (e.g., `SetStatusCode`) both mangle to
     // the same Erlang function name. Unlike JS/Python which have native getter/setter
     // syntax, Erlang uses plain functions so name collisions produce duplicate definitions.
-    let allForms = constructorForms @ memberForms
+    let allForms = constructorForms @ memberForms @ reflectionForms
 
     let dedup =
         allForms
