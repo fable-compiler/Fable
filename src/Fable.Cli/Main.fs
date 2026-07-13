@@ -1139,14 +1139,38 @@ let private generateBeamScaffold (cliArgs: CliArgs) (entryModule: string) =
         && not (Fable.Beam.Naming.isFableLibraryPath cliArgs.ProjectFile)
         && IO.File.Exists(IO.Path.Combine(srcDir, entryModule + ".erl"))
     then
+        // An F# `[<EntryPoint>]` is `string[] -> int`, so it lowers to `main/1`, takes the argv, and
+        // returns the process exit code. A project without one (top-level effects only) has no
+        // `main/1` to call, so fall back to `main/0` when that is what the entry module exports.
+        //
+        // The argv has to cross into Fable's representations on the way in: an F# array is a
+        // reference read with `erlang:get/1`, and an F# string is a UTF-8 binary — whereas a runner
+        // hands us a plain list of char lists. Passing that list straight through would reach
+        // `erlang:get(Argv)` inside the entry module, yield `undefined`, and fail with `badarg`.
+        //
+        // And the exit code has to cross back out: an `[<EntryPoint>]` returning non-zero must exit
+        // non-zero, or a failing test suite reports success. `halt/1` flushes stdout by default, so
+        // the program's output is not lost. A `main/0` entry has no exit code to propagate, and
+        // returns normally so the runner's `-s init stop` ends the VM as before.
         let mainShim =
             $"""{generatedMarker}
 -module(main).
 -export([main/0, main/1]).
 
-main() -> {entryModule}:main().
+main() -> main([]).
 
-main(_Args) -> {entryModule}:main().
+main(Args) ->
+    _ = code:ensure_loaded({entryModule}),
+    case erlang:function_exported({entryModule}, main, 1) of
+        true ->
+            Argv = fable_utils:new_ref([unicode:characters_to_binary(A) || A <- Args]),
+            exit_with({entryModule}:main(Argv));
+        false ->
+            {entryModule}:main()
+    end.
+
+exit_with(Code) when is_integer(Code) -> erlang:halt(Code);
+exit_with(_) -> ok.
 """
 
         writeIfChanged (IO.Path.Combine(srcDir, "main.erl")) mainShim

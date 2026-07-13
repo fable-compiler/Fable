@@ -15,6 +15,100 @@ let private testRunnerSrc = Path.Resolve("tests", "Beam", "erl_test_runner.erl")
 let private testProjectName =
     Path.GetFileNameWithoutExtension("Fable.Tests.Beam.fsproj").Replace('.', '_').Replace('-', '_').ToLowerInvariant()
 
+/// Collect the ebin directories rebar3 produced, for `-pa`.
+let private ebinArgs (projectBuildDir: string) =
+    let libDir = Path.Combine(projectBuildDir, "_build", "default", "lib")
+
+    if Directory.Exists(libDir) then
+        Directory.GetDirectories(libDir)
+        |> Array.map (fun d -> Path.Combine(d, "ebin"))
+        |> Array.filter Directory.Exists
+        |> Array.map (fun d -> $"-pa \"{d}\"")
+        |> String.concat " "
+    else
+        ""
+
+/// Run an Erlang expression, returning its stdout and exit code. `Command.Run` throws on a non-zero
+/// exit, and a non-zero exit is exactly what one of these programs is supposed to produce.
+let private runErl (workingDir: string) (paArgs: string) (expr: string) =
+    let mutable exitCode = 0
+
+    let struct (output, _) =
+        Command.ReadAsync(
+            "erl",
+            $"-noshell {paArgs} -eval \"{expr}\" -s init stop",
+            workingDirectory = workingDir,
+            handleExitCode =
+                fun code ->
+                    exitCode <- code
+                    true
+        )
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+
+    output, exitCode
+
+let private expect (what: string) (expected: 'a) (actual: 'a) =
+    if expected <> actual then
+        failwith $"Entry point test: %s{what}\n  expected: %A{expected}\n  actual:   %A{actual}"
+
+/// Compile a whole program and run it on the BEAM through the generated `main.erl` shim.
+///
+/// The test suite calls test functions directly and so never executes the shim — which is how the
+/// shim stayed broken while the suite was green. This checks the three things a program depends on:
+/// that it runs at all, that argv reaches F#, and that the entry point's return value becomes the
+/// process exit code.
+let private testEntryPointPrograms () =
+    let compile (name: string) =
+        let programSourceDir = Path.Resolve("tests", "Beam", name)
+        let programBuildDir = Path.Resolve("temp", "tests", "Beam" + name)
+        Directory.clean programBuildDir
+
+        Command.Fable(
+            CmdLine.empty
+            |> CmdLine.appendRaw programSourceDir
+            |> CmdLine.appendPrefix "--outDir" programBuildDir
+            |> CmdLine.appendPrefix "--lang" "beam"
+            |> CmdLine.appendPrefix "--exclude" "Fable.Core"
+            |> CmdLine.appendRaw "--noCache",
+            workingDirectory = programBuildDir
+        )
+
+        Command.Run("rebar3", "compile", workingDirectory = programBuildDir)
+        programBuildDir, ebinArgs programBuildDir
+
+    printfn "Running entry point program tests..."
+
+    let buildDir, paArgs = compile "Program"
+
+    // An [<EntryPoint>] lowers to main/1: the program must run, and see its argv.
+    let output, exitCode =
+        runErl buildDir paArgs "main:main([\\\"alpha\\\", \\\"beta\\\"])"
+
+    expect "argv length" true (output.Contains "argc=2")
+    expect "argv contents" true (output.Contains "argv=alpha,beta")
+    expect "exit code of a successful run" 0 exitCode
+
+    // ...and its return value must become the exit code, or a failing suite looks like a passing one.
+    let _, failExitCode = runErl buildDir paArgs "main:main([\\\"fail\\\"])"
+    expect "exit code of a failing run" 3 failExitCode
+
+    // main/0 forwards to main/1 with an empty argv.
+    let output0, exitCode0 = runErl buildDir paArgs "main:main()"
+    expect "argv of main/0" true (output0.Contains "argc=0")
+    expect "exit code of main/0" 0 exitCode0
+
+    // A program with no [<EntryPoint>] has only top-level effects, and the shim falls back to main/0.
+    let noEntryBuildDir, noEntryPaArgs = compile "ProgramNoEntry"
+
+    let noEntryOutput, noEntryExitCode =
+        runErl noEntryBuildDir noEntryPaArgs "main:main()"
+
+    expect "top-level effects ran" true (noEntryOutput.Contains "no-entry-point program ran")
+    expect "exit code without an entry point" 0 noEntryExitCode
+
+    printfn "Entry point program tests passed"
+
 let handle (args: string list) =
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
@@ -96,3 +190,7 @@ let handle (args: string list) =
             $"-noshell {paArgs} -eval \"erl_test_runner:main([\\\"{projectEbinDir}\\\"])\" -s init stop",
             workingDirectory = buildDir
         )
+
+        // The suite above calls test functions directly and never runs a program end to end, so the
+        // generated entry point shim is only exercised here.
+        testEntryPointPrograms ()
