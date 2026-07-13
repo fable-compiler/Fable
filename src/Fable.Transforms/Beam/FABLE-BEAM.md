@@ -262,6 +262,63 @@ Erlang modules implementing F# core types:
 | `quicktest.fs`        | `printfn "Hello from BEAM!"`        | Done   |
 | `quicktest.fsproj`    | Project file referencing Fable.Core | Done   |
 
+## Module Naming
+
+Erlang's module namespace is **flat and global**. The atom in `-module(...)` is a module's only
+identity: neither the directory the `.erl` file sits in nor the OTP application it belongs to
+scopes it, and the code server resolves the atom across the whole code path. An `.erl` file must
+also be named after the module it declares.
+
+So every generated module name is qualified by the application it belongs to — the same
+convention OTP itself follows (`cowboy_req`, `rebar_app_info`) and that Fable's own runtime
+already used (`fable_list`, `fable_map`):
+
+| F# source                            | Erlang module           |
+| ------------------------------------ | ----------------------- |
+| `<proj>/Program.fs` in `MyApp`       | `my_app_program`        |
+| `<proj>/Misc/Util2.fs` in `MyApp`    | `my_app_misc_util2`     |
+| `../Scriptorium.Quill/DSL.fs`        | `scriptorium_quill_dsl` |
+| `fable_modules/Hedgehog.0.11/Gen.fs` | `hedgehog_gen`          |
+
+Naming a module after the bare basename of its file, as the backend used to, breaks in three ways
+— all silent at compile time and fatal at runtime:
+
+1. **OTP is shadowed.** `Gen.fs`, `Random.fs`, `String.fs`, `Timer.fs`, `Queue.fs`, ... all name
+   real OTP stdlib modules. OTP's win, and calls into the generated code raise `undef`.
+2. **Assemblies overwrite each other.** Two `DSL.fs` files in two projects both emit `dsl.erl`
+   into the flat output `src/`; the one compiled last overwrites the other **on disk**, and the
+   loser's functions vanish from the output entirely.
+3. **Files within an assembly collide** the same way (`Foo/Types.fs` vs `Bar/Types.fs`).
+
+Two exemptions:
+
+- **fable-library** keeps its bare, hand-maintained names (`fable_list`, `seq`, `range`, ...).
+  It is the one project whose *compiled* output ships as a dependency, and `getLibPath` in
+  `Transforms.Util` refers to its modules by exactly those names.
+- **Native Erlang modules** reached through `BeamInterop` (`string`, `lists`, ...) are of course
+  referenced by their own names.
+
+Naming lives in one place, `Fable.Beam.Naming.erlangModuleName` (`Beam/Prelude.fs`), because the
+code generator (which must resolve an import to the atom the imported file declared) and the CLI
+(which must write the file under the name of the module inside it) have to agree exactly.
+
+If two source files ever do map to the same module name, Fable **fails with an error** naming both
+files rather than silently overwriting one — see `checkBeamModuleNames` in `Fable.Cli/Main.fs`.
+
+### Entry point
+
+Since module names are qualified, the entry point of a project compiled from `Program.fs` is
+`my_app_program:main/0`, not `main:main/0`. Fable therefore also emits a small `src/main.erl`
+shim exporting `main/0` and `main/1` that forwards to it, so runners have a stable, well-known
+entry module:
+
+```sh
+erl -noshell -pa src -eval "main:main([])" -s init stop
+```
+
+As elsewhere in Fable's Beam output, the entry point is the *last* source file of the project:
+its module-level actions compile to that module's `main/0`.
+
 ## Type Mappings
 
 ### Natural fits (F# → Erlang)
@@ -574,6 +631,8 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
 - [x] Import resolution and path handling
 - [x] Export lists (`-export([...])`)
 - [x] Snake_case output filenames (matching Erlang module name convention)
+- [x] Module names qualified by their OTP app, so they can neither shadow an OTP module nor
+  collide across assemblies (see [Module Naming](#module-naming))
 - [x] Function name sanitization (`$XXXX` hex sequences from F# backtick names)
 - [x] Cross-module call resolution (derive module from `importInfo.Path`)
 - [x] Inline `assertEqual`/`assertNotEqual` assertions (no util dependency needed)

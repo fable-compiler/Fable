@@ -27,6 +27,12 @@
     <Compile Include="Misc/Imports.fs" />
     <Compile Include="Misc/Util2.fs" />
     <Compile Include="Misc/Util3.fs" />
+    <!-- File names that collide with OTP stdlib modules, and with each other -->
+    <Compile Include="Naming/Gen.fs" />
+    <Compile Include="Naming/Random.fs" />
+    <Compile Include="Naming/String.fs" />
+    <Compile Include="Naming/First/Types.fs" />
+    <Compile Include="Naming/Second/Types.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="RandomTests.fs" />
@@ -91,6 +97,7 @@
     <Compile Include="QuotationTests.fs" />
     <Compile Include="ModuleMutableOneTests.fs" />
     <Compile Include="ModuleMutableTwoTests.fs" />
+    <Compile Include="ModuleNamingTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
