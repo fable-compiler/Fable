@@ -325,6 +325,70 @@ let ``test FSharp.Reflection: Choice`` () =
     FSharpValue.MakeUnion(ucis.[0], [|box 5|]) |> equal (box (Choice<_,string>.Choice1Of2 5))
     FSharpValue.MakeUnion(ucis.[1], [|box "foo"|]) |> equal (box (Choice<int,_>.Choice2Of2 "foo"))
 
+// Option is erased on Beam (None is `undefined`, Some v is v), but it is a real F# union and
+// reflection has to report it as one. See https://github.com/fable-compiler/Fable/issues/4082
+[<Fact>]
+let ``test FSharp.Reflection: Option is a union type`` () =
+    let typ = typeof<int option>
+    FSharpType.IsUnion typ |> equal true
+    let ucis = FSharpType.GetUnionCases typ
+    ucis.Length |> equal 2
+    ucis.[0].Name |> equal "None"
+    ucis.[1].Name |> equal "Some"
+    ucis.[0].Tag |> equal 0
+    ucis.[1].Tag |> equal 1
+
+[<Fact>]
+let ``test FSharp.Reflection: Option case fields are typed`` () =
+    let ucis = FSharpType.GetUnionCases typeof<int option>
+    ucis.[0].GetFields().Length |> equal 0
+    let someFields = ucis.[1].GetFields()
+    someFields.Length |> equal 1
+    someFields.[0].PropertyType |> equal typeof<int>
+
+// MakeUnion has to build the *erased* representation. A generic union constructor would produce
+// `none` / `{some, 42}`, which is not an option at runtime — so this compares against natively
+// constructed values rather than merely inspecting the case metadata.
+[<Fact>]
+let ``test FSharp.Reflection: MakeUnion builds a real option`` () =
+    let typ = typeof<int option>
+    let ucis = FSharpType.GetUnionCases typ
+    FSharpValue.MakeUnion(ucis.[0], [||]) |> equal (box (None: int option))
+    FSharpValue.MakeUnion(ucis.[1], [|box 42|]) |> equal (box (Some 42))
+    // Usable as an option afterwards, not just equal to one.
+    unbox<int option> (FSharpValue.MakeUnion(ucis.[1], [| box 42 |]))
+    |> Option.map ((+) 1)
+    |> equal (Some 43)
+    unbox<int option> (FSharpValue.MakeUnion(ucis.[0], [||]))
+    |> Option.isNone
+    |> equal true
+
+[<Fact>]
+let ``test FSharp.Reflection: GetUnionFields reads an option`` () =
+    let typ = typeof<int option>
+    let noneCase, noneFields = FSharpValue.GetUnionFields(box (None: int option), typ)
+    noneCase.Name |> equal "None"
+    noneFields.Length |> equal 0
+    let someCase, someFields = FSharpValue.GetUnionFields(box (Some 42), typ)
+    someCase.Name |> equal "Some"
+    someFields.Length |> equal 1
+    someFields.[0] |> equal (box 42)
+
+// The erased representation has to survive nesting: `Some None` is distinct from `None`, and
+// neither collapses into the other.
+[<Fact>]
+let ``test FSharp.Reflection: Option round-trips through Some(None) and Some(Some x)`` () =
+    let typ = typeof<int option option>
+    let ucis = FSharpType.GetUnionCases typ
+    let someCase, someFields = FSharpValue.GetUnionFields(box (Some (None: int option)), typ)
+    someCase.Name |> equal "Some"
+    someFields.[0] |> equal (box (None: int option))
+    let someCase2, someFields2 = FSharpValue.GetUnionFields(box (Some (Some 42)), typ)
+    someCase2.Name |> equal "Some"
+    someFields2.[0] |> equal (box (Some 42))
+    FSharpValue.MakeUnion(ucis.[1], [|box (None: int option)|]) |> equal (box (Some (None: int option)))
+    FSharpValue.MakeUnion(ucis.[1], [|box (Some 42)|]) |> equal (box (Some (Some 42)))
+
 [<Fact>]
 let ``test Reflection info of int64 decimal with units of measure works`` () =
     typeof< int64 > = typeof< int64<FSharp.Data.UnitSystems.SI.UnitSymbols.m> > |> equal true
@@ -429,6 +493,34 @@ let ``test IsUnion and IsRecord work for recursive types`` () =
     FSharpType.IsRecord typeof<LinkedNode> |> equal true
     FSharpType.IsRecord typeof<Tree> |> equal false
     FSharpType.IsUnion typeof<LinkedNode> |> equal false
+
+// Structurally equal type infos must compare equal. On Beam this is a live constraint rather than a
+// truism: type info is a value built at each use site, and two Erlang funs from different literals
+// never compare equal — so a type whose info embeds a thunk is not comparable across sites. Option's
+// cases are emitted inline, which is why they must be a plain list and not a deferred one.
+[<Fact>]
+let ``test Type equality holds for structurally equal types`` () =
+    typeof<int option> = typeof<int option> |> equal true
+    typeof<LinkedNode option> = typeof<LinkedNode option> |> equal true
+    typeof<int option option> = typeof<int option option> |> equal true
+    typeof<int list> = typeof<int list> |> equal true
+    typeof<Tree> = typeof<Tree> |> equal true
+    typeof<RecGeneric<string> option> = typeof<RecGeneric<string> option> |> equal true
+    typeof<Map<string, int option>> = typeof<Map<string, int option>> |> equal true
+    // ...and distinct types still differ.
+    typeof<int option> = typeof<string option> |> equal false
+    typeof<int option> = typeof<int> |> equal false
+
+// An option nested inside a derived structure has to be constructible reflectively too.
+[<Fact>]
+let ``test FSharp.Reflection: MakeRecord with an option field`` () =
+    let typ = typeof<LinkedNode>
+    let inner = { Value = 2; Next = None }
+    let node = FSharpValue.MakeRecord(typ, [| box 1; box (Some inner) |]) |> unbox<LinkedNode>
+    node.Value |> equal 1
+    node.Next |> equal (Some inner)
+    let leaf = FSharpValue.MakeRecord(typ, [| box 3; box (None: LinkedNode option) |]) |> unbox<LinkedNode>
+    leaf.Next |> Option.isNone |> equal true
 
 [<Fact>]
 let ``test MakeUnion round-trips a recursive union`` () =

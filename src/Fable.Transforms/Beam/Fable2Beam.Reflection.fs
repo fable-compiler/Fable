@@ -182,8 +182,40 @@ let rec private transformTypeInfoRec
 
         makeTypeInfoMap $"%s{prefix}`%d{n}" resolved
     | Fable.Option(genArg, _) ->
+        // `option` is a real F# union, so reflection has to report None/Some as cases — otherwise
+        // FSharpType.IsUnion is false for it and GetUnionCases/MakeUnion fail, unlike every other
+        // target. Its Beam representation is erased (None = undefined, Some v = v), which the
+        // generic bare-atom / tagged-tuple union shape cannot express, so each case carries an
+        // `erased_option` marker telling fable_reflection to build and read the native shape.
         let resolved = resolveGenerics [ genArg ]
-        makeTypeInfoMap "Microsoft.FSharp.Core.FSharpOption`1" resolved
+
+        let optionCase (tag: int) (name: string) (fields: Beam.ErlExpr list) =
+            Beam.ErlExpr.Map
+                [
+                    atomLit "tag", intLit tag
+                    atomLit "name", strLit name
+                    atomLit "erl_tag", atomLit (Fable.Beam.Naming.sanitizeErlangName name)
+                    atomLit "fields", Beam.ErlExpr.List fields
+                    atomLit "erased_option", atomLit "true"
+                ]
+
+        // Emitted as a plain list, not a `makeThunk` one: a record/union needs the thunk because its
+        // own fields are inlined into its reflection function and would otherwise recurse, whereas
+        // option's only case field is the generic arg, which resolves to a *call* to that type's
+        // reflection function and so cannot recurse here. It also keeps the type info comparable —
+        // two thunks built at different sites are distinct Erlang funs and never compare equal, which
+        // would break `typeof<'a option> = typeof<'a option>`.
+        Beam.ErlExpr.Map
+            [
+                atomLit "fullname", strLit "Microsoft.FSharp.Core.FSharpOption`1"
+                atomLit "generics", Beam.ErlExpr.List resolved
+                atomLit "cases",
+                Beam.ErlExpr.List
+                    [
+                        optionCase 0 "None" []
+                        optionCase 1 "Some" [ makePropertyInfo "Value" (transformTypeInfo com r genMap genArg) ]
+                    ]
+            ]
     | Fable.Nullable(genArg, true) ->
         let resolved = resolveGenerics [ genArg ]
         makeTypeInfoMap "Microsoft.FSharp.Core.FSharpOption`1" resolved

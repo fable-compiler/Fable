@@ -201,6 +201,66 @@ let ``test Big integers addition works`` () =
     let z = 1I
     (x + y + z) |> equal 59823749821707124891298739821798327321028091380982I
 
+// Erlang integers are already arbitrary-precision, so a bigint conversion is mostly the identity —
+// but a float has to be truncated toward zero the way BigInteger(double) does. Left as a float it
+// reaches the integer arithmetic below and fails with `badarith`.
+[<Fact>]
+let ``test BigInt from float truncates toward zero`` () =
+    let positive = 2.7
+    let negative = -2.7
+    let fraction = 0.9
+    // Toward zero, not floor: -2, not -3.
+    bigint positive |> equal 2I
+    bigint negative |> equal -2I
+    bigint fraction |> equal 0I
+
+// `3.0 == 3` is true in Erlang, so asserting the value alone cannot see a float left where an
+// integer belongs. `div`/`rem` accept integers only, so they do see it.
+[<Fact>]
+let ``test BigInt from float is an integer, not just equal to one`` () =
+    let x = 3.0
+    let b = bigint x
+    b % 2I |> equal 1I
+    b / 2I |> equal 1I
+    bigint.DivRem(b, 2I) |> equal (1I, 1I)
+
+[<Fact>]
+let ``test BigInt converted from a float can be used in arithmetic`` () =
+    let x = 2.5
+    let b = bigint x
+    b + 1I |> equal 3I
+    b * 2I |> equal 4I
+
+[<Fact>]
+let ``test BigInt from float32 truncates toward zero`` () =
+    let positive = 2.7f
+    let negative = -2.7f
+    bigint positive |> equal 2I
+    bigint negative |> equal -2I
+
+[<Fact>]
+let ``test BigInt round-trips through float`` () =
+    let b = 42I
+    let f = float b
+    bigint f |> equal 42I
+    bigint (round 2.7) |> equal 3I
+
+// The shape that broke Hedgehog's Range.exponential: bigint arithmetic, out to float, `**`, round,
+// and back into bigint — the result feeding integer arithmetic again.
+[<Fact>]
+let ``test BigInt exponential scaling round-trip works`` () =
+    let scale (origin: bigint) (bound: bigint) (sz: float) =
+        let diff =
+            ((float (abs (bound - origin) + 1I)) ** (sz / 99.0) - 1.0)
+            * float (sign (bound - origin))
+
+        bigint (round (float origin + diff))
+
+    scale 0I 100I 99.0 |> equal 100I
+    scale 0I 100I 0.0 |> equal 0I
+    // The result must still be an integer: `rem` would fail on a float.
+    (scale 0I 100I 99.0) % 7I |> equal 2I
+
 [<Fact>]
 let ``test BigInt Infix add can be generated`` () =
     4I + 2I |> equal 6I
@@ -1148,3 +1208,27 @@ let private fnv1a (s: string) =
 let ``test FNV-1a hashing matches .NET`` () =
     fnv1a "Fable" |> equal 959428905u
     fnv1a "hello world" |> equal 3582672807u
+
+// splitmix64 is what Hedgehog's PRNG is built on. Every step depends on uint64 multiplication
+// wrapping at 64 bits, so a single non-wrapping operation shows up as a completely different
+// stream — which makes it a far sharper detector of fixed-width bugs than any single arithmetic
+// assertion. The expected values are .NET's.
+let private splitmix64 (seed: uint64) =
+    let mutable state = seed
+
+    fun () ->
+        state <- state + 0x9E3779B97F4A7C15UL
+        let mutable z = state
+        z <- (z ^^^ (z >>> 30)) * 0xBF58476D1CE4E5B9UL
+        z <- (z ^^^ (z >>> 27)) * 0x94D049BB133111EBUL
+        z ^^^ (z >>> 31)
+
+[<Fact>]
+let ``test splitmix64 stream is bit-exact with .NET`` () =
+    let next = splitmix64 0UL
+    next () |> equal 16294208416658607535UL
+    next () |> equal 7960286522194355700UL
+    next () |> equal 487617019471545679UL
+
+    let next42 = splitmix64 42UL
+    next42 () |> equal 13679457532755275413UL

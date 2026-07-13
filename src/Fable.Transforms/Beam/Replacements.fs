@@ -23,6 +23,15 @@ let private wrapToIntType (com: ICompiler) r (t: Type) (sourceType: Type) (expr:
         Helper.LibCall(com, "fable_int", Integers.wrapFunctionName info, t, [ expr ], ?loc = r)
     | _ -> expr
 
+/// Convert an expression *into* a BigInteger. Erlang integers are already arbitrary-precision, so
+/// this is the identity for an integral source. A float must be truncated toward zero, the way
+/// `BigInteger(double)` does: leaving it as a float would hand a non-integer to the integer
+/// arithmetic downstream and fail with `badarith`.
+let private toBigIntFrom r (t: Type) (expr: Expr) =
+    match expr.Type with
+    | Number((Float16 | Float32 | Float64), _) -> emitExpr r t [ expr ] "trunc($0)"
+    | _ -> expr
+
 let private isFunctionType (t: Type) =
     match t with
     | LambdaType _
@@ -5614,7 +5623,7 @@ let tryCall
     | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" ->
         // Erlang has native arbitrary-precision integers, so BigInt ops map directly
         match info.CompiledName, thisArg, args with
-        | ".ctor", None, [ arg ] -> Some arg // bigint(x) = x in Erlang
+        | ".ctor", None, [ arg ] -> toBigIntFrom r t arg |> Some // bigint(x) = x in Erlang, bar a float
         | "op_Addition", None, [ left; right ] -> makeBinOp r t left right BinaryPlus |> Some
         | "op_Subtraction", None, [ left; right ] -> makeBinOp r t left right BinaryMinus |> Some
         | "op_Multiply", None, [ left; right ] -> makeBinOp r t left right BinaryMultiply |> Some
@@ -5640,8 +5649,12 @@ let tryCall
         | ("get_IsOne" | "IsOne"), Some thisObj, _ -> emitExpr r t [ thisObj ] "($0 =:= 1)" |> Some
         // A bigint is unbounded, so converting out of it narrows and has to truncate.
         // `ToInt64Unchecked` is the one that keeps .NET's non-throwing wrap either way.
+        // `op_Explicit` is declared on BigInteger for *both* directions, so a conversion whose
+        // target is the bigint itself (e.g. `bigint someFloat`) has to truncate rather than narrow.
         | ("ToInt64" | "ToInt64Unchecked" | "ToInt32" | "ToInt16" | "ToByte" | "ToSByte" | "op_Explicit"), None, [ arg ] ->
-            arg |> wrapToIntType com r t arg.Type |> Some
+            match t with
+            | Number(BigInt, _) -> toBigIntFrom r t arg |> Some
+            | _ -> arg |> wrapToIntType com r t arg.Type |> Some
         | "Parse", None, [ str ] -> emitExpr r t [ str ] "binary_to_integer($0)" |> Some
         | "Pow", None, [ base_; exp_ ] -> emitExpr r t [ base_; exp_ ] "math:pow($0, $1)" |> Some
         | "Log", None, [ arg ] -> emitExpr r t [ arg ] "math:log(float($0))" |> Some
