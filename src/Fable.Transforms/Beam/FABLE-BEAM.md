@@ -298,7 +298,7 @@ Two exemptions:
 - **Native Erlang modules** reached through `BeamInterop` (`string`, `lists`, ...) are of course
   referenced by their own names.
 
-Naming lives in one place, `Fable.Beam.Naming.erlangModuleName` (`Beam/Prelude.fs`), because the
+Naming lives in one place, `Fable.Beam.Naming.erlangModuleNameFor` (`Beam/Prelude.fs`), because the
 code generator (which must resolve an import to the atom the imported file declared) and the CLI
 (which must write the file under the name of the module inside it) have to agree exactly.
 
@@ -311,6 +311,28 @@ Qualification is a convention, not a guarantee, so `checkBeamModuleNames` (`Fabl
   names, but a two-segment name can still land on a real OTP module — an app named `Gen` with a
   `Server.fs` produces `gen_server` — and fable-library's exempt modules are not qualified at all,
   so a `Timer.fs` added to it would silently shadow OTP's `timer`.
+
+### Pinning a module name
+
+A derived name is right for ordinary code, but a module implementing an OTP behaviour — or one
+called from hand-written Erlang — has its name as part of its contract. `[<Beam.ModuleName>]` on a
+file's root module pins the atom:
+
+```fsharp
+[<Fable.Core.Beam.ModuleName("my_server")>]
+module MyApp.Server
+```
+
+The attribute must be fully qualified, since it precedes the module declaration and so cannot rely
+on an `open`. The name has to be a plain unquoted Erlang atom (lowercase first letter, then
+letters, digits, underscores) — anything else is a compile error — and it must not collide with
+another module, which the duplicate check above enforces.
+
+Resolving this is the one place the naming scheme needs more than the path: an import carries the
+imported file's *path*, never its entity, so `erlangModuleNameFor` maps path → root module
+(`GetRootModule`) → entity (`TryGetEntity`) → attribute. The CLI needs the same answer to name the
+output file, and it can only get it *after* type checking — which is why the duplicate check runs
+after compilation rather than before it.
 
 ### Entry point
 

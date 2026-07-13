@@ -184,7 +184,7 @@ let resolveImportModuleName (com: IBeamCompiler) (importPath: string) =
         if resolvedImportPath = currentFileFull then
             None
         else
-            Some(erlangModuleName com.ProjectFile resolvedImportPath)
+            Some(erlangModuleNameFor com resolvedImportPath)
 
 /// Detect whether an expression reads a *free* mutable ident — a module-level mutable
 /// not bound locally within the expression. Such reads must be snapshotted at module-init
@@ -3822,7 +3822,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
         transformClassDeclaration com ctx className ent decl
 
 let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
-    let moduleName = erlangModuleName com.ProjectFile com.CurrentFile
+    let moduleName = erlangModuleNameFor com com.CurrentFile
 
     let ctx =
         {

@@ -117,7 +117,11 @@ module private Util =
             LogEntry.Make(severity, msg, fileName = er.FileName, range = range, tag = "FSHARP")
         )
 
-    let getOutPath (cliArgs: CliArgs) pathResolver file =
+    /// `com` is the compiler for the file being compiled, when there is one. Only Beam needs it,
+    /// and only to see a module name pinned with `[<Beam.ModuleName>]`, which lives in the F# AST.
+    /// Callers that are merely predicting an out path (watch's up-to-date check, `--printAst`)
+    /// pass None and get the derived name; the worst that costs them is a needless recompile.
+    let getOutPath (cliArgs: CliArgs) (com: Compiler option) pathResolver file =
         match cliArgs.CompilerOptions.Language with
         // For Python we must have an outDir since all compiled files must be inside the same subdir, so if `outDir` is not
         // set we set `outDir` to the directory of the project file being compiled.
@@ -157,7 +161,12 @@ module private Util =
 
             // An Erlang module's file name must match the `-module` atom it declares, so the
             // output file is named after the module, not after the F# source file.
-            let fileName = Pipeline.Beam.moduleName cliArgs file + fileExt
+            let moduleName =
+                match com with
+                | Some com -> Fable.Beam.Naming.erlangModuleNameFor com file
+                | None -> Pipeline.Beam.moduleName cliArgs file
+
+            let fileName = moduleName + fileExt
 
             if Naming.isInFableModules file then
                 // Package and library sources in fable_modules: preserve the containing
@@ -206,7 +215,7 @@ module private Util =
             let fileName = (com :> Compiler).CurrentFile
 
             try
-                let outPath = getOutPath cliArgs pathResolver fileName
+                let outPath = getOutPath cliArgs (Some(com :> Compiler)) pathResolver fileName
 
                 // ensure directory exists
                 let dir = IO.Path.GetDirectoryName outPath
@@ -613,7 +622,7 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
 
                         // Print F# AST to file
                         if projCracked.CliArgs.PrintAst then
-                            let outPath = getOutPath projCracked.CliArgs state.PathResolver file.FileName
+                            let outPath = getOutPath projCracked.CliArgs None state.PathResolver file.FileName
                             let outDir = IO.Path.GetDirectoryName(outPath)
                             Printers.printAst outDir [ file ]
 
@@ -916,7 +925,7 @@ let private getFilesToCompile
             )
             || (
                 // If files have been deleted, we should likely recompile after first deletion
-                let outPath = getOutPath state.CliArgs pathResolver path
+                let outPath = getOutPath state.CliArgs None pathResolver path
 
                 let wasDeleted =
                     (path.EndsWith(".fs") || path.EndsWith(".fsx")) && not (IO.File.Exists outPath)
@@ -940,7 +949,7 @@ let private areCompiledFilesUpToDate (state: State) (filesToCompile: string[]) =
                 || file.EndsWith(".fsx", StringComparison.Ordinal)
             )
             |> Array.forall (fun source ->
-                let outPath = getOutPath state.CliArgs pathResolver source
+                let outPath = getOutPath state.CliArgs None pathResolver source
                 // Empty files are not written to disk so we only check date for existing files
                 if IO.File.Exists(outPath) then
                     foundCompiledFile <- true
@@ -1015,18 +1024,38 @@ let private compileBeamFiles (workingDir: string) =
              :: mainErlFiles)
         |> ignore
 
+/// Module names pinned with `[<Beam.ModuleName>]`, keyed by source file. The CLI has to know
+/// them too: it names each output file after the module inside it, and it is where duplicate
+/// module names are caught. Invalid names are dropped — Fable2Beam reports those against the
+/// offending file and falls back to the derived name, and this must agree with it.
+let private beamPinnedModuleNames (fableProj: Project) =
+    fableProj.ImplementationFiles
+    |> Seq.choose (fun kv ->
+        ReadOnlyDictionary.tryFind kv.Value.RootModule kv.Value.Entities
+        |> Option.bind Fable.Beam.Naming.tryModuleNameAttribute
+        |> Option.filter Fable.Beam.Naming.isValidModuleName
+        |> Option.map (fun name -> kv.Key, name)
+    )
+    |> Map
+
 /// Erlang's module namespace is flat and global, and an .erl file must be named after the module
 /// it declares. Two source files that map to the same module name therefore write the same output
 /// file, and whichever is compiled last silently overwrites the other — its functions simply
 /// disappear from the output. A module named after one of OTP's own is just as fatal: the two
 /// names are the same atom, and whichever module loses the lookup is unreachable. Both failures
 /// surface only as `undef` at runtime, so fail here instead, while we can still say which files
-/// are to blame.
-let private checkBeamModuleNames (cliArgs: CliArgs) (sourceFiles: string seq) =
+/// are to blame. A pinned name is checked like any other — pinning is for naming a module the
+/// contract requires, not for taking a name OTP already has.
+let private checkBeamModuleNames (cliArgs: CliArgs) (pinned: Map<string, string>) (sourceFiles: string seq) =
+    let moduleName path =
+        match Map.tryFind path pinned with
+        | Some name -> name
+        | None -> Pipeline.Beam.moduleName cliArgs path
+
     let modules =
         sourceFiles
         |> Seq.filter Fable.Beam.Naming.isGeneratedModuleSource
-        |> Seq.map (fun path -> Pipeline.Beam.moduleName cliArgs path, path)
+        |> Seq.map (fun path -> moduleName path, path)
         |> Seq.toArray
 
     let fail (message: string) (details: string seq) =
@@ -1052,8 +1081,8 @@ let private checkBeamModuleNames (cliArgs: CliArgs) (sourceFiles: string seq) =
         fail
             ("Erlang module names must be unique across the whole compilation: the module namespace "
              + "is global and each module is written to a file named after it, so one of these would "
-             + "silently overwrite the other. Rename one of the files, or move it to a different "
-             + "assembly.")
+             + "silently overwrite the other. Rename one of the files, move it to a different "
+             + "assembly, or pin a distinct name with [<Fable.Core.Beam.ModuleName(\"...\")>].")
             duplicates
 
     let shadowed =
@@ -1065,8 +1094,9 @@ let private checkBeamModuleNames (cliArgs: CliArgs) (sourceFiles: string seq) =
         fail
             ("These files generate Erlang modules that shadow OTP's own: the module namespace is "
              + "global, so the generated module and OTP's would be the same atom and one of them "
-             + "unreachable. Rename the file, or move it to a directory or assembly whose name does "
-             + "not produce a clashing module name.")
+             + "unreachable. Rename the file, move it to a directory or assembly whose name does "
+             + "not produce a clashing module name, or pin a different name with "
+             + "[<Fable.Core.Beam.ModuleName(\"...\")>].")
             shadowed
 
 let private generateBeamScaffold (cliArgs: CliArgs) (entryModule: string) =
@@ -1213,7 +1243,7 @@ let private checkRunProcess (state: State) (projCracked: ProjectCracked) (compil
         let findLastFileFullPath () =
             let pathResolver = state.GetPathResolver()
             let lastFile = Array.last projCracked.SourceFiles
-            getOutPath cliArgs pathResolver lastFile.NormalizedFullPath
+            getOutPath cliArgs None pathResolver lastFile.NormalizedFullPath
 
         // Fable's getRelativePath version ensures there's always a period in front of the path: ./
         let findLastFileRelativePath () =
@@ -1240,7 +1270,6 @@ let private checkRunProcess (state: State) (projCracked: ProjectCracked) (compil
                 let lastFilePath = findLastFileRelativePath ()
                 "node", lastFilePath :: runProc.Args
             | Beam, Naming.placeholder ->
-                let moduleName = IO.Path.GetFileNameWithoutExtension(findLastFileFullPath ())
                 compileBeamFiles workingDir
 
                 "erl",
@@ -1251,7 +1280,9 @@ let private checkRunProcess (state: State) (projCracked: ProjectCracked) (compil
                     "-pa"
                     erlLibSrcRelDir // library .beam files are in fable_modules/.../src/
                     "-eval"
-                    $"{moduleName}:main()"
+                    // The scaffold always leaves a `main` module in src/ — either the entry
+                    // module itself, or a shim forwarding to it.
+                    "main:main()"
                     "-s"
                     "init"
                     "stop"
@@ -1381,15 +1412,11 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
                     cliArgs
                 | _ -> state, cliArgs
 
-            if cliArgs.CompilerOptions.Language = Beam then
-                projCracked.SourceFiles
-                |> Array.map (fun f -> f.NormalizedFullPath)
-                |> checkBeamModuleNames cliArgs
-
             let! fableCompiler =
                 match fableCompiler with
                 | None -> FableCompiler.Init(projCracked)
                 | Some fableCompiler -> async.Return fableCompiler
+
 
             let! fsharpLogs, fableResults =
                 fableCompiler.StartCompilation(
@@ -1545,12 +1572,25 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
 
             // Generate rebar3 scaffold for BEAM target after successful compilation
             if cliArgs.CompilerOptions.Language = Beam && not hasError then
+                // A module name pinned with [<Beam.ModuleName>] lives in the F# AST, which only
+                // exists once the files have been type checked — hence after compilation, not
+                // before. It can't be derived from the path, and checking the derived names early
+                // would reject a clash that a pinned name resolves.
+                let! fableProj = fableCompiler.GetFableProject()
+                let pinned = beamPinnedModuleNames fableProj
+
+                projCracked.SourceFiles
+                |> Array.map (fun f -> f.NormalizedFullPath)
+                |> checkBeamModuleNames cliArgs pinned
+
                 // The last source file is the entry point of a Fable program: its module-level
                 // actions compile to that module's main/0.
+                let lastFile = (Array.last projCracked.SourceFiles).NormalizedFullPath
+
                 let entryModule =
-                    projCracked.SourceFiles
-                    |> Array.last
-                    |> fun f -> Pipeline.Beam.moduleName cliArgs f.NormalizedFullPath
+                    match Map.tryFind lastFile pinned with
+                    | Some name -> name
+                    | None -> Pipeline.Beam.moduleName cliArgs lastFile
 
                 generateBeamScaffold cliArgs entryModule
 

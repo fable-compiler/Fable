@@ -31,6 +31,7 @@
     <Compile Include="Naming/Gen.fs" />
     <Compile Include="Naming/Random.fs" />
     <Compile Include="Naming/String.fs" />
+    <Compile Include="Naming/Pinned.fs" />
     <Compile Include="Naming/First/Types.fs" />
     <Compile Include="Naming/Second/Types.fs" />
     <Compile Include="Util.fs" />

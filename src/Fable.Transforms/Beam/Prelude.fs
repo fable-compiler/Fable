@@ -458,6 +458,64 @@ module Naming =
                 else
                     belowProjDir |> joinModuleName
 
+    /// A module name pinned with `[<Fable.Core.Beam.ModuleName("...")>]` on a file's root module.
+    ///
+    /// The derived name is right for ordinary code, but a module implementing an OTP behaviour —
+    /// or one called from hand-written Erlang — has its name as part of its contract, and needs to
+    /// be able to say so.
+    let tryModuleNameAttribute (ent: Fable.AST.Fable.Entity) =
+        ent.Attributes
+        |> Seq.tryPick (fun att ->
+            if att.Entity.FullName = Fable.Transforms.Atts.beamModuleName then
+                match att.ConstructorArgs with
+                | [ :? string as name ] -> Some name
+                | _ -> None
+            else
+                None
+        )
+
+    /// The name is written straight into `-module(...)` and into the output file name, so it has to
+    /// be a plain unquoted Erlang atom.
+    let isValidModuleName (name: string) =
+        Regex.IsMatch(name, @"^[a-z][a-zA-Z0-9_]*$") && not (erlKeywords.Contains name)
+
+    /// The Erlang module name of a source file: the name pinned on its root module by
+    /// `[<Fable.Core.Beam.ModuleName>]`, or else the name derived from its path.
+    ///
+    /// Resolving this from a path alone is what lets an *importing* file name the module it is
+    /// calling into — an import carries the imported file's path, never its entity.
+    let erlangModuleNameFor (com: Fable.Compiler) (filePath: string) =
+        let derived () =
+            erlangModuleName com.ProjectFile filePath
+
+        if not (isFSharpSource filePath) || isFableLibraryPath filePath then
+            derived ()
+        else
+            let pinned =
+                match com.GetRootModule(filePath) with
+                | "", _ -> None // a file with no root module has nothing to carry the attribute
+                | rootModule, _ ->
+                    com.TryGetEntity(
+                        {
+                            FullName = rootModule
+                            Path = Fable.AST.Fable.SourcePath filePath
+                        }
+                    )
+                    |> Option.bind tryModuleNameAttribute
+
+            match pinned with
+            | None -> derived ()
+            | Some name when isValidModuleName name -> name
+            | Some name ->
+                com.AddLog(
+                    $"'%s{name}' is not a valid Erlang module name. It must start with a lowercase "
+                    + "letter and contain only letters, digits and underscores.",
+                    Fable.Severity.Error,
+                    fileName = filePath
+                )
+
+                derived ()
+
     let capitalizeFirst (s: string) =
         if s.Length = 0 then
             s
