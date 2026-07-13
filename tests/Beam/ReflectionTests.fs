@@ -573,21 +573,3 @@ let ``test Activator.CreateInstance guarded by Compiler.isDotnet compiles`` () =
 let ``test Type.MakeGenericType substitutes the generic arguments`` () =
     let t = typedefof<RecGeneric<obj>>.MakeGenericType [| typeof<string> |]
     t.GetGenericArguments().[0] |> equal typeof<string>
-
-// === Decimal ===
-
-[<Fact>]
-let ``test Decimal MinValue and MaxValue work`` () =
-    string System.Decimal.MinValue
-    |> equal "-79228162514264337593543950335"
-
-    string System.Decimal.MaxValue |> equal "79228162514264337593543950335"
-    System.Decimal.MinValue < 0M |> equal true
-    System.Decimal.MaxValue > 0M |> equal true
-
-[<Fact>]
-let ``test Decimal explicit conversions work`` () =
-    int 3.75M |> equal 3
-    float 3.75M |> equal 3.75
-    int64 3.75M |> equal 3L
-    decimal 3 |> equal 3M

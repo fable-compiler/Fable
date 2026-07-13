@@ -763,14 +763,60 @@ let ``test System.Convert.ToString Decimal works`` () =
 
 // --- Decimal conversions ---
 
-// TODO: System.Decimal.op_Explicit not supported by Fable Beam
-// #if FABLE_COMPILER
-// [<Fact>]
-// let ``test Decimal.ToSByte works`` () =
-//     let value = 0x02y
-//     sbyte (decimal (int32 value)) |> equal value
-// ... (all Decimal.To* tests need Decimal.op_Explicit)
-// #endif
+[<Fact>]
+let ``test Decimal.ToChar works`` () =
+    let value = 'A'
+    char (decimal (int32 value)) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToSByte works`` () =
+    let value = 0x02y
+    sbyte (decimal (int32 value)) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToInt16 works`` () =
+    let value = 0x0102s
+    int16 (decimal (int32 value)) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToInt32 works`` () =
+    let value = 0x01020304
+    int32 (decimal value) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToInt64 works`` () =
+    let value = 0x0102030405060708L
+    int64 (decimal value) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToByte works`` () =
+    let value = 0x02uy
+    byte (decimal (uint32 value)) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToUInt16 works`` () =
+    let value = 0xFF02us
+    uint16 (decimal (uint32 value)) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToUInt32 works`` () =
+    let value = 0xFF020304u
+    uint32 (decimal value) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToUInt64 works`` () =
+    let value = 0xFF02030405060708UL
+    uint64 (decimal value) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToSingle works`` () =
+    let value = 1.0f
+    single (decimal value) |> equal value
+
+[<Fact>]
+let ``test Decimal.ToDouble works`` () =
+    let value = -1.0
+    double (decimal value) |> equal value
 
 // --- BigInt conversions ---
 

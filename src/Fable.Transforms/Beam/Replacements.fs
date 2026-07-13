@@ -383,7 +383,9 @@ let private operators
     | "ToChar", [ arg ] ->
         match arg.Type with
         | Type.String -> emitExpr r _t [ arg ] "binary:first($0)" |> Some
-        | _ -> Some arg
+        // Decimals are fixed-scale integers, so they need unscaling first
+        | Type.Number(Decimal, _) -> Helper.LibCall(com, "fable_decimal", "to_int", _t, [ arg ], ?loc = r) |> Some
+        | _ -> Some arg // other numbers are already chars in Erlang
     // CreateSet: the `set [1;2;3]` syntax
     | "CreateSet", [ arg ] -> emitExpr r _t [ arg ] "ordsets:from_list($0)" |> Some
     // CreateDictionary: the `dict [...]` syntax
@@ -1378,7 +1380,9 @@ let private conversions
     | "ToChar", [ arg ] ->
         match arg.Type with
         | Type.String -> emitExpr r t [ arg ] "binary:first($0)" |> Some
-        | _ -> Some arg // numbers are already chars in Erlang
+        // Decimals are fixed-scale integers, so they need unscaling first
+        | Type.Number(Decimal, _) -> Helper.LibCall(com, "fable_decimal", "to_int", t, [ arg ], ?loc = r) |> Some
+        | _ -> Some arg // other numbers are already chars in Erlang
     | _ -> None
 
 /// Beam-specific numeric type method replacements (Parse, ToString, Equals, CompareTo, GetHashCode).
@@ -1482,7 +1486,8 @@ let private numericTypes
         | Number(Decimal, _), _ -> emitExpr r t [ arg ] "($0 * 10000000000000000000000000000)" |> Some
         | Number((Float16 | Float32 | Float64), _), _ ->
             Helper.LibCall(com, "fable_decimal", "to_number", t, [ arg ], ?loc = r) |> Some
-        | Number(_, _), _ -> Helper.LibCall(com, "fable_decimal", "to_int", t, [ arg ], ?loc = r) |> Some
+        // Chars are integers on Beam, so `char d` truncates like the integer conversions
+        | (Number(_, _) | Char), _ -> Helper.LibCall(com, "fable_decimal", "to_int", t, [ arg ], ?loc = r) |> Some
         | _ -> None
     | _ -> None
 

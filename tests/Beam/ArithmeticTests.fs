@@ -530,6 +530,8 @@ let ``test Decimal literals can be generated`` () =
     0M |> equal Decimal.Zero
     1M |> equal Decimal.One
     -1M |> equal Decimal.MinusOne
+    79228162514264337593543950335M |> equal Decimal.MaxValue
+    -79228162514264337593543950335M |> equal Decimal.MinValue
 
 [<Fact>]
 let ``test Decimal.ToString works`` () =
