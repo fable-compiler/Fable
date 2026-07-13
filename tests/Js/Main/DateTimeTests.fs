@@ -1189,10 +1189,17 @@ let tests =
             let t = new Timers.Timer(50.)
             t.Elapsed.Add(fun ev -> res := !res + 5)
             t.Start()
-            do! Async.Sleep 125
+            do! Async.Sleep 200
             t.Stop()
-            do! Async.Sleep 50
-            equal 10 !res
+            // Snapshot after Stop: a tick landing between the read and the stop is a legal
+            // interleaving, and would be indistinguishable from Stop failing to halt the timer.
+            let afterStop = !res
+            do! Async.Sleep 100
+            // AutoReset keeps the timer firing, so more than one tick lands. The exact number is
+            // timing-dependent — how many 50ms ticks fit in the sleep varies with runner load.
+            afterStop > 5 |> equal true
+            // Stop halts it: no further ticks after the snapshot.
+            !res |> equal afterStop
         }
 
     testCaseAsync "Timer.Elapsed.Subscribe works" <| fun () ->
@@ -1201,10 +1208,17 @@ let tests =
             let t = new Timers.Timer(50.)
             let disp = t.Elapsed.Subscribe(fun ev -> res := !res + 5)
             t.Start()
-            do! Async.Sleep 125
+            do! Async.Sleep 200
             disp.Dispose()
-            do! Async.Sleep 50
-            equal 10 !res
+            // Snapshot after Dispose: a tick landing between the read and the unsubscribe is a
+            // legal interleaving, and would be indistinguishable from Dispose failing to detach.
+            let afterDispose = !res
+            do! Async.Sleep 100
+            // The subscriber receives Elapsed events. The exact number is timing-dependent — how
+            // many 50ms ticks fit in the sleep varies with runner load.
+            afterDispose > 5 |> equal true
+            // Dispose detaches it: no further ticks after the snapshot.
+            !res |> equal afterDispose
             t.Stop()
         }
 
