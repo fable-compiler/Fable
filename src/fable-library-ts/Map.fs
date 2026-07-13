@@ -123,7 +123,8 @@ module MapTree =
                 else // rotate left
                     mk (mk t1 k v t2'.Left) t2'.Key t2'.Value t2'.Right
             | _ -> failwith "internal error: Map.rebalance"
-        else if t1h > t2h + tolerance then // left is heavier than right
+        // left is heavier than right
+        else if t1h > t2h + tolerance then
             match t1.Value with
             | :? MapTreeNode<'Key, 'Value> as t1' ->
                 // one of the nodes must have height > height t2 + 1
