@@ -23,6 +23,15 @@ type CrossFileTree =
 
 type CrossFileGeneric<'T> = { Item: 'T; Rest: CrossFileGeneric<'T> option }
 
+// An erased type is never declared in the generated Erlang, so it has no reflection function that
+// a referring type could call. Declared here so a record in another file can hold one: that is the
+// remote-call variant of the bug, which Erlang resolves only at run time (the local variant fails
+// to compile instead).
+[<Fable.Core.Erase>]
+type CrossFileErased = CrossFileErased of string
+
+type CrossFileRecordWithErasedField = { Erased: CrossFileErased; Label: string }
+
 
 module Extensions =
     type String with

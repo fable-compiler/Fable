@@ -697,3 +697,58 @@ let ``test round-tripping a value of a type from another file works`` () =
 
     FSharpValue.MakeRecord(recordType, values) :?> Fable.Tests.Util2.CrossFileRecord
     |> equal record
+
+// === Reflection over erased types ===
+// An erased type emits no declaration, and therefore no reflection function for a referring type to
+// call. A record holding one used to emit that call anyway: a compile error when the erased type is
+// in the same file, and a run-time crash when it is in another one (Erlang resolves remote calls
+// lazily). Both variants are covered below; the local one is pinned by this file compiling at all.
+
+[<Fable.Core.Erase>]
+type ErasedId = ErasedId of string
+
+type RecordWithErasedField = { Id: ErasedId; Name: string }
+
+/// The erased field type lives in another file, so the dangling call would be a *remote* one.
+/// Erlang doesn't resolve those at compile time, so this variant compiles happily and only blows
+/// up when the reflection function is actually called — hence the test below reflects over it.
+type RecordWithCrossFileErasedField = {
+    Remote: Fable.Tests.Util2.CrossFileErased
+    Count: int
+}
+
+[<Fact>]
+let ``test reflection over a record with an erased field works`` () =
+    let fields = FSharpType.GetRecordFields typeof<RecordWithErasedField>
+    fields.Length |> equal 2
+    fields.[0].Name |> equal "Id"
+    fields.[0].PropertyType.FullName.EndsWith("ErasedId") |> equal true
+    fields.[1].PropertyType |> equal typeof<string>
+
+[<Fact>]
+let ``test reflection over an erased type works`` () =
+    typeof<ErasedId>.FullName.EndsWith("ErasedId") |> equal true
+
+[<Fact>]
+let ``test reflection over a record whose erased field type is in another file works`` () =
+    let fields = FSharpType.GetRecordFields typeof<RecordWithCrossFileErasedField>
+    fields.Length |> equal 2
+    fields.[0].Name |> equal "Remote"
+
+    fields.[0].PropertyType.FullName.EndsWith("CrossFileErased")
+    |> equal true
+
+    fields.[1].PropertyType |> equal typeof<int>
+
+[<Fact>]
+let ``test reflection over a record with an erased field from another file works`` () =
+    let fields =
+        FSharpType.GetRecordFields typeof<Fable.Tests.Util2.CrossFileRecordWithErasedField>
+
+    fields.Length |> equal 2
+    fields.[0].Name |> equal "Erased"
+
+    fields.[0].PropertyType.FullName.EndsWith("CrossFileErased")
+    |> equal true
+
+    fields.[1].PropertyType |> equal typeof<string>
