@@ -2,6 +2,9 @@
   "private": true,
   "type": "module",
   "name": "fable-compiler",
+  "engines": {
+    "node": "26"
+  },
   "scripts": {
     "tsc": "tsc",
     "rollup": "rollup",
@@ -25,7 +28,7 @@
     "nodemon": "^3.1.14",
     "rollup": "^4.62.2",
     "terser": "^5.48.0",
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2"
   },
   "devDependencies": {
     "markdownlint-cli": "^0.49.0"
