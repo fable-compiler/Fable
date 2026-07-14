@@ -642,7 +642,7 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
   collide across assemblies (see [Module Naming](#module-naming))
 - [x] Function name sanitization (`$XXXX` hex sequences from F# backtick names)
 - [x] Cross-module call resolution (derive module from `importInfo.Path`)
-- [x] Inline `assertEqual`/`assertNotEqual` assertions (no util dependency needed)
+- [x] `Assert.AreEqual`/`NotEqual` lowered to `fable_utils:assert_equal`/`assert_not_equal`
 - [x] `fable_modules/fable-library-beam/` output structure (aligned with JS/Dart/Rust targets)
 
 ### Phase 6: Error Handling -- COMPLETE
@@ -1086,10 +1086,12 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   Erlang resolves modules via code path (`-pa fable_modules/fable-library-beam`) rather than
   hierarchical imports. Third-party project output structure:
   `output/my_module.erl` + `output/fable_modules/fable-library-beam/{fable_list,fable_string,seq,...}.erl`.
-- **Inline assertions**: `assertEqual`/`assertNotEqual` (and their `Testing_equal`/
-  `Testing_notEqual` variants) are inlined as `case Actual =:= Expected of true -> ok;
-  false -> erlang:error({assert_equal, Expected, Actual}) end` — no runtime dependency
-  on a util module.
+- **Assertions**: `Fable.Core.Testing.Assert.AreEqual`/`NotEqual` lower to
+  `fable_utils:assert_equal`/`assert_not_equal`, which raise
+  `#{message, actual, expected}` on failure, matching JS and Python. They used to be
+  inlined at any call site whose import selector happened to be named `assertEqual`/
+  `Testing_equal` (and the `NotEqual` variants), which rewrote the body of *any*
+  same-named user function; that special case is gone.
 - **Unit parameters**: Erlang unused variable warnings suppressed by prefixing unit
   parameters with `_` via `toErlangVar` in `Fable2Beam.fs`.
 - **discardUnitArg / dropUnitCallArg**: Symmetric unit stripping matching JS/Python/Dart.
@@ -1116,10 +1118,6 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   Fable's Replacements (`string:concat`) is intercepted and replaced with
   `iolist_to_binary([A, B])` since `string:concat` returns charlists, not binaries.
   `to_string` conversion lives in `fable_string:to_string/1`.
-- **Assert temp variables**: Complex expressions in assertEqual/assertNotEqual are stored
-  in temp variables (`Assert_actual_N`, `Assert_expected_N`) to avoid duplicate
-  evaluation and Erlang "unsafe variable" errors from variable bindings inside case
-  branches that get duplicated in error messages.
 - **Option representation**: `None` = `undefined` atom. Simple `Some(x)` is **erased**
   (just `x`). Nested options (`Option<Option<T>>`), `GenericParam`, and `Any` types use
   **wrapped** representation: `Some(x)` = `{some, x}`. This avoids ambiguity when
