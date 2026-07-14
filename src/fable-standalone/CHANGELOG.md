@@ -1,5 +1,5 @@
 ---
-last_commit_released: a8d9bf5f0b7cc4560bb107963348e765695c22b6
+last_commit_released: c6455f4798e8eba6375ea90c8270dd3df11e0bd4
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
@@ -18,6 +18,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.6.2 - 2026-07-13
+
+### 🐞 Bug Fixes
+
+* *(beam)* Make F# reflection work on the Beam target (#4766) ([b15b280d](https://github.com/fable-compiler/Fable/commit/b15b280d9d5d1084786179d2eb292a2e916e8aee))
+* *(beam)* Give sized integers .NET fixed-width semantics (#4769) ([2ed39630](https://github.com/fable-compiler/Fable/commit/2ed396305488efce793efbfca8e4671ada1793fd))
+* *(beam)* Qualify Erlang module names by their OTP app (#4770) ([5516c8d8](https://github.com/fable-compiler/Fable/commit/5516c8d8991401e85b3ad08d7f9a6f76c3219ff2))
+* *(beam)* Entry point argv and exit code, bigint from float, option reflection (#4772) ([ea915541](https://github.com/fable-compiler/Fable/commit/ea915541d0b07747cc1f08415c4d1f7525e065bd))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/a8d9bf5f0b7cc4560bb107963348e765695c22b6..c6455f4798e8eba6375ea90c8270dd3df11e0bd4)</small></strong>
 
 ## 2.6.1 - 2026-07-11
 
