@@ -1,7 +1,12 @@
+
 module Fable.Tests.Environment
 
 open System
 open Util.Testing
+
+[<Fact>]
+let ``test Environment.NewLine is non-empty`` () =
+    Environment.NewLine.Length > 0 |> equal true
 
 [<Fact>]
 let ``test Environment.GetEnvironmentVariable returns null for a missing variable`` () =

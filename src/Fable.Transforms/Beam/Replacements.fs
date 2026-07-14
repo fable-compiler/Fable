@@ -5789,6 +5789,7 @@ let tryCall
         | "get_CurrentDirectory" ->
             Helper.LibCall(com, "fable_environment", "get_current_directory", t, [], ?loc = r)
             |> Some
+        | "set_CurrentDirectory" -> emitExpr r t args "file:set_cwd(binary_to_list($0))" |> Some
         | _ -> None
     | Types.datetime -> dates com ctx r t info thisArg args
     | "System.Uri" -> uris com ctx r t info thisArg args
