@@ -377,7 +377,10 @@ pub mod Task_ {
         Arc::from(t)
     }
 
-    pub fn zero<T: Clone + Send + Sync + 'static>() -> Arc<Task<()>> {
+    // A task body that does not end in `return` is just `return ()`, so this
+    // needs no generic parameter. Keeping one would force the caller to name a
+    // type argument that has nothing to do with the result.
+    pub fn zero() -> Arc<Task<()>> {
         r_return(())
     }
 

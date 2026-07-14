@@ -4,7 +4,8 @@
 module Fable.Tests.TaskTests
 
 // Supported so far: return, let!, do!, Task.FromResult and .Result at concrete
-// types, plus Async.AwaitTask and Async.StartAsTask.
+// types, plus Async.AwaitTask and Async.StartAsTask. A body need not end in
+// `return`; without one it is just `return ()`.
 // The tests kept commented out below track what is still missing. They cannot be
 // marked with OuterAttr("ignore") instead: Fable rejects these builder members
 // outright, so they fail the build rather than compiling into a skipped test.
@@ -14,11 +15,6 @@ module Fable.Tests.TaskTests
 //     Replacements, and Task_ has no matching runtime combinators. Note the
 //     builder body of a loop would also have to be re-runnable, whereas a Task
 //     here is hot-started and caches its result.
-//
-//   - a computation that does not end in `return` compiles to
-//     TaskBuilderBase.Zero, whose TaskCode<_,_> return type leaks FSharp.Core
-//     resumable-code generics into the emitted turbofish, as in
-//     zero::<&MutCell<ResumableStateMachine_1<_>>, bool>().
 //
 //   - generic helpers over Task<'T> (such as `let run (t: Task<'T>) = t.Result`)
 //     need Send + Sync bounds that are not emitted, so use concrete types.
@@ -157,6 +153,29 @@ let ``task awaiting a delay inside the body waits for it`` () =
         }
     tsk.Result |> equal 42
     finished |> equal true
+
+[<Fact>]
+let ``task without a trailing return works`` () =
+    let mutable r = 0
+    let tsk =
+        task {
+            let! x = task { return 42 }
+            r <- x
+        }
+    tsk.Result
+    r |> equal 42
+
+[<Fact>]
+let ``task with two let! and no trailing return works`` () =
+    let mutable r = 0
+    let tsk =
+        task {
+            let! x = task { return 20 }
+            let! y = task { return 22 }
+            r <- x + y
+        }
+    tsk.Result
+    r |> equal 42
 
 // type DisposableAction(f) =
 //     interface System.IDisposable with
