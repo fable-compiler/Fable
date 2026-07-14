@@ -124,6 +124,24 @@ jobs:
       - name: Fable Tests
         run: ./build.sh test integration
 
+  build-plugins:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v6
+
+      - name: Fable Tests
+        run: ./build.sh test plugins
+
   # Separate build job for Standalone
   build-standalone:
     runs-on: ubuntu-latest
