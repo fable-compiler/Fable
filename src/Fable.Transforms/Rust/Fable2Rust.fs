@@ -1177,6 +1177,12 @@ module TypeInfo =
             // implemented random type
             | Replacements.Util.IsEntity (Types.random) (_, []) -> transformImportType com ctx [] "Random" "Random"
 
+            // implemented event type (FSharpEvent`1); the module functions and
+            // the .ctor are routed to Event_ by the events replacement, so the
+            // concrete type must resolve to Event_::FSharpEvent`1 as well.
+            | Replacements.Util.IsEntity ("Microsoft.FSharp.Control.FSharpEvent`1") (_, [ t ]) ->
+                transformImportType com ctx [ t ] "Event" "FSharpEvent`1"
+
             // implemented regex types
             | Replacements.Util.IsEntity (Types.regexMatch) (_, []) -> transformImportType com ctx [] "RegExp" "Match"
             | Replacements.Util.IsEntity (Types.regexGroup) (_, []) -> transformImportType com ctx [] "RegExp" "Group"
@@ -5416,7 +5422,19 @@ module Util =
 
         let genParams = FSharp2Fable.Util.getGenParamTypes genArgs
 
-        let ctx = { ctx with ScopedEntityGenArgs = getEntityGenParamNames ent }
+        let ctx =
+            // For object expressions the struct is parameterized by the actual
+            // instantiation gen args (from the enclosing scope), and member bodies
+            // reference those gen param names - not the interface's formal params.
+            // Using the interface's formal names here would fail to filter the type's
+            // gen params out of each member's own generics (emitting a spurious `<T>`).
+            let scopedGenArgs =
+                if isObjectExpr then
+                    genArgs |> FSharp2Fable.Util.getGenParamNames |> Set.ofList
+                else
+                    getEntityGenParamNames ent
+
+            { ctx with ScopedEntityGenArgs = scopedGenArgs }
 
         let isIgnoredMember (memb: Fable.MemberFunctionOrValue) = ent.IsFSharpExceptionDeclaration // to filter out compiler-generated exception equality
 
@@ -5503,7 +5521,15 @@ module Util =
             |> List.collect (fun ifcEntRef ->
                 let ifcGenArgs =
                     if isObjectExpr then
-                        genArgs
+                        // The object expression's declared type gen args apply to its
+                        // primary interface only. Inherited interfaces (e.g. IDisposable
+                        // from IEnumerator<'T>) carry their own gen args, which may have a
+                        // different arity - so blindly reusing genArgs would emit e.g.
+                        // `IDisposable<i32>`. Look those up in the declared type's hierarchy.
+                        if ifcEntRef.FullName = entRef.FullName then
+                            genArgs
+                        else
+                            ifcEntRef |> findInterfaceGenArgs com ent
                     else
                         ifcEntRef |> findInterfaceGenArgs com ent
 
