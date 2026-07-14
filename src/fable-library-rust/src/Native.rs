@@ -704,6 +704,24 @@ pub mod Native_ {
         try_downcast::<_, T>(&o).unwrap().clone()
     }
 
+    // Boxing/unboxing for reference-typed (Lrc-wrapped) declared types such as
+    // records and unions. Unlike `box_`, which wraps the value in a fresh Lrc,
+    // these coerce the *same* smart pointer to `dyn Any`, so the boxed value's
+    // concrete pointee is the record/union struct itself. That lets a plain
+    // downcast recover it, and lets `TypeId::of::<T>()` (computed at the typeof
+    // site) match the pointee's runtime type id for value-based reflection.
+    // NOTE: relies on `LrcPtr = Rc/Arc` CoerceUnsized; the `lrc_ptr` feature
+    // (custom smart pointer without CoerceUnsized) is not supported here.
+    #[cfg(not(feature = "lrc_ptr"))]
+    pub fn box_lrc<T: 'static>(o: LrcPtr<T>) -> LrcPtr<dyn Any> {
+        o
+    }
+
+    #[cfg(not(feature = "lrc_ptr"))]
+    pub fn unbox_lrc<T: Clone + 'static>(o: LrcPtr<dyn Any>) -> LrcPtr<T> {
+        LrcPtr::new((*o).downcast_ref::<T>().expect("Invalid unbox").clone())
+    }
+
     pub fn ofObj<T: Clone + NullableRef + 'static>(value: T) -> Option<T> {
         if is_null(&value) {
             None::<T>

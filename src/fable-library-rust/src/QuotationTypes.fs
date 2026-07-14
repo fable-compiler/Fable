@@ -24,6 +24,17 @@ type FSharpUnionCaseInfo =
         DeclaringType: string
     }
 
+// Rust-native carrier for System.Reflection.MethodInfo. Fable-Rust erases the F#
+// MethodInfo type to this struct (see Fable2Rust.transformType), so `mi.Name` and
+// `mi.DeclaringType` on a Call quotation deconstruction route to the accessors in
+// Quotation.fs. DeclaringType is stored as the declaring-type fullname string (the
+// emitter fills it from declaringEntity.FullName, e.g. "...Collections.ListModule").
+type FSharpMethodInfo =
+    {
+        Name: string
+        DeclaringType: string
+    }
+
 type FSharpExpr =
     | ExprValue of value: obj * typ: string
     | ExprVarExpr of var: FSharpVar

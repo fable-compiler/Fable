@@ -252,11 +252,41 @@ let ``Evaluate tuple-get picks the second element`` () =
     let r = LeafExpressionConverter.EvaluateQuotation <@ let (a, b, c) = (1, 2, 3) in b @>
     unbox<int> r |> equal 2
 
-// --- Typed Expr.Call builder (B2) ---
-// The B2 arity fix (quotationExprs now passes a 4th declaringType arg to mkCall) is verified
-// by inspecting the generated Rust: Expr.Call(instance, mi, args) emits the full 4-arg
-// `mkCall(instance, mi, args, string(""))` instead of a 3-arg partial application. An
-// end-to-end Rust test cannot compile, though: deconstructing a Call binds `mi: MethodInfo`,
-// and MethodInfo has no Rust runtime type (Fable emits an unresolved
-// `System::Reflection::MethodInfo` import). Constructing/round-tripping a MethodInfo is the
-// separate MethodInfo/declaringType task, so no runnable Rust test is added here.
+// --- Call deconstruction with MethodInfo (B1) ---
+// Deconstructing a Call now binds a real MethodInfo: mi.Name is the compiled method name and
+// mi.DeclaringType.FullName is the declaring module fullname. The declaring type is the
+// SQLProvider linchpin: it distinguishes List.map from Array.map. MethodInfo erases to the
+// Rust-native FSharpMethodInfo carrier; DeclaringType is the fullname string boxed as
+// System.Type (System.Type erases to Any), read back via Reflection.fullName.
+
+let private callMethodName (e: Expr) =
+    match e with
+    | Call(_, mi, _) -> mi.Name
+    | _ -> "?"
+
+let private callDeclaringTypeName (e: Expr) =
+    match e with
+    | Call(_, mi, _) -> mi.DeclaringType.FullName
+    | _ -> "?"
+
+[<Fact>]
+let ``Call exposes the method name`` () =
+    callMethodName <@ List.map (fun x -> x + 1) [ 1 ] @> |> equal "Map"
+
+[<Fact>]
+let ``Call exposes the declaring type full name`` () =
+    callDeclaringTypeName <@ List.map (fun x -> x + 1) [ 1 ] @>
+    |> equal "Microsoft.FSharp.Collections.ListModule"
+
+[<Fact>]
+let ``Call distinguishes List.map from Array.map by declaring type`` () =
+    callDeclaringTypeName <@ Array.map (fun x -> x + 1) [| 1 |] @>
+    |> equal "Microsoft.FSharp.Collections.ArrayModule"
+
+[<Fact>]
+let ``Call binds MethodInfo directly`` () =
+    match <@ List.map (fun x -> x + 1) [ 1 ] @> with
+    | Call(_, mi, _) ->
+        mi.Name |> equal "Map"
+        mi.DeclaringType.FullName |> equal "Microsoft.FSharp.Collections.ListModule"
+    | _ -> failwith "Expected Call"
