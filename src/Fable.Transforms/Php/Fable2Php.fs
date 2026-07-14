@@ -936,7 +936,10 @@ let rec tryFindMethod methodName (phpType: PhpType) =
 let rec convertExpr (com: IPhpCompiler) (expr: Fable.Expr) =
     match expr with
     | Fable.Extended _ -> failwith "TODO: Extended instructions"
-    | Fable.Quote _ -> failwith "Quotations are not yet supported for PHP target"
+    | Fable.Quote(body, _isTyped, _r) ->
+        // Lower the quoted body to runtime calls that build the quotation AST,
+        // then convert like any other expression (mirrors JS/Python/Beam/Rust).
+        convertExpr com (QuotationEmitter.emitQuotedExpr com body)
 
     | Fable.Unresolved _ -> failwith "Unexpected unresolved expression"
 

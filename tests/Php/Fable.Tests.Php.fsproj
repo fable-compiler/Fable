@@ -31,6 +31,7 @@
     <Compile Include="TestUnionType.fs" />
     <Compile Include="TestLoops.fs" />
     <Compile Include="TestAsync.fs" />
+    <Compile Include="TestQuotation.fs" />
     <Compile Include="Main.fs" />
 
   </ItemGroup>
