@@ -174,6 +174,17 @@ let ``Decimal literals can be generated`` () =
     -79228162514264337593543950335M |> equal Decimal.MinValue
 
 [<Fact>]
+let ``Decimal integer predicates work`` () =
+    System.Decimal.IsInteger(3M) |> equal true
+    System.Decimal.IsInteger(3.5M) |> equal false
+    System.Decimal.IsEvenInteger(4M) |> equal true
+    System.Decimal.IsEvenInteger(3M) |> equal false
+    System.Decimal.IsOddInteger(3M) |> equal true
+    System.Decimal.IsOddInteger(4M) |> equal false
+    System.Decimal.IsOddInteger(-3M) |> equal true
+    System.Decimal.IsOddInteger(3.5M) |> equal false
+
+[<Fact>]
 let ``Decimal.ToString works`` () =
     string 001.23456M |> equal "1.23456"
     string 1.23456M |> equal "1.23456"

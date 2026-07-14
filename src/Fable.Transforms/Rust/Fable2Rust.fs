@@ -1527,6 +1527,10 @@ module Util =
         | t1, t2 when t1 = t2 -> expr // no cast needed if types are the same
         | Fable.Number _, Fable.Number _ -> expr |> mkCastExpr ty
         | Fable.Char, Fable.Number(UInt32, Fable.NumberInfo.Empty) -> expr |> mkCastExpr ty
+        // bool -> integer (Rust allows `b as iN`/`b as uN`, yields 0/1)
+        | Fable.Boolean,
+          Fable.Number((Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64 | Int128 | UInt128 | NativeInt | UNativeInt),
+                       _) -> expr |> mkCastExpr ty
         | Fable.Tuple(ga1, false), Fable.Tuple(ga2, true) when ga1 = ga2 -> expr |> makeAsRef |> makeClone //.ToValueTuple()
         | Fable.Tuple(ga1, true), Fable.Tuple(ga2, false) when ga1 = ga2 -> expr |> makeLrcPtrValue com ctx //.ToTuple()
 
@@ -1840,8 +1844,33 @@ module Util =
         makeLibCall com ctx genArgsOpt "Native" "null" []
 
     let makeInit com ctx (typ: Fable.Type) =
-        let genArgsOpt = transformGenArgs com ctx [ typ ]
-        makeLibCall com ctx genArgsOpt "Native" "getZero" []
+        // `Native::getZero` uses `core::mem::zeroed`, which panics at runtime when the
+        // type is a reference type (Rc/Arc/Box pointer). For such pre-declared match
+        // bindings we must emit a valid placeholder value instead (it is only there to
+        // satisfy definite-assignment and gets overwritten before it is ever read).
+        match typ with
+        | Fable.Any ->
+            // `dyn Any` is unsized, so `Native::null` (needs a sized `NullableRef`) does
+            // not apply; use a valid boxed-unit placeholder of type `LrcPtr<dyn Any>`.
+            makeLibCall com ctx None "Native" "getZeroObj" []
+        | _ ->
+            // Only concrete (sized) `Lrc`-wrapped reference types can use the null-ref
+            // placeholder. Unsized refs (interfaces, enumerators) and Arc/Box-wrapped
+            // types keep `getZero` (they don't reach this path in practice).
+            let isConcreteLrcRef =
+                match shouldBeRefCountWrapped com ctx typ with
+                | Some Lrc ->
+                    match typ with
+                    | Fable.DeclaredType(entRef, _) -> not (com.GetEntity(entRef)).IsInterface
+                    | Replacements.Util.IsEnumerator _ -> false
+                    | _ -> true
+                | _ -> false
+
+            if isConcreteLrcRef then
+                makeNull com ctx typ
+            else
+                let genArgsOpt = transformGenArgs com ctx [ typ ]
+                makeLibCall com ctx genArgsOpt "Native" "getZero" []
 
     let makeDefault com ctx (typ: Fable.Type) =
         let genArgsOpt = transformGenArgs com ctx [ typ ]
@@ -2370,6 +2399,12 @@ module Util =
             | UnaryOperator.UnaryNotBitwise -> mkNotExpr expr // ?loc=range)
             | UnaryOperator.UnaryAddressOf -> expr |> mkAddrOfExpr
 
+        | Fable.Binary(BinaryOperator.BinaryExponent, leftExpr, rightExpr) ->
+            // Rust has no `**` operator; F# (**) is floating-point exponentiation.
+            let left = transformLeaveContext com ctx None leftExpr |> maybeAddParens leftExpr
+            let right = transformLeaveContext com ctx None rightExpr |> maybeAddParens rightExpr
+            mkMethodCallExpr "powf" None left [ right ]
+
         | Fable.Binary(op, leftExpr, rightExpr) ->
             let kind =
                 match op with
@@ -2387,7 +2422,7 @@ module Util =
                 | BinaryOperator.BinaryMultiply -> Rust.BinOpKind.Mul
                 | BinaryOperator.BinaryDivide -> Rust.BinOpKind.Div
                 | BinaryOperator.BinaryModulus -> Rust.BinOpKind.Rem
-                | BinaryOperator.BinaryExponent -> failwithf "BinaryExponent not supported. TODO: implement with pow."
+                | BinaryOperator.BinaryExponent -> failwith "unreachable: BinaryExponent handled above"
                 | BinaryOperator.BinaryOrBitwise -> Rust.BinOpKind.BitOr
                 | BinaryOperator.BinaryXorBitwise -> Rust.BinOpKind.BitXor
                 | BinaryOperator.BinaryAndBitwise -> Rust.BinOpKind.BitAnd
@@ -3360,17 +3395,18 @@ module Util =
             function
             | Fable.Operation(Fable.Binary(BinaryEqual, left, right), _, _, _) ->
                 match left, right with
-                | _, Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _) ->
-                    Some(left, right)
-                | Fable.Value((Fable.CharConstant _ | Fable.StringConstant _ | Fable.NumberConstant _), _), _ ->
-                    Some(right, left)
+                // NOTE: StringConstant is intentionally excluded — Rust match patterns can't
+                // represent a fable-library string (it lowers to a `string("...")` call), so
+                // string matches must use the if/else decision-tree path with real `==`.
+                | _, Fable.Value((Fable.CharConstant _ | Fable.NumberConstant _), _) -> Some(left, right)
+                | Fable.Value((Fable.CharConstant _ | Fable.NumberConstant _), _), _ -> Some(right, left)
                 | _ -> None
-            | Fable.Test(expr, Fable.OptionTest isSome, r) ->
-                let evalExpr =
-                    Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), r)
-
-                let right = makeIntConst (makeTest isSome 0 1)
-                Some(evalExpr, right)
+            // NOTE: `OptionTest` is intentionally NOT converted into a UnionTag switch.
+            // When the option scrutinee is not a plain ident (e.g. a field access or an
+            // active-pattern result), `transformSwitch` cannot recover the `Option` type
+            // and emits integer-literal patterns (`0_i32`) against a native `Option<T>`,
+            // which is a type error. Letting these fall through to the if/else decision
+            // tree path (is_some/is_none) compiles and runs correctly.
             | Fable.Test(expr, Fable.UnionCaseTest tag, r) ->
                 let evalExpr =
                     Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), r)
@@ -3545,18 +3581,16 @@ module Util =
             let ctx = { ctx with DecisionTargets = targets }
             transformSwitch com ctx (targetId |> Fable.IdentExpr) cases (Some defaultCase)
 
-        match tryTransformAsSwitch treeExpr with
-        | Some(evalExpr, cases, defaultCase) ->
-            // let cases = groupSwitchCases typ cases defaultCase
-            let switch1 = transformSwitch com ctx evalExpr cases (Some defaultCase)
+        // NOTE: switch1 must ASSIGN matchResult (+ bound idents) via DecisionTreeSuccess,
+        // not execute the target bodies directly. Transforming the tree as a switch here
+        // (via tryTransformAsSwitch) would run the target bodies with still-unassigned
+        // bindings and leave matchResult = 0, so switch2 would always dispatch to target 0.
+        // Instead, transform the tree directly so DecisionTreeSuccess nodes become
+        // assignments (via transformDecisionTreeSuccess), then let switch2 dispatch.
+        let decisionTree = com.TransformExpr(ctx, treeExpr)
 
-            varDecls @ [ switch1 |> mkSemiStmt ] @ [ switch2 |> mkExprStmt ]
-            |> mkStmtBlockExpr
-        | None ->
-            let decisionTree = com.TransformExpr(ctx, treeExpr)
-
-            varDecls @ [ decisionTree |> mkSemiStmt ] @ [ switch2 |> mkExprStmt ]
-            |> mkStmtBlockExpr
+        varDecls @ [ decisionTree |> mkSemiStmt ] @ [ switch2 |> mkExprStmt ]
+        |> mkStmtBlockExpr
 
     let transformDecisionTree (com: IRustCompiler) ctx targets (treeExpr: Fable.Expr) : Rust.Expr =
         let treeExpr = simplifyDecisionTree treeExpr

@@ -60,10 +60,10 @@ pub mod Decimal_ {
 
     pub fn isNegative(x: decimal) -> bool { x.is_sign_negative() }
     pub fn isPositive(x: decimal) -> bool { x.is_sign_positive() }
-    // pub fn isInteger(x: decimal) -> bool { false } //TODO:
-    // pub fn isEvenInteger(x: decimal) -> bool { false } //TODO:
-    // pub fn isOddInteger(x: decimal) -> bool { false } //TODO:
-    // pub fn isCanonical(x: decimal) -> bool { false } //TODO:
+    pub fn isInteger(x: decimal) -> bool { x.fract() == Decimal::ZERO }
+    pub fn isEvenInteger(x: decimal) -> bool { isInteger(x) && (x % Decimal::from(2)) == Decimal::ZERO }
+    pub fn isOddInteger(x: decimal) -> bool { isInteger(x) && (x % Decimal::from(2)) != Decimal::ZERO }
+    pub fn isCanonical(x: decimal) -> bool { true }
 
     pub fn toInt8(x: decimal) -> i8 { x.to_i8().unwrap() }
     pub fn toUInt8(x: decimal) -> u8 { x.to_u8().unwrap() }

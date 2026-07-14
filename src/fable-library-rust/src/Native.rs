@@ -314,6 +314,13 @@ pub mod Native_ {
         unsafe { core::mem::zeroed() } // will panic on Rc/Arc/Box
     }
 
+    // A valid placeholder value of type `LrcPtr<dyn Any>`. Used to pre-declare
+    // reference-typed (`obj`) match bindings, as `getZero`/`mem::zeroed` panics on
+    // the `Rc` fat pointer and `null` is not available for the unsized `dyn Any`.
+    pub fn getZeroObj() -> LrcPtr<dyn Any> {
+        box_(())
+    }
+
     pub fn defaultOf<T: Default>() -> T {
         Default::default()
     }
