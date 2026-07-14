@@ -463,16 +463,73 @@ let private extractUsefulOptionsAndSources
     else
         (Path.normalizeFullPath line) :: accSources, accOptions
 
+// Identity of the real attribute, so a coincidentally-named one elsewhere doesn't match.
+let private scanForPluginsAttributeFullName =
+    typeof<ScanForPluginsAttribute>.FullName
+
+let private fableAstAssemblyName =
+    typeof<ScanForPluginsAttribute>.Assembly.GetName().Name
+
+/// Checks, via reflection metadata only, whether `dllPath` carries `[<assembly: Fable.ScanForPlugins>]`.
+let private hasScanForPluginsAttribute (dllPath: string) : bool =
+    if not (IO.File.Exists dllPath) then
+        false
+    elif IO.Path.GetFileNameWithoutExtension(dllPath) |> Metadata.isSystemPackage then
+        // Cheap name-based skip: BCL/Microsoft/FSharp.Core dlls are never Fable plugins.
+        false
+    else
+        try
+            let dllDir = IO.Path.GetDirectoryName(dllPath)
+
+            let runtimeDir =
+                System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory()
+
+            let resolver =
+                { new System.Reflection.MetadataAssemblyResolver() with
+                    override _.Resolve(context, assemblyName) =
+                        let inDllDir = IO.Path.Combine(dllDir, assemblyName.Name + ".dll")
+                        let inRuntimeDir = IO.Path.Combine(runtimeDir, assemblyName.Name + ".dll")
+
+                        if IO.File.Exists(inDllDir) then
+                            context.LoadFromAssemblyPath(inDllDir)
+                        elif IO.File.Exists(inRuntimeDir) then
+                            context.LoadFromAssemblyPath(inRuntimeDir)
+                        else
+                            null
+                }
+
+            use mlc = new System.Reflection.MetadataLoadContext(resolver, "System.Runtime")
+            let asm = mlc.LoadFromAssemblyPath(dllPath)
+
+            asm.GetCustomAttributesData()
+            |> Seq.exists (fun attr ->
+                try
+                    attr.AttributeType.FullName = scanForPluginsAttributeFullName
+                    && attr.AttributeType.Assembly.GetName().Name = fableAstAssemblyName
+                with _ ->
+                    false
+            )
+        with e ->
+            Log.always (
+                $"Could not scan {dllPath} for the Fable.ScanForPlugins attribute, "
+                + $"assuming it's not a plugin project. Original error: {e.Message}"
+            )
+
+            false
+
 let excludeProjRef (opts: CrackerOptions) (dllRefs: IDictionary<string, string>) (projRef: string) =
     let projName = Path.GetFileNameWithoutExtension(projRef)
 
-    let isExcluded =
+    let isExplicitlyExcluded =
         opts.Exclude
-        |> List.exists (fun e ->
-            String.Equals(e, Path.GetFileNameWithoutExtension(projRef), StringComparison.OrdinalIgnoreCase)
-        )
+        |> List.exists (fun e -> String.Equals(e, projName, StringComparison.OrdinalIgnoreCase))
 
-    if isExcluded then
+    let isAutoExcluded () =
+        match dllRefs.TryGetValue(projName) with
+        | true, dllPath -> hasScanForPluginsAttribute dllPath
+        | false, _ -> false
+
+    if isExplicitlyExcluded || isAutoExcluded () then
         try
             opts.BuildDll(dllRefs[projName])
         with e ->

@@ -22,9 +22,6 @@ let handle (args: string list) =
     |> CmdLine.appendPrefix "--outDir" destinationDir
     |> CmdLine.appendPrefix "--lang" "javascript"
     |> CmdLine.appendPrefix "--exclude" "Fable.Core"
-    // The plugin assembly must be loaded via reflection, not compiled from source.
-    |> CmdLine.appendPrefix "--exclude" "Fable.Tests.Plugin"
-    // Fable.AST must stay the same assembly the plugin was built against, not be re-cracked from source.
     |> CmdLine.appendPrefix "--exclude" "Fable.AST"
     |> CmdLine.appendRaw "--noCache"
     |> Command.Fable

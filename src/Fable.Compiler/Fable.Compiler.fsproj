@@ -41,6 +41,7 @@
         </PackageReference>
         <PackageReference Include="FSharp.SystemTextJson" Version="1.4.36" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.9" />
+        <PackageReference Include="System.Reflection.MetadataLoadContext" Version="10.0.9" />
     </ItemGroup>
 
     <ItemGroup>
