@@ -34,6 +34,7 @@
     <Compile Include="Naming/First/Types.fs" />
     <Compile Include="Naming/Second/Types.fs" />
     <Compile Include="Util.fs" />
+    <Compile Include="AssertTests.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="RandomTests.fs" />
     <Compile Include="ListTests.fs" />

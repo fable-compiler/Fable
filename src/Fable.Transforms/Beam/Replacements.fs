@@ -5836,11 +5836,15 @@ let tryCall
         | "receive", [] -> emitExpr r t [] "__fable_beam_receive_forever__" |> Some
         | "receive", [ timeoutArg ] -> emitExpr r t [ timeoutArg ] "__fable_beam_receive__($0)" |> Some
         | _ -> None
-    // Testing assertions (used by our test framework)
+    // Testing assertions (used by our test framework). These must *raise* on failure, like every
+    // other target does: lowering them to a bare `equals` yields a boolean that is then discarded,
+    // so no assertion could ever fail. Signature is Assert.AreEqual(actual, expected, ?msg).
     | "Fable.Core.Testing.Assert" ->
-        match info.CompiledName, args with
-        | "AreEqual", [ expected; actual ] -> equals com r true expected actual |> Some
-        | "NotEqual", [ expected; actual ] -> equals com r false expected actual |> Some
+        match info.CompiledName with
+        | "AreEqual" -> Helper.LibCall(com, "fable_utils", "assert_equal", t, args, ?loc = r) |> Some
+        | "NotEqual" ->
+            Helper.LibCall(com, "fable_utils", "assert_not_equal", t, args, ?loc = r)
+            |> Some
         | _ -> None
     // IDisposable
     | "System.IDisposable" ->

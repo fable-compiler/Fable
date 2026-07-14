@@ -233,6 +233,18 @@ let rec private transformTypeInfoRec
         let resolved = resolveGenerics generics
 
         match com.TryGetEntity(entRef) with
+        | Some ent when
+            FSharp2Fable.Util.isErasedOrStringEnumEntity ent
+            || FSharp2Fable.Util.isGlobalOrImportedEntity ent
+            ->
+            // An erased ([<Erase>], [<StringEnum>], [<TypeScriptTaggedUnion>]) or global/imported
+            // entity is never declared in the generated Erlang, so it has no reflection function
+            // to call. Report the bare type info instead — emitting `<entity>_reflection()` here
+            // produces a dangling call that fails to compile (when local) or crashes at run time
+            // (when remote). Types replaced from a dll (Result, Choice, ...) are deliberately not
+            // covered here: they have no SourcePath, so they never took the call branch below, and
+            // they still need their cases inlined to reflect as real unions.
+            makeTypeInfoMap entRef.FullName resolved
         | Some ent when (ent.IsFSharpRecord || ent.IsFSharpUnion) && entRef.SourcePath.IsSome ->
             // Call the entity's generated reflection function instead of inlining its
             // fields/cases. The by-name indirection is what lets a recursive type refer to

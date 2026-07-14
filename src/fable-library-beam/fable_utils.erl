@@ -32,7 +32,11 @@
     byte_array_get/2,
     byte_array_set/3,
     byte_array_length/1,
-    div_rem/3
+    div_rem/3,
+    assert_equal/2,
+    assert_equal/3,
+    assert_not_equal/2,
+    assert_not_equal/3
 ]).
 
 -spec iface_get(atom(), map() | reference() | {fable_import_all, atom()}) -> term().
@@ -68,6 +72,10 @@
 -spec byte_array_set(tuple() | reference(), non_neg_integer(), non_neg_integer()) -> ok.
 -spec byte_array_length(tuple() | reference()) -> non_neg_integer().
 -spec div_rem(integer(), integer(), reference()) -> integer().
+-spec assert_equal(term(), term()) -> ok.
+-spec assert_equal(term(), term(), binary() | undefined) -> ok.
+-spec assert_not_equal(term(), term()) -> ok.
+-spec assert_not_equal(term(), term(), binary() | undefined) -> ok.
 
 %% Interface dispatch: works for both object expressions (maps) and class instances (refs).
 %% Class interface property getters are stored as {getter, Fun} tagged thunks — call Fun().
@@ -534,3 +542,41 @@ byte_array_length(PdRef) when is_reference(PdRef) ->
 div_rem(X, Y, RemRef) ->
     put(RemRef, X rem Y),
     X div Y.
+
+%% Fable.Core.Testing.Assert. Mirrors fable-library-ts Util:assertEqual/assertNotEqual: on
+%% failure raise, rather than return a boolean, so a failing assertion actually fails the test.
+%% The raised term is a map carrying `message` plus the two operands, which is the shape
+%% Fable2Beam unwraps into an F# exception -- so `e.Message` reads cleanly in `try ... with`,
+%% and a test runner can still pattern-match `actual`/`expected` off the map.
+assert_equal(Actual, Expected) ->
+    assert_equal(Actual, Expected, undefined).
+
+assert_equal(Actual, Expected, Msg) ->
+    case fable_comparison:equals(Actual, Expected) of
+        true -> ok;
+        false -> assert_failed(Msg, <<"Expected">>, Actual, Expected)
+    end.
+
+assert_not_equal(Actual, Expected) ->
+    assert_not_equal(Actual, Expected, undefined).
+
+assert_not_equal(Actual, Expected, Msg) ->
+    case fable_comparison:equals(Actual, Expected) of
+        false -> ok;
+        true -> assert_failed(Msg, <<"Expected not equal to">>, Actual, Expected)
+    end.
+
+assert_failed(Msg, Label, Actual, Expected) ->
+    Message =
+        case Msg of
+            undefined ->
+                iolist_to_binary([
+                    Label, ": ", format_term(Expected), " - Actual: ", format_term(Actual)
+                ]);
+            _ ->
+                Msg
+        end,
+    erlang:error(#{message => Message, actual => Actual, expected => Expected}).
+
+format_term(V) when is_binary(V) -> V;
+format_term(V) -> iolist_to_binary(io_lib:format("~p", [V])).
