@@ -3314,19 +3314,37 @@ let uris
     =
     match i.CompiledName with
     | ".ctor" ->
-        Helper.LibCall(com, "Uri", "Uri.create", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        match args with
+        | [ ExprType String ] ->
+            Helper.LibCall(com, "Uri", "create", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | [ ExprType String; _ ] ->
+            Helper.LibCall(com, "Uri", "createWithKind", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | [ _; ExprType String ] ->
+            Helper.LibCall(com, "Uri", "createFromString", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | [ _; _ ] ->
+            Helper.LibCall(com, "Uri", "createFromUri", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | _ -> None
     | "TryCreate" ->
-        Helper.LibCall(com, "Uri", "Uri.tryCreate", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+        match args with
+        | (ExprType String) :: _ ->
+            Helper.LibCall(com, "Uri", "tryCreateWithKind", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | _ ->
+            Helper.LibCall(com, "Uri", "tryCreateFromUri", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+    | "ToString" -> toString com ctx r [ thisArg.Value ] |> Some
     | "UnescapeDataString" ->
-        Helper.LibCall(com, "Util", "unescapeDataString", t, args, i.SignatureArgTypes)
+        Helper.LibCall(com, "Uri", "unescapeDataString", t, args, i.SignatureArgTypes)
         |> Some
     | "EscapeDataString" ->
-        Helper.LibCall(com, "Util", "escapeDataString", t, args, i.SignatureArgTypes)
+        Helper.LibCall(com, "Uri", "escapeDataString", t, args, i.SignatureArgTypes)
         |> Some
     | "EscapeUriString" ->
-        Helper.LibCall(com, "Util", "escapeUriString", t, args, i.SignatureArgTypes)
+        Helper.LibCall(com, "Uri", "escapeUriString", t, args, i.SignatureArgTypes)
         |> Some
     | "get_IsAbsoluteUri"
     | "get_Scheme"
@@ -3336,11 +3354,7 @@ let uris
     | "get_PathAndQuery"
     | "get_Query"
     | "get_Fragment"
-    | "get_OriginalString" ->
-        Naming.removeGetSetPrefix i.CompiledName
-        |> Naming.lowerFirst
-        |> getFieldWith r t thisArg.Value
-        |> Some
+    | "get_OriginalString" -> makeMemberCall com ctx r t i "Uri" i.CompiledName thisArg args |> Some
     | _ -> None
 
 let laziness (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =

@@ -33,4 +33,5 @@ let _imports () =
     importAll "./String.rs"
     importAll "./TimeOnly.rs"
     importAll "./TimeSpan.rs"
+    importAll "./Uri.rs"
     ()

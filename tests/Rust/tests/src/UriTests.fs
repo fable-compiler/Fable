@@ -86,6 +86,15 @@ let ``Uri from baseUri with absolute Uri works`` () =
     equal "http://www.example.com/" uri.AbsoluteUri
 
 [<Fact>]
+let ``Uri from baseUri with a different absolute Uri yields the absolute one`` () =
+    // .NET: when the second URI is absolute it wins and the base is ignored.
+    let baseUri = Uri("http://www.base.com/", UriKind.Absolute)
+    let absUri = Uri("http://www.other.com/path", UriKind.Absolute)
+    let uri = Uri(baseUri, absUri)
+    equal "www.other.com" uri.Host
+    equal "http://www.other.com/path" uri.AbsoluteUri
+
+[<Fact>]
 let ``TryCreate from absolute string with kind Absolute works`` () =
     let (valid, uri) = Uri.TryCreate("http://www.test0.com/hello?a=b#c", UriKind.Absolute)
     equal true valid
@@ -141,6 +150,15 @@ let ``TryCreate from absolute uri and absolute uri should work`` () =
     equal absUri uri
 
 [<Fact>]
+let ``TryCreate from absolute uri and different absolute uri yields the second`` () =
+    // .NET: when the second URI is absolute it wins and the base is ignored.
+    let baseUri = Uri("http://www.base.com/", UriKind.Absolute)
+    let other = Uri("http://www.other.com/path", UriKind.Absolute)
+    let (valid, uri) = Uri.TryCreate(baseUri, other)
+    equal true valid
+    equal "www.other.com" uri.Host
+
+[<Fact>]
 let ``TryCreate from absolute uri and relative uri should work`` () =
     let (valid, uri) = Uri.TryCreate(Uri("https://example.com", UriKind.Absolute), Uri("test", UriKind.Relative))
     equal true valid
@@ -164,6 +182,27 @@ let ``Uri.ToString works`` () =
     sprintf "%A" uri |> equal "http://www.test4.com/a b c.html"
 
 [<Fact>]
+let ``Uri from authority-less absolute scheme works`` () =
+    // mailto:/tel:/urn: are absolute URIs without an authority; must not panic.
+    let mailto = Uri("mailto:a@b.com")
+    equal true mailto.IsAbsoluteUri
+    equal "mailto" mailto.Scheme
+    equal "mailto:a@b.com" mailto.AbsoluteUri
+    let tel = Uri("tel:+1")
+    equal true tel.IsAbsoluteUri
+    equal "tel" tel.Scheme
+    let urn = Uri("urn:x:y")
+    equal true urn.IsAbsoluteUri
+    equal "urn" urn.Scheme
+
+[<Fact>]
+let ``Uri relative resolution collapses dot segments`` () =
+    let uri = Uri(Uri("http://h/a/b"), "../c")
+    equal "http://h/c" uri.AbsoluteUri
+    let uri2 = Uri(Uri("http://h/a/b/"), "../../x")
+    equal "http://h/x" uri2.AbsoluteUri
+
+[<Fact>]
 let ``Uri.OriginalString works`` () =
     let cases = [
         "http://example.org"
@@ -174,3 +213,21 @@ let ``Uri.OriginalString works`` () =
     for case in cases do
         let uri = Uri(case)
         uri.OriginalString |> equal case
+
+[<Fact>]
+let ``Uri.EscapeDataString works`` () =
+    Uri.EscapeDataString("Hello World!") |> equal "Hello%20World%21"
+    Uri.EscapeDataString("aA1-_.~") |> equal "aA1-_.~"
+    // multi-byte chars percent-encode each UTF-8 byte
+    Uri.EscapeDataString("ä") |> equal "%C3%A4"
+
+[<Fact>]
+let ``Uri.UnescapeDataString works`` () =
+    Uri.UnescapeDataString("Hello%20World%21") |> equal "Hello World!"
+    Uri.UnescapeDataString("%C3%A4") |> equal "ä"
+    // an invalid escape sequence is left untouched
+    Uri.UnescapeDataString("100%") |> equal "100%"
+
+[<Fact>]
+let ``Uri.EscapeUriString keeps reserved characters`` () =
+    Uri.EscapeUriString("http://test.com/a b?c=d&e") |> equal "http://test.com/a%20b?c=d&e"

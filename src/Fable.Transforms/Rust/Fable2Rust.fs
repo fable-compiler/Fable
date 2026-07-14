@@ -1024,6 +1024,10 @@ module TypeInfo =
             let entName = getLibraryImportName com ctx "Random" "Random"
             let genArgsOpt = transformGenArgs com ctx genArgs
             makeFullNamePathTy entName genArgsOpt
+        | _ when entRef.FullName = "System.Uri" ->
+            let entName = getLibraryImportName com ctx "Uri" "Uri"
+            let genArgsOpt = transformGenArgs com ctx genArgs
+            makeFullNamePathTy entName genArgsOpt
         | ent ->
             let entName = getEntityFullName com ctx entRef
             let genArgsOpt = transformGenArgs com ctx genArgs
@@ -1176,6 +1180,9 @@ module TypeInfo =
 
             // implemented random type
             | Replacements.Util.IsEntity (Types.random) (_, []) -> transformImportType com ctx [] "Random" "Random"
+
+            // implemented uri type
+            | Replacements.Util.IsEntity ("System.Uri") (_, []) -> transformImportType com ctx [] "Uri" "Uri"
 
             // implemented event type (FSharpEvent`1); the module functions and
             // the .ctor are routed to Event_ by the events replacement, so the
