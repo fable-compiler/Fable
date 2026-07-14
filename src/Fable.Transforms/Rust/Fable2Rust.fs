@@ -632,12 +632,15 @@ module TypeInfo =
         // always not Rc-wrapped
         | Fable.Unit
         | Fable.Measure _
-        | Fable.MetaType
         | Fable.Boolean
         | Fable.Char
         | Fable.Number _ -> None
 
         // should be Rc-wrapped
+        // MetaType (System.Type) is erased to Any and carries a boxed reflection
+        // object at runtime, so it must be Lrc-wrapped like Any (a bare `dyn Any`
+        // is unsized and cannot appear as a value/argument).
+        | Fable.MetaType
         | Fable.Any
         | Fable.Regex
         | Replacements.Util.Builtin(Replacements.Util.FSharpReference _)
@@ -1128,7 +1131,11 @@ module TypeInfo =
             | Fable.Char -> primitiveType "char"
             | Fable.Boolean -> primitiveType "bool"
             | Fable.String -> transformStringType com ctx
-            | Fable.MetaType -> transformMetaType com ctx
+            // System.Type has no faithful runtime on Rust (reflection is a stub), so erase it
+            // to Any. This lets the NewRecord quotation deconstruction bind its type slot to the
+            // boxed value the quotation runtime returns; typeof-based reflection is unsupported
+            // regardless (see the disabled ReflectionTests).
+            | Fable.MetaType -> transformAnyType com ctx
             | Fable.Number(kind, _) -> transformNumberType com ctx kind
             | Fable.LambdaType(argType, returnType) ->
                 let argTypes, returnType = ([ argType ], returnType)
@@ -1183,6 +1190,28 @@ module TypeInfo =
 
             // built-in types
             | Replacements.Util.Builtin kind -> transformBuiltinType com ctx typ kind
+
+            // Typed quotation Expr<'T>: erase the type argument so it shares the untyped
+            // FSharpExpr runtime representation. This lets a typed quotation (e.g. <@ 42 @>)
+            // be matched directly against the Patterns active patterns, which operate on
+            // the untyped Expr.
+            | Fable.DeclaredType(entRef, _) when entRef.FullName = Types.fsharpExprGeneric ->
+                transformEntityType com ctx { entRef with FullName = Types.fsharpExpr } []
+
+            // UnionCaseInfo (from a NewUnionCase quotation deconstruction) is erased to the
+            // Rust-native FSharpUnionCaseInfo carrier so uci.Name/uci.Tag resolve to the
+            // quotation runtime accessors. We build the import path directly (rather than via
+            // transformEntityType) because that carrier type does not exist in FSharp.Core, so
+            // com.GetEntity on the renamed ref would fail; getEntityFullName imports the type
+            // from fable_library_rust purely by FullName.
+            | Fable.DeclaredType(entRef, _) when entRef.FullName = "Microsoft.FSharp.Reflection.UnionCaseInfo" ->
+                let entName =
+                    getEntityFullName
+                        com
+                        ctx
+                        { entRef with FullName = "Microsoft.FSharp.Quotations.FSharpUnionCaseInfo" }
+
+                makeFullNamePathTy entName None
 
             // other declared types
             | Fable.DeclaredType(entRef, genArgs) -> transformEntityType com ctx entRef genArgs
@@ -3698,9 +3727,10 @@ module Util =
 
                 mkUnitExpr ()
 
-        | Fable.Quote _ ->
-            addError com [] None "Quotations are not yet supported for Rust target"
-            mkUnitExpr ()
+        | Fable.Quote(body, _isTyped, _r) ->
+            // Lower the quoted body to runtime calls that build the quotation AST,
+            // then transform those like any other expression (mirrors JS/Python/Beam).
+            QuotationEmitter.emitQuotedExpr com body |> transformExpr com ctx
 
     let rec tryFindEntryPoint (com: IRustCompiler) decl : string list option =
         match decl with

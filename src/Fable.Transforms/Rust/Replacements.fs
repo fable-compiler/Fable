@@ -3695,7 +3695,13 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
             fsharpType com methName r t info args
         else
             fsharpValue com methName r t info args
-    | "Microsoft.FSharp.Reflection.UnionCaseInfo"
+    | "Microsoft.FSharp.Reflection.UnionCaseInfo" ->
+        // UnionCaseInfo from a NewUnionCase quotation deconstruction is a Rust-native
+        // FSharpUnionCaseInfo carrier; route member access to the quotation runtime.
+        match thisArg, info.CompiledName with
+        | Some c, "get_Name" -> Helper.LibCall(com, "quotation", "unionCaseName", t, [ c ], ?loc = r) |> Some
+        | Some c, "get_Tag" -> Helper.LibCall(com, "quotation", "unionCaseTag", t, [ c ], ?loc = r) |> Some
+        | _ -> None
     | "System.Reflection.PropertyInfo"
     | "System.Reflection.ParameterInfo"
     | "System.Reflection.MethodBase"
@@ -3716,7 +3722,8 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
                 getTypeName com ctx loc exprType |> StringConstant |> makeValue r |> Some
             | c -> Helper.LibCall(com, "Reflection", "name", t, [ c ], ?loc = r) |> Some
         | _ -> None
-    | _ -> None
+    // F# Quotations
+    | typeName -> Quotations.tryQuotationCall "quotation" com ctx r t info thisArg args typeName
 
 let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
