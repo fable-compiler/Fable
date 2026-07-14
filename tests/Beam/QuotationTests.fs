@@ -63,6 +63,16 @@ let ``test Evaluate simple value`` () =
     equal 42 (result :?> int)
 
 [<Fact>]
+let ``test Evaluate boolean value`` () =
+    let result = LeafExpressionConverter.EvaluateQuotation <@ true @>
+    equal true (result :?> bool)
+
+[<Fact>]
+let ``test Evaluate string value`` () =
+    let result = LeafExpressionConverter.EvaluateQuotation <@ "hello" @>
+    equal "hello" (result :?> string)
+
+[<Fact>]
 let ``test Evaluate addition`` () =
     let result = LeafExpressionConverter.EvaluateQuotation <@ 1 + 2 @>
     equal 3 (result :?> int)
@@ -73,9 +83,14 @@ let ``test Evaluate let binding`` () =
     equal 15 (result :?> int)
 
 [<Fact>]
-let ``test Evaluate if then else`` () =
+let ``test Evaluate if then else true branch`` () =
     let result = LeafExpressionConverter.EvaluateQuotation <@ if true then 1 else 2 @>
     equal 1 (result :?> int)
+
+[<Fact>]
+let ``test Evaluate if then else false branch`` () =
+    let result = LeafExpressionConverter.EvaluateQuotation <@ if false then 1 else 2 @>
+    equal 2 (result :?> int)
 
 [<Fact>]
 let ``test Evaluate lambda application`` () =
@@ -146,3 +161,19 @@ let ``test Expr.GetFreeVars returns empty for closed expr`` () =
     let q = <@ fun x -> x + 1 @>
     let freeVars = q.GetFreeVars() |> Seq.length
     equal 0 freeVars
+
+// --- Pattern matches lower to IfThenElse (DecisionTree/Test handling) ---
+
+[<Fact>]
+let ``test Option match deconstructs to IfThenElse`` () =
+    let q = <@ fun (o: int option) -> match o with Some v -> v | None -> 0 @>
+    match q with
+    | Lambda(_, IfThenElse(_, _, _)) -> ()
+    | _ -> failwith "Expected Lambda with IfThenElse body"
+
+[<Fact>]
+let ``test Literal match deconstructs to IfThenElse`` () =
+    let q = <@ fun (x: int) -> match x with 0 -> "zero" | _ -> "other" @>
+    match q with
+    | Lambda(_, IfThenElse(_, _, _)) -> ()
+    | _ -> failwith "Expected Lambda with IfThenElse body"

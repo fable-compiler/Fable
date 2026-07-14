@@ -58,3 +58,18 @@ let ``Evaluate subtraction`` () =
 let ``Evaluate comparison`` () =
     let r = LeafExpressionConverter.EvaluateQuotation <@ 5 > 3 @>
     unbox<bool> r |> equal true
+
+[<Fact>]
+let ``Evaluate let binding`` () =
+    let r = LeafExpressionConverter.EvaluateQuotation <@ let x = 10 in x + 5 @>
+    unbox<int> r |> equal 15
+
+[<Fact>]
+let ``Evaluate lambda application`` () =
+    let r = LeafExpressionConverter.EvaluateQuotation <@ (fun a -> a * 2) 21 @>
+    unbox<int> r |> equal 42
+
+[<Fact>]
+let ``Evaluate let-bound lambda`` () =
+    let r = LeafExpressionConverter.EvaluateQuotation <@ let f = (fun x -> x + 1) in f 41 @>
+    unbox<int> r |> equal 42
