@@ -70,4 +70,34 @@ let ``test Assert.NotEqual uses the custom message`` () =
     | Some msg ->
         if msg <> "values are equal" then
             failwith ("Unexpected assertion message: " + msg)
+
+// === User functions named like the old assertion selectors ===
+// Fable2Beam used to inline an assertion at any call site whose import selector was named
+// `assertEqual`/`assertNotEqual`/`Testing_equal`/`Testing_notEqual`, matching a name rather than an
+// entity — so a user's own same-named function never ran its body. Each call below passes differing
+// arguments, which the interception would have turned into a *raise*; they must instead return the
+// function's own result. See tests/Beam/Misc/UserAssert.fs.
+
+let private returns (expected: string) (f: unit -> string) =
+    match (try Ok(f ()) with e -> Error e.Message) with
+    | Error msg -> failwith ("User function was rewritten into an assertion, and raised: " + msg)
+    | Ok actual ->
+        if actual <> expected then
+            failwith ("User function did not run its own body, returned: " + actual)
+
+[<Fact>]
+let ``test a user function named assertEqual is not rewritten`` () =
+    returns "assertEqual:1:2" (fun () -> UserAssert.assertEqual 1 2)
+
+[<Fact>]
+let ``test a user function named assertNotEqual is not rewritten`` () =
+    returns "assertNotEqual:1:1" (fun () -> UserAssert.assertNotEqual 1 1)
+
+[<Fact>]
+let ``test a user function named Testing.equal is not rewritten`` () =
+    returns "equal:1:2" (fun () -> UserAssert.Testing.equal 1 2)
+
+[<Fact>]
+let ``test a user function named Testing.notEqual is not rewritten`` () =
+    returns "notEqual:1:1" (fun () -> UserAssert.Testing.notEqual 1 1)
 #endif
