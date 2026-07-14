@@ -115,18 +115,22 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         let instanceExpr =
             match info.ThisArg with
             | Some thisArg -> emitQuotedExpr com thisArg
-            | None -> Value(Null Any, None)
+            // A static/operator call has no instance. Emit a runtime-built null node
+            // (not a raw null literal) so every target — notably statically typed ones
+            // like Rust — sees an Expr in the instance position.
+            | None -> mkNullExpr com "null"
 
-        let methodName =
+        let declaringType, methodName =
             match info.MemberRef with
-            | Some(MemberRef(_, mInfo)) -> mInfo.CompiledName
-            | _ -> "unknown"
+            | Some(MemberRef(declaringEntity, mInfo)) -> declaringEntity.FullName, mInfo.CompiledName
+            | _ -> "", "unknown"
 
         let methodExpr = makeStrConst methodName
+        let declTypeExpr = makeStrConst declaringType
 
-        let argExprs = info.Args |> List.map (emitQuotedExpr com) |> makeArray Any
+        let argExprs = mkExprArray com (info.Args |> List.map (emitQuotedExpr com))
 
-        Helper.LibCall(com, "quotation", "mkCall", Any, [ instanceExpr; methodExpr; argExprs ])
+        Helper.LibCall(com, "quotation", "mkCall", Any, [ instanceExpr; methodExpr; argExprs; declTypeExpr ])
 
     | Sequential exprs ->
         match exprs with
@@ -183,11 +187,12 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
                 name, [ left; right ]
 
         let methodExpr = makeStrConst opName
-        let instanceExpr = Value(Null Any, None)
+        let instanceExpr = mkNullExpr com "null"
 
-        let argExprs = args |> List.map (emitQuotedExpr com) |> makeArray Any
+        let argExprs = mkExprArray com (args |> List.map (emitQuotedExpr com))
 
-        Helper.LibCall(com, "quotation", "mkCall", Any, [ instanceExpr; methodExpr; argExprs ])
+        // Operators have no declaring type; pass an empty string.
+        Helper.LibCall(com, "quotation", "mkCall", Any, [ instanceExpr; methodExpr; argExprs; makeStrConst "" ])
 
     | Get(expr, kind, _typ, _r) ->
         let target = emitQuotedExpr com expr
@@ -198,8 +203,29 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         | UnionField info ->
             Helper.LibCall(com, "quotation", "mkUnionField", Any, [ target; makeIntConst info.FieldIndex ])
         | FieldGet info -> Helper.LibCall(com, "quotation", "mkFieldGet", Any, [ target; makeStrConst info.Name ])
+        | ListHead
+        | ListTail
+        | OptionValue ->
+            // Represent option/list value accessors as property-getter calls,
+            // mirroring how F# quotations model them (PropertyGet get_Value/get_Head/get_Tail).
+            let methodName =
+                match kind with
+                | ListHead -> "get_Head"
+                | ListTail -> "get_Tail"
+                | _ -> "get_Value"
+
+            let emptyArgs = mkExprArray com []
+
+            Helper.LibCall(
+                com,
+                "quotation",
+                "mkCall",
+                Any,
+                [ target; makeStrConst methodName; emptyArgs; makeStrConst "" ]
+            )
         | _ ->
-            // ListHead, ListTail, OptionValue, ExprGet — fall through
+            // TupleIndex/UnionTag/UnionField/FieldGet handled above; ExprGet and any
+            // future kinds fall through here.
             let msg = "Unsupported quotation Get kind"
             Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
 
@@ -221,14 +247,27 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         // Coerce/cast: just emit the inner expression for now
         emitQuotedExpr com innerExpr
 
-    | DecisionTree(matchExpr, targets) ->
-        // Simple pattern: if this is a single-target decision tree (e.g. let binding),
-        // emit the target body directly. Otherwise fall through to unsupported.
-        match targets with
-        | [ ([], body) ] -> emitQuotedExpr com body
-        | _ ->
-            let msg = "Unsupported quotation node: DecisionTree"
-            Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
+    | DecisionTree(decisionExpr, targets) ->
+        // Inline every DecisionTreeSuccess leaf into its target body, binding the
+        // target's captured idents to the success's bound values with nested Lets.
+        // This turns the compiled match into a plain IfThenElse/Let tree that the
+        // quotation representation can express faithfully (a shared target is simply
+        // inlined at each reference site).
+        let inlined =
+            decisionExpr
+            |> visitFromInsideOut (fun e ->
+                match e with
+                | DecisionTreeSuccess(idx, boundValues, _) when idx < List.length targets ->
+                    let idents, body = List.item idx targets
+
+                    if List.length idents = List.length boundValues then
+                        List.foldBack (fun (id, v) acc -> Let(id, v, acc)) (List.zip idents boundValues) body
+                    else
+                        e
+                | e -> e
+            )
+
+        emitQuotedExpr com inlined
 
     | DecisionTreeSuccess(idx, boundValues, _typ) ->
         match boundValues with
@@ -238,11 +277,90 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
             let msg = "Unsupported quotation node: DecisionTreeSuccess"
             Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
 
+    | Test(testExpr, kind, _r) ->
+        let target = emitQuotedExpr com testExpr
+
+        match kind with
+        | UnionCaseTest tag ->
+            // Represent as: (unionTag target) = tag
+            let tagExpr = Helper.LibCall(com, "quotation", "mkUnionTag", Any, [ target ])
+            let tagConst = emitQuotedExpr com (makeIntConst tag)
+
+            Helper.LibCall(
+                com,
+                "quotation",
+                "mkCall",
+                Any,
+                [
+                    mkNullExpr com "null"
+                    makeStrConst "op_Equality"
+                    mkExprArray com [ tagExpr; tagConst ]
+                    makeStrConst ""
+                ]
+            )
+        | OptionTest isSome ->
+            let methodName =
+                if isSome then
+                    "get_IsSome"
+                else
+                    "get_IsNone"
+
+            Helper.LibCall(
+                com,
+                "quotation",
+                "mkCall",
+                Any,
+                [
+                    target
+                    makeStrConst methodName
+                    mkExprArray com []
+                    makeStrConst "Microsoft.FSharp.Core.FSharpOption`1"
+                ]
+            )
+        | ListTest isCons ->
+            let methodName =
+                if isCons then
+                    "get_IsCons"
+                else
+                    "get_IsEmpty"
+
+            Helper.LibCall(
+                com,
+                "quotation",
+                "mkCall",
+                Any,
+                [
+                    target
+                    makeStrConst methodName
+                    mkExprArray com []
+                    makeStrConst "Microsoft.FSharp.Collections.FSharpList`1"
+                ]
+            )
+        | TypeTest typ ->
+            Helper.LibCall(
+                com,
+                "quotation",
+                "mkCall",
+                Any,
+                [
+                    target
+                    makeStrConst "op_TypeTest"
+                    mkExprArray com []
+                    makeStrConst (typeToString typ)
+                ]
+            )
+
     | _ ->
         // Unsupported node: emit an error value
         let msg = $"Unsupported quotation node: %A{expr.GetType().Name}"
 
         Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
+
+and private mkNullExpr (com: Compiler) (typ: string) : Expr =
+    // A runtime-built null node. Emitting this (rather than a raw null literal)
+    // keeps generated code compiling on statically typed targets like Rust, while
+    // producing the same ExprValue(null, typ) shape the other runtimes had before.
+    Helper.LibCall(com, "quotation", "mkNull", Any, [ makeStrConst typ ])
 
 and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocation option) : Expr =
     match kind with
@@ -258,15 +376,19 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
     | StringConstant s -> Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst s; makeStrConst "string" ])
 
     | UnitConstant ->
-        Helper.LibCall(com, "quotation", "mkValue", Any, [ Value(UnitConstant, None); makeStrConst "unit" ])
+        // A unit carries no data. Emit a null node (as for Null) rather than mkValue with a
+        // literal unit: statically typed targets can't pass a unit/void literal as an
+        // argument (Dart lowers `()` to a `void` expression; Rust similarly can't box it
+        // meaningfully). mkNull produces a valid ExprValue(<sentinel>, "unit").
+        mkNullExpr com "unit"
 
-    | Null _ -> Helper.LibCall(com, "quotation", "mkValue", Any, [ Value(Null Any, None); makeStrConst "null" ])
+    | Null _ -> mkNullExpr com "null"
 
     | CharConstant c ->
         Helper.LibCall(com, "quotation", "mkValue", Any, [ Value(CharConstant c, None); makeStrConst "char" ])
 
     | NewTuple(values, _isStruct) ->
-        let emittedValues = values |> List.map (emitQuotedExpr com) |> makeArray Any
+        let emittedValues = mkExprArray com (values |> List.map (emitQuotedExpr com))
 
         Helper.LibCall(com, "quotation", "mkNewTuple", Any, [ emittedValues ])
 
@@ -276,9 +398,31 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
             | Some ent -> ent.FullName
             | None -> entRef.FullName
 
-        let emittedValues = values |> List.map (emitQuotedExpr com) |> makeArray Any
+        let emittedValues = mkExprArray com (values |> List.map (emitQuotedExpr com))
 
-        Helper.LibCall(com, "quotation", "mkNewUnion", Any, [ makeStrConst entName; makeIntConst tag; emittedValues ])
+        if com.Options.Language = Rust then
+            // Rust deconstructs NewUnionCase into a real UnionCaseInfo carrier, so it
+            // needs the case name. Other targets keep the original (name, tag, fields) form.
+            let caseName =
+                match com.TryGetEntity(entRef) with
+                | Some ent -> ent.UnionCases.[tag].Name
+                | None -> ""
+
+            Helper.LibCall(
+                com,
+                "quotation",
+                "mkNewUnion",
+                Any,
+                [ makeStrConst entName; makeIntConst tag; makeStrConst caseName; emittedValues ]
+            )
+        else
+            Helper.LibCall(
+                com,
+                "quotation",
+                "mkNewUnion",
+                Any,
+                [ makeStrConst entName; makeIntConst tag; emittedValues ]
+            )
 
     | NewRecord(values, entRef, _genArgs) ->
         let fieldNames =
@@ -286,16 +430,54 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
             | Some ent -> ent.FSharpFields |> List.map (fun f -> makeStrConst f.Name) |> makeArray Any
             | None -> makeArray Any []
 
-        let emittedValues = values |> List.map (emitQuotedExpr com) |> makeArray Any
+        let emittedValues = mkExprArray com (values |> List.map (emitQuotedExpr com))
 
-        Helper.LibCall(com, "quotation", "mkNewRecord", Any, [ fieldNames; emittedValues ])
+        if com.Options.Language = Rust then
+            // Rust deconstructs NewRecord into a (Type * Expr list) shape; pass the
+            // record type name for the type slot. Other targets keep (fieldNames, values).
+            let typeName =
+                match com.TryGetEntity(entRef) with
+                | Some ent -> ent.FullName
+                | None -> entRef.FullName
+
+            Helper.LibCall(com, "quotation", "mkNewRecord", Any, [ makeStrConst typeName; fieldNames; emittedValues ])
+        else
+            Helper.LibCall(com, "quotation", "mkNewRecord", Any, [ fieldNames; emittedValues ])
+
+    | NewOption(value, _typ, _isStruct) when com.Options.Language = Rust ->
+        // On Rust, model an option construction as F# does in quotations: a NewUnionCase
+        // of FSharpOption`1 (None = tag 0, Some = tag 1). This lets `<@ Some x @>` match the
+        // NewUnionCase active pattern. Other targets keep the mkValue "option" form below.
+        let optName = "Microsoft.FSharp.Core.FSharpOption`1"
+
+        match value with
+        | Some v ->
+            let emitted = mkExprArray com [ emitQuotedExpr com v ]
+
+            Helper.LibCall(
+                com,
+                "quotation",
+                "mkNewUnion",
+                Any,
+                [ makeStrConst optName; makeIntConst 1; makeStrConst "Some"; emitted ]
+            )
+        | None ->
+            let emitted = mkExprArray com []
+
+            Helper.LibCall(
+                com,
+                "quotation",
+                "mkNewUnion",
+                Any,
+                [ makeStrConst optName; makeIntConst 0; makeStrConst "None"; emitted ]
+            )
 
     | NewOption(value, _typ, _isStruct) ->
         match value with
         | Some v ->
             let emitted = emitQuotedExpr com v
             Helper.LibCall(com, "quotation", "mkValue", Any, [ emitted; makeStrConst "option" ])
-        | None -> Helper.LibCall(com, "quotation", "mkValue", Any, [ Value(Null Any, None); makeStrConst "option" ])
+        | None -> mkNullExpr com "option"
 
     | NewList(headAndTail, _typ) ->
         match headAndTail with
@@ -303,24 +485,73 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
             let headExpr = emitQuotedExpr com head
             let tailExpr = emitQuotedExpr com tail
             Helper.LibCall(com, "quotation", "mkNewList", Any, [ headExpr; tailExpr ])
-        | None -> Helper.LibCall(com, "quotation", "mkValue", Any, [ Value(Null Any, None); makeStrConst "list" ])
+        | None -> mkNullExpr com "list"
 
     | _ ->
         // Fallback for other value kinds
         let msg = "Unsupported quotation value"
         Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
 
+and private numberKindToString (kind: NumberKind) : string =
+    match kind with
+    | Int8 -> "int8"
+    | UInt8 -> "uint8"
+    | Int16 -> "int16"
+    | UInt16 -> "uint16"
+    | Int32 -> "int32"
+    | UInt32 -> "uint32"
+    | Int64 -> "int64"
+    | UInt64 -> "uint64"
+    | Int128 -> "int128"
+    | UInt128 -> "uint128"
+    | BigInt -> "bigint"
+    | NativeInt -> "nativeint"
+    | UNativeInt -> "unativeint"
+    | Float16 -> "float16"
+    | Float32 -> "float32"
+    | Float64 -> "float64"
+    | Decimal -> "decimal"
+
 and private typeToString (t: Type) : string =
     match t with
     | Boolean -> "bool"
-    | Number(Int32, _) -> "int32"
-    | Number(Float64, _) -> "float64"
+    | Number(kind, _) -> numberKindToString kind
     | String -> "string"
+    | Char -> "char"
     | Unit -> "unit"
+    | Regex -> "regex"
     | Any -> "obj"
+    | Option(genArg, isStruct) ->
+        $"""%s{typeToString genArg} %s{if isStruct then
+                                           "voption"
+                                       else
+                                           "option"}"""
+    | List genArg -> $"%s{typeToString genArg} list"
+    | Array(genArg, _) -> $"%s{typeToString genArg}[]"
+    | Nullable(genArg, _) -> $"%s{typeToString genArg} nullable"
+    | DeclaredType(ref, genArgs) ->
+        match ref.FullName, genArgs with
+        | "System.Collections.Generic.IEnumerable`1", [ t ] -> $"%s{typeToString t} seq"
+        | "System.Guid", _ -> "guid"
+        | "System.DateTime", _ -> "datetime"
+        | "System.DateTimeOffset", _ -> "datetimeoffset"
+        | "System.TimeSpan", _ -> "timespan"
+        | fullName, _ -> fullName
+    | GenericParam(name, _, _) -> $"'%s{name}"
     | LambdaType(argType, returnType) -> $"%s{typeToString argType} -> %s{typeToString returnType}"
+    | DelegateType(argTypes, returnType) -> (argTypes @ [ returnType ]) |> List.map typeToString |> String.concat " -> "
     | Tuple(genArgs, _) -> genArgs |> List.map typeToString |> String.concat " * "
     | _ -> "obj"
 
 and private makeArray (elementType: Type) (elements: Expr list) : Expr =
     Value(NewArray(ArrayValues elements, elementType, ImmutableArray), None)
+
+// Build an array of quotation-expr children. On the statically typed Rust target an
+// empty `Any[]` won't unify with the runtime's FSharpExpr[] parameters, so route
+// empty arrays through a runtime helper that returns a correctly-typed empty array.
+// A non-empty array's element type is inferred from its (FSharpExpr-returning) items,
+// and dynamically typed targets are unaffected either way.
+and private mkExprArray (com: Compiler) (elements: Expr list) : Expr =
+    match elements with
+    | [] when com.Options.Language = Rust -> Helper.LibCall(com, "quotation", "emptyExprArray", Any, [])
+    | _ -> makeArray Any elements

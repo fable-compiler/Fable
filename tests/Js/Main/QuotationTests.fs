@@ -135,6 +135,18 @@ let tests =
         let freeVars = q.GetFreeVars() |> Seq.length
         equal 0 freeVars
 
+    testCase "Option match deconstructs to IfThenElse" <| fun () ->
+        let q = <@ fun (o: int option) -> match o with Some v -> v | None -> 0 @>
+        match q with
+        | Lambda(_, IfThenElse(_, _, _)) -> ()
+        | _ -> failwith "Expected Lambda with IfThenElse body"
+
+    testCase "Literal match deconstructs to IfThenElse" <| fun () ->
+        let q = <@ fun (x: int) -> match x with 0 -> "zero" | _ -> "other" @>
+        match q with
+        | Lambda(_, IfThenElse(_, _, _)) -> ()
+        | _ -> failwith "Expected Lambda with IfThenElse body"
+
     testCase "JSON serialization produces Thoth Auto-compatible format" <| fun () ->
         let q = <@ 42 @>
         let json = Fable.Core.JS.JSON.stringify(q)

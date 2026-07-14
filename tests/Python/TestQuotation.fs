@@ -161,3 +161,19 @@ let ``test Expr.GetFreeVars returns empty for closed expr`` () =
     let q = <@ fun x -> x + 1 @>
     let freeVars = q.GetFreeVars() |> Seq.length
     equal 0 freeVars
+
+// --- Pattern matches lower to IfThenElse (DecisionTree/Test handling) ---
+
+[<Fact>]
+let ``test Option match deconstructs to IfThenElse`` () =
+    let q = <@ fun (o: int option) -> match o with Some v -> v | None -> 0 @>
+    match q with
+    | Lambda(_, IfThenElse(_, _, _)) -> ()
+    | _ -> failwith "Expected Lambda with IfThenElse body"
+
+[<Fact>]
+let ``test Literal match deconstructs to IfThenElse`` () =
+    let q = <@ fun (x: int) -> match x with 0 -> "zero" | _ -> "other" @>
+    match q with
+    | Lambda(_, IfThenElse(_, _, _)) -> ()
+    | _ -> failwith "Expected Lambda with IfThenElse body"
