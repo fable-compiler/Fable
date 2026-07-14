@@ -2879,14 +2879,66 @@ let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
 let systemEnv
     (com: ICompiler)
     (ctx: Context)
-    (_: SourceLocation option)
-    (_: Type)
+    (r: SourceLocation option)
+    (t: Type)
     (i: CallInfo)
     (_: Expr option)
-    (_: Expr list)
+    (args: Expr list)
     =
     match i.CompiledName with
     | "get_NewLine" -> Some(makeStrConst "\n")
+    | "GetEnvironmentVariable" ->
+        Helper.LibCall(com, "Environment", "getEnvironmentVariable", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "get_CurrentDirectory" ->
+        Helper.LibCall(com, "Environment", "getCurrentDirectory", t, [], ?loc = r)
+        |> Some
+    | _ -> None
+
+let paths (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Combine" ->
+        match args with
+        | [ _; _ ] ->
+            Helper.LibCall(com, "Path", "combine2", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | [ _; _; _ ] ->
+            Helper.LibCall(com, "Path", "combine3", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | _ -> None
+    | "GetDirectoryName" ->
+        Helper.LibCall(com, "Path", "getDirectoryName", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "GetFileName" ->
+        Helper.LibCall(com, "Path", "getFileName", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "GetFileNameWithoutExtension" ->
+        Helper.LibCall(com, "Path", "getFileNameWithoutExtension", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "GetExtension" ->
+        Helper.LibCall(com, "Path", "getExtension", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "HasExtension" ->
+        Helper.LibCall(com, "Path", "hasExtension", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "GetTempPath" -> Helper.LibCall(com, "Path", "getTempPath", t, [], ?loc = r) |> Some
+    | "GetRandomFileName" -> Helper.LibCall(com, "Path", "getRandomFileName", t, [], ?loc = r) |> Some
+    | _ -> None
+
+let files (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Exists" ->
+        Helper.LibCall(com, "File", "exists", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "WriteAllText" ->
+        Helper.LibCall(com, "File", "writeAllText", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "ReadAllText" ->
+        Helper.LibCall(com, "File", "readAllText", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "Delete" ->
+        Helper.LibCall(com, "File", "delete", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | _ -> None
 
 // Initial support, making at least InvariantCulture compile-able
@@ -3621,6 +3673,8 @@ let private replacedModules =
             Types.timespan, timeSpans
             "System.Timers.Timer", timers
             "System.Environment", systemEnv
+            "System.IO.File", files
+            "System.IO.Path", paths
             "System.Globalization.CultureInfo", globalization
             "System.Random", random
             "System.Threading.CancellationToken", cancels
