@@ -3628,6 +3628,16 @@ let files (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (ar
         |> Some
     | _ -> None
 
+let directories (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Exists" ->
+        Helper.LibCall(com, "Directory", "exists", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "CreateDirectory" ->
+        Helper.LibCall(com, "Directory", "createDirectory", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | _ -> None
+
 // Initial support, making at least InvariantCulture compile-able
 // to be used System.Double.Parse and System.Single.Parse
 // see https://github.com/fable-compiler/Fable/pull/1197#issuecomment-348034660
@@ -4519,6 +4529,7 @@ let private replacedModules =
             Types.timespan, timeSpans
             "System.Timers.Timer", timers
             "System.IO.File", files
+            "System.IO.Directory", directories
             "System.IO.Path", paths
             "System.IO.TextWriter", textWriter
             "System.Environment", systemEnv
