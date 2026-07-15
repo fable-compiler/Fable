@@ -188,6 +188,7 @@ let convertTo com (ctx: Context) r t (args: Expr list) =
     match t with
     | Boolean ->
         match sourceType with
+        | Boolean -> args.Head
         | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toBoolean", t, args, ?loc = r)
         | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "toBoolean", t, args, ?loc = r)
         | Number(_kind, _) -> Helper.LibCall(com, "Convert", "toBoolean", t, args, ?loc = r)
@@ -239,6 +240,10 @@ let convertTo com (ctx: Context) r t (args: Expr list) =
 
     | Number(kind, _) ->
         match sourceType with
+        | Boolean ->
+            // .NET Convert.ToXxx(bool) yields 0/1; route via i32 so float targets also work
+            let code = TypeCast(args.Head, Int32.Number)
+            TypeCast(code, t)
         | Char ->
             let code = TypeCast(args.Head, UInt32.Number)
             TypeCast(code, t)
@@ -1640,7 +1645,10 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.LibCall(com, "String", "splitChars", t, [ c; arg1; arg2; arg3 ], ?loc = r)
             |> Some
 
-        // TODO: handle arrays of string separators with more than one element
+        // Remaining gap: the count-bearing string[] overload Split(string[], int, options)
+        // for multi-element / non-literal arrays. splitStrings has no count parameter, and a
+        // correct global left-to-right count across multiple separators is non-trivial.
+        // The common Split(string[], options) form is handled above via splitStrings.
         | _ -> None
     | "StartsWith", Some c, _ ->
         match args with
@@ -2239,6 +2247,9 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         |> Some
     | ("get_Zero" | "get_One" | "get_MinusOne" | "get_MinValue" | "get_MaxValue"), _ ->
         Helper.LibValue(com, "Decimal", Naming.removeGetSetPrefix i.CompiledName, t)
+        |> Some
+    | ("IsInteger" | "IsEvenInteger" | "IsOddInteger" | "IsCanonical" | "IsNegative" | "IsPositive"), _ ->
+        Helper.LibCall(com, "Decimal", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "get_Scale", [] ->
         match thisArg with
