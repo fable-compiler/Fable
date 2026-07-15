@@ -372,7 +372,7 @@ def is_field_get(expr: Expr) -> tuple[Any, str, FSharpList[Any]] | None:
     # genuine quoted null ("null").
     if isinstance(expr, ExprFieldGet):
         instance = None if (isinstance(expr.expr, ExprValue) and expr.expr.type == "novalue") else expr.expr
-        return (instance, expr.field_name, of_array([]))
+        return (instance, expr.field_name, of_array(Array([])))
     return None
 
 
