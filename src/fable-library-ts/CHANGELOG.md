@@ -1,5 +1,5 @@
 ---
-last_commit_released: a8d9bf5f0b7cc4560bb107963348e765695c22b6
+last_commit_released: 6568f35ece227fc30ce84111c8d2e975b09bac00
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.5.0 - 2026-07-15
+
+### 🚀 Features
+
+* *(js/ts)* Add `System.IO.Directory` support (Exists, CreateDirectory) (#4798) ([6568f35e](https://github.com/fable-compiler/Fable/commit/6568f35ece227fc30ce84111c8d2e975b09bac00))
+* *(js/ts/python/beam)* Preserve member calls and pattern matches in quotations (#4780) ([55482e6b](https://github.com/fable-compiler/Fable/commit/55482e6b5e6306fd4dbaba5759024313cb26682a))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/a8d9bf5f0b7cc4560bb107963348e765695c22b6..6568f35ece227fc30ce84111c8d2e975b09bac00)</small></strong>
 
 ## 2.4.2 - 2026-07-11
 
