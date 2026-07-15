@@ -3401,12 +3401,14 @@ module Util =
                 | _, Fable.Value((Fable.CharConstant _ | Fable.NumberConstant _), _) -> Some(left, right)
                 | Fable.Value((Fable.CharConstant _ | Fable.NumberConstant _), _), _ -> Some(right, left)
                 | _ -> None
-            // NOTE: `OptionTest` is intentionally NOT converted into a UnionTag switch.
-            // When the option scrutinee is not a plain ident (e.g. a field access or an
-            // active-pattern result), `transformSwitch` cannot recover the `Option` type
-            // and emits integer-literal patterns (`0_i32`) against a native `Option<T>`,
-            // which is a type error. Letting these fall through to the if/else decision
-            // tree path (is_some/is_none) compiles and runs correctly.
+            // Only a plain-ident scrutinee is convertible: transformSwitch can't recover the
+            // `Option` type from anything else, and would emit bogus `0_i32` patterns.
+            | Fable.Test(Fable.IdentExpr _ as expr, Fable.OptionTest isSome, r) ->
+                let evalExpr =
+                    Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), r)
+
+                let right = makeIntConst (makeTest isSome 0 1)
+                Some(evalExpr, right)
             | Fable.Test(expr, Fable.UnionCaseTest tag, r) ->
                 let evalExpr =
                     Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), r)
