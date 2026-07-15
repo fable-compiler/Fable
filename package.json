@@ -19,15 +19,15 @@
     "posttests-compiler-js": "node --test-reporter spec --test-timeout 20000 --test temp/tests-compiler-js/Main.js"
   },
   "dependencies": {
-    "@types/node": "^26.1.0",
+    "@types/node": "^26.1.1",
     "concurrently": "^10.0.3",
     "ghreleases": "^3.0.2",
     "nodemon": "^3.1.14",
     "rollup": "^4.62.2",
-    "terser": "^5.48.0",
+    "terser": "^5.49.0",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
-    "markdownlint-cli": "^0.49.0"
+    "markdownlint-cli": "^0.49.1"
   }
 }
