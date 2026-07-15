@@ -185,6 +185,19 @@ let ``Decimal integer predicates work`` () =
     System.Decimal.IsOddInteger(3.5M) |> equal false
 
 [<Fact>]
+let ``Decimal.IsCanonical works`` () =
+    // Canonical means the value's stored scale is already minimal (no representable
+    // trailing zero digits); non-canonical values have a scale larger than needed.
+    System.Decimal.IsCanonical(1M) |> equal true
+    System.Decimal.IsCanonical(100M) |> equal true
+    System.Decimal.IsCanonical(3.14M) |> equal true
+    System.Decimal.IsCanonical(-5M) |> equal true
+    System.Decimal.IsCanonical(0M) |> equal true
+    System.Decimal.IsCanonical(1.0M) |> equal false
+    System.Decimal.IsCanonical(1.20M) |> equal false
+    System.Decimal.IsCanonical(0.0M) |> equal false
+
+[<Fact>]
 let ``Decimal.ToString works`` () =
     string 001.23456M |> equal "1.23456"
     string 1.23456M |> equal "1.23456"
