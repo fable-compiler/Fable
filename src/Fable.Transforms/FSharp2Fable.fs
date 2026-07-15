@@ -1503,8 +1503,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                     |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 
         | FSharpExprPatterns.Quote quotedExpr ->
-            // Translate the quoted body in "capturing" mode so member calls keep their
-            // .NET metadata (not replaced/emitted/inlined) — the body is data, not code.
+            // Capturing mode: member calls keep their .NET metadata instead of being replaced/emitted/inlined.
             let! body = transformExpr com { ctx with CapturingQuotation = true } [] quotedExpr
             let exprType = fsExpr.Type
             let isTyped = exprType.GenericArguments.Count > 0

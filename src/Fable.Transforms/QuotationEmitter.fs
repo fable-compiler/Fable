@@ -115,9 +115,8 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         let instanceExpr =
             match info.ThisArg with
             | Some thisArg -> emitQuotedExpr com thisArg
-            // A static/operator call has no instance. Emit a runtime-built null node
-            // (not a raw null literal) so every target — notably statically typed ones
-            // like Rust — sees an Expr in the instance position.
+            // Static/operator call: no instance. Use a runtime-built null node instead of a raw
+            // literal so statically typed targets like Rust see an Expr in the instance position.
             | None -> mkNullExpr com "null"
 
         let declaringType, methodName =
@@ -206,8 +205,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         | ListHead
         | ListTail
         | OptionValue ->
-            // Represent option/list value accessors as property-getter calls,
-            // mirroring how F# quotations model them (PropertyGet get_Value/get_Head/get_Tail).
+            // Model as property-getter calls (PropertyGet get_Value/get_Head/get_Tail), matching F# quotations.
             let methodName =
                 match kind with
                 | ListHead -> "get_Head"
@@ -224,8 +222,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
                 [ target; makeStrConst methodName; emptyArgs; makeStrConst "" ]
             )
         | _ ->
-            // TupleIndex/UnionTag/UnionField/FieldGet handled above; ExprGet and any
-            // future kinds fall through here.
+            // ExprGet and any other kinds fall through here as unsupported.
             let msg = "Unsupported quotation Get kind"
             Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
 
@@ -248,11 +245,8 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         emitQuotedExpr com innerExpr
 
     | DecisionTree(decisionExpr, targets) ->
-        // Inline every DecisionTreeSuccess leaf into its target body, binding the
-        // target's captured idents to the success's bound values with nested Lets.
-        // This turns the compiled match into a plain IfThenElse/Let tree that the
-        // quotation representation can express faithfully (a shared target is simply
-        // inlined at each reference site).
+        // Inline each DecisionTreeSuccess leaf into its target body via nested Lets, turning
+        // the compiled match into a plain IfThenElse/Let tree the quotation model can express.
         let inlined =
             decisionExpr
             |> visitFromInsideOut (fun e ->
@@ -357,9 +351,8 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
 
 and private mkNullExpr (com: Compiler) (typ: string) : Expr =
-    // A runtime-built null node. Emitting this (rather than a raw null literal)
-    // keeps generated code compiling on statically typed targets like Rust, while
-    // producing the same ExprValue(null, typ) shape the other runtimes had before.
+    // Runtime-built null node (ExprValue(null, typ)) instead of a raw literal, so
+    // statically typed targets like Rust also get a valid Expr.
     Helper.LibCall(com, "quotation", "mkNull", Any, [ makeStrConst typ ])
 
 and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocation option) : Expr =
@@ -376,10 +369,8 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
     | StringConstant s -> Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst s; makeStrConst "string" ])
 
     | UnitConstant ->
-        // A unit carries no data. Emit a null node (as for Null) rather than mkValue with a
-        // literal unit: statically typed targets can't pass a unit/void literal as an
-        // argument (Dart lowers `()` to a `void` expression; Rust similarly can't box it
-        // meaningfully). mkNull produces a valid ExprValue(<sentinel>, "unit").
+        // Unit carries no data; emit a null node instead of mkValue since statically typed
+        // targets (Dart, Rust) can't pass a unit/void literal as an argument.
         mkNullExpr com "unit"
 
     | Null _ -> mkNullExpr com "null"
@@ -401,8 +392,7 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
         let emittedValues = mkExprArray com (values |> List.map (emitQuotedExpr com))
 
         if com.Options.Language = Rust then
-            // Rust deconstructs NewUnionCase into a real UnionCaseInfo carrier, so it
-            // needs the case name. Other targets keep the original (name, tag, fields) form.
+            // Rust needs the case name to build a real UnionCaseInfo; other targets keep (name, tag, fields).
             let caseName =
                 match com.TryGetEntity(entRef) with
                 | Some ent -> ent.UnionCases.[tag].Name
@@ -433,8 +423,7 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
         let emittedValues = mkExprArray com (values |> List.map (emitQuotedExpr com))
 
         if com.Options.Language = Rust then
-            // Rust deconstructs NewRecord into a (Type * Expr list) shape; pass the
-            // record type name for the type slot. Other targets keep (fieldNames, values).
+            // Rust needs the record type name; other targets keep (fieldNames, values).
             let typeName =
                 match com.TryGetEntity(entRef) with
                 | Some ent -> ent.FullName
@@ -445,9 +434,8 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
             Helper.LibCall(com, "quotation", "mkNewRecord", Any, [ fieldNames; emittedValues ])
 
     | NewOption(value, _typ, _isStruct) when com.Options.Language = Rust ->
-        // On Rust, model an option construction as F# does in quotations: a NewUnionCase
-        // of FSharpOption`1 (None = tag 0, Some = tag 1). This lets `<@ Some x @>` match the
-        // NewUnionCase active pattern. Other targets keep the mkValue "option" form below.
+        // Rust models option construction as F# quotations do: a NewUnionCase of FSharpOption`1
+        // (None = tag 0, Some = tag 1), so `<@ Some x @>` matches the NewUnionCase active pattern.
         let optName = "Microsoft.FSharp.Core.FSharpOption`1"
 
         match value with
@@ -546,11 +534,8 @@ and private typeToString (t: Type) : string =
 and private makeArray (elementType: Type) (elements: Expr list) : Expr =
     Value(NewArray(ArrayValues elements, elementType, ImmutableArray), None)
 
-// Build an array of quotation-expr children. On the statically typed Rust target an
-// empty `Any[]` won't unify with the runtime's FSharpExpr[] parameters, so route
-// empty arrays through a runtime helper that returns a correctly-typed empty array.
-// A non-empty array's element type is inferred from its (FSharpExpr-returning) items,
-// and dynamically typed targets are unaffected either way.
+// Build an array of quotation-expr children. On Rust an empty `Any[]` won't unify with
+// FSharpExpr[], so route empty arrays through a runtime helper instead; other targets are unaffected.
 and private mkExprArray (com: Compiler) (elements: Expr list) : Expr =
     match elements with
     | [] when com.Options.Language = Rust -> Helper.LibCall(com, "quotation", "emptyExprArray", Any, [])

@@ -39,8 +39,7 @@ mk_lambda(Var, Body) -> {expr, lambda, Var, Body}.
 mk_application(Func, Arg) -> {expr, application, Func, Arg}.
 mk_let(Var, Value, Body) -> {expr, 'let', Var, Value, Body}.
 mk_if_then_else(Guard, Then, Else) -> {expr, if_then_else, Guard, Then, Else}.
-%% 3-arg form kept for backward compatibility (e.g. the programmatic Expr.Call API,
-%% which has no separate declaring type); delegates to the 4-arg form.
+%% 3-arg form kept for backward compatibility; delegates to the 4-arg form.
 mk_call(Instance, Method, Args) -> mk_call(Instance, Method, Args, <<"">>).
 mk_call(Instance, Method, Args, DeclaringType) -> {expr, call, Instance, Method, Args, DeclaringType}.
 mk_sequential(First, Second) -> {expr, sequential, First, Second}.
@@ -92,10 +91,8 @@ is_let(_) -> undefined.
 is_if_then_else({expr, if_then_else, G, T, E}) -> {G, T, E};
 is_if_then_else(_) -> undefined.
 
-%% Call pattern: returns {Instance, Method, Args} (dereference Args).
-%% DeclaringType is stored but not part of the Patterns.Call active pattern.
-%% A static/operator call carries the null-value node as its instance
-%% (see QuotationEmitter); expose it as undefined so Patterns.Call matches F#.
+%% Call pattern: returns {Instance, Method, Args}. A static/operator call carries the
+%% null-value node as its instance; expose it as undefined so Patterns.Call matches F#.
 is_call({expr, call, I, M, A, _DT}) ->
     Instance = case I of
         {expr, value, _, <<"null">>} -> undefined;
