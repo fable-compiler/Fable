@@ -90,6 +90,7 @@ class ExprCall:
     instance: Any
     method: str
     args: Array[Any]
+    declaring_type: str = ""
 
 
 @dataclass
@@ -190,6 +191,11 @@ def mk_value(value: Any, type: str) -> ExprValue:
     return ExprValue(value, type)
 
 
+def mk_null(type: str) -> ExprValue:
+    # A null-value node (no instance / null literal / empty option or list).
+    return ExprValue(None, type)
+
+
 def mk_var(var: Var) -> ExprVarExpr:
     return ExprVarExpr(var)
 
@@ -210,8 +216,8 @@ def mk_if_then_else(guard: Expr, then_expr: Expr, else_expr: Expr) -> ExprIfThen
     return ExprIfThenElse(guard, then_expr, else_expr)
 
 
-def mk_call(instance: Any, method: str, args: Array[Any]) -> ExprCall:
-    return ExprCall(instance, method, args)
+def mk_call(instance: Any, method: str, args: Array[Any], declaring_type: str = "") -> ExprCall:
+    return ExprCall(instance, method, args, declaring_type)
 
 
 def mk_sequential(first: Expr, second: Expr) -> ExprSequential:
@@ -314,10 +320,19 @@ def is_if_then_else(expr: Expr) -> tuple[Expr, Expr, Expr] | None:
     return None
 
 
-def is_call(expr: Expr) -> tuple[Any, str, Array[Any]] | None:
+def is_call(expr: Expr) -> tuple[Any, str, FSharpList[Any]] | None:
     if isinstance(expr, ExprCall):
-        return (expr.instance, expr.method, expr.args)
+        # "novalue" is the "no instance" sentinel, distinct from a genuine quoted null ("null").
+        instance = None if (isinstance(expr.instance, ExprValue) and expr.instance.type == "novalue") else expr.instance
+        # Must be a real FSharpList (not the raw Array), same reasoning as is_field_get below.
+        return (instance, expr.method, of_array(expr.args))
     return None
+
+
+def call_declaring_type(expr: Expr) -> str:
+    if isinstance(expr, ExprCall):
+        return expr.declaring_type
+    return ""
 
 
 def is_sequential(expr: Expr) -> tuple[Expr, Expr] | None:
@@ -350,9 +365,14 @@ def is_tuple_get(expr: Expr) -> tuple[Expr, int] | None:
     return None
 
 
-def is_field_get(expr: Expr) -> tuple[Expr, str] | None:
+def is_field_get(expr: Expr) -> tuple[Any, str, FSharpList[Any]] | None:
+    # Third element mirrors PropertyGet's indexer-args slot, always empty here (never indexed).
+    # Must be a real FSharpList (not a plain Python list) since compiled F# `[]` patterns call
+    # FSharpList__get_IsEmpty on it. "novalue" is the "no instance" sentinel, distinct from a
+    # genuine quoted null ("null").
     if isinstance(expr, ExprFieldGet):
-        return (expr.expr, expr.field_name)
+        instance = None if (isinstance(expr.expr, ExprValue) and expr.expr.type == "novalue") else expr.expr
+        return (instance, expr.field_name, of_array(Array([])))
     return None
 
 
@@ -601,7 +621,7 @@ def substitute(expr: Expr, fn: Any) -> Expr:
                 return ExprApplication(sub(func), sub(arg))
             case ExprIfThenElse(guard=guard, then_expr=then_expr, else_expr=else_expr):
                 return ExprIfThenElse(sub(guard), sub(then_expr), sub(else_expr))
-            case ExprCall(instance=instance, method=method, args=args):
+            case ExprCall(instance=instance, method=method, args=args, declaring_type=declaring_type):
                 new_inst = (
                     sub(instance)
                     if isinstance(
@@ -620,7 +640,7 @@ def substitute(expr: Expr, fn: Any) -> Expr:
                     )
                     else instance
                 )
-                return ExprCall(new_inst, method, type(args)([sub(a) for a in args]))
+                return ExprCall(new_inst, method, type(args)([sub(a) for a in args]), declaring_type)
             case ExprSequential(first=first, second=second):
                 return ExprSequential(sub(first), sub(second))
             case ExprNewTuple(elements=elements):

@@ -1551,7 +1551,9 @@ module Quotations =
             Helper.LibCall(com, libModule, "mkIfThenElse", t, [ guard; thenExpr; elseExpr ], ?loc = r)
             |> Some
         | "Call", _, [ instance; methodInfo; argList ] ->
-            Helper.LibCall(com, libModule, "mkCall", t, [ instance; methodInfo; argList ], ?loc = r)
+            // Pass an explicit empty declaringType: Rust's mkCall has 4 non-defaulted params, so
+            // 3 args would partial-apply instead of returning an FSharpExpr. Harmless elsewhere.
+            Helper.LibCall(com, libModule, "mkCall", t, [ instance; methodInfo; argList; makeStrConst "" ], ?loc = r)
             |> Some
         | "NewTuple", _, [ elements ] -> Helper.LibCall(com, libModule, "mkNewTuple", t, [ elements ], ?loc = r) |> Some
         | "Sequential", _, [ first; second ] ->

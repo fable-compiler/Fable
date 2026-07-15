@@ -537,6 +537,9 @@ type Context =
         InlinePath: Log.InlinePath list
         CaptureBaseConsCall: (FSharpEntity * (Fable.Expr -> unit)) option
         Witnesses: Fable.Witness list
+        // True while translating a quotation body (<@ @>): member calls are kept as-is,
+        // not replaced/emitted/inlined, to preserve .NET metadata for QuotationEmitter.
+        CapturingQuotation: bool
     }
 
     static member Create(?usedRootNames) =
@@ -555,6 +558,7 @@ type Context =
             InlinePath = []
             CaptureBaseConsCall = None
             Witnesses = []
+            CapturingQuotation = false
         }
 
 type IFableCompiler =
@@ -3058,6 +3062,20 @@ module Util =
         (callInfo: Fable.CallInfo)
         =
         match memb, memb.DeclaringEntity with
+        // Inside a quotation, keep the original member call as-is (skip replace/emit/import/inline)
+        // so QuotationEmitter gets the real .NET metadata. Tag plain property getters so
+        // QuotationEmitter can represent them as PropertyGet instead of a method Call.
+        | _ when ctx.CapturingQuotation ->
+            let membTyp = makeType ctx.GenericArgs memb.FullType
+
+            let callInfo =
+                if memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0 then
+                    { callInfo with Tags = "property" :: callInfo.Tags }
+                else
+                    callInfo
+
+            memberIdent com r membTyp memb membRef |> makeCall r typ callInfo
+
         | Emitted com ctx r typ (Some callInfo) emitted, _ -> emitted
         | Imported com ctx r typ (Some callInfo) imported -> imported
         | Replaced com ctx r typ callInfo replaced -> replaced
