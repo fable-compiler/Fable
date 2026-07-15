@@ -619,6 +619,13 @@ module TypeInfo =
          -> true
         | _ -> false
 
+    // A reference-typed (non-struct) record or union. Such entities are Lrc-wrapped
+    // at the value level, so boxing/unboxing them to `obj` needs a smart-pointer
+    // coercion rather than the plain value-type box (see transformCast).
+    let isReferenceRecordOrUnion (com: IRustCompiler) (entRef: Fable.EntityRef) =
+        let ent = com.GetEntity(entRef)
+        (ent.IsFSharpRecord || ent.IsFSharpUnion) && not ent.IsValueType
+
     // Checks whether the type needs a ref counted wrapper
     // such as Rc<T> (or Arc<T> in a multithreaded context)
     let shouldBeRefCountWrapped (com: IRustCompiler) ctx typ =
@@ -1213,6 +1220,30 @@ module TypeInfo =
 
                 makeFullNamePathTy entName None
 
+            // System.Reflection.MethodInfo (from a Call quotation deconstruction) is erased to
+            // the Rust-native FSharpMethodInfo carrier so mi.Name / mi.DeclaringType resolve to
+            // the quotation runtime accessors. Built directly by FullName (mirrors the
+            // UnionCaseInfo case) because that carrier type does not exist in FSharp.Core.
+            | Fable.DeclaredType(entRef, _) when entRef.FullName = "System.Reflection.MethodInfo" ->
+                let entName =
+                    getEntityFullName com ctx { entRef with FullName = "Microsoft.FSharp.Quotations.FSharpMethodInfo" }
+
+                makeFullNamePathTy entName None
+
+            // System.Reflection.PropertyInfo is erased to the Rust-native FSharpPropertyInfo
+            // carrier, so p.Name / p.GetValue and FSharpValue.GetRecordField resolve to the
+            // reflection runtime. One carrier serves both reflection (GetRecordFields) and
+            // quotations (PropertyGet's propInfo), as in .NET. Built directly by FullName
+            // (mirrors the MethodInfo case) because that carrier does not exist in FSharp.Core.
+            | Fable.DeclaredType(entRef, _) when entRef.FullName = "System.Reflection.PropertyInfo" ->
+                let entName =
+                    getEntityFullName
+                        com
+                        ctx
+                        { entRef with FullName = "Microsoft.FSharp.Quotations.FSharpPropertyInfo" }
+
+                makeFullNamePathTy entName None
+
             // other declared types
             | Fable.DeclaredType(entRef, genArgs) -> transformEntityType com ctx entRef genArgs
 
@@ -1588,6 +1619,17 @@ module Util =
         // unboxing value types or wrapped types
         | Fable.Any, t when isValueType com t || isWrappedType com t -> expr |> unboxValue com ctx t
 
+        // boxing a reference-typed record/union (Lrc-wrapped) to obj: coerce the
+        // smart pointer to `dyn Any` so its concrete pointee stays the struct.
+        | Fable.DeclaredType(entRef, _), Fable.Any when isReferenceRecordOrUnion com entRef ->
+            [ expr ] |> makeLibCall com ctx None "Native" "box_lrc"
+
+        // unboxing obj back to a reference-typed record/union: downcast + re-wrap.
+        | Fable.Any, Fable.DeclaredType(entRef, genArgs) when isReferenceRecordOrUnion com entRef ->
+            let rawTy = transformEntityType com ctx entRef genArgs
+            let genArgsOpt = [ rawTy ] |> mkTypesGenericArgs
+            [ expr ] |> makeLibCall com ctx genArgsOpt "Native" "unbox_lrc"
+
         // casts to generic param
         | _, Fable.GenericParam(name, _isMeasure, _constraints) -> makeCall (name :: "from" :: []) None [ expr ] // e.g. T::from(value)
 
@@ -1878,9 +1920,13 @@ module Util =
         // bindings we must emit a valid placeholder value instead (it is only there to
         // satisfy definite-assignment and gets overwritten before it is ever read).
         match typ with
-        | Fable.Any ->
+        | Fable.Any
+        | Fable.MetaType ->
             // `dyn Any` is unsized, so `Native::null` (needs a sized `NullableRef`) does
             // not apply; use a valid boxed-unit placeholder of type `LrcPtr<dyn Any>`.
+            // `MetaType` (System.Type) is now also represented as `LrcPtr<dyn Any>`,
+            // so it must take this path too (the `_` branch would emit a null of an
+            // unsized `dyn Any`, which does not compile).
             makeLibCall com ctx None "Native" "getZeroObj" []
         | _ ->
             // Only concrete (sized) `Lrc`-wrapped reference types can use the null-ref
@@ -2089,10 +2135,84 @@ module Util =
         let fmt = makeFormatString parts
         makeFormatExpr com ctx fmt values
 
+    // Builds a rich reflection value for `typeof<Record>`. The emitted expression
+    // registers the record's field metadata + constructor/getter closures keyed by
+    // its concrete TypeId and returns a boxed RecordTypeInfo (the runtime value that
+    // a `System.Type` holds on the Rust target). This backs FSharpValue.MakeRecord,
+    // FSharpValue.GetRecordFields/GetRecordField and FSharpType.GetRecordFields.
+    let makeRecordTypeInfo (com: IRustCompiler) ctx r (entRef: Fable.EntityRef) genArgs (typ: Fable.Type) : Rust.Expr =
+        let ent = com.GetEntity(entRef)
+        let idents = getEntityFieldsAsIdents com ent
+        let objType = Fable.Any
+        let arrObjType = Fable.Array(objType, Fable.MutableArray)
+
+        // tid = Reflection::type_id::<Foo>()  (concrete, unwrapped struct type)
+        let rawTy = transformEntityType com ctx entRef genArgs
+        let tidGenArgs = [ rawTy ] |> mkTypesGenericArgs
+        let tidExpr = makeLibCall com ctx tidGenArgs "Reflection" "type_id" []
+
+        // name
+        let nameExpr = makeStrConst ent.FullName |> transformExpr com ctx
+
+        // field names: string[]
+        let fieldNamesExpr =
+            let names = idents |> List.map (fun ident -> makeStrConst ident.Name)
+
+            Fable.Value(Fable.NewArray(Fable.ArrayValues names, Fable.String, Fable.MutableArray), None)
+            |> transformExpr com ctx
+
+        // make: |vs: obj[]| box (Foo { X = unbox vs.[0]; Y = unbox vs.[1] })
+        let makeExpr =
+            let vsIdent = makeTypedIdent arrObjType "vs"
+
+            let ctorValues =
+                idents
+                |> List.mapi (fun i ident ->
+                    let elem =
+                        Fable.Get(Fable.IdentExpr vsIdent, Fable.ExprGet(makeIntConst i), objType, None)
+
+                    Fable.TypeCast(elem, ident.Type) // unbox to field type
+                )
+
+            let recordExpr = Fable.Value(Fable.NewRecord(ctorValues, entRef, genArgs), None)
+            let body = Fable.TypeCast(recordExpr, objType) // box the record
+
+            Fable.Delegate([ vsIdent ], body, None, Fable.Tags.empty)
+            |> transformExpr com ctx
+
+        // getters: (obj -> obj)[], each |o| box ((unbox<Foo> o).Field)
+        let gettersExpr =
+            let getterFnType = Fable.DelegateType([ objType ], objType)
+
+            let getters =
+                idents
+                |> List.map (fun ident ->
+                    let oIdent = makeTypedIdent objType "o"
+                    let recExpr = Fable.TypeCast(Fable.IdentExpr oIdent, typ) // unbox obj -> Foo
+                    let fieldInfo = Fable.FieldInfo.Create(ident.Name, ident.Type)
+                    let fieldGet = Fable.Get(recExpr, fieldInfo, ident.Type, None)
+                    let body = Fable.TypeCast(fieldGet, objType) // box the field value
+                    Fable.Delegate([ oIdent ], body, None, Fable.Tags.empty)
+                )
+
+            Fable.Value(Fable.NewArray(Fable.ArrayValues getters, getterFnType, Fable.MutableArray), None)
+            |> transformExpr com ctx
+
+        makeLibCall com ctx None "Reflection" "recordType" [ tidExpr; nameExpr; fieldNamesExpr; makeExpr; gettersExpr ]
+
     let makeTypeInfo (com: IRustCompiler) ctx r (typ: Fable.Type) : Rust.Expr =
-        let importName = getLibraryImportName com ctx "Reflection" "TypeId"
-        let genArgsOpt = transformGenArgs com ctx [ typ ]
-        makeFullNamePathExpr importName genArgsOpt
+        match typ with
+        | Fable.DeclaredType(entRef, genArgs) when (com.GetEntity(entRef)).IsFSharpRecord ->
+            makeRecordTypeInfo com ctx r entRef genArgs typ
+        | _ ->
+            // Non-record `System.Type` value: carry the concrete `TypeId`, boxed as
+            // `LrcPtr<dyn Any>` so it flows through the same `obj` slot as record type
+            // infos. Emitting a bare `Reflection_::TypeId::<T>` path is not a valid
+            // value expression, and comparing the boxed carrier's runtime `type_id()`
+            // (as `typeEquals` did) would make all non-record types compare equal.
+            let genArgsOpt = transformGenArgs com ctx [ typ ]
+            let tidExpr = makeLibCall com ctx genArgsOpt "Reflection" "type_id" []
+            makeLibCall com ctx None "Native" "box_" [ tidExpr ]
 
     let transformValue (com: IRustCompiler) (ctx: Context) r value : Rust.Expr =
         let unimplemented () =

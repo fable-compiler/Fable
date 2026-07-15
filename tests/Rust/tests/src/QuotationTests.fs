@@ -252,11 +252,105 @@ let ``Evaluate tuple-get picks the second element`` () =
     let r = LeafExpressionConverter.EvaluateQuotation <@ let (a, b, c) = (1, 2, 3) in b @>
     unbox<int> r |> equal 2
 
-// --- Typed Expr.Call builder (B2) ---
-// The B2 arity fix (quotationExprs now passes a 4th declaringType arg to mkCall) is verified
-// by inspecting the generated Rust: Expr.Call(instance, mi, args) emits the full 4-arg
-// `mkCall(instance, mi, args, string(""))` instead of a 3-arg partial application. An
-// end-to-end Rust test cannot compile, though: deconstructing a Call binds `mi: MethodInfo`,
-// and MethodInfo has no Rust runtime type (Fable emits an unresolved
-// `System::Reflection::MethodInfo` import). Constructing/round-tripping a MethodInfo is the
-// separate MethodInfo/declaringType task, so no runnable Rust test is added here.
+// --- Call deconstruction with MethodInfo (B1) ---
+// Deconstructing a Call now binds a real MethodInfo: mi.Name is the compiled method name and
+// mi.DeclaringType.FullName is the declaring module fullname. The declaring type is the
+// SQLProvider linchpin: it distinguishes List.map from Array.map. MethodInfo erases to the
+// Rust-native FSharpMethodInfo carrier; DeclaringType is the fullname string boxed as
+// System.Type (System.Type erases to Any), read back via Reflection.fullName.
+
+let private callMethodName (e: Expr) =
+    match e with
+    | Call(_, mi, _) -> mi.Name
+    | _ -> "?"
+
+let private callDeclaringTypeName (e: Expr) =
+    match e with
+    | Call(_, mi, _) -> mi.DeclaringType.FullName
+    | _ -> "?"
+
+[<Fact>]
+let ``Call exposes the method name`` () =
+    callMethodName <@ List.map (fun x -> x + 1) [ 1 ] @> |> equal "Map"
+
+[<Fact>]
+let ``Call exposes the declaring type full name`` () =
+    callDeclaringTypeName <@ List.map (fun x -> x + 1) [ 1 ] @>
+    |> equal "Microsoft.FSharp.Collections.ListModule"
+
+[<Fact>]
+let ``Call distinguishes List.map from Array.map by declaring type`` () =
+    callDeclaringTypeName <@ Array.map (fun x -> x + 1) [| 1 |] @>
+    |> equal "Microsoft.FSharp.Collections.ArrayModule"
+
+[<Fact>]
+let ``Call binds MethodInfo directly`` () =
+    match <@ List.map (fun x -> x + 1) [ 1 ] @> with
+    | Call(_, mi, _) ->
+        mi.Name |> equal "Map"
+        mi.DeclaringType.FullName |> equal "Microsoft.FSharp.Collections.ListModule"
+    | _ -> failwith "Expected Call"
+
+// --- PropertyGet (isFieldGet) ---
+// A property getter deconstructs as PropertyGet(instance, propInfo, indexerArgs), matching
+// real F# quotations and the JS/TS/Python runtimes. System.Reflection.PropertyInfo erases to
+// the shared FSharpPropertyInfo carrier, so pi.Name works here exactly as it does for the
+// PropertyInfo values returned by FSharpType.GetRecordFields.
+
+type QuotPropHolder =
+    static member Version = 42
+
+[<Fact>]
+let ``Option.Value access inside a quotation is a PropertyGet`` () =
+    let q = <@ fun (o: int option) -> o.Value @>
+
+    match q with
+    | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+    | _ -> failwith "Expected Lambda with PropertyGet body"
+
+[<Fact>]
+let ``List.Head access inside a quotation is a PropertyGet`` () =
+    let q = <@ fun (xs: int list) -> xs.Head @>
+
+    match q with
+    | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+    | _ -> failwith "Expected Lambda with PropertyGet body"
+
+// A static property carries the "novalue" no-instance sentinel as its target, which must
+// surface as None rather than Some sentinelNode.
+[<Fact>]
+let ``Static property access inside a quotation is a PropertyGet with no instance`` () =
+    let q = <@ QuotPropHolder.Version @>
+
+    match q with
+    | PropertyGet(None, _, []) -> ()
+    | _ -> failwith "Expected PropertyGet with no instance"
+
+[<Fact>]
+let ``PropertyGet exposes the property name`` () =
+    let q = <@ fun (o: int option) -> o.Value @>
+
+    match q with
+    | Lambda(_, PropertyGet(_, pi, _)) -> pi.Name |> equal "Value"
+    | _ -> failwith "Expected Lambda with PropertyGet body"
+
+// --- Call instance slot (isCall) ---
+// A static call carries the "novalue" no-instance sentinel as its instance, which must
+// surface as None rather than Some sentinelNode — the isCall counterpart of the static
+// PropertyGet test above. The instance case proves the sentinel is not over-applied.
+
+[<Fact>]
+let ``Static call inside a quotation has no instance`` () =
+    let q = <@ List.length [ 1; 2; 3 ] @>
+
+    match q with
+    | Call(None, _mi, args) -> equal 1 (List.length args)
+    | _ -> failwith "Expected a static Call with no instance"
+
+[<Fact>]
+let ``Instance call inside a quotation has an instance`` () =
+    let q = <@ fun (s: string) -> s.Trim() @>
+
+    match q with
+    | Lambda(_, Call(Some _, _mi, _)) -> ()
+    | _ -> failwith "Expected Lambda with an instance Call body"

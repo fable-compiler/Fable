@@ -165,8 +165,11 @@ pub mod Monitor_ {
         LOCKS.get_or_init(|| RwLock::new(HashSet::new()))
     }
 
-    pub fn enter<T>(o: LrcPtr<T>) {
-        let p = Arc::<T>::as_ptr(&o) as usize;
+    // `?Sized` so a boxed `obj` (LrcPtr<dyn Any>) can be locked on: casting to
+    // `*const ()` first discards the vtable of a fat pointer, leaving the data
+    // address, which is what identifies the lock.
+    pub fn enter<T: ?Sized>(o: LrcPtr<T>) {
+        let p = Arc::<T>::as_ptr(&o) as *const () as usize;
         loop {
             let otherHasLock = try_init_and_get_locks().read().unwrap().get(&p).is_some();
             if otherHasLock {
@@ -178,8 +181,8 @@ pub mod Monitor_ {
         }
     }
 
-    pub fn exit<T>(o: LrcPtr<T>) {
-        let p = Arc::<T>::as_ptr(&o) as usize;
+    pub fn exit<T: ?Sized>(o: LrcPtr<T>) {
+        let p = Arc::<T>::as_ptr(&o) as *const () as usize;
         let hasRemoved = try_init_and_get_locks().write().unwrap().remove(&p);
         if (!hasRemoved) {
             panic!("Not removed {}", p)

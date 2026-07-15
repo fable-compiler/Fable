@@ -63,6 +63,17 @@ let mkNewRecord (typeName: string) (fieldNames: string[]) (values: FSharpExpr[])
 
 let unionCaseName (u: FSharpUnionCaseInfo) : string = u.Name
 let unionCaseTag (u: FSharpUnionCaseInfo) : int = u.Tag
+
+// --- MethodInfo accessors (backing mi.Name / mi.DeclaringType on a Call binding) ---
+
+// mi.Name -> string (dedicated accessor; distinct from the generic reflection name<T>()).
+let methodName (m: FSharpMethodInfo) : string = m.Name
+
+// mi.DeclaringType -> System.Type. Rust has no faithful System.Type runtime, so the
+// declaring type is represented by its fullname string boxed as obj (System.Type erases
+// to Any on Rust). mi.DeclaringType.FullName then routes to Reflection.fullName, which
+// unboxes the string.
+let methodDeclaringType (m: FSharpMethodInfo) : obj = box m.DeclaringType
 let mkNewList (head: FSharpExpr) (tail: FSharpExpr) : FSharpExpr = ExprNewList(head, tail)
 let mkTupleGet (e: FSharpExpr) (index: int) : FSharpExpr = ExprTupleGet(e, index)
 let mkUnionTag (e: FSharpExpr) : FSharpExpr = ExprUnionTag e
@@ -113,7 +124,7 @@ let isIfThenElse (e: FSharpExpr) =
 
 let isCall (e: FSharpExpr) =
     match e with
-    | ExprCall(instance, m, args, _dt) ->
+    | ExprCall(instance, m, args, dt) ->
         // A static/operator call carries the "novalue" node as its instance;
         // expose it as None so Patterns.Call matches F#. The tag is distinct from
         // "null", which is a genuine quoted null value.
@@ -122,7 +133,17 @@ let isCall (e: FSharpExpr) =
             | ExprValue(_, "novalue") -> None
             | _ -> Some instance
 
-        Some(inst, m, List.ofArray args)
+        // Build the MethodInfo carrier from the stored compiled-name + declaring-type
+        // fullname, so the Call binding exposes the real F# shape (mi.Name /
+        // mi.DeclaringType.FullName). This is the SQLProvider linchpin: the declaring
+        // type distinguishes List.map from Array.map.
+        let mi: FSharpMethodInfo =
+            {
+                Name = m
+                DeclaringType = dt
+            }
+
+        Some(inst, mi, List.ofArray args)
     | _ -> None
 
 let isSequential (e: FSharpExpr) =
@@ -166,7 +187,18 @@ let isTupleGet (e: FSharpExpr) =
 
 let isFieldGet (e: FSharpExpr) =
     match e with
-    | ExprFieldGet(inner, n) -> Some(inner, n)
+    | ExprFieldGet(inner, n) ->
+        // Return F#'s (Expr option * PropertyInfo * Expr list) shape, as JS/TS/Python do.
+        // A static property get carries the "novalue" node as its target (distinct from
+        // "null", a genuine quoted null); expose it as None so Patterns.PropertyGet matches
+        // F#. The third slot mirrors PropertyGet's indexer args, always empty here.
+        let inst =
+            match inner with
+            | ExprValue(_, "novalue") -> None
+            | _ -> Some inner
+
+        let pi: FSharpPropertyInfo = { Name = n }
+        Some(inst, pi, ([]: FSharpExpr list))
     | _ -> None
 
 // --- Free variables ---
