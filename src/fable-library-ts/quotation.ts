@@ -330,9 +330,8 @@ export function isIfThenElse(expr: Expr): [Expr, Expr, Expr] | undefined {
 
 export function isCall(expr: Expr): [Expr | null, string, Expr[]] | undefined {
     if (expr instanceof ExprCall) {
-        // A static/operator call carries the null-value node as its instance
-        // (see QuotationEmitter). Expose it as null so Patterns.Call matches F#.
-        const instance = (expr.instance instanceof ExprValue && expr.instance.type === "null") ? null : expr.instance;
+        // "novalue" is the "no instance" sentinel, distinct from a genuine quoted null ("null").
+        const instance = (expr.instance instanceof ExprValue && expr.instance.type === "novalue") ? null : expr.instance;
         return [instance, expr.method, expr.args];
     }
     return undefined;
@@ -368,11 +367,10 @@ export function isTupleGet(expr: Expr): [Expr, number] | undefined {
 }
 
 export function isFieldGet(expr: Expr): [Expr | null, string, Expr[]] | undefined {
-    // Third element mirrors PropertyGet's indexer-args slot; field/property access here is
-    // never indexed, so it's always empty. A static property getter carries the null-value
-    // node as its instance (see QuotationEmitter); expose it as null so PropertyGet matches F#.
+    // Third element mirrors PropertyGet's indexer-args slot, always empty here (never indexed).
+    // "novalue" is the "no instance" sentinel, distinct from a genuine quoted null ("null").
     if (expr instanceof ExprFieldGet) {
-        const instance = (expr.expr instanceof ExprValue && expr.expr.type === "null") ? null : expr.expr;
+        const instance = (expr.expr instanceof ExprValue && expr.expr.type === "novalue") ? null : expr.expr;
         return [instance, expr.fieldName, []];
     }
     return undefined;

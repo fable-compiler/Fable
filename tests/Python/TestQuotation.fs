@@ -169,6 +169,8 @@ let ``test Expr.GetFreeVars returns empty for closed expr`` () =
     equal 0 freeVars
 
 // --- Pattern matches lower to IfThenElse (DecisionTree/Test handling) ---
+// Note: these only check the outer IfThenElse shape. The guard itself is a synthetic Call
+// here (e.g. "get_IsNone", "op_TypeTest"), not the real UnionCaseTest/TypeTest node .NET uses.
 
 [<Fact>]
 let ``test Option match deconstructs to IfThenElse`` () =
@@ -266,3 +268,18 @@ let ``test Unit quotation still matches Value node`` () =
     match q with
     | Value(_, _) -> ()
     | _ -> failwith "Expected Value"
+
+[<Fact>]
+let ``test Call on an instance whose value is null keeps a Some instance`` () =
+    // Guards against conflating "no instance" (static/operator call) with "instance value is
+    // null" — both used to serialize to the same node. .NET wraps this in a Let (struct copy).
+    let q = <@ (Unchecked.defaultof<System.Nullable<int>>).HasValue @>
+
+    let rec hasSomeInstancePropertyGet expr =
+        match expr with
+        | PropertyGet(Some _, _, []) -> true
+        | Let(_, _, body) -> hasSomeInstancePropertyGet body
+        | _ -> false
+
+    if not (hasSomeInstancePropertyGet q) then
+        failwith "Expected a PropertyGet with a Some instance, even though its value is null"

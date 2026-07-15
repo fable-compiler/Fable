@@ -322,9 +322,8 @@ def is_if_then_else(expr: Expr) -> tuple[Expr, Expr, Expr] | None:
 
 def is_call(expr: Expr) -> tuple[Any, str, Array[Any]] | None:
     if isinstance(expr, ExprCall):
-        # A static/operator call carries the null-value node as its instance
-        # (see QuotationEmitter). Expose it as None so Patterns.Call matches F#.
-        instance = None if (isinstance(expr.instance, ExprValue) and expr.instance.type == "null") else expr.instance
+        # "novalue" is the "no instance" sentinel, distinct from a genuine quoted null ("null").
+        instance = None if (isinstance(expr.instance, ExprValue) and expr.instance.type == "novalue") else expr.instance
         return (instance, expr.method, expr.args)
     return None
 
@@ -366,13 +365,12 @@ def is_tuple_get(expr: Expr) -> tuple[Expr, int] | None:
 
 
 def is_field_get(expr: Expr) -> tuple[Any, str, FSharpList[Any]] | None:
-    # Third element mirrors PropertyGet's indexer-args slot; field/property access here is
-    # never indexed, so it's always empty. Must be a real FSharpList (not a plain Python list)
-    # since compiled F# `[]` patterns call FSharpList__get_IsEmpty on it. A static property
-    # getter carries the null-value node as its instance (see QuotationEmitter); expose it as
-    # None so PropertyGet matches F#.
+    # Third element mirrors PropertyGet's indexer-args slot, always empty here (never indexed).
+    # Must be a real FSharpList (not a plain Python list) since compiled F# `[]` patterns call
+    # FSharpList__get_IsEmpty on it. "novalue" is the "no instance" sentinel, distinct from a
+    # genuine quoted null ("null").
     if isinstance(expr, ExprFieldGet):
-        instance = None if (isinstance(expr.expr, ExprValue) and expr.expr.type == "null") else expr.expr
+        instance = None if (isinstance(expr.expr, ExprValue) and expr.expr.type == "novalue") else expr.expr
         return (instance, expr.field_name, of_array([]))
     return None
 

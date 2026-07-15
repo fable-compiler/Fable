@@ -15,6 +15,10 @@ type QuotationTestUnion =
 
 let inline quotTestDouble x = x * 2
 
+type QuotationIndexerTest(values: int[]) =
+    member _.Item
+        with get (i: int) = values.[i]
+
 let tests =
   testList "Quotations" [
 #if FABLE_COMPILER
@@ -141,6 +145,8 @@ let tests =
         let freeVars = q.GetFreeVars() |> Seq.length
         equal 0 freeVars
 
+    // Note: these only check the outer IfThenElse shape. The guard itself is a synthetic Call
+    // here (e.g. "get_IsNone", "op_TypeTest"), not the real UnionCaseTest/TypeTest node .NET uses.
     testCase "Option match deconstructs to IfThenElse" <| fun () ->
         let q = <@ fun (o: int option) -> match o with Some v -> v | None -> 0 @>
         match q with
@@ -227,6 +233,30 @@ let tests =
         match q with
         | Value(_, _) -> ()
         | _ -> failwith "Expected Value"
+
+    testCase "Call on an instance whose value is null keeps a Some instance" <| fun () ->
+        // Guards against conflating "no instance" (static/operator call) with "instance value
+        // is null" — both used to serialize to the same node.
+        let q = <@ (Unchecked.defaultof<System.Nullable<int>>).HasValue @>
+
+        let rec hasSomeInstancePropertyGet expr =
+            match expr with
+            | PropertyGet(Some _, _, []) -> true
+            | Let(_, _, body) -> hasSomeInstancePropertyGet body
+            | _ -> false
+
+        if not (hasSomeInstancePropertyGet q) then
+            failwith "Expected a PropertyGet with a Some instance, even though its value is null"
+
+    // Known limitation: only zero-arg getters are tagged "property", so an indexer still
+    // surfaces as a plain Call instead of PropertyGet(instance, propInfo, args) like real F#
+    // quotations. FABLE_COMPILER-only: real .NET already represents indexers as PropertyGet.
+    testCase "Indexer property access inside a quotation is a Call, not yet PropertyGet" <| fun () ->
+        let q = <@ fun (t: QuotationIndexerTest) -> t.[0] @>
+
+        match q with
+        | Lambda(_, Call(Some _, _, args)) -> equal 1 (Seq.length args)
+        | _ -> failwith "Expected Lambda with a Call(Some instance, _, [index]) body"
 
     testCase "JSON serialization produces Thoth Auto-compatible format" <| fun () ->
         let q = <@ 42 @>

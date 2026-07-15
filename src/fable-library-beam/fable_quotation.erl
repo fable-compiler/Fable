@@ -91,11 +91,11 @@ is_let(_) -> undefined.
 is_if_then_else({expr, if_then_else, G, T, E}) -> {G, T, E};
 is_if_then_else(_) -> undefined.
 
-%% Call pattern: returns {Instance, Method, Args}. A static/operator call carries the
-%% null-value node as its instance; expose it as undefined so Patterns.Call matches F#.
+%% Call pattern: returns {Instance, Method, Args}. "novalue" is the "no instance" sentinel,
+%% distinct from a genuine quoted null ("null").
 is_call({expr, call, I, M, A, _DT}) ->
     Instance = case I of
-        {expr, value, _, <<"null">>} -> undefined;
+        {expr, value, _, <<"novalue">>} -> undefined;
         _ -> I
     end,
     {Instance, M, deref(A)};
@@ -125,13 +125,12 @@ is_new_record(_) -> undefined.
 is_tuple_get({expr, tuple_get, E, I}) -> {E, I};
 is_tuple_get(_) -> undefined.
 
-%% FieldGet/PropertyGet pattern: returns {Expr, FieldName}
-%% Third element mirrors PropertyGet's indexer-args slot; field/property access here is
-%% never indexed, so it's always empty. A static property getter carries the null-value
-%% node as its instance (see QuotationEmitter); expose it as undefined so PropertyGet matches F#.
+%% FieldGet/PropertyGet pattern: returns {Expr, FieldName}. Third element mirrors
+%% PropertyGet's indexer-args slot, always empty here. "novalue" is the "no instance"
+%% sentinel, distinct from a genuine quoted null ("null").
 is_field_get({expr, field_get, I, N}) ->
     Instance = case I of
-        {expr, value, _, <<"null">>} -> undefined;
+        {expr, value, _, <<"novalue">>} -> undefined;
         _ -> I
     end,
     {Instance, N, []};

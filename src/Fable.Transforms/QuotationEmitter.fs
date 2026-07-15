@@ -115,9 +115,8 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         let instanceExpr =
             match info.ThisArg with
             | Some thisArg -> emitQuotedExpr com thisArg
-            // Static/operator call: no instance. Use a runtime-built null node instead of a raw
-            // literal so statically typed targets like Rust see an Expr in the instance position.
-            | None -> mkNullExpr com "null"
+            // Static/operator call: no instance.
+            | None -> mkNoInstanceExpr com
 
         let declaringType, methodName =
             match info.MemberRef with
@@ -194,7 +193,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
                 name, [ left; right ]
 
         let methodExpr = makeStrConst opName
-        let instanceExpr = mkNullExpr com "null"
+        let instanceExpr = mkNoInstanceExpr com
 
         let argExprs = mkExprArray com (args |> List.map (emitQuotedExpr com))
 
@@ -275,6 +274,10 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
     | Test(testExpr, kind, _r) ->
         let target = emitQuotedExpr com testExpr
 
+        // Note: real .NET quotations use dedicated UnionCaseTest/TypeTest node kinds here, not
+        // Call — this emitter renders all of these as synthetic Calls instead (e.g. "get_IsCons",
+        // "op_TypeTest" aren't real .NET members). UnionCaseTestPattern/TypeTestPattern won't
+        // match this runtime's output. For TypeTest, "declaringType" carries the tested type.
         match kind with
         | UnionCaseTest tag ->
             // Represent as: (unionTag target) = tag
@@ -287,7 +290,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
                 "mkCall",
                 Any,
                 [
-                    mkNullExpr com "null"
+                    mkNoInstanceExpr com
                     makeStrConst "op_Equality"
                     mkExprArray com [ tagExpr; tagConst ]
                     makeStrConst ""
@@ -355,6 +358,11 @@ and private mkNullExpr (com: Compiler) (typ: string) : Expr =
     // Runtime-built null node (ExprValue(null, typ)) instead of a raw literal, so
     // statically typed targets like Rust also get a valid Expr.
     Helper.LibCall(com, "quotation", "mkNull", Any, [ makeStrConst typ ])
+
+and private mkNoInstanceExpr (com: Compiler) : Expr =
+    // "novalue" tag distinguishes "no instance" from a genuine quoted null value ("null"),
+    // so isCall/isFieldGet don't conflate the two.
+    mkNullExpr com "novalue"
 
 and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocation option) : Expr =
     match kind with
