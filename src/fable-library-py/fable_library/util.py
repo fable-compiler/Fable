@@ -338,7 +338,9 @@ def assert_equal(actual: Any, expected: Any, msg: str | None = None) -> None:
 
 def assert_not_equal[T](actual: T, expected: T, msg: str | None = None) -> None:
     if equals(actual, expected):
-        raise Exception(msg or f"Expected: {expected} - Actual: {actual}")
+        # "Expected: x - Actual: x" would describe a *passing* assertion, so say what was
+        # actually expected: a value other than this one. Mirrors xUnit's "Expected: Not x".
+        raise Exception(msg or f"Expected not equal to: {expected} - Actual: {actual}")
 
 
 MAX_LOCKS = 1024
