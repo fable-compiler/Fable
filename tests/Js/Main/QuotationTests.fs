@@ -255,7 +255,7 @@ let tests =
         let q = <@ fun (t: QuotationIndexerTest) -> t.[0] @>
 
         match q with
-        | Lambda(_, Call(Some _, _, args)) -> equal 1 (Seq.length args)
+        | Lambda(_, Call(Some _, _, [ _ ])) -> ()
         | _ -> failwith "Expected Lambda with a Call(Some instance, _, [index]) body"
 
     testCase "JSON serialization produces Thoth Auto-compatible format" <| fun () ->

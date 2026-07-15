@@ -6,6 +6,8 @@
  * (undefined = no match, value/tuple = match).
  */
 
+import { FSharpList, ofArray } from "./List.ts";
+
 // ===================================================================
 // Var: represents an F# quotation variable
 // ===================================================================
@@ -328,11 +330,12 @@ export function isIfThenElse(expr: Expr): [Expr, Expr, Expr] | undefined {
     return undefined;
 }
 
-export function isCall(expr: Expr): [Expr | null, string, Expr[]] | undefined {
+export function isCall(expr: Expr): [Expr | null, string, FSharpList<Expr>] | undefined {
     if (expr instanceof ExprCall) {
         // "novalue" is the "no instance" sentinel, distinct from a genuine quoted null ("null").
         const instance = (expr.instance instanceof ExprValue && expr.instance.type === "novalue") ? null : expr.instance;
-        return [instance, expr.method, expr.args];
+        // Must be a real FSharpList (not the raw array), same reasoning as isFieldGet below.
+        return [instance, expr.method, ofArray(expr.args)];
     }
     return undefined;
 }

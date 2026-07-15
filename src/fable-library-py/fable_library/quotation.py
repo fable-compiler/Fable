@@ -320,11 +320,12 @@ def is_if_then_else(expr: Expr) -> tuple[Expr, Expr, Expr] | None:
     return None
 
 
-def is_call(expr: Expr) -> tuple[Any, str, Array[Any]] | None:
+def is_call(expr: Expr) -> tuple[Any, str, FSharpList[Any]] | None:
     if isinstance(expr, ExprCall):
         # "novalue" is the "no instance" sentinel, distinct from a genuine quoted null ("null").
         instance = None if (isinstance(expr.instance, ExprValue) and expr.instance.type == "novalue") else expr.instance
-        return (instance, expr.method, expr.args)
+        # Must be a real FSharpList (not the raw Array), same reasoning as is_field_get below.
+        return (instance, expr.method, of_array(expr.args))
     return None
 
 
