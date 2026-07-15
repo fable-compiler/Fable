@@ -1145,23 +1145,38 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
         | FSharpExprPatterns.IfThenElse(guardExpr, thenExpr, elseExpr) ->
             let! guardExpr = transformExpr com ctx [] guardExpr
-            let! thenExpr = transformExpr com ctx [] thenExpr
-            let! fableElseExpr = transformExpr com ctx [] elseExpr
 
-            let altElseExpr =
-                match elseExpr with
-                | RaisingMatchFailureExpr _infoWhereErrorOccurs ->
-                    let errorMessage = "Match failure"
-                    let rangeOfElseExpr = makeRangeFrom elseExpr
+            match guardExpr with
+            // Skip translating the unreachable branch (e.g. Compiler.isXxx), so target-specific
+            // calls there can't fail. Not for quotations: they must keep the literal structure.
+            | Fable.Value(Fable.BoolConstant value, _) when not ctx.CapturingQuotation ->
+                return!
+                    transformExpr
+                        com
+                        ctx
+                        []
+                        (if value then
+                             thenExpr
+                         else
+                             elseExpr)
+            | _ ->
+                let! thenExpr = transformExpr com ctx [] thenExpr
+                let! fableElseExpr = transformExpr com ctx [] elseExpr
 
-                    let errorExpr =
-                        Fable.Value(Fable.StringConstant errorMessage, None)
-                        |> Replacements.Api.error com
+                let altElseExpr =
+                    match elseExpr with
+                    | RaisingMatchFailureExpr _infoWhereErrorOccurs ->
+                        let errorMessage = "Match failure"
+                        let rangeOfElseExpr = makeRangeFrom elseExpr
 
-                    makeThrow rangeOfElseExpr Fable.Any errorExpr
-                | _ -> fableElseExpr
+                        let errorExpr =
+                            Fable.Value(Fable.StringConstant errorMessage, None)
+                            |> Replacements.Api.error com
 
-            return Fable.IfThenElse(guardExpr, thenExpr, altElseExpr, makeRangeFrom fsExpr)
+                        makeThrow rangeOfElseExpr Fable.Any errorExpr
+                    | _ -> fableElseExpr
+
+                return Fable.IfThenElse(guardExpr, thenExpr, altElseExpr, makeRangeFrom fsExpr)
 
         | FSharpExprPatterns.TryFinally(body, finalBody, _, _) ->
             let r = makeRangeFrom fsExpr
