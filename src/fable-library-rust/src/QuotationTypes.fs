@@ -35,6 +35,15 @@ type FSharpMethodInfo =
         DeclaringType: string
     }
 
+// Rust-native carrier for System.Reflection.PropertyInfo. Fable-Rust erases the F#
+// PropertyInfo type to this struct (see Fable2Rust.transformType), so it is the single
+// carrier for both quotation deconstruction (PropertyGet's propInfo) and reflection
+// (FSharpType.GetRecordFields), matching .NET where both yield the same PropertyInfo.
+// It carries only the name, as a quotation knows nothing else about the property: the
+// field getter is resolved from the reflection registry by name when a value is read,
+// mirroring JS/TS where getValue(pi, v) reads v[pi.Name].
+type FSharpPropertyInfo = { Name: string }
+
 type FSharpExpr =
     | ExprValue of value: obj * typ: string
     | ExprVarExpr of var: FSharpVar

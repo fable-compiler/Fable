@@ -187,7 +187,18 @@ let isTupleGet (e: FSharpExpr) =
 
 let isFieldGet (e: FSharpExpr) =
     match e with
-    | ExprFieldGet(inner, n) -> Some(inner, n)
+    | ExprFieldGet(inner, n) ->
+        // Return F#'s (Expr option * PropertyInfo * Expr list) shape, as JS/TS/Python do.
+        // A static property get carries the "novalue" node as its target (distinct from
+        // "null", a genuine quoted null); expose it as None so Patterns.PropertyGet matches
+        // F#. The third slot mirrors PropertyGet's indexer args, always empty here.
+        let inst =
+            match inner with
+            | ExprValue(_, "novalue") -> None
+            | _ -> Some inner
+
+        let pi: FSharpPropertyInfo = { Name = n }
+        Some(inst, pi, ([]: FSharpExpr list))
     | _ -> None
 
 // --- Free variables ---

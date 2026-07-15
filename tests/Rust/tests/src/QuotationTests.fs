@@ -290,3 +290,46 @@ let ``Call binds MethodInfo directly`` () =
         mi.Name |> equal "Map"
         mi.DeclaringType.FullName |> equal "Microsoft.FSharp.Collections.ListModule"
     | _ -> failwith "Expected Call"
+
+// --- PropertyGet (isFieldGet) ---
+// A property getter deconstructs as PropertyGet(instance, propInfo, indexerArgs), matching
+// real F# quotations and the JS/TS/Python runtimes. System.Reflection.PropertyInfo erases to
+// the shared FSharpPropertyInfo carrier, so pi.Name works here exactly as it does for the
+// PropertyInfo values returned by FSharpType.GetRecordFields.
+
+type QuotPropHolder =
+    static member Version = 42
+
+[<Fact>]
+let ``Option.Value access inside a quotation is a PropertyGet`` () =
+    let q = <@ fun (o: int option) -> o.Value @>
+
+    match q with
+    | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+    | _ -> failwith "Expected Lambda with PropertyGet body"
+
+[<Fact>]
+let ``List.Head access inside a quotation is a PropertyGet`` () =
+    let q = <@ fun (xs: int list) -> xs.Head @>
+
+    match q with
+    | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+    | _ -> failwith "Expected Lambda with PropertyGet body"
+
+// A static property carries the "novalue" no-instance sentinel as its target, which must
+// surface as None rather than Some sentinelNode.
+[<Fact>]
+let ``Static property access inside a quotation is a PropertyGet with no instance`` () =
+    let q = <@ QuotPropHolder.Version @>
+
+    match q with
+    | PropertyGet(None, _, []) -> ()
+    | _ -> failwith "Expected PropertyGet with no instance"
+
+[<Fact>]
+let ``PropertyGet exposes the property name`` () =
+    let q = <@ fun (o: int option) -> o.Value @>
+
+    match q with
+    | Lambda(_, PropertyGet(_, pi, _)) -> pi.Name |> equal "Value"
+    | _ -> failwith "Expected Lambda with PropertyGet body"

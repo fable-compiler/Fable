@@ -1,6 +1,7 @@
 pub mod Reflection_ {
     pub use core::any::TypeId; // re-export
 
+    use crate::Microsoft::FSharp::Quotations::FSharpPropertyInfo;
     use crate::Native_::{box_, Any, Func1, LrcPtr, Vec};
     use crate::NativeArray_::{array_from, Array};
     use crate::String_::string;
@@ -121,9 +122,32 @@ pub mod Reflection_ {
         (info.make)(values)
     }
 
+    // Resolves a field getter for a record value by property name, via the registry.
+    // The PropertyInfo carrier holds only a name (a quotation knows nothing more), so the
+    // getter is looked up here, mirroring JS/TS where getValue(pi, v) reads v[pi.Name].
+    fn getterOf(record: &obj, name: &string) -> Func1<obj, obj> {
+        let tid = (**record).type_id();
+        let info = registry_get(&tid).expect("Record type not registered; evaluate typeof<T> first");
+        let field = info
+            .fields
+            .get()
+            .iter()
+            .find(|f| &f.name == name)
+            .cloned()
+            .expect("Property not found on record type");
+        field.get.clone()
+    }
+
     // FSharpType.GetRecordFields(typ, ?bindingFlags) -> PropertyInfo[]
-    pub fn getRecordElements(typ: obj, _flags: Option<i32>) -> Array<LrcPtr<RecordFieldInfo>> {
-        type_info_of(&typ).fields
+    pub fn getRecordElements(typ: obj, _flags: Option<i32>) -> Array<LrcPtr<FSharpPropertyInfo>> {
+        let info = type_info_of(&typ);
+        let props: Vec<LrcPtr<FSharpPropertyInfo>> = info
+            .fields
+            .get()
+            .iter()
+            .map(|f| LrcPtr::new(FSharpPropertyInfo { Name: f.name.clone() }))
+            .collect();
+        array_from(props)
     }
 
     // FSharpValue.GetRecordFields(record, ?bindingFlags) -> obj[]
@@ -140,18 +164,20 @@ pub mod Reflection_ {
     }
 
     // FSharpValue.GetRecordField(record, propInfo) -> obj
-    pub fn getRecordField(record: obj, info: LrcPtr<RecordFieldInfo>) -> obj {
-        (info.get)(record)
+    pub fn getRecordField(record: obj, info: LrcPtr<FSharpPropertyInfo>) -> obj {
+        let get = getterOf(&record, &info.Name);
+        get(record)
     }
 
     // PropertyInfo.Name -> string (dedicated accessor; distinct from name<T>()).
-    pub fn propertyName(info: LrcPtr<RecordFieldInfo>) -> string {
-        info.name.clone()
+    pub fn propertyName(info: LrcPtr<FSharpPropertyInfo>) -> string {
+        info.Name.clone()
     }
 
     // PropertyInfo.GetValue(record) -> obj
-    pub fn getValue(info: LrcPtr<RecordFieldInfo>, record: obj) -> obj {
-        (info.get)(record)
+    pub fn getValue(info: LrcPtr<FSharpPropertyInfo>, record: obj) -> obj {
+        let get = getterOf(&record, &info.Name);
+        get(record)
     }
 
     // FSharpType.IsRecord(typ) -> bool

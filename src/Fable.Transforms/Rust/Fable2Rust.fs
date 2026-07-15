@@ -1230,13 +1230,19 @@ module TypeInfo =
 
                 makeFullNamePathTy entName None
 
-            // System.Reflection.PropertyInfo (from FSharpType.GetRecordFields) is erased to
-            // the Rust-native Reflection_::RecordFieldInfo carrier, so member access such as
-            // p.Name / p.GetValue and FSharpValue.GetRecordField resolve to the reflection
-            // runtime. shouldBeRefCountWrapped wraps this reference type in Lrc, yielding
-            // LrcPtr<RecordFieldInfo> to match getRecordElements' element type.
+            // System.Reflection.PropertyInfo is erased to the Rust-native FSharpPropertyInfo
+            // carrier, so p.Name / p.GetValue and FSharpValue.GetRecordField resolve to the
+            // reflection runtime. One carrier serves both reflection (GetRecordFields) and
+            // quotations (PropertyGet's propInfo), as in .NET. Built directly by FullName
+            // (mirrors the MethodInfo case) because that carrier does not exist in FSharp.Core.
             | Fable.DeclaredType(entRef, _) when entRef.FullName = "System.Reflection.PropertyInfo" ->
-                transformImportType com ctx [] "Reflection" "RecordFieldInfo"
+                let entName =
+                    getEntityFullName
+                        com
+                        ctx
+                        { entRef with FullName = "Microsoft.FSharp.Quotations.FSharpPropertyInfo" }
+
+                makeFullNamePathTy entName None
 
             // other declared types
             | Fable.DeclaredType(entRef, genArgs) -> transformEntityType com ctx entRef genArgs
