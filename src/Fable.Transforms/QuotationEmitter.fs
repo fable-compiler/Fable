@@ -124,12 +124,20 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
             | Some(MemberRef(declaringEntity, mInfo)) -> declaringEntity.FullName, mInfo.CompiledName
             | _ -> "", "unknown"
 
-        let methodExpr = makeStrConst methodName
-        let declTypeExpr = makeStrConst declaringType
-
-        let argExprs = mkExprArray com (info.Args |> List.map (emitQuotedExpr com))
-
-        Helper.LibCall(com, "quotation", "mkCall", Any, [ instanceExpr; methodExpr; argExprs; declTypeExpr ])
+        // A plain property getter preserved via CapturingQuotation (tagged "property" in
+        // FSharp2Fable.Util.fs) is represented as PropertyGet (mkFieldGet), matching how real
+        // F# quotations model property access — not as a method Call.
+        if
+            info.Tags |> List.contains "property"
+            && methodName.StartsWith("get_", System.StringComparison.Ordinal)
+        then
+            let propName = methodName.Substring(4)
+            Helper.LibCall(com, "quotation", "mkFieldGet", Any, [ instanceExpr; makeStrConst propName ])
+        else
+            let methodExpr = makeStrConst methodName
+            let declTypeExpr = makeStrConst declaringType
+            let argExprs = mkExprArray com (info.Args |> List.map (emitQuotedExpr com))
+            Helper.LibCall(com, "quotation", "mkCall", Any, [ instanceExpr; methodExpr; argExprs; declTypeExpr ])
 
     | Sequential exprs ->
         match exprs with
@@ -205,22 +213,15 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         | ListHead
         | ListTail
         | OptionValue ->
-            // Model as property-getter calls (PropertyGet get_Value/get_Head/get_Tail), matching F# quotations.
-            let methodName =
+            // Model as property gets (PropertyGet Value/Head/Tail), matching how F# quotations
+            // and the FieldGet case above both represent property/field access.
+            let propName =
                 match kind with
-                | ListHead -> "get_Head"
-                | ListTail -> "get_Tail"
-                | _ -> "get_Value"
+                | ListHead -> "Head"
+                | ListTail -> "Tail"
+                | _ -> "Value"
 
-            let emptyArgs = mkExprArray com []
-
-            Helper.LibCall(
-                com,
-                "quotation",
-                "mkCall",
-                Any,
-                [ target; makeStrConst methodName; emptyArgs; makeStrConst "" ]
-            )
+            Helper.LibCall(com, "quotation", "mkFieldGet", Any, [ target; makeStrConst propName ])
         | _ ->
             // ExprGet and any other kinds fall through here as unsupported.
             let msg = "Unsupported quotation Get kind"

@@ -126,7 +126,15 @@ is_tuple_get({expr, tuple_get, E, I}) -> {E, I};
 is_tuple_get(_) -> undefined.
 
 %% FieldGet/PropertyGet pattern: returns {Expr, FieldName}
-is_field_get({expr, field_get, E, N}) -> {E, N};
+%% Third element mirrors PropertyGet's indexer-args slot; field/property access here is
+%% never indexed, so it's always empty. A static property getter carries the null-value
+%% node as its instance (see QuotationEmitter); expose it as undefined so PropertyGet matches F#.
+is_field_get({expr, field_get, I, N}) ->
+    Instance = case I of
+        {expr, value, _, <<"null">>} -> undefined;
+        _ -> I
+    end,
+    {Instance, N, []};
 is_field_get(_) -> undefined.
 
 %% ===================================================================

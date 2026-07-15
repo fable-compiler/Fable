@@ -3063,9 +3063,17 @@ module Util =
         =
         match memb, memb.DeclaringEntity with
         // Inside a quotation, keep the original member call as-is (skip replace/emit/import/inline)
-        // so QuotationEmitter gets the real .NET metadata.
+        // so QuotationEmitter gets the real .NET metadata. Tag plain property getters so
+        // QuotationEmitter can represent them as PropertyGet instead of a method Call.
         | _ when ctx.CapturingQuotation ->
             let membTyp = makeType ctx.GenericArgs memb.FullType
+
+            let callInfo =
+                if memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0 then
+                    { callInfo with Tags = "property" :: callInfo.Tags }
+                else
+                    callInfo
+
             memberIdent com r membTyp memb membRef |> makeCall r typ callInfo
 
         | Emitted com ctx r typ (Some callInfo) emitted, _ -> emitted

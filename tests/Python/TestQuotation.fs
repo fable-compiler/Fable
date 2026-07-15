@@ -6,6 +6,12 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 open Microsoft.FSharp.Linq.RuntimeHelpers
 
+type QuotationTestUnion =
+    | QuotCircle of float
+    | QuotSquare of float
+
+let inline quotTestDouble x = x * 2
+
 [<Fact>]
 let ``test Simple integer value quotation`` () =
     let q = <@ 42 @>
@@ -177,3 +183,86 @@ let ``test Literal match deconstructs to IfThenElse`` () =
     match q with
     | Lambda(_, IfThenElse(_, _, _)) -> ()
     | _ -> failwith "Expected Lambda with IfThenElse body"
+
+[<Fact>]
+let ``test Union case match deconstructs to IfThenElse`` () =
+    let q =
+        <@ fun (s: QuotationTestUnion) ->
+            match s with
+            | QuotCircle _ -> true
+            | QuotSquare _ -> false @>
+
+    match q with
+    | Lambda(_, IfThenElse(_, _, _)) -> ()
+    | _ -> failwith "Expected Lambda with IfThenElse body"
+
+[<Fact>]
+let ``test List match deconstructs to IfThenElse`` () =
+    let q =
+        <@ fun (xs: int list) ->
+            match xs with
+            | [] -> true
+            | _ :: _ -> false @>
+
+    match q with
+    | Lambda(_, IfThenElse(_, _, _)) -> ()
+    | _ -> failwith "Expected Lambda with IfThenElse body"
+
+[<Fact>]
+let ``test Type test match deconstructs to IfThenElse`` () =
+    let q =
+        <@ fun (o: obj) ->
+            match o with
+            | :? int -> true
+            | _ -> false @>
+
+    match q with
+    | Lambda(_, IfThenElse(_, _, _)) -> ()
+    | _ -> failwith "Expected Lambda with IfThenElse body"
+
+// --- Member calls inside quotations keep original .NET metadata (not inlined) ---
+
+[<Fact>]
+let ``test Inline function call inside quotation is preserved, not inlined`` () =
+    let q = <@ quotTestDouble 5 @>
+
+    match q with
+    | Call(None, _mi, args) -> equal 1 (Seq.length args)
+    | _ -> failwith "Expected a preserved Call node with a single argument"
+
+// --- Option/List property-getter accessors (ListHead/ListTail/OptionValue) deconstruct
+// as PropertyGet, matching real F# quotations ---
+
+[<Fact>]
+let ``test Option.Value access inside a quotation is a PropertyGet`` () =
+    let q = <@ fun (o: int option) -> o.Value @>
+
+    match q with
+    | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+    | _ -> failwith "Expected Lambda with PropertyGet body"
+
+[<Fact>]
+let ``test List.Head access inside a quotation is a PropertyGet`` () =
+    let q = <@ fun (xs: int list) -> xs.Head @>
+
+    match q with
+    | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+    | _ -> failwith "Expected Lambda with PropertyGet body"
+
+[<Fact>]
+let ``test List.Tail access inside a quotation is a PropertyGet`` () =
+    let q = <@ fun (xs: int list) -> xs.Tail @>
+
+    match q with
+    | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+    | _ -> failwith "Expected Lambda with PropertyGet body"
+
+// --- Runtime-built null nodes (mkNullExpr) ---
+
+[<Fact>]
+let ``test Unit quotation still matches Value node`` () =
+    let q = <@ () @>
+
+    match q with
+    | Value(_, _) -> ()
+    | _ -> failwith "Expected Value"

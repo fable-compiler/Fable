@@ -365,9 +365,15 @@ def is_tuple_get(expr: Expr) -> tuple[Expr, int] | None:
     return None
 
 
-def is_field_get(expr: Expr) -> tuple[Expr, str] | None:
+def is_field_get(expr: Expr) -> tuple[Any, str, FSharpList[Any]] | None:
+    # Third element mirrors PropertyGet's indexer-args slot; field/property access here is
+    # never indexed, so it's always empty. Must be a real FSharpList (not a plain Python list)
+    # since compiled F# `[]` patterns call FSharpList__get_IsEmpty on it. A static property
+    # getter carries the null-value node as its instance (see QuotationEmitter); expose it as
+    # None so PropertyGet matches F#.
     if isinstance(expr, ExprFieldGet):
-        return (expr.expr, expr.field_name)
+        instance = None if (isinstance(expr.expr, ExprValue) and expr.expr.type == "null") else expr.expr
+        return (instance, expr.field_name, of_array([]))
     return None
 
 

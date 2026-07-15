@@ -367,8 +367,14 @@ export function isTupleGet(expr: Expr): [Expr, number] | undefined {
     return undefined;
 }
 
-export function isFieldGet(expr: Expr): [Expr, string] | undefined {
-    if (expr instanceof ExprFieldGet) return [expr.expr, expr.fieldName];
+export function isFieldGet(expr: Expr): [Expr | null, string, Expr[]] | undefined {
+    // Third element mirrors PropertyGet's indexer-args slot; field/property access here is
+    // never indexed, so it's always empty. A static property getter carries the null-value
+    // node as its instance (see QuotationEmitter); expose it as null so PropertyGet matches F#.
+    if (expr instanceof ExprFieldGet) {
+        const instance = (expr.expr instanceof ExprValue && expr.expr.type === "null") ? null : expr.expr;
+        return [instance, expr.fieldName, []];
+    }
     return undefined;
 }
 

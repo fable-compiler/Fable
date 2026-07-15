@@ -9,6 +9,12 @@ open Microsoft.FSharp.Linq.RuntimeHelpers
 open Fable.Core.JsInterop
 #endif
 
+type QuotationTestUnion =
+    | QuotCircle of float
+    | QuotSquare of float
+
+let inline quotTestDouble x = x * 2
+
 let tests =
   testList "Quotations" [
 #if FABLE_COMPILER
@@ -146,6 +152,81 @@ let tests =
         match q with
         | Lambda(_, IfThenElse(_, _, _)) -> ()
         | _ -> failwith "Expected Lambda with IfThenElse body"
+
+    testCase "Union case match deconstructs to IfThenElse" <| fun () ->
+        let q =
+            <@ fun (s: QuotationTestUnion) ->
+                match s with
+                | QuotCircle _ -> true
+                | QuotSquare _ -> false @>
+
+        match q with
+        | Lambda(_, IfThenElse(_, _, _)) -> ()
+        | _ -> failwith "Expected Lambda with IfThenElse body"
+
+    testCase "List match deconstructs to IfThenElse" <| fun () ->
+        let q =
+            <@ fun (xs: int list) ->
+                match xs with
+                | [] -> true
+                | _ :: _ -> false @>
+
+        match q with
+        | Lambda(_, IfThenElse(_, _, _)) -> ()
+        | _ -> failwith "Expected Lambda with IfThenElse body"
+
+    testCase "Type test match deconstructs to IfThenElse" <| fun () ->
+        let q =
+            <@ fun (o: obj) ->
+                match o with
+                | :? int -> true
+                | _ -> false @>
+
+        match q with
+        | Lambda(_, IfThenElse(_, _, _)) -> ()
+        | _ -> failwith "Expected Lambda with IfThenElse body"
+
+    // --- Member calls inside quotations keep original .NET metadata (not inlined) ---
+
+    testCase "Inline function call inside quotation is preserved, not inlined" <| fun () ->
+        let q = <@ quotTestDouble 5 @>
+
+        match q with
+        | Call(None, _mi, args) -> equal 1 (Seq.length args)
+        | _ -> failwith "Expected a preserved Call node with a single argument"
+
+    // --- Option/List property-getter accessors (ListHead/ListTail/OptionValue) deconstruct
+    // as PropertyGet, matching real F# quotations ---
+
+    testCase "Option.Value access inside a quotation is a PropertyGet" <| fun () ->
+        let q = <@ fun (o: int option) -> o.Value @>
+
+        match q with
+        | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+        | _ -> failwith "Expected Lambda with PropertyGet body"
+
+    testCase "List.Head access inside a quotation is a PropertyGet" <| fun () ->
+        let q = <@ fun (xs: int list) -> xs.Head @>
+
+        match q with
+        | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+        | _ -> failwith "Expected Lambda with PropertyGet body"
+
+    testCase "List.Tail access inside a quotation is a PropertyGet" <| fun () ->
+        let q = <@ fun (xs: int list) -> xs.Tail @>
+
+        match q with
+        | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+        | _ -> failwith "Expected Lambda with PropertyGet body"
+
+    // --- Runtime-built null nodes (mkNullExpr) ---
+
+    testCase "Unit quotation still matches Value node" <| fun () ->
+        let q = <@ () @>
+
+        match q with
+        | Value(_, _) -> ()
+        | _ -> failwith "Expected Value"
 
     testCase "JSON serialization produces Thoth Auto-compatible format" <| fun () ->
         let q = <@ 42 @>
