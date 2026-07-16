@@ -244,7 +244,15 @@ module Python =
                     |> Array.mapi (fun i part ->
                         match part with
                         | "." when isLibrary -> Some ""
-                        | ".." when isLibrary -> Some "."
+                        // Joining with "." below already adds one dot per parent level,
+                        // so only the first ".." keeps its own dot. See #4797
+                        | ".." when isLibrary ->
+                            Some(
+                                if i = 0 then
+                                    "."
+                                else
+                                    ""
+                            )
                         | "."
                         | ".." -> None
                         | _ when i = parts.Length - 1 -> Some(normalizeFileName part)
