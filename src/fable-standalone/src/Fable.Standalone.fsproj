@@ -22,6 +22,8 @@
     <Compile Include="../../Fable.Transforms/Global/Metadata.fs" />
     <Compile Include="../../Fable.Transforms/Global/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/Global/Compiler.fs" />
+    <Compile Include="../../Fable.Transforms/Global/WarningSuppression.fs" />
+    <Compile Include="../../Fable.Transforms/Global/WarningCodes.fs" />
     <Compile Include="../../Fable.Transforms/Global/Naming.fs" />
     <Compile Include="../../Fable.Transforms/Python/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/MonadicTrampoline.fs" />

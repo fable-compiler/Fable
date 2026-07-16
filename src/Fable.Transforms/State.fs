@@ -257,15 +257,17 @@ type LogEntry =
         Severity: Severity
         Range: SourceLocation option
         FileName: string option
+        Code: string option
     }
 
-    static member Make(severity, msg, ?fileName, ?range, ?tag) =
+    static member Make(severity, msg, ?fileName, ?range, ?tag, ?code) =
         {
             Message = msg
             Tag = defaultArg tag "FABLE"
             Severity = severity
             Range = range
             FileName = fileName
+            Code = code
         }
 
     static member MakeError(msg, ?fileName, ?range, ?tag) =
@@ -283,7 +285,8 @@ type CompilerImpl
         ?outDir: string,
         ?watchDependencies: HashSet<string>,
         ?logs: ResizeArray<LogEntry>,
-        ?isPrecompilingInlineFunction: bool
+        ?isPrecompilingInlineFunction: bool,
+        ?sourceReader: SourceReader
     )
     =
 
@@ -291,6 +294,23 @@ type CompilerImpl
     let outType = defaultArg outType OutputType.Exe
     let logs = Option.defaultWith ResizeArray logs
     let fableLibraryDir = fableLibDir.TrimEnd('/')
+    let suppressionsCache = Dictionary<string, WarningSuppression.FileSuppressions>()
+
+    let getSuppressions fileName =
+        match suppressionsCache.TryGetValue(fileName) with
+        | true, s -> s
+        | false, _ ->
+            let suppressions =
+                match sourceReader with
+                | None -> WarningSuppression.FileSuppressions.Empty
+                | Some read ->
+                    try
+                        (snd (read fileName)).Value |> WarningSuppression.compute
+                    with _ ->
+                        WarningSuppression.FileSuppressions.Empty
+
+            suppressionsCache[fileName] <- suppressions
+            suppressions
 
     member _.Logs = logs.ToArray()
 
@@ -333,7 +353,8 @@ type CompilerImpl
                 ?outDir = outDir,
                 ?watchDependencies = watchDependencies,
                 logs = logs,
-                isPrecompilingInlineFunction = true
+                isPrecompilingInlineFunction = true,
+                ?sourceReader = sourceReader
             )
 
         member _.GetImplementationFile(fileName) =
@@ -387,6 +408,25 @@ type CompilerImpl
             | Some watchDependencies when file <> currentFile -> watchDependencies.Add(file) |> ignore
             | _ -> ()
 
-        member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string) =
-            LogEntry.Make(severity, msg, ?range = range, ?fileName = fileName, ?tag = tag)
-            |> logs.Add
+        member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string, ?code: string) =
+            // Only warnings can be suppressed, errors always surface (matches F#'s own #nowarn)
+            let isSuppressed =
+                severity = Severity.Warning
+                && (
+                    match range with
+                    | None -> false
+                    | Some(r: SourceLocation) ->
+                        let file =
+                            match fileName with
+                            | Some f -> f
+                            | None ->
+                                match r.File with
+                                | Some f -> f
+                                | None -> currentFile
+
+                        (getSuppressions file).IsSuppressed(r.start.line, code)
+                )
+
+            if not isSuppressed then
+                LogEntry.Make(severity, msg, ?range = range, ?fileName = fileName, ?tag = tag, ?code = code)
+                |> logs.Add

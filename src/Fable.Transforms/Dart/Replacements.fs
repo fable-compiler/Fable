@@ -1395,7 +1395,8 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "GetEnumerator", Some c, _ -> stringToCharSeq c |> getEnumerator com r t |> Some
     | ("Contains" | "StartsWith" | "EndsWith" as meth), Some c, arg :: _ ->
         if List.isMultiple args then
-            addWarning com ctx.InlinePath r $"String.%s{meth}: second argument is ignored"
+            WarningCodes.stringSecondArgumentIgnored meth
+            |> addWarningWithCode com ctx.InlinePath r
 
         Helper.InstanceCall(c, Naming.lowerFirst meth, t, [ arg ], ?loc = r) |> Some
     | ReplaceName [ "ToUpper", "toUpperCase"
