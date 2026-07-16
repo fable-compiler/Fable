@@ -101,7 +101,6 @@
     <Compile Include="ModuleMutableOneTests.fs" />
     <Compile Include="ModuleMutableTwoTests.fs" />
     <Compile Include="ModuleNamingTests.fs" />
-    <Compile Include="EnvironmentTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
