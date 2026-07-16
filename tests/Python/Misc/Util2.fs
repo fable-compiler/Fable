@@ -17,6 +17,8 @@ type H = Helper3
 type shape(size: int) =
     member _.Size = size
 
+type Direction = | Up
+
 
 module Extensions =
     type String with

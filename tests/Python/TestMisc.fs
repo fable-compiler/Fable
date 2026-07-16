@@ -963,6 +963,14 @@ let ``test Lowercase type name from another file works`` () =
     let s = Util2.shape (4)
     s.Size |> equal 4
 
+[<AttachMembers>]
+type Direction() =
+    static member Up = Util2.Direction.Up
+
+[<Fact>]
+let ``test Type with same name as type from another file works`` () =
+    Direction.Up |> equal Util2.Direction.Up
+
 [<Fact>]
 let ``test Can access nested recursive function with mangled name`` () =
     Util.Bar.nestedRecursive 3 |> equal 10

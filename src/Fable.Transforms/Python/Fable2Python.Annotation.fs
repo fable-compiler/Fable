@@ -727,13 +727,20 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
                             // Inside base class or not a union - use as-is
                             id
 
-                    // Import the type if it's from another file
-                    if ent.IsFSharpUnion then
-                        match ent.Ref.SourcePath with
-                        | Some path when path <> com.CurrentFile ->
-                            let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
-                            com.GetImportExpr(ctx, importPath, annotationName) |> ignore
-                        | _ -> ()
+                    // Import the type if it's from another file. The import may be aliased when the
+                    // name clashes with a local declaration, so use the returned local identifier
+                    let annotationName =
+                        if ent.IsFSharpUnion then
+                            match ent.Ref.SourcePath with
+                            | Some path when path <> com.CurrentFile ->
+                                let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+
+                                match com.GetImportExpr(ctx, importPath, annotationName) with
+                                | Expression.Name { Id = Identifier localId } -> localId
+                                | _ -> annotationName
+                            | _ -> annotationName
+                        else
+                            annotationName
 
                     makeGenericTypeAnnotation com ctx annotationName genArgs repeatedGenerics, stmts
                 // TODO: Resolve references to types in nested modules
