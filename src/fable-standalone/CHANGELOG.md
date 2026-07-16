@@ -1,5 +1,5 @@
 ---
-last_commit_released: 6568f35ece227fc30ce84111c8d2e975b09bac00
+last_commit_released: 7b2a262f6538f25b78feb70b0d4533a2bf298638
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
@@ -18,6 +18,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.8.0 - 2026-07-16
+
+### 🚀 Features
+
+* *(beam)* Support `Environment.CurrentDirectory` and `GetEnvironmentVariable` (#4801) ([55b9d560](https://github.com/fable-compiler/Fable/commit/55b9d560f1d55f65af93293bc99fb92121ba4269))
+* *(beam)* Support setting `Environment.CurrentDirectory` (#4783) ([7b2a262f](https://github.com/fable-compiler/Fable/commit/7b2a262f6538f25b78feb70b0d4533a2bf298638))
+* *(rust)* Various codegen and runtime improvements (#4781) ([ae10cd2c](https://github.com/fable-compiler/Fable/commit/ae10cd2c41524a9d6f9670163a8889e1320ef43f))
+
+    * Cast `bool` to integer types; support `**` via `.powf`
+    * Add `Decimal.IsInteger/IsEvenInteger/IsOddInteger/IsCanonical`
+    * Fix two-switch decision trees dispatching to the wrong target
+    * Fix reference-typed match bindings panicking via `mem::zeroed`
+    * Fix string and non-ident option pattern matches emitting invalid Rust
+    `match` arms
+    * Fix `Convert.ToXxx(bool)`
+    * Fix `Char.ToUpper/ToLower` truncating multi-char case mappings
+    * Fix `Random.nextDouble` panic message
+    * Fix `Map.find/tryFind` panicking on reference-typed values
+
+### 🐞 Bug Fixes
+
+* *(all)* Skip translating unreachable branch of constant-condition if/then/else (#4799) ([53c06de1](https://github.com/fable-compiler/Fable/commit/53c06de1a1e21de7fbf99f416765fe1d0061fbff))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/6568f35ece227fc30ce84111c8d2e975b09bac00..7b2a262f6538f25b78feb70b0d4533a2bf298638)</small></strong>
 
 ## 2.7.0 - 2026-07-15
 
