@@ -126,11 +126,13 @@ def tagged_union(tag: int):
     Uses @dataclass_transform() so type checkers understand:
     - Field annotations become constructor parameters
     - __match_args__ is generated
-    - __eq__, __repr__, __hash__ are generated
+    - __eq__, __repr__ are generated
 
     Additionally sets:
     - cls.tag = tag (numeric case discriminator)
     - cls.fields property (list of field values for backwards compat)
+    - cls.__hash__ from HashableBase (dataclass sets it to None when
+      generating __eq__, which would make union values unhashable)
     """
 
     def decorator[T](cls: type[T]) -> type[T]:
@@ -148,6 +150,12 @@ def tagged_union(tag: int):
             return Array[Any]([getattr(self, name) for name in field_names])
 
         dc_cls.fields = fields
+
+        # dataclass() generates __eq__ and therefore sets __hash__ to None.
+        # Restore the hash protocol so union values stay hashable via
+        # GetHashCode, e.g. when a union is a field of another union.
+        dc_cls.__hash__ = HashableBase.__hash__
+
         return dc_cls
 
     return decorator
