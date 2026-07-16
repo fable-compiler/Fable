@@ -5775,6 +5775,20 @@ let tryCall
     | "System.Environment" ->
         match info.CompiledName with
         | "get_NewLine" -> makeStrConst "\n" |> Some
+        | "GetEnvironmentVariable" ->
+            Helper.LibCall(
+                com,
+                "fable_environment",
+                "get_environment_variable",
+                t,
+                args,
+                info.SignatureArgTypes,
+                ?loc = r
+            )
+            |> Some
+        | "get_CurrentDirectory" ->
+            Helper.LibCall(com, "fable_environment", "get_current_directory", t, [], ?loc = r)
+            |> Some
         | _ -> None
     | Types.datetime -> dates com ctx r t info thisArg args
     | "System.Uri" -> uris com ctx r t info thisArg args
