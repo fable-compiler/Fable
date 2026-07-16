@@ -959,6 +959,11 @@ let ``test Naming values with same name as module works`` () =
     equal 30 Same.Same.shouldEqual30
 
 [<Fact>]
+let ``test Lowercase type name from another file works`` () =
+    let s = Util2.shape (4)
+    s.Size |> equal 4
+
+[<Fact>]
 let ``test Can access nested recursive function with mangled name`` () =
     Util.Bar.nestedRecursive 3 |> equal 10
 

@@ -676,7 +676,11 @@ module Helpers =
 
         let sanitizedName =
             match com.Options.Language with
-            | Python -> Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
+            | Python ->
+                // Python classes are declared with PascalCase names (PEP 8), so entity
+                // references must use the same casing as the declaration
+                let name = Fable.Py.Naming.toPascalCase name
+                Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
             | Rust -> (entityName |> cleanNameAsRustIdentifier)
             | Dart -> Naming.sanitizeDartIdent (fun _ -> false) name part
             | _ -> Naming.sanitizeJsIdent (fun _ -> false) name part
@@ -768,7 +772,12 @@ module Helpers =
                     | Some _ -> name
                     | _ -> Fable.Py.Naming.toPythonNaming name
 
+                // Reference sites re-case the full composed name, so apply the naming
+                // convention to the composed name here as well. Otherwise a lowercase
+                // member name with an overload suffix is declared with the suffix
+                // preserved but referenced with it snake_cased
                 Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
+                |> Fable.Py.Naming.toPythonNaming
             | Rust -> Naming.buildNameWithoutSanitation name part
             | Dart -> Naming.sanitizeDartIdent (fun _ -> false) name part
             | _ -> Naming.sanitizeJsIdent (fun _ -> false) name part

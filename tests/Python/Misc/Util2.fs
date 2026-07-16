@@ -12,6 +12,11 @@ type Helper3(i: int) =
 
 type H = Helper3
 
+// Lowercase type name at the root of the file: the Python class declaration and
+// its references from other files must agree on the name
+type shape(size: int) =
+    member _.Size = size
+
 
 module Extensions =
     type String with

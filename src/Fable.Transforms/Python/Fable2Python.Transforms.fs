@@ -3355,7 +3355,7 @@ let declareDataClassType
                     |> List.filter (fun genArg ->
                         match genArg with
                         | Fable.DeclaredType({ FullName = fullName }, _) ->
-                            Helpers.removeNamespace (fullName) <> entName
+                            Naming.toPascalCase (Helpers.removeNamespace fullName) <> entName
                         | _ -> true
                     )
 
@@ -3628,7 +3628,8 @@ let declareClassType
                 int.GenericArgs
                 |> List.filter (fun genArg ->
                     match genArg with
-                    | Fable.DeclaredType({ FullName = fullName }, _) -> Helpers.removeNamespace (fullName) <> entName
+                    | Fable.DeclaredType({ FullName = fullName }, _) ->
+                        Naming.toPascalCase (Helpers.removeNamespace fullName) <> entName
                     | _ -> true
                 )
 
