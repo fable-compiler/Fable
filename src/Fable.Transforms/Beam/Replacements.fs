@@ -5789,6 +5789,9 @@ let tryCall
         | "get_CurrentDirectory" ->
             Helper.LibCall(com, "fable_environment", "get_current_directory", t, [], ?loc = r)
             |> Some
+        | "set_CurrentDirectory" ->
+            Helper.LibCall(com, "fable_environment", "set_current_directory", t, args, ?loc = r)
+            |> Some
         | _ -> None
     | Types.datetime -> dates com ctx r t info thisArg args
     | "System.Uri" -> uris com ctx r t info thisArg args
