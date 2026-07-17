@@ -963,6 +963,14 @@ let ``test Lowercase type name from another file works`` () =
     let s = Util2.shape (4)
     s.Size |> equal 4
 
+[<Fact>]
+let ``test Overloaded constructor on lowercase type from another file works`` () =
+    // Exercises the `shape__ctor_Z<hash>` overload-suffix casing across files
+    let s1 = Util2.shape (4)
+    let s2 = Util2.shape ("abc")
+    s1.Size |> equal 4
+    s2.Size |> equal 3
+
 [<AttachMembers>]
 type Direction() =
     static member Up = Util2.Direction.Up
