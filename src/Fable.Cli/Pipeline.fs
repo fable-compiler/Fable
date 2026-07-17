@@ -239,27 +239,44 @@ module Python =
                 com.AddLog(msg, severity, ?range = range, fileName = com.CurrentFile)
 
             member _.MakeImportPath(path) =
-                let relativePath parts =
-                    parts
-                    |> Array.mapi (fun i part ->
-                        match part with
-                        | "." when isLibrary -> Some ""
-                        // Joining with "." below already adds one dot per parent level,
-                        // so only the first ".." keeps its own dot. See #4797
-                        | ".." when isLibrary ->
-                            Some(
-                                if i = 0 then
-                                    "."
-                                else
-                                    ""
-                            )
-                        | "."
-                        | ".." -> None
-                        | _ when i = parts.Length - 1 -> Some(normalizeFileName part)
-                        | _ -> Some(part.Replace(".", "_")) // Do not lowercase dir names. See #3079
-                    )
-                    |> Array.choose id
-                    |> String.concat "."
+                // Builds a Python relative import from the resolved path segments.
+                //
+                // "." / ".." segments are relative markers; every other segment is a
+                // module name. The dot prefix is computed explicitly: one dot for the
+                // current package, plus one extra dot per parent level (each ".."). The
+                // module names are then joined with ".". Emitting the dots as a count
+                // (rather than as join separators) keeps the leading-dot arithmetic
+                // correct at any nesting depth. See #4797.
+                //
+                //   [| "."; "module" |]                 -> ".module"        (same package)
+                //   [| ".."; "sibling"; "api" |]        -> "..sibling.api"   (1 level up)
+                //   [| ".."; ".."; "sibling"; "api" |]  -> "...sibling.api"  (2 levels up)
+                //   [| ".."; "My.Dir"; "api" |]         -> "..My_Dir.api"    (dir dots -> "_", see #3079)
+                //
+                // Only applies when compiling as a library (isLibrary); otherwise the
+                // markers are dropped and a dotless package path is produced.
+                let relativePath (parts: string[]) =
+                    let markers, names = parts |> Array.partition (fun p -> p = "." || p = "..")
+
+                    let prefix =
+                        if isLibrary && markers.Length > 0 then
+                            // one dot for the package itself, plus one per parent level
+                            let parents = markers |> Array.filter ((=) "..") |> Array.length
+                            String.replicate (parents + 1) "."
+                        else
+                            ""
+
+                    let body =
+                        names
+                        |> Array.mapi (fun i part ->
+                            if i = names.Length - 1 then
+                                normalizeFileName part // the imported file
+                            else
+                                part.Replace(".", "_") // Do not lowercase dir names. See #3079
+                        )
+                        |> String.concat "."
+
+                    prefix + body
 
                 let packagePath parts =
                     let mutable i = -1
