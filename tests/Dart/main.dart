@@ -14,6 +14,7 @@ import './src/MapTests.dart' as map;
 import './src/MiscTests.dart' as misc;
 // import './src/NullnessTests.dart' as nullness;
 import './src/OptionTests.dart' as option;
+import './src/QuotationTests.dart' as quotation;
 import './src/RecordTests.dart' as record;
 import './src/RegexTests.dart' as regex;
 import './src/ResizeArrayTests.dart' as resize_array;
@@ -46,6 +47,7 @@ void main() {
   misc.tests();
   // nullness.tests();
   option.tests();
+  quotation.tests();
   record.tests();
   regex.tests();
   resize_array.tests();
