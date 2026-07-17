@@ -5,6 +5,8 @@
 // below (the LibCall "quotation" module maps to this quotation.dart file).
 // Dart is dynamically typed, so nodes are tagged classes and options follow
 // Fable's convention (null = None, value/tuple = Some).
+import 'dart:math' as math;
+
 import 'List.dart' as list;
 import 'Types.dart' as types;
 
@@ -294,11 +296,13 @@ types.Some<types.Tuple2<dynamic, list.FSharpList<dynamic>>>? isNewUnionCase(
                 expr.typeName, list.ofArray<dynamic>(expr.fields)))
         : null;
 
-types.Some<types.Tuple2<dynamic, dynamic>>? isNewRecord(Expr expr) =>
+// Patterns.NewRecord needs a real `System.Type` in slot 1 (Dart generics are invariant);
+// no real type name reaches this target, so `runtimeType` is just a valid placeholder.
+types.Some<types.Tuple2<Type, list.FSharpList<dynamic>>>? isNewRecord(Expr expr) =>
     expr is ExprNewRecord
-        ? types.Some<types.Tuple2<dynamic, dynamic>>(
-            types.Tuple2<dynamic, dynamic>(list.ofArray<dynamic>(expr.fieldNames),
-                list.ofArray<dynamic>(expr.values)))
+        ? types.Some<types.Tuple2<Type, list.FSharpList<dynamic>>>(
+            types.Tuple2<Type, list.FSharpList<dynamic>>(
+                expr.runtimeType, list.ofArray<dynamic>(expr.values)))
         : null;
 
 types.Some<types.Tuple2<dynamic, dynamic>>? isTupleGet(Expr expr) =>
@@ -362,13 +366,9 @@ final Map<String, Function> _operators = {
   'op_BooleanOr': (a, b) => (a as bool) || (b as bool),
 };
 
-num _pow(num a, num b) {
-  num result = 1;
-  for (var i = 0; i < b; i++) {
-    result *= a;
-  }
-  return result;
-}
+// F# `(**)` is float exponentiation, so delegate to dart:math instead of a counting
+// loop (which broke on negative/fractional exponents).
+num _pow(num a, num b) => math.pow(a, b);
 
 dynamic _evaluate(Expr expr, Map<String, dynamic> env) {
   if (expr is ExprValue) return expr.value;
@@ -457,6 +457,15 @@ dynamic _evaluate(Expr expr, Map<String, dynamic> env) {
     final obj = _evaluate(expr.expr, env);
     if (obj is Map) return obj[expr.fieldName];
     throw Exception('Cannot get field ${expr.fieldName}');
+  }
+
+  if (expr is ExprFieldSet) {
+    final obj = _evaluate(expr.expr, env);
+    if (obj is Map) {
+      obj[expr.fieldName] = _evaluate(expr.value, env);
+      return null;
+    }
+    throw Exception('Cannot set field ${expr.fieldName}');
   }
 
   throw Exception('Cannot evaluate expression: ${expr.tag}');

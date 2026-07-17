@@ -12,6 +12,8 @@ type C =
 type Cfg =
     static member Version = 42
 
+type MutableRec = { mutable Value: int }
+
 let tests() =
     testCase "Simple integer value quotation" <| fun () ->
         let q = <@ 42 @>
@@ -185,3 +187,33 @@ let tests() =
         match q with
         | PropertyGet(None, _, []) -> ()
         | _ -> failwith "Expected PropertyGet with no instance"
+
+    testCase "Evaluate exponentiation" <| fun () ->
+        let result = LeafExpressionConverter.EvaluateQuotation <@ 2.0 ** 3.0 @>
+        equal 8.0 (result :?> float)
+
+    testCase "Evaluate exponentiation with negative exponent" <| fun () ->
+        // Regression test: `_pow` used to loop `b` times, wrongly returning `1.0` here.
+        let result = LeafExpressionConverter.EvaluateQuotation <@ 2.0 ** -1.0 @>
+        equal 0.5 (result :?> float)
+
+    testCase "Evaluate exponentiation with fractional exponent" <| fun () ->
+        let result = LeafExpressionConverter.EvaluateQuotation <@ 4.0 ** 0.5 @>
+        equal 2.0 (result :?> float)
+
+    testCase "NewRecord quotation exposes field values" <| fun () ->
+        let q = <@ { Value = 5 } : MutableRec @>
+        match q with
+        | NewRecord(_ty, values) -> equal 1 (List.length values)
+        | _ -> failwith "Expected NewRecord"
+
+    testCase "Evaluate mutable variable set (VarSet)" <| fun () ->
+        let result = LeafExpressionConverter.EvaluateQuotation <@ let mutable v = 1 in (v <- 2); v @>
+        equal 2 (result :?> int)
+
+    testCase "Evaluate mutable record field set (FieldSet)" <| fun () ->
+        let result =
+            LeafExpressionConverter.EvaluateQuotation
+                <@ let r = { Value = 1 }: MutableRec in r.Value <- 5; r.Value @>
+
+        equal 5 (result :?> int)
