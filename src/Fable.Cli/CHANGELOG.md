@@ -1,5 +1,5 @@
 ---
-last_commit_released: 7b2a262f6538f25b78feb70b0d4533a2bf298638
+last_commit_released: 2fc9c1415a9abcf729d920ca6c99732b3c894993
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -24,6 +24,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.11.0 - 2026-07-17
+
+### 🚀 Features
+
+* *(dart)* Quotations (#4784) ([019a6ade](https://github.com/fable-compiler/Fable/commit/019a6adeb42b17de24f1d491f227ef56fa4d0cd4))
+
+### 🐞 Bug Fixes
+
+* *(python)* Don't emit too many leading dots for relative imports of nested files (#4803) ([9fa49244](https://github.com/fable-compiler/Fable/commit/9fa49244f8fb8832b574aa8b2904e9fe6032d7a4))
+* *(python)* Make union case classes hashable again (#4805) ([63b80138](https://github.com/fable-compiler/Fable/commit/63b80138f0cd852b306d3985b31af2bf8ad6af71))
+* *(python)* Make class declarations and references agree on type names (#4807) ([ae4b910b](https://github.com/fable-compiler/Fable/commit/ae4b910bd651a9be8b277690b3d617035d7ebbf2))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/7b2a262f6538f25b78feb70b0d4533a2bf298638..2fc9c1415a9abcf729d920ca6c99732b3c894993)</small></strong>
 
 ## 5.10.0 - 2026-07-16
 
