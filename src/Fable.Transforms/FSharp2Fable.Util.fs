@@ -767,15 +767,24 @@ module Helpers =
             match com.Options.Language with
             | Python ->
                 let name =
-                    // Don't apply Python naming convention if member has compiled name attribute
+                    // Don't snake_case the prefix for [<CompiledName>] members. This is
+                    // largely subsumed by the re-casing of the whole composed name below,
+                    // but keeps the intent explicit at this step.
                     match memb.Attributes |> Helpers.tryFindAttrib Atts.compiledName with
                     | Some _ -> name
                     | _ -> Fable.Py.Naming.toPythonNaming name
 
-                // Reference sites re-case the full composed name, so apply the naming
-                // convention to the composed name here as well. Otherwise a lowercase
-                // member name with an overload suffix is declared with the suffix
-                // preserved but referenced with it snake_cased
+                // Import/reference sites re-case the full composed name unconditionally
+                // (see the imports printer in Fable2Python.Transforms), so re-case it here
+                // too to keep declarations and references in agreement. This is what makes
+                // a lowercase member with an overload suffix, e.g. `foo__ctor_Z<hash>`, be
+                // both declared and imported as `foo__ctor_z<hash>`.
+                //
+                // Caveat: being unconditional, this also overrides the [<CompiledName>] skip
+                // above when the composed name has no uppercase entity/module prefix, i.e. a
+                // root-level compiled name starting lowercase is snake_cased. Prefixed names
+                // (class / nested-module members) keep their uppercase prefix, so toPythonNaming
+                // is a no-op there and the compiled name survives.
                 Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
                 |> Fable.Py.Naming.toPythonNaming
             | Rust -> Naming.buildNameWithoutSanitation name part
