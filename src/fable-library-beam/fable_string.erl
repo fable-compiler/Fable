@@ -1136,6 +1136,10 @@ console_write(Value) ->
 %%     order, because a map does not remember the order its keys went in.
 %%   * An F# `Set` is an ordset, i.e. a plain list, and renders as a list rather than `set [...]`.
 %%   * `option` is erased, so `Some x` renders as `x` — the same collapse JS and Python have.
+%%   * An F# `ref` cell is the same process-dictionary reference an array is, so `ref 5` renders as
+%%     `5` and `ref [1, 2]` as `[|1; 2|]`, never as `{ contents = ... }`.
+%%   * A `decimal` is a fixed-scale integer and prints as its scaled value; a `DateTime` is a
+%%     `{Ticks, Kind}` tuple and prints as one. Both are in the FABLE-BEAM.md table.
 %%
 %% Recovering the first three needs the argument's static type threaded from the `%A` call site,
 %% which is where it still exists; nothing about the runtime value can supply it.
@@ -1233,9 +1237,13 @@ fmt_union(Name, [Field], Depth) ->
 fmt_union(Name, Fields, Depth) ->
     [Name, <<" (">>, fmt_items(Fields, Depth, <<", ">>), $)].
 
-%% An array is a ref cell into the process dictionary holding its elements. A class instance and a
-%% ref-wrapped byte array reach here the same way, and are handed back to `fmt_any` on their
-%% contents.
+%% An array is a ref cell into the process dictionary holding its elements. A class instance, a
+%% ref-wrapped byte array and an F# `ref` cell reach here the same way, and are handed back to
+%% `fmt_any` on their contents.
+%%
+%% Nothing distinguishes those, so a `ref` holding a list is rendered as an array and one holding a
+%% scalar as the scalar — never as `{ contents = ... }`. A `ref` holding `undefined` (an erased
+%% `None`) is indistinguishable from a key that was never stored, and falls through to `#Ref<...>`.
 fmt_ref(Value, Depth) ->
     case get(Value) of
         Stored when is_list(Stored) ->

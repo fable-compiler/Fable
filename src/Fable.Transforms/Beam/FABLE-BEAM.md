@@ -456,6 +456,15 @@ Where several F# types share one Erlang shape, the ambiguity is unresolvable and
 | `set [1; 2]` | `set [1; 2]` | `[1; 2]` | an F# `Set` is an ordset, i.e. a plain list |
 | `(Empty, 1)` | `(Empty, 1)` | `Empty 1` | `{empty, 1}` is also the shape of a one-field union case |
 | `'x'` | `'x'` | `120` | a `char` is an `integer()`, per the limitation above |
+| `ref 5` | `{ contents = 5 }` | `5` | a ref cell is the same process-dictionary reference an array is, with no `contents` field to name |
+| `ref [1; 2]` | `{ contents = [1; 2] }` | `[\|1; 2\|]` | the same collision, landing on the array rendering because the stored value is a list |
+| `1.0M` | `1.0M` | `10000000000000000000000000000` | a `decimal` is a fixed-scale integer (value × 10²⁸) and is indistinguishable from one |
+| `DateTime(...)` | `1/2/2024 3:04:05 AM` | `(638396498450000000, 1)` | a `DateTime` is a `{Ticks, Kind}` tuple; likewise `TimeSpan`, which is a bare integer |
+
+The last four are worse than the ambiguities above them, in that the value is not merely rendered in
+the wrong style but is unreadable. They are still shape collisions rather than bugs — nothing about
+the runtime term says "this reference is a ref cell, not an array" or "this integer is scaled" — and
+all four print at least as well as the `~p` dump they replaced.
 
 Recovering the first three needs the argument's static type threaded from the `%A` call site, where
 it does still exist: `printfn`'s `PrintfFormat<'Printer, _, _, _>` carries the per-argument types as
