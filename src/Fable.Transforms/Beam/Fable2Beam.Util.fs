@@ -436,6 +436,82 @@ let wrapWithHoisted (hoisted: Beam.ErlExpr list) (expr: Beam.ErlExpr) : Beam.Erl
 let atomLit name =
     Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom name))
 
+let rec private patternBinds (pattern: Beam.ErlPattern) : bool =
+    match pattern with
+    | Beam.PVar _ -> true
+    | Beam.PTuple elements -> elements |> List.exists patternBinds
+    | Beam.PList(head, tail) -> patternBinds head || patternBinds tail
+    | Beam.PLiteral _
+    | Beam.PWildcard -> false
+
+/// Whether evaluating this expression binds a variable in the *enclosing* function clause.
+/// Only `fun` introduces a scope in Erlang: `begin...end`, `case`, `try` and `receive` all
+/// bind into the clause that contains them.
+let rec private bindsVariables (expr: Beam.ErlExpr) : bool =
+    let anyBinds exprs = exprs |> List.exists bindsVariables
+
+    match expr with
+    | Beam.ErlExpr.Match _ -> true
+    // A `fun` body has its own scope, so nothing it binds escapes.
+    | Beam.ErlExpr.Fun _
+    | Beam.ErlExpr.NamedFun _ -> false
+    // The template is opaque and may bind; assume it does rather than guess.
+    | Beam.ErlExpr.Emit _ -> true
+    // `try` binds its catch variable, and neither its bodies nor `case`/`receive` clauses scope.
+    | Beam.ErlExpr.TryCatch _ -> true
+    | Beam.ErlExpr.Case(scrutinee, clauses) ->
+        bindsVariables scrutinee
+        || clauses
+           |> List.exists (fun clause -> patternBinds clause.Pattern || anyBinds clause.Body)
+    | Beam.ErlExpr.Receive(clauses, after) ->
+        clauses
+        |> List.exists (fun clause -> patternBinds clause.Pattern || anyBinds clause.Body)
+        || (
+            match after with
+            | Some(timeout, body) -> bindsVariables timeout || anyBinds body
+            | None -> false
+        )
+    | Beam.ErlExpr.Block exprs -> anyBinds exprs
+    | Beam.ErlExpr.Tuple elements
+    | Beam.ErlExpr.List elements -> anyBinds elements
+    | Beam.ErlExpr.ListCons(head, tail) -> bindsVariables head || bindsVariables tail
+    | Beam.ErlExpr.Map entries -> entries |> List.exists (fun (k, v) -> bindsVariables k || bindsVariables v)
+    | Beam.ErlExpr.Call(_, _, args) -> anyBinds args
+    | Beam.ErlExpr.Apply(func, args) -> bindsVariables func || anyBinds args
+    | Beam.ErlExpr.BinOp(_, left, right) -> bindsVariables left || bindsVariables right
+    | Beam.ErlExpr.UnaryOp(_, operand) -> bindsVariables operand
+    | Beam.ErlExpr.Literal _
+    | Beam.ErlExpr.Variable _ -> false
+
+/// Make a fragment safe to splice into the shared main/0 clause.
+///
+/// Top-level effects and module-level value initializers each emit their own main/0, and those
+/// are merged into a single clause. Each is transformed on its own, so two fragments can pick
+/// the same name for a temporary — and since Erlang variables are single-assignment, the second
+/// binding is a *pattern match* against the first rather than a rebind. That fails with
+/// `badmatch` when the values differ and succeeds silently when they agree; a name bound in only
+/// some `case` branches doesn't even compile ("variable unsafe in case").
+///
+/// `begin...end` would not help, as it does not open a scope. An immediately-invoked `fun` does.
+/// A fragment that binds nothing cannot collide, so it is spliced as-is to keep the generated
+/// code readable — note that being a single statement is *not* enough, since a lone `case` binds
+/// into the enclosing clause.
+let isolateScope (body: Beam.ErlExpr list) : Beam.ErlExpr =
+    match body with
+    | [ single ] when not (bindsVariables single) -> single
+    | _ ->
+        Beam.ErlExpr.Apply(
+            Beam.ErlExpr.Fun
+                [
+                    {
+                        Patterns = []
+                        Guard = []
+                        Body = body
+                    }
+                ],
+            []
+        )
+
 /// Process-dictionary key (atom name) for a module-level mutable or snapshot value.
 /// Namespaced by the emitting Erlang module so identically-named values in different
 /// modules don't collide in the shared, process-local process dictionary. Reads, writes

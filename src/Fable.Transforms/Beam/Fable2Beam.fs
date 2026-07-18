@@ -3572,27 +3572,9 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                 | Beam.ErlExpr.Block exprs -> exprs
                 | expr -> [ expr ]
 
-            // The value initializer of a module-level mutable/snapshot is spliced into the
-            // shared main/0 clause. A multi-statement body binds local Erlang variables (from
-            // F# `let`s); since Erlang `begin...end` does not introduce a new scope, two such
-            // initializers reusing the same variable name would clash in main/0. Wrap a
-            // multi-statement body in an immediately-invoked `fun` so its locals stay isolated.
-            // A single-expression body needs no wrapper.
-            let initValue =
-                match body with
-                | [ single ] -> single
-                | _ ->
-                    Beam.ErlExpr.Apply(
-                        Beam.ErlExpr.Fun
-                            [
-                                {
-                                    Patterns = []
-                                    Guard = []
-                                    Body = body
-                                }
-                            ],
-                        []
-                    )
+            // The value initializer of a module-level mutable/snapshot is spliced into the shared
+            // main/0 clause, so its locals must not leak into it (see `isolateScope`).
+            let initValue = isolateScope body
 
             // Module-level mutable values (no args, IsMutable) are stored in the process
             // dictionary so they can be updated. Emit a main/0 that initializes the value
@@ -3679,6 +3661,11 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
             | Beam.ErlExpr.Block exprs -> exprs
             | expr -> [ expr ]
 
+        // Every top-level effect emits its own main/0, and those are merged into a single clause
+        // (see the fold over declarations below), so each effect's locals must not leak into it
+        // (see `isolateScope`).
+        let isolatedBody = [ isolateScope body ]
+
         let funcDef: Beam.ErlFunctionDef =
             {
                 Name = Beam.Atom "main"
@@ -3688,7 +3675,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                         {
                             Patterns = []
                             Guard = []
-                            Body = body
+                            Body = isolatedBody
                         }
                     ]
             }
