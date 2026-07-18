@@ -3679,6 +3679,36 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
             | Beam.ErlExpr.Block exprs -> exprs
             | expr -> [ expr ]
 
+        // Every top-level effect emits its own main/0, and those are merged into a single clause
+        // (see the fold over declarations below). Each was transformed with its own variable
+        // counter, so two effects that both need a temporary both name it `Arg` — and because
+        // Erlang variables are single-assignment, the second binding is a *pattern match* against
+        // the first, not a rebind. It fails with `badmatch` whenever the two values differ, and
+        // silently succeeds when they happen to agree, which is how this survived: the common case
+        // of two `printfn`s over booleans often binds `true` twice.
+        //
+        // `begin ... end` would not help; it does not open a scope. Wrapping a multi-statement body
+        // in an immediately-invoked `fun` does, and is what the module-level mutable initializer
+        // above already does for exactly this reason. A single-statement body cannot collide with
+        // anything, so it is left alone to keep the generated code readable.
+        let isolatedBody =
+            match body with
+            | [ _ ] -> body
+            | _ ->
+                [
+                    Beam.ErlExpr.Apply(
+                        Beam.ErlExpr.Fun
+                            [
+                                {
+                                    Patterns = []
+                                    Guard = []
+                                    Body = body
+                                }
+                            ],
+                        []
+                    )
+                ]
+
         let funcDef: Beam.ErlFunctionDef =
             {
                 Name = Beam.Atom "main"
@@ -3688,7 +3718,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                         {
                             Patterns = []
                             Guard = []
-                            Body = body
+                            Body = isolatedBody
                         }
                     ]
             }
