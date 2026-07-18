@@ -120,4 +120,48 @@ let tests =
         Observable.add (equal 12) source2
         source.Trigger 6
         source.Trigger 2
+
+    testCase "Observable.filter delivers unit values when predicate is true" <| fun () ->
+        let mutable count = 0
+        let source = MyObservable()
+        source
+        |> Observable.filter (fun _ -> true)
+        |> Observable.add (fun () -> count <- count + 1)
+        source.Trigger ()
+        source.Trigger ()
+        source.Trigger ()
+        equal 3 count
+
+    testCase "Observable.filter delivers zero values" <| fun () ->
+        let received = ResizeArray()
+        let source = MyObservable()
+        source
+        |> Observable.filter (fun _ -> true)
+        |> Observable.add (fun x -> received.Add x)
+        source.Trigger 0
+        source.Trigger 1
+        source.Trigger 2
+        equal [0; 1; 2] (List.ofSeq received)
+
+    testCase "Observable.pairwise produces all consecutive pairs" <| fun () ->
+        let pairs = ResizeArray()
+        let source = MyObservable()
+        source
+        |> Observable.pairwise
+        |> Observable.add (fun p -> pairs.Add p)
+        source.Trigger 1
+        source.Trigger 2
+        source.Trigger 3
+        equal [(1, 2); (2, 3)] (List.ofSeq pairs)
+
+    testCase "Observable.pairwise does not drop pairs around a null element" <| fun () ->
+        let pairs = ResizeArray()
+        let source = MyObservable()
+        source
+        |> Observable.pairwise
+        |> Observable.add (fun p -> pairs.Add p)
+        source.Trigger "a"
+        source.Trigger null
+        source.Trigger "b"
+        equal [("a", null); (null, "b")] (List.ofSeq pairs)
   ]

@@ -7,7 +7,7 @@ authors = [
 ]
 requires-python = ">= 3.10, < 4.0"
 readme = "README.md"
-license = "MIT License"
+license = "MIT"
 dependencies = []
 
 [project.urls]
@@ -15,12 +15,12 @@ Homepage = "https://fable.io"
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.2,<10",
-    "maturin>=1.12.6,<2",
-    "hypothesis>=6.131.9,<7",
-    "pytest-benchmark>=5.1.0,<6",
-    "pyright>=1.1.401,<2",
-    "pydantic>=2.12.5",
+    "pytest>=9.1.1,<10",
+    "maturin>=1.14.1,<2",
+    "hypothesis>=6.156.4,<7",
+    "pytest-benchmark>=5.2.3,<6",
+    "pyright>=1.1.411,<2",
+    "pydantic>=2.13.4",
 ]
 
 [tool.hatch.build.targets.sdist]

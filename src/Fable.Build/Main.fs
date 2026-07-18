@@ -46,6 +46,7 @@ Available commands:
             integration             Run the integration test suite
             standalone              Tests the standalone version of Fable
                                     (Fable running on top of Node.js)
+            plugins                 Run the plugin test suite (tests MemberDeclarationPluginAttribute)
 
         Options for all except integration and standalone:
             --watch                 Watch for changes and re-run the tests
@@ -109,6 +110,11 @@ Available commands:
             --skip-publish          Skip the publish step (dangerous, use with care)
                                     This is useful when the publish step had an issue and we
                                     are trying to recover from it.
+
+    automated-release               Create a GitHub released based on the CHANGELOG.md files
+                                    This tasks needs to be run after a release commit created
+                                    by EasyBuild.ShipIt has been merged.
+                                    The CI is configured to call it when needed
         """
 
     printfn "%s" helpText
@@ -116,6 +122,10 @@ Available commands:
 [<EntryPoint>]
 let main argv =
     let argv = argv |> Array.map (fun x -> x.ToLower()) |> Array.toList
+
+    // Prevent uv run and uv sync from updating the uv.lock file
+    // Updating uv.lock should be done manucally by the user outside of the build system
+    System.Environment.SetEnvironmentVariable("UV_FROZEN", "true")
 
     SimpleExec.Command.Run(name = "dotnet", args = "tool restore")
     SimpleExec.Command.Run(name = "dotnet", args = "husky install --allow-roll-forward")
@@ -144,6 +154,7 @@ let main argv =
             // This test is using quicktest project for now,
             // because it can't compile (yet?) the Main JavaScript tests
             | "compiler-js" :: _ -> Test.CompilerJs.handle args
+            | "plugins" :: args -> Test.Plugins.handle args
             | _ -> printHelp ()
         | "quicktest" :: args ->
             match args with
@@ -162,6 +173,7 @@ let main argv =
         | "publish" :: args -> Publish.handle args
         | "github-release" :: args -> GithubRelease.handle args
         | "package" :: args -> Package.handle args
+        | "automated-release" :: args -> AutomatedRelease.handle args
         | "help" :: _
         | "--help" :: _
         | _ -> printHelp ()

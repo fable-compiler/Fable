@@ -114,6 +114,18 @@ def starts_with_exact(string: str, pattern: str) -> bool:
     return idx == 0
 
 
+def contains(string: str, value: str, comparison: int) -> bool:
+    """Check if string contains value using the given StringComparison."""
+    ignore_case = comparison in (
+        StringComparison.CURRENT_CULTURE_IGNORE_CASE,
+        StringComparison.INVARIANT_CULTURE_IGNORE_CASE,
+        StringComparison.ORDINAL_IGNORE_CASE,
+    )
+    if ignore_case:
+        return value.casefold() in string.casefold()
+    return value in string
+
+
 def index_of_any(string: str, any_of: Array[str], *args: int) -> int:
     """Find index of any character from the array."""
     if not string:
@@ -151,6 +163,7 @@ __all__ = [
     "compare",
     "compare_to",
     "concat",
+    "contains",
     "continue_print",
     "ends_with",
     "ends_with_exact",

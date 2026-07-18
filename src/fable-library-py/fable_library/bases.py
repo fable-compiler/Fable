@@ -71,10 +71,10 @@ class StringableBase:
     __slots__ = ()
 
     def __str__(self) -> str:
-        return self.ToString()  # type: ignore[attr-defined]
+        return self.ToString()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
     def __repr__(self) -> str:
-        return self.ToString()  # type: ignore[attr-defined]
+        return self.ToString()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
 
 class EquatableBase(ABC):

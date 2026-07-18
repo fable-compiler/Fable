@@ -273,13 +273,13 @@ function dateToStringWithCustomFormat(date: Date, format: string, utc: boolean) 
         cursorPos += tokenLength;
         switch (tokenLength) {
           case 1:
-            result += localizedDate.getFullYear() % 100;
+            result += year(localizedDate) % 100;
             break;
           case 2:
-            result += padWithZeros(localizedDate.getFullYear() % 100, 2);
+            result += padWithZeros(year(localizedDate) % 100, 2);
             break;
           default:
-            result += padWithZeros(localizedDate.getFullYear(), tokenLength);
+            result += padWithZeros(year(localizedDate), tokenLength);
             break;
         }
         break;
@@ -410,9 +410,28 @@ function dateToStringWithOffset(date: IDateTimeOffset, format?: string) {
     switch (format) {
       case "D": return dateToString_D(d);
       case "d": return dateToString_d(d);
+      case "F": return dateToString_D(d) + " " + dateToString_T(d);
+      case "f": return dateToString_D(d) + " " + dateToString_t(d);
+      case "G": return dateToString_d(d) + " " + dateToString_T(d);
+      case "g": return dateToString_d(d) + " " + dateToString_t(d);
+      case "M": case "m": return dateToString_M(d);
+      case "O": case "o": return dateToISOStringWithOffset(d, (date.offset ?? 0));
+      case "R": case "r": {
+        const utcDate = DateTime(date.getTime(), DateTimeKind.Utc);
+        return dateToString_R(utcDate);
+      }
+      case "s": return dateToString_s(toUniversalTime(d));
       case "T": return dateToString_T(toUniversalTime(d));
       case "t": return dateToString_t(toUniversalTime(d));
-      case "O": case "o": return dateToISOStringWithOffset(d, (date.offset ?? 0));
+      case "u": {
+        const utcDate = DateTime(date.getTime(), DateTimeKind.Utc);
+        return dateToString_u(utcDate);
+      }
+      case "U": {
+        const utcDate = DateTime(date.getTime(), DateTimeKind.Utc);
+        return dateToString_D(utcDate) + " " + dateToString_T(utcDate);
+      }
+      case "Y": case "y": return dateToString_Y(d);
       default: throw new Exception("Unrecognized Date print format");
     }
   } else {
@@ -444,18 +463,70 @@ function dateToString_t(date: IDateTime) {
     + ":" + padWithZeros(minute(date), 2);
 }
 
+// RFC 1123: "Thu, 01 Jan 2009 00:00:00 GMT" — always UTC
+function dateToString_R(date: IDateTime) {
+  const utcDate = toUniversalTime(date);
+  return shortDays[dayOfWeek(utcDate)] + ", "
+    + padWithZeros(day(utcDate), 2) + " "
+    + shortMonths[month(utcDate) - 1] + " "
+    + year(utcDate) + " "
+    + padWithZeros(hour(utcDate), 2) + ":"
+    + padWithZeros(minute(utcDate), 2) + ":"
+    + padWithZeros(second(utcDate), 2) + " GMT";
+}
+
+// Sortable ISO 8601, no timezone: "2009-06-15T13:45:30"
+function dateToString_s(date: IDateTime) {
+  return padWithZeros(year(date), 4) + "-"
+    + padWithZeros(month(date), 2) + "-"
+    + padWithZeros(day(date), 2) + "T"
+    + padWithZeros(hour(date), 2) + ":"
+    + padWithZeros(minute(date), 2) + ":"
+    + padWithZeros(second(date), 2);
+}
+
+// Universal sortable: "2009-06-15 13:45:30Z" — always UTC
+function dateToString_u(date: IDateTime) {
+  const utcDate = toUniversalTime(date);
+  return padWithZeros(year(utcDate), 4) + "-"
+    + padWithZeros(month(utcDate), 2) + "-"
+    + padWithZeros(day(utcDate), 2) + " "
+    + padWithZeros(hour(utcDate), 2) + ":"
+    + padWithZeros(minute(utcDate), 2) + ":"
+    + padWithZeros(second(utcDate), 2) + "Z";
+}
+
+// Month/day (InvariantCulture "MMMM dd"): "June 15"
+function dateToString_M(date: IDateTime) {
+  return longMonths[month(date) - 1] + " " + padWithZeros(day(date), 2);
+}
+
+// Year/month (InvariantCulture "yyyy MMMM"): "2009 June"
+function dateToString_Y(date: IDateTime) {
+  return year(date) + " " + longMonths[month(date) - 1];
+}
+
 function dateToStringWithKind(date: IDateTime, format?: string) {
   const utc = date.kind === DateTimeKind.Utc;
   if (typeof format !== "string") {
-    return utc ? date.toUTCString() : date.toLocaleString();
+    return dateToString_d(date) + " " + dateToString_T(date);
   } else if (format.length === 1) {
     switch (format) {
       case "D": return dateToString_D(date);
       case "d": return dateToString_d(date);
+      case "F": return dateToString_D(date) + " " + dateToString_T(date);
+      case "f": return dateToString_D(date) + " " + dateToString_t(date);
+      case "G": return dateToString_d(date) + " " + dateToString_T(date);
+      case "g": return dateToString_d(date) + " " + dateToString_t(date);
+      case "M": case "m": return dateToString_M(date);
+      case "O": case "o": return dateToISOString(date, utc);
+      case "R": case "r": return dateToString_R(date);
+      case "s": return dateToString_s(date);
       case "T": return dateToString_T(date);
       case "t": return dateToString_t(date);
-      case "O": case "o":
-        return dateToISOString(date, utc);
+      case "u": return dateToString_u(date);
+      case "U": return dateToString_D(toUniversalTime(date)) + " " + dateToString_T(toUniversalTime(date));
+      case "Y": case "y": return dateToString_Y(date);
       default:
         throw new Exception("Unrecognized Date print format");
     }
@@ -519,12 +590,28 @@ export function maxValue() {
   return DateTime(253402300799999, DateTimeKind.Utc);
 }
 
+// The only date words .NET's invariant parser recognises: month names, weekday names,
+// meridiem designators and zone markers (plus the ISO "T" separator). Anything else is
+// rejected. Used to reject JS-permissive inputs (see `parseRaw`).
+const recognizedDateWords = new Set([
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+  "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
+  "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+  "mon", "tue", "wed", "thu", "fri", "sat", "sun",
+  "am", "pm", "gmt", "utc", "ut", "t", "z",
+]);
+
 export function parseRaw(input: string): [Date, Offset] {
   function fail() {
     throw new Exception(`The string is not a valid Date: ${input}`);
   }
 
   if (input == null || input.trim() === "") {
+    fail();
+  }
+
+  if ((input.match(/[a-z]+/gi) ?? []).some(word => !recognizedDateWords.has(word.toLowerCase()))) {
     fail();
   }
 
@@ -549,7 +636,9 @@ export function parseRaw(input: string): [Date, Offset] {
           parseInt(timeParts[1] || "0", 10) * 60 +
           parseFloat(timeParts[2] || "0");
         if (m[3] != null && m[3].toUpperCase() === "PM" && hourPart < 12) {
-          timeInSeconds += 720;
+          timeInSeconds += 12 * 3600;
+        } else if (m[3] != null && m[3].toUpperCase() === "AM" && hourPart === 12) {
+          timeInSeconds -= 12 * 3600;
         }
       }
       if (m[4] != null) { // There's an offset, parse as UTC
@@ -767,18 +856,9 @@ export function addYears(d: IDateTime, v: number) {
 }
 
 export function addMonths(d: IDateTime, v: number) {
-  let newMonth = month(d) + v;
-  let newMonth_ = 0;
-  let yearOffset = 0;
-  if (newMonth > 12) {
-    newMonth_ = newMonth % 12;
-    yearOffset = Math.floor(newMonth / 12);
-    newMonth = newMonth_;
-  } else if (newMonth < 1) {
-    newMonth_ = 12 + newMonth % 12;
-    yearOffset = Math.floor(newMonth / 12) + (newMonth_ === 12 ? -1 : 0);
-    newMonth = newMonth_;
-  }
+  const totalMonths = month(d) + v;
+  const newMonth = ((totalMonths - 1) % 12 + 12) % 12 + 1;
+  const yearOffset = Math.floor((totalMonths - 1) / 12);
   const newYear = year(d) + yearOffset;
   const _daysInMonth = daysInMonth(newYear, newMonth);
   const newDay = Math.min(_daysInMonth, day(d));

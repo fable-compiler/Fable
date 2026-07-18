@@ -37,6 +37,12 @@
   <ItemGroup>
     <ProjectReference Include="..\Fable.Compiler\Fable.Compiler.fsproj" />
     <ProjectReference Include="..\Fable.Transforms\Fable.Transforms.fsproj" />
+    <ProjectReference Include="..\Fable.Transforms\Babel\Fable.Transforms.Babel.fsproj" />
+    <ProjectReference Include="..\Fable.Transforms\Python\Fable.Transforms.Python.fsproj" />
+    <ProjectReference Include="..\Fable.Transforms\Rust\Fable.Transforms.Rust.fsproj" />
+    <ProjectReference Include="..\Fable.Transforms\Dart\Fable.Transforms.Dart.fsproj" />
+    <ProjectReference Include="..\Fable.Transforms\Beam\Fable.Transforms.Beam.fsproj" />
+    <ProjectReference Include="..\Fable.Transforms\Php\Fable.Transforms.Php.fsproj" />
     <Reference Include="../../lib/fcs/FSharp.Compiler.Service.dll" />
     <Reference Include="../../lib/fcs/FSharp.DependencyManager.Nuget.dll" />
     <Reference Include="../../lib/fcs/FSharp.Core.dll" />
@@ -47,7 +53,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="FSharp.SystemTextJson" Version="1.4.36" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.10" />
     <PackageReference Include="source-map-sharp" Version="1.0.9" />
   </ItemGroup>
 </Project>

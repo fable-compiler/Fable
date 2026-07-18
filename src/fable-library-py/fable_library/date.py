@@ -167,6 +167,48 @@ def to_long_time_string(date: datetime) -> str:
     return datetime.strftime(date, "%H:%M:%S")
 
 
+def _to_plain_utc(date: datetime) -> datetime:
+    # Strip any datetime subclass (e.g. DateTimeOffset) so astimezone's internal
+    # reconstruction doesn't hit an incompatible __new__ signature.
+    plain = datetime(
+        date.year, date.month, date.day, date.hour, date.minute, date.second, date.microsecond, tzinfo=date.tzinfo
+    )
+    return plain.astimezone(UTC)
+
+
+def to_rfc1123_string(date: datetime) -> str:
+    """RFC 1123: "Thu, 01 Jan 2009 00:00:00 GMT" — always UTC"""
+    utc_date = _to_plain_utc(date)
+    return (
+        short_days[day_of_week(utc_date)]
+        + ", "
+        + utc_date.strftime("%d ")
+        + short_months[utc_date.month - 1]
+        + utc_date.strftime(" %Y %H:%M:%S GMT")
+    )
+
+
+def to_sortable_string(date: datetime) -> str:
+    """Sortable ISO 8601, no timezone: "2009-06-15T13:45:30" """
+    return date.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def to_universal_sortable_string(date: datetime) -> str:
+    """Universal sortable: "2009-06-15 13:45:30Z" — always UTC"""
+    utc_date = _to_plain_utc(date)
+    return utc_date.strftime("%Y-%m-%d %H:%M:%SZ")
+
+
+def to_month_day_string(date: datetime) -> str:
+    """Month/day (InvariantCulture "MMMM dd"): "June 15" """
+    return long_months[date.month - 1] + " " + f"{date.day:02d}"
+
+
+def to_year_month_string(date: datetime) -> str:
+    """Year/month (InvariantCulture "yyyy MMMM"): "2009 June" """
+    return str(date.year) + " " + long_months[date.month - 1]
+
+
 def parse_repeat_token(format: str, pos: int, pattern_char: str) -> int:
     token_length = 0
     internal_pos = pos
@@ -426,6 +468,35 @@ def date_to_string_with_offset(date: datetime, format: str | None = None) -> str
                 return date.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
         case "O" | "o":
             return date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        case "D":
+            return to_long_date_string(date)
+        case "d":
+            return to_short_date_string(date)
+        case "F":
+            return to_long_date_string(date) + " " + to_long_time_string(date)
+        case "f":
+            return to_long_date_string(date) + " " + to_short_time_string(date)
+        case "G":
+            return to_short_date_string(date) + " " + to_long_time_string(date)
+        case "g":
+            return to_short_date_string(date) + " " + to_short_time_string(date)
+        case "M" | "m":
+            return to_month_day_string(date)
+        case "R" | "r":
+            return to_rfc1123_string(date)
+        case "s":
+            return to_sortable_string(date)
+        case "T":
+            return to_long_time_string(date)
+        case "t":
+            return to_short_time_string(date)
+        case "u":
+            return to_universal_sortable_string(date)
+        case "U":
+            utc_date = _to_plain_utc(date)
+            return to_long_date_string(utc_date) + " " + to_long_time_string(utc_date)
+        case "Y" | "y":
+            return to_year_month_string(date)
         case _ if len(format) == 1:
             raise Exception("Unrecognized Date print format")
         case _:
@@ -435,24 +506,44 @@ def date_to_string_with_offset(date: datetime, format: str | None = None) -> str
 def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
     utc = date.tzinfo == UTC
 
-    if not format:
-        return date.isoformat() if utc else str(date)
-    elif len(format) == 1:
-        if format == "d":
+    match format:
+        case None | "":
+            return date.isoformat() if utc else str(date)
+        case "d":
             return to_short_date_string(date)
-        elif format == "D":
+        case "D":
             return to_long_date_string(date)
-        elif format == "T":
-            return to_long_time_string(date)
-        elif format == "t":
-            return to_short_time_string(date)
-        elif format == "O" or format == "o":
+        case "F":
+            return to_long_date_string(date) + " " + to_long_time_string(date)
+        case "f":
+            return to_long_date_string(date) + " " + to_short_time_string(date)
+        case "G":
+            return to_short_date_string(date) + " " + to_long_time_string(date)
+        case "g":
+            return to_short_date_string(date) + " " + to_short_time_string(date)
+        case "M" | "m":
+            return to_month_day_string(date)
+        case "O" | "o":
             return date.astimezone().isoformat(timespec="milliseconds")
-        else:
+        case "R" | "r":
+            return to_rfc1123_string(date)
+        case "s":
+            return to_sortable_string(date)
+        case "T":
+            return to_long_time_string(date)
+        case "t":
+            return to_short_time_string(date)
+        case "u":
+            return to_universal_sortable_string(date)
+        case "U":
+            utc_date = _to_plain_utc(date)
+            return to_long_date_string(utc_date) + " " + to_long_time_string(utc_date)
+        case "Y" | "y":
+            return to_year_month_string(date)
+        case _ if len(format) == 1:
             raise Exception("Unrecognized Date print format")
-
-    else:
-        return date_to_string_with_custom_format(date, format, utc)
+        case _:
+            return date_to_string_with_custom_format(date, format, utc)
 
 
 def to_string(date: datetime, format: str | None = None, provider: Any | None = None) -> str:

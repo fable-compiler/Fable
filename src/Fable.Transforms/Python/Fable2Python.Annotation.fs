@@ -404,6 +404,33 @@ let resolveGenerics com ctx generics repeatedGenerics : Expression list * Statem
     |> List.map (typeAnnotation com ctx repeatedGenerics)
     |> Helpers.unzipArgs
 
+/// Serialize an annotation expression to its Python source form for use as a string forward
+/// reference (e.g. `Array[Example] | None` -> "Array[Example] | None"). Only the shapes
+/// `typeAnnotation` can produce need handling.
+let rec annotationToString (expr: Expression) =
+    match expr with
+    | Expression.Name { Id = Identifier id } -> id
+    | Expression.Attribute {
+                               Value = value
+                               Attr = Identifier attr
+                           } -> $"{annotationToString value}.{attr}"
+    | Expression.Subscript {
+                               Value = value
+                               Slice = slice
+                           } -> $"{annotationToString value}[{annotationToString slice}]"
+    | Expression.Tuple { Elements = elements } -> elements |> List.map annotationToString |> String.concat ", "
+    | Expression.List(elements, _) ->
+        let inner = elements |> List.map annotationToString |> String.concat ", "
+        $"[{inner}]"
+    | Expression.BinOp {
+                           Left = left
+                           Right = right
+                           Operator = BitOr
+                       } -> $"{annotationToString left} | {annotationToString right}"
+    | Expression.Constant(StringLiteral s, _) -> s
+    | Expression.Constant(NoneLiteral, _) -> "None"
+    | _ -> "Any"
+
 let rec typeAnnotation
     (com: IPythonCompiler)
     ctx
@@ -700,13 +727,20 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
                             // Inside base class or not a union - use as-is
                             id
 
-                    // Import the type if it's from another file
-                    if ent.IsFSharpUnion then
-                        match ent.Ref.SourcePath with
-                        | Some path when path <> com.CurrentFile ->
-                            let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
-                            com.GetImportExpr(ctx, importPath, annotationName) |> ignore
-                        | _ -> ()
+                    // Import the type if it's from another file. The import may be aliased when the
+                    // name clashes with a local declaration, so use the returned local identifier
+                    let annotationName =
+                        if ent.IsFSharpUnion then
+                            match ent.Ref.SourcePath with
+                            | Some path when path <> com.CurrentFile ->
+                                let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+
+                                match com.GetImportExpr(ctx, importPath, annotationName) with
+                                | Expression.Name { Id = Identifier localId } -> localId
+                                | _ -> annotationName
+                            | _ -> annotationName
+                        else
+                            annotationName
 
                     makeGenericTypeAnnotation com ctx annotationName genArgs repeatedGenerics, stmts
                 // TODO: Resolve references to types in nested modules

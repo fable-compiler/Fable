@@ -97,6 +97,21 @@ let tests =
         |> format
         |> equal "05:07"
 
+    testCase "DateTimeOffset.ToString('R') works" <| fun _ ->
+        // R always formats in UTC
+        DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.FromHours 2).ToString("R", CultureInfo.InvariantCulture)
+        |> equal "Mon, 01 Sep 2014 14:37:02 GMT"
+
+    testCase "DateTimeOffset.ToString('u') works" <| fun _ ->
+        // u always formats in UTC
+        DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.FromHours 2).ToString("u", CultureInfo.InvariantCulture)
+        |> equal "2014-09-01 14:37:02Z"
+
+    testCase "DateTimeOffset.ToString('s') works" <| fun _ ->
+        // s uses the offset-local time with no timezone designator
+        DateTimeOffset(2014, 9, 1, 16, 37, 2, TimeSpan.Zero).ToString("s", CultureInfo.InvariantCulture)
+        |> equal "2014-09-01T16:37:02"
+
     testCase "DateTimeOffset from Year 1 to 99 works" <| fun () ->
         let date = DateTimeOffset(1, 1, 2, 0, 0, 0, TimeSpan.Zero)
         date.Year |> equal 1
@@ -396,6 +411,20 @@ let tests =
         test -5 2054
         test -20 2050
         test -100 2046
+
+    testCase "DateTimeOffset.AddMonths keeps last day when delta is a multiple of 12" <| fun () ->
+        let dt = DateTimeOffset(2020, 12, 31, 0, 0, 0, TimeSpan.Zero).AddMonths(12)
+        dt.Year |> equal 2021
+        dt.Month |> equal 12
+        dt.Day |> equal 31
+
+    testCase "DateTimeOffset.AddYears keeps offset-local wall clock" <| fun () ->
+        let dt = DateTimeOffset(2020, 1, 1, 2, 0, 0, TimeSpan.FromHours 5.).AddYears(1)
+        dt.Year |> equal 2021
+        dt.Month |> equal 1
+        dt.Day |> equal 1
+        dt.Hour |> equal 2
+        dt.Offset |> equal (TimeSpan.FromHours 5.)
 
     testCase "DateTimeOffset.AddDays works" <| fun () ->
         let test v expected =
@@ -870,5 +899,10 @@ let tests =
             let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
             (fun _ -> source.ToOffset(TimeSpan(0, 0, -10)))
             |> Util.throwsErrorContaining "Offset must be specified in whole minutes"
+
+        testCase "Implicit conversion from DateTime preserves value" <| fun () ->
+            let d = DateTime(2024, 1, 15, 0, 0, 0, DateTimeKind.Utc)
+            let dto: DateTimeOffset = d
+            dto.UtcDateTime |> equal d
     ]
   ]

@@ -52,6 +52,7 @@ type AsmArg =
 type SourceMap() = class end
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type CommentStyle =
     /// No code on either side of each line of the comment
     | Isolated
@@ -117,6 +118,7 @@ type State =
     }
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type Edition =
     /// The 2015 edition
     | Edition2015

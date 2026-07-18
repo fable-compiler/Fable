@@ -108,7 +108,7 @@ pub mod Random_ {
         }
 
         pub fn nextDouble(&self) -> f64 {
-            unimplemented!("MSG")
+            unimplemented!("{}", MSG)
         }
 
         pub fn nextBytes(&self, buffer: Array<u8>) {

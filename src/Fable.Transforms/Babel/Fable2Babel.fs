@@ -13,6 +13,7 @@ type ReturnStrategy =
     | Assign of Expression
     | Target of Identifier
 
+[<Struct>]
 type ConstructorRef =
     | Annotation
     | ActualConsRef
@@ -566,6 +567,7 @@ module Annotation =
                     |> List.choose (
                         function
                         | Fable.Constraint.CoercesTo t -> makeTypeAnnotation com ctx t |> Some
+                        | Fable.Constraint.IsEnum _ -> Some NumberTypeAnnotation
                         | _ -> None
                     )
                     |> function
@@ -754,10 +756,10 @@ module Annotation =
         | Replacements.Util.FSharpMap(key, value) ->
             makeFableLibImportTypeAnnotation com ctx [ key; value ] "Map" "FSharpMap"
         | Replacements.Util.FSharpResult(ok, err) ->
-            $"FSharpResult$2{Util.UnionHelpers.UNION_SUFFIX}"
+            $"FSharpResult$2%s{Util.UnionHelpers.UNION_SUFFIX}"
             |> makeFableLibImportTypeAnnotation com ctx [ ok; err ] "Result"
         | Replacements.Util.FSharpChoice genArgs ->
-            $"FSharpChoice${List.length genArgs}{Util.UnionHelpers.UNION_SUFFIX}"
+            $"FSharpChoice$%d{List.length genArgs}%s{Util.UnionHelpers.UNION_SUFFIX}"
             |> makeFableLibImportTypeAnnotation com ctx genArgs "Choice"
         | Replacements.Util.FSharpReference genArg ->
             if isInRefOrAnyType com typ then
@@ -772,7 +774,7 @@ module Annotation =
             | _ -> argTypes
             |> List.mapi (fun i argType ->
                 FunctionTypeParam.functionTypeParam (
-                    Identifier.identifier ($"arg{i}"),
+                    Identifier.identifier ($"arg%d{i}"),
                     makeTypeAnnotation com ctx argType
                 )
             )
@@ -1014,7 +1016,7 @@ module Util =
         let UNION_SUFFIX = "_$union"
 
     let IMPORT_REGEX =
-        Regex("""^import\b\s*(\{?.*?\}?)\s*\bfrom\s+["'](.*?)["'](?:\s*;)?$""")
+        Regex("""^import\b\s*(\{?.*?\}?)\s*\bfrom\s+["'](.*?)["'](?:\s*;)?(?:\s*//.*)?$""")
 
     let IMPORT_SELECTOR_REGEX = Regex(@"^(\*|\w+)(?:\s+as\s+(\w+))?$")
 
@@ -1034,7 +1036,7 @@ module Util =
                         if selector.StartsWith("*", StringComparison.Ordinal) then
                             selector
                         else
-                            $"default as {selector}"
+                            $"default as %s{selector}"
 
                     com.GetImportExpr(ctx, selector, path, r, noMangle = true) |> ignore
 
@@ -1045,17 +1047,19 @@ module Util =
 
     let (|TransformExpr|) (com: IBabelCompiler) ctx e = com.TransformAsExpr(ctx, e)
 
+    [<return: Struct>]
     let (|Function|_|) =
         function
-        | Fable.Lambda(arg, body, _) -> Some([ arg ], body)
-        | Fable.Delegate(args, body, _, []) -> Some(args, body)
-        | _ -> None
+        | Fable.Lambda(arg, body, _) -> ValueSome([ arg ], body)
+        | Fable.Delegate(args, body, _, []) -> ValueSome(args, body)
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|Lets|_|) =
         function
-        | Fable.Let(ident, value, body) -> Some([ ident, value ], body)
-        | Fable.LetRec(bindings, body) -> Some(bindings, body)
-        | _ -> None
+        | Fable.Let(ident, value, body) -> ValueSome([ ident, value ], body)
+        | Fable.LetRec(bindings, body) -> ValueSome(bindings, body)
+        | _ -> ValueNone
 
     let getUniqueNameInRootScope (ctx: Context) name =
         let name =
@@ -1327,6 +1331,7 @@ module Util =
 
         scopedTypeParams, typeParams
 
+    [<Struct>]
     type MemberKind =
         | ClassConstructor
         | NonAttached of funcName: string
@@ -1401,10 +1406,15 @@ module Util =
                     List.append entGenParams info.GenericParameters
                     |> List.map (fun g -> g.Name)
                     |> set
+                    // Keep type parameters already in scope (e.g. from an enclosing generic
+                    // function) so nested members/lambdas don't redeclare and shadow them.
+                    |> Set.union ctx.ScopedTypeParams
 
                 let declaredTypeParams =
-                    if isAttached then
+                    if isAttached && kind <> Attached(isStatic = true) then
+                        // Instance attached methods inherit class type params; only declare method-specific ones
                         info.GenericParameters
+                        |> List.filter (fun g -> entGenParams |> List.forall (fun e -> e.Name <> g.Name))
                     else
                         entGenParams @ info.GenericParameters
                     |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints))
@@ -1595,47 +1605,56 @@ module Util =
     let transformNewUnion (com: IBabelCompiler) (ctx: Context) r (ent: Fable.Entity) genArgs (tag: int) values =
         let values = values |> List.mapToArray (transformAsExpr com ctx)
 
-        if List.isSingle ent.UnionCases then
-            let typeParamInst = makeTypeParamInstantiationIfTypeScript com ctx genArgs
+        // A case with no fields is exposed as a static singleton (see makeUnionCaseSingletonMember),
+        // so use that instead of allocating a new instance on every reference.
+        let singletonCase =
+            List.tryItem tag ent.UnionCases
+            |> Option.filter (fun case -> List.isEmpty case.UnionCaseFields)
 
-            Expression.newExpression (jsConstructor com ctx ent, values, ?typeArguments = typeParamInst, ?loc = r)
-        else
-            let callConstructor (case: Fable.UnionCase option) =
-                let tagExpr =
-                    match case with
-                    | Some case -> CommentedExpression(case.Name, ofInt tag)
-                    | None -> ofInt tag
+        match singletonCase with
+        | Some case -> get r (jsConstructor com ctx ent) (sanitizeName case.Name)
+        | None ->
+            if List.isSingle ent.UnionCases then
+                let typeParamInst = makeTypeParamInstantiationIfTypeScript com ctx genArgs
 
-                let consRef = jsConstructor com ctx ent
+                Expression.newExpression (jsConstructor com ctx ent, values, ?typeArguments = typeParamInst, ?loc = r)
+            else
+                let callConstructor (case: Fable.UnionCase option) =
+                    let tagExpr =
+                        match case with
+                        | Some case -> CommentedExpression(case.Name, ofInt tag)
+                        | None -> ofInt tag
 
-                let typeParamInst =
-                    makeTypeParamInstantiationIfTypeScript com ctx genArgs
-                    |> Option.map (fun typeParams ->
-                        Array.append typeParams [| LiteralTypeAnnotation(Literal.numericLiteral (tag)) |]
+                    let consRef = jsConstructor com ctx ent
+
+                    let typeParamInst =
+                        makeTypeParamInstantiationIfTypeScript com ctx genArgs
+                        |> Option.map (fun typeParams ->
+                            Array.append typeParams [| LiteralTypeAnnotation(Literal.numericLiteral (tag)) |]
+                        )
+
+                    Expression.newExpression (
+                        consRef,
+                        [| tagExpr; Expression.arrayExpression values |],
+                        ?typeArguments = typeParamInst,
+                        ?loc = r
                     )
 
-                Expression.newExpression (
-                    consRef,
-                    [| tagExpr; Expression.arrayExpression values |],
-                    ?typeArguments = typeParamInst,
-                    ?loc = r
-                )
+                if com.IsTypeScript then
+                    match List.tryItem tag ent.UnionCases with
+                    | Some case ->
+                        match tryJsConstructorWithSuffix com ctx ent ("_" + sanitizeName case.Name) with
+                        | Some helperRef ->
+                            let typeParams = makeTypeParamInstantiation com ctx genArgs
 
-            if com.IsTypeScript then
-                match List.tryItem tag ent.UnionCases with
-                | Some case ->
-                    match tryJsConstructorWithSuffix com ctx ent ("_" + sanitizeName case.Name) with
-                    | Some helperRef ->
-                        let typeParams = makeTypeParamInstantiation com ctx genArgs
+                            Expression.callExpression (helperRef, values, typeArguments = typeParams)
+                        | None -> callConstructor (Some case)
+                    | None ->
+                        $"Unmatched union case tag: %d{tag} for %s{ent.FullName}" |> addWarning com [] r
 
-                        Expression.callExpression (helperRef, values, typeArguments = typeParams)
-                    | None -> callConstructor (Some case)
-                | None ->
-                    $"Unmatched union case tag: {tag} for {ent.FullName}" |> addWarning com [] r
-
-                    callConstructor None
-            else
-                callConstructor None
+                        callConstructor None
+                else
+                    callConstructor (List.tryItem tag ent.UnionCases)
 
     let transformValue (com: IBabelCompiler) (ctx: Context) r value : Expression =
         match value with
@@ -2078,6 +2097,17 @@ module Util =
                     | value -> Some(props, [ value ])
                 else
                     Some((key, value) :: props, children)
+            // When the string value exceeds ~100 chars, Fable wraps it in a Let binding.
+            // The Let body still contains the tuple with the prop key and a reference to the bound var;
+            // we use the bound value (letValue) as the actual prop value.
+            | Some(props, children),
+              MaybeCasted(Fable.Let(_, letValue, MaybeCasted(Fable.Value(Fable.NewTuple([ StringConst key; _ ], _), _)))) ->
+                if key = "children" then
+                    match letValue with
+                    | Replacements.Util.ArrayOrListLiteral(children, _) -> Some(props, children)
+                    | _ -> Some(props, [ letValue ])
+                else
+                    Some((key, letValue) :: props, children)
             | Some _, e ->
                 addError com [] e.Range "Cannot detect JSX prop key at compile time"
 
@@ -2131,17 +2161,26 @@ but thanks to the optimisation done below we get
 
         ***)
 
+        // A sequence lambda can only be flattened away when its body is a single `return`
+        // (handled by the ArrowFunctionExpression cases of the Unroller below).
+        let isFlattenableSeqLambdaBody (body: Statement array) =
+            match body with
+            | [| ReturnStatement _ |] -> true
+            | _ -> false
+
         // Check if the provided expression is equal to the expected identiferText (as a string)
+        [<return: Struct>]
         let rec (|IdentifierIs|_|) (identifierText: string) expression =
             match expression with
-            | Expression.Identifier(Identifier(currentCallerText, _)) when identifierText = currentCallerText -> Some()
-            | _ -> None
+            | Expression.Identifier(Identifier(currentCallerText, _)) when identifierText = currentCallerText ->
+                ValueSome()
+            | _ -> ValueNone
 
         // Make it easy to check if we are calling the expected function
-        and (|CalledExpression|_|) (callerText: string) value =
+        and [<return: Struct>] (|CalledExpression|_|) (callerText: string) value =
             match value with
-            | CallExpression(IdentifierIs callerText, UnrollerFromArray exprs, _, _) -> Some exprs
-            | _ -> None
+            | CallExpression(IdentifierIs callerText, UnrollerFromArray exprs, _, _) -> ValueSome exprs
+            | _ -> ValueNone
 
         and (|UnrollerFromSingleton|) (expr: Expression) : Expression list =
             [ expr ]
@@ -2160,6 +2199,16 @@ but thanks to the optimisation done below we get
             | expr :: Unroller rest ->
                 match expr with
                 | CalledExpression "toList" exprs -> exprs @ rest
+                // A `delay(fun () -> ...)` whose lambda body cannot be flattened (e.g. a `match`
+                // arm that binds a value before a `for` loop) must not be stripped down to a bare
+                // lambda, which React rejects ("Functions are not valid as a React child"). The
+                // `delay` only adds laziness, which is pointless for a JSX child, so invoke the
+                // lambda directly and let React render the produced sequence.
+                | CallExpression(IdentifierIs "delay",
+                                 [| (ArrowFunctionExpression([||], BlockStatement body, _, _, _)) as lambda |],
+                                 _,
+                                 _) when not (isFlattenableSeqLambdaBody body) ->
+                    CallExpression(lambda, [||], [||], None) :: rest
                 | CalledExpression "delay" exprs -> exprs @ rest
                 | ArrowFunctionExpression([||],
                                           BlockStatement [| ReturnStatement(ArrayExpression(UnrollerFromArray exprs, _),
@@ -2607,8 +2656,18 @@ but thanks to the optimisation done below we get
         transformBindingExprBody com ctx var value |> assign var.Range (identAsExpr var)
 
     let transformBindingAsStatements (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
+        // Compiler-generated copy-update locals (inputRecord, copyOfStruct) are treated as plain
+        // values at runtime even though their Fable type is byref. Strip the wrapper for TS annotation.
+        let varType =
+            if var.IsCompilerGenerated then
+                match var.Type with
+                | Replacements.Util.IsByRefType com innerType -> innerType
+                | typ -> typ
+            else
+                var.Type
+
         if isJsStatement ctx false value then
-            let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx var.Type None
+            let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx varType None
 
             let decl =
                 Statement.variableDeclaration (Let, var.Name, ?annotation = ta, typeParameters = tp, ?loc = var.Range)
@@ -2620,7 +2679,7 @@ but thanks to the optimisation done below we get
             let value = transformBindingExprBody com ctx var value
 
             let ta, tp =
-                makeTypeAnnotationWithParametersIfTypeScript com ctx var.Type (Some value)
+                makeTypeAnnotationWithParametersIfTypeScript com ctx varType (Some value)
 
             let kind =
                 if var.IsMutable then
@@ -2648,7 +2707,8 @@ but thanks to the optimisation done below we get
                 match List.tryItem tag ent.UnionCases with
                 | Some case -> Some case.Name
                 | None ->
-                    $"Unmatched union case tag: {tag} for {ent.FullName}" |> addWarning com [] range
+                    $"Unmatched union case tag: %d{tag} for %s{ent.FullName}"
+                    |> addWarning com [] range
 
                     None
             | _ -> None
@@ -2692,7 +2752,7 @@ but thanks to the optimisation done below we get
         (evalExpr: Fable.Expr)
         cases
         defaultCase
-        : Statement[]
+        : Statement array
         =
         let transformGuard =
             function
@@ -2788,7 +2848,7 @@ but thanks to the optimisation done below we get
         returnStrategy
         targetIndex
         boundValues
-        : Statement[]
+        : Statement array
         =
         match returnStrategy with
         | Some(Target targetId) ->
@@ -3002,7 +3062,7 @@ but thanks to the optimisation done below we get
         returnStrategy
         (targets: (Fable.Ident list * Fable.Expr) list)
         (treeExpr: Fable.Expr)
-        : Statement[]
+        : Statement array
         =
 
         let doesNotNeedExtraSwitch cases defaultCase =
@@ -3475,8 +3535,8 @@ but thanks to the optimisation done below we get
         (ent: Fable.Entity)
         entName
         (doc: string option)
-        (consArgs: Parameter[])
-        (consArgsModifiers: AccessModifier[])
+        (consArgs: Parameter array)
+        (consArgsModifiers: AccessModifier array)
         (consBody: BlockStatement)
         (superClass: SuperClass option)
         classMembers
@@ -3647,7 +3707,7 @@ but thanks to the optimisation done below we get
         (ent: Fable.Entity)
         entName
         doc
-        (consArgs: Parameter[])
+        (consArgs: Parameter array)
         (consBody: BlockStatement)
         baseExpr
         classMembers
@@ -3810,6 +3870,54 @@ but thanks to the optimisation done below we get
                 yield makeMethod "Symbol.iterator" [||] (enumerableThisToIterator com ctx) returnType None
         |]
 
+    /// fsc represents a union case with no fields as a single shared instance, so e.g.
+    /// `LanguagePrimitives.PhysicalEquality X.A X.A` is true. Mirror that by exposing the
+    /// case as a static, precomputed instance instead of constructing a new one on every access.
+    let makeUnionCaseSingletonMember
+        (com: IBabelCompiler)
+        (entName: string)
+        genArgsCount
+        (tag: int option)
+        (case: Fable.UnionCase)
+        : ClassMember
+        =
+        let typeArguments =
+            if com.IsTypeScript then
+                let anyArgs = Array.create genArgsCount AnyTypeAnnotation
+
+                match tag with
+                | Some tag ->
+                    Array.append anyArgs [| LiteralTypeAnnotation(Literal.numericLiteral (tag)) |]
+                    |> Some
+                | None when Array.isEmpty anyArgs -> None
+                | None -> Some anyArgs
+            else
+                None
+
+        let consArgs =
+            match tag with
+            | Some tag -> [| ofInt tag; Expression.arrayExpression [||] |]
+            | None -> [||]
+
+        let value =
+            Expression.newExpression (Expression.identifier entName, consArgs, ?typeArguments = typeArguments)
+
+        ClassMember.classProperty (
+            Expression.identifier (sanitizeName case.Name),
+            value = value,
+            isStatic = true,
+            ?typeAnnotation =
+                (if com.IsTypeScript then
+                     Some AnyTypeAnnotation
+                 else
+                     None),
+            ?accessModifier =
+                (if com.IsTypeScript then
+                     Some Readonly
+                 else
+                     None)
+        )
+
     let transformUnion
         (com: IBabelCompiler)
         ctx
@@ -3923,6 +4031,8 @@ but thanks to the optimisation done below we get
                             accessModifier = Readonly
                         )
                     cases
+                    if List.isEmpty singleCase.UnionCaseFields then
+                        makeUnionCaseSingletonMember com entName entParamsDecl.Length None singleCase
                     yield! classMembers
                 |]
 
@@ -3991,6 +4101,16 @@ but thanks to the optimisation done below we get
                         accessModifier = Readonly
                     )
                     cases
+                    yield!
+                        ent.UnionCases
+                        |> List.mapi (fun i case -> i, case)
+                        |> List.choose (fun (i, case) ->
+                            if List.isEmpty case.UnionCaseFields then
+                                makeUnionCaseSingletonMember com entName entParamsDecl.Length (Some i) case
+                                |> Some
+                            else
+                                None
+                        )
                     yield! classMembers
                 |]
 
@@ -4025,11 +4145,14 @@ but thanks to the optimisation done below we get
                         let body =
                             BlockStatement
                                 [|
-                                    Expression.newExpression (
-                                        Expression.Identifier union_cons,
-                                        [| Expression.Literal tag; passedArgs |],
-                                        typeArguments = consTypeArgs
-                                    )
+                                    (if List.isEmpty case.UnionCaseFields then
+                                         get None (Expression.Identifier union_cons) (sanitizeName case.Name)
+                                     else
+                                         Expression.newExpression (
+                                             Expression.Identifier union_cons,
+                                             [| Expression.Literal tag; passedArgs |],
+                                             typeArguments = consTypeArgs
+                                         ))
                                     |> Statement.returnStatement
                                 |]
 
@@ -4084,7 +4207,21 @@ but thanks to the optimisation done below we get
                             )
                     |]
 
-            let classMembers = Array.append [| cases |] classMembers
+            let singletonMembers =
+                ent.UnionCases
+                |> List.mapi (fun i case -> i, case)
+                |> List.choose (fun (i, case) ->
+                    if List.isEmpty case.UnionCaseFields then
+                        makeUnionCaseSingletonMember com entName entParamsDecl.Length (Some i) case
+                        |> Some
+                    else
+                        None
+                )
+                |> List.toArray
+
+            let classMembers =
+                Array.append [| cases |] (Array.append singletonMembers classMembers)
+
             declareType com ctx ent entName doc args body baseExpr classMembers
 
     let transformClassWithCompilerGeneratedConstructor
@@ -4184,6 +4321,15 @@ but thanks to the optimisation done below we get
             |> List.map (fun g -> Fable.GenericParam(g.Name, g.IsMeasure, g.Constraints))
             |> makeTypeParamDecl com ctx
 
+        let extends =
+            ent.BaseType
+            |> Option.bind (fun d ->
+                com.TryGetEntity(d.Entity)
+                |> Option.filter FSharp2Fable.Util.isPojoDefinedByConsArgsEntity
+                |> Option.map (makeEntityTypeAnnotation com ctx d.GenericArgs)
+            )
+            |> Option.toArray
+
         match constructors with
         | [] ->
             addError
@@ -4197,17 +4343,22 @@ but thanks to the optimisation done below we get
             Declaration.interfaceDeclaration (
                 Identifier.identifier decl.Name,
                 members,
-                [||],
+                extends,
                 typeParameters,
                 ?doc = decl.XmlDoc
             )
             |> asModuleDeclaration ent.IsPublic
             |> List.singleton
         | _ ->
-            let typ =
+            let unionTyp =
                 List.map ObjectTypeAnnotation constructors
                 |> Array.ofList
                 |> UnionTypeAnnotation
+
+            let typ =
+                match extends with
+                | [| parentTyp |] -> IntersectionTypeAnnotation [| unionTyp; parentTyp |]
+                | _ -> unionTyp
 
             TypeAliasDeclaration(decl.Name, typeParameters, typ)
             |> asModuleDeclaration ent.IsPublic
@@ -4625,6 +4776,34 @@ but thanks to the optimisation done below we get
                                             transformAttachedMethod com ctx ent info memb
                         )
 
+                    let tryKeyName =
+                        function
+                        | Expression.Identifier(Identifier(name, _)) -> Some name
+                        | _ -> None
+
+                    classMembers
+                    |> Array.choose (
+                        function
+                        | ClassMethod(ClassFunction(key, _), _, _, _, _, _, _, _, _) ->
+                            tryKeyName key |> Option.map (fun n -> n, false, false)
+                        | ClassMethod(ClassGetter(key, _), _, _, _, _, _, _, _, _) ->
+                            tryKeyName key |> Option.map (fun n -> n, true, false)
+                        | ClassMethod(ClassSetter(key, _), _, _, _, _, _, _, _, _) ->
+                            tryKeyName key |> Option.map (fun n -> n, false, true)
+                        | _ -> None
+                    )
+                    |> Array.groupBy (fun (name, _, _) -> name)
+                    |> Array.iter (fun (name, entries) ->
+                        let isValidGetterSetterPair =
+                            entries.Length = 2
+                            && entries |> Array.exists (fun (_, isGetter, _) -> isGetter)
+                            && entries |> Array.exists (fun (_, _, isSetter) -> isSetter)
+
+                        if entries.Length > 1 && not isValidGetterSetterPair then
+                            $"Overloads are not supported when using [<AttachMembers>]: '{name}' in {decl.Name} is defined more than once. Rename one of the members."
+                            |> addWarning com [] None
+                    )
+
                     match decl.Constructor with
                     | Some cons ->
                         withCurrentScope ctx cons.UsedNames
@@ -4714,7 +4893,7 @@ but thanks to the optimisation done below we get
                     let noConflict = ctx.UsedNames.RootScope.Add(alias)
 
                     if not noConflict then
-                        com.WarnOnlyOnce($"Import {alias} conflicts with existing identifier in root scope")
+                        com.WarnOnlyOnce($"Import %s{alias} conflicts with existing identifier in root scope")
 
                     alias
                 else

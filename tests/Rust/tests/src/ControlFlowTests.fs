@@ -66,3 +66,92 @@ let ``while loop works`` () =
         i <- i + 1
         total <- total + i
     total |> equal 55
+
+// --- Regression tests for the Rust decision-tree/switch backend ---
+
+type private OptRec = { Field: int option }
+
+let private (|Positive|_|) x =
+    if x > 0 then Some() else None
+
+// Bug 2: bare-wildcard option match where the scrutinee is NOT a plain ident
+// (field access / active-pattern result) used to emit `0_i32` int patterns
+// against a native Option<T>, a type error.
+let private optFieldNoBind (r: OptRec) =
+    match r.Field with
+    | Some _ -> "some"
+    | None -> "none"
+
+let private optApNoBind n =
+    match n with
+    | Positive _ -> "pos"
+    | _ -> "other"
+
+[<Fact>]
+let ``option wildcard match on field access works`` () =
+    optFieldNoBind { Field = Some 3 } |> equal "some"
+    optFieldNoBind { Field = None } |> equal "none"
+
+[<Fact>]
+let ``option wildcard match on active pattern works`` () =
+    optApNoBind 5 |> equal "pos"
+    optApNoBind -1 |> equal "other"
+
+let private optFieldBind (r: OptRec) =
+    match r.Field with
+    | Some v -> v * 10
+    | None -> 0
+
+[<Fact>]
+let ``option binding match on field access works`` () =
+    optFieldBind { Field = Some 4 } |> equal 40
+    optFieldBind { Field = None } |> equal 0
+
+// Bug 1: reference-typed bindings reaching the two-switch decision-tree path
+// used to be pre-declared via getZero (mem::zeroed), which panics on Rc pointers.
+
+type private RefC(v: int) =
+    member _.V = v
+
+// when-guard causes a shared default target -> two-switch path, ref binding `c`
+let private twoSwitchRef (x: RefC option) (b: bool) =
+    match x with
+    | Some c when b -> c.V + 1
+    | Some c -> c.V
+    | None -> -1
+
+[<Fact>]
+let ``two-switch with reference binding works`` () =
+    twoSwitchRef (Some(RefC 5)) true |> equal 6
+    twoSwitchRef (Some(RefC 5)) false |> equal 5
+    twoSwitchRef None false |> equal -1
+
+type private RefU =
+    | RA of RefC
+    | RB of RefC
+
+// or-pattern shares one target with a binding -> two-switch path
+let private orPatRef (u: RefU) =
+    match u with
+    | RA c
+    | RB c -> c.V
+
+[<Fact>]
+let ``two-switch or-pattern with reference binding works`` () =
+    orPatRef (RA(RefC 5)) |> equal 5
+    orPatRef (RB(RefC 7)) |> equal 7
+
+type private ObjU =
+    | OA of obj
+    | OB of obj
+
+let private orPatObj (u: ObjU) : obj =
+    match u with
+    | OA o
+    | OB o -> o
+
+[<Fact>]
+let ``two-switch or-pattern with obj binding works`` () =
+    // exercises the getZeroObj placeholder for a `dyn Any` binding on the two-switch path
+    orPatObj (OA(box 9)) :? int |> equal true
+    orPatObj (OB(box 11)) :? string |> equal false

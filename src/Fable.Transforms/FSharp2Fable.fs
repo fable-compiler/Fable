@@ -111,7 +111,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
         match argExprs with
         | [] -> transformStringEnum rule unionCase
         | _ ->
-            $"StringEnum types cannot have fields: {tdef.TryFullName}"
+            $"StringEnum types cannot have fields: %O{tdef.TryFullName}"
             |> addErrorAndReturnNull com ctx.InlinePath r
 
     | OptionUnion(typ, isStruct) ->
@@ -410,6 +410,38 @@ let private getImplementedSignatureInfo
         |}
     )
 
+/// When a generic interface method is implemented (by an object expression or a class),
+/// the implementation may name the method's type parameters differently from the
+/// signature — either compiler-generated names (e.g. `$a`) or just another user name.
+/// The TypeScript type-parameter declaration is emitted from the signature, so map the
+/// implementation's method type parameters to the signature's names in the context, so
+/// the generated argument/return/body type annotations line up with it. See #3586.
+let private addImplementedSignatureGenericArgs
+    (ctx: Context)
+    (implGenParams: FSharpGenericParameter seq)
+    (signGenParams: FSharpGenericParameter seq)
+    =
+    let signCount = Seq.length signGenParams
+    let implParams = Seq.toList implGenParams
+
+    if signCount > 0 && List.length implParams >= signCount then
+        // A generic method's own type parameters come after the declaring type's.
+        let implMethodParams = implParams |> List.skip (List.length implParams - signCount)
+
+        (ctx, Seq.zip implMethodParams signGenParams)
+        ||> Seq.fold (fun ctx (implParam, signParam) ->
+            let resolved =
+                Fable.GenericParam(
+                    genParamName signParam,
+                    signParam.IsMeasure,
+                    signParam.Constraints |> Seq.chooseToList FsGenParam.Constraint
+                )
+
+            { ctx with GenericArgs = Map.add (genParamName implParam) resolved ctx.GenericArgs }
+        )
+    else
+        ctx
+
 let private transformObjExpr
     (com: IFableCompiler)
     (ctx: Context)
@@ -429,6 +461,9 @@ let private transformObjExpr
 
             let info =
                 getImplementedSignatureInfo com ctx r nonMangledNameConflicts None signature true
+
+            let ctx =
+                addImplementedSignatureGenericArgs ctx over.GenericParameters signature.MethodGenericParameters
 
             let ctx, args = bindMemberArgs com ctx over.CurriedParameterGroups
             let! body = transformExpr com ctx [] over.Body
@@ -525,8 +560,16 @@ let private transformUnionCaseTest
                     else
                         fi.FieldType
 
-                let kind = makeType ctx.GenericArgs typ |> Fable.TypeTest
-                return Fable.Test(unionExpr, kind, r)
+                let fableType = makeType ctx.GenericArgs typ
+
+                match fableType with
+                | Fable.Any ->
+                    return
+                        $"Erased union case '{unionCase.Name}' is typed as 'obj' which cannot be tested at runtime (type test always evaluates to true). Use a more specific type or TypeScriptTaggedUnion instead."
+                        |> addErrorAndReturnNull com ctx.InlinePath r
+                | _ ->
+                    let kind = fableType |> Fable.TypeTest
+                    return Fable.Test(unionExpr, kind, r)
             | _ ->
                 return
                     "Erased unions with multiple cases cannot have more than one field: "
@@ -723,7 +766,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 let! limit = transformExpr com ctx [] limit
                 let! body = transformExpr com newContext [] body
                 return makeForLoop r isUp ident start limit body
-            | _ -> return failwithf $"Unexpected loop {r}: %A{fsExpr}"
+            | _ -> return failwithf $"Unexpected loop %O{r}: %A{fsExpr}"
 
         | FSharpExprPatterns.WhileLoop(guardExpr, bodyExpr, _) ->
             let! guardExpr = transformExpr com ctx [] guardExpr
@@ -959,6 +1002,9 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                 else
                     args
 
+            // Fix the mistyped fallback FCS generates for filtered try/with handlers in seq expressions
+            let args = fixEnumerateTryWithHandler memb args
+
             match callee, memb with
             | Some(CreateEvent(callee, event) as createEvent), _ ->
                 let! callee = transformExpr com ctx [] callee
@@ -1099,23 +1145,38 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
         | FSharpExprPatterns.IfThenElse(guardExpr, thenExpr, elseExpr) ->
             let! guardExpr = transformExpr com ctx [] guardExpr
-            let! thenExpr = transformExpr com ctx [] thenExpr
-            let! fableElseExpr = transformExpr com ctx [] elseExpr
 
-            let altElseExpr =
-                match elseExpr with
-                | RaisingMatchFailureExpr _infoWhereErrorOccurs ->
-                    let errorMessage = "Match failure"
-                    let rangeOfElseExpr = makeRangeFrom elseExpr
+            match guardExpr with
+            // Skip translating the unreachable branch (e.g. Compiler.isXxx), so target-specific
+            // calls there can't fail. Not for quotations: they must keep the literal structure.
+            | Fable.Value(Fable.BoolConstant value, _) when not ctx.CapturingQuotation ->
+                return!
+                    transformExpr
+                        com
+                        ctx
+                        []
+                        (if value then
+                             thenExpr
+                         else
+                             elseExpr)
+            | _ ->
+                let! thenExpr = transformExpr com ctx [] thenExpr
+                let! fableElseExpr = transformExpr com ctx [] elseExpr
 
-                    let errorExpr =
-                        Fable.Value(Fable.StringConstant errorMessage, None)
-                        |> Replacements.Api.error com
+                let altElseExpr =
+                    match elseExpr with
+                    | RaisingMatchFailureExpr _infoWhereErrorOccurs ->
+                        let errorMessage = "Match failure"
+                        let rangeOfElseExpr = makeRangeFrom elseExpr
 
-                    makeThrow rangeOfElseExpr Fable.Any errorExpr
-                | _ -> fableElseExpr
+                        let errorExpr =
+                            Fable.Value(Fable.StringConstant errorMessage, None)
+                            |> Replacements.Api.error com
 
-            return Fable.IfThenElse(guardExpr, thenExpr, altElseExpr, makeRangeFrom fsExpr)
+                        makeThrow rangeOfElseExpr Fable.Any errorExpr
+                    | _ -> fableElseExpr
+
+                return Fable.IfThenElse(guardExpr, thenExpr, altElseExpr, makeRangeFrom fsExpr)
 
         | FSharpExprPatterns.TryFinally(body, finalBody, _, _) ->
             let r = makeRangeFrom fsExpr
@@ -1457,7 +1518,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                     |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 
         | FSharpExprPatterns.Quote quotedExpr ->
-            let! body = transformExpr com ctx [] quotedExpr
+            // Capturing mode: member calls keep their .NET metadata instead of being replaced/emitted/inlined.
+            let! body = transformExpr com { ctx with CapturingQuotation = true } [] quotedExpr
             let exprType = fsExpr.Type
             let isTyped = exprType.GenericArguments.Count > 0
             return Fable.Quote(body, isTyped, makeRangeFrom fsExpr)
@@ -1686,7 +1748,7 @@ let private applyJsPyDecorators
             let parameters =
                 memb.CurriedParameterGroups
                 |> Seq.collect id
-                |> Seq.mapi (fun i p -> defaultArg p.Name $"arg{i}", makeType Map.empty p.Type)
+                |> Seq.mapi (fun i p -> defaultArg p.Name $"arg%d{i}", makeType Map.empty p.Type)
                 |> Seq.toList
 
             Replacements.Api.makeMethodInfo com None name parameters returnType
@@ -1859,6 +1921,9 @@ let private transformImplementedSignature
     args
     (body: FSharpExpr)
     =
+    let ctx =
+        addImplementedSignatureGenericArgs ctx memb.GenericParameters signature.MethodGenericParameters
+
     let bodyCtx, args = bindMemberArgs com ctx args
     let body = transformExpr com bodyCtx [] body |> run
     let entFullName = implementingEntity.FullName
@@ -2227,7 +2292,7 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
 
     | Fable.LetRec(bindings, b) ->
         let ctx, bindings =
-            ((ctx, bindings), bindings)
+            ((ctx, []), bindings)
             ||> List.fold (fun (ctx, bindings) (i, e) ->
                 let i = resolveInlineIdent ctx info i
                 let e = resolveInlineExpr com ctx info e
@@ -2760,7 +2825,7 @@ type FableCompiler(com: Compiler) =
         |> List.filter (fun (i, v) ->
             if ctx.CapturedBindings.Contains(i.Name) && canHaveSideEffects com v then
                 if isIdentUsed i.Name resolved then
-                    $"Inlined argument {i.Name} is being captured but is also used somewhere else. "
+                    $"Inlined argument %s{i.Name} is being captured but is also used somewhere else. "
                     + "There's a risk of double evaluation."
                     |> addWarning com [] i.Range
 

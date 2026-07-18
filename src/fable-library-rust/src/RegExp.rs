@@ -3,11 +3,11 @@ pub mod RegExp_ {
     use core::borrow::{Borrow, BorrowMut};
 
     use crate::{
-        System::Collections::Generic::{IEnumerable_1, IEnumerator_1},
-        NativeArray_::{array_from, new_array, new_empty, Array},
         Native_::{Func1, LrcPtr, ToString, Vec},
+        NativeArray_::{Array, array_from, new_array, new_empty},
         Seq_::ofArray,
         String_::{fromSlice, fromString, get_char_pos, string, substring, substring2},
+        System::Collections::Generic::{IEnumerable_1, IEnumerator_1},
     };
 
     #[derive(Clone, Debug)]

@@ -4,32 +4,30 @@
   "name": "fable-compiler",
   "scripts": {
     "tsc": "tsc",
-    "mocha": "mocha",
     "rollup": "rollup",
     "terser": "terser",
     "build": "dotnet fsi build_old.fsx",
     "publish": "dotnet fsi build_old.fsx publish",
     "test": "dotnet run --project src/Fable.Build/Fable.Build.fsproj -- test",
-    "tests": "mocha temp/tests/JavaScript/Main --reporter dot -t 10000",
+    "tests": "node --test-reporter spec --test-timeout 20000 --test temp/tests/JavaScript/Main/Main.js",
+    "tests-ts": "tsc -p temp/tests/TypeScript --outDir temp/tests/TypeScriptCompiled",
+    "posttests-ts": "node --test-reporter spec --test-timeout 20000 --test temp/tests/TypeScriptCompiled/temp/tests/TypeScript/Main.js",
     "build-compiler-js": "dotnet fable src/fable-compiler-js/src/fable-compiler-js.fsproj -o build/fable-compiler-js/out",
     "postbuild-compiler-js": "rollup build/fable-compiler-js/out/app.js --file src/fable-compiler-js/dist/app.js --format umd --name Fable",
     "minify-compiler-js": "terser src/fable-compiler-js/dist/app.js -o src/fable-compiler-js/dist/app.min.js --mangle --compress",
-    "test-js": "node src/fable-compiler-js/dist/app.js tests/Main/Fable.Tests.fsproj build/tests-js",
-    "posttest-js": "mocha build/tests-js --reporter dot -t 10000",
-    "test-ts": "tsc -p build/tests/TypeScript --outDir build/tests/TypeScriptCompiled",
-    "posttest-ts": "mocha build/tests/TypeScriptCompiled/build/tests/TypeScript -reporter dot -t 10000"
+    "tests-compiler-js": "node src/fable-compiler-js/dist/app.js tests/Main/Fable.Tests.fsproj temp/tests-compiler-js",
+    "posttests-compiler-js": "node --test-reporter spec --test-timeout 20000 --test temp/tests-compiler-js/Main.js"
   },
   "dependencies": {
-    "@types/node": "^25.5.2",
-    "concurrently": "^9.2.1",
+    "@types/node": "^26.1.1",
+    "concurrently": "^10.0.3",
     "ghreleases": "^3.0.2",
-    "mocha": "^11.7.5",
     "nodemon": "^3.1.14",
-    "rollup": "^4.60.1",
-    "terser": "^5.46.1",
+    "rollup": "^4.62.2",
+    "terser": "^5.49.0",
     "typescript": "^5.9.3"
   },
   "devDependencies": {
-    "markdownlint-cli": "^0.48.0"
+    "markdownlint-cli": "^0.49.1"
   }
 }

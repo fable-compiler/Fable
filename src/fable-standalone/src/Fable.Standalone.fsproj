@@ -18,7 +18,6 @@
     <Compile Include="../../Fable.AST/Plugins.fs" />
 
     <!-- Fable.Transforms -->
-    <Compile Include="../../Fable.Transforms/Global/Babel.fs" />
     <Compile Include="../../Fable.Transforms/Global/Fable.Core.fs" />
     <Compile Include="../../Fable.Transforms/Global/Metadata.fs" />
     <Compile Include="../../Fable.Transforms/Global/Prelude.fs" />
@@ -31,37 +30,51 @@
     <Compile Include="../../Fable.Transforms/FSharp2Fable.Util.fs" />
     <Compile Include="../../Fable.Transforms/ReplacementsInject.fs" />
     <Compile Include="../../Fable.Transforms/Replacements.Util.fs" />
+    <Compile Include="../../Fable.Transforms/Printer.fs" />
     <Compile Include="../../Fable.Transforms/Python/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Rust/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Dart/Replacements.fs" />
-    <Compile Include="../../Fable.Transforms/Beam/Beam.AST.fs" />
+    <Compile Include="../../Fable.Transforms/Beam/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/Beam/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Replacements.Api.fs" />
     <Compile Include="../../Fable.Transforms/QuotationEmitter.fs" />
+    <Compile Include="../../Fable.Transforms/FSharp2Fable.fsi" />
     <Compile Include="../../Fable.Transforms/FSharp2Fable.fs" />
+    <Compile Include="../../Fable.Transforms/FableTransforms.fsi" />
     <Compile Include="../../Fable.Transforms/FableTransforms.fs" />
-    <Compile Include="../../Fable.Transforms/Fable2Babel.fs" />
-    <Compile Include="../../Fable.Transforms/Printer.fs" />
-    <Compile Include="../../Fable.Transforms/BabelPrinter.fs" />
+    <Compile Include="../../Fable.Transforms/State.fs" />
+
+    <Compile Include="../../Fable.Transforms/Babel/Babel.fs" />
+    <Compile Include="../../Fable.Transforms/Babel/Fable2Babel.fs" />
+    <Compile Include="../../Fable.Transforms/Babel/BabelPrinter.fs" />
+
     <Compile Include="../../Fable.Transforms/Python/Python.AST.fs" />
-    <Compile Include="../../Fable.Transforms/Python/PythonPrinter.fs" />
     <Compile Include="../../Fable.Transforms/Python/Fable2Python.Types.fs" />
     <Compile Include="../../Fable.Transforms/Python/Fable2Python.Util.fs" />
     <Compile Include="../../Fable.Transforms/Python/Fable2Python.Annotation.fs" />
     <Compile Include="../../Fable.Transforms/Python/Fable2Python.Bases.fs" />
     <Compile Include="../../Fable.Transforms/Python/Fable2Python.Reflection.fs" />
     <Compile Include="../../Fable.Transforms/Python/Fable2Python.Transforms.fs" />
+    <Compile Include="../../Fable.Transforms/Python/PythonPrinter.fs" />
     <Compile Include="../../Fable.Transforms/Python/PythonCompiler.fs" />
+
     <Compile Include="../../Fable.Transforms/Php/Php.fs" />
     <Compile Include="../../Fable.Transforms/Php/Fable2Php.fs" />
     <Compile Include="../../Fable.Transforms/Php/PhpPrinter.fs" />
+
     <Compile Include="../../Fable.Transforms/Dart/Dart.fs" />
     <Compile Include="../../Fable.Transforms/Dart/Fable2Dart.fs" />
     <Compile Include="../../Fable.Transforms/Dart/DartPrinter.fs" />
+
     <Compile Include="../../Fable.Transforms/Rust/RustPrinter.fs" />
     <Compile Include="../../Fable.Transforms/Rust/Fable2Rust.fs" />
-    <Compile Include="../../Fable.Transforms/State.fs" />
+
+    <Compile Include="../../Fable.Transforms/Beam/Beam.AST.fs" />
+    <Compile Include="../../Fable.Transforms/Beam/Fable2Beam.Util.fs" />
+    <Compile Include="../../Fable.Transforms/Beam/Fable2Beam.Reflection.fs" />
+    <Compile Include="../../Fable.Transforms/Beam/Fable2Beam.fs" />
+    <Compile Include="../../Fable.Transforms/Beam/ErlangPrinter.fs" />
 
     <!-- Fable.Standalone -->
     <Compile Include="Interfaces.fs"/>

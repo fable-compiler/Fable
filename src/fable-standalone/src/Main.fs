@@ -343,6 +343,12 @@ type RustResult(ast: Rust.AST.Types.Crate, errors) =
     interface IFableResult with
         member _.FableErrors = errors
 
+type BeamResult(ast: Fable.AST.Beam.ErlModule, errors) =
+    member _.Ast = ast
+
+    interface IFableResult with
+        member _.FableErrors = errors
+
 let transformToFableAst (com: Compiler) : Fable.File =
     let fileName = com.CurrentFile
 
@@ -379,7 +385,9 @@ let transformToTargetAst (com: CompilerImpl) (fableAst: Fable.File) : IFableResu
     | Rust ->
         let ast = Rust.Fable2Rust.Compiler.transformFile com fableAst
         upcast RustResult(ast, errors)
-    | Beam -> failwith "Beam target is not supported in the standalone compiler"
+    | Beam ->
+        let ast = Fable.Transforms.Beam.Compiler.transformFile com fableAst
+        upcast BeamResult(ast, errors)
 
 let compileToTargetAst (results: IParseAndCheckResults) fileName fableLibrary typedArrays language : IFableResult =
     let res = results :?> ParseAndCheckResults
@@ -415,6 +423,8 @@ let getLanguage (language: string) =
     | "dart" -> Dart
     | "rs"
     | "rust" -> Rust
+    | "beam"
+    | "erlang" -> Beam
     | _ -> failwithf "Unsupported language: %s" language
 
 let init () =
@@ -474,6 +484,7 @@ let init () =
             | :? PhpResult as php -> PhpPrinter.run writer php.Ast
             | :? PythonResult as python -> PythonPrinter.run writer python.Ast
             | :? RustResult as rust -> Rust.RustPrinter.run writer rust.Ast
+            | :? BeamResult as beam -> ErlangPrinter.run writer beam.Ast
             | _ -> failwith "Unexpected Fable result"
 
         member _.FSharpAstToString(results: IParseAndCheckResults, fileName: string) =

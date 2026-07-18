@@ -5,29 +5,114 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable
 open Fable.Transforms
+open Fable.Beam
+open Fable.Beam.Naming
 open Replacements.Util
 
 type Context = FSharp2Fable.Context
 type ICompiler = FSharp2Fable.IFableCompiler
 type CallInfo = ReplaceCallInfo
 
+/// Truncate a value of type `sourceType` into the fixed width of the target integer type
+/// `t`, the way .NET's unchecked narrowing conversions do (`byte 300 = 44uy`). Erlang
+/// integers are unbounded, so without this the value would simply keep its old magnitude.
+/// Left alone when the source range already fits in the target.
+let private wrapToIntType (com: ICompiler) r (t: Type) (sourceType: Type) (expr: Expr) =
+    match Integers.sizedIntInfo t with
+    | Some info when Integers.conversionNeedsWrap sourceType t ->
+        Helper.LibCall(com, "fable_int", Integers.wrapFunctionName info, t, [ expr ], ?loc = r)
+    | _ -> expr
+
+/// Convert an expression *into* a BigInteger. Erlang integers are already arbitrary-precision, so
+/// this is the identity for an integral source. A float must be truncated toward zero, the way
+/// `BigInteger(double)` does: leaving it as a float would hand a non-integer to the integer
+/// arithmetic downstream and fail with `badarith`.
+let private toBigIntFrom r (t: Type) (expr: Expr) =
+    match expr.Type with
+    | Number((Float16 | Float32 | Float64), _) -> emitExpr r t [ expr ] "trunc($0)"
+    | _ -> expr
+
+let private isFunctionType (t: Type) =
+    match t with
+    | LambdaType _
+    | DelegateType _ -> true
+    | _ -> false
+
+let private physicalEquals r (left: Expr) (right: Expr) =
+    // Reference identity. For function values, the same F# value can be represented as either an
+    // uncurried fun or a re-curried nested adapter at different sites, which Erlang's `=:=` sees as
+    // distinct closures. Route those through fable_utils:fun_ref_eq, which unwraps curry adapters
+    // to the underlying function before comparing (see fun_ref_eq in fable_utils.erl). Non-function
+    // values keep plain `=:=`.
+    if isFunctionType left.Type || isFunctionType right.Type then
+        emitExpr r Boolean [ left; right ] "fable_utils:fun_ref_eq($0, $1)"
+    else
+        emitExpr r Boolean [ left; right ] "($0 =:= $1)"
+
 // Use fable_comparison:equals/2 for structural equality.
 // This handles ref-wrapped arrays (process dict refs) by dereferencing
 // before comparison, so structural equality works correctly.
 let private equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
     let eqCall =
-        Helper.LibCall(com, "fable_comparison", "equals", Boolean, [ left; right ], ?loc = r)
+        match left.Type with
+        // ResizeArray (System.Collections.Generic.List) uses reference equality in .NET, see #3718.
+        // Two distinct refs are never =:=, so this matches .NET semantics directly.
+        | Array(_, ResizeArray) -> physicalEquals r left right
+        | _ -> Helper.LibCall(com, "fable_comparison", "equals", Boolean, [ left; right ], ?loc = r)
 
     if equal then
         eqCall
     else
         Operation(Unary(UnaryNot, eqCall), Tags.empty, Boolean, r)
 
-let private compare (com: ICompiler) r (left: Expr) (right: Expr) =
-    Helper.LibCall(com, "fable_comparison", "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
+/// The Erlang atom tag used to represent a union case (mirrors `getUnionCaseAtomExpr`
+/// in Fable2Beam.fs, which is the authoritative construction site).
+let private unionCaseAtomName (uci: UnionCase) =
+    uci.CompiledName |> Option.defaultValue (sanitizeErlangName uci.Name)
 
-let private physicalEquals r (left: Expr) (right: Expr) =
-    emitExpr r Boolean [ left; right ] "($0 =:= $1)"
+/// If `t` is an F# discriminated union, returns its case tag names (as an F# string
+/// list expression, in declaration order) for `fable_comparison:compare_union/3`.
+/// The tagless Beam representation (bare atom / {atom, fields}) carries no case index,
+/// so the compiler supplies the declaration order at the comparison site.
+let private unionTagOrderExpr (com: ICompiler) (t: Type) : Expr option =
+    match t with
+    | DeclaredType(entRef, _) ->
+        match com.TryGetEntity entRef with
+        | Some ent when ent.IsFSharpUnion ->
+            (ent.UnionCases, Value(NewList(None, String), None))
+            ||> List.foldBack (fun uci tail ->
+                Value(NewList(Some(makeStrConst (unionCaseAtomName uci), tail), String), None)
+            )
+            |> Some
+        | _ -> None
+    | _ -> None
+
+let private isFableUnion (com: ICompiler) (t: Type) = (unionTagOrderExpr com t).IsSome
+
+let private compare (com: ICompiler) r (left: Expr) (right: Expr) =
+    // F# unions must compare by declaration order, but their tagless Beam representation
+    // (bare atoms / {atom, fields}) makes Erlang's native term ordering alphabetical.
+    // Route through compare_union with the compiler-supplied case order.
+    match unionTagOrderExpr com left.Type with
+    | Some tagOrder ->
+        Helper.LibCall(
+            com,
+            "fable_comparison",
+            "compare_union",
+            Number(Int32, NumberInfo.Empty),
+            [ tagOrder; left; right ],
+            ?loc = r
+        )
+    | None ->
+        Helper.LibCall(com, "fable_comparison", "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
+
+/// Relational operator (`<`, `<=`, `>`, `>=`): native Erlang term ordering for most
+/// types, but structural `compare_union` ordering for F# unions.
+let private makeRelational (com: ICompiler) r (left: Expr) (right: Expr) op =
+    if isFableUnion com left.Type then
+        makeBinOp r Boolean (compare com r left right) (makeIntConst 0) op
+    else
+        makeBinOp r Boolean left right op
 
 /// Deref an array ref to its underlying list (for passing to list BIFs).
 /// Byte arrays (UInt8) are atomics — convert to list via fable_utils:byte_array_to_list.
@@ -44,6 +129,13 @@ let private wrapArr (com: ICompiler) r (t: Type) (expr: Expr) =
     | Array(Type.Number(UInt8, _), _) -> Helper.LibCall(com, "fable_utils", "new_byte_array", t, [ expr ], ?loc = r)
     | Array _ -> Helper.LibCall(com, "fable_utils", "new_ref", t, [ expr ], ?loc = r)
     | _ -> expr
+
+/// Wrap a plain list result as an array ref even when the declared type is not a Fable `Array`
+/// (e.g. the non-generic `System.Array` returned by `Enum.GetValues`), which `wrapArr` skips.
+let private asArrayRef (com: ICompiler) r (t: Type) (expr: Expr) =
+    match t with
+    | Array _ -> wrapArr com r t expr
+    | _ -> Helper.LibCall(com, "fable_utils", "new_ref", t, [ expr ], ?loc = r)
 
 let private getOne (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
@@ -90,7 +182,7 @@ let private fsFormat
         | _ -> None
     | "PrintFormatThen", _, arg :: callee :: _ -> emitExpr r t [ callee; arg ] "(maps:get(cont, $0))($1)" |> Some
     | ".ctor", _, str :: (Value(NewArray(ArrayValues templateArgs, _, _), _) as values) :: _ ->
-        match makeStringTemplateFrom [| "%s"; "%i" |] templateArgs str with
+        match makeStringTemplateFrom com [| "%s"; "%i" |] templateArgs str with
         | Some v -> makeValue r v |> Some
         | None ->
             Helper.LibCall(com, "fable_string", "interpolate", t, [ str; values ], i.SignatureArgTypes, ?loc = r)
@@ -116,14 +208,16 @@ let private operators
     | "FailWith", [ msg ]
     | "InvalidOp", [ msg ] -> makeThrow r _t msg |> Some
     | "InvalidArg", [ argName; msg ] ->
-        let msg = add (add msg (Value(StringConstant "\\nParameter name: ", None))) argName
+        let msg =
+            add msg (add (add (Value(StringConstant " (Parameter '", None)) argName) (Value(StringConstant "')", None)))
+
         makeThrow r _t msg |> Some
     | "Raise", [ arg ] -> makeThrow r _t arg |> Some
     | "NullArg", [ arg ] ->
         let msg =
             add
-                (Value(StringConstant "Value cannot be null.", None))
-                (add (Value(StringConstant "\\nParameter name: ", None)) arg)
+                (Value(StringConstant "Value cannot be null. (Parameter '", None))
+                (add arg (Value(StringConstant "')", None)))
 
         makeThrow r _t msg |> Some
     | "IsNull", [ arg ] -> emitExpr r _t [ arg ] "($0 =:= undefined)" |> Some
@@ -146,7 +240,7 @@ let private operators
             r
             _t
             [ argName; arg ]
-            "case $1 of undefined -> erlang:error({badarg, <<\"Value cannot be null. Parameter name: \", $0/binary>>}); _ -> $1 end"
+            "case $1 of undefined -> erlang:error({badarg, <<\"Value cannot be null. (Parameter '\", $0/binary, \"')\">>}); _ -> $1 end"
         |> Some
     // Lock — no-op in Erlang (processes are isolated), just call the action
     | "Lock", [ _lockObj; action ] -> CurriedApply(action, [ Value(UnitConstant, None) ], _t, r) |> Some
@@ -220,8 +314,19 @@ let private operators
             Helper.LibCall(com, "fable_decimal", "truncate_decimal", _t, [ arg ], ?loc = r)
             |> Some
         | _ -> emitExpr r _t [ arg ] "float(trunc($0))" |> Some
-    | ("Max" | "Max_"), [ a; b ] -> emitExpr r _t [ a; b ] "erlang:max($0, $1)" |> Some
-    | ("Min" | "Min_"), [ a; b ] -> emitExpr r _t [ a; b ] "erlang:min($0, $1)" |> Some
+    | ("Max" | "Max_"), [ a; b ] ->
+        // F# unions order by declaration index, not native atom order.
+        if isFableUnion com a.Type then
+            emitExpr r _t [ compare com r a b; a; b ] "case $0 >= 0 of true -> $1; false -> $2 end"
+            |> Some
+        else
+            emitExpr r _t [ a; b ] "erlang:max($0, $1)" |> Some
+    | ("Min" | "Min_"), [ a; b ] ->
+        if isFableUnion com a.Type then
+            emitExpr r _t [ compare com r a b; a; b ] "case $0 =< 0 of true -> $1; false -> $2 end"
+            |> Some
+        else
+            emitExpr r _t [ a; b ] "erlang:min($0, $1)" |> Some
     | "Clamp", [ value; min_; max_ ] -> emitExpr r _t [ value; min_; max_ ] "erlang:min(erlang:max($0, $1), $2)" |> Some
     | "Log", [ x; base_ ] -> emitExpr r _t [ x; base_ ] "(math:log($0) / math:log($1))" |> Some
     | "DivRem", [ x; y ] -> emitExpr r _t [ x; y ] "{$0 div $1, $0 rem $1}" |> Some
@@ -236,25 +341,30 @@ let private operators
         |> Some
     | (Operators.equality | "Eq"), [ left; right ] -> equals com r true left right |> Some
     | (Operators.inequality | "Neq"), [ left; right ] -> equals com r false left right |> Some
-    | (Operators.lessThan | "Lt"), [ left; right ] -> makeBinOp r Boolean left right BinaryLess |> Some
-    | (Operators.lessThanOrEqual | "Lte"), [ left; right ] -> makeBinOp r Boolean left right BinaryLessOrEqual |> Some
-    | (Operators.greaterThan | "Gt"), [ left; right ] -> makeBinOp r Boolean left right BinaryGreater |> Some
+    | (Operators.lessThan | "Lt"), [ left; right ] -> makeRelational com r left right BinaryLess |> Some
+    | (Operators.lessThanOrEqual | "Lte"), [ left; right ] -> makeRelational com r left right BinaryLessOrEqual |> Some
+    | (Operators.greaterThan | "Gt"), [ left; right ] -> makeRelational com r left right BinaryGreater |> Some
     | (Operators.greaterThanOrEqual | "Gte"), [ left; right ] ->
-        makeBinOp r Boolean left right BinaryGreaterOrEqual |> Some
+        makeRelational com r left right BinaryGreaterOrEqual |> Some
     | Operators.unaryNegation, [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, _t, r) |> Some
     // Type conversions: int(x), float(x), string(x), etc.
     | ("ToSByte" | "ToByte" | "ToInt8" | "ToUInt8" | "ToInt16" | "ToUInt16" | "ToInt" | "ToUInt" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"),
       [ arg ] ->
         match arg.Type with
+        // TODO: `fable_convert:to_int` does not range-check against the target type, so
+        // out-of-range input yields the parsed value instead of raising the way .NET does.
         | Type.String -> Helper.LibCall(com, "fable_convert", "to_int", _t, [ arg ], ?loc = r) |> Some
         | Type.Number(kind, _) ->
             match kind with
-            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_int", _t, [ arg ], ?loc = r) |> Some
+            | Decimal ->
+                Helper.LibCall(com, "fable_decimal", "to_int", _t, [ arg ], ?loc = r)
+                |> wrapToIntType com r _t arg.Type
+                |> Some
             | Float16
             | Float32
-            | Float64 -> emitExpr r _t [ arg ] "trunc($0)" |> Some
-            | _ -> Some arg
-        | Type.Char -> Some arg
+            | Float64 -> emitExpr r _t [ arg ] "trunc($0)" |> wrapToIntType com r _t arg.Type |> Some
+            | _ -> arg |> wrapToIntType com r _t arg.Type |> Some
+        | Type.Char -> arg |> wrapToIntType com r _t arg.Type |> Some
         | _ -> Some arg
     | ("ToSingle" | "ToDouble"), [ arg ] ->
         match arg.Type with
@@ -276,29 +386,23 @@ let private operators
             | Float16
             | Float32
             | Float64 ->
-                // float → fixed-scale: trunc(x * 10^28)
-                emitExpr r _t [ arg ] "trunc($0 * 10000000000000000000000000000)" |> Some
-            | _ ->
-                // int → fixed-scale: x * 10^28
-                emitExpr r _t [ arg ] "($0 * 10000000000000000000000000000)" |> Some
-        | _ -> emitExpr r _t [ arg ] "($0 * 10000000000000000000000000000)" |> Some
-    | "ToString", [ arg ] ->
-        match arg.Type with
-        | Type.String -> Some arg
-        | Type.Char -> emitExpr r _t [ arg ] "<<($0)/utf8>>" |> Some
-        | Type.Number(kind, _) ->
-            match kind with
-            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", _t, [ arg ], ?loc = r) |> Some
-            | Float16
-            | Float32
-            | Float64 -> Helper.LibCall(com, "fable_convert", "to_string", _t, [ arg ], ?loc = r) |> Some
-            | _ -> emitExpr r _t [ arg ] "integer_to_binary($0)" |> Some
-        | Type.Boolean -> emitExpr r _t [ arg ] "atom_to_binary($0)" |> Some
-        | _ -> Helper.LibCall(com, "fable_convert", "to_string", _t, [ arg ], ?loc = r) |> Some
+                // float → fixed-scale. Scaling by 10^28 in float arithmetic would be lossy
+                // (10^28 is not a representable double), so go via the float's decimal string.
+                Helper.LibCall(com, "fable_decimal", "from_float", _t, [ arg ], ?loc = r)
+                |> Some
+            | _ -> Helper.LibCall(com, "fable_decimal", "from_int", _t, [ arg ], ?loc = r) |> Some
+        | _ -> Helper.LibCall(com, "fable_decimal", "from_int", _t, [ arg ], ?loc = r) |> Some
+    | "ToString", [ arg ] -> ToString.toStringByType com r _t arg
     | "ToChar", [ arg ] ->
         match arg.Type with
         | Type.String -> emitExpr r _t [ arg ] "binary:first($0)" |> Some
-        | _ -> Some arg
+        // Decimals are fixed-scale integers, so they need unscaling first
+        | Type.Number(Decimal, _) ->
+            Helper.LibCall(com, "fable_decimal", "to_int", _t, [ arg ], ?loc = r)
+            |> wrapToIntType com r _t arg.Type
+            |> Some
+        // Other numbers are already chars in Erlang, but `char` truncates like a uint16
+        | _ -> arg |> wrapToIntType com r _t arg.Type |> Some
     // CreateSet: the `set [1;2;3]` syntax
     | "CreateSet", [ arg ] -> emitExpr r _t [ arg ] "ordsets:from_list($0)" |> Some
     // CreateDictionary: the `dict [...]` syntax
@@ -329,15 +433,17 @@ let private operators
         |> Some
     // Erlang has native arbitrary-precision integers, so Int64/UInt64/BigInt
     // use direct binary ops instead of library calls (like Python's int)
-    // Bitwise operators — Erlang has native bitwise support for all integer sizes
+    // Bitwise operators — Erlang has native bitwise support for all integer sizes.
+    // These go through the regular Fable operations (rather than being emitted directly)
+    // so that codegen can apply fixed-width wrapping and shift-count masking to them.
     | Operators.booleanOr, [ left; right ] -> emitExpr r _t [ left; right ] "($0 orelse $1)" |> Some
     | Operators.booleanAnd, [ left; right ] -> emitExpr r _t [ left; right ] "($0 andalso $1)" |> Some
-    | Operators.bitwiseAnd, [ left; right ] -> emitExpr r _t [ left; right ] "($0 band $1)" |> Some
-    | Operators.bitwiseOr, [ left; right ] -> emitExpr r _t [ left; right ] "($0 bor $1)" |> Some
-    | Operators.exclusiveOr, [ left; right ] -> emitExpr r _t [ left; right ] "($0 bxor $1)" |> Some
-    | Operators.leftShift, [ left; right ] -> emitExpr r _t [ left; right ] "($0 bsl $1)" |> Some
-    | Operators.rightShift, [ left; right ] -> emitExpr r _t [ left; right ] "($0 bsr $1)" |> Some
-    | Operators.logicalNot, [ operand ] -> emitExpr r _t [ operand ] "(bnot $0)" |> Some
+    | Operators.bitwiseAnd, [ left; right ] -> makeBinOp r _t left right BinaryAndBitwise |> Some
+    | Operators.bitwiseOr, [ left; right ] -> makeBinOp r _t left right BinaryOrBitwise |> Some
+    | Operators.exclusiveOr, [ left; right ] -> makeBinOp r _t left right BinaryXorBitwise |> Some
+    | Operators.leftShift, [ left; right ] -> makeBinOp r _t left right BinaryShiftLeft |> Some
+    | Operators.rightShift, [ left; right ] -> makeBinOp r _t left right BinaryShiftRightSignPropagating |> Some
+    | Operators.logicalNot, [ operand ] -> Operation(Unary(UnaryNotBitwise, operand), Tags.empty, _t, r) |> Some
     // Erlang has native arbitrary-precision integers, so Int64/UInt64/BigInt
     // use direct binary ops instead of library calls
     // Ref cells: ref, !, :=, incr, decr
@@ -454,8 +560,8 @@ let private operators
             let opName = info.CompiledName
 
             match (|CustomOp|_|) com ctx r _t opName args argTypes with
-            | Some _ as e -> e
-            | None ->
+            | ValueSome e -> Some e
+            | ValueNone ->
                 match opName, args with
                 | Operators.addition, [ left; right ] -> makeBinOp r _t left right BinaryPlus |> Some
                 | Operators.subtraction, [ left; right ] -> makeBinOp r _t left right BinaryMinus |> Some
@@ -497,8 +603,7 @@ let private languagePrimitives
     | ("GenericGreaterOrEqual" | "GenericGreaterOrEqualIntrinsic"), [ left; right ] ->
         let cmp = compare com r left right
         makeBinOp r Boolean cmp (makeIntConst 0) BinaryGreaterOrEqual |> Some
-    | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [ left; right ] ->
-        emitExpr r Boolean [ left; right ] "$0 =:= $1" |> Some
+    | ("PhysicalEquality" | "PhysicalEqualityIntrinsic"), [ left; right ] -> physicalEquals r left right |> Some
     | ("GenericHash" | "GenericHashIntrinsic"), [ arg ] ->
         Helper.LibCall(com, "fable_comparison", "hash", t, [ arg ], ?loc = r) |> Some
     | ("PhysicalHash" | "PhysicalHashIntrinsic"), [ arg ] ->
@@ -533,13 +638,15 @@ let private languagePrimitives
                 "op_" + operation
 
         if operation = "op_Explicit" then
-            Some arg
+            // Narrowing still truncates when the conversion is reached through an inline
+            // generic, the same as when it is written directly
+            arg |> wrapToIntType com r t arg.Type |> Some
         else
             let argTypes = args |> List.map (fun a -> a.Type)
             // Check for custom operator on DeclaredType before falling back to native ops
             match (|CustomOp|_|) com ctx r t operation args argTypes with
-            | Some _ as e -> e
-            | None ->
+            | ValueSome e -> Some e
+            | ValueNone ->
                 // For Dynamic ops, map to standard binary operations
                 match operation, args with
                 | "op_Addition", [ left; right ] -> makeBinOp r t left right BinaryPlus |> Some
@@ -550,12 +657,14 @@ let private languagePrimitives
                 | ("DivideByInt" | Operators.divideByInt), [ left; right ] ->
                     makeBinOp r t left right BinaryDivide |> Some
                 | "op_UnaryNegation", [ operand ] -> Operation(Unary(UnaryMinus, operand), Tags.empty, t, r) |> Some
-                | "op_BitwiseAnd", [ left; right ] -> emitExpr r t [ left; right ] "($0 band $1)" |> Some
-                | "op_BitwiseOr", [ left; right ] -> emitExpr r t [ left; right ] "($0 bor $1)" |> Some
-                | "op_ExclusiveOr", [ left; right ] -> emitExpr r t [ left; right ] "($0 bxor $1)" |> Some
-                | "op_LeftShift", [ left; right ] -> emitExpr r t [ left; right ] "($0 bsl $1)" |> Some
-                | "op_RightShift", [ left; right ] -> emitExpr r t [ left; right ] "($0 bsr $1)" |> Some
-                | "op_Explicit", [ arg ] -> Some arg
+                | "op_LogicalNot", [ operand ] -> Operation(Unary(UnaryNotBitwise, operand), Tags.empty, t, r) |> Some
+                // Routed through the regular binary operations rather than emitted directly,
+                // so that they pick up fixed-width wrapping for sized integer types
+                | "op_BitwiseAnd", [ left; right ] -> makeBinOp r t left right BinaryAndBitwise |> Some
+                | "op_BitwiseOr", [ left; right ] -> makeBinOp r t left right BinaryOrBitwise |> Some
+                | "op_ExclusiveOr", [ left; right ] -> makeBinOp r t left right BinaryXorBitwise |> Some
+                | "op_LeftShift", [ left; right ] -> makeBinOp r t left right BinaryShiftLeft |> Some
+                | "op_RightShift", [ left; right ] -> makeBinOp r t left right BinaryShiftRightSignPropagating |> Some
                 | _ -> None
     | "DivideByInt", [ left; right ] -> makeBinOp r t left right BinaryDivide |> Some
     // IntrinsicFunctions within LanguagePrimitives
@@ -1088,7 +1197,29 @@ let private strings
     // str.GetEnumerator() → convert string to list of codepoints and create enumerator
     | "GetEnumerator", Some c, _ -> emitExpr r t [ c ] "fable_utils:get_enumerator(binary_to_list($0))" |> Some
     // String.Format("{0} {1}", arg0, arg1)
+    // Also String.Format(provider, "{0}", arg0): the optional leading IFormatProvider/CultureInfo
+    // argument is ignored (the format string is the first argument typed as `String`).
     | "Format", None, (fmtStr :: fmtArgs) ->
+        let fmtStr, fmtArgs =
+            match fmtStr.Type with
+            | String -> fmtStr, fmtArgs
+            | _ ->
+                match fmtArgs with
+                | realFmt :: rest -> realFmt, rest
+                | [] -> fmtStr, fmtArgs
+
+        // `fable_string:format` dispatches on the runtime value, where a char is an integer and so
+        // prints as its codepoint (`String.Format("{0}", '2')` gave "50"). The arguments are boxed
+        // to `obj` but their static type survives here, so encode chars to text up front — the same
+        // thing the `System.Console` replacement does.
+        let fmtArgs =
+            fmtArgs
+            |> List.map (fun arg ->
+                match Chars.tryAsChar arg with
+                | Some c -> Helper.LibCall(com, "fable_char", "to_string", String, [ c ], ?loc = r)
+                | None -> arg
+            )
+
         // When a single array argument is passed (e.g. from ParamArray),
         // pass it directly — format/2 already handles refs and lists.
         let argsList =
@@ -1169,7 +1300,11 @@ let private options
     match info.CompiledName, thisArg with
     | "Some", _ -> NewOption(List.tryHead _args, t.Generics.Head, false) |> makeValue r |> Some
     | "get_None", _ -> NewOption(None, t.Generics.Head, false) |> makeValue r |> Some
-    | "get_Value", Some c -> Some c
+    // Option is erased (Some x → x), so `.Value` is runtime-identity. Cast to
+    // the element type `t` so the result carries the unwrapped type (e.g. an
+    // interface) rather than `Option<t>`, which downstream codegen needs (e.g.
+    // interface method dispatch).
+    | "get_Value", Some c -> TypeCast(c, t) |> Some
     | "get_IsSome", Some c -> Test(c, OptionTest true, r) |> Some
     | "get_IsNone", Some c -> Test(c, OptionTest false, r) |> Some
     // Static methods on ValueOption type (Bind, Map, DefaultValue, etc.)
@@ -1238,9 +1373,10 @@ let private conversions
             | Float16
             | Float32
             | Float64
-            | Decimal -> emitExpr r t [ arg ] "trunc($0)" |> Some
-            | _ -> Some arg // int-to-int: no conversion needed in Erlang
-        | Type.Char -> Some arg // char is already an integer in Erlang
+            | Decimal -> emitExpr r t [ arg ] "trunc($0)" |> wrapToIntType com r t arg.Type |> Some
+            // int-to-int: no conversion needed in Erlang, but narrowing still truncates
+            | _ -> arg |> wrapToIntType com r t arg.Type |> Some
+        | Type.Char -> arg |> wrapToIntType com r t arg.Type |> Some // char is already an integer in Erlang
         | _ -> Some arg
     // float(x), double(x) → convert to float
     | ("ToSingle" | "ToDouble"), [ arg ] ->
@@ -1264,23 +1400,18 @@ let private conversions
                 | [ a ] -> a
                 | _ -> Value(Null Type.Unit, None)
 
-        match arg.Type with
-        | Type.String -> Some arg
-        | Type.Char -> emitExpr r t [ arg ] "<<($0)/utf8>>" |> Some
-        | Type.Number(kind, _) ->
-            match kind with
-            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", t, [ arg ], ?loc = r) |> Some
-            | Float16
-            | Float32
-            | Float64 -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
-            | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
-        | Type.Boolean -> emitExpr r t [ arg ] "atom_to_binary($0)" |> Some
-        | _ -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
+        ToString.toStringByType com r t arg
     // char(x) → Erlang integers represent chars
     | "ToChar", [ arg ] ->
         match arg.Type with
         | Type.String -> emitExpr r t [ arg ] "binary:first($0)" |> Some
-        | _ -> Some arg // numbers are already chars in Erlang
+        // Decimals are fixed-scale integers, so they need unscaling first
+        | Type.Number(Decimal, _) ->
+            Helper.LibCall(com, "fable_decimal", "to_int", t, [ arg ], ?loc = r)
+            |> wrapToIntType com r t arg.Type
+            |> Some
+        // Other numbers are already chars in Erlang, but `char` truncates like a uint16
+        | _ -> arg |> wrapToIntType com r t arg.Type |> Some
     | _ -> None
 
 /// Beam-specific numeric type method replacements (Parse, ToString, Equals, CompareTo, GetHashCode).
@@ -1372,8 +1503,26 @@ let private numericTypes
     | "get_Zero", None, _ -> makeIntConst 0 |> Some
     | "get_One", None, _ -> Helper.LibCall(com, "fable_decimal", "get_one", t, [], ?loc = r) |> Some
     | "get_MinusOne", None, _ -> Helper.LibCall(com, "fable_decimal", "get_minus_one", t, [], ?loc = r) |> Some
-    // MaxValue / MinValue
-    | ("get_MaxValue" | "get_MinValue"), None, _ -> None // Not yet supported
+    | "get_MaxValue", None, _ -> Helper.LibCall(com, "fable_decimal", "max_value", t, [], ?loc = r) |> Some
+    | "get_MinValue", None, _ -> Helper.LibCall(com, "fable_decimal", "min_value", t, [], ?loc = r) |> Some
+    // Explicit conversions to and from decimal (`decimal x`, `int d`, `float d`).
+    // Decimals are fixed-scale integers (value × 10^28), so converting is scaling. The scale
+    // lives in fable_decimal, so go through it rather than inlining the factor here — scaling
+    // a float by 10^28 in float arithmetic is lossy, since 10^28 is not a representable double.
+    | "op_Explicit", None, [ arg ] ->
+        match t, arg.Type with
+        | Number(Decimal, _), Number(Decimal, _) -> Some arg
+        | Number(Decimal, _), Number((Float16 | Float32 | Float64), _) ->
+            Helper.LibCall(com, "fable_decimal", "from_float", t, [ arg ], ?loc = r) |> Some
+        | Number(Decimal, _), _ -> Helper.LibCall(com, "fable_decimal", "from_int", t, [ arg ], ?loc = r) |> Some
+        | Number((Float16 | Float32 | Float64), _), _ ->
+            Helper.LibCall(com, "fable_decimal", "to_number", t, [ arg ], ?loc = r) |> Some
+        // Chars are integers on Beam, so `char d` truncates like the integer conversions
+        | (Number(_, _) | Char), _ ->
+            Helper.LibCall(com, "fable_decimal", "to_int", t, [ arg ], ?loc = r)
+            |> wrapToIntType com r t arg.Type
+            |> Some
+        | _ -> None
     | _ -> None
 
 /// Beam-specific System.Convert replacements.
@@ -1495,9 +1644,35 @@ let private listModule
     | "Fold", [ fn; state; list ] -> Helper.LibCall(com, "fable_list", "fold", t, [ fn; state; list ]) |> Some
     | "FoldBack", [ fn; list; state ] -> Helper.LibCall(com, "fable_list", "fold_back", t, [ fn; list; state ]) |> Some
     | "Reduce", [ fn; list ] -> Helper.LibCall(com, "fable_list", "reduce", t, [ fn; list ]) |> Some
-    | "Sort", [ list ] -> emitExpr r t [ list ] "lists:sort($0)" |> Some
+    | "Sort", [ list ] ->
+        match
+            (match list.Type with
+             | List et -> unionTagOrderExpr com et
+             | _ -> None)
+        with
+        | Some tagOrder ->
+            emitExpr
+                r
+                t
+                [ tagOrder; list ]
+                "lists:sort(fun(A, B) -> fable_comparison:compare_union($0, A, B) =< 0 end, $1)"
+            |> Some
+        | None -> emitExpr r t [ list ] "lists:sort($0)" |> Some
     | "SortBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; list ]) |> Some
-    | "SortDescending", [ list ] -> emitExpr r t [ list ] "lists:reverse(lists:sort($0))" |> Some
+    | "SortDescending", [ list ] ->
+        match
+            (match list.Type with
+             | List et -> unionTagOrderExpr com et
+             | _ -> None)
+        with
+        | Some tagOrder ->
+            emitExpr
+                r
+                t
+                [ tagOrder; list ]
+                "lists:reverse(lists:sort(fun(A, B) -> fable_comparison:compare_union($0, A, B) =< 0 end, $1))"
+            |> Some
+        | None -> emitExpr r t [ list ] "lists:reverse(lists:sort($0))" |> Some
     | "SortByDescending", [ fn; list ] ->
         Helper.LibCall(com, "fable_list", "sort_by_descending", t, [ fn; list ]) |> Some
     | "SortWith", [ fn; list ] -> Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; list ]) |> Some
@@ -1852,15 +2027,41 @@ let rec private getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
     | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
-    | Char
+    // A `char` is an integer at runtime, not a binary, and F# does allow summing chars
+    // (`Seq.sum [ 'a'; 'b' ]` is 195). Sharing `String`'s empty-binary zero seeded the fold with
+    // `<<"">>` and made the first addition fail with `badarith`.
+    | Char -> CharConstant '\u0000' |> makeValue None
     | String -> makeStrConst ""
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
     | _ -> Value(Null Any, None)
 
+/// Apply an injected operator, dispatching to the type's own definition when it has one.
+///
+/// The adder and averager below are injected into `Seq.sum`/`Seq.average` at a *generic* type, so
+/// the operand can be a user type whose `+` is a static member. Emitting a bare `BinaryPlus` there
+/// prints an Erlang `+`, and `#{x => 1} + #{x => 0}` fails with `badarith`. The other targets route
+/// this through `applyOp`; Beam has no such function — its custom-operator dispatch is inlined in
+/// `operators` — so consult `CustomOp` directly, exactly as those call sites do.
+let private applyInjectedOp (com: ICompiler) (ctx: Context) t opName (args: Expr list) fallback =
+    let argTypes = args |> List.map (fun a -> a.Type)
+
+    match (|CustomOp|_|) com ctx None t opName args argTypes with
+    | ValueSome e -> e
+    | ValueNone -> fallback ()
+
 let private makeAddFunction (com: ICompiler) (ctx: Context) t =
     let x = makeUniqueIdent com ctx t "x"
     let y = makeUniqueIdent com ctx t "y"
-    let body = makeBinOp None t (IdentExpr x) (IdentExpr y) BinaryPlus
+
+    let body =
+        applyInjectedOp
+            com
+            ctx
+            t
+            Operators.addition
+            [ IdentExpr x; IdentExpr y ]
+            (fun () -> makeBinOp None t (IdentExpr x) (IdentExpr y) BinaryPlus)
+
     Delegate([ x; y ], body, None, Tags.empty)
 
 let private makeGenericAdder (com: ICompiler) ctx t =
@@ -1874,7 +2075,16 @@ let private makeGenericAverager (com: ICompiler) ctx t =
     let divideFn =
         let x = makeUniqueIdent com ctx t "x"
         let i = makeUniqueIdent com ctx (Int32.Number) "i"
-        let body = makeBinOp None t (IdentExpr x) (IdentExpr i) BinaryDivide
+
+        let body =
+            applyInjectedOp
+                com
+                ctx
+                t
+                Operators.divideByInt
+                [ IdentExpr x; IdentExpr i ]
+                (fun () -> makeBinOp None t (IdentExpr x) (IdentExpr i) BinaryDivide)
+
         Delegate([ x; i ], body, None, Tags.empty)
 
     objExpr
@@ -2042,6 +2252,14 @@ let private arrays
     | "IndexOf", None, [ arr; value ] ->
         let arr = derefArr r arr
         Helper.LibCall(com, "fable_list", "index_of_value", t, [ value; arr ]) |> Some
+    // Iterating an array as a non-generic IEnumerable (e.g. `for v in Enum.GetValues t do`).
+    // Deref via derefArr so byte arrays (atomics, not process-dict refs) are handled too;
+    // the non-generic System.Array of Enum.GetValues stays a ref, which get_enumerator accepts.
+    | "GetEnumerator", Some c, _ ->
+        let arr = derefArr r c
+
+        Helper.LibCall(com, "fable_utils", "get_enumerator", t, [ arr ], ?loc = r)
+        |> Some
     | _ -> None
 
 /// Beam-specific Array module replacements.
@@ -2274,11 +2492,41 @@ let private arrayModule
         |> wrapArr com r t
         |> Some
     | "Sort", [ arr ] ->
+        let elemTagOrder =
+            match arr.Type with
+            | Array(et, _) -> unionTagOrderExpr com et
+            | _ -> None
+
         let arr = derefArr r arr
-        emitExpr r t [ arr ] "lists:sort($0)" |> wrapArr com r t |> Some
+
+        match elemTagOrder with
+        | Some tagOrder ->
+            emitExpr
+                r
+                t
+                [ tagOrder; arr ]
+                "lists:sort(fun(A, B) -> fable_comparison:compare_union($0, A, B) =< 0 end, $1)"
+            |> wrapArr com r t
+            |> Some
+        | None -> emitExpr r t [ arr ] "lists:sort($0)" |> wrapArr com r t |> Some
     | "SortDescending", [ arr ] ->
+        let elemTagOrder =
+            match arr.Type with
+            | Array(et, _) -> unionTagOrderExpr com et
+            | _ -> None
+
         let arr = derefArr r arr
-        emitExpr r t [ arr ] "lists:reverse(lists:sort($0))" |> wrapArr com r t |> Some
+
+        match elemTagOrder with
+        | Some tagOrder ->
+            emitExpr
+                r
+                t
+                [ tagOrder; arr ]
+                "lists:reverse(lists:sort(fun(A, B) -> fable_comparison:compare_union($0, A, B) =< 0 end, $1))"
+            |> wrapArr com r t
+            |> Some
+        | None -> emitExpr r t [ arr ] "lists:reverse(lists:sort($0))" |> wrapArr com r t |> Some
     | "SortBy", [ fn; arr ] ->
         let arr = derefArr r arr
 
@@ -3563,6 +3811,9 @@ let private hashSets
     | "ExceptWith", Some callee, [ other ] ->
         Helper.LibCall(com, "fable_hashset", "except_with", t, [ callee; other ], ?loc = r)
         |> Some
+    | "SymmetricExceptWith", Some callee, [ other ] ->
+        Helper.LibCall(com, "fable_hashset", "symmetric_except_with", t, [ callee; other ], ?loc = r)
+        |> Some
     // IsSubsetOf / IsSupersetOf / IsProperSubsetOf / IsProperSupersetOf
     | "IsSubsetOf", Some callee, [ other ] ->
         Helper.LibCall(com, "fable_hashset", "is_subset_of", t, [ callee; other ], ?loc = r)
@@ -3576,10 +3827,25 @@ let private hashSets
     | "IsProperSupersetOf", Some callee, [ other ] ->
         Helper.LibCall(com, "fable_hashset", "is_proper_superset_of", t, [ callee; other ], ?loc = r)
         |> Some
-    // CopyTo
-    | "CopyTo", Some callee, [ arr ] ->
-        Helper.LibCall(com, "fable_hashset", "copy_to", t, [ callee; arr ], ?loc = r)
+    | "Overlaps", Some callee, [ other ] ->
+        Helper.LibCall(com, "fable_hashset", "overlaps", t, [ callee; other ], ?loc = r)
         |> Some
+    | "SetEquals", Some callee, [ other ] ->
+        Helper.LibCall(com, "fable_hashset", "set_equals", t, [ callee; other ], ?loc = r)
+        |> Some
+    // CopyTo
+    | "CopyTo", Some callee, args ->
+        match args with
+        | [ arr ] ->
+            Helper.LibCall(com, "fable_hashset", "copy_to", t, [ callee; arr ], ?loc = r)
+            |> Some
+        | [ arr; targetIndex ] ->
+            Helper.LibCall(com, "fable_hashset", "copy_to", t, [ callee; arr; targetIndex ], ?loc = r)
+            |> Some
+        | [ arr; targetIndex; count ] ->
+            Helper.LibCall(com, "fable_hashset", "copy_to", t, [ callee; arr; targetIndex; count ], ?loc = r)
+            |> Some
+        | _ -> None
     // GetEnumerator
     | "GetEnumerator", Some callee, _ ->
         Helper.LibCall(com, "fable_hashset", "get_enumerator", t, [ callee ], ?loc = r)
@@ -3784,6 +4050,12 @@ let tryField (com: ICompiler) returnTyp ownerTyp fieldName : Expr option =
         |> Some
     | Number(Decimal, _), "MinusOne" ->
         Helper.LibCall(com, "fable_decimal", "get_minus_one", returnTyp, [], ?loc = None)
+        |> Some
+    | Number(Decimal, _), "MinValue" ->
+        Helper.LibCall(com, "fable_decimal", "min_value", returnTyp, [], ?loc = None)
+        |> Some
+    | Number(Decimal, _), "MaxValue" ->
+        Helper.LibCall(com, "fable_decimal", "max_value", returnTyp, [], ?loc = None)
         |> Some
     | Number(Decimal, _), _ -> None
     | String, "Empty" -> makeStrConst "" |> Some
@@ -5175,6 +5447,88 @@ let tryResolveTypeInfo
         | _ -> None
     | _ -> None
 
+/// FSharp.Reflection.FSharpType.
+///
+/// The `FSharpReflectionExtensions` overloads pass an extra `allowAccessToPrivateRepresentation`
+/// (or `BindingFlags`) argument. Erlang has no private representations to hide, so — as on JS —
+/// the flag is ignored and only the leading arguments are forwarded.
+let private fsharpType (com: ICompiler) r (t: Type) (methName: string) (args: Expr list) =
+    match methName, args with
+    | "MakeTupleType", typesArr :: _ ->
+        let derefed = derefArr r typesArr
+
+        Helper.LibCall(com, "fable_reflection", "make_tuple_type", t, [ derefed ], ?loc = r)
+        |> Some
+    | "GetRecordFields", typ :: _ ->
+        Helper.LibCall(com, "fable_reflection", "get_record_elements", t, [ typ ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
+    | "GetUnionCases", typ :: _ ->
+        Helper.LibCall(com, "fable_reflection", "get_union_cases", t, [ typ ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
+    | "GetTupleElements", typ :: _ ->
+        Helper.LibCall(com, "fable_reflection", "get_tuple_elements", t, [ typ ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
+    | "GetFunctionElements", typ :: _ ->
+        Helper.LibCall(com, "fable_reflection", "get_function_elements", t, [ typ ], ?loc = r)
+        |> Some
+    | "IsRecord", typ :: _ ->
+        Helper.LibCall(com, "fable_reflection", "is_record", t, [ typ ], ?loc = r)
+        |> Some
+    | "IsUnion", typ :: _ ->
+        Helper.LibCall(com, "fable_reflection", "is_union", t, [ typ ], ?loc = r)
+        |> Some
+    | "IsTuple", typ :: _ ->
+        Helper.LibCall(com, "fable_reflection", "is_tuple_type", t, [ typ ], ?loc = r)
+        |> Some
+    | "IsFunction", typ :: _ ->
+        Helper.LibCall(com, "fable_reflection", "is_function_type", t, [ typ ], ?loc = r)
+        |> Some
+    | _ -> None
+
+/// FSharp.Reflection.FSharpValue. See `fsharpType` for the extension overloads.
+let private fsharpValue (com: ICompiler) r (t: Type) (methName: string) (args: Expr list) =
+    match methName, args with
+    | "MakeTuple", values :: _ ->
+        // MakeTuple(values, tupleType) — values is an array ref, convert to Erlang tuple
+        emitExpr r t [ values ] "list_to_tuple(erlang:get($0))" |> Some
+    | "GetTupleFields", tuple :: _ ->
+        Helper.LibCall(com, "fable_reflection", "get_tuple_fields_value", t, [ tuple ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
+    | "GetTupleField", tuple :: index :: _ ->
+        Helper.LibCall(com, "fable_reflection", "get_tuple_field_value", t, [ tuple; index ], ?loc = r)
+        |> Some
+    | "GetRecordFields", record :: _ ->
+        // Inject type info at compile time since Erlang maps don't preserve order
+        // Look through TypeCast to get the concrete type (since GetRecordFields takes obj)
+        let rec getConcreteType (expr: Expr) =
+            match expr with
+            | TypeCast(inner, _) -> getConcreteType inner
+            | _ -> expr.Type
+
+        let concreteType = getConcreteType record
+        let typeInfo = Value(TypeInfo(concreteType, []), None)
+
+        Helper.LibCall(com, "fable_reflection", "get_record_fields_value", t, [ record; typeInfo ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
+    | "GetRecordField", record :: propInfo :: _ ->
+        Helper.LibCall(com, "fable_reflection", "get_record_field_value", t, [ record; propInfo ], ?loc = r)
+        |> Some
+    | "MakeRecord", typ :: values :: _ ->
+        Helper.LibCall(com, "fable_reflection", "make_record_from_values", t, [ typ; values ], ?loc = r)
+        |> Some
+    | "GetUnionFields", union :: typ :: _ ->
+        Helper.LibCall(com, "fable_reflection", "get_union_fields_value", t, [ union; typ ], ?loc = r)
+        |> Some
+    | "MakeUnion", caseInfo :: values :: _ ->
+        Helper.LibCall(com, "fable_reflection", "make_union_value", t, [ caseInfo; values ], ?loc = r)
+        |> Some
+    | _ -> None
+
 let tryCall
     (com: ICompiler)
     (ctx: Context)
@@ -5186,6 +5540,8 @@ let tryCall
     : Expr option
     =
     match info.DeclaringEntityFullName with
+    // Implicit cast for erased unions (U2, U3...) via `!^`; the cast is erased.
+    | _ when info.CompiledName = "op_ErasedCast" -> List.tryHead args
     | "Microsoft.FSharp.Core.Operators"
     | "Microsoft.FSharp.Core.Operators.Checked"
     | "Microsoft.FSharp.Core.ExtraTopLevelOperators"
@@ -5224,13 +5580,21 @@ let tryCall
         | None -> conversions com ctx r t info thisArg args
     | "System.Convert" -> convert com ctx r t info thisArg args
     | "System.Console" ->
+        // `console_write`/`console_writeline` dispatch on the runtime value, where a char is an
+        // integer and so would print as its codepoint (`Console.WriteLine '2'` → "50"). The static
+        // type is still known here, so encode chars to text up front and hand over a binary.
+        let consoleArg (arg: Expr) =
+            match Chars.tryAsChar arg with
+            | Some c -> Helper.LibCall(com, "fable_char", "to_string", String, [ c ], ?loc = r)
+            | None -> arg
+
         match info.CompiledName, thisArg, args with
         | "WriteLine", None, [] -> emitExpr r t [] "io:format(<<\"~n\">>)" |> Some
         | "WriteLine", None, [ arg ] ->
-            Helper.LibCall(com, "fable_string", "console_writeline", t, [ arg ], ?loc = r)
+            Helper.LibCall(com, "fable_string", "console_writeline", t, [ consoleArg arg ], ?loc = r)
             |> Some
         | "Write", None, [ arg ] ->
-            Helper.LibCall(com, "fable_string", "console_write", t, [ arg ], ?loc = r)
+            Helper.LibCall(com, "fable_string", "console_write", t, [ consoleArg arg ], ?loc = r)
             |> Some
         | _ -> None
     | "System.Boolean" ->
@@ -5291,7 +5655,7 @@ let tryCall
     | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" ->
         // Erlang has native arbitrary-precision integers, so BigInt ops map directly
         match info.CompiledName, thisArg, args with
-        | ".ctor", None, [ arg ] -> Some arg // bigint(x) = x in Erlang
+        | ".ctor", None, [ arg ] -> toBigIntFrom r t arg |> Some // bigint(x) = x in Erlang, bar a float
         | "op_Addition", None, [ left; right ] -> makeBinOp r t left right BinaryPlus |> Some
         | "op_Subtraction", None, [ left; right ] -> makeBinOp r t left right BinaryMinus |> Some
         | "op_Multiply", None, [ left; right ] -> makeBinOp r t left right BinaryMultiply |> Some
@@ -5315,8 +5679,14 @@ let tryCall
         | "Abs", None, [ arg ] -> emitExpr r t [ arg ] "erlang:abs($0)" |> Some
         | ("get_IsZero" | "IsZero"), Some thisObj, _ -> emitExpr r t [ thisObj ] "($0 =:= 0)" |> Some
         | ("get_IsOne" | "IsOne"), Some thisObj, _ -> emitExpr r t [ thisObj ] "($0 =:= 1)" |> Some
+        // A bigint is unbounded, so converting out of it narrows and has to truncate.
+        // `ToInt64Unchecked` is the one that keeps .NET's non-throwing wrap either way.
+        // `op_Explicit` is declared on BigInteger for *both* directions, so a conversion whose
+        // target is the bigint itself (e.g. `bigint someFloat`) has to truncate rather than narrow.
         | ("ToInt64" | "ToInt64Unchecked" | "ToInt32" | "ToInt16" | "ToByte" | "ToSByte" | "op_Explicit"), None, [ arg ] ->
-            Some arg // identity in Erlang
+            match t with
+            | Number(BigInt, _) -> toBigIntFrom r t arg |> Some
+            | _ -> arg |> wrapToIntType com r t arg.Type |> Some
         | "Parse", None, [ str ] -> emitExpr r t [ str ] "binary_to_integer($0)" |> Some
         | "Pow", None, [ base_; exp_ ] -> emitExpr r t [ base_; exp_ ] "math:pow($0, $1)" |> Some
         | "Log", None, [ arg ] -> emitExpr r t [ arg ] "math:log(float($0))" |> Some
@@ -5437,6 +5807,23 @@ let tryCall
     | "System.Environment" ->
         match info.CompiledName with
         | "get_NewLine" -> makeStrConst "\n" |> Some
+        | "GetEnvironmentVariable" ->
+            Helper.LibCall(
+                com,
+                "fable_environment",
+                "get_environment_variable",
+                t,
+                args,
+                info.SignatureArgTypes,
+                ?loc = r
+            )
+            |> Some
+        | "get_CurrentDirectory" ->
+            Helper.LibCall(com, "fable_environment", "get_current_directory", t, [], ?loc = r)
+            |> Some
+        | "set_CurrentDirectory" ->
+            Helper.LibCall(com, "fable_environment", "set_current_directory", t, args, ?loc = r)
+            |> Some
         | _ -> None
     | Types.datetime -> dates com ctx r t info thisArg args
     | "System.Uri" -> uris com ctx r t info thisArg args
@@ -5447,6 +5834,30 @@ let tryCall
     | "System.Globalization.CultureInfo" ->
         match info.CompiledName with
         | "get_InvariantCulture" -> emitExpr r t [] "undefined" |> Some
+        | _ -> None
+    | "Fable.Core.Compiler" ->
+        match info.CompiledName with
+        | "version" -> makeStrConst Literals.VERSION |> Some
+        | "majorMinorVersion" ->
+            try
+                let m = System.Text.RegularExpressions.Regex.Match(Literals.VERSION, @"^\d+\.\d+")
+                float m.Value |> makeFloatConst |> Some
+            with _ ->
+                "Cannot parse compiler version"
+                |> addErrorAndReturnNull com ctx.InlinePath r
+                |> Some
+        | "debugMode" -> makeBoolConst com.Options.DebugMode |> Some
+        | "typedArrays" -> makeBoolConst com.Options.TypedArrays |> Some
+        | "extension" -> makeStrConst com.Options.FileExtension |> Some
+        | "triggeredByDependency" -> makeBoolConst com.Options.TriggeredByDependency |> Some
+        | "isDotnet" -> makeBoolConst false |> Some
+        | "isJavaScript" -> makeBoolConst (com.Options.Language = JavaScript) |> Some
+        | "isTypeScript" -> makeBoolConst (com.Options.Language = TypeScript) |> Some
+        | "isPython" -> makeBoolConst (com.Options.Language = Python) |> Some
+        | "isDart" -> makeBoolConst (com.Options.Language = Dart) |> Some
+        | "isRust" -> makeBoolConst (com.Options.Language = Rust) |> Some
+        | "isPhp" -> makeBoolConst (com.Options.Language = Php) |> Some
+        | "isBeam" -> makeBoolConst (com.Options.Language = Beam) |> Some
         | _ -> None
     | "Fable.Core.BeamInterop" ->
         match info.CompiledName, args with
@@ -5464,7 +5875,9 @@ let tryCall
                 let args = destructureTupleArgs [ args ]
                 let isStatement = rest = "Statement"
                 emitTemplate r t args isStatement template |> Some
+        // Dynamic casting (op_BangBang) and implicit erased-union cast (op_BangHat), both erased
         | "op_BangBang", [ arg ] -> Some arg
+        | "op_BangHat", [ arg ] -> Some arg
         | _ -> None
     | "Fable.Core.BeamInterop.Erlang" ->
         match info.CompiledName, args with
@@ -5472,11 +5885,15 @@ let tryCall
         | "receive", [] -> emitExpr r t [] "__fable_beam_receive_forever__" |> Some
         | "receive", [ timeoutArg ] -> emitExpr r t [ timeoutArg ] "__fable_beam_receive__($0)" |> Some
         | _ -> None
-    // Testing assertions (used by our test framework)
+    // Testing assertions (used by our test framework). These must *raise* on failure, like every
+    // other target does: lowering them to a bare `equals` yields a boolean that is then discarded,
+    // so no assertion could ever fail. Signature is Assert.AreEqual(actual, expected, ?msg).
     | "Fable.Core.Testing.Assert" ->
-        match info.CompiledName, args with
-        | "AreEqual", [ expected; actual ] -> equals com r true expected actual |> Some
-        | "NotEqual", [ expected; actual ] -> equals com r false expected actual |> Some
+        match info.CompiledName with
+        | "AreEqual" -> Helper.LibCall(com, "fable_utils", "assert_equal", t, args, ?loc = r) |> Some
+        | "NotEqual" ->
+            Helper.LibCall(com, "fable_utils", "assert_not_equal", t, args, ?loc = r)
+            |> Some
         | _ -> None
     // IDisposable
     | "System.IDisposable" ->
@@ -5493,6 +5910,7 @@ let tryCall
     | "System.Exception" ->
         match info.CompiledName, thisArg, args with
         | ".ctor", None, [ msg ] -> emitExpr r t [ msg ] "#{message => $0}" |> Some
+        | ".ctor", None, [ msg; inner ] -> emitExpr r t [ msg; inner ] "#{message => $0, inner_exception => $1}" |> Some
         | ".ctor", None, [] ->
             emitExpr r t [] "#{message => <<\"Exception of type 'System.Exception' was thrown.\">>}"
             |> Some
@@ -5504,6 +5922,14 @@ let tryCall
                 [ c ]
                 "case erlang:is_reference($0) of true -> maps:get(message, erlang:get($0), $0); false -> maps:get(message, $0, $0) end"
             |> Some
+        | "get_InnerException", Some c, _ ->
+            // Handle both map exceptions and reference-based class exceptions
+            emitExpr
+                r
+                t
+                [ c ]
+                "case erlang:is_reference($0) of true -> maps:get(inner_exception, erlang:get($0), undefined); false -> maps:get(inner_exception, $0, undefined) end"
+            |> Some
         | _ -> None
     // Built-in .NET exception types — all become #{message => Msg} maps in Erlang
     | BuiltinSystemException _
@@ -5511,11 +5937,21 @@ let tryCall
     | "System.OperationCanceledException" ->
         match info.CompiledName, thisArg, args with
         | ".ctor", None, [ msg ] -> emitExpr r t [ msg ] "#{message => $0}" |> Some
+        | ".ctor", None, [ msg; second ] ->
+            match info.SignatureArgTypes with
+            // (message, paramName): paramName is not modelled, only the message is kept
+            | [ _; String ] -> emitExpr r t [ msg ] "#{message => $0}" |> Some
+            // (message, innerException)
+            | _ -> emitExpr r t [ msg; second ] "#{message => $0, inner_exception => $1}" |> Some
+        // (message, paramName, innerException)
+        | ".ctor", None, [ msg; _paramName; inner ] ->
+            emitExpr r t [ msg; inner ] "#{message => $0, inner_exception => $1}" |> Some
         | ".ctor", None, [] ->
             let typeName = info.DeclaringEntityFullName
             let msg = $"Exception of type '%s{typeName}' was thrown."
             emitExpr r t [] $"#{{message => <<\"%s{msg}\">>}}" |> Some
         | "get_Message", Some c, _ -> emitExpr r t [ c ] "maps:get(message, $0, $0)" |> Some
+        | "get_InnerException", Some c, _ -> emitExpr r t [ c ] "maps:get(inner_exception, $0, undefined)" |> Some
         | _ -> None
     // System.Type (reflection) — type info is a map #{fullname => ..., generics => [...]}
     | "System.Type" ->
@@ -5542,11 +5978,77 @@ let tryCall
                 Helper.LibCall(com, "fable_reflection", "get_generics", t, [ c ], ?loc = r)
                 |> wrapArr com r t
                 |> Some
+            | "MakeGenericType", Some c ->
+                Helper.LibCall(com, "fable_reflection", "make_generic_type", t, c :: args, ?loc = r)
+                |> Some
+            | "get_IsEnum", Some c -> Helper.LibCall(com, "fable_reflection", "is_enum", t, [ c ], ?loc = r) |> Some
+            | "GetEnumUnderlyingType", Some c ->
+                Helper.LibCall(com, "fable_reflection", "get_enum_underlying_type", t, [ c ], ?loc = r)
+                |> Some
+            | "GetEnumValues", Some c ->
+                // Returns the non-generic System.Array, which is not a Fable `Array` type, so
+                // wrapArr would leave it unwrapped. Arrays are refs on Beam, so wrap it here.
+                Helper.LibCall(com, "fable_reflection", "get_enum_values", t, [ c ], ?loc = r)
+                |> asArrayRef com r t
+                |> Some
+            | "GetEnumNames", Some c ->
+                Helper.LibCall(com, "fable_reflection", "get_enum_names", t, [ c ], ?loc = r)
+                |> wrapArr com r t
+                |> Some
             | _ -> None
+    // System.Activator
+    | "System.Activator" ->
+        match info.CompiledName, args with
+        | "CreateInstance", [] ->
+            // Generic overload: `Activator.CreateInstance<'T>()`
+            let typeInfo = genArg com ctx r 0 info.GenericArgs |> makeTypeInfo r
+
+            Helper.LibCall(com, "fable_reflection", "create_instance", t, [ typeInfo; makeArray Any [] ], ?loc = r)
+            |> Some
+        | "CreateInstance", [ typ ] ->
+            Helper.LibCall(com, "fable_reflection", "create_instance", t, [ typ; makeArray Any [] ], ?loc = r)
+            |> Some
+        | "CreateInstance", [ typ; consArgs ] ->
+            Helper.LibCall(com, "fable_reflection", "create_instance", t, [ typ; consArgs ], ?loc = r)
+            |> Some
+        | _ -> None
     // System.Enum
     | "System.Enum" ->
         match info.CompiledName, thisArg, args with
         | "HasFlag", Some value, [ flag ] -> emitExpr r t [ value; flag ] "(($0 band $1) =:= $1)" |> Some
+        // Static methods taking the enum's Type as first argument
+        | "GetUnderlyingType", None, [ typ ] ->
+            Helper.LibCall(com, "fable_reflection", "get_enum_underlying_type", t, [ typ ], ?loc = r)
+            |> Some
+        | "GetValues", None, [ typ ] ->
+            Helper.LibCall(com, "fable_reflection", "get_enum_values", t, [ typ ], ?loc = r)
+            |> asArrayRef com r t
+            |> Some
+        | "GetNames", None, [ typ ] ->
+            Helper.LibCall(com, "fable_reflection", "get_enum_names", t, [ typ ], ?loc = r)
+            |> wrapArr com r t
+            |> Some
+        | "GetName", None, [ typ; value ] ->
+            Helper.LibCall(com, "fable_reflection", "get_enum_name", t, [ typ; value ], ?loc = r)
+            |> Some
+        | "IsDefined", None, [ typ; value ] ->
+            Helper.LibCall(com, "fable_reflection", "is_enum_defined", t, [ typ; value ], ?loc = r)
+            |> Some
+        | "Parse", None, [ typ; value ] ->
+            Helper.LibCall(com, "fable_reflection", "parse_enum", t, [ typ; value ], ?loc = r)
+            |> Some
+        // The generic overloads (`Enum.Parse<Suit> s`) take the enum type from the
+        // return type / generic argument rather than from an argument.
+        | "Parse", None, [ value ] ->
+            let typeInfo = makeTypeInfo r t
+
+            Helper.LibCall(com, "fable_reflection", "parse_enum", t, [ typeInfo; value ], ?loc = r)
+            |> Some
+        | "TryParse", None, [ value; outRef ] ->
+            let typeInfo = genArg com ctx r 0 info.GenericArgs |> makeTypeInfo r
+
+            Helper.LibCall(com, "fable_reflection", "try_parse_enum", t, [ typeInfo; value; outRef ], ?loc = r)
+            |> Some
         | _ -> None
     // Lazy — lazy values use process dict for memoization
     | "System.Lazy`1"
@@ -5592,76 +6094,20 @@ let tryCall
                 emitExpr r t (callee :: args) $"($0)(%s{placeholders})" |> Some
         | _ -> None
     // F# Reflection
-    | "Microsoft.FSharp.Reflection.FSharpType" ->
-        match info.CompiledName, args with
-        | "MakeTupleType", [ typesArr ] ->
-            let derefed = derefArr r typesArr
+    | "Microsoft.FSharp.Reflection.FSharpType" -> fsharpType com r t info.CompiledName args
+    | "Microsoft.FSharp.Reflection.FSharpValue" -> fsharpValue com r t info.CompiledName args
+    | "Microsoft.FSharp.Reflection.FSharpReflectionExtensions" ->
+        // In netcore the F# Reflection methods become static extensions
+        // with names like `FSharpType.IsUnion.Static`
+        let isFSharpType =
+            info.CompiledName.StartsWith("FSharpType", System.StringComparison.Ordinal)
 
-            Helper.LibCall(com, "fable_reflection", "make_tuple_type", t, [ derefed ], ?loc = r)
-            |> Some
-        | "GetRecordFields", _ ->
-            Helper.LibCall(com, "fable_reflection", "get_record_elements", t, args, ?loc = r)
-            |> wrapArr com r t
-            |> Some
-        | "GetUnionCases", _ ->
-            Helper.LibCall(com, "fable_reflection", "get_union_cases", t, args, ?loc = r)
-            |> wrapArr com r t
-            |> Some
-        | "GetTupleElements", _ ->
-            Helper.LibCall(com, "fable_reflection", "get_tuple_elements", t, args, ?loc = r)
-            |> wrapArr com r t
-            |> Some
-        | "GetFunctionElements", _ ->
-            Helper.LibCall(com, "fable_reflection", "get_function_elements", t, args, ?loc = r)
-            |> Some
-        | "IsRecord", _ -> Helper.LibCall(com, "fable_reflection", "is_record", t, args, ?loc = r) |> Some
-        | "IsUnion", _ -> Helper.LibCall(com, "fable_reflection", "is_union", t, args, ?loc = r) |> Some
-        | "IsTuple", _ ->
-            Helper.LibCall(com, "fable_reflection", "is_tuple_type", t, args, ?loc = r)
-            |> Some
-        | "IsFunction", _ ->
-            Helper.LibCall(com, "fable_reflection", "is_function_type", t, args, ?loc = r)
-            |> Some
-        | _ -> None
-    | "Microsoft.FSharp.Reflection.FSharpValue" ->
-        match info.CompiledName, args with
-        | "MakeTuple", [ values; _ ] ->
-            // MakeTuple(values, tupleType) — values is an array ref, convert to Erlang tuple
-            emitExpr r t [ values ] "list_to_tuple(erlang:get($0))" |> Some
-        | "GetTupleFields", [ tuple ] ->
-            Helper.LibCall(com, "fable_reflection", "get_tuple_fields_value", t, [ tuple ], ?loc = r)
-            |> wrapArr com r t
-            |> Some
-        | "GetTupleField", [ tuple; index ] ->
-            Helper.LibCall(com, "fable_reflection", "get_tuple_field_value", t, [ tuple; index ], ?loc = r)
-            |> Some
-        | "GetRecordFields", [ record ] ->
-            // Inject type info at compile time since Erlang maps don't preserve order
-            // Look through TypeCast to get the concrete type (since GetRecordFields takes obj)
-            let rec getConcreteType (expr: Expr) =
-                match expr with
-                | TypeCast(inner, _) -> getConcreteType inner
-                | _ -> expr.Type
+        let methName = info.CompiledName |> Naming.extensionMethodName
 
-            let concreteType = getConcreteType record
-            let typeInfo = Value(TypeInfo(concreteType, []), None)
-
-            Helper.LibCall(com, "fable_reflection", "get_record_fields_value", t, [ record; typeInfo ], ?loc = r)
-            |> wrapArr com r t
-            |> Some
-        | "GetRecordField", [ record; propInfo ] ->
-            Helper.LibCall(com, "fable_reflection", "get_record_field_value", t, [ record; propInfo ], ?loc = r)
-            |> Some
-        | "MakeRecord", [ typ; values ] ->
-            Helper.LibCall(com, "fable_reflection", "make_record_from_values", t, [ typ; values ], ?loc = r)
-            |> Some
-        | "GetUnionFields", [ union; typ ] ->
-            Helper.LibCall(com, "fable_reflection", "get_union_fields_value", t, [ union; typ ], ?loc = r)
-            |> Some
-        | "MakeUnion", [ caseInfo; values ] ->
-            Helper.LibCall(com, "fable_reflection", "make_union_value", t, [ caseInfo; values ], ?loc = r)
-            |> Some
-        | _ -> None
+        if isFSharpType then
+            fsharpType com r t methName args
+        else
+            fsharpValue com r t methName args
     // PropertyInfo and UnionCaseInfo
     | "Microsoft.FSharp.Reflection.UnionCaseInfo"
     | "System.Reflection.PropertyInfo"

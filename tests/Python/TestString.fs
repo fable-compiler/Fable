@@ -110,6 +110,24 @@ let ``test string interpolation works with inline expressions`` () =
 #endif
 
 [<Fact>]
+let ``test string interpolation works with .NET format specifiers`` () = // See Fable.Python #36
+    let i = 123
+    $"{i:X4}" |> equal "007B"
+    $"{i:x4}" |> equal "007b"
+    $"{i:D5}" |> equal "00123"
+    $"{5:B}" |> equal "101"
+    $"\\u{i:X4}" |> equal "\\u007B"
+    $"{3.14159:F2}" |> equal "3.14"
+
+[<Fact>]
+let ``test string interpolation works with alignment`` () =
+    let i = 123
+    $"[{i,6}]" |> equal "[   123]"
+    $"[{i,-6}]" |> equal "[123   ]"
+    $"[{i,6:X4}]" |> equal "[  007B]"
+    $"[{i,-6:X4}]" |> equal "[007B  ]"
+
+[<Fact>]
 let ``test string interpolation works with anonymous records`` () =
     let person =
         {|
@@ -140,15 +158,36 @@ let ``test sprintf \"%A\" formats booleans as lowercase`` () =
     let optResult = sprintf "Some(%A)" true
     equal "Some(true)" optResult
 
+// See https://github.com/fable-compiler/Fable/issues/4732
+[<Fact>]
+let ``test sprintf \"%A\" quotes strings`` () =
+    sprintf "%A" "test" |> equal "\"test\""
+    sprintf "%A" "" |> equal "\"\""
+    // %O and %s don't quote a bare string
+    sprintf "%O" "test" |> equal "test"
+    sprintf "%s" "test" |> equal "test"
+
+// See https://github.com/fable-compiler/Fable/issues/4732
+[<Fact>]
+let ``test sprintf \"%A\" wraps strings without escaping`` () =
+    // F#'s %A only wraps a string in quotes; it does NOT escape embedded
+    // double-quotes, backslashes, or control characters (verified on .NET).
+    sprintf "%A" "a\"b" |> equal "\"a\"b\""
+    sprintf "%A" "a\\b" |> equal "\"a\\b\""
+    sprintf "%A" "a\nb" |> equal "\"a\nb\""
+    sprintf "%A" "a\tb" |> equal "\"a\tb\""
+    // Same behavior when the string is nested inside a container
+    sprintf "%A" [ "a\"b" ] |> equal "[\"a\"b\"]"
+
 [<Fact>]
 let ``test sprintf \"%A\" with lists works`` () =
     let xs = ["Hi"; "Hello"; "Hola"]
-    (sprintf "%A" xs).Replace("\"", "") |> equal "[Hi; Hello; Hola]"
+    sprintf "%A" xs |> equal "[\"Hi\"; \"Hello\"; \"Hola\"]"
 
 [<Fact>]
 let ``test sprintf \"%A\" with nested lists works`` () =
     let xs = [["Hi"]; ["Hello"]; ["Hola"]]
-    (sprintf "%A" xs).Replace("\"", "") |> equal "[[Hi]; [Hello]; [Hola]]"
+    sprintf "%A" xs |> equal "[[\"Hi\"]; [\"Hello\"]; [\"Hola\"]]"
 
 [<Fact>]
 let ``test sprintf \"%A\" with sequences works`` () =
@@ -260,6 +299,19 @@ let ``test StringBuilder.Append works with various overloads`` () =
                         .Append('x', 4)
     let actual = sb.ToString().ToLower()
     actual |> equal "aaabcd/true5.234xxxx"
+
+[<Fact>]
+let ``test StringBuilder.Append works with numeric type overloads`` () =
+    let sb = System.Text.StringBuilder()
+    sb.Append(1y) |> ignore   // int8
+    sb.Append(2uy) |> ignore  // byte
+    sb.Append(3s) |> ignore   // int16
+    sb.Append(4us) |> ignore  // uint16
+    sb.Append(5u) |> ignore   // uint32
+    sb.Append(6L) |> ignore   // int64
+    sb.Append(7UL) |> ignore  // uint64
+    sb.Append(8.0f) |> ignore // float32
+    sb.ToString() |> equal "12345678"
 
 [<Fact>]
 let ``test StringBuilder.AppendFormat works`` () =
@@ -488,6 +540,18 @@ let ``test String.Contains works`` () =
     "ABC".Contains("Z") |> equal false
 
 [<Fact>]
+let ``test String.Contains with empty pattern works`` () =
+    // .NET: every string contains ""
+    "ABC".Contains("") |> equal true
+    "".Contains("") |> equal true
+
+[<Fact>]
+let ``test String.Contains with StringComparison works`` () =
+    "ABC".Contains("b", StringComparison.Ordinal) |> equal false
+    "ABC".Contains("b", StringComparison.OrdinalIgnoreCase) |> equal true
+    "ABC".Contains("b", StringComparison.InvariantCultureIgnoreCase) |> equal true
+
+[<Fact>]
 let ``test String.Split works`` () =
     "a b c  d".Split(' ')
     |> (=) [|"a";"b";"c";"";"d"|] |> equal true
@@ -558,6 +622,12 @@ let ``test String.IndexOf works with offset`` () =
     |> equal 4
 
 [<Fact>]
+let ``test String.IndexOf with empty pattern works`` () =
+    "abcdbc".IndexOf("") |> equal 0
+    "abcdbc".IndexOf("", 3) |> equal 3
+    "abcdbc".IndexOf("", 6) |> equal 6
+
+[<Fact>]
 let ``test String.LastIndexOf works`` () =
     "abcdbc".LastIndexOf("bc") * 100 + "abcd".LastIndexOf("bd")
     |> equal 399
@@ -566,6 +636,12 @@ let ``test String.LastIndexOf works`` () =
 let ``test String.LastIndexOf works with offset`` () =
     "abcdbcebc".LastIndexOf("bc", 3)
     |> equal 1
+
+[<Fact>]
+let ``test String.LastIndexOf with empty pattern works`` () =
+    "abcdbc".LastIndexOf("") |> equal 6
+    "abcdbc".LastIndexOf("", 3) |> equal 4
+    "abcdbc".LastIndexOf("", 0) |> equal 1
 
 [<Fact>]
 let ``test String.IndexOf with StringComparison works`` () =
@@ -615,42 +691,42 @@ let ``test String.EndsWith char works`` () =
 
 [<Fact>]
 let ``test String.StartsWith works`` () =
-    let args = [("ab", true); ("bc", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    let args = [("ab", true); ("bc", false); ("cd", false); ("abcdx", false); ("abcd", true); ("", true)]
     for arg in args do
         "abcd".StartsWith(fst arg)
         |> equal (snd arg)
 
 [<Fact>]
 let ``test String.StartsWith with OrdinalIgnoreCase works`` () =
-    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true); ("", true)]
     for arg in args do
         "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
         |> equal (snd arg)
 
 [<Fact>]
 let ``test String.StartsWith with ignoreCase boolean works`` () =
-    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true); ("", true)]
     for arg in args do
         "ABCD".StartsWith(fst arg, true, CultureInfo.InvariantCulture)
         |> equal (snd arg)
 
 [<Fact>]
 let ``test String.EndsWith works`` () =
-    let args = [("ab", false); ("cd", true);  ("bc", false); ("abcdx", false); ("abcd", true)]
+    let args = [("ab", false); ("cd", true);  ("bc", false); ("abcdx", false); ("abcd", true); ("", true)]
     for arg in args do
         "abcd".EndsWith(fst arg)
         |> equal (snd arg)
 
 [<Fact>]
 let ``test String.EndsWith with OrdinalIgnoreCase works`` () =
-    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
+    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true); ("", true)]
     for arg in args do
         "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
         |> equal (snd arg)
 
 [<Fact>]
 let ``test String.EndsWith with ignoreCase boolean works`` () =
-    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
+    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true); ("", true)]
     for arg in args do
         "ABCD".EndsWith(fst arg, true, CultureInfo.InvariantCulture)
         |> equal (snd arg)

@@ -48,6 +48,7 @@
     format/2,
     console_writeline/1,
     console_write/1,
+    format_any/1,
     substring/2, substring/3,
     get_slice/3
 ]).
@@ -122,6 +123,7 @@
 -spec format(binary(), list() | reference() | term()) -> binary().
 -spec console_writeline(term()) -> ok.
 -spec console_write(term()) -> ok.
+-spec format_any(term()) -> binary().
 
 insert(Str, Idx, Value) ->
     iolist_to_binary([binary:part(Str, 0, Idx), Value, binary:part(Str, Idx, byte_size(Str) - Idx)]).
@@ -135,9 +137,13 @@ remove(Str, StartIdx, Count) ->
         binary:part(Str, StartIdx + Count, byte_size(Str) - StartIdx - Count)
     ]).
 
+starts_with(_Str, <<>>) ->
+    true;
 starts_with(Str, Prefix) ->
     binary:match(Str, Prefix) =:= {0, byte_size(Prefix)}.
 
+ends_with(_Str, <<>>) ->
+    true;
 ends_with(Str, Suffix) ->
     SuffixLen = byte_size(Suffix),
     StrLen = byte_size(Str),
@@ -262,6 +268,8 @@ filter(Fn, Str) ->
 index_of(Str, Sub) ->
     index_of(Str, Sub, 0).
 
+index_of(_Str, <<>>, StartIdx) ->
+    StartIdx;
 index_of(Str, Sub, StartIdx) ->
     SearchStr = binary:part(Str, StartIdx, byte_size(Str) - StartIdx),
     case binary:match(SearchStr, Sub) of
@@ -293,6 +301,8 @@ index_of_any_loop([C | Rest], CharSet, Idx, StartIdx) ->
 last_index_of(Str, Sub) ->
     last_index_of(Str, Sub, byte_size(Str) - 1).
 
+last_index_of(Str, <<>>, MaxIdx) ->
+    erlang:min(MaxIdx + 1, byte_size(Str));
 last_index_of(Str, Sub, MaxIdx) ->
     SubLen = byte_size(Sub),
     SearchLen = erlang:min(MaxIdx + SubLen, byte_size(Str)),
@@ -302,6 +312,8 @@ last_index_of(Str, Sub, MaxIdx) ->
         Matches -> element(1, lists:last(Matches))
     end.
 
+contains(_Str, <<>>) ->
+    true;
 contains(Str, Sub) ->
     binary:match(Str, Sub) =/= nomatch.
 
@@ -540,25 +552,244 @@ format_dotnet(<<"{{", Rest/binary>>, Args, Acc) ->
 format_dotnet(<<"}}", Rest/binary>>, Args, Acc) ->
     format_dotnet(Rest, Args, [<<"}">> | Acc]);
 format_dotnet(<<"{", Rest/binary>>, Args, Acc) ->
-    {IdxStr, Rest2} = parse_format_index(Rest, []),
+    {IdxStr, Align, Spec, Rest2} = parse_format_index(Rest, []),
     Idx = list_to_integer(IdxStr),
     Val = lists:nth(Idx + 1, Args),
-    format_dotnet(Rest2, Args, [to_string(Val) | Acc]);
+    Formatted0 =
+        case Spec of
+            [] -> to_string(Val);
+            _ -> apply_dotnet_spec(Spec, Val)
+        end,
+    Formatted = apply_alignment(Align, Formatted0),
+    format_dotnet(Rest2, Args, [Formatted | Acc]);
 format_dotnet(<<C/utf8, Rest/binary>>, Args, Acc) ->
     format_dotnet(Rest, Args, [<<C/utf8>> | Acc]).
 
+%% parse_format_index/2 — Parse "{index[,alignment][:spec]}" into its components.
 parse_format_index(<<"}", Rest/binary>>, Acc) ->
-    {lists:reverse(Acc), Rest};
+    {lists:reverse(Acc), [], [], Rest};
+parse_format_index(<<",", Rest/binary>>, Acc) ->
+    %% Alignment, e.g. {0,6} or {0,-6:X4}
+    {Align, Spec, Rest2} = parse_format_align(Rest, []),
+    {lists:reverse(Acc), Align, Spec, Rest2};
 parse_format_index(<<":", Rest/binary>>, Acc) ->
-    %% Skip format specifier after colon (e.g., {0:N5}) until closing }
-    skip_until_close(Rest, lists:reverse(Acc));
+    %% Format specifier, e.g. {0:X4}
+    {Spec, Rest2} = parse_format_spec(Rest, []),
+    {lists:reverse(Acc), [], Spec, Rest2};
 parse_format_index(<<C, Rest/binary>>, Acc) ->
     parse_format_index(Rest, [C | Acc]).
 
-skip_until_close(<<"}", Rest/binary>>, IdxStr) ->
-    {IdxStr, Rest};
-skip_until_close(<<_, Rest/binary>>, IdxStr) ->
-    skip_until_close(Rest, IdxStr).
+parse_format_align(<<"}", Rest/binary>>, Acc) ->
+    {lists:reverse(Acc), [], Rest};
+parse_format_align(<<":", Rest/binary>>, Acc) ->
+    {Spec, Rest2} = parse_format_spec(Rest, []),
+    {lists:reverse(Acc), Spec, Rest2};
+parse_format_align(<<C, Rest/binary>>, Acc) ->
+    parse_format_align(Rest, [C | Acc]).
+
+parse_format_spec(<<"}", Rest/binary>>, Acc) ->
+    {lists:reverse(Acc), Rest};
+parse_format_spec(<<C, Rest/binary>>, Acc) ->
+    parse_format_spec(Rest, [C | Acc]).
+
+%% apply_alignment/2 — Pad to the given alignment width. A positive width
+%% right-aligns (pad left); a negative width left-aligns (pad right).
+apply_alignment([], Str) ->
+    Str;
+apply_alignment(Align, Str) ->
+    case catch list_to_integer(Align) of
+        N when is_integer(N), N >= 0 -> pad_left(Str, N);
+        N when is_integer(N) -> pad_right(Str, -N);
+        _ -> Str
+    end.
+
+%% apply_dotnet_spec/2 — Apply a .NET numeric format specifier (the text after ':'
+%% in "{0:Spec}") to a value. Handles the standard numeric specifiers; falls back
+%% to the plain string representation for non-numeric values or unsupported specs.
+apply_dotnet_spec(Spec, Value) when is_number(Value) ->
+    case parse_standard_spec(Spec) of
+        {Type, Prec} -> apply_dotnet_numeric(Type, Prec, Value);
+        custom -> to_string(Value)
+    end;
+apply_dotnet_spec(_Spec, Value) ->
+    to_string(Value).
+
+%% parse_standard_spec/1 — A standard numeric spec is a single letter optionally
+%% followed by a precision number (e.g. "X4", "D", "F2"). Anything else (custom
+%% numeric format strings like "#,##0.00") returns `custom`.
+parse_standard_spec([Type | Rest]) when
+    (Type >= $A andalso Type =< $Z) orelse (Type >= $a andalso Type =< $z)
+->
+    case Rest of
+        [] -> {Type, -1};
+        _ ->
+            case all_digits(Rest) of
+                true -> {Type, list_to_integer(Rest)};
+                false -> custom
+            end
+    end;
+parse_standard_spec(_) ->
+    custom.
+
+all_digits([]) -> true;
+all_digits([C | T]) when C >= $0, C =< $9 -> all_digits(T);
+all_digits(_) -> false.
+
+%% apply_dotnet_numeric/3 — Format a numeric value per a standard specifier.
+%% See https://learn.microsoft.com/dotnet/standard/base-types/standard-numeric-format-strings
+apply_dotnet_numeric(Type, Prec, Value) when Type =:= $X; Type =:= $x ->
+    Hex = format_raw(Type, -1, Value),
+    pad_zeros(Hex, Prec);
+apply_dotnet_numeric(Type, Prec, Value) when Type =:= $D; Type =:= $d ->
+    pad_zeros(integer_to_binary(trunc(Value)), Prec);
+apply_dotnet_numeric(Type, Prec, Value) when Type =:= $F; Type =:= $f ->
+    P = default_prec(Prec, 2),
+    format_raw($f, P, Value);
+apply_dotnet_numeric(Type, Prec, Value) when Type =:= $E; Type =:= $e ->
+    P = default_prec(Prec, 6),
+    format_exponential(Type, P, Value);
+apply_dotnet_numeric(Type, Prec, Value) when Type =:= $G; Type =:= $g ->
+    format_general(Type, Prec, Value);
+apply_dotnet_numeric(Type, Prec, Value) when Type =:= $N; Type =:= $n ->
+    P = default_prec(Prec, 2),
+    {IntB, DecB} = split_int_dec(format_raw($f, P, Value)),
+    join_int_dec(thousand_separate(IntB), DecB, P);
+apply_dotnet_numeric(Type, Prec, Value) when Type =:= $C; Type =:= $c ->
+    P = default_prec(Prec, 2),
+    {IntB, DecB} = split_int_dec(format_raw($f, P, abs_num(Value))),
+    Body = join_int_dec(<<"¤"/utf8, (thousand_separate(IntB))/binary>>, DecB, P),
+    case Value < 0 of
+        true -> <<"(", Body/binary, ")">>;
+        false -> Body
+    end;
+apply_dotnet_numeric(Type, Prec, Value) when Type =:= $P; Type =:= $p ->
+    P = default_prec(Prec, 2),
+    {IntB, DecB} = split_int_dec(format_raw($f, P, Value * 100)),
+    Body = join_int_dec(thousand_separate(IntB), DecB, P),
+    <<Body/binary, " %">>;
+apply_dotnet_numeric(Type, Prec, Value) when Type =:= $B; Type =:= $b ->
+    Unsigned = trunc(Value) band 16#FFFFFFFF,
+    MinWidth =
+        if
+            Prec =< 0 -> 1;
+            true -> Prec
+        end,
+    pad_left(integer_to_binary(Unsigned, 2), MinWidth, $0);
+apply_dotnet_numeric(Type, _Prec, Value) when Type =:= $R; Type =:= $r ->
+    to_string(Value);
+apply_dotnet_numeric(_Type, _Prec, Value) ->
+    to_string(Value).
+
+%% default_prec/2 — Use Default when the spec carried no explicit precision (-1).
+default_prec(Prec, Default) ->
+    if
+        Prec < 0 -> Default;
+        true -> Prec
+    end.
+
+%% format_exponential/3 — .NET "E"/"e" format: one leading digit, Prec decimals,
+%% an explicit exponent sign and a minimum of three exponent digits (e.g. 1234.5
+%% with "E2" -> "1.23E+003"). Erlang's scientific notation gives "1.23e+03", which
+%% we reshape: uppercase the exponent marker on demand and left-pad the exponent.
+format_exponential(TypeChar, P, Value) ->
+    Sci = float_to_binary(float(Value), [{scientific, P}]),
+    [Mantissa, ExpPart] = binary:split(Sci, <<"e">>),
+    <<ExpSign, ExpDigits/binary>> = ExpPart,
+    ExpPadded = pad_left(ExpDigits, 3, $0),
+    EChar =
+        case TypeChar of
+            $E -> <<"E">>;
+            _ -> <<"e">>
+        end,
+    <<Mantissa/binary, EChar/binary, ExpSign, ExpPadded/binary>>.
+
+%% format_general/3 — .NET "G"/"g" (general) format. The value is shown with
+%% `Prec` significant digits, choosing fixed-point or scientific notation
+%% (scientific when the exponent is < -4 or >= Prec), with trailing zeros
+%% removed. Unlike "E"/"e", the exponent uses a 2-digit minimum. When no
+%% precision is given, the value uses its default representation (integers in
+%% full), matching bare interpolation (`$"{x}"`).
+format_general(_Type, Prec, Value) when Prec =< 0 ->
+    to_string(Value);
+format_general(Type, Prec, Value) ->
+    F = float(Value),
+    case F == 0.0 of
+        true ->
+            <<"0">>;
+        false ->
+            Exp = trunc(math:floor(math:log10(abs(F)))),
+            EChar =
+                case Type of
+                    $G -> $E;
+                    _ -> $e
+                end,
+            case Exp < -4 orelse Exp >= Prec of
+                true -> general_scientific(EChar, Prec, F);
+                false -> general_fixed(Prec, F, Exp)
+            end
+    end.
+
+%% general_fixed/3 — Fixed-point notation with (Prec - 1 - Exp) decimals so the
+%% result carries Prec significant digits, trailing zeros trimmed.
+general_fixed(Prec, F, Exp) ->
+    Decimals = max(0, Prec - 1 - Exp),
+    trim_trailing_zeros(format_raw($f, Decimals, F)).
+
+%% general_scientific/3 — Scientific notation with Prec significant digits
+%% (one leading digit + Prec-1 decimals), trailing zeros trimmed, and a
+%% 2-digit minimum exponent (e.g. "1.23E+06").
+general_scientific(EChar, Prec, F) ->
+    Sci = float_to_binary(F, [{scientific, max(0, Prec - 1)}]),
+    [Mantissa0, ExpPart] = binary:split(Sci, <<"e">>),
+    Mantissa = trim_trailing_zeros(Mantissa0),
+    <<ExpSign, ExpDigits/binary>> = ExpPart,
+    ExpPadded = pad_left(ExpDigits, 2, $0),
+    <<Mantissa/binary, EChar, ExpSign, ExpPadded/binary>>.
+
+abs_num(V) when V < 0 -> -V;
+abs_num(V) -> V.
+
+%% split_int_dec/1 — Split "1234.50" into {<<"1234">>, <<"50">>}.
+split_int_dec(Bin) ->
+    case binary:split(Bin, <<".">>) of
+        [I, D] -> {I, D};
+        [I] -> {I, <<>>}
+    end.
+
+%% join_int_dec/3 — Reassemble integral and decimal parts, dropping the decimal
+%% point when the precision is zero.
+join_int_dec(IntB, DecB, Prec) ->
+    case Prec > 0 of
+        true -> <<IntB/binary, ".", DecB/binary>>;
+        false -> IntB
+    end.
+
+%% thousand_separate/1 — Insert ',' every three digits, keeping any leading sign.
+thousand_separate(<<$-, Rest/binary>>) ->
+    <<$-, (group_thousands(Rest))/binary>>;
+thousand_separate(Bin) ->
+    group_thousands(Bin).
+
+group_thousands(Bin) ->
+    Digits = lists:reverse(binary_to_list(Bin)),
+    list_to_binary(do_group(Digits, 1, [])).
+
+do_group([], _N, Acc) ->
+    Acc;
+do_group([D], _N, Acc) ->
+    [D | Acc];
+do_group([D | T], N, Acc) when N rem 3 =:= 0 ->
+    do_group(T, N + 1, [$,, D | Acc]);
+do_group([D | T], N, Acc) ->
+    do_group(T, N + 1, [D | Acc]).
+
+%% pad_zeros/2 — Left-pad to a minimum width with '0', keeping any leading sign.
+pad_zeros(Bin, Width) when Width =< 0 ->
+    Bin;
+pad_zeros(<<$-, Rest/binary>>, Width) ->
+    <<$-, (pad_left(Rest, Width, $0))/binary>>;
+pad_zeros(Bin, Width) ->
+    pad_left(Bin, Width, $0).
 
 %% =====================================================================
 %% Internal: F# format string parser
@@ -764,7 +995,7 @@ format_raw(Type, _Prec, Value) when Type =:= $b; Type =:= $B ->
         false -> <<"false">>
     end;
 format_raw($A, _Prec, Value) ->
-    iolist_to_binary(io_lib:format("~p", [Value]));
+    format_any(Value);
 format_raw($O, _Prec, Value) ->
     to_string(Value);
 format_raw(_, _Prec, Value) ->
@@ -853,24 +1084,228 @@ get_slice(Lower, Upper, Str) ->
     binary:part(Str, Start, End - Start + 1).
 
 %% Console.WriteLine / Console.Write
+%%
+%% An F# string is a UTF-8 binary, so it must go out through the `t` (unicode) modifier: plain `~s`
+%% writes the binary's raw bytes, which only looks right on a latin1 device that happens to
+%% reassemble the UTF-8 itself, and turns into mojibake the moment the device is set to unicode.
+%% `~ts` is the other half of the contract — it needs the device set to unicode, which the generated
+%% `main.erl` entry shim does at startup. `printfn` already takes a `~ts` path, so before this the
+%% two disagreed and no device setting satisfied both.
 console_writeline(Value) when is_binary(Value) ->
-    io:format(<<"~s~n">>, [Value]);
+    io:format(<<"~ts~n">>, [Value]);
 console_writeline(Value) when is_integer(Value) ->
     io:format(<<"~B~n">>, [Value]);
 console_writeline(Value) when is_float(Value) ->
     io:format(<<"~p~n">>, [Value]);
 console_writeline(Value) when is_boolean(Value) ->
-    io:format(<<"~s~n">>, [atom_to_binary(Value)]);
+    io:format(<<"~ts~n">>, [atom_to_binary(Value)]);
 console_writeline(Value) ->
-    io:format(<<"~p~n">>, [Value]).
+    io:format(<<"~tp~n">>, [Value]).
 
 console_write(Value) when is_binary(Value) ->
-    io:format(<<"~s">>, [Value]);
+    io:format(<<"~ts">>, [Value]);
 console_write(Value) when is_integer(Value) ->
     io:format(<<"~B">>, [Value]);
 console_write(Value) when is_float(Value) ->
     io:format(<<"~p">>, [Value]);
 console_write(Value) when is_boolean(Value) ->
-    io:format(<<"~s">>, [atom_to_binary(Value)]);
+    io:format(<<"~ts">>, [atom_to_binary(Value)]);
 console_write(Value) ->
-    io:format(<<"~p">>, [Value]).
+    io:format(<<"~tp">>, [Value]).
+
+%%% ---------------------------------------------------------------------------
+%%% F# structured formatting (`%A`)
+%%% ---------------------------------------------------------------------------
+%%
+%% `%A` renders a value in F# syntax. On the other Fable targets the generated types carry a real
+%% `ToString` for this (a JS record is a class instance, a Python record defines `__str__`), so the
+%% formatter just calls it. Beam has nothing to call: a record is a bare map, a union a bare tagged
+%% tuple, neither carrying any back-pointer to its type. Reflection cannot help either — every
+%% `fable_reflection` accessor takes a type-info map, and there is none to be had from the value.
+%%
+%% So this reads the *shape* of the term. Several F# types share a shape on Beam, and where they do
+%% the clause comments below say which way the ambiguity resolves and what that costs. The rules
+%% otherwise mirror `fable-library-ts/Types.ts` (`seqToString`/`unionToString`/`recordToString`) so
+%% the targets stay aligned.
+%%
+%% Known limitations, all of them shape ambiguities rather than bugs:
+%%   * `char` is an `integer()` and prints as its codepoint. Documented in FABLE-BEAM.md.
+%%   * Record field and union case names come back from lowercased Erlang atoms, so their original
+%%     casing is reconstructed by convention (`my_case` -> `MyCase`) and is a guess.
+%%   * Record fields print in Erlang term order (atoms sort alphabetically), not in declaration
+%%     order, because a map does not remember the order its keys went in.
+%%   * An F# `Set` is an ordset, i.e. a plain list, and renders as a list rather than `set [...]`.
+%%   * `option` is erased, so `Some x` renders as `x` — the same collapse JS and Python have.
+%%   * An F# `ref` cell is the same process-dictionary reference an array is, so `ref 5` renders as
+%%     `5` and `ref [1, 2]` as `[|1; 2|]`, never as `{ contents = ... }`.
+%%   * A `decimal` is a fixed-scale integer and prints as its scaled value; a `DateTime` is a
+%%     `{Ticks, Kind}` tuple and prints as one. Both are in the FABLE-BEAM.md table.
+%%
+%% Recovering the first three needs the argument's static type threaded from the `%A` call site,
+%% which is where it still exists; nothing about the runtime value can supply it.
+
+%% Depth cap. Erlang terms are acyclic, but an array is a ref cell into the process dictionary and
+%% those *can* form a cycle (`R = new_ref([]), put(R, [R])`). Falling back to `~tp` at the cap keeps
+%% a pathological term terminating instead of looping.
+-define(FORMAT_ANY_MAX_DEPTH, 24).
+
+%% Element cap, matching `seqToString`'s in fable-library-ts.
+-define(FORMAT_ANY_MAX_ITEMS, 100).
+
+format_any(Value) ->
+    flatten(fmt_any(Value, 0)).
+
+%% Collapse a rendering to a binary. `unicode:characters_to_binary/1` rather than
+%% `iolist_to_binary/1`: the `~tp` fallbacks below can yield codepoints above 255, which
+%% `iolist_to_binary/1` rejects outright with `badarg`.
+%%
+%% It signals bad input by *returning* `{error, _, _}` rather than raising, and a tuple escaping
+%% from here would fail somewhere far away — `format_any/1` is specced to return a `binary()`. The
+%% only way to get one is a binary that is not valid UTF-8, which an F# `string` never is; falling
+%% back to Erlang's own term printing keeps that hypothetical honest rather than crashing.
+flatten(Rendering) ->
+    case unicode:characters_to_binary(Rendering) of
+        Bin when is_binary(Bin) -> Bin;
+        _ -> iolist_to_binary(io_lib:format("~tp", [Rendering]))
+    end.
+
+fmt_any(Value, Depth) when Depth > ?FORMAT_ANY_MAX_DEPTH ->
+    io_lib:format("~tp", [Value]);
+%% Strings are quoted but *not* escaped: .NET prints `%A` of `he said "hi"` as `"he said "hi""`.
+fmt_any(Value, _Depth) when is_binary(Value) ->
+    [$", Value, $"];
+fmt_any(Value, _Depth) when is_boolean(Value) ->
+    atom_to_binary(Value);
+%% `undefined` is the erased `None`.
+fmt_any(undefined, _Depth) ->
+    <<"None">>;
+fmt_any(Value, _Depth) when is_integer(Value) ->
+    integer_to_binary(Value);
+fmt_any(Value, _Depth) when is_float(Value) ->
+    %% `1.0` must stay `1.0` — `fable_convert:to_string/1` renders whole floats as integers, which
+    %% is right for `string x` but would make `%A` lose the type.
+    float_to_binary(Value, [short]);
+%% A bare atom is a fieldless union case (`Empty`), the only way one reaches here.
+fmt_any(Value, _Depth) when is_atom(Value) ->
+    pascal_case(atom_to_binary(Value));
+fmt_any(Value, Depth) when is_list(Value) ->
+    [$[, fmt_items(Value, Depth, <<"; ">>), $]];
+%% A `byte[]` is an atomics object behind a `{byte_array, Size, Ref}` tag. Matched ahead of the
+%% general tuple clause, which would otherwise read that tag as a union case named `ByteArray`.
+fmt_any({byte_array, _, _} = Value, Depth) ->
+    fmt_array(fable_utils:byte_array_to_list(Value), Depth);
+fmt_any(Value, Depth) when is_tuple(Value) ->
+    fmt_tuple(Value, Depth);
+fmt_any(Value, Depth) when is_reference(Value) ->
+    fmt_ref(Value, Depth);
+fmt_any(Value, Depth) when is_map(Value) ->
+    fmt_map(Value, Depth);
+fmt_any(Value, _Depth) when is_function(Value) ->
+    <<"<fun>">>;
+%% Pids, ports, anything unrecognised falls back to Erlang's own term printing — which is what `%A`
+%% did for *every* value before, so this can never be worse than the old behaviour. `~tp` rather
+%% than `~p` so the fallback stays unicode-aware, matching `console_write`/`console_writeline`.
+fmt_any(Value, _Depth) ->
+    io_lib:format("~tp", [Value]).
+
+%% A tagged tuple is a union case; anything else is an F# tuple.
+%%
+%% The two are genuinely indistinguishable when a tuple's first element is itself a fieldless union
+%% case: `(Empty, 1)` is `{empty, 1}`, exactly the shape of a one-field case `Empty 1`, and renders
+%% as the latter. Booleans and `None` are excluded because those atoms are common as tuple heads
+%% (`(true, 1)`) and are never union tags.
+fmt_tuple(Value, Depth) ->
+    case tuple_to_list(Value) of
+        [Tag | Fields] when
+            is_atom(Tag), Fields =/= [], Tag =/= true, Tag =/= false, Tag =/= undefined
+        ->
+            fmt_union(pascal_case(atom_to_binary(Tag)), Fields, Depth);
+        Elements ->
+            [$(, fmt_items(Elements, Depth, <<", ">>), $)]
+    end.
+
+%% `Named "x"` for one field, `Case (a, b)` for several. A single field is parenthesised only when
+%% its own rendering contains a space, so `Circle 1.0` stays bare but `Wrapped (Named "q")` does
+%% not run together — the rule `unionToString` uses in fable-library-ts.
+fmt_union(Name, [Field], Depth) ->
+    Rendered = flatten(fmt_any(Field, Depth + 1)),
+
+    case binary:match(Rendered, <<" ">>) of
+        nomatch -> [Name, $\s, Rendered];
+        _ -> [Name, <<" (">>, Rendered, $)]
+    end;
+fmt_union(Name, Fields, Depth) ->
+    [Name, <<" (">>, fmt_items(Fields, Depth, <<", ">>), $)].
+
+%% An array is a ref cell into the process dictionary holding its elements. A class instance, a
+%% ref-wrapped byte array and an F# `ref` cell reach here the same way, and are handed back to
+%% `fmt_any` on their contents.
+%%
+%% Nothing distinguishes those, so a `ref` holding a list is rendered as an array and one holding a
+%% scalar as the scalar — never as `{ contents = ... }`. A `ref` holding `undefined` (an erased
+%% `None`) is indistinguishable from a key that was never stored, and falls through to `#Ref<...>`.
+fmt_ref(Value, Depth) ->
+    case get(Value) of
+        Stored when is_list(Stored) ->
+            fmt_array(Stored, Depth);
+        undefined ->
+            %% Not one of ours — a raw `make_ref()`, which prints as `#Ref<...>`.
+            io_lib:format("~tp", [Value]);
+        Stored ->
+            fmt_any(Stored, Depth + 1)
+    end.
+
+fmt_array(Elements, Depth) ->
+    [<<"[|">>, fmt_items(Elements, Depth, <<"; ">>), <<"|]">>].
+
+%% A map is a record when every key is an atom, since record field names are compiled to atoms and
+%% an F# `Map`'s keys are runtime values (binaries, integers, tuples). A `Map<SomeEnum, _>` would be
+%% misread as a record, and an empty map is reported as `map []` because there is nothing to look at.
+fmt_map(Value, Depth) ->
+    Keys = maps:keys(Value),
+
+    case Keys =/= [] andalso lists:all(fun erlang:is_atom/1, Keys) of
+        true ->
+            %% `{ Name = "bob"` / newline+2 spaces / `  Age = 7 }`, as .NET and fable-library-ts do.
+            Fields = [
+                [pascal_case(atom_to_binary(K)), <<" = ">>, fmt_any(maps:get(K, Value), Depth + 1)]
+             || K <- Keys
+            ],
+            [<<"{ ">>, lists:join(<<"\n  ">>, Fields), <<" }">>];
+        false ->
+            Pairs = [
+                [$(, fmt_any(K, Depth + 1), <<", ">>, fmt_any(maps:get(K, Value), Depth + 1), $)]
+             || K <- Keys
+            ],
+            [<<"map [">>, lists:join(<<"; ">>, Pairs), $]]
+    end.
+
+%% Render up to ?FORMAT_ANY_MAX_ITEMS elements, then `; ...` — an unbounded `%A` of a large
+%% collection is never what a failure message wants.
+fmt_items(Elements, Depth, Separator) ->
+    {Shown, Rest} = split_at(Elements, ?FORMAT_ANY_MAX_ITEMS, []),
+    Rendered = lists:join(Separator, [fmt_any(E, Depth + 1) || E <- Shown]),
+
+    case Rest of
+        [] -> Rendered;
+        _ -> [Rendered, Separator, <<"...">>]
+    end.
+
+split_at([], _N, Acc) ->
+    {lists:reverse(Acc), []};
+split_at(Rest, 0, Acc) ->
+    {lists:reverse(Acc), Rest};
+split_at([H | T], N, Acc) ->
+    split_at(T, N - 1, [H | Acc]).
+
+%% Rebuild an F# name from the Erlang atom it was compiled to: `my_case` -> `MyCase`. The compiler
+%% lowercases and snake-cases on the way down and that is not injective, so this is a convention,
+%% not a recovery — `ABc` comes back as `Abc`.
+pascal_case(Name) ->
+    Parts = binary:split(Name, <<"_">>, [global]),
+    iolist_to_binary([capitalize(P) || P <- Parts, P =/= <<>>]).
+
+capitalize(<<First/utf8, Rest/binary>>) ->
+    <<(string:uppercase(<<First/utf8>>))/binary, Rest/binary>>;
+capitalize(Empty) ->
+    Empty.

@@ -188,6 +188,7 @@ let convertTo com (ctx: Context) r t (args: Expr list) =
     match t with
     | Boolean ->
         match sourceType with
+        | Boolean -> args.Head
         | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toBoolean", t, args, ?loc = r)
         | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "toBoolean", t, args, ?loc = r)
         | Number(_kind, _) -> Helper.LibCall(com, "Convert", "toBoolean", t, args, ?loc = r)
@@ -239,6 +240,10 @@ let convertTo com (ctx: Context) r t (args: Expr list) =
 
     | Number(kind, _) ->
         match sourceType with
+        | Boolean ->
+            // .NET Convert.ToXxx(bool) yields 0/1; route via i32 so float targets also work
+            let code = TypeCast(args.Head, Int32.Number)
+            TypeCast(code, t)
         | Char ->
             let code = TypeCast(args.Head, UInt32.Number)
             TypeCast(code, t)
@@ -326,7 +331,7 @@ let toSeq com t (expr: Expr) =
         Helper.LibCall(com, "Seq", "ofArray", t, [ chars ])
     | _ -> TypeCast(expr, t)
 
-let emitRawString (s: string) = $"\"{s}\"" |> emitExpr None String []
+let emitRawString (s: string) = $"\"%s{s}\"" |> emitExpr None String []
 
 let emitFormat (com: ICompiler) r t (args: Expr list) macro =
     let args =
@@ -383,7 +388,8 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             | _ -> binOp BinaryMinus left right
         | Operators.multiply, [ left; right ] -> binOp BinaryMultiply left right
         | Operators.division, [ left; right ] -> binOp BinaryDivide left right
-        | Operators.divideByInt, [ left; right ] -> binOp BinaryDivide left (TypeCast(right, t))
+        | Operators.divideByInt, [ left; right ] ->
+            Helper.LibCall(com, "Native", "divideByInt", t, [ left; right ], argTypes, ?loc = r)
         | Operators.modulus, [ left; right ] -> binOp BinaryModulus left right
         | Operators.leftShift, [ left; right ] -> binOp BinaryShiftLeft left right |> truncateUnsigned // See #1530
         | Operators.rightShift, [ left; right ] ->
@@ -445,13 +451,13 @@ let referenceHash (com: ICompiler) ctx r (arg: Expr) =
     | Boolean
     | Char
     | String
-    | Number _ -> Helper.LibCall(com, "Native", "getHashCode", Int32.Number, [ arg ], ?loc = r)
+    | Number _ -> Helper.InstanceCall(arg, "getHashCode", Int32.Number, [], [], [], ?loc = r)
     | _ -> Helper.LibCall(com, "Native", "referenceHash", Int32.Number, [ makeRef arg ], ?loc = r)
 
 let getHashCode (com: ICompiler) ctx r (arg: Expr) =
     match arg.Type with
     | HasReferenceEquality com _ -> referenceHash com ctx r arg
-    | _ -> Helper.LibCall(com, "Native", "getHashCode", Int32.Number, [ arg ], ?loc = r)
+    | _ -> Helper.InstanceCall(arg, "getHashCode", Int32.Number, [], [], [], ?loc = r)
 
 let objectHash (com: ICompiler) ctx r (arg: Expr) =
     match arg.Type with
@@ -480,6 +486,7 @@ let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Number _
     | Builtin(FSharpChoice _ | FSharpResult _) -> makeEqOp r left right BinaryEqual
     | Builtin kind -> Helper.LibCall(com, coreModFor kind, "equals", t, [ left; right ], ?loc = r)
+    | Array(_, ResizeArray) -> referenceEquals com ctx r left right
     | Array _ -> Helper.LibCall(com, "Array", "equals", t, [ left; right ], ?loc = r)
     | List _ -> Helper.LibCall(com, "List", "equals", t, [ left; right ], ?loc = r)
     | IEnumerable -> Helper.LibCall(com, "Seq", "equals", t, [ left; right ], ?loc = r)
@@ -739,6 +746,14 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "debugMode" -> makeBoolConst com.Options.DebugMode |> Some
         | "typedArrays" -> makeBoolConst com.Options.TypedArrays |> Some
         | "extension" -> makeStrConst com.Options.FileExtension |> Some
+        | "isDotnet" -> makeBoolConst false |> Some
+        | "isJavaScript" -> makeBoolConst (com.Options.Language = JavaScript) |> Some
+        | "isTypeScript" -> makeBoolConst (com.Options.Language = TypeScript) |> Some
+        | "isPython" -> makeBoolConst (com.Options.Language = Python) |> Some
+        | "isDart" -> makeBoolConst (com.Options.Language = Dart) |> Some
+        | "isRust" -> makeBoolConst (com.Options.Language = Rust) |> Some
+        | "isPhp" -> makeBoolConst (com.Options.Language = Php) |> Some
+        | "isBeam" -> makeBoolConst (com.Options.Language = Beam) |> Some
         | _ -> None
     | "Fable.Core.RustInterop", "op_BangHat" -> List.tryHead args
     | "Fable.Core.RustInterop", _ ->
@@ -807,10 +822,78 @@ let fsharpModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
     Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, ?loc = r)
     |> Some
 
-let makeRustFormatString interpolated (fmt: string) =
-    let pattern1 = @"([^%]?)%([0+\- ]*)(\*|\d+)?(\.\d+)?(\w)"
+// Maps a .NET standard numeric format specifier (e.g. "X4", "D5", "F2") to a
+// Rust format spec body { flags; width; precision; type } so it can be merged
+// into a `format!` placeholder. Returns None for specifiers Rust's `format!`
+// can't express (N, C, P, custom numeric patterns) so the value is emitted plain.
+let private mapDotnetSpecToRust (spec: string) =
+    match Regex.Match(spec, @"^([A-Za-z])(\d*)$") with
+    | m when m.Success ->
+        let typ = m.Groups[1].Value
+        let n = m.Groups[2].Value
+        // A width on hex/binary/octal/decimal means zero-pad to that width.
+        let zeroPad =
+            if n <> "" then
+                "0"
+            else
+                ""
 
-    let pattern2 = @"([^%]?)%([0+\- ]*)(\*|\d+)?(\.\d+)?(?:P\(\)|(\w)(?:%P\(\))?)"
+        match typ with
+        | "X"
+        | "x" -> Some(zeroPad, n, "", typ)
+        | "B"
+        | "b" -> Some(zeroPad, n, "", "b")
+        | "O"
+        | "o" -> Some(zeroPad, n, "", "o")
+        | "D"
+        | "d" -> Some(zeroPad, n, "", "")
+        | "F"
+        | "f" ->
+            Some(
+                "",
+                "",
+                "."
+                + (if n = "" then
+                       "2"
+                   else
+                       n),
+                ""
+            )
+        | "E" ->
+            Some(
+                "",
+                "",
+                "."
+                + (if n = "" then
+                       "6"
+                   else
+                       n),
+                "E"
+            )
+        | "e" ->
+            Some(
+                "",
+                "",
+                "."
+                + (if n = "" then
+                       "6"
+                   else
+                       n),
+                "e"
+            )
+        | "G"
+        | "g"
+        | "R"
+        | "r" -> Some("", "", "", "")
+        | _ -> None
+    | _ -> None
+
+let makeRustFormatString interpolated (fmt: string) =
+    let pattern1 =
+        @"(?<pre>[^%]?)%(?<flags>[0+\- ]*)(?<width>\*|\d+)?(?<prec>\.\d+)?(?<type>\w)"
+
+    let pattern2 =
+        @"(?<pre>[^%]?)%(?<flags>[0+\- ]*)(?<width>\*|\d+)?(?<prec>\.\d+)?(?:P\((?<dotnet>[^)]*)\)|(?<type>\w)(?:%P\(\))?)"
 
     let pattern =
         if interpolated then
@@ -842,35 +925,63 @@ let makeRustFormatString interpolated (fmt: string) =
             pattern,
             fun m ->
                 argCount <- argCount + 1
-                let g1 = m.Groups[1].Value
-                let g2 = m.Groups[2].Value |> formatFlags
-                let g3 = m.Groups[3].Value.Replace("*", "$") // width parameter
-                let g4 = m.Groups[4].Value
-                let g5 = m.Groups[5].Value
+                let pre = m.Groups["pre"].Value
+                let flags = m.Groups["flags"].Value |> formatFlags
+                let width = m.Groups["width"].Value.Replace("*", "$") // width parameter
+                let prec = m.Groups["prec"].Value
 
-                let g4 =
-                    if String.IsNullOrEmpty(g4) && (g5 = "f" || g5 = "F") then
-                        ".6"
+                let formatting =
+                    if m.Groups["dotnet"].Success then
+                        // .NET interpolation hole: %<align>P(<spec>) from e.g. $"{x,6:X4}"
+                        let dotnet = m.Groups["dotnet"].Value
+
+                        if dotnet = "" then
+                            // Plain or alignment-only hole, e.g. %P() or %6P()
+                            flags + width + prec
+                        else
+                            match mapDotnetSpecToRust dotnet with
+                            | Some(specFlags, specWidth, specPrec, specType) ->
+                                // An explicit alignment width takes the field width (space-padded);
+                                // otherwise use the specifier's own (zero-padded) width.
+                                let f =
+                                    if width <> "" then
+                                        flags
+                                    else
+                                        specFlags
+
+                                let w =
+                                    if width <> "" then
+                                        width
+                                    else
+                                        specWidth
+
+                                f + w + specPrec + specType
+                            | None ->
+                                // Unsupported specifier: keep any alignment, drop the rest.
+                                flags + width + prec
                     else
-                        g4
+                        let typ = m.Groups["type"].Value
 
-                let g5 =
-                    match g5 with
-                    | "A" -> "?"
-                    | "B" -> "b"
-                    | ("b" | "c" | "d" | "i" | "s" | "u") -> ""
-                    | ("o" | "x" | "X" | "e" | "E") as t -> t
-                    | _ -> ""
+                        let prec =
+                            if String.IsNullOrEmpty(prec) && (typ = "f" || typ = "F") then
+                                ".6"
+                            else
+                                prec
 
-                let argFmt =
-                    let formatting = g2 + g3 + g4 + g5
+                        let typ =
+                            match typ with
+                            | "A" -> "?"
+                            | "B" -> "b"
+                            | ("b" | "c" | "d" | "i" | "s" | "u") -> ""
+                            | ("o" | "x" | "X" | "e" | "E") as t -> t
+                            | _ -> ""
 
-                    if String.IsNullOrEmpty(formatting) then
-                        g1 + "{}"
-                    else
-                        g1 + "{:" + formatting + "}"
+                        flags + width + prec + typ
 
-                argFmt
+                if String.IsNullOrEmpty(formatting) then
+                    pre + "{}"
+                else
+                    pre + "{:" + formatting + "}"
         )
 
     rustFmt, argCount
@@ -949,8 +1060,14 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
             |> Some
     | "DefaultAsyncBuilder", _ -> makeImportLib com t "singleton" "AsyncBuilder" |> Some
     // Erased operators.
-    // KeyValuePair is already compiled as a tuple
-    | ("KeyValuePattern" | "Identity" | "Box" | "Unbox" | "ToEnum"), [ arg ] -> TypeCast(arg, t) |> Some
+    // Rust compiles KeyValuePair as a struct tuple, but the KeyValue active pattern expects a regular tuple.
+    | "KeyValuePattern", [ arg ] ->
+        match arg.Type with
+        | Builtin(BclKeyValuePair(keyType, valueType)) ->
+            makeTuple r false [ Get(arg, TupleIndex 0, keyType, r); Get(arg, TupleIndex 1, valueType, r) ]
+            |> Some
+        | _ -> TypeCast(arg, t) |> Some
+    | ("Identity" | "Box" | "Unbox" | "ToEnum"), [ arg ] -> TypeCast(arg, t) |> Some
     // Cast to unit to make sure nothing is returned when wrapped in a lambda, see #1360
     | "Ignore", _ -> Value(UnitConstant, r) |> Some
     // Number and String conversions
@@ -1528,7 +1645,10 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.LibCall(com, "String", "splitChars", t, [ c; arg1; arg2; arg3 ], ?loc = r)
             |> Some
 
-        // TODO: handle arrays of string separators with more than one element
+        // Remaining gap: the count-bearing string[] overload Split(string[], int, options)
+        // for multi-element / non-literal arrays. splitStrings has no count parameter, and a
+        // correct global left-to-right count across multiple separators is non-trivial.
+        // The common Split(string[], options) form is handled above via splitStrings.
         | _ -> None
     | "StartsWith", Some c, _ ->
         match args with
@@ -2128,6 +2248,9 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     | ("get_Zero" | "get_One" | "get_MinusOne" | "get_MinValue" | "get_MaxValue"), _ ->
         Helper.LibValue(com, "Decimal", Naming.removeGetSetPrefix i.CompiledName, t)
         |> Some
+    | ("IsInteger" | "IsEvenInteger" | "IsOddInteger" | "IsCanonical" | "IsNegative" | "IsPositive"), _ ->
+        Helper.LibCall(com, "Decimal", Naming.lowerFirst i.CompiledName, t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "get_Scale", [] ->
         match thisArg with
         | Some c ->
@@ -2315,8 +2438,10 @@ let exceptionDispatchInfo (com: ICompiler) (ctx: Context) r t (i: CallInfo) this
 
 let funcs (com: ICompiler) (ctx: Context) r t (i: CallInfo) thisArg args =
     match i.CompiledName, thisArg with
-    // Just use Emit to change the type of the arg, Fable will automatically uncurry the function
-    | "Adapt", _ -> emitExpr r t args "$0" |> Some
+    | "Adapt", _ ->
+        match args, t with
+        | [ arg ], DeclaredType(_, genArgs) -> uncurryExprAtRuntime com (List.length genArgs - 1) arg |> Some
+        | _ -> emitExpr r t args "$0" |> Some
     | "Invoke", Some callee -> Helper.Application(callee, t, args, i.SignatureArgTypes, ?loc = r) |> Some
     | _ -> None
 
@@ -2401,6 +2526,7 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
     | ".ctor", None -> bclType com ctx r t i thisArg args
     | "get_Message", Some ex -> makeInstanceCall r t i ex i.CompiledName args |> Some
     | "get_StackTrace", Some ex -> makeInstanceCall r t i ex i.CompiledName args |> Some
+    | "get_InnerException", Some ex -> makeInstanceCall r t i ex i.CompiledName args |> Some
     | _ -> None
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -2511,7 +2637,7 @@ let ignoreFormatProvider compiledName args =
     | "TryParse", input :: _culture :: defVal :: _ -> [ input; defVal ]
     | _ -> args
 
-let makeDateOrTimeMemberCall com ctx r t i moduleName memberName (thisArg: Expr option) (args: Expr list) =
+let makeMemberCall com ctx r t i moduleName memberName (thisArg: Expr option) (args: Expr list) =
     let memberName = Naming.removeGetSetPrefix memberName |> Naming.lowerFirst
     let args = ignoreFormatProvider i.CompiledName args
 
@@ -2590,7 +2716,7 @@ let dateTimes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "Subtract" ->
         Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r)
         |> Some
-    | meth -> makeDateOrTimeMemberCall com ctx r t i "DateTime" meth thisArg args |> Some
+    | meth -> makeMemberCall com ctx r t i "DateTime" meth thisArg args |> Some
 
 let dateTimeOffsets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -2637,9 +2763,7 @@ let dateTimeOffsets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: 
     | "Subtract" ->
         Operation(Binary(BinaryOperator.BinaryMinus, thisArg.Value, args.Head), Tags.empty, t, r)
         |> Some
-    | meth ->
-        makeDateOrTimeMemberCall com ctx r t i "DateTimeOffset" meth thisArg args
-        |> Some
+    | meth -> makeMemberCall com ctx r t i "DateTimeOffset" meth thisArg args |> Some
 
 let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -2653,7 +2777,7 @@ let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "Equals"
     | "GetHashCode" -> valueTypes com ctx r t i thisArg args
     | "ToDateTime" when args.Length = 2 -> makeInstanceCall r t i thisArg.Value "toDateTime2" args |> Some
-    | meth -> makeDateOrTimeMemberCall com ctx r t i "DateOnly" meth thisArg args |> Some
+    | meth -> makeMemberCall com ctx r t i "DateOnly" meth thisArg args |> Some
 
 let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
@@ -2678,7 +2802,7 @@ let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "Equals"
     | "GetHashCode" -> valueTypes com ctx r t i thisArg args
     | "Add" when args.Length = 2 -> makeInstanceCall r t i thisArg.Value "add2" args |> Some
-    | meth -> makeDateOrTimeMemberCall com ctx r t i "TimeOnly" meth thisArg args |> Some
+    | meth -> makeMemberCall com ctx r t i "TimeOnly" meth thisArg args |> Some
 
 let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
@@ -2730,13 +2854,13 @@ let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
         match args with
         | [ ExprType(Number(Float64, _)) ] ->
             // overloads that take a float
-            makeDateOrTimeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
+            makeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
         | _ ->
             // overloads with variable argument counts
             let argCount = List.length args
             let meth = meth + (string<int> argCount)
-            makeDateOrTimeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
-    | meth -> makeDateOrTimeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
+            makeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
+    | meth -> makeMemberCall com ctx r t i "TimeSpan" meth thisArg args |> Some
 
 let timers (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
@@ -3106,20 +3230,19 @@ let guids
     | ".ctor", None, _ ->
         match args with
         | [] -> Helper.LibCall(com, "Guid", "empty", t, [], ?loc = r) |> Some
-        | [ ExprType String ] -> Helper.LibCall(com, "Guid", "parse", t, args, ?loc = r) |> Some
+        | [ ExprType String ] -> makeMemberCall com ctx r t i "Guid" "parse" None args |> Some
         | [ ExprType(Array(Number(UInt8, _), _)) ] ->
-            Helper.LibCall(com, "Guid", "new_from_array", t, args, ?loc = r) |> Some
+            makeMemberCall com ctx r t i "Guid" "new_from_array" thisArg args |> Some
         // TODO: other constructor overrides
         | _ -> None
     // | "Empty", None, [] -> // it's a static field, see tryField
-    | "NewGuid", None, [] -> Helper.LibCall(com, "Guid", "new_guid", t, args, ?loc = r) |> Some
-    | "CreateVersion7", None, [] -> Helper.LibCall(com, "Guid", "create_version7", t, [], ?loc = r) |> Some
-    | "CreateVersion7", None, _ ->
-        Helper.LibCall(com, "Guid", "create_version7_with_timestamp", t, args, ?loc = r)
-        |> Some
-    | "Parse", None, [ ExprType String ] -> Helper.LibCall(com, "Guid", "parse", t, args, ?loc = r) |> Some
-    | "TryParse", None, [ ExprType String; _ ] -> Helper.LibCall(com, "Guid", "tryParse", t, args, ?loc = r) |> Some
-    | "ToByteArray", Some x, [] -> Helper.LibCall(com, "Guid", "toByteArray", t, [ x ], ?loc = r) |> Some
+    | "NewGuid", None, [] -> makeMemberCall com ctx r t i "Guid" "new_guid" thisArg args |> Some
+    | "CreateVersion7", None, [] -> makeMemberCall com ctx r t i "Guid" "create_version7" thisArg args |> Some
+    | "CreateVersion7", None, _ -> makeMemberCall com ctx r t i "Guid" "create_version7_with" thisArg args |> Some
+    | "Parse", None, [ ExprType String ] -> makeMemberCall com ctx r t i "Guid" "parse" thisArg args |> Some
+    | "TryParse", None, [ ExprType String; _ ] -> makeMemberCall com ctx r t i "Guid" "tryParse" thisArg args |> Some
+    | "ToByteArray", Some x, [] -> makeMemberCall com ctx r t i "Guid" "toByteArray" thisArg [] |> Some
+    | "ToString", Some x, [ ExprType String ] -> makeMemberCall com ctx r t i "Guid" "toString" thisArg args |> Some
     | "ToString", Some x, [] -> toString com ctx r [ x ] |> Some
     // TODO: other methods and overrides
     | _ -> None
@@ -3641,6 +3764,6 @@ let tryType typ =
         | FSharpMap(key, value) -> Some(Types.fsharpMap, maps, [ key; value ])
         | FSharpSet genArg -> Some(Types.fsharpSet, sets, [ genArg ])
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [ genArg1; genArg2 ])
-        | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
+        | FSharpChoice genArgs -> Some($"%s{Types.choiceNonGeneric}`%d{List.length genArgs}", results, genArgs)
         | FSharpReference genArg -> Some(Types.refCell, refCells, [ genArg ])
     | _ -> None

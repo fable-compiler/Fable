@@ -441,6 +441,7 @@ let rec equals (com: ICompiler) ctx r equal (left: Expr) (right: Expr) =
             makeUnOp None Boolean expr UnaryNot
 
     match left.Type with
+    | Array(_, ResizeArray) -> Helper.GlobalCall("identical", Boolean, [ left; right ], ?loc = r) |> is equal
     | Array(t, _) ->
         match left, right with
         // F# compiler introduces null checks in array pattern matching
@@ -639,7 +640,7 @@ let tryEntityIdent (com: Compiler) entFullName =
     | BuiltinDefinition(FSharpReference _) -> makeImportLib com MetaType "FSharpRef" "Types" |> Some
     | BuiltinDefinition(FSharpResult _) -> makeImportLib com MetaType "FSharpResult$2" "Result" |> Some
     | BuiltinDefinition(FSharpChoice genArgs) ->
-        let membName = $"FSharpChoice${List.length genArgs}"
+        let membName = $"FSharpChoice$%d{List.length genArgs}"
         makeImportLib com MetaType membName "Choice" |> Some
     // | BuiltinDefinition BclGuid -> jsTypeof "string" expr
     | BuiltinDefinition(BclHashSet _)
@@ -731,6 +732,14 @@ let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
         | "typedArrays" -> makeBoolConst com.Options.TypedArrays |> Some
         | "extension" -> makeStrConst com.Options.FileExtension |> Some
         | "triggeredByDependency" -> makeBoolConst com.Options.TriggeredByDependency |> Some
+        | "isDotnet" -> makeBoolConst false |> Some
+        | "isJavaScript" -> makeBoolConst (com.Options.Language = JavaScript) |> Some
+        | "isTypeScript" -> makeBoolConst (com.Options.Language = TypeScript) |> Some
+        | "isPython" -> makeBoolConst (com.Options.Language = Python) |> Some
+        | "isDart" -> makeBoolConst (com.Options.Language = Dart) |> Some
+        | "isRust" -> makeBoolConst (com.Options.Language = Rust) |> Some
+        | "isPhp" -> makeBoolConst (com.Options.Language = Php) |> Some
+        | "isBeam" -> makeBoolConst (com.Options.Language = Beam) |> Some
         | _ -> None
     | Naming.StartsWith "Fable.Core.Dart" rest, _ ->
         match rest with
@@ -867,7 +876,7 @@ let printJsTaggedTemplate
         {|
             Index: int
             Length: int
-        |}[])
+        |} array)
     (printHoleContent: int -> string)
     =
     // Escape ` quotations for JS. Note F# escapes for {, } and % are already replaced by the compiler
@@ -927,7 +936,7 @@ let fsFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
       _,
       _ -> fsharpModule com ctx r t i thisArg args
     | ".ctor", _, str :: (Value(NewArray(ArrayValues templateArgs, _, MutableArray), _) as values) :: _ ->
-        match makeStringTemplateFrom [| "%s"; "%i" |] templateArgs str with
+        match makeStringTemplateFrom com [| "%s"; "%i" |] templateArgs str with
         | Some v -> makeValue r v |> Some
         | None ->
             Helper.LibCall(com, "String", "interpolate", t, [ str; values ], i.SignatureArgTypes, ?loc = r)
@@ -1019,7 +1028,7 @@ let operators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr o
     | "FailWith", [ msg ]
     | "InvalidOp", [ msg ] -> makeThrow r t (error com msg) |> Some
     | "InvalidArg", [ argName; msg ] ->
-        let msg = add (add msg (str "\\nParameter name: ")) argName
+        let msg = add msg (add (add (str " (Parameter '") argName) (str "')"))
         makeThrow r t (error com msg) |> Some
     | "Raise", [ arg ] -> makeThrow r t arg |> Some
     | "Reraise", _ -> Extended(Throw(None, t), r) |> Some
@@ -1386,7 +1395,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "GetEnumerator", Some c, _ -> stringToCharSeq c |> getEnumerator com r t |> Some
     | ("Contains" | "StartsWith" | "EndsWith" as meth), Some c, arg :: _ ->
         if List.isMultiple args then
-            addWarning com ctx.InlinePath r $"String.{meth}: second argument is ignored"
+            addWarning com ctx.InlinePath r $"String.%s{meth}: second argument is ignored"
 
         Helper.InstanceCall(c, Naming.lowerFirst meth, t, [ arg ], ?loc = r) |> Some
     | ReplaceName [ "ToUpper", "toUpperCase"
@@ -2499,11 +2508,13 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     match i.CompiledName, thisArg, args with
     | ".ctor", _, _ ->
         match i.SignatureArgTypes, args with
-        | [], _ -> Helper.GlobalCall("Set", t, [], genArgs = i.GenericArgs, ?loc = r) |> Some
+        | ([] | [ Number _ ]), _ -> Helper.GlobalCall("Set", t, [], genArgs = i.GenericArgs, ?loc = r) |> Some
         | [ IEnumerable ], [ arg ] -> Helper.GlobalCall("Set", t, [ arg ], memb = "of", ?loc = r) |> Some
         | [ IEnumerable; IEqualityComparer ], [ arg; eqComp ] ->
             Helper.LibCall(com, "Types", "setWith", t, [ eqComp; arg ], ?loc = r) |> Some
-        | [ IEqualityComparer ], [ eqComp ] -> Helper.LibCall(com, "Types", "setWith", t, [ eqComp ], ?loc = r) |> Some
+        | [ IEqualityComparer ], [ eqComp ]
+        | [ Number _; IEqualityComparer ], [ _; eqComp ] ->
+            Helper.LibCall(com, "Types", "setWith", t, [ eqComp ], ?loc = r) |> Some
         | _ -> None
     // Const are read-only but I'm not sure how to detect this in runtime
     //    | "get_IsReadOnly", _, _ -> BoolConstant false |> makeValue r |> Some
@@ -2513,14 +2524,71 @@ let hashSets (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
 
         Helper.InstanceCall(c, meth, t, args, i.SignatureArgTypes, ?loc = r) |> Some
-    //    | ("IsProperSubsetOf" | "IsProperSupersetOf" | "IsSubsetOf" | "IsSupersetOf" as meth), Some c, args ->
-    //        let meth = Naming.lowerFirst meth
-    //        let args = injectArg com ctx r "Set" meth i.GenericArgs args
-    //        Helper.LibCall(com, "Set", meth, t, c::args, ?loc=r) |> Some
-    // | "CopyTo" // TODO!!!
-    // | "SetEquals"
-    // | "Overlaps"
-    // | "SymmetricExceptWith"
+    | "UnionWith", Some c, [ other ] ->
+        Helper.LibCall(com, "Types", "hashSetUnionWith", t, [ c; other ], ?loc = r)
+        |> Some
+    | "IntersectWith", Some c, [ other ] ->
+        Helper.LibCall(com, "Types", "hashSetIntersectWith", t, [ c; other ], ?loc = r)
+        |> Some
+    | "ExceptWith", Some c, [ other ] ->
+        Helper.LibCall(com, "Types", "hashSetExceptWith", t, [ c; other ], ?loc = r)
+        |> Some
+    | "IsSubsetOf", Some c, [ other ] ->
+        Helper.LibCall(com, "Types", "hashSetIsSubsetOf", t, [ c; other ], ?loc = r)
+        |> Some
+    | "IsSupersetOf", Some c, [ other ] ->
+        Helper.LibCall(com, "Types", "hashSetIsSupersetOf", t, [ c; other ], ?loc = r)
+        |> Some
+    | "IsProperSubsetOf", Some c, [ other ] ->
+        Helper.LibCall(com, "Types", "hashSetIsProperSubsetOf", t, [ c; other ], ?loc = r)
+        |> Some
+    | "IsProperSupersetOf", Some c, [ other ] ->
+        Helper.LibCall(com, "Types", "hashSetIsProperSupersetOf", t, [ c; other ], ?loc = r)
+        |> Some
+    | "CopyTo", Some c, args ->
+        let count = getLength c
+
+        match args with
+        | [ target ] ->
+            Helper.LibCall(
+                com,
+                "Types",
+                "hashSetCopyToArray",
+                t,
+                [ c; target; makeIntConst 0; makeIntConst 0; count ],
+                ?loc = r
+            )
+            |> Some
+        | [ target; targetIndex ] ->
+            Helper.LibCall(
+                com,
+                "Types",
+                "hashSetCopyToArray",
+                t,
+                [ c; target; makeIntConst 0; targetIndex; count ],
+                ?loc = r
+            )
+            |> Some
+        | [ target; targetIndex; copyCount ] ->
+            Helper.LibCall(
+                com,
+                "Types",
+                "hashSetCopyToArray",
+                t,
+                [ c; target; makeIntConst 0; targetIndex; copyCount ],
+                ?loc = r
+            )
+            |> Some
+        | _ -> None
+    | "SetEquals", Some c, [ other ] ->
+        Helper.LibCall(com, "Types", "hashSetSetEquals", t, [ c; other ], ?loc = r)
+        |> Some
+    | "Overlaps", Some c, [ other ] ->
+        Helper.LibCall(com, "Types", "hashSetOverlaps", t, [ c; other ], ?loc = r)
+        |> Some
+    | "SymmetricExceptWith", Some c, [ other ] ->
+        Helper.LibCall(com, "Types", "hashSetSymmetricExceptWith", t, [ c; other ], ?loc = r)
+        |> Some
     | meth, Some c, args ->
         match meth with
         | "Add" -> Some "add"
@@ -2546,6 +2614,7 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
             Helper.ConstructorCall(e, t, args, ?loc = r) |> Some
     | "get_Message", Some e -> Helper.InstanceCall(e, "toString", t, [], ?loc = r) |> Some
     // | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
+    | "get_InnerException", Some e -> getFieldWith r t e "innerException" |> Some
     | _ -> None
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -3098,7 +3167,7 @@ let random (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opti
     | meth, Some thisArg ->
         let meth =
             if meth = "Next" then
-                $"Next{List.length args}"
+                $"Next%d{List.length args}"
             else
                 meth
 
@@ -3213,7 +3282,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         match thisArg, args with
         | Some thisArg, args ->
             if args.Length > 2 then
-                $"Regex.{meth} doesn't support more than 2 arguments"
+                $"Regex.%s{meth} doesn't support more than 2 arguments"
                 |> addError com ctx.InlinePath r
 
             thisArg :: args |> Some
@@ -4041,7 +4110,8 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
                 getTypeName com ctx loc exprType |> StringConstant |> makeValue r |> Some
             | c -> Helper.LibCall(com, "Reflection", "name", t, [ c ], ?loc = r) |> Some
         | _ -> None
-    | _ -> None
+    // F# Quotations (Expr static methods, Var members, Patterns active patterns, EvaluateQuotation)
+    | typeName -> Quotations.tryQuotationCall "quotation" com ctx r t info thisArg args typeName
 
 let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
@@ -4069,10 +4139,12 @@ let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genA
     | Types.hashset ->
         let args =
             match argTypes.Value, args with
-            | [], _ -> [ makeArray Any []; makeEqualityComparer com ctx (Seq.head genArgs) ]
+            | ([] | [ Number _ ]), _ -> [ makeArray Any []; makeEqualityComparer com ctx (Seq.head genArgs) ]
             | [ IEnumerable ], [ arg ] -> [ arg; makeEqualityComparer com ctx (Seq.head genArgs) ]
             | [ IEnumerable; IEqualityComparer ], [ arg; eqComp ] -> [ arg; makeComparerFromEqualityComparer eqComp ]
-            | [ IEqualityComparer ], [ eqComp ] -> [ makeArray Any []; makeComparerFromEqualityComparer eqComp ]
+            | [ IEqualityComparer ], [ eqComp ]
+            | [ Number _; IEqualityComparer ], [ _; eqComp ] ->
+                [ makeArray Any []; makeComparerFromEqualityComparer eqComp ]
             | _ -> FableError "Unexpected hashset constructor" |> raise
 
         let entityName = FSharp2Fable.Helpers.cleanNameAsJsIdentifier "HashSet"
@@ -4132,6 +4204,6 @@ let tryType typ =
         | FSharpMap(key, value) -> Some(Types.fsharpMap, maps, [ key; value ])
         | FSharpSet genArg -> Some(Types.fsharpSet, sets, [ genArg ])
         | FSharpResult(genArg1, genArg2) -> Some(Types.result, results, [ genArg1; genArg2 ])
-        | FSharpChoice genArgs -> Some($"{Types.choiceNonGeneric}`{List.length genArgs}", results, genArgs)
+        | FSharpChoice genArgs -> Some($"%s{Types.choiceNonGeneric}`%d{List.length genArgs}", results, genArgs)
         | FSharpReference genArg -> Some(Types.refCell, refCells, [ genArg ])
     | _ -> None

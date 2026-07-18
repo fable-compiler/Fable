@@ -12,6 +12,26 @@ type Helper3(i: int) =
 
 type H = Helper3
 
+// Reflection fixtures declared away from ReflectionTests.fs, so that reflecting over them
+// exercises the cross-module path: the type info is a remote call to the reflection function
+// generated in this file's module, rather than a local call.
+type CrossFileRecord = { Name: string; Count: int }
+
+type CrossFileTree =
+    | CrossFileLeaf of int
+    | CrossFileBranch of CrossFileTree * CrossFileTree
+
+type CrossFileGeneric<'T> = { Item: 'T; Rest: CrossFileGeneric<'T> option }
+
+// An erased type is never declared in the generated Erlang, so it has no reflection function that
+// a referring type could call. Declared here so a record in another file can hold one: that is the
+// remote-call variant of the bug, which Erlang resolves only at run time (the local variant fails
+// to compile instead).
+[<Fable.Core.Erase>]
+type CrossFileErased = CrossFileErased of string
+
+type CrossFileRecordWithErasedField = { Erased: CrossFileErased; Label: string }
+
 
 module Extensions =
     type String with

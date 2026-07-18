@@ -110,3 +110,45 @@ export function divWithConditionalWithoutElseBranchWorks(show) {
 }
 
 export const propsCanUseUnbox = <div id="myid" />;
+
+export function divWithMatchContainingForLoop(counter) {
+    return <div>
+        {(() => {
+            if (counter === 0) {
+                return singleton(<div>
+                    No items!
+                </div>);
+            }
+            else {
+                const total = (counter + 1) | 0;
+                return map((i) => <div key={int32ToString(i)}>
+                    {i + total}
+                </div>, rangeDouble(1, 1, total));
+            }
+        })()}
+    </div>;
+}
+
+export function divWithElementBeforeMatchContainingForLoop(counter) {
+    return <div>
+        <div>
+            Header
+        </div>
+        {(() => {
+            const matchValue = counter | 0;
+            if (matchValue === 0) {
+                return singleton(<div>
+                    No items!
+                </div>);
+            }
+            else {
+                const total = (matchValue + 1) | 0;
+                return map((i) => <div key={int32ToString(i)}>
+                    {i + total}
+                </div>, rangeDouble(1, 1, total));
+            }
+        })()}
+    </div>;
+}
+
+export const divWithLongClassName = <div className="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" />;

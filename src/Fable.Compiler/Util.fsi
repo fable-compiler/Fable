@@ -23,6 +23,7 @@ type CliArgs =
         Configuration: string
         NoRestore: bool
         NoCache: bool
+        NoGitignore: bool
         NoParallelTypeCheck: bool
         SourceMaps: bool
         SourceMapsRoot: string option
@@ -154,7 +155,7 @@ type PrecompiledInfoJson =
         CompilerOptions: Fable.CompilerOptions
         FableLibDir: string
         Files: Map<string, PrecompiledFileJson>
-        InlineExprHeaders: string[]
+        InlineExprHeaders: string array
     }
 
 type PrecompiledInfoImpl =

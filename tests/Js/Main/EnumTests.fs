@@ -25,6 +25,14 @@ let myRootValue =
 module EnumOperations =
     let inline enumOfValue1<'T,'U when 'U: enum<'T>> (value: 'T) : 'U = LanguagePrimitives.EnumOfValue<'T,'U>(value)
     let inline enumOfValue2 value = LanguagePrimitives.EnumOfValue value
+
+    // Non-inline so it emits a standalone generic function; the `enum<_>` constraint
+    // must be carried to TypeScript as `<'TEnum extends number>` (otherwise TS2362)
+    let enumToInt<'TEnum when 'TEnum: enum<int>> (value: 'TEnum) : int =
+        int (LanguagePrimitives.EnumToValue value)
+
+    // Unconstrained 'a passed to Enum.IsDefined; the TS output must accept any value (otherwise TS2345)
+    let isDefinedGeneric<'a> (t: System.Type) (value: 'a) : bool = System.Enum.IsDefined(t, value)
     // let enumOfValue3 value = LanguagePrimitives.EnumOfValue value
     // let enumOfValue4 = LanguagePrimitives.EnumOfValue
 
@@ -253,6 +261,11 @@ let tests =
         Enum.IsDefined(t, 5y) |> equal true
         Enum.IsDefined(t, 10y) |> equal false
 
+    testCase "Enum.IsDefined works in a generic function" <| fun () ->
+        EnumOperations.isDefinedGeneric typeof<MyEnum> "Foo" |> equal true
+        EnumOperations.isDefinedGeneric typeof<MyEnum> 5y |> equal true
+        EnumOperations.isDefinedGeneric typeof<MyEnum> 10y |> equal false
+
     testCase "Enum.Parse works" <| fun () ->
         let t = typeof<MyEnum>
         Enum.Parse(t, "Foo") |> equal (box MyEnum.Foo)
@@ -266,4 +279,8 @@ let tests =
         Enum.TryParse<MyEnum>("Foo") |> equal (true, MyEnum.Foo)
         Enum.TryParse<MyEnum>("Bar") |> equal (true, MyEnum.Bar)
         Enum.TryParse<MyEnum>("Ozu") |> fst |> equal false
+
+    testCase "Generic function with enum constraint works" <| fun () ->
+        EnumOperations.enumToInt Fruits.Banana |> equal 2
+        EnumOperations.enumToInt Fruits.Coconut |> equal 4
   ]

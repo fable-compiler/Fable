@@ -476,6 +476,18 @@ macro_rules! integer_variant {
             /// Performs division with support for both integer and floating-point divisors.
             /// Returns zero division error for zero divisors.
             pub fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
+                // Fast path: same type — direct typed integer division. Avoids the
+                // __int__ hop of the OtherType extract, and the float-fallback
+                // precision loss for large/negative operands.
+                if let Ok(other_val) = other.cast::<$name>() {
+                    let divisor = other_val.get().0;
+                    if divisor == 0 {
+                        return Err(PyErr::new::<exceptions::PyZeroDivisionError, _>(
+                            "Cannot divide by zero",
+                        ));
+                    }
+                    return Ok($name(self.0 / divisor));
+                }
                 let value = other.extract::<OtherType>();
                 match value {
                     Ok(OtherType::Int(value)) => {

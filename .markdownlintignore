@@ -1,0 +1,4 @@
+# gh-aw emits this agent definition; its formatting is upstream-controlled
+# and would be silently overwritten by the next `gh aw compile`, so we
+# don't lint it.
+.github/agents/**

@@ -116,6 +116,10 @@ let getUnionCaseName (uci: Fable.UnionCase) =
     | Some cname -> cname
     | None -> uci.Name
 
+/// Attribute holding the precomputed singleton instance of a zero-field union case (see transformUnion).
+let unionCaseSingletonAttrName = "singleton"
+let unionCaseSingletonAttr = Identifier unionCaseSingletonAttrName
+
 /// Gets the unique case class name by prefixing with the union type name.
 /// This prevents collisions when different union types have cases with the same name.
 /// Library types (Result, Choice) use simple case names without prefix.
@@ -138,6 +142,33 @@ let getUnionCaseClassName
             | None -> FSharp2Fable.Helpers.getEntityDeclarationName com ent.Ref
 
         $"%s{unionName}_%s{caseName}"
+
+/// Resolves the expression referring to a union case's class (constructor / type),
+/// handling both library types (Result, Choice - simple names from fable_library)
+/// and user-defined unions (full case class name, imported from another module if needed).
+let getUnionCaseRef (com: IPythonCompiler) ctx (entRef: Fable.EntityRef) (ent: Fable.Entity) (uci: Fable.UnionCase) =
+    if isLibraryUnionType entRef.FullName then
+        let caseName = getUnionCaseName uci
+        // Result uses "result" module, Choice uses "choice" module
+        let moduleName =
+            if entRef.FullName = Types.result then
+                "result"
+            else
+                "choice"
+
+        libValue com ctx moduleName caseName
+    else
+        // User-defined union - use full case class name (UnionName_CaseName)
+        let caseClassName = getUnionCaseClassName com ent uci None
+
+        match entRef.SourcePath with
+        | Some path when path <> com.CurrentFile ->
+            // Import from another module
+            let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+            com.GetImportExpr(ctx, importPath, caseClassName)
+        | _ ->
+            // Local - just get identifier
+            com.GetIdentifierAsExpr(ctx, caseClassName)
 
 let getUnionExprTag (com: IPythonCompiler) ctx r (fableExpr: Fable.Expr) =
     Expression.withStmts {
@@ -528,34 +559,15 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
 
         // Get the union case
         let uci = ent.UnionCases |> List.item tag
+        let caseRef = getUnionCaseRef com ctx entRef ent uci
 
-        // Determine the import path based on the entity type
-        let caseRef =
-            // Library types (Result, Choice) use simple case names from fable_library
-            if isLibraryUnionType entRef.FullName then
-                let caseName = getUnionCaseName uci
-                // Result uses "result" module, Choice uses "choice" module
-                let moduleName =
-                    if entRef.FullName = Types.result then
-                        "result"
-                    else
-                        "choice"
-
-                libValue com ctx moduleName caseName
-            else
-                // User-defined union - use full case class name (UnionName_CaseName)
-                let caseClassName = getUnionCaseClassName com ent uci None
-                // Check if it's from another file
-                match entRef.SourcePath with
-                | Some path when path <> com.CurrentFile ->
-                    // Import from another module
-                    let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
-                    com.GetImportExpr(ctx, importPath, caseClassName)
-                | _ ->
-                    // Local - just get identifier
-                    com.GetIdentifierAsExpr(ctx, caseClassName)
-
-        Expression.call (caseRef, values, ?loc = r), stmts
+        // fsc represents a union case with no fields as a single shared instance, so e.g.
+        // `LanguagePrimitives.PhysicalEquality X.A X.A` is true. Mirror that by reusing the
+        // precomputed singleton instead of constructing a new instance.
+        if not (isLibraryUnionType entRef.FullName) && List.isEmpty uci.UnionCaseFields then
+            Expression.attribute (caseRef, unionCaseSingletonAttr), stmts
+        else
+            Expression.call (caseRef, values, ?loc = r), stmts
     | _ -> failwith $"transformValue: value %A{value} not supported!"
 
 let extractBaseExprFromBaseCall (com: IPythonCompiler) (ctx: Context) (baseType: Fable.DeclaredType option) baseCall =
@@ -1447,8 +1459,20 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
     | Fable.UnionField i ->
         Expression.withStmts {
             let! baseExpr = com.TransformAsExpr(ctx, fableExpr)
-            let! fieldsExpr = getExpr com ctx range baseExpr (Expression.stringConstant "fields")
-            let! finalExpr = getExpr com ctx range fieldsExpr (Expression.intConstant i.FieldIndex)
+            // Read the field directly by name (`x.width_`) instead of going through the
+            // `.fields` property (`x.fields[i]`), which rebuilds an Array on every access.
+            let ent = com.GetEntity(i.Entity)
+            let uci = ent.UnionCases |> List.item i.CaseIndex
+            let field = uci.UnionCaseFields |> List.item i.FieldIndex
+            let fieldName = field.Name |> Naming.toFieldSnakeCase |> Helpers.clean
+            // `fableExpr` is statically typed as the union base, which doesn't declare this
+            // field, so tell Pyright which case class we're reading from via the library's
+            // `narrow` helper (a no-op at runtime). Keeping the "cast" inside `narrow`
+            // leaves generated code cast-free and preserves reportUnnecessaryCast.
+            let caseRef = getUnionCaseRef com ctx i.Entity ent uci
+            let narrow = libValue com ctx "union" "narrow"
+            let narrowedExpr = Expression.call (narrow, [ caseRef; baseExpr ])
+            let! finalExpr = getExpr com ctx range narrowedExpr (Expression.stringConstant fieldName)
             return finalExpr
         }
 
@@ -1994,19 +2018,23 @@ let private transformSwitchPatternAsMatch
         else
             let ctx = { ctx with DecisionTargets = targets }
 
-            // Group cases by target index to create or-patterns
+            // Group cases by target index to create or-patterns. Drop cases routing to the
+            // default's target since the always-emitted wildcard already covers them (#4649).
             let groupedCases =
                 convertedCases
                 |> List.groupBy snd
-                |> List.map (fun (targetIndex, patterns) ->
-                    let patterns = patterns |> List.map fst
+                |> List.choose (fun (targetIndex, patterns) ->
+                    if targetIndex = defaultIndex then
+                        None
+                    else
+                        let patterns = patterns |> List.map fst
 
-                    let pattern =
-                        match patterns with
-                        | [ single ] -> single
-                        | multiple -> MatchOr multiple
+                        let pattern =
+                            match patterns with
+                            | [ single ] -> single
+                            | multiple -> MatchOr multiple
 
-                    (pattern, targetIndex)
+                        Some(pattern, targetIndex)
                 )
 
             // Build match cases
@@ -2018,18 +2046,9 @@ let private transformSwitchPatternAsMatch
                     MatchCase.matchCase (pattern, body)
                 )
 
-            // Build default case (wildcard)
+            // Build default case (wildcard) and always append it last
             let defaultCase = buildDefaultMatchCase com ctx returnStrategy targets defaultIndex
-
-            // Check if the default case is already covered by the grouped cases
-            let defaultAlreadyCovered =
-                groupedCases |> List.exists (fun (_, idx) -> idx = defaultIndex)
-
-            let allCases =
-                if defaultAlreadyCovered then
-                    matchCases
-                else
-                    matchCases @ [ defaultCase ]
+            let allCases = matchCases @ [ defaultCase ]
 
             // Transform the evaluation expression
             let subject, stmts = com.TransformAsExpr(ctx, evalExpr)
@@ -2693,6 +2712,7 @@ let transformAsArray (com: IPythonCompiler) ctx expr (info: Fable.CallInfo) : Ex
 
 /// Active pattern to detect F# `use` statements compiled as TryCatch with Dispose
 /// This helps us to transform F# `use` (i.e. TryCatch) as Python `with` statements
+[<return: Struct>]
 let (|UsePattern|_|) (body: Fable.Expr) =
     match body with
     | Fable.TryCatch(tryBody,
@@ -2707,8 +2727,8 @@ let (|UsePattern|_|) (body: Fable.Expr) =
                                                       _),
                                            _,
                                            _)),
-                     _) -> Some(disposeName, tryBody)
-    | _ -> None
+                     _) -> ValueSome(disposeName, tryBody)
+    | _ -> ValueNone
 
 let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: Fable.Expr) : Statement list =
     // printfn "transformAsStatements: %A" expr
@@ -3006,6 +3026,16 @@ let transformFunction
     let cleanName (input: string) =
         Regex.Replace(input, @"_mut(_\d+)?$", "")
 
+    // Names of this function's own arguments. TCO capture parameters must not
+    // collide with these, otherwise we emit a duplicate argument (see #4610).
+    let ownArgNames =
+        args
+        |> List.map (fun id ->
+            let (Identifier name) = ident com ctx id
+            name
+        )
+        |> Set.ofList
+
     // For Python we need to append the TC-arguments to any declared (arrow) function inside the while-loop of the
     // TCO. We will set them as default values to themselves e.g `i=i` to capture the value and not the variable.
     let tcArgs, tcDefaults =
@@ -3018,6 +3048,11 @@ let transformFunction
 
                 match name with
                 | "tupled_arg_m" -> None // Remove these arguments (not sure why)
+                // Don't capture a TCO variable as a default parameter when this
+                // function already declares an argument with the same name: the
+                // local argument shadows the outer one and a duplicate parameter
+                // is a Python syntax error. See #4610.
+                | _ when ownArgNames.Contains name -> None
                 // Only capture TCO variables actually referenced in the function body.
                 // This avoids unnecessary default parameters on nested lambdas that don't
                 // use the outer TCO variables. See #3877.
@@ -3181,7 +3216,14 @@ let declareEntryPoint (com: IPythonCompiler) (ctx: Context) (funcExpr: Expressio
             [ Expression.stringConstant "__main__" ]
         )
 
-    let main = Expression.call (funcExpr, [ args ]) |> Statement.expr |> List.singleton
+    let mainCall = Expression.call (funcExpr, [ args ])
+
+    // Propagate the entry point's return value as the process exit code.
+    // int(...) coercion is required because fable-library-python's Int32 is not an int subclass.
+    let main =
+        emitExpression None "sys.exit(int($0))" [ mainCall ]
+        |> Statement.expr
+        |> List.singleton
 
     Statement.if' (test, main)
 
@@ -3207,7 +3249,7 @@ let getUnionFieldsAsIdents (_com: IPythonCompiler) _ctx (_ent: Fable.Entity) =
 let getEntityFieldsAsIdents (com: IPythonCompiler) (ent: Fable.Entity) =
     let entityNamingConvention =
         if shouldUseRecordFieldNaming ent then
-            Naming.toRecordFieldSnakeCase
+            Naming.toFieldSnakeCase
         else
             Naming.toPythonNaming
 
@@ -3232,7 +3274,7 @@ let getEntityFieldsAsProps (com: IPythonCompiler) ctx (ent: Fable.Entity) =
     else
         let namingConvention =
             if shouldUseRecordFieldNaming ent then
-                Naming.toRecordFieldSnakeCase
+                Naming.toFieldSnakeCase
             else
                 Naming.toPythonNaming
 
@@ -3274,7 +3316,7 @@ let declareDataClassType
                     consArgs.Args.[i].Arg
                 else
                     // Fallback to field name if consArgs doesn't have enough args
-                    com.GetIdentifier(ctx, field.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean)
+                    com.GetIdentifier(ctx, field.Name |> Naming.toFieldSnakeCase |> Helpers.clean)
 
             // Uncurry lambda types for field annotations since fields store uncurried functions
             let fieldType =
@@ -3313,7 +3355,7 @@ let declareDataClassType
                     |> List.filter (fun genArg ->
                         match genArg with
                         | Fable.DeclaredType({ FullName = fullName }, _) ->
-                            Helpers.removeNamespace (fullName) <> entName
+                            Naming.toPascalCase (Helpers.removeNamespace fullName) <> entName
                         | _ -> true
                     )
 
@@ -3586,7 +3628,8 @@ let declareClassType
                 int.GenericArgs
                 |> List.filter (fun genArg ->
                     match genArg with
-                    | Fable.DeclaredType({ FullName = fullName }, _) -> Helpers.removeNamespace (fullName) <> entName
+                    | Fable.DeclaredType({ FullName = fullName }, _) ->
+                        Naming.toPascalCase (Helpers.removeNamespace fullName) <> entName
                     | _ -> true
                 )
 
@@ -3927,7 +3970,7 @@ let transformAttachedProperty
             // Apply the same naming convention as record fields for record types
             let propertyName =
                 //if shouldUseRecordFieldNaming ent then
-                //    memb.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                //    memb.Name |> Naming.toFieldSnakeCase |> Helpers.clean
                 //else
                 memb.Name |> Naming.toPropertyNaming
 
@@ -3979,6 +4022,24 @@ let transformAttachedMethod (com: IPythonCompiler) ctx (info: Fable.MemberFuncti
 
     let args, body, returnType =
         getMemberArgsAndBody com ctx (Attached isStatic) info.HasSpread memb.Args memb.Body
+
+    let args =
+        let declaredAsGenericSingleArg =
+            List.isEmpty args.Defaults
+            && List.length args.Args = 1
+            && (
+                match info.CurriedParameterGroups |> List.collect id with
+                | [ p ] ->
+                    match p.Type with
+                    | Fable.GenericParam _ -> true
+                    | _ -> false
+                | _ -> false
+            )
+
+        if declaredAsGenericSingleArg then
+            { args with Defaults = [ libValue com ctx "util" "UNIT" ] }
+        else
+            args
 
     let self = Arg.arg "self"
 
@@ -4040,7 +4101,8 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
     // Generate case classes with @tagged_union decorator
     let caseClasses =
         ent.UnionCases
-        |> List.mapi (fun tag uci ->
+        |> List.indexed
+        |> List.collect (fun (tag, uci) ->
             // Use full case class name (UnionName_CaseName) to avoid collisions
             // Pass the entity name to ensure consistent scoping with base class
             let caseClassName = getUnionCaseClassName com ent uci (Some entName)
@@ -4063,9 +4125,10 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
             let fieldAnnotations =
                 uci.UnionCaseFields
                 |> List.map (fun field ->
-                    // Convert to snake_case and clean to remove invalid characters like apostrophes
-                    // Handles: "Item" -> "item", "Item1" -> "item1", "MyField" -> "my_field"
-                    let fieldName = field.Name |> Naming.toSnakeCase |> Helpers.clean
+                    // toFieldSnakeCase appends '_' to camelCase names ("name" -> "name_") so a
+                    // field can't collide with the inherited `Union.name` property, which @dataclass
+                    // would treat as a default value ("non-default argument follows default"). See #4645.
+                    let fieldName = field.Name |> Naming.toFieldSnakeCase |> Helpers.clean
                     // Uncurry lambda types for field annotations since union case fields
                     // store uncurried functions at runtime (same as record fields)
                     let fieldType =
@@ -4079,10 +4142,28 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
                     Statement.annAssign (target, annotation = ta, simple = true)
                 )
 
+            // Declare the singleton as a ClassVar (assigned below, once the class exists) so
+            // Pyright recognizes the attribute; ClassVar is excluded from dataclass fields.
+            // The type is a quoted forward reference since the class isn't defined yet here.
+            let singletonAnnotation =
+                if List.isEmpty uci.UnionCaseFields then
+                    let classVar = com.GetImportExpr(ctx, "typing", "ClassVar")
+                    let selfType = Expression.stringConstant caseClassName
+                    let classVarAnnotation = Expression.subscript (classVar, selfType)
+
+                    [
+                        Statement.annAssign (
+                            Expression.name unionCaseSingletonAttrName,
+                            annotation = classVarAnnotation
+                        )
+                    ]
+                else
+                    []
+
             let caseClassBody =
-                match fieldAnnotations with
+                match fieldAnnotations @ singletonAnnotation with
                 | [] -> [ Statement.ellipsis ]
-                | _ -> fieldAnnotations
+                | body -> body
 
             // The case class inherits from the parameterized base union class
             // e.g., class Either_Left[TL, TR](_Either_2[TL, TR]): ...
@@ -4090,13 +4171,31 @@ let transformUnion (com: IPythonCompiler) ctx (ent: Fable.Entity) (entName: stri
                 Expression.name ("_" + entName)
                 |> Annotation.makeGenericParamSubscript genParamNames
 
-            Statement.classDef (
-                caseClassIdent,
-                bases = [ baseClassExpr ],
-                body = caseClassBody,
-                decoratorList = [ taggedUnionDecorator ],
-                typeParams = typeParams
-            )
+            let caseClassDef =
+                Statement.classDef (
+                    caseClassIdent,
+                    bases = [ baseClassExpr ],
+                    body = caseClassBody,
+                    decoratorList = [ taggedUnionDecorator ],
+                    typeParams = typeParams
+                )
+
+            // fsc represents a union case with no fields as a single shared instance, so e.g.
+            // `LanguagePrimitives.PhysicalEquality X.A X.A` is true. Mirror that by precomputing
+            // one instance and reusing it (see the NewUnion case above) instead of constructing
+            // a new one on every access.
+            let singletonDecl =
+                if List.isEmpty uci.UnionCaseFields then
+                    let target =
+                        Expression.attribute (Expression.name caseClassIdent, unionCaseSingletonAttr, Store)
+
+                    [
+                        Statement.assign ([ target ], Expression.call (Expression.name caseClassIdent, []))
+                    ]
+                else
+                    []
+
+            caseClassDef :: singletonDecl
         )
 
     // Generate type alias: type MyUnion[T] = MyUnion_CaseA[T] | MyUnion_CaseB[T] | ...
@@ -4204,7 +4303,7 @@ let transformClassWithCompilerGeneratedConstructor
                     |> List.collecti (fun i field ->
                         let fieldName =
                             if shouldUseRecordFieldNaming ent then
-                                field.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                                field.Name |> Naming.toFieldSnakeCase |> Helpers.clean
                             else
                                 match Util.getFieldNamingKind com field.FieldType field.Name with
                                 | InstancePropertyBacking -> field.Name |> Naming.toPropertyBackingFieldNaming
@@ -4587,6 +4686,7 @@ let getInitialValue
     (className: string)
     (getterMemb: Fable.MemberDecl)
     (wrapInLambda: bool)
+    (isUnion: bool)
     (fallback: Expression)
     : (Expression * bool * string list * Statement list)
     =
@@ -4594,7 +4694,16 @@ let getInitialValue
     | Fable.Value(kind, r) ->
         // Use transformValue for literal values - never wrapped
         let value, stmts = transformValue com ctx r kind
-        value, false, [], stmts
+
+        if isUnion && wrapInLambda then
+            // A union is emitted as a base class (`_Demo`) holding the static property
+            // followed by the case classes (`Demo_A`, ...). Constructing a case eagerly in
+            // the class body raises `NameError` because the case class doesn't exist yet.
+            // Defer with a lambda (StaticLazyProperty); this also matches F# getter
+            // semantics where the body is re-evaluated on each access.
+            Expression.lambda (Arguments.arguments [], value), true, [], stmts
+        else
+            value, false, [], stmts
     | Fable.Get(Fable.IdentExpr _, Fable.FieldGet fieldInfo, _, _) when
         fieldInfo.Name.EndsWith("@", System.StringComparison.Ordinal)
         ->
@@ -4646,7 +4755,7 @@ let transformStaticProperty
     // printfn "transformStaticProperty: %A" propName
     let propertyName =
         if shouldUseRecordFieldNaming ent then
-            propName |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+            propName |> Naming.toFieldSnakeCase |> Helpers.clean
         else
             propName |> Naming.toPropertyNaming
 
@@ -4660,14 +4769,36 @@ let transformStaticProperty
 
         let staticPropertyClass = libValue com ctx "util" className
 
-        // Check if the property type references the current class (forward reference needed)
+        // `StaticProperty[T]` is a value expression evaluated in the class body, so a type
+        // referencing the enclosing entity (not yet bound there) raises `NameError`. Quoting just
+        // the name is not enough — an operator like the `|` in `Example | None` still runs eagerly
+        // and fails on a string operand. So emit the whole annotation as one string forward
+        // reference: it never evaluates at runtime, yet the type checker resolves it at module scope.
+        let referencesEnclosingEntity (propType: Fable.Type) =
+            // Walk the type structurally via `Type.Generics`, which enumerates the generic args of
+            // every case (Array, Option, List, Tuple, Lambda/Delegate, Nullable, anonymous records,
+            // nested declared types), so no shape is missed as new cases are added.
+            let rec check (t: Fable.Type) =
+                (match t with
+                 | Fable.DeclaredType(entRef, _) -> (com.GetEntity entRef).FullName = ent.FullName
+                 | _ -> false)
+                || List.exists check t.Generics
+
+            check propType
+
         let typeAnnotation =
-            match propType with
-            | Fable.DeclaredType(entRef, _) when com.GetEntity(entRef).DisplayName = name ->
-                // Use string forward reference for self-referencing types
-                Expression.stringConstant name
-            | _ ->
-                // Use normal type annotation
+            if referencesEnclosingEntity propType then
+                // Render the enclosing union with its base-class name (`_Example`, not the alias
+                // `Example`): both resolve at module scope inside the forward-reference string, but
+                // the generated *value* is typed against the base class (e.g. a `unit -> Example`
+                // factory produces `() -> _Example`), so the base name keeps the annotation and the
+                // value consistent for the type checker. `typeAnnotation` still registers the
+                // imports the string references (e.g. `Array`) as a side effect.
+                let ctx = { ctx with EnclosingUnionBaseClass = Some ent.DisplayName }
+
+                let ta, _ = Annotation.typeAnnotation com ctx None propType
+                Expression.stringConstant (Annotation.annotationToString ta)
+            else
                 let ta, _ = Annotation.typeAnnotation com ctx None propType
                 ta
 
@@ -4693,7 +4824,7 @@ let transformStaticProperty
         let fallback = Util.getDefaultValueForType com ctx getterMemb.Body.Type
 
         let initialValue, isFactory, externalFields, initialValueStmts =
-            getInitialValue com ctx name getterMemb true fallback
+            getInitialValue com ctx name getterMemb true ent.IsFSharpUnion fallback
 
         let propExpr = makeStaticProperty getterMemb.Body.Type [ initialValue ] isFactory
 
@@ -4710,7 +4841,7 @@ let transformStaticProperty
         let fallback = Util.getDefaultValueForType com ctx getterMemb.Body.Type
 
         let initialValue, isFactory, externalFields, initialValueStmts =
-            getInitialValue com ctx name getterMemb true fallback
+            getInitialValue com ctx name getterMemb true false fallback
 
         // Check if setter has custom logic beyond simple assignment to the property itself
         // For simple properties, we don't need setter functions since StaticProperty handles storage
@@ -4932,6 +5063,35 @@ let rec transformDeclaration (com: IPythonCompiler) ctx (decl: Fable.Declaration
                     { ctx with EnclosingUnionBaseClass = Some decl.Name }
                 else
                     ctx
+
+            decl.AttachedMembers
+            |> List.choose (fun memb ->
+                if memb.IsMangled then
+                    None
+                else
+                    let info =
+                        memb.ImplementedSignatureRef
+                        |> Option.map com.GetMember
+                        |> Option.defaultWith (fun () -> com.GetMember(memb.MemberRef))
+
+                    Some
+                        {|
+                            name = memb.Name
+                            isGetter = info.IsGetter
+                            isSetter = info.IsSetter
+                        |}
+            )
+            |> List.groupBy (fun m -> m.name)
+            |> List.iter (fun (name, entries) ->
+                let isValidGetterSetterPair =
+                    entries.Length = 2
+                    && entries |> List.exists _.isGetter
+                    && entries |> List.exists _.isSetter
+
+                if entries.Length > 1 && not isValidGetterSetterPair then
+                    $"Overloads are not supported when using [<AttachMembers>]: '{name}' in {decl.Name} is defined more than once. Rename one of the members."
+                    |> addWarning com [] None
+            )
 
             let classMembers =
                 decl.AttachedMembers

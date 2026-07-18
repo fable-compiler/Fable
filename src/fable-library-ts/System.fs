@@ -64,25 +64,31 @@ type TimeoutException(message: string) =
     inherit Exception(message)
     new() = TimeoutException(SR.Arg_TimeoutException)
 
-type ArgumentException(message: string, paramName: string) =
+type ArgumentException(message: string, paramName: string, innerException: exn | null) =
     inherit
         Exception(
-            if System.String.IsNullOrEmpty(paramName) then
-                message
-            else
-                message + SR.Arg_ParamName_Name + paramName + "')"
+            (if System.String.IsNullOrEmpty(paramName) then
+                 message
+             else
+                 message + SR.Arg_ParamName_Name + paramName + "')"),
+            innerException
         )
 
-    new() = ArgumentException(SR.Arg_ArgumentException, "")
-    new(message) = ArgumentException(message, "")
+    // Use Unchecked.defaultof rather than a `null` literal for the absent inner
+    // exception: Fable erases nullable reference annotations, so a `null` literal
+    // would be emitted against a non-nullable parameter type and fail type checking.
+    new() = ArgumentException(SR.Arg_ArgumentException, "", Unchecked.defaultof<exn>)
+    new(message) = ArgumentException(message, "", Unchecked.defaultof<exn>)
+    new(message: string, paramName: string) = ArgumentException(message, paramName, Unchecked.defaultof<exn>)
+    new(message: string, innerException: exn | null) = ArgumentException(message, "", innerException)
     member _.ParamName = paramName
 
 type ArgumentNullException(paramName: string, message: string) =
-    inherit ArgumentException(message, paramName)
+    inherit ArgumentException(message, paramName, Unchecked.defaultof<exn>)
     new(paramName) = ArgumentNullException(paramName, SR.ArgumentNull_Generic)
     new() = ArgumentNullException("")
 
 type ArgumentOutOfRangeException(paramName: string, message: string) =
-    inherit ArgumentException(message, paramName)
+    inherit ArgumentException(message, paramName, Unchecked.defaultof<exn>)
     new(paramName) = ArgumentOutOfRangeException(paramName, SR.Arg_ArgumentOutOfRangeException)
     new() = ArgumentOutOfRangeException("")

@@ -201,6 +201,66 @@ let ``test Big integers addition works`` () =
     let z = 1I
     (x + y + z) |> equal 59823749821707124891298739821798327321028091380982I
 
+// Erlang integers are already arbitrary-precision, so a bigint conversion is mostly the identity —
+// but a float has to be truncated toward zero the way BigInteger(double) does. Left as a float it
+// reaches the integer arithmetic below and fails with `badarith`.
+[<Fact>]
+let ``test BigInt from float truncates toward zero`` () =
+    let positive = 2.7
+    let negative = -2.7
+    let fraction = 0.9
+    // Toward zero, not floor: -2, not -3.
+    bigint positive |> equal 2I
+    bigint negative |> equal -2I
+    bigint fraction |> equal 0I
+
+// `3.0 == 3` is true in Erlang, so asserting the value alone cannot see a float left where an
+// integer belongs. `div`/`rem` accept integers only, so they do see it.
+[<Fact>]
+let ``test BigInt from float is an integer, not just equal to one`` () =
+    let x = 3.0
+    let b = bigint x
+    b % 2I |> equal 1I
+    b / 2I |> equal 1I
+    bigint.DivRem(b, 2I) |> equal (1I, 1I)
+
+[<Fact>]
+let ``test BigInt converted from a float can be used in arithmetic`` () =
+    let x = 2.5
+    let b = bigint x
+    b + 1I |> equal 3I
+    b * 2I |> equal 4I
+
+[<Fact>]
+let ``test BigInt from float32 truncates toward zero`` () =
+    let positive = 2.7f
+    let negative = -2.7f
+    bigint positive |> equal 2I
+    bigint negative |> equal -2I
+
+[<Fact>]
+let ``test BigInt round-trips through float`` () =
+    let b = 42I
+    let f = float b
+    bigint f |> equal 42I
+    bigint (round 2.7) |> equal 3I
+
+// The shape that broke Hedgehog's Range.exponential: bigint arithmetic, out to float, `**`, round,
+// and back into bigint — the result feeding integer arithmetic again.
+[<Fact>]
+let ``test BigInt exponential scaling round-trip works`` () =
+    let scale (origin: bigint) (bound: bigint) (sz: float) =
+        let diff =
+            ((float (abs (bound - origin) + 1I)) ** (sz / 99.0) - 1.0)
+            * float (sign (bound - origin))
+
+        bigint (round (float origin + diff))
+
+    scale 0I 100I 99.0 |> equal 100I
+    scale 0I 100I 0.0 |> equal 0I
+    // The result must still be an integer: `rem` would fail on a float.
+    (scale 0I 100I 99.0) % 7I |> equal 2I
+
 [<Fact>]
 let ``test BigInt Infix add can be generated`` () =
     4I + 2I |> equal 6I
@@ -530,6 +590,8 @@ let ``test Decimal literals can be generated`` () =
     0M |> equal Decimal.Zero
     1M |> equal Decimal.One
     -1M |> equal Decimal.MinusOne
+    79228162514264337593543950335M |> equal Decimal.MaxValue
+    -79228162514264337593543950335M |> equal Decimal.MinValue
 
 [<Fact>]
 let ``test Decimal.ToString works`` () =
@@ -656,14 +718,12 @@ let ``test Int32 literal addition is optimized`` () =
 let ``test Unary negation with negative literal values works`` () =
     -negLiteral |> equal 345
 
-// TODO: Erlang has arbitrary precision integers, so -(-128y) = 128, not SByte.MinValue (-128).
-// .NET fixed-width types overflow but Erlang integers don't, making this test invalid for Beam.
-// [<Fact>]
-// let ``test Unary negation with integer MinValue works`` () =
-//     -(-128y) |> equal SByte.MinValue
-//     -(-32768s) |> equal Int16.MinValue
-//     -(-2147483648) |> equal Int32.MinValue
-//     -(-9223372036854775808L) |> equal Int64.MinValue
+[<Fact>]
+let ``test Unary negation with integer MinValue works`` () =
+    -(-128y) |> equal SByte.MinValue
+    -(-32768s) |> equal Int16.MinValue
+    -(-2147483648) |> equal Int32.MinValue
+    -(-9223372036854775808L) |> equal Int64.MinValue
 
 [<Fact>]
 let ``test pown works`` () =
@@ -726,16 +786,14 @@ let ``Arithmetic right shift preserves sign for signed integer types`` () =
     -2 >>> 1 |> equal -1     // int32: 0xFFFFFFFF = -1
     -2L >>> 1 |> equal -1L   // int64: 0xFFFFFFFFFFFFFFFF = -1
 
-// TODO: ~~~ on unsigned integers uses LogicalNotDynamic which is not supported by Fable
-// [<Fact>]
-// let ``test Bitwise NOT on large unsigned integer works`` () =
-//     (~~~0x80000000u >>> 0) |> equal ~~~0x80000000u
-//     (~~~0x80000000UL>>> 0) |> equal ~~~0x80000000UL
+[<Fact>]
+let ``test Bitwise NOT on large unsigned integer works`` () =
+    (~~~0x80000000u >>> 0) |> equal ~~~0x80000000u
+    (~~~0x80000000UL>>> 0) |> equal ~~~0x80000000UL
 
-// TODO: UInt64 shift right requires unsigned masking (Erlang >>> is arithmetic shift)
-// [<Fact>]
-// let ``test UInt64 Bitwise shift right can be generated`` () =
-//     15210016002388773605UL >>> 33 |> equal 1770678907UL
+[<Fact>]
+let ``test UInt64 Bitwise shift right can be generated`` () =
+    15210016002388773605UL >>> 33 |> equal 1770678907UL
 
 // TODO: infinity/NaN not available in Erlang (1.0/0.0 raises badarith)
 // [<Fact>]
@@ -1007,3 +1065,170 @@ let ``test Decimal pown works`` () =
 // [<Fact>]
 // let ``test Big integer from byte array works`` () =
 //     Numerics.BigInteger([|255uy; 127uy|]) |> equal 32767I
+
+// --- Fixed-width integer semantics ---
+// .NET integers wrap on overflow; Erlang integers are arbitrary precision and never do.
+// The operands go through functions so the results are computed at run time rather than
+// folded into constants by the F# compiler.
+
+let private addInt32 (a: int) (b: int) = a + b
+let private subInt32 (a: int) (b: int) = a - b
+let private negInt32 (a: int) = -a
+let private addInt64 (a: int64) (b: int64) = a + b
+let private mulInt64 (a: int64) (b: int64) = a * b
+let private addByte (a: byte) (b: byte) = a + b
+let private subByte (a: byte) (b: byte) = a - b
+let private addSByte (a: sbyte) (b: sbyte) = a + b
+let private addInt16 (a: int16) (b: int16) = a + b
+let private addUInt16 (a: uint16) (b: uint16) = a + b
+let private addUInt32 (a: uint32) (b: uint32) = a + b
+let private addUInt64 (a: uint64) (b: uint64) = a + b
+let private mulUInt32 (a: uint32) (b: uint32) = a * b
+let private mulUInt64 (a: uint64) (b: uint64) = a * b
+let private notUInt32 (a: uint32) = ~~~a
+let private shiftLeftInt32 (a: int) (n: int) = a <<< n
+let private shiftLeftInt64 (a: int64) (n: int) = a <<< n
+let private shiftLeftUInt64 (a: uint64) (n: int) = a <<< n
+let private shiftLeftByte (a: byte) (n: int) = a <<< n
+let private shiftLeftInt16 (a: int16) (n: int) = a <<< n
+let private toByte (n: int) = byte n
+let private toSByte (n: int) = sbyte n
+let private toInt16 (n: int) = int16 n
+let private toInt32 (n: int64) = int n
+let private toUInt32 (n: int) = uint32 n
+let private toUInt64 (n: int64) = uint64 n
+let private toChar (n: int) = char n
+
+[<Fact>]
+let ``test Int32 addition wraps on overflow`` () =
+    addInt32 Int32.MaxValue 1 |> equal Int32.MinValue
+
+[<Fact>]
+let ``test Int32 subtraction wraps on underflow`` () =
+    subInt32 Int32.MinValue 1 |> equal Int32.MaxValue
+
+[<Fact>]
+let ``test Int32 negation wraps for MinValue`` () =
+    negInt32 Int32.MinValue |> equal Int32.MinValue
+
+[<Fact>]
+let ``test Int64 addition wraps on overflow`` () =
+    addInt64 Int64.MaxValue 1L |> equal Int64.MinValue
+
+[<Fact>]
+let ``test Int16 and SByte addition wrap on overflow`` () =
+    addInt16 Int16.MaxValue 1s |> equal Int16.MinValue
+    addSByte SByte.MaxValue 1y |> equal SByte.MinValue
+
+[<Fact>]
+let ``test Unsigned addition wraps on overflow`` () =
+    addByte Byte.MaxValue 1uy |> equal 0uy
+    addUInt16 UInt16.MaxValue 1us |> equal 0us
+    addUInt32 UInt32.MaxValue 1u |> equal 0u
+    addUInt64 UInt64.MaxValue 1UL |> equal 0UL
+
+[<Fact>]
+let ``test Unsigned subtraction wraps on underflow`` () =
+    subByte 0uy 1uy |> equal 255uy
+
+[<Fact>]
+let ``test UInt64 MaxValue keeps its unsigned value`` () =
+    UInt64.MaxValue |> equal 18446744073709551615UL
+    string UInt64.MaxValue |> equal "18446744073709551615"
+
+[<Fact>]
+let ``test Bitwise complement of unsigned stays unsigned`` () =
+    notUInt32 0u |> equal UInt32.MaxValue
+
+[<Fact>]
+let ``test Shift left wraps out of the width`` () =
+    shiftLeftInt64 1L 63 |> equal Int64.MinValue
+    shiftLeftUInt64 1UL 63 |> equal 9223372036854775808UL
+    shiftLeftInt32 1 31 |> equal Int32.MinValue
+
+[<Fact>]
+let ``test Unsigned multiplication wraps on overflow`` () =
+    mulUInt32 UInt32.MaxValue 3u |> equal 4294967293u
+    mulUInt64 UInt64.MaxValue 2UL |> equal 18446744073709551614UL
+
+[<Fact>]
+let ``test Shift count is masked to the width`` () =
+    // .NET only uses the low 5 bits of an int32 shift count, and the low 6 of an int64 one
+    shiftLeftInt32 1 32 |> equal 1
+    shiftLeftInt64 1L 64 |> equal 1L
+
+[<Fact>]
+let ``test Shift count is masked per width for narrow integers`` () =
+    // F# masks the count to the width of the type, not to 31 the way C# and JavaScript do:
+    // the low 3 bits for an 8-bit shift and the low 4 for a 16-bit one
+    shiftLeftByte 1uy 9 |> equal 2uy
+    shiftLeftInt16 1s 17 |> equal 2s
+
+[<Fact>]
+let ``test Narrowing conversions truncate`` () =
+    toByte 300 |> equal 44uy
+    toSByte 200 |> equal -56y
+    toInt16 70000 |> equal 4464s
+    toInt32 4294967297L |> equal 1
+
+[<Fact>]
+let ``test Narrowing conversion to char truncates`` () =
+    toChar 70000 |> equal (char 4464)
+    toChar 65 |> equal 'A'
+
+[<Fact>]
+let ``test Signed to unsigned conversions reinterpret the bits`` () =
+    toUInt32 -1 |> equal UInt32.MaxValue
+    toUInt64 -1L |> equal UInt64.MaxValue
+    toInt32 (int64 (toUInt32 -1)) |> equal -1
+
+// splitmix64, as used by Hedgehog's random seed. It only produces the right numbers if
+// the int64 multiplications wrap.
+let private mix64 (x: int64) =
+    let y = (x ^^^ (x >>> 33)) * -49064778989728563L
+    let z = (y ^^^ (y >>> 33)) * -4265267296055464877L
+    z ^^^ (z >>> 33)
+
+[<Fact>]
+let ``test splitmix64 hashing matches .NET`` () =
+    mix64 42L |> equal 7599677983577462802L
+    mix64 (mix64 42L) |> equal 528134590981056164L
+    mulInt64 6364136223846793005L 1442695040888963407L |> equal 433315962919513059L
+
+// FNV-1a, the same for uint32
+let private fnv1a (s: string) =
+    let mutable hash = 2166136261u
+
+    for c in s do
+        hash <- (hash ^^^ uint32 (byte c)) * 16777619u
+
+    hash
+
+[<Fact>]
+let ``test FNV-1a hashing matches .NET`` () =
+    fnv1a "Fable" |> equal 959428905u
+    fnv1a "hello world" |> equal 3582672807u
+
+// splitmix64 is what Hedgehog's PRNG is built on. Every step depends on uint64 multiplication
+// wrapping at 64 bits, so a single non-wrapping operation shows up as a completely different
+// stream — which makes it a far sharper detector of fixed-width bugs than any single arithmetic
+// assertion. The expected values are .NET's.
+let private splitmix64 (seed: uint64) =
+    let mutable state = seed
+
+    fun () ->
+        state <- state + 0x9E3779B97F4A7C15UL
+        let mutable z = state
+        z <- (z ^^^ (z >>> 30)) * 0xBF58476D1CE4E5B9UL
+        z <- (z ^^^ (z >>> 27)) * 0x94D049BB133111EBUL
+        z ^^^ (z >>> 31)
+
+[<Fact>]
+let ``test splitmix64 stream is bit-exact with .NET`` () =
+    let next = splitmix64 0UL
+    next () |> equal 16294208416658607535UL
+    next () |> equal 7960286522194355700UL
+    next () |> equal 487617019471545679UL
+
+    let next42 = splitmix64 42UL
+    next42 () |> equal 13679457532755275413UL

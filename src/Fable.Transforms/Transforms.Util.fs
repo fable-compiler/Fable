@@ -724,10 +724,11 @@ module AST =
     let inline (|EntFullName|) (e: Entity) = e.FullName
     let inline (|EntRefFullName|) (e: EntityRef) = e.FullName
 
+    [<return: Struct>]
     let (|DeclaredTypeFullName|_|) =
         function
-        | DeclaredType(entRef, _) -> Some entRef.FullName
-        | _ -> None
+        | DeclaredType(entRef, _) -> ValueSome entRef.FullName
+        | _ -> ValueNone
 
     let rec uncurryLambdaType maxArity (revArgTypes: Type list) (returnType: Type) =
         match returnType with
@@ -735,10 +736,11 @@ module AST =
             uncurryLambdaType (maxArity - 1) (argType :: revArgTypes) returnType
         | t -> List.rev revArgTypes, t
 
+    [<return: Struct>]
     let (|NestedLambdaType|_|) =
         function
-        | LambdaType(argType, returnType) -> Some(uncurryLambdaType -1 [ argType ] returnType)
-        | _ -> None
+        | LambdaType(argType, returnType) -> ValueSome(uncurryLambdaType -1 [ argType ] returnType)
+        | _ -> ValueNone
 
     /// In lambdas with tuple arguments, F# compiler deconstructs the tuple before the next nested lambda.
     /// This makes it harder to uncurry lambdas, so we try to move the bindings to the inner lambda.
@@ -780,21 +782,31 @@ module AST =
         | _ -> None
 
     /// Makes sure to capture the same number of args as the arity of the lambda
-    let (|NestedLambdaWithSameArity|_|) expr = nestedLambda true expr
+    [<return: Struct>]
+    let (|NestedLambdaWithSameArity|_|) expr =
+        match nestedLambda true expr with
+        | Some x -> ValueSome x
+        | None -> ValueNone
 
     /// Doesn't check the type of lambda body has same arity as discovered arguments
-    let (|NestedLambda|_|) expr = nestedLambda false expr
+    [<return: Struct>]
+    let (|NestedLambda|_|) expr =
+        match nestedLambda false expr with
+        | Some x -> ValueSome x
+        | None -> ValueNone
 
+    [<return: Struct>]
     let (|NestedApply|_|) expr =
         let rec nestedApply r t accArgs applied =
             match applied with
             | CurriedApply(applied, args, _, _) -> nestedApply r t (args @ accArgs) applied
-            | _ -> Some(applied, accArgs, t, r)
+            | _ -> ValueSome(applied, accArgs, t, r)
 
         match expr with
         | CurriedApply(applied, args, t, r) -> nestedApply r t args applied
-        | _ -> None
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|LambdaUncurriedAtCompileTime|_|) arity expr =
         let rec uncurryLambdaInner (name: string option) accArgs remainingArity expr =
             if remainingArity = Some 0 then
@@ -810,13 +822,19 @@ module AST =
                 // We cannot flatten lambda to the expected arity
                 | _, _ -> None
 
-        match expr with
-        // Uncurry also function options
-        | Value(NewOption(Some expr, _, isStruct), r) ->
-            uncurryLambdaInner None [] arity expr
-            |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type, isStruct), r))
-        | _ -> uncurryLambdaInner None [] arity expr
+        let result =
+            match expr with
+            // Uncurry also function options
+            | Value(NewOption(Some expr, _, isStruct), r) ->
+                uncurryLambdaInner None [] arity expr
+                |> Option.map (fun expr -> Value(NewOption(Some expr, expr.Type, isStruct), r))
+            | _ -> uncurryLambdaInner None [] arity expr
 
+        match result with
+        | Some x -> ValueSome x
+        | None -> ValueNone
+
+    [<return: Struct>]
     let (|NestedRevLets|_|) expr =
         let rec inner bindings =
             function
@@ -824,8 +842,8 @@ module AST =
             | body -> bindings, body
 
         match expr with
-        | Let(i, v, body) -> inner [ i, v ] body |> Some
-        | _ -> None
+        | Let(i, v, body) -> inner [ i, v ] body |> ValueSome
+        | _ -> ValueNone
 
     let rec (|MaybeCasted|) =
         function
@@ -848,49 +866,56 @@ module AST =
         | MaybeCasted(LambdaUncurriedAtCompileTime None lambda) -> lambda
         | e -> e
 
+    [<return: Struct>]
     let (|StringConst|_|) =
         function
-        | MaybeCasted(Value(StringConstant str, _)) -> Some str
-        | _ -> None
+        | MaybeCasted(Value(StringConstant str, _)) -> ValueSome str
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|StringTempl|_|) =
         function
-        | MaybeCasted(Value(StringTemplate(None, [ fmt ], args), _)) -> Some(fmt, args)
-        | _ -> None
+        | MaybeCasted(Value(StringTemplate(None, [ fmt ], args), _)) -> ValueSome(fmt, args)
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|BoolConst|_|) =
         function
-        | MaybeCasted(Value(BoolConstant v, _)) -> Some v
-        | _ -> None
+        | MaybeCasted(Value(BoolConstant v, _)) -> ValueSome v
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|NumberConst|_|) =
         function
-        | MaybeCasted(Value(NumberConstant(value, info), _)) -> Some(value, info)
-        | _ -> None
+        | MaybeCasted(Value(NumberConstant(value, info), _)) -> ValueSome(value, info)
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|NullConst|_|) =
         function
-        | MaybeCasted(Value(Null _, _)) -> Some()
-        | _ -> None
+        | MaybeCasted(Value(Null _, _)) -> ValueSome()
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|StringComparisonEnumValue|_|) e =
         match e with
         | Expr.Value(kind = NumberConstant(info = NumberInfo.IsEnum({ FullName = "System.StringComparison" }))) ->
-            Some()
-        | _ -> None
+            ValueSome()
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|NormalizationFormEnumValue|_|) e =
         match e with
         | Expr.Value(
             kind = NumberConstant(NumberValue.Int32 value,
                                   NumberInfo.IsEnum({ FullName = "System.Text.NormalizationForm" }))) ->
             match value with
-            | 1 -> Some "NFC"
-            | 2 -> Some "NFD"
-            | 5 -> Some "NFKC"
-            | 6 -> Some "NFKD"
-            | _ -> None
-        | _ -> None
+            | 1 -> ValueSome "NFC"
+            | 2 -> ValueSome "NFD"
+            | 5 -> ValueSome "NFKC"
+            | 6 -> ValueSome "NFKD"
+            | _ -> ValueNone
+        | _ -> ValueNone
 
     // TODO: Improve this, see https://github.com/fable-compiler/Fable/issues/1659#issuecomment-445071965
     // This is mainly used for inlining so a computation or a reference to a mutable value are understood
@@ -1099,7 +1124,7 @@ module AST =
         | :? float as x -> NumberConstant(NumberValue.Float64 x, NumberInfo.Empty) |> makeValue None
         | :? decimal as x -> NumberConstant(NumberValue.Decimal x, NumberInfo.Empty) |> makeValue None
         | _ ->
-            FableError $"Cannot create expression for object {value} (%s{value.GetType().FullName})"
+            FableError $"Cannot create expression for object %O{value} (%s{value.GetType().FullName})"
             |> raise
 
     let makeTypeConst r (typ: Type) (value: obj) =
@@ -1142,14 +1167,14 @@ module AST =
         | Unit, _ -> UnitConstant |> makeValue r
         // Arrays with small data type (ushort, byte) are represented
         // in F# AST as BasicPatterns.Const
-        | Array(Number(kind, uom), arrayKind), (:? (byte[]) as arr) ->
+        | Array(Number(kind, uom), arrayKind), (:? (byte array) as arr) ->
             let values =
                 arr
                 |> Array.map (fun x -> NumberConstant(NumberValue.UInt8 x, uom) |> makeValue None)
                 |> Seq.toList
 
             NewArray(ArrayValues values, Number(kind, uom), arrayKind) |> makeValue r
-        | Array(Number(kind, uom), arrayKind), (:? (uint16[]) as arr) ->
+        | Array(Number(kind, uom), arrayKind), (:? (uint16 array) as arr) ->
             let values =
                 arr
                 |> Array.map (fun x -> NumberConstant(NumberValue.UInt16 x, uom) |> makeValue None)
@@ -1157,7 +1182,7 @@ module AST =
 
             NewArray(ArrayValues values, Number(kind, uom), arrayKind) |> makeValue r
         | _ ->
-            FableError $"Unexpected type %A{typ} for literal {value} (%s{value.GetType().FullName})"
+            FableError $"Unexpected type %A{typ} for literal %O{value} (%s{value.GetType().FullName})"
             |> raise
 
     let getLibPath (com: Compiler) (moduleName: string) =
@@ -1280,7 +1305,7 @@ module AST =
             | [] -> ""
             | head :: tail ->
                 ((head, List.length args), tail)
-                ||> List.fold (fun (macro, pos) part -> $"{macro}$%i{pos}{part}", pos + 1)
+                ||> List.fold (fun (macro, pos) part -> $"%s{macro}$%i{pos}%s{part}", pos + 1)
                 |> fst
 
         emit r t (args @ templateValues) isStatement macro
@@ -1528,7 +1553,7 @@ module AST =
 
                 let genArgsLength = List.length genArgs
                 let genArgs = String.concat "," genArgs
-                $"System.{isStruct}Tuple`{genArgsLength}[{genArgs}]"
+                $"System.%s{isStruct}Tuple`%d{genArgsLength}[%s{genArgs}]"
         | Array(gen, _kind) -> // TODO: Check kind
             (getTypeFullName prettify gen) + "[]"
 
@@ -1536,9 +1561,9 @@ module AST =
             let gen = getTypeFullName prettify gen
 
             if isStruct then
-                $"System.Nullable<{gen}>"
+                $"System.Nullable<%s{gen}>"
             else
-                $"{gen} | null"
+                $"%s{gen} | null"
 
         | Option(gen, isStruct) ->
             let gen = getTypeFullName prettify gen

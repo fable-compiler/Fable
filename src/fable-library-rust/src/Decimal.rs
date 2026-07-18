@@ -1,6 +1,6 @@
 #[cfg(feature = "decimal")]
 pub mod Decimal_ {
-    use crate::Native_::{compare, Lrc, MutCell, Vec};
+    use crate::Native_::{compare, getHashCode, DivideByInt, Hashable, Lrc, MutCell, Vec};
     use crate::NativeArray_::{new_array, Array};
     use crate::String_::{string, toString as toString_1};
     use core::cmp::Ordering;
@@ -14,7 +14,20 @@ pub mod Decimal_ {
     pub const MaxValue: decimal = Decimal::MAX;
     pub const MinValue: decimal = Decimal::MIN;
 
-    // pub fn getHashCode(x: decimal) = x.GetHashCode()
+    impl DivideByInt for decimal {
+        #[inline]
+        fn divide_by_int(self, rhs: i32) -> Self {
+            self / Decimal::from_i32(rhs).unwrap()
+        }
+    }
+
+    impl Hashable for decimal {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            getHashCode(self)
+        }
+    }
+
     pub fn equals(x: decimal, y: decimal) -> bool { x.eq(&y) }
     pub fn compareTo(x: decimal, y: decimal) -> i32 { compare(&x, &y) }
 
@@ -47,10 +60,12 @@ pub mod Decimal_ {
 
     pub fn isNegative(x: decimal) -> bool { x.is_sign_negative() }
     pub fn isPositive(x: decimal) -> bool { x.is_sign_positive() }
-    // pub fn isInteger(x: decimal) -> bool { false } //TODO:
-    // pub fn isEvenInteger(x: decimal) -> bool { false } //TODO:
-    // pub fn isOddInteger(x: decimal) -> bool { false } //TODO:
-    // pub fn isCanonical(x: decimal) -> bool { false } //TODO:
+    pub fn isInteger(x: decimal) -> bool { x.fract() == Decimal::ZERO }
+    pub fn isEvenInteger(x: decimal) -> bool { isInteger(x) && (x % Decimal::from(2)) == Decimal::ZERO }
+    pub fn isOddInteger(x: decimal) -> bool { isInteger(x) && (x % Decimal::from(2)) != Decimal::ZERO }
+    // Canonical means the stored scale is already minimal (no representable trailing
+    // zero digits), e.g. 1.0M and 1.20M are non-canonical, but 1M and 3.14M are.
+    pub fn isCanonical(x: decimal) -> bool { x.scale() == x.normalize().scale() }
 
     pub fn toInt8(x: decimal) -> i8 { x.to_i8().unwrap() }
     pub fn toUInt8(x: decimal) -> u8 { x.to_u8().unwrap() }

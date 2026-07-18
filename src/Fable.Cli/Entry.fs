@@ -88,6 +88,11 @@ let knownCliArgs () =
         [ "--yes" ], [ "Automatically reply 'yes' (e.g. with `clean` command)" ]
         [ "--noRestore" ], [ "Skip `dotnet restore`" ]
         [ "--noCache" ], [ "Recompile all files, including sources from packages" ]
+        [ "--noGitignore" ],
+        [
+            "Don't generate a `.gitignore` file in the `fable_modules` folder"
+            "(Useful when publishing the compiled output, e.g. to npm)"
+        ]
         [ "--exclude" ],
         [
             "Don't merge sources of referenced projects with specified pattern"
@@ -366,6 +371,7 @@ type Runner =
                     SourceMapsRoot = args.Value "--sourceMapsRoot"
                     NoRestore = args.FlagEnabled "--noRestore"
                     NoCache = args.FlagEnabled "--noCache"
+                    NoGitignore = args.FlagEnabled "--noGitignore"
                     // TODO: If we select optimize we cannot have F#/Fable parallelization
                     NoParallelTypeCheck = args.FlagEnabled "--noParallelTypeCheck"
                     Exclude = args.Values "--exclude"
@@ -453,10 +459,13 @@ let clean (args: CliArgs) language rootDir =
                 recClean subdir
         )
 
-    recClean cleanDir
+    if IO.Directory.Exists(cleanDir) then
+        recClean cleanDir
+    else
+        Log.always $"Directory does not exist: {cleanDir}"
 
     if fileCount = 0 && not fableModulesDeleted then
-        Log.always ("No files have been deleted. If Fable output is in another directory, pass it as argument.")
+        Log.always "No files have been deleted. If Fable output is in another directory, pass it as argument."
     else
         Log.always ("Clean completed! Files deleted: " + string<int> fileCount)
 

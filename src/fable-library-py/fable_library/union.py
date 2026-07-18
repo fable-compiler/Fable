@@ -101,6 +101,24 @@ class Union(StringableBase, EquatableBase, ComparableBase, HashableBase, ICompar
         return -1 if self.tag < other.tag else 1
 
 
+def narrow[T](case: type[T], value: object) -> T:
+    """Narrow a union value to one of its case classes for the type checker.
+
+    F# discriminated unions compile to a base ``Union`` class plus one case
+    class per case (e.g. ``Tree`` -> ``Tree_Leaf | Tree_Node``). Reading a
+    case-specific field such as ``x.left_`` requires the value to be typed as
+    that case class, but after a ``match`` on ``tag`` it is still statically
+    typed as the union. ``narrow(Tree_Node, x)`` re-types ``x`` so the field
+    read resolves, playing the same role as ``typing.cast`` but scoped to
+    unions. Keeping it in the library (instead of emitting ``cast`` inline)
+    lets generated code stay ``cast``-free and preserves ``reportUnnecessaryCast``.
+
+    ``case`` is only used by the type checker to bind ``T``; this is an identity
+    function at runtime.
+    """
+    return value  # pyright: ignore[reportReturnType]
+
+
 @dataclass_transform()
 def tagged_union(tag: int):
     """Decorator for union case classes.
@@ -108,11 +126,13 @@ def tagged_union(tag: int):
     Uses @dataclass_transform() so type checkers understand:
     - Field annotations become constructor parameters
     - __match_args__ is generated
-    - __eq__, __repr__, __hash__ are generated
+    - __eq__, __repr__ are generated
 
     Additionally sets:
     - cls.tag = tag (numeric case discriminator)
     - cls.fields property (list of field values for backwards compat)
+    - cls.__hash__ from HashableBase (dataclass sets it to None when
+      generating __eq__, which would make union values unhashable)
     """
 
     def decorator[T](cls: type[T]) -> type[T]:
@@ -130,9 +150,15 @@ def tagged_union(tag: int):
             return Array[Any]([getattr(self, name) for name in field_names])
 
         dc_cls.fields = fields
+
+        # dataclass() generates __eq__ and therefore sets __hash__ to None.
+        # Restore the hash protocol so union values stay hashable via
+        # GetHashCode, e.g. when a union is a field of another union.
+        dc_cls.__hash__ = HashableBase.__hash__
+
         return dc_cls
 
     return decorator
 
 
-__all__ = ["Union", "tagged_union"]
+__all__ = ["Union", "narrow", "tagged_union"]

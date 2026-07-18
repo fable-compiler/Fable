@@ -19,6 +19,44 @@ let rec mustWrapOption =
     | Option _ -> true
     | _ -> false
 
+/// Simplify the process-dict ref round-trip that arises when an immutable array
+/// *literal* is passed to an FFI/Emit binding that immediately derefs it.
+///
+/// Fable-BEAM materialises an array literal as a fresh, inline process-dict ref
+/// (`fable_utils:new_ref([...])`). A binding that reads it back with `erlang:get($N)`
+/// (or bare `get($N)`) therefore produces `erlang:get(fable_utils:new_ref([...]))` —
+/// a round-trip that yields the literal straight back while leaking a never-erased
+/// process-dict entry.
+///
+/// This is recognised on the Beam AST: when argument N is an inline `new_ref(list)`
+/// and *every* occurrence of `$N` in the (short, authored) macro template is wrapped
+/// by a deref, the deref is dropped from the template and the underlying list is
+/// passed directly. Gating on the argument's AST shape — instead of parsing rendered
+/// Erlang — keeps this robust; a ref-typed *variable* (a bound/mutable array) is left
+/// untouched, so its deref is preserved.
+let private simplifyArrayRefDerefs (macro: string) (args: Beam.ErlExpr list) : string * Beam.ErlExpr list =
+    let folder (macroAcc: string, argsAcc) (i, arg) =
+        match arg with
+        | Beam.ErlExpr.Call(Some "fable_utils", "new_ref", [ inner ]) ->
+            let ph = $"$%d{i}"
+            // A control-char sentinel (never present in a macro template) marks the
+            // deref-wrapped placeholders. `erlang:get` is replaced first so its inner
+            // `get(` isn't consumed by the bare form below.
+            let sentinel = "\u0000"
+
+            let stripped =
+                macroAcc.Replace($"erlang:get(%s{ph})", sentinel).Replace($"get(%s{ph})", sentinel)
+
+            // Collapse only when the placeholder was present and every occurrence was
+            // deref-wrapped — a surviving bare `$N` means some use site still needs the ref.
+            if stripped.Contains(sentinel) && not (stripped.Contains(ph)) then
+                stripped.Replace(sentinel, ph), argsAcc @ [ inner ]
+            else
+                macroAcc, argsAcc @ [ arg ]
+        | _ -> macroAcc, argsAcc @ [ arg ]
+
+    args |> List.indexed |> List.fold folder (macro, [])
+
 let unwrapOptionalArg (arg: Fable.Expr) =
     match arg with
     | Fable.Value(Fable.NewOption(Some inner, _, _), _) -> inner
@@ -41,6 +79,7 @@ type IBeamCompiler =
 type Context =
     {
         File: string
+        ModuleName: string // Emitting Erlang module name (namespaces module-level mutable state keys)
         UsedNames: Set<string>
         DecisionTargets: (Ident list * Expr) list
         RecursiveBindings: Set<string>
@@ -124,26 +163,75 @@ let private matchTargetIdentAndValues idents values =
 
 /// Resolve the Erlang module name for an import, returning None if it's the current module.
 let resolveImportModuleName (com: IBeamCompiler) (importPath: string) =
-    let name = moduleNameFromFile importPath
-
-    // Resolve the import path to an absolute path so we can reliably compare
-    // against the current file. Import paths may be relative (e.g., "../Foo/Types.fs")
-    // or absolute. Without resolving, two different files with the same base name
-    // (e.g., Agent/Types.fs vs Reactive/Types.fs) would both produce module name "types"
-    // and the import would be incorrectly treated as a local (self-recursive) call.
-    let resolvedImportPath =
-        if System.IO.Path.IsPathRooted(importPath) then
-            System.IO.Path.GetFullPath(importPath)
-        else
-            let currentDir = System.IO.Path.GetDirectoryName(com.CurrentFile)
-            System.IO.Path.GetFullPath(System.IO.Path.Combine(currentDir, importPath))
-
-    let currentFileFull = System.IO.Path.GetFullPath(com.CurrentFile)
-
-    if resolvedImportPath = currentFileFull then
-        None
+    // Imports that don't point at an F# source file name a module Fable doesn't generate:
+    // a native Erlang module (`string`, `lists`, ...) or a fable-library `.erl` file. Those
+    // are referenced by their own name.
+    if not (isFSharpSource importPath) then
+        Some(moduleNameFromFile importPath)
     else
-        Some name
+        // Resolve the import path to an absolute path so we can reliably compare against the
+        // current file, and so the module name is derived from the file's real location.
+        // Import paths may be relative (e.g., "../Foo/Types.fs") or absolute.
+        let resolvedImportPath =
+            if Path.IsPathRooted(importPath) then
+                Path.GetFullPath(importPath)
+            else
+                let currentDir = Path.GetDirectoryName(com.CurrentFile)
+                Path.GetFullPath(Path.Combine(currentDir, importPath))
+
+        let currentFileFull = Path.GetFullPath(com.CurrentFile)
+
+        if resolvedImportPath = currentFileFull then
+            None
+        else
+            Some(erlangModuleName com.ProjectFile resolvedImportPath)
+
+/// Detect whether an expression reads a *free* mutable ident — a module-level mutable
+/// not bound locally within the expression. Such reads must be snapshotted at module-init
+/// time (eager) rather than recomputed lazily on each access, because the module-level
+/// mutable may be reassigned (via a `do` action or later binding) after this value is bound.
+/// Locally-bound mutables are excluded: their initializers are self-contained, so lazy
+/// recomputation yields the same value and avoids creating a spurious dependency on main/0.
+let rec readsFreeMutable (bound: Set<string>) (expr: Expr) : bool =
+    match expr with
+    | IdentExpr ident -> ident.IsMutable && not (bound.Contains ident.Name)
+    | Let(ident, value, body) -> readsFreeMutable bound value || readsFreeMutable (Set.add ident.Name bound) body
+    | LetRec(bindings, body) ->
+        let bound = bindings |> List.fold (fun s (i, _) -> Set.add i.Name s) bound
+
+        (bindings |> List.exists (fun (_, v) -> readsFreeMutable bound v))
+        || readsFreeMutable bound body
+    | Lambda(arg, body, _) -> readsFreeMutable (Set.add arg.Name bound) body
+    | Delegate(args, body, _, _) ->
+        let bound = args |> List.fold (fun s a -> Set.add a.Name s) bound
+        readsFreeMutable bound body
+    | ForLoop(ident, start, limit, body, _, _) ->
+        readsFreeMutable bound start
+        || readsFreeMutable bound limit
+        || readsFreeMutable (Set.add ident.Name bound) body
+    | _ -> getSubExpressions expr |> List.exists (readsFreeMutable bound)
+
+/// Matches an eta/uncurry adapter delegate: `fun(B0..Bn) -> f B0 B1 .. Bn`, where the applied
+/// arguments are exactly the delegate's parameters (same names, in order) and `f` is a captured
+/// value that does not reference any of them. Returns `(arity, f)`. Used to recognise the adapters
+/// Fable inserts to normalise a curried function to an uncurried arity, so they can be built
+/// through fable_utils:make_eta (which preserves reference identity across sites).
+let (|EtaAdapterDelegate|_|) (expr: Expr) : (int * Expr) option =
+    match expr with
+    | Delegate(args, CurriedApply(f, appArgs, _, _), _, _) when
+        List.length appArgs = List.length args
+        && List.forall2
+            (fun (a: Ident) (e: Expr) ->
+                match e with
+                | IdentExpr id -> id.Name = a.Name
+                | _ -> false
+            )
+            args
+            appArgs
+        && not (args |> List.exists (fun a -> containsIdentRef a.Name f))
+        ->
+        Some(List.length args, f)
+    | _ -> None
 
 let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.ErlExpr =
     match expr with
@@ -177,6 +265,9 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             | None ->
                 if ctx.LocalVars.Contains(ident.Name) || ctx.RecursiveBindings.Contains(ident.Name) then
                     Beam.ErlExpr.Variable(capitalizeFirst ident.Name |> sanitizeErlangVar)
+                elif ident.IsMutable then
+                    // Module-level mutable: read current value from process dictionary
+                    Beam.ErlExpr.Call(None, "get", [ atomLit (mutableStateKey ctx.ModuleName ident.Name) ])
                 else
                     // Module-level function reference: call as 0-arity function
                     Beam.ErlExpr.Call(None, sanitizeErlangName ident.Name, [])
@@ -413,6 +504,23 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 }
             ]
 
+    // Uncurrying (eta) adapter: fun(B0..Bn) -> f B0 .. Bn, where f is a captured function value
+    // not referencing any Bi. Fable inserts these at argument sites to normalise a curried function
+    // to the arity an uncurried slot expects. Each inline adapter is a fresh closure, so two
+    // adapters built over the same f compare unequal, breaking reference identity
+    // (LanguagePrimitives.PhysicalEquality). Route through fable_utils:make_eta, which tags the
+    // adapter so fun_ref_eq can recover f and treat them as reference-equal.
+    | EtaAdapterDelegate(arity, f) when arity >= 2 && arity <= 7 ->
+        let fExpr = transformExpr com ctx f
+        let hoisted, cleanF = extractBlock fExpr
+
+        Beam.ErlExpr.Call(
+            Some "fable_utils",
+            "make_eta",
+            [ cleanF; Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 arity)) ]
+        )
+        |> wrapWithHoisted hoisted
+
     | Delegate(args, body, _name, _tags) ->
         // Deduplicate Erlang variable names in arg patterns.
         // After uncurrying, inner lambda params that shadow outer ones appear at
@@ -483,6 +591,16 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             // Array ref (non-byte): put the new value into the process dict ref
             let erlExpr = transformExpr com ctx expr
             Beam.ErlExpr.Call(None, "put", [ erlExpr; transformExpr com ctx value ])
+        | IdentExpr ident when ident.IsMutable ->
+            // Module-level mutable: update via process dictionary using name atom
+            Beam.ErlExpr.Call(
+                None,
+                "put",
+                [
+                    atomLit (mutableStateKey ctx.ModuleName ident.Name)
+                    transformExpr com ctx value
+                ]
+            )
         | IdentExpr ident -> Beam.ErlExpr.Match(Beam.PVar(capitalizeFirst ident.Name), transformExpr com ctx value)
         | _ ->
             com.WarnOnlyOnce("Set with non-identifier target is not supported for Beam target")
@@ -741,7 +859,8 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             transformReceive com ctx emitInfo typ
         else
             let args = emitInfo.CallInfo.Args |> List.map (transformExpr com ctx)
-            Beam.ErlExpr.Emit(emitInfo.Macro, args)
+            let macro, args = simplifyArrayRefDerefs emitInfo.Macro args
+            Beam.ErlExpr.Emit(macro, args)
 
     | TryCatch(body, catch_, finalizer, _range) ->
         let erlBody = transformExpr com ctx body
@@ -1197,6 +1316,36 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 "error",
                 [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "rethrow")) ]
             )
+        | Curry(e, arity) when
+            arity >= 2
+            && arity <= 7
+            && (
+                match e with
+                | Value(Null _, _) -> false
+                | _ ->
+                    match e.Type with
+                    | LambdaType _
+                    | DelegateType _ -> true
+                    | _ -> false
+            )
+            ->
+            // Re-curry an uncurried function into `arity` nested 1-arg funs. The default lowering
+            // (curryExprAtRuntime) builds a fresh nested-lambda closure at each site, so two curry
+            // adapters over the *same* underlying function compare unequal, breaking reference
+            // identity (LanguagePrimitives.PhysicalEquality). Route through fable_utils:make_curry,
+            // which tags the adapter with a `{fable_curry_adapter, F}` marker so fun_ref_eq can
+            // recover F and treat all adapters over it as reference-equal. make_curry applies F with
+            // all args at once (erlang:apply), matching the default multi-arg Apply lowering exactly,
+            // so it is behaviour-identical bar the marker. See Beam/FABLE-BEAM.md.
+            let eExpr = transformExpr com ctx e
+            let hoisted, cleanE = extractBlock eExpr
+
+            Beam.ErlExpr.Call(
+                Some "fable_utils",
+                "make_curry",
+                [ cleanE; Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 arity)) ]
+            )
+            |> wrapWithHoisted hoisted
         | Curry(e, arity) -> transformExpr com ctx (Replacements.Api.curryExprAtRuntime com arity e)
         | Debugger ->
             com.WarnOnlyOnce("System.Diagnostics.Debugger is not supported for Beam target, ignoring")
@@ -1393,7 +1542,10 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
     | NumberConstant(NumberValue.Int16 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
     | NumberConstant(NumberValue.UInt16 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
     | NumberConstant(NumberValue.UInt32 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
-    | NumberConstant(NumberValue.UInt64 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+    // Unsigned 64-bit values are represented as the unsigned integer they are, so the
+    // upper half of the range does not fit in an int64 literal (`UInt64.MaxValue` would
+    // otherwise print as -1). Erlang integers are unbounded, so print the digits directly.
+    | NumberConstant(NumberValue.UInt64 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<uint64> i))
     | NumberConstant(NumberValue.Float32 f, _) ->
         let d = float f
 
@@ -1406,7 +1558,7 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         else
             Beam.ErlExpr.Literal(Beam.ErlLiteral.Float d)
     | NumberConstant(NumberValue.NativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
-    | NumberConstant(NumberValue.UNativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+    | NumberConstant(NumberValue.UNativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<unativeint> i))
     | NumberConstant(NumberValue.BigInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<bigint> i))
     | NumberConstant(NumberValue.Decimal d, _) ->
         // Decimal as fixed-scale integer: value × 10^28
@@ -1490,6 +1642,11 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         let toStringExpr erlValue (typ: Fable.AST.Fable.Type) =
             match typ with
             | Fable.AST.Fable.Type.String -> erlValue
+            // A `char` is a plain integer at runtime, so the generic `fable_string:to_string` would
+            // take its `is_integer` clause and print the codepoint. The type is known here, so
+            // encode it as UTF-8 directly — the same thing `Convert.ToString` and `obj.ToString()`
+            // do for `Type.Char` in Beam's Replacements.
+            | Fable.AST.Fable.Type.Char -> Beam.ErlExpr.Call(Some "fable_char", "to_string", [ erlValue ])
             | Fable.AST.Fable.Type.Number(kind, _) ->
                 match kind with
                 | Float16
@@ -1522,7 +1679,9 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
                 ([ Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit firstPart) ], List.zip values restParts)
                 ||> List.fold (fun acc (value, part) ->
                     let erlValue = transformExpr com ctx value
-                    let stringified = toStringExpr erlValue value.Type
+                    // F# boxes every interpolation hole, so `$"{c}"` on a char arrives here as a
+                    // cast to `Any` with the char type visible only underneath.
+                    let stringified = toStringExpr erlValue (Fable.Beam.Chars.unboxedType value)
                     acc @ [ stringified; Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit part) ]
                 )
 
@@ -1676,7 +1835,50 @@ and transformOperation
                 | BinaryAndBitwise -> "band"
                 | BinaryExponent -> "+" // unreachable, handled above
 
-            Beam.ErlExpr.BinOp(erlOp, cleanLeft, cleanRight) |> wrapWithHoisted allHoisted
+            // .NET only uses the low bits of a shift count (`x <<< 32` is `x` for an
+            // int32); Erlang would shift by the full amount.
+            let cleanRight =
+                match op, sizedIntInfo typ with
+                | (BinaryShiftLeft | BinaryShiftRightSignPropagating | BinaryShiftRightZeroFill), Some(bits, _) ->
+                    maskShiftCount bits cleanRight
+                | _ -> cleanRight
+
+            // Erlang's `bsr` propagates the sign, so a zero-filling shift of a *signed*
+            // value has to shift its unsigned reinterpretation instead.
+            let unsignedTyp =
+                match op, typ with
+                | BinaryShiftRightZeroFill, Fable.AST.Fable.Type.Number(kind, info) ->
+                    match kind with
+                    | Int8 -> Some(Fable.AST.Fable.Type.Number(UInt8, info))
+                    | Int16 -> Some(Fable.AST.Fable.Type.Number(UInt16, info))
+                    | Int32 -> Some(Fable.AST.Fable.Type.Number(UInt32, info))
+                    | Int64 -> Some(Fable.AST.Fable.Type.Number(UInt64, info))
+                    | NativeInt -> Some(Fable.AST.Fable.Type.Number(UNativeInt, info))
+                    | _ -> None
+                | _ -> None
+
+            let cleanLeft =
+                match unsignedTyp with
+                | Some unsignedTyp -> wrapToIntType unsignedTyp cleanLeft
+                | None -> cleanLeft
+
+            let result = Beam.ErlExpr.BinOp(erlOp, cleanLeft, cleanRight)
+
+            // Erlang integers are unbounded, so anything that can leave the width of a
+            // sized .NET integer has to be truncated back into it. `band`/`bor`/`bxor`/
+            // `bsr`/`rem` cannot grow an in-range value, so they stay bare.
+            let result =
+                match op with
+                | BinaryPlus
+                | BinaryMinus
+                | BinaryMultiply
+                | BinaryShiftLeft -> wrapToIntType typ result
+                // A zero-filled shift of a signed value was done on the unsigned
+                // reinterpretation, so it has to come back to the signed one.
+                | BinaryShiftRightZeroFill when unsignedTyp.IsSome -> wrapToIntType typ result
+                | _ -> result
+
+            result |> wrapWithHoisted allHoisted
 
     | Unary(op, operand) ->
         let erlOperand = transformExpr com ctx operand
@@ -1684,10 +1886,13 @@ and transformOperation
 
         let result =
             match op with
-            | UnaryMinus -> Beam.ErlExpr.UnaryOp("-", cleanOperand)
+            // Negation leaves the width for the minimum signed value (`-Int32.MinValue`
+            // is `Int32.MinValue`) and for every non-zero unsigned value.
+            | UnaryMinus -> Beam.ErlExpr.UnaryOp("-", cleanOperand) |> wrapToIntType typ
             | UnaryPlus -> cleanOperand
             | UnaryNot -> Beam.ErlExpr.UnaryOp("not", cleanOperand)
-            | UnaryNotBitwise -> Beam.ErlExpr.UnaryOp("bnot", cleanOperand)
+            // `bnot` of an unsigned value is negative in Erlang, so it needs wrapping back.
+            | UnaryNotBitwise -> Beam.ErlExpr.UnaryOp("bnot", cleanOperand) |> wrapToIntType typ
             | UnaryAddressOf ->
                 // For mutable variables, pass the atom key (process dict key)
                 // instead of the dereferenced value. This enables out-parameter support
@@ -1885,16 +2090,13 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
                 match isThisRef, ctx.CtorFieldExprs.TryFind(info.Name) with
                 | true, Some cachedExpr -> cachedExpr
                 | _ ->
-                    // Class instance: state is stored in process dict, ref is the key
-                    // Use f$ prefix to avoid collision with interface method keys
+                    // Class instance: read via fable_utils:field_get, which supports both
+                    // a self-contained map (immutable class) and a process-dict ref (mutable class).
+                    // Use field_ prefix to avoid collision with interface method keys.
                     let classFieldAtom =
                         Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom("field_" + fieldName)))
 
-                    Beam.ErlExpr.Call(
-                        Some "maps",
-                        "get",
-                        [ classFieldAtom; Beam.ErlExpr.Call(None, "get", [ erlExpr ]) ]
-                    )
+                    Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ classFieldAtom; erlExpr ])
             | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
                 let fieldName = sanitizeErlangName info.Name
                 let fieldAtom = Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom fieldName))
@@ -2063,132 +2265,6 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
         let importModuleName = resolveImportModuleName com importInfo.Path
 
         match importInfo.Selector with
-        | "assertEqual"
-        | "Testing_equal" ->
-            match info.Args with
-            | actual :: expected :: _ ->
-                let erlActual = transformExpr com ctx actual
-                let erlExpected = transformExpr com ctx expected
-                let actualHoisted, cleanActual = extractBlock erlActual
-                let expectedHoisted, cleanExpected = extractBlock erlExpected
-                let allHoisted = actualHoisted @ expectedHoisted
-                // Store complex expressions in temp variables to avoid duplicate evaluation
-                // and Erlang "unsafe variable" errors
-                let counter = com.IncrementCounter()
-
-                let storeIfComplex name expr =
-                    match expr with
-                    | Beam.ErlExpr.Literal _
-                    | Beam.ErlExpr.Variable _ -> ([], expr)
-                    | _ ->
-                        let varName = $"%s{name}_%d{counter}"
-                        ([ Beam.ErlExpr.Match(Beam.PVar varName, expr) ], Beam.ErlExpr.Variable varName)
-
-                let tempActualH, useActual = storeIfComplex "Assert_actual" cleanActual
-                let tempExpectedH, useExpected = storeIfComplex "Assert_expected" cleanExpected
-
-                Beam.ErlExpr.Case(
-                    Beam.ErlExpr.Call(Some "fable_comparison", "equals", [ useActual; useExpected ]),
-                    [
-                        {
-                            Pattern = Beam.PLiteral(Beam.BoolLit true)
-                            Guard = []
-                            Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "ok")) ]
-                        }
-                        {
-                            Pattern = Beam.PLiteral(Beam.BoolLit false)
-                            Guard = []
-                            Body =
-                                [
-                                    Beam.ErlExpr.Call(
-                                        Some "erlang",
-                                        "error",
-                                        [
-                                            Beam.ErlExpr.Tuple
-                                                [
-                                                    Beam.ErlExpr.Literal(
-                                                        Beam.ErlLiteral.AtomLit(Beam.Atom "assert_equal")
-                                                    )
-                                                    useExpected
-                                                    useActual
-                                                ]
-                                        ]
-                                    )
-                                ]
-                        }
-                    ]
-                )
-                |> wrapWithHoisted (allHoisted @ tempActualH @ tempExpectedH)
-            | _ ->
-                Beam.ErlExpr.Call(
-                    Some "erlang",
-                    "error",
-                    [
-                        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "assert_equal_bad_args"))
-                    ]
-                )
-        | "assertNotEqual"
-        | "Testing_notEqual" ->
-            match info.Args with
-            | actual :: expected :: _ ->
-                let erlActual = transformExpr com ctx actual
-                let erlExpected = transformExpr com ctx expected
-                let actualHoisted, cleanActual = extractBlock erlActual
-                let expectedHoisted, cleanExpected = extractBlock erlExpected
-                let allHoisted = actualHoisted @ expectedHoisted
-                let counter = com.IncrementCounter()
-
-                let storeIfComplex name expr =
-                    match expr with
-                    | Beam.ErlExpr.Literal _
-                    | Beam.ErlExpr.Variable _ -> ([], expr)
-                    | _ ->
-                        let varName = $"%s{name}_%d{counter}"
-                        [ Beam.ErlExpr.Match(Beam.PVar varName, expr) ], Beam.ErlExpr.Variable varName
-
-                let tempActualH, useActual = storeIfComplex "Assert_actual" cleanActual
-                let tempExpectedH, useExpected = storeIfComplex "Assert_expected" cleanExpected
-
-                Beam.ErlExpr.Case(
-                    Beam.ErlExpr.Call(Some "fable_comparison", "equals", [ useActual; useExpected ]),
-                    [
-                        {
-                            Pattern = Beam.PLiteral(Beam.BoolLit false)
-                            Guard = []
-                            Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "ok")) ]
-                        }
-                        {
-                            Pattern = Beam.PLiteral(Beam.BoolLit true)
-                            Guard = []
-                            Body =
-                                [
-                                    Beam.ErlExpr.Call(
-                                        Some "erlang",
-                                        "error",
-                                        [
-                                            Beam.ErlExpr.Tuple
-                                                [
-                                                    Beam.ErlExpr.Literal(
-                                                        Beam.ErlLiteral.AtomLit(Beam.Atom "assert_not_equal")
-                                                    )
-                                                    useExpected
-                                                    useActual
-                                                ]
-                                        ]
-                                    )
-                                ]
-                        }
-                    ]
-                )
-                |> wrapWithHoisted (allHoisted @ tempActualH @ tempExpectedH)
-            | _ ->
-                Beam.ErlExpr.Call(
-                    Some "erlang",
-                    "error",
-                    [
-                        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "assert_not_equal_bad_args"))
-                    ]
-                )
         | "concat" when importModuleName = Some "string" ->
             // String.Concat from JS Replacements → use binary concatenation
             let args = info.Args |> List.map (transformExpr com ctx)
@@ -2381,13 +2457,13 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
         // as a class field). This avoids confusing with method calls on self.
         match info.ThisArg with
         | Some thisExpr when ctx.ThisArgVar.IsSome && ctx.CtorParamNames.Contains(ident.Name) ->
-            // Field-stored function: (maps:get(field_<name>, get(This)))(Args)
+            // Field-stored function: (fable_utils:field_get(field_<name>, This))(Args)
             let erlThis = transformExpr com ctx thisExpr
             let thisH, cleanThis = extractBlock erlThis
             let fieldAtom = atomLit ("field_" + sanitizeErlangName ident.Name)
 
             let lookup =
-                Beam.ErlExpr.Call(Some "maps", "get", [ fieldAtom; Beam.ErlExpr.Call(None, "get", [ cleanThis ]) ])
+                Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ fieldAtom; cleanThis ])
 
             Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted (hoisted @ thisH)
         | _ ->
@@ -2533,15 +2609,11 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
                         | _ -> false
 
                     if isCtorFieldInvoke then
-                        // Constructor param field invoke: (maps:get(field_<name>, get(This)))(Args)
+                        // Constructor param field invoke: (fable_utils:field_get(field_<name>, This))(Args)
                         let fieldAtom = atomLit ("field_" + sanitizeErlangName methodName)
 
                         let lookup =
-                            Beam.ErlExpr.Call(
-                                Some "maps",
-                                "get",
-                                [ fieldAtom; Beam.ErlExpr.Call(None, "get", [ cleanCallee ]) ]
-                            )
+                            Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ fieldAtom; cleanCallee ])
 
                         Beam.ErlExpr.Apply(lookup, cleanArgs) |> wrapWithHoisted allHoisted
                     elif isRecordLike then
@@ -2721,7 +2793,11 @@ and transformClassDeclaration
                                     // BaseState = get(BaseRef)
                                     Beam.ErlExpr.Match(
                                         Beam.PVar "BaseState",
-                                        Beam.ErlExpr.Call(None, "get", [ Beam.ErlExpr.Variable "BaseRef" ])
+                                        Beam.ErlExpr.Call(
+                                            Some "fable_utils",
+                                            "inst_state",
+                                            [ Beam.ErlExpr.Variable "BaseRef" ]
+                                        )
                                     )
                                     // erase(BaseRef) — clean up the temporary base ref
                                     Beam.ErlExpr.Call(None, "erase", [ Beam.ErlExpr.Variable "BaseRef" ])
@@ -2733,6 +2809,63 @@ and transformClassDeclaration
                             // — skip the base call, no fields to merge
                             [], []
                     | _ -> [], []
+
+                // Decide the instance representation. An immutable class is emitted as a
+                // self-contained map (the instance term), exactly like a non-self-referencing
+                // object expression — so it is process-portable: field reads and method calls
+                // work in any process, not just the constructing one. A class is map-representable
+                // when it has no mutable instance fields, no `as self` self-reference, no base
+                // class state to merge, and none of its stored interface closures / `do` bodies use
+                // `this` as a value (only as the object of a field read — those become reads from
+                // the captured instance map). Classes with mutable instance fields keep the
+                // process-dict ref representation: BEAM has no shared mutable memory across
+                // processes, so cross-process mutation is intentionally unsupported (use actors).
+                // Interface members are stored as closures inside the instance. They may read
+                // `this.Field` (which we redirect to the captured instance map), but using `this`
+                // itself as a value — passing it, calling a sibling instance method on it — needs a
+                // reference to the whole instance, which a self-contained map cannot give a closure
+                // stored inside it. Such classes keep the process-dict ref representation.
+                let ifaceMembersPortable =
+                    decl.AttachedMembers
+                    |> List.filter (fun m -> m.ImplementedSignatureRef.IsSome)
+                    |> List.forall (fun memb ->
+                        match memb.Args with
+                        | first :: _ when first.IsThisArgument || first.Name = "this" ->
+                            not (Util.thisUsedAsValue first.Name memb.Body)
+                            && not (Util.containsThisValue memb.Body)
+                        | _ -> not (Util.containsThisValue memb.Body)
+                    )
+
+                // Field initializers and `do` bodies reference the constructor's `this` as the
+                // `ThisValue` value kind. The self-contained map is only built after they run, so
+                // any reference to `this` there is unsupportable in the map form — fall back to refs.
+                let fieldsPortable =
+                    fields |> List.forall (fun (_, v) -> not (Util.containsThisValue v))
+
+                let doExprsPortable =
+                    doExprs |> List.forall (fun e -> not (Util.containsThisValue e))
+
+                let hasMutableInstanceFields =
+                    ent.FSharpFields |> List.exists (fun f -> f.IsMutable)
+
+                let useMapRepr =
+                    not hasMutableInstanceFields
+                    && selfRefFieldNames.IsEmpty
+                    && baseEntries.IsEmpty
+                    && baseCallPrelude.IsEmpty
+                    && ifaceMembersPortable
+                    && fieldsPortable
+                    && doExprsPortable
+
+                // The Erlang variable that holds the instance inside the constructor:
+                // the self-contained fields map (`State0`) for map representation, or the
+                // process-dict ref (`Ref`) otherwise. Interface closures read `this.Field`
+                // from this variable via fable_utils:field_get.
+                let instanceVar =
+                    if useMapRepr then
+                        "State0"
+                    else
+                        "Ref"
 
                 // Process fields in order, progressively building a map of field name → Erlang expr.
                 // This allows later fields to reference earlier fields via this.FieldName
@@ -2761,8 +2894,12 @@ and transformClassDeclaration
                         (baseEntries, ctorCtx)
 
                 // Build interface entries from AttachedMembers that implement interfaces.
-                // These are stored in the process dict state map alongside field state,
-                // so interface dispatch (fable_utils:iface_get) can find them.
+                // These are stored in the instance map alongside field state, so interface
+                // dispatch (fable_utils:iface_get) can find them. Inside their closures,
+                // `this` resolves to the instance variable (the captured fields map for the
+                // map representation, or the process-dict ref otherwise).
+                let ifaceCtx = { ctorCtx with ThisArgVar = Some instanceVar }
+
                 let interfaceEntries =
                     decl.AttachedMembers
                     |> List.choose (fun memb ->
@@ -2779,8 +2916,8 @@ and transformClassDeclaration
                                 let ifaceCtorCtx =
                                     match memb.Args with
                                     | first :: _ when first.IsThisArgument || first.Name = "this" ->
-                                        { ctorCtx with ThisIdentNames = Set.singleton first.Name }
-                                    | _ -> ctorCtx
+                                        { ifaceCtx with ThisIdentNames = Set.singleton first.Name }
+                                    | _ -> ifaceCtx
 
                                 let erlBody = transformExpr com ifaceCtorCtx memb.Body
 
@@ -2821,15 +2958,15 @@ and transformClassDeclaration
                                 let ifaceCtorCtx =
                                     let argNames =
                                         nonThisArgs
-                                        |> List.fold (fun (s: Set<string>) a -> s.Add(a.Name)) ctorCtx.LocalVars
+                                        |> List.fold (fun (s: Set<string>) a -> s.Add(a.Name)) ifaceCtx.LocalVars
 
                                     match memb.Args with
                                     | first :: _ when first.IsThisArgument || first.Name = "this" ->
-                                        { ctorCtx with
+                                        { ifaceCtx with
                                             ThisIdentNames = Set.singleton first.Name
                                             LocalVars = argNames
                                         }
-                                    | _ -> { ctorCtx with LocalVars = argNames }
+                                    | _ -> { ifaceCtx with LocalVars = argNames }
 
                                 let erlBody = transformExpr com ifaceCtorCtx memb.Body
 
@@ -2859,57 +2996,84 @@ and transformClassDeclaration
                         | None -> None
                     )
 
-                // Transform constructor `do` expressions (side effects like `do v.Value <- 10`)
+                // Transform constructor `do` expressions (side effects like `do v.Value <- 10`).
+                // Under the map representation these never reference `this` (the gate excludes such
+                // classes), so the base constructor context is sufficient.
                 let erlDoExprs = doExprs |> List.map (transformExpr com ctorCtx)
 
-                // Build the state expression: either a plain map or merged with base state
-                let stateExpr =
-                    if baseCallPrelude.IsEmpty then
-                        Beam.ErlExpr.Map mapEntries
-                    else
-                        // maps:merge(BaseState, #{derived_fields...})
-                        Beam.ErlExpr.Call(
-                            Some "maps",
-                            "merge",
-                            [ Beam.ErlExpr.Variable "BaseState"; Beam.ErlExpr.Map mapEntries ]
-                        )
-
                 let body =
-                    baseCallPrelude
-                    @ [
-                        // Ref = make_ref()
-                        Beam.ErlExpr.Match(Beam.PVar "Ref", Beam.ErlExpr.Call(None, "make_ref", []))
-                        // put(Ref, State) where State is either #{fields} or maps:merge(BaseState, #{fields})
-                        Beam.ErlExpr.Call(None, "put", [ Beam.ErlExpr.Variable "Ref"; stateExpr ])
-                    ]
-                    @ (if interfaceEntries.IsEmpty then
-                           []
-                       else
-                           // Step 2: merge interface entries into state (separate put so getter bodies
-                           // that reference this.SomeField via get(Ref) work correctly)
-                           [
-                               Beam.ErlExpr.Call(
-                                   None,
-                                   "put",
-                                   [
-                                       Beam.ErlExpr.Variable "Ref"
-                                       Beam.ErlExpr.Call(
-                                           Some "maps",
-                                           "merge",
-                                           [
-                                               Beam.ErlExpr.Call(None, "get", [ Beam.ErlExpr.Variable "Ref" ])
-                                               Beam.ErlExpr.Map interfaceEntries
-                                           ]
-                                       )
-                                   ]
-                               )
-                           ])
-                    // Constructor `do` body expressions (side effects)
-                    @ erlDoExprs
-                    @ [
-                        // Return Ref
-                        Beam.ErlExpr.Variable "Ref"
-                    ]
+                    if useMapRepr then
+                        // Immutable class: the instance IS a self-contained map (process-portable).
+                        // Interface closures capture the fields map (`State0`) so they read fields
+                        // from the value itself, never from a per-process dictionary.
+                        if interfaceEntries.IsEmpty && erlDoExprs.IsEmpty then
+                            [ Beam.ErlExpr.Map mapEntries ]
+                        else
+                            [
+                                // State0 = #{fields}
+                                Beam.ErlExpr.Match(Beam.PVar instanceVar, Beam.ErlExpr.Map mapEntries)
+                            ]
+                            @ erlDoExprs
+                            @ [
+                                if interfaceEntries.IsEmpty then
+                                    Beam.ErlExpr.Variable instanceVar
+                                else
+                                    // Return State0 extended with the interface closures.
+                                    Beam.ErlExpr.Call(
+                                        Some "maps",
+                                        "merge",
+                                        [ Beam.ErlExpr.Variable instanceVar; Beam.ErlExpr.Map interfaceEntries ]
+                                    )
+                            ]
+                    else
+                        // Mutable class: state lives in the process dictionary, keyed by a ref.
+                        // Build the state expression: either a plain map or merged with base state.
+                        let stateExpr =
+                            if baseCallPrelude.IsEmpty then
+                                Beam.ErlExpr.Map mapEntries
+                            else
+                                // maps:merge(BaseState, #{derived_fields...})
+                                Beam.ErlExpr.Call(
+                                    Some "maps",
+                                    "merge",
+                                    [ Beam.ErlExpr.Variable "BaseState"; Beam.ErlExpr.Map mapEntries ]
+                                )
+
+                        baseCallPrelude
+                        @ [
+                            // Ref = make_ref()
+                            Beam.ErlExpr.Match(Beam.PVar "Ref", Beam.ErlExpr.Call(None, "make_ref", []))
+                            // put(Ref, State) where State is either #{fields} or maps:merge(BaseState, #{fields})
+                            Beam.ErlExpr.Call(None, "put", [ Beam.ErlExpr.Variable "Ref"; stateExpr ])
+                        ]
+                        @ (if interfaceEntries.IsEmpty then
+                               []
+                           else
+                               // Step 2: merge interface entries into state (separate put so getter bodies
+                               // that reference this.SomeField via get(Ref) work correctly)
+                               [
+                                   Beam.ErlExpr.Call(
+                                       None,
+                                       "put",
+                                       [
+                                           Beam.ErlExpr.Variable "Ref"
+                                           Beam.ErlExpr.Call(
+                                               Some "maps",
+                                               "merge",
+                                               [
+                                                   Beam.ErlExpr.Call(None, "get", [ Beam.ErlExpr.Variable "Ref" ])
+                                                   Beam.ErlExpr.Map interfaceEntries
+                                               ]
+                                           )
+                                       ]
+                                   )
+                               ])
+                        // Constructor `do` body expressions (side effects)
+                        @ erlDoExprs
+                        @ [
+                            // Return Ref
+                            Beam.ErlExpr.Variable "Ref"
+                        ]
 
                 // Use the constructor's compiled name so call sites can find it
                 let ctorFuncName = sanitizeErlangName cons.Name
@@ -3129,11 +3293,66 @@ and transformClassDeclaration
                     [ Beam.ErlForm.Function funcDef ]
         )
 
+    // Reflection function for records and unions: `<entity>_reflection(Gen0, ..., GenN)`.
+    // Emitting it here (rather than inlining the type info at each `typeof`) gives the
+    // by-name indirection that lets recursive types describe themselves.
+    let reflectionForms =
+        if ent.IsFSharpRecord || ent.IsFSharpUnion then
+            let genArgPatterns =
+                ent.GenericParameters
+                |> List.mapi (fun i _ -> Beam.PVar(Reflection.reflectionGenArgVar i))
+
+            let funcDef: Beam.ErlFunctionDef =
+                {
+                    Name = Beam.Atom(Reflection.reflectionFuncName decl.Name)
+                    Arity = genArgPatterns.Length
+                    Clauses =
+                        [
+                            {
+                                Patterns = genArgPatterns
+                                Guard = []
+                                Body = [ Reflection.transformEntityReflectionBody com ent ]
+                            }
+                        ]
+                }
+
+            [ Beam.ErlForm.Function funcDef ]
+        else
+            []
+
+    // The reflection function shares the Erlang function namespace with the entity's members,
+    // and `sanitizeErlangName` is lossy enough that a member can mangle onto its name (a member
+    // `TreeReflection` on a type `Tree` both give `tree_reflection`). The dedup below keeps the
+    // first form, so the collision would silently drop the reflection function and leave every
+    // `typeof` for this entity calling the member instead. Report it rather than miscompile.
+    for form in reflectionForms do
+        match form with
+        | Beam.ErlForm.Function reflectionDef ->
+            let clashes =
+                memberForms
+                |> List.exists (fun memberForm ->
+                    match memberForm with
+                    | Beam.ErlForm.Function memberDef ->
+                        memberDef.Name = reflectionDef.Name && memberDef.Arity = reflectionDef.Arity
+                    | _ -> false
+                )
+
+            if clashes then
+                let (Beam.Atom name) = reflectionDef.Name
+
+                com.AddLog(
+                    $"Member of '%s{decl.Name}' collides with its generated reflection function '%s{name}/%d{reflectionDef.Arity}'. Rename the member.",
+                    Severity.Error,
+                    fileName = com.CurrentFile,
+                    tag = "FABLE"
+                )
+        | _ -> ()
+
     // Deduplicate functions by name+arity. This can happen when a property setter
     // (e.g., `set StatusCode`) and a method (e.g., `SetStatusCode`) both mangle to
     // the same Erlang function name. Unlike JS/Python which have native getter/setter
     // syntax, Erlang uses plain functions so name collisions produce duplicate definitions.
-    let allForms = constructorForms @ memberForms
+    let allForms = constructorForms @ memberForms @ reflectionForms
 
     let dedup =
         allForms
@@ -3164,6 +3383,8 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
             |> Option.defaultWith (fun () -> com.GetMember(memDecl.MemberRef))
 
         let name = sanitizeErlangName memDecl.Name
+        // Process-dict key for module-level mutable/snapshot values, namespaced by module.
+        let stateKey = mutableStateKey ctx.ModuleName memDecl.Name
 
         // Look up constructor parameter names for the owning class so method bodies
         // can detect field-stored function invokes (e.g., ctor param `add: int -> int -> int`
@@ -3298,7 +3519,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                         Beam.ErlExpr.Match(Beam.PVar "BaseRef", cleanBaseCall)
                         Beam.ErlExpr.Match(
                             Beam.PVar "BaseState",
-                            Beam.ErlExpr.Call(None, "get", [ Beam.ErlExpr.Variable "BaseRef" ])
+                            Beam.ErlExpr.Call(Some "fable_utils", "inst_state", [ Beam.ErlExpr.Variable "BaseRef" ])
                         )
                         Beam.ErlExpr.Call(None, "erase", [ Beam.ErlExpr.Variable "BaseRef" ])
                     ]
@@ -3351,21 +3572,86 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                 | Beam.ErlExpr.Block exprs -> exprs
                 | expr -> [ expr ]
 
-            let funcDef: Beam.ErlFunctionDef =
-                {
-                    Name = Beam.Atom name
-                    Arity = arity
-                    Clauses =
-                        [
-                            {
-                                Patterns = args
-                                Guard = []
-                                Body = body
-                            }
-                        ]
-                }
+            // The value initializer of a module-level mutable/snapshot is spliced into the shared
+            // main/0 clause, so its locals must not leak into it (see `isolateScope`).
+            let initValue = isolateScope body
 
-            [ Beam.ErlForm.Function funcDef ]
+            // Module-level mutable values (no args, IsMutable) are stored in the process
+            // dictionary so they can be updated. Emit a main/0 that initializes the value
+            // instead of a constant-returning function — the main/0 merges with the
+            // ActionDeclaration main/0 so the initialization runs before use.
+            if info.IsValue && info.IsMutable && arity = 0 then
+                let initStmt = Beam.ErlExpr.Call(None, "put", [ atomLit stateKey; initValue ])
+
+                let funcDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom "main"
+                        Arity = 0
+                        Clauses =
+                            [
+                                {
+                                    Patterns = []
+                                    Guard = []
+                                    Body = [ initStmt ]
+                                }
+                            ]
+                    }
+
+                [ Beam.ErlForm.Function funcDef ]
+            elif info.IsValue && arity = 0 && readsFreeMutable Set.empty memDecl.Body then
+                // Immutable module-level value whose initializer reads a module-level mutable.
+                // F# evaluates it once at module-init, before any later reassignment of that
+                // mutable, so it must be snapshotted. Emit a main/0 fragment that stores the
+                // value in the process dictionary (in declaration order, so it captures the
+                // mutable's value at this point) plus an accessor that reads the snapshot.
+                let initStmt = Beam.ErlExpr.Call(None, "put", [ atomLit stateKey; initValue ])
+
+                let initDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom "main"
+                        Arity = 0
+                        Clauses =
+                            [
+                                {
+                                    Patterns = []
+                                    Guard = []
+                                    Body = [ initStmt ]
+                                }
+                            ]
+                    }
+
+                let accessorDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom name
+                        Arity = 0
+                        Clauses =
+                            [
+                                {
+                                    Patterns = []
+                                    Guard = []
+                                    Body = [ Beam.ErlExpr.Call(None, "get", [ atomLit stateKey ]) ]
+                                }
+                            ]
+                    }
+
+                [ Beam.ErlForm.Function initDef; Beam.ErlForm.Function accessorDef ]
+            else
+
+                let funcDef: Beam.ErlFunctionDef =
+                    {
+                        Name = Beam.Atom name
+                        Arity = arity
+                        Clauses =
+                            [
+                                {
+                                    Patterns = args
+                                    Guard = []
+                                    Body = body
+                                }
+                            ]
+                    }
+
+                [ Beam.ErlForm.Function funcDef ]
 
     | ActionDeclaration actionDecl ->
         let bodyExpr = transformExpr com ctx actionDecl.Body
@@ -3374,6 +3660,11 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
             match bodyExpr with
             | Beam.ErlExpr.Block exprs -> exprs
             | expr -> [ expr ]
+
+        // Every top-level effect emits its own main/0, and those are merged into a single clause
+        // (see the fold over declarations below), so each effect's locals must not leak into it
+        // (see `isolateScope`).
+        let isolatedBody = [ isolateScope body ]
 
         let funcDef: Beam.ErlFunctionDef =
             {
@@ -3384,7 +3675,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                         {
                             Patterns = []
                             Guard = []
-                            Body = body
+                            Body = isolatedBody
                         }
                     ]
             }
@@ -3399,11 +3690,12 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
         transformClassDeclaration com ctx className ent decl
 
 let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
-    let moduleName = moduleNameFromFile com.CurrentFile
+    let moduleName = erlangModuleName com.ProjectFile com.CurrentFile
 
     let ctx =
         {
             File = com.CurrentFile
+            ModuleName = moduleName
             UsedNames = file.UsedNamesInRootScope
             DecisionTargets = []
             RecursiveBindings = Set.empty

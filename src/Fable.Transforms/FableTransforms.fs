@@ -3,23 +3,46 @@ module Fable.Transforms.FableTransforms
 open Fable
 open Fable.AST.Fable
 
-let isIdentCaptured identName expr =
-    let rec loop isClosure exprs =
-        match exprs with
-        | [] -> false
-        | expr :: restExprs ->
-            match expr with
-            | IdentExpr i when i.Name = identName -> isClosure || loop isClosure restExprs
-            | Lambda(_, body, _) -> loop true [ body ] || loop isClosure restExprs
-            | Delegate(_, body, _, _) -> loop true [ body ] || loop isClosure restExprs
-            | ObjectExpr(members, _, baseCall) ->
-                let memberExprs = members |> List.map (fun m -> m.Body)
-                loop true memberExprs || loop isClosure (Option.toList baseCall @ restExprs)
-            | e ->
-                let sub = getSubExpressions e
-                loop isClosure (sub @ restExprs)
+let private walkCapturedIdents (f: string -> bool) expr =
+    let exprs = FSharp.Collections.ResizeArray [| struct (false, expr) |]
+    let mutable index = 0
+    let mutable found = false
 
-    loop false [ expr ]
+    while not found && index < exprs.Count do
+        let struct (isClosure, expr) = exprs[index]
+        index <- index + 1
+
+        match expr with
+        | IdentExpr ident when isClosure -> found <- f ident.Name
+        | Lambda(_, body, _) -> exprs.Add(struct (true, body))
+        | Delegate(_, body, _, _) -> exprs.Add(struct (true, body))
+        | ObjectExpr(members, _, baseCall) ->
+            members
+            |> List.iter (fun memberDecl -> exprs.Add(struct (true, memberDecl.Body)))
+
+            baseCall
+            |> Option.iter (fun baseCall -> exprs.Add(struct (isClosure, baseCall)))
+        | e ->
+            getSubExpressions e
+            |> List.iter (fun subExpr -> exprs.Add(struct (isClosure, subExpr)))
+
+    found
+
+let getCapturedNames expr =
+    let capturedNames = System.Collections.Generic.HashSet<string>()
+
+    walkCapturedIdents
+        (fun identName ->
+            capturedNames.Add(identName) |> ignore
+            false
+        )
+        expr
+    |> ignore
+
+    capturedNames |> Seq.toList
+
+let isIdentCaptured identName expr =
+    walkCapturedIdents (fun candidate -> candidate = identName) expr
 
 let isTailRecursive identName expr =
     let mutable isTailRec = true
@@ -296,20 +319,21 @@ let private uncurryType' typ =
 let uncurryType typ = uncurryType' typ |> snd
 
 module private Transforms =
+    [<return: Struct>]
     let rec (|ImmediatelyApplicable|_|) appliedArgsLen expr =
         if appliedArgsLen = 0 then
-            None
+            ValueNone
         else
             match expr with
             | Lambda(arg, body, _) ->
                 let appliedArgsLen = appliedArgsLen - 1
 
                 if appliedArgsLen = 0 then
-                    Some([ arg ], body)
+                    ValueSome([ arg ], body)
                 else
                     match body with
-                    | ImmediatelyApplicable appliedArgsLen (args, body) -> Some(arg :: args, body)
-                    | _ -> Some([ arg ], body)
+                    | ImmediatelyApplicable appliedArgsLen (args, body) -> ValueSome(arg :: args, body)
+                    | _ -> ValueSome([ arg ], body)
             // If the lambda is immediately applied we don't need the closures
             | NestedRevLets(bindings, Lambda(arg, body, _)) ->
                 let body = List.fold (fun body (i, v) -> Let(i, v, body)) body bindings
@@ -317,12 +341,12 @@ module private Transforms =
                 let appliedArgsLen = appliedArgsLen - 1
 
                 if appliedArgsLen = 0 then
-                    Some([ arg ], body)
+                    ValueSome([ arg ], body)
                 else
                     match body with
-                    | ImmediatelyApplicable appliedArgsLen (args, body) -> Some(arg :: args, body)
-                    | _ -> Some([ arg ], body)
-            | _ -> None
+                    | ImmediatelyApplicable appliedArgsLen (args, body) -> ValueSome(arg :: args, body)
+                    | _ -> ValueSome([ arg ], body)
+            | _ -> ValueNone
 
     let tryInlineBinding (com: Compiler) (ident: Ident) value letBody =
         let canInlineBinding =
@@ -576,7 +600,7 @@ module private Transforms =
                 match expr with
                 | IdentExpr _ -> None, expr
                 | arg ->
-                    let ident = makeTypedIdent argType $"anonRec{com.IncrementCounter()}"
+                    let ident = makeTypedIdent argType $"anonRec%d{com.IncrementCounter()}"
 
                     Some(ident, arg), IdentExpr ident
 
@@ -683,19 +707,21 @@ module private Transforms =
             Body = body
         }
 
+    [<return: Struct>]
     let (|GetField|_|) (com: Compiler) =
         function
         | Get(callee, kind, _, r) ->
             match kind with
-            | FieldGet { FieldType = Some fieldType } -> Some(callee, fieldType, r)
+            | FieldGet { FieldType = Some fieldType } -> ValueSome(callee, fieldType, r)
             | UnionField info ->
                 let e = com.GetEntity(info.Entity)
 
                 List.tryItem info.CaseIndex e.UnionCases
                 |> Option.bind (fun c -> List.tryItem info.FieldIndex c.UnionCaseFields)
                 |> Option.map (fun f -> callee, f.FieldType, r)
-            | _ -> None
-        | _ -> None
+                |> ValueOption.ofOption
+            | _ -> ValueNone
+        | _ -> ValueNone
 
     let isGetterOrValueWithoutGenerics (memb: MemberFunctionOrValue) =
         memb.IsGetter || (memb.IsValue && List.isEmpty memb.GenericParameters)
@@ -720,6 +746,20 @@ module private Transforms =
 
         // Uncurry also values received from getters
         | GetField com (_callee, Arity arity, r) when arity > 1 -> Extended(Curry(e, arity), r)
+
+        // Uncurry public mutable module values (compiled as atoms in JS/TS/Python).
+        // These are accessed as a no-arg getter call tagged "value". The stored value
+        // is always uncurried (uncurrySendingArgs converts it when passing to createAtom),
+        // so the call site must use uncurried application too.
+        | Call(IdentExpr { IsMutable = true }, callInfo, t, r) when
+            callInfo.Args.IsEmpty && List.contains "value" callInfo.Tags
+            ->
+            let (Arity arity) = t
+
+            if arity > 1 then
+                Extended(Curry(e, arity), r)
+            else
+                e
 
         | ObjectExpr(members, t, baseCall) ->
             let members =

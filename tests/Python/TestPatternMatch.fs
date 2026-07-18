@@ -135,6 +135,18 @@ let colorMatch3 c =
     | Blue -> "blue"
     | _ -> "other"
 
+type Case =
+    | BestCase
+    | MidCase
+    | WorstCase
+
+// Or-pattern over union cases where the grouped cases share the same target
+// as the default branch. See https://github.com/fable-compiler/Fable/issues/4649
+let atLeastMid c =
+    match c with
+    | BestCase | MidCase -> true
+    | WorstCase -> false
+
 [<Fact>]
 let ``test union match with field extraction`` () =
     unionMatch (Circle 5.0) |> equal "Circle 5"
@@ -158,6 +170,12 @@ let ``test simple union match with 3 cases`` () =
     colorMatch3 Red |> equal "red"
     colorMatch3 Blue |> equal "blue"
     colorMatch3 Green |> equal "other"
+
+[<Fact>]
+let ``test or-pattern over union cases sharing default target`` () =
+    atLeastMid BestCase |> equal true
+    atLeastMid MidCase |> equal true
+    atLeastMid WorstCase |> equal false
 
 // ----------------------------------------------------------------------------
 // 5. Guard Expressions (when clauses)
@@ -236,6 +254,22 @@ let ``test guard expression capture with 5 cases`` () =
     guardCaptureMultiple 25 |> equal "medium: 25"
     guardCaptureMultiple 5 |> equal "small: 5"
     guardCaptureMultiple 0 |> equal "zero or negative"
+
+// Guard that uses the bound value multiple times. The guard is hoisted into a
+// helper function and must not capture the outer argument as a duplicate
+// default parameter (see #4610).
+let mkTag (tag: string option) =
+    match tag with
+    | None -> ""
+    | Some s when s.StartsWith("!") && not (s.StartsWith("!!")) -> s + " "
+    | Some s -> "!<" + s + "> "
+
+[<Fact>]
+let ``test guard reusing binding does not duplicate captured argument`` () =
+    mkTag None |> equal ""
+    mkTag (Some "!foo") |> equal "!foo "
+    mkTag (Some "!!foo") |> equal "!<!!foo> "
+    mkTag (Some "foo") |> equal "!<foo> "
 
 // ----------------------------------------------------------------------------
 // 6. Nested Matching

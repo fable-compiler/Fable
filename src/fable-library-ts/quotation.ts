@@ -6,6 +6,8 @@
  * (undefined = no match, value/tuple = match).
  */
 
+import { FSharpList, ofArray } from "./List.ts";
+
 // ===================================================================
 // Var: represents an F# quotation variable
 // ===================================================================
@@ -88,7 +90,8 @@ export class ExprCall {
     instance: Expr | null;
     method: string;
     args: Expr[];
-    constructor(instance: Expr | null, method: string, args: Expr[]) { this.instance = instance; this.method = method; this.args = args; }
+    declaringType: string;
+    constructor(instance: Expr | null, method: string, args: Expr[], declaringType: string = "") { this.instance = instance; this.method = method; this.args = args; this.declaringType = declaringType; }
     toJSON() { return ["Call", this.instance, this.method, this.args]; }
 }
 
@@ -208,6 +211,11 @@ export function mkValue(value: any, type: string): ExprValue {
     return new ExprValue(value, type);
 }
 
+export function mkNull(type: string): ExprValue {
+    // A null-value node (no instance / null literal / empty option or list).
+    return new ExprValue(null, type);
+}
+
 export function mkVar(v: Var): ExprVarExpr {
     return new ExprVarExpr(v);
 }
@@ -228,8 +236,8 @@ export function mkIfThenElse(guard: Expr, thenExpr: Expr, elseExpr: Expr): ExprI
     return new ExprIfThenElse(guard, thenExpr, elseExpr);
 }
 
-export function mkCall(instance: Expr | null, method: string, args: Expr[]): ExprCall {
-    return new ExprCall(instance, method, args);
+export function mkCall(instance: Expr | null, method: string, args: Expr[], declaringType: string = ""): ExprCall {
+    return new ExprCall(instance, method, args, declaringType);
 }
 
 export function mkSequential(first: Expr, second: Expr): ExprSequential {
@@ -322,9 +330,18 @@ export function isIfThenElse(expr: Expr): [Expr, Expr, Expr] | undefined {
     return undefined;
 }
 
-export function isCall(expr: Expr): [Expr | null, string, Expr[]] | undefined {
-    if (expr instanceof ExprCall) return [expr.instance, expr.method, expr.args];
+export function isCall(expr: Expr): [Expr | null, string, FSharpList<Expr>] | undefined {
+    if (expr instanceof ExprCall) {
+        // "novalue" is the "no instance" sentinel, distinct from a genuine quoted null ("null").
+        const instance = (expr.instance instanceof ExprValue && expr.instance.type === "novalue") ? null : expr.instance;
+        // Must be a real FSharpList (not the raw array), same reasoning as isFieldGet below.
+        return [instance, expr.method, ofArray(expr.args)];
+    }
     return undefined;
+}
+
+export function callDeclaringType(expr: Expr): string {
+    return expr instanceof ExprCall ? expr.declaringType : "";
 }
 
 export function isSequential(expr: Expr): [Expr, Expr] | undefined {
@@ -352,8 +369,13 @@ export function isTupleGet(expr: Expr): [Expr, number] | undefined {
     return undefined;
 }
 
-export function isFieldGet(expr: Expr): [Expr, string] | undefined {
-    if (expr instanceof ExprFieldGet) return [expr.expr, expr.fieldName];
+export function isFieldGet(expr: Expr): [Expr | null, string, Expr[]] | undefined {
+    // Third element mirrors PropertyGet's indexer-args slot, always empty here (never indexed).
+    // "novalue" is the "no instance" sentinel, distinct from a genuine quoted null ("null").
+    if (expr instanceof ExprFieldGet) {
+        const instance = (expr.expr instanceof ExprValue && expr.expr.type === "novalue") ? null : expr.expr;
+        return [instance, expr.fieldName, []];
+    }
     return undefined;
 }
 
@@ -590,7 +612,7 @@ export function substitute(expr: Expr, fn: (v: Var) => Expr | undefined): Expr {
         if (e instanceof ExprIfThenElse) return new ExprIfThenElse(sub(e.guard), sub(e.thenExpr), sub(e.elseExpr));
         if (e instanceof ExprCall) {
             const newInst = e.instance != null ? sub(e.instance) : e.instance;
-            return new ExprCall(newInst, e.method, e.args.map(sub));
+            return new ExprCall(newInst, e.method, e.args.map(sub), e.declaringType);
         }
         if (e instanceof ExprSequential) return new ExprSequential(sub(e.first), sub(e.second));
         if (e instanceof ExprNewTuple) return new ExprNewTuple(e.elements.map(sub));

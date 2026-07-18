@@ -218,6 +218,27 @@ let ``test Reflection Array`` () =
     typeof<bool> = elType |> equal false
     liType.GetElementType() |> equal null
 
+[<Fact>]
+let ``test reflection functions accept allowAccessToPrivateRepresentation`` () =
+    let recordType = typeof<MyRecord>
+    let record = { String = "a"; Int = 1 }
+
+    FSharpType.IsRecord(recordType, allowAccessToPrivateRepresentation = true) |> equal true
+    FSharpType.GetRecordFields(recordType, allowAccessToPrivateRepresentation = true).Length |> equal 2
+
+    let values = FSharpValue.GetRecordFields(record, allowAccessToPrivateRepresentation = true)
+    let rebuilt =
+        FSharpValue.MakeRecord(recordType, values, allowAccessToPrivateRepresentation = true) :?> MyRecord
+    rebuilt |> equal record
+
+    let unionType = typeof<MyUnion>
+    FSharpType.IsUnion(unionType, allowAccessToPrivateRepresentation = true) |> equal true
+    let intCase = FSharpType.GetUnionCases(unionType, allowAccessToPrivateRepresentation = true).[1]
+    let u = FSharpValue.MakeUnion(intCase, [| box 5 |], allowAccessToPrivateRepresentation = true) :?> MyUnion
+    let info, fields = FSharpValue.GetUnionFields(u, unionType, allowAccessToPrivateRepresentation = true)
+    info.Name |> equal "IntCase"
+    fields.[0] |> equal (box 5)
+
 #if FABLE_COMPILER
 [<Fact>]
 let ``test FSharp.Reflection Record`` () =
@@ -467,6 +488,38 @@ let ``test FSharp.Reflection: Result`` () =
     let ucis = FSharpType.GetUnionCases typ
     FSharpValue.MakeUnion(ucis.[0], [|box 5|]) |> equal (box (Result<_,string>.Ok 5))
     FSharpValue.MakeUnion(ucis.[1], [|box "foo"|]) |> equal (box (Result<int,_>.Error "foo"))
+
+// See https://github.com/fable-compiler/Fable/issues/4082
+[<Fact>]
+let ``test FSharp.Reflection: Option is a union type`` () =
+    let typ = typeof<int option>
+    FSharpType.IsUnion(typ) |> equal true
+    let ucis = FSharpType.GetUnionCases(typ)
+    ucis.Length |> equal 2
+    ucis.[0].Name |> equal "None"
+    ucis.[1].Name |> equal "Some"
+    FSharpValue.MakeUnion(ucis.[0], [||]) |> equal (box (None: int option))
+    FSharpValue.MakeUnion(ucis.[1], [|box 42|]) |> equal (box (Some 42))
+    let noneCase, noneFields = FSharpValue.GetUnionFields(box (None: int option), typ)
+    noneCase.Name |> equal "None"
+    noneFields.Length |> equal 0
+    let someCase, someFields = FSharpValue.GetUnionFields(box (Some 42), typ)
+    someCase.Name |> equal "Some"
+    someFields.Length |> equal 1
+    someFields.[0] |> equal (box 42)
+
+[<Fact>]
+let ``test FSharp.Reflection: Option round-trips through Some(None) and Some(Some x)`` () =
+    let typ = typeof<int option option>
+    let ucis = FSharpType.GetUnionCases(typ)
+    let someCase, someFields = FSharpValue.GetUnionFields(box (Some (None: int option)), typ)
+    someCase.Name |> equal "Some"
+    someFields.[0] |> equal (box (None: int option))
+    let someCase2, someFields2 = FSharpValue.GetUnionFields(box (Some (Some 42)), typ)
+    someCase2.Name |> equal "Some"
+    someFields2.[0] |> equal (box (Some 42))
+    FSharpValue.MakeUnion(ucis.[1], [|box (None: int option)|]) |> equal (box (Some (None: int option)))
+    FSharpValue.MakeUnion(ucis.[1], [|box (Some 42)|]) |> equal (box (Some (Some 42)))
 
 [<Fact>]
 let ``test FSharp.Reflection: Choice`` () =

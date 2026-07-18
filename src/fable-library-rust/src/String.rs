@@ -5,7 +5,7 @@ pub mod String_ {
     // Strings
     // -----------------------------------------------------------
 
-    use crate::Native_::{compare, Func1, Func2, NullableRef, String, ToString, Vec};
+    use crate::Native_::{compare, getHashCode, Func1, Func2, Hashable, NullableRef, String, ToString, Vec};
     use crate::NativeArray_::{array_from, Array};
 
     use core::cmp::Ordering;
@@ -18,8 +18,8 @@ pub mod String_ {
     mod HeapString {
         use crate::Native_::{Lrc, NullableRef, String};
 
-        #[repr(transparent)]
         #[derive(Clone)]
+        #[repr(transparent)]
         pub struct LrcStr(Option<Lrc<str>>);
 
         pub type string = LrcStr;
@@ -269,6 +269,13 @@ pub mod String_ {
         #[inline]
         fn hash<H: Hasher>(&self, state: &mut H) {
             self.as_str().hash(state);
+        }
+    }
+
+    impl Hashable for string {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            getHashCode(self)
         }
     }
 

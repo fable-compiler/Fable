@@ -134,8 +134,154 @@ pub mod Native_ {
     use core::fmt::{Debug, Display, Formatter, Result};
     use core::hash::{BuildHasher, BuildHasherDefault, Hash, Hasher};
 
+    #[cfg(feature = "no_std")]
+    type DefaultHashBuilder = hashbrown::DefaultHashBuilder;
+    #[cfg(not(feature = "no_std"))]
+    type DefaultHashBuilder = BuildHasherDefault<std::collections::hash_map::DefaultHasher>;
+
     // default object trait
     // pub trait IObject: Clone + Debug + 'static {}
+
+    // -----------------------------------------------------------
+    // Hashable
+    // -----------------------------------------------------------
+
+    pub use crate::hashable;
+    pub use hashable::Hashable;
+
+    pub trait Hashable {
+        fn getHashCode(&self) -> i32;
+    }
+
+    impl Hashable for () {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            0 // hash code for unit type is always 0
+        }
+    }
+
+    impl Hashable for f64 {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            if *self == 0.0 {
+                return 0; // treat +0.0 and -0.0 as equal
+            }
+            let x = self.to_bits();
+            ((x >> 32) ^ x) as i32
+        }
+    }
+
+    impl Hashable for f32 {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            if *self == 0.0 {
+                return 0; // treat +0.0 and -0.0 as equal
+            }
+            let x = self.to_bits();
+            x as i32
+        }
+    }
+
+    impl<T: Hashable + ?Sized> Hashable for Lrc<T> {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            self.as_ref().getHashCode()
+        }
+    }
+
+    impl<T: Hashable> Hashable for Option<T> {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            if let Some(value) = self {
+                value.getHashCode()
+            } else {
+                0
+            }
+        }
+    }
+
+    impl<T: Hashable, E: Hashable> Hashable for core::result::Result<T, E> {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            hash_to_i32(|hasher| match self {
+                Ok(value) => {
+                    0_usize.hash(hasher);
+                    value.getHashCode().hash(hasher);
+                }
+                Err(error) => {
+                    1_usize.hash(hasher);
+                    error.getHashCode().hash(hasher);
+                }
+            })
+        }
+    }
+
+    impl<T: Hashable> Hashable for MutCell<T> {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            self.get().getHashCode()
+        }
+    }
+
+    impl<T: Hashable> Hashable for Vec<T> {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            hash_to_i32(|hasher| {
+                self.len().hash(hasher);
+                for value in self.iter() {
+                    value.getHashCode().hash(hasher);
+                }
+            })
+        }
+    }
+
+    macro_rules! hashable_tuple {
+        ($($ty:ident),+ $(,)?) => {
+            impl<$($ty: Hashable),+> Hashable for ($($ty,)+) {
+                #[inline]
+                fn getHashCode(&self) -> i32 {
+                    #[allow(non_snake_case)]
+                    let ($($ty,)+) = self;
+                    getHashCodeFromHashCodes([$($ty.getHashCode(),)+])
+                }
+            }
+        };
+    }
+
+    hashable_tuple!(T1, T2);
+    hashable_tuple!(T1, T2, T3);
+    hashable_tuple!(T1, T2, T3, T4);
+    hashable_tuple!(T1, T2, T3, T4, T5);
+    hashable_tuple!(T1, T2, T3, T4, T5, T6);
+    hashable_tuple!(T1, T2, T3, T4, T5, T6, T7);
+    hashable_tuple!(T1, T2, T3, T4, T5, T6, T7, T8);
+
+    #[macro_export]
+    macro_rules! hashable {
+        ($ident:ident) => {
+            impl Hashable for $ident {
+                #[inline]
+                fn getHashCode(&self) -> i32 {
+                    getHashCode(self)
+                }
+            }
+        };
+    }
+
+    hashable!(bool);
+    hashable!(char);
+    hashable!(i8);
+    hashable!(u8);
+    hashable!(i16);
+    hashable!(u16);
+    hashable!(i32);
+    hashable!(u32);
+    hashable!(i64);
+    hashable!(u64);
+    hashable!(isize);
+    hashable!(usize);
+    hashable!(i128);
+    hashable!(u128);
 
     // -----------------------------------------------------------
     // Helpers
@@ -168,8 +314,19 @@ pub mod Native_ {
         unsafe { core::mem::zeroed() } // will panic on Rc/Arc/Box
     }
 
+    // A valid placeholder value of type `LrcPtr<dyn Any>`. Used to pre-declare
+    // reference-typed (`obj`) match bindings, as `getZero`/`mem::zeroed` panics on
+    // the `Rc` fat pointer and `null` is not available for the unsized `dyn Any`.
+    pub fn getZeroObj() -> LrcPtr<dyn Any> {
+        box_(())
+    }
+
     pub fn defaultOf<T: Default>() -> T {
         Default::default()
+    }
+
+    pub fn divideByInt<T: DivideByInt>(x: T, y: i32) -> T {
+        x.divide_by_int(y)
     }
 
     pub fn min<T: PartialOrd>(x: T, y: T) -> T {
@@ -188,22 +345,41 @@ pub mod Native_ {
         core::ptr::eq(left, right)
     }
 
-    pub fn getHashCode<T: Hash>(x: T) -> i32 {
-        #[cfg(feature = "no_std")]
-        type DefaultHashBuilder = hashbrown::DefaultHashBuilder;
-        #[cfg(not(feature = "no_std"))]
-        type DefaultHashBuilder = BuildHasherDefault<std::collections::hash_map::DefaultHasher>;
-
-        static builder: OnceInit<DefaultHashBuilder> = OnceInit::new();
-        let default_builder = builder.get_or_init(move || DefaultHashBuilder::default());
+    #[inline]
+    fn hash_to_i32<F>(hash: F) -> i32
+    where
+        F: FnOnce(&mut <DefaultHashBuilder as BuildHasher>::Hasher),
+    {
+        static BUILDER: OnceInit<DefaultHashBuilder> = OnceInit::new();
+        let default_builder = BUILDER.get_or_init(move || DefaultHashBuilder::default());
         let mut hasher = default_builder.build_hasher();
-        x.hash(&mut hasher);
+        hash(&mut hasher);
         let h = hasher.finish();
         ((h >> 32) ^ h) as i32
     }
 
+    pub fn getHashCode<T: Hash>(x: &T) -> i32 {
+        hash_to_i32(|hasher| x.hash(hasher))
+    }
+
+    #[inline]
+    pub fn combineHashCodes(x: i32, y: i32) -> i32 {
+        x.wrapping_shl(1).wrapping_add(y).wrapping_add(631)
+    }
+
+    pub fn getHashCodeFromHashCodes<I>(hash_codes: I) -> i32
+    where
+        I: IntoIterator<Item = i32>,
+    {
+        hash_to_i32(|hasher| {
+            for hash_code in hash_codes {
+                hash_code.hash(hasher);
+            }
+        })
+    }
+
     pub fn referenceHash<T: ?Sized>(p: &T) -> i32 {
-        getHashCode(p as *const T)
+        getHashCode(&(p as *const T))
     }
 
     pub fn compare<T: PartialOrd>(x: T, y: T) -> i32 {
@@ -238,7 +414,7 @@ pub mod Native_ {
 
     pub fn default_eq_comparer<T>() -> LrcPtr<dyn IEqualityComparer_1<T>>
     where
-        T: Clone + Hash + PartialEq + 'static,
+        T: Clone + Hashable + PartialEq + 'static,
     {
         interface_cast!(
             EqualityComparer_1::<T>::get_Default(),
@@ -320,6 +496,56 @@ pub mod Native_ {
     }
 
     // -----------------------------------------------------------
+    // Unit arg curried applications
+    // -----------------------------------------------------------
+
+    pub trait ApplyUnit<R> {
+        fn apply_unit(self) -> R;
+    }
+
+    pub trait EraseUnitArg<R> {
+        fn erase_unit_arg(self) -> Func0<R>;
+    }
+
+    impl<R: 'static> ApplyUnit<R> for Func0<R> {
+        #[inline]
+        fn apply_unit(self) -> R {
+            self()
+        }
+    }
+
+    impl<R: 'static> ApplyUnit<R> for Func1<(), R> {
+        #[inline]
+        fn apply_unit(self) -> R {
+            self(())
+        }
+    }
+
+    impl<R: 'static> EraseUnitArg<R> for Func0<R> {
+        #[inline]
+        fn erase_unit_arg(self) -> Func0<R> {
+            self
+        }
+    }
+
+    impl<R: 'static> EraseUnitArg<R> for Func1<(), R> {
+        #[inline]
+        fn erase_unit_arg(self) -> Func0<R> {
+            Func0::new(move || self(()))
+        }
+    }
+
+    #[inline]
+    pub fn applyUnit<R, F: ApplyUnit<R>>(f: F) -> R {
+        f.apply_unit()
+    }
+
+    #[inline]
+    pub fn eraseUnitArg<R, F: EraseUnitArg<R>>(f: F) -> Func0<R> {
+        f.erase_unit_arg()
+    }
+
+    // -----------------------------------------------------------
     // Fixed-point combinators
     // -----------------------------------------------------------
 
@@ -371,6 +597,27 @@ pub mod Native_ {
     // Operator traits
     // -----------------------------------------------------------
 
+    pub trait DivideByInt: Sized {
+        fn divide_by_int(self, rhs: i32) -> Self;
+    }
+
+    macro_rules! divide_by_int_impl {
+        ($($t:ty),* $(,)?) => {
+            $(
+                impl DivideByInt for $t {
+                    #[inline]
+                    fn divide_by_int(self, rhs: i32) -> Self {
+                        self / (rhs as $t)
+                    }
+                }
+            )*
+        };
+    }
+
+    divide_by_int_impl!(
+        i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64
+    );
+
     #[macro_export]
     macro_rules! un_op {
         ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $($args:ty),*) => {
@@ -397,7 +644,20 @@ pub mod Native_ {
         };
     }
 
+    #[macro_export]
+    macro_rules! div_int_op {
+        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $rhs:ty, $($args:ty,)*) => {
+            impl<$($args),*> $crate::Native_::DivideByInt for $obj {
+                #[inline]
+                fn divide_by_int(self, rhs: i32) -> Self {
+                    <$obj>::$op(self, rhs)
+                }
+            }
+        };
+    }
+
     pub use crate::bin_op;
+    pub use crate::div_int_op;
     pub use crate::un_op;
 
     // -----------------------------------------------------------

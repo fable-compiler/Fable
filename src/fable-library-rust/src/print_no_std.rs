@@ -2,7 +2,7 @@
 const STDOUT: i32 = 1;
 const STDERR: i32 = 2;
 
-#[link(name="c")]
+#[link(name = "c")]
 unsafe extern "C" {
     fn write(filedes: i32, buf: *const core::ffi::c_void, nbyte: usize);
 }
@@ -78,7 +78,7 @@ macro_rules! eprintln {
     }}
 }
 
-pub use crate::print;
-pub use crate::println;
 pub use crate::eprint;
 pub use crate::eprintln;
+pub use crate::print;
+pub use crate::println;

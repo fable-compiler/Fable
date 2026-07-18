@@ -9,7 +9,7 @@
     <RootNamespace>Fable.Tests</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.7.0" />
     <PackageReference Include="XUnit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -26,8 +26,16 @@
     <Compile Include="Misc/Aether.fs" />
     <Compile Include="Misc/Imports.fs" />
     <Compile Include="Misc/Util2.fs" />
+    <Compile Include="Misc/UserAssert.fs" />
     <Compile Include="Misc/Util3.fs" />
+    <!-- File names that collide with OTP stdlib modules, and with each other -->
+    <Compile Include="Naming/Gen.fs" />
+    <Compile Include="Naming/Random.fs" />
+    <Compile Include="Naming/String.fs" />
+    <Compile Include="Naming/First/Types.fs" />
+    <Compile Include="Naming/Second/Types.fs" />
     <Compile Include="Util.fs" />
+    <Compile Include="AssertTests.fs" />
     <Compile Include="ArithmeticTests.fs" />
     <Compile Include="RandomTests.fs" />
     <Compile Include="ListTests.fs" />
@@ -65,6 +73,7 @@
     <Compile Include="QueueTests.fs" />
     <Compile Include="StackTests.fs" />
     <Compile Include="EncodingTests.fs" />
+    <Compile Include="EnvironmentTests.fs" />
     <Compile Include="ApplicativeTests.fs" />
     <Compile Include="MiscTests.fs" />
     <Compile Include="TimeSpanTests.fs" />
@@ -89,6 +98,9 @@
     <Compile Include="InterfaceTests.fs" />
     <Compile Include="MiscTests2.fs" />
     <Compile Include="QuotationTests.fs" />
+    <Compile Include="ModuleMutableOneTests.fs" />
+    <Compile Include="ModuleMutableTwoTests.fs" />
+    <Compile Include="ModuleNamingTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

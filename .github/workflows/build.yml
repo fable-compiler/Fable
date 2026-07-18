@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 permissions:
   id-token: write
   security-events: write
@@ -18,14 +22,21 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
           cache: true
-          cache-dependency-path: "**/*.fsproj"
+          # Version numbers also come from .props/.targets (e.g.
+          # $(SystemCollectionsImmutableVersion) used by
+          # FSharp.Compiler.Service.fsproj), so hashing only .fsproj files
+          # would miss dependency changes made there.
+          cache-dependency-path: |
+            **/*.fsproj
+            **/*.props
+            **/*.targets
 
       - name: Restore tools
         run: dotnet tool restore
@@ -41,38 +52,55 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
           cache: true
-          cache-dependency-path: "**/*.fsproj"
+          # Version numbers also come from .props/.targets (e.g.
+          # $(SystemCollectionsImmutableVersion) used by
+          # FSharp.Compiler.Service.fsproj), so hashing only .fsproj files
+          # would miss dependency changes made there.
+          cache-dependency-path: |
+            **/*.fsproj
+            **/*.props
+            **/*.targets
 
       - name: Restore project
         run: dotnet restore Fable.sln
 
   # Separate build job for JavaScript
   build-javascript:
-    timeout-minutes: 60
+    # Expecto has been hanging randomly (started a few days ago, cause unknown) - keep this
+    # tight so a hang fails fast instead of burning the full hour. See:
+    # https://github.com/fable-compiler/Fable/actions/runs/28803363016/job/85412364876
+    timeout-minutes: 10
     strategy:
       matrix:
         platform: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
           cache: true
-          cache-dependency-path: "**/*.fsproj"
+          # Version numbers also come from .props/.targets (e.g.
+          # $(SystemCollectionsImmutableVersion) used by
+          # FSharp.Compiler.Service.fsproj), so hashing only .fsproj files
+          # would miss dependency changes made there.
+          cache-dependency-path: |
+            **/*.fsproj
+            **/*.props
+            **/*.targets
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           cache: npm
 
@@ -90,17 +118,24 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
           cache: true
-          cache-dependency-path: "**/*.fsproj"
+          # Version numbers also come from .props/.targets (e.g.
+          # $(SystemCollectionsImmutableVersion) used by
+          # FSharp.Compiler.Service.fsproj), so hashing only .fsproj files
+          # would miss dependency changes made there.
+          cache-dependency-path: |
+            **/*.fsproj
+            **/*.props
+            **/*.targets
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           cache: npm
 
@@ -116,17 +151,24 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
           cache: true
-          cache-dependency-path: "**/*.fsproj"
+          # Version numbers also come from .props/.targets (e.g.
+          # $(SystemCollectionsImmutableVersion) used by
+          # FSharp.Compiler.Service.fsproj), so hashing only .fsproj files
+          # would miss dependency changes made there.
+          cache-dependency-path: |
+            **/*.fsproj
+            **/*.props
+            **/*.targets
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           cache: npm
 
@@ -139,17 +181,24 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
           cache: true
-          cache-dependency-path: "**/*.fsproj"
+          # Version numbers also come from .props/.targets (e.g.
+          # $(SystemCollectionsImmutableVersion) used by
+          # FSharp.Compiler.Service.fsproj), so hashing only .fsproj files
+          # would miss dependency changes made there.
+          cache-dependency-path: |
+            **/*.fsproj
+            **/*.props
+            **/*.targets
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           cache: npm
 
@@ -168,24 +217,34 @@ jobs:
       UV_LINK_MODE: copy
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
           cache: true
-          cache-dependency-path: "**/*.fsproj"
+          # Version numbers also come from .props/.targets (e.g.
+          # $(SystemCollectionsImmutableVersion) used by
+          # FSharp.Compiler.Service.fsproj), so hashing only .fsproj files
+          # would miss dependency changes made there.
+          cache-dependency-path: |
+            **/*.fsproj
+            **/*.props
+            **/*.targets
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install uv
-        run: |
-          pipx install uv
-          pipx install maturin
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install maturin
+        run: uv tool install maturin
 
       - name: Fable Library - Python (linux)
         if: matrix.platform == 'ubuntu-latest'
@@ -212,17 +271,24 @@ jobs:
         test: ["default", "no_std", "threaded"]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
           cache: true
-          cache-dependency-path: "**/*.fsproj"
+          # Version numbers also come from .props/.targets (e.g.
+          # $(SystemCollectionsImmutableVersion) used by
+          # FSharp.Compiler.Service.fsproj), so hashing only .fsproj files
+          # would miss dependency changes made there.
+          cache-dependency-path: |
+            **/*.fsproj
+            **/*.props
+            **/*.targets
 
       - name: Setup Node.js environment
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           cache: npm
 
@@ -243,14 +309,21 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
           cache: true
-          cache-dependency-path: "**/*.fsproj"
+          # Version numbers also come from .props/.targets (e.g.
+          # $(SystemCollectionsImmutableVersion) used by
+          # FSharp.Compiler.Service.fsproj), so hashing only .fsproj files
+          # would miss dependency changes made there.
+          cache-dependency-path: |
+            **/*.fsproj
+            **/*.props
+            **/*.targets
 
       - name: Setup Dart SDK
         uses: dart-lang/setup-dart@v1
@@ -264,14 +337,21 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
           cache: true
-          cache-dependency-path: "**/*.fsproj"
+          # Version numbers also come from .props/.targets (e.g.
+          # $(SystemCollectionsImmutableVersion) used by
+          # FSharp.Compiler.Service.fsproj), so hashing only .fsproj files
+          # would miss dependency changes made there.
+          cache-dependency-path: |
+            **/*.fsproj
+            **/*.props
+            **/*.targets
 
       - name: Setup Erlang/OTP
         uses: erlef/setup-beam@v1
@@ -298,14 +378,21 @@ jobs:
           ]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
           cache: true
-          cache-dependency-path: "**/*.fsproj"
+          # Version numbers also come from .props/.targets (e.g.
+          # $(SystemCollectionsImmutableVersion) used by
+          # FSharp.Compiler.Service.fsproj), so hashing only .fsproj files
+          # would miss dependency changes made there.
+          cache-dependency-path: |
+            **/*.fsproj
+            **/*.props
+            **/*.targets
 
       - name: Restore tools
         run: dotnet tool restore

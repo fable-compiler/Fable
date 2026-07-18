@@ -268,3 +268,10 @@ let tests() =
         try (xs.Item 1) |> ignore; false with _ -> true
         |> equal true
 
+    testCase "ResizeArray uses reference equality not structural equality" <| fun _ -> // See #3718
+        let xs = ResizeArray [0; 1; 2]
+        let ys = ResizeArray [0; 1; 2]
+        equal false (xs = ys)
+        equal true (xs = xs)
+        equal true (xs <> ys)
+        equal false (xs <> xs)

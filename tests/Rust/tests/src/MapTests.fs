@@ -231,6 +231,17 @@ let ``Map.find with option works`` () =
     |> equal 1.
 
 [<Fact>]
+let ``Map.find works with reference-type values`` () =
+    // Reference-type (Rc-wrapped) values used to panic: find/tryFind initialized a
+    // byref out-param with Unchecked.defaultof, which lowers to getZero/mem::zeroed.
+    let xs = Map [ 1, box "one"; 2, box 99 ]
+    xs |> Map.find 1 |> unbox<string> |> equal "one"
+    xs |> Map.find 2 |> unbox<int> |> equal 99
+    let strs = Map [ "a", [ 10; 20 ]; "b", [ 30 ] ]
+    strs |> Map.find "a" |> List.sum |> equal 30
+    strs |> Map.tryFind "b" |> Option.get |> List.head |> equal 30
+
+[<Fact>]
 let ``Map.tryFind with option works`` () =
     let xs = Map [1,Some 1.; 2,None]
     xs |> Map.tryFind 2 |> (fun x -> x.Value)

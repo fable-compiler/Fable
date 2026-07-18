@@ -6,13 +6,13 @@ open System
 module Extensions =
     type String with
 
-        member str.StartsWithAny([<ParamArray>] patterns: string[]) =
+        member str.StartsWithAny([<ParamArray>] patterns: string array) =
             patterns |> Array.exists (fun p -> str.StartsWith(p, StringComparison.Ordinal))
 
 module Dictionary =
     open System.Collections.Generic
 
-    let tryFind key (dic: #IDictionary<'Key, 'Value>) =
+    let tryFind key (dic: IDictionary<'Key, 'Value>) =
         match dic.TryGetValue(key) with
         | true, v -> Some v
         | false, _ -> None
@@ -20,7 +20,7 @@ module Dictionary =
 module ReadOnlyDictionary =
     open System.Collections.Generic
 
-    let tryFind key (dic: #IReadOnlyDictionary<'Key, 'Value>) =
+    let tryFind key (dic: IReadOnlyDictionary<'Key, 'Value>) =
         match dic.TryGetValue(key) with
         | true, v -> Some v
         | false, _ -> None
@@ -56,7 +56,7 @@ module Seq =
     let mapToList (f: 'a -> 'b) (xs: 'a seq) : 'b list =
         ([], xs) ||> Seq.fold (fun li x -> (f x) :: li) |> List.rev
 
-    let mapToArray (f: 'a -> 'b) (xs: 'a seq) : 'b[] =
+    let mapToArray (f: 'a -> 'b) (xs: 'a seq) : 'b array =
         let ar = ResizeArray()
         xs |> Seq.iter (fun x -> ar.Add(f x))
         ar.ToArray()
@@ -82,7 +82,7 @@ module Seq =
 
 [<RequireQualifiedAccess>]
 module Array =
-    let filteri (filter: int -> 'a -> bool) (xs: 'a[]) : 'a[] =
+    let filteri (filter: int -> 'a -> bool) (xs: 'a array) : 'a array =
         let mutable i = -1
 
         xs
@@ -91,7 +91,7 @@ module Array =
             filter i x
         )
 
-    let partitionBy (f: 'T -> Choice<'T1, 'T2>) (xs: 'T[]) =
+    let partitionBy (f: 'T -> Choice<'T1, 'T2>) (xs: 'T array) =
         let r1 = ResizeArray()
         let r2 = ResizeArray()
 
@@ -181,12 +181,12 @@ module List =
         ar.ToArray()
 
     let mapToArray (f: 'a -> 'b) (xs: 'a list) =
-        let ar: 'b[] = List.length xs |> Array.zeroCreate
+        let ar: 'b array = List.length xs |> Array.zeroCreate
         xs |> List.iteri (fun i x -> ar.[i] <- f x)
         ar
 
     let mapiToArray (f: int -> 'a -> 'b) (xs: 'a list) =
-        let ar: 'b[] = List.length xs |> Array.zeroCreate
+        let ar: 'b array = List.length xs |> Array.zeroCreate
         xs |> List.iteri (fun i x -> ar.[i] <- f i x)
         ar
 
@@ -218,30 +218,37 @@ module Result =
         | Error e -> extractError e
 
 module Patterns =
-    let (|Try|_|) (f: 'a -> 'b option) a = f a
+    [<return: Struct>]
+    let (|Try|_|) (f: 'a -> 'b option) a =
+        match f a with
+        | Some x -> ValueSome x
+        | None -> ValueNone
 
     let (|Run|) (f: 'a -> 'b) a = f a
 
+    [<return: Struct>]
     let (|DicContains|_|) (dic: System.Collections.Generic.IDictionary<'k, 'v>) key =
         let success, value = dic.TryGetValue key
 
         if success then
-            Some value
+            ValueSome value
         else
-            None
+            ValueNone
 
+    [<return: Struct>]
     let (|SetContains|_|) set item =
         if Set.contains item set then
-            Some SetContains
+            ValueSome SetContains
         else
-            None
+            ValueNone
 
+    [<return: Struct>]
     let (|ListLast|_|) (xs: 'a list) =
         if List.isEmpty xs then
-            None
+            ValueNone
         else
             let xs, last = List.splitLast xs
-            Some(xs, last)
+            ValueSome(xs, last)
 
 module Path =
     open System
@@ -430,11 +437,11 @@ module Path =
         // let isDir = IO.Directory.Exists
         getRelativeFileOrDirPath (isDir fromFullPath) fromFullPath (isDir toFullPath) toFullPath
 
-    let getCommonPrefix (xs: string[] list) =
-        let rec getCommonPrefix (prefix: string[]) =
+    let getCommonPrefix (xs: string array list) =
+        let rec getCommonPrefix (prefix: string array) =
             function
             | [] -> prefix
-            | (x: string[]) :: xs ->
+            | (x: string array) :: xs ->
                 let mutable i = 0
 
                 while i < prefix.Length && i < x.Length && x.[i] = prefix.[i] do

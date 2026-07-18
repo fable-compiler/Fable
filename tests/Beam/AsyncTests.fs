@@ -90,6 +90,94 @@ let ``test async start immediate works`` () =
     Async.StartImmediate (async { x <- 42 })
     equal 42 x
 
+[<Fact>]
+let ``test Async.StartChild works`` () =
+    let comp = async {
+        let! c = Async.StartChild(async { return 42 })
+        let! r = c
+        return r
+    }
+    Async.RunSynchronously comp |> equal 42
+
+[<Fact>]
+let ``test Async.StartChild runs children concurrently`` () =
+    // Each child sleeps 300ms. Started before either is awaited, they run in
+    // parallel (separate BEAM processes), so total time is ~300ms, not ~600ms.
+    let sleeper n = async {
+        do! Async.Sleep 300
+        return n
+    }
+    let comp = async {
+        let sw = System.Diagnostics.Stopwatch.StartNew()
+        let! c1 = Async.StartChild(sleeper 1)
+        let! c2 = Async.StartChild(sleeper 2)
+        let! r1 = c1
+        let! r2 = c2
+        sw.Stop()
+        return r1 + r2, sw.ElapsedMilliseconds
+    }
+    let sum, elapsed = Async.RunSynchronously comp
+    equal 3 sum
+    (elapsed < 500L) |> equal true
+
+[<Fact>]
+let ``test Async.StartChild applies timeout`` () =
+    let slow = async {
+        do! Async.Sleep 1000
+        return 1
+    }
+    let comp = async {
+        let! c = Async.StartChild(slow, 50)
+        try
+            let! _ = c
+            return "no timeout"
+        with ex ->
+            return ex.Message
+    }
+    Async.RunSynchronously comp |> equal "The operation has timed out."
+
+[<Fact>]
+let ``test Async.StartChild with timeout completes when computation finishes before timeout`` () =
+    let fast = async {
+        do! Async.Sleep 10
+        return 99
+    }
+    let comp = async {
+        let! c = Async.StartChild(fast, 1000)
+        let! r = c
+        return r
+    }
+    Async.RunSynchronously comp |> equal 99
+
+[<Fact>]
+let ``test Async.StartChild result can be awaited multiple times`` () =
+    let comp = async {
+        let! c = Async.StartChild(async { return 21 })
+        let! r1 = c
+        let! r2 = c
+        return r1 + r2
+    }
+    Async.RunSynchronously comp |> equal 42
+
+[<Fact>]
+let ``test Async.StartChild result can be awaited from another process`` () =
+    // On Beam, Async.Parallel runs each computation in its own process, so
+    // awaiting the child from inside a parallel worker exercises cross-process
+    // await: the awaiter is not the process that called StartChild.
+    let comp = async {
+        let! c = Async.StartChild(async {
+            do! Async.Sleep 50
+            return 7
+        })
+        let! results =
+            Async.Parallel [ async {
+                let! r = c
+                return r
+            } ]
+        return Array.sum results
+    }
+    Async.RunSynchronously comp |> equal 7
+
 let asyncMap f a = async {
     let! a = a
     return f a
@@ -394,5 +482,26 @@ let ``test Can use custom exceptions in async workflows`` () =
         let! res = parentWorkflow()
         equal 7 res
     } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.AwaitEvent fires continuation when event is triggered`` () =
+    let ev = Event<int>()
+    Async.StartImmediate(async {
+        let! v = Async.AwaitEvent ev.Publish
+        equal 42 v
+    })
+    ev.Trigger(42)
+
+[<Fact>]
+let ``test Async.AwaitEvent with cancelAction invokes it on cancellation`` () =
+    let ev = Event<int>()
+    let cts = new System.Threading.CancellationTokenSource()
+    let mutable cancelCalled = false
+    Async.StartImmediate(async {
+        let! _ = Async.AwaitEvent(ev.Publish, fun () -> cancelCalled <- true)
+        ()
+    }, cts.Token)
+    cts.Cancel()
+    equal true cancelCalled
 
 #endif

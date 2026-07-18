@@ -2,6 +2,7 @@ module Fable.Tests.String
 
 open System
 open Util.Testing
+open System.Globalization
 
 let containsInOrder (substrings: string list) (str: string) =
     let mutable lastIndex = -1

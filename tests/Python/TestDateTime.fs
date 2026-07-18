@@ -557,6 +557,51 @@ let ``test DateTime.ToString with Round-trip format works for Utc`` () =
     |> equal "2014-09-11T16:37:02.000000Z"
 
 [<Fact>]
+let ``test DateTime.ToString("R") works`` () =
+    DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("R", CultureInfo.InvariantCulture)
+    |> equal "Mon, 01 Sep 2014 16:37:02 GMT"
+
+[<Fact>]
+let ``test DateTime.ToString("s") works`` () =
+    DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("s", CultureInfo.InvariantCulture)
+    |> equal "2014-09-01T16:37:02"
+
+[<Fact>]
+let ``test DateTime.ToString("u") works`` () =
+    DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("u", CultureInfo.InvariantCulture)
+    |> equal "2014-09-01 16:37:02Z"
+
+[<Fact>]
+let ``test DateTime.ToString full date long time format works`` () =
+    DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("F", CultureInfo.InvariantCulture)
+    |> equal "Monday, 01 September 2014 16:37:02"
+
+[<Fact>]
+let ``test DateTime.ToString full date short time format works`` () =
+    DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("f", CultureInfo.InvariantCulture)
+    |> equal "Monday, 01 September 2014 16:37"
+
+[<Fact>]
+let ``test DateTime.ToString general long time format works`` () =
+    DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("G", CultureInfo.InvariantCulture)
+    |> equal "09/01/2014 16:37:02"
+
+[<Fact>]
+let ``test DateTime.ToString general short time format works`` () =
+    DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("g", CultureInfo.InvariantCulture)
+    |> equal "09/01/2014 16:37"
+
+[<Fact>]
+let ``test DateTime.ToString("M") works`` () =
+    DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("M", CultureInfo.InvariantCulture)
+    |> equal "September 01"
+
+[<Fact>]
+let ``test DateTime.ToString("Y") works`` () =
+    DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc).ToString("Y", CultureInfo.InvariantCulture)
+    |> equal "2014 September"
+
+[<Fact>]
 let ``test DateTime from Year 1 to 99 works`` () =
     let date = DateTime(1, 1, 2)
     date.Year |> equal 1

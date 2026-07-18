@@ -6,6 +6,12 @@ open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
 open Microsoft.FSharp.Linq.RuntimeHelpers
 
+type QuotationTestUnion =
+    | QuotCircle of float
+    | QuotSquare of float
+
+let inline quotTestDouble x = x * 2
+
 [<Fact>]
 let ``test Simple integer value quotation`` () =
     let q = <@ 42 @>
@@ -161,3 +167,119 @@ let ``test Expr.GetFreeVars returns empty for closed expr`` () =
     let q = <@ fun x -> x + 1 @>
     let freeVars = q.GetFreeVars() |> Seq.length
     equal 0 freeVars
+
+// --- Pattern matches lower to IfThenElse (DecisionTree/Test handling) ---
+// Note: these only check the outer IfThenElse shape. The guard itself is a synthetic Call
+// here (e.g. "get_IsNone", "op_TypeTest"), not the real UnionCaseTest/TypeTest node .NET uses.
+
+[<Fact>]
+let ``test Option match deconstructs to IfThenElse`` () =
+    let q = <@ fun (o: int option) -> match o with Some v -> v | None -> 0 @>
+    match q with
+    | Lambda(_, IfThenElse(_, _, _)) -> ()
+    | _ -> failwith "Expected Lambda with IfThenElse body"
+
+[<Fact>]
+let ``test Literal match deconstructs to IfThenElse`` () =
+    let q = <@ fun (x: int) -> match x with 0 -> "zero" | _ -> "other" @>
+    match q with
+    | Lambda(_, IfThenElse(_, _, _)) -> ()
+    | _ -> failwith "Expected Lambda with IfThenElse body"
+
+[<Fact>]
+let ``test Union case match deconstructs to IfThenElse`` () =
+    let q =
+        <@ fun (s: QuotationTestUnion) ->
+            match s with
+            | QuotCircle _ -> true
+            | QuotSquare _ -> false @>
+
+    match q with
+    | Lambda(_, IfThenElse(_, _, _)) -> ()
+    | _ -> failwith "Expected Lambda with IfThenElse body"
+
+[<Fact>]
+let ``test List match deconstructs to IfThenElse`` () =
+    let q =
+        <@ fun (xs: int list) ->
+            match xs with
+            | [] -> true
+            | _ :: _ -> false @>
+
+    match q with
+    | Lambda(_, IfThenElse(_, _, _)) -> ()
+    | _ -> failwith "Expected Lambda with IfThenElse body"
+
+[<Fact>]
+let ``test Type test match deconstructs to IfThenElse`` () =
+    let q =
+        <@ fun (o: obj) ->
+            match o with
+            | :? int -> true
+            | _ -> false @>
+
+    match q with
+    | Lambda(_, IfThenElse(_, _, _)) -> ()
+    | _ -> failwith "Expected Lambda with IfThenElse body"
+
+// --- Member calls inside quotations keep original .NET metadata (not inlined) ---
+
+[<Fact>]
+let ``test Inline function call inside quotation is preserved, not inlined`` () =
+    let q = <@ quotTestDouble 5 @>
+
+    match q with
+    | Call(None, _mi, args) -> equal 1 (Seq.length args)
+    | _ -> failwith "Expected a preserved Call node with a single argument"
+
+// --- Option/List property-getter accessors (ListHead/ListTail/OptionValue) deconstruct
+// as PropertyGet, matching real F# quotations ---
+
+[<Fact>]
+let ``test Option.Value access inside a quotation is a PropertyGet`` () =
+    let q = <@ fun (o: int option) -> o.Value @>
+
+    match q with
+    | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+    | _ -> failwith "Expected Lambda with PropertyGet body"
+
+[<Fact>]
+let ``test List.Head access inside a quotation is a PropertyGet`` () =
+    let q = <@ fun (xs: int list) -> xs.Head @>
+
+    match q with
+    | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+    | _ -> failwith "Expected Lambda with PropertyGet body"
+
+[<Fact>]
+let ``test List.Tail access inside a quotation is a PropertyGet`` () =
+    let q = <@ fun (xs: int list) -> xs.Tail @>
+
+    match q with
+    | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+    | _ -> failwith "Expected Lambda with PropertyGet body"
+
+// --- Runtime-built null nodes (mkNullExpr) ---
+
+[<Fact>]
+let ``test Unit quotation still matches Value node`` () =
+    let q = <@ () @>
+
+    match q with
+    | Value(_, _) -> ()
+    | _ -> failwith "Expected Value"
+
+[<Fact>]
+let ``test Call on an instance whose value is null keeps a Some instance`` () =
+    // Guards against conflating "no instance" (static/operator call) with "instance value is
+    // null" — both used to serialize to the same node. .NET wraps this in a Let (struct copy).
+    let q = <@ (Unchecked.defaultof<System.Nullable<int>>).HasValue @>
+
+    let rec hasSomeInstancePropertyGet expr =
+        match expr with
+        | PropertyGet(Some _, _, []) -> true
+        | Let(_, _, body) -> hasSomeInstancePropertyGet body
+        | _ -> false
+
+    if not (hasSomeInstancePropertyGet q) then
+        failwith "Expected a PropertyGet with a Some instance, even though its value is null"

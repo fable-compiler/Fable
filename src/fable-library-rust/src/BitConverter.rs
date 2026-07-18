@@ -1,7 +1,7 @@
 pub mod BitConverter_ {
     use crate::Native_::{String};
-    use crate::NativeArray_::{new_array, Array};
-    use crate::String_::{string, fromString};
+    use crate::NativeArray_::{Array, new_array};
+    use crate::String_::{fromString, string};
 
     #[cfg(target_endian = "little")]
     const littleEndian: bool = true;
@@ -129,31 +129,31 @@ pub mod BitConverter_ {
         i16::from_ne_bytes(buf)
     }
 
-    pub fn toInt32(bytes: Array<u8>, offset: i32) -> i32  {
+    pub fn toInt32(bytes: Array<u8>, offset: i32) -> i32 {
         let mut buf = i32::to_ne_bytes(0);
         copy_from_slice(&mut buf, &bytes, offset);
         i32::from_ne_bytes(buf)
     }
 
-    pub fn toInt64(bytes: Array<u8>, offset: i32) -> i64  {
+    pub fn toInt64(bytes: Array<u8>, offset: i32) -> i64 {
         let mut buf = i64::to_ne_bytes(0);
         copy_from_slice(&mut buf, &bytes, offset);
         i64::from_ne_bytes(buf)
     }
 
-    pub fn toUInt16(bytes: Array<u8>, offset: i32) -> u16  {
+    pub fn toUInt16(bytes: Array<u8>, offset: i32) -> u16 {
         let mut buf = u16::to_ne_bytes(0);
         copy_from_slice(&mut buf, &bytes, offset);
         u16::from_ne_bytes(buf)
     }
 
-    pub fn toUInt32(bytes: Array<u8>, offset: i32) -> u32  {
+    pub fn toUInt32(bytes: Array<u8>, offset: i32) -> u32 {
         let mut buf = u32::to_ne_bytes(0);
         copy_from_slice(&mut buf, &bytes, offset);
         u32::from_ne_bytes(buf)
     }
 
-    pub fn toUInt64(bytes: Array<u8>, offset: i32) -> u64  {
+    pub fn toUInt64(bytes: Array<u8>, offset: i32) -> u64 {
         let mut buf = u64::to_ne_bytes(0);
         copy_from_slice(&mut buf, &bytes, offset);
         u64::from_ne_bytes(buf)

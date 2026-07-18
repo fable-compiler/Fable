@@ -108,6 +108,81 @@ let ``recursive seq expressions work`` () =
 //     equal 1 n
 
 [<Fact>]
+let ``try...with in list expressions works`` () =
+    [ try 1 with _ -> 0 ]
+    |> equal [1]
+
+// Exceptions cannot be caught in no_std mode (no std::panic::catch_unwind),
+// so tests that raise and catch are excluded there
+#if !NO_STD_NO_EXCEPTIONS
+[<Fact>]
+let ``try...with in list expressions catches exceptions`` () =
+    [ try raise (exn "boom") with _ -> 42 ]
+    |> equal [42]
+
+[<Fact>]
+let ``try...with in array expressions works`` () =
+    [| try raise (exn "boom") with _ -> 7 |]
+    |> equal [| 7 |]
+
+[<Fact>]
+let ``try...with in seq expressions preserves yielded elements before the exception`` () =
+    let mutable caught = false
+    let xs =
+        seq {
+            try
+                yield 1
+                raise (exn "boom")
+                yield 2
+            with _ ->
+                caught <- true
+                yield 3
+        } |> Seq.toList
+    equal [1; 3] xs
+    equal true caught
+
+// Uses `when` guards on the message instead of exception type tests because Rust
+// normalizes all exceptions to the base Exception type when catching panics
+[<Fact>]
+let ``try...with in seq expressions rethrows unmatched exceptions`` () =
+    let mutable propagated = false
+    try
+        seq {
+            try
+                yield 1
+                raise (exn "boom")
+                yield 2
+            with e when e.Message = "other" ->
+                yield 0
+        }
+        |> Seq.toList
+        |> ignore
+    with e when e.Message = "boom" ->
+        propagated <- true
+    equal true propagated
+#endif
+
+// TODO: enable when the Rust target supports type-testing caught exceptions
+// against BCL exception types (e.g. :? System.ArgumentException)
+// [<Fact>]
+// let ``try...with in seq expressions rethrows unmatched exceptions (typed)`` () =
+//     let mutable propagated = false
+//     try
+//         seq {
+//             try
+//                 yield 1
+//                 raise (System.InvalidOperationException "boom")
+//                 yield 2
+//             with :? System.ArgumentException ->
+//                 yield 0
+//         }
+//         |> Seq.toList
+//         |> ignore
+//     with :? System.InvalidOperationException ->
+//         propagated <- true
+//     equal true propagated
+
+[<Fact>]
 let ``array expressions work`` () =
     [| for x in 1 .. 10 do yield x |]
     |> Array.length |> equal 10

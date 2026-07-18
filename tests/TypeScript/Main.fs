@@ -24,6 +24,7 @@ let allTests =
 #endif
     Enumerable.tests
     Enum.tests
+    Environment.tests
     Event.tests
     HashSets.tests
     // Import.tests
@@ -35,6 +36,7 @@ let allTests =
     NestedAndRecursivePatternTests.tests
     Observable.tests
     Option.tests
+    SystemIO.tests
     Queue.tests
     RecordTypes.tests
     Reflection.tests
@@ -65,14 +67,8 @@ open Fable.Core.JsInterop
 // but not available in node.js runtime
 importSideEffects "../Js/Main/js/polyfill.js"
 
-let [<Global>] describe (name: string) (f: unit->unit) : unit = jsNative
-let [<Global>] it (msg: string) (f: unit->unit) : unit = jsNative
-
-// TODO: Emit declarations automatically when there are global variables
-emitJsStatement () """
-declare var it: any;
-declare var describe: any;
-"""
+let inline describe (name: string) (f: unit->unit) : unit = import "describe" "node:test"
+let inline it (msg: string) (f: unit->unit) : unit = import "it" "node:test"
 
 let rec flattenTest (test: Util.Testing.TestKind) : unit =
     match test with

@@ -110,6 +110,18 @@ let tests = testList "Strings" [
         let actual = sb.ToString().Replace(",", ".").ToLower()
         actual |> equal "aaabcd/true5.234xxxx"
 
+    testCase "StringBuilder.Append works with numeric type overloads" <| fun () ->
+        let sb = System.Text.StringBuilder()
+        sb.Append(1y) |> ignore   // int8
+        sb.Append(2uy) |> ignore  // byte
+        sb.Append(3s) |> ignore   // int16
+        sb.Append(4us) |> ignore  // uint16
+        sb.Append(5u) |> ignore   // uint32
+        sb.Append(6L) |> ignore   // int64
+        sb.Append(7UL) |> ignore  // uint64
+        sb.Append(8.0f) |> ignore // float32
+        sb.ToString().Replace(",", ".") |> equal "12345678"
+
     testCase "StringBuilder.AppendFormat works" <| fun () ->
         let sb = System.Text.StringBuilder()
         sb.AppendFormat("Hello{0}World{1}", " ", "!") |> ignore
@@ -269,6 +281,25 @@ let tests = testList "Strings" [
     testCase "Fix #2398: Exception when two successive string format placeholders and value of first one ends in `%`" <| fun () ->
         sprintf "%c%s" '%' "text" |> equal "%text"
 
+    // See https://github.com/fable-compiler/Fable/issues/4732
+    testCase "sprintf \"%A\" quotes strings" <| fun () ->
+        sprintf "%A" "test" |> equal "\"test\""
+        sprintf "%A" "" |> equal "\"\""
+        // %O and %s don't quote a bare string
+        sprintf "%O" "test" |> equal "test"
+        sprintf "%s" "test" |> equal "test"
+
+    // See https://github.com/fable-compiler/Fable/issues/4732
+    testCase "sprintf \"%A\" wraps strings without escaping" <| fun () ->
+        // F#'s %A only wraps a string in quotes; it does NOT escape embedded
+        // double-quotes, backslashes, or control characters (verified on .NET).
+        sprintf "%A" "a\"b" |> equal "\"a\"b\""
+        sprintf "%A" "a\\b" |> equal "\"a\\b\""
+        sprintf "%A" "a\nb" |> equal "\"a\nb\""
+        sprintf "%A" "a\tb" |> equal "\"a\tb\""
+        // Same behavior when the string is nested inside a container
+        sprintf "%A" [ "a\"b" ] |> equal "[\"a\"b\"]"
+
     testCase "Unions with sprintf %A" <| fun () ->
         Bar(1,5) |> sprintf "%A" |> equal "Bar (1, 5)"
         Foo1 4.5 |> sprintf "%A" |> equal "Foo1 4.5"
@@ -308,6 +339,22 @@ let tests = testList "Strings" [
         $"I think {3.0 + 0.14} is close to %.8f{Math.PI}!".Replace(",", ".")
         |> equal "I think 3.14 is close to 3.14159265!"
 
+    testCase "string interpolation works with .NET format specifiers" <| fun () -> // See Fable.Python #36
+        let i = 123
+        $"{i:X4}" |> equal "007B"
+        $"{i:x4}" |> equal "007b"
+        $"{i:D5}" |> equal "00123"
+        $"{5:B}" |> equal "101"
+        $"\\u{i:X4}" |> equal "\\u007B"
+        $"{3.14159:F2}" |> equal "3.14"
+
+    testCase "string interpolation works with alignment" <| fun () ->
+        let i = 123
+        $"[{i,6}]" |> equal "[   123]"
+        $"[{i,-6}]" |> equal "[123   ]"
+        $"[{i,6:X4}]" |> equal "[  007B]"
+        $"[{i,-6:X4}]" |> equal "[007B  ]"
+
     testCase "string interpolation works with anonymous records" <| fun () ->
         let person =
             {|
@@ -322,8 +369,8 @@ let tests = testList "Strings" [
     testCase "Printf %A works with anonymous records" <| fun () -> // See #4029
         let person  = {| FirstName = "John"; LastName = "Doe" |}
         let s = sprintf "%A" person
-        System.Text.RegularExpressions.Regex.Replace(s.Replace("\"", ""), @"\s+", " ")
-        |> equal """{ FirstName = John LastName = Doe }"""
+        System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ")
+        |> equal """{ FirstName = "John" LastName = "Doe" }"""
 
     testCase "Interpolated strings keep empty lines" <| fun () ->
         let s1 = $"""1
@@ -375,11 +422,11 @@ let tests = testList "Strings" [
 
     testCase "sprintf \"%A\" with lists works" <| fun () ->
         let xs = ["Hi"; "Hello"; "Hola"]
-        (sprintf "%A" xs).Replace("\"", "") |> equal "[Hi; Hello; Hola]"
+        sprintf "%A" xs |> equal "[\"Hi\"; \"Hello\"; \"Hola\"]"
 
     testCase "sprintf \"%A\" with nested lists works" <| fun () ->
         let xs = [["Hi"]; ["Hello"]; ["Hola"]]
-        (sprintf "%A" xs).Replace("\"", "") |> equal "[[Hi]; [Hello]; [Hola]]"
+        sprintf "%A" xs |> equal "[[\"Hi\"]; [\"Hello\"]; [\"Hola\"]]"
 
     testCase "sprintf \"%A\" with sequences works" <| fun () ->
         let xs = seq { "Hi"; "Hello"; "Hola" }
@@ -498,6 +545,104 @@ let tests = testList "Strings" [
         String.Format(CultureInfo.InvariantCulture, "{0:P0}", 0.5) |> equal "50 %"
         String.Format(CultureInfo.InvariantCulture, "{0:P2}", 0.1234) |> equal "12.34 %"
         String.Format(CultureInfo.InvariantCulture, "{0:C2}", 1000) |> equal "¤1,000.00"
+
+    testCase "G format specifier trims trailing zeros without corrupting exponential notation" <| fun () ->
+        (123.45).ToString("G17", CultureInfo.InvariantCulture) |> equal "123.45"
+        (10000.0).ToString("G17", CultureInfo.InvariantCulture) |> equal "10000"
+        (0.000222).ToString("G17", CultureInfo.InvariantCulture) |> equal "0.000222"
+        (1e-10).ToString("G17", CultureInfo.InvariantCulture) |> equal "1E-10"
+        (1e-10).ToString("g17", CultureInfo.InvariantCulture) |> equal "1e-10"
+        (1.5e10).ToString("G17", CultureInfo.InvariantCulture) |> equal "15000000000"
+
+    testCase "G format specifier pads exponent to at least 2 digits" <| fun () ->
+        (1e-7).ToString("G2", CultureInfo.InvariantCulture) |> equal "1E-07"
+        (1e7).ToString("G2", CultureInfo.InvariantCulture) |> equal "1E+07"
+        (1.5e-7).ToString("G2", CultureInfo.InvariantCulture) |> equal "1.5E-07"
+        (-1e-7).ToString("G2", CultureInfo.InvariantCulture) |> equal "-1E-07"
+        (1e-7).ToString("g2", CultureInfo.InvariantCulture) |> equal "1e-07"
+
+    testCase "x and X format specifiers work with no defined precision" <| fun () ->
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 0) |> equal "0"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 0u) |> equal "0"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 0l) |> equal "0"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 0UL) |> equal "0"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 0L) |> equal "0"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 1) |> equal "1"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 1u) |> equal "1"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 1l) |> equal "1"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 1UL) |> equal "1"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 1L) |> equal "1"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 8) |> equal "8"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 8u) |> equal "8"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 8l) |> equal "8"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 8UL) |> equal "8"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 8L) |> equal "8"
+        String.Format(CultureInfo.InvariantCulture, "{0:x}", 15) |> equal "f"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 15) |> equal "F"
+        String.Format(CultureInfo.InvariantCulture, "{0:x}", 15u) |> equal "f"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 15u) |> equal "F"
+        String.Format(CultureInfo.InvariantCulture, "{0:x}", 15l) |> equal "f"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 15l) |> equal "F"
+        String.Format(CultureInfo.InvariantCulture, "{0:x}", 15UL) |> equal "f"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 15UL) |> equal "F"
+        String.Format(CultureInfo.InvariantCulture, "{0:x}", 15L) |> equal "f"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 15L) |> equal "F"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 16) |> equal "10"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 16u) |> equal "10"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 16l) |> equal "10"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 16UL) |> equal "10"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 16L) |> equal "10"
+        String.Format(CultureInfo.InvariantCulture, "{0:x}", 26) |> equal "1a"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 26) |> equal "1A"
+        String.Format(CultureInfo.InvariantCulture, "{0:x}", 26u) |> equal "1a"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 26u) |> equal "1A"
+        String.Format(CultureInfo.InvariantCulture, "{0:x}", 26l) |> equal "1a"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 26l) |> equal "1A"
+        String.Format(CultureInfo.InvariantCulture, "{0:x}", 26UL) |> equal "1a"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 26UL) |> equal "1A"
+        String.Format(CultureInfo.InvariantCulture, "{0:x}", 26L) |> equal "1a"
+        String.Format(CultureInfo.InvariantCulture, "{0:X}", 26L) |> equal "1A"
+
+        (0).ToString("X") |> equal "0"
+        (0u).ToString("X") |> equal "0"
+        (0l).ToString("X") |> equal "0"
+        (0UL).ToString("X") |> equal "0"
+        (0L).ToString("X") |> equal "0"
+        (1).ToString("X") |> equal "1"
+        (1u).ToString("X") |> equal "1"
+        (1l).ToString("X") |> equal "1"
+        (1UL).ToString("X") |> equal "1"
+        (1L).ToString("X") |> equal "1"
+        (8).ToString("X") |> equal "8"
+        (8u).ToString("X") |> equal "8"
+        (8l).ToString("X") |> equal "8"
+        (8UL).ToString("X") |> equal "8"
+        (8L).ToString("X") |> equal "8"
+        (15).ToString("x") |> equal "f"
+        (15).ToString("X") |> equal "F"
+        (15u).ToString("x") |> equal "f"
+        (15u).ToString("X") |> equal "F"
+        (15l).ToString("x") |> equal "f"
+        (15l).ToString("X") |> equal "F"
+        (15UL).ToString("x") |> equal "f"
+        (15UL).ToString("X") |> equal "F"
+        (15L).ToString("x") |> equal "f"
+        (15L).ToString("X") |> equal "F"
+        (16).ToString("X") |> equal "10"
+        (16u).ToString("X") |> equal "10"
+        (16l).ToString("X") |> equal "10"
+        (16UL).ToString("X") |> equal "10"
+        (16L).ToString("X") |> equal "10"
+        (26).ToString("x") |> equal "1a"
+        (26).ToString("X") |> equal "1A"
+        (26u).ToString("x") |> equal "1a"
+        (26u).ToString("X") |> equal "1A"
+        (26l).ToString("x") |> equal "1a"
+        (26l).ToString("X") |> equal "1A"
+        (26UL).ToString("x") |> equal "1a"
+        (26UL).ToString("X") |> equal "1A"
+        (26L).ToString("x") |> equal "1a"
+        (26L).ToString("X") |> equal "1A"
 
     testCase "ToString formatted works with decimals" <| fun () -> // See #2276
         let decimal = 78.6M
@@ -702,6 +847,11 @@ let tests = testList "Strings" [
         "ABC".Contains("B") |> equal true
         "ABC".Contains("Z") |> equal false
 
+    testCase "String.Contains with StringComparison works" <| fun () ->
+        "ABC".Contains("b", StringComparison.Ordinal) |> equal false
+        "ABC".Contains("b", StringComparison.OrdinalIgnoreCase) |> equal true
+        "ABC".Contains("b", StringComparison.InvariantCultureIgnoreCase) |> equal true
+
     testCase "String.Split works" <| fun () ->
         "a b c  d".Split(' ')
         |> equal [|"a";"b";"c";"";"d"|]
@@ -807,6 +957,15 @@ let tests = testList "Strings" [
         "abcdbc".IndexOf("b", 3, StringComparison.Ordinal)
         |> equal 4
 
+    testCase "String.IndexOf with OrdinalIgnoreCase StringComparison" <| fun () ->
+        "ABCDBC".IndexOf("b", StringComparison.OrdinalIgnoreCase) |> equal 1
+        "ABCDBC".IndexOf("b", StringComparison.Ordinal) |> equal -1
+        "ABCDBC".IndexOf("b", StringComparison.InvariantCultureIgnoreCase) |> equal 1
+
+    testCase "String.IndexOf with index and OrdinalIgnoreCase StringComparison" <| fun () ->
+        "ABCDBC".IndexOf("b", 2, StringComparison.OrdinalIgnoreCase) |> equal 4
+        "ABCDBC".IndexOf("b", 2, StringComparison.Ordinal) |> equal -1
+
     testCase "String.LastIndexOf char works" <| fun () ->
         "abcdbc".LastIndexOf('b') * 100 + "abcd".LastIndexOf('e')
         |> equal 399
@@ -818,6 +977,15 @@ let tests = testList "Strings" [
     testCase "String.LastIndexOf with StringComparison" <| fun () ->
         "abcdbc".LastIndexOf("b", StringComparison.Ordinal)
         |> equal 4
+
+    testCase "String.LastIndexOf with OrdinalIgnoreCase StringComparison" <| fun () ->
+        "ABCDBC".LastIndexOf("b", StringComparison.OrdinalIgnoreCase) |> equal 4
+        "ABCDBC".LastIndexOf("b", StringComparison.Ordinal) |> equal -1
+        "ABCDBC".LastIndexOf("b", StringComparison.InvariantCultureIgnoreCase) |> equal 4
+
+    testCase "String.LastIndexOf with index and OrdinalIgnoreCase StringComparison" <| fun () ->
+        "ABCDBC".LastIndexOf("b", 3, StringComparison.OrdinalIgnoreCase) |> equal 1
+        "ABCDBC".LastIndexOf("b", 3, StringComparison.Ordinal) |> equal -1
 
     testCase "String.LastIndexOf with index and StringComparison" <| fun () ->
         "abcdbc".LastIndexOf("b", 3, StringComparison.Ordinal)
@@ -891,6 +1059,27 @@ let tests = testList "Strings" [
         for arg in args do
             "ABCD".EndsWith(fst arg, true, CultureInfo.InvariantCulture)
             |> equal (snd arg)
+
+    testCase "String.EndsWith with empty pattern and StringComparison works" <| fun () ->
+        // .NET: every string ends with "" for all StringComparison values
+        "hello".EndsWith("", StringComparison.CurrentCulture) |> equal true
+        "hello".EndsWith("", StringComparison.InvariantCulture) |> equal true
+        "hello".EndsWith("", StringComparison.Ordinal) |> equal true
+        "hello".EndsWith("", StringComparison.OrdinalIgnoreCase) |> equal true
+        "hello".EndsWith("", StringComparison.InvariantCultureIgnoreCase) |> equal true
+        "".EndsWith("", StringComparison.CurrentCulture) |> equal true
+        "hello".StartsWith("", StringComparison.CurrentCulture) |> equal true
+        "hello".StartsWith("", StringComparison.Ordinal) |> equal true
+        "hello".StartsWith("", StringComparison.OrdinalIgnoreCase) |> equal true
+
+    testCase "String.EndsWith with non-empty pattern and StringComparison works" <| fun () ->
+        "hello".EndsWith("LO", StringComparison.OrdinalIgnoreCase) |> equal true
+        "hello".EndsWith("LO", StringComparison.InvariantCultureIgnoreCase) |> equal true
+        "hello".EndsWith("lo", StringComparison.Ordinal) |> equal true
+        "hello".EndsWith("LO", StringComparison.Ordinal) |> equal false
+        "hello".EndsWith("he", StringComparison.Ordinal) |> equal false
+        "hello".EndsWith("hello", StringComparison.CurrentCulture) |> equal true
+        "hello".EndsWith("xhello", StringComparison.Ordinal) |> equal false
 
     testCase "String.Trim works" <| fun () ->
         "   abc   ".Trim()
@@ -1019,6 +1208,22 @@ let tests = testList "Strings" [
         |> equal "abc"
         String.Concat(seq { yield "a"; yield "b"; yield "c" })
         |> equal "abc"
+
+    testCase "System.String.Concat with long string arg works" <| fun () ->
+        // Fixed-arity overload (string, string) must not spread the last argument
+        // as characters, otherwise large strings overflow the call stack.
+        let n = 1_000_000
+        let big = String.replicate n "a"
+        let s = String.Concat("p", big)
+        s.Length |> equal (n + 1)
+
+    testCase "Interpolated string with %s and long string value works" <| fun () ->
+        // Lowered by the F# compiler to String.Concat(prefix, value), which must
+        // not spread the value as characters into the runtime call.
+        let n = 1_000_000
+        let data = String.replicate n "a"
+        let s = $"prefix:%s{data}"
+        s.Length |> equal (n + 7)
 
     testCase "System.String.Normalize works" <| fun () ->
         let name1 = "\u0041\u006d\u00e9\u006c\u0069\u0065";

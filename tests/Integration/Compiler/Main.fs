@@ -8,6 +8,7 @@ let allTests =
         CompilerMessages.tests
         AnonRecordInInterface.tests
         CompilerHelpers.tests
+        Inflate.tests
     ]
 
 

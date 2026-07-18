@@ -28,6 +28,26 @@ let ``test Char.ToString works`` () =
 let ``test Char.ToString type is casted correctly`` () =
     ('t'.ToString()) + "est" |> equal "test"
 
+// A `char` is a plain integer at runtime on Beam, so every conversion path has to be told the type
+// is a char — miss one and it prints the codepoint instead of the character.
+[<Fact>]
+let ``test char conversions to string agree`` () =
+    let c = '2'
+    string c |> equal "2"
+    c.ToString() |> equal "2"
+    "x" + string c |> equal "x2"
+    Char.ToString c |> equal "2"
+    $"{c}" |> equal "2"
+
+[<Fact>]
+let ``test char conversions to string work above the latin1 range`` () =
+    let c = '✗' // U+2717 — needs real UTF-8 encoding, not a byte
+    string c |> equal "✗"
+    c.ToString() |> equal "✗"
+    Char.ToString c |> equal "✗"
+    $"{c}" |> equal "✗"
+    $"a{c}b" |> equal "a✗b"
+
 [<Fact>]
 let ``test Char.IsLetter works`` () =
     Char.IsLetter('a') |> equal true
@@ -264,3 +284,26 @@ let ``test Char.TryParse fails with longer string`` () =
 //     Char.IsSurrogatePair(str,0) |> equal false
 //     Char.IsSurrogatePair(str,1) |> equal true
 //     Char.IsSurrogatePair(str,2) |> equal false
+
+// --- Boxed chars reaching a string conversion ---
+//
+// A `char` is a plain `integer()` on Beam, so any conversion that dispatches on the runtime value
+// alone renders the codepoint instead of the character. These sites see the static type through the
+// boxing cast and encode the char up front. Where the cast is *not* visible — a boxed char piped
+// into `string`, bound to an `obj` first, or reaching `%A`/`%O` through printf's curried runtime —
+// the type is genuinely gone by then; see "char at a generic type" in FABLE-BEAM.md.
+
+[<Fact>]
+let ``test string of a directly boxed char works`` () =
+    let c = '2'
+    string (box c) |> equal "2"
+
+[<Fact>]
+let ``test String.Format of a char works`` () =
+    let c = '2'
+    String.Format("{0}", c) |> equal "2"
+    String.Format("{0}", box c) |> equal "2"
+
+[<Fact>]
+let ``test String.Format of a non-ASCII char works`` () =
+    String.Format("{0}", '✗') |> equal "✗"

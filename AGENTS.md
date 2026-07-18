@@ -31,6 +31,8 @@ The build system is implemented in F# at `src/Fable.Build/`. All commands go thr
 
 In most cases, you should not need to use `--force-fable-library`. Only use it if you modified compiler code that affects how F# files used in `src/fable-library-*/` are generated (e.g., changes to `FSharp2Fable.fs` that affect how F# AST is transformed into Fable AST for library files).
 
+When running Python tooling directly with `uv` (e.g. `pytest`, `pyright`, `maturin`, ad-hoc scripts) instead of through `build.sh`, always pass `--frozen` (e.g. `uv run --frozen pytest`). Plain `uv run` silently resolves and rewrites `uv.lock` as a side effect of just running a command. If a command fails because the lock is out of date, stop and ask rather than letting `uv` update it.
+
 Build output goes to `temp/`: transpiled runtime libraries in `temp/fable-library-<target>/` and test output in `temp/tests/<target>/` (e.g., `temp/fable-library-beam/` and `temp/tests/beam/`).
 
 Test runners by target: JavaScript/TypeScript use Mocha, Python uses pytest (with `uv`, not pip), Rust uses cargo test, Dart uses `dart test`.
@@ -117,7 +119,7 @@ When adding a test, check if other targets already have a test for the same case
 
 ## Changelogs
 
-PRs must update changelogs. Always update both `src/Fable.Cli/CHANGELOG.md` and `src/Fable.Compiler/CHANGELOG.md` for changes to Fable.Transforms or fable-library. If the change touches `Fable.Core` (attributes, interop types), also update `src/Fable.Core/CHANGELOG.md`. Add entries under the `## Unreleased` section following the Keep a Changelog format with target prefix (e.g., `* [Python] Fix ...`, `* [Beam] Add ...`, `* [All] Fix ...`).
+DO NOT update the changelog files. These files are automatically generated based on the commit history.
 
 ## Requirements
 

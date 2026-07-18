@@ -130,7 +130,8 @@ module SetTree =
                 else // rotate left
                     mk (mk t1 v t2'.Left) t2'.Key t2'.Right
             | _ -> failwith "internal error: Set.rebalance"
-        else if t1h > t2h + tolerance then // left is heavier than right
+        // left is heavier than right
+        else if t1h > t2h + tolerance then
             match t1.Value with
             | :? SetTreeNode<'T> as t1' ->
                 // one of the nodes must have height > height t2 + 1
@@ -934,7 +935,7 @@ type Set<[<EqualityConditionalOn>] 'T when 'T: comparison>(comparer: IComparer<'
     //     Set(comparer, SetTree.ofArray comparer arr)
 
     override this.ToString() =
-        "set [" + System.String.Join("; ", this) + "]"
+        structuredCollectionToString "set [" this "]"
 
 // [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 // [<RequireQualifiedAccess>]
@@ -1078,5 +1079,5 @@ let isProperSubsetOf (s1: Fable.Collections.MutableSet<'T>) (s2: 'T seq) =
     s2.Count > s1.Count && (s1 |> Seq.forall s2.Contains)
 
 let isProperSupersetOf (s1: Fable.Collections.MutableSet<'T>) (s2: 'T seq) =
-    let s2 = Seq.cache s2
-    s2 |> Seq.exists (s1.Contains >> not) && s2 |> Seq.forall s1.Contains
+    let s2 = newMutableSetWith s1 s2
+    s1.Count > s2.Count && (s2 |> Seq.forall s1.Contains)

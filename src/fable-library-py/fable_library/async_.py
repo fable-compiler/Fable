@@ -30,6 +30,7 @@ from .choice import (
     Choice_makeChoice2Of2,
     FSharpChoice_2,
 )
+from .event import IEvent_2
 from .protocols import IEnumerable_1
 from .task import TaskCompletionSource
 from .time_span import TimeSpan, to_milliseconds
@@ -95,6 +96,27 @@ def sleep(milliseconds_duetime: int | TimeSpan) -> Async[None]:
     return protected_cont(cont)
 
 
+def await_event[T](event: IEvent_2[Any, T], cancel_action: Callable[[], None] | None = None) -> Async[T]:
+    def cont(ctx: IAsyncContext[T]) -> None:
+        token_id: list[int] = [0]
+
+        def handler(_sender: Any, arg: T) -> None:
+            ctx.cancel_token.remove_listener(token_id[0])
+            event.RemoveHandler(handler)
+            ctx.on_success(arg)
+
+        def cancel() -> None:
+            event.RemoveHandler(handler)
+            if cancel_action is not None:
+                cancel_action()
+            ctx.on_cancel(OperationCanceledError())
+
+        token_id[0] = ctx.cancel_token.add_listener(cancel)
+        event.AddHandler(handler)
+
+    return protected_cont(cont)
+
+
 def ignore(computation: Async[Any]) -> Async[None]:
     def binder(_: Any | Unit = UNIT) -> Async[None]:
         return protected_return(None)
@@ -104,7 +126,7 @@ def ignore(computation: Async[Any]) -> Async[None]:
 
 def parallel[T](computations: IEnumerable_1[Async[T]]) -> Async[Array[T]]:
     def delayed() -> Async[Array[T]]:
-        tasks: Iterable[Awaitable[T]] = map(start_as_task, computations)  # type: ignore[arg-type]
+        tasks: Iterable[Awaitable[T]] = map(start_as_task, computations)  # type: ignore[arg-type]  # ty: ignore[invalid-assignment, invalid-argument-type]
         all: Future[list[T]] = asyncio.gather(*tasks)
 
         def to_array(results: list[T]) -> Async[Array[T]]:
@@ -362,6 +384,7 @@ def run_synchronously[T](
 
 
 __all__ = [
+    "await_event",
     "await_task",
     "cancel",
     "cancel_after",

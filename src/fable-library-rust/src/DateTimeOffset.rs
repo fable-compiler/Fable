@@ -2,23 +2,33 @@
 pub mod DateTimeOffset_ {
     use crate::{
         DateOnly_::DateOnly,
-        DateTime_::{duration_to_ticks, ticks_to_duration, DateTime, DateTimeKind},
-        Native_::{compare, MutCell, ToString},
+        DateTime_::{DateTime, DateTimeKind, duration_to_ticks, ticks_to_duration},
+        Format::DateTime::{
+            format_dotnet_custom, format_roundtrip_datetime, try_parse_datetime_offset_str,
+        },
+        Native_::{Hashable, MutCell, ToString, compare, format, getHashCode},
         String_::{fromString, string},
         TimeOnly_::TimeOnly,
         TimeSpan_::{
-            nanoseconds_per_tick, ticks_per_hour, ticks_per_minute, ticks_per_second, TimeSpan,
+            TimeSpan, nanoseconds_per_tick, ticks_per_hour, ticks_per_minute, ticks_per_second,
         },
     };
     use chrono::{
         DateTime as CDateTime, Datelike, FixedOffset, Local, Months, NaiveDate, NaiveDateTime,
         NaiveTime, ParseResult, TimeZone, Timelike, Utc,
     };
+    use core::hash::{Hash, Hasher};
     use core::ops::{Add, Sub};
 
+    #[derive(Clone, Copy)]
     #[repr(transparent)]
-    #[derive(Clone, Copy, Debug)]
     pub struct DateTimeOffset(CDateTime<FixedOffset>);
+
+    impl core::fmt::Debug for DateTimeOffset {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", self.toString(string("")))
+        }
+    }
 
     impl core::fmt::Display for DateTimeOffset {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
@@ -35,6 +45,27 @@ pub mod DateTimeOffset_ {
     impl PartialOrd for DateTimeOffset {
         fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
             self.utcDateTime().partial_cmp(&other.utcDateTime())
+        }
+    }
+
+    impl Eq for DateTimeOffset {}
+
+    impl Ord for DateTimeOffset {
+        fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+            self.utcTicks().cmp(&other.utcTicks())
+        }
+    }
+
+    impl Hash for DateTimeOffset {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.utcTicks().hash(state)
+        }
+    }
+
+    impl Hashable for DateTimeOffset {
+        #[inline]
+        fn getHashCode(&self) -> i32 {
+            getHashCode(&self.utcTicks())
         }
     }
 
@@ -106,7 +137,9 @@ pub mod DateTimeOffset_ {
                 panic!("The UTC Offset for Utc DateTime instances must be 0.");
             }
             if dt.kind_enum() == DateTimeKind::Local && offsetSeconds != dtOffsetSeconds {
-                panic!("The UTC Offset of the local dateTime parameter does not match the offset argument.");
+                panic!(
+                    "The UTC Offset of the local dateTime parameter does not match the offset argument."
+                );
             }
             Self::new_local(cdt.naive_local(), offset)
         }
@@ -392,39 +425,21 @@ pub mod DateTimeOffset_ {
         }
 
         pub fn toString(&self, format: string) -> string {
-            let fmt = match format.as_str() {
-                "" => "%m/%d/%Y %H:%M:%S %:z".to_string(),
-                "g" => "%m/%d/%Y %H:%M".to_string(),
-                "G" => "%m/%d/%Y %H:%M:%S".to_string(),
-                "o" | "O" => "%Y-%m-%dT%H:%M:%S%.f%:z".to_string(),
-                //TODO: support more formats, custom formats, etc.
-                _ => format
-                    .replace("yyyy", "%Y")
-                    .replace("MM", "%m")
-                    .replace("dd", "%d")
-                    .replace("hh", "%H")
-                    .replace("mm", "%M")
-                    .replace("ss", "%S")
-                    .replace("ffffff", "%6f")
-                    .replace("fff", "%3f"),
+            let ndt = self.0.naive_local();
+            let suffix = format!("{}", self.0.format("%:z"));
+            let fraction_ticks = self.0.timestamp_subsec_nanos() as i64 / nanoseconds_per_tick;
+            let text = match format.as_str() {
+                "" => self.0.format("%m/%d/%Y %H:%M:%S %:z").to_string(),
+                "g" => ndt.format("%m/%d/%Y %H:%M").to_string(),
+                "G" => ndt.format("%m/%d/%Y %H:%M:%S").to_string(),
+                "o" | "O" => format_roundtrip_datetime(ndt, fraction_ticks, suffix.as_str()),
+                _ => format_dotnet_custom(ndt, fraction_ticks, suffix.as_str(), format.as_str()),
             };
-            let df = self.0.format(&fmt);
-            fromString(df.to_string())
-        }
-
-        fn local_time_from_str(s: &str, fmt: &str) -> ParseResult<CDateTime<FixedOffset>> {
-            let now = Local::now();
-            let localTz = now.offset();
-            let ndt = NaiveDateTime::parse_from_str(s, fmt)?;
-            let loc = localTz.from_local_datetime(&ndt).unwrap();
-            Ok(loc)
+            fromString(text)
         }
 
         pub(crate) fn try_parse_str(s: &str) -> ParseResult<CDateTime<FixedOffset>> {
-            s.parse::<CDateTime<FixedOffset>>()
-                .or(CDateTime::parse_from_str(s, "%m/%d/%Y %H:%M:%S%.f %#z"))
-                .or(Self::local_time_from_str(s, "%m/%d/%Y %H:%M:%S%.f"))
-                .or(Self::local_time_from_str(s, "%m/%d/%Y %I:%M:%S %P"))
+            try_parse_datetime_offset_str(s)
         }
 
         pub fn tryParse(s: string, res: &MutCell<DateTimeOffset>) -> bool {

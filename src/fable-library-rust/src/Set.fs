@@ -97,7 +97,8 @@ let rebalance (t1: Set<'T>) v (t2: Set<'T>) =
             mk (mk t1 v t2l.Left) t2l.Key (mk t2l.Right t2'.Key t2'.Right)
         else // rotate left
             mk (mk t1 v t2'.Left) t2'.Key t2'.Right
-    else if t1h > t2h + tolerance then // left is heavier than right
+    // left is heavier than right
+    else if t1h > t2h + tolerance then
         let t1' = (getRoot t1).Value
         // one of the nodes must have height > height t2 + 1
         if height t1'.Right > t2h + 1 then

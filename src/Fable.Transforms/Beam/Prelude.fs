@@ -87,9 +87,376 @@ module Naming =
         |> checkErlKeywords
 
     let moduleNameFromFile (filePath: string) =
-        System.IO.Path.GetFileNameWithoutExtension(filePath)
+        Fable.Path.GetFileNameWithoutExtension(filePath)
         |> fun s -> s.Replace(".", "_").Replace("-", "_")
         |> Fable.Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+
+    // ----------------------------------------------------------------------------------
+    // Qualified module names
+    //
+    // Erlang's module namespace is flat and global: the atom in `-module(...)` is a module's
+    // only identity, and neither the directory nor the OTP application an .erl file lives in
+    // scopes it. Naming a module after the bare basename of its F# file therefore collides
+    // with OTP's own modules (`gen`, `random`, `string`, ...) and with same-named files from
+    // other assemblies — silently, and fatally at runtime.
+    //
+    // So qualify the name with the application it belongs to, which is what OTP itself does
+    // (`cowboy_req`, `rebar_app_info`) and what Fable's own runtime already does (`fable_list`).
+    // ----------------------------------------------------------------------------------
+
+    let private splitPath (path: string) =
+        path.Replace('\\', '/').Split('/')
+        |> Array.filter (fun s -> s <> "" && s <> ".")
+
+    /// True when a dot-segment looks like a version number (starts with a digit).
+    let private isVersionSegment (s: string) =
+        s.Length > 0 && System.Char.IsDigit(s.[0])
+
+    /// Normalize a name to a valid OTP application name (lowercase snake_case, no leading/trailing underscores).
+    ///   "Fable.Tests.Beam" → "fable_tests_beam"
+    ///   "fable-library-beam" → "fable_library_beam"
+    let normalizeAppName (name: string) =
+        name.Replace('.', '_').Replace('-', '_').ToLowerInvariant().Trim('_')
+
+    /// Derive an OTP application name from a fable_modules directory name.
+    ///   "Fable.Logging.0.10.0"         → "fable_logging"
+    ///   "fable-library-beam"           → "fable_library_beam"
+    ///   "Fable.Python.4.0.0-theta-003" → "fable_python"
+    let deriveDepAppName (dirName: string) =
+        let dotParts = dirName.Split('.')
+
+        let namePart =
+            match dotParts |> Array.tryFindIndex isVersionSegment with
+            | Some idx when idx > 0 -> dotParts.[.. idx - 1] |> String.concat "."
+            | _ -> dirName
+
+        normalizeAppName namePart
+
+    /// Extract the version string from a fable_modules directory name.
+    ///   "Fable.Logging.0.10.0"         → "0.10.0"
+    ///   "Fable.Python.4.0.0-theta-003" → "4.0.0-theta-003"
+    ///   "fable-library-beam"           → "0.1.0"
+    let extractDepVersion (dirName: string) =
+        let dotParts = dirName.Split('.')
+
+        match dotParts |> Array.tryFindIndex isVersionSegment with
+        | Some idx -> dotParts.[idx..] |> String.concat "."
+        | None -> "0.1.0"
+
+    /// True for a source file Fable compiles into a generated Erlang module. A signature file
+    /// declares no module of its own, so it is not one.
+    let isGeneratedModuleSource (path: string) =
+        let ext = Fable.Path.GetExtension(path)
+        ext = ".fs" || ext = ".fsx"
+
+    /// True for a path naming an F# source file. Anything else (a native Erlang module named in
+    /// a `BeamInterop` import, one of fable-library's hand-written `.erl` files) names a module
+    /// Fable does not generate, and keeps its own name.
+    let isFSharpSource (path: string) =
+        isGeneratedModuleSource path || Fable.Path.GetExtension(path) = ".fsi"
+
+    /// Modules of OTP's own `erts`, `kernel` and `stdlib` applications. The module namespace is
+    /// flat and global, so a generated module named after one of these shadows it (or is shadowed
+    /// by it) everywhere in the release, and calls to either raise `undef` at runtime.
+    ///
+    /// Qualifying generated names by their app rules out the bare ones (`gen`, `string`, ...),
+    /// but a two-segment name can still land on `gen_server` or `erl_eval` — an app named `Gen`
+    /// with a `Server.fs` does exactly that — and fable-library's exempt modules are not
+    /// qualified at all. `checkBeamModuleNames` fails the build on any name in this set.
+    let otpModules =
+        System.Collections.Generic.HashSet
+            [
+                // erts (preloaded)
+                "atomics"
+                "counters"
+                "erl_init"
+                "erl_prim_loader"
+                "erl_tracer"
+                "erlang"
+                "erts_code_purger"
+                "erts_dirty_process_signal_handler"
+                "erts_internal"
+                "erts_literal_area_collector"
+                "erts_trace_cleaner"
+                "init"
+                "persistent_term"
+                "prim_buffer"
+                "prim_eval"
+                "prim_file"
+                "prim_inet"
+                "prim_net"
+                "prim_socket"
+                "prim_zip"
+                "socket_registry"
+                "zlib"
+                // kernel + stdlib
+                "application"
+                "application_controller"
+                "application_master"
+                "application_starter"
+                "array"
+                "auth"
+                "base64"
+                "beam_lib"
+                "binary"
+                "c"
+                "calendar"
+                "code"
+                "code_server"
+                "dets"
+                "dets_server"
+                "dets_sup"
+                "dets_utils"
+                "dets_v9"
+                "dict"
+                "digraph"
+                "digraph_utils"
+                "disk_log"
+                "disk_log_1"
+                "disk_log_server"
+                "disk_log_sup"
+                "dist_ac"
+                "dist_util"
+                "edlin"
+                "edlin_expand"
+                "epp"
+                "erl_abstract_code"
+                "erl_anno"
+                "erl_bits"
+                "erl_boot_server"
+                "erl_compile"
+                "erl_compile_server"
+                "erl_ddll"
+                "erl_distribution"
+                "erl_epmd"
+                "erl_error"
+                "erl_erts_errors"
+                "erl_eval"
+                "erl_expand_records"
+                "erl_features"
+                "erl_internal"
+                "erl_kernel_errors"
+                "erl_lint"
+                "erl_parse"
+                "erl_posix_msg"
+                "erl_pp"
+                "erl_reply"
+                "erl_scan"
+                "erl_signal_handler"
+                "erl_stdlib_errors"
+                "erl_tar"
+                "erpc"
+                "error_handler"
+                "error_logger"
+                "error_logger_file_h"
+                "error_logger_tty_h"
+                "erts_debug"
+                "escript"
+                "ets"
+                "eval_bits"
+                "file"
+                "file_io_server"
+                "file_server"
+                "file_sorter"
+                "filelib"
+                "filename"
+                "gb_sets"
+                "gb_trees"
+                "gen"
+                "gen_event"
+                "gen_fsm"
+                "gen_sctp"
+                "gen_server"
+                "gen_statem"
+                "gen_tcp"
+                "gen_tcp_socket"
+                "gen_udp"
+                "gen_udp_socket"
+                "global"
+                "global_group"
+                "global_search"
+                "group"
+                "group_history"
+                "heart"
+                "inet"
+                "inet6_sctp"
+                "inet6_tcp"
+                "inet6_tcp_dist"
+                "inet6_udp"
+                "inet_config"
+                "inet_db"
+                "inet_dns"
+                "inet_gethost_native"
+                "inet_hosts"
+                "inet_parse"
+                "inet_res"
+                "inet_sctp"
+                "inet_tcp"
+                "inet_tcp_dist"
+                "inet_udp"
+                "io"
+                "io_lib"
+                "io_lib_format"
+                "io_lib_fread"
+                "io_lib_pretty"
+                "kernel"
+                "kernel_config"
+                "kernel_refc"
+                "lists"
+                "local_tcp"
+                "local_udp"
+                "log_mf_h"
+                "logger"
+                "logger_backend"
+                "logger_config"
+                "logger_disk_log_h"
+                "logger_filters"
+                "logger_formatter"
+                "logger_h_common"
+                "logger_handler_watcher"
+                "logger_olp"
+                "logger_proxy"
+                "logger_server"
+                "logger_simple_h"
+                "logger_std_h"
+                "logger_sup"
+                "maps"
+                "math"
+                "ms_transform"
+                "net"
+                "net_adm"
+                "net_kernel"
+                "orddict"
+                "ordsets"
+                "os"
+                "otp_internal"
+                "peer"
+                "pg"
+                "pg2"
+                "pool"
+                "proc_lib"
+                "proplists"
+                "qlc"
+                "qlc_pt"
+                "queue"
+                "ram_file"
+                "rand"
+                "random"
+                "raw_file_io"
+                "raw_file_io_compressed"
+                "raw_file_io_deflate"
+                "raw_file_io_delayed"
+                "raw_file_io_inflate"
+                "raw_file_io_list"
+                "re"
+                "rpc"
+                "seq_trace"
+                "sets"
+                "shell"
+                "shell_default"
+                "shell_docs"
+                "slave"
+                "socket"
+                "sofs"
+                "standard_error"
+                "string"
+                "supervisor"
+                "supervisor_bridge"
+                "sys"
+                "timer"
+                "unicode"
+                "unicode_util"
+                "uri_string"
+                "user"
+                "user_drv"
+                "user_sup"
+                "win32reg"
+                "wrap_log_reader"
+                "zip"
+            ]
+
+    /// True for a path inside fable-library — its own sources, or its sources copied into a
+    /// consumer's fable_modules.
+    ///
+    /// fable-library is the one Fable project whose *compiled* output ships as a dependency of
+    /// other projects, so it gets two exemptions: its modules keep their bare, hand-maintained
+    /// names (`fable_list`, `seq`, ...) — already namespaced by the `fable_` convention, and
+    /// `Transforms.Util.getLibPath` refers to them by exactly those names — and it is never
+    /// given an entry-point shim, which would collide with the consuming app's own.
+    let isFableLibraryPath (path: string) =
+        splitPath path
+        |> Array.exists (fun seg -> seg.StartsWith("fable-library", System.StringComparison.Ordinal))
+
+    /// Join path segments into a single snake_case Erlang atom.
+    /// `[ "Scriptorium.Quill"; "DSL" ]` → `scriptorium_quill_dsl`
+    let private joinModuleName (segments: string seq) =
+        segments
+        |> Seq.map (fun s -> s.Replace('.', '_').Replace('-', '_'))
+        |> String.concat "_"
+        |> Fable.Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+        |> fun s -> Regex.Replace(s, "_+", "_")
+        |> fun s -> s.Trim('_')
+        |> checkErlKeywords
+
+    /// Number of leading segments `a` and `b` have in common.
+    let private commonPrefixLength (a: string[]) (b: string[]) =
+        let mutable i = 0
+
+        while i < a.Length
+              && i < b.Length
+              && System.String.Equals(a.[i], b.[i], System.StringComparison.OrdinalIgnoreCase) do
+            i <- i + 1
+
+        i
+
+    /// The Erlang module name for an F# source file, qualified by the assembly it belongs to
+    /// so that it is unique across the whole compilation and cannot shadow an OTP module:
+    ///
+    ///   fable_modules/Hedgehog.0.11.0/Gen.fs  → hedgehog_gen        (package source)
+    ///   <projDir>/Misc/Util2.fs               → my_app_misc_util2   (the project's own source)
+    ///   <projDir>/../Quill/DSL.fs             → quill_dsl           (referenced project)
+    ///
+    /// Non-source paths (native Erlang modules such as `string`, and fable-library's `.erl`
+    /// files) are passed through untouched — they name modules Fable does not generate.
+    let erlangModuleName (projectFile: string) (filePath: string) =
+        if not (isFSharpSource filePath) || isFableLibraryPath filePath then
+            moduleNameFromFile filePath
+        else
+            let fileSegs = splitPath filePath
+
+            // Drop the extension from the file name segment
+            let fileSegs =
+                Array.append
+                    fileSegs.[.. fileSegs.Length - 2]
+                    [| Fable.Path.GetFileNameWithoutExtension(fileSegs.[fileSegs.Length - 1]) |]
+
+            match fileSegs |> Array.tryFindIndex (fun s -> s = Fable.Naming.fableModules) with
+            | Some i when i + 2 <= fileSegs.Length - 1 ->
+                // A package's sources, copied into fable_modules: the containing directory names
+                // the app (`Hedgehog.0.11.0` → `hedgehog`), the rest is its path within the app.
+                Array.append [| deriveDepAppName fileSegs.[i + 1] |] fileSegs.[i + 2 ..]
+                |> joinModuleName
+            | _ ->
+                let projSegs = splitPath (Fable.Path.GetDirectoryName(projectFile))
+                let shared = commonPrefixLength projSegs fileSegs
+                let belowProjDir = fileSegs.[shared..]
+                let appName = Fable.Path.GetFileNameWithoutExtension(projectFile)
+
+                // A file outside the project directory belongs to a referenced project, and its
+                // path below the shared ancestor starts with that project's own directory —
+                // conventionally its name — which is the qualifier we want. Unless there is no
+                // such directory (the file sits directly in the shared ancestor, as a linked
+                // `../Gen.fs` does), in which case the only assembly it can belong to is this one.
+                if projSegs.Length > 0 && shared = 0 then
+                    // The two paths have no ancestor in common at all (different Windows drives,
+                    // say). "Below the shared ancestor" is then the whole absolute path, which
+                    // would bake the machine's directory layout into the module name — qualify by
+                    // the project and keep only the file name.
+                    joinModuleName [| appName; Array.last fileSegs |]
+                elif shared = projSegs.Length || belowProjDir.Length < 2 then
+                    Array.append [| appName |] belowProjDir |> joinModuleName
+                else
+                    belowProjDir |> joinModuleName
 
     let capitalizeFirst (s: string) =
         if s.Length = 0 then
@@ -128,3 +495,113 @@ module Naming =
         // Remove/replace characters invalid in Erlang variable names
         name.Replace("$", "_").Replace("@", "_")
         |> fun s -> Regex.Replace(s, "[^a-zA-Z0-9_]", "_")
+
+/// A `char` is a plain `integer()` on Erlang — the same representation an `int` gets — so nothing
+/// at runtime can tell the two apart, and every conversion of a char to text has to be dispatched
+/// on the static type instead. F# hands some of those sites a *boxed* char (interpolation holes,
+/// `Console.WriteLine`'s `obj` overload), which erases the type to `Any`; peel the box so the char
+/// is still visible there.
+module Chars =
+    open Fable.AST.Fable
+
+    /// The char-typed expression underneath a boxing cast to `obj`, or the expression itself when
+    /// it is already a char. `None` for everything else, which keeps the generic runtime path.
+    let tryAsChar (e: Expr) =
+        match e with
+        | TypeCast(inner, Any) when inner.Type = Char -> Some inner
+        | e when e.Type = Char -> Some e
+        | _ -> None
+
+    /// The type of an expression with a boxing cast to `obj` peeled off, but only when what it
+    /// boxes is a char. Anything else keeps its own type — an `Any` there falls through to the
+    /// generic `fable_string:to_string`, which is right for every other value.
+    let unboxedType (e: Expr) =
+        match tryAsChar e with
+        | Some _ -> Char
+        | None -> e.Type
+
+/// Conversion of a value to its `string` form, dispatched on the static type.
+module ToString =
+    open Fable.AST
+    open Fable.AST.Fable
+    open Fable.Transforms
+    open Fable.Transforms.Replacements.Util
+
+    /// The `ToString` of a value whose type the compiler can still see.
+    ///
+    /// Two replacement tables reach this: `string x` as an operator, and `x.ToString()` as a
+    /// conversion. They must not diverge — a fix applied to one spelling and not the other is
+    /// invisible until someone happens to test the neglected one — so both call here.
+    ///
+    /// A char is peeled out of its boxing cast first. `box c |> string` arrives as a char under a
+    /// cast to `obj` and would otherwise fall through to `fable_convert:to_string`, which sees only
+    /// the integer and prints the codepoint. Every other type is unaffected, since `tryAsChar` only
+    /// ever looks through a box around a char.
+    let toStringByType (com: ICompiler) (r: SourceLocation option) (t: Type) (arg: Expr) =
+        let arg = Chars.tryAsChar arg |> Option.defaultValue arg
+
+        match arg.Type with
+        | Type.String -> Some arg
+        | Type.Char -> emitExpr r t [ arg ] "<<($0)/utf8>>" |> Some
+        | Type.Number(kind, _) ->
+            match kind with
+            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", t, [ arg ], ?loc = r) |> Some
+            | Float16
+            | Float32
+            | Float64 -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
+            | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
+        | Type.Boolean -> emitExpr r t [ arg ] "atom_to_binary($0)" |> Some
+        | _ -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
+
+/// Fixed-width integer semantics. Erlang integers are arbitrary precision and never
+/// overflow, so operations that can leave the width of a .NET sized integer are routed
+/// through the `fable_int` runtime module to truncate them back (two's complement).
+module Integers =
+    open Fable.AST // NumberKind
+    open Fable.AST.Fable
+
+    /// Bit width and signedness of a .NET sized integer type. `None` for types whose
+    /// Erlang representation is legitimately unbounded (bigint, the fixed-scale decimal)
+    /// or not an integer at all — those must never be wrapped.
+    let sizedIntInfo (typ: Type) : (int * bool) option =
+        match typ with
+        // Chars are integers on Erlang, and .NET truncates conversions into them like a uint16
+        | Type.Char -> Some(16, false)
+        | Type.Number(kind, _) ->
+            match kind with
+            | Int8 -> Some(8, true)
+            | UInt8 -> Some(8, false)
+            | Int16 -> Some(16, true)
+            | UInt16 -> Some(16, false)
+            | Int32 -> Some(32, true)
+            | UInt32 -> Some(32, false)
+            | Int64 -> Some(64, true)
+            | UInt64 -> Some(64, false)
+            | NativeInt -> Some(64, true)
+            | UNativeInt -> Some(64, false)
+            | _ -> None
+        | _ -> None
+
+    /// Name of the `fable_int` function that wraps a value to the given width/signedness.
+    let wrapFunctionName (bits: int, signed: bool) =
+        let prefix =
+            if signed then
+                "i"
+            else
+                "u"
+
+        $"wrap_%s{prefix}%d{bits}"
+
+    /// Whether converting a value of type `source` to type `target` can leave `target`'s
+    /// range, i.e. whether the conversion needs truncating.
+    let conversionNeedsWrap (source: Type) (target: Type) =
+        match sizedIntInfo target, sizedIntInfo source with
+        | None, _ -> false
+        | Some _, None -> true // unbounded or non-integer source (float, bigint, decimal)
+        | Some(targetBits, targetSigned), Some(sourceBits, sourceSigned) ->
+            if sourceSigned = targetSigned then
+                sourceBits > targetBits
+            elif targetSigned then
+                sourceBits >= targetBits // unsigned source only fits in a strictly wider signed target
+            else
+                true // a signed source can be negative, which never fits an unsigned target

@@ -278,7 +278,11 @@ type ValueTypeR =
 type StructUnion = Value of string
 
 [<Struct>]
-type SimpleRecord = { A: string; B: string }
+type SimpleRecord =
+    { A: string; B: string }
+    member this.WithA(a: string) =
+        let this = this
+        { this with A = a }
 
 type Point2D =
    struct
@@ -667,8 +671,54 @@ type MangledAbstractClass5(v) =
 type AbstractClassWithResizeArrayProp() =
     abstract Warnings: ResizeArray<string> with get
 
+type IGenericMethodHelpers<'JsonValue> =
+    abstract encodeString: string -> 'JsonValue
+
+type IGenericMethodEncodable =
+    abstract member Encode<'JsonValue> : helpers: IGenericMethodHelpers<'JsonValue> -> 'JsonValue
+
+// Class implementation that names the method's type parameter ('json) differently
+// from the interface ('JsonValue)
+type GenericMethodEncodableClass() =
+    interface IGenericMethodEncodable with
+        member _.Encode<'json>(helpers: IGenericMethodHelpers<'json>) = helpers.encodeString "x"
+
+type IGenericMethodBox<'T> =
+    abstract Get: unit -> 'T
+
+// The lambda inside `Get` references the outer generic parameter 'item (via the
+// captured `value`); it must not redeclare and shadow it.
+let mapGenericMethodBox<'item> (value: 'item) : IGenericMethodBox<'item seq> =
+    { new IGenericMethodBox<'item seq> with
+        member _.Get() : 'item seq = Seq.map (fun (x: 'item) -> value) [ value ]
+    }
+
 type ConcreteClass1() =
     inherit MangledAbstractClass5(2)
+
+// See #3895 - super call with generic class hierarchy uses wrong overload hash
+type IGenericAttach3895<'C> =
+    abstract Attach: 'C -> unit
+
+[<AbstractClass>]
+type GenericAttachBase3895<'C>(log: ResizeArray<string>) =
+    abstract Attach: 'C -> unit
+    default _.Attach(_owner: 'C) = log.Add("Base")
+
+    interface IGenericAttach3895<'C> with
+        member this.Attach(owner: 'C) = this.Attach(owner)
+
+type GenericAttachMid3895<'Container>(log: ResizeArray<string>) =
+    inherit GenericAttachBase3895<'Container>(log)
+    override this.Attach(owner) =
+        base.Attach(owner)
+        log.Add("Mid")
+
+type GenericAttachLeaf3895(log: ResizeArray<string>) =
+    inherit GenericAttachMid3895<string>(log)
+    override this.Attach(owner) =
+        base.Attach(owner)
+        log.Add("Leaf")
 
 type IndexedProps(v: int) =
     let mutable v = v
@@ -714,6 +764,20 @@ let inline inlinedFunc(n: 't[]) =
 
 let genericByrefFunc(n: byref<'t[]>) =
     inlinedFunc n
+
+[<Fable.Core.AttachMembers>]
+type GenericClassWithStaticMember<'T>() =
+    static member Length(xs: 'T list) = xs.Length
+
+[<Fable.Core.AttachMembers>]
+type GenericClassWithLetBinding<'TKey, 'TItem when 'TKey: comparison>(maker: 'TKey -> 'TItem) =
+    let mutable cache = Map.empty
+    let makeForKey key =
+        let v = maker key
+        cache <- cache.Add(key, v)
+        v
+    member _.Get(key: 'TKey) : 'TItem =
+        cache.TryFind key |> Option.defaultWith (fun () -> makeForKey key)
 
 [<AttachMembersAttribute>]
 type MyOptionalClass(?arg1: float, ?arg2: string, ?arg3: int) =
@@ -1352,6 +1416,12 @@ let tests =
         simple.A |> equal ""
         simple.B |> equal "B"
 
+    testCase "copy-update expression on this in struct member works" <| fun () -> // See #3828
+        let r : SimpleRecord = { A = "hello"; B = "world" }
+        let r2 = r.WithA("foo")
+        r2.A |> equal "foo"
+        r2.B |> equal "world"
+
     testCase "Custom F# exceptions work" <| fun () ->
         try
             MyEx(4,"ERROR") |> raise
@@ -1369,6 +1439,15 @@ let tests =
         | ex -> (false, "unknown", 0.)
         |> equal (true, "Code: 5", 5.5)
 
+    testCase "Exception ToString contains the message" <| fun () -> // See #4197
+        let msg =
+            try
+                failwith "test message"
+                ""
+            with ex -> ex.ToString()
+
+        msg.Contains("test message") |> equal true
+
     testCase "reraise works" <| fun () ->
         try
             try
@@ -1380,6 +1459,12 @@ let tests =
             "foo"
         with ex -> ex.Message
         |> equal "Will I be reraised?"
+
+    testCase "ArgumentException with message and inner exception works" <| fun () ->
+        let inner = exn "the inner cause"
+        let ex = System.ArgumentException("outer message", inner)
+        ex.Message |> equal "outer message"
+        ex.InnerException.Message |> equal "the inner cause"
 
     testCase "This context is not lost in closures within implicit constructor" <| fun () -> // See #1444
         ThisContextInConstructor(7).Value() |> equal 7
@@ -1481,6 +1566,14 @@ let tests =
     testCase "Multiple `this` references work in nested attached members" <| fun _ ->
         (MixedThese(2) :> Interface1).Create(3).Add() |> equal 5
 
+    testCase "Generic static member on generic attached class re-declares type param" <| fun () ->
+        GenericClassWithStaticMember<int>.Length([1; 2; 3]) |> equal 3
+
+    testCase "Generic attached class with let-binding helper does not shadow class type params" <| fun () ->
+        let src = GenericClassWithLetBinding<string, int>(fun k -> k.Length)
+        src.Get("hello") |> equal 5
+        src.Get("hi") |> equal 2
+
     testCase "Two unions of different type with same shape are not equal" <| fun () ->
         areEqual (MyUnion1.Foo(1,2)) (MyUnion2.Foo(1,2)) |> equal false
         areEqual (MyUnion1.Foo(1,2)) (MyUnion1.Foo(1,2)) |> equal true
@@ -1551,6 +1644,14 @@ let tests =
     testCase "Can call the base version of a mangled abstract method that was declared above in the hierarchy" <| fun () ->
         let c = ConcreteClass1()
         c.MyMethod(4) |> equal 58
+
+    // See #3895 - super call in generic class hierarchy was using wrong mangled name
+    testCase "Super call works correctly in multi-level generic class hierarchy" <| fun () ->
+        let log = ResizeArray<string>()
+        let obj = GenericAttachLeaf3895(log)
+        obj.Attach("hello")
+        // Each override delegates to base before logging, so the chain unwinds Base -> Mid -> Leaf
+        log |> List.ofSeq |> equal [ "Base"; "Mid"; "Leaf" ]
 
     // See #3328
     testCase "SRTP works with byref" <| fun () ->
@@ -1679,4 +1780,30 @@ let tests =
         reader.Warnings.Add("Warning 2")
 
         reader.Warnings.Count |> equal 2
+
+    testCase "Object expression implementing a generic interface method works" <| fun () ->
+        let helpers =
+            { new IGenericMethodHelpers<string> with
+                member _.encodeString v = "S:" + v
+            }
+
+        let encodable =
+            { new IGenericMethodEncodable with
+                member _.Encode(helpers) = helpers.encodeString "x"
+            }
+
+        encodable.Encode(helpers) |> equal "S:x"
+
+    testCase "Class implementing a generic interface method with a renamed type parameter works" <| fun () ->
+        let helpers =
+            { new IGenericMethodHelpers<string> with
+                member _.encodeString v = "S:" + v
+            }
+
+        let encodable = GenericMethodEncodableClass() :> IGenericMethodEncodable
+        encodable.Encode(helpers) |> equal "S:x"
+
+    testCase "Nested lambda does not shadow an outer generic type parameter" <| fun () ->
+        let box = mapGenericMethodBox 42
+        box.Get() |> List.ofSeq |> equal [ 42 ]
   ]

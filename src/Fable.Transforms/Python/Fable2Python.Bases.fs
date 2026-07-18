@@ -335,12 +335,14 @@ module InterfaceNaming =
             |> OverloadSuffix.getHash entityGenericParameters
 
     /// Generates a mangled member name for interfaces/abstract classes.
-    /// Format: EntityFullPath_MemberName + OverloadSuffix (dots replaced with underscores)
+    /// Format: EntityFullName_MemberName + OverloadSuffix (dots and backticks replaced with underscores).
+    /// Uses the entity's FullName (which includes generic arity like ``2``) so the mangled name
+    /// matches the one produced for overrides in derived classes.
     let getMangledMemberName (ent: Fable.Entity) (memb: Fable.MemberFunctionOrValue) =
         let overloadSuffix = getOverloadSuffix ent memb
-        let lastDotIndex = memb.FullName.LastIndexOf '.'
-        let fullNamePath = memb.FullName.Substring(0, lastDotIndex)
-        $"%s{fullNamePath}.%s{memb.CompiledName}%s{overloadSuffix}".Replace(".", "_")
+
+        $"%s{ent.FullName}.%s{memb.CompiledName}%s{overloadSuffix}"
+        |> Fable.Py.Naming.cleanNameAsPyIdentifier
 
 /// Generates abstract method stubs for abstract classes.
 /// Creates stubs for dispatch slots (abstract members) that don't have default implementations.

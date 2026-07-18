@@ -81,9 +81,48 @@ export function endsWith(str: string, pattern: string, ic: boolean | StringCompa
     return str.endsWith(pattern);
   }
   if (str.length >= pattern.length) {
-    return cmp(str.slice(-pattern.length), pattern, ic) === 0;
+    return cmp(str.slice(str.length - pattern.length), pattern, ic) === 0;
   }
   return false;
+}
+
+export function contains(str: string, pattern: string, ic: boolean | StringComparison) {
+  if (ic === StringComparison.Ordinal) { // fast path
+    return str.includes(pattern);
+  }
+  const len = pattern.length;
+  for (let i = 0; i <= str.length - len; i++) {
+    if (cmp(str.slice(i, i + len), pattern, ic) === 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+export function indexOf(str: string, searchValue: string, comparison: StringComparison, startIndex: number = 0): number {
+  if (comparison === StringComparison.Ordinal) { // fast path
+    return str.indexOf(searchValue, startIndex);
+  }
+  const len = searchValue.length;
+  for (let i = Math.max(startIndex, 0); i <= str.length - len; i++) {
+    if (cmp(str.slice(i, i + len), searchValue, comparison) === 0) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+export function lastIndexOf(str: string, searchValue: string, comparison: StringComparison, startIndex: number = str.length - 1): number {
+  if (comparison === StringComparison.Ordinal) { // fast path
+    return str.lastIndexOf(searchValue, startIndex);
+  }
+  const len = searchValue.length;
+  for (let i = Math.min(startIndex, str.length - len); i >= 0; i--) {
+    if (cmp(str.slice(i, i + len), searchValue, comparison) === 0) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 export function indexOfAny(str: string, anyOf: string[], ...args: number[]) {
@@ -214,6 +253,8 @@ function formatReplacement(rep: any, flags: any, padLength: any, precision: any,
     }
   } else if (rep instanceof Date) {
     rep = dateToString(rep);
+  } else if (format === "A" && typeof rep === "string") {
+    rep = "\"" + rep + "\"";
   } else {
     rep = toString(rep);
   }
@@ -377,11 +418,23 @@ export function format(str: string | object, ...args: any[]) {
             rep = parts.integral + "." + padRight(parts.decimal, precision, "0");
           }
           break;
-        case "g": case "G":
+        case "g": case "G": {
           rep = precision != null ? toPrecision(rep, precision) : toPrecision(rep);
-          // TODO: Check why some numbers are formatted with decimal part
-          rep = trimEnd(trimEnd(rep, "0"), ".");
+          // Handle exponential notation: only trim trailing zeros from mantissa, not from exponent.
+          // .NET G format guarantees an exponent of at least 2 digits with an explicit sign (e.g. "E-07").
+          const eIdx = rep.indexOf("e");
+          if (eIdx >= 0) {
+            const mantissa = trimEnd(trimEnd(rep.slice(0, eIdx), "0"), ".");
+            const expSign = rep[eIdx + 1]; // toPrecision always emits "+" or "-"
+            const expDigits = rep.slice(eIdx + 2);
+            const paddedExpDigits = expDigits.length < 2 ? "0" + expDigits : expDigits;
+            const eChar = format === "G" ? "E" : "e";
+            rep = mantissa + eChar + expSign + paddedExpDigits;
+          } else {
+            rep = trimEnd(trimEnd(rep, "0"), ".");
+          }
           break;
+        }
         case "n": case "N":
           precision = precision != null ? precision : 2;
           rep = toFixed(rep, precision);
@@ -408,7 +461,7 @@ export function format(str: string | object, ...args: any[]) {
           if (!isIntegral(rep)) {
             throw new Exception("Format specifier was invalid.");
           }
-          precision = precision != null ? precision : 2;
+          precision = precision != null ? precision : 1;
           rep = padLeft(toHex(rep), precision, "0");
           if (format === "X") {
             rep = rep.toUpperCase();

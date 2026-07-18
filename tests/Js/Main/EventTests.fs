@@ -250,4 +250,22 @@ let tests =
             test.Trigger(i)
 
         equal 300 counter
+
+    testCase "Event.Trigger delivers zero value" <| fun () ->
+        let mutable result = -1
+        let source = Event<int>()
+        source.Publish |> Event.add (fun n -> result <- n)
+        source.Trigger 0
+        equal 0 result
+
+    testCase "Classes can trigger CLI events with zero value" <| fun () ->
+        let mutable result = -1
+        let mutable actualSender = null
+        let classWithEvent = new ClassWithCLIEvent()
+        classWithEvent.Event.Add(fun (sender, x) ->
+            actualSender <- box sender
+            result <- x)
+        classWithEvent.TestEvent(0)
+        equal 0 result
+        equal (box classWithEvent) actualSender
   ]

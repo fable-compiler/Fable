@@ -31,22 +31,25 @@ module PrinterExtensions =
         | ExpressionStatement(expr) -> hasSideEffects (expr)
         | _ -> true
 
+    [<return: Struct>]
     let (|UndefinedOrVoid|_|) =
         function
-        | Undefined _ -> Some()
-        | UnaryExpression(argument, "void", false, _loc) when not (hasSideEffects (argument)) -> Some()
-        | _ -> None
+        | Undefined _ -> ValueSome()
+        | UnaryExpression(argument, "void", false, _loc) when not (hasSideEffects (argument)) -> ValueSome()
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|NullOrUndefinedOrVoid|_|) =
         function
         | Literal(NullLiteral _)
-        | UndefinedOrVoid _ -> Some()
-        | _ -> None
+        | UndefinedOrVoid _ -> ValueSome()
+        | _ -> ValueNone
 
+    [<return: Struct>]
     let (|StringConstant|_|) =
         function
-        | Literal(Literal.StringLiteral(StringLiteral(value = value))) -> Some value
-        | _ -> None
+        | Literal(Literal.StringLiteral(StringLiteral(value = value))) -> ValueSome value
+        | _ -> ValueNone
 
     type Printer with
 
@@ -78,7 +81,7 @@ module PrinterExtensions =
                 printer.Print(s)
                 printSeparator |> Option.iter (fun f -> f printer)
 
-        member printer.PrintProductiveStatements(statements: Statement[]) =
+        member printer.PrintProductiveStatements(statements: Statement array) =
             for s in statements do
                 printer.PrintProductiveStatement(s, (fun p -> p.PrintStatementSeparator()))
 
@@ -137,7 +140,7 @@ module PrinterExtensions =
                 if i < items.Length - 1 then
                     printSeparator printer
 
-        member printer.PrintParameters(items: Parameter array, ?accessModifers: AccessModifier[]) =
+        member printer.PrintParameters(items: Parameter array, ?accessModifers: AccessModifier array) =
             let accessModifiers = defaultArg accessModifers [||]
             let len = items.Length
             let mutable i = 0
@@ -233,7 +236,7 @@ module PrinterExtensions =
                 id: Identifier option,
                 isAbstract: bool option,
                 superClass: SuperClass option,
-                typeParameters: TypeParameter[],
+                typeParameters: TypeParameter array,
                 implements: TypeAnnotation array,
                 members: ClassMember array,
                 loc
@@ -278,7 +281,7 @@ module PrinterExtensions =
                 id: Identifier option,
                 parameters: Parameter array,
                 body: BlockStatement,
-                typeParameters: TypeParameter[],
+                typeParameters: TypeParameter array,
                 returnType: TypeAnnotation option,
                 loc,
                 ?isDeclaration,
@@ -397,7 +400,7 @@ module PrinterExtensions =
             printer.Print(" " + operator + " ")
             printer.ComplexExpressionWithParens(right)
 
-        member printer.PrintJsxTemplate(parts: string[], values: Expression[]) =
+        member printer.PrintJsxTemplate(parts: string array, values: Expression array) =
             // Do we need to escape backslashes here?
             let escape str = str //Regex.Replace(str, @"(?<!\\)\\", @"\\")
 
@@ -447,7 +450,7 @@ module PrinterExtensions =
                 |> List.iter (
                     function
                     | _, NullOrUndefinedOrVoid -> ()
-                    | key, StringConstant value -> printProp (fun () -> printer.Print($"{key}=\"{value}\""))
+                    | key, StringConstant value -> printProp (fun () -> printer.Print($"%s{key}=\"%s{value}\""))
                     | key, value ->
                         printProp (fun () ->
                             printer.Print(key + "={")
@@ -1151,7 +1154,7 @@ module PrinterExtensions =
                     printer.Print(": ")
                     printer.Print(returnType)
 
-        member printer.PrintAbstractMembers(members: AbstractMember[], ?singleLine: bool) =
+        member printer.PrintAbstractMembers(members: AbstractMember array, ?singleLine: bool) =
             let singleLine = defaultArg singleLine false
 
             if singleLine then
@@ -1521,13 +1524,13 @@ module PrinterExtensions =
             printer.PrintOptional(bound, " extends ")
         // printer.PrintOptional(``default``)
 
-        member printer.Print(parameters: TypeParameter[]) =
+        member printer.Print(parameters: TypeParameter array) =
             if parameters.Length > 0 then
                 printer.Print("<")
                 printer.PrintCommaSeparatedArray(parameters)
                 printer.Print(">")
 
-        member printer.Print(parameters: TypeAnnotation[]) =
+        member printer.Print(parameters: TypeAnnotation array) =
             if parameters.Length > 0 then
                 printer.Print("<")
                 printer.PrintCommaSeparatedArray(parameters)

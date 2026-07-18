@@ -50,7 +50,7 @@ let updateLibraryVersionInFableTransforms
     // Save changes on the disk
     File.WriteAllText(filePath, fileContent)
 
-let private publishNuget (fsprojDir: string) (noSymbols: bool) =
+let publishNuget (fsprojDir: string) (noSymbols: bool) =
     let fsprojFiles = Directory.GetFiles(fsprojDir, "*.fsproj")
 
     if Array.length fsprojFiles <> 1 then
@@ -69,7 +69,7 @@ let private publishNuget (fsprojDir: string) (noSymbols: bool) =
     // This is because we make an optimistic release and delegate the version set to EasyBuild.PackageReleaseNotes.Tasks
     DotNet.nugetPush (nupkgPath, apiKey = nugetKey, noSymbols = noSymbols, skipDuplicate = true)
 
-let private publishNpm (projectDir: string) =
+let publishNpm (projectDir: string) =
     let packageJsonFile = Path.Combine(projectDir, "package.json") |> FileInfo
 
     let lastChangelogVersion =
@@ -80,7 +80,7 @@ let private publishNpm (projectDir: string) =
     PackageJson.replaceVersion (packageJsonFile, lastChangelogVersion)
 
     if PackageJson.needPublishing packageJsonFile then
-        Npm.publish (projectDir, tag = "rc")
+        Npm.publish (projectDir)
         printfn $"Published!"
     else
         printfn $"Already up-to-date, skipping..."
@@ -131,11 +131,12 @@ let handle (args: string list) =
     // Release fable-compiler-js and fable-standalone after Fable.Cli
     // otherwise the reported version for Fable will be wrong
 
-    // Trigger fable-compiler-js target to make sure everything is ready for publish
-    // Note: fable-standalone is built as part of fable-compiler-js
-    // so no need to build it separately
-    // Note 2: We already built fable-library, it will be skipped thanks to incremental build
-    CompilerJs.handle []
-
+    // Build and publish fable-standalone before running CompilerJs.handle.
+    // The release commit bumps fable-compiler-js's dependency on fable-standalone
+    // to the new version before that version is on npm.
+    Standalone.handle []
     publishNpm ProjectDir.fable_standalone
+
+    CompilerJs.handle [ "--skip-fable-standalone" ]
+
     publishNpm ProjectDir.fable_compiler_js

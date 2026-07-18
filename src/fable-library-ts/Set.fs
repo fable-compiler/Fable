@@ -130,7 +130,8 @@ module SetTree =
                 else // rotate left
                     mk (mk t1 v t2'.Left) t2'.Key t2'.Right
             | _ -> failwith "internal error: Set.rebalance"
-        else if t1h > t2h + tolerance then // left is heavier than right
+        // left is heavier than right
+        else if t1h > t2h + tolerance then
             match t1.Value with
             | :? SetTreeNode<'T> as t1' ->
                 // one of the nodes must have height > height t2 + 1
@@ -951,7 +952,7 @@ type Set<[<EqualityConditionalOn>] 'T when 'T: comparison>(comparer: IComparer<'
     //     Set(comparer, SetTree.ofArray comparer arr)
 
     override this.ToString() =
-        "set [" + System.String.Join("; ", this) + "]"
+        structuredCollectionToString "set [" this "]"
 
 // [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 // [<RequireQualifiedAccess>]
@@ -1096,5 +1097,28 @@ let isProperSubsetOf (s1: JS.Set<'T>) (s2: 'T seq) =
     s2.size > s1.size && s1.values () |> Seq.forall s2.has
 
 let isProperSupersetOf (s1: JS.Set<'T>) (s2: 'T seq) =
-    let s2 = Seq.cache s2
-    s2 |> Seq.exists (s1.has >> not) && s2 |> Seq.forall s1.has
+    let s2 = newMutableSetWith s1 s2
+    s1.size > s2.size && s2.values () |> Seq.forall s1.has
+
+let symmetricExceptWith (s1: JS.Set<'T>) (s2: 'T seq) =
+    let s2 = newMutableSetWith s1 s2
+
+    s2.values ()
+    |> Seq.iter (fun x ->
+        if s1.has (x) then
+            s1.delete x |> ignore
+        else
+            s1.add x |> ignore
+    )
+
+let overlaps (s1: JS.Set<'T>) (s2: 'T seq) = s2 |> Seq.exists s1.has
+
+let setEquals (s1: JS.Set<'T>) (s2: 'T seq) =
+    let s2 = newMutableSetWith s1 s2
+    s1.size = s2.size && s1.values () |> Seq.forall s2.has
+
+let copyToArray (s1: JS.Set<'T>) (target: 'T[]) (sourceIndex: int) (targetIndex: int) (count: int) =
+    s1.values ()
+    |> Seq.skip sourceIndex
+    |> Seq.truncate count
+    |> Seq.iteri (fun index value -> target[targetIndex + index] <- value)

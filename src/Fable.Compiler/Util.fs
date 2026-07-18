@@ -24,6 +24,7 @@ type CliArgs =
         Configuration: string
         NoRestore: bool
         NoCache: bool
+        NoGitignore: bool
         NoParallelTypeCheck: bool
         SourceMaps: bool
         SourceMapsRoot: string option
@@ -316,16 +317,16 @@ module File =
                             let creationTime = File.GetCreationTime(lockFile)
 
                             if (DateTime.Now - creationTime).TotalMilliseconds > float timeoutMs then
-                                Log.always $"Found old lock file {relPathToCurDir lockFile} ({creationTime})"
+                                Log.always $"Found old lock file %s{relPathToCurDir lockFile} (%O{creationTime})"
 
                                 try
                                     File.Delete(lockFile)
                                 with _ ->
                                     ()
                             else
-                                Log.always $"Directory is locked, waiting for max {timeoutMs / 1000}s"
+                                Log.always $"Directory is locked, waiting for max %d{timeoutMs / 1000}s"
 
-                                Log.always $"If compiler gets stuck, delete {relPathToCurDir lockFile}"
+                                Log.always $"If compiler gets stuck, delete %s{relPathToCurDir lockFile}"
                         elif waitedMs >= timeoutMs then
                             Fable.AST.Fable.FableError "LockTimeOut" |> raise
 
@@ -348,7 +349,7 @@ module File =
                 if fileCreated then
                     File.Delete(lockFile)
             with e ->
-                Log.always $"Could not delete lock file: {lockFile} ({e.Message})"
+                Log.always $"Could not delete lock file: %s{lockFile} (%s{e.Message})"
 
 [<RequireQualifiedAccess>]
 module Process =
@@ -388,7 +389,7 @@ module Process =
     let findInPath (exec: string) =
         match tryFindInPath exec with
         | Some exec -> exec
-        | None -> failwith $"Cannot find {exec} in PATH"
+        | None -> failwith $"Cannot find %s{exec} in PATH"
 
     let getCurrentAssembly () = typeof<TypeInThisAssembly>.Assembly
 
@@ -413,7 +414,7 @@ module Process =
         // TODO: We should use cliArgs.RootDir instead of Directory.GetCurrentDirectory here but it's only informative
         // so let's leave it as is for now to avoid having to pass the cliArgs through all the call sites
         if not redirectOutput then
-            Log.always $"""{File.relPathToCurDir workingDir}> {exePath} {String.concat " " args}"""
+            Log.always $"""%s{File.relPathToCurDir workingDir}> %s{exePath} %s{String.concat " " args}"""
 
         let psi = ProcessStartInfo(exePath)
 
@@ -616,7 +617,7 @@ module Imports =
             let importPath = Path.Combine(projDir, importPath)
             let targetDir = Path.GetDirectoryName(targetPath)
             getRelativePath targetDir importPath
-        | Some macro, _ -> failwith $"Unknown import macro: {macro}"
+        | Some macro, _ -> failwith $"Unknown import macro: %s{macro}"
         | None, None ->
             if isAbsolutePath importPath then
                 let sourceDir = Path.GetDirectoryName(sourcePath)
@@ -662,7 +663,7 @@ module Observable =
                 }
 
     let throttle (ms: int) (obs: IObservable<'T>) =
-        { new IObservable<'T[]> with
+        { new IObservable<'T array> with
             member _.Subscribe w =
                 let events = ResizeArray()
                 let timer = new Timers.Timer(float ms, AutoReset = false)
@@ -705,11 +706,12 @@ module Json =
     open Fable.AST
 
     // TODO: Check which other parameters are accepted by attributes (arrays?)
+    [<Struct>]
     type AttParam =
-        | Int of int
-        | Float of float
-        | Bool of bool
-        | String of string
+        | Int of intValue: int
+        | Float of floatValue: float
+        | Bool of boolValue: bool
+        | String of stringValue: string
 
         static member From(values: obj list) =
             (Ok [], values)
@@ -759,7 +761,7 @@ module Json =
             else
                 writer.WriteNumberValue(value)
 
-    type StringPoolReader(pool: string[]) =
+    type StringPoolReader(pool: string array) =
         inherit JsonConverter<string>()
 
         override _.Read(reader, _typeToConvert, _options) =
@@ -818,7 +820,7 @@ module Json =
             let path = path.[0 .. path.Length - ext.Length - 1] + "_strings.json"
 
             let jsonReadOnlySpan: ReadOnlySpan<byte> = File.ReadAllBytes(path)
-            JsonSerializer.Deserialize<string[]>(jsonReadOnlySpan)
+            JsonSerializer.Deserialize<string array>(jsonReadOnlySpan)
 
         let options = getOptions ()
         options.Converters.Add(StringPoolReader(strings))
@@ -879,7 +881,7 @@ type PrecompiledInfoJson =
         CompilerOptions: Fable.CompilerOptions
         FableLibDir: string
         Files: Map<string, PrecompiledFileJson>
-        InlineExprHeaders: string[]
+        InlineExprHeaders: string array
     }
 
 type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
@@ -924,7 +926,7 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
                     fun _ ->
                         lazy
                             PrecompiledInfoImpl.GetInlineExprsPath(fableModulesDir, index)
-                            |> Json.readWithStringPool<(string * Fable.InlineExpr)[]>
+                            |> Json.readWithStringPool<(string * Fable.InlineExpr) array>
                             |> Map
                 )
 
@@ -934,7 +936,7 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
         IO.Path.Combine(fableModulesDir, "precompiled_info.json")
 
     static member GetInlineExprsPath(fableModulesDir, index: int) =
-        IO.Path.Combine(fableModulesDir, "inline_exprs", $"inline_exprs_{index}.json")
+        IO.Path.Combine(fableModulesDir, "inline_exprs", $"inline_exprs_%d{index}.json")
 
     static member Load(fableModulesDir: string) =
         try
@@ -987,7 +989,7 @@ module Reflection =
         /// Prevent ReflectionTypeLoadException
         /// From http://stackoverflow.com/a/7889272
         let getTypes (asm: System.Reflection.Assembly) =
-            let mutable types: Option<Type[]> = None
+            let mutable types: Option<Type array> = None
 
             try
                 types <- Some(asm.GetTypes())

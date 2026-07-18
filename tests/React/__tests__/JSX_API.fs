@@ -66,6 +66,14 @@ Jest.describe("JSX API tests (using React)", fun () ->
         matchSnapshot Components.divWithForLoop
     )
 
+    Jest.test("Element can have a match arm that binds a value before a for loop", fun () ->
+        matchSnapshot (Components.divWithMatchContainingForLoop 2)
+    )
+
+    Jest.test("Element can have a sibling before a match arm that binds a value before a for loop", fun () ->
+        matchSnapshot (Components.divWithElementBeforeMatchContainingForLoop 2)
+    )
+
     Jest.test("Fragments are supported", fun () ->
         matchSnapshot Components.divWithFragment
     )

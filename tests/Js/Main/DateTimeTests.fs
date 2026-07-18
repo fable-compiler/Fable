@@ -503,6 +503,60 @@ let tests =
     //     DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Local).ToString("O")
     //     |> equal "2014-09-11T16:37:02.000+02:00" // Here the time zone is Europe/Paris (GMT+2)
 
+    testCase "DateTime.ToString('R') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("R", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "Mon, 01 Sep 2014 16:37:02 GMT"
+
+    testCase "DateTime.ToString('s') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("s", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "2014-09-01T16:37:02"
+
+    testCase "DateTime.ToString('u') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("u", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "2014-09-01 16:37:02Z"
+
+    testCase "DateTime.ToString('F') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("F", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "Monday, 01 September 2014 16:37:02"
+
+    testCase "DateTime.ToString('f') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("f", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "Monday, 01 September 2014 16:37"
+
+    testCase "DateTime.ToString('G') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("G", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "09/01/2014 16:37:02"
+
+    testCase "DateTime.ToString('g') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("g", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "09/01/2014 16:37"
+
+    testCase "DateTime.ToString('M') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("M", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "September 01"
+
+    testCase "DateTime.ToString('Y') works" <| fun _ ->
+        let format (d: DateTime) = d.ToString("Y", CultureInfo.InvariantCulture)
+        DateTime(2014, 9, 1, 16, 37, 2, DateTimeKind.Utc)
+        |> format
+        |> equal "2014 September"
+
     testCase "DateTime from Year 1 to 99 works" <| fun () ->
         let date = DateTime(1, 1, 2)
         date.Year |> equal 1
@@ -794,6 +848,19 @@ let tests =
         d3.Hour + d3.Minute + d3.Second |> equal 54
 
 
+    testCase "DateTime.Parse handles AM/PM designator correctly" <| fun () ->
+        // Time-only strings parse to clock fields that are timezone-independent
+        let d = DateTime.Parse("1:05:34 PM", CultureInfo.InvariantCulture)
+        d.Hour |> equal 13
+        d.Minute |> equal 5
+        d.Second |> equal 34
+        let d = DateTime.Parse("12:05 AM", CultureInfo.InvariantCulture)
+        d.Hour |> equal 0
+        d.Minute |> equal 5
+        let d = DateTime.Parse("12:05 PM", CultureInfo.InvariantCulture)
+        d.Hour |> equal 12
+        d.Minute |> equal 5
+
     testCase "DateTime.TryParse works" <| fun () ->
         let (isSuccess, _) = DateTime.TryParse("foo", CultureInfo.InvariantCulture, DateTimeStyles.None)
         isSuccess |> equal false
@@ -821,6 +888,31 @@ let tests =
         let invalidAmericanDate = "13/1/2020"
         let r, _date = DateTime.TryParse(invalidAmericanDate, CultureInfo.InvariantCulture, DateTimeStyles.None)
         r |> equal false
+
+    testCase "DateTime.TryParse rejects JS-permissive strings that .NET rejects" <| fun () ->
+        // JS's Date constructor treats unrecognised words as timezone abbreviations, so it
+        // accepts strings .NET rejects: "ABC 6" (ABC), "XYZ 2024" (XYZ), and words that merely
+        // start with a month name like "Maybe 6" (May) or "Junk 2024" (Jun).
+        [ "ABC 6"; "XYZ 2024"; "Maybe 6"; "Junk 2024" ]
+        |> List.map (fun s -> fst (DateTime.TryParse s))
+        |> equal [ false; false; false; false ]
+
+        // Recognised date words (weekday / month names, GMT) must still parse, matching .NET.
+        let r1, d1 = DateTime.TryParse("Sun, 06 Nov 1994 08:49:37 GMT")
+        r1 |> equal true
+        d1.Year |> equal 1994
+
+        let r2, d2 = DateTime.TryParse("Mon, 15 Jan 2024")
+        r2 |> equal true
+        d2.Year |> equal 2024
+
+        let r3, d3 = DateTime.TryParse("January 15, 2024")
+        r3 |> equal true
+        d3.Year |> equal 2024
+
+        let r4, d4 = DateTime.TryParse("9/10/2014 1:50:34 PM")
+        r4 |> equal true
+        d4.Year |> equal 2014
 
     testCase "DateTime.Today works" <| fun () ->
         let d = DateTime.Today
@@ -925,6 +1017,12 @@ let tests =
         test -5 2054
         test -20 2050
         test -100 2046
+
+    testCase "DateTime.AddMonths keeps last day when delta is a multiple of 12" <| fun () ->
+        let dt = DateTime(2020, 12, 31, 0, 0, 0, DateTimeKind.Utc).AddMonths(12)
+        dt.Year |> equal 2021
+        dt.Month |> equal 12
+        dt.Day |> equal 31
 
     testCase "DateTime.AddDays works" <| fun () ->
         let test v expected =
@@ -1073,18 +1171,6 @@ let tests =
 
         t |> equal (TimeSpan(0, 13, 23, 30, 1))
 
-    testCaseAsync "Timer with AutoReset = true works" <| fun () ->
-        async {
-            let res = ref 0
-            let t = new Timers.Timer(50.)
-            t.Elapsed.Add(fun ev -> res := !res + 5)
-            t.Start()
-            do! Async.Sleep 125
-            t.Stop()
-            do! Async.Sleep 50
-            equal 10 !res
-        }
-
     testCaseAsync "Timer with AutoReset = false works" <| fun () ->
         async {
             let res = ref 0
@@ -1095,6 +1181,18 @@ let tests =
             t.Enabled <- true
             do! Async.Sleep 100
             equal 5 !res
+        }
+
+    testCaseAsync "Timer with AutoReset = true works" <| fun () ->
+        async {
+            let res = ref 0
+            let t = new Timers.Timer(50.)
+            t.Elapsed.Add(fun ev -> res := !res + 5)
+            t.Start()
+            do! Async.Sleep 125
+            t.Stop()
+            do! Async.Sleep 50
+            equal 10 !res
         }
 
     testCaseAsync "Timer.Elapsed.Subscribe works" <| fun () ->
@@ -1145,4 +1243,21 @@ let tests =
     testCase "Adding days to a local date works even if daylight saving time changes" <| fun () ->
         let dt = DateTime(2019, 10, 20, 0, 0, 0, DateTimeKind.Local)
         dt.AddDays(9.).Day |> equal 29
+
+    testCase "Using format strings should respect local time" <| fun () ->
+        let dt = DateTime.Parse("2025-01-01T00:00:00+0100")
+        let utc = dt.ToUniversalTime()
+        let str = utc.ToString("yyyy-MM-dd HH:mm")
+
+        str |> equal "2024-12-31 23:00"
+
+    testCase "DateTime.ToString without format is consistent across kinds" <| fun () ->
+        let local = DateTime(2020, 2, 20, 20, 20, 20, DateTimeKind.Local)
+        let utc = DateTime(2020, 2, 20, 20, 20, 20, DateTimeKind.Utc)
+        local.ToString() |> equal (utc.ToString())
+
+    testCase "DateTime %A format is consistent across kinds" <| fun () ->
+        let local = DateTime(2020, 2, 20, 20, 20, 20, DateTimeKind.Local)
+        let utc = DateTime(2020, 2, 20, 20, 20, 20, DateTimeKind.Utc)
+        sprintf "%A" local |> equal (sprintf "%A" utc)
   ]

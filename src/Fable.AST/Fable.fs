@@ -537,7 +537,7 @@ type ValueKind =
     | NewList of headAndTail: (Expr * Expr) option * typ: Type
     | NewTuple of values: Expr list * isStruct: bool
     | NewRecord of values: Expr list * ref: EntityRef * genArgs: Type list
-    | NewAnonymousRecord of values: Expr list * fieldNames: string[] * genArgs: Type list * isStruct: bool
+    | NewAnonymousRecord of values: Expr list * fieldNames: string array * genArgs: Type list * isStruct: bool
     | NewUnion of values: Expr list * tag: int * ref: EntityRef * genArgs: Type list
 
     member this.Type =

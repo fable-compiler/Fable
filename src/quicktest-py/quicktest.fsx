@@ -45,6 +45,14 @@ let main argv =
     // use file = builtins.``open``(StringPath "data.txt")
     // file.read() |> printfn "File contents: %s"
 
+    System.Environment.GetEnvironmentVariable("__FABLE_NON_EXISTENT_VAR__")
+    |> equal null
+
+    System.Environment.CurrentDirectory.Length > 0 |> equal true
+
+    System.Console.Out.WriteLine("Hello stdout")
+    System.Console.Error.WriteLine("Hello stderr")
+
     printfn "All tests passed!"
 
     0

@@ -584,6 +584,58 @@ let enumerateWhile (guard: unit -> bool) (xs: 'T seq) =
             0
     )
 
+let enumerateTryWith (source: 'T seq) (catchFilter: exn -> int) (catchHandler: exn -> 'T seq) =
+    mkSeq (fun () ->
+        let mutable e: IEnumerator<'T> option = None
+        let mutable caught = false // switched to the handler sequence
+        let mutable finished = false
+
+        let next () =
+            let mutable res = None
+            let mutable again = true
+
+            while again do
+                again <- false
+
+                if not finished then
+                    try
+                        let en =
+                            match e with
+                            | Some en -> en
+                            | None ->
+                                let en = source.GetEnumerator()
+                                e <- Some en
+                                en
+
+                        if en.MoveNext() then
+                            res <- Some en.Current
+                        else
+                            finished <- true
+                    with ex ->
+                        if not caught && catchFilter ex <> 0 then
+                            caught <- true
+
+                            match e with
+                            | Some en ->
+                                en.Dispose()
+                                e <- None
+                            | None -> ()
+
+                            e <- Some((catchHandler ex).GetEnumerator())
+                            again <- true // pull the next element from the handler sequence
+                        else
+                            reraise ()
+
+            res
+
+        let dispose () =
+            match e with
+            | Some en -> en.Dispose()
+            | None -> ()
+
+        Enumerable.fromFunctions next dispose
+    )
+
 let exactlyOne (xs: 'T seq) =
     use e = ofSeq xs
 

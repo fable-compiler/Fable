@@ -308,7 +308,15 @@ def equal_arrays[T](x: Sequence[T], y: Sequence[T]) -> bool:
 
 
 def compare_primitives[TSupportsLessThan: SupportsLessThan](x: TSupportsLessThan, y: TSupportsLessThan) -> int32:
-    return int32(0 if x == y else (-1 if x < y else 1))
+    if x == y:
+        return int32(0)
+    if x < y:
+        return int32(-1)
+    if y < x:
+        return int32(1)
+    # Neither equal, less, nor greater: at least one operand is NaN.
+    # Match .NET Double.CompareTo: NaN equals NaN and is less than any other value.
+    return int32(0 if x != x and y != y else (-1 if x != x else 1))
 
 
 def min[T](comparer: Callable[[T, T], int], x: T, y: T) -> T:
@@ -330,7 +338,9 @@ def assert_equal(actual: Any, expected: Any, msg: str | None = None) -> None:
 
 def assert_not_equal[T](actual: T, expected: T, msg: str | None = None) -> None:
     if equals(actual, expected):
-        raise Exception(msg or f"Expected: {expected} - Actual: {actual}")
+        # "Expected: x - Actual: x" would describe a *passing* assertion, so say what was
+        # actually expected: a value other than this one. Mirrors xUnit's "Expected: Not x".
+        raise Exception(msg or f"Expected not equal to: {expected} - Actual: {actual}")
 
 
 MAX_LOCKS = 1024
@@ -482,7 +492,10 @@ class Enumerator[T](EnumeratorBase[T], DisposableBase, IEnumerator[T]):
         raise Exception("Python iterators cannot be reset")
 
     def Dispose(self) -> None:
-        return
+        # Runs `finally` blocks via GeneratorExit; guarded since not all iterators support `close`.
+        close = getattr(self.iter, "close", None)
+        if close is not None:
+            close()
 
     def __next__(self) -> T:
         return next(self.iter)

@@ -531,6 +531,29 @@ let ``test Can access compiler options`` () =
 let ``test Can access extension for generated files`` () =
     Compiler.extension.EndsWith(".py") |> equal true
 
+[<Fact>]
+let ``test Compiler target flags have correct value per target`` () =
+    equal false Compiler.isJavaScript
+    equal false Compiler.isTypeScript
+    equal true Compiler.isPython
+    equal false Compiler.isDart
+    equal false Compiler.isRust
+#if FABLE_COMPILER
+    equal false Compiler.isDotnet
+#else
+    equal true Compiler.isDotnet
+#endif
+    equal false (Compiler.isJavaScript || Compiler.isTypeScript)
+
+[<Fact>]
+let ``test Compiler target flags eliminate dead branches`` () =
+    let target =
+        if Compiler.isJavaScript then "javascript"
+        elif Compiler.isTypeScript then "typescript"
+        elif Compiler.isPython then "python"
+        else "dotnet"
+    equal "python" target
+
 #endif
 
 [<Fact>]
@@ -936,6 +959,27 @@ let ``test Naming values with same name as module works`` () =
     equal 30 Same.Same.shouldEqual30
 
 [<Fact>]
+let ``test Lowercase type name from another file works`` () =
+    let s = Util2.shape (4)
+    s.Size |> equal 4
+
+[<Fact>]
+let ``test Overloaded constructor on lowercase type from another file works`` () =
+    // Exercises the `shape__ctor_Z<hash>` overload-suffix casing across files
+    let s1 = Util2.shape (4)
+    let s2 = Util2.shape ("abc")
+    s1.Size |> equal 4
+    s2.Size |> equal 3
+
+[<AttachMembers>]
+type Direction() =
+    static member Up = Util2.Direction.Up
+
+[<Fact>]
+let ``test Type with same name as type from another file works`` () =
+    Direction.Up |> equal Util2.Direction.Up
+
+[<Fact>]
 let ``test Can access nested recursive function with mangled name`` () =
     Util.Bar.nestedRecursive 3 |> equal 10
 
@@ -1067,6 +1111,18 @@ let ``test try-with with unmatched exception type reraises`` () =
     caught |> equal "arg"
 
 [<Fact>]
+let ``test ArgumentException with message and inner exception works`` () =
+    let inner = exn "the inner cause"
+    let ex = System.ArgumentException("outer message", inner)
+    ex.Message |> equal "outer message"
+    ex.InnerException.Message |> equal "the inner cause"
+
+[<Fact>]
+let ``test Exception InnerException is null when not provided`` () =
+    let ex = System.ArgumentException("no inner")
+    isNull (box ex.InnerException) |> equal true
+
+[<Fact>]
 let ``test use doesn't return on finally clause`` () = // See #211
     let foo() =
         use c = new DisposableFoo()
@@ -1125,6 +1181,12 @@ let ``test nullArgCheck don't throw exception if argument is not null`` () =
 let ``test nullArgCheck throws exception if argument is null`` () =
     throwsError "Value cannot be null. (Parameter 'str')" (fun () ->
         nullArgCheck "str" null
+    )
+
+[<Fact>]
+let ``test invalidArg formats the message like .NET`` () =
+    throwsError "This is invalid (Parameter 'arg')" (fun () ->
+        invalidArg "arg" "This is invalid"
     )
 
 # nowarn "26" //  This rule will never be matched (code 26)
