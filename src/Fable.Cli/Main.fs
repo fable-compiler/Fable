@@ -1160,6 +1160,7 @@ let private generateBeamScaffold (cliArgs: CliArgs) (entryModule: string) =
 main() -> main([]).
 
 main(Args) ->
+    ok = setup_io(),
     _ = code:ensure_loaded({entryModule}),
     case erlang:function_exported({entryModule}, main, 1) of
         true ->
@@ -1168,6 +1169,16 @@ main(Args) ->
         false ->
             {entryModule}:main()
     end.
+
+%% An F# string is a UTF-8 binary, and every path that prints one — `Console.WriteLine`, `printfn` —
+%% writes it with the `~ts` (unicode) modifier. That only reaches the terminal intact on a device
+%% whose encoding is unicode; on the latin1 default of `erl -noshell` a non-latin1 codepoint comes
+%% out as a `\\x{{2713}}` escape. The `+pc unicode` VM flag does not do this — it only affects
+%% printable-list detection in `~p`.
+setup_io() ->
+    _ = io:setopts(standard_io, [{{encoding, unicode}}]),
+    _ = io:setopts(standard_error, [{{encoding, unicode}}]),
+    ok.
 
 exit_with(Code) when is_integer(Code) -> erlang:halt(Code);
 exit_with(_) -> ok.

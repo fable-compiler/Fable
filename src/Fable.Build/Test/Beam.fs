@@ -89,6 +89,13 @@ let private testEntryPointPrograms () =
     expect "argv contents" true (output.Contains "argv=alpha,beta")
     expect "exit code of a successful run" 0 exitCode
 
+    // Both console paths must agree on encoding, under the plain `erl -noshell` above with no
+    // extra flags: `Console.WriteLine` wrote raw UTF-8 bytes while `printfn` wrote unicode, so
+    // whichever device encoding you picked, one of them mangled non-ASCII text.
+    expect "Console.WriteLine encodes non-ASCII" true (output.Contains "writeline=✓ ✗ · é")
+    expect "printfn encodes non-ASCII" true (output.Contains "printfn=✓ ✗ · é")
+    expect "Console.WriteLine of a char" true (output.Contains "char=✓")
+
     // ...and its return value must become the exit code, or a failing suite looks like a passing one.
     let _, failExitCode = runErl buildDir paArgs "main:main([\\\"fail\\\"])"
     expect "exit code of a failing run" 3 failExitCode

@@ -496,6 +496,30 @@ module Naming =
         name.Replace("$", "_").Replace("@", "_")
         |> fun s -> Regex.Replace(s, "[^a-zA-Z0-9_]", "_")
 
+/// A `char` is a plain `integer()` on Erlang — the same representation an `int` gets — so nothing
+/// at runtime can tell the two apart, and every conversion of a char to text has to be dispatched
+/// on the static type instead. F# hands some of those sites a *boxed* char (interpolation holes,
+/// `Console.WriteLine`'s `obj` overload), which erases the type to `Any`; peel the box so the char
+/// is still visible there.
+module Chars =
+    open Fable.AST.Fable
+
+    /// The char-typed expression underneath a boxing cast to `obj`, or the expression itself when
+    /// it is already a char. `None` for everything else, which keeps the generic runtime path.
+    let tryAsChar (e: Expr) =
+        match e with
+        | TypeCast(inner, Any) when inner.Type = Char -> Some inner
+        | e when e.Type = Char -> Some e
+        | _ -> None
+
+    /// The type of an expression with a boxing cast to `obj` peeled off, but only when what it
+    /// boxes is a char. Anything else keeps its own type — an `Any` there falls through to the
+    /// generic `fable_string:to_string`, which is right for every other value.
+    let unboxedType (e: Expr) =
+        match tryAsChar e with
+        | Some _ -> Char
+        | None -> e.Type
+
 /// Fixed-width integer semantics. Erlang integers are arbitrary precision and never
 /// overflow, so operations that can leave the width of a .NET sized integer are routed
 /// through the `fable_int` runtime module to truncate them back (two's complement).

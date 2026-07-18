@@ -28,6 +28,26 @@ let ``test Char.ToString works`` () =
 let ``test Char.ToString type is casted correctly`` () =
     ('t'.ToString()) + "est" |> equal "test"
 
+// A `char` is a plain integer at runtime on Beam, so every conversion path has to be told the type
+// is a char — miss one and it prints the codepoint instead of the character.
+[<Fact>]
+let ``test char conversions to string agree`` () =
+    let c = '2'
+    string c |> equal "2"
+    c.ToString() |> equal "2"
+    "x" + string c |> equal "x2"
+    Char.ToString c |> equal "2"
+    $"{c}" |> equal "2"
+
+[<Fact>]
+let ``test char conversions to string work above the latin1 range`` () =
+    let c = '✗' // U+2717 — needs real UTF-8 encoding, not a byte
+    string c |> equal "✗"
+    c.ToString() |> equal "✗"
+    Char.ToString c |> equal "✗"
+    $"{c}" |> equal "✗"
+    $"a{c}b" |> equal "a✗b"
+
 [<Fact>]
 let ``test Char.IsLetter works`` () =
     Char.IsLetter('a') |> equal true

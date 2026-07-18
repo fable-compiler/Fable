@@ -2038,7 +2038,10 @@ let rec private getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
     | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
-    | Char
+    // A `char` is an integer at runtime, not a binary, and F# does allow summing chars
+    // (`Seq.sum [ 'a'; 'b' ]` is 195). Sharing `String`'s empty-binary zero seeded the fold with
+    // `<<"">>` and made the first addition fail with `badarith`.
+    | Char -> CharConstant '\u0000' |> makeValue None
     | String -> makeStrConst ""
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
     | _ -> Value(Null Any, None)
@@ -5556,13 +5559,21 @@ let tryCall
         | None -> conversions com ctx r t info thisArg args
     | "System.Convert" -> convert com ctx r t info thisArg args
     | "System.Console" ->
+        // `console_write`/`console_writeline` dispatch on the runtime value, where a char is an
+        // integer and so would print as its codepoint (`Console.WriteLine '2'` → "50"). The static
+        // type is still known here, so encode chars to text up front and hand over a binary.
+        let consoleArg (arg: Expr) =
+            match Chars.tryAsChar arg with
+            | Some c -> Helper.LibCall(com, "fable_char", "to_string", String, [ c ], ?loc = r)
+            | None -> arg
+
         match info.CompiledName, thisArg, args with
         | "WriteLine", None, [] -> emitExpr r t [] "io:format(<<\"~n\">>)" |> Some
         | "WriteLine", None, [ arg ] ->
-            Helper.LibCall(com, "fable_string", "console_writeline", t, [ arg ], ?loc = r)
+            Helper.LibCall(com, "fable_string", "console_writeline", t, [ consoleArg arg ], ?loc = r)
             |> Some
         | "Write", None, [ arg ] ->
-            Helper.LibCall(com, "fable_string", "console_write", t, [ arg ], ?loc = r)
+            Helper.LibCall(com, "fable_string", "console_write", t, [ consoleArg arg ], ?loc = r)
             |> Some
         | _ -> None
     | "System.Boolean" ->
