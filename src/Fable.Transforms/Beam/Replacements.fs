@@ -392,25 +392,7 @@ let private operators
                 |> Some
             | _ -> Helper.LibCall(com, "fable_decimal", "from_int", _t, [ arg ], ?loc = r) |> Some
         | _ -> Helper.LibCall(com, "fable_decimal", "from_int", _t, [ arg ], ?loc = r) |> Some
-    | "ToString", [ arg ] ->
-        // `box c |> string` arrives as a char under a boxing cast to `obj`, and would otherwise fall
-        // through to `fable_convert:to_string`, which sees only the integer and prints the codepoint.
-        // Peeling the cast puts it back on the `Type.Char` branch below; every other type is
-        // unaffected, since `tryAsChar` only ever looks through a box around a char.
-        let arg = Chars.tryAsChar arg |> Option.defaultValue arg
-
-        match arg.Type with
-        | Type.String -> Some arg
-        | Type.Char -> emitExpr r _t [ arg ] "<<($0)/utf8>>" |> Some
-        | Type.Number(kind, _) ->
-            match kind with
-            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", _t, [ arg ], ?loc = r) |> Some
-            | Float16
-            | Float32
-            | Float64 -> Helper.LibCall(com, "fable_convert", "to_string", _t, [ arg ], ?loc = r) |> Some
-            | _ -> emitExpr r _t [ arg ] "integer_to_binary($0)" |> Some
-        | Type.Boolean -> emitExpr r _t [ arg ] "atom_to_binary($0)" |> Some
-        | _ -> Helper.LibCall(com, "fable_convert", "to_string", _t, [ arg ], ?loc = r) |> Some
+    | "ToString", [ arg ] -> ToString.toStringByType com r _t arg
     | "ToChar", [ arg ] ->
         match arg.Type with
         | Type.String -> emitExpr r _t [ arg ] "binary:first($0)" |> Some
@@ -1418,23 +1400,7 @@ let private conversions
                 | [ a ] -> a
                 | _ -> Value(Null Type.Unit, None)
 
-        // `box c |> string` reaches here as a char under a boxing cast to `obj`. Peeling the cast
-        // puts it back on the `Type.Char` branch below, instead of falling through to
-        // `fable_convert:to_string`, which sees only the integer and prints the codepoint.
-        let arg = Chars.tryAsChar arg |> Option.defaultValue arg
-
-        match arg.Type with
-        | Type.String -> Some arg
-        | Type.Char -> emitExpr r t [ arg ] "<<($0)/utf8>>" |> Some
-        | Type.Number(kind, _) ->
-            match kind with
-            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", t, [ arg ], ?loc = r) |> Some
-            | Float16
-            | Float32
-            | Float64 -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
-            | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
-        | Type.Boolean -> emitExpr r t [ arg ] "atom_to_binary($0)" |> Some
-        | _ -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
+        ToString.toStringByType com r t arg
     // char(x) → Erlang integers represent chars
     | "ToChar", [ arg ] ->
         match arg.Type with
