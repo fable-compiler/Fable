@@ -3572,27 +3572,9 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                 | Beam.ErlExpr.Block exprs -> exprs
                 | expr -> [ expr ]
 
-            // The value initializer of a module-level mutable/snapshot is spliced into the
-            // shared main/0 clause. A multi-statement body binds local Erlang variables (from
-            // F# `let`s); since Erlang `begin...end` does not introduce a new scope, two such
-            // initializers reusing the same variable name would clash in main/0. Wrap a
-            // multi-statement body in an immediately-invoked `fun` so its locals stay isolated.
-            // A single-expression body needs no wrapper.
-            let initValue =
-                match body with
-                | [ single ] -> single
-                | _ ->
-                    Beam.ErlExpr.Apply(
-                        Beam.ErlExpr.Fun
-                            [
-                                {
-                                    Patterns = []
-                                    Guard = []
-                                    Body = body
-                                }
-                            ],
-                        []
-                    )
+            // The value initializer of a module-level mutable/snapshot is spliced into the shared
+            // main/0 clause, so its locals must not leak into it (see `isolateScope`).
+            let initValue = isolateScope body
 
             // Module-level mutable values (no args, IsMutable) are stored in the process
             // dictionary so they can be updated. Emit a main/0 that initializes the value
@@ -3680,34 +3662,9 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
             | expr -> [ expr ]
 
         // Every top-level effect emits its own main/0, and those are merged into a single clause
-        // (see the fold over declarations below). Each was transformed with its own variable
-        // counter, so two effects that both need a temporary both name it `Arg` — and because
-        // Erlang variables are single-assignment, the second binding is a *pattern match* against
-        // the first, not a rebind. It fails with `badmatch` whenever the two values differ, and
-        // silently succeeds when they happen to agree, which is how this survived: the common case
-        // of two `printfn`s over booleans often binds `true` twice.
-        //
-        // `begin ... end` would not help; it does not open a scope. Wrapping a multi-statement body
-        // in an immediately-invoked `fun` does, and is what the module-level mutable initializer
-        // above already does for exactly this reason. A single-statement body cannot collide with
-        // anything, so it is left alone to keep the generated code readable.
-        let isolatedBody =
-            match body with
-            | [ _ ] -> body
-            | _ ->
-                [
-                    Beam.ErlExpr.Apply(
-                        Beam.ErlExpr.Fun
-                            [
-                                {
-                                    Patterns = []
-                                    Guard = []
-                                    Body = body
-                                }
-                            ],
-                        []
-                    )
-                ]
+        // (see the fold over declarations below), so each effect's locals must not leak into it
+        // (see `isolateScope`).
+        let isolatedBody = [ isolateScope body ]
 
         let funcDef: Beam.ErlFunctionDef =
             {

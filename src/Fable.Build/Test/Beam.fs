@@ -120,6 +120,12 @@ let private testEntryPointPrograms () =
 
     expect "top-level effects do not share variables" true (noEntryOutput.Contains "effect3=false")
 
+    // The same, through a conditional: a lone `case` binds into the enclosing clause too, so these
+    // need isolating despite compiling to a single statement.
+    expect "conditional top-level effects ran" true (noEntryOutput.Contains "effect4=true")
+
+    expect "conditional effects do not share variables" true (noEntryOutput.Contains "effect5=false")
+
     expect "exit code without an entry point" 0 noEntryExitCode
 
     printfn "Entry point program tests passed"
