@@ -1237,3 +1237,42 @@ let ``test %A on a map works`` () =
 let ``test %A survives non-ASCII text`` () =
     sprintf "%A" "✓ é" |> equal "\"✓ é\""
     sprintf "%A" [ "✗" ] |> equal "[\"✗\"]"
+
+[<Fact>]
+let ``test %A on a Result works`` () =
+    sprintf "%A" (Ok 1: Result<int, string>) |> equal "Ok 1"
+    sprintf "%A" (Error "x": Result<int, string>) |> equal "Error \"x\""
+
+[<Fact>]
+let ``test %A on a byte array prints its elements`` () =
+    // A `byte[]` is an atomics object behind a `{byte_array, Size, Ref}` tag, which the general
+    // tuple clause would otherwise read as a union case named `ByteArray`. Only the brackets are
+    // asserted, not the whole string: .NET suffixes byte literals (`[|1uy; 2uy|]`) and Beam has no
+    // element type to recover the suffix from. The `[|` is what distinguishes the two renderings.
+    let rendered = sprintf "%A" [| 1uy; 2uy |]
+    rendered.StartsWith "[|" |> equal true
+    rendered.EndsWith "|]" |> equal true
+    rendered.Contains "1" |> equal true
+    rendered.Contains "2" |> equal true
+
+[<Fact>]
+let ``test %A caps a long collection`` () =
+    // Both .NET and Beam stop at 100 elements and append `; ...`. Asserted by shape rather than
+    // literally because .NET also hard-wraps the line at ~80 columns and Beam does not.
+    let rendered = sprintf "%A" [ 1..150 ]
+    rendered.EndsWith "...]" |> equal true
+    rendered.Contains "; 100" |> equal true
+    rendered.Contains "101" |> equal false
+
+[<Fact>]
+let ``test %A terminates on a cyclic value`` () =
+    // An array is a ref cell on Beam, and ref cells *can* form a cycle where plain Erlang terms
+    // cannot. What is asserted is only that the formatter terminates and renders an array at all:
+    // .NET detects the cycle immediately and prints `[|...|]`, while Beam unwinds to its depth cap
+    // first, so the two strings genuinely differ. A regression here hangs the suite rather than
+    // failing it, which is what makes the test worth having.
+    let arr: obj array = Array.zeroCreate 1
+    arr.[0] <- box arr
+    let rendered = sprintf "%A" arr
+    rendered.StartsWith "[|" |> equal true
+    rendered.EndsWith "|]" |> equal true

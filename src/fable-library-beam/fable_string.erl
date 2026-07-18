@@ -1148,10 +1148,22 @@ console_write(Value) ->
 %% Element cap, matching `seqToString`'s in fable-library-ts.
 -define(FORMAT_ANY_MAX_ITEMS, 100).
 
-%% `unicode:characters_to_binary/1` rather than `iolist_to_binary/1`: the `~tp` fallbacks below can
-%% yield codepoints above 255, which `iolist_to_binary/1` rejects outright.
 format_any(Value) ->
-    unicode:characters_to_binary(fmt_any(Value, 0)).
+    flatten(fmt_any(Value, 0)).
+
+%% Collapse a rendering to a binary. `unicode:characters_to_binary/1` rather than
+%% `iolist_to_binary/1`: the `~tp` fallbacks below can yield codepoints above 255, which
+%% `iolist_to_binary/1` rejects outright with `badarg`.
+%%
+%% It signals bad input by *returning* `{error, _, _}` rather than raising, and a tuple escaping
+%% from here would fail somewhere far away — `format_any/1` is specced to return a `binary()`. The
+%% only way to get one is a binary that is not valid UTF-8, which an F# `string` never is; falling
+%% back to Erlang's own term printing keeps that hypothetical honest rather than crashing.
+flatten(Rendering) ->
+    case unicode:characters_to_binary(Rendering) of
+        Bin when is_binary(Bin) -> Bin;
+        _ -> iolist_to_binary(io_lib:format("~tp", [Rendering]))
+    end.
 
 fmt_any(Value, Depth) when Depth > ?FORMAT_ANY_MAX_DEPTH ->
     io_lib:format("~tp", [Value]);
@@ -1212,7 +1224,7 @@ fmt_tuple(Value, Depth) ->
 %% its own rendering contains a space, so `Circle 1.0` stays bare but `Wrapped (Named "q")` does
 %% not run together — the rule `unionToString` uses in fable-library-ts.
 fmt_union(Name, [Field], Depth) ->
-    Rendered = iolist_to_binary(fmt_any(Field, Depth + 1)),
+    Rendered = flatten(fmt_any(Field, Depth + 1)),
 
     case binary:match(Rendered, <<" ">>) of
         nomatch -> [Name, $\s, Rendered];
