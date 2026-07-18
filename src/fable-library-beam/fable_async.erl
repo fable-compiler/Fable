@@ -12,6 +12,7 @@
     ignore/1,
     from_continuations/1,
     start_as_task/1,
+    await_task/1,
     cancellation_token/0,
     create_cancellation_token/0, create_cancellation_token/1,
     wrap_error/1
@@ -41,6 +42,7 @@
 -spec ignore(async(term())) -> async(ok).
 -spec from_continuations(fun()) -> async(term()).
 -spec start_as_task(async(term())) -> term().
+-spec await_task(async(term())) -> async(term()).
 -spec cancellation_token() -> async(reference() | undefined).
 -spec create_cancellation_token() -> reference().
 -spec create_cancellation_token(term()) -> reference().
@@ -314,6 +316,11 @@ from_continuations(F) ->
 %% StartAsTask: simplified — just run synchronously for now
 start_as_task(Computation) ->
     run_synchronously(Computation).
+
+%% AwaitTask: identity. On the Beam a Task and an Async share one representation
+%% (the `task` CE is compiled onto the async builder), so there is nothing to
+%% convert — the task *is* the async computation.
+await_task(Task) -> Task.
 
 %% CancellationToken: returns async that extracts cancel_token from context
 cancellation_token() ->
