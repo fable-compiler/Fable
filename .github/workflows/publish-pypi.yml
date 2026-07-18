@@ -57,43 +57,10 @@ jobs:
           path: ./temp/fable-library-py
           retention-days: 1
 
-    test:
-      needs: build-fable-library
-      runs-on: ${{ matrix.os }}
-      timeout-minutes: 30
-      strategy:
-        matrix:
-          os: [ubuntu-latest, windows-latest, macos-latest]
-          python-version: ["3.12", "3.13", "3.14"]
-      env:
-        UV_LINK_MODE: copy
-
-      steps:
-        - uses: actions/checkout@v7
-        - name: Set up Python ${{ matrix.python-version }}
-          uses: actions/setup-python@v6
-          with:
-            python-version: ${{ matrix.python-version }}
-        - name: Install Rust
-          uses: dtolnay/rust-toolchain@stable
-        - name: Install uv
-          uses: astral-sh/setup-uv@v8.2.0
-        - name: Download fable-library-py
-          uses: actions/download-artifact@v8
-          with:
-            name: fable-library-py
-            path: ./src/fable-library-py
-        - name: Build and install
-          uses: PyO3/maturin-action@v1
-          with:
-            working-directory: ./src/fable-library-py
-            args: --release --features=pyo3/extension-module
-        - name: Test
-          run: |
-            cd src/fable-library-py
-            uv sync
-            uv run maturin develop --release
-            uv run pytest tests
+    # NOTE: the fable-library-py native test suite (src/fable-library-py/tests)
+    # runs in build.yml on every push/PR to main. It used to run here too, but
+    # it was never in `release`'s `needs`, so it gated nothing and only
+    # consumed runners the wheel jobs were queuing behind.
 
     linux:
       needs: build-fable-library
