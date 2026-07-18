@@ -14,7 +14,9 @@
     start_as_task/1,
     cancellation_token/0,
     create_cancellation_token/0, create_cancellation_token/1,
-    wrap_error/1
+    wrap_error/1,
+    record_stacktrace/2,
+    clear_stacktrace/0
 ]).
 
 -type async_ctx() :: #{
@@ -44,6 +46,48 @@
 -spec cancellation_token() -> async(reference() | undefined).
 -spec create_cancellation_token() -> reference().
 -spec create_cancellation_token(term()) -> reference().
+-spec record_stacktrace(term(), erlang:stacktrace()) -> ok.
+-spec clear_stacktrace() -> ok.
+
+%% An error inside an async computation does not propagate as an exception: it is caught where it
+%% happens and handed to the context's `on_error` as a bare term, so by the time
+%% `run_synchronously` re-raises it the original stacktrace is long gone and the failure is
+%% reported at the re-raise instead of where it happened. Every catch site in the async runtime
+%% (here and in `fable_async_builder`) that hands an error onward therefore parks the stacktrace
+%% it caught, so the re-raise can restore it.
+%%
+%% A parked entry is tagged with the enclosing `run_synchronously` call's token and only that call
+%% can consume it. Untagged, a stacktrace parked for an error that was later *handled* (a
+%% `try_with` whose handler succeeded) would linger in the process dictionary and could be
+%% restored onto an unrelated later error that happened to be an equal term — attaching a
+%% plausible but wrong stacktrace, which is the very failure this mechanism exists to remove.
+-define(STACKTRACE_KEY, '$fable_async_stacktrace').
+-define(RUN_KEY, '$fable_async_run').
+
+%% @private Park the stacktrace of an error being handed to an `on_error` continuation.
+record_stacktrace(Err, Stacktrace) ->
+    case get(?RUN_KEY) of
+        %% Outside any run_synchronously nothing can restore it, and parking it would only leave
+        %% a stale entry behind in a long-lived process.
+        undefined ->
+            ok;
+        Run ->
+            put(?STACKTRACE_KEY, {Run, Err, Stacktrace}),
+            ok
+    end.
+
+%% @private Drop the parked stacktrace, if any. Called where an error is handled rather than
+%% propagated, so it cannot outlive the failure it belongs to.
+clear_stacktrace() ->
+    erase(?STACKTRACE_KEY),
+    ok.
+
+%% Re-raise with the stacktrace captured where the error was raised, when the parked one belongs
+%% to this error and to this run — `erlang:error/1` would build a fresh one pointing at this line.
+%% Errors that crossed a process boundary, or that were rewritten on the way up (`wrap_error`), do
+%% not match and fall back to a fresh stacktrace.
+reraise(Run, {Run, Err, Stacktrace}, Err) -> erlang:raise(error, Err, Stacktrace);
+reraise(_Run, _Parked, Err) -> erlang:error(Err).
 
 %% Default context: run inline in current process
 default_ctx(CancelToken) ->
@@ -130,6 +174,11 @@ run_synchronously(Computation) -> run_synchronously(Computation, undefined).
 run_synchronously(Computation, CancelToken) ->
     %% Use a unique ref as key to store result in process dict
     Ref = make_ref(),
+    %% Take over stacktrace parking for the duration of this run, handing it back afterwards so a
+    %% nested run (sequential/1, or one inside a child process) can neither consume nor clobber
+    %% the entry of the run it is nested in.
+    PrevRun = put(?RUN_KEY, Ref),
+    PrevParked = erase(?STACKTRACE_KEY),
     Ctx = #{
         on_success => fun(V) -> put(Ref, {ok, V}) end,
         on_error => fun(E) -> put(Ref, {error, E}) end,
@@ -139,12 +188,20 @@ run_synchronously(Computation, CancelToken) ->
     try
         Computation(Ctx)
     catch
-        _:Err -> put(Ref, {error, Err})
+        _:Err:Stacktrace ->
+            record_stacktrace(Err, Stacktrace),
+            put(Ref, {error, Err})
     end,
     Result = erase(Ref),
+    Parked = erase(?STACKTRACE_KEY),
+    put(?RUN_KEY, PrevRun),
+    case PrevParked of
+        undefined -> ok;
+        _ -> put(?STACKTRACE_KEY, PrevParked)
+    end,
     case Result of
         {ok, Value} -> Value;
-        {error, Error} -> erlang:error(Error);
+        {error, Error} -> reraise(Ref, Parked, Error);
         {cancelled} -> erlang:error(operation_cancelled);
         undefined -> erlang:error(async_no_result)
     end.
@@ -162,6 +219,8 @@ start_with_continuations(Comp, OnSuccess, OnError, OnCancel, Token) ->
     try
         Comp(Ctx)
     catch
+        %% No stacktrace parking here: the caller supplies OnError and receives the error term
+        %% directly, so there is no re-raise for a parked stacktrace to be restored onto.
         _:Err -> OnError(Err)
     end.
 
