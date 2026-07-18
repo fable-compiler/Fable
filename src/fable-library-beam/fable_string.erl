@@ -1082,24 +1082,31 @@ get_slice(Lower, Upper, Str) ->
     binary:part(Str, Start, End - Start + 1).
 
 %% Console.WriteLine / Console.Write
+%%
+%% An F# string is a UTF-8 binary, so it must go out through the `t` (unicode) modifier: plain `~s`
+%% writes the binary's raw bytes, which only looks right on a latin1 device that happens to
+%% reassemble the UTF-8 itself, and turns into mojibake the moment the device is set to unicode.
+%% `~ts` is the other half of the contract — it needs the device set to unicode, which the generated
+%% `main.erl` entry shim does at startup. `printfn` already takes a `~ts` path, so before this the
+%% two disagreed and no device setting satisfied both.
 console_writeline(Value) when is_binary(Value) ->
-    io:format(<<"~s~n">>, [Value]);
+    io:format(<<"~ts~n">>, [Value]);
 console_writeline(Value) when is_integer(Value) ->
     io:format(<<"~B~n">>, [Value]);
 console_writeline(Value) when is_float(Value) ->
     io:format(<<"~p~n">>, [Value]);
 console_writeline(Value) when is_boolean(Value) ->
-    io:format(<<"~s~n">>, [atom_to_binary(Value)]);
+    io:format(<<"~ts~n">>, [atom_to_binary(Value)]);
 console_writeline(Value) ->
-    io:format(<<"~p~n">>, [Value]).
+    io:format(<<"~tp~n">>, [Value]).
 
 console_write(Value) when is_binary(Value) ->
-    io:format(<<"~s">>, [Value]);
+    io:format(<<"~ts">>, [Value]);
 console_write(Value) when is_integer(Value) ->
     io:format(<<"~B">>, [Value]);
 console_write(Value) when is_float(Value) ->
     io:format(<<"~p">>, [Value]);
 console_write(Value) when is_boolean(Value) ->
-    io:format(<<"~s">>, [atom_to_binary(Value)]);
+    io:format(<<"~ts">>, [atom_to_binary(Value)]);
 console_write(Value) ->
-    io:format(<<"~p">>, [Value]).
+    io:format(<<"~tp">>, [Value]).

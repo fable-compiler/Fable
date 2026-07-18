@@ -13,6 +13,13 @@ let main argv =
     printfn "argc=%d" argv.Length
     printfn "argv=%s" (String.concat "," argv)
 
+    // `Console.WriteLine` and `printfn` used to have contradictory encoding contracts — one wrote
+    // the UTF-8 binary's raw bytes, the other wrote it as unicode — so no device setting made both
+    // print a non-ASCII string correctly. Both go out through the shim's unicode device now, and
+    // this is the only test that observes what actually reaches a terminal.
+    System.Console.WriteLine("writeline=✓ ✗ · é")
+    printfn "printfn=✓ ✗ · é"
+
     // ...and the return value has to become the process exit code, or a failing suite is
     // indistinguishable from a passing one.
     match argv with

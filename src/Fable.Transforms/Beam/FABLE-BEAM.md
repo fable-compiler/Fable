@@ -334,6 +334,7 @@ its module-level actions compile to that module's `main/0`.
 | ---------------- | ---------------------- | ------------------------------------------ | ---------------------------- |
 | `int`, `float`   | `integer()`, `float()` | Direct                                     |                              |
 | `string`         | `binary()`             | `<<"hello">>`                              |                              |
+| `char`           | `integer()`            | Unicode codepoint; see caveat below        |                              |
 | `bool`           | `true \                | false`                                     | Atoms                        |
 | `unit`           | `ok`                   | Atom                                       |                              |
 | `tuple`          | `tuple`                | Direct: `{A, B, C}`                        |                              |
@@ -358,6 +359,59 @@ its module-level actions compile to that module's `main/0`.
 | **Currying**                      | Lambda wrapping (same as Python target)           | —                                    |
 | **Nested modules**                | Flat module names: `My_Module_Sub`                | One file per module                  |
 | **Computation expressions**       | Transformed at Fable AST level; async/task → CPS  | —                                    |
+
+### Known limitation: `char` at a generic type stringifies to its codepoint
+
+A `char` is a plain `integer()` at runtime — the same representation as an `int`, and the same
+choice the Dart target makes. Nothing at runtime can tell the two apart, so converting a `char` to
+a string is correct only where the compiler can still see the type statically. It can in every
+ordinary case:
+
+```fsharp
+string c            // "2"
+c.ToString()        // "2"
+"x" + string c      // "x2"
+System.Char.ToString c   // "2"
+$"{c}"              // "2"
+```
+
+But when `string x` is applied where `x`'s type is a *generic parameter*, the backend can only emit
+`fable_convert:to_string/1`, which sees an integer and prints the number:
+
+```fsharp
+// F# generalizes this to Op<'a> -> Op<string>, so `string c` is applied at a generic type.
+let toStr =
+    function
+    | Keep c -> Keep(string c)
+    | Drop c -> Drop(string c)
+
+[ Keep '2'; Drop '1' ] |> List.map toStr   // "5049", not "21"
+```
+
+The trigger is F# generalizing a let-bound lambda, which is easy to hit by accident — the DU is
+incidental. `%A` and structural printing of a boxed char have the same limitation.
+
+Fable erases generics by design, so there is no type witness to dispatch on. The fix is the same
+one the compiler already recommends when `typeof<'T>` fails for this reason (see
+`genericTypeInfoError` in `Replacements.Util.fs`): make the function `inline`, so the type is
+resolved at the call site.
+
+```fsharp
+let inline toStr op =
+    match op with
+    | Keep c -> Keep(string c)
+    | Drop c -> Drop(string c)
+
+[ Keep '2'; Drop '1' ] |> List.map toStr   // "21"
+```
+
+Annotating the parameter concretely (`Op<char>`) works too, for the same reason — it defeats
+generalization.
+
+Giving `char` a tagged runtime form such as `{char, 50}` would fix this everywhere, but it is a
+breaking change to a core type, costs arithmetic and comparison performance, and fights Erlang's own
+convention that strings are lists of integer codepoints. Not worth it for a case with a one-keyword
+workaround.
 
 ### Class instance representation: map vs process-dict ref
 

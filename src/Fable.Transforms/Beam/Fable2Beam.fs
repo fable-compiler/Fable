@@ -1639,9 +1639,22 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         Beam.ErlExpr.Map entries
 
     | StringTemplate(_tag, parts, values) ->
+        // F# boxes every interpolation hole, so `$"{c}"` on a char arrives here as a cast to `Any`
+        // with the char type visible only underneath. Peel the box for chars specifically: `Any`
+        // otherwise falls through to `fable_string:to_string`, which is right for everything else.
+        let holeType (e: Fable.Expr) =
+            match e with
+            | TypeCast(inner, Any) when inner.Type = Char -> Char
+            | _ -> e.Type
+
         let toStringExpr erlValue (typ: Fable.AST.Fable.Type) =
             match typ with
             | Fable.AST.Fable.Type.String -> erlValue
+            // A `char` is a plain integer at runtime, so the generic `fable_string:to_string` would
+            // take its `is_integer` clause and print the codepoint. The type is known here, so
+            // encode it as UTF-8 directly — the same thing `Convert.ToString` and `obj.ToString()`
+            // do for `Type.Char` in Beam's Replacements.
+            | Fable.AST.Fable.Type.Char -> Beam.ErlExpr.Call(Some "fable_char", "to_string", [ erlValue ])
             | Fable.AST.Fable.Type.Number(kind, _) ->
                 match kind with
                 | Float16
@@ -1674,7 +1687,7 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
                 ([ Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit firstPart) ], List.zip values restParts)
                 ||> List.fold (fun acc (value, part) ->
                     let erlValue = transformExpr com ctx value
-                    let stringified = toStringExpr erlValue value.Type
+                    let stringified = toStringExpr erlValue (holeType value)
                     acc @ [ stringified; Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit part) ]
                 )
 
