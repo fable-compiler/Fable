@@ -520,6 +520,39 @@ module Chars =
         | Some _ -> Char
         | None -> e.Type
 
+/// Conversion of a value to its `string` form, dispatched on the static type.
+module ToString =
+    open Fable.AST
+    open Fable.AST.Fable
+    open Fable.Transforms
+    open Fable.Transforms.Replacements.Util
+
+    /// The `ToString` of a value whose type the compiler can still see.
+    ///
+    /// Two replacement tables reach this: `string x` as an operator, and `x.ToString()` as a
+    /// conversion. They must not diverge — a fix applied to one spelling and not the other is
+    /// invisible until someone happens to test the neglected one — so both call here.
+    ///
+    /// A char is peeled out of its boxing cast first. `box c |> string` arrives as a char under a
+    /// cast to `obj` and would otherwise fall through to `fable_convert:to_string`, which sees only
+    /// the integer and prints the codepoint. Every other type is unaffected, since `tryAsChar` only
+    /// ever looks through a box around a char.
+    let toStringByType (com: ICompiler) (r: SourceLocation option) (t: Type) (arg: Expr) =
+        let arg = Chars.tryAsChar arg |> Option.defaultValue arg
+
+        match arg.Type with
+        | Type.String -> Some arg
+        | Type.Char -> emitExpr r t [ arg ] "<<($0)/utf8>>" |> Some
+        | Type.Number(kind, _) ->
+            match kind with
+            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", t, [ arg ], ?loc = r) |> Some
+            | Float16
+            | Float32
+            | Float64 -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
+            | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
+        | Type.Boolean -> emitExpr r t [ arg ] "atom_to_binary($0)" |> Some
+        | _ -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
+
 /// Fixed-width integer semantics. Erlang integers are arbitrary precision and never
 /// overflow, so operations that can leave the width of a .NET sized integer are routed
 /// through the `fable_int` runtime module to truncate them back (two's complement).
