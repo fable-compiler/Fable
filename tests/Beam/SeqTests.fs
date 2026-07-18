@@ -983,19 +983,17 @@ let ``test Seq.sum works with char`` () =
 let ``test Seq.sumBy works with char`` () =
     [ 'a'; 'b' ] |> Seq.sumBy id |> int |> equal 195
 
-// TODO: Seq.sum with custom types causes badarith in Beam (Zero + operator not inlined properly)
-// [<Fact>]
-// let ``test Seq.sum with non numeric types works`` () =
-//     let p1 = {x=1; y=10}
-//     let p2 = {x=2; y=20}
-//     [p1; p2] |> Seq.sum |> (=) {x=3;y=30} |> equal true
+[<Fact>]
+let ``test Seq.sum with non numeric types works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [p1; p2] |> Seq.sum |> (=) {x=3;y=30} |> equal true
 
-// TODO: Seq.sumBy with custom types causes badarith in Beam
-// [<Fact>]
-// let ``test Seq.sumBy with non numeric types works`` () =
-//     let p1 = {x=1; y=10}
-//     let p2 = {x=2; y=20}
-//     [p1; p2] |> Seq.sumBy SeqPoint.Neg |> (=) {x = -3; y = -30} |> equal true
+[<Fact>]
+let ``test Seq.sumBy with non numeric types works`` () =
+    let p1 = {x=1; y=10}
+    let p2 = {x=2; y=20}
+    [p1; p2] |> Seq.sumBy SeqPoint.Neg |> (=) {x = -3; y = -30} |> equal true
 
 [<Fact>]
 let ``test Seq.sumBy with numeric projection works`` () =

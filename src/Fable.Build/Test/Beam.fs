@@ -28,29 +28,49 @@ let private ebinArgs (projectBuildDir: string) =
     else
         ""
 
-/// Run an Erlang expression, returning its stdout and exit code. `Command.Run` throws on a non-zero
-/// exit, and a non-zero exit is exactly what one of these programs is supposed to produce.
+/// Run an Erlang expression, returning its stdout and exit code.
+///
+/// Driven through `Process` rather than `Command.Run`/`Command.ReadAsync` for two reasons: those
+/// throw on a non-zero exit, and a non-zero exit is exactly what one of these programs is supposed
+/// to produce; and the assertions below compare non-ASCII text, which needs the child's stdout
+/// decoded as UTF-8. `Command.ReadAsync` decodes with the ambient console encoding, which is UTF-8
+/// on the Linux CI runner but the console codepage on Windows — mangling `✓` for a developer
+/// running the suite locally, in a failure that says nothing about what actually went wrong.
 let private runErl (workingDir: string) (paArgs: string) (expr: string) =
-    let mutable exitCode = 0
-
-    let struct (output, _) =
-        Command.ReadAsync(
-            "erl",
-            $"-noshell {paArgs} -eval \"{expr}\" -s init stop",
-            workingDirectory = workingDir,
-            handleExitCode =
-                fun code ->
-                    exitCode <- code
-                    true
+    let startInfo =
+        System.Diagnostics.ProcessStartInfo(
+            FileName = "erl",
+            Arguments = $"-noshell {paArgs} -eval \"{expr}\" -s init stop",
+            WorkingDirectory = workingDir,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = System.Text.Encoding.UTF8,
+            StandardErrorEncoding = System.Text.Encoding.UTF8
         )
-        |> Async.AwaitTask
-        |> Async.RunSynchronously
 
-    output, exitCode
+    use proc = System.Diagnostics.Process.Start(startInfo)
+
+    // Read both streams before waiting: a child that fills one pipe's buffer blocks forever if
+    // we are waiting on exit instead of draining.
+    let stdout = proc.StandardOutput.ReadToEndAsync()
+    let stderr = proc.StandardError.ReadToEndAsync()
+    proc.WaitForExit()
+
+    // stderr is folded into the returned text so a crash report reaches the failure message.
+    stdout.Result + stderr.Result, proc.ExitCode
 
 let private expect (what: string) (expected: 'a) (actual: 'a) =
     if expected <> actual then
         failwith $"Entry point test: %s{what}\n  expected: %A{expected}\n  actual:   %A{actual}"
+
+/// Assert that a program's output contains `substring`, showing the output when it does not.
+/// `expect` on a bare `output.Contains ...` reports only `expected: true / actual: false`, which
+/// leaves a mismatch undiagnosable without re-running the program by hand.
+let private expectContains (what: string) (substring: string) (output: string) =
+    if not (output.Contains substring) then
+        failwith
+            $"Entry point test: %s{what}\n  expected output to contain: %s{substring}\n  actual output:\n%s{output}"
 
 /// Compile a whole program and run it on the BEAM through the generated `main.erl` shim.
 ///
@@ -85,16 +105,16 @@ let private testEntryPointPrograms () =
     let output, exitCode =
         runErl buildDir paArgs "main:main([\\\"alpha\\\", \\\"beta\\\"])"
 
-    expect "argv length" true (output.Contains "argc=2")
-    expect "argv contents" true (output.Contains "argv=alpha,beta")
+    expectContains "argv length" "argc=2" output
+    expectContains "argv contents" "argv=alpha,beta" output
     expect "exit code of a successful run" 0 exitCode
 
     // Both console paths must agree on encoding, under the plain `erl -noshell` above with no
     // extra flags: `Console.WriteLine` wrote raw UTF-8 bytes while `printfn` wrote unicode, so
     // whichever device encoding you picked, one of them mangled non-ASCII text.
-    expect "Console.WriteLine encodes non-ASCII" true (output.Contains "writeline=✓ ✗ · é")
-    expect "printfn encodes non-ASCII" true (output.Contains "printfn=✓ ✗ · é")
-    expect "Console.WriteLine of a char" true (output.Contains "char=✓")
+    expectContains "Console.WriteLine encodes non-ASCII" "writeline=✓ ✗ · é" output
+    expectContains "printfn encodes non-ASCII" "printfn=✓ ✗ · é" output
+    expectContains "Console.WriteLine of a char" "char=✓" output
 
     // ...and its return value must become the exit code, or a failing suite looks like a passing one.
     let _, failExitCode = runErl buildDir paArgs "main:main([\\\"fail\\\"])"
@@ -102,7 +122,7 @@ let private testEntryPointPrograms () =
 
     // main/0 forwards to main/1 with an empty argv.
     let output0, exitCode0 = runErl buildDir paArgs "main:main()"
-    expect "argv of main/0" true (output0.Contains "argc=0")
+    expectContains "argv of main/0" "argc=0" output0
     expect "exit code of main/0" 0 exitCode0
 
     // A program with no [<EntryPoint>] has only top-level effects, and the shim falls back to main/0.
@@ -111,20 +131,18 @@ let private testEntryPointPrograms () =
     let noEntryOutput, noEntryExitCode =
         runErl noEntryBuildDir noEntryPaArgs "main:main()"
 
-    expect "top-level effects ran" true (noEntryOutput.Contains "no-entry-point program ran")
+    expectContains "top-level effects ran" "no-entry-point program ran" noEntryOutput
 
     // Separate top-level effects are merged into one main/0 clause, so their temporaries shared a
     // scope and collided — the second binding was a match against the first and died with
     // `badmatch` as soon as the two values differed. Both of these must run, with their own values.
-    expect "later top-level effects ran" true (noEntryOutput.Contains "effect2=true")
-
-    expect "top-level effects do not share variables" true (noEntryOutput.Contains "effect3=false")
+    expectContains "later top-level effects ran" "effect2=true" noEntryOutput
+    expectContains "top-level effects do not share variables" "effect3=false" noEntryOutput
 
     // The same, through a conditional: a lone `case` binds into the enclosing clause too, so these
     // need isolating despite compiling to a single statement.
-    expect "conditional top-level effects ran" true (noEntryOutput.Contains "effect4=true")
-
-    expect "conditional effects do not share variables" true (noEntryOutput.Contains "effect5=false")
+    expectContains "conditional top-level effects ran" "effect4=true" noEntryOutput
+    expectContains "conditional effects do not share variables" "effect5=false" noEntryOutput
 
     expect "exit code without an entry point" 0 noEntryExitCode
 

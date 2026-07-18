@@ -1153,3 +1153,126 @@ let ``test Seq.toList over string works`` () =
 [<Fact>]
 let ``test Seq.length over string works`` () =
     "Hello" |> Seq.length |> equal 5
+
+// --- Structured formatting (%A) ---
+//
+// `%A` renders in F# syntax. On Beam there is no runtime type information to consult — a record is
+// a bare Erlang map, a union a bare tagged tuple — so the formatter reads the term's shape. The
+// expectations below are .NET's, except where a comment names a shape ambiguity it cannot see past.
+
+type FmtShape =
+    | FmtCircle of float
+    | FmtNamed of string
+    | FmtPair of int * string
+    | FmtEmpty
+
+type FmtRecord = { FmtName: string; FmtAge: int }
+
+[<Fact>]
+let ``test %A on primitives works`` () =
+    sprintf "%A" 42 |> equal "42"
+    sprintf "%A" 1.5 |> equal "1.5"
+    // A whole float keeps its point, unlike `string 1.0`
+    sprintf "%A" 1.0 |> equal "1.0"
+    sprintf "%A" true |> equal "true"
+
+[<Fact>]
+let ``test %A quotes strings`` () =
+    sprintf "%A" "hi" |> equal "\"hi\""
+    sprintf "%A" "" |> equal "\"\""
+
+[<Fact>]
+let ``test %A on a list works`` () =
+    sprintf "%A" [ "a"; "b" ] |> equal "[\"a\"; \"b\"]"
+    sprintf "%A" [ 1; 2 ] |> equal "[1; 2]"
+    sprintf "%A" ([]: int list) |> equal "[]"
+
+[<Fact>]
+let ``test %A on an array prints its elements`` () =
+    // An array is a ref cell on Beam, so this used to print an opaque `#Ref<0.41...>`
+    sprintf "%A" [| "a" |] |> equal "[|\"a\"|]"
+    sprintf "%A" [| 1; 2 |] |> equal "[|1; 2|]"
+
+[<Fact>]
+let ``test %A on a tuple works`` () =
+    sprintf "%A" ("a", 1) |> equal "(\"a\", 1)"
+
+[<Fact>]
+let ``test %A on a union works`` () =
+    sprintf "%A" (FmtNamed "x") |> equal "FmtNamed \"x\""
+    sprintf "%A" (FmtCircle 1.0) |> equal "FmtCircle 1.0"
+    sprintf "%A" FmtEmpty |> equal "FmtEmpty"
+    sprintf "%A" (FmtPair(1, "b")) |> equal "FmtPair (1, \"b\")"
+
+[<Fact>]
+let ``test %A parenthesises a nested union payload`` () =
+    sprintf "%A" [ FmtNamed "q" ] |> equal "[FmtNamed \"q\"]"
+
+[<Fact>]
+let ``test %A on a record names its fields`` () =
+    // Only the field renderings are asserted, not the whole string: Beam prints fields in Erlang
+    // term order (atoms sort alphabetically) rather than declaration order, because a map does not
+    // remember the order its keys went in. The rest of the shape is common to both.
+    let rendered = sprintf "%A" { FmtName = "bob"; FmtAge = 7 }
+    rendered.Contains "FmtName = \"bob\"" |> equal true
+    rendered.Contains "FmtAge = 7" |> equal true
+    rendered.StartsWith "{ " |> equal true
+    rendered.EndsWith " }" |> equal true
+
+[<Fact>]
+let ``test %A on None works`` () =
+    // `Some x` is not asserted: `option` is erased on Beam, so it collapses to `x` where .NET
+    // prints `Some x` — the same deviation JS and Python have.
+    sprintf "%A" (None: string option) |> equal "None"
+
+[<Fact>]
+let ``test %A nests`` () =
+    sprintf "%A" [ FmtNamed "q"; FmtEmpty ] |> equal "[FmtNamed \"q\"; FmtEmpty]"
+
+[<Fact>]
+let ``test %A on a map works`` () =
+    sprintf "%A" (Map.ofList [ "a", 1 ]) |> equal "map [(\"a\", 1)]"
+
+[<Fact>]
+let ``test %A survives non-ASCII text`` () =
+    sprintf "%A" "✓ é" |> equal "\"✓ é\""
+    sprintf "%A" [ "✗" ] |> equal "[\"✗\"]"
+
+[<Fact>]
+let ``test %A on a Result works`` () =
+    sprintf "%A" (Ok 1: Result<int, string>) |> equal "Ok 1"
+    sprintf "%A" (Error "x": Result<int, string>) |> equal "Error \"x\""
+
+[<Fact>]
+let ``test %A on a byte array prints its elements`` () =
+    // A `byte[]` is an atomics object behind a `{byte_array, Size, Ref}` tag, which the general
+    // tuple clause would otherwise read as a union case named `ByteArray`. Only the brackets are
+    // asserted, not the whole string: .NET suffixes byte literals (`[|1uy; 2uy|]`) and Beam has no
+    // element type to recover the suffix from. The `[|` is what distinguishes the two renderings.
+    let rendered = sprintf "%A" [| 1uy; 2uy |]
+    rendered.StartsWith "[|" |> equal true
+    rendered.EndsWith "|]" |> equal true
+    rendered.Contains "1" |> equal true
+    rendered.Contains "2" |> equal true
+
+[<Fact>]
+let ``test %A caps a long collection`` () =
+    // Both .NET and Beam stop at 100 elements and append `; ...`. Asserted by shape rather than
+    // literally because .NET also hard-wraps the line at ~80 columns and Beam does not.
+    let rendered = sprintf "%A" [ 1..150 ]
+    rendered.EndsWith "...]" |> equal true
+    rendered.Contains "; 100" |> equal true
+    rendered.Contains "101" |> equal false
+
+[<Fact>]
+let ``test %A terminates on a cyclic value`` () =
+    // An array is a ref cell on Beam, and ref cells *can* form a cycle where plain Erlang terms
+    // cannot. What is asserted is only that the formatter terminates and renders an array at all:
+    // .NET detects the cycle immediately and prints `[|...|]`, while Beam unwinds to its depth cap
+    // first, so the two strings genuinely differ. A regression here hangs the suite rather than
+    // failing it, which is what makes the test worth having.
+    let arr: obj array = Array.zeroCreate 1
+    arr.[0] <- box arr
+    let rendered = sprintf "%A" arr
+    rendered.StartsWith "[|" |> equal true
+    rendered.EndsWith "|]" |> equal true

@@ -48,6 +48,7 @@
     format/2,
     console_writeline/1,
     console_write/1,
+    format_any/1,
     substring/2, substring/3,
     get_slice/3
 ]).
@@ -122,6 +123,7 @@
 -spec format(binary(), list() | reference() | term()) -> binary().
 -spec console_writeline(term()) -> ok.
 -spec console_write(term()) -> ok.
+-spec format_any(term()) -> binary().
 
 insert(Str, Idx, Value) ->
     iolist_to_binary([binary:part(Str, 0, Idx), Value, binary:part(Str, Idx, byte_size(Str) - Idx)]).
@@ -993,7 +995,7 @@ format_raw(Type, _Prec, Value) when Type =:= $b; Type =:= $B ->
         false -> <<"false">>
     end;
 format_raw($A, _Prec, Value) ->
-    iolist_to_binary(io_lib:format("~p", [Value]));
+    format_any(Value);
 format_raw($O, _Prec, Value) ->
     to_string(Value);
 format_raw(_, _Prec, Value) ->
@@ -1110,3 +1112,200 @@ console_write(Value) when is_boolean(Value) ->
     io:format(<<"~ts">>, [atom_to_binary(Value)]);
 console_write(Value) ->
     io:format(<<"~tp">>, [Value]).
+
+%%% ---------------------------------------------------------------------------
+%%% F# structured formatting (`%A`)
+%%% ---------------------------------------------------------------------------
+%%
+%% `%A` renders a value in F# syntax. On the other Fable targets the generated types carry a real
+%% `ToString` for this (a JS record is a class instance, a Python record defines `__str__`), so the
+%% formatter just calls it. Beam has nothing to call: a record is a bare map, a union a bare tagged
+%% tuple, neither carrying any back-pointer to its type. Reflection cannot help either — every
+%% `fable_reflection` accessor takes a type-info map, and there is none to be had from the value.
+%%
+%% So this reads the *shape* of the term. Several F# types share a shape on Beam, and where they do
+%% the clause comments below say which way the ambiguity resolves and what that costs. The rules
+%% otherwise mirror `fable-library-ts/Types.ts` (`seqToString`/`unionToString`/`recordToString`) so
+%% the targets stay aligned.
+%%
+%% Known limitations, all of them shape ambiguities rather than bugs:
+%%   * `char` is an `integer()` and prints as its codepoint. Documented in FABLE-BEAM.md.
+%%   * Record field and union case names come back from lowercased Erlang atoms, so their original
+%%     casing is reconstructed by convention (`my_case` -> `MyCase`) and is a guess.
+%%   * Record fields print in Erlang term order (atoms sort alphabetically), not in declaration
+%%     order, because a map does not remember the order its keys went in.
+%%   * An F# `Set` is an ordset, i.e. a plain list, and renders as a list rather than `set [...]`.
+%%   * `option` is erased, so `Some x` renders as `x` — the same collapse JS and Python have.
+%%   * An F# `ref` cell is the same process-dictionary reference an array is, so `ref 5` renders as
+%%     `5` and `ref [1, 2]` as `[|1; 2|]`, never as `{ contents = ... }`.
+%%   * A `decimal` is a fixed-scale integer and prints as its scaled value; a `DateTime` is a
+%%     `{Ticks, Kind}` tuple and prints as one. Both are in the FABLE-BEAM.md table.
+%%
+%% Recovering the first three needs the argument's static type threaded from the `%A` call site,
+%% which is where it still exists; nothing about the runtime value can supply it.
+
+%% Depth cap. Erlang terms are acyclic, but an array is a ref cell into the process dictionary and
+%% those *can* form a cycle (`R = new_ref([]), put(R, [R])`). Falling back to `~tp` at the cap keeps
+%% a pathological term terminating instead of looping.
+-define(FORMAT_ANY_MAX_DEPTH, 24).
+
+%% Element cap, matching `seqToString`'s in fable-library-ts.
+-define(FORMAT_ANY_MAX_ITEMS, 100).
+
+format_any(Value) ->
+    flatten(fmt_any(Value, 0)).
+
+%% Collapse a rendering to a binary. `unicode:characters_to_binary/1` rather than
+%% `iolist_to_binary/1`: the `~tp` fallbacks below can yield codepoints above 255, which
+%% `iolist_to_binary/1` rejects outright with `badarg`.
+%%
+%% It signals bad input by *returning* `{error, _, _}` rather than raising, and a tuple escaping
+%% from here would fail somewhere far away — `format_any/1` is specced to return a `binary()`. The
+%% only way to get one is a binary that is not valid UTF-8, which an F# `string` never is; falling
+%% back to Erlang's own term printing keeps that hypothetical honest rather than crashing.
+flatten(Rendering) ->
+    case unicode:characters_to_binary(Rendering) of
+        Bin when is_binary(Bin) -> Bin;
+        _ -> iolist_to_binary(io_lib:format("~tp", [Rendering]))
+    end.
+
+fmt_any(Value, Depth) when Depth > ?FORMAT_ANY_MAX_DEPTH ->
+    io_lib:format("~tp", [Value]);
+%% Strings are quoted but *not* escaped: .NET prints `%A` of `he said "hi"` as `"he said "hi""`.
+fmt_any(Value, _Depth) when is_binary(Value) ->
+    [$", Value, $"];
+fmt_any(Value, _Depth) when is_boolean(Value) ->
+    atom_to_binary(Value);
+%% `undefined` is the erased `None`.
+fmt_any(undefined, _Depth) ->
+    <<"None">>;
+fmt_any(Value, _Depth) when is_integer(Value) ->
+    integer_to_binary(Value);
+fmt_any(Value, _Depth) when is_float(Value) ->
+    %% `1.0` must stay `1.0` — `fable_convert:to_string/1` renders whole floats as integers, which
+    %% is right for `string x` but would make `%A` lose the type.
+    float_to_binary(Value, [short]);
+%% A bare atom is a fieldless union case (`Empty`), the only way one reaches here.
+fmt_any(Value, _Depth) when is_atom(Value) ->
+    pascal_case(atom_to_binary(Value));
+fmt_any(Value, Depth) when is_list(Value) ->
+    [$[, fmt_items(Value, Depth, <<"; ">>), $]];
+%% A `byte[]` is an atomics object behind a `{byte_array, Size, Ref}` tag. Matched ahead of the
+%% general tuple clause, which would otherwise read that tag as a union case named `ByteArray`.
+fmt_any({byte_array, _, _} = Value, Depth) ->
+    fmt_array(fable_utils:byte_array_to_list(Value), Depth);
+fmt_any(Value, Depth) when is_tuple(Value) ->
+    fmt_tuple(Value, Depth);
+fmt_any(Value, Depth) when is_reference(Value) ->
+    fmt_ref(Value, Depth);
+fmt_any(Value, Depth) when is_map(Value) ->
+    fmt_map(Value, Depth);
+fmt_any(Value, _Depth) when is_function(Value) ->
+    <<"<fun>">>;
+%% Pids, ports, anything unrecognised falls back to Erlang's own term printing — which is what `%A`
+%% did for *every* value before, so this can never be worse than the old behaviour. `~tp` rather
+%% than `~p` so the fallback stays unicode-aware, matching `console_write`/`console_writeline`.
+fmt_any(Value, _Depth) ->
+    io_lib:format("~tp", [Value]).
+
+%% A tagged tuple is a union case; anything else is an F# tuple.
+%%
+%% The two are genuinely indistinguishable when a tuple's first element is itself a fieldless union
+%% case: `(Empty, 1)` is `{empty, 1}`, exactly the shape of a one-field case `Empty 1`, and renders
+%% as the latter. Booleans and `None` are excluded because those atoms are common as tuple heads
+%% (`(true, 1)`) and are never union tags.
+fmt_tuple(Value, Depth) ->
+    case tuple_to_list(Value) of
+        [Tag | Fields] when
+            is_atom(Tag), Fields =/= [], Tag =/= true, Tag =/= false, Tag =/= undefined
+        ->
+            fmt_union(pascal_case(atom_to_binary(Tag)), Fields, Depth);
+        Elements ->
+            [$(, fmt_items(Elements, Depth, <<", ">>), $)]
+    end.
+
+%% `Named "x"` for one field, `Case (a, b)` for several. A single field is parenthesised only when
+%% its own rendering contains a space, so `Circle 1.0` stays bare but `Wrapped (Named "q")` does
+%% not run together — the rule `unionToString` uses in fable-library-ts.
+fmt_union(Name, [Field], Depth) ->
+    Rendered = flatten(fmt_any(Field, Depth + 1)),
+
+    case binary:match(Rendered, <<" ">>) of
+        nomatch -> [Name, $\s, Rendered];
+        _ -> [Name, <<" (">>, Rendered, $)]
+    end;
+fmt_union(Name, Fields, Depth) ->
+    [Name, <<" (">>, fmt_items(Fields, Depth, <<", ">>), $)].
+
+%% An array is a ref cell into the process dictionary holding its elements. A class instance, a
+%% ref-wrapped byte array and an F# `ref` cell reach here the same way, and are handed back to
+%% `fmt_any` on their contents.
+%%
+%% Nothing distinguishes those, so a `ref` holding a list is rendered as an array and one holding a
+%% scalar as the scalar — never as `{ contents = ... }`. A `ref` holding `undefined` (an erased
+%% `None`) is indistinguishable from a key that was never stored, and falls through to `#Ref<...>`.
+fmt_ref(Value, Depth) ->
+    case get(Value) of
+        Stored when is_list(Stored) ->
+            fmt_array(Stored, Depth);
+        undefined ->
+            %% Not one of ours — a raw `make_ref()`, which prints as `#Ref<...>`.
+            io_lib:format("~tp", [Value]);
+        Stored ->
+            fmt_any(Stored, Depth + 1)
+    end.
+
+fmt_array(Elements, Depth) ->
+    [<<"[|">>, fmt_items(Elements, Depth, <<"; ">>), <<"|]">>].
+
+%% A map is a record when every key is an atom, since record field names are compiled to atoms and
+%% an F# `Map`'s keys are runtime values (binaries, integers, tuples). A `Map<SomeEnum, _>` would be
+%% misread as a record, and an empty map is reported as `map []` because there is nothing to look at.
+fmt_map(Value, Depth) ->
+    Keys = maps:keys(Value),
+
+    case Keys =/= [] andalso lists:all(fun erlang:is_atom/1, Keys) of
+        true ->
+            %% `{ Name = "bob"` / newline+2 spaces / `  Age = 7 }`, as .NET and fable-library-ts do.
+            Fields = [
+                [pascal_case(atom_to_binary(K)), <<" = ">>, fmt_any(maps:get(K, Value), Depth + 1)]
+             || K <- Keys
+            ],
+            [<<"{ ">>, lists:join(<<"\n  ">>, Fields), <<" }">>];
+        false ->
+            Pairs = [
+                [$(, fmt_any(K, Depth + 1), <<", ">>, fmt_any(maps:get(K, Value), Depth + 1), $)]
+             || K <- Keys
+            ],
+            [<<"map [">>, lists:join(<<"; ">>, Pairs), $]]
+    end.
+
+%% Render up to ?FORMAT_ANY_MAX_ITEMS elements, then `; ...` — an unbounded `%A` of a large
+%% collection is never what a failure message wants.
+fmt_items(Elements, Depth, Separator) ->
+    {Shown, Rest} = split_at(Elements, ?FORMAT_ANY_MAX_ITEMS, []),
+    Rendered = lists:join(Separator, [fmt_any(E, Depth + 1) || E <- Shown]),
+
+    case Rest of
+        [] -> Rendered;
+        _ -> [Rendered, Separator, <<"...">>]
+    end.
+
+split_at([], _N, Acc) ->
+    {lists:reverse(Acc), []};
+split_at(Rest, 0, Acc) ->
+    {lists:reverse(Acc), Rest};
+split_at([H | T], N, Acc) ->
+    split_at(T, N - 1, [H | Acc]).
+
+%% Rebuild an F# name from the Erlang atom it was compiled to: `my_case` -> `MyCase`. The compiler
+%% lowercases and snake-cases on the way down and that is not injective, so this is a convention,
+%% not a recovery — `ABc` comes back as `Abc`.
+pascal_case(Name) ->
+    Parts = binary:split(Name, <<"_">>, [global]),
+    iolist_to_binary([capitalize(P) || P <- Parts, P =/= <<>>]).
+
+capitalize(<<First/utf8, Rest/binary>>) ->
+    <<(string:uppercase(<<First/utf8>>))/binary, Rest/binary>>;
+capitalize(Empty) ->
+    Empty.

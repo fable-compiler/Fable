@@ -284,3 +284,26 @@ let ``test Char.TryParse fails with longer string`` () =
 //     Char.IsSurrogatePair(str,0) |> equal false
 //     Char.IsSurrogatePair(str,1) |> equal true
 //     Char.IsSurrogatePair(str,2) |> equal false
+
+// --- Boxed chars reaching a string conversion ---
+//
+// A `char` is a plain `integer()` on Beam, so any conversion that dispatches on the runtime value
+// alone renders the codepoint instead of the character. These sites see the static type through the
+// boxing cast and encode the char up front. Where the cast is *not* visible — a boxed char piped
+// into `string`, bound to an `obj` first, or reaching `%A`/`%O` through printf's curried runtime —
+// the type is genuinely gone by then; see "char at a generic type" in FABLE-BEAM.md.
+
+[<Fact>]
+let ``test string of a directly boxed char works`` () =
+    let c = '2'
+    string (box c) |> equal "2"
+
+[<Fact>]
+let ``test String.Format of a char works`` () =
+    let c = '2'
+    String.Format("{0}", c) |> equal "2"
+    String.Format("{0}", box c) |> equal "2"
+
+[<Fact>]
+let ``test String.Format of a non-ASCII char works`` () =
+    String.Format("{0}", '✗') |> equal "✗"

@@ -368,12 +368,32 @@ a string is correct only where the compiler can still see the type statically. I
 ordinary case:
 
 ```fsharp
-string c            // "2"
-c.ToString()        // "2"
-"x" + string c      // "x2"
-System.Char.ToString c   // "2"
-$"{c}"              // "2"
+string c                    // "2"
+c.ToString()                // "2"
+"x" + string c              // "x2"
+System.Char.ToString c      // "2"
+$"{c}"                      // "2"
+string (box c)              // "2"  — the boxing cast is still visible at the call site
+System.String.Format("{0}", c)       // "2"
+System.String.Format("{0}", box c)   // "2"
 ```
+
+Boxing only survives while the cast is part of the same expression. Once the boxed char is bound to
+an `obj` — by a `let`, or by flowing through a pipe — the static type is gone before the conversion
+is reached, and these degrade to the generic case below:
+
+```fsharp
+box c |> string             // "50"  — the pipe binds it as obj first
+let b: obj = box c in string b       // "50"
+sprintf "%O" c              // "50"  — printf applies its arguments through a curried runtime
+sprintf "%A" c              // "50"  — .NET gives "'2'"
+[ box '2' ] |> List.map string       // ["50"] — element type is obj
+```
+
+The `%O`/`%A` cases are not a boxing problem but a printf one: `printf` parses its format string and
+applies its arguments at runtime, so no argument's static type reaches the formatter at all. Fixing
+those means threading per-argument type info from the call site — see "Structured formatting (`%A`)"
+below.
 
 But when `string x` is applied where `x`'s type is a *generic parameter*, the backend can only emit
 `fable_convert:to_string/1`, which sees an integer and prints the number:
@@ -412,6 +432,50 @@ Giving `char` a tagged runtime form such as `{char, 50}` would fix this everywhe
 breaking change to a core type, costs arithmetic and comparison performance, and fights Erlang's own
 convention that strings are lists of integer codepoints. Not worth it for a case with a one-keyword
 workaround.
+
+### Structured formatting (`%A`) reads shapes, not types
+
+`%A` renders a value in F# syntax. The other targets get this for free because their generated types
+carry a real `ToString` — a JS record is a class instance, a Python record defines `__str__` — so the
+formatter just calls it. Beam has nothing to call: a record is a bare Erlang map and a union a bare
+tagged tuple, neither carrying any back-pointer to its type. Reflection does not help either, since
+every `fable_reflection` accessor takes a type-info map and a runtime value cannot produce one.
+
+So `fable_string:format_any/1` dispatches on the *shape* of the term. That gets the common cases
+right — strings are quoted, lists print as `[a; b]`, tuples as `(a, b)`, unions as `Case value`, and
+arrays are dereferenced from their ref cell to `[|a; b|]` instead of printing an opaque `#Ref<...>`.
+
+Where several F# types share one Erlang shape, the ambiguity is unresolvable and `%A` deviates from
+.NET:
+
+| Case | .NET | Beam | Why |
+| --- | --- | --- | --- |
+| record field order | declaration order | Erlang term order | a map does not remember key insertion order |
+| record/union names | original casing | reconstructed | names compile to lowercased atoms; `my_case` → `MyCase` is a convention, not a recovery |
+| `Some x` | `Some x` | `x` | `option` is erased (JS and Python collapse it too) |
+| `set [1; 2]` | `set [1; 2]` | `[1; 2]` | an F# `Set` is an ordset, i.e. a plain list |
+| `(Empty, 1)` | `(Empty, 1)` | `Empty 1` | `{empty, 1}` is also the shape of a one-field union case |
+| `'x'` | `'x'` | `120` | a `char` is an `integer()`, per the limitation above |
+| `ref 5` | `{ contents = 5 }` | `5` | a ref cell is the same process-dictionary reference an array is, with no `contents` field to name |
+| `ref [1; 2]` | `{ contents = [1; 2] }` | `[\|1; 2\|]` | the same collision, landing on the array rendering because the stored value is a list |
+| `1.0M` | `1.0M` | `10000000000000000000000000000` | a `decimal` is a fixed-scale integer (value × 10²⁸) and is indistinguishable from one |
+| `DateTime(...)` | `1/2/2024 3:04:05 AM` | `(638396498450000000, 1)` | a `DateTime` is a `{Ticks, Kind}` tuple; likewise `TimeSpan`, which is a bare integer |
+
+The last four are worse than the ambiguities above them, in that the value is not merely rendered in
+the wrong style but is unreadable. They are still shape collisions rather than bugs — nothing about
+the runtime term says "this reference is a ref cell, not an array" or "this integer is scaled" — and
+all four print at least as well as the `~p` dump they replaced.
+
+Recovering the first three needs the argument's static type threaded from the `%A` call site, where
+it does still exist: `printfn`'s `PrintfFormat<'Printer, _, _, _>` carries the per-argument types as
+a `LambdaType` chain in `CallInfo.GenericArgs`, which `NestedLambdaType` decomposes. That would mean
+emitting a `makeTypeInfo` per argument in `fsFormat` and pairing each format specifier with it in
+`create_printer` — machinery no Fable target has today, and it would still need a fallback for
+generic parameters (which erase to a placeholder) and for `%a`/`%t`/`%*d` specifiers whose arity does
+not line up with the value list.
+
+Anything the formatter does not recognise — pids, ports, a cyclic term past the depth cap — falls
+back to `~tp`, which is what `%A` did for *everything* before, so it can never be worse than it was.
 
 ### Console output requires a unicode io device
 
