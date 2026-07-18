@@ -20,6 +20,11 @@ let main argv =
     System.Console.WriteLine("writeline=✓ ✗ · é")
     printfn "printfn=✓ ✗ · é"
 
+    // A char is an integer at runtime, so the console functions can't tell one from an `int` and
+    // used to print its codepoint. Only the compiler still knows the type, hence a test here.
+    System.Console.Write("char=")
+    System.Console.WriteLine('✓')
+
     // ...and the return value has to become the process exit code, or a failing suite is
     // indistinguishable from a passing one.
     match argv with

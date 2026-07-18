@@ -413,6 +413,30 @@ breaking change to a core type, costs arithmetic and comparison performance, and
 convention that strings are lists of integer codepoints. Not worth it for a case with a one-keyword
 workaround.
 
+### Console output requires a unicode io device
+
+An F# `string` is a UTF-8 `binary()`, and every path that prints one — `Console.Write`,
+`Console.WriteLine`, `printf`/`printfn`, `eprintfn` — writes it with io's `t` (unicode) modifier
+(`~ts`). That reaches the terminal intact only on a device whose encoding is `unicode`; on the
+latin1 default of `erl -noshell` a codepoint above latin1 comes out as a `\x{2713}` escape instead.
+
+Programs started through Fable's generated `main.erl` need to do nothing: the shim's `setup_io/0`
+sets both `standard_io` and `standard_error` to unicode before calling into F#. Anything else —
+a Fable-compiled module called from a hand-written OTP release, an `escript`, a `gen_server`
+started by someone else's supervisor — has to set the device itself:
+
+```erlang
+ok = io:setopts(standard_io, [{encoding, unicode}]),
+ok = io:setopts(standard_error, [{encoding, unicode}]).
+```
+
+The `+pc unicode` VM flag is *not* a substitute: it only affects printable-list detection in `~p`,
+not the device encoding.
+
+There is no device-independent alternative to fall back on. `io:put_chars` follows the device
+encoding for both binaries and codepoint lists, so writing a string's raw bytes with `~s` would
+merely move the corruption to unicode devices instead of latin1 ones.
+
 ### Class instance representation: map vs process-dict ref
 
 A class instance has two possible representations, chosen per class at construction:

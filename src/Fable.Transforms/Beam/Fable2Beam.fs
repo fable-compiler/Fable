@@ -1639,14 +1639,6 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         Beam.ErlExpr.Map entries
 
     | StringTemplate(_tag, parts, values) ->
-        // F# boxes every interpolation hole, so `$"{c}"` on a char arrives here as a cast to `Any`
-        // with the char type visible only underneath. Peel the box for chars specifically: `Any`
-        // otherwise falls through to `fable_string:to_string`, which is right for everything else.
-        let holeType (e: Fable.Expr) =
-            match e with
-            | TypeCast(inner, Any) when inner.Type = Char -> Char
-            | _ -> e.Type
-
         let toStringExpr erlValue (typ: Fable.AST.Fable.Type) =
             match typ with
             | Fable.AST.Fable.Type.String -> erlValue
@@ -1687,7 +1679,9 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
                 ([ Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit firstPart) ], List.zip values restParts)
                 ||> List.fold (fun acc (value, part) ->
                     let erlValue = transformExpr com ctx value
-                    let stringified = toStringExpr erlValue (holeType value)
+                    // F# boxes every interpolation hole, so `$"{c}"` on a char arrives here as a
+                    // cast to `Any` with the char type visible only underneath.
+                    let stringified = toStringExpr erlValue (Fable.Beam.Chars.unboxedType value)
                     acc @ [ stringified; Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit part) ]
                 )
 
