@@ -160,8 +160,15 @@ module private Util =
             let fileName = Pipeline.Beam.moduleName cliArgs file + fileExt
 
             if Naming.isInFableModules file then
-                // Package and library sources in fable_modules: preserve the containing
-                // directory so each stays its own OTP app (fable_modules/<dep>/src/)
+                // Package and library sources in fable_modules: each package is its own OTP app,
+                // rooted at fable_modules/<dep>/, and its modules go in that app's src/.
+                //
+                // The subdirectory a source sits in is already encoded in the module name
+                // (`Sinks/Universal.fs` -> `..._sinks_universal`), so an app is always flat.
+                // Mirroring the subdirectory here would write to `<dep>/Sinks/src/`, which is not
+                // part of any app: `{project_app_dirs, [".", "fable_modules/*"]}` does not reach
+                // it, rebar3 compiles nothing there and says nothing, and the module surfaces as
+                // `undef` at runtime.
                 let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
 
                 let outDir =
@@ -171,7 +178,24 @@ module private Util =
 
                 let absPath = Imports.getTargetAbsolutePath pathResolver file projDir outDir
                 let dir = IO.Path.GetDirectoryName(absPath)
-                IO.Path.Combine(dir, "src", fileName)
+                let segments = dir.Split([| '/'; '\\' |])
+
+                let appDir =
+                    // The app directory is the one segment below fable_modules; take the last
+                    // fable_modules in the path so a nested one wins over any in the outDir above.
+                    match segments |> Array.tryFindIndexBack ((=) Naming.fableModules) with
+                    | Some i when i + 1 < segments.Length ->
+                        String.Join(string IO.Path.DirectorySeparatorChar, segments.[.. i + 1])
+                    | _ ->
+                        // Falling back to `dir` here would silently reinstate the very layout this
+                        // branch exists to avoid, and the only symptom would be `undef` at runtime.
+                        Fable.FableError(
+                            $"Cannot locate the OTP app directory for {file}: expected output path {dir} "
+                            + $"to contain a '{Naming.fableModules}/<package>' segment"
+                        )
+                        |> raise
+
+                IO.Path.Combine(appDir, "src", fileName)
             else
                 // Project files: go into src/ so rebar3 picks them up
                 match cliArgs.OutDir with
