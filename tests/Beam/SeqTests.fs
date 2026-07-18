@@ -972,6 +972,17 @@ let ``test Seq.sumBy works with float`` () =
     xs |> Seq.sumBy ((*) 2.)
     |> equal 6.
 
+// F# does allow summing chars, and the injected generic adder has to seed the fold with a char
+// zero. Sharing `string`'s empty-binary zero made the first addition fail with `badarith`, since a
+// char is an integer at runtime on Beam.
+[<Fact>]
+let ``test Seq.sum works with char`` () =
+    [ 'a'; 'b' ] |> Seq.sum |> int |> equal 195
+
+[<Fact>]
+let ``test Seq.sumBy works with char`` () =
+    [ 'a'; 'b' ] |> Seq.sumBy id |> int |> equal 195
+
 // TODO: Seq.sum with custom types causes badarith in Beam (Zero + operator not inlined properly)
 // [<Fact>]
 // let ``test Seq.sum with non numeric types works`` () =

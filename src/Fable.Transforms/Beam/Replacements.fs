@@ -2038,7 +2038,10 @@ let rec private getZero (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst false
     | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None
-    | Char
+    // A `char` is an integer at runtime, not a binary, and F# does allow summing chars
+    // (`Seq.sum [ 'a'; 'b' ]` is 195). Sharing `String`'s empty-binary zero seeded the fold with
+    // `<<"">>` and made the first addition fail with `badarith`.
+    | Char -> CharConstant '\u0000' |> makeValue None
     | String -> makeStrConst ""
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
     | _ -> Value(Null Any, None)
