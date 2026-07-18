@@ -112,6 +112,20 @@ let private testEntryPointPrograms () =
         runErl noEntryBuildDir noEntryPaArgs "main:main()"
 
     expect "top-level effects ran" true (noEntryOutput.Contains "no-entry-point program ran")
+
+    // Separate top-level effects are merged into one main/0 clause, so their temporaries shared a
+    // scope and collided — the second binding was a match against the first and died with
+    // `badmatch` as soon as the two values differed. Both of these must run, with their own values.
+    expect "later top-level effects ran" true (noEntryOutput.Contains "effect2=true")
+
+    expect "top-level effects do not share variables" true (noEntryOutput.Contains "effect3=false")
+
+    // The same, through a conditional: a lone `case` binds into the enclosing clause too, so these
+    // need isolating despite compiling to a single statement.
+    expect "conditional top-level effects ran" true (noEntryOutput.Contains "effect4=true")
+
+    expect "conditional effects do not share variables" true (noEntryOutput.Contains "effect5=false")
+
     expect "exit code without an entry point" 0 noEntryExitCode
 
     printfn "Entry point program tests passed"
