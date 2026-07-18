@@ -191,6 +191,45 @@ jobs:
         if: matrix.platform == 'windows-latest'
         run: .\build.bat test python
 
+  # Native/Rust-extension unit tests for the published fable-library package.
+  # These live in src/fable-library-py/tests and exercise hand-written sources
+  # (fable_library.core, .union, .util) only, so no F# transpilation is needed.
+  # Previously this ran in publish-pypi.yml, where a failure was only visible
+  # at release time and did not actually gate the publish.
+  test-fable-library-py:
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.12", "3.13", "3.14"]
+    runs-on: ${{ matrix.platform }}
+    env:
+      UV_LINK_MODE: copy
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Build extension and run tests
+        working-directory: ./src/fable-library-py
+        run: |
+          uv sync --frozen
+          uv run --frozen maturin develop --release
+          uv run --frozen pytest tests
+
   # Separate build job for Rust (will run in parallel)
   build-rust:
     timeout-minutes: 75
