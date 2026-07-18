@@ -393,6 +393,12 @@ let private operators
             | _ -> Helper.LibCall(com, "fable_decimal", "from_int", _t, [ arg ], ?loc = r) |> Some
         | _ -> Helper.LibCall(com, "fable_decimal", "from_int", _t, [ arg ], ?loc = r) |> Some
     | "ToString", [ arg ] ->
+        // `box c |> string` arrives as a char under a boxing cast to `obj`, and would otherwise fall
+        // through to `fable_convert:to_string`, which sees only the integer and prints the codepoint.
+        // Peeling the cast puts it back on the `Type.Char` branch below; every other type is
+        // unaffected, since `tryAsChar` only ever looks through a box around a char.
+        let arg = Chars.tryAsChar arg |> Option.defaultValue arg
+
         match arg.Type with
         | Type.String -> Some arg
         | Type.Char -> emitExpr r _t [ arg ] "<<($0)/utf8>>" |> Some
@@ -1220,6 +1226,18 @@ let private strings
                 | realFmt :: rest -> realFmt, rest
                 | [] -> fmtStr, fmtArgs
 
+        // `fable_string:format` dispatches on the runtime value, where a char is an integer and so
+        // prints as its codepoint (`String.Format("{0}", '2')` gave "50"). The arguments are boxed
+        // to `obj` but their static type survives here, so encode chars to text up front — the same
+        // thing the `System.Console` replacement does.
+        let fmtArgs =
+            fmtArgs
+            |> List.map (fun arg ->
+                match Chars.tryAsChar arg with
+                | Some c -> Helper.LibCall(com, "fable_char", "to_string", String, [ c ], ?loc = r)
+                | None -> arg
+            )
+
         // When a single array argument is passed (e.g. from ParamArray),
         // pass it directly — format/2 already handles refs and lists.
         let argsList =
@@ -1399,6 +1417,11 @@ let private conversions
                 match args with
                 | [ a ] -> a
                 | _ -> Value(Null Type.Unit, None)
+
+        // `box c |> string` reaches here as a char under a boxing cast to `obj`. Peeling the cast
+        // puts it back on the `Type.Char` branch below, instead of falling through to
+        // `fable_convert:to_string`, which sees only the integer and prints the codepoint.
+        let arg = Chars.tryAsChar arg |> Option.defaultValue arg
 
         match arg.Type with
         | Type.String -> Some arg
@@ -2046,10 +2069,33 @@ let rec private getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | ListSingleton(CustomOp com ctx None t "get_Zero" [] e) -> e
     | _ -> Value(Null Any, None)
 
+/// Apply an injected operator, dispatching to the type's own definition when it has one.
+///
+/// The adder and averager below are injected into `Seq.sum`/`Seq.average` at a *generic* type, so
+/// the operand can be a user type whose `+` is a static member. Emitting a bare `BinaryPlus` there
+/// prints an Erlang `+`, and `#{x => 1} + #{x => 0}` fails with `badarith`. The other targets route
+/// this through `applyOp`; Beam has no such function — its custom-operator dispatch is inlined in
+/// `operators` — so consult `CustomOp` directly, exactly as those call sites do.
+let private applyInjectedOp (com: ICompiler) (ctx: Context) t opName (args: Expr list) fallback =
+    let argTypes = args |> List.map (fun a -> a.Type)
+
+    match (|CustomOp|_|) com ctx None t opName args argTypes with
+    | ValueSome e -> e
+    | ValueNone -> fallback ()
+
 let private makeAddFunction (com: ICompiler) (ctx: Context) t =
     let x = makeUniqueIdent com ctx t "x"
     let y = makeUniqueIdent com ctx t "y"
-    let body = makeBinOp None t (IdentExpr x) (IdentExpr y) BinaryPlus
+
+    let body =
+        applyInjectedOp
+            com
+            ctx
+            t
+            Operators.addition
+            [ IdentExpr x; IdentExpr y ]
+            (fun () -> makeBinOp None t (IdentExpr x) (IdentExpr y) BinaryPlus)
+
     Delegate([ x; y ], body, None, Tags.empty)
 
 let private makeGenericAdder (com: ICompiler) ctx t =
@@ -2063,7 +2109,16 @@ let private makeGenericAverager (com: ICompiler) ctx t =
     let divideFn =
         let x = makeUniqueIdent com ctx t "x"
         let i = makeUniqueIdent com ctx (Int32.Number) "i"
-        let body = makeBinOp None t (IdentExpr x) (IdentExpr i) BinaryDivide
+
+        let body =
+            applyInjectedOp
+                com
+                ctx
+                t
+                Operators.divideByInt
+                [ IdentExpr x; IdentExpr i ]
+                (fun () -> makeBinOp None t (IdentExpr x) (IdentExpr i) BinaryDivide)
+
         Delegate([ x; i ], body, None, Tags.empty)
 
     objExpr
