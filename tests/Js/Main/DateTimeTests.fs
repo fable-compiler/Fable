@@ -1199,7 +1199,7 @@ let tests =
             // timing-dependent — how many 50ms ticks fit in the sleep varies with runner load.
             afterStop > 5 |> equal true
             // Stop halts it: no further ticks after the snapshot.
-            !res |> equal afterStop
+            equal afterStop !res
         }
 
     testCaseAsync "Timer.Elapsed.Subscribe works" <| fun () ->
@@ -1218,7 +1218,7 @@ let tests =
             // many 50ms ticks fit in the sleep varies with runner load.
             afterDispose > 5 |> equal true
             // Dispose detaches it: no further ticks after the snapshot.
-            !res |> equal afterDispose
+            equal afterDispose !res
             t.Stop()
         }
 
