@@ -565,7 +565,7 @@ let private transformUnionCaseTest
                 match fableType with
                 | Fable.Any ->
                     return
-                        $"Erased union case '{unionCase.Name}' is typed as 'obj' which cannot be tested at runtime (type test always evaluates to true). Use a more specific type or TypeScriptTaggedUnion instead."
+                        $"Erased union case '%s{unionCase.Name}' is typed as 'obj' which cannot be tested at runtime (type test always evaluates to true). Use a more specific type or TypeScriptTaggedUnion instead."
                         |> addErrorAndReturnNull com ctx.InlinePath r
                 | _ ->
                     let kind = fableType |> Fable.TypeTest
