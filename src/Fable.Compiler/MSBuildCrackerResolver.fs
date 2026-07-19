@@ -99,10 +99,10 @@ module private MSBuildCrackerResolver =
                         failwith
                             $"""Failed to parse MSBuild output
 JSON:
-{targetFrameworkJson}
+%s{targetFrameworkJson}
 
 Exception:
-{ex}
+%O{ex}
 """
 
                 let tf, tfs =
@@ -161,10 +161,10 @@ Exception:
                     failwith
                         $"""Failed to parse MSBuild output
 JSON:
-{json}
+%s{json}
 
 Exception:
-{ex}
+%O{ex}
 """
 
             let items = jsonDocument.RootElement.GetProperty "Items"
