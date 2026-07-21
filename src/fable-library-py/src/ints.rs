@@ -1064,16 +1064,13 @@ fn determine_radix(string: &str, style: i32, default_radix: i32) -> i32 {
         return 16;
     }
 
-    // Single length check followed by pattern match
-    if string.len() >= 2 {
-        match &string[..2] {
-            "0x" | "0X" => 16,
-            "0b" | "0B" => 2,
-            "0o" | "0O" => 8,
-            _ => default_radix,
-        }
-    } else {
-        default_radix
+    // `get` returns None when the string is shorter than two bytes or the
+    // boundary falls inside a multi-byte character, so this never panics
+    match string.get(..2) {
+        Some("0x") | Some("0X") => 16,
+        Some("0b") | Some("0B") => 2,
+        Some("0o") | Some("0O") => 8,
+        _ => default_radix,
     }
 }
 
@@ -1094,9 +1091,11 @@ fn trim_whitespace(string: &str, style: i32) -> &str {
 /// Removes numeric prefixes (0x, 0b, 0o) when radix is not decimal
 #[inline]
 fn remove_prefix(string: &str, radix: i32) -> &str {
-    if radix != 10 && string.len() >= 2 {
-        match &string[..2] {
-            "0x" | "0X" | "0b" | "0B" | "0o" | "0O" => &string[2..],
+    if radix != 10 {
+        match string.get(..2) {
+            Some("0x") | Some("0X") | Some("0b") | Some("0B") | Some("0o") | Some("0O") => {
+                &string[2..]
+            }
             _ => string,
         }
     } else {
