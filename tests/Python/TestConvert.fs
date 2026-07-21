@@ -203,6 +203,13 @@ let ``test Parsing integers with different radices works``  () =
     equal 17 (int "0x11")
     equal 9  (int "0o11")
     equal 3  (int "0b11")
+    // Leading whitespace and the sign both precede the radix specifier
+    equal 17 (int " 0x11")
+    equal 9  (int "  0o11  ")
+    equal -17 (int "-0x11")
+    equal -3 (int " -0b11 ")
+    equal -17L (int64 "-0x11")
+    equal -11 (int "-1_1")
 
 [<Fact>]
 let ``test System.Int32.TryParse works`` () =

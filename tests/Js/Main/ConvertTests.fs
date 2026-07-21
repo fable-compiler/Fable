@@ -197,6 +197,13 @@ let tests =
         equal 17 (int "0x11")
         equal 9  (int "0o11")
         equal 3  (int "0b11")
+        // Leading whitespace and the sign both precede the radix specifier
+        equal 17 (int " 0x11")
+        equal 9  (int "  0o11  ")
+        equal -17 (int "-0x11")
+        equal -3 (int " -0b11 ")
+        equal -17L (int64 "-0x11")
+        equal -11 (int "-1_1")
 
     testCase "System.Int32.TryParse works" <| fun () ->
         tryParse Int32.TryParse 0 "1" |> equal (true, 1)
