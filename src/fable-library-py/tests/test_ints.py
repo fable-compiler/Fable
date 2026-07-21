@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from fable_library.core import byte, int16, int32, int64, sbyte, uint16, uint32, uint64
+from fable_library.core import FSharpRef, byte, int16, int32, int64, sbyte, uint16, uint32, uint64
 from pydantic import BaseModel
 
 
@@ -54,6 +54,20 @@ def test_uint64_create() -> None:
     assert uint64(uint64(42)) == 42
     assert uint64(uint64(1)) == 1
     assert uint64(uint32(-1)) == 4294967295
+
+
+@pytest.mark.parametrize(
+    "style",
+    [
+        pytest.param(511, id="any"),
+        pytest.param(515, id="hex-number"),
+    ],
+)
+def test_int32_try_parse_multibyte_unicode_returns_false(style: int) -> None:
+    result = FSharpRef(0)
+
+    assert int32.try_parse("–", style, result) is False
+    assert result.contents == 0
 
 
 def test_byte_add() -> None:
