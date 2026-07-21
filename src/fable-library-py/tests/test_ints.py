@@ -56,6 +56,10 @@ def test_uint64_create() -> None:
     assert uint64(uint32(-1)) == 4294967295
 
 
+# NumberStyles.Any (511) has no AllowHexSpecifier, so it reaches the prefix
+# check in `determine_radix`. NumberStyles.HexNumber (515) short-circuits to
+# radix 16 and reaches the prefix check in `remove_prefix` instead. Both used
+# to panic on a multi-byte first character.
 @pytest.mark.parametrize(
     "style",
     [

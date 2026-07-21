@@ -160,6 +160,8 @@ let ``test System.Int32.Parse with hex works`` () =
     (fun () -> Int32.Parse("1FFFFFFFF", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
     (fun () -> Int32.Parse("5foo", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
     (fun () -> Int32.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
+    // Multi-byte UTF-8 input must fail to parse, not crash (see #4823)
+    (fun () -> Int32.Parse("–", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
 
 [<Fact>]
 let ``test System.Int64.Parse works`` () =
@@ -214,6 +216,10 @@ let ``test System.Int32.TryParse works`` () =
     tryParse Int32.TryParse 0 "X9TRE34" |> equal (false, 0)
     tryParse Int32.TryParse 0 "9SayWhat12Huh" |> equal (false, 0)
     tryParse Int32.TryParse 0 "-1" |> equal (true, -1)
+    // Multi-byte UTF-8 input must fail to parse, not crash (see #4823)
+    tryParse Int32.TryParse 0 "–" |> equal (false, 0)
+    tryParse Int32.TryParse 0 "é" |> equal (false, 0)
+    tryParse Int32.TryParse 0 "𝟙" |> equal (false, 0)
 
 [<Fact>]
 let ``test BigInt.TryParse works`` () =
