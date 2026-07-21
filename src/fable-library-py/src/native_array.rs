@@ -447,9 +447,7 @@ impl NativeArray {
             ArrayType::Float32 => NativeArray::Float32(Vec::with_capacity(capacity.unwrap_or(0))),
             ArrayType::Float64 => NativeArray::Float64(Vec::with_capacity(capacity.unwrap_or(0))),
             ArrayType::Bool => NativeArray::Bool(Vec::with_capacity(capacity.unwrap_or(0))),
-            ArrayType::Generic => {
-                NativeArray::PyObject(Vec::with_capacity(capacity.unwrap_or(0)))
-            }
+            ArrayType::Generic => NativeArray::PyObject(Vec::with_capacity(capacity.unwrap_or(0))),
         }
     }
 
@@ -951,7 +949,8 @@ impl NativeArray {
                         let py_b = b.bind(py);
                         let proj_a = projection.call1((py_a,))?;
                         let proj_b = projection.call1((py_b,))?;
-                        let cmp_result = comparer.call_method1(intern!(py, "Compare"), (proj_a, proj_b))?;
+                        let cmp_result =
+                            comparer.call_method1(intern!(py, "Compare"), (proj_a, proj_b))?;
                         Ok(cmp_result.extract::<i32>()?.cmp(&0))
                     })();
                     match result {
@@ -1111,10 +1110,7 @@ impl NativeArray {
     /// the element type and scans natively; if `value` cannot be represented as the
     /// element type, returns `None` so the caller falls back to the general
     /// `rich_compare` path (which preserves Python cross-type equality semantics).
-    pub fn try_native_contains(
-        &self,
-        value: &Bound<'_, PyAny>,
-    ) -> Option<PyResult<bool>> {
+    pub fn try_native_contains(&self, value: &Bound<'_, PyAny>) -> Option<PyResult<bool>> {
         macro_rules! contains_prim {
             ($vec:expr, $t:ty) => {{
                 match value.extract::<$t>() {

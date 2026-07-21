@@ -881,10 +881,8 @@ macro_rules! integer_variant {
                 let serializer_fn = cls.getattr("_pydantic_serializer")?;
 
                 // Build the serialization schema
-                let ser_schema = core_schema.call_method1(
-                    "plain_serializer_function_ser_schema",
-                    (serializer_fn,),
-                )?;
+                let ser_schema = core_schema
+                    .call_method1("plain_serializer_function_ser_schema", (serializer_fn,))?;
 
                 // Create an int schema as the base - this enables JSON Schema generation
                 let int_schema = core_schema.call_method0("int_schema")?;
@@ -922,7 +920,10 @@ macro_rules! integer_variant {
                 let py = value.py();
                 // If the value has __int__, extract it as a Python int
                 if value.hasattr("__int__")? {
-                    Ok(value.call_method0("__int__")?.into_pyobject(py).map(|o| o.unbind())?)
+                    Ok(value
+                        .call_method0("__int__")?
+                        .into_pyobject(py)
+                        .map(|o| o.unbind())?)
                 } else {
                     Ok(value.clone().unbind())
                 }

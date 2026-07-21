@@ -568,7 +568,11 @@ mod printf {
     }
 
     /// Handle remaining simple patterns
-    fn handle_remaining_patterns(result: &mut String, remaining_args: &[String], remaining_is_str: &[bool]) {
+    fn handle_remaining_patterns(
+        result: &mut String,
+        remaining_args: &[String],
+        remaining_is_str: &[bool],
+    ) {
         for (i, arg) in remaining_args.iter().enumerate() {
             if let Some(pos) = result.find("%s") {
                 result.replace_range(pos..pos + 2, arg);
@@ -1130,11 +1134,7 @@ mod formatting {
             // Zero-padding integers: 0000
             spec if spec.starts_with('0') => apply_zero_padding_format(value, spec),
             // Standard .NET format specifiers: d4, X8, f2, etc.
-            spec if spec
-                .chars()
-                .next()
-                .is_some_and(|c| c.is_ascii_alphabetic()) =>
-            {
+            spec if spec.chars().next().is_some_and(|c| c.is_ascii_alphabetic()) => {
                 apply_standard_format(value, spec)
             }
             // Unknown format - return as-is
@@ -1633,7 +1633,12 @@ mod formatting {
 
     /// Convert string to character array
     #[pyfunction]
-    pub fn to_char_array2(py: Python<'_>, string: &str, start_index: usize, length: usize) -> PyResult<FSharpArray> {
+    pub fn to_char_array2(
+        py: Python<'_>,
+        string: &str,
+        start_index: usize,
+        length: usize,
+    ) -> PyResult<FSharpArray> {
         let chars: Vec<char> = string.chars().collect();
 
         if start_index + length > chars.len() {
