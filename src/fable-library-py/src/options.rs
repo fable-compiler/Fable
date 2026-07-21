@@ -112,10 +112,8 @@ impl SomeWrapper {
         let serializer_fn = cls.getattr("_pydantic_serializer")?;
 
         // Build the serialization schema
-        let ser_schema = core_schema.call_method1(
-            "plain_serializer_function_ser_schema",
-            (serializer_fn,),
-        )?;
+        let ser_schema =
+            core_schema.call_method1("plain_serializer_function_ser_schema", (serializer_fn,))?;
 
         // Use any_schema as base since SomeWrapper can hold any value
         let any_schema = core_schema.call_method0("any_schema")?;

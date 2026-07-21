@@ -230,6 +230,25 @@ jobs:
           uv run --frozen maturin develop --release
           uv run --frozen pytest tests
 
+  # Formatting gate for the fable-library-py Rust extension. Deliberately a
+  # separate job rather than a step in test-fable-library-py, so it runs once
+  # instead of once per cell of that job's 3x3 platform/Python matrix.
+  lint-fable-library-py:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        working-directory: ./src/fable-library-py
+        run: cargo fmt --check
+
   # Separate build job for Rust (will run in parallel)
   build-rust:
     timeout-minutes: 75

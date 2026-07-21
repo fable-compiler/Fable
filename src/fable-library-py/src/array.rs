@@ -141,7 +141,11 @@ fn ensure_array<'py>(py: Python<'py>, ob: &'py Bound<'py, PyAny>) -> PyResult<Ar
     // Check if the object is iterable (Python protocol)
     if let Ok(iter) = ob.try_iter() {
         // Convert iterable directly to FSharpArray
-        return Ok(ArrayRef::Owned(FSharpArray::new(py, Some(iter.as_any()), None)?));
+        return Ok(ArrayRef::Owned(FSharpArray::new(
+            py,
+            Some(iter.as_any()),
+            None,
+        )?));
     }
 
     // Check if the object implements IEnumerable (F# protocol with GetEnumerator)
@@ -152,7 +156,11 @@ fn ensure_array<'py>(py: Python<'py>, ob: &'py Bound<'py, PyAny>) -> PyResult<Ar
 
     // If it's a single item, create a singleton array
     let singleton_list = PyList::new(py, [ob])?;
-    Ok(ArrayRef::Owned(FSharpArray::new(py, Some(&singleton_list), None)?))
+    Ok(ArrayRef::Owned(FSharpArray::new(
+        py,
+        Some(&singleton_list),
+        None,
+    )?))
 }
 
 fn ensure_equal_length_arrays<'py>(
@@ -496,8 +504,7 @@ impl FSharpArray {
         let len = slf.storage.len();
         // SAFETY: slf.as_ptr() is valid and from_borrowed_ptr increments refcount
         let array: Py<FSharpArray> = unsafe {
-            Bound::from_borrowed_ptr(py, slf.as_ptr())
-                .cast_into_unchecked::<FSharpArray>()
+            Bound::from_borrowed_ptr(py, slf.as_ptr()).cast_into_unchecked::<FSharpArray>()
         }
         .unbind();
         let iter = FSharpArrayIter {
@@ -512,12 +519,15 @@ impl FSharpArray {
     /// Implements the .NET IEnumerable.GetEnumerator() interface.
     #[allow(non_snake_case)]
     #[pyo3(signature = (_unit=None))]
-    pub fn GetEnumerator(slf: PyRef<'_, Self>, py: Python<'_>, _unit: Option<&Bound<'_, PyAny>>) -> PyResult<Py<PyAny>> {
+    pub fn GetEnumerator(
+        slf: PyRef<'_, Self>,
+        py: Python<'_>,
+        _unit: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
         let len = slf.storage.len();
         // SAFETY: slf.as_ptr() is valid and from_borrowed_ptr increments refcount
         let array: Py<FSharpArray> = unsafe {
-            Bound::from_borrowed_ptr(py, slf.as_ptr())
-                .cast_into_unchecked::<FSharpArray>()
+            Bound::from_borrowed_ptr(py, slf.as_ptr()).cast_into_unchecked::<FSharpArray>()
         }
         .unbind();
         let enumerator = FSharpArrayEnumerator {
@@ -3571,7 +3581,11 @@ pub fn create(py: Python<'_>, count: usize, value: &Bound<'_, PyAny>) -> PyResul
 }
 
 #[pyfunction]
-pub fn zero_create(py: Python<'_>, count: usize, value: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+pub fn zero_create(
+    py: Python<'_>,
+    count: usize,
+    value: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
     // Create an array filled with the zero value for the type
     FSharpArray::create(py, count, value)
 }
@@ -3861,7 +3875,11 @@ pub fn fold2(
 }
 
 #[pyfunction]
-pub fn iterate(py: Python<'_>, action: &Bound<'_, PyAny>, array: &Bound<'_, PyAny>) -> PyResult<()> {
+pub fn iterate(
+    py: Python<'_>,
+    action: &Bound<'_, PyAny>,
+    array: &Bound<'_, PyAny>,
+) -> PyResult<()> {
     let array = ensure_array(py, array)?;
     array.iterate(py, action)
 }
@@ -3992,7 +4010,11 @@ pub fn scan_back(
 }
 
 #[pyfunction]
-pub fn split_into(py: Python<'_>, chunks: usize, array: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+pub fn split_into(
+    py: Python<'_>,
+    chunks: usize,
+    array: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
     let array = ensure_array(py, array)?;
     array.split_into(py, chunks)
 }
@@ -4029,7 +4051,11 @@ pub fn try_find_index_back(
 }
 
 #[pyfunction]
-pub fn windowed(py: Python<'_>, window_size: usize, array: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+pub fn windowed(
+    py: Python<'_>,
+    window_size: usize,
+    array: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
     let array = ensure_array(py, array)?;
     array.windowed(py, window_size)
 }
@@ -4140,7 +4166,11 @@ pub fn exists_offset(
 }
 
 #[pyfunction]
-pub fn exists(py: Python<'_>, predicate: &Bound<'_, PyAny>, array: &Bound<'_, PyAny>) -> PyResult<bool> {
+pub fn exists(
+    py: Python<'_>,
+    predicate: &Bound<'_, PyAny>,
+    array: &Bound<'_, PyAny>,
+) -> PyResult<bool> {
     let array = ensure_array(py, array)?;
     array.exists(py, predicate)
 }
@@ -4573,11 +4603,7 @@ pub fn random_sample_with(
 }
 
 #[pyfunction]
-pub fn random_sample(
-    py: Python<'_>,
-    count: isize,
-    xs: &Bound<'_, PyAny>,
-) -> PyResult<FSharpArray> {
+pub fn random_sample(py: Python<'_>, count: isize, xs: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
     let xs = ensure_array(py, xs)?;
     xs.random_sample(py, count)
 }
@@ -5119,8 +5145,14 @@ impl FSharpCons {
 impl Int8Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int8"))?).add_subclass(Int8Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int8"))?)
+                .add_subclass(Int8Array {}),
+        )
     }
 }
 
@@ -5128,8 +5160,14 @@ impl Int8Array {
 impl UInt8Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt8"))?).add_subclass(UInt8Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt8"))?)
+                .add_subclass(UInt8Array {}),
+        )
     }
 }
 
@@ -5137,8 +5175,14 @@ impl UInt8Array {
 impl Int16Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int16"))?).add_subclass(Int16Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int16"))?)
+                .add_subclass(Int16Array {}),
+        )
     }
 }
 
@@ -5146,8 +5190,14 @@ impl Int16Array {
 impl UInt16Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt16"))?).add_subclass(UInt16Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt16"))?)
+                .add_subclass(UInt16Array {}),
+        )
     }
 }
 
@@ -5155,8 +5205,14 @@ impl UInt16Array {
 impl Int32Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int32"))?).add_subclass(Int32Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int32"))?)
+                .add_subclass(Int32Array {}),
+        )
     }
 }
 
@@ -5164,8 +5220,14 @@ impl Int32Array {
 impl UInt32Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt32"))?).add_subclass(UInt32Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt32"))?)
+                .add_subclass(UInt32Array {}),
+        )
     }
 }
 
@@ -5173,8 +5235,14 @@ impl UInt32Array {
 impl Int64Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int64"))?).add_subclass(Int64Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int64"))?)
+                .add_subclass(Int64Array {}),
+        )
     }
 }
 
@@ -5182,8 +5250,14 @@ impl Int64Array {
 impl UInt64Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt64"))?).add_subclass(UInt64Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt64"))?)
+                .add_subclass(UInt64Array {}),
+        )
     }
 }
 
@@ -5191,8 +5265,14 @@ impl UInt64Array {
 impl Float32Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Float32"))?).add_subclass(Float32Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("Float32"))?)
+                .add_subclass(Float32Array {}),
+        )
     }
 }
 
@@ -5200,8 +5280,14 @@ impl Float32Array {
 impl Float64Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Float64"))?).add_subclass(Float64Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("Float64"))?)
+                .add_subclass(Float64Array {}),
+        )
     }
 }
 
@@ -5209,8 +5295,14 @@ impl Float64Array {
 impl BoolArray {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Bool"))?).add_subclass(BoolArray {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("Bool"))?)
+                .add_subclass(BoolArray {}),
+        )
     }
 }
 
@@ -5218,8 +5310,14 @@ impl BoolArray {
 impl GenericArray {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("generic"))?).add_subclass(GenericArray {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("generic"))?)
+                .add_subclass(GenericArray {}),
+        )
     }
 }
 

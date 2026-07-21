@@ -18,7 +18,6 @@ macro_rules! float_variant {
         impl Deref for $name {
             type Target = $type;
 
-
             #[inline]
             fn deref(&self) -> &Self::Target {
                 &self.0
@@ -145,7 +144,11 @@ macro_rules! float_variant {
                 Ok(Self(other_val % self.0))
             }
 
-            pub fn __pow__(&self, other: &Bound<'_, PyAny>, modulo: Option<$type>) -> PyResult<Self> {
+            pub fn __pow__(
+                &self,
+                other: &Bound<'_, PyAny>,
+                modulo: Option<$type>,
+            ) -> PyResult<Self> {
                 if modulo.is_some() {
                     return Err(PyErr::new::<exceptions::PyTypeError, _>(
                         "pow() with modulo not supported for floats",
@@ -560,7 +563,10 @@ macro_rules! float_variant {
                 let py = value.py();
                 // If the value has __float__, extract it as a Python float
                 if value.hasattr("__float__")? {
-                    Ok(value.call_method0("__float__")?.into_pyobject(py).map(|o| o.unbind())?)
+                    Ok(value
+                        .call_method0("__float__")?
+                        .into_pyobject(py)
+                        .map(|o| o.unbind())?)
                 } else {
                     Ok(value.clone().unbind())
                 }
