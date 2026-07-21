@@ -70,6 +70,58 @@ def test_int32_try_parse_multibyte_unicode_returns_false(style: int) -> None:
     assert result.contents == 0
 
 
+# NumberStyles.Any (511) is what the compiler emits for `int "..."`. Leading
+# whitespace and the sign both precede the radix specifier, so they have to be
+# stripped before the 0x/0o/0b prefix is looked for. Expectations verified
+# against .NET.
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("0x11", 17),
+        (" 0x11", 17),
+        ("0x11 ", 17),
+        ("  0o11  ", 9),
+        ("  0b11  ", 3),
+        ("-0x11", -17),
+        (" -0x11 ", -17),
+        (" -0b11 ", -3),
+        ("-1_1", -11),
+        ("+11", 11),
+        ("-11", -11),
+    ],
+)
+def test_int32_parse_prefix_after_whitespace_and_sign(text: str, expected: int) -> None:
+    assert int32.parse(text, 511) == expected
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("-0x11", -17),
+        (" -0x11 ", -17),
+        ("-0b11", -3),
+        ("0x11", 17),
+    ],
+)
+def test_int64_parse_signed_non_decimal(text: str, expected: int) -> None:
+    # A negative non-decimal literal is a plain signed value, not a two's
+    # complement bit pattern, so it cannot go through the u64 fast path
+    assert int64.parse(text, 511) == expected
+
+
+def test_int64_parse_large_hex_is_twos_complement() -> None:
+    # The u64 fast path must still apply to unsigned values that set the high bit
+    assert int64.parse("FFFFFFFFFFFFFFFF", 515) == -1
+    assert int64.parse("7FFFFFFFFFFFFFFF", 515) == 9223372036854775807
+
+
+@pytest.mark.parametrize("text", ["+0x11", "0x", "-", "foo", "–"])
+def test_int32_parse_rejects_invalid(text: str) -> None:
+    # `int "+0x11"` is a format error on .NET: only `-` precedes the specifier
+    with pytest.raises(ValueError):
+        int32.parse(text, 511)
+
+
 def test_byte_add() -> None:
     assert byte(42) + byte(42) == 84
     assert byte(255) + byte(1) == 0

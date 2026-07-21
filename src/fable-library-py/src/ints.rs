@@ -1112,13 +1112,37 @@ fn create_parse_error(string: &str) -> PyErr {
     ))
 }
 
+/// Splits an optional leading `-` from the rest of the string
+///
+/// FSharp.Core consumes the sign before looking for a `0x`/`0o`/`0b`
+/// specifier, so `-0x11` is -17. Only `-` is split: `+` is left in place for
+/// the underlying parser, which matches `int "+0x11"` being a format error on
+/// .NET while `int "+11"` is not.
+#[inline]
+fn split_sign(string: &str) -> (&str, &str) {
+    match string.strip_prefix('-') {
+        Some(digits) => ("-", digits),
+        None => ("", string),
+    }
+}
+
 /// Preprocesses a numeric string for parsing by handling radix detection,
 /// whitespace trimming, prefix removal, and underscore cleanup
 fn preprocess_numeric_string(string: &str, style: i32, default_radix: i32) -> (String, i32) {
-    let actual_radix = determine_radix(string, style, default_radix);
+    // Trim and split the sign *before* detecting the radix: the prefix follows
+    // both, so inspecting the raw string would miss " 0x11" and "-0x11", which
+    // are 17 and -17 on .NET
     let trimmed = trim_whitespace(string, style);
-    let without_prefix = remove_prefix(trimmed, actual_radix);
-    let final_string = without_prefix.replace('_', "");
+    let (sign, unsigned) = split_sign(trimmed);
+    let actual_radix = determine_radix(unsigned, style, default_radix);
+    let digits = remove_prefix(unsigned, actual_radix).replace('_', "");
+
+    // Avoid re-allocating for the common unsigned case
+    let final_string = if sign.is_empty() {
+        digits
+    } else {
+        format!("{sign}{digits}")
+    };
 
     (final_string, actual_radix)
 }
@@ -1275,10 +1299,15 @@ pub fn parse_int64(
     let (final_string, actual_radix) = preprocess_numeric_string(string, style, radix);
 
     // Parse the integer - handle large hex values by parsing as u64 first for non-decimal
-    let v = if actual_radix != 10 {
+    let v = if actual_radix != 10 && !final_string.starts_with('-') {
         // For non-decimal, parse as u64 first to handle large hex values
         u64::from_str_radix(&final_string, actual_radix as u32)
             .map(|u_val| u_val as i64) // Cast performs automatic two's complement conversion
+            .map_err(|_| create_parse_error(string))?
+    } else if actual_radix != 10 {
+        // A negative non-decimal literal such as "-0x11" is a plain signed
+        // value, not a two's complement bit pattern, so u64 cannot parse it
+        i64::from_str_radix(&final_string, actual_radix as u32)
             .map_err(|_| create_parse_error(string))?
     } else {
         // For decimal, use standard i64 parsing
