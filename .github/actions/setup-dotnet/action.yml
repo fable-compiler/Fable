@@ -1,0 +1,24 @@
+name: Setup .NET
+description: Install the .NET SDK pinned by global.json with a cached NuGet package directory.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-dotnet@v5
+      with:
+        global-json-file: global.json
+        cache: true
+        # Hash .props/.targets alongside .fsproj: not all versions are declared in
+        # project files. FSharp.Compiler.Service.fsproj interpolates
+        # $(SystemCollectionsImmutableVersion), $(FSharpCoreShippedPackageVersionValue)
+        # and others defined in .props, so bumping one of those changes the resolved
+        # package graph without touching any .fsproj — a .fsproj-only key would not move.
+        #
+        # obj/ is excluded because restore generates *.nuget.g.props/.targets there.
+        # They don't exist at this point in a clean CI job, but including them would
+        # make the key depend on whether the workspace had been built before.
+        cache-dependency-path: |
+          **/*.fsproj
+          **/*.props
+          **/*.targets
+          !**/obj/**
