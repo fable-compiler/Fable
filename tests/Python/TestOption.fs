@@ -117,6 +117,19 @@ let ``test Option.iter works`` () =
     equal true res
 
 [<Fact>]
+let ``test Option.iter doesn't call the action for None`` () =
+    let mutable calls = 0
+    None |> Option.iter (fun (_: int) -> calls <- calls + 1)
+    equal 0 calls
+
+[<Fact>]
+let ``test ValueOption.iter works`` () =
+    let mutable calls = 0
+    ValueSome 5 |> ValueOption.iter (fun x -> calls <- calls + x)
+    ValueNone |> ValueOption.iter (fun (x: int) -> calls <- calls + x)
+    equal 5 calls
+
+[<Fact>]
 let ``test Option.map works`` () =
     let getOnlyOnce =
         let mutable value = Some "Alfonso"
@@ -131,6 +144,15 @@ let ``test Option.map2 works`` () =
     (Some 2, None) ||> Option.map2 (+) |> equal None
 
 [<Fact>]
+let ``test Option.map2 doesn't double-evaluate its option arguments`` () =
+    let mutable calls = 0
+    let getOnlyOnce x () =
+        calls <- calls + 1
+        Some x
+    (getOnlyOnce 2 (), getOnlyOnce 3 ()) ||> Option.map2 (+) |> equal (Some 5)
+    equal 2 calls
+
+[<Fact>]
 let ``test Option.map3 works`` () =
     (Some 2, Some 3, Some 4) |||> Option.map3 (fun x y z -> x + y + z) |> equal (Some 9)
     (None, Some 3, Some 4) |||> Option.map3 (fun x y z -> x + y + z) |> equal None
@@ -143,6 +165,29 @@ let ``test Option.bind works`` () =
         let mutable value = Some "Alfonso"
         fun () -> match value with Some x -> value <- None; Some x | None -> None
     getOnlyOnce() |> Option.bind ((+) "Hello " >> Some) |> equal (Some "Hello Alfonso")
+
+[<Fact>]
+let ``test Option.map/map2/map3/bind/filter with nested options work`` () =
+    Some(Some 5) |> Option.map (fun inner -> inner) |> equal (Some(Some 5))
+    Some(None: int option) |> Option.map (fun inner -> inner) |> equal (Some None)
+    (Some(Some 2), Some(Some 3)) ||> Option.map2 (fun a b -> (a, b)) |> equal (Some(Some 2, Some 3))
+    (Some(Some 1), Some(Some 2), Some(Some 3)) |||> Option.map3 (fun a b c -> (a, b, c)) |> equal (Some(Some 1, Some 2, Some 3))
+    Some(Some 5) |> Option.bind (fun inner -> Some inner) |> equal (Some(Some 5))
+    Some(Some 5) |> Option.filter Option.isSome |> equal (Some(Some 5))
+
+[<Fact>]
+let ``test ValueOption.map/map2/map3/bind/filter/defaultWith/orElseWith work`` () =
+    ValueSome 5 |> ValueOption.map (fun x -> x + 1) |> equal (ValueSome 6)
+    ValueNone |> ValueOption.map (fun (x: int) -> x + 1) |> equal ValueNone
+    (ValueSome 2, ValueSome 3) ||> ValueOption.map2 (+) |> equal (ValueSome 5)
+    (ValueSome 2, ValueNone, ValueSome 4) |||> ValueOption.map3 (fun x y z -> x + y + z) |> equal ValueNone
+    ValueSome 5 |> ValueOption.bind (fun x -> ValueSome(x + 1)) |> equal (ValueSome 6)
+    ValueSome 5 |> ValueOption.filter (fun x -> x > 0) |> equal (ValueSome 5)
+    ValueSome 5 |> ValueOption.filter (fun x -> x < 0) |> equal ValueNone
+    ValueSome 5 |> ValueOption.defaultWith (fun () -> 1) |> equal 5
+    ValueNone |> ValueOption.defaultWith (fun () -> 1) |> equal 1
+    ValueSome 5 |> ValueOption.orElseWith (fun () -> ValueSome 1) |> equal (ValueSome 5)
+    ValueNone |> ValueOption.orElseWith (fun () -> ValueSome 1) |> equal (ValueSome 1)
 
 [<Fact>]
 let ``test Option.contains works`` () =
@@ -160,6 +205,15 @@ let ``test Option.filter works`` () =
     Some 7 |> Option.filter (fun _ -> true)  |> Option.map string |> optionToString |> equal "Some 7"
     Some "A" |> Option.filter (fun _ -> false) |> optionToString |> equal "None"
     Some "A" |> Option.filter (fun _ -> true) |> optionToString |> equal "Some A"
+
+[<Fact>]
+let ``test Option.filter doesn't double-evaluate a side-effecting option expr`` () =
+    let mutable calls = 0
+    let getOnlyOnce () =
+        calls <- calls + 1
+        Some 5
+    getOnlyOnce () |> Option.filter (fun x -> x > 0) |> equal (Some 5)
+    equal 1 calls
 
 [<Fact>]
 let ``test Option.fold works`` () =

@@ -113,6 +113,17 @@ let tests =
         getOnlyOnce() |> Option.iter (fun s -> if s = "Hello" then res <- true)
         equal true res
 
+    testCase "Option.iter doesn't call the action for None" <| fun () ->
+        let mutable calls = 0
+        None |> Option.iter (fun (_: int) -> calls <- calls + 1)
+        equal 0 calls
+
+    testCase "ValueOption.iter works" <| fun () ->
+        let mutable calls = 0
+        ValueSome 5 |> ValueOption.iter (fun x -> calls <- calls + x)
+        ValueNone |> ValueOption.iter (fun (x: int) -> calls <- calls + x)
+        equal 5 calls
+
     testCase "Option.map works" <| fun () ->
         let getOnlyOnce =
             let mutable value = Some "Alfonso"
@@ -125,6 +136,14 @@ let tests =
         (None, Some 3) ||> Option.map2 (+) |> equal None
         (Some 2, None) ||> Option.map2 (+) |> equal None
 
+    testCase "Option.map2 doesn't double-evaluate its option arguments" <| fun () ->
+        let mutable calls = 0
+        let getOnlyOnce x () =
+            calls <- calls + 1
+            Some x
+        (getOnlyOnce 2 (), getOnlyOnce 3 ()) ||> Option.map2 (+) |> equal (Some 5)
+        equal 2 calls
+
     testCase "Option.map3 works" <| fun () ->
         (Some 2, Some 3, Some 4) |||> Option.map3 (fun x y z -> x + y + z) |> equal (Some 9)
         (None, Some 3, Some 4) |||> Option.map3 (fun x y z -> x + y + z) |> equal None
@@ -136,6 +155,27 @@ let tests =
             let mutable value = Some "Alfonso"
             fun () -> match value with Some x -> value <- None; Some x | None -> None
         getOnlyOnce() |> Option.bind ((+) "Hello " >> Some) |> equal (Some "Hello Alfonso")
+
+    testCase "Option.map/map2/map3/bind/filter with nested options work" <| fun () ->
+        Some(Some 5) |> Option.map (fun inner -> inner) |> equal (Some(Some 5))
+        Some(None: int option) |> Option.map (fun inner -> inner) |> equal (Some None)
+        (Some(Some 2), Some(Some 3)) ||> Option.map2 (fun a b -> (a, b)) |> equal (Some(Some 2, Some 3))
+        (Some(Some 1), Some(Some 2), Some(Some 3)) |||> Option.map3 (fun a b c -> (a, b, c)) |> equal (Some(Some 1, Some 2, Some 3))
+        Some(Some 5) |> Option.bind (fun inner -> Some inner) |> equal (Some(Some 5))
+        Some(Some 5) |> Option.filter Option.isSome |> equal (Some(Some 5))
+
+    testCase "ValueOption.map/map2/map3/bind/filter/defaultWith/orElseWith work" <| fun () ->
+        ValueSome 5 |> ValueOption.map (fun x -> x + 1) |> equal (ValueSome 6)
+        ValueNone |> ValueOption.map (fun (x: int) -> x + 1) |> equal ValueNone
+        (ValueSome 2, ValueSome 3) ||> ValueOption.map2 (+) |> equal (ValueSome 5)
+        (ValueSome 2, ValueNone, ValueSome 4) |||> ValueOption.map3 (fun x y z -> x + y + z) |> equal ValueNone
+        ValueSome 5 |> ValueOption.bind (fun x -> ValueSome(x + 1)) |> equal (ValueSome 6)
+        ValueSome 5 |> ValueOption.filter (fun x -> x > 0) |> equal (ValueSome 5)
+        ValueSome 5 |> ValueOption.filter (fun x -> x < 0) |> equal ValueNone
+        ValueSome 5 |> ValueOption.defaultWith (fun () -> 1) |> equal 5
+        ValueNone |> ValueOption.defaultWith (fun () -> 1) |> equal 1
+        ValueSome 5 |> ValueOption.orElseWith (fun () -> ValueSome 1) |> equal (ValueSome 5)
+        ValueNone |> ValueOption.orElseWith (fun () -> ValueSome 1) |> equal (ValueSome 1)
 
     testCase "Option.contains works" <| fun () ->
         Some "test" |> Option.contains "test" |> equal true
@@ -151,6 +191,14 @@ let tests =
         Some 7 |> Option.filter (fun _ -> true)  |> Option.map string |> optionToString |> equal "Some 7"
         Some "A" |> Option.filter (fun _ -> false) |> optionToString |> equal "None"
         Some "A" |> Option.filter (fun _ -> true) |> optionToString |> equal "Some A"
+
+    testCase "Option.filter doesn't double-evaluate a side-effecting option expr" <| fun () ->
+        let mutable calls = 0
+        let getOnlyOnce () =
+            calls <- calls + 1
+            Some 5
+        getOnlyOnce () |> Option.filter (fun x -> x > 0) |> equal (Some 5)
+        equal 1 calls
 
     testCase "Option.fold works" <| fun () ->
         (5, None) ||> Option.fold (*) |> equal 5

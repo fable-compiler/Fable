@@ -592,6 +592,147 @@ let rec namesof com ctx acc e =
 
 let curriedApply r t applied args = CurriedApply(applied, args, t, r)
 
+/// Builds Option/ValueOption replacements that apply a function argument (mapping, binder,
+/// predicate, thunk...) directly as AST rather than via a lib call, so a lambda literal
+/// argument beta-reduces away instead of allocating a closure.
+module Options =
+    let innerType t =
+        match t with
+        | Option(genArg, _) -> genArg
+        | t -> t
+
+    /// `let o = opt in if o is Some then someExpr(o, value(o)) else noneExpr`, binding `opt`
+    /// once (it's used by both the test and the unwrap, and may be side-effecting).
+    let matchOption (com: ICompiler) ctx r (opt: Expr) (someExpr: Expr -> Expr -> Expr) (noneExpr: Expr) =
+        let optIdent = makeUniqueIdent com ctx opt.Type "option"
+        let optExpr = IdentExpr optIdent
+        let unwrapped = Get(optExpr, OptionValue, innerType opt.Type, r)
+
+        let ifExpr =
+            IfThenElse(Test(optExpr, OptionTest true, r), someExpr optExpr unwrapped, noneExpr, r)
+
+        Let(optIdent, opt, ifExpr)
+
+    /// `Option.iter`/`ValueOption.iter`.
+    let iterate (com: ICompiler) ctx r (t: Type) (action: Expr) (opt: Expr) =
+        matchOption com ctx r opt (fun _ unwrapped -> curriedApply r t action [ unwrapped ]) (Value(UnitConstant, None))
+
+    /// `Option.map`/`ValueOption.map`.
+    let map (com: ICompiler) ctx r isStruct (mapping: Expr) (opt: Expr) =
+        let retType =
+            match mapping.Type with
+            | LambdaType(_, ret) -> ret
+            | t -> t
+
+        matchOption
+            com
+            ctx
+            r
+            opt
+            (fun _ unwrapped ->
+                NewOption(curriedApply r retType mapping [ unwrapped ] |> Some, retType, isStruct)
+                |> makeValue r
+            )
+            (NewOption(None, retType, isStruct) |> makeValue r)
+
+    /// `Option.map2`/`ValueOption.map2`.
+    let map2 (com: ICompiler) ctx r isStruct (mapping: Expr) (opt1: Expr) (opt2: Expr) =
+        let retType =
+            match mapping.Type with
+            | LambdaType(_, LambdaType(_, ret)) -> ret
+            | t -> t
+
+        let opt1Ident = makeUniqueIdent com ctx opt1.Type "option1"
+        let opt2Ident = makeUniqueIdent com ctx opt2.Type "option2"
+        let opt1Expr = IdentExpr opt1Ident
+        let opt2Expr = IdentExpr opt2Ident
+        let unwrapped1 = Get(opt1Expr, OptionValue, innerType opt1.Type, r)
+        let unwrapped2 = Get(opt2Expr, OptionValue, innerType opt2.Type, r)
+        let noneExpr = NewOption(None, retType, isStruct) |> makeValue r
+
+        let someExpr =
+            NewOption(curriedApply r retType mapping [ unwrapped1; unwrapped2 ] |> Some, retType, isStruct)
+            |> makeValue r
+
+        let inner = IfThenElse(Test(opt2Expr, OptionTest true, r), someExpr, noneExpr, r)
+        let outer = IfThenElse(Test(opt1Expr, OptionTest true, r), inner, noneExpr, r)
+        Let(opt1Ident, opt1, Let(opt2Ident, opt2, outer))
+
+    /// `Option.map3`/`ValueOption.map3`.
+    let map3 (com: ICompiler) ctx r isStruct (mapping: Expr) (opt1: Expr) (opt2: Expr) (opt3: Expr) =
+        let retType =
+            match mapping.Type with
+            | LambdaType(_, LambdaType(_, LambdaType(_, ret))) -> ret
+            | t -> t
+
+        let opt1Ident = makeUniqueIdent com ctx opt1.Type "option1"
+        let opt2Ident = makeUniqueIdent com ctx opt2.Type "option2"
+        let opt3Ident = makeUniqueIdent com ctx opt3.Type "option3"
+        let opt1Expr = IdentExpr opt1Ident
+        let opt2Expr = IdentExpr opt2Ident
+        let opt3Expr = IdentExpr opt3Ident
+        let unwrapped1 = Get(opt1Expr, OptionValue, innerType opt1.Type, r)
+        let unwrapped2 = Get(opt2Expr, OptionValue, innerType opt2.Type, r)
+        let unwrapped3 = Get(opt3Expr, OptionValue, innerType opt3.Type, r)
+        let noneExpr = NewOption(None, retType, isStruct) |> makeValue r
+
+        let someExpr =
+            NewOption(curriedApply r retType mapping [ unwrapped1; unwrapped2; unwrapped3 ] |> Some, retType, isStruct)
+            |> makeValue r
+
+        let inner2 = IfThenElse(Test(opt3Expr, OptionTest true, r), someExpr, noneExpr, r)
+        let inner1 = IfThenElse(Test(opt2Expr, OptionTest true, r), inner2, noneExpr, r)
+        let outer = IfThenElse(Test(opt1Expr, OptionTest true, r), inner1, noneExpr, r)
+        Let(opt1Ident, opt1, Let(opt2Ident, opt2, Let(opt3Ident, opt3, outer)))
+
+    /// `Option.bind`/`ValueOption.bind`.
+    let bind (com: ICompiler) ctx r (t: Type) isStruct (binder: Expr) (opt: Expr) =
+        let retType =
+            match binder.Type with
+            | LambdaType(_, Option(ret, _)) -> ret
+            | _ -> t
+
+        matchOption
+            com
+            ctx
+            r
+            opt
+            (fun _ unwrapped -> curriedApply r t binder [ unwrapped ])
+            (NewOption(None, retType, isStruct) |> makeValue r)
+
+    /// `Option.filter`/`ValueOption.filter`.
+    let filter (com: ICompiler) ctx r isStruct (predicate: Expr) (opt: Expr) =
+        let valueType = innerType opt.Type
+        let noneExpr = NewOption(None, valueType, isStruct) |> makeValue r
+
+        matchOption
+            com
+            ctx
+            r
+            opt
+            (fun optExpr unwrapped -> IfThenElse(curriedApply r Boolean predicate [ unwrapped ], optExpr, noneExpr, r))
+            noneExpr
+
+    /// `Option.defaultWith`/`ValueOption.defaultWith`.
+    let defaultWith (com: ICompiler) ctx r (t: Type) (defThunk: Expr) (opt: Expr) =
+        matchOption
+            com
+            ctx
+            r
+            opt
+            (fun _ unwrapped -> unwrapped)
+            (curriedApply r t defThunk [ Value(UnitConstant, None) ])
+
+    /// `Option.orElseWith`/`ValueOption.orElseWith`.
+    let orElseWith (com: ICompiler) ctx r (t: Type) (ifNoneThunk: Expr) (opt: Expr) =
+        matchOption
+            com
+            ctx
+            r
+            opt
+            (fun optExpr _ -> optExpr)
+            (curriedApply r t ifNoneThunk [ Value(UnitConstant, None) ])
+
 let compose (com: ICompiler) ctx r t (f1: Expr) (f2: Expr) =
     let argType, retType =
         match t with

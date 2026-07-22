@@ -1,0 +1,109 @@
+
+
+export function iter(opt, log) {
+    const option_1 = opt;
+    if (option_1 != null) {
+        log(option_1);
+    }
+}
+
+export function map(opt) {
+    const option_1 = opt;
+    if (option_1 != null) {
+        return option_1 + 1;
+    }
+    else {
+        return undefined;
+    }
+}
+
+export function map2(opt1, opt2) {
+    const option1 = opt1;
+    const option2 = opt2;
+    if (option1 != null) {
+        if (option2 != null) {
+            return option1 + option2;
+        }
+        else {
+            return undefined;
+        }
+    }
+    else {
+        return undefined;
+    }
+}
+
+export function map3(opt1, opt2, opt3) {
+    const option1 = opt1;
+    const option2 = opt2;
+    const option3 = opt3;
+    if (option1 != null) {
+        if (option2 != null) {
+            if (option3 != null) {
+                return (option1 + option2) + option3;
+            }
+            else {
+                return undefined;
+            }
+        }
+        else {
+            return undefined;
+        }
+    }
+    else {
+        return undefined;
+    }
+}
+
+export function bind(opt) {
+    const option_1 = opt;
+    if (option_1 != null) {
+        return option_1 + 1;
+    }
+    else {
+        return undefined;
+    }
+}
+
+export function filter(opt) {
+    const option_1 = opt;
+    if (option_1 != null) {
+        if (option_1 > 0) {
+            return option_1;
+        }
+        else {
+            return undefined;
+        }
+    }
+    else {
+        return undefined;
+    }
+}
+
+export function defaultWith(opt) {
+    const option_1 = opt;
+    if (option_1 != null) {
+        return option_1 | 0;
+    }
+    else {
+        return 1;
+    }
+}
+
+export function orElseWith(opt) {
+    const option_1 = opt;
+    if (option_1 != null) {
+        return option_1;
+    }
+    else {
+        return 1;
+    }
+}
+
+export function valueOptionIter(opt, log) {
+    const option = opt;
+    if (option != null) {
+        log(option);
+    }
+}
+
