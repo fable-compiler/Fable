@@ -34,6 +34,23 @@ type TwiceBuilder() =
 
 let twice = TwiceBuilder()
 
+type DiscardBuilder() =
+    member inline _.Yield(_: unit) = ()
+    member inline _.Combine(_: unit, _: unit) = ()
+    member inline _.Delay([<InlineIfLambda>] f: unit -> unit) = f ()
+    member inline _.Zero() = ()
+    member inline _.Run(_: unit) = ()
+
+let discard = DiscardBuilder()
+
+// Inlining this at a discarded call site keeps `r` as a real `let` (referenced
+// twice), so the discarded value compiles to a Rust block ending in a non-`()`
+// tail expression - the shape that needs a forced `;` to stay valid Rust.
+let inline makeAndFill () =
+    let r = ResizeArray()
+    r.Add(1)
+    r
+
 // ── tests ──────────────────────────────────────────────────────────────────────
 
 [<Fact>]
@@ -102,3 +119,18 @@ let ``InlineIfLambda on CE builder Delay inlines body at each call site`` () =
         }
     callCount |> equal 2
     result |> equal 2
+
+[<Fact>]
+let ``Inline CE builder whose members discard their argument still runs body once, in order`` () =
+    let mutable log = []
+    let addLog x = log <- x :: log
+    discard {
+        addLog "a"
+        addLog "b"
+    }
+    log |> List.rev |> equal [ "a"; "b" ]
+
+[<Fact>]
+let ``Discarding a value that compiles to a Rust block does not corrupt codegen`` () =
+    makeAndFill () |> ignore
+    true |> equal true

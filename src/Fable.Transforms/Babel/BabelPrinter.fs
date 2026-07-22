@@ -351,6 +351,25 @@ module PrinterExtensions =
             printer.Print(expr)
             printer.Print(")")
 
+        /// True when the expression's leftmost token would otherwise be parsed as the start of
+        /// a block/function/class declaration, e.g. `{ A: 1 };` parses as an invalid block.
+        member printer.NeedsParensAsExpressionStatement(expr: Expression) =
+            match expr with
+            | CommentedExpression(_, e) -> printer.NeedsParensAsExpressionStatement(e)
+            | ObjectExpression _
+            | ClassExpression _
+            | FunctionExpression _ -> true
+            | SequenceExpression(exprs, _) when exprs.Length > 0 -> printer.NeedsParensAsExpressionStatement(exprs[0])
+            | BinaryExpression(left, _, _, _)
+            | LogicalExpression(left, _, _, _)
+            | AssignmentExpression(left, _, _, _) -> printer.NeedsParensAsExpressionStatement(left)
+            | ConditionalExpression(test, _, _, _) -> printer.NeedsParensAsExpressionStatement(test)
+            | MemberExpression(object, _, _, _) -> printer.NeedsParensAsExpressionStatement(object)
+            | CallExpression(callee, _, _, _) -> printer.NeedsParensAsExpressionStatement(callee)
+            | UpdateExpression(false, argument, _, _) -> printer.NeedsParensAsExpressionStatement(argument)
+            | AsExpression(e, _) -> printer.NeedsParensAsExpressionStatement(e)
+            | _ -> false
+
         /// Should the expression be printed with parens when nested?
         member printer.IsComplex(expr: Expression) =
             match expr with
@@ -642,9 +661,15 @@ module PrinterExtensions =
                 printer.PrintOptional(label, " ")
 
             | ExpressionStatement(expr) ->
-                match expr with
-                | UnaryExpression(argument, "void", false, _loc) -> printer.Print(argument)
-                | _ -> printer.Print(expr)
+                let expr =
+                    match expr with
+                    | UnaryExpression(argument, "void", false, _loc) -> argument
+                    | expr -> expr
+
+                if printer.NeedsParensAsExpressionStatement(expr) then
+                    printer.WithParens(expr)
+                else
+                    printer.Print(expr)
 
         member printer.PrintJsDoc(doc: string option) =
             match doc with
