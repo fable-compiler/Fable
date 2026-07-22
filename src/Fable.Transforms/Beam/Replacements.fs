@@ -1166,8 +1166,10 @@ let private strings
                 Helper.LibCall(com, "fable_string", "last_index_of", t, [ c; sub; maxIdx ])
                 |> Some
         | _ -> None
-    // str.ToCharArray() → binary_to_list(Str), wrap as array ref
-    | "ToCharArray", Some c, [] -> emitExpr r t [ c ] "binary_to_list($0)" |> wrapArr com r t |> Some
+    // str.ToCharArray() → unicode:characters_to_list(Str), wrap as array ref.
+    // Must decode UTF-8 codepoints, not raw bytes — binary_to_list would split a
+    // multi-byte character into one bogus "char" per byte.
+    | "ToCharArray", Some c, [] -> emitExpr r t [ c ] "unicode:characters_to_list($0)" |> wrapArr com r t |> Some
     | "ToCharArray", Some c, [ start; len ] ->
         Helper.LibCall(com, "fable_string", "to_char_array", t, [ c; start; len ])
         |> wrapArr com r t

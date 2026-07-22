@@ -216,11 +216,11 @@ is_null_or_white_space(Str) ->
 %% String module functions (F# String.forall, String.exists, etc.)
 
 forall(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     lists:all(Fn, Chars).
 
 exists(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     lists:any(Fn, Chars).
 
 init(Count, Fn) ->
@@ -228,17 +228,17 @@ init(Count, Fn) ->
     iolist_to_binary(Chars).
 
 collect(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     Parts = lists:map(fun(C) -> (Fn)(C) end, Chars),
     iolist_to_binary(Parts).
 
 iter(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     lists:foreach(Fn, Chars),
     ok.
 
 iteri(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     iteri_loop(Fn, Chars, 0),
     ok.
 
@@ -249,17 +249,17 @@ iteri_loop(Fn, [C | Rest], Idx) ->
     iteri_loop(Fn, Rest, Idx + 1).
 
 map(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     Mapped = lists:map(Fn, Chars),
     <<<<C/utf8>> || C <- Mapped>>.
 
 mapi(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     {Mapped, _} = lists:mapfoldl(fun(C, I) -> {((Fn)(I))(C), I + 1} end, 0, Chars),
     <<<<C/utf8>> || C <- Mapped>>.
 
 filter(Fn, Str) ->
-    Chars = binary_to_list(Str),
+    Chars = unicode:characters_to_list(Str),
     Filtered = lists:filter(Fn, Chars),
     <<<<C/utf8>> || C <- Filtered>>.
 
@@ -285,8 +285,8 @@ index_of_any(Str, Chars, StartIdx) when is_reference(Chars) ->
     index_of_any(Str, get(Chars), StartIdx);
 index_of_any(Str, Chars, StartIdx) ->
     CharSet = Chars,
-    Bytes = binary_to_list(Str),
-    index_of_any_loop(Bytes, CharSet, 0, StartIdx).
+    Codepoints = unicode:characters_to_list(Str),
+    index_of_any_loop(Codepoints, CharSet, 0, StartIdx).
 
 index_of_any_loop([], _CharSet, _Idx, _StartIdx) ->
     -1;
@@ -322,26 +322,32 @@ contains(Str, Sub) ->
 trim_chars(Str, Chars) when is_integer(Chars) ->
     trim_chars(Str, [Chars]);
 trim_chars(Str, Chars) ->
-    iolist_to_binary(string:trim(binary_to_list(Str), both, Chars)).
+    iolist_to_binary(string:trim(Str, both, Chars)).
 
 trim_start_chars(Str, Chars) when is_integer(Chars) ->
     trim_start_chars(Str, [Chars]);
 trim_start_chars(Str, Chars) ->
-    iolist_to_binary(string:trim(binary_to_list(Str), leading, Chars)).
+    iolist_to_binary(string:trim(Str, leading, Chars)).
 
 trim_end_chars(Str, Chars) when is_integer(Chars) ->
     trim_end_chars(Str, [Chars]);
 trim_end_chars(Str, Chars) ->
-    iolist_to_binary(string:trim(binary_to_list(Str), trailing, Chars)).
+    iolist_to_binary(string:trim(Str, trailing, Chars)).
 
 %% ToCharArray
+%%
+%% An F# string is a UTF-8 binary, so splitting it into chars means walking Unicode
+%% codepoints, not raw bytes — `binary_to_list/1` would instead hand back one bogus
+%% "char" per byte of a multi-byte codepoint's UTF-8 encoding. Start/Len are char
+%% (codepoint) offsets, matching .NET's `ToCharArray(startIndex, length)`, so they're
+%% applied to the codepoint list rather than to the binary's byte offsets.
 
 to_char_array(Str) ->
-    binary_to_list(Str).
+    unicode:characters_to_list(Str).
 
 to_char_array(Str, Start, Len) ->
-    Part = binary:part(Str, Start, Len),
-    binary_to_list(Part).
+    Chars = unicode:characters_to_list(Str),
+    lists:sublist(Chars, Start + 1, Len).
 
 %% String comparison
 
