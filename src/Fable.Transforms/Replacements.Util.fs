@@ -592,30 +592,49 @@ let rec namesof com ctx acc e =
 
 let curriedApply r t applied args = CurriedApply(applied, args, t, r)
 
-/// Builds Option/ValueOption replacements that apply a function argument (mapping, binder,
-/// predicate, thunk...) directly as AST rather than via a lib call, so a lambda literal
-/// argument beta-reduces away instead of allocating a closure.
+/// Builds Option/ValueOption replacements that apply a function argument directly as AST
+/// (not via a lib call), so a lambda literal beta-reduces away instead of allocating a closure.
 module Options =
     let innerType t =
         match t with
         | Option(genArg, _) -> genArg
         | t -> t
 
+    /// Binds `value` to a fresh ident evaluated eagerly, once, before `body` (which may
+    /// reference it only conditionally) - required if `value` can be side-effecting.
+    let bindOnce (com: ICompiler) ctx name (value: Expr) (body: Expr -> Expr) =
+        let ident = makeUniqueIdent com ctx value.Type name
+        Let(ident, value, body (IdentExpr ident))
+
     /// `let o = opt in if o is Some then someExpr(o, value(o)) else noneExpr`, binding `opt`
     /// once (it's used by both the test and the unwrap, and may be side-effecting).
     let matchOption (com: ICompiler) ctx r (opt: Expr) (someExpr: Expr -> Expr -> Expr) (noneExpr: Expr) =
-        let optIdent = makeUniqueIdent com ctx opt.Type "option"
-        let optExpr = IdentExpr optIdent
-        let unwrapped = Get(optExpr, OptionValue, innerType opt.Type, r)
-
-        let ifExpr =
-            IfThenElse(Test(optExpr, OptionTest true, r), someExpr optExpr unwrapped, noneExpr, r)
-
-        Let(optIdent, opt, ifExpr)
+        bindOnce
+            com
+            ctx
+            "option"
+            opt
+            (fun optExpr ->
+                let unwrapped = Get(optExpr, OptionValue, innerType opt.Type, r)
+                IfThenElse(Test(optExpr, OptionTest true, r), someExpr optExpr unwrapped, noneExpr, r)
+            )
 
     /// `Option.iter`/`ValueOption.iter`.
     let iterate (com: ICompiler) ctx r (t: Type) (action: Expr) (opt: Expr) =
-        matchOption com ctx r opt (fun _ unwrapped -> curriedApply r t action [ unwrapped ]) (Value(UnitConstant, None))
+        bindOnce
+            com
+            ctx
+            "action"
+            action
+            (fun actionExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun _ unwrapped -> curriedApply r t actionExpr [ unwrapped ])
+                    (Value(UnitConstant, None))
+            )
 
     /// `Option.map`/`ValueOption.map`.
     let map (com: ICompiler) ctx r isStruct (mapping: Expr) (opt: Expr) =
@@ -624,16 +643,23 @@ module Options =
             | LambdaType(_, ret) -> ret
             | t -> t
 
-        matchOption
+        bindOnce
             com
             ctx
-            r
-            opt
-            (fun _ unwrapped ->
-                NewOption(curriedApply r retType mapping [ unwrapped ] |> Some, retType, isStruct)
-                |> makeValue r
+            "mapping"
+            mapping
+            (fun mappingExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun _ unwrapped ->
+                        NewOption(curriedApply r retType mappingExpr [ unwrapped ] |> Some, retType, isStruct)
+                        |> makeValue r
+                    )
+                    (NewOption(None, retType, isStruct) |> makeValue r)
             )
-            (NewOption(None, retType, isStruct) |> makeValue r)
 
     /// `Option.map2`/`ValueOption.map2`.
     let map2 (com: ICompiler) ctx r isStruct (mapping: Expr) (opt1: Expr) (opt2: Expr) =
@@ -642,21 +668,28 @@ module Options =
             | LambdaType(_, LambdaType(_, ret)) -> ret
             | t -> t
 
-        let opt1Ident = makeUniqueIdent com ctx opt1.Type "option1"
-        let opt2Ident = makeUniqueIdent com ctx opt2.Type "option2"
-        let opt1Expr = IdentExpr opt1Ident
-        let opt2Expr = IdentExpr opt2Ident
-        let unwrapped1 = Get(opt1Expr, OptionValue, innerType opt1.Type, r)
-        let unwrapped2 = Get(opt2Expr, OptionValue, innerType opt2.Type, r)
-        let noneExpr = NewOption(None, retType, isStruct) |> makeValue r
+        bindOnce
+            com
+            ctx
+            "mapping"
+            mapping
+            (fun mappingExpr ->
+                let opt1Ident = makeUniqueIdent com ctx opt1.Type "option1"
+                let opt2Ident = makeUniqueIdent com ctx opt2.Type "option2"
+                let opt1Expr = IdentExpr opt1Ident
+                let opt2Expr = IdentExpr opt2Ident
+                let unwrapped1 = Get(opt1Expr, OptionValue, innerType opt1.Type, r)
+                let unwrapped2 = Get(opt2Expr, OptionValue, innerType opt2.Type, r)
+                let noneExpr = NewOption(None, retType, isStruct) |> makeValue r
 
-        let someExpr =
-            NewOption(curriedApply r retType mapping [ unwrapped1; unwrapped2 ] |> Some, retType, isStruct)
-            |> makeValue r
+                let someExpr =
+                    NewOption(curriedApply r retType mappingExpr [ unwrapped1; unwrapped2 ] |> Some, retType, isStruct)
+                    |> makeValue r
 
-        let inner = IfThenElse(Test(opt2Expr, OptionTest true, r), someExpr, noneExpr, r)
-        let outer = IfThenElse(Test(opt1Expr, OptionTest true, r), inner, noneExpr, r)
-        Let(opt1Ident, opt1, Let(opt2Ident, opt2, outer))
+                let inner = IfThenElse(Test(opt2Expr, OptionTest true, r), someExpr, noneExpr, r)
+                let outer = IfThenElse(Test(opt1Expr, OptionTest true, r), inner, noneExpr, r)
+                Let(opt1Ident, opt1, Let(opt2Ident, opt2, outer))
+            )
 
     /// `Option.map3`/`ValueOption.map3`.
     let map3 (com: ICompiler) ctx r isStruct (mapping: Expr) (opt1: Expr) (opt2: Expr) (opt3: Expr) =
@@ -665,25 +698,37 @@ module Options =
             | LambdaType(_, LambdaType(_, LambdaType(_, ret))) -> ret
             | t -> t
 
-        let opt1Ident = makeUniqueIdent com ctx opt1.Type "option1"
-        let opt2Ident = makeUniqueIdent com ctx opt2.Type "option2"
-        let opt3Ident = makeUniqueIdent com ctx opt3.Type "option3"
-        let opt1Expr = IdentExpr opt1Ident
-        let opt2Expr = IdentExpr opt2Ident
-        let opt3Expr = IdentExpr opt3Ident
-        let unwrapped1 = Get(opt1Expr, OptionValue, innerType opt1.Type, r)
-        let unwrapped2 = Get(opt2Expr, OptionValue, innerType opt2.Type, r)
-        let unwrapped3 = Get(opt3Expr, OptionValue, innerType opt3.Type, r)
-        let noneExpr = NewOption(None, retType, isStruct) |> makeValue r
+        bindOnce
+            com
+            ctx
+            "mapping"
+            mapping
+            (fun mappingExpr ->
+                let opt1Ident = makeUniqueIdent com ctx opt1.Type "option1"
+                let opt2Ident = makeUniqueIdent com ctx opt2.Type "option2"
+                let opt3Ident = makeUniqueIdent com ctx opt3.Type "option3"
+                let opt1Expr = IdentExpr opt1Ident
+                let opt2Expr = IdentExpr opt2Ident
+                let opt3Expr = IdentExpr opt3Ident
+                let unwrapped1 = Get(opt1Expr, OptionValue, innerType opt1.Type, r)
+                let unwrapped2 = Get(opt2Expr, OptionValue, innerType opt2.Type, r)
+                let unwrapped3 = Get(opt3Expr, OptionValue, innerType opt3.Type, r)
+                let noneExpr = NewOption(None, retType, isStruct) |> makeValue r
 
-        let someExpr =
-            NewOption(curriedApply r retType mapping [ unwrapped1; unwrapped2; unwrapped3 ] |> Some, retType, isStruct)
-            |> makeValue r
+                let someExpr =
+                    NewOption(
+                        curriedApply r retType mappingExpr [ unwrapped1; unwrapped2; unwrapped3 ]
+                        |> Some,
+                        retType,
+                        isStruct
+                    )
+                    |> makeValue r
 
-        let inner2 = IfThenElse(Test(opt3Expr, OptionTest true, r), someExpr, noneExpr, r)
-        let inner1 = IfThenElse(Test(opt2Expr, OptionTest true, r), inner2, noneExpr, r)
-        let outer = IfThenElse(Test(opt1Expr, OptionTest true, r), inner1, noneExpr, r)
-        Let(opt1Ident, opt1, Let(opt2Ident, opt2, Let(opt3Ident, opt3, outer)))
+                let inner2 = IfThenElse(Test(opt3Expr, OptionTest true, r), someExpr, noneExpr, r)
+                let inner1 = IfThenElse(Test(opt2Expr, OptionTest true, r), inner2, noneExpr, r)
+                let outer = IfThenElse(Test(opt1Expr, OptionTest true, r), inner1, noneExpr, r)
+                Let(opt1Ident, opt1, Let(opt2Ident, opt2, Let(opt3Ident, opt3, outer)))
+            )
 
     /// `Option.bind`/`ValueOption.bind`.
     let bind (com: ICompiler) ctx r (t: Type) isStruct (binder: Expr) (opt: Expr) =
@@ -692,46 +737,76 @@ module Options =
             | LambdaType(_, Option(ret, _)) -> ret
             | _ -> t
 
-        matchOption
+        bindOnce
             com
             ctx
-            r
-            opt
-            (fun _ unwrapped -> curriedApply r t binder [ unwrapped ])
-            (NewOption(None, retType, isStruct) |> makeValue r)
+            "binder"
+            binder
+            (fun binderExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun _ unwrapped -> curriedApply r t binderExpr [ unwrapped ])
+                    (NewOption(None, retType, isStruct) |> makeValue r)
+            )
 
     /// `Option.filter`/`ValueOption.filter`.
     let filter (com: ICompiler) ctx r isStruct (predicate: Expr) (opt: Expr) =
         let valueType = innerType opt.Type
         let noneExpr = NewOption(None, valueType, isStruct) |> makeValue r
 
-        matchOption
+        bindOnce
             com
             ctx
-            r
-            opt
-            (fun optExpr unwrapped -> IfThenElse(curriedApply r Boolean predicate [ unwrapped ], optExpr, noneExpr, r))
-            noneExpr
+            "predicate"
+            predicate
+            (fun predicateExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun optExpr unwrapped ->
+                        IfThenElse(curriedApply r Boolean predicateExpr [ unwrapped ], optExpr, noneExpr, r)
+                    )
+                    noneExpr
+            )
 
     /// `Option.defaultWith`/`ValueOption.defaultWith`.
     let defaultWith (com: ICompiler) ctx r (t: Type) (defThunk: Expr) (opt: Expr) =
-        matchOption
+        bindOnce
             com
             ctx
-            r
-            opt
-            (fun _ unwrapped -> unwrapped)
-            (curriedApply r t defThunk [ Value(UnitConstant, None) ])
+            "defThunk"
+            defThunk
+            (fun defThunkExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun _ unwrapped -> unwrapped)
+                    (curriedApply r t defThunkExpr [ Value(UnitConstant, None) ])
+            )
 
     /// `Option.orElseWith`/`ValueOption.orElseWith`.
     let orElseWith (com: ICompiler) ctx r (t: Type) (ifNoneThunk: Expr) (opt: Expr) =
-        matchOption
+        bindOnce
             com
             ctx
-            r
-            opt
-            (fun optExpr _ -> optExpr)
-            (curriedApply r t ifNoneThunk [ Value(UnitConstant, None) ])
+            "ifNoneThunk"
+            ifNoneThunk
+            (fun ifNoneThunkExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun optExpr _ -> optExpr)
+                    (curriedApply r t ifNoneThunkExpr [ Value(UnitConstant, None) ])
+            )
 
 let compose (com: ICompiler) ctx r t (f1: Expr) (f2: Expr) =
     let argType, retType =

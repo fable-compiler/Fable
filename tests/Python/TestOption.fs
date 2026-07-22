@@ -123,6 +123,22 @@ let ``test Option.iter doesn't call the action for None`` () =
     equal 0 calls
 
 [<Fact>]
+let ``test Option.iter/defaultWith evaluate their function-producing argument exactly once, even on the branch that never calls it`` () =
+    let mutable calls = 0
+    let getAction () =
+        calls <- calls + 1
+        fun (_: int) -> ()
+    (None: int option) |> Option.iter (getAction ())
+    equal 1 calls
+
+    calls <- 0
+    let getThunk () =
+        calls <- calls + 1
+        fun () -> 1
+    Some 5 |> Option.defaultWith (getThunk ()) |> ignore
+    equal 1 calls
+
+[<Fact>]
 let ``test ValueOption.iter works`` () =
     let mutable calls = 0
     ValueSome 5 |> ValueOption.iter (fun x -> calls <- calls + x)

@@ -118,6 +118,23 @@ let tests =
         None |> Option.iter (fun (_: int) -> calls <- calls + 1)
         equal 0 calls
 
+    // Function arguments are evaluated eagerly, exactly once - only *invoking* them is
+    // conditional on Some/None.
+    testCase "Option.iter/defaultWith evaluate their function-producing argument exactly once, even on the branch that never calls it" <| fun () ->
+        let mutable calls = 0
+        let getAction () =
+            calls <- calls + 1
+            fun (_: int) -> ()
+        (None: int option) |> Option.iter (getAction ())
+        equal 1 calls
+
+        calls <- 0
+        let getThunk () =
+            calls <- calls + 1
+            fun () -> 1
+        Some 5 |> Option.defaultWith (getThunk ()) |> ignore
+        equal 1 calls
+
     testCase "ValueOption.iter works" <| fun () ->
         let mutable calls = 0
         ValueSome 5 |> ValueOption.iter (fun x -> calls <- calls + x)

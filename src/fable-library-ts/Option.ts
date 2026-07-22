@@ -102,8 +102,7 @@ export function orElse<T>(opt: Option<T>, ifNone: Option<T>): Option<T> {
   return opt == null ? ifNone : opt;
 }
 
-// Only used by Replacements.Util.fs's curry/uncurry helpers, not by the F# `Option.map`
-// replacement itself (that one builds AST directly, see `Replacements.Util.fs`'s `Options` module).
+// Only used by Replacements.Util.fs's curry/uncurry helpers, not by `Option.map` itself.
 export function map<T, U>(mapping: (arg: T) => U, opt: Option<T>): Option<U> {
   return (opt != null) ? some(mapping(value(opt))) : undefined;
 }

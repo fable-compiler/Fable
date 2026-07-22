@@ -1,9 +1,7 @@
 module OptionCombinators
 
-// Regression fixture: Option/ValueOption module functions that take a function argument
-// (Iterate, Map, Map2, Map3, Bind, Filter, DefaultWith, OrElseWith) must apply that
-// argument directly - not via a lib call - so a lambda literal beta-reduces away instead
-// of allocating a closure. See `Options` in Fable.Transforms/Replacements.Util.fs.
+// Regression fixture: a lambda passed to these Option/ValueOption functions must beta-reduce
+// away, not allocate a closure. See `Options` in Fable.Transforms/Replacements.Util.fs.
 
 let iter (opt: int option) (log: int -> unit) =
     opt |> Option.iter (fun x -> log x)
