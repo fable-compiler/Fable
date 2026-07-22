@@ -22,13 +22,13 @@ jobs:
     # Only run if the build workflow succeeded
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           # We need to fetch more than the last commit to be able to generate the changelog based on the commit history.
           # Adapt this value based on your needs.
           fetch-depth: 2000
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
       # Run your tests before generating the changelog to make sure everything is working fine before creating a pull request.
@@ -45,11 +45,11 @@ jobs:
     runs-on: ubuntu-latest
     if: "github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_commit.message, 'chore: release ')"
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       # Configure how you want to publish your package, e.g. using the NuGet CLI, dotnet CLI, NPM, etc.
       # It is recommanded to use Trusted Publishing to avoid having to manage API keys in your repository.
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
