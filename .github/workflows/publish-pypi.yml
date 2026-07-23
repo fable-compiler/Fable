@@ -15,18 +15,18 @@ jobs:
       env:
         UV_LINK_MODE: copy
       steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           # Fetch the full history including tags so `dunamai --latest-tag`
           # can resolve the release version. Without this, the default shallow
           # checkout has no tags and dunamai falls back to 0.0.0.
           fetch-depth: 0
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install Rust
@@ -82,8 +82,8 @@ jobs:
             - runner: ubuntu-22.04
               target: ppc64le
       steps:
-        - uses: actions/checkout@v7
-        - uses: actions/setup-python@v6
+        - uses: actions/checkout@v7.0.1
+        - uses: actions/setup-python@v7
           with:
             python-version: 3.x
         - name: Download fable-library-py
@@ -121,8 +121,8 @@ jobs:
             - runner: ubuntu-22.04
               target: armv7
       steps:
-        - uses: actions/checkout@v7
-        - uses: actions/setup-python@v6
+        - uses: actions/checkout@v7.0.1
+        - uses: actions/setup-python@v7
           with:
             python-version: 3.x
         - name: Download fable-library-py
@@ -156,8 +156,8 @@ jobs:
             - runner: windows-latest
               target: x86
       steps:
-        - uses: actions/checkout@v7
-        - uses: actions/setup-python@v6
+        - uses: actions/checkout@v7.0.1
+        - uses: actions/setup-python@v7
           with:
             python-version: 3.x
             architecture: ${{ matrix.platform.target }}
@@ -192,8 +192,8 @@ jobs:
             - runner: macos-15
               target: aarch64
       steps:
-        - uses: actions/checkout@v7
-        - uses: actions/setup-python@v6
+        - uses: actions/checkout@v7.0.1
+        - uses: actions/setup-python@v7
           with:
             python-version: 3.x
         - name: Download fable-library-py
@@ -219,7 +219,7 @@ jobs:
       runs-on: ubuntu-latest
       timeout-minutes: 30
       steps:
-        - uses: actions/checkout@v7
+        - uses: actions/checkout@v7.0.1
         - name: Download fable-library-py
           uses: actions/download-artifact@v8
           with:
