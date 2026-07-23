@@ -23,7 +23,7 @@ dev = [
     "pydantic>=2.13.4",
     "attrs>=26.1.0",
     "pyright>=1.1.411",
-    "ty>=0.0.62",
+    "ty>=0.0.63",
 ]
 
 [tool.hatch.build.targets.sdist]
