@@ -69,6 +69,30 @@ let tests() =
         increase x
         x.Value |> equal 6
 
+    testCase "for-in descending range with -1 step works" <| fun () ->
+        let mutable result = ""
+        for i in 5 .. -1 .. 1 do
+            result <- result + string i
+        result |> equal "54321"
+
+    testCase "for-in ascending range with 1 step works" <| fun () ->
+        let mutable sum = 0
+        for i in 1 .. 1 .. 5 do
+            sum <- sum + i
+        sum |> equal 15
+
+    testCase "for-in const-step range with zero iterations works" <| fun () ->
+        let mutable count = 0
+        for _i in 0 .. -1 .. 5 do
+            count <- count + 1
+        count |> equal 0
+
+    testCase "for-in step range other than one still works" <| fun () ->
+        let mutable result = ""
+        for i in 9 .. -2 .. 0 do
+            result <- result + string i
+        result |> equal "97531"
+
     testCase "Custom computation expressions work" <| fun () ->
         execMaybe 5 |> equal (Some 23)
         execMaybe 99 |> equal None

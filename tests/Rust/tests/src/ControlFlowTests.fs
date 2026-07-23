@@ -59,6 +59,34 @@ let ``for_downto loop works`` () =
     a |> equal 57
 
 [<Fact>]
+let ``for_in descending range with -1 step works`` () =
+    let mutable a = 42
+    for i in 5 .. -1 .. 0 do
+        a <- i + a
+    a |> equal 57
+
+[<Fact>]
+let ``for_in ascending range with 1 step works`` () =
+    let mutable a = 42
+    for i in 0 .. 1 .. 5 do
+        a <- i + a
+    a |> equal 57
+
+[<Fact>]
+let ``for_in const-step range with zero iterations works`` () =
+    let mutable count = 0
+    for _i in 0 .. -1 .. 5 do
+        count <- count + 1
+    count |> equal 0
+
+[<Fact>]
+let ``for_in step range other than one still works`` () =
+    let mutable a = 0
+    for i in 9 .. -2 .. 0 do
+        a <- a + i
+    a |> equal 25
+
+[<Fact>]
 let ``while loop works`` () =
     let mutable i = 0
     let mutable total = 0
