@@ -622,15 +622,14 @@ class ObjectRef:
 
 
 def safe_hash(x: Any) -> int32:
-    return (
-        int32.ZERO
-        if x is None
-        else int32(hash(x))
-        if is_hashable_py(x)
-        else x.GetHashCode()
-        if is_hashable(x)
-        else number_hash(ObjectRef.id(x))
-    )
+    """Hash a declared type that may or may not implement GetHashCode.
+
+    F# `GetHashCode` takes precedence over Python's `__hash__`: an F# class
+    that overrides `Equals`/`GetHashCode` does not opt into the Python
+    protocols, so checking `__hash__` first would reach the inherited
+    `object.__hash__` and hash by identity instead.
+    """
+    return identity_hash(x)
 
 
 def string_hash(s: str) -> int32:
@@ -666,7 +665,35 @@ def combine_hash_codes(hashes: list[int32]) -> int32:
 
 
 def structural_hash(x: Any) -> int32:
-    return int32(hash(x))
+    """Hash a value using F# structural semantics.
+
+    Like `safe_hash`, F# `GetHashCode` wins over Python's `__hash__` so that
+    custom equality and hash overrides are honored. Arrays and tuples are
+    hashed element-wise instead of through Python's `hash`, which would fall
+    back to identity for their items.
+    """
+    if x is None:
+        return int32.ZERO
+
+    if isinstance(x, bool):
+        return int32.ONE if x else int32.ZERO
+
+    if isinstance(x, str):
+        return string_hash(x)
+
+    if is_hashable(x):
+        return x.GetHashCode()
+
+    if isinstance(x, int | float):
+        return number_hash(x)
+
+    if isinstance(x, Array | tuple | list):
+        return array_hash(cast(Iterable[object], x))
+
+    if is_hashable_py(x):
+        return int32(hash(x))
+
+    return number_hash(ObjectRef.id(x))
 
 
 def array_hash(xs: Iterable[object]) -> int32:
