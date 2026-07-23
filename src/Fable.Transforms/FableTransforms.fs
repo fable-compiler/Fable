@@ -230,10 +230,14 @@ let noSideEffectBeforeIdent identName expr =
         | Let(_, v, b) -> findIdentOrSideEffect v || findIdentOrSideEffect b
         | TypeCast(e, _)
         | Test(e, _, _) -> findIdentOrSideEffect e
-        | IfThenElse(cond, thenExpr, elseExpr, _) ->
-            findIdentOrSideEffect cond
-            || findIdentOrSideEffect thenExpr
-            || findIdentOrSideEffect elseExpr
+        // Only `cond` always runs; `thenExpr`/`elseExpr` are conditional, so treat them like
+        // WhileLoop/ForLoop/TryCatch/DecisionTree below (opaque, assume unsafe).
+        | IfThenElse(cond, _, _, _) ->
+            if findIdentOrSideEffect cond then
+                true
+            else
+                sideEffect <- true
+                true
         // TODO: Check member bodies in ObjectExpr
         | ObjectExpr _
         | LetRec _
