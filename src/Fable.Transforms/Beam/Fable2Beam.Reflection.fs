@@ -54,8 +54,12 @@ let reflectionGenArgVar (index: int) = $"Gen%d{index}"
 /// `name` is the F# field name, which is what `PropertyInfo.Name` must report; `erl_name` is the
 /// sanitized name the field is actually keyed by in the record map. Same split as the `name` /
 /// `erl_tag` pair on union case infos.
+///
+/// `erl_name` must be derived with the very same function `NewRecord` codegen keys the map with
+/// (`sanitizeFieldName`) — `sanitizeErlangName` trims the trailing underscore that disambiguates
+/// lowercase-first names, so `{ alpha: string }` would be written as `alpha_` but read as `alpha`.
 let private makePropertyInfo (fieldName: string) (typeInfo: Beam.ErlExpr) =
-    let erlName = Fable.Beam.Naming.sanitizeErlangName fieldName
+    let erlName = Fable.Beam.Naming.sanitizeFieldName fieldName
 
     Beam.ErlExpr.Map
         [
@@ -65,8 +69,11 @@ let private makePropertyInfo (fieldName: string) (typeInfo: Beam.ErlExpr) =
         ]
 
 /// Build a CaseInfo map: #{tag => N, name => <<"CaseName">>, erl_tag => case_name, fields => [...]}
-let private makeCaseInfo (tag: int) (caseName: string) (fields: Beam.ErlExpr list) =
-    let erlTag = Fable.Beam.Naming.sanitizeErlangName caseName
+///
+/// `compiledName` is the case's `[<CompiledName>]`, if any: the atom the constructor actually
+/// emits, which `erl_tag` has to match for `MakeUnion`/`GetUnionFields` to agree with codegen.
+let private makeCaseInfo (tag: int) (compiledName: string option) (caseName: string) (fields: Beam.ErlExpr list) =
+    let erlTag = Fable.Beam.Naming.unionCaseTagName compiledName caseName
 
     Beam.ErlExpr.Map
         [
@@ -304,7 +311,7 @@ and private makeCasesEntry com r genMap expanding (ent: Entity) =
                     makePropertyInfo fi.Name typeInfo
                 )
 
-            makeCaseInfo i uci.Name caseFields
+            makeCaseInfo i uci.CompiledName uci.Name caseFields
         )
 
     atomLit "cases", makeThunk cases

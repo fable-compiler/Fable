@@ -139,10 +139,7 @@ let private getUnionCaseAtomExpr (com: IBeamCompiler) (ref: EntityRef) (tag: int
     | Some entity ->
         let uci = entity.UnionCases[tag]
 
-        let atomName =
-            match uci.CompiledName with
-            | Some name -> name
-            | None -> sanitizeErlangName uci.Name
+        let atomName = unionCaseTagName uci.CompiledName uci.Name
 
         let isFieldless = uci.UnionCaseFields.IsEmpty
         Some(atomName, isFieldless)
@@ -2174,10 +2171,7 @@ and transformReceive (com: IBeamCompiler) (ctx: Context) (emitInfo: EmitInfo) (t
                 entity.UnionCases
                 |> List.mapi (fun tag uci ->
                     // Determine atom tag: CompiledName if set, otherwise snake_case of Name
-                    let atomName =
-                        match uci.CompiledName with
-                        | Some name -> name
-                        | None -> sanitizeErlangName uci.Name
+                    let atomName = unionCaseTagName uci.CompiledName uci.Name
 
                     let fields = uci.UnionCaseFields
                     let fieldCount = fields.Length

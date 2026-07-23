@@ -66,7 +66,10 @@ module Naming =
 
         sb.ToString()
 
-    let sanitizeErlangName (name: string) =
+    /// Drop the characters an F# name may carry that an unquoted Erlang atom cannot
+    /// (`base'`, `op_$0020`, `Foo.Bar`, ...). Every name that ends up as an atom has to go
+    /// through this, or the printer emits something like `'base'_'` — invalid Erlang.
+    let private stripNonAtomChars (name: string) =
         // Decode $XXXX hex sequences from F# compiled names (e.g. $0020 -> space -> _)
         Regex.Replace(
             name,
@@ -81,10 +84,21 @@ module Naming =
         )
         |> fun s ->
             s.Replace("'", "").Replace("$", "_").Replace("@", "").Replace(".", "_").Replace("`", "_").Replace("-", "_")
+
+    let sanitizeErlangName (name: string) =
+        stripNonAtomChars name
         |> toSnakeCase
         |> fun s -> Regex.Replace(s, "_+", "_")
         |> fun s -> s.Trim('_')
         |> checkErlKeywords
+
+    /// The atom a union case is tagged with at runtime: `[<CompiledName>]` verbatim when present,
+    /// otherwise the snake_cased case name. Codegen and the `erl_tag` in reflection metadata must
+    /// both go through this, or reflection looks up a tag the constructor never emitted.
+    let unionCaseTagName (compiledName: string option) (caseName: string) =
+        match compiledName with
+        | Some name -> name
+        | None -> sanitizeErlangName caseName
 
     let moduleNameFromFile (filePath: string) =
         Fable.Path.GetFileNameWithoutExtension(filePath)
@@ -467,8 +481,12 @@ module Naming =
     /// Convert a field name to a safe Erlang atom (snake_case + keyword escaping).
     /// camelCase names get a trailing '_' to avoid collision with PascalCase names
     /// (e.g., firstName -> first_name_, FirstName -> first_name).
+    ///
+    /// This is the single source of truth for the key a record/anonymous-record field is stored
+    /// under in the runtime map: both `NewRecord` codegen and the `erl_name` the reflection
+    /// metadata advertises must go through it, or reflection reads a key that was never written.
     let sanitizeFieldName (name: string) =
-        let snakeName = toSnakeCase name
+        let snakeName = stripNonAtomChars name |> toSnakeCase
 
         let disambiguated =
             if name.Length > 0 && System.Char.IsLower(name.[0]) then
