@@ -85,6 +85,12 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "react-dom"
         update-types: ["version-update:semver-major"]
+      # Babel 8 plugins require @babel/core@^8, but jest still pulls in
+      # @babel/core@7.x transitively — upgrading them independently breaks
+      # npm install (peer conflict). Move the whole toolchain to Babel 8
+      # manually when jest supports it.
+      - dependency-name: "@babel/*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "cargo"
     directory: "/src/fable-library-rust"
