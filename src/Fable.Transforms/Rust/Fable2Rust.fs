@@ -2793,6 +2793,20 @@ module Util =
         let expr = transformLeaveContext com ctx None e
         mkExprStmt expr
 
+    // Only the block's true tail can omit the trailing `;`. A block-like expression (`if`,
+    // `match`, nested `{ }`) in a non-tail statement needs it forced via `Semi`, or a
+    // non-`()`-typed value there is a Rust type error, not just a style choice.
+    let transformExprsAsStmts (com: IRustCompiler) ctx (exprs: Fable.Expr list) : Rust.Stmt list =
+        match List.rev exprs with
+        | [] -> []
+        | last :: revRest ->
+            let nonTailStmts =
+                revRest
+                |> List.rev
+                |> List.map (fun e -> transformLeaveContext com ctx None e |> mkSemiStmt)
+
+            nonTailStmts @ [ transformAsStmt com ctx last ]
+
     // flatten nested Let binding expressions
     let rec flattenLet acc (expr: Fable.Expr) =
         match expr with
@@ -2954,13 +2968,13 @@ module Util =
             match body with
             | Fable.Sequential exprs ->
                 let exprs = flattenSequential body
-                List.map (transformAsStmt com ctx) exprs
+                transformExprsAsStmts com ctx exprs
             | _ -> [ transformAsStmt com ctx body ]
 
         letStmts @ bodyStmts |> mkStmtBlockExpr
 
     let transformSequential (com: IRustCompiler) ctx exprs =
-        exprs |> List.map (transformAsStmt com ctx) |> mkStmtBlockExpr
+        exprs |> transformExprsAsStmts com ctx |> mkStmtBlockExpr
 
     let transformIfThenElse (com: IRustCompiler) ctx range guard thenBody elseBody =
         // transform null checks for nullable value types

@@ -351,6 +351,32 @@ module PrinterExtensions =
             printer.Print(expr)
             printer.Print(")")
 
+        /// True when the expression's leftmost token would otherwise be parsed as the start of
+        /// a block/function/class declaration, e.g. `{ A: 1 };` parses as an invalid block.
+        ///
+        /// Sub-expressions that the printer already wraps via `ComplexExpressionWithParens` when
+        /// `IsComplex` (e.g. a `CallExpression`'s callee) are skipped: they're safely parenthesized
+        /// regardless of statement position, so recursing into them would add a redundant paren pair.
+        member printer.NeedsParensAsExpressionStatement(expr: Expression) =
+            let recurseUnlessAutoWrapped subExpr =
+                not (printer.IsComplex(subExpr))
+                && printer.NeedsParensAsExpressionStatement(subExpr)
+
+            match expr with
+            | CommentedExpression(_, e) -> printer.NeedsParensAsExpressionStatement(e)
+            | ObjectExpression _
+            | ClassExpression _
+            | FunctionExpression _ -> true
+            | AsExpression(e, _) -> printer.NeedsParensAsExpressionStatement(e)
+            | BinaryExpression(left, _, _, _)
+            | LogicalExpression(left, _, _, _)
+            | AssignmentExpression(left, _, _, _) -> recurseUnlessAutoWrapped left
+            | ConditionalExpression(test, _, _, _) -> recurseUnlessAutoWrapped test
+            | MemberExpression(object, _, _, _) -> recurseUnlessAutoWrapped object
+            | CallExpression(callee, _, _, _) -> recurseUnlessAutoWrapped callee
+            | UpdateExpression(false, argument, _, _) -> recurseUnlessAutoWrapped argument
+            | _ -> false
+
         /// Should the expression be printed with parens when nested?
         member printer.IsComplex(expr: Expression) =
             match expr with
@@ -642,9 +668,15 @@ module PrinterExtensions =
                 printer.PrintOptional(label, " ")
 
             | ExpressionStatement(expr) ->
-                match expr with
-                | UnaryExpression(argument, "void", false, _loc) -> printer.Print(argument)
-                | _ -> printer.Print(expr)
+                let expr =
+                    match expr with
+                    | UnaryExpression(argument, "void", false, _loc) -> argument
+                    | expr -> expr
+
+                if printer.NeedsParensAsExpressionStatement(expr) then
+                    printer.WithParens(expr)
+                else
+                    printer.Print(expr)
 
         member printer.PrintJsDoc(doc: string option) =
             match doc with
