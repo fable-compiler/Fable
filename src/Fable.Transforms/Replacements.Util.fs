@@ -637,11 +637,8 @@ module Options =
             )
 
     /// `Option.map`/`ValueOption.map`.
-    let map (com: ICompiler) ctx r isStruct (mapping: Expr) (opt: Expr) =
-        let retType =
-            match mapping.Type with
-            | LambdaType(_, ret) -> ret
-            | t -> t
+    let map (com: ICompiler) ctx r (t: Type) isStruct (mapping: Expr) (opt: Expr) =
+        let retType = innerType t
 
         bindOnce
             com
@@ -662,11 +659,8 @@ module Options =
             )
 
     /// `Option.map2`/`ValueOption.map2`.
-    let map2 (com: ICompiler) ctx r isStruct (mapping: Expr) (opt1: Expr) (opt2: Expr) =
-        let retType =
-            match mapping.Type with
-            | LambdaType(_, LambdaType(_, ret)) -> ret
-            | t -> t
+    let map2 (com: ICompiler) ctx r (t: Type) isStruct (mapping: Expr) (opt1: Expr) (opt2: Expr) =
+        let retType = innerType t
 
         bindOnce
             com
@@ -692,11 +686,8 @@ module Options =
             )
 
     /// `Option.map3`/`ValueOption.map3`.
-    let map3 (com: ICompiler) ctx r isStruct (mapping: Expr) (opt1: Expr) (opt2: Expr) (opt3: Expr) =
-        let retType =
-            match mapping.Type with
-            | LambdaType(_, LambdaType(_, LambdaType(_, ret))) -> ret
-            | t -> t
+    let map3 (com: ICompiler) ctx r (t: Type) isStruct (mapping: Expr) (opt1: Expr) (opt2: Expr) (opt3: Expr) =
+        let retType = innerType t
 
         bindOnce
             com
@@ -732,10 +723,7 @@ module Options =
 
     /// `Option.bind`/`ValueOption.bind`.
     let bind (com: ICompiler) ctx r (t: Type) isStruct (binder: Expr) (opt: Expr) =
-        let retType =
-            match binder.Type with
-            | LambdaType(_, Option(ret, _)) -> ret
-            | _ -> t
+        let retType = innerType t
 
         bindOnce
             com

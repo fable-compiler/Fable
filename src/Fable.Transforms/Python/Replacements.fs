@@ -2235,9 +2235,9 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
     | "Flatten", args ->
         Helper.LibCall(com, "option", "flatten", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
-    | "Map", [ mapping; opt ] -> Options.map com ctx r isStruct mapping opt |> Some
-    | "Map2", [ mapping; opt1; opt2 ] -> Options.map2 com ctx r isStruct mapping opt1 opt2 |> Some
-    | "Map3", [ mapping; opt1; opt2; opt3 ] -> Options.map3 com ctx r isStruct mapping opt1 opt2 opt3 |> Some
+    | "Map", [ mapping; opt ] -> Options.map com ctx r t isStruct mapping opt |> Some
+    | "Map2", [ mapping; opt1; opt2 ] -> Options.map2 com ctx r t isStruct mapping opt1 opt2 |> Some
+    | "Map3", [ mapping; opt1; opt2; opt3 ] -> Options.map3 com ctx r t isStruct mapping opt1 opt2 opt3 |> Some
     | "Bind", [ binder; opt ] -> Options.bind com ctx r t isStruct binder opt |> Some
     | "Filter", [ predicate; opt ] -> Options.filter com ctx r isStruct predicate opt |> Some
     | "ToArray", [ arg ] -> toArray r t arg |> Some
