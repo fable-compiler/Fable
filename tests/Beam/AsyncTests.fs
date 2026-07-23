@@ -101,10 +101,14 @@ let ``test Async.StartChild works`` () =
 
 [<Fact>]
 let ``test Async.StartChild runs children concurrently`` () =
-    // Each child sleeps 300ms. Started before either is awaited, they run in
-    // parallel (separate BEAM processes), so total time is ~300ms, not ~600ms.
+    // Each child sleeps 500ms. Started before either is awaited, they run in
+    // parallel (separate BEAM processes), so total time is ~500ms, not ~1000ms.
+    // The threshold sits at the midpoint (750ms) with a wide margin on both
+    // sides so process-scheduling overhead on a loaded CI runner cannot turn a
+    // genuinely-concurrent run into a false failure, while a regression to
+    // sequential execution (~1000ms) is still caught.
     let sleeper n = async {
-        do! Async.Sleep 300
+        do! Async.Sleep 500
         return n
     }
     let comp = async {
@@ -118,7 +122,7 @@ let ``test Async.StartChild runs children concurrently`` () =
     }
     let sum, elapsed = Async.RunSynchronously comp
     equal 3 sum
-    (elapsed < 500L) |> equal true
+    (elapsed < 750L) |> equal true
 
 [<Fact>]
 let ``test Async.StartChild applies timeout`` () =
