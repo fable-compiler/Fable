@@ -5,7 +5,7 @@ from __future__ import annotations
 from .bases import ComparableBase, EquatableBase, HashableBase, StringableBase
 from .core import int32
 from .protocols import IComparable
-from .util import compare, equals
+from .util import combine_hash_codes, compare, equals, structural_hash
 
 
 def record_compare_to(self: Record, other: Record) -> int:
@@ -90,8 +90,11 @@ def record_to_string(self: Record) -> str:
 
 
 def record_get_hashcode(self: Record) -> int:
+    # Hash each field with `structural_hash` rather than hashing a Python tuple,
+    # so fields that only implement F# `GetHashCode` are hashed by value.
     slots = type(self).__slots__
-    return hash(tuple(getattr(self, fixed_field) for fixed_field in slots))
+    hashes = [structural_hash(getattr(self, fixed_field)) for fixed_field in slots]
+    return int(combine_hash_codes(hashes))
 
 
 class Record(StringableBase, EquatableBase, ComparableBase, HashableBase, IComparable):
@@ -128,6 +131,12 @@ class Record(StringableBase, EquatableBase, ComparableBase, HashableBase, ICompa
 
     def GetHashCode(self) -> int32:
         return int32(record_get_hashcode(self))
+
+    def __hash__(self) -> int:
+        # EquatableBase declares __eq__, so Python implicitly sets __hash__ to
+        # None on it, and that None shadows HashableBase.__hash__ in the MRO.
+        # Redefine it here so records stay hashable through GetHashCode.
+        return int(self.GetHashCode())
 
     # -------------------------------------------------------------------------
     # IComparable - Comparison (used by ComparableBase)

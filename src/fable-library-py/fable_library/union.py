@@ -11,7 +11,7 @@ from .array_ import Array
 from .bases import ComparableBase, EquatableBase, HashableBase, StringableBase
 from .core import int32
 from .protocols import IComparable
-from .util import compare
+from .util import combine_hash_codes, compare, equal_arrays, number_hash, structural_hash
 
 
 class Union(StringableBase, EquatableBase, ComparableBase, HashableBase, IComparable):
@@ -80,7 +80,9 @@ class Union(StringableBase, EquatableBase, ComparableBase, HashableBase, ICompar
             return False
 
         if self.tag == other.tag:
-            return self.fields == other.fields
+            # Compare fields with F# equality, not Python `==`, so fields that
+            # only implement `Equals` are compared by value.
+            return equal_arrays(self.fields, other.fields)
 
         return False
 
@@ -89,7 +91,18 @@ class Union(StringableBase, EquatableBase, ComparableBase, HashableBase, ICompar
     # -------------------------------------------------------------------------
 
     def GetHashCode(self) -> int32:
-        return int32(hash((self.tag, *self.fields)))
+        # Hash the tag and each field structurally instead of hashing a Python
+        # tuple, which would hash fields that only implement F# `GetHashCode`
+        # by identity.
+        hashes = [number_hash(self.tag)]
+        hashes.extend(structural_hash(x) for x in self.fields)
+        return combine_hash_codes(hashes)
+
+    def __hash__(self) -> int:
+        # EquatableBase declares __eq__, so Python implicitly sets __hash__ to
+        # None on it, and that None shadows HashableBase.__hash__ in the MRO.
+        # Redefine it here so union values stay hashable through GetHashCode.
+        return int(self.GetHashCode())
 
     # -------------------------------------------------------------------------
     # IComparable - Comparison (used by ComparableBase)
@@ -131,13 +144,16 @@ def tagged_union(tag: int):
     Additionally sets:
     - cls.tag = tag (numeric case discriminator)
     - cls.fields property (list of field values for backwards compat)
-    - cls.__hash__ from HashableBase (dataclass sets it to None when
-      generating __eq__, which would make union values unhashable)
+
+    The dataclass is created with `eq=False` so that `Union.Equals` (F#
+    equality) is inherited instead of the generated `__eq__`, which would
+    compare fields with Python `==`. That also keeps dataclass from setting
+    `__hash__` to None, so union values stay hashable via `Union.__hash__`.
     """
 
     def decorator[T](cls: type[T]) -> type[T]:
         # Apply dataclass internally
-        dc_cls: Any = dataclass(cls)
+        dc_cls: Any = dataclass(cls, eq=False)
 
         # Set the tag
         dc_cls.tag = tag
@@ -150,11 +166,6 @@ def tagged_union(tag: int):
             return Array[Any]([getattr(self, name) for name in field_names])
 
         dc_cls.fields = fields
-
-        # dataclass() generates __eq__ and therefore sets __hash__ to None.
-        # Restore the hash protocol so union values stay hashable via
-        # GetHashCode, e.g. when a union is a field of another union.
-        dc_cls.__hash__ = HashableBase.__hash__
 
         return dc_cls
 

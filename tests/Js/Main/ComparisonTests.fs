@@ -70,6 +70,22 @@ type Status =
 type MyClass(v) =
     member val Value: int = v with get, set
 
+// See https://github.com/fable-compiler/Fable/issues/4834
+type CustomValue(value: int, label: string) =
+    member _.Value = value
+    member _.Label = label
+
+    override _.Equals(other) =
+        match other with
+        | :? CustomValue as other -> value = other.Value
+        | _ -> false
+
+    override _.GetHashCode() = value
+
+type WrappedUnion = WrappedUnion of CustomValue
+
+type WrappedRecord = { Value: CustomValue }
+
 [<CustomEquality; NoComparison>]
 type FuzzyInt =
     | FuzzyInt of int
@@ -506,6 +522,22 @@ let tests =
     testCase "GetHashCode with objects that overwrite it works" <| fun () ->
         (Test(1).GetHashCode(), Test(1).GetHashCode()) ||> equal
         (Test(2).GetHashCode(), Test(1).GetHashCode()) ||> notEqual
+
+    testCase "Custom Equals and GetHashCode are used by structural values" <| fun () -> // See #4834
+        let left = CustomValue(1, "left")
+        let right = CustomValue(1, "right")
+
+        left = right |> equal true
+        hash left = hash right |> equal true
+
+        WrappedUnion left = WrappedUnion right |> equal true
+        hash (WrappedUnion left) = hash (WrappedUnion right) |> equal true
+
+        { Value = left } = { Value = right } |> equal true
+        hash { Value = left } = hash { Value = right } |> equal true
+
+        [| left |] = [| right |] |> equal true
+        hash [| left |] = hash [| right |] |> equal true
 
     testCase "GetHashCode with same object works" <| fun () ->
         let o = OTest(1)
