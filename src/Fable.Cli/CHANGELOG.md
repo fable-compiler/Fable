@@ -1,5 +1,5 @@
 ---
-last_commit_released: 2fc9c1415a9abcf729d920ca6c99732b3c894993
+last_commit_released: b2ce30674d93152d9dac4331912fe06b62b8a0df
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -24,6 +24,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.12.0 - 2026-07-22
+
+### 🚀 Features
+
+* *(beam)* Render %A in F# syntax instead of dumping Erlang terms (#4814) ([218e0c40](https://github.com/fable-compiler/Fable/commit/218e0c40aee0283bb8c9c74ab36ee0f912b50c51))
+
+### 🐞 Bug Fixes
+
+* *(beam)* Correct char-to-string conversion and console Unicode encoding (#4812) ([df8e01d6](https://github.com/fable-compiler/Fable/commit/df8e01d65a9aa1e4cdf853e3b209eb07c1d979c4))
+* *(beam)* Isolate each top-level effect's variables in main/0 (#4815) ([8d708633](https://github.com/fable-compiler/Fable/commit/8d708633e0c0e48d227bf653e2cbf91e203bd539))
+* *(beam)* Write package modules to the package's own src/ (#4817) ([06bf863c](https://github.com/fable-compiler/Fable/commit/06bf863ce6a0134656e5de7ed32d33671206c795))
+* *(beam)* Implement Async.AwaitTask (#4819) ([17cc3b6a](https://github.com/fable-compiler/Fable/commit/17cc3b6a1bc5935ea29835ae47a40667d5fc15ff))
+* *(beam)* Keep the original stacktrace when an async error is re-raised (#4818) ([d7afa278](https://github.com/fable-compiler/Fable/commit/d7afa278e07b731c198ca5c53e2be1e4a860e984))
+* *(beam)* Decode UTF-8 codepoints in ToCharArray and related String functions ([b2ce3067](https://github.com/fable-compiler/Fable/commit/b2ce30674d93152d9dac4331912fe06b62b8a0df))
+* *(python)* Avoid UTF-8 boundary panic in integer parsing (#4825) ([8243a711](https://github.com/fable-compiler/Fable/commit/8243a711bce487c8509ceb00869199a6195a8b43))
+* *(python)* Detect radix prefix after whitespace and sign (#4828) ([5ab1382b](https://github.com/fable-compiler/Fable/commit/5ab1382b7d3a45833965ad13b3795223f32e7758))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/2fc9c1415a9abcf729d920ca6c99732b3c894993..b2ce30674d93152d9dac4331912fe06b62b8a0df)</small></strong>
 
 ## 5.11.0 - 2026-07-17
 

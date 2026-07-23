@@ -1,5 +1,5 @@
 ---
-last_commit_released: 2fc9c1415a9abcf729d920ca6c99732b3c894993
+last_commit_released: b2ce30674d93152d9dac4331912fe06b62b8a0df
 include:
   - ../Fable.Core/
   - ../fable-standalone/
@@ -15,6 +15,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.10.0 - 2026-07-22
+
+### 🚀 Features
+
+* *(beam)* Render %A in F# syntax instead of dumping Erlang terms (#4814) ([218e0c40](https://github.com/fable-compiler/Fable/commit/218e0c40aee0283bb8c9c74ab36ee0f912b50c51))
+
+### 🐞 Bug Fixes
+
+* *(beam)* Correct char-to-string conversion and console Unicode encoding (#4812) ([df8e01d6](https://github.com/fable-compiler/Fable/commit/df8e01d65a9aa1e4cdf853e3b209eb07c1d979c4))
+* *(beam)* Isolate each top-level effect's variables in main/0 (#4815) ([8d708633](https://github.com/fable-compiler/Fable/commit/8d708633e0c0e48d227bf653e2cbf91e203bd539))
+* *(beam)* Decode UTF-8 codepoints in ToCharArray and related String functions ([b2ce3067](https://github.com/fable-compiler/Fable/commit/b2ce30674d93152d9dac4331912fe06b62b8a0df))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/2fc9c1415a9abcf729d920ca6c99732b3c894993..b2ce30674d93152d9dac4331912fe06b62b8a0df)</small></strong>
 
 ## 2.9.0 - 2026-07-17
 
