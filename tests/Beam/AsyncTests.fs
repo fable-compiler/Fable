@@ -101,17 +101,24 @@ let ``test Async.StartChild works`` () =
 
 [<Fact>]
 let ``test Async.StartChild runs children concurrently`` () =
-    // Each child sleeps 500ms. Started before either is awaited, they run in
-    // parallel (separate BEAM processes), so total time is ~500ms, not ~1000ms.
-    // The threshold sits at the midpoint (750ms) with a wide margin on both
-    // sides so process-scheduling overhead on a loaded CI runner cannot turn a
-    // genuinely-concurrent run into a false failure, while a regression to
-    // sequential execution (~1000ms) is still caught.
+    // Prove concurrency by *comparing* the same work run concurrently against
+    // sequentially on the same runner, rather than checking wall-clock against
+    // an absolute threshold. An absolute bound is inherently flaky: BEAM
+    // process-spawn plus async-trampoline overhead on a loaded CI runner is
+    // unbounded, so any fixed threshold eventually fails a genuinely-concurrent
+    // run. Here both runs pay the same overhead, so the ~500ms saved by real
+    // concurrency (one 500ms sleep instead of two) dominates scheduling jitter.
+    //
+    // Note: unlike JS/Python, the BEAM children run in *separate processes*
+    // (see fable_async:start_child), so the shared-mutable-state ordering test
+    // those targets use cannot observe concurrency here — timing is the only
+    // signal available.
     let sleeper n = async {
         do! Async.Sleep 500
         return n
     }
-    let comp = async {
+    // Concurrent: both children started before either is awaited (~500ms).
+    let concurrent = async {
         let sw = System.Diagnostics.Stopwatch.StartNew()
         let! c1 = Async.StartChild(sleeper 1)
         let! c2 = Async.StartChild(sleeper 2)
@@ -120,9 +127,23 @@ let ``test Async.StartChild runs children concurrently`` () =
         sw.Stop()
         return r1 + r2, sw.ElapsedMilliseconds
     }
-    let sum, elapsed = Async.RunSynchronously comp
-    equal 3 sum
-    (elapsed < 750L) |> equal true
+    // Sequential: each child awaited to completion before the next starts (~1000ms).
+    let sequential = async {
+        let sw = System.Diagnostics.Stopwatch.StartNew()
+        let! c1 = Async.StartChild(sleeper 1)
+        let! r1 = c1
+        let! c2 = Async.StartChild(sleeper 2)
+        let! r2 = c2
+        sw.Stop()
+        return r1 + r2, sw.ElapsedMilliseconds
+    }
+    let sumC, elapsedC = Async.RunSynchronously concurrent
+    let sumS, elapsedS = Async.RunSynchronously sequential
+    equal 3 sumC
+    equal 3 sumS
+    // The concurrent run must save at least half of the ~500ms overlap versus
+    // the sequential one; requiring only half leaves ample slack for jitter.
+    (elapsedC + 250L < elapsedS) |> equal true
 
 [<Fact>]
 let ``test Async.StartChild applies timeout`` () =
