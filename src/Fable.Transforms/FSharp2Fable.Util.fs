@@ -1251,6 +1251,39 @@ module Patterns =
             ValueSome(ident, value, body)
         | _ -> ValueNone
 
+    /// Matches an `int` range operator with a compile-time-constant step of +1 or -1,
+    /// i.e. `start .. 1 .. stop` or `start .. -1 .. stop`. Any coercion to `seq` is stripped.
+    /// Only ±1 int32 steps are matched, so the range lowers to a plain counted `for`
+    /// (`Fable.ForLoop`), producing the same output as the `to`/`downto` forms.
+    [<return: Struct>]
+    let (|ConstStepIntRange|_|) (expr: FSharpExpr) =
+        let rec stripCoerce =
+            function
+            | Coerce(_, inner) -> stripCoerce inner
+            | e -> e
+
+        match stripCoerce expr with
+        | Call(None, meth, _, _, [ start; Const((:? int as step), _); stop ]) when
+            meth.CompiledName = "op_RangeStep" && (step = 1 || step = -1)
+            ->
+            ValueSome(start, step, stop)
+        | _ -> ValueNone
+
+    /// A `for x in start .. ±1 .. stop do` loop, which F# does not lower to a fast
+    /// counted loop (unlike `to`/`downto`) and would otherwise allocate a range
+    /// sequence + enumerator. Yields the loop variable, bounds, step and body.
+    ///
+    /// F# desugars `for i in <range> do` to `let inputSequence = <range> in <for-of>`,
+    /// so the range is bound one level above the enumerator loop matched by `ForOf`.
+    [<return: Struct>]
+    let (|ForOfConstStepRange|_|) =
+        function
+        | Let((seqVar, ConstStepIntRange(start, step, stop), _), ForOf(ident, Value enumeratedVar, body)) when
+            seqVar.Equals(enumeratedVar)
+            ->
+            ValueSome(ident, start, step, stop, body)
+        | _ -> ValueNone
+
     /// This matches the boilerplate generated for TryGetValue/TryParse/DivRem (see #154, or #1744)
     /// where the F# compiler automatically passes a byref arg and returns it as a tuple
     [<return: Struct>]

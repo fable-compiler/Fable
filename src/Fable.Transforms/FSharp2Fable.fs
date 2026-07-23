@@ -841,6 +841,17 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             | Dart -> return Fable.Value(Fable.Null typ, r)
             | _ -> return Replacements.Api.defaultof com ctx r typ
 
+        // `for i in start .. ±1 .. stop do` does not get F#'s fast counted-loop
+        // lowering (only `to`/`downto` do), so it would allocate a range sequence +
+        // enumerator. Emit a plain `Fable.ForLoop` instead, as `to`/`downto` produce.
+        | ForOfConstStepRange(var, startExpr, step, stopExpr, bodyExpr) ->
+            let r = makeRangeFrom fsExpr
+            let! start = transformExpr com ctx [] startExpr
+            let! limit = transformExpr com ctx [] stopExpr
+            let ctx, ident = putIdentInScope com ctx var None
+            let! body = transformExpr com ctx [] bodyExpr
+            return makeForLoop r (step = 1) ident start limit body
+
         | FSharpExprPatterns.Let((var, value, _), body) ->
             match value with
 
