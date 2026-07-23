@@ -188,9 +188,17 @@ get_function_elements(TypeInfo) ->
 %% TypeInfo is injected by the compiler since Erlang maps don't preserve order.
 %% Fields are keyed in the record map by `erl_name`, the sanitized name; `name` holds the
 %% F# name that PropertyInfo.Name reports and is not a valid key.
+%% A record map carries no type tag, so the compiler can only inject a usable TypeInfo when the
+%% argument's static type is the record type. Passing a plain `obj` (the result of MakeRecord, say)
+%% yields the TypeInfo for System.Object, which has no `fields` — report that rather than letting
+%% the lookup fail as an opaque {badkey,fields}.
 get_record_fields_value(Record, TypeInfo) ->
-    Fields = force(maps:get(fields, TypeInfo)),
-    [maps:get(maps:get(erl_name, F), Record) || F <- Fields].
+    case maps:find(fields, TypeInfo) of
+        {ok, Thunk} ->
+            [maps:get(maps:get(erl_name, F), Record) || F <- force(Thunk)];
+        error ->
+            erlang:error({record_type_unknown_at_compile_time, maps:get(fullname, TypeInfo, undefined)})
+    end.
 
 %% FSharpValue.GetRecordField(record, propertyInfo) — get single field value.
 get_record_field_value(Record, PropInfo) ->

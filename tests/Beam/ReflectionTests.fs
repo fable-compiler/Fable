@@ -752,3 +752,117 @@ let ``test reflection over a record with an erased field from another file works
     |> equal true
 
     fields.[1].PropertyType |> equal typeof<string>
+
+// === Value-level reflection over non-PascalCase field names ===
+// Beam keys a record map with `sanitizeFieldName`, which appends a trailing `_` to lowercase-first
+// names so `firstName` and `FirstName` can coexist as atoms. The reflection metadata used to derive
+// `erl_name` with `sanitizeErlangName`, which strips that underscore — so a lowercase-first field
+// was written as `alpha_` but read back as `alpha`. Every reflection test above uses PascalCase
+// fields, which is exactly why the split went unnoticed.
+
+type LowerFirstRecord = { alpha: string; beta: int }
+
+type KeywordRecord = { end_: int; fun_: int }
+
+type CaseCollidingRecord = { name: string; Name: string }
+
+type AsyncApi =
+    {
+        getNumbers: unit -> Async<int list>
+        greet: string -> Async<string>
+    }
+
+[<Fact>]
+let ``test GetRecordFields works with lowercase-first field names`` () =
+    let record = { alpha = "a"; beta = 1 }
+    FSharpValue.GetRecordFields record |> equal [| box "a"; box 1 |]
+
+[<Fact>]
+let ``test PropertyInfo.GetValue works with lowercase-first field names`` () =
+    let record = { alpha = "a"; beta = 1 }
+    let fields = FSharpType.GetRecordFields typeof<LowerFirstRecord>
+    fields.[0].GetValue(box record) |> equal (box "a")
+    fields.[1].GetValue(box record) |> equal (box 1)
+    FSharpValue.GetRecordField(record, fields.[0]) |> equal (box "a")
+
+[<Fact>]
+let ``test MakeRecord with lowercase-first field names is readable by the compiled accessor`` () =
+    // Reading the result back through `r.alpha` (not through reflection) is what catches the
+    // silent-corruption direction: MakeRecord keying the map by a name codegen never writes.
+    let built =
+        FSharpValue.MakeRecord(typeof<LowerFirstRecord>, [| box "a"; box 1 |])
+        |> unbox<LowerFirstRecord>
+
+    built.alpha |> equal "a"
+    built.beta |> equal 1
+    built |> equal { alpha = "a"; beta = 1 }
+
+[<Fact>]
+let ``test reflection round-trips a record with Erlang keyword field names`` () =
+    let record = { end_ = 1; fun_ = 2 }
+    let values = FSharpValue.GetRecordFields record
+    values |> equal [| box 1; box 2 |]
+
+    let built = FSharpValue.MakeRecord(typeof<KeywordRecord>, values) |> unbox<KeywordRecord>
+    built.end_ |> equal 1
+    built.fun_ |> equal 2
+
+[<Fact>]
+let ``test reflection keeps camelCase and PascalCase fields distinct`` () =
+    let record = { name = "lower"; Name = "upper" }
+    let values = FSharpValue.GetRecordFields record
+    values |> equal [| box "lower"; box "upper" |]
+
+    let built =
+        FSharpValue.MakeRecord(typeof<CaseCollidingRecord>, values)
+        |> unbox<CaseCollidingRecord>
+
+    built.name |> equal "lower"
+    built.Name |> equal "upper"
+
+[<Fact>]
+let ``test reflection reads camelCase fields holding async functions`` () =
+    // The shape a remoting API contract takes: a record of `... -> Async<'T>` fields, whose names
+    // are idiomatically camelCase, invoked through the PropertyInfo that reflection hands back.
+    let api =
+        {
+            getNumbers = fun () -> async { return [ 1; 2; 3 ] }
+            greet = fun name -> async { return "hi " + name }
+        }
+
+    let props = FSharpType.GetRecordFields typeof<AsyncApi>
+    props |> Array.map (fun p -> p.Name) |> equal [| "getNumbers"; "greet" |]
+
+    let greet =
+        (props |> Array.find (fun p -> p.Name = "greet")).GetValue(box api)
+        |> unbox<string -> Async<string>>
+
+    greet "bob" |> Async.RunSynchronously |> equal "hi bob"
+
+    let getNumbers =
+        (props |> Array.find (fun p -> p.Name = "getNumbers")).GetValue(box api)
+        |> unbox<unit -> Async<int list>>
+
+    getNumbers () |> Async.RunSynchronously |> equal [ 1; 2; 3 ]
+
+// === Union case tags declared with CompiledName ===
+// Codegen tags a case with its `[<CompiledName>]` verbatim; reflection's `erl_tag` used to always
+// snake_case the F# name, so MakeUnion built a tag the pattern matches never look for.
+
+type CompiledNameUnion =
+    | [<CompiledName("custom_tag")>] Renamed of int
+    | Plain of string
+
+[<Fact>]
+let ``test MakeUnion honours CompiledName on a union case`` () =
+    let cases = FSharpType.GetUnionCases typeof<CompiledNameUnion>
+    let renamed = cases |> Array.find (fun c -> c.Name = "Renamed")
+    let value = FSharpValue.MakeUnion(renamed, [| box 42 |]) |> unbox<CompiledNameUnion>
+
+    match value with
+    | Renamed i -> i |> equal 42
+    | Plain _ -> failwith "expected Renamed"
+
+    let case, fields = FSharpValue.GetUnionFields(box value, typeof<CompiledNameUnion>)
+    case.Name |> equal "Renamed"
+    fields |> equal [| box 42 |]
