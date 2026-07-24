@@ -380,6 +380,8 @@ type FsWatcher(delayMs: int) =
 
 type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFiles: Fable.Compiler.File array) =
 
+    let sourceReader = lazy (snd (Fable.Compiler.File.MakeSourceReader sourceFiles))
+
     member _.CliArgs = cliArgs
     member _.ProjectFile = cliArgs.ProjectFile
     member _.FableOptions = cliArgs.CompilerOptions
@@ -416,7 +418,8 @@ type ProjectCracked(cliArgs: CliArgs, crackerResponse: CrackerResponse, sourceFi
             fableLibDir,
             crackerResponse.OutputType,
             ?outDir = cliArgs.OutDir,
-            ?watchDependencies = watchDependencies
+            ?watchDependencies = watchDependencies,
+            sourceReader = sourceReader.Value
         )
 
     member _.MapSourceFiles(f) =

@@ -180,7 +180,8 @@ module CodeServices =
                     opts,
                     fableLibDir,
                     crackerResponse.OutputType,
-                    ?outDir = cliArgs.OutDir
+                    ?outDir = cliArgs.OutDir,
+                    sourceReader = sourceReader
                 )
 
             // TODO: make it configurable if FableTransforms.transformFile is applied?
@@ -319,7 +320,8 @@ module CodeServices =
                                 opts,
                                 fableLibDir,
                                 crackerResponse.OutputType,
-                                ?outDir = cliArgs.OutDir
+                                ?outDir = cliArgs.OutDir,
+                                sourceReader = sourceReader
                             )
 
                         let outputPath = Path.ChangeExtension(currentFile, ".js")

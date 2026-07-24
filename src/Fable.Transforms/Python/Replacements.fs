@@ -1512,7 +1512,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         Helper.LibCall(com, "string", "starts_with", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
     | "StartsWith", Some c, [ value; ignoreCase; _culture ] ->
-        addWarning com ctx.InlinePath r "CultureInfo argument is ignored"
+        WarningCodes.cultureInfoIgnored () |> addWarningWithCode com ctx.InlinePath r
         let args = [ value; ignoreCase ]
 
         Helper.LibCall(com, "string", "starts_with", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
@@ -1524,7 +1524,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         Helper.LibCall(com, "string", "ends_with", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
     | "EndsWith", Some c, [ value; ignoreCase; _culture ] ->
-        addWarning com ctx.InlinePath r "CultureInfo argument is ignored"
+        WarningCodes.cultureInfoIgnored () |> addWarningWithCode com ctx.InlinePath r
         let args = [ value; ignoreCase ]
 
         Helper.LibCall(com, "string", "ends_with", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)

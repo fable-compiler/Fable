@@ -86,7 +86,8 @@ type Compiler =
     abstract AddWatchDependency: file: string -> unit
 
     abstract AddLog:
-        msg: string * severity: Severity * ?range: SourceLocation * ?fileName: string * ?tag: string -> unit
+        msg: string * severity: Severity * ?range: SourceLocation * ?fileName: string * ?tag: string * ?code: string ->
+            unit
 
 type InlineExprLazy(f: Compiler -> InlineExpr) =
     let mutable value: InlineExpr voption = ValueNone

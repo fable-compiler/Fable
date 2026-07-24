@@ -668,7 +668,14 @@ module Log =
             FromRange: SourceLocation option
         }
 
-    let private addLog (com: Compiler) (inlinePath: InlinePath list) (range: SourceLocation option) msg severity =
+    let private addLogWithCode
+        (com: Compiler)
+        (inlinePath: InlinePath list)
+        (range: SourceLocation option)
+        msg
+        severity
+        (code: string option)
+        =
         let printInlineSource fromPath (p: InlinePath) =
             let path = Path.getRelativeFileOrDirPath false fromPath false p.FromFile
 
@@ -685,10 +692,19 @@ module Log =
                 file, msg + " - Inline call from " + inlinePath
             | [] -> range |> Option.bind (fun r -> r.File) |> Option.defaultValue com.CurrentFile, msg
 
-        com.AddLog(msg, severity, ?range = range, fileName = actualFile)
+        com.AddLog(msg, severity, ?range = range, fileName = actualFile, ?code = code)
+
+    let private addLog (com: Compiler) (inlinePath: InlinePath list) (range: SourceLocation option) msg severity =
+        addLogWithCode com inlinePath range msg severity None
 
     let addWarning (com: Compiler) inlinePath range warning =
         addLog com inlinePath range warning Severity.Warning
+
+    /// Same as `addWarning`, but tags the warning with a stable code (e.g. "FABLE0001") so it
+    /// can be suppressed via `// fable-disable-line/-next-line/-enable CODE` comments.
+    /// Meant to be used as `WarningCodes.someWarning arg1 arg2 |> addWarningWithCode com inlinePath range`.
+    let addWarningWithCode (com: Compiler) inlinePath range ((code, warning): string * string) =
+        addLogWithCode com inlinePath range warning Severity.Warning (Some code)
 
     let addError (com: Compiler) inlinePath range error =
         addLog com inlinePath range error Severity.Error

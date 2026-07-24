@@ -125,4 +125,95 @@ type MyClass() =
       compile source
       |> Assert.Is.success
       |> ignore
+
+    testCase "CultureInfo argument warning is not suppressed by default" <| fun _ ->
+      let source =
+        """
+open System.Globalization
+"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore
+"""
+      compile source
+      |> Assert.Exists.warningWith "CultureInfo argument is ignored"
+      |> ignore
+
+    testCase "The same code covers both StartsWith and EndsWith call sites" <| fun _ ->
+      // Regression test for a real bug: StartsWith and EndsWith both raise the same logical
+      // "CultureInfo argument is ignored" warning from two separate call sites in
+      // Replacements.fs, sharing WarningCodes.CultureInfoIgnored. Both must be suppressible
+      // by one code, and (in Python's Replacements.fs) this used to have no code at all.
+      let source =
+        """
+open System.Globalization
+"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line FABLE0001
+"abc".EndsWith("c", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line FABLE0001
+"""
+      compile source
+      |> Assert.Are.warnings 0
+      |> ignore
+
+    testCase "fable-disable-line suppresses a warning on the same line" <| fun _ ->
+      let source =
+        """
+open System.Globalization
+"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line FABLE0001
+"""
+      compile source
+      |> Assert.Are.warnings 0
+      |> ignore
+
+    testCase "fable-disable-next-line suppresses a warning on the following line" <| fun _ ->
+      let source =
+        """
+open System.Globalization
+// fable-disable-next-line FABLE0001
+"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore
+"""
+      compile source
+      |> Assert.Are.warnings 0
+      |> ignore
+
+    testCase "fable-disable/fable-enable suppresses warnings in a block" <| fun _ ->
+      let source =
+        """
+open System.Globalization
+// fable-disable FABLE0001
+"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore
+"abc".EndsWith("c", true, CultureInfo.InvariantCulture) |> ignore
+// fable-enable FABLE0001
+"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore
+"""
+      compile source
+      |> Assert.Are.warnings 1
+      |> ignore
+
+    testCase "A mismatched code does not suppress the warning" <| fun _ ->
+      let source =
+        """
+open System.Globalization
+"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line SOME_OTHER_CODE
+"""
+      compile source
+      |> Assert.Exists.warningWith "CultureInfo argument is ignored"
+      |> ignore
+
+    testCase "A bare fable-disable-line suppresses regardless of code" <| fun _ ->
+      let source =
+        """
+open System.Globalization
+"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line
+"""
+      compile source
+      |> Assert.Are.warnings 0
+      |> ignore
+
+    testCase "A string literal that looks like a directive is not treated as one" <| fun _ ->
+      let source =
+        """
+open System.Globalization
+let s = "// fable-disable-line FABLE0001"
+"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore
+"""
+      compile source
+      |> Assert.Exists.warningWith "CultureInfo argument is ignored"
+      |> ignore
   ]

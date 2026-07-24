@@ -3748,8 +3748,8 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             member _.GetInlineExpr(key) = com.GetInlineExpr(key)
             member _.AddWatchDependency(file) = com.AddWatchDependency(file)
 
-            member _.AddLog(msg, severity, ?range, ?fileName, ?tag) =
-                com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag)
+            member _.AddLog(msg, severity, ?range, ?fileName, ?tag, ?code) =
+                com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag, ?code = code)
         }
 
     let forms =
