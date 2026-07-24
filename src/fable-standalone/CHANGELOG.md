@@ -1,5 +1,5 @@
 ---
-last_commit_released: b2ce30674d93152d9dac4331912fe06b62b8a0df
+last_commit_released: 619d7afddbaf25108e819abaaa9d8a6503c457d6
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
@@ -18,6 +18,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.11.0 - 2026-07-24
+
+### 🐞 Bug Fixes
+
+* *(all)* Eliminate dead bindings left by CE/inline lowering (#4837) ([9f694e97](https://github.com/fable-compiler/Fable/commit/9f694e970eed60418264cf4e05054ceae2bbe18e))
+* *(beam)* Make reflection metadata agree with record/union codegen (#4849) ([ec6a3df0](https://github.com/fable-compiler/Fable/commit/ec6a3df0cd59d1211d0f35b29ae95dc9c656c4fb))
+* *(js/ts)* Resolve generic params when reflecting erased union fields (#4851) ([619d7afd](https://github.com/fable-compiler/Fable/commit/619d7afddbaf25108e819abaaa9d8a6503c457d6))
+* *(js/ts,python)* Inline Option/ValueOption combinators to avoid closures and allocations (#4836) ([61cac646](https://github.com/fable-compiler/Fable/commit/61cac646e6385d82247082dbb90a98b1646560de))
+
+### ⚡ Performance Improvements
+
+* *(all)* Lower constant ±1 step ranges to counted for-loops (#4838) ([ab28daec](https://github.com/fable-compiler/Fable/commit/ab28daecc7b35b4932829c9ffc838c1adb8a880f))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/b2ce30674d93152d9dac4331912fe06b62b8a0df..619d7afddbaf25108e819abaaa9d8a6503c457d6)</small></strong>
 
 ## 2.10.0 - 2026-07-22
 

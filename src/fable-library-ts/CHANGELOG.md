@@ -1,5 +1,5 @@
 ---
-last_commit_released: 6568f35ece227fc30ce84111c8d2e975b09bac00
+last_commit_released: 619d7afddbaf25108e819abaaa9d8a6503c457d6
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.5.1 - 2026-07-24
+
+### 🐞 Bug Fixes
+
+* *(js/ts,python)* Inline Option/ValueOption combinators to avoid closures and allocations (#4836) ([61cac646](https://github.com/fable-compiler/Fable/commit/61cac646e6385d82247082dbb90a98b1646560de))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/6568f35ece227fc30ce84111c8d2e975b09bac00..619d7afddbaf25108e819abaaa9d8a6503c457d6)</small></strong>
 
 ## 2.5.0 - 2026-07-15
 
