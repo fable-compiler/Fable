@@ -86,6 +86,41 @@ let private testAdaptive (isWatch: bool) =
     else
         Command.Fable(fableArgs, workingDirectory = destinationDir)
 
+// Second JS pass with the Temporal date/time representation enabled (--test:js-temporal).
+// Compiles the whole Main project under the flag but only runs the date/time suites,
+// which are the ones whose representation the flag changes.
+let private handleMainTestsTemporal () =
+    let folderName = "Main"
+    let sourceDir = Path.Resolve("tests", "Js", folderName)
+
+    let destinationDir = Path.Resolve("temp", "tests", "JavaScriptTemporal", folderName)
+
+    Directory.clean destinationDir
+
+    // Compile the whole Main project with the Temporal representation enabled
+    let fableArgs =
+        CmdLine.empty
+        |> CmdLine.appendRaw sourceDir
+        |> CmdLine.appendPrefix "--outDir" destinationDir
+        |> CmdLine.appendPrefix "--lang" "javascript"
+        |> CmdLine.appendPrefix "--exclude" "Fable.Core"
+        |> CmdLine.appendRaw "--noCache"
+        |> CmdLine.appendRaw "--test:js-temporal"
+
+    Command.Fable(fableArgs, workingDirectory = destinationDir)
+
+    // Run only the date/time suites directly (no shell), so the regex alternation
+    // in --test-name-pattern is passed to node as a single, unmangled argument.
+    let nodeArgs =
+        CmdLine.empty
+        |> CmdLine.appendPrefix "--test-reporter" "spec"
+        |> CmdLine.appendPrefix "--test-timeout" "20000"
+        |> CmdLine.appendPrefix "--test-name-pattern" "^(DateTime|DateTimeOffset|DateOnly|TimeOnly|TimeSpan)$"
+        |> CmdLine.appendPrefix "--test" (destinationDir </> "Main.js")
+        |> CmdLine.toString
+
+    Command.Run("node", nodeArgs, workingDirectory = destinationDir)
+
 let private handleMainTests (isWatch: bool) (noDotnet: bool) =
     let folderName = "Main"
     let sourceDir = Path.Resolve("tests", "Js", folderName)
@@ -143,6 +178,9 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
 
         // Test the Main tests against JavaScript
         Command.Fable(fableArgs, workingDirectory = destinationDir)
+
+        // Re-run the date/time suites with the Temporal representation enabled
+        handleMainTestsTemporal ()
 
         testReact false
         testAdaptive false
