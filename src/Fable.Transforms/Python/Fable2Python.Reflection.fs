@@ -38,13 +38,29 @@ let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics
             else
                 let typeInfo, stmts = transformTypeInfo com ctx r genMap fi.FieldType
 
-                let name =
+                // The runtime attribute/slot name is snake_cased (Python convention), but reflection
+                // must report the pristine F# field name so `PropertyInfo.Name` matches .NET and the
+                // other backends. When the two differ we emit a 3rd tuple element carrying the slot
+                // name; value access (get_value/make_record in fable-library-py) reads that for the
+                // actual attribute. This mirrors the Beam target's `name`/`erl_name` split.
+                let slotName =
                     if Util.shouldUseRecordFieldNaming ent then
                         fi.Name |> Naming.toFieldSnakeCase |> Helpers.clean
                     else
                         fi.Name |> Naming.toSnakeCase |> Helpers.clean
 
-                Some(Expression.tuple [ Expression.stringConstant name; typeInfo ], stmts)
+                let fieldTuple =
+                    if slotName = fi.Name then
+                        Expression.tuple [ Expression.stringConstant fi.Name; typeInfo ]
+                    else
+                        Expression.tuple
+                            [
+                                Expression.stringConstant fi.Name
+                                typeInfo
+                                Expression.stringConstant slotName
+                            ]
+
+                Some(fieldTuple, stmts)
         )
         |> Seq.toList
         |> Helpers.unzipArgs
