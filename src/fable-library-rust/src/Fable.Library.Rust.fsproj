@@ -27,6 +27,8 @@
     <Compile Include="System.Text.fs" />
     <Compile Include="System.Threading.fs" />
     <Compile Include="Interfaces.fs" />
+    <Compile Include="QuotationTypes.fs" />
+    <Compile Include="Quotation.fs" />
     <Compile Include="lib.fs" />
   </ItemGroup>
 
