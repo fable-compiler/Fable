@@ -415,7 +415,14 @@ module Reflection =
                     | Atts.erase ->
                         match ent.UnionCases with
                         | [ uci ] when List.isSingle uci.UnionCaseFields ->
-                            transformTypeInfoFor purpose com ctx r genMap uci.UnionCaseFields[0].FieldType
+                            // Map the union's own generic parameters to the concrete use-site args
+                            // so the wrapped field type (e.g. `Node<'T>` in `View<int>`) resolves.
+                            let fieldGenMap =
+                                Seq.zip (ent.GenericParameters |> Seq.map (fun p -> p.Name)) generics
+                                |> Map
+                                |> Some
+
+                            transformTypeInfoFor purpose com ctx r fieldGenMap uci.UnionCaseFields[0].FieldType
                         | cases when cases |> List.forall (fun c -> List.isEmpty c.UnionCaseFields) ->
                             primitiveTypeInfo "string"
                         | _ -> genericEntity ent.FullName generics
