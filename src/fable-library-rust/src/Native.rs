@@ -704,6 +704,48 @@ pub mod Native_ {
         try_downcast::<_, T>(&o).unwrap().clone()
     }
 
+    // Boxing/unboxing for reference-typed (Lrc-wrapped) declared types such as
+    // records and unions. Unlike `box_`, which wraps the value in a fresh Lrc,
+    // these coerce the *same* smart pointer to `dyn Any`, so the boxed value's
+    // concrete pointee is the record/union struct itself. That lets a plain
+    // downcast recover it, and lets `TypeId::of::<T>()` (computed at the typeof
+    // site) match the pointee's runtime type id for value-based reflection.
+    #[cfg(not(feature = "lrc_ptr"))]
+    pub fn box_lrc<T: 'static>(o: LrcPtr<T>) -> LrcPtr<dyn Any> {
+        o
+    }
+
+    // With the `lrc_ptr` feature LrcPtr is a wrapper without CoerceUnsized, so
+    // coerce the inner Rc/Arc (which has it) and re-wrap. Same allocation, so
+    // pointer identity and the pointee's runtime type id are both preserved.
+    #[cfg(feature = "lrc_ptr")]
+    pub fn box_lrc<T: 'static>(o: LrcPtr<T>) -> LrcPtr<dyn Any> {
+        let inner: Lrc<T> = Lrc::clone(&*o);
+        let coerced: Lrc<dyn Any> = inner;
+        LrcPtr::from(coerced)
+    }
+
+    pub fn unbox_lrc<T: Clone + 'static>(o: LrcPtr<dyn Any>) -> LrcPtr<T> {
+        #[cfg(not(feature = "lrc_ptr"))]
+        let inner: Lrc<dyn Any> = o;
+        #[cfg(feature = "lrc_ptr")]
+        let inner: Lrc<dyn Any> = Lrc::clone(&*o);
+
+        // Downcast the smart pointer itself rather than cloning the value, so
+        // box_lrc + unbox_lrc round-trips pointer identity (ReferenceEquals).
+        // SAFETY: the `is::<T>` check guarantees the allocation's pointee is a T;
+        // casting the fat pointer to *const T only drops the vtable. This is what
+        // Rc::downcast does internally, done manually because Arc only offers a
+        // stable downcast for Send + Sync pointees.
+        if (*inner).is::<T>() {
+            let raw = Lrc::into_raw(inner) as *const T;
+            let typed = unsafe { Lrc::from_raw(raw) };
+            fromFluent(typed)
+        } else {
+            panic!("Invalid unbox")
+        }
+    }
+
     pub fn ofObj<T: Clone + NullableRef + 'static>(value: T) -> Option<T> {
         if is_null(&value) {
             None::<T>
