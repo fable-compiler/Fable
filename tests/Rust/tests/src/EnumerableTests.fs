@@ -25,17 +25,17 @@ let fibGen() =
     let mutable state = (1,1)
     { new IEnumerator<_> with
         member x.Current = (fst state)
-    interface IEnumerator with
+      interface IEnumerator with
         member x.Current = box (fst state)
         member x.MoveNext() = state <- (snd state, fst state + snd state); (fst state) < 1000
         member x.Reset() = state <- (1,1)
-    interface System.IDisposable with
+      interface System.IDisposable with
         member x.Dispose() = () }
 
 let toSeq gen =
     { new IEnumerable<'T> with
         member x.GetEnumerator() = gen()
-    interface IEnumerable with
+      interface IEnumerable with
         member x.GetEnumerator() = (gen() :> IEnumerator) }
 
 let fib() = Seq.unfold (fun state ->
