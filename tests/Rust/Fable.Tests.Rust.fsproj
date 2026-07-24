@@ -58,6 +58,7 @@
     <Compile Include="tests/src/MiscTests2.fs" />
     <Compile Include="tests/src/NBodyTests.fs" />
     <Compile Include="tests/src/NullnessTests.fs" />
+    <Compile Include="tests/src/QuotationTests.fs" />
     <!-- <Compile Include="tests/src/ObservableTests.fs" /> -->
     <Compile Include="tests/src/OptionTests.fs" />
     <Compile Include="tests/src/QueueTests.fs" />
