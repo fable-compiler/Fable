@@ -16,9 +16,22 @@ from .util import combine_hash_codes, equal_arrays_with
 Constructor = type[Any]
 
 EnumCase = tuple[str, IntegerTypes]
-FieldInfo = tuple[str, "TypeInfo"]
+# A field's reflection tuple is (fsharp_name, type). Targets that mangle field names for the
+# runtime representation (Python snake_cases record slots) emit an optional 3rd element carrying
+# the actual attribute/slot name, so `PropertyInfo.Name` (element 0) can stay the pristine F# name
+# while value access resolves the real attribute. Older compiled output emits the 2-tuple form.
+FieldInfo = tuple[str, "TypeInfo"] | tuple[str, "TypeInfo", str]
 PropertyInfo = FieldInfo
 ParameterInfo = FieldInfo
+
+
+def _field_attr_name(field: FieldInfo) -> str:
+    """Runtime attribute/slot name for a reflection field.
+
+    Element 0 is the F# field name reported by `PropertyInfo.Name`; when a 3rd element is present
+    it is the (possibly mangled) attribute name used for the actual `getattr`/`setattr`.
+    """
+    return field[2] if len(field) > 2 else field[0]
 
 
 @dataclass
@@ -192,7 +205,7 @@ def create_instance(t: TypeInfo, consArgs: Array[Any]) -> Any:
 
 
 def get_value(propertyInfo: PropertyInfo, v: Any) -> Any:
-    return getattr(v, str(propertyInfo[0]))
+    return getattr(v, _field_attr_name(propertyInfo))
 
 
 def name(info: FieldInfo | (TypeInfo | CaseInfo)) -> str:
@@ -394,7 +407,7 @@ def get_record_field(v: Any, field: FieldInfo) -> Any:
 
     if isinstance(v, dict):
         return v[field[0]]
-    return getattr(v, field[0])
+    return getattr(v, _field_attr_name(field))
 
 
 def get_tuple_fields(v: tuple[Any, ...]) -> Array[Any]:
