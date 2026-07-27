@@ -377,7 +377,9 @@ let transformTypeTest (com: IPythonCompiler) ctx range expr (typ: Fable.Type) : 
         | _, Fable.Type.Number(Int64, _) -> pyInstanceof (libValue com ctx "core" "int64") expr
         | _, Fable.Type.Number(UInt64, _) -> pyInstanceof (libValue com ctx "core" "uint64") expr
         | _, Fable.Type.Number(Float32, _) -> pyInstanceof (libValue com ctx "core" "float32") expr
-        | _, Fable.Type.Number(Float64, _) -> pyInstanceof (libValue com ctx "core" "float64") expr
+        // Float64 is a plain Python `float`. Exact-type matching keeps it distinct
+        // from the Float32 wrapper, which is not a `float` subclass.
+        | _, Fable.Type.Number(Float64, _) -> pyTypeof "<class 'float'>" expr
         | _, Fable.Type.Number(Decimal, _) -> pyTypeof "<class 'decimal.Decimal'>" expr
         | _ -> pyInstanceof (Expression.name "int") expr
 

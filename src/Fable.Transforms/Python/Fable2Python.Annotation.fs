@@ -529,7 +529,8 @@ let makeNumberTypeAnnotation com ctx kind info =
             | UNativeInt -> "int"
             | Float16
             | Float32 -> "float32"
-            | Float64 -> "float64"
+            // Float64 is a plain Python `float`
+            | Float64 -> "float"
             | _ -> failwith $"Unsupported number type: %A{kind}"
 
         match name with

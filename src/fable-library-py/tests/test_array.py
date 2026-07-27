@@ -1527,9 +1527,10 @@ def test_native_sum_matches_callback(array_type: str, data: st.DataObject) -> No
     typed_sum = typed.sum(adder)
     generic_sum = generic.sum(adder)
     assert _agg_eq(typed_sum, generic_sum)
-    # Result type is preserved: the wrapper for most widths, and a plain `int`
-    # for Int32, which no longer has one.
-    assert type(typed_sum).__name__ == ("int" if array_type == "Int32" else array_type)
+    # Result type is preserved: the wrapper for most widths, and the plain builtin
+    # for Int32/Float64, which no longer have one.
+    expected_type = {"Int32": "int", "Float64": "float"}.get(array_type, array_type)
+    assert type(typed_sum).__name__ == expected_type
 
 
 @pytest.mark.parametrize("array_type", _NUMERIC_ARRAY_TYPES)

@@ -162,10 +162,19 @@ mod printf {
             let arg_str = {
                 let type_name = arg.get_type().name()?.to_string();
                 match type_name.as_str() {
+                    // Int32 is a plain Python `int`. Other widths keep their wrapper,
+                    // so a bare `int` is unambiguous -- except for bigint, which is
+                    // also a plain int and simply does not fit the tag; the hex
+                    // formatter falls through to its untagged path for those.
+                    "int" => format!("{}:i32", arg.str()?),
                     "Int32" => format!("{}:i32", arg.str()?),
                     "Int64" => format!("{}:i64", arg.str()?),
                     "UInt32" => format!("{}:u32", arg.str()?),
                     "UInt64" => format!("{}:u64", arg.str()?),
+                    // Float64 is a plain Python `float`. .NET renders a whole double
+                    // without a trailing ".0", which is what Rust's formatting does;
+                    // Python's `str` would give "5.0" where .NET gives "5".
+                    "float" => arg.extract::<f64>()?.to_string(),
                     // Handle booleans with F# lowercase representation (true/false)
                     "bool" => {
                         if arg.is_truthy()? {

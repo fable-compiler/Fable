@@ -51,7 +51,7 @@ def get_bytes_double(value: SupportsFloat) -> Array[uint8]:
     return _bytes_to_uint8_array(struct.pack("d", float(value)))
 
 
-def int64bits_to_double(value: SupportsInt) -> float64:
+def int64bits_to_double(value: SupportsInt) -> float:
     byte_data = int(value).to_bytes(length=8, byteorder=sys.byteorder, signed=True)
     [number] = struct.unpack("d", byte_data)
     return float64(number)
@@ -126,7 +126,7 @@ def to_single(byte_data: bytes | bytearray | Array[uint8], offset: SupportsInt) 
     return float32(number)
 
 
-def to_double(byte_data: bytes | bytearray | Array[uint8], offset: SupportsInt) -> float64:
+def to_double(byte_data: bytes | bytearray | Array[uint8], offset: SupportsInt) -> float:
     data = _to_bytes(byte_data)
     off = int(offset)
     [number] = struct.unpack("d", data[off : off + 8])

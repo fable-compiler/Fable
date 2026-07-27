@@ -267,7 +267,7 @@ def from_number(value: SupportsInt, unsigned: bool) -> int64 | uint64:
     return uint64(value) if unsigned else int64(value)
 
 
-def to_number(value: SupportsFloat | SupportsInt) -> float64:
+def to_number(value: SupportsFloat | SupportsInt) -> float:
     return float64(value)
 
 

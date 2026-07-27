@@ -15,7 +15,7 @@ UInt32ArrayCons = array.FSharpCons[uint32]("UInt32")
 Int64ArrayCons = array.FSharpCons[int64]("Int64")
 UInt64ArrayCons = array.FSharpCons[uint64]("UInt64")
 Float32ArrayCons = array.FSharpCons[float32]("Float32")
-Float64ArrayCons = array.FSharpCons[float64]("Float64")
+Float64ArrayCons = array.FSharpCons[float]("Float64")
 BoolArrayCons = array.FSharpCons[bool]("Bool")
 
 # Typed array classes (use these for isinstance checks and type annotations).

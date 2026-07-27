@@ -805,7 +805,8 @@ impl NativeArray {
                 Ok(())
             }
             NativeArray::Float64(vec) => {
-                sort_with_error_capture!(vec, comparer, py, |v: f64, py| Float64(v)
+                // Float64 is represented as a plain Python `float`
+                sort_with_error_capture!(vec, comparer, py, |v: f64, py| v
                     .into_pyobject(py)
                     .map(|o| o.into_any()));
                 Ok(())
@@ -1026,6 +1027,16 @@ impl NativeArray {
                 Some($w(acc).into_py_any(py))
             }};
         }
+        // Float64 is represented as a plain Python `float`
+        macro_rules! sum_float_plain {
+            ($vec:expr, $t:ty) => {{
+                let mut acc: $t = 0.0;
+                for &x in $vec.iter() {
+                    acc += x;
+                }
+                Some(acc.into_py_any(py))
+            }};
+        }
         // Int32 is represented as a plain Python `int`
         macro_rules! sum_int_plain {
             ($vec:expr, $t:ty) => {{
@@ -1055,7 +1066,7 @@ impl NativeArray {
             NativeArray::Int64(v) => sum_int!(v, Int64, i64),
             NativeArray::UInt64(v) => sum_int!(v, UInt64, u64),
             NativeArray::Float32(v) => sum_float!(v, Float32, f32),
-            NativeArray::Float64(v) => sum_float!(v, Float64, f64),
+            NativeArray::Float64(v) => sum_float_plain!(v, f64),
             NativeArray::Bool(_) | NativeArray::PyObject(_) => None,
         }
     }

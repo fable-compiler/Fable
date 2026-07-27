@@ -662,7 +662,8 @@ module Util =
             | _, Fable.Type.Number(Int64, _) -> Some "int64"
             | _, Fable.Type.Number(UInt64, _) -> Some "uint64"
             | _, Fable.Type.Number(Float32, _) -> Some "float32"
-            | _, Fable.Type.Number(Float64, _) -> Some "float64"
+            // Float64 is a plain Python `float`
+            | _, Fable.Type.Number(Float64, _) -> Some "float"
             | _ -> Some "Any"
 
         // printfn "Array type: %A" array_type
@@ -805,8 +806,8 @@ module Util =
             | UNativeInt -> Expression.intConstant 0
             | Float16 -> makeFloat com ctx None t "float32" 0.0 |> fst
             | Float32 -> makeFloat com ctx None t "float32" 0.0 |> fst
-            | Float64 -> makeFloat com ctx None t "float64" 0.0 |> fst
-            | Decimal -> makeFloat com ctx None t "float64" 0.0 |> fst
+            | Float64 -> Expression.floatConstant 0.0
+            | Decimal -> Expression.floatConstant 0.0
         | Fable.Char -> Expression.stringConstant "\u0000"
         | Fable.String -> Expression.stringConstant ""
         | Fable.DeclaredType(entRef, _) ->

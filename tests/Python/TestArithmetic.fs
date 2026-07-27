@@ -162,6 +162,39 @@ let ``test Int32 shift counts are masked at runtime`` () =
     shrI -1 32 |> equal -1
     shrI -2 1 |> equal -1
 
+// Float64 is a plain Python `float` on the Python target -- an IEEE double, so
+// arithmetic needs no adjustment. Only `/` by zero and `%` diverge: Python raises
+// where .NET yields +/-inf or nan, and Python's float `%` takes the sign of the
+// divisor where .NET takes the dividend's. Non-literal operands keep the runtime
+// path in play. All expectations verified on .NET.
+let private divF (a: float) (b: float) = a / b
+let private remF (a: float) (b: float) = a % b
+
+[<Fact>]
+let ``test Float division by zero yields infinity at runtime`` () =
+    divF 1.0 0.0 |> Double.IsPositiveInfinity |> equal true
+    divF -1.0 0.0 |> Double.IsNegativeInfinity |> equal true
+    divF 1.0 -0.0 |> Double.IsNegativeInfinity |> equal true
+    divF -1.0 -0.0 |> Double.IsPositiveInfinity |> equal true
+    divF 0.0 0.0 |> Double.IsNaN |> equal true
+    divF infinity 0.0 |> Double.IsPositiveInfinity |> equal true
+    divF 1.0 2.0 |> equal 0.5
+
+[<Fact>]
+let ``test Float remainder takes the sign of the dividend`` () =
+    remF -5.0 3.0 |> equal -2.0
+    remF 5.0 -3.0 |> equal 2.0
+    remF -5.0 -3.0 |> equal -2.0
+    remF 5.0 3.0 |> equal 2.0
+
+[<Fact>]
+let ``test Float remainder edge cases yield NaN`` () =
+    remF 5.0 0.0 |> Double.IsNaN |> equal true
+    remF infinity 2.0 |> Double.IsNaN |> equal true
+    remF nan 2.0 |> Double.IsNaN |> equal true
+    remF 5.0 infinity |> equal 5.0
+    remF -5.0 infinity |> equal -5.0
+
 [<Fact>]
 let ``test Bitwise and can be generated`` () =
     6 &&& 2 |> equal 2

@@ -716,10 +716,16 @@ def round(value: float32, digits: int = 0) -> float32: ...
 
 
 @overload
-def round(value: float64, digits: int = 0) -> float64: ...
+def round(value: float, digits: int = 0) -> float: ...
 
 
-def round(value: float64 | float32, digits: int = 0) -> float64 | float32:
+def round(value: float | float32, digits: int = 0) -> float | float32:
+    if type(value) is float:
+        # Float64 is a plain Python float. Same scaling algorithm as the wrapper:
+        # builtins.round without ndigits rounds half to even, as .NET does.
+        factor = 10.0**digits
+        return builtins.round(value * factor) / factor
+
     return value.round(digits)
 
 
@@ -734,7 +740,7 @@ def random_int(rand: random.Random, a: int, b: int) -> int:
     return int32(rand.randrange(int(a), int(b)))
 
 
-def random_double(rand: random.Random) -> float64:
+def random_double(rand: random.Random) -> float:
     return float64(rand.random())
 
 

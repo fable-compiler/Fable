@@ -1,7 +1,7 @@
 import math
 
 import pytest
-from fable_library.core import float32, float64
+from fable_library.core import Float64, float32
 from pydantic import BaseModel
 
 
@@ -11,7 +11,7 @@ def test_float32_create():
     assert float32(0) == 0.0
     assert float32(42.5) == 42.5
     assert float32(float32(42.5)) == 42.5
-    assert float32(float64(42.5)) == 42.5
+    assert float32(Float64(42.5)) == 42.5
     assert float32(42) == 42.0
     assert float32(-42.5) == -42.5
     # assert float32(Decimal("42.5")) == pytest.approx(42.5, rel=1e-9) # Decimal conversion might need explicit float()
@@ -21,18 +21,18 @@ def test_float32_create():
 
 
 def test_float64_create():
-    assert float64(0) == 0.0
-    assert float64(42.5) == 42.5
-    assert float64(float64(42.5)) == 42.5
-    assert float64(float32(42.5)) == pytest.approx(
+    assert Float64(0) == 0.0
+    assert Float64(42.5) == 42.5
+    assert Float64(Float64(42.5)) == 42.5
+    assert Float64(float32(42.5)) == pytest.approx(
         42.5, rel=1e-9
     )  # Precision loss expected here, comparison should handle it
-    assert float64(42) == 42.0
-    assert float64(-42.5) == -42.5
-    # assert float64(Decimal("42.5")) == pytest.approx(42.5, rel=1e-9)
-    assert math.isnan(float(float64(math.nan)))
-    assert float64(math.inf) == math.inf
-    assert float64(-math.inf) == -math.inf
+    assert Float64(42) == 42.0
+    assert Float64(-42.5) == -42.5
+    # assert Float64(Decimal("42.5")) == pytest.approx(42.5, rel=1e-9)
+    assert math.isnan(float(Float64(math.nan)))
+    assert Float64(math.inf) == math.inf
+    assert Float64(-math.inf) == -math.inf
 
 
 def test_float32_addition():
@@ -145,8 +145,8 @@ def test_float32_zero_divided_by_zero():
 
 def test_float64_addition():
     """Test Float64 addition operations."""
-    f64_a = float64(10.5)
-    f64_b = float64(2.0)
+    f64_a = Float64(10.5)
+    f64_b = Float64(2.0)
     assert f64_a + f64_b == 12.5  # f64 should have enough precision
     assert f64_a + 2.0 == 12.5
     assert 10.5 + f64_b == 12.5
@@ -154,8 +154,8 @@ def test_float64_addition():
 
 def test_float64_subtraction():
     """Test Float64 subtraction operations."""
-    f64_a = float64(10.5)
-    f64_b = float64(2.0)
+    f64_a = Float64(10.5)
+    f64_b = Float64(2.0)
     assert f64_a - f64_b == 8.5
     assert f64_a - 2.0 == 8.5
     assert 10.5 - f64_b == 8.5
@@ -163,8 +163,8 @@ def test_float64_subtraction():
 
 def test_float64_multiplication():
     """Test Float64 multiplication operations."""
-    f64_a = float64(10.5)
-    f64_b = float64(2.0)
+    f64_a = Float64(10.5)
+    f64_b = Float64(2.0)
     assert f64_a * f64_b == 21.0
     assert f64_a * 2.0 == 21.0
     assert 10.5 * f64_b == 21.0
@@ -172,8 +172,8 @@ def test_float64_multiplication():
 
 def test_float64_division():
     """Test Float64 division operations."""
-    f64_a = float64(10.5)
-    f64_b = float64(2.0)
+    f64_a = Float64(10.5)
+    f64_b = Float64(2.0)
     assert f64_a / f64_b == 5.25
     assert f64_a / 2.0 == 5.25
     assert 10.5 / f64_b == 5.25
@@ -181,8 +181,8 @@ def test_float64_division():
 
 def test_float64_floor_division():
     """Test Float64 floor division operations."""
-    f64_a = float64(10.5)
-    f64_b = float64(2.0)
+    f64_a = Float64(10.5)
+    f64_b = Float64(2.0)
     assert f64_a // f64_b == 5.0
     assert f64_a // 2.0 == 5.0
     assert 10.5 // f64_b == 5.0
@@ -190,8 +190,8 @@ def test_float64_floor_division():
 
 def test_float64_modulo():
     """Test Float64 modulo operations."""
-    f64_a = float64(10.5)
-    f64_b = float64(2.0)
+    f64_a = Float64(10.5)
+    f64_b = Float64(2.0)
     assert f64_a % f64_b == 0.5
     assert f64_a % 2.0 == 0.5
     assert 10.5 % f64_b == 0.5
@@ -199,8 +199,8 @@ def test_float64_modulo():
 
 def test_float64_power():
     """Test Float64 power operations."""
-    f64_a = float64(10.5)
-    f64_b = float64(2.0)
+    f64_a = Float64(10.5)
+    f64_b = Float64(2.0)
     assert f64_a**f64_b == 10.5**2.0
     assert f64_a**2.0 == 10.5**2.0
 
@@ -213,8 +213,8 @@ def test_float64_math_functions_accept_native_float():
 
     native_float: float = float(10.5)
 
-    assert double.pow(native_float, float64(2.0)) == 10.5**2.0
-    assert double.pow(float64(10.5), float64(2.0)) == 10.5**2.0
+    assert double.pow(native_float, Float64(2.0)) == 10.5**2.0
+    assert double.pow(Float64(10.5), Float64(2.0)) == 10.5**2.0
 
     assert double.floor(native_float) == 10.0
     assert double.ceil(native_float) == 11.0
@@ -244,7 +244,7 @@ def test_float64_math_functions_accept_native_float():
 
 def test_float64_unary_operations():
     """Test Float64 unary operations."""
-    f64_a = float64(10.5)
+    f64_a = Float64(10.5)
     assert -f64_a == -10.5
     assert abs(f64_a) == 10.5
     assert abs(-f64_a) == 10.5
@@ -253,37 +253,37 @@ def test_float64_unary_operations():
 
 def test_float64_division_by_zero():
     """Test Float64 division by zero (.NET semantics: returns infinity)."""
-    f64_a = float64(10.5)
+    f64_a = Float64(10.5)
 
     # Regular division by zero
     result1 = f64_a / 0.0
-    result2 = f64_a / float64(0.0)
+    result2 = f64_a / Float64(0.0)
     assert result1.is_infinity()
     assert result2.is_infinity()
     assert result1.is_positive_infinity()  # Positive infinity for positive dividend
 
     # Negative dividend division by zero
-    neg_result = float64(-10.5) / 0.0
+    neg_result = Float64(-10.5) / 0.0
     assert neg_result.is_infinity()
     assert neg_result.is_negative_infinity()  # Negative infinity for negative dividend
 
     # Floor division by zero
     assert (f64_a // 0.0).is_infinity()
-    assert (f64_a // float64(0.0)).is_infinity()
+    assert (f64_a // Float64(0.0)).is_infinity()
 
 
 def test_float64_modulo_by_zero():
     """Test Float64 modulo by zero (.NET semantics: returns NaN)."""
-    f64_a = float64(10.5)
+    f64_a = Float64(10.5)
     assert (f64_a % 0.0).is_nan()
-    assert (f64_a % float64(0.0)).is_nan()
+    assert (f64_a % Float64(0.0)).is_nan()
 
 
 def test_float64_zero_divided_by_zero():
     """Test Float64 zero divided by zero (.NET semantics: returns NaN)."""
-    assert (float64(0.0) / 0.0).is_nan()
-    assert (float64(0.0) // 0.0).is_nan()
-    assert (float64(0.0) % 0.0).is_nan()
+    assert (Float64(0.0) / 0.0).is_nan()
+    assert (Float64(0.0) // 0.0).is_nan()
+    assert (Float64(0.0) % 0.0).is_nan()
 
 
 def test_float32_equality():
@@ -400,9 +400,9 @@ def test_float32_incompatible_comparisons():
 
 def test_float64_equality():
     """Test Float64 equality comparisons."""
-    f64_a = float64(42.5)
-    f64_b = float64(42.5)
-    f64_c = float64(43.0)
+    f64_a = Float64(42.5)
+    f64_b = Float64(42.5)
+    f64_c = Float64(43.0)
 
     assert f64_a == f64_b
     assert f64_a == 42.5
@@ -414,9 +414,9 @@ def test_float64_equality():
 
 def test_float64_inequality():
     """Test Float64 inequality comparisons."""
-    f64_a = float64(42.5)
-    f64_b = float64(42.5)
-    f64_c = float64(43.0)
+    f64_a = Float64(42.5)
+    f64_b = Float64(42.5)
+    f64_c = Float64(43.0)
 
     assert f64_a != f64_c
     assert f64_a != 43.0
@@ -428,8 +428,8 @@ def test_float64_inequality():
 
 def test_float64_less_than():
     """Test Float64 less than comparisons."""
-    f64_a = float64(42.5)
-    f64_c = float64(43.0)
+    f64_a = Float64(42.5)
+    f64_c = Float64(43.0)
 
     assert f64_a < f64_c
     assert f64_a < 43.0
@@ -439,9 +439,9 @@ def test_float64_less_than():
 
 def test_float64_less_equal():
     """Test Float64 less than or equal comparisons."""
-    f64_a = float64(42.5)
-    f64_b = float64(42.5)
-    f64_c = float64(43.0)
+    f64_a = Float64(42.5)
+    f64_b = Float64(42.5)
+    f64_c = Float64(43.0)
 
     assert f64_a <= f64_c
     assert f64_a <= f64_b
@@ -453,8 +453,8 @@ def test_float64_less_equal():
 
 def test_float64_greater_than():
     """Test Float64 greater than comparisons."""
-    f64_a = float64(42.5)
-    f64_c = float64(43.0)
+    f64_a = Float64(42.5)
+    f64_c = Float64(43.0)
 
     assert f64_c > f64_a
     assert f64_c > 42.5
@@ -464,8 +464,8 @@ def test_float64_greater_than():
 
 def test_float64_greater_equal():
     """Test Float64 greater than or equal comparisons."""
-    f64_a = float64(42.5)
-    f64_c = float64(43.0)
+    f64_a = Float64(42.5)
+    f64_c = Float64(43.0)
 
     assert f64_c >= f64_a
     assert f64_c >= f64_c
@@ -477,8 +477,8 @@ def test_float64_greater_equal():
 
 def test_float64_nan_comparisons():
     """Test Float64 NaN comparisons (.NET semantics)."""
-    f64_a = float64(42.5)
-    f64_nan = float64(math.nan)
+    f64_a = Float64(42.5)
+    f64_nan = Float64(math.nan)
 
     # NaN comparisons
     assert not (f64_nan == f64_nan)
@@ -495,7 +495,7 @@ def test_float64_nan_comparisons():
 
 def test_float64_incompatible_comparisons():
     """Test Float64 comparisons with incompatible types."""
-    f64_a = float64(42.5)
+    f64_a = Float64(42.5)
 
     # Comparison with incompatible types should raise TypeError for ordered, False/True for Eq/Ne
     with pytest.raises(TypeError):
@@ -512,7 +512,7 @@ def test_float64_incompatible_comparisons():
 
 def test_float_conversion():
     f32_a = float32(42.7)
-    f64_a = float64(42.7)
+    f64_a = Float64(42.7)
 
     # Compare f32 conversion to f64 using pytest.approx
     assert float(f32_a) == pytest.approx(42.7, rel=1e-7)  # Adjust tolerance for f32
@@ -524,7 +524,7 @@ def test_float_conversion():
     assert float(f64_a) == 42.7
     assert int(f64_a) == 42
     assert bool(f64_a) is True
-    assert bool(float64(0.0)) is False
+    assert bool(Float64(0.0)) is False
 
     # Conversion of NaN/inf to int should fail
     with pytest.raises(ValueError):
@@ -543,27 +543,27 @@ def test_float_hash():
     # CPython hash(float('-inf')) == -sys.hash_info.inf (e.g., -314159)
 
     assert hash(float32(1.0)) != 0
-    assert hash(float64(1.0)) != 0
+    assert hash(Float64(1.0)) != 0
     assert hash(float32(1.0)) == hash(float32(1.0))
-    assert hash(float64(1.0)) == hash(float64(1.0))
+    assert hash(Float64(1.0)) == hash(Float64(1.0))
     # Check if hash matches standard float hash (might fail due to implementation difference)
     # assert hash(float32(1.5)) == hash(1.5)
-    # assert hash(float64(1.5)) == hash(1.5)
+    # assert hash(Float64(1.5)) == hash(1.5)
 
     # Test NaN/inf hashing based on Rust implementation
     assert hash(float32(math.nan)) == 0
-    assert hash(float64(math.nan)) == 0
+    assert hash(Float64(math.nan)) == 0
     assert hash(float32(math.inf)) == 9223372036854775807  # i64::MAX used in Rust code
-    assert hash(float64(math.inf)) == 9223372036854775807
+    assert hash(Float64(math.inf)) == 9223372036854775807
     assert hash(float32(-math.inf)) == -9223372036854775808  # i64::MIN used in Rust code
-    assert hash(float64(-math.inf)) == -9223372036854775808
+    assert hash(Float64(-math.inf)) == -9223372036854775808
 
 
 def test_float_repr_str():
     assert repr(float32(42.5)) == "42.5"
     assert str(float32(42.5)) == "42.5"
-    assert repr(float64(42.5)) == "42.5"
-    assert str(float64(42.5)) == "42.5"
+    assert repr(Float64(42.5)) == "42.5"
+    assert str(Float64(42.5)) == "42.5"
 
     assert repr(float32(math.nan)) == "NaN"
     assert str(float32(math.nan)) == "NaN"
@@ -577,10 +577,10 @@ def test_pydantic_float_model_definition():
     """Test that Fable float types can be used in Pydantic models."""
 
     class Measurement(BaseModel):
-        value: float64
+        value: Float64
         precision: float32
 
-    m = Measurement(value=float64(3.14159), precision=float32(0.001))
+    m = Measurement(value=Float64(3.14159), precision=float32(0.001))
     assert m.value == 3.14159
     assert m.precision == pytest.approx(0.001, rel=1e-6)
     assert type(m.value).__name__ == "Float64"
@@ -591,9 +591,9 @@ def test_pydantic_float_serialization():
     """Test JSON serialization of Pydantic models with Fable float types."""
 
     class Measurement(BaseModel):
-        value: float64
+        value: Float64
 
-    m = Measurement(value=float64(3.14159))
+    m = Measurement(value=Float64(3.14159))
     assert m.model_dump_json() == '{"value":3.14159}'
     assert m.model_dump() == {"value": 3.14159}
 
@@ -602,7 +602,7 @@ def test_pydantic_float_json_schema():
     """Test JSON Schema generation for Pydantic models with Fable float types."""
 
     class Measurement(BaseModel):
-        value: float64
+        value: Float64
 
     schema = Measurement.model_json_schema()
     assert schema["properties"]["value"]["type"] == "number"
@@ -612,10 +612,10 @@ def test_pydantic_float_from_fable_type():
     """Test that Pydantic models accept Fable float types directly as input."""
 
     class Simple(BaseModel):
-        val: float64
+        val: Float64
 
     # Pass a Fable Float64 directly
-    simple = Simple(val=float64(2.718))
+    simple = Simple(val=Float64(2.718))
     assert simple.val == 2.718
     assert type(simple.val).__name__ == "Float64"
 
@@ -626,9 +626,9 @@ def test_pydantic_mixed_numeric_types():
 
     class MixedModel(BaseModel):
         count: Int32
-        average: float64
+        average: Float64
 
-    model = MixedModel(count=Int32(10), average=float64(3.5))
+    model = MixedModel(count=Int32(10), average=Float64(3.5))
     assert model.count == 10
     assert model.average == 3.5
     assert type(model.count).__name__ == "Int32"
@@ -640,7 +640,7 @@ def test_pydantic_float_json_deserialization():
     """Test JSON deserialization into Pydantic models with Fable float types."""
 
     class Measurement(BaseModel):
-        value: float64
+        value: Float64
 
     json_str = '{"value": 3.14159}'
     m = Measurement.model_validate_json(json_str)
@@ -653,9 +653,9 @@ def test_pydantic_float_round_trip():
 
     class Data(BaseModel):
         x: float32
-        y: float64
+        y: Float64
 
-    original = Data(x=float32(1.5), y=float64(2.718281828))
+    original = Data(x=float32(1.5), y=Float64(2.718281828))
     json_str = original.model_dump_json()
     restored = Data.model_validate_json(json_str)
     assert restored.y == 2.718281828

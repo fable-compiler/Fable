@@ -1,6 +1,6 @@
 """Type stubs for fable_library.core module."""
 
-from typing import Literal, SupportsInt
+from typing import Literal, SupportsFloat, SupportsInt
 
 from .array import FSharpArray
 from .floats import Float32, Float64
@@ -40,9 +40,12 @@ def op_remainder_int32(dividend: int, divisor: int, /) -> int: ...
 int64 = Int64
 uint64 = UInt64
 
-# Float aliases
+# Float aliases. Float64 is represented as a plain Python `float`.
 float32 = Float32
-float64 = Float64
+
+def float64(value: SupportsFloat = 0.0, /) -> float: ...
+def op_division_float64(x: float, y: float, /) -> float: ...
+def op_remainder_float64(x: float, y: float, /) -> float: ...
 
 __all__ = [
     "Array",
