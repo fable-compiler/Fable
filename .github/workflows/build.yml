@@ -179,6 +179,15 @@ jobs:
         if: matrix.platform == 'ubuntu-latest'
         run: ./build.sh fable-library --python
 
+      # PEP 561 requires the marker inside the package directory. CopyStage filters
+      # by extension, so it is easy to drop again; without it mypy refuses to read
+      # the core/*.pyi stubs at all.
+      - name: PEP 561 marker survives staging
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          test -f temp/fable-library-py/fable_library/py.typed \
+            || { echo "::error::fable_library/py.typed missing from staged package; stubs would be inert for mypy"; exit 1; }
+
       - name: Fable Library - Python (Windows)
         if: matrix.platform == 'windows-latest'
         run: .\build.bat fable-library --python
