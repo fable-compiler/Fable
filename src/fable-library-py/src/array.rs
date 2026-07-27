@@ -6,7 +6,7 @@ use crate::types::FSharpRef;
 use crate::util::{DefaultComparer, ProjectionComparer};
 use pyo3::class::basic::CompareOp;
 use pyo3::types::PyNotImplemented;
-use pyo3::types::{PyBool, PyInt};
+use pyo3::types::{PyBool, PyFloat, PyInt};
 use pyo3::types::{PyBytes, PyTuple, PyType};
 use pyo3::BoundObject;
 use pyo3::{exceptions, IntoPyObjectExt, PyTypeInfo};
@@ -279,12 +279,13 @@ impl FSharpArray {
             Some("uint8") | Some("byte") => UInt8Array::type_object(py),
             Some("int16") => Int16Array::type_object(py),
             Some("uint16") => UInt16Array::type_object(py),
-            Some("int32") => Int32Array::type_object(py),
+            // `int` and `float` are the representations of Int32 and Float64
+            Some("int32") | Some("int") => Int32Array::type_object(py),
             Some("uint32") => UInt32Array::type_object(py),
             Some("int64") => Int64Array::type_object(py),
             Some("uint64") => UInt64Array::type_object(py),
             Some("float32") => Float32Array::type_object(py),
-            Some("float64") => Float64Array::type_object(py),
+            Some("float64") | Some("float") => Float64Array::type_object(py),
             Some("bool") => BoolArray::type_object(py),
             _ => GenericArray::type_object(py),
         };
@@ -365,6 +366,27 @@ impl FSharpArray {
             vec.resize(count, bool_val);
             return Ok(FSharpArray {
                 storage: NativeArray::Bool(vec),
+            });
+        }
+
+        // Plain Python `int`/`float` are how Int32 and Float64 values are represented,
+        // so they specialize to the corresponding storage rather than falling back to
+        // boxed generic storage. This is checked after `bool`, which subclasses `int`
+        // and must keep its own storage, and after the narrower widths, whose wrapper
+        // types do not accept a plain int.
+        if let Ok(int_val) = value.cast::<PyInt>() {
+            if let Ok(i32_val) = int_val.extract::<i32>() {
+                let mut vec = Vec::with_capacity(count);
+                vec.resize(count, i32_val);
+                return Ok(FSharpArray {
+                    storage: NativeArray::Int32(vec),
+                });
+            }
+        } else if let Ok(float_val) = value.cast::<PyFloat>() {
+            let mut vec = Vec::with_capacity(count);
+            vec.resize(count, float_val.value());
+            return Ok(FSharpArray {
+                storage: NativeArray::Float64(vec),
             });
         }
 
@@ -481,6 +503,17 @@ impl FSharpArray {
     #[getter]
     pub fn length(&self) -> Int32 {
         Int32(self.storage.len() as i32)
+    }
+
+    /// Returns the name of the backing storage: `"Int32"`, `"Float64"`, `"Generic"`, ...
+    ///
+    /// Element storage is chosen by inspecting the values an array is built from, so a
+    /// change in how values are represented can silently downgrade a specialized array
+    /// to boxed `Generic` storage. Exposing the storage kind lets tests assert the
+    /// specialization directly instead of only checking the values that come back out.
+    #[getter]
+    pub fn storage_type(&self) -> &str {
+        self.storage.type_name()
     }
 
     /// Returns an iterator over the array elements.

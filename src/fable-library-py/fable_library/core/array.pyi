@@ -60,6 +60,10 @@ class FSharpArray[T](MutableSequence[T]):
     @property
     def length(self) -> Int32: ...
 
+    # Name of the backing storage ("Int32", "Float64", "Generic", ...)
+    @property
+    def storage_type(self) -> str: ...
+
     # IEnumerable implementation (for .NET compatibility)
     def GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[T]: ...
 
