@@ -82,13 +82,20 @@ def int32(value: SupportsInt = 0, /) -> int:
     return int32(int(value))
 
 
-def float64(value: SupportsFloat = 0.0, /) -> float:
+def float64(value: SupportsFloat | SupportsInt = 0.0, /) -> float:
     """System.Double is represented as a plain Python `float`, which is an IEEE double.
 
     Arithmetic needs no adjustment; only division by zero and remainder diverge, and
     those are routed through the helpers below.
     """
-    return value if type(value) is float else float(value)
+    if type(value) is float:
+        return value
+
+    if isinstance(value, SupportsFloat):
+        return float(value)
+
+    # SupportsInt only promises __int__, which float() does not accept
+    return float(int(value))
 
 
 def op_division_float64(x: float, y: float, /) -> float:

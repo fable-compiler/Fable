@@ -599,13 +599,23 @@ impl NativeArray {
             NativeArray::Int8(vec) => fill_typed_vec!(vec, value, target_index, count, Int8, i8),
             NativeArray::UInt8(vec) => fill_typed_vec!(vec, value, target_index, count, UInt8, u8),
             NativeArray::Int16(vec) => fill_typed_vec!(vec, value, target_index, count, Int16, i16),
-            NativeArray::UInt16(vec) => fill_typed_vec!(vec, value, target_index, count, UInt16, u16),
+            NativeArray::UInt16(vec) => {
+                fill_typed_vec!(vec, value, target_index, count, UInt16, u16)
+            }
             NativeArray::Int32(vec) => fill_typed_vec!(vec, value, target_index, count, Int32, i32),
-            NativeArray::UInt32(vec) => fill_typed_vec!(vec, value, target_index, count, UInt32, u32),
+            NativeArray::UInt32(vec) => {
+                fill_typed_vec!(vec, value, target_index, count, UInt32, u32)
+            }
             NativeArray::Int64(vec) => fill_typed_vec!(vec, value, target_index, count, Int64, i64),
-            NativeArray::UInt64(vec) => fill_typed_vec!(vec, value, target_index, count, UInt64, u64),
-            NativeArray::Float32(vec) => fill_typed_vec!(vec, value, target_index, count, Float32, f32),
-            NativeArray::Float64(vec) => fill_typed_vec!(vec, value, target_index, count, Float64, f64),
+            NativeArray::UInt64(vec) => {
+                fill_typed_vec!(vec, value, target_index, count, UInt64, u64)
+            }
+            NativeArray::Float32(vec) => {
+                fill_typed_vec!(vec, value, target_index, count, Float32, f32)
+            }
+            NativeArray::Float64(vec) => {
+                fill_typed_vec!(vec, value, target_index, count, Float64, f64)
+            }
             NativeArray::Bool(vec) => {
                 let value: bool = value.extract()?;
                 for i in 0..count {

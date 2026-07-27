@@ -20,7 +20,7 @@ from fable_library.protocols import (
 )
 from fable_library.util import UNIT, Unit
 
-from . import FSharpRef, int
+from . import FSharpRef
 
 # Type alias for inputs that can be iterated - supports both Python Iterable and F# IEnumerable
 type Elements[T] = Iterable[T] | IEnumerable_1[T]
@@ -30,7 +30,7 @@ ArrayType = Literal[
     "UInt8",
     "Int16",
     "UInt16",
-    "int",
+    "Int32",
     "UInt32",
     "SupportsInt",
     "USupportsInt",
@@ -48,12 +48,10 @@ class FSharpArray[T](MutableSequence[T]):
     def __init__(self, elements: Elements[T] | None = None) -> None: ...
     def __bytes__(self) -> bytes: ...
     def __delitem__(self, idx: int | slice) -> None: ...
-    # The slice overload must come first: Pyright otherwise matches a slice against
-    # the `int` overload and types `xs[:2]` as the element type instead of an array.
-    @overload
-    def __getitem__(self, idx: slice) -> FSharpArray[T]: ...
     @overload
     def __getitem__(self, idx: int) -> T: ...
+    @overload
+    def __getitem__(self, idx: slice) -> FSharpArray[T]: ...
     def __iter__(self) -> Iterator[T]: ...
     def __len__(self) -> int: ...
     def __setitem__(self, idx: int | slice, value: Any) -> None: ...
@@ -62,7 +60,7 @@ class FSharpArray[T](MutableSequence[T]):
     @property
     def length(self) -> int: ...
 
-    # Name of the backing storage ("int", "Float64", "Generic", ...)
+    # Name of the backing storage ("Int32", "Float64", "Generic", ...)
     @property
     def storage_type(self) -> str: ...
 

@@ -161,7 +161,11 @@ class UInt32(NumericInts):
 
 @final
 class Int32(NumericInts, int):
-    # Note that this is not really a subclass of int
+    # The `int` base is a deliberate fiction: this is a Rust pyclass, not an `int`
+    # subclass at runtime. It is declared this way so an Int32 -- which now only turns
+    # up in hand-written interop, since F# `int` is represented as a plain Python
+    # `int` -- is still assignable wherever an `int` is expected, without needing
+    # `int | Int32` unions anywhere.
     ZERO: ClassVar[Int32]
     ONE: ClassVar[Int32]
     TWO: ClassVar[Int32]

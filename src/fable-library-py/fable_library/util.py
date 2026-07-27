@@ -723,13 +723,14 @@ def round(value: float, digits: int = 0) -> float: ...
 
 
 def round(value: float | float32, digits: int = 0) -> float | float32:
-    if type(value) is float:
-        # Float64 is a plain Python float. Same scaling algorithm as the wrapper:
-        # builtins.round without ndigits rounds half to even, as .NET does.
-        factor = 10.0**digits
-        return builtins.round(value * factor) / factor
+    if isinstance(value, float32):
+        return value.round(digits)
 
-    return value.round(digits)
+    # Float64 is a plain Python float. Same scaling algorithm as the wrapper:
+    # builtins.round without ndigits rounds half to even, as .NET does.
+    factor = 10.0**digits
+
+    return builtins.round(value * factor) / factor
 
 
 def create_random(seed: int | None = None) -> random.Random:

@@ -6,6 +6,13 @@
     "temp/tests/Python/test_applicative.py",
     "temp/tests/Python/test_hash_set.py",
     "temp/tests/Python/test_nested_and_recursive_pattern.py",
+    // Int32 is emitted as a bare Python int literal, so Pyright infers Literal[1]
+    // rather than int for a TypeVar solved in an invariant position, and
+    // FSharpSet[Literal[1]] will not unify with FSharpSet[Literal[2]]. The comparer
+    // argument cannot widen it either: IComparer_1 is contravariant, so
+    // IComparer_1[int] satisfies IComparer_1[Literal[1]]. Inference noise, not a
+    // codegen defect -- the values and behavior are correct.
+    "temp/tests/Python/test_set.py",
     "temp/tests/Python/fable_modules/thoth_json_python/encode.py"
   ]
 }

@@ -123,7 +123,7 @@ def abs(x: float) -> float: ...
 
 __all__ = [
     "Float32",
-    "float",
+    "Float64",
     "acos",
     "asin",
     "atan",

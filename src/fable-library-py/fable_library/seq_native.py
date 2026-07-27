@@ -124,7 +124,7 @@ def choose[T, U](chooser: Callable[[T], Option[U]], xs: IEnumerable_1[T]) -> Nat
     return NativeSeq(gen)
 
 
-def map_indexed[T, U](mapping: Callable[[int32, T], U], xs: IEnumerable_1[T]) -> NativeSeq[U]:
+def map_indexed[T, U](mapping: Callable[[int, T], U], xs: IEnumerable_1[T]) -> NativeSeq[U]:
     return NativeSeq(lambda: (mapping(int32(i), x) for i, x in enumerate(_source_iter(xs))))
 
 
@@ -133,7 +133,7 @@ def map2[T1, T2, U](mapping: Callable[[T1, T2], U], xs: IEnumerable_1[T1], ys: I
 
 
 def map_indexed2[T1, T2, U](
-    mapping: Callable[[int32, T1, T2], U], xs: IEnumerable_1[T1], ys: IEnumerable_1[T2]
+    mapping: Callable[[int, T1, T2], U], xs: IEnumerable_1[T1], ys: IEnumerable_1[T2]
 ) -> NativeSeq[U]:
     return NativeSeq(
         lambda: (mapping(int32(i), x, y) for i, (x, y) in enumerate(zip(_source_iter(xs), _source_iter(ys))))
