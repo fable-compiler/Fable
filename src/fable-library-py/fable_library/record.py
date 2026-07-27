@@ -129,7 +129,7 @@ class Record(StringableBase, EquatableBase, ComparableBase, HashableBase, ICompa
     # Hashable (HashableBase provides __hash__ from GetHashCode)
     # -------------------------------------------------------------------------
 
-    def GetHashCode(self) -> int32:
+    def GetHashCode(self) -> int:
         return int32(record_get_hashcode(self))
 
     def __hash__(self) -> int:

@@ -102,6 +102,66 @@ let ``test Math.DivRem works with longs and outref`` () =
 let ``test Evaluation order is preserved by generated code`` () =
     (4 - 2) * 2 + 1 |> equal 5
 
+// Int32 is a plain Python `int` on the Python target, which is arbitrary precision,
+// so the compiler normalizes results back into 32 bits. These use function
+// parameters rather than literals so the values are not constant-folded away and
+// the runtime normalization path is exercised. All expectations verified on .NET.
+let private addI (a: int) (b: int) = a + b
+let private mulI (a: int) (b: int) = a * b
+let private divI (a: int) (b: int) = a / b
+let private remI (a: int) (b: int) = a % b
+let private shlI (a: int) (n: int) = a <<< n
+let private shrI (a: int) (n: int) = a >>> n
+
+[<Fact>]
+let ``test Int32 arithmetic wraps at 32 bits`` () =
+    let a = addI 2000000000 0
+    let b = addI 1500000000 0
+    addI a a |> equal -294967296
+    mulI a a |> equal -1651507200
+    addI (addI a a) a |> equal 1705032704
+    addI (mulI a b) a |> equal 1835111424
+    addI 2147483647 1 |> equal -2147483648
+    -(addI -2147483648 0) |> equal -2147483648
+
+[<Fact>]
+let ``test Int32 operands are normalized before non-wrapping operations`` () =
+    // Normalization commutes with + - * <<< so it can happen once per expression
+    // tree, but these consumers must see the already-wrapped value.
+    let a = addI 2000000000 0
+    divI (addI a a) 2 |> equal -147483648
+    remI (addI a a) 7 |> equal -1
+    (addI a a) &&& 0xFF |> equal 0
+    (addI a a) > 0 |> equal false
+    string (addI a a) |> equal "-294967296"
+    shrI (addI a a) 4 |> equal -18435456
+
+[<Fact>]
+let ``test Int32 division truncates toward zero`` () =
+    // Python's // floors: -7 // 2 is -4 there and -3 in .NET
+    divI -7 2 |> equal -3
+    divI 7 -2 |> equal -3
+    divI -7 -2 |> equal 3
+    divI 7 2 |> equal 3
+
+[<Fact>]
+let ``test Int32 remainder takes the sign of the dividend`` () =
+    // Python's % takes the sign of the divisor: -5 % 3 is 1 there and -2 in .NET
+    remI -5 3 |> equal -2
+    remI 5 -3 |> equal 2
+    remI -5 -3 |> equal -2
+    remI 5 3 |> equal 2
+    remI 6 3 |> equal 0
+    remI -6 3 |> equal 0
+
+[<Fact>]
+let ``test Int32 shift counts are masked at runtime`` () =
+    shlI 1 32 |> equal 1
+    shlI 1 33 |> equal 2
+    shlI 3 31 |> equal -2147483648
+    shrI -1 32 |> equal -1
+    shrI -2 1 |> equal -1
+
 [<Fact>]
 let ``test Bitwise and can be generated`` () =
     6 &&& 2 |> equal 2

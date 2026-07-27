@@ -520,7 +520,8 @@ let makeNumberTypeAnnotation com ctx kind info =
             | UInt32 -> "uint32"
             | Int64 -> "int64"
             | UInt64 -> "uint64"
-            | Int32 -> "int32"
+            // Int32 is represented as a plain Python `int`
+            | Int32
             | BigInt
             | Int128
             | UInt128

@@ -265,12 +265,16 @@ impl FSharpArray {
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
         // Get type name - either from string or from type.__name__
+        // `int32` is a normalizing function rather than a class, so `__name__` is read
+        // off whatever was passed rather than only off a type object.
         let type_name: Option<String> = if let Ok(s) = item.extract::<String>() {
             Some(s)
         } else if let Ok(py_type) = item.cast::<PyType>() {
             py_type.getattr("__name__")?.extract()?
         } else {
-            None
+            item.getattr("__name__")
+                .ok()
+                .and_then(|name| name.extract::<String>().ok())
         };
 
         // Match on the type name
@@ -496,13 +500,13 @@ impl FSharpArray {
         self.storage.len()
     }
 
-    /// Returns the length of the array as Int32 (F# compatible).
+    /// Returns the length of the array.
     ///
-    /// This property provides F# interop compatibility by returning the array length
-    /// as an Int32 instead of Python's native int. In F#, Array.length returns int32.
+    /// In F# `Array.length` returns an int32, which is represented as a plain
+    /// Python `int`. A length always fits, so no normalization is needed.
     #[getter]
-    pub fn length(&self) -> Int32 {
-        Int32(self.storage.len() as i32)
+    pub fn length(&self) -> usize {
+        self.storage.len()
     }
 
     /// Returns the name of the backing storage: `"Int32"`, `"Float64"`, `"Generic"`, ...

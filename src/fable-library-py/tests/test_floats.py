@@ -622,13 +622,13 @@ def test_pydantic_float_from_fable_type():
 
 def test_pydantic_mixed_numeric_types():
     """Test Pydantic models with mixed Fable integer and float types."""
-    from fable_library.core import int32
+    from fable_library.core import Int32
 
     class MixedModel(BaseModel):
-        count: int32
+        count: Int32
         average: float64
 
-    model = MixedModel(count=int32(10), average=float64(3.5))
+    model = MixedModel(count=Int32(10), average=float64(3.5))
     assert model.count == 10
     assert model.average == 3.5
     assert type(model.count).__name__ == "Int32"

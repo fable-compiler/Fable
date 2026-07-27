@@ -773,7 +773,9 @@ impl NativeArray {
                 Ok(())
             }
             NativeArray::Int32(vec) => {
-                sort_with_error_capture!(vec, comparer, py, |v: i32, py| Int32(v)
+                // Int32 is represented as a plain Python `int`, so the comparer -- which
+                // is generated F# code -- must be handed the plain value
+                sort_with_error_capture!(vec, comparer, py, |v: i32, py| v
                     .into_pyobject(py)
                     .map(|o| o.into_any()));
                 Ok(())
@@ -1011,8 +1013,9 @@ impl NativeArray {
     ///
     /// Semantics match the Python `IGenericAdder` path: integer types use
     /// **wrapping** arithmetic at the element width and the result is boxed as the
-    /// corresponding wrapper type (`Int32`, …) — the same type `GetZero`/`Add`
-    /// would produce — while floats use IEEE addition.
+    /// type `GetZero`/`Add` would produce — the corresponding wrapper for most
+    /// widths, but a plain Python `int` for Int32, which has no wrapper — while
+    /// floats use IEEE addition.
     pub fn try_native_sum(&self, py: Python<'_>) -> Option<PyResult<Py<PyAny>>> {
         macro_rules! sum_int {
             ($vec:expr, $w:ident, $t:ty) => {{
@@ -1021,6 +1024,16 @@ impl NativeArray {
                     acc = acc.wrapping_add(x);
                 }
                 Some($w(acc).into_py_any(py))
+            }};
+        }
+        // Int32 is represented as a plain Python `int`
+        macro_rules! sum_int_plain {
+            ($vec:expr, $t:ty) => {{
+                let mut acc: $t = 0;
+                for &x in $vec.iter() {
+                    acc = acc.wrapping_add(x);
+                }
+                Some(acc.into_py_any(py))
             }};
         }
         macro_rules! sum_float {
@@ -1037,7 +1050,7 @@ impl NativeArray {
             NativeArray::UInt8(v) => sum_int!(v, UInt8, u8),
             NativeArray::Int16(v) => sum_int!(v, Int16, i16),
             NativeArray::UInt16(v) => sum_int!(v, UInt16, u16),
-            NativeArray::Int32(v) => sum_int!(v, Int32, i32),
+            NativeArray::Int32(v) => sum_int_plain!(v, i32),
             NativeArray::UInt32(v) => sum_int!(v, UInt32, u32),
             NativeArray::Int64(v) => sum_int!(v, Int64, i64),
             NativeArray::UInt64(v) => sum_int!(v, UInt64, u64),

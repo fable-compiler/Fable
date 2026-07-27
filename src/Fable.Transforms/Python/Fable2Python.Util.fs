@@ -603,9 +603,7 @@ module Util =
 
     let thisExpr = Expression.name "self"
 
-    let ofInt (com: IPythonCompiler) (ctx: Context) (i: int) =
-        //Expression.intConstant (int i)
-        libCall com ctx None "core" "int32" [ Expression.intConstant (int i) ]
+    let ofInt (_com: IPythonCompiler) (_ctx: Context) (i: int) = Expression.intConstant (int i)
 
     let ofString (s: string) = Expression.stringConstant s
 
@@ -658,7 +656,8 @@ module Util =
             | _, Fable.Type.Number(Int8, _) -> Some "sbyte"
             | _, Fable.Type.Number(Int16, _) -> Some "int16"
             | _, Fable.Type.Number(UInt16, _) -> Some "uint16"
-            | _, Fable.Type.Number(Int32, _) -> Some "int32"
+            // Int32 is a plain Python `int`
+            | _, Fable.Type.Number(Int32, _) -> Some "int"
             | _, Fable.Type.Number(UInt32, _) -> Some "uint32"
             | _, Fable.Type.Number(Int64, _) -> Some "int64"
             | _, Fable.Type.Number(UInt64, _) -> Some "uint64"
@@ -673,10 +672,11 @@ module Util =
             let array = libValue com ctx "array_" "Array"
 
             let type_obj =
-                if l = "Any" then
-                    com.GetImportExpr(ctx, "typing", "Any")
-                else
-                    libValue com ctx "core" l
+                match l with
+                | "Any" -> com.GetImportExpr(ctx, "typing", "Any")
+                | "int"
+                | "float" -> Expression.name l
+                | _ -> libValue com ctx "core" l
 
             let types_array = Expression.subscript (value = array, slice = type_obj, ctx = Load)
             Expression.call (types_array, [ expr ])
@@ -794,7 +794,7 @@ module Util =
             | UInt8 -> makeInteger com ctx None t "uint8" (0uy :> obj) |> fst
             | Int16 -> makeInteger com ctx None t "int16" (0s :> obj) |> fst
             | UInt16 -> makeInteger com ctx None t "uint16" (0us :> obj) |> fst
-            | Int32 -> makeInteger com ctx None t "int32" (0 :> obj) |> fst
+            | Int32 -> Expression.intConstant 0
             | UInt32 -> makeInteger com ctx None t "uint32" (0u :> obj) |> fst
             | Int64 -> makeInteger com ctx None t "int64" (0L :> obj) |> fst
             | UInt64 -> makeInteger com ctx None t "uint64" (0UL :> obj) |> fst
@@ -1053,6 +1053,63 @@ module Util =
         let cons = libValue com ctx "core" floatName
         let value = Expression.floatConstant (x, ?loc = r)
         Expression.call (cons, [ value ], ?loc = r), []
+
+    // ---------------------------------------------------------------------------
+    // Int32 normalization
+    //
+    // Int32 is a plain Python `int`, which is arbitrary precision, so operations
+    // that can leave the 32-bit range are normalized back into it by the compiler.
+    //
+    // Normalization commutes with `+ - * << & | ^`, so normalizing once at the root
+    // of an arithmetic tree is equivalent to normalizing after every operation --
+    // `int32(a * b + c)` and `int32(int32(a * b) + c)` always agree. Only `+ - * <<`
+    // and unary `-` can leave the range in the first place; `& | ^ ~ >> / %`,
+    // comparisons and literals map in-range operands to in-range results and need
+    // no normalization at all.
+    // ---------------------------------------------------------------------------
+
+    let inInt32Range (value: int64) =
+        value >= -2147483648L && value <= 2147483647L
+
+    /// Operations emitted with an `int32(...)` wrap around them, and therefore the
+    /// ones whose wrap a parent in the same set may strip and re-apply at its own root.
+    let isInt32WrapOp (e: Fable.Expr) =
+        match e with
+        | Fable.Operation(Fable.Binary((BinaryPlus | BinaryMinus | BinaryMultiply | BinaryShiftLeft), _, _),
+                          _,
+                          Fable.Number(Int32, _),
+                          _) -> true
+        | Fable.Operation(Fable.Unary(UnaryMinus, _), _, Fable.Number(Int32, _), _) -> true
+        | _ -> false
+
+    /// Removes the `int32(...)` wrap this module put around an operand.
+    ///
+    /// Only ever applied when `isInt32WrapOp` held for the operand's *Fable* node, so
+    /// it cannot strip a meaningful conversion: `int32(someFloat)` truncates, and
+    /// truncation does not commute with arithmetic. If the operand was hoisted to a
+    /// temporary this is a no-op and the result is one redundant -- but idempotent --
+    /// wrap, never a wrong value.
+    let stripInt32Wrap (com: IPythonCompiler) ctx (e: Expression) =
+        match e with
+        | Expression.Call call when call.Args.Length = 1 && call.Func = libValue com ctx "core" "int32" ->
+            call.Args.Head
+        | _ -> e
+
+    /// `int32(expr)`, folded away when the value is a literal already in range.
+    let wrapInt32 (com: IPythonCompiler) ctx r (e: Expression) =
+        let isInRangeLiteral =
+            match e with
+            | Expression.Constant(value = IntLiteral v) ->
+                match v with
+                | :? int as i -> inInt32Range (int64 i)
+                | :? int64 as i -> inInt32Range i
+                | _ -> false
+            | _ -> false
+
+        if isInRangeLiteral then
+            e
+        else
+            libCall com ctx r "core" "int32" [ e ]
 
 
     let enumerator2iterator com ctx =

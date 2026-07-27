@@ -146,26 +146,26 @@ def div_rem(x: int64, y: int64, out: FSharpRef[int64] | None = None) -> int64 | 
 
 
 @overload
-def op_right_shift(a: int64, b: int32) -> int64: ...
+def op_right_shift(a: int64, b: int) -> int64: ...
 
 
 @overload
-def op_right_shift(a: uint64, b: int32) -> uint64: ...
+def op_right_shift(a: uint64, b: int) -> uint64: ...
 
 
-def op_right_shift(a: int64 | uint64, b: int32) -> int64 | uint64:
+def op_right_shift(a: int64 | uint64, b: int) -> int64 | uint64:
     return a >> b
 
 
 @overload
-def op_left_shift(a: int64, b: int32) -> int64: ...
+def op_left_shift(a: int64, b: int) -> int64: ...
 
 
 @overload
-def op_left_shift(a: uint64, b: int32) -> uint64: ...
+def op_left_shift(a: uint64, b: int) -> uint64: ...
 
 
-def op_left_shift(a: int64 | uint64, b: int32) -> int64 | uint64:
+def op_left_shift(a: int64 | uint64, b: int) -> int64 | uint64:
     return a << b
 
 

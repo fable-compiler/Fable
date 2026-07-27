@@ -95,7 +95,7 @@ def to_uint16(byte_data: bytes | bytearray | Array[uint8], offset: SupportsInt) 
     return uint16(int.from_bytes(data[off : off + 2], byteorder=sys.byteorder, signed=False))
 
 
-def to_int32(byte_data: bytes | bytearray | Array[uint8], offset: SupportsInt) -> int32:
+def to_int32(byte_data: bytes | bytearray | Array[uint8], offset: SupportsInt) -> int:
     data = _to_bytes(byte_data)
     off = int(offset)
     return int32(int.from_bytes(data[off : off + 4], byteorder=sys.byteorder, signed=True))

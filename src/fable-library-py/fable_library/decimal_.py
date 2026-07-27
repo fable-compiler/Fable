@@ -167,7 +167,8 @@ def try_parse(string: str, def_value: FSharpRef[Decimal]) -> bool:
 
 def create(value: float | float32 | float64 | IntegerTypes | str) -> Decimal:
     match value:
-        case sbyte() | byte() | int16() | uint16() | int32() | uint32() | int64() | uint64():
+        # Int32 is a plain `int`, which `Decimal` already accepts via the last case
+        case sbyte() | byte() | int16() | uint16() | uint32() | int64() | uint64():
             return Decimal(int(value))
         case float32() | float64():
             return Decimal(float(value))

@@ -428,10 +428,7 @@ let transformCast (com: IPythonCompiler) (ctx: Context) t e : Expression * State
         let cons = libValue com ctx "core" "float64"
         let value, stmts = com.TransformAsExpr(ctx, e)
         Expression.call (cons, [ value ], ?loc = None), stmts
-    | Fable.Number(Int32, _), _ ->
-        let cons = libValue com ctx "core" "int32"
-        let value, stmts = com.TransformAsExpr(ctx, e)
-        Expression.call (cons, [ value ], ?loc = None), stmts
+    // Int32 is a plain Python `int`, so casting to it is a no-op
     | _ -> com.TransformAsExpr(ctx, e)
 
 let transformCurry (com: IPythonCompiler) (ctx: Context) expr arity : Expression * Statement list =
@@ -480,7 +477,8 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
         | Fable.NumberValue.UInt8 x -> makeInteger com ctx r value.Type "uint8" x
         | Fable.NumberValue.Int16 x -> makeInteger com ctx r value.Type "int16" x
         | Fable.NumberValue.UInt16 x -> makeInteger com ctx r value.Type "uint16" x
-        | Fable.NumberValue.Int32 x -> makeInteger com ctx r value.Type "int32" x
+        // Int32 is represented as a plain Python `int`, so a literal is just a literal
+        | Fable.NumberValue.Int32 x -> Expression.intConstant (x, ?loc = r), []
         | Fable.NumberValue.UInt32 x -> makeInteger com ctx r value.Type "uint32" x
         | Fable.NumberValue.Int64 x -> makeInteger com ctx r value.Type "int64" x
         | Fable.NumberValue.UInt64 x -> makeInteger com ctx r value.Type "uint64" x
@@ -943,14 +941,96 @@ let resolveExpr (ctx: Context) _t strategy pyExpr : Statement list =
     | Some(Assign left) -> exprAsStatement ctx (assign None left pyExpr)
     | Some(Target left) -> exprAsStatement ctx (assign None (left |> Expression.identifier) pyExpr)
 
-let transformOperation com ctx range opKind tags : Expression * Statement list =
+let transformOperation (com: IPythonCompiler) ctx range (t: Fable.Type) opKind tags : Expression * Statement list =
+    // Int32 is a plain Python `int`, so results that can leave the 32-bit range are
+    // normalized back into it. See `Util.isInt32WrapOp` for why one wrap per
+    // expression tree is equivalent to one per operation.
+    let isInt32 =
+        match t with
+        | Fable.Number(Int32, _) -> true
+        | _ -> false
+
     match opKind with
-    | Fable.Unary(op, TransformExpr com ctx (expr, stmts)) -> Expression.unaryOp (op, expr, ?loc = range), stmts
+    | Fable.Unary(op, (operand: Fable.Expr)) ->
+        let expr, stmts = com.TransformAsExpr(ctx, operand)
+
+        // Only negation can leave the range, at Int32.MinValue. `~` maps in-range to
+        // in-range, and `+` is the identity.
+        let needsWrap = isInt32 && op = UnaryMinus
+
+        let expr =
+            if needsWrap then
+                stripInt32Wrap com ctx expr
+            else
+                expr
+
+        let result = Expression.unaryOp (op, expr, ?loc = range)
+
+        (if needsWrap then
+             wrapInt32 com ctx range result
+         else
+             result),
+        stmts
     | Fable.Binary(op, left, right: Fable.Expr) ->
         let typ = right.Type
         let left_typ = left.Type
+        let leftFable, rightFable = left, right
+
+        // `<<` shifts the left operand only; the shift count is a separate value.
+        let wrapsResult =
+            isInt32
+            && match op with
+               | BinaryPlus
+               | BinaryMinus
+               | BinaryMultiply
+               | BinaryShiftLeft -> true
+               | _ -> false
+
         let left, stmts = com.TransformAsExpr(ctx, left)
         let right, stmts' = com.TransformAsExpr(ctx, right)
+
+        // Strip an operand's own wrap only when this node re-applies one, and only
+        // when the *Fable* operand is one of the nodes this module wraps.
+        let left =
+            if wrapsResult && isInt32WrapOp leftFable then
+                stripInt32Wrap com ctx left
+            else
+                left
+
+        let right =
+            if wrapsResult && op <> BinaryShiftLeft && isInt32WrapOp rightFable then
+                stripInt32Wrap com ctx right
+            else
+                right
+
+        // .NET masks a shift count to the width of the type, so `1 <<< 32` is 1.
+        // Python applies the count as given, and raises ValueError if it is negative.
+        let right =
+            let isShift =
+                match op with
+                | BinaryShiftLeft
+                | BinaryShiftRightSignPropagating
+                | BinaryShiftRightZeroFill -> true
+                | _ -> false
+
+            if not (isInt32 && isShift) then
+                right
+            else
+                match right with
+                | Expression.Constant(value = IntLiteral v) ->
+                    match v with
+                    | :? int as i -> Expression.intConstant (i &&& 31)
+                    | _ -> Expression.binOp (right, BitAnd, Expression.intConstant 31)
+                | _ -> Expression.binOp (right, BitAnd, Expression.intConstant 31)
+
+        let binOp (op: BinaryOperator) =
+            let result = Expression.binOp (left, op, right, ?loc = range)
+
+            (if wrapsResult then
+                 wrapInt32 com ctx range result
+             else
+                 result),
+            stmts @ stmts'
 
         let compare op =
             Expression.compare (left, [ op ], [ right ], ?loc = range), stmts @ stmts'
@@ -1005,6 +1085,17 @@ let transformOperation com ctx range opKind tags : Expression * Statement list =
         | BinaryDivide, _ ->
             // For integer division, we need to use the // operator
             match typ with
+            // Int32 is a plain Python `int`, whose `//` floors where .NET truncates
+            // toward zero: `-7 // 2` is -4 in Python and -3 in .NET. `int(a / b)`
+            // truncates, and is exact here -- for int32 operands the true quotient is
+            // never within a rounding error of an integer it should not reach.
+            | Fable.Number(Int32, _) when isInt32 ->
+                Expression.call (
+                    Expression.name "int",
+                    [ Expression.binOp (left, Div, right, ?loc = range) ],
+                    ?loc = range
+                ),
+                stmts @ stmts'
             | Fable.Number(Int8, _)
             | Fable.Number(Int16, _)
             | Fable.Number(Int32, _)
@@ -1019,7 +1110,11 @@ let transformOperation com ctx range opKind tags : Expression * Statement list =
                 | Fable.Number(Float64, _) -> Expression.binOp (left, Div, right, ?loc = range), stmts @ stmts'
                 | _ -> Expression.binOp (left, FloorDiv, right, ?loc = range), stmts @ stmts'
             | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
-        | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
+        | BinaryModulus, _ when isInt32 ->
+            // Python's `%` takes the sign of the divisor, .NET's takes the sign of the
+            // dividend: `-5 % 3` is 1 in Python and -2 in .NET.
+            libCall com ctx range "core" "op_remainder_int32" [ left; right ], stmts @ stmts'
+        | _ -> binOp op
 
     | Fable.Logical(op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
         Expression.boolOp (op, [ left; right ], ?loc = range), stmts @ stmts'
@@ -2591,7 +2686,7 @@ let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expressi
 
     | Fable.CurriedApply(callee, args, _, range) -> transformCurriedApply com ctx range callee args
 
-    | Fable.Operation(kind, tags, _, range) -> transformOperation com ctx range kind tags
+    | Fable.Operation(kind, tags, t, range) -> transformOperation com ctx range t kind tags
 
     | Fable.Get(expr, kind, typ, range) -> transformGet com ctx range typ expr kind
 
@@ -2822,7 +2917,7 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
             stmts @ resolveExpr ctx t returnStrategy e
 
     | Fable.Operation(kind, tags, t, range) ->
-        let expr, stmts = transformOperation com ctx range kind tags
+        let expr, stmts = transformOperation com ctx range t kind tags
         stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
     | Fable.Get(expr, kind, t, range) ->

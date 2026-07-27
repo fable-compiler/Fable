@@ -58,8 +58,9 @@ class ExceptionBase(Exception):
         self.inner_exception: Exception | None = inner_exception
 
 
-# We don't use type aliases here because we need to do isinstance checks
-IntegerTypes = int | byte | sbyte | int16 | uint16 | int32 | uint32 | int64 | uint64
+# We don't use type aliases here because we need to do isinstance checks.
+# Int32 is represented as a plain `int`, which is already the first member.
+IntegerTypes = int | byte | sbyte | int16 | uint16 | uint32 | int64 | uint64
 FloatTypes = float | float32 | float64
 
 

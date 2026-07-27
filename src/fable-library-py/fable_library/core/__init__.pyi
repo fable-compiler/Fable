@@ -1,6 +1,6 @@
 """Type stubs for fable_library.core module."""
 
-from typing import Literal
+from typing import Literal, SupportsInt
 
 from .array import FSharpArray
 from .floats import Float32, Float64
@@ -32,8 +32,11 @@ uint8 = UInt8
 int8 = Int8
 int16 = Int16
 uint16 = UInt16
-int32 = Int32
 uint32 = UInt32
+
+# Int32 is represented as a plain Python `int`; these normalize into 32 bits.
+def int32(value: SupportsInt = 0, /) -> int: ...
+def op_remainder_int32(dividend: int, divisor: int, /) -> int: ...
 int64 = Int64
 uint64 = UInt64
 
@@ -61,6 +64,7 @@ __all__ = [
     "int8",
     "int16",
     "int32",
+    "op_remainder_int32",
     "int64",
     "sbyte",
     "uint8",

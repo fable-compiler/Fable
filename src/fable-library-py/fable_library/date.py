@@ -86,7 +86,7 @@ def create(
     s: int = 0,
     ms: int = 0,
     mc: int = 0,
-    kind: int32 | None = None,
+    kind: int | None = None,
 ) -> datetime:
     if kind == DateKind.UTC:
         date = datetime(
@@ -107,35 +107,35 @@ def create(
     return date
 
 
-def year(d: datetime) -> int32:
+def year(d: datetime) -> int:
     return int32(d.year)
 
 
-def month(d: datetime) -> int32:
+def month(d: datetime) -> int:
     return int32(d.month)
 
 
-def day(d: datetime) -> int32:
+def day(d: datetime) -> int:
     return int32(d.day)
 
 
-def hour(d: datetime) -> int32:
+def hour(d: datetime) -> int:
     return int32(d.hour)
 
 
-def minute(d: datetime) -> int32:
+def minute(d: datetime) -> int:
     return int32(d.minute)
 
 
-def second(d: datetime) -> int32:
+def second(d: datetime) -> int:
     return int32(d.second)
 
 
-def millisecond(d: datetime) -> int32:
+def millisecond(d: datetime) -> int:
     return int32(d.microsecond // 1_000)
 
 
-def microsecond(d: datetime) -> int32:
+def microsecond(d: datetime) -> int:
     return int32(d.microsecond)
 
 
@@ -746,7 +746,7 @@ def add_microseconds(d: datetime, v: SupportsInt) -> datetime:
     return d + timedelta(microseconds=int(v))
 
 
-def kind(d: datetime) -> int32:
+def kind(d: datetime) -> int:
     if d.tzinfo == UTC:
         return DateKind.UTC
 
@@ -757,7 +757,7 @@ def kind(d: datetime) -> int32:
     return DateKind.Local
 
 
-def specify_kind(d: datetime, kind: int32) -> datetime:
+def specify_kind(d: datetime, kind: int) -> datetime:
     return create(year(d), month(d), day(d), hour(d), minute(d), second(d), millisecond(d), microsecond(d), kind)
 
 
@@ -799,7 +799,7 @@ def date_offset(d: datetime) -> int64:
     # return 0 if d.tzinfo == timezone.utc else
 
 
-def create_from_epoch_microseconds(us: int, kind: int32 | None = None) -> datetime:
+def create_from_epoch_microseconds(us: int, kind: int | None = None) -> datetime:
     if kind == DateKind.UTC:
         date = datetime.fromtimestamp(us / 1_000_000, UTC)
     else:
@@ -810,7 +810,7 @@ def create_from_epoch_microseconds(us: int, kind: int32 | None = None) -> dateti
     return date
 
 
-def from_ticks(ticks: SupportsInt, kind: int32 | None = None) -> datetime:
+def from_ticks(ticks: SupportsInt, kind: int | None = None) -> datetime:
     # Better default than Unspecified
     kind = kind or DateKind.Local
     date = create_from_epoch_microseconds(ticks_to_unix_epoch_microseconds(ticks), kind)

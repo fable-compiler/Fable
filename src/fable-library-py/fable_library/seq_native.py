@@ -190,7 +190,7 @@ def head[T](xs: IEnumerable_1[T]) -> T:
     return value(result)
 
 
-def try_item[T](index: int32, xs: IEnumerable_1[T]) -> Option[T]:
+def try_item[T](index: int, xs: IEnumerable_1[T]) -> Option[T]:
     match xs:
         case Array():
             return array_try_item(index, xs)
@@ -209,7 +209,7 @@ def try_item[T](index: int32, xs: IEnumerable_1[T]) -> Option[T]:
             return None if v is _SENTINEL else some(v)
 
 
-def item[T](index: int32, xs: IEnumerable_1[T]) -> T:
+def item[T](index: int, xs: IEnumerable_1[T]) -> T:
     result = try_item(index, xs)
     if result is None:
         raise Exception("The input sequence has an insufficient number of elements. (Parameter 'index')")
