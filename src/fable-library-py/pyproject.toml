@@ -36,6 +36,10 @@ include = ["./fable_library"]
 python-source = "."                        # Look at project root
 module-name = "fable_library.core._core"   # Full module path
 features = ["pyo3/extension-module"]
+# Build release by default. A debug `_core` is roughly 10x slower, and a bare
+# `maturin develop` or `uv sync` would otherwise clobber the release build that
+# `./build.sh fable-library --python` installs.
+profile = "release"
 
 [tool.ty.environment]
 python-version = "3.12"

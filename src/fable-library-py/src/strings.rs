@@ -445,72 +445,68 @@ mod printf {
         type_info: Option<&str>,
         uppercase: bool,
     ) -> PyResult<String> {
-        // Pattern matching paradise: tuple destructuring eliminates nesting
-        match (type_info, uppercase) {
+        // A width tag formats the value as two's complement in that width. A parse
+        // failure means the value does not fit the tag -- e.g. a bigint, which is a
+        // plain Python `int` and so reports the same type name as an Int32 -- in which
+        // case fall through to the untagged logic below rather than giving up and
+        // emitting the raw decimal string.
+        let tagged = match (type_info, uppercase) {
             // Signed 32-bit integers
-            (Some("i32"), true) => Ok(value_str
+            (Some("i32"), true) => value_str
                 .parse::<i32>()
-                .map(|n| format!("{:X}", n as u32))
-                .unwrap_or_else(|_| value_str.to_string())),
-            (Some("i32"), false) => Ok(value_str
+                .ok()
+                .map(|n| format!("{:X}", n as u32)),
+            (Some("i32"), false) => value_str
                 .parse::<i32>()
-                .map(|n| format!("{:x}", n as u32))
-                .unwrap_or_else(|_| value_str.to_string())),
+                .ok()
+                .map(|n| format!("{:x}", n as u32)),
 
             // Signed 64-bit integers
-            (Some("i64"), true) => Ok(value_str
+            (Some("i64"), true) => value_str
                 .parse::<i64>()
-                .map(|n| format!("{:X}", n as u64))
-                .unwrap_or_else(|_| value_str.to_string())),
-            (Some("i64"), false) => Ok(value_str
+                .ok()
+                .map(|n| format!("{:X}", n as u64)),
+            (Some("i64"), false) => value_str
                 .parse::<i64>()
-                .map(|n| format!("{:x}", n as u64))
-                .unwrap_or_else(|_| value_str.to_string())),
+                .ok()
+                .map(|n| format!("{:x}", n as u64)),
 
             // Unsigned 32-bit integers
-            (Some("u32"), true) => Ok(value_str
-                .parse::<u32>()
-                .map(|n| format!("{:X}", n))
-                .unwrap_or_else(|_| value_str.to_string())),
-            (Some("u32"), false) => Ok(value_str
-                .parse::<u32>()
-                .map(|n| format!("{:x}", n))
-                .unwrap_or_else(|_| value_str.to_string())),
+            (Some("u32"), true) => value_str.parse::<u32>().ok().map(|n| format!("{:X}", n)),
+            (Some("u32"), false) => value_str.parse::<u32>().ok().map(|n| format!("{:x}", n)),
 
             // Unsigned 64-bit integers
-            (Some("u64"), true) => Ok(value_str
-                .parse::<u64>()
-                .map(|n| format!("{:X}", n))
-                .unwrap_or_else(|_| value_str.to_string())),
-            (Some("u64"), false) => Ok(value_str
-                .parse::<u64>()
-                .map(|n| format!("{:x}", n))
-                .unwrap_or_else(|_| value_str.to_string())),
+            (Some("u64"), true) => value_str.parse::<u64>().ok().map(|n| format!("{:X}", n)),
+            (Some("u64"), false) => value_str.parse::<u64>().ok().map(|n| format!("{:x}", n)),
 
-            // Default: try parsing as different types
-            (_, uppercase) => {
-                // First try as signed i64
-                if let Ok(signed_num) = value_str.parse::<i64>() {
-                    Ok(match (signed_num < 0, uppercase) {
-                        (true, true) => format!("{:X}", (signed_num as i32) as u32),
-                        (true, false) => format!("{:x}", (signed_num as i32) as u32),
-                        (false, true) => format!("{:X}", signed_num),
-                        (false, false) => format!("{:x}", signed_num),
-                    })
-                }
-                // Then try as unsigned u64
-                else if let Ok(num) = value_str.parse::<u64>() {
-                    Ok(if uppercase {
-                        format!("{:X}", num)
-                    } else {
-                        format!("{:x}", num)
-                    })
-                }
-                // Fall back to original string
-                else {
-                    Ok(value_str.to_string())
-                }
-            }
+            _ => None,
+        };
+
+        if let Some(formatted) = tagged {
+            return Ok(formatted);
+        }
+
+        // Untagged (or out-of-range for its tag): try parsing as different types
+        // First try as signed i64
+        if let Ok(signed_num) = value_str.parse::<i64>() {
+            Ok(match (signed_num < 0, uppercase) {
+                (true, true) => format!("{:X}", (signed_num as i32) as u32),
+                (true, false) => format!("{:x}", (signed_num as i32) as u32),
+                (false, true) => format!("{:X}", signed_num),
+                (false, false) => format!("{:x}", signed_num),
+            })
+        }
+        // Then try as unsigned u64
+        else if let Ok(num) = value_str.parse::<u64>() {
+            Ok(if uppercase {
+                format!("{:X}", num)
+            } else {
+                format!("{:x}", num)
+            })
+        }
+        // Fall back to original string
+        else {
+            Ok(value_str.to_string())
         }
     }
 

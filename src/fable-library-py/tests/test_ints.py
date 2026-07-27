@@ -193,6 +193,30 @@ def test_byte_lshift():
     assert 1 << byte(9) == 512
 
 
+def test_lshift_discards_bits_shifted_out_of_width():
+    # Multi-bit values distinguish a shift from a rotation: a rotation would wrap
+    # bit 1 around to bit 0 and give -2147483647 for the int32 case.
+    assert int32(3) << 31 == -2147483648
+    assert sbyte(3) << 7 == -128
+    assert int16(3) << 15 == -32768
+    assert int64(3) << 63 == -9223372036854775808
+    assert byte(3) << 7 == 128
+    assert uint16(3) << 15 == 32768
+    assert uint32(3) << 31 == 2147483648
+    assert uint64(3) << 63 == 9223372036854775808
+
+
+def test_lshift_masks_shift_count_to_width():
+    assert int32(1) << 32 == 1
+    assert int32(1) << 33 == 2
+    assert sbyte(1) << 8 == 1
+    assert int16(1) << 16 == 1
+    assert int64(1) << 64 == 1
+    assert byte(1) << 9 == 2
+    assert uint16(1) << 16 == 1
+    assert uint32(1) << 32 == 1
+
+
 def test_binary_complement():
     assert ~byte(0) == 255
     assert ~byte(1) == 254

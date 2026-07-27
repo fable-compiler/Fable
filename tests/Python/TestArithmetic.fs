@@ -119,6 +119,30 @@ let ``test Bitwise shift left with unsigned integer works`` () =
     1u <<< 31 |> equal 2147483648u
 
 [<Fact>]
+let ``test Bitwise shift left discards bits shifted out of the width`` () =
+    // Multi-bit values distinguish a shift from a rotation: a rotation would
+    // wrap bit 1 around to bit 0 and give -2147483647 here.
+    3 <<< 31 |> equal -2147483648
+    3y <<< 7 |> equal -128y
+    3s <<< 15 |> equal -32768s
+    3L <<< 63 |> equal -9223372036854775808L
+    3uy <<< 7 |> equal 128uy
+    3us <<< 15 |> equal 32768us
+    3u <<< 31 |> equal 2147483648u
+    3UL <<< 63 |> equal 9223372036854775808UL
+
+[<Fact>]
+let ``test Bitwise shift left masks the shift count to the type width`` () =
+    1 <<< 32 |> equal 1
+    1 <<< 33 |> equal 2
+    1y <<< 8 |> equal 1y
+    1s <<< 16 |> equal 1s
+    1L <<< 64 |> equal 1L
+    1uy <<< 9 |> equal 2uy
+    1us <<< 16 |> equal 1us
+    1u <<< 32 |> equal 1u
+
+[<Fact>]
 let ``test Bitwise OR on large unsigned integer works`` () =
     0x80000000u ||| 0u |> equal (0x80000000u ||| 0u >>> 0)
     0x80000000UL||| 0UL|> equal (0x80000000UL||| 0UL>>> 0)
