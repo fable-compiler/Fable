@@ -32,24 +32,75 @@ Python source code.
 | `[]<single>` |  `FSharpArray`   | Custom pyo3 wrapper (array.rs)                                                    |
 | `[]<'T>`     |      `list`      | Python list module                                                                |
 
+`FSharpArray` stores elements unboxed and hands them back in their Python representation, so an
+`int[]` yields plain `int`s. The element type is spelled with the Python representation:
+`Array[int]` and `Array[float]`, with `Array[uint8]` and friends for the wrapped widths.
+
 ## Numerics
 
-Most numeric types are now implemented using custom pyo3 wrapper types that maintain F#-style semantics while integrating with Python. Only `bigint` is still translated to Python's native `int` type. The wrapper types provide proper overflow behavior, type safety, and performance optimization while remaining compatible with Python code.
+F#'s two default numeric types are represented natively: `int` is a plain Python `int` and `float` is a
+plain Python `float`. The other widths use custom pyo3 wrapper types, which is what keeps a bare `int`
+or `float` an unambiguous runtime tag for the default width.
 
 | F#               | .NET       | Python  | Implementation                  |
 |:-----------------|:-----------|---------|---------------------------------|
 | bool             | Boolean    | bool    | Native Python type              |
-| int              | Int32      | Int32   | Custom pyo3 wrapper (ints.rs)   |
+| int              | Int32      | int     | Native Python type              |
+| float / double   | Double     | float   | Native Python type              |
+| bigint           | BigInteger | int     | Native Python type              |
 | byte             | Byte       | UInt8   | Custom pyo3 wrapper (ints.rs)   |
 | sbyte            | SByte      | Int8    | Custom pyo3 wrapper (ints.rs)   |
 | int16            | Int16      | Int16   | Custom pyo3 wrapper (ints.rs)   |
-| int64            | Int64      | Int64   | Custom pyo3 wrapper (ints.rs)   |
 | uint16           | Uint16     | UInt16  | Custom pyo3 wrapper (ints.rs)   |
 | uint32           | Uint32     | UInt32  | Custom pyo3 wrapper (ints.rs)   |
+| int64            | Int64      | Int64   | Custom pyo3 wrapper (ints.rs)   |
 | uint64           | Uint64     | UInt64  | Custom pyo3 wrapper (ints.rs)   |
-| float / double   | Double     | Float64 | Custom pyo3 wrapper (floats.rs) |
 | float32 / single | Single     | Float32 | Custom pyo3 wrapper (floats.rs) |
-| bigint           | BigInteger | int     | Native Python type              |
+
+### Int32 normalization
+
+A Python `int` is arbitrary precision, so the compiler normalizes results that can leave the 32-bit
+range, emitting `int32(...)` from `fable_library.core`. Two properties keep this cheap:
+
+- Normalization commutes with `+ - * << & | ^`, so **one normalization per expression tree** is
+  equivalent to one per operation. `int32(a * b + c)` and `int32(int32(a * b) + c)` always agree.
+- Only `+ - * <<` and unary `-` can leave the range at all. `& | ^ ~ >> / %`, comparisons, indexing
+  and literals map in-range operands to in-range results and are emitted bare.
+
+`transformOperation` implements this as a strip-then-wrap peephole keyed on the *Fable* operand node,
+never on the emitted Python — so it cannot strip a meaningful `int32(someFloat)` truncation, which
+does not commute with arithmetic. A four-operation tree emits a single wrap:
+
+```py
+def nested(a: int, b: int, c: int) -> int:
+    return int32(((a * b) + (c * 2)) - 1)
+```
+
+Float64 needs none of this: a Python `float` *is* an IEEE double, so arithmetic, overflow-to-infinity,
+NaN comparison, banker's rounding and signed zero already match .NET bit for bit.
+
+### Operators that diverge from Python
+
+| Expression | Python | .NET | Emitted |
+| --- | --- | --- | --- |
+| `-7 / 2` | `-4` (floors) | `-3` (truncates) | `int(a / b)` |
+| `-5 % 3` | `1` (sign of divisor) | `-2` (sign of dividend) | `op_remainder_int32(a, b)` |
+| `1 <<< 32` | `4294967296` | `1` (count masked) | `a << (b & 31)` |
+| `1.0 / 0.0` | `ZeroDivisionError` | `infinity` | `op_division_float64(a, b)` |
+| `-5.0 % 3.0` | `1.0` | `-2.0` | `op_remainder_float64(a, b)` |
+| `str(5.0)` | `'5.0'` | `'5'` | `exceptions.to_string` |
+
+Float division keeps a bare `/` when the divisor is a non-zero literal.
+
+### Runtime type tests
+
+`:? int` and `:? float` compile to exact `type(x) is int` / `type(x) is float` checks rather than
+`isinstance`, because `bool` subclasses `int` — `isinstance` would report `box true :? int` as true.
+Exact matching also keeps `float` distinct from the `Float32` wrapper, which is not a `float` subclass.
+
+**Known limitation:** Python's `int` is already arbitrary precision, so a boxed `int` cannot be told
+apart from a `bigint` at runtime. One assertion in `tests/Python/TestType.fs` is guarded with
+`#if !FABLE_COMPILER_PYTHON`. JS avoids this only because it has a native `bigint` primitive.
 
 ## Interfaces and Protocols
 
