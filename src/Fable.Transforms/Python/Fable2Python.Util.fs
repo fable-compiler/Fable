@@ -930,23 +930,10 @@ module Util =
         let cons = libValue com ctx "core" intName
         let value = Expression.intConstant (x, ?loc = r)
 
-        // Added support for a few selected literals for performance reasons
+        // Added support for a few selected literals for performance reasons.
+        // There are no System.Int32 arms: Int32 is represented as a plain Python
+        // `int`, so its literals never reach here.
         match intName, x with
-        | _, (:? int as i) when i = 0 -> makeFieldGet cons "ZERO"
-        | _, (:? int as i) when i = 1 -> makeFieldGet cons "ONE"
-        | _, (:? int as i) when i = -1 -> makeFieldGet cons "NEG_ONE"
-        | _, (:? int as i) when i = 2 -> makeFieldGet cons "TWO"
-        | _, (:? int as i) when i = 3 -> makeFieldGet cons "THREE"
-        | _, (:? int as i) when i = 4 -> makeFieldGet cons "FOUR"
-        | _, (:? int as i) when i = 5 -> makeFieldGet cons "FIVE"
-        | _, (:? int as i) when i = 6 -> makeFieldGet cons "SIX"
-        | _, (:? int as i) when i = 7 -> makeFieldGet cons "SEVEN"
-        | _, (:? int as i) when i = 8 -> makeFieldGet cons "EIGHT"
-        | _, (:? int as i) when i = 9 -> makeFieldGet cons "NINE"
-        | _, (:? int as i) when i = 10 -> makeFieldGet cons "TEN"
-        | _, (:? int as i) when i = 16 -> makeFieldGet cons "SIXTEEN"
-        | _, (:? int as i) when i = 32 -> makeFieldGet cons "THIRTY_TWO"
-        | _, (:? int as i) when i = 64 -> makeFieldGet cons "SIXTY_FOUR"
         | _, (:? int8 as i) when i = 0y -> makeFieldGet cons "ZERO"
         | _, (:? int8 as i) when i = 1y -> makeFieldGet cons "ONE"
         | _, (:? int8 as i) when i = -1y -> makeFieldGet cons "NEG_ONE"
