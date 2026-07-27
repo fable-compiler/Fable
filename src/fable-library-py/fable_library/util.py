@@ -637,10 +637,11 @@ def string_hash(s: str) -> int:
     for c in s:
         # Normalized each step: plain ints are arbitrary precision, and this would
         # otherwise grow ~5 bits per character. Truncation commutes with `*` and
-        # `^`, so this gives the same answer as normalizing once at the end.
-        h = int32((h * 33) ^ ord(c))
+        # `^`, so this gives the same answer as normalizing once at the end. The
+        # mask is inlined because this overflows on nearly every iteration.
+        h = ((h * 33) ^ ord(c)) & 4294967295
 
-    return h
+    return h - 4294967296 if h > 2147483647 else h
 
 
 def number_hash(x: Any) -> int:
@@ -664,7 +665,9 @@ def combine_hash_codes(hashes: list[int]) -> int:
     if not hashes:
         return int32(0)
 
-    return functools.reduce(lambda h1, h2: int32(((h1 << 5) + h1) ^ h2), hashes)
+    combined = functools.reduce(lambda h1, h2: (((h1 << 5) + h1) ^ h2) & 4294967295, hashes)
+
+    return combined - 4294967296 if combined > 2147483647 else combined
 
 
 def structural_hash(x: Any) -> int:

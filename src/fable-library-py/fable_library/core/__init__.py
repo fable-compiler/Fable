@@ -64,18 +64,22 @@ float32 = Float32
 # twice what the whole helper does, because crossing the boundary is the expensive
 # part, not the arithmetic.
 
-_INT32_MIN = -2147483648
-_INT32_MAX = 2147483647
-
 
 def int32(value: SupportsInt = 0, /) -> int:
-    """Normalize `value` to a signed 32-bit int, wrapping as .NET does."""
-    number: int = value if type(value) is int else int(value)
+    """Normalize `value` to a signed 32-bit int, wrapping as .NET does.
 
-    if _INT32_MIN <= number <= _INT32_MAX:
-        return number
+    Shaped for the common case: most values are already in range, so that path is a
+    single comparison with no temporaries and no module-global lookups.
+    """
+    if type(value) is int:
+        if -2147483648 <= value <= 2147483647:
+            return value
 
-    return ((number + 2147483648) & 4294967295) - 2147483648
+        masked = value & 4294967295
+
+        return masked - 4294967296 if masked > 2147483647 else masked
+
+    return int32(int(value))
 
 
 def float64(value: SupportsFloat = 0.0, /) -> float:
