@@ -31,6 +31,12 @@ type BuildFableLibraryPython(?skipCore: bool, ?postFableBuildStage: unit -> unit
         Directory.GetFiles(this.LibraryDir, "*") |> Shell.copyFiles this.BuildDir
         Directory.GetFiles(this.SourceDir, "*.py") |> Shell.copyFiles this.OutDir
 
+        // PEP 561 marker. It has to sit *inside* the package directory for type
+        // checkers to read the stubs at all, and the `*.py` filter above drops it --
+        // which is why every published wheel so far has shipped `core/*.pyi` that no
+        // consumer could see.
+        [ Path.Combine(this.SourceDir, "py.typed") ] |> Shell.copyFiles this.OutDir
+
         // Python extension modules
         Directory.GetFiles(Path.Combine(this.SourceDir, "core"), "*")
         |> Shell.copyFiles (Path.Combine(this.OutDir, "core"))

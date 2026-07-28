@@ -23,19 +23,31 @@ dev = [
     "pydantic>=2.13.4",
 ]
 
-[tool.hatch.build.targets.sdist]
-include = ["./fable_library"]
-
-[tool.hatch.build.targets.wheel]
-include = ["./fable_library"]
-
-[tool.hatch.build.targets.wheel.sources]
-"./fable_library" = "fable_library"
+# Note: there is deliberately no [tool.hatch.*] config here. `build-backend` below
+# is maturin, so hatch settings would be dead config that merely *looks* like it
+# governs what ships -- which is a good way for a packaging bug to go unnoticed.
 
 [tool.maturin]
 python-source = "."                        # Look at project root
 module-name = "fable_library.core._core"   # Full module path
 features = ["pyo3/extension-module"]
+
+# `Fable.Library.Python.fsproj` lives inside the package directory, so `dotnet build`
+# drops MSBuild output into `fable_library/obj/`. With `python-source = "."` maturin
+# would package that wholesale, and one of those paths contains a comma
+# (`.NETCoreApp,Version=v10.0.AssemblyAttributes.fs`) -- RECORD is CSV, so the
+# resulting wheel is rejected by `uv pip install` as malformed. `pip` is lenient
+# enough to survive it, which makes the failure look intermittent.
+#
+# None of this shows up in a clean CI checkout, only for contributors who have run
+# `dotnet build`. Excluding here fixes it regardless of build order; deleting `obj/`
+# in the build script would not, since it regenerates on the next build.
+exclude = [
+    "fable_library/obj/**/*",
+    "**/__pycache__/**/*",
+    "fable_library/*.fs",
+    "fable_library/*.fsproj",
+]
 
 [tool.ty.environment]
 python-version = "3.12"
@@ -56,5 +68,5 @@ testpaths = ["tests", "tests-benchmark"]
 addopts = "--benchmark-columns=min,max,mean,stddev,iqr"
 
 [build-system]
-requires = ["hatchling", "maturin>=1.5,<2.0"]
+requires = ["maturin>=1.5,<2.0"]
 build-backend = "maturin"
