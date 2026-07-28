@@ -146,26 +146,26 @@ def div_rem(x: int64, y: int64, out: FSharpRef[int64] | None = None) -> int64 | 
 
 
 @overload
-def op_right_shift(a: int64, b: int32) -> int64: ...
+def op_right_shift(a: int64, b: int) -> int64: ...
 
 
 @overload
-def op_right_shift(a: uint64, b: int32) -> uint64: ...
+def op_right_shift(a: uint64, b: int) -> uint64: ...
 
 
-def op_right_shift(a: int64 | uint64, b: int32) -> int64 | uint64:
+def op_right_shift(a: int64 | uint64, b: int) -> int64 | uint64:
     return a >> b
 
 
 @overload
-def op_left_shift(a: int64, b: int32) -> int64: ...
+def op_left_shift(a: int64, b: int) -> int64: ...
 
 
 @overload
-def op_left_shift(a: uint64, b: int32) -> uint64: ...
+def op_left_shift(a: uint64, b: int) -> uint64: ...
 
 
-def op_left_shift(a: int64 | uint64, b: int32) -> int64 | uint64:
+def op_left_shift(a: int64 | uint64, b: int) -> int64 | uint64:
     return a << b
 
 
@@ -267,7 +267,7 @@ def from_number(value: SupportsInt, unsigned: bool) -> int64 | uint64:
     return uint64(value) if unsigned else int64(value)
 
 
-def to_number(value: SupportsFloat | SupportsInt) -> float64:
+def to_number(value: SupportsFloat | SupportsInt) -> float:
     return float64(value)
 
 

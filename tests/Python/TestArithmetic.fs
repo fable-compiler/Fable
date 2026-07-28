@@ -102,6 +102,122 @@ let ``test Math.DivRem works with longs and outref`` () =
 let ``test Evaluation order is preserved by generated code`` () =
     (4 - 2) * 2 + 1 |> equal 5
 
+// Int32 is a plain Python `int` on the Python target, which is arbitrary precision,
+// so the compiler normalizes results back into 32 bits. These use function
+// parameters rather than literals so the values are not constant-folded away and
+// the runtime normalization path is exercised. All expectations verified on .NET.
+let private addI (a: int) (b: int) = a + b
+let private mulI (a: int) (b: int) = a * b
+let private divI (a: int) (b: int) = a / b
+let private remI (a: int) (b: int) = a % b
+let private shlI (a: int) (n: int) = a <<< n
+let private shrI (a: int) (n: int) = a >>> n
+
+[<Fact>]
+let ``test Int32 arithmetic wraps at 32 bits`` () =
+    let a = addI 2000000000 0
+    let b = addI 1500000000 0
+    addI a a |> equal -294967296
+    mulI a a |> equal -1651507200
+    addI (addI a a) a |> equal 1705032704
+    addI (mulI a b) a |> equal 1835111424
+    addI 2147483647 1 |> equal -2147483648
+    -(addI -2147483648 0) |> equal -2147483648
+
+[<Fact>]
+let ``test Int32 operands are normalized before non-wrapping operations`` () =
+    // Normalization commutes with + - * <<< so it can happen once per expression
+    // tree, but these consumers must see the already-wrapped value.
+    let a = addI 2000000000 0
+    divI (addI a a) 2 |> equal -147483648
+    remI (addI a a) 7 |> equal -1
+    (addI a a) &&& 0xFF |> equal 0
+    (addI a a) > 0 |> equal false
+    string (addI a a) |> equal "-294967296"
+    shrI (addI a a) 4 |> equal -18435456
+
+[<Fact>]
+let ``test Int32 division truncates toward zero`` () =
+    // Python's // floors: -7 // 2 is -4 there and -3 in .NET
+    divI -7 2 |> equal -3
+    divI 7 -2 |> equal -3
+    divI -7 -2 |> equal 3
+    divI 7 2 |> equal 3
+
+[<Fact>]
+let ``test Int32 remainder takes the sign of the dividend`` () =
+    // Python's % takes the sign of the divisor: -5 % 3 is 1 there and -2 in .NET
+    remI -5 3 |> equal -2
+    remI 5 -3 |> equal 2
+    remI -5 -3 |> equal -2
+    remI 5 3 |> equal 2
+    remI 6 3 |> equal 0
+    remI -6 3 |> equal 0
+
+[<Fact>]
+let ``test Int32 shift counts are masked at runtime`` () =
+    shlI 1 32 |> equal 1
+    shlI 1 33 |> equal 2
+    shlI 3 31 |> equal -2147483648
+    shrI -1 32 |> equal -1
+    shrI -2 1 |> equal -1
+
+// Float64 is a plain Python `float` on the Python target -- an IEEE double, so
+// arithmetic needs no adjustment. Only `/` by zero and `%` diverge: Python raises
+// where .NET yields +/-inf or nan, and Python's float `%` takes the sign of the
+// divisor where .NET takes the dividend's. Non-literal operands keep the runtime
+// path in play. All expectations verified on .NET.
+let private divF (a: float) (b: float) = a / b
+let private remF (a: float) (b: float) = a % b
+
+[<Fact>]
+let ``test Float division by zero yields infinity at runtime`` () =
+    divF 1.0 0.0 |> Double.IsPositiveInfinity |> equal true
+    divF -1.0 0.0 |> Double.IsNegativeInfinity |> equal true
+    divF 1.0 -0.0 |> Double.IsNegativeInfinity |> equal true
+    divF -1.0 -0.0 |> Double.IsPositiveInfinity |> equal true
+    divF 0.0 0.0 |> Double.IsNaN |> equal true
+    divF infinity 0.0 |> Double.IsPositiveInfinity |> equal true
+    divF 1.0 2.0 |> equal 0.5
+
+[<Fact>]
+let ``test Float remainder takes the sign of the dividend`` () =
+    remF -5.0 3.0 |> equal -2.0
+    remF 5.0 -3.0 |> equal 2.0
+    remF -5.0 -3.0 |> equal -2.0
+    remF 5.0 3.0 |> equal 2.0
+
+[<Fact>]
+let ``test Float remainder edge cases yield NaN`` () =
+    remF 5.0 0.0 |> Double.IsNaN |> equal true
+    remF infinity 2.0 |> Double.IsNaN |> equal true
+    remF nan 2.0 |> Double.IsNaN |> equal true
+    remF 5.0 infinity |> equal 5.0
+    remF -5.0 infinity |> equal -5.0
+
+// Rendering a plain Python `float` has to shorten a whole double ("5", not "5.0") and
+// spell the non-finite values out, and the two interact: the shortening runs `int()`,
+// which raises OverflowError on the infinities and ValueError on NaN. Non-literal
+// operands keep the runtime path in play. All expectations verified on .NET.
+let private strF (x: float) = string x
+
+[<Fact>]
+let ``test Float to string spells the non-finite values out`` () =
+    strF infinity |> equal "Infinity"
+    strF -infinity |> equal "-Infinity"
+    strF nan |> equal "NaN"
+    strF 5.0 |> equal "5"
+    strF 2.5 |> equal "2.5"
+    strF -0.5 |> equal "-0.5"
+
+[<Fact>]
+let ``test Float printf formatting handles the non-finite values`` () =
+    sprintf "%f" (divF 1.0 0.0) |> equal "Infinity"
+    sprintf "%f" (divF -1.0 0.0) |> equal "-Infinity"
+    sprintf "%f" (divF 0.0 0.0) |> equal "NaN"
+    sprintf "%f" 2.5 |> equal "2.500000"
+    sprintf "%g" (divF 1.0 0.0) |> equal "Infinity"
+
 [<Fact>]
 let ``test Bitwise and can be generated`` () =
     6 &&& 2 |> equal 2
@@ -117,6 +233,30 @@ let ``test Bitwise shift left can be generated`` () =
 [<Fact>]
 let ``test Bitwise shift left with unsigned integer works`` () =
     1u <<< 31 |> equal 2147483648u
+
+[<Fact>]
+let ``test Bitwise shift left discards bits shifted out of the width`` () =
+    // Multi-bit values distinguish a shift from a rotation: a rotation would
+    // wrap bit 1 around to bit 0 and give -2147483647 here.
+    3 <<< 31 |> equal -2147483648
+    3y <<< 7 |> equal -128y
+    3s <<< 15 |> equal -32768s
+    3L <<< 63 |> equal -9223372036854775808L
+    3uy <<< 7 |> equal 128uy
+    3us <<< 15 |> equal 32768us
+    3u <<< 31 |> equal 2147483648u
+    3UL <<< 63 |> equal 9223372036854775808UL
+
+[<Fact>]
+let ``test Bitwise shift left masks the shift count to the type width`` () =
+    1 <<< 32 |> equal 1
+    1 <<< 33 |> equal 2
+    1y <<< 8 |> equal 1y
+    1s <<< 16 |> equal 1s
+    1L <<< 64 |> equal 1L
+    1uy <<< 9 |> equal 2uy
+    1us <<< 16 |> equal 1us
+    1u <<< 32 |> equal 1u
 
 [<Fact>]
 let ``test Bitwise OR on large unsigned integer works`` () =

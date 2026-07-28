@@ -179,9 +179,9 @@ def returns[T, **P](targettype: Callable[..., T]) -> Callable[[Callable[P, Any]]
 
 
 class DateKind:
-    Unspecified: Final[int32] = int32(0)
-    UTC: Final[int32] = int32(1)
-    Local: Final[int32] = int32(2)
+    Unspecified: Final[int] = int32(0)
+    UTC: Final[int] = int32(1)
+    Local: Final[int] = int32(2)
 
 
 def equals(a: Any, b: Any) -> bool:
@@ -307,7 +307,7 @@ def equal_arrays[T](x: Sequence[T], y: Sequence[T]) -> bool:
     return equal_arrays_with(x, y, equals)
 
 
-def compare_primitives[TSupportsLessThan: SupportsLessThan](x: TSupportsLessThan, y: TSupportsLessThan) -> int32:
+def compare_primitives[TSupportsLessThan: SupportsLessThan](x: TSupportsLessThan, y: TSupportsLessThan) -> int:
     if x == y:
         return int32(0)
     if x < y:
@@ -447,12 +447,12 @@ def int_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
     return str(i)
 
 
-def count(it: IEnumerable_1[Any] | Iterable[Any]) -> int32:
+def count(it: IEnumerable_1[Any] | Iterable[Any]) -> int:
     it = to_iterable(it)
     if isinstance(it, Sized):
         return int32(len(it))
 
-    count = int32.ZERO
+    count = 0
     for _ in it:
         count += 1
 
@@ -621,7 +621,7 @@ class ObjectRef:
         return ObjectRef.id_map[_id]
 
 
-def safe_hash(x: Any) -> int32:
+def safe_hash(x: Any) -> int:
     """Hash a declared type that may or may not implement GetHashCode.
 
     F# `GetHashCode` takes precedence over Python's `__hash__`: an F# class
@@ -632,19 +632,23 @@ def safe_hash(x: Any) -> int32:
     return identity_hash(x)
 
 
-def string_hash(s: str) -> int32:
+def string_hash(s: str) -> int:
     h = 5381
     for c in s:
-        h = (h * 33) ^ ord(c)
+        # Normalized each step: plain ints are arbitrary precision, and this would
+        # otherwise grow ~5 bits per character. Truncation commutes with `*` and
+        # `^`, so this gives the same answer as normalizing once at the end. The
+        # mask is inlined because this overflows on nearly every iteration.
+        h = ((h * 33) ^ ord(c)) & 4294967295
 
-    return int32(h)
+    return h - 4294967296 if h > 2147483647 else h
 
 
-def number_hash(x: Any) -> int32:
+def number_hash(x: Any) -> int:
     return x.GetHashCode() if hasattr(x, "GetHashCode") else int32(hash(x))
 
 
-def identity_hash(x: Any) -> int32:
+def identity_hash(x: Any) -> int:
     if x is None:
         return int32(0)
 
@@ -657,14 +661,16 @@ def identity_hash(x: Any) -> int32:
     return number_hash(ObjectRef.id(x))
 
 
-def combine_hash_codes(hashes: list[int32]) -> int32:
+def combine_hash_codes(hashes: list[int]) -> int:
     if not hashes:
         return int32(0)
 
-    return functools.reduce(lambda h1, h2: ((h1 << 5) + h1) ^ h2, hashes)
+    combined = functools.reduce(lambda h1, h2: (((h1 << 5) + h1) ^ h2) & 4294967295, hashes)
+
+    return combined - 4294967296 if combined > 2147483647 else combined
 
 
-def structural_hash(x: Any) -> int32:
+def structural_hash(x: Any) -> int:
     """Hash a value using F# structural semantics.
 
     Like `safe_hash`, F# `GetHashCode` wins over Python's `__hash__` so that
@@ -673,10 +679,10 @@ def structural_hash(x: Any) -> int32:
     back to identity for their items.
     """
     if x is None:
-        return int32.ZERO
+        return 0
 
     if isinstance(x, bool):
-        return int32.ONE if x else int32.ZERO
+        return 1 if x else 0
 
     if isinstance(x, str):
         return string_hash(x)
@@ -696,15 +702,15 @@ def structural_hash(x: Any) -> int32:
     return number_hash(ObjectRef.id(x))
 
 
-def array_hash(xs: Iterable[object]) -> int32:
-    hashes: list[int32] = []
+def array_hash(xs: Iterable[object]) -> int:
+    hashes: list[int] = []
     for x in xs:
         hashes.append(structural_hash(x))
 
     return combine_hash_codes(hashes)
 
 
-def physical_hash(x: Any) -> int32:
+def physical_hash(x: Any) -> int:
     return number_hash(ObjectRef.id(x))
 
 
@@ -713,25 +719,32 @@ def round(value: float32, digits: int = 0) -> float32: ...
 
 
 @overload
-def round(value: float64, digits: int = 0) -> float64: ...
+def round(value: float, digits: int = 0) -> float: ...
 
 
-def round(value: float64 | float32, digits: int = 0) -> float64 | float32:
-    return value.round(digits)
+def round(value: float | float32, digits: int = 0) -> float | float32:
+    if isinstance(value, float32):
+        return value.round(digits)
+
+    # Float64 is a plain Python float. Same scaling algorithm as the wrapper:
+    # builtins.round without ndigits rounds half to even, as .NET does.
+    factor = 10.0**digits
+
+    return builtins.round(value * factor) / factor
 
 
-def create_random(seed: int32 | None = None) -> random.Random:
+def create_random(seed: int | None = None) -> random.Random:
     return random.Random(None if seed is None else int(seed))
 
 
-def random_int(rand: random.Random, a: int32, b: int32) -> int32:
+def random_int(rand: random.Random, a: int, b: int) -> int:
     if a == b:
         return int32(a)
 
     return int32(rand.randrange(int(a), int(b)))
 
 
-def random_double(rand: random.Random) -> float64:
+def random_double(rand: random.Random) -> float:
     return float64(rand.random())
 
 
@@ -893,7 +906,7 @@ class StaticPropertyMeta(ABCMeta):
         super().__setattr__(name, value)
 
 
-def range(start: int, stop: int, step: int = 1) -> Iterable[int32]:
+def range(start: int, stop: int, step: int = 1) -> Iterable[int]:
     """Range function that returns an iterable of int32 values.
 
     This function handles the difference between F# and Python range semantics:

@@ -603,9 +603,7 @@ module Util =
 
     let thisExpr = Expression.name "self"
 
-    let ofInt (com: IPythonCompiler) (ctx: Context) (i: int) =
-        //Expression.intConstant (int i)
-        libCall com ctx None "core" "int32" [ Expression.intConstant (int i) ]
+    let ofInt (_com: IPythonCompiler) (_ctx: Context) (i: int) = Expression.intConstant (int i)
 
     let ofString (s: string) = Expression.stringConstant s
 
@@ -658,12 +656,14 @@ module Util =
             | _, Fable.Type.Number(Int8, _) -> Some "sbyte"
             | _, Fable.Type.Number(Int16, _) -> Some "int16"
             | _, Fable.Type.Number(UInt16, _) -> Some "uint16"
-            | _, Fable.Type.Number(Int32, _) -> Some "int32"
+            // Int32 is a plain Python `int`
+            | _, Fable.Type.Number(Int32, _) -> Some "int"
             | _, Fable.Type.Number(UInt32, _) -> Some "uint32"
             | _, Fable.Type.Number(Int64, _) -> Some "int64"
             | _, Fable.Type.Number(UInt64, _) -> Some "uint64"
             | _, Fable.Type.Number(Float32, _) -> Some "float32"
-            | _, Fable.Type.Number(Float64, _) -> Some "float64"
+            // Float64 is a plain Python `float`
+            | _, Fable.Type.Number(Float64, _) -> Some "float"
             | _ -> Some "Any"
 
         // printfn "Array type: %A" array_type
@@ -673,10 +673,11 @@ module Util =
             let array = libValue com ctx "array_" "Array"
 
             let type_obj =
-                if l = "Any" then
-                    com.GetImportExpr(ctx, "typing", "Any")
-                else
-                    libValue com ctx "core" l
+                match l with
+                | "Any" -> com.GetImportExpr(ctx, "typing", "Any")
+                | "int"
+                | "float" -> Expression.name l
+                | _ -> libValue com ctx "core" l
 
             let types_array = Expression.subscript (value = array, slice = type_obj, ctx = Load)
             Expression.call (types_array, [ expr ])
@@ -794,7 +795,7 @@ module Util =
             | UInt8 -> makeInteger com ctx None t "uint8" (0uy :> obj) |> fst
             | Int16 -> makeInteger com ctx None t "int16" (0s :> obj) |> fst
             | UInt16 -> makeInteger com ctx None t "uint16" (0us :> obj) |> fst
-            | Int32 -> makeInteger com ctx None t "int32" (0 :> obj) |> fst
+            | Int32 -> Expression.intConstant 0
             | UInt32 -> makeInteger com ctx None t "uint32" (0u :> obj) |> fst
             | Int64 -> makeInteger com ctx None t "int64" (0L :> obj) |> fst
             | UInt64 -> makeInteger com ctx None t "uint64" (0UL :> obj) |> fst
@@ -805,8 +806,8 @@ module Util =
             | UNativeInt -> Expression.intConstant 0
             | Float16 -> makeFloat com ctx None t "float32" 0.0 |> fst
             | Float32 -> makeFloat com ctx None t "float32" 0.0 |> fst
-            | Float64 -> makeFloat com ctx None t "float64" 0.0 |> fst
-            | Decimal -> makeFloat com ctx None t "float64" 0.0 |> fst
+            | Float64 -> Expression.floatConstant 0.0
+            | Decimal -> Expression.floatConstant 0.0
         | Fable.Char -> Expression.stringConstant "\u0000"
         | Fable.String -> Expression.stringConstant ""
         | Fable.DeclaredType(entRef, _) ->
@@ -929,23 +930,10 @@ module Util =
         let cons = libValue com ctx "core" intName
         let value = Expression.intConstant (x, ?loc = r)
 
-        // Added support for a few selected literals for performance reasons
+        // Added support for a few selected literals for performance reasons.
+        // There are no System.Int32 arms: Int32 is represented as a plain Python
+        // `int`, so its literals never reach here.
         match intName, x with
-        | _, (:? int as i) when i = 0 -> makeFieldGet cons "ZERO"
-        | _, (:? int as i) when i = 1 -> makeFieldGet cons "ONE"
-        | _, (:? int as i) when i = -1 -> makeFieldGet cons "NEG_ONE"
-        | _, (:? int as i) when i = 2 -> makeFieldGet cons "TWO"
-        | _, (:? int as i) when i = 3 -> makeFieldGet cons "THREE"
-        | _, (:? int as i) when i = 4 -> makeFieldGet cons "FOUR"
-        | _, (:? int as i) when i = 5 -> makeFieldGet cons "FIVE"
-        | _, (:? int as i) when i = 6 -> makeFieldGet cons "SIX"
-        | _, (:? int as i) when i = 7 -> makeFieldGet cons "SEVEN"
-        | _, (:? int as i) when i = 8 -> makeFieldGet cons "EIGHT"
-        | _, (:? int as i) when i = 9 -> makeFieldGet cons "NINE"
-        | _, (:? int as i) when i = 10 -> makeFieldGet cons "TEN"
-        | _, (:? int as i) when i = 16 -> makeFieldGet cons "SIXTEEN"
-        | _, (:? int as i) when i = 32 -> makeFieldGet cons "THIRTY_TWO"
-        | _, (:? int as i) when i = 64 -> makeFieldGet cons "SIXTY_FOUR"
         | _, (:? int8 as i) when i = 0y -> makeFieldGet cons "ZERO"
         | _, (:? int8 as i) when i = 1y -> makeFieldGet cons "ONE"
         | _, (:? int8 as i) when i = -1y -> makeFieldGet cons "NEG_ONE"
@@ -1053,6 +1041,51 @@ module Util =
         let cons = libValue com ctx "core" floatName
         let value = Expression.floatConstant (x, ?loc = r)
         Expression.call (cons, [ value ], ?loc = r), []
+
+    // ---------------------------------------------------------------------------
+    // Int32 normalization
+    //
+    // Int32 is a plain Python `int`, which is arbitrary precision, so operations
+    // that can leave the 32-bit range are normalized back into it by the compiler.
+    //
+    // Normalization commutes with `+ - * << & | ^`, so normalizing once at the root
+    // of an arithmetic tree is equivalent to normalizing after every operation --
+    // `int32(a * b + c)` and `int32(int32(a * b) + c)` always agree. Only `+ - * <<`
+    // and unary `-` can leave the range in the first place; `& | ^ ~ >> / %`,
+    // comparisons and literals map in-range operands to in-range results and need
+    // no normalization at all.
+    // ---------------------------------------------------------------------------
+
+    /// Operations emitted with an `int32(...)` wrap around them, and therefore the
+    /// ones whose wrap a parent in the same set may strip and re-apply at its own root.
+    let isInt32WrapOp (e: Fable.Expr) =
+        match e with
+        | Fable.Operation(Fable.Binary((BinaryPlus | BinaryMinus | BinaryMultiply | BinaryShiftLeft), _, _),
+                          _,
+                          Fable.Number(Int32, _),
+                          _) -> true
+        | Fable.Operation(Fable.Unary(UnaryMinus, _), _, Fable.Number(Int32, _), _) -> true
+        | _ -> false
+
+    /// Removes the `int32(...)` wrap this module put around an operand.
+    ///
+    /// Only ever applied when `isInt32WrapOp` held for the operand's *Fable* node, so
+    /// it cannot strip a meaningful conversion: `int32(someFloat)` truncates, and
+    /// truncation does not commute with arithmetic. If the operand was hoisted to a
+    /// temporary this is a no-op and the result is one redundant -- but idempotent --
+    /// wrap, never a wrong value.
+    let stripInt32Wrap (com: IPythonCompiler) ctx (e: Expression) =
+        match e with
+        // `libValue` registers the import as a side effect, which is why it is only
+        // reached once the shape is known to be a one-argument call. Registering is
+        // harmless in any case: every caller re-applies the wrap through `wrapInt32`
+        // immediately afterwards, so the import is always used.
+        | Expression.Call call when call.Args.Length = 1 && call.Func = libValue com ctx "core" "int32" ->
+            call.Args.Head
+        | _ -> e
+
+    /// `int32(expr)`.
+    let wrapInt32 (com: IPythonCompiler) ctx r (e: Expression) = libCall com ctx r "core" "int32" [ e ]
 
 
     let enumerator2iterator com ctx =

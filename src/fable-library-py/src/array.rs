@@ -6,7 +6,7 @@ use crate::types::FSharpRef;
 use crate::util::{DefaultComparer, ProjectionComparer};
 use pyo3::class::basic::CompareOp;
 use pyo3::types::PyNotImplemented;
-use pyo3::types::{PyBool, PyInt};
+use pyo3::types::{PyBool, PyFloat, PyInt};
 use pyo3::types::{PyBytes, PyTuple, PyType};
 use pyo3::BoundObject;
 use pyo3::{exceptions, IntoPyObjectExt, PyTypeInfo};
@@ -265,12 +265,16 @@ impl FSharpArray {
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
         // Get type name - either from string or from type.__name__
+        // `int32` is a normalizing function rather than a class, so `__name__` is read
+        // off whatever was passed rather than only off a type object.
         let type_name: Option<String> = if let Ok(s) = item.extract::<String>() {
             Some(s)
         } else if let Ok(py_type) = item.cast::<PyType>() {
             py_type.getattr("__name__")?.extract()?
         } else {
-            None
+            item.getattr("__name__")
+                .ok()
+                .and_then(|name| name.extract::<String>().ok())
         };
 
         // Match on the type name
@@ -279,12 +283,13 @@ impl FSharpArray {
             Some("uint8") | Some("byte") => UInt8Array::type_object(py),
             Some("int16") => Int16Array::type_object(py),
             Some("uint16") => UInt16Array::type_object(py),
-            Some("int32") => Int32Array::type_object(py),
+            // `int` and `float` are the representations of Int32 and Float64
+            Some("int32") | Some("int") => Int32Array::type_object(py),
             Some("uint32") => UInt32Array::type_object(py),
             Some("int64") => Int64Array::type_object(py),
             Some("uint64") => UInt64Array::type_object(py),
             Some("float32") => Float32Array::type_object(py),
-            Some("float64") => Float64Array::type_object(py),
+            Some("float64") | Some("float") => Float64Array::type_object(py),
             Some("bool") => BoolArray::type_object(py),
             _ => GenericArray::type_object(py),
         };
@@ -365,6 +370,27 @@ impl FSharpArray {
             vec.resize(count, bool_val);
             return Ok(FSharpArray {
                 storage: NativeArray::Bool(vec),
+            });
+        }
+
+        // Plain Python `int`/`float` are how Int32 and Float64 values are represented,
+        // so they specialize to the corresponding storage rather than falling back to
+        // boxed generic storage. This is checked after `bool`, which subclasses `int`
+        // and must keep its own storage, and after the narrower widths, whose wrapper
+        // types do not accept a plain int.
+        if let Ok(int_val) = value.cast::<PyInt>() {
+            if let Ok(i32_val) = int_val.extract::<i32>() {
+                let mut vec = Vec::with_capacity(count);
+                vec.resize(count, i32_val);
+                return Ok(FSharpArray {
+                    storage: NativeArray::Int32(vec),
+                });
+            }
+        } else if let Ok(float_val) = value.cast::<PyFloat>() {
+            let mut vec = Vec::with_capacity(count);
+            vec.resize(count, float_val.value());
+            return Ok(FSharpArray {
+                storage: NativeArray::Float64(vec),
             });
         }
 
@@ -474,13 +500,24 @@ impl FSharpArray {
         self.storage.len()
     }
 
-    /// Returns the length of the array as Int32 (F# compatible).
+    /// Returns the length of the array.
     ///
-    /// This property provides F# interop compatibility by returning the array length
-    /// as an Int32 instead of Python's native int. In F#, Array.length returns int32.
+    /// In F# `Array.length` returns an int32, which is represented as a plain
+    /// Python `int`. A length always fits, so no normalization is needed.
     #[getter]
-    pub fn length(&self) -> Int32 {
-        Int32(self.storage.len() as i32)
+    pub fn length(&self) -> usize {
+        self.storage.len()
+    }
+
+    /// Returns the name of the backing storage: `"Int32"`, `"Float64"`, `"Generic"`, ...
+    ///
+    /// Element storage is chosen by inspecting the values an array is built from, so a
+    /// change in how values are represented can silently downgrade a specialized array
+    /// to boxed `Generic` storage. Exposing the storage kind lets tests assert the
+    /// specialization directly instead of only checking the values that come back out.
+    #[getter]
+    pub fn storage_type(&self) -> &str {
+        self.storage.type_name()
     }
 
     /// Returns an iterator over the array elements.

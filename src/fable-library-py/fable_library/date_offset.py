@@ -376,35 +376,35 @@ def unix_epoch() -> DateTimeOffset:
 # ---------------------------------------------------------------------------
 
 
-def year(d: DateTimeOffset) -> int32:
+def year(d: DateTimeOffset) -> int:
     return int32(d.year)
 
 
-def month(d: DateTimeOffset) -> int32:
+def month(d: DateTimeOffset) -> int:
     return int32(d.month)
 
 
-def day(d: DateTimeOffset) -> int32:
+def day(d: DateTimeOffset) -> int:
     return int32(d.day)
 
 
-def hour(d: DateTimeOffset) -> int32:
+def hour(d: DateTimeOffset) -> int:
     return int32(d.hour)
 
 
-def minute(d: DateTimeOffset) -> int32:
+def minute(d: DateTimeOffset) -> int:
     return int32(d.minute)
 
 
-def second(d: DateTimeOffset) -> int32:
+def second(d: DateTimeOffset) -> int:
     return int32(d.second)
 
 
-def millisecond(d: DateTimeOffset) -> int32:
+def millisecond(d: DateTimeOffset) -> int:
     return int32(d.microsecond // 1000)
 
 
-def microsecond(d: DateTimeOffset) -> int32:
+def microsecond(d: DateTimeOffset) -> int:
     return int32(d.microsecond % 1000)
 
 
@@ -640,7 +640,7 @@ def equals_exact(d1: DateTimeOffset, d2: DateTimeOffset) -> bool:
     return _to_utc_ms(d1) == _to_utc_ms(d2) and d1.offset_ms == d2.offset_ms
 
 
-def compare(d1: DateTimeOffset, d2: DateTimeOffset) -> int32:
+def compare(d1: DateTimeOffset, d2: DateTimeOffset) -> int:
     a = _to_utc_ms(d1)
     b = _to_utc_ms(d2)
     if a < b:
@@ -650,7 +650,7 @@ def compare(d1: DateTimeOffset, d2: DateTimeOffset) -> int32:
     return int32(0)
 
 
-def compare_to(d1: DateTimeOffset, d2: DateTimeOffset) -> int32:
+def compare_to(d1: DateTimeOffset, d2: DateTimeOffset) -> int:
     return compare(d1, d2)
 
 

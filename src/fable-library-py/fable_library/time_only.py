@@ -71,19 +71,19 @@ def min_value() -> TimeSpan:
     return TimeSpan(0)
 
 
-def hour(t: TimeSpan) -> int32:
+def hour(t: TimeSpan) -> int:
     return int32(hours(t))
 
 
-def minute(t: TimeSpan) -> int32:
+def minute(t: TimeSpan) -> int:
     return int32(minutes(t))
 
 
-def second(t: TimeSpan) -> int32:
+def second(t: TimeSpan) -> int:
     return int32(seconds(t))
 
 
-def millisecond(t: TimeSpan) -> int32:
+def millisecond(t: TimeSpan) -> int:
     return int32(milliseconds(t))
 
 

@@ -292,6 +292,19 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
         TypeCast(args.Head, targetType)
 
 
+/// Calls a sized integer's parse-family method (`parse` or `try_parse`).
+///
+/// Most widths use the wrapper class's static method, which returns a value of that
+/// wrapper type. Int32 is represented as a plain Python `int`, so it goes through the
+/// `int32` module instead: `Int32.parse` would hand back an `Int32` object, and
+/// `Int32.try_parse` would store one in the ref cell.
+let makeIntParseCall com r t kind meth (args: Expr list) =
+    match kind with
+    | Int32 -> Helper.LibCall(com, "int32", meth, t, args, ?loc = r)
+    | _ ->
+        let typeExpr = Helper.LibValue(com, "core", getIntTypeName kind, Any)
+        Helper.InstanceCall(typeExpr, meth, t, args, ?loc = r)
+
 let stringToInt com (_ctx: Context) r targetType (args: Expr list) : Expr =
     let kind =
         match targetType with
@@ -299,10 +312,10 @@ let stringToInt com (_ctx: Context) r targetType (args: Expr list) : Expr =
         | x -> FableError $"Unexpected type in stringToInt: %A{x}" |> raise
 
     let style = int System.Globalization.NumberStyles.Any
+    let parseArgs = [ args.Head; makeIntConst style ] @ args.Tail
+
     // Use the type's static parse method: e.g., int8.parse(string, style)
-    let typeName = getIntTypeName kind
-    let typeExpr = Helper.LibValue(com, "core", typeName, Any)
-    Helper.InstanceCall(typeExpr, "parse", targetType, [ args.Head; makeIntConst style ] @ args.Tail, ?loc = r)
+    makeIntParseCall com r targetType kind "parse" parseArgs
 
 let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : Expr =
     let fromInteger kind arg =
@@ -396,9 +409,12 @@ let toString com (ctx: Context) r (args: Expr list) =
         | String -> head
         | Builtin BclGuid when tail.IsEmpty -> Helper.GlobalCall("str", String, [ head ], ?loc = r)
         | Builtin(BclGuid | BclTimeSpan as bt) -> Helper.LibCall(com, coreModFor bt, "to_string", String, args)
+        // Int32 is a plain Python `int`, which has no `to_string` method
         | Number(Int32, _) ->
-            let expr = Helper.LibCall(com, "core", "int32", head.Type, [ head ], ?loc = r)
-            Helper.InstanceCall(expr, "to_string", String, tail, ?loc = r)
+            if tail.Length > 0 then
+                Helper.LibCall(com, "int32", "to_string", String, head :: tail, ?loc = r)
+            else
+                Helper.GlobalCall("str", String, [ head ], ?loc = r)
         | Number((Int8 | UInt8 | UInt16 | Int16 | UInt32 | Int64 | UInt64), _) ->
             if tail.Length > 0 then
                 Helper.InstanceCall(head, "to_string", String, tail, ?loc = r)
@@ -487,7 +503,8 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
             match argTypes with
             | Number(Int8, _) :: _ -> Helper.LibCall(com, "int32", "op_unary_negation_int8", t, args, ?loc = r)
             | Number(Int16, _) :: _ -> Helper.LibCall(com, "int32", "op_unary_negation_int16", t, args, ?loc = r)
-            | Number(Int32, _) :: _ -> Helper.LibCall(com, "int32", "op_unary_negation_int32", t, args, ?loc = r)
+            // Int32 is a plain Python `int`; `transformOperation` normalizes the
+            // result, which is only out of range for `-Int32.MinValue`.
             | _ -> unOp UnaryMinus operand
         | Operators.unaryPlus, [ operand ] -> unOp UnaryPlus operand
         | _ ->
@@ -1669,7 +1686,7 @@ let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr opti
     | "Length", [ arg ] ->
         // Use int32(len()) to ensure consistent return type
         let lenExpr = Helper.GlobalCall("len", Int32.Number, [ arg ], ?loc = r)
-        Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
+        lenExpr |> Some
     | ("Iterate" | "IterateIndexed" | "ForAll" | "Exists"), _ ->
         // Cast the string to char[], see #1279
         let args = args |> List.replaceLast (fun e -> stringToCharArray e.Type e)
@@ -1704,7 +1721,7 @@ let formattableString
         let lenExpr =
             Helper.GlobalCall("len", Int32.Number, [ getField x "args" ], ?loc = r)
 
-        Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
+        lenExpr |> Some
     | "GetArgument", Some x, [ idx ] -> getExpr r t (getField x "args") idx |> Some
     | "GetArguments", Some x, [] -> getFieldWith r t x "args" |> Some
     | _ -> None
@@ -1867,7 +1884,7 @@ let resizeArrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (this
         match ar.Type with
         | Array _ ->
             let lenExpr = Helper.GlobalCall("len", Int32.Number, [ ar ], ?loc = r)
-            Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
+            lenExpr |> Some
         | _ -> Helper.LibCall(com, "util", "count", t, [ ar ], ?loc = r) |> Some
     | "Clear", Some ar, _ -> Helper.LibCall(com, "Util", "clear", t, [ ar ], ?loc = r) |> Some
     | "Find", Some ar, [ arg ] ->
@@ -1997,7 +2014,7 @@ let arrays (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: E
     match i.CompiledName, thisArg, args with
     | "get_Length", Some arg, _ ->
         let lenExpr = Helper.GlobalCall("len", Int32.Number, [ arg ], ?loc = r)
-        Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
+        lenExpr |> Some
     | "get_Item", Some arg, [ idx ] -> getExpr r t arg idx |> Some
     | "set_Item", Some arg, [ idx; value ] -> setExpr r arg idx value |> Some
     | "Equals", Some arg1, [ arg2 ] -> makeEqOpStrict r arg1 arg2 BinaryEqual |> Some
@@ -2053,7 +2070,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
         |> Some
     | ("Length" | "Count"), [ arg ] ->
         let lenExpr = Helper.GlobalCall("len", Int32.Number, [ arg ], ?loc = r)
-        Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
+        lenExpr |> Some
     | "Item", [ idx; ar ] -> getExpr r t ar idx |> Some
     | "Get", [ ar; idx ] -> getExpr r t ar idx |> Some
     | "Set", [ ar; idx; value ] -> setExpr r ar idx value |> Some
@@ -2300,10 +2317,15 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         else
             // For integer types, call the static parse method on the type
             // This generates: int8.parse(string, style) instead of parse_int32(string, style, unsigned, bitsize)
-            let typeName = getIntTypeName kind
-            let typeExpr = Helper.LibValue(com, "core", typeName, Any)
             let args = [ str; makeIntConst style ] @ outValue
-            Helper.InstanceCall(typeExpr, Naming.lowerFirst meth, t, args, ?loc = r) |> Some
+
+            let methName =
+                if meth = "TryParse" then
+                    "try_parse"
+                else
+                    "parse"
+
+            makeIntParseCall com r t kind methName args |> Some
 
     let isFloat =
         match i.SignatureArgTypes with
@@ -2689,7 +2711,7 @@ let dictionaries (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | "get_Count", Some c ->
         // Use int32(len()) to work with both Dictionary class and plain Python dict
         let lenExpr = Helper.GlobalCall("len", Int32.Number, [ c ], ?loc = r)
-        Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r) |> Some
+        lenExpr |> Some
     | "GetEnumerator", Some callee -> getEnumerator com r t callee |> Some
     | "ContainsValue", _ ->
         match thisArg, args with
@@ -3508,7 +3530,7 @@ let regex com (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Exp
         thisArg
         |> Option.map (fun c ->
             let lenExpr = Helper.GlobalCall("len", Int32.Number, [ c ], ?loc = r)
-            Helper.LibCall(com, "core", "int32", t, [ lenExpr ], ?loc = r)
+            lenExpr
         )
     | "GetEnumerator" -> thisArg |> Option.map (fun thisArg -> getEnumerator com r t thisArg)
     | "IsMatch"

@@ -16,6 +16,8 @@ type BuildFableLibraryPython(?skipCore: bool, ?postFableBuildStage: unit -> unit
             inputPatterns =
                 [
                     Path.Combine("src", "fable-library-py", "**", "*.py")
+                    // Type stubs, so edits to them invalidate the cached build
+                    Path.Combine("src", "fable-library-py", "**", "*.pyi")
                     Path.Combine("src", "fable-library-py", "**", "*.fs")
                     // Rust extension sources, so edits to them trigger a maturin rebuild
                     Path.Combine("src", "fable-library-py", "**", "*.rs")
@@ -29,6 +31,8 @@ type BuildFableLibraryPython(?skipCore: bool, ?postFableBuildStage: unit -> unit
     override this.CopyStage() =
         // Copy all Python/F# files to the build directory
         Directory.GetFiles(this.LibraryDir, "*") |> Shell.copyFiles this.BuildDir
+        // Note: top-level *.pyi are deliberately not copied. They are stubs for the
+        // modules generated from F# (list, choice), and would shadow the real ones.
         Directory.GetFiles(this.SourceDir, "*.py") |> Shell.copyFiles this.OutDir
 
         // PEP 561 marker. It has to sit *inside* the package directory for type

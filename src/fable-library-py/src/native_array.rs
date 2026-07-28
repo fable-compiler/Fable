@@ -166,11 +166,18 @@ impl Clone for NativeArray {
 }
 
 // Helper macro for filling storage
+//
+// The wrapper type is tried first so a same-type value costs no conversion dunder;
+// the primitive fallback accepts a plain Python int/float, which is how Int32 and
+// Float64 values are represented.
 macro_rules! fill_typed_vec {
-    ($vec:expr, $value:expr, $target_index:expr, $count:expr, $type:ty) => {{
-        let typed_value: $type = $value.extract()?;
+    ($vec:expr, $value:expr, $target_index:expr, $count:expr, $type:ty, $prim:ty) => {{
+        let typed_value: $prim = match $value.extract::<$type>() {
+            Ok(wrapped) => *wrapped,
+            Err(_) => $value.extract::<$prim>()?,
+        };
         for i in 0..$count {
-            $vec[$target_index + i] = *typed_value;
+            $vec[$target_index + i] = typed_value;
         }
     }};
 }
@@ -184,11 +191,14 @@ macro_rules! reverse_vec {
     }};
 }
 
-// Helper macro for inserting values
+// Helper macro for inserting values (see `fill_typed_vec!` for the fallback rationale)
 macro_rules! insert_typed_value {
-    ($vec:expr, $index:expr, $value:expr, $type:ty) => {{
-        let typed_value: $type = $value.extract()?;
-        $vec.insert($index, *typed_value);
+    ($vec:expr, $index:expr, $value:expr, $type:ty, $prim:ty) => {{
+        let typed_value: $prim = match $value.extract::<$type>() {
+            Ok(wrapped) => *wrapped,
+            Err(_) => $value.extract::<$prim>()?,
+        };
+        $vec.insert($index, typed_value);
     }};
 }
 
@@ -586,16 +596,26 @@ impl NativeArray {
         value: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
         match storage {
-            NativeArray::Int8(vec) => fill_typed_vec!(vec, value, target_index, count, Int8),
-            NativeArray::UInt8(vec) => fill_typed_vec!(vec, value, target_index, count, UInt8),
-            NativeArray::Int16(vec) => fill_typed_vec!(vec, value, target_index, count, Int16),
-            NativeArray::UInt16(vec) => fill_typed_vec!(vec, value, target_index, count, UInt16),
-            NativeArray::Int32(vec) => fill_typed_vec!(vec, value, target_index, count, Int32),
-            NativeArray::UInt32(vec) => fill_typed_vec!(vec, value, target_index, count, UInt32),
-            NativeArray::Int64(vec) => fill_typed_vec!(vec, value, target_index, count, Int64),
-            NativeArray::UInt64(vec) => fill_typed_vec!(vec, value, target_index, count, UInt64),
-            NativeArray::Float32(vec) => fill_typed_vec!(vec, value, target_index, count, Float32),
-            NativeArray::Float64(vec) => fill_typed_vec!(vec, value, target_index, count, Float64),
+            NativeArray::Int8(vec) => fill_typed_vec!(vec, value, target_index, count, Int8, i8),
+            NativeArray::UInt8(vec) => fill_typed_vec!(vec, value, target_index, count, UInt8, u8),
+            NativeArray::Int16(vec) => fill_typed_vec!(vec, value, target_index, count, Int16, i16),
+            NativeArray::UInt16(vec) => {
+                fill_typed_vec!(vec, value, target_index, count, UInt16, u16)
+            }
+            NativeArray::Int32(vec) => fill_typed_vec!(vec, value, target_index, count, Int32, i32),
+            NativeArray::UInt32(vec) => {
+                fill_typed_vec!(vec, value, target_index, count, UInt32, u32)
+            }
+            NativeArray::Int64(vec) => fill_typed_vec!(vec, value, target_index, count, Int64, i64),
+            NativeArray::UInt64(vec) => {
+                fill_typed_vec!(vec, value, target_index, count, UInt64, u64)
+            }
+            NativeArray::Float32(vec) => {
+                fill_typed_vec!(vec, value, target_index, count, Float32, f32)
+            }
+            NativeArray::Float64(vec) => {
+                fill_typed_vec!(vec, value, target_index, count, Float64, f64)
+            }
             NativeArray::Bool(vec) => {
                 let value: bool = value.extract()?;
                 for i in 0..count {
@@ -680,16 +700,16 @@ impl NativeArray {
         _py: Python<'_>,
     ) -> PyResult<()> {
         match self {
-            NativeArray::Int8(vec) => insert_typed_value!(vec, index, value, Int8),
-            NativeArray::UInt8(vec) => insert_typed_value!(vec, index, value, UInt8),
-            NativeArray::Int16(vec) => insert_typed_value!(vec, index, value, Int16),
-            NativeArray::UInt16(vec) => insert_typed_value!(vec, index, value, UInt16),
-            NativeArray::Int32(vec) => insert_typed_value!(vec, index, value, Int32),
-            NativeArray::UInt32(vec) => insert_typed_value!(vec, index, value, UInt32),
-            NativeArray::Int64(vec) => insert_typed_value!(vec, index, value, Int64),
-            NativeArray::UInt64(vec) => insert_typed_value!(vec, index, value, UInt64),
-            NativeArray::Float32(vec) => insert_typed_value!(vec, index, value, Float32),
-            NativeArray::Float64(vec) => insert_typed_value!(vec, index, value, Float64),
+            NativeArray::Int8(vec) => insert_typed_value!(vec, index, value, Int8, i8),
+            NativeArray::UInt8(vec) => insert_typed_value!(vec, index, value, UInt8, u8),
+            NativeArray::Int16(vec) => insert_typed_value!(vec, index, value, Int16, i16),
+            NativeArray::UInt16(vec) => insert_typed_value!(vec, index, value, UInt16, u16),
+            NativeArray::Int32(vec) => insert_typed_value!(vec, index, value, Int32, i32),
+            NativeArray::UInt32(vec) => insert_typed_value!(vec, index, value, UInt32, u32),
+            NativeArray::Int64(vec) => insert_typed_value!(vec, index, value, Int64, i64),
+            NativeArray::UInt64(vec) => insert_typed_value!(vec, index, value, UInt64, u64),
+            NativeArray::Float32(vec) => insert_typed_value!(vec, index, value, Float32, f32),
+            NativeArray::Float64(vec) => insert_typed_value!(vec, index, value, Float64, f64),
             NativeArray::Bool(vec) => {
                 let bool_value: bool = value.extract()?;
                 vec.insert(index, bool_value);
@@ -763,7 +783,9 @@ impl NativeArray {
                 Ok(())
             }
             NativeArray::Int32(vec) => {
-                sort_with_error_capture!(vec, comparer, py, |v: i32, py| Int32(v)
+                // Int32 is represented as a plain Python `int`, so the comparer -- which
+                // is generated F# code -- must be handed the plain value
+                sort_with_error_capture!(vec, comparer, py, |v: i32, py| v
                     .into_pyobject(py)
                     .map(|o| o.into_any()));
                 Ok(())
@@ -793,7 +815,8 @@ impl NativeArray {
                 Ok(())
             }
             NativeArray::Float64(vec) => {
-                sort_with_error_capture!(vec, comparer, py, |v: f64, py| Float64(v)
+                // Float64 is represented as a plain Python `float`
+                sort_with_error_capture!(vec, comparer, py, |v: f64, py| v
                     .into_pyobject(py)
                     .map(|o| o.into_any()));
                 Ok(())
@@ -1001,8 +1024,9 @@ impl NativeArray {
     ///
     /// Semantics match the Python `IGenericAdder` path: integer types use
     /// **wrapping** arithmetic at the element width and the result is boxed as the
-    /// corresponding wrapper type (`Int32`, …) — the same type `GetZero`/`Add`
-    /// would produce — while floats use IEEE addition.
+    /// type `GetZero`/`Add` would produce — the corresponding wrapper for most
+    /// widths, but a plain Python `int` for Int32, which has no wrapper — while
+    /// floats use IEEE addition.
     pub fn try_native_sum(&self, py: Python<'_>) -> Option<PyResult<Py<PyAny>>> {
         macro_rules! sum_int {
             ($vec:expr, $w:ident, $t:ty) => {{
@@ -1011,6 +1035,26 @@ impl NativeArray {
                     acc = acc.wrapping_add(x);
                 }
                 Some($w(acc).into_py_any(py))
+            }};
+        }
+        // Float64 is represented as a plain Python `float`
+        macro_rules! sum_float_plain {
+            ($vec:expr, $t:ty) => {{
+                let mut acc: $t = 0.0;
+                for &x in $vec.iter() {
+                    acc += x;
+                }
+                Some(acc.into_py_any(py))
+            }};
+        }
+        // Int32 is represented as a plain Python `int`
+        macro_rules! sum_int_plain {
+            ($vec:expr, $t:ty) => {{
+                let mut acc: $t = 0;
+                for &x in $vec.iter() {
+                    acc = acc.wrapping_add(x);
+                }
+                Some(acc.into_py_any(py))
             }};
         }
         macro_rules! sum_float {
@@ -1027,12 +1071,12 @@ impl NativeArray {
             NativeArray::UInt8(v) => sum_int!(v, UInt8, u8),
             NativeArray::Int16(v) => sum_int!(v, Int16, i16),
             NativeArray::UInt16(v) => sum_int!(v, UInt16, u16),
-            NativeArray::Int32(v) => sum_int!(v, Int32, i32),
+            NativeArray::Int32(v) => sum_int_plain!(v, i32),
             NativeArray::UInt32(v) => sum_int!(v, UInt32, u32),
             NativeArray::Int64(v) => sum_int!(v, Int64, i64),
             NativeArray::UInt64(v) => sum_int!(v, UInt64, u64),
             NativeArray::Float32(v) => sum_float!(v, Float32, f32),
-            NativeArray::Float64(v) => sum_float!(v, Float64, f64),
+            NativeArray::Float64(v) => sum_float_plain!(v, f64),
             NativeArray::Bool(_) | NativeArray::PyObject(_) => None,
         }
     }

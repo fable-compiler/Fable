@@ -660,9 +660,10 @@ macro_rules! integer_variant {
 
             /// Left shift operator (<<).
             ///
-            /// Performs left rotation to handle overflow gracefully.
+            /// Bits shifted out of the width are discarded, and the shift count is
+            /// masked to the width, matching .NET's `<<` on sized integers.
             pub fn __lshift__(&self, other: u32) -> PyResult<$name> {
-                Ok($name(self.0.rotate_left(other)))
+                Ok($name(self.0.wrapping_shl(other)))
             }
 
             /// Right-hand left shift operator.
