@@ -49,7 +49,7 @@ class StopWatch:
 
 
 def frequency() -> int:
-    return int32(1000000000)
+    return 1000000000
 
 
 def get_timestamp() -> int64:

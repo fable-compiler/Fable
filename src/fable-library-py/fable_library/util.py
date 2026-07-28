@@ -179,9 +179,9 @@ def returns[T, **P](targettype: Callable[..., T]) -> Callable[[Callable[P, Any]]
 
 
 class DateKind:
-    Unspecified: Final[int] = int32(0)
-    UTC: Final[int] = int32(1)
-    Local: Final[int] = int32(2)
+    Unspecified: Final[int] = 0
+    UTC: Final[int] = 1
+    Local: Final[int] = 2
 
 
 def equals(a: Any, b: Any) -> bool:
@@ -216,7 +216,6 @@ def is_iterable(x: object) -> bool:
     return isinstance(x, Iterable)
 
 
-@returns(int32)
 def compare_dicts(x: dict[str, Any], y: dict[str, Any]) -> int:
     """Compare Python dicts with string keys.
 
@@ -243,7 +242,6 @@ def compare_dicts(x: dict[str, Any], y: dict[str, Any]) -> int:
     return 0
 
 
-@returns(int32)
 def compare_arrays(xs: Sequence[Any] | None, ys: Sequence[Any] | None) -> int:
     if xs is None:
         return 0 if ys is None else 1
@@ -263,7 +261,6 @@ def compare_arrays(xs: Sequence[Any] | None, ys: Sequence[Any] | None) -> int:
     return 0
 
 
-@returns(int32)
 def compare(a: Any, b: Any) -> int:
     match (a, b):
         case (a, b) if a is b:
@@ -273,7 +270,9 @@ def compare(a: Any, b: Any) -> int:
         case (a, None):
             return 1 if a else 0
         case (a, b) if is_comparable(a):
-            return a.CompareTo(b)
+            # Every other branch returns an in-range literal or an already-normalized
+            # `compare`; a user-supplied CompareTo is the only unbounded source here.
+            return int32(a.CompareTo(b))
         case (a, b) if isinstance(a, dict):
             return compare_dicts(cast(dict[str, Any], a), b)
         case (a, b) if isinstance(a, list):
@@ -309,14 +308,14 @@ def equal_arrays[T](x: Sequence[T], y: Sequence[T]) -> bool:
 
 def compare_primitives[TSupportsLessThan: SupportsLessThan](x: TSupportsLessThan, y: TSupportsLessThan) -> int:
     if x == y:
-        return int32(0)
+        return 0
     if x < y:
-        return int32(-1)
+        return -1
     if y < x:
-        return int32(1)
+        return 1
     # Neither equal, less, nor greater: at least one operand is NaN.
     # Match .NET Double.CompareTo: NaN equals NaN and is less than any other value.
-    return int32(0 if x != x and y != y else (-1 if x != x else 1))
+    return 0 if x != x and y != y else (-1 if x != x else 1)
 
 
 def min[T](comparer: Callable[[T, T], int], x: T, y: T) -> T:
@@ -650,7 +649,7 @@ def number_hash(x: Any) -> int:
 
 def identity_hash(x: Any) -> int:
     if x is None:
-        return int32(0)
+        return 0
 
     if is_hashable(x):
         return x.GetHashCode()
@@ -663,7 +662,7 @@ def identity_hash(x: Any) -> int:
 
 def combine_hash_codes(hashes: list[int]) -> int:
     if not hashes:
-        return int32(0)
+        return 0
 
     combined = functools.reduce(lambda h1, h2: (((h1 << 5) + h1) ^ h2) & 4294967295, hashes)
 

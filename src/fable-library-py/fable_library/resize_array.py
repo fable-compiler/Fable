@@ -25,7 +25,7 @@ def find_index[T](predicate: Callable[[T], bool], xs: list[T]) -> int:
     for i, x in enumerate(xs):
         if predicate(x):
             return int32(i)
-    return int32(-1)
+    return -1
 
 
 def remove[T](item: T, xs: list[T]) -> bool:
@@ -66,7 +66,7 @@ def find_last_index[T](predicate: Callable[[T], bool], xs: list[T]) -> int:
     for i in range(len(xs) - 1, -1, -1):
         if predicate(xs[i]):
             return int32(i)
-    return int32(-1)
+    return -1
 
 
 def try_find[T](predicate: Callable[[T], bool], xs: list[T]) -> Option[T]:
@@ -97,7 +97,7 @@ def index_of[T](value: T, start: int, count: int | None, xs: list[T]) -> int:
         # Use built-in index method with start/stop parameters for better performance
         return int32(xs.index(value, start, end))
     except ValueError:
-        return int32(-1)
+        return -1
 
 
 def insert_range_in_place[T](index: int, items: Iterable[T] | IEnumerable_1[T], xs: list[T]) -> None:
