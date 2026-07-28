@@ -1279,3 +1279,44 @@ let ``test extreme values work`` () =
 
     -infinity < infinity |> equal true
     (-0.0) < 0.0 |> equal false
+
+// Int32 is a plain Python `int` on the Python target, so the compiler normalizes an
+// arithmetic tree back into 32 bits once at its root. A conversion to a type that is
+// 32 bits or narrower re-truncates the very bits that normalization kept, so the
+// compiler drops it -- but only while the tree provably still fits a signed 64-bit
+// int, because the fixed-width constructors saturate beyond that. These pin the
+// elision, and the cases where it must not happen, against .NET.
+[<Fact>]
+let ``test narrowing conversions of unnormalized int arithmetic work`` () =
+    let sub (hi: int) (lo: int) = uint32 (hi - lo)
+    let add (x: int) (y: int) = byte (x + y)
+    let mul (x: int) (y: int) = int16 (x * y)
+    let neg (x: int) = uint32 (-x)
+    let shl (x: int) = uint32 (x <<< 3)
+
+    sub (id Int32.MinValue) (id Int32.MaxValue) |> equal 1u
+    add (id Int32.MaxValue) (id 1) |> equal 0uy
+    mul (id 65537) (id 65537) |> equal 1s
+    neg (id Int32.MinValue) |> equal 2147483648u
+    shl (id Int32.MaxValue) |> equal 4294967288u
+
+[<Fact>]
+let ``test narrowing conversions of wide int arithmetic work`` () =
+    // These trees can exceed a signed 64-bit int, so the normalization must survive
+    let mul3 (x: int) (y: int) (z: int) = uint32 (x * y * z)
+    let mulShl (x: int) (y: int) = uint32 ((x * y) <<< 20)
+
+    mul3 (id 65537) (id 65537) (id 65537) |> equal 196609u
+    mulShl (id 99991) (id 99991) |> equal 3507486720u
+
+[<Fact>]
+let ``test widening and float conversions of int arithmetic work`` () =
+    // The conversion is wider than 32 bits, or is not a truncation at all, so the
+    // normalization is load-bearing
+    let toLong (x: int) (y: int) = int64 (x + y)
+    let toFloat (x: int) (y: int) = float (x - y)
+    let toShort (x: int) (y: int) = uint16 (x - y)
+
+    toLong (id Int32.MaxValue) (id 1) |> equal -2147483648L
+    toFloat (id Int32.MinValue) (id 1) |> equal 2147483647.0
+    toShort (id Int32.MinValue) (id 1) |> equal 65535us

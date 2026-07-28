@@ -1087,6 +1087,56 @@ module Util =
     /// `int32(expr)`.
     let wrapInt32 (com: IPythonCompiler) ctx r (e: Expression) = libCall com ctx r "core" "int32" [ e ]
 
+    /// Conservative upper bound on the signed bit width an Int32 expression tree can
+    /// reach before it is normalized at its root.
+    ///
+    /// Because `stripInt32Wrap` lets a tree grow and normalizes once at the top, the
+    /// operand of a wrap is not itself in range. Any node this module does not wrap is
+    /// already normalized, hence 32 bits.
+    let rec int32ExprBitWidth (e: Fable.Expr) =
+        match e with
+        | Fable.Operation(Fable.Binary((BinaryPlus | BinaryMinus), left, right), _, Fable.Number(Int32, _), _) ->
+            (max (int32ExprBitWidth left) (int32ExprBitWidth right)) + 1
+        | Fable.Operation(Fable.Binary(BinaryMultiply, left, right), _, Fable.Number(Int32, _), _) ->
+            int32ExprBitWidth left + int32ExprBitWidth right - 1
+        | Fable.Operation(Fable.Binary(BinaryShiftLeft, left, right), _, Fable.Number(Int32, _), _) ->
+            // `transformOperation` masks the shift count to 0..31
+            let shift =
+                match right with
+                | Fable.Value(Fable.NumberConstant(Fable.NumberValue.Int32 k, _), _) -> k &&& 31
+                | _ -> 31
+
+            int32ExprBitWidth left + shift
+        | Fable.Operation(Fable.Unary(UnaryMinus, operand), _, Fable.Number(Int32, _), _) ->
+            int32ExprBitWidth operand + 1
+        | _ -> 32
+
+    /// True for a `core` conversion that truncates to 32 bits or fewer, applied to an
+    /// operand whose own `int32(...)` wrap it therefore makes redundant: the outer
+    /// conversion re-truncates the very bits the inner one kept.
+    ///
+    /// The bound matters. These constructors are backed by Rust and extract through
+    /// `i64`/`u64`, falling back to a *saturating* float conversion beyond that -- so
+    /// `uint32(1 <<< 80)` is 4294967295 where `uint32(int32(1 <<< 80))` is 0. The wrap
+    /// may only be dropped while the operand provably still fits a signed 64-bit int.
+    let isRedundantInt32Wrap (com: Compiler) (info: Fable.ImportInfo) (args: Fable.Expr list) =
+        match info.Kind, args with
+        | Fable.LibraryImport _, [ arg ] ->
+            info.Path = getLibPath com "core"
+            && (
+                match info.Selector with
+                | "sbyte"
+                | "int16"
+                | "int32"
+                | "byte"
+                | "uint16"
+                | "uint32" -> true
+                | _ -> false
+            )
+            && isInt32WrapOp arg
+            && int32ExprBitWidth arg <= 64
+        | _ -> false
+
 
     let enumerator2iterator com ctx =
         let enumerator =

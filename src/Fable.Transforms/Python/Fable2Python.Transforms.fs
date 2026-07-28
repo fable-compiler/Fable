@@ -1242,6 +1242,14 @@ let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallI
         // Unwrap to_enumerable from the argument if present
         let args = args |> List.map unwrapToEnumerable
         callFunction range callee' args kw, stmts @ stmts'
+
+    // Optimization: a fixed-width conversion re-truncates the bits its operand's own
+    // `int32(...)` wrap kept, so the wrap is dead. See `Util.isRedundantInt32Wrap`.
+    | Fable.Import(info, _, _) when callInfo.ThisArg.IsNone && isRedundantInt32Wrap com info callInfo.Args ->
+        let callee', stmts = com.TransformAsExpr(ctx, callee)
+        let args, kw, stmts' = transformCallArgs com ctx callInfo false
+        let args = args |> List.map (stripInt32Wrap com ctx)
+        callFunction range callee' args kw, stmts @ stmts'
     | _ ->
 
         let callee', stmts = com.TransformAsExpr(ctx, callee)
