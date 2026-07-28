@@ -1065,13 +1065,31 @@ let transformOperation (com: IPythonCompiler) ctx range (t: Fable.Type) opKind t
                     | _ -> Expression.binOp (right, BitAnd, Expression.intConstant 31)
                 | _ -> Expression.binOp (right, BitAnd, Expression.intConstant 31)
 
+        // `op` is shadowed inside `binOp` by the Python operator, so resolve the guard
+        // against the Fable node out here.
+        let rangeGuard =
+            if wrapsResult then
+                tryInt32RangeGuard op leftFable rightFable
+            else
+                None
+
         let binOp (op: BinaryOperator) =
             let result = Expression.binOp (left, op, right, ?loc = range)
 
-            (if wrapsResult then
-                 wrapInt32 com ctx range result
-             else
-                 result),
+            (match rangeGuard, wrapsResult with
+             | Some(identIsLeft, cmp, threshold), _ ->
+                 let ident =
+                     if identIsLeft then
+                         left
+                     else
+                         right
+
+                 let test =
+                     Expression.compare (ident, [ cmp ], [ Expression.intConstant threshold ], ?loc = range)
+
+                 Expression.ifExp (test, result, wrapInt32 com ctx range result, ?loc = range)
+             | None, true -> wrapInt32 com ctx range result
+             | None, false -> result),
             stmts @ stmts'
 
         let compare op =

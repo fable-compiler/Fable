@@ -1067,7 +1067,9 @@ module Util =
         | Fable.Operation(Fable.Unary(UnaryMinus, _), _, Fable.Number(Int32, _), _) -> true
         | _ -> false
 
-    /// Removes the `int32(...)` wrap this module put around an operand.
+    /// Removes the normalization this module put around an operand, in either of the
+    /// two forms it takes: the `int32(...)` call, or the inline range guard from
+    /// `tryInt32RangeGuard`, whose `Body` is the same operation with no wrap at all.
     ///
     /// Only ever applied when `isInt32WrapOp` held for the operand's *Fable* node, so
     /// it cannot strip a meaningful conversion: `int32(someFloat)` truncates, and
@@ -1075,17 +1077,64 @@ module Util =
     /// temporary this is a no-op and the result is one redundant -- but idempotent --
     /// wrap, never a wrong value.
     let stripInt32Wrap (com: IPythonCompiler) ctx (e: Expression) =
-        match e with
         // `libValue` registers the import as a side effect, which is why it is only
         // reached once the shape is known to be a one-argument call. Registering is
         // harmless in any case: every caller re-applies the wrap through `wrapInt32`
         // immediately afterwards, so the import is always used.
-        | Expression.Call call when call.Args.Length = 1 && call.Func = libValue com ctx "core" "int32" ->
-            call.Args.Head
+        let (|Int32Call|_|) (e: Expression) =
+            match e with
+            | Expression.Call call when call.Args.Length = 1 && call.Func = libValue com ctx "core" "int32" ->
+                Some call.Args.Head
+            | _ -> None
+
+        match e with
+        | Int32Call arg -> arg
+        | Expression.IfExp guard ->
+            match guard.OrElse with
+            | Int32Call _ -> guard.Body
+            | _ -> e
         | _ -> e
 
     /// `int32(expr)`.
     let wrapInt32 (com: IPythonCompiler) ctx r (e: Expression) = libCall com ctx r "core" "int32" [ e ]
+
+    /// Shifting an Int32 identifier by a constant can only leave the range at one end,
+    /// and by at most that constant, so a single comparison decides whether it did --
+    /// a compare and a branch, where `int32(...)` is a Python function call.
+    ///
+    /// Returns whether the identifier is the left operand, and the test to guard the
+    /// operation with. The test re-evaluates the identifier, which is why nothing but
+    /// an identifier qualifies: anything else could be expensive or have side effects.
+    let tryInt32RangeGuard (op: BinaryOperator) (left: Fable.Expr) (right: Fable.Expr) =
+        let (|Int32Literal|_|) (e: Fable.Expr) =
+            match e with
+            | Fable.Value(Fable.NumberConstant(Fable.NumberValue.Int32 k, _), _) -> Some(int64 k)
+            | _ -> None
+
+        let (|Int32Ident|_|) (e: Fable.Expr) =
+            match e with
+            | Fable.IdentExpr ident ->
+                match ident.Type with
+                | Fable.Number(Int32, _) -> Some ident
+                | _ -> None
+            | _ -> None
+
+        // How far the identifier moves, and from which side. `k - x` is excluded: it can
+        // leave the range at either end, so one comparison would not settle it.
+        let delta =
+            match op, left, right with
+            | BinaryPlus, Int32Ident _, Int32Literal k -> Some(k, true)
+            | BinaryPlus, Int32Literal k, Int32Ident _ -> Some(k, false)
+            | BinaryMinus, Int32Ident _, Int32Literal k -> Some(-k, true)
+            | _ -> None
+
+        // An identifier always holds a normalized value, so `x + d` is in range exactly
+        // while `x` is within `d` of the boundary it is moving towards. Both thresholds
+        // are themselves in range: `d` never exceeds 2^31 in magnitude.
+        match delta with
+        | Some(d, identIsLeft) when d > 0L -> Some(identIsLeft, LtE, int (2147483647L - d))
+        | Some(d, identIsLeft) when d < 0L -> Some(identIsLeft, GtE, int (-2147483648L - d))
+        | _ -> None
 
     /// Conservative upper bound on the signed bit width an Int32 expression tree can
     /// reach before it is normalized at its root.

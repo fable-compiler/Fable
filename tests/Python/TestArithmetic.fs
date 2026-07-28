@@ -1320,3 +1320,35 @@ let ``test widening and float conversions of int arithmetic work`` () =
     toLong (id Int32.MaxValue) (id 1) |> equal -2147483648L
     toFloat (id Int32.MinValue) (id 1) |> equal 2147483647.0
     toShort (id Int32.MinValue) (id 1) |> equal 65535us
+
+// Adding a constant to an in-range Int32 can only overflow at one end, and by at most
+// that constant, so the Python target decides it with a comparison instead of a call
+// into the normalizer. These check the boundary in both directions, and the shapes the
+// guard does not apply to.
+[<Fact>]
+let ``test adding a constant to an int wraps at the boundary`` () =
+    let inc (i: int) = i + 1
+    let dec (i: int) = i - 1
+    let incLeft (i: int) = 1 + i
+    let incBig (i: int) = i + 1000
+    let decBig (i: int) = i - 1000
+
+    inc (id Int32.MaxValue) |> equal Int32.MinValue
+    inc (id (Int32.MaxValue - 1)) |> equal Int32.MaxValue
+    dec (id Int32.MinValue) |> equal Int32.MaxValue
+    dec (id (Int32.MinValue + 1)) |> equal Int32.MinValue
+    incLeft (id Int32.MaxValue) |> equal Int32.MinValue
+    incBig (id Int32.MaxValue) |> equal (Int32.MinValue + 999)
+    decBig (id Int32.MinValue) |> equal (Int32.MaxValue - 999)
+
+[<Fact>]
+let ``test adding an extreme constant to an int wraps at the boundary`` () =
+    let addMin (i: int) = i + Int32.MinValue
+    let subMin (i: int) = i - Int32.MinValue
+    let subFrom (i: int) = 1 - i
+
+    addMin (id 0) |> equal Int32.MinValue
+    addMin (id -1) |> equal Int32.MaxValue
+    subMin (id -1) |> equal Int32.MaxValue
+    subMin (id 0) |> equal Int32.MinValue
+    subFrom (id Int32.MinValue) |> equal -2147483647
