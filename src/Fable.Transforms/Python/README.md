@@ -114,6 +114,17 @@ between two values that are both plain `int`, or both plain `float`, stays a no-
 `Int32.Parse`/`TryParse` go through the `int32` *module* rather than the `Int32` class, because the
 class's static methods return — and store into the ref cell — an `Int32` object.
 
+### Set annotations
+
+`Set<'T>` is annotated as `FSharpSet[T]`, where the other builtin entities still annotate as `Any`.
+With `int` emitted as a bare literal, Pyright solves the element type of `singleton(1, cmp)` to
+`Literal[1]`; the comparer argument cannot widen it, because `IComparer_1` is contravariant and so
+`IComparer_1[int]` already satisfies `IComparer_1[Literal[1]]`. `FSharpSet` is invariant — its `T`
+appears in both `Contains(value: T)` and `GetEnumerator() -> IEnumerator[T]` — so
+`FSharpSet[Literal[1]]` will not unify with the `FSharpSet[Literal[2]]` of a sibling set. Annotating
+the binding gives bidirectional inference something to push down into those calls, which resolves both
+to `int`.
+
 ### Runtime type tests
 
 `:? int` and `:? float` compile to exact `type(x) is int` / `type(x) is float` checks rather than

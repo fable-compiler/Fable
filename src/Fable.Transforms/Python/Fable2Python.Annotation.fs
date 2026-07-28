@@ -788,6 +788,14 @@ let makeBuiltinTypeAnnotation com ctx typ repeatedGenerics kind =
         // Use the type alias (clean name without underscore prefix)
         let name = $"FSharpChoice_%d{List.length genArgs}"
         fableModuleAnnotation com ctx "choice" name resolved, stmts
+    | Replacements.Util.FSharpSet key ->
+        // `FSharpSet` is invariant in its element type, so a bare `Any` here leaves
+        // Pyright to solve the element type from the arguments alone -- and a call
+        // like `singleton(1, cmp)` then solves it to `Literal[1]`, which will not
+        // unify with the `Literal[2]` of a sibling set. Annotating the binding gives
+        // bidirectional inference something to push down into those calls.
+        let resolved, stmts = resolveGenerics com ctx [ key ] repeatedGenerics
+        fableModuleAnnotation com ctx "set" "FSharpSet" resolved, stmts
     | _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
 
 let makeArgTypeAnnotation com ctx repeatedGenerics (id: Fable.Ident) =
