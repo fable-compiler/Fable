@@ -1056,9 +1056,6 @@ module Util =
     // no normalization at all.
     // ---------------------------------------------------------------------------
 
-    let inInt32Range (value: int64) =
-        value >= -2147483648L && value <= 2147483647L
-
     /// Operations emitted with an `int32(...)` wrap around them, and therefore the
     /// ones whose wrap a parent in the same set may strip and re-apply at its own root.
     let isInt32WrapOp (e: Fable.Expr) =
@@ -1079,25 +1076,16 @@ module Util =
     /// wrap, never a wrong value.
     let stripInt32Wrap (com: IPythonCompiler) ctx (e: Expression) =
         match e with
+        // `libValue` registers the import as a side effect, which is why it is only
+        // reached once the shape is known to be a one-argument call. Registering is
+        // harmless in any case: every caller re-applies the wrap through `wrapInt32`
+        // immediately afterwards, so the import is always used.
         | Expression.Call call when call.Args.Length = 1 && call.Func = libValue com ctx "core" "int32" ->
             call.Args.Head
         | _ -> e
 
-    /// `int32(expr)`, folded away when the value is a literal already in range.
-    let wrapInt32 (com: IPythonCompiler) ctx r (e: Expression) =
-        let isInRangeLiteral =
-            match e with
-            | Expression.Constant(value = IntLiteral v) ->
-                match v with
-                | :? int as i -> inInt32Range (int64 i)
-                | :? int64 as i -> inInt32Range i
-                | _ -> false
-            | _ -> false
-
-        if isInRangeLiteral then
-            e
-        else
-            libCall com ctx r "core" "int32" [ e ]
+    /// `int32(expr)`.
+    let wrapInt32 (com: IPythonCompiler) ctx r (e: Expression) = libCall com ctx r "core" "int32" [ e ]
 
 
     let enumerator2iterator com ctx =

@@ -9,7 +9,9 @@ from __future__ import annotations
 from typing import Any
 
 from .core import (
+    Float64,
     FSharpRef,
+    Int32,
     byte,
     float32,
     float64,
@@ -59,10 +61,13 @@ class ExceptionBase(Exception):
 
 
 # We don't use type aliases here because we need to do isinstance checks.
-# Int32 is represented as a plain `int`, which is already the first member.
-IntegerTypes = int | byte | sbyte | int16 | uint16 | uint32 | int64 | uint64
-# Float64 is represented as a plain `float`, which is already the first member.
-FloatTypes = float | float32
+#
+# Generated code represents Int32 as a plain `int` and Float64 as a plain `float`, so
+# those builtins come first. The `Int32`/`Float64` classes stay in the unions because
+# hand-written interop can still hold one, and neither is a subclass of its builtin --
+# dropping them would make `isinstance` silently miss those values.
+IntegerTypes = int | Int32 | byte | sbyte | int16 | uint16 | uint32 | int64 | uint64
+FloatTypes = float | Float64 | float32
 
 
 __all__ = [
@@ -70,7 +75,9 @@ __all__ = [
     "Attribute",
     "ExceptionBase",
     "FSharpRef",
+    "Float64",
     "FloatTypes",
+    "Int32",
     "IntegerTypes",
     "Unit",
     "byte",

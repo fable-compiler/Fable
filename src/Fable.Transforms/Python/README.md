@@ -89,8 +89,30 @@ NaN comparison, banker's rounding and signed zero already match .NET bit for bit
 | `1.0 / 0.0` | `ZeroDivisionError` | `infinity` | `op_division_float64(a, b)` |
 | `-5.0 % 3.0` | `1.0` | `-2.0` | `op_remainder_float64(a, b)` |
 | `str(5.0)` | `'5.0'` | `'5'` | `exceptions.to_string` |
+| `str(inf)` | `'inf'` | `'Infinity'` | `exceptions.to_string` |
 
 Float division keeps a bare `/` when the divisor is a non-zero literal.
+
+`exceptions.to_string` must not call `int()` on a non-finite double — that raises `OverflowError` for
+the infinities and `ValueError` for NaN — so it checks `math.isfinite` before taking the whole-number
+path. The printf machinery in `strings.rs` spells the same three values out.
+
+**Known divergence:** `Int32.MinValue / -1` yields `2147483648` rather than throwing
+`OverflowException`. `/` cannot leave the 32-bit range for any other operand pair, so it carries no
+normalization, and adding one just for this case would tax every integer division.
+
+### Conversions between widths
+
+A widening conversion such as `int (x: sbyte)` or `float (x: float32)` reaches codegen as a bare
+`TypeCast` — `Replacements.needToCast` is false, because on .NET the value always fits. On Python the
+cast is not free even so: the source is a wrapper object, and leaving it in place would keep the
+arithmetic at the *source* width, so `Int8(100) + 100` would wrap to -56 instead of widening to 200.
+`transformCast` therefore emits `int32(...)` (which also truncates, matching an unchecked .NET cast)
+or the builtin `float(...)` whenever the source is not already the target's representation. Casting
+between two values that are both plain `int`, or both plain `float`, stays a no-op.
+
+`Int32.Parse`/`TryParse` go through the `int32` *module* rather than the `Int32` class, because the
+class's static methods return — and store into the ref cell — an `Int32` object.
 
 ### Runtime type tests
 

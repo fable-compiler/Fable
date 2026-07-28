@@ -292,15 +292,18 @@ let toDecimal com (ctx: Context) r targetType (args: Expr list) : Expr =
         TypeCast(args.Head, targetType)
 
 
-/// Name to reach a sized integer's static parse methods through.
+/// Calls a sized integer's parse-family method (`parse` or `try_parse`).
 ///
-/// Int32 is represented as a plain Python `int`, so the lowercase `int32` is the
-/// normalizing function rather than the wrapper class; the parsers still live on
-/// the class, and already return plain ints.
-let intParseTypeName kind =
+/// Most widths use the wrapper class's static method, which returns a value of that
+/// wrapper type. Int32 is represented as a plain Python `int`, so it goes through the
+/// `int32` module instead: `Int32.parse` would hand back an `Int32` object, and
+/// `Int32.try_parse` would store one in the ref cell.
+let makeIntParseCall com r t kind meth (args: Expr list) =
     match kind with
-    | Int32 -> "Int32"
-    | _ -> getIntTypeName kind
+    | Int32 -> Helper.LibCall(com, "int32", meth, t, args, ?loc = r)
+    | _ ->
+        let typeExpr = Helper.LibValue(com, "core", getIntTypeName kind, Any)
+        Helper.InstanceCall(typeExpr, meth, t, args, ?loc = r)
 
 let stringToInt com (_ctx: Context) r targetType (args: Expr list) : Expr =
     let kind =
@@ -311,11 +314,8 @@ let stringToInt com (_ctx: Context) r targetType (args: Expr list) : Expr =
     let style = int System.Globalization.NumberStyles.Any
     let parseArgs = [ args.Head; makeIntConst style ] @ args.Tail
 
-    // Use the type's static parse method: e.g., int8.parse(string, style). Int32 has
-    // no lowercase alias any more -- that name is the normalizing function -- so it
-    // goes through the wrapper class, whose parser already returns a plain int.
-    let typeExpr = Helper.LibValue(com, "core", intParseTypeName kind, Any)
-    Helper.InstanceCall(typeExpr, "parse", targetType, parseArgs, ?loc = r)
+    // Use the type's static parse method: e.g., int8.parse(string, style)
+    makeIntParseCall com r targetType kind "parse" parseArgs
 
 let toLong com (ctx: Context) r (unsigned: bool) targetType (args: Expr list) : Expr =
     let fromInteger kind arg =
@@ -2319,8 +2319,13 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             // This generates: int8.parse(string, style) instead of parse_int32(string, style, unsigned, bitsize)
             let args = [ str; makeIntConst style ] @ outValue
 
-            let typeExpr = Helper.LibValue(com, "core", intParseTypeName kind, Any)
-            Helper.InstanceCall(typeExpr, Naming.lowerFirst meth, t, args, ?loc = r) |> Some
+            let methName =
+                if meth = "TryParse" then
+                    "try_parse"
+                else
+                    "parse"
+
+            makeIntParseCall com r t kind methName args |> Some
 
     let isFloat =
         match i.SignatureArgTypes with

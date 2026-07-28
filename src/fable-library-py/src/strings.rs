@@ -174,7 +174,13 @@ mod printf {
                     // Float64 is a plain Python `float`. .NET renders a whole double
                     // without a trailing ".0", which is what Rust's formatting does;
                     // Python's `str` would give "5.0" where .NET gives "5".
-                    "float" => arg.extract::<f64>()?.to_string(),
+                    "float" => {
+                        let value = arg.extract::<f64>()?;
+                        match nonfinite_str(value) {
+                            Some(spelled) => spelled.to_string(),
+                            None => value.to_string(),
+                        }
+                    }
                     // Handle booleans with F# lowercase representation (true/false)
                     "bool" => {
                         if arg.is_truthy()? {
@@ -411,9 +417,30 @@ mod printf {
         }
     }
 
+    /// .NET spells the non-finite doubles out where Rust's `to_string` gives
+    /// "inf"/"-inf". Returns `None` for a finite value, which formats normally.
+    ///
+    /// Rust's `f64` parser accepts these spellings back, so a value that has already
+    /// been rendered by `__call__` still round-trips through the specifier formatters.
+    fn nonfinite_str(num: f64) -> Option<&'static str> {
+        if num.is_finite() {
+            None
+        } else if num.is_nan() {
+            Some("NaN")
+        } else if num > 0.0 {
+            Some("Infinity")
+        } else {
+            Some("-Infinity")
+        }
+    }
+
     /// Format float with flags and precision
     fn format_float(value_str: &str, flags: &str, precision: Option<i32>) -> PyResult<String> {
         if let Ok(num) = value_str.parse::<f64>() {
+            if let Some(spelled) = nonfinite_str(num) {
+                return Ok(spelled.to_string());
+            }
+
             let prec = precision.unwrap_or(6) as usize;
             Ok(if flags.contains('+') && num >= 0.0 {
                 format!("+{:.prec$}", num, prec = prec)
@@ -428,6 +455,10 @@ mod printf {
     /// Format general number
     fn format_general(value_str: &str, flags: &str) -> PyResult<String> {
         if let Ok(num) = value_str.parse::<f64>() {
+            if let Some(spelled) = nonfinite_str(num) {
+                return Ok(spelled.to_string());
+            }
+
             Ok(if flags.contains('+') && num >= 0.0 {
                 format!("+{}", num)
             } else {

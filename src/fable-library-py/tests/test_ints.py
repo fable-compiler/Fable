@@ -4,6 +4,8 @@ from decimal import Decimal
 import pytest
 
 from fable_library.core import FSharpRef, Int32, byte, int16, int64, sbyte, uint16, uint32, uint64
+from fable_library.int32 import parse as int32_parse
+from fable_library.int32 import try_parse as int32_try_parse
 from pydantic import BaseModel
 
 
@@ -550,3 +552,27 @@ def test_pydantic_large_int64_values():
     restored = Int64Data.model_validate_json(json_str)
     assert restored.value == 9223372036854775807
     assert type(restored.value).__name__ == "Int64"
+
+
+def test_int32_module_parse_returns_plain_int() -> None:
+    """`Int32.Parse` must hand back a plain `int`, not an `Int32`.
+
+    The wrapper class's static `parse` returns an `Int32`, so generated code goes
+    through the `int32` module instead. A value assertion alone would not catch a
+    regression here: an `Int32` compares equal to its value.
+    """
+    assert int32_parse("42", 511) == 42
+    assert type(int32_parse("42", 511)) is int
+    assert type(int32_parse("-2147483648", 511)) is int
+    # Non-decimal radixes read as two's complement, as .NET does
+    assert int32_parse("FFFFFFFF", 515) == -1
+
+    with pytest.raises(ValueError):
+        int32_parse("2147483648", 511)
+
+    ref: FSharpRef[int] = FSharpRef(0)
+    assert int32_try_parse("7", 511, ref) is True
+    assert ref.contents == 7
+    assert type(ref.contents) is int
+
+    assert int32_try_parse("foo", 511, ref) is False

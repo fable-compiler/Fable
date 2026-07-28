@@ -424,7 +424,31 @@ let transformCast (com: IPythonCompiler) (ctx: Context) t e : Expression * State
         let cons = libValue com ctx "core" "float32"
         let value, stmts = com.TransformAsExpr(ctx, e)
         Expression.call (cons, [ value ], ?loc = None), stmts
-    // Int32 is a plain Python `int`, so casting to it is a no-op
+    // Int32 is a plain Python `int`, so casting to it is a no-op -- unless the source
+    // is one of the wrapper widths. `Replacements.toInt` emits a bare `TypeCast` for
+    // every widening conversion (`needToCast` is false), so this is where e.g.
+    // `int (x: sbyte)` sheds its `Int8`. Leaving the wrapper in place would keep the
+    // arithmetic at the source width: `Int8(100) + 100` wraps to -56.
+    | Fable.Number(Int32, _), _ ->
+        match e.Type with
+        // Already a plain `int` at runtime
+        | Fable.Number((Int32 | BigInt | NativeInt | UNativeInt), _) -> com.TransformAsExpr(ctx, e)
+        | Fable.Number _ ->
+            let value, stmts = com.TransformAsExpr(ctx, e)
+            libCall com ctx None "core" "int32" [ value ], stmts
+        | _ -> com.TransformAsExpr(ctx, e)
+    // Float64 is a plain Python `float`, and the same reasoning applies:
+    // `Replacements.toFloat` emits a bare `TypeCast` for every numeric source that is
+    // not bigint/decimal/int64, so `float (x: float32)` would otherwise stay a
+    // `Float32` and keep computing in single precision. Every wrapper implements
+    // `__float__`, so the builtin is enough and stays a single C-level call.
+    | Fable.Number(Float64, _), _ ->
+        match e.Type with
+        | Fable.Number(Float64, _) -> com.TransformAsExpr(ctx, e)
+        | Fable.Number _ ->
+            let value, stmts = com.TransformAsExpr(ctx, e)
+            Expression.call (Expression.name "float", [ value ], ?loc = None), stmts
+        | _ -> com.TransformAsExpr(ctx, e)
     | _ -> com.TransformAsExpr(ctx, e)
 
 let transformCurry (com: IPythonCompiler) (ctx: Context) expr arity : Expression * Statement list =

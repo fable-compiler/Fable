@@ -195,6 +195,29 @@ let ``test Float remainder edge cases yield NaN`` () =
     remF 5.0 infinity |> equal 5.0
     remF -5.0 infinity |> equal -5.0
 
+// Rendering a plain Python `float` has to shorten a whole double ("5", not "5.0") and
+// spell the non-finite values out, and the two interact: the shortening runs `int()`,
+// which raises OverflowError on the infinities and ValueError on NaN. Non-literal
+// operands keep the runtime path in play. All expectations verified on .NET.
+let private strF (x: float) = string x
+
+[<Fact>]
+let ``test Float to string spells the non-finite values out`` () =
+    strF infinity |> equal "Infinity"
+    strF -infinity |> equal "-Infinity"
+    strF nan |> equal "NaN"
+    strF 5.0 |> equal "5"
+    strF 2.5 |> equal "2.5"
+    strF -0.5 |> equal "-0.5"
+
+[<Fact>]
+let ``test Float printf formatting handles the non-finite values`` () =
+    sprintf "%f" (divF 1.0 0.0) |> equal "Infinity"
+    sprintf "%f" (divF -1.0 0.0) |> equal "-Infinity"
+    sprintf "%f" (divF 0.0 0.0) |> equal "NaN"
+    sprintf "%f" 2.5 |> equal "2.500000"
+    sprintf "%g" (divF 1.0 0.0) |> equal "Infinity"
+
 [<Fact>]
 let ``test Bitwise and can be generated`` () =
     6 &&& 2 |> equal 2

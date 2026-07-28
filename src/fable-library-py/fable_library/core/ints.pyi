@@ -240,9 +240,12 @@ def parse_int32(
     unsigned: bool,
     bitsize: int,
     radix: int = 10,
-) -> Int32:
+) -> int:
     """
     Parses a string representation of a 32-bit integer with F#-compatible semantics.
+
+    Returns a plain Python `int`, already validated against the range for `bitsize`,
+    unlike `Int32.parse` which returns an `Int32` wrapper.
 
     Args:
         string: The string to parse
