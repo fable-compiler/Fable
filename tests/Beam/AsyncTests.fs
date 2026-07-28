@@ -101,49 +101,51 @@ let ``test Async.StartChild works`` () =
 
 [<Fact>]
 let ``test Async.StartChild runs children concurrently`` () =
-    // Prove concurrency by *comparing* the same work run concurrently against
-    // sequentially on the same runner, rather than checking wall-clock against
-    // an absolute threshold. An absolute bound is inherently flaky: BEAM
-    // process-spawn plus async-trampoline overhead on a loaded CI runner is
-    // unbounded, so any fixed threshold eventually fails a genuinely-concurrent
-    // run. Here both runs pay the same overhead, so the ~500ms saved by real
-    // concurrency (one 500ms sleep instead of two) dominates scheduling jitter.
+    // Assert that the children's execution *intervals overlap*, rather than that
+    // the whole computation finished quickly.
     //
-    // Note: unlike JS/Python, the BEAM children run in *separate processes*
-    // (see fable_async:start_child), so the shared-mutable-state ordering test
-    // those targets use cannot observe concurrency here — timing is the only
-    // signal available.
-    let sleeper n = async {
-        do! Async.Sleep 500
-        return n
+    // Measuring duration -- against either an absolute threshold or a sequential
+    // control run -- is unfixably flaky here, because on a loaded runner the
+    // scheduling jitter is larger than the signal. Measured on a 2-core box under
+    // load, this pair of 500ms sleeps took anywhere from 504ms to 1580ms wall
+    // clock, so a genuinely-concurrent run routinely outlasts a sequential one and
+    // no choice of threshold separates them.
+    //
+    // Overlap is immune to that. Jitter delays both children together, so a
+    // common-mode delay cancels out of `min(end) - max(start)` while it is exactly
+    // what a duration measures. Under the same load that made the duration vary by
+    // ~1080ms, the overlap stayed within 500-984ms.
+    //
+    // Note: unlike JS/Python, the BEAM children run in *separate processes* (see
+    // fable_async:start_child), so the shared-mutable-state ordering test those
+    // targets use cannot observe them. A MailboxProcessor cannot bridge the gap
+    // either -- fable_mailbox holds its queue in the process dictionary, so a
+    // child's Post lands in the child's own copy. Timestamps returned by value
+    // from each child are the one channel that does cross the process boundary.
+    let stamped n =
+        async {
+            let t0 = System.DateTime.UtcNow.Ticks
+            do! Async.Sleep 500
+            let t1 = System.DateTime.UtcNow.Ticks
+            return n, t0, t1
+        }
+    // Both children are started before either is awaited, so their sleeps should
+    // run at the same time.
+    let comp = async {
+        let! c1 = Async.StartChild(stamped 1)
+        let! c2 = Async.StartChild(stamped 2)
+        let! (n1, a0, a1) = c1
+        let! (n2, b0, b1) = c2
+        let overlapMs = (min a1 b1 - max a0 b0) / TimeSpan.TicksPerMillisecond
+        return n1 + n2, overlapMs
     }
-    // Concurrent: both children started before either is awaited (~500ms).
-    let concurrent = async {
-        let sw = System.Diagnostics.Stopwatch.StartNew()
-        let! c1 = Async.StartChild(sleeper 1)
-        let! c2 = Async.StartChild(sleeper 2)
-        let! r1 = c1
-        let! r2 = c2
-        sw.Stop()
-        return r1 + r2, sw.ElapsedMilliseconds
-    }
-    // Sequential: each child awaited to completion before the next starts (~1000ms).
-    let sequential = async {
-        let sw = System.Diagnostics.Stopwatch.StartNew()
-        let! c1 = Async.StartChild(sleeper 1)
-        let! r1 = c1
-        let! c2 = Async.StartChild(sleeper 2)
-        let! r2 = c2
-        sw.Stop()
-        return r1 + r2, sw.ElapsedMilliseconds
-    }
-    let sumC, elapsedC = Async.RunSynchronously concurrent
-    let sumS, elapsedS = Async.RunSynchronously sequential
-    equal 3 sumC
-    equal 3 sumS
-    // The concurrent run must save at least half of the ~500ms overlap versus
-    // the sequential one; requiring only half leaves ample slack for jitter.
-    (elapsedC + 250L < elapsedS) |> equal true
+    let sum, overlapMs = Async.RunSynchronously comp
+    equal 3 sum
+    // Concurrent execution overlaps by the full ~500ms sleep. Were StartChild to
+    // regress to running each child only once awaited, the second child would
+    // start as the first one ended and the overlap would be 0 (verified: 0ms on
+    // both .NET and BEAM). The 250ms threshold sits midway between the two.
+    (overlapMs > 250L) |> equal true
 
 [<Fact>]
 let ``test Async.StartChild applies timeout`` () =
