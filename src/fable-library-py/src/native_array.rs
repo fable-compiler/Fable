@@ -167,9 +167,11 @@ impl Clone for NativeArray {
 
 // Helper macro for filling storage
 //
-// The wrapper type is tried first so a same-type value costs no conversion dunder;
-// the primitive fallback accepts a plain Python int/float, which is how Int32 and
-// Float64 values are represented.
+// The wrapper type is tried first, which hits for the widths that are still pyo3
+// wrappers. Int32 and Float64 are plain Python ints and floats, so for those two
+// the wrapper arm always fails and the primitive fallback is the normal path —
+// which costs nothing measurable, because a failed `extract` is a Rust-level
+// `Err` rather than a constructed Python exception.
 macro_rules! fill_typed_vec {
     ($vec:expr, $value:expr, $target_index:expr, $count:expr, $type:ty, $prim:ty) => {{
         let typed_value: $prim = match $value.extract::<$type>() {
