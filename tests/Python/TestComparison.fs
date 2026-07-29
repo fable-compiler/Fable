@@ -656,3 +656,44 @@ let ``CompareTo with primitives works`` () =
     (1.).CompareTo(1.) |> equal 0
     (1.m).CompareTo(1.m) |> equal 0
     ("1").CompareTo("1") |> equal 0
+
+[<Fact>]
+let ``test GetHashCode with wide numeric types works`` () =
+    // These route through identity hashing, which used to take a different path
+    // than structural hashing for the widths below.
+    (5L).GetHashCode() |> equal ((5L).GetHashCode())
+    (5UL).GetHashCode() |> equal ((5UL).GetHashCode())
+    (5M).GetHashCode() |> equal ((5M).GetHashCode())
+    (5I).GetHashCode() |> equal ((5I).GetHashCode())
+    (5L).GetHashCode() = (6L).GetHashCode() |> equal false
+    (5UL).GetHashCode() = (6UL).GetHashCode() |> equal false
+    (5M).GetHashCode() = (6M).GetHashCode() |> equal false
+    (5I).GetHashCode() = (6I).GetHashCode() |> equal false
+
+[<Fact>]
+let ``test hashing wide numeric types agrees with GetHashCode`` () =
+    hash 5L |> equal ((5L).GetHashCode())
+    hash 5UL |> equal ((5UL).GetHashCode())
+    hash 5M |> equal ((5M).GetHashCode())
+    hash 5I |> equal ((5I).GetHashCode())
+
+[<Fact>]
+let ``test wide numeric types work as hash keys`` () =
+    // Added one at a time rather than from a sequence: constructing a HashSet from
+    // an IEnumerable trips a known Pyright gap, the one that keeps test_hash_set.py
+    // in the CI exclude list.
+    let longs = System.Collections.Generic.HashSet<int64>()
+    longs.Add 1L |> ignore
+    longs.Add 2L |> ignore
+    longs.Add 2L |> equal false
+    longs.Contains 2L |> equal true
+    longs.Contains 9L |> equal false
+    let ulongs = System.Collections.Generic.HashSet<uint64>()
+    ulongs.Add 2UL |> ignore
+    ulongs.Contains 2UL |> equal true
+    let decimals = System.Collections.Generic.HashSet<decimal>()
+    decimals.Add 2M |> ignore
+    decimals.Contains 2M |> equal true
+    let bigs = System.Collections.Generic.HashSet<bigint>()
+    bigs.Add 2I |> ignore
+    bigs.Contains 2I |> equal true

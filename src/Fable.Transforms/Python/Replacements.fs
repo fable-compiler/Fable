@@ -558,7 +558,10 @@ let identityHash com r (arg: Expr) =
         | Char
         | String
         | Builtin BclGuid -> "stringHash"
-        | Number((Decimal | BigInt | Int64 | UInt64), _) -> "safeHash"
+        // Every numeric width reaches the same `GetHashCode`, so routing the wider
+        // ones through `safeHash` only added a frame and its protocol check. This
+        // now matches `structuralHash`, which has always sent all of them to
+        // `numberHash`.
         | Number _
         | Builtin BclTimeSpan -> "numberHash"
         | List _ -> "safeHash"
