@@ -1074,18 +1074,27 @@ let transformOperation (com: IPythonCompiler) ctx range (t: Fable.Type) opKind t
                 None
 
         // When no operand test is available -- neither side is a literal, or the moving
-        // side is something costlier than an identifier -- bind the result once and test
-        // that instead. Only worth it where overflow is the exception rather than the
-        // rule, so it is limited to a single `+`/`-` over two already-normalized
-        // operands: that is one bit of possible overflow, where hash mixing and the like
-        // build up far more and would pay the test on every evaluation without saving
-        // the call.
+        // side is something costlier than a name -- bind the result once and test that
+        // instead. The test is on the *result*, so it is correct whatever the operands
+        // hold; `bothOperandsNormalized` is purely about whether it pays. Only worth it
+        // where overflow is the exception rather than the rule, so it is limited to a
+        // single `+`/`-` over two already-normalized operands: that is one bit of
+        // possible overflow, where hash mixing and the like build up far more and would
+        // pay the test on every evaluation without saving the call.
+        //
+        // The binding is an assignment expression, which is a `SyntaxError` inside a
+        // comprehension's iterable, so an `[<Emit>]` macro argument keeps the call.
         let resultGuard =
             let bothOperandsNormalized =
                 int32ExprBitWidth leftFable = 32 && int32ExprBitWidth rightFable = 32
 
             match op with
-            | (BinaryPlus | BinaryMinus) when wrapsResult && rangeGuard.IsNone && bothOperandsNormalized ->
+            | (BinaryPlus | BinaryMinus) when
+                wrapsResult
+                && rangeGuard.IsNone
+                && bothOperandsNormalized
+                && not ctx.InEmitMacroArgument
+                ->
                 getUniqueNameInDeclarationScope ctx "tmp" |> Some
             | _ -> None
 
@@ -1220,13 +1229,26 @@ let transformEmit (com: IPythonCompiler) ctx range (info: Fable.EmitInfo) =
     let macro = info.Macro
     let callInfo = info.CallInfo
 
+    // The macro text is spliced around the arguments verbatim, and a macro is free to
+    // put one inside a comprehension -- `[x for i, x in enumerate(f($0, $1))]` and the
+    // like -- where an assignment expression is a `SyntaxError` rather than a value.
+    // Nothing anywhere under such an argument may use one, hence a context flag rather
+    // than a check on this node. `for` is what makes a comprehension a comprehension,
+    // so a macro without it cannot contain one; a macro with it in some other role
+    // just gives up an optimization.
+    let argCtx =
+        if Regex.IsMatch(macro, @"\bfor\b") then
+            { ctx with InEmitMacroArgument = true }
+        else
+            ctx
+
     let thisArg, stmts =
         callInfo.ThisArg
-        |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
+        |> Option.map (fun e -> com.TransformAsExpr(argCtx, e))
         |> Option.toList
         |> Helpers.unzipArgs
 
-    let exprs, kw, stmts' = transformCallArgs com ctx callInfo false
+    let exprs, kw, stmts' = transformCallArgs com argCtx callInfo false
 
     if macro.StartsWith("functools", StringComparison.Ordinal) then
         com.GetImportExpr(ctx, "functools") |> ignore
@@ -1292,11 +1314,27 @@ let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallI
         callFunction range callee' args kw, stmts @ stmts'
 
     // Optimization: a fixed-width conversion re-truncates the bits its operand's own
-    // `int32(...)` wrap kept, so the wrap is dead. See `Util.isRedundantInt32Wrap`.
-    | Fable.Import(info, _, _) when callInfo.ThisArg.IsNone && isRedundantInt32Wrap com info callInfo.Args ->
+    // `int32(...)` wrap kept, so the wrap is dead. See `Util.tryRedundantInt32Wrap`.
+    | RedundantInt32Wrap com callInfo elision ->
         let callee', stmts = com.TransformAsExpr(ctx, callee)
+
+        // An inner conversion is already a Fable node, so it is dropped before being
+        // transformed -- which keeps the `core.int32` it would have emitted from being
+        // registered as an import and then left unreferenced. Arity and argument kind
+        // are unchanged: one non-unit fixed-width integer either way. An arithmetic
+        // tree is only normalized once transformed, so that wrap comes off after.
+        let callInfo =
+            match elision with
+            | UseInnerOperand operand -> { callInfo with Args = [ operand ] }
+            | StripTransformedWrap -> callInfo
+
         let args, kw, stmts' = transformCallArgs com ctx callInfo false
-        let args = args |> List.map (stripInt32Wrap com ctx)
+
+        let args =
+            match elision with
+            | UseInnerOperand _ -> args
+            | StripTransformedWrap -> args |> List.map (stripInt32Wrap com ctx)
+
         callFunction range callee' args kw, stmts @ stmts'
     | _ ->
 
@@ -5464,6 +5502,7 @@ let transformFile (com: IPythonCompiler) (file: Fable.File) =
             TypeParamsScope = 0
             NarrowedTypes = Map.empty
             EnclosingUnionBaseClass = None
+            InEmitMacroArgument = false
         }
 
     // printfn "file: %A" file.Declarations

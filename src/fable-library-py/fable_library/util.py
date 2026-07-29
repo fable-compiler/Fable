@@ -167,6 +167,15 @@ class Disposable[T: IDisposable](DisposableBase):
 
 
 def returns[T, **P](targettype: Callable[..., T]) -> Callable[[Callable[P, Any]], Callable[P, T]]:
+    """Coerce a function's return value through `targettype`.
+
+    Unused within this package: coercing at the boundary costs two Python calls per
+    invocation (this wrapper plus `targettype`), so the functions that used to carry
+    it now convert only on the branches that can actually produce an out-of-range
+    value. Kept because `fable_library` is published on PyPI and public names cannot
+    be dropped within a major version.
+    """
+
     def decorator(func: Callable[P, Any]) -> Callable[P, T]:
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:

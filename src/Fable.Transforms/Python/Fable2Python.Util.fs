@@ -1076,11 +1076,15 @@ module Util =
     /// truncation does not commute with arithmetic. If the operand was hoisted to a
     /// temporary this is a no-op and the result is one redundant -- but idempotent --
     /// wrap, never a wrong value.
+    ///
+    /// A stripped guard also abandons the temporary it was going to bind. The name
+    /// stays reserved in the declaration scope, which shows up in generated code as a
+    /// `tmp_1` with no `tmp` beside it -- a gap, never a collision.
     let stripInt32Wrap (com: IPythonCompiler) ctx (e: Expression) =
         // `libValue` registers the import as a side effect, which is why it is only
-        // reached once the shape is known to be a one-argument call. Registering is
-        // harmless in any case: every caller re-applies the wrap through `wrapInt32`
-        // immediately afterwards, so the import is always used.
+        // reached once the shape is known to be a one-argument call. Whatever is
+        // stripped here was emitted by `wrapInt32` in the first place, so the import
+        // was already registered before this ran and nothing new is introduced.
         let (|Int32Call|_|) (e: Expression) =
             match e with
             | Expression.Call call when call.Args.Length = 1 && call.Func = libValue com ctx "core" "int32" ->
@@ -1111,42 +1115,49 @@ module Util =
     /// `int32(expr)`.
     let wrapInt32 (com: IPythonCompiler) ctx r (e: Expression) = libCall com ctx r "core" "int32" [ e ]
 
-    /// Shifting an Int32 identifier by a constant can only leave the range at one end,
-    /// and by at most that constant, so a single comparison decides whether it did --
-    /// a compare and a branch, where `int32(...)` is a Python function call.
+    /// Shifting an Int32 operand by a constant can only leave the range at one end, and
+    /// by at most that constant, so a single comparison decides whether it did -- a
+    /// compare and a branch, where `int32(...)` is a Python function call.
     ///
-    /// Returns whether the identifier is the left operand, and the test to guard the
-    /// operation with. The test re-evaluates the identifier, which is why nothing but
-    /// an identifier qualifies: anything else could be expensive or have side effects.
+    /// Returns whether the operand is the left one, and the test to guard the operation
+    /// with. The test re-evaluates the operand, so only shapes that are cheap and free
+    /// of side effects qualify: a local, or one attribute access on a local. Both are a
+    /// name lookup in the generated Python -- `i`, `this.count`, `node.tail` -- where
+    /// anything deeper could be arbitrarily expensive.
     let tryInt32RangeGuard (op: BinaryOperator) (left: Fable.Expr) (right: Fable.Expr) =
         let (|Int32Literal|_|) (e: Fable.Expr) =
             match e with
             | Fable.Value(Fable.NumberConstant(Fable.NumberValue.Int32 k, _), _) -> Some(int64 k)
             | _ -> None
 
-        let (|Int32Ident|_|) (e: Fable.Expr) =
+        let (|Int32Operand|_|) (e: Fable.Expr) =
+            let isInt32 (t: Fable.Type) =
+                match t with
+                | Fable.Number(Int32, _) -> true
+                | _ -> false
+
             match e with
-            | Fable.IdentExpr ident ->
-                match ident.Type with
-                | Fable.Number(Int32, _) -> Some ident
-                | _ -> None
+            | Fable.IdentExpr ident when isInt32 ident.Type -> Some()
+            // `x.field`, which the printer emits as a plain attribute access. Fable
+            // models an actual property as a call, so this cannot invoke a getter.
+            | Fable.Get(Fable.IdentExpr _, Fable.FieldGet _, t, _) when isInt32 t -> Some()
             | _ -> None
 
-        // How far the identifier moves, and from which side. `k - x` is excluded: it can
+        // How far the operand moves, and from which side. `k - x` is excluded: it can
         // leave the range at either end, so one comparison would not settle it.
         let delta =
             match op, left, right with
-            | BinaryPlus, Int32Ident _, Int32Literal k -> Some(k, true)
-            | BinaryPlus, Int32Literal k, Int32Ident _ -> Some(k, false)
-            | BinaryMinus, Int32Ident _, Int32Literal k -> Some(-k, true)
+            | BinaryPlus, Int32Operand, Int32Literal k -> Some(k, true)
+            | BinaryPlus, Int32Literal k, Int32Operand -> Some(k, false)
+            | BinaryMinus, Int32Operand, Int32Literal k -> Some(-k, true)
             | _ -> None
 
-        // An identifier always holds a normalized value, so `x + d` is in range exactly
+        // The operand always holds a normalized value, so `x + d` is in range exactly
         // while `x` is within `d` of the boundary it is moving towards. Both thresholds
         // are themselves in range: `d` never exceeds 2^31 in magnitude.
         match delta with
-        | Some(d, identIsLeft) when d > 0L -> Some(identIsLeft, LtE, int (2147483647L - d))
-        | Some(d, identIsLeft) when d < 0L -> Some(identIsLeft, GtE, int (-2147483648L - d))
+        | Some(d, operandIsLeft) when d > 0L -> Some(operandIsLeft, LtE, int (2147483647L - d))
+        | Some(d, operandIsLeft) when d < 0L -> Some(operandIsLeft, GtE, int (-2147483648L - d))
         | _ -> None
 
     /// Conservative upper bound on the signed bit width an Int32 expression tree can
@@ -1155,12 +1166,19 @@ module Util =
     /// Because `stripInt32Wrap` lets a tree grow and normalizes once at the top, the
     /// operand of a wrap is not itself in range. Any node this module does not wrap is
     /// already normalized, hence 32 bits.
+    ///
+    /// The bound a caller may rely on is `|value| <= 2^(width - 1)`, one more than a
+    /// signed `width`-bit integer actually holds. Multiplication is the reason: two
+    /// 32-bit operands reach `2^62` at `(-2^31) * (-2^31)`, which needs 64 bits and not
+    /// the 63 an exact-looking `a + b - 1` would give. `a + b` keeps the invariant true
+    /// at every node, and costs nothing that matters -- `x * y` is still 64, so only
+    /// trees that were already at the edge, like `x * y + x * y`, newly opt out.
     let rec int32ExprBitWidth (e: Fable.Expr) =
         match e with
         | Fable.Operation(Fable.Binary((BinaryPlus | BinaryMinus), left, right), _, Fable.Number(Int32, _), _) ->
             (max (int32ExprBitWidth left) (int32ExprBitWidth right)) + 1
         | Fable.Operation(Fable.Binary(BinaryMultiply, left, right), _, Fable.Number(Int32, _), _) ->
-            int32ExprBitWidth left + int32ExprBitWidth right - 1
+            int32ExprBitWidth left + int32ExprBitWidth right
         | Fable.Operation(Fable.Binary(BinaryShiftLeft, left, right), _, Fable.Number(Int32, _), _) ->
             // `transformOperation` masks the shift count to 0..31
             let shift =
@@ -1198,21 +1216,52 @@ module Util =
         | Fable.Number((Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64), _) -> true
         | _ -> false
 
-    /// True for a `core` conversion that truncates to 32 bits or fewer, applied to an
+    /// How a dead inner normalization comes off, once `tryRedundantInt32Wrap` has
+    /// established that it is dead.
+    type RedundantInt32Wrap =
+        /// The operand is an arithmetic tree the Python transform normalizes at its
+        /// root, so the wrap only exists once the operand has been transformed and
+        /// comes off there, through `stripInt32Wrap`.
+        | StripTransformedWrap
+        /// The operand is itself an `int32(...)` conversion, which is already a node in
+        /// the Fable AST -- so it is dropped before being transformed at all, and its
+        /// `core.int32` import is never registered only to end up unreferenced.
+        | UseInnerOperand of Fable.Expr
+
+    /// Peels every `int32(...)` a narrowing conversion makes dead off its own operand.
+    ///
+    /// `Replacements.toInt` routes a 64-bit source through two of these -- `byte (int32
+    /// x)` arrives as `byte(int32(int32(x)))` -- and each layer licenses the next: an
+    /// `int32` conversion is itself of fixed width, so dropping the outermost leaves an
+    /// operand the same argument applies to. Recursion stops at the first operand that
+    /// is not, a float above all.
+    ///
+    /// None when there was nothing to peel.
+    let rec private tryPeelInt32Conversions (com: Compiler) (e: Fable.Expr) =
+        match e with
+        | Int32Conversion com operand when isFixedWidthInteger operand.Type ->
+            tryPeelInt32Conversions com operand |> Option.defaultValue operand |> Some
+        | _ -> None
+
+    /// Some, for a `core` conversion that truncates to 32 bits or fewer applied to an
     /// operand whose own `int32(...)` it therefore makes redundant: the outer conversion
     /// re-truncates the very bits the inner one kept.
     ///
     /// The 64-bit bound matters. These constructors are backed by Rust and extract
-    /// through `i64`/`u64`, falling back to a *saturating* float conversion beyond that
-    /// -- so `uint32(1 <<< 80)` is 4294967295 where `uint32(int32(1 <<< 80))` is 0. The
-    /// inner call may only be dropped while its own operand provably still fits 64 bits,
-    /// which holds in two ways:
+    /// through `i64`, then `u64`, falling back to a *saturating* float conversion beyond
+    /// that -- so `uint32(1 <<< 80)` is 4294967295 where `uint32(int32(1 <<< 80))` is 0.
+    /// The inner call may only be dropped while its own operand provably still fits one
+    /// of those two, which holds in two ways:
     ///
-    /// - an arithmetic tree normalized at its root, if it did not grow too far first;
+    /// - an arithmetic tree normalized at its root, if it did not grow too far first.
+    ///   `int32ExprBitWidth` bounds such a tree by `2^(width - 1)`, so at the limit of
+    ///   64 the value runs to `-2^63 .. 2^63`. The negative end is exactly `i64::MIN`;
+    ///   the positive end is one past `i64::MAX` and is caught by the `u64` arm, which
+    ///   truncates congruently. Both arms are load-bearing.
     /// - another conversion, if what it converts is itself of fixed width. A float
     ///   operand does *not* qualify: `uint32(int32(-3.9))` is 4294967293, where
     ///   `uint32(-3.9)` saturates to 0.
-    let isRedundantInt32Wrap (com: Compiler) (info: Fable.ImportInfo) (args: Fable.Expr list) =
+    let tryRedundantInt32Wrap (com: Compiler) (info: Fable.ImportInfo) (args: Fable.Expr list) =
         let isNarrowingConversion =
             match info.Kind with
             | Fable.LibraryImport _ ->
@@ -1231,13 +1280,18 @@ module Util =
 
         match args with
         | [ arg ] when isNarrowingConversion ->
-            (isInt32WrapOp arg && int32ExprBitWidth arg <= 64)
-            || (
-                match arg with
-                | Int32Conversion com operand -> isFixedWidthInteger operand.Type
-                | _ -> false
-            )
-        | _ -> false
+            match tryPeelInt32Conversions com arg with
+            | Some peeled -> Some(UseInnerOperand peeled)
+            | None when isInt32WrapOp arg && int32ExprBitWidth arg <= 64 -> Some StripTransformedWrap
+            | None -> None
+        | _ -> None
+
+    /// A direct call to a `core` conversion whose argument carries a normalization the
+    /// call itself makes dead. See `tryRedundantInt32Wrap`.
+    let (|RedundantInt32Wrap|_|) (com: Compiler) (callInfo: Fable.CallInfo) (callee: Fable.Expr) =
+        match callee with
+        | Fable.Import(info, _, _) when callInfo.ThisArg.IsNone -> tryRedundantInt32Wrap com info callInfo.Args
+        | _ -> None
 
 
     let enumerator2iterator com ctx =

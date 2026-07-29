@@ -4,6 +4,10 @@ open System
 open Fable.Tests.Util
 open Util.Testing
 
+#if FABLE_COMPILER
+open Fable.Core
+#endif
+
 #nowarn "3370" // Silence deprecation warnings for incr/decr
 
 let [<Literal>] posLiteral = 5
@@ -1411,3 +1415,59 @@ let ``test int arithmetic guards do not collide with bindings in scope`` () =
     shadow (id 10) (id 4) |> equal 6
     several (id Int32.MaxValue) (id -1) (id 0) (id 0) |> equal Int32.MinValue
     several (id 10) (id 4) (id 20) (id 5) |> equal 21
+
+type ArithmeticCounter = { mutable Count: int }
+
+// An attribute access on a local is as cheap to re-evaluate as the local itself, so
+// the comparison guard covers `x.Field + 1` and not just `i + 1`. Fable models a real
+// property as a call, so this can never re-run a getter.
+[<Fact>]
+let ``test adding a constant to an int field wraps at the boundary`` () =
+    let counter = { Count = id Int32.MaxValue }
+    counter.Count <- counter.Count + 1
+    counter.Count |> equal Int32.MinValue
+
+    counter.Count <- counter.Count - 1
+    counter.Count |> equal Int32.MaxValue
+
+    counter.Count <- id 10
+    counter.Count <- counter.Count + 5
+    counter.Count |> equal 15
+
+// A decimal is not of fixed width, so the inner conversion truncates where the outer
+// one alone would not: `int32 -3.9m` is -3, and .NET has no `uint32` of -3.9m at all.
+[<Fact>]
+let ``test narrowing conversions of narrowed decimals work`` () =
+    let ofDecimal (x: decimal) = uint32 (int32 x)
+    let toByte (x: decimal) = byte (int32 x)
+
+    ofDecimal (id -3.9M) |> equal 4294967293u
+    ofDecimal (id 3.9M) |> equal 3u
+    toByte (id -1.5M) |> equal 255uy
+
+// Two multiplications summed sit right at the edge of what a signed 64-bit int holds,
+// so the width bound keeps the normalization rather than betting on the boundary.
+[<Fact>]
+let ``test narrowing conversions of summed products work`` () =
+    let mulSum (x: int) (y: int) = uint32 (x * y + x * y)
+
+    mulSum (id 65537) (id 65537) |> equal 262146u
+    mulSum (id Int32.MinValue) (id Int32.MinValue) |> equal 0u
+    mulSum (id 99991) (id 99991) |> equal 2816530978u
+
+#if FABLE_COMPILER
+
+// An `[<Emit>]` macro splices its arguments into the text verbatim, and may put one in
+// a comprehension's iterable -- where Python rejects an assignment expression outright.
+// The normalization guard has to give up its temporary and go back to a call here.
+[<Emit("[x for x in [0, $0]][-1]")>]
+let private throughComprehension (n: int) : int = nativeOnly
+
+[<Fact>]
+let ``test int arithmetic inside an emit comprehension compiles`` () =
+    let roundTrip (a: int) (b: int) = throughComprehension (a + b)
+
+    roundTrip (id 2) (id 3) |> equal 5
+    roundTrip (id Int32.MaxValue) (id 1) |> equal Int32.MinValue
+
+#endif
