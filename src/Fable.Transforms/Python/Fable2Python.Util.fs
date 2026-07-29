@@ -1160,30 +1160,70 @@ module Util =
             int32ExprBitWidth operand + 1
         | _ -> 32
 
+    /// A `core` member imported from this compilation, by name.
+    let (|CoreImport|_|) (com: Compiler) name (e: Fable.Expr) =
+        match e with
+        | Fable.Import(info, _, _) ->
+            match info.Kind with
+            | Fable.LibraryImport _ when info.Selector = name && info.Path = getLibPath com "core" -> Some()
+            | _ -> None
+        | _ -> None
+
+    /// The operand of an `int32(...)` conversion emitted by `Replacements.toInt`.
+    let (|Int32Conversion|_|) (com: Compiler) (e: Fable.Expr) =
+        match e with
+        | Fable.Call(CoreImport com "int32", callInfo, _, _) when callInfo.ThisArg.IsNone ->
+            match callInfo.Args with
+            | [ operand ] -> Some operand
+            | _ -> None
+        | _ -> None
+
+    /// Integer types narrow enough that a value always reaches the `core` constructors
+    /// intact -- see `isRedundantInt32Wrap` for why that is the property that matters.
+    let private isFixedWidthInteger (t: Fable.Type) =
+        match t with
+        | Fable.Number((Int8 | UInt8 | Int16 | UInt16 | Int32 | UInt32 | Int64 | UInt64), _) -> true
+        | _ -> false
+
     /// True for a `core` conversion that truncates to 32 bits or fewer, applied to an
-    /// operand whose own `int32(...)` wrap it therefore makes redundant: the outer
-    /// conversion re-truncates the very bits the inner one kept.
+    /// operand whose own `int32(...)` it therefore makes redundant: the outer conversion
+    /// re-truncates the very bits the inner one kept.
     ///
-    /// The bound matters. These constructors are backed by Rust and extract through
-    /// `i64`/`u64`, falling back to a *saturating* float conversion beyond that -- so
-    /// `uint32(1 <<< 80)` is 4294967295 where `uint32(int32(1 <<< 80))` is 0. The wrap
-    /// may only be dropped while the operand provably still fits a signed 64-bit int.
+    /// The 64-bit bound matters. These constructors are backed by Rust and extract
+    /// through `i64`/`u64`, falling back to a *saturating* float conversion beyond that
+    /// -- so `uint32(1 <<< 80)` is 4294967295 where `uint32(int32(1 <<< 80))` is 0. The
+    /// inner call may only be dropped while its own operand provably still fits 64 bits,
+    /// which holds in two ways:
+    ///
+    /// - an arithmetic tree normalized at its root, if it did not grow too far first;
+    /// - another conversion, if what it converts is itself of fixed width. A float
+    ///   operand does *not* qualify: `uint32(int32(-3.9))` is 4294967293, where
+    ///   `uint32(-3.9)` saturates to 0.
     let isRedundantInt32Wrap (com: Compiler) (info: Fable.ImportInfo) (args: Fable.Expr list) =
-        match info.Kind, args with
-        | Fable.LibraryImport _, [ arg ] ->
-            info.Path = getLibPath com "core"
-            && (
-                match info.Selector with
-                | "sbyte"
-                | "int16"
-                | "int32"
-                | "byte"
-                | "uint16"
-                | "uint32" -> true
+        let isNarrowingConversion =
+            match info.Kind with
+            | Fable.LibraryImport _ ->
+                info.Path = getLibPath com "core"
+                && (
+                    match info.Selector with
+                    | "sbyte"
+                    | "int16"
+                    | "int32"
+                    | "byte"
+                    | "uint16"
+                    | "uint32" -> true
+                    | _ -> false
+                )
+            | _ -> false
+
+        match args with
+        | [ arg ] when isNarrowingConversion ->
+            (isInt32WrapOp arg && int32ExprBitWidth arg <= 64)
+            || (
+                match arg with
+                | Int32Conversion com operand -> isFixedWidthInteger operand.Type
                 | _ -> false
             )
-            && isInt32WrapOp arg
-            && int32ExprBitWidth arg <= 64
         | _ -> false
 
 

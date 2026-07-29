@@ -1352,3 +1352,33 @@ let ``test adding an extreme constant to an int wraps at the boundary`` () =
     subMin (id -1) |> equal Int32.MaxValue
     subMin (id 0) |> equal Int32.MinValue
     subFrom (id Int32.MinValue) |> equal -2147483647
+
+// A conversion into 32 bits or fewer also makes an inner conversion redundant, but only
+// when what that inner conversion reads is itself of fixed width. A float operand is not:
+// truncating it to 32 bits first and converting it directly give different answers.
+[<Fact>]
+let ``test narrowing conversions of narrowed integers work`` () =
+    let ofUInt64 (x: uint64) = uint32 (int32 x)
+    let toInt32 (x: uint64) = int32 (int32 x)
+    let ofInt64 (x: int64) = uint32 (int32 x)
+    let toByte (x: int64) = byte (int32 x)
+    let toUInt16 (x: uint64) = uint16 (int32 x)
+
+    ofUInt64 (id 0xFFFFFFFF12345678UL) |> equal 305419896u
+    ofUInt64 (id UInt64.MaxValue) |> equal 4294967295u
+    toInt32 (id 0xFFFFFFFF12345678UL) |> equal 305419896
+    toInt32 (id UInt64.MaxValue) |> equal -1
+    ofInt64 (id -1L) |> equal 4294967295u
+    ofInt64 (id Int64.MinValue) |> equal 0u
+    toByte (id -1L) |> equal 255uy
+    toUInt16 (id 0xFFFFFFFFFFFFUL) |> equal 65535us
+
+[<Fact>]
+let ``test narrowing conversions of truncated floats work`` () =
+    let ofFloat (x: float) = uint32 (int32 x)
+    let ofFloat32 (x: float32) = byte (int32 x)
+
+    ofFloat (id 3.9) |> equal 3u
+    ofFloat (id -3.9) |> equal 4294967293u
+    ofFloat (id -1.5) |> equal 4294967295u
+    ofFloat32 (id -3.9f) |> equal 253uy
