@@ -30,15 +30,13 @@ let (|TypedArrayCompatible|_|) (com: Compiler) (arrayKind: ArrayKind) t =
         | UInt32 -> ValueSome "UInt32ArrayCons"
         | Float32 -> ValueSome "Float32ArrayCons"
         | Float64 -> ValueSome "Float64ArrayCons"
-        // Don't use typed array for int64 until we remove our int64 polyfill
-        // and use JS BigInt to represent int64
-        //        | Int64 -> Some "BigInt64ArrayCons"
-        //        | UInt64 -> Some "BigUint64ArrayCons"
+        // Unlike JavaScript, which has no typed array for int64 while it polyfills the
+        // type, Python backs these with `Vec<i64>`/`Vec<u64>` in the Rust core.
+        | Int64 -> ValueSome "Int64ArrayCons"
+        | UInt64 -> ValueSome "UInt64ArrayCons"
         | Int128
         | UInt128
         | Float16
-        | Int64
-        | UInt64
         | BigInt
         | Decimal
         | NativeInt
