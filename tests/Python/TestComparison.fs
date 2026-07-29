@@ -656,3 +656,35 @@ let ``CompareTo with primitives works`` () =
     (1.).CompareTo(1.) |> equal 0
     (1.m).CompareTo(1.m) |> equal 0
     ("1").CompareTo("1") |> equal 0
+
+[<Fact>]
+let ``test GetHashCode with wide numeric types works`` () =
+    // These route through identity hashing, which used to take a different path
+    // than structural hashing for the widths below.
+    (5L).GetHashCode() |> equal ((5L).GetHashCode())
+    (5UL).GetHashCode() |> equal ((5UL).GetHashCode())
+    (5M).GetHashCode() |> equal ((5M).GetHashCode())
+    (5I).GetHashCode() |> equal ((5I).GetHashCode())
+    (5L).GetHashCode() = (6L).GetHashCode() |> equal false
+    (5UL).GetHashCode() = (6UL).GetHashCode() |> equal false
+    (5M).GetHashCode() = (6M).GetHashCode() |> equal false
+    (5I).GetHashCode() = (6I).GetHashCode() |> equal false
+
+[<Fact>]
+let ``test hashing wide numeric types agrees with GetHashCode`` () =
+    hash 5L |> equal ((5L).GetHashCode())
+    hash 5UL |> equal ((5UL).GetHashCode())
+    hash 5M |> equal ((5M).GetHashCode())
+    hash 5I |> equal ((5I).GetHashCode())
+
+[<Fact>]
+let ``test wide numeric types work as hash keys`` () =
+    let longs = System.Collections.Generic.HashSet<int64>([ 1L; 2L; 3L ])
+    longs.Contains 2L |> equal true
+    longs.Contains 9L |> equal false
+    let ulongs = System.Collections.Generic.HashSet<uint64>([ 1UL; 2UL ])
+    ulongs.Contains 2UL |> equal true
+    let decimals = System.Collections.Generic.HashSet<decimal>([ 1M; 2M ])
+    decimals.Contains 2M |> equal true
+    let bigs = System.Collections.Generic.HashSet<bigint>([ 1I; 2I ])
+    bigs.Contains 2I |> equal true
