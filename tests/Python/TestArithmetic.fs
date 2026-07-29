@@ -1382,3 +1382,32 @@ let ``test narrowing conversions of truncated floats work`` () =
     ofFloat (id -3.9) |> equal 4294967293u
     ofFloat (id -1.5) |> equal 4294967295u
     ofFloat32 (id -3.9f) |> equal 253uy
+
+// Where no operand of an int addition is a literal, the Python target binds the result
+// to a temporary and range-tests that instead. The temporary must not collide with
+// anything in scope, and several in one declaration must stay distinct.
+[<Fact>]
+let ``test int subtraction without a literal operand wraps at the boundary`` () =
+    let sub (x: int) (y: int) = x - y
+    let add (x: int) (y: int) = x + y
+    let ofLength (xs: int[]) = xs.Length - 1
+
+    sub (id Int32.MinValue) (id 1) |> equal Int32.MaxValue
+    sub (id Int32.MaxValue) (id -1) |> equal Int32.MinValue
+    sub (id Int32.MinValue) (id Int32.MaxValue) |> equal 1
+    sub (id 10) (id 3) |> equal 7
+    add (id Int32.MaxValue) (id 1) |> equal Int32.MinValue
+    add (id Int32.MinValue) (id -1) |> equal Int32.MaxValue
+    add (id Int32.MaxValue) (id Int32.MaxValue) |> equal -2
+    ofLength (id [| 1; 2; 3 |]) |> equal 2
+
+[<Fact>]
+let ``test int arithmetic guards do not collide with bindings in scope`` () =
+    // `tmp` is the name the guard's temporary is generated from
+    let shadow (tmp: int) (y: int) = tmp - y
+    let several (a: int) (b: int) (c: int) (d: int) = (a - b) + (c - d)
+
+    shadow (id Int32.MinValue) (id 1) |> equal Int32.MaxValue
+    shadow (id 10) (id 4) |> equal 6
+    several (id Int32.MaxValue) (id -1) (id 0) (id 0) |> equal Int32.MinValue
+    several (id 10) (id 4) (id 20) (id 5) |> equal 21

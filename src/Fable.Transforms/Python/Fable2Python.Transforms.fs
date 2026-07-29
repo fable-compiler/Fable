@@ -1073,11 +1073,27 @@ let transformOperation (com: IPythonCompiler) ctx range (t: Fable.Type) opKind t
             else
                 None
 
+        // When no operand test is available -- neither side is a literal, or the moving
+        // side is something costlier than an identifier -- bind the result once and test
+        // that instead. Only worth it where overflow is the exception rather than the
+        // rule, so it is limited to a single `+`/`-` over two already-normalized
+        // operands: that is one bit of possible overflow, where hash mixing and the like
+        // build up far more and would pay the test on every evaluation without saving
+        // the call.
+        let resultGuard =
+            let bothOperandsNormalized =
+                int32ExprBitWidth leftFable = 32 && int32ExprBitWidth rightFable = 32
+
+            match op with
+            | (BinaryPlus | BinaryMinus) when wrapsResult && rangeGuard.IsNone && bothOperandsNormalized ->
+                getUniqueNameInDeclarationScope ctx "tmp" |> Some
+            | _ -> None
+
         let binOp (op: BinaryOperator) =
             let result = Expression.binOp (left, op, right, ?loc = range)
 
-            (match rangeGuard, wrapsResult with
-             | Some(identIsLeft, cmp, threshold), _ ->
+            (match rangeGuard, resultGuard, wrapsResult with
+             | Some(identIsLeft, cmp, threshold), _, _ ->
                  let ident =
                      if identIsLeft then
                          left
@@ -1088,8 +1104,22 @@ let transformOperation (com: IPythonCompiler) ctx range (t: Fable.Type) opKind t
                      Expression.compare (ident, [ cmp ], [ Expression.intConstant threshold ], ?loc = range)
 
                  Expression.ifExp (test, result, wrapInt32 com ctx range result, ?loc = range)
-             | None, true -> wrapInt32 com ctx range result
-             | None, false -> result),
+             | None, Some name, _ ->
+                 let tmp = com.GetIdentifierAsExpr(ctx, name)
+
+                 // `-2147483648 <= (tmp := <op>) <= 2147483647`. The binding sits in the
+                 // test because a conditional expression evaluates its condition first.
+                 let test =
+                     Expression.compare (
+                         Expression.intConstant -2147483648,
+                         [ LtE; LtE ],
+                         [ Expression.namedExpr (tmp, result); Expression.intConstant 2147483647 ],
+                         ?loc = range
+                     )
+
+                 Expression.ifExp (test, tmp, wrapInt32 com ctx range tmp, ?loc = range)
+             | None, None, true -> wrapInt32 com ctx range result
+             | None, None, false -> result),
             stmts @ stmts'
 
         let compare op =

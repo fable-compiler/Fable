@@ -1091,7 +1091,20 @@ module Util =
         | Int32Call arg -> arg
         | Expression.IfExp guard ->
             match guard.OrElse with
-            | Int32Call _ -> guard.Body
+            | Int32Call _ ->
+                // A result guard binds the operation to a temporary inside its test, so
+                // the unwrapped operation is that binding's value. Its `Body` is only the
+                // temporary's name, and returning it would drop the binding.
+                match guard.Test with
+                | Expression.Compare { Comparators = comparators } ->
+                    comparators
+                    |> List.tryPick (
+                        function
+                        | Expression.NamedExpr ne -> Some ne.Value
+                        | _ -> None
+                    )
+                    |> Option.defaultValue guard.Body
+                | _ -> guard.Body
             | _ -> e
         | _ -> e
 
