@@ -679,12 +679,21 @@ let ``test hashing wide numeric types agrees with GetHashCode`` () =
 
 [<Fact>]
 let ``test wide numeric types work as hash keys`` () =
-    let longs = System.Collections.Generic.HashSet<int64>([ 1L; 2L; 3L ])
+    // Added one at a time rather than from a sequence: constructing a HashSet from
+    // an IEnumerable trips a known Pyright gap, the one that keeps test_hash_set.py
+    // in the CI exclude list.
+    let longs = System.Collections.Generic.HashSet<int64>()
+    longs.Add 1L |> ignore
+    longs.Add 2L |> ignore
+    longs.Add 2L |> equal false
     longs.Contains 2L |> equal true
     longs.Contains 9L |> equal false
-    let ulongs = System.Collections.Generic.HashSet<uint64>([ 1UL; 2UL ])
+    let ulongs = System.Collections.Generic.HashSet<uint64>()
+    ulongs.Add 2UL |> ignore
     ulongs.Contains 2UL |> equal true
-    let decimals = System.Collections.Generic.HashSet<decimal>([ 1M; 2M ])
+    let decimals = System.Collections.Generic.HashSet<decimal>()
+    decimals.Add 2M |> ignore
     decimals.Contains 2M |> equal true
-    let bigs = System.Collections.Generic.HashSet<bigint>([ 1I; 2I ])
+    let bigs = System.Collections.Generic.HashSet<bigint>()
+    bigs.Add 2I |> ignore
     bigs.Contains 2I |> equal true
