@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from fable_library.core import FSharpRef, Int32, byte, int16, int64, sbyte, uint16, uint32, uint64
+from fable_library.core import FSharpRef, Int32, byte, float32, int16, int32, int64, sbyte, uint16, uint32, uint64
 from fable_library.int32 import parse as int32_parse
 from fable_library.int32 import try_parse as int32_try_parse
 from pydantic import BaseModel
@@ -576,3 +576,35 @@ def test_int32_module_parse_returns_plain_int() -> None:
     assert type(ref.contents) is int
 
     assert int32_try_parse("foo", 511, ref) is False
+
+
+def test_int32_normalizer_wraps_on_the_slow_path() -> None:
+    """`int32` must wrap at the 32-bit boundary for values that miss the fast path.
+
+    The fast path returns already-in-range plain ints untouched; everything else —
+    out-of-range ints, the fixed-width wrappers, floats, and anything that merely
+    implements `__int__` — falls through to the masking branch, which is inlined
+    rather than recursive.
+    """
+    assert int32(2147483648) == -2147483648
+    assert int32(-2147483649) == 2147483647
+    assert int32(4294967295) == -1
+    assert int32(uint32(4294967295)) == -1
+    assert int32(uint64(2**64 - 1)) == -1
+    assert int32(int64(2**40)) == 0
+    assert int32(float32(42.7)) == 42
+    assert int32() == 0
+
+    # A plain `int` is what generated code expects to receive back, whatever went in
+    assert type(int32(uint32(7))) is int
+
+    # `bool` is an `int` subclass, so `type(value) is int` is False and it takes the
+    # slow path too
+    assert int32(True) == 1
+    assert type(int32(True)) is int
+
+    class SupportsIntOnly:
+        def __int__(self) -> int:
+            return 2**40 + 5
+
+    assert int32(SupportsIntOnly()) == 5

@@ -79,7 +79,11 @@ def int32(value: SupportsInt = 0, /) -> int:
 
         return masked - 4294967296 if masked > 2147483647 else masked
 
-    return int32(int(value))
+    # Inlined rather than recursing: the recursive call would re-test `type(value) is
+    # int` on a value we already know is one, at the cost of a whole extra frame.
+    masked = int(value) & 4294967295
+
+    return masked - 4294967296 if masked > 2147483647 else masked
 
 
 def float64(value: SupportsFloat | SupportsInt = 0.0, /) -> float:

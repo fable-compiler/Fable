@@ -644,10 +644,10 @@ def compare(d1: DateTimeOffset, d2: DateTimeOffset) -> int:
     a = _to_utc_ms(d1)
     b = _to_utc_ms(d2)
     if a < b:
-        return int32(-1)
+        return -1
     if a > b:
-        return int32(1)
-    return int32(0)
+        return 1
+    return 0
 
 
 def compare_to(d1: DateTimeOffset, d2: DateTimeOffset) -> int:
