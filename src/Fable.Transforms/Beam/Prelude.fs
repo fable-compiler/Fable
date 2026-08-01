@@ -497,6 +497,13 @@ module Naming =
         checkErlKeywords disambiguated
 
     /// Quote an Erlang atom if it needs quoting (starts with uppercase, contains special chars, etc.)
+    ///
+    /// Inside the quotes a `\` and a `'` have to be escaped, or what comes back is not the atom that
+    /// was asked for. `'it's'` is a syntax error; `'back\slash'` is worse, because Erlang reads the
+    /// same escape sequences in a quoted atom as in a string and `\s` means space — so it compiles,
+    /// silently, to the atom `back lash`. Both are reachable: `[<CompiledName>]` reaches the atom
+    /// text verbatim (`unionCaseTagName`, and `[<StringEnum>]` cases on top of it), and
+    /// `sanitizeErlangName` only strips these characters on the paths that go through it.
     let quoteErlangAtom (name: string) =
         if name.Length = 0 then
             "''"
@@ -507,7 +514,10 @@ module Naming =
         then
             name
         else
-            $"'%s{name}'"
+            // Backslashes first — otherwise the ones the second replace adds get escaped again.
+            let escaped = name.Replace("\\", @"\\").Replace("'", @"\'")
+
+            $"'%s{escaped}'"
 
     let sanitizeErlangVar (name: string) =
         // Remove/replace characters invalid in Erlang variable names

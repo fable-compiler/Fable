@@ -866,3 +866,35 @@ let ``test MakeUnion honours CompiledName on a union case`` () =
     let case, fields = FSharpValue.GetUnionFields(box value, typeof<CompiledNameUnion>)
     case.Name |> equal "Renamed"
     fields |> equal [| box 42 |]
+
+// === Union case tags whose CompiledName needs escaping inside a quoted atom ===
+// `[<CompiledName>]` reaches the Erlang atom verbatim, and a quoted atom reads the same escape
+// sequences a string does. An unescaped `'` closed the atom early (`'it's'` — a syntax error) and
+// an unescaped `\` started an escape sequence (`'back\slash'` compiled silently to `back lash`,
+// because `\s` is Erlang's escape for a space).
+
+type EscapedTagUnion =
+    | [<CompiledName("it's")>] Apostrophe of int
+    | [<CompiledName("back\\slash")>] Backslash of int
+
+[<Fact>]
+let ``test union case tags escape quotes and backslashes`` () =
+    let describe (x: EscapedTagUnion) =
+        match x with
+        | Apostrophe i -> "a" + string i
+        | Backslash i -> "b" + string i
+
+    describe (Apostrophe 1) |> equal "a1"
+    describe (Backslash 2) |> equal "b2"
+
+    // Reflection embeds the same tag codegen emits, so a round-trip through MakeUnion has to land
+    // on the case the pattern matches look for.
+    let cases = FSharpType.GetUnionCases typeof<EscapedTagUnion>
+    let backslash = cases |> Array.find (fun c -> c.Name = "Backslash")
+    let value = FSharpValue.MakeUnion(backslash, [| box 7 |]) |> unbox<EscapedTagUnion>
+
+    describe value |> equal "b7"
+
+    let case, fields = FSharpValue.GetUnionFields(box value, typeof<EscapedTagUnion>)
+    case.Name |> equal "Backslash"
+    fields |> equal [| box 7 |]
