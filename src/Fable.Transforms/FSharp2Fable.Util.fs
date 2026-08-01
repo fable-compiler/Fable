@@ -1686,7 +1686,17 @@ module TypeHelpers =
                 | Choice1Of2 t -> t
                 | Choice2Of2 fullName -> makeRuntimeTypeWithMeasure genArgs fullName
             | fullName when tdef.IsMeasure -> Fable.Measure fullName
-            | _ when hasAttrib Atts.stringEnum tdef.Attributes && Compiler.Language <> TypeScript -> Fable.String
+            // A `[<StringEnum>]` value *is* a string at runtime, so the type follows the
+            // representation. Not on TypeScript, which keeps the literal-union type, and not on
+            // Beam, where the cases compile to atoms instead of binaries (see
+            // `transformStringEnumAsAtom`) — calling it a string there would make `string x`
+            // erase to a no-op and hand an atom to code expecting a binary.
+            | _ when
+                hasAttrib Atts.stringEnum tdef.Attributes
+                && Compiler.Language <> TypeScript
+                && Compiler.Language <> Beam
+                ->
+                Fable.String
             | _ ->
                 let genArgs = makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs
 

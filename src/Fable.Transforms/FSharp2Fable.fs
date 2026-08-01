@@ -58,6 +58,43 @@ let private transformBaseConsCall
         // Other cases, like Emit will call directly the base expression
         | e -> e
 
+/// A `[<StringEnum>]` case as an Erlang atom.
+///
+/// `[<StringEnum>]` means "a closed set of string-literal constants for interop", and the Beam
+/// analogue of a JS string literal is an atom, not a binary: the OTP functions such a binding
+/// targets (ETS table types, `logger` levels, `gen_server` names, ...) pattern-match atoms and
+/// reject binaries. This is the representation a plain nullary DU already gets on Beam, so after
+/// this the two spellings are equivalent there.
+///
+/// `[<CompiledValue>]` cases are genuine bool/int/float constants rather than tags and keep their
+/// literal, and an explicit `[<Emit>]` on the case still wins — both fall through to the shared path.
+let private transformStringEnumAsAtom (rule: Fable.Core.CaseRules) (unionCase: FSharpUnionCase) =
+    let atom name =
+        let emitInfo: Fable.EmitInfo =
+            {
+                // Quoted unless it already matches Erlang's unquoted atom syntax: a case rule or a
+                // `[<CompiledName>]` can produce text (`content-box`, `Horizontal`) that needs it.
+                Macro = Fable.Beam.Naming.quoteErlangAtom name
+                IsStatement = false
+                CallInfo = Fable.CallInfo.Create()
+            }
+
+        Fable.Emit(emitInfo, Fable.Any, None)
+
+    match FsUnionCase.CompiledName unionCase, FsUnionCase.CompiledValue unionCase with
+    | Some name, _ -> atom name
+    | _, Some _ -> transformStringEnum rule unionCase
+    | None, None ->
+        match unionCase.Attributes |> tryFindAttrib Atts.emitAttr with
+        | Some _ -> transformStringEnum rule unionCase
+        | None -> Naming.applyCaseRule rule unionCase.Name |> atom
+
+/// The value a `[<StringEnum>]` case compiles to: an atom on Beam, a string literal everywhere else.
+let private transformStringEnumCase (com: Compiler) (rule: Fable.Core.CaseRules) (unionCase: FSharpUnionCase) =
+    match com.Options.Language with
+    | Beam -> transformStringEnumAsAtom rule unionCase
+    | _ -> transformStringEnum rule unionCase
+
 let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     match getUnionPattern fsType unionCase with
     | ErasedUnionCase -> makeTuple r false argExprs
@@ -109,7 +146,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
 
     | StringEnum(tdef, rule) ->
         match argExprs with
-        | [] -> transformStringEnum rule unionCase
+        | [] -> transformStringEnumCase com rule unionCase
         | _ ->
             $"StringEnum types cannot have fields: %O{tdef.TryFullName}"
             |> addErrorAndReturnNull com ctx.InlinePath r
@@ -604,7 +641,7 @@ let private transformUnionCaseTest
             let kind = Fable.ListTest(unionCase.CompiledName <> "Empty")
             return Fable.Test(unionExpr, kind, r)
 
-        | StringEnum(_, rule) -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqual
+        | StringEnum(_, rule) -> return makeEqOp r unionExpr (transformStringEnumCase com rule unionCase) BinaryEqual
 
         | DiscriminatedUnion(tdef, _) ->
             let tag = unionCaseTag com tdef unionCase
