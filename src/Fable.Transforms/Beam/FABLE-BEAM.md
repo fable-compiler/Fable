@@ -1283,6 +1283,23 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   instead of `fable_utils:iface_get` dispatch. Method names are converted via
   `sanitizeErlangName` (camelCase → snake_case). Same pattern as JS/Python but with `:` call
   syntax instead of attribute access.
+- **`[<StringEnum>]` → atoms**: `[<StringEnum>]` means "a closed set of string-literal constants
+  for interop". On JS each case lowers to a string literal because that is what a JS API expects;
+  the Beam analogue is an **atom**, not a binary — the OTP functions such a binding targets (ETS
+  table types, `logger` levels, transport names, `gen_server` name registration) pattern-match
+  atoms and reject binaries. So on Beam a case compiles to a bare atom, quoted when the name is
+  not valid unquoted atom syntax (`[<CompiledName("Horizontal")>]` → `'Horizontal'`,
+  `CaseRules.KebabCase` → `'content-box'`). This makes `[<StringEnum>]` and a plain nullary DU
+  equivalent on Beam — both are bare atoms — which is the intended end state. Consequences:
+    - `[<CompiledValue(true|1|1.0)>]` cases are genuine bool/int/float constants rather than tags,
+      and keep their literal. An explicit `[<Emit>]` on a case still wins.
+    - The type no longer maps to `Fable.String` on Beam (`makeType` in `FSharp2Fable.Util.fs`), so
+      `string x` routes through `fable_convert:to_string` (giving the atom's text as a binary)
+      instead of erasing to a no-op that would hand an atom to code expecting a binary. Ordered
+      comparison also becomes declaration-order correct, since union values now reach
+      `compare_union` (see the DU ordering section above).
+    - `[<Erase>]` unions are deliberately *not* included: an erased case with no fields keeps its
+      binary. `[<Erase>]` means "no runtime representation", not "a constant tag".
 
 - **Async/Task CE**: CPS (Continuation-Passing Style) implementation. `Async<T>` is a function
   `fun(Ctx) -> ok end` with context map `#{on_success, on_error, on_cancel, cancel_token}`.
