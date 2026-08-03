@@ -6,6 +6,7 @@ let allTests =
     Cli.tests
     FileWatcher.tests
     CompilationTests.tests
+    CacheInvalidation.tests
   ]
 
 open Expecto
