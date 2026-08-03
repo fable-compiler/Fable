@@ -17,6 +17,7 @@
     <Compile Include="FileWatcherTests.fs" />
     <Compile Include="CliTests.fs" />
     <Compile Include="CompilationTests.fs" />
+    <Compile Include="CacheInvalidationTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
