@@ -58,6 +58,12 @@ let private equals (com: ICompiler) r equal (left: Expr) (right: Expr) =
         // ResizeArray (System.Collections.Generic.List) uses reference equality in .NET, see #3718.
         // Two distinct refs are never =:=, so this matches .NET semantics directly.
         | Array(_, ResizeArray) -> physicalEquals r left right
+        // Dates denote instants, but their Beam representation carries a Kind (and, for
+        // DateTimeOffset, an offset) that structural equality would compare too. .NET ignores
+        // Kind and compares DateTimeOffset by its UTC instant, so route to the library.
+        | Builtin BclDateTime -> Helper.LibCall(com, "fable_date", "equals", Boolean, [ left; right ], ?loc = r)
+        | Builtin BclDateTimeOffset ->
+            Helper.LibCall(com, "fable_date_offset", "equals", Boolean, [ left; right ], ?loc = r)
         | _ -> Helper.LibCall(com, "fable_comparison", "equals", Boolean, [ left; right ], ?loc = r)
 
     if equal then
@@ -89,6 +95,15 @@ let private unionTagOrderExpr (com: ICompiler) (t: Type) : Expr option =
 
 let private isFableUnion (com: ICompiler) (t: Type) = (unionTagOrderExpr com t).IsSome
 
+/// Dates order by the instant they denote, but their Beam representation is a tuple whose
+/// trailing Kind/offset elements take part in Erlang's native term ordering. Route them
+/// through the library so ordering ignores Kind and accounts for the offset.
+let private dateCompareModule (t: Type) =
+    match t with
+    | Builtin BclDateTime -> Some "fable_date"
+    | Builtin BclDateTimeOffset -> Some "fable_date_offset"
+    | _ -> None
+
 let private compare (com: ICompiler) r (left: Expr) (right: Expr) =
     // F# unions must compare by declaration order, but their tagless Beam representation
     // (bare atoms / {atom, fields}) makes Erlang's native term ordering alphabetical.
@@ -104,12 +119,15 @@ let private compare (com: ICompiler) r (left: Expr) (right: Expr) =
             ?loc = r
         )
     | None ->
-        Helper.LibCall(com, "fable_comparison", "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
+        let modName = dateCompareModule left.Type |> Option.defaultValue "fable_comparison"
+
+        Helper.LibCall(com, modName, "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
 
 /// Relational operator (`<`, `<=`, `>`, `>=`): native Erlang term ordering for most
-/// types, but structural `compare_union` ordering for F# unions.
+/// types, but structural `compare_union` ordering for F# unions and instant ordering
+/// for dates.
 let private makeRelational (com: ICompiler) r (left: Expr) (right: Expr) op =
-    if isFableUnion com left.Type then
+    if isFableUnion com left.Type || (dateCompareModule left.Type).IsSome then
         makeBinOp r Boolean (compare com r left right) (makeIntConst 0) op
     else
         makeBinOp r Boolean left right op
@@ -5071,6 +5089,7 @@ let private dateTimeOffsets
             Helper.LibCall(com, "fable_date_offset", "to_unix_time_milliseconds", t, [ callee ], ?loc = r)
             |> Some
         | None -> None
+    | "Parse" -> Helper.LibCall(com, "fable_date_offset", "parse", t, args, ?loc = r) |> Some
     | "TryParse" -> Helper.LibCall(com, "fable_date_offset", "try_parse", t, args, ?loc = r) |> Some
     | _ -> None
 
