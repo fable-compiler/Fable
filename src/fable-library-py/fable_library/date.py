@@ -456,6 +456,52 @@ def date_to_string_with_custom_format(date: datetime, format: str, utc: bool) ->
     return result
 
 
+def _is_date_time_offset(date: datetime) -> bool:
+    # DateTimeOffset sets this marker on itself. It is checked by attribute
+    # rather than isinstance because date_offset imports this module, so
+    # importing it back here would be a cycle.
+    return getattr(date, "is_offset_value", False) is True
+
+
+def _offset_designator(offset: timedelta) -> str:
+    """Format a UTC offset the way .NET's "zzz" does: "+02:00", "-05:30"."""
+    total_minutes = round(offset.total_seconds() / 60)
+    sign = "-" if total_minutes < 0 else "+"
+    total_minutes = abs(total_minutes)
+    return f"{sign}{total_minutes // 60:02d}:{total_minutes % 60:02d}"
+
+
+def _roundtrip_zone_designator(date: datetime) -> str:
+    """Zone designator of the round-trip format, derived from the value alone.
+
+    Kind = Unspecified has none, Kind = Utc is "Z", and Kind = Local carries its
+    own offset. A DateTimeOffset always prints a numeric offset, even "+00:00".
+    """
+    offset = date.utcoffset()
+    if offset is None:
+        return ""
+
+    if date.tzinfo == UTC and not _is_date_time_offset(date):
+        return "Z"
+
+    return _offset_designator(offset)
+
+
+def _to_roundtrip_string(date: datetime) -> str:
+    """Round-trip ("O"/"o") format: "yyyy-MM-ddTHH:mm:ss.fffffff" plus a zone
+    designator.
+
+    The result depends only on the value, never on the host timezone. Python's
+    datetime only carries microseconds, so the seventh fractional digit is
+    always 0 rather than truncating the fraction to six digits.
+    """
+    return (
+        f"{date.year:04d}-{date.month:02d}-{date.day:02d}"
+        f"T{date.hour:02d}:{date.minute:02d}:{date.second:02d}"
+        f".{date.microsecond:06d}0{_roundtrip_zone_designator(date)}"
+    )
+
+
 def date_to_string_with_offset(date: datetime, format: str | None = None) -> str:
     utc = date.tzinfo == UTC
 
@@ -467,7 +513,7 @@ def date_to_string_with_offset(date: datetime, format: str | None = None) -> str
             else:
                 return date.strftime("%Y-%m-%dT%H:%M:%S.%f%z")
         case "O" | "o":
-            return date.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+            return _to_roundtrip_string(date)
         case "D":
             return to_long_date_string(date)
         case "d":
@@ -524,7 +570,7 @@ def date_to_string_with_kind(date: datetime, format: str | None = None) -> str:
         case "M" | "m":
             return to_month_day_string(date)
         case "O" | "o":
-            return date.astimezone().isoformat(timespec="milliseconds")
+            return _to_roundtrip_string(date)
         case "R" | "r":
             return to_rfc1123_string(date)
         case "s":

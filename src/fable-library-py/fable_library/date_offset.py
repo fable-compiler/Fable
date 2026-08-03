@@ -14,6 +14,11 @@ from .time_span import TimeSpan, hours, microseconds, milliseconds, minutes, sec
 class DateTimeOffset(datetime):
     """A datetime subclass with an explicit offset, similar to .NET DateTimeOffset"""
 
+    # Lets the formatters in `date` tell a DateTimeOffset apart from a DateTime
+    # with Kind = Utc — a zero offset gives both the same tzinfo, but only the
+    # latter renders as "Z" in the round-trip format.
+    is_offset_value: bool = True
+
     def __new__(cls, dt: datetime, offset_milliseconds: int = 0):
         # Create new datetime instance using the values from the input datetime
         instance = super().__new__(
