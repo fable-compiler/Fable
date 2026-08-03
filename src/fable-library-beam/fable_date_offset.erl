@@ -50,6 +50,7 @@
     from_unix_time_milliseconds/1,
     to_unix_time_seconds/1,
     to_unix_time_milliseconds/1,
+    parse/1, parse/2,
     try_parse/2,
     to_string/1, to_string/2, to_string/3
 ]).
@@ -111,6 +112,8 @@
 -spec from_unix_time_milliseconds(integer()) -> datetimeoffset().
 -spec to_unix_time_seconds(datetimeoffset()) -> integer().
 -spec to_unix_time_milliseconds(datetimeoffset()) -> integer().
+-spec parse(binary()) -> datetimeoffset().
+-spec parse(binary(), term()) -> datetimeoffset().
 -spec try_parse(binary(), reference()) -> boolean().
 -spec to_string(datetimeoffset()) -> binary().
 -spec to_string(datetimeoffset(), binary()) -> binary().
@@ -213,9 +216,12 @@ utc_ticks({Ticks, _Kind, OffsetTicks}) ->
 %% ============================================================
 
 now() ->
-    {Ticks, _Kind} = fable_date:now(),
+    %% fable_date:now/0 ticks are the UTC instant; a DateTimeOffset stores the
+    %% wall clock *in* its offset, so shift by the offset to keep
+    %% `Ticks - Offset` the true instant.
+    {UtcTicks, _Kind} = fable_date:now(),
     OffsetTicks = local_offset_ticks(),
-    {Ticks, 2, OffsetTicks}.
+    {UtcTicks + OffsetTicks, 2, OffsetTicks}.
 
 utc_now() ->
     {Ticks, _Kind} = fable_date:utc_now(),
@@ -343,16 +349,31 @@ to_unix_time_milliseconds({Ticks, _Kind, OffsetTicks}) ->
     (UtcTicks - ?UNIX_EPOCH_TICKS) div ?TICKS_PER_MILLISECOND.
 
 %% ============================================================
-%% TryParse
+%% Parse / TryParse
 %% ============================================================
+
+%% Parse keeping the zone offset carried by the string — delegating to
+%% fable_date:parse/1 would fold the offset into a UTC instant and lose it,
+%% and the offset is the whole point of DateTimeOffset.
+parse(Str) -> parse(Str, undefined).
+
+parse(Str, _Provider) ->
+    {Ticks, Zone} = fable_date:parse_zoned(Str),
+    case Zone of
+        %% No designator: .NET reads the value as local time and stamps it with
+        %% the current local offset.
+        none ->
+            OffsetTicks = local_offset_ticks(),
+            {Ticks, offset_to_kind(OffsetTicks), OffsetTicks};
+        utc ->
+            {Ticks, 1, 0};
+        {offset, OffsetTicks} ->
+            {Ticks, offset_to_kind(OffsetTicks), OffsetTicks}
+    end.
 
 try_parse(Str, OutRef) ->
     try
-        %% Parse the datetime part and create DateTimeOffset with zero offset
-        DT = fable_date:parse(Str),
-        {Ticks, _Kind} = DT,
-        DTO = {Ticks, 0, 0},
-        put(OutRef, DTO),
+        put(OutRef, parse(Str)),
         true
     catch
         _:_ -> false
@@ -367,17 +388,20 @@ to_string(DTO) -> to_string(DTO, <<"">>).
 to_string(DTO, Format) -> to_string(DTO, Format, undefined).
 
 to_string({Ticks, Kind, OffsetTicks}, Format, Provider) ->
-    %% Delegate formatting to fable_date, then append offset
-    DT = {Ticks, Kind},
-    BaseStr = fable_date:to_string(DT, Format, Provider),
     case Format of
         <<"">> ->
             %% Default format: append offset
-            OffsetStr = format_offset(OffsetTicks),
-            iolist_to_binary([BaseStr, <<" ">>, OffsetStr]);
+            BaseStr = fable_date:to_string({Ticks, Kind}, Format, Provider),
+            iolist_to_binary([BaseStr, <<" ">>, format_offset(OffsetTicks)]);
+        RoundTrip when RoundTrip =:= <<"O">>; RoundTrip =:= <<"o">> ->
+            %% Round-trip: always an explicit numeric offset, never "Z" (which is
+            %% what fable_date would emit for a UTC Kind), so parsing it back
+            %% recovers the offset.
+            BaseStr = fable_date:to_string({Ticks, 0}, RoundTrip, Provider),
+            iolist_to_binary([BaseStr, format_offset(OffsetTicks)]);
         _ ->
             %% Custom format: just return the formatted string
-            BaseStr
+            fable_date:to_string({Ticks, Kind}, Format, Provider)
     end.
 
 format_offset(OffsetTicks) ->

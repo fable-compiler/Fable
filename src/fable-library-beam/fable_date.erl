@@ -45,10 +45,12 @@
     to_short_time_string/1,
     to_long_time_string/1,
     parse/1, parse/2,
+    parse_zoned/1,
     try_parse/2, try_parse/3, try_parse/4
 ]).
 
 -type datetime() :: {integer(), 0 | 1 | 2}.
+-type zone() :: none | utc | {offset, integer()}.
 
 -spec create(integer(), integer(), integer()) -> datetime().
 -spec create(integer(), integer(), integer(), integer(), integer(), integer()) -> datetime().
@@ -115,6 +117,7 @@
 -spec to_long_time_string(datetime()) -> binary().
 -spec parse(binary()) -> datetime().
 -spec parse(binary(), term()) -> datetime().
+-spec parse_zoned(binary()) -> {integer(), zone()}.
 -spec try_parse(binary(), reference()) -> boolean().
 -spec try_parse(binary(), term(), reference()) -> boolean().
 -spec try_parse(binary(), term(), term(), reference()) -> boolean().
@@ -714,52 +717,91 @@ month_name_long(12) -> "December".
 parse(Str) -> parse(Str, undefined).
 
 parse(Str, _Provider) when is_binary(Str) ->
+    case parse_zoned(Str) of
+        {Ticks, none} -> {Ticks, ?KIND_UNSPECIFIED};
+        {Ticks, utc} -> {Ticks, ?KIND_UTC};
+        %% A numeric offset denotes an instant: fold it into UTC and tag the
+        %% result Utc. (.NET converts to local time instead, but Beam has no
+        %% local-time representation for DateTime — Kind is only a label and no
+        %% conversion ever shifts the ticks — so UTC is the faithful instant.)
+        {Ticks, {offset, OffsetTicks}} -> {Ticks - OffsetTicks, ?KIND_UTC}
+    end.
+
+%% Parse into wall-clock ticks plus the zone designator found in the string.
+%% Exposed for fable_date_offset, which needs the raw offset that parse/2 folds
+%% away. Zone is `none` (no designator), `utc` (Z) or `{offset, Ticks}`.
+parse_zoned(Str) when is_binary(Str) ->
     S = string:trim(binary_to_list(Str)),
     parse_string(S, Str).
 
 parse_string(S, OrigStr) ->
     %% Try ISO 8601 first: "2014-09-10T13:50:34.0000000"
     case try_parse_iso(S) of
-        {ok, DT} ->
-            DT;
+        {ok, Parsed} ->
+            Parsed;
         error ->
             %% Try US date format: "9/10/2014 1:50:34 PM" or "9/10/2014 13:50:34"
             case try_parse_us(S) of
-                {ok, DT} ->
-                    DT;
+                {ok, Parsed} ->
+                    Parsed;
                 error ->
                     %% Try time-only: "13:50:34" or "1:5:34 AM"
                     case try_parse_time_only(S) of
-                        {ok, DT} -> DT;
+                        {ok, Parsed} -> Parsed;
                         error -> parse_error(OrigStr)
                     end
             end
     end.
 
 try_parse_iso(S) ->
+    %% The zone designator is optional and may be `Z`/`z` or a numeric offset in
+    %% any of the ISO-8601 forms: `±hh:mm`, `±hhmm` or `±hh`.
     Pattern =
-        "^(\\d{4})-(\\d{1,2})-(\\d{1,2})T(\\d{1,2}):(\\d{1,2}):(\\d{1,2})(?:\\.(\\d+))?([Zz])?$",
+        "^(\\d{4})-(\\d{1,2})-(\\d{1,2})T(\\d{1,2}):(\\d{1,2}):(\\d{1,2})(?:\\.(\\d+))?"
+        "([Zz]|[+-]\\d{2}(?::?\\d{2})?)?$",
     case re:run(S, Pattern, [{capture, all, list}]) of
         {match, Groups} ->
-            Y = list_to_integer(lists:nth(2, Groups)),
-            M = list_to_integer(lists:nth(3, Groups)),
-            D = list_to_integer(lists:nth(4, Groups)),
-            H = list_to_integer(lists:nth(5, Groups)),
-            Min = list_to_integer(lists:nth(6, Groups)),
-            Sec = list_to_integer(lists:nth(7, Groups)),
-            FracStr = safe_group(8, Groups),
-            SubSecondTicks = parse_frac_to_ticks(FracStr),
-            KindStr = safe_group(9, Groups),
-            Kind =
-                case KindStr of
-                    "Z" -> ?KIND_UTC;
-                    "z" -> ?KIND_UTC;
-                    _ -> ?KIND_UNSPECIFIED
-                end,
-            BaseTicks = ticks_from_components(Y, M, D, H, Min, Sec, 0, 0),
-            {ok, {BaseTicks + SubSecondTicks, Kind}};
+            case parse_zone(safe_group(9, Groups)) of
+                invalid ->
+                    error;
+                Zone ->
+                    Y = list_to_integer(lists:nth(2, Groups)),
+                    M = list_to_integer(lists:nth(3, Groups)),
+                    D = list_to_integer(lists:nth(4, Groups)),
+                    H = list_to_integer(lists:nth(5, Groups)),
+                    Min = list_to_integer(lists:nth(6, Groups)),
+                    Sec = list_to_integer(lists:nth(7, Groups)),
+                    SubSecondTicks = parse_frac_to_ticks(safe_group(8, Groups)),
+                    BaseTicks = ticks_from_components(Y, M, D, H, Min, Sec, 0, 0),
+                    {ok, {BaseTicks + SubSecondTicks, Zone}}
+            end;
         nomatch ->
             error
+    end.
+
+%% Zone designator -> none | utc | {offset, Ticks} | invalid
+parse_zone("") -> none;
+parse_zone("Z") -> utc;
+parse_zone("z") -> utc;
+parse_zone([Sign | Digits]) when Sign =:= $+; Sign =:= $- ->
+    case offset_ticks(Digits) of
+        invalid -> invalid;
+        Ticks when Sign =:= $- -> {offset, -Ticks};
+        Ticks -> {offset, Ticks}
+    end.
+
+%% Offset digits (hh, hhmm or hh:mm) -> ticks | invalid.
+%% .NET rejects offsets outside ±14:00.
+offset_ticks([H1, H2]) -> offset_ticks_hm([H1, H2], "0");
+offset_ticks([H1, H2, $:, M1, M2]) -> offset_ticks_hm([H1, H2], [M1, M2]);
+offset_ticks([H1, H2, M1, M2]) -> offset_ticks_hm([H1, H2], [M1, M2]).
+
+offset_ticks_hm(HStr, MStr) ->
+    H = list_to_integer(HStr),
+    M = list_to_integer(MStr),
+    case M < 60 andalso H * 60 + M =< 14 * 60 of
+        true -> H * ?TICKS_PER_HOUR + M * ?TICKS_PER_MINUTE;
+        false -> invalid
     end.
 
 try_parse_us(S) ->
@@ -792,7 +834,7 @@ try_parse_us(S) ->
                         end,
                     AmPm = safe_group(8, Groups),
                     H = adjust_ampm(H0, AmPm),
-                    {ok, {ticks_from_components(Y, M, D, H, Min, Sec, 0, 0), ?KIND_UNSPECIFIED}}
+                    {ok, {ticks_from_components(Y, M, D, H, Min, Sec, 0, 0), none}}
             end;
         nomatch ->
             error
@@ -814,7 +856,7 @@ try_parse_time_only(S) ->
             %% Use current date
             {NowTicks, _} = ?MODULE:now(),
             {Y, M, D, _, _, _, _} = ticks_to_datetime(NowTicks),
-            {ok, {ticks_from_components(Y, M, D, H, Min, Sec, 0, 0), ?KIND_UNSPECIFIED}};
+            {ok, {ticks_from_components(Y, M, D, H, Min, Sec, 0, 0), none}};
         nomatch ->
             error
     end.
