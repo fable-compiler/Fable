@@ -4,9 +4,8 @@ open System
 open System.IO
 open Expecto
 
-/// A project whose compile order lives in an imported .props, so that adding a
-/// source file leaves the .fsproj timestamp untouched. Written to a temp
-/// directory because these tests have to mutate the project between compilations.
+/// A project whose compile order lives in an imported .props, so adding a source file
+/// leaves the .fsproj timestamp untouched. In a temp dir: these tests mutate the project.
 let private createProject (dir: string) =
     Directory.CreateDirectory(dir) |> ignore
 
@@ -35,14 +34,12 @@ let private createProject (dir: string) =
 
     File.WriteAllText(Path.Combine(dir, "Lib.fs"), "module Lib\n\nlet greeting = \"hello\"\n")
 
-    // A second file so that deleting one output still leaves another behind: the
-    // up-to-date check already forces a recompilation when it finds no generated
-    // file at all, which would mask the case under test.
+    // A second file, so deleting one output leaves another behind: with none left, the
+    // "no compiled files found" guard forces a recompilation and masks the case under test.
     File.WriteAllText(Path.Combine(dir, "Main.fs"), "module Main\n\nlet run () = printfn \"%s\" Lib.greeting\n")
 
-/// The cache is invalidated by comparing timestamps, so a file rewritten within
-/// the same tick as the previous compilation could be seen as unchanged. Nudge
-/// the timestamp forward to keep the test from flaking.
+/// Cache invalidation compares timestamps, so a file rewritten within the same tick as the
+/// previous compilation could look unchanged. Nudge it forward to keep the test from flaking.
 let private writeNewer (path: string) (content: string) =
     File.WriteAllText(path, content)
     File.SetLastWriteTime(path, DateTime.Now.AddSeconds(2.0))
@@ -76,10 +73,8 @@ let tests =
     testList
         "CacheInvalidation"
         [
-            // A `<Compile Include>` arriving through an imported .props leaves every
-            // .fsproj timestamp untouched, so the project options cache used to be
-            // reused with a stale source list: the new module was never generated and
-            // the build still reported success.
+            // A `<Compile Include>` arriving through an imported .props touches no .fsproj
+            // timestamp, so the options cache used to be reused with a stale source list.
             testCase "Source file added via an imported .props is compiled"
             <| fun () ->
                 withTempProject
@@ -107,9 +102,8 @@ let tests =
                             "The file added through the imported .props should have been generated"
                     )
 
-            // `getFilesToCompile` selects a source whose output is missing, so the
-            // up-to-date check must not then report that same file as up-to-date and
-            // skip the compilation it just asked for.
+            // `getFilesToCompile` selects a source whose output is missing, so the up-to-date
+            // check must not then skip the compilation it just asked for.
             testCase "Deleted output file is regenerated"
             <| fun () ->
                 withTempProject
