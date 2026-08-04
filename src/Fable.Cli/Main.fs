@@ -979,12 +979,9 @@ let private areCompiledFilesUpToDate (state: State) (filesToCompile: string[]) =
 
                     upToDate
                 else
-                    // A source with no output must be compiled: it may be newly added, or
-                    // its output may have been deleted. `getFilesToCompile` already selected
-                    // it for that reason, so reporting it as up-to-date here would skip the
-                    // compilation it just asked for and leave the output missing.
-                    // (A file whose generated code is empty is never written, so it also
-                    // lands here and costs this project the skip-compilation shortcut.)
+                    // A missing output means the source is new or its output was deleted, so it
+                    // must be compiled. A file generating empty code is never written and also
+                    // lands here, costing that project the skip-compilation shortcut.
                     Log.verbose (lazy $"Output file {File.relPathToCurDir outPath} does not exist")
 
                     false

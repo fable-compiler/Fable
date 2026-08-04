@@ -837,23 +837,17 @@ let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
         Some info, otherOptions, sourceFiles
     | None -> None, otherOptions, sourceFiles
 
-/// Files besides the project file itself that take part in its MSBuild evaluation
-/// and so can change its `<Compile Include>` list: explicit `<Import Project="..."/>`
-/// targets (transitively) and the implicit Directory.Build.props/targets and
-/// Directory.Packages.props found by walking up from the project directory.
-///
-/// Without these, adding a source file through a shared .props leaves every
-/// .fsproj timestamp untouched, and the cached project options — including the
-/// now-stale source list — are reused.
+/// Transitive `<Import Project="..."/>` targets plus the implicit Directory.Build.props/targets
+/// and Directory.Packages.props found upwards. These can change the `<Compile Include>` list
+/// without touching any .fsproj timestamp, so the cache must invalidate on them too.
 let private getProjectImports (projFile: string) : string list =
     let imports = ResizeArray()
     let visited = HashSet<string>(StringComparer.OrdinalIgnoreCase)
 
-    // Only the directory macros are expanded. An import path built from any other
-    // property cannot be resolved without evaluating MSBuild, so it is skipped:
-    // missing an import costs a stale cache, guessing wrong costs a bogus path.
+    // Paths built from other properties are skipped below: missing an import costs
+    // a stale cache, guessing wrong costs a bogus path.
     let expandMacros (fileDir: string) (path: string) =
-        let withSep = fileDir + string IO.Path.DirectorySeparatorChar
+        let withSep = fileDir + string<char> IO.Path.DirectorySeparatorChar
 
         path.Replace("$(MSBuildThisFileDirectory)", withSep).Replace("$(MSBuildProjectDirectory)", withSep)
 
@@ -935,8 +929,7 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
             cacheInfo.Version = Literals.VERSION
             && cacheInfo.Exclude = opts.Exclude
             && cacheInfo.FableOptions.Language = opts.FableOptions.Language
-            // A .props/.targets that a project imports can add or remove source
-            // files without the .fsproj itself ever being touched
+            // An imported .props/.targets can add or remove source files with no .fsproj touched
             && ([ cacheInfo.ProjectPath; yield! cacheInfo.References ]
                 |> List.collect getProjectImports
                 |> List.forall isOlderThanCache)
