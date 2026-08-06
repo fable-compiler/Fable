@@ -837,6 +837,73 @@ let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
         Some info, otherOptions, sourceFiles
     | None -> None, otherOptions, sourceFiles
 
+/// Transitive `<Import Project="..."/>` targets plus the implicit Directory.Build.props/targets
+/// and Directory.Packages.props found upwards. These can change the `<Compile Include>` list
+/// without touching any .fsproj timestamp, so the cache must invalidate on them too.
+let private getProjectImports (projFile: string) : string list =
+    let imports = ResizeArray()
+    let visited = HashSet<string>(StringComparer.OrdinalIgnoreCase)
+
+    // Paths built from other properties are skipped below: missing an import costs
+    // a stale cache, guessing wrong costs a bogus path.
+    let expandMacros (fileDir: string) (path: string) =
+        let withSep = fileDir + string<char> IO.Path.DirectorySeparatorChar
+
+        path.Replace("$(MSBuildThisFileDirectory)", withSep).Replace("$(MSBuildProjectDirectory)", withSep)
+
+    let rec collectFrom (file: string) =
+        // Guard against import cycles and repeated visits
+        if visited.Add(file) && IO.File.Exists(file) then
+            let fileDir = IO.Path.GetDirectoryName(file: string)
+
+            let importPaths =
+                try
+                    XDocument.Load(file).Descendants()
+                    |> Seq.filter (fun el -> el.Name.LocalName = "Import")
+                    |> Seq.choose (fun el ->
+                        match el.Attribute(XName.Get "Project") with
+                        | null -> None
+                        | attr -> Some(expandMacros fileDir attr.Value)
+                    )
+                    // Unresolved properties or wildcards need a real MSBuild evaluation
+                    |> Seq.filter (fun path -> not (path.Contains("$(") || path.Contains("*")))
+                    |> Seq.toList
+                with _ ->
+                    // A malformed or unreadable project is the cracker's problem, not ours
+                    []
+
+            for importPath in importPaths do
+                let fullPath =
+                    if IO.Path.IsPathRooted(importPath) then
+                        importPath
+                    else
+                        IO.Path.Combine(fileDir, importPath)
+
+                let fullPath = IO.Path.GetFullPath(fullPath)
+
+                if IO.File.Exists(fullPath) then
+                    imports.Add(fullPath)
+                    collectFrom fullPath
+
+    collectFrom (IO.Path.GetFullPath(projFile))
+
+    // Implicit imports the SDK adds for every project
+    let projDir = IO.Path.GetDirectoryName(IO.Path.GetFullPath(projFile))
+
+    for implicitFile in
+        [
+            "Directory.Build.props"
+            "Directory.Build.targets"
+            "Directory.Packages.props"
+        ] do
+        match File.tryFindUpwards implicitFile projDir with
+        | Some path ->
+            imports.Add(path)
+            collectFrom path
+        | None -> ()
+
+    List.ofSeq imports
+
 let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions) : CrackerResponse =
     if not (IO.File.Exists(opts.ProjFile)) then
         Fable.FableError("Project file does not exist: " + opts.ProjFile) |> raise
@@ -862,6 +929,10 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
             cacheInfo.Version = Literals.VERSION
             && cacheInfo.Exclude = opts.Exclude
             && cacheInfo.FableOptions.Language = opts.FableOptions.Language
+            // An imported .props/.targets can add or remove source files with no .fsproj touched
+            && ([ cacheInfo.ProjectPath; yield! cacheInfo.References ]
+                |> List.collect getProjectImports
+                |> List.forall isOlderThanCache)
             && ([ cacheInfo.ProjectPath; yield! cacheInfo.References ]
                 |> List.forall (fun fsproj ->
                     if IO.File.Exists(fsproj) && isOlderThanCache fsproj then

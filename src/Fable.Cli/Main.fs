@@ -965,7 +965,7 @@ let private areCompiledFilesUpToDate (state: State) (filesToCompile: string[]) =
             )
             |> Array.forall (fun source ->
                 let outPath = getOutPath state.CliArgs pathResolver source
-                // Empty files are not written to disk so we only check date for existing files
+
                 if IO.File.Exists(outPath) then
                     foundCompiledFile <- true
 
@@ -979,7 +979,12 @@ let private areCompiledFilesUpToDate (state: State) (filesToCompile: string[]) =
 
                     upToDate
                 else
-                    true
+                    // A missing output means the source is new or its output was deleted, so it
+                    // must be compiled. A file generating empty code is never written and also
+                    // lands here, costing that project the skip-compilation shortcut.
+                    Log.verbose (lazy $"Output file {File.relPathToCurDir outPath} does not exist")
+
+                    false
             )
         // If we don't find compiled files, assume we need recompilation
         upToDate && foundCompiledFile
