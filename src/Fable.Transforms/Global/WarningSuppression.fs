@@ -1,5 +1,7 @@
-/// Computes which diagnostics `// fable-disable/-enable...` comments suppress (ESLint's
-/// disable-line/next-line/block model), via real comment tokens - not raw text matching.
+(*
+    Computes which diagnostics `// fable-disable/-enable...` comments suppress (ESLint's
+    disable-line/next-line/block model), via real comment tokens - not raw text matching.
+*)
 module Fable.Transforms.WarningSuppression
 
 open Fable
@@ -224,40 +226,6 @@ type FileSuppressions =
 
     member this.IsSuppressed(line: int, code: string option) = this.IsSuppressed(line, line, code)
 
-    /// Like `IsSuppressed`, but only honours directives that name the code explicitly. Reserved
-    /// for the diagnostics about directives themselves: a bare `// fable-disable` must not be
-    /// able to silence the warning that exists to tell you a bare `// fable-disable` is dangerous.
-    member this.IsExplicitlySuppressed(line: int, code: string) =
-        let named (d: Directive) =
-            match d.Codes with
-            | None -> false
-            | Some codes -> codes.Contains code
-
-        let lineSuppressed =
-            match Map.tryFind line this.LineOnly |> Option.defaultValue [] |> List.filter named with
-            | [] -> false
-            | matched ->
-                for d in matched do
-                    d.Used <- true
-
-                true
-
-        let blockSuppressed =
-            if line < 1 || line > this.BlockAtLine.Length then
-                false
-            else
-                match this.BlockAtLine[line - 1] with
-                | NoneDisabled
-                | AllDisabledExcept _ -> false
-                | SpecificDisabled disabled ->
-                    match Map.tryFind code disabled with
-                    | Some opener ->
-                        opener.Used <- true
-                        true
-                    | None -> false
-
-        lineSuppressed || blockSuppressed
-
     /// Parse problems plus every directive that never suppressed anything. Only meaningful once
     /// the whole compilation is over: an inlined call can suppress through a directive in a file
     /// other than the one currently being compiled.
@@ -458,16 +426,11 @@ type Resolver(defines: string list, read: SourceReader) =
             // so nothing can be suppressed. Any other failure is a real problem and must surface.
             FileSuppressions.Empty
 
-    /// The directive problems of the given files, minus the ones a directive silences in turn.
-    /// Call once the whole compilation is over: a warning raised while compiling one file can be
-    /// suppressed by a directive living in another.
+    /// The directive problems of the given files. These are `FABLE0001`-band codes and so are
+    /// never themselves suppressible - they flag comment text that is wrong to keep, so the only
+    /// correct answer is to edit it. Call once the whole compilation is over: a warning raised
+    /// while compiling one file can be suppressed by a directive living in another.
     member this.GetDiagnostics(fileNames: string seq) =
         fileNames
-        |> Seq.collect (fun fileName ->
-            let suppressions = this.For(fileName)
-
-            suppressions.GetDiagnostics()
-            |> List.filter (fun d -> not (suppressions.IsExplicitlySuppressed(d.Line, d.Code)))
-            |> List.map (fun d -> fileName, d)
-        )
+        |> Seq.collect (fun fileName -> this.For(fileName).GetDiagnostics() |> List.map (fun d -> fileName, d))
         |> List.ofSeq

@@ -5,8 +5,21 @@ open Util.Testing
 open Fable.Tests.Compiler.Util
 open Fable.Tests.Compiler.Util.Compiler
 
+open Fable.Transforms
+
 let tests =
     testList "Compiler Helpers" [
+        testCase "isSuppressible splits the code bands at FABLE0100" <| fun _ ->
+            // Directive warnings sit below the boundary and can never be silenced by a directive.
+            WarningCodes.isSuppressible (Some WarningCodes.UnknownSuppressionCode) |> equal false
+            WarningCodes.isSuppressible (Some WarningCodes.UnusedSuppressionDirective) |> equal false
+            WarningCodes.isSuppressible (Some WarningCodes.SuppressionBlockWithoutCode) |> equal false
+            WarningCodes.isSuppressible (Some "FABLE0099") |> equal false
+            WarningCodes.isSuppressible (Some "FABLE0100") |> equal true
+            WarningCodes.isSuppressible (Some "FABLE9999") |> equal true
+            // A warning with no code at all is still caught by a bare `// fable-disable-line`.
+            WarningCodes.isSuppressible None |> equal true
+
         testCase "expectedVersionMatchesActual works for same major version" <| fun _ ->
             Fable.CompilerExt.expectedVersionMatchesActual "5.0.0" "5.0.0" |> equal true
             Fable.CompilerExt.expectedVersionMatchesActual "5.0.0" "5.0.1" |> equal true

@@ -397,9 +397,11 @@ type CompilerImpl
             | _ -> ()
 
         member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string, ?code: string) =
-            // Only warnings can be suppressed, errors always surface (matches F#'s own #nowarn)
+            // Only warnings can be suppressed, errors always surface (matches F#'s own #nowarn),
+            // and neither can the warnings about the `fable-disable` directives themselves.
             let isSuppressed =
                 severity = Severity.Warning
+                && WarningCodes.isSuppressible code
                 && (
                     match range with
                     | None -> false
