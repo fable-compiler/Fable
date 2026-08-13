@@ -1395,8 +1395,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "GetEnumerator", Some c, _ -> stringToCharSeq c |> getEnumerator com r t |> Some
     | ("Contains" | "StartsWith" | "EndsWith" as meth), Some c, arg :: _ ->
         if List.isMultiple args then
-            WarningCodes.stringSecondArgumentIgnored meth
-            |> addWarningWithCode com ctx.InlinePath r
+            WarningCodes.secondArgumentIgnored |> addWarningWithCode com ctx.InlinePath r
 
         Helper.InstanceCall(c, Naming.lowerFirst meth, t, [ arg ], ?loc = r) |> Some
     | ReplaceName [ "ToUpper", "toUpperCase"
@@ -2086,8 +2085,8 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let intConst = int System.Globalization.NumberStyles.Integer
 
         if style <> hexConst && style <> intConst then
-            $"%s{i.DeclaringEntityFullName}.%s{meth}(): NumberStyle %d{style} is ignored"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.numberStylesIgnored style
+            |> addWarningWithCode com ctx.InlinePath r
 
         let acceptedArgs =
             if meth = "Parse" then
@@ -2095,10 +2094,13 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             else
                 3
 
-        if List.length args > acceptedArgs then
+        match List.tryItem acceptedArgs args with
+        // InvariantCulture asks for exactly what Fable does, so there is nothing to report.
+        | None
+        | Some InvariantCulture -> ()
+        | Some _ ->
             // e.g. Double.Parse(string, style, IFormatProvider) etc.
-            $"%s{i.DeclaringEntityFullName}.%s{meth}(): provider argument is ignored"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
 
         parseCall meth str args style
     | ("Parse" | "TryParse") as meth, str :: _ ->
@@ -2108,10 +2110,13 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             else
                 2
 
-        if List.length args > acceptedArgs then
+        match List.tryItem acceptedArgs args with
+        // InvariantCulture asks for exactly what Fable does, so there is nothing to report.
+        | None
+        | Some InvariantCulture -> ()
+        | Some _ ->
             // e.g. Double.Parse(string, IFormatProvider) etc.
-            $"%s{i.DeclaringEntityFullName}.%s{meth}(): provider argument is ignored"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
 
         let style = int System.Globalization.NumberStyles.Any
         parseCall meth str args style
@@ -2859,11 +2864,33 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
 
         Helper.InstanceCall(thisArg.Value, meth, t, args, ?loc = r) |> Some
     | meth ->
+        // Drops the IFormatProvider (and DateTimeStyles, where present), warning once per
+        // discarded argument. `Parse arg` with no extra argument discards nothing.
         let args =
+            // Passing InvariantCulture asks for exactly what Fable does, so nothing to report.
+            let warnProvider culture =
+                match culture with
+                | InvariantCulture -> ()
+                | _ -> WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
+
+            let warnStyles styles =
+                match styles with
+                | NumberConst(NumberValue.Int32 0, _) -> () // DateTimeStyles.None: no special handling
+                | _ -> WarningCodes.dateTimeStylesIgnored |> addWarningWithCode com ctx.InlinePath r
+
             match meth, args with
-            // Ignore IFormatProvider
+            | "Parse", arg :: culture :: styles :: _ ->
+                warnProvider culture
+                warnStyles styles
+                [ arg ]
+            | "Parse", arg :: culture :: _ ->
+                warnProvider culture
+                [ arg ]
             | "Parse", arg :: _ -> [ arg ]
-            | "TryParse", input :: _culture :: _styles :: defVal :: _ -> [ input; defVal ]
+            | "TryParse", input :: culture :: styles :: defVal :: _ ->
+                warnProvider culture
+                warnStyles styles
+                [ input; defVal ]
             | _ -> args
 
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst

@@ -901,6 +901,15 @@ let (|ArrayOrListLiteral|_|) =
     | MaybeCasted(Value((NewArray(ArrayValues vals, t, _) | ListLiteral(vals, t)), _)) -> ValueSome(vals, t)
     | _ -> ValueNone
 
+/// `CultureInfo.InvariantCulture`, which every target replaces with an empty object literal (see
+/// `globalization`). Matching it keeps "culture is ignored" warnings quiet when the culture asked
+/// for is the one Fable uses anyway.
+[<return: Struct>]
+let (|InvariantCulture|_|) =
+    function
+    | MaybeCasted(ObjectExpr([], DeclaredType(entRef, _), None)) when entRef.FullName = Types.cultureInfo -> ValueSome()
+    | _ -> ValueNone
+
 [<return: Struct>]
 let (|IsEntity|_|) fullName =
     function

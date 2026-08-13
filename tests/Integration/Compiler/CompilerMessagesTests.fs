@@ -14,6 +14,7 @@ let tests =
       compile source
       |> Assert.Is.success
       |> ignore
+
     testCase "Compile printfn" <| fun _ ->
       let source = "printfn \"Hello %s\" \"World\""
       compile source
@@ -25,6 +26,7 @@ let tests =
       compile source
       |> Assert.Is.Single.error
       |> ignore
+
     testCase "Compiling incomplete pattern match results in warning" <| fun _ ->
       let source = "match None with | Some n -> 42 |> ignore" // without `ignore`: Warning: Result of Expression is implicitly ignored
       compile source
@@ -36,6 +38,7 @@ let tests =
       compile source
       |> Assert.Exists.errorWith "This expression was expected to have type"
       |> ignore
+
     testCase "Compiling incomplete pattern match results in specific warning" <| fun _ ->
       let source = "match None with | Some n -> 42"
       compile source
@@ -126,119 +129,115 @@ type MyClass() =
       |> Assert.Is.success
       |> ignore
 
-    testCase "CultureInfo argument warning is not suppressed by default" <| fun _ ->
+    testCase "Discarding a format provider on a date parse is reported" <| fun _ ->
+      // JS, Dart and Rust used to drop this argument silently while Python warned. Aligning them
+      // is a behaviour change: code that compiled quietly now raises FABLE0102.
       let source =
         """
+open System
 open System.Globalization
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore
+DateTime.Parse("2026-01-01", CultureInfo.GetCultureInfo "fr-FR") |> ignore
 """
       compile source
-      |> Assert.Exists.warningWith "CultureInfo argument is ignored"
+      |> Assert.Code.warning "FABLE0102"
       |> ignore
 
-    testCase "The same code covers both StartsWith and EndsWith call sites" <| fun _ ->
-      // StartsWith and EndsWith raise the same logical "CultureInfo argument is ignored" warning
-      // from two separate call sites in Replacements.fs, sharing WarningCodes.CultureInfoIgnored.
-      // One code must suppress both, otherwise the registry has failed at its only job.
+    testCase "Passing InvariantCulture to a parse is not reported" <| fun _ ->
+      // Fable parses with a fixed culture-independent implementation, so InvariantCulture asks
+      // for exactly what it gets. Warning here would fire on every correct call - and does, if
+      // the exemption is removed: 96 sites across the repo's own test suites.
       let source =
         """
+open System
 open System.Globalization
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line FABLE0100
-"abc".EndsWith("c", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line FABLE0100
+DateTime.Parse("2026-01-01", CultureInfo.InvariantCulture) |> ignore
 """
       compile source
-      |> Assert.Are.warnings 0
+      |> Assert.Code.noWarning "FABLE0102"
       |> ignore
 
-    testCase "fable-disable-line suppresses a warning on the same line" <| fun _ ->
+    testCase "A discarded DateTimeStyles is reported even when the culture is exempt" <| fun _ ->
+      // Two codes rather than one bundled message: the style is still discarded regardless of
+      // which culture was passed, so exempting the culture must not silence it.
       let source =
         """
+open System
 open System.Globalization
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line FABLE0100
+DateTime.Parse("2026-01-01", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal) |> ignore
 """
       compile source
-      |> Assert.Are.warnings 0
+      |> Assert.Code.warning "FABLE0104"
+      |> Assert.Code.noWarning "FABLE0102"
       |> ignore
 
-    testCase "fable-disable-next-line suppresses a warning on the following line" <| fun _ ->
+    testCase "DateTimeStyles.None is not reported" <| fun _ ->
+      // `None` means "no special handling", which is what Fable does - same exemption as
+      // InvariantCulture. Every one of the 12 sites in tests/Js passes exactly this.
       let source =
         """
+open System
 open System.Globalization
-// fable-disable-next-line FABLE0100
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore
+DateTime.Parse("2026-01-01", CultureInfo.InvariantCulture, DateTimeStyles.None) |> ignore
 """
       compile source
-      |> Assert.Are.warnings 0
+      |> Assert.Code.noWarning "FABLE0102"
+      |> Assert.Code.noWarning "FABLE0104"
       |> ignore
 
-    testCase "fable-disable/fable-enable suppresses warnings in a block" <| fun _ ->
+    testCase "A numeric parse given InvariantCulture is not reported" <| fun _ ->
       let source =
         """
+open System
 open System.Globalization
-// fable-disable FABLE0100
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore
-"abc".EndsWith("c", true, CultureInfo.InvariantCulture) |> ignore
-// fable-enable FABLE0100
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore
+Double.Parse("10.5", CultureInfo.InvariantCulture) |> ignore
 """
       compile source
-      |> Assert.Are.warnings 1
+      |> Assert.Code.noWarning "FABLE0102"
       |> ignore
 
-    testCase "A mismatched code does not suppress the warning" <| fun _ ->
+    testCase "A numeric parse given a real culture is reported" <| fun _ ->
       let source =
         """
+open System
 open System.Globalization
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line SOME_OTHER_CODE
+Double.Parse("10.5", CultureInfo.GetCultureInfo "fr-FR") |> ignore
 """
       compile source
-      |> Assert.Exists.warningWith "CultureInfo argument is ignored"
+      |> Assert.Code.warning "FABLE0102"
       |> ignore
 
-    testCase "A bare fable-disable-line suppresses regardless of code" <| fun _ ->
+    testCase "A real culture and a style are both reported" <| fun _ ->
       let source =
         """
+open System
 open System.Globalization
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line
+DateTime.Parse("2026-01-01", CultureInfo.GetCultureInfo "fr-FR", DateTimeStyles.AssumeUniversal) |> ignore
 """
       compile source
-      |> Assert.Are.warnings 0
+      |> Assert.Code.warning "FABLE0102"
+      |> Assert.Code.warning "FABLE0104"
       |> ignore
 
-    testCase "A string literal that looks like a directive is not treated as one" <| fun _ ->
+    testCase "A date parse with no extra argument discards nothing and is silent" <| fun _ ->
       let source =
         """
-open System.Globalization
-let s = "// fable-disable-line FABLE0100"
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore
+open System
+DateTime.Parse("2026-01-01") |> ignore
 """
       compile source
-      |> Assert.Exists.warningWith "CultureInfo argument is ignored"
+      |> Assert.Code.noWarning "FABLE0102"
+      |> Assert.Code.noWarning "FABLE0104"
       |> ignore
 
-    testCase "A directive inside a #if FABLE_COMPILER block is honoured" <| fun _ ->
+    testCase "A discarded NumberStyles is reported" <| fun _ ->
       let source =
         """
+open System
 open System.Globalization
-#if FABLE_COMPILER
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line FABLE0100
-#endif
+Double.Parse("1.5", NumberStyles.Currency, CultureInfo.InvariantCulture) |> ignore
 """
       compile source
-      |> Assert.Code.noWarning "FABLE0100"
-      |> ignore
-
-    testCase "A warning inside a #if FABLE_COMPILER block still fires without a directive" <| fun _ ->
-      // Guards the test above from passing vacuously because the block was compiled out.
-      let source =
-        """
-open System.Globalization
-#if FABLE_COMPILER
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore
-#endif
-"""
-      compile source
-      |> Assert.Code.warning "FABLE0100"
+      |> Assert.Code.warning "FABLE0103"
       |> ignore
 
     testCase "The formatted output carries the warning code" <| fun _ ->
@@ -256,197 +255,4 @@ open System.Globalization
       match formatted with
       | [] -> failwith "Expected a FABLE0100 warning"
       | messages -> equal true (messages |> List.forall (fun m -> m.Contains "warning FABLE FABLE0100:"))
-
-    testCase "Errors are never suppressed, not even by a blanket fable-disable" <| fun _ ->
-      let source =
-        """
-open Fable.Core.JsInterop
-
-type Response =
-    abstract fn: int -> int
-    abstract prop: bool with get, set
-
-// fable-disable
-let res = jsOptions<Response> (fun o -> o.fn <- (fun i -> i))
-"""
-      compile source
-      |> Assert.Exists.errorWith "Cannot set a non-property member in 'jsOptions'"
-      |> ignore
-
-    testCase "A directive written as a block comment is honoured" <| fun _ ->
-      let source =
-        """
-open System.Globalization
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore (* fable-disable-line FABLE0100 *)
-"""
-      compile source
-      |> Assert.Code.noWarning "FABLE0100"
-      |> ignore
-
-    testCase "A trailing directive suppresses a warning spanning several lines" <| fun _ ->
-      let source =
-        """
-open System.Globalization
-"abc".StartsWith(
-    "a", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line FABLE0100
-"""
-      compile source
-      |> Assert.Code.noWarning "FABLE0100"
-      |> ignore
-
-    testCase "A fable-disable block with no fable-enable runs to the end of the file" <| fun _ ->
-      let source =
-        """
-open System.Globalization
-// fable-disable FABLE0100
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore
-"abc".EndsWith("c", true, CultureInfo.InvariantCulture) |> ignore
-"""
-      compile source
-      |> Assert.Code.noWarning "FABLE0100"
-      |> ignore
-
-    testCase "A colon separator and a lower-case code are accepted" <| fun _ ->
-      // What people coming from `# noqa: E501` and `@ts-ignore` will write.
-      let source =
-        """
-open System.Globalization
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line: fable0100
-"""
-      compile source
-      |> Assert.Code.noWarning "FABLE0100"
-      |> ignore
-
-    testCase "A justification after -- is not parsed as codes" <| fun _ ->
-      let source =
-        """
-open System.Globalization
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line FABLE0100 -- culture is irrelevant here
-"""
-      compile source
-      |> Assert.Code.noWarning "FABLE0100"
-      |> Assert.Code.noWarning "FABLE0001"
-      |> ignore
-
-    testCase "A typo'd code is reported instead of silently suppressing nothing" <| fun _ ->
-      let source =
-        """
-open System.Globalization
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line FABEL0001
-"""
-      compile source
-      |> Assert.Code.warning "FABLE0001"
-      |> Assert.Code.warning "FABLE0100"
-      // The typo report is the actionable one; don't pile "and it's unused" on top of it.
-      |> Assert.Code.noWarning "FABLE0002"
-      |> ignore
-
-    testCase "A directive that suppresses nothing is reported as unused" <| fun _ ->
-      let source =
-        """
-open System.Globalization
-// fable-disable-next-line FABLE0100
-let answer = 42
-"""
-      compile source
-      |> Assert.Code.warning "FABLE0002"
-      |> ignore
-
-    testCase "A directive that does its job is not reported as unused" <| fun _ ->
-      let source =
-        """
-open System.Globalization
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line FABLE0100
-"""
-      compile source
-      |> Assert.Code.noWarning "FABLE0002"
-      |> ignore
-
-    testCase "A fable-disable block with no codes is reported" <| fun _ ->
-      // It would otherwise silence every Fable warning to the end of the file, unnoticed.
-      let source =
-        """
-open System.Globalization
-// fable-disable
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore
-"""
-      compile source
-      |> Assert.Code.warning "FABLE0003"
-      |> Assert.Code.noWarning "FABLE0100"
-      |> ignore
-
-    testCase "Directive warnings cannot be suppressed by a directive" <| fun _ ->
-      // FABLE0001-0099 flag comment text that is wrong to keep, so the only correct answer is to
-      // edit it. Silencing "this directive is broken" with another directive is self-defeating.
-      let source =
-        """
-open System.Globalization
-// fable-disable-next-line FABLE0002
-// fable-disable-next-line FABLE0100
-let answer = 42
-"""
-      compile source
-      |> Assert.Code.warning "FABLE0002"
-      |> ignore
-
-    testCase "A blanket fable-disable cannot suppress its own report" <| fun _ ->
-      let source =
-        """
-open System.Globalization
-// fable-disable
-let answer = 42
-"""
-      compile source
-      |> Assert.Code.warning "FABLE0003"
-      |> ignore
-
-    testCase "A word merely starting with a directive name is not a directive" <| fun _ ->
-      let source =
-        """
-open System.Globalization
-"abc".StartsWith("a", true, CultureInfo.InvariantCulture) |> ignore // fable-disabled for now
-"""
-      compile source
-      |> Assert.Code.warning "FABLE0100"
-      |> ignore
-
-    testCase "Directives are found in CRLF sources" <| fun _ ->
-      let source =
-        [ ""
-          "open System.Globalization"
-          "\"abc\".StartsWith(\"a\", true, CultureInfo.InvariantCulture) |> ignore // fable-disable-line FABLE0100"
-          "" ]
-        |> String.concat "\r\n"
-
-      compile source
-      |> Assert.Code.noWarning "FABLE0100"
-      |> ignore
-
-    testCase "A warning from an inlined function is suppressed at its definition" <| fun _ ->
-      // The warning is attributed to the file the inline function is *defined* in, so that is
-      // where the directive has to go - the call site can't suppress it.
-      let source =
-        """
-open System.Globalization
-let inline startsWithCulture (s: string) =
-    s.StartsWith("a", true, CultureInfo.InvariantCulture) // fable-disable-line FABLE0100
-
-startsWithCulture "abc" |> ignore
-"""
-      compile source
-      |> Assert.Code.noWarning "FABLE0100"
-      |> ignore
-
-    testCase "A directive at the call site does not suppress an inlined function's warning" <| fun _ ->
-      let source =
-        """
-open System.Globalization
-let inline startsWithCulture (s: string) =
-    s.StartsWith("a", true, CultureInfo.InvariantCulture)
-
-startsWithCulture "abc" |> ignore // fable-disable-line FABLE0100
-"""
-      compile source
-      |> Assert.Code.warning "FABLE0100"
-      |> ignore
   ]

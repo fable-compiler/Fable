@@ -23,6 +23,7 @@
     <!-- Link the pure-managed inflate source so its (internal) module is testable -->
     <Compile Include="../../../src/fcs-fable/Inflate.fs" />
     <Compile Include="CompilerMessagesTests.fs" />
+    <Compile Include="WarningSuppressionTests.fs" />
     <Compile Include="AnonRecordInInterfaceTests.fs" />
     <Compile Include="CompilerHelpersTests.fs" />
     <Compile Include="InflateTests.fs" />

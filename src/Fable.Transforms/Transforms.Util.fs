@@ -229,6 +229,9 @@ module Types =
     let timeOnly = "System.TimeOnly"
 
     [<Literal>]
+    let cultureInfo = "System.Globalization.CultureInfo"
+
+    [<Literal>]
     let timer = "System.Timers.Timer"
 
     [<Literal>]

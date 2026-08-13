@@ -30,7 +30,16 @@ let SuppressionBlockWithoutCode = "FABLE0003"
 let private CultureInfoIgnored = "FABLE0100"
 
 [<Literal>]
-let private StringSecondArgumentIgnored = "FABLE0101"
+let private SecondArgumentIgnored = "FABLE0101"
+
+[<Literal>]
+let private FormatProviderIgnored = "FABLE0102"
+
+[<Literal>]
+let private NumberStylesIgnored = "FABLE0103"
+
+[<Literal>]
+let private DateTimeStylesIgnored = "FABLE0104"
 
 /// Every code the compiler can emit, both bands. A directive naming anything else is reported as
 /// a typo, so a new code MUST be added here as well as given its own function below.
@@ -41,7 +50,10 @@ let knownCodes =
             UnusedSuppressionDirective
             SuppressionBlockWithoutCode
             CultureInfoIgnored
-            StringSecondArgumentIgnored
+            SecondArgumentIgnored
+            FormatProviderIgnored
+            NumberStylesIgnored
+            DateTimeStylesIgnored
         ]
 
 /// Can a `// fable-disable` comment silence a warning carrying this code? Codes below
@@ -72,7 +84,22 @@ let suppressionBlockWithoutCode =
 let cultureInfoIgnored = CultureInfoIgnored, "CultureInfo argument is ignored"
 
 /// `String.Contains`/`StartsWith`/`EndsWith` called with an extra argument on the Dart target
-/// (a `StringComparison`, a `CultureInfo`, ...): only the comparison itself is honored.
-/// `methodName` fills in which one so the message stays specific.
-let stringSecondArgumentIgnored (methodName: string) =
-    StringSecondArgumentIgnored, $"String.%s{methodName}: second argument is ignored"
+/// (a `StringComparison`, a `CultureInfo`, ...): only the comparison itself is honored. Which
+/// method it was is not spelled out - the range already points at the call.
+let secondArgumentIgnored =
+    SecondArgumentIgnored, "Second argument is ignored: the comparison always uses the target's default rules"
+
+/// An `IFormatProvider`/`CultureInfo` passed to a `Parse`/`TryParse` overload. The value is
+/// always parsed with the invariant rules, so a culture that changes the decimal separator or
+/// the day/month order silently changes which value you get.
+let formatProviderIgnored =
+    FormatProviderIgnored, "Format provider argument is ignored, parsing always uses the invariant culture"
+
+/// A `NumberStyles` value that isn't `Integer` or `HexNumber` passed to a numeric `Parse`. The
+/// value is interpolated because the range can't tell you which style was discarded.
+let numberStylesIgnored (style: int) =
+    NumberStylesIgnored, $"NumberStyles argument %d{style} is ignored"
+
+/// A `DateTimeStyles` value passed to a date/time `Parse`.
+let dateTimeStylesIgnored =
+    DateTimeStylesIgnored, "DateTimeStyles argument is ignored"
