@@ -67,7 +67,7 @@ open System.Globalization
 DateTime.Parse("2026-01-01", CultureInfo.InvariantCulture, DateTimeStyles.None) |> ignore
 """
       compile source
-      |> Assert.Code.noWarning Fable.tran "FABLE0102"
+      |> Assert.Code.noWarning "FABLE0102"
       |> Assert.Code.noWarning "FABLE0104"
       |> ignore
 
