@@ -286,7 +286,7 @@ type CompilerImpl
         ?watchDependencies: HashSet<string>,
         ?logs: ResizeArray<LogEntry>,
         ?isPrecompilingInlineFunction: bool,
-        ?sourceReader: SourceReader
+        ?warningSuppression: WarningSuppression.Resolver
     )
     =
 
@@ -294,23 +294,11 @@ type CompilerImpl
     let outType = defaultArg outType OutputType.Exe
     let logs = Option.defaultWith ResizeArray logs
     let fableLibraryDir = fableLibDir.TrimEnd('/')
-    let suppressionsCache = Dictionary<string, WarningSuppression.FileSuppressions>()
 
     let getSuppressions fileName =
-        match suppressionsCache.TryGetValue(fileName) with
-        | true, s -> s
-        | false, _ ->
-            let suppressions =
-                match sourceReader with
-                | None -> WarningSuppression.FileSuppressions.Empty
-                | Some read ->
-                    try
-                        (snd (read fileName)).Value |> WarningSuppression.compute
-                    with _ ->
-                        WarningSuppression.FileSuppressions.Empty
-
-            suppressionsCache[fileName] <- suppressions
-            suppressions
+        match warningSuppression with
+        | Some resolver -> resolver.For(fileName)
+        | None -> WarningSuppression.FileSuppressions.Empty
 
     member _.Logs = logs.ToArray()
 
@@ -354,7 +342,7 @@ type CompilerImpl
                 ?watchDependencies = watchDependencies,
                 logs = logs,
                 isPrecompilingInlineFunction = true,
-                ?sourceReader = sourceReader
+                ?warningSuppression = warningSuppression
             )
 
         member _.GetImplementationFile(fileName) =
@@ -424,7 +412,9 @@ type CompilerImpl
                                 | Some f -> f
                                 | None -> currentFile
 
-                        (getSuppressions file).IsSuppressed(r.start.line, code)
+                        // The whole range, not just its first line, so a trailing
+                        // `// fable-disable-line` still works on a multi-line expression.
+                        (getSuppressions file).IsSuppressed(r.start.line, r.``end``.line, code)
                 )
 
             if not isSuppressed then

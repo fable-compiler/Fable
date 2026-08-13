@@ -703,6 +703,8 @@ module Log =
     /// Same as `addWarning`, but tags the warning with a stable code (e.g. "FABLE0001") so it
     /// can be suppressed via `// fable-disable-line/-next-line/-enable CODE` comments.
     /// Meant to be used as `WarningCodes.someWarning arg1 arg2 |> addWarningWithCode com inlinePath range`.
+    ///
+    /// Note that a warning coming out of an inlined function is attributed to the file that *defines* it
     let addWarningWithCode (com: Compiler) inlinePath range ((code, warning): string * string) =
         addLogWithCode com inlinePath range warning Severity.Warning (Some code)
 
