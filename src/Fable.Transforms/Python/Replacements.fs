@@ -2933,8 +2933,7 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
     | "ToBase64String"
     | "FromBase64String" ->
         if not (List.isSingle args) then
-            $"Convert.%s{Naming.upperFirst i.CompiledName} only accepts one single argument"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.base64ArgumentsIgnored |> addWarningWithCode com ctx.InlinePath r
 
         Helper.LibCall(com, "String", (Naming.lowerFirst i.CompiledName), t, args, i.SignatureArgTypes, ?loc = r)
         |> Some

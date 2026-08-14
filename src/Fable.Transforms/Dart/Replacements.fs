@@ -1395,7 +1395,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "GetEnumerator", Some c, _ -> stringToCharSeq c |> getEnumerator com r t |> Some
     | ("Contains" | "StartsWith" | "EndsWith" as meth), Some c, arg :: _ ->
         if List.isMultiple args then
-            WarningCodes.secondArgumentIgnored |> addWarningWithCode com ctx.InlinePath r
+            WarningCodes.stringComparisonIgnored |> addWarningWithCode com ctx.InlinePath r
 
         Helper.InstanceCall(c, Naming.lowerFirst meth, t, [ arg ], ?loc = r) |> Some
     | ReplaceName [ "ToUpper", "toUpperCase"
@@ -2714,8 +2714,7 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
     | "ToBase64String"
     | "FromBase64String" ->
         if not (List.isSingle args) then
-            $"Convert.%s{Naming.upperFirst i.CompiledName} only accepts one single argument"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.base64ArgumentsIgnored |> addWarningWithCode com ctx.InlinePath r
 
         Helper.LibCall(
             com,

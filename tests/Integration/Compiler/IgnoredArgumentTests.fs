@@ -126,4 +126,78 @@ Double.Parse("1.5", NumberStyles.Currency, CultureInfo.InvariantCulture) |> igno
       compile source
       |> Assert.Code.warning "FABLE0103"
       |> ignore
+
+    testCase "A TimeSpan built with microseconds is reported" <| fun _ ->
+      // The runtime representation only carries milliseconds, so the finer component is dropped.
+      let source =
+        """
+open System
+TimeSpan.FromMilliseconds(1L, 500L) |> ignore
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0105"
+      |> ignore
+
+    testCase "A TimeSpan with no microseconds is silent" <| fun _ ->
+      let source =
+        """
+open System
+TimeSpan.FromMilliseconds(1L, 0L) |> ignore
+"""
+      compile source
+      |> Assert.Code.noWarning "FABLE0105"
+      |> ignore
+
+    testCase "A private-representation flag on FSharpType is reported" <| fun _ ->
+      let source =
+        """
+open Microsoft.FSharp.Reflection
+FSharpType.IsUnion(typeof<int option>, true) |> ignore
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0106"
+      |> ignore
+
+    testCase "A private-representation flag on GetRecordFields is reported" <| fun _ ->
+      // This one dropped the flag silently while its seven siblings warned, all in one function.
+      let source =
+        """
+open Microsoft.FSharp.Reflection
+type R = { A: int }
+FSharpType.GetRecordFields(typeof<R>, true) |> ignore
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0106"
+      |> ignore
+
+    testCase "FSharpType without the flag is silent" <| fun _ ->
+      let source =
+        """
+open Microsoft.FSharp.Reflection
+FSharpType.IsUnion(typeof<int option>) |> ignore
+"""
+      compile source
+      |> Assert.Code.noWarning "FABLE0106"
+      |> ignore
+
+    testCase "Base64 offset and length arguments are reported" <| fun _ ->
+      // The slice is silently encoded whole, so this is a wrong value rather than a formatting nit.
+      let source =
+        """
+open System
+Convert.ToBase64String([| 1uy; 2uy; 3uy; 4uy |], 0, 2) |> ignore
+"""
+      compile source
+      |> Assert.Code.warning "FABLE0107"
+      |> ignore
+
+    testCase "Base64 with only the array is silent" <| fun _ ->
+      let source =
+        """
+open System
+Convert.ToBase64String([| 1uy; 2uy; 3uy; 4uy |]) |> ignore
+"""
+      compile source
+      |> Assert.Code.noWarning "FABLE0107"
+      |> ignore
   ]

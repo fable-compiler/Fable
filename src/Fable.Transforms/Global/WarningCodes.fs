@@ -44,17 +44,14 @@ let suppressionBlockWithoutCode =
 /// Used in both the JS/TS and Python replacements.
 let cultureInfoIgnored = "FABLE0100", "CultureInfo argument is ignored"
 
-/// `String.Contains`/`StartsWith`/`EndsWith` called with an extra argument on the Dart target
-/// (a `StringComparison`, a `CultureInfo`, ...): only the comparison itself is honored. Which
-/// method it was is not spelled out - the range already points at the call.
-let secondArgumentIgnored =
-    "FABLE0101", "Second argument is ignored: the comparison always uses the target's default rules"
+/// Dart's `contains`/`startsWith`/`endsWith` are ordinal and case-sensitive, so a
+/// `StringComparison` or `CultureInfo` asking for anything else has no effect.
+let stringComparisonIgnored = "FABLE0101", "String comparison argument is ignored"
 
-/// An `IFormatProvider`/`CultureInfo` passed to a `Parse`/`TryParse` overload. The value is
-/// always parsed with the invariant rules, so a culture that changes the decimal separator or
-/// the day/month order silently changes which value you get.
-let formatProviderIgnored =
-    "FABLE0102", "Format provider argument is ignored, parsing always uses the invariant culture"
+/// An `IFormatProvider`/`CultureInfo` passed to a `Parse`/`TryParse`, `String.Format` or
+/// `StringBuilder.AppendFormat` overload. Fable is culture-independent here, so a culture that
+/// changes the decimal separator or the day/month order silently changes the result.
+let formatProviderIgnored = "FABLE0102", "Format provider argument is ignored"
 
 /// A `NumberStyles` value that isn't `Integer` or `HexNumber` passed to a numeric `Parse`. The
 /// value is interpolated because the range can't tell you which style was discarded.
@@ -63,6 +60,21 @@ let numberStylesIgnored (style: int) =
 
 /// A `DateTimeStyles` value passed to a date/time `Parse`.
 let dateTimeStylesIgnored = "FABLE0104", "DateTimeStyles argument is ignored"
+
+/// A `TimeSpan` constructed with a microseconds argument. The runtime representation only carries
+/// milliseconds, so the finer component is dropped rather than rounded.
+let timeSpanPrecisionIgnored =
+    "FABLE0105", "TimeSpan precision is limited to milliseconds, microsecond arguments are ignored"
+
+/// `FSharpType.IsUnion(t, allowAccessToPrivateRepresentation)` and friends. Fable's reflection
+/// has no notion of a private representation, so the flag never restricts anything.
+let privateRepresentationFlagIgnored =
+    "FABLE0106", "Private representation flag is ignored"
+
+/// `Convert.ToBase64String(bytes, offset, length)` / `(bytes, options)`. Only the array is used,
+/// so a slice is encoded whole and line-break options have no effect.
+let base64ArgumentsIgnored =
+    "FABLE0107", "Base64 offset, length and formatting arguments are ignored"
 
 /// Every code the compiler can emit, both bands. A directive naming anything else is reported as
 /// a typo, so a new warning MUST be added to this list as well as defined above.
@@ -73,10 +85,13 @@ let knownCodes =
         unusedSuppressionDirective
         suppressionBlockWithoutCode
         cultureInfoIgnored
-        secondArgumentIgnored
+        stringComparisonIgnored
         formatProviderIgnored
         numberStylesIgnored 0
         dateTimeStylesIgnored
+        timeSpanPrecisionIgnored
+        privateRepresentationFlagIgnored
+        base64ArgumentsIgnored
     ]
     |> List.map fst
     |> Set.ofList

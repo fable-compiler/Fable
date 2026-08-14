@@ -3205,8 +3205,7 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
     | "ToBase64String"
     | "FromBase64String" ->
         if not (List.isSingle args) then
-            $"Convert.%s{Naming.upperFirst i.CompiledName} only accepts one single argument"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.base64ArgumentsIgnored |> addWarningWithCode com ctx.InlinePath r
 
         Helper.LibCall(com, "String", (Naming.lowerFirst i.CompiledName), t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -3471,11 +3470,7 @@ let timeSpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
     let limitArgsCountToMilliseconds (meth: string) (maxArgsCount: int) =
         if args.Length > maxArgsCount then
             if isNotDefaultInt64ZeroValue args.[maxArgsCount] then
-                addWarning
-                    com
-                    ctx.InlinePath
-                    r
-                    "TimeSpan precision is limited to milliseconds, microsecond arguments will be ignored"
+                WarningCodes.timeSpanPrecisionIgnored |> addWarningWithCode com ctx.InlinePath r
 
             args |> List.take maxArgsCount |> timeSpanLibCall meth
 
@@ -4371,6 +4366,10 @@ let fsharpType com (ctx: Context) methName (r: SourceLocation option) t (i: Call
     // Prevent name clash with FSharpValue.GetRecordFields
     | "GetRecordFields" ->
         // Drop the trailing `allowAccessToPrivateRepresentation` flag (no meaning in JS/TS)
+        if List.length args > 1 then
+            WarningCodes.privateRepresentationFlagIgnored
+            |> addWarningWithCode com ctx.InlinePath r
+
         Helper.LibCall(com, "Reflection", "getRecordElements", t, List.truncate 1 args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "GetUnionCases"
@@ -4381,8 +4380,8 @@ let fsharpType com (ctx: Context) methName (r: SourceLocation option) t (i: Call
     | "IsTuple"
     | "IsFunction" ->
         if List.length args > 1 then
-            $"FSharpType.%s{methName}(): second argument is ignored"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.privateRepresentationFlagIgnored
+            |> addWarningWithCode com ctx.InlinePath r
 
         let args = [ List.head args ]
 

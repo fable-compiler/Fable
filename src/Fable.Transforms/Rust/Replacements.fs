@@ -1482,8 +1482,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         match args with
         | (ExprType String :: _) -> "sprintf!" |> emitFormat com r t args |> Some
         | (cultureInfo :: restArgs) ->
-            $"String.Format(): Format provider argument is ignored"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
 
             "sprintf!" |> emitFormat com r t restArgs |> Some
         | _ -> None
@@ -1698,8 +1697,7 @@ let stringBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Ex
 
             Helper.LibCall(com, "Util", "sb_Append", t, [ sb; s ], ?loc = r) |> Some
         | (cultureInfo :: restArgs) ->
-            $"StringBuilder.AppendFormat(): Format provider argument is ignored"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
 
             let s = "sprintf!" |> emitFormat com None String restArgs
 
