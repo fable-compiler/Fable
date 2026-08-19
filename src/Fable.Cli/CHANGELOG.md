@@ -1,5 +1,5 @@
 ---
-last_commit_released: 619d7afddbaf25108e819abaaa9d8a6503c457d6
+last_commit_released: caad0f76a563616842358aaa7bbae4124bb23d26
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -24,6 +24,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.14.0 - 2026-08-19
+
+### 🚀 Features
+
+* *(python)* Represent Int32 and Float64 as plain Python int and float (#4856) ([ca361ea3](https://github.com/fable-compiler/Fable/commit/ca361ea3edf81b8eb8fae56782a1447237aae655))
+
+### 🐞 Bug Fixes
+
+* *(all)* Invalidate cached project options when inputs change (#4879) ([aea3735b](https://github.com/fable-compiler/Fable/commit/aea3735b882493f17a0cba222a9550f943ed8f54))
+* *(beam)* Escape quotes and backslashes in quoted atoms (#4866) ([5d5231b3](https://github.com/fable-compiler/Fable/commit/5d5231b3ca73d3e6cb6918b802479759972e7fa5))
+* *(beam)* Compile [<StringEnum>] cases to atoms instead of binaries (#4867) ([366919a7](https://github.com/fable-compiler/Fable/commit/366919a7118019d7f459944cfa7e621f9a7794fe))
+* *(beam)* Parse ISO-8601 numeric zone offsets and compare dates by instant (#4868) ([bb3c86d7](https://github.com/fable-compiler/Fable/commit/bb3c86d7aac22553ad9addf2839382777a3b7276))
+* *(python)* Keep original F# field names in record reflection (#4852) ([90c1798b](https://github.com/fable-compiler/Fable/commit/90c1798bfa516a2806c10e399fdbc8f13c362491))
+* *(python)* Stop shipping build artifacts and ship the PEP 561 marker (#4857) ([03d40c97](https://github.com/fable-compiler/Fable/commit/03d40c970e3749ed8240a51d0b8c38246f13a0bb))
+* *(python)* Derive DateTime "O" format from the value, not the host timezone (#4869) ([b3ec8b67](https://github.com/fable-compiler/Fable/commit/b3ec8b67c6e59d8ddd643ba0d25ef1817d2d822b))
+
+### ⚡ Performance Improvements
+
+* *(python)* Back int64 arrays with typed storage (#4864) ([78a5d479](https://github.com/fable-compiler/Fable/commit/78a5d479b5bff9927afb62824e3e75935e06d7a3))
+* *(python)* Hash numbers without the safeHash detour (#4865) ([32b42b2a](https://github.com/fable-compiler/Fable/commit/32b42b2a2c3f1047ba730411c2ffcf5b2d3e3ecf))
+* *(python)* Elide int32 normalizations that cannot change their argument (#4859) ([7e9cd96a](https://github.com/fable-compiler/Fable/commit/7e9cd96a77405db06d9999c5dab62dfc01a2516b))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/619d7afddbaf25108e819abaaa9d8a6503c457d6..caad0f76a563616842358aaa7bbae4124bb23d26)</small></strong>
 
 ## 5.13.0 - 2026-07-24
 
