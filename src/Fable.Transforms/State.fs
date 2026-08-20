@@ -257,15 +257,17 @@ type LogEntry =
         Severity: Severity
         Range: SourceLocation option
         FileName: string option
+        Code: string option
     }
 
-    static member Make(severity, msg, ?fileName, ?range, ?tag) =
+    static member Make(severity, msg, ?fileName, ?range, ?tag, ?code) =
         {
             Message = msg
             Tag = defaultArg tag "FABLE"
             Severity = severity
             Range = range
             FileName = fileName
+            Code = code
         }
 
     static member MakeError(msg, ?fileName, ?range, ?tag) =
@@ -283,7 +285,8 @@ type CompilerImpl
         ?outDir: string,
         ?watchDependencies: HashSet<string>,
         ?logs: ResizeArray<LogEntry>,
-        ?isPrecompilingInlineFunction: bool
+        ?isPrecompilingInlineFunction: bool,
+        ?warningSuppression: WarningSuppression.Resolver
     )
     =
 
@@ -291,6 +294,11 @@ type CompilerImpl
     let outType = defaultArg outType OutputType.Exe
     let logs = Option.defaultWith ResizeArray logs
     let fableLibraryDir = fableLibDir.TrimEnd('/')
+
+    let getSuppressions fileName =
+        match warningSuppression with
+        | Some resolver -> resolver.For(fileName)
+        | None -> WarningSuppression.FileSuppressions.Empty
 
     member _.Logs = logs.ToArray()
 
@@ -333,7 +341,8 @@ type CompilerImpl
                 ?outDir = outDir,
                 ?watchDependencies = watchDependencies,
                 logs = logs,
-                isPrecompilingInlineFunction = true
+                isPrecompilingInlineFunction = true,
+                ?warningSuppression = warningSuppression
             )
 
         member _.GetImplementationFile(fileName) =
@@ -387,6 +396,29 @@ type CompilerImpl
             | Some watchDependencies when file <> currentFile -> watchDependencies.Add(file) |> ignore
             | _ -> ()
 
-        member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string) =
-            LogEntry.Make(severity, msg, ?range = range, ?fileName = fileName, ?tag = tag)
-            |> logs.Add
+        member _.AddLog(msg, severity, ?range, ?fileName: string, ?tag: string, ?code: string) =
+            // Only warnings can be suppressed, errors always surface (matches F#'s own #nowarn),
+            // and neither can the warnings about the `fable-disable` directives themselves.
+            let isSuppressed =
+                severity = Severity.Warning
+                && WarningCodes.isSuppressible code
+                && (
+                    match range with
+                    | None -> false
+                    | Some(r: SourceLocation) ->
+                        let file =
+                            match fileName with
+                            | Some f -> f
+                            | None ->
+                                match r.File with
+                                | Some f -> f
+                                | None -> currentFile
+
+                        // The whole range, not just its first line, so a trailing
+                        // `// fable-disable-line` still works on a multi-line expression.
+                        (getSuppressions file).IsSuppressed(r.start.line, r.``end``.line, code)
+                )
+
+            if not isSuppressed then
+                LogEntry.Make(severity, msg, ?range = range, ?fileName = fileName, ?tag = tag, ?code = code)
+                |> logs.Add

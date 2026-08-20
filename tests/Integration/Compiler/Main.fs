@@ -6,6 +6,8 @@ open Expecto
 let allTests =
     [
         CompilerMessages.tests
+        WarningSuppression.tests
+        IgnoredArgument.tests
         AnonRecordInInterface.tests
         CompilerHelpers.tests
         Inflate.tests
