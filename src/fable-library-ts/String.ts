@@ -4,6 +4,20 @@ import { escape } from "./RegExp.ts";
 import { toString } from "./Types.ts";
 import { Exception } from "./Util.ts";
 
+// Temporal date/time values (only present under --test:js-temporal) are not JS Dates. To avoid
+// importing the side-effecting Temporal runtime modules into this core file — which would pull
+// them into every bundle — they advertise a .NET-style formatter through this well-known symbol,
+// attached to their prototype when (and only when) those modules are loaded.
+const dateTimeFormattableSymbol = Symbol.for("Fable.DateTimeFormattable");
+
+function isNetDateFormattable(rep: any): boolean {
+  return rep != null && typeof rep[dateTimeFormattableSymbol] === "function";
+}
+
+function formatDateLike(rep: any, format: string | undefined): string {
+  return rep instanceof Date ? dateToString(rep, format) : rep[dateTimeFormattableSymbol](format);
+}
+
 const fsFormatRegExp = /(^|[^%])%([0+\- ]*)(\*|\d+)?(?:\.(\d+))?(\w)/g;
 const interpolateRegExp = /(?:(^|[^%])%([0+\- ]*)(\d+)?(?:\.(\d+))?(\w))?%P\(\)/g;
 const formatRegExp = /\{(\d+)(,-?\d+)?(?:\:([a-zA-Z])(\d{0,2})|\:(.+?))?\}/g;
@@ -251,8 +265,8 @@ function formatReplacement(rep: any, flags: any, padLength: any, precision: any,
         rep = String(rep);
         break;
     }
-  } else if (rep instanceof Date) {
-    rep = dateToString(rep);
+  } else if (rep instanceof Date || isNetDateFormattable(rep)) {
+    rep = formatDateLike(rep, undefined);
   } else if (format === "A" && typeof rep === "string") {
     rep = "\"" + rep + "\"";
   } else {
@@ -513,8 +527,8 @@ export function format(str: string | object, ...args: any[]) {
             rep = sign + rep;
           }
       }
-    } else if (rep instanceof Date) {
-      rep = dateToString(rep, pattern || format);
+    } else if (rep instanceof Date || isNetDateFormattable(rep)) {
+      rep = formatDateLike(rep, pattern || format);
     } else {
       rep = toString(rep)
     }
