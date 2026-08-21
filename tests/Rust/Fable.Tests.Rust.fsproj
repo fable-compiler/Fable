@@ -58,10 +58,12 @@
     <Compile Include="tests/src/MiscTests2.fs" />
     <Compile Include="tests/src/NBodyTests.fs" />
     <Compile Include="tests/src/NullnessTests.fs" />
+    <Compile Include="tests/src/QuotationTests.fs" />
     <!-- <Compile Include="tests/src/ObservableTests.fs" /> -->
     <Compile Include="tests/src/OptionTests.fs" />
     <Compile Include="tests/src/QueueTests.fs" />
     <Compile Include="tests/src/RecordTests.fs" />
+    <Compile Include="tests/src/RecordReflectionTests.fs" />
     <!-- <Compile Include="tests/src/ReflectionTests.fs" /> -->
     <Compile Include="tests/src/RegexTests.fs" />
     <Compile Include="tests/src/ResizeArrayTests.fs" />

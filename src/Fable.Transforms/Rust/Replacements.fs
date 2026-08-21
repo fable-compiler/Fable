@@ -490,8 +490,9 @@ let equals (com: ICompiler) ctx r (left: Expr) (right: Expr) =
     | Array _ -> Helper.LibCall(com, "Array", "equals", t, [ left; right ], ?loc = r)
     | List _ -> Helper.LibCall(com, "List", "equals", t, [ left; right ], ?loc = r)
     | IEnumerable -> Helper.LibCall(com, "Seq", "equals", t, [ left; right ], ?loc = r)
-    // | MetaType ->
-    //     Helper.LibCall(com, "Reflection", "equals", t, [left; right], ?loc=r)
+    // System.Type is erased to a boxed reflection object (dyn Any, no PartialEq),
+    // so type-identity equality is compared on the carried TypeId at runtime.
+    | MetaType -> Helper.LibCall(com, "Reflection", "typeEquals", t, [ left; right ], ?loc = r)
     | HasReferenceEquality com _ -> referenceEquals com ctx r left right
     | Nullable _ ->
         // transforms null checks into option tests
@@ -1298,10 +1299,13 @@ let objects (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
     | "GetHashCode", Some arg, _ -> objectHash com ctx r arg |> Some
     | "GetType", Some arg, _ ->
         if arg.Type = Any then
-            "Types can only be resolved at compile time. At runtime this will be same as `typeof<obj>`"
-            |> addWarning com ctx.InlinePath r
-
-        makeTypeInfo r arg.Type |> Some
+            // Dynamic type of a boxed value: resolve via the runtime reflection
+            // registry (populated by typeof<T>). Returns the concrete type's info
+            // when registered, else the value as an opaque placeholder.
+            Helper.LibCall(com, "Reflection", "getTypeFromObj", t, [ arg ], ?loc = r)
+            |> Some
+        else
+            makeTypeInfo r arg.Type |> Some
     | _ -> None
 
 let valueTypes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -3695,13 +3699,34 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
             fsharpType com methName r t info args
         else
             fsharpValue com methName r t info args
-    | "Microsoft.FSharp.Reflection.UnionCaseInfo"
+    | "Microsoft.FSharp.Reflection.UnionCaseInfo" ->
+        // UnionCaseInfo from a NewUnionCase quotation deconstruction is a Rust-native
+        // FSharpUnionCaseInfo carrier; route member access to the quotation runtime.
+        match thisArg, info.CompiledName with
+        | Some c, "get_Name" -> Helper.LibCall(com, "quotation", "unionCaseName", t, [ c ], ?loc = r) |> Some
+        | Some c, "get_Tag" -> Helper.LibCall(com, "quotation", "unionCaseTag", t, [ c ], ?loc = r) |> Some
+        | _ -> None
     | "System.Reflection.PropertyInfo"
     | "System.Reflection.ParameterInfo"
     | "System.Reflection.MethodBase"
     | "System.Reflection.MethodInfo"
     | "System.Reflection.MemberInfo" ->
+        // Name/DeclaringType are inherited from MemberInfo, so `mi.Name` / `mi.DeclaringType`
+        // on a Call quotation binding arrive here even though the binding's type is MethodInfo.
+        // Detect that carrier via the thisArg's Fable type and route to the quotation runtime:
+        // get_Name -> a dedicated accessor (not the generic reflection name<T>()); DeclaringType
+        // -> the declaring-type fullname boxed as System.Type, so mi.DeclaringType.FullName works.
+        let isMethodInfoCarrier (c: Expr) =
+            match c.Type with
+            | DeclaredType(e, _) -> e.FullName = "System.Reflection.MethodInfo"
+            | _ -> false
+
         match thisArg, info.CompiledName with
+        | Some c, "get_Name" when isMethodInfoCarrier c ->
+            Helper.LibCall(com, "quotation", "methodName", t, [ c ], ?loc = r) |> Some
+        | Some c, "get_DeclaringType" when isMethodInfoCarrier c ->
+            Helper.LibCall(com, "quotation", "methodDeclaringType", t, [ c ], ?loc = r)
+            |> Some
         | Some c, "get_Tag" -> makeStrConst "tag" |> getExpr r t c |> Some
         | Some c, "get_ReturnType" -> makeStrConst "returnType" |> getExpr r t c |> Some
         | Some c, "GetParameters" -> makeStrConst "parameters" |> getExpr r t c |> Some
@@ -3714,9 +3739,12 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
             match c with
             | Value(TypeInfo(exprType, _), loc) ->
                 getTypeName com ctx loc exprType |> StringConstant |> makeValue r |> Some
-            | c -> Helper.LibCall(com, "Reflection", "name", t, [ c ], ?loc = r) |> Some
+            // Runtime PropertyInfo (e.g. a record field info): read its carried name.
+            // Distinct from the generic type-name helper `name<T>()` to avoid a clash.
+            | c -> Helper.LibCall(com, "Reflection", "propertyName", t, [ c ], ?loc = r) |> Some
         | _ -> None
-    | _ -> None
+    // F# Quotations
+    | typeName -> Quotations.tryQuotationCall "quotation" com ctx r t info thisArg args typeName
 
 let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
