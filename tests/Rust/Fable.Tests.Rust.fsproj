@@ -44,6 +44,7 @@
     <!-- <Compile Include="tests/src/ElmishParserTests.fs" /> -->
     <!-- <Compile Include="tests/src/EnumerableTests.fs" /> -->
     <Compile Include="tests/src/EnumTests.fs" />
+    <Compile Include="tests/src/EnvironmentTests.fs" />
     <!-- <Compile Include="tests/src/EventTests.fs" /> -->
     <Compile Include="tests/src/GuidTests.fs" />
     <Compile Include="tests/src/HashSetTests.fs" />
@@ -58,10 +59,12 @@
     <Compile Include="tests/src/MiscTests2.fs" />
     <Compile Include="tests/src/NBodyTests.fs" />
     <Compile Include="tests/src/NullnessTests.fs" />
+    <Compile Include="tests/src/QuotationTests.fs" />
     <!-- <Compile Include="tests/src/ObservableTests.fs" /> -->
     <Compile Include="tests/src/OptionTests.fs" />
     <Compile Include="tests/src/QueueTests.fs" />
     <Compile Include="tests/src/RecordTests.fs" />
+    <Compile Include="tests/src/RecordReflectionTests.fs" />
     <!-- <Compile Include="tests/src/ReflectionTests.fs" /> -->
     <Compile Include="tests/src/RegexTests.fs" />
     <Compile Include="tests/src/ResizeArrayTests.fs" />
@@ -71,6 +74,7 @@
     <Compile Include="tests/src/SetTests.fs" />
     <Compile Include="tests/src/StackTests.fs" />
     <Compile Include="tests/src/StringTests.fs" />
+    <Compile Include="tests/src/SystemIOTests.fs" />
     <Compile Include="tests/src/SudokuTest.fs" />
     <!-- <Compile Include="tests/src/TaskTests.fs" /> -->
     <Compile Include="tests/src/TailCallTests.fs" />
