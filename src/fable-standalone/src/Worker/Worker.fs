@@ -176,6 +176,12 @@ let private compileCode fable fileName fsharpNames fsharpCodes language otherFSh
                         else
                             None
 
+                    // Fable's JS Async runs each bind's continuation inside the caller's frame and
+                    // only unwinds every 2000 of them, so printing the previous file leaves this one
+                    // partway up a sawtooth. Sleep resumes from a timer callback, i.e. an empty
+                    // stack, which CompileToTargetAst needs because it recurses over the whole AST.
+                    do! Async.Sleep 0
+
                     let (res, fableTransformTime) =
                         measureTime
                             (fun () ->
@@ -205,6 +211,11 @@ let private compileCode fable fileName fsharpNames fsharpCodes language otherFSh
 
         return (compiledCode, errors, stats)
     }
+
+let private describeError (er: exn) =
+    match er?stack with
+    | null -> er.Message
+    | stack -> er.Message + "\n" + string<obj> stack
 
 let private combineStats (a: CompileStats) (b: CompileStats) : CompileStats =
     {
@@ -307,7 +318,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
                 CompilationFinished(compiledCode, language, errors, stats) |> state.Worker.Post
             with er ->
                 JS.console.error er
-                CompilerCrashed er.Message |> state.Worker.Post
+                CompilerCrashed(describeError er) |> state.Worker.Post
 
             return! loop box state
 
@@ -341,7 +352,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
                 CompilationsFinished(code, language, errors, stats) |> state.Worker.Post
             with er ->
                 JS.console.error er
-                CompilerCrashed er.Message |> state.Worker.Post
+                CompilerCrashed(describeError er) |> state.Worker.Post
 
             return! loop box state
 
