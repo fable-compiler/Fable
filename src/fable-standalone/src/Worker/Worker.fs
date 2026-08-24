@@ -132,22 +132,58 @@ let makeFableState (config: FableStateConfig) otherFSharpOptions =
                     }
     }
 
+// detect (and remove) the non-F# compiler options to avoid changing msg contract
+let private nonFSharpOptions =
+    set [ "--typedArrays"; "--clampByteArrays"; "--sourceMaps" ]
+
+let private splitOptions (otherFSharpOptions: string[]) =
+    otherFSharpOptions |> Array.partition (fun x -> Set.contains x nonFSharpOptions)
+
+let private emitFile fable (parseResults: IParseAndCheckResults) fileName language (fableOptions: string[]) =
+    async {
+        let typedArrays =
+            if Array.contains "--typedArrays" fableOptions then
+                Some true
+            else
+                None
+
+        // Fable's JS Async runs each bind's continuation inside the caller's frame and only
+        // unwinds every 2000 of them, so printing the previous file leaves this one partway up a
+        // sawtooth. Sleep resumes from a timer callback, i.e. an empty stack, which
+        // CompileToTargetAst needs because it recurses over the whole AST.
+        do! Async.Sleep 0
+
+        let (res, fableTransformTime) =
+            measureTime
+                (fun () ->
+                    fable.Manager.CompileToTargetAst(
+                        fableLibraryDir language,
+                        parseResults,
+                        fileName,
+                        typedArrays,
+                        language
+                    )
+                )
+                ()
+
+        // Print target language AST
+        let writer = new SourceWriter(Array.contains "--sourceMaps" fableOptions, language)
+
+        do! fable.Manager.PrintTargetAst(res, writer)
+
+        return writer.Result, res.FableErrors, fableTransformTime
+    }
+
 let private compileCode fable fileName fsharpNames fsharpCodes language otherFSharpOptions =
     async {
-        // detect (and remove) the non-F# compiler options to avoid changing msg contract
-        let nonFSharpOptions = set [ "--typedArrays"; "--clampByteArrays"; "--sourceMaps" ]
+        let fableOptions, otherFSharpOptions = splitOptions otherFSharpOptions
 
-        let fableOptions, otherFSharpOptions =
-            otherFSharpOptions |> Array.partition (fun x -> Set.contains x nonFSharpOptions)
-
-        //let fileName = fsharpNames |> Array.last
         // Check if we need to recreate the FableState because otherFSharpOptions have changed
         let! fable = makeFableState (Initialized fable) otherFSharpOptions
 
         let (parseResults, parsingTime) =
             measureTime
                 (fun () ->
-                    // fable.Manager.ParseFSharpScript(fable.Checker, FILE_NAME, fsharpCode, otherFSharpOptions)) ()
                     fable.Manager.ParseAndCheckFileInProject(
                         fable.Checker,
                         fileName,
@@ -164,42 +200,10 @@ let private compileCode fable fileName fsharpNames fsharpCodes language otherFSh
                 if parseResults.Errors |> Array.exists (fun e -> not e.IsWarning) then
                     return "", parseResults.Errors, 0.
                 else
-                    let options =
-                        {|
-                            typedArrays = Array.contains "--typedArrays" fableOptions
-                            sourceMaps = Array.contains "--sourceMaps" fableOptions
-                        |}
+                    let! code, fableErrors, fableTransformTime =
+                        emitFile fable parseResults fileName language fableOptions
 
-                    let typedArrays =
-                        if options.typedArrays then
-                            Some true
-                        else
-                            None
-
-                    // Fable's JS Async runs each bind's continuation inside the caller's frame and
-                    // only unwinds every 2000 of them, so printing the previous file leaves this one
-                    // partway up a sawtooth. Sleep resumes from a timer callback, i.e. an empty
-                    // stack, which CompileToTargetAst needs because it recurses over the whole AST.
-                    do! Async.Sleep 0
-
-                    let (res, fableTransformTime) =
-                        measureTime
-                            (fun () ->
-                                fable.Manager.CompileToTargetAst(
-                                    fableLibraryDir language,
-                                    parseResults,
-                                    fileName,
-                                    typedArrays,
-                                    language
-                                )
-                            )
-                            ()
-                    // Print target language AST
-                    let writer = new SourceWriter(options.sourceMaps, language)
-                    do! fable.Manager.PrintTargetAst(res, writer)
-                    let compiledCode = writer.Result
-
-                    return compiledCode, Array.append parseResults.Errors res.FableErrors, fableTransformTime
+                    return code, Array.append parseResults.Errors fableErrors, fableTransformTime
             }
 
         let stats: CompileStats =
@@ -212,28 +216,51 @@ let private compileCode fable fileName fsharpNames fsharpCodes language otherFSh
         return (compiledCode, errors, stats)
     }
 
+let private compileFiles fable fsharpNames fsharpCodes (filesToEmit: string[]) language otherFSharpOptions =
+    async {
+        let fableOptions, otherFSharpOptions = splitOptions otherFSharpOptions
+
+        let! fable = makeFableState (Initialized fable) otherFSharpOptions
+
+        let (parseResults, parsingTime) =
+            measureTime
+                (fun () ->
+                    fable.Manager.ParseAndCheckProject(
+                        fable.Checker,
+                        PROJECT_NAME,
+                        fsharpNames,
+                        fsharpCodes,
+                        otherFSharpOptions
+                    )
+                )
+                ()
+
+        let mutable errors = parseResults.Errors
+        let mutable fableTransformTime = 0.
+        let compiledCode = ResizeArray()
+
+        if not (parseResults.Errors |> Array.exists (fun e -> not e.IsWarning)) then
+            for fileName in filesToEmit do
+                let! code, fableErrors, transformTime = emitFile fable parseResults fileName language fableOptions
+
+                compiledCode.Add(code)
+                errors <- Array.append errors fableErrors
+                fableTransformTime <- fableTransformTime + transformTime
+
+        let stats: CompileStats =
+            {
+                FCS_checker = fable.LoadTime
+                FCS_parsing = parsingTime
+                Fable_transform = fableTransformTime
+            }
+
+        return (compiledCode.ToArray(), errors, stats)
+    }
+
 let private describeError (er: exn) =
     match er?stack with
     | null -> er.Message
     | stack -> er.Message + "\n" + string<obj> stack
-
-let private combineStats (a: CompileStats) (b: CompileStats) : CompileStats =
-    {
-        FCS_checker = a.FCS_checker + b.FCS_checker
-        FCS_parsing = a.FCS_parsing + b.FCS_parsing
-        Fable_transform = a.Fable_transform + b.Fable_transform
-    }
-
-let private asyncSequential (calc: Async<'T> array) : Async<'T array> =
-    async {
-        let mutable result = []: 'T list
-
-        for c in calc do
-            let! res = c
-            result <- result @ [ res ]
-
-        return Array.ofList result
-    }
 
 let private truncate (s: string) =
     if s.Length > 80 then
@@ -322,7 +349,7 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
 
             return! loop box state
 
-        | Some fable, CompileFiles(fsharpCode, language, otherFSharpOptions) ->
+        | Some fable, CompileFiles(fsharpCode, filesToEmit, language, otherFSharpOptions) ->
             try
                 let codes = fsharpCode |> Array.map (fun c -> c.Content)
 
@@ -335,19 +362,13 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
                             c.Name
                     )
 
-                let! results =
-                    names
-                    |> Array.map (fun name -> compileCode fable name names codes language otherFSharpOptions)
-                    |> asyncSequential
+                let filesToEmit =
+                    if Array.isEmpty filesToEmit then
+                        names
+                    else
+                        filesToEmit
 
-                let code, errors, stats =
-                    results
-                    |> Array.map (fun (a, b, c) -> [| a |], b, c)
-                    |> Array.reduce (fun (a, b, c) (d, e, f) ->
-                        Array.append a d, // Compiled code
-                        Array.append b e, // Errors
-                        combineStats c f // Stats
-                    )
+                let! (code, errors, stats) = compileFiles fable names codes filesToEmit language otherFSharpOptions
 
                 CompilationsFinished(code, language, errors, stats) |> state.Worker.Post
             with er ->
