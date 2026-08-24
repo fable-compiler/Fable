@@ -18,14 +18,39 @@ let tests =
                 for f in Directory.GetFileSystemEntries(testCaseDir, "*.actual") do
                     File.Delete f
 
+                let libraryDir = Path.Combine(testCaseDir, "library")
+                let precompiledDir = Path.Combine(testCaseDir, "precompiled")
+
+                let precompiledLibArgs =
+                    // If we have a library folder, it means we want to use Fable precompiledLib feature for the test
+                    if Directory.Exists libraryDir then
+                        let libraryProject =
+                            Directory.GetFileSystemEntries(libraryDir, "*.fsproj") |> Seq.exactlyOne
+
+                        if Directory.Exists precompiledDir then
+                            Directory.Delete(precompiledDir, true)
+
+                        let exitCode =
+                            Fable.Cli.Entry.main
+                                [| "precompile"; libraryProject; "--outDir"; precompiledDir; "--noCache" |]
+
+                        Expect.equal exitCode 0 "Expected precompile exit code to be 0"
+                        [| "--precompiledLib"; precompiledDir |]
+                    else
+                        [||]
+
                 // Compile project
                 let exitCode =
-                    Fable.Cli.Entry.main [| project; "--cwd"; $"'%s{testCaseDir}'"; "-e"; ".jsx.actual" |]
+                    Array.append
+                        [| project; "--cwd"; $"'%s{testCaseDir}'"; "-e"; ".jsx.actual" |]
+                        precompiledLibArgs
+                    |> Fable.Cli.Entry.main
 
                 Expect.equal exitCode 0 "Expected exit code to be 0"
 
                 let normalize content =
                     Regex.Replace(content, @"(/fable-library-js)[^/]+", "$1")
+                    |> fun c -> Regex.Replace(c, @"[^""]*/precompiled/", "precompiled/")
                     |> _.ReplaceLineEndings()
                     |> _.Trim()
 
