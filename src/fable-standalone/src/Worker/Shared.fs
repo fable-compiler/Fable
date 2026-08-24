@@ -22,7 +22,12 @@ type WorkerRequest =
     | ParseCode of fsharpCode: string * otherFSharpOptions: string[]
     | ParseFile of file: string * fsharpCode: FSharpCodeFile[] * otherFSharpOptions: string[]
     | CompileCode of fsharpCode: string * language: string * otherFSharpOptions: string[]
-    | CompileFiles of fsharpCode: FSharpCodeFile[] * language: string * otherFSharpOptions: string[]
+    /// filesToEmit: which files to return output for; empty means all, the rest are still type-checked
+    | CompileFiles of
+        fsharpCode: FSharpCodeFile[] *
+        filesToEmit: string[] *
+        language: string *
+        otherFSharpOptions: string[]
     | GetTooltip of id: Guid * line: int * column: int * lineText: string
     | GetCompletions of id: Guid * line: int * column: int * lineText: string
     | GetDeclarationLocation of id: Guid * line: int * column: int * lineText: string

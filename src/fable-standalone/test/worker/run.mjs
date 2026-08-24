@@ -106,9 +106,10 @@ console.log(`checker ready (${fs.readdirSync(libDir).filter((f) => f.endsWith(".
 
 console.log(`CompileFiles: ${fixture.length} files, ${sizeKb} KB`)
 const started = Date.now()
-post(["CompileFiles", fixture, "javascript", []])
-const [, modules, , errors] = await answer("CompilationsFinished")
-console.log(`  ${modules.length} modules in ${((Date.now() - started) / 1000).toFixed(1)}s`)
+post(["CompileFiles", fixture, [], "javascript", []])
+const [, modules, , errors, stats] = await answer("CompilationsFinished")
+console.log(`  ${modules.length} modules in ${((Date.now() - started) / 1000).toFixed(1)}s ` +
+    `(type-check ${stats.FCS_parsing.toFixed(0)}ms, transform ${stats.Fable_transform.toFixed(0)}ms)`)
 
 const failures = []
 if (modules.length !== fixture.length) failures.push(`expected ${fixture.length} modules, got ${modules.length}`)
@@ -125,6 +126,20 @@ console.log(`  stack headroom: ${first} frames on the first file, worst file kep
 if (rest.length && kept < 95) {
     failures.push(`the worst file was handed ${kept}% of the stack the first one got ` +
         `(${headroom.join(", ")}) - a compile is running on a stack the one before it used up`)
+}
+
+const last = fixture[fixture.length - 1].Name
+post(["CompileFiles", fixture, [last], "javascript", []])
+const [, subset, , subsetErrors, subsetStats] = await answer("CompilationsFinished")
+console.log(`re-emit ${last} only: ${subset.length} module ` +
+    `(type-check ${subsetStats.FCS_parsing.toFixed(0)}ms, transform ${subsetStats.Fable_transform.toFixed(0)}ms ` +
+    `vs ${stats.Fable_transform.toFixed(0)}ms for all)`)
+
+if (subset.length !== 1) failures.push(`expected 1 module for a single-file emit, got ${subset.length}`)
+if (subset[0] !== modules[modules.length - 1]) failures.push(`re-emitting ${last} produced different output`)
+if ((subsetErrors ?? []).filter((e) => !e.IsWarning).length) failures.push("subset emit reported errors")
+if (subsetStats.Fable_transform >= stats.Fable_transform) {
+    failures.push(`emitting 1 of ${fixture.length} files took as long as emitting all of them`)
 }
 
 if (failures.length) {
