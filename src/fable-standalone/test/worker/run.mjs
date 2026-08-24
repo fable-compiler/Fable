@@ -100,7 +100,7 @@ const fixture = Array.from({ length: fileCount }, (_, i) => ({
 const sizeKb = Math.round(fixture.reduce((n, f) => n + f.Content.length, 0) / 1024)
 console.log(`worker: ${path.relative(process.cwd(), dist)}`)
 
-post(["CreateChecker", "file:///assemblies", [], null, []])
+post(["CreateChecker", "file:///assemblies", [], null, [], null])
 await answer("Loaded")
 console.log(`checker ready (${fs.readdirSync(libDir).filter((f) => f.endsWith(".dll")).length} assemblies)`)
 
