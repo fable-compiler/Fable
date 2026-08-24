@@ -2445,7 +2445,7 @@ module Util =
             else
                 Some(entityIdent com ent.Ref)
 
-    let memberIdent (com: Compiler) r typ (memb: FSharpMemberOrFunctionOrValue) membRef =
+    let memberIdent (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) membRef =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
 
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
@@ -2463,31 +2463,43 @@ module Util =
             | _ -> memberName
 
         let file =
-            memb.DeclaringEntity
-            |> Option.bind (fun ent -> FsEnt.Ref(ent).SourcePath)
+            match memb.DeclaringEntity with
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
-            |> Option.defaultValue com.CurrentFile
+            | None -> Some com.CurrentFile
+            | Some ent -> FsEnt.Ref(ent).SourcePath
 
-        // If precompiling inline function always reference with Import and not as IdentExpr
-        if not com.IsPrecompilingInlineFunction && file = com.CurrentFile then
-            { makeTypedIdent typ memberName with
-                Range = r
-                IsMutable = memb.IsMutable
-            }
-            |> Fable.IdentExpr
-        else
-            // If the overload suffix changes, we need to recompile the files that call this member
-            if hasOverloadSuffix then
-                com.AddWatchDependency(file)
+        match file with
+        // A quotation keeps the reference as metadata, so it needs no import
+        | None when not ctx.CapturingQuotation ->
+            let name =
+                match memb.DeclaringEntity with
+                | Some ent -> FsEnt.FullName ent + "." + memb.DisplayName
+                | None -> memb.DisplayName
 
-            // Private values are not exported so they can't be imported by call sites in other files.
-            // We need to handle it manually because Fable handle resolve inline function itself
-            if com.IsPrecompilingInlineFunction && memb.Accessibility.IsPrivate then
-                $"The value '%s{memb.DisplayName}' was marked inline but its implementation makes use of an internal or private function which is not sufficiently accessible"
-                |> addError com [] r
+            $"Cannot reference member from .dll reference, Fable packages must include F# sources: %s{name}"
+            |> addErrorAndReturnNull com [] r
+        | file ->
+            let file = Option.defaultValue com.CurrentFile file
+            // If precompiling inline function always reference with Import and not as IdentExpr
+            if not com.IsPrecompilingInlineFunction && file = com.CurrentFile then
+                { makeTypedIdent typ memberName with
+                    Range = r
+                    IsMutable = memb.IsMutable
+                }
+                |> Fable.IdentExpr
+            else
+                // If the overload suffix changes, we need to recompile the files that call this member
+                if hasOverloadSuffix then
+                    com.AddWatchDependency(file)
 
-            makeInternalMemberImport com typ membRef memberName file
+                // Private values are not exported so they can't be imported by call sites in other files.
+                // We need to handle it manually because Fable handle resolve inline function itself
+                if com.IsPrecompilingInlineFunction && memb.Accessibility.IsPrivate then
+                    $"The value '%s{memb.DisplayName}' was marked inline but its implementation makes use of an internal or private function which is not sufficiently accessible"
+                    |> addError com [] r
+
+                makeInternalMemberImport com typ membRef memberName file
 
     let getFunctionMemberRef (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
@@ -3135,7 +3147,7 @@ module Util =
                 else
                     callInfo
 
-            memberIdent com r membTyp memb membRef |> makeCall r typ callInfo
+            memberIdent com ctx r membTyp memb membRef |> makeCall r typ callInfo
 
         | Emitted com ctx r typ (Some callInfo) emitted, _ -> emitted
         | Imported com ctx r typ (Some callInfo) imported -> imported
@@ -3203,7 +3215,7 @@ module Util =
 
         | _, Some entity when isModuleValueForCalls com entity memb ->
             let typ = makeType ctx.GenericArgs memb.FullType
-            memberIdent com r typ memb membRef
+            memberIdent com ctx r typ memb membRef
 
         // (optional, Dart only) Call the implicit constructor instead of the mangled one
         | _, Some entity when com.Options.Language = Dart && memb.IsImplicitConstructor ->
@@ -3215,7 +3227,7 @@ module Util =
             let typ = makeType ctx.GenericArgs memb.FullType
             let retTyp = makeType ctx.GenericArgs memb.ReturnParameter.Type
             let callInfo = { callInfo with Tags = "value" :: callInfo.Tags }
-            let callExpr = memberIdent com r typ memb membRef |> makeCall r retTyp callInfo
+            let callExpr = memberIdent com ctx r typ memb membRef |> makeCall r retTyp callInfo
 
             let fableMember = FsMemberFunctionOrValue(memb)
             // TODO: Move plugin application to FableTransforms
@@ -3256,4 +3268,4 @@ module Util =
         | Emitted com ctx r typ None emitted, _ -> emitted
         | Imported com ctx r typ None imported -> imported
         | Try (tryGetIdentFromScope ctx r (Some typ)) expr, _ -> expr
-        | _ -> getValueMemberRef v |> memberIdent com r typ v
+        | _ -> getValueMemberRef v |> memberIdent com ctx r typ v

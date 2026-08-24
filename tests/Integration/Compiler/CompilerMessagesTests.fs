@@ -98,6 +98,15 @@ let z = y ()
       |> Assert.Is.success
       |> ignore
 
+    testCase "Referencing a member from a package without F# sources emits an error" <| fun _ ->
+      let source =
+        """
+let version = Semver.SemVersion.Parse("1.0.0", 1024)
+"""
+      compile source
+      |> Assert.Exists.errorWith "Cannot reference member from .dll reference, Fable packages must include F# sources"
+      |> ignore
+
     testCase "Duplicate attached member names emit a warning" <| fun _ ->
       let source =
         """
