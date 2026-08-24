@@ -42,10 +42,15 @@ type FableState =
         References: string[]
         Reader: string -> byte[]
         OtherFSharpOptions: string[]
+        PrecompiledInfo: Map<string, PrecompiledFile> option
     }
 
 type FableStateConfig =
-    | Init of refsDirUrl: string * extraRefs: string[] * refsExtraSuffix: string option
+    | Init of
+        refsDirUrl: string *
+        extraRefs: string[] *
+        refsExtraSuffix: string option *
+        precompiledInfo: PrecompiledInfo option
     | Initialized of FableState
 
 type State =
@@ -71,7 +76,7 @@ let private fableLibraryDir (language: string) =
     | "erlang" -> "fable-library-beam"
     | _ -> "fable-library-js"
 
-type SourceWriter(sourceMaps: bool, language: string) =
+type SourceWriter(sourceMaps: bool, language: string, precompiledInfo: Map<string, PrecompiledFile> option) =
     let sb = System.Text.StringBuilder()
 
     interface Fable.Standalone.IWriter with
@@ -79,6 +84,13 @@ type SourceWriter(sourceMaps: bool, language: string) =
             async { return sb.Append(str) |> ignore }
 
         member _.MakeImportPath(path) =
+            // An import into a precompiled library points at the .fs it came from
+            let path =
+                precompiledInfo
+                |> Option.bind (Map.tryFind path)
+                |> Option.map (fun file -> file.OutPath)
+                |> Option.defaultValue path
+
             match language with
             | "Python" -> path.Replace("/", ".").Replace("-", "_").Replace(".py", "").ToLowerInvariant()
             | _ -> path
@@ -91,11 +103,22 @@ type SourceWriter(sourceMaps: bool, language: string) =
 let makeFableState (config: FableStateConfig) otherFSharpOptions =
     async {
         match config with
-        | Init(refsDirUrl, extraRefs, refsExtraSuffix) ->
+        | Init(refsDirUrl, extraRefs, refsExtraSuffix, precompiledInfo) ->
             let getBlobUrl name =
                 refsDirUrl.TrimEnd('/') + "/" + name + ".dll" + (defaultArg refsExtraSuffix "")
 
             let manager = FableInit.init ()
+
+            // A precompiled library is only readable by the Fable that wrote it
+            let precompiledFiles =
+                precompiledInfo
+                |> Option.map (fun info ->
+                    if info.CompilerVersion <> manager.Version then
+                        failwith
+                            $"Library was precompiled using Fable v%s{info.CompilerVersion} but you're using v%s{manager.Version}. Please use same version."
+
+                    info.Files |> Array.map (fun f -> f.Path, f) |> Map
+                )
 
             let references = Array.append Fable.Metadata.coreAssemblies extraRefs
 
@@ -112,6 +135,7 @@ let makeFableState (config: FableStateConfig) otherFSharpOptions =
                     References = references
                     Reader = reader
                     OtherFSharpOptions = otherFSharpOptions
+                    PrecompiledInfo = precompiledFiles
                 }
 
         | Initialized fable ->
@@ -167,11 +191,21 @@ let private emitFile fable (parseResults: IParseAndCheckResults) fileName langua
                 ()
 
         // Print target language AST
-        let writer = new SourceWriter(Array.contains "--sourceMaps" fableOptions, language)
+        let writer =
+            new SourceWriter(Array.contains "--sourceMaps" fableOptions, language, fable.PrecompiledInfo)
 
         do! fable.Manager.PrintTargetAst(res, writer)
 
         return writer.Result, res.FableErrors, fableTransformTime
+    }
+
+let private toManagerPrecompiledInfo (files: Map<string, PrecompiledFile>) =
+    { new IPrecompiledInfo with
+        // Fable.Naming.fablePrecompile; the worker cannot reference Fable.Transforms
+        member _.DllPath = "Fable.Precompiled.dll"
+
+        member _.TryGetRootModule(normalizedFullPath) =
+            Map.tryFind normalizedFullPath files |> Option.map (fun f -> f.RootModule)
     }
 
 let private compileCode fable fileName fsharpNames fsharpCodes language otherFSharpOptions =
@@ -190,7 +224,8 @@ let private compileCode fable fileName fsharpNames fsharpCodes language otherFSh
                         PROJECT_NAME,
                         fsharpNames,
                         fsharpCodes,
-                        otherFSharpOptions
+                        otherFSharpOptions,
+                        ?precompiledInfo = (fable.PrecompiledInfo |> Option.map toManagerPrecompiledInfo)
                     )
                 )
                 ()
@@ -230,7 +265,8 @@ let private compileFiles fable fsharpNames fsharpCodes (filesToEmit: string[]) l
                         PROJECT_NAME,
                         fsharpNames,
                         fsharpCodes,
-                        otherFSharpOptions
+                        otherFSharpOptions,
+                        ?precompiledInfo = (fable.PrecompiledInfo |> Option.map toManagerPrecompiledInfo)
                     )
                 )
                 ()
@@ -275,10 +311,11 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
 
         match state.Fable, msg with
 
-        | None, CreateChecker(refsDirUrl, extraRefs, refsExtraSuffix, otherFSharpOptions) ->
+        | None, CreateChecker(refsDirUrl, extraRefs, refsExtraSuffix, otherFSharpOptions, precompiledInfo) ->
 
             try
-                let! fable = makeFableState (Init(refsDirUrl, extraRefs, refsExtraSuffix)) otherFSharpOptions
+                let! fable =
+                    makeFableState (Init(refsDirUrl, extraRefs, refsExtraSuffix, precompiledInfo)) otherFSharpOptions
 
                 state.Worker.Post(Loaded fable.Manager.Version)
                 return! loop box { state with Fable = Some fable }

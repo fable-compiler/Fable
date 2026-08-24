@@ -12,13 +12,29 @@ type FSharpCodeFile =
         Content: string
     }
 
+type PrecompiledFile =
+    {
+        /// Absolute path of the F# source, as recorded in precompiled_info.json
+        Path: string
+        RootModule: string
+        OutPath: string
+    }
+
+type PrecompiledInfo =
+    {
+        CompilerVersion: string
+        Files: PrecompiledFile[]
+    }
+
 type WorkerRequest =
     /// * refsExtraSuffix: e.g. add .txt extension to enable gzipping in Github Pages
+    /// * precompiledInfo: from `fable precompile`; name its assembly in extraRefs as well
     | CreateChecker of
         refsDirUrl: string *
         extraRefs: string[] *
         refsExtraSuffix: string option *
-        otherFSharpOptions: string[]
+        otherFSharpOptions: string[] *
+        precompiledInfo: PrecompiledInfo option
     | ParseCode of fsharpCode: string * otherFSharpOptions: string[]
     | ParseFile of file: string * fsharpCode: FSharpCodeFile[] * otherFSharpOptions: string[]
     | CompileCode of fsharpCode: string * language: string * otherFSharpOptions: string[]

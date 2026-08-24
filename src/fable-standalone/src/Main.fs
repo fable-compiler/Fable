@@ -154,7 +154,21 @@ let makeCompiler fableLibrary typedArrays language fsharpOptions project fileNam
 
     CompilerImpl(fileName, project, options, fableLibrary)
 
-let makeProject (projectOptions: FSharpProjectOptions) (checkResults: FSharpCheckProjectResults) =
+let private toCompilerPrecompiledInfo (info: IPrecompiledInfo) =
+    { new PrecompiledInfo with
+        member _.DllPath = info.DllPath
+
+        member _.TryGetRootModule(normalizedFullPath) =
+            info.TryGetRootModule(normalizedFullPath)
+
+        member _.TryGetInlineExpr(_) = None
+    }
+
+let makeProject
+    (projectOptions: FSharpProjectOptions)
+    (checkResults: FSharpCheckProjectResults)
+    (precompiledInfo: IPrecompiledInfo option)
+    =
     // let errors = com.GetFormattedLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let optimize = projectOptions.OtherOptions |> Array.exists ((=) "--optimize+")
@@ -172,15 +186,23 @@ let makeProject (projectOptions: FSharpProjectOptions) (checkResults: FSharpChec
         projectOptions,
         implFiles,
         checkResults.ProjectContext.GetReferencedAssemblies(),
-        addLog
+        addLog,
+        ?precompiledInfo = (precompiledInfo |> Option.map toCompilerPrecompiledInfo)
     )
 
-let parseAndCheckProject (checker: InteractiveChecker) projectFileName fileNames sources otherFSharpOptions =
+let parseAndCheckProject
+    (checker: InteractiveChecker)
+    projectFileName
+    fileNames
+    sources
+    otherFSharpOptions
+    precompiledInfo
+    =
     let checkResults = checker.ParseAndCheckProject(projectFileName, fileNames, sources)
 
     let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
 
-    let project = lazy (makeProject projectOptions checkResults)
+    let project = lazy (makeProject projectOptions checkResults precompiledInfo)
     ParseAndCheckResults(project, None, None, checkResults, otherFSharpOptions)
 
 let parseAndCheckFileInProject
@@ -190,13 +212,14 @@ let parseAndCheckFileInProject
     fileNames
     sources
     otherFSharpOptions
+    precompiledInfo
     =
     let results, checkResults, projectResults =
         checker.ParseAndCheckFileInProject(fileName, projectFileName, fileNames, sources)
 
     let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
 
-    let project = lazy (makeProject projectOptions projectResults)
+    let project = lazy (makeProject projectOptions projectResults precompiledInfo)
 
     ParseAndCheckResults(project, Some results, Some checkResults, projectResults, otherFSharpOptions)
 
@@ -440,19 +463,29 @@ let init () =
             let c = checker :?> CheckerImpl
             c.Checker.ClearCache()
 
-        member _.ParseAndCheckProject(checker, projectFileName, fileNames, sources, ?otherFSharpOptions) =
-            let c = checker :?> CheckerImpl
-            let otherFSharpOptions = defaultArg otherFSharpOptions [||]
-
-            parseAndCheckProject c.Checker projectFileName fileNames sources otherFSharpOptions :> IParseAndCheckResults
-
-        member _.ParseAndCheckFileInProject
-            (checker, fileName, projectFileName, fileNames, sources, ?otherFSharpOptions)
+        member _.ParseAndCheckProject
+            (checker, projectFileName, fileNames, sources, ?otherFSharpOptions, ?precompiledInfo)
             =
             let c = checker :?> CheckerImpl
             let otherFSharpOptions = defaultArg otherFSharpOptions [||]
 
-            parseAndCheckFileInProject c.Checker fileName projectFileName fileNames sources otherFSharpOptions
+            parseAndCheckProject c.Checker projectFileName fileNames sources otherFSharpOptions precompiledInfo
+            :> IParseAndCheckResults
+
+        member _.ParseAndCheckFileInProject
+            (checker, fileName, projectFileName, fileNames, sources, ?otherFSharpOptions, ?precompiledInfo)
+            =
+            let c = checker :?> CheckerImpl
+            let otherFSharpOptions = defaultArg otherFSharpOptions [||]
+
+            parseAndCheckFileInProject
+                c.Checker
+                fileName
+                projectFileName
+                fileNames
+                sources
+                otherFSharpOptions
+                precompiledInfo
             :> IParseAndCheckResults
 
         member _.GetErrors(results: IParseAndCheckResults) = results.Errors
