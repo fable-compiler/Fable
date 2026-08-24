@@ -1,10 +1,47 @@
 ﻿module Fable.Tests.CompilationTests
 
+open System
 open System.IO
 open System.Text.RegularExpressions
 open Expecto
 
 let private data = Path.Combine(__SOURCE_DIRECTORY__, "data")
+
+// Set UPDATE_SNAPSHOTS=true to regenerate *.expected files instead of comparing.
+let private updateSnapshots =
+    Environment.GetEnvironmentVariable("UPDATE_SNAPSHOTS") = "true"
+
+let private normalize (content: string) =
+    Regex.Replace(content, @"(/fable-library-(?:js|ts))[^/]+", "$1")
+    |> _.ReplaceLineEndings()
+    |> _.Trim()
+
+let private compileAndCheck
+    (testCaseDir: string)
+    (project: string)
+    (extension: string)
+    (expectedGlob: string)
+    (extraArgs: string list)
+    =
+    async {
+        let actualExt = $"{extension}.actual"
+        let args =
+            [| yield project; yield "--cwd"; yield $"'%s{testCaseDir}'"; yield "-e"; yield actualExt; yield! extraArgs |]
+
+        let exitCode = Fable.Cli.Entry.main args
+        Expect.equal exitCode 0 "Expected exit code to be 0"
+
+        for expected in Directory.GetFileSystemEntries(testCaseDir, expectedGlob) do
+            let actual = Path.ChangeExtension(expected, ".actual")
+            Expect.isTrue (File.Exists actual) $"No actual file was produced for {expected}"
+            let actualContent = File.ReadAllText actual |> normalize
+
+            if updateSnapshots then
+                File.WriteAllText(expected, actualContent)
+            else
+                let expectedContent = File.ReadAllText expected |> normalize
+                Expect.equal actualContent expectedContent "The expected content differs from the actual content"
+    }
 
 let tests =
     Directory.EnumerateDirectories(data)
@@ -14,27 +51,27 @@ let tests =
             (async {
                 let project =
                     Directory.GetFileSystemEntries(testCaseDir, "*.fsproj") |> Seq.exactlyOne
+
                 // clean up old actual files
                 for f in Directory.GetFileSystemEntries(testCaseDir, "*.actual") do
                     File.Delete f
 
-                // Compile project
-                let exitCode =
-                    Fable.Cli.Entry.main [| project; "--cwd"; $"'%s{testCaseDir}'"; "-e"; ".jsx.actual" |]
+                // Compile and check JavaScript output
+                do!
+                    compileAndCheck testCaseDir project ".jsx" "*.jsx.expected" []
 
-                Expect.equal exitCode 0 "Expected exit code to be 0"
+                // Compile and check TypeScript output (only when *.tsx.expected files exist)
+                let hasTsExpected =
+                    Directory.GetFileSystemEntries(testCaseDir, "*.tsx.expected").Length > 0
 
-                let normalize content =
-                    Regex.Replace(content, @"(/fable-library-js)[^/]+", "$1")
-                    |> _.ReplaceLineEndings()
-                    |> _.Trim()
-
-                for expected in Directory.GetFileSystemEntries(testCaseDir, "*.expected") do
-                    let actual = Path.ChangeExtension(expected, ".actual")
-                    Expect.isTrue (File.Exists actual) $"No actual file was produced for {expected}"
-                    let expectedContent = File.ReadAllText expected |> normalize
-                    let actualContent = File.ReadAllText actual |> normalize
-                    Expect.equal actualContent expectedContent "The expected content differs from the actual content"
+                if hasTsExpected then
+                    do!
+                        compileAndCheck
+                            testCaseDir
+                            project
+                            ".tsx"
+                            "*.tsx.expected"
+                            [ "--lang"; "typescript" ]
 
                 return ()
             }))
