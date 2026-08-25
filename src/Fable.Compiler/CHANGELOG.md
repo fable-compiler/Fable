@@ -1,4 +1,5 @@
 ---
+force_version: 5.14.0
 last_commit_released: 619d7afddbaf25108e819abaaa9d8a6503c457d6
 include:
   - ../fable-library-beam/
