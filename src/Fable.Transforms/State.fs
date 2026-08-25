@@ -380,7 +380,12 @@ type CompilerImpl
             | None ->
                 match project.PrecompiledInfo.TryGetInlineExpr(memberUniqueName) with
                 | Some e -> e
-                | None -> failwith ("Cannot find inline member: " + memberUniqueName)
+                | None ->
+                    failwith (
+                        $"Cannot find the body of inline member '%s{memberUniqueName}' while compiling %s{currentFile}. "
+                        + "If it belongs to a package, make sure the package includes its F# sources; "
+                        + $"if it belongs to a precompiled library, make sure it was precompiled with Fable %s{Literals.VERSION}."
+                    )
 
         member _.AddWatchDependency(file) =
             match watchDependencies with
