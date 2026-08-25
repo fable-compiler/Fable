@@ -16,6 +16,9 @@ updaters:
   - regex:
       file: ./../Fable.Transforms/Global/Compiler.fs
       pattern: (?<=let VERSION = ").*(?=")
+  - regex:
+      file: ./../fable-standalone/package.json
+      pattern: '(?<="fableVersion": ").*(?=")'
 ---
 
 # Changelog
