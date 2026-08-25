@@ -3,6 +3,7 @@
     "name": "@fable-org/fable-standalone",
     "private": false,
     "version": "3.0.0",
+    "fableVersion": "5.14.0",
     "main": "./dist/bundle.min.js",
     "description": "Fable compiler",
     "keywords": [
