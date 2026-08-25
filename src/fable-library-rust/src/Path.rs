@@ -1,5 +1,6 @@
 #[cfg(not(feature = "no_std"))]
 pub mod Path_ {
+    use crate::Native_::NullableRef;
     use crate::String_::{fromString, string};
 
     fn is_sep(c: char) -> bool {
@@ -24,12 +25,24 @@ pub mod Path_ {
     // or an empty string when there is no separator. Trailing separators on
     // the directory portion are trimmed, matching .NET semantics.
     pub fn getDirectoryName(path: string) -> string {
+        if path.is_null() {
+            return <string as NullableRef>::null();
+        }
+
         let s = path.as_str();
+        if s.is_empty() || (s.len() == 1 && is_sep(s.chars().next().unwrap())) {
+            return <string as NullableRef>::null();
+        }
+
         match s.rfind(is_sep) {
             Some(i) => {
                 let dir = &s[..i];
                 let dir = dir.trim_end_matches(is_sep);
-                fromString(dir.to_string())
+                if dir.is_empty() && !s.is_empty() {
+                    fromString(s[..1].to_string())
+                } else {
+                    fromString(dir.to_string())
+                }
             }
             None => string(""),
         }

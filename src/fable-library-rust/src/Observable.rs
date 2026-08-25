@@ -1,5 +1,6 @@
 pub mod Observable_ {
     use crate::Choice_::Choice_2;
+    use crate::Microsoft::FSharp::Control::IEvent_2;
     use crate::Native_::{interface_cast, refCell, Func0, Func1, Func2, Lrc, LrcPtr};
     use crate::System::{Exception, IDisposable, IObservable_1, IObserver_1};
 
@@ -92,6 +93,22 @@ pub mod Observable_ {
         }
     }
 
+    pub trait ObservableSource<T: Clone + 'static>: Clone + 'static {
+        fn subscribe_source(&self, observer: LrcPtr<dyn IObserver_1<T>>) -> LrcPtr<dyn IDisposable>;
+    }
+
+    impl<V: IObservable_1<T> + ?Sized + 'static, T: Clone + 'static> ObservableSource<T> for LrcPtr<V> {
+        fn subscribe_source(&self, observer: LrcPtr<dyn IObserver_1<T>>) -> LrcPtr<dyn IDisposable> {
+            self.Subscribe(observer)
+        }
+    }
+
+    impl<D: Clone + 'static, T: Clone + 'static> IObservable_1<T> for dyn IEvent_2<D, T> {
+        fn Subscribe(&self, observer: LrcPtr<dyn IObserver_1<T>>) -> LrcPtr<dyn IDisposable> {
+            IEvent_2::Subscribe(self, observer)
+        }
+    }
+
     // -----------------------------------------------------------
     // Constructors
     // -----------------------------------------------------------
@@ -146,46 +163,61 @@ pub mod Observable_ {
         Func0::new(move || observer.OnCompleted())
     }
 
+    fn protect<F: FnOnce()>(action: F, on_error: Func1<LrcPtr<Exception>, ()>) {
+        crate::Exception_::try_catch(
+            || action(),
+            |error| {
+                on_error(error);
+            },
+        );
+    }
+
     // -----------------------------------------------------------
     // Combinators
     // -----------------------------------------------------------
 
-    pub fn add<T: Clone + 'static>(callback: Func1<T, ()>, source: LrcPtr<dyn IObservable_1<T>>) {
-        source.Subscribe(mkObserver(callback, noError(), noCompleted()));
+    pub fn add<S: ObservableSource<T>, T: Clone + 'static>(callback: Func1<T, ()>, source: S) {
+        source.subscribe_source(mkObserver(callback, noError(), noCompleted()));
     }
 
-    pub fn subscribe<T: Clone + 'static>(
+    pub fn subscribe<S: ObservableSource<T>, T: Clone + 'static>(
         callback: Func1<T, ()>,
-        source: LrcPtr<dyn IObservable_1<T>>,
+        source: S,
     ) -> LrcPtr<dyn IDisposable> {
-        source.Subscribe(mkObserver(callback, noError(), noCompleted()))
+        source.subscribe_source(mkObserver(callback, noError(), noCompleted()))
     }
 
-    pub fn choose<T: Clone + 'static, U: Clone + 'static>(
+    pub fn choose<S: ObservableSource<T>, T: Clone + 'static, U: Clone + 'static>(
         chooser: Func1<T, Option<U>>,
-        source: LrcPtr<dyn IObservable_1<T>>,
+        source: S,
     ) -> LrcPtr<dyn IObservable_1<U>> {
         mkObservable(Func1::new(
             move |observer: LrcPtr<dyn IObserver_1<U>>| -> LrcPtr<dyn IDisposable> {
                 let chooser = chooser.clone();
                 let obs = observer.clone();
+                let errorObserver = observer.clone();
                 let inner = mkObserver(
                     Func1::new(move |t: T| {
-                        if let Some(u) = chooser(t) {
-                            obs.OnNext(u);
-                        }
+                        protect(
+                            || {
+                                if let Some(u) = chooser(t) {
+                                    obs.OnNext(u);
+                                }
+                            },
+                            fwdError(errorObserver.clone()),
+                        );
                     }),
                     fwdError(observer.clone()),
                     fwdCompleted(observer.clone()),
                 );
-                source.Subscribe(inner)
+                source.subscribe_source(inner)
             },
         ))
     }
 
-    pub fn filter<T: Clone + 'static>(
+    pub fn filter<S: ObservableSource<T>, T: Clone + 'static>(
         predicate: Func1<T, bool>,
-        source: LrcPtr<dyn IObservable_1<T>>,
+        source: S,
     ) -> LrcPtr<dyn IObservable_1<T>> {
         choose(
             Func1::new(move |x: T| if predicate(x.clone()) { Some(x) } else { None }),
@@ -193,27 +225,30 @@ pub mod Observable_ {
         )
     }
 
-    pub fn map<T: Clone + 'static, U: Clone + 'static>(
+    pub fn map<S: ObservableSource<T>, T: Clone + 'static, U: Clone + 'static>(
         mapping: Func1<T, U>,
-        source: LrcPtr<dyn IObservable_1<T>>,
+        source: S,
     ) -> LrcPtr<dyn IObservable_1<U>> {
         mkObservable(Func1::new(
             move |observer: LrcPtr<dyn IObserver_1<U>>| -> LrcPtr<dyn IDisposable> {
                 let mapping = mapping.clone();
                 let obs = observer.clone();
+                let errorObserver = observer.clone();
                 let inner = mkObserver(
-                    Func1::new(move |t: T| obs.OnNext(mapping(t))),
+                    Func1::new(move |t: T| {
+                        protect(|| obs.OnNext(mapping(t)), fwdError(errorObserver.clone()));
+                    }),
                     fwdError(observer.clone()),
                     fwdCompleted(observer.clone()),
                 );
-                source.Subscribe(inner)
+                source.subscribe_source(inner)
             },
         ))
     }
 
-    pub fn merge<T: Clone + 'static>(
-        source1: LrcPtr<dyn IObservable_1<T>>,
-        source2: LrcPtr<dyn IObservable_1<T>>,
+    pub fn merge<S1: ObservableSource<T>, S2: ObservableSource<T>, T: Clone + 'static>(
+        source1: S1,
+        source2: S2,
     ) -> LrcPtr<dyn IObservable_1<T>> {
         mkObservable(Func1::new(
             move |observer: LrcPtr<dyn IObserver_1<T>>| -> LrcPtr<dyn IDisposable> {
@@ -230,7 +265,7 @@ pub mod Observable_ {
                     let obs_c = observer.clone();
                     let se = stopped.clone();
                     let sc = stopped.clone();
-                    source1.Subscribe(mkObserver(
+                    source1.subscribe_source(mkObserver(
                         Func1::new(move |v: T| {
                             if !*stopped.get() {
                                 obs_n.OnNext(v);
@@ -263,7 +298,7 @@ pub mod Observable_ {
                     let obs_c = observer.clone();
                     let se = stopped.clone();
                     let sc = stopped.clone();
-                    source2.Subscribe(mkObserver(
+                    source2.subscribe_source(mkObserver(
                         Func1::new(move |v: T| {
                             if !*stopped.get() {
                                 obs_n.OnNext(v);
@@ -295,8 +330,8 @@ pub mod Observable_ {
         ))
     }
 
-    pub fn pairwise<T: Clone + 'static>(
-        source: LrcPtr<dyn IObservable_1<T>>,
+    pub fn pairwise<S: ObservableSource<T>, T: Clone + 'static>(
+        source: S,
     ) -> LrcPtr<dyn IObservable_1<LrcPtr<(T, T)>>> {
         mkObservable(Func1::new(
             move |observer: LrcPtr<dyn IObserver_1<LrcPtr<(T, T)>>>| -> LrcPtr<dyn IDisposable> {
@@ -312,14 +347,14 @@ pub mod Observable_ {
                     fwdError(observer.clone()),
                     fwdCompleted(observer.clone()),
                 );
-                source.Subscribe(inner)
+                source.subscribe_source(inner)
             },
         ))
     }
 
-    pub fn partition<T: Clone + 'static>(
+    pub fn partition<S: ObservableSource<T>, T: Clone + 'static>(
         predicate: Func1<T, bool>,
-        source: LrcPtr<dyn IObservable_1<T>>,
+        source: S,
     ) -> LrcPtr<(LrcPtr<dyn IObservable_1<T>>, LrcPtr<dyn IObservable_1<T>>)> {
         let pred = predicate.clone();
         let first = filter(predicate, source.clone());
@@ -327,33 +362,39 @@ pub mod Observable_ {
         LrcPtr::new((first, second))
     }
 
-    pub fn scan<U: Clone + 'static, T: Clone + 'static>(
+    pub fn scan<S: ObservableSource<T>, U: Clone + 'static, T: Clone + 'static>(
         collector: Func2<U, T, U>,
         state: U,
-        source: LrcPtr<dyn IObservable_1<T>>,
+        source: S,
     ) -> LrcPtr<dyn IObservable_1<U>> {
         mkObservable(Func1::new(
             move |observer: LrcPtr<dyn IObserver_1<U>>| -> LrcPtr<dyn IDisposable> {
                 let collector = collector.clone();
                 let st = refCell(state.clone());
                 let obs = observer.clone();
+                let errorObserver = observer.clone();
                 let inner = mkObserver(
                     Func1::new(move |t: T| {
-                        let u = collector(st.get().clone(), t);
-                        st.set(u.clone());
-                        obs.OnNext(u);
+                        protect(
+                            || {
+                                let u = collector(st.get().clone(), t);
+                                st.set(u.clone());
+                                obs.OnNext(u);
+                            },
+                            fwdError(errorObserver.clone()),
+                        );
                     }),
                     fwdError(observer.clone()),
                     fwdCompleted(observer.clone()),
                 );
-                source.Subscribe(inner)
+                source.subscribe_source(inner)
             },
         ))
     }
 
-    pub fn split<T: Clone + 'static, U1: Clone + 'static, U2: Clone + 'static>(
+    pub fn split<S: ObservableSource<T>, T: Clone + 'static, U1: Clone + 'static, U2: Clone + 'static>(
         splitter: Func1<T, LrcPtr<Choice_2<U1, U2>>>,
-        source: LrcPtr<dyn IObservable_1<T>>,
+        source: S,
     ) -> LrcPtr<(LrcPtr<dyn IObservable_1<U1>>, LrcPtr<dyn IObservable_1<U2>>)> {
         let sp = splitter.clone();
         let first = choose(

@@ -20,10 +20,28 @@ pub mod Event_ {
     // Handler<'T> = delegate of obj * 'T -> unit
     pub type Handler<T> = Func2<LrcPtr<dyn Any>, T, ()>;
 
+    pub trait EventDelegate<T: Clone + 'static>: Clone + 'static {
+        fn invoke(&self, sender: LrcPtr<dyn Any>, value: T);
+        fn from_observer(observer: LrcPtr<dyn IObserver_1<T>>) -> Self;
+        fn same(&self, other: &Self) -> bool;
+    }
+
+    impl<T: Clone + 'static> EventDelegate<T> for Handler<T> {
+        fn invoke(&self, sender: LrcPtr<dyn Any>, value: T) {
+            self(sender, value)
+        }
+
+        fn from_observer(observer: LrcPtr<dyn IObserver_1<T>>) -> Self {
+            Func2::new(move |_sender: LrcPtr<dyn Any>, value: T| observer.OnNext(value))
+        }
+
+        fn same(&self, other: &Self) -> bool {
+            referenceEquals(&**self, &**other)
+        }
+    }
+
     // ----- AnonymousEvent: the published IEvent -----
-    // A concrete type so the Publish field can be used through IEvent_2
-    // (AddHandler/RemoveHandler) *and* unsize-coerced to `dyn IObservable_1`
-    // (in F#/JS an IEvent is also an IObservable).
+    // A concrete implementation of IEvent_2 and IObservable_1.
     #[derive(Clone)]
     pub struct AnonymousEvent<T: Clone + 'static> {
         add_handler: Func1<Handler<T>, ()>,
@@ -92,11 +110,43 @@ pub mod Event_ {
         }
     }
 
+    #[derive(Clone)]
+    struct EventObservable<D: Clone + 'static, T: Clone + 'static> {
+        source: LrcPtr<dyn IEvent_2<D, T>>,
+    }
+
+    impl<D: Clone + 'static, T: Clone + 'static> core::fmt::Debug for EventObservable<D, T> {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
+        }
+    }
+
+    impl<D: Clone + 'static, T: Clone + 'static> core::fmt::Display for EventObservable<D, T> {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
+        }
+    }
+
+    impl<D: Clone + 'static, T: Clone + 'static> IObservable_1<T> for EventObservable<D, T> {
+        fn Subscribe(&self, observer: LrcPtr<dyn IObserver_1<T>>) -> LrcPtr<dyn IDisposable> {
+            self.source.Subscribe(observer)
+        }
+    }
+
+    pub fn asObservable<D: Clone + 'static, T: Clone + 'static>(
+        source: LrcPtr<dyn IEvent_2<D, T>>,
+    ) -> LrcPtr<dyn IObservable_1<T>> {
+        interface_cast!(
+            LrcPtr::new(EventObservable { source }),
+            Lrc<dyn IObservable_1<T>>,
+        )
+    }
+
     // ----- FSharpEvent`1 -----
     #[derive(Clone)]
     pub struct FSharpEvent_1<T: Clone + 'static> {
         handlers: LrcPtr<MutCell<Vec<Handler<T>>>>,
-        pub Publish: LrcPtr<AnonymousEvent<T>>,
+        pub Publish: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
     }
 
     impl<T: Clone + 'static> core::fmt::Debug for FSharpEvent_1<T> {
@@ -141,10 +191,10 @@ pub mod Event_ {
                 }
             }
         });
-        let publish = LrcPtr::new(AnonymousEvent {
+        let publish = interface_cast!(LrcPtr::new(AnonymousEvent {
             add_handler,
             remove_handler,
-        });
+        }), Lrc<dyn IEvent_2<Handler<T>, T>>,);
         LrcPtr::new(FSharpEvent_1 {
             handlers,
             Publish: publish,
@@ -162,18 +212,130 @@ pub mod Event_ {
         })
     }
 
+    // ----- FSharpEvent`2 -----
+    // The first generic parameter is the delegate shape. EventDelegate keeps the
+    // runtime independent from that type while retaining sender-aware Trigger.
+    #[derive(Clone)]
+    pub struct FSharpEvent_2<D: EventDelegate<T>, T: Clone + 'static> {
+        handlers: LrcPtr<MutCell<Vec<D>>>,
+        pub Publish: LrcPtr<dyn IEvent_2<D, T>>,
+    }
+
+    impl<D: EventDelegate<T>, T: Clone + 'static> core::fmt::Debug for FSharpEvent_2<D, T> {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
+        }
+    }
+
+    impl<D: EventDelegate<T>, T: Clone + 'static> core::fmt::Display for FSharpEvent_2<D, T> {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
+        }
+    }
+
+    impl<D: EventDelegate<T>, T: Clone + 'static> FSharpEvent_2<D, T> {
+        pub fn Trigger(&self, sender: LrcPtr<dyn Any>, value: T) {
+            let hs = self.handlers.get().clone();
+            for handler in hs.iter() {
+                handler.invoke(sender.clone(), value.clone());
+            }
+        }
+    }
+
+    pub fn default2<D: EventDelegate<T>, T: Clone + 'static>() -> LrcPtr<FSharpEvent_2<D, T>> {
+        let handlers: LrcPtr<MutCell<Vec<D>>> = refCell(Vec::new());
+        let add_handler = Func1::new({
+            let handlers = handlers.clone();
+            move |handler: D| handlers.get_mut().push(handler)
+        });
+        let remove_handler = Func1::new({
+            let handlers = handlers.clone();
+            move |handler: D| {
+                let vec = handlers.get_mut();
+                if let Some(pos) = vec.iter().position(|existing| existing.same(&handler)) {
+                    vec.remove(pos);
+                }
+            }
+        });
+        let publish = LrcPtr::new(AnonymousEvent_2 {
+            add_handler,
+            remove_handler,
+            marker: core::marker::PhantomData,
+        });
+        let publish = interface_cast!(publish, Lrc<dyn IEvent_2<D, T>>,);
+        LrcPtr::new(FSharpEvent_2 { handlers, Publish: publish })
+    }
+
+    #[derive(Clone)]
+    pub struct AnonymousEvent_2<D: EventDelegate<T>, T: Clone + 'static> {
+        add_handler: Func1<D, ()>,
+        remove_handler: Func1<D, ()>,
+        marker: core::marker::PhantomData<T>,
+    }
+
+    impl<D: EventDelegate<T>, T: Clone + 'static> core::fmt::Debug for AnonymousEvent_2<D, T> {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
+        }
+    }
+
+    impl<D: EventDelegate<T>, T: Clone + 'static> core::fmt::Display for AnonymousEvent_2<D, T> {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
+        }
+    }
+
+    impl<D: EventDelegate<T>, T: Clone + 'static> AnonymousEvent_2<D, T> {
+        fn do_sub(&self, observer: LrcPtr<dyn IObserver_1<T>>) -> LrcPtr<dyn IDisposable> {
+            let handler = D::from_observer(observer);
+            (self.add_handler)(handler.clone());
+            let remove_handler = self.remove_handler.clone();
+            mkDisposable(Func0::new(move || remove_handler(handler.clone())))
+        }
+    }
+
+    impl<D: EventDelegate<T>, T: Clone + 'static> IEvent_2<D, T> for AnonymousEvent_2<D, T> {
+        fn Subscribe(&self, observer: LrcPtr<dyn IObserver_1<T>>) -> LrcPtr<dyn IDisposable> {
+            self.do_sub(observer)
+        }
+
+        fn AddHandler(&self, handler: D) {
+            (self.add_handler)(handler)
+        }
+
+        fn RemoveHandler(&self, handler: D) {
+            (self.remove_handler)(handler)
+        }
+    }
+
+    impl<D: EventDelegate<T>, T: Clone + 'static> IDelegateEvent_1<D> for AnonymousEvent_2<D, T> {
+        fn AddHandler(&self, handler: D) {
+            (self.add_handler)(handler)
+        }
+
+        fn RemoveHandler(&self, handler: D) {
+            (self.remove_handler)(handler)
+        }
+    }
+
+    impl<D: EventDelegate<T>, T: Clone + 'static> IObservable_1<T> for AnonymousEvent_2<D, T> {
+        fn Subscribe(&self, observer: LrcPtr<dyn IObserver_1<T>>) -> LrcPtr<dyn IDisposable> {
+            self.do_sub(observer)
+        }
+    }
+
     // ----- module functions -----
 
-    pub fn add<T: Clone + 'static>(
+    pub fn add<D: EventDelegate<T>, T: Clone + 'static>(
         callback: Func1<T, ()>,
-        source: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
+        source: LrcPtr<dyn IEvent_2<D, T>>,
     ) {
         source.Subscribe(mkObserver(callback, noError(), noCompleted()));
     }
 
-    pub fn choose<T: Clone + 'static, U: Clone + 'static>(
+    pub fn choose<D: EventDelegate<T>, T: Clone + 'static, U: Clone + 'static>(
         chooser: Func1<T, Option<U>>,
-        source: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
+        source: LrcPtr<dyn IEvent_2<D, T>>,
     ) -> LrcPtr<dyn IEvent_2<Handler<U>, U>> {
         let ev = default::<U>();
         let evc = ev.clone();
@@ -191,9 +353,9 @@ pub mod Event_ {
         )
     }
 
-    pub fn filter<T: Clone + 'static>(
+    pub fn filter<D: EventDelegate<T>, T: Clone + 'static>(
         predicate: Func1<T, bool>,
-        source: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
+        source: LrcPtr<dyn IEvent_2<D, T>>,
     ) -> LrcPtr<dyn IEvent_2<Handler<T>, T>> {
         choose(
             Func1::new(move |x: T| if predicate(x.clone()) { Some(x) } else { None }),
@@ -201,9 +363,9 @@ pub mod Event_ {
         )
     }
 
-    pub fn map<T: Clone + 'static, U: Clone + 'static>(
+    pub fn map<D: EventDelegate<T>, T: Clone + 'static, U: Clone + 'static>(
         mapping: Func1<T, U>,
-        source: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
+        source: LrcPtr<dyn IEvent_2<D, T>>,
     ) -> LrcPtr<dyn IEvent_2<Handler<U>, U>> {
         let ev = default::<U>();
         let evc = ev.clone();
@@ -214,9 +376,9 @@ pub mod Event_ {
         )
     }
 
-    pub fn merge<T: Clone + 'static>(
-        event1: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
-        event2: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
+    pub fn merge<D1: EventDelegate<T>, D2: EventDelegate<T>, T: Clone + 'static>(
+        event1: LrcPtr<dyn IEvent_2<D1, T>>,
+        event2: LrcPtr<dyn IEvent_2<D2, T>>,
     ) -> LrcPtr<dyn IEvent_2<Handler<T>, T>> {
         let ev = default::<T>();
         let ev1 = ev.clone();
@@ -229,8 +391,8 @@ pub mod Event_ {
         )
     }
 
-    pub fn pairwise<T: Clone + 'static>(
-        source: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
+    pub fn pairwise<D: EventDelegate<T>, T: Clone + 'static>(
+        source: LrcPtr<dyn IEvent_2<D, T>>,
     ) -> LrcPtr<dyn IEvent_2<Handler<LrcPtr<(T, T)>>, LrcPtr<(T, T)>>> {
         let ev = default::<LrcPtr<(T, T)>>();
         let evc = ev.clone();
@@ -250,9 +412,9 @@ pub mod Event_ {
         )
     }
 
-    pub fn partition<T: Clone + 'static>(
+    pub fn partition<D: EventDelegate<T>, T: Clone + 'static>(
         predicate: Func1<T, bool>,
-        source: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
+        source: LrcPtr<dyn IEvent_2<D, T>>,
     ) -> LrcPtr<(
         LrcPtr<dyn IEvent_2<Handler<T>, T>>,
         LrcPtr<dyn IEvent_2<Handler<T>, T>>,
@@ -263,10 +425,10 @@ pub mod Event_ {
         LrcPtr::new((first, second))
     }
 
-    pub fn scan<U: Clone + 'static, T: Clone + 'static>(
+    pub fn scan<D: EventDelegate<T>, U: Clone + 'static, T: Clone + 'static>(
         collector: Func2<U, T, U>,
         state: U,
-        source: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
+        source: LrcPtr<dyn IEvent_2<D, T>>,
     ) -> LrcPtr<dyn IEvent_2<Handler<U>, U>> {
         let st = refCell(state);
         map(
@@ -279,9 +441,9 @@ pub mod Event_ {
         )
     }
 
-    pub fn split<T: Clone + 'static, U1: Clone + 'static, U2: Clone + 'static>(
+    pub fn split<D: EventDelegate<T>, T: Clone + 'static, U1: Clone + 'static, U2: Clone + 'static>(
         splitter: Func1<T, LrcPtr<Choice_2<U1, U2>>>,
-        source: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
+        source: LrcPtr<dyn IEvent_2<D, T>>,
     ) -> LrcPtr<(
         LrcPtr<dyn IEvent_2<Handler<U1>, U1>>,
         LrcPtr<dyn IEvent_2<Handler<U2>, U2>>,

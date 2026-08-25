@@ -3130,7 +3130,13 @@ let enumerables (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr
 let events (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg with
     | ".ctor", _ ->
-        Helper.LibCall(com, "Event", "default", t, args, i.SignatureArgTypes, isConstructor = true, ?loc = r)
+        let constructor =
+            if i.DeclaringEntityFullName.EndsWith("`2", StringComparison.Ordinal) then
+                "default2"
+            else
+                "default"
+
+        Helper.LibCall(com, "Event", constructor, t, args, i.SignatureArgTypes, isConstructor = true, ?loc = r)
         |> Some
     | "get_Publish", Some callee -> getFieldWith r t callee "Publish" |> Some
     | meth, Some callee -> makeInstanceCall r t i callee meth args |> Some
@@ -3352,6 +3358,8 @@ let uris
     | "get_IsAbsoluteUri"
     | "get_Scheme"
     | "get_Host"
+    | "get_Port"
+    | "get_IsDefaultPort"
     | "get_AbsolutePath"
     | "get_AbsoluteUri"
     | "get_PathAndQuery"

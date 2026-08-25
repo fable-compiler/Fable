@@ -30,6 +30,21 @@ let ``Path.GetDirectoryName works`` () =
     |> equal "temp"
 
 [<Fact>]
+let ``Path.GetDirectoryName preserves the root`` () =
+    Path.GetDirectoryName("/foo")
+    |> equal "/"
+
+[<Fact>]
+let ``Path.GetDirectoryName returns null for the root itself`` () =
+    isNull (Path.GetDirectoryName "/")
+    |> equal true
+
+[<Fact>]
+let ``Path.GetDirectoryName returns null for a null path`` () =
+    isNull (Path.GetDirectoryName null)
+    |> equal true
+
+[<Fact>]
 let ``Path.GetExtension works`` () =
     Path.GetExtension("temp/test.txt")
     |> equal ".txt"

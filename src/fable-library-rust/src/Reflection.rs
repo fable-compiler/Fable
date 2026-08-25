@@ -4,12 +4,14 @@ pub mod Reflection_ {
     use crate::Microsoft::FSharp::Quotations::FSharpPropertyInfo;
     use crate::Native_::{box_, Any, Func1, LrcPtr, Vec};
     use crate::NativeArray_::{array_from, Array};
-    use crate::String_::string;
+    use crate::String_::{fromString, string};
 
-    #[cfg(not(feature = "no_std"))]
+    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
     use core::cell::RefCell;
     #[cfg(not(feature = "no_std"))]
     use std::collections::HashMap;
+    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
+    use std::sync::{OnceLock, RwLock};
 
     pub fn name<T: Clone>() -> string {
         // TODO: map some common type names to .NET type names
@@ -19,8 +21,105 @@ pub mod Reflection_ {
     // The object (System.Object / obj) representation on the Rust target.
     type obj = LrcPtr<dyn Any>;
 
+    #[cfg(not(feature = "lrc_ptr"))]
+    fn object_type_id(value: &obj) -> TypeId {
+        (&**value).type_id()
+    }
+
+    #[cfg(feature = "lrc_ptr")]
+    fn object_type_id(value: &obj) -> TypeId {
+        (***value).type_id()
+    }
+
+    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
+    thread_local! {
+        static TYPE_NAME_REGISTRY: RefCell<HashMap<TypeId, string>> =
+            RefCell::new(HashMap::new());
+    }
+
+    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
+    static TYPE_NAME_REGISTRY: OnceLock<RwLock<HashMap<TypeId, string>>> = OnceLock::new();
+
+    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
+    fn register_type_name_value(tid: TypeId, name: string) {
+        TYPE_NAME_REGISTRY.with(|r| {
+            r.borrow_mut().insert(tid, name);
+        });
+    }
+
+    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
+    fn register_type_name_value(tid: TypeId, name: string) {
+        TYPE_NAME_REGISTRY
+            .get_or_init(|| RwLock::new(HashMap::new()))
+            .write()
+            .unwrap()
+            .insert(tid, name);
+    }
+
+    #[cfg(feature = "no_std")]
+    fn register_type_name_value(_tid: TypeId, _name: string) {}
+
+    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
+    fn registered_type_name(tid: &TypeId) -> Option<string> {
+        TYPE_NAME_REGISTRY.with(|r| r.borrow().get(tid).cloned())
+    }
+
+    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
+    fn registered_type_name(tid: &TypeId) -> Option<string> {
+        TYPE_NAME_REGISTRY
+            .get_or_init(|| RwLock::new(HashMap::new()))
+            .read()
+            .unwrap()
+            .get(tid)
+            .cloned()
+    }
+
+    #[cfg(feature = "no_std")]
+    fn registered_type_name(_tid: &TypeId) -> Option<string> {
+        None
+    }
+
+    #[cfg(not(feature = "no_std"))]
+    fn canonical_type_name<T: 'static>() -> string {
+        let rust_name = core::any::type_name::<T>();
+        let name = if TypeId::of::<T>() == TypeId::of::<string>() {
+            "System.String"
+        } else {
+            match rust_name {
+                "bool" => "System.Boolean",
+                "char" => "System.Char",
+                "i8" => "System.SByte",
+                "u8" => "System.Byte",
+                "i16" => "System.Int16",
+                "u16" => "System.UInt16",
+                "i32" => "System.Int32",
+                "u32" => "System.UInt32",
+                "i64" => "System.Int64",
+                "u64" => "System.UInt64",
+                "f32" => "System.Single",
+                "f64" => "System.Double",
+                _ => rust_name,
+            }
+        };
+        fromString(name.to_string())
+    }
+
+    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
+    pub fn register_type_name<T: 'static>() {
+        register_type_name_value(TypeId::of::<T>(), canonical_type_name::<T>());
+    }
+
+    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
+    pub fn register_type_name<T: 'static>() {
+        register_type_name_value(TypeId::of::<T>(), canonical_type_name::<T>());
+    }
+
+    #[cfg(feature = "no_std")]
+    pub fn register_type_name<T: 'static>() {}
+
     // Compile-time helper emitted by `typeof<T>` to obtain a concrete type id.
     pub fn type_id<T: 'static>() -> TypeId {
+        register_type_name::<T>();
         TypeId::of::<T>()
     }
 
@@ -46,7 +145,7 @@ pub mod Reflection_ {
     }
 
     // Registry mapping a record's *concrete* TypeId to its reflection info.
-    // Populated when `typeof<Record>` is evaluated. This is what makes
+    // Populated by `typeof<Record>` and generated record construction. This is what makes
     // value-based reflection (GetRecordFields(record)) possible: from a bare
     // boxed record we can recover its runtime TypeId and look the info up.
     //
@@ -54,17 +153,29 @@ pub mod Reflection_ {
     // the value-first entry points degrade (like exception catching does).
     // Type-first reflection (typeof<T>, MakeRecord, GetRecordElements) is
     // unaffected, as those carry the info in the `System.Type` value itself.
-    #[cfg(not(feature = "no_std"))]
+    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
     thread_local! {
         static RECORD_REGISTRY: RefCell<HashMap<TypeId, RecordTypeInfo>> =
             RefCell::new(HashMap::new());
     }
 
-    #[cfg(not(feature = "no_std"))]
+    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
+    static RECORD_REGISTRY: OnceLock<RwLock<HashMap<TypeId, RecordTypeInfo>>> = OnceLock::new();
+
+    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
     fn registry_insert(tid: TypeId, info: RecordTypeInfo) {
         RECORD_REGISTRY.with(|r| {
             r.borrow_mut().insert(tid, info);
         });
+    }
+
+    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
+    fn registry_insert(tid: TypeId, info: RecordTypeInfo) {
+        RECORD_REGISTRY
+            .get_or_init(|| RwLock::new(HashMap::new()))
+            .write()
+            .unwrap()
+            .insert(tid, info);
     }
 
     #[cfg(feature = "no_std")]
@@ -72,9 +183,19 @@ pub mod Reflection_ {
         // no registry when no_std
     }
 
-    #[cfg(not(feature = "no_std"))]
+    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
     fn registry_get(tid: &TypeId) -> Option<RecordTypeInfo> {
         RECORD_REGISTRY.with(|r| r.borrow().get(tid).cloned())
+    }
+
+    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
+    fn registry_get(tid: &TypeId) -> Option<RecordTypeInfo> {
+        RECORD_REGISTRY
+            .get_or_init(|| RwLock::new(HashMap::new()))
+            .read()
+            .unwrap()
+            .get(tid)
+            .cloned()
     }
 
     #[cfg(feature = "no_std")]
@@ -105,6 +226,7 @@ pub mod Reflection_ {
             fields: array_from(fields_vec),
             make,
         };
+        register_type_name_value(tid, info.name.clone());
         registry_insert(tid, info.clone());
         box_(info)
     }
@@ -126,7 +248,7 @@ pub mod Reflection_ {
     // The PropertyInfo carrier holds only a name (a quotation knows nothing more), so the
     // getter is looked up here, mirroring JS/TS where getValue(pi, v) reads v[pi.Name].
     fn getterOf(record: &obj, name: &string) -> Func1<obj, obj> {
-        let tid = (**record).type_id();
+        let tid = object_type_id(record);
         let info = registry_get(&tid).expect("Record type not registered; evaluate typeof<T> first");
         let field = info
             .fields
@@ -152,7 +274,7 @@ pub mod Reflection_ {
 
     // FSharpValue.GetRecordFields(record, ?bindingFlags) -> obj[]
     pub fn getRecordFields(record: obj, _flags: Option<i32>) -> Array<obj> {
-        let tid = (*record).type_id();
+        let tid = object_type_id(&record);
         let info = registry_get(&tid).expect("Record type not registered; evaluate typeof<T> first");
         let vals: Vec<obj> = info
             .fields
@@ -193,6 +315,8 @@ pub mod Reflection_ {
             info.name.clone()
         } else if let Some(s) = (*typ).downcast_ref::<string>() {
             s.clone()
+        } else if let Some(tid) = (*typ).downcast_ref::<TypeId>() {
+            registered_type_name(tid).unwrap_or_else(|| crate::String_::string(""))
         } else {
             crate::String_::string("")
         }
@@ -201,25 +325,26 @@ pub mod Reflection_ {
     // obj.GetType() for a statically-erased value (static type = obj/Any).
     // Reads the boxed value's *runtime* type id and returns the concrete type's
     // registered reflection info, so `(box record : obj).GetType()` resolves to
-    // the real record type (not typeof<obj>) whenever that type was registered
-    // via a prior `typeof<T>`. Falls back to returning the object itself as an
-    // opaque placeholder for unregistered types.
+    // the real record type (not typeof<obj>). Unregistered values receive a
+    // TypeId carrier, which still supports type identity and primitive names.
     pub fn getTypeFromObj(o: obj) -> obj {
-        let tid = (*o).type_id();
+        let tid = object_type_id(&o);
         match registry_get(&tid) {
             Some(info) => box_(info),
-            None => o,
+            None => box_(tid),
         }
     }
 
     // System.Type equality (typeof<A> = typeof<B>). Compares the carried concrete
-    // TypeId when both operands are record type infos; otherwise falls back to
-    // comparing the boxed values' runtime type ids.
+    // TypeId when both operands are record type infos; otherwise compares the
+    // TypeId carried by each non-record type value.
     pub fn typeEquals(a: obj, b: obj) -> bool {
         let ta = (*a).downcast_ref::<RecordTypeInfo>();
         let tb = (*b).downcast_ref::<RecordTypeInfo>();
         match (ta, tb) {
             (Some(x), Some(y)) => x.tid == y.tid,
+            (Some(x), None) => (*b).downcast_ref::<TypeId>().map_or(false, |y| x.tid == *y),
+            (None, Some(y)) => (*a).downcast_ref::<TypeId>().map_or(false, |x| *x == y.tid),
             (None, None) => {
                 // Non-record `System.Type` values carry a boxed concrete `TypeId`.
                 // Downcast both and compare the *carried* ids; comparing the boxed
@@ -227,11 +352,9 @@ pub mod Reflection_ {
                 // and therefore make every non-record type compare equal.
                 match ((*a).downcast_ref::<TypeId>(), (*b).downcast_ref::<TypeId>()) {
                     (Some(x), Some(y)) => x == y,
-                    _ => (*a).type_id() == (*b).type_id(),
+                    _ => object_type_id(&a) == object_type_id(&b),
                 }
             }
-            // One record, one non-record: definitely different types.
-            _ => false,
         }
     }
 }

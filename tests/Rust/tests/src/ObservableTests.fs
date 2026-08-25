@@ -9,22 +9,18 @@ type MyObserver<'T>(f) =
         member x.OnError e = ()
         member x.OnCompleted() = ()
 
-// NOTE: This mirrors the JS/TS/Python reference `MyObservable`, adapted for two
-// Rust-backend limitations (the runtime combinators themselves are unaffected):
-//  1. The disposable is a named generic class, not an inline
-//     `{ new IDisposable with ... }` object expression: the Rust backend does not
-//     propagate the enclosing type's generic parameter into a generated
-//     object-expression struct (it emits an inner struct that references `T`
-//     without declaring it -> rustc E0401).
-//  2. Subscriptions are keyed by an int id and removed by id, rather than
+type ErrorObserver(onError: exn -> unit) =
+    interface IObserver<int> with
+        member _.OnNext _ = ()
+        member _.OnError error = onError error
+        member _.OnCompleted() = ()
+
+// NOTE: This mirrors the JS/TS/Python reference `MyObservable`, adapted for one
+// Rust-backend limitation (the runtime combinators themselves are unaffected):
+// Subscriptions are keyed by an int id and removed by id, rather than
 //     `listeners.Remove(w)`: interface trait objects (`IObserver<'T>`) do not
 //     implement Rust `PartialEq`, so removal-by-value of an interface element is
 //     not supported. Behaviour is identical to the reference.
-type private Unsubscriber<'T>(listeners: ResizeArray<int * IObserver<'T>>, id: int) =
-    interface IDisposable with
-        member _.Dispose() =
-            let idx = listeners.FindIndex(fun (i, _) -> i = id)
-            if idx >= 0 then listeners.RemoveAt(idx)
 
 type MyObservable<'T>() =
     let listeners = ResizeArray<int * IObserver<'T>>()
@@ -37,7 +33,10 @@ type MyObservable<'T>() =
             let id = nextId
             nextId <- nextId + 1
             listeners.Add((id, w))
-            new Unsubscriber<'T>(listeners, id) :> IDisposable
+            { new IDisposable with
+                member _.Dispose() =
+                    let idx = listeners.FindIndex(fun (i, _) -> i = id)
+                    if idx >= 0 then listeners.RemoveAt(idx) }
 
 module tests =
 
@@ -95,6 +94,26 @@ module tests =
         Observable.map not source
         |> Observable.add (equal false)
         source.Trigger true
+
+    [<Fact>]
+    let ``Observable.map forwards callback exceptions to OnError`` () =
+        let source = MyObservable()
+        let mutable errors = 0
+        let mapped = Observable.map (fun _ -> failwith "boom") source
+        mapped.Subscribe(ErrorObserver(fun _ -> errors <- errors + 1)) |> ignore
+
+        source.Trigger 1
+        equal 1 errors
+
+    [<Fact>]
+    let ``Observable.scan forwards collector exceptions to OnError`` () =
+        let source = MyObservable()
+        let mutable errors = 0
+        let scanned = Observable.scan (fun _ _ -> failwith "boom") 0 source
+        scanned.Subscribe(ErrorObserver(fun _ -> errors <- errors + 1)) |> ignore
+
+        source.Trigger 1
+        equal 1 errors
 
     [<Fact>]
     let ``Observable.merge works`` () =
