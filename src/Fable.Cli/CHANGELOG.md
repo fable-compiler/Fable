@@ -1,5 +1,5 @@
 ---
-last_commit_released: 67072a72e38377a51878d1ca81cd7e4f18ce7d6b
+last_commit_released: b517d52df145ee30d1d3bd7e20fded1a9003ac54
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -27,6 +27,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.15.0 - 2026-08-25
+
+### 🚀 Features
+
+* *(standalone)* Publish the Fable version the bundle was built from (#4905) ([b517d52d](https://github.com/fable-compiler/Fable/commit/b517d52df145ee30d1d3bd7e20fded1a9003ac54))
+
+### 🐞 Bug Fixes
+
+* *(all)* Find a core entity recorded under a facade assembly (#4903) ([60210b86](https://github.com/fable-compiler/Fable/commit/60210b860afa361d89fbefdaf622d7943b305bb6))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/67072a72e38377a51878d1ca81cd7e4f18ce7d6b..b517d52df145ee30d1d3bd7e20fded1a9003ac54)</small></strong>
 
 ## 5.14.0 - 2026-08-25
 
