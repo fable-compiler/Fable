@@ -95,13 +95,13 @@ module tests =
         |> Observable.add (equal false)
         source.Trigger true
 
+#if !NO_STD_NO_EXCEPTIONS
     [<Fact>]
     let ``Observable.map forwards callback exceptions to OnError`` () =
         let source = MyObservable()
         let mutable errors = 0
         let mapped = Observable.map (fun _ -> failwith "boom") source
         mapped.Subscribe(ErrorObserver(fun _ -> errors <- errors + 1)) |> ignore
-
         source.Trigger 1
         equal 1 errors
 
@@ -111,9 +111,9 @@ module tests =
         let mutable errors = 0
         let scanned = Observable.scan (fun _ _ -> failwith "boom") 0 source
         scanned.Subscribe(ErrorObserver(fun _ -> errors <- errors + 1)) |> ignore
-
         source.Trigger 1
         equal 1 errors
+#endif
 
     [<Fact>]
     let ``Observable.merge works`` () =
