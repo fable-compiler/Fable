@@ -1199,8 +1199,8 @@ module TypeInfo =
             // concrete type must resolve to Event_::FSharpEvent`1 as well.
             | Replacements.Util.IsEntity ("Microsoft.FSharp.Control.FSharpEvent`1") (_, [ t ]) ->
                 transformImportType com ctx [ t ] "Event" "FSharpEvent`1"
-            | Replacements.Util.IsEntity ("Microsoft.FSharp.Control.FSharpEvent`2") (_, [ delegateType; argsType ]) ->
-                transformImportType com ctx [ delegateType; argsType ] "Event" "FSharpEvent`2"
+            | Replacements.Util.IsEntity ("Microsoft.FSharp.Control.FSharpEvent`2") (_, [ _delegateType; argsType ]) ->
+                transformImportType com ctx [ argsType ] "Event" "FSharpEvent`2"
 
             // implemented regex types
             | Replacements.Util.IsEntity (Types.regexMatch) (_, []) -> transformImportType com ctx [] "RegExp" "Match"
@@ -2948,6 +2948,12 @@ module Util =
                     if needGenArgs && (mi.IsModuleMember || not mi.IsInstanceMember) then
                         match typ with
                         | Fable.Tuple _ -> transformGenArgs com ctx [ typ ]
+                        // FSharpEvent`2 has two F# generic args but the Rust FSharpEvent_2
+                        // struct only takes the args type, so drop the delegate type
+                        | Replacements.Util.IsEntity ("Microsoft.FSharp.Control.FSharpEvent`2") (_,
+                                                                                                 [ _delegateType
+                                                                                                   argsType ]) ->
+                            transformGenArgs com ctx [ argsType ]
                         | _ -> transformGenArgs com ctx typ.Generics
                     else
                         None

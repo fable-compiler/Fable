@@ -1,7 +1,7 @@
 pub mod Observable_ {
     use crate::Choice_::Choice_2;
     use crate::Microsoft::FSharp::Control::IEvent_2;
-    use crate::Native_::{interface_cast, refCell, Func0, Func1, Func2, Lrc, LrcPtr};
+    use crate::Native_::{interface_cast, refCell, Func0, Func1, Func2, Lrc, LrcPtr, RefCell};
     use crate::System::{Exception, IDisposable, IObservable_1, IObserver_1};
 
     // -----------------------------------------------------------
@@ -172,6 +172,53 @@ pub mod Observable_ {
         );
     }
 
+    struct StoppedObserver<T: Clone + 'static> {
+        stopped: RefCell<bool>,
+        on_next: Func1<T, ()>,
+        on_error: Func1<LrcPtr<Exception>, ()>,
+        on_completed: Func0<()>,
+    }
+
+    fn stoppedObserver<T: Clone + 'static>(
+        observer: LrcPtr<dyn IObserver_1<T>>,
+    ) -> StoppedObserver<T> {
+        let stopped = refCell(false);
+        let on_next = {
+            let stopped = stopped.clone();
+            let observer = observer.clone();
+            Func1::new(move |value: T| {
+                if !*stopped.get() {
+                    observer.OnNext(value);
+                }
+            })
+        };
+        let on_error = {
+            let stopped = stopped.clone();
+            let observer = observer.clone();
+            Func1::new(move |error: LrcPtr<Exception>| {
+                if !*stopped.get() {
+                    stopped.set(true);
+                    observer.OnError(error);
+                }
+            })
+        };
+        let on_completed = {
+            let stopped = stopped.clone();
+            Func0::new(move || {
+                if !*stopped.get() {
+                    stopped.set(true);
+                    observer.OnCompleted();
+                }
+            })
+        };
+        StoppedObserver {
+            stopped,
+            on_next,
+            on_error,
+            on_completed,
+        }
+    }
+
     // -----------------------------------------------------------
     // Combinators
     // -----------------------------------------------------------
@@ -194,21 +241,24 @@ pub mod Observable_ {
         mkObservable(Func1::new(
             move |observer: LrcPtr<dyn IObserver_1<U>>| -> LrcPtr<dyn IDisposable> {
                 let chooser = chooser.clone();
-                let obs = observer.clone();
+                let guard = stoppedObserver(observer.clone());
+                let on_next = guard.on_next.clone();
                 let errorObserver = observer.clone();
+                let on_error = guard.on_error.clone();
+                let on_completed = guard.on_completed.clone();
                 let inner = mkObserver(
                     Func1::new(move |t: T| {
                         protect(
                             || {
                                 if let Some(u) = chooser(t) {
-                                    obs.OnNext(u);
+                                    on_next(u);
                                 }
                             },
                             fwdError(errorObserver.clone()),
                         );
                     }),
-                    fwdError(observer.clone()),
-                    fwdCompleted(observer.clone()),
+                    on_error,
+                    on_completed,
                 );
                 source.subscribe_source(inner)
             },
@@ -232,14 +282,17 @@ pub mod Observable_ {
         mkObservable(Func1::new(
             move |observer: LrcPtr<dyn IObserver_1<U>>| -> LrcPtr<dyn IDisposable> {
                 let mapping = mapping.clone();
-                let obs = observer.clone();
+                let guard = stoppedObserver(observer.clone());
+                let on_next = guard.on_next.clone();
                 let errorObserver = observer.clone();
+                let on_error = guard.on_error.clone();
+                let on_completed = guard.on_completed.clone();
                 let inner = mkObserver(
                     Func1::new(move |t: T| {
-                        protect(|| obs.OnNext(mapping(t)), fwdError(errorObserver.clone()));
+                        protect(|| on_next(mapping(t)), fwdError(errorObserver.clone()));
                     }),
-                    fwdError(observer.clone()),
-                    fwdCompleted(observer.clone()),
+                    on_error,
+                    on_completed,
                 );
                 source.subscribe_source(inner)
             },
@@ -252,31 +305,21 @@ pub mod Observable_ {
     ) -> LrcPtr<dyn IObservable_1<T>> {
         mkObservable(Func1::new(
             move |observer: LrcPtr<dyn IObserver_1<T>>| -> LrcPtr<dyn IDisposable> {
-                let stopped = refCell(false);
+                let guard = stoppedObserver(observer.clone());
+                let stopped = guard.stopped.clone();
+                let on_next = guard.on_next.clone();
+                let on_error = guard.on_error.clone();
                 let completed1 = refCell(false);
                 let completed2 = refCell(false);
 
                 let h1 = {
-                    let stopped = stopped.clone();
                     let completed1 = completed1.clone();
                     let completed2 = completed2.clone();
-                    let obs_n = observer.clone();
-                    let obs_e = observer.clone();
                     let obs_c = observer.clone();
-                    let se = stopped.clone();
                     let sc = stopped.clone();
                     source1.subscribe_source(mkObserver(
-                        Func1::new(move |v: T| {
-                            if !*stopped.get() {
-                                obs_n.OnNext(v);
-                            }
-                        }),
-                        Func1::new(move |e: LrcPtr<Exception>| {
-                            if !*se.get() {
-                                se.set(true);
-                                obs_e.OnError(e);
-                            }
-                        }),
+                        on_next.clone(),
+                        on_error.clone(),
                         Func0::new(move || {
                             if !*sc.get() {
                                 completed1.set(true);
@@ -290,26 +333,13 @@ pub mod Observable_ {
                 };
 
                 let h2 = {
-                    let stopped = stopped.clone();
                     let completed1 = completed1.clone();
                     let completed2 = completed2.clone();
-                    let obs_n = observer.clone();
-                    let obs_e = observer.clone();
                     let obs_c = observer.clone();
-                    let se = stopped.clone();
                     let sc = stopped.clone();
                     source2.subscribe_source(mkObserver(
-                        Func1::new(move |v: T| {
-                            if !*stopped.get() {
-                                obs_n.OnNext(v);
-                            }
-                        }),
-                        Func1::new(move |e: LrcPtr<Exception>| {
-                            if !*se.get() {
-                                se.set(true);
-                                obs_e.OnError(e);
-                            }
-                        }),
+                        on_next,
+                        on_error,
                         Func0::new(move || {
                             if !*sc.get() {
                                 completed2.set(true);
@@ -371,21 +401,24 @@ pub mod Observable_ {
             move |observer: LrcPtr<dyn IObserver_1<U>>| -> LrcPtr<dyn IDisposable> {
                 let collector = collector.clone();
                 let st = refCell(state.clone());
-                let obs = observer.clone();
+                let guard = stoppedObserver(observer.clone());
+                let on_next = guard.on_next.clone();
                 let errorObserver = observer.clone();
+                let on_error = guard.on_error.clone();
+                let on_completed = guard.on_completed.clone();
                 let inner = mkObserver(
                     Func1::new(move |t: T| {
                         protect(
                             || {
                                 let u = collector(st.get().clone(), t);
                                 st.set(u.clone());
-                                obs.OnNext(u);
+                                on_next(u);
                             },
                             fwdError(errorObserver.clone()),
                         );
                     }),
-                    fwdError(observer.clone()),
-                    fwdCompleted(observer.clone()),
+                    on_error,
+                    on_completed,
                 );
                 source.subscribe_source(inner)
             },
