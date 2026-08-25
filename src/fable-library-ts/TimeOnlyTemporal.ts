@@ -3,23 +3,6 @@ import { toInt64, fromFloat64, int64 } from "./BigInt.ts";
 import { TimeSpan, fromTicks as TimeSpan_fromTicks, totalNanoseconds as TimeSpan_totalNanoseconds } from "./TimeSpanTemporal.ts";
 import { Exception } from "./Util.ts";
 
-declare global {
-  namespace Temporal {
-    class PlainTime {
-      constructor(hour?: number, minute?: number, second?: number, millisecond?: number, microsecond?: number, nanosecond?: number);
-      static compare(one: PlainTime, two: PlainTime): number;
-      readonly hour: number;
-      readonly minute: number;
-      readonly second: number;
-      readonly millisecond: number;
-      readonly microsecond: number;
-      readonly nanosecond: number;
-      equals(other: PlainTime): boolean;
-      toString(options?: { smallestUnit?: "minute" | "second", fractionalSecondDigits?: number }): string;
-    }
-  }
-}
-
 export type TimeOnly = Temporal.PlainTime;
 export const PlainTime = Temporal.PlainTime;
 export type PlainTime = Temporal.PlainTime;
@@ -33,6 +16,7 @@ proto.CompareTo = function (this: TimeOnly, other: TimeOnly): number { return Te
 proto.GetHashCode = function (this: TimeOnly): number { return hash(this); };
 
 const nanosecondsPerDay = 86_400_000_000_000;
+const nanosecondsPerDayBig = 86_400_000_000_000n;
 
 function totalNanoseconds(t: TimeOnly): number {
   return ((t.hour * 60 + t.minute) * 60 + t.second) * 1_000_000_000
@@ -88,27 +72,40 @@ export function toTimeSpan(t: TimeOnly): TimeSpan {
   return TimeSpan_fromTicks(Math.round(totalNanoseconds(t) / 100));
 }
 
-function addNanoseconds(t: TimeOnly, deltaNs: number, wrappedDays?: FSharpRef<number>): TimeOnly {
-  const totalNs = totalNanoseconds(t) + deltaNs;
-  const days = Math.floor(totalNs / nanosecondsPerDay);
+// Kept in bigint: a TimeOnly itself always fits a float64 exactly (under 2^47 ns),
+// but the amount added does not — a TimeSpan of more than ~104 days already
+// exceeds Number.MAX_SAFE_INTEGER in nanoseconds, and .NET wraps it modulo a day
+// rather than saturating, so the low ticks are the part that must survive.
+function addNanoseconds(t: TimeOnly, deltaNs: bigint, wrappedDays?: FSharpRef<number>): TimeOnly {
+  const totalNs = BigInt(totalNanoseconds(t)) + deltaNs;
+  let days = totalNs / nanosecondsPerDayBig;
+  let remainder = totalNs % nanosecondsPerDayBig;
 
-  if (wrappedDays !== undefined) {
-    wrappedDays.contents = days;
+  // BigInt division truncates toward zero; .NET wraps toward the previous day.
+  if (remainder < 0n) {
+    remainder += nanosecondsPerDayBig;
+    days -= 1n;
   }
 
-  return fromNanoseconds(totalNs - days * nanosecondsPerDay);
+  if (wrappedDays !== undefined) {
+    wrappedDays.contents = Number(days);
+  }
+
+  return fromNanoseconds(Number(remainder));
 }
 
 export function add(t: TimeOnly, ts: TimeSpan, wrappedDays?: FSharpRef<number>): TimeOnly {
-  return addNanoseconds(t, Number(TimeSpan_totalNanoseconds(ts)), wrappedDays);
+  return addNanoseconds(t, TimeSpan_totalNanoseconds(ts), wrappedDays);
 }
 
 export function addHours(t: TimeOnly, h: number): TimeOnly {
-  return addNanoseconds(t, Math.round(h * 3_600_000_000_000));
+  // Scale to ticks first, as .NET does, then widen — `h` hours in nanoseconds
+  // overflows the exact float64 range two orders of magnitude sooner.
+  return addNanoseconds(t, BigInt(Math.round(h * 36_000_000_000)) * 100n);
 }
 
 export function addMinutes(t: TimeOnly, m: number): TimeOnly {
-  return addNanoseconds(t, Math.round(m * 60_000_000_000));
+  return addNanoseconds(t, BigInt(Math.round(m * 600_000_000)) * 100n);
 }
 
 export function isBetween(t: TimeOnly, start: TimeOnly, end: TimeOnly): boolean {
@@ -159,26 +156,14 @@ export function parse(str: string): TimeOnly {
   // hh:mm:ss.fffffff
   const r = /^\s*([0-1]?\d|2[0-3])\s*:\s*([0-5]?\d)(\s*:\s*([0-5]?\d)(\.(\d+))?)?\s*$/.exec(str);
   if (r != null && r[1] != null && r[2] != null) {
-    let ms = 0;
-    let s = 0;
     const h = +r[1];
     const m = +r[2];
-    if (r[4] != null) {
-      s = +r[4];
-    }
-    if (r[6] != null) {
-      // Depending on the number of decimals passed, we need to adapt the numbers
-      switch (r[6].length) {
-        case 1: ms = +r[6] * 100; break;
-        case 2: ms = +r[6] * 10; break;
-        case 3: ms = +r[6]; break;
-        case 4: ms = +r[6] / 10; break;
-        case 5: ms = +r[6] / 100; break;
-        case 6: ms = +r[6] / 1000; break;
-        default: ms = +r[6].substring(0, 7) / 10000; break;
-      }
-    }
-    return create(h, m, s, Math.trunc(ms));
+    const s = r[4] != null ? +r[4] : 0;
+    // .NET resolves the fraction down to a single tick (7 digits) and truncates
+    // anything finer, so the digits are read as ticks rather than milliseconds.
+    const subSecondTicks = r[6] != null ? +r[6].padEnd(7, "0").substring(0, 7) : 0;
+
+    return fromNanoseconds(((h * 60 + m) * 60 + s) * 1_000_000_000 + subSecondTicks * 100);
   }
 
   throw new Exception(`String '${str}' was not recognized as a valid TimeOnly.`);

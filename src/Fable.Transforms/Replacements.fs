@@ -126,6 +126,24 @@ let dateTimeOffsetModule (com: Compiler) =
     else
         "DateOffset"
 
+let private temporalSubtractionName opName (argTypes: Type list) =
+    if opName <> Operators.subtraction then
+        opName
+    else
+        match List.tryLast argTypes with
+        // DateTime - DateTime and DateTimeOffset - DateTimeOffset yield a TimeSpan
+        | Some(Builtin(BclDateTime | BclDateTimeOffset)) -> "subtractDate"
+        | _ -> "subtractTimeSpan"
+
+let private temporalDivisionName opName (argTypes: Type list) =
+    if opName <> Operators.division then
+        opName
+    else
+        match List.tryLast argTypes with
+        // TimeSpan / TimeSpan yields a ratio, TimeSpan / float another TimeSpan
+        | Some(Builtin BclTimeSpan) -> "divideByTimeSpan"
+        | _ -> "divide"
+
 let makeDecimal com r t (x: decimal) =
     let str = x.ToString(System.Globalization.CultureInfo.InvariantCulture)
     Helper.LibCall(com, "Decimal", "default", t, [ makeStrConst str ], isConstructor = true, ?loc = r)
@@ -507,9 +525,17 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
         else
             wrapLong com ctx r t op
     | Builtin BclDateTime :: _ when com.Options.JsTemporal ->
-        Helper.LibCall(com, "DateTimeTemporal", opName, t, args, argTypes, ?loc = r)
+        Helper.LibCall(com, "DateTimeTemporal", temporalSubtractionName opName argTypes, t, args, argTypes, ?loc = r)
     | Builtin BclDateTimeOffset :: _ when com.Options.JsTemporal ->
-        Helper.LibCall(com, "DateTimeOffsetTemporal", opName, t, args, argTypes, ?loc = r)
+        Helper.LibCall(
+            com,
+            "DateTimeOffsetTemporal",
+            temporalSubtractionName opName argTypes,
+            t,
+            args,
+            argTypes,
+            ?loc = r
+        )
     | Builtin(BclDateTime | BclDateTimeOffset | BclDateOnly as bt) :: _ ->
         Helper.LibCall(com, coreModFor bt, opName, t, args, argTypes, ?loc = r)
     | Builtin(FSharpSet _) :: _ ->
@@ -520,7 +546,7 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     //     let mangledName = Naming.buildNameWithoutSanitationFrom "FSharpMap" true opName overloadSuffix.Value
     //     Helper.LibCall(com, "Map", mangledName, t, args, argTypes, ?loc=r)
     | Builtin BclTimeSpan :: _ when com.Options.JsTemporal ->
-        Helper.LibCall(com, "TimeSpanTemporal", opName, t, args, argTypes, ?loc = r)
+        Helper.LibCall(com, "TimeSpanTemporal", temporalDivisionName opName argTypes, t, args, argTypes, ?loc = r)
     | Builtin BclTimeSpan :: _ -> nativeOp opName argTypes args
     | CustomOp com ctx r t opName args e -> e
     | _ -> nativeOp opName argTypes args
@@ -3372,6 +3398,15 @@ let dateTime (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "ToString" ->
         Helper.LibCall(com, moduleName, "toString", t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
+    | "Subtract" when com.Options.JsTemporal ->
+        // Overloaded on the argument: DateTime -> TimeSpan, TimeSpan -> DateTime
+        let meth =
+            match i.SignatureArgTypes with
+            | [ Builtin BclDateTime ] -> "subtractDate"
+            | _ -> "subtractTimeSpan"
+
+        Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
     | "get_Kind" ->
         Helper.LibCall(com, moduleName, "getKind", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
         |> Some
@@ -3444,6 +3479,15 @@ let dateTimeOffset (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: E
         |> Some
     | "get_Offset" ->
         Helper.LibCall(com, moduleName, "offset", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
+        |> Some
+    | "Subtract" when com.Options.JsTemporal ->
+        // Overloaded on the argument: DateTimeOffset -> TimeSpan, TimeSpan -> DateTimeOffset
+        let meth =
+            match i.SignatureArgTypes with
+            | [ Builtin BclDateTimeOffset ] -> "subtractDate"
+            | _ -> "subtractTimeSpan"
+
+        Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | "get_UtcDateTime" when com.Options.JsTemporal ->
         Helper.LibCall(com, moduleName, "utcDateTime", t, [ thisArg.Value ], [ thisArg.Value.Type ], ?loc = r)
@@ -3602,6 +3646,15 @@ let timeSpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
         Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "get_TotalMilliseconds" when not com.Options.JsTemporal -> TypeCast(thisArg.Value, t) |> Some
+    | "Divide" when com.Options.JsTemporal ->
+        // Overloaded on the argument: TimeSpan -> float ratio, float -> TimeSpan
+        let meth =
+            match i.SignatureArgTypes with
+            | [ Builtin BclTimeSpan ] -> "divideByTimeSpan"
+            | _ -> "divide"
+
+        Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
+        |> Some
     | "get_Days"
     | "get_Hours"
     | "get_Minutes"

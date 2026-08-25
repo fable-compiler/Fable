@@ -2,27 +2,6 @@ import { FSharpRef } from "./Types.ts";
 import { toInt64, int64 } from "./BigInt.ts";
 import { Exception, padWithZeros, padLeftAndRightWithZeros } from "./Util.ts";
 
-declare global {
-  namespace Temporal {
-    class Duration {
-      constructor(years?: number, months?: number, weeks?: number, days?: number, hours?: number, minutes?: number,
-        seconds?: number, milliseconds?: number, microseconds?: number, nanoseconds?: number);
-      static compare(one: Duration, two: Duration): number;
-      readonly days: number;
-      readonly hours: number;
-      readonly minutes: number;
-      readonly seconds: number;
-      readonly milliseconds: number;
-      readonly microseconds: number;
-      readonly nanoseconds: number;
-      readonly sign: number;
-      negated(): Duration;
-      abs(): Duration;
-      total(options: { unit: "days" | "hours" | "minutes" | "seconds" | "milliseconds" }): number;
-    }
-  }
-}
-
 export type TimeSpan = Temporal.Duration;
 export const Duration = Temporal.Duration;
 export type Duration = Temporal.Duration;
@@ -53,7 +32,11 @@ export function totalNanoseconds(ts: TimeSpan): bigint {
 
 function fromNanoseconds(totalNs: bigint): TimeSpan {
   const negative = totalNs < 0n;
-  let n = negative ? -totalNs : totalNs;
+  // A .NET TimeSpan is a whole number of 100ns ticks, so anything finer than a
+  // tick is dropped (toward zero, as .NET does) rather than carried in the
+  // Duration's nanosecond field — otherwise values that cannot exist in .NET
+  // would leak out of Parse/FromMilliseconds/arithmetic.
+  let n = (negative ? -totalNs : totalNs) / 100n * 100n;
   const days = Number(n / nsPerDay); n %= nsPerDay;
   const hours = Number(n / nsPerHour); n %= nsPerHour;
   const minutes = Number(n / nsPerMinute); n %= nsPerMinute;
@@ -96,6 +79,23 @@ export function fromTicks(ticks: number | bigint): TimeSpan {
 
 export function zero(): TimeSpan {
   return new Temporal.Duration();
+}
+
+const ticksPerUnit = {
+  days: 864_000_000_000,
+  hours: 36_000_000_000,
+  minutes: 600_000_000,
+  seconds: 10_000_000,
+  milliseconds: 10_000,
+};
+
+// The DateTime/DateTimeOffset/TimeOnly Add* members take a double and are
+// tick-precise in .NET: the value is scaled to ticks and rounded, so
+// AddSeconds(0.0000001) moves exactly one tick and AddDays(1.5) exactly 36 hours.
+// Temporal's own `add({ days: 1.5 })` rejects non-integers, so the scaling has to
+// happen here.
+export function fromUnits(value: number, unit: keyof typeof ticksPerUnit): TimeSpan {
+  return fromTicks(BigInt(Math.round(value * ticksPerUnit[unit])));
 }
 
 export function fromDays(d: number, h: number = 0, m: bigint = 0n, s: bigint = 0n, ms: bigint = 0n): TimeSpan {
@@ -160,20 +160,24 @@ export function subtract(ts1: TimeSpan, ts2: TimeSpan): TimeSpan {
   return fromNanoseconds(totalNanoseconds(ts1) - totalNanoseconds(ts2));
 }
 
+// .NET scales the tick count as a double and rounds: `new TimeSpan((long)Math
+// .Round(Ticks * factor))`. Scaling ticks rather than nanoseconds keeps the
+// magnitude — and so the rounding — identical to .NET's.
 export function multiply(ts: TimeSpan, factor: number): TimeSpan {
-  return fromNanoseconds(BigInt(Math.round(Number(totalNanoseconds(ts)) * factor)));
+  return fromTicks(BigInt(Math.round(Number(ticks(ts)) * factor)));
 }
 
-export function divide(ts: TimeSpan, b: number | TimeSpan): TimeSpan | number {
-  return typeof b === "number"
-    ? fromNanoseconds(BigInt(Math.round(Number(totalNanoseconds(ts)) / b)))
-    : Number(totalNanoseconds(ts)) / Number(totalNanoseconds(b));
+export function divide(ts: TimeSpan, factor: number): TimeSpan {
+  return fromTicks(BigInt(Math.round(Number(ticks(ts)) / factor)));
+}
+
+export function divideByTimeSpan(ts: TimeSpan, other: TimeSpan): number {
+  return Number(ticks(ts)) / Number(ticks(other));
 }
 
 export const op_Addition = add;
 export const op_Subtraction = subtract;
 export const op_Multiply = multiply;
-export const op_Division = divide;
 export const op_UnaryNegation = negate;
 
 export function compare(x: TimeSpan, y: TimeSpan): number {

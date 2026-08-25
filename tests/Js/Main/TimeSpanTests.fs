@@ -672,4 +672,35 @@ let tests =
             let actual = TimeSpan.Parse("-1.23:45:06.78999").Days
             let expected = -1
             equal actual expected
+
+// A .NET TimeSpan is an integer count of 100ns ticks. The default JS
+// representation is a float64 millisecond count, so only .NET and the Temporal
+// representation can hold these exactly.
+#if !FABLE_COMPILER || FABLE_COMPILER_JAVASCRIPT_TEMPORAL
+        testCase "TimeSpan holds the full Int64 tick range exactly" <| fun () ->
+            TimeSpan.FromTicks(1234567890123456789L).Ticks |> equal 1234567890123456789L
+            TimeSpan.FromTicks(Int64.MaxValue).Ticks |> equal Int64.MaxValue
+
+        testCase "TimeSpan.Parse keeps all seven fractional digits" <| fun () ->
+            TimeSpan.Parse("00:00:00.1234567").Ticks |> equal 1234567L
+
+        testCase "TimeSpan.FromMilliseconds truncates below a tick" <| fun () ->
+            // 0.00005ms is half a tick; .NET drops it rather than rounding up
+            TimeSpan.FromMilliseconds(0.00005).Ticks |> equal 0L
+            TimeSpan.FromMilliseconds(0.0001).Ticks |> equal 1L
+
+        testCase "TimeSpan multiplication and division are tick-precise" <| fun () ->
+            let day = TimeSpan.FromDays(1.0)
+            (day * 1000.0).Ticks |> equal 864_000_000_000_000L
+            (day / 3.0).Ticks |> equal 288_000_000_000L
+            day / TimeSpan.FromHours(1.0) |> equal 24.0
+
+        testCase "TimeSpan arithmetic keeps single ticks" <| fun () ->
+            let a = TimeSpan.FromTicks(1234567L)
+            let b = TimeSpan.FromTicks(1L)
+            (a + b).Ticks |> equal 1234568L
+            (a - b).Ticks |> equal 1234566L
+            (-a).Ticks |> equal -1234567L
+            a.Duration().Ticks |> equal 1234567L
+#endif
     ]

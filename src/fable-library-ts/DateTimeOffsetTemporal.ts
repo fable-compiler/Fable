@@ -11,53 +11,20 @@
  * .Duration), matching how .NET types it. Equality/comparison are by instant
  * (offset-independent), matching .NET '=='; EqualsExact also compares the offset.
  *
- * toString / parse bridge to the JS-Date-based DateOffset.ts/Date.ts, whose
- * culture-sensitive output is pinned by the test suite.
+ * Formatting and parsing run on the Temporal value's own fields (see
+ * DateTimeFormat.ts) rather than through a JS Date, which would truncate every
+ * value to milliseconds.
  */
 
 import { int64, fromFloat64 } from "./BigInt.ts";
 import { FSharpRef } from "./Types.ts";
-import { Exception, DateTimeKind, IDateTimeOffset, padWithZeros } from "./Util.ts";
-import { TimeSpan, fromTicks as TimeSpan_fromTicks, totalNanoseconds as TimeSpan_totalNanoseconds } from "./TimeSpanTemporal.ts";
+import { Exception, DateTimeKind, padWithZeros } from "./Util.ts";
+import {
+  TimeSpan, fromTicks as TimeSpan_fromTicks, fromUnits as TimeSpan_fromUnits,
+  totalNanoseconds as TimeSpan_totalNanoseconds,
+} from "./TimeSpanTemporal.ts";
 import { DateTime, dateTime, create as createDateTime, getTicks as DateTime_getTicks } from "./DateTimeTemporal.ts";
-import { toString as Date_toString } from "./Date.ts";
-import { parse as DateOffset_parse } from "./DateOffset.ts";
-
-declare global {
-  namespace Temporal {
-    class ZonedDateTime {
-      constructor(epochNanoseconds: bigint, timeZone: string);
-      static from(item: {
-        year: number, month: number, day: number, hour?: number, minute?: number, second?: number,
-        millisecond?: number, microsecond?: number, nanosecond?: number, timeZone: string, offset?: string,
-      }): ZonedDateTime;
-      readonly year: number;
-      readonly month: number;
-      readonly day: number;
-      readonly hour: number;
-      readonly minute: number;
-      readonly second: number;
-      readonly millisecond: number;
-      readonly microsecond: number;
-      readonly nanosecond: number;
-      readonly dayOfWeek: number;
-      readonly dayOfYear: number;
-      readonly offset: string;
-      readonly offsetNanoseconds: number;
-      readonly epochMilliseconds: number;
-      readonly epochNanoseconds: bigint;
-      add(duration: Temporal.Duration | Temporal.DurationLike): ZonedDateTime;
-      subtract(duration: Temporal.Duration | Temporal.DurationLike): ZonedDateTime;
-      until(other: ZonedDateTime, options?: { largestUnit?: string }): Temporal.Duration;
-      startOfDay(): ZonedDateTime;
-      withTimeZone(timeZone: string): ZonedDateTime;
-      toPlainDateTime(): Temporal.PlainDateTime;
-    }
-    namespace Now {
-      function timeZoneId(): string;
-    }
-  }
-}
+import * as Format from "./DateTimeFormat.ts";
 
 export type DateTimeOffset = Temporal.ZonedDateTime;
 
@@ -76,6 +43,17 @@ const nsPerMinute = 60_000_000_000n;
 
 // Nanoseconds between the Unix epoch (1970-01-01) and DateTime.MinValue (0001-01-01)
 const epochToMinValueNs = 62_135_596_800_000n * 1_000_000n;
+
+function hostTimeZone(): string {
+  return Temporal.Now.timeZoneId();
+}
+
+// .NET DateTimeOffset has 100ns (tick) precision; Temporal instants are
+// nanosecond-precise. Floors, so the tick count from year 1 is floored too.
+function truncateToTicks(epochNs: bigint): bigint {
+  const remainder = epochNs % 100n;
+  return remainder >= 0n ? epochNs - remainder : epochNs - remainder - 100n;
+}
 
 function checkOffsetInRange(offsetNs: bigint) {
   if (offsetNs % nsPerMinute !== 0n) {
@@ -126,10 +104,11 @@ export function create(
   });
 }
 
-// Offset (ns) of the host time zone for a given wall-clock, DST-aware.
+// Offset (ns) of the host time zone for a given wall-clock, DST-aware. Resolved
+// through Temporal rather than `new Date(year, ...)`, which maps years 0-99 into
+// 1900-1999 and would pick that era's rules.
 function hostOffsetNanoseconds(d: DateTime): bigint {
-  const jsOffsetMinutes = new Date(d.year, d.month - 1, d.day, d.hour, d.minute, d.second, d.millisecond).getTimezoneOffset();
-  return BigInt(-jsOffsetMinutes) * nsPerMinute;
+  return BigInt(d.toZonedDateTime(hostTimeZone()).offsetNanoseconds);
 }
 
 export function fromDate(date: DateTime, offset?: TimeSpan): DateTimeOffset {
@@ -155,18 +134,10 @@ export function fromDate(date: DateTime, offset?: TimeSpan): DateTimeOffset {
   checkOffsetInRange(offsetNs);
   return Temporal.ZonedDateTime.from({
     year: date.year, month: date.month, day: date.day,
-    hour: date.hour, minute: date.minute, second: date.second, millisecond: date.millisecond,
+    hour: date.hour, minute: date.minute, second: date.second,
+    millisecond: date.millisecond, microsecond: date.microsecond, nanosecond: date.nanosecond,
     timeZone: offsetNanosecondsToZoneString(offsetNs),
   });
-}
-
-export function fromDateTime(dateOnly: DateTime, timeOnly: TimeSpan, offset: TimeSpan): DateTimeOffset {
-  // dateOnly carries the date part (midnight); timeOnly is the time of day
-  const offsetNs = offsetToNanoseconds(offset);
-  return Temporal.ZonedDateTime.from({
-    year: dateOnly.year, month: dateOnly.month, day: dateOnly.day,
-    hour: 0, minute: 0, second: 0, timeZone: offsetNanosecondsToZoneString(offsetNs),
-  }).add(timeOnly);
 }
 
 export function fromTicks(ticks: int64, offset: TimeSpan): DateTimeOffset {
@@ -215,7 +186,7 @@ export function toUniversalTime(d: DateTimeOffset): DateTimeOffset {
 }
 
 export function toLocalTime(d: DateTimeOffset): DateTimeOffset {
-  const local = d.withTimeZone(Temporal.Now.timeZoneId());
+  const local = d.withTimeZone(hostTimeZone());
   return fromEpoch(local.epochNanoseconds, BigInt(local.offsetNanoseconds));
 }
 
@@ -224,7 +195,7 @@ export function utcDateTime(d: DateTimeOffset): DateTime {
 }
 
 export function localDateTime(d: DateTimeOffset): DateTime {
-  return dateTime(d.withTimeZone(Temporal.Now.timeZoneId()).toPlainDateTime(), DateTimeKind.Local);
+  return dateTime(d.withTimeZone(hostTimeZone()).toPlainDateTime(), DateTimeKind.Local);
 }
 
 export function add(d: DateTimeOffset, ts: TimeSpan): DateTimeOffset {
@@ -240,33 +211,36 @@ export function addMonths(d: DateTimeOffset, v: number): DateTimeOffset {
 }
 
 export function addDays(d: DateTimeOffset, v: number): DateTimeOffset {
-  return d.add({ days: v });
+  return d.add(TimeSpan_fromUnits(v, "days"));
 }
 
 export function addHours(d: DateTimeOffset, v: number): DateTimeOffset {
-  return d.add({ hours: v });
+  return d.add(TimeSpan_fromUnits(v, "hours"));
 }
 
 export function addMinutes(d: DateTimeOffset, v: number): DateTimeOffset {
-  return d.add({ minutes: v });
+  return d.add(TimeSpan_fromUnits(v, "minutes"));
 }
 
 export function addSeconds(d: DateTimeOffset, v: number): DateTimeOffset {
-  return d.add({ seconds: v });
+  return d.add(TimeSpan_fromUnits(v, "seconds"));
 }
 
 export function addMilliseconds(d: DateTimeOffset, v: number): DateTimeOffset {
-  return d.add({ milliseconds: v });
+  return d.add(TimeSpan_fromUnits(v, "milliseconds"));
 }
 
 export function addTicks(d: DateTimeOffset, v: int64): DateTimeOffset {
   return d.add(TimeSpan_fromTicks(v));
 }
 
-export function subtract(d: DateTimeOffset, that: DateTimeOffset | TimeSpan): DateTimeOffset | TimeSpan {
-  return that instanceof Temporal.ZonedDateTime
-    ? TimeSpan_fromTicks((d.epochNanoseconds - that.epochNanoseconds) / 100n) // instant difference
-    : d.subtract(that);
+// Split rather than returning a union — see the note in DateTimeTemporal.ts.
+export function subtractDate(d: DateTimeOffset, that: DateTimeOffset): TimeSpan {
+  return TimeSpan_fromTicks((d.epochNanoseconds - that.epochNanoseconds) / 100n); // instant difference
+}
+
+export function subtractTimeSpan(d: DateTimeOffset, ts: TimeSpan): DateTimeOffset {
+  return d.subtract(ts);
 }
 
 export function equals(d1: DateTimeOffset, d2: DateTimeOffset): boolean {
@@ -286,10 +260,6 @@ export const compareTo = compare;
 
 export function op_Addition(x: DateTimeOffset, y: TimeSpan): DateTimeOffset {
   return add(x, y);
-}
-
-export function op_Subtraction(x: DateTimeOffset, y: DateTimeOffset | TimeSpan): DateTimeOffset | TimeSpan {
-  return subtract(x, y);
 }
 
 export function hash(d: DateTimeOffset): number {
@@ -317,28 +287,59 @@ export function toUnixTimeSeconds(d: DateTimeOffset): int64 {
 }
 
 export function now(): DateTimeOffset {
-  const z = new Temporal.ZonedDateTime(BigInt(Date.now()) * 1_000_000n, Temporal.Now.timeZoneId());
-  return fromEpoch(z.epochNanoseconds, BigInt(z.offsetNanoseconds));
+  const z = Temporal.Now.zonedDateTimeISO(hostTimeZone());
+  return fromEpoch(truncateToTicks(z.epochNanoseconds), BigInt(z.offsetNanoseconds));
 }
 
 export function utcNow(): DateTimeOffset {
-  return fromEpoch(BigInt(Date.now()) * 1_000_000n);
+  return fromEpoch(truncateToTicks(Temporal.Now.instant().epochNanoseconds));
 }
 
-function toJsDateTimeOffset(d: DateTimeOffset): IDateTimeOffset {
-  const jsDate = new Date(d.epochMilliseconds) as IDateTimeOffset;
-  jsDate.offset = d.offsetNanoseconds / 1_000_000;
-  return jsDate;
+// --- Formatting and parsing ---
+
+// Wall-clock fields for the formatter, with the sub-second component in .NET
+// ticks so "O" and the f/F specifiers can print all 7 digits.
+function toDateInfo(z: DateTimeOffset): Format.DateInfo {
+  return {
+    year: z.year,
+    month: z.month,
+    day: z.day,
+    hour: z.hour,
+    minute: z.minute,
+    second: z.second,
+    tick: z.millisecond * 10_000 + z.microsecond * 10 + Math.trunc(z.nanosecond / 100),
+    dayOfWeek: z.dayOfWeek % 7,
+  };
 }
 
 export function toString(d: DateTimeOffset, format?: string, _provider?: any): string {
-  return Date_toString(toJsDateTimeOffset(d), format);
+  const offsetString = () => offsetNanosecondsToZoneString(BigInt(d.offsetNanoseconds));
+
+  return Format.dateToString(
+    {
+      info: toDateInfo(d),
+      utcInfo: () => toDateInfo(d.withTimeZone("UTC")),
+      roundTripSuffix: offsetString,
+      defaultSuffix: " " + offsetString(),
+      // K/z print the value's own offset, never the host zone's, so Local is
+      // passed as the kind and that offset stands in for the host one.
+      kind: DateTimeKind.Local,
+      hostOffsetString: offsetString,
+    },
+    format);
 }
 
 export function parse(str: string): DateTimeOffset {
-  const jsDto = DateOffset_parse(str);
-  const offsetNs = BigInt(jsDto.offset ?? 0) * 1_000_000n;
-  return fromEpoch(BigInt(jsDto.getTime()) * 1_000_000n, offsetNs);
+  const [parsed, offsetMatch] = Format.parseRaw(str);
+  // parseRaw resolves the instant through JS Date, so anything below the
+  // millisecond has to be recovered from the input separately.
+  const epochNs = BigInt(parsed.getTime()) * 1_000_000n + BigInt(Format.subMillisecondTicks(str)) * 100n;
+
+  const offsetNs = offsetMatch == null
+    ? BigInt(new Temporal.Instant(epochNs).toZonedDateTimeISO(hostTimeZone()).offsetNanoseconds)
+    : (offsetMatch === "Z" ? 0n : BigInt(offsetMatch) * nsPerMinute);
+
+  return fromEpoch(epochNs, offsetNs);
 }
 
 export function tryParse(v: string, defValue: FSharpRef<DateTimeOffset>): boolean {

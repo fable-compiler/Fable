@@ -5,30 +5,6 @@ import { DateTime, dateTime as DateTime_stamp } from "./DateTimeTemporal.ts";
 import { DateTimeOffset, fromDate as DateTimeOffset_fromDate } from "./DateTimeOffsetTemporal.ts";
 import { Exception, DateTimeKind, padWithZeros } from "./Util.ts";
 
-declare global {
-  namespace Temporal {
-    class PlainDate {
-      constructor(isoYear: number, isoMonth: number, isoDay: number);
-      static compare(one: PlainDate, two: PlainDate): number;
-      readonly year: number;
-      readonly month: number;
-      readonly day: number;
-      readonly dayOfWeek: number;
-      readonly dayOfYear: number;
-      add(duration: { years?: number, months?: number, days?: number }): PlainDate;
-      until(other: PlainDate): Duration;
-      toPlainDateTime(time: PlainTime): PlainDateTime;
-      equals(other: PlainDate): boolean;
-    }
-    interface Duration {
-      readonly days: number;
-    }
-    namespace Now {
-      function plainDateISO(): PlainDate;
-    }
-  }
-}
-
 export type DateOnly = Temporal.PlainDate;
 
 export const PlainDate = Temporal.PlainDate;
