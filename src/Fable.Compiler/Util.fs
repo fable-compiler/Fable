@@ -938,6 +938,11 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
     static member GetInlineExprsPath(fableModulesDir, index: int) =
         IO.Path.Combine(fableModulesDir, "inline_exprs", $"inline_exprs_%d{index}.json")
 
+    /// A second copy of the same chunk for fable-standalone: the compact form above leans on
+    /// System.Text.Json and a side string pool, neither of which survives being Fable-compiled.
+    static member GetBrowserInlineExprsPath(fableModulesDir, index: int) =
+        IO.Path.Combine(fableModulesDir, "inline_exprs", $"inline_exprs_%d{index}.browser.json")
+
     static member Load(fableModulesDir: string) =
         try
             let precompiledInfoPath = PrecompiledInfoImpl.GetPath(fableModulesDir)
@@ -948,7 +953,9 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
             Fable.AST.Fable.FableError($"Cannot load precompiled info from %s{fableModulesDir}: %s{e.Message}")
             |> raise
 
-    static member Save(files, inlineExprs, compilerOptions, fableModulesDir, fableLibDir) =
+    static member Save
+        (files, inlineExprs: (string * Fable.InlineExpr) array, compilerOptions, fableModulesDir, fableLibDir)
+        =
         let comparer =
             StringOrdinalComparer() :> System.Collections.Generic.IComparer<string>
 
@@ -969,6 +976,11 @@ type PrecompiledInfoImpl(fableModulesDir: string, info: PrecompiledInfoJson) =
             let path = PrecompiledInfoImpl.GetInlineExprsPath(fableModulesDir, i)
 
             Json.writeWithStringPool path chunk
+
+            IO.File.WriteAllText(
+                PrecompiledInfoImpl.GetBrowserInlineExprsPath(fableModulesDir, i),
+                Fable.BrowserInlineExprs.toString chunk
+            )
         )
 
         let precompiledInfoPath = PrecompiledInfoImpl.GetPath(fableModulesDir)

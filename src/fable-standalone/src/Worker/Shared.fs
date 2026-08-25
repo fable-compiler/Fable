@@ -24,6 +24,11 @@ type PrecompiledInfo =
     {
         CompilerVersion: string
         Files: PrecompiledFile[]
+        /// First member name of each inline-expression chunk, from precompiled_info.json
+        InlineExprHeaders: string[]
+        /// Contents of each inline_exprs_<index>.browser.json, in the same order. Leave empty to
+        /// compile without inline support: calling an inline member then reports a missing body.
+        InlineExprChunks: string[]
     }
 
 type WorkerRequest =

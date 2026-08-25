@@ -34,6 +34,13 @@ let measureTime f arg =
     let after: float = self?performance?now ()
     res, after - before
 
+type PrecompiledState =
+    {
+        Files: Map<string, PrecompiledFile>
+        InlineExprHeaders: string[]
+        InlineExprChunks: string[]
+    }
+
 type FableState =
     {
         Manager: IFableManager
@@ -42,7 +49,7 @@ type FableState =
         References: string[]
         Reader: string -> byte[]
         OtherFSharpOptions: string[]
-        PrecompiledInfo: Map<string, PrecompiledFile> option
+        PrecompiledInfo: PrecompiledState option
     }
 
 type FableStateConfig =
@@ -76,7 +83,7 @@ let private fableLibraryDir (language: string) =
     | "erlang" -> "fable-library-beam"
     | _ -> "fable-library-js"
 
-type SourceWriter(sourceMaps: bool, language: string, precompiledInfo: Map<string, PrecompiledFile> option) =
+type SourceWriter(sourceMaps: bool, language: string, precompiledInfo: PrecompiledState option) =
     let sb = System.Text.StringBuilder()
 
     interface Fable.Standalone.IWriter with
@@ -87,7 +94,7 @@ type SourceWriter(sourceMaps: bool, language: string, precompiledInfo: Map<strin
             // An import into a precompiled library points at the .fs it came from
             let path =
                 precompiledInfo
-                |> Option.bind (Map.tryFind path)
+                |> Option.bind (fun info -> Map.tryFind path info.Files)
                 |> Option.map (fun file -> file.OutPath)
                 |> Option.defaultValue path
 
@@ -117,7 +124,11 @@ let makeFableState (config: FableStateConfig) otherFSharpOptions =
                         failwith
                             $"Library was precompiled using Fable v%s{info.CompilerVersion} but you're using v%s{manager.Version}. Please use same version."
 
-                    info.Files |> Array.map (fun f -> f.Path, f) |> Map
+                    {
+                        Files = info.Files |> Array.map (fun f -> f.Path, f) |> Map
+                        InlineExprHeaders = info.InlineExprHeaders
+                        InlineExprChunks = info.InlineExprChunks
+                    }
                 )
 
             let references = Array.append Fable.Metadata.coreAssemblies extraRefs
@@ -199,13 +210,16 @@ let private emitFile fable (parseResults: IParseAndCheckResults) fileName langua
         return writer.Result, res.FableErrors, fableTransformTime
     }
 
-let private toManagerPrecompiledInfo (files: Map<string, PrecompiledFile>) =
+let private toManagerPrecompiledInfo (state: PrecompiledState) =
     { new IPrecompiledInfo with
         // Fable.Naming.fablePrecompile; the worker cannot reference Fable.Transforms
         member _.DllPath = "Fable.Precompiled.dll"
 
         member _.TryGetRootModule(normalizedFullPath) =
-            Map.tryFind normalizedFullPath files |> Option.map (fun f -> f.RootModule)
+            Map.tryFind normalizedFullPath state.Files |> Option.map (fun f -> f.RootModule)
+
+        member _.InlineExprHeaders = state.InlineExprHeaders
+        member _.ReadInlineExprsChunk(index) = state.InlineExprChunks[index]
     }
 
 let private compileCode fable fileName fsharpNames fsharpCodes language otherFSharpOptions =
