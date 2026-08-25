@@ -428,6 +428,18 @@ pub mod Uri_ {
         }
     }
 
+    pub fn tryCreateFromString(
+        baseUri: LrcPtr<Uri>,
+        relativeUri: string,
+        res: &MutCell<LrcPtr<Uri>>,
+    ) -> bool {
+        if !baseUri.isAbsolute {
+            return false;
+        }
+        res.set(LrcPtr::new(resolve(&baseUri, relativeUri.as_str())));
+        true
+    }
+
     pub fn tryCreateFromUri(
         baseUri: LrcPtr<Uri>,
         relativeUri: LrcPtr<Uri>,

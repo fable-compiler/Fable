@@ -354,3 +354,20 @@ let ``Instance call inside a quotation has an instance`` () =
     match q with
     | Lambda(_, Call(Some _, _mi, _)) -> ()
     | _ -> failwith "Expected Lambda with an instance Call body"
+
+[<Fact>]
+let ``Quotation ToString works`` () =
+    let text = (<@ 2 + 3 @>).ToString()
+    (text.Length > 0) |> equal true
+
+[<Fact>]
+let ``Quotation Substitute replaces variables`` () =
+    let quotation = (<@ fun x -> x + 1 @> :> Expr)
+    let replacement = (<@ 42 @> :> Expr)
+    let substituted =
+        quotation.Substitute(fun _ -> Some replacement)
+
+    match substituted with
+    | Lambda(_, Call(_, _, [ Value(value, _); _ ])) ->
+        unbox<int> value |> equal 42
+    | _ -> failwith "Expected the lambda variable to be substituted"

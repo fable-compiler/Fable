@@ -201,6 +201,137 @@ let isFieldGet (e: FSharpExpr) =
         Some(inst, pi, ([]: FSharpExpr list))
     | _ -> None
 
+let private joinStrings (separator: string) (parts: string list) =
+    match parts with
+    | [] -> ""
+    | first :: rest -> List.fold (fun result part -> result + separator + part) first rest
+
+let private operatorSymbol (methodName: string) =
+    match methodName with
+    | "op_Addition" -> Some "+"
+    | "op_Subtraction" -> Some "-"
+    | "op_Multiply" -> Some "*"
+    | "op_Division" -> Some "/"
+    | "op_Modulus" -> Some "%"
+    | "op_Exponentiation" -> Some "**"
+    | "op_Equality" -> Some "="
+    | "op_Inequality" -> Some "<>"
+    | "op_LessThan" -> Some "<"
+    | "op_LessThanOrEqual" -> Some "<="
+    | "op_GreaterThan" -> Some ">"
+    | "op_GreaterThanOrEqual" -> Some ">="
+    | "op_BooleanAnd" -> Some "&&"
+    | "op_BooleanOr" -> Some "||"
+    | "op_UnaryNegation" -> Some "-"
+    | "op_LogicalNot" -> Some "not"
+    | _ -> None
+
+let private valueToString (value: obj) (typ: string) =
+    match typ with
+    | "string" -> "\"" + unbox<string> value + "\""
+    | "unit" -> "()"
+    | "bool" ->
+        if unbox<bool> value then
+            "true"
+        else
+            "false"
+    | "char" -> sprintf "%O" (unbox<char> value)
+    | "int8" -> sprintf "%O" (unbox<int8> value)
+    | "uint8" -> sprintf "%O" (unbox<uint8> value)
+    | "int16" -> sprintf "%O" (unbox<int16> value)
+    | "uint16" -> sprintf "%O" (unbox<uint16> value)
+    | "int32" -> sprintf "%O" (unbox<int32> value)
+    | "uint32" -> sprintf "%O" (unbox<uint32> value)
+    | "int64" -> sprintf "%O" (unbox<int64> value)
+    | "uint64" -> sprintf "%O" (unbox<uint64> value)
+    | "nativeint" -> sprintf "%O" (unbox<nativeint> value)
+    | "unativeint" -> sprintf "%O" (unbox<unativeint> value)
+    | "float32" -> sprintf "%O" (unbox<float32> value)
+    | "float64" -> sprintf "%O" (unbox<float> value)
+    | _ -> "<value>"
+
+let rec exprToString (e: FSharpExpr) : string =
+    match e with
+    | ExprValue(value, typ) -> valueToString value typ
+    | ExprVarExpr v -> v.Name
+    | ExprLambda(v, body) -> "fun " + v.Name + " -> " + exprToString body
+    | ExprApplication(func, arg) -> exprToString func + " " + exprToString arg
+    | ExprLet(v, value, body) -> "let " + v.Name + " = " + exprToString value + " in " + exprToString body
+    | ExprIfThenElse(guard, thenExpr, elseExpr) ->
+        "if "
+        + exprToString guard
+        + " then "
+        + exprToString thenExpr
+        + " else "
+        + exprToString elseExpr
+    | ExprCall(_, methodName, args, _) ->
+        let renderedArgs = args |> List.ofArray |> List.map exprToString
+
+        match operatorSymbol methodName, renderedArgs with
+        | Some symbol, [ left; right ] -> "(" + left + " " + symbol + " " + right + ")"
+        | Some symbol, [ operand ] -> symbol + operand
+        | _ -> methodName + "(" + joinStrings ", " renderedArgs + ")"
+    | ExprSequential(first, second) -> exprToString first + "; " + exprToString second
+    | ExprNewTuple elements ->
+        "("
+        + (elements |> List.ofArray |> List.map exprToString |> joinStrings ", ")
+        + ")"
+    | ExprTupleGet(inner, index) -> "Item" + string (index + 1) + "(" + exprToString inner + ")"
+    | ExprFieldGet(inner, fieldName) -> exprToString inner + "." + fieldName
+    | _ -> "<expr>"
+
+let substitute (e: FSharpExpr) (substitution: FSharpVar -> FSharpExpr option) : FSharpExpr =
+    let rec substituteExpr expression =
+        match expression with
+        | ExprValue _ -> expression
+        | ExprVarExpr variable ->
+            match substitution variable with
+            | Some replacement -> replacement
+            | None -> expression
+        | ExprLambda(variable, body) -> ExprLambda(variable, substituteExpr body)
+        | ExprApplication(func, arg) -> ExprApplication(substituteExpr func, substituteExpr arg)
+        | ExprLet(variable, value, body) -> ExprLet(variable, substituteExpr value, substituteExpr body)
+        | ExprIfThenElse(guard, thenExpr, elseExpr) ->
+            ExprIfThenElse(substituteExpr guard, substituteExpr thenExpr, substituteExpr elseExpr)
+        | ExprCall(instance, methodName, args, declaringType) ->
+            let substitutedArgs = ResizeArray<FSharpExpr>()
+
+            for argument in args do
+                substitutedArgs.Add(substituteExpr argument)
+
+            ExprCall(substituteExpr instance, methodName, substitutedArgs.ToArray(), declaringType)
+        | ExprSequential(first, second) -> ExprSequential(substituteExpr first, substituteExpr second)
+        | ExprNewTuple elements ->
+            let substitutedElements = ResizeArray<FSharpExpr>()
+
+            for element in elements do
+                substitutedElements.Add(substituteExpr element)
+
+            ExprNewTuple(substitutedElements.ToArray())
+        | ExprNewUnion(typeName, tag, caseName, fields) ->
+            let substitutedFields = ResizeArray<FSharpExpr>()
+
+            for field in fields do
+                substitutedFields.Add(substituteExpr field)
+
+            ExprNewUnion(typeName, tag, caseName, substitutedFields.ToArray())
+        | ExprNewRecord(typeName, fieldNames, values) ->
+            let substitutedValues = ResizeArray<FSharpExpr>()
+
+            for value in values do
+                substitutedValues.Add(substituteExpr value)
+
+            ExprNewRecord(typeName, fieldNames, substitutedValues.ToArray())
+        | ExprNewList(head, tail) -> ExprNewList(substituteExpr head, substituteExpr tail)
+        | ExprTupleGet(inner, index) -> ExprTupleGet(substituteExpr inner, index)
+        | ExprUnionTag inner -> ExprUnionTag(substituteExpr inner)
+        | ExprUnionField(inner, fieldIndex) -> ExprUnionField(substituteExpr inner, fieldIndex)
+        | ExprFieldGet(inner, fieldName) -> ExprFieldGet(substituteExpr inner, fieldName)
+        | ExprFieldSet(inner, fieldName, value) -> ExprFieldSet(substituteExpr inner, fieldName, substituteExpr value)
+        | ExprVarSet(target, value) -> ExprVarSet(substituteExpr target, substituteExpr value)
+
+    substituteExpr e
+
 // --- Free variables ---
 
 let getFreeVars (e: FSharpExpr) : FSharpVar list =

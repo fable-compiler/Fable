@@ -11,7 +11,8 @@ pub mod Event_ {
     use crate::Choice_::Choice_2;
     use crate::Microsoft::FSharp::Control::{IDelegateEvent_1, IEvent_2};
     use crate::Native_::{
-        getZeroObj, referenceEquals, refCell, Any, Func0, Func1, Func2, LrcPtr, MutCell, Vec,
+        getZeroObj, interface_cast, referenceEquals, refCell, Any, Func0, Func1, Func2, Lrc, LrcPtr,
+        MutCell, Vec,
     };
     use crate::Observable_::{mkDisposable, mkObserver, noCompleted, noError};
     use crate::System::{IDisposable, IObservable_1, IObserver_1};
@@ -184,7 +185,10 @@ pub mod Event_ {
             }),
             source,
         );
-        ev.Publish.clone()
+        interface_cast!(
+            ev.Publish.clone(),
+            Lrc<dyn IEvent_2<Handler<U>, U>>,
+        )
     }
 
     pub fn filter<T: Clone + 'static>(
@@ -204,7 +208,10 @@ pub mod Event_ {
         let ev = default::<U>();
         let evc = ev.clone();
         add(Func1::new(move |t: T| evc.Trigger(mapping(t))), source);
-        ev.Publish.clone()
+        interface_cast!(
+            ev.Publish.clone(),
+            Lrc<dyn IEvent_2<Handler<U>, U>>,
+        )
     }
 
     pub fn merge<T: Clone + 'static>(
@@ -216,7 +223,10 @@ pub mod Event_ {
         let ev2 = ev.clone();
         add(Func1::new(move |t: T| ev1.Trigger(t)), event1);
         add(Func1::new(move |t: T| ev2.Trigger(t)), event2);
-        ev.Publish.clone()
+        interface_cast!(
+            ev.Publish.clone(),
+            Lrc<dyn IEvent_2<Handler<T>, T>>,
+        )
     }
 
     pub fn pairwise<T: Clone + 'static>(
@@ -234,7 +244,10 @@ pub mod Event_ {
             }),
             source,
         );
-        ev.Publish.clone()
+        interface_cast!(
+            ev.Publish.clone(),
+            Lrc<dyn IEvent_2<Handler<LrcPtr<(T, T)>>, LrcPtr<(T, T)>>>,
+        )
     }
 
     pub fn partition<T: Clone + 'static>(
@@ -275,14 +288,14 @@ pub mod Event_ {
     )> {
         let sp = splitter.clone();
         let first = choose(
-            Func1::new(move |v: T| match &*sp(v) {
+            Func1::new(move |v: T| match sp(v).as_ref() {
                 Choice_2::Choice1Of2(x) => Some(x.clone()),
                 _ => None,
             }),
             source.clone(),
         );
         let second = choose(
-            Func1::new(move |v: T| match &*splitter(v) {
+            Func1::new(move |v: T| match splitter(v).as_ref() {
                 Choice_2::Choice2Of2(x) => Some(x.clone()),
                 _ => None,
             }),

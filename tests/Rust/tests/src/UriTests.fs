@@ -150,6 +150,12 @@ let ``TryCreate from absolute uri and absolute uri should work`` () =
     equal absUri uri
 
 [<Fact>]
+let ``TryCreate from absolute uri and relative string works`` () =
+    let (valid, uri) = Uri.TryCreate(Uri("https://example.com/base"), "child")
+    equal true valid
+    equal "https://example.com/child" uri.AbsoluteUri
+
+[<Fact>]
 let ``TryCreate from absolute uri and different absolute uri yields the second`` () =
     // .NET: when the second URI is absolute it wins and the base is ignored.
     let baseUri = Uri("http://www.base.com/", UriKind.Absolute)

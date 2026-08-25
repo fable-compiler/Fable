@@ -357,14 +357,14 @@ pub mod Observable_ {
     ) -> LrcPtr<(LrcPtr<dyn IObservable_1<U1>>, LrcPtr<dyn IObservable_1<U2>>)> {
         let sp = splitter.clone();
         let first = choose(
-            Func1::new(move |v: T| match &*sp(v) {
+            Func1::new(move |v: T| match sp(v).as_ref() {
                 Choice_2::Choice1Of2(x) => Some(x.clone()),
                 _ => None,
             }),
             source.clone(),
         );
         let second = choose(
-            Func1::new(move |v: T| match &*splitter(v) {
+            Func1::new(move |v: T| match splitter(v).as_ref() {
                 Choice_2::Choice2Of2(x) => Some(x.clone()),
                 _ => None,
             }),

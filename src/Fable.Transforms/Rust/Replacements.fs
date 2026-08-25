@@ -3333,6 +3333,9 @@ let uris
         | (ExprType String) :: _ ->
             Helper.LibCall(com, "Uri", "tryCreateWithKind", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
+        | _ :: (ExprType String) :: _ ->
+            Helper.LibCall(com, "Uri", "tryCreateFromString", t, args, i.SignatureArgTypes, ?loc = r)
+            |> Some
         | _ ->
             Helper.LibCall(com, "Uri", "tryCreateFromUri", t, args, i.SignatureArgTypes, ?loc = r)
             |> Some
