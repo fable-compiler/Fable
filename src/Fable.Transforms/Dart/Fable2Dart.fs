@@ -220,6 +220,20 @@ module Util =
 
         match entRef.FullName, genArgs with
         | Types.enum_, _ -> Integer
+        // F# Quotation types are modelled dynamically by the quotation runtime,
+        // so map them to `dynamic` (the runtime returns plain tagged objects).
+        | Types.fsharpExpr, _
+        | Types.fsharpExprGeneric, _
+        // The NewUnionCase active pattern's first slot is typed as UnionCaseInfo in
+        // F#, but Dart's quotation runtime exposes it as a plain (type-name) string,
+        // so map the type to `dynamic` to keep the generated annotations valid.
+        | "Microsoft.FSharp.Reflection.UnionCaseInfo", _
+        // Likewise the Call/PropertyGet active patterns type their member slot as
+        // MethodInfo/PropertyInfo, but the quotation runtime exposes those as plain
+        // (member-name) strings, so map them to `dynamic` too.
+        | "System.Reflection.MethodInfo", _
+        | "System.Reflection.PropertyInfo", _
+        | Types.fsharpVar, _ -> Dynamic
         // List without generics is same as List<dynamic>
         | Types.array, _ -> List Dynamic
         | "System.Tuple`1", _ -> transformTupleType com ctx genArgs
@@ -1570,13 +1584,30 @@ module Util =
             ]
 
     let transformSwitch (com: IDartCompiler) ctx returnStrategy evalExpr cases defaultCase =
+        // An empty (unit) branch can only be removed if falling through to the default
+        // does nothing, otherwise a matching case would wrongly run the default body
+        // (e.g. `match ... with A -> () | _ -> failwith "..."`). Note that when no
+        // explicit default is given the last case is promoted to default below, so
+        // that promoted case is what an removed branch would fall through to.
+        let effectiveDefault =
+            match defaultCase with
+            | Some expr -> Some expr
+            | None -> cases |> List.tryLast |> Option.map snd
+
+        let canRemoveEmptyBranches =
+            match effectiveDefault with
+            | None
+            | Some(Fable.Value(Fable.UnitConstant, _)) -> true
+            | Some _ -> false
+
         let cases =
             cases
             |> List.choose (fun (guards, expr) ->
                 // Remove empty branches
                 match returnStrategy, expr, guards with
-                | (Return(isVoid = true) | Ignore), Fable.Value(Fable.UnitConstant, _), _
                 | _, _, [] -> None
+                | (Return(isVoid = true) | Ignore), Fable.Value(Fable.UnitConstant, _), _ when canRemoveEmptyBranches ->
+                    None
                 | _, _, guards ->
                     // Switch is only activated when guards are literals so we can ignore the statements
                     let guards = guards |> List.map (transformAndCaptureExpr com ctx >> snd)
@@ -2192,9 +2223,10 @@ module Util =
             ],
             None
 
-        | Fable.Quote _ ->
-            addError com [] None "Quotations are not yet supported for Dart target"
-            [], None
+        | Fable.Quote(body, _isTyped, _r) ->
+            // Lower the quoted body to runtime calls that build the quotation AST,
+            // then transform like any other expression (mirrors PHP/Python/JS).
+            transform com ctx returnStrategy (QuotationEmitter.emitQuotedExpr com body)
 
     let getLocalFunctionGenericParams
         (_com: IDartCompiler)

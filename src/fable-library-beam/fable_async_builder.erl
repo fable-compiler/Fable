@@ -68,7 +68,9 @@ bind(Computation, Binder) ->
                 try
                     (Binder(X))(Ctx)
                 catch
-                    _:Err -> (maps:get(on_error, Ctx))(Err)
+                    _:Err:St ->
+                        fable_async:record_stacktrace(Err, St),
+                        (maps:get(on_error, Ctx))(Err)
                 end
             end
         },
@@ -85,11 +87,16 @@ try_with(Computation, Handler) ->
     fun(Ctx) ->
         Ctx2 = Ctx#{
             on_error => fun(Err) ->
+                %% The error stops here, so a stacktrace parked for it by a deeper catch site must
+                %% not outlive it. If the handler itself fails, its own catch parks that one.
+                fable_async:clear_stacktrace(),
                 Err2 = fable_async:wrap_error(Err),
                 try
                     (Handler(Err2))(Ctx)
                 catch
-                    _:Err3 -> (maps:get(on_error, Ctx))(Err3)
+                    _:Err3:St ->
+                        fable_async:record_stacktrace(Err3, St),
+                        (maps:get(on_error, Ctx))(Err3)
                 end
             end
         },
@@ -97,11 +104,16 @@ try_with(Computation, Handler) ->
             Computation(Ctx2)
         catch
             _:Err ->
+                %% Handled here, not propagated: nothing downstream re-raises `Err`, so its
+                %% stacktrace is dropped rather than parked.
+                fable_async:clear_stacktrace(),
                 Err2 = fable_async:wrap_error(Err),
                 try
                     (Handler(Err2))(Ctx)
                 catch
-                    _:Err3 -> (maps:get(on_error, Ctx))(Err3)
+                    _:Err3:HandlerSt ->
+                        fable_async:record_stacktrace(Err3, HandlerSt),
+                        (maps:get(on_error, Ctx))(Err3)
                 end
         end
     end.
@@ -127,7 +139,8 @@ try_finally(Computation, Compensation) ->
         try
             Computation(Ctx2)
         catch
-            _:Err ->
+            _:Err:St ->
+                fable_async:record_stacktrace(Err, St),
                 Compensation(ok),
                 (maps:get(on_error, Ctx))(Err)
         end

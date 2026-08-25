@@ -12,6 +12,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../../../../src/Fable.Core/Fable.Core.fsproj" />
+    <!-- A package that ships no F# sources, so Fable cannot emit imports for its members -->
+    <PackageReference Include="Semver" Version="3.0.0" />
   </ItemGroup>
 
 </Project>

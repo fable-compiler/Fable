@@ -688,6 +688,57 @@ let tests =
             y <- y + (string i)
         equal "54321" y
 
+    testCase "for in descending range with -1 step works" <| fun () ->
+        let mutable y = ""
+        for i in 5 .. -1 .. 1 do
+            y <- y + (string i)
+        equal "54321" y
+
+    testCase "for in ascending range with 1 step works" <| fun () ->
+        let mutable x = ""
+        for i in 1 .. 1 .. 5 do
+            x <- x + (string i)
+        equal "12345" x
+
+    testCase "for in const-step range handles empty and single-element ranges" <| fun () ->
+        // descending range that never runs (start below stop)
+        let mutable a = 0
+        for i in 0 .. -1 .. 5 do
+            a <- a + i
+        equal 0 a
+        // ascending range that never runs (start above stop)
+        let mutable b = 0
+        for i in 5 .. 1 .. 3 do
+            b <- b + i
+        equal 0 b
+        // single-element ranges
+        let mutable c = 0
+        for i in 3 .. -1 .. 3 do
+            c <- c + i
+        equal 3 c
+
+    testCase "for in const-step range with negative bounds works" <| fun () ->
+        let acc = ResizeArray<int>()
+        for i in -2 .. -1 .. -6 do
+            acc.Add i
+        equal [| -2; -3; -4; -5; -6 |] (acc.ToArray())
+
+    testCase "for in step range other than 1 still works" <| fun () ->
+        let mutable a = ""
+        for i in 9 .. -2 .. 0 do
+            a <- a + (string i)
+        equal "97531" a
+        let mutable b = ""
+        for i in 0 .. 2 .. 9 do
+            b <- b + (string i)
+        equal "02468" b
+
+    testCase "Captured loop variable in const-step range keeps its value" <| fun () ->
+        let fns = ResizeArray<unit -> int>()
+        for i in 3 .. -1 .. 1 do
+            fns.Add(fun () -> i)
+        fns |> Seq.map (fun f -> f ()) |> Seq.toArray |> equal [| 3; 2; 1 |]
+
     testCase "Self references in constructors work" <| fun () -> // See #124
         let t = Test(5)
         equal 12 t.Value

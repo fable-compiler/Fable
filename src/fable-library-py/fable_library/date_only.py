@@ -44,15 +44,15 @@ def from_date_time(d: datetime) -> datetime:
     return datetime(d.year, d.month, d.day)
 
 
-def year(d: datetime) -> int32:
+def year(d: datetime) -> int:
     return int32(d.year)
 
 
-def month(d: datetime) -> int32:
+def month(d: datetime) -> int:
     return int32(d.month)
 
 
-def day(d: datetime) -> int32:
+def day(d: datetime) -> int:
     return int32(d.day)
 
 

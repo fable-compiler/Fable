@@ -162,10 +162,25 @@ mod printf {
             let arg_str = {
                 let type_name = arg.get_type().name()?.to_string();
                 match type_name.as_str() {
+                    // Int32 is a plain Python `int`. Other widths keep their wrapper,
+                    // so a bare `int` is unambiguous -- except for bigint, which is
+                    // also a plain int and simply does not fit the tag; the hex
+                    // formatter falls through to its untagged path for those.
+                    "int" => format!("{}:i32", arg.str()?),
                     "Int32" => format!("{}:i32", arg.str()?),
                     "Int64" => format!("{}:i64", arg.str()?),
                     "UInt32" => format!("{}:u32", arg.str()?),
                     "UInt64" => format!("{}:u64", arg.str()?),
+                    // Float64 is a plain Python `float`. .NET renders a whole double
+                    // without a trailing ".0", which is what Rust's formatting does;
+                    // Python's `str` would give "5.0" where .NET gives "5".
+                    "float" => {
+                        let value = arg.extract::<f64>()?;
+                        match nonfinite_str(value) {
+                            Some(spelled) => spelled.to_string(),
+                            None => value.to_string(),
+                        }
+                    }
                     // Handle booleans with F# lowercase representation (true/false)
                     "bool" => {
                         if arg.is_truthy()? {
@@ -402,9 +417,30 @@ mod printf {
         }
     }
 
+    /// .NET spells the non-finite doubles out where Rust's `to_string` gives
+    /// "inf"/"-inf". Returns `None` for a finite value, which formats normally.
+    ///
+    /// Rust's `f64` parser accepts these spellings back, so a value that has already
+    /// been rendered by `__call__` still round-trips through the specifier formatters.
+    fn nonfinite_str(num: f64) -> Option<&'static str> {
+        if num.is_finite() {
+            None
+        } else if num.is_nan() {
+            Some("NaN")
+        } else if num > 0.0 {
+            Some("Infinity")
+        } else {
+            Some("-Infinity")
+        }
+    }
+
     /// Format float with flags and precision
     fn format_float(value_str: &str, flags: &str, precision: Option<i32>) -> PyResult<String> {
         if let Ok(num) = value_str.parse::<f64>() {
+            if let Some(spelled) = nonfinite_str(num) {
+                return Ok(spelled.to_string());
+            }
+
             let prec = precision.unwrap_or(6) as usize;
             Ok(if flags.contains('+') && num >= 0.0 {
                 format!("+{:.prec$}", num, prec = prec)
@@ -419,6 +455,10 @@ mod printf {
     /// Format general number
     fn format_general(value_str: &str, flags: &str) -> PyResult<String> {
         if let Ok(num) = value_str.parse::<f64>() {
+            if let Some(spelled) = nonfinite_str(num) {
+                return Ok(spelled.to_string());
+            }
+
             Ok(if flags.contains('+') && num >= 0.0 {
                 format!("+{}", num)
             } else {
@@ -445,72 +485,68 @@ mod printf {
         type_info: Option<&str>,
         uppercase: bool,
     ) -> PyResult<String> {
-        // Pattern matching paradise: tuple destructuring eliminates nesting
-        match (type_info, uppercase) {
+        // A width tag formats the value as two's complement in that width. A parse
+        // failure means the value does not fit the tag -- e.g. a bigint, which is a
+        // plain Python `int` and so reports the same type name as an Int32 -- in which
+        // case fall through to the untagged logic below rather than giving up and
+        // emitting the raw decimal string.
+        let tagged = match (type_info, uppercase) {
             // Signed 32-bit integers
-            (Some("i32"), true) => Ok(value_str
+            (Some("i32"), true) => value_str
                 .parse::<i32>()
-                .map(|n| format!("{:X}", n as u32))
-                .unwrap_or_else(|_| value_str.to_string())),
-            (Some("i32"), false) => Ok(value_str
+                .ok()
+                .map(|n| format!("{:X}", n as u32)),
+            (Some("i32"), false) => value_str
                 .parse::<i32>()
-                .map(|n| format!("{:x}", n as u32))
-                .unwrap_or_else(|_| value_str.to_string())),
+                .ok()
+                .map(|n| format!("{:x}", n as u32)),
 
             // Signed 64-bit integers
-            (Some("i64"), true) => Ok(value_str
+            (Some("i64"), true) => value_str
                 .parse::<i64>()
-                .map(|n| format!("{:X}", n as u64))
-                .unwrap_or_else(|_| value_str.to_string())),
-            (Some("i64"), false) => Ok(value_str
+                .ok()
+                .map(|n| format!("{:X}", n as u64)),
+            (Some("i64"), false) => value_str
                 .parse::<i64>()
-                .map(|n| format!("{:x}", n as u64))
-                .unwrap_or_else(|_| value_str.to_string())),
+                .ok()
+                .map(|n| format!("{:x}", n as u64)),
 
             // Unsigned 32-bit integers
-            (Some("u32"), true) => Ok(value_str
-                .parse::<u32>()
-                .map(|n| format!("{:X}", n))
-                .unwrap_or_else(|_| value_str.to_string())),
-            (Some("u32"), false) => Ok(value_str
-                .parse::<u32>()
-                .map(|n| format!("{:x}", n))
-                .unwrap_or_else(|_| value_str.to_string())),
+            (Some("u32"), true) => value_str.parse::<u32>().ok().map(|n| format!("{:X}", n)),
+            (Some("u32"), false) => value_str.parse::<u32>().ok().map(|n| format!("{:x}", n)),
 
             // Unsigned 64-bit integers
-            (Some("u64"), true) => Ok(value_str
-                .parse::<u64>()
-                .map(|n| format!("{:X}", n))
-                .unwrap_or_else(|_| value_str.to_string())),
-            (Some("u64"), false) => Ok(value_str
-                .parse::<u64>()
-                .map(|n| format!("{:x}", n))
-                .unwrap_or_else(|_| value_str.to_string())),
+            (Some("u64"), true) => value_str.parse::<u64>().ok().map(|n| format!("{:X}", n)),
+            (Some("u64"), false) => value_str.parse::<u64>().ok().map(|n| format!("{:x}", n)),
 
-            // Default: try parsing as different types
-            (_, uppercase) => {
-                // First try as signed i64
-                if let Ok(signed_num) = value_str.parse::<i64>() {
-                    Ok(match (signed_num < 0, uppercase) {
-                        (true, true) => format!("{:X}", (signed_num as i32) as u32),
-                        (true, false) => format!("{:x}", (signed_num as i32) as u32),
-                        (false, true) => format!("{:X}", signed_num),
-                        (false, false) => format!("{:x}", signed_num),
-                    })
-                }
-                // Then try as unsigned u64
-                else if let Ok(num) = value_str.parse::<u64>() {
-                    Ok(if uppercase {
-                        format!("{:X}", num)
-                    } else {
-                        format!("{:x}", num)
-                    })
-                }
-                // Fall back to original string
-                else {
-                    Ok(value_str.to_string())
-                }
-            }
+            _ => None,
+        };
+
+        if let Some(formatted) = tagged {
+            return Ok(formatted);
+        }
+
+        // Untagged (or out-of-range for its tag): try parsing as different types
+        // First try as signed i64
+        if let Ok(signed_num) = value_str.parse::<i64>() {
+            Ok(match (signed_num < 0, uppercase) {
+                (true, true) => format!("{:X}", (signed_num as i32) as u32),
+                (true, false) => format!("{:x}", (signed_num as i32) as u32),
+                (false, true) => format!("{:X}", signed_num),
+                (false, false) => format!("{:x}", signed_num),
+            })
+        }
+        // Then try as unsigned u64
+        else if let Ok(num) = value_str.parse::<u64>() {
+            Ok(if uppercase {
+                format!("{:X}", num)
+            } else {
+                format!("{:x}", num)
+            })
+        }
+        // Fall back to original string
+        else {
+            Ok(value_str.to_string())
         }
     }
 
@@ -568,7 +604,11 @@ mod printf {
     }
 
     /// Handle remaining simple patterns
-    fn handle_remaining_patterns(result: &mut String, remaining_args: &[String], remaining_is_str: &[bool]) {
+    fn handle_remaining_patterns(
+        result: &mut String,
+        remaining_args: &[String],
+        remaining_is_str: &[bool],
+    ) {
         for (i, arg) in remaining_args.iter().enumerate() {
             if let Some(pos) = result.find("%s") {
                 result.replace_range(pos..pos + 2, arg);
@@ -1130,11 +1170,7 @@ mod formatting {
             // Zero-padding integers: 0000
             spec if spec.starts_with('0') => apply_zero_padding_format(value, spec),
             // Standard .NET format specifiers: d4, X8, f2, etc.
-            spec if spec
-                .chars()
-                .next()
-                .is_some_and(|c| c.is_ascii_alphabetic()) =>
-            {
+            spec if spec.chars().next().is_some_and(|c| c.is_ascii_alphabetic()) => {
                 apply_standard_format(value, spec)
             }
             // Unknown format - return as-is
@@ -1633,7 +1669,12 @@ mod formatting {
 
     /// Convert string to character array
     #[pyfunction]
-    pub fn to_char_array2(py: Python<'_>, string: &str, start_index: usize, length: usize) -> PyResult<FSharpArray> {
+    pub fn to_char_array2(
+        py: Python<'_>,
+        string: &str,
+        start_index: usize,
+        length: usize,
+    ) -> PyResult<FSharpArray> {
         let chars: Vec<char> = string.chars().collect();
 
         if start_index + length > chars.len() {

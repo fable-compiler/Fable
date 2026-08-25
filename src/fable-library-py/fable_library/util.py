@@ -167,6 +167,15 @@ class Disposable[T: IDisposable](DisposableBase):
 
 
 def returns[T, **P](targettype: Callable[..., T]) -> Callable[[Callable[P, Any]], Callable[P, T]]:
+    """Coerce a function's return value through `targettype`.
+
+    Unused within this package: coercing at the boundary costs two Python calls per
+    invocation (this wrapper plus `targettype`), so the functions that used to carry
+    it now convert only on the branches that can actually produce an out-of-range
+    value. Kept because `fable_library` is published on PyPI and public names cannot
+    be dropped within a major version.
+    """
+
     def decorator(func: Callable[P, Any]) -> Callable[P, T]:
         @functools.wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
@@ -179,9 +188,9 @@ def returns[T, **P](targettype: Callable[..., T]) -> Callable[[Callable[P, Any]]
 
 
 class DateKind:
-    Unspecified: Final[int32] = int32(0)
-    UTC: Final[int32] = int32(1)
-    Local: Final[int32] = int32(2)
+    Unspecified: Final[int] = 0
+    UTC: Final[int] = 1
+    Local: Final[int] = 2
 
 
 def equals(a: Any, b: Any) -> bool:
@@ -216,7 +225,6 @@ def is_iterable(x: object) -> bool:
     return isinstance(x, Iterable)
 
 
-@returns(int32)
 def compare_dicts(x: dict[str, Any], y: dict[str, Any]) -> int:
     """Compare Python dicts with string keys.
 
@@ -243,7 +251,6 @@ def compare_dicts(x: dict[str, Any], y: dict[str, Any]) -> int:
     return 0
 
 
-@returns(int32)
 def compare_arrays(xs: Sequence[Any] | None, ys: Sequence[Any] | None) -> int:
     if xs is None:
         return 0 if ys is None else 1
@@ -263,7 +270,6 @@ def compare_arrays(xs: Sequence[Any] | None, ys: Sequence[Any] | None) -> int:
     return 0
 
 
-@returns(int32)
 def compare(a: Any, b: Any) -> int:
     match (a, b):
         case (a, b) if a is b:
@@ -273,7 +279,9 @@ def compare(a: Any, b: Any) -> int:
         case (a, None):
             return 1 if a else 0
         case (a, b) if is_comparable(a):
-            return a.CompareTo(b)
+            # Every other branch returns an in-range literal or an already-normalized
+            # `compare`; a user-supplied CompareTo is the only unbounded source here.
+            return int32(a.CompareTo(b))
         case (a, b) if isinstance(a, dict):
             return compare_dicts(cast(dict[str, Any], a), b)
         case (a, b) if isinstance(a, list):
@@ -307,16 +315,16 @@ def equal_arrays[T](x: Sequence[T], y: Sequence[T]) -> bool:
     return equal_arrays_with(x, y, equals)
 
 
-def compare_primitives[TSupportsLessThan: SupportsLessThan](x: TSupportsLessThan, y: TSupportsLessThan) -> int32:
+def compare_primitives[TSupportsLessThan: SupportsLessThan](x: TSupportsLessThan, y: TSupportsLessThan) -> int:
     if x == y:
-        return int32(0)
+        return 0
     if x < y:
-        return int32(-1)
+        return -1
     if y < x:
-        return int32(1)
+        return 1
     # Neither equal, less, nor greater: at least one operand is NaN.
     # Match .NET Double.CompareTo: NaN equals NaN and is less than any other value.
-    return int32(0 if x != x and y != y else (-1 if x != x else 1))
+    return 0 if x != x and y != y else (-1 if x != x else 1)
 
 
 def min[T](comparer: Callable[[T, T], int], x: T, y: T) -> T:
@@ -338,7 +346,9 @@ def assert_equal(actual: Any, expected: Any, msg: str | None = None) -> None:
 
 def assert_not_equal[T](actual: T, expected: T, msg: str | None = None) -> None:
     if equals(actual, expected):
-        raise Exception(msg or f"Expected: {expected} - Actual: {actual}")
+        # "Expected: x - Actual: x" would describe a *passing* assertion, so say what was
+        # actually expected: a value other than this one. Mirrors xUnit's "Expected: Not x".
+        raise Exception(msg or f"Expected not equal to: {expected} - Actual: {actual}")
 
 
 MAX_LOCKS = 1024
@@ -445,12 +455,12 @@ def int_to_string(i: int, radix: int = 10, bitsize: int | None = None) -> str:
     return str(i)
 
 
-def count(it: IEnumerable_1[Any] | Iterable[Any]) -> int32:
+def count(it: IEnumerable_1[Any] | Iterable[Any]) -> int:
     it = to_iterable(it)
     if isinstance(it, Sized):
         return int32(len(it))
 
-    count = int32.ZERO
+    count = 0
     for _ in it:
         count += 1
 
@@ -619,33 +629,36 @@ class ObjectRef:
         return ObjectRef.id_map[_id]
 
 
-def safe_hash(x: Any) -> int32:
-    return (
-        int32.ZERO
-        if x is None
-        else int32(hash(x))
-        if is_hashable_py(x)
-        else x.GetHashCode()
-        if is_hashable(x)
-        else number_hash(ObjectRef.id(x))
-    )
+def safe_hash(x: Any) -> int:
+    """Hash a declared type that may or may not implement GetHashCode.
+
+    F# `GetHashCode` takes precedence over Python's `__hash__`: an F# class
+    that overrides `Equals`/`GetHashCode` does not opt into the Python
+    protocols, so checking `__hash__` first would reach the inherited
+    `object.__hash__` and hash by identity instead.
+    """
+    return identity_hash(x)
 
 
-def string_hash(s: str) -> int32:
+def string_hash(s: str) -> int:
     h = 5381
     for c in s:
-        h = (h * 33) ^ ord(c)
+        # Normalized each step: plain ints are arbitrary precision, and this would
+        # otherwise grow ~5 bits per character. Truncation commutes with `*` and
+        # `^`, so this gives the same answer as normalizing once at the end. The
+        # mask is inlined because this overflows on nearly every iteration.
+        h = ((h * 33) ^ ord(c)) & 4294967295
 
-    return int32(h)
+    return h - 4294967296 if h > 2147483647 else h
 
 
-def number_hash(x: Any) -> int32:
+def number_hash(x: Any) -> int:
     return x.GetHashCode() if hasattr(x, "GetHashCode") else int32(hash(x))
 
 
-def identity_hash(x: Any) -> int32:
+def identity_hash(x: Any) -> int:
     if x is None:
-        return int32(0)
+        return 0
 
     if is_hashable(x):
         return x.GetHashCode()
@@ -656,26 +669,56 @@ def identity_hash(x: Any) -> int32:
     return number_hash(ObjectRef.id(x))
 
 
-def combine_hash_codes(hashes: list[int32]) -> int32:
+def combine_hash_codes(hashes: list[int]) -> int:
     if not hashes:
-        return int32(0)
+        return 0
 
-    return functools.reduce(lambda h1, h2: ((h1 << 5) + h1) ^ h2, hashes)
+    combined = functools.reduce(lambda h1, h2: (((h1 << 5) + h1) ^ h2) & 4294967295, hashes)
 
-
-def structural_hash(x: Any) -> int32:
-    return int32(hash(x))
+    return combined - 4294967296 if combined > 2147483647 else combined
 
 
-def array_hash(xs: Iterable[object]) -> int32:
-    hashes: list[int32] = []
+def structural_hash(x: Any) -> int:
+    """Hash a value using F# structural semantics.
+
+    Like `safe_hash`, F# `GetHashCode` wins over Python's `__hash__` so that
+    custom equality and hash overrides are honored. Arrays and tuples are
+    hashed element-wise instead of through Python's `hash`, which would fall
+    back to identity for their items.
+    """
+    if x is None:
+        return 0
+
+    if isinstance(x, bool):
+        return 1 if x else 0
+
+    if isinstance(x, str):
+        return string_hash(x)
+
+    if is_hashable(x):
+        return x.GetHashCode()
+
+    if isinstance(x, int | float):
+        return number_hash(x)
+
+    if isinstance(x, Array | tuple | list):
+        return array_hash(cast(Iterable[object], x))
+
+    if is_hashable_py(x):
+        return int32(hash(x))
+
+    return number_hash(ObjectRef.id(x))
+
+
+def array_hash(xs: Iterable[object]) -> int:
+    hashes: list[int] = []
     for x in xs:
         hashes.append(structural_hash(x))
 
     return combine_hash_codes(hashes)
 
 
-def physical_hash(x: Any) -> int32:
+def physical_hash(x: Any) -> int:
     return number_hash(ObjectRef.id(x))
 
 
@@ -684,25 +727,32 @@ def round(value: float32, digits: int = 0) -> float32: ...
 
 
 @overload
-def round(value: float64, digits: int = 0) -> float64: ...
+def round(value: float, digits: int = 0) -> float: ...
 
 
-def round(value: float64 | float32, digits: int = 0) -> float64 | float32:
-    return value.round(digits)
+def round(value: float | float32, digits: int = 0) -> float | float32:
+    if isinstance(value, float32):
+        return value.round(digits)
+
+    # Float64 is a plain Python float. Same scaling algorithm as the wrapper:
+    # builtins.round without ndigits rounds half to even, as .NET does.
+    factor = 10.0**digits
+
+    return builtins.round(value * factor) / factor
 
 
-def create_random(seed: int32 | None = None) -> random.Random:
+def create_random(seed: int | None = None) -> random.Random:
     return random.Random(None if seed is None else int(seed))
 
 
-def random_int(rand: random.Random, a: int32, b: int32) -> int32:
+def random_int(rand: random.Random, a: int, b: int) -> int:
     if a == b:
         return int32(a)
 
     return int32(rand.randrange(int(a), int(b)))
 
 
-def random_double(rand: random.Random) -> float64:
+def random_double(rand: random.Random) -> float:
     return float64(rand.random())
 
 
@@ -864,7 +914,7 @@ class StaticPropertyMeta(ABCMeta):
         super().__setattr__(name, value)
 
 
-def range(start: int, stop: int, step: int = 1) -> Iterable[int32]:
+def range(start: int, stop: int, step: int = 1) -> Iterable[int]:
     """Range function that returns an iterable of int32 values.
 
     This function handles the difference between F# and Python range semantics:

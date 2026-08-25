@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterable
 from typing import Any, cast
 
@@ -41,10 +42,27 @@ def seq_to_string(self: Iterable[Any]) -> str:
     return str + "]"
 
 
+def float_to_string(x: float) -> str:
+    """`Double.ToString()` for a plain Python `float`.
+
+    .NET drops the fractional part of a whole double ("5", not "5.0") and spells the
+    specials out, where Python's `str` gives "inf"/"-inf"/"nan". The finite case comes
+    first because it is the only one that is hot; note that `int()` raises on the
+    specials, so it must not be reached for them.
+    """
+    if math.isfinite(x):
+        return str(int(x)) if x.is_integer() else str(x)
+
+    if math.isnan(x):
+        return "NaN"
+
+    return "Infinity" if x > 0 else "-Infinity"
+
+
 def to_string(x: object | None, call_stack: int = 0) -> str:
     match x:
-        case float() if int(x) == x:
-            return str(int(x))
+        case float():
+            return float_to_string(x)
         case bool():
             return str(x).lower()
         case Iterable() if not hasattr(cast(Iterable[Any], x), "__str__"):
@@ -120,6 +138,7 @@ def is_exception(x: Any) -> bool:
 __all__ = [
     "FSharpException",
     "ObjectDisposedException",
+    "float_to_string",
     "is_exception",
     "seq_to_string",
     "to_string",

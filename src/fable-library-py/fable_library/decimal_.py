@@ -1,6 +1,6 @@
 from decimal import MAX_EMAX, MIN_EMIN, Decimal, getcontext
 
-from .core import FSharpRef, byte, float32, float64, int16, int32, int64, sbyte, uint16, uint32, uint64
+from .core import FSharpRef, byte, float32, float64, int16, int64, sbyte, uint16, uint32, uint64
 from .types import IntegerTypes
 
 
@@ -145,7 +145,7 @@ def to_string(x: Decimal) -> str:
     return str(x)
 
 
-def to_number(x: Decimal) -> float64:
+def to_number(x: Decimal) -> float:
     return float64(x)
 
 
@@ -165,11 +165,13 @@ def try_parse(string: str, def_value: FSharpRef[Decimal]) -> bool:
         return False
 
 
-def create(value: float | float32 | float64 | IntegerTypes | str) -> Decimal:
+def create(value: float | float32 | IntegerTypes | str) -> Decimal:
     match value:
-        case sbyte() | byte() | int16() | uint16() | int32() | uint32() | int64() | uint64():
+        # Int32 and Float64 are plain `int`/`float`, which `Decimal` already accepts
+        # via the last case
+        case sbyte() | byte() | int16() | uint16() | uint32() | int64() | uint64():
             return Decimal(int(value))
-        case float32() | float64():
+        case float32():
             return Decimal(float(value))
         case _:
             return Decimal(value)

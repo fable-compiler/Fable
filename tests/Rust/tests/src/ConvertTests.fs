@@ -1564,3 +1564,23 @@ let ``Encoding.UTF8.GetString for range works`` () =
     let bytes = [| 0x7Auy; 0x61uy; 0xCCuy; 0x86uy; 0xC7uy; 0xBDuy; 0xCEuy; 0xB2uy; 0xF1uy; 0x8Fuy; 0xB3uy; 0xBFuy |]
     System.Text.Encoding.UTF8.GetString(bytes, 6, 6)
     |> equal "\u03B2\uD8FF\uDCFF"
+
+[<Fact>]
+let ``System.Convert.ToInteger from bool works`` () =
+    Convert.ToSByte(true) |> equal 1y
+    Convert.ToSByte(false) |> equal 0y
+    Convert.ToByte(true) |> equal 1uy
+    Convert.ToInt16(true) |> equal 1s
+    Convert.ToUInt16(true) |> equal 1us
+    Convert.ToInt32(true) |> equal 1
+    Convert.ToInt32(false) |> equal 0
+    Convert.ToUInt32(true) |> equal 1u
+    Convert.ToInt64(true) |> equal 1L
+    Convert.ToUInt64(true) |> equal 1uL
+
+[<Fact>]
+let ``System.Convert.ToFloat from bool works`` () =
+    Convert.ToSingle(true) |> equal 1.f
+    Convert.ToSingle(false) |> equal 0.f
+    Convert.ToDouble(true) |> equal 1.
+    Convert.ToDouble(false) |> equal 0.

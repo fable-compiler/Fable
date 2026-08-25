@@ -32,11 +32,14 @@ type CacheInfo =
         FSharpOptions: string array
         References: string list
         OutDir: string option
+        FableLib: string option
         FableLibDir: string
         FableModulesDir: string
         OutputType: OutputType
         TargetFramework: string option
+        Configuration: string
         Exclude: string list
+        Replace: Map<string, string>
         SourceMaps: bool
         SourceMapsRoot: string option
         TreatWarningsAsErrors: bool
@@ -862,6 +865,13 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
             cacheInfo.Version = Literals.VERSION
             && cacheInfo.Exclude = opts.Exclude
             && cacheInfo.FableOptions.Language = opts.FableOptions.Language
+            // Defines are compared as a set because their ordering is not significant.
+            && Set.ofList cacheInfo.FableOptions.Define = Set.ofList opts.FableOptions.Define
+            && cacheInfo.Configuration = opts.Configuration
+            // The cache lives in the out dir, so another project can point at it
+            && cacheInfo.ProjectPath = opts.ProjFile
+            && cacheInfo.FableLib = opts.FableLib
+            && cacheInfo.Replace = opts.Replace
             && ([ cacheInfo.ProjectPath; yield! cacheInfo.References ]
                 |> List.forall (fun fsproj ->
                     if IO.File.Exists(fsproj) && isOlderThanCache fsproj then
@@ -1035,6 +1045,7 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
             {
                 Version = Literals.VERSION
                 OutDir = opts.OutDir
+                FableLib = opts.FableLib
                 FableLibDir = fableLibDir
                 FableModulesDir = opts.FableModulesDir
                 FableOptions = opts.FableOptions
@@ -1044,7 +1055,9 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
                 References = projRefs
                 OutputType = outputType
                 TargetFramework = mainProj.TargetFramework
+                Configuration = opts.Configuration
                 Exclude = opts.Exclude
+                Replace = opts.Replace
                 SourceMaps = opts.SourceMaps
                 SourceMapsRoot = opts.SourceMapsRoot
                 TreatWarningsAsErrors = mainProj.TreatWarningsAsErrors

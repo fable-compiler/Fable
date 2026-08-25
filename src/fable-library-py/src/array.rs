@@ -6,7 +6,7 @@ use crate::types::FSharpRef;
 use crate::util::{DefaultComparer, ProjectionComparer};
 use pyo3::class::basic::CompareOp;
 use pyo3::types::PyNotImplemented;
-use pyo3::types::{PyBool, PyInt};
+use pyo3::types::{PyBool, PyFloat, PyInt};
 use pyo3::types::{PyBytes, PyTuple, PyType};
 use pyo3::BoundObject;
 use pyo3::{exceptions, IntoPyObjectExt, PyTypeInfo};
@@ -141,7 +141,11 @@ fn ensure_array<'py>(py: Python<'py>, ob: &'py Bound<'py, PyAny>) -> PyResult<Ar
     // Check if the object is iterable (Python protocol)
     if let Ok(iter) = ob.try_iter() {
         // Convert iterable directly to FSharpArray
-        return Ok(ArrayRef::Owned(FSharpArray::new(py, Some(iter.as_any()), None)?));
+        return Ok(ArrayRef::Owned(FSharpArray::new(
+            py,
+            Some(iter.as_any()),
+            None,
+        )?));
     }
 
     // Check if the object implements IEnumerable (F# protocol with GetEnumerator)
@@ -152,7 +156,11 @@ fn ensure_array<'py>(py: Python<'py>, ob: &'py Bound<'py, PyAny>) -> PyResult<Ar
 
     // If it's a single item, create a singleton array
     let singleton_list = PyList::new(py, [ob])?;
-    Ok(ArrayRef::Owned(FSharpArray::new(py, Some(&singleton_list), None)?))
+    Ok(ArrayRef::Owned(FSharpArray::new(
+        py,
+        Some(&singleton_list),
+        None,
+    )?))
 }
 
 fn ensure_equal_length_arrays<'py>(
@@ -257,12 +265,16 @@ impl FSharpArray {
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
         // Get type name - either from string or from type.__name__
+        // `int32` is a normalizing function rather than a class, so `__name__` is read
+        // off whatever was passed rather than only off a type object.
         let type_name: Option<String> = if let Ok(s) = item.extract::<String>() {
             Some(s)
         } else if let Ok(py_type) = item.cast::<PyType>() {
             py_type.getattr("__name__")?.extract()?
         } else {
-            None
+            item.getattr("__name__")
+                .ok()
+                .and_then(|name| name.extract::<String>().ok())
         };
 
         // Match on the type name
@@ -271,12 +283,13 @@ impl FSharpArray {
             Some("uint8") | Some("byte") => UInt8Array::type_object(py),
             Some("int16") => Int16Array::type_object(py),
             Some("uint16") => UInt16Array::type_object(py),
-            Some("int32") => Int32Array::type_object(py),
+            // `int` and `float` are the representations of Int32 and Float64
+            Some("int32") | Some("int") => Int32Array::type_object(py),
             Some("uint32") => UInt32Array::type_object(py),
             Some("int64") => Int64Array::type_object(py),
             Some("uint64") => UInt64Array::type_object(py),
             Some("float32") => Float32Array::type_object(py),
-            Some("float64") => Float64Array::type_object(py),
+            Some("float64") | Some("float") => Float64Array::type_object(py),
             Some("bool") => BoolArray::type_object(py),
             _ => GenericArray::type_object(py),
         };
@@ -357,6 +370,27 @@ impl FSharpArray {
             vec.resize(count, bool_val);
             return Ok(FSharpArray {
                 storage: NativeArray::Bool(vec),
+            });
+        }
+
+        // Plain Python `int`/`float` are how Int32 and Float64 values are represented,
+        // so they specialize to the corresponding storage rather than falling back to
+        // boxed generic storage. This is checked after `bool`, which subclasses `int`
+        // and must keep its own storage, and after the narrower widths, whose wrapper
+        // types do not accept a plain int.
+        if let Ok(int_val) = value.cast::<PyInt>() {
+            if let Ok(i32_val) = int_val.extract::<i32>() {
+                let mut vec = Vec::with_capacity(count);
+                vec.resize(count, i32_val);
+                return Ok(FSharpArray {
+                    storage: NativeArray::Int32(vec),
+                });
+            }
+        } else if let Ok(float_val) = value.cast::<PyFloat>() {
+            let mut vec = Vec::with_capacity(count);
+            vec.resize(count, float_val.value());
+            return Ok(FSharpArray {
+                storage: NativeArray::Float64(vec),
             });
         }
 
@@ -466,13 +500,24 @@ impl FSharpArray {
         self.storage.len()
     }
 
-    /// Returns the length of the array as Int32 (F# compatible).
+    /// Returns the length of the array.
     ///
-    /// This property provides F# interop compatibility by returning the array length
-    /// as an Int32 instead of Python's native int. In F#, Array.length returns int32.
+    /// In F# `Array.length` returns an int32, which is represented as a plain
+    /// Python `int`. A length always fits, so no normalization is needed.
     #[getter]
-    pub fn length(&self) -> Int32 {
-        Int32(self.storage.len() as i32)
+    pub fn length(&self) -> usize {
+        self.storage.len()
+    }
+
+    /// Returns the name of the backing storage: `"Int32"`, `"Float64"`, `"Generic"`, ...
+    ///
+    /// Element storage is chosen by inspecting the values an array is built from, so a
+    /// change in how values are represented can silently downgrade a specialized array
+    /// to boxed `Generic` storage. Exposing the storage kind lets tests assert the
+    /// specialization directly instead of only checking the values that come back out.
+    #[getter]
+    pub fn storage_type(&self) -> &str {
+        self.storage.type_name()
     }
 
     /// Returns an iterator over the array elements.
@@ -496,8 +541,7 @@ impl FSharpArray {
         let len = slf.storage.len();
         // SAFETY: slf.as_ptr() is valid and from_borrowed_ptr increments refcount
         let array: Py<FSharpArray> = unsafe {
-            Bound::from_borrowed_ptr(py, slf.as_ptr())
-                .cast_into_unchecked::<FSharpArray>()
+            Bound::from_borrowed_ptr(py, slf.as_ptr()).cast_into_unchecked::<FSharpArray>()
         }
         .unbind();
         let iter = FSharpArrayIter {
@@ -512,12 +556,15 @@ impl FSharpArray {
     /// Implements the .NET IEnumerable.GetEnumerator() interface.
     #[allow(non_snake_case)]
     #[pyo3(signature = (_unit=None))]
-    pub fn GetEnumerator(slf: PyRef<'_, Self>, py: Python<'_>, _unit: Option<&Bound<'_, PyAny>>) -> PyResult<Py<PyAny>> {
+    pub fn GetEnumerator(
+        slf: PyRef<'_, Self>,
+        py: Python<'_>,
+        _unit: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<Py<PyAny>> {
         let len = slf.storage.len();
         // SAFETY: slf.as_ptr() is valid and from_borrowed_ptr increments refcount
         let array: Py<FSharpArray> = unsafe {
-            Bound::from_borrowed_ptr(py, slf.as_ptr())
-                .cast_into_unchecked::<FSharpArray>()
+            Bound::from_borrowed_ptr(py, slf.as_ptr()).cast_into_unchecked::<FSharpArray>()
         }
         .unbind();
         let enumerator = FSharpArrayEnumerator {
@@ -3571,7 +3618,11 @@ pub fn create(py: Python<'_>, count: usize, value: &Bound<'_, PyAny>) -> PyResul
 }
 
 #[pyfunction]
-pub fn zero_create(py: Python<'_>, count: usize, value: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+pub fn zero_create(
+    py: Python<'_>,
+    count: usize,
+    value: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
     // Create an array filled with the zero value for the type
     FSharpArray::create(py, count, value)
 }
@@ -3861,7 +3912,11 @@ pub fn fold2(
 }
 
 #[pyfunction]
-pub fn iterate(py: Python<'_>, action: &Bound<'_, PyAny>, array: &Bound<'_, PyAny>) -> PyResult<()> {
+pub fn iterate(
+    py: Python<'_>,
+    action: &Bound<'_, PyAny>,
+    array: &Bound<'_, PyAny>,
+) -> PyResult<()> {
     let array = ensure_array(py, array)?;
     array.iterate(py, action)
 }
@@ -3992,7 +4047,11 @@ pub fn scan_back(
 }
 
 #[pyfunction]
-pub fn split_into(py: Python<'_>, chunks: usize, array: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+pub fn split_into(
+    py: Python<'_>,
+    chunks: usize,
+    array: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
     let array = ensure_array(py, array)?;
     array.split_into(py, chunks)
 }
@@ -4029,7 +4088,11 @@ pub fn try_find_index_back(
 }
 
 #[pyfunction]
-pub fn windowed(py: Python<'_>, window_size: usize, array: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
+pub fn windowed(
+    py: Python<'_>,
+    window_size: usize,
+    array: &Bound<'_, PyAny>,
+) -> PyResult<FSharpArray> {
     let array = ensure_array(py, array)?;
     array.windowed(py, window_size)
 }
@@ -4140,7 +4203,11 @@ pub fn exists_offset(
 }
 
 #[pyfunction]
-pub fn exists(py: Python<'_>, predicate: &Bound<'_, PyAny>, array: &Bound<'_, PyAny>) -> PyResult<bool> {
+pub fn exists(
+    py: Python<'_>,
+    predicate: &Bound<'_, PyAny>,
+    array: &Bound<'_, PyAny>,
+) -> PyResult<bool> {
     let array = ensure_array(py, array)?;
     array.exists(py, predicate)
 }
@@ -4573,11 +4640,7 @@ pub fn random_sample_with(
 }
 
 #[pyfunction]
-pub fn random_sample(
-    py: Python<'_>,
-    count: isize,
-    xs: &Bound<'_, PyAny>,
-) -> PyResult<FSharpArray> {
+pub fn random_sample(py: Python<'_>, count: isize, xs: &Bound<'_, PyAny>) -> PyResult<FSharpArray> {
     let xs = ensure_array(py, xs)?;
     xs.random_sample(py, count)
 }
@@ -5119,8 +5182,14 @@ impl FSharpCons {
 impl Int8Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int8"))?).add_subclass(Int8Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int8"))?)
+                .add_subclass(Int8Array {}),
+        )
     }
 }
 
@@ -5128,8 +5197,14 @@ impl Int8Array {
 impl UInt8Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt8"))?).add_subclass(UInt8Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt8"))?)
+                .add_subclass(UInt8Array {}),
+        )
     }
 }
 
@@ -5137,8 +5212,14 @@ impl UInt8Array {
 impl Int16Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int16"))?).add_subclass(Int16Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int16"))?)
+                .add_subclass(Int16Array {}),
+        )
     }
 }
 
@@ -5146,8 +5227,14 @@ impl Int16Array {
 impl UInt16Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt16"))?).add_subclass(UInt16Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt16"))?)
+                .add_subclass(UInt16Array {}),
+        )
     }
 }
 
@@ -5155,8 +5242,14 @@ impl UInt16Array {
 impl Int32Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int32"))?).add_subclass(Int32Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int32"))?)
+                .add_subclass(Int32Array {}),
+        )
     }
 }
 
@@ -5164,8 +5257,14 @@ impl Int32Array {
 impl UInt32Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt32"))?).add_subclass(UInt32Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt32"))?)
+                .add_subclass(UInt32Array {}),
+        )
     }
 }
 
@@ -5173,8 +5272,14 @@ impl UInt32Array {
 impl Int64Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int64"))?).add_subclass(Int64Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("Int64"))?)
+                .add_subclass(Int64Array {}),
+        )
     }
 }
 
@@ -5182,8 +5287,14 @@ impl Int64Array {
 impl UInt64Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt64"))?).add_subclass(UInt64Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("UInt64"))?)
+                .add_subclass(UInt64Array {}),
+        )
     }
 }
 
@@ -5191,8 +5302,14 @@ impl UInt64Array {
 impl Float32Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Float32"))?).add_subclass(Float32Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("Float32"))?)
+                .add_subclass(Float32Array {}),
+        )
     }
 }
 
@@ -5200,8 +5317,14 @@ impl Float32Array {
 impl Float64Array {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Float64"))?).add_subclass(Float64Array {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("Float64"))?)
+                .add_subclass(Float64Array {}),
+        )
     }
 }
 
@@ -5209,8 +5332,14 @@ impl Float64Array {
 impl BoolArray {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("Bool"))?).add_subclass(BoolArray {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("Bool"))?)
+                .add_subclass(BoolArray {}),
+        )
     }
 }
 
@@ -5218,8 +5347,14 @@ impl BoolArray {
 impl GenericArray {
     #[new]
     #[pyo3(signature = (elements=None))]
-    fn new(py: Python<'_>, elements: Option<&Bound<'_, PyAny>>) -> PyResult<PyClassInitializer<Self>> {
-        Ok(PyClassInitializer::from(FSharpArray::new(py, elements, Some("generic"))?).add_subclass(GenericArray {}))
+    fn new(
+        py: Python<'_>,
+        elements: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(FSharpArray::new(py, elements, Some("generic"))?)
+                .add_subclass(GenericArray {}),
+        )
     }
 }
 

@@ -17,6 +17,7 @@
     <Compile Include="Python/Replacements.fs" />
     <Compile Include="Rust/Replacements.fs" />
     <Compile Include="Dart/Replacements.fs" />
+    <Compile Include="Beam/Prelude.fs" />
     <Compile Include="Beam/Replacements.fs" />
     <Compile Include="Replacements.fs" />
     <Compile Include="Replacements.Api.fs" />

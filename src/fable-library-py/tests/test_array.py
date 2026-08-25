@@ -1401,7 +1401,8 @@ def test_pydantic_nested_model_with_array():
     class ComplexModel(BaseModel):
         name: str
         scores: array.FSharpArray
-        age: int32
+        # int32 values are plain Python ints
+        age: int
 
     # Use FSharpArray with Float64 type for proper serialization
     model = ComplexModel(
@@ -1469,22 +1470,30 @@ _ZERO = {
 
 
 class _Adder:
-    """Minimal IGenericAdder; GetZero returns a typed wrapper so callback-path
-    arithmetic wraps at the element width (matching the native path)."""
+    """Minimal IGenericAdder.
 
-    def __init__(self, zero: Any) -> None:
-        self._zero = zero
+    For most widths `GetZero` returns a typed wrapper, so callback-path arithmetic
+    wraps at the element width on its own. Int32 is represented as a plain Python
+    `int`, which is arbitrary precision, so for that width the callback normalizes
+    explicitly -- exactly what the compiler emits for int32 arithmetic.
+    """
+
+    def __init__(self, array_type: str) -> None:
+        self._zero = _ZERO[array_type]
+        self._is_int32 = array_type == "Int32"
 
     def GetZero(self) -> Any:
         return self._zero
 
     def Add(self, a: Any, b: Any) -> Any:
-        return a + b
+        return int32(a + b) if self._is_int32 else a + b
 
 
 class _Averager(_Adder):
     def DivideByInt(self, a: Any, n: int) -> Any:
-        return a / n
+        # `/` on two F# ints truncates toward zero; the wrapper types already do
+        # this, a plain `int` does not.
+        return int32(int(a / n)) if self._is_int32 else a / n
 
 
 class _Comparer:
@@ -1514,12 +1523,14 @@ def test_native_sum_matches_callback(array_type: str, data: st.DataObject) -> No
     """Native sum on typed storage equals the callback path (value and type)."""
     elements = data.draw(st.lists(array_types[array_type], min_size=0, max_size=64))
     typed, generic = _typed_and_generic(array_type, elements)
-    adder = _Adder(_ZERO[array_type])
+    adder = _Adder(array_type)
     typed_sum = typed.sum(adder)
     generic_sum = generic.sum(adder)
     assert _agg_eq(typed_sum, generic_sum)
-    # Result wrapper type is preserved (Int32 sum -> Int32, etc.)
-    assert type(typed_sum).__name__ == array_type
+    # Result type is preserved: the wrapper for most widths, and the plain builtin
+    # for Int32/Float64, which no longer have one.
+    expected_type = {"Int32": "int", "Float64": "float"}.get(array_type, array_type)
+    assert type(typed_sum).__name__ == expected_type
 
 
 @pytest.mark.parametrize("array_type", _NUMERIC_ARRAY_TYPES)
@@ -1528,7 +1539,7 @@ def test_native_average_matches_callback(array_type: str, data: st.DataObject) -
     """Native average on typed storage equals the callback path."""
     elements = data.draw(st.lists(array_types[array_type], min_size=1, max_size=64))
     typed, generic = _typed_and_generic(array_type, elements)
-    averager = _Averager(_ZERO[array_type])
+    averager = _Averager(array_type)
     assert _agg_eq(typed.average(averager), generic.average(averager))
 
 
@@ -1537,7 +1548,7 @@ def test_native_average_empty_raises(array_type: str) -> None:
     """Average of an empty typed array raises, like the callback path."""
     empty = Array(array_type=array_type, elements=[])
     with pytest.raises(Exception):
-        empty.average(_Averager(_ZERO[array_type]))
+        empty.average(_Averager(array_type))
 
 
 @pytest.mark.parametrize("array_type", _INT_ARRAY_TYPES)

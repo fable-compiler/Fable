@@ -2527,18 +2527,14 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
         |> Some
     | "IsSome", [ c ] -> Test(c, OptionTest true, r) |> Some
     | "IsNone", [ c ] -> Test(c, OptionTest false, r) |> Some
-    | ("Filter" | "Flatten" | "Map" | "Map2" | "Map3" | "Bind" as meth), args ->
-        Helper.LibCall(
-            com,
-            "Option",
-            Naming.lowerFirst meth,
-            t,
-            args,
-            i.SignatureArgTypes,
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
+    | "Flatten", args ->
+        Helper.LibCall(com, "Option", "flatten", t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
         |> Some
+    | "Map", [ mapping; opt ] -> Options.map com ctx r t isStruct mapping opt |> Some
+    | "Map2", [ mapping; opt1; opt2 ] -> Options.map2 com ctx r t isStruct mapping opt1 opt2 |> Some
+    | "Map3", [ mapping; opt1; opt2; opt3 ] -> Options.map3 com ctx r t isStruct mapping opt1 opt2 opt3 |> Some
+    | "Bind", [ binder; opt ] -> Options.bind com ctx r t isStruct binder opt |> Some
+    | "Filter", [ predicate; opt ] -> Options.filter com ctx r isStruct predicate opt |> Some
     | "ToArray", [ arg ] -> toArray r t arg |> Some
     | "ToList", [ arg ] ->
         let args = args |> List.replaceLast (toArray None t)
@@ -2556,32 +2552,11 @@ let optionModule isStruct (com: ICompiler) (ctx: Context) r (t: Type) (i: CallIn
         )
         |> Some
     | "DefaultValue", _ -> Helper.LibCall(com, "Option", "defaultArg", t, List.rev args, ?loc = r) |> Some
-    | "DefaultWith", _ ->
-        Helper.LibCall(
-            com,
-            "Option",
-            "defaultArgWith",
-            t,
-            List.rev args,
-            List.rev i.SignatureArgTypes,
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
-        |> Some
+    | "DefaultWith", [ defThunk; opt ] -> Options.defaultWith com ctx r t defThunk opt |> Some
     | "OrElse", _ -> Helper.LibCall(com, "Option", "orElse", t, List.rev args, ?loc = r) |> Some
-    | "OrElseWith", _ ->
-        Helper.LibCall(
-            com,
-            "Option",
-            "orElseWith",
-            t,
-            List.rev args,
-            List.rev i.SignatureArgTypes,
-            genArgs = i.GenericArgs,
-            ?loc = r
-        )
-        |> Some
-    | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" | "Iterate" as meth), _ ->
+    | "OrElseWith", [ ifNoneThunk; opt ] -> Options.orElseWith com ctx r t ifNoneThunk opt |> Some
+    | "Iterate", [ action; opt ] -> Options.iterate com ctx r t action opt |> Some
+    | ("Count" | "Contains" | "Exists" | "Fold" | "ForAll" as meth), _ ->
         let meth = Naming.lowerFirst meth
         let args = args |> List.replaceLast (toArray None t)
         let args = injectArg com ctx r "Seq" meth i.GenericArgs args
@@ -3812,6 +3787,16 @@ let files (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (ar
         |> Some
     | _ -> None
 
+let directories (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
+    match i.CompiledName with
+    | "Exists" ->
+        Helper.LibCall(com, "Directory", "exists", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "CreateDirectory" ->
+        Helper.LibCall(com, "Directory", "createDirectory", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | _ -> None
+
 // Initial support, making at least InvariantCulture compile-able
 // to be used System.Double.Parse and System.Single.Parse
 // see https://github.com/fable-compiler/Fable/pull/1197#issuecomment-348034660
@@ -4732,6 +4717,7 @@ let private replacedModules =
             Types.timespan, timeSpans
             "System.Timers.Timer", timers
             "System.IO.File", files
+            "System.IO.Directory", directories
             "System.IO.Path", paths
             "System.IO.TextWriter", textWriter
             "System.Environment", systemEnv

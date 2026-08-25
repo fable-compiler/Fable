@@ -4,6 +4,10 @@ open System
 open Fable.Tests.Util
 open Util.Testing
 
+#if FABLE_COMPILER
+open Fable.Core
+#endif
+
 #nowarn "3370" // Silence deprecation warnings for incr/decr
 
 let [<Literal>] posLiteral = 5
@@ -102,6 +106,122 @@ let ``test Math.DivRem works with longs and outref`` () =
 let ``test Evaluation order is preserved by generated code`` () =
     (4 - 2) * 2 + 1 |> equal 5
 
+// Int32 is a plain Python `int` on the Python target, which is arbitrary precision,
+// so the compiler normalizes results back into 32 bits. These use function
+// parameters rather than literals so the values are not constant-folded away and
+// the runtime normalization path is exercised. All expectations verified on .NET.
+let private addI (a: int) (b: int) = a + b
+let private mulI (a: int) (b: int) = a * b
+let private divI (a: int) (b: int) = a / b
+let private remI (a: int) (b: int) = a % b
+let private shlI (a: int) (n: int) = a <<< n
+let private shrI (a: int) (n: int) = a >>> n
+
+[<Fact>]
+let ``test Int32 arithmetic wraps at 32 bits`` () =
+    let a = addI 2000000000 0
+    let b = addI 1500000000 0
+    addI a a |> equal -294967296
+    mulI a a |> equal -1651507200
+    addI (addI a a) a |> equal 1705032704
+    addI (mulI a b) a |> equal 1835111424
+    addI 2147483647 1 |> equal -2147483648
+    -(addI -2147483648 0) |> equal -2147483648
+
+[<Fact>]
+let ``test Int32 operands are normalized before non-wrapping operations`` () =
+    // Normalization commutes with + - * <<< so it can happen once per expression
+    // tree, but these consumers must see the already-wrapped value.
+    let a = addI 2000000000 0
+    divI (addI a a) 2 |> equal -147483648
+    remI (addI a a) 7 |> equal -1
+    (addI a a) &&& 0xFF |> equal 0
+    (addI a a) > 0 |> equal false
+    string (addI a a) |> equal "-294967296"
+    shrI (addI a a) 4 |> equal -18435456
+
+[<Fact>]
+let ``test Int32 division truncates toward zero`` () =
+    // Python's // floors: -7 // 2 is -4 there and -3 in .NET
+    divI -7 2 |> equal -3
+    divI 7 -2 |> equal -3
+    divI -7 -2 |> equal 3
+    divI 7 2 |> equal 3
+
+[<Fact>]
+let ``test Int32 remainder takes the sign of the dividend`` () =
+    // Python's % takes the sign of the divisor: -5 % 3 is 1 there and -2 in .NET
+    remI -5 3 |> equal -2
+    remI 5 -3 |> equal 2
+    remI -5 -3 |> equal -2
+    remI 5 3 |> equal 2
+    remI 6 3 |> equal 0
+    remI -6 3 |> equal 0
+
+[<Fact>]
+let ``test Int32 shift counts are masked at runtime`` () =
+    shlI 1 32 |> equal 1
+    shlI 1 33 |> equal 2
+    shlI 3 31 |> equal -2147483648
+    shrI -1 32 |> equal -1
+    shrI -2 1 |> equal -1
+
+// Float64 is a plain Python `float` on the Python target -- an IEEE double, so
+// arithmetic needs no adjustment. Only `/` by zero and `%` diverge: Python raises
+// where .NET yields +/-inf or nan, and Python's float `%` takes the sign of the
+// divisor where .NET takes the dividend's. Non-literal operands keep the runtime
+// path in play. All expectations verified on .NET.
+let private divF (a: float) (b: float) = a / b
+let private remF (a: float) (b: float) = a % b
+
+[<Fact>]
+let ``test Float division by zero yields infinity at runtime`` () =
+    divF 1.0 0.0 |> Double.IsPositiveInfinity |> equal true
+    divF -1.0 0.0 |> Double.IsNegativeInfinity |> equal true
+    divF 1.0 -0.0 |> Double.IsNegativeInfinity |> equal true
+    divF -1.0 -0.0 |> Double.IsPositiveInfinity |> equal true
+    divF 0.0 0.0 |> Double.IsNaN |> equal true
+    divF infinity 0.0 |> Double.IsPositiveInfinity |> equal true
+    divF 1.0 2.0 |> equal 0.5
+
+[<Fact>]
+let ``test Float remainder takes the sign of the dividend`` () =
+    remF -5.0 3.0 |> equal -2.0
+    remF 5.0 -3.0 |> equal 2.0
+    remF -5.0 -3.0 |> equal -2.0
+    remF 5.0 3.0 |> equal 2.0
+
+[<Fact>]
+let ``test Float remainder edge cases yield NaN`` () =
+    remF 5.0 0.0 |> Double.IsNaN |> equal true
+    remF infinity 2.0 |> Double.IsNaN |> equal true
+    remF nan 2.0 |> Double.IsNaN |> equal true
+    remF 5.0 infinity |> equal 5.0
+    remF -5.0 infinity |> equal -5.0
+
+// Rendering a plain Python `float` has to shorten a whole double ("5", not "5.0") and
+// spell the non-finite values out, and the two interact: the shortening runs `int()`,
+// which raises OverflowError on the infinities and ValueError on NaN. Non-literal
+// operands keep the runtime path in play. All expectations verified on .NET.
+let private strF (x: float) = string x
+
+[<Fact>]
+let ``test Float to string spells the non-finite values out`` () =
+    strF infinity |> equal "Infinity"
+    strF -infinity |> equal "-Infinity"
+    strF nan |> equal "NaN"
+    strF 5.0 |> equal "5"
+    strF 2.5 |> equal "2.5"
+    strF -0.5 |> equal "-0.5"
+
+[<Fact>]
+let ``test Float printf formatting handles the non-finite values`` () =
+    sprintf "%f" (divF 1.0 0.0) |> equal "Infinity"
+    sprintf "%f" (divF -1.0 0.0) |> equal "-Infinity"
+    sprintf "%f" (divF 0.0 0.0) |> equal "NaN"
+    sprintf "%f" 2.5 |> equal "2.500000"
+    sprintf "%g" (divF 1.0 0.0) |> equal "Infinity"
+
 [<Fact>]
 let ``test Bitwise and can be generated`` () =
     6 &&& 2 |> equal 2
@@ -117,6 +237,30 @@ let ``test Bitwise shift left can be generated`` () =
 [<Fact>]
 let ``test Bitwise shift left with unsigned integer works`` () =
     1u <<< 31 |> equal 2147483648u
+
+[<Fact>]
+let ``test Bitwise shift left discards bits shifted out of the width`` () =
+    // Multi-bit values distinguish a shift from a rotation: a rotation would
+    // wrap bit 1 around to bit 0 and give -2147483647 here.
+    3 <<< 31 |> equal -2147483648
+    3y <<< 7 |> equal -128y
+    3s <<< 15 |> equal -32768s
+    3L <<< 63 |> equal -9223372036854775808L
+    3uy <<< 7 |> equal 128uy
+    3us <<< 15 |> equal 32768us
+    3u <<< 31 |> equal 2147483648u
+    3UL <<< 63 |> equal 9223372036854775808UL
+
+[<Fact>]
+let ``test Bitwise shift left masks the shift count to the type width`` () =
+    1 <<< 32 |> equal 1
+    1 <<< 33 |> equal 2
+    1y <<< 8 |> equal 1y
+    1s <<< 16 |> equal 1s
+    1L <<< 64 |> equal 1L
+    1uy <<< 9 |> equal 2uy
+    1us <<< 16 |> equal 1us
+    1u <<< 32 |> equal 1u
 
 [<Fact>]
 let ``test Bitwise OR on large unsigned integer works`` () =
@@ -1139,3 +1283,191 @@ let ``test extreme values work`` () =
 
     -infinity < infinity |> equal true
     (-0.0) < 0.0 |> equal false
+
+// Int32 is a plain Python `int` on the Python target, so the compiler normalizes an
+// arithmetic tree back into 32 bits once at its root. A conversion to a type that is
+// 32 bits or narrower re-truncates the very bits that normalization kept, so the
+// compiler drops it -- but only while the tree provably still fits a signed 64-bit
+// int, because the fixed-width constructors saturate beyond that. These pin the
+// elision, and the cases where it must not happen, against .NET.
+[<Fact>]
+let ``test narrowing conversions of unnormalized int arithmetic work`` () =
+    let sub (hi: int) (lo: int) = uint32 (hi - lo)
+    let add (x: int) (y: int) = byte (x + y)
+    let mul (x: int) (y: int) = int16 (x * y)
+    let neg (x: int) = uint32 (-x)
+    let shl (x: int) = uint32 (x <<< 3)
+
+    sub (id Int32.MinValue) (id Int32.MaxValue) |> equal 1u
+    add (id Int32.MaxValue) (id 1) |> equal 0uy
+    mul (id 65537) (id 65537) |> equal 1s
+    neg (id Int32.MinValue) |> equal 2147483648u
+    shl (id Int32.MaxValue) |> equal 4294967288u
+
+[<Fact>]
+let ``test narrowing conversions of wide int arithmetic work`` () =
+    // These trees can exceed a signed 64-bit int, so the normalization must survive
+    let mul3 (x: int) (y: int) (z: int) = uint32 (x * y * z)
+    let mulShl (x: int) (y: int) = uint32 ((x * y) <<< 20)
+
+    mul3 (id 65537) (id 65537) (id 65537) |> equal 196609u
+    mulShl (id 99991) (id 99991) |> equal 3507486720u
+
+[<Fact>]
+let ``test widening and float conversions of int arithmetic work`` () =
+    // The conversion is wider than 32 bits, or is not a truncation at all, so the
+    // normalization is load-bearing
+    let toLong (x: int) (y: int) = int64 (x + y)
+    let toFloat (x: int) (y: int) = float (x - y)
+    let toShort (x: int) (y: int) = uint16 (x - y)
+
+    toLong (id Int32.MaxValue) (id 1) |> equal -2147483648L
+    toFloat (id Int32.MinValue) (id 1) |> equal 2147483647.0
+    toShort (id Int32.MinValue) (id 1) |> equal 65535us
+
+// Adding a constant to an in-range Int32 can only overflow at one end, and by at most
+// that constant, so the Python target decides it with a comparison instead of a call
+// into the normalizer. These check the boundary in both directions, and the shapes the
+// guard does not apply to.
+[<Fact>]
+let ``test adding a constant to an int wraps at the boundary`` () =
+    let inc (i: int) = i + 1
+    let dec (i: int) = i - 1
+    let incLeft (i: int) = 1 + i
+    let incBig (i: int) = i + 1000
+    let decBig (i: int) = i - 1000
+
+    inc (id Int32.MaxValue) |> equal Int32.MinValue
+    inc (id (Int32.MaxValue - 1)) |> equal Int32.MaxValue
+    dec (id Int32.MinValue) |> equal Int32.MaxValue
+    dec (id (Int32.MinValue + 1)) |> equal Int32.MinValue
+    incLeft (id Int32.MaxValue) |> equal Int32.MinValue
+    incBig (id Int32.MaxValue) |> equal (Int32.MinValue + 999)
+    decBig (id Int32.MinValue) |> equal (Int32.MaxValue - 999)
+
+[<Fact>]
+let ``test adding an extreme constant to an int wraps at the boundary`` () =
+    let addMin (i: int) = i + Int32.MinValue
+    let subMin (i: int) = i - Int32.MinValue
+    let subFrom (i: int) = 1 - i
+
+    addMin (id 0) |> equal Int32.MinValue
+    addMin (id -1) |> equal Int32.MaxValue
+    subMin (id -1) |> equal Int32.MaxValue
+    subMin (id 0) |> equal Int32.MinValue
+    subFrom (id Int32.MinValue) |> equal -2147483647
+
+// A conversion into 32 bits or fewer also makes an inner conversion redundant, but only
+// when what that inner conversion reads is itself of fixed width. A float operand is not:
+// truncating it to 32 bits first and converting it directly give different answers.
+[<Fact>]
+let ``test narrowing conversions of narrowed integers work`` () =
+    let ofUInt64 (x: uint64) = uint32 (int32 x)
+    let toInt32 (x: uint64) = int32 (int32 x)
+    let ofInt64 (x: int64) = uint32 (int32 x)
+    let toByte (x: int64) = byte (int32 x)
+    let toUInt16 (x: uint64) = uint16 (int32 x)
+
+    ofUInt64 (id 0xFFFFFFFF12345678UL) |> equal 305419896u
+    ofUInt64 (id UInt64.MaxValue) |> equal 4294967295u
+    toInt32 (id 0xFFFFFFFF12345678UL) |> equal 305419896
+    toInt32 (id UInt64.MaxValue) |> equal -1
+    ofInt64 (id -1L) |> equal 4294967295u
+    ofInt64 (id Int64.MinValue) |> equal 0u
+    toByte (id -1L) |> equal 255uy
+    toUInt16 (id 0xFFFFFFFFFFFFUL) |> equal 65535us
+
+[<Fact>]
+let ``test narrowing conversions of truncated floats work`` () =
+    let ofFloat (x: float) = uint32 (int32 x)
+    let ofFloat32 (x: float32) = byte (int32 x)
+
+    ofFloat (id 3.9) |> equal 3u
+    ofFloat (id -3.9) |> equal 4294967293u
+    ofFloat (id -1.5) |> equal 4294967295u
+    ofFloat32 (id -3.9f) |> equal 253uy
+
+// Where no operand of an int addition is a literal, the Python target binds the result
+// to a temporary and range-tests that instead. The temporary must not collide with
+// anything in scope, and several in one declaration must stay distinct.
+[<Fact>]
+let ``test int subtraction without a literal operand wraps at the boundary`` () =
+    let sub (x: int) (y: int) = x - y
+    let add (x: int) (y: int) = x + y
+    let ofLength (xs: int[]) = xs.Length - 1
+
+    sub (id Int32.MinValue) (id 1) |> equal Int32.MaxValue
+    sub (id Int32.MaxValue) (id -1) |> equal Int32.MinValue
+    sub (id Int32.MinValue) (id Int32.MaxValue) |> equal 1
+    sub (id 10) (id 3) |> equal 7
+    add (id Int32.MaxValue) (id 1) |> equal Int32.MinValue
+    add (id Int32.MinValue) (id -1) |> equal Int32.MaxValue
+    add (id Int32.MaxValue) (id Int32.MaxValue) |> equal -2
+    ofLength (id [| 1; 2; 3 |]) |> equal 2
+
+[<Fact>]
+let ``test int arithmetic guards do not collide with bindings in scope`` () =
+    // `tmp` is the name the guard's temporary is generated from
+    let shadow (tmp: int) (y: int) = tmp - y
+    let several (a: int) (b: int) (c: int) (d: int) = (a - b) + (c - d)
+
+    shadow (id Int32.MinValue) (id 1) |> equal Int32.MaxValue
+    shadow (id 10) (id 4) |> equal 6
+    several (id Int32.MaxValue) (id -1) (id 0) (id 0) |> equal Int32.MinValue
+    several (id 10) (id 4) (id 20) (id 5) |> equal 21
+
+type ArithmeticCounter = { mutable Count: int }
+
+// An attribute access on a local is as cheap to re-evaluate as the local itself, so
+// the comparison guard covers `x.Field + 1` and not just `i + 1`. Fable models a real
+// property as a call, so this can never re-run a getter.
+[<Fact>]
+let ``test adding a constant to an int field wraps at the boundary`` () =
+    let counter = { Count = id Int32.MaxValue }
+    counter.Count <- counter.Count + 1
+    counter.Count |> equal Int32.MinValue
+
+    counter.Count <- counter.Count - 1
+    counter.Count |> equal Int32.MaxValue
+
+    counter.Count <- id 10
+    counter.Count <- counter.Count + 5
+    counter.Count |> equal 15
+
+// A decimal is not of fixed width, so the inner conversion truncates where the outer
+// one alone would not: `int32 -3.9m` is -3, and .NET has no `uint32` of -3.9m at all.
+[<Fact>]
+let ``test narrowing conversions of narrowed decimals work`` () =
+    let ofDecimal (x: decimal) = uint32 (int32 x)
+    let toByte (x: decimal) = byte (int32 x)
+
+    ofDecimal (id -3.9M) |> equal 4294967293u
+    ofDecimal (id 3.9M) |> equal 3u
+    toByte (id -1.5M) |> equal 255uy
+
+// Two multiplications summed sit right at the edge of what a signed 64-bit int holds,
+// so the width bound keeps the normalization rather than betting on the boundary.
+[<Fact>]
+let ``test narrowing conversions of summed products work`` () =
+    let mulSum (x: int) (y: int) = uint32 (x * y + x * y)
+
+    mulSum (id 65537) (id 65537) |> equal 262146u
+    mulSum (id Int32.MinValue) (id Int32.MinValue) |> equal 0u
+    mulSum (id 99991) (id 99991) |> equal 2816530978u
+
+#if FABLE_COMPILER
+
+// An `[<Emit>]` macro splices its arguments into the text verbatim, and may put one in
+// a comprehension's iterable -- where Python rejects an assignment expression outright.
+// The normalization guard has to give up its temporary and go back to a call here.
+[<Emit("[x for x in [0, $0]][-1]")>]
+let private throughComprehension (n: int) : int = nativeOnly
+
+[<Fact>]
+let ``test int arithmetic inside an emit comprehension compiles`` () =
+    let roundTrip (a: int) (b: int) = throughComprehension (a + b)
+
+    roundTrip (id 2) (id 3) |> equal 5
+    roundTrip (id Int32.MaxValue) (id 1) |> equal Int32.MinValue
+
+#endif

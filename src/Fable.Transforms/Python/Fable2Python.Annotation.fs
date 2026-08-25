@@ -520,7 +520,8 @@ let makeNumberTypeAnnotation com ctx kind info =
             | UInt32 -> "uint32"
             | Int64 -> "int64"
             | UInt64 -> "uint64"
-            | Int32 -> "int32"
+            // Int32 is represented as a plain Python `int`
+            | Int32
             | BigInt
             | Int128
             | UInt128
@@ -528,7 +529,8 @@ let makeNumberTypeAnnotation com ctx kind info =
             | UNativeInt -> "int"
             | Float16
             | Float32 -> "float32"
-            | Float64 -> "float64"
+            // Float64 is a plain Python `float`
+            | Float64 -> "float"
             | _ -> failwith $"Unsupported number type: %A{kind}"
 
         match name with
@@ -727,13 +729,20 @@ let makeEntityTypeAnnotation com ctx (entRef: Fable.EntityRef) genArgs repeatedG
                             // Inside base class or not a union - use as-is
                             id
 
-                    // Import the type if it's from another file
-                    if ent.IsFSharpUnion then
-                        match ent.Ref.SourcePath with
-                        | Some path when path <> com.CurrentFile ->
-                            let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
-                            com.GetImportExpr(ctx, importPath, annotationName) |> ignore
-                        | _ -> ()
+                    // Import the type if it's from another file. The import may be aliased when the
+                    // name clashes with a local declaration, so use the returned local identifier
+                    let annotationName =
+                        if ent.IsFSharpUnion then
+                            match ent.Ref.SourcePath with
+                            | Some path when path <> com.CurrentFile ->
+                                let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+
+                                match com.GetImportExpr(ctx, importPath, annotationName) with
+                                | Expression.Name { Id = Identifier localId } -> localId
+                                | _ -> annotationName
+                            | _ -> annotationName
+                        else
+                            annotationName
 
                     makeGenericTypeAnnotation com ctx annotationName genArgs repeatedGenerics, stmts
                 // TODO: Resolve references to types in nested modules
@@ -779,6 +788,14 @@ let makeBuiltinTypeAnnotation com ctx typ repeatedGenerics kind =
         // Use the type alias (clean name without underscore prefix)
         let name = $"FSharpChoice_%d{List.length genArgs}"
         fableModuleAnnotation com ctx "choice" name resolved, stmts
+    | Replacements.Util.FSharpSet key ->
+        // `FSharpSet` is invariant in its element type, so a bare `Any` here leaves
+        // Pyright to solve the element type from the arguments alone -- and a call
+        // like `singleton(1, cmp)` then solves it to `Literal[1]`, which will not
+        // unify with the `Literal[2]` of a sibling set. Annotating the binding gives
+        // bidirectional inference something to push down into those calls.
+        let resolved, stmts = resolveGenerics com ctx [ key ] repeatedGenerics
+        fableModuleAnnotation com ctx "set" "FSharpSet" resolved, stmts
     | _ -> stdlibModuleTypeHint com ctx "typing" "Any" [] repeatedGenerics
 
 let makeArgTypeAnnotation com ctx repeatedGenerics (id: Fable.Ident) =

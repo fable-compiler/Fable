@@ -537,6 +537,9 @@ type Context =
         InlinePath: Log.InlinePath list
         CaptureBaseConsCall: (FSharpEntity * (Fable.Expr -> unit)) option
         Witnesses: Fable.Witness list
+        // True while translating a quotation body (<@ @>): member calls are kept as-is,
+        // not replaced/emitted/inlined, to preserve .NET metadata for QuotationEmitter.
+        CapturingQuotation: bool
     }
 
     static member Create(?usedRootNames) =
@@ -555,6 +558,7 @@ type Context =
             InlinePath = []
             CaptureBaseConsCall = None
             Witnesses = []
+            CapturingQuotation = false
         }
 
 type IFableCompiler =
@@ -672,7 +676,11 @@ module Helpers =
 
         let sanitizedName =
             match com.Options.Language with
-            | Python -> Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
+            | Python ->
+                // Python classes are declared with PascalCase names (PEP 8), so entity
+                // references must use the same casing as the declaration
+                let name = Fable.Py.Naming.toPascalCase name
+                Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
             | Rust -> (entityName |> cleanNameAsRustIdentifier)
             | Dart -> Naming.sanitizeDartIdent (fun _ -> false) name part
             | _ -> Naming.sanitizeJsIdent (fun _ -> false) name part
@@ -759,12 +767,26 @@ module Helpers =
             match com.Options.Language with
             | Python ->
                 let name =
-                    // Don't apply Python naming convention if member has compiled name attribute
+                    // Don't snake_case the prefix for [<CompiledName>] members. This is
+                    // largely subsumed by the re-casing of the whole composed name below,
+                    // but keeps the intent explicit at this step.
                     match memb.Attributes |> Helpers.tryFindAttrib Atts.compiledName with
                     | Some _ -> name
                     | _ -> Fable.Py.Naming.toPythonNaming name
 
+                // Import/reference sites re-case the full composed name unconditionally
+                // (see the imports printer in Fable2Python.Transforms), so re-case it here
+                // too to keep declarations and references in agreement. This is what makes
+                // a lowercase member with an overload suffix, e.g. `foo__ctor_Z<hash>`, be
+                // both declared and imported as `foo__ctor_z<hash>`.
+                //
+                // Caveat: being unconditional, this also overrides the [<CompiledName>] skip
+                // above when the composed name has no uppercase entity/module prefix, i.e. a
+                // root-level compiled name starting lowercase is snake_cased. Prefixed names
+                // (class / nested-module members) keep their uppercase prefix, so toPythonNaming
+                // is a no-op there and the compiled name survives.
                 Fable.Py.Naming.sanitizeIdent Fable.Py.Naming.pyBuiltins.Contains name part
+                |> Fable.Py.Naming.toPythonNaming
             | Rust -> Naming.buildNameWithoutSanitation name part
             | Dart -> Naming.sanitizeDartIdent (fun _ -> false) name part
             | _ -> Naming.sanitizeJsIdent (fun _ -> false) name part
@@ -1229,6 +1251,39 @@ module Patterns =
             ValueSome(ident, value, body)
         | _ -> ValueNone
 
+    /// Matches an `int` range operator with a compile-time-constant step of +1 or -1,
+    /// i.e. `start .. 1 .. stop` or `start .. -1 .. stop`. Any coercion to `seq` is stripped.
+    /// Only ±1 int32 steps are matched, so the range lowers to a plain counted `for`
+    /// (`Fable.ForLoop`), producing the same output as the `to`/`downto` forms.
+    [<return: Struct>]
+    let (|ConstStepIntRange|_|) (expr: FSharpExpr) =
+        let rec stripCoerce =
+            function
+            | Coerce(_, inner) -> stripCoerce inner
+            | e -> e
+
+        match stripCoerce expr with
+        | Call(None, meth, _, _, [ start; Const((:? int as step), _); stop ]) when
+            meth.CompiledName = "op_RangeStep" && (step = 1 || step = -1)
+            ->
+            ValueSome(start, step, stop)
+        | _ -> ValueNone
+
+    /// A `for x in start .. ±1 .. stop do` loop, which F# does not lower to a fast
+    /// counted loop (unlike `to`/`downto`) and would otherwise allocate a range
+    /// sequence + enumerator. Yields the loop variable, bounds, step and body.
+    ///
+    /// F# desugars `for i in <range> do` to `let inputSequence = <range> in <for-of>`,
+    /// so the range is bound one level above the enumerator loop matched by `ForOf`.
+    [<return: Struct>]
+    let (|ForOfConstStepRange|_|) =
+        function
+        | Let((seqVar, ConstStepIntRange(start, step, stop), _), ForOf(ident, Value enumeratedVar, body)) when
+            seqVar.Equals(enumeratedVar)
+            ->
+            ValueSome(ident, start, step, stop, body)
+        | _ -> ValueNone
+
     /// This matches the boilerplate generated for TryGetValue/TryParse/DivRem (see #154, or #1744)
     /// where the F# compiler automatically passes a byref arg and returns it as a tuple
     [<return: Struct>]
@@ -1631,7 +1686,17 @@ module TypeHelpers =
                 | Choice1Of2 t -> t
                 | Choice2Of2 fullName -> makeRuntimeTypeWithMeasure genArgs fullName
             | fullName when tdef.IsMeasure -> Fable.Measure fullName
-            | _ when hasAttrib Atts.stringEnum tdef.Attributes && Compiler.Language <> TypeScript -> Fable.String
+            // A `[<StringEnum>]` value *is* a string at runtime, so the type follows the
+            // representation. Not on TypeScript, which keeps the literal-union type, and not on
+            // Beam, where the cases compile to atoms instead of binaries (see
+            // `transformStringEnumAsAtom`) — calling it a string there would make `string x`
+            // erase to a no-op and hand an atom to code expecting a binary.
+            | _ when
+                hasAttrib Atts.stringEnum tdef.Attributes
+                && Compiler.Language <> TypeScript
+                && Compiler.Language <> Beam
+                ->
+                Fable.String
             | _ ->
                 let genArgs = makeTypeGenArgsWithConstraints withConstraints ctxTypeArgs genArgs
 
@@ -2380,7 +2445,7 @@ module Util =
             else
                 Some(entityIdent com ent.Ref)
 
-    let memberIdent (com: Compiler) r typ (memb: FSharpMemberOrFunctionOrValue) membRef =
+    let memberIdent (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) membRef =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
 
         let memberName, hasOverloadSuffix = getMemberDeclarationName com memb
@@ -2398,31 +2463,43 @@ module Util =
             | _ -> memberName
 
         let file =
-            memb.DeclaringEntity
-            |> Option.bind (fun ent -> FsEnt.Ref(ent).SourcePath)
+            match memb.DeclaringEntity with
             // Cases when .DeclaringEntity returns None are rare (see #237)
             // We assume the member belongs to the current file
-            |> Option.defaultValue com.CurrentFile
+            | None -> Some com.CurrentFile
+            | Some ent -> FsEnt.Ref(ent).SourcePath
 
-        // If precompiling inline function always reference with Import and not as IdentExpr
-        if not com.IsPrecompilingInlineFunction && file = com.CurrentFile then
-            { makeTypedIdent typ memberName with
-                Range = r
-                IsMutable = memb.IsMutable
-            }
-            |> Fable.IdentExpr
-        else
-            // If the overload suffix changes, we need to recompile the files that call this member
-            if hasOverloadSuffix then
-                com.AddWatchDependency(file)
+        match file with
+        // A quotation keeps the reference as metadata, so it needs no import
+        | None when not ctx.CapturingQuotation ->
+            let name =
+                match memb.DeclaringEntity with
+                | Some ent -> FsEnt.FullName ent + "." + memb.DisplayName
+                | None -> memb.DisplayName
 
-            // Private values are not exported so they can't be imported by call sites in other files.
-            // We need to handle it manually because Fable handle resolve inline function itself
-            if com.IsPrecompilingInlineFunction && memb.Accessibility.IsPrivate then
-                $"The value '%s{memb.DisplayName}' was marked inline but its implementation makes use of an internal or private function which is not sufficiently accessible"
-                |> addError com [] r
+            $"Cannot reference member from .dll reference, Fable packages must include F# sources: %s{name}"
+            |> addErrorAndReturnNull com [] r
+        | file ->
+            let file = Option.defaultValue com.CurrentFile file
+            // If precompiling inline function always reference with Import and not as IdentExpr
+            if not com.IsPrecompilingInlineFunction && file = com.CurrentFile then
+                { makeTypedIdent typ memberName with
+                    Range = r
+                    IsMutable = memb.IsMutable
+                }
+                |> Fable.IdentExpr
+            else
+                // If the overload suffix changes, we need to recompile the files that call this member
+                if hasOverloadSuffix then
+                    com.AddWatchDependency(file)
 
-            makeInternalMemberImport com typ membRef memberName file
+                // Private values are not exported so they can't be imported by call sites in other files.
+                // We need to handle it manually because Fable handle resolve inline function itself
+                if com.IsPrecompilingInlineFunction && memb.Accessibility.IsPrivate then
+                    $"The value '%s{memb.DisplayName}' was marked inline but its implementation makes use of an internal or private function which is not sufficiently accessible"
+                    |> addError com [] r
+
+                makeInternalMemberImport com typ membRef memberName file
 
     let getFunctionMemberRef (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
@@ -3058,6 +3135,20 @@ module Util =
         (callInfo: Fable.CallInfo)
         =
         match memb, memb.DeclaringEntity with
+        // Inside a quotation, keep the original member call as-is (skip replace/emit/import/inline)
+        // so QuotationEmitter gets the real .NET metadata. Tag plain property getters so
+        // QuotationEmitter can represent them as PropertyGet instead of a method Call.
+        | _ when ctx.CapturingQuotation ->
+            let membTyp = makeType ctx.GenericArgs memb.FullType
+
+            let callInfo =
+                if memb.IsPropertyGetterMethod && countNonCurriedParams memb = 0 then
+                    { callInfo with Tags = "property" :: callInfo.Tags }
+                else
+                    callInfo
+
+            memberIdent com ctx r membTyp memb membRef |> makeCall r typ callInfo
+
         | Emitted com ctx r typ (Some callInfo) emitted, _ -> emitted
         | Imported com ctx r typ (Some callInfo) imported -> imported
         | Replaced com ctx r typ callInfo replaced -> replaced
@@ -3124,7 +3215,7 @@ module Util =
 
         | _, Some entity when isModuleValueForCalls com entity memb ->
             let typ = makeType ctx.GenericArgs memb.FullType
-            memberIdent com r typ memb membRef
+            memberIdent com ctx r typ memb membRef
 
         // (optional, Dart only) Call the implicit constructor instead of the mangled one
         | _, Some entity when com.Options.Language = Dart && memb.IsImplicitConstructor ->
@@ -3136,7 +3227,7 @@ module Util =
             let typ = makeType ctx.GenericArgs memb.FullType
             let retTyp = makeType ctx.GenericArgs memb.ReturnParameter.Type
             let callInfo = { callInfo with Tags = "value" :: callInfo.Tags }
-            let callExpr = memberIdent com r typ memb membRef |> makeCall r retTyp callInfo
+            let callExpr = memberIdent com ctx r typ memb membRef |> makeCall r retTyp callInfo
 
             let fableMember = FsMemberFunctionOrValue(memb)
             // TODO: Move plugin application to FableTransforms
@@ -3177,4 +3268,4 @@ module Util =
         | Emitted com ctx r typ None emitted, _ -> emitted
         | Imported com ctx r typ None imported -> imported
         | Try (tryGetIdentFromScope ctx r (Some typ)) expr, _ -> expr
-        | _ -> getValueMemberRef v |> memberIdent com r typ v
+        | _ -> getValueMemberRef v |> memberIdent com ctx r typ v

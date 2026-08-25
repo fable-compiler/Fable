@@ -424,14 +424,31 @@ let transformCast (com: IPythonCompiler) (ctx: Context) t e : Expression * State
         let cons = libValue com ctx "core" "float32"
         let value, stmts = com.TransformAsExpr(ctx, e)
         Expression.call (cons, [ value ], ?loc = None), stmts
-    | Fable.Number(Float64, _), _ ->
-        let cons = libValue com ctx "core" "float64"
-        let value, stmts = com.TransformAsExpr(ctx, e)
-        Expression.call (cons, [ value ], ?loc = None), stmts
+    // Int32 is a plain Python `int`, so casting to it is a no-op -- unless the source
+    // is one of the wrapper widths. `Replacements.toInt` emits a bare `TypeCast` for
+    // every widening conversion (`needToCast` is false), so this is where e.g.
+    // `int (x: sbyte)` sheds its `Int8`. Leaving the wrapper in place would keep the
+    // arithmetic at the source width: `Int8(100) + 100` wraps to -56.
     | Fable.Number(Int32, _), _ ->
-        let cons = libValue com ctx "core" "int32"
-        let value, stmts = com.TransformAsExpr(ctx, e)
-        Expression.call (cons, [ value ], ?loc = None), stmts
+        match e.Type with
+        // Already a plain `int` at runtime
+        | Fable.Number((Int32 | BigInt | NativeInt | UNativeInt), _) -> com.TransformAsExpr(ctx, e)
+        | Fable.Number _ ->
+            let value, stmts = com.TransformAsExpr(ctx, e)
+            libCall com ctx None "core" "int32" [ value ], stmts
+        | _ -> com.TransformAsExpr(ctx, e)
+    // Float64 is a plain Python `float`, and the same reasoning applies:
+    // `Replacements.toFloat` emits a bare `TypeCast` for every numeric source that is
+    // not bigint/decimal/int64, so `float (x: float32)` would otherwise stay a
+    // `Float32` and keep computing in single precision. Every wrapper implements
+    // `__float__`, so the builtin is enough and stays a single C-level call.
+    | Fable.Number(Float64, _), _ ->
+        match e.Type with
+        | Fable.Number(Float64, _) -> com.TransformAsExpr(ctx, e)
+        | Fable.Number _ ->
+            let value, stmts = com.TransformAsExpr(ctx, e)
+            Expression.call (Expression.name "float", [ value ], ?loc = None), stmts
+        | _ -> com.TransformAsExpr(ctx, e)
     | _ -> com.TransformAsExpr(ctx, e)
 
 let transformCurry (com: IPythonCompiler) (ctx: Context) expr arity : Expression * Statement list =
@@ -467,6 +484,10 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
                 let value =
                     match value.Type with
                     | Fable.String -> value
+                    // Float64 is a plain Python `float`, whose `str` renders a whole
+                    // double as "5.0" where .NET renders "5".
+                    | Fable.Number(Float64, _) ->
+                        Replacements.Util.Helper.LibCall(com, "exceptions", "to_string", Fable.String, [ value ])
                     | _ -> Helpers.toString value
 
                 let acc = makeBinOp None Fable.String acc value BinaryPlus
@@ -480,7 +501,8 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
         | Fable.NumberValue.UInt8 x -> makeInteger com ctx r value.Type "uint8" x
         | Fable.NumberValue.Int16 x -> makeInteger com ctx r value.Type "int16" x
         | Fable.NumberValue.UInt16 x -> makeInteger com ctx r value.Type "uint16" x
-        | Fable.NumberValue.Int32 x -> makeInteger com ctx r value.Type "int32" x
+        // Int32 is represented as a plain Python `int`, so a literal is just a literal
+        | Fable.NumberValue.Int32 x -> Expression.intConstant (x, ?loc = r), []
         | Fable.NumberValue.UInt32 x -> makeInteger com ctx r value.Type "uint32" x
         | Fable.NumberValue.Int64 x -> makeInteger com ctx r value.Type "int64" x
         | Fable.NumberValue.UInt64 x -> makeInteger com ctx r value.Type "uint64" x
@@ -490,16 +512,17 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
         | Fable.NumberValue.NativeInt x -> Expression.intConstant (x, ?loc = r), []
         | Fable.NumberValue.UNativeInt x -> Expression.intConstant (x, ?loc = r), []
         // TODO: special consts also need attention
-        | Fable.NumberValue.Float64 x when x = infinity -> libValue com ctx "double" "float64.infinity", []
-        | Fable.NumberValue.Float64 x when x = -infinity -> libValue com ctx "double" "float64.negative_infinity", []
-        | Fable.NumberValue.Float64 x when Double.IsNaN(x) -> libValue com ctx "double" "float64.nan", []
+        | Fable.NumberValue.Float64 x when x = infinity -> com.GetImportExpr(ctx, "math", "inf"), []
+        | Fable.NumberValue.Float64 x when x = -infinity ->
+            Expression.unaryOp (UnaryMinus, com.GetImportExpr(ctx, "math", "inf")), []
+        | Fable.NumberValue.Float64 x when Double.IsNaN(x) -> com.GetImportExpr(ctx, "math", "nan"), []
         | Fable.NumberValue.Float32 x when Single.IsNaN(x) ->
             libCall com ctx r "core" "float32" [ Expression.stringConstant "nan" ], []
         | Fable.NumberValue.Float16 x when Single.IsNaN(x) ->
             libCall com ctx r "core" "float32" [ Expression.stringConstant "nan" ], []
         | Fable.NumberValue.Float16 x -> makeFloat com ctx r value.Type "float32" (float x)
         | Fable.NumberValue.Float32 x -> makeFloat com ctx r value.Type "float32" (float x)
-        | Fable.NumberValue.Float64 x -> makeFloat com ctx r value.Type "float64" (float x)
+        | Fable.NumberValue.Float64 x -> Expression.floatConstant (float x, ?loc = r), []
         | Fable.NumberValue.Decimal x -> Py.Replacements.makeDecimal com r value.Type x |> transformAsExpr com ctx
         | _ -> addErrorAndReturnNull com r $"Numeric literal is not supported: %A{v}", []
     | Fable.NewArray(newKind, typ, kind) ->
@@ -943,14 +966,170 @@ let resolveExpr (ctx: Context) _t strategy pyExpr : Statement list =
     | Some(Assign left) -> exprAsStatement ctx (assign None left pyExpr)
     | Some(Target left) -> exprAsStatement ctx (assign None (left |> Expression.identifier) pyExpr)
 
-let transformOperation com ctx range opKind tags : Expression * Statement list =
+let transformOperation (com: IPythonCompiler) ctx range (t: Fable.Type) opKind tags : Expression * Statement list =
+    // Int32 is a plain Python `int`, so results that can leave the 32-bit range are
+    // normalized back into it. See `Util.isInt32WrapOp` for why one wrap per
+    // expression tree is equivalent to one per operation.
+    let isInt32 =
+        match t with
+        | Fable.Number(Int32, _) -> true
+        | _ -> false
+
+    // Float64 is a plain Python `float`, which IS an IEEE double, so arithmetic needs
+    // no adjustment. Only division by zero and remainder diverge.
+    let isFloat64 =
+        match t with
+        | Fable.Number(Float64, _) -> true
+        | _ -> false
+
+    /// A literal divisor that is known not to be zero lets `/` stay a bare operator.
+    let isNonZeroLiteral (e: Fable.Expr) =
+        match e with
+        | Fable.Value(Fable.NumberConstant(v, _), _) ->
+            match v with
+            | Fable.NumberValue.Float64 x -> x <> 0.0 && not (Double.IsNaN x)
+            | Fable.NumberValue.Int32 x -> x <> 0
+            | _ -> false
+        | _ -> false
+
     match opKind with
-    | Fable.Unary(op, TransformExpr com ctx (expr, stmts)) -> Expression.unaryOp (op, expr, ?loc = range), stmts
+    | Fable.Unary(op, (operand: Fable.Expr)) ->
+        let expr, stmts = com.TransformAsExpr(ctx, operand)
+
+        // Only negation can leave the range, at Int32.MinValue. `~` maps in-range to
+        // in-range, and `+` is the identity.
+        let needsWrap = isInt32 && op = UnaryMinus
+
+        let expr =
+            if needsWrap then
+                stripInt32Wrap com ctx expr
+            else
+                expr
+
+        let result = Expression.unaryOp (op, expr, ?loc = range)
+
+        (if needsWrap then
+             wrapInt32 com ctx range result
+         else
+             result),
+        stmts
     | Fable.Binary(op, left, right: Fable.Expr) ->
         let typ = right.Type
         let left_typ = left.Type
+        let leftFable, rightFable = left, right
+
+        // `<<` shifts the left operand only; the shift count is a separate value.
+        let wrapsResult =
+            isInt32
+            && match op with
+               | BinaryPlus
+               | BinaryMinus
+               | BinaryMultiply
+               | BinaryShiftLeft -> true
+               | _ -> false
+
         let left, stmts = com.TransformAsExpr(ctx, left)
         let right, stmts' = com.TransformAsExpr(ctx, right)
+
+        // Strip an operand's own wrap only when this node re-applies one, and only
+        // when the *Fable* operand is one of the nodes this module wraps.
+        let left =
+            if wrapsResult && isInt32WrapOp leftFable then
+                stripInt32Wrap com ctx left
+            else
+                left
+
+        let right =
+            if wrapsResult && op <> BinaryShiftLeft && isInt32WrapOp rightFable then
+                stripInt32Wrap com ctx right
+            else
+                right
+
+        // .NET masks a shift count to the width of the type, so `1 <<< 32` is 1.
+        // Python applies the count as given, and raises ValueError if it is negative.
+        let right =
+            let isShift =
+                match op with
+                | BinaryShiftLeft
+                | BinaryShiftRightSignPropagating
+                | BinaryShiftRightZeroFill -> true
+                | _ -> false
+
+            if not (isInt32 && isShift) then
+                right
+            else
+                match right with
+                | Expression.Constant(value = IntLiteral v) ->
+                    match v with
+                    | :? int as i -> Expression.intConstant (i &&& 31)
+                    | _ -> Expression.binOp (right, BitAnd, Expression.intConstant 31)
+                | _ -> Expression.binOp (right, BitAnd, Expression.intConstant 31)
+
+        // `op` is shadowed inside `binOp` by the Python operator, so resolve the guard
+        // against the Fable node out here.
+        let rangeGuard =
+            if wrapsResult then
+                tryInt32RangeGuard op leftFable rightFable
+            else
+                None
+
+        // When no operand test is available -- neither side is a literal, or the moving
+        // side is something costlier than a name -- bind the result once and test that
+        // instead. The test is on the *result*, so it is correct whatever the operands
+        // hold; `bothOperandsNormalized` is purely about whether it pays. Only worth it
+        // where overflow is the exception rather than the rule, so it is limited to a
+        // single `+`/`-` over two already-normalized operands: that is one bit of
+        // possible overflow, where hash mixing and the like build up far more and would
+        // pay the test on every evaluation without saving the call.
+        //
+        // The binding is an assignment expression, which is a `SyntaxError` inside a
+        // comprehension's iterable, so an `[<Emit>]` macro argument keeps the call.
+        let resultGuard =
+            let bothOperandsNormalized =
+                int32ExprBitWidth leftFable = 32 && int32ExprBitWidth rightFable = 32
+
+            match op with
+            | (BinaryPlus | BinaryMinus) when
+                wrapsResult
+                && rangeGuard.IsNone
+                && bothOperandsNormalized
+                && not ctx.InEmitMacroArgument
+                ->
+                getUniqueNameInDeclarationScope ctx "tmp" |> Some
+            | _ -> None
+
+        let binOp (op: BinaryOperator) =
+            let result = Expression.binOp (left, op, right, ?loc = range)
+
+            (match rangeGuard, resultGuard, wrapsResult with
+             | Some(identIsLeft, cmp, threshold), _, _ ->
+                 let ident =
+                     if identIsLeft then
+                         left
+                     else
+                         right
+
+                 let test =
+                     Expression.compare (ident, [ cmp ], [ Expression.intConstant threshold ], ?loc = range)
+
+                 Expression.ifExp (test, result, wrapInt32 com ctx range result, ?loc = range)
+             | None, Some name, _ ->
+                 let tmp = com.GetIdentifierAsExpr(ctx, name)
+
+                 // `-2147483648 <= (tmp := <op>) <= 2147483647`. The binding sits in the
+                 // test because a conditional expression evaluates its condition first.
+                 let test =
+                     Expression.compare (
+                         Expression.intConstant -2147483648,
+                         [ LtE; LtE ],
+                         [ Expression.namedExpr (tmp, result); Expression.intConstant 2147483647 ],
+                         ?loc = range
+                     )
+
+                 Expression.ifExp (test, tmp, wrapInt32 com ctx range tmp, ?loc = range)
+             | None, None, true -> wrapInt32 com ctx range result
+             | None, None, false -> result),
+            stmts @ stmts'
 
         let compare op =
             Expression.compare (left, [ op ], [ right ], ?loc = range), stmts @ stmts'
@@ -1005,6 +1184,17 @@ let transformOperation com ctx range opKind tags : Expression * Statement list =
         | BinaryDivide, _ ->
             // For integer division, we need to use the // operator
             match typ with
+            // Int32 is a plain Python `int`, whose `//` floors where .NET truncates
+            // toward zero: `-7 // 2` is -4 in Python and -3 in .NET. `int(a / b)`
+            // truncates, and is exact here -- for int32 operands the true quotient is
+            // never within a rounding error of an integer it should not reach.
+            | Fable.Number(Int32, _) when isInt32 ->
+                Expression.call (
+                    Expression.name "int",
+                    [ Expression.binOp (left, Div, right, ?loc = range) ],
+                    ?loc = range
+                ),
+                stmts @ stmts'
             | Fable.Number(Int8, _)
             | Fable.Number(Int16, _)
             | Fable.Number(Int32, _)
@@ -1018,8 +1208,19 @@ let transformOperation com ctx range opKind tags : Expression * Statement list =
                 | Fable.Number(Float32, _)
                 | Fable.Number(Float64, _) -> Expression.binOp (left, Div, right, ?loc = range), stmts @ stmts'
                 | _ -> Expression.binOp (left, FloorDiv, right, ?loc = range), stmts @ stmts'
+            // Python raises ZeroDivisionError where .NET yields +/-inf or nan
+            | Fable.Number(Float64, _) when isFloat64 && not (isNonZeroLiteral rightFable) ->
+                libCall com ctx range "core" "op_division_float64" [ left; right ], stmts @ stmts'
             | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
-        | _ -> Expression.binOp (left, op, right, ?loc = range), stmts @ stmts'
+        | BinaryModulus, _ when isFloat64 ->
+            // Python's float `%` takes the sign of the divisor, .NET's takes the sign
+            // of the dividend, and Python raises on a zero divisor where .NET gives nan.
+            libCall com ctx range "core" "op_remainder_float64" [ left; right ], stmts @ stmts'
+        | BinaryModulus, _ when isInt32 ->
+            // Python's `%` takes the sign of the divisor, .NET's takes the sign of the
+            // dividend: `-5 % 3` is 1 in Python and -2 in .NET.
+            libCall com ctx range "core" "op_remainder_int32" [ left; right ], stmts @ stmts'
+        | _ -> binOp op
 
     | Fable.Logical(op, TransformExpr com ctx (left, stmts), TransformExpr com ctx (right, stmts')) ->
         Expression.boolOp (op, [ left; right ], ?loc = range), stmts @ stmts'
@@ -1028,13 +1229,26 @@ let transformEmit (com: IPythonCompiler) ctx range (info: Fable.EmitInfo) =
     let macro = info.Macro
     let callInfo = info.CallInfo
 
+    // The macro text is spliced around the arguments verbatim, and a macro is free to
+    // put one inside a comprehension -- `[x for i, x in enumerate(f($0, $1))]` and the
+    // like -- where an assignment expression is a `SyntaxError` rather than a value.
+    // Nothing anywhere under such an argument may use one, hence a context flag rather
+    // than a check on this node. `for` is what makes a comprehension a comprehension,
+    // so a macro without it cannot contain one; a macro with it in some other role
+    // just gives up an optimization.
+    let argCtx =
+        if Regex.IsMatch(macro, @"\bfor\b") then
+            { ctx with InEmitMacroArgument = true }
+        else
+            ctx
+
     let thisArg, stmts =
         callInfo.ThisArg
-        |> Option.map (fun e -> com.TransformAsExpr(ctx, e))
+        |> Option.map (fun e -> com.TransformAsExpr(argCtx, e))
         |> Option.toList
         |> Helpers.unzipArgs
 
-    let exprs, kw, stmts' = transformCallArgs com ctx callInfo false
+    let exprs, kw, stmts' = transformCallArgs com argCtx callInfo false
 
     if macro.StartsWith("functools", StringComparison.Ordinal) then
         com.GetImportExpr(ctx, "functools") |> ignore
@@ -1097,6 +1311,30 @@ let transformCall (com: IPythonCompiler) ctx range callee (callInfo: Fable.CallI
         let args, kw, stmts' = transformCallArgs com ctx callInfo false
         // Unwrap to_enumerable from the argument if present
         let args = args |> List.map unwrapToEnumerable
+        callFunction range callee' args kw, stmts @ stmts'
+
+    // Optimization: a fixed-width conversion re-truncates the bits its operand's own
+    // `int32(...)` wrap kept, so the wrap is dead. See `Util.tryRedundantInt32Wrap`.
+    | RedundantInt32Wrap com callInfo elision ->
+        let callee', stmts = com.TransformAsExpr(ctx, callee)
+
+        // An inner conversion is already a Fable node, so it is dropped before being
+        // transformed -- which keeps the `core.int32` it would have emitted from being
+        // registered as an import and then left unreferenced. Arity and argument kind
+        // are unchanged: one non-unit fixed-width integer either way. An arithmetic
+        // tree is only normalized once transformed, so that wrap comes off after.
+        let callInfo =
+            match elision with
+            | UseInnerOperand operand -> { callInfo with Args = [ operand ] }
+            | StripTransformedWrap -> callInfo
+
+        let args, kw, stmts' = transformCallArgs com ctx callInfo false
+
+        let args =
+            match elision with
+            | UseInnerOperand _ -> args
+            | StripTransformedWrap -> args |> List.map (stripInt32Wrap com ctx)
+
         callFunction range callee' args kw, stmts @ stmts'
     | _ ->
 
@@ -2591,7 +2829,7 @@ let rec transformAsExpr (com: IPythonCompiler) ctx (expr: Fable.Expr) : Expressi
 
     | Fable.CurriedApply(callee, args, _, range) -> transformCurriedApply com ctx range callee args
 
-    | Fable.Operation(kind, tags, _, range) -> transformOperation com ctx range kind tags
+    | Fable.Operation(kind, tags, t, range) -> transformOperation com ctx range t kind tags
 
     | Fable.Get(expr, kind, typ, range) -> transformGet com ctx range typ expr kind
 
@@ -2822,7 +3060,7 @@ let rec transformAsStatements (com: IPythonCompiler) ctx returnStrategy (expr: F
             stmts @ resolveExpr ctx t returnStrategy e
 
     | Fable.Operation(kind, tags, t, range) ->
-        let expr, stmts = transformOperation com ctx range kind tags
+        let expr, stmts = transformOperation com ctx range t kind tags
         stmts @ (expr |> resolveExpr ctx t returnStrategy)
 
     | Fable.Get(expr, kind, t, range) ->
@@ -3216,7 +3454,14 @@ let declareEntryPoint (com: IPythonCompiler) (ctx: Context) (funcExpr: Expressio
             [ Expression.stringConstant "__main__" ]
         )
 
-    let main = Expression.call (funcExpr, [ args ]) |> Statement.expr |> List.singleton
+    let mainCall = Expression.call (funcExpr, [ args ])
+
+    // Propagate the entry point's return value as the process exit code.
+    // int(...) coercion is required because fable-library-python's Int32 is not an int subclass.
+    let main =
+        emitExpression None "sys.exit(int($0))" [ mainCall ]
+        |> Statement.expr
+        |> List.singleton
 
     Statement.if' (test, main)
 
@@ -3348,7 +3593,7 @@ let declareDataClassType
                     |> List.filter (fun genArg ->
                         match genArg with
                         | Fable.DeclaredType({ FullName = fullName }, _) ->
-                            Helpers.removeNamespace (fullName) <> entName
+                            Naming.toPascalCase (Helpers.removeNamespace fullName) <> entName
                         | _ -> true
                     )
 
@@ -3621,7 +3866,8 @@ let declareClassType
                 int.GenericArgs
                 |> List.filter (fun genArg ->
                     match genArg with
-                    | Fable.DeclaredType({ FullName = fullName }, _) -> Helpers.removeNamespace (fullName) <> entName
+                    | Fable.DeclaredType({ FullName = fullName }, _) ->
+                        Naming.toPascalCase (Helpers.removeNamespace fullName) <> entName
                     | _ -> true
                 )
 
@@ -5256,6 +5502,7 @@ let transformFile (com: IPythonCompiler) (file: Fable.File) =
             TypeParamsScope = 0
             NarrowedTypes = Map.empty
             EnclosingUnionBaseClass = None
+            InEmitMacroArgument = false
         }
 
     // printfn "file: %A" file.Declarations

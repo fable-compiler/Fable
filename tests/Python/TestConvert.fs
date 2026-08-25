@@ -160,6 +160,8 @@ let ``test System.Int32.Parse with hex works`` () =
     (fun () -> Int32.Parse("1FFFFFFFF", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
     (fun () -> Int32.Parse("5foo", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
     (fun () -> Int32.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
+    // Multi-byte UTF-8 input must fail to parse, not crash (see #4823)
+    (fun () -> Int32.Parse("–", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
 
 [<Fact>]
 let ``test System.Int64.Parse works`` () =
@@ -201,6 +203,13 @@ let ``test Parsing integers with different radices works``  () =
     equal 17 (int "0x11")
     equal 9  (int "0o11")
     equal 3  (int "0b11")
+    // Leading whitespace and the sign both precede the radix specifier
+    equal 17 (int " 0x11")
+    equal 9  (int "  0o11  ")
+    equal -17 (int "-0x11")
+    equal -3 (int " -0b11 ")
+    equal -17L (int64 "-0x11")
+    equal -11 (int "-1_1")
 
 [<Fact>]
 let ``test System.Int32.TryParse works`` () =
@@ -214,6 +223,10 @@ let ``test System.Int32.TryParse works`` () =
     tryParse Int32.TryParse 0 "X9TRE34" |> equal (false, 0)
     tryParse Int32.TryParse 0 "9SayWhat12Huh" |> equal (false, 0)
     tryParse Int32.TryParse 0 "-1" |> equal (true, -1)
+    // Multi-byte UTF-8 input must fail to parse, not crash (see #4823)
+    tryParse Int32.TryParse 0 "–" |> equal (false, 0)
+    tryParse Int32.TryParse 0 "é" |> equal (false, 0)
+    tryParse Int32.TryParse 0 "𝟙" |> equal (false, 0)
 
 [<Fact>]
 let ``test BigInt.TryParse works`` () =
@@ -386,6 +399,42 @@ let ``test System.Convert.ToInt16 works`` () =
     Convert.ToInt16('a') |> equal 97s
     (fun () -> Convert.ToInt16("1.4")) |> throwsError ""
     (fun () -> Convert.ToInt16("foo")) |> throwsError ""
+
+// Python represents int32 as a plain `int` and float64 as a plain `float`, while the
+// other widths are wrapper objects. A widening conversion therefore has to shed the
+// wrapper -- leaving it in place would keep the arithmetic at the *source* width, and
+// a value assertion alone would not notice, since a wrapper compares equal to its
+// value. These use function parameters so the conversions are not constant-folded
+// away. All expectations verified on .NET.
+let private toIntFromSByte (x: sbyte) = int x
+let private toIntFromInt16 (x: int16) = int x
+let private toFloatFromSingle (x: float32) = float x
+let private toFloatFromByte (x: byte) = float x
+let private toFloatFromInt (x: int) = float x
+
+[<Fact>]
+let ``test Widening to int does not keep the source width`` () =
+    toIntFromSByte 100y + 100 |> equal 200
+    toIntFromSByte -100y - 100 |> equal -200
+    toIntFromInt16 30000s * 2 |> equal 60000
+    toIntFromInt16 -30000s - 30000 |> equal -60000
+
+[<Fact>]
+let ``test Widening to float does not keep the source width`` () =
+    toFloatFromSingle 0.1f |> equal 0.10000000149011612
+    toFloatFromByte 200uy / 3.0 |> equal (200.0 / 3.0)
+    toFloatFromInt 3 + 0.5 |> equal 3.5
+
+[<Fact>]
+let ``test Widened and parsed values have the target runtime type`` () =
+    box (toIntFromSByte 5y) :? int |> equal true
+    box (toFloatFromInt 3) :? float |> equal true
+    box (toFloatFromSingle 0.5f) :? float |> equal true
+    box (Int32.Parse "42") :? int |> equal true
+
+    let mutable parsed = 0
+    Int32.TryParse("7", &parsed) |> equal true
+    box parsed :? int |> equal true
 
 [<Fact>]
 let ``test System.Convert.ToInt32 works`` () =

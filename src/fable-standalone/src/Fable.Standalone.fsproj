@@ -9,6 +9,9 @@
   <ItemGroup>
     <ProjectReference Include="../../fcs-fable/fcs-fable.fsproj" />
     <ProjectReference Include="../../Fable.Transforms/Rust/AST/Rust.AST.fsproj" />
+    <!-- Reads the inline expressions `fable precompile` writes for the browser -->
+    <PackageReference Include="Thoth.Json.Core.Auto" Version="0.1.1" />
+    <PackageReference Include="Thoth.Json.JavaScript" Version="0.5.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,6 +37,7 @@
     <Compile Include="../../Fable.Transforms/Python/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Rust/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Dart/Replacements.fs" />
+    <Compile Include="../../Fable.Transforms/Beam/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/Beam/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Replacements.fs" />
     <Compile Include="../../Fable.Transforms/Replacements.Api.fs" />
@@ -69,12 +73,14 @@
     <Compile Include="../../Fable.Transforms/Rust/RustPrinter.fs" />
     <Compile Include="../../Fable.Transforms/Rust/Fable2Rust.fs" />
 
-    <Compile Include="../../Fable.Transforms/Beam/Prelude.fs" />
     <Compile Include="../../Fable.Transforms/Beam/Beam.AST.fs" />
     <Compile Include="../../Fable.Transforms/Beam/Fable2Beam.Util.fs" />
     <Compile Include="../../Fable.Transforms/Beam/Fable2Beam.Reflection.fs" />
     <Compile Include="../../Fable.Transforms/Beam/Fable2Beam.fs" />
     <Compile Include="../../Fable.Transforms/Beam/ErlangPrinter.fs" />
+
+    <!-- Fable.Compiler -->
+    <Compile Include="../../Fable.Compiler/BrowserInlineExprs.fs" />
 
     <!-- Fable.Standalone -->
     <Compile Include="Interfaces.fs"/>

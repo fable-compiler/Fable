@@ -9,16 +9,35 @@ type MyObserver<'T>(f) =
         member x.OnError e = ()
         member x.OnCompleted() = ()
 
+// NOTE: This mirrors the JS/TS/Python reference `MyObservable`, adapted for two
+// Rust-backend limitations (the runtime combinators themselves are unaffected):
+//  1. The disposable is a named generic class, not an inline
+//     `{ new IDisposable with ... }` object expression: the Rust backend does not
+//     propagate the enclosing type's generic parameter into a generated
+//     object-expression struct (it emits an inner struct that references `T`
+//     without declaring it -> rustc E0401).
+//  2. Subscriptions are keyed by an int id and removed by id, rather than
+//     `listeners.Remove(w)`: interface trait objects (`IObserver<'T>`) do not
+//     implement Rust `PartialEq`, so removal-by-value of an interface element is
+//     not supported. Behaviour is identical to the reference.
+type private Unsubscriber<'T>(listeners: ResizeArray<int * IObserver<'T>>, id: int) =
+    interface IDisposable with
+        member _.Dispose() =
+            let idx = listeners.FindIndex(fun (i, _) -> i = id)
+            if idx >= 0 then listeners.RemoveAt(idx)
+
 type MyObservable<'T>() =
-    let listeners = ResizeArray<IObserver<'T>>()
+    let listeners = ResizeArray<int * IObserver<'T>>()
+    let mutable nextId = 0
     member x.Trigger v =
-        for lis in listeners do
+        for (_, lis) in listeners do
             lis.OnNext v
     interface IObservable<'T> with
         member x.Subscribe w =
-            listeners.Add(w)
-            { new IDisposable with
-                member x.Dispose() = listeners.Remove(w) |> ignore }
+            let id = nextId
+            nextId <- nextId + 1
+            listeners.Add((id, w))
+            new Unsubscriber<'T>(listeners, id) :> IDisposable
 
 module tests =
 

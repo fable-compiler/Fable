@@ -14,6 +14,11 @@ from .time_span import TimeSpan, hours, microseconds, milliseconds, minutes, sec
 class DateTimeOffset(datetime):
     """A datetime subclass with an explicit offset, similar to .NET DateTimeOffset"""
 
+    # Lets the formatters in `date` tell a DateTimeOffset apart from a DateTime
+    # with Kind = Utc — a zero offset gives both the same tzinfo, but only the
+    # latter renders as "Z" in the round-trip format.
+    is_offset_value: bool = True
+
     def __new__(cls, dt: datetime, offset_milliseconds: int = 0):
         # Create new datetime instance using the values from the input datetime
         instance = super().__new__(
@@ -376,35 +381,35 @@ def unix_epoch() -> DateTimeOffset:
 # ---------------------------------------------------------------------------
 
 
-def year(d: DateTimeOffset) -> int32:
+def year(d: DateTimeOffset) -> int:
     return int32(d.year)
 
 
-def month(d: DateTimeOffset) -> int32:
+def month(d: DateTimeOffset) -> int:
     return int32(d.month)
 
 
-def day(d: DateTimeOffset) -> int32:
+def day(d: DateTimeOffset) -> int:
     return int32(d.day)
 
 
-def hour(d: DateTimeOffset) -> int32:
+def hour(d: DateTimeOffset) -> int:
     return int32(d.hour)
 
 
-def minute(d: DateTimeOffset) -> int32:
+def minute(d: DateTimeOffset) -> int:
     return int32(d.minute)
 
 
-def second(d: DateTimeOffset) -> int32:
+def second(d: DateTimeOffset) -> int:
     return int32(d.second)
 
 
-def millisecond(d: DateTimeOffset) -> int32:
+def millisecond(d: DateTimeOffset) -> int:
     return int32(d.microsecond // 1000)
 
 
-def microsecond(d: DateTimeOffset) -> int32:
+def microsecond(d: DateTimeOffset) -> int:
     return int32(d.microsecond % 1000)
 
 
@@ -640,17 +645,17 @@ def equals_exact(d1: DateTimeOffset, d2: DateTimeOffset) -> bool:
     return _to_utc_ms(d1) == _to_utc_ms(d2) and d1.offset_ms == d2.offset_ms
 
 
-def compare(d1: DateTimeOffset, d2: DateTimeOffset) -> int32:
+def compare(d1: DateTimeOffset, d2: DateTimeOffset) -> int:
     a = _to_utc_ms(d1)
     b = _to_utc_ms(d2)
     if a < b:
-        return int32(-1)
+        return -1
     if a > b:
-        return int32(1)
-    return int32(0)
+        return 1
+    return 0
 
 
-def compare_to(d1: DateTimeOffset, d2: DateTimeOffset) -> int32:
+def compare_to(d1: DateTimeOffset, d2: DateTimeOffset) -> int:
     return compare(d1, d2)
 
 

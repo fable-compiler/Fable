@@ -1,5 +1,5 @@
 ---
-last_commit_released: d6ae6bd3790b57b31941a118cdffaeb6a59155c3
+last_commit_released: 619d7afddbaf25108e819abaaa9d8a6503c457d6
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.5.1 - 2026-07-24
+
+### 🐞 Bug Fixes
+
+* *(js/ts,python)* Inline Option/ValueOption combinators to avoid closures and allocations (#4836) ([61cac646](https://github.com/fable-compiler/Fable/commit/61cac646e6385d82247082dbb90a98b1646560de))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/6568f35ece227fc30ce84111c8d2e975b09bac00..619d7afddbaf25108e819abaaa9d8a6503c457d6)</small></strong>
+
+## 2.5.0 - 2026-07-15
+
+### 🚀 Features
+
+* *(js/ts)* Add `System.IO.Directory` support (Exists, CreateDirectory) (#4798) ([6568f35e](https://github.com/fable-compiler/Fable/commit/6568f35ece227fc30ce84111c8d2e975b09bac00))
+* *(js/ts/python/beam)* Preserve member calls and pattern matches in quotations (#4780) ([55482e6b](https://github.com/fable-compiler/Fable/commit/55482e6b5e6306fd4dbaba5759024313cb26682a))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/a8d9bf5f0b7cc4560bb107963348e765695c22b6..6568f35ece227fc30ce84111c8d2e975b09bac00)</small></strong>
+
+## 2.4.2 - 2026-07-11
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Async cancellation propagation and continuation double-resolve (#4746) ([c78a9a8e](https://github.com/fable-compiler/Fable/commit/c78a9a8ed20234feddf3375b61e91098f9261bee))
+* *(js/ts)* Date arithmetic: PM parsing, AddMonths day clamp, AddYears offset (#4744) ([be0558eb](https://github.com/fable-compiler/Fable/commit/be0558ebe07f78f7a93ec0c34592d7c066b59fc7))
+* *(js/ts)* Int64 non-decimal parsing and BitConverter .NET mismatches (#4748) ([2704d9c5](https://github.com/fable-compiler/Fable/commit/2704d9c5daab87eb1791c0ea1b6b8b06b987247c))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/d6ae6bd3790b57b31941a118cdffaeb6a59155c3..a8d9bf5f0b7cc4560bb107963348e765695c22b6)</small></strong>
 
 ## 2.4.1 - 2026-07-09
 

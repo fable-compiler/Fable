@@ -29,6 +29,7 @@
     <Compile Include="Test/Beam.fs" />
     <Compile Include="Test/Integration.fs" />
     <Compile Include="Test/CompilerJs.fs" />
+    <Compile Include="Test/Plugins.fs" />
     <Compile Include="Quicktest/Core.fs" />
     <Compile Include="Quicktest/TypeScript.fs" />
     <Compile Include="Quicktest/JavaScript.fs" />
@@ -48,7 +49,7 @@
     <PackageReference Include="EasyBuild.Tools" Version="8.0.0" />
     <PackageReference Include="Fake.IO.FileSystem" Version="6.1.4" />
     <PackageReference Include="FsToolkit.ErrorHandling" Version="5.2.0" />
-    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.9" />
+    <PackageReference Include="Microsoft.Extensions.FileSystemGlobbing" Version="10.0.11" />
     <PackageReference Include="SimpleExec" Version="13.0.0" />
     <PackageReference Include="Thoth.Json.Net" Version="12.0.0" />
     <PackageReference Include="Semver" Version="3.0.0" />

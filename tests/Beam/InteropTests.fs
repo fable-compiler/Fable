@@ -122,6 +122,35 @@ type MyCssOptions =
     | ContentBox
     | BorderBox
 
+/// `[<CompiledValue>]` cases are genuine bool/int/float constants, not tags,
+/// so they must keep their literal rather than becoming atoms.
+[<StringEnum; RequireQualifiedAccess>]
+type MyFlags =
+    | [<CompiledValue(true)>] On
+    | [<CompiledValue(false)>] Off
+
+/// The kind argument `ets:new/2` takes — an OTP function that pattern-matches atoms
+/// and rejects binaries.
+[<StringEnum; RequireQualifiedAccess>]
+type EtsTableKind =
+    | Set
+    | [<CompiledName("ordered_set")>] OrderedSet
+
+[<Emit("erlang:is_atom($0)")>]
+let isAtom (x: obj) : bool = nativeOnly
+
+[<Emit("erlang:is_boolean($0)")>]
+let isBoolean (x: obj) : bool = nativeOnly
+
+[<Emit("ets:new(fable_string_enum_probe, [$0, public])")>]
+let etsNew (kind: EtsTableKind) : obj = nativeOnly
+
+[<Emit("ets:info($0, type)")>]
+let etsTableKind (tab: obj) : EtsTableKind = nativeOnly
+
+[<Emit("ets:delete($0)")>]
+let etsDelete (tab: obj) : unit = nativeOnly
+
 // ============================================================
 // Erlang.receive tests
 // ============================================================
@@ -443,6 +472,84 @@ let ``test StringEnum with KebabCase works`` () =
     let value = MyCssOptions.ContentBox
     let expected: string = emitErlExpr () "<<\"content-box\">>"
     equal expected (string value)
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test StringEnum compiles to an atom, not a binary`` () =
+#if FABLE_COMPILER
+    // The Beam analogue of a JS string-literal constant is an atom: OTP functions that take
+    // a tag pattern-match atoms and reject binaries.
+    equal true (isAtom (box Vertical))
+    equal true (isAtom (box Horizontal))
+    equal true (isAtom (box UserInfo.UserLoginCount))
+    equal true (isAtom (box MyCssOptions.ContentBox))
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test StringEnum atom equals the bare atom written by hand`` () =
+#if FABLE_COMPILER
+    let vertical: MyStrings = emitErlExpr () "vertical"
+    // `[<CompiledName>]` is honoured verbatim, so this one needs quoting
+    let horizontal: MyStrings = emitErlExpr () "'Horizontal'"
+    // A kebab-cased name is not a valid unquoted atom either
+    let contentBox: MyCssOptions = emitErlExpr () "'content-box'"
+    equal vertical Vertical
+    equal horizontal Horizontal
+    equal contentBox MyCssOptions.ContentBox
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test StringEnum pattern matching round-trips`` () =
+#if FABLE_COMPILER
+    let describe (x: MyStrings) =
+        match x with
+        | Vertical -> "v"
+        | Horizontal -> "h"
+
+    equal "v" (describe Vertical)
+    equal "h" (describe Horizontal)
+
+    let box_ (x: MyCssOptions) =
+        match x with
+        | MyCssOptions.ContentBox -> 1
+        | MyCssOptions.BorderBox -> 2
+
+    equal 1 (box_ MyCssOptions.ContentBox)
+    equal 2 (box_ MyCssOptions.BorderBox)
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test StringEnum atom is accepted by an OTP call`` () =
+#if FABLE_COMPILER
+    let tab = etsNew EtsTableKind.OrderedSet
+    let kind = etsTableKind tab
+    etsDelete tab
+    equal EtsTableKind.OrderedSet kind
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test StringEnum with CompiledValue stays a literal`` () =
+#if FABLE_COMPILER
+    equal true (isBoolean (box MyFlags.On))
+    equal true (isBoolean (box MyFlags.Off))
+
+    let describe (x: MyFlags) =
+        match x with
+        | MyFlags.On -> "on"
+        | MyFlags.Off -> "off"
+
+    equal "on" (describe MyFlags.On)
+    equal "off" (describe MyFlags.Off)
 #else
     ()
 #endif

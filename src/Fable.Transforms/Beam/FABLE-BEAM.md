@@ -84,7 +84,7 @@ directly to Erlang built-ins:
 | **Maps** | Library objects/dicts | Native `#{}` maps, `maps:*` |
 | **Sets** | Library Set class | Native `ordsets` (sorted lists) |
 | **Structural equality** | `Util.equals()` library call | Native `=:=` (deep comparison on all types) |
-| **Structural comparison** | `Util.compare()` library call | Native `<`, `>`, `=<`, `>=` (works on all terms) |
+| **Structural comparison** | `Util.compare()` library call | Native `<`, `>`, `=<`, `>=` for most types; `fable_comparison:compare_union/3` for DUs (see below) |
 | **Hashing** | Custom hash functions | `erlang:phash2/1` |
 | **Pattern matching** | Compiled to if/else chains | Native pattern matching in `case` expressions |
 | **Sequences** | Lazy iterators | Lazy seqs via compiled `seq.erl`/`seq2.erl` |
@@ -92,6 +92,61 @@ directly to Erlang built-ins:
 **Rule: If Erlang can do it natively, do it natively.** Only create library modules
 (`fable-library-beam/*.erl`) for operations that genuinely need helper code. Avoid
 falling through to the JS Replacements fallback for Beam-specific operations.
+
+#### Exception: ordered comparison of discriminated unions
+
+F# requires `<`, `<=`, `>`, `>=`, `compare`, sorting, `min`/`max` on a DU to order cases
+by **declaration order** (the case tag index). The Beam DU representation is tagless —
+nullary cases are bare atoms (`error`, `warning`, …) and other cases are `{atom, Field…}`
+tuples — so Erlang's native term ordering falls back to **alphabetical atom order**, which
+does not match F# semantics (e.g. `Warning <= Info` is `true` in F# but `false` for atoms).
+
+Since a value carries no case index, the compiler supplies the declaration order at the
+comparison site and routes DU comparisons through `fable_comparison:compare_union(TagOrder, A, B)`,
+where `TagOrder` is the list of case tag names in declaration order. This is wired up in
+`Beam/Replacements.fs`:
+
+- `compare` helper → `compare_union` when the operand type is an F# union (covers `compare`,
+  `GenericComparison`, `CompareTo`, and the comparer used by `List.sortWith` when the user
+  passes `compare`). Note this does **not** reach `Set`/`Map`, which use native `ordsets`/`#{}`
+  and never call `fable_comparison` — see the gaps below.
+- `makeRelational` → relational operators on unions.
+- `min`/`max` operators on unions (via the union-aware `compare` helper).
+- `List.sort`/`List.sortDescending` and `Array.sort`/`Array.sortDescending` → an inline
+  `lists:sort/2` with a `compare_union` comparator when the element type is a union.
+
+Equality (`=:=`) is already correct for unions and is left untouched.
+
+**Known gaps (routing is site-driven, so only statically-typed union comparisons are covered):**
+comparisons that reach the *generic runtime* `fable_comparison:compare/2` — or Erlang's native
+term ordering — on a union value still use alphabetical order. This affects:
+
+- `List.sortBy`/`sortByDescending` with a **union key**.
+- `List.min`/`max` and `Array.min`/`max` (native `lists:min`/`lists:max`).
+- A union used as a **field of another union** (nested comparison when outer tags are equal).
+- **`Set<union>` and `Map<union key>`** — F# Sets/Maps are ordered collections, but the Beam
+  representation is native `ordsets`/`#{}`, which order by native term ordering and never call
+  `fable_comparison`. So `Set.minElement`/`maxElement`, `Set`/`Map` iteration order,
+  `Map.toList`/`Keys`, etc. sort union elements/keys **alphabetically**, not by declaration
+  order. (Set/Map *membership* and *equality* are unaffected — those rely on `=:=`, which is
+  correct.)
+
+These are not currently exercised by the test suite.
+
+**Possible future follow-up — make the representation carry the tag index.** The complete,
+uniform fix is to encode the case's declaration index in the value itself (e.g. an
+index-first tuple `{Index, atom, Field…}`, nullary → `{Index, atom}`). Then the *generic*
+`fable_comparison:compare/2` orders correctly for **every** path — relational ops, `sortBy`,
+`min`/`max`, nested unions, generic containers — with no per-site tag lists and no gaps.
+Why it was **not** done here: (1) the tagless bare-atom / `{atom, Field…}` shape is a
+deliberate, idiomatic-Erlang design goal and is FFI-exposed (DU values flow through
+`Erlang.receive` message-passing and hand-written interop); (2) Erlang orders tuples by
+**size first**, so even an index-carrying tuple can't rely on native `=<`/`lists:sort` for
+mixed-arity unions — union comparison would still have to route through `fable_comparison`;
+(3) the blast radius is broad and must move in lockstep — `NewUnion`, `UnionCaseTest`,
+`UnionTag`, `UnionField` (offset), `Erlang.receive`, `fable_reflection` (make/get union),
+the `Result` shape (`{ok, V}` → `{Index, ok, V}`), and `%A`/`~p` printed output. If the gaps
+above start to matter in real code, revisit this representation change.
 
 ### Never modify F# tests to accommodate Erlang quirks
 
@@ -207,6 +262,70 @@ Erlang modules implementing F# core types:
 | `quicktest.fs`        | `printfn "Hello from BEAM!"`        | Done   |
 | `quicktest.fsproj`    | Project file referencing Fable.Core | Done   |
 
+## Module Naming
+
+Erlang's module namespace is **flat and global**. The atom in `-module(...)` is a module's only
+identity: neither the directory the `.erl` file sits in nor the OTP application it belongs to
+scopes it, and the code server resolves the atom across the whole code path. An `.erl` file must
+also be named after the module it declares.
+
+So every generated module name is qualified by the application it belongs to — the same
+convention OTP itself follows (`cowboy_req`, `rebar_app_info`) and that Fable's own runtime
+already used (`fable_list`, `fable_map`):
+
+| F# source                            | Erlang module           |
+| ------------------------------------ | ----------------------- |
+| `<proj>/Program.fs` in `MyApp`       | `my_app_program`        |
+| `<proj>/Misc/Util2.fs` in `MyApp`    | `my_app_misc_util2`     |
+| `../Scriptorium.Quill/DSL.fs`        | `scriptorium_quill_dsl` |
+| `fable_modules/Hedgehog.0.11/Gen.fs` | `hedgehog_gen`          |
+
+Naming a module after the bare basename of its file, as the backend used to, breaks in three ways
+— all silent at compile time and fatal at runtime:
+
+1. **OTP is shadowed.** `Gen.fs`, `Random.fs`, `String.fs`, `Timer.fs`, `Queue.fs`, ... all name
+   real OTP stdlib modules. OTP's win, and calls into the generated code raise `undef`.
+2. **Assemblies overwrite each other.** Two `DSL.fs` files in two projects both emit `dsl.erl`
+   into the flat output `src/`; the one compiled last overwrites the other **on disk**, and the
+   loser's functions vanish from the output entirely.
+3. **Files within an assembly collide** the same way (`Foo/Types.fs` vs `Bar/Types.fs`).
+
+Two exemptions:
+
+- **fable-library** keeps its bare, hand-maintained names (`fable_list`, `seq`, `range`, ...).
+  It is the one project whose *compiled* output ships as a dependency, and `getLibPath` in
+  `Transforms.Util` refers to its modules by exactly those names.
+- **Native Erlang modules** reached through `BeamInterop` (`string`, `lists`, ...) are of course
+  referenced by their own names.
+
+Naming lives in one place, `Fable.Beam.Naming.erlangModuleName` (`Beam/Prelude.fs`), because the
+code generator (which must resolve an import to the atom the imported file declared) and the CLI
+(which must write the file under the name of the module inside it) have to agree exactly.
+
+Qualification is a convention, not a guarantee, so `checkBeamModuleNames` (`Fable.Cli/Main.fs`)
+**fails the build** on the two ways it can still go wrong, rather than letting either surface as an
+`undef` at runtime:
+
+- two source files mapping to the same module name — it names both files;
+- a module name that is one of OTP's own (`Naming.otpModules`). Qualification rules out the bare
+  names, but a two-segment name can still land on a real OTP module — an app named `Gen` with a
+  `Server.fs` produces `gen_server` — and fable-library's exempt modules are not qualified at all,
+  so a `Timer.fs` added to it would silently shadow OTP's `timer`.
+
+### Entry point
+
+Since module names are qualified, the entry point of a project compiled from `Program.fs` is
+`my_app_program:main/0`, not `main:main/0`. Fable therefore also emits a small `src/main.erl`
+shim exporting `main/0` and `main/1` that forwards to it, so runners have a stable, well-known
+entry module:
+
+```sh
+erl -noshell -pa src -eval "main:main([])" -s init stop
+```
+
+As elsewhere in Fable's Beam output, the entry point is the *last* source file of the project:
+its module-level actions compile to that module's `main/0`.
+
 ## Type Mappings
 
 ### Natural fits (F# → Erlang)
@@ -215,6 +334,7 @@ Erlang modules implementing F# core types:
 | ---------------- | ---------------------- | ------------------------------------------ | ---------------------------- |
 | `int`, `float`   | `integer()`, `float()` | Direct                                     |                              |
 | `string`         | `binary()`             | `<<"hello">>`                              |                              |
+| `char`           | `integer()`            | Unicode codepoint; see caveat below        |                              |
 | `bool`           | `true \                | false`                                     | Atoms                        |
 | `unit`           | `ok`                   | Atom                                       |                              |
 | `tuple`          | `tuple`                | Direct: `{A, B, C}`                        |                              |
@@ -239,6 +359,147 @@ Erlang modules implementing F# core types:
 | **Currying**                      | Lambda wrapping (same as Python target)           | —                                    |
 | **Nested modules**                | Flat module names: `My_Module_Sub`                | One file per module                  |
 | **Computation expressions**       | Transformed at Fable AST level; async/task → CPS  | —                                    |
+
+### Known limitation: `char` at a generic type stringifies to its codepoint
+
+A `char` is a plain `integer()` at runtime — the same representation as an `int`, and the same
+choice the Dart target makes. Nothing at runtime can tell the two apart, so converting a `char` to
+a string is correct only where the compiler can still see the type statically. It can in every
+ordinary case:
+
+```fsharp
+string c                    // "2"
+c.ToString()                // "2"
+"x" + string c              // "x2"
+System.Char.ToString c      // "2"
+$"{c}"                      // "2"
+string (box c)              // "2"  — the boxing cast is still visible at the call site
+System.String.Format("{0}", c)       // "2"
+System.String.Format("{0}", box c)   // "2"
+```
+
+Boxing only survives while the cast is part of the same expression. Once the boxed char is bound to
+an `obj` — by a `let`, or by flowing through a pipe — the static type is gone before the conversion
+is reached, and these degrade to the generic case below:
+
+```fsharp
+box c |> string             // "50"  — the pipe binds it as obj first
+let b: obj = box c in string b       // "50"
+sprintf "%O" c              // "50"  — printf applies its arguments through a curried runtime
+sprintf "%A" c              // "50"  — .NET gives "'2'"
+[ box '2' ] |> List.map string       // ["50"] — element type is obj
+```
+
+The `%O`/`%A` cases are not a boxing problem but a printf one: `printf` parses its format string and
+applies its arguments at runtime, so no argument's static type reaches the formatter at all. Fixing
+those means threading per-argument type info from the call site — see "Structured formatting (`%A`)"
+below.
+
+But when `string x` is applied where `x`'s type is a *generic parameter*, the backend can only emit
+`fable_convert:to_string/1`, which sees an integer and prints the number:
+
+```fsharp
+// F# generalizes this to Op<'a> -> Op<string>, so `string c` is applied at a generic type.
+let toStr =
+    function
+    | Keep c -> Keep(string c)
+    | Drop c -> Drop(string c)
+
+[ Keep '2'; Drop '1' ] |> List.map toStr   // "5049", not "21"
+```
+
+The trigger is F# generalizing a let-bound lambda, which is easy to hit by accident — the DU is
+incidental. `%A` and structural printing of a boxed char have the same limitation.
+
+Fable erases generics by design, so there is no type witness to dispatch on. The fix is the same
+one the compiler already recommends when `typeof<'T>` fails for this reason (see
+`genericTypeInfoError` in `Replacements.Util.fs`): make the function `inline`, so the type is
+resolved at the call site.
+
+```fsharp
+let inline toStr op =
+    match op with
+    | Keep c -> Keep(string c)
+    | Drop c -> Drop(string c)
+
+[ Keep '2'; Drop '1' ] |> List.map toStr   // "21"
+```
+
+Annotating the parameter concretely (`Op<char>`) works too, for the same reason — it defeats
+generalization.
+
+Giving `char` a tagged runtime form such as `{char, 50}` would fix this everywhere, but it is a
+breaking change to a core type, costs arithmetic and comparison performance, and fights Erlang's own
+convention that strings are lists of integer codepoints. Not worth it for a case with a one-keyword
+workaround.
+
+### Structured formatting (`%A`) reads shapes, not types
+
+`%A` renders a value in F# syntax. The other targets get this for free because their generated types
+carry a real `ToString` — a JS record is a class instance, a Python record defines `__str__` — so the
+formatter just calls it. Beam has nothing to call: a record is a bare Erlang map and a union a bare
+tagged tuple, neither carrying any back-pointer to its type. Reflection does not help either, since
+every `fable_reflection` accessor takes a type-info map and a runtime value cannot produce one.
+
+So `fable_string:format_any/1` dispatches on the *shape* of the term. That gets the common cases
+right — strings are quoted, lists print as `[a; b]`, tuples as `(a, b)`, unions as `Case value`, and
+arrays are dereferenced from their ref cell to `[|a; b|]` instead of printing an opaque `#Ref<...>`.
+
+Where several F# types share one Erlang shape, the ambiguity is unresolvable and `%A` deviates from
+.NET:
+
+| Case | .NET | Beam | Why |
+| --- | --- | --- | --- |
+| record field order | declaration order | Erlang term order | a map does not remember key insertion order |
+| record/union names | original casing | reconstructed | names compile to lowercased atoms; `my_case` → `MyCase` is a convention, not a recovery |
+| `Some x` | `Some x` | `x` | `option` is erased (JS and Python collapse it too) |
+| `set [1; 2]` | `set [1; 2]` | `[1; 2]` | an F# `Set` is an ordset, i.e. a plain list |
+| `(Empty, 1)` | `(Empty, 1)` | `Empty 1` | `{empty, 1}` is also the shape of a one-field union case |
+| `'x'` | `'x'` | `120` | a `char` is an `integer()`, per the limitation above |
+| `ref 5` | `{ contents = 5 }` | `5` | a ref cell is the same process-dictionary reference an array is, with no `contents` field to name |
+| `ref [1; 2]` | `{ contents = [1; 2] }` | `[\|1; 2\|]` | the same collision, landing on the array rendering because the stored value is a list |
+| `1.0M` | `1.0M` | `10000000000000000000000000000` | a `decimal` is a fixed-scale integer (value × 10²⁸) and is indistinguishable from one |
+| `DateTime(...)` | `1/2/2024 3:04:05 AM` | `(638396498450000000, 1)` | a `DateTime` is a `{Ticks, Kind}` tuple; likewise `TimeSpan`, which is a bare integer |
+
+The last four are worse than the ambiguities above them, in that the value is not merely rendered in
+the wrong style but is unreadable. They are still shape collisions rather than bugs — nothing about
+the runtime term says "this reference is a ref cell, not an array" or "this integer is scaled" — and
+all four print at least as well as the `~p` dump they replaced.
+
+Recovering the first three needs the argument's static type threaded from the `%A` call site, where
+it does still exist: `printfn`'s `PrintfFormat<'Printer, _, _, _>` carries the per-argument types as
+a `LambdaType` chain in `CallInfo.GenericArgs`, which `NestedLambdaType` decomposes. That would mean
+emitting a `makeTypeInfo` per argument in `fsFormat` and pairing each format specifier with it in
+`create_printer` — machinery no Fable target has today, and it would still need a fallback for
+generic parameters (which erase to a placeholder) and for `%a`/`%t`/`%*d` specifiers whose arity does
+not line up with the value list.
+
+Anything the formatter does not recognise — pids, ports, a cyclic term past the depth cap — falls
+back to `~tp`, which is what `%A` did for *everything* before, so it can never be worse than it was.
+
+### Console output requires a unicode io device
+
+An F# `string` is a UTF-8 `binary()`, and every path that prints one — `Console.Write`,
+`Console.WriteLine`, `printf`/`printfn`, `eprintfn` — writes it with io's `t` (unicode) modifier
+(`~ts`). That reaches the terminal intact only on a device whose encoding is `unicode`; on the
+latin1 default of `erl -noshell` a codepoint above latin1 comes out as a `\x{2713}` escape instead.
+
+Programs started through Fable's generated `main.erl` need to do nothing: the shim's `setup_io/0`
+sets both `standard_io` and `standard_error` to unicode before calling into F#. Anything else —
+a Fable-compiled module called from a hand-written OTP release, an `escript`, a `gen_server`
+started by someone else's supervisor — has to set the device itself:
+
+```erlang
+ok = io:setopts(standard_io, [{encoding, unicode}]),
+ok = io:setopts(standard_error, [{encoding, unicode}]).
+```
+
+The `+pc unicode` VM flag is *not* a substitute: it only affects printable-list detection in `~p`,
+not the device encoding.
+
+There is no device-independent alternative to fall back on. `io:put_chars` follows the device
+encoding for both binaries and codepoint lists, so writing a string's raw bytes with `~s` would
+merely move the corruption to unicode devices instead of latin1 ones.
 
 ### Class instance representation: map vs process-dict ref
 
@@ -519,9 +780,11 @@ DecisionTree) were implemented in Phase 2. This phase adds records and structura
 - [x] Import resolution and path handling
 - [x] Export lists (`-export([...])`)
 - [x] Snake_case output filenames (matching Erlang module name convention)
+- [x] Module names qualified by their OTP app, so they can neither shadow an OTP module nor
+  collide across assemblies (see [Module Naming](#module-naming))
 - [x] Function name sanitization (`$XXXX` hex sequences from F# backtick names)
 - [x] Cross-module call resolution (derive module from `importInfo.Path`)
-- [x] Inline `assertEqual`/`assertNotEqual` assertions (no util dependency needed)
+- [x] `Assert.AreEqual`/`NotEqual` lowered to `fable_utils:assert_equal`/`assert_not_equal`
 - [x] `fable_modules/fable-library-beam/` output structure (aligned with JS/Dart/Rust targets)
 
 ### Phase 6: Error Handling -- COMPLETE
@@ -754,11 +1017,15 @@ type Module =
 
 ## Sized & Signed Integer Semantics
 
-> **Status: not yet implemented.** Erlang's native arbitrary-precision integers make
-> `int`, `int64`, and `bigint` work out of the box, so the test suite passes today without
-> fixed-width wrapping. True sized-integer overflow semantics (`int8`/`int16`/`int32` and
-> unsigned wrapping) are **not** implemented yet — the rest of this section is the design
-> plan for when they are. Strategy A (bit-syntax wrapping) remains the recommendation.
+> **Status: implemented** using Strategy A (bit-syntax wrapping), described below.
+> The wrapping helpers live in `src/fable-library-beam/fable_int.erl` (`wrap_i8`..`wrap_i64`,
+> `wrap_u8`..`wrap_u64`). Codegen routes the operations that can leave a type's width —
+> `+`, `-`, `*`, `bsl`, negation, `bnot` and narrowing conversions — through them, and masks
+> shift counts to the width the way .NET does. `band`/`bor`/`bxor`/`bsr`/`rem` cannot grow an
+> in-range value, so they stay bare. `bigint` and the fixed-scale `decimal` are never wrapped.
+>
+> Unsigned types are represented as their unsigned value (0..2^n-1), not as a signed bit
+> pattern, so `UInt64.MaxValue` is `18446744073709551615` and `bsr` is a logical shift.
 
 ### The Problem
 
@@ -961,10 +1228,12 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   Erlang resolves modules via code path (`-pa fable_modules/fable-library-beam`) rather than
   hierarchical imports. Third-party project output structure:
   `output/my_module.erl` + `output/fable_modules/fable-library-beam/{fable_list,fable_string,seq,...}.erl`.
-- **Inline assertions**: `assertEqual`/`assertNotEqual` (and their `Testing_equal`/
-  `Testing_notEqual` variants) are inlined as `case Actual =:= Expected of true -> ok;
-  false -> erlang:error({assert_equal, Expected, Actual}) end` — no runtime dependency
-  on a util module.
+- **Assertions**: `Fable.Core.Testing.Assert.AreEqual`/`NotEqual` lower to
+  `fable_utils:assert_equal`/`assert_not_equal`, which raise
+  `#{message, actual, expected}` on failure, matching JS and Python. They used to be
+  inlined at any call site whose import selector happened to be named `assertEqual`/
+  `Testing_equal` (and the `NotEqual` variants), which rewrote the body of *any*
+  same-named user function; that special case is gone.
 - **Unit parameters**: Erlang unused variable warnings suppressed by prefixing unit
   parameters with `_` via `toErlangVar` in `Fable2Beam.fs`.
 - **discardUnitArg / dropUnitCallArg**: Symmetric unit stripping matching JS/Python/Dart.
@@ -991,10 +1260,6 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   Fable's Replacements (`string:concat`) is intercepted and replaced with
   `iolist_to_binary([A, B])` since `string:concat` returns charlists, not binaries.
   `to_string` conversion lives in `fable_string:to_string/1`.
-- **Assert temp variables**: Complex expressions in assertEqual/assertNotEqual are stored
-  in temp variables (`Assert_actual_N`, `Assert_expected_N`) to avoid duplicate
-  evaluation and Erlang "unsafe variable" errors from variable bindings inside case
-  branches that get duplicated in error messages.
 - **Option representation**: `None` = `undefined` atom. Simple `Some(x)` is **erased**
   (just `x`). Nested options (`Option<Option<T>>`), `GenericParam`, and `Any` types use
   **wrapped** representation: `Some(x)` = `{some, x}`. This avoids ambiguity when
@@ -1018,6 +1283,23 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   instead of `fable_utils:iface_get` dispatch. Method names are converted via
   `sanitizeErlangName` (camelCase → snake_case). Same pattern as JS/Python but with `:` call
   syntax instead of attribute access.
+- **`[<StringEnum>]` → atoms**: `[<StringEnum>]` means "a closed set of string-literal constants
+  for interop". On JS each case lowers to a string literal because that is what a JS API expects;
+  the Beam analogue is an **atom**, not a binary — the OTP functions such a binding targets (ETS
+  table types, `logger` levels, transport names, `gen_server` name registration) pattern-match
+  atoms and reject binaries. So on Beam a case compiles to a bare atom, quoted when the name is
+  not valid unquoted atom syntax (`[<CompiledName("Horizontal")>]` → `'Horizontal'`,
+  `CaseRules.KebabCase` → `'content-box'`). This makes `[<StringEnum>]` and a plain nullary DU
+  equivalent on Beam — both are bare atoms — which is the intended end state. Consequences:
+    - `[<CompiledValue(true|1|1.0)>]` cases are genuine bool/int/float constants rather than tags,
+      and keep their literal. An explicit `[<Emit>]` on a case still wins.
+    - The type no longer maps to `Fable.String` on Beam (`makeType` in `FSharp2Fable.Util.fs`), so
+      `string x` routes through `fable_convert:to_string` (giving the atom's text as a binary)
+      instead of erasing to a no-op that would hand an atom to code expecting a binary. Ordered
+      comparison also becomes declaration-order correct, since union values now reach
+      `compare_union` (see the DU ordering section above).
+    - `[<Erase>]` unions are deliberately *not* included: an erased case with no fields keeps its
+      binary. `[<Erase>]` means "no runtime representation", not "a constant tag".
 
 - **Async/Task CE**: CPS (Continuation-Passing Style) implementation. `Async<T>` is a function
   `fun(Ctx) -> ok end` with context map `#{on_success, on_error, on_cancel, cancel_token}`.
@@ -1148,6 +1430,50 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
       its tests, mirroring .NET module initialisation (which runs before any module code).
       This is safe because Beam test modules contain no top-level side effects beyond these
       initialisers.
+- **Function reference identity** (`LanguagePrimitives.PhysicalEquality` / `ReferenceEquals`):
+  the *same* F# function value is represented by different Erlang funs at different sites —
+  uncurried (a single N-arity fun), re-curried (`fun(A0) -> fun(A1) -> F(A0, A1) end end`, from a
+  `Curry` node), or wrapped in an uncurrying (eta) adapter to fill an uncurried slot. Erlang
+  compares funs by closure identity, so these are never `=:=` even though they denote one value —
+  which made `PhysicalEquality` wrongly return `false` (e.g. a stored callback could never be
+  removed by identity). Fix: both adapter kinds are built through tagged helpers in `fable_utils` —
+  `make_curry/2` (routed from the `Curry` node in `Fable2Beam.fs`) and `make_eta/2` (routed from
+  the `EtaAdapterDelegate` pattern) — each capturing an underlying `F` inside a
+  `{fable_curry_adapter, F, N}` / `{fable_eta_adapter, F, N}` marker as the outermost fun's ONLY
+  captured variable. `fun_ref_eq/2` then peels those markers via `erlang:fun_info(F, env)` before
+  `=:=`, normalising every representation of a value to the same `F`. Both helpers apply `F` exactly
+  as the default lowering would (`make_eta` via `apply_curried`, `make_curry` via `erlang:apply` —
+  all args at once, matching the multi-arg `Apply`), so they are behaviour-identical bar the marker.
+  Key points:
+    - **Adapter cancellation** (mirrors the Python target's `curry.py` memoization, where
+      `curry(uncurry(g))` returns the cached original `g`): if `make_eta`/`make_curry` receives a
+      value that is already the *opposite*, same-arity adapter, it returns the original underlying
+      fun instead of stacking a second wrapper — `uncurry ∘ curry = curry ∘ uncurry = id`. A
+      round-tripped value is then literally the *same* fun (native `=:=` holds with no unwrap and no
+      wrapper cost), and adapters never accumulate. The marker travels inside the closure env, so
+      unlike Python's process-local `WeakKeyDictionary` this survives a fun being sent between
+      processes. The arity in the marker guards the cancellation (a mismatch wraps instead of
+      cancelling — no `badarity`). `unwrap_fun` still covers the non-round-trip case (a value stored
+      in one representation and compared against the other).
+    - This is **precise reference identity, not structural equality**: only Fable's own
+      compiler-generated adapters carry a marker, so a hand-written eta expansion (`fun x -> g x`)
+      or a partial application (which captures the collected args, so its outermost fun has >1
+      captured variable) is left intact and stays distinct — matching .NET. An earlier version used
+      a *shape heuristic* (unwrap any 1-arity fun capturing a single function) which wrongly
+      collapsed `fun x -> g x` onto `g`; the marker approach replaces it. Regression-guarded by
+      `test PhysicalEquality distinguishes eta expansion from the original`.
+    - **Arity cap 2..7** (matching `make_eta`). Functions with 8+ curried args fall back to the
+      default lowering and are not identity-preserved; extend the `make_curry_marked`/
+      `make_eta_marked` clauses if needed.
+    - **Generic call sites**: routing to `fun_ref_eq` is gated on the operand being a
+      `LambdaType`/`DelegateType` at the call site (`isFunctionType` in `Beam/Replacements.fs`). A
+      value typed as a bare generic `'T` (Fable does not monomorphise) falls back to plain `=:=`, so
+      wrapping `PhysicalEquality` in a generic helper does not get the function-aware path.
+    - **Correctness over performance**: `make_curry` sits on the pervasive currying path and adds a
+      marker allocation + `erlang:apply` per call versus the inline nested lambdas — but this is the
+      same shape of incremental-application cost the Python target already pays (`_curry_n` /
+      `_uncurry_n`), and adapter cancellation removes it entirely on round-trips. Any residue is an
+      accepted alpha-stage trade-off — a passing unit test wins over the micro-cost.
 
 ## Future Improvements
 

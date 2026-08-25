@@ -134,4 +134,52 @@ let tests =
 
                 File.Delete(moved)
         ]
+
+        testList "Directory" [
+            testCase "Directory.Exists works" <| fun () ->
+                Directory.Exists(Path.GetTempPath())
+                |> equal true
+
+            testCase "Directory.Exists returns false for non-existing directory" <| fun () ->
+                let dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
+
+                Directory.Exists(dir)
+                |> equal false
+
+            testCase "Directory.Exists returns false for a file path" <| fun () ->
+                let file = Path.GetTempFileName()
+
+                Directory.Exists(file)
+                |> equal false
+
+                File.Delete(file)
+
+            testCase "Directory.CreateDirectory creates missing parent directories" <| fun () ->
+                let baseDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
+                let nested = Path.Combine(baseDir, "a", "b", "c")
+
+                Directory.Exists(nested)
+                |> equal false
+
+                Directory.CreateDirectory(nested)
+                |> ignore
+
+                Directory.Exists(nested)
+                |> equal true
+
+                Directory.Exists(baseDir)
+                |> equal true
+
+            testCase "Directory.CreateDirectory does not throw when directory already exists" <| fun () ->
+                let dir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName())
+
+                Directory.CreateDirectory(dir)
+                |> ignore
+
+                Directory.CreateDirectory(dir)
+                |> ignore
+
+                Directory.Exists(dir)
+                |> equal true
+        ]
     ]

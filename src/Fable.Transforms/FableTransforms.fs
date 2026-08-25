@@ -230,10 +230,14 @@ let noSideEffectBeforeIdent identName expr =
         | Let(_, v, b) -> findIdentOrSideEffect v || findIdentOrSideEffect b
         | TypeCast(e, _)
         | Test(e, _, _) -> findIdentOrSideEffect e
-        | IfThenElse(cond, thenExpr, elseExpr, _) ->
-            findIdentOrSideEffect cond
-            || findIdentOrSideEffect thenExpr
-            || findIdentOrSideEffect elseExpr
+        // Only `cond` always runs; `thenExpr`/`elseExpr` are conditional, so treat them like
+        // WhileLoop/ForLoop/TryCatch/DecisionTree below (opaque, assume unsafe).
+        | IfThenElse(cond, _, _, _) ->
+            if findIdentOrSideEffect cond then
+                true
+            else
+                sideEffect <- true
+                true
         // TODO: Check member bodies in ObjectExpr
         | ObjectExpr _
         | LetRec _
@@ -441,6 +445,18 @@ module private Transforms =
             (not com.Options.DebugMode) || ident.IsCompilerGenerated
 
         match e with
+        | Let(ident, value, letBody) when
+            (not ident.IsMutable)
+            && isErasingCandidate ident
+            && countReferencesUntil 1 ident.Name letBody = 0
+            && canHaveSideEffects com value
+            ->
+            // The binding is never read but its value may have side effects (e.g. residue from
+            // inlining CE builder methods like `Combine`/`Run` that discard their argument).
+            // Keep evaluating it for its effects, but drop the now-useless named binding.
+            match letBody with
+            | Sequential exprs -> Sequential(value :: exprs)
+            | letBody -> Sequential [ value; letBody ]
         | Let(ident, value, letBody) when (not ident.IsMutable) && isErasingCandidate ident ->
             match tryInlineBinding com ident value letBody with
             | Some(ident, value) ->

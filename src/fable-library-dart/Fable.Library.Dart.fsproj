@@ -28,6 +28,7 @@
         <Content Include="String.dart" />
         <Content Include="Types.dart" />
         <Content Include="Util.dart" />
+        <Content Include="quotation.dart" />
         <Content Include="analysis_options.yaml" />
         <Content Include="pubspec.lock" />
         <Content Include="pubspec.yaml" />

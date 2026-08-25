@@ -953,6 +953,12 @@ let ``String.Split with multiple char args works`` () =
     "a;b,c".Split(',', ';') |> equal [|"a"; "b"; "c"|]
 
 [<Fact>]
+let ``String.Split with multiple string separators works`` () =
+    "1-2_3".Split([|"-"; "_"|], StringSplitOptions.None) |> equal [|"1"; "2"; "3"|]
+    "a::b;;c".Split([|"::"; ";;"|], StringSplitOptions.None) |> equal [|"a"; "b"; "c"|]
+    "a--b".Split([|"--"|], StringSplitOptions.None) |> equal [|"a"; "b"|]
+
+[<Fact>]
 let ``String.Split with string array works`` () =
     "a;b,c".Split([|","; ";"|], StringSplitOptions.None)
     |> equal [|"a"; "b"; "c"|]

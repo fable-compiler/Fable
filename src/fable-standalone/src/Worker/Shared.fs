@@ -12,17 +12,43 @@ type FSharpCodeFile =
         Content: string
     }
 
+type PrecompiledFile =
+    {
+        /// Absolute path of the F# source, as recorded in precompiled_info.json
+        Path: string
+        RootModule: string
+        OutPath: string
+    }
+
+type PrecompiledInfo =
+    {
+        CompilerVersion: string
+        Files: PrecompiledFile[]
+        /// First member name of each inline-expression chunk, from precompiled_info.json
+        InlineExprHeaders: string[]
+        /// Contents of each inline_exprs_<index>.browser.json, in the same order. Leave empty to
+        /// compile without inline support: calling an inline member then reports a missing body.
+        InlineExprChunks: string[]
+    }
+
 type WorkerRequest =
     /// * refsExtraSuffix: e.g. add .txt extension to enable gzipping in Github Pages
+    /// * precompiledInfo: from `fable precompile`; name its assembly in extraRefs as well
     | CreateChecker of
         refsDirUrl: string *
         extraRefs: string[] *
         refsExtraSuffix: string option *
-        otherFSharpOptions: string[]
+        otherFSharpOptions: string[] *
+        precompiledInfo: PrecompiledInfo option
     | ParseCode of fsharpCode: string * otherFSharpOptions: string[]
     | ParseFile of file: string * fsharpCode: FSharpCodeFile[] * otherFSharpOptions: string[]
     | CompileCode of fsharpCode: string * language: string * otherFSharpOptions: string[]
-    | CompileFiles of fsharpCode: FSharpCodeFile[] * language: string * otherFSharpOptions: string[]
+    /// filesToEmit: which files to return output for; empty means all, the rest are still type-checked
+    | CompileFiles of
+        fsharpCode: FSharpCodeFile[] *
+        filesToEmit: string[] *
+        language: string *
+        otherFSharpOptions: string[]
     | GetTooltip of id: Guid * line: int * column: int * lineText: string
     | GetCompletions of id: Guid * line: int * column: int * lineText: string
     | GetDeclarationLocation of id: Guid * line: int * column: int * lineText: string

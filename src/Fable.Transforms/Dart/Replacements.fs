@@ -4110,7 +4110,8 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
                 getTypeName com ctx loc exprType |> StringConstant |> makeValue r |> Some
             | c -> Helper.LibCall(com, "Reflection", "name", t, [ c ], ?loc = r) |> Some
         | _ -> None
-    | _ -> None
+    // F# Quotations (Expr static methods, Var members, Patterns active patterns, EvaluateQuotation)
+    | typeName -> Quotations.tryQuotationCall "quotation" com ctx r t info thisArg args typeName
 
 let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with

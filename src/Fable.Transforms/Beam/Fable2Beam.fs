@@ -139,10 +139,7 @@ let private getUnionCaseAtomExpr (com: IBeamCompiler) (ref: EntityRef) (tag: int
     | Some entity ->
         let uci = entity.UnionCases[tag]
 
-        let atomName =
-            match uci.CompiledName with
-            | Some name -> name
-            | None -> sanitizeErlangName uci.Name
+        let atomName = unionCaseTagName uci.CompiledName uci.Name
 
         let isFieldless = uci.UnionCaseFields.IsEmpty
         Some(atomName, isFieldless)
@@ -163,26 +160,28 @@ let private matchTargetIdentAndValues idents values =
 
 /// Resolve the Erlang module name for an import, returning None if it's the current module.
 let resolveImportModuleName (com: IBeamCompiler) (importPath: string) =
-    let name = moduleNameFromFile importPath
-
-    // Resolve the import path to an absolute path so we can reliably compare
-    // against the current file. Import paths may be relative (e.g., "../Foo/Types.fs")
-    // or absolute. Without resolving, two different files with the same base name
-    // (e.g., Agent/Types.fs vs Reactive/Types.fs) would both produce module name "types"
-    // and the import would be incorrectly treated as a local (self-recursive) call.
-    let resolvedImportPath =
-        if Path.IsPathRooted(importPath) then
-            Path.GetFullPath(importPath)
-        else
-            let currentDir = Path.GetDirectoryName(com.CurrentFile)
-            Path.GetFullPath(Path.Combine(currentDir, importPath))
-
-    let currentFileFull = Path.GetFullPath(com.CurrentFile)
-
-    if resolvedImportPath = currentFileFull then
-        None
+    // Imports that don't point at an F# source file name a module Fable doesn't generate:
+    // a native Erlang module (`string`, `lists`, ...) or a fable-library `.erl` file. Those
+    // are referenced by their own name.
+    if not (isFSharpSource importPath) then
+        Some(moduleNameFromFile importPath)
     else
-        Some name
+        // Resolve the import path to an absolute path so we can reliably compare against the
+        // current file, and so the module name is derived from the file's real location.
+        // Import paths may be relative (e.g., "../Foo/Types.fs") or absolute.
+        let resolvedImportPath =
+            if Path.IsPathRooted(importPath) then
+                Path.GetFullPath(importPath)
+            else
+                let currentDir = Path.GetDirectoryName(com.CurrentFile)
+                Path.GetFullPath(Path.Combine(currentDir, importPath))
+
+        let currentFileFull = Path.GetFullPath(com.CurrentFile)
+
+        if resolvedImportPath = currentFileFull then
+            None
+        else
+            Some(erlangModuleName com.ProjectFile resolvedImportPath)
 
 /// Detect whether an expression reads a *free* mutable ident — a module-level mutable
 /// not bound locally within the expression. Such reads must be snapshotted at module-init
@@ -208,6 +207,28 @@ let rec readsFreeMutable (bound: Set<string>) (expr: Expr) : bool =
         || readsFreeMutable bound limit
         || readsFreeMutable (Set.add ident.Name bound) body
     | _ -> getSubExpressions expr |> List.exists (readsFreeMutable bound)
+
+/// Matches an eta/uncurry adapter delegate: `fun(B0..Bn) -> f B0 B1 .. Bn`, where the applied
+/// arguments are exactly the delegate's parameters (same names, in order) and `f` is a captured
+/// value that does not reference any of them. Returns `(arity, f)`. Used to recognise the adapters
+/// Fable inserts to normalise a curried function to an uncurried arity, so they can be built
+/// through fable_utils:make_eta (which preserves reference identity across sites).
+let (|EtaAdapterDelegate|_|) (expr: Expr) : (int * Expr) option =
+    match expr with
+    | Delegate(args, CurriedApply(f, appArgs, _, _), _, _) when
+        List.length appArgs = List.length args
+        && List.forall2
+            (fun (a: Ident) (e: Expr) ->
+                match e with
+                | IdentExpr id -> id.Name = a.Name
+                | _ -> false
+            )
+            args
+            appArgs
+        && not (args |> List.exists (fun a -> containsIdentRef a.Name f))
+        ->
+        Some(List.length args, f)
+    | _ -> None
 
 let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.ErlExpr =
     match expr with
@@ -479,6 +500,23 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                     Body = bodyExprs
                 }
             ]
+
+    // Uncurrying (eta) adapter: fun(B0..Bn) -> f B0 .. Bn, where f is a captured function value
+    // not referencing any Bi. Fable inserts these at argument sites to normalise a curried function
+    // to the arity an uncurried slot expects. Each inline adapter is a fresh closure, so two
+    // adapters built over the same f compare unequal, breaking reference identity
+    // (LanguagePrimitives.PhysicalEquality). Route through fable_utils:make_eta, which tags the
+    // adapter so fun_ref_eq can recover f and treat them as reference-equal.
+    | EtaAdapterDelegate(arity, f) when arity >= 2 && arity <= 7 ->
+        let fExpr = transformExpr com ctx f
+        let hoisted, cleanF = extractBlock fExpr
+
+        Beam.ErlExpr.Call(
+            Some "fable_utils",
+            "make_eta",
+            [ cleanF; Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 arity)) ]
+        )
+        |> wrapWithHoisted hoisted
 
     | Delegate(args, body, _name, _tags) ->
         // Deduplicate Erlang variable names in arg patterns.
@@ -1275,6 +1313,36 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 "error",
                 [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "rethrow")) ]
             )
+        | Curry(e, arity) when
+            arity >= 2
+            && arity <= 7
+            && (
+                match e with
+                | Value(Null _, _) -> false
+                | _ ->
+                    match e.Type with
+                    | LambdaType _
+                    | DelegateType _ -> true
+                    | _ -> false
+            )
+            ->
+            // Re-curry an uncurried function into `arity` nested 1-arg funs. The default lowering
+            // (curryExprAtRuntime) builds a fresh nested-lambda closure at each site, so two curry
+            // adapters over the *same* underlying function compare unequal, breaking reference
+            // identity (LanguagePrimitives.PhysicalEquality). Route through fable_utils:make_curry,
+            // which tags the adapter with a `{fable_curry_adapter, F}` marker so fun_ref_eq can
+            // recover F and treat all adapters over it as reference-equal. make_curry applies F with
+            // all args at once (erlang:apply), matching the default multi-arg Apply lowering exactly,
+            // so it is behaviour-identical bar the marker. See Beam/FABLE-BEAM.md.
+            let eExpr = transformExpr com ctx e
+            let hoisted, cleanE = extractBlock eExpr
+
+            Beam.ErlExpr.Call(
+                Some "fable_utils",
+                "make_curry",
+                [ cleanE; Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 arity)) ]
+            )
+            |> wrapWithHoisted hoisted
         | Curry(e, arity) -> transformExpr com ctx (Replacements.Api.curryExprAtRuntime com arity e)
         | Debugger ->
             com.WarnOnlyOnce("System.Diagnostics.Debugger is not supported for Beam target, ignoring")
@@ -1471,7 +1539,10 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
     | NumberConstant(NumberValue.Int16 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
     | NumberConstant(NumberValue.UInt16 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
     | NumberConstant(NumberValue.UInt32 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
-    | NumberConstant(NumberValue.UInt64 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+    // Unsigned 64-bit values are represented as the unsigned integer they are, so the
+    // upper half of the range does not fit in an int64 literal (`UInt64.MaxValue` would
+    // otherwise print as -1). Erlang integers are unbounded, so print the digits directly.
+    | NumberConstant(NumberValue.UInt64 i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<uint64> i))
     | NumberConstant(NumberValue.Float32 f, _) ->
         let d = float f
 
@@ -1484,7 +1555,7 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         else
             Beam.ErlExpr.Literal(Beam.ErlLiteral.Float d)
     | NumberConstant(NumberValue.NativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
-    | NumberConstant(NumberValue.UNativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 i))
+    | NumberConstant(NumberValue.UNativeInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<unativeint> i))
     | NumberConstant(NumberValue.BigInt i, _) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<bigint> i))
     | NumberConstant(NumberValue.Decimal d, _) ->
         // Decimal as fixed-scale integer: value × 10^28
@@ -1568,6 +1639,11 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         let toStringExpr erlValue (typ: Fable.AST.Fable.Type) =
             match typ with
             | Fable.AST.Fable.Type.String -> erlValue
+            // A `char` is a plain integer at runtime, so the generic `fable_string:to_string` would
+            // take its `is_integer` clause and print the codepoint. The type is known here, so
+            // encode it as UTF-8 directly — the same thing `Convert.ToString` and `obj.ToString()`
+            // do for `Type.Char` in Beam's Replacements.
+            | Fable.AST.Fable.Type.Char -> Beam.ErlExpr.Call(Some "fable_char", "to_string", [ erlValue ])
             | Fable.AST.Fable.Type.Number(kind, _) ->
                 match kind with
                 | Float16
@@ -1600,7 +1676,9 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
                 ([ Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit firstPart) ], List.zip values restParts)
                 ||> List.fold (fun acc (value, part) ->
                     let erlValue = transformExpr com ctx value
-                    let stringified = toStringExpr erlValue value.Type
+                    // F# boxes every interpolation hole, so `$"{c}"` on a char arrives here as a
+                    // cast to `Any` with the char type visible only underneath.
+                    let stringified = toStringExpr erlValue (Fable.Beam.Chars.unboxedType value)
                     acc @ [ stringified; Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit part) ]
                 )
 
@@ -1754,7 +1832,50 @@ and transformOperation
                 | BinaryAndBitwise -> "band"
                 | BinaryExponent -> "+" // unreachable, handled above
 
-            Beam.ErlExpr.BinOp(erlOp, cleanLeft, cleanRight) |> wrapWithHoisted allHoisted
+            // .NET only uses the low bits of a shift count (`x <<< 32` is `x` for an
+            // int32); Erlang would shift by the full amount.
+            let cleanRight =
+                match op, sizedIntInfo typ with
+                | (BinaryShiftLeft | BinaryShiftRightSignPropagating | BinaryShiftRightZeroFill), Some(bits, _) ->
+                    maskShiftCount bits cleanRight
+                | _ -> cleanRight
+
+            // Erlang's `bsr` propagates the sign, so a zero-filling shift of a *signed*
+            // value has to shift its unsigned reinterpretation instead.
+            let unsignedTyp =
+                match op, typ with
+                | BinaryShiftRightZeroFill, Fable.AST.Fable.Type.Number(kind, info) ->
+                    match kind with
+                    | Int8 -> Some(Fable.AST.Fable.Type.Number(UInt8, info))
+                    | Int16 -> Some(Fable.AST.Fable.Type.Number(UInt16, info))
+                    | Int32 -> Some(Fable.AST.Fable.Type.Number(UInt32, info))
+                    | Int64 -> Some(Fable.AST.Fable.Type.Number(UInt64, info))
+                    | NativeInt -> Some(Fable.AST.Fable.Type.Number(UNativeInt, info))
+                    | _ -> None
+                | _ -> None
+
+            let cleanLeft =
+                match unsignedTyp with
+                | Some unsignedTyp -> wrapToIntType unsignedTyp cleanLeft
+                | None -> cleanLeft
+
+            let result = Beam.ErlExpr.BinOp(erlOp, cleanLeft, cleanRight)
+
+            // Erlang integers are unbounded, so anything that can leave the width of a
+            // sized .NET integer has to be truncated back into it. `band`/`bor`/`bxor`/
+            // `bsr`/`rem` cannot grow an in-range value, so they stay bare.
+            let result =
+                match op with
+                | BinaryPlus
+                | BinaryMinus
+                | BinaryMultiply
+                | BinaryShiftLeft -> wrapToIntType typ result
+                // A zero-filled shift of a signed value was done on the unsigned
+                // reinterpretation, so it has to come back to the signed one.
+                | BinaryShiftRightZeroFill when unsignedTyp.IsSome -> wrapToIntType typ result
+                | _ -> result
+
+            result |> wrapWithHoisted allHoisted
 
     | Unary(op, operand) ->
         let erlOperand = transformExpr com ctx operand
@@ -1762,10 +1883,13 @@ and transformOperation
 
         let result =
             match op with
-            | UnaryMinus -> Beam.ErlExpr.UnaryOp("-", cleanOperand)
+            // Negation leaves the width for the minimum signed value (`-Int32.MinValue`
+            // is `Int32.MinValue`) and for every non-zero unsigned value.
+            | UnaryMinus -> Beam.ErlExpr.UnaryOp("-", cleanOperand) |> wrapToIntType typ
             | UnaryPlus -> cleanOperand
             | UnaryNot -> Beam.ErlExpr.UnaryOp("not", cleanOperand)
-            | UnaryNotBitwise -> Beam.ErlExpr.UnaryOp("bnot", cleanOperand)
+            // `bnot` of an unsigned value is negative in Erlang, so it needs wrapping back.
+            | UnaryNotBitwise -> Beam.ErlExpr.UnaryOp("bnot", cleanOperand) |> wrapToIntType typ
             | UnaryAddressOf ->
                 // For mutable variables, pass the atom key (process dict key)
                 // instead of the dereferenced value. This enables out-parameter support
@@ -2047,10 +2171,7 @@ and transformReceive (com: IBeamCompiler) (ctx: Context) (emitInfo: EmitInfo) (t
                 entity.UnionCases
                 |> List.mapi (fun tag uci ->
                     // Determine atom tag: CompiledName if set, otherwise snake_case of Name
-                    let atomName =
-                        match uci.CompiledName with
-                        | Some name -> name
-                        | None -> sanitizeErlangName uci.Name
+                    let atomName = unionCaseTagName uci.CompiledName uci.Name
 
                     let fields = uci.UnionCaseFields
                     let fieldCount = fields.Length
@@ -2138,132 +2259,6 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
         let importModuleName = resolveImportModuleName com importInfo.Path
 
         match importInfo.Selector with
-        | "assertEqual"
-        | "Testing_equal" ->
-            match info.Args with
-            | actual :: expected :: _ ->
-                let erlActual = transformExpr com ctx actual
-                let erlExpected = transformExpr com ctx expected
-                let actualHoisted, cleanActual = extractBlock erlActual
-                let expectedHoisted, cleanExpected = extractBlock erlExpected
-                let allHoisted = actualHoisted @ expectedHoisted
-                // Store complex expressions in temp variables to avoid duplicate evaluation
-                // and Erlang "unsafe variable" errors
-                let counter = com.IncrementCounter()
-
-                let storeIfComplex name expr =
-                    match expr with
-                    | Beam.ErlExpr.Literal _
-                    | Beam.ErlExpr.Variable _ -> ([], expr)
-                    | _ ->
-                        let varName = $"%s{name}_%d{counter}"
-                        ([ Beam.ErlExpr.Match(Beam.PVar varName, expr) ], Beam.ErlExpr.Variable varName)
-
-                let tempActualH, useActual = storeIfComplex "Assert_actual" cleanActual
-                let tempExpectedH, useExpected = storeIfComplex "Assert_expected" cleanExpected
-
-                Beam.ErlExpr.Case(
-                    Beam.ErlExpr.Call(Some "fable_comparison", "equals", [ useActual; useExpected ]),
-                    [
-                        {
-                            Pattern = Beam.PLiteral(Beam.BoolLit true)
-                            Guard = []
-                            Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "ok")) ]
-                        }
-                        {
-                            Pattern = Beam.PLiteral(Beam.BoolLit false)
-                            Guard = []
-                            Body =
-                                [
-                                    Beam.ErlExpr.Call(
-                                        Some "erlang",
-                                        "error",
-                                        [
-                                            Beam.ErlExpr.Tuple
-                                                [
-                                                    Beam.ErlExpr.Literal(
-                                                        Beam.ErlLiteral.AtomLit(Beam.Atom "assert_equal")
-                                                    )
-                                                    useExpected
-                                                    useActual
-                                                ]
-                                        ]
-                                    )
-                                ]
-                        }
-                    ]
-                )
-                |> wrapWithHoisted (allHoisted @ tempActualH @ tempExpectedH)
-            | _ ->
-                Beam.ErlExpr.Call(
-                    Some "erlang",
-                    "error",
-                    [
-                        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "assert_equal_bad_args"))
-                    ]
-                )
-        | "assertNotEqual"
-        | "Testing_notEqual" ->
-            match info.Args with
-            | actual :: expected :: _ ->
-                let erlActual = transformExpr com ctx actual
-                let erlExpected = transformExpr com ctx expected
-                let actualHoisted, cleanActual = extractBlock erlActual
-                let expectedHoisted, cleanExpected = extractBlock erlExpected
-                let allHoisted = actualHoisted @ expectedHoisted
-                let counter = com.IncrementCounter()
-
-                let storeIfComplex name expr =
-                    match expr with
-                    | Beam.ErlExpr.Literal _
-                    | Beam.ErlExpr.Variable _ -> ([], expr)
-                    | _ ->
-                        let varName = $"%s{name}_%d{counter}"
-                        [ Beam.ErlExpr.Match(Beam.PVar varName, expr) ], Beam.ErlExpr.Variable varName
-
-                let tempActualH, useActual = storeIfComplex "Assert_actual" cleanActual
-                let tempExpectedH, useExpected = storeIfComplex "Assert_expected" cleanExpected
-
-                Beam.ErlExpr.Case(
-                    Beam.ErlExpr.Call(Some "fable_comparison", "equals", [ useActual; useExpected ]),
-                    [
-                        {
-                            Pattern = Beam.PLiteral(Beam.BoolLit false)
-                            Guard = []
-                            Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "ok")) ]
-                        }
-                        {
-                            Pattern = Beam.PLiteral(Beam.BoolLit true)
-                            Guard = []
-                            Body =
-                                [
-                                    Beam.ErlExpr.Call(
-                                        Some "erlang",
-                                        "error",
-                                        [
-                                            Beam.ErlExpr.Tuple
-                                                [
-                                                    Beam.ErlExpr.Literal(
-                                                        Beam.ErlLiteral.AtomLit(Beam.Atom "assert_not_equal")
-                                                    )
-                                                    useExpected
-                                                    useActual
-                                                ]
-                                        ]
-                                    )
-                                ]
-                        }
-                    ]
-                )
-                |> wrapWithHoisted (allHoisted @ tempActualH @ tempExpectedH)
-            | _ ->
-                Beam.ErlExpr.Call(
-                    Some "erlang",
-                    "error",
-                    [
-                        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "assert_not_equal_bad_args"))
-                    ]
-                )
         | "concat" when importModuleName = Some "string" ->
             // String.Concat from JS Replacements → use binary concatenation
             let args = info.Args |> List.map (transformExpr com ctx)
@@ -3292,11 +3287,66 @@ and transformClassDeclaration
                     [ Beam.ErlForm.Function funcDef ]
         )
 
+    // Reflection function for records and unions: `<entity>_reflection(Gen0, ..., GenN)`.
+    // Emitting it here (rather than inlining the type info at each `typeof`) gives the
+    // by-name indirection that lets recursive types describe themselves.
+    let reflectionForms =
+        if ent.IsFSharpRecord || ent.IsFSharpUnion then
+            let genArgPatterns =
+                ent.GenericParameters
+                |> List.mapi (fun i _ -> Beam.PVar(Reflection.reflectionGenArgVar i))
+
+            let funcDef: Beam.ErlFunctionDef =
+                {
+                    Name = Beam.Atom(Reflection.reflectionFuncName decl.Name)
+                    Arity = genArgPatterns.Length
+                    Clauses =
+                        [
+                            {
+                                Patterns = genArgPatterns
+                                Guard = []
+                                Body = [ Reflection.transformEntityReflectionBody com ent ]
+                            }
+                        ]
+                }
+
+            [ Beam.ErlForm.Function funcDef ]
+        else
+            []
+
+    // The reflection function shares the Erlang function namespace with the entity's members,
+    // and `sanitizeErlangName` is lossy enough that a member can mangle onto its name (a member
+    // `TreeReflection` on a type `Tree` both give `tree_reflection`). The dedup below keeps the
+    // first form, so the collision would silently drop the reflection function and leave every
+    // `typeof` for this entity calling the member instead. Report it rather than miscompile.
+    for form in reflectionForms do
+        match form with
+        | Beam.ErlForm.Function reflectionDef ->
+            let clashes =
+                memberForms
+                |> List.exists (fun memberForm ->
+                    match memberForm with
+                    | Beam.ErlForm.Function memberDef ->
+                        memberDef.Name = reflectionDef.Name && memberDef.Arity = reflectionDef.Arity
+                    | _ -> false
+                )
+
+            if clashes then
+                let (Beam.Atom name) = reflectionDef.Name
+
+                com.AddLog(
+                    $"Member of '%s{decl.Name}' collides with its generated reflection function '%s{name}/%d{reflectionDef.Arity}'. Rename the member.",
+                    Severity.Error,
+                    fileName = com.CurrentFile,
+                    tag = "FABLE"
+                )
+        | _ -> ()
+
     // Deduplicate functions by name+arity. This can happen when a property setter
     // (e.g., `set StatusCode`) and a method (e.g., `SetStatusCode`) both mangle to
     // the same Erlang function name. Unlike JS/Python which have native getter/setter
     // syntax, Erlang uses plain functions so name collisions produce duplicate definitions.
-    let allForms = constructorForms @ memberForms
+    let allForms = constructorForms @ memberForms @ reflectionForms
 
     let dedup =
         allForms
@@ -3516,27 +3566,9 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                 | Beam.ErlExpr.Block exprs -> exprs
                 | expr -> [ expr ]
 
-            // The value initializer of a module-level mutable/snapshot is spliced into the
-            // shared main/0 clause. A multi-statement body binds local Erlang variables (from
-            // F# `let`s); since Erlang `begin...end` does not introduce a new scope, two such
-            // initializers reusing the same variable name would clash in main/0. Wrap a
-            // multi-statement body in an immediately-invoked `fun` so its locals stay isolated.
-            // A single-expression body needs no wrapper.
-            let initValue =
-                match body with
-                | [ single ] -> single
-                | _ ->
-                    Beam.ErlExpr.Apply(
-                        Beam.ErlExpr.Fun
-                            [
-                                {
-                                    Patterns = []
-                                    Guard = []
-                                    Body = body
-                                }
-                            ],
-                        []
-                    )
+            // The value initializer of a module-level mutable/snapshot is spliced into the shared
+            // main/0 clause, so its locals must not leak into it (see `isolateScope`).
+            let initValue = isolateScope body
 
             // Module-level mutable values (no args, IsMutable) are stored in the process
             // dictionary so they can be updated. Emit a main/0 that initializes the value
@@ -3623,6 +3655,11 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
             | Beam.ErlExpr.Block exprs -> exprs
             | expr -> [ expr ]
 
+        // Every top-level effect emits its own main/0, and those are merged into a single clause
+        // (see the fold over declarations below), so each effect's locals must not leak into it
+        // (see `isolateScope`).
+        let isolatedBody = [ isolateScope body ]
+
         let funcDef: Beam.ErlFunctionDef =
             {
                 Name = Beam.Atom "main"
@@ -3632,7 +3669,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
                         {
                             Patterns = []
                             Guard = []
-                            Body = body
+                            Body = isolatedBody
                         }
                     ]
             }
@@ -3647,7 +3684,7 @@ and transformDeclaration (com: IBeamCompiler) (ctx: Context) (decl: Declaration)
         transformClassDeclaration com ctx className ent decl
 
 let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
-    let moduleName = moduleNameFromFile com.CurrentFile
+    let moduleName = erlangModuleName com.ProjectFile com.CurrentFile
 
     let ctx =
         {

@@ -58,6 +58,43 @@ let private transformBaseConsCall
         // Other cases, like Emit will call directly the base expression
         | e -> e
 
+/// A `[<StringEnum>]` case as an Erlang atom.
+///
+/// `[<StringEnum>]` means "a closed set of string-literal constants for interop", and the Beam
+/// analogue of a JS string literal is an atom, not a binary: the OTP functions such a binding
+/// targets (ETS table types, `logger` levels, `gen_server` names, ...) pattern-match atoms and
+/// reject binaries. This is the representation a plain nullary DU already gets on Beam, so after
+/// this the two spellings are equivalent there.
+///
+/// `[<CompiledValue>]` cases are genuine bool/int/float constants rather than tags and keep their
+/// literal, and an explicit `[<Emit>]` on the case still wins — both fall through to the shared path.
+let private transformStringEnumAsAtom (rule: Fable.Core.CaseRules) (unionCase: FSharpUnionCase) =
+    let atom name =
+        let emitInfo: Fable.EmitInfo =
+            {
+                // Quoted unless it already matches Erlang's unquoted atom syntax: a case rule or a
+                // `[<CompiledName>]` can produce text (`content-box`, `Horizontal`) that needs it.
+                Macro = Fable.Beam.Naming.quoteErlangAtom name
+                IsStatement = false
+                CallInfo = Fable.CallInfo.Create()
+            }
+
+        Fable.Emit(emitInfo, Fable.Any, None)
+
+    match FsUnionCase.CompiledName unionCase, FsUnionCase.CompiledValue unionCase with
+    | Some name, _ -> atom name
+    | _, Some _ -> transformStringEnum rule unionCase
+    | None, None ->
+        match unionCase.Attributes |> tryFindAttrib Atts.emitAttr with
+        | Some _ -> transformStringEnum rule unionCase
+        | None -> Naming.applyCaseRule rule unionCase.Name |> atom
+
+/// The value a `[<StringEnum>]` case compiles to: an atom on Beam, a string literal everywhere else.
+let private transformStringEnumCase (com: Compiler) (rule: Fable.Core.CaseRules) (unionCase: FSharpUnionCase) =
+    match com.Options.Language with
+    | Beam -> transformStringEnumAsAtom rule unionCase
+    | _ -> transformStringEnum rule unionCase
+
 let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (argExprs: Fable.Expr list) =
     match getUnionPattern fsType unionCase with
     | ErasedUnionCase -> makeTuple r false argExprs
@@ -109,7 +146,7 @@ let private transformNewUnion com ctx r fsType (unionCase: FSharpUnionCase) (arg
 
     | StringEnum(tdef, rule) ->
         match argExprs with
-        | [] -> transformStringEnum rule unionCase
+        | [] -> transformStringEnumCase com rule unionCase
         | _ ->
             $"StringEnum types cannot have fields: %O{tdef.TryFullName}"
             |> addErrorAndReturnNull com ctx.InlinePath r
@@ -565,7 +602,7 @@ let private transformUnionCaseTest
                 match fableType with
                 | Fable.Any ->
                     return
-                        $"Erased union case '{unionCase.Name}' is typed as 'obj' which cannot be tested at runtime (type test always evaluates to true). Use a more specific type or TypeScriptTaggedUnion instead."
+                        $"Erased union case '%s{unionCase.Name}' is typed as 'obj' which cannot be tested at runtime (type test always evaluates to true). Use a more specific type or TypeScriptTaggedUnion instead."
                         |> addErrorAndReturnNull com ctx.InlinePath r
                 | _ ->
                     let kind = fableType |> Fable.TypeTest
@@ -604,7 +641,7 @@ let private transformUnionCaseTest
             let kind = Fable.ListTest(unionCase.CompiledName <> "Empty")
             return Fable.Test(unionExpr, kind, r)
 
-        | StringEnum(_, rule) -> return makeEqOp r unionExpr (transformStringEnum rule unionCase) BinaryEqual
+        | StringEnum(_, rule) -> return makeEqOp r unionExpr (transformStringEnumCase com rule unionCase) BinaryEqual
 
         | DiscriminatedUnion(tdef, _) ->
             let tag = unionCaseTag com tdef unionCase
@@ -840,6 +877,17 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             // In Dart we don't want the compiler to pass default values other than null to [<Optional>] args
             | Dart -> return Fable.Value(Fable.Null typ, r)
             | _ -> return Replacements.Api.defaultof com ctx r typ
+
+        // `for i in start .. ±1 .. stop do` does not get F#'s fast counted-loop
+        // lowering (only `to`/`downto` do), so it would allocate a range sequence +
+        // enumerator. Emit a plain `Fable.ForLoop` instead, as `to`/`downto` produce.
+        | ForOfConstStepRange(var, startExpr, step, stopExpr, bodyExpr) ->
+            let r = makeRangeFrom fsExpr
+            let! start = transformExpr com ctx [] startExpr
+            let! limit = transformExpr com ctx [] stopExpr
+            let ctx, ident = putIdentInScope com ctx var None
+            let! body = transformExpr com ctx [] bodyExpr
+            return makeForLoop r (step = 1) ident start limit body
 
         | FSharpExprPatterns.Let((var, value, _), body) ->
             match value with
@@ -1145,23 +1193,38 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
         | FSharpExprPatterns.IfThenElse(guardExpr, thenExpr, elseExpr) ->
             let! guardExpr = transformExpr com ctx [] guardExpr
-            let! thenExpr = transformExpr com ctx [] thenExpr
-            let! fableElseExpr = transformExpr com ctx [] elseExpr
 
-            let altElseExpr =
-                match elseExpr with
-                | RaisingMatchFailureExpr _infoWhereErrorOccurs ->
-                    let errorMessage = "Match failure"
-                    let rangeOfElseExpr = makeRangeFrom elseExpr
+            match guardExpr with
+            // Skip translating the unreachable branch (e.g. Compiler.isXxx), so target-specific
+            // calls there can't fail. Not for quotations: they must keep the literal structure.
+            | Fable.Value(Fable.BoolConstant value, _) when not ctx.CapturingQuotation ->
+                return!
+                    transformExpr
+                        com
+                        ctx
+                        []
+                        (if value then
+                             thenExpr
+                         else
+                             elseExpr)
+            | _ ->
+                let! thenExpr = transformExpr com ctx [] thenExpr
+                let! fableElseExpr = transformExpr com ctx [] elseExpr
 
-                    let errorExpr =
-                        Fable.Value(Fable.StringConstant errorMessage, None)
-                        |> Replacements.Api.error com
+                let altElseExpr =
+                    match elseExpr with
+                    | RaisingMatchFailureExpr _infoWhereErrorOccurs ->
+                        let errorMessage = "Match failure"
+                        let rangeOfElseExpr = makeRangeFrom elseExpr
 
-                    makeThrow rangeOfElseExpr Fable.Any errorExpr
-                | _ -> fableElseExpr
+                        let errorExpr =
+                            Fable.Value(Fable.StringConstant errorMessage, None)
+                            |> Replacements.Api.error com
 
-            return Fable.IfThenElse(guardExpr, thenExpr, altElseExpr, makeRangeFrom fsExpr)
+                        makeThrow rangeOfElseExpr Fable.Any errorExpr
+                    | _ -> fableElseExpr
+
+                return Fable.IfThenElse(guardExpr, thenExpr, altElseExpr, makeRangeFrom fsExpr)
 
         | FSharpExprPatterns.TryFinally(body, finalBody, _, _) ->
             let r = makeRangeFrom fsExpr
@@ -1503,7 +1566,8 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
                     |> addErrorAndReturnNull com ctx.InlinePath (makeRangeFrom fsExpr)
 
         | FSharpExprPatterns.Quote quotedExpr ->
-            let! body = transformExpr com ctx [] quotedExpr
+            // Capturing mode: member calls keep their .NET metadata instead of being replaced/emitted/inlined.
+            let! body = transformExpr com { ctx with CapturingQuotation = true } [] quotedExpr
             let exprType = fsExpr.Type
             let isTyped = exprType.GenericArguments.Count > 0
             return Fable.Quote(body, isTyped, makeRangeFrom fsExpr)

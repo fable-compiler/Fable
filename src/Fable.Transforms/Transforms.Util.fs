@@ -1430,6 +1430,16 @@ module AST =
         | h1 :: t1, h2 :: t2 -> f h1 h2 && listEquals f t1 t2
         | _ -> false
 
+    /// SourcePath and PrecompiledLib denote the same entity when they carry the same source file
+    let entityRefEquals (ent1: EntityRef) (ent2: EntityRef) =
+        ent1.FullName = ent2.FullName
+        && (ent1.Path = ent2.Path
+            || (
+                match ent1.SourcePath, ent2.SourcePath with
+                | Some path1, Some path2 -> path1 = path2
+                | _ -> false
+            ))
+
     /// When strict is false doesn't take generic params into account (e.g. when solving SRTP)
     let rec typeEquals strict typ1 typ2 =
         match typ1, typ2 with
@@ -1450,7 +1460,8 @@ module AST =
         | LambdaType(a1, t1), LambdaType(a2, t2) -> typeEquals strict a1 a2 && typeEquals strict t1 t2
         | DelegateType(as1, t1), DelegateType(as2, t2) ->
             listEquals (typeEquals strict) as1 as2 && typeEquals strict t1 t2
-        | DeclaredType(ent1, gen1), DeclaredType(ent2, gen2) -> ent1 = ent2 && listEquals (typeEquals strict) gen1 gen2
+        | DeclaredType(ent1, gen1), DeclaredType(ent2, gen2) ->
+            entityRefEquals ent1 ent2 && listEquals (typeEquals strict) gen1 gen2
         | GenericParam _, _
         | _, GenericParam _ when not strict -> true
         | GenericParam(name = name1), GenericParam(name = name2) -> name1 = name2
