@@ -12,6 +12,7 @@ pub mod Uri_ {
         original: string,
         relative: string,    // raw string for relative URIs
         schemePart: string,
+        userInfoPart: string,
         hostPart: string,
         port: i32,           // -1 when no explicit port
         pathPart: string,
@@ -96,13 +97,21 @@ pub mod Uri_ {
         port == -1
             || (scheme == "http" && port == 80)
             || (scheme == "https" && port == 443)
+            || (scheme == "ftp" && port == 21)
+            || (scheme == "ws" && port == 80)
+            || (scheme == "wss" && port == 443)
     }
 
-    fn authority_str(scheme: &str, host: &str, port: i32) -> String {
-        if is_default_port(scheme, port) {
+    fn authority_str(scheme: &str, user_info: &str, host: &str, port: i32) -> String {
+        let host_port = if is_default_port(scheme, port) {
             host.to_string()
         } else {
             format!("{}:{}", host, port)
+        };
+        if user_info.is_empty() {
+            host_port
+        } else {
+            format!("{}@{}", user_info, host_port)
         }
     }
 
@@ -135,8 +144,8 @@ pub mod Uri_ {
 
     // parse scheme://host:port/path?query#fragment , or the authority-less
     // form scheme:path?query#fragment (mailto:, tel:, urn:, ...).
-    // Returns (scheme, hasAuthority, host, port, path, query, fragment).
-    fn parse_absolute(s: &str) -> (String, bool, String, i32, String, String, String) {
+    // Returns (scheme, hasAuthority, userInfo, host, port, path, query, fragment).
+    fn parse_absolute(s: &str) -> (String, bool, String, String, i32, String, String, String) {
         let idx = scheme_end(s).unwrap();
         let scheme = s[..idx].to_ascii_lowercase();
         let after = &s[idx + 1..]; // everything after "scheme:"
@@ -148,16 +157,34 @@ pub mod Uri_ {
                 let authority = &rest[..auth_end];
                 let remainder = &rest[auth_end..];
 
-                let (host, port) = match authority.rfind(':') {
-                    Some(ci) => {
-                        let h = &authority[..ci];
-                        let p = &authority[ci + 1..];
-                        match p.parse::<i32>() {
-                            Ok(n) => (h.to_ascii_lowercase(), n),
-                            Err(_) => (authority.to_ascii_lowercase(), -1),
+                let (user_info, host_port) = match authority.rfind('@') {
+                    Some(index) => (authority[..index].to_string(), &authority[index + 1..]),
+                    None => (String::new(), authority),
+                };
+                let (host, port) = if host_port.starts_with('[') {
+                    match host_port.find(']') {
+                        Some(end) => {
+                            let host = host_port[..=end].to_ascii_lowercase();
+                            let port = host_port[end + 1..]
+                                .strip_prefix(':')
+                                .and_then(|value| value.parse::<i32>().ok())
+                                .unwrap_or(-1);
+                            (host, port)
                         }
+                        None => (host_port.to_ascii_lowercase(), -1),
                     }
-                    None => (authority.to_ascii_lowercase(), -1),
+                } else {
+                    match host_port.rfind(':') {
+                        Some(ci) => {
+                            let h = &host_port[..ci];
+                            let p = &host_port[ci + 1..];
+                            match p.parse::<i32>() {
+                                Ok(n) => (h.to_ascii_lowercase(), n),
+                                Err(_) => (host_port.to_ascii_lowercase(), -1),
+                            }
+                        }
+                        None => (host_port.to_ascii_lowercase(), -1),
+                    }
                 };
 
                 let (before_frag, fragment) = match remainder.find('#') {
@@ -169,7 +196,7 @@ pub mod Uri_ {
                     None => (before_frag.to_string(), String::new()),
                 };
                 let path = if path.is_empty() { "/".to_string() } else { path };
-                (scheme, true, host, port, path, query, fragment)
+                (scheme, true, user_info, host, port, path, query, fragment)
             }
             None => {
                 // authority-less: scheme:path?query#fragment (no host/port)
@@ -181,19 +208,20 @@ pub mod Uri_ {
                     Some(qi) => (before_frag[..qi].to_string(), before_frag[qi..].to_string()),
                     None => (before_frag.to_string(), String::new()),
                 };
-                (scheme, false, String::new(), -1, path, query, fragment)
+                (scheme, false, String::new(), String::new(), -1, path, query, fragment)
             }
         }
     }
 
     fn parse_abs_uri(orig: &str) -> Uri {
-        let (scheme, has_authority, host, port, path, query, fragment) = parse_absolute(orig);
+        let (scheme, has_authority, user_info, host, port, path, query, fragment) = parse_absolute(orig);
         Uri {
             isAbsolute: true,
             hasAuthority: has_authority,
             original: fromSlice(orig),
             relative: string(""),
             schemePart: fromString(scheme),
+            userInfoPart: fromString(user_info),
             hostPart: fromString(host),
             port,
             pathPart: fromString(path),
@@ -209,6 +237,7 @@ pub mod Uri_ {
             original: fromSlice(orig),
             relative: fromSlice(orig),
             schemePart: string(""),
+            userInfoPart: string(""),
             hostPart: string(""),
             port: -1,
             pathPart: string(""),
@@ -227,9 +256,10 @@ pub mod Uri_ {
             None => (rel, String::new()),
         };
         let (rel_path, query) = match before_frag.find('?') {
-            Some(qi) => (before_frag[..qi].to_string(), before_frag[qi..].to_string()),
-            None => (before_frag.to_string(), String::new()),
+            Some(qi) => (before_frag[..qi].to_string(), Some(before_frag[qi..].to_string())),
+            None => (before_frag.to_string(), None),
         };
+        let rel_path_is_empty = rel_path.is_empty();
         let base_path = base.pathPart.as_str();
         let merged_path = if rel_path.is_empty() {
             base_path.to_string()
@@ -241,16 +271,32 @@ pub mod Uri_ {
         };
         // RFC 3986 §5.2.4: collapse `.`/`..` segments in the merged path.
         let new_path = remove_dot_segments(&merged_path);
+        let query = match query {
+            Some(query) => query,
+            None if rel_path_is_empty => base.queryPart.as_str().to_string(),
+            None => String::new(),
+        };
+        let fragment = match rel.find('#') {
+            Some(_) => fragment,
+            None if rel.is_empty() => base.fragmentPart.as_str().to_string(),
+            None => String::new(),
+        };
         let scheme = base.schemePart.as_str();
+        let user_info = base.userInfoPart.as_str();
         let host = base.hostPart.as_str();
-        let auth = authority_str(scheme, host, base.port);
-        let orig = format!("{}://{}{}{}{}", scheme, auth, new_path, query, fragment);
+        let orig = if base.hasAuthority {
+            let auth = authority_str(scheme, user_info, host, base.port);
+            format!("{}://{}{}{}{}", scheme, auth, new_path, query, fragment)
+        } else {
+            format!("{}:{}{}{}", scheme, new_path, query, fragment)
+        };
         Uri {
             isAbsolute: true,
             hasAuthority: base.hasAuthority,
             original: fromString(orig),
             relative: string(""),
             schemePart: base.schemePart.clone(),
+            userInfoPart: base.userInfoPart.clone(),
             hostPart: base.hostPart.clone(),
             port: base.port,
             pathPart: fromString(new_path),
@@ -303,7 +349,12 @@ pub mod Uri_ {
         fn build_absolute(&self) -> String {
             let scheme = self.schemePart.as_str();
             if self.hasAuthority {
-                let auth = authority_str(scheme, self.hostPart.as_str(), self.port);
+                let auth = authority_str(
+                    scheme,
+                    self.userInfoPart.as_str(),
+                    self.hostPart.as_str(),
+                    self.port,
+                );
                 format!(
                     "{}://{}{}{}{}",
                     scheme,
@@ -336,6 +387,27 @@ pub mod Uri_ {
         pub fn host(&self) -> string {
             self.ensure_absolute();
             self.hostPart.clone()
+        }
+
+        pub fn port(&self) -> i32 {
+            self.ensure_absolute();
+            if self.port != -1 {
+                self.port
+            } else {
+                match self.schemePart.as_str() {
+                    "http" => 80,
+                    "https" => 443,
+                    "ftp" => 21,
+                    "ws" => 80,
+                    "wss" => 443,
+                    _ => -1,
+                }
+            }
+        }
+
+        pub fn isDefaultPort(&self) -> bool {
+            self.ensure_absolute();
+            is_default_port(self.schemePart.as_str(), self.port)
         }
 
         pub fn absolutePath(&self) -> string {
@@ -426,6 +498,18 @@ pub mod Uri_ {
             }
             Err(_) => false,
         }
+    }
+
+    pub fn tryCreateFromString(
+        baseUri: LrcPtr<Uri>,
+        relativeUri: string,
+        res: &MutCell<LrcPtr<Uri>>,
+    ) -> bool {
+        if !baseUri.isAbsolute {
+            return false;
+        }
+        res.set(LrcPtr::new(resolve(&baseUri, relativeUri.as_str())));
+        true
     }
 
     pub fn tryCreateFromUri(

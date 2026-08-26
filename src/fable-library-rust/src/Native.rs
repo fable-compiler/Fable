@@ -118,6 +118,20 @@ pub mod Native_ {
         }
     }
 
+    #[cfg(not(feature = "lrc_ptr"))]
+    impl NullableRef for Lrc<dyn Any> {
+        #[inline]
+        fn null() -> Self {
+            static NULL: OnceInit<Lrc<dyn Any>> = OnceInit::new();
+            NULL.get_or_init(|| Lrc::new(())).clone()
+        }
+
+        #[inline]
+        fn is_null(&self) -> bool {
+            Lrc::ptr_eq(self, &Self::null())
+        }
+    }
+
     impl<T> NullableRef for Option<T> {
         #[inline]
         fn null() -> Self {
@@ -314,11 +328,10 @@ pub mod Native_ {
         unsafe { core::mem::zeroed() } // will panic on Rc/Arc/Box
     }
 
-    // A valid placeholder value of type `LrcPtr<dyn Any>`. Used to pre-declare
-    // reference-typed (`obj`) match bindings, as `getZero`/`mem::zeroed` panics on
-    // the `Rc` fat pointer and `null` is not available for the unsized `dyn Any`.
+    // A valid null value of type `LrcPtr<dyn Any>`, used for `obj` match bindings
+    // and event sender arguments.
     pub fn getZeroObj() -> LrcPtr<dyn Any> {
-        box_(())
+        null::<LrcPtr<dyn Any>>()
     }
 
     pub fn defaultOf<T: Default>() -> T {
@@ -686,6 +699,7 @@ pub mod Native_ {
 
     #[cfg(not(feature = "lrc_ptr"))]
     pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
+        crate::Reflection_::register_type_name::<T>();
         match (&x as &dyn Any).downcast_ref::<LrcPtr<dyn Any>>() {
             Some(o) => o.clone(),
             None => LrcPtr::new(x) as LrcPtr<dyn Any>,
@@ -694,6 +708,7 @@ pub mod Native_ {
 
     #[cfg(feature = "lrc_ptr")]
     pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
+        crate::Reflection_::register_type_name::<T>();
         match (&x as &dyn Any).downcast_ref::<LrcPtr<dyn Any>>() {
             Some(o) => o.clone(),
             None => LrcPtr::from(Lrc::new(x) as Lrc<dyn Any>),
@@ -712,6 +727,7 @@ pub mod Native_ {
     // site) match the pointee's runtime type id for value-based reflection.
     #[cfg(not(feature = "lrc_ptr"))]
     pub fn box_lrc<T: 'static>(o: LrcPtr<T>) -> LrcPtr<dyn Any> {
+        crate::Reflection_::register_type_name::<T>();
         o
     }
 
@@ -720,9 +736,22 @@ pub mod Native_ {
     // pointer identity and the pointee's runtime type id are both preserved.
     #[cfg(feature = "lrc_ptr")]
     pub fn box_lrc<T: 'static>(o: LrcPtr<T>) -> LrcPtr<dyn Any> {
+        crate::Reflection_::register_type_name::<T>();
         let inner: Lrc<T> = Lrc::clone(&*o);
         let coerced: Lrc<dyn Any> = inner;
         LrcPtr::from(coerced)
+    }
+
+    pub fn box_rc<T: Clone + 'static>(o: Rc<T>) -> LrcPtr<dyn Any> {
+        box_((*o).clone())
+    }
+
+    pub fn box_arc<T: Clone + 'static>(o: Arc<T>) -> LrcPtr<dyn Any> {
+        box_((*o).clone())
+    }
+
+    pub fn box_box<T: Clone + 'static>(o: Box<T>) -> LrcPtr<dyn Any> {
+        box_((*o).clone())
     }
 
     pub fn unbox_lrc<T: Clone + 'static>(o: LrcPtr<dyn Any>) -> LrcPtr<T> {
@@ -744,6 +773,18 @@ pub mod Native_ {
         } else {
             panic!("Invalid unbox")
         }
+    }
+
+    pub fn unbox_rc<T: Clone + 'static>(o: LrcPtr<dyn Any>) -> Rc<T> {
+        Rc::new(unbox(o))
+    }
+
+    pub fn unbox_arc<T: Clone + 'static>(o: LrcPtr<dyn Any>) -> Arc<T> {
+        Arc::new(unbox(o))
+    }
+
+    pub fn unbox_box<T: Clone + 'static>(o: LrcPtr<dyn Any>) -> Box<T> {
+        Box::new(unbox(o))
     }
 
     pub fn ofObj<T: Clone + NullableRef + 'static>(value: T) -> Option<T> {

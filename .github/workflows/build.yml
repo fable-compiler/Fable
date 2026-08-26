@@ -272,7 +272,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        test: ["default", "no_std", "threaded"]
+        features: [",", "no_std", "threaded", "lrc_ptr"]
 
     steps:
       - uses: actions/checkout@v7.0.1
@@ -296,7 +296,7 @@ jobs:
         run: ./build.sh fable-library --rust
 
       - name: Fable Tests - Rust
-        run: ./build.sh test rust --${{ matrix.test }}
+        run: ./build.sh test rust --features "${{ matrix.features }}"
 
   # Separate build job for Dart
   build-dart:

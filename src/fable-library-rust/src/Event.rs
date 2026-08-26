@@ -11,7 +11,8 @@ pub mod Event_ {
     use crate::Choice_::Choice_2;
     use crate::Microsoft::FSharp::Control::{IDelegateEvent_1, IEvent_2};
     use crate::Native_::{
-        getZeroObj, referenceEquals, refCell, Any, Func0, Func1, Func2, LrcPtr, MutCell, Vec,
+        getZeroObj, interface_cast, referenceEquals, refCell, Any, Func0, Func1, Func2, Lrc, LrcPtr,
+        MutCell, Vec,
     };
     use crate::Observable_::{mkDisposable, mkObserver, noCompleted, noError};
     use crate::System::{IDisposable, IObservable_1, IObserver_1};
@@ -20,9 +21,7 @@ pub mod Event_ {
     pub type Handler<T> = Func2<LrcPtr<dyn Any>, T, ()>;
 
     // ----- AnonymousEvent: the published IEvent -----
-    // A concrete type so the Publish field can be used through IEvent_2
-    // (AddHandler/RemoveHandler) *and* unsize-coerced to `dyn IObservable_1`
-    // (in F#/JS an IEvent is also an IObservable).
+    // A concrete implementation of IEvent_2 and IObservable_1.
     #[derive(Clone)]
     pub struct AnonymousEvent<T: Clone + 'static> {
         add_handler: Func1<Handler<T>, ()>,
@@ -91,11 +90,43 @@ pub mod Event_ {
         }
     }
 
+    #[derive(Clone)]
+    struct EventObservable<T: Clone + 'static> {
+        source: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
+    }
+
+    impl<T: Clone + 'static> core::fmt::Debug for EventObservable<T> {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
+        }
+    }
+
+    impl<T: Clone + 'static> core::fmt::Display for EventObservable<T> {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
+        }
+    }
+
+    impl<T: Clone + 'static> IObservable_1<T> for EventObservable<T> {
+        fn Subscribe(&self, observer: LrcPtr<dyn IObserver_1<T>>) -> LrcPtr<dyn IDisposable> {
+            self.source.Subscribe(observer)
+        }
+    }
+
+    pub fn asObservable<T: Clone + 'static>(
+        source: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
+    ) -> LrcPtr<dyn IObservable_1<T>> {
+        interface_cast!(
+            LrcPtr::new(EventObservable { source }),
+            Lrc<dyn IObservable_1<T>>,
+        )
+    }
+
     // ----- FSharpEvent`1 -----
     #[derive(Clone)]
     pub struct FSharpEvent_1<T: Clone + 'static> {
         handlers: LrcPtr<MutCell<Vec<Handler<T>>>>,
-        pub Publish: LrcPtr<AnonymousEvent<T>>,
+        pub Publish: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
     }
 
     impl<T: Clone + 'static> core::fmt::Debug for FSharpEvent_1<T> {
@@ -140,10 +171,10 @@ pub mod Event_ {
                 }
             }
         });
-        let publish = LrcPtr::new(AnonymousEvent {
+        let publish = interface_cast!(LrcPtr::new(AnonymousEvent {
             add_handler,
             remove_handler,
-        });
+        }), Lrc<dyn IEvent_2<Handler<T>, T>>,);
         LrcPtr::new(FSharpEvent_1 {
             handlers,
             Publish: publish,
@@ -159,6 +190,57 @@ pub mod Event_ {
             add_handler,
             remove_handler,
         })
+    }
+
+    // ----- FSharpEvent`2 -----
+    // Sender-aware events use the same normalized Handler shape as one-generic events.
+    #[derive(Clone)]
+    pub struct FSharpEvent_2<T: Clone + 'static> {
+        handlers: LrcPtr<MutCell<Vec<Handler<T>>>>,
+        pub Publish: LrcPtr<dyn IEvent_2<Handler<T>, T>>,
+    }
+
+    impl<T: Clone + 'static> core::fmt::Debug for FSharpEvent_2<T> {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
+        }
+    }
+
+    impl<T: Clone + 'static> core::fmt::Display for FSharpEvent_2<T> {
+        fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+            write!(f, "{}", core::any::type_name::<Self>())
+        }
+    }
+
+    impl<T: Clone + 'static> FSharpEvent_2<T> {
+        pub fn Trigger(&self, sender: LrcPtr<dyn Any>, value: T) {
+            let hs = self.handlers.get().clone();
+            for handler in hs.iter() {
+                handler(sender.clone(), value.clone());
+            }
+        }
+    }
+
+    pub fn default2<T: Clone + 'static>() -> LrcPtr<FSharpEvent_2<T>> {
+        let handlers: LrcPtr<MutCell<Vec<Handler<T>>>> = refCell(Vec::new());
+        let add_handler = Func1::new({
+            let handlers = handlers.clone();
+            move |handler: Handler<T>| handlers.get_mut().push(handler)
+        });
+        let remove_handler = Func1::new({
+            let handlers = handlers.clone();
+            move |handler: Handler<T>| {
+                let vec = handlers.get_mut();
+                if let Some(pos) = vec.iter().position(|existing| referenceEquals(&**existing, &*handler)) {
+                    vec.remove(pos);
+                }
+            }
+        });
+        let publish = interface_cast!(LrcPtr::new(AnonymousEvent {
+            add_handler,
+            remove_handler,
+        }), Lrc<dyn IEvent_2<Handler<T>, T>>,);
+        LrcPtr::new(FSharpEvent_2 { handlers, Publish: publish })
     }
 
     // ----- module functions -----
@@ -275,14 +357,14 @@ pub mod Event_ {
     )> {
         let sp = splitter.clone();
         let first = choose(
-            Func1::new(move |v: T| match &*sp(v) {
+            Func1::new(move |v: T| match sp(v).as_ref() {
                 Choice_2::Choice1Of2(x) => Some(x.clone()),
                 _ => None,
             }),
             source.clone(),
         );
         let second = choose(
-            Func1::new(move |v: T| match &*splitter(v) {
+            Func1::new(move |v: T| match splitter(v).as_ref() {
                 Choice_2::Choice2Of2(x) => Some(x.clone()),
                 _ => None,
             }),

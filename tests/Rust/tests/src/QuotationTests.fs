@@ -196,6 +196,16 @@ let ``Evaluate nested lambda`` () =
     let r = LeafExpressionConverter.EvaluateQuotation <@ (fun x -> (fun y -> x + y)) 3 4 @>
     unbox<int> r |> equal 7
 
+[<Fact>]
+let ``Evaluate union quotation`` () =
+    let result = LeafExpressionConverter.EvaluateQuotation (<@ Some 42 @> :> Expr)
+    obj.ReferenceEquals(result, null) |> equal false
+
+[<Fact>]
+let ``Evaluate list quotation`` () =
+    let result = LeafExpressionConverter.EvaluateQuotation (<@ [ 1; 2; 3 ] @> :> Expr)
+    obj.ReferenceEquals(result, null) |> equal false
+
 // --- NewUnionCase / NewRecord deconstruction ---
 
 type private MyRec = { X: int; Y: int }
@@ -354,3 +364,44 @@ let ``Instance call inside a quotation has an instance`` () =
     match q with
     | Lambda(_, Call(Some _, _mi, _)) -> ()
     | _ -> failwith "Expected Lambda with an instance Call body"
+
+[<Fact>]
+let ``GetFreeVars includes call instances`` () =
+    let q = <@ fun (s: string) -> s.Trim() @>
+
+    match q with
+    | Lambda(_, body) ->
+        body.GetFreeVars()
+        |> Seq.map (fun v -> v.Name)
+        |> Seq.toList
+        |> equal [ "s" ]
+    | _ -> failwith "Expected Lambda"
+
+[<Fact>]
+let ``GetFreeVars visits nested union and list nodes`` () =
+    let q = <@ fun x -> [ Some x ] @>
+
+    match q with
+    | Lambda(_, body) ->
+        body.GetFreeVars()
+        |> Seq.map (fun v -> v.Name)
+        |> Seq.toList
+        |> equal [ "x" ]
+    | _ -> failwith "Expected Lambda"
+
+[<Fact>]
+let ``Quotation ToString works`` () =
+    let text = (<@ 2 + 3 @>).ToString()
+    (text.Length > 0) |> equal true
+
+[<Fact>]
+let ``Quotation Substitute replaces variables`` () =
+    let quotation = (<@ fun x -> x + 1 @> :> Expr)
+    let replacement = (<@ 42 @> :> Expr)
+    let substituted =
+        quotation.Substitute(fun _ -> Some replacement)
+
+    match substituted with
+    | Lambda(_, Call(_, _, [ Value(value, _); _ ])) ->
+        unbox<int> value |> equal 42
+    | _ -> failwith "Expected the lambda variable to be substituted"
