@@ -319,7 +319,10 @@ export function toString(d: DateTimeOffset, format?: string, _provider?: any): s
     {
       info: toDateInfo(d),
       utcInfo: () => toDateInfo(d.withTimeZone("UTC")),
-      roundTripSuffix: offsetString,
+      // A fixed-offset zone renders as .NET's "O" exactly: ISO wall-clock plus
+      // the numeric offset, with no [zone] annotation.
+      roundTrip: () => d.toString({ fractionalSecondDigits: 7, timeZoneName: "never" }),
+      sortable: () => d.toPlainDateTime().toString({ smallestUnit: "second" }),
       defaultSuffix: " " + offsetString(),
       // K/z print the value's own offset, never the host zone's, so Local is
       // passed as the kind and that offset stands in for the host one.
@@ -331,8 +334,8 @@ export function toString(d: DateTimeOffset, format?: string, _provider?: any): s
 
 export function parse(str: string): DateTimeOffset {
   const [parsed, offsetMatch] = Format.parseRaw(str);
-  // parseRaw resolves the instant through JS Date, so anything below the
-  // millisecond has to be recovered from the input separately.
+  // parseRaw resolves the instant through JS Date, which truncates at the
+  // millisecond, so the digits below that are recovered from the input separately.
   const epochNs = BigInt(parsed.getTime()) * 1_000_000n + BigInt(Format.subMillisecondTicks(str)) * 100n;
 
   const offsetNs = offsetMatch == null

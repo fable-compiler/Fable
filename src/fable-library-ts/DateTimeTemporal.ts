@@ -277,9 +277,9 @@ export function toString(d: DateTime, format?: string, _provider?: any): string 
       utcInfo: () => toDateInfo(toUniversalTime(d)),
       // An Unspecified DateTime prints no zone at all, which is what makes "O"
       // round-trip it back to Unspecified.
-      roundTripSuffix: () => kind === DateTimeKind.Utc
-        ? "Z"
-        : kind === DateTimeKind.Local ? hostOffsetString(d) : "",
+      roundTrip: () => d.toString({ fractionalSecondDigits: 7 })
+        + (kind === DateTimeKind.Utc ? "Z" : kind === DateTimeKind.Local ? hostOffsetString(d) : ""),
+      sortable: () => d.toString({ smallestUnit: "second" }),
       defaultSuffix: "",
       kind,
       hostOffsetString: () => hostOffsetString(d),
@@ -295,8 +295,8 @@ export function parse(str: string, detectUTC = false): DateTime {
     ? (detectUTC && offset === "Z" ? DateTimeKind.Utc : DateTimeKind.Local)
     : DateTimeKind.Unspecified;
 
-  // parseRaw resolves the instant through JS Date, so anything below the
-  // millisecond has to be recovered from the input separately.
+  // parseRaw resolves the instant through JS Date, which truncates at the
+  // millisecond, so the digits below that are recovered from the input separately.
   const epochNs = BigInt(parsed.getTime()) * 1_000_000n + BigInt(Format.subMillisecondTicks(str)) * 100n;
   const zone = kind === DateTimeKind.Utc ? "UTC" : hostTimeZone();
 

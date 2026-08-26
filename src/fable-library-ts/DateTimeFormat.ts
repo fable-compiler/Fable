@@ -4,9 +4,15 @@
  *
  * The formatters operate on a plain `DateInfo` (wall-clock fields), which the
  * Temporal types expose directly (`d.year`, `d.hour`, `d.dayOfWeek % 7`, ...),
- * so no JS-Date intermediate is needed. `parseRaw` still leans on the JS `Date`
- * built-in for .NET-compatible lenient parsing (Temporal has only strict ISO
- * parsers); it returns wall-clock fields the callers turn into Temporal values.
+ * so no JS-Date intermediate is needed there.
+ *
+ * Parsing is the exception. .NET accepts far more than ISO 8601 ("12/30/2009",
+ * "June 15, 2009 1:45 PM"), and the JS `Date` built-in is the only lenient date
+ * parser the platform offers — Temporal's `from` is strict ISO and rejects all of
+ * it. So `parseRaw` uses `Date` as a parsing engine and returns the instant it
+ * resolved, which callers convert into the Temporal value they need. That instant
+ * is only millisecond-precise, hence `subMillisecondTicks`: the finer digits are
+ * read straight off the input, because `Date` has already discarded them.
  *
  * This is a port of the equivalent logic in Date.ts / DateOffset.ts, kept
  * separate so the Temporal modules do not depend on the JS-Date representation.
@@ -378,16 +384,6 @@ export function dateToString_R(info: DateInfo): string {
     + padWithZeros(info.second, 2) + " GMT";
 }
 
-// Sortable ISO 8601, no timezone: "2009-06-15T13:45:30"
-export function dateToString_s(info: DateInfo): string {
-  return padWithZeros(info.year, 4) + "-"
-    + padWithZeros(info.month, 2) + "-"
-    + padWithZeros(info.day, 2) + "T"
-    + padWithZeros(info.hour, 2) + ":"
-    + padWithZeros(info.minute, 2) + ":"
-    + padWithZeros(info.second, 2);
-}
-
 // Universal sortable: "2009-06-15 13:45:30Z". `info` must already be UTC.
 export function dateToString_u(info: DateInfo): string {
   return padWithZeros(info.year, 4) + "-"
@@ -408,19 +404,6 @@ export function dateToString_Y(info: DateInfo): string {
   return info.year + " " + longMonths[info.month - 1];
 }
 
-// Round-trip "O"/"o": "2009-06-15T13:45:30.1234567" + an offset suffix (a bare
-// "Z" for UTC, an offset like "+01:00", or "" when unspecified). .NET prints all
-// 7 tick digits here — that is what makes the format round-trip.
-export function dateToString_O(info: DateInfo, suffix: string): string {
-  return padWithZeros(info.year, 4) + "-"
-    + padWithZeros(info.month, 2) + "-"
-    + padWithZeros(info.day, 2) + "T"
-    + padWithZeros(info.hour, 2) + ":"
-    + padWithZeros(info.minute, 2) + ":"
-    + padWithZeros(info.second, 2) + "."
-    + fractionDigits(info) + suffix;
-}
-
 // Everything a standard format specifier needs beyond the wall-clock fields.
 // DateTime and DateTimeOffset differ only in these, so they share the table below.
 // Everything past `info` is a thunk: most specifiers need none of them, and each
@@ -428,9 +411,11 @@ export function dateToString_O(info: DateInfo, suffix: string): string {
 export interface FormatContext {
   info: DateInfo;
   utcInfo: () => DateInfo;
-  // Trails the round-trip "O": "Z" for UTC, an offset like "+01:00", or "" when
-  // the value carries no zone information at all.
-  roundTripSuffix: () => string;
+  // "O"/"o" and "s" are ISO 8601, which Temporal renders itself — and renders
+  // tick-exactly — so the owning module supplies them rather than this file
+  // reassembling the fields by hand.
+  roundTrip: () => string;
+  sortable: () => string;
   // Trails the no-format rendering. A DateTimeOffset shows its offset there; a
   // DateTime has none to show.
   defaultSuffix: string;
@@ -457,9 +442,9 @@ export function dateToString(ctx: FormatContext, format?: string): string {
       case "G": return dateToString_d(info) + " " + dateToString_T(info);
       case "g": return dateToString_d(info) + " " + dateToString_t(info);
       case "M": case "m": return dateToString_M(info);
-      case "O": case "o": return dateToString_O(info, ctx.roundTripSuffix());
+      case "O": case "o": return ctx.roundTrip();
       case "R": case "r": return dateToString_R(ctx.utcInfo());
-      case "s": return dateToString_s(info);
+      case "s": return ctx.sortable();
       case "T": return dateToString_T(info);
       case "t": return dateToString_t(info);
       case "u": return dateToString_u(ctx.utcInfo());
