@@ -201,9 +201,140 @@ let isFieldGet (e: FSharpExpr) =
         Some(inst, pi, ([]: FSharpExpr list))
     | _ -> None
 
+let private joinStrings (separator: string) (parts: string list) =
+    match parts with
+    | [] -> ""
+    | first :: rest -> List.fold (fun result part -> result + separator + part) first rest
+
+let private operatorSymbol (methodName: string) =
+    match methodName with
+    | "op_Addition" -> Some "+"
+    | "op_Subtraction" -> Some "-"
+    | "op_Multiply" -> Some "*"
+    | "op_Division" -> Some "/"
+    | "op_Modulus" -> Some "%"
+    | "op_Exponentiation" -> Some "**"
+    | "op_Equality" -> Some "="
+    | "op_Inequality" -> Some "<>"
+    | "op_LessThan" -> Some "<"
+    | "op_LessThanOrEqual" -> Some "<="
+    | "op_GreaterThan" -> Some ">"
+    | "op_GreaterThanOrEqual" -> Some ">="
+    | "op_BooleanAnd" -> Some "&&"
+    | "op_BooleanOr" -> Some "||"
+    | "op_UnaryNegation" -> Some "-"
+    | "op_LogicalNot" -> Some "not"
+    | _ -> None
+
+let private valueToString (value: obj) (typ: string) =
+    match typ with
+    | "string" -> "\"" + unbox<string> value + "\""
+    | "unit" -> "()"
+    | "bool" ->
+        if unbox<bool> value then
+            "true"
+        else
+            "false"
+    | "char" -> sprintf "%O" (unbox<char> value)
+    | "int8" -> sprintf "%O" (unbox<int8> value)
+    | "uint8" -> sprintf "%O" (unbox<uint8> value)
+    | "int16" -> sprintf "%O" (unbox<int16> value)
+    | "uint16" -> sprintf "%O" (unbox<uint16> value)
+    | "int32" -> sprintf "%O" (unbox<int32> value)
+    | "uint32" -> sprintf "%O" (unbox<uint32> value)
+    | "int64" -> sprintf "%O" (unbox<int64> value)
+    | "uint64" -> sprintf "%O" (unbox<uint64> value)
+    | "nativeint" -> sprintf "%O" (unbox<nativeint> value)
+    | "unativeint" -> sprintf "%O" (unbox<unativeint> value)
+    | "float32" -> sprintf "%O" (unbox<float32> value)
+    | "float64" -> sprintf "%O" (unbox<float> value)
+    | _ -> "<value>"
+
+let rec exprToString (e: FSharpExpr) : string =
+    match e with
+    | ExprValue(value, typ) -> valueToString value typ
+    | ExprVarExpr v -> v.Name
+    | ExprLambda(v, body) -> "fun " + v.Name + " -> " + exprToString body
+    | ExprApplication(func, arg) -> exprToString func + " " + exprToString arg
+    | ExprLet(v, value, body) -> "let " + v.Name + " = " + exprToString value + " in " + exprToString body
+    | ExprIfThenElse(guard, thenExpr, elseExpr) ->
+        "if "
+        + exprToString guard
+        + " then "
+        + exprToString thenExpr
+        + " else "
+        + exprToString elseExpr
+    | ExprCall(_, methodName, args, _) ->
+        let renderedArgs = args |> List.ofArray |> List.map exprToString
+
+        match operatorSymbol methodName, renderedArgs with
+        | Some symbol, [ left; right ] -> "(" + left + " " + symbol + " " + right + ")"
+        | Some symbol, [ operand ] -> symbol + operand
+        | _ -> methodName + "(" + joinStrings ", " renderedArgs + ")"
+    | ExprSequential(first, second) -> exprToString first + "; " + exprToString second
+    | ExprNewTuple elements ->
+        "("
+        + (elements |> List.ofArray |> List.map exprToString |> joinStrings ", ")
+        + ")"
+    | ExprTupleGet(inner, index) -> "Item" + string (index + 1) + "(" + exprToString inner + ")"
+    | ExprFieldGet(inner, fieldName) -> exprToString inner + "." + fieldName
+    | _ -> "<expr>"
+
+let substitute (e: FSharpExpr) (substitution: FSharpVar -> FSharpExpr option) : FSharpExpr =
+    let rec substituteExpr expression =
+        match expression with
+        | ExprValue _ -> expression
+        | ExprVarExpr variable ->
+            match substitution variable with
+            | Some replacement -> replacement
+            | None -> expression
+        | ExprLambda(variable, body) -> ExprLambda(variable, substituteExpr body)
+        | ExprApplication(func, arg) -> ExprApplication(substituteExpr func, substituteExpr arg)
+        | ExprLet(variable, value, body) -> ExprLet(variable, substituteExpr value, substituteExpr body)
+        | ExprIfThenElse(guard, thenExpr, elseExpr) ->
+            ExprIfThenElse(substituteExpr guard, substituteExpr thenExpr, substituteExpr elseExpr)
+        | ExprCall(instance, methodName, args, declaringType) ->
+            let substitutedArgs = ResizeArray<FSharpExpr>()
+
+            for argument in args do
+                substitutedArgs.Add(substituteExpr argument)
+
+            ExprCall(substituteExpr instance, methodName, substitutedArgs.ToArray(), declaringType)
+        | ExprSequential(first, second) -> ExprSequential(substituteExpr first, substituteExpr second)
+        | ExprNewTuple elements ->
+            let substitutedElements = ResizeArray<FSharpExpr>()
+
+            for element in elements do
+                substitutedElements.Add(substituteExpr element)
+
+            ExprNewTuple(substitutedElements.ToArray())
+        | ExprNewUnion(typeName, tag, caseName, fields) ->
+            let substitutedFields = ResizeArray<FSharpExpr>()
+
+            for field in fields do
+                substitutedFields.Add(substituteExpr field)
+
+            ExprNewUnion(typeName, tag, caseName, substitutedFields.ToArray())
+        | ExprNewRecord(typeName, fieldNames, values) ->
+            let substitutedValues = ResizeArray<FSharpExpr>()
+
+            for value in values do
+                substitutedValues.Add(substituteExpr value)
+
+            ExprNewRecord(typeName, fieldNames, substitutedValues.ToArray())
+        | ExprNewList(head, tail) -> ExprNewList(substituteExpr head, substituteExpr tail)
+        | ExprTupleGet(inner, index) -> ExprTupleGet(substituteExpr inner, index)
+        | ExprUnionTag inner -> ExprUnionTag(substituteExpr inner)
+        | ExprUnionField(inner, fieldIndex) -> ExprUnionField(substituteExpr inner, fieldIndex)
+        | ExprFieldGet(inner, fieldName) -> ExprFieldGet(substituteExpr inner, fieldName)
+        | ExprFieldSet(inner, fieldName, value) -> ExprFieldSet(substituteExpr inner, fieldName, substituteExpr value)
+        | ExprVarSet(target, value) -> ExprVarSet(substituteExpr target, substituteExpr value)
+
+    substituteExpr e
+
 // --- Free variables ---
 
-let getFreeVars (e: FSharpExpr) : FSharpVar list =
+let getFreeVars (e: FSharpExpr) : FSharpVar seq =
     let seen = System.Collections.Generic.HashSet<string>()
     let acc = ResizeArray<FSharpVar>()
 
@@ -223,7 +354,9 @@ let getFreeVars (e: FSharpExpr) : FSharpVar list =
             walk bound g
             walk bound t
             walk bound el
-        | ExprCall(_, _, args, _) ->
+        | ExprCall(instance, _, args, _) ->
+            walk bound instance
+
             for a in args do
                 walk bound a
         | ExprSequential(f, s) ->
@@ -232,12 +365,29 @@ let getFreeVars (e: FSharpExpr) : FSharpVar list =
         | ExprNewTuple els ->
             for el in els do
                 walk bound el
+        | ExprNewUnion(_, _, _, fields) ->
+            for field in fields do
+                walk bound field
+        | ExprNewRecord(_, _, values) ->
+            for value in values do
+                walk bound value
+        | ExprNewList(head, tail) ->
+            walk bound head
+            walk bound tail
         | ExprTupleGet(inner, _) -> walk bound inner
+        | ExprUnionTag inner -> walk bound inner
+        | ExprUnionField(inner, _) -> walk bound inner
         | ExprFieldGet(inner, _) -> walk bound inner
+        | ExprFieldSet(inner, _, value) ->
+            walk bound inner
+            walk bound value
+        | ExprVarSet(target, value) ->
+            walk bound target
+            walk bound value
         | _ -> ()
 
     walk Set.empty e
-    List.ofSeq acc
+    acc.ToArray() |> Seq.ofArray
 
 // --- Evaluation (structural cases + common operators; SQL translation deconstructs
 // rather than evaluates, so this covers the tested subset). ---
@@ -285,15 +435,29 @@ let private applyOperator (method: string) (args: obj list) : obj =
         failwithf "Cannot evaluate method: %s" method
 
 let evaluate (e: FSharpExpr) : obj =
-    let rec eval (env: Map<string, obj>) (e: FSharpExpr) : obj =
+    let rec eval (env: Map<string, obj> ref) (e: FSharpExpr) : obj =
+        let evalArrayField (values: obj[]) (index: int) =
+            if index < 0 || index >= values.Length then
+                failwith "Quotation field index is out of range"
+
+            values.[index]
+
         match e with
-        | ExprValue(v, _) -> v
-        | ExprVarExpr v -> Map.find v.Name env
-        | ExprLambda(v, body) -> box (fun (arg: obj) -> eval (Map.add v.Name arg env) body)
+        | ExprValue(v, typ) ->
+            match typ with
+            | "unit" -> v
+            | "list" -> box ([||]: obj[])
+            | _ -> v
+        | ExprVarExpr v -> Map.find v.Name env.Value
+        | ExprLambda(v, body) ->
+            let capturedEnv = env.Value
+            box (fun (arg: obj) -> eval (ref (Map.add v.Name arg capturedEnv)) body)
         | ExprApplication(f, a) ->
             let func = unbox<obj -> obj> (eval env f)
             func (eval env a)
-        | ExprLet(v, value, body) -> eval (Map.add v.Name (eval env value) env) body
+        | ExprLet(v, value, body) ->
+            let value = eval env value
+            eval (ref (Map.add v.Name value env.Value)) body
         | ExprIfThenElse(g, t, el) ->
             if unbox<bool> (eval env g) then
                 eval env t
@@ -302,7 +466,33 @@ let evaluate (e: FSharpExpr) : obj =
         | ExprSequential(a, b) ->
             eval env a |> ignore
             eval env b
-        | ExprCall(_, method, args, _) -> applyOperator method [ for a in args -> eval env a ]
+        | ExprCall(instance, method, args, _) ->
+            let evaluatedArgs = [ for argument in args -> eval env argument ]
+
+            match method with
+            | "get_IsSome"
+            | "get_IsNone" ->
+                let values = unbox<obj[]> (eval env instance)
+                let isSome = values.Length > 0 && unbox<int> values.[0] = 1
+
+                box (
+                    if method = "get_IsSome" then
+                        isSome
+                    else
+                        not isSome
+                )
+            | "get_IsCons"
+            | "get_IsEmpty" ->
+                let values = unbox<obj[]> (eval env instance)
+                let isCons = values.Length > 0
+
+                box (
+                    if method = "get_IsCons" then
+                        isCons
+                    else
+                        not isCons
+                )
+            | _ -> applyOperator method evaluatedArgs
         // A tuple literal evaluates to a boxed obj[] of its evaluated elements, mirroring
         // PHP (which produces a plain array). TupleGet then indexes into that array; without
         // this arm `eval inner` on a tuple literal would fall through to failwith and there
@@ -313,7 +503,83 @@ let evaluate (e: FSharpExpr) : obj =
             // operator wants an owned i32; `index + 0` forces an owned i32 rvalue (the
             // arithmetic dereferences the borrow) so the indexing type-checks.
             let i = index + 0
-            (unbox<obj[]> (eval env inner)).[i]
-        | _ -> failwith "Cannot evaluate expression"
+            evalArrayField (unbox<obj[]> (eval env inner)) i
+        | ExprNewUnion(_, tag, _, fields) ->
+            let values = ResizeArray<obj>()
+            values.Add(box tag)
 
-    eval Map.empty e
+            for field in fields do
+                values.Add(eval env field)
+
+            box (values.ToArray())
+        | ExprNewRecord(_, fieldNames, values) ->
+            let result = ResizeArray<obj>()
+
+            for i = 0 to fieldNames.Length - 1 do
+                result.Add(box fieldNames.[i])
+                result.Add(eval env values.[i])
+
+            box (result.ToArray())
+        | ExprNewList(head, tail) ->
+            let result = ResizeArray<obj>()
+            result.Add(eval env head)
+
+            for value in unbox<obj[]> (eval env tail) do
+                result.Add(value)
+
+            box (result.ToArray())
+        | ExprUnionTag inner ->
+            let values = unbox<obj[]> (eval env inner)
+            evalArrayField values 0
+        | ExprUnionField(inner, fieldIndex) ->
+            let values = unbox<obj[]> (eval env inner)
+            evalArrayField values (fieldIndex + 1)
+        | ExprFieldGet(inner, fieldName) ->
+            let values = unbox<obj[]> (eval env inner)
+
+            if fieldName = "Head" then
+                evalArrayField values 0
+            elif fieldName = "Tail" then
+                box values.[1..]
+            elif fieldName = "Value" && values.Length > 1 && unbox<int> values.[0] = 1 then
+                values.[1]
+            else
+                let mutable result = None
+                let mutable index = 0
+
+                while index + 1 < values.Length && result.IsNone do
+                    if unbox<string> values.[index] = fieldName then
+                        result <- Some values.[index + 1]
+
+                    index <- index + 2
+
+                match result with
+                | Some value -> value
+                | None -> failwithf "Quotation field not found: %s" fieldName
+        | ExprFieldSet(target, fieldName, value) ->
+            let target = unbox<obj[]> (eval env target)
+            let value = eval env value
+
+            let rec findFieldIndex index =
+                if index + 1 >= target.Length then
+                    None
+                elif unbox<string> target.[index] = fieldName then
+                    Some index
+                else
+                    findFieldIndex (index + 2)
+
+            match findFieldIndex 0 with
+            | Some index -> target.[index + 1] <- value
+            | None -> failwithf "Quotation field not found: %s" fieldName
+
+            box 0
+        | ExprVarSet(target, value) ->
+            let value = eval env value
+
+            match target with
+            | ExprVarExpr variable -> env.Value <- Map.add variable.Name value env.Value
+            | _ -> failwith "Quotation VarSet target must be a variable"
+
+            box 0
+
+    eval (ref Map.empty) e

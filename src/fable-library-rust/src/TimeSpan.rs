@@ -24,6 +24,11 @@ pub mod TimeSpan_ {
     pub const min_value: TimeSpan = TimeSpan { ticks: i64::MIN };
     pub const max_value: TimeSpan = TimeSpan { ticks: i64::MAX };
 
+    #[inline]
+    fn truncate_f64(value: f64) -> f64 {
+        value as i64 as f64
+    }
+
     impl core::fmt::Debug for TimeSpan {
         fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
             write!(f, "{}", self.toString(string("")))
@@ -231,27 +236,27 @@ pub mod TimeSpan_ {
         }
 
         pub fn hours(&self) -> i32 {
-            (self.totalHours() - self.totalDays().trunc() * 24.0) as i32
+            (self.totalHours() - truncate_f64(self.totalDays()) * 24.0) as i32
         }
 
         pub fn minutes(&self) -> i32 {
-            (self.totalMinutes() - self.totalHours().trunc() * 60.0) as i32
+            (self.totalMinutes() - truncate_f64(self.totalHours()) * 60.0) as i32
         }
 
         pub fn seconds(&self) -> i32 {
-            (self.totalSeconds() - self.totalMinutes().trunc() * 60.0) as i32
+            (self.totalSeconds() - truncate_f64(self.totalMinutes()) * 60.0) as i32
         }
 
         pub fn milliseconds(&self) -> i32 {
-            (self.totalMilliseconds() - self.totalSeconds().trunc() * 1000.0) as i32
+            (self.totalMilliseconds() - truncate_f64(self.totalSeconds()) * 1000.0) as i32
         }
 
         pub fn microseconds(&self) -> i32 {
-            (self.totalMicroseconds() - self.totalMilliseconds().trunc() * 1000.0) as i32
+            (self.totalMicroseconds() - truncate_f64(self.totalMilliseconds()) * 1000.0) as i32
         }
 
         pub fn nanoseconds(&self) -> i32 {
-            (self.totalNanoseconds() - self.totalMicroseconds().trunc() * 1000.0) as i32
+            (self.totalNanoseconds() - truncate_f64(self.totalMicroseconds()) * 1000.0) as i32
         }
 
         pub fn negate(&self) -> TimeSpan {

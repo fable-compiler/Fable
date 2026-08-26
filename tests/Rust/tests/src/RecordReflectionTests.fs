@@ -1,5 +1,5 @@
-// Value-based reflection needs the type registry, which is std-only
-// (it uses thread_local), so these tests do not apply to no_std builds.
+// Value-based reflection uses a std-only type registry (it uses thread_local), so
+// these tests do not apply to no_std builds.
 [<Fable.Core.Rust.OuterAttr("cfg", [| "not(feature = \"no_std\")" |])>]
 module Fable.Tests.RecordReflectionTests
 
@@ -13,6 +13,7 @@ open Microsoft.FSharp.Reflection
 
 type TestRecord = { String: string; Int: int }
 type OtherRecord = { Z: int }
+type UnprimedRecord = { Value: int }
 
 type SampleUnion =
     | CaseA
@@ -49,14 +50,18 @@ let ``FSharpType.GetRecordFields exposes PropertyInfo names`` () =
 
 [<Fact>]
 let ``FSharpValue.GetRecordFields returns boxed field values`` () =
-    // Value-based reflection resolves the type via the runtime registry, which is
-    // populated when typeof<T> is evaluated (as the JS record test also does first).
-    FSharpType.IsRecord(typeof<TestRecord>) |> equal true
     let record = { String = "a"; Int = 1 }
     let values = FSharpValue.GetRecordFields(record)
     values.Length |> equal 2
     unbox<string> values.[0] |> equal "a"
     unbox<int> values.[1] |> equal 1
+
+[<Fact>]
+let ``FSharpValue.GetRecordFields works without prior typeof`` () =
+    let record: UnprimedRecord = { Value = 7 }
+    let values = FSharpValue.GetRecordFields(record)
+    values.Length |> equal 1
+    unbox<int> values.[0] |> equal 7
 
 [<Fact>]
 let ``FSharpValue.GetRecordField reads an individual field`` () =
@@ -104,7 +109,6 @@ let ``FSharp.Reflection: Record (end to end)`` () =
 [<Fact>]
 let ``obj.GetType round-trips to the concrete record type`` () =
     let record = { String = "a"; Int = 1 }
-    FSharpType.IsRecord(typeof<TestRecord>) |> equal true // ensure registration
     ((box record).GetType() = typeof<TestRecord>) |> equal true
     let rebuilt =
         unbox<TestRecord> (FSharpValue.MakeRecord((box record).GetType(), FSharpValue.GetRecordFields(record)))
@@ -123,3 +127,10 @@ let ``Boxing a record to obj and unboxing preserves reference identity`` () =
     let o: obj = box r
     let r2 = unbox<TestRecord> o
     System.Object.ReferenceEquals(r, r2) |> equal true
+
+[<Fact>]
+let ``obj.GetType resolves an unregistered primitive`` () =
+    let typeForEquality = (box 1).GetType()
+    let typeForName = (box 1).GetType()
+    (typeForEquality = typeof<int>) |> equal true
+    typeForName.FullName |> equal "System.Int32"

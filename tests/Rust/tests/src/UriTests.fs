@@ -65,6 +65,33 @@ let ``Uri from baseUri with relative string works`` () =
     equal "http://www.test2.com/hello?a=b#c" uri.AbsoluteUri
 
 [<Fact>]
+let ``Uri relative resolution preserves base query and fragment when omitted`` () =
+    let baseUri = Uri("http://host/a/b?old=1#base")
+    let same = Uri(baseUri, "")
+    equal "http://host/a/b?old=1#base" same.AbsoluteUri
+
+    let fragmentOnly = Uri(baseUri, "#new")
+    equal "http://host/a/b?old=1#new" fragmentOnly.AbsoluteUri
+
+    let queryOnly = Uri(baseUri, "?new=2")
+    equal "http://host/a/b?new=2" queryOnly.AbsoluteUri
+
+[<Fact>]
+let ``Uri host excludes user info and exposes ports`` () =
+    let uri = Uri("http://user:pass@host:8080/path")
+    equal "host" uri.Host
+    equal 8080 uri.Port
+    equal false uri.IsDefaultPort
+
+    let defaultUri = Uri("http://host/path")
+    equal 80 defaultUri.Port
+    equal true defaultUri.IsDefaultPort
+
+    let ftpUri = Uri("ftp://host/path")
+    equal 21 ftpUri.Port
+    equal true ftpUri.IsDefaultPort
+
+[<Fact>]
 let ``Uri from baseUri with relativeUri works`` () =
     let uri = Uri(Uri("http://www.test3.com/"), Uri("/hello?a=b#c", UriKind.Relative))
     equal true uri.IsAbsoluteUri
@@ -148,6 +175,12 @@ let ``TryCreate from absolute uri and absolute uri should work`` () =
     let (valid, uri) = Uri.TryCreate(absUri, absUri)
     equal true valid
     equal absUri uri
+
+[<Fact>]
+let ``TryCreate from absolute uri and relative string works`` () =
+    let (valid, uri) = Uri.TryCreate(Uri("https://example.com/base"), "child")
+    equal true valid
+    equal "https://example.com/child" uri.AbsoluteUri
 
 [<Fact>]
 let ``TryCreate from absolute uri and different absolute uri yields the second`` () =
