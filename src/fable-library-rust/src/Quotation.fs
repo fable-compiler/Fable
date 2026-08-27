@@ -583,3 +583,49 @@ let evaluate (e: FSharpExpr) : obj =
             box 0
 
     eval (ref Map.empty) e
+
+// --- DerivedPatterns ------------------------------------------------------
+// F# defines these on top of Patterns. AndAlso and OrElse recover the shape
+// `&&` and `||` desugar into; SpecificCall matches a call by the identity of a
+// template quotation rather than by compiled name.
+
+let private isBoolLit (want: bool) (e: FSharpExpr) =
+    match e with
+    | ExprValue(value, "bool") -> unbox<bool> value = want
+    | _ -> false
+
+/// a && b  ==>  if a then b else false
+let isAndAlso (e: FSharpExpr) =
+    match e with
+    | ExprIfThenElse(g, t, el) when isBoolLit false el -> Some(g, t)
+    | _ -> None
+
+/// a || b  ==>  if a then true else b
+let isOrElse (e: FSharpExpr) =
+    match e with
+    | ExprIfThenElse(g, t, el) when isBoolLit true t -> Some(g, el)
+    | _ -> None
+
+/// A template such as <@ (=) @> quotes as nested lambdas around the call, so
+/// the identifying Call node has to be dug out before comparing.
+let rec private templateCall (e: FSharpExpr) =
+    match e with
+    | ExprLambda(_, body) -> templateCall body
+    | ExprCall(_, m, _, dt) -> Some(m, dt)
+    | _ -> None
+
+/// Takes both arguments; the partial application that FSharp.Core expresses by
+/// currying is built by the replacement instead (see quotationDerivedPatterns).
+let isSpecificCall (template: FSharpExpr) (e: FSharpExpr) =
+    match templateCall template, e with
+    | Some(wantedName, wantedType), ExprCall(instance, m, args, dt) when m = wantedName && dt = wantedType ->
+        let inst =
+            match instance with
+            | ExprValue(_, "novalue") -> None
+            | _ -> Some instance
+
+        // The middle slot is F#'s generic-argument list (Type list), which erases
+        // to obj on targets with no System.Type runtime, so the element type has
+        // to be obj rather than anything narrower.
+        Some(inst, (List.empty<obj>), List.ofArray args)
+    | _ -> None

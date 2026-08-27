@@ -664,3 +664,51 @@ export function exprFromJSON(json: any): Expr {
         default: return new ExprValue(json, "unknown");
     }
 }
+
+// ===================================================================
+// DerivedPatterns
+// F# defines these on top of Patterns. AndAlso and OrElse recover the
+// shape `&&` and `||` desugar into; SpecificCall matches a call by the
+// identity of a template quotation rather than by compiled name.
+// ===================================================================
+
+export function isAndAlso(expr: Expr): [Expr, Expr] | undefined {
+    // a && b  ==>  if a then b else false
+    if (expr instanceof ExprIfThenElse
+        && expr.elseExpr instanceof ExprValue
+        && expr.elseExpr.value === false) {
+        return [expr.guard, expr.thenExpr];
+    }
+    return undefined;
+}
+
+export function isOrElse(expr: Expr): [Expr, Expr] | undefined {
+    // a || b  ==>  if a then true else b
+    if (expr instanceof ExprIfThenElse
+        && expr.thenExpr instanceof ExprValue
+        && expr.thenExpr.value === true) {
+        return [expr.guard, expr.elseExpr];
+    }
+    return undefined;
+}
+
+/// A template such as <@ (=) @> quotes as nested lambdas around the call, so
+/// the identifying Call node has to be dug out before comparing.
+function templateCall(expr: Expr): ExprCall | undefined {
+    let current: Expr = expr;
+    while (current instanceof ExprLambda) { current = current.body; }
+    return current instanceof ExprCall ? current : undefined;
+}
+
+// Takes both arguments; the partial application FSharp.Core expresses by
+// currying is built by the replacement instead.
+export function isSpecificCall(template: Expr, expr: Expr): [Expr | null, FSharpList<string>, FSharpList<Expr>] | undefined {
+    const wanted = templateCall(template);
+    if (wanted === undefined || !(expr instanceof ExprCall)) return undefined;
+    if (expr.method !== wanted.method || expr.declaringType !== wanted.declaringType) return undefined;
+    const instance = (expr.instance instanceof ExprValue && expr.instance.type === "novalue") ? null : expr.instance;
+    // The middle slot is F#'s generic-argument list. The runtime models types as
+    // names rather than System.Type, so it is always empty here; callers written
+    // against Fable match it with a wildcard.
+    return [instance, ofArray([]), ofArray(expr.args)];
+}

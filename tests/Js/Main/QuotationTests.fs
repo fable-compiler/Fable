@@ -2,6 +2,7 @@ module Fable.Tests.Quotation
 
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
+open Microsoft.FSharp.Quotations.DerivedPatterns
 open Util.Testing
 
 #if FABLE_COMPILER
@@ -18,6 +19,27 @@ let inline quotTestDouble x = x * 2
 type QuotationIndexerTest(values: int[]) =
     member _.Item
         with get (i: int) = values.[i]
+
+
+// DerivedPatterns: AndAlso and OrElse recover the shape `&&` and `||` desugar
+// into, and SpecificCall matches a call by the identity of a template quotation
+// rather than by its compiled name. All three previously reported
+// "not supported by Fable".
+type private DpRec = { Country: string; Balance: float; Id: int }
+
+let rec private dpToSql (e: Expr) : string =
+    match e with
+    | Lambda(_, body) -> dpToSql body
+    | AndAlso(l, r) -> "(" + dpToSql l + " AND " + dpToSql r + ")"
+    | OrElse(l, r) -> "(" + dpToSql l + " OR " + dpToSql r + ")"
+    | SpecificCall <@ (=) @> (_, _, [ l; r ]) -> "(" + dpToSql l + " = " + dpToSql r + ")"
+    | SpecificCall <@ (>) @> (_, _, [ l; r ]) -> "(" + dpToSql l + " > " + dpToSql r + ")"
+    | SpecificCall <@ (<) @> (_, _, [ l; r ]) -> "(" + dpToSql l + " < " + dpToSql r + ")"
+    // Bound as a wildcard: PropertyGet exposes a PropertyInfo on Rust but the
+    // bare name on the other targets, and this test is about DerivedPatterns.
+    | PropertyGet _ -> "col"
+    | Value _ -> "?"
+    | _ -> "<unsupported>"
 
 let tests =
   testList "Quotations" [
@@ -272,4 +294,10 @@ let tests =
         // Thoth Auto format: ["Call", ...]
         parsed[0] |> unbox<string> |> equal "Call"
 #endif
+    testCase "DerivedPatterns AndAlso, OrElse and SpecificCall work" <| fun () ->
+        dpToSql <@ fun (c: DpRec) -> c.Country = "UK" @> |> equal "(col = ?)"
+        dpToSql <@ fun (c: DpRec) -> c.Country = "UK" && c.Balance > 100.0 @>
+        |> equal "((col = ?) AND (col > ?))"
+        dpToSql <@ fun (c: DpRec) -> c.Id < 5 || c.Balance > 1.0 @>
+        |> equal "((col < ?) OR (col > ?))"
   ]

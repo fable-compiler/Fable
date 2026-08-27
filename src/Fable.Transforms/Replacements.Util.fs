@@ -1837,6 +1837,51 @@ module Quotations =
             Helper.LibCall(com, libModule, "isFieldGet", t, [ expr ], ?loc = r) |> Some
         | _ -> None
 
+    /// DerivedPatterns are the ones F# defines on top of Patterns. AndAlso and
+    /// OrElse matter because `&&` and `||` desugar to IfThenElse, so without them
+    /// a consumer has to re-derive that shape by hand; SpecificCall is how
+    /// operators are matched by identity rather than by compiled name.
+    let quotationDerivedPatterns
+        (libModule: string)
+        (com: ICompiler)
+        (ctx: Context)
+        r
+        (t: Type)
+        (i: CallInfo)
+        (_thisArg: Expr option)
+        (args: Expr list)
+        =
+        match i.CompiledName, args with
+        | ("AndAlsoPattern" | "|AndAlso|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isAndAlso", t, [ expr ], ?loc = r) |> Some
+        | ("OrElsePattern" | "|OrElse|_|"), [ expr ] ->
+            Helper.LibCall(com, libModule, "isOrElse", t, [ expr ], ?loc = r) |> Some
+        // SpecificCall is curried in FSharp.Core: applying it to the template
+        // returns the function that then tests the expression. Rather than have
+        // each runtime return a closure -- which the Rust backend uncurries back
+        // into a two-argument function -- the runtimes take both arguments and
+        // the partial application is built here.
+        | ("SpecificCallPattern" | "|SpecificCall|_|"), [ template ] ->
+            let exprType, resultType =
+                match t with
+                | LambdaType(argType, returnType) -> argType, returnType
+                | _ -> Any, Any
+
+            let exprIdent = makeUniqueIdent com ctx exprType "expr"
+
+            let body =
+                Helper.LibCall(
+                    com,
+                    libModule,
+                    "isSpecificCall",
+                    resultType,
+                    [ template; IdentExpr exprIdent ],
+                    ?loc = r
+                )
+
+            Lambda(exprIdent, body, None) |> Some
+        | _ -> None
+
     let tryQuotationCall
         (libModule: string)
         (com: ICompiler)
@@ -1853,6 +1898,7 @@ module Quotations =
         | Types.fsharpExprGeneric -> quotationExprs libModule com ctx r t info thisArg args
         | Types.fsharpVar -> quotationVars libModule com ctx r t info thisArg args
         | Types.patternsModule -> quotationPatterns libModule com ctx r t info thisArg args
+        | Types.derivedPatternsModule -> quotationDerivedPatterns libModule com ctx r t info thisArg args
         | "Microsoft.FSharp.Linq.RuntimeHelpers.LeafExpressionConverter" ->
             match info.CompiledName, args with
             | "EvaluateQuotation", [ expr ] -> Helper.LibCall(com, libModule, "evaluate", t, [ expr ], ?loc = r) |> Some
