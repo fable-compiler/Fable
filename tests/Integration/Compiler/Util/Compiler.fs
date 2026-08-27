@@ -30,6 +30,8 @@ module Compiler =
     let projDir = IO.Path.Join(__SOURCE_DIRECTORY__, "../TestProject" ) |> Path.normalizeFullPath
     let projFile = IO.Path.Join(projDir, "TestProject.fsproj" ) |> Path.normalizeFullPath
     let sourceFile = IO.Path.Join(projDir, "Program.fs" ) |> Path.normalizeFullPath
+    /// Compiled before `Program.fs`, for the tests that need more than one file
+    let libraryFile = IO.Path.Join(projDir, "Library.fs" ) |> Path.normalizeFullPath
 
     let cliArgs =
         let compilerOptions = CompilerOptionsHelper.Make()
@@ -56,7 +58,9 @@ module Compiler =
 
     let mutable private state = State.Create(cliArgs, recompileAllFiles=true)
 
-    let compile settings source =
+    let private emptyLibrary = "module Library" + Environment.NewLine
+
+    let compileWithLibrary settings (library: string) source =
         let preamble =
           [
             yield! settings.Opens |> List.map (sprintf "open %s")
@@ -66,6 +70,7 @@ module Compiler =
           |> String.concat Environment.NewLine
 
         let source = preamble + source
+        IO.File.WriteAllText(libraryFile, library)
         IO.File.WriteAllText(sourceFile, source)
 
         let result =
@@ -78,6 +83,8 @@ module Compiler =
         | Ok(newState, logs) ->
             state <- newState
             Array.toList logs
+
+    let compile settings source = compileWithLibrary settings emptyLibrary source
 
   module Assert =
     open Util.Testing

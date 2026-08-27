@@ -7,6 +7,10 @@ open Fable.Tests.Compiler.Util.Compiler
 
 let private compile source = Compiler.Cached.compile Compiler.Settings.standard source
 
+/// Compiles `library` as `Library.fs`, just before `source`
+let private compileWithLibrary library source =
+  Compiler.Cached.compileWithLibrary Compiler.Settings.standard library source
+
 let tests =
   testList "Compiler Messages" [
     testCase "Compile Console.WriteLine" <| fun _ ->
@@ -105,6 +109,70 @@ let version = Semver.SemVersion.Parse("1.0.0", 1024)
 """
       compile source
       |> Assert.Exists.errorWith "Cannot reference member from .dll reference, Fable packages must include F# sources"
+      |> ignore
+
+    testCase "Private inline function referencing private value succeeds" <| fun _ ->
+      let source =
+        """
+let private x = 1
+let inline private y () = x
+let z = y ()
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
+
+    testCase "Private inline function referencing private function succeeds" <| fun _ ->
+      let source =
+        """
+let private add a b = a + b
+let inline private addOne x = add x 1
+let z = addOne 41
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
+
+    testCase "Private inline function in nested module referencing private value succeeds" <| fun _ ->
+      let source =
+        """
+module Nested =
+    let private x = 1
+    let inline private y () = x
+    let z = y ()
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
+
+    testCase "Private inline function referencing private value is not inlined in another file" <| fun _ ->
+      // `y` cannot be called from another file, but `z` drags its body along
+      let library =
+        """
+module Library
+
+let private x = 1
+let inline private y () = x
+let inline z () = y ()
+"""
+      let source = "let res = Library.z ()"
+      compileWithLibrary library source
+      |> Assert.Exists.errorWith "was marked inline but its implementation makes use of an internal or private function"
+      |> ignore
+
+    testCase "Inline function referencing non-private value from another file succeeds" <| fun _ ->
+      let library =
+        """
+module Library
+
+let x = 1
+let internal w = 2
+let inline private y () = x + w
+let inline z () = y ()
+"""
+      let source = "let res = Library.z ()"
+      compileWithLibrary library source
+      |> Assert.Is.success
       |> ignore
 
     testCase "Duplicate attached member names emit a warning" <| fun _ ->

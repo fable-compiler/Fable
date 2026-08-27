@@ -2445,6 +2445,14 @@ module Util =
             else
                 Some(entityIdent com ent.Ref)
 
+    /// An inline function that is not visible outside of the file declaring it can only be called
+    /// from that file, so `resolveInlineExpr` turns the references in its body back into plain
+    /// identifiers instead of imports. This makes it safe for its body to use private members.
+    let private isInlinedInDeclaringFileOnly (ctx: Context) =
+        match ctx.PrecompilingInlineFunction with
+        | Some inlineMemb -> not (isNotPrivate inlineMemb)
+        | None -> false
+
     let memberIdent (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) membRef =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
 
@@ -2494,12 +2502,19 @@ module Util =
                     com.AddWatchDependency(file)
 
                 // Private values are not exported so they can't be imported by call sites in other files.
-                // We need to handle it manually because Fable handle resolve inline function itself
-                if com.IsPrecompilingInlineFunction && memb.Accessibility.IsPrivate then
+                // We need to handle it manually because Fable handle resolve inline function itself.
+                // Inline functions that cannot escape their own file are fine, and inline functions
+                // reached through another one are checked by `checkInlinedPrivateAccess` instead, once
+                // the file the body is expanded into is known.
+                if
+                    com.IsPrecompilingInlineFunction
+                    && memb.Accessibility.IsPrivate
+                    && not (isInlinedInDeclaringFileOnly ctx)
+                then
                     $"The value '%s{memb.DisplayName}' was marked inline but its implementation makes use of an internal or private function which is not sufficiently accessible"
                     |> addError com [] r
 
-                makeInternalMemberImport com typ membRef memberName file
+                makeInternalMemberImport com typ membRef memberName file r
 
     let getFunctionMemberRef (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with
