@@ -296,7 +296,7 @@ type Point2D =
       new(xy: float) = { X = xy; Y = xy }
    end
 
-// exception MyEx of int*string
+exception MyEx of int * string
 
 // type MyEx2(f: float) =
 //   inherit exn(sprintf "Code: %i" (int f))
@@ -1417,3 +1417,37 @@ let ``ArgumentException with message and inner exception works`` () =
 let ``Exception InnerException is null when not provided`` () =
     let ex = System.ArgumentException("no inner")
     isNull (box ex.InnerException) |> equal true
+
+// Constructing an F# exception value used to crash the compiler outright:
+// getEntityFieldsAsIdents prepends a synthetic __base__ field, and makeRecord
+// zipped it against a value list that has no base value. Raising and catching
+// one by its pattern is a separate matter and still unsupported here, so this
+// stays on the construct/destructure path that a fixed makeRecord covers.
+[<Fact>]
+let ``F# exception values can be constructed and destructured`` () =
+    let e = MyEx(4, "ERROR")
+
+    match e with
+    | MyEx(code, msg) ->
+        code |> equal 4
+        msg |> equal "ERROR"
+    | _ -> failwith "expected MyEx"
+
+// `match (o: obj) with :? string as s` binds s as the tested type, and codegen
+// emits `if let Some(s) = try_downcast(..)`. try_downcast returned a reference,
+// so s came out as &T wherever a T was expected and the crate did not compile.
+let private describeObj (o: obj) =
+    match o with
+    | :? string as s -> "'" + s + "'"
+    | :? int as i -> string i
+    | :? float as f -> string f
+    | :? bool as b -> (if b then "1" else "0")
+    | _ -> "?"
+
+[<Fact>]
+let ``type test binding on obj yields a usable value`` () =
+    describeObj (box "a") |> equal "'a'"
+    describeObj (box 7) |> equal "7"
+    describeObj (box 2.5) |> equal "2.5"
+    describeObj (box true) |> equal "1"
+    describeObj (box 'c') |> equal "?"

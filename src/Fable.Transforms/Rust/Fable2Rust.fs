@@ -2107,6 +2107,23 @@ module Util =
         let ent = com.GetEntity(entRef)
         let idents = getEntityFieldsAsIdents com ent
 
+        // An F# `exception` declaration gets a synthetic __base__ field, so that
+        // the generated Deref to System.Exception (and hence .Message) works.
+        // A class constructor puts a matching value at the head of its NewRecord,
+        // but an exception constructor carries only the declared fields, leaving
+        // one more ident than values. Supply the base here instead of zipping
+        // lists of different lengths, which failed with no source location.
+        let baseFields, idents =
+            match idents with
+            | baseIdent :: restIdents when
+                ent.IsFSharpExceptionDeclaration && List.length restIdents = List.length values
+                ->
+                let msg = mkStrLitExpr "" |> makeStaticString com ctx
+                let baseExpr = makeLibCall com ctx None "Util" "new_Exception" [ msg ]
+                let fieldName = baseIdent.Name |> sanitizeMember
+                [ mkExprField [] fieldName baseExpr false false ], restIdents
+            | _ -> [], idents
+
         let fields =
             List.zip idents values
             |> List.map (fun (ident, value) ->
@@ -2132,7 +2149,7 @@ module Util =
                 mkExprField [] fieldName expr false false
             )
 
-        let fields = List.append fields phantomFields
+        let fields = List.append baseFields (List.append fields phantomFields)
 
         let genArgsOpt = transformGenArgs com ctx genArgs
         let entName = getEntityFullName com ctx entRef
@@ -5047,7 +5064,11 @@ module Util =
         let entName = Fable.Naming.splitLast ent.FullName
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
         let generics = makeGenerics com ctx genArgs
-        let isPublic = ent.IsFSharpRecord
+        // F# exception fields (Data0, Data1, ...) are public on .NET, and an
+        // exception declared in one crate has to be constructible from another —
+        // MatchFailureException lives in the runtime library but is constructed
+        // by user code for any match F# cannot prove exhaustive.
+        let isPublic = ent.IsFSharpRecord || ent.IsFSharpExceptionDeclaration
         let idents = getEntityFieldsAsIdents com ent
 
         let fields =
@@ -5276,6 +5297,10 @@ module Util =
 
             let fieldValues =
                 getEntityFieldsAsIdents com ent
+                // Skip the synthetic __base__ field. The message describes the
+                // exception's own data; formatting the base System.Exception
+                // with {:?} also walks its null innerException, which faults.
+                |> List.filter (fun ident -> ident.Name <> baseName)
                 |> List.map (fun ident ->
                     let info = Fable.FieldInfo.Create(ident.Name, ident.Type, ident.IsMutable)
                     Fable.Get(thisArg, info, ident.Type, None)

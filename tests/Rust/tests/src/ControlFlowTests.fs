@@ -183,3 +183,40 @@ let ``two-switch or-pattern with obj binding works`` () =
     // exercises the getZeroObj placeholder for a `dyn Any` binding on the two-switch path
     orPatObj (OA(box 9)) :? int |> equal true
     orPatObj (OB(box 11)) :? string |> equal false
+
+// An active pattern in the first clause of a match F# cannot prove exhaustive.
+// F# emits `raise (MatchFailureException(...))` for the fallthrough, and the
+// rewrite that normally removes it only fires when the decision expression
+// starts with a UnionCaseTest — an active pattern there is not one, so the
+// construction survived into codegen and crashed the compiler with
+// "The lists had different lengths" and no source location.
+type private ApExpr =
+    | ApColumn of string * string
+    | ApConst of string
+
+let private (|IsApConst|_|) e =
+    match e with
+    | ApConst c -> Some c
+    | _ -> None
+
+let private (|IsApColumn|_|) e =
+    match e with
+    | ApColumn(t, n) -> Some(t, n)
+    | _ -> None
+
+let private renderUnionAfterAp e =
+    match e with
+    | IsApConst c -> c
+    | ApColumn(t, n) -> t + "." + n
+
+let private renderApOnly e =
+    match e with
+    | IsApConst c -> c
+    | IsApColumn(t, n) -> t + "." + n
+
+[<Fact>]
+let ``non-exhaustive match starting with an active pattern works`` () =
+    renderUnionAfterAp (ApColumn("c", "x")) |> equal "c.x"
+    renderUnionAfterAp (ApConst "lit") |> equal "lit"
+    renderApOnly (ApColumn("c", "x")) |> equal "c.x"
+    renderApOnly (ApConst "lit") |> equal "lit"

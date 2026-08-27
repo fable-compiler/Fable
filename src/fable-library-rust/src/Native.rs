@@ -492,11 +492,14 @@ pub mod Native_ {
     // Type testing
     // -----------------------------------------------------------
 
-    pub fn try_downcast<T: 'static, U: 'static>(value: &T) -> Option<&U> {
+    // Returns an owned value rather than a reference: `match o with :? string as s`
+    // binds `s` as the tested type, and codegen emits `if let Some(s) = try_downcast(..)`,
+    // so a borrow here made `s` a `&U` wherever a `U` was expected.
+    pub fn try_downcast<T: 'static, U: 'static + Clone>(value: &T) -> Option<U> {
         if let Some(o) = (value as &dyn Any).downcast_ref::<LrcPtr<dyn Any>>() {
-            o.downcast_ref::<U>()
+            o.downcast_ref::<U>().cloned()
         } else {
-            (value as &dyn Any).downcast_ref::<U>()
+            (value as &dyn Any).downcast_ref::<U>().cloned()
         }
     }
 
