@@ -265,7 +265,7 @@ let convertTo com (ctx: Context) r t (args: Expr list) =
         addWarning com ctx.InlinePath r "Unsupported conversion"
         TypeCast(args.Head, t)
 
-let toString com (ctx: Context) r (args: Expr list) =
+let rec toString com (ctx: Context) r (args: Expr list) =
     match args with
     | [] ->
         "toString is called with empty args"
@@ -275,6 +275,20 @@ let toString com (ctx: Context) r (args: Expr list) =
         | String -> head
         | Char -> Helper.LibCall(com, "String", "ofChar", String, [ head ])
         | Boolean -> Helper.LibCall(com, "String", "ofBoolean", String, [ head ])
+        // Rust has no Display for tuples, and the orphan rule rules out adding
+        // one. Building the text here also matches .NET more closely than a
+        // derived Debug would: each element goes through its own ToString, so a
+        // string element is unquoted and a bool prints as True/False.
+        | Tuple(genArgs, _) when not (List.isEmpty genArgs) ->
+            let element i genArg =
+                toString com ctx r [ Get(head, TupleIndex i, genArg, r) ]
+
+            let separated =
+                genArgs
+                |> List.mapi element
+                |> List.reduce (fun acc part -> add (add acc (makeStrConst ", ")) part)
+
+            add (add (makeStrConst "(") separated) (makeStrConst ")")
         | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "toString", String, args)
         | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toString", String, args)
         // | Array _ | List _ ->
