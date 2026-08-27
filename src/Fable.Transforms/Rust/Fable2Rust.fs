@@ -3208,8 +3208,39 @@ module Util =
         let addCapturedNames expr =
             capturedNames.UnionWith(FableTransforms.getCapturedNames expr)
 
+        // A try/with/finally lowers to closures on this target, but the Fable AST
+        // has no Lambda there, so the shared capture walk does not see those
+        // bodies as closure contexts. Everything they reference is captured all
+        // the same: without this a `let mutable` assigned in a finally block was
+        // emitted as a bare MutCell, and the closure mutated a clone of it.
+        let addTryCatchCaptures expr =
+            expr
+            |> deepExists (fun e ->
+                match e with
+                | Fable.TryCatch(body, catch, finalizer, _) ->
+                    [ Some body; catch |> Option.map snd; finalizer ]
+                    |> List.choose id
+                    |> List.iter (fun part ->
+                        part
+                        |> deepExists (fun inner ->
+                            match inner with
+                            | Fable.IdentExpr ident ->
+                                capturedNames.Add ident.Name |> ignore
+                                false
+                            | _ -> false
+                        )
+                        |> ignore
+                    )
+
+                    false
+                | _ -> false
+            )
+            |> ignore
+
         bindings |> List.iter (snd >> addCapturedNames)
         addCapturedNames letBody
+        bindings |> List.iter (snd >> addTryCatchCaptures)
+        addTryCatchCaptures letBody
         capturedNames
 
     let getScopedIdentCtx com ctx (ident: Fable.Ident) isArm isRef isBox isFunc usages =

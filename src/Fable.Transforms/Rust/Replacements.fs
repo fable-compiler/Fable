@@ -2221,7 +2221,37 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
     | _ -> None
 
+/// Drops culture and style arguments from a call.
+///
+/// Rust's formatting and parsing are invariant, which is exactly what
+/// InvariantCulture asks for, so the overloads that take a provider are
+/// equivalent to the ones that do not. Passing the argument on was not: the
+/// runtime functions have no parameter for it, so `Decimal.Parse(s, style,
+/// culture)` reached a one-argument function and `d.ToString(culture)` put a
+/// provider where a format string belongs.
+///
+/// Filtering by argument type rather than by position leaves the arity of every
+/// other overload alone.
+let dropCultureArgs (args: Expr list) =
+    let isCultureOrStyle (e: Expr) =
+        match e.Type with
+        | DeclaredType(ent, _) ->
+            match ent.FullName with
+            | "System.Globalization.CultureInfo"
+            | "System.IFormatProvider" -> true
+            | _ -> false
+        | Number(_, NumberInfo.IsEnum ent) ->
+            match ent.FullName with
+            | "System.Globalization.NumberStyles"
+            | "System.Globalization.DateTimeStyles" -> true
+            | _ -> false
+        | _ -> false
+
+    args |> List.filter (isCultureOrStyle >> not)
+
 let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let args = dropCultureArgs args
+
     match i.CompiledName, args with
     | (".ctor" | "MakeDecimal"), ([ low; mid; high; isNegative; scale ] as args) ->
         Helper.LibCall(com, "Decimal", "fromParts", t, args, i.SignatureArgTypes, ?loc = r)
@@ -2281,6 +2311,14 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     //     let format = makeStrConst ("{0:" + rustFmt + "}")
     //     "sprintf!" |> emitFormat com r t [format; thisArg.Value] |> Some
     | "ToString", _ ->
+        // For d.ToString(provider) the provider is the only argument, so dropping
+        // it leaves nothing for toString's decimal parameter; the receiver takes
+        // its place. d.ToString() already arrives with the receiver in args.
+        let args =
+            match args, thisArg with
+            | [], Some this -> [ this ]
+            | _ -> args
+
         Helper.LibCall(com, "Decimal", "toString", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
