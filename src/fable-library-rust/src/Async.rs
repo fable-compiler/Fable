@@ -12,6 +12,8 @@ pub mod Async_ {
     use futures_timer::Delay;
 
     use super::Task_::Task;
+    use crate::NativeArray_::{array_from, Array};
+    use crate::Native_::Seq;
     use crate::System::Threading::CancellationToken;
 
     pub struct Async<T: Sized + Send + Sync> {
@@ -25,18 +27,15 @@ pub mod Async_ {
             self: Pin<&mut Self>,
             cx: &mut std::task::Context<'_>,
         ) -> std::task::Poll<Self::Output> {
-            let p = self
-                .future
-                .try_lock()
-                .map(|mut f| f.poll_unpin(cx))
-                .unwrap_or_else(|| {
-                    //Again blocking wait, not good
-                    thread::sleep(Duration::from_millis(10));
-                    cx.waker().wake_by_ref();
+            // Poll the lock's own future so contention parks on its waker.
+            // try_lock plus a 10ms sleep spent that long doing nothing whenever
+            // two pollers met.
+            let mut lock = self.future.lock();
 
-                    std::task::Poll::Pending
-                });
-            p
+            match lock.poll_unpin(cx) {
+                std::task::Poll::Ready(mut guard) => guard.as_mut().poll(cx),
+                std::task::Poll::Pending => std::task::Poll::Pending,
+            }
         }
     }
 
@@ -74,6 +73,45 @@ pub mod Async_ {
             res
         };
         executor::block_on(unitFut)
+    }
+
+    /// Async.Parallel. Runs every computation on one executor and collects the
+    /// results in order. Previously missing entirely, so any use of it failed to
+    /// resolve.
+    pub fn parallel<T: Clone + Send + Sync + 'static>(
+        computations: Seq<Arc<Async<T>>>,
+    ) -> Arc<Async<Array<T>>> {
+        // F# hands this a seq, so materialise it before anything is awaited.
+        let items: Vec<Arc<Async<T>>> = crate::Seq_::toArray(computations).iter().cloned().collect();
+
+        let fut = async move {
+            let futures = items.into_iter().map(|a| async move {
+                let mut guard = a.future.lock().await;
+                guard.as_mut().await
+            });
+
+            let results: Vec<T> = futures::future::join_all(futures).await;
+            array_from(results)
+        };
+
+        let b: Pin<Box<dyn Future<Output = Array<T>> + Send + Sync + 'static>> = Box::pin(fut);
+
+        Arc::from(Async {
+            future: Arc::from(Mutex::from(b)),
+        })
+    }
+
+    /// Async.StartImmediateAsTask. Runs on the calling thread rather than
+    /// queueing onto the thread pool, so it does not pay for a hand-off. The
+    /// returned task is therefore already complete: there is no scheduler here
+    /// to leave it pending on, so this trades .NET's concurrency for the speed
+    /// the name promises. Use startAsTask when the work should overlap.
+    pub fn startImmediateAsTask<T: Clone + Send + Sync + 'static>(
+        a: Arc<Async<T>>,
+        cancellationToken: Option<CancellationToken>,
+    ) -> Arc<Task<T>> {
+        let result = runSynchronously(a, None, cancellationToken);
+        Arc::from(Task::from_result(result))
     }
 
     pub fn awaitTask<T: Clone + Send + Sync + 'static>(a: Arc<Task<T>>) -> Arc<Async<T>> {
@@ -202,8 +240,8 @@ pub mod Monitor_ {
 #[cfg(feature = "threaded")]
 pub mod Task_ {
     use std::pin::Pin;
-    use std::sync::{Arc, RwLock};
-    use std::task::Poll;
+    use std::sync::{Arc, Mutex, RwLock};
+    use std::task::{Poll, Waker};
     use std::thread::{self, JoinHandle};
     use std::time::Duration;
 
@@ -255,6 +293,10 @@ pub mod Task_ {
     #[derive(Clone)]
     pub struct Task<T: Sized + Clone + Send> {
         result: Arc<RwLock<TaskState<T>>>,
+        // Whoever is awaiting this task. Polling used to sleep the thread for
+        // 100ms and try again, which made awaiting a task cost far more than
+        // the work it was waiting for.
+        wakers: Arc<Mutex<Vec<Waker>>>,
     }
 
     impl<T: Clone + Send + Sync> Future for &Task<T> {
@@ -264,29 +306,25 @@ pub mod Task_ {
             self: std::pin::Pin<&mut Self>,
             cx: &mut std::task::Context<'_>,
         ) -> std::task::Poll<Self::Output> {
-            //eprintln!("{:?} Polling task for result", thread::current().id());
-            let m = self.result.read().unwrap();
+            if let TaskState::Complete(res) = &*self.result.read().unwrap() {
+                return Poll::Ready(res.clone());
+            }
 
-            match &*m {
+            // Register before re-reading the state: set_result may complete the
+            // task between the check above and this push, and the re-read below
+            // is what stops that racing completion from being missed.
+            self.wakers.lock().unwrap().push(cx.waker().clone());
+
+            match &*self.result.read().unwrap() {
+                TaskState::Complete(res) => Poll::Ready(res.clone()),
+                // Not started yet. start() flips New to Running synchronously
+                // before spawning, so this window is short.
                 TaskState::New(_) => {
-                    //schedule?
-                    //eprintln!("{:?} poll: task is new, waking up", thread::current().id());
                     cx.waker().wake_by_ref();
                     Poll::Pending
                 }
-                TaskState::Running => {
-                    //eprintln!("{:?} poll: pending, nothing to do", thread::current().id());
-
-                    //todo - this is no good as it blocks the thread. It needs to be non-blocking and delegate out
-                    thread::sleep(Duration::from_millis(100));
-                    cx.waker().wake_by_ref();
-
-                    Poll::Pending
-                }
-                TaskState::Complete(res) => {
-                    //eprintln!("{:?} Poll succeeded", thread::current().id());
-                    Poll::Ready(res.clone())
-                }
+                // Running: set_result wakes us.
+                TaskState::Running => Poll::Pending,
             }
         }
     }
@@ -295,20 +333,30 @@ pub mod Task_ {
         pub fn new(fut: impl Future<Output = T> + Send + Sync + 'static) -> Task<T> {
             Task {
                 result: Arc::from(RwLock::from(TaskState::New(Box::pin(fut)))),
+                wakers: Arc::from(Mutex::from(Vec::new())),
             }
         }
 
         pub fn from_result(value: T) -> Task<T> {
             Task {
                 result: Arc::from(RwLock::from(TaskState::Complete(value))),
+                wakers: Arc::from(Mutex::from(Vec::new())),
             }
         }
 
         pub fn set_result(&self, value: T) {
-            let mut m = self.result.write().unwrap();
-            //eprintln!("{:?} set task result", thread::current().id());
-            (*m) = TaskState::Complete(value);
-            //eprintln!("{:?} set task result completed", thread::current().id());
+            {
+                let mut m = self.result.write().unwrap();
+                (*m) = TaskState::Complete(value);
+            }
+
+            // Drain first, then wake outside the lock: a waker may poll straight
+            // back into this task.
+            let wakers: Vec<Waker> = self.wakers.lock().unwrap().drain(..).collect();
+
+            for w in wakers {
+                w.wake();
+            }
         }
 
         pub fn is_new(&self) -> bool {
@@ -320,13 +368,12 @@ pub mod Task_ {
         }
 
         pub fn get_result(&self) -> T {
-            while !self.is_complete() {
-                //eprintln!("{:?} try get result", thread::current().id());
-                thread::sleep(Duration::from_millis(10));
+            if let TaskState::Complete(res) = &*self.result.read().unwrap() {
+                return res.clone();
             }
-            //eprintln!("{:?} has result", thread::current().id());
-            let t = self.result.read().unwrap().unwrap();
-            t
+
+            // Parks on the waker rather than waking every 10ms to look again.
+            futures::executor::block_on(self)
         }
 
         pub fn start(t: Arc<Task<T>>) {
@@ -387,6 +434,7 @@ pub mod Task_ {
     pub fn from_result<T: Clone + Send>(t: T) -> Arc<Task<T>> {
         let t = Task {
             result: Arc::from(RwLock::from(TaskState::Complete(t))),
+            wakers: Arc::from(Mutex::from(Vec::new())),
         };
         Arc::from(t)
     }

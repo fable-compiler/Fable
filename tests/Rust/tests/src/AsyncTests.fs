@@ -82,13 +82,33 @@ let ``return! propagates error Result from inner async`` () =
     Async.RunSynchronously (outer (Ok 99)) |> equal (Ok 99)
     Async.RunSynchronously (outer (Error "oops")) |> equal (Error "oops")
 
-// [<Fact>]
-// let shouldExecAsParallelStructurallyCorrect () =
-//     let t = Async.Parallel [
-//         async { return 1 }
-//         async { return 2 }
-//     ]
-//     t |> Async.RunSynchronously |> Array.sum |> equal 3
+[<Fact>]
+let shouldExecAsParallelStructurallyCorrect () =
+    let t = Async.Parallel [
+        async { return 1 }
+        async { return 2 }
+    ]
+    t |> Async.RunSynchronously |> Array.sum |> equal 3
+
+[<Fact>]
+let shouldExecAsParallelInOrder () =
+    Async.Parallel [
+        async { return 1 }
+        async { return 2 }
+        async { return 3 }
+    ]
+    |> Async.RunSynchronously
+    |> Array.toList
+    |> equal [ 1; 2; 3 ]
+
+[<Fact>]
+let shouldExecStartImmediateAsTask () =
+    // Runs on the calling thread instead of queueing onto the thread pool.
+    async { return 7 }
+    |> Async.StartImmediateAsTask
+    |> Async.AwaitTask
+    |> Async.RunSynchronously
+    |> equal 7
 
 // [<Fact>]
 // let shouldMarshalMutOverAsyncClosureCorrectly () =
