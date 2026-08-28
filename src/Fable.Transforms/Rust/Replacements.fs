@@ -1375,6 +1375,11 @@ let getEnumerator com r t i (expr: Expr) =
     // | IsEntity (Types.regexCaptureCollection) _
     | Array _ -> Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ expr ], ?loc = r)
     | List _ -> Helper.LibCall(com, "Seq", "Enumerable::ofList", t, [ expr ], ?loc = r)
+    // A string is enumerable in F# but `string` is `LrcStr` in Rust, with no
+    // GetEnumerator to fall through to -- so `for ch in s do` did not compile.
+    | String ->
+        let ar = Helper.LibCall(com, "String", "toCharArray", t, [ expr ])
+        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r)
     | IsEntity (Types.hashset) _
     | IsEntity (Types.iset) _ ->
         let ar = Helper.LibCall(com, "HashSet", "entries", t, [ expr ])
