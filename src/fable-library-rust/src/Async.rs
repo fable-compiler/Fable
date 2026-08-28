@@ -13,11 +13,34 @@ pub mod Async_ {
 
     use super::Task_::Task;
     use crate::NativeArray_::{array_from, Array};
-    use crate::Native_::Seq;
+    use crate::Native_::{Func0, Seq};
     use crate::System::Threading::CancellationToken;
 
     pub struct Async<T: Sized + Send + Sync> {
         pub future: Arc<Mutex<Pin<Box<dyn Future<Output = T> + Send + Sync>>>>,
+
+        /// How to build this computation again, where there is such a thing.
+        ///
+        /// An F# `Async<T>` is a description that can be run any number of
+        /// times; a Rust `Future` can be polled to completion exactly once.
+        /// `while` and `for` inside an async block have to run their body once
+        /// per iteration, so `AsyncBuilder_::delay` -- the one place the F#
+        /// compiler hands over a re-runnable description, and which wraps every
+        /// loop body -- keeps its builder here. Everything else leaves it None
+        /// and stays single-shot exactly as before.
+        pub restart: Option<Func0<Arc<Async<T>>>>,
+    }
+
+    impl<T: Sized + Send + Sync + 'static> Async<T> {
+        /// Wraps a future as a single-shot computation.
+        pub fn from_future(fut: impl Future<Output = T> + Send + Sync + 'static) -> Arc<Async<T>> {
+            let b: Pin<Box<dyn Future<Output = T> + Send + Sync + 'static>> = Box::pin(fut);
+
+            Arc::from(Async {
+                future: Arc::from(Mutex::from(b)),
+                restart: None,
+            })
+        }
     }
 
     impl<T: Clone + Send + Sync> Future for &Async<T> {
@@ -40,11 +63,7 @@ pub mod Async_ {
     }
 
     pub fn sleep(milliseconds: i32) -> Arc<Async<()>> {
-        let fut = Delay::new(Duration::from_millis(milliseconds as u64));
-        let a: Pin<Box<dyn Future<Output = ()> + Send + Sync + 'static>> = Box::pin(fut);
-        Arc::from(Async {
-            future: Arc::from(Mutex::from(a)),
-        })
+        Async::from_future(Delay::new(Duration::from_millis(milliseconds as u64)))
     }
 
     pub fn startAsTask<T: Clone + Send + Sync + 'static>(
@@ -94,11 +113,7 @@ pub mod Async_ {
             array_from(results)
         };
 
-        let b: Pin<Box<dyn Future<Output = Array<T>> + Send + Sync + 'static>> = Box::pin(fut);
-
-        Arc::from(Async {
-            future: Arc::from(Mutex::from(b)),
-        })
+        Async::from_future(fut)
     }
 
     /// Async.StartImmediateAsTask. Runs on the calling thread rather than
@@ -115,29 +130,209 @@ pub mod Async_ {
     }
 
     pub fn awaitTask<T: Clone + Send + Sync + 'static>(a: Arc<Task<T>>) -> Arc<Async<T>> {
-        let fut = async move { (&*a).await };
-        let a: Pin<Box<dyn Future<Output = T> + Send + Sync + 'static>> = Box::pin(fut);
-        Arc::from(Async {
-            future: Arc::from(Mutex::from(a)),
-        })
+        Async::from_future(async move { (&*a).await })
     }
 }
 
 #[cfg(feature = "threaded")]
 pub mod AsyncBuilder_ {
     use std::future::{Future, ready};
+    use std::panic::AssertUnwindSafe;
     use std::pin::Pin;
     use std::sync::Arc;
 
+    use futures::FutureExt;
     use futures::lock::Mutex;
 
     use super::Async_::Async;
-    use crate::Native_::{Func0, Func1};
+    use crate::Exception_::get_exception;
+    use crate::Native_::{eraseUnitArg, EraseUnitArg, Func0, Func1, LrcPtr, Seq};
+    use crate::System::Exception;
 
-    pub fn delay<T: Send + Sync + 'static>(binder: Func0<Arc<Async<T>>>) -> Arc<Async<T>> {
-        let pr = binder();
+    /// Awaits one computation to completion.
+    ///
+    /// Every method here goes through this rather than reaching into `future`
+    /// itself, so the locking is stated once.
+    async fn run<T: Send + Sync + 'static>(computation: Arc<Async<T>>) -> T {
+        let mut fut = computation.future.lock().await;
+        fut.as_mut().await
+    }
+
+    /// The `async` builder value.
+    ///
+    /// Fable resolves `DefaultAsyncBuilder` to this and emits every builder
+    /// method it does not map to a module function -- Combine, While, For,
+    /// TryWith, TryFinally, Using -- as an instance call on it. Without the
+    /// value and the methods, any async block containing a computation in
+    /// statement position failed to compile.
+    pub struct AsyncBuilder {}
+
+    pub static singleton: AsyncBuilder = AsyncBuilder {};
+
+    impl AsyncBuilder {
+        /// Two computations in sequence, discarding the first result. This is
+        /// what `if cond then do! x` followed by anything else compiles to.
+        pub fn Combine<T: Clone + Send + Sync + 'static>(
+            &self,
+            computation1: Arc<Async<()>>,
+            computation2: Arc<Async<T>>,
+        ) -> Arc<Async<T>> {
+            Async::from_future(async move {
+                run(computation1).await;
+                run(computation2).await
+            })
+        }
+
+        /// `while` inside an async block.
+        ///
+        /// The body has to run once per iteration, and a future can only be
+        /// polled to completion once, so each lap asks `restart` for a fresh
+        /// one. The F# compiler always wraps a loop body in `Delay`, which is
+        /// what sets it.
+        pub fn While(&self, guard: Func0<bool>, computation: Arc<Async<()>>) -> Arc<Async<()>> {
+            Async::from_future(async move {
+                let mut lap = 0usize;
+
+                while guard() {
+                    let body = match &computation.restart {
+                        Some(build) => build(),
+                        // Nothing to rebuild from. One lap can still be served
+                        // by the computation itself; a second would poll a
+                        // future that has already completed, so say so rather
+                        // than panicking from inside the future.
+                        None if lap == 0 => computation.clone(),
+                        None => panic!(
+                            "async while: the loop body cannot be run more than once"
+                        ),
+                    };
+
+                    run(body).await;
+                    lap += 1;
+                }
+            })
+        }
+
+        /// `for` inside an async block.
+        ///
+        /// The sequence is materialised before anything is awaited, the same
+        /// way `Async.Parallel` does it: a Fable `Seq`'s iterator is not `Send`
+        /// and so cannot be held across an await. A lazy, side-effecting
+        /// sequence therefore runs to completion up front instead of
+        /// interleaving with the body.
+        pub fn For<T: Clone + Send + Sync + 'static>(
+            &self,
+            sequence: Seq<T>,
+            body: Func1<T, Arc<Async<()>>>,
+        ) -> Arc<Async<()>> {
+            let items: Vec<T> = crate::Seq_::toArray(sequence).iter().cloned().collect();
+
+            Async::from_future(async move {
+                for item in items {
+                    run(body(item)).await;
+                }
+            })
+        }
+
+        /// `try/with` inside an async block.
+        ///
+        /// Exceptions are panics on this target, and the body spans await
+        /// points, so the catch has to wrap the whole computation rather than a
+        /// synchronous call the way `Exception_::try_catch` does. That also
+        /// means the panic hook is left alone: it is process-global, and
+        /// swapping it for the duration of an await would silence unrelated
+        /// panics on other threads. A caught exception therefore still prints
+        /// the default panic message.
+        pub fn TryWith<T: Clone + Send + Sync + 'static>(
+            &self,
+            computation: Arc<Async<T>>,
+            catchHandler: Func1<LrcPtr<Exception>, Arc<Async<T>>>,
+        ) -> Arc<Async<T>> {
+            Async::from_future(async move {
+                // The panic payload is only Send, never Sync, so it must not
+                // still be alive at the await below -- that would make this
+                // future non-Sync and `Async` requires Sync. Turning it into
+                // the handler's computation here ends its scope first.
+                let outcome = match AssertUnwindSafe(run(computation)).catch_unwind().await {
+                    Ok(value) => Ok(value),
+                    Err(payload) => Err(catchHandler(get_exception(&*payload))),
+                };
+
+                match outcome {
+                    Ok(value) => value,
+                    Err(handled) => run(handled).await,
+                }
+            })
+        }
+
+        /// `try/finally` inside an async block. The compensation runs on both
+        /// paths, and a failure keeps unwinding with its original payload.
+        pub fn TryFinally<T: Clone + Send + Sync + 'static>(
+            &self,
+            computation: Arc<Async<T>>,
+            compensation: Func0<()>,
+        ) -> Arc<Async<T>> {
+            Async::from_future(async move {
+                let outcome = AssertUnwindSafe(run(computation)).catch_unwind().await;
+                compensation();
+
+                match outcome {
+                    Ok(value) => value,
+                    Err(payload) => std::panic::resume_unwind(payload),
+                }
+            })
+        }
+
+        /// `use` inside an async block.
+        ///
+        /// Deliberately does not call Dispose. A plain `use` does not call it
+        /// on this target either -- resources go out with Rust's own Drop, see
+        /// the disabled cases in `tests/Rust/tests/src/MiscTests.fs` -- and
+        /// disposing here alone would make the async and non-async forms
+        /// disagree. This exists so `use` inside `async` compiles and binds,
+        /// which it previously did not.
+        pub fn Using<
+            D: Clone + Send + Sync + 'static,
+            U: Clone + Send + Sync + 'static,
+        >(
+            &self,
+            resource: D,
+            binder: Func1<D, Arc<Async<U>>>,
+        ) -> Arc<Async<U>> {
+            binder(resource)
+        }
+    }
+
+    /// `Delay` is what makes an async block a description rather than a running
+    /// computation, so the builder is called when the result is awaited and not
+    /// before.
+    ///
+    /// The builder is taken as `EraseUnitArg` rather than plainly as `Func0`
+    /// because the unit parameter of a `unit -> Async<unit>` lambda is not
+    /// always erased: `discardUnitArg` keeps it when the lambda's own generic
+    /// argument is unit, which is what a `try/finally` nested inside a
+    /// `try/with` produces. Accepting both shapes and normalising here is
+    /// contained to this file; changing when the compiler erases a unit
+    /// parameter would reach every lambda on the target.
+    ///
+    /// It used to be called immediately, which meant any part of the block
+    /// evaluated eagerly -- `return i` compiles to `r_return(i)`, and `r_return`
+    /// takes its argument by value -- captured state from before the block ran.
+    /// Nothing noticed while every async block was a straight line, because the
+    /// value was read at construction and the block did nothing in between.
+    /// `Combine` makes it visible: in `while .. done; return i` the `return i`
+    /// half was read before the loop had touched `i`.
+    pub fn delay<T: Send + Sync + 'static, F: EraseUnitArg<Arc<Async<T>>>>(
+        binder: F,
+    ) -> Arc<Async<T>> {
+        let binder = eraseUnitArg(binder);
+        let build = binder.clone();
+
         Arc::from(Async {
-            future: pr.future.clone(),
+            future: Arc::from(Mutex::from(Box::pin(async move { run(build()).await })
+                as Pin<Box<dyn Future<Output = T> + Send + Sync + 'static>>)),
+            // The only place F# gives us a way to build the computation again.
+            // While and For need one; nothing else looks at it.
+            restart: Some(binder),
         })
     }
 
@@ -153,18 +348,11 @@ pub mod AsyncBuilder_ {
             next.as_mut().await
         };
 
-        let b: Pin<Box<dyn Future<Output = U> + Send + Sync + 'static>> = Box::pin(next);
-        Arc::from(Async {
-            future: Arc::from(Mutex::from(b)),
-        })
+        Async::from_future(next)
     }
 
     pub fn r_return<T: Send + Sync + 'static>(item: T) -> Arc<Async<T>> {
-        let r = ready(item);
-        let b: Pin<Box<dyn Future<Output = T> + Send + Sync + 'static>> = Box::pin(r);
-        Arc::from(Async {
-            future: Arc::from(Mutex::from(b)),
-        })
+        Async::from_future(ready(item))
     }
 
     pub fn return_from<T: Send + Sync + 'static>(computation: Arc<Async<T>>) -> Arc<Async<T>> {

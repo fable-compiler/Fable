@@ -954,3 +954,188 @@ let ``Async.Sleep works`` () =
 //         acc > 2 |> equal true
 //     }
 //     |> Async.StartImmediate
+
+// The async builder's Combine, While, For, TryWith, TryFinally and Using used
+// to be missing from the Rust runtime, so any async block with a computation in
+// statement position failed to compile with "unresolved import
+// AsyncBuilder_::singleton".
+
+[<Fact>]
+let ``if without else in an async block combines`` () =
+    let comp = async {
+        if 1 < 2 then
+            do! async { return () }
+        return 42
+    }
+    comp |> Async.RunSynchronously |> equal 42
+
+[<Fact>]
+let ``while in an async block loops`` () =
+    let comp = async {
+        let mutable i = 0
+        while i < 3 do
+            let! step = async { return 1 }
+            i <- i + step
+        return i
+    }
+    comp |> Async.RunSynchronously |> equal 3
+
+[<Fact>]
+let ``while in an async block can run zero times`` () =
+    let comp = async {
+        let mutable i = 10
+        while i < 3 do
+            let! step = async { return 1 }
+            i <- i + step
+        return i
+    }
+    comp |> Async.RunSynchronously |> equal 10
+
+[<Fact>]
+let ``for in an async block iterates`` () =
+    let comp = async {
+        let mutable sum = 0
+        for x in [1; 2; 3] do
+            let! y = async { return x * 10 }
+            sum <- sum + y
+        return sum
+    }
+    comp |> Async.RunSynchronously |> equal 60
+
+// Delay used to run its builder immediately, so the `return` half of the block
+// was built -- and its value read -- before the loop above it had run. Only
+// Combine makes that visible, which is why it went unnoticed.
+[<Fact>]
+let ``state written by a loop is visible after it`` () =
+    let comp = async {
+        let mutable acc = ""
+        for x in ["a"; "b"] do
+            let! y = async { return x }
+            acc <- acc + y
+        return acc
+    }
+    comp |> Async.RunSynchronously |> equal "ab"
+
+[<Fact>]
+let ``try with in an async block catches`` () =
+    let comp = async {
+        try
+            let! _ = async { return 1 }
+            failwith "boom"
+            return 0
+        with _ ->
+            return -1
+    }
+    comp |> Async.RunSynchronously |> equal -1
+
+[<Fact>]
+let ``try with in an async block leaves a success alone`` () =
+    let comp = async {
+        try
+            let! x = async { return 1 }
+            return x
+        with _ ->
+            return -1
+    }
+    comp |> Async.RunSynchronously |> equal 1
+
+[<Fact>]
+let ``try finally in an async block runs the finalizer`` () =
+    let mutable ran = 0
+    let comp = async {
+        try
+            let! x = async { return 1 }
+            return x
+        finally
+            ran <- ran + 1
+    }
+    comp |> Async.RunSynchronously |> equal 1
+    ran |> equal 1
+
+[<Fact>]
+let ``try finally in an async block runs the finalizer on failure`` () =
+    let mutable ran = 0
+    let comp = async {
+        try
+            let! _ = async { return 1 }
+            failwith "boom"
+            return 0
+        finally
+            ran <- ran + 1
+    }
+    throwsAnyError (fun () -> comp |> Async.RunSynchronously)
+    ran |> equal 1
+
+// Note this asserts only that the resource binds and the block returns.
+// Dispose is not called for a `use` on the Rust target at all -- see the
+// disabled cases in MiscTests.fs -- so asserting disposal here would pass on
+// .NET and fail on Rust.
+type AsyncDisposable() =
+    interface System.IDisposable with
+        member _.Dispose() = ()
+
+[<Fact>]
+let ``use in an async block binds the resource`` () =
+    let comp = async {
+        use res = new AsyncDisposable()
+        let! x = async { return 1 }
+        return (if isNull (box res) then 0 else x)
+    }
+    comp |> Async.RunSynchronously |> equal 1
+
+[<Fact>]
+let ``nested loops in an async block`` () =
+    let comp = async {
+        let mutable total = 0
+        for i in 1 .. 3 do
+            let mutable j = 0
+            while j < 2 do
+                let! v = async { return i }
+                total <- total + v
+                j <- j + 1
+        return total
+    }
+    comp |> Async.RunSynchronously |> equal 12
+
+[<Fact>]
+let ``a loop body that awaits nothing still runs`` () =
+    let comp = async {
+        let mutable i = 0
+        while i < 3 do
+            i <- i + 1
+        return i
+    }
+    comp |> Async.RunSynchronously |> equal 3
+
+[<Fact>]
+let ``try with inside a loop catches each time`` () =
+    let comp = async {
+        let mutable caught = 0
+        for _ in 1 .. 3 do
+            try
+                let! _ = async { return () }
+                failwith "boom"
+            with _ ->
+                caught <- caught + 1
+        return caught
+    }
+    comp |> Async.RunSynchronously |> equal 3
+
+// The inner try/finally makes F# pass Delay a `unit -> Async<unit>` lambda whose
+// unit parameter is not erased, so the builder arrived as Func1 rather than
+// Func0 and this shape did not compile.
+[<Fact>]
+let ``try finally nested inside try with`` () =
+    let comp = async {
+        let mutable order = ""
+        try
+            try
+                let! _ = async { return () }
+                failwith "boom"
+            finally
+                order <- order + "inner"
+        with _ ->
+            order <- order + "-caught"
+        return order
+    }
+    comp |> Async.RunSynchronously |> equal "inner-caught"
