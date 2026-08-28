@@ -300,4 +300,25 @@ let tests =
         |> equal "((col = ?) AND (col > ?))"
         dpToSql <@ fun (c: DpRec) -> c.Id < 5 || c.Balance > 1.0 @>
         |> equal "((col < ?) OR (col > ?))"
+
+    // A local captured by a quotation is spliced in as a Value holding its value,
+    // the way .NET does. It used to come through as a Var carrying only a name.
+    testCase "a captured local is a Value, not a Var" <| fun () ->
+        let captured = "SE"
+        let describe (e: Expr) =
+            match e with
+            | Lambda(_, body) ->
+                match body with
+                | Value(v, _) -> "Value:" + unbox<string> v
+                | Var v -> "Var:" + v.Name
+                | _ -> "other"
+            | _ -> "not a lambda"
+        describe <@ fun (_: int) -> captured @> |> equal "Value:SE"
+        describe <@ fun (_: int) -> "SE" @> |> equal "Value:SE"
+        // Checks that a bound variable is still a Var, not its name: JavaScript
+        // renames the lambda argument (x -> x_10), so the name is not portable.
+        (match <@ fun (x: string) -> x @> with
+         | Lambda(_, Var _) -> "Var"
+         | _ -> "?")
+        |> equal "Var"
   ]
