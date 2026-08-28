@@ -2002,10 +2002,23 @@ module Util =
             // so it must take this path too (the `_` branch would emit a null of an
             // unsized `dyn Any`, which does not compile).
             makeLibCall com ctx None "Native" "getZeroObj" []
+        // Heap-backed but not `Lrc`-wrapped, so the null-ref placeholder below does
+        // not apply and `getZero` would `mem::zeroed` the Arc inside them -- which is
+        // a hard runtime panic, not a compile error. Each has a cheap valid empty
+        // value, and the placeholder is always overwritten before it can be read.
+        | Fable.String -> Fable.Value(Fable.StringConstant "", None) |> transformExpr com ctx
+        | Fable.Option(genArg, isStruct) ->
+            Fable.Value(Fable.NewOption(None, genArg, isStruct), None)
+            |> transformExpr com ctx
+        | Fable.Array(genArg, kind) ->
+            Fable.Value(Fable.NewArray(Fable.ArrayValues [], genArg, kind), None)
+            |> transformExpr com ctx
+        | Fable.List genArg -> Fable.Value(Fable.NewList(None, genArg), None) |> transformExpr com ctx
+
         | _ ->
             // Only concrete (sized) `Lrc`-wrapped reference types can use the null-ref
-            // placeholder. Unsized refs (interfaces, enumerators) and Arc/Box-wrapped
-            // types keep `getZero` (they don't reach this path in practice).
+            // placeholder. What is left is the primitives, for which `mem::zeroed` is
+            // a valid bit pattern.
             let isConcreteLrcRef =
                 match shouldBeRefCountWrapped com ctx typ with
                 | Some Lrc ->
@@ -3802,15 +3815,19 @@ module Util =
                 | _, Fable.Value((Fable.CharConstant _ | Fable.NumberConstant _), _) -> Some(left, right)
                 | Fable.Value((Fable.CharConstant _ | Fable.NumberConstant _), _), _ -> Some(right, left)
                 | _ -> None
-            // Only a plain-ident scrutinee is convertible: transformSwitch can't recover the
-            // `Option` type from anything else, and would emit bogus `0_i32` patterns.
+            // Only a plain-ident scrutinee is convertible: transformSwitch recovers the
+            // union (or `Option`) type from the ident, and without one it falls back to
+            // `evalExpr.Type`, which is the tag's `int32`. `makeUnionCasePatOpt` then
+            // declines and the arm becomes a bare `1_i32` literal pattern matched
+            // against the union value itself, which does not compile. Anything else is
+            // left to the if/else decision-tree path, which tests with `if let`.
             | Fable.Test(Fable.IdentExpr _ as expr, Fable.OptionTest isSome, r) ->
                 let evalExpr =
                     Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), r)
 
                 let right = makeIntConst (makeTest isSome 0 1)
                 Some(evalExpr, right)
-            | Fable.Test(expr, Fable.UnionCaseTest tag, r) ->
+            | Fable.Test(Fable.IdentExpr _ as expr, Fable.UnionCaseTest tag, r) ->
                 let evalExpr =
                     Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), r)
 
