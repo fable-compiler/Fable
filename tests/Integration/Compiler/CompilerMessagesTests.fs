@@ -7,9 +7,11 @@ open Fable.Tests.Compiler.Util.Compiler
 
 let private compile source = Compiler.Cached.compile Compiler.Settings.standard source
 
-/// Compiles `library` as `Library.fs`, just before `source`
 let private compileWithLibrary library source =
   Compiler.Cached.compileWithLibrary Compiler.Settings.standard library source
+
+let private compileWithSignedLibrary signature library source =
+  Compiler.Cached.compileWithSignedLibrary Compiler.Settings.standard signature library source
 
 let tests =
   testList "Compiler Messages" [
@@ -145,8 +147,7 @@ module Nested =
       |> Assert.Is.success
       |> ignore
 
-    testCase "Private inline function referencing private value is not inlined in another file" <| fun _ ->
-      // `y` cannot be called from another file, but `z` drags its body along
+    testCase "Private inline function referencing private value errors when inlined in another file" <| fun _ ->
       let library =
         """
 module Library
@@ -157,6 +158,26 @@ let inline z () = y ()
 """
       let source = "let res = Library.z ()"
       compileWithLibrary library source
+      |> Assert.Are.errors 1
+      |> Assert.Exists.errorWith "was marked inline but its implementation makes use of an internal or private function"
+      |> ignore
+
+    testCase "Inline function referencing private value is reported once, not once per call site" <| fun _ ->
+      let library =
+        """
+module Library
+
+let private x = 1
+let inline w () = x
+let inline z () = w ()
+"""
+      let source =
+        """
+let a = Library.z ()
+let b = Library.z ()
+"""
+      compileWithLibrary library source
+      |> Assert.Are.errors 1
       |> Assert.Exists.errorWith "was marked inline but its implementation makes use of an internal or private function"
       |> ignore
 
@@ -172,6 +193,66 @@ let inline z () = y ()
 """
       let source = "let res = Library.z ()"
       compileWithLibrary library source
+      |> Assert.Is.success
+      |> ignore
+
+    testCase "Inline function referencing value hidden by a signature file errors when inlined in another file" <| fun _ ->
+      let signature =
+        """
+module Library
+
+val inline z: unit -> int
+"""
+      let library =
+        """
+module Library
+
+let x = 1
+let inline z () = x
+"""
+      let source = "let res = Library.z ()"
+      compileWithSignedLibrary signature library source
+      |> Assert.Are.errors 1
+      |> Assert.Exists.errorWith "was marked inline but its implementation makes use of an internal or private function"
+      |> ignore
+
+    testCase "Inline function hidden by a signature file referencing hidden value succeeds" <| fun _ ->
+      let signature =
+        """
+module Library
+
+val res: int
+"""
+      let library =
+        """
+module Library
+
+let x = 1
+let inline z () = x
+let res = z ()
+"""
+      let source = "let res = Library.res"
+      compileWithSignedLibrary signature library source
+      |> Assert.Is.success
+      |> ignore
+
+    testCase "Inline function referencing value exposed by a signature file succeeds" <| fun _ ->
+      let signature =
+        """
+module Library
+
+val x: int
+val inline z: unit -> int
+"""
+      let library =
+        """
+module Library
+
+let x = 1
+let inline z () = x
+"""
+      let source = "let res = Library.z ()"
+      compileWithSignedLibrary signature library source
       |> Assert.Is.success
       |> ignore
 

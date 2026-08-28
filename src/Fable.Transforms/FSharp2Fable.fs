@@ -2301,6 +2301,7 @@ type InlineExprInfo =
         FileName: string
         ScopeIdents: Set<string>
         ResolvedIdents: Dictionary<string, string>
+        IsFileLocal: bool
     }
 
 let resolveInlineIdent (ctx: Context) (info: InlineExprInfo) (ident: Fable.Ident) =
@@ -2322,22 +2323,17 @@ let resolveInlineIdent (ctx: Context) (info: InlineExprInfo) (ident: Fable.Ident
     else
         ident
 
-/// When an inline function is precompiled, references to members of its own file are turned into
-/// imports because the file the body will be expanded into is not known yet. Private members are
-/// not exported, so such an import is only valid when the body ends up in the declaring file.
-///
-/// A private inline function can only be called from its own file, so `memberIdent` lets its body
-/// reference private members. It can still escape the file when an inline function that is exported
-/// calls it, which is what this check catches. Direct calls (a single entry in the inline path) come
-/// from an exported inline function, already reported by `memberIdent` when it was precompiled.
-let checkInlinedPrivateAccess (com: IFableCompiler) (ctx: Context) (importInfo: Fable.ImportInfo) r =
-    match importInfo.Kind, ctx.InlinePath with
-    | Fable.MemberImport membRef, _ :: _ :: _ ->
+let checkInlinedPrivateAccess
+    (com: IFableCompiler)
+    (ctx: Context)
+    (info: InlineExprInfo)
+    (importInfo: Fable.ImportInfo)
+    r
+    =
+    match importInfo.Kind, info.IsFileLocal with
+    | Fable.MemberImport membRef, true ->
         match com.TryGetMember(membRef) with
-        // IsPublic is the same predicate the code generators use to decide whether a member is
-        // exported, so it also covers members hidden by a signature file, not just `private` ones.
         | Some memb when not memb.IsPublic ->
-            // Internal imports carry no range, fall back to the body of the inline function
             let r =
                 match r, ctx.InlinePath with
                 | None, { ToRange = toRange } :: _ -> toRange
@@ -2539,10 +2535,7 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
             if isImportToSameFile then
                 Fable.IdentExpr { makeTypedIdent t importInfo.Selector with Range = r }
             else
-                // Private members are not exported, so they can only be reached from the file
-                // declaring them. Reaching this point means the inline body is being expanded
-                // in another file, where the import cannot be resolved.
-                checkInlinedPrivateAccess com ctx importInfo r
+                checkInlinedPrivateAccess com ctx info importInfo r
 
                 let path = fixImportedRelativePath com importInfo.Path info.FileName
 
@@ -2760,6 +2753,7 @@ type FableCompiler(com: Compiler) =
                 FileName = inExpr.FileName
                 ScopeIdents = inExpr.ScopeIdents
                 ResolvedIdents = Dictionary()
+                IsFileLocal = inExpr.IsFileLocal
             }
 
         let ctx, bindings, forceInlineMap =
@@ -3033,6 +3027,7 @@ let getInlineExprs fileName (declarations: FSharpImplementationFileDeclaration l
                             FileName = fileName
                             GenericArgs = genArgs
                             ScopeIdents = set ctx.UsedNamesInDeclarationScope
+                            IsFileLocal = not (isNotPrivate memb)
                         }
                     )
                 ]
