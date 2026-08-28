@@ -188,8 +188,25 @@ let ``two-switch or-pattern with obj binding works`` () =
 // Lambda there, so the capture walk did not treat those bodies as closure
 // contexts. A `let mutable` assigned in a finally block was emitted as a bare
 // MutCell and the closure mutated a clone, so the write was silently lost.
+//
+// The exception-free case runs everywhere; the ones below need a `with` that
+// actually catches, which no_std's try_catch does not do.
 [<Fact>]
 let ``a mutable assigned in a finally block keeps its value`` () =
+    let mutable ran = false
+
+    let message =
+        try
+            "body"
+        finally
+            ran <- true
+
+    ran |> equal true
+    message |> equal "body"
+
+#if !NO_STD_NO_EXCEPTIONS
+[<Fact>]
+let ``a mutable assigned in a finally block survives an exception`` () =
     let mutable ran = false
 
     let message =
@@ -214,3 +231,4 @@ let ``a mutable assigned in a with handler keeps its value`` () =
         ran <- true
 
     ran |> equal true
+#endif
