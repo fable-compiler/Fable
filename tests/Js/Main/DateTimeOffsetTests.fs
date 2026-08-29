@@ -412,6 +412,20 @@ let tests =
         test -20 2050
         test -100 2046
 
+    testCase "DateTimeOffset.AddMonths keeps last day when delta is a multiple of 12" <| fun () ->
+        let dt = DateTimeOffset(2020, 12, 31, 0, 0, 0, TimeSpan.Zero).AddMonths(12)
+        dt.Year |> equal 2021
+        dt.Month |> equal 12
+        dt.Day |> equal 31
+
+    testCase "DateTimeOffset.AddYears keeps offset-local wall clock" <| fun () ->
+        let dt = DateTimeOffset(2020, 1, 1, 2, 0, 0, TimeSpan.FromHours 5.).AddYears(1)
+        dt.Year |> equal 2021
+        dt.Month |> equal 1
+        dt.Day |> equal 1
+        dt.Hour |> equal 2
+        dt.Offset |> equal (TimeSpan.FromHours 5.)
+
     testCase "DateTimeOffset.AddDays works" <| fun () ->
         let test v expected =
             let dt = DateTimeOffset(2014,9,12,0,0,0,TimeSpan.Zero).AddDays(v)
@@ -885,5 +899,10 @@ let tests =
             let source = DateTimeOffset(2007, 9, 1, 14, 30, 0, TimeSpan.Zero)
             (fun _ -> source.ToOffset(TimeSpan(0, 0, -10)))
             |> Util.throwsErrorContaining "Offset must be specified in whole minutes"
+
+        testCase "Implicit conversion from DateTime preserves value" <| fun () ->
+            let d = DateTime(2024, 1, 15, 0, 0, 0, DateTimeKind.Utc)
+            let dto: DateTimeOffset = d
+            dto.UtcDateTime |> equal d
     ]
   ]

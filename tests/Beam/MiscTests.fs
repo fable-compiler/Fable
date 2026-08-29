@@ -3,6 +3,7 @@ module Fable.Tests.Misc
 #nowarn "40"
 
 open System
+open Fable.Core
 open FSharp.UMX
 open Util.Testing
 open Util2.Extensions
@@ -733,6 +734,18 @@ let ``test try-with with unmatched exception type reraises`` () =
     | _ -> caught <- "other"
     caught |> equal "arg"
 
+[<Fact>]
+let ``test ArgumentException with message and inner exception works`` () =
+    let inner = exn "the inner cause"
+    let ex = System.ArgumentException("outer message", inner)
+    ex.Message |> equal "outer message"
+    ex.InnerException.Message |> equal "the inner cause"
+
+[<Fact>]
+let ``test Exception InnerException is null when not provided`` () =
+    let ex = System.ArgumentException("no inner")
+    isNull (box ex.InnerException) |> equal true
+
 // -- General / Misc --
 
 [<Fact>]
@@ -935,11 +948,65 @@ let ``test Binding doesn't shadow top-level functions`` () =
     equal 4 B.d
     equal 0 B.D.e
 
-// TODO: Module-level `do` side effects on mutable values don't execute during Erlang module load
-// [<Fact>]
-// let ``test Setting a top-level value doesn't alter values at same level`` () =
-//     equal 15 topA
-//     equal 25 B.a
+[<Fact>]
+let ``test Setting a top-level value doesn't alter values at same level`` () =
+    equal 15 topA
+    equal 25 B.a
+
+// --- Module-level mutable variables ---
+// On BEAM these are backed by the process dictionary; module initialization (main/0)
+// runs before the tests, and reads/writes go through get/put on the value's name atom.
+
+let mutable moduleCounter = 0
+
+let private bumpModuleCounter () = moduleCounter <- moduleCounter + 1
+let private readModuleCounter () = moduleCounter
+
+[<Fact>]
+let ``test Module-level mutable can be read and written`` () =
+    moduleCounter <- 42
+    equal 42 moduleCounter
+
+[<Fact>]
+let ``test Module-level mutable supports multiple assignments`` () =
+    moduleCounter <- 1
+    moduleCounter <- 2
+    moduleCounter <- moduleCounter + 10
+    equal 12 moduleCounter
+
+[<Fact>]
+let ``test Module-level mutable is shared across functions`` () =
+    moduleCounter <- 5
+    bumpModuleCounter ()
+    bumpModuleCounter ()
+    equal 7 (readModuleCounter ())
+
+// Regression: initializers that compile to a multi-statement block must store the
+// block's final value, not just its first statement. `let t = ... in t + t` survives
+// as a Let (t is used twice, so it isn't inlined) and lowers to a two-statement block.
+// Both initializers deliberately reuse the local name `t`: their inits are spliced into
+// the shared module-init clause, so their locals must not clash.
+
+let mutable mlTopMulti = 10
+
+let mlSnapMulti =
+    let t = mlTopMulti
+    t + t
+
+do mlTopMulti <- mlTopMulti + 5
+
+let mutable mlMutMulti =
+    let t = f8 3 4
+    t + t
+
+[<Fact>]
+let ``test Module-level mutable with multi-statement initializer`` () =
+    equal 14 mlMutMulti
+
+[<Fact>]
+let ``test Snapshot reading a mutable with multi-statement initializer`` () =
+    equal 20 mlSnapMulti
+    equal 15 mlTopMulti
 
 // TODO: Recursive value bindings use Lazy internally, which is not yet supported by Fable Beam
 // let mutable recMutableValue = 0
@@ -1112,3 +1179,38 @@ let ``test Optimized assignment blocks inside try ... with work`` () =
         try A.C.Helper.Add5(let mutable x = 2 in let mutable y = 3 in x + y)
         with _ -> 1
     equal 10 res
+
+[<Fact>]
+let ``test Compiler target flags have correct value per target`` () =
+    equal false Compiler.isJavaScript
+    equal false Compiler.isTypeScript
+    equal false Compiler.isPython
+    equal false Compiler.isDart
+    equal false Compiler.isRust
+#if FABLE_COMPILER_BEAM
+    equal true Compiler.isBeam
+#else
+    equal false Compiler.isBeam
+#endif
+#if FABLE_COMPILER
+    equal false Compiler.isDotnet
+#else
+    equal true Compiler.isDotnet
+#endif
+    equal false (Compiler.isJavaScript || Compiler.isTypeScript)
+
+[<Fact>]
+let ``test Compiler target flags eliminate dead branches`` () =
+    let target =
+        if Compiler.isJavaScript then "javascript"
+        elif Compiler.isTypeScript then "typescript"
+        elif Compiler.isPython then "python"
+        elif Compiler.isDart then "dart"
+        elif Compiler.isRust then "rust"
+        elif Compiler.isBeam then "beam"
+        else "dotnet"
+#if FABLE_COMPILER_BEAM
+    equal "beam" target
+#else
+    equal "dotnet" target
+#endif

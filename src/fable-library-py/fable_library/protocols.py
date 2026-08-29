@@ -47,7 +47,7 @@ class IEquatable(Protocol):
 
 
 class HashCode(Protocol):
-    def GetHashCode(self) -> int32: ...
+    def GetHashCode(self) -> int: ...
 
 
 # =============================================================================
@@ -93,7 +93,7 @@ class IComparer(Protocol):
     """
 
     @abstractmethod
-    def Compare(self, x: Any, y: Any, /) -> int32:
+    def Compare(self, x: Any, y: Any, /) -> int:
         raise NotImplementedError
 
 
@@ -104,7 +104,7 @@ class IComparer_1[T_in](Protocol):
     """
 
     @abstractmethod
-    def Compare(self, x: T_in, y: T_in, /) -> int32:
+    def Compare(self, x: T_in, y: T_in, /) -> int:
         raise NotImplementedError
 
 
@@ -124,7 +124,7 @@ class IEqualityComparer(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def GetHashCode(self, x: Any, /) -> int32:
+    def GetHashCode(self, x: Any, /) -> int:
         raise NotImplementedError
 
 
@@ -139,7 +139,7 @@ class IEqualityComparer_1[T_in](Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def GetHashCode(self, x: T_in, /) -> int32:
+    def GetHashCode(self, x: T_in, /) -> int:
         raise NotImplementedError
 
 
@@ -160,7 +160,7 @@ class IStructuralEquatable(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def GetHashCode(self, comparer: IEqualityComparer) -> int32:
+    def GetHashCode(self, comparer: IEqualityComparer) -> int:
         raise NotImplementedError
 
 
@@ -168,7 +168,7 @@ class IStructuralComparable(Protocol):
     """Protocol for structural comparison."""
 
     @abstractmethod
-    def CompareTo(self, other: Any, comparer: IComparer) -> int32:
+    def CompareTo(self, other: Any, comparer: IComparer) -> int:
         raise NotImplementedError
 
 
@@ -189,7 +189,7 @@ class IGenericAverager[T](Protocol):
 
     def GetZero(self, __unit: Unit = UNIT) -> T: ...
     def Add(self, x: T, y: T, /) -> T: ...
-    def DivideByInt(self, x: T, i: int32, /) -> T: ...
+    def DivideByInt(self, x: T, i: int, /) -> T: ...
 
 
 # =============================================================================

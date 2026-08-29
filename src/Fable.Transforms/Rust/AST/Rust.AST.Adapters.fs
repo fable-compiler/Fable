@@ -275,13 +275,13 @@ type Macros =
 
 [<AutoOpen>]
 module ArrayHelpers =
-    let split_first (arr: 'T[]) =
+    let split_first (arr: 'T array) =
         if arr.Length = 0 then
             None
         else
             Some(arr[0], arr[1..])
 
-    let split_last (arr: 'T[]) =
+    let split_last (arr: 'T array) =
         if arr.Length = 0 then
             None
         else

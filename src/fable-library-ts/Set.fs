@@ -130,7 +130,8 @@ module SetTree =
                 else // rotate left
                     mk (mk t1 v t2'.Left) t2'.Key t2'.Right
             | _ -> failwith "internal error: Set.rebalance"
-        else if t1h > t2h + tolerance then // left is heavier than right
+        // left is heavier than right
+        else if t1h > t2h + tolerance then
             match t1.Value with
             | :? SetTreeNode<'T> as t1' ->
                 // one of the nodes must have height > height t2 + 1
@@ -951,7 +952,7 @@ type Set<[<EqualityConditionalOn>] 'T when 'T: comparison>(comparer: IComparer<'
     //     Set(comparer, SetTree.ofArray comparer arr)
 
     override this.ToString() =
-        "set [" + System.String.Join("; ", this) + "]"
+        structuredCollectionToString "set [" this "]"
 
 // [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 // [<RequireQualifiedAccess>]

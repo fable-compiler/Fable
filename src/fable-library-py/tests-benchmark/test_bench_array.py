@@ -15,8 +15,11 @@ from pytest_benchmark.fixture import BenchmarkFixture
 
 _T = TypeVar("_T")
 
-# Use Array as an alias for FSharpArray
-Array = array.FSharpArray[_T]
+# Use Array as an alias for FSharpArray. Must stay unsubscripted: subscripting
+# (FSharpArray[_T]) now resolves to a concrete typed subclass (e.g. GenericArray)
+# whose __new__ rejects the array_type kwarg, so it can't be used as a constructor.
+# Subscripting is still fine in annotation position (Array[Any]).
+Array = array.FSharpArray
 
 # Creation benchmarks
 
@@ -97,7 +100,7 @@ def test_python_map_benchmark(benchmark: BenchmarkFixture, size: int) -> None:
 def test_fsharp_map_benchmark(benchmark: BenchmarkFixture, size: int) -> None:
     """Benchmark map operation on FSharpArray."""
     # Use Generic array type for regular Python lists
-    fs_array: Array[Any] = Array[Any](array_type="Generic", elements=list(range(size)))
+    fs_array: Array[Any] = Array(array_type="Generic", elements=list(range(size)))
 
     def fsharp_map():
         return fs_array.map(lambda x: x * 2)
@@ -377,3 +380,125 @@ def test_fsharp_array_creation_benchmark(benchmark: BenchmarkFixture) -> None:
     assert len(fs_arr) == 1000
     assert fs_arr[0] == 0
     assert fs_arr[1] == 1
+
+
+# Aggregate benchmarks (sum / average / min / max / contains)
+#
+# These aggregates take an adder/averager/comparer object and today loop in Rust
+# calling a Python method (GetZero/Add/DivideByInt/Compare) per element even on
+# unboxed numeric storage. They gate the Phase 1 native fast path: the same
+# benchmark runs before/after, and the typed variants should improve sharply once
+# the numeric fast path lands while Generic stays on the callback path.
+
+
+class _Adder:
+    """Minimal IGenericAdder for numeric elements (elements are plain int/float)."""
+
+    def __init__(self, zero: Any) -> None:
+        self._zero = zero
+
+    def GetZero(self) -> Any:
+        return self._zero
+
+    def Add(self, a: Any, b: Any) -> Any:
+        return a + b
+
+
+class _Averager(_Adder):
+    """Minimal IGenericAverager: adds DivideByInt to the adder protocol."""
+
+    def DivideByInt(self, a: Any, n: int) -> Any:
+        return a / n
+
+
+class _Comparer:
+    """Minimal IComparer using Python's built-in ordering."""
+
+    def Compare(self, a: Any, b: Any) -> int:
+        return (a > b) - (a < b)
+
+
+@pytest.mark.parametrize(("array_type", "zero"), [("Int32", 0), ("Float64", 0.0), ("Generic", 0)])
+def test_array_sum_benchmark(benchmark: BenchmarkFixture, array_type: str, zero: Any) -> None:
+    """Benchmark sum over typed vs generic arrays."""
+    size = 1000
+    arr: Array[Any] = Array(array_type=array_type, elements=list(range(size)))  # type: ignore
+    adder = _Adder(zero)
+
+    benchmark.group = "Array sum (size=1000)"
+    benchmark.name = array_type
+    result = benchmark(lambda: arr.sum(adder))
+    assert result == sum(range(size))
+
+
+@pytest.mark.parametrize(("array_type", "zero"), [("Int32", 0), ("Float64", 0.0), ("Generic", 0)])
+def test_array_average_benchmark(benchmark: BenchmarkFixture, array_type: str, zero: Any) -> None:
+    """Benchmark average over typed vs generic arrays."""
+    size = 1000
+    arr: Array[Any] = Array(array_type=array_type, elements=list(range(size)))  # type: ignore
+    averager = _Averager(zero)
+
+    benchmark.group = "Array average (size=1000)"
+    benchmark.name = array_type
+    result = benchmark(lambda: arr.average(averager))
+    total = sum(range(size))
+    # Integer element types truncate the average (int32(a / n)); floats/generic don't.
+    expected = total // size if array_type == "Int32" else total / size
+    # result may be a numeric wrapper (Int32/Float64); compare as plain floats.
+    assert float(result) == pytest.approx(float(expected))
+
+
+@pytest.mark.parametrize("array_type", ["Int32", "Float64", "Generic"])
+def test_array_max_benchmark(benchmark: BenchmarkFixture, array_type: str) -> None:
+    """Benchmark max over typed vs generic arrays."""
+    size = 1000
+    arr: Array[Any] = Array(array_type=array_type, elements=list(range(size)))  # type: ignore
+    comparer = _Comparer()
+
+    benchmark.group = "Array max (size=1000)"
+    benchmark.name = array_type
+    result = benchmark(lambda: arr.max(comparer))
+    assert result == size - 1
+
+
+@pytest.mark.parametrize("array_type", ["Int32", "Float64", "Generic"])
+def test_array_min_benchmark(benchmark: BenchmarkFixture, array_type: str) -> None:
+    """Benchmark min over typed vs generic arrays."""
+    size = 1000
+    arr: Array[Any] = Array(array_type=array_type, elements=list(range(size)))  # type: ignore
+    comparer = _Comparer()
+
+    benchmark.group = "Array min (size=1000)"
+    benchmark.name = array_type
+    result = benchmark(lambda: arr.min(comparer))
+    assert result == 0
+
+
+@pytest.mark.parametrize("array_type", ["Int32", "Float64", "Generic"])
+def test_array_contains_benchmark(benchmark: BenchmarkFixture, array_type: str) -> None:
+    """Benchmark contains (worst case: element absent) over typed vs generic arrays."""
+    size = 1000
+    arr: Array[Any] = Array(array_type=array_type, elements=list(range(size)))  # type: ignore
+    # Absent value forces a full scan.
+    missing = size + 1
+
+    benchmark.group = "Array contains (size=1000, absent)"
+    benchmark.name = array_type
+    result = benchmark(lambda: arr.contains(missing, None))
+    assert result is False
+
+
+# Generic-vs-typed map (gates the Phase 2 Arc<Mutex> removal on generic storage)
+
+
+@pytest.mark.parametrize("array_type", ["Int32", "Generic"])
+def test_array_map_typed_vs_generic_benchmark(benchmark: BenchmarkFixture, array_type: str) -> None:
+    """Benchmark map on typed vs generic storage (same callback)."""
+    size = 1000
+    arr: Array[Any] = Array(array_type=array_type, elements=list(range(size)))  # type: ignore
+
+    benchmark.group = "Array map typed-vs-generic (size=1000)"
+    benchmark.name = array_type
+    result = benchmark(lambda: arr.map(lambda x: x + 1))
+    assert len(result) == size
+    assert result[0] == 1

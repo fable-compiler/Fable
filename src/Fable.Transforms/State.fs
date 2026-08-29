@@ -69,7 +69,7 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list, addLog: Severi
                                 with ex ->
                                     let errorMessage =
                                         [
-                                            $"Error while loading plugin: {e.FullName}"
+                                            $"Error while loading plugin: %s{e.FullName}. Original error: %s{ex.Message}"
                                             ""
                                             "This error often happens if you are trying to use a plugin that is not compatible with the current version of Fable."
                                             "If you see this error please open an issue at https://github.com/fable-compiler/Fable/"
@@ -117,9 +117,21 @@ type Assemblies(getPlugin, fsharpAssemblies: FSharpAssembly list, addLog: Severi
         |> Option.bind (tryFindEntityByPath entityFullName)
 
     member _.TryGetEntityByCoreAssemblyName(asmName, entityFullName) =
-        coreAssemblies
-        |> Dictionary.tryFind asmName
-        |> Option.bind (tryFindEntityByPath entityFullName)
+        let key = asmName + "|" + entityFullName
+
+        match entities.TryGetValue(key) with
+        | true, v -> Some v
+        | false, _ ->
+            coreAssemblies
+            |> Dictionary.tryFind asmName
+            |> Option.bind (tryFindEntityByPath entityFullName)
+            // A facade like netstandard.dll forwards its types instead of declaring them, so the
+            // assembly an entity was recorded under may not be the one that has it
+            |> Option.orElseWith (fun () -> coreAssemblies.Values |> Seq.tryPick (tryFindEntityByPath entityFullName))
+            |> Option.map (fun ent ->
+                entities[key] <- ent
+                ent
+            )
 
     member _.Plugins = plugins
 
@@ -237,7 +249,7 @@ type Project
         |> Dictionary.tryFind memberUniqueName
         |> Option.map (fun e -> e.Calculate(com))
 
-    member _.GetFileInlineExprs(com: Compiler) : (string * InlineExpr)[] =
+    member _.GetFileInlineExprs(com: Compiler) : (string * InlineExpr) array =
         match Map.tryFind com.CurrentFile implFiles with
         | None -> [||]
         | Some implFile ->
@@ -353,7 +365,7 @@ type CompilerImpl
                 | Some r -> r, None
                 | None ->
                     let msg =
-                        $"Cannot find root module for {fileName}. If this belongs to a package, make sure it includes the source files."
+                        $"Cannot find root module for %s{fileName}. If this belongs to a package, make sure it includes the source files."
 
                     (this :> Compiler).AddLog(msg, Severity.Warning, fileName = currentFile)
 
@@ -380,7 +392,12 @@ type CompilerImpl
             | None ->
                 match project.PrecompiledInfo.TryGetInlineExpr(memberUniqueName) with
                 | Some e -> e
-                | None -> failwith ("Cannot find inline member: " + memberUniqueName)
+                | None ->
+                    failwith (
+                        $"Cannot find the body of inline member '%s{memberUniqueName}' while compiling %s{currentFile}. "
+                        + "If it belongs to a package, make sure the package includes its F# sources; "
+                        + $"if it belongs to a precompiled library, make sure it was precompiled with Fable %s{Literals.VERSION}."
+                    )
 
         member _.AddWatchDependency(file) =
             match watchDependencies with

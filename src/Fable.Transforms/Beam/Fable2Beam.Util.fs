@@ -19,6 +19,81 @@ let isIntegerType (typ: Fable.AST.Fable.Type) =
         | _ -> true // Decimal is now a fixed-scale integer
     | _ -> true // default to integer division
 
+/// Bit width and signedness of a .NET sized integer type, if it has one.
+let sizedIntInfo = Integers.sizedIntInfo
+
+/// .NET only uses the low bits of a shift count: `x <<< 32` is `x` for an int32,
+/// where Erlang's `bsl` would shift the value out entirely.
+let maskShiftCount (bits: int) (count: Beam.ErlExpr) =
+    let mask = int64 bits - 1L
+
+    match count with
+    | Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer n) -> Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(n &&& mask))
+    | _ -> Beam.ErlExpr.BinOp("band", count, Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer mask))
+
+// Constant folding of the wrapped operations. Every one of them is exact modulo 2^64, so
+// the fold can be done in (unchecked, wrapping) int64 arithmetic and the literal carries
+// the bit pattern; truncating that to a narrower width afterwards gives the same answer as
+// truncating the true mathematical result would.
+
+/// Bit pattern of an integer literal. Unsigned values above `Int64.MaxValue` are emitted as
+/// `BigInt` literals, so both shapes have to be recognised. A genuine (unbounded) bigint
+/// literal does not parse as a `uint64` and is left alone — those are never wrapped.
+let private literalBits (expr: Beam.ErlExpr) =
+    match expr with
+    | Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer n) -> Some n
+    | Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt s) ->
+        match System.UInt64.TryParse(s) with
+        | true, n -> Some(int64 n)
+        | _ -> None
+    | _ -> None
+
+/// The value `fable_int:wrap_*` would produce, as a literal.
+let private wrappedLiteral (bits: int, signed: bool) (value: int64) =
+    let truncated =
+        if bits = 64 then
+            value
+        else
+            let shift = 64 - bits
+
+            if signed then
+                (value <<< shift) >>> shift // sign-extend the low bits
+            else
+                int64 ((uint64 value <<< shift) >>> shift) // zero-extend them
+
+    if not signed && truncated < 0L then
+        // 64-bit unsigned above Int64.MaxValue: does not fit an Erlang int64 literal
+        Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<uint64> (uint64 truncated)))
+    else
+        Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer truncated)
+
+/// Fold a wrapped operation over integer literals, so constant expressions do not pay for a
+/// runtime wrapping call. `None` when the operands are not all statically known.
+let private foldConstant (expr: Beam.ErlExpr) =
+    let binary op left right =
+        match literalBits left, literalBits right with
+        | Some a, Some b -> Some(op a b)
+        | _ -> None
+
+    match expr with
+    | Beam.ErlExpr.BinOp("+", left, right) -> binary (+) left right
+    | Beam.ErlExpr.BinOp("-", left, right) -> binary (-) left right
+    | Beam.ErlExpr.BinOp("*", left, right) -> binary (*) left right
+    | Beam.ErlExpr.BinOp("bsl", left, right) -> binary (fun a b -> a <<< int b) left right
+    | Beam.ErlExpr.UnaryOp("-", operand) -> literalBits operand |> Option.map (~-)
+    | Beam.ErlExpr.UnaryOp("bnot", operand) -> literalBits operand |> Option.map (~~~)
+    | _ -> literalBits expr
+
+/// Wrap an expression to the fixed width of `typ`. A no-op for unsized types, and folded at
+/// compile time when the operands are literals.
+let wrapToIntType (typ: Fable.AST.Fable.Type) (expr: Beam.ErlExpr) =
+    match Integers.sizedIntInfo typ with
+    | None -> expr
+    | Some info ->
+        match foldConstant expr with
+        | Some value -> wrappedLiteral info value
+        | None -> Beam.ErlExpr.Call(Some "fable_int", Integers.wrapFunctionName info, [ expr ])
+
 /// Check if a Fable expression contains a reference to the given identifier name
 let rec containsIdentRef (name: string) (expr: Expr) : bool =
     match expr with
@@ -80,6 +155,169 @@ let rec containsIdentRef (name: string) (expr: Expr) : bool =
     | Extended(kind, _) ->
         match kind with
         | Throw(Some e, _) -> containsIdentRef name e
+        | Throw(None, _)
+        | Debugger
+        | Curry _ -> false
+    | _ -> false
+
+/// Check whether an expression references the constructor's `this` (the `ThisValue`
+/// value kind — which, per the Fable AST, only appears inside constructors). The
+/// self-contained map representation builds the instance after evaluating field
+/// initializers and `do` bodies, so any such body that references `this` cannot use
+/// that representation and must keep the process-dict ref form.
+let rec containsThisValue (expr: Expr) : bool =
+    match expr with
+    | Value(ThisValue _, _) -> true
+    | Value(value, _) ->
+        match value with
+        | NewAnonymousRecord(values, _, _, _)
+        | NewRecord(values, _, _)
+        | NewUnion(values, _, _, _)
+        | NewTuple(values, _) -> values |> List.exists containsThisValue
+        | NewList(Some(h, t), _) -> containsThisValue h || containsThisValue t
+        | NewOption(Some e, _, _) -> containsThisValue e
+        | NewArray(NewArrayKind.ArrayValues values, _, _) -> values |> List.exists containsThisValue
+        | StringTemplate(_, _, values) -> values |> List.exists containsThisValue
+        | _ -> false
+    | IdentExpr _ -> false
+    | Call(callee, info, _, _) ->
+        containsThisValue callee
+        || info.Args |> List.exists containsThisValue
+        || (info.ThisArg |> Option.exists containsThisValue)
+    | CurriedApply(applied, args, _, _) -> containsThisValue applied || args |> List.exists containsThisValue
+    | Let(_, value, body) -> containsThisValue value || containsThisValue body
+    | LetRec(bindings, body) ->
+        bindings |> List.exists (fun (_, v) -> containsThisValue v)
+        || containsThisValue body
+    | Lambda(_, body, _) -> containsThisValue body
+    | Delegate(_, body, _, _) -> containsThisValue body
+    | IfThenElse(g, t, e, _) -> containsThisValue g || containsThisValue t || containsThisValue e
+    | Sequential exprs -> exprs |> List.exists containsThisValue
+    | TypeCast(e, _) -> containsThisValue e
+    | Operation(kind, _, _, _) ->
+        match kind with
+        | Binary(_, l, r) -> containsThisValue l || containsThisValue r
+        | Unary(_, e) -> containsThisValue e
+        | Logical(_, l, r) -> containsThisValue l || containsThisValue r
+    | DecisionTree(e, targets) ->
+        containsThisValue e
+        || targets |> List.exists (fun (_, t) -> containsThisValue t)
+    | DecisionTreeSuccess(_, values, _) -> values |> List.exists containsThisValue
+    | Test(e, _, _) -> containsThisValue e
+    | Get(e, kind, _, _) ->
+        containsThisValue e
+        || (
+            match kind with
+            | ExprGet idx -> containsThisValue idx
+            | _ -> false
+        )
+    | Set(e, _, _, v, _) -> containsThisValue e || containsThisValue v
+    | WhileLoop(guard, body, _) -> containsThisValue guard || containsThisValue body
+    | ForLoop(_, start, limit, body, _, _) ->
+        containsThisValue start || containsThisValue limit || containsThisValue body
+    | TryCatch(body, catch, finalizer, _) ->
+        containsThisValue body
+        || (catch
+            |> Option.map (fun (_, e) -> containsThisValue e)
+            |> Option.defaultValue false)
+        || (finalizer |> Option.map containsThisValue |> Option.defaultValue false)
+    | Emit(emitInfo, _, _) ->
+        emitInfo.CallInfo.Args |> List.exists containsThisValue
+        || (emitInfo.CallInfo.ThisArg |> Option.exists containsThisValue)
+    | ObjectExpr(members, _, baseCall) ->
+        members |> List.exists (fun m -> containsThisValue m.Body)
+        || (
+            match baseCall with
+            | Some e -> containsThisValue e
+            | None -> false
+        )
+    | Extended(kind, _) ->
+        match kind with
+        | Throw(Some e, _) -> containsThisValue e
+        | Throw(None, _)
+        | Debugger
+        | Curry _ -> false
+    | _ -> false
+
+/// Check whether `name` (an instance's `this`/self identifier) is ever used as a
+/// runtime value, i.e. anywhere other than as the object of a field read
+/// (`this.Field`). Field reads can be compiled to read from the captured instance
+/// map, but using `this` itself as a value (passing it, calling a sibling method on
+/// it, etc.) requires a reference to the whole instance — which a self-contained
+/// immutable map cannot provide to closures stored inside it. Used to decide whether
+/// a class can be represented as a portable map rather than a process-dict ref.
+let rec thisUsedAsValue (name: string) (expr: Expr) : bool =
+    match expr with
+    | IdentExpr ident -> ident.Name = name
+    // `this.Field` — the ident in the object position is a field read, not a value use.
+    | Get(IdentExpr ident, FieldGet _, _, _) when ident.Name = name -> false
+    | Get(e, kind, _, _) ->
+        thisUsedAsValue name e
+        || (
+            match kind with
+            | ExprGet idx -> thisUsedAsValue name idx
+            | _ -> false
+        )
+    | Call(callee, info, _, _) ->
+        thisUsedAsValue name callee
+        || info.Args |> List.exists (thisUsedAsValue name)
+        || (info.ThisArg |> Option.exists (thisUsedAsValue name))
+    | CurriedApply(applied, args, _, _) -> thisUsedAsValue name applied || args |> List.exists (thisUsedAsValue name)
+    | Let(_, value, body) -> thisUsedAsValue name value || thisUsedAsValue name body
+    | LetRec(bindings, body) ->
+        bindings |> List.exists (fun (_, v) -> thisUsedAsValue name v)
+        || thisUsedAsValue name body
+    | Lambda(_, body, _) -> thisUsedAsValue name body
+    | Delegate(_, body, _, _) -> thisUsedAsValue name body
+    | IfThenElse(g, t, e, _) -> thisUsedAsValue name g || thisUsedAsValue name t || thisUsedAsValue name e
+    | Sequential exprs -> exprs |> List.exists (thisUsedAsValue name)
+    | Value(value, _) ->
+        match value with
+        | NewAnonymousRecord(values, _, _, _)
+        | NewRecord(values, _, _)
+        | NewUnion(values, _, _, _)
+        | NewTuple(values, _) -> values |> List.exists (thisUsedAsValue name)
+        | NewList(Some(h, t), _) -> thisUsedAsValue name h || thisUsedAsValue name t
+        | NewOption(Some e, _, _) -> thisUsedAsValue name e
+        | NewArray(NewArrayKind.ArrayValues values, _, _) -> values |> List.exists (thisUsedAsValue name)
+        | StringTemplate(_, _, values) -> values |> List.exists (thisUsedAsValue name)
+        | _ -> false
+    | TypeCast(e, _) -> thisUsedAsValue name e
+    | Operation(kind, _, _, _) ->
+        match kind with
+        | Binary(_, l, r) -> thisUsedAsValue name l || thisUsedAsValue name r
+        | Unary(_, e) -> thisUsedAsValue name e
+        | Logical(_, l, r) -> thisUsedAsValue name l || thisUsedAsValue name r
+    | DecisionTree(e, targets) ->
+        thisUsedAsValue name e
+        || targets |> List.exists (fun (_, t) -> thisUsedAsValue name t)
+    | DecisionTreeSuccess(_, values, _) -> values |> List.exists (thisUsedAsValue name)
+    | Test(e, _, _) -> thisUsedAsValue name e
+    | Set(e, _, _, v, _) -> thisUsedAsValue name e || thisUsedAsValue name v
+    | WhileLoop(guard, body, _) -> thisUsedAsValue name guard || thisUsedAsValue name body
+    | ForLoop(_, start, limit, body, _, _) ->
+        thisUsedAsValue name start
+        || thisUsedAsValue name limit
+        || thisUsedAsValue name body
+    | TryCatch(body, catch, finalizer, _) ->
+        thisUsedAsValue name body
+        || (catch
+            |> Option.map (fun (_, e) -> thisUsedAsValue name e)
+            |> Option.defaultValue false)
+        || (finalizer |> Option.map (thisUsedAsValue name) |> Option.defaultValue false)
+    | Emit(emitInfo, _, _) ->
+        emitInfo.CallInfo.Args |> List.exists (thisUsedAsValue name)
+        || (emitInfo.CallInfo.ThisArg |> Option.exists (thisUsedAsValue name))
+    | ObjectExpr(members, _, baseCall) ->
+        members |> List.exists (fun m -> thisUsedAsValue name m.Body)
+        || (
+            match baseCall with
+            | Some e -> thisUsedAsValue name e
+            | None -> false
+        )
+    | Extended(kind, _) ->
+        match kind with
+        | Throw(Some e, _) -> thisUsedAsValue name e
         | Throw(None, _)
         | Debugger
         | Curry _ -> false
@@ -197,3 +435,87 @@ let wrapWithHoisted (hoisted: Beam.ErlExpr list) (expr: Beam.ErlExpr) : Beam.Erl
 
 let atomLit name =
     Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom name))
+
+let rec private patternBinds (pattern: Beam.ErlPattern) : bool =
+    match pattern with
+    | Beam.PVar _ -> true
+    | Beam.PTuple elements -> elements |> List.exists patternBinds
+    | Beam.PList(head, tail) -> patternBinds head || patternBinds tail
+    | Beam.PLiteral _
+    | Beam.PWildcard -> false
+
+/// Whether evaluating this expression binds a variable in the *enclosing* function clause.
+/// Only `fun` introduces a scope in Erlang: `begin...end`, `case`, `try` and `receive` all
+/// bind into the clause that contains them.
+let rec private bindsVariables (expr: Beam.ErlExpr) : bool =
+    let anyBinds exprs = exprs |> List.exists bindsVariables
+
+    match expr with
+    | Beam.ErlExpr.Match _ -> true
+    // A `fun` body has its own scope, so nothing it binds escapes.
+    | Beam.ErlExpr.Fun _
+    | Beam.ErlExpr.NamedFun _ -> false
+    // The template is opaque and may bind; assume it does rather than guess.
+    | Beam.ErlExpr.Emit _ -> true
+    // `try` binds its catch variable, and neither its bodies nor `case`/`receive` clauses scope.
+    | Beam.ErlExpr.TryCatch _ -> true
+    | Beam.ErlExpr.Case(scrutinee, clauses) ->
+        bindsVariables scrutinee
+        || clauses
+           |> List.exists (fun clause -> patternBinds clause.Pattern || anyBinds clause.Body)
+    | Beam.ErlExpr.Receive(clauses, after) ->
+        clauses
+        |> List.exists (fun clause -> patternBinds clause.Pattern || anyBinds clause.Body)
+        || (
+            match after with
+            | Some(timeout, body) -> bindsVariables timeout || anyBinds body
+            | None -> false
+        )
+    | Beam.ErlExpr.Block exprs -> anyBinds exprs
+    | Beam.ErlExpr.Tuple elements
+    | Beam.ErlExpr.List elements -> anyBinds elements
+    | Beam.ErlExpr.ListCons(head, tail) -> bindsVariables head || bindsVariables tail
+    | Beam.ErlExpr.Map entries -> entries |> List.exists (fun (k, v) -> bindsVariables k || bindsVariables v)
+    | Beam.ErlExpr.Call(_, _, args) -> anyBinds args
+    | Beam.ErlExpr.Apply(func, args) -> bindsVariables func || anyBinds args
+    | Beam.ErlExpr.BinOp(_, left, right) -> bindsVariables left || bindsVariables right
+    | Beam.ErlExpr.UnaryOp(_, operand) -> bindsVariables operand
+    | Beam.ErlExpr.Literal _
+    | Beam.ErlExpr.Variable _ -> false
+
+/// Make a fragment safe to splice into the shared main/0 clause.
+///
+/// Top-level effects and module-level value initializers each emit their own main/0, and those
+/// are merged into a single clause. Each is transformed on its own, so two fragments can pick
+/// the same name for a temporary — and since Erlang variables are single-assignment, the second
+/// binding is a *pattern match* against the first rather than a rebind. That fails with
+/// `badmatch` when the values differ and succeeds silently when they agree; a name bound in only
+/// some `case` branches doesn't even compile ("variable unsafe in case").
+///
+/// `begin...end` would not help, as it does not open a scope. An immediately-invoked `fun` does.
+/// A fragment that binds nothing cannot collide, so it is spliced as-is to keep the generated
+/// code readable — note that being a single statement is *not* enough, since a lone `case` binds
+/// into the enclosing clause.
+let isolateScope (body: Beam.ErlExpr list) : Beam.ErlExpr =
+    match body with
+    | [ single ] when not (bindsVariables single) -> single
+    | _ ->
+        Beam.ErlExpr.Apply(
+            Beam.ErlExpr.Fun
+                [
+                    {
+                        Patterns = []
+                        Guard = []
+                        Body = body
+                    }
+                ],
+            []
+        )
+
+/// Process-dictionary key (atom name) for a module-level mutable or snapshot value.
+/// Namespaced by the emitting Erlang module so identically-named values in different
+/// modules don't collide in the shared, process-local process dictionary. Reads, writes
+/// and the declaration/initializer must all derive their key through this helper or state
+/// silently breaks.
+let mutableStateKey (moduleName: string) (name: string) =
+    moduleName + "_" + Naming.sanitizeErlangName name

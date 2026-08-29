@@ -62,6 +62,7 @@ type Context =
 
         { this with EntityAndMemberGenericParams = this.EntityAndMemberGenericParams @ genParams }
 
+[<Struct>]
 type MemberKind =
     | ClassConstructor
     | NonAttached of funcName: string
@@ -81,9 +82,9 @@ type IDartCompiler =
     abstract TransformFunction:
         Context * string option * Fable.Ident list * Fable.Expr -> Ident list * Statement list * Type
 
-    abstract WarnOnlyOnce: string * ?values: obj[] * ?range: SourceLocation -> unit
+    abstract WarnOnlyOnce: string * ?values: obj array * ?range: SourceLocation -> unit
 
-    abstract ErrorOnlyOnce: string * ?values: obj[] * ?range: SourceLocation -> unit
+    abstract ErrorOnlyOnce: string * ?values: obj array * ?range: SourceLocation -> unit
 
 module Util =
 
@@ -180,7 +181,7 @@ module Util =
             match transformAndCaptureExpr com ctx entRef with
             | [], IdentExpression ident -> Some ident
             | _ ->
-                addError com [] None $"Unexpected, entity ref for {ent.FullName} is not an identifier"
+                addError com [] None $"Unexpected, entity ref for %s{ent.FullName} is not an identifier"
 
                 None
         )
@@ -219,6 +220,20 @@ module Util =
 
         match entRef.FullName, genArgs with
         | Types.enum_, _ -> Integer
+        // F# Quotation types are modelled dynamically by the quotation runtime,
+        // so map them to `dynamic` (the runtime returns plain tagged objects).
+        | Types.fsharpExpr, _
+        | Types.fsharpExprGeneric, _
+        // The NewUnionCase active pattern's first slot is typed as UnionCaseInfo in
+        // F#, but Dart's quotation runtime exposes it as a plain (type-name) string,
+        // so map the type to `dynamic` to keep the generated annotations valid.
+        | "Microsoft.FSharp.Reflection.UnionCaseInfo", _
+        // Likewise the Call/PropertyGet active patterns type their member slot as
+        // MethodInfo/PropertyInfo, but the quotation runtime exposes those as plain
+        // (member-name) strings, so map them to `dynamic` too.
+        | "System.Reflection.MethodInfo", _
+        | "System.Reflection.PropertyInfo", _
+        | Types.fsharpVar, _ -> Dynamic
         // List without generics is same as List<dynamic>
         | Types.array, _ -> List Dynamic
         | "System.Tuple`1", _ -> transformTupleType com ctx genArgs
@@ -1569,13 +1584,30 @@ module Util =
             ]
 
     let transformSwitch (com: IDartCompiler) ctx returnStrategy evalExpr cases defaultCase =
+        // An empty (unit) branch can only be removed if falling through to the default
+        // does nothing, otherwise a matching case would wrongly run the default body
+        // (e.g. `match ... with A -> () | _ -> failwith "..."`). Note that when no
+        // explicit default is given the last case is promoted to default below, so
+        // that promoted case is what an removed branch would fall through to.
+        let effectiveDefault =
+            match defaultCase with
+            | Some expr -> Some expr
+            | None -> cases |> List.tryLast |> Option.map snd
+
+        let canRemoveEmptyBranches =
+            match effectiveDefault with
+            | None
+            | Some(Fable.Value(Fable.UnitConstant, _)) -> true
+            | Some _ -> false
+
         let cases =
             cases
             |> List.choose (fun (guards, expr) ->
                 // Remove empty branches
                 match returnStrategy, expr, guards with
-                | (Return(isVoid = true) | Ignore), Fable.Value(Fable.UnitConstant, _), _
                 | _, _, [] -> None
+                | (Return(isVoid = true) | Ignore), Fable.Value(Fable.UnitConstant, _), _ when canRemoveEmptyBranches ->
+                    None
                 | _, _, guards ->
                     // Switch is only activated when guards are literals so we can ignore the statements
                     let guards = guards |> List.map (transformAndCaptureExpr com ctx >> snd)
@@ -1956,17 +1988,17 @@ module Util =
             match transformCallArgs com ctx (CallInfo info) with
             | [], args -> args
             | _, args ->
-                $"Rewrite base arguments for {classDecl.Entity.FullName} so they can be compiled as Dart expressions"
+                $"Rewrite base arguments for %s{classDecl.Entity.FullName} so they can be compiled as Dart expressions"
                 |> addWarning com [] e.Range
 
                 args
         | Some(Fable.Value _ as e) ->
-            $"Ignoring base call for {classDecl.Entity.FullName}"
+            $"Ignoring base call for %s{classDecl.Entity.FullName}"
             |> addWarning com [] e.Range
 
             []
         | Some e ->
-            $"Unexpected base call for {classDecl.Entity.FullName}"
+            $"Unexpected base call for %s{classDecl.Entity.FullName}"
             |> addError com [] e.Range
 
             []
@@ -2191,9 +2223,10 @@ module Util =
             ],
             None
 
-        | Fable.Quote _ ->
-            addError com [] None "Quotations are not yet supported for Dart target"
-            [], None
+        | Fable.Quote(body, _isTyped, _r) ->
+            // Lower the quoted body to runtime calls that build the quotation AST,
+            // then transform like any other expression (mirrors PHP/Python/JS).
+            transform com ctx returnStrategy (QuotationEmitter.emitQuotedExpr com body)
 
     let getLocalFunctionGenericParams
         (_com: IDartCompiler)
@@ -2316,7 +2349,7 @@ module Util =
                 let name =
                     match p.Name with
                     | Some name -> name
-                    | None -> $"arg{i}$"
+                    | None -> $"arg%d{i}$"
 
                 let t = transformType com ctx p.Type
                 FunctionArg(makeImmutableIdent t name) // TODO, isOptional=p.IsOptional, isNamed=p.IsNamed)
@@ -2391,7 +2424,7 @@ module Util =
         =
         match implementsIterable, baseType with
         | Some iterable, Some _ ->
-            $"Types implementing IEnumerable cannot inherit from another class: {classEnt.FullName}"
+            $"Types implementing IEnumerable cannot inherit from another class: %s{classEnt.FullName}"
             |> addError com [] None
 
             Some iterable

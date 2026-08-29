@@ -38,6 +38,19 @@ let ``test task while binding works correctly`` () =
     equal result 10
 
 [<Fact>]
+let ``test task while loop handles large number of iterations without stack overflow`` () =
+    let mutable result = 0
+
+    let tsk =
+        task {
+            while result < 10000 do
+                result <- result + 1
+        }
+
+    tsk.GetAwaiter().GetResult()
+    equal result 10000
+
+[<Fact>]
 let ``test Task for binding works correctly`` () =
     let inputs = [| 1; 2; 3 |]
     let mutable result = 0

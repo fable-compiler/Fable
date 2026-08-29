@@ -16,11 +16,14 @@ type CacheInfo =
         FSharpOptions: string array
         References: string list
         OutDir: string option
+        FableLib: string option
         FableLibDir: string
         FableModulesDir: string
         OutputType: OutputType
         TargetFramework: string option
+        Configuration: string
         Exclude: string list
+        Replace: Map<string, string>
         SourceMaps: bool
         SourceMapsRoot: string option
         TreatWarningsAsErrors: bool

@@ -25,6 +25,7 @@ type ITailCallOpportunity =
     abstract Args: Arg list
     abstract IsRecursiveRef: Fable.Expr -> bool
 
+[<Struct>]
 type MemberKind =
     | ClassConstructor
     | NonAttached of funcName: string
@@ -126,6 +127,11 @@ type Context =
         /// When inside a union base class definition, this holds the entity name.
         /// Used to determine whether to use base class name or type alias for annotations.
         EnclosingUnionBaseClass: string option
+        /// Set while transforming the arguments of an `[<Emit>]` macro, whose text is
+        /// spliced verbatim around them. A macro may place an argument inside a
+        /// comprehension's iterable, where an assignment expression is a `SyntaxError`,
+        /// so expressions that would use one fall back to their plain form here.
+        InEmitMacroArgument: bool
     }
 
 type IPythonCompiler =

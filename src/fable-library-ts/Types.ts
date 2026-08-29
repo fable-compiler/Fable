@@ -9,16 +9,23 @@ export function seqToString<T>(self: Iterable<T>): string {
   let str = "[";
   for (const x of self) {
     if (count === 0) {
-      str += toString(x);
+      str += toStringQuoted(x);
     } else if (count === 100) {
       str += "; ...";
       break;
     } else {
-      str += "; " + toString(x);
+      str += "; " + toStringQuoted(x);
     }
     count++;
   }
   return str + "]";
+}
+
+// Structured (%A-style) rendering of a value used as an element/field of a
+// container. F#'s structured formatting (which records, unions, lists, etc.
+// use in their ToString) quotes strings, e.g. `["a"; "b"]` and `{ Name = "John" }`.
+function toStringQuoted(x: any, callStack = 0): string {
+  return typeof x === "string" ? "\"" + x + "\"" : toString(x, callStack);
 }
 
 export function toString(x: any, callStack = 0): string {
@@ -31,7 +38,7 @@ export function toString(x: any, callStack = 0): string {
       const cons = Object.getPrototypeOf(x)?.constructor;
       return cons === Object && callStack < 10
         // Same format as recordToString
-        ? "{ " + Object.entries(x).map(([k, v]) => k + " = " + toString(v, callStack + 1)).join("\n  ") + " }"
+        ? "{ " + Object.entries(x).map(([k, v]) => k + " = " + toStringQuoted(v, callStack + 1)).join("\n  ") + " }"
         : cons?.name ?? "";
     }
   }
@@ -39,23 +46,16 @@ export function toString(x: any, callStack = 0): string {
 }
 
 export function unionToString(name: string, fields: any[]) {
-  function unionFieldToString(x: any): string {
-    if (typeof x === "string") {
-      return '"' + x + '"';
-    }
-    return toString(x);
-  }
-
   if (fields.length === 0) {
     return name;
   } else {
     let fieldStr;
     let withParens = true;
     if (fields.length === 1) {
-      fieldStr = unionFieldToString(fields[0]);
+      fieldStr = toStringQuoted(fields[0]);
       withParens = fieldStr.indexOf(" ") >= 0;
     } else {
-      fieldStr = fields.map((x: any) => unionFieldToString(x)).join(", ");
+      fieldStr = fields.map((x: any) => toStringQuoted(x)).join(", ");
     }
     return name + (withParens ? " (" : " ") + fieldStr + (withParens ? ")" : "");
   }
@@ -119,7 +119,7 @@ function recordToJSON<T>(self: T) {
 }
 
 function recordToString<T>(self: T) {
-  return "{ " + Object.entries(self as any).map(([k, v]) => k + " = " + toString(v)).join("\n  ") + " }";
+  return "{ " + Object.entries(self as any).map(([k, v]) => k + " = " + toStringQuoted(v)).join("\n  ") + " }";
 }
 
 function recordGetHashCode<T>(self: T) {

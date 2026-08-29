@@ -1,10 +1,12 @@
 // Loosely based on https://pub.dev/documentation/analyzer/latest/dart_ast_ast/dart_ast_ast-library.html
 module rec Fable.AST.Dart
 
+[<Struct>]
 type UpdateOperator =
     | UpdateMinus
     | UpdatePlus
 
+[<Struct>]
 type AssignmentOperator =
     | AssignEqual
     | AssignMinus
@@ -259,6 +261,7 @@ type Expression =
     static member throwExpression(value, typ) = ThrowExpression(value, typ)
     static member rethrowExpression(typ) = RethrowExpression typ
 
+[<Struct>]
 type VariableDeclarationKind =
     | Final
     | Const
@@ -378,6 +381,7 @@ type InstanceVariable(ident, ?value, ?kind, ?isOverride, ?isLate) =
     member _.IsOverride = defaultArg isOverride false
     member _.IsLate = defaultArg isLate false
 
+[<Struct>]
 type MethodKind =
     | IsMethod
     | IsGetter

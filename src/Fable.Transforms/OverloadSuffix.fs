@@ -60,7 +60,7 @@ let rec private getTypeFastFullName (genParams: IDictionary<_, _>) (t: Fable.Typ
         let typeName = getTypeFastFullName genParams genArg
 
         if isStruct then
-            $"System.Nullable<{typeName}>"
+            $"System.Nullable<%s{typeName}>"
         else
             // there is no overload distinction for nullable reference types,
             // so the name and overload suffix are the same as the inner type
@@ -192,6 +192,21 @@ let getHash (entityGenericParams: string list) (curriedParamTypeGroups: Fable.Ty
     // Members with curried params cannot be overloaded in F#
     // TODO: Also private methods defined with `let` cannot be overloaded
     // but I don't know how to identify them in the AST
+    | _ -> ""
+
+/// For op_Implicit/op_Explicit, the return type is part of the overload signature.
+/// This function includes the return type in the hash to distinguish overloads that differ only by return type.
+let getHashWithReturnType
+    (entityGenericParams: string list)
+    (curriedParamTypeGroups: Fable.Type list list)
+    (returnType: Fable.Type)
+    =
+    match curriedParamTypeGroups with
+    | [ paramTypes ] ->
+        let genParams =
+            entityGenericParams |> List.mapi (fun i p -> p, string<int> i) |> dict
+
+        getHashPrivate (paramTypes @ [ returnType ]) genParams
     | _ -> ""
 
 /// Used for extension members

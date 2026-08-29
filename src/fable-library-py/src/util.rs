@@ -1,4 +1,5 @@
 use pyo3::class::basic::CompareOp;
+use pyo3::intern;
 use pyo3::{prelude::*, types::PyAnyMethods};
 
 /// Helper class for sort_in_place_by that applies projection before comparison
@@ -32,11 +33,13 @@ impl ProjectionComparer {
         let projected_x = self.projection.bind(py).call1((x,))?;
         let projected_y = self.projection.bind(py).call1((y,))?;
 
-        // Compare the projected values using the comparer
+        // Compare the projected values using the comparer. `__call__` is invoked
+        // O(n log n) times during a sort, so intern the method name to avoid
+        // recreating the "Compare" string on every comparison.
         let result = self
             .comparer
             .bind(py)
-            .call_method1("Compare", (projected_x, projected_y))?;
+            .call_method1(intern!(py, "Compare"), (projected_x, projected_y))?;
         result.extract()
     }
 }

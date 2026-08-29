@@ -9,7 +9,16 @@
     "sourceMap": false,
     "allowJs": true,
     "esModuleInterop": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
+    // TS7 no longer auto-includes @types/node from the enclosing repo-root
+    // node_modules when the tsconfig lives in a nested temp dir, so request it
+    // explicitly (tests use node globals like process and the node:test module).
+    "types": ["node"],
+    // tsc runs against the copy of this file at temp/tests/TypeScript/tsconfig.json,
+    // so ../../.. resolves to the repo root. Imports reach out to hand-written .js
+    // helpers across the repo (e.g. tests/Js/Main/js, tests/Js/DllRef, tests_external),
+    // so the repo root is the common source directory. TS7 requires it to be explicit.
+    "rootDir": "../../..",
     "strict": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,

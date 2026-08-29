@@ -1,0 +1,5 @@
+import { square } from "./js/1foo.js";
+
+export function getSquare(x) {
+    return square(x);
+}

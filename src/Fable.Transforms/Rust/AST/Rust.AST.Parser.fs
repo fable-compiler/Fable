@@ -66,6 +66,7 @@ type AssocOp =
 
 //#[derive(PartialEq, Debug)]
 [<RequireQualifiedAccess>]
+[<Struct>]
 type Fixity =
     /// The operator is left-associative
     | Left

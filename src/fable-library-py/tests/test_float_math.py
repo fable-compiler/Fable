@@ -1,4 +1,4 @@
-from fable_library.core import float32, float64
+from fable_library.core import Float64, float32
 
 
 def test_float_math_operations():
@@ -6,20 +6,20 @@ def test_float_math_operations():
     # Test floor
     assert float32(3.7).floor().value() == 3.0
     assert float32(-3.7).floor().value() == -4.0
-    assert float64(3.7).floor().value() == 3.0
-    assert float64(-3.7).floor().value() == -4.0
+    assert Float64(3.7).floor().value() == 3.0
+    assert Float64(-3.7).floor().value() == -4.0
 
     # Test ceil
     assert float32(3.7).ceil().value() == 4.0
     assert float32(-3.7).ceil().value() == -3.0
-    assert float64(3.7).ceil().value() == 4.0
-    assert float64(-3.7).ceil().value() == -3.0
+    assert Float64(3.7).ceil().value() == 4.0
+    assert Float64(-3.7).ceil().value() == -3.0
 
     # Test round
     assert float32(3.7).round().value() == 4.0
     assert float32(3.2).round().value() == 3.0
-    assert float64(3.7).round().value() == 4.0
-    assert float64(3.2).round().value() == 3.0
+    assert Float64(3.7).round().value() == 4.0
+    assert Float64(3.2).round().value() == 3.0
 
 
 def test_float_to_int_with_math():
@@ -37,14 +37,14 @@ def test_float_to_int_with_math():
     assert uint64(float32(3.7).floor()) == 3
 
     # Test Float64 floor to various integer types
-    assert byte(float64(3.7).floor()) == 3
-    assert sbyte(float64(3.7).floor()) == 3
-    assert int16(float64(3.7).floor()) == 3
-    assert uint16(float64(3.7).floor()) == 3
-    assert int32(float64(3.7).floor()) == 3
-    assert uint32(float64(3.7).floor()) == 3
-    assert int64(float64(3.7).floor()) == 3
-    assert uint64(float64(3.7).floor()) == 3
+    assert byte(Float64(3.7).floor()) == 3
+    assert sbyte(Float64(3.7).floor()) == 3
+    assert int16(Float64(3.7).floor()) == 3
+    assert uint16(Float64(3.7).floor()) == 3
+    assert int32(Float64(3.7).floor()) == 3
+    assert uint32(Float64(3.7).floor()) == 3
+    assert int64(Float64(3.7).floor()) == 3
+    assert uint64(Float64(3.7).floor()) == 3
 
     # Test negative values
     assert sbyte(float32(-3.7).floor()) == -4
@@ -52,7 +52,7 @@ def test_float_to_int_with_math():
     assert int32(float32(-3.7).floor()) == -4
     assert int64(float32(-3.7).floor()) == -4
 
-    assert sbyte(float64(-3.7).floor()) == -4
-    assert int16(float64(-3.7).floor()) == -4
-    assert int32(float64(-3.7).floor()) == -4
-    assert int64(float64(-3.7).floor()) == -4
+    assert sbyte(Float64(-3.7).floor()) == -4
+    assert int16(Float64(-3.7).floor()) == -4
+    assert int32(Float64(-3.7).floor()) == -4
+    assert int64(Float64(-3.7).floor()) == -4

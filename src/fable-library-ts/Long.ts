@@ -3,38 +3,29 @@ import { fromString } from "./BigInt.ts";
 import { FSharpRef } from "./Types.ts";
 import { Exception } from "./Util.ts";
 
-function getMaxValue(unsigned: boolean, radix: number, isNegative: boolean) {
-  switch (radix) {
-    case 2: return unsigned ?
-      "1111111111111111111111111111111111111111111111111111111111111111" :
-      (isNegative ? "1000000000000000000000000000000000000000000000000000000000000000"
-        : "111111111111111111111111111111111111111111111111111111111111111");
-    case 8: return unsigned ?
-      "1777777777777777777777" :
-      (isNegative ? "1000000000000000000000" : "777777777777777777777");
-    case 10: return unsigned ?
-      "18446744073709551615" :
-      (isNegative ? "9223372036854775808" : "9223372036854775807");
-    case 16: return unsigned ?
-      "FFFFFFFFFFFFFFFF" :
-      (isNegative ? "8000000000000000" : "7FFFFFFFFFFFFFFF");
-    default: throw new Exception("Invalid radix.");
+function getRange(unsigned: boolean, bitsize: number): [bigint, bigint] {
+  switch (bitsize) {
+    case 64: return unsigned ?
+      [0n, 18446744073709551615n] :
+      [-9223372036854775808n, 9223372036854775807n];
+    default: throw new Exception("Invalid bit size.");
   }
 }
 
-export function parse(str: string, style: number, unsigned: boolean, _bitsize: number, radix?: number) {
+export function parse(str: string, style: number, unsigned: boolean, bitsize: number, radix?: number) {
   const res = isValid(str, style, radix);
   if (res != null) {
-    const lessOrEqual = (x: string, y: string) => {
-      const len = Math.max(x.length, y.length);
-      return x.padStart(len, "0") <= y.padStart(len, "0");
-    };
-    const isNegative = res.sign === "-";
-    const maxValue = getMaxValue(unsigned || res.radix !== 10, res.radix, isNegative);
-    if (lessOrEqual(res.digits.toUpperCase(), maxValue)) {
-      str = getPrefix(res.radix) + res.digits;
-      str = isNegative ? res.sign + str : str;
-      return fromString(str);
+    let v = fromString(getPrefix(res.radix) + res.digits);
+    if (res.sign === "-") {
+      v = -v;
+    }
+    const [umin, umax] = getRange(true, bitsize);
+    if (!unsigned && res.radix !== 10 && v >= umin && v <= umax) {
+      v = BigInt.asIntN(bitsize, v);
+    }
+    const [min, max] = getRange(unsigned, bitsize);
+    if (v >= min && v <= max) {
+      return v;
     }
   }
   throw new Exception(`The input string ${str} was not in a correct format.`);

@@ -14,6 +14,20 @@ type JsOptions =
     abstract foo: string with get, set
     abstract bar: int with get, set
 
+#if FABLE_COMPILER
+module PojoInterface =
+    [<JS.Pojo; AllowNullLiteral>]
+    type Animal(name: string) =
+        member val name = name
+
+    [<JS.Pojo; AllowNullLiteral>]
+    type Dog(name: string, breed: string, ?age: int) =
+        inherit Animal(name)
+        member val name = name
+        member val breed = breed
+        member val age = age with get, set
+#endif
+
 let tests =
   testList "LiteTsInterop" [
     #if FABLE_COMPILER
@@ -34,5 +48,17 @@ let tests =
         )
         opts.foo |> equal "foo"
         opts.bar |> equal 5
+
+    testCase "[<Pojo>] generates interface and can be constructed" <| fun () ->
+        let dog = PojoInterface.Dog("Buddy", "Labrador")
+        dog.name |> equal "Buddy"
+        dog.breed |> equal "Labrador"
+        dog.age |> equal None
+
+    testCase "[<Pojo>] optional field can be mutated" <| fun () ->
+        let dog = PojoInterface.Dog("Max", "Beagle")
+        dog.age |> equal None
+        dog.age <- Some 5
+        dog.age |> equal (Some 5)
     #endif
   ]

@@ -3,10 +3,12 @@ namespace rec Fable.AST.Babel
 
 open Fable.AST
 
+[<Struct>]
 type UpdateOperator =
     | UpdateMinus
     | UpdatePlus
 
+[<Struct>]
 type AssignmentOperator =
     | AssignEqual
     | AssignMinus
@@ -25,7 +27,7 @@ type AssignmentOperator =
 type Expression =
     | CommentedExpression of comment: string * expr: Expression
     | JsxElement of componentOrTag: Expression * props: (string * Expression) list * children: Expression list
-    | JsxTemplate of parts: string[] * values: Expression[]
+    | JsxTemplate of parts: string array * values: Expression array
     | Literal of Literal
     | Identifier of Identifier
     | ClassExpression of
@@ -204,6 +206,7 @@ type Declaration =
 
 /// A directive prologue as defined in ECMA specification
 /// https://tc39.es/ecma262/#sec-directive-prologues-and-the-use-strict-directive
+[<Struct>]
 type DirectivePrologue = | DirectivePrologue of text: string
 
 /// A module import or export declaration.
@@ -300,6 +303,7 @@ type VariableDeclarator =
         init: Expression option *
         loc: SourceLocation option
 
+[<Struct>]
 type VariableDeclarationKind =
     | Var
     | Let
@@ -412,6 +416,7 @@ type ObjectMember =
 //    let shorthand = defaultArg shorthand_ false
 //    member _.Shorthand: bool = shorthand
 
+[<Struct>]
 type ObjectMethodKind =
     | ObjectGetter
     | ObjectSetter
@@ -440,6 +445,7 @@ type ObjectMethodKind =
 
 
 // Classes
+[<Struct>]
 type AccessModifier =
     | Public
     | Private
@@ -474,7 +480,7 @@ type ClassMember =
 
 
 type ClassMethodKind =
-    | ClassPrimaryConstructor of AccessModifier[]
+    | ClassPrimaryConstructor of AccessModifier array
     | ClassFunction of key: Expression * isComputed: bool
     | ClassGetter of key: Expression * isComputed: bool
     | ClassSetter of key: Expression * isComputed: bool

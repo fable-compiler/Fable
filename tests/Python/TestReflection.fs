@@ -218,62 +218,30 @@ let ``test Reflection Array`` () =
     typeof<bool> = elType |> equal false
     liType.GetElementType() |> equal null
 
-#if FABLE_COMPILER
 [<Fact>]
-let ``test FSharp.Reflection Record`` () =
-    let typ = typeof<MyRecord>
+let ``test reflection functions accept allowAccessToPrivateRepresentation`` () =
+    let recordType = typeof<MyRecord>
     let record = { String = "a"; Int = 1 }
-    let recordTypeFields = FSharpType.GetRecordFields typ
-    let recordValueFields = FSharpValue.GetRecordFields record
 
-    let expectedRecordFields =
-        [|
-            "string", box "a"
-            "int", box 1
-        |]
+    FSharpType.IsRecord(recordType, allowAccessToPrivateRepresentation = true) |> equal true
+    FSharpType.GetRecordFields(recordType, allowAccessToPrivateRepresentation = true).Length |> equal 2
 
-    let recordFields =
-        recordTypeFields
-        |> Array.map (fun field -> field.Name)
-        |> flip Array.zip recordValueFields
+    let values = FSharpValue.GetRecordFields(record, allowAccessToPrivateRepresentation = true)
+    let rebuilt =
+        FSharpValue.MakeRecord(recordType, values, allowAccessToPrivateRepresentation = true) :?> MyRecord
+    rebuilt |> equal record
 
-    let isRecord = FSharpType.IsRecord typ
-    let matchRecordFields = recordFields = expectedRecordFields
-    let matchIndividualRecordFields =
-        Array.zip recordTypeFields recordValueFields
-        |> Array.forall (fun (info, value) ->
-            FSharpValue.GetRecordField(record, info) = value
-        )
-    let canMakeSameRecord =
-        unbox<MyRecord> (FSharpValue.MakeRecord(typ, recordValueFields)) = record
+    let unionType = typeof<MyUnion>
+    FSharpType.IsUnion(unionType, allowAccessToPrivateRepresentation = true) |> equal true
+    let intCase = FSharpType.GetUnionCases(unionType, allowAccessToPrivateRepresentation = true).[1]
+    let u = FSharpValue.MakeUnion(intCase, [| box 5 |], allowAccessToPrivateRepresentation = true) :?> MyUnion
+    let info, fields = FSharpValue.GetUnionFields(u, unionType, allowAccessToPrivateRepresentation = true)
+    info.Name |> equal "IntCase"
+    fields.[0] |> equal (box 5)
 
-    let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
-    all |> equal true
-
-[<Fact>]
-let ``test PropertyInfo.GetValue works`` () =
-    let value: obj = { Firstname = "Maxime"; Age = 12 } :> obj
-
-    let theType: System.Type = typeof<RecordGetValueType>
-
-    // now we want to print out the fields
-    let fieldNameToValue: Map<string, obj> =
-        match theType with
-        | t when FSharpType.IsRecord t ->
-            FSharpType.GetRecordFields(t)
-            |> Seq.fold
-                (fun acc field ->
-                    let fieldValue = field.GetValue value
-                    acc.Add (field.Name, fieldValue)
-                )
-                Map.empty
-        | _ -> Map.empty
-
-    let expected = "map [(age, 12); (firstname, Maxime)]"
-
-    equal expected (sprintf "%O" fieldNameToValue)
-
-#else
+// Reflection reports the pristine F# field names on every backend (Python keeps the snake_case
+// runtime slots but records the original name in the reflection TypeInfo), so these no longer
+// need a FABLE_COMPILER fork — the assertions match .NET.
 [<Fact>]
 let ``test FSharp.Reflection Record`` () =
     let typ = typeof<MyRecord>
@@ -305,6 +273,28 @@ let ``test FSharp.Reflection Record`` () =
     let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
     all |> equal true
 
+// Multi-word PascalCase and acronym fields: reflection must report the original F# names
+// byte-identical to .NET/JS even though the Python runtime slots are snake_cased
+// (first_name / httpstatus / id). Reading each field by its reflected PropertyInfo must still
+// resolve the mangled slot.
+type MangledFieldsRecord = { FirstName: string; HTTPStatus: int; ID: int }
+
+[<Fact>]
+let ``test Record reflection keeps original F# field names`` () =
+    let typ = typeof<MangledFieldsRecord>
+    let record = { FirstName = "a"; HTTPStatus = 200; ID = 7 }
+    let fields = FSharpType.GetRecordFields typ
+
+    fields |> Array.map (fun f -> f.Name)
+    |> equal [| "FirstName"; "HTTPStatus"; "ID" |]
+
+    // The reflected PropertyInfo still reads the (snake_cased) runtime slot.
+    fields |> Array.map (fun f -> f.GetValue record)
+    |> equal [| box "a"; box 200; box 7 |]
+
+    unbox<MangledFieldsRecord> (FSharpValue.MakeRecord(typ, [| box "b"; box 404; box 9 |]))
+    |> equal { FirstName = "b"; HTTPStatus = 404; ID = 9 }
+
 [<Fact>]
 let ``test PropertyInfo.GetValue works`` () =
     let value: obj = { Firstname = "Maxime"; Age = 12 } :> obj
@@ -327,7 +317,6 @@ let ``test PropertyInfo.GetValue works`` () =
     let expected = "map [(Age, 12); (Firstname, Maxime)]"
 
     equal expected (sprintf "%O" fieldNameToValue)
-#endif
 
 [<Fact>]
 let ``test Comparing anonymous record types works`` () =

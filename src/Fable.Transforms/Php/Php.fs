@@ -1,15 +1,17 @@
 namespace rec Fable.AST.Php
 
+[<Struct>]
 type PhpConst =
-    | PhpConstNumber of float
-    | PhpConstString of string
-    | PhpConstBool of bool
+    | PhpConstNumber of number: float
+    | PhpConstString of str: string
+    | PhpConstBool of flag: bool
     | PhpConstNull
 
+[<Struct>]
 type PhpArrayIndex =
     | PhpArrayNoIndex
-    | PhpArrayInt of int
-    | PhpArrayString of string
+    | PhpArrayInt of index: int
+    | PhpArrayString of key: string
 
 type PhpField =
     {
@@ -17,9 +19,10 @@ type PhpField =
         Type: string
     }
 
+[<Struct>]
 type Capture =
-    | ByValue of string
-    | ByRef of string
+    | ByValue of valueName: string
+    | ByRef of refName: string
 
 type Prop =
     | Field of PhpField
@@ -70,9 +73,9 @@ and PhpStatement =
     | PhpFor of ident: string * start: PhpExpr * limit: PhpExpr * isUp: bool * body: PhpStatement list
     | PhpDo of PhpExpr
 
-and PhpCase =
-    | IntCase of int
-    | StringCase of string
+and [<Struct>] PhpCase =
+    | IntCase of intValue: int
+    | StringCase of strValue: string
     | DefaultCase
 
 and PhpTypeRef =

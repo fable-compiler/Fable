@@ -116,3 +116,9 @@ let ``test nested try-catch with custom exceptions`` () =
 [<Fact>]
 let ``test custom exception in throwsAnyError`` () =
     throwsAnyError (fun () -> raise (MyError "boom"))
+
+[<Fact>]
+let ``test invalidArg formats the message like .NET`` () =
+    throwsError "This is invalid (Parameter 'arg')" (fun () ->
+        invalidArg "arg" "This is invalid"
+    )

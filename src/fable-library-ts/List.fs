@@ -69,8 +69,7 @@ type LinkedList<'T> =
 
             loop 0 xs
 
-    override xs.ToString() =
-        "[" + System.String.Join("; ", xs) + "]"
+    override xs.ToString() = structuredCollectionToString "[" xs "]"
 
     override xs.Equals(other: obj) =
         if obj.ReferenceEquals(xs, other) then

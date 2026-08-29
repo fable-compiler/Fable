@@ -20,6 +20,30 @@ let listLength (xs: 'a list) : int = nativeOnly
 [<Emit("<<$0/binary, $1/binary>>")>]
 let concatBinaries (a: string) (b: string) : string = nativeOnly
 
+// Substitution must be a single left-to-right pass:
+// a `$N` sequence appearing inside an already-substituted argument
+// (here the string literal "$1") must NOT be re-substituted.
+[<Emit("{$0, $1}")>]
+let emitPair (a: string) (b: int) : string * int = nativeOnly
+
+// `$1` substitution must not corrupt the `$10` placeholder (full integer
+// index is parsed, not a naive textual replace).
+[<Emit("[$0, $1, $10]")>]
+let emitIndex10
+    (a0: int)
+    (a1: int)
+    (a2: int)
+    (a3: int)
+    (a4: int)
+    (a5: int)
+    (a6: int)
+    (a7: int)
+    (a8: int)
+    (a9: int)
+    (a10: int)
+    : int list =
+    nativeOnly
+
 // ============================================================
 // Import tests
 // ============================================================
@@ -98,6 +122,35 @@ type MyCssOptions =
     | ContentBox
     | BorderBox
 
+/// `[<CompiledValue>]` cases are genuine bool/int/float constants, not tags,
+/// so they must keep their literal rather than becoming atoms.
+[<StringEnum; RequireQualifiedAccess>]
+type MyFlags =
+    | [<CompiledValue(true)>] On
+    | [<CompiledValue(false)>] Off
+
+/// The kind argument `ets:new/2` takes — an OTP function that pattern-matches atoms
+/// and rejects binaries.
+[<StringEnum; RequireQualifiedAccess>]
+type EtsTableKind =
+    | Set
+    | [<CompiledName("ordered_set")>] OrderedSet
+
+[<Emit("erlang:is_atom($0)")>]
+let isAtom (x: obj) : bool = nativeOnly
+
+[<Emit("erlang:is_boolean($0)")>]
+let isBoolean (x: obj) : bool = nativeOnly
+
+[<Emit("ets:new(fable_string_enum_probe, [$0, public])")>]
+let etsNew (kind: EtsTableKind) : obj = nativeOnly
+
+[<Emit("ets:info($0, type)")>]
+let etsTableKind (tab: obj) : EtsTableKind = nativeOnly
+
+[<Emit("ets:delete($0)")>]
+let etsDelete (tab: obj) : unit = nativeOnly
+
 // ============================================================
 // Erlang.receive tests
 // ============================================================
@@ -120,6 +173,16 @@ let boolToString (x: bool) : string = nativeOnly
 // errors for any other value.
 [<Emit("case $0 of undefined -> <<\"none\">>; Value -> Value end")>]
 let emitWithValueCaseVar (x: string option) : string = nativeOnly
+
+// FFI binding that derefs its array argument. Fable-BEAM represents arrays as
+// process-dict refs, so an array literal passed here would otherwise generate a
+// `erlang:get(fable_utils:new_ref([...]))` round-trip; the compiler must collapse
+// that to a plain list so the BIF receives `[{...}]` directly.
+[<Emit("maps:from_list(erlang:get($0))")>]
+let mapFromPairs (pairs: (string * int) array) : obj = nativeOnly
+
+[<Emit("maps:get($0, $1)")>]
+let mapGet (key: string) (m: obj) : int = nativeOnly
 
 #endif
 
@@ -152,6 +215,27 @@ let ``test Emit can use binary syntax`` () =
 #endif
 
 [<Fact>]
+let ``test Emit does not re-substitute $N inside argument text`` () =
+#if FABLE_COMPILER
+    // The string argument "$1" must survive verbatim — the substituter must
+    // not replace the "$1" that appears inside the already-printed argument.
+    let a, b = emitPair "$1" 7
+    equal "$1" a
+    equal 7 b
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Emit $1 does not corrupt $10 placeholder`` () =
+#if FABLE_COMPILER
+    let result = emitIndex10 0 99 2 3 4 5 6 7 8 9 1010
+    equal [ 0; 99; 1010 ] result
+#else
+    ()
+#endif
+
+[<Fact>]
 let ``test emitErlExpr works`` () =
 #if FABLE_COMPILER
     let x = 10
@@ -176,6 +260,17 @@ let ``test emitErlExpr can call Erlang functions`` () =
 #if FABLE_COMPILER
     let result: int = emitErlExpr (3, 4) "erlang:max($0, $1)"
     equal 4 result
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test array literal passed to deref FFI binding round-trips correctly`` () =
+#if FABLE_COMPILER
+    // The literal flows straight into maps:from_list without a process-dict ref.
+    let m = mapFromPairs [| ("a", 1); ("b", 2) |]
+    equal 1 (mapGet "a" m)
+    equal 2 (mapGet "b" m)
 #else
     ()
 #endif
@@ -327,6 +422,21 @@ let ``test Erased unions with multiple fields work`` () =
 #endif
 
 [<Fact>]
+let ``test !^ implicit cast for erased unions works`` () =
+#if FABLE_COMPILER
+    let strify (x: U2<int, string>) =
+        match x with
+        | U2.Case1 i -> "i: " + string i
+        | U2.Case2 s -> "s: " + s
+    let i: U2<int, string> = !^42
+    let s: U2<int, string> = !^"foo"
+    strify i |> equal "i: 42"
+    strify s |> equal "s: foo"
+#else
+    ()
+#endif
+
+[<Fact>]
 let ``test StringEnum works`` () =
 #if FABLE_COMPILER
     let value = Vertical
@@ -362,6 +472,84 @@ let ``test StringEnum with KebabCase works`` () =
     let value = MyCssOptions.ContentBox
     let expected: string = emitErlExpr () "<<\"content-box\">>"
     equal expected (string value)
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test StringEnum compiles to an atom, not a binary`` () =
+#if FABLE_COMPILER
+    // The Beam analogue of a JS string-literal constant is an atom: OTP functions that take
+    // a tag pattern-match atoms and reject binaries.
+    equal true (isAtom (box Vertical))
+    equal true (isAtom (box Horizontal))
+    equal true (isAtom (box UserInfo.UserLoginCount))
+    equal true (isAtom (box MyCssOptions.ContentBox))
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test StringEnum atom equals the bare atom written by hand`` () =
+#if FABLE_COMPILER
+    let vertical: MyStrings = emitErlExpr () "vertical"
+    // `[<CompiledName>]` is honoured verbatim, so this one needs quoting
+    let horizontal: MyStrings = emitErlExpr () "'Horizontal'"
+    // A kebab-cased name is not a valid unquoted atom either
+    let contentBox: MyCssOptions = emitErlExpr () "'content-box'"
+    equal vertical Vertical
+    equal horizontal Horizontal
+    equal contentBox MyCssOptions.ContentBox
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test StringEnum pattern matching round-trips`` () =
+#if FABLE_COMPILER
+    let describe (x: MyStrings) =
+        match x with
+        | Vertical -> "v"
+        | Horizontal -> "h"
+
+    equal "v" (describe Vertical)
+    equal "h" (describe Horizontal)
+
+    let box_ (x: MyCssOptions) =
+        match x with
+        | MyCssOptions.ContentBox -> 1
+        | MyCssOptions.BorderBox -> 2
+
+    equal 1 (box_ MyCssOptions.ContentBox)
+    equal 2 (box_ MyCssOptions.BorderBox)
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test StringEnum atom is accepted by an OTP call`` () =
+#if FABLE_COMPILER
+    let tab = etsNew EtsTableKind.OrderedSet
+    let kind = etsTableKind tab
+    etsDelete tab
+    equal EtsTableKind.OrderedSet kind
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test StringEnum with CompiledValue stays a literal`` () =
+#if FABLE_COMPILER
+    equal true (isBoolean (box MyFlags.On))
+    equal true (isBoolean (box MyFlags.Off))
+
+    let describe (x: MyFlags) =
+        match x with
+        | MyFlags.On -> "on"
+        | MyFlags.Off -> "off"
+
+    equal "on" (describe MyFlags.On)
+    equal "off" (describe MyFlags.Off)
 #else
     ()
 #endif

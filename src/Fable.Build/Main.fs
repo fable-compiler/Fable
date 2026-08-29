@@ -46,6 +46,7 @@ Available commands:
             integration             Run the integration test suite
             standalone              Tests the standalone version of Fable
                                     (Fable running on top of Node.js)
+            plugins                 Run the plugin test suite (tests MemberDeclarationPluginAttribute)
 
         Options for all except integration and standalone:
             --watch                 Watch for changes and re-run the tests
@@ -62,8 +63,9 @@ Available commands:
 
         Options for Rust:
             --ast-only              Run only the tests for the AST (can be run in watch mode)
-            --no_std                Compile and run the tests without the standard library
-            --threaded              Compile and run the tests with the threaded runtime
+            --no_std                Legacy alias for --features no_std
+            --threaded              Legacy alias for --features threaded
+            --features <list>       Compile and run with comma-separated features; omit or use "," for default features
 
         Options for Python:
             --type-check            Run type checking on the generated code with Pyright
@@ -122,6 +124,10 @@ Available commands:
 let main argv =
     let argv = argv |> Array.map (fun x -> x.ToLower()) |> Array.toList
 
+    // Prevent uv run and uv sync from updating the uv.lock file
+    // Updating uv.lock should be done manucally by the user outside of the build system
+    System.Environment.SetEnvironmentVariable("UV_FROZEN", "true")
+
     SimpleExec.Command.Run(name = "dotnet", args = "tool restore")
     SimpleExec.Command.Run(name = "dotnet", args = "husky install --allow-roll-forward")
 
@@ -149,6 +155,7 @@ let main argv =
             // This test is using quicktest project for now,
             // because it can't compile (yet?) the Main JavaScript tests
             | "compiler-js" :: _ -> Test.CompilerJs.handle args
+            | "plugins" :: args -> Test.Plugins.handle args
             | _ -> printHelp ()
         | "quicktest" :: args ->
             match args with

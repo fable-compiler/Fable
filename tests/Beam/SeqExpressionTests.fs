@@ -81,6 +81,57 @@ let ``test try finally in seq expressions works`` () =
     equal 1 n
 
 [<Fact>]
+let ``test try...with in list expressions works`` () =
+    [ try 1 with _ -> 0 ]
+    |> equal [1]
+
+[<Fact>]
+let ``test try...with in list expressions catches exceptions`` () =
+    [ try raise (exn "boom") with _ -> 42 ]
+    |> equal [42]
+
+[<Fact>]
+let ``test try...with in array expressions works`` () =
+    [| try raise (exn "boom") with _ -> 7 |]
+    |> equal [| 7 |]
+
+[<Fact>]
+let ``test try...with in seq expressions preserves yielded elements before the exception`` () =
+    let mutable caught = false
+    let xs =
+        seq {
+            try
+                yield 1
+                raise (exn "boom")
+                yield 2
+            with _ ->
+                caught <- true
+                yield 3
+        } |> Seq.toList
+    equal [1; 3] xs
+    equal true caught
+
+// TODO: enable when Beam correctly rethrows exceptions not matched by a filtered
+// try/with handler in seq expressions (see PR #4719 review discussion)
+// [<Fact>]
+// let ``test try...with in seq expressions rethrows unmatched exceptions`` () =
+//     let mutable propagated = false
+//     try
+//         seq {
+//             try
+//                 yield 1
+//                 raise (System.InvalidOperationException "boom")
+//                 yield 2
+//             with :? System.ArgumentException ->
+//                 yield 0
+//         }
+//         |> Seq.toList
+//         |> ignore
+//     with :? System.InvalidOperationException ->
+//         propagated <- true
+//     equal true propagated
+
+[<Fact>]
 let ``test array expressions work`` () =
     [| for x in 1 .. 10 do yield x |]
     |> Array.length |> equal 10

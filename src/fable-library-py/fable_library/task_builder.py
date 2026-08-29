@@ -87,17 +87,9 @@ class TaskBuilder:
     async def Using[T: IDisposable, U](self, resource: T, binder: Callable[[T], Awaitable[U]]) -> U:
         return await self.TryFinally(self.Delay(lambda: binder(resource)), lambda: resource.Dispose())
 
-    @overload
-    async def While(self, guard: Callable[[], bool], computation: Delayed[None]) -> None: ...
-
-    @overload
-    async def While[T](self, guard: Callable[[], bool], computation: Delayed[T]) -> T: ...
-
-    async def While(self, guard: Callable[[], bool], computation: Delayed[Any]) -> Any:
-        if guard():
-            return await self.Bind(computation(), lambda _: self.While(guard, computation))
-        else:
-            return await self.Return()
+    async def While(self, guard: Callable[[], bool], computation: Delayed[None]) -> None:
+        while guard():
+            await computation()
 
     async def Zero(self) -> None:
         return await zero()

@@ -381,6 +381,31 @@ let reflectionTests = [
     let all = isRecord && matchRecordFields && matchIndividualRecordFields && canMakeSameRecord
     all |> equal true
 
+  testCase "FSharpValue.GetRecordFields with anonymous record returns all fields including None" <| fun () ->
+    let fields = FSharpValue.GetRecordFields {| a = 3; b = (None: int option); c = Some 89 |}
+    fields.Length |> equal 3
+    fields.[0] |> equal (box 3)
+    fields.[1] |> equal (box None)
+    fields.[2] |> equal (box (Some 89))
+
+  testCase "Reflection functions accept allowAccessToPrivateRepresentation" <| fun () ->
+    let recordType = typeof<TestRecord>
+    let record = { String = "a"; Int = 1 }
+
+    FSharpType.GetRecordFields(recordType, allowAccessToPrivateRepresentation = true).Length |> equal 2
+
+    let values = FSharpValue.GetRecordFields(record, allowAccessToPrivateRepresentation = true)
+    let rebuilt =
+        FSharpValue.MakeRecord(recordType, values, allowAccessToPrivateRepresentation = true) :?> TestRecord
+    rebuilt |> equal record
+
+    let unionType = typeof<TestUnion>
+    let intCase = FSharpType.GetUnionCases(unionType).[1]
+    let u = FSharpValue.MakeUnion(intCase, [| box 5 |], allowAccessToPrivateRepresentation = true) :?> TestUnion
+    let info, fields = FSharpValue.GetUnionFields(u, unionType, allowAccessToPrivateRepresentation = true)
+    info.Name |> equal "IntCase"
+    fields.[0] |> equal (box 5)
+
   testCase "PropertyInfo.GetValue works" <| fun () ->
     let value: obj = { Firstname = "Maxime"; Age = 12 } :> obj
 
@@ -580,6 +605,14 @@ let reflectionTests = [
     someFields.Length |> equal 1
     someFields.[0] |> equal (box 42)
 
+  testCase "FSharp.Reflection: List is a union type" <| fun () ->
+    let typ = typeof<int list>
+    FSharpType.IsUnion(typ) |> equal true
+    let ucis = FSharpType.GetUnionCases(typ)
+    ucis.Length |> equal 2
+    ucis.[0].Name |> equal "Empty"
+    ucis.[1].Name |> equal "Cons"
+
   testCase "FSharp.Reflection: Option round-trips through Some(None) and Some(Some x)" <| fun () ->
     let typ = typeof<int option option>
     let ucis = FSharpType.GetUnionCases(typ)
@@ -724,6 +757,19 @@ type MyRecord20 =
     { FieldA: int
       FieldB: string }
 
+type ReactiveNode<'T>(value: 'T) =
+    member _.Value = value
+
+[<Struct; Erase>]
+type ErasedView<'T> =
+    | ErasedView of node: ReactiveNode<'T>
+
+type ModelWithErasedField = { Item: ErasedView<int> }
+
+type DuWithErasedField =
+    | Wrapped of ErasedView<int>
+    | Empty
+
 let fableTests = [
     testCase "Recursively reading generic arguments of nested generic types works" <| fun () ->
         let typeInfo = Types.get<Maybe<Maybe<int>>>()
@@ -762,6 +808,28 @@ let fableTests = [
         getCaseName y |> equal "Union20_B"
         getCaseFields x |> equal [||]
         getCaseFields y |> equal [|5; "foo"|]
+
+    testCase "Reflection works for a record with an erased generic union field" <| fun () ->
+        // The record's generated reflection must resolve the erased union's generic
+        // parameter; ErasedView<int> erases to (and reflects as) ReactiveNode<int>.
+        let typ = typeof<ModelWithErasedField>
+        FSharpType.IsRecord typ |> equal true
+        let fields = FSharpType.GetRecordFields typ
+        fields.Length |> equal 1
+        fields.[0].PropertyType.GetGenericArguments().[0] |> equal typeof<int>
+        // Reading the field back confirms the runtime value is the erased node itself.
+        let model = { Item = ErasedView(ReactiveNode 42) }
+        (FSharpValue.GetRecordFields model |> Array.head :?> ReactiveNode<int>).Value |> equal 42
+
+    testCase "Reflection works for a union with an erased generic union field" <| fun () ->
+        // Same fix as records: a union case field reflection must resolve the
+        // erased union's generic parameter.
+        let typ = typeof<DuWithErasedField>
+        let case = (FSharpType.GetUnionCases typ).[0]
+        case.GetFields().[0].PropertyType.GetGenericArguments().[0] |> equal typeof<int>
+        let value = Wrapped(ErasedView(ReactiveNode 7))
+        let _, fields = FSharpValue.GetUnionFields(value, typ)
+        (fields.[0] :?> ReactiveNode<int>).Value |> equal 7
 ]
 
 #else

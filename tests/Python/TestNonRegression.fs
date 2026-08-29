@@ -182,6 +182,30 @@ let ``test class name casing`` () =
     let x = Issue3811.flowchartDirection.tb' ()
     equal Issue3811.FlowchartDirection.TB x
 
+module Issue4634 =
+    // An attached static property on a union whose getter constructs a union case must
+    // not be emitted eagerly in the base class body (the case classes don't exist yet),
+    // and use sites must reach the static member on the base class, not the type alias.
+    [<AttachMembers>]
+    type Demo =
+        | A of string
+        | B
+
+        static member propDefault = A "prop"
+        static member methDefault() = A "meth"
+
+[<Fact>]
+let ``test attached static members on union work`` () =
+    equal (Issue4634.A "prop") Issue4634.Demo.propDefault
+    equal (Issue4634.A "meth") (Issue4634.Demo.methDefault())
+
+[<Fact>]
+let ``test attached static members on union work across modules`` () =
+    // CrossModuleDemo is defined in MiscTestsHelper.fs, so these use sites compile to an
+    // import of the union rather than a same-file identifier — covering the cross-file path.
+    equal (Fable.Tests.MiscTestsHelper.A "prop") Fable.Tests.MiscTestsHelper.CrossModuleDemo.propDefault
+    equal (Fable.Tests.MiscTestsHelper.A "meth") (Fable.Tests.MiscTestsHelper.CrossModuleDemo.methDefault())
+
 module Issue3972 =
     type IInterface =
         abstract member LOL : int

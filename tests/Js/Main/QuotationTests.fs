@@ -9,6 +9,16 @@ open Microsoft.FSharp.Linq.RuntimeHelpers
 open Fable.Core.JsInterop
 #endif
 
+type QuotationTestUnion =
+    | QuotCircle of float
+    | QuotSquare of float
+
+let inline quotTestDouble x = x * 2
+
+type QuotationIndexerTest(values: int[]) =
+    member _.Item
+        with get (i: int) = values.[i]
+
 let tests =
   testList "Quotations" [
 #if FABLE_COMPILER
@@ -134,6 +144,119 @@ let tests =
         let q = <@ fun x -> x + 1 @>
         let freeVars = q.GetFreeVars() |> Seq.length
         equal 0 freeVars
+
+    // Note: these only check the outer IfThenElse shape. The guard itself is a synthetic Call
+    // here (e.g. "get_IsNone", "op_TypeTest"), not the real UnionCaseTest/TypeTest node .NET uses.
+    testCase "Option match deconstructs to IfThenElse" <| fun () ->
+        let q = <@ fun (o: int option) -> match o with Some v -> v | None -> 0 @>
+        match q with
+        | Lambda(_, IfThenElse(_, _, _)) -> ()
+        | _ -> failwith "Expected Lambda with IfThenElse body"
+
+    testCase "Literal match deconstructs to IfThenElse" <| fun () ->
+        let q = <@ fun (x: int) -> match x with 0 -> "zero" | _ -> "other" @>
+        match q with
+        | Lambda(_, IfThenElse(_, _, _)) -> ()
+        | _ -> failwith "Expected Lambda with IfThenElse body"
+
+    testCase "Union case match deconstructs to IfThenElse" <| fun () ->
+        let q =
+            <@ fun (s: QuotationTestUnion) ->
+                match s with
+                | QuotCircle _ -> true
+                | QuotSquare _ -> false @>
+
+        match q with
+        | Lambda(_, IfThenElse(_, _, _)) -> ()
+        | _ -> failwith "Expected Lambda with IfThenElse body"
+
+    testCase "List match deconstructs to IfThenElse" <| fun () ->
+        let q =
+            <@ fun (xs: int list) ->
+                match xs with
+                | [] -> true
+                | _ :: _ -> false @>
+
+        match q with
+        | Lambda(_, IfThenElse(_, _, _)) -> ()
+        | _ -> failwith "Expected Lambda with IfThenElse body"
+
+    testCase "Type test match deconstructs to IfThenElse" <| fun () ->
+        let q =
+            <@ fun (o: obj) ->
+                match o with
+                | :? int -> true
+                | _ -> false @>
+
+        match q with
+        | Lambda(_, IfThenElse(_, _, _)) -> ()
+        | _ -> failwith "Expected Lambda with IfThenElse body"
+
+    // --- Member calls inside quotations keep original .NET metadata (not inlined) ---
+
+    testCase "Inline function call inside quotation is preserved, not inlined" <| fun () ->
+        let q = <@ quotTestDouble 5 @>
+
+        match q with
+        | Call(None, _mi, args) -> equal 1 (Seq.length args)
+        | _ -> failwith "Expected a preserved Call node with a single argument"
+
+    // --- Option/List property-getter accessors (ListHead/ListTail/OptionValue) deconstruct
+    // as PropertyGet, matching real F# quotations ---
+
+    testCase "Option.Value access inside a quotation is a PropertyGet" <| fun () ->
+        let q = <@ fun (o: int option) -> o.Value @>
+
+        match q with
+        | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+        | _ -> failwith "Expected Lambda with PropertyGet body"
+
+    testCase "List.Head access inside a quotation is a PropertyGet" <| fun () ->
+        let q = <@ fun (xs: int list) -> xs.Head @>
+
+        match q with
+        | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+        | _ -> failwith "Expected Lambda with PropertyGet body"
+
+    testCase "List.Tail access inside a quotation is a PropertyGet" <| fun () ->
+        let q = <@ fun (xs: int list) -> xs.Tail @>
+
+        match q with
+        | Lambda(_, PropertyGet(Some _, _, [])) -> ()
+        | _ -> failwith "Expected Lambda with PropertyGet body"
+
+    // --- Runtime-built null nodes (mkNullExpr) ---
+
+    testCase "Unit quotation still matches Value node" <| fun () ->
+        let q = <@ () @>
+
+        match q with
+        | Value(_, _) -> ()
+        | _ -> failwith "Expected Value"
+
+    testCase "Call on an instance whose value is null keeps a Some instance" <| fun () ->
+        // Guards against conflating "no instance" (static/operator call) with "instance value
+        // is null" — both used to serialize to the same node.
+        let q = <@ (Unchecked.defaultof<System.Nullable<int>>).HasValue @>
+
+        let rec hasSomeInstancePropertyGet expr =
+            match expr with
+            | PropertyGet(Some _, _, []) -> true
+            | Let(_, _, body) -> hasSomeInstancePropertyGet body
+            | _ -> false
+
+        if not (hasSomeInstancePropertyGet q) then
+            failwith "Expected a PropertyGet with a Some instance, even though its value is null"
+
+    // Known limitation: only zero-arg getters are tagged "property", so an indexer still
+    // surfaces as a plain Call instead of PropertyGet(instance, propInfo, args) like real F#
+    // quotations. FABLE_COMPILER-only: real .NET already represents indexers as PropertyGet.
+    testCase "Indexer property access inside a quotation is a Call, not yet PropertyGet" <| fun () ->
+        let q = <@ fun (t: QuotationIndexerTest) -> t.[0] @>
+
+        match q with
+        | Lambda(_, Call(Some _, _, [ _ ])) -> ()
+        | _ -> failwith "Expected Lambda with a Call(Some instance, _, [index]) body"
 
     testCase "JSON serialization produces Thoth Auto-compatible format" <| fun () ->
         let q = <@ 42 @>

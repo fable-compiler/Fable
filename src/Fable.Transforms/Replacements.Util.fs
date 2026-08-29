@@ -304,48 +304,52 @@ type BuiltinType =
     | FSharpResult of ok: Type * err: Type
     | FSharpReference of Type
 
+[<return: Struct>]
 let (|BuiltinDefinition|_|) =
     function
-    | Types.guid -> Some BclGuid
-    | Types.timespan -> Some BclTimeSpan
-    | Types.datetime -> Some BclDateTime
-    | Types.datetimeOffset -> Some BclDateTimeOffset
-    | Types.dateOnly -> Some BclDateOnly
-    | Types.timeOnly -> Some BclTimeOnly
-    | "System.Timers.Timer" -> Some BclTimer
-    | Types.fsharpSet -> Some(FSharpSet(Any))
-    | Types.fsharpMap -> Some(FSharpMap(Any, Any))
-    | Types.hashset -> Some(BclHashSet(Any))
-    | Types.dictionary -> Some(BclDictionary(Any, Any))
-    | Types.keyValuePair -> Some(BclKeyValuePair(Any, Any))
-    | Types.result -> Some(FSharpResult(Any, Any))
-    | Types.byref -> Some(FSharpReference(Any))
-    | Types.byref2 -> Some(FSharpReference(Any))
-    | Types.refCell -> Some(FSharpReference(Any))
-    | Naming.StartsWith Types.choiceNonGeneric genArgs -> List.replicate (int genArgs[1..]) Any |> FSharpChoice |> Some
-    | _ -> None
+    | Types.guid -> ValueSome BclGuid
+    | Types.timespan -> ValueSome BclTimeSpan
+    | Types.datetime -> ValueSome BclDateTime
+    | Types.datetimeOffset -> ValueSome BclDateTimeOffset
+    | Types.dateOnly -> ValueSome BclDateOnly
+    | Types.timeOnly -> ValueSome BclTimeOnly
+    | "System.Timers.Timer" -> ValueSome BclTimer
+    | Types.fsharpSet -> ValueSome(FSharpSet(Any))
+    | Types.fsharpMap -> ValueSome(FSharpMap(Any, Any))
+    | Types.hashset -> ValueSome(BclHashSet(Any))
+    | Types.dictionary -> ValueSome(BclDictionary(Any, Any))
+    | Types.keyValuePair -> ValueSome(BclKeyValuePair(Any, Any))
+    | Types.result -> ValueSome(FSharpResult(Any, Any))
+    | Types.byref -> ValueSome(FSharpReference(Any))
+    | Types.byref2 -> ValueSome(FSharpReference(Any))
+    | Types.refCell -> ValueSome(FSharpReference(Any))
+    | Naming.StartsWith Types.choiceNonGeneric genArgs ->
+        List.replicate (int genArgs[1..]) Any |> FSharpChoice |> ValueSome
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|BuiltinEntity|_|) (ent: string, genArgs) =
     match ent, genArgs with
-    | BuiltinDefinition(FSharpSet _), [ t ] -> Some(FSharpSet(t))
-    | BuiltinDefinition(FSharpMap _), [ k; v ] -> Some(FSharpMap(k, v))
-    | BuiltinDefinition(BclHashSet _), [ t ] -> Some(BclHashSet(t))
-    | BuiltinDefinition(BclDictionary _), [ k; v ] -> Some(BclDictionary(k, v))
-    | BuiltinDefinition(BclKeyValuePair _), [ k; v ] -> Some(BclKeyValuePair(k, v))
-    | BuiltinDefinition(FSharpResult _), [ k; v ] -> Some(FSharpResult(k, v))
-    | BuiltinDefinition(FSharpReference _), [ t ] -> Some(FSharpReference(t))
-    | BuiltinDefinition(FSharpReference _), [ t; _ ] -> Some(FSharpReference(t))
-    | BuiltinDefinition(FSharpChoice _), genArgs -> Some(FSharpChoice genArgs)
-    | BuiltinDefinition t, _ -> Some t
-    | _ -> None
+    | BuiltinDefinition(FSharpSet _), [ t ] -> ValueSome(FSharpSet(t))
+    | BuiltinDefinition(FSharpMap _), [ k; v ] -> ValueSome(FSharpMap(k, v))
+    | BuiltinDefinition(BclHashSet _), [ t ] -> ValueSome(BclHashSet(t))
+    | BuiltinDefinition(BclDictionary _), [ k; v ] -> ValueSome(BclDictionary(k, v))
+    | BuiltinDefinition(BclKeyValuePair _), [ k; v ] -> ValueSome(BclKeyValuePair(k, v))
+    | BuiltinDefinition(FSharpResult _), [ k; v ] -> ValueSome(FSharpResult(k, v))
+    | BuiltinDefinition(FSharpReference _), [ t ] -> ValueSome(FSharpReference(t))
+    | BuiltinDefinition(FSharpReference _), [ t; _ ] -> ValueSome(FSharpReference(t))
+    | BuiltinDefinition(FSharpChoice _), genArgs -> ValueSome(FSharpChoice genArgs)
+    | BuiltinDefinition t, _ -> ValueSome t
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|Builtin|_|) =
     function
     | DeclaredType(ent, genArgs) ->
         match ent.FullName, genArgs with
-        | BuiltinEntity x -> Some x
-        | _ -> None
-    | _ -> None
+        | BuiltinEntity x -> ValueSome x
+        | _ -> ValueNone
+    | _ -> ValueNone
 
 let (|BuiltinSystemException|_|) (ent: string) =
     match ent with
@@ -380,7 +384,7 @@ let getElementType =
     | _ -> Any
 
 let genericTypeInfoError (name: string) =
-    $"Cannot get type info of generic parameter {name}. Fable erases generics at runtime, try inlining the functions so generics can be resolved at compile time."
+    $"Cannot get type info of generic parameter %s{name}. Fable erases generics at runtime, try inlining the functions so generics can be resolved at compile time."
 
 // This is mainly intended for typeof errors because we want to show the user where the function is originally called
 let changeRangeToCallSite (inlinePath: InlinePath list) (range: SourceLocation option) =
@@ -439,7 +443,7 @@ let makeStringTemplate
         {|
             Index: int
             Length: int
-        |}[])
+        |} array)
     values
     =
     let mutable prevIndex = 0
@@ -457,17 +461,24 @@ let makeStringTemplate
     StringTemplate(tag, parts, values)
 
 
-// Parses an F# interpolated string format, finds every %P() hole (optionally preceded by a
+// Parses an F# interpolated string format, finds every %P(...) hole (optionally preceded by a
 // printf format specifier), and builds a StringTemplate from the literal parts and the
 // supplied value expressions.
 //
-// For each hole the caller supplies `handleFormatSpec`:
-//   - None   → the hole has no preceding format spec (or only a simple one from simpleFormats);
-//              the value is used as-is.
-//   - Some fmtSpec → the hole has a non-simple format spec; the callback receives the spec
-//              (e.g. "%0.2f") and the value expression.  Returning Some wraps the value;
-//              returning None aborts the whole template (None is returned for the string).
+// A hole takes one of these shapes:
+//   - `%P()`            → no format; the value is used as-is.
+//   - `%<spec>%P()`     → a printf-style format spec (e.g. `%0.2f`); handled by `handleFormatSpec`.
+//   - `%P(<spec>)`      → a .NET format spec (e.g. `X4` from `$"{x:X4}"`).
+//   - `%<align>P(...)`  → an alignment width (e.g. `%6P()` from `$"{x,6}"`, `%-6P(X4)` from
+//                         `$"{x,-6:X4}"`).
+// Alignment and/or .NET format holes are always wrapped in a `String.format("{0,align:spec}", value)`
+// call (parts omitted when absent), which every target implements.
+//
+// For each printf hole the caller supplies `handleFormatSpec`:
+//   - Some fmtSpec → wraps the value (the callback receives the spec, e.g. "%0.2f").
+//   - None         → aborts the whole template (None is returned for the string).
 let private makeStringTemplateFromWith
+    (com: ICompiler)
     (simpleFormats: string array)
     (handleFormatSpec: string -> Expr -> Expr option)
     (values: Expr list)
@@ -479,7 +490,7 @@ let private makeStringTemplateFromWith
         let str = str.Replace("%%", "%")
 
         let matches =
-            Regex.Matches(str, @"((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%P\(\)")
+            Regex.Matches(str, @"((?<!%)%(?:[0+\- ]*)(?:\d+)?(?:\.\d+)?\w)?%([0+\- ]*\d*)P\(([^)]*)\)")
             |> Seq.cast<Match>
 
         (Some([], values), matches)
@@ -488,11 +499,28 @@ let private makeStringTemplateFromWith
             | None -> None
             | Some(_, []) -> None // fewer values than matches
             | Some(mapped, value :: restValues) ->
-                let needsFormat =
-                    m.Groups[1].Success && not (Array.contains m.Groups[1].Value simpleFormats)
+                let alignment = m.Groups[2].Value
+                let dotnetFormat = m.Groups[3].Value
 
                 let resolved =
-                    if needsFormat then
+                    if alignment <> "" || dotnetFormat <> "" then
+                        // Alignment (`$"{x,6}"`) and/or .NET format spec (`$"{x:X4}"`).
+                        // Wrap value in: String.format("{0[,<align>][:<spec>]}", value)
+                        let alignPart =
+                            if alignment <> "" then
+                                "," + alignment
+                            else
+                                ""
+
+                        let fmtPart =
+                            if dotnetFormat <> "" then
+                                ":" + dotnetFormat
+                            else
+                                ""
+
+                        let fmtStr = Value(StringConstant("{0" + alignPart + fmtPart + "}"), None)
+                        Helper.LibCall(com, "String", "format", String, [ fmtStr; value ]) |> Some
+                    elif m.Groups[1].Success && not (Array.contains m.Groups[1].Value simpleFormats) then
                         handleFormatSpec m.Groups[1].Value value
                     else
                         Some value
@@ -516,11 +544,12 @@ let private makeStringTemplateFromWith
     | _ -> None
 
 /// Try to build a StringTemplate from an F# interpolated string.
-/// Returns None if any hole carries a format specifier that is not in simpleFormats,
+/// Returns None if any hole carries a printf format specifier that is not in simpleFormats,
 /// because those require runtime formatting that can't be inlined into a plain template.
-let makeStringTemplateFrom simpleFormats values strExpr =
-    // Abort (return None) for any non-simple format spec.
-    makeStringTemplateFromWith simpleFormats (fun _ _ -> None) values strExpr
+/// Holes carrying a .NET format spec (e.g. `%P(X4)`) are always inlined as a String.format call.
+let makeStringTemplateFrom com simpleFormats values strExpr =
+    // Abort (return None) for any non-simple printf format spec.
+    makeStringTemplateFromWith com simpleFormats (fun _ _ -> None) values strExpr
 
 /// Like makeStringTemplateFrom but always succeeds for string literals.
 /// Values with format specifiers not in simpleFormats are individually wrapped in a
@@ -528,6 +557,7 @@ let makeStringTemplateFrom simpleFormats values strExpr =
 /// Used for JSX templates, where every hole must produce a value (formatted or not).
 let makeStringTemplateFromAllowingFormat (com: ICompiler) simpleFormats (values: Expr list) strExpr =
     makeStringTemplateFromWith
+        com
         simpleFormats
         (fun fmtSpec value ->
             // Wrap value in: String.interpolate("%fmtspec%P()", [| value |])
@@ -561,6 +591,210 @@ let rec namesof com ctx acc e =
     | acc, _ -> Some acc
 
 let curriedApply r t applied args = CurriedApply(applied, args, t, r)
+
+/// Builds Option/ValueOption replacements that apply a function argument directly as AST
+/// (not via a lib call), so a lambda literal beta-reduces away instead of allocating a closure.
+module Options =
+    let innerType t =
+        match t with
+        | Option(genArg, _) -> genArg
+        | t -> t
+
+    /// Binds `value` to a fresh ident evaluated eagerly, once, before `body` (which may
+    /// reference it only conditionally) - required if `value` can be side-effecting.
+    let bindOnce (com: ICompiler) ctx name (value: Expr) (body: Expr -> Expr) =
+        let ident = makeUniqueIdent com ctx value.Type name
+        Let(ident, value, body (IdentExpr ident))
+
+    /// `let o = opt in if o is Some then someExpr(o, value(o)) else noneExpr`, binding `opt`
+    /// once (it's used by both the test and the unwrap, and may be side-effecting).
+    let matchOption (com: ICompiler) ctx r (opt: Expr) (someExpr: Expr -> Expr -> Expr) (noneExpr: Expr) =
+        bindOnce
+            com
+            ctx
+            "option"
+            opt
+            (fun optExpr ->
+                let unwrapped = Get(optExpr, OptionValue, innerType opt.Type, r)
+                IfThenElse(Test(optExpr, OptionTest true, r), someExpr optExpr unwrapped, noneExpr, r)
+            )
+
+    /// `Option.iter`/`ValueOption.iter`.
+    let iterate (com: ICompiler) ctx r (t: Type) (action: Expr) (opt: Expr) =
+        bindOnce
+            com
+            ctx
+            "action"
+            action
+            (fun actionExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun _ unwrapped -> curriedApply r t actionExpr [ unwrapped ])
+                    (Value(UnitConstant, None))
+            )
+
+    /// `Option.map`/`ValueOption.map`.
+    let map (com: ICompiler) ctx r (t: Type) isStruct (mapping: Expr) (opt: Expr) =
+        let retType = innerType t
+
+        bindOnce
+            com
+            ctx
+            "mapping"
+            mapping
+            (fun mappingExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun _ unwrapped ->
+                        NewOption(curriedApply r retType mappingExpr [ unwrapped ] |> Some, retType, isStruct)
+                        |> makeValue r
+                    )
+                    (NewOption(None, retType, isStruct) |> makeValue r)
+            )
+
+    /// `Option.map2`/`ValueOption.map2`.
+    let map2 (com: ICompiler) ctx r (t: Type) isStruct (mapping: Expr) (opt1: Expr) (opt2: Expr) =
+        let retType = innerType t
+
+        bindOnce
+            com
+            ctx
+            "mapping"
+            mapping
+            (fun mappingExpr ->
+                let opt1Ident = makeUniqueIdent com ctx opt1.Type "option1"
+                let opt2Ident = makeUniqueIdent com ctx opt2.Type "option2"
+                let opt1Expr = IdentExpr opt1Ident
+                let opt2Expr = IdentExpr opt2Ident
+                let unwrapped1 = Get(opt1Expr, OptionValue, innerType opt1.Type, r)
+                let unwrapped2 = Get(opt2Expr, OptionValue, innerType opt2.Type, r)
+                let noneExpr = NewOption(None, retType, isStruct) |> makeValue r
+
+                let someExpr =
+                    NewOption(curriedApply r retType mappingExpr [ unwrapped1; unwrapped2 ] |> Some, retType, isStruct)
+                    |> makeValue r
+
+                let inner = IfThenElse(Test(opt2Expr, OptionTest true, r), someExpr, noneExpr, r)
+                let outer = IfThenElse(Test(opt1Expr, OptionTest true, r), inner, noneExpr, r)
+                Let(opt1Ident, opt1, Let(opt2Ident, opt2, outer))
+            )
+
+    /// `Option.map3`/`ValueOption.map3`.
+    let map3 (com: ICompiler) ctx r (t: Type) isStruct (mapping: Expr) (opt1: Expr) (opt2: Expr) (opt3: Expr) =
+        let retType = innerType t
+
+        bindOnce
+            com
+            ctx
+            "mapping"
+            mapping
+            (fun mappingExpr ->
+                let opt1Ident = makeUniqueIdent com ctx opt1.Type "option1"
+                let opt2Ident = makeUniqueIdent com ctx opt2.Type "option2"
+                let opt3Ident = makeUniqueIdent com ctx opt3.Type "option3"
+                let opt1Expr = IdentExpr opt1Ident
+                let opt2Expr = IdentExpr opt2Ident
+                let opt3Expr = IdentExpr opt3Ident
+                let unwrapped1 = Get(opt1Expr, OptionValue, innerType opt1.Type, r)
+                let unwrapped2 = Get(opt2Expr, OptionValue, innerType opt2.Type, r)
+                let unwrapped3 = Get(opt3Expr, OptionValue, innerType opt3.Type, r)
+                let noneExpr = NewOption(None, retType, isStruct) |> makeValue r
+
+                let someExpr =
+                    NewOption(
+                        curriedApply r retType mappingExpr [ unwrapped1; unwrapped2; unwrapped3 ]
+                        |> Some,
+                        retType,
+                        isStruct
+                    )
+                    |> makeValue r
+
+                let inner2 = IfThenElse(Test(opt3Expr, OptionTest true, r), someExpr, noneExpr, r)
+                let inner1 = IfThenElse(Test(opt2Expr, OptionTest true, r), inner2, noneExpr, r)
+                let outer = IfThenElse(Test(opt1Expr, OptionTest true, r), inner1, noneExpr, r)
+                Let(opt1Ident, opt1, Let(opt2Ident, opt2, Let(opt3Ident, opt3, outer)))
+            )
+
+    /// `Option.bind`/`ValueOption.bind`.
+    let bind (com: ICompiler) ctx r (t: Type) isStruct (binder: Expr) (opt: Expr) =
+        let retType = innerType t
+
+        bindOnce
+            com
+            ctx
+            "binder"
+            binder
+            (fun binderExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun _ unwrapped -> curriedApply r t binderExpr [ unwrapped ])
+                    (NewOption(None, retType, isStruct) |> makeValue r)
+            )
+
+    /// `Option.filter`/`ValueOption.filter`.
+    let filter (com: ICompiler) ctx r isStruct (predicate: Expr) (opt: Expr) =
+        let valueType = innerType opt.Type
+        let noneExpr = NewOption(None, valueType, isStruct) |> makeValue r
+
+        bindOnce
+            com
+            ctx
+            "predicate"
+            predicate
+            (fun predicateExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun optExpr unwrapped ->
+                        IfThenElse(curriedApply r Boolean predicateExpr [ unwrapped ], optExpr, noneExpr, r)
+                    )
+                    noneExpr
+            )
+
+    /// `Option.defaultWith`/`ValueOption.defaultWith`.
+    let defaultWith (com: ICompiler) ctx r (t: Type) (defThunk: Expr) (opt: Expr) =
+        bindOnce
+            com
+            ctx
+            "defThunk"
+            defThunk
+            (fun defThunkExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun _ unwrapped -> unwrapped)
+                    (curriedApply r t defThunkExpr [ Value(UnitConstant, None) ])
+            )
+
+    /// `Option.orElseWith`/`ValueOption.orElseWith`.
+    let orElseWith (com: ICompiler) ctx r (t: Type) (ifNoneThunk: Expr) (opt: Expr) =
+        bindOnce
+            com
+            ctx
+            "ifNoneThunk"
+            ifNoneThunk
+            (fun ifNoneThunkExpr ->
+                matchOption
+                    com
+                    ctx
+                    r
+                    opt
+                    (fun optExpr _ -> optExpr)
+                    (curriedApply r t ifNoneThunkExpr [ Value(UnitConstant, None) ])
+            )
 
 let compose (com: ICompiler) ctx r t (f1: Expr) (f2: Expr) =
     let argType, retType =
@@ -615,7 +849,7 @@ let partialApplyAtRuntime (com: Compiler) t arity (expr: Expr) (partialArgs: Exp
             | partialArgs -> curriedApply None t curried partialArgs
     | _ ->
         // Check if argTypes.Length < arity?
-        let makeArgIdent i typ = makeTypedIdent typ $"a{i}" // $"a{com.IncrementCounter()}$"
+        let makeArgIdent i typ = makeTypedIdent typ $"a%d{i}" // $"a{com.IncrementCounter()}$"
         let argTypes, returnType = uncurryLambdaType arity [] t
         let argIdents = argTypes |> List.mapi makeArgIdent
         let args = argIdents |> List.map Fable.IdentExpr
@@ -684,7 +918,7 @@ let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
                 | Fable.DelegateType(argTypes, returnType) -> argTypes, returnType
                 | _ -> [], expr.Type
 
-            let makeArgIdent i typ = makeTypedIdent typ $"b{i}" // $"a{com.IncrementCounter()}$"
+            let makeArgIdent i typ = makeTypedIdent typ $"b%d{i}" // $"a{com.IncrementCounter()}$"
             let argIdents = argTypes |> List.mapi makeArgIdent
             let args = argIdents |> List.map Fable.IdentExpr
             let body = curriedApply None returnType expr args
@@ -706,11 +940,19 @@ let uncurryExprAtRuntime (com: Compiler) arity (expr: Expr) =
         Helper.LibCall(com, "Option", "map", Option(uncurried.Type, isStruct), [ fn; expr ])
     | expr -> uncurry expr
 
-let (|Namesof|_|) com ctx e = namesof com ctx [] e
+[<return: Struct>]
+let (|Namesof|_|) com ctx e =
+    match namesof com ctx [] e with
+    | Some x -> ValueSome x
+    | None -> ValueNone
 
+[<return: Struct>]
 let (|Nameof|_|) com ctx e =
-    namesof com ctx [] e |> Option.bind List.tryLast
+    match namesof com ctx [] e |> Option.bind List.tryLast with
+    | Some x -> ValueSome x
+    | None -> ValueNone
 
+[<return: Struct>]
 let (|ReplaceName|_|) (namesAndReplacements: (string * string) list) name =
     namesAndReplacements
     |> List.tryPick (fun (name2, replacement) ->
@@ -719,32 +961,38 @@ let (|ReplaceName|_|) (namesAndReplacements: (string * string) list) name =
         else
             None
     )
+    |> function
+        | Some x -> ValueSome x
+        | None -> ValueNone
 
 let (|OrDefault|) (def: 'T) =
     function
     | Some v -> v
     | None -> def
 
+[<return: Struct>]
 let (|IsByRefType|_|) (com: Compiler) =
     function
     | DeclaredType(entRef, genArgs) ->
         let ent = com.GetEntity(entRef)
 
         match ent.IsByRef, genArgs with
-        | true, (genArg :: _) -> Some genArg
-        | _ -> None
-    | _ -> None
+        | true, (genArg :: _) -> ValueSome genArg
+        | _ -> ValueNone
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|IsInRefType|_|) (com: Compiler) =
     function
     | DeclaredType(entRef, genArgs) ->
         let ent = com.GetEntity(entRef)
 
         match ent.IsByRef, genArgs with
-        | true, [ genArg; DeclaredType(byRefKind, _) ] when byRefKind.FullName = Types.byrefKindIn -> Some genArg
-        | _ -> None
-    | _ -> None
+        | true, [ genArg; DeclaredType(byRefKind, _) ] when byRefKind.FullName = Types.byrefKindIn -> ValueSome genArg
+        | _ -> ValueNone
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|IsReferenceType|_|) (com: Compiler) (t: Type) =
     match t with
     | Measure _
@@ -752,43 +1000,44 @@ let (|IsReferenceType|_|) (com: Compiler) (t: Type) =
     | Unit
     | Boolean
     | Char
-    | Number _ -> None
+    | Number _ -> ValueNone
 
     | Any
     | Regex
     | String
     | LambdaType _
-    | DelegateType _ -> Some t
+    | DelegateType _ -> ValueSome t
 
     | Array _
-    | List _ -> Some t
+    | List _ -> ValueSome t
 
     | Nullable(_, isStruct)
     | Option(_, isStruct)
     | Tuple(_, isStruct)
     | AnonymousRecordType(_, _, isStruct) ->
         if isStruct then
-            None
+            ValueNone
         else
-            Some t
+            ValueSome t
 
     | GenericParam(_name, _isMeasure, constraints) ->
         let isNullable = constraints |> List.contains Fable.Constraint.IsNullable
         let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
 
         if isNullable || isReferenceType then
-            Some t
+            ValueSome t
         else
-            None
+            ValueNone
 
     | DeclaredType(entRef, _) ->
         let ent = com.GetEntity(entRef)
 
         if ent.IsValueType then
-            None
+            ValueNone
         else
-            Some t
+            ValueSome t
 
+[<return: Struct>]
 let rec (|HasReferenceEquality|_|) (com: Compiler) (t: Type) =
     match t with
     | Measure _
@@ -796,44 +1045,45 @@ let rec (|HasReferenceEquality|_|) (com: Compiler) (t: Type) =
     | Unit
     | Boolean
     | Char
-    | Number _ -> None
+    | Number _ -> ValueNone
 
     | Any
     | Regex
     | String
     | LambdaType _
-    | DelegateType _ -> Some t
+    | DelegateType _ -> ValueSome t
 
     | Array _
-    | List _ -> None
+    | List _ -> ValueNone
 
     | Nullable(genArg, isStruct) ->
         if isStruct then
-            None
+            ValueNone
         else
             (|HasReferenceEquality|_|) com genArg
 
     | Option _
     | Tuple _
-    | AnonymousRecordType _ -> None
+    | AnonymousRecordType _ -> ValueNone
 
     | GenericParam(_name, _isMeasure, constraints) ->
         let isNullable = constraints |> List.contains Fable.Constraint.IsNullable
         let isReferenceType = constraints |> List.contains Fable.Constraint.IsReferenceType
 
         if isNullable || isReferenceType then
-            Some t
+            ValueSome t
         else
-            None
+            ValueNone
 
     | DeclaredType(entRef, _) ->
         let ent = com.GetEntity(entRef)
 
         if ent |> FSharp2Fable.Util.hasStructuralEquality then
-            None
+            ValueNone
         else
-            Some t
+            ValueSome t
 
+[<return: Struct>]
 let (|ListLiteral|_|) expr =
     let rec untail t acc =
         function
@@ -842,23 +1092,28 @@ let (|ListLiteral|_|) expr =
         | _ -> None
 
     match expr with
-    | NewList(None, t) -> Some([], t)
-    | NewList(Some(head, tail), t) -> untail t [ head ] tail
-    | _ -> None
+    | NewList(None, t) -> ValueSome([], t)
+    | NewList(Some(head, tail), t) ->
+        match untail t [ head ] tail with
+        | Some x -> ValueSome x
+        | None -> ValueNone
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|ArrayOrListLiteral|_|) =
     function
-    | MaybeCasted(Value((NewArray(ArrayValues vals, t, _) | ListLiteral(vals, t)), _)) -> Some(vals, t)
-    | _ -> None
+    | MaybeCasted(Value((NewArray(ArrayValues vals, t, _) | ListLiteral(vals, t)), _)) -> ValueSome(vals, t)
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|IsEntity|_|) fullName =
     function
     | DeclaredType(entRef, genArgs) ->
         if entRef.FullName = fullName then
-            Some(entRef, genArgs)
+            ValueSome(entRef, genArgs)
         else
-            None
-    | _ -> None
+            ValueNone
+    | _ -> ValueNone
 
 let (|IDictionary|IEqualityComparer|Other|) =
     function
@@ -890,23 +1145,25 @@ let (|Enumerator|Other|) =
     | "System.Collections.Generic.Dictionary`2.ValueCollection.Enumerator" -> Enumerator
     | _ -> Other
 
+[<return: Struct>]
 let (|IsEnumerator|_|) =
     function
     | MaybeNullable(DeclaredType(entRef, genArgs))
     | DeclaredType(entRef, genArgs) ->
         match entRef.FullName with
-        | Enumerator -> Some(entRef, genArgs)
-        | _ -> None
-    | _ -> None
+        | Enumerator -> ValueSome(entRef, genArgs)
+        | _ -> ValueNone
+    | _ -> ValueNone
 
+[<return: Struct>]
 let (|IsNewAnonymousRecord|_|) =
     function
     // The F# compiler may create some bindings of expression arguments to fix https://github.com/dotnet/fsharp/issues/6487
     | NestedRevLets(bindings, Value(NewAnonymousRecord(exprs, fieldNames, genArgs, isStruct), r)) ->
-        Some(List.rev bindings, exprs, fieldNames, genArgs, isStruct, r)
+        ValueSome(List.rev bindings, exprs, fieldNames, genArgs, isStruct, r)
     | Value(NewAnonymousRecord(exprs, fieldNames, genArgs, isStruct), r) ->
-        Some([], exprs, fieldNames, genArgs, isStruct, r)
-    | _ -> None
+        ValueSome([], exprs, fieldNames, genArgs, isStruct, r)
+    | _ -> ValueNone
 
 let (|ListSingleton|) x = [ x ]
 
@@ -938,13 +1195,14 @@ let (|MaybeInScope|) (ctx: Context) e =
         | None -> e
     | e -> e
 
+[<return: Struct>]
 let rec (|MaybeInScopeStringConst|_|) ctx =
     function
     | MaybeInScope ctx expr ->
         match expr with
-        | StringConst s -> Some s
+        | StringConst s -> ValueSome s
         | Operation(Binary(BinaryPlus, (MaybeInScopeStringConst ctx s1), (MaybeInScopeStringConst ctx s2)), _, _, _) ->
-            Some(s1 + s2)
+            ValueSome(s1 + s2)
         | Value(StringTemplate(None, start :: parts, values), _) ->
             (Some [], values)
             ||> List.fold (fun acc value ->
@@ -958,7 +1216,10 @@ let rec (|MaybeInScopeStringConst|_|) ctx =
 
                 (start, valuesAndParts) ||> List.fold (fun acc (v, p) -> acc + v + p)
             )
-        | _ -> None
+            |> function
+                | Some x -> ValueSome x
+                | None -> ValueNone
+        | _ -> ValueNone
 
 let rec (|RequireStringConst|) com (ctx: Context) r e =
     match e with
@@ -977,13 +1238,14 @@ let rec (|RequireStringConstOrTemplate|) com (ctx: Context) r e =
         addError com ctx.InlinePath r "Expecting string literal"
         [ "" ], []
 
+[<return: Struct>]
 let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr list) sourceTypes =
     let argTypes = argExprs |> List.map (fun a -> a.Type)
 
     match FSharp2Fable.TypeHelpers.tryFindWitness ctx argTypes false opName with
     | Some w ->
         let callInfo = makeCallInfo None argExprs w.ArgTypes
-        makeCall r t callInfo w.Expr |> Some
+        makeCall r t callInfo w.Expr |> ValueSome
     | None ->
         sourceTypes
         |> List.tryPick (
@@ -995,7 +1257,11 @@ let (|CustomOp|_|) (com: ICompiler) (ctx: Context) r t opName (argExprs: Expr li
             | _ -> None
         )
         |> Option.map (FSharp2Fable.Util.makeCallFrom com ctx r t [] None argExprs)
+        |> function
+            | Some x -> ValueSome x
+            | None -> ValueNone
 
+[<return: Struct>]
 let (|RegexFlags|_|) e =
     let rec getFlags =
         function
@@ -1013,12 +1279,18 @@ let (|RegexFlags|_|) e =
             | _ -> None
         | _ -> None
 
-    getFlags e
+    match getFlags e with
+    | Some x -> ValueSome x
+    | None -> ValueNone
 
+[<return: Struct>]
 let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: CallInfo) args error =
     function
-    | "op_ErasedCast" -> List.tryHead args
-    | ".ctor" -> typedObjExpr t [] |> Some
+    | "op_ErasedCast" ->
+        match List.tryHead args with
+        | Some x -> ValueSome x
+        | None -> ValueNone
+    | ".ctor" -> typedObjExpr t [] |> ValueSome
     | "jsNative"
     | "pyNative"
     | "nativeOnly" ->
@@ -1027,26 +1299,26 @@ let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: Call
             com
             ctx.InlinePath
             r
-            $"{i.CompiledName} is being compiled without replacement, this will fail at runtime."
+            $"%s{i.CompiledName} is being compiled without replacement, this will fail at runtime."
 
         let runtimeMsg =
             "A function supposed to be replaced by native code has been called, please check."
             |> StringConstant
             |> makeValue None
 
-        makeThrow r t (error com runtimeMsg) |> Some
+        makeThrow r t (error com runtimeMsg) |> ValueSome
 
     | "nameof"
     | "nameof2" as meth ->
         match args with
         | [ Nameof com ctx name as arg ] ->
             if meth = "nameof2" then
-                makeTuple r true [ makeStrConst name; arg ] |> Some
+                makeTuple r true [ makeStrConst name; arg ] |> ValueSome
             else
-                makeStrConst name |> Some
+                makeStrConst name |> ValueSome
         | _ ->
             "Cannot infer name of expression" |> addError com ctx.InlinePath r
-            makeStrConst Naming.unknown |> Some
+            makeStrConst Naming.unknown |> ValueSome
 
     | "nameofLambda"
     | "namesofLambda" as meth ->
@@ -1059,9 +1331,11 @@ let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: Call
         )
         |> fun names ->
             if meth = "namesofLambda" then
-                List.map makeStrConst names |> makeArray String |> Some
+                List.map makeStrConst names |> makeArray String |> ValueSome
             else
-                List.tryHead names |> Option.map makeStrConst
+                match List.tryHead names |> Option.map makeStrConst with
+                | Some x -> ValueSome x
+                | None -> ValueNone
 
     | "casenameWithFieldCount"
     | "casenameWithFieldIndex" as meth ->
@@ -1106,8 +1380,11 @@ let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: Call
             Some(Naming.unknown, -1)
         )
         |> Option.map (fun (s, i) -> makeTuple r true [ makeStrConst s; makeIntConst i ])
+        |> function
+            | Some x -> ValueSome x
+            | None -> ValueNone
 
-    | _ -> None
+    | _ -> ValueNone
 
 module AnonRecords =
     open System
@@ -1166,16 +1443,16 @@ module AnonRecords =
             tys |> List.map (fun t -> Fable.Option(makeType t, isStruct)) |> List.distinct
         | _ -> makeType ty |> List.singleton
 
-    and private (|OptionType|_|) (ty: FSharpType) =
+    and [<return: Struct>] private (|OptionType|_|) (ty: FSharpType) =
         match ty with
         | Patterns.TypeDefinition tdef ->
             match FsEnt.FullName tdef with
-            | Types.valueOption -> Some(Helpers.nonAbbreviatedType ty.GenericArguments[0], true)
-            | Types.option -> Some(Helpers.nonAbbreviatedType ty.GenericArguments[0], false)
-            | _ -> None
-        | _ -> None
+            | Types.valueOption -> ValueSome(Helpers.nonAbbreviatedType ty.GenericArguments[0], true)
+            | Types.option -> ValueSome(Helpers.nonAbbreviatedType ty.GenericArguments[0], false)
+            | _ -> ValueNone
+        | _ -> ValueNone
 
-    and private (|UType|_|) (ty: FSharpType) =
+    and [<return: Struct>] private (|UType|_|) (ty: FSharpType) =
         let (|UName|_|) (tdef: FSharpEntity) =
             if
                 tdef.Namespace = Some "Fable.Core"
@@ -1187,8 +1464,8 @@ module AnonRecords =
                 None
 
         match ty with
-        | Patterns.TypeDefinition UName -> ty.GenericArguments |> Seq.mapToList Helpers.nonAbbreviatedType |> Some
-        | _ -> None
+        | Patterns.TypeDefinition UName -> ty.GenericArguments |> Seq.mapToList Helpers.nonAbbreviatedType |> ValueSome
+        | _ -> ValueNone
 
     /// Special Rules mostly for Indexers:
     ///     For direct interface member implementation we want to be precise (-> exact_ish match)
@@ -1248,10 +1525,10 @@ module AnonRecords =
             | [] -> unreachable ()
             | [ expectedType ] ->
                 let expectedType = expectedType |> formatType
-                $"Object doesn't contain field '{fieldName}' of type '{expectedType}' required by interface '{interfaceName}'"
+                $"Object doesn't contain field '%s{fieldName}' of type '%s{expectedType}' required by interface '%s{interfaceName}'"
             | _ ->
                 let expectedTypes = expectedTypes |> formatTypes
-                $"Object doesn't contain field '{fieldName}' of any type [{expectedTypes}] required by interface '{interfaceName}'"
+                $"Object doesn't contain field '%s{fieldName}' of any type [%s{expectedTypes}] required by interface '%s{interfaceName}'"
 
         (range, fieldName, msg)
 
@@ -1279,10 +1556,10 @@ module AnonRecords =
                 | [] -> unreachable ()
                 | [ expectedType ] ->
                     let expectedType = expectedType |> formatType
-                    $"Expected type '{expectedType}' for field '{fieldName}' in interface '{interfaceName}', but is '{actualType}'"
+                    $"Expected type '%s{expectedType}' for field '%s{fieldName}' in interface '%s{interfaceName}', but is '%s{actualType}'"
                 | _ ->
                     let expectedTypes = expectedTypes |> formatTypes
-                    $"Expected any type of [{expectedTypes}] for field '{fieldName}' in interface '{interfaceName}', but is '{actualType}'"
+                    $"Expected any type of [%s{expectedTypes}] for field '%s{fieldName}' in interface '%s{interfaceName}', but is '%s{actualType}'"
             | Some indexers ->
                 assert (indexers |> List.isEmpty |> not)
 
@@ -1295,10 +1572,10 @@ module AnonRecords =
                     | [] -> unreachable ()
                     | [ expectedType ] ->
                         let expectedType = expectedType |> formatType
-                        $"Expected type '{expectedType}' for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
+                        $"Expected type '%s{expectedType}' for field '%s{fieldName}' because of Indexer '%s{indexerName}' in interface '%s{interfaceName}', but is '%s{actualType}'"
                     | _ ->
                         let expectedTypes = expectedTypes |> formatTypes
-                        $"Expected any type of [{expectedTypes}] for field '{fieldName}' because of Indexer '{indexerName}' in interface '{interfaceName}', but is '{actualType}'"
+                        $"Expected any type of [%s{expectedTypes}] for field '%s{fieldName}' because of Indexer '%s{indexerName}' in interface '%s{interfaceName}', but is '%s{actualType}'"
                 | _ ->
                     let indexerNames = indexers |> List.map (quote) |> String.concat "; "
 
@@ -1306,10 +1583,10 @@ module AnonRecords =
                     | [] -> unreachable ()
                     | [ expectedType ] ->
                         let expectedType = expectedType |> formatType
-                        $"Expected type '{expectedType}' for field '{fieldName}' because of Indexers [{indexerNames}] in interface '{interfaceName}', but is '{actualType}'"
+                        $"Expected type '%s{expectedType}' for field '%s{fieldName}' because of Indexers [%s{indexerNames}] in interface '%s{interfaceName}', but is '%s{actualType}'"
                     | _ ->
                         let expectedTypes = expectedTypes |> formatTypes
-                        $"Expected any type of [{expectedTypes}] for field '{fieldName}' because of Indexers [{indexerNames}] in interface '{interfaceName}', but is '{actualType}'"
+                        $"Expected any type of [%s{expectedTypes}] for field '%s{fieldName}' because of Indexers [%s{indexerNames}] in interface '%s{interfaceName}', but is '%s{actualType}'"
 
         let r = r |> Option.orElse range // fall back to anon record range
 
@@ -1478,7 +1755,9 @@ module Quotations =
             Helper.LibCall(com, libModule, "mkIfThenElse", t, [ guard; thenExpr; elseExpr ], ?loc = r)
             |> Some
         | "Call", _, [ instance; methodInfo; argList ] ->
-            Helper.LibCall(com, libModule, "mkCall", t, [ instance; methodInfo; argList ], ?loc = r)
+            // Pass an explicit empty declaringType: Rust's mkCall has 4 non-defaulted params, so
+            // 3 args would partial-apply instead of returning an FSharpExpr. Harmless elsewhere.
+            Helper.LibCall(com, libModule, "mkCall", t, [ instance; methodInfo; argList; makeStrConst "" ], ?loc = r)
             |> Some
         | "NewTuple", _, [ elements ] -> Helper.LibCall(com, libModule, "mkNewTuple", t, [ elements ], ?loc = r) |> Some
         | "Sequential", _, [ first; second ] ->

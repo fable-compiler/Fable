@@ -64,8 +64,14 @@ export class Trampoline {
     return 2000;
   }
   private callCount: number;
+  // Set once a terminal continuation of the computation has been entered.
+  // After that point any exception unwinding through protectedCont comes from
+  // user continuation code, not the workflow body, and must propagate instead
+  // of being routed to onError (which would resolve the computation twice).
+  public completed: boolean;
   constructor() {
     this.callCount = 0;
+    this.completed = false;
   }
   public incrementAndCheck() {
     return this.callCount++ > Trampoline.maxTrampolineCallCount;
@@ -96,6 +102,7 @@ export function protectedCont<T>(f: Async<T>) {
         try {
           f(ctx);
         } catch (err) {
+          if (ctx.trampoline.completed) { throw err; }
           ctx.onError(ensureErrorOrException(err));
         }
       });
@@ -103,6 +110,11 @@ export function protectedCont<T>(f: Async<T>) {
       try {
         f(ctx);
       } catch (err) {
+        // Once a terminal continuation has run the computation is complete, so
+        // an exception from user continuation code must propagate rather than be
+        // routed to onError (which would resolve the computation a second time,
+        // e.g. a succeeded try/with body re-entering its with handler).
+        if (ctx.trampoline.completed) { throw err; }
         ctx.onError(ensureErrorOrException(err));
       }
     }
@@ -113,11 +125,17 @@ export function protectedBind<T, U>(computation: Async<T>, binder: (x: T) => Asy
   return protectedCont((ctx: IAsyncContext<U>) => {
     computation({
       onSuccess: (x: T) => {
+        // Only guard the binder evaluation itself: the resulting computation
+        // is protected on its own, and re-catching what it throws would
+        // route continuation exceptions back into onError (double-resolve).
+        let bound: Async<U>;
         try {
-          binder(x)(ctx);
+          bound = binder(x);
         } catch (err) {
           ctx.onError(ensureErrorOrException(err));
+          return;
         }
+        bound(ctx);
       },
       onError: ctx.onError,
       onCancel: ctx.onCancel,
@@ -191,11 +209,15 @@ export class AsyncBuilder {
         cancelToken: ctx.cancelToken,
         trampoline: ctx.trampoline,
         onError: (ex: any) => {
+          // See protectedBind: only guard the handler evaluation itself.
+          let handled: Async<T>;
           try {
-            catchHandler(ex)(ctx);
+            handled = catchHandler(ex);
           } catch (err) {
             ctx.onError(ensureErrorOrException(err));
+            return;
           }
+          handled(ctx);
         },
       });
     });

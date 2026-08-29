@@ -33,14 +33,14 @@ class StopWatch:
         self._elapsed_time = time.perf_counter() - self._start_time
         self._start_time = None
 
-    def elapsed_milliseconds(self) -> int32:
+    def elapsed_milliseconds(self) -> int:
         """Return the elapsed time in milliseconds"""
         if self._elapsed_time is None:
             raise TimerError("Timer is not running. Use .start() to start it")
 
         return int32(self._elapsed_time * 1000)
 
-    def elapsed_ticks(self) -> int32:
+    def elapsed_ticks(self) -> int:
         """Return the elapsed time in ticks"""
         if self._elapsed_time is None:
             raise TimerError("Timer is not running. Use .start() to start it")
@@ -48,8 +48,8 @@ class StopWatch:
         return int32(self._elapsed_time * 10000000)
 
 
-def frequency() -> int32:
-    return int32(1000000000)
+def frequency() -> int:
+    return 1000000000
 
 
 def get_timestamp() -> int64:

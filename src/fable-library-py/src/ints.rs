@@ -476,6 +476,18 @@ macro_rules! integer_variant {
             /// Performs division with support for both integer and floating-point divisors.
             /// Returns zero division error for zero divisors.
             pub fn __truediv__(&self, other: &Bound<'_, PyAny>) -> PyResult<$name> {
+                // Fast path: same type — direct typed integer division. Avoids the
+                // __int__ hop of the OtherType extract, and the float-fallback
+                // precision loss for large/negative operands.
+                if let Ok(other_val) = other.cast::<$name>() {
+                    let divisor = other_val.get().0;
+                    if divisor == 0 {
+                        return Err(PyErr::new::<exceptions::PyZeroDivisionError, _>(
+                            "Cannot divide by zero",
+                        ));
+                    }
+                    return Ok($name(self.0 / divisor));
+                }
                 let value = other.extract::<OtherType>();
                 match value {
                     Ok(OtherType::Int(value)) => {
@@ -648,9 +660,10 @@ macro_rules! integer_variant {
 
             /// Left shift operator (<<).
             ///
-            /// Performs left rotation to handle overflow gracefully.
+            /// Bits shifted out of the width are discarded, and the shift count is
+            /// masked to the width, matching .NET's `<<` on sized integers.
             pub fn __lshift__(&self, other: u32) -> PyResult<$name> {
-                Ok($name(self.0.rotate_left(other)))
+                Ok($name(self.0.wrapping_shl(other)))
             }
 
             /// Right-hand left shift operator.
@@ -869,10 +882,8 @@ macro_rules! integer_variant {
                 let serializer_fn = cls.getattr("_pydantic_serializer")?;
 
                 // Build the serialization schema
-                let ser_schema = core_schema.call_method1(
-                    "plain_serializer_function_ser_schema",
-                    (serializer_fn,),
-                )?;
+                let ser_schema = core_schema
+                    .call_method1("plain_serializer_function_ser_schema", (serializer_fn,))?;
 
                 // Create an int schema as the base - this enables JSON Schema generation
                 let int_schema = core_schema.call_method0("int_schema")?;
@@ -910,7 +921,10 @@ macro_rules! integer_variant {
                 let py = value.py();
                 // If the value has __int__, extract it as a Python int
                 if value.hasattr("__int__")? {
-                    Ok(value.call_method0("__int__")?.into_pyobject(py).map(|o| o.unbind())?)
+                    Ok(value
+                        .call_method0("__int__")?
+                        .into_pyobject(py)
+                        .map(|o| o.unbind())?)
                 } else {
                     Ok(value.clone().unbind())
                 }
@@ -1052,16 +1066,13 @@ fn determine_radix(string: &str, style: i32, default_radix: i32) -> i32 {
         return 16;
     }
 
-    // Single length check followed by pattern match
-    if string.len() >= 2 {
-        match &string[..2] {
-            "0x" | "0X" => 16,
-            "0b" | "0B" => 2,
-            "0o" | "0O" => 8,
-            _ => default_radix,
-        }
-    } else {
-        default_radix
+    // `get` returns None when the string is shorter than two bytes or the
+    // boundary falls inside a multi-byte character, so this never panics
+    match string.get(..2) {
+        Some("0x" | "0X") => 16,
+        Some("0b" | "0B") => 2,
+        Some("0o" | "0O") => 8,
+        _ => default_radix,
     }
 }
 
@@ -1082,13 +1093,15 @@ fn trim_whitespace(string: &str, style: i32) -> &str {
 /// Removes numeric prefixes (0x, 0b, 0o) when radix is not decimal
 #[inline]
 fn remove_prefix(string: &str, radix: i32) -> &str {
-    if radix != 10 && string.len() >= 2 {
-        match &string[..2] {
-            "0x" | "0X" | "0b" | "0B" | "0o" | "0O" => &string[2..],
-            _ => string,
-        }
-    } else {
-        string
+    if radix == 10 {
+        return string;
+    }
+
+    // `get` never panics on a multi-byte boundary; `&string[2..]` is only
+    // reached after matching a two-byte ASCII prefix, so byte 2 is a boundary
+    match string.get(..2) {
+        Some("0x" | "0X" | "0b" | "0B" | "0o" | "0O") => &string[2..],
+        _ => string,
     }
 }
 
@@ -1101,13 +1114,37 @@ fn create_parse_error(string: &str) -> PyErr {
     ))
 }
 
+/// Splits an optional leading `-` from the rest of the string
+///
+/// FSharp.Core consumes the sign before looking for a `0x`/`0o`/`0b`
+/// specifier, so `-0x11` is -17. Only `-` is split: `+` is left in place for
+/// the underlying parser, which matches `int "+0x11"` being a format error on
+/// .NET while `int "+11"` is not.
+#[inline]
+fn split_sign(string: &str) -> (&str, &str) {
+    match string.strip_prefix('-') {
+        Some(digits) => ("-", digits),
+        None => ("", string),
+    }
+}
+
 /// Preprocesses a numeric string for parsing by handling radix detection,
 /// whitespace trimming, prefix removal, and underscore cleanup
 fn preprocess_numeric_string(string: &str, style: i32, default_radix: i32) -> (String, i32) {
-    let actual_radix = determine_radix(string, style, default_radix);
+    // Trim and split the sign *before* detecting the radix: the prefix follows
+    // both, so inspecting the raw string would miss " 0x11" and "-0x11", which
+    // are 17 and -17 on .NET
     let trimmed = trim_whitespace(string, style);
-    let without_prefix = remove_prefix(trimmed, actual_radix);
-    let final_string = without_prefix.replace('_', "");
+    let (sign, unsigned) = split_sign(trimmed);
+    let actual_radix = determine_radix(unsigned, style, default_radix);
+    let digits = remove_prefix(unsigned, actual_radix).replace('_', "");
+
+    // Avoid re-allocating for the common unsigned case
+    let final_string = if sign.is_empty() {
+        digits
+    } else {
+        format!("{sign}{digits}")
+    };
 
     (final_string, actual_radix)
 }
@@ -1264,10 +1301,15 @@ pub fn parse_int64(
     let (final_string, actual_radix) = preprocess_numeric_string(string, style, radix);
 
     // Parse the integer - handle large hex values by parsing as u64 first for non-decimal
-    let v = if actual_radix != 10 {
+    let v = if actual_radix != 10 && !final_string.starts_with('-') {
         // For non-decimal, parse as u64 first to handle large hex values
         u64::from_str_radix(&final_string, actual_radix as u32)
             .map(|u_val| u_val as i64) // Cast performs automatic two's complement conversion
+            .map_err(|_| create_parse_error(string))?
+    } else if actual_radix != 10 {
+        // A negative non-decimal literal such as "-0x11" is a plain signed
+        // value, not a two's complement bit pattern, so u64 cannot parse it
+        i64::from_str_radix(&final_string, actual_radix as u32)
             .map_err(|_| create_parse_error(string))?
     } else {
         // For decimal, use standard i64 parsing

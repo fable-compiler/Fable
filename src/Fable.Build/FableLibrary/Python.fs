@@ -16,7 +16,11 @@ type BuildFableLibraryPython(?skipCore: bool, ?postFableBuildStage: unit -> unit
             inputPatterns =
                 [
                     Path.Combine("src", "fable-library-py", "**", "*.py")
+                    // Type stubs, so edits to them invalidate the cached build
+                    Path.Combine("src", "fable-library-py", "**", "*.pyi")
                     Path.Combine("src", "fable-library-py", "**", "*.fs")
+                    // Rust extension sources, so edits to them trigger a maturin rebuild
+                    Path.Combine("src", "fable-library-py", "**", "*.rs")
                     Path.Combine("src", "fable-library-ts", "**", "*.fs")
                 ]
         )
@@ -27,7 +31,15 @@ type BuildFableLibraryPython(?skipCore: bool, ?postFableBuildStage: unit -> unit
     override this.CopyStage() =
         // Copy all Python/F# files to the build directory
         Directory.GetFiles(this.LibraryDir, "*") |> Shell.copyFiles this.BuildDir
+        // Note: top-level *.pyi are deliberately not copied. They are stubs for the
+        // modules generated from F# (list, choice), and would shadow the real ones.
         Directory.GetFiles(this.SourceDir, "*.py") |> Shell.copyFiles this.OutDir
+
+        // PEP 561 marker. It has to sit *inside* the package directory for type
+        // checkers to read the stubs at all, and the `*.py` filter above drops it --
+        // which is why every published wheel so far has shipped `core/*.pyi` that no
+        // consumer could see.
+        [ Path.Combine(this.SourceDir, "py.typed") ] |> Shell.copyFiles this.OutDir
 
         // Python extension modules
         Directory.GetFiles(Path.Combine(this.SourceDir, "core"), "*")

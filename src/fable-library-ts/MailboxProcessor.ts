@@ -28,7 +28,7 @@ class MailboxQueue<Msg> {
     }
   }
 
-  public tryGet() {
+  public tryGet(): { value: Msg } | undefined {
     if (this.firstAndLast) {
       const value = this.firstAndLast[0].value;
       if (this.firstAndLast[0].next) {
@@ -36,7 +36,9 @@ class MailboxQueue<Msg> {
       } else {
         delete this.firstAndLast;
       }
-      return value;
+      // Wrap the value so falsy messages (0, false, "", null, undefined/unit)
+      // can be distinguished from an empty queue.
+      return { value };
     }
     return void 0;
   }
@@ -64,11 +66,11 @@ export class MailboxProcessor<Msg> {
 
 function __processEvents<Msg>($this: MailboxProcessor<Msg>) {
   if ($this.continuation) {
-    const value = $this.messages.tryGet();
-    if (value) {
+    const dequeued = $this.messages.tryGet();
+    if (dequeued !== void 0) {
       const cont = $this.continuation;
       delete $this.continuation;
-      cont(value);
+      cont(dequeued.value);
     }
   }
 }
@@ -97,15 +99,19 @@ export function postAndAsyncReply<Reply, Msg>(
   buildMessage: (c: AsyncReplyChannel<Reply>) => Msg,
 ) {
   let result: Reply;
+  // Use an explicit flag because the reply value itself may be undefined
+  // (e.g. AsyncReplyChannel<unit>), which must still complete the async.
+  let replied = false;
   let continuation: Continuation<Reply>;
   function checkCompletion() {
-    if (result !== void 0 && continuation !== void 0) {
+    if (replied && continuation !== void 0) {
       continuation(result);
     }
   }
   const reply = {
     reply: (res: Reply) => {
       result = res;
+      replied = true;
       checkCompletion();
     },
   };

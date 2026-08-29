@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Compile Include="PrivateMutableImport.fs" />
+    <Compile Include="EmitJsStatementImportWithComment.fs" />
   </ItemGroup>
 
   <ItemGroup>

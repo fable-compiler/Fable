@@ -81,7 +81,7 @@ module PrinterExtensions =
                 printer.Print(s)
                 printSeparator |> Option.iter (fun f -> f printer)
 
-        member printer.PrintProductiveStatements(statements: Statement[]) =
+        member printer.PrintProductiveStatements(statements: Statement array) =
             for s in statements do
                 printer.PrintProductiveStatement(s, (fun p -> p.PrintStatementSeparator()))
 
@@ -140,7 +140,7 @@ module PrinterExtensions =
                 if i < items.Length - 1 then
                     printSeparator printer
 
-        member printer.PrintParameters(items: Parameter array, ?accessModifers: AccessModifier[]) =
+        member printer.PrintParameters(items: Parameter array, ?accessModifers: AccessModifier array) =
             let accessModifiers = defaultArg accessModifers [||]
             let len = items.Length
             let mutable i = 0
@@ -351,6 +351,32 @@ module PrinterExtensions =
             printer.Print(expr)
             printer.Print(")")
 
+        /// True when the expression's leftmost token would otherwise be parsed as the start of
+        /// a block/function/class declaration, e.g. `{ A: 1 };` parses as an invalid block.
+        ///
+        /// Sub-expressions that the printer already wraps via `ComplexExpressionWithParens` when
+        /// `IsComplex` (e.g. a `CallExpression`'s callee) are skipped: they're safely parenthesized
+        /// regardless of statement position, so recursing into them would add a redundant paren pair.
+        member printer.NeedsParensAsExpressionStatement(expr: Expression) =
+            let recurseUnlessAutoWrapped subExpr =
+                not (printer.IsComplex(subExpr))
+                && printer.NeedsParensAsExpressionStatement(subExpr)
+
+            match expr with
+            | CommentedExpression(_, e) -> printer.NeedsParensAsExpressionStatement(e)
+            | ObjectExpression _
+            | ClassExpression _
+            | FunctionExpression _ -> true
+            | AsExpression(e, _) -> printer.NeedsParensAsExpressionStatement(e)
+            | BinaryExpression(left, _, _, _)
+            | LogicalExpression(left, _, _, _)
+            | AssignmentExpression(left, _, _, _) -> recurseUnlessAutoWrapped left
+            | ConditionalExpression(test, _, _, _) -> recurseUnlessAutoWrapped test
+            | MemberExpression(object, _, _, _) -> recurseUnlessAutoWrapped object
+            | CallExpression(callee, _, _, _) -> recurseUnlessAutoWrapped callee
+            | UpdateExpression(false, argument, _, _) -> recurseUnlessAutoWrapped argument
+            | _ -> false
+
         /// Should the expression be printed with parens when nested?
         member printer.IsComplex(expr: Expression) =
             match expr with
@@ -400,7 +426,7 @@ module PrinterExtensions =
             printer.Print(" " + operator + " ")
             printer.ComplexExpressionWithParens(right)
 
-        member printer.PrintJsxTemplate(parts: string[], values: Expression[]) =
+        member printer.PrintJsxTemplate(parts: string array, values: Expression array) =
             // Do we need to escape backslashes here?
             let escape str = str //Regex.Replace(str, @"(?<!\\)\\", @"\\")
 
@@ -450,7 +476,7 @@ module PrinterExtensions =
                 |> List.iter (
                     function
                     | _, NullOrUndefinedOrVoid -> ()
-                    | key, StringConstant value -> printProp (fun () -> printer.Print($"{key}=\"{value}\""))
+                    | key, StringConstant value -> printProp (fun () -> printer.Print($"%s{key}=\"%s{value}\""))
                     | key, value ->
                         printProp (fun () ->
                             printer.Print(key + "={")
@@ -642,9 +668,15 @@ module PrinterExtensions =
                 printer.PrintOptional(label, " ")
 
             | ExpressionStatement(expr) ->
-                match expr with
-                | UnaryExpression(argument, "void", false, _loc) -> printer.Print(argument)
-                | _ -> printer.Print(expr)
+                let expr =
+                    match expr with
+                    | UnaryExpression(argument, "void", false, _loc) -> argument
+                    | expr -> expr
+
+                if printer.NeedsParensAsExpressionStatement(expr) then
+                    printer.WithParens(expr)
+                else
+                    printer.Print(expr)
 
         member printer.PrintJsDoc(doc: string option) =
             match doc with
@@ -1154,7 +1186,7 @@ module PrinterExtensions =
                     printer.Print(": ")
                     printer.Print(returnType)
 
-        member printer.PrintAbstractMembers(members: AbstractMember[], ?singleLine: bool) =
+        member printer.PrintAbstractMembers(members: AbstractMember array, ?singleLine: bool) =
             let singleLine = defaultArg singleLine false
 
             if singleLine then
@@ -1530,7 +1562,7 @@ module PrinterExtensions =
                 printer.PrintCommaSeparatedArray(parameters)
                 printer.Print(">")
 
-        member printer.Print(parameters: TypeAnnotation[]) =
+        member printer.Print(parameters: TypeAnnotation array) =
             if parameters.Length > 0 then
                 printer.Print("<")
                 printer.PrintCommaSeparatedArray(parameters)

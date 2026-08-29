@@ -9,7 +9,9 @@ from __future__ import annotations
 from typing import Any
 
 from .core import (
+    Float64,
     FSharpRef,
+    Int32,
     byte,
     float32,
     float64,
@@ -42,16 +44,40 @@ class Attribute:
     ...
 
 
-# We don't use type aliases here because we need to do isinstance checks
-IntegerTypes = int | byte | sbyte | int16 | uint16 | int32 | uint32 | int64 | uint64
-FloatTypes = float | float32 | float64
+class ExceptionBase(Exception):
+    """Base class for .NET ``System.Exception`` and its subclasses.
+
+    Subclasses the built-in ``Exception`` so ``raise``/``except``/``isinstance``
+    keep working as before. Only the message is forwarded to the built-in
+    initializer, so ``str(exc)`` still returns the message even when an inner
+    exception is supplied (the built-in would otherwise stringify the whole
+    argument tuple). The inner exception is kept on a dedicated attribute so it
+    can be read back through ``System.Exception.InnerException``.
+    """
+
+    def __init__(self, message: str | None = None, inner_exception: Exception | None = None) -> None:
+        super().__init__(message if message is not None else "")
+        self.inner_exception: Exception | None = inner_exception
+
+
+# We don't use type aliases here because we need to do isinstance checks.
+#
+# Generated code represents Int32 as a plain `int` and Float64 as a plain `float`, so
+# those builtins come first. The `Int32`/`Float64` classes stay in the unions because
+# hand-written interop can still hold one, and neither is a subclass of its builtin --
+# dropping them would make `isinstance` silently miss those values.
+IntegerTypes = int | Int32 | byte | sbyte | int16 | uint16 | uint32 | int64 | uint64
+FloatTypes = float | Float64 | float32
 
 
 __all__ = [
     "UNIT",
     "Attribute",
+    "ExceptionBase",
     "FSharpRef",
+    "Float64",
     "FloatTypes",
+    "Int32",
     "IntegerTypes",
     "Unit",
     "byte",

@@ -1461,3 +1461,36 @@ let ``test Array.randomSampleBy works`` () =
     Array.distinct sample |> Array.length |> equal 3
     throwsAnyError (fun () -> Array.randomSampleBy (fun () -> 1.0) 1 [|1; 2|] |> ignore)
     throwsAnyError (fun () -> Array.randomSampleBy (fun () -> -0.1) 1 [|1; 2|] |> ignore)
+
+[<Fact>]
+let ``test Int64 arrays roundtrip through their backing storage`` () =
+    let xs = [| 1L; -2L; 3L |]
+    Array.map (fun x -> x * 2L) xs |> equal [| 2L; -4L; 6L |]
+    Array.filter (fun x -> x > 0L) xs |> equal [| 1L; 3L |]
+    Array.append xs xs |> equal [| 1L; -2L; 3L; 1L; -2L; 3L |]
+    Array.rev xs |> equal [| 3L; -2L; 1L |]
+    Array.sort xs |> equal [| -2L; 1L; 3L |]
+    Array.sum xs |> equal 2L
+    Array.contains -2L xs |> equal true
+    Array.item 1 xs |> equal -2L
+    Array.map id xs = xs |> equal true
+
+[<Fact>]
+let ``test Int64 array values are not truncated`` () =
+    let xs = [| System.Int64.MinValue; 0L; System.Int64.MaxValue |]
+    Array.max xs |> equal System.Int64.MaxValue
+    Array.min xs |> equal System.Int64.MinValue
+    Array.sort xs |> equal [| System.Int64.MinValue; 0L; System.Int64.MaxValue |]
+    Array.rev (Array.rev xs) = xs |> equal true
+    Array.init 3 int64 |> equal [| 0L; 1L; 2L |]
+    Array.zeroCreate<int64> 2 |> equal [| 0L; 0L |]
+
+[<Fact>]
+let ``test UInt64 arrays roundtrip through their backing storage`` () =
+    let xs = [| 1UL; 2UL; System.UInt64.MaxValue |]
+    Array.map id xs |> equal xs
+    Array.filter (fun x -> x > 1UL) xs |> equal [| 2UL; System.UInt64.MaxValue |]
+    Array.max xs |> equal System.UInt64.MaxValue
+    Array.sort xs |> equal [| 1UL; 2UL; System.UInt64.MaxValue |]
+    Array.contains System.UInt64.MaxValue xs |> equal true
+    Array.zeroCreate<uint64> 2 |> equal [| 0UL; 0UL |]

@@ -409,8 +409,13 @@ pub mod Char_ {
         if (IsAscii(c)) {
             c.to_ascii_uppercase()
         } else {
-            //TODO: when Uppercase is more than one character
-            c.to_uppercase().next().unwrap()
+            // .NET Char.ToUpper never expands: when the full-case mapping is not a
+            // single char (e.g. 'ß' -> "SS"), the original char is returned unchanged.
+            let mut it = c.to_uppercase();
+            match (it.next(), it.next()) {
+                (Some(u), None) => u,
+                _ => c,
+            }
         }
     }
 
@@ -422,8 +427,13 @@ pub mod Char_ {
         if (IsAscii(c)) {
             c.to_ascii_lowercase()
         } else {
-            //TODO: when Lowercase is more than one character
-            c.to_lowercase().next().unwrap()
+            // .NET Char.ToLower never expands: when the full-case mapping is not a
+            // single char, the original char is returned unchanged.
+            let mut it = c.to_lowercase();
+            match (it.next(), it.next()) {
+                (Some(l), None) => l,
+                _ => c,
+            }
         }
     }
 

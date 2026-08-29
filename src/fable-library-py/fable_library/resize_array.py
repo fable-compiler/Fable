@@ -19,13 +19,13 @@ def exists[T](predicate: Callable[[T], bool], xs: list[T]) -> bool:
     return any(predicate(x) for x in xs)
 
 
-def find_index[T](predicate: Callable[[T], bool], xs: list[T]) -> int32:
+def find_index[T](predicate: Callable[[T], bool], xs: list[T]) -> int:
     """Find the index of the first element in a list that satisfies a predicate."""
 
     for i, x in enumerate(xs):
         if predicate(x):
             return int32(i)
-    return int32(-1)
+    return -1
 
 
 def remove[T](item: T, xs: list[T]) -> bool:
@@ -37,13 +37,13 @@ def remove[T](item: T, xs: list[T]) -> bool:
         return False
 
 
-def remove_range[T](start: int32, count: int32, xs: list[T]) -> None:
+def remove_range[T](start: int, count: int, xs: list[T]) -> None:
     """Remove a range of elements from a list in-place."""
 
     del xs[start : start + count]
 
 
-def remove_all_in_place[T](predicate: Callable[[T], bool], xs: list[T]) -> int32:
+def remove_all_in_place[T](predicate: Callable[[T], bool], xs: list[T]) -> int:
     """Remove all elements matching predicate from the list in-place. Returns the number of removed elements."""
     # More efficient O(n) approach: build list of items to keep
     original_length = len(xs)
@@ -61,12 +61,12 @@ def remove_all_in_place[T](predicate: Callable[[T], bool], xs: list[T]) -> int32
     return int32(original_length - write_index)
 
 
-def find_last_index[T](predicate: Callable[[T], bool], xs: list[T]) -> int32:
+def find_last_index[T](predicate: Callable[[T], bool], xs: list[T]) -> int:
     """Find the index of the last element in a list that satisfies a predicate."""
     for i in range(len(xs) - 1, -1, -1):
         if predicate(xs[i]):
             return int32(i)
-    return int32(-1)
+    return -1
 
 
 def try_find[T](predicate: Callable[[T], bool], xs: list[T]) -> Option[T]:
@@ -90,17 +90,17 @@ def filter[T](predicate: Callable[[T], bool], xs: list[T]) -> list[T]:
     return [x for x in xs if predicate(x)]
 
 
-def index_of[T](value: T, start: int32, count: int32 | None, xs: list[T]) -> int32:
+def index_of[T](value: T, start: int, count: int | None, xs: list[T]) -> int:
     """Return the index of value in xs, or -1 if not found. Specify start and count."""
     end = min(len(xs), start + count if count is not None else len(xs))
     try:
         # Use built-in index method with start/stop parameters for better performance
         return int32(xs.index(value, start, end))
     except ValueError:
-        return int32(-1)
+        return -1
 
 
-def insert_range_in_place[T](index: int32, items: Iterable[T] | IEnumerable_1[T], xs: list[T]) -> None:
+def insert_range_in_place[T](index: int, items: Iterable[T] | IEnumerable_1[T], xs: list[T]) -> None:
     """Insert a range of items into xs at the given index."""
     xs[index:index] = to_iterable(items)
 
@@ -116,12 +116,12 @@ def add_range_in_place[T](items: Iterable[T] | IEnumerable_1[T], array: list[T])
     array.extend(to_iterable(items))
 
 
-def add_range[T](index: int32, items: list[T], xs: list[T]) -> list[T]:
+def add_range[T](index: int, items: list[T], xs: list[T]) -> list[T]:
     """Add a range of items to xs at the given index."""
     return xs[:index] + items + xs[index:]
 
 
-def get_sub_array[T](xs: list[T], start: int32, count: int32) -> list[T]:
+def get_sub_array[T](xs: list[T], start: int, count: int) -> list[T]:
     """Get a sub-array of xs from the given start index and count."""
     return xs[start : start + count]
 

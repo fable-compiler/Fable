@@ -2,10 +2,10 @@ namespace Fable
 
 module Literals =
     [<Literal>]
-    let VERSION = "5.1.0"
+    let VERSION = "5.15.0"
 
     [<Literal>]
-    let JS_LIBRARY_VERSION = "2.1.0"
+    let JS_LIBRARY_VERSION = "2.5.1"
 
 type CompilerOptionsHelper =
     static member Make
@@ -35,12 +35,14 @@ type CompilerOptionsHelper =
         }
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type Severity =
     | Warning
     | Error
     | Info
 
 [<RequireQualifiedAccess>]
+[<Struct>]
 type OutputType =
     | Library
     | Exe
@@ -69,7 +71,7 @@ type Compiler =
     abstract OutputType: OutputType
     abstract ProjectFile: string
     abstract ProjectOptions: FSharpProjectOptions
-    abstract SourceFiles: string[]
+    abstract SourceFiles: string array
     abstract Options: CompilerOptions
     abstract Plugins: CompilerPlugins
     abstract IncrementCounter: unit -> int

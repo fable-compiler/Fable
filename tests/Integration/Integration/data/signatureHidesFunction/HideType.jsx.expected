@@ -1,6 +1,5 @@
 import { Union } from "./fable_modules/fable-library-js.4.13.0/Types.js";
 import { union_type, string_type, int32_type } from "./fable_modules/fable-library-js.4.13.0/Reflection.js";
-import { some } from "./fable_modules/fable-library-js.4.13.0/Option.js";
 
 class Foobar extends Union {
     constructor(tag, fields) {
@@ -18,6 +17,6 @@ function Foobar_$reflection() {
 }
 
 export function someFunction() {
-    console.log(some("meh"));
+    console.log("meh");
 }
 

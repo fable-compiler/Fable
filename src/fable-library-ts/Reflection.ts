@@ -171,7 +171,18 @@ export function option_type(generic: TypeInfo): TypeInfo {
 }
 
 export function list_type(generic: TypeInfo): TypeInfo {
-  return new TypeInfo("Microsoft.FSharp.Collections.FSharpList`1", [generic]);
+  const t: TypeInfo = new TypeInfo(
+    "Microsoft.FSharp.Collections.FSharpList`1",
+    [generic],
+    undefined,
+    undefined,
+    undefined,
+    () => [
+      new CaseInfo(t, 0, "Empty"),
+      new CaseInfo(t, 1, "Cons", [["Head", generic], ["Tail", t]])
+    ]
+  );
+  return t;
 }
 
 export function array_type(generic: TypeInfo): TypeInfo {
@@ -389,7 +400,7 @@ export function getEnumName(t: TypeInfo, v: number): string {
   return getEnumCase(t, v)[0];
 }
 
-export function isEnumDefined(t: TypeInfo, v: string | number): boolean {
+export function isEnumDefined(t: TypeInfo, v: any): boolean {
   try {
     const kv = getEnumCase(t, v);
     return kv[0] != null && kv[0] !== "";
@@ -477,8 +488,14 @@ export function getUnionCaseFields(uci: CaseInfo): FieldInfo[] {
 
 // This is used as replacement of `FSharpValue.GetRecordFields`
 // For `FSharpTypes.GetRecordFields` see `getRecordElements`
-// Object.keys returns keys in the order they were added to the object
-export function getRecordFields(v: any): MutableArray<any> {
+// TypeInfo is used when available to enumerate fields by name: anonymous record None fields
+// are omitted from the JS object, so Object.keys alone would miss them.
+// Boxed anonymous record would are still not covered but this is the best we can do for now
+// without adding a __fields__ to every anonymous record being created
+export function getRecordFields(v: any, t: TypeInfo): MutableArray<any> {
+  if (t.fields != null) {
+    return t.fields().map(([key, _]) => v[key]);
+  }
   return Object.keys(v).map((k) => v[k]);
 }
 

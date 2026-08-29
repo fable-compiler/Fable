@@ -608,6 +608,12 @@ let tests() =
         let z = MyOptionalClass(?arg3 = Some 2)
         (z.P1, z.P2, z.P3) |> equal (1.0, "1", 2)
 
+    testCase "ArgumentException with message and inner exception works" <| fun () ->
+        let inner = exn "the inner cause"
+        let ex = System.ArgumentException("outer message", inner)
+        ex.Message |> equal "outer message"
+        ex.InnerException.Message |> equal "the inner cause"
+
 //     testCase "Can implement interface optional properties" <| fun () ->
 //         let veryOptionalValue = VeryOptionalClass() :> VeryOptionalInterface
 //         veryOptionalValue.Bar |> equal (Some 3)

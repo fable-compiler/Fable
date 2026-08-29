@@ -1,13 +1,13 @@
 -module(fable_quotation).
 -export([
-    mk_quot_var/3, mk_var/1, mk_value/2, mk_lambda/2,
-    mk_application/2, mk_let/3, mk_if_then_else/3, mk_call/3,
+    mk_quot_var/3, mk_var/1, mk_value/2, mk_null/1, mk_lambda/2,
+    mk_application/2, mk_let/3, mk_if_then_else/3, mk_call/3, mk_call/4,
     mk_sequential/2, mk_new_tuple/1,
     mk_new_union/3, mk_new_record/2, mk_new_list/2,
     mk_tuple_get/2, mk_union_tag/1, mk_union_field/2,
     mk_field_get/2, mk_field_set/3, mk_var_set/2,
     var_get_name/1, var_get_type/1, var_get_is_mutable/1,
-    get_type/1,
+    get_type/1, call_declaring_type/1,
     is_value/1, is_var/1, is_lambda/1, is_application/1,
     is_let/1, is_if_then_else/1, is_call/1, is_sequential/1,
     is_new_tuple/1, is_new_union_case/1, is_new_record/1,
@@ -33,11 +33,15 @@ var_get_is_mutable({var, _, _, IsMutable}) -> IsMutable.
 
 mk_var(Var) -> {expr, var_expr, Var}.
 mk_value(Value, Type) -> {expr, value, Value, Type}.
+%% A null-value node (no instance / null literal / empty option or list).
+mk_null(Type) -> {expr, value, undefined, Type}.
 mk_lambda(Var, Body) -> {expr, lambda, Var, Body}.
 mk_application(Func, Arg) -> {expr, application, Func, Arg}.
 mk_let(Var, Value, Body) -> {expr, 'let', Var, Value, Body}.
 mk_if_then_else(Guard, Then, Else) -> {expr, if_then_else, Guard, Then, Else}.
-mk_call(Instance, Method, Args) -> {expr, call, Instance, Method, Args}.
+%% 3-arg form kept for backward compatibility; delegates to the 4-arg form.
+mk_call(Instance, Method, Args) -> mk_call(Instance, Method, Args, <<"">>).
+mk_call(Instance, Method, Args, DeclaringType) -> {expr, call, Instance, Method, Args, DeclaringType}.
 mk_sequential(First, Second) -> {expr, sequential, First, Second}.
 mk_new_tuple(Elements) -> {expr, new_tuple, Elements}.
 mk_new_union(TypeName, Tag, Fields) -> {expr, new_union, TypeName, Tag, Fields}.
@@ -87,9 +91,19 @@ is_let(_) -> undefined.
 is_if_then_else({expr, if_then_else, G, T, E}) -> {G, T, E};
 is_if_then_else(_) -> undefined.
 
-%% Call pattern: returns {Instance, Method, Args} (dereference Args)
-is_call({expr, call, I, M, A}) -> {I, M, deref(A)};
+%% Call pattern: returns {Instance, Method, Args}. "novalue" is the "no instance" sentinel,
+%% distinct from a genuine quoted null ("null").
+is_call({expr, call, I, M, A, _DT}) ->
+    Instance = case I of
+        {expr, value, _, <<"novalue">>} -> undefined;
+        _ -> I
+    end,
+    {Instance, M, deref(A)};
 is_call(_) -> undefined.
+
+%% DeclaringType accessor for the Call node.
+call_declaring_type({expr, call, _, _, _, DT}) -> DT;
+call_declaring_type(_) -> <<"">>.
 
 %% Sequential pattern: returns {First, Second}
 is_sequential({expr, sequential, F, S}) -> {F, S};
@@ -111,8 +125,15 @@ is_new_record(_) -> undefined.
 is_tuple_get({expr, tuple_get, E, I}) -> {E, I};
 is_tuple_get(_) -> undefined.
 
-%% FieldGet/PropertyGet pattern: returns {Expr, FieldName}
-is_field_get({expr, field_get, E, N}) -> {E, N};
+%% FieldGet/PropertyGet pattern: returns {Expr, FieldName}. Third element mirrors
+%% PropertyGet's indexer-args slot, always empty here. "novalue" is the "no instance"
+%% sentinel, distinct from a genuine quoted null ("null").
+is_field_get({expr, field_get, I, N}) ->
+    Instance = case I of
+        {expr, value, _, <<"novalue">>} -> undefined;
+        _ -> I
+    end,
+    {Instance, N, []};
 is_field_get(_) -> undefined.
 
 %% ===================================================================
@@ -150,7 +171,7 @@ evaluate({expr, new_tuple, Elements}, Env) ->
     list_to_tuple([evaluate(E, Env) || E <- deref(Elements)]);
 evaluate({expr, tuple_get, Inner, Index}, Env) ->
     element(Index + 1, evaluate(Inner, Env));
-evaluate({expr, call, _Instance, Method, Args}, Env) ->
+evaluate({expr, call, _Instance, Method, Args, _DT}, Env) ->
     EvaluatedArgs = [evaluate(A, Env) || A <- deref(Args)],
     apply_operator(Method, EvaluatedArgs).
 
@@ -195,7 +216,7 @@ expr_to_string({expr, 'let', {var, Name, _, _}, Value, Body}) ->
     iolist_to_binary(["let ", Name, " = ", expr_to_string(Value), " in ", expr_to_string(Body)]);
 expr_to_string({expr, if_then_else, Guard, Then, Else}) ->
     iolist_to_binary(["if ", expr_to_string(Guard), " then ", expr_to_string(Then), " else ", expr_to_string(Else)]);
-expr_to_string({expr, call, _, Method, Args}) ->
+expr_to_string({expr, call, _, Method, Args, _DT}) ->
     ArgsList = deref(Args),
     ArgsStr = lists:join(", ", [expr_to_string(A) || A <- ArgsList]),
     case op_symbol(Method) of
@@ -260,7 +281,7 @@ collect_free_vars({expr, if_then_else, Guard, Then, Else}, Bound) ->
     {F2, _} = collect_free_vars(Then, Bound),
     {F3, _} = collect_free_vars(Else, Bound),
     {F1 ++ F2 ++ F3, Bound};
-collect_free_vars({expr, call, _, _, Args}, Bound) ->
+collect_free_vars({expr, call, _, _, Args, _DT}, Bound) ->
     Fs = [F || A <- deref(Args), F <- element(1, collect_free_vars(A, Bound))],
     {Fs, Bound};
 collect_free_vars({expr, sequential, First, Second}, Bound) ->

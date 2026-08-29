@@ -1,7 +1,6 @@
 module Tests
 
-// open System
-open Microsoft.VisualStudio.TestTools.UnitTesting
+open Xunit
 
 open Fable.Transforms.Rust.AST.Adapters
 open Fable.Transforms.Rust.AST.Spans
@@ -12,6 +11,8 @@ open type Macros
 
 [<AutoOpen>]
 module Helpers =
+
+    let inline assert_eq<'T> (actual: 'T, expected: 'T) : unit = Assert.Equal(expected, actual)
 
     let fun_to_string (decl: FnDecl, header: FnHeader, name: Ident, generics: Generics) : string =
         State
@@ -26,66 +27,57 @@ module Helpers =
     let variant_to_string (var: Variant) : string =
         State.new_().to_string (fun (s) -> s.print_variant (var))
 
-[<TestClass>]
-type TestClass() =
+[<Fact>]
+let test_fun_to_string () =
+    let abba_ident = Ident.from_str ("abba")
 
-    [<TestMethod>]
-    member _.test_fun_to_string() =
-        let abba_ident = Ident.from_str ("abba")
+    let decl: FnDecl =
+        {
+            inputs = Vec()
+            output = FnRetTy.Default(DUMMY_SP)
+        }
 
-        let decl: FnDecl =
-            {
-                inputs = Vec()
-                output = FnRetTy.Default(DUMMY_SP)
-            }
+    let generics = Generics.default_ ()
 
-        let generics = Generics.default_ ()
+    assert_eq (fun_to_string (decl, FnHeader.default_ (), abba_ident, generics), "fn abba()")
 
-        assert_eq (fun_to_string (decl, FnHeader.default_ (), abba_ident, generics), "fn abba()")
+[<Fact>]
+let test_variant_to_string () =
+    let ident = Ident.from_str ("principal_skinner")
 
-    [<TestMethod>]
-    member _.test_variant_to_string() =
-        let ident = Ident.from_str ("principal_skinner")
+    let var_: Variant =
+        {
+            ident = ident
+            vis =
+                {
+                    span = DUMMY_SP
+                    kind = VisibilityKind.Inherited
+                    tokens = None
+                }
+            attrs = Vec()
+            id = DUMMY_NODE_ID
+            data = VariantData.Unit(DUMMY_NODE_ID)
+            disr_expr = None
+            span = DUMMY_SP
+            is_placeholder = false
+        }
 
-        let var_: Variant =
-            {
-                ident = ident
-                vis =
-                    {
-                        span = DUMMY_SP
-                        kind = VisibilityKind.Inherited
-                        tokens = None
-                    }
-                attrs = Vec()
-                id = DUMMY_NODE_ID
-                data = VariantData.Unit(DUMMY_NODE_ID)
-                disr_expr = None
-                span = DUMMY_SP
-                is_placeholder = false
-            }
+    let varstr = variant_to_string (var_)
+    assert_eq (varstr, "principal_skinner")
 
-        let varstr = variant_to_string (var_)
-        assert_eq (varstr, "principal_skinner")
+[<Fact>]
+let test_crate_to_string () =
+    let sm: SourceMap = SourceMap()
+    let krate: Crate = Sample.AST.testCrate
+    let filename: FileName = "filename.rs"
+    let input: string = ""
+    let ann: PpAnn = NoAnn() :> PpAnn
+    let is_expanded: bool = false
+    let edition: Edition = Edition.Edition2021
 
-    [<TestMethod>]
-    member _.test_crate_to_string() =
-        let sm: SourceMap = SourceMap()
-        let krate: Crate = Sample.AST.testCrate
-        let filename: FileName = "filename.rs"
-        let input: string = ""
-        let ann: PpAnn = NoAnn() :> PpAnn
-        let is_expanded: bool = false
-        let edition: Edition = Edition.Edition2021
+    let actual = print_crate (sm, krate, filename, input, ann, is_expanded, edition)
 
-        let actual = print_crate (sm, krate, filename, input, ann, is_expanded, edition)
+    let expected =
+        "pub fn main() { let a = vec![1, 2, 3, 4, 5,]; println!(\"{:?}\", a,); }\n"
 
-        let expected =
-            "pub fn main() { let a = vec![1, 2, 3, 4, 5]; println!(\"{:?}\", a); }\n"
-
-        assert_eq (actual, expected)
-
-let run () =
-    let tests = TestClass()
-    tests.test_fun_to_string ()
-    tests.test_variant_to_string ()
-    tests.test_crate_to_string ()
+    assert_eq (actual, expected)

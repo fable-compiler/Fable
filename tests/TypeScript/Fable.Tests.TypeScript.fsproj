@@ -45,6 +45,7 @@
     <Compile Include="../Js/Main/ElmishParserTests.fs" />
     <Compile Include="../Js/Main/EnumerableTests.fs" />
     <Compile Include="../Js/Main/EnumTests.fs" />
+    <Compile Include="../Js/Main/EnvironmentTests.fs" />
     <Compile Include="../Js/Main/EventTests.fs" />
     <Compile Include="../Js/Main/HashSetTests.fs" />
     <!-- <Compile Include="../Js/Main/ImportTests.fs" /> -->
@@ -59,6 +60,7 @@
     <Compile Include="../Js/Main/NullnessTests.fs" />
     <Compile Include="../Js/Main/ObservableTests.fs" />
     <Compile Include="../Js/Main/OptionTests.fs" />
+    <Compile Include="../Js/Main/SystemIOTests.fs" />
     <Compile Include="../Js/Main/QueueTests.fs" />
     <Compile Include="../Js/Main/RecordTypeTests.fs" />
     <Compile Include="../Js/Main/ReflectionTests.fs" />

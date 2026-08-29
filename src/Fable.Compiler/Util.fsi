@@ -23,6 +23,7 @@ type CliArgs =
         Configuration: string
         NoRestore: bool
         NoCache: bool
+        NoGitignore: bool
         NoParallelTypeCheck: bool
         SourceMaps: bool
         SourceMapsRoot: string option
@@ -154,7 +155,7 @@ type PrecompiledInfoJson =
         CompilerOptions: Fable.CompilerOptions
         FableLibDir: string
         Files: Map<string, PrecompiledFileJson>
-        InlineExprHeaders: string[]
+        InlineExprHeaders: string array
     }
 
 type PrecompiledInfoImpl =
@@ -172,11 +173,13 @@ type PrecompiledInfoImpl =
 
     static member GetInlineExprsPath: fableModulesDir: string * index: int -> string
 
+    static member GetBrowserInlineExprsPath: fableModulesDir: string * index: int -> string
+
     static member Load: fableModulesDir: string -> PrecompiledInfoImpl
 
     static member Save:
         files: Map<string, PrecompiledFileJson> *
-        inlineExprs: (string * 'a) array *
+        inlineExprs: (string * Fable.InlineExpr) array *
         compilerOptions: Fable.CompilerOptions *
         fableModulesDir: string *
         fableLibDir: string ->

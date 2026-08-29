@@ -281,6 +281,25 @@ let tests = testList "Strings" [
     testCase "Fix #2398: Exception when two successive string format placeholders and value of first one ends in `%`" <| fun () ->
         sprintf "%c%s" '%' "text" |> equal "%text"
 
+    // See https://github.com/fable-compiler/Fable/issues/4732
+    testCase "sprintf \"%A\" quotes strings" <| fun () ->
+        sprintf "%A" "test" |> equal "\"test\""
+        sprintf "%A" "" |> equal "\"\""
+        // %O and %s don't quote a bare string
+        sprintf "%O" "test" |> equal "test"
+        sprintf "%s" "test" |> equal "test"
+
+    // See https://github.com/fable-compiler/Fable/issues/4732
+    testCase "sprintf \"%A\" wraps strings without escaping" <| fun () ->
+        // F#'s %A only wraps a string in quotes; it does NOT escape embedded
+        // double-quotes, backslashes, or control characters (verified on .NET).
+        sprintf "%A" "a\"b" |> equal "\"a\"b\""
+        sprintf "%A" "a\\b" |> equal "\"a\\b\""
+        sprintf "%A" "a\nb" |> equal "\"a\nb\""
+        sprintf "%A" "a\tb" |> equal "\"a\tb\""
+        // Same behavior when the string is nested inside a container
+        sprintf "%A" [ "a\"b" ] |> equal "[\"a\"b\"]"
+
     testCase "Unions with sprintf %A" <| fun () ->
         Bar(1,5) |> sprintf "%A" |> equal "Bar (1, 5)"
         Foo1 4.5 |> sprintf "%A" |> equal "Foo1 4.5"
@@ -320,6 +339,22 @@ let tests = testList "Strings" [
         $"I think {3.0 + 0.14} is close to %.8f{Math.PI}!".Replace(",", ".")
         |> equal "I think 3.14 is close to 3.14159265!"
 
+    testCase "string interpolation works with .NET format specifiers" <| fun () -> // See Fable.Python #36
+        let i = 123
+        $"{i:X4}" |> equal "007B"
+        $"{i:x4}" |> equal "007b"
+        $"{i:D5}" |> equal "00123"
+        $"{5:B}" |> equal "101"
+        $"\\u{i:X4}" |> equal "\\u007B"
+        $"{3.14159:F2}" |> equal "3.14"
+
+    testCase "string interpolation works with alignment" <| fun () ->
+        let i = 123
+        $"[{i,6}]" |> equal "[   123]"
+        $"[{i,-6}]" |> equal "[123   ]"
+        $"[{i,6:X4}]" |> equal "[  007B]"
+        $"[{i,-6:X4}]" |> equal "[007B  ]"
+
     testCase "string interpolation works with anonymous records" <| fun () ->
         let person =
             {|
@@ -334,8 +369,8 @@ let tests = testList "Strings" [
     testCase "Printf %A works with anonymous records" <| fun () -> // See #4029
         let person  = {| FirstName = "John"; LastName = "Doe" |}
         let s = sprintf "%A" person
-        System.Text.RegularExpressions.Regex.Replace(s.Replace("\"", ""), @"\s+", " ")
-        |> equal """{ FirstName = John LastName = Doe }"""
+        System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ")
+        |> equal """{ FirstName = "John" LastName = "Doe" }"""
 
     testCase "Interpolated strings keep empty lines" <| fun () ->
         let s1 = $"""1
@@ -387,11 +422,11 @@ let tests = testList "Strings" [
 
     testCase "sprintf \"%A\" with lists works" <| fun () ->
         let xs = ["Hi"; "Hello"; "Hola"]
-        (sprintf "%A" xs).Replace("\"", "") |> equal "[Hi; Hello; Hola]"
+        sprintf "%A" xs |> equal "[\"Hi\"; \"Hello\"; \"Hola\"]"
 
     testCase "sprintf \"%A\" with nested lists works" <| fun () ->
         let xs = [["Hi"]; ["Hello"]; ["Hola"]]
-        (sprintf "%A" xs).Replace("\"", "") |> equal "[[Hi]; [Hello]; [Hola]]"
+        sprintf "%A" xs |> equal "[[\"Hi\"]; [\"Hello\"]; [\"Hola\"]]"
 
     testCase "sprintf \"%A\" with sequences works" <| fun () ->
         let xs = seq { "Hi"; "Hello"; "Hola" }
@@ -922,6 +957,15 @@ let tests = testList "Strings" [
         "abcdbc".IndexOf("b", 3, StringComparison.Ordinal)
         |> equal 4
 
+    testCase "String.IndexOf with OrdinalIgnoreCase StringComparison" <| fun () ->
+        "ABCDBC".IndexOf("b", StringComparison.OrdinalIgnoreCase) |> equal 1
+        "ABCDBC".IndexOf("b", StringComparison.Ordinal) |> equal -1
+        "ABCDBC".IndexOf("b", StringComparison.InvariantCultureIgnoreCase) |> equal 1
+
+    testCase "String.IndexOf with index and OrdinalIgnoreCase StringComparison" <| fun () ->
+        "ABCDBC".IndexOf("b", 2, StringComparison.OrdinalIgnoreCase) |> equal 4
+        "ABCDBC".IndexOf("b", 2, StringComparison.Ordinal) |> equal -1
+
     testCase "String.LastIndexOf char works" <| fun () ->
         "abcdbc".LastIndexOf('b') * 100 + "abcd".LastIndexOf('e')
         |> equal 399
@@ -933,6 +977,15 @@ let tests = testList "Strings" [
     testCase "String.LastIndexOf with StringComparison" <| fun () ->
         "abcdbc".LastIndexOf("b", StringComparison.Ordinal)
         |> equal 4
+
+    testCase "String.LastIndexOf with OrdinalIgnoreCase StringComparison" <| fun () ->
+        "ABCDBC".LastIndexOf("b", StringComparison.OrdinalIgnoreCase) |> equal 4
+        "ABCDBC".LastIndexOf("b", StringComparison.Ordinal) |> equal -1
+        "ABCDBC".LastIndexOf("b", StringComparison.InvariantCultureIgnoreCase) |> equal 4
+
+    testCase "String.LastIndexOf with index and OrdinalIgnoreCase StringComparison" <| fun () ->
+        "ABCDBC".LastIndexOf("b", 3, StringComparison.OrdinalIgnoreCase) |> equal 1
+        "ABCDBC".LastIndexOf("b", 3, StringComparison.Ordinal) |> equal -1
 
     testCase "String.LastIndexOf with index and StringComparison" <| fun () ->
         "abcdbc".LastIndexOf("b", 3, StringComparison.Ordinal)
@@ -1006,6 +1059,27 @@ let tests = testList "Strings" [
         for arg in args do
             "ABCD".EndsWith(fst arg, true, CultureInfo.InvariantCulture)
             |> equal (snd arg)
+
+    testCase "String.EndsWith with empty pattern and StringComparison works" <| fun () ->
+        // .NET: every string ends with "" for all StringComparison values
+        "hello".EndsWith("", StringComparison.CurrentCulture) |> equal true
+        "hello".EndsWith("", StringComparison.InvariantCulture) |> equal true
+        "hello".EndsWith("", StringComparison.Ordinal) |> equal true
+        "hello".EndsWith("", StringComparison.OrdinalIgnoreCase) |> equal true
+        "hello".EndsWith("", StringComparison.InvariantCultureIgnoreCase) |> equal true
+        "".EndsWith("", StringComparison.CurrentCulture) |> equal true
+        "hello".StartsWith("", StringComparison.CurrentCulture) |> equal true
+        "hello".StartsWith("", StringComparison.Ordinal) |> equal true
+        "hello".StartsWith("", StringComparison.OrdinalIgnoreCase) |> equal true
+
+    testCase "String.EndsWith with non-empty pattern and StringComparison works" <| fun () ->
+        "hello".EndsWith("LO", StringComparison.OrdinalIgnoreCase) |> equal true
+        "hello".EndsWith("LO", StringComparison.InvariantCultureIgnoreCase) |> equal true
+        "hello".EndsWith("lo", StringComparison.Ordinal) |> equal true
+        "hello".EndsWith("LO", StringComparison.Ordinal) |> equal false
+        "hello".EndsWith("he", StringComparison.Ordinal) |> equal false
+        "hello".EndsWith("hello", StringComparison.CurrentCulture) |> equal true
+        "hello".EndsWith("xhello", StringComparison.Ordinal) |> equal false
 
     testCase "String.Trim works" <| fun () ->
         "   abc   ".Trim()

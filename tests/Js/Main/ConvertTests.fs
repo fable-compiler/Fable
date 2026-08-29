@@ -160,6 +160,8 @@ let tests =
         (fun () -> Int32.Parse("1FFFFFFFF", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
         (fun () -> Int32.Parse("5foo", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
         (fun () -> Int32.Parse("foo5", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
+        // Multi-byte UTF-8 input must fail to parse, not crash (see #4823)
+        (fun () -> Int32.Parse("–", System.Globalization.NumberStyles.HexNumber)) |> throwsError ""
 
     testCase "System.Int64.Parse works" <| fun () ->
         Int64.Parse("5") |> equal 5L
@@ -195,6 +197,13 @@ let tests =
         equal 17 (int "0x11")
         equal 9  (int "0o11")
         equal 3  (int "0b11")
+        // Leading whitespace and the sign both precede the radix specifier
+        equal 17 (int " 0x11")
+        equal 9  (int "  0o11  ")
+        equal -17 (int "-0x11")
+        equal -3 (int " -0b11 ")
+        equal -17L (int64 "-0x11")
+        equal -11 (int "-1_1")
 
     testCase "System.Int32.TryParse works" <| fun () ->
         tryParse Int32.TryParse 0 "1" |> equal (true, 1)
@@ -207,6 +216,10 @@ let tests =
         tryParse Int32.TryParse 0 "X9TRE34" |> equal (false, 0)
         tryParse Int32.TryParse 0 "9SayWhat12Huh" |> equal (false, 0)
         tryParse Int32.TryParse 0 "-1" |> equal (true, -1)
+        // Multi-byte UTF-8 input must fail to parse, not crash (see #4823)
+        tryParse Int32.TryParse 0 "–" |> equal (false, 0)
+        tryParse Int32.TryParse 0 "é" |> equal (false, 0)
+        tryParse Int32.TryParse 0 "𝟙" |> equal (false, 0)
 
     testCase "BigInt.TryParse works" <| fun () ->
         tryParse bigint.TryParse 0I "4234523548923954" |> equal (true, 4234523548923954I)
@@ -1334,6 +1347,13 @@ let tests =
         uint64 "0x9fffffff_ffffffff" |> equal 11529215046068469759UL
         uint64 "0x9fff_ffff_ffff_ffff" |> equal 11529215046068469759UL
 
+    testCase "Special cases conversion to Int64 work" <| fun () ->
+        int64 "0xFFFFFFFFFFFFFFFF" |> equal -1L
+        int64 "0x8000000000000000" |> equal -9223372036854775808L
+        int64 "0x7FFFFFFFFFFFFFFF" |> equal 9223372036854775807L
+        int64 "-0xFF" |> equal -255L
+        Int64.Parse("FFFFFFFFFFFFFFFF", System.Globalization.NumberStyles.HexNumber) |> equal -1L
+
     testCase "System.Convert.ToInt64 works" <| fun () ->
         let x = 1L
         int64(1y) |> equal x
@@ -2005,6 +2025,15 @@ let tests =
         BitConverter.ToString(bytes, 1, 2) |> equal "03-02"
 
     //-------------------------------------
+    testCase "BitConverter.ToBoolean with any nonzero byte works" <| fun () ->
+        BitConverter.ToBoolean([|0uy|], 0) |> equal false
+        BitConverter.ToBoolean([|1uy|], 0) |> equal true
+        BitConverter.ToBoolean([|2uy|], 0) |> equal true
+        BitConverter.ToBoolean([|255uy|], 0) |> equal true
+
+    testCase "BitConverter.ToString uppercase works" <| fun () ->
+        BitConverter.ToString([|0uy; 1uy; 0xABuy; 0xFFuy|]) |> equal "00-01-AB-FF"
+
     // System.Decimal
     //-------------------------------------
 

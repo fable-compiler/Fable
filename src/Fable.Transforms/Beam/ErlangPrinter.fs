@@ -466,15 +466,32 @@ module Output =
             sb.Append("end") |> ignore
 
         | Emit(template, args) ->
-            // Substitute $0, $1, etc. with printed argument expressions
-            let mutable result = template
+            // Substitute $0, $1, etc. with printed argument expressions.
+            // Done in a single left-to-right pass so that (a) `$1` does not
+            // corrupt `$10` (the full integer index is parsed) and (b) a `$N`
+            // sequence appearing inside an already-substituted argument (e.g. a
+            // string literal containing "$1") is not re-substituted.
+            let printedArgs =
+                args
+                |> List.map (fun arg ->
+                    let argSb = System.Text.StringBuilder()
+                    printExpr argSb indent arg
+                    argSb.ToString()
+                )
+                |> List.toArray
 
-            args
-            |> List.iteri (fun i arg ->
-                let argSb = System.Text.StringBuilder()
-                printExpr argSb indent arg
-                result <- result.Replace($"$%d{i}", argSb.ToString())
-            )
+            let result =
+                System.Text.RegularExpressions.Regex.Replace(
+                    template,
+                    @"\$\d+",
+                    fun m ->
+                        let idx = int (m.Value.Substring(1))
+
+                        match Array.tryItem idx printedArgs with
+                        | Some printed -> printed
+                        // Out-of-range placeholder: leave the literal text untouched.
+                        | None -> m.Value
+                )
 
             // Erlang has flat variable scoping — variables bound inside case/begin
             // blocks leak into the surrounding function clause. When the same Emit

@@ -4,6 +4,8 @@ open Util.Testing
 
 type Gender = Male | Female
 
+type T1 = T1
+
 type Either<'TL,'TR> =
     | Left of 'TL
     | Right of 'TR
@@ -211,3 +213,62 @@ type S = S of string
 let ``test sprintf formats strings cases correctly`` () =
     let s = sprintf "%A" (S "1")
     s |> equal "S \"1\""
+
+// See https://github.com/fable-compiler/Fable/issues/4645
+// A named union case field called `name` collided with the inherited `Union.name`
+// property, which Python's @dataclass treated as a default value.
+type NamedFieldUnion =
+    | NamedCase of name: string * optional: string
+
+[<Fact>]
+let ``test Named union case fields work when a field is called name`` () =
+    let value = NamedCase("v1", "v2")
+    match value with
+    | NamedCase(name, optional) ->
+        name |> equal "v1"
+        optional |> equal "v2"
+
+[<Fact>]
+let ``test Union cases with no fields are physically equal`` () =
+    obj.ReferenceEquals(Gender.Male, Gender.Male) |> equal true
+    obj.ReferenceEquals(Gender.Male, Gender.Female) |> equal false
+    obj.ReferenceEquals(MyUnion.Case0, MyUnion.Case0) |> equal true
+    obj.ReferenceEquals(MyUnion.Case1 "a", MyUnion.Case1 "a") |> equal false
+    obj.ReferenceEquals(T1, T1) |> equal true
+
+// See https://github.com/fable-compiler/Fable/issues/4736
+// A static member whose type references the enclosing union used to emit a class-body
+// `StaticLazyProperty[...]` subscript that evaluated the union type before its name was bound,
+// raising `NameError` at import time. The reference can be nested in any type shape, so each
+// member below exercises a different one: array, option (rendered with `|`), nested list/array,
+// tuple, and a function type (`unit -> Example`).
+[<Fable.Core.AttachMembers>]
+[<RequireQualifiedAccess>]
+type Example =
+    | First
+    | Second
+    | Other of string
+
+    static member All = [| Example.First; Example.Second |]
+    static member Head = Some Example.First
+    static member Nested = [ [| Example.First |] ]
+    static member Pair = (Example.First, Example.Second)
+    static member Factory: unit -> Example = fun () -> Example.First
+
+[<Fact>]
+let ``test Static union member returning the union type works`` () =
+    Example.All |> Array.length |> equal 2
+    Example.All.[0] |> equal Example.First
+    Example.All.[1] |> equal Example.Second
+
+[<Fact>]
+let ``test Static union member with nested self-reference works`` () =
+    // Option (`_Example | None`): a bare quoted leaf would leave the `|` to run eagerly and fail.
+    Example.Head |> equal (Some Example.First)
+    // Nested list of array (`FSharpList[Array[_Example]]`).
+    Example.Nested |> List.head |> Array.head |> equal Example.First
+    // Tuple (`tuple[_Example, _Example]`).
+    Example.Pair |> fst |> equal Example.First
+    Example.Pair |> snd |> equal Example.Second
+    // Function type (`Callable[[], _Example]`) — missed by the original narrower detection.
+    Example.Factory() |> equal Example.First

@@ -13,6 +13,17 @@ let ``Char.ToLower works`` () =
     Char.ToLower('B') |> equal 'b'
 
 [<Fact>]
+let ``Char.ToUpper with 1-to-many mapping returns original char`` () =
+    // .NET Char.ToUpper never expands: 'ß' upper-maps to "SS", so the char is unchanged.
+    Char.ToUpper('ß') |> equal 'ß'
+    // A non-ASCII char with a single-char mapping still converts.
+    Char.ToUpper('é') |> equal 'É'
+
+[<Fact>]
+let ``Char.ToLower with non-ASCII single mapping works`` () =
+    Char.ToLower('É') |> equal 'é'
+
+[<Fact>]
 let ``Char.ToUpperInvariant works`` () =
     Char.ToUpperInvariant('b') |> equal 'B'
 

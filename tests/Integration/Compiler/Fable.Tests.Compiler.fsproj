@@ -7,7 +7,7 @@
     <DefineConstants>$(DefineConstants);DOTNET_FILE_SYSTEM</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Expecto" Version="10.2.3" />
+    <PackageReference Include="Expecto" Version="11.1.0" />
   </ItemGroup>
   <ItemGroup>
     <!-- <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" /> -->
@@ -20,9 +20,12 @@
   <ItemGroup>
     <Compile Include="../../Js/Main/Util/Util.Testing.fs" />
     <Compile Include="Util/Compiler.fs" />
+    <!-- Link the pure-managed inflate source so its (internal) module is testable -->
+    <Compile Include="../../../src/fcs-fable/Inflate.fs" />
     <Compile Include="CompilerMessagesTests.fs" />
     <Compile Include="AnonRecordInInterfaceTests.fs" />
     <Compile Include="CompilerHelpersTests.fs" />
+    <Compile Include="InflateTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>

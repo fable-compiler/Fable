@@ -99,7 +99,8 @@ let rebalance t1 (k: 'K) (v: 'V) t2 : Map<'K, 'V> =
             mk (mk t1 k v t2l.Left) t2l.Key t2l.Value (mk t2l.Right t2'.Key t2'.Value t2'.Right)
         else // rotate left
             mk (mk t1 k v t2'.Left) t2'.Key t2'.Value t2'.Right
-    else if t1h > t2h + tolerance then // left is heavier than right
+    // left is heavier than right
+    else if t1h > t2h + tolerance then
         let t1' = (getRoot t1).Value
         // one of the nodes must have height > height t2 + 1
         if height t1'.Right > t2h + 1 then
@@ -156,21 +157,34 @@ let rec tryGetValue k (v: byref<'V>) (m: Map<'K, 'V>) =
 let throwKeyNotFound () = failwith SR.keyNotFound
 
 // [<MethodImpl(MethodImplOptions.NoInlining)>]
+// Returns the value directly as an option rather than through a byref out-param.
+// The out-param form (see tryGetValue) needs `Unchecked.defaultof<'V>`, which Fable-Rust
+// lowers to getZero/mem::zeroed and panics for reference-type values (e.g. obj). This
+// form works for both value and reference types.
+let rec tryFindOpt k (m: Map<'K, 'V>) : 'V option =
+    match getRoot m with
+    | None -> None
+    | Some t ->
+        let c = compare k t.Key
+
+        if c = 0 then
+            Some t.Value
+        elif t.Height = 1 then
+            None
+        else
+            tryFindOpt
+                k
+                (if c < 0 then
+                     t.Left
+                 else
+                     t.Right)
+
 let find k (m: Map<'K, 'V>) =
-    let mutable v = Unchecked.defaultof<'V>
+    match tryFindOpt k m with
+    | Some v -> v
+    | None -> throwKeyNotFound ()
 
-    if tryGetValue k &v m then
-        v
-    else
-        throwKeyNotFound ()
-
-let tryFind k (m: Map<'K, 'V>) =
-    let mutable v = Unchecked.defaultof<'V>
-
-    if tryGetValue k &v m then
-        Some v
-    else
-        None
+let tryFind k (m: Map<'K, 'V>) = tryFindOpt k m
 
 let item k (m: Map<'K, 'V>) = find k m
 

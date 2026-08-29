@@ -6,25 +6,32 @@ module Naming =
     open Fable.Core
     open System.Text.RegularExpressions
 
+    [<return: Struct>]
     let (|StartsWith|_|) (pattern: string) (txt: string) =
         if txt.StartsWith(pattern, StringComparison.Ordinal) then
-            txt.Substring(pattern.Length) |> Some
+            txt.Substring(pattern.Length) |> ValueSome
         else
-            None
+            ValueNone
 
+    [<return: Struct>]
     let (|EndsWith|_|) (pattern: string) (txt: string) =
         if txt.EndsWith(pattern, StringComparison.Ordinal) then
-            txt.Substring(0, txt.Length - pattern.Length) |> Some
+            txt.Substring(0, txt.Length - pattern.Length) |> ValueSome
         else
-            None
+            ValueNone
 
+    [<return: Struct>]
     let (|Regex|_|) (reg: Regex) (str: string) =
         let m = reg.Match(str)
 
         if m.Success then
-            m.Groups |> Seq.cast<Group> |> Seq.map (fun g -> g.Value) |> Seq.toList |> Some
+            m.Groups
+            |> Seq.cast<Group>
+            |> Seq.map (fun g -> g.Value)
+            |> Seq.toList
+            |> ValueSome
         else
-            None
+            ValueNone
 
     [<Literal>]
     let fableCompilerConstant = "FABLE_COMPILER"

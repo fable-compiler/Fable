@@ -31,3 +31,14 @@ type Vector2<[<Measure>] 'u> = Vector2 of x: float<'u> * y: float<'u> with
 
   static member inline ( + ) (Vector2(ax, ay), Vector2(bx, by)) = Vector2(ax + bx, ay + by)
   static member inline ( * ) (scalar, Vector2(x, y)) = Vector2(scalar * x, scalar * y)
+
+// Issue4634: an [<AttachMembers>] union with static members, defined in a separate
+// module/file so use sites reference it across modules (an Import, not a same-file
+// identifier). This exercises the cross-file path of the static-member-on-union fix.
+[<Fable.Core.AttachMembers>]
+type CrossModuleDemo =
+    | A of string
+    | B
+
+    static member propDefault = A "prop"
+    static member methDefault() = A "meth"

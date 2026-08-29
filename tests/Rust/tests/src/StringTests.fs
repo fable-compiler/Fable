@@ -347,6 +347,22 @@ let ``string interpolation works with inline expressions`` () =
     |> equal "I think 3.14 is close to 3.1415927!"
 
 [<Fact>]
+let ``string interpolation works with .NET format specifiers`` () = // See Fable.Python #36
+    let i = 123
+    $"{i:X4}" |> equal "007B"
+    $"{i:x4}" |> equal "007b"
+    $"{i:D5}" |> equal "00123"
+    $"{5:B}" |> equal "101"
+    $"u{i:X4}" |> equal "u007B"
+    $"{3.14159:F2}" |> equal "3.14"
+
+[<Fact>]
+let ``string interpolation works with alignment`` () =
+    let i = 123
+    $"[{i,6}]" |> equal "[   123]"
+    $"[{i,-6}]" |> equal "[123   ]"
+
+[<Fact>]
 let ``string interpolation works with anonymous records`` () =
     let person =
         {|  Name = "John"
@@ -865,6 +881,12 @@ let ``String.Contains works`` () =
     "ABC".Contains("Z") |> equal false
 
 [<Fact>]
+let ``String.Contains with empty pattern works`` () =
+    // .NET: every string contains ""
+    "ABC".Contains("") |> equal true
+    "".Contains("") |> equal true
+
+[<Fact>]
 let ``String.Contains with char works`` () =
     "ABC".Contains('B') |> equal true
     "ABC".Contains('Z') |> equal false
@@ -929,6 +951,12 @@ let ``String.Split with single separator works`` () =
 [<Fact>]
 let ``String.Split with multiple char args works`` () =
     "a;b,c".Split(',', ';') |> equal [|"a"; "b"; "c"|]
+
+[<Fact>]
+let ``String.Split with multiple string separators works`` () =
+    "1-2_3".Split([|"-"; "_"|], StringSplitOptions.None) |> equal [|"1"; "2"; "3"|]
+    "a::b;;c".Split([|"::"; ";;"|], StringSplitOptions.None) |> equal [|"a"; "b"; "c"|]
+    "a--b".Split([|"--"|], StringSplitOptions.None) |> equal [|"a"; "b"|]
 
 [<Fact>]
 let ``String.Split with string array works`` () =
@@ -1066,6 +1094,12 @@ let ``String.IndexOf works with offset`` () =
     |> equal 4
 
 [<Fact>]
+let ``String.IndexOf with empty pattern works`` () =
+    "abcdbc".IndexOf("") |> equal 0
+    "abcdbc".IndexOf("", 3) |> equal 3
+    "abcdbc".IndexOf("", 6) |> equal 6
+
+[<Fact>]
 let ``String.LastIndexOf works`` () =
     "abcdbc".LastIndexOf("bc") * 100 + "abcd".LastIndexOf("bd")
     |> equal 399
@@ -1074,6 +1108,12 @@ let ``String.LastIndexOf works`` () =
 let ``String.LastIndexOf works with offset`` () =
     "abcdbcebc".LastIndexOf("bc", 3)
     |> equal 1
+
+[<Fact>]
+let ``String.LastIndexOf with empty pattern works`` () =
+    "abcdbc".LastIndexOf("") |> equal 6
+    "abcdbc".LastIndexOf("", 3) |> equal 4
+    "abcdbc".LastIndexOf("", 0) |> equal 1
 
 [<Fact>]
 let ``String.IndexOfAny works`` () =
@@ -1106,42 +1146,42 @@ let ``String.EndsWith char works`` () =
 
 [<Fact>]
 let ``String.StartsWith works`` () =
-    let args = [("ab", true); ("bc", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    let args = [("ab", true); ("bc", false); ("cd", false); ("abcdx", false); ("abcd", true); ("", true)]
     for arg in args do
         "abcd".StartsWith(fst arg)
         |> equal (snd arg)
 
 [<Fact>]
 let ``String.StartsWith with OrdinalIgnoreCase works`` () =
-    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true); ("", true)]
     for arg in args do
         "ABCD".StartsWith(fst arg, StringComparison.OrdinalIgnoreCase)
         |> equal (snd arg)
 
 [<Fact>]
 let ``String.StartsWith with ignoreCase boolean works`` () =
-    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true)]
+    let args = [("ab", true); ("AB", true); ("BC", false); ("cd", false); ("abcdx", false); ("abcd", true); ("", true)]
     for arg in args do
         "ABCD".StartsWith(fst arg, true, CultureInfo.InvariantCulture)
         |> equal (snd arg)
 
 [<Fact>]
 let ``String.EndsWith works`` () =
-    let args = [("ab", false); ("cd", true);  ("bc", false); ("abcdx", false); ("abcd", true)]
+    let args = [("ab", false); ("cd", true);  ("bc", false); ("abcdx", false); ("abcd", true); ("", true)]
     for arg in args do
         "abcd".EndsWith(fst arg)
         |> equal (snd arg)
 
 [<Fact>]
 let ``String.EndsWith with OrdinalIgnoreCase works`` () =
-    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
+    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true); ("", true)]
     for arg in args do
         "ABCD".EndsWith(fst arg, StringComparison.OrdinalIgnoreCase)
         |> equal (snd arg)
 
 [<Fact>]
 let ``String.EndsWith with ignoreCase boolean works`` () =
-    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true)]
+    let args = [("ab", false); ("CD", true); ("cd", true); ("bc", false); ("xabcd", false); ("abcd", true); ("", true)]
     for arg in args do
         "ABCD".EndsWith(fst arg, true, CultureInfo.InvariantCulture)
         |> equal (snd arg)

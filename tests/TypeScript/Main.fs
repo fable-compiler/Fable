@@ -24,6 +24,7 @@ let allTests =
 #endif
     Enumerable.tests
     Enum.tests
+    Environment.tests
     Event.tests
     HashSets.tests
     // Import.tests
@@ -35,6 +36,7 @@ let allTests =
     NestedAndRecursivePatternTests.tests
     Observable.tests
     Option.tests
+    SystemIO.tests
     Queue.tests
     RecordTypes.tests
     Reflection.tests

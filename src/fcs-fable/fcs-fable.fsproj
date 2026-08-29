@@ -29,6 +29,8 @@
     <Compile Include="System.Collections.Concurrent.fs" />
     <Compile Include="System.Collections.Generic.fs" />
     <Compile Include="System.IO.fs" />
+    <!-- pure-managed inflate for compressed signature/optimization data -->
+    <Compile Include="Inflate.fs" />
     <!-- string resources -->
     <Compile Include="FSStrings.fs" />
     <Compile Include="SR.fs" />

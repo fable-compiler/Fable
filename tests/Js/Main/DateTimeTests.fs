@@ -848,6 +848,19 @@ let tests =
         d3.Hour + d3.Minute + d3.Second |> equal 54
 
 
+    testCase "DateTime.Parse handles AM/PM designator correctly" <| fun () ->
+        // Time-only strings parse to clock fields that are timezone-independent
+        let d = DateTime.Parse("1:05:34 PM", CultureInfo.InvariantCulture)
+        d.Hour |> equal 13
+        d.Minute |> equal 5
+        d.Second |> equal 34
+        let d = DateTime.Parse("12:05 AM", CultureInfo.InvariantCulture)
+        d.Hour |> equal 0
+        d.Minute |> equal 5
+        let d = DateTime.Parse("12:05 PM", CultureInfo.InvariantCulture)
+        d.Hour |> equal 12
+        d.Minute |> equal 5
+
     testCase "DateTime.TryParse works" <| fun () ->
         let (isSuccess, _) = DateTime.TryParse("foo", CultureInfo.InvariantCulture, DateTimeStyles.None)
         isSuccess |> equal false
@@ -875,6 +888,31 @@ let tests =
         let invalidAmericanDate = "13/1/2020"
         let r, _date = DateTime.TryParse(invalidAmericanDate, CultureInfo.InvariantCulture, DateTimeStyles.None)
         r |> equal false
+
+    testCase "DateTime.TryParse rejects JS-permissive strings that .NET rejects" <| fun () ->
+        // JS's Date constructor treats unrecognised words as timezone abbreviations, so it
+        // accepts strings .NET rejects: "ABC 6" (ABC), "XYZ 2024" (XYZ), and words that merely
+        // start with a month name like "Maybe 6" (May) or "Junk 2024" (Jun).
+        [ "ABC 6"; "XYZ 2024"; "Maybe 6"; "Junk 2024" ]
+        |> List.map (fun s -> fst (DateTime.TryParse s))
+        |> equal [ false; false; false; false ]
+
+        // Recognised date words (weekday / month names, GMT) must still parse, matching .NET.
+        let r1, d1 = DateTime.TryParse("Sun, 06 Nov 1994 08:49:37 GMT")
+        r1 |> equal true
+        d1.Year |> equal 1994
+
+        let r2, d2 = DateTime.TryParse("Mon, 15 Jan 2024")
+        r2 |> equal true
+        d2.Year |> equal 2024
+
+        let r3, d3 = DateTime.TryParse("January 15, 2024")
+        r3 |> equal true
+        d3.Year |> equal 2024
+
+        let r4, d4 = DateTime.TryParse("9/10/2014 1:50:34 PM")
+        r4 |> equal true
+        d4.Year |> equal 2014
 
     testCase "DateTime.Today works" <| fun () ->
         let d = DateTime.Today
@@ -979,6 +1017,12 @@ let tests =
         test -5 2054
         test -20 2050
         test -100 2046
+
+    testCase "DateTime.AddMonths keeps last day when delta is a multiple of 12" <| fun () ->
+        let dt = DateTime(2020, 12, 31, 0, 0, 0, DateTimeKind.Utc).AddMonths(12)
+        dt.Year |> equal 2021
+        dt.Month |> equal 12
+        dt.Day |> equal 31
 
     testCase "DateTime.AddDays works" <| fun () ->
         let test v expected =
@@ -1145,10 +1189,17 @@ let tests =
             let t = new Timers.Timer(50.)
             t.Elapsed.Add(fun ev -> res := !res + 5)
             t.Start()
-            do! Async.Sleep 125
+            do! Async.Sleep 200
             t.Stop()
-            do! Async.Sleep 50
-            equal 10 !res
+            // Snapshot after Stop: a tick landing between the read and the stop is a legal
+            // interleaving, and would be indistinguishable from Stop failing to halt the timer.
+            let afterStop = !res
+            do! Async.Sleep 100
+            // AutoReset keeps the timer firing, so more than one tick lands. The exact number is
+            // timing-dependent — how many 50ms ticks fit in the sleep varies with runner load.
+            afterStop > 5 |> equal true
+            // Stop halts it: no further ticks after the snapshot.
+            equal afterStop !res
         }
 
     testCaseAsync "Timer.Elapsed.Subscribe works" <| fun () ->
@@ -1157,10 +1208,17 @@ let tests =
             let t = new Timers.Timer(50.)
             let disp = t.Elapsed.Subscribe(fun ev -> res := !res + 5)
             t.Start()
-            do! Async.Sleep 125
+            do! Async.Sleep 200
             disp.Dispose()
-            do! Async.Sleep 50
-            equal 10 !res
+            // Snapshot after Dispose: a tick landing between the read and the unsubscribe is a
+            // legal interleaving, and would be indistinguishable from Dispose failing to detach.
+            let afterDispose = !res
+            do! Async.Sleep 100
+            // The subscriber receives Elapsed events. The exact number is timing-dependent — how
+            // many 50ms ticks fit in the sleep varies with runner load.
+            afterDispose > 5 |> equal true
+            // Dispose detaches it: no further ticks after the snapshot.
+            equal afterDispose !res
             t.Stop()
         }
 
@@ -1206,4 +1264,14 @@ let tests =
         let str = utc.ToString("yyyy-MM-dd HH:mm")
 
         str |> equal "2024-12-31 23:00"
+
+    testCase "DateTime.ToString without format is consistent across kinds" <| fun () ->
+        let local = DateTime(2020, 2, 20, 20, 20, 20, DateTimeKind.Local)
+        let utc = DateTime(2020, 2, 20, 20, 20, 20, DateTimeKind.Utc)
+        local.ToString() |> equal (utc.ToString())
+
+    testCase "DateTime %A format is consistent across kinds" <| fun () ->
+        let local = DateTime(2020, 2, 20, 20, 20, 20, DateTimeKind.Local)
+        let utc = DateTime(2020, 2, 20, 20, 20, 20, DateTimeKind.Utc)
+        sprintf "%A" local |> equal (sprintf "%A" utc)
   ]

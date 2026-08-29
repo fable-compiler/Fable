@@ -38,13 +38,29 @@ let private transformRecordReflectionInfo com ctx r (ent: Fable.Entity) generics
             else
                 let typeInfo, stmts = transformTypeInfo com ctx r genMap fi.FieldType
 
-                let name =
+                // The runtime attribute/slot name is snake_cased (Python convention), but reflection
+                // must report the pristine F# field name so `PropertyInfo.Name` matches .NET and the
+                // other backends. When the two differ we emit a 3rd tuple element carrying the slot
+                // name; value access (get_value/make_record in fable-library-py) reads that for the
+                // actual attribute. This mirrors the Beam target's `name`/`erl_name` split.
+                let slotName =
                     if Util.shouldUseRecordFieldNaming ent then
-                        fi.Name |> Naming.toRecordFieldSnakeCase |> Helpers.clean
+                        fi.Name |> Naming.toFieldSnakeCase |> Helpers.clean
                     else
                         fi.Name |> Naming.toSnakeCase |> Helpers.clean
 
-                Some(Expression.tuple [ Expression.stringConstant name; typeInfo ], stmts)
+                let fieldTuple =
+                    if slotName = fi.Name then
+                        Expression.tuple [ Expression.stringConstant fi.Name; typeInfo ]
+                    else
+                        Expression.tuple
+                            [
+                                Expression.stringConstant fi.Name
+                                typeInfo
+                                Expression.stringConstant slotName
+                            ]
+
+                Some(fieldTuple, stmts)
         )
         |> Seq.toList
         |> Helpers.unzipArgs
@@ -352,14 +368,18 @@ let transformTypeTest (com: IPythonCompiler) ctx range expr (typ: Fable.Type) : 
         | _, Fable.Type.Number(Int8, _) -> pyInstanceof (libValue com ctx "core" "int8") expr
         | _, Fable.Type.Number(Int16, _) -> pyInstanceof (libValue com ctx "core" "int16") expr
         | _, Fable.Type.Number(UInt16, _) -> pyInstanceof (libValue com ctx "core" "uint16") expr
-        | _, Fable.Type.Number(Int32, _) -> pyInstanceof (libValue com ctx "core" "int32") expr
+        // Int32 is a plain Python `int`. Exact-type matching is required: `bool`
+        // subclasses `int`, so `isinstance` would report `box true :? int` as true.
+        | _, Fable.Type.Number(Int32, _) -> pyTypeof "<class 'int'>" expr
         | _, Fable.Type.Number(UInt32, _) -> pyInstanceof (libValue com ctx "core" "uint32") expr
         | _, Fable.Type.Number(NativeInt, _)
         | _, Fable.Type.Number(UNativeInt, _) -> pyInstanceof (Expression.name "int") expr
         | _, Fable.Type.Number(Int64, _) -> pyInstanceof (libValue com ctx "core" "int64") expr
         | _, Fable.Type.Number(UInt64, _) -> pyInstanceof (libValue com ctx "core" "uint64") expr
         | _, Fable.Type.Number(Float32, _) -> pyInstanceof (libValue com ctx "core" "float32") expr
-        | _, Fable.Type.Number(Float64, _) -> pyInstanceof (libValue com ctx "core" "float64") expr
+        // Float64 is a plain Python `float`. Exact-type matching keeps it distinct
+        // from the Float32 wrapper, which is not a `float` subclass.
+        | _, Fable.Type.Number(Float64, _) -> pyTypeof "<class 'float'>" expr
         | _, Fable.Type.Number(Decimal, _) -> pyTypeof "<class 'decimal.Decimal'>" expr
         | _ -> pyInstanceof (Expression.name "int") expr
 

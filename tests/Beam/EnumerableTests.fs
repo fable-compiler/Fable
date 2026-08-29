@@ -49,26 +49,21 @@ let mkEnumerable someList =
       interface System.Collections.IEnumerable with
         member x.GetEnumerator() = ((someList :> IEnumerable<_>).GetEnumerator() :> System.Collections.IEnumerator) }
 
-// TODO: Custom IEnumerable class with Fibonacci IEnumerator — class IEnumerator implementation
-// doesn't correctly maintain state across MoveNext/Current calls on Beam
-// [<Fact>]
-// let ``test Enumerable class works`` () =
-//     let f1 = Seq.toArray (fib())
-//     let f2 = Seq.toArray (Enumerator(fun () -> upcast new Fibonacci()))
-//     f1 = f2 |> equal true
+[<Fact>]
+let ``test Enumerable class works`` () =
+    let f1 = Seq.toArray (fib())
+    let f2 = Seq.toArray (Enumerator(fun () -> upcast new Fibonacci()))
+    f1 = f2 |> equal true
 
-// TODO: Custom IEnumerable object expression with IEnumerator — same MoveNext/Current issue
-// [<Fact>]
-// let ``test Enumerable object expr works`` () =
-//     let f1 = Seq.toArray (fib())
-//     let f2 = Seq.toArray (toSeq fibGen)
-//     f1 = f2 |> equal true
+[<Fact>]
+let ``test Enumerable object expr works`` () =
+    let f1 = Seq.toArray (fib())
+    let f2 = Seq.toArray (toSeq fibGen)
+    f1 = f2 |> equal true
 
-// TODO: mkEnumerable wrapping list — IEnumerable<T>.GetEnumerator() dispatching through
-// object expression doesn't route correctly to fable_utils enumerator on Beam
-// [<Fact>]
-// let ``test Enumerator can be converted to seq`` () =
-//     mkEnumerable [1..10]
-//     |> Seq.toList
-//     |> List.sum
-//     |> equal 55
+[<Fact>]
+let ``test Enumerator can be converted to seq`` () =
+    mkEnumerable [1..10]
+    |> Seq.toList
+    |> List.sum
+    |> equal 55

@@ -123,7 +123,8 @@ module MapTree =
                 else // rotate left
                     mk (mk t1 k v t2'.Left) t2'.Key t2'.Value t2'.Right
             | _ -> failwith "internal error: Map.rebalance"
-        else if t1h > t2h + tolerance then // left is heavier than right
+        // left is heavier than right
+        else if t1h > t2h + tolerance then
             match t1.Value with
             | :? MapTreeNode<'Key, 'Value> as t1' ->
                 // one of the nodes must have height > height t2 + 1
@@ -956,6 +957,8 @@ type Map<[<EqualityConditionalOn>] 'Key, [<EqualityConditionalOn; ComparisonCond
             m |> Seq.iter (fun p -> f p.Value p.Key m)
 
     override this.ToString() =
+        // Note: .NET's FSharpMap.ToString renders keys/values with `%O` (not `%A`),
+        // so strings are intentionally *not* quoted here (e.g. `map [(Age, 12)]`).
         let inline toStr (kv: KeyValuePair<'Key, 'Value>) =
             System.String.Format("({0}, {1})", kv.Key, kv.Value)
 

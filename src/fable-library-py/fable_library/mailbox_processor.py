@@ -67,17 +67,21 @@ class MailboxProcessor[Msg]:
         """
 
         result: Reply | None = None
+        # Track whether `reply` was actually called, since the reply value itself
+        # may legitimately be `None` (e.g. `AsyncReplyChannel[None]` for unit).
+        replied = False
         continuation: Continuations[Any] | None = (
             None  # This is the continuation for the `done` callback of the awaiting poster.
         )
 
         def check_completion() -> None:
-            if result is not None and continuation is not None:
+            if replied and continuation is not None:
                 continuation[0](result)
 
         def reply_callback(res: Reply):
-            nonlocal result
+            nonlocal result, replied
             result = res
+            replied = True
             check_completion()
 
         reply_channel: AsyncReplyChannel[Reply] = AsyncReplyChannel(reply_callback)

@@ -11,7 +11,7 @@
  </PropertyGroup>
 
  <ItemGroup>
-    <PackageReference Include="Expecto" Version="10.2.3" />
+    <PackageReference Include="Expecto" Version="11.1.0" />
     <PackageReference Include="AltCover" Version="9.0.102" />
     <PackageReference Include="Fable.JsonProvider" Version="1.1.1" />
     <PackageReference Include="FSharp.UMX" Version="1.1.0" />
@@ -42,6 +42,7 @@
     <Compile Include="RandomTests.fs" />
     <Compile Include="ArrayTests.fs" />
     <Compile Include="AsyncTests.fs" />
+    <Compile Include="TaskTests.fs" />
     <Compile Include="CharTests.fs" />
     <Compile Include="ComparisonTests.fs" />
     <Compile Include="ConditionalWeakTableTests.fs" />
@@ -54,6 +55,7 @@
     <Compile Include="ElmishParserTests.fs" />
     <Compile Include="EnumerableTests.fs" />
     <Compile Include="EnumTests.fs" />
+    <Compile Include="EnvironmentTests.fs" />
     <Compile Include="EventTests.fs" />
     <Compile Include="HashSetTests.fs" />
     <Compile Include="ImportTests.fs" />
@@ -68,6 +70,7 @@
     <Compile Include="NullnessTests.fs" />
     <Compile Include="ObservableTests.fs" />
     <Compile Include="OptionTests.fs" />
+    <Compile Include="SystemIOTests.fs" />
     <Compile Include="QueueTests.fs" />
     <Compile Include="RecordTypeTests.fs" />
     <Compile Include="ReflectionTests.fs" />

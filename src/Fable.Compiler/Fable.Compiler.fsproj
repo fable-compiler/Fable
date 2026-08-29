@@ -10,6 +10,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="BrowserInlineExprs.fs" />
         <Compile Include="Util.fsi" />
         <Compile Include="Util.fs" />
         <Compile Include="Globbing.fsi" />
@@ -25,6 +26,7 @@
     <ItemGroup>
         <ProjectReference Include="../Fable.AST/Fable.AST.fsproj" />
         <ProjectReference Include="../Fable.Transforms/Fable.Transforms.fsproj" PrivateAssets="all" />
+        <ProjectReference Include="../Fable.Transforms/Babel/Fable.Transforms.Babel.fsproj" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup>
@@ -39,7 +41,9 @@
           <PrivateAssets>all</PrivateAssets>
         </PackageReference>
         <PackageReference Include="FSharp.SystemTextJson" Version="1.4.36" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.8" />
+        <PackageReference Include="Thoth.Json.Core.Auto" Version="0.1.1" />
+        <PackageReference Include="Thoth.Json.System.Text.Json" Version="0.4.0" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
     </ItemGroup>
 
     <ItemGroup>
@@ -50,6 +54,8 @@
         <None Include="$(OutputPath)FSharp.DependencyManager.Nuget.xml" Pack="true" PackagePath="lib/$(TargetFramework)" />
         <None Include="$(OutputPath)Fable.Transforms.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
         <None Include="$(OutputPath)Fable.Transforms.xml" Pack="true" PackagePath="lib/$(TargetFramework)" />
+        <None Include="$(OutputPath)Fable.Transforms.Babel.dll" Pack="true" PackagePath="lib/$(TargetFramework)" />
+        <None Include="$(OutputPath)Fable.Transforms.Babel.xml" Pack="true" PackagePath="lib/$(TargetFramework)" />
     </ItemGroup>
 
 </Project>

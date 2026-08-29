@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <Compile Include="Dart.fs" />
+    <Compile Include="Fable2Dart.fs" />
+    <Compile Include="DartPrinter.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../Fable.AST/Fable.AST.fsproj" />
+    <ProjectReference Include="../Fable.Transforms.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="../../../lib/fcs/FSharp.Core.dll" />
+    <Reference Include="../../../lib/fcs/FSharp.Compiler.Service.dll" />
+  </ItemGroup>
+</Project>

@@ -30,3 +30,11 @@ module Testing =
        | 0 -> 0.
        | 1 -> Seq.head zs
        | _ -> (Seq.head zs) + sumFirstSeq (Seq.skip 1 zs) (n-1)
+
+    let throwsAnyError f =
+        try
+            f() |> ignore
+            false
+        with e ->
+            true
+        |> equal true

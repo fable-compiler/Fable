@@ -1,9 +1,6 @@
 name: Publish to PyPI
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
   release:
     types: [published]
@@ -14,28 +11,34 @@ permissions:
 jobs:
     build-fable-library:
       runs-on: ubuntu-latest
+      timeout-minutes: 30
       env:
         UV_LINK_MODE: copy
       steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
+        with:
+          # Fetch the full history including tags so `dunamai --latest-tag`
+          # can resolve the release version. Without this, the default shallow
+          # checkout has no tags and dunamai falls back to 0.0.0.
+          fetch-depth: 0
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      - name: Install Uv and Maturin
-        run: |
-          pipx install uv
-          pipx install maturin
+      - name: Install uv
+        uses: astral-sh/setup-uv@v8.2.0
+      - name: Install Maturin
+        run: uv tool install maturin
       - name: Transpile F# to Python
         run: ./build.sh fable-library --python
       - name: Install Dunamai
-        run: pipx install dunamai
+        run: uv tool install dunamai
       - name: Set version
         run: |
           VERSION=$(dunamai from git --format "{base}{stage}{revision}" --pattern "^(?P<base>\d+\.\d+\.\d+)((-(?P<stage>alpha|beta|rc))\.(?P<revision>\d+))?$" --latest-tag)
@@ -54,46 +57,15 @@ jobs:
           path: ./temp/fable-library-py
           retention-days: 1
 
-    test:
-      needs: build-fable-library
-      runs-on: ${{ matrix.os }}
-      strategy:
-        matrix:
-          os: [ubuntu-latest, windows-latest, macos-latest]
-          python-version: ["3.12", "3.13", "3.14"]
-      env:
-        UV_LINK_MODE: copy
-
-      steps:
-        - uses: actions/checkout@v6
-        - name: Set up Python ${{ matrix.python-version }}
-          uses: actions/setup-python@v6
-          with:
-            python-version: ${{ matrix.python-version }}
-        - name: Install Rust
-          uses: dtolnay/rust-toolchain@stable
-        - name: Install Uv
-          run: pipx install uv
-        - name: Download fable-library-py
-          uses: actions/download-artifact@v8
-          with:
-            name: fable-library-py
-            path: ./src/fable-library-py
-        - name: Build and install
-          uses: PyO3/maturin-action@v1
-          with:
-            working-directory: ./src/fable-library-py
-            args: --release --features=pyo3/extension-module
-        - name: Test
-          run: |
-            cd src/fable-library-py
-            uv sync
-            uv run maturin develop --release
-            uv run pytest tests
+    # NOTE: the fable-library-py native test suite (src/fable-library-py/tests)
+    # runs in build.yml on every push/PR to main. It used to run here too, but
+    # it was never in `release`'s `needs`, so it gated nothing and only
+    # consumed runners the wheel jobs were queuing behind.
 
     linux:
       needs: build-fable-library
       runs-on: ${{ matrix.platform.runner }}
+      timeout-minutes: 30
       strategy:
         matrix:
           platform:
@@ -110,8 +82,8 @@ jobs:
             - runner: ubuntu-22.04
               target: ppc64le
       steps:
-        - uses: actions/checkout@v6
-        - uses: actions/setup-python@v6
+        - uses: actions/checkout@v7.0.1
+        - uses: actions/setup-python@v7
           with:
             python-version: 3.x
         - name: Download fable-library-py
@@ -136,6 +108,7 @@ jobs:
     musllinux:
       needs: build-fable-library
       runs-on: ${{ matrix.platform.runner }}
+      timeout-minutes: 30
       strategy:
         matrix:
           platform:
@@ -148,8 +121,8 @@ jobs:
             - runner: ubuntu-22.04
               target: armv7
       steps:
-        - uses: actions/checkout@v6
-        - uses: actions/setup-python@v6
+        - uses: actions/checkout@v7.0.1
+        - uses: actions/setup-python@v7
           with:
             python-version: 3.x
         - name: Download fable-library-py
@@ -174,6 +147,7 @@ jobs:
     windows:
       needs: build-fable-library
       runs-on: ${{ matrix.platform.runner }}
+      timeout-minutes: 30
       strategy:
         matrix:
           platform:
@@ -182,8 +156,8 @@ jobs:
             - runner: windows-latest
               target: x86
       steps:
-        - uses: actions/checkout@v6
-        - uses: actions/setup-python@v6
+        - uses: actions/checkout@v7.0.1
+        - uses: actions/setup-python@v7
           with:
             python-version: 3.x
             architecture: ${{ matrix.platform.target }}
@@ -208,6 +182,7 @@ jobs:
     macos:
       needs: build-fable-library
       runs-on: ${{ matrix.platform.runner }}
+      timeout-minutes: 30
       strategy:
         matrix:
           platform:
@@ -217,8 +192,8 @@ jobs:
             - runner: macos-15
               target: aarch64
       steps:
-        - uses: actions/checkout@v6
-        - uses: actions/setup-python@v6
+        - uses: actions/checkout@v7.0.1
+        - uses: actions/setup-python@v7
           with:
             python-version: 3.x
         - name: Download fable-library-py
@@ -242,8 +217,9 @@ jobs:
     sdist:
       needs: build-fable-library
       runs-on: ubuntu-latest
+      timeout-minutes: 30
       steps:
-        - uses: actions/checkout@v6
+        - uses: actions/checkout@v7.0.1
         - name: Download fable-library-py
           uses: actions/download-artifact@v8
           with:
@@ -264,6 +240,7 @@ jobs:
     release:
       name: Release
       runs-on: ubuntu-latest
+      timeout-minutes: 30
       if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
       needs: [linux, musllinux, windows, macos, sdist]
       permissions:
@@ -279,11 +256,12 @@ jobs:
           uses: actions/attest-build-provenance@v4
           with:
             subject-path: 'wheels-*/*'
+        - name: Install uv
+          uses: astral-sh/setup-uv@v8.2.0
         - name: Publish to PyPI
           if: ${{ github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
-          uses: PyO3/maturin-action@v1
+          # `maturin upload` is deprecated (PyO3/maturin#2334); use `uv publish`.
+          # `--check-url` skips files already on PyPI (replaces `--skip-existing`).
           env:
-            MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
-          with:
-            command: upload
-            args: --non-interactive --skip-existing wheels-*/*
+            UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+          run: uv publish --check-url https://pypi.org/simple/ wheels-*/*

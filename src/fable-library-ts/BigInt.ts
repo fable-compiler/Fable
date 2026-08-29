@@ -135,12 +135,12 @@ export function toIntN_unchecked(bits: number, x: bigint, signed: boolean): bigi
 }
 
 export function toIntN(bits: number, x: bigint, signed: boolean): bigint {
-    let higher_bits = abs(x) >> BigInt(bits);
-    if (higher_bits !== 0n) {
+    const truncated = signed ? BigInt.asIntN(bits, x) : BigInt.asUintN(bits, x);
+    if (truncated !== x) {
         const s = signed ? "a signed" : "an unsigned";
         throw new Exception(`Value was either too large or too small for ${s} ${bits}-bit integer.`);
     }
-    return signed ? BigInt.asIntN(bits, x) : BigInt.asUintN(bits, x);
+    return truncated;
 }
 
 export function toInt8(x: bigint): int8 { return Number(toIntN(8, x, true)); }
@@ -176,6 +176,9 @@ export function toFloat64(x: bigint): float64 { return Number(x); }
 export function toDecimal(x: bigint): decimal {
     const isNegative = x < zero;
     const bits = abs(x);
+    if ((bits >> 96n) !== zero) {
+        throw new Exception("Value was either too large or too small for a Decimal.");
+    }
     const low = Number(BigInt.asUintN(32, bits));
     const mid = Number(BigInt.asUintN(32, bits >> 32n));
     const high = Number(BigInt.asUintN(32, bits >> 64n));
@@ -228,6 +231,8 @@ export function divRem(x: bigint, y: bigint, out?: FSharpRef<bigint>): bigint | 
 }
 
 export function greatestCommonDivisor(x: bigint, y: bigint): bigint {
+    x = abs(x);
+    y = abs(y);
     while (y > zero) {
         const q = x / y;
         const r = x - q * y;
@@ -237,8 +242,17 @@ export function greatestCommonDivisor(x: bigint, y: bigint): bigint {
     return x;
 }
 
+// Number of bits in the binary representation of x (x must be positive)
+function bitLength(x: bigint): number {
+    const hex = x.toString(16);
+    return (hex.length - 1) * 4 + (32 - Math.clz32(fromHexCode(hex.charCodeAt(0))));
+}
+
 export function getBitLength(x: bigint): int64 {
-    return fromFloat64(x === zero ? 1 : log2(abs(x)) + 1);
+    if (x < zero) {
+        x = -x - one; // two's complement bit length excluding the sign bit
+    }
+    return x === zero ? zero : BigInt(bitLength(x));
 }
 
 export function log2(x: bigint): float64 {
@@ -274,7 +288,10 @@ export function log(x: bigint, base: float64): float64 {
 }
 
 export function ilog2(x: bigint): bigint {
-    return BigInt(log2(x));
+    if (x < zero) {
+        throw new Exception("Value must be non-negative.");
+    }
+    return x === zero ? zero : BigInt(bitLength(x) - 1);
 }
 
 // export function copySign
@@ -305,35 +322,20 @@ function fromHexCode(code: number): number {
 
 function toSignedBytes(x: bigint, isBigEndian: boolean): Uint8Array {
     const isNeg = x < 0n;
-    if (isNeg) {
-        const len = log2(-x);
-        const bits = len + (8 - len % 8);
-        const pow2 = (1n << BigInt(bits));
-        x = x + pow2; // two's complement
+    const sentinel = isNeg ? -1n : 0n;
+    const bytes: number[] = []; // little-endian
+    do {
+        bytes.push(Number(BigInt.asUintN(8, x)));
+        x = x >> 8n;
+    } while (x !== sentinel);
+    // extra byte if the top byte's sign bit would misrepresent the sign
+    if (isNeg !== (bytes[bytes.length - 1] > 127)) {
+        bytes.push(isNeg ? 255 : 0);
     }
-    const hex = x.toString(16);
-    const len = hex.length;
-    const odd = len % 2;
-    const first = hex.charCodeAt(0);
-    const isLow = 48 <= first && first <= 55; // 0..7
-    const start = (isNeg && isLow) || (!isNeg && !isLow) ? 1 : 0;
-    const bytes = new Uint8Array(start + (len + odd) / 2);
-    const inc = isBigEndian ? 1 : -1;
-    let pos = isBigEndian ? 0 : bytes.length - 1;
-    if (start > 0) {
-        bytes[pos] = isNeg ? 255 : 0;
-        pos += inc;
+    if (isBigEndian) {
+        bytes.reverse();
     }
-    if (odd > 0) {
-        bytes[pos] = fromHexCode(first);
-        pos += inc;
-    }
-    for (let i = odd; i < len; i += 2, pos += inc) {
-        const a = fromHexCode(hex.charCodeAt(i));
-        const b = fromHexCode(hex.charCodeAt(i + 1));
-        bytes[pos] = (a << 4) | b;
-    }
-    return bytes;
+    return new Uint8Array(bytes);
 }
 
 function fromSignedBytes(bytes: ArrayLike<uint8>, isBigEndian: boolean) {

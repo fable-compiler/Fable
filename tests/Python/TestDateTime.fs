@@ -542,19 +542,57 @@ let ``test DateTime.ToString("t") (lower) works`` () =
 
 [<Fact>]
 let ``test DateTime.ToString with Round-trip format works for Utc`` () =
-    let str = DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("O")
-    // FIXME: missing regex module
-    // System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
-    // Hardcode the replace string so we can test that "O" format is supported
-    str.Replace("0000000Z", "000000Z")
-    |> equal "2014-09-11T16:37:02.000000Z"
+    DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("O")
+    |> equal "2014-09-11T16:37:02.0000000Z"
 
-    let str = DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("o")
-    // FIXME: missing regex module
-    // System.Text.RegularExpressions.Regex.Replace(str, "0{3,}", "000")
-    // Hardcode the replace string so we can test that "O" format is supported
-    str.Replace("0000000Z", "000000Z")
-    |> equal "2014-09-11T16:37:02.000000Z"
+    DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Utc).ToString("o")
+    |> equal "2014-09-11T16:37:02.0000000Z"
+
+[<Fact>]
+let ``test DateTime.ToString with Round-trip format works for Unspecified`` () =
+    // The round-trip format must depend only on the value: an Unspecified
+    // DateTime carries no offset, so none is printed whatever the host timezone.
+    DateTime(2014, 9, 11, 16, 37, 2).ToString("O")
+    |> equal "2014-09-11T16:37:02.0000000"
+
+    DateTime(2014, 9, 11, 16, 37, 2, 345).ToString("o")
+    |> equal "2014-09-11T16:37:02.3450000"
+
+[<Fact>]
+let ``test DateTime.ToString with Round-trip format works for Local`` () =
+    // A Local DateTime prints its own offset, which follows the host timezone,
+    // so only the machine-independent part can be asserted literally.
+    let str = DateTime(2014, 9, 11, 16, 37, 2, DateTimeKind.Local).ToString("O")
+    str.Substring(0, 27) |> equal "2014-09-11T16:37:02.0000000"
+    str.Length |> equal 33
+    let sign = str.[27]
+    (sign = '+' || sign = '-') |> equal true
+    str.[30] |> equal ':'
+
+[<Fact>]
+let ``test DateTime.ToString with Round-trip format pads the fraction to 7 digits`` () =
+    // Sub-millisecond digits are padded on the right, not truncated.
+    DateTime(2014, 9, 11, 16, 37, 2, 345, DateTimeKind.Utc).ToString("O")
+    |> equal "2014-09-11T16:37:02.3450000Z"
+
+    DateTime(2014, 9, 11, 16, 37, 2, 345, 678, DateTimeKind.Utc).ToString("O")
+    |> equal "2014-09-11T16:37:02.3456780Z"
+
+[<Fact>]
+let ``test DateTime.ToString with Round-trip format round-trips the instant`` () =
+    let roundtrips (d: DateTime) =
+        let parsed = DateTime.Parse(d.ToString("O"), CultureInfo.InvariantCulture)
+        parsed.ToUniversalTime() |> equal (d.ToUniversalTime())
+
+    roundtrips (DateTime(2014, 9, 11, 16, 37, 2, 345))
+    roundtrips (DateTime(2014, 9, 11, 16, 37, 2, 345, DateTimeKind.Utc))
+    roundtrips (DateTime(2014, 9, 11, 16, 37, 2, 345, DateTimeKind.Local))
+
+    // An Unspecified value has no offset to interpret, so its Kind survives too
+    let unspecified = DateTime(2014, 9, 11, 16, 37, 2, 345)
+    let parsed = DateTime.Parse(unspecified.ToString("O"), CultureInfo.InvariantCulture)
+    parsed.Kind |> equal DateTimeKind.Unspecified
+    parsed |> equal unspecified
 
 [<Fact>]
 let ``test DateTime.ToString("R") works`` () =

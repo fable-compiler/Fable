@@ -47,9 +47,18 @@ let handle (args: string list) =
     Publish.publishNuget ProjectDir.fableCli false
     Publish.publishNuget ProjectDir.fablePublishUtils false
 
-    CompilerJs.handle []
-
+    // Build and publish fable-standalone before running CompilerJs.handle.
+    // The release commit bumps fable-compiler-js's dependency on fable-standalone
+    // to the new version before that version is on npm.
+    Standalone.handle []
     Publish.publishNpm ProjectDir.fable_standalone
+
+    // Give npm some time to make the new fable-standalone version available
+    // before CompilerJs.handle tries to install it.
+    System.Threading.Thread.Sleep(System.TimeSpan.FromSeconds(15.))
+
+    CompilerJs.handle [ "--skip-fable-standalone" ]
+
     Publish.publishNpm ProjectDir.fable_compiler_js
 
 

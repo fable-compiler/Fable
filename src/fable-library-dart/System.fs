@@ -64,25 +64,28 @@ type TimeoutException(message: string) =
     inherit Exception(message)
     new() = TimeoutException(SR.Arg_TimeoutException)
 
-type ArgumentException(message: string, paramName: string) =
+type ArgumentException(message: string, paramName: string, innerException: exn) =
     inherit
         Exception(
-            if System.String.IsNullOrEmpty(paramName) then
-                message
-            else
-                message + SR.Arg_ParamName_Name + paramName + "')"
+            (if System.String.IsNullOrEmpty(paramName) then
+                 message
+             else
+                 message + SR.Arg_ParamName_Name + paramName + "')"),
+            innerException
         )
 
-    new() = ArgumentException(SR.Arg_ArgumentException, "")
-    new(message) = ArgumentException(message, "")
+    new() = ArgumentException(SR.Arg_ArgumentException, "", null)
+    new(message) = ArgumentException(message, "", null)
+    new(message: string, paramName: string) = ArgumentException(message, paramName, null)
+    new(message: string, innerException: exn) = ArgumentException(message, "", innerException)
     member _.ParamName = paramName
 
 type ArgumentNullException(paramName: string, message: string) =
-    inherit ArgumentException(message, paramName)
+    inherit ArgumentException(message, paramName, null)
     new(paramName) = ArgumentNullException(paramName, SR.ArgumentNull_Generic)
     new() = ArgumentNullException("")
 
 type ArgumentOutOfRangeException(paramName: string, message: string) =
-    inherit ArgumentException(message, paramName)
+    inherit ArgumentException(message, paramName, null)
     new(paramName) = ArgumentOutOfRangeException(paramName, SR.Arg_ArgumentOutOfRangeException)
     new() = ArgumentOutOfRangeException("")

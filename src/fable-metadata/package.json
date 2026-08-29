@@ -1,7 +1,7 @@
 {
     "name": "@fable-org/fable-metadata",
     "private": false,
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "Assemblies needed to compile F# projects with Fable",
     "main": "index.js",
     "type": "module",
@@ -18,6 +18,10 @@
     ],
     "author": ".NET Foundation and Contributors",
     "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/fable-compiler/Fable.git"
+    },
     "dependencies": {
         "dirname-filename-esm": "^1.1.1"
     }

@@ -80,9 +80,19 @@ export interface ICollection<T> extends IEnumerable<T> {
 export class Exception {
   public message: string;
   public stack?: string;
+  // Typed non-nullable to match how Fable models .NET reference types: nullability
+  // annotations are erased, so consumers (and `get_InnerException`) see `Exception`.
+  // At runtime this is `undefined` when no inner exception was provided, just like
+  // a `defaultOf()` value, which is fine for code that reads `.InnerException`.
+  public innerException!: Exception;
 
-  constructor(msg?: string) {
+  constructor(msg?: string, innerException?: Exception) {
     this.message = msg ?? "";
+    this.innerException = innerException as Exception;
+  }
+
+  toString() {
+    return this.message;
   }
 }
 
@@ -554,7 +564,12 @@ export function compareDates(x: Date | IDateTime | IDateTimeOffset, y: Date | ID
 }
 
 export function comparePrimitives<T>(x: T, y: T): number {
-  return x === y ? 0 : (x < y ? -1 : 1);
+  if (x === y) { return 0; }
+  if (x < y) { return -1; }
+  if (x > y) { return 1; }
+  // Neither equal nor ordered: at least one operand is NaN.
+  // Match .NET Double.CompareTo: NaN equals NaN and is less than any other value.
+  return Number.isNaN(x as unknown) ? (Number.isNaN(y as unknown) ? 0 : -1) : 1;
 }
 
 export function compareArraysWith<T>(x: ArrayLike<T>, y: ArrayLike<T>, comp: (x: T, y: T) => number): number {
@@ -606,7 +621,7 @@ export function compare<T>(x: T, y: T): number {
   } else if (isArrayLike(x)) {
     return isArrayLike(y) ? compareArrays(x, y) : -1;
   } else if (typeof x !== "object") {
-    return x < y ? -1 : 1;
+    return comparePrimitives(x, y);
   } else if (x instanceof Date) {
     return y instanceof Date ? compareDates(x, y) : -1;
   } else {

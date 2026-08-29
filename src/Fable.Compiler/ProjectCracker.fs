@@ -32,11 +32,14 @@ type CacheInfo =
         FSharpOptions: string array
         References: string list
         OutDir: string option
+        FableLib: string option
         FableLibDir: string
         FableModulesDir: string
         OutputType: OutputType
         TargetFramework: string option
+        Configuration: string
         Exclude: string list
+        Replace: Map<string, string>
         SourceMaps: bool
         SourceMapsRoot: string option
         TreatWarningsAsErrors: bool
@@ -80,7 +83,10 @@ type CacheInfo =
 let getFableModulesFromDir (baseDir: string) : string =
     IO.Path.Combine(baseDir, Naming.fableModules) |> Path.normalizePath
 
-let getFableModulesFromProject (projDir: string, outDir: string option, noCache: bool, evaluateOnly: bool) : string =
+let getFableModulesFromProject
+    (projDir: string, outDir: string option, noCache: bool, noGitignore: bool, evaluateOnly: bool)
+    : string
+    =
     let fableModulesDir =
         outDir |> Option.defaultWith (fun () -> projDir) |> getFableModulesFromDir
 
@@ -95,7 +101,8 @@ let getFableModulesFromProject (projDir: string, outDir: string option, noCache:
     if File.isDirectoryEmpty fableModulesDir then
         IO.Directory.CreateDirectory(fableModulesDir) |> ignore
 
-        IO.File.WriteAllText(IO.Path.Combine(fableModulesDir, ".gitignore"), "**/*")
+        if not noGitignore then
+            IO.File.WriteAllText(IO.Path.Combine(fableModulesDir, ".gitignore"), "**/*")
 
     fableModulesDir
 
@@ -103,7 +110,7 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
     let projDir = IO.Path.GetDirectoryName cliArgs.ProjectFile
 
     let fableModulesDir =
-        getFableModulesFromProject (projDir, cliArgs.OutDir, cliArgs.NoCache, evaluateOnly)
+        getFableModulesFromProject (projDir, cliArgs.OutDir, cliArgs.NoCache, cliArgs.NoGitignore, evaluateOnly)
 
     let builtDlls = HashSet()
 
@@ -157,7 +164,8 @@ type CrackerOptions(cliArgs: CliArgs, evaluateOnly: bool) =
 
         IO.Directory.CreateDirectory(fableModulesDir) |> ignore
 
-        IO.File.WriteAllText(IO.Path.Combine(fableModulesDir, ".gitignore"), "**/*")
+        if not cliArgs.NoGitignore then
+            IO.File.WriteAllText(IO.Path.Combine(fableModulesDir, ".gitignore"), "**/*")
 
 type CrackerResponse =
     {
@@ -706,7 +714,7 @@ let getFableLibraryPath (opts: CrackerOptions) (shouldCopy: bool) =
                 |}
             |> Option.defaultWith (fun () ->
                 Fable.FableError
-                    $"Cannot find [temp/]{buildDir} from {baseDir}.\nPlease, make sure you build {buildDir}"
+                    $"Cannot find [temp/]%s{buildDir} from %s{baseDir}.\nPlease, make sure you build %s{buildDir}"
                 |> raise
             )
 
@@ -762,7 +770,7 @@ let copyFableLibraryAndPackageSourcesPy (opts: CrackerOptions) (pkgs: FablePacka
     getFableLibraryPath opts shouldCopy, pkgRefs
 
 // See #1455: F# compiler generates *.AssemblyInfo.fs in obj folder, but we don't need it
-let removeFilesInObjFolder (sourceFiles: string[]) =
+let removeFilesInObjFolder (sourceFiles: string array) =
     let reg = Regex(@"[\\\/]obj[\\\/]")
     sourceFiles |> Array.filter (reg.IsMatch >> not)
 
@@ -786,7 +794,7 @@ let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
         // Check if precompiled compiler version and options match
         if info.CompilerVersion <> Literals.VERSION then
             Fable.FableError(
-                $"Library was precompiled using Fable v{info.CompilerVersion} but you're using v{Literals.VERSION}. Please use same version."
+                $"Library was precompiled using Fable v%s{info.CompilerVersion} but you're using v%s{Literals.VERSION}. Please use same version."
             )
             |> raise
 
@@ -816,7 +824,7 @@ let loadPrecompiledInfo (opts: CrackerOptions) otherOptions sourceFiles =
                         |> List.map (fun f -> "    " + File.relPathToCurDir f)
                         |> String.concat Log.newLine
                     // TODO: This should likely be an error but make it a warning for now
-                    Log.warning ($"Detected outdated files in precompiled lib:{Log.newLine}{outdated}")
+                    Log.warning ($"Detected outdated files in precompiled lib:%s{Log.newLine}%s{outdated}")
         with er ->
             Log.warning ("Cannot check timestamp of precompiled files: " + er.Message)
 
@@ -849,7 +857,7 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
                 if not isOlder then
                     Log.verbose (
                         lazy
-                            $"Cached project info ({cacheTimestamp}) will be discarded because {File.relPathToCurDir filePath} ({fileTimestamp}) is newer"
+                            $"Cached project info (%O{cacheTimestamp}) will be discarded because %s{File.relPathToCurDir filePath} (%O{fileTimestamp}) is newer"
                     )
 
                 isOlder
@@ -857,6 +865,13 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
             cacheInfo.Version = Literals.VERSION
             && cacheInfo.Exclude = opts.Exclude
             && cacheInfo.FableOptions.Language = opts.FableOptions.Language
+            // Defines are compared as a set because their ordering is not significant.
+            && Set.ofList cacheInfo.FableOptions.Define = Set.ofList opts.FableOptions.Define
+            && cacheInfo.Configuration = opts.Configuration
+            // The cache lives in the out dir, so another project can point at it
+            && cacheInfo.ProjectPath = opts.ProjFile
+            && cacheInfo.FableLib = opts.FableLib
+            && cacheInfo.Replace = opts.Replace
             && ([ cacheInfo.ProjectPath; yield! cacheInfo.References ]
                 |> List.forall (fun fsproj ->
                     if IO.File.Exists(fsproj) && isOlderThanCache fsproj then
@@ -911,7 +926,7 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
                                 else
                                     "Debug"
 
-                            $"Won't reuse compiled files because last compilation was for {otherMode} mode"
+                            $"Won't reuse compiled files because last compilation was for %s{otherMode} mode"
                     )
 
                 isMostRecent
@@ -1030,6 +1045,7 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
             {
                 Version = Literals.VERSION
                 OutDir = opts.OutDir
+                FableLib = opts.FableLib
                 FableLibDir = fableLibDir
                 FableModulesDir = opts.FableModulesDir
                 FableOptions = opts.FableOptions
@@ -1039,7 +1055,9 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
                 References = projRefs
                 OutputType = outputType
                 TargetFramework = mainProj.TargetFramework
+                Configuration = opts.Configuration
                 Exclude = opts.Exclude
+                Replace = opts.Replace
                 SourceMaps = opts.SourceMaps
                 SourceMapsRoot = opts.SourceMapsRoot
                 TreatWarningsAsErrors = mainProj.TreatWarningsAsErrors

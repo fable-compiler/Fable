@@ -166,3 +166,53 @@ def test_array_initialize():
     # Initialize with empty array (count = 0)
     empty_array = array.initialize(0, lambda i: int32(i))
     assert len(empty_array) == 0
+
+
+def test_create_specializes_plain_int_and_float():
+    """Plain `int`/`float` are the representations of Int32/Float64.
+
+    Element storage is inferred from the sample value, so if inference misses a
+    representation the array silently degrades to boxed `Generic` storage. Assert
+    the storage kind, not just the values, or that regression is invisible.
+    """
+    assert array.create(3, 5).storage_type == "Int32"
+    assert array.create(3, 2.5).storage_type == "Float64"
+
+    # bool subclasses int but must keep its own storage
+    assert array.create(3, True).storage_type == "Bool"
+
+    # the wrapper types keep specializing as before
+    assert array.create(3, int32(5)).storage_type == "Int32"
+    assert array.create(3, float64(2.5)).storage_type == "Float64"
+    assert array.create(3, byte(5)).storage_type == "UInt8"
+    assert array.create(3, int64(5)).storage_type == "Int64"
+
+    # anything that does not fit falls back to boxed storage
+    assert array.create(3, 2**40).storage_type == "Generic"
+    assert array.create(3, "x").storage_type == "Generic"
+
+
+def test_array_subscript_accepts_builtin_types():
+    assert array.FSharpArray[int].__name__ == "Int32Array"
+    assert array.FSharpArray[float].__name__ == "Float64Array"
+    # the existing spellings keep working
+    assert array.FSharpArray[int32].__name__ == "Int32Array"
+    assert array.FSharpArray[float64].__name__ == "Float64Array"
+    assert array.FSharpArray[byte].__name__ == "UInt8Array"
+
+
+def test_fill_and_insert_accept_plain_values():
+    """Typed storage accepts a plain int/float as well as the wrapper."""
+    xs = array.create(3, int32(0))
+    xs.fill(0, 3, 7)
+    assert list(xs) == [7, 7, 7]
+    assert xs.storage_type == "Int32"
+
+    xs.insert(0, 9)
+    assert list(xs) == [9, 7, 7, 7]
+    assert xs.storage_type == "Int32"
+
+    ys = array.create(2, float64(0.0))
+    ys.fill(0, 2, 1.5)
+    assert list(ys) == [1.5, 1.5]
+    assert ys.storage_type == "Float64"

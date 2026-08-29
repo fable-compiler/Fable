@@ -25,6 +25,34 @@ let ``test for loop with zero iterations works`` () =
     count |> equal 0
 
 [<Fact>]
+let ``test for-in descending range with -1 step works`` () =
+    let mutable result = ""
+    for i in 3 .. -1 .. 1 do
+        result <- result + string i
+    result |> equal "321"
+
+[<Fact>]
+let ``test for-in ascending range with 1 step works`` () =
+    let mutable sum = 0
+    for i in 1 .. 1 .. 5 do
+        sum <- sum + i
+    sum |> equal 15
+
+[<Fact>]
+let ``test for-in const-step range with zero iterations works`` () =
+    let mutable count = 0
+    for _i in 0 .. -1 .. 5 do
+        count <- count + 1
+    count |> equal 0
+
+[<Fact>]
+let ``test for-in step range other than one still works`` () =
+    let mutable result = ""
+    for i in 9 .. -2 .. 0 do
+        result <- result + string i
+    result |> equal "97531"
+
+[<Fact>]
 let ``test for loop single iteration works`` () =
     let mutable value = 0
     for i = 5 to 5 do

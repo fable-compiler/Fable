@@ -154,7 +154,60 @@ let makeCompiler fableLibrary typedArrays language fsharpOptions project fileNam
 
     CompilerImpl(fileName, project, options, fableLibrary)
 
-let makeProject (projectOptions: FSharpProjectOptions) (checkResults: FSharpCheckProjectResults) =
+/// `fable precompile` sorts inline expressions by member name, splits them into chunks and records
+/// the first name of each, so the chunk holding a name is the last header not sorting after it.
+let private findInlineExprsChunk (headers: string[]) (memberUniqueName: string) =
+    let mutable low = 0
+    let mutable high = headers.Length - 1
+    let mutable found = -1
+
+    while low <= high do
+        let mid = (low + high) / 2
+
+        if String.CompareOrdinal(headers[mid], memberUniqueName) <= 0 then
+            found <- mid
+            low <- mid + 1
+        else
+            high <- mid - 1
+
+    found
+
+let private toCompilerPrecompiledInfo (info: IPrecompiledInfo) =
+    let decodedChunks =
+        Collections.Generic.Dictionary<int, Map<string, Fable.InlineExpr>>()
+
+    { new PrecompiledInfo with
+        member _.DllPath = info.DllPath
+
+        member _.TryGetRootModule(normalizedFullPath) =
+            info.TryGetRootModule(normalizedFullPath)
+
+        member _.TryGetInlineExpr(memberUniqueName) =
+            match findInlineExprsChunk info.InlineExprHeaders memberUniqueName with
+            | -1 -> None
+            | index ->
+                let chunk =
+                    match decodedChunks.TryGetValue(index) with
+                    | true, chunk -> chunk
+                    | false, _ ->
+                        let chunk =
+                            match Fable.BrowserInlineExprs.fromString (info.ReadInlineExprsChunk index) with
+                            | Ok exprs -> Map.ofArray exprs
+                            | Error error ->
+                                failwith
+                                    $"Cannot read the precompiled library's inline expressions (chunk %d{index}): %s{error}"
+
+                        decodedChunks[index] <- chunk
+                        chunk
+
+                Map.tryFind memberUniqueName chunk
+    }
+
+let makeProject
+    (projectOptions: FSharpProjectOptions)
+    (checkResults: FSharpCheckProjectResults)
+    (precompiledInfo: IPrecompiledInfo option)
+    =
     // let errors = com.GetFormattedLogs() |> Map.tryFind "error"
     // if errors.IsSome then failwith (errors.Value |> String.concat "\n")
     let optimize = projectOptions.OtherOptions |> Array.exists ((=) "--optimize+")
@@ -172,15 +225,23 @@ let makeProject (projectOptions: FSharpProjectOptions) (checkResults: FSharpChec
         projectOptions,
         implFiles,
         checkResults.ProjectContext.GetReferencedAssemblies(),
-        addLog
+        addLog,
+        ?precompiledInfo = (precompiledInfo |> Option.map toCompilerPrecompiledInfo)
     )
 
-let parseAndCheckProject (checker: InteractiveChecker) projectFileName fileNames sources otherFSharpOptions =
+let parseAndCheckProject
+    (checker: InteractiveChecker)
+    projectFileName
+    fileNames
+    sources
+    otherFSharpOptions
+    precompiledInfo
+    =
     let checkResults = checker.ParseAndCheckProject(projectFileName, fileNames, sources)
 
     let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
 
-    let project = lazy (makeProject projectOptions checkResults)
+    let project = lazy (makeProject projectOptions checkResults precompiledInfo)
     ParseAndCheckResults(project, None, None, checkResults, otherFSharpOptions)
 
 let parseAndCheckFileInProject
@@ -190,13 +251,14 @@ let parseAndCheckFileInProject
     fileNames
     sources
     otherFSharpOptions
+    precompiledInfo
     =
     let results, checkResults, projectResults =
         checker.ParseAndCheckFileInProject(fileName, projectFileName, fileNames, sources)
 
     let projectOptions = makeProjOptions projectFileName fileNames otherFSharpOptions
 
-    let project = lazy (makeProject projectOptions projectResults)
+    let project = lazy (makeProject projectOptions projectResults precompiledInfo)
 
     ParseAndCheckResults(project, Some results, Some checkResults, projectResults, otherFSharpOptions)
 
@@ -343,6 +405,12 @@ type RustResult(ast: Rust.AST.Types.Crate, errors) =
     interface IFableResult with
         member _.FableErrors = errors
 
+type BeamResult(ast: Fable.AST.Beam.ErlModule, errors) =
+    member _.Ast = ast
+
+    interface IFableResult with
+        member _.FableErrors = errors
+
 let transformToFableAst (com: Compiler) : Fable.File =
     let fileName = com.CurrentFile
 
@@ -379,7 +447,9 @@ let transformToTargetAst (com: CompilerImpl) (fableAst: Fable.File) : IFableResu
     | Rust ->
         let ast = Rust.Fable2Rust.Compiler.transformFile com fableAst
         upcast RustResult(ast, errors)
-    | Beam -> failwith "Beam target is not supported in the standalone compiler"
+    | Beam ->
+        let ast = Fable.Transforms.Beam.Compiler.transformFile com fableAst
+        upcast BeamResult(ast, errors)
 
 let compileToTargetAst (results: IParseAndCheckResults) fileName fableLibrary typedArrays language : IFableResult =
     let res = results :?> ParseAndCheckResults
@@ -415,6 +485,8 @@ let getLanguage (language: string) =
     | "dart" -> Dart
     | "rs"
     | "rust" -> Rust
+    | "beam"
+    | "erlang" -> Beam
     | _ -> failwithf "Unsupported language: %s" language
 
 let init () =
@@ -430,19 +502,29 @@ let init () =
             let c = checker :?> CheckerImpl
             c.Checker.ClearCache()
 
-        member _.ParseAndCheckProject(checker, projectFileName, fileNames, sources, ?otherFSharpOptions) =
-            let c = checker :?> CheckerImpl
-            let otherFSharpOptions = defaultArg otherFSharpOptions [||]
-
-            parseAndCheckProject c.Checker projectFileName fileNames sources otherFSharpOptions :> IParseAndCheckResults
-
-        member _.ParseAndCheckFileInProject
-            (checker, fileName, projectFileName, fileNames, sources, ?otherFSharpOptions)
+        member _.ParseAndCheckProject
+            (checker, projectFileName, fileNames, sources, ?otherFSharpOptions, ?precompiledInfo)
             =
             let c = checker :?> CheckerImpl
             let otherFSharpOptions = defaultArg otherFSharpOptions [||]
 
-            parseAndCheckFileInProject c.Checker fileName projectFileName fileNames sources otherFSharpOptions
+            parseAndCheckProject c.Checker projectFileName fileNames sources otherFSharpOptions precompiledInfo
+            :> IParseAndCheckResults
+
+        member _.ParseAndCheckFileInProject
+            (checker, fileName, projectFileName, fileNames, sources, ?otherFSharpOptions, ?precompiledInfo)
+            =
+            let c = checker :?> CheckerImpl
+            let otherFSharpOptions = defaultArg otherFSharpOptions [||]
+
+            parseAndCheckFileInProject
+                c.Checker
+                fileName
+                projectFileName
+                fileNames
+                sources
+                otherFSharpOptions
+                precompiledInfo
             :> IParseAndCheckResults
 
         member _.GetErrors(results: IParseAndCheckResults) = results.Errors
@@ -474,6 +556,7 @@ let init () =
             | :? PhpResult as php -> PhpPrinter.run writer php.Ast
             | :? PythonResult as python -> PythonPrinter.run writer python.Ast
             | :? RustResult as rust -> Rust.RustPrinter.run writer rust.Ast
+            | :? BeamResult as beam -> ErlangPrinter.run writer beam.Ast
             | _ -> failwith "Unexpected Fable result"
 
         member _.FSharpAstToString(results: IParseAndCheckResults, fileName: string) =

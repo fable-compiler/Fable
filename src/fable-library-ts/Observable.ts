@@ -1,6 +1,6 @@
 
 import { FSharpChoice$2_$union, Choice_tryValueIfChoice1Of2, Choice_tryValueIfChoice2Of2 } from "./Choice.ts";
-import { Option, value } from "./Option.ts";
+import { Option, some, value } from "./Option.ts";
 import { IDisposable } from "./Util.ts";
 
 export interface IObserver<T> {
@@ -56,7 +56,7 @@ export function choose<T, U>(chooser: (x: T) => Option<U>, source: IObservable<T
 }
 
 export function filter<T>(predicate: (x: T) => boolean, source: IObservable<T>): IObservable<T> {
-  return choose((x) => predicate(x) ? x : void 0, source);
+  return choose((x) => predicate(x) ? some(x) : undefined, source);
 }
 
 export function map<T, U>(mapping: (x: T) => U, source: IObservable<T>): IObservable<U> {
@@ -120,11 +120,13 @@ export function merge<T>(source1: IObservable<T>, source2: IObservable<T>): IObs
 export function pairwise<T>(source: IObservable<T>): IObservable<[T, T]> {
   return new Observable<[T, T]>((observer) => {
     let last: T;
+    let haveLast = false;
     return source.Subscribe(new Observer<T>((next) => {
-      if (last != null) {
+      if (haveLast) {
         observer.OnNext([last, next]);
       }
       last = next;
+      haveLast = true;
     }, observer.OnError, observer.OnCompleted));
   });
 }

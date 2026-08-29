@@ -509,7 +509,7 @@ function dateToString_Y(date: IDateTime) {
 function dateToStringWithKind(date: IDateTime, format?: string) {
   const utc = date.kind === DateTimeKind.Utc;
   if (typeof format !== "string") {
-    return utc ? date.toUTCString() : date.toLocaleString();
+    return dateToString_d(date) + " " + dateToString_T(date);
   } else if (format.length === 1) {
     switch (format) {
       case "D": return dateToString_D(date);
@@ -590,12 +590,28 @@ export function maxValue() {
   return DateTime(253402300799999, DateTimeKind.Utc);
 }
 
+// The only date words .NET's invariant parser recognises: month names, weekday names,
+// meridiem designators and zone markers (plus the ISO "T" separator). Anything else is
+// rejected. Used to reject JS-permissive inputs (see `parseRaw`).
+const recognizedDateWords = new Set([
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+  "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec",
+  "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+  "mon", "tue", "wed", "thu", "fri", "sat", "sun",
+  "am", "pm", "gmt", "utc", "ut", "t", "z",
+]);
+
 export function parseRaw(input: string): [Date, Offset] {
   function fail() {
     throw new Exception(`The string is not a valid Date: ${input}`);
   }
 
   if (input == null || input.trim() === "") {
+    fail();
+  }
+
+  if ((input.match(/[a-z]+/gi) ?? []).some(word => !recognizedDateWords.has(word.toLowerCase()))) {
     fail();
   }
 
@@ -620,7 +636,9 @@ export function parseRaw(input: string): [Date, Offset] {
           parseInt(timeParts[1] || "0", 10) * 60 +
           parseFloat(timeParts[2] || "0");
         if (m[3] != null && m[3].toUpperCase() === "PM" && hourPart < 12) {
-          timeInSeconds += 720;
+          timeInSeconds += 12 * 3600;
+        } else if (m[3] != null && m[3].toUpperCase() === "AM" && hourPart === 12) {
+          timeInSeconds -= 12 * 3600;
         }
       }
       if (m[4] != null) { // There's an offset, parse as UTC
@@ -838,18 +856,9 @@ export function addYears(d: IDateTime, v: number) {
 }
 
 export function addMonths(d: IDateTime, v: number) {
-  let newMonth = month(d) + v;
-  let newMonth_ = 0;
-  let yearOffset = 0;
-  if (newMonth > 12) {
-    newMonth_ = newMonth % 12;
-    yearOffset = Math.floor(newMonth / 12);
-    newMonth = newMonth_;
-  } else if (newMonth < 1) {
-    newMonth_ = 12 + newMonth % 12;
-    yearOffset = Math.floor(newMonth / 12) + (newMonth_ === 12 ? -1 : 0);
-    newMonth = newMonth_;
-  }
+  const totalMonths = month(d) + v;
+  const newMonth = ((totalMonths - 1) % 12 + 12) % 12 + 1;
+  const yearOffset = Math.floor((totalMonths - 1) / 12);
   const newYear = year(d) + yearOffset;
   const _daysInMonth = daysInMonth(newYear, newMonth);
   const newDay = Math.min(_daysInMonth, day(d));

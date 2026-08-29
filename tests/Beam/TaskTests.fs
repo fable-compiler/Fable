@@ -74,3 +74,17 @@ let ``test task sequential composition works`` () =
         return a + b
     }
     tsk.Result |> equal 3
+
+[<Fact>]
+let ``test Async.AwaitTask works`` () =
+    let t = task { return 1 }
+    t |> Async.AwaitTask |> Async.RunSynchronously |> equal 1
+
+[<Fact>]
+let ``test Async.AwaitTask works inside async CE`` () =
+    let comp = async {
+        let! x = task { return 10 } |> Async.AwaitTask
+        let! y = task { return 20 } |> Async.AwaitTask
+        return x + y
+    }
+    comp |> Async.RunSynchronously |> equal 30

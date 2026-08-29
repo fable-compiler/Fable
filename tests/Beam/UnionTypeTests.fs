@@ -37,6 +37,8 @@ type StructPoint2D =
 type WrappedUnion =
     | AString of string
 
+type T1 = T1
+
 type DeepRecord = { Value: string }
 
 type DeepWrappedUnion =
@@ -339,3 +341,18 @@ let ``test Match with condition works`` () =
     let b2 = DeepWrappedB "not"
     b1 |> matchStringWhenNotHello |> equal "hello"
     b2 |> matchStringWhenNotHello |> equal "not hello"
+
+[<Fact>]
+let ``test Union cases with no fields are physically equal`` () =
+    // Nullary cases compile to plain atoms, which the BEAM VM interns, so this matches fsc.
+    obj.ReferenceEquals(Male, Male) |> equal true
+    obj.ReferenceEquals(Male, Female) |> equal false
+    obj.ReferenceEquals(Case0, Case0) |> equal true
+    obj.ReferenceEquals(T1, T1) |> equal true
+#if FABLE_COMPILER
+    // Unlike fsc, Erlang has no reference identity for compound terms (only atoms are
+    // interned), so `=:=` here is structural equality, unlike .NET reference equality.
+    obj.ReferenceEquals(Case1 "a", Case1 "a") |> equal true
+#else
+    obj.ReferenceEquals(Case1 "a", Case1 "a") |> equal false
+#endif

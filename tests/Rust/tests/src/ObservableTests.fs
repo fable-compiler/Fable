@@ -9,18 +9,65 @@ type MyObserver<'T>(f) =
         member x.OnError e = ()
         member x.OnCompleted() = ()
 
+type ErrorObserver(onError: exn -> unit) =
+    interface IObserver<int> with
+        member _.OnNext _ = ()
+        member _.OnError error = onError error
+        member _.OnCompleted() = ()
+
+type CountingObserver(onNext: unit -> unit, onError: exn -> unit, onCompleted: unit -> unit) =
+    interface IObserver<int> with
+        member _.OnNext _ = onNext ()
+        member _.OnError error = onError error
+        member _.OnCompleted() = onCompleted ()
+
+// NOTE: This mirrors the JS/TS/Python reference `MyObservable`, adapted for one
+// Rust-backend limitation (the runtime combinators themselves are unaffected):
+// Subscriptions are keyed by an int id and removed by id, rather than
+//     `listeners.Remove(w)`: interface trait objects (`IObserver<'T>`) do not
+//     implement Rust `PartialEq`, so removal-by-value of an interface element is
+//     not supported. Behaviour is identical to the reference.
+
 type MyObservable<'T>() =
-    let listeners = ResizeArray<IObserver<'T>>()
+    let listeners = ResizeArray<int * IObserver<'T>>()
+    let mutable nextId = 0
     member x.Trigger v =
-        for lis in listeners do
+        for (_, lis) in listeners do
             lis.OnNext v
+    member x.TriggerError error =
+        for (_, lis) in listeners do
+            lis.OnError error
+    member x.TriggerCompleted() =
+        for (_, lis) in listeners do
+            lis.OnCompleted()
     interface IObservable<'T> with
         member x.Subscribe w =
-            listeners.Add(w)
+            let id = nextId
+            nextId <- nextId + 1
+            listeners.Add((id, w))
             { new IDisposable with
-                member x.Dispose() = listeners.Remove(w) |> ignore }
+                member _.Dispose() =
+                    let idx = listeners.FindIndex(fun (i, _) -> i = id)
+                    if idx >= 0 then listeners.RemoveAt(idx) }
 
 module tests =
+
+    let assertMatchesDotNetAfterCallbackError (source: MyObservable<int>) (observable: IObservable<int>) =
+        let mutable next = 0
+        let mutable errors = 0
+        let mutable completed = 0
+        observable.Subscribe(CountingObserver(
+            (fun () -> next <- next + 1),
+            (fun _ -> errors <- errors + 1),
+            (fun () -> completed <- completed + 1)))
+        |> ignore
+        source.Trigger 1
+        source.Trigger 2
+        source.TriggerError (Exception "source")
+        source.TriggerCompleted()
+        equal 0 next
+        equal 3 errors
+        equal 0 completed
 
     [<Fact>]
     let ``IObservable.Subscribe works`` () =
@@ -62,6 +109,15 @@ module tests =
         source.Trigger (Choice1Of2 2)
         source.Trigger (Choice2Of2 3)
 
+#if !NO_STD_NO_EXCEPTIONS
+    [<Fact>]
+    let ``Observable.choose matches .NET after callback error`` () =
+        let source = MyObservable<int>()
+        let chosen: IObservable<int> =
+            Observable.choose (fun _ -> (failwith "boom" : int option)) source
+        assertMatchesDotNetAfterCallbackError source chosen
+#endif
+
     [<Fact>]
     let ``Observable.filter works`` () =
         let source = MyObservable()
@@ -76,6 +132,40 @@ module tests =
         Observable.map not source
         |> Observable.add (equal false)
         source.Trigger true
+
+#if !NO_STD_NO_EXCEPTIONS
+    [<Fact>]
+    let ``Observable.map matches .NET after callback error`` () =
+        let source = MyObservable<int>()
+        let mapped: IObservable<int> =
+            Observable.map (fun _ -> (failwith "boom" : int)) source
+        assertMatchesDotNetAfterCallbackError source mapped
+
+    [<Fact>]
+    let ``Observable.map forwards callback exceptions to OnError`` () =
+        let source = MyObservable()
+        let mutable errors = 0
+        let mapped = Observable.map (fun _ -> failwith "boom") source
+        mapped.Subscribe(ErrorObserver(fun _ -> errors <- errors + 1)) |> ignore
+        source.Trigger 1
+        equal 1 errors
+
+    [<Fact>]
+    let ``Observable.scan forwards collector exceptions to OnError`` () =
+        let source = MyObservable()
+        let mutable errors = 0
+        let scanned = Observable.scan (fun _ _ -> failwith "boom") 0 source
+        scanned.Subscribe(ErrorObserver(fun _ -> errors <- errors + 1)) |> ignore
+        source.Trigger 1
+        equal 1 errors
+
+    [<Fact>]
+    let ``Observable.scan matches .NET after collector error`` () =
+        let source = MyObservable<int>()
+        let scanned: IObservable<int> =
+            Observable.scan (fun _ _ -> (failwith "boom" : int)) 0 source
+        assertMatchesDotNetAfterCallbackError source scanned
+#endif
 
     [<Fact>]
     let ``Observable.merge works`` () =

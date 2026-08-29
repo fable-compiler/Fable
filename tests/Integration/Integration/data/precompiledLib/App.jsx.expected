@@ -1,0 +1,13 @@
+
+import { plain as plain_1 } from "./precompiled/Library.js";
+
+export const greeting = {
+    Greet(helpers) {
+        return helpers.Wrap("world");
+    },
+};
+
+export const doubled = 21 * 2;
+
+export const plain = plain_1(1);
+

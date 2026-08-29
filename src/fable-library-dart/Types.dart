@@ -7,7 +7,8 @@ final Expando<Object> _setComparerExpando = Expando<Object>('fable.setComparer')
 
 class ExceptionBase implements Exception {
   final String message;
-  const ExceptionBase([this.message = ""]);
+  final Object? innerException;
+  const ExceptionBase([this.message = "", this.innerException]);
 
   @override
   String toString() => this.message;

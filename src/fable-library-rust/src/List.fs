@@ -16,7 +16,7 @@ let inline indexNotFound () = failwith SR.keyNotFoundAlt
 
 let inline private getRoot xs = xs.root
 
-let private mkList root = { root = root }
+let inline private mkList root = { root = root }
 
 let inline private consNoTail (x: 'T) =
     Some

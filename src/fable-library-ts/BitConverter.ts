@@ -95,7 +95,7 @@ export function doubleToInt64Bits(value: float64): int64 {
 export function toBoolean(bytes: ArrayLike<uint8>, offset: int32): boolean {
   const array = ArrayBuffer.isView(bytes) ? bytes : Uint8Array.from(bytes);
   const view = new DataView(array.buffer, array.byteOffset, array.byteLength);
-  return view.getUint8(offset) === 1 ? true : false;
+  return view.getUint8(offset) !== 0;
 }
 
 export function toChar(bytes: ArrayLike<uint8>, offset: int32): char {
@@ -161,5 +161,5 @@ export function toString(bytes: ArrayLike<uint8>, offset?: int32, count?: int32)
   } else if (offset != null) {
     buffer = buffer.subarray(offset);
   }
-  return Array.from(buffer).map((b) => ("0" + b.toString(16)).slice(-2)).join("-");
+  return Array.from(buffer).map((b) => ("0" + b.toString(16)).slice(-2).toUpperCase()).join("-");
 }

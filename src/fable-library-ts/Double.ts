@@ -36,18 +36,20 @@ export function isInfinity(x: number) {
 }
 
 export function max(x: number, y: number): number {
-  return x > y ? x : y;
+  return Math.max(x, y);
 }
 
 export function min(x: number, y: number): number {
-  return x < y ? x : y;
+  return Math.min(x, y);
 }
 
 export function maxMagnitude(x: number, y: number): number {
+  if (Number.isNaN(x) || Number.isNaN(y)) { return NaN; }
   return Math.abs(x) > Math.abs(y) ? x : y;
 }
 
 export function minMagnitude(x: number, y: number): number {
+  if (Number.isNaN(x) || Number.isNaN(y)) { return NaN; }
   return Math.abs(x) < Math.abs(y) ? x : y;
 }
 

@@ -414,6 +414,40 @@ let tests =
             equal 0 resp
         }
 
+    testCaseAsync "MailboxProcessor delivers falsy messages in order" <| fun () -> // See #1588
+        async {
+            let mutable collected = []
+            let agent = MailboxProcessor<int>.Start(fun inbox ->
+                let rec loop () = async {
+                    let! msg = inbox.Receive()
+                    if msg = -1 then ()
+                    else
+                        collected <- msg :: collected
+                        return! loop ()
+                }
+                loop ())
+            for msg in [1; 0; 2; 0; 3] do
+                agent.Post(msg)
+            agent.Post(-1)
+            do! Async.Sleep 200
+            equal [1; 0; 2; 0; 3] (List.rev collected)
+        }
+
+    testCaseAsync "MailboxProcessor.postAndAsyncReply completes with unit reply" <| fun () ->
+        async {
+            let mutable ran = false
+            let agent = MailboxProcessor<AsyncReplyChannel<unit>>.Start(fun inbox ->
+                let rec loop () = async {
+                    let! chan = inbox.Receive()
+                    chan.Reply()
+                    return! loop ()
+                }
+                loop ())
+            do! agent.PostAndAsyncReply(fun ch -> ch)
+            ran <- true
+            equal true ran
+        }
+
     testCase "Async try .. with returns correctly from 'with' branch" <| fun () ->
         let work = async {
             try
@@ -628,5 +662,112 @@ let tests =
         async {
             let! res = parentWorkflow()
             equal 7 res
+        }
+
+    testCaseAsync "Async.AwaitEvent fires continuation when event is triggered" <| fun () ->
+        let ev = Event<int>()
+        Async.StartImmediate(async {
+            let! v = Async.AwaitEvent ev.Publish
+            equal 42 v
+        })
+        ev.Trigger(42)
+        async.Return()
+
+    testCaseAsync "Async.AwaitEvent with cancelAction invokes it on cancellation" <| fun () ->
+        let ev = Event<int>()
+        let cts = new System.Threading.CancellationTokenSource()
+        let mutable cancelCalled = false
+        Async.StartImmediate(async {
+            let! _ = Async.AwaitEvent(ev.Publish, fun () -> cancelCalled <- true)
+            ()
+        }, cts.Token)
+        cts.Cancel()
+        async { equal true cancelCalled }
+
+    testCase "Async try .. with does not run 'with' branch when body succeeds" <| fun () ->
+        let work = async {
+            try
+              return 1
+            with _ ->
+              return 99 }
+        let mutable result = 0
+        Async.StartWithContinuations(work, (fun r -> result <- r), ignore, ignore)
+        equal result 1
+
+    testCase "Exception thrown by the continuation is not redirected to the 'with' branch" <| fun () ->
+        let work = async {
+            try
+              return 1
+            with _ ->
+              return 99 }
+        let mutable calls = 0
+        throwsAnyError (fun () ->
+            Async.StartWithContinuations(
+                work,
+                (fun _ -> calls <- calls + 1; failwith "boom from continuation"),
+                ignore,
+                ignore))
+        equal 1 calls
+
+    testCaseAsync "Async.StartChild cancels the child when the parent's token is cancelled" <| fun () ->
+        async {
+            let mutable finallyRan = false
+            let mutable completed = false
+            let cts = new System.Threading.CancellationTokenSource()
+            let child = async {
+                try
+                    do! Async.Sleep 500
+                    completed <- true
+                finally
+                    finallyRan <- true
+            }
+            let parent = async {
+                let! childResult = Async.StartChild child
+                do! childResult
+            }
+            Async.StartImmediate(parent, cts.Token)
+            do! Async.Sleep 200
+            cts.Cancel()
+            do! Async.Sleep 600
+            equal true finallyRan
+            equal false completed
+        }
+
+    testCaseAsync "Async.Parallel children are cancelled when the parent's token is cancelled" <| fun () ->
+        async {
+            let mutable completed = 0
+            let cts = new System.Threading.CancellationTokenSource()
+            let mkChild () = async {
+                do! Async.Sleep 500
+                completed <- completed + 1
+            }
+            let work = async {
+                let! _ = Async.Parallel [ mkChild(); mkChild(); mkChild() ]
+                return ()
+            }
+            Async.StartImmediate(work, cts.Token)
+            do! Async.Sleep 200
+            cts.Cancel()
+            do! Async.Sleep 600
+            equal 0 completed
+        }
+
+    testCaseAsync "Async.Sequential children are cancelled when the parent's token is cancelled" <| fun () ->
+        async {
+            let mutable completed = 0
+            let cts = new System.Threading.CancellationTokenSource()
+            let mkChild () = async {
+                do! Async.Sleep 500
+                completed <- completed + 1
+            }
+            let work = async {
+                let! _ = Async.Sequential [ mkChild(); mkChild(); mkChild() ]
+                return ()
+            }
+            Async.StartImmediate(work, cts.Token)
+            do! Async.Sleep 200
+            cts.Cancel()
+            do! Async.Sleep 600
+            equal 0 completed
         }
   ]
