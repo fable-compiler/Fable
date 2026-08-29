@@ -12,6 +12,7 @@ open Fable
 open Fable.AST
 open Fable.Transforms
 open Fable.Transforms.State
+open Fable.Compiler
 open Fable.Compiler.ProjectCracker
 open Fable.Compiler.Util
 
@@ -87,35 +88,6 @@ module private Util =
         logs
         |> Seq.filter (fun log -> log.Severity = Severity.Error)
         |> Seq.iter (fun log -> Log.error (formatLog rootDir log))
-
-    let getFSharpDiagnostics (diagnostics: FSharpDiagnostic array) =
-        diagnostics
-        |> Array.map (fun er ->
-            let severity =
-                match er.Severity with
-                | FSharpDiagnosticSeverity.Hidden
-                | FSharpDiagnosticSeverity.Info -> Severity.Info
-                | FSharpDiagnosticSeverity.Warning -> Severity.Warning
-                | FSharpDiagnosticSeverity.Error -> Severity.Error
-
-            let range =
-                SourceLocation.Create(
-                    start =
-                        {
-                            line = er.StartLine
-                            column = er.StartColumn + 1
-                        },
-                    ``end`` =
-                        {
-                            line = er.EndLine
-                            column = er.EndColumn + 1
-                        }
-                )
-
-            let msg = $"%s{er.Message} (code %i{er.ErrorNumber})"
-
-            LogEntry.Make(severity, msg, fileName = er.FileName, range = range, tag = "FSHARP")
-        )
 
     let getOutPath (cliArgs: CliArgs) pathResolver file =
         match cliArgs.CompilerOptions.Language with
@@ -672,7 +644,7 @@ and FableCompiler(checker: InteractiveChecker, projCracked: ProjectCracked, fabl
 
                         let state =
                             { state with
-                                FSharpLogs = getFSharpDiagnostics results.Diagnostics
+                                FSharpLogs = CodeServices.getFSharpDiagnostics results.Diagnostics
                                 HasFSharpCompilationFinished = true
                             }
 
@@ -1590,7 +1562,7 @@ let private compilationCycle (state: State) (changes: ISet<string>) =
 
                             match result with
                             | Some ex ->
-                                getFSharpDiagnostics diagnostics |> logErrors cliArgs.RootDir
+                                CodeServices.getFSharpDiagnostics diagnostics |> logErrors cliArgs.RootDir
                                 Log.error (ex.Message)
                                 return 1
                             | None ->
