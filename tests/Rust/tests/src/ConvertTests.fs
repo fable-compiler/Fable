@@ -1584,3 +1584,29 @@ let ``System.Convert.ToFloat from bool works`` () =
     Convert.ToSingle(false) |> equal 0.f
     Convert.ToDouble(true) |> equal 1.
     Convert.ToDouble(false) |> equal 0.
+
+// The culture-taking overloads used to fail to compile: the provider was passed
+// on to runtime functions that have no parameter for it, so Decimal.Parse(s,
+// style, culture) reached a one-argument function and d.ToString(culture) put a
+// provider where the decimal belongs. Rust formatting and parsing are invariant,
+// which is what InvariantCulture asks for, so the argument is dropped.
+[<Fact>]
+let ``culture-taking overloads work`` () =
+    let d = 1234.5678M
+    d.ToString(System.Globalization.CultureInfo.InvariantCulture) |> equal "1234.5678"
+    d.ToString() |> equal "1234.5678"
+
+    System.Decimal.Parse(
+        "1234.5678",
+        System.Globalization.NumberStyles.Number,
+        System.Globalization.CultureInfo.InvariantCulture
+    )
+    |> equal 1234.5678M
+
+    System.Decimal.Parse("12.34", System.Globalization.CultureInfo.InvariantCulture)
+    |> equal 12.34M
+
+    System.DateTime
+        .Parse("2026-08-27T10:30:00.0000000", System.Globalization.CultureInfo.InvariantCulture)
+        .ToString("o")
+    |> equal "2026-08-27T10:30:00.0000000"

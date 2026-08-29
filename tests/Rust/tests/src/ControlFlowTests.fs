@@ -183,3 +183,52 @@ let ``two-switch or-pattern with obj binding works`` () =
     // exercises the getZeroObj placeholder for a `dyn Any` binding on the two-switch path
     orPatObj (OA(box 9)) :? int |> equal true
     orPatObj (OB(box 11)) :? string |> equal false
+
+// A try/with/finally lowers to closures on this target, but the Fable AST has no
+// Lambda there, so the capture walk did not treat those bodies as closure
+// contexts. A `let mutable` assigned in a finally block was emitted as a bare
+// MutCell and the closure mutated a clone, so the write was silently lost.
+//
+// The exception-free case runs everywhere; the ones below need a `with` that
+// actually catches, which no_std's try_catch does not do.
+[<Fact>]
+let ``a mutable assigned in a finally block keeps its value`` () =
+    let mutable ran = false
+
+    let message =
+        try
+            "body"
+        finally
+            ran <- true
+
+    ran |> equal true
+    message |> equal "body"
+
+#if !NO_STD_NO_EXCEPTIONS
+[<Fact>]
+let ``a mutable assigned in a finally block survives an exception`` () =
+    let mutable ran = false
+
+    let message =
+        try
+            try
+                failwith "inner"
+            finally
+                ran <- true
+        with ex ->
+            ex.Message
+
+    ran |> equal true
+    message |> equal "inner"
+
+[<Fact>]
+let ``a mutable assigned in a with handler keeps its value`` () =
+    let mutable ran = false
+
+    try
+        failwith "x"
+    with _ ->
+        ran <- true
+
+    ran |> equal true
+#endif
