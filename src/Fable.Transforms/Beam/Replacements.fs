@@ -5395,15 +5395,20 @@ let private getMangledNames (i: CallInfo) (thisArg: Expr option) =
     moduleName, mangledName
 
 let private bclType (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    let moduleName, mangledName = getMangledNames i thisArg
+    match i.CompiledName, thisArg, args with
+    | "ToString", Some callee, [] -> Helper.InstanceCall(callee, i.CompiledName, t, args, ?loc = r) |> Some
+    | "GetHashCode", Some callee, [] -> Helper.InstanceCall(callee, i.CompiledName, t, args, ?loc = r) |> Some
+    | "Equals", Some callee, [ other ] -> Helper.InstanceCall(callee, i.CompiledName, t, args, ?loc = r) |> Some
+    | _ ->
+        let moduleName, mangledName = getMangledNames i thisArg
 
-    let args =
-        match thisArg with
-        | Some callee -> callee :: args
-        | _ -> args
+        let args =
+            match thisArg with
+            | Some callee -> callee :: args
+            | _ -> args
 
-    Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
-    |> Some
+        Helper.LibCall(com, moduleName, mangledName, t, args, i.SignatureArgTypes, genArgs = i.GenericArgs, ?loc = r)
+        |> Some
 
 let tryType (_t: Type) = None
 
