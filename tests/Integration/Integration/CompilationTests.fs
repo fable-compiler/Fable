@@ -7,6 +7,46 @@ open Fable.Compiler.Util
 
 let private data = Path.Combine(__SOURCE_DIRECTORY__, "data")
 
+let private taskNetstandardPythonTest =
+    testCase "Python task expressions use the project's netstandard FSharp.Core" <| fun () ->
+        let testCaseDir = Path.Combine(__SOURCE_DIRECTORY__, "fixtures", "taskNetstandardPython")
+        let project = Path.Combine(testCaseDir, "taskNetstandardPython.fsproj")
+        let outputDir = Path.Combine(testCaseDir, "out")
+
+        if Directory.Exists outputDir then
+            Directory.Delete(outputDir, true)
+
+        let configuration =
+            System.Reflection.Assembly.GetExecutingAssembly().Location
+            |> Path.GetDirectoryName
+            |> Directory.GetParent
+            |> _.Name
+
+        let compiler =
+            Path.GetFullPath(
+                Path.Combine(__SOURCE_DIRECTORY__, $"../../../src/Fable.Cli/bin/%s{configuration}/net10.0/fable.dll")
+            )
+
+        let exitCode =
+            Process.runSync
+                testCaseDir
+                "dotnet"
+                [ compiler
+                  project
+                  "--cwd"
+                  testCaseDir
+                  "--lang"
+                  "Python"
+                  "--outDir"
+                  outputDir
+                  "--noCache" ]
+
+        Expect.equal exitCode 0 "Expected the netstandard task project to compile"
+
+        let output = File.ReadAllText(Path.Combine(outputDir, "task.py"))
+        Expect.isFalse (output.Contains("raise 1")) "Task lowering must not emit the FCS recovery expression"
+        Expect.stringContains output "task()" "Expected task-builder-generated Python"
+
 /// `fable precompile` writes each chunk of inline expressions twice: the compact copy the CLI
 /// reads, and the browser copy fable-standalone reads. This asks four things of every chunk:
 ///
@@ -116,4 +156,5 @@ let tests =
             }))
 
     |> Seq.toList
+    |> List.append [ taskNetstandardPythonTest ]
     |> testList "Compilation"
