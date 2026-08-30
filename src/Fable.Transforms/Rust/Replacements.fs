@@ -265,7 +265,7 @@ let convertTo com (ctx: Context) r t (args: Expr list) =
         addWarning com ctx.InlinePath r "Unsupported conversion"
         TypeCast(args.Head, t)
 
-let toString com (ctx: Context) r (args: Expr list) =
+let rec toString com (ctx: Context) r (args: Expr list) =
     match args with
     | [] ->
         "toString is called with empty args"
@@ -275,6 +275,20 @@ let toString com (ctx: Context) r (args: Expr list) =
         | String -> head
         | Char -> Helper.LibCall(com, "String", "ofChar", String, [ head ])
         | Boolean -> Helper.LibCall(com, "String", "ofBoolean", String, [ head ])
+        // Rust has no Display for tuples, and the orphan rule rules out adding
+        // one. Building the text here also matches .NET more closely than a
+        // derived Debug would: each element goes through its own ToString, so a
+        // string element is unquoted and a bool prints as True/False.
+        | Tuple(genArgs, _) when not (List.isEmpty genArgs) ->
+            let element i genArg =
+                toString com ctx r [ Get(head, TupleIndex i, genArg, r) ]
+
+            let separated =
+                genArgs
+                |> List.mapi element
+                |> List.reduce (fun acc part -> add (add acc (makeStrConst ", ")) part)
+
+            add (add (makeStrConst "(") separated) (makeStrConst ")")
         | Number(BigInt, _) -> Helper.LibCall(com, "BigInt", "toString", String, args)
         | Number(Decimal, _) -> Helper.LibCall(com, "Decimal", "toString", String, args)
         // | Array _ | List _ ->
@@ -1375,6 +1389,11 @@ let getEnumerator com r t i (expr: Expr) =
     // | IsEntity (Types.regexCaptureCollection) _
     | Array _ -> Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ expr ], ?loc = r)
     | List _ -> Helper.LibCall(com, "Seq", "Enumerable::ofList", t, [ expr ], ?loc = r)
+    // A string is enumerable in F# but `string` is `LrcStr` in Rust, with no
+    // GetEnumerator to fall through to -- so `for ch in s do` did not compile.
+    | String ->
+        let ar = Helper.LibCall(com, "String", "toCharArray", t, [ expr ])
+        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r)
     | IsEntity (Types.hashset) _
     | IsEntity (Types.iset) _ ->
         let ar = Helper.LibCall(com, "HashSet", "entries", t, [ expr ])
@@ -2221,7 +2240,37 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
     | _ -> None
 
+/// Drops culture and style arguments from a call.
+///
+/// Rust's formatting and parsing are invariant, which is exactly what
+/// InvariantCulture asks for, so the overloads that take a provider are
+/// equivalent to the ones that do not. Passing the argument on was not: the
+/// runtime functions have no parameter for it, so `Decimal.Parse(s, style,
+/// culture)` reached a one-argument function and `d.ToString(culture)` put a
+/// provider where a format string belongs.
+///
+/// Filtering by argument type rather than by position leaves the arity of every
+/// other overload alone.
+let dropCultureArgs (args: Expr list) =
+    let isCultureOrStyle (e: Expr) =
+        match e.Type with
+        | DeclaredType(ent, _) ->
+            match ent.FullName with
+            | "System.Globalization.CultureInfo"
+            | "System.IFormatProvider" -> true
+            | _ -> false
+        | Number(_, NumberInfo.IsEnum ent) ->
+            match ent.FullName with
+            | "System.Globalization.NumberStyles"
+            | "System.Globalization.DateTimeStyles" -> true
+            | _ -> false
+        | _ -> false
+
+    args |> List.filter (isCultureOrStyle >> not)
+
 let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let args = dropCultureArgs args
+
     match i.CompiledName, args with
     | (".ctor" | "MakeDecimal"), ([ low; mid; high; isNegative; scale ] as args) ->
         Helper.LibCall(com, "Decimal", "fromParts", t, args, i.SignatureArgTypes, ?loc = r)
@@ -2281,6 +2330,14 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
     //     let format = makeStrConst ("{0:" + rustFmt + "}")
     //     "sprintf!" |> emitFormat com r t [format; thisArg.Value] |> Some
     | "ToString", _ ->
+        // For d.ToString(provider) the provider is the only argument, so dropping
+        // it leaves nothing for toString's decimal parameter; the receiver takes
+        // its place. d.ToString() already arrives with the receiver in args.
+        let args =
+            match args, thisArg with
+            | [], Some this -> [ this ]
+            | _ -> args
+
         Helper.LibCall(com, "Decimal", "toString", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | ("Compare" | "CompareTo" | "Equals" | "GetHashCode"), _ -> valueTypes com ctx r t i thisArg args
