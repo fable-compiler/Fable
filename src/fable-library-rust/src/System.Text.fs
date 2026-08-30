@@ -13,8 +13,12 @@ type StringBuilder(value: string, capacity: int) =
     new(value: string) = StringBuilder(value, 16)
     new() = StringBuilder("", 16)
 
-    member x.Append(s: string) =
-        buf.Add(s)
+    member x.Append(s: string | null) =
+        buf.Add(string<string | null> s)
+        x
+
+    member x.Append(s: string | null, startIndex: int, count: int) =
+        buf.Add((string<string | null> s).Substring(startIndex, count))
         x
 
     member x.Append(o: bool) = x.Append(string<bool> o)
@@ -35,8 +39,6 @@ type StringBuilder(value: string, capacity: int) =
     member x.Append(o: uint64) = x.Append(string<uint64> o)
     member x.Append(o: float32) = x.Append(string<float32> o)
     member x.Append(o: float) = x.Append(string<float> o)
-
-    member x.Append(s: string, index: int, count: int) = x.Append(s.Substring(index, count))
 
     member x.Append(cs: char[]) = x.Append(System.String(cs))
     member x.Append(sb: StringBuilder) = x.Append(sb.ToString())
@@ -106,4 +108,6 @@ type StringBuilder(value: string, capacity: int) =
 
     override _.ToString() = System.String.Concat(buf |> asArray)
 
-    member x.ToString(index: int, count: int) = x.ToString().Substring(index, count)
+    member x.ToString(startIndex: int, length: int) =
+        let str = x.ToString()
+        str.Substring(startIndex, length)
