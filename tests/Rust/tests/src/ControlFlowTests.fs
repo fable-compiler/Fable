@@ -184,6 +184,99 @@ let ``two-switch or-pattern with obj binding works`` () =
     orPatObj (OA(box 9)) :? int |> equal true
     orPatObj (OB(box 11)) :? string |> equal false
 
+// An active pattern in the first clause of a match F# cannot prove exhaustive.
+// F# emits `raise (MatchFailureException(...))` for the fallthrough, and the
+// rewrite that normally removes it only fires when the decision expression
+// starts with a UnionCaseTest — an active pattern there is not one, so the
+// construction survived into codegen and crashed the compiler with
+// "The lists had different lengths" and no source location.
+type private ApExpr =
+    | ApColumn of string * string
+    | ApConst of string
+
+let private (|IsApConst|_|) e =
+    match e with
+    | ApConst c -> Some c
+    | _ -> None
+
+let private (|IsApColumn|_|) e =
+    match e with
+    | ApColumn(t, n) -> Some(t, n)
+    | _ -> None
+
+let private renderUnionAfterAp e =
+    match e with
+    | IsApConst c -> c
+    | ApColumn(t, n) -> t + "." + n
+
+let private renderApOnly e =
+    match e with
+    | IsApConst c -> c
+    | IsApColumn(t, n) -> t + "." + n
+
+[<Fact>]
+let ``non-exhaustive match starting with an active pattern works`` () =
+    renderUnionAfterAp (ApColumn("c", "x")) |> equal "c.x"
+    renderUnionAfterAp (ApConst "lit") |> equal "lit"
+    renderApOnly (ApColumn("c", "x")) |> equal "c.x"
+    renderApOnly (ApConst "lit") |> equal "lit"
+
+// A fieldless union reached through a record field rather than a plain ident.
+// The switch conversion recovers the union type from the ident; without one it
+// used to fall back to the tag's int32 and emit a bare integer literal pattern
+// against the union value, which does not compile.
+type JoinKind =
+    | InnerJoin
+    | LeftJoin
+
+type Join = { Kind: JoinKind; Table: string }
+
+let private renderJoinKind (j: Join) =
+    let mutable out = ""
+
+    match j.Kind with
+    | InnerJoin -> out <- "INNER"
+    | LeftJoin -> out <- "LEFT"
+
+    out
+
+[<Fact>]
+let ``fieldless union matched through a record field works`` () =
+    renderJoinKind { Kind = InnerJoin; Table = "t" } |> equal "INNER"
+    renderJoinKind { Kind = LeftJoin; Table = "t" } |> equal "LEFT"
+
+// A guard on a nested pattern makes the whole match take the decision-tree
+// path, which pre-declares a mutable binding for every variable in the match
+// and initialises it before testing anything. Strings, options, arrays and
+// lists are heap-backed, and zero-initialising one is a runtime panic rather
+// than a compile error.
+type Payload =
+    | Number of int
+    | Numbers of int[]
+    | Names of string list
+    | Maybe of int option
+    | Label of string
+
+let private describePayload (p: Payload) (flag: bool) =
+    match p with
+    | Maybe(Some v) when flag -> "guarded " + string v
+    | Maybe(Some v) -> "some " + string v
+    | Maybe None -> "none"
+    | Number n -> "number " + string n
+    | Numbers xs -> "numbers " + string xs.Length
+    | Names ns -> "names " + string (List.length ns)
+    | Label s -> "label " + s
+
+[<Fact>]
+let ``a guarded nested pattern does not zero-initialise the other bindings`` () =
+    describePayload (Maybe(Some 1)) true |> equal "guarded 1"
+    describePayload (Maybe(Some 2)) false |> equal "some 2"
+    describePayload (Maybe None) false |> equal "none"
+    describePayload (Number 3) false |> equal "number 3"
+    describePayload (Numbers [| 1; 2; 3 |]) false |> equal "numbers 3"
+    describePayload (Names [ "a"; "b" ]) false |> equal "names 2"
+    describePayload (Label "hi") false |> equal "label hi"
+
 // A try/with/finally lowers to closures on this target, but the Fable AST has no
 // Lambda there, so the capture walk did not treat those bodies as closure
 // contexts. A `let mutable` assigned in a finally block was emitted as a bare

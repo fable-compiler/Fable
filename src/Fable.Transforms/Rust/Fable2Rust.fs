@@ -2003,19 +2003,27 @@ module Util =
             // unsized `dyn Any`, which does not compile).
             makeLibCall com ctx None "Native" "getZeroObj" []
         | _ ->
-            // Only concrete (sized) `Lrc`-wrapped reference types can use the null-ref
-            // placeholder. Unsized refs (interfaces, enumerators) and Arc/Box-wrapped
-            // types keep `getZero` (they don't reach this path in practice).
-            let isConcreteLrcRef =
-                match shouldBeRefCountWrapped com ctx typ with
-                | Some Lrc ->
-                    match typ with
-                    | Fable.DeclaredType(entRef, _) -> not (com.GetEntity(entRef)).IsInterface
-                    | Replacements.Util.IsEnumerator _ -> false
-                    | _ -> true
-                | _ -> false
+            // Everything with a `NullableRef` implementation takes the null-ref
+            // placeholder: concrete (sized) `Lrc`-wrapped reference types, plus
+            // string, option, array and list, whose library types implement it
+            // directly. What is left is the primitives, for which `mem::zeroed`
+            // is a valid bit pattern.
+            let isNullableRef =
+                match typ with
+                | Fable.String
+                | Fable.Option _
+                | Fable.Array _
+                | Fable.List _ -> true
+                | _ ->
+                    match shouldBeRefCountWrapped com ctx typ with
+                    | Some Lrc ->
+                        match typ with
+                        | Fable.DeclaredType(entRef, _) -> not (com.GetEntity(entRef)).IsInterface
+                        | Replacements.Util.IsEnumerator _ -> false
+                        | _ -> true
+                    | _ -> false
 
-            if isConcreteLrcRef then
+            if isNullableRef then
                 makeNull com ctx typ
             else
                 let genArgsOpt = transformGenArgs com ctx [ typ ]
@@ -2107,6 +2115,23 @@ module Util =
         let ent = com.GetEntity(entRef)
         let idents = getEntityFieldsAsIdents com ent
 
+        // An F# `exception` declaration gets a synthetic __base__ field, so that
+        // the generated Deref to System.Exception (and hence .Message) works.
+        // A class constructor puts a matching value at the head of its NewRecord,
+        // but an exception constructor carries only the declared fields, leaving
+        // one more ident than values. Supply the base here instead of zipping
+        // lists of different lengths, which failed with no source location.
+        let baseFields, idents =
+            match idents with
+            | baseIdent :: restIdents when
+                ent.IsFSharpExceptionDeclaration && List.length restIdents = List.length values
+                ->
+                let msg = mkStrLitExpr "" |> makeStaticString com ctx
+                let baseExpr = makeLibCall com ctx None "Util" "new_Exception" [ msg ]
+                let fieldName = baseIdent.Name |> sanitizeMember
+                [ mkExprField [] fieldName baseExpr false false ], restIdents
+            | _ -> [], idents
+
         let fields =
             List.zip idents values
             |> List.map (fun (ident, value) ->
@@ -2132,7 +2157,7 @@ module Util =
                 mkExprField [] fieldName expr false false
             )
 
-        let fields = List.append fields phantomFields
+        let fields = List.append baseFields (List.append fields phantomFields)
 
         let genArgsOpt = transformGenArgs com ctx genArgs
         let entName = getEntityFullName com ctx entRef
@@ -3816,15 +3841,19 @@ module Util =
                 | _, Fable.Value((Fable.CharConstant _ | Fable.NumberConstant _), _) -> Some(left, right)
                 | Fable.Value((Fable.CharConstant _ | Fable.NumberConstant _), _), _ -> Some(right, left)
                 | _ -> None
-            // Only a plain-ident scrutinee is convertible: transformSwitch can't recover the
-            // `Option` type from anything else, and would emit bogus `0_i32` patterns.
+            // Only a plain-ident scrutinee is convertible: transformSwitch recovers the
+            // union (or `Option`) type from the ident, and without one it falls back to
+            // `evalExpr.Type`, which is the tag's `int32`. `makeUnionCasePatOpt` then
+            // declines and the arm becomes a bare `1_i32` literal pattern matched
+            // against the union value itself, which does not compile. Anything else is
+            // left to the if/else decision-tree path, which tests with `if let`.
             | Fable.Test(Fable.IdentExpr _ as expr, Fable.OptionTest isSome, r) ->
                 let evalExpr =
                     Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), r)
 
                 let right = makeIntConst (makeTest isSome 0 1)
                 Some(evalExpr, right)
-            | Fable.Test(expr, Fable.UnionCaseTest tag, r) ->
+            | Fable.Test(Fable.IdentExpr _ as expr, Fable.UnionCaseTest tag, r) ->
                 let evalExpr =
                     Fable.Get(expr, Fable.UnionTag, Fable.Number(Int32, Fable.NumberInfo.Empty), r)
 
@@ -5078,7 +5107,11 @@ module Util =
         let entName = Fable.Naming.splitLast ent.FullName
         let genArgs = FSharp2Fable.Util.getEntityGenArgs ent
         let generics = makeGenerics com ctx genArgs
-        let isPublic = ent.IsFSharpRecord
+        // F# exception fields (Data0, Data1, ...) are public on .NET, and an
+        // exception declared in one crate has to be constructible from another —
+        // MatchFailureException lives in the runtime library but is constructed
+        // by user code for any match F# cannot prove exhaustive.
+        let isPublic = ent.IsFSharpRecord || ent.IsFSharpExceptionDeclaration
         let idents = getEntityFieldsAsIdents com ent
 
         let fields =
@@ -5307,6 +5340,10 @@ module Util =
 
             let fieldValues =
                 getEntityFieldsAsIdents com ent
+                // Skip the synthetic __base__ field. The message describes the
+                // exception's own data; formatting the base System.Exception
+                // with {:?} also walks its null innerException, which faults.
+                |> List.filter (fun ident -> ident.Name <> baseName)
                 |> List.map (fun ident ->
                     let info = Fable.FieldInfo.Create(ident.Name, ident.Type, ident.IsMutable)
                     Fable.Get(thisArg, info, ident.Type, None)
