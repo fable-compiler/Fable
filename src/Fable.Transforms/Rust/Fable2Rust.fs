@@ -2002,33 +2002,28 @@ module Util =
             // so it must take this path too (the `_` branch would emit a null of an
             // unsized `dyn Any`, which does not compile).
             makeLibCall com ctx None "Native" "getZeroObj" []
-        // Heap-backed but not `Lrc`-wrapped, so the null-ref placeholder below does
-        // not apply and `getZero` would `mem::zeroed` the Arc inside them -- which is
-        // a hard runtime panic, not a compile error. Each has a cheap valid empty
-        // value, and the placeholder is always overwritten before it can be read.
-        | Fable.String -> Fable.Value(Fable.StringConstant "", None) |> transformExpr com ctx
-        | Fable.Option(genArg, isStruct) ->
-            Fable.Value(Fable.NewOption(None, genArg, isStruct), None)
-            |> transformExpr com ctx
-        | Fable.Array(genArg, kind) ->
-            Fable.Value(Fable.NewArray(Fable.ArrayValues [], genArg, kind), None)
-            |> transformExpr com ctx
-        | Fable.List genArg -> Fable.Value(Fable.NewList(None, genArg), None) |> transformExpr com ctx
-
         | _ ->
-            // Only concrete (sized) `Lrc`-wrapped reference types can use the null-ref
-            // placeholder. What is left is the primitives, for which `mem::zeroed` is
-            // a valid bit pattern.
-            let isConcreteLrcRef =
-                match shouldBeRefCountWrapped com ctx typ with
-                | Some Lrc ->
-                    match typ with
-                    | Fable.DeclaredType(entRef, _) -> not (com.GetEntity(entRef)).IsInterface
-                    | Replacements.Util.IsEnumerator _ -> false
-                    | _ -> true
-                | _ -> false
+            // Everything with a `NullableRef` implementation takes the null-ref
+            // placeholder: concrete (sized) `Lrc`-wrapped reference types, plus
+            // string, option, array and list, whose library types implement it
+            // directly. What is left is the primitives, for which `mem::zeroed`
+            // is a valid bit pattern.
+            let isNullableRef =
+                match typ with
+                | Fable.String
+                | Fable.Option _
+                | Fable.Array _
+                | Fable.List _ -> true
+                | _ ->
+                    match shouldBeRefCountWrapped com ctx typ with
+                    | Some Lrc ->
+                        match typ with
+                        | Fable.DeclaredType(entRef, _) -> not (com.GetEntity(entRef)).IsInterface
+                        | Replacements.Util.IsEnumerator _ -> false
+                        | _ -> true
+                    | _ -> false
 
-            if isConcreteLrcRef then
+            if isNullableRef then
                 makeNull com ctx typ
             else
                 let genArgsOpt = transformGenArgs com ctx [ typ ]
