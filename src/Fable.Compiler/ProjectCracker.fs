@@ -1002,7 +1002,6 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
             let ignoredRefs =
                 HashSet
                     [
-                        "FSharp.Core"
                         "WindowsBase"
                         "Microsoft.Win32.Primitives"
                         "Microsoft.VisualBasic"
@@ -1027,14 +1026,7 @@ let getFullProjectOpts (resolver: ProjectCrackerResolver) (opts: CrackerOptions)
 
         let projRefs = projRefs |> List.map (fun p -> p.ProjectFile)
 
-        let otherOptions =
-            [|
-                yield! otherOptions
-                yield! dllRefs
-                // For some reason, in my tests it seems to work without the FSharp.Core reference
-                // but we add it just in case
-                yield "-r:" + typeof<FSharp.Collections.List<obj>>.Assembly.Location
-            |]
+        let otherOptions = [| yield! otherOptions; yield! dllRefs |]
 
         let outputType =
             match mainProj.OutputType with
