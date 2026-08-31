@@ -1,11 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="TaskBuilder.fs" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="FSharp.Core" Version="6.0.0" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Task.fs" />
-  </ItemGroup>
+
 </Project>
