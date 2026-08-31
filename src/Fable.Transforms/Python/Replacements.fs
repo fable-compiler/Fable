@@ -1535,7 +1535,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         Helper.LibCall(com, "string", "starts_with", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
     | "StartsWith", Some c, [ value; ignoreCase; _culture ] ->
-        addWarning com ctx.InlinePath r "CultureInfo argument is ignored"
+        WarningCodes.cultureInfoIgnored |> addWarningWithCode com ctx.InlinePath r
         let args = [ value; ignoreCase ]
 
         Helper.LibCall(com, "string", "starts_with", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
@@ -1547,7 +1547,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         Helper.LibCall(com, "string", "ends_with", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
         |> Some
     | "EndsWith", Some c, [ value; ignoreCase; _culture ] ->
-        addWarning com ctx.InlinePath r "CultureInfo argument is ignored"
+        WarningCodes.cultureInfoIgnored |> addWarningWithCode com ctx.InlinePath r
         let args = [ value; ignoreCase ]
 
         Helper.LibCall(com, "string", "ends_with", t, args, i.SignatureArgTypes, thisArg = c, ?loc = r)
@@ -2352,8 +2352,8 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         let intConst = int System.Globalization.NumberStyles.Integer
 
         if style <> hexConst && style <> intConst then
-            $"%s{i.DeclaringEntityFullName}.%s{meth}(): NumberStyle %d{style} is ignored"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.numberStylesIgnored style
+            |> addWarningWithCode com ctx.InlinePath r
 
         let acceptedArgs =
             if meth = "Parse" then
@@ -2361,10 +2361,13 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             else
                 3
 
-        if List.length args > acceptedArgs then
+        match List.tryItem acceptedArgs args with
+        // InvariantCulture asks for exactly what Fable does, so there is nothing to report.
+        | None
+        | Some InvariantCulture -> ()
+        | Some _ ->
             // e.g. Double.Parse(string, style, IFormatProvider) etc.
-            $"%s{i.DeclaringEntityFullName}.%s{meth}(): provider argument is ignored"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
 
         parseCall meth str args style
     | ("Parse" | "TryParse") as meth, str :: _ ->
@@ -2374,10 +2377,13 @@ let parseNum (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             else
                 2
 
-        if List.length args > acceptedArgs then
+        match List.tryItem acceptedArgs args with
+        // InvariantCulture asks for exactly what Fable does, so there is nothing to report.
+        | None
+        | Some InvariantCulture -> ()
+        | Some _ ->
             // e.g. Double.Parse(string, IFormatProvider) etc.
-            $"%s{i.DeclaringEntityFullName}.%s{meth}(): provider argument is ignored"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
 
         let style = int System.Globalization.NumberStyles.Any
         parseCall meth str args style
@@ -2957,8 +2963,7 @@ let convert (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (
     | "ToBase64String"
     | "FromBase64String" ->
         if not (List.isSingle args) then
-            $"Convert.%s{Naming.upperFirst i.CompiledName} only accepts one single argument"
-            |> addWarning com ctx.InlinePath r
+            WarningCodes.base64ArgumentsIgnored |> addWarningWithCode com ctx.InlinePath r
 
         Helper.LibCall(com, "String", (Naming.lowerFirst i.CompiledName), t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -3021,24 +3026,35 @@ let debug (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             IfThenElse(arg, makeDebugger r, unit, r) |> Some
     | _ -> None
 
-let private ignoreFormatProvider com (ctx: Context) r (moduleName: string) meth args =
+/// Drops the `IFormatProvider` (and `DateTimeStyles`, where present) a date/time `Parse` was
+/// given, warning once per discarded argument. Two codes rather than one bundled message so a
+/// user who accepts invariant parsing can still be told about a discarded style, and vice versa.
+let private ignoreFormatProvider com (ctx: Context) r meth args =
+    // Passing InvariantCulture asks for exactly what Fable does, so there is nothing to report.
+    let warnProvider culture =
+        match culture with
+        | InvariantCulture -> ()
+        | _ -> WarningCodes.formatProviderIgnored |> addWarningWithCode com ctx.InlinePath r
+
+    let warnStyles styles =
+        match styles with
+        | NumberConst(NumberValue.Int32 0, _) -> () // DateTimeStyles.None: no special handling
+        | _ -> WarningCodes.dateTimeStylesIgnored |> addWarningWithCode com ctx.InlinePath r
+
     match meth, args with
-    // Ignore IFormatProvider
-    | "Parse", arg :: _culture :: _styles :: _ ->
-        addWarning com ctx.InlinePath r $"%s{moduleName}.Parse will ignore culture and styles"
-
+    | "Parse", arg :: culture :: styles :: _ ->
+        warnProvider culture
+        warnStyles styles
         [ arg ]
-    | "Parse", arg :: _culture :: _ ->
-        addWarning com ctx.InlinePath r $"%s{moduleName}.Parse will ignore culture"
-
+    | "Parse", arg :: culture :: _ ->
+        warnProvider culture
         [ arg ]
-    | "TryParse", input :: _culture :: _styles :: defVal :: _ ->
-        addWarning com ctx.InlinePath r $"%s{moduleName}.TryParse will ignore culture and styles"
-
+    | "TryParse", input :: culture :: styles :: defVal :: _ ->
+        warnProvider culture
+        warnStyles styles
         [ input; defVal ]
-    | "TryParse", input :: _culture :: defVal :: _ ->
-        addWarning com ctx.InlinePath r $"%s{moduleName}.TryParse will ignore culture"
-
+    | "TryParse", input :: culture :: defVal :: _ ->
+        warnProvider culture
         [ input; defVal ]
     | _ -> args
 
@@ -3089,7 +3105,7 @@ let dateOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         Helper.LibCall(com, "DateOnly", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
         |> Some
     | meth ->
-        let args = ignoreFormatProvider com ctx r i.DeclaringEntityFullName meth args
+        let args = ignoreFormatProvider com ctx r meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
 
         Helper.LibCall(com, "DateOnly", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
@@ -3146,7 +3162,7 @@ let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             |> Some
         | _ -> None
     | meth ->
-        let args = ignoreFormatProvider com ctx r i.DeclaringEntityFullName meth args
+        let args = ignoreFormatProvider com ctx r meth args
         let meth = Naming.removeGetSetPrefix i.CompiledName |> Naming.lowerFirst
 
         Helper.LibCall(com, "TimeOnly", meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
@@ -3288,8 +3304,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             Helper.LibCall(com, "DateOffset", "compareTo", t, [ thisArg; args.Head ], ?loc = r)
         )
     | "TryParse" ->
-        let args =
-            ignoreFormatProvider com ctx r i.DeclaringEntityFullName i.CompiledName args
+        let args = ignoreFormatProvider com ctx r i.CompiledName args
 
         Helper.LibCall(com, moduleName, "tryParse", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -3316,7 +3331,7 @@ let dates (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
             |> Some
         | _ -> None
     | meth ->
-        let args = ignoreFormatProvider com ctx r i.DeclaringEntityFullName meth args
+        let args = ignoreFormatProvider com ctx r meth args
         let meth = Naming.removeGetSetPrefix meth |> Naming.lowerFirst
 
         Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)

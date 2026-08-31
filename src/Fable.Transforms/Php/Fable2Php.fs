@@ -2138,8 +2138,8 @@ type PhpCompiler(com: Fable.Compiler) =
 
         member this.WillPrecompileInlineFunction(file) = com.WillPrecompileInlineFunction(file)
 
-        member this.AddLog(msg, severity, rang, fileName, tag) =
-            com.AddLog(msg, severity, ?range = rang, ?fileName = fileName, ?tag = tag)
+        member this.AddLog(msg, severity, rang, fileName, tag, code) =
+            com.AddLog(msg, severity, ?range = rang, ?fileName = fileName, ?tag = tag, ?code = code)
 
         member this.AddWatchDependency(file) = com.AddWatchDependency(file)
 

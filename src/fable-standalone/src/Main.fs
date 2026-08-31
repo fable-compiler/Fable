@@ -152,6 +152,7 @@ let makeCompiler fableLibrary typedArrays language fsharpOptions project fileNam
             ?typedArrays = typedArrays
         )
 
+    // No `warningSuppression`: the REPL has no `SourceReader` to scan, so `// fable-disable` comments are a no-op here.
     CompilerImpl(fileName, project, options, fableLibrary)
 
 /// `fable precompile` sorts inline expressions by member name, splits them into chunks and records
