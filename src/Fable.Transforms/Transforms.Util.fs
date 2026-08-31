@@ -122,6 +122,9 @@ module Atts =
     let jsxComponent = "Fable.Core.JSX.ComponentAttribute" // typeof<Fable.Core.JSX.ComponentAttribute>.FullName
 
     [<Literal>]
+    let beamModuleName = "Fable.Core.Beam.ModuleNameAttribute" // typeof<Fable.Core.Beam.ModuleNameAttribute>.FullName
+
+    [<Literal>]
     let pyDecorator = "Fable.Core.Py.DecoratorAttribute" // typeof<Fable.Core.Py.DecoratorAttribute>.FullName
 
     [<Literal>]
