@@ -7,6 +7,12 @@ open Fable.Tests.Compiler.Util.Compiler
 
 let private compile source = Compiler.Cached.compile Compiler.Settings.standard source
 
+let private compileWithLibrary library source =
+  Compiler.Cached.compileWithLibrary Compiler.Settings.standard library source
+
+let private compileWithSignedLibrary signature library source =
+  Compiler.Cached.compileWithSignedLibrary Compiler.Settings.standard signature library source
+
 let tests =
   testList "Compiler Messages" [
     testCase "Compile Console.WriteLine" <| fun _ ->
@@ -105,6 +111,149 @@ let version = Semver.SemVersion.Parse("1.0.0", 1024)
 """
       compile source
       |> Assert.Exists.errorWith "Cannot reference member from .dll reference, Fable packages must include F# sources"
+      |> ignore
+
+    testCase "Private inline function referencing private value succeeds" <| fun _ ->
+      let source =
+        """
+let private x = 1
+let inline private y () = x
+let z = y ()
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
+
+    testCase "Private inline function referencing private function succeeds" <| fun _ ->
+      let source =
+        """
+let private add a b = a + b
+let inline private addOne x = add x 1
+let z = addOne 41
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
+
+    testCase "Private inline function in nested module referencing private value succeeds" <| fun _ ->
+      let source =
+        """
+module Nested =
+    let private x = 1
+    let inline private y () = x
+    let z = y ()
+"""
+      compile source
+      |> Assert.Is.success
+      |> ignore
+
+    testCase "Private inline function referencing private value errors when inlined in another file" <| fun _ ->
+      let library =
+        """
+module Library
+
+let private x = 1
+let inline private y () = x
+let inline z () = y ()
+"""
+      let source = "let res = Library.z ()"
+      compileWithLibrary library source
+      |> Assert.Are.errors 1
+      |> Assert.Exists.errorWith "was marked inline but its implementation makes use of an internal or private function"
+      |> ignore
+
+    testCase "Inline function referencing private value is reported once, not once per call site" <| fun _ ->
+      let library =
+        """
+module Library
+
+let private x = 1
+let inline w () = x
+let inline z () = w ()
+"""
+      let source =
+        """
+let a = Library.z ()
+let b = Library.z ()
+"""
+      compileWithLibrary library source
+      |> Assert.Are.errors 1
+      |> Assert.Exists.errorWith "was marked inline but its implementation makes use of an internal or private function"
+      |> ignore
+
+    testCase "Inline function referencing non-private value from another file succeeds" <| fun _ ->
+      let library =
+        """
+module Library
+
+let x = 1
+let internal w = 2
+let inline private y () = x + w
+let inline z () = y ()
+"""
+      let source = "let res = Library.z ()"
+      compileWithLibrary library source
+      |> Assert.Is.success
+      |> ignore
+
+    testCase "Inline function referencing value hidden by a signature file errors when inlined in another file" <| fun _ ->
+      let signature =
+        """
+module Library
+
+val inline z: unit -> int
+"""
+      let library =
+        """
+module Library
+
+let x = 1
+let inline z () = x
+"""
+      let source = "let res = Library.z ()"
+      compileWithSignedLibrary signature library source
+      |> Assert.Are.errors 1
+      |> Assert.Exists.errorWith "was marked inline but its implementation makes use of an internal or private function"
+      |> ignore
+
+    testCase "Inline function hidden by a signature file referencing hidden value succeeds" <| fun _ ->
+      let signature =
+        """
+module Library
+
+val res: int
+"""
+      let library =
+        """
+module Library
+
+let x = 1
+let inline z () = x
+let res = z ()
+"""
+      let source = "let res = Library.res"
+      compileWithSignedLibrary signature library source
+      |> Assert.Is.success
+      |> ignore
+
+    testCase "Inline function referencing value exposed by a signature file succeeds" <| fun _ ->
+      let signature =
+        """
+module Library
+
+val x: int
+val inline z: unit -> int
+"""
+      let library =
+        """
+module Library
+
+let x = 1
+let inline z () = x
+"""
+      let source = "let res = Library.z ()"
+      compileWithSignedLibrary signature library source
+      |> Assert.Is.success
       |> ignore
 
     testCase "Duplicate attached member names emit a warning" <| fun _ ->

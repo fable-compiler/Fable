@@ -1263,7 +1263,7 @@ module AST =
         LibraryImportInfo.Create(isInstanceMember = false, isModuleMember = true)
         |> makeImportLibWithInfo com t memberName moduleName
 
-    let private makeInternalImport (com: Compiler) t (selector: string) (path: string) kind =
+    let private makeInternalImport (com: Compiler) t (selector: string) (path: string) range kind =
         let path =
             if com.CurrentFile = path then
                 "./" + Path.GetFileName(path)
@@ -1277,14 +1277,14 @@ module AST =
                 Kind = kind
             },
             t,
-            None
+            range
         )
 
-    let makeInternalMemberImport com t membRef (selector: string) (path: string) =
-        MemberImport(membRef) |> makeInternalImport com t selector path
+    let makeInternalMemberImport com t membRef (selector: string) (path: string) range =
+        MemberImport(membRef) |> makeInternalImport com t selector path range
 
     let makeInternalClassImport com entRef (selector: string) (path: string) =
-        ClassImport(entRef) |> makeInternalImport com Any selector path
+        ClassImport(entRef) |> makeInternalImport com Any selector path None
 
     let makeCallInfo thisArg args sigArgTypes =
         CallInfo.Create(?thisArg = thisArg, args = args, sigArgTypes = sigArgTypes)

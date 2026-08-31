@@ -2301,6 +2301,7 @@ type InlineExprInfo =
         FileName: string
         ScopeIdents: Set<string>
         ResolvedIdents: Dictionary<string, string>
+        IsFileLocal: bool
     }
 
 let resolveInlineIdent (ctx: Context) (info: InlineExprInfo) (ident: Fable.Ident) =
@@ -2321,6 +2322,27 @@ let resolveInlineIdent (ctx: Context) (info: InlineExprInfo) (ident: Fable.Ident
         }
     else
         ident
+
+let checkInlinedPrivateAccess
+    (com: IFableCompiler)
+    (ctx: Context)
+    (info: InlineExprInfo)
+    (importInfo: Fable.ImportInfo)
+    r
+    =
+    match importInfo.Kind, info.IsFileLocal with
+    | Fable.MemberImport membRef, true ->
+        match com.TryGetMember(membRef) with
+        | Some memb when not memb.IsPublic ->
+            let r =
+                match r, ctx.InlinePath with
+                | None, { ToRange = toRange } :: _ -> toRange
+                | _ -> r
+
+            $"The value '%s{memb.DisplayName}' was marked inline but its implementation makes use of an internal or private function which is not sufficiently accessible"
+            |> addError com ctx.InlinePath r
+        | _ -> ()
+    | _ -> ()
 
 let resolveInlinedCallInfo com (ctx: Context) info (callInfo: Fable.CallInfo) =
     { callInfo with
@@ -2513,6 +2535,8 @@ let resolveInlineExpr (com: IFableCompiler) ctx info expr =
             if isImportToSameFile then
                 Fable.IdentExpr { makeTypedIdent t importInfo.Selector with Range = r }
             else
+                checkInlinedPrivateAccess com ctx info importInfo r
+
                 let path = fixImportedRelativePath com importInfo.Path info.FileName
 
                 Fable.Import({ importInfo with Path = path }, t, r)
@@ -2729,6 +2753,7 @@ type FableCompiler(com: Compiler) =
                 FileName = inExpr.FileName
                 ScopeIdents = inExpr.ScopeIdents
                 ResolvedIdents = Dictionary()
+                IsFileLocal = inExpr.IsFileLocal
             }
 
         let ctx, bindings, forceInlineMap =
@@ -3002,6 +3027,7 @@ let getInlineExprs fileName (declarations: FSharpImplementationFileDeclaration l
                             FileName = fileName
                             GenericArgs = genArgs
                             ScopeIdents = set ctx.UsedNamesInDeclarationScope
+                            IsFileLocal = not (isNotPrivate memb)
                         }
                     )
                 ]

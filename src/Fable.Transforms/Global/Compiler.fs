@@ -58,6 +58,7 @@ type InlineExpr =
         FileName: string
         GenericArgs: string list
         ScopeIdents: Set<string>
+        IsFileLocal: bool
     }
 
 type CompilerPlugins = { MemberDeclarationPlugins: Map<Fable.EntityRef, System.Type> }
