@@ -27,36 +27,56 @@ module Compiler =
   /// NOTE: NOT threadsafe
   ///       -> don't use `parallel`
   module Cached =
-    let projDir = IO.Path.Join(__SOURCE_DIRECTORY__, "../TestProject" ) |> Path.normalizeFullPath
-    let projFile = IO.Path.Join(projDir, "TestProject.fsproj" ) |> Path.normalizeFullPath
-    let sourceFile = IO.Path.Join(projDir, "Program.fs" ) |> Path.normalizeFullPath
+    type private CachedProject(name: string) =
+        let projDir = IO.Path.Join(__SOURCE_DIRECTORY__, "../" + name) |> Path.normalizeFullPath
+        let projFile = IO.Path.Join(projDir, name + ".fsproj") |> Path.normalizeFullPath
 
-    let cliArgs =
-        let compilerOptions = CompilerOptionsHelper.Make()
-        { CliArgs.ProjectFile = projFile
-          FableLibraryPath = None
-          RootDir = projDir
-          Configuration = "Debug"
-          OutDir = None
-          IsWatch = false
-          Precompile = false
-          PrecompiledLib = None
-          PrintAst = false
-          SourceMaps = false
-          SourceMapsRoot = None
-          NoRestore = false
-          NoCache = false
-          NoGitignore = false
-          NoParallelTypeCheck = false
-          Exclude = ["Fable.Core"]
-          Replace = Map.empty
-          RunProcess = None
-          CompilerOptions = compilerOptions
-          Verbosity = Verbosity.Normal }
+        let cliArgs =
+            let compilerOptions = CompilerOptionsHelper.Make()
+            { CliArgs.ProjectFile = projFile
+              FableLibraryPath = None
+              RootDir = projDir
+              Configuration = "Debug"
+              OutDir = None
+              IsWatch = false
+              Precompile = false
+              PrecompiledLib = None
+              PrintAst = false
+              SourceMaps = false
+              SourceMapsRoot = None
+              NoRestore = false
+              NoCache = false
+              NoGitignore = false
+              NoParallelTypeCheck = false
+              Exclude = ["Fable.Core"]
+              Replace = Map.empty
+              RunProcess = None
+              CompilerOptions = compilerOptions
+              Verbosity = Verbosity.Normal }
 
-    let mutable private state = State.Create(cliArgs, recompileAllFiles=true)
+        let mutable state = State.Create(cliArgs, recompileAllFiles=true)
 
-    let compile settings source =
+        member _.Compile(files: (string * string) list) =
+            for (fileName, content) in files do
+                IO.File.WriteAllText(IO.Path.Join(projDir, fileName), content)
+
+            let result =
+                state
+                |> startCompilationAsync
+                |> Async.RunSynchronously
+
+            match result with
+            | Error(_msg, logs) -> Array.toList logs
+            | Ok(newState, logs) ->
+                state <- newState
+                Array.toList logs
+
+    let private project = CachedProject("TestProject")
+    let private projectWithSignature = CachedProject("TestProjectSignature")
+
+    let private emptyLibrary = "module Library" + Environment.NewLine
+
+    let private programFile settings source =
         let preamble =
           [
             yield! settings.Opens |> List.map (sprintf "open %s")
@@ -65,19 +85,22 @@ module Compiler =
           ]
           |> String.concat Environment.NewLine
 
-        let source = preamble + source
-        IO.File.WriteAllText(sourceFile, source)
+        preamble + source
 
-        let result =
-            state
-            |> startCompilationAsync
-            |> Async.RunSynchronously
+    let compileWithLibrary settings (library: string) source =
+        project.Compile [
+          "Library.fs", library
+          "Program.fs", programFile settings source
+        ]
 
-        match result with
-        | Error(_msg, logs) -> Array.toList logs
-        | Ok(newState, logs) ->
-            state <- newState
-            Array.toList logs
+    let compile settings source = compileWithLibrary settings emptyLibrary source
+
+    let compileWithSignedLibrary settings (signature: string) (library: string) source =
+        projectWithSignature.Compile [
+          "Library.fsi", signature
+          "Library.fs", library
+          "Program.fs", programFile settings source
+        ]
 
   module Assert =
     open Util.Testing

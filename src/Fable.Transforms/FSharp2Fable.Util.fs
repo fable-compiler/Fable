@@ -2445,6 +2445,11 @@ module Util =
             else
                 Some(entityIdent com ent.Ref)
 
+    let private isInlinedInDeclaringFileOnly (ctx: Context) =
+        match ctx.PrecompilingInlineFunction with
+        | Some inlineMemb -> not (isNotPrivate inlineMemb)
+        | None -> false
+
     let memberIdent (com: Compiler) (ctx: Context) r typ (memb: FSharpMemberOrFunctionOrValue) membRef =
         let r = r |> Option.map (fun r -> { r with identifierName = Some memb.DisplayName })
 
@@ -2495,11 +2500,15 @@ module Util =
 
                 // Private values are not exported so they can't be imported by call sites in other files.
                 // We need to handle it manually because Fable handle resolve inline function itself
-                if com.IsPrecompilingInlineFunction && memb.Accessibility.IsPrivate then
+                if
+                    com.IsPrecompilingInlineFunction
+                    && not (isNotPrivate memb)
+                    && not (isInlinedInDeclaringFileOnly ctx)
+                then
                     $"The value '%s{memb.DisplayName}' was marked inline but its implementation makes use of an internal or private function which is not sufficiently accessible"
                     |> addError com [] r
 
-                makeInternalMemberImport com typ membRef memberName file
+                makeInternalMemberImport com typ membRef memberName file r
 
     let getFunctionMemberRef (memb: FSharpMemberOrFunctionOrValue) =
         match memb.DeclaringEntity with

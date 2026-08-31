@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -7,14 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Library.fsi" />
     <Compile Include="Library.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../../../src/Fable.Core/Fable.Core.fsproj" />
-    <!-- A package that ships no F# sources, so Fable cannot emit imports for its members -->
-    <PackageReference Include="Semver" Version="3.0.0" />
   </ItemGroup>
 
 </Project>
