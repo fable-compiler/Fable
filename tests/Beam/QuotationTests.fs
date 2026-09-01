@@ -4,6 +4,7 @@ open Fable.Tests.Util
 open Util.Testing
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
+open Microsoft.FSharp.Quotations.DerivedPatterns
 open Microsoft.FSharp.Linq.RuntimeHelpers
 
 type QuotationTestUnion =
@@ -283,3 +284,33 @@ let ``test Call on an instance whose value is null keeps a Some instance`` () =
 
     if not (hasSomeInstancePropertyGet q) then
         failwith "Expected a PropertyGet with a Some instance, even though its value is null"
+
+// DerivedPatterns: AndAlso and OrElse recover the shape `&&` and `||` desugar
+// into, and SpecificCall matches a call by the identity of a template quotation
+// rather than by its compiled name. All three previously reported
+// "not supported by Fable".
+type private DpRec = { Country: string; Balance: float; Id: int }
+
+let rec private dpToSql (e: Expr) : string =
+    match e with
+    | Lambda(_, body) -> dpToSql body
+    | AndAlso(l, r) -> "(" + dpToSql l + " AND " + dpToSql r + ")"
+    | OrElse(l, r) -> "(" + dpToSql l + " OR " + dpToSql r + ")"
+    | SpecificCall <@ (=) @> (_, _, [ l; r ]) -> "(" + dpToSql l + " = " + dpToSql r + ")"
+    | SpecificCall <@ (>) @> (_, _, [ l; r ]) -> "(" + dpToSql l + " > " + dpToSql r + ")"
+    | SpecificCall <@ (<) @> (_, _, [ l; r ]) -> "(" + dpToSql l + " < " + dpToSql r + ")"
+    // Bound as a wildcard: PropertyGet exposes a PropertyInfo on Rust but the
+    // bare name on the other targets, and this test is about DerivedPatterns.
+    | PropertyGet _ -> "col"
+    | Value _ -> "?"
+    | _ -> "<unsupported>"
+
+[<Fact>]
+let ``test DerivedPatterns AndAlso, OrElse and SpecificCall work`` () =
+    dpToSql <@ fun (c: DpRec) -> c.Country = "UK" @> |> equal "(col = ?)"
+
+    dpToSql <@ fun (c: DpRec) -> c.Country = "UK" && c.Balance > 100.0 @>
+    |> equal "((col = ?) AND (col > ?))"
+
+    dpToSql <@ fun (c: DpRec) -> c.Id < 5 || c.Balance > 1.0 @>
+    |> equal "((col < ?) OR (col > ?))"

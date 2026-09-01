@@ -10,14 +10,20 @@ open Replacements.Util
 /// to construct a quotation AST. The input is the Fable.Expr captured
 /// inside a Quote node; the output is a Fable.Expr that calls the
 /// quotation runtime library to build the AST at runtime.
-let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
+let rec private emitQuotedExprIn (com: Compiler) (bound: Set<string>) (expr: Expr) : Expr =
     match expr with
-    | Value(kind, r) -> emitQuotedValue com kind r
+    | Value(kind, r) -> emitQuotedValue com bound kind r
+
+    | IdentExpr ident when not (Set.contains ident.Name bound) ->
+        // Free in the quotation, so it is a local captured from the enclosing
+        // scope rather than a quotation variable. .NET splices the captured
+        // *value* in as a Value node; emitting a Var here instead left consumers
+        // with a name and no value to bind -- which is precisely what a query
+        // translator needs in order to turn a captured local into a parameter.
+        Helper.LibCall(com, "quotation", "mkValue", Any, [ IdentExpr ident; makeStrConst (typeToString ident.Type) ])
 
     | IdentExpr ident ->
-        // Reference to a variable already introduced by a lambda/let in the quotation.
-        // Emit: quotation.mkVar(Var)
-        // We need a var reference. Create a var and then wrap it.
+        // Bound by a lambda or let inside the quotation: a genuine Var.
         let varExpr =
             Helper.LibCall(
                 com,
@@ -47,14 +53,14 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
                 ]
             )
 
-        let bodyExpr = emitQuotedExpr com body
+        let bodyExpr = emitQuotedExprIn com (Set.add arg.Name bound) body
         Helper.LibCall(com, "quotation", "mkLambda", Any, [ varExpr; bodyExpr ])
 
     | Delegate(args, body, _name, _tags) ->
         // Multi-arg delegate: nest as curried lambdas
-        let rec nestLambdas args body =
+        let rec nestLambdas bound args body =
             match args with
-            | [] -> emitQuotedExpr com body
+            | [] -> emitQuotedExprIn com bound body
             | (arg: Ident) :: rest ->
                 let varExpr =
                     Helper.LibCall(
@@ -69,10 +75,10 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
                         ]
                     )
 
-                let innerBody = nestLambdas rest body
+                let innerBody = nestLambdas (Set.add arg.Name bound) rest body
                 Helper.LibCall(com, "quotation", "mkLambda", Any, [ varExpr; innerBody ])
 
-        nestLambdas args body
+        nestLambdas bound args body
 
     | Let(ident, value, body) ->
         let varExpr =
@@ -88,25 +94,25 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
                 ]
             )
 
-        let valueExpr = emitQuotedExpr com value
-        let bodyExpr = emitQuotedExpr com body
+        let valueExpr = emitQuotedExprIn com bound value
+        let bodyExpr = emitQuotedExprIn com (Set.add ident.Name bound) body
 
         Helper.LibCall(com, "quotation", "mkLet", Any, [ varExpr; valueExpr; bodyExpr ])
 
     | IfThenElse(guardExpr, thenExpr, elseExpr, _r) ->
-        let guard = emitQuotedExpr com guardExpr
-        let thenE = emitQuotedExpr com thenExpr
-        let elseE = emitQuotedExpr com elseExpr
+        let guard = emitQuotedExprIn com bound guardExpr
+        let thenE = emitQuotedExprIn com bound thenExpr
+        let elseE = emitQuotedExprIn com bound elseExpr
         Helper.LibCall(com, "quotation", "mkIfThenElse", Any, [ guard; thenE; elseE ])
 
     | CurriedApply(applied, args, _typ, _r) ->
         // Emit nested applications: Application(Application(f, a1), a2)
-        let appliedExpr = emitQuotedExpr com applied
+        let appliedExpr = emitQuotedExprIn com bound applied
 
         args
         |> List.fold
             (fun acc arg ->
-                let argExpr = emitQuotedExpr com arg
+                let argExpr = emitQuotedExprIn com bound arg
                 Helper.LibCall(com, "quotation", "mkApplication", Any, [ acc; argExpr ])
             )
             appliedExpr
@@ -114,7 +120,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
     | Call(callee, info, _typ, _r) ->
         let instanceExpr =
             match info.ThisArg with
-            | Some thisArg -> emitQuotedExpr com thisArg
+            | Some thisArg -> emitQuotedExprIn com bound thisArg
             // Static/operator call: no instance.
             | None -> mkNoInstanceExpr com
 
@@ -135,16 +141,16 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         else
             let methodExpr = makeStrConst methodName
             let declTypeExpr = makeStrConst declaringType
-            let argExprs = mkExprArray com (info.Args |> List.map (emitQuotedExpr com))
+            let argExprs = mkExprArray com (info.Args |> List.map (emitQuotedExprIn com bound))
             Helper.LibCall(com, "quotation", "mkCall", Any, [ instanceExpr; methodExpr; argExprs; declTypeExpr ])
 
     | Sequential exprs ->
         match exprs with
-        | [] -> emitQuotedExpr com (Value(UnitConstant, None))
-        | [ single ] -> emitQuotedExpr com single
+        | [] -> emitQuotedExprIn com bound (Value(UnitConstant, None))
+        | [ single ] -> emitQuotedExprIn com bound single
         | first :: rest ->
-            let restExpr = emitQuotedExpr com (Sequential rest)
-            let firstExpr = emitQuotedExpr com first
+            let restExpr = emitQuotedExprIn com bound (Sequential rest)
+            let firstExpr = emitQuotedExprIn com bound first
             Helper.LibCall(com, "quotation", "mkSequential", Any, [ firstExpr; restExpr ])
 
     | Operation(kind, _tags, _typ, _r) ->
@@ -195,13 +201,13 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         let methodExpr = makeStrConst opName
         let instanceExpr = mkNoInstanceExpr com
 
-        let argExprs = mkExprArray com (args |> List.map (emitQuotedExpr com))
+        let argExprs = mkExprArray com (args |> List.map (emitQuotedExprIn com bound))
 
         // Operators have no declaring type; pass an empty string.
         Helper.LibCall(com, "quotation", "mkCall", Any, [ instanceExpr; methodExpr; argExprs; makeStrConst "" ])
 
     | Get(expr, kind, _typ, _r) ->
-        let target = emitQuotedExpr com expr
+        let target = emitQuotedExprIn com bound expr
 
         match kind with
         | TupleIndex index -> Helper.LibCall(com, "quotation", "mkTupleGet", Any, [ target; makeIntConst index ])
@@ -227,8 +233,8 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
             Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
 
     | Set(expr, kind, _typ, value, _r) ->
-        let target = emitQuotedExpr com expr
-        let valueExpr = emitQuotedExpr com value
+        let target = emitQuotedExprIn com bound expr
+        let valueExpr = emitQuotedExprIn com bound value
 
         match kind with
         | ValueSet ->
@@ -242,7 +248,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
 
     | TypeCast(innerExpr, _typ) ->
         // Coerce/cast: just emit the inner expression for now
-        emitQuotedExpr com innerExpr
+        emitQuotedExprIn com bound innerExpr
 
     | DecisionTree(decisionExpr, targets) ->
         // Inline each DecisionTreeSuccess leaf into its target body via nested Lets, turning
@@ -261,18 +267,18 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
                 | e -> e
             )
 
-        emitQuotedExpr com inlined
+        emitQuotedExprIn com bound inlined
 
     | DecisionTreeSuccess(idx, boundValues, _typ) ->
         match boundValues with
-        | [] -> emitQuotedExpr com (Value(UnitConstant, None))
-        | [ single ] -> emitQuotedExpr com single
+        | [] -> emitQuotedExprIn com bound (Value(UnitConstant, None))
+        | [ single ] -> emitQuotedExprIn com bound single
         | _ ->
             let msg = "Unsupported quotation node: DecisionTreeSuccess"
             Helper.LibCall(com, "quotation", "mkValue", Any, [ makeStrConst msg; makeStrConst "string" ])
 
     | Test(testExpr, kind, _r) ->
-        let target = emitQuotedExpr com testExpr
+        let target = emitQuotedExprIn com bound testExpr
 
         // Note: real .NET quotations use dedicated UnionCaseTest/TypeTest node kinds here, not
         // Call — this emitter renders all of these as synthetic Calls instead (e.g. "get_IsCons",
@@ -282,7 +288,7 @@ let rec emitQuotedExpr (com: Compiler) (expr: Expr) : Expr =
         | UnionCaseTest tag ->
             // Represent as: (unionTag target) = tag
             let tagExpr = Helper.LibCall(com, "quotation", "mkUnionTag", Any, [ target ])
-            let tagConst = emitQuotedExpr com (makeIntConst tag)
+            let tagConst = emitQuotedExprIn com bound (makeIntConst tag)
 
             Helper.LibCall(
                 com,
@@ -364,7 +370,7 @@ and private mkNoInstanceExpr (com: Compiler) : Expr =
     // so isCall/isFieldGet don't conflate the two.
     mkNullExpr com "novalue"
 
-and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocation option) : Expr =
+and private emitQuotedValue (com: Compiler) (bound: Set<string>) (kind: ValueKind) (_r: SourceLocation option) : Expr =
     match kind with
     | BoolConstant b -> Helper.LibCall(com, "quotation", "mkValue", Any, [ makeBoolConst b; makeStrConst "bool" ])
 
@@ -388,7 +394,8 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
         Helper.LibCall(com, "quotation", "mkValue", Any, [ Value(CharConstant c, None); makeStrConst "char" ])
 
     | NewTuple(values, _isStruct) ->
-        let emittedValues = mkExprArray com (values |> List.map (emitQuotedExpr com))
+        let emittedValues =
+            mkExprArray com (values |> List.map (emitQuotedExprIn com bound))
 
         Helper.LibCall(com, "quotation", "mkNewTuple", Any, [ emittedValues ])
 
@@ -398,7 +405,8 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
             | Some ent -> ent.FullName
             | None -> entRef.FullName
 
-        let emittedValues = mkExprArray com (values |> List.map (emitQuotedExpr com))
+        let emittedValues =
+            mkExprArray com (values |> List.map (emitQuotedExprIn com bound))
 
         if com.Options.Language = Rust then
             // Rust needs the case name to build a real UnionCaseInfo; other targets keep (name, tag, fields).
@@ -429,7 +437,8 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
             | Some ent -> ent.FSharpFields |> List.map (fun f -> makeStrConst f.Name) |> makeArray Any
             | None -> makeArray Any []
 
-        let emittedValues = mkExprArray com (values |> List.map (emitQuotedExpr com))
+        let emittedValues =
+            mkExprArray com (values |> List.map (emitQuotedExprIn com bound))
 
         if com.Options.Language = Rust then
             // Rust needs the record type name; other targets keep (fieldNames, values).
@@ -449,7 +458,7 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
 
         match value with
         | Some v ->
-            let emitted = mkExprArray com [ emitQuotedExpr com v ]
+            let emitted = mkExprArray com [ emitQuotedExprIn com bound v ]
 
             Helper.LibCall(
                 com,
@@ -472,15 +481,15 @@ and private emitQuotedValue (com: Compiler) (kind: ValueKind) (_r: SourceLocatio
     | NewOption(value, _typ, _isStruct) ->
         match value with
         | Some v ->
-            let emitted = emitQuotedExpr com v
+            let emitted = emitQuotedExprIn com bound v
             Helper.LibCall(com, "quotation", "mkValue", Any, [ emitted; makeStrConst "option" ])
         | None -> mkNullExpr com "option"
 
     | NewList(headAndTail, _typ) ->
         match headAndTail with
         | Some(head, tail) ->
-            let headExpr = emitQuotedExpr com head
-            let tailExpr = emitQuotedExpr com tail
+            let headExpr = emitQuotedExprIn com bound head
+            let tailExpr = emitQuotedExprIn com bound tail
             Helper.LibCall(com, "quotation", "mkNewList", Any, [ headExpr; tailExpr ])
         | None -> mkNullExpr com "list"
 
@@ -549,3 +558,7 @@ and private mkExprArray (com: Compiler) (elements: Expr list) : Expr =
     match elements with
     | [] when com.Options.Language = Rust -> Helper.LibCall(com, "quotation", "emptyExprArray", Any, [])
     | _ -> makeArray Any elements
+
+/// Entry point. Nothing is bound at the top of a quotation, so any identifier
+/// still free by the time it is reached is a captured local.
+let emitQuotedExpr (com: Compiler) (expr: Expr) : Expr = emitQuotedExprIn com Set.empty expr

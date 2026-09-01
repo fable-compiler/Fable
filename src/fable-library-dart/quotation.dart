@@ -656,3 +656,70 @@ Expr substitute(Expr expr, dynamic fn) {
 
   return sub(expr);
 }
+
+// ===================================================================
+// DerivedPatterns
+// F# defines these on top of Patterns. AndAlso and OrElse recover the
+// shape `&&` and `||` desugar into; SpecificCall matches a call by the
+// identity of a template quotation rather than by compiled name.
+// ===================================================================
+
+/// a && b  ==>  if a then b else false
+types.Some<types.Tuple2<dynamic, dynamic>>? isAndAlso(Expr expr) {
+  if (expr is ExprIfThenElse) {
+    final e = expr.elseExpr;
+    if (e is ExprValue && e.value == false) {
+      return types.Some<types.Tuple2<dynamic, dynamic>>(
+          types.Tuple2<dynamic, dynamic>(expr.guard, expr.thenExpr));
+    }
+  }
+  return null;
+}
+
+/// a || b  ==>  if a then true else b
+types.Some<types.Tuple2<dynamic, dynamic>>? isOrElse(Expr expr) {
+  if (expr is ExprIfThenElse) {
+    final t = expr.thenExpr;
+    if (t is ExprValue && t.value == true) {
+      return types.Some<types.Tuple2<dynamic, dynamic>>(
+          types.Tuple2<dynamic, dynamic>(expr.guard, expr.elseExpr));
+    }
+  }
+  return null;
+}
+
+/// A template such as <@ (=) @> quotes as nested lambdas around the call, so
+/// the identifying Call node has to be dug out before comparing.
+ExprCall? _templateCall(Expr expr) {
+  Expr current = expr;
+  while (current is ExprLambda) {
+    current = current.body;
+  }
+  return current is ExprCall ? current : null;
+}
+
+// Takes both arguments; the partial application FSharp.Core expresses by
+// currying is built by the replacement instead.
+// Dart checks the full generic shape at runtime, so this spells out the type the
+// F# signature declares: (Expr option * Type list * Expr list) option.
+types.Some<types.Tuple3<types.Some<dynamic>?, list.FSharpList<Type>, list.FSharpList<dynamic>>>?
+    isSpecificCall(Expr template, Expr expr) {
+  final wanted = _templateCall(template);
+  if (wanted == null || expr is! ExprCall) return null;
+  if (expr.method != wanted.method ||
+      expr.declaringType != wanted.declaringType) {
+    return null;
+  }
+  final inst = expr.instance;
+  final normalized =
+      (inst is ExprValue && inst.type == 'novalue') ? null : inst;
+  // The middle slot is F#'s generic-argument list. This runtime models types as
+  // names rather than System.Type, so it is always empty; callers match it with
+  // a wildcard.
+  return types.Some<
+          types.Tuple3<types.Some<dynamic>?, list.FSharpList<Type>, list.FSharpList<dynamic>>>(
+      types.Tuple3<types.Some<dynamic>?, list.FSharpList<Type>, list.FSharpList<dynamic>>(
+          normalized == null ? null : types.Some<dynamic>(normalized),
+          list.ofArray<Type>(const []),
+          list.ofArray<dynamic>(expr.args)));
+}
