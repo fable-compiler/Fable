@@ -255,40 +255,56 @@ let noSideEffectBeforeIdent identName expr =
 
     findIdentOrSideEffect expr && not sideEffect
 
+/// A binding referenced from inside a quotation must not be inlined. `visit`
+/// deliberately does not rewrite quoted expressions, so the substitution would
+/// never reach that reference, and removing the binding would leave the captured
+/// value dangling.
+let isReferencedInsideQuote identName body =
+    body
+    |> deepExists (
+        function
+        | Quote(quotedExpr, _, _) -> countReferencesUntil 1 identName quotedExpr >= 1
+        | _ -> false
+    )
+
 let canInlineArg (com: Compiler) identName value body =
-    match value with
-    | Value((Null _ | UnitConstant | TypeInfo _ | BoolConstant _ | NumberConstant _ | CharConstant _), _) -> true
-    | Value(StringConstant s, _) ->
-        match com.Options.Language with
-        | Python ->
-            // Only inline short strings if they're referenced at most once,
-            // to avoid duplicating the literal in generated code (which can cause
-            // issues like property access on string literals in Python)
-            s.Length < 100 && countReferencesUntil 2 identName body <= 1
-        | _ -> s.Length < 100
-    | _ ->
-        let refCount = countReferencesUntil 2 identName body
+    if isReferencedInsideQuote identName body then
+        false
+    else
 
-        // Don't inline values that create new mutable state (e.g. ResizeArray(), mutable arrays)
-        // into closures: even though creation is side-effect-free, inlining into a closure
-        // called multiple times would create a new instance per call instead of sharing the
-        // single captured instance
-        let createsMutableState =
-            match value with
-            | Value(NewArray(_, _, kind), _) ->
-                match kind with
-                | MutableArray
-                | ResizeArray -> true
-                | ImmutableArray -> false
-            | _ -> false
+        match value with
+        | Value((Null _ | UnitConstant | TypeInfo _ | BoolConstant _ | NumberConstant _ | CharConstant _), _) -> true
+        | Value(StringConstant s, _) ->
+            match com.Options.Language with
+            | Python ->
+                // Only inline short strings if they're referenced at most once,
+                // to avoid duplicating the literal in generated code (which can cause
+                // issues like property access on string literals in Python)
+                s.Length < 100 && countReferencesUntil 2 identName body <= 1
+            | _ -> s.Length < 100
+        | _ ->
+            let refCount = countReferencesUntil 2 identName body
 
-        (refCount <= 1
-         && not (canHaveSideEffects com value)
-         && not (createsMutableState && isIdentCaptured identName body))
-        // If it can have side effects, make sure is at least referenced once so the expression is not erased
-        || (refCount = 1
-            && noSideEffectBeforeIdent identName body
-            && not (isIdentCaptured identName body))
+            // Don't inline values that create new mutable state (e.g. ResizeArray(), mutable arrays)
+            // into closures: even though creation is side-effect-free, inlining into a closure
+            // called multiple times would create a new instance per call instead of sharing the
+            // single captured instance
+            let createsMutableState =
+                match value with
+                | Value(NewArray(_, _, kind), _) ->
+                    match kind with
+                    | MutableArray
+                    | ResizeArray -> true
+                    | ImmutableArray -> false
+                | _ -> false
+
+            (refCount <= 1
+             && not (canHaveSideEffects com value)
+             && not (createsMutableState && isIdentCaptured identName body))
+            // If it can have side effects, make sure is at least referenced once so the expression is not erased
+            || (refCount = 1
+                && noSideEffectBeforeIdent identName body
+                && not (isIdentCaptured identName body))
 
 /// Returns arity of lambda (or lambda option) types
 let (|Arity|) typ =

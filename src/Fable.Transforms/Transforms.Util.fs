@@ -493,6 +493,9 @@ module Types =
     let patternsModule = "Microsoft.FSharp.Quotations.PatternsModule"
 
     [<Literal>]
+    let derivedPatternsModule = "Microsoft.FSharp.Quotations.DerivedPatternsModule"
+
+    [<Literal>]
     let printfModule = "Microsoft.FSharp.Core.PrintfModule"
 
     [<Literal>]
@@ -1801,7 +1804,12 @@ module AST =
             | None -> body :: (Option.toList finalizer)
         | DecisionTree(expr, targets) -> expr :: (List.map snd targets)
         | DecisionTreeSuccess(_, boundValues, _) -> boundValues
-        | Quote _ -> [] // Quoted expressions are opaque data — don't traverse
+        // Quoted expressions must not be *rewritten* (see `visit` above, which
+        // leaves them alone), but analysis has to see inside them: a local that
+        // is only referenced from within a quotation is still referenced, and
+        // returning [] here let reference counting treat it as dead and drop the
+        // binding out from under the captured value.
+        | Quote(quotedExpr, _, _) -> [ quotedExpr ]
 
     let deepExists (f: Expr -> bool) expr =
         let rec deepExistsInner (exprs: ResizeArray<Expr>) =
