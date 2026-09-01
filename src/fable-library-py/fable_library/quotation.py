@@ -653,3 +653,48 @@ def substitute(expr: Expr, fn: Any) -> Expr:
                 return e
 
     return sub(expr)
+
+
+# ===================================================================
+# DerivedPatterns
+# F# defines these on top of Patterns. AndAlso and OrElse recover the
+# shape `&&` and `||` desugar into; SpecificCall matches a call by the
+# identity of a template quotation rather than by compiled name.
+# ===================================================================
+
+
+def is_and_also(expr: Expr) -> tuple[Expr, Expr] | None:
+    """Match `a && b`, represented as `if a then b else false`."""
+    if isinstance(expr, ExprIfThenElse) and isinstance(expr.else_expr, ExprValue) and expr.else_expr.value is False:
+        return (expr.guard, expr.then_expr)
+    return None
+
+
+def is_or_else(expr: Expr) -> tuple[Expr, Expr] | None:
+    """Match `a || b`, represented as `if a then true else b`."""
+    if isinstance(expr, ExprIfThenElse) and isinstance(expr.then_expr, ExprValue) and expr.then_expr.value is True:
+        return (expr.guard, expr.else_expr)
+    return None
+
+
+def _template_call(expr: Expr) -> ExprCall | None:
+    """Find the call identifying a template quotation under its lambdas."""
+    current = expr
+    while isinstance(current, ExprLambda):
+        current = current.body
+    return current if isinstance(current, ExprCall) else None
+
+
+def is_specific_call(template: Expr, expr: Expr) -> tuple[Expr | None, FSharpList[str], FSharpList[Expr]] | None:
+    """Match a call by the method identity represented by a template quotation."""
+    wanted = _template_call(template)
+    if not isinstance(expr, ExprCall) or wanted is None:
+        return None
+    if expr.method != wanted.method or expr.declaring_type != wanted.declaring_type:
+        return None
+
+    instance = None if isinstance(expr.instance, ExprValue) and expr.instance.type == "novalue" else expr.instance
+    # The middle slot is F#'s generic-argument list. This runtime models types as
+    # names rather than System.Type, so it is always empty; callers match it with
+    # a wildcard.
+    return (instance, of_array(Array([])), of_array(expr.args))
