@@ -2436,9 +2436,9 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
 let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     // Erased operators
-    | "CheckThis", _, [ arg ]
-    | "UnboxFast", _, [ arg ]
-    | "UnboxGeneric", _, [ arg ] -> Some arg
+    | "CheckThis", _, [ arg ] -> Some arg
+    | "UnboxFast", _, [ arg ] -> Some arg
+    | "UnboxGeneric", _, [ arg ] -> TypeCast(arg, t) |> Some
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
     | "GetString", _, [ ar; idx ] -> Helper.LibCall(com, "String", "getCharAt", t, args, ?loc = r) |> Some
     | "GetStringSlice", None, [ ar; lower; upper ] ->

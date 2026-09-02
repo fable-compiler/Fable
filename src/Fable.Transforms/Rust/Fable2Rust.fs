@@ -1642,6 +1642,14 @@ module Util =
             let ar = makeLibCall com ctx None "HashMap" "entries" [ expr ]
             makeLibCall com ctx None "Seq" "ofArray" [ ar ]
 
+        // Casting Enumerators to IDisposable
+        | Fable.Any, IDisposable when
+            (match nestedExpr.Type with
+             | Replacements.Util.IsEnumerator _ -> true
+             | _ -> false)
+            ->
+            expr
+
         // Boxing reads a value through an owned Rust expression. Clone first so fields
         // read from reference-counted records are not moved out of their owner.
         | t, Fable.Any when isValueType com t || isWrappedType com t -> expr |> makeClone |> boxValue com ctx
@@ -1691,8 +1699,17 @@ module Util =
           Replacements.Util.IsEntity ("System.IObservable`1") (_, [ observableType ]) when eventType = observableType ->
             makeLibCall com ctx None "Event" "asObservable" [ expr ]
 
+        // casts from interface to object
+        | t, Fable.Any when isInterface com t -> [ expr |> makeClone ] |> makeLibCall com ctx None "Native" "box_"
+
         // casts from object to interface
-        | t1, t2 when not (isInterface com t1) && (isInterface com t2) -> makeInterfaceCast com ctx t2 expr
+        | t1, t2 when not (isInterface com t1) && (isInterface com t2) ->
+            match t1, nestedExpr with
+            | Fable.Any, Fable.ObjectExpr _ -> makeInterfaceCast com ctx t2 expr
+            | Fable.Any, _ ->
+                let genArgsOpt = transformGenArgs com ctx [ t2 ]
+                [ expr ] |> makeLibCall com ctx genArgsOpt "Native" "unbox"
+            | _ -> makeInterfaceCast com ctx t2 expr
 
         // casts from interface to interface
         | _, t when isInterface com t -> expr |> makeClone |> mkCastExpr ty //TODO: not working, implement
