@@ -3202,7 +3202,7 @@ module Util =
             let nonTailStmts =
                 revRest
                 |> List.rev
-                |> List.map (fun e -> transformLeaveContext com ctx None e |> mkSemiStmt)
+                |> List.map (fun e -> com.TransformExpr(ctx, e) |> mkSemiStmt)
 
             nonTailStmts @ [ transformAsStmt com ctx last ]
 
