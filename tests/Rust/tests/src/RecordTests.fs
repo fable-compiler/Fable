@@ -2,6 +2,21 @@ module Fable.Tests.RecordTests
 
 open Util.Testing
 
+type Camera() = class end
+
+type Scene = {
+    Camera: Camera
+}
+
+let getCamera (scene: Scene) =
+    scene.Camera
+
+[<Fact>]
+let ``Class-valued record fields compile`` () =
+    let scene = { Camera = Camera() }
+    let _camera = getCamera scene
+    ()
+
 type MyRecord = {
     a: int
     b: string

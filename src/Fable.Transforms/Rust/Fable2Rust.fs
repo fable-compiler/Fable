@@ -1672,6 +1672,11 @@ module Util =
 
             [ expr |> makeClone ] |> makeLibCall com ctx None "Native" boxMethod
 
+        | Fable.DeclaredType(entRef, genArgs), Fable.Any when
+            ctx.SkipRecordTypeRegistration && isReferenceClass com entRef
+            ->
+            [ expr |> makeClone ] |> makeLibCall com ctx None "Native" "box_"
+
         // unboxing obj back to a reference-typed record/union: downcast + re-wrap.
         | Fable.Any, Fable.DeclaredType(entRef, genArgs) when isReferenceRecordOrUnion com entRef ->
             let rawTy = transformEntityType com ctx entRef genArgs
@@ -1686,6 +1691,12 @@ module Util =
                 | None -> "unbox"
 
             [ expr ] |> makeLibCall com ctx genArgsOpt "Native" unboxMethod
+
+        | Fable.Any, Fable.DeclaredType(entRef, genArgs) when
+            ctx.SkipRecordTypeRegistration && isReferenceClass com entRef
+            ->
+            let genArgsOpt = transformGenArgs com ctx [ Fable.DeclaredType(entRef, genArgs) ]
+            [ expr ] |> makeLibCall com ctx genArgsOpt "Native" "unbox"
 
         // casts to generic param
         | _, Fable.GenericParam(name, _isMeasure, _constraints) -> makeCall (name :: "from" :: []) None [ expr ] // e.g. T::from(value)
@@ -2269,6 +2280,7 @@ module Util =
     // a `System.Type` holds on the Rust target). This backs FSharpValue.MakeRecord,
     // FSharpValue.GetRecordFields/GetRecordField and FSharpType.GetRecordFields.
     let makeRecordTypeInfo (com: IRustCompiler) ctx r (entRef: Fable.EntityRef) genArgs (typ: Fable.Type) : Rust.Expr =
+        let ctx = { ctx with SkipRecordTypeRegistration = true }
         let ent = com.GetEntity(entRef)
         let idents = getEntityFieldsAsIdents com ent
         let objType = Fable.Any
