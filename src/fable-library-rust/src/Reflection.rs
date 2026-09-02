@@ -155,22 +155,22 @@ pub mod Reflection_ {
     // unaffected, as those carry the info in the `System.Type` value itself.
     #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
     thread_local! {
-        static RECORD_REGISTRY: RefCell<HashMap<TypeId, RecordTypeInfo>> =
+        static RECORD_REGISTRY: RefCell<HashMap<TypeId, obj>> =
             RefCell::new(HashMap::new());
     }
 
     #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
-    static RECORD_REGISTRY: OnceLock<RwLock<HashMap<TypeId, RecordTypeInfo>>> = OnceLock::new();
+    static RECORD_REGISTRY: OnceLock<RwLock<HashMap<TypeId, obj>>> = OnceLock::new();
 
     #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
-    fn registry_insert(tid: TypeId, info: RecordTypeInfo) {
+    fn registry_insert(tid: TypeId, info: obj) {
         RECORD_REGISTRY.with(|r| {
             r.borrow_mut().insert(tid, info);
         });
     }
 
     #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
-    fn registry_insert(tid: TypeId, info: RecordTypeInfo) {
+    fn registry_insert(tid: TypeId, info: obj) {
         RECORD_REGISTRY
             .get_or_init(|| RwLock::new(HashMap::new()))
             .write()
@@ -179,17 +179,17 @@ pub mod Reflection_ {
     }
 
     #[cfg(feature = "no_std")]
-    fn registry_insert(_tid: TypeId, _info: RecordTypeInfo) {
+    fn registry_insert(_tid: TypeId, _info: obj) {
         // no registry when no_std
     }
 
     #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
-    fn registry_get(tid: &TypeId) -> Option<RecordTypeInfo> {
+    fn registry_get(tid: &TypeId) -> Option<obj> {
         RECORD_REGISTRY.with(|r| r.borrow().get(tid).cloned())
     }
 
     #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
-    fn registry_get(tid: &TypeId) -> Option<RecordTypeInfo> {
+    fn registry_get(tid: &TypeId) -> Option<obj> {
         RECORD_REGISTRY
             .get_or_init(|| RwLock::new(HashMap::new()))
             .read()
@@ -199,7 +199,7 @@ pub mod Reflection_ {
     }
 
     #[cfg(feature = "no_std")]
-    fn registry_get(_tid: &TypeId) -> Option<RecordTypeInfo> {
+    fn registry_get(_tid: &TypeId) -> Option<obj> {
         None // no registry when no_std
     }
 
@@ -213,6 +213,10 @@ pub mod Reflection_ {
         make: Func1<Array<obj>, obj>,
         getters: Array<Func1<obj, obj>>,
     ) -> obj {
+        if let Some(typ) = registry_get(&tid) {
+            return typ;
+        }
+
         let names: Vec<string> = field_names.get().iter().cloned().collect();
         let gets: Vec<Func1<obj, obj>> = getters.get().iter().cloned().collect();
         let fields_vec: Vec<LrcPtr<RecordFieldInfo>> = names
@@ -227,8 +231,9 @@ pub mod Reflection_ {
             make,
         };
         register_type_name_value(tid, info.name.clone());
-        registry_insert(tid, info.clone());
-        box_(info)
+        let typ = box_(info);
+        registry_insert(tid, typ.clone());
+        typ
     }
 
     fn type_info_of(typ: &obj) -> RecordTypeInfo {
@@ -249,7 +254,9 @@ pub mod Reflection_ {
     // getter is looked up here, mirroring JS/TS where getValue(pi, v) reads v[pi.Name].
     fn getterOf(record: &obj, name: &string) -> Func1<obj, obj> {
         let tid = object_type_id(record);
-        let info = registry_get(&tid).expect("Record type not registered; evaluate typeof<T> first");
+        let info = type_info_of(
+            &registry_get(&tid).expect("Record type not registered; evaluate typeof<T> first"),
+        );
         let field = info
             .fields
             .get()
@@ -275,7 +282,9 @@ pub mod Reflection_ {
     // FSharpValue.GetRecordFields(record, ?bindingFlags) -> obj[]
     pub fn getRecordFields(record: obj, _flags: Option<i32>) -> Array<obj> {
         let tid = object_type_id(&record);
-        let info = registry_get(&tid).expect("Record type not registered; evaluate typeof<T> first");
+        let info = type_info_of(
+            &registry_get(&tid).expect("Record type not registered; evaluate typeof<T> first"),
+        );
         let vals: Vec<obj> = info
             .fields
             .get()
@@ -330,7 +339,7 @@ pub mod Reflection_ {
     pub fn getTypeFromObj(o: obj) -> obj {
         let tid = object_type_id(&o);
         match registry_get(&tid) {
-            Some(info) => box_(info),
+            Some(typ) => typ,
             None => box_(tid),
         }
     }
