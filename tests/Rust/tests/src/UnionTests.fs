@@ -147,6 +147,24 @@ let ``Match with condition works`` () =
     b1 |> matchStringWhenStringNotHello |> equal "hello"
     b2 |> matchStringWhenStringNotHello |> equal "not hello"
 
+[<Struct>]
+type NestedMatchUnion =
+    | NestedA of int
+    | NestedB of int
+
+let private nestedUnionCaseAccess (u: NestedMatchUnion) =
+    match u with
+    | NestedA _ -> 0
+    | NestedB _ ->
+        match u with
+        | NestedA value -> value
+        | _ -> -1
+
+[<Fact>]
+let ``Nested union match keeps case-specific field access`` () =
+    nestedUnionCaseAccess (NestedA 7) |> equal 0
+    nestedUnionCaseAccess (NestedB 11) |> equal -1
+
 [<Fable.Core.Rust.ReferenceType(Fable.Core.Rust.PointerType.Arc)>]
 type ArcUnion =
     | ArcS of string
