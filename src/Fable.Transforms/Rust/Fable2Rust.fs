@@ -1719,7 +1719,8 @@ module Util =
             | Fable.Any, Fable.ObjectExpr _ -> makeInterfaceCast com ctx t2 expr
             | Fable.Any, _ ->
                 let genArgsOpt = transformGenArgs com ctx [ t2 ]
-                [ expr ] |> makeLibCall com ctx genArgsOpt "Native" "unbox"
+                let boxedExpr = makeLibCall com ctx None "Native" "box_" [ expr ]
+                [ boxedExpr ] |> makeLibCall com ctx genArgsOpt "Native" "unbox"
             | _ -> makeInterfaceCast com ctx t2 expr
 
         // casts from interface to interface
