@@ -3654,8 +3654,28 @@ let fsharpType com methName (r: SourceLocation option) t (i: CallInfo) (args: Ex
 
 let fsharpValue com methName (r: SourceLocation option) t (i: CallInfo) (args: Expr list) =
     match methName with
+    | "GetRecordFields" ->
+        let args, argTypes =
+            match args with
+            | record :: rest ->
+                let rec getConcreteType (expr: Expr) =
+                    match expr with
+                    | TypeCast(inner, _) -> getConcreteType inner
+                    | _ -> expr.Type
+
+                let typeInfo = Fable.Value(Fable.TypeInfo(getConcreteType record, []), None)
+
+                let argTypes =
+                    match i.SignatureArgTypes with
+                    | first :: restTypes -> first :: Fable.MetaType :: restTypes
+                    | [] -> []
+
+                record :: typeInfo :: rest, argTypes
+            | _ -> args, i.SignatureArgTypes
+
+        Helper.LibCall(com, "Reflection", "getRecordFields", t, args, argTypes, ?loc = r)
+        |> Some
     | "GetUnionFields"
-    | "GetRecordFields"
     | "GetRecordField"
     | "GetTupleFields"
     | "GetTupleField"

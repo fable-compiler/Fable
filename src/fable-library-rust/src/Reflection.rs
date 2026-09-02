@@ -2,7 +2,7 @@ pub mod Reflection_ {
     pub use core::any::TypeId; // re-export
 
     use crate::Microsoft::FSharp::Quotations::FSharpPropertyInfo;
-    use crate::Native_::{box_, Any, Func1, LrcPtr, Vec};
+    use crate::Native_::{box_, box_lrc, Any, Func1, LrcPtr, Vec};
     use crate::NativeArray_::{array_from, Array};
     use crate::String_::{fromString, string};
 
@@ -145,7 +145,7 @@ pub mod Reflection_ {
     }
 
     // Registry mapping a record's *concrete* TypeId to its reflection info.
-    // Populated by `typeof<Record>` and generated record construction. This is what makes
+    // Populated by `typeof<Record>` and generated record reflection calls. This is what makes
     // value-based reflection (GetRecordFields(record)) possible: from a bare
     // boxed record we can recover its runtime TypeId and look the info up.
     //
@@ -155,22 +155,22 @@ pub mod Reflection_ {
     // unaffected, as those carry the info in the `System.Type` value itself.
     #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
     thread_local! {
-        static RECORD_REGISTRY: RefCell<HashMap<TypeId, obj>> =
+        static RECORD_REGISTRY: RefCell<HashMap<TypeId, LrcPtr<RecordTypeInfo>>> =
             RefCell::new(HashMap::new());
     }
 
     #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
-    static RECORD_REGISTRY: OnceLock<RwLock<HashMap<TypeId, obj>>> = OnceLock::new();
+    static RECORD_REGISTRY: OnceLock<RwLock<HashMap<TypeId, LrcPtr<RecordTypeInfo>>>> = OnceLock::new();
 
     #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
-    fn registry_insert(tid: TypeId, info: obj) {
+    fn registry_insert(tid: TypeId, info: LrcPtr<RecordTypeInfo>) {
         RECORD_REGISTRY.with(|r| {
             r.borrow_mut().insert(tid, info);
         });
     }
 
     #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
-    fn registry_insert(tid: TypeId, info: obj) {
+    fn registry_insert(tid: TypeId, info: LrcPtr<RecordTypeInfo>) {
         RECORD_REGISTRY
             .get_or_init(|| RwLock::new(HashMap::new()))
             .write()
@@ -179,17 +179,17 @@ pub mod Reflection_ {
     }
 
     #[cfg(feature = "no_std")]
-    fn registry_insert(_tid: TypeId, _info: obj) {
+    fn registry_insert(_tid: TypeId, _info: LrcPtr<RecordTypeInfo>) {
         // no registry when no_std
     }
 
     #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
-    fn registry_get(tid: &TypeId) -> Option<obj> {
+    fn registry_get(tid: &TypeId) -> Option<LrcPtr<RecordTypeInfo>> {
         RECORD_REGISTRY.with(|r| r.borrow().get(tid).cloned())
     }
 
     #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
-    fn registry_get(tid: &TypeId) -> Option<obj> {
+    fn registry_get(tid: &TypeId) -> Option<LrcPtr<RecordTypeInfo>> {
         RECORD_REGISTRY
             .get_or_init(|| RwLock::new(HashMap::new()))
             .read()
@@ -199,11 +199,11 @@ pub mod Reflection_ {
     }
 
     #[cfg(feature = "no_std")]
-    fn registry_get(_tid: &TypeId) -> Option<obj> {
+    fn registry_get(_tid: &TypeId) -> Option<LrcPtr<RecordTypeInfo>> {
         None // no registry when no_std
     }
 
-    // Emitted by generated `typeof<Record>`. Builds the field metadata, registers
+    // Emitted by the generated record declaration's reflection method. Builds the field metadata, registers
     // the type by its concrete TypeId, and returns the boxed RecordTypeInfo
     // (which is what a `System.Type` value holds on the Rust target).
     pub fn recordType(
@@ -214,7 +214,7 @@ pub mod Reflection_ {
         getters: Array<Func1<obj, obj>>,
     ) -> obj {
         if let Some(typ) = registry_get(&tid) {
-            return typ;
+            return box_lrc(typ);
         }
 
         let names: Vec<string> = field_names.get().iter().cloned().collect();
@@ -224,16 +224,15 @@ pub mod Reflection_ {
             .zip(gets.into_iter())
             .map(|(n, g)| LrcPtr::new(RecordFieldInfo { name: n, get: g }))
             .collect();
-        let info = RecordTypeInfo {
+        let info = LrcPtr::new(RecordTypeInfo {
             tid,
             name,
             fields: array_from(fields_vec),
             make,
-        };
+        });
         register_type_name_value(tid, info.name.clone());
-        let typ = box_(info);
-        registry_insert(tid, typ.clone());
-        typ
+        registry_insert(tid, info.clone());
+        box_lrc(info)
     }
 
     fn type_info_of(typ: &obj) -> RecordTypeInfo {
@@ -254,9 +253,7 @@ pub mod Reflection_ {
     // getter is looked up here, mirroring JS/TS where getValue(pi, v) reads v[pi.Name].
     fn getterOf(record: &obj, name: &string) -> Func1<obj, obj> {
         let tid = object_type_id(record);
-        let info = type_info_of(
-            &registry_get(&tid).expect("Record type not registered; evaluate typeof<T> first"),
-        );
+        let info = registry_get(&tid).expect("Record type not registered; evaluate typeof<T> first");
         let field = info
             .fields
             .get()
@@ -280,11 +277,9 @@ pub mod Reflection_ {
     }
 
     // FSharpValue.GetRecordFields(record, ?bindingFlags) -> obj[]
-    pub fn getRecordFields(record: obj, _flags: Option<i32>) -> Array<obj> {
-        let tid = object_type_id(&record);
-        let info = type_info_of(
-            &registry_get(&tid).expect("Record type not registered; evaluate typeof<T> first"),
-        );
+    pub fn getRecordFields(record: obj, typ: obj, _flags: Option<i32>) -> Array<obj> {
+        let info = type_info_of(&typ);
+        registry_insert(info.tid, LrcPtr::new(info.clone()));
         let vals: Vec<obj> = info
             .fields
             .get()
@@ -339,7 +334,7 @@ pub mod Reflection_ {
     pub fn getTypeFromObj(o: obj) -> obj {
         let tid = object_type_id(&o);
         match registry_get(&tid) {
-            Some(typ) => typ,
+            Some(typ) => box_lrc(typ),
             None => box_(tid),
         }
     }

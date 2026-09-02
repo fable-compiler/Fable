@@ -3,5 +3,13 @@ name = "fable_quicktest_rust"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+lrc_ptr = ["fable_library_rust/lrc_ptr"]
+no_std = ["fable_library_rust/no_std"]
+reflection = ["fable_library_rust/reflection"]
+static_do_bindings = ["fable_library_rust/static_do_bindings"]
+threaded = ["fable_library_rust/threaded"]
+# default = ["threaded"] # Uncomment to default to "threaded" mode
+
 [dependencies]
 fable_library_rust = { path = "../../temp/fable-library-rust" }

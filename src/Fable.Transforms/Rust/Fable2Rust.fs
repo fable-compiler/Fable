@@ -2196,14 +2196,7 @@ module Util =
         let path = makeFullNamePath entName genArgsOpt
         let expr = mkStructExpr path fields // TODO: range
         let expr = expr |> maybeWrapSmartPtr com ctx ent
-
-        if ctx.SkipRecordTypeRegistration || isFableLibrary com || not ent.IsFSharpRecord then
-            expr
-        else
-            let registrationCtx = { ctx with SkipRecordTypeRegistration = true }
-            let typ = Fable.DeclaredType(entRef, genArgs)
-            let registration = makeRecordTypeInfo com registrationCtx r entRef genArgs typ
-            [ registration |> mkSemiStmt; expr |> mkExprStmt ] |> mkStmtBlockExpr
+        expr
 
     let tryUseKnownUnionCaseNames fullName =
         match fullName with
@@ -2274,7 +2267,7 @@ module Util =
         let fmt = makeFormatString parts
         makeFormatExpr com ctx fmt values
 
-    // Builds a rich reflection value for `typeof<Record>`. The emitted expression
+    // Builds a rich reflection value for a record declaration. The emitted expression
     // registers the record's field metadata + constructor/getter closures keyed by
     // its concrete TypeId and returns a boxed RecordTypeInfo (the runtime value that
     // a `System.Type` holds on the Rust target). This backs FSharpValue.MakeRecord,
@@ -2340,10 +2333,26 @@ module Util =
 
         makeLibCall com ctx None "Reflection" "recordType" [ tidExpr; nameExpr; fieldNamesExpr; makeExpr; gettersExpr ]
 
+    let makeRecordTypeInfoItem (com: IRustCompiler) ctx (ent: Fable.Entity) genArgs =
+        let typ = Fable.DeclaredType(ent.Ref, genArgs)
+
+        let body =
+            makeRecordTypeInfo com ctx None ent.Ref genArgs typ |> mkExprBlock |> Some
+
+        let returnType = transformType com ctx Fable.MetaType |> mkFnRetTy
+        let fnDecl = mkFnDecl [] returnType
+        let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS body
+
+        let attr = [ mkAttr "cfg" [ "feature = \"reflection\"" ] ]
+        mkFnAssocItem attr "__type_info__" fnKind |> mkPublicAssocItem
+
     let makeTypeInfo (com: IRustCompiler) ctx r (typ: Fable.Type) : Rust.Expr =
         match typ with
         | Fable.DeclaredType(entRef, genArgs) when (com.GetEntity(entRef)).IsFSharpRecord ->
-            makeRecordTypeInfo com ctx r entRef genArgs typ
+            let entName = getEntityFullName com ctx entRef
+            let genArgsOpt = transformGenArgs com ctx genArgs
+            let callee = makeStaticCallPathExpr (entName + "::__type_info__") genArgsOpt None
+            mkCallExpr callee []
         | _ ->
             // Non-record `System.Type` value: carry the concrete `TypeId`, boxed as
             // `LrcPtr<dyn Any>` so it flows through the same `obj` slot as record type
@@ -5873,6 +5882,12 @@ module Util =
                     memberItems
                     |> List.append (makeFSharpExceptionItems com ctx ent)
                     |> List.append (makePrimaryConstructorItems com ctx ent classDecl)
+
+            let memberItems =
+                if ent.IsFSharpRecord then
+                    makeRecordTypeInfoItem com ctx ent genArgs :: memberItems
+                else
+                    memberItems
 
             if List.isEmpty memberItems then
                 []

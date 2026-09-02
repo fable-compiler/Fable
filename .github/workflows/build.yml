@@ -250,7 +250,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        features: [",", "no_std", "threaded", "lrc_ptr"]
+        features: [",", "lrc_ptr", "no_std", "reflection", "threaded"]
 
     steps:
       - uses: actions/checkout@v7.0.1
