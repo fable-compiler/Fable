@@ -1037,10 +1037,16 @@ module Util =
         | _, (:? uint64 as i) when i = 64UL -> makeFieldGet cons "SIXTY_FOUR"
         | _ -> Expression.call (cons, [ value ], ?loc = r), []
 
-    let makeFloat (com: IPythonCompiler) (ctx: Context) r _t floatName x =
+    let makeFloat (com: IPythonCompiler) (ctx: Context) r _t floatName (x: float) =
         let cons = libValue com ctx "core" floatName
-        let value = Expression.floatConstant (x, ?loc = r)
-        Expression.call (cons, [ value ], ?loc = r), []
+
+        match x with
+        | x when Double.IsPositiveInfinity x -> makeFieldGet cons "infinity"
+        | x when Double.IsNegativeInfinity x -> makeFieldGet cons "negative_infinity"
+        | x when Double.IsNaN x -> makeFieldGet cons "nan"
+        | _ ->
+            let value = Expression.floatConstant (x, ?loc = r)
+            Expression.call (cons, [ value ], ?loc = r), []
 
     // ---------------------------------------------------------------------------
     // Int32 normalization

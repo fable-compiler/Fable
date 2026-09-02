@@ -17,6 +17,10 @@ let notALiteral = 5
 let checkTo3dp (expected: float) actual =
     floor (actual * 1000.) |> equal expected
 
+let moduleSinglePositiveInfinity = Single.PositiveInfinity
+let moduleSingleNegativeInfinity = Single.NegativeInfinity
+let moduleSingleNaN = Single.NaN
+
 [<Fact>]
 let ``test Adding floats works`` () =
     3.141 + 2.85 |> equal 5.991
@@ -749,6 +753,33 @@ let ``test sqrt matches .NET core implementation`` () =
 //     let culture = Globalization.CultureInfo.InvariantCulture
 //     let result = Single.Parse("10.5", culture)
 //     float result |> equal 10.5
+
+[<Fact>]
+let ``test Single special values work`` () =
+    Single.IsPositiveInfinity Single.PositiveInfinity |> equal true
+    Single.IsNegativeInfinity Single.NegativeInfinity |> equal true
+    Single.IsInfinity Single.PositiveInfinity |> equal true
+    Single.IsInfinity Single.NegativeInfinity |> equal true
+    Single.IsNaN Single.NaN |> equal true
+    Single.PositiveInfinity > 0.0f |> equal true
+    Single.NegativeInfinity < 0.0f |> equal true
+    Single.PositiveInfinity |> equal infinityf
+    Single.NegativeInfinity |> equal -infinityf
+    Single.IsNaN nanf |> equal true
+
+[<Fact>]
+let ``test Single special values work as module bindings`` () =
+    Single.IsPositiveInfinity moduleSinglePositiveInfinity |> equal true
+    Single.IsNegativeInfinity moduleSingleNegativeInfinity |> equal true
+    Single.IsNaN moduleSingleNaN |> equal true
+
+[<Fact>]
+let ``test Double special values work`` () =
+    Double.IsPositiveInfinity Double.PositiveInfinity |> equal true
+    Double.IsNegativeInfinity Double.NegativeInfinity |> equal true
+    Double.IsNaN Double.NaN |> equal true
+    Double.PositiveInfinity |> equal infinity
+    Double.NegativeInfinity |> equal -infinity
 
 [<Fact>]
 let ``test acos works`` () =

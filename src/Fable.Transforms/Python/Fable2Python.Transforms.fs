@@ -516,10 +516,6 @@ let transformValue (com: IPythonCompiler) (ctx: Context) r value : Expression * 
         | Fable.NumberValue.Float64 x when x = -infinity ->
             Expression.unaryOp (UnaryMinus, com.GetImportExpr(ctx, "math", "inf")), []
         | Fable.NumberValue.Float64 x when Double.IsNaN(x) -> com.GetImportExpr(ctx, "math", "nan"), []
-        | Fable.NumberValue.Float32 x when Single.IsNaN(x) ->
-            libCall com ctx r "core" "float32" [ Expression.stringConstant "nan" ], []
-        | Fable.NumberValue.Float16 x when Single.IsNaN(x) ->
-            libCall com ctx r "core" "float32" [ Expression.stringConstant "nan" ], []
         | Fable.NumberValue.Float16 x -> makeFloat com ctx r value.Type "float32" (float x)
         | Fable.NumberValue.Float32 x -> makeFloat com ctx r value.Type "float32" (float x)
         | Fable.NumberValue.Float64 x -> Expression.floatConstant (float x, ?loc = r), []

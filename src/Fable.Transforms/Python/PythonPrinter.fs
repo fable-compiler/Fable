@@ -792,6 +792,14 @@ module PrinterExtensions =
                 printer.Print("\"")
                 printer.Print(Naming.escapeString (fun _ -> false) value)
                 printer.Print("\"")
+            | Constant(value = FloatLiteral value) when Double.IsNaN value || Double.IsInfinity value ->
+                // .NET prints these as `Infinity`, `-Infinity` and `NaN`, which are not Python names
+                if Double.IsNaN value then
+                    printer.Print("float(\"nan\")")
+                elif Double.IsPositiveInfinity value then
+                    printer.Print("float(\"inf\")")
+                else
+                    printer.Print("float(\"-inf\")")
             | Constant(value = FloatLiteral value) ->
                 let value = string<float> value
                 printer.Print(value)
