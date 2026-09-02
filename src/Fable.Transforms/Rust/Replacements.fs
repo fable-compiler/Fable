@@ -2436,9 +2436,9 @@ let languagePrimitives (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisAr
 let intrinsicFunctions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     // Erased operators
-    | "CheckThis", _, [ arg ]
-    | "UnboxFast", _, [ arg ]
-    | "UnboxGeneric", _, [ arg ] -> Some arg
+    | "CheckThis", _, [ arg ] -> Some arg
+    | "UnboxFast", _, [ arg ] -> Some arg
+    | "UnboxGeneric", _, [ arg ] -> TypeCast(arg, t) |> Some
     | "MakeDecimal", _, _ -> decimals com ctx r t i thisArg args
     | "GetString", _, [ ar; idx ] -> Helper.LibCall(com, "String", "getCharAt", t, args, ?loc = r) |> Some
     | "GetStringSlice", None, [ ar; lower; upper ] ->
@@ -3654,8 +3654,28 @@ let fsharpType com methName (r: SourceLocation option) t (i: CallInfo) (args: Ex
 
 let fsharpValue com methName (r: SourceLocation option) t (i: CallInfo) (args: Expr list) =
     match methName with
+    | "GetRecordFields" ->
+        let args, argTypes =
+            match args with
+            | record :: rest ->
+                let rec getConcreteType (expr: Expr) =
+                    match expr with
+                    | TypeCast(inner, _) -> getConcreteType inner
+                    | _ -> expr.Type
+
+                let typeInfo = Fable.Value(Fable.TypeInfo(getConcreteType record, []), None)
+
+                let argTypes =
+                    match i.SignatureArgTypes with
+                    | first :: restTypes -> first :: Fable.MetaType :: restTypes
+                    | [] -> []
+
+                record :: typeInfo :: rest, argTypes
+            | _ -> args, i.SignatureArgTypes
+
+        Helper.LibCall(com, "Reflection", "getRecordFields", t, args, argTypes, ?loc = r)
+        |> Some
     | "GetUnionFields"
-    | "GetRecordFields"
     | "GetRecordField"
     | "GetTupleFields"
     | "GetTupleField"

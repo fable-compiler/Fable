@@ -1,6 +1,6 @@
 // Value-based reflection uses a std-only type registry (it uses thread_local), so
 // these tests do not apply to no_std builds.
-[<Fable.Core.Rust.OuterAttr("cfg", [| "not(feature = \"no_std\")" |])>]
+[<Fable.Core.Rust.OuterAttr("cfg", [| "all(feature = \"reflection\", not(feature = \"no_std\"))" |])>]
 module Fable.Tests.RecordReflectionTests
 
 open Util.Testing

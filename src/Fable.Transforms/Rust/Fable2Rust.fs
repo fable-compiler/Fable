@@ -1642,6 +1642,14 @@ module Util =
             let ar = makeLibCall com ctx None "HashMap" "entries" [ expr ]
             makeLibCall com ctx None "Seq" "ofArray" [ ar ]
 
+        // Casting Enumerators to IDisposable
+        | Fable.Any, IDisposable when
+            (match nestedExpr.Type with
+             | Replacements.Util.IsEnumerator _ -> true
+             | _ -> false)
+            ->
+            expr
+
         // Boxing reads a value through an owned Rust expression. Clone first so fields
         // read from reference-counted records are not moved out of their owner.
         | t, Fable.Any when isValueType com t || isWrappedType com t -> expr |> makeClone |> boxValue com ctx
@@ -1664,6 +1672,11 @@ module Util =
 
             [ expr |> makeClone ] |> makeLibCall com ctx None "Native" boxMethod
 
+        | Fable.DeclaredType(entRef, genArgs), Fable.Any when
+            ctx.SkipRecordTypeRegistration && isReferenceClass com entRef
+            ->
+            [ expr |> makeClone ] |> makeLibCall com ctx None "Native" "box_"
+
         // unboxing obj back to a reference-typed record/union: downcast + re-wrap.
         | Fable.Any, Fable.DeclaredType(entRef, genArgs) when isReferenceRecordOrUnion com entRef ->
             let rawTy = transformEntityType com ctx entRef genArgs
@@ -1679,6 +1692,12 @@ module Util =
 
             [ expr ] |> makeLibCall com ctx genArgsOpt "Native" unboxMethod
 
+        | Fable.Any, Fable.DeclaredType(entRef, genArgs) when
+            ctx.SkipRecordTypeRegistration && isReferenceClass com entRef
+            ->
+            let genArgsOpt = transformGenArgs com ctx [ Fable.DeclaredType(entRef, genArgs) ]
+            [ expr ] |> makeLibCall com ctx genArgsOpt "Native" "unbox"
+
         // casts to generic param
         | _, Fable.GenericParam(name, _isMeasure, _constraints) -> makeCall (name :: "from" :: []) None [ expr ] // e.g. T::from(value)
 
@@ -1691,8 +1710,18 @@ module Util =
           Replacements.Util.IsEntity ("System.IObservable`1") (_, [ observableType ]) when eventType = observableType ->
             makeLibCall com ctx None "Event" "asObservable" [ expr ]
 
+        // casts from interface to object
+        | t, Fable.Any when isInterface com t -> [ expr |> makeClone ] |> makeLibCall com ctx None "Native" "box_"
+
         // casts from object to interface
-        | t1, t2 when not (isInterface com t1) && (isInterface com t2) -> makeInterfaceCast com ctx t2 expr
+        | t1, t2 when not (isInterface com t1) && (isInterface com t2) ->
+            match t1, nestedExpr with
+            | Fable.Any, Fable.ObjectExpr _ -> makeInterfaceCast com ctx t2 expr
+            | Fable.Any, _ ->
+                let genArgsOpt = transformGenArgs com ctx [ t2 ]
+                let boxedExpr = makeLibCall com ctx None "Native" "box_" [ expr ]
+                [ boxedExpr ] |> makeLibCall com ctx genArgsOpt "Native" "unbox"
+            | _ -> makeInterfaceCast com ctx t2 expr
 
         // casts from interface to interface
         | _, t when isInterface com t -> expr |> makeClone |> mkCastExpr ty //TODO: not working, implement
@@ -2168,14 +2197,7 @@ module Util =
         let path = makeFullNamePath entName genArgsOpt
         let expr = mkStructExpr path fields // TODO: range
         let expr = expr |> maybeWrapSmartPtr com ctx ent
-
-        if ctx.SkipRecordTypeRegistration || isFableLibrary com || not ent.IsFSharpRecord then
-            expr
-        else
-            let registrationCtx = { ctx with SkipRecordTypeRegistration = true }
-            let typ = Fable.DeclaredType(entRef, genArgs)
-            let registration = makeRecordTypeInfo com registrationCtx r entRef genArgs typ
-            [ registration |> mkSemiStmt; expr |> mkExprStmt ] |> mkStmtBlockExpr
+        expr
 
     let tryUseKnownUnionCaseNames fullName =
         match fullName with
@@ -2246,12 +2268,13 @@ module Util =
         let fmt = makeFormatString parts
         makeFormatExpr com ctx fmt values
 
-    // Builds a rich reflection value for `typeof<Record>`. The emitted expression
+    // Builds a rich reflection value for a record declaration. The emitted expression
     // registers the record's field metadata + constructor/getter closures keyed by
     // its concrete TypeId and returns a boxed RecordTypeInfo (the runtime value that
     // a `System.Type` holds on the Rust target). This backs FSharpValue.MakeRecord,
     // FSharpValue.GetRecordFields/GetRecordField and FSharpType.GetRecordFields.
     let makeRecordTypeInfo (com: IRustCompiler) ctx r (entRef: Fable.EntityRef) genArgs (typ: Fable.Type) : Rust.Expr =
+        let ctx = { ctx with SkipRecordTypeRegistration = true }
         let ent = com.GetEntity(entRef)
         let idents = getEntityFieldsAsIdents com ent
         let objType = Fable.Any
@@ -2311,10 +2334,26 @@ module Util =
 
         makeLibCall com ctx None "Reflection" "recordType" [ tidExpr; nameExpr; fieldNamesExpr; makeExpr; gettersExpr ]
 
+    let makeRecordTypeInfoItem (com: IRustCompiler) ctx (ent: Fable.Entity) genArgs =
+        let typ = Fable.DeclaredType(ent.Ref, genArgs)
+
+        let body =
+            makeRecordTypeInfo com ctx None ent.Ref genArgs typ |> mkExprBlock |> Some
+
+        let returnType = transformType com ctx Fable.MetaType |> mkFnRetTy
+        let fnDecl = mkFnDecl [] returnType
+        let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS body
+
+        let attr = [ mkAttr "cfg" [ "feature = \"reflection\"" ] ]
+        mkFnAssocItem attr "__type_info__" fnKind |> mkPublicAssocItem
+
     let makeTypeInfo (com: IRustCompiler) ctx r (typ: Fable.Type) : Rust.Expr =
         match typ with
         | Fable.DeclaredType(entRef, genArgs) when (com.GetEntity(entRef)).IsFSharpRecord ->
-            makeRecordTypeInfo com ctx r entRef genArgs typ
+            let entName = getEntityFullName com ctx entRef
+            let genArgsOpt = transformGenArgs com ctx genArgs
+            let callee = makeStaticCallPathExpr (entName + "::__type_info__") genArgsOpt None
+            mkCallExpr callee []
         | _ ->
             // Non-record `System.Type` value: carry the concrete `TypeId`, boxed as
             // `LrcPtr<dyn Any>` so it flows through the same `obj` slot as record type
@@ -5844,6 +5883,12 @@ module Util =
                     memberItems
                     |> List.append (makeFSharpExceptionItems com ctx ent)
                     |> List.append (makePrimaryConstructorItems com ctx ent classDecl)
+
+            let memberItems =
+                if ent.IsFSharpRecord then
+                    makeRecordTypeInfoItem com ctx ent genArgs :: memberItems
+                else
+                    memberItems
 
             if List.isEmpty memberItems then
                 []

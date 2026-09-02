@@ -6,6 +6,7 @@ edition = "2024"
 [features]
 lrc_ptr = ["fable_library_rust/lrc_ptr"]
 no_std = ["fable_library_rust/no_std"]
+reflection = ["fable_library_rust/reflection"]
 static_do_bindings = ["fable_library_rust/static_do_bindings"]
 threaded = ["fable_library_rust/threaded"]
 # default = ["no_std"] # Uncomment to default to "no_std" mode
