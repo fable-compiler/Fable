@@ -3243,17 +3243,28 @@ let mailbox (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | "Reply" -> makeInstanceCall r t i callee "reply" args |> Some
         | _ -> None
 
+let tryGetAsyncDelayBinder =
+    function
+    | MaybeCasted(Call(Import({ Selector = "AsyncBuilder_::delay" }, _, _), callInfo, _, _)) ->
+        match callInfo.Args with
+        | [ binder ] -> Some binder
+        | _ -> None
+    | _ -> None
+
 let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
     | "Singleton", _, _ -> Value(UnitConstant, r) |> Some
-    //makeImportLib com t "singleton" "AsyncBuilder" |> Some
-    // For Using we need to cast the argument to IDisposable
-    | "Using", Some callee, [ arg; f ] -> makeInstanceCall r t i callee "Using" [ arg; f ] |> Some
+    | "Bind", _, _ ->
+        Helper.LibCall(com, "AsyncBuilder", "bind", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "Combine", _, _ ->
+        Helper.LibCall(com, "AsyncBuilder", "combine", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "Delay", _, _ ->
         Helper.LibCall(com, "AsyncBuilder", "delay", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
-    | "Bind", _, _ ->
-        Helper.LibCall(com, "AsyncBuilder", "bind", t, args, i.SignatureArgTypes, ?loc = r)
+    | "For", _, _ ->
+        Helper.LibCall(com, "AsyncBuilder", "for_loop", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "Return", _, _ ->
         Helper.LibCall(com, "AsyncBuilder", "r_return", t, args, i.SignatureArgTypes, ?loc = r)
@@ -3261,6 +3272,24 @@ let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
     | "ReturnFrom", _, _ ->
         Helper.LibCall(com, "AsyncBuilder", "return_from", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "TryFinally", _, _ ->
+        Helper.LibCall(com, "AsyncBuilder", "try_finally", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "TryWith", _, _ ->
+        Helper.LibCall(com, "AsyncBuilder", "try_with", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "Using", _, _ ->
+        Helper.LibCall(com, "AsyncBuilder", "using", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "While", _, [ guard; body ] ->
+        match tryGetAsyncDelayBinder body with
+        | Some body ->
+            Helper.LibCall(com, "AsyncBuilder", "while_loop", t, [ guard; body ], i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | None ->
+            "Async builder While expects a delayed body."
+            |> addErrorAndReturnNull com ctx.InlinePath r
+            |> Some
     | "Zero", _, _ ->
         Helper.LibCall(com, "AsyncBuilder", "zero", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -3288,49 +3317,58 @@ let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr lis
         Helper.LibCall(com, "Async", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
 
-let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg, args with
-    // | "Run", _, _ -> Helper.LibCall(com, "Task", "run", t, args, ?loc=r) |> Some
-    // | "Singleton", _, _ -> makeImportLib com t "singleton" "TaskBuilder" |> Some
-    | ".ctor", None, _ -> makeImportLib com t "new" "TaskBuilder" |> Some
-    | "Run", Some callee, _ -> makeInstanceCall r t i callee "run" args |> Some
-    | meth, Some callee, _ -> makeInstanceCall r t i callee meth args |> Some
-    | meth, None, _ ->
-        Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-
-let taskBuilderB (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg, args with
-    | "Bind", _, _ ->
-        Helper.LibCall(com, "Task", "bind", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "Return", _, _ ->
-        Helper.LibCall(com, "Task", "r_return", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "Delay", _, _ ->
-        Helper.LibCall(com, "Task", "delay", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "Zero", _, _ ->
-        Helper.LibCall(com, "Task", "zero", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+let tryGetTaskDelayBinder =
+    function
+    | MaybeCasted(Call(Import({ Selector = "TaskBuilder_::delay" }, _, _), callInfo, _, _)) ->
+        match callInfo.Args with
+        | [ binder ] -> Some binder
+        | _ -> None
     | _ -> None
 
-let taskBuilderHP (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+let taskBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.CompiledName, thisArg, args with
-    | "TaskBuilderBase.Bind", _, _ ->
-        Helper.LibCall(com, "Task", "bind", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "TaskBuilderBase.Zero", _, _ ->
-        Helper.LibCall(com, "Task", "zero", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | meth, Some callee, _ -> makeInstanceCall r t i callee meth args |> Some
-    | meth, None, _ ->
-        Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-
-let taskBuilderM (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
-    match i.CompiledName, thisArg, args with
+    | ".ctor", None, _ -> makeImportLib com t "new" "TaskBuilder" |> Some
     | "task", _, _ -> Helper.LibCall(com, "TaskBuilder", "new", t, [], ?loc = r) |> Some
+    | "Run", Some callee, _ -> makeInstanceCall r t i callee "run" args |> Some
+    | ("Bind" | "TaskBuilderBase.Bind"), _, _ ->
+        Helper.LibCall(com, "TaskBuilder", "bind", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("Combine" | "TaskBuilderBase.Combine"), _, _ ->
+        Helper.LibCall(com, "TaskBuilder", "combine", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("Delay" | "TaskBuilderBase.Delay"), _, _ ->
+        Helper.LibCall(com, "TaskBuilder", "delay", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("For" | "TaskBuilderBase.For"), _, _ ->
+        Helper.LibCall(com, "TaskBuilder", "for_loop", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("Return" | "TaskBuilderBase.Return"), _, _ ->
+        Helper.LibCall(com, "TaskBuilder", "r_return", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("ReturnFrom" | "TaskBuilderBase.ReturnFrom"), _, _ ->
+        Helper.LibCall(com, "TaskBuilder", "return_from", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("TryFinally" | "TaskBuilderBase.TryFinally"), _, _ ->
+        Helper.LibCall(com, "TaskBuilder", "try_finally", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("TryWith" | "TaskBuilderBase.TryWith"), _, _ ->
+        Helper.LibCall(com, "TaskBuilder", "try_with", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("Using" | "TaskBuilderBase.Using"), _, _ ->
+        Helper.LibCall(com, "TaskBuilder", "using", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | ("While" | "TaskBuilderBase.While"), _, [ guard; body ] ->
+        match tryGetTaskDelayBinder body with
+        | Some body ->
+            Helper.LibCall(com, "TaskBuilder", "while_loop", t, [ guard; body ], i.SignatureArgTypes, ?loc = r)
+            |> Some
+        | None ->
+            "Task builder While expects a delayed body."
+            |> addErrorAndReturnNull com ctx.InlinePath r
+            |> Some
+    | ("Zero" | "TaskBuilderBase.Zero"), _, _ ->
+        Helper.LibCall(com, "TaskBuilder", "zero", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | meth, Some callee, _ -> makeInstanceCall r t i callee meth args |> Some
     | meth, None, _ ->
         Helper.LibCall(com, "TaskBuilder", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
@@ -3788,10 +3826,11 @@ let private replacedModules =
             "Microsoft.FSharp.Control.AsyncActivation`1", asyncBuilder
             "Microsoft.FSharp.Control.FSharpAsync", asyncs
             "Microsoft.FSharp.Control.AsyncPrimitives", asyncs
-            "Microsoft.FSharp.Control.TaskBuilderModule", taskBuilderM
+            "Microsoft.FSharp.Control.TaskBuilderModule", taskBuilder
             "Microsoft.FSharp.Control.TaskBuilder", taskBuilder
-            "Microsoft.FSharp.Control.TaskBuilderBase", taskBuilderB
-            "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority", taskBuilderHP
+            "Microsoft.FSharp.Control.TaskBuilderBase", taskBuilder
+            "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority", taskBuilder
+            "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority", taskBuilder
             Types.guid, guids
             "System.Uri", uris
             "System.Lazy`1", laziness

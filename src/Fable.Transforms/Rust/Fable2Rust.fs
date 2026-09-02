@@ -1111,7 +1111,8 @@ module TypeInfo =
         //     // primitiveType name |> makeLrcPtrTy com ctx
         // else
         if isInferredGenericParam com ctx name isMeasure then
-            mkInferTy () // mkNeverTy ()
+            // mkNeverTy () // unstable
+            mkInferTy ()
         else
             primitiveType name
 
@@ -1201,6 +1202,9 @@ module TypeInfo =
                 transformImportType com ctx [ t ] "Event" "FSharpEvent`1"
             | Replacements.Util.IsEntity ("Microsoft.FSharp.Control.FSharpEvent`2") (_, [ _delegateType; argsType ]) ->
                 transformImportType com ctx [ argsType ] "Event" "FSharpEvent`2"
+
+            | Replacements.Util.IsEntity ("Microsoft.FSharp.Core.CompilerServices.ResumableStateMachine`1") (_, [ t ]) ->
+                mkUnitTy () // spurious ResumableStateMachine type is erased to unit type
 
             // implemented regex types
             | Replacements.Util.IsEntity (Types.regexMatch) (_, []) -> transformImportType com ctx [] "RegExp" "Match"
