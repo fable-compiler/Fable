@@ -1,0 +1,14 @@
+name: Setup Node.js
+description: Install the Node.js version pinned by package.json with a cached npm download directory.
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: package.json
+        cache: npm
+        # build.sh also installs in src/fable-compiler-js, src/fable-standalone and tests/React.
+        cache-dependency-path: |
+          **/package-lock.json
+          !**/node_modules/**
