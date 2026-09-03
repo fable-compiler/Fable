@@ -1,5 +1,5 @@
 ---
-last_commit_released: b517d52df145ee30d1d3bd7e20fded1a9003ac54
+last_commit_released: bf694309ae5dbc6bb546d9acc4d091f5e35fe330
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -27,6 +27,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.16.0 - 2026-09-03
+
+### 🚀 Features
+
+* *(all)* Quotations: DerivedPatterns, and captured locals as Value nodes (#4919) ([fae5093f](https://github.com/fable-compiler/Fable/commit/fae5093f2801195e865adf1acfaec63f38bbf973))
+* *(python)* Support quotation derived patterns (#4928) ([f6d939a1](https://github.com/fable-compiler/Fable/commit/f6d939a14c67010cb6cc02c7994d6f56c7156dab))
+* *(rust)* Observables, Events and IEnumerable (PR 6 of 7 Rust improvements) (#4789) ([20175eea](https://github.com/fable-compiler/Fable/commit/20175eea841adf14ed57c0068458fad591c8d5f4))
+* *(rust)* System.Uri (PR 7 of 7 Rust improvements) (#4790) ([8a551bc9](https://github.com/fable-compiler/Fable/commit/8a551bc9b2433035fc704dffc639e5f031ca7593))
+
+### 🐞 Bug Fixes
+
+* Preserve project FSharp.Core reference (#4924) ([1289360a](https://github.com/fable-compiler/Fable/commit/1289360a11398387712df2769069b9c949659966))
+* Report Fable's own logs from the Fable.Compiler API (#4923) ([0775c604](https://github.com/fable-compiler/Fable/commit/0775c604d319d230796da0d47817428b1da8fece))
+* *(all)* Emit instance calls for virtual methods inherited from Object (#4926) ([2fb535a7](https://github.com/fable-compiler/Fable/commit/2fb535a7cd35cef501c56684f205e2dffa3c36e6))
+* *(all)* Allow private inline functions to use private values (#4915) ([b0740ba9](https://github.com/fable-compiler/Fable/commit/b0740ba95859a80e7add07f21e2fc81a31c00853))
+* *(python)* Emit Python names for float32 specials (#4938) ([b4c45a93](https://github.com/fable-compiler/Fable/commit/b4c45a93385f249a8586789037b0af18005786e9))
+* *(python)* Compare nested options of different depth (#4940) ([5afa2948](https://github.com/fable-compiler/Fable/commit/5afa2948edd221b64aa14553509ba96028d064c5))
+* *(rust)* Observables and Events cleanup (#4908) ([ca165045](https://github.com/fable-compiler/Fable/commit/ca165045703797f0558da4bc6e06cbea7af231de))
+* *(rust)* Support `string` on a tuple (#4916) ([510c8a43](https://github.com/fable-compiler/Fable/commit/510c8a43c159ffb9d7d7bdc4e2ee16b84b80b28e))
+* *(rust)* Decimal culture overloads, and mutables assigned in try/finally (#4918) ([58402471](https://github.com/fable-compiler/Fable/commit/584024712450d333193baddc239db977af05bd54))
+* *(rust)* Let a string be enumerated (#4921) ([395c152b](https://github.com/fable-compiler/Fable/commit/395c152bd4ef0c26af7a4ff48ed44c728aa73d25))
+* *(rust)* Async perf: stop the async runtime sleeping, and add Parallel (#4920) ([88135b90](https://github.com/fable-compiler/Fable/commit/88135b90382f63bd40d58dfc75c4f915cc4bb868))
+* *(rust)* F# exceptions, non-exhaustive matches and obj type tests (#4917) ([28da1d76](https://github.com/fable-compiler/Fable/commit/28da1d764e63c39b96ca20e94d9a08786b3c9052))
+* *(rust)* Wait for the other files instead of sleeping before the last one. (#4927) ([d329a823](https://github.com/fable-compiler/Fable/commit/d329a823298af9f934058f245d54155ccb555a69))
+* *(rust)* Cleanup AsyncBuilder and TaskBuilder (#4936) ([3e6bc9bd](https://github.com/fable-compiler/Fable/commit/3e6bc9bd4d4337e901cc748f35df2a5933f0ba55))
+* *(rust)* Fix interface casting, move reflection into declarations (#4939) ([04299157](https://github.com/fable-compiler/Fable/commit/042991572969e1864a160b0a0145b1d59bc77236))
+* *(rust)* Support reflection for no_std (#4941) ([bf694309](https://github.com/fable-compiler/Fable/commit/bf694309ae5dbc6bb546d9acc4d091f5e35fe330))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/b517d52df145ee30d1d3bd7e20fded1a9003ac54..bf694309ae5dbc6bb546d9acc4d091f5e35fe330)</small></strong>
 
 ## 5.15.0 - 2026-08-25
 
