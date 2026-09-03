@@ -1,5 +1,5 @@
 ---
-last_commit_released: 619d7afddbaf25108e819abaaa9d8a6503c457d6
+last_commit_released: bf694309ae5dbc6bb546d9acc4d091f5e35fe330
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.6.0 - 2026-09-03
+
+### 🚀 Features
+
+* *(all)* Quotations: DerivedPatterns, and captured locals as Value nodes (#4919) ([fae5093f](https://github.com/fable-compiler/Fable/commit/fae5093f2801195e865adf1acfaec63f38bbf973))
+
+### 🐞 Bug Fixes
+
+* *(all)* Emit instance calls for virtual methods inherited from Object (#4926) ([2fb535a7](https://github.com/fable-compiler/Fable/commit/2fb535a7cd35cef501c56684f205e2dffa3c36e6))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/619d7afddbaf25108e819abaaa9d8a6503c457d6..bf694309ae5dbc6bb546d9acc4d091f5e35fe330)</small></strong>
 
 ## 2.5.1 - 2026-07-24
 
