@@ -4,15 +4,28 @@ open FSharp.Compiler.SourceCodeServices
 open FSharp.Compiler.Diagnostics
 open FSharp.Compiler.CodeAnalysis
 open Fable
+open Fable.Transforms.State
 open Fable.Compiler.Util
 open Fable.Compiler.ProjectCracker
+
+type FableASTResult =
+    {
+        /// The current file transformed into the Fable AST
+        FableAST: AST.Fable.File
+        /// Everything the compiler reported: the diagnostics of the F# project as checked up to
+        /// the current file, tagged "FSHARP", followed by the logs Fable raised while
+        /// transforming that file, tagged "FABLE".
+        Logs: LogEntry array
+    }
 
 type CompileResult =
     {
         /// A map of absolute file path to transpiled JavaScript
         CompiledFiles: Map<string, string>
-        /// Diagnostics of the entire checked F# project
-        Diagnostics: FSharpDiagnostic array
+        /// Everything the compiler reported: the diagnostics of the entire checked F# project,
+        /// tagged "FSHARP", followed by the logs Fable raised while translating the compiled
+        /// files, tagged "FABLE".
+        Logs: LogEntry array
     }
 
 type TypeCheckProjectResult =
@@ -23,6 +36,10 @@ type TypeCheckProjectResult =
 
 [<RequireQualifiedAccess>]
 module CodeServices =
+
+    /// Convert the diagnostics of the F# compiler into log entries tagged "FSHARP".
+    /// The error number is folded into the message, as `Fable.Cli` prints it.
+    val getFSharpDiagnostics: diagnostics: FSharpDiagnostic array -> LogEntry array
 
     /// Type check a project using the InteractiveChecker
     val typeCheckProject:
@@ -39,7 +56,7 @@ module CodeServices =
         cliArgs: CliArgs ->
         crackerResponse: CrackerResponse ->
         currentFile: string ->
-            Async<AST.Fable.File>
+            Async<FableASTResult>
 
     /// And compile multiple files of a project to JavaScript.
     /// The expected usage of this function is either every file in the project or only the user files.
