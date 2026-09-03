@@ -192,6 +192,38 @@ let ``test Option.map/map2/map3/bind/filter with nested options work`` () =
     Some(Some 5) |> Option.filter Option.isSome |> equal (Some(Some 5))
 
 [<Fact>]
+let ``test equality on nested options of different depth works`` () =
+    let a: int option option option = Some None
+    let b: int option option option = Some(Some None)
+    (a = b) |> equal false
+    (b = a) |> equal false
+    (a = a) |> equal true
+    (b = b) |> equal true
+    notEqual a b
+    let ra: Result<int option option option, string> = Ok a
+    let rb: Result<int option option option, string> = Ok b
+    (ra = rb) |> equal false
+    notEqual ra rb
+    let c: int option option = Some None
+    let d: int option option = Some(Some 42)
+    (c = d) |> equal false
+    (d = c) |> equal false
+
+[<Fact>]
+let ``test comparison on nested options of different depth works`` () =
+    let a: int option option option = Some None
+    let b: int option option option = Some(Some None)
+    compare a b |> equal -1
+    compare b a |> equal 1
+    compare a a |> equal 0
+    compare (None: int option option option) a |> equal -1
+    compare a (None: int option option option) |> equal 1
+    let c: int option option = Some None
+    let d: int option option = Some(Some 42)
+    compare c d |> equal -1
+    compare d c |> equal 1
+
+[<Fact>]
 let ``test ValueOption.map/map2/map3/bind/filter/defaultWith/orElseWith work`` () =
     ValueSome 5 |> ValueOption.map (fun x -> x + 1) |> equal (ValueSome 6)
     ValueNone |> ValueOption.map (fun (x: int) -> x + 1) |> equal ValueNone
