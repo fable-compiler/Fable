@@ -57,7 +57,7 @@ function unitToNanoseconds(value: number, nsPerUnit: bigint): bigint {
   return BigInt(whole) * nsPerUnit + BigInt(Math.round(frac * Number(nsPerUnit)));
 }
 
-export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 0, ms: number = 0): TimeSpan {
+export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 0, ms: number = 0, us: number = 0): TimeSpan {
   switch (arguments.length) {
     case 1:
       // ticks
@@ -67,12 +67,12 @@ export function create(d: number = 0, h: number = 0, m: number = 0, s: number = 
       d = 0, h = arguments[0], m = arguments[1], s = arguments[2], ms = 0;
       break;
     default:
-      // d,h,m,s,ms
+      // d,h,m,s,ms,us
       break;
   }
   return fromNanoseconds(
     unitToNanoseconds(d, nsPerDay) + unitToNanoseconds(h, nsPerHour) + unitToNanoseconds(m, nsPerMinute)
-    + unitToNanoseconds(s, nsPerSecond) + unitToNanoseconds(ms, nsPerMillisecond));
+    + unitToNanoseconds(s, nsPerSecond) + unitToNanoseconds(ms, nsPerMillisecond) + unitToNanoseconds(us, 1000n));
 }
 
 export function fromTicks(ticks: number | bigint): TimeSpan {

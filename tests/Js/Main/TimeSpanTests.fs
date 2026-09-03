@@ -683,6 +683,10 @@ let tests =
             TimeSpan.FromTicks(1234567890123456789L).Ticks |> equal 1234567890123456789L
             TimeSpan.FromTicks(Int64.MaxValue).Ticks |> equal Int64.MaxValue
 
+        testCase "TimeSpan constructor keeps the microsecond argument" <| fun () ->
+            TimeSpan(0, 0, 0, 0, 0, 5).Ticks |> equal 50L
+            TimeSpan(1, 2, 3, 4, 5, 6).Ticks |> equal 937_840_050_060L
+
         testCase "TimeSpan.Parse keeps all seven fractional digits" <| fun () ->
             TimeSpan.Parse("00:00:00.1234567").Ticks |> equal 1234567L
 

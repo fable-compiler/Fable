@@ -35,8 +35,8 @@ function fromNanoseconds(n: number): TimeOnly {
     n % 1000);
 }
 
-export function create(h: number = 0, m: number = 0, s: number = 0, ms: number = 0): TimeOnly {
-  return new Temporal.PlainTime(h, m, s, ms);
+export function create(h: number = 0, m: number = 0, s: number = 0, ms: number = 0, us: number = 0): TimeOnly {
+  return new Temporal.PlainTime(h, m, s, ms, us);
 }
 
 export function fromTicks(ticks: number | bigint): TimeOnly {

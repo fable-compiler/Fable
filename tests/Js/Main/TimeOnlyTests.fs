@@ -305,6 +305,9 @@ let tests =
         testCase "TimeOnly.MaxValue is one tick short of a day" <| fun () ->
             TimeOnly.MaxValue.Ticks |> equal 863_999_999_999L
 
+        testCase "TimeOnly constructor keeps the microsecond argument" <| fun () ->
+            TimeOnly(1, 2, 3, 4, 5).Ticks |> equal 37_230_040_050L
+
         testCase "TimeOnly.Parse keeps all seven fractional digits" <| fun () ->
             TimeOnly.Parse("01:02:03.1234567", CultureInfo.InvariantCulture).Ticks % 10_000_000L
             |> equal 1234567L
