@@ -18,6 +18,8 @@ const proto = Temporal.PlainDate.prototype as any;
 proto.Equals = function (this: DateOnly, other: DateOnly): boolean { return this.equals(other); };
 proto.CompareTo = function (this: DateOnly, other: DateOnly): number { return Temporal.PlainDate.compare(this, other); };
 proto.GetHashCode = function (this: DateOnly): number { return dayNumber(this); };
+// Lets String.Format format this value without String.ts importing this module (see String.ts)
+proto[Symbol.for("Fable.DateTimeFormattable")] = function (this: DateOnly, format?: string): string { return toString(this, format); };
 
 export function create(year: number, month: number, day: number): DateOnly {
   return new Temporal.PlainDate(year, month, day);

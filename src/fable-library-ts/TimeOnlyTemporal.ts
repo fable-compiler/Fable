@@ -14,6 +14,8 @@ const proto = Temporal.PlainTime.prototype as any;
 proto.Equals = function (this: TimeOnly, other: TimeOnly): boolean { return this.equals(other); };
 proto.CompareTo = function (this: TimeOnly, other: TimeOnly): number { return Temporal.PlainTime.compare(this, other); };
 proto.GetHashCode = function (this: TimeOnly): number { return hash(this); };
+// Lets String.Format format this value without String.ts importing this module (see String.ts)
+proto[Symbol.for("Fable.DateTimeFormattable")] = function (this: TimeOnly, format?: string): string { return toString(this, format); };
 
 const nanosecondsPerDay = 86_400_000_000_000;
 const nanosecondsPerDayBig = 86_400_000_000_000n;

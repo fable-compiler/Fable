@@ -13,6 +13,8 @@ const proto = Temporal.Duration.prototype as any;
 proto.Equals = function (this: TimeSpan, other: TimeSpan): boolean { return Temporal.Duration.compare(this, other) === 0; };
 proto.CompareTo = function (this: TimeSpan, other: TimeSpan): number { return Temporal.Duration.compare(this, other); };
 proto.GetHashCode = function (this: TimeSpan): number { return hash(this); };
+// Lets String.Format format this value without String.ts importing this module (see String.ts)
+proto[Symbol.for("Fable.DateTimeFormattable")] = function (this: TimeSpan, format?: string): string { return toString(this, format); };
 
 const nsPerMillisecond = 1_000_000n;
 const nsPerSecond = 1_000_000_000n;
