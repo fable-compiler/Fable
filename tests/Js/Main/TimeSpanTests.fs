@@ -201,7 +201,9 @@ let tests =
                     let t = TimeSpan.FromMilliseconds(ms)
                     let res1 = t.Multiply(factor).TotalMilliseconds
                     let res2 = (t * factor).TotalMilliseconds
+                    let res3 = (factor * t).TotalMilliseconds
                     equal res1 res2
+                    equal res1 res3
                     equal true (res1 = res2)
                     equal expected res1
             test 1000. -1. -1000.

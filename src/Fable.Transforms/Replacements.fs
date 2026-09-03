@@ -3646,6 +3646,14 @@ let timeSpans (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg
         Helper.LibCall(com, moduleName, meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
     | "get_TotalMilliseconds" when not com.Options.JsTemporal -> TypeCast(thisArg.Value, t) |> Some
+    | "op_Multiply" ->
+        // .NET overloads the operator on both sides: TimeSpan * float and float * TimeSpan
+        let args, argTypes =
+            match i.SignatureArgTypes with
+            | Builtin BclTimeSpan :: _ -> args, i.SignatureArgTypes
+            | _ -> List.rev args, List.rev i.SignatureArgTypes
+
+        Helper.LibCall(com, moduleName, "multiply", t, args, argTypes, ?loc = r) |> Some
     | "Divide" when com.Options.JsTemporal ->
         // Overloaded on the argument: TimeSpan -> float ratio, float -> TimeSpan
         let meth =
