@@ -2,15 +2,15 @@ pub mod Reflection_ {
     pub use core::any::TypeId; // re-export
 
     use crate::Microsoft::FSharp::Quotations::FSharpPropertyInfo;
-    use crate::Native_::{box_, box_lrc, Any, Func1, LrcPtr, Vec};
     use crate::NativeArray_::{array_from, Array};
-    use crate::String_::{fromString, string};
+    use crate::Native_::{box_, box_lrc, Any, Func1, LrcPtr, MutCell, OnceInit, Vec};
+    use crate::String_::string;
 
-    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
-    use core::cell::RefCell;
+    #[cfg(feature = "no_std")]
+    use hashbrown as collections;
     #[cfg(not(feature = "no_std"))]
-    use std::collections::HashMap;
-    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
+    use std::collections;
+    #[cfg(feature = "threaded")]
     use std::sync::{OnceLock, RwLock};
 
     pub fn name<T: Clone>() -> string {
@@ -31,55 +31,50 @@ pub mod Reflection_ {
         (***value).type_id()
     }
 
-    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
-    thread_local! {
-        static TYPE_NAME_REGISTRY: RefCell<HashMap<TypeId, string>> =
-            RefCell::new(HashMap::new());
-    }
+    #[cfg(not(feature = "threaded"))]
+    static TYPE_NAME_REGISTRY: OnceInit<MutCell<collections::HashMap<TypeId, string>>> =
+        OnceInit::new();
 
-    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
-    static TYPE_NAME_REGISTRY: OnceLock<RwLock<HashMap<TypeId, string>>> = OnceLock::new();
+    #[cfg(feature = "threaded")]
+    static TYPE_NAME_REGISTRY: OnceLock<RwLock<collections::HashMap<TypeId, string>>> =
+        OnceLock::new();
 
-    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
-    fn register_type_name_value(tid: TypeId, name: string) {
-        TYPE_NAME_REGISTRY.with(|r| {
-            r.borrow_mut().insert(tid, name);
-        });
-    }
-
-    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
+    #[cfg(not(feature = "threaded"))]
     fn register_type_name_value(tid: TypeId, name: string) {
         TYPE_NAME_REGISTRY
-            .get_or_init(|| RwLock::new(HashMap::new()))
+            .get_or_init(|| MutCell::new(collections::HashMap::new()))
+            .get_mut()
+            .insert(tid, name);
+    }
+
+    #[cfg(feature = "threaded")]
+    fn register_type_name_value(tid: TypeId, name: string) {
+        TYPE_NAME_REGISTRY
+            .get_or_init(|| RwLock::new(collections::HashMap::new()))
             .write()
             .unwrap()
             .insert(tid, name);
     }
 
-    #[cfg(feature = "no_std")]
-    fn register_type_name_value(_tid: TypeId, _name: string) {}
-
-    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
-    fn registered_type_name(tid: &TypeId) -> Option<string> {
-        TYPE_NAME_REGISTRY.with(|r| r.borrow().get(tid).cloned())
-    }
-
-    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
+    #[cfg(not(feature = "threaded"))]
     fn registered_type_name(tid: &TypeId) -> Option<string> {
         TYPE_NAME_REGISTRY
-            .get_or_init(|| RwLock::new(HashMap::new()))
+            .get_or_init(|| MutCell::new(collections::HashMap::new()))
+            .get()
+            .get(tid)
+            .cloned()
+    }
+
+    #[cfg(feature = "threaded")]
+    fn registered_type_name(tid: &TypeId) -> Option<string> {
+        TYPE_NAME_REGISTRY
+            .get_or_init(|| RwLock::new(collections::HashMap::new()))
             .read()
             .unwrap()
             .get(tid)
             .cloned()
     }
 
-    #[cfg(feature = "no_std")]
-    fn registered_type_name(_tid: &TypeId) -> Option<string> {
-        None
-    }
-
-    #[cfg(not(feature = "no_std"))]
     fn canonical_type_name<T: 'static>() -> string {
         let rust_name = core::any::type_name::<T>();
         let name = if TypeId::of::<T>() == TypeId::of::<string>() {
@@ -101,21 +96,12 @@ pub mod Reflection_ {
                 _ => rust_name,
             }
         };
-        fromString(name.to_string())
+        string(name)
     }
 
-    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
     pub fn register_type_name<T: 'static>() {
         register_type_name_value(TypeId::of::<T>(), canonical_type_name::<T>());
     }
-
-    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
-    pub fn register_type_name<T: 'static>() {
-        register_type_name_value(TypeId::of::<T>(), canonical_type_name::<T>());
-    }
-
-    #[cfg(feature = "no_std")]
-    pub fn register_type_name<T: 'static>() {}
 
     // Compile-time helper emitted by `typeof<T>` to obtain a concrete type id.
     pub fn type_id<T: 'static>() -> TypeId {
@@ -149,58 +135,52 @@ pub mod Reflection_ {
     // value-based reflection (GetRecordFields(record)) possible: from a bare
     // boxed record we can recover its runtime TypeId and look the info up.
     //
-    // `thread_local!` is std-only, so under `no_std` there is no registry and
-    // the value-first entry points degrade (like exception catching does).
+    // Under `no_std`, the registry uses a non-threaded OnceInit-backed map.
     // Type-first reflection (typeof<T>, MakeRecord, GetRecordElements) is
     // unaffected, as those carry the info in the `System.Type` value itself.
-    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
-    thread_local! {
-        static RECORD_REGISTRY: RefCell<HashMap<TypeId, LrcPtr<RecordTypeInfo>>> =
-            RefCell::new(HashMap::new());
-    }
 
-    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
-    static RECORD_REGISTRY: OnceLock<RwLock<HashMap<TypeId, LrcPtr<RecordTypeInfo>>>> = OnceLock::new();
+    #[cfg(not(feature = "threaded"))]
+    static RECORD_REGISTRY: OnceInit<MutCell<collections::HashMap<TypeId, LrcPtr<RecordTypeInfo>>>> =
+        OnceInit::new();
 
-    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
-    fn registry_insert(tid: TypeId, info: LrcPtr<RecordTypeInfo>) {
-        RECORD_REGISTRY.with(|r| {
-            r.borrow_mut().insert(tid, info);
-        });
-    }
+    #[cfg(feature = "threaded")]
+    static RECORD_REGISTRY: OnceLock<RwLock<collections::HashMap<TypeId, LrcPtr<RecordTypeInfo>>>> =
+        OnceLock::new();
 
-    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
+    #[cfg(not(feature = "threaded"))]
     fn registry_insert(tid: TypeId, info: LrcPtr<RecordTypeInfo>) {
         RECORD_REGISTRY
-            .get_or_init(|| RwLock::new(HashMap::new()))
+            .get_or_init(|| MutCell::new(collections::HashMap::new()))
+            .get_mut()
+            .insert(tid, info);
+    }
+
+    #[cfg(feature = "threaded")]
+    fn registry_insert(tid: TypeId, info: LrcPtr<RecordTypeInfo>) {
+        RECORD_REGISTRY
+            .get_or_init(|| RwLock::new(collections::HashMap::new()))
             .write()
             .unwrap()
             .insert(tid, info);
     }
 
-    #[cfg(feature = "no_std")]
-    fn registry_insert(_tid: TypeId, _info: LrcPtr<RecordTypeInfo>) {
-        // no registry when no_std
-    }
-
-    #[cfg(all(not(feature = "no_std"), not(feature = "threaded")))]
-    fn registry_get(tid: &TypeId) -> Option<LrcPtr<RecordTypeInfo>> {
-        RECORD_REGISTRY.with(|r| r.borrow().get(tid).cloned())
-    }
-
-    #[cfg(all(not(feature = "no_std"), feature = "threaded"))]
+    #[cfg(not(feature = "threaded"))]
     fn registry_get(tid: &TypeId) -> Option<LrcPtr<RecordTypeInfo>> {
         RECORD_REGISTRY
-            .get_or_init(|| RwLock::new(HashMap::new()))
-            .read()
-            .unwrap()
+            .get_or_init(|| MutCell::new(collections::HashMap::new()))
+            .get()
             .get(tid)
             .cloned()
     }
 
-    #[cfg(feature = "no_std")]
-    fn registry_get(_tid: &TypeId) -> Option<LrcPtr<RecordTypeInfo>> {
-        None // no registry when no_std
+    #[cfg(feature = "threaded")]
+    fn registry_get(tid: &TypeId) -> Option<LrcPtr<RecordTypeInfo>> {
+        RECORD_REGISTRY
+            .get_or_init(|| RwLock::new(collections::HashMap::new()))
+            .read()
+            .unwrap()
+            .get(tid)
+            .cloned()
     }
 
     // Emitted by the generated record declaration's reflection method. Builds the field metadata, registers
