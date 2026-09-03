@@ -1,6 +1,6 @@
 import { FSharpRef } from "./Types.ts";
 import { toInt64, int64 } from "./BigInt.ts";
-import { Exception, padWithZeros, padLeftAndRightWithZeros } from "./Util.ts";
+import { Exception, padWithZeros } from "./Util.ts";
 
 export type TimeSpan = Temporal.Duration;
 export const Duration = Temporal.Duration;
@@ -206,9 +206,18 @@ export function toString(ts: TimeSpan, format = "c", _provider?: any): string {
   const h = Math.abs(ts.hours);
   const m = Math.abs(ts.minutes);
   const s = Math.abs(ts.seconds);
-  const ms = Math.abs(ts.milliseconds);
+  const ticks = Math.abs(ts.milliseconds) * 10_000
+    + Math.abs(ts.microseconds) * 10
+    + Math.trunc(Math.abs(ts.nanoseconds) / 100);
   const sign = ts.sign < 0 ? "-" : "";
-  return `${sign}${d === 0 && (format === "c" || format === "g") ? "" : format === "c" ? d + "." : d + ":"}${format === "g" ? h : padWithZeros(h, 2)}:${padWithZeros(m, 2)}:${padWithZeros(s, 2)}${ms === 0 && (format === "c" || format === "g") ? "" : format === "g" ? "." + padWithZeros(ms, 3) : "." + padLeftAndRightWithZeros(ms, 3, 7)}`;
+  const days = d === 0 && format !== "G" ? "" : format === "c" ? d + "." : d + ":";
+  const time = `${format === "g" ? h : padWithZeros(h, 2)}:${padWithZeros(m, 2)}:${padWithZeros(s, 2)}`;
+  // .NET prints seven tick digits for "c" and "G", trims trailing zeros for "g", and omits a zero fraction for "c" and "g".
+  const fraction =
+    format === "g"
+      ? (ticks === 0 ? "" : "." + padWithZeros(ticks, 7).replace(/0+$/, ""))
+      : (ticks === 0 && format === "c" ? "" : "." + padWithZeros(ticks, 7));
+  return `${sign}${days}${time}${fraction}`;
 }
 
 export function parse(str: string): TimeSpan {

@@ -686,6 +686,14 @@ let tests =
         testCase "TimeSpan.Parse keeps all seven fractional digits" <| fun () ->
             TimeSpan.Parse("00:00:00.1234567").Ticks |> equal 1234567L
 
+        testCase "TimeSpan.ToString keeps all seven fractional digits" <| fun () ->
+            TimeSpan.FromTicks(1234567L).ToString() |> equal "00:00:00.1234567"
+            TimeSpan.FromTicks(1L).ToString() |> equal "00:00:00.0000001"
+            TimeSpan.FromTicks(1234567L).ToString("g", CultureInfo.InvariantCulture) |> equal "0:00:00.1234567"
+            TimeSpan.FromTicks(1000000L).ToString("g", CultureInfo.InvariantCulture) |> equal "0:00:00.1"
+            TimeSpan.FromTicks(1234567L).ToString("G", CultureInfo.InvariantCulture) |> equal "0:00:00:00.1234567"
+            TimeSpan.Parse("-1.02:03:04.0050000").ToString() |> equal "-1.02:03:04.0050000"
+
         testCase "TimeSpan.FromMilliseconds truncates below a tick" <| fun () ->
             // 0.00005ms is half a tick; .NET drops it rather than rounding up
             TimeSpan.FromMilliseconds(0.00005).Ticks |> equal 0L
