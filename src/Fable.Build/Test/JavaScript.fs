@@ -86,11 +86,20 @@ let private testAdaptive (isWatch: bool) =
     else
         Command.Fable(fableArgs, workingDirectory = destinationDir)
 
-let private handleMainTests (isWatch: bool) (noDotnet: bool) =
+type private DateTimeRepresentation =
+    | JsDate
+    | Temporal
+
+let private runMainTests (representation: DateTimeRepresentation) (isWatch: bool) (noDotnet: bool) =
     let folderName = "Main"
     let sourceDir = Path.Resolve("tests", "Js", folderName)
 
-    let destinationDir = Path.Resolve("temp", "tests", "JavaScript", folderName)
+    let outputFolder =
+        match representation with
+        | JsDate -> "JavaScript"
+        | Temporal -> "JavaScriptTemporal"
+
+    let destinationDir = Path.Resolve("temp", "tests", outputFolder, folderName)
 
     let testCommand =
         CmdLine.empty
@@ -111,6 +120,7 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
                 |> CmdLine.appendPrefix "--lang" "javascript"
                 |> CmdLine.appendPrefix "--exclude" "Fable.Core"
                 |> CmdLine.appendRaw "--noCache"
+                |> CmdLine.appendIf (representation = Temporal) "--test:js-temporal"
 
                 if isWatch then
                     CmdLine.empty
@@ -122,7 +132,6 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
             ]
 
     if isWatch then
-        // In watch mode, we only test the Main tests to not pollute the logs too much
         Async.Parallel
             [
                 if not noDotnet then
@@ -139,10 +148,20 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
         |> Async.RunSynchronously
         |> ignore
     else
+        Command.Fable(fableArgs, workingDirectory = destinationDir)
+
+let private handleMainTests (isWatch: bool) (noDotnet: bool) =
+    if isWatch then
+        // In watch mode, we only test the Main tests to not pollute the logs too much
+        runMainTests JsDate isWatch noDotnet
+    else
         Command.Run("dotnet", "run -c Release", workingDirectory = Path.Combine("tests", "Js", "Main"))
 
         // Test the Main tests against JavaScript
-        Command.Fable(fableArgs, workingDirectory = destinationDir)
+        runMainTests JsDate false noDotnet
+
+        // Re-run them with the Temporal date/time representation enabled
+        runMainTests Temporal false noDotnet
 
         testReact false
         testAdaptive false
@@ -157,17 +176,23 @@ let handle (args: string list) =
     let isReactOnly = args |> List.contains "--react-only"
     let isStandaloneOnly = args |> List.contains "--standalone-only"
     let isAdaptiveOnly = args |> List.contains "--adaptive-only"
+    let isTemporalOnly = args |> List.contains "--temporal-only"
     let forceFableLibrary = args |> List.contains "--force-fable-library"
     let isWatch = args |> List.contains "--watch"
     let noDotnet = args |> List.contains "--no-dotnet"
 
-    match (isReactOnly, isStandaloneOnly, isAdaptiveOnly) with
-    | (true, true, _)
-    | (true, _, true)
-    | (_, true, true) ->
-        failwith "Cannot use '--react-only', '--standalone-only' and '--adaptive-only' at the same time"
+    let exclusiveArgs =
+        [
+            "--react-only", isReactOnly
+            "--standalone-only", isStandaloneOnly
+            "--adaptive-only", isAdaptiveOnly
+            "--temporal-only", isTemporalOnly
+        ]
+        |> List.filter snd
+        |> List.map (fun (name, _) -> $"'%s{name}'")
 
-    | _ -> ()
+    if exclusiveArgs.Length > 1 then
+        failwith $"""Cannot use %s{String.Join(", ", exclusiveArgs)} at the same time"""
 
     BuildFableLibraryJavaScript().Run(forceFableLibrary)
 
@@ -177,5 +202,7 @@ let handle (args: string list) =
         Standalone.handleStandaloneFast ()
     else if isAdaptiveOnly then
         testAdaptive isWatch
+    else if isTemporalOnly then
+        runMainTests Temporal isWatch noDotnet
     else
         handleMainTests isWatch noDotnet

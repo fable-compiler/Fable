@@ -201,7 +201,9 @@ let tests =
                     let t = TimeSpan.FromMilliseconds(ms)
                     let res1 = t.Multiply(factor).TotalMilliseconds
                     let res2 = (t * factor).TotalMilliseconds
+                    let res3 = (factor * t).TotalMilliseconds
                     equal res1 res2
+                    equal res1 res3
                     equal true (res1 = res2)
                     equal expected res1
             test 1000. -1. -1000.
@@ -672,4 +674,47 @@ let tests =
             let actual = TimeSpan.Parse("-1.23:45:06.78999").Days
             let expected = -1
             equal actual expected
+
+// A .NET TimeSpan is an integer count of 100ns ticks. The default JS
+// representation is a float64 millisecond count, so only .NET and the Temporal
+// representation can hold these exactly.
+#if !FABLE_COMPILER || FABLE_COMPILER_JAVASCRIPT_TEMPORAL
+        testCase "TimeSpan holds the full Int64 tick range exactly" <| fun () ->
+            TimeSpan.FromTicks(1234567890123456789L).Ticks |> equal 1234567890123456789L
+            TimeSpan.FromTicks(Int64.MaxValue).Ticks |> equal Int64.MaxValue
+
+        testCase "TimeSpan constructor keeps the microsecond argument" <| fun () ->
+            TimeSpan(0, 0, 0, 0, 0, 5).Ticks |> equal 50L
+            TimeSpan(1, 2, 3, 4, 5, 6).Ticks |> equal 937_840_050_060L
+
+        testCase "TimeSpan.Parse keeps all seven fractional digits" <| fun () ->
+            TimeSpan.Parse("00:00:00.1234567").Ticks |> equal 1234567L
+
+        testCase "TimeSpan.ToString keeps all seven fractional digits" <| fun () ->
+            TimeSpan.FromTicks(1234567L).ToString() |> equal "00:00:00.1234567"
+            TimeSpan.FromTicks(1L).ToString() |> equal "00:00:00.0000001"
+            TimeSpan.FromTicks(1234567L).ToString("g", CultureInfo.InvariantCulture) |> equal "0:00:00.1234567"
+            TimeSpan.FromTicks(1000000L).ToString("g", CultureInfo.InvariantCulture) |> equal "0:00:00.1"
+            TimeSpan.FromTicks(1234567L).ToString("G", CultureInfo.InvariantCulture) |> equal "0:00:00:00.1234567"
+            TimeSpan.Parse("-1.02:03:04.0050000").ToString() |> equal "-1.02:03:04.0050000"
+
+        testCase "TimeSpan.FromMilliseconds truncates below a tick" <| fun () ->
+            // 0.00005ms is half a tick; .NET drops it rather than rounding up
+            TimeSpan.FromMilliseconds(0.00005).Ticks |> equal 0L
+            TimeSpan.FromMilliseconds(0.0001).Ticks |> equal 1L
+
+        testCase "TimeSpan multiplication and division are tick-precise" <| fun () ->
+            let day = TimeSpan.FromDays(1.0)
+            (day * 1000.0).Ticks |> equal 864_000_000_000_000L
+            (day / 3.0).Ticks |> equal 288_000_000_000L
+            day / TimeSpan.FromHours(1.0) |> equal 24.0
+
+        testCase "TimeSpan arithmetic keeps single ticks" <| fun () ->
+            let a = TimeSpan.FromTicks(1234567L)
+            let b = TimeSpan.FromTicks(1L)
+            (a + b).Ticks |> equal 1234568L
+            (a - b).Ticks |> equal 1234566L
+            (-a).Ticks |> equal -1234567L
+            a.Duration().Ticks |> equal 1234567L
+#endif
     ]

@@ -194,13 +194,14 @@ let tests =
             equal (TimeOnly (0, 0, 5)) (TimeOnly.Parse "00:0:5   ")
             equal TimeOnly.MinValue (TimeOnly.Parse "   0   :   0    : 0   ")
             equal (TimeOnly (0, 40, 5, 3)) (TimeOnly.Parse "00:40:5.003")
-            // We're limited to millisecond precision in JS
-#if FABLE_COMPILER
-            equal (TimeOnly (0, 0, 5, 3)) (TimeOnly.Parse "00:0:5.0031")
-            equal (TimeOnly (0, 0, 5, 3)) (TimeOnly.Parse "00:0:5.00313213213213")
-#else
+            // The JS-Date representation is limited to millisecond precision;
+            // the Temporal one is tick-precise, like .NET.
+#if !FABLE_COMPILER || FABLE_COMPILER_JAVASCRIPT_TEMPORAL
             equal (TimeOnly 50031000L) (TimeOnly.Parse "00:0:5.0031")
             equal (TimeOnly 50031321L) (TimeOnly.Parse "00:0:5.00313213213213")
+#else
+            equal (TimeOnly (0, 0, 5, 3)) (TimeOnly.Parse "00:0:5.0031")
+            equal (TimeOnly (0, 0, 5, 3)) (TimeOnly.Parse "00:0:5.00313213213213")
 #endif
             equal (TimeOnly (0, 0, 59, 30)) (TimeOnly.Parse "00:  0:  59.03")
             equal (TimeOnly (0, 3, 5, 300)) (TimeOnly.Parse "00 :03:5.3")
@@ -268,16 +269,9 @@ let tests =
             equal true isValid
             equal (TimeOnly (2, 0, 5, 300)) t
 
-            // We're limited to millisecond precision in JS
-#if FABLE_COMPILER
-            let isValid, t = TimeOnly.TryParse "00:0:5.0031"
-            equal true isValid
-            equal (TimeOnly (0, 0, 5, 3)) t
-
-            let isValid, t = TimeOnly.TryParse "00:0:5.00313213213213"
-            equal true isValid
-            equal (TimeOnly (0, 0, 5, 3)) t
-#else
+            // The JS-Date representation is limited to millisecond precision;
+            // the Temporal one is tick-precise, like .NET.
+#if !FABLE_COMPILER || FABLE_COMPILER_JAVASCRIPT_TEMPORAL
             let isValid, t = TimeOnly.TryParse "00:0:5.0031"
             equal true isValid
             equal (TimeOnly 50031000L) t
@@ -285,6 +279,14 @@ let tests =
             let isValid, t = TimeOnly.TryParse "00:0:5.00313213213213"
             equal true isValid
             equal (TimeOnly 50031321L) t
+#else
+            let isValid, t = TimeOnly.TryParse "00:0:5.0031"
+            equal true isValid
+            equal (TimeOnly (0, 0, 5, 3)) t
+
+            let isValid, t = TimeOnly.TryParse "00:0:5.00313213213213"
+            equal true isValid
+            equal (TimeOnly (0, 0, 5, 3)) t
 #endif
 
         testCase "Comparison works" <| fun () ->
@@ -296,4 +298,29 @@ let tests =
             let m = [ TimeOnly (20, 5, 1), () ] |> Map.ofList
             equal true (Map.containsKey (TimeOnly(20, 1, 1).AddMinutes(4.)) m)
             equal false (Map.containsKey (TimeOnly (20, 1, 1)) m)
+
+// See the note in DateTimeTests.fs: tick precision only holds on .NET and on the
+// Temporal representation.
+#if !FABLE_COMPILER || FABLE_COMPILER_JAVASCRIPT_TEMPORAL
+        testCase "TimeOnly.MaxValue is one tick short of a day" <| fun () ->
+            TimeOnly.MaxValue.Ticks |> equal 863_999_999_999L
+
+        testCase "TimeOnly constructor keeps the microsecond argument" <| fun () ->
+            TimeOnly(1, 2, 3, 4, 5).Ticks |> equal 37_230_040_050L
+
+        testCase "TimeOnly.Parse keeps all seven fractional digits" <| fun () ->
+            TimeOnly.Parse("01:02:03.1234567", CultureInfo.InvariantCulture).Ticks % 10_000_000L
+            |> equal 1234567L
+
+        testCase "TimeOnly.Add wraps a large TimeSpan without losing the low ticks" <| fun () ->
+            // 100000 whole days plus one tick: the days wrap away and the tick must remain.
+            // In nanoseconds this amount is past Number.MAX_SAFE_INTEGER.
+            let big = TimeSpan.FromTicks(864_000_000_000L * 100_000L + 1L)
+            TimeOnly.MinValue.Add(big).Ticks |> equal 1L
+
+        testCase "TimeOnly.Add* accept fractional values and are tick-precise" <| fun () ->
+            let t = TimeOnly(1, 2, 3, 4)
+            t.AddHours(1.0 / 3.0).Ticks - t.Ticks |> equal 12_000_000_000L
+            t.AddMinutes(0.00001).Ticks - t.Ticks |> equal 6_000L
+#endif
     ]

@@ -13,7 +13,7 @@
 
     /* Language and Environment */
     "target": "es2020",                                  /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
-    // "lib": [],                                        /* Specify a set of bundled library declaration files that describe the target runtime environment. */
+    "lib": ["es2020", "dom", "esnext.temporal"],         /* Specify a set of bundled library declaration files that describe the target runtime environment. Temporal types (used by the *Temporal.ts files) live only in lib.esnext.temporal; "dom" is needed for setTimeout/console/TextEncoder since "types": [] excludes @types/node. */
     // "jsx": "preserve",                                /* Specify what JSX code is generated. */
     // "libReplacement": true,                           /* Enable lib replacement. */
     // "experimentalDecorators": true,                   /* Enable experimental support for TC39 stage 2 draft decorators. */

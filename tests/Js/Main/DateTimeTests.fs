@@ -1274,4 +1274,58 @@ let tests =
         let local = DateTime(2020, 2, 20, 20, 20, 20, DateTimeKind.Local)
         let utc = DateTime(2020, 2, 20, 20, 20, 20, DateTimeKind.Utc)
         sprintf "%A" local |> equal (sprintf "%A" utc)
+
+// A .NET tick is 100ns, four digits finer than a JS Date can represent, so these
+// only hold where the runtime keeps ticks: on .NET, and on the Temporal
+// representation. The default JS-Date representation truncates to milliseconds.
+#if !FABLE_COMPILER || FABLE_COMPILER_JAVASCRIPT_TEMPORAL
+    testCase "DateTime keeps sub-millisecond ticks through SpecifyKind" <| fun () ->
+        let d = DateTime(638397614451234567L, DateTimeKind.Utc)
+        DateTime.SpecifyKind(d, DateTimeKind.Local).Ticks |> equal d.Ticks
+        // SpecifyKind must not mutate the value it was handed
+        d.Kind |> equal DateTimeKind.Utc
+
+    testCase "DateTime keeps sub-millisecond ticks through time zone conversion" <| fun () ->
+        let utc = DateTime(638397614451234567L, DateTimeKind.Utc)
+        let local = DateTime(638397614451234567L, DateTimeKind.Local)
+        // The offset is a whole number of minutes, so the sub-second remainder survives
+        utc.ToLocalTime().Ticks % 10_000L |> equal 4567L
+        local.ToUniversalTime().Ticks % 10_000L |> equal 4567L
+
+    testCase "DateTime round-trip format prints all seven tick digits" <| fun () ->
+        let d = DateTime(638397614451234567L, DateTimeKind.Utc)
+        d.ToString("O", CultureInfo.InvariantCulture) |> equal "2024-01-02T03:04:05.1234567Z"
+        d.ToString("fffffff", CultureInfo.InvariantCulture) |> equal "1234567"
+        d.ToString("FFFFFFF", CultureInfo.InvariantCulture) |> equal "1234567"
+        // "F" drops trailing zeros, "f" pads them
+        DateTime(2024, 1, 2, 3, 4, 5, 60).ToString("fffff", CultureInfo.InvariantCulture) |> equal "06000"
+        DateTime(2024, 1, 2, 3, 4, 5, 60).ToString("FFFFF", CultureInfo.InvariantCulture) |> equal "06"
+
+    testCase "DateTime.Parse recovers sub-millisecond ticks" <| fun () ->
+        DateTime.Parse("2009-06-15T13:45:30.6175425", CultureInfo.InvariantCulture).Ticks % 10_000_000L
+        |> equal 6175425L
+
+    testCase "DateTime.Add* accept fractional values and are tick-precise" <| fun () ->
+        let d = DateTime(2024, 1, 2, 3, 4, 5, 6, DateTimeKind.Utc)
+        let delta (x: DateTime) = x.Ticks - d.Ticks
+        d.AddDays(1.5) |> delta |> equal 1_296_000_000_000L
+        d.AddHours(0.5) |> delta |> equal 18_000_000_000L
+        d.AddMinutes(1.0 / 3.0) |> delta |> equal 200_000_000L
+        d.AddSeconds(0.0000001) |> delta |> equal 1L
+        d.AddMilliseconds(0.5) |> delta |> equal 5_000L
+        d.AddMilliseconds(0.4) |> delta |> equal 4_000L
+        d.AddMilliseconds(1.5) |> delta |> equal 15_000L
+
+    testCase "DateTime boundary values have the exact .NET tick counts" <| fun () ->
+        DateTime.MinValue.Ticks |> equal 0L
+        DateTime.MaxValue.Ticks |> equal 3155378975999999999L
+
+    testCase "DateTime.Now is representable as a whole number of ticks" <| fun () ->
+        // Temporal clocks are nanosecond-precise; a value carrying sub-tick
+        // precision would no longer equal its own tick count round-tripped.
+        let n = DateTime.Now
+        DateTime(n.Ticks, n.Kind) |> equal n
+        let u = DateTime.UtcNow
+        DateTime(u.Ticks, u.Kind) |> equal u
+#endif
   ]
