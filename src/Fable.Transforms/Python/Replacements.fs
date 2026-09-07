@@ -2062,15 +2062,7 @@ let arrayModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Ex
 
     match i.CompiledName, args with
     | "ToSeq", [ arg ] -> Some arg
-    | "OfSeq", [ arg ] ->
-        let meth = Naming.lowerFirst i.CompiledName
-        let args = injectArg com ctx r "Array" meth i.GenericArgs args
-
-        Helper.LibCall(com, "array", meth, t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
-    | "OfList", [ arg ] ->
-        Helper.LibCall(com, "list", "to_array", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
+    | ("OfSeq" | "OfList"), [ arg ] -> makeArrayFrom (getElementType t) arg |> Some
     | "ToList", args ->
         Helper.LibCall(com, "list", "of_array", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -2156,6 +2148,7 @@ let listModule (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (_: Exp
 
         Helper.LibCall(com, "seq2", "List_" + meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "ToArray", [ arg ] -> makeArrayFrom (getElementType t) arg |> Some
     | meth, _ ->
         let meth = Naming.lowerFirst meth
         let args = injectArg com ctx r "List" meth i.GenericArgs args
