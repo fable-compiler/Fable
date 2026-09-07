@@ -873,6 +873,18 @@ let inline outerGet<'a, 'b when 'a: (static member GetValue: unit -> string)
                             and 'b: (static member GetValue: unit -> string)> () =
     innerGet<'a>(), innerGet<'b>()
 
+type LazyTree<'a> = LazyNode of 'a * LazyTree<'a> list
+
+let describeLazy (x: Lazy<'a>) : string = string (x.Force())
+
+let walkLazyTree (tree: LazyTree<Lazy<'a>>) : string =
+    let rec loop (LazyNode(root, xs)) =
+        match xs with
+        | [] -> describeLazy root
+        | x :: _ -> loop x
+
+    loop tree
+
 let tests =
   testList "Types" [
 
@@ -1261,6 +1273,10 @@ let tests =
         let search e = items.Value |> List.tryFind (fun m -> m = e)
         search "b" |> equal (Some "b")
         search "d" |> equal None
+
+    testCase "Local function generic over a Lazy subtype constraint works" <| fun () ->
+        LazyNode(lazy 5, [LazyNode(lazy 7, [])]) |> walkLazyTree |> equal "7"
+        LazyNode(lazy 5, []) |> walkLazyTree |> equal "5"
 
     testCase "Secondary constructors work" <| fun () ->
         let s1 = SecondaryCons(3)
