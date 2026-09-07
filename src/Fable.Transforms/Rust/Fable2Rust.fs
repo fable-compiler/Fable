@@ -1661,40 +1661,46 @@ module Util =
         // unboxing value types or wrapped types
         | Fable.Any, t when isValueType com t || isWrappedType com t -> expr |> unboxValue com ctx t
 
-        // Boxing a reference-typed record/union must use the same pointer representation
-        // as the source value. The LrcPtr case preserves identity; the explicit pointer
-        // attributes use a cloned underlying value so the object still carries its record
-        // TypeId even when Rc/Arc/Box cannot be unsized to the target object pointer.
-        | Fable.DeclaredType(entRef, genArgs), Fable.Any when isReferenceRecordOrUnion com entRef ->
-            let boxMethod =
-                match shouldBeRefCountWrapped com ctx (Fable.DeclaredType(entRef, genArgs)) with
-                | Some Lrc -> "box_lrc"
-                | Some Rc -> "box_rc"
-                | Some Arc -> "box_arc"
-                | Some Box -> "box_box"
-                | None -> "box_"
+        // // Boxing a reference type must use the same pointer representation as the source
+        // // value. The LrcPtr case preserves identity; the explicit pointer attributes use
+        // // a cloned underlying value so the object still carries its concrete TypeId even
+        // // when Rc/Arc/Box cannot be unsized to the target object pointer.
+        // | Fable.DeclaredType(entRef, genArgs), Fable.Any when
+        //     isReferenceRecordOrUnion com entRef
+        //     || (not ctx.SkipRecordTypeRegistration && isReferenceClass com entRef)
+        //     ->
+        //     let boxMethod =
+        //         match shouldBeRefCountWrapped com ctx (Fable.DeclaredType(entRef, genArgs)) with
+        //         | Some Lrc -> "box_lrc"
+        //         | Some Rc -> "box_rc"
+        //         | Some Arc -> "box_arc"
+        //         | Some Box -> "box_box"
+        //         | None -> "box_"
 
-            [ expr |> makeClone ] |> makeLibCall com ctx None "Native" boxMethod
+        //     [ expr |> makeClone ] |> makeLibCall com ctx None "Native" boxMethod
 
         | Fable.DeclaredType(entRef, genArgs), Fable.Any when
             ctx.SkipRecordTypeRegistration && isReferenceClass com entRef
             ->
             [ expr |> makeClone ] |> makeLibCall com ctx None "Native" "box_"
 
-        // unboxing obj back to a reference-typed record/union: downcast + re-wrap.
-        | Fable.Any, Fable.DeclaredType(entRef, genArgs) when isReferenceRecordOrUnion com entRef ->
-            let rawTy = transformEntityType com ctx entRef genArgs
-            let genArgsOpt = [ rawTy ] |> mkTypesGenericArgs
+        // // unboxing obj back to a reference type: downcast + re-wrap.
+        // | Fable.Any, Fable.DeclaredType(entRef, genArgs) when
+        //     isReferenceRecordOrUnion com entRef
+        //     || (not ctx.SkipRecordTypeRegistration && isReferenceClass com entRef)
+        //     ->
+        //     let rawTy = transformEntityType com ctx entRef genArgs
+        //     let genArgsOpt = [ rawTy ] |> mkTypesGenericArgs
 
-            let unboxMethod =
-                match shouldBeRefCountWrapped com ctx (Fable.DeclaredType(entRef, genArgs)) with
-                | Some Lrc -> "unbox_lrc"
-                | Some Rc -> "unbox_rc"
-                | Some Arc -> "unbox_arc"
-                | Some Box -> "unbox_box"
-                | None -> "unbox"
+        //     let unboxMethod =
+        //         match shouldBeRefCountWrapped com ctx (Fable.DeclaredType(entRef, genArgs)) with
+        //         | Some Lrc -> "unbox_lrc"
+        //         | Some Rc -> "unbox_rc"
+        //         | Some Arc -> "unbox_arc"
+        //         | Some Box -> "unbox_box"
+        //         | None -> "unbox"
 
-            [ expr ] |> makeLibCall com ctx genArgsOpt "Native" unboxMethod
+        //     [ expr ] |> makeLibCall com ctx genArgsOpt "Native" unboxMethod
 
         | Fable.Any, Fable.DeclaredType(entRef, genArgs) when
             ctx.SkipRecordTypeRegistration && isReferenceClass com entRef
@@ -3954,13 +3960,22 @@ module Util =
         | _ -> None
 
     let simplifyDecisionTree (treeExpr: Fable.Expr) =
+        let rec containsTypeTest expr =
+            match expr with
+            | Fable.Test(_, Fable.TypeTest _, _) -> true
+            | expr -> getSubExpressions expr |> List.exists containsTypeTest
+
         treeExpr
         |> visitFromInsideOut (
             function
             | Fable.IfThenElse(guardExpr1,
                                Fable.IfThenElse(guardExpr2, thenExpr, Fable.DecisionTreeSuccess(index2, [], _), _),
                                Fable.DecisionTreeSuccess(index1, [], t),
-                               r) when index1 = index2 ->
+                               r) when
+                index1 = index2
+                && not (containsTypeTest guardExpr1)
+                && not (containsTypeTest guardExpr2)
+                ->
                 Fable.IfThenElse(
                     makeLogOp None guardExpr1 guardExpr2 LogicalAnd,
                     thenExpr,

@@ -783,6 +783,15 @@ let ``Type testing in pattern matching`` () =
     | _ -> "FAIL"
     |> equal "FAIL"
 
+[<Fact>]
+let ``Type testing in tuple pattern matching`` () =
+    let test (a: obj, b: obj) =
+        match a, b with
+        | :? TestType as x, :? TestType2 as y -> true
+        | _ -> false
+
+    test (TestType "a" :> obj, TestType2 "b" :> obj) |> equal true
+
 // // // TODO: Should we make interface testing work in Fable 2?
 // // [<Fact>]
 // // let ``Children inherits parent interfaces`` () =
