@@ -1633,7 +1633,7 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
         // Use effective type for field naming (considers type refinement)
         let narrowedType =
             match fableExpr with
-            | Fable.IdentExpr ident -> getNarrowedType ctx ident
+            | Fable.IdentExpr ident -> getNarrowedType ctx ident |> Replacements.Util.getIdentValueType com ident
             | _ -> fableExpr.Type
 
         let fieldName = Util.applyFieldNaming com narrowedType i.Name true
@@ -1757,6 +1757,7 @@ let transformBindingAsExpr (com: IPythonCompiler) ctx (var: Fable.Ident) (value:
     expr |> assign None (identAsExpr com ctx var), stmts
 
 let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
+    let varType = Replacements.Util.getIdentValueType com var var.Type
     let shouldTreatAsStatement = isPyStatement ctx false value
     let needsErase = needsOptionEraseForBinding value var.Type
     // Skip type annotation to avoid Option[T] vs T | None mismatch issues with Pyright:
@@ -1776,7 +1777,7 @@ let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (
             let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
             body
         else
-            let ta, stmts = Annotation.typeAnnotation com ctx None var.Type
+            let ta, stmts = Annotation.typeAnnotation com ctx None varType
             let decl = Statement.assign (varName, ta)
             let body = com.TransformAsStatements(ctx, Some(Assign varExpr), value)
             stmts @ [ decl ] @ body
@@ -1789,7 +1790,7 @@ let transformBindingAsStatements (com: IPythonCompiler) ctx (var: Fable.Ident) (
             let decl = varDeclaration ctx varName None expr
             stmts @ decl
         else
-            let ta, stmts' = Annotation.typeAnnotation com ctx None var.Type
+            let ta, stmts' = Annotation.typeAnnotation com ctx None varType
             // Erase Option wrapper if needed (zero runtime overhead, just for type checker)
             let expr' =
                 if needsErase then

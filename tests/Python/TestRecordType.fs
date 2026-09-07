@@ -56,6 +56,20 @@ type RecordWithStaticMemberVal =
 type RecordA =
     { OptionalField : string option }
 
+[<Struct>]
+type StructRecord = { Size: int; Seed: int; Path: int list }
+
+type StructRecordHolder = { Tag: int; Data: StructRecord }
+
+let updateStructRecord (data: StructRecord) (path: int list) = { data with Path = List.rev path }
+
+let holdStructRecord (data: StructRecord) (path: int list) =
+    Some
+        {
+            Tag = 1
+            Data = { data with Path = List.rev path }
+        }
+
 [<Fact>]
 let ``test Anonymous records work`` () =
     let r = makeAnonRec()
@@ -227,3 +241,15 @@ let ``test Record with static member val does not share state across instances``
     a.xs.Add 1
     equal 1 a.xs.Count
     equal 1 b.xs.Count
+
+[<Fact>]
+let ``test Copy-and-update of a struct record argument works`` () =
+    let data: StructRecord = { Size = 1; Seed = 2; Path = [ 3; 4 ] }
+    let updated = updateStructRecord data [ 5; 6 ]
+    equal 1 updated.Size
+    equal 2 updated.Seed
+    equal [ 6; 5 ] updated.Path
+    let held = holdStructRecord data [ 7; 8 ] |> Option.get
+    equal 1 held.Data.Size
+    equal 2 held.Data.Seed
+    equal [ 8; 7 ] held.Data.Path
