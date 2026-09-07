@@ -682,6 +682,25 @@ let tests = testList "Strings" [
                 .Replace(",", ".").Replace(" %", "%")
         |> equal "0.55 54.67% 2014-09-26 00:19"
 
+// String.Format has to recognise the value at runtime. The default JS
+// representation passes a Date for DateOnly and a number for TimeOnly and
+// TimeSpan, which are indistinguishable from a DateTime and a float, so only
+// .NET and the Temporal representation can format these as .NET does.
+#if !FABLE_COMPILER || FABLE_COMPILER_JAVASCRIPT_TEMPORAL
+    testCase "String.Format uses .NET formatting for DateOnly, TimeOnly and TimeSpan" <| fun () ->
+        let d = DateOnly(2024, 1, 2)
+        let t = TimeOnly(1, 2, 3)
+        let ts = TimeSpan.FromHours(1.)
+        String.Format(CultureInfo.InvariantCulture, "{0}", d) |> equal "01/02/2024"
+        String.Format(CultureInfo.InvariantCulture, "{0:O}", d) |> equal "2024-01-02"
+        String.Format(CultureInfo.InvariantCulture, "{0}", t) |> equal "01:02"
+        String.Format(CultureInfo.InvariantCulture, "{0:T}", t) |> equal "01:02:03"
+        String.Format(CultureInfo.InvariantCulture, "{0}", ts) |> equal "01:00:00"
+        String.Format(CultureInfo.InvariantCulture, "{0:g}", ts) |> equal "1:00:00"
+        String.Format(CultureInfo.InvariantCulture, "{0} {1} {2}", d, t, ts)
+        |> equal "01/02/2024 01:02 01:00:00"
+#endif
+
     testCase "Padding works" <| fun () ->
         "3.14".PadLeft(10)      |> equal "      3.14"
         "3.14".PadRight(10)     |> equal "3.14      "

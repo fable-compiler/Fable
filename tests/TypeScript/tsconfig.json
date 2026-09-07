@@ -2,6 +2,9 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
     "target": "es2020",
+    // Temporal types (used by the --jsTemporal library files) live in lib.esnext.temporal;
+    // the rest mirrors the default lib set for target es2020.
+    "lib": ["es2020", "dom", "esnext.temporal"],
     "module": "es2020",
     "rewriteRelativeImportExtensions": true,
     "erasableSyntaxOnly": true,

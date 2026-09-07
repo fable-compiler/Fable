@@ -613,10 +613,16 @@ let tests =
         /// NOTE: local utc offset of `usedDate`, NOT `DateTime.Now`
         /// -> `usedDate` is in september -> summer time in Europe (`+2`)!
         let localOffset: TimeSpan =
+#if FABLE_COMPILER_JAVASCRIPT_TEMPORAL
+            // usedDate is a Temporal.PlainDateTime (no getTimezoneOffset); the host offset for
+            // that wall-clock is what a DateTimeOffset built from an Unspecified DateTime uses.
+            DateTimeOffset(usedDate).Offset
+#else
 #if FABLE_COMPILER
             !!(usedDate?getTimezoneOffset() * -60_000)
 #else
             TimeZoneInfo.Local.GetUtcOffset(usedDate)
+#endif
 #endif
 
         let shouldSucceed = Ok ()
@@ -905,4 +911,34 @@ let tests =
             let dto: DateTimeOffset = d
             dto.UtcDateTime |> equal d
     ]
+
+// See the note in DateTimeTests.fs: tick precision only holds on .NET and on the
+// Temporal representation.
+#if !FABLE_COMPILER || FABLE_COMPILER_JAVASCRIPT_TEMPORAL
+    testList "Tick precision" [
+        testCase "DateTimeOffset round-trip format prints all seven tick digits" <| fun () ->
+            let d = DateTimeOffset(638397614451234567L, TimeSpan.Zero)
+            d.ToString("O", CultureInfo.InvariantCulture) |> equal "2024-01-02T03:04:05.1234567+00:00"
+
+        testCase "DateTimeOffset boundary values have the exact .NET tick counts" <| fun () ->
+            DateTimeOffset.MinValue.UtcTicks |> equal 0L
+            DateTimeOffset.MaxValue.UtcTicks |> equal 3155378975999999999L
+
+        testCase "DateTimeOffset keeps sub-millisecond ticks through construction" <| fun () ->
+            let d = DateTimeOffset(638397614451234567L, TimeSpan.Zero)
+            d.Ticks % 10_000L |> equal 4567L
+            d.ToOffset(TimeSpan.FromHours 2.0).UtcTicks |> equal d.UtcTicks
+
+        testCase "DateTimeOffset.Add* accept fractional values and are tick-precise" <| fun () ->
+            let d = DateTimeOffset(2024, 1, 2, 3, 4, 5, 6, TimeSpan.Zero)
+            d.AddDays(1.5).Ticks - d.Ticks |> equal 1_296_000_000_000L
+            d.AddMilliseconds(0.5).Ticks - d.Ticks |> equal 5_000L
+
+        testCase "DateTimeOffset.Now is representable as a whole number of ticks" <| fun () ->
+            let n = DateTimeOffset.Now
+            DateTimeOffset(n.Ticks, n.Offset) |> equal n
+            let u = DateTimeOffset.UtcNow
+            DateTimeOffset(u.Ticks, u.Offset) |> equal u
+    ]
+#endif
   ]

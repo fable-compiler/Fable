@@ -59,6 +59,8 @@ Available commands:
                                      (can be run in watch mode)
             --adaptive-only          Run only the tests for the adaptive version of Fable
                                      (can be run in watch mode)
+            --temporal-only          Run only the main tests, compiled with the Temporal
+                                     date/time representation (can be run in watch mode)
 
 
         Options for Rust:
