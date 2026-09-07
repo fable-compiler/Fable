@@ -17,7 +17,7 @@ mod NonSyncCell {
     use core::convert::{AsMut, AsRef};
     use core::fmt::{Debug, Display, Formatter, Result};
     use core::hash::{Hash, Hasher};
-    use core::ops::{Deref, DerefMut, Index};
+    use core::ops::{Deref, DerefMut};
 
     #[repr(transparent)]
     pub struct MutCell<T: ?Sized> {
@@ -97,15 +97,6 @@ mod NonSyncCell {
     impl<T: Hash> Hash for MutCell<T> {
         fn hash<H: Hasher>(&self, state: &mut H) {
             self.get().hash(state);
-        }
-    }
-
-    impl<T> Index<i32> for MutCell<Vec<T>> {
-        type Output = T;
-
-        #[inline]
-        fn index(&self, idx: i32) -> &Self::Output {
-            &self.as_ref()[idx as usize]
         }
     }
 

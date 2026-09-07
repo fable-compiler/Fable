@@ -340,6 +340,8 @@ let toSeq com t (expr: Expr) =
     | IEnumerable -> expr
     | List _ -> Helper.LibCall(com, "Seq", "ofList", t, [ expr ])
     | Array _ -> Helper.LibCall(com, "Seq", "ofArray", t, [ expr ])
+    | Builtin(FSharpMap _) -> Helper.LibCall(com, "Map", "toEnumerable", t, [ expr ])
+    | Builtin(FSharpSet _) -> Helper.LibCall(com, "Set", "toEnumerable", t, [ expr ])
     | String ->
         let chars = Helper.LibCall(com, "String", "toCharArray", t, [ expr ])
         Helper.LibCall(com, "Seq", "ofArray", t, [ chars ])

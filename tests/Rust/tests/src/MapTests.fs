@@ -336,6 +336,14 @@ let ``Map.toSeq works`` () =
     |> equal true
 
 [<Fact>]
+let ``Maps can be enumerated`` () =
+    let xs = Map [1,1.; 2,4.; 3,9.; 4,16.]
+    let mutable total = 0
+    for KeyValue(k, v) in xs do
+        total <- total + k + int v
+    total |> equal 40
+
+[<Fact>]
 let ``Map.toSeq generates sequences that can be iterated multiple times`` () = // See #2242
     let pr (sequence: seq<int * string>) =
         sequence |> Seq.map (fun (i, v) -> v)

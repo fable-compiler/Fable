@@ -1632,6 +1632,10 @@ module Util =
         | Fable.String, IEnumerable _ ->
             let chars = makeLibCall com ctx None "String" "toCharArray" [ expr ]
             makeLibCall com ctx None "Seq" "ofArray" [ chars ]
+        | Replacements.Util.Builtin(Replacements.Util.FSharpSet genArg), IEnumerable _ ->
+            makeLibCall com ctx None "Set" "toEnumerable" [ expr ]
+        | Replacements.Util.Builtin(Replacements.Util.FSharpMap(k, v)), IEnumerable _ ->
+            makeLibCall com ctx None "Map" "toEnumerable" [ expr ]
         | Replacements.Util.IsEntity (Types.hashset) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.iset) _, IEnumerable _ ->
             let ar = makeLibCall com ctx None "HashSet" "entries" [ expr ]

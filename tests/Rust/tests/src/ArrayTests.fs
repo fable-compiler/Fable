@@ -990,6 +990,14 @@ let ``Array.toSeq works`` () =
     |> equal 1.
 
 [<Fact>]
+let ``Arrays can be enumerated`` () =
+    let xs = [|1.; 2.; 3.; 4.|]
+    let mutable total = 0
+    for x in (xs :> seq<_>) do
+        total <- total + int x
+    total |> equal 10
+
+[<Fact>]
 let ``Array.truncate works`` () =
     let xs = [|1.; 2.; 3.; 4.; 5.|]
     xs |> Array.truncate 2
