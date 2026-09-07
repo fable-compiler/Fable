@@ -638,6 +638,8 @@ let toSeq (s: Set<'T>) =
         )
     )
 
+let toEnumerable (s: Set<'T>) = toSeq s
+
 let compareTo (s1: Set<'T>) (s2: Set<'T>) =
     // LanguagePrimitives.GenericComparison s1 s2
     Seq.compareWith compare (toSeq s1) (toSeq s2)

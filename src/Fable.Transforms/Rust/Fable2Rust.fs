@@ -1632,6 +1632,10 @@ module Util =
         | Fable.String, IEnumerable _ ->
             let chars = makeLibCall com ctx None "String" "toCharArray" [ expr ]
             makeLibCall com ctx None "Seq" "ofArray" [ chars ]
+        | Replacements.Util.Builtin(Replacements.Util.FSharpSet genArg), IEnumerable _ ->
+            makeLibCall com ctx None "Set" "toEnumerable" [ expr ]
+        | Replacements.Util.Builtin(Replacements.Util.FSharpMap(k, v)), IEnumerable _ ->
+            makeLibCall com ctx None "Map" "toEnumerable" [ expr ]
         | Replacements.Util.IsEntity (Types.hashset) _, IEnumerable _
         | Replacements.Util.IsEntity (Types.iset) _, IEnumerable _ ->
             let ar = makeLibCall com ctx None "HashSet" "entries" [ expr ]
@@ -3950,13 +3954,22 @@ module Util =
         | _ -> None
 
     let simplifyDecisionTree (treeExpr: Fable.Expr) =
+        let rec containsTypeTest expr =
+            match expr with
+            | Fable.Test(_, Fable.TypeTest _, _) -> true
+            | expr -> getSubExpressions expr |> List.exists containsTypeTest
+
         treeExpr
         |> visitFromInsideOut (
             function
             | Fable.IfThenElse(guardExpr1,
                                Fable.IfThenElse(guardExpr2, thenExpr, Fable.DecisionTreeSuccess(index2, [], _), _),
                                Fable.DecisionTreeSuccess(index1, [], t),
-                               r) when index1 = index2 ->
+                               r) when
+                index1 = index2
+                && not (containsTypeTest guardExpr1)
+                && not (containsTypeTest guardExpr2)
+                ->
                 Fable.IfThenElse(
                     makeLogOp None guardExpr1 guardExpr2 LogicalAnd,
                     thenExpr,

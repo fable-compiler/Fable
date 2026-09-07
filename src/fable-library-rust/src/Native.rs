@@ -68,6 +68,7 @@ pub mod Native_ {
 
     use crate::System::Collections::Generic::EqualityComparer_1;
     use crate::System::Collections::Generic::IEnumerable_1;
+    use crate::System::Collections::Generic::IEnumerator_1;
     use crate::System::Collections::Generic::IEqualityComparer_1;
 
     // TODO: use these types in generated code
@@ -808,6 +809,30 @@ pub mod Native_ {
     // -----------------------------------------------------------
     // Sequences
     // -----------------------------------------------------------
+
+    pub struct SeqIterator<T: Clone + 'static> {
+        en: LrcPtr<dyn IEnumerator_1<T>>,
+    }
+
+    impl<T: Clone> SeqIterator<T> {
+        pub fn new(seq: Seq<T>) -> Self {
+            SeqIterator {
+                en: seq.GetEnumerator(),
+            }
+        }
+    }
+
+    impl<T: Clone> Iterator for SeqIterator<T> {
+        type Item = T;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.en.MoveNext() {
+                Some(self.en.get_Current().clone())
+            } else {
+                None
+            }
+        }
+    }
 
     pub fn seq_to_iter<T>(seq: Seq<T>) -> impl Iterator<Item = T>
     where

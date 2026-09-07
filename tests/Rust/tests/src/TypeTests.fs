@@ -275,19 +275,11 @@ type ValueTypeR =
 type StructUnion = Value of string
 
 [<Struct>]
-type SimpleRecord = { A: string; B: string }
-
-[<Struct>]
-type NestedStruct =
-    val A: float
-    val B: bool
-    new(a, b) = { A = a; B = b }
-
-[<Struct>]
-type TopLevelStruct =
-    val A: float
-    val B: NestedStruct
-    new(a, b) = { A = a; B = b }
+type SimpleRecord =
+    { A: string; B: string }
+    member this.WithA(a: string) =
+        let this = this
+        { this with A = a }
 
 type Point2D =
    struct
@@ -343,6 +335,118 @@ type TypeWithClassAttribute =
 //     [<DefaultValue>] val mutable IntValue: int
 //     [<DefaultValue>] val mutable StringValue: string
 //     [<DefaultValue>] val mutable ObjValue: System.Collections.Generic.Dictionary<string, string>
+
+// [<AllowNullLiteral>]
+// type MyUser =
+//     class end
+
+// // See #2739: static [<DefaultValue>] fields must be zero-initialized in JS/TS
+// type ClassWithDefaultValueStaticFields() =
+
+//     [<DefaultValue>]
+//     static val mutable private int: int
+//     [<DefaultValue>]
+//     static val mutable private bool: bool
+//     [<DefaultValue>]
+//     static val mutable private string: string
+//     [<DefaultValue>]
+//     static val mutable private guid: Guid
+//     [<DefaultValue>]
+//     static val mutable private char: char
+
+//     [<DefaultValue>]
+//     static val mutable private dateTime: DateTime
+
+//     [<DefaultValue>]
+//     static val mutable private timeOnly : TimeOnly
+//     [<DefaultValue>]
+//     static val mutable private dateOnly : DateOnly
+//     [<DefaultValue>]
+//     static val mutable private dateTimeOffset : DateTimeOffset
+//     [<DefaultValue>]
+//     static val mutable private int8 : int8
+//     [<DefaultValue>]
+//     static val mutable private uInt8 : uint8
+//     [<DefaultValue>]
+//     static val mutable private int16 : Int16
+//     [<DefaultValue>]
+//     static val mutable private uInt16 : UInt16
+//     [<DefaultValue>]
+//     static val mutable private int32 : Int32
+//     [<DefaultValue>]
+//     static val mutable private uInt32 : UInt32
+//     [<DefaultValue>]
+//     static val mutable private int64 : Int64
+//     [<DefaultValue>]
+//     static val mutable private uInt64 : UInt64
+//     [<DefaultValue>]
+//     static val mutable private bigInt : bigint
+//     [<DefaultValue>]
+//     static val mutable private nativeInt : nativeint
+//     [<DefaultValue>]
+//     static val mutable private uNativeInt : unativeint
+//     [<DefaultValue>]
+//     static val mutable private float32 : float32
+//     [<DefaultValue>]
+//     static val mutable private float64 : float
+//     [<DefaultValue>]
+//     static val mutable private decimal : Decimal
+
+//     [<DefaultValue>]
+//     static val mutable private timeSpan: TimeSpan
+//     [<DefaultValue>]
+//     static val mutable private allowNullLiteralClass: MyUser
+//     [<DefaultValue>]
+//     static val mutable private nullableInt: Nullable<int>
+//     [<DefaultValue>]
+//     static val mutable private tuple2: TimeSpan * DateTime
+//     [<DefaultValue>]
+//     static val mutable private structTuple2: struct (TimeSpan * DateTime)
+
+//     static member IncrCount() =
+//         ClassWithDefaultValueStaticFields.int <- ClassWithDefaultValueStaticFields.int + 1
+//         ClassWithDefaultValueStaticFields.int
+
+//     static member Int = ClassWithDefaultValueStaticFields.int
+//     static member Bool = ClassWithDefaultValueStaticFields.bool
+//     static member String = ClassWithDefaultValueStaticFields.string
+//     static member Guid = ClassWithDefaultValueStaticFields.guid
+//     static member Char = ClassWithDefaultValueStaticFields.char
+//     static member TimeSpan = ClassWithDefaultValueStaticFields.timeSpan
+//     static member AllowNullLiteralClass = ClassWithDefaultValueStaticFields.allowNullLiteralClass
+//     static member NullableInt = ClassWithDefaultValueStaticFields.nullableInt
+//     static member Tuple2 = ClassWithDefaultValueStaticFields.tuple2
+//     static member DateTime = ClassWithDefaultValueStaticFields.dateTime
+//     static member TimeOnly = ClassWithDefaultValueStaticFields.timeOnly
+//     static member DateOnly = ClassWithDefaultValueStaticFields.dateOnly
+//     static member DateTimeOffset = ClassWithDefaultValueStaticFields.dateTimeOffset
+//     static member Int8 = ClassWithDefaultValueStaticFields.int8
+//     static member UInt8 = ClassWithDefaultValueStaticFields.uInt8
+//     static member Int16 = ClassWithDefaultValueStaticFields.int16
+//     static member UInt16 = ClassWithDefaultValueStaticFields.uInt16
+//     static member Int32 = ClassWithDefaultValueStaticFields.int32
+//     static member UInt32 = ClassWithDefaultValueStaticFields.uInt32
+//     static member Int64 = ClassWithDefaultValueStaticFields.int64
+//     static member UInt64 = ClassWithDefaultValueStaticFields.uInt64
+//     static member BigInt = ClassWithDefaultValueStaticFields.bigInt
+//     static member NativeInt = ClassWithDefaultValueStaticFields.nativeInt
+//     static member UNativeInt = ClassWithDefaultValueStaticFields.uNativeInt
+//     static member Float32 = ClassWithDefaultValueStaticFields.float32
+//     static member Float64 = ClassWithDefaultValueStaticFields.float64
+//     static member Decimal = ClassWithDefaultValueStaticFields.decimal
+//     static member StructTuple2 = ClassWithDefaultValueStaticFields.structTuple2
+
+[<Struct>]
+type NestedStruct =
+    val A: float
+    val B: bool
+    new(a, b) = { A = a; B = b }
+
+[<Struct>]
+type TopLevelStruct =
+    val A: float
+    val B: NestedStruct
+    new(a, b) = { A = a; B = b }
 
 // type Default1 = int
 
@@ -509,10 +613,36 @@ type MangledAbstractClass5(v) =
     inherit MangledAbstractClass4(v + 5)
     override _.MyMethod(x: int) = base.MyMethod(x) + v + 7
 
+[<AbstractClass>]
+type AbstractClassWithResizeArrayProp() =
+    abstract Warnings: ResizeArray<string> with get
+
+type IGenericMethodHelpers<'JsonValue> =
+    abstract encodeString: string -> 'JsonValue
+
+type IGenericMethodEncodable =
+    abstract member Encode<'JsonValue> : helpers: IGenericMethodHelpers<'JsonValue> -> 'JsonValue
+
+// Class implementation that names the method's type parameter ('json) differently
+// from the interface ('JsonValue)
+type GenericMethodEncodableClass() =
+    interface IGenericMethodEncodable with
+        member _.Encode<'json>(helpers: IGenericMethodHelpers<'json>) = helpers.encodeString "x"
+
+type IGenericMethodBox<'T> =
+    abstract Get: unit -> 'T
+
+// The lambda inside `Get` references the outer generic parameter 'item (via the
+// captured `value`); it must not redeclare and shadow it.
+let mapGenericMethodBox<'item> (value: 'item) : IGenericMethodBox<'item seq> =
+    { new IGenericMethodBox<'item seq> with
+        member _.Get() : 'item seq = Seq.map (fun (x: 'item) -> value) [ value ]
+    }
+
 type ConcreteClass1() =
     inherit MangledAbstractClass5(2)
 
-// See #3895 - super call in multi-level generic class hierarchy used wrong mangled name
+// See #3895 - super call with generic class hierarchy uses wrong overload hash
 type IGenericAttach3895<'C> =
     abstract Attach: 'C -> unit
 
@@ -609,6 +739,62 @@ type Model = unit
 
 let update (model: Model) =
     model, ()
+
+// Test types for generic parameter static member resolution
+type TestTypeA =
+    static member GetValue() = "A"
+    static member Combine(x: int, y: int) = x + y + 100
+
+type TestTypeB =
+    static member GetValue() = "B"
+    static member Combine(x: int, y: int) = x + y + 200
+
+type TestTypeC =
+    static member GetValue() = "C"
+    static member Combine(x: int, y: int) = x + y + 300
+
+// Inline functions for testing multiple generic parameters with static member constraints
+let inline getTwoValues<'a, 'b when 'a: (static member GetValue: unit -> string)
+                               and 'b: (static member GetValue: unit -> string)> () =
+    'a.GetValue(), 'b.GetValue()
+
+let inline getThreeValues<'a, 'b, 'c when 'a: (static member GetValue: unit -> string)
+                                     and 'b: (static member GetValue: unit -> string)
+                                     and 'c: (static member GetValue: unit -> string)> () =
+    'a.GetValue(), 'b.GetValue(), 'c.GetValue()
+
+let inline getValuesAndCombine<'a, 'b when 'a: (static member GetValue: unit -> string)
+                                       and 'a: (static member Combine: int * int -> int)
+                                       and 'b: (static member GetValue: unit -> string)
+                                       and 'b: (static member Combine: int * int -> int)> x y =
+    let aVal = 'a.GetValue()
+    let bVal = 'b.GetValue()
+    let aCombined = 'a.Combine(x, y)
+    let bCombined = 'b.Combine(x, y)
+    (aVal, aCombined), (bVal, bCombined)
+
+let inline getReversed<'x, 'y when 'x: (static member GetValue: unit -> string)
+                              and 'y: (static member GetValue: unit -> string)> () =
+    'y.GetValue(), 'x.GetValue()
+
+let inline innerGet<'t when 't: (static member GetValue: unit -> string)> () =
+    't.GetValue()
+
+let inline outerGet<'a, 'b when 'a: (static member GetValue: unit -> string)
+                            and 'b: (static member GetValue: unit -> string)> () =
+    innerGet<'a>(), innerGet<'b>()
+
+// type LazyTree<'a> = LazyNode of 'a * LazyTree<'a> list
+
+// let describeLazy (x: Lazy<'a>) : string = string (x.Force())
+
+// let walkLazyTree (tree: LazyTree<Lazy<'a>>) : string =
+//     let rec loop (LazyNode(root, xs)) =
+//         match xs with
+//         | [] -> describeLazy root
+//         | x :: _ -> loop x
+
+//     loop tree
 
 [<Fact>]
 let ``Unit arguments work`` () =
@@ -719,8 +905,9 @@ let ``Can implement interface optional properties with object expression`` () =
 //     StaticClass.DefaultParam2(Nullable()) |> equal 3
 //     StaticClass.DefaultParam2() |> equal 3
 
+// // See #3326
 // [<Fact>]
-// let ``DefaultParameterValue works with null`` () = // See #3326
+// let ``DefaultParameterValue works with null`` () =
 //     StaticClass.DefaultNullParam() |> isNull |> equal true
 //     StaticClass.DefaultNullParam(5) |> isNull |> equal false
 
@@ -863,8 +1050,9 @@ let ``Type test with BigInt`` () =
     box 5I |> isBigInt |> equal true
     box 50 |> isBigInt |> equal false
 
+// See #168
 [<Fact>]
-let ``Property names don't clash with built-in JS objects`` () = // See #168
+let ``Property names don't clash with built-in JS objects`` () =
     let gameState = {
         Now = 1
         Map = "dungeon"
@@ -992,6 +1180,11 @@ let ``Lazy constructor works`` () =
     search "b" |> equal (Some "b")
     search "d" |> equal None
 
+// [<Fact>]
+// let ``Local function generic over a Lazy subtype constraint works`` () =
+//     LazyNode(lazy 5, [LazyNode(lazy 7, [])]) |> walkLazyTree |> equal "7"
+//     LazyNode(lazy 5, []) |> walkLazyTree |> equal "5"
+
 [<Fact>]
 let ``Secondary constructors work`` () =
     let s1 = SecondaryCons(3)
@@ -1013,8 +1206,9 @@ let ``Multiple constructors work`` () =
     equal 9 m2.Value
     equal 14 m3.Value
 
+// // See #505
 // [<Fact>]
-// let ``Abstract methods with default work`` () = // See #505
+// let ``Abstract methods with default work`` () =
 //     let x = ConcreteClass()
 //     x.MethodWithDefault() |> equal "Hello "
 //     x.MustImplement() |> equal "World!!"
@@ -1028,8 +1222,9 @@ let ``Abstract properties with getters and setters work`` () =
     x.MyProp <- 2
     equal 7 x.MyProp
 
+// See #505
 [<Fact>]
-let ``Interface setters don't conflict`` () = // See #505
+let ``Interface setters don't conflict`` () =
     let x = XISomeInterface () :> ISomeInterface
     x.Sender |> equal 0
     x.Sender <- 5
@@ -1071,8 +1266,9 @@ let ``Interface setters don't conflict`` () = // See #505
 //     (foo :> IFoo).Foo() |> equal "BARFOO"
 //     mangleFoo foo |> equal "BARFOO"
 
+// // See #1452
 // [<Fact>]
-// let ``Interface casting round-trip`` () = // See #1452
+// let ``Interface casting round-trip`` () =
 //     let d = new DowncastTest(3) :> System.IDisposable
 //     let t = d :?> DowncastTest
 //     t.Value |> equal 3
@@ -1081,32 +1277,37 @@ let ``Interface setters don't conflict`` () = // See #505
 //         | :? DowncastTest as t2 -> t2.Value
 //         | _ -> 5
 
+// See #701
 [<Fact>]
-let ``Calling default implementation of base members don't cause infinite recursion`` () = // See #701
+let ``Calling default implementation of base members don't cause infinite recursion`` () =
     let x = ExtendedClass()
     x.Init() |> equal 7
     (x :> BaseClass).Init() |> equal 7
 
+// See #701
 [<Fact>]
-let ``Calling default implementation of base properties don't cause infinite recursion`` () = // See #701
+let ``Calling default implementation of base properties don't cause infinite recursion`` () =
     let x = ExtendedClass()
     x.Prop |> equal "base-extension"
     (x :> BaseClass).Prop |> equal "base-extension"
 
+// See #1464
 [<Fact>]
-let ``Calling base members works`` () = // See #1464
+let ``Calling base members works`` () =
     let bar = ExtendedClass2()
     bar.B() |> equal 1
 
+// See #569
 [<Fact>]
-let ``Circular dependencies work`` () = // See #569
+let ``Circular dependencies work`` () =
     let location = { name="NY"; employees=[] }
     let alice = { name="Alice"; age=20.0; location=location  }
     location.name |> equal "NY"
     alice.age |> equal 20.
 
+// See #568
 [<Fact>]
-let ``Value Type records work`` () = // See #568
+let ``Value Type records work`` () =
     let foo1 = ValueType<_>("foo")
     let foo2 = ValueType<_>("foo")
     foo1.Value |> equal "foo"
@@ -1164,14 +1365,23 @@ let ``Unchecked.defaultof works for fields on nested structs`` () =
     top.B.A |> equal 0
     top.B.B |> equal false
 
+// See #3371
 [<Fact>]
-let ``copying struct records works`` () = // See #3371
+let ``copying struct records works`` () =
     let simple : SimpleRecord = { A = ""; B = "B" }
     let simpleRecord = { simple with A = "A" }
     simpleRecord.A |> equal "A"
     simpleRecord.B |> equal "B"
     simple.A |> equal ""
     simple.B |> equal "B"
+
+// See #3828
+[<Fact>]
+let ``copy-update expression on this in struct member works`` () =
+    let r : SimpleRecord = { A = "hello"; B = "world" }
+    let r2 = r.WithA("foo")
+    r2.A |> equal "foo"
+    r2.B |> equal "world"
 
 // [<Fact>]
 // let ``Custom F# exceptions work`` () =
@@ -1205,8 +1415,9 @@ let ``copying struct records works`` () = // See #3371
 //     with ex -> ex.Message
 //     |> equal "Will I be reraised?"
 
+// // See #1444
 // [<Fact>]
-// let ``This context is not lost in closures within implicit constructor`` () = // See #1444
+// let ``This context is not lost in closures within implicit constructor`` () =
 //     ThisContextInConstructor(7).Value() |> equal 7
 
 // [<Fact>]
@@ -1218,8 +1429,9 @@ let ``copying struct records works`` () = // See #3371
 //     f1.Add2(4, 5) |> equal -1
 //     f2.Add2(4, 5) |> equal -1
 
+// See #573
 [<Fact>]
-let ``ClassAttribute works`` () = // See #573
+let ``ClassAttribute works`` () =
     let t1 = TypeWithClassAttribute(8)
     t1.Pos |> equal 8
 
@@ -1242,8 +1454,9 @@ let ``ClassAttribute works`` () = // See #573
 // //     withDefaultValue.ObjValue |> equal Unchecked.defaultof<System.Collections.Generic.Dictionary<string, string>>
 // //     withDefaultValue.ObjValue |> equal null
 
+// // See #2070
 // [<Fact>]
-// let ``Private fields don't conflict with parent classes`` () = // See #2070
+// let ``Private fields don't conflict with parent classes`` () =
 //     let a1 = InfoBClass({ InfoA = { Foo = "foo" }; Bar = "bar" }) :> InfoAClass
 //     let a2 = a1.WithFoo("foo2")
 //     a1.Foo |> equal "foo"
@@ -1386,8 +1599,9 @@ let ``Non-mangled interfaces work with classes`` () =
 //     typeof<int>.IsInstanceOfType("hello") |> equal false
 
 // #if FABLE_COMPILER
+// // See #2485
 // [<Fact>]
-// let ``Choice with arity 3+ is represented correctly`` () = // See #2485
+// let ``Choice with arity 3+ is represented correctly`` () =
 //     Choice2Of3 55 |> Fable.Core.Reflection.getCaseName |> equal "Choice2Of3"
 //     Choice3Of3 55 |> Fable.Core.Reflection.getCaseName |> equal "Choice3Of3"
 // #endif
@@ -1405,6 +1619,124 @@ let ``Super call works correctly in multi-level generic class hierarchy`` () =
     obj.Attach("hello")
     // Each override delegates to base before logging, so the chain unwinds Base -> Mid -> Leaf
     List.ofSeq log |> equal [ "Base"; "Mid"; "Leaf" ]
+
+// Test for generic type parameter static member resolution in inline functions
+// https://github.com/fable-compiler/Fable/issues/4093
+[<Fact>]
+let ``Inline function with two generic parameters resolves static members correctly`` () =
+    let result = getTwoValues<TestTypeA, TestTypeB>()
+    result |> equal ("A", "B")
+
+[<Fact>]
+let ``Inline function with three generic parameters resolves static members correctly`` () =
+    let result = getThreeValues<TestTypeA, TestTypeB, TestTypeC>()
+    result |> equal ("A", "B", "C")
+
+[<Fact>]
+let ``Inline function with multiple constraints per type parameter works`` () =
+    let result = getValuesAndCombine<TestTypeA, TestTypeB> 10 20
+    result |> equal (("A", 130), ("B", 230))
+
+[<Fact>]
+let ``Inline function with reversed type parameter order works`` () =
+    let result = getReversed<TestTypeA, TestTypeB>()
+    result |> equal ("B", "A")
+
+[<Fact>]
+let ``Nested inline functions resolve generic parameters correctly`` () =
+    let result = outerGet<TestTypeA, TestTypeB>()
+    result |> equal ("A", "B")
+
+[<Fact>]
+let ``Different type parameter combinations work correctly`` () =
+    let result1 = getTwoValues<TestTypeB, TestTypeA>()
+    result1 |> equal ("B", "A")
+
+    let result2 = getTwoValues<TestTypeC, TestTypeA>()
+    result2 |> equal ("C", "A")
+
+    let result3 = getTwoValues<TestTypeB, TestTypeC>()
+    result3 |> equal ("B", "C")
+
+// // See https://github.com/fable-compiler/Fable/issues/2739
+// [<Fact>]
+// let ``Static [<DefaultValue>] fields are zero-initialized`` () =
+//     ClassWithDefaultValueStaticFields.Int |> equal 0
+//     ClassWithDefaultValueStaticFields.Bool |> equal false
+//     ClassWithDefaultValueStaticFields.String |> equal null
+//     ClassWithDefaultValueStaticFields.Guid |> equal Guid.Empty
+//     ClassWithDefaultValueStaticFields.Char |> equal '\000'
+//     ClassWithDefaultValueStaticFields.TimeSpan |> equal TimeSpan.Zero
+//     ClassWithDefaultValueStaticFields.TimeOnly |> equal TimeOnly.MinValue
+//     ClassWithDefaultValueStaticFields.DateOnly |> equal DateOnly.MinValue
+//     ClassWithDefaultValueStaticFields.DateTime |> equal DateTime.MinValue
+//     ClassWithDefaultValueStaticFields.DateTimeOffset |> equal DateTimeOffset.MinValue
+//     ClassWithDefaultValueStaticFields.Int8 |> equal 0y
+//     ClassWithDefaultValueStaticFields.UInt8 |> equal 0uy
+//     ClassWithDefaultValueStaticFields.Int16 |> equal 0s
+//     ClassWithDefaultValueStaticFields.UInt16 |> equal 0us
+//     ClassWithDefaultValueStaticFields.Int32 |> equal 0
+//     ClassWithDefaultValueStaticFields.UInt32 |> equal 0u
+//     ClassWithDefaultValueStaticFields.Int64 |> equal 0L
+//     ClassWithDefaultValueStaticFields.UInt64 |> equal 0UL
+//     ClassWithDefaultValueStaticFields.BigInt |> equal 0I
+//     ClassWithDefaultValueStaticFields.NativeInt |> equal 0n
+//     ClassWithDefaultValueStaticFields.UNativeInt |> equal 0un
+//     ClassWithDefaultValueStaticFields.Float32 |> equal 0.f
+//     ClassWithDefaultValueStaticFields.Float64 |> equal 0.
+//     ClassWithDefaultValueStaticFields.Decimal |> equal 0M
+
+//     ClassWithDefaultValueStaticFields.IncrCount() |> equal 1
+
+[<Fact>]
+let ``Unchecked.defaultof works for fields on structs`` () =
+    let top = TopLevelStruct()
+    top.A |> equal 0
+    top.B.A |> equal 0
+    top.B.B |> equal false
+
+// [<Fact>]
+// let ``Abstract class property backed by captured variable in object expression works`` () =
+//     let warnings = ResizeArray<string>()
+
+//     let reader =
+//         { new AbstractClassWithResizeArrayProp() with
+//             member __.Warnings = warnings
+//         }
+
+//     reader.Warnings.Add("Warning 1")
+//     reader.Warnings.Add("Warning 2")
+
+//     reader.Warnings.Count |> equal 2
+
+// [<Fact>]
+// let ``Object expression implementing a generic interface method works`` () =
+//     let helpers =
+//         { new IGenericMethodHelpers<string> with
+//             member _.encodeString v = "S:" + v
+//         }
+
+//     let encodable =
+//         { new IGenericMethodEncodable with
+//             member _.Encode(helpers) = helpers.encodeString "x"
+//         }
+
+//     encodable.Encode(helpers) |> equal "S:x"
+
+// [<Fact>]
+// let ``Class implementing a generic interface method with a renamed type parameter works`` () =
+//     let helpers =
+//         { new IGenericMethodHelpers<string> with
+//             member _.encodeString v = "S:" + v
+//         }
+
+//     let encodable = GenericMethodEncodableClass() :> IGenericMethodEncodable
+//     encodable.Encode(helpers) |> equal "S:x"
+
+[<Fact>]
+let ``Nested lambda does not shadow an outer generic type parameter`` () =
+    let box = mapGenericMethodBox 42
+    box.Get() |> List.ofSeq |> equal [ 42 ]
 
 [<Fact>]
 let ``ArgumentException with message and inner exception works`` () =

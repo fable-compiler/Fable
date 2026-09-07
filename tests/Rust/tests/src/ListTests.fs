@@ -660,6 +660,14 @@ let ``List.toSeq works`` () =
     |> equal 2
 
 [<Fact>]
+let ``Lists can be enumerated`` () =
+    let xs = [1.; 2.; 3.; 4.]
+    let mutable total = 0
+    for x in xs do
+        total <- total + int x
+    total |> equal 10
+
+[<Fact>]
 let ``List.tryPick works`` () =
     [1; 2]
     |> List.tryPick (function
