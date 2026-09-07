@@ -2299,6 +2299,12 @@ let tests =
         let g = Guid [|6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy|]
         g.ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
 
+    testCase "Convert byte array built from a list or seq to Guid works" <| fun () ->
+        let bytes = id [6uy; 128uy; 37uy; 150uy; 186uy; 196uy; 127uy; 74uy; 128uy; 196uy; 222uy; 127uy; 43uy; 40uy; 152uy; 197uy]
+        Guid(List.toArray bytes).ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+        Guid(Array.ofList bytes).ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+        Guid(Array.ofSeq (Seq.ofList bytes)).ToString() |> equal "96258006-c4ba-4a7f-80c4-de7f2b2898c5"
+
     testCase "Guid.ToString works with formats" <| fun () ->
         let g = Guid.Parse("96258006-c4ba-4a7f-80c4-de7f2b2898c5")
         let g2 = Guid.Parse(id "96258006-c4ba-4a7f-80c4-de7f2b2898c5")
