@@ -1661,13 +1661,11 @@ module Util =
         // unboxing value types or wrapped types
         | Fable.Any, t when isValueType com t || isWrappedType com t -> expr |> unboxValue com ctx t
 
-        // Boxing a reference type must use the same pointer representation as the source
-        // value. The LrcPtr case preserves identity; the explicit pointer attributes use
-        // a cloned underlying value so the object still carries its concrete TypeId even
-        // when Rc/Arc/Box cannot be unsized to the target object pointer.
-        | Fable.DeclaredType(entRef, genArgs), Fable.Any when isReferenceRecordOrUnion com entRef
-        // || (not ctx.SkipRecordTypeRegistration && isReferenceClass com entRef)
-         ->
+        // Boxing a reference-typed record/union must use the same pointer representation
+        // as the source value. The LrcPtr case preserves identity; the explicit pointer
+        // attributes use a cloned underlying value so the object still carries its record
+        // TypeId even when Rc/Arc/Box cannot be unsized to the target object pointer.
+        | Fable.DeclaredType(entRef, genArgs), Fable.Any when isReferenceRecordOrUnion com entRef ->
             let boxMethod =
                 match shouldBeRefCountWrapped com ctx (Fable.DeclaredType(entRef, genArgs)) with
                 | Some Lrc -> "box_lrc"
@@ -1683,10 +1681,8 @@ module Util =
             ->
             [ expr |> makeClone ] |> makeLibCall com ctx None "Native" "box_"
 
-        // Unboxing obj back to a reference type: downcast + re-wrap.
-        | Fable.Any, Fable.DeclaredType(entRef, genArgs) when isReferenceRecordOrUnion com entRef
-        // || (not ctx.SkipRecordTypeRegistration && isReferenceClass com entRef)
-         ->
+        // unboxing obj back to a reference-typed record/union: downcast + re-wrap.
+        | Fable.Any, Fable.DeclaredType(entRef, genArgs) when isReferenceRecordOrUnion com entRef ->
             let rawTy = transformEntityType com ctx entRef genArgs
             let genArgsOpt = [ rawTy ] |> mkTypesGenericArgs
 
