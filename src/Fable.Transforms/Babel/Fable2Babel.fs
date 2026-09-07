@@ -1339,24 +1339,32 @@ module Util =
             // let e = defaultArg eOpt (Expression.numericLiteral (0.))
             Expression.unaryExpression ("void", e, ?loc = range)
 
-    let getTypeParameters (ctx: Context) (types: Fable.Type list) =
-        let mutable scopedTypeParams = ctx.ScopedTypeParams
+    let private getConstraintTypes (c: Fable.Constraint) =
+        match c with
+        | Fable.Constraint.CoercesTo target -> [ target ]
+        | Fable.Constraint.IsDelegate(argsType, retType) -> [ argsType; retType ]
+        | Fable.Constraint.IsEnum baseType -> [ baseType ]
+        | Fable.Constraint.SimpleChoice types -> types
+        | _ -> []
 
-        let typeParams =
-            types
-            |> FSharp2Fable.Util.getGenParamTypes
-            |> List.filter (fun typ ->
+    let getTypeParameters (ctx: Context) (types: Fable.Type list) =
+        // A type parameter can appear only in another one's constraint (e.g. `$b :> Lazy<$c>`) and still be referenced by the body.
+        let rec collect state types =
+            (state, FSharp2Fable.Util.getGenParamTypes types)
+            ||> List.fold (fun (scopedTypeParams, typeParams) typ ->
                 match typ with
-                | Fable.GenericParam(name = name) ->
-                    if Set.contains name scopedTypeParams then
-                        false
-                    else
-                        scopedTypeParams <- Set.add name scopedTypeParams
-                        true
-                | _ -> false
+                | Fable.GenericParam(name = name; constraints = constraints) when
+                    not (Set.contains name scopedTypeParams)
+                    ->
+                    constraints
+                    |> List.collect getConstraintTypes
+                    |> collect (Set.add name scopedTypeParams, typ :: typeParams)
+                | _ -> scopedTypeParams, typeParams
             )
 
-        scopedTypeParams, typeParams
+        let scopedTypeParams, typeParams = collect (ctx.ScopedTypeParams, []) types
+
+        scopedTypeParams, List.rev typeParams
 
     [<Struct>]
     type MemberKind =
