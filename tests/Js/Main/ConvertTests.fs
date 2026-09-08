@@ -605,49 +605,49 @@ let tests =
         // |> adaptExponentValue
         // |> equal "2.550000000000000e+2"
 
-    // testCase "int64.ToString 'E' works"
-    // <| fun () ->
-    //     (255L).ToString("E2", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.55e+2"
+    testCase "int64.ToString 'E' works"
+    <| fun () ->
+        (255L).ToString("E2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
 
-    //     (255L).ToString("E15", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.550000000000000e+2"
+        (255L).ToString("E15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
 
-    //     (-255L).ToString("E", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "-2.550000e+2"
+        (-255L).ToString("E", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "-2.550000e+2"
 
-    //     (255L).ToString("e2", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.55e+2"
+        (255L).ToString("e2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
 
-    //     (255L).ToString("e15", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.550000000000000e+2"
+        (255L).ToString("e15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
 
-    //     (-255L).ToString("e", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "-2.550000e+2"
+        (-255L).ToString("e", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "-2.550000e+2"
 
-    // testCase "uint64.ToString 'E' works"
-    // <| fun () ->
-    //     (255UL).ToString("E2", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.55e+2"
+    testCase "uint64.ToString 'E' works"
+    <| fun () ->
+        (255UL).ToString("E2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
 
-    //     (255UL).ToString("E15", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.550000000000000e+2"
+        (255UL).ToString("E15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
 
-    //     (255UL).ToString("e2", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.55e+2"
+        (255UL).ToString("e2", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.55e+2"
 
-    //     (255UL).ToString("e15", CultureInfo.InvariantCulture)
-    //     |> adaptExponentValue
-    //     |> equal "2.550000000000000e+2"
+        (255UL).ToString("e15", CultureInfo.InvariantCulture)
+        |> adaptExponentValue
+        |> equal "2.550000000000000e+2"
 
     testCase "float.ToString 'E' works"
     <| fun () ->
@@ -937,6 +937,16 @@ let tests =
         (-1234.5).ToString("E2", CultureInfo.InvariantCulture) |> equal "-1.23E+003"
         $"{100000L:E}" |> equal "1.000000E+005"
         $"{100000L:E2}" |> equal "1.00E+005"
+
+    testCase "ToString 'E' keeps every digit of a 64 bit integer"
+    <| fun () ->
+        (0L).ToString("E2", CultureInfo.InvariantCulture) |> equal "0.00E+000"
+        (100000L).ToString("e4", CultureInfo.InvariantCulture) |> equal "1.0000e+005"
+        (999999L).ToString("E2", CultureInfo.InvariantCulture) |> equal "1.00E+006"
+        (9223372036854775807L).ToString("E17", CultureInfo.InvariantCulture)
+        |> equal "9.22337203685477581E+018"
+        (-9223372036854775808L).ToString("E2", CultureInfo.InvariantCulture) |> equal "-9.22E+018"
+        (18446744073709551615UL).ToString("E", CultureInfo.InvariantCulture) |> equal "1.844674E+019"
 
     testCase "ToString with a custom percent format multiplies by 100"
     <| fun () ->

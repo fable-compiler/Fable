@@ -2650,6 +2650,8 @@ let numericStringFormat (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisA
                     | _ -> "does not support decimal format specifier" |> Some
                 | "e" ->
                     match numberKind with
+                    | Int64
+                    | UInt64 -> None
                     | BigIntegers _ -> "does not support exponential format specifier" |> Some
                     | _ -> None
                 | "f"
