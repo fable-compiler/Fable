@@ -1,5 +1,5 @@
 ---
-last_commit_released: bf694309ae5dbc6bb546d9acc4d091f5e35fe330
+last_commit_released: c49d1ec5d1a491bfff65fe4bd6c71014cac9b321
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
@@ -18,6 +18,23 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 3.3.0 - 2026-09-08
+
+### 🚀 Features
+
+* Add Temporal dates and times (opt-in) (#4759) ([3e8f56f7](https://github.com/fable-compiler/Fable/commit/3e8f56f78345fbee8a4394c5452eb212264701f9))
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Allow the E format specifier on Int64 and UInt64 ([c49d1ec5](https://github.com/fable-compiler/Fable/commit/c49d1ec5d1a491bfff65fe4bd6c71014cac9b321))
+* *(python)* Build typed arrays from lists and sequences (#4944) ([5af37779](https://github.com/fable-compiler/Fable/commit/5af37779ce33c1e9036df7a9548830c4f914bdd5))
+* *(rust)* Fix IEnumerable casting, interop and type testing (#4946) ([93c2df5b](https://github.com/fable-compiler/Fable/commit/93c2df5ba2b3316893dc85dc4fd746a09a07bf39))
+* *(rust)* Restore missing bindings (#4947) ([2fb46a26](https://github.com/fable-compiler/Fable/commit/2fb46a269bc4827494cab878f6e3f0e1b4052035))
+* *(ts)* Declare local function type params only reachable via constraints (#4943) ([8aa6d3b9](https://github.com/fable-compiler/Fable/commit/8aa6d3b9e9f3c1dc013d67406878ea93637ad74c))
+* *(ts/python)* Erase byref from struct copy-and-update locals (#4945) ([19a6522e](https://github.com/fable-compiler/Fable/commit/19a6522ea517db53dabd5e221206849d382e1025))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/bf694309ae5dbc6bb546d9acc4d091f5e35fe330..c49d1ec5d1a491bfff65fe4bd6c71014cac9b321)</small></strong>
 
 ## 3.2.0 - 2026-09-03
 
