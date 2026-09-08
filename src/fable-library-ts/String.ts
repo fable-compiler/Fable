@@ -1,5 +1,5 @@
 import { toString as dateToString } from "./Date.ts";
-import { compare as numericCompare, isNumeric, isIntegral, multiply, Numeric, toExponential, toFixed, toHex, toPrecision } from "./Numeric.ts";
+import { compare as numericCompare, divide, isNumeric, isIntegral, multiply, Numeric, toExponential, toFixed, toHex, toPrecision } from "./Numeric.ts";
 import { escape } from "./RegExp.ts";
 import { toString } from "./Types.ts";
 import { Exception } from "./Util.ts";
@@ -421,9 +421,14 @@ export function format(str: string | object, ...args: any[]) {
             }
           }
           break;
-        case "e": case "E":
-          rep = precision != null ? toExponential(rep, precision) : toExponential(rep);
+        case "e": case "E": {
+          precision = precision != null ? precision : 6;
+          rep = String(toExponential(rep, precision));
+          // .NET always signs the exponent and pads it to at least three digits
+          const eIdx = rep.indexOf("e");
+          rep = rep.slice(0, eIdx) + format + rep[eIdx + 1] + padLeft(rep.slice(eIdx + 2), 3, "0");
           break;
+        }
         case "f": case "F":
           precision = precision != null ? precision : 2;
           rep = toFixed(rep, precision);
@@ -444,7 +449,7 @@ export function format(str: string | object, ...args: any[]) {
             const paddedExpDigits = expDigits.length < 2 ? "0" + expDigits : expDigits;
             const eChar = format === "G" ? "E" : "e";
             rep = mantissa + eChar + expSign + paddedExpDigits;
-          } else {
+          } else if (rep.indexOf(".") >= 0) {
             rep = trimEnd(trimEnd(rep, "0"), ".");
           }
           break;
@@ -490,7 +495,23 @@ export function format(str: string | object, ...args: any[]) {
 
           if (pattern) {
             let sign = "";
-            rep = (pattern as string).replace(/([0#,]+)(\.[0#]+)?/, (_, intPart: string, decimalPart: string) => {
+            const patternStr = pattern as string;
+
+            // Each `%` scales the value by 100 and is kept as a literal in the output
+            const percents = (patternStr.match(/%/g) ?? []).length;
+            if (percents > 0) {
+              rep = multiply(rep, Math.pow(100, percents));
+            }
+
+            // .NET ignores commas placed after the decimal placeholders, hence the trailing group
+            rep = patternStr.replace(/([0#,]+)(\.[0#]+)?(,*)/, (_, intPart: string, decimalPart: string) => {
+              // Commas between the last integer placeholder and the decimal point scale the
+              // value down by 1000 each; commas anywhere else only turn on digit grouping
+              const scaleCommas = /,*$/.exec(intPart)![0].length;
+              if (scaleCommas > 0) {
+                intPart = intPart.substring(0, intPart.length - scaleCommas);
+                rep = divide(rep, Math.pow(1000, scaleCommas));
+              }
               if (isLessThan(rep, 0)) {
                 rep = multiply(rep, -1);
                 sign = "-";
