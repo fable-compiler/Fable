@@ -330,9 +330,28 @@ let private transformTraitCall
         |> addErrorAndReturnNull com ctx.InlinePath r
     )
 
+/// F# keeps the byref type on a use that goes through the address, like reading a field of a
+/// struct passed by reference. Fable compiles byrefs to ref cells, which cannot be addressed
+/// that way, so such a use has to read the cell.
+let private derefByRefAddress (com: IFableCompiler) (fsExpr: FSharpExpr) (expr: Fable.Expr) =
+    match fsExpr with
+    | FSharpExprPatterns.Value var when isByRefValue var && isByRefType fsExpr.Type && com.Options.Language <> Rust ->
+        Replacements.Api.getRefCell com expr.Range (List.head expr.Type.Generics) expr
+    | _ -> expr
+
+let private transformCalleeExprOpt com ctx (callee: FSharpExpr option) =
+    trampoline {
+        let! calleeExpr = transformExprOpt com ctx callee
+
+        return
+            match callee, calleeExpr with
+            | Some fsCallee, Some calleeExpr -> Some(derefByRefAddress com fsCallee calleeExpr)
+            | _ -> calleeExpr
+    }
+
 let private transformCallee com ctx callee (calleeType: FSharpType) =
     trampoline {
-        let! callee = transformExprOpt com ctx callee
+        let! callee = transformCalleeExprOpt com ctx callee
 
         let callee =
             match callee with
@@ -1068,7 +1087,7 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
 
             | callee, _ ->
                 let r = makeRangeFrom fsExpr
-                let! callee = transformExprOpt com ctx callee
+                let! callee = transformCalleeExprOpt com ctx callee
 
                 let! ctx =
                     trampoline {

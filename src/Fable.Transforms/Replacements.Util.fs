@@ -981,10 +981,10 @@ let (|IsByRefType|_|) (com: Compiler) =
         | _ -> ValueNone
     | _ -> ValueNone
 
-/// F# types the locals it generates for copy-and-update expressions (`inputRecord`, `copyOfStruct`)
-/// as byrefs, but Fable binds the struct value itself to them.
+/// F# types a struct's `this` argument and the locals it generates for copy-and-update
+/// expressions (`inputRecord`, `copyOfStruct`) as byrefs, but Fable binds the value itself to them.
 let getIdentValueType (com: Compiler) (ident: Ident) (typ: Type) =
-    if ident.IsCompilerGenerated then
+    if ident.IsCompilerGenerated || ident.IsThisArgument then
         match typ with
         | IsByRefType com innerType -> innerType
         | typ -> typ

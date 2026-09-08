@@ -705,6 +705,21 @@ type Model = unit
 let update (model: Model) =
     model, ()
 
+[<Struct>]
+type ByRefStruct =
+    { Size: int; Seed: int }
+    member this.Sum() = this.Size + this.Seed
+    member this.Total = this.Size + this.Seed
+
+[<Struct>]
+type MutableByRefStruct = { mutable Count: int }
+
+let readStructByRef (data: byref<ByRefStruct>) = data.Size + data.Seed
+let callStructByRefMember (data: byref<ByRefStruct>) = data.Sum()
+let readStructByRefProperty (data: byref<ByRefStruct>) = data.Total
+let copyUpdateStructByRef (data: byref<ByRefStruct>) = { data with Size = data.Size + 10 }
+let bumpStructByRef (data: byref<MutableByRefStruct>) = data.Count <- data.Count + 5
+
 [<Fact>]
 let ``test Unit arguments work`` () =
     update () |> equal ((), ())
@@ -1869,3 +1884,14 @@ let ``test Super call works correctly in multi-level generic class hierarchy`` (
     obj.Attach("hello")
     // Each override delegates to base before logging, so the chain unwinds Base -> Mid -> Leaf
     log |> List.ofSeq |> equal [ "Base"; "Mid"; "Leaf" ]
+
+[<Fact>]
+let ``test Struct passed by reference works`` () =
+    let mutable data: ByRefStruct = { Size = 1; Seed = 2 }
+    readStructByRef &data |> equal 3
+    callStructByRefMember &data |> equal 3
+    readStructByRefProperty &data |> equal 3
+    (copyUpdateStructByRef &data).Size |> equal 11
+    let mutable counter: MutableByRefStruct = { Count = 7 }
+    bumpStructByRef &counter
+    counter.Count |> equal 12

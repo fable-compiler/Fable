@@ -765,6 +765,21 @@ let inline inlinedFunc(n: 't[]) =
 let genericByrefFunc(n: byref<'t[]>) =
     inlinedFunc n
 
+[<Struct>]
+type ByRefStruct =
+    { Size: int; Seed: int }
+    member this.Sum() = this.Size + this.Seed
+    member this.Total = this.Size + this.Seed
+
+[<Struct>]
+type MutableByRefStruct = { mutable Count: int }
+
+let readStructByRef (data: byref<ByRefStruct>) = data.Size + data.Seed
+let callStructByRefMember (data: byref<ByRefStruct>) = data.Sum()
+let readStructByRefProperty (data: byref<ByRefStruct>) = data.Total
+let copyUpdateStructByRef (data: byref<ByRefStruct>) = { data with Size = data.Size + 10 }
+let bumpStructByRef (data: byref<MutableByRefStruct>) = data.Count <- data.Count + 5
+
 [<Fable.Core.AttachMembers>]
 type GenericClassWithStaticMember<'T>() =
     static member Length(xs: 'T list) = xs.Length
@@ -1692,6 +1707,16 @@ let tests =
         let mutable arr = [| 1; 2; 3 |]
         let result = genericByrefFunc &arr
         result |> equal 3
+
+    testCase "Struct passed by reference works" <| fun () ->
+        let mutable data: ByRefStruct = { Size = 1; Seed = 2 }
+        readStructByRef &data |> equal 3
+        callStructByRefMember &data |> equal 3
+        readStructByRefProperty &data |> equal 3
+        (copyUpdateStructByRef &data).Size |> equal 11
+        let mutable counter: MutableByRefStruct = { Count = 7 }
+        bumpStructByRef &counter
+        counter.Count |> equal 12
 
     testCase "mangled method on interface works"
     <| fun () ->

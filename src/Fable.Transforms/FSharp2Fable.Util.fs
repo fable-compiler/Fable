@@ -832,10 +832,19 @@ module Helpers =
     //      typ.TypeDefinition.DisplayName = "inref" ||
     //      typ.TypeDefinition.DisplayName = "outref")
 
+    /// F# types the locals it generates for copy-and-update expressions as byrefs, but Fable
+    /// binds the struct value itself to them.
+    let isCopyUpdateLocal (value: FSharpMemberOrFunctionOrValue) =
+        value.IsCompilerGenerated
+        && (value.CompiledName = "copyOfStruct" || value.CompiledName = "inputRecord")
+
     let isByRefValue (value: FSharpMemberOrFunctionOrValue) =
         // Value type "this" is passed as inref, so it has to be excluded
         // (Note: the non-abbreviated type of inref and outref is byref)
-        value.IsValue && not value.IsMemberThisValue && isByRefType value.FullType
+        value.IsValue
+        && not value.IsMemberThisValue
+        && not (isCopyUpdateLocal value)
+        && isByRefType value.FullType
 
     let tryFindAttrib fullName (attributes: FSharpAttribute seq) =
         attributes
@@ -1888,11 +1897,7 @@ module Identifiers =
     open TypeHelpers
 
     let isMutableOrByRefValue (fsRef: FSharpMemberOrFunctionOrValue) =
-        (fsRef.IsMutable || isByRefValue fsRef)
-        && not (
-            fsRef.IsCompilerGenerated
-            && (fsRef.CompiledName = "copyOfStruct" || fsRef.CompiledName = "inputRecord")
-        )
+        not (isCopyUpdateLocal fsRef) && (fsRef.IsMutable || isByRefValue fsRef)
 
     let makeIdentFrom (com: IFableCompiler) (ctx: Context) (fsRef: FSharpMemberOrFunctionOrValue) : Fable.Ident =
         let part = Naming.NoMemberPart
