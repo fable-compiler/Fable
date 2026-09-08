@@ -43,6 +43,17 @@ export function multiply(x: Numeric, y: number) {
     }
 }
 
+export function divide(x: Numeric, y: number) {
+    if (typeof x === "number") {
+        return x / y;
+    } else if (typeof x === "bigint") {
+        // Keep the fractional part so the caller can round it like .NET does
+        return Number(x) / y;
+    } else {
+        return x[symbol]().multiply(1 / y);
+    }
+}
+
 export function toFixed(x: Numeric, dp?: number) {
     if (typeof x === "number") {
         return x.toFixed(dp);
@@ -67,7 +78,7 @@ export function toExponential(x: Numeric, dp?: number) {
     if (typeof x === "number") {
         return x.toExponential(dp);
     } else if (typeof x === "bigint") {
-        return x;
+        return Number(x).toExponential(dp);
     } else {
         return x[symbol]().toExponential(dp);
     }
