@@ -1292,7 +1292,8 @@ module Util =
             variables
             |> Seq.distinctBy (fun (id, _) -> id.Name)
             |> Seq.map (fun (id, value) ->
-                let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx id.Type value
+                let idType = Replacements.Util.getIdentValueType com id id.Type
+                let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx idType value
 
                 let value =
                     if com.IsTypeScript && Option.isNone value then
@@ -2691,15 +2692,7 @@ but thanks to the optimisation done below we get
         transformBindingExprBody com ctx var value |> assign var.Range (identAsExpr var)
 
     let transformBindingAsStatements (com: IBabelCompiler) ctx (var: Fable.Ident) (value: Fable.Expr) =
-        // Compiler-generated copy-update locals (inputRecord, copyOfStruct) are treated as plain
-        // values at runtime even though their Fable type is byref. Strip the wrapper for TS annotation.
-        let varType =
-            if var.IsCompilerGenerated then
-                match var.Type with
-                | Replacements.Util.IsByRefType com innerType -> innerType
-                | typ -> typ
-            else
-                var.Type
+        let varType = Replacements.Util.getIdentValueType com var var.Type
 
         if isJsStatement ctx false value then
             let ta, tp = makeTypeAnnotationWithParametersIfTypeScript com ctx varType None
