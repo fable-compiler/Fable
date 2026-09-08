@@ -1,5 +1,5 @@
 ---
-last_commit_released: b471dc16fc3b5132af77b5974d1669c9b8220cca
+last_commit_released: c49d1ec5d1a491bfff65fe4bd6c71014cac9b321
 ---
 
 # Changelog
@@ -8,6 +8,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.1.0 - 2026-09-08
+
+### 🚀 Features
+
+* Add Temporal dates and times (opt-in) (#4759) ([3e8f56f7](https://github.com/fable-compiler/Fable/commit/3e8f56f78345fbee8a4394c5452eb212264701f9))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/b471dc16fc3b5132af77b5974d1669c9b8220cca..c49d1ec5d1a491bfff65fe4bd6c71014cac9b321)</small></strong>
 
 ## 5.0.0 - 2026-04-21
 

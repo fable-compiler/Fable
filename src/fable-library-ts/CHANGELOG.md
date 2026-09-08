@@ -1,5 +1,5 @@
 ---
-last_commit_released: bf694309ae5dbc6bb546d9acc4d091f5e35fe330
+last_commit_released: c49d1ec5d1a491bfff65fe4bd6c71014cac9b321
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.7.0 - 2026-09-08
+
+### 🚀 Features
+
+* Add Temporal dates and times (opt-in) (#4759) ([3e8f56f7](https://github.com/fable-compiler/Fable/commit/3e8f56f78345fbee8a4394c5452eb212264701f9))
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Match .NET for G, E and custom numeric formats ([6fb03090](https://github.com/fable-compiler/Fable/commit/6fb03090ce328b8c5d6a36422f120dd641aefe3a))
+* *(js/ts)* Allow the E format specifier on Int64 and UInt64 ([c49d1ec5](https://github.com/fable-compiler/Fable/commit/c49d1ec5d1a491bfff65fe4bd6c71014cac9b321))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/bf694309ae5dbc6bb546d9acc4d091f5e35fe330..c49d1ec5d1a491bfff65fe4bd6c71014cac9b321)</small></strong>
 
 ## 2.6.0 - 2026-09-03
 
