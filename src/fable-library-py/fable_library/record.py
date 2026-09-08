@@ -79,14 +79,22 @@ def _field_to_string(value: object) -> str:
 
 
 def record_to_string(self: Record) -> str:
-    if hasattr(self, "__slots__"):
-        return (
-            "{ "
-            + "\n  ".join(map(lambda slot: slot + " = " + _field_to_string(getattr(self, slot)), self.__slots__))
-            + " }"
-        )
-    else:
+    if not hasattr(self, "__slots__"):
         return "{ " + "\n  ".join(map(lambda kv: kv[0] + " = " + _field_to_string(kv[1]), self.__dict__.items())) + " }"
+
+    slots = self.__slots__
+    # Newer generated records retain their source-level F# field names here.
+    # Fall back to slots so the current runtime remains compatible with code
+    # compiled before that metadata was emitted.
+    field_names = getattr(type(self), "__fable_field_names__", slots)
+    return (
+        "{ "
+        + "\n  ".join(
+            f"{field_name} = {_field_to_string(getattr(self, slot))}"
+            for slot, field_name in zip(slots, field_names, strict=True)
+        )
+        + " }"
+    )
 
 
 def record_get_hashcode(self: Record) -> int:
