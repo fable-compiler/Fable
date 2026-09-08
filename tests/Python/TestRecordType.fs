@@ -61,6 +61,11 @@ type StructRecord = { Size: int; Seed: int; Path: int list }
 
 type StructRecordHolder = { Tag: int; Data: StructRecord }
 
+[<Fact>]
+let ``test sprintf formats record fields with their F# names`` () =
+    sprintf "%A" { Size = 1; Seed = 2; Path = [] }
+    |> equal "{ Size = 1\n  Seed = 2\n  Path = [] }"
+
 let updateStructRecord (data: StructRecord) (path: int list) = { data with Path = List.rev path }
 
 let holdStructRecord (data: StructRecord) (path: int list) =

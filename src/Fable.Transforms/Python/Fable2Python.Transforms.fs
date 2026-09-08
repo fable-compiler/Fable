@@ -3538,6 +3538,18 @@ let declareDataClassType
     =
     let name = com.GetIdentifier(ctx, entName)
 
+    // Record slots follow Python naming conventions, but structured formatting must
+    // retain the original F# field names. Keep the names on the generated class so
+    // the runtime can pair them with the slots without attempting a lossy conversion.
+    let fsharpFieldNames =
+        ent.FSharpFields
+        |> List.filter (fun field -> not field.IsStatic)
+        |> List.map (fun field -> Expression.stringConstant field.Name)
+        |> Expression.tuple
+
+    let fsharpFieldNamesMember =
+        Statement.assign ([ Expression.name ("__fable_field_names__", Store) ], fsharpFieldNames)
+
     // Generate field annotations from entity's FSharpFields to properly uncurry function types.
     // Record/dataclass fields store functions uncurried at runtime, so we need to uncurry
     // lambda types in the type annotations to match.
@@ -3661,6 +3673,7 @@ let declareDataClassType
     let classBody =
         let body =
             [
+                yield fsharpFieldNamesMember
                 yield! staticFieldAnnotations
                 yield! props
                 yield! classMembers
