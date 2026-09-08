@@ -254,6 +254,24 @@
       ]
     },
     {
+      "name": "Fable.Cli on ../quicktest-rust",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceRoot}/src/Fable.Cli/bin/Debug/net10.0/fable.dll",
+      "args": [
+        "--outDir", "${workspaceRoot}/src/quicktest-rust",
+        "--fableLib", "${workspaceRoot}/temp/fable-library-rust",
+        "--exclude", "Fable.Core",
+        "--lang", "Rust",
+        "--noCache",
+        "--noParallelTypeCheck"
+      ],
+      "cwd": "${workspaceRoot}/src/quicktest-rust",
+      "stopAtEntry": false,
+      "console": "internalConsole"
+    },
+    {
       "name": "Fable.Cli on ../fable-test",
       "type": "coreclr",
       "request": "launch",

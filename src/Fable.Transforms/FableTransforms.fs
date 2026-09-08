@@ -466,6 +466,7 @@ module private Transforms =
             && isErasingCandidate ident
             && countReferencesUntil 1 ident.Name letBody = 0
             && canHaveSideEffects com value
+            && not (com.Options.Language = Rust)  // Rust emits warnings on missing bindings
             ->
             // The binding is never read but its value may have side effects (e.g. residue from
             // inlining CE builder methods like `Combine`/`Run` that discard their argument).

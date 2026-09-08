@@ -3235,19 +3235,8 @@ module Util =
         let expr = transformLeaveContext com ctx None e
         mkExprStmt expr
 
-    // Only the block's true tail can omit the trailing `;`. A block-like expression (`if`,
-    // `match`, nested `{ }`) in a non-tail statement needs it forced via `Semi`, or a
-    // non-`()`-typed value there is a Rust type error, not just a style choice.
     let transformExprsAsStmts (com: IRustCompiler) ctx (exprs: Fable.Expr list) : Rust.Stmt list =
-        match List.rev exprs with
-        | [] -> []
-        | last :: revRest ->
-            let nonTailStmts =
-                revRest
-                |> List.rev
-                |> List.map (fun e -> com.TransformExpr(ctx, e) |> mkSemiStmt)
-
-            nonTailStmts @ [ transformAsStmt com ctx last ]
+        List.map (transformAsStmt com ctx) exprs
 
     // flatten nested Let binding expressions
     let rec flattenLet acc (expr: Fable.Expr) =
