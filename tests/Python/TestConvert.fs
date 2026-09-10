@@ -1056,6 +1056,14 @@ let ``test Convert.ToBase64String works`` () =
     Convert.ToBase64String(bytes)
     |> equal "AgQGCAoMDhASFA=="
 
+let private genericOfList<'T> (xs: 'T list) : 'T[] = Array.ofList xs
+
+[<Fact>]
+let ``test Convert.ToBase64String works on an array built by a generic function`` () =
+    let bytes = genericOfList [ 2uy; 4uy; 6uy; 8uy; 10uy; 12uy; 14uy; 16uy; 18uy; 20uy ]
+    Convert.ToBase64String(bytes)
+    |> equal "AgQGCAoMDhASFA=="
+
 [<Fact>]
 let ``test Convert.FromBase64String works`` () =
     Convert.FromBase64String("AgQGCAoMDhASFA==")
