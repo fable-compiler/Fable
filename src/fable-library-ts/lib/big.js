@@ -969,7 +969,8 @@ P.toFixed = function (dp, rm) {
     if (dp !== ~~dp || dp < 0 || dp > MAX_DP) {
       throw Error(INVALID_DP);
     }
-    x = round(new x.constructor(x), dp + x.e + 1, rm);
+    x = new x.constructor(x);
+    x = round(x, dp + x.e + 1, rm);
 
     // x.e may have changed if the value is rounded up.
     for (dp = dp + x.e + 1; x.c.length < dp;) x.c.push(0);

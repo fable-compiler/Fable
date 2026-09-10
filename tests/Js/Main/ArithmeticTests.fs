@@ -210,6 +210,14 @@ let tests =
         string (decimal "-0.5") |> equal "-0.5"
         string (decimal "-0.000") |> equal "0.000"
 
+    testCase "Decimal fixed-point formatting respects the precision" <| fun () ->
+        let inv = System.Globalization.CultureInfo.InvariantCulture
+        (decimal 0.001).ToString("F2", inv) |> equal "0.00"
+        (decimal 0.05).ToString("F1", inv) |> equal "0.1"
+        (decimal 0.001).ToString("N2", inv) |> equal "0.00"
+        (decimal "0.001").ToString("F2", inv) |> equal "0.00"
+        sprintf "%.2f" (decimal 0.001) |> equal "0.00"
+
     testCase "Decimal division works" <| fun () ->
         let a = decimal 0.00001
         let b = 1000.M
