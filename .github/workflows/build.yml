@@ -286,6 +286,11 @@ jobs:
       - name: Setup Dart SDK
         uses: dart-lang/setup-dart@v1
 
+      # setup-dart registers a pub.dev token, which pub then sends on dependency
+      # fetches too. This job only consumes packages, so drop it and stay anonymous.
+      - name: Use pub.dev anonymously
+        run: dart pub token remove https://pub.dev
+
       - name: Fable Tests - Dart
         run: ./build.sh test dart
 
