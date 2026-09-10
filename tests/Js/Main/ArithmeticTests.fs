@@ -218,6 +218,15 @@ let tests =
         (decimal "0.001").ToString("F2", inv) |> equal "0.00"
         sprintf "%.2f" (decimal 0.001) |> equal "0.00"
 
+    testCase "Decimal fixed-point formatting omits the sign when the result rounds to zero" <| fun () ->
+        let inv = System.Globalization.CultureInfo.InvariantCulture
+        (-0.001M).ToString("F2", inv) |> equal "0.00"
+        (-0.1M).ToString("F0", inv) |> equal "0"
+        (-0.4M).ToString("F0", inv) |> equal "0"
+        (-0.001M).ToString("N2", inv) |> equal "0.00"
+        (-0.6M).ToString("F0", inv) |> equal "-1"
+        (-1.5M).ToString("F0", inv) |> equal "-2"
+
     testCase "Decimal division works" <| fun () ->
         let a = decimal 0.00001
         let b = 1000.M
