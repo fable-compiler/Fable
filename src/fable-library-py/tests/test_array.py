@@ -1646,3 +1646,38 @@ def test_generic_copy_round_trip(elements: list[int]) -> None:
     if elements:
         copied[0] = "changed"
         assert list(arr) == list(elements)
+
+
+def test_bytes_from_generic_array() -> None:
+    arr = Array(array_type="Generic", elements=[byte(1), byte(2), byte(255)])
+    assert bytes(arr) == b"\x01\x02\xff"
+
+
+def test_bytes_from_empty_generic_array() -> None:
+    assert bytes(Array(array_type="Generic", elements=[])) == b""
+
+
+@pytest.mark.parametrize(
+    "elements, error",
+    [
+        (["a"], TypeError),
+        ([None], TypeError),
+        ([1.5], TypeError),
+        ([300], ValueError),
+        ([-1], ValueError),
+    ],
+)
+def test_bytes_from_generic_array_rejects_non_bytes(elements: list[Any], error: type[Exception]) -> None:
+    arr = Array(array_type="Generic", elements=elements)
+    with pytest.raises(error):
+        bytes(arr)
+
+
+def test_bytes_from_bool_array() -> None:
+    arr = Array(array_type="Bool", elements=[True, False, True])
+    assert bytes(arr) == b"\x01\x00\x01"
+
+
+def test_bytes_from_bool_array_matches_generic_array() -> None:
+    elements = [True, False, True]
+    assert bytes(Array(array_type="Bool", elements=elements)) == bytes(Array(array_type="Generic", elements=elements))

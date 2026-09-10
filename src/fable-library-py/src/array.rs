@@ -665,8 +665,6 @@ impl FSharpArray {
     /// For Int8/UInt8 arrays, the result is a direct byte representation.
     /// For larger types (Int16, Int32, Float64, etc.), each element occupies
     /// multiple bytes in native byte order.
-    ///
-    /// Returns NotImplemented for String and PyObject arrays.
     pub fn __bytes__(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         match &self.storage {
             // For UInt8/Int8 arrays, we can create bytes directly
@@ -756,8 +754,15 @@ impl FSharpArray {
                 });
                 Ok(bytes.into())
             }
-            // For non-numeric types, return NotImplemented
-            _ => Ok(py.NotImplemented()),
+            NativeArray::PyObject(vec) => {
+                let list = PyList::new(py, vec.iter().map(|item| item.bind(py)))?;
+                Ok(py.get_type::<PyBytes>().call1((list,))?.unbind())
+            }
+            NativeArray::Bool(vec) => {
+                let bytes =
+                    PyBytes::new(py, &vec.iter().map(|b| u8::from(*b)).collect::<Vec<u8>>());
+                Ok(bytes.into())
+            }
         }
     }
 
