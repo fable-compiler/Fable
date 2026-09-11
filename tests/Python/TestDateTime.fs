@@ -925,7 +925,8 @@ let ``test DateTime.Now works`` () =
 let ``test DateTime.UtcNow works`` () =
     let d = DateTime.UtcNow
     d > DateTime.MinValue |> equal true
-    // d.Kind |> equal DateTimeKind.Utc // currently we're not storing Kind
+    d.Kind |> equal DateTimeKind.Utc
+    d.Date.Kind |> equal DateTimeKind.Utc
 
 [<Fact>]
 let ``test DateTime.AddYears works`` () =
