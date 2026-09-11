@@ -285,7 +285,7 @@ let private compileFiles fable fsharpNames fsharpCodes (filesToEmit: string[]) l
                 )
                 ()
 
-        let mutable errors = parseResults.Errors
+        let errors = ResizeArray parseResults.Errors
         let mutable fableTransformTime = 0.
         let compiledCode = ResizeArray()
 
@@ -293,8 +293,8 @@ let private compileFiles fable fsharpNames fsharpCodes (filesToEmit: string[]) l
             for fileName in filesToEmit do
                 let! code, fableErrors, transformTime = emitFile fable parseResults fileName language fableOptions
 
-                compiledCode.Add(code)
-                errors <- Array.append errors fableErrors
+                compiledCode.Add code
+                errors.AddRange fableErrors
                 fableTransformTime <- fableTransformTime + transformTime
 
         let stats: CompileStats =
@@ -304,7 +304,7 @@ let private compileFiles fable fsharpNames fsharpCodes (filesToEmit: string[]) l
                 Fable_transform = fableTransformTime
             }
 
-        return (compiledCode.ToArray(), errors, stats)
+        return (compiledCode.ToArray(), errors.ToArray(), stats)
     }
 
 let private describeError (er: exn) =
