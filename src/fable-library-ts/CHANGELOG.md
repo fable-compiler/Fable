@@ -1,5 +1,5 @@
 ---
-last_commit_released: c49d1ec5d1a491bfff65fe4bd6c71014cac9b321
+last_commit_released: 4a441b1926387a42db6a3a4294acd97b02760ca3
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.7.1 - 2026-09-11
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Keep the sign of negative decimals below 0.1 ([91d80f18](https://github.com/fable-compiler/Fable/commit/91d80f185fb38e4d23fd9e906037a14daab3e3b9))
+* *(js/ts)* Respect the precision when formatting decimals below 0.1 ([1c02557e](https://github.com/fable-compiler/Fable/commit/1c02557efd113d8d30a922c74c3fc9d1e7168cfd))
+* *(js/ts)* Omit the decimal sign when the rounded result is zero ([ef63087d](https://github.com/fable-compiler/Fable/commit/ef63087d97b61927763023c4b2e5bb16bcd64af2))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/c49d1ec5d1a491bfff65fe4bd6c71014cac9b321..4a441b1926387a42db6a3a4294acd97b02760ca3)</small></strong>
 
 ## 2.7.0 - 2026-09-08
 
