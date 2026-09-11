@@ -207,14 +207,26 @@ def try_parse(string: str, def_value: FSharpRef[Decimal]) -> bool:
         return False
 
 
+def _from_float(value: float, significant_digits: int) -> Decimal:
+    rounded = Decimal(f"{value:.{significant_digits}G}")
+
+    if rounded.is_zero():
+        return get_zero
+
+    # `Decimal` keeps the exponent it was parsed with, which would print as 1E+20
+    return Decimal(format(rounded, "f"))
+
+
 def create(value: float | float32 | IntegerTypes | str) -> Decimal:
     match value:
-        # Int32 and Float64 are plain `int`/`float`, which `Decimal` already accepts
-        # via the last case
+        # Int32 is a plain `int`, which `Decimal` already accepts via the last case
         case sbyte() | byte() | int16() | uint16() | uint32() | int64() | uint64():
             return Decimal(int(value))
+        # .NET rounds to 7 significant digits for Single and 15 for Double
         case float32():
-            return Decimal(float(value))
+            return _from_float(float(value), 7)
+        case float():
+            return _from_float(value, 15)
         case _:
             return Decimal(value)
 
