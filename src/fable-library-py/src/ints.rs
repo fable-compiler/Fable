@@ -1311,6 +1311,12 @@ pub fn parse_int64(
         // value, not a two's complement bit pattern, so u64 cannot parse it
         i64::from_str_radix(&final_string, actual_radix as u32)
             .map_err(|_| create_parse_error(string))?
+    } else if unsigned {
+        // The upper half of the u64 range does not fit in an i64, so it is carried
+        // as its two's complement bit pattern and cast back by the caller
+        u64::from_str_radix(&final_string, actual_radix as u32)
+            .map(|u_val| u_val as i64)
+            .map_err(|_| create_parse_error(string))?
     } else {
         // For decimal, use standard i64 parsing
         i64::from_str_radix(&final_string, actual_radix as u32)

@@ -198,6 +198,13 @@ let ``test System.UInt64.TryParse works``  () =
     tryParse UInt64.TryParse 0UL "foo" |> equal (false, 0UL)
 
 [<Fact>]
+let ``test System.UInt64.TryParse works above Int64.MaxValue``  () =
+    tryParse UInt64.TryParse 0UL "9223372036854775808" |> equal (true, 9223372036854775808UL)
+    tryParse UInt64.TryParse 0UL "18446744073709551615" |> equal (true, UInt64.MaxValue)
+    tryParse UInt64.TryParse 0UL "18446744073709551616" |> equal (false, 0UL)
+    tryParse UInt64.TryParse 0UL "-1" |> equal (false, 0UL)
+
+[<Fact>]
 let ``test Parsing integers with different radices works``  () =
     equal 11 (int "11")
     equal 17 (int "0x11")
