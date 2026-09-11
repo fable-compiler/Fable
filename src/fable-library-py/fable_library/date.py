@@ -50,6 +50,11 @@ long_months = [
 ]
 
 
+def _without_kind(d: datetime) -> datetime:
+    # .NET compares and subtracts the tick count and ignores DateTimeKind
+    return d.replace(tzinfo=None)
+
+
 @overload
 def subtract(x: datetime, y: datetime) -> TimeSpan: ...
 @overload
@@ -58,7 +63,7 @@ def subtract(x: datetime, y: TimeSpan) -> datetime: ...
 
 def subtract(x: datetime, y: datetime | TimeSpan) -> datetime | TimeSpan:
     if isinstance(y, datetime):
-        delta = x - y
+        delta = _without_kind(x) - _without_kind(y)
         # ts.microseconds only contains the microseconds provided to the constructor
         # so we need to calculate the total microseconds ourselves
         delta_microseconds = delta.days * (24 * 3600 * 10**6) + delta.seconds * 10**6 + delta.microseconds
@@ -604,7 +609,7 @@ def now() -> datetime:
 
 
 def utc_now() -> datetime:
-    return datetime.now(UTC).replace(tzinfo=None)
+    return datetime.now(UTC)
 
 
 def today() -> datetime:
@@ -616,17 +621,19 @@ def to_local_time(date: datetime) -> datetime:
 
 
 def compare(x: datetime, y: datetime) -> int:
-    if x == y:
+    _x, _y = _without_kind(x), _without_kind(y)
+
+    if _x == _y:
         return 0
 
-    if x < y:
+    if _x < _y:
         return -1
 
     return 1
 
 
 def equals(x: datetime, y: datetime) -> bool:
-    return x == y
+    return _without_kind(x) == _without_kind(y)
 
 
 def max_value() -> datetime:
