@@ -664,5 +664,39 @@ let ``test Can get union values without type`` () =
     getCaseFields x |> equal [||]
     getCaseFields y |> equal [|5; "foo"|]
 
+type ReactiveNode<'T>(value: 'T) =
+    member _.Value = value
+
+[<Erase>]
+type ErasedView<'T> =
+    | ErasedView of node: ReactiveNode<'T>
+
+type ModelWithErasedField = { Item: ErasedView<int> }
+
+type DuWithErasedField =
+    | Wrapped of ErasedView<int>
+    | Empty
+
+[<Fact>]
+let ``test An erased union reflects as the type it erases to`` () =
+    let erasedTyp = typeof<ErasedView<int>>
+    let nodeTyp = typeof<ReactiveNode<int>>
+    erasedTyp.FullName |> equal nodeTyp.FullName
+    FSharpType.IsUnion erasedTyp |> equal false
+
+[<Fact>]
+let ``test Reflection works for a record with an erased generic union field`` () =
+    let typ = typeof<ModelWithErasedField>
+    FSharpType.IsRecord typ |> equal true
+    let fields = FSharpType.GetRecordFields typ
+    fields.Length |> equal 1
+    fields.[0].PropertyType.GetGenericArguments().[0] |> equal typeof<int>
+
+[<Fact>]
+let ``test Reflection works for a union with an erased generic union field`` () =
+    let typ = typeof<DuWithErasedField>
+    let case = (FSharpType.GetUnionCases typ).[0]
+    case.GetFields().[0].PropertyType.GetGenericArguments().[0] |> equal typeof<int>
+
 #endif
 #endif

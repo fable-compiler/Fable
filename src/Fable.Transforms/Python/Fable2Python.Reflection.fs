@@ -278,21 +278,38 @@ let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expressi
 
             let generics, stmts =
                 generics |> List.map (transformTypeInfo com ctx r genMap) |> Helpers.unzipArgs
-            // Check if the entity is actually declared in Python code
-            if
-                ent.IsInterface
-                || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
-                || FSharp2Fable.Util.isGlobalOrImportedEntity ent
-                || FSharp2Fable.Util.isReplacementCandidate entRef
-            then
-                genericEntity ent.FullName generics, stmts
-            else
-                let reflectionMethodExpr =
-                    FSharp2Fable.Util.entityIdentWithSuffix com entRef Naming.reflectionSuffix
 
-                let callee, stmts' = com.TransformAsExpr(ctx, reflectionMethodExpr)
+            let erasedFieldType =
+                if ent.IsFSharpUnion && FSharp2Fable.Util.hasAttribute Atts.erase ent then
+                    match ent.UnionCases with
+                    | [ uci ] when List.isSingle uci.UnionCaseFields -> Some uci.UnionCaseFields.Head.FieldType
+                    | _ -> None
+                else
+                    None
 
-                Expression.call (callee, generics), stmts @ stmts'
+            match erasedFieldType with
+            | Some fieldType ->
+                let fieldGenMap =
+                    Seq.zip (ent.GenericParameters |> Seq.map (fun p -> p.Name)) generics |> Map
+
+                let expr, stmts' = transformTypeInfo com ctx r fieldGenMap fieldType
+                expr, stmts @ stmts'
+            | None ->
+                // Check if the entity is actually declared in Python code
+                if
+                    ent.IsInterface
+                    || FSharp2Fable.Util.isErasedOrStringEnumEntity ent
+                    || FSharp2Fable.Util.isGlobalOrImportedEntity ent
+                    || FSharp2Fable.Util.isReplacementCandidate entRef
+                then
+                    genericEntity ent.FullName generics, stmts
+                else
+                    let reflectionMethodExpr =
+                        FSharp2Fable.Util.entityIdentWithSuffix com entRef Naming.reflectionSuffix
+
+                    let callee, stmts' = com.TransformAsExpr(ctx, reflectionMethodExpr)
+
+                    Expression.call (callee, generics), stmts @ stmts'
 
 let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
     if ent.IsFSharpRecord then
