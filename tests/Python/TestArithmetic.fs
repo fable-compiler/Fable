@@ -451,6 +451,21 @@ let ``test Decimal GetBits works with arithmetic operations`` () =
     check (1.5M + 0.5M)
 
 [<Fact>]
+let ``test Decimal from a float rounds like .NET`` () =
+    string (decimal 0.1) |> equal "0.1"
+    string (decimal -0.1) |> equal "-0.1"
+    string (decimal 0.3) |> equal "0.3"
+    string (decimal 1.1) |> equal "1.1"
+    string (decimal 1e20) |> equal "100000000000000000000"
+    string (decimal (1.0 / 3.0)) |> equal "0.333333333333333"
+
+[<Fact>]
+let ``test Decimal from a float32 rounds like .NET`` () =
+    string (decimal 0.1f) |> equal "0.1"
+    string (decimal -0.1f) |> equal "-0.1"
+    string (decimal (1.0f / 3.0f)) |> equal "0.3333333"
+
+[<Fact>]
 let ``test Decimal abs works`` () =
     abs -4M |> equal 4M
 
