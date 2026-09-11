@@ -1,6 +1,6 @@
 from decimal import MAX_EMAX, MIN_EMIN, Decimal, getcontext
 
-from .core import FSharpRef, byte, float32, float64, int16, int64, sbyte, uint16, uint32, uint64
+from .core import Array, FSharpRef, array, byte, float32, float64, int16, int64, sbyte, uint16, uint32, uint64
 from .types import IntegerTypes
 
 
@@ -141,6 +141,48 @@ def from_parts(
     return value
 
 
+def from_ints(low: IntegerTypes, mid: IntegerTypes, high: IntegerTypes, sign_exp: IntegerTypes) -> Decimal:
+    _sign_exp = int(sign_exp)
+    is_negative = 1 if _sign_exp < 0 else 0
+    scale = (_sign_exp >> 16) & 0x7F
+    return from_parts(low, mid, high, is_negative, scale)
+
+
+def from_int_array(bits: Array[int]) -> Decimal:
+    return from_ints(bits[0], bits[1], bits[2], bits[3])
+
+
+def _to_int32(value: int) -> int:
+    masked = value & 0xFFFFFFFF
+    return masked - 0x100000000 if masked >= 0x80000000 else masked
+
+
+def get_bits(value: Decimal) -> Array[int]:
+    sign, digits, exponent = value.as_tuple()
+
+    if not isinstance(exponent, int):
+        raise ValueError(f"The value {value} cannot be represented as a System.Decimal.")
+
+    mantissa = int("".join(str(digit) for digit in digits))
+    scale = 0
+
+    if exponent > 0:
+        mantissa *= 10**exponent
+    else:
+        scale = -exponent
+
+    flags = ((scale & 0x7F) << 16) | (0x80000000 if sign else 0)
+
+    return array.Int32Array(
+        [
+            _to_int32(mantissa),
+            _to_int32(mantissa >> 32),
+            _to_int32(mantissa >> 64),
+            _to_int32(flags),
+        ]
+    )
+
+
 def to_string(x: Decimal) -> str:
     return str(x)
 
@@ -184,7 +226,10 @@ __all__ = [
     "compare",
     "divide",
     "equals",
+    "from_int_array",
+    "from_ints",
     "from_parts",
+    "get_bits",
     "max",
     "min",
     "multiply",

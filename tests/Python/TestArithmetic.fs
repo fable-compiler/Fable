@@ -419,23 +419,36 @@ let ``test Decimal.Negate works`` () =
 let ``test Decimal Evaluation order is preserved by generated code`` () =
     (4.4567M - 2.2234M) * 2.6492M + 1.2493M |> equal 7.16575836M
 
-// [<Fact>]
-// let ``test Decimal constructors work`` () =
-//     let d = 1.2493M
-//     let bits = Decimal.GetBits(d)
-//     let d2 = Decimal(bits)
-//     let d3 = Decimal(bits[0], bits[1], bits[2], false, 4uy)
-//     d2 |> equal d
-//     d3 |> equal d
+[<Fact>]
+let ``test Decimal constructors work`` () =
+    let d = 1.2493M
+    let bits = Decimal.GetBits(d)
+    let d2 = Decimal(bits)
+    let d3 = Decimal(bits[0], bits[1], bits[2], false, 4uy)
+    d2 |> equal d
+    d3 |> equal d
 
-// [<Fact>]
-// let ``test Decimal GetBits works`` () =
-//     let d = Decimal([| -1; -1; -2; 0 |])
-//     let bits = Decimal.GetBits(d)
-//     let d2 = Decimal(bits)
-//     let d3 = Decimal(bits[0], bits[1], bits[2], true, 0uy)
-//     d2 |> equal d
-//     d3 |> equal -d
+[<Fact>]
+let ``test Decimal GetBits works`` () =
+    let d = Decimal([| -1; -1; -2; 0 |])
+    let bits = Decimal.GetBits(d)
+    let d2 = Decimal(bits)
+    let d3 = Decimal(bits[0], bits[1], bits[2], true, 0uy)
+    d2 |> equal d
+    d3 |> equal -d
+
+[<Fact>]
+let ``test Decimal GetBits works with arithmetic operations`` () =
+    let check (d: decimal) =
+        let bits = Decimal.GetBits(d)
+        Decimal(bits) |> equal d
+
+    check (10M + 10M)
+    check (100.5M - 0.5M)
+    check (5M * 200M)
+    check (-0.1M * 100M)
+    check (2000M / 10M)
+    check (1.5M + 0.5M)
 
 [<Fact>]
 let ``test Decimal abs works`` () =
