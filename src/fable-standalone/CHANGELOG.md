@@ -1,5 +1,5 @@
 ---
-last_commit_released: c49d1ec5d1a491bfff65fe4bd6c71014cac9b321
+last_commit_released: 4a441b1926387a42db6a3a4294acd97b02760ca3
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
@@ -18,6 +18,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 3.4.0 - 2026-09-11
+
+### 🐞 Bug Fixes
+
+* *(python)* Preserve record field names in structured formatting (#4952) ([fbc162d6](https://github.com/fable-compiler/Fable/commit/fbc162d6912d62b9a75e73f8264814f6519b6194))
+* *(python)* Reflect an erased union as the type it erases to ([0f564c74](https://github.com/fable-compiler/Fable/commit/0f564c744e86096c779d0acea6d677bce6d56ee1))
+* *(ts)* Declare the type parameter of a flexible-type overload ([6f1f1b8a](https://github.com/fable-compiler/Fable/commit/6f1f1b8afd9158743978720507ced5c4a8b2144f))
+
+### ⚡ Performance Improvements
+
+* *(standalone)* Accumulate compile errors in a ResizeArray ([f282ab48](https://github.com/fable-compiler/Fable/commit/f282ab48203fc5544c74b809f4396bb924724a2a))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/c49d1ec5d1a491bfff65fe4bd6c71014cac9b321..4a441b1926387a42db6a3a4294acd97b02760ca3)</small></strong>
 
 ## 3.3.0 - 2026-09-08
 

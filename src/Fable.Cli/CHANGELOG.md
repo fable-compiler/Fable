@@ -1,5 +1,5 @@
 ---
-last_commit_released: c49d1ec5d1a491bfff65fe4bd6c71014cac9b321
+last_commit_released: 4a441b1926387a42db6a3a4294acd97b02760ca3
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -27,6 +27,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.17.1 - 2026-09-11
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Keep the sign of negative decimals below 0.1 ([91d80f18](https://github.com/fable-compiler/Fable/commit/91d80f185fb38e4d23fd9e906037a14daab3e3b9))
+* *(js/ts)* Respect the precision when formatting decimals below 0.1 ([1c02557e](https://github.com/fable-compiler/Fable/commit/1c02557efd113d8d30a922c74c3fc9d1e7168cfd))
+* *(js/ts)* Omit the decimal sign when the rounded result is zero ([ef63087d](https://github.com/fable-compiler/Fable/commit/ef63087d97b61927763023c4b2e5bb16bcd64af2))
+* *(python)* Preserve record field names in structured formatting (#4952) ([fbc162d6](https://github.com/fable-compiler/Fable/commit/fbc162d6912d62b9a75e73f8264814f6519b6194))
+* *(python)* Support bytes() on generic and bool arrays (#4961) ([94b59294](https://github.com/fable-compiler/Fable/commit/94b59294b4749c1f871484b843604da81ceb71ad))
+* *(python)* Parse uint64 values above Int64.MaxValue ([584d8ce4](https://github.com/fable-compiler/Fable/commit/584d8ce4f6d434df56195ed6d09d6336df1970d6))
+* *(python)* Report DateTimeKind.Utc for DateTime.UtcNow ([4abf06ea](https://github.com/fable-compiler/Fable/commit/4abf06ea86186f64a15078fb19c6006cca0676b0))
+* *(python)* Reflect an erased union as the type it erases to ([0f564c74](https://github.com/fable-compiler/Fable/commit/0f564c744e86096c779d0acea6d677bce6d56ee1))
+* *(python)* Implement Decimal.GetBits and the bits constructors ([cf0c9305](https://github.com/fable-compiler/Fable/commit/cf0c9305759af17fde6dcd433618bbeaca5b60d0))
+* *(python)* Round a float to .NET's precision when converting to decimal ([4a441b19](https://github.com/fable-compiler/Fable/commit/4a441b1926387a42db6a3a4294acd97b02760ca3))
+* *(ts)* Declare the type parameter of a flexible-type overload ([6f1f1b8a](https://github.com/fable-compiler/Fable/commit/6f1f1b8afd9158743978720507ced5c4a8b2144f))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/c49d1ec5d1a491bfff65fe4bd6c71014cac9b321..4a441b1926387a42db6a3a4294acd97b02760ca3)</small></strong>
 
 ## 5.17.0 - 2026-09-08
 
