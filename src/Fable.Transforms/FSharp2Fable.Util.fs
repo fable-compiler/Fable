@@ -12,7 +12,7 @@ open Fable.Transforms
 open Fable.Transforms.FSharp2Fable
 
 module Extensions =
-    let areParamTypesEqual genArgs (args1: Fable.Type array) (args2: IList<IList<FSharpParameter>>) =
+    let areParamTypesEqual strict genArgs (args1: Fable.Type array) (args2: IList<IList<FSharpParameter>>) =
         // Not entirely sure why, but it seems members with a single unit argument sometimes have this parameter
         // and sometimes none, so just to be sure always remove single unit arguments
         let args2 =
@@ -24,7 +24,7 @@ module Extensions =
         if args1.Length = args2.Length then
             let args2 = args2 |> Array.map (fun p -> TypeHelpers.makeType genArgs p.Type)
 
-            Array.forall2 (typeEquals false) args1 args2
+            Array.forall2 (typeEquals strict) args1 args2
         else
             false
 
@@ -432,19 +432,23 @@ type FsEnt(maybeAbbrevEnt: FSharpEntity) =
             )
 
         // entity.EnumerateMembersFunctionsAndValues(?includeHierarchy=searchHierarchy)
-        members.Force()
-        |> Seq.tryFind (fun m ->
-            if
+        let candidates =
+            members.Force()
+            |> Seq.filter (fun m ->
                 m.CompiledName = compiledName
                 && m.IsInstanceMember = isInstance
                 && (doNotRequireDispatchSlot || m.IsDispatchSlot)
-            then
-                match argTypes with
-                | Some argTypes -> Extensions.areParamTypesEqual genArgs argTypes m.CurriedParameterGroups
-                | None -> true
-            else
-                false
-        )
+            )
+
+        match argTypes with
+        | None -> Seq.tryHead candidates
+        | Some argTypes ->
+            let hasParamTypes strict =
+                candidates
+                |> Seq.tryFind (fun m -> Extensions.areParamTypesEqual strict genArgs argTypes m.CurriedParameterGroups)
+
+            // A loose comparison accepts a generic parameter as equal to any type
+            hasParamTypes true |> Option.orElseWith (fun () -> hasParamTypes false)
 
     interface Fable.Entity with
         member _.Ref = FsEnt.Ref ent
