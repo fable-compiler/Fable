@@ -4,6 +4,7 @@ include:
   - ../Fable.Transforms/
   - ../fcs-fable/
   - ../Fable.AST/
+  - ../fable-library-ts/
 updaters:
   - package.json:
       file: package.json
