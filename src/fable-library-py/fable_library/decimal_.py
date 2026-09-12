@@ -1,4 +1,4 @@
-from decimal import MAX_EMAX, MIN_EMIN, Decimal, getcontext
+from decimal import Decimal, getcontext
 
 from .core import Array, FSharpRef, array, byte, float32, float64, int16, int64, sbyte, uint16, uint32, uint64
 from .types import IntegerTypes
@@ -10,8 +10,8 @@ get_zero = Decimal(0)
 get_one = Decimal(1)
 
 get_minus_one = Decimal(-1)
-get_max_value = MAX_EMAX
-get_min_value = MIN_EMIN
+get_max_value = Decimal("79228162514264337593543950335")
+get_min_value = Decimal("-79228162514264337593543950335")
 
 
 def compare(x: Decimal, y: Decimal) -> int:
