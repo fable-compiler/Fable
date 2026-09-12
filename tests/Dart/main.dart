@@ -19,6 +19,7 @@ import './src/RecordTests.dart' as record;
 import './src/RegexTests.dart' as regex;
 import './src/ResizeArrayTests.dart' as resize_array;
 import './src/ResultTests.dart' as result;
+import './src/RuneTests.dart' as rune;
 import './src/SeqTests.dart' as seq;
 import './src/SeqExpressionTests.dart' as seq_expression;
 import './src/SetTests.dart' as set_;
@@ -52,6 +53,7 @@ void main() {
   regex.tests();
   resize_array.tests();
   result.tests();
+  rune.tests();
   seq.tests();
   seq_expression.tests();
   set_.tests();

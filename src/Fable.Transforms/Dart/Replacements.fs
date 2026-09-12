@@ -247,6 +247,7 @@ let toString com (ctx: Context) r (args: Expr list) =
         match head.Type with
         | String -> head
         | Char -> charToString head
+        | DeclaredType({ FullName = "System.Text.Rune" }, _) -> charToString head
         //        | Builtin BclGuid when tail.IsEmpty -> head
         //        | Builtin (BclGuid|BclTimeSpan|BclTimeOnly|BclDateOnly as bt) ->
         //            Helper.LibCall(com, coreModFor bt, "toString", String, args)
@@ -1397,6 +1398,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.LibCall(com, "String", "compareWith", Int32.Number, [ x; y; kind ])
 
         makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
+    | "EnumerateRunes", Some c, _ -> stringToCharSeq c |> Some
     | "GetEnumerator", Some c, _ -> stringToCharSeq c |> getEnumerator com r t |> Some
     | ("Contains" | "StartsWith" | "EndsWith" as meth), Some c, arg :: _ ->
         if List.isMultiple args then
@@ -1551,6 +1553,17 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             ?loc = r
         )
         |> Some
+    | _ -> None
+
+let runes (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    | "GetRuneAt", None, [ input; index ] ->
+        Helper.LibCall(com, "String", "getRuneAt", t, [ input; index ], i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | "get_Value", Some rune, [] -> Some rune
+    | "get_Utf16SequenceLength", Some runes, [] ->
+        let isBmp = makeEqOp r runes (makeIntConst 0xFFFF) BinaryLessOrEqual
+        IfThenElse(isBmp, makeIntConst 1, makeIntConst 2, r) |> Some
     | _ -> None
 
 let stringModule (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
@@ -3940,6 +3953,7 @@ let private replacedModules =
             "System.Runtime.ExceptionServices.ExceptionDispatchInfo", exceptionDispatchInfo
             Types.char, chars
             Types.string, strings
+            "System.Text.Rune", runes
             "Microsoft.FSharp.Core.StringModule", stringModule
             "System.FormattableString", formattableString
             "System.Runtime.CompilerServices.FormattableStringFactory", formattableString
