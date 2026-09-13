@@ -632,6 +632,7 @@ let tryEntityIdent (com: Compiler) entFullName =
     match entFullName with
     | "Fable.Core.Dart.Future`1" -> makeIdentExpr "Future" |> Some
     | "Fable.Core.Dart.Stream`1" -> makeIdentExpr "Stream" |> Some
+    | "Microsoft.FSharp.Control.FSharpAsync`1" -> makeImportLib com MetaType "Async" "AsyncBuilder" |> Some
     | BuiltinDefinition BclDateOnly
     | BuiltinDefinition BclDateTime
     | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "DateTime" |> Some
