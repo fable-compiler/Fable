@@ -227,3 +227,26 @@ async_builder.Async<void> sleep(Object delay) {
     });
   });
 }
+
+dart_async.Future<T> startAsFuture<T>(
+  async_builder.Async<T> computation, [
+  types.Some<async_builder.CancellationToken>? cancellationToken,
+]) {
+  final completer = dart_async.Completer<T>();
+
+  startWithContinuations<T>(
+    computation,
+    (value) {
+      completer.complete(value);
+    },
+    (dynamic error) {
+      completer.completeError(error);
+    },
+    (error) {
+      completer.completeError(error);
+    },
+    cancellationToken,
+  );
+
+  return completer.future;
+}

@@ -27,6 +27,10 @@ type Future<'T> = interface end
 [<ImportMember "dart:async">]
 type Stream<'T> = interface end
 
+type Async with
+    static member StartAsFuture(workflow: Async<'T>, ?token: System.Threading.CancellationToken) : Future<'T> =
+        nativeOnly
+
 // [<ImportMember "dart:core">]
 [<Global>]
 let print (item: obj) : unit = nativeOnly

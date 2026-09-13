@@ -428,3 +428,96 @@ let tests () =
         calls |> equal 1
         message |> equal "cleanup"
 
+    testCaseAsync "Async.Sleep resumes after delay"
+    <| fun () ->
+        async {
+            let mutable state = 0
+
+            let child =
+                async {
+                    state <- 1
+                    do! Async.Sleep 20
+                    state <- 2
+                }
+
+            Async.Start child
+            state |> equal 1
+            do! Async.Sleep 50
+            state |> equal 2
+        }
+
+
+    testCaseAsync "CancellationTokenSource(millisecondsDelay) cancels token"
+    <| fun () ->
+        async {
+            let cts = new CancellationTokenSource(20)
+            let mutable calls = 0
+
+            cts.Token.Register(fun () -> calls <- calls + 1) |> ignore
+
+            cts.IsCancellationRequested |> equal false
+
+            do! Async.Sleep 60
+
+            cts.IsCancellationRequested |> equal true
+            calls |> equal 1
+        }
+
+
+    testCaseAsync "CancellationTokenSource.CancelAfter cancels token"
+    <| fun () ->
+        async {
+            let cts = new CancellationTokenSource()
+            let mutable calls = 0
+
+            cts.Token.Register(fun () -> calls <- calls + 1) |> ignore
+
+            cts.CancelAfter(20)
+
+            cts.IsCancellationRequested |> equal false
+
+            do! Async.Sleep 60
+
+            cts.IsCancellationRequested |> equal true
+            calls |> equal 1
+        }
+
+
+    testCaseAsync "CancellationTokenSource.CancelAfter invokes registrations only once"
+    <| fun () ->
+        async {
+            let cts = new CancellationTokenSource()
+            let mutable calls = 0
+
+            cts.Token.Register(fun () -> calls <- calls + 1) |> ignore
+
+            cts.CancelAfter(20)
+
+            do! Async.Sleep 60
+
+            calls |> equal 1
+
+            // Cancellation remains idempotent even after the timer fired.
+            cts.Cancel()
+
+            calls |> equal 1
+        }
+
+
+    testCaseAsync "disposed registration is not invoked by delayed cancellation"
+    <| fun () ->
+        async {
+            let cts = new CancellationTokenSource()
+            let mutable calls = 0
+
+            let registration = cts.Token.Register(fun () -> calls <- calls + 1)
+
+            registration.Dispose()
+
+            cts.CancelAfter(20)
+
+            do! Async.Sleep 60
+
+            cts.IsCancellationRequested |> equal true
+            calls |> equal 0
+        }

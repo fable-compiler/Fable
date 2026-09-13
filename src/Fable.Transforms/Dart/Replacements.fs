@@ -720,6 +720,7 @@ let tryCoreOp com r t coreModule coreMember args =
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.DeclaringEntityFullName, i.CompiledName with
     | _, UniversalFableCoreHelpers com ctx r t i args error expr -> Some expr
+    | _, "Async.StartAsFuture.Static" -> Helper.LibCall(com, "Async", "startAsFuture", t, args, ?loc = r) |> Some
     | "Fable.Core.Reflection", meth -> Helper.LibCall(com, "Reflection", meth, t, args, ?loc = r) |> Some
     | "Fable.Core.Compiler", meth ->
         match meth with
