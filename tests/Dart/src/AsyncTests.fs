@@ -1,6 +1,7 @@
 module Fable.Tests.Dart.Async
 
 open System
+open System.Threading
 open Util
 
 
@@ -306,3 +307,124 @@ let tests () =
         startUnit work
 
         message |> equal "3 2 1"
+
+
+
+    testCase "CancellationTokenSource.Cancel cancels token"
+    <| fun () ->
+        let cts = new CancellationTokenSource()
+
+        cts.Token.IsCancellationRequested |> equal false
+
+        cts.Cancel()
+
+        cts.Token.IsCancellationRequested |> equal true
+
+
+    testCase "CancellationTokenSource.Cancel invokes registrations once"
+    <| fun () ->
+        let cts = new CancellationTokenSource()
+        let mutable calls = 0
+
+        cts.Token.Register(fun () -> calls <- calls + 1) |> ignore
+
+        cts.Cancel()
+        calls |> equal 1
+
+        // Cancellation is idempotent.
+        cts.Cancel()
+        calls |> equal 1
+
+
+    testCase "CancellationToken registration can be disposed"
+    <| fun () ->
+        let cts = new CancellationTokenSource()
+        let mutable called = false
+
+        let registration = cts.Token.Register(fun () -> called <- true)
+
+        registration.Dispose()
+        cts.Cancel()
+
+        called |> equal false
+
+
+    testCase "pre-cancelled token cancels async before body runs"
+    <| fun () ->
+        let cts = new CancellationTokenSource()
+        let mutable executed = false
+        let mutable cancelled = false
+
+        cts.Cancel()
+
+        let work = async { executed <- true }
+
+        Async.StartWithContinuations(
+            work,
+            (fun () -> failwith "Expected cancellation"),
+            raise,
+            (fun _ -> cancelled <- true),
+            cts.Token
+        )
+
+        executed |> equal false
+        cancelled |> equal true
+
+
+    testCase "Async.CancellationToken returns current cancellation token"
+    <| fun () ->
+        let cts = new CancellationTokenSource()
+        let mutable isSameToken = false
+
+        let work =
+            async {
+                let! token = Async.CancellationToken
+                isSameToken <- token = cts.Token
+            }
+
+        Async.StartWithContinuations(work, (fun () -> ()), raise, raise, cts.Token)
+
+        isSameToken |> equal true
+
+
+    testCase "ThrowIfCancellationRequested throws after cancellation"
+    <| fun () ->
+        let cts = new CancellationTokenSource()
+
+        // Does not throw before cancellation.
+        cts.Token.ThrowIfCancellationRequested()
+
+        cts.Cancel()
+
+        throwsAnyError <| fun () -> cts.Token.ThrowIfCancellationRequested()
+
+    testCase "CancellationToken registration after cancellation runs immediately"
+    <| fun () ->
+        let cts = new CancellationTokenSource()
+        let mutable called = false
+
+        cts.Cancel()
+
+        cts.Token.Register(fun () -> called <- true) |> ignore
+
+        called |> equal true
+
+    testCase "async try-finally runs throwing compensation exactly once"
+    <| fun () ->
+        let mutable calls = 0
+        let mutable message = ""
+
+        let work =
+            async {
+                try
+                    return 42
+                finally
+                    calls <- calls + 1
+                    failwith "cleanup"
+            }
+
+        Async.StartWithContinuations(work, ignore, (fun error -> message <- error.Message), raise)
+
+        calls |> equal 1
+        message |> equal "cleanup"
+

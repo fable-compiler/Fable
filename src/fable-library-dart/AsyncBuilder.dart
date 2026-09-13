@@ -30,20 +30,28 @@ class CancellationToken implements types.IDisposable {
   bool get isCancelled => _cancelled;
 
   void cancel() {
-    if (!_cancelled) {
-      _cancelled = true;
+    if (_cancelled) {
+      return;
+    }
 
-      final listeners = _listeners.values.toList(growable: false);
+    _cancelled = true;
 
-      for (final listener in listeners) {
-        listener();
-      }
+    final listeners = _listeners.values.toList(growable: false);
+    _listeners.clear();
+
+    for (final listener in listeners) {
+      listener();
     }
   }
 
   int addListener(void Function() f) {
-    final id = _id;
-    _listeners[_id++] = f;
+    if (_cancelled) {
+      f();
+      return -1;
+    }
+
+    final id = _id++;
+    _listeners[id] = f;
     return id;
   }
 
@@ -190,17 +198,23 @@ class AsyncBuilder {
   }
 
   Async<void> For<T>(Iterable<T> sequence, Function body) {
-    final iterator = sequence.iterator;
-    var hasCurrent = iterator.moveNext();
+    return Delay<void>(() {
+      final iterator = sequence.iterator;
 
-    return While(
-      () => hasCurrent,
-      Delay<void>(() {
-        final result = _invokeBinder<T, void>(body, iterator.current);
-        hasCurrent = iterator.moveNext();
-        return result;
-      }),
-    );
+      Async<void> loop() {
+        return Delay<void>(() {
+          if (!iterator.moveNext()) {
+            return Zero();
+          }
+
+          final current = iterator.current;
+
+          return Bind<void, void>(_invokeBinder<T, void>(body, current), loop);
+        });
+      }
+
+      return loop();
+    });
   }
 
   Async<T> Return<T>(T value) {
@@ -213,19 +227,27 @@ class AsyncBuilder {
 
   Async<T> TryFinally<T>(Async<T> computation, void Function() compensation) {
     return protectedCont<T>((ctx) {
+      void finish(void Function() continuation) {
+        try {
+          compensation();
+        } catch (error) {
+          ctx.onError(error);
+          return;
+        }
+
+        continuation();
+      }
+
       computation(
         IAsyncContext<T>(
           onSuccess: (value) {
-            compensation();
-            ctx.onSuccess(value);
+            finish(() => ctx.onSuccess(value));
           },
           onError: (error) {
-            compensation();
-            ctx.onError(error);
+            finish(() => ctx.onError(error));
           },
           onCancel: (error) {
-            compensation();
-            ctx.onCancel(error);
+            finish(() => ctx.onCancel(error));
           },
           cancelToken: ctx.cancelToken,
           trampoline: ctx.trampoline,
@@ -270,11 +292,13 @@ class AsyncBuilder {
   }
 
   Async<void> While(bool Function() guard, Async<void> computation) {
-    if (guard()) {
-      return Bind<void, void>(computation, () => While(guard, computation));
-    } else {
+    return Delay<void>(() {
+      if (guard()) {
+        return Bind<void, void>(computation, () => While(guard, computation));
+      }
+
       return Return<void>(null);
-    }
+    });
   }
 
   Async<void> Zero() {
