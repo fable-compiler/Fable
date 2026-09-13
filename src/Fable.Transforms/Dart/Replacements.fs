@@ -1398,7 +1398,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
             Helper.LibCall(com, "String", "compareWith", Int32.Number, [ x; y; kind ])
 
         makeEqOp r left (makeIntConst 0) BinaryEqual |> Some
-    | "EnumerateRunes", Some c, _ -> stringToCharSeq c |> Some
+    | "EnumerateRunes", Some c, _ -> Helper.LibCall(com, "String", "enumerateRunes", t, [ c ], ?loc = r) |> Some
     | "GetEnumerator", Some c, _ -> stringToCharSeq c |> getEnumerator com r t |> Some
     | ("Contains" | "StartsWith" | "EndsWith" as meth), Some c, arg :: _ ->
         if List.isMultiple args then

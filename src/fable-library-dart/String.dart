@@ -108,6 +108,12 @@ int getRuneAt(String input, int index) {
   return rune;
 }
 
+Iterable<int> enumerateRunes(String input) {
+  return input.runes.map(
+    (rune) => rune >= 0xD800 && rune <= 0xDFFF ? 0xFFFD : rune,
+  );
+}
+
 List<String> splitWithChars(String str,
     [List<int>? splitters, int? count, int? options]) {
   splitters ??= [];

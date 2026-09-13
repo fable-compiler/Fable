@@ -105,3 +105,16 @@ let tests () =
         |> Seq.map string
         |> Seq.toList
         |> equal [ "A"; "𠀀"; "B" ]
+
+    testCase "String.EnumerateRunes replaces unpaired surrogates" <| fun () ->
+        // .NET String.EnumerateRunes replaces invalid UTF-16 sequences with U+FFFD
+        // https://learn.microsoft.com/en-us/dotnet/api/system.text.rune.replacementchar
+        let input =
+            stringFromCharCode 0xD800
+            + "A"
+            + stringFromCharCode 0xDC00
+
+        input.EnumerateRunes()
+        |> Seq.map _.Value
+        |> Seq.toList
+        |> equal [ 0xFFFD; 0x41; 0xFFFD ]
