@@ -5,7 +5,7 @@ pub mod String_ {
     // Strings
     // -----------------------------------------------------------
 
-    use crate::Native_::{compare, getHashCode, Func1, Func2, Hashable, NullableRef, String, ToString, Vec};
+    use crate::Native_::{compare, iter_to_seq, getHashCode, seq_to_iter, Func1, Func2, Hashable, NullableRef, Seq, String, ToString, Vec};
     use crate::NativeArray_::{array_from, Array};
 
     use core::cmp::Ordering;
@@ -54,8 +54,11 @@ pub mod String_ {
             LrcStr(Some(Lrc::from(s)))
         }
 
-        pub fn fromIter(iter: impl Iterator<Item = char> + Clone) -> string {
-            let s = iter.collect::<String>();
+        pub fn fromIter<I>(it: I) -> string
+        where
+            I: Iterator<Item = char>
+        {
+            let s = it.collect::<String>();
             LrcStr(Some(Lrc::from(s)))
         }
     }
@@ -130,26 +133,33 @@ pub mod String_ {
             fromSlice(s.as_str())
         }
 
-        pub fn fromIter(iter: impl Iterator<Item = char> + Clone) -> string {
-            let len: usize = iter
-                .clone()
-                .take(INLINE_MAX + 1)
-                .map(|c| c.len_utf8())
-                .sum();
-            if len <= INLINE_MAX {
-                let mut buf = [0u8; INLINE_MAX];
-                let mut pos: usize = 0;
-                for c in iter {
+        pub fn fromIter<I>(it: I) -> string
+        where
+            I: Iterator<Item = char>
+        {
+            let mut len: usize = 0;
+            let mut pos: usize = 0;
+            let mut buf = [0u8; INLINE_MAX];
+            let mut str: String = String::new();
+            for c in it {
+                len += c.len_utf8();
+                if len <= INLINE_MAX {
                     let s = c.encode_utf8(&mut buf[pos..]);
                     pos = pos + s.len();
+                } else {
+                    if str.len() == 0 {
+                        str.push_str(core::str::from_utf8(&buf[0..pos]).unwrap());
+                    }
+                    str.push(c);
                 }
+            }
+            if len <= INLINE_MAX {
                 LrcStr::Inline {
                     len: len as u8,
                     buf: buf,
                 }
             } else {
-                let s = iter.collect::<String>();
-                LrcStr::Shared(Lrc::from(s))
+                LrcStr::Shared(Lrc::from(str))
             }
         }
     }
@@ -316,6 +326,39 @@ pub mod String_ {
                 (false, false) => self.as_str().cmp(other.as_str()),
             }
         }
+    }
+
+    // -----------------------------------------------------------
+    // IEnumerable
+    // -----------------------------------------------------------
+
+    struct StringIterator {
+        str: string,
+        pos: usize,
+    }
+
+    impl Iterator for StringIterator {
+        type Item = char;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            match self.str.as_str()[self.pos..].chars().next() {
+                Some(c) => {
+                    self.pos += c.len_utf8();
+                    Some(c)
+                },
+                None => { None }
+            }
+        }
+    }
+
+    pub fn toSeq(s: string) -> Seq<char> {
+        let it = StringIterator { str: s, pos: 0 };
+        iter_to_seq(it)
+    }
+
+    pub fn ofSeq(seq: Seq<char>) -> string {
+        let it = seq_to_iter(seq);
+        fromIter(it)
     }
 
     // -----------------------------------------------------------

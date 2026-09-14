@@ -330,8 +330,8 @@ let toList com t (expr: Expr) =
     | List _ -> expr
     | Array _ -> Helper.LibCall(com, "List", "ofArray", t, [ expr ])
     | String ->
-        let chars = Helper.LibCall(com, "String", "toCharArray", t, [ expr ])
-        Helper.LibCall(com, "List", "ofArray", t, [ chars ])
+        let chars = Helper.LibCall(com, "String", "toSeq", t, [ expr ])
+        Helper.LibCall(com, "List", "ofSeq", t, [ chars ])
     | IEnumerable -> Helper.LibCall(com, "List", "ofSeq", t, [ expr ])
     | _ -> TypeCast(expr, t)
 
@@ -342,9 +342,7 @@ let toSeq com t (expr: Expr) =
     | Array _ -> Helper.LibCall(com, "Seq", "ofArray", t, [ expr ])
     | Builtin(FSharpMap _) -> Helper.LibCall(com, "Map", "toEnumerable", t, [ expr ])
     | Builtin(FSharpSet _) -> Helper.LibCall(com, "Set", "toEnumerable", t, [ expr ])
-    | String ->
-        let chars = Helper.LibCall(com, "String", "toCharArray", t, [ expr ])
-        Helper.LibCall(com, "Seq", "ofArray", t, [ chars ])
+    | String -> Helper.LibCall(com, "String", "toSeq", t, [ expr ])
     | _ -> TypeCast(expr, t)
 
 let emitRawString (s: string) = $"\"%s{s}\"" |> emitExpr None String []
@@ -1391,11 +1389,9 @@ let getEnumerator com r t i (expr: Expr) =
     // | IsEntity (Types.regexCaptureCollection) _
     | Array _ -> Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ expr ], ?loc = r)
     | List _ -> Helper.LibCall(com, "Seq", "Enumerable::ofList", t, [ expr ], ?loc = r)
-    // A string is enumerable in F# but `string` is `LrcStr` in Rust, with no
-    // GetEnumerator to fall through to -- so `for ch in s do` did not compile.
     | String ->
-        let ar = Helper.LibCall(com, "String", "toCharArray", t, [ expr ])
-        Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r)
+        let en = toSeq com Any expr
+        makeInstanceCall r t i en "GetEnumerator" []
     | IsEntity (Types.hashset) _
     | IsEntity (Types.iset) _ ->
         let ar = Helper.LibCall(com, "HashSet", "entries", t, [ expr ])
@@ -1404,11 +1400,8 @@ let getEnumerator com r t i (expr: Expr) =
     | IsEntity (Types.idictionary) _
     | IsEntity (Types.ireadonlydictionary) _ ->
         let ar = Helper.LibCall(com, "HashMap", "entries", t, [ expr ], [ expr.Type ])
-
         Helper.LibCall(com, "Seq", "Enumerable::ofArray", t, [ ar ], ?loc = r)
-    | _ ->
-        // Helper.LibCall(com, "Util", "getEnumerator", t, [toSeq com Any expr], ?loc=r)
-        makeInstanceCall r t i expr "GetEnumerator" []
+    | _ -> makeInstanceCall r t i expr "GetEnumerator" []
 
 let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // let isIgnoreCase args =
