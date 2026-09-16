@@ -10,7 +10,8 @@ type DisposableAction(f: unit -> unit) =
     interface IDisposable with
         member _.Dispose() = f ()
 
-let private start work onSuccess =
+
+let private start (work: Async<'T>) (onSuccess: 'T -> unit) =
     Async.StartWithContinuations(work, onSuccess, raise, raise)
 
 
@@ -20,39 +21,29 @@ let private startUnit (work: Async<unit>) =
 let tests () =
     testCase "async return works"
     <| fun () ->
-        let mutable actual = 0
+        let work = async { return 42 }
 
-        async { return 42 } |> fun work -> start work (fun value -> actual <- value)
-
-        actual |> equal 42
+        start work (fun actual -> actual |> equal 42)
 
 
     testCase "async bind works"
     <| fun () ->
-        let mutable actual = 0
-
         let work =
             async {
                 let! value = async { return 40 }
                 return value + 2
             }
 
-        start work (fun value -> actual <- value)
-
-        actual |> equal 42
+        start work (fun actual -> actual |> equal 42)
 
 
     testCase "async return-from works"
     <| fun () ->
-        let mutable actual = 0
-
         let inner = async { return 42 }
 
         let outer = async { return! inner }
 
-        start outer (fun value -> actual <- value)
-
-        actual |> equal 42
+        start outer (fun actual -> actual |> equal 42)
 
 
     testCase "async zero and combine work"
@@ -142,8 +133,6 @@ let tests () =
 
     testCase "async try-with catches errors"
     <| fun () ->
-        let mutable actual = 0
-
         let work =
             async {
                 try
@@ -153,15 +142,11 @@ let tests () =
                     return 42
             }
 
-        start work (fun value -> actual <- value)
-
-        actual |> equal 42
+        start work (fun actual -> actual |> equal 42)
 
 
     testCase "async try-with does not run handler when body succeeds"
     <| fun () ->
-        let mutable actual = 0
-
         let work =
             async {
                 try
@@ -170,9 +155,7 @@ let tests () =
                     return 99
             }
 
-        start work (fun value -> actual <- value)
-
-        actual |> equal 42
+        start work (fun actual -> actual |> equal 42)
 
 
     testCase "async try-with propagates errors from handler"
@@ -196,7 +179,6 @@ let tests () =
 
     testCase "async try-finally runs compensation"
     <| fun () ->
-        let mutable actual = 0
         let mutable finalized = false
 
         let work =
@@ -207,9 +189,8 @@ let tests () =
                     finalized <- true
             }
 
-        start work (fun value -> actual <- value)
+        start work (fun actual -> actual |> equal 42)
 
-        actual |> equal 42
         finalized |> equal true
 
 
@@ -310,6 +291,25 @@ let tests () =
         message |> equal "3 2 1"
 
 
+    testCase "async try-finally runs throwing compensation exactly once"
+    <| fun () ->
+        let mutable calls = 0
+        let mutable message = ""
+
+        let work =
+            async {
+                try
+                    return 42
+                finally
+                    calls <- calls + 1
+                    failwith "cleanup"
+            }
+
+        Async.StartWithContinuations(work, ignore, (fun error -> message <- error.Message), raise)
+
+        calls |> equal 1
+        message |> equal "cleanup"
+
 
     testCase "CancellationTokenSource.Cancel cancels token"
     <| fun () ->
@@ -330,10 +330,12 @@ let tests () =
         cts.Token.Register(fun () -> calls <- calls + 1) |> ignore
 
         cts.Cancel()
+
         calls |> equal 1
 
         // Cancellation is idempotent.
         cts.Cancel()
+
         calls |> equal 1
 
 
@@ -345,9 +347,22 @@ let tests () =
         let registration = cts.Token.Register(fun () -> called <- true)
 
         registration.Dispose()
+
         cts.Cancel()
 
         called |> equal false
+
+
+    testCase "CancellationToken registration after cancellation runs immediately"
+    <| fun () ->
+        let cts = new CancellationTokenSource()
+        let mutable called = false
+
+        cts.Cancel()
+
+        cts.Token.Register(fun () -> called <- true) |> ignore
+
+        called |> equal true
 
 
     testCase "pre-cancelled token cancels async before body runs"
@@ -375,17 +390,14 @@ let tests () =
     testCase "Async.CancellationToken returns current cancellation token"
     <| fun () ->
         let cts = new CancellationTokenSource()
-        let mutable isSameToken = false
 
         let work =
             async {
                 let! token = Async.CancellationToken
-                isSameToken <- token = cts.Token
+                token = cts.Token |> equal true
             }
 
-        Async.StartWithContinuations(work, (fun () -> ()), raise, raise, cts.Token)
-
-        isSameToken |> equal true
+        Async.StartWithContinuations(work, ignore, raise, raise, cts.Token)
 
 
     testCase "ThrowIfCancellationRequested throws after cancellation"
@@ -399,37 +411,8 @@ let tests () =
 
         throwsAnyError <| fun () -> cts.Token.ThrowIfCancellationRequested()
 
-    testCase "CancellationToken registration after cancellation runs immediately"
-    <| fun () ->
-        let cts = new CancellationTokenSource()
-        let mutable called = false
 
-        cts.Cancel()
-
-        cts.Token.Register(fun () -> called <- true) |> ignore
-
-        called |> equal true
-
-    testCase "async try-finally runs throwing compensation exactly once"
-    <| fun () ->
-        let mutable calls = 0
-        let mutable message = ""
-
-        let work =
-            async {
-                try
-                    return 42
-                finally
-                    calls <- calls + 1
-                    failwith "cleanup"
-            }
-
-        Async.StartWithContinuations(work, ignore, (fun error -> message <- error.Message), raise)
-
-        calls |> equal 1
-        message |> equal "cleanup"
-
-    testCaseAsync "Async.Sleep resumes after delay"
+    testCaseAsync "Async.Sleep suspends then resumes"
     <| fun () ->
         async {
             let mutable state = 0
@@ -437,28 +420,70 @@ let tests () =
             let child =
                 async {
                     state <- 1
-                    do! Async.Sleep 20
+
+                    do! Async.Sleep 50
+
                     state <- 2
                 }
 
             Async.Start child
+
+            // The child has entered the computation, but Sleep must suspend it.
             state |> equal 1
-            do! Async.Sleep 50
+
+            do! Async.Sleep 150
+
+            // The timer has now resumed the suspended continuation.
             state |> equal 2
+        }
+
+
+    testCaseAsync "Async.Sleep can be cancelled while waiting"
+    <| fun () ->
+        async {
+            let cts = new CancellationTokenSource()
+
+            let mutable resumed = false
+            let mutable cancelled = false
+            let mutable failed = false
+
+            let work =
+                async {
+                    do! Async.Sleep 200
+                    resumed <- true
+                }
+
+            Async.StartWithContinuations(
+                work,
+                ignore,
+                (fun _ -> failed <- true),
+                (fun _ -> cancelled <- true),
+                cts.Token
+            )
+
+            do! Async.Sleep 20
+
+            cts.Cancel()
+
+            do! Async.Sleep 20
+
+            cancelled |> equal true
+            failed |> equal false
+            resumed |> equal false
         }
 
 
     testCaseAsync "CancellationTokenSource(millisecondsDelay) cancels token"
     <| fun () ->
         async {
-            let cts = new CancellationTokenSource(20)
+            let cts = new CancellationTokenSource(50)
             let mutable calls = 0
 
             cts.Token.Register(fun () -> calls <- calls + 1) |> ignore
 
             cts.IsCancellationRequested |> equal false
 
-            do! Async.Sleep 60
+            do! Async.Sleep 150
 
             cts.IsCancellationRequested |> equal true
             calls |> equal 1
@@ -473,11 +498,11 @@ let tests () =
 
             cts.Token.Register(fun () -> calls <- calls + 1) |> ignore
 
-            cts.CancelAfter(20)
+            cts.CancelAfter(50)
 
             cts.IsCancellationRequested |> equal false
 
-            do! Async.Sleep 60
+            do! Async.Sleep 150
 
             cts.IsCancellationRequested |> equal true
             calls |> equal 1
@@ -492,13 +517,13 @@ let tests () =
 
             cts.Token.Register(fun () -> calls <- calls + 1) |> ignore
 
-            cts.CancelAfter(20)
+            cts.CancelAfter(50)
 
-            do! Async.Sleep 60
+            do! Async.Sleep 150
 
             calls |> equal 1
 
-            // Cancellation remains idempotent even after the timer fired.
+            // Cancellation remains idempotent after the timer has fired.
             cts.Cancel()
 
             calls |> equal 1
@@ -515,12 +540,31 @@ let tests () =
 
             registration.Dispose()
 
-            cts.CancelAfter(20)
+            cts.CancelAfter(50)
 
-            do! Async.Sleep 60
+            do! Async.Sleep 150
 
             cts.IsCancellationRequested |> equal true
             calls |> equal 0
+        }
+
+
+    testCaseAsync "CancellationTokenSource.CancelAfter can be reset"
+    <| fun () ->
+        async {
+            let cts = new CancellationTokenSource()
+
+            cts.CancelAfter 300
+            do! Async.Sleep 30
+
+            cts.CancelAfter 500
+            do! Async.Sleep 350
+
+            cts.IsCancellationRequested |> equal false
+
+            do! Async.Sleep 200
+
+            cts.IsCancellationRequested |> equal true
         }
 
 
@@ -533,6 +577,7 @@ let tests () =
 
             actual |> equal 42
         }
+
 
     testCaseAsync "Async.AwaitFuture propagates Future errors"
     <| fun () ->
@@ -555,10 +600,12 @@ let tests () =
             message |> equal "boom"
         }
 
+
     testCaseAsync "Async.AwaitFuture propagates Future cancellation"
     <| fun () ->
         async {
             let cts = new CancellationTokenSource()
+
             let mutable cancelled = false
             let mutable failed = false
 

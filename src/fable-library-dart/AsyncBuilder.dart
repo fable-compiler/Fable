@@ -23,6 +23,7 @@ typedef Continuations<T> =
 class CancellationToken implements types.IDisposable {
   int _id = 0;
   bool _cancelled;
+  dart_async.Timer? _cancelTimer;
   final Map<int, void Function()> _listeners = {};
 
   CancellationToken([this._cancelled = false]);
@@ -34,6 +35,9 @@ class CancellationToken implements types.IDisposable {
       return;
     }
 
+    _cancelTimer?.cancel();
+    _cancelTimer = null;
+
     _cancelled = true;
 
     final listeners = _listeners.values.toList(growable: false);
@@ -42,6 +46,19 @@ class CancellationToken implements types.IDisposable {
     for (final listener in listeners) {
       listener();
     }
+  }
+
+  void cancelAfter(Duration delay) {
+    if (_cancelled) {
+      return;
+    }
+
+    _cancelTimer?.cancel();
+
+    _cancelTimer = dart_async.Timer(delay, () {
+      _cancelTimer = null;
+      cancel();
+    });
   }
 
   int addListener(void Function() f) {

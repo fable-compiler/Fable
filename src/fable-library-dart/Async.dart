@@ -61,7 +61,7 @@ async_builder.CancellationToken createCancellationToken([Object? arg]) {
   final token = async_builder.CancellationToken(arg is bool ? arg : false);
 
   if (arg is Duration || arg is num) {
-    dart_async.Timer(_cancellationDelay(arg), token.cancel);
+    token.cancelAfter(_cancellationDelay(arg));
   }
 
   return token;
@@ -72,7 +72,7 @@ void cancel(async_builder.CancellationToken token) {
 }
 
 void cancelAfter(async_builder.CancellationToken token, Object delay) {
-  dart_async.Timer(_cancellationDelay(delay), token.cancel);
+  token.cancelAfter(_cancellationDelay(delay));
 }
 
 bool isCancellationRequested(async_builder.CancellationToken? token) {
