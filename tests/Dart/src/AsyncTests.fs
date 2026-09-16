@@ -2,6 +2,7 @@ module Fable.Tests.Dart.Async
 
 open System
 open System.Threading
+open Fable.Core.Dart
 open Util
 
 
@@ -520,4 +521,58 @@ let tests () =
 
             cts.IsCancellationRequested |> equal true
             calls |> equal 0
+        }
+
+
+    testCaseAsync "Async.AwaitFuture returns Future result"
+    <| fun () ->
+        async {
+            let future = async { return 42 } |> Async.StartAsFuture
+
+            let! actual = Async.AwaitFuture future
+
+            actual |> equal 42
+        }
+
+    testCaseAsync "Async.AwaitFuture propagates Future errors"
+    <| fun () ->
+        async {
+            let future =
+                async {
+                    failwith "boom"
+                    return 0
+                }
+                |> Async.StartAsFuture
+
+            let mutable message = ""
+
+            try
+                let! _ = Async.AwaitFuture future
+                ()
+            with error ->
+                message <- error.Message
+
+            message |> equal "boom"
+        }
+
+    testCaseAsync "Async.AwaitFuture propagates Future cancellation"
+    <| fun () ->
+        async {
+            let cts = new CancellationTokenSource()
+            let mutable cancelled = false
+            let mutable failed = false
+
+            cts.Cancel()
+
+            let future = Async.StartAsFuture(async { return 42 }, cts.Token)
+
+            let work = Async.AwaitFuture future
+
+            Async.StartWithContinuations(work, ignore, (fun _ -> failed <- true), (fun _ -> cancelled <- true))
+
+            // Let the Future error propagate through its microtask.
+            do! Async.Sleep 20
+
+            cancelled |> equal true
+            failed |> equal false
         }

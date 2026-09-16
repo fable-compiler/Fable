@@ -228,6 +228,23 @@ async_builder.Async<void> sleep(Object delay) {
   });
 }
 
+async_builder.Async<T> awaitFuture<T>(dart_async.Future<T> future) {
+  return async_builder.protectedCont<T>((ctx) {
+    future.then<void>(
+      (value) {
+        ctx.onSuccess(value);
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (error is async_builder.OperationCanceledException) {
+          ctx.onCancel(error);
+        } else {
+          ctx.onError(error);
+        }
+      },
+    );
+  });
+}
+
 dart_async.Future<T> startAsFuture<T>(
   async_builder.Async<T> computation, [
   types.Some<async_builder.CancellationToken>? cancellationToken,
