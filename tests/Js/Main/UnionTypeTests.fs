@@ -81,6 +81,13 @@ open Fable.Core.JsInterop
 #endif
 type DU = Int of int | Str of string
 
+type ErasedPayload = { Description: string; Membership: int }
+
+[<Fable.Core.Erase>]
+type ErasedWrapper =
+    | ErasedSuccess of ErasedPayload
+    | ErasedFailure of string
+
 type T1 = T1
 type T2 = T2
 type T3 = T3
@@ -212,6 +219,14 @@ let tests =
         U3.Case2 3 |> toString |> equal "6"
         "HELLO" |> Wrapper |> U3.Case3 |> toString |> equal "OLLEH"
     #endif
+
+    testCase "Erased union payload fields can be read" <| fun () ->
+        let payload = { Description = "a"; Membership = 2 }
+
+        match ErasedSuccess payload with
+        | ErasedSuccess details -> details.Membership
+        | ErasedFailure _ -> -1
+        |> equal 2
 
     testCase "Equality works in filter" <| fun () ->
         let original = [| { Name = "1"; Case = MyUnion.Case1 } ; { Name = "2"; Case = MyUnion.Case1 }; { Name = "3"; Case = MyUnion.Case2 }; { Name = "4"; Case = MyUnion.Case3 } |]

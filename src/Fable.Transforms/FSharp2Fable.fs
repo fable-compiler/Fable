@@ -1316,10 +1316,13 @@ let private transformExpr (com: IFableCompiler) (ctx: Context) appliedGenArgs fs
             | ErasedUnionCase ->
                 let index = unionCase.Fields |> Seq.findIndex (fun x -> x.Name = field.Name)
 
-                return Fable.Get(unionExpr, Fable.TupleIndex(index), makeType ctx.GenericArgs unionType, r)
+                return Fable.Get(unionExpr, Fable.TupleIndex(index), fieldType, r)
             | ErasedUnion _ ->
                 if unionCase.Fields.Count = 1 then
-                    return unionExpr
+                    if unionExpr.Type = fieldType then
+                        return unionExpr
+                    else
+                        return Fable.TypeCast(unionExpr, fieldType)
                 else
                     let index = unionCase.Fields |> Seq.findIndex (fun x -> x.Name = field.Name)
 

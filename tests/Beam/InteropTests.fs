@@ -104,6 +104,13 @@ type ErasedUnion =
 type ErasedUnionWithMultipleFields =
     | ErasedUnionWithMultipleFields of string * int
 
+type ErasedPayload = { Description: string; Membership: int }
+
+[<Erase>]
+type ErasedWrapper =
+    | ErasedSuccess of ErasedPayload
+    | ErasedFailure of string
+
 // ============================================================
 // StringEnum tests
 // ============================================================
@@ -404,6 +411,19 @@ let ``test Erased types can have members`` () =
 #if FABLE_COMPILER
     let x = ErasedString "Patrick"
     x.SayHi() |> equal "Hi Patrick!"
+#else
+    ()
+#endif
+
+[<Fact>]
+let ``test Erased union payload fields can be read`` () =
+#if FABLE_COMPILER
+    let payload = { Description = "a"; Membership = 2 }
+
+    match ErasedSuccess payload with
+    | ErasedSuccess details -> details.Membership
+    | ErasedFailure _ -> -1
+    |> equal 2
 #else
     ()
 #endif
