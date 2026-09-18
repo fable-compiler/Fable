@@ -82,6 +82,13 @@ open Fable.Core
 #endif
 type DU = Int of int | Str of string
 
+type ErasedPayload = { Description: string; Membership: int }
+
+[<Fable.Core.Erase>]
+type ErasedWrapper =
+    | ErasedSuccess of ErasedPayload
+    | ErasedFailure of string
+
 [<Fact>]
 let ``test Union cases matches with no arguments can be generated`` () =
     let x = Male
@@ -199,6 +206,15 @@ let ``test Erased union type testing works`` () =
     U3.Case2 3 |> toString |> equal "6"
     "HELLO" |> Wrapper |> U3.Case3 |> toString |> equal "OLLEH"
 #endif
+
+[<Fact>]
+let ``test Erased union payload fields can be read`` () =
+    let payload = { Description = "a"; Membership = 2 }
+
+    match ErasedSuccess payload with
+    | ErasedSuccess details -> details.Membership
+    | ErasedFailure _ -> -1
+    |> equal 2
 
 [<Fact>]
 let ``test Equality works in filter`` () =
