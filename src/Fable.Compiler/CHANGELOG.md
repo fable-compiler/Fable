@@ -1,5 +1,5 @@
 ---
-last_commit_released: 66efd10960c967660084db2b364e944d167897f4
+last_commit_released: e0536ecd9b9aeb12cc96c7a2ef2edde7089e2dd0
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -20,6 +20,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.16.3 - 2026-09-18
+
+### 🐞 Bug Fixes
+
+* *(python)* Keep the payload type when reading an erased union field (#4981) ([e0536ecd](https://github.com/fable-compiler/Fable/commit/e0536ecd9b9aeb12cc96c7a2ef2edde7089e2dd0))
+* *(rust)* Less allocations when enumerating strings (#4970) ([5d62380c](https://github.com/fable-compiler/Fable/commit/5d62380cb30dc1080c6943445a256e27db6246f8))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/66efd10960c967660084db2b364e944d167897f4..e0536ecd9b9aeb12cc96c7a2ef2edde7089e2dd0)</small></strong>
 
 ## 5.16.2 - 2026-09-12
 
