@@ -637,6 +637,8 @@ let tryEntityIdent (com: Compiler) entFullName =
     | "System.Threading.CancellationTokenSource" ->
         makeImportLib com MetaType "CancellationToken" "AsyncBuilder" |> Some
     | "System.Threading.CancellationTokenRegistration" -> makeImportLib com MetaType "IDisposable" "Types" |> Some
+    | "System.OperationCanceledException" ->
+        makeImportLib com MetaType "OperationCanceledException" "AsyncBuilder" |> Some
     | BuiltinDefinition BclDateOnly
     | BuiltinDefinition BclDateTime
     | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "DateTime" |> Some
@@ -2621,6 +2623,9 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
         match i.DeclaringEntityFullName with
         | "System.Collections.Generic.KeyNotFoundException"
         | BuiltinSystemException _ -> bclType com ctx r t i thisArg args
+        | "System.OperationCanceledException" ->
+            let e = makeImportLib com Any "OperationCanceledException" "AsyncBuilder"
+            Helper.ConstructorCall(e, t, args, ?loc = r) |> Some
         | _ ->
             let e = makeImportLib com Any "ExceptionBase" "Types"
             Helper.ConstructorCall(e, t, args, ?loc = r) |> Some
