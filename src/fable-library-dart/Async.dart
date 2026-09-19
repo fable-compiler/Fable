@@ -2,6 +2,7 @@ import 'dart:async' as dart_async;
 
 import 'AsyncBuilder.dart' as async_builder;
 import 'Choice.dart' as choice;
+import 'System.dart' as system;
 import 'Types.dart' as types;
 
 void _emptyContinuation<T>(T _value) {}
@@ -114,6 +115,65 @@ async_builder.Async<T> fromContinuations<T>(
         async_builder.Continuation<async_builder.OperationCanceledException>
       >(ctx.onSuccess, ctx.onError, ctx.onCancel),
     );
+  });
+}
+
+async_builder.Async<async_builder.Async<T>> startChild<T>(
+  async_builder.Async<T> computation, [
+  types.Some<int>? millisecondsTimeout,
+]) {
+  return async_builder.protectedCont<async_builder.Async<T>>((ctx) {
+    final future = startAsFuture<T>(computation, types.Some(ctx.cancelToken));
+
+    var futureToRun = future;
+
+    final timeout = millisecondsTimeout?.value;
+
+    if (timeout != null && timeout > 0) {
+      futureToRun = future.timeout(
+        Duration(milliseconds: timeout),
+        onTimeout: () => throw system.TimeoutException_$ctor(),
+      );
+    }
+
+    // In F# an unobserved child's failure is not propagated.
+    futureToRun.ignore();
+
+    async_builder.protectedReturn(awaitFuture<T>(futureToRun))(ctx);
+  });
+}
+
+async_builder.Async<List<T>> parallel<T>(
+  Iterable<async_builder.Async<T>> computations,
+) {
+  return async_builder.protectedCont<List<T>>((ctx) {
+    final futures = computations
+        .map((w) => startAsFuture<T>(w, types.Some(ctx.cancelToken)))
+        .toList(growable: false);
+
+    awaitFuture<List<T>>(dart_async.Future.wait<T>(futures, eagerError: true))(
+      ctx,
+    );
+  });
+}
+
+async_builder.Async<List<T>> sequential<T>(
+  Iterable<async_builder.Async<T>> computations,
+) {
+  dart_async.Future<List<T>> run(
+    async_builder.CancellationToken cancelToken,
+  ) async {
+    final results = <T>[];
+
+    for (final computation in computations) {
+      results.add(await startAsFuture<T>(computation, types.Some(cancelToken)));
+    }
+
+    return results;
+  }
+
+  return async_builder.protectedCont<List<T>>((ctx) {
+    awaitFuture<List<T>>(run(ctx.cancelToken))(ctx);
   });
 }
 
