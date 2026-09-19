@@ -6,14 +6,6 @@ import 'Types.dart' as types;
 
 void _emptyContinuation<T>(T _value) {}
 
-async_builder.Async<T> _invokeAsyncFunction<U, T>(Function function, U value) {
-  if (function is async_builder.Async<T> Function()) {
-    return function();
-  }
-
-  return (function as async_builder.Async<T> Function(U))(value);
-}
-
 async_builder.Async<T> makeAsync<T>(async_builder.Async<T> body) {
   return body;
 }
@@ -30,7 +22,7 @@ void callThenInvoke<T, U>(
   U result1,
   Function part2,
 ) {
-  _invokeAsyncFunction<U, T>(part2, result1)(ctx);
+  async_builder.invokeBinderAsAsync<U, T>(part2, result1)(ctx);
 }
 
 void bind<T, U>(
@@ -168,10 +160,10 @@ void startWithContinuations<T>(
     return (value) {
       trampoline.completed = true;
 
-      if (cont is void Function()) {
+      if (cont is Function()) {
         cont();
       } else {
-        (cont as void Function(T))(value);
+        cont(value);
       }
     };
   }

@@ -134,12 +134,19 @@ class IAsyncContext<T> {
 
 typedef Async<T> = void Function(IAsyncContext<T> context);
 
-Async<U> _invokeBinder<T, U>(Function binder, T value) {
-  if (binder is Async<U> Function()) {
+// Binders arrive as zero- or one-argument functions with no inferred type.
+dynamic invokeBinder<T>(Function binder, T value) {
+  if (binder is Function()) {
     return binder();
   }
 
-  return (binder as Async<U> Function(T))(value);
+  return binder(value);
+}
+
+Async<U> invokeBinderAsAsync<T, U>(Function binder, T value) {
+  final dynamic bound = invokeBinder<T>(binder, value);
+
+  return (ctx) => bound(ctx);
 }
 
 Async<T> protectedCont<T>(Async<T> f) {
@@ -177,10 +184,10 @@ Async<U> protectedBind<T, U>(Async<T> computation, Function binder) {
     computation(
       IAsyncContext<T>(
         onSuccess: (value) {
-          late final Async<U> bound;
+          final dynamic bound;
 
           try {
-            bound = _invokeBinder<T, U>(binder, value);
+            bound = invokeBinder<T>(binder, value);
           } catch (error) {
             ctx.onError(error);
             return;
@@ -226,7 +233,10 @@ class AsyncBuilder {
 
           final current = iterator.current;
 
-          return Bind<void, void>(_invokeBinder<T, void>(body, current), loop);
+          return Bind<void, void>(
+            invokeBinderAsAsync<T, void>(body, current),
+            loop,
+          );
         });
       }
 
