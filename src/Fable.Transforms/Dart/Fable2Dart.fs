@@ -219,7 +219,8 @@ module Util =
             Type.reference (makeImmutableIdent MetaType "MapEntry", [ key; value ])
 
         match entRef.FullName, genArgs with
-        | Types.enum_, _ -> Integer
+        | Types.enum_, _
+        | "System.Text.Rune", _ -> Integer
         // F# Quotation types are modelled dynamically by the quotation runtime,
         // so map them to `dynamic` (the runtime returns plain tagged objects).
         | Types.fsharpExpr, _
