@@ -2,10 +2,6 @@ import 'dart:async' as dart_async;
 
 import 'Types.dart' as types;
 
-abstract class AsyncReplyChannel<Reply> {
-  void reply(Reply value);
-}
-
 typedef Continuation<T> = void Function(T value);
 
 class OperationCanceledException extends types.ExceptionBase {
@@ -83,7 +79,9 @@ class CancellationToken implements types.IDisposable {
   }
 
   @override
-  void Dispose() {}
+  void Dispose() {
+    // Disposing a CancellationTokenSource does not request cancellation.
+  }
 }
 
 class _CancellationRegistration implements types.IDisposable {

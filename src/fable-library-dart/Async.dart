@@ -261,8 +261,10 @@ async_builder.Async<void> sleep(Object delay) {
 
       completed = true;
 
-      if (listenerId != null) {
-        ctx.cancelToken.removeListener(listenerId!);
+      final id = listenerId;
+
+      if (id != null) {
+        ctx.cancelToken.removeListener(id);
       }
 
       ctx.onSuccess(null);
