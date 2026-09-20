@@ -28,11 +28,11 @@
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>build</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="G-Research.FSharp.Analyzers" Version="0.24.0">
+        <PackageReference Include="G-Research.FSharp.Analyzers" Version="0.25.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>analyzers</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Ionide.Analyzers" Version="0.18.0">
+        <PackageReference Include="Ionide.Analyzers" Version="0.19.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>analyzers</IncludeAssets>
         </PackageReference>

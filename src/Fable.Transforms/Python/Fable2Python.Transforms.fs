@@ -1706,7 +1706,10 @@ let transformGet (com: IPythonCompiler) ctx range typ (fableExpr: Fable.Expr) ki
             let caseRef = getUnionCaseRef com ctx i.Entity ent uci
             let narrow = libValue com ctx "union" "narrow"
             let narrowedExpr = Expression.call (narrow, [ caseRef; baseExpr ])
-            let! finalExpr = getExpr com ctx range narrowedExpr (Expression.stringConstant fieldName)
+
+            let! finalExpr =
+                getExpr com ctx range narrowedExpr (Expression.stringConstant fieldName)
+
             return finalExpr
         }
 

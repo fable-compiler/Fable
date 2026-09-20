@@ -1639,7 +1639,7 @@ let formattableString
                     |}
                 )
 
-            printJsTaggedTemplate str holes (fun i -> "$" + string<int> (i + offset))
+            printJsTaggedTemplate str holes (fun i -> "$" + string<int>(i + offset))
 
         emitExpr r t args (callMacro + jsTaggedTemplate) |> Some
     | "get_Format", Some x, _ -> Helper.LibCall(com, "String", "getFormat", t, [ x ], ?loc = r) |> Some

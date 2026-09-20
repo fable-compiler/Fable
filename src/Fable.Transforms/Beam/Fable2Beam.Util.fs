@@ -63,7 +63,7 @@ let private wrappedLiteral (bits: int, signed: bool) (value: int64) =
 
     if not signed && truncated < 0L then
         // 64-bit unsigned above Int64.MaxValue: does not fit an Erlang int64 literal
-        Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<uint64> (uint64 truncated)))
+        Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<uint64>(uint64 truncated)))
     else
         Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer truncated)
 

@@ -1075,7 +1075,7 @@ module Helpers =
 
         let getCaseRule (att: FSharpAttribute) =
             match Seq.tryHead att.ConstructorArguments with
-            | Some(_, (:? int as rule)) -> enum<CaseRules> (rule)
+            | Some(_, (:? int as rule)) -> enum<CaseRules>(rule)
             | _ -> CaseRules.LowerFirst
 
         unionCase.Attributes
@@ -1103,7 +1103,7 @@ module Helpers =
                             | Some(_, (:? string as name)), None ->
                                 Some(TypeScriptTaggedUnion(tdef, typ.GenericArguments, name, CaseRules.LowerFirst))
                             | Some(_, (:? string as name)), Some(_, (:? int as rule)) ->
-                                Some(TypeScriptTaggedUnion(tdef, typ.GenericArguments, name, enum<CaseRules> (rule)))
+                                Some(TypeScriptTaggedUnion(tdef, typ.GenericArguments, name, enum<CaseRules>(rule)))
                             | _ -> failwith "Invalid TypeScriptTaggedUnion attribute"
                         | _ -> None
                     )
