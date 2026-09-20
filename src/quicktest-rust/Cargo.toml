@@ -12,4 +12,4 @@ threaded = ["fable_library_rust/threaded"]
 # default = ["threaded"] # Uncomment to default to "threaded" mode
 
 [dependencies]
-fable_library_rust = { path = "../../temp/fable-library-rust" }
+fable_library_rust = { path = "./fable_modules/fable-library-rust" }
