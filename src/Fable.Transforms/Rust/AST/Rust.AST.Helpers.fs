@@ -202,7 +202,7 @@ module Literals =
 
     let mkCharLit (value: char) : Lit =
         {
-            token = mkCharTokenLit ((string<char> value).escape_debug ())
+            token = mkCharTokenLit ((string<char> value).escape_debug())
             kind = LitKind.Char(value)
             span = DUMMY_SP
         }
@@ -890,7 +890,7 @@ module Exprs =
                 value.StartsWith("\"", System.StringComparison.Ordinal)
                 && value.EndsWith("\"", System.StringComparison.Ordinal)
             then
-                "\"" + value[1 .. (value.Length - 2)].escape_debug () + "\""
+                "\"" + value[1 .. (value.Length - 2)].escape_debug() + "\""
             else
                 value
 

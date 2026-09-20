@@ -398,8 +398,8 @@ let private applyOperator (method: string) (args: obj list) : obj =
     // invalid at runtime. Matching only on the method string avoids that.
     // if/elif (not match): Fable-Rust would emit string literals as match patterns,
     // which isn't valid Rust; an if-chain compiles to string == comparisons.
-    let i (n: int) : int = unbox<int> (List.item n args)
-    let b (n: int) : bool = unbox<bool> (List.item n args)
+    let i (n: int) : int = unbox<int>(List.item n args)
+    let b (n: int) : bool = unbox<bool>(List.item n args)
 
     if method = "op_Addition" then
         box (i 0 + i 1)
@@ -453,13 +453,13 @@ let evaluate (e: FSharpExpr) : obj =
             let capturedEnv = env.Value
             box (fun (arg: obj) -> eval (ref (Map.add v.Name arg capturedEnv)) body)
         | ExprApplication(f, a) ->
-            let func = unbox<obj -> obj> (eval env f)
+            let func = unbox<obj -> obj>(eval env f)
             func (eval env a)
         | ExprLet(v, value, body) ->
             let value = eval env value
             eval (ref (Map.add v.Name value env.Value)) body
         | ExprIfThenElse(g, t, el) ->
-            if unbox<bool> (eval env g) then
+            if unbox<bool>(eval env g) then
                 eval env t
             else
                 eval env el
@@ -472,7 +472,7 @@ let evaluate (e: FSharpExpr) : obj =
             match method with
             | "get_IsSome"
             | "get_IsNone" ->
-                let values = unbox<obj[]> (eval env instance)
+                let values = unbox<obj[]>(eval env instance)
                 let isSome = values.Length > 0 && unbox<int> values.[0] = 1
 
                 box (
@@ -483,7 +483,7 @@ let evaluate (e: FSharpExpr) : obj =
                 )
             | "get_IsCons"
             | "get_IsEmpty" ->
-                let values = unbox<obj[]> (eval env instance)
+                let values = unbox<obj[]>(eval env instance)
                 let isCons = values.Length > 0
 
                 box (
@@ -503,7 +503,7 @@ let evaluate (e: FSharpExpr) : obj =
             // operator wants an owned i32; `index + 0` forces an owned i32 rvalue (the
             // arithmetic dereferences the borrow) so the indexing type-checks.
             let i = index + 0
-            evalArrayField (unbox<obj[]> (eval env inner)) i
+            evalArrayField (unbox<obj[]>(eval env inner)) i
         | ExprNewUnion(_, tag, _, fields) ->
             let values = ResizeArray<obj>()
             values.Add(box tag)
@@ -524,18 +524,18 @@ let evaluate (e: FSharpExpr) : obj =
             let result = ResizeArray<obj>()
             result.Add(eval env head)
 
-            for value in unbox<obj[]> (eval env tail) do
+            for value in unbox<obj[]>(eval env tail) do
                 result.Add(value)
 
             box (result.ToArray())
         | ExprUnionTag inner ->
-            let values = unbox<obj[]> (eval env inner)
+            let values = unbox<obj[]>(eval env inner)
             evalArrayField values 0
         | ExprUnionField(inner, fieldIndex) ->
-            let values = unbox<obj[]> (eval env inner)
+            let values = unbox<obj[]>(eval env inner)
             evalArrayField values (fieldIndex + 1)
         | ExprFieldGet(inner, fieldName) ->
-            let values = unbox<obj[]> (eval env inner)
+            let values = unbox<obj[]>(eval env inner)
 
             if fieldName = "Head" then
                 evalArrayField values 0
@@ -557,7 +557,7 @@ let evaluate (e: FSharpExpr) : obj =
                 | Some value -> value
                 | None -> failwithf "Quotation field not found: %s" fieldName
         | ExprFieldSet(target, fieldName, value) ->
-            let target = unbox<obj[]> (eval env target)
+            let target = unbox<obj[]>(eval env target)
             let value = eval env value
 
             let rec findFieldIndex index =

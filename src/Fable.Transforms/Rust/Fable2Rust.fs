@@ -899,7 +899,7 @@ module TypeInfo =
             | [ Fable.Unit ] -> []
             | _ -> argTypes
 
-        let argCount = string<int> (List.length argTypes)
+        let argCount = string<int>(List.length argTypes)
         let genArgs = argTypes @ [ returnType ]
         transformImportType com ctx genArgs "Native" ("Func" + argCount)
 
@@ -1047,7 +1047,7 @@ module TypeInfo =
         transformGenericType com ctx genArgs (rawIdent "Result")
 
     let transformChoiceType com ctx genArgs : Rust.Ty =
-        let argCount = string<int> (List.length genArgs)
+        let argCount = string<int>(List.length genArgs)
         transformImportType com ctx genArgs "Choice" ("Choice`" + argCount)
 
     let transformRefCellType com ctx genArg : Rust.Ty =
@@ -1802,7 +1802,7 @@ module Util =
             | [ Fable.Unit ] -> []
             | _ -> argTypes
 
-        let argCount = string<int> (List.length argTypes)
+        let argCount = string<int>(List.length argTypes)
         let funcWrap = getLibraryImportName com ctx "Native" ("Func" + argCount)
         let expr = transformIdent com ctx None ident
 

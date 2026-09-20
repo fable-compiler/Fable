@@ -56,7 +56,7 @@ type WorkerRequest =
     | GetCompletionsForFile of id: Guid * file: string * line: int * column: int * lineText: string
     | GetDeclarationLocationForFile of id: Guid * file: string * line: int * column: int * lineText: string
 
-    static member Decoder = Decode.Auto.generateDecoder<WorkerRequest> ()
+    static member Decoder = Decode.Auto.generateDecoder<WorkerRequest>()
 
 type CompileStats =
     {
@@ -76,7 +76,7 @@ type WorkerAnswer =
     | FoundCompletions of id: Guid * Fable.Standalone.Completion[]
     | FoundDeclarationLocation of id: Guid (* line1, col1, line2, col2 *) * (int * int * int * int) option
 
-    static member Decoder = Decode.Auto.generateDecoder<WorkerAnswer> ()
+    static member Decoder = Decode.Auto.generateDecoder<WorkerAnswer>()
 
 type ObservableWorker<'InMsg>(worker: obj, decoder: Decoder<'InMsg>, ?name: string) =
     let name = defaultArg name "FABLE WORKER"

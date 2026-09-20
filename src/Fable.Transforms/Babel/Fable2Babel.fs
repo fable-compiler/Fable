@@ -866,7 +866,7 @@ module Annotation =
     let makeStringEnumTypeAnnotation (ent: Fable.Entity) (attArgs: obj list) =
         let rule =
             match List.tryHead attArgs with
-            | Some(:? int as rule) -> enum<Core.CaseRules> (rule)
+            | Some(:? int as rule) -> enum<Core.CaseRules>(rule)
             | _ -> Core.CaseRules.LowerFirst
 
         ent.UnionCases
@@ -896,7 +896,7 @@ module Annotation =
     let makeTypeScriptTaggedUnionTypeAnnotation com ctx genArgs (ent: Fable.Entity) (attArgs: obj list) =
         let tag, rule =
             match attArgs with
-            | (:? string as tag) :: (:? int as rule) :: _ -> tag, enum<Core.CaseRules> (rule)
+            | (:? string as tag) :: (:? int as rule) :: _ -> tag, enum<Core.CaseRules>(rule)
             | (:? string as tag) :: _ -> tag, Core.CaseRules.LowerFirst
             | _ -> "kind", Core.CaseRules.LowerFirst
 
@@ -2213,6 +2213,7 @@ but thanks to the optimisation done below we get
             | _ -> ValueNone
 
         // Make it easy to check if we are calling the expected function
+
         and [<return: Struct>] (|CalledExpression|_|) (callerText: string) value =
             match value with
             | CallExpression(IdentifierIs callerText, UnrollerFromArray exprs, _, _) -> ValueSome exprs

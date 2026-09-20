@@ -29,9 +29,9 @@ let getAssemblyReader (_getBlobUrl: string -> string, _refs: string[]) : JS.Prom
 let escapeJsStringLiteral (str: string) : string = importMember "./util.js"
 
 let measureTime f arg =
-    let before: float = self?performance?now ()
+    let before: float = self?performance?now()
     let res = f arg
-    let after: float = self?performance?now ()
+    let after: float = self?performance?now()
     res, after - before
 
 type PrecompiledState =
@@ -291,7 +291,8 @@ let private compileFiles fable fsharpNames fsharpCodes (filesToEmit: string[]) l
 
         if not (parseResults.Errors |> Array.exists (fun e -> not e.IsWarning)) then
             for fileName in filesToEmit do
-                let! code, fableErrors, transformTime = emitFile fable parseResults fileName language fableOptions
+                let! code, fableErrors, transformTime =
+                    emitFile fable parseResults fileName language fableOptions
 
                 compiledCode.Add code
                 errors.AddRange fableErrors
@@ -419,7 +420,8 @@ let rec loop (box: MailboxProcessor<WorkerRequest>) (state: State) =
                     else
                         filesToEmit
 
-                let! (code, errors, stats) = compileFiles fable names codes filesToEmit language otherFSharpOptions
+                let! (code, errors, stats) =
+                    compileFiles fable names codes filesToEmit language otherFSharpOptions
 
                 CompilationsFinished(code, language, errors, stats) |> state.Worker.Post
             with er ->

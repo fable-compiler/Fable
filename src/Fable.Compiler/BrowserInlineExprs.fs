@@ -25,13 +25,13 @@ let private extra =
         (Decode.uint64 |> Decode.map unativeint)
 
 let private decoder =
-    lazy (Decode.Auto.generateDecoder<(string * Fable.InlineExpr) array> (extra = extra))
+    lazy (Decode.Auto.generateDecoder<(string * Fable.InlineExpr) array>(extra = extra))
 
 let fromString (json: string) : Result<(string * Fable.InlineExpr) array, string> = Decode.fromString decoder.Value json
 
 #if !FABLE_COMPILER
 let private encoder =
-    lazy (Encode.Auto.generateEncoder<(string * Fable.InlineExpr) array> (extra = extra))
+    lazy (Encode.Auto.generateEncoder<(string * Fable.InlineExpr) array>(extra = extra))
 
 let toString (chunk: (string * Fable.InlineExpr) array) : string =
     chunk |> encoder.Value |> Encode.toString 0

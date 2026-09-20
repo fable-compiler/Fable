@@ -221,11 +221,11 @@ let literal_to_string (lit: token.Lit) : string =
         | token.LitKind.Char -> format ("'{0}'", symbol)
         | token.LitKind.Str -> format ("\"{0}\"", symbol)
         | token.LitKind.StrRaw(n) ->
-            let delim = "#".repeat (n |> usize)
+            let delim = "#".repeat(n |> usize)
             format ("r{0}\"{1}\"{2}", delim, symbol, delim)
         | token.LitKind.ByteStr -> format ("b\"{0}\"", symbol)
         | token.LitKind.ByteStrRaw(n) ->
-            let delim = "#".repeat (n |> usize)
+            let delim = "#".repeat(n |> usize)
             format ("br{0}\"{1}\"{2}", delim, symbol, delim)
         | token.LitKind.Integer
         | token.LitKind.Float
@@ -238,7 +238,7 @@ let literal_to_string (lit: token.Lit) : string =
 // out.push_str(suffix.as_str())
 
 let visibility_qualified (vis: ast.Visibility, s: string) : string =
-    let vis_str = State.new_().to_string (fun (s) -> s.print_visibility (vis))
+    let vis_str = State.new_().to_string(fun (s) -> s.print_visibility (vis))
     format ("{0}{1}", vis_str, s)
 
 // interface std.ops.Deref with // for State
@@ -440,7 +440,7 @@ type State with
         | Some(cmnts) -> cmnts.current <- cmnts.current + 1
 
     member self.next_comment() : Option<Comment> =
-        self.comments().and_then (fun (c) -> c.next ())
+        self.comments().and_then(fun (c) -> c.next ())
 
     member self.print_literal(lit: ast.Lit) =
         self.maybe_print_comment (lit.span.lo ())
@@ -451,7 +451,7 @@ type State with
             match style with
             | ast.StrStyle.Cooked -> format ("\"{0}\"", st.escape_debug ())
             | ast.StrStyle.Raw(n) ->
-                let delim = "#".repeat (n |> usize)
+                let delim = "#".repeat(n |> usize)
                 format ("r{0}\"{1}\"{2}", delim, st, delim)
 
         self.s.word (st)
@@ -701,7 +701,7 @@ type State with
     member self.break_offset_if_not_bol(n: usize, off: isize) =
         if not (self.s.is_beginning_of_line ()) then
             self.s.break_offset (n, off)
-        elif off <> 0 && self.s.last_token().is_hardbreak_tok () then
+        elif off <> 0 && self.s.last_token().is_hardbreak_tok() then
             // We do something pretty sketchy here: tuck the nonzero
             // offset-adjustment we were going to deposit along with the
             // break into the previous hardbreak.
@@ -717,7 +717,7 @@ type State with
         | token.Nonterminal.NtBlock(e) -> self.block_to_string (e)
         | token.Nonterminal.NtStmt(e) -> self.stmt_to_string (e)
         | token.Nonterminal.NtPat(e) -> self.pat_to_string (e)
-        | token.Nonterminal.NtIdent(e, is_raw) -> IdentPrinter.for_ast_ident(e, is_raw).to_string ()
+        | token.Nonterminal.NtIdent(e, is_raw) -> IdentPrinter.for_ast_ident(e, is_raw).to_string()
         | token.Nonterminal.NtLifetime(e) -> e.to_string ()
         | token.Nonterminal.NtLiteral(e) -> self.expr_to_string (e)
         | token.Nonterminal.NtTT(tree) -> self.tt_to_string (tree)
@@ -774,7 +774,7 @@ type State with
         | token.TokenKind.Literal(lit) -> literal_to_string (lit)
 
         // Name components
-        | token.TokenKind.Ident(s, is_raw) -> IdentPrinter.new_(s, is_raw, convert_dollar_crate).to_string ()
+        | token.TokenKind.Ident(s, is_raw) -> IdentPrinter.new_(s, is_raw, convert_dollar_crate).to_string()
         | token.TokenKind.Lifetime(s) -> s.to_string ()
 
         // Other
@@ -858,7 +858,7 @@ type State with
     member self.comments() : Option<Comments> = self.comments_
 
     member self.print_ident(ident: Ident) =
-        self.s.word (IdentPrinter.for_ast_ident(ident, ident.is_raw_guess ()).to_string ())
+        self.s.word (IdentPrinter.for_ast_ident(ident, ident.is_raw_guess ()).to_string())
 
         self.ann.post (self, AnnNode.Ident(ident))
 
@@ -912,14 +912,14 @@ type State with
         let mutable i = 0
 
         for elt in elts do
-            self.maybe_print_comment (get_span(elt).hi ())
+            self.maybe_print_comment (get_span(elt).hi())
             op (self, elt)
             i <- i + 1
 
             if i < len then
                 self.s.word (",")
 
-                self.maybe_print_trailing_comment (get_span (elt), Some(get_span(elts[i]).hi ()))
+                self.maybe_print_trailing_comment (get_span (elt), Some(get_span(elts[i]).hi()))
 
                 self.s.space_if_not_bol ()
 
@@ -1593,7 +1593,7 @@ type State with
         self.print_expr_cond_paren (
             scrutinee,
             self.cond_needs_par (scrutinee)
-            || parser.needs_par_as_let_scrutinee (scrutinee.precedence().order ())
+            || parser.needs_par_as_let_scrutinee (scrutinee.precedence().order())
         )
 
     member self.print_else(els: Option<ast.Expr>) =
@@ -1645,7 +1645,7 @@ type State with
         self.s.pclose ()
 
     member self.print_expr_maybe_paren(expr: ast.Expr, prec: i8) =
-        self.print_expr_cond_paren (expr, expr.precedence().order () < prec)
+        self.print_expr_cond_paren (expr, expr.precedence().order() < prec)
 
     /// Prints an expr using syntax that's acceptable in a condition position, such as the `cond` in
     /// `if cond then ... }`.
@@ -2766,7 +2766,7 @@ type State with
     member self.print_remaining_comments() =
         // If there aren't any remaining comments, then we need to manually
         // make sure there is a line break at the end_.
-        if self.next_comment().is_none () then
+        if self.next_comment().is_none() then
             self.s.hardbreak ()
 
         let mutable cmnt = self.next_comment ()

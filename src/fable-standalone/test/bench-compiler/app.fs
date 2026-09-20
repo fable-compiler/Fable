@@ -147,7 +147,7 @@ type SourceWriter(sourcePath, targetPath, projDir, options: CmdLineOptions, file
 
         member _.Dispose() = ()
 
-    member _.SourceMap = mapGenerator.Force().toJSON ()
+    member _.SourceMap = mapGenerator.Force().toJSON()
     member _.Result = sb.ToString()
 
 let printErrors showWarnings (errors: Fable.Standalone.Error[]) =
