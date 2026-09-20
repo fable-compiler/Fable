@@ -632,6 +632,13 @@ let tryEntityIdent (com: Compiler) entFullName =
     match entFullName with
     | "Fable.Core.Dart.Future`1" -> makeIdentExpr "Future" |> Some
     | "Fable.Core.Dart.Stream`1" -> makeIdentExpr "Stream" |> Some
+    | "Microsoft.FSharp.Control.FSharpAsync`1" -> makeImportLib com MetaType "Async" "AsyncBuilder" |> Some
+    | "System.Threading.CancellationToken"
+    | "System.Threading.CancellationTokenSource" ->
+        makeImportLib com MetaType "CancellationToken" "AsyncBuilder" |> Some
+    | "System.Threading.CancellationTokenRegistration" -> makeImportLib com MetaType "IDisposable" "Types" |> Some
+    | "System.OperationCanceledException" ->
+        makeImportLib com MetaType "OperationCanceledException" "AsyncBuilder" |> Some
     | BuiltinDefinition BclDateOnly
     | BuiltinDefinition BclDateTime
     | BuiltinDefinition BclDateTimeOffset -> makeIdentExpr "DateTime" |> Some
@@ -715,6 +722,8 @@ let tryCoreOp com r t coreModule coreMember args =
 let fableCoreLib (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match i.DeclaringEntityFullName, i.CompiledName with
     | _, UniversalFableCoreHelpers com ctx r t i args error expr -> Some expr
+    | _, "Async.AwaitFuture.Static" -> Helper.LibCall(com, "Async", "awaitFuture", t, args, ?loc = r) |> Some
+    | _, "Async.StartAsFuture.Static" -> Helper.LibCall(com, "Async", "startAsFuture", t, args, ?loc = r) |> Some
     | "Fable.Core.Reflection", meth -> Helper.LibCall(com, "Reflection", meth, t, args, ?loc = r) |> Some
     | "Fable.Core.Compiler", meth ->
         match meth with
@@ -2614,6 +2623,9 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
         match i.DeclaringEntityFullName with
         | "System.Collections.Generic.KeyNotFoundException"
         | BuiltinSystemException _ -> bclType com ctx r t i thisArg args
+        | "System.OperationCanceledException" ->
+            let e = makeImportLib com Any "OperationCanceledException" "AsyncBuilder"
+            Helper.ConstructorCall(e, t, args, ?loc = r) |> Some
         | _ ->
             let e = makeImportLib com Any "ExceptionBase" "Types"
             Helper.ConstructorCall(e, t, args, ?loc = r) |> Some
@@ -4030,6 +4042,7 @@ let private replacedModules =
             "System.Random", random
             "System.Threading.CancellationToken", cancels
             "System.Threading.CancellationTokenSource", cancels
+            "System.Threading.CancellationTokenRegistration", disposables
             "System.Threading.Monitor", monitor
             "System.Activator", activator
             "System.Text.Encoding", encoding

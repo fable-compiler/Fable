@@ -22,6 +22,8 @@
         <Compile Include="System.Collections.Generic.fs" />
         <Compile Include="System.fs" />
         <Compile Include="System.Text.fs" />
+        <Content Include="Async.dart" />
+        <Content Include="AsyncBuilder.dart" />
         <Content Include="Date.dart" />
         <Content Include="Random.dart" />
         <Content Include="RegExp.dart" />

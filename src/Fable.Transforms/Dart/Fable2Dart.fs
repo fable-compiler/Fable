@@ -2158,6 +2158,19 @@ module Util =
             bindings @ body, captureExpr
 
         | Fable.Sequential exprs ->
+            // Fable appends a unit value after a throw, which Dart cannot type
+            let exprs =
+                match
+                    exprs
+                    |> List.tryFindIndex (fun e ->
+                        match e with
+                        | Fable.Extended(Fable.Throw _, _) -> true
+                        | _ -> false
+                    )
+                with
+                | Some i -> List.truncate (i + 1) exprs
+                | None -> exprs
+
             let exprs, lastExpr = List.splitLast exprs
 
             let statements1 = exprs |> List.collect (transform com ctx Ignore >> fst)
