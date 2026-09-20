@@ -10,6 +10,7 @@ reflection = ["fable_library_rust/reflection"]
 static_do_bindings = ["fable_library_rust/static_do_bindings"]
 threaded = ["fable_library_rust/threaded"]
 # default = ["no_std"] # Uncomment to default to "no_std" mode
+# default = ["reflection"] # Uncomment to default to "reflection" mode
 # default = ["threaded"] # Uncomment to default to "threaded" mode
 
 [dependencies]
