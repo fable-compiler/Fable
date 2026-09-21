@@ -5,6 +5,8 @@ open System.Collections.Generic
 open Fable.Tests.Util
 open Util.Testing
 
+type MyRecord = { a: int }
+
 // --- Construction ---
 
 [<Fact>]
