@@ -3,7 +3,7 @@ pub mod Reflection_ {
 
     use crate::Microsoft::FSharp::Quotations::FSharpPropertyInfo;
     use crate::NativeArray_::{array_from, Array};
-    use crate::Native_::{box_, box_lrc, Any, Func1, LrcPtr, MutCell, OnceInit, Vec};
+    use crate::Native_::{box_, box_lrc, unbox_lrc, Any, Func1, LrcPtr, MutCell, OnceInit, Vec};
     use crate::String_::string;
 
     #[cfg(feature = "no_std")]
@@ -215,16 +215,9 @@ pub mod Reflection_ {
         box_lrc(info)
     }
 
-    fn type_info_of(typ: &obj) -> RecordTypeInfo {
-        (**typ)
-            .downcast_ref::<RecordTypeInfo>()
-            .expect("Type does not carry record reflection info")
-            .clone()
-    }
-
     // FSharpValue.MakeRecord(typ, values, ?bindingFlags) -> obj
     pub fn makeRecord(typ: obj, values: Array<obj>, _flags: Option<i32>) -> obj {
-        let info = type_info_of(&typ);
+        let info = unbox_lrc::<RecordTypeInfo>(typ);
         (info.make)(values)
     }
 
@@ -246,7 +239,8 @@ pub mod Reflection_ {
 
     // FSharpType.GetRecordFields(typ, ?bindingFlags) -> PropertyInfo[]
     pub fn getRecordElements(typ: obj, _flags: Option<i32>) -> Array<LrcPtr<FSharpPropertyInfo>> {
-        let info = type_info_of(&typ);
+        let info = unbox_lrc::<RecordTypeInfo>(typ);
+        // registry_insert(info.tid, info.clone());
         let props: Vec<LrcPtr<FSharpPropertyInfo>> = info
             .fields
             .get()
@@ -258,8 +252,8 @@ pub mod Reflection_ {
 
     // FSharpValue.GetRecordFields(record, ?bindingFlags) -> obj[]
     pub fn getRecordFields(record: obj, typ: obj, _flags: Option<i32>) -> Array<obj> {
-        let info = type_info_of(&typ);
-        registry_insert(info.tid, LrcPtr::new(info.clone()));
+        let info = unbox_lrc::<RecordTypeInfo>(typ);
+        registry_insert(info.tid, info.clone());
         let vals: Vec<obj> = info
             .fields
             .get()

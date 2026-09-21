@@ -703,7 +703,6 @@ pub mod Native_ {
 
     #[cfg(not(feature = "lrc_ptr"))]
     pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
-        crate::Reflection_::register_type_name::<T>();
         match (&x as &dyn Any).downcast_ref::<LrcPtr<dyn Any>>() {
             Some(o) => o.clone(),
             None => LrcPtr::new(x) as LrcPtr<dyn Any>,
@@ -712,7 +711,6 @@ pub mod Native_ {
 
     #[cfg(feature = "lrc_ptr")]
     pub fn box_<T: 'static>(x: T) -> LrcPtr<dyn Any> {
-        crate::Reflection_::register_type_name::<T>();
         match (&x as &dyn Any).downcast_ref::<LrcPtr<dyn Any>>() {
             Some(o) => o.clone(),
             None => LrcPtr::from(Lrc::new(x) as Lrc<dyn Any>),
@@ -731,7 +729,6 @@ pub mod Native_ {
     // site) match the pointee's runtime type id for value-based reflection.
     #[cfg(not(feature = "lrc_ptr"))]
     pub fn box_lrc<T: 'static>(o: LrcPtr<T>) -> LrcPtr<dyn Any> {
-        crate::Reflection_::register_type_name::<T>();
         o
     }
 
@@ -740,7 +737,6 @@ pub mod Native_ {
     // pointer identity and the pointee's runtime type id are both preserved.
     #[cfg(feature = "lrc_ptr")]
     pub fn box_lrc<T: 'static>(o: LrcPtr<T>) -> LrcPtr<dyn Any> {
-        crate::Reflection_::register_type_name::<T>();
         let inner: Lrc<T> = Lrc::clone(&*o);
         let coerced: Lrc<dyn Any> = inner;
         LrcPtr::from(coerced)

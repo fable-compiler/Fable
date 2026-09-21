@@ -1872,9 +1872,6 @@ module Util =
                     match argType, arg.Type with
                     | Some Fable.Any, actualType ->
                         match arg, actualType with
-                        | Fable.IdentExpr ident, _ when ident.IsThisArgument && ctx.IsAssocMember ->
-                            let expr = transformLeaveContext com ctx (Some Fable.Any) arg
-                            [ expr |> makeClone ] |> makeLibCall com ctx None "Native" "box_lrc"
                         | MaybeCasted(Fable.IdentExpr ident), _ when ident.IsThisArgument && ctx.IsAssocMember ->
                             let expr = transformLeaveContext com ctx (Some Fable.Any) arg
                             [ expr |> makeClone ] |> makeLibCall com ctx None "Native" "box_lrc"
@@ -3614,7 +3611,7 @@ module Util =
             (mkInferTy ()) :: (transformGenTypes com ctx [ typ ]) |> mkTypesGenericArgs
 
         match fableExpr with
-        | Fable.IdentExpr ident when isDowncast ->
+        | MaybeCasted(Fable.IdentExpr ident) when isDowncast ->
             let downcastExpr = makeLibCall com ctx genArgsOpt "Native" "try_downcast" [ expr ]
             let pat = makeUnionCasePat (rawIdent "Some") [ makeFullNameIdentPat ident.Name ]
             mkLetExpr pat downcastExpr
