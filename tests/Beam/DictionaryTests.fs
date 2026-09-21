@@ -74,6 +74,28 @@ let ``test Dictionary.Remove works`` () =
     dic.Remove("C") |> equal false
     dic.Count |> equal 1
 
+[<Fact>]
+let ``test Dictionary.Remove with complex keys works`` () =
+    let dic = Dictionary<_, _>()
+    dic.Add((0,"A"), "Hello")
+    dic.Add((1,"B"), "World!")
+    dic.Remove((0,"A")) |> equal true
+    dic.Remove((1,"B")) |> equal true
+    dic.Count |> equal 0
+
+[<Fact>]
+let ``test Dictionary.Remove with records as keys works`` () =
+    let x1 = { a = 5 }
+    let x2 = { a = 5 }
+    let x3 = { a = 10 }
+    let x4 = { a = 15 }
+    let dict = Dictionary<_, _>()
+    dict.Add(x1, "Hello")
+    dict.Add(x3, "World!")
+    dict.Remove(x2) |> equal true
+    dict.Remove(x4) |> equal false
+    dict.Count |> equal 1
+
 // --- TryGetValue ---
 
 [<Fact>]
