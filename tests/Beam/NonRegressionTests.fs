@@ -168,6 +168,28 @@ let ``test inline outer with nested mutual recursion captures outer scope`` () =
 let spawn first second = first, second
 let start first second = spawn first second
 
+[<Import("spawn", "erlang")>]
+let erlangSpawn (moduleName: obj) (functionName: obj) (args: obj) : obj = nativeOnly
+
+let sendSpawned parent = Fable.Core.BeamInterop.emitErlExpr parent "$0 ! spawned"
+
 [<Fact>]
 let ``test local spawn function is not replaced by Erlang BIF`` () =
     start 1 2 |> equal (1, 2)
+
+[<Fact>]
+let ``test explicitly imported Erlang spawn BIF stays qualified`` () =
+#if FABLE_COMPILER
+    let parent: obj = Fable.Core.BeamInterop.emitErlExpr () "erlang:self()"
+    let moduleName: obj = Fable.Core.BeamInterop.emitErlExpr () "?MODULE"
+    let functionName: obj = Fable.Core.BeamInterop.emitErlExpr () "send_spawned"
+    let args: obj = Fable.Core.BeamInterop.emitErlExpr parent "[$0]"
+    erlangSpawn moduleName functionName args |> ignore
+
+    let received: bool =
+        Fable.Core.BeamInterop.emitErlExpr () "receive spawned -> true after 1000 -> false end"
+
+    received |> equal true
+#else
+    ()
+#endif
