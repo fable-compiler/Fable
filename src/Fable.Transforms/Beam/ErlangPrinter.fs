@@ -206,8 +206,7 @@ module Output =
                     | "throw"
                     | "exit"
                     | "self"
-                    | "node"
-                    | "spawn" -> $"erlang:%s{func}"
+                    | "node" -> $"erlang:%s{func}"
                     | _ -> func
 
                 sb.Append($"%s{qualifiedFunc}(") |> ignore

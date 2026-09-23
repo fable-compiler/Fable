@@ -164,3 +164,10 @@ module IssueInlineMutualRec =
 [<Fact>]
 let ``test inline outer with nested mutual recursion captures outer scope`` () =
     IssueInlineMutualRec.outer<int> 0 |> equal "ok"
+
+let spawn first second = first, second
+let start first second = spawn first second
+
+[<Fact>]
+let ``test local spawn function is not replaced by Erlang BIF`` () =
+    start 1 2 |> equal (1, 2)
