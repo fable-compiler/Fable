@@ -24,6 +24,15 @@ type MyUnion2 =
     | Tag of string
     | NewTag of string
 
+type IntegrityLevel =
+    | Untrusted
+    | Trusted
+
+    override this.ToString() =
+        match this with
+        | Untrusted -> "Untrusted"
+        | Trusted -> "Trusted"
+
 type IntUnion =
     | IntCase1 of int
     | IntCase2 of int
@@ -83,6 +92,14 @@ let ``test Union cases matches with no arguments can be generated`` () =
     | Female -> true
     | Male -> false
     |> equal false
+
+[<Fact>]
+let ``test union ToString override works`` () =
+    IntegrityLevel.Untrusted.ToString() |> equal "Untrusted"
+
+[<Fact>]
+let ``test percent O uses union ToString override`` () =
+    sprintf "%O" IntegrityLevel.Untrusted |> equal "Untrusted"
 
 [<Fact>]
 let ``test Union cases matches with one argument can be generated`` () =
