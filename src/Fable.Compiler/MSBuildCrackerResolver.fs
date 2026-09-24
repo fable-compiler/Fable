@@ -29,13 +29,7 @@ module private MSBuildCrackerResolver =
 
     type FullPath = string
 
-    let private run_dotnet_msbuild
-        (cwd: string)
-        (fsproj: FullPath)
-        (args: string)
-        (defines: string list)
-        : Async<int * string * string * string>
-        =
+    let private run_dotnet_msbuild (cwd: string) (fsproj: FullPath) (args: string) (defines: string list) =
         backgroundTask {
             let psi = ProcessStartInfo "dotnet"
 
@@ -64,7 +58,14 @@ module private MSBuildCrackerResolver =
             let output = ps.StandardOutput.ReadToEnd()
             let error = ps.StandardError.ReadToEnd()
             do! ps.WaitForExitAsync()
-            return ps.ExitCode, output.Trim(), error.Trim(), $"dotnet %s{psi.Arguments}"
+
+            return
+                {|
+                    ExitCode = ps.ExitCode
+                    Output = output.Trim()
+                    Error = error.Trim()
+                    Command = $"dotnet %s{psi.Arguments}"
+                |}
         }
         |> Async.AwaitTask
 
@@ -73,15 +74,15 @@ module private MSBuildCrackerResolver =
         // so retry this opaque failure once with BuildInParallel disabled.
         let rec run retrySerially args =
             async {
-                let! exitCode, output, error, command = run_dotnet_msbuild cwd fsproj args defines
+                let! result = run_dotnet_msbuild cwd fsproj args defines
 
-                if exitCode = 0 then
-                    return output
+                if result.ExitCode = 0 then
+                    return result.Output
                 elif
                     retrySerially
-                    && String.IsNullOrWhiteSpace output
-                    && not (error.Contains(": error ", StringComparison.OrdinalIgnoreCase))
-                    && error.Contains(
+                    && String.IsNullOrWhiteSpace result.Output
+                    && not (result.Error.Contains(": error ", StringComparison.OrdinalIgnoreCase))
+                    && result.Error.Contains(
                         "Build failed. Properties, Items, and Target results cannot be obtained.",
                         StringComparison.Ordinal
                     )
@@ -90,7 +91,7 @@ module private MSBuildCrackerResolver =
                     return! run false $"%s{args} /p:BuildInParallel=false"
                 else
                     return
-                        $"In %s{cwd}:\n%s{command}\nfailed with exit code %i{exitCode}\n%s{error}"
+                        $"In %s{cwd}:\n%s{result.Command}\nfailed with exit code %i{result.ExitCode}\n%s{result.Error}"
                         |> Fable.FableError
                         |> raise
             }
