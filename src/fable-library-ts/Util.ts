@@ -709,11 +709,15 @@ export function count<T>(col: Iterable<T>): number {
   }
 }
 
-export function clear<T>(col: Iterable<T>) {
-  if (isArrayLike(col)) {
-    (col as any as T[]).splice(0);
+export function clear<T>(col: Iterable<T>): void {
+  if (Array.isArray(col)) {
+    col.length = 0;
+  } else if (ArrayBuffer.isView(col)) {
+    // TODO: throw for typed arrays?
+  } else if (typeof (col as any).clear === "function") {
+    (col as any).clear(); // map, set
   } else {
-    (col as any).clear();
+    // TODO: throw for other collections?
   }
 }
 
