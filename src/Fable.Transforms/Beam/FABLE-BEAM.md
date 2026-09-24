@@ -471,8 +471,8 @@ IntegrityLevel.Untrusted.ToString()
 sprintf "%O" IntegrityLevel.Untrusted
 ```
 
-The Beam union tests cover both forms so direct dispatch and the printf transport cannot regress
-independently.
+The Beam record and union tests cover both forms so direct dispatch and the printf transport cannot
+regress independently across their different runtime representations.
 
 This is intentionally static dispatch. If the value has already been erased to `obj`, or its type
 is an uninlined generic parameter, the call site no longer identifies the declaring type and the

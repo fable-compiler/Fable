@@ -41,6 +41,11 @@ type RecordWithProperty =
     { items: string list }
     member this.fullName = String.concat " - " this.items
 
+type IntegrityRecord =
+    { Level: string }
+
+    override this.ToString() = this.Level
+
 [<Fact>]
 let ``test simple record creation works`` () =
     let p = { Name = "Alice"; Age = 30 }
@@ -180,6 +185,16 @@ let ``test Record methods can be generated`` () =
 let ``test Record property access uses correct naming`` () =
     let x = { items = ["Hello"; "World"] }
     equal "Hello - World" x.fullName
+
+[<Fact>]
+let ``test record ToString override works`` () =
+    let value: IntegrityRecord = { Level = "Untrusted" }
+    value.ToString() |> equal "Untrusted"
+
+[<Fact>]
+let ``test percent O uses record ToString override`` () =
+    let value: IntegrityRecord = { Level = "Untrusted" }
+    sprintf "%O" value |> equal "Untrusted"
 
 [<Fact>]
 let ``test Anonymous records can have optional fields`` () =
