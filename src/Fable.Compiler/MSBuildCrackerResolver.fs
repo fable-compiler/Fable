@@ -7,6 +7,7 @@ open System.Diagnostics
 open System.Text.Json
 open Fable
 open Fable.AST
+open Fable.Compiler.Util
 open Fable.Compiler.ProjectCracker
 
 module private MSBuildCrackerResolver =
@@ -28,13 +29,7 @@ module private MSBuildCrackerResolver =
 
     type FullPath = string
 
-    let private dotnet_msbuild_with_defines
-        (cwd: string)
-        (fsproj: FullPath)
-        (args: string)
-        (defines: string list)
-        : Async<string>
-        =
+    let private run_dotnet_msbuild (cwd: string) (fsproj: FullPath) (args: string) (defines: string list) =
         backgroundTask {
             let psi = ProcessStartInfo "dotnet"
 
@@ -64,14 +59,44 @@ module private MSBuildCrackerResolver =
             let error = ps.StandardError.ReadToEnd()
             do! ps.WaitForExitAsync()
 
-            let fullCommand = $"dotnet %s{psi.Arguments}"
-
-            if ps.ExitCode <> 0 then
-                failwithf $"In %s{psi.WorkingDirectory}:\n%s{fullCommand}\nfailed with\n%s{error}"
-
-            return output.Trim()
+            return
+                {|
+                    ExitCode = ps.ExitCode
+                    Output = output.Trim()
+                    Error = error.Trim()
+                    Command = $"dotnet %s{psi.Arguments}"
+                |}
         }
         |> Async.AwaitTask
+
+    let private dotnet_msbuild_with_defines cwd fsproj args defines =
+        // MSBuild can fail without diagnostics in some environments when building project references in parallel,
+        // so retry this opaque failure once with BuildInParallel disabled.
+        let rec run retrySerially args =
+            async {
+                let! result = run_dotnet_msbuild cwd fsproj args defines
+
+                if result.ExitCode = 0 then
+                    return result.Output
+                elif
+                    retrySerially
+                    && String.IsNullOrWhiteSpace result.Output
+                    && not (result.Error.Contains(": error ", StringComparison.OrdinalIgnoreCase))
+                    && result.Error.Contains(
+                        "Build failed. Properties, Items, and Target results cannot be obtained.",
+                        StringComparison.Ordinal
+                    )
+                then
+                    Log.warning "MSBuild project evaluation failed without diagnostics. Retrying serially."
+                    return! run false $"%s{args} /p:BuildInParallel=false"
+                else
+                    return
+                        $"In %s{cwd}:\n%s{result.Command}\nfailed with exit code %i{result.ExitCode}\n%s{result.Error}"
+                        |> Fable.FableError
+                        |> raise
+            }
+
+        run true args
 
     let private dotnet_msbuild (cwd: string) (fsproj: FullPath) (args: string) : Async<string> =
         dotnet_msbuild_with_defines cwd fsproj args List.empty
