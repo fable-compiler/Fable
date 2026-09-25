@@ -6,6 +6,34 @@ open Fable.Tests.Util
 
 type Animal = Duck of int | Dog of int
 
+// Fable routes System.Collections.IList members to the ResizeArray replacements
+type CustomList() =
+    let items = ResizeArray<obj>()
+    member _.Items = items
+    interface System.Collections.IList with
+        member _.Item
+            with get i = items.[i]
+            and set i v = items.[i] <- v
+        member _.IndexOf(item) = items.IndexOf(item)
+        member _.Insert(i, item) = items.Insert(i, item)
+        member _.RemoveAt(i) = items.RemoveAt(i)
+        member _.Count = items.Count
+        member _.IsReadOnly = false
+        member _.IsFixedSize = false
+        member _.IsSynchronized = false
+        member _.SyncRoot = box items
+        member _.Add(item) =
+            items.Add(item)
+            items.Count - 1
+        member _.Clear() = items.Clear()
+        member _.Contains(item) = items.Contains(item)
+        member _.CopyTo(array, arrayIndex) = items.CopyTo(array :?> obj[], arrayIndex)
+        member _.Remove(item) = items.Remove(item) |> ignore
+    interface IEnumerable<obj> with
+        member _.GetEnumerator() = (items :> IEnumerable<obj>).GetEnumerator()
+    interface System.Collections.IEnumerable with
+        member _.GetEnumerator() = (items :> System.Collections.IEnumerable).GetEnumerator()
+
 let tests =
   testList "ResizeArrays" [
     testCase "ResizeArray zero creation works" <| fun () ->
@@ -349,6 +377,13 @@ let tests =
         let coll = (ResizeArray xs) :> ICollection<_>
         coll.Clear()
         coll.Count |> equal 0
+
+    testCase "IList.Clear works on a custom collection" <| fun _ ->
+        let xs = CustomList()
+        xs.Items.Add(box 1)
+        xs.Items.Add(box 2)
+        (xs :> System.Collections.IList).Clear()
+        xs.Items.Count |> equal 0
 
     testCase "ResizeArray ICollection.Add works" <| fun _ ->
         let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
