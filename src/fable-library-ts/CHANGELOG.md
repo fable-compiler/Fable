@@ -1,5 +1,5 @@
 ---
-last_commit_released: 4a441b1926387a42db6a3a4294acd97b02760ca3
+last_commit_released: 2369fbd24fafe851544c1ed6eb54f0bfc2b75f36
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.8.0 - 2026-09-25
+
+### 🐞 Bug Fixes
+
+* *(js/ts)* Fix Dictionary.Remove and HashSet.Remove to remove empty buckets (#4985) ([aea61b56](https://github.com/fable-compiler/Fable/commit/aea61b562c461a9b383e805f06f68a3b21ed45c2))
+* *(js/ts)* Clear custom System.Collections.IList implementations ([2369fbd2](https://github.com/fable-compiler/Fable/commit/2369fbd24fafe851544c1ed6eb54f0bfc2b75f36))
+
+### ⚡ Performance Improvements
+
+* *(js/ts)* Faster `resizeArray.Clear()` in JS/TS ([32d85add](https://github.com/fable-compiler/Fable/commit/32d85add01422547dba03b15e0a0787d8afb031b))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/4a441b1926387a42db6a3a4294acd97b02760ca3..2369fbd24fafe851544c1ed6eb54f0bfc2b75f36)</small></strong>
 
 ## 2.7.1 - 2026-09-11
 

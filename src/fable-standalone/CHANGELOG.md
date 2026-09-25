@@ -1,5 +1,5 @@
 ---
-last_commit_released: 4a441b1926387a42db6a3a4294acd97b02760ca3
+last_commit_released: 2369fbd24fafe851544c1ed6eb54f0bfc2b75f36
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
@@ -19,6 +19,28 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 3.5.0 - 2026-09-25
+
+### 🚀 Features
+
+* *(dart)* Add `Async` runtime and `Future` interop for dart (#4978) ([b5a337d0](https://github.com/fable-compiler/Fable/commit/b5a337d0f71b2b1ae91516b8be8a65c7cadc9953))
+
+### 🐞 Bug Fixes
+
+* *(beam)* Preserve local spawn calls (#4992) ([70278ec6](https://github.com/fable-compiler/Fable/commit/70278ec636b7f948a6ba3d215b36a3974de89edc))
+* *(dart)* Prefix file scope names shadowed by class members (#4982) ([ece7b071](https://github.com/fable-compiler/Fable/commit/ece7b0714eae18650124cad017b0bda4da74ebc8))
+* *(js/ts)* Fix Dictionary.Remove and HashSet.Remove to remove empty buckets (#4985) ([aea61b56](https://github.com/fable-compiler/Fable/commit/aea61b562c461a9b383e805f06f68a3b21ed45c2))
+* *(js/ts)* Clear custom System.Collections.IList implementations ([2369fbd2](https://github.com/fable-compiler/Fable/commit/2369fbd24fafe851544c1ed6eb54f0bfc2b75f36))
+* *(python)* Keep the payload type when reading an erased union field (#4981) ([e0536ecd](https://github.com/fable-compiler/Fable/commit/e0536ecd9b9aeb12cc96c7a2ef2edde7089e2dd0))
+* *(rust)* Less allocations when enumerating strings (#4970) ([5d62380c](https://github.com/fable-compiler/Fable/commit/5d62380cb30dc1080c6943445a256e27db6246f8))
+* *(rust)* Remove reflection registration on boxing (#4983) ([50a37f78](https://github.com/fable-compiler/Fable/commit/50a37f78f31394d61349b09a025c1713529d8ec0))
+
+### ⚡ Performance Improvements
+
+* *(js/ts)* Faster `resizeArray.Clear()` in JS/TS ([32d85add](https://github.com/fable-compiler/Fable/commit/32d85add01422547dba03b15e0a0787d8afb031b))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/4a441b1926387a42db6a3a4294acd97b02760ca3..2369fbd24fafe851544c1ed6eb54f0bfc2b75f36)</small></strong>
 
 ## 3.4.0 - 2026-09-11
 
