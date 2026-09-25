@@ -101,6 +101,8 @@ pub mod Native_ {
 
     // impl<T: ?Sized + AsAny> Downcast for T {}
 
+    static NULL: OnceInit<Lrc<dyn Any>> = OnceInit::new();
+
     pub trait NullableRef {
         fn null() -> Self;
         fn is_null(&self) -> bool;
@@ -123,7 +125,6 @@ pub mod Native_ {
     impl NullableRef for Lrc<dyn Any> {
         #[inline]
         fn null() -> Self {
-            static NULL: OnceInit<Lrc<dyn Any>> = OnceInit::new();
             NULL.get_or_init(|| Lrc::new(())).clone()
         }
 
@@ -315,8 +316,7 @@ pub mod Native_ {
     }
 
     pub fn null_ptr<T>() -> Lrc<T> {
-        static NULL: OnceInit<Lrc<dyn Any>> = OnceInit::new();
-        let null_rc = NULL.get_or_init(move || Lrc::new(()));
+        let null_rc = NULL.get_or_init(|| Lrc::new(()));
         unsafe { Lrc::from_raw(Lrc::into_raw(null_rc.clone()) as *const T) }
     }
 
