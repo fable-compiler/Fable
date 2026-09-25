@@ -44,6 +44,7 @@ type Context =
         /// Vars declared in current function scope
         VarsDeclaredInScope: HashSet<string>
         ConstIdents: Set<string>
+        ShadowingMemberNames: Set<string>
     }
 
     member this.AddToScope(name) =
@@ -290,6 +291,44 @@ module Util =
             | '@' -> "$"
             | _ -> "_")
             name
+
+    /// In Dart, class members shadow the file scope within the class body, see https://github.com/fable-compiler/Fable/issues/4979
+    let isShadowedByClassMember (ctx: Context) (name: string) =
+        let isLocalName =
+            let locals = ctx.UsedNames.CurrentDeclarationScope
+            not (isNull locals) && locals.Contains(name)
+
+        ctx.ShadowingMemberNames.Contains(name)
+        && ctx.File.UsedNamesInRootScope.Contains(name)
+        && not isLocalName
+
+    let getShadowingMemberNames (ent: Fable.Entity) (decl: Fable.ClassDecl) =
+        let dispatchSlots =
+            ent.MembersFunctionsAndValues
+            |> Seq.choose (fun memb ->
+                if memb.IsDispatchSlot then
+                    Some memb.DisplayName
+                else
+                    None
+            )
+
+        set
+            [
+                yield! dispatchSlots
+                yield! ent.FSharpFields |> List.map (fun f -> sanitizeMember f.Name)
+                yield! decl.AttachedMembers |> List.map (fun memb -> sanitizeMember memb.Name)
+                if ent.IsFSharpUnion then
+                    "tag"
+
+                    yield!
+                        ent.UnionCases
+                        |> List.collect (fun uci -> uci.UnionCaseFields |> List.map (fun f -> sanitizeMember f.Name))
+            ]
+
+    /// A Dart library can import itself
+    let getSelfImportPrefix (com: IDartCompiler) ctx =
+        let selfModule = com.GetImportIdent(ctx, "*", com.CurrentFile, Fable.MetaType)
+        selfModule.Name
 
     let getUniqueNameInRootScope (ctx: Context) name =
         let name =
@@ -704,7 +743,12 @@ module Util =
         makeIdent isMutable typ name
 
     let transformIdent (com: IDartCompiler) ctx (id: Fable.Ident) : Ident =
-        transformIdentWith com ctx id.IsMutable id.Type id.Name
+        let ident = transformIdentWith com ctx id.IsMutable id.Type id.Name
+
+        if isShadowedByClassMember ctx id.Name then
+            { ident with ImportModule = Some(getSelfImportPrefix com ctx) }
+        else
+            ident
 
     let transformIdentAsExpr (com: IDartCompiler) ctx (id: Fable.Ident) =
         transformIdent com ctx id |> Expression.identExpression
@@ -3035,6 +3079,8 @@ module Util =
             let entRef = decl.Entity
             let ent = com.GetEntity(entRef)
 
+            let ctx = { ctx with ShadowingMemberNames = getShadowingMemberNames ent decl }
+
             if ent.IsInterface then
                 transformInterfaceDeclaration com ctx decl ent
             else
@@ -3195,6 +3241,7 @@ module Compiler =
                 OptimizeTailCall = fun () -> ()
                 VarsDeclaredInScope = HashSet()
                 ConstIdents = Set.empty
+                ShadowingMemberNames = Set.empty
             }
 
         let rootDecls = List.collect (transformDeclaration com ctx) file.Declarations
