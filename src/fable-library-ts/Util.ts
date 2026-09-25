@@ -716,6 +716,10 @@ export function clear<T>(col: Iterable<T>): void {
     // TODO: throw for typed arrays?
   } else if (typeof (col as any).clear === "function") {
     (col as any).clear(); // map, set
+  } else if (typeof (col as any)["System.Collections.Generic.ICollection`1.Clear"] === "function") {
+    (col as any)["System.Collections.Generic.ICollection`1.Clear"](); // collection
+  } else if (typeof (col as any)["System.Collections.IList.Clear"] === "function") {
+    (col as any)["System.Collections.IList.Clear"](); // collection
   } else {
     // TODO: throw for other collections?
   }
