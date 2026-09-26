@@ -53,6 +53,7 @@ let coreModFor =
     | BclDateTimeOffset -> "DateTimeOffset"
     | BclDateOnly -> "DateOnly"
     | BclTimeOnly -> "TimeOnly"
+    | BclRune -> "Rune"
     | BclTimer -> "Timer"
     | BclTimeSpan -> "TimeSpan"
     | FSharpSet _ -> "Set"
@@ -427,7 +428,8 @@ let applyOp (com: ICompiler) (ctx: Context) r t opName (args: Expr list) =
     match argTypes with
     // | Number(BigInt as kind,_)::_ ->
     //     Helper.LibCall(com, "BigInt", opName, t, args, argTypes, ?loc=r)
-    | Builtin(BclDateTime | BclDateTimeOffset | BclTimeOnly | BclTimeSpan) :: _ -> nativeOp opName argTypes args
+    | Builtin(BclDateTime | BclDateTimeOffset | BclTimeOnly | BclTimeSpan | BclRune) :: _ ->
+        nativeOp opName argTypes args
     | Builtin(FSharpSet _) :: _ ->
         let methName =
             match opName with
@@ -453,6 +455,7 @@ let isCompatibleWithNativeComparison =
     // | List _
     | Builtin(BclGuid) -> true
     | Builtin(BclTimeSpan) -> true
+    | Builtin(BclRune) -> true
     | _ -> false
 
 // Overview of hash rules:
@@ -471,6 +474,8 @@ let referenceHash (com: ICompiler) ctx r (arg: Expr) =
 let getHashCode (com: ICompiler) ctx r (arg: Expr) =
     match arg.Type with
     | HasReferenceEquality com _ -> referenceHash com ctx r arg
+    | Builtin BclRune -> Helper.LibCall(com, "Rune", "getHashCode", Int32.Number, [ arg ], ?loc = r)
+    | Char -> Helper.LibCall(com, "Char", "GetHashCode", Int32.Number, [ arg ], ?loc = r)
     | _ -> Helper.InstanceCall(arg, "getHashCode", Int32.Number, [], [], [], ?loc = r)
 
 let objectHash (com: ICompiler) ctx r (arg: Expr) =
@@ -658,6 +663,7 @@ let rec getZero (com: ICompiler) (ctx: Context) (t: Type) =
     | Builtin BclDateTimeOffset -> Helper.LibCall(com, "DateTimeOffset", "zero", t, [])
     | Builtin BclDateOnly -> Helper.LibCall(com, "DateOnly", "zero", t, [])
     | Builtin BclTimeOnly -> Helper.LibCall(com, "TimeOnly", "zero", t, [])
+    | Builtin BclRune -> Helper.LibCall(com, "Rune", "zero", t, [])
     | Builtin BclTimeSpan -> Helper.LibValue(com, "TimeSpan", "zero", t)
     | Builtin(FSharpSet genArg) -> makeSet com ctx None t [] genArg
     | Builtin BclGuid -> Helper.LibValue(com, "Guid", "empty", t)
@@ -1424,6 +1430,7 @@ let strings (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr opt
         | _ -> None
     | "get_Length", Some c, _ -> Helper.LibCall(com, "String", "length", t, c :: args, ?loc = r) |> Some
     | "get_Chars", Some c, _ -> Helper.LibCall(com, "String", "getCharAt", t, c :: args, ?loc = r) |> Some
+    | "EnumerateRunes", Some c, _ -> Helper.LibCall(com, "String", "enumerateRunes", t, [ c ], ?loc = r) |> Some
     | "CompareOrdinal", None, _ ->
         match args with
         | [ ExprType String; ExprType String ] ->
@@ -2860,6 +2867,69 @@ let timeOnly (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
     | "Add" when args.Length = 2 -> makeInstanceCall r t i thisArg.Value "add2" args |> Some
     | meth -> makeMemberCall com ctx r t i "TimeOnly" meth thisArg args |> Some
 
+let rune (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    let libCall memberName callArgs =
+        Helper.LibCall(com, "Rune", memberName, t, callArgs, i.SignatureArgTypes, ?loc = r)
+
+    let instanceCall memberName callArgs =
+        libCall memberName (thisArg.Value :: callArgs)
+
+    let firstArg =
+        match args with
+        | arg :: _ -> [ arg ]
+        | [] -> []
+
+    let isCultureInfoArg (arg: Expr) =
+        match arg.Type with
+        | DeclaredType(ent, _) -> ent.FullName = "System.Globalization.CultureInfo"
+        | _ -> false
+
+    match i.CompiledName, thisArg, args with
+    | ".ctor", None, [ ExprType(Char) ] -> Some args.Head
+    | ".ctor", None, [ ExprType(Number(Int32, _)) ] -> libCall "newInt" args |> Some
+    | ".ctor", None, [ ExprType(Number(UInt32, _)) ] -> libCall "newUInt" args |> Some
+    | ".ctor", None, [ ExprType(Char); ExprType(Char) ] -> libCall "newPair" args |> Some
+    | ("ReplacementChar" | "get_ReplacementChar"), None, [] -> libCall "replacementChar" [] |> Some
+    | "op_Explicit", None, [ ExprType(Char) ] -> Some args.Head
+    | "op_Explicit", None, [ ExprType(Number(Int32, _)) ] -> libCall "newInt" args |> Some
+    | "op_Explicit", None, [ ExprType(Number(UInt32, _)) ] -> libCall "newUInt" args |> Some
+    | "TryCreate", None, [ ExprType(Char); _ ] -> libCall "tryCreateChar" args |> Some
+    | "TryCreate", None, [ ExprType(Char); ExprType(Char); _ ] -> libCall "tryCreatePair" args |> Some
+    | "TryCreate", None, [ ExprType(Number(Int32, _)); _ ] -> libCall "tryCreateInt" args |> Some
+    | "TryCreate", None, [ ExprType(Number(UInt32, _)); _ ] -> libCall "tryCreateUInt" args |> Some
+    | "get_Value", Some _, [] -> instanceCall "value" [] |> Some
+    | "get_Utf8SequenceLength", Some _, [] -> instanceCall "utf8SequenceLength" [] |> Some
+    | "get_Utf16SequenceLength", Some _, [] -> instanceCall "utf16SequenceLength" [] |> Some
+    | "get_IsAscii", Some _, [] -> instanceCall "isAscii" [] |> Some
+    | "get_IsBmp", Some _, [] -> instanceCall "isBmp" [] |> Some
+    | "get_Plane", Some _, [] -> instanceCall "plane" [] |> Some
+    | "GetNumericValue", None, _ -> libCall "getNumericValue" firstArg |> Some
+    | "GetUnicodeCategory", None, _ -> libCall "getUnicodeCategory" firstArg |> Some
+    | ("IsControl" | "IsDigit" | "IsLetter" | "IsLetterOrDigit" | "IsLower" | "IsNumber" | "IsPunctuation" | "IsSeparator" | "IsSymbol" | "IsUpper" | "IsWhiteSpace"),
+      None,
+      _ ->
+        let meth = Naming.lowerFirst i.CompiledName
+        libCall meth firstArg |> Some
+    | "IsValid", None, [ ExprType(Number(Int32, _)) ] -> libCall "isValidInt" args |> Some
+    | "IsValid", None, [ ExprType(Number(UInt32, _)) ] -> libCall "isValidUInt" args |> Some
+    | "ToLower", None, [ runeArg; cultureInfo ] when isCultureInfoArg cultureInfo ->
+        libCall "toLowerInvariant" [ runeArg ] |> Some
+    | "ToLowerInvariant", None, _ -> libCall "toLowerInvariant" firstArg |> Some
+    | "ToUpper", None, [ runeArg; cultureInfo ] when isCultureInfoArg cultureInfo ->
+        libCall "toUpperInvariant" [ runeArg ] |> Some
+    | "ToUpperInvariant", None, _ -> libCall "toUpperInvariant" firstArg |> Some
+    | "GetRuneAt", None, _ -> libCall "getRuneAt" args |> Some
+    | "TryGetRuneAt", None, _ -> libCall "tryGetRuneAt" args |> Some
+    | "Parse", None, _ -> libCall "parse" firstArg |> Some
+    | "TryParse", None, _ -> libCall "tryParse" args |> Some
+    | "ToString", Some _, _ -> instanceCall "toString" [] |> Some
+    | "CompareTo", Some _, _ -> instanceCall "compareTo" args |> Some
+    | "Compare", None, _ -> libCall "compareTo" args |> Some
+    | "Equals", Some _, _ -> instanceCall "equals" args |> Some
+    | "Equals", None, _ -> libCall "equals" args |> Some
+    | "GetHashCode", Some _, _ -> libCall "getHashCode" [ thisArg.Value ] |> Some
+    | _ -> None
+
 let timeSpans (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     // let callee = match i.callee with Some c -> c | None -> i.args.Head
     match i.CompiledName with
@@ -3691,6 +3761,8 @@ let tryField com t ownerTyp fieldName =
         let meth = fieldName |> Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
 
         Helper.LibValue(com, "TimeSpan", meth, t) |> Some
+    | Builtin BclRune, "ReplacementChar"
+    | Builtin BclRune, "get_ReplacementChar" -> Helper.LibValue(com, "Rune", "replacementChar", t) |> Some
     | Builtin BclDateTime, _ ->
         let meth = fieldName |> Naming.lowerFirst
         makeStaticFieldCall com None t "DateTime" "DateTime" meth |> Some
@@ -3805,6 +3877,7 @@ let private replacedModules =
             Types.datetimeOffset, dateTimeOffsets
             Types.dateOnly, dateOnly
             Types.timeOnly, timeOnly
+            Types.rune, rune
             Types.timespan, timeSpans
             "System.Timers.Timer", timers
             "System.Environment", systemEnv
@@ -3974,6 +4047,7 @@ let tryType typ =
         | BclDateTimeOffset -> Some(Types.datetimeOffset, dateTimeOffsets, [])
         | BclDateOnly -> Some(Types.dateOnly, dateOnly, [])
         | BclTimeOnly -> Some(Types.timeOnly, timeOnly, [])
+        | BclRune -> Some(Types.rune, rune, [])
         | BclTimer -> Some("System.Timers.Timer", timers, [])
         | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclHashSet genArg -> Some(Types.hashset, hashSets, [ genArg ])

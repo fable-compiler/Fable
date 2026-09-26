@@ -294,6 +294,7 @@ type BuiltinType =
     | BclDateTimeOffset
     | BclDateOnly
     | BclTimeOnly
+    | BclRune
     | BclTimer
     | BclHashSet of Type
     | BclDictionary of key: Type * value: Type
@@ -313,6 +314,7 @@ let (|BuiltinDefinition|_|) =
     | Types.datetimeOffset -> ValueSome BclDateTimeOffset
     | Types.dateOnly -> ValueSome BclDateOnly
     | Types.timeOnly -> ValueSome BclTimeOnly
+    | Types.rune -> ValueSome BclRune
     | "System.Timers.Timer" -> ValueSome BclTimer
     | Types.fsharpSet -> ValueSome(FSharpSet(Any))
     | Types.fsharpMap -> ValueSome(FSharpMap(Any, Any))
