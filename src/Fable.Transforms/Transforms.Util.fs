@@ -229,6 +229,9 @@ module Types =
     let timeOnly = "System.TimeOnly"
 
     [<Literal>]
+    let rune = "System.Text.Rune"
+
+    [<Literal>]
     let timer = "System.Timers.Timer"
 
     [<Literal>]

@@ -30,6 +30,7 @@ let _imports () =
     importAll "./Random.rs"
     importAll "./Reflection.rs"
     importAll "./RegExp.rs"
+    importAll "./Rune.rs"
     importAll "./String.rs"
     importAll "./TimeOnly.rs"
     importAll "./TimeSpan.rs"

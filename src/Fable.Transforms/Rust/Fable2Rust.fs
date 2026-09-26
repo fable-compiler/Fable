@@ -866,6 +866,8 @@ module TypeInfo =
     let transformTimeOnlyType com ctx : Rust.Ty =
         transformImportType com ctx [] "TimeOnly" "TimeOnly"
 
+    let transformRuneType _com _ctx : Rust.Ty = primitiveType "char"
+
     let transformTimerType com ctx : Rust.Ty =
         transformImportType com ctx [] "DateTime" "Timer"
 
@@ -1130,6 +1132,7 @@ module TypeInfo =
         | Replacements.Util.BclDateTimeOffset -> transformDateTimeOffsetType com ctx
         | Replacements.Util.BclDateOnly -> transformDateOnlyType com ctx
         | Replacements.Util.BclTimeOnly -> transformTimeOnlyType com ctx
+        | Replacements.Util.BclRune -> transformRuneType com ctx
         | Replacements.Util.BclTimer -> transformTimerType com ctx
         | Replacements.Util.BclHashSet(genArg) -> transformHashSetType com ctx genArg
         | Replacements.Util.BclDictionary(k, v) -> transformHashMapType com ctx [ k; v ]

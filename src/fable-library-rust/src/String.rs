@@ -361,6 +361,10 @@ pub mod String_ {
         fromIter(it)
     }
 
+    pub fn enumerateRunes(s: string) -> Seq<char> {
+        toSeq(s)
+    }
+
     // -----------------------------------------------------------
     // string implementation
     // -----------------------------------------------------------

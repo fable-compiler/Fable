@@ -337,7 +337,47 @@ module Literals =
             span = DUMMY_SP
         }
 
+    let private normalizeStringLiteral (value: Symbol) =
+        let mutable builder: ValueOption<System.Text.StringBuilder> = ValueNone
+        let mutable index = 0
+
+        while index < value.Length do
+            let current = value[index]
+
+            if
+                System.Char.IsHighSurrogate(current)
+                && index + 1 < value.Length
+                && System.Char.IsLowSurrogate(value[index + 1])
+            then
+                match builder with
+                | ValueSome builder -> builder.Append(value, index, 2) |> ignore
+                | ValueNone -> ()
+
+                index <- index + 2
+            elif System.Char.IsSurrogate(current) then
+                match builder with
+                | ValueSome builder -> builder.Append('\uFFFD') |> ignore
+                | ValueNone ->
+                    let newBuilder = System.Text.StringBuilder(value.Length)
+                    newBuilder.Append(value, 0, index) |> ignore
+                    newBuilder.Append('\uFFFD') |> ignore
+                    builder <- ValueSome newBuilder
+
+                index <- index + 1
+            else
+                match builder with
+                | ValueSome builder -> builder.Append(current) |> ignore
+                | ValueNone -> ()
+
+                index <- index + 1
+
+        match builder with
+        | ValueSome builder -> builder.ToString()
+        | ValueNone -> value
+
     let mkStrLit (value: Symbol) : Lit =
+        let value = normalizeStringLiteral value
+
         {
             token = mkStrTokenLit (value.escape_debug ())
             kind = LitKind.Str(value, StrStyle.Cooked)
