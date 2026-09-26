@@ -385,15 +385,18 @@ is reached, and these degrade to the generic case below:
 ```fsharp
 box c |> string             // "50"  — the pipe binds it as obj first
 let b: obj = box c in string b       // "50"
-sprintf "%O" c              // "50"  — printf applies its arguments through a curried runtime
+sprintf "%O" c              // "50"  — no char converter is currently threaded to printf
 sprintf "%A" c              // "50"  — .NET gives "'2'"
 [ box '2' ] |> List.map string       // ["50"] — element type is obj
 ```
 
 The `%O`/`%A` cases are not a boxing problem but a printf one: `printf` parses its format string and
-applies its arguments at runtime, so no argument's static type reaches the formatter at all. Fixing
-those means threading per-argument type info from the call site — see "Structured formatting (`%A`)"
-below.
+applies its arguments through a curried runtime function. The compiler now preserves one narrow
+piece of static information across that boundary: when a concrete argument type overrides
+`System.Object.ToString()`, it supplies a converter for that argument and `%O` invokes it. This fixes
+custom record and union formatting without changing their runtime representation. It does not yet
+supply converters for primitive representations such as `char`, or the richer type information
+needed by `%A`; see "Object overrides and printf" and "Structured formatting (`%A`)" below.
 
 But when `string x` is applied where `x`'s type is a *generic parameter*, the backend can only emit
 `fable_convert:to_string/1`, which sees an integer and prints the number:
@@ -433,6 +436,57 @@ breaking change to a core type, costs arithmetic and comparison performance, and
 convention that strings are lists of integer codepoints. Not worth it for a case with a one-keyword
 workaround.
 
+### Object overrides and printf
+
+Records and unions are still bare maps, tuples, or atoms, so a runtime value cannot dynamically
+look up an attached method. Custom `System.Object.ToString()` overrides are instead resolved while
+the concrete F# type is available:
+
+- `ObjectOverrides` in `Prelude.fs` owns override detection, generated function naming, and
+  zero-argument call construction.
+- Declaration emission keeps `System.Object` overrides as module-level functions instead of putting
+  them in an instance dispatch map that a record or union value cannot carry.
+- Direct `value.ToString()` and `string value` use `ToString.toStringByType`, which first tries the
+  statically resolved override and then applies the built-in type-specific conversions.
+- `PrintfFormat<'Printer, _, _, _>` exposes its argument types as a nested lambda chain. The
+  `PrintfFormat` replacement uses those types to build a parallel list containing a custom
+  `ToString` converter or `undefined` for each argument. `fable_string:printf/2` carries the list
+  through the curried printer and applies a converter only for `%O`; `printf/1` remains the
+  backward-compatible path when no converters are needed. All consumers of that format object,
+  including `sprintf`, `printfn`, `eprintfn`, and `failwithf`, share the behavior.
+
+For example, both expressions below now produce `Untrusted` on Beam, matching .NET:
+
+```fsharp
+type IntegrityLevel =
+    | Untrusted
+    | Trusted
+
+    override this.ToString() =
+        match this with
+        | Untrusted -> "Untrusted"
+        | Trusted -> "Trusted"
+
+IntegrityLevel.Untrusted.ToString()
+sprintf "%O" IntegrityLevel.Untrusted
+```
+
+The Beam record and union tests cover both forms so direct dispatch and the printf transport cannot
+regress independently across their different runtime representations.
+
+This is intentionally static dispatch. If the value has already been erased to `obj`, or its type
+is an uninlined generic parameter, the call site no longer identifies the declaring type and the
+runtime fallback remains responsible for formatting it. The optional formatter list also currently
+tracks the `PrintfFormat` argument sequence directly. Any future generalization must account for
+format specifiers such as `%a`, `%t`, and `%*d`, whose consumed arguments do not have a simple
+one-specifier/one-value correspondence.
+
+This boundary is useful beyond custom overrides. The same mechanism could later carry statically
+selected `%O` converters for ambiguous primitives such as `char`, `decimal`, `DateTime`, and
+`TimeSpan`. It can also be reused at other compiler-visible formatting call sites such as string
+interpolation, `System.String.Format`, and `Console` overloads. Those paths should share the
+centralized static conversion logic rather than each acquiring its own override lookup.
+
 ### Structured formatting (`%A`) reads shapes, not types
 
 `%A` renders a value in F# syntax. The other targets get this for free because their generated types
@@ -466,13 +520,27 @@ the wrong style but is unreadable. They are still shape collisions rather than b
 the runtime term says "this reference is a ref cell, not an array" or "this integer is scaled" — and
 all four print at least as well as the `~p` dump they replaced.
 
-Recovering the first three needs the argument's static type threaded from the `%A` call site, where
-it does still exist: `printfn`'s `PrintfFormat<'Printer, _, _, _>` carries the per-argument types as
-a `LambdaType` chain in `CallInfo.GenericArgs`, which `NestedLambdaType` decomposes. That would mean
-emitting a `makeTypeInfo` per argument in `fsFormat` and pairing each format specifier with it in
-`create_printer` — machinery no Fable target has today, and it would still need a fallback for
-generic parameters (which erase to a placeholder) and for `%a`/`%t`/`%*d` specifiers whose arity does
-not line up with the value list.
+Recovering these cases needs more than the optional `ToString` converters now threaded for `%O`.
+The compiler can decompose the `PrintfFormat` lambda chain at the call site, but `%A` needs a richer
+description of each argument and type-aware recursive formatting for nested fields. A future design
+could pass compact type-info or formatter hints alongside the values, using the existing `%O`
+converter transport as the call-site boundary. It would still need a fallback for generic
+parameters (which erase to a placeholder) and a correct mapping for `%a`/`%t`/`%*d` specifiers whose
+arity does not line up with the format-specifier list.
+
+Persisting types in every runtime object is the alternative. A stable type token on records,
+unions, and class instances could support dynamic override dispatch, reflection, serializers,
+type tests, and unambiguous recursive `%A` formatting even after values flow through `obj`. But this
+is not a local formatting fix: nullary union cases could no longer remain bare atoms, records and
+union values would need wrappers or reserved metadata fields, and construction, pattern matching,
+equality, comparison, hashing, JSON/interop, and package compatibility would all be affected. A
+full type-info value is also a poor payload because it may contain functions and other terms with
+awkward equality semantics; a compact token plus a registry or generated reflection function would
+be safer.
+
+For now, Beam keeps its compact idiomatic representations and threads only the static information a
+specific call site needs. Self-describing values remain a possible future ABI revision rather than
+an incremental extension of the current object schema.
 
 Anything the formatter does not recognise — pids, ports, a cyclic term past the depth cap — falls
 back to `~tp`, which is what `%A` did for *everything* before, so it can never be worse than it was.
@@ -1315,12 +1383,14 @@ alone eliminates the single hardest piece of the Fable.Python runtime.
   pattern used for Call/Apply/BinOp arguments.
 - **sprintf / printfn / String.Format**: Full F# format string support via `fable_string.erl`
   runtime. `printf/1` parses format strings (`%d`, `%s`, `%.2f`, `%g`, `%x`, etc.) into a
-  continuation-based format object `#{input, cont}`. `to_text` (sprintf), `to_console`
+  continuation-based format object `#{input, cont}`. When a statically known argument type has a
+  custom `System.Object.ToString()` override, the compiler calls `printf/2` with a parallel list of
+  optional converters; the runtime applies them only to `%O`. `to_text` (sprintf), `to_console`
   (printfn), `to_console_error` (eprintfn), `to_fail` (failwithf) apply continuations with
   appropriate handlers. Multi-arity overloads (`to_text/1..5`) handle Fable's inlined arg
   passing where `CurriedApply` flattens curried args into a single call. `format/2` handles
   .NET `String.Format("{0} {1}", args)` with positional placeholders. Replacements routing:
-  `fsFormat` function handles `PrintfFormat.ctor` (→ `printf`), `PrintFormatToString`
+  `fsFormat` function handles `PrintfFormat.ctor` (→ `printf/1` or `printf/2`), `PrintFormatToString`
   (→ `to_text`), `PrintFormatLine`/`PrintFormat` (→ `to_console`), etc. Dispatched from both
   `operators` (for `ExtraTopLevelOperators.sprintf`) and `tryCall` (for `PrintfModule`/
   `PrintfFormat` entities). The old `toConsole` → `io:format("~s~n")` hack in Fable2Beam.fs

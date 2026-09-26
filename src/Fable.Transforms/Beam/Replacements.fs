@@ -38,6 +38,31 @@ let private isFunctionType (t: Type) =
     | DelegateType _ -> true
     | _ -> false
 
+let private printfArgumentTypes (t: Type) =
+    match t.Generics |> List.tryHead with
+    | Some(Fable.Transforms.AST.NestedLambdaType(argTypes, _)) -> argTypes
+    | _ -> []
+
+let private printfFormatters (com: ICompiler) r (t: Type) =
+    let formatters, hasCustomFormatter =
+        (([], false), printfArgumentTypes t)
+        ||> List.fold (fun (formatters, hasCustomFormatter) argType ->
+            let arg = makeTypedIdent argType $"printf_arg_%d{com.IncrementCounter()}"
+
+            match ObjectOverrides.tryCallZeroArg com r String "ToString" (IdentExpr arg) with
+            | Some call -> Lambda(arg, call, None) :: formatters, true
+            | None -> Value(Null Any, None) :: formatters, hasCustomFormatter
+        )
+
+    if hasCustomFormatter then
+        // Printf applies values later through a curried runtime function. Preserve the static type
+        // knowledge as a parallel list of converters; `undefined` keeps the ordinary runtime path.
+        (Value(NewList(None, Any), None), formatters)
+        ||> List.fold (fun tail formatter -> Value(NewList(Some(formatter, tail), Any), None))
+        |> Some
+    else
+        None
+
 let private physicalEquals r (left: Expr) (right: Expr) =
     // Reference identity. For function values, the same F# value can be represented as either an
     // uncurried fun or a re-curried nested adapter at different sites, which Erlang's `=:=` sees as
@@ -206,7 +231,12 @@ let private fsFormat
             Helper.LibCall(com, "fable_string", "interpolate", t, [ str; values ], i.SignatureArgTypes, ?loc = r)
             |> Some
     | ".ctor", _, arg :: _ ->
-        Helper.LibCall(com, "fable_string", "printf", t, [ arg ], i.SignatureArgTypes, ?loc = r)
+        let printfArgs =
+            match printfFormatters com r t with
+            | Some formatters -> [ arg; formatters ]
+            | None -> [ arg ]
+
+        Helper.LibCall(com, "fable_string", "printf", t, printfArgs, i.SignatureArgTypes, ?loc = r)
         |> Some
     | _ -> None
 
@@ -741,36 +771,7 @@ let private objects
         Helper.LibCall(com, "fable_comparison", "hash", t, [ thisObj ], ?loc = r)
         |> Some
     | "GetType", Some arg, _ -> makeTypeInfo r arg.Type |> Some
-    | "ToString", Some thisObj, [] ->
-        match thisObj.Type with
-        | Type.Char -> emitExpr r t [ thisObj ] "<<($0)/utf8>>" |> Some
-        | Type.Number(kind, _) ->
-            match kind with
-            | Decimal ->
-                Helper.LibCall(com, "fable_decimal", "to_string", t, [ thisObj ], ?loc = r)
-                |> Some
-            | Float16
-            | Float32
-            | Float64 ->
-                Helper.LibCall(com, "fable_convert", "to_string", t, [ thisObj ], ?loc = r)
-                |> Some
-            | _ -> emitExpr r t [ thisObj ] "integer_to_binary($0)" |> Some
-        | Type.Boolean -> emitExpr r t [ thisObj ] "atom_to_binary($0)" |> Some
-        | Type.String -> Some thisObj
-        | DeclaredType(ent, _) when ent.FullName = Types.timespan ->
-            Helper.LibCall(com, "fable_timespan", "to_string", t, [ thisObj ], ?loc = r)
-            |> Some
-        | DeclaredType(ent, _) when ent.FullName = Types.datetime ->
-            Helper.LibCall(com, "fable_date", "to_string", t, [ thisObj ], ?loc = r) |> Some
-        | DeclaredType(ent, _) when ent.FullName = "System.Uri" ->
-            Helper.LibCall(com, "fable_uri", "to_string", t, [ thisObj ], ?loc = r) |> Some
-        | DeclaredType(ent, _) when ent.FullName = "System.Text.StringBuilder" ->
-            // StringBuilder.ToString() → iolist_to_binary(get(maps:get(field_buf, get(Sb))))
-            emitExpr r t [ thisObj ] "iolist_to_binary(get(maps:get(field_buf, get($0))))"
-            |> Some
-        | _ ->
-            Helper.LibCall(com, "fable_convert", "to_string", t, [ thisObj ], ?loc = r)
-            |> Some
+    | "ToString", Some thisObj, [] -> ToString.toStringByType com r t thisObj
     | _ -> None
 
 /// Beam-specific System.ValueType replacements.
