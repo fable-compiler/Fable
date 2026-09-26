@@ -1,5 +1,5 @@
 ---
-last_commit_released: 2369fbd24fafe851544c1ed6eb54f0bfc2b75f36
+last_commit_released: bc367c0bde0fa0b52db04d5ee9c52b983fd7ffac
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -20,6 +20,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.18.0 - 2026-09-26
+
+### 🚀 Features
+
+* *(dart)* Add support for `System.Text.Rune` (#3860) (#4969) ([389edefb](https://github.com/fable-compiler/Fable/commit/389edefb5ed131ed14fea26a9aa04dde4f5c40cf))
+
+### 🐞 Bug Fixes
+
+* *(rust)* Use common null storage (#4995) ([ae165dd0](https://github.com/fable-compiler/Fable/commit/ae165dd0cf7248e22c3520d1e00347d0713d0526))
+* *(rust)* Add support for System.Text.Rune (#4997) ([bc367c0b](https://github.com/fable-compiler/Fable/commit/bc367c0bde0fa0b52db04d5ee9c52b983fd7ffac))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/2369fbd24fafe851544c1ed6eb54f0bfc2b75f36..bc367c0bde0fa0b52db04d5ee9c52b983fd7ffac)</small></strong>
 
 ## 5.17.0 - 2026-09-25
 
