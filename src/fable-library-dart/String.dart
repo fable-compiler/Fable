@@ -87,6 +87,33 @@ int getCharAtIndex(String input, int index) {
   return input.codeUnitAt(index);
 }
 
+int getRuneAt(String input, int index) {
+  if (index < 0 || index >= input.length) {
+    throw Exception('Index was outside the bounds of the array.');
+  }
+
+  late final iterator;
+  try {
+    iterator = RuneIterator.at(input, index);
+  } on ArgumentError catch (e) {
+    throw Exception(e.message);
+  }
+
+  iterator.moveNext();
+  final rune = iterator.current;
+
+  if (rune >= 0xD800 && rune <= 0xDFFF) {
+    throw Exception('Invalid UTF-16 sequence at index $index.');
+  }
+  return rune;
+}
+
+Iterable<int> enumerateRunes(String input) {
+  return input.runes.map(
+    (rune) => rune >= 0xD800 && rune <= 0xDFFF ? 0xFFFD : rune,
+  );
+}
+
 List<String> splitWithChars(String str,
     [List<int>? splitters, int? count, int? options]) {
   splitters ??= [];
