@@ -18,6 +18,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.UMX" Version="1.1.0" />
+    <PackageReference Include="FsToolkit.ErrorHandling" Version="5.2.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />

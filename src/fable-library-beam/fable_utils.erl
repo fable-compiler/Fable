@@ -24,6 +24,7 @@
     using/2,
     to_list/1,
     enumerate_to_list/1,
+    aggregate_exception/2,
     new_byte_array/1,
     new_byte_array_zeroed/1,
     new_byte_array_filled/2,
@@ -63,6 +64,7 @@
 -spec using(term(), fun()) -> term().
 -spec to_list(term()) -> list().
 -spec enumerate_to_list(term()) -> list().
+-spec aggregate_exception(binary(), term()) -> map().
 -spec new_byte_array(list() | binary() | tuple()) -> tuple().
 -spec new_byte_array_zeroed(non_neg_integer()) -> tuple().
 -spec new_byte_array_filled(non_neg_integer(), non_neg_integer()) -> tuple().
@@ -450,6 +452,29 @@ to_list(V) when is_binary(V) ->
     unicode:characters_to_list(V);
 to_list(V) ->
     V.
+
+%% AggregateException keeps the normal BEAM exception-map representation. Its exception
+%% sequence may be a params array ref, a list, or any other Fable enumerable.
+aggregate_exception(BaseMessage, ExceptionsValue) ->
+    Exceptions = to_list(ExceptionsValue),
+    InnerException =
+        case Exceptions of
+            [First | _] -> First;
+            [] -> undefined
+        end,
+    Message = iolist_to_binary([
+        BaseMessage
+        | [[<<" (">>, exception_message(Exception), <<")">>] || Exception <- Exceptions]
+    ]),
+    #{
+        message => Message,
+        inner_exception => InnerException,
+        inner_exceptions => new_ref(Exceptions)
+    }.
+
+exception_message(#{message := Message}) -> Message;
+exception_message(Exception) when is_reference(Exception) -> exception_message(get(Exception));
+exception_message(Exception) -> format_term(Exception).
 
 %% Enumerate a lazy seq object to a plain list using get_enumerator/move_next/get_current.
 enumerate_to_list(Seq) ->

@@ -746,6 +746,68 @@ let ``test Exception InnerException is null when not provided`` () =
     let ex = System.ArgumentException("no inner")
     isNull (box ex.InnerException) |> equal true
 
+[<Fact>]
+let ``test AggregateException retains all supplied exceptions`` () =
+    let first = Exception("first")
+    let second = Exception("second")
+    let aggregate = AggregateException(first, second)
+
+    aggregate.Message |> equal "One or more errors occurred. (first) (second)"
+    aggregate.InnerException.Message |> equal "first"
+
+    aggregate.InnerExceptions
+    |> Seq.map (fun ex -> ex.Message)
+    |> Seq.toList
+    |> equal [ "first"; "second" ]
+
+[<Fact>]
+let ``test AggregateException practical constructors work`` () =
+    let first = Exception("first")
+    let second = Exception("second")
+    let empty = AggregateException()
+    let messageOnly = AggregateException("explicit")
+    let exceptions = AggregateException([| first; second |])
+    let messageAndExceptions = AggregateException("explicit", [| first; second |])
+
+    empty.Message |> equal "One or more errors occurred."
+    empty.InnerExceptions |> Seq.isEmpty |> equal true
+    messageOnly.Message |> equal "explicit"
+    messageOnly.InnerExceptions |> Seq.isEmpty |> equal true
+    exceptions.InnerException.Message |> equal "first"
+    messageAndExceptions.Message |> equal "explicit (first) (second)"
+
+[<Fact>]
+let ``test raised AggregateException retains its details when caught`` () =
+    let first = Exception("first")
+    let second = Exception("second")
+    let aggregate = AggregateException("explicit", [| first; second |])
+
+    let caughtMessage, caughtInnerMessages =
+        try
+            raise aggregate
+            failwith "unreachable"
+        with caught ->
+            let caught = unbox<AggregateException> caught
+
+            caught.Message,
+            (caught.InnerExceptions
+             |> Seq.map (fun ex -> ex.Message)
+             |> Seq.toList)
+
+    caughtMessage |> equal "explicit (first) (second)"
+    caughtInnerMessages |> equal [ "first"; "second" ]
+
+[<Fact>]
+let ``test ordinary Exception and ArgumentException retain inner exceptions`` () =
+    let inner = Exception("inner")
+    let plain = Exception("plain", inner)
+    let argument = ArgumentException("argument", inner)
+
+    plain.Message |> equal "plain"
+    plain.InnerException.Message |> equal "inner"
+    argument.Message |> equal "argument"
+    argument.InnerException.Message |> equal "inner"
+
 // -- General / Misc --
 
 [<Fact>]
