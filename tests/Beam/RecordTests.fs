@@ -1,6 +1,7 @@
 module Fable.Tests.RecordTests
 
 open Fable.Tests.Util
+open Fable.Tests.UnionTypes
 open Util.Testing
 
 type Person = { Name: string; Age: int }
@@ -40,6 +41,11 @@ type PersonWithMethods =
 type RecordWithProperty =
     { items: string list }
     member this.fullName = String.concat " - " this.items
+
+type IntegrityRecord =
+    { Level: string }
+
+    override this.ToString() = this.Level
 
 [<Fact>]
 let ``test simple record creation works`` () =
@@ -180,6 +186,24 @@ let ``test Record methods can be generated`` () =
 let ``test Record property access uses correct naming`` () =
     let x = { items = ["Hello"; "World"] }
     equal "Hello - World" x.fullName
+
+[<Fact>]
+let ``test record ToString override works`` () =
+    let value: IntegrityRecord = { Level = "Untrusted" }
+    value.ToString() |> equal "Untrusted"
+    string value |> equal "Untrusted"
+
+[<Fact>]
+let ``test percent O uses record ToString override`` () =
+    let value: IntegrityRecord = { Level = "Untrusted" }
+    sprintf "%O" value |> equal "Untrusted"
+
+[<Fact>]
+let ``test ToString override can be called across files`` () =
+    let value = IntegrityLevel.Trusted
+    value.ToString() |> equal "Trusted"
+    string value |> equal "Trusted"
+    sprintf "%O" value |> equal "Trusted"
 
 [<Fact>]
 let ``test Anonymous records can have optional fields`` () =

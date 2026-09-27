@@ -39,7 +39,7 @@
     split_remove_empty/2,
     split_with_count/3,
     to_string/1,
-    printf/1,
+    printf/1, printf/2,
     to_text/1, to_text/2, to_text/3, to_text/4, to_text/5,
     to_console/1, to_console/2, to_console/3, to_console/4, to_console/5,
     to_console_error/1, to_console_error/2, to_console_error/3,
@@ -103,6 +103,7 @@
 -spec split_with_count(binary(), binary() | integer() | list(), non_neg_integer()) -> list().
 -spec to_string(term()) -> binary().
 -spec printf(binary()) -> map().
+-spec printf(binary(), list()) -> map().
 -spec to_text(map() | binary()) -> binary() | fun().
 -spec to_text(map() | binary(), term()) -> binary() | fun().
 -spec to_text(map() | binary(), term(), term()) -> binary() | fun().
@@ -438,10 +439,14 @@ to_string(V) ->
 %% Printf / sprintf / String.Format support
 %% =====================================================================
 
-%% printf/1 — Parse an F# format string and return a format object (map).
+%% printf/1,2 — Parse an F# format string and return a format object (map).
+%% The formatter list preserves statically known custom ToString converters for %O arguments.
 %% The format object has: input (original string), cont (function accepting a continuation).
 printf(Str) ->
-    Printer = fs_format(Str),
+    printf(Str, []).
+
+printf(Str, Formatters) ->
+    Printer = fs_format(Str, Formatters),
     #{input => Str, cont => Printer}.
 
 %% apply_curried/2 — Apply a list of args one at a time to a curried function.
@@ -801,11 +806,11 @@ pad_zeros(Bin, Width) ->
 %% Internal: F# format string parser
 %% =====================================================================
 
-%% fs_format/1 — Parse F# format string like "%d %s %.2f" and return
+%% fs_format/2 — Parse F# format string like "%d %s %.2f" and return
 %% fun(Cont) -> fun(Arg1) -> fun(Arg2) -> ... -> Cont(Result) end end end
-fs_format(Str) ->
+fs_format(Str, Formatters) ->
     {Parts, Specs} = parse_format(Str, <<>>, [], []),
-    create_printer(Parts, Specs).
+    create_printer(Parts, Specs, Formatters).
 
 %% parse_format/4 — Split format string into literal parts and format specifiers.
 %% Returns {[binary()], [string()]} where Parts has one more element than Specs.
@@ -845,30 +850,43 @@ parse_spec_precision(<<C, Rest/binary>>, Acc) when C >= $0, C =< $9 ->
 parse_spec_precision(<<C, Rest/binary>>, Acc) ->
     {[C | Acc], Rest}.
 
-%% create_printer/2 — Build nested curried functions from parts and specifiers.
+%% create_printer/3 — Build nested curried functions from parts and specifiers.
 %% Parts = [P0, P1, P2, ...], Specs = [S1, S2, ...]
 %% Result: fun(Cont) -> if no specs, Cont(P0); else fun(Arg1) -> ... end end
-create_printer([SinglePart], []) ->
+create_printer([SinglePart], [], _Formatters) ->
     %% No format specifiers — just a plain string
     fun(Cont) -> Cont(SinglePart) end;
-create_printer(Parts, Specs) ->
+create_printer(Parts, Specs, Formatters) ->
     fun(Cont) ->
-        build_curried(Parts, Specs, Cont, <<>>)
+        build_curried(Parts, Specs, Formatters, Cont, <<>>)
     end.
 
-build_curried([Part], [], Cont, Acc) ->
+build_curried([Part], [], _Formatters, Cont, Acc) ->
     Cont(<<Acc/binary, Part/binary>>);
-build_curried([Part | RestParts], [Spec | RestSpecs], Cont, Acc) ->
+build_curried([Part | RestParts], [Spec | RestSpecs], [Formatter | RestFormatters], Cont, Acc) ->
     NewAcc = <<Acc/binary, Part/binary>>,
     fun(Arg) ->
-        Formatted = format_value(Spec, Arg),
-        build_curried(RestParts, RestSpecs, Cont, <<NewAcc/binary, Formatted/binary>>)
+        Formatted = format_value(Spec, Arg, Formatter),
+        build_curried(RestParts, RestSpecs, RestFormatters, Cont, <<NewAcc/binary, Formatted/binary>>)
+    end;
+build_curried([Part | RestParts], [Spec | RestSpecs], [], Cont, Acc) ->
+    NewAcc = <<Acc/binary, Part/binary>>,
+    fun(Arg) ->
+        Formatted = format_value(Spec, Arg, undefined),
+        build_curried(RestParts, RestSpecs, [], Cont, <<NewAcc/binary, Formatted/binary>>)
     end.
 
-%% format_value/2 — Format a single value according to a format specifier string.
+%% format_value/2,3 — Format a single value according to a format specifier string.
 format_value(Spec, Value) ->
+    format_value(Spec, Value, undefined).
+
+format_value(Spec, Value, Formatter) ->
     {Flags, Width, Prec, Type} = parse_spec_parts(Spec),
-    Raw = format_raw(Type, Prec, Value),
+    Raw =
+        case Type =:= $O andalso is_function(Formatter, 1) of
+            true -> Formatter(Value);
+            false -> format_raw(Type, Prec, Value)
+        end,
     WithSign = apply_sign_flag(Flags, Raw, Value),
     apply_width(Flags, Width, WithSign).
 

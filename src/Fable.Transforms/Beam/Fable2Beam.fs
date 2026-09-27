@@ -4,6 +4,7 @@ open Fable
 open Fable.AST
 open Fable.AST.Fable
 open Fable.Transforms
+open Fable.Beam
 open Fable.Beam.Naming
 open Fable.Transforms.Beam.Util
 
@@ -2898,7 +2899,7 @@ and transformClassDeclaration
                     decl.AttachedMembers
                     |> List.choose (fun memb ->
                         match memb.ImplementedSignatureRef with
-                        | Some sigRef ->
+                        | Some sigRef when not (ObjectOverrides.isSystemObjectOverride memb) ->
                             let sigInfo = com.GetMember(sigRef)
                             let memberName = sanitizeErlangName memb.Name
 
@@ -2987,6 +2988,7 @@ and transformClassDeclaration
                                         memberName
 
                                 Some(atomLit keyName, closure)
+                        | Some _
                         | None -> None
                     )
 
@@ -3114,9 +3116,12 @@ and transformClassDeclaration
     let memberForms =
         decl.AttachedMembers
         |> List.collect (fun memb ->
-            // Skip interface implementations — they are inlined as closures
-            // in interfaceEntries and don't need separate module-level functions.
-            if memb.ImplementedSignatureRef.IsSome then
+            // Interface implementations are inlined as closures in interfaceEntries. System.Object
+            // overrides remain module-level functions because records and unions have no instance map.
+            if
+                memb.ImplementedSignatureRef.IsSome
+                && not (ObjectOverrides.isSystemObjectOverride memb)
+            then
                 []
             else
 
@@ -3254,8 +3259,7 @@ and transformClassDeclaration
                     [ Beam.ErlForm.Function funcDef ]
                 else
                     // Regular method: class_name_method(This, Args...) -> Body.
-                    let methodName = sanitizeErlangName memb.Name
-                    let funcName = $"%s{className}_%s{methodName}"
+                    let funcName = ObjectOverrides.functionName className memb.Name
                     let _thisArg, nonThisArgs, memberCtx = getThisAndArgs ()
 
                     let argPatterns =

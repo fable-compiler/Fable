@@ -548,6 +548,64 @@ module Chars =
         | Some _ -> Char
         | None -> e.Type
 
+/// Statically resolved implementations of virtual System.Object members.
+///
+/// Records and unions are bare maps/tuples/atoms on Beam, so they cannot carry an instance method
+/// table. Keep the generated function naming and lookup contract in one place: declaration emission
+/// uses the same name that call sites import.
+module ObjectOverrides =
+    open Fable
+    open Fable.AST
+    open Fable.AST.Fable
+    open Fable.Transforms
+
+    let isSystemObjectOverride (memb: MemberDecl) =
+        match memb.ImplementedSignatureRef with
+        | Some(MemberRef(entityRef, _)) -> entityRef.FullName = Types.object
+        | _ -> false
+
+    let functionName entityName memberName =
+        $"%s{entityName}_%s{Naming.sanitizeErlangName memberName}"
+
+    let tryCallZeroArg
+        (com: FSharp2Fable.IFableCompiler)
+        (r: SourceLocation option)
+        (returnType: Type)
+        memberName
+        (arg: Expr)
+        =
+        match arg.Type with
+        | DeclaredType(entRef, _) ->
+            let memberInfo =
+                {
+                    IsInstance = true
+                    CompiledName = memberName
+                    NonCurriedArgTypes = Some []
+                    AttributeFullNames = []
+                }
+
+            com.TryGetEntity(entRef)
+            |> Option.bind (fun ent -> ent.TryFindMember(memberInfo))
+            |> Option.filter (fun memb -> memb.IsOverrideOrExplicitInterfaceImplementation)
+            |> Option.bind (fun memb ->
+                entRef.SourcePath
+                |> Option.map (fun sourcePath ->
+                    let entityName = FSharp2Fable.Helpers.getEntityDeclarationName com entRef
+                    let calleeName = functionName entityName memb.CompiledName
+                    let calleeType = LambdaType(arg.Type, returnType)
+                    let memberRef = MemberRef(entRef, memberInfo)
+
+                    let callee =
+                        if sourcePath = com.CurrentFile && not com.IsPrecompilingInlineFunction then
+                            makeTypedIdentExpr calleeType calleeName
+                        else
+                            makeInternalMemberImport com calleeType memberRef calleeName sourcePath r
+
+                    makeCall r returnType (makeCallInfo None [ arg ] [ arg.Type ]) callee
+                )
+            )
+        | _ -> None
+
 /// Conversion of a value to its `string` form, dispatched on the static type.
 module ToString =
     open Fable.AST
@@ -568,18 +626,31 @@ module ToString =
     let toStringByType (com: ICompiler) (r: SourceLocation option) (t: Type) (arg: Expr) =
         let arg = Chars.tryAsChar arg |> Option.defaultValue arg
 
-        match arg.Type with
-        | Type.String -> Some arg
-        | Type.Char -> emitExpr r t [ arg ] "<<($0)/utf8>>" |> Some
-        | Type.Number(kind, _) ->
-            match kind with
-            | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", t, [ arg ], ?loc = r) |> Some
-            | Float16
-            | Float32
-            | Float64 -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
-            | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
-        | Type.Boolean -> emitExpr r t [ arg ] "atom_to_binary($0)" |> Some
-        | _ -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
+        match ObjectOverrides.tryCallZeroArg com r t "ToString" arg with
+        | Some call -> Some call
+        | None ->
+            match arg.Type with
+            | Type.String -> Some arg
+            | Type.Char -> emitExpr r t [ arg ] "<<($0)/utf8>>" |> Some
+            | Type.Number(kind, _) ->
+                match kind with
+                | Decimal -> Helper.LibCall(com, "fable_decimal", "to_string", t, [ arg ], ?loc = r) |> Some
+                | Float16
+                | Float32
+                | Float64 -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
+                | _ -> emitExpr r t [ arg ] "integer_to_binary($0)" |> Some
+            | Type.Boolean -> emitExpr r t [ arg ] "atom_to_binary($0)" |> Some
+            | DeclaredType(ent, _) when ent.FullName = Types.timespan ->
+                Helper.LibCall(com, "fable_timespan", "to_string", t, [ arg ], ?loc = r) |> Some
+            | DeclaredType(ent, _) when ent.FullName = Types.datetime ->
+                Helper.LibCall(com, "fable_date", "to_string", t, [ arg ], ?loc = r) |> Some
+            | DeclaredType(ent, _) when ent.FullName = "System.Uri" ->
+                Helper.LibCall(com, "fable_uri", "to_string", t, [ arg ], ?loc = r) |> Some
+            | DeclaredType(ent, _) when ent.FullName = "System.Text.StringBuilder" ->
+                // StringBuilder.ToString() → iolist_to_binary(get(maps:get(field_buf, get(Sb))))
+                emitExpr r t [ arg ] "iolist_to_binary(get(maps:get(field_buf, get($0))))"
+                |> Some
+            | _ -> Helper.LibCall(com, "fable_convert", "to_string", t, [ arg ], ?loc = r) |> Some
 
 /// Fixed-width integer semantics. Erlang integers are arbitrary precision and never
 /// overflow, so operations that can leave the width of a .NET sized integer are routed
