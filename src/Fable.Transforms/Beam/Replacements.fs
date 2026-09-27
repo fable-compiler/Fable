@@ -5934,6 +5934,24 @@ let tryCall
         | "Capture", _, [ arg ] -> Some arg
         | "Throw", Some arg, _ -> makeThrow r t arg |> Some
         | _ -> None
+    | "System.AggregateException" ->
+        let makeAggregateException message exceptions =
+            Helper.LibCall(com, "fable_utils", "aggregate_exception", t, [ message; exceptions ], ?loc = r)
+            |> Some
+
+        match info.CompiledName, thisArg, args, info.SignatureArgTypes with
+        | ".ctor", None, [], _ ->
+            makeAggregateException (makeStrConst "One or more errors occurred.") (Value(NewList(None, Any), None))
+        | ".ctor", None, [ message ], [ String ] -> makeAggregateException message (Value(NewList(None, Any), None))
+        | ".ctor", None, [ exceptions ], [ _ ] ->
+            makeAggregateException (makeStrConst "One or more errors occurred.") exceptions
+        | ".ctor", None, [ message; exceptions ], [ String; _ ] -> makeAggregateException message exceptions
+        | "get_Message", Some aggregate, _, _ -> emitExpr r t [ aggregate ] "maps:get(message, $0, $0)" |> Some
+        | "get_InnerException", Some aggregate, _, _ ->
+            emitExpr r t [ aggregate ] "maps:get(inner_exception, $0, undefined)" |> Some
+        | "get_InnerExceptions", Some aggregate, _, _ ->
+            emitExpr r t [ aggregate ] "maps:get(inner_exceptions, $0)" |> Some
+        | _ -> None
     | "System.Exception" ->
         match info.CompiledName, thisArg, args with
         | ".ctor", None, [ msg ] -> emitExpr r t [ msg ] "#{message => $0}" |> Some
