@@ -471,8 +471,10 @@ IntegrityLevel.Untrusted.ToString()
 sprintf "%O" IntegrityLevel.Untrusted
 ```
 
-The Beam record and union tests cover both forms so direct dispatch and the printf transport cannot
-regress independently across their different runtime representations.
+The Beam record and union tests cover direct calls, the `string` operator, `%O`, mixed format
+arguments, partial application, and a cross-file call. This keeps static override lookup, generated
+imports, and the printf transport from regressing independently across the atom/tuple and map
+representations.
 
 This is intentionally static dispatch. If the value has already been erased to `obj`, or its type
 is an uninlined generic parameter, the call site no longer identifies the declaring type and the
@@ -481,11 +483,33 @@ tracks the `PrintfFormat` argument sequence directly. Any future generalization 
 format specifiers such as `%a`, `%t`, and `%*d`, whose consumed arguments do not have a simple
 one-specifier/one-value correspondence.
 
-This boundary is useful beyond custom overrides. The same mechanism could later carry statically
-selected `%O` converters for ambiguous primitives such as `char`, `decimal`, `DateTime`, and
-`TimeSpan`. It can also be reused at other compiler-visible formatting call sites such as string
-interpolation, `System.String.Format`, and `Console` overloads. Those paths should share the
-centralized static conversion logic rather than each acquiring its own override lookup.
+#### Proposed follow-up: an argument-slot formatting plan
+
+The optional converter list is a deliberately narrow bridge for custom `%O`; it should not grow
+into a collection of unrelated formatter flags. Its entries follow the `PrintfFormat` argument type
+sequence, while the runtime currently consumes one entry per parsed format specifier. That happens
+to align for ordinary `%O`, but it is not the general printf model:
+
+- `%O`, `%A`, and `%d` consume one value argument.
+- `%*d` consumes a width and a value.
+- `%a` consumes a printer and a value.
+- `%t` consumes a thunk.
+
+Before adding type-directed formatting for more cases, replace the simple correspondence with an
+explicit argument-slot plan. The compiler should build the plan centrally from the format and its
+`PrintfFormat` lambda chain. Each slot describes its role (value, width, printer, or thunk) and may
+carry a statically selected value formatter. The runtime then consumes slots according to the
+specifier's actual arity instead of assuming one specifier equals one argument.
+
+The current custom `ToString` closure becomes the first value-formatter hint in that plan. Later
+hints can cover representation-ambiguous primitives such as `char`, `decimal`, `DateTime`, and
+`TimeSpan`, and richer descriptors or generated recursive formatters can support `%A`. String
+interpolation, `System.String.Format`, and `Console` overloads should reuse the same centralized
+static formatting selection rather than acquire independent type-dispatch tables.
+
+Dynamic formats, values already erased to `obj`, and uninlined generic parameters still need the
+runtime shape-based fallback. The plan transports information available at a typed call site; it
+does not make values self-describing or change their Erlang representation.
 
 ### Structured formatting (`%A`) reads shapes, not types
 
@@ -521,12 +545,9 @@ the runtime term says "this reference is a ref cell, not an array" or "this inte
 all four print at least as well as the `~p` dump they replaced.
 
 Recovering these cases needs more than the optional `ToString` converters now threaded for `%O`.
-The compiler can decompose the `PrintfFormat` lambda chain at the call site, but `%A` needs a richer
-description of each argument and type-aware recursive formatting for nested fields. A future design
-could pass compact type-info or formatter hints alongside the values, using the existing `%O`
-converter transport as the call-site boundary. It would still need a fallback for generic
-parameters (which erase to a placeholder) and a correct mapping for `%a`/`%t`/`%*d` specifiers whose
-arity does not line up with the format-specifier list.
+The argument-slot plan described above should carry compact type descriptors or generated recursive
+formatters for `%A`; full reflection maps are unnecessary. Generic parameters that erase to a
+placeholder still use the shape-based fallback.
 
 Persisting types in every runtime object is the alternative. A stable type token on records,
 unions, and class instances could support dynamic override dispatch, reflection, serializers,

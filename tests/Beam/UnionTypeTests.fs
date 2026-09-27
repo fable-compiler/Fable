@@ -95,11 +95,17 @@ let ``test Union cases matches with no arguments can be generated`` () =
 
 [<Fact>]
 let ``test union ToString override works`` () =
-    IntegrityLevel.Untrusted.ToString() |> equal "Untrusted"
+    let value = IntegrityLevel.Untrusted
+    value.ToString() |> equal "Untrusted"
+    string value |> equal "Untrusted"
 
 [<Fact>]
 let ``test percent O uses union ToString override`` () =
     sprintf "%O" IntegrityLevel.Untrusted |> equal "Untrusted"
+    sprintf "%d %O" 42 IntegrityLevel.Untrusted |> equal "42 Untrusted"
+
+    let formatIntegrityLevel = sprintf "%O"
+    formatIntegrityLevel IntegrityLevel.Trusted |> equal "Trusted"
 
 [<Fact>]
 let ``test Union cases matches with one argument can be generated`` () =
