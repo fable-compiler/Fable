@@ -97,9 +97,6 @@ let makeStaticFieldCall com r t moduleName entityName memberName =
     let memberName = entityName + "::" + memberName
     Helper.LibCall(com, moduleName, memberName, t, [], ?isModuleMember = Some(false), ?loc = r)
 
-let makeLibCall com r t (i: CallInfo) moduleName memberName args =
-    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, i.GenericArgs, ?loc = r)
-
 let makeLibModuleCall com r t (i: CallInfo) moduleName memberName (thisArg: Expr option) (args: Expr list) =
     let args, argTypes =
         match thisArg with
@@ -107,6 +104,9 @@ let makeLibModuleCall com r t (i: CallInfo) moduleName memberName (thisArg: Expr
         | None -> args, i.SignatureArgTypes
 
     Helper.LibCall(com, moduleName, memberName, t, args, argTypes, i.GenericArgs, ?loc = r)
+
+let makeLibCall com r t (i: CallInfo) moduleName memberName args =
+    Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, ?loc = r)
 
 let libCallThis com r t (i: CallInfo) moduleName memberName thisArg args =
     Helper.LibCall(com, moduleName, memberName, t, args, i.SignatureArgTypes, ?thisArg = thisArg, ?loc = r)
