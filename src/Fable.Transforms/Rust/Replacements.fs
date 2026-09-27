@@ -2150,12 +2150,13 @@ let decimals (com: ICompiler) (ctx: Context) r (t: Type) (i: CallInfo) (thisArg:
         applyCompareOp com ctx r t i.CompiledName left right |> Some
     | Patterns.SetContains Operators.standardSet, _, _ -> applyOp com ctx r t i.CompiledName args |> Some
     | "op_Explicit", _, _ -> convertTo com ctx r t args |> Some
-    | ("Ceiling" | "Floor" | "Truncate" | "Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp" | "Add" | "Subtract" | "Multiply" | "Divide" | "Remainder" | "Negate") as meth,
+    | ("Abs" | "Sign" | "Ceiling" | "Floor" | "Truncate" | "Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp" | "Add" | "Subtract" | "Multiply" | "Divide" | "Remainder" | "Negate") as meth,
       _,
       _ ->
         let meth = Naming.lowerFirst meth
-
         makeLibCall com r t i "Decimal" meth args |> Some
+    | ("CopySign" | "FromOACurrency" | "GetTypeCode" | "ToOACurrency") as meth, _, _ ->
+        makeLibCall com r t i "Decimal" (Naming.lowerFirst meth) args |> Some
     | ("get_Zero" | "get_One" | "get_MinusOne" | "get_MinValue" | "get_MaxValue"), _, _ ->
         libValue com r t "Decimal" (Naming.removeGetSetPrefix i.CompiledName) [] |> Some
     | ("IsInteger" | "IsEvenInteger" | "IsOddInteger" | "IsCanonical" | "IsNegative" | "IsPositive"), _, _ ->

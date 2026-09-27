@@ -36,6 +36,10 @@ pub mod Decimal_ {
     pub fn abs(x: decimal) -> decimal { x.abs() }
     pub fn sign(x: decimal) -> i32 { x.signum().to_i32().unwrap() }
 
+    pub fn copySign(x: decimal, sign: decimal) -> decimal {
+        if x.is_sign_negative() == sign.is_sign_negative() { x } else { -x }
+    }
+
     pub fn max(x: decimal, y: decimal) -> decimal { x.max(y) }
     pub fn min(x: decimal, y: decimal) -> decimal { x.min(y) }
 
@@ -83,6 +87,14 @@ pub mod Decimal_ {
 
     pub fn toDecimal(x: decimal) -> decimal { x }
 
+    pub fn toOACurrency(x: decimal) -> i64 {
+        let scaled = x * Decimal::from_i32(10000).unwrap();
+        scaled
+            .round_dp_with_strategy(0, RoundingStrategy::MidpointNearestEven)
+            .to_i64()
+            .unwrap()
+    }
+
     pub fn toBoolean(x: decimal) -> bool { !x.is_zero() }
 
     pub fn toChar(x: decimal) -> char {
@@ -92,6 +104,8 @@ pub mod Decimal_ {
     pub fn toString(x: decimal) -> string {
         toString_1(&x)
     }
+
+    pub fn getTypeCode() -> i32 { 15 }
 
     pub fn tryParse(s: string, res: &MutCell<Decimal>) -> bool {
         match Decimal::from_str(s.trim()) {
@@ -122,6 +136,10 @@ pub mod Decimal_ {
     pub fn fromFloat64(n: f64) -> decimal { Decimal::from_f64(n).unwrap() }
 
     pub fn fromDecimal(d: decimal) -> decimal { d }
+
+    pub fn fromOACurrency(value: i64) -> decimal {
+        Decimal::from_i64(value).unwrap() / Decimal::from_i32(10000).unwrap()
+    }
 
     pub fn fromBoolean(b: bool) -> decimal {
         Decimal::from_u32(b as u32).unwrap()
@@ -190,13 +208,9 @@ pub mod Decimal_ {
         roundToMode(x, 0, mode)
     }
 
-    // pub fn copySign
     // pub fn createChecked
     // pub fn createSaturating
     // pub fn createTruncating
-    // pub fn fromOACurrency
-    // pub fn getTypeCode
-    // pub fn toOACurrency
     // pub fn tryFormat
     // pub fn tryGetBits
 }
