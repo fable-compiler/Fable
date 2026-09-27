@@ -475,6 +475,9 @@ module Types =
     let iformatProvider = "System.IFormatProvider"
 
     [<Literal>]
+    let cultureInfo = "System.Globalization.CultureInfo"
+
+    [<Literal>]
     let iobserverGeneric = "System.IObserver`1"
 
     [<Literal>]
