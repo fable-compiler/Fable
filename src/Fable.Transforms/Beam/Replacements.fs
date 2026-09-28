@@ -326,7 +326,13 @@ let private operators
         | _ -> emitExpr r _t [ arg ] "float(erlang:floor($0))" |> Some
     | "Log", [ arg ] -> emitExpr r _t [ arg ] "math:log($0)" |> Some
     | "Log10", [ arg ] -> emitExpr r _t [ arg ] "math:log10($0)" |> Some
-    | "Log2", [ arg ] -> emitExpr r _t [ arg ] "math:log2($0)" |> Some
+    | "Log2", [ arg ] ->
+        match arg.Type with
+        | Type.Number(Float16, _)
+        | Type.Number(Float32, _)
+        | Type.Number(Float64, _) -> emitExpr r _t [ arg ] "math:log2($0)" |> Some
+        | Type.Number _ -> Helper.LibCall(com, "fable_int", "log2", _t, [ arg ], ?loc = r) |> Some
+        | _ -> emitExpr r _t [ arg ] "math:log2($0)" |> Some
     | ("Pow" | "PowInteger" | "op_Exponentiation"), [ base_; exp_ ] ->
         match base_.Type with
         | Type.Number(Decimal, _) ->
@@ -5719,7 +5725,7 @@ let tryCall
         | "Log", None, [ arg ] -> emitExpr r t [ arg ] "math:log(float($0))" |> Some
         | "Log", None, [ arg; base_ ] -> emitExpr r t [ arg; base_ ] "(math:log(float($0)) / math:log($1))" |> Some
         | "Log10", None, [ arg ] -> emitExpr r t [ arg ] "math:log10(float($0))" |> Some
-        | "Log2", None, [ arg ] -> emitExpr r t [ arg ] "math:log2(float($0))" |> Some
+        | "Log2", None, [ arg ] -> Helper.LibCall(com, "fable_int", "log2", t, [ arg ], ?loc = r) |> Some
         | "DivRem", None, [ x; y ] -> emitExpr r t [ x; y ] "{$0 div $1, $0 rem $1}" |> Some
         | "DivRem", None, [ x; y; refRem ] ->
             Helper.LibCall(com, "fable_utils", "div_rem", t, [ x; y; refRem ], ?loc = r)
