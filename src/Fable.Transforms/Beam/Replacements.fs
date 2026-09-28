@@ -23,6 +23,32 @@ let private wrapToIntType (com: ICompiler) r (t: Type) (sourceType: Type) (expr:
         Helper.LibCall(com, "fable_int", Integers.wrapFunctionName info, t, [ expr ], ?loc = r)
     | _ -> expr
 
+let private integerRangeArgs (bits, signed) =
+    [ makeIntConst bits; makeBoolConst signed ]
+
+let private sizedIntInfoForEntity =
+    function
+    | Types.int8 -> Some(8, true)
+    | Types.uint8 -> Some(8, false)
+    | Types.int16 -> Some(16, true)
+    | Types.uint16 -> Some(16, false)
+    | Types.int32 -> Some(32, true)
+    | Types.uint32 -> Some(32, false)
+    | Types.int64 -> Some(64, true)
+    | Types.uint64 -> Some(64, false)
+    | _ -> None
+
+let private checkedIntegerCall (com: ICompiler) r t funcName args rangeInfo =
+    let args =
+        match rangeInfo with
+        | Some info -> args @ integerRangeArgs info
+        | None -> args
+
+    Helper.LibCall(com, "fable_convert", funcName, t, args, ?loc = r)
+
+let private checkedIntegerCallForType com r t funcName args =
+    checkedIntegerCall com r t funcName args (Integers.sizedIntInfo t)
+
 /// Convert an expression *into* a BigInteger. Erlang integers are already arbitrary-precision, so
 /// this is the identity for an integral source. A float must be truncated toward zero, the way
 /// `BigInteger(double)` does: leaving it as a float would hand a non-integer to the integer
@@ -405,9 +431,7 @@ let private operators
     | ("ToSByte" | "ToByte" | "ToInt8" | "ToUInt8" | "ToInt16" | "ToUInt16" | "ToInt" | "ToUInt" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"),
       [ arg ] ->
         match arg.Type with
-        // TODO: `fable_convert:to_int` does not range-check against the target type, so
-        // out-of-range input yields the parsed value instead of raising the way .NET does.
-        | Type.String -> Helper.LibCall(com, "fable_convert", "to_int", _t, [ arg ], ?loc = r) |> Some
+        | Type.String -> checkedIntegerCallForType com r _t "to_int" [ arg ] |> Some
         | Type.Number(kind, _) ->
             match kind with
             | Decimal ->
@@ -723,10 +747,8 @@ let private languagePrimitives
     | "DivideByInt", [ left; right ] -> makeBinOp r t left right BinaryDivide |> Some
     // IntrinsicFunctions within LanguagePrimitives
     | "UnboxFast", [ arg ] -> TypeCast(arg, t) |> Some
-    | ("ParseInt32" | "ParseUInt32"), [ arg ] ->
-        Helper.LibCall(com, "fable_convert", "to_int", t, [ arg ], ?loc = r) |> Some
-    | ("ParseInt64" | "ParseUInt64"), [ arg ] ->
-        Helper.LibCall(com, "fable_convert", "to_int", t, [ arg ], ?loc = r) |> Some
+    | ("ParseInt32" | "ParseUInt32"), [ arg ] -> checkedIntegerCallForType com r t "to_int" [ arg ] |> Some
+    | ("ParseInt64" | "ParseUInt64"), [ arg ] -> checkedIntegerCallForType com r t "to_int" [ arg ] |> Some
     | _ -> None
 
 let private unchecked
@@ -1394,7 +1416,7 @@ let private conversions
     | ("ToSByte" | "ToByte" | "ToInt8" | "ToUInt8" | "ToInt16" | "ToUInt16" | "ToInt" | "ToUInt" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64" | "ToIntPtr" | "ToUIntPtr"),
       [ arg ] ->
         match arg.Type with
-        | Type.String -> Helper.LibCall(com, "fable_convert", "to_int", t, [ arg ], ?loc = r) |> Some
+        | Type.String -> checkedIntegerCallForType com r t "to_int" [ arg ] |> Some
         | Type.Number(kind, _) ->
             match kind with
             | Float16
@@ -1459,10 +1481,11 @@ let private numericTypes
         | "System.Decimal" -> Helper.LibCall(com, "fable_decimal", "parse", t, [ arg ], ?loc = r) |> Some
         | _ ->
             // Int32, Int64, Byte, etc. — all parse to integer
-            emitExpr r t [ arg ] "binary_to_integer($0)" |> Some
+            checkedIntegerCallForType com r t "to_int" [ arg ] |> Some
     | "Parse", None, [ arg; _style ] ->
         // NumberStyles.HexNumber — parse hex string to integer
-        emitExpr r t [ arg ] "binary_to_integer($0, 16)" |> Some
+        checkedIntegerCallForType com r t "to_int_with_base" [ arg; makeIntConst 16 ]
+        |> Some
     | "ToString", Some c, [] ->
         match c.Type with
         | Type.Number(kind, _) ->
@@ -1505,7 +1528,13 @@ let private numericTypes
             Helper.LibCall(com, "fable_decimal", "try_parse", t, [ str; outRef ], ?loc = r)
             |> Some
         | _ ->
-            Helper.LibCall(com, "fable_convert", "try_parse_int", t, [ str; outRef ], ?loc = r)
+            checkedIntegerCall
+                com
+                r
+                t
+                "try_parse_int"
+                [ str; outRef ]
+                (sizedIntInfoForEntity info.DeclaringEntityFullName)
             |> Some
     // Numeric type static methods that delegate to operators
     | ("Min" | "Max" | "MinMagnitude" | "MaxMagnitude" | "Clamp" | "Log2" | "DivRem"), _, _ ->
@@ -1564,7 +1593,7 @@ let private convert
     =
     let toInt (arg: Expr) =
         match arg.Type with
-        | Type.String -> Helper.LibCall(com, "fable_convert", "to_int", t, [ arg ], ?loc = r) |> Some
+        | Type.String -> checkedIntegerCallForType com r t "to_int" [ arg ] |> Some
         | Type.Char -> Some arg
         | Type.Number(kind, _) ->
             match kind with
@@ -1591,9 +1620,7 @@ let private convert
     | ("ToSByte" | "ToByte" | "ToInt16" | "ToUInt16" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64"), [ arg ] ->
         toInt arg
     | ("ToSByte" | "ToByte" | "ToInt16" | "ToUInt16" | "ToInt32" | "ToUInt32" | "ToInt64" | "ToUInt64"),
-      [ arg; baseArg ] ->
-        Helper.LibCall(com, "fable_convert", "to_int_with_base", t, [ arg; baseArg ], ?loc = r)
-        |> Some
+      [ arg; baseArg ] -> checkedIntegerCallForType com r t "to_int_with_base" [ arg; baseArg ] |> Some
     | ("ToSingle" | "ToDouble"), [ arg ] -> toFloat arg
     | "ToChar", [ arg ] ->
         match arg.Type with
