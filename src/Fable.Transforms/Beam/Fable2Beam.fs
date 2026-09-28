@@ -92,7 +92,8 @@ type Context =
         CtorFieldExprs: Map<string, Beam.ErlExpr> // field name -> Erlang expr during constructor
         ClassFieldPrefix: bool // When true, NewRecord uses "field_" prefix for map keys (for explicit val field class ctors)
         CtorParamNames: Set<string> // Constructor parameter names (stored as class fields)
-        CatchReasonVar: (string * string) option // (catch ident name, Erlang reason var name) for reraise support
+        // invariant: CatchVars retains class, reason, and stacktrace so reraise preserves native exception identity.
+        CatchVars: (string * string * string * string) option
     }
 
 /// Check if an entity ref refers to an interface type
@@ -881,16 +882,18 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         match catch_, afterExprs with
         | Some(ident, catchExpr), _ ->
             // Create a temp var for the raw reason, then bind the catch ident.
-            // Custom exceptions (maps with __type) are preserved as-is.
+            // Custom exceptions (maps with exn_type) are preserved as-is.
             // Plain errors (binaries from failwith, atoms, etc.) are wrapped in #{message => ...}.
             let ctr = com.IncrementCounter()
+            let classVar = $"_Exn_class_%d{ctr}"
             let reasonVar = $"Exn_reason_%d{ctr}"
+            let stackVar = $"_Exn_stack_%d{ctr}"
             let identVar = capitalizeFirst ident.Name
 
             let ctx' =
                 { ctx with
                     LocalVars = ctx.LocalVars.Add(ident.Name)
-                    CatchReasonVar = Some(ident.Name, reasonVar)
+                    CatchVars = Some(ident.Name, classVar, reasonVar, stackVar)
                 }
 
             let erlCatchBody = transformExpr com ctx' catchExpr
@@ -900,10 +903,10 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 | Beam.ErlExpr.Block es -> es
                 | e -> [ e ]
 
-            // Only generate the exception wrapping/binding when the catch body
-            // actually references the exception identifier. This avoids unused
-            // term warnings from the Erlang compiler.
-            if containsIdentRef ident.Name catchExpr then
+            // Only generate the exception wrapping/binding when the lowered catch body still
+            // reads it. A source-level `reraise` references the Fable catch identifier, but it
+            // lowers directly to erlang:raise/3 with the raw catch variables.
+            if catchBodyExprs |> List.exists (referencesVariable identVar) then
                 let reasonRef = Beam.ErlExpr.Variable reasonVar
 
                 let formatExpr =
@@ -977,22 +980,41 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                         )
                     )
 
-                Beam.ErlExpr.TryCatch(bodyExprs, reasonVar, [ bindIdent ] @ catchBodyExprs, afterExprs)
+                Beam.ErlExpr.TryCatch(
+                    bodyExprs,
+                    classVar,
+                    reasonVar,
+                    stackVar,
+                    [ bindIdent ] @ catchBodyExprs,
+                    afterExprs
+                )
             else
-                Beam.ErlExpr.TryCatch(bodyExprs, reasonVar, catchBodyExprs, afterExprs)
+                Beam.ErlExpr.TryCatch(bodyExprs, classVar, reasonVar, stackVar, catchBodyExprs, afterExprs)
         | None, [] ->
             // No catch handler and no finalizer
             erlBody
         | None, _ ->
             // No catch handler but has finalizer (use binding) → try/after
             let ctr = com.IncrementCounter()
+            let classVar = $"_Exn_class_%d{ctr}"
             let reasonVar = $"Exn_reason_%d{ctr}"
+            let stackVar = $"_Exn_stack_%d{ctr}"
             // Re-throw in catch to preserve the error after running the after block
             Beam.ErlExpr.TryCatch(
                 bodyExprs,
+                classVar,
                 reasonVar,
+                stackVar,
                 [
-                    Beam.ErlExpr.Call(Some "erlang", "error", [ Beam.ErlExpr.Variable reasonVar ])
+                    Beam.ErlExpr.Call(
+                        Some "erlang",
+                        "raise",
+                        [
+                            Beam.ErlExpr.Variable classVar
+                            Beam.ErlExpr.Variable reasonVar
+                            Beam.ErlExpr.Variable stackVar
+                        ]
+                    )
                 ],
                 afterExprs
             )
@@ -1301,19 +1323,39 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         | Throw(Some exprArg, _typ) ->
             // For reraise: if the thrown expression references the catch ident,
             // use the raw Erlang reason variable to preserve the original exception.
-            match exprArg, ctx.CatchReasonVar with
-            | IdentExpr ident, Some(catchIdentName, reasonVar) when ident.Name = catchIdentName ->
-                Beam.ErlExpr.Call(Some "erlang", "error", [ Beam.ErlExpr.Variable reasonVar ])
+            match exprArg, ctx.CatchVars with
+            | IdentExpr ident, Some(catchIdentName, classVar, reasonVar, stackVar) when ident.Name = catchIdentName ->
+                Beam.ErlExpr.Call(
+                    Some "erlang",
+                    "raise",
+                    [
+                        Beam.ErlExpr.Variable classVar
+                        Beam.ErlExpr.Variable reasonVar
+                        Beam.ErlExpr.Variable stackVar
+                    ]
+                )
             | _ ->
                 let erlExpr = transformExpr com ctx exprArg
                 Beam.ErlExpr.Call(Some "erlang", "error", [ erlExpr ])
         | Throw(None, _typ) ->
-            // Re-raise (should not normally happen outside catch context)
-            Beam.ErlExpr.Call(
-                Some "erlang",
-                "error",
-                [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "rethrow")) ]
-            )
+            match ctx.CatchVars with
+            | Some(_, classVar, reasonVar, stackVar) ->
+                Beam.ErlExpr.Call(
+                    Some "erlang",
+                    "raise",
+                    [
+                        Beam.ErlExpr.Variable classVar
+                        Beam.ErlExpr.Variable reasonVar
+                        Beam.ErlExpr.Variable stackVar
+                    ]
+                )
+            | None ->
+                // Re-raise should not occur outside a catch context.
+                Beam.ErlExpr.Call(
+                    Some "erlang",
+                    "error",
+                    [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "rethrow")) ]
+                )
         | Curry(e, arity) when
             arity >= 2
             && arity <= 7
@@ -1994,13 +2036,28 @@ and transformTest (com: IBeamCompiler) (ctx: Context) (kind: TestKind) (expr: Ex
             Beam.ErlExpr.BinOp("andalso", isRef, isList)
         | Fable.AST.Fable.Type.Tuple _ -> Beam.ErlExpr.Call(None, "is_tuple", [ erlExpr ])
         | Fable.AST.Fable.Type.DeclaredType(ref, _) ->
-            // For exception types, check __type tag: (is_map(X) andalso maps:get(__type, X, undefined) =:= type_name)
+            // For exception types, check the nominal exn_type tag.
             // For other types, check is_map or is_reference (class instances use refs)
             let isMap = Beam.ErlExpr.Call(None, "is_map", [ erlExpr ])
             let isRef = Beam.ErlExpr.Call(None, "is_reference", [ erlExpr ])
 
-            match com.TryGetEntity(ref) with
-            | Some entity when entity.IsFSharpExceptionDeclaration ->
+            match ref.FullName, com.TryGetEntity(ref) with
+            | Replacements.Util.BuiltinSystemException typeName, _ ->
+                Beam.ErlExpr.Call(
+                    Some "fable_utils",
+                    "is_exception_type",
+                    [ erlExpr; atomLit (sanitizeErlangName typeName) ]
+                )
+            | ("System.Exception" | "System.AggregateException" | "System.Collections.Generic.KeyNotFoundException" | "System.OperationCanceledException"),
+              _ ->
+                let typeName = ref.FullName.Substring(ref.FullName.LastIndexOf('.') + 1)
+
+                Beam.ErlExpr.Call(
+                    Some "fable_utils",
+                    "is_exception_type",
+                    [ erlExpr; atomLit (sanitizeErlangName typeName) ]
+                )
+            | _, Some entity when entity.IsFSharpExceptionDeclaration ->
                 let typeName = sanitizeErlangName entity.DisplayName
 
                 let typeCheck =
@@ -3705,7 +3762,7 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             CtorFieldExprs = Map.empty
             ClassFieldPrefix = false
             CtorParamNames = Set.empty
-            CatchReasonVar = None
+            CatchVars = None
         }
 
     let ctorNameRegistry = System.Collections.Generic.Dictionary<string, string>()

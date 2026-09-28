@@ -5954,10 +5954,16 @@ let tryCall
         | _ -> None
     | "System.Exception" ->
         match info.CompiledName, thisArg, args with
-        | ".ctor", None, [ msg ] -> emitExpr r t [ msg ] "#{message => $0}" |> Some
-        | ".ctor", None, [ msg; inner ] -> emitExpr r t [ msg; inner ] "#{message => $0, inner_exception => $1}" |> Some
+        | ".ctor", None, [ msg ] -> emitExpr r t [ msg ] "#{exn_type => exception, message => $0}" |> Some
+        | ".ctor", None, [ msg; inner ] ->
+            emitExpr r t [ msg; inner ] "#{exn_type => exception, message => $0, inner_exception => $1}"
+            |> Some
         | ".ctor", None, [] ->
-            emitExpr r t [] "#{message => <<\"Exception of type 'System.Exception' was thrown.\">>}"
+            emitExpr
+                r
+                t
+                []
+                "#{exn_type => exception, message => <<\"Exception of type 'System.Exception' was thrown.\">>}"
             |> Some
         | "get_Message", Some c, _ ->
             // Handle both map exceptions and reference-based class exceptions
@@ -5980,21 +5986,30 @@ let tryCall
     | BuiltinSystemException _
     | "System.Collections.Generic.KeyNotFoundException"
     | "System.OperationCanceledException" ->
+        let typeName = info.DeclaringEntityFullName
+
+        let typeTag =
+            typeName.Substring(typeName.LastIndexOf('.') + 1) |> sanitizeErlangName
+
         match info.CompiledName, thisArg, args with
-        | ".ctor", None, [ msg ] -> emitExpr r t [ msg ] "#{message => $0}" |> Some
+        | ".ctor", None, [ msg ] -> emitExpr r t [ msg ] $"#{{exn_type => %s{typeTag}, message => $0}}" |> Some
         | ".ctor", None, [ msg; second ] ->
             match info.SignatureArgTypes with
             // (message, paramName): paramName is not modelled, only the message is kept
-            | [ _; String ] -> emitExpr r t [ msg ] "#{message => $0}" |> Some
+            | [ _; String ] -> emitExpr r t [ msg ] $"#{{exn_type => %s{typeTag}, message => $0}}" |> Some
             // (message, innerException)
-            | _ -> emitExpr r t [ msg; second ] "#{message => $0, inner_exception => $1}" |> Some
+            | _ ->
+                emitExpr r t [ msg; second ] $"#{{exn_type => %s{typeTag}, message => $0, inner_exception => $1}}"
+                |> Some
         // (message, paramName, innerException)
         | ".ctor", None, [ msg; _paramName; inner ] ->
-            emitExpr r t [ msg; inner ] "#{message => $0, inner_exception => $1}" |> Some
+            emitExpr r t [ msg; inner ] $"#{{exn_type => %s{typeTag}, message => $0, inner_exception => $1}}"
+            |> Some
         | ".ctor", None, [] ->
-            let typeName = info.DeclaringEntityFullName
             let msg = $"Exception of type '%s{typeName}' was thrown."
-            emitExpr r t [] $"#{{message => <<\"%s{msg}\">>}}" |> Some
+
+            emitExpr r t [] $"#{{exn_type => %s{typeTag}, message => <<\"%s{msg}\">>}}"
+            |> Some
         | "get_Message", Some c, _ -> emitExpr r t [ c ] "maps:get(message, $0, $0)" |> Some
         | "get_InnerException", Some c, _ -> emitExpr r t [ c ] "maps:get(inner_exception, $0, undefined)" |> Some
         | _ -> None

@@ -407,7 +407,7 @@ module Output =
 
             complexExprWithParens sb indent expr
 
-        | TryCatch(body, catchVar, catchBody, after) ->
+        | TryCatch(body, catchClassVar, catchReasonVar, catchStackVar, catchBody, after) ->
             sb.AppendLine("try") |> ignore
 
             let tryBody = stripNoEffect body
@@ -427,7 +427,9 @@ module Output =
             writeIndent ()
             sb.AppendLine($"catch") |> ignore
             writeIndent ()
-            sb.AppendLine($"    _:%s{catchVar} ->") |> ignore
+
+            sb.AppendLine($"    %s{catchClassVar}:%s{catchReasonVar}:%s{catchStackVar} ->")
+            |> ignore
 
             let catchBody' = stripNoEffect catchBody
 
