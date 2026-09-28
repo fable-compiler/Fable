@@ -7,7 +7,8 @@
     wrap_u8/1,
     wrap_u16/1,
     wrap_u32/1,
-    wrap_u64/1
+    wrap_u64/1,
+    log2/1
 ]).
 
 -spec wrap_i8(integer()) -> integer().
@@ -18,6 +19,7 @@
 -spec wrap_u16(integer()) -> non_neg_integer().
 -spec wrap_u32(integer()) -> non_neg_integer().
 -spec wrap_u64(integer()) -> non_neg_integer().
+-spec log2(integer()) -> non_neg_integer().
 
 %% Fixed-width (two's complement) integer semantics for .NET sized integers.
 %%
@@ -71,3 +73,26 @@ wrap_u64(N) when N >= 0, N =< 16#FFFFFFFFFFFFFFFF -> N;
 wrap_u64(N) ->
     <<V:64/unsigned>> = <<N:64>>,
     V.
+
+%% Compute integer log2 from bit length rather than floating point so UInt64 and
+%% arbitrary-precision values stay exact above the IEEE-754 integer precision limit.
+log2(N) when N < 0 ->
+    erlang:error(#{
+        exn_type => argument_out_of_range_exception,
+        message => <<"Non-negative number required. (Parameter 'value')">>
+    });
+log2(0) ->
+    0;
+log2(N) ->
+    Bin = binary:encode_unsigned(N),
+    <<MostSignificantByte, _/binary>> = Bin,
+    (byte_size(Bin) - 1) * 8 + log2_byte(MostSignificantByte).
+
+log2_byte(N) when N >= 16#80 -> 7;
+log2_byte(N) when N >= 16#40 -> 6;
+log2_byte(N) when N >= 16#20 -> 5;
+log2_byte(N) when N >= 16#10 -> 4;
+log2_byte(N) when N >= 16#08 -> 3;
+log2_byte(N) when N >= 16#04 -> 2;
+log2_byte(N) when N >= 16#02 -> 1;
+log2_byte(_) -> 0.

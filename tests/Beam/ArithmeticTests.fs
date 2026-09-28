@@ -940,15 +940,28 @@ let ``test Numeric Clamp works`` () =
     Decimal.Clamp(5.0M, -4.0M, 3.0M) |> equal 3.0M
     bigint.Clamp(5I, -4I, 3I) |> equal 3I
 
-// TODO: Erlang math:log2 returns float, but Numeric Log2 for integer types expects integer result.
-// SByte.Log2, Int16.Log2, Byte.Log2, UInt16.Log2, UInt32.Log2, UInt64.Log2 would need trunc().
-// [<Fact>]
-// let ``test Numeric Log2 works`` () =
-//     Int32.Log2 8 |> equal 3
-//     Int64.Log2 8L |> equal 3L
-//     Double.Log2 8.0 |> equal 3.0
-//     Single.Log2 8.0f |> equal 3.0f
-//     bigint.Log2 8I |> equal 3I
+[<Fact>]
+let ``test Numeric Log2 works`` () =
+    SByte.Log2 8y |> equal 3y
+    Int16.Log2 8s |> equal 3s
+    Int32.Log2 8 |> equal 3
+    Int64.Log2 8L |> equal 3L
+    Byte.Log2 8uy |> equal 3uy
+    UInt16.Log2 8us |> equal 3us
+    UInt32.Log2 8u |> equal 3u
+    UInt64.Log2 8UL |> equal 3UL
+    Double.Log2 8.0 |> equal 3.0
+    Single.Log2 8.0f |> equal 3.0f
+    bigint.Log2 8I |> equal 3I
+
+    Int32.Log2 0 |> equal 0
+    Int32.Log2 5 |> equal 2
+    Int64.Log2 Int64.MaxValue |> equal 62L
+    UInt64.Log2 UInt64.MaxValue |> equal 63UL
+    bigint.Log2 ((1I <<< 256) + 1I) |> equal 256I
+
+    throwsAnyError (fun () -> Int64.Log2 -1L |> ignore)
+    throwsAnyError (fun () -> bigint.Log2 -1I |> ignore)
 
 [<Fact>]
 let ``test Math.Clamp expanded works`` () =
