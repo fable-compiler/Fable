@@ -572,23 +572,20 @@ let ``test Convert.ToBase64String works`` () =
 
 // --- TryParse methods ---
 
-// TODO: TryParse via higher-order function — auto-generated lambda unwraps ref.contents
-// instead of passing the ref directly to try_parse_float (which needs it for put/2).
-// Fixing requires changes to how byref method references are compiled.
-// [<Fact>]
-// let ``test System.Double.TryParse works`` () =
-//     tryParse Double.TryParse 0.0 "1" |> equal (true, 1.0)
-//     tryParse Double.TryParse 0.0 "1.5" |> equal (true, 1.5)
-//     tryParse Double.TryParse 0.0 "foo" |> equal (false, 0.0)
-//     tryParse Double.TryParse 0.0 "" |> equal (false, 0.0)
-//     tryParse Double.TryParse 0.0 "-1.5" |> equal (true, -1.5)
-//
-// [<Fact>]
-// let ``test System.Single.TryParse works`` () =
-//     tryParse Single.TryParse 0.0f "1" |> equal (true, 1.0f)
-//     tryParse Single.TryParse 0.0f "1.5" |> equal (true, 1.5f)
-//     tryParse Single.TryParse 0.0f "foo" |> equal (false, 0.0f)
-//     tryParse Single.TryParse 0.0f "-1.5" |> equal (true, -1.5f)
+[<Fact>]
+let ``test System.Double.TryParse works`` () =
+    tryParse Double.TryParse 0.0 "1" |> equal (true, 1.0)
+    tryParse Double.TryParse 0.0 "1.5" |> equal (true, 1.5)
+    tryParse Double.TryParse 0.0 "foo" |> equal (false, 0.0)
+    tryParse Double.TryParse 0.0 "" |> equal (false, 0.0)
+    tryParse Double.TryParse 0.0 "-1.5" |> equal (true, -1.5)
+
+[<Fact>]
+let ``test System.Single.TryParse works`` () =
+    tryParse Single.TryParse 0.0f "1" |> equal (true, 1.0f)
+    tryParse Single.TryParse 0.0f "1.5" |> equal (true, 1.5f)
+    tryParse Single.TryParse 0.0f "foo" |> equal (false, 0.0f)
+    tryParse Single.TryParse 0.0f "-1.5" |> equal (true, -1.5f)
 
 [<Fact>]
 let ``test System.Boolean.TryParse works`` () =
@@ -599,21 +596,20 @@ let ``test System.Boolean.TryParse works`` () =
     Boolean.TryParse "tru" |> equal (false, false)
     Boolean.TryParse "falsee" |> equal (false, false)
 
-// TODO: TryParse via higher-order function — same byref method reference issue as above
-// [<Fact>]
-// let ``test System.Int64.TryParse works`` () =
-//     tryParse Int64.TryParse 0L "99" |> equal (true, 99L)
-//     tryParse Int64.TryParse 0L "foo" |> equal (false, 0L)
-//
-// [<Fact>]
-// let ``test System.UInt32.TryParse works`` () =
-//     tryParse UInt32.TryParse 0u "99" |> equal (true, 99u)
-//     tryParse UInt32.TryParse 0u "foo" |> equal (false, 0u)
-//
-// [<Fact>]
-// let ``test System.UInt64.TryParse works`` () =
-//     tryParse UInt64.TryParse 0UL "99" |> equal (true, 99UL)
-//     tryParse UInt64.TryParse 0UL "foo" |> equal (false, 0UL)
+[<Fact>]
+let ``test System.Int64.TryParse works`` () =
+    tryParse Int64.TryParse 0L "99" |> equal (true, 99L)
+    tryParse Int64.TryParse 0L "foo" |> equal (false, 0L)
+
+[<Fact>]
+let ``test System.UInt32.TryParse works`` () =
+    tryParse UInt32.TryParse 0u "99" |> equal (true, 99u)
+    tryParse UInt32.TryParse 0u "foo" |> equal (false, 0u)
+
+[<Fact>]
+let ``test System.UInt64.TryParse works`` () =
+    tryParse UInt64.TryParse 0UL "99" |> equal (true, 99UL)
+    tryParse UInt64.TryParse 0UL "foo" |> equal (false, 0UL)
 
 // --- Single.Parse ---
 
