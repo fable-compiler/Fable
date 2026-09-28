@@ -836,30 +836,26 @@ let ``test Math.DivRem works with ints`` () =
     Math.DivRem(5, 2) |> equal (2, 1)
     Math.DivRem(4, 2) |> equal (2, 0)
 
-// TODO: DivRem with ref requires byref/address-of support which uses different
-// ref patterns in Beam (process dictionary refs vs map-based refs).
-// [<Fact>]
-// let ``test Math.DivRem works with ints and ref`` () =
-//     let rem = ref -1
-//     Math.DivRem(5, 2, rem) |> equal 2
-//     rem.Value |> equal 1
-//     Math.DivRem(4, 2, rem) |> equal 2
-//     rem.Value |> equal 0
+[<Fact>]
+let ``test Math.DivRem works with ints and ref`` () =
+    let rem = ref -1
+    Math.DivRem(5, 2, rem) |> equal 2
+    rem.Value |> equal 1
+    Math.DivRem(4, 2, rem) |> equal 2
+    rem.Value |> equal 0
 
 [<Fact>]
 let ``test Math.DivRem works with longs`` () =
     Math.DivRem(5L, 2L) |> equal (2L, 1L)
     Math.DivRem(4L, 2L) |> equal (2L, 0L)
 
-// TODO: DivRem with ref requires byref/address-of support which uses different
-// ref patterns in Beam (process dictionary refs vs map-based refs).
-// [<Fact>]
-// let ``test Math.DivRem works with longs and ref`` () =
-//     let rem = ref -1L
-//     Math.DivRem(5L, 2L, rem) |> equal 2L
-//     rem.Value |> equal 1L
-//     Math.DivRem(4L, 2L, rem) |> equal 2L
-//     rem.Value |> equal 0L
+[<Fact>]
+let ``test Math.DivRem works with longs and ref`` () =
+    let rem = ref -1L
+    Math.DivRem(5L, 2L, rem) |> equal 2L
+    rem.Value |> equal 1L
+    Math.DivRem(4L, 2L, rem) |> equal 2L
+    rem.Value |> equal 0L
 
 // --- Math.MinMagnitude / MaxMagnitude ---
 
