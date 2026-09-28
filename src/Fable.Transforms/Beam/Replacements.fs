@@ -1474,6 +1474,19 @@ let private numericTypes
     (args: Expr list)
     =
     match info.CompiledName, thisArg, args with
+    | ".ctor", None, [ arg ] when info.DeclaringEntityFullName = Types.decimal ->
+        match arg.Type with
+        | Type.Array(Type.Number(Int32, _), _) ->
+            Helper.LibCall(com, "fable_decimal", "from_bits", t, [ derefArr r arg ], ?loc = r)
+            |> Some
+        | _ -> None
+    | ".ctor", None, [ low; mid; high; isNegative; scale ] when info.DeclaringEntityFullName = Types.decimal ->
+        Helper.LibCall(com, "fable_decimal", "from_parts", t, [ low; mid; high; isNegative; scale ], ?loc = r)
+        |> Some
+    | "GetBits", None, [ arg ] when info.DeclaringEntityFullName = Types.decimal ->
+        Helper.LibCall(com, "fable_decimal", "get_bits", t, [ arg ], ?loc = r)
+        |> wrapArr com r t
+        |> Some
     | "Parse", None, [ arg ] ->
         match info.DeclaringEntityFullName with
         | "System.Double"
