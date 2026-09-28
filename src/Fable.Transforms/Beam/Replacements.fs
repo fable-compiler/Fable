@@ -3097,7 +3097,12 @@ let makeRefFromMutableField
     (callee: Expr)
     (key: string)
     =
-    Get(callee, FieldInfo.Create(key, isMutable = true), t, r)
+    match callee.Type, key with
+    | DeclaredType(ent, _), "contents" when ent.FullName = Types.refCell ->
+        // A BEAM FSharpRef is itself a process-dictionary key, so its contents
+        // address is the ref expression rather than a field of a record/map.
+        callee
+    | _ -> Get(callee, FieldInfo.Create(key, isMutable = true), t, r)
 
 let asyncBuilder (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (_thisArg: Expr option) (args: Expr list) =
     match i.CompiledName with
