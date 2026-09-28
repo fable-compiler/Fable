@@ -3,6 +3,7 @@
     to_float/1,
     to_int/1,
     to_int/3,
+    convert_to_int/3,
     to_int_with_base/2,
     to_int_with_base/4,
     to_string/1,
@@ -20,6 +21,7 @@
 -spec to_float(binary() | integer() | float()) -> float().
 -spec to_int(binary() | integer() | float()) -> integer().
 -spec to_int(binary() | integer() | float(), pos_integer(), boolean()) -> integer().
+-spec convert_to_int(boolean() | integer() | float(), pos_integer(), boolean()) -> integer().
 -spec to_int_with_base(binary(), integer()) -> integer().
 -spec to_int_with_base(binary(), integer(), pos_integer(), boolean()) -> integer().
 -spec to_string(term()) -> binary().
@@ -86,6 +88,32 @@ to_int(Bin, Bits, Signed) when is_binary(Bin) ->
     end;
 to_int(N, Bits, Signed) when is_integer(N) -> ensure_integer_range(N, Bits, Signed);
 to_int(F, Bits, Signed) when is_float(F) -> ensure_integer_range(trunc(F), Bits, Signed).
+
+%% System.Convert rounds floating-point values before checking the target range.
+%% invariant: checked conversions round midpoint values to even and stay within the target width.
+convert_to_int(true, Bits, Signed) -> ensure_integer_range(1, Bits, Signed);
+convert_to_int(false, Bits, Signed) -> ensure_integer_range(0, Bits, Signed);
+convert_to_int(N, Bits, Signed) when is_integer(N) -> ensure_integer_range(N, Bits, Signed);
+convert_to_int(F, Bits, Signed) when is_float(F) ->
+    ensure_integer_range(round_half_to_even(F), Bits, Signed).
+
+round_half_to_even(F) ->
+    Truncated = trunc(F),
+    Fraction = F - Truncated,
+    AbsFraction = abs(Fraction),
+    if
+        AbsFraction < 0.5 ->
+            Truncated;
+        AbsFraction > 0.5 ->
+            Truncated + round_direction(Fraction);
+        Truncated rem 2 =:= 0 ->
+            Truncated;
+        true ->
+            Truncated + round_direction(Fraction)
+    end.
+
+round_direction(Fraction) when Fraction < 0 -> -1;
+round_direction(_Fraction) -> 1.
 
 %% Parse string to integer with given base (2, 8, 10, 16)
 to_int_with_base(Bin, Base) when is_binary(Bin), is_integer(Base) ->

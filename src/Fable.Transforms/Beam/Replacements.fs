@@ -1594,15 +1594,16 @@ let private convert
     let toInt (arg: Expr) =
         match arg.Type with
         | Type.String -> checkedIntegerCallForType com r t "to_int" [ arg ] |> Some
-        | Type.Char -> Some arg
-        | Type.Number(kind, _) ->
-            match kind with
-            | Float16
-            | Float32
-            | Float64
-            | Decimal -> emitExpr r t [ arg ] "trunc($0)" |> Some
-            | _ -> Some arg
-        | _ -> Some arg
+        | Type.Number(Decimal, _) ->
+            let rounded =
+                Helper.LibCall(com, "fable_decimal", "round_decimal", arg.Type, [ arg ], ?loc = r)
+
+            let integerValue =
+                Helper.LibCall(com, "fable_decimal", "to_int", t, [ rounded ], ?loc = r)
+
+            checkedIntegerCallForType com r t "convert_to_int" [ integerValue ] |> Some
+        // decision: System.Convert is checked; F# casts keep their separate wrap/truncate path.
+        | _ -> checkedIntegerCallForType com r t "convert_to_int" [ arg ] |> Some
 
     let toFloat (arg: Expr) =
         match arg.Type with
@@ -1625,7 +1626,7 @@ let private convert
     | "ToChar", [ arg ] ->
         match arg.Type with
         | Type.String -> emitExpr r t [ arg ] "binary:first($0)" |> Some
-        | _ -> Some arg
+        | _ -> toInt arg
     | "ToString", [ arg ] ->
         match arg.Type with
         | Type.String -> Some arg

@@ -300,6 +300,58 @@ let ``test System.Convert.ToUInt64 works`` () =
     Convert.ToUInt64("1") |> equal x
 
 [<Fact>]
+let ``test System.Convert integer conversions round midpoint values to even`` () =
+    Convert.ToInt32(1.4) |> equal 1
+    Convert.ToInt32(1.5) |> equal 2
+    Convert.ToInt32(2.5) |> equal 2
+    Convert.ToInt32(3.5) |> equal 4
+    Convert.ToInt32(-1.5) |> equal -2
+    Convert.ToInt32(-2.5) |> equal -2
+    Convert.ToInt32(-3.5) |> equal -4
+    Convert.ToByte(255.4) |> equal Byte.MaxValue
+    (fun () -> Convert.ToByte(255.5) |> ignore) |> throwsOverflow |> equal true
+
+[<Fact>]
+let ``test System.Convert integer conversions check the target range`` () =
+    Convert.ToSByte(-128) |> equal SByte.MinValue
+    Convert.ToByte(255) |> equal Byte.MaxValue
+    Convert.ToInt16(-32768) |> equal Int16.MinValue
+    Convert.ToUInt16(65535) |> equal UInt16.MaxValue
+    Convert.ToInt32(2147483647L) |> equal Int32.MaxValue
+    Convert.ToUInt32(4294967295L) |> equal UInt32.MaxValue
+    Convert.ToInt64(Int64.MinValue) |> equal Int64.MinValue
+    Convert.ToUInt64(UInt64.MaxValue) |> equal UInt64.MaxValue
+    (fun () -> Convert.ToSByte(128) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToByte(-1) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToInt16(32768) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToUInt16(-1) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToInt32(2147483648L) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToUInt32(-1L) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToInt64(UInt64.MaxValue) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToUInt64(-1L) |> ignore) |> throwsOverflow |> equal true
+
+[<Fact>]
+let ``test System.Convert integer conversions handle decimal boolean and char sources`` () =
+    Convert.ToInt32(1.5M) |> equal 2
+    Convert.ToInt32(2.5M) |> equal 2
+    Convert.ToInt32(-1.5M) |> equal -2
+    Convert.ToInt32(-2.5M) |> equal -2
+    Convert.ToByte(255.4M) |> equal Byte.MaxValue
+    Convert.ToInt32(true) |> equal 1
+    Convert.ToInt32(false) |> equal 0
+    Convert.ToByte(char 255) |> equal Byte.MaxValue
+    Convert.ToChar(65535) |> equal Char.MaxValue
+    (fun () -> Convert.ToByte(255.5M) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToByte(char 256) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToChar(-1) |> ignore) |> throwsOverflow |> equal true
+    (fun () -> Convert.ToChar(65536) |> ignore) |> throwsOverflow |> equal true
+
+[<Fact>]
+let ``test FSharp integer casts remain unchecked`` () =
+    byte 257 |> equal 1uy
+    sbyte 255 |> equal -1y
+
+[<Fact>]
 let ``test System.Convert.ToChar works`` () =
     let x = 'a'
     char(97) |> equal x
