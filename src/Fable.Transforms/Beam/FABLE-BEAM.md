@@ -464,7 +464,7 @@ suite grows.
 | Module initialization | Module-level mutable values and snapshots exist only in a process that ran the generated module `main/0`; ordinary library calls and other processes can read `undefined`. |
 | Mutable collections | Non-byte arrays and mutable collections are process-local. List/map-backed mutation can be O(N). |
 | Function identity | Curry/eta identity support covers compiler-generated adapters of arity 2 through 7 and statically known function types; generic call sites can fall back to native fun identity. |
-| Numeric APIs | Some byref `TryParse` paths, range-checked conversion, decimal bit constructors, BigInt byte conversion, and special floating-point values need parity work. |
+| Numeric APIs | Range-checked conversion, decimal bit constructors, BigInt byte conversion, and special floating-point values need parity work. |
 | Formatting APIs | `FormattableString`, some custom `TimeSpan` formats, and width-sensitive negative hexadecimal formatting are incomplete. |
 | Defaults and null | `Unchecked.defaultof` and null semantics differ for strings, structs, and erased values. |
 | Hashing | Array hashing currently follows content rather than .NET reference identity. |
@@ -501,7 +501,7 @@ visible rather than silent correctness failures.
 | P0 | Option erasure loses states in generic and null-like paths | Carry the nested-option decision through replacements and collection helpers, or adopt an unambiguous tagged form where erasure is unsafe. |
 | P0 | Module initialization is process-dependent | Define library initialization semantics. Prefer explicit generated initialization invoked by entry points/process owners; use global storage only if cross-process mutation is intentionally supported. |
 | P0 | Object-model gaps affect valid F# | Fix silent wrong-code paths in the claimed object-model surface. Keep unsupported class and struct forms as explicit exclusions until implemented. |
-| P0 | Numeric and byref APIs have correctness gaps | Fix incorrect results in claimed numeric APIs. Missing APIs can remain documented exclusions; restore regression tests as implementations land. |
+| P0 | Numeric APIs have correctness gaps | Fix incorrect results in claimed numeric APIs. Missing APIs can remain documented exclusions; restore regression tests as implementations land. |
 
 ### Fidelity and diagnostics
 
