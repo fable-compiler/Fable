@@ -159,7 +159,7 @@ also sets `standard_io` and `standard_error` to Unicode.
 | Signed and unsigned integers | `integer()` | Width restored after operations that can overflow |
 | `bigint` | `integer()` | No width wrapping |
 | `float` | `float()` | Erlang floating point |
-| `decimal` | scaled `integer()` | Value multiplied by 10^28 |
+| `decimal` | scaled `integer()` | Value multiplied by 10^28; `GetBits` emits the smallest equivalent scale |
 | `string` | UTF-8 `binary()` | Not a charlist |
 | `char` | `integer()` | Unicode codepoint; see known limitations |
 | Enum | `integer()` | Casts erase to the underlying number |
@@ -464,7 +464,7 @@ suite grows.
 | Module initialization | Module-level mutable values and snapshots exist only in a process that ran the generated module `main/0`; ordinary library calls and other processes can read `undefined`. |
 | Mutable collections | Non-byte arrays and mutable collections are process-local. List/map-backed mutation can be O(N). |
 | Function identity | Curry/eta identity support covers compiler-generated adapters of arity 2 through 7 and statically known function types; generic call sites can fall back to native fun identity. |
-| Numeric APIs | Decimal bit constructors, BigInt byte conversion, and special floating-point values need parity work. |
+| Numeric APIs | BigInt byte conversion and special floating-point values need parity work. |
 | Formatting APIs | `FormattableString`, some custom `TimeSpan` formats, and width-sensitive negative hexadecimal formatting are incomplete. |
 | Defaults and null | `Unchecked.defaultof` and null semantics differ for strings, structs, and erased values. |
 | Hashing | Array hashing currently follows content rather than .NET reference identity. |

@@ -1056,14 +1056,44 @@ let ``test Decimal floor works`` () =
 let ``test Decimal pown works`` () =
     pown 2.2M 3 |> equal 10.648M
 
-// TODO: Decimal constructors from GetBits require low/mid/high int32 representation
-// which doesn't map to the fixed-scale integer approach used in Beam.
-// [<Fact>]
-// let ``test Decimal constructors work`` () =
-//     let d = 1.2493M
-//     let bits = Decimal.GetBits(d)
-//     let d2 = Decimal(bits)
-//     d2 |> equal d
+[<Fact>]
+let ``test Decimal constructors work`` () =
+    let d = 1.2493M
+    let bits = Decimal.GetBits(d)
+    let d2 = Decimal(bits)
+    let d3 = Decimal(bits.[0], bits.[1], bits.[2], false, 4uy)
+    bits |> equal [| 12493; 0; 0; 262144 |]
+    d2 |> equal d
+    d3 |> equal d
+
+[<Fact>]
+let ``test Decimal GetBits works`` () =
+    let d = Decimal([| -1; -1; -2; 0 |])
+    let bits = Decimal.GetBits(d)
+    let d2 = Decimal(bits)
+    let d3 = Decimal(bits.[0], bits.[1], bits.[2], true, 0uy)
+    bits |> equal [| -1; -1; -2; 0 |]
+    d2 |> equal d
+    d3 |> equal -d
+
+[<Fact>]
+let ``test Decimal bit constructors reject invalid layouts`` () =
+    throwsAnyError (fun () -> Decimal([| 0; 0; 0 |]) |> ignore)
+    throwsAnyError (fun () -> Decimal([| 0; 0; 0; 1 |]) |> ignore)
+    throwsAnyError (fun () -> Decimal(0, 0, 0, false, 29uy) |> ignore)
+
+[<Fact>]
+let ``test Decimal GetBits works with arithmetic operations`` () =
+    let check (d: decimal) =
+        let bits = Decimal.GetBits(d)
+        Decimal(bits) |> equal d
+
+    check (10M + 10M)
+    check (100.5M - 0.5M)
+    check (5M * 200M)
+    check (-0.1M * 100M)
+    check (2000M / 10M)
+    check (1.5M + 0.5M)
 
 // TODO: BigInt byte array conversion requires two's complement encoding
 // which isn't natively supported in Erlang.
