@@ -21,8 +21,9 @@ process-based application models are separate:
 - [Fable.Beam](https://github.com/fable-compiler/Fable.Beam) provides typed OTP
   bindings.
 - [Fable.Actor](https://github.com/fable-hub/Fable.Actor) provides an actor model.
-- `MailboxProcessor`, `Async`, and `Task` in this repository preserve F# semantics;
-  they are not replacements for OTP behaviours.
+- `MailboxProcessor`, `Async`, and `Task` provide F#-compatible APIs; they are not
+  replacements for OTP behaviours. `Task` deliberately shares the cold `Async`
+  runtime, so evaluating a task does not start it as a .NET hot task would.
 
 A known private consumer is an application of about 92,000 lines of F# that uses
 file and network I/O, OTP supervision trees, actors, long-running services, and
@@ -312,8 +313,9 @@ Erlang term order. See the roadmap.
 
 ### Mutability and process locality
 
-Local mutables, arrays, mutable collections, and mutable class state use
-`make_ref()` keys in the process dictionary. Benefits and constraints:
+Local mutables, non-byte arrays, mutable collections, and mutable class state use
+`make_ref()` keys in the process dictionary. Benefits and constraints for those
+process-dictionary-backed values:
 
 - mutation is isolated to the owning process;
 - a value sent to another process does not carry its mutable state;
@@ -326,8 +328,14 @@ through the generated module's `main/0`. Immutable module values that read a mut
 are snapshotted in declaration order. This is correct only in a process that has run
 that initializer.
 
+Byte arrays are the exception. A `byte[]` carries an `atomics` reference in its
+`{byte_array, Size, AtomicsRef}` value. Sending that value to another process shares
+the backing storage, and `byte_array_set/3` mutations are visible in both processes.
+
 Use OTP processes and message passing for shared application state. Do not pass a
-mutable F# object to another process and expect shared-object semantics.
+process-dictionary-backed mutable F# object to another process and expect
+shared-object semantics; treat a byte array passed between processes as explicitly
+shared mutable state.
 
 ### Async, Task, and MailboxProcessor
 
@@ -447,7 +455,7 @@ suite grows.
 | Mutable collections | Non-byte arrays and mutable collections are process-local. List/map-backed mutation can be O(N). |
 | Function identity | Curry/eta identity support covers compiler-generated adapters of arity 2 through 7 and statically known function types; generic call sites can fall back to native fun identity. |
 | Exceptions | Filtered handlers do not yet rethrow every unmatched exception correctly. |
-| Numeric APIs | Some byref `TryParse`/`DivRem` paths, range-checked conversion, UInt64 bit conversion, decimal bit constructors, BigInt byte conversion, integer `Log2`, and special floating-point values need parity work. |
+| Numeric APIs | Some byref `TryParse`/`DivRem` paths, range-checked conversion, decimal bit constructors, BigInt byte conversion, integer `Log2`, and special floating-point values need parity work. |
 | Formatting APIs | `FormattableString`, some custom `TimeSpan` formats, and width-sensitive negative hexadecimal formatting are incomplete. |
 | Defaults and null | `Unchecked.defaultof` and null semantics differ for strings, structs, and erased values. |
 | Hashing | Array hashing currently follows content rather than .NET reference identity. |
@@ -469,25 +477,29 @@ above have no general source-level workaround and should remain visible in tests
 ## Roadmap
 
 The CLI reports the target as alpha. The next steps are ordered by semantic risk,
-not by the age of the feature.
+not by the age of the feature. Beta means that the documented supported surface is
+reliable enough for broader use; it does not require complete .NET parity. This is
+the same maturity model used by the established targets: target-specific behavior,
+unsupported APIs, and disabled parity cases can remain when they are deliberate and
+visible rather than silent correctness failures.
 
-### Correctness before beta
+### Correctness priorities for beta
 
 | Priority | Gap | Suggested direction |
 | --- | --- | --- |
-| P0 | Disabled or commented parity cases are not an auditable support boundary | Turn each case into a running regression test, an explicit target limitation test, or a linked issue. Remove stale skips whose underlying defect is fixed. |
-| P0 | Unsupported AST paths can survive compilation | Emit compiler errors with source ranges; reserve runtime errors for dynamic failures. Add coverage for every Fable expression and operation kind. |
+| P0 | Unsupported AST paths can survive compilation | Do not silently emit runtime placeholders for constructs inside the supported surface. Prefer compiler errors with source ranges for statically detectable unsupported constructs. |
 | P0 | Union declaration ordering is incomplete | Thread union-aware comparers through `sortBy`, `min`/`max`, nested comparison, and ordered collections. If type-directed routing cannot cover generic containers, define a versioned DU/collection representation change. |
 | P0 | Option erasure loses states in generic and null-like paths | Carry the nested-option decision through replacements and collection helpers, or adopt an unambiguous tagged form where erasure is unsafe. |
 | P0 | Module initialization is process-dependent | Define library initialization semantics. Prefer explicit generated initialization invoked by entry points/process owners; use global storage only if cross-process mutation is intentionally supported. |
-| P0 | Object-model gaps affect valid F# | Complete mutable record updates, class identity, abstract/base dispatch, constructor self-reference, recursive class hierarchies, and default struct construction. |
-| P0 | Numeric and byref APIs have correctness gaps | Add target helpers for bounds, byref results, two's-complement byte conversion, decimal bits, integer numeric functions, and special floats. Restore the corresponding tests. |
+| P0 | Object-model gaps affect valid F# | Fix silent wrong-code paths in the claimed object-model surface. Keep unsupported class and struct forms as explicit exclusions until implemented. |
+| P0 | Numeric and byref APIs have correctness gaps | Fix incorrect results in claimed numeric APIs. Missing APIs can remain documented exclusions; restore regression tests as implementations land. |
 | P0 | Exception filters can swallow unmatched errors | Preserve Erlang class, reason, and stacktrace and re-raise unchanged when no F# handler matches. |
 
 ### Fidelity and diagnostics
 
 | Priority | Gap | Suggested direction |
 | --- | --- | --- |
+| P1 | Disabled or commented parity cases are not an auditable support boundary | Remove stale skips whose underlying defect is fixed. Track relevant remaining cases as tests, documented exclusions, or linked issues without requiring complete parity for beta. |
 | P1 | `%O`, `%A`, interpolation, and `String.Format` have separate type-information needs | Build one compiler-generated argument-slot plan that records value, width, printer, and thunk arguments plus optional static formatters. Reuse it across all formatting entry points. |
 | P1 | Runtime shapes cannot distinguish several F# types | Pass compact type descriptors or generated recursive formatters at typed call sites. Treat self-describing record/union values as a versioned ABI option, not an incidental formatting patch. |
 | P1 | Type tests and downcasts are shape-based | Add compact type tokens only where F# semantics require nominal identity; keep ordinary data representations untagged where possible. |
@@ -518,14 +530,19 @@ not by the age of the feature.
 
 ### Suggested beta criteria
 
-- All P0 items are fixed or reduced to explicit, tested, documented exclusions.
-- Compilation never silently emits an `unsupported_*` placeholder.
+- There is no known silent miscompilation, data corruption, or process-safety defect
+  in the documented supported surface.
+- Remaining semantic and API gaps are deliberate, documented exclusions and have
+  regression tests where practical; complete .NET parity is not required.
+- Supported constructs do not silently compile to an `unsupported_*` placeholder.
+  Statically detectable unsupported constructs produce an actionable diagnostic.
 - The complete BEAM suite passes on the oldest and newest supported OTP releases.
 - Packaged `dotnet fable --lang beam` output builds and runs in a clean consumer
   project without repository-local files.
-- Module initialization and process-local mutation have defined, tested behavior for
-  executables, libraries, and spawned processes.
-- The generated-value ABI is documented and representation changes are called out.
+- Module initialization and mutation have documented, tested behavior for the
+  supported executable, library, and spawned-process scenarios.
+- The generated-value ABI used by supported interop scenarios is documented, and
+  representation changes are called out.
 - At least one non-trivial downstream OTP application remains green, with a public
   packaged-consumer smoke test covering the reproducible integration path.
 

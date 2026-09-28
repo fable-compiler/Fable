@@ -938,12 +938,11 @@ let ``test BitConverter.ToUInt32 works`` () =
     let bytes = BitConverter.GetBytes(value)
     BitConverter.ToUInt32(bytes, 0) |> equal value
 
-// TODO: UInt64 values > Int64.MaxValue — Fable compiles UInt64 as Int64, round-trip fails
-// [<Fact>]
-// let ``test BitConverter.ToUInt64 works`` () =
-//     let value = 0xFF02030405060708UL
-//     let bytes = BitConverter.GetBytes(value)
-//     BitConverter.ToUInt64(bytes, 0) |> equal value
+[<Fact>]
+let ``test BitConverter.ToUInt64 works above Int64.MaxValue`` () =
+    let value = 0xFF02030405060708UL
+    let bytes = BitConverter.GetBytes(value)
+    BitConverter.ToUInt64(bytes, 0) |> equal value
 
 [<Fact>]
 let ``test BitConverter.ToSingle works`` () =
