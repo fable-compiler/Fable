@@ -735,6 +735,21 @@ let ``test try-with with unmatched exception type reraises`` () =
     caught |> equal "arg"
 
 [<Fact>]
+let ``test built-in exception type tests respect nominal hierarchy`` () =
+    let invalidOperation: exn = System.InvalidOperationException("invalid")
+    let argumentNull: exn = System.ArgumentNullException("value")
+    let divideByZero: exn = System.DivideByZeroException()
+    let aggregate: exn = System.AggregateException()
+
+    (invalidOperation :? System.InvalidOperationException) |> equal true
+    (invalidOperation :? System.ArgumentException) |> equal false
+    (box invalidOperation :? System.Exception) |> equal true
+    (argumentNull :? System.ArgumentException) |> equal true
+    (divideByZero :? System.ArithmeticException) |> equal true
+    (aggregate :? System.AggregateException) |> equal true
+    (aggregate :? System.ArgumentException) |> equal false
+
+[<Fact>]
 let ``test ArgumentException with message and inner exception works`` () =
     let inner = exn "the inner cause"
     let ex = System.ArgumentException("outer message", inner)

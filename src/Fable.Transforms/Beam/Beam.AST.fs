@@ -35,7 +35,13 @@ type ErlExpr =
     | Block of exprs: ErlExpr list
     | BinOp of op: string * left: ErlExpr * right: ErlExpr
     | UnaryOp of op: string * operand: ErlExpr
-    | TryCatch of body: ErlExpr list * catchVar: string * catchBody: ErlExpr list * after: ErlExpr list
+    | TryCatch of
+        body: ErlExpr list *
+        catchClassVar: string *
+        catchReasonVar: string *
+        catchStackVar: string *
+        catchBody: ErlExpr list *
+        after: ErlExpr list
     | Emit of template: string * args: ErlExpr list
     | Receive of clauses: ErlCaseClause list * after: (ErlExpr * ErlExpr list) option
 

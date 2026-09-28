@@ -436,6 +436,45 @@ let wrapWithHoisted (hoisted: Beam.ErlExpr list) (expr: Beam.ErlExpr) : Beam.Erl
 let atomLit name =
     Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom name))
 
+/// Whether generated Erlang still reads a variable. This is intentionally checked after
+/// lowering: a Fable catch identifier used only by `reraise` becomes the raw
+/// class/reason/stacktrace variables and does not need a separately wrapped exception value.
+let rec referencesVariable (name: string) (expr: Beam.ErlExpr) : bool =
+    let anyReferences exprs =
+        exprs |> List.exists (referencesVariable name)
+
+    match expr with
+    | Beam.ErlExpr.Variable varName -> varName = name
+    | Beam.ErlExpr.Tuple elements
+    | Beam.ErlExpr.List elements
+    | Beam.ErlExpr.Block elements -> anyReferences elements
+    | Beam.ErlExpr.ListCons(head, tail)
+    | Beam.ErlExpr.BinOp(_, head, tail) -> referencesVariable name head || referencesVariable name tail
+    | Beam.ErlExpr.Map entries ->
+        entries
+        |> List.exists (fun (key, value) -> referencesVariable name key || referencesVariable name value)
+    | Beam.ErlExpr.Call(_, _, args) -> anyReferences args
+    | Beam.ErlExpr.Apply(func, args) -> referencesVariable name func || anyReferences args
+    | Beam.ErlExpr.Fun clauses
+    | Beam.ErlExpr.NamedFun(_, clauses) ->
+        clauses
+        |> List.exists (fun clause -> anyReferences clause.Guard || anyReferences clause.Body)
+    | Beam.ErlExpr.Case(value, clauses) ->
+        referencesVariable name value
+        || clauses
+           |> List.exists (fun clause -> anyReferences clause.Guard || anyReferences clause.Body)
+    | Beam.ErlExpr.Match(_, value)
+    | Beam.ErlExpr.UnaryOp(_, value) -> referencesVariable name value
+    | Beam.ErlExpr.TryCatch(body, _, _, _, catchBody, after) ->
+        anyReferences body || anyReferences catchBody || anyReferences after
+    | Beam.ErlExpr.Emit(_, args) -> anyReferences args
+    | Beam.ErlExpr.Receive(clauses, after) ->
+        clauses
+        |> List.exists (fun clause -> anyReferences clause.Guard || anyReferences clause.Body)
+        || (after
+            |> Option.exists (fun (timeout, body) -> referencesVariable name timeout || anyReferences body))
+    | Beam.ErlExpr.Literal _ -> false
+
 let rec private patternBinds (pattern: Beam.ErlPattern) : bool =
     match pattern with
     | Beam.PVar _ -> true

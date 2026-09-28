@@ -25,6 +25,7 @@
     to_list/1,
     enumerate_to_list/1,
     aggregate_exception/2,
+    is_exception_type/2,
     new_byte_array/1,
     new_byte_array_zeroed/1,
     new_byte_array_filled/2,
@@ -65,6 +66,7 @@
 -spec to_list(term()) -> list().
 -spec enumerate_to_list(term()) -> list().
 -spec aggregate_exception(binary(), term()) -> map().
+-spec is_exception_type(term(), atom()) -> boolean().
 -spec new_byte_array(list() | binary() | tuple()) -> tuple().
 -spec new_byte_array_zeroed(non_neg_integer()) -> tuple().
 -spec new_byte_array_filled(non_neg_integer(), non_neg_integer()) -> tuple().
@@ -467,10 +469,55 @@ aggregate_exception(BaseMessage, ExceptionsValue) ->
         | [[<<" (">>, exception_message(Exception), <<")">>] || Exception <- Exceptions]
     ]),
     #{
+        exn_type => aggregate_exception,
         message => Message,
         inner_exception => InnerException,
         inner_exceptions => new_ref(Exceptions)
     }.
+
+%% Built-in .NET exceptions carry a compact nominal tag. Follow the .NET exception
+%% hierarchy here so a catch for a base exception also accepts its derived exceptions.
+is_exception_type(Exception, Expected) when is_reference(Exception) ->
+    is_exception_type(get(Exception), Expected);
+is_exception_type(#{exn_type := Actual}, Expected) ->
+    exception_type_is(Actual, Expected);
+is_exception_type(#{message := _}, exception) ->
+    true;
+is_exception_type(_, _) ->
+    false.
+
+exception_type_is(Type, Type) -> true;
+exception_type_is(_, exception) -> true;
+exception_type_is(application_exception, Expected) -> exception_type_is(exception, Expected);
+exception_type_is(argument_exception, Expected) -> exception_type_is(system_exception, Expected);
+exception_type_is(argument_null_exception, Expected) ->
+    exception_type_is(argument_exception, Expected);
+exception_type_is(argument_out_of_range_exception, Expected) ->
+    exception_type_is(argument_exception, Expected);
+exception_type_is(arithmetic_exception, Expected) -> exception_type_is(system_exception, Expected);
+exception_type_is(divide_by_zero_exception, Expected) ->
+    exception_type_is(arithmetic_exception, Expected);
+exception_type_is(not_finite_number_exception, Expected) ->
+    exception_type_is(arithmetic_exception, Expected);
+exception_type_is(overflow_exception, Expected) -> exception_type_is(arithmetic_exception, Expected);
+exception_type_is(aggregate_exception, Expected) -> exception_type_is(exception, Expected);
+exception_type_is(key_not_found_exception, Expected) -> exception_type_is(system_exception, Expected);
+exception_type_is(operation_canceled_exception, Expected) ->
+    exception_type_is(system_exception, Expected);
+exception_type_is(Type, Expected)
+    when Type =:= format_exception;
+        Type =:= index_out_of_range_exception;
+        Type =:= invalid_operation_exception;
+        Type =:= not_implemented_exception;
+        Type =:= not_supported_exception;
+        Type =:= null_reference_exception;
+        Type =:= out_of_memory_exception;
+        Type =:= rank_exception;
+        Type =:= stack_overflow_exception;
+        Type =:= timeout_exception ->
+    exception_type_is(system_exception, Expected);
+exception_type_is(system_exception, Expected) -> exception_type_is(exception, Expected);
+exception_type_is(_, _) -> false.
 
 exception_message(#{message := Message}) -> Message;
 exception_message(Exception) when is_reference(Exception) -> exception_message(get(Exception));

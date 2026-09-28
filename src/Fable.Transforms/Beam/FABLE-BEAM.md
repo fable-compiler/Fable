@@ -337,6 +337,16 @@ process-dictionary-backed mutable F# object to another process and expect
 shared-object semantics; treat a byte array passed between processes as explicitly
 shared mutable state.
 
+### Exceptions
+
+F# and built-in .NET exceptions use maps with a nominal `exn_type` atom. Built-in
+type tests follow the .NET exception hierarchy, so typed handlers distinguish sibling
+exceptions while accepting derived exceptions through their base type.
+
+Generated Erlang catches the native `Class:Reason:Stacktrace` triple. `reraise` and
+unmatched filtered handlers use `erlang:raise/3`, preserving the original Erlang
+exception class, reason, and stacktrace.
+
 ### Async, Task, and MailboxProcessor
 
 `Async<'T>` is a cold continuation-passing function:
@@ -454,7 +464,6 @@ suite grows.
 | Module initialization | Module-level mutable values and snapshots exist only in a process that ran the generated module `main/0`; ordinary library calls and other processes can read `undefined`. |
 | Mutable collections | Non-byte arrays and mutable collections are process-local. List/map-backed mutation can be O(N). |
 | Function identity | Curry/eta identity support covers compiler-generated adapters of arity 2 through 7 and statically known function types; generic call sites can fall back to native fun identity. |
-| Exceptions | Filtered handlers do not yet rethrow every unmatched exception correctly. |
 | Numeric APIs | Some byref `TryParse`/`DivRem` paths, range-checked conversion, decimal bit constructors, BigInt byte conversion, integer `Log2`, and special floating-point values need parity work. |
 | Formatting APIs | `FormattableString`, some custom `TimeSpan` formats, and width-sensitive negative hexadecimal formatting are incomplete. |
 | Defaults and null | `Unchecked.defaultof` and null semantics differ for strings, structs, and erased values. |
@@ -493,7 +502,6 @@ visible rather than silent correctness failures.
 | P0 | Module initialization is process-dependent | Define library initialization semantics. Prefer explicit generated initialization invoked by entry points/process owners; use global storage only if cross-process mutation is intentionally supported. |
 | P0 | Object-model gaps affect valid F# | Fix silent wrong-code paths in the claimed object-model surface. Keep unsupported class and struct forms as explicit exclusions until implemented. |
 | P0 | Numeric and byref APIs have correctness gaps | Fix incorrect results in claimed numeric APIs. Missing APIs can remain documented exclusions; restore regression tests as implementations land. |
-| P0 | Exception filters can swallow unmatched errors | Preserve Erlang class, reason, and stacktrace and re-raise unchanged when no F# handler matches. |
 
 ### Fidelity and diagnostics
 

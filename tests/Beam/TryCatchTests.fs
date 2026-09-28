@@ -3,6 +3,16 @@ module Fable.Tests.TryCatch
 open Fable.Tests.Util
 open Util.Testing
 
+#if FABLE_COMPILER_BEAM
+open Fable.Core
+
+[<Emit("throw(native_reason)")>]
+let private throwNative () : unit = nativeOnly
+
+[<Emit("try ($0)(ok) catch throw:native_reason -> true; _:_ -> false end")>]
+let private catchesNativeThrow (f: unit -> unit) : bool = nativeOnly
+#endif
+
 [<Fact>]
 let ``test try-catch returns body value on success`` () =
     let result =
@@ -95,6 +105,18 @@ let ``test reraise in try-catch with side effect`` () =
             e.Message
     sideEffectRan |> equal true
     msg |> equal "boom"
+
+#if FABLE_COMPILER_BEAM
+[<Fact>]
+let ``test reraise preserves native Erlang exception class`` () =
+    let rethrow () =
+        try
+            throwNative ()
+        with _ ->
+            reraise ()
+
+    catchesNativeThrow rethrow |> equal true
+#endif
 
 [<Fact>]
 let ``test try-catch result used in match`` () =
