@@ -1133,6 +1133,7 @@ let ``test BigInteger Pow stays exact`` () =
     bigint.Pow(0I, 0) |> equal 1I
     bigint.Pow(-3I, 5) |> equal -243I
     bigint.Pow(2I, 256) |> equal (1I <<< 256)
+    bigint.Pow(1I <<< 4_000_000, 1) |> equal (1I <<< 4_000_000)
     throwsAnyError (fun () -> bigint.Pow(2I, -1) |> ignore)
 
 [<Fact>]

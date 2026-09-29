@@ -147,6 +147,8 @@ bigint_pow(Base, Exponent) ->
 
 bigint_pow(_Base, 0, Acc) ->
     Acc;
+bigint_pow(Base, 1, Acc) ->
+    Acc * Base;
 bigint_pow(Base, Exponent, Acc) when Exponent band 1 =:= 1 ->
     bigint_pow(Base * Base, Exponent bsr 1, Acc * Base);
 bigint_pow(Base, Exponent, Acc) ->
