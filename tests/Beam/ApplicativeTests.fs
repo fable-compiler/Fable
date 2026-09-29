@@ -379,10 +379,6 @@ let ``test No errors because references to missing unit args`` () =
     let f1 = foofy "bar"
     f1 () |> equal "foobar"
 
-// Skipped: Delegate generates fun(X, X) -> which requires args to be equal in Erlang
-// [<Fact>]
-// let ``test Arity is checked also when constructing records`` () = ...
-
 [<Fact>]
 let ``test Aether with generics works`` () = // See #750
     let a = { RecordB = {A= "foo"; B=true} }

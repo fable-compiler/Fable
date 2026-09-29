@@ -357,7 +357,6 @@ let ``test Custom computation expressions work`` () =
     execMaybe 99 |> equal None
 
 // -- Self References in Constructors --
-// TODO: "as myself" self-reference in constructors generates {badkey,x} — class constructor codegen issue
 
 [<Fact>]
 let ``test Self references in constructors work`` () =
