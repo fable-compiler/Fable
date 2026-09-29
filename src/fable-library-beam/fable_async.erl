@@ -24,7 +24,8 @@
     on_success := fun(),
     on_error := fun(),
     on_cancel := fun(),
-    cancel_token := reference() | undefined
+    cancel_token := reference() | undefined,
+    wait_for_async := boolean()
 }.
 -type async(T) :: fun((async_ctx()) -> T).
 
@@ -97,7 +98,8 @@ default_ctx(CancelToken) ->
         on_success => fun(_) -> ok end,
         on_error => fun(E) -> erlang:error(E) end,
         on_cancel => fun(_) -> ok end,
-        cancel_token => CancelToken
+        cancel_token => CancelToken,
+        wait_for_async => false
     }.
 
 %% StartImmediate: run with default context (fire-and-forget)
@@ -120,10 +122,9 @@ start_immediate(Computation, CancelToken) ->
 %% it is killed (e.g. on timeout) or the VM stops, so a child whose result is
 %% never awaited leaves an idle process behind.
 %%
-%% Cancellation tokens are intentionally not propagated to the child: tokens are
-%% held in the process dictionary (see fable_cancellation), so they are only
-%% meaningful within a single process and cannot be shared with the child's
-%% separate process. This matches parallel/1.
+%% StartChild does not currently propagate its parent context's token. Tokens are
+%% process-portable, but changing combinator propagation is a separate semantic
+%% change from making an explicitly supplied or captured token safe to share.
 start_child(Computation) -> start_child(Computation, undefined).
 start_child(Computation, Timeout) ->
     fun(Ctx) ->
@@ -185,7 +186,10 @@ run_synchronously(Computation, CancelToken) ->
         on_success => fun(V) -> put(Ref, {ok, V}) end,
         on_error => fun(E) -> put(Ref, {error, E}) end,
         on_cancel => fun(_) -> put(Ref, {cancelled}) end,
-        cancel_token => CancelToken
+        cancel_token => CancelToken,
+        %% invariant: runtime-owned callbacks are handled by the process that created their
+        %% process-dictionary-backed continuations.
+        wait_for_async => true
     },
     try
         Computation(Ctx)
@@ -216,7 +220,8 @@ start_with_continuations(Comp, OnSuccess, OnError, OnCancel, Token) ->
         on_success => OnSuccess,
         on_error => OnError,
         on_cancel => OnCancel,
-        cancel_token => Token
+        cancel_token => Token,
+        wait_for_async => false
     },
     try
         Comp(Ctx)
@@ -243,7 +248,7 @@ sleep(Milliseconds) ->
                         %% Set up a timer to send us a wake-up message
                         Self = self(),
                         TimerRef = make_ref(),
-                        timer:apply_after(Milliseconds, erlang, send, [Self, {sleep_done, TimerRef}]),
+                        SleepTimer = erlang:send_after(Milliseconds, Self, {sleep_done, TimerRef}),
                         %% Register a cancellation listener to wake us up early
                         RegId = fable_cancellation:register(Token, fun(_) ->
                             Self ! {sleep_cancelled, TimerRef}
@@ -253,17 +258,10 @@ sleep(Milliseconds) ->
                             {sleep_done, TimerRef} ->
                                 (maps:get(on_success, Ctx))(ok);
                             {sleep_cancelled, TimerRef} ->
-                                (maps:get(on_cancel, Ctx))(ok);
-                            {cancel_token, Token} ->
-                                %% Timer-based cancel via cancel_after
-                                fable_cancellation:cancel(Token),
                                 (maps:get(on_cancel, Ctx))(ok)
                         end,
-                        %% Clean up registration if we have one
-                        case RegId of
-                            undefined -> ok;
-                            _ -> ok
-                        end
+                        erlang:cancel_timer(SleepTimer),
+                        fable_utils:safe_dispose(RegId)
                 end
         end
     end.
@@ -275,27 +273,91 @@ await_event(Event, CancelAction) ->
         OnSuccess = maps:get(on_success, Ctx),
         OnCancel = maps:get(on_cancel, Ctx),
         Token = maps:get(cancel_token, Ctx),
+        Owner = self(),
+        AwaitRef = make_ref(),
+        RegistrationRef = make_ref(),
+        put(AwaitRef, pending),
+        put(RegistrationRef, undefined),
 
         Handler = fun F(_Sender, Value) ->
-            (maps:get(remove_handler, Event))(F),
-            OnSuccess(Value)
+            case self() =:= Owner of
+                true ->
+                    finish_await_event(
+                        {success, Value}, Event, F, Token, CancelAction,
+                        OnSuccess, OnCancel, AwaitRef, RegistrationRef
+                    );
+                false ->
+                    Owner ! {fable_async_await_event, AwaitRef, {success, Value}}
+            end
         end,
 
-        case Token of
-            undefined -> ok;
+        %% Subscribe before registering cancellation so an already-cancelled token can remove the
+        %% handler synchronously instead of leaving a handler that can never complete successfully.
+        (maps:get(add_handler, Event))(Handler),
+        Registration = case Token of
+            undefined -> undefined;
             _ ->
                 fable_cancellation:register(Token, fun(_) ->
-                    (maps:get(remove_handler, Event))(Handler),
-                    case CancelAction of
-                        undefined -> ok;
-                        _ -> CancelAction(ok)
-                    end,
-                    OnCancel(ok)
+                    case self() =:= Owner of
+                        true ->
+                            finish_await_event(
+                                cancelled, Event, Handler, Token, CancelAction,
+                                OnSuccess, OnCancel, AwaitRef, RegistrationRef
+                            );
+                        false ->
+                            Owner ! {fable_async_await_event, AwaitRef, cancelled}
+                    end
                 end)
         end,
+        case get(AwaitRef) of
+            pending -> put(RegistrationRef, Registration);
+            _ -> fable_utils:safe_dispose(Registration)
+        end,
 
-        (maps:get(add_handler, Event))(Handler)
+        case maps:get(wait_for_async, Ctx, false) andalso get(AwaitRef) =:= pending of
+            true ->
+                receive
+                    {fable_async_await_event, AwaitRef, Result} ->
+                        finish_await_event(
+                            Result, Event, Handler, Token, CancelAction,
+                            OnSuccess, OnCancel, AwaitRef, RegistrationRef
+                        )
+                end;
+            false -> ok
+        end
     end.
+
+finish_await_event(
+    Result, Event, Handler, Token, CancelAction,
+    OnSuccess, OnCancel, AwaitRef, RegistrationRef
+) ->
+    case get(AwaitRef) of
+        pending ->
+            put(AwaitRef, completed),
+            (maps:get(remove_handler, Event))(Handler),
+            fable_utils:safe_dispose(get(RegistrationRef)),
+            erase(AwaitRef),
+            erase(RegistrationRef),
+            case Result of
+                {success, Value} ->
+                    %% Cancellation that has already won the broker race must also win an event
+                    %% delivery racing with its owner-process message.
+                    case fable_cancellation:is_cancellation_requested(Token) of
+                        true -> invoke_await_event_cancel(CancelAction, OnCancel);
+                        false -> OnSuccess(Value)
+                    end;
+                cancelled ->
+                    invoke_await_event_cancel(CancelAction, OnCancel)
+            end;
+        _ -> ok
+    end.
+
+invoke_await_event_cancel(CancelAction, OnCancel) ->
+    case CancelAction of
+        undefined -> ok;
+        _ -> CancelAction(ok)
+    end,
+    OnCancel(ok).
 
 %% Parallel: spawn one process per computation, collect results in order
 parallel(Computations) when is_reference(Computations) ->

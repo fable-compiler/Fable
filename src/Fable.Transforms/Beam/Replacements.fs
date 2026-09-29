@@ -3217,6 +3217,12 @@ let cancels (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr op
             ?loc = r
         )
         |> Some
+    | "Dispose" when i.DeclaringEntityFullName = "System.Threading.CancellationTokenRegistration" ->
+        match thisArg with
+        | Some registration ->
+            Helper.LibCall(com, "fable_utils", "safe_dispose", t, [ registration ], ?loc = r)
+            |> Some
+        | None -> None
     | "Dispose" -> Null Type.Unit |> makeValue r |> Some
     | "Register" ->
         let args, argTypes =
@@ -5835,7 +5841,8 @@ let tryCall
     | Types.printfModule
     | Naming.StartsWith Types.printfFormat _ -> fsFormat com ctx r t info thisArg args
     | "System.Threading.CancellationToken"
-    | "System.Threading.CancellationTokenSource" -> cancels com ctx r t info thisArg args
+    | "System.Threading.CancellationTokenSource"
+    | "System.Threading.CancellationTokenRegistration" -> cancels com ctx r t info thisArg args
     | "Microsoft.FSharp.Control.CommonExtensions" -> controlExtensions com ctx r t info thisArg args
     | "Microsoft.FSharp.Control.FSharpEvent`1"
     | "Microsoft.FSharp.Control.FSharpEvent`2"
