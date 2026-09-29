@@ -23,6 +23,8 @@ let fableCompare (a: obj) (b: obj) : int = nativeOnly
 let fableHash (a: obj) : int = nativeOnly
 #endif
 
+let private getObjectHashCode (value: obj) = value.GetHashCode()
+
 type UTest = A of int | B of int
 type RTest = { a: int; b: int }
 
@@ -671,12 +673,25 @@ let ``test GetHashCode with records works`` () =
     ({a=1; b=2}.GetHashCode(), {a=1; b=2}.GetHashCode()) ||> equal
     ({a=2; b=1}.GetHashCode(), {a=1; b=2}.GetHashCode()) ||> notEqual
 
-// TODO: GetHashCode on arrays uses identity (ref) hashing on .NET, content hashing on Beam.
-// Test fails on .NET because two [|1; 2|] literals are different instances with different hash codes.
-// [<Fact>]
-// let ``test GetHashCode with arrays works`` () =
-//     ([|1; 2|].GetHashCode(), [|1; 2|].GetHashCode()) ||> equal
-//     ([|2; 1|].GetHashCode(), [|1; 2|].GetHashCode()) ||> notEqual
+[<Fact>]
+let ``test GetHashCode with arrays uses identity`` () =
+    let xs1 = [| 1; 2 |]
+    let xs2 = [| 1; 2 |]
+    let hash1 = getObjectHashCode xs1
+    (hash1, xs1.GetHashCode()) ||> equal
+    (hash1, getObjectHashCode xs2) ||> notEqual
+    xs1[0] <- 2
+    (hash1, getObjectHashCode xs1) ||> equal
+
+[<Fact>]
+let ``test GetHashCode with byte arrays uses identity`` () =
+    let xs1 = [| 1uy; 2uy |]
+    let xs2 = [| 1uy; 2uy |]
+    let hash1 = getObjectHashCode xs1
+    (hash1, xs1.GetHashCode()) ||> equal
+    (hash1, getObjectHashCode xs2) ||> notEqual
+    xs1[0] <- 2uy
+    (hash1, getObjectHashCode xs1) ||> equal
 
 [<Fact>]
 let ``test Set option equality works`` () =

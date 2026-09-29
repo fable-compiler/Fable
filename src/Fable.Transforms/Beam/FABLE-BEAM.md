@@ -299,7 +299,8 @@ Unsigned values keep their unsigned range, so `UInt64.MaxValue` is represented a
 
 - Native `=:=` supplies deep equality for numbers, atoms, binaries, tuples, lists,
   and maps.
-- `erlang:phash2/1` supplies general hashing.
+- `fable_comparison:hash/1` supplies structural hashing through `erlang:phash2/1`;
+  array `GetHashCode()` hashes the storage handle to preserve identity across mutation.
 - Direct comparison of a statically known union uses
   `fable_comparison:compare_union/3` with case declaration order.
 - Direct union relational operators, `compare`, `min`/`max`, and plain
@@ -480,7 +481,6 @@ suite grows.
 | Numeric APIs | Special floating-point values need parity work. |
 | Formatting APIs | `FormattableString`, some custom `TimeSpan` formats, and width-sensitive negative hexadecimal formatting are incomplete. |
 | Defaults and null | `Unchecked.defaultof` and null semantics differ for strings, structs, and erased values. |
-| Hashing | Array hashing currently follows content rather than .NET reference identity. |
 | Recursive values | Recursive value bindings that lower through `Lazy` and some inline module-value side effects are incomplete. |
 | Cancellation | Cross-process callbacks cannot safely mutate captured process-local values. Callback exceptions are suppressed, and `CancellationTokenSource.Dispose()` remains a no-op. |
 | Diagnostics | Unhandled Fable value kinds and unsupported assignment shapes can still compile to runtime `erlang:error({unsupported_*})` paths instead of failing compilation. |
