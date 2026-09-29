@@ -1095,15 +1095,52 @@ let ``test Decimal GetBits works with arithmetic operations`` () =
     check (2000M / 10M)
     check (1.5M + 0.5M)
 
-// TODO: BigInt byte array conversion requires two's complement encoding
-// which isn't natively supported in Erlang.
-// [<Fact>]
-// let ``test Big integer to byte array works`` () =
-//     32767I.ToByteArray() |> equal [|255uy; 127uy|]
+[<Fact>]
+let ``test Big integer to byte array works`` () =
+    0I.ToByteArray() |> equal [| 0uy |]
+    32767I.ToByteArray() |> equal [| 255uy; 127uy |]
+    32768I.ToByteArray() |> equal [| 0uy; 128uy; 0uy |]
+    -32768I.ToByteArray() |> equal [| 0uy; 128uy |]
+    -32769I.ToByteArray() |> equal [| 255uy; 127uy; 255uy |]
 
-// [<Fact>]
-// let ``test Big integer from byte array works`` () =
-//     Numerics.BigInteger([|255uy; 127uy|]) |> equal 32767I
+    111222333444555666777888999I.ToByteArray()
+    |> equal [| 231uy; 216uy; 2uy; 164uy; 86uy; 149uy; 8uy; 199uy; 62uy; 0uy; 92uy |]
+
+    -111222333444555666777888999I.ToByteArray()
+    |> equal [| 25uy; 39uy; 253uy; 91uy; 169uy; 106uy; 247uy; 56uy; 193uy; 255uy; 163uy |]
+
+[<Fact>]
+let ``test Big integer from byte array works`` () =
+    Numerics.BigInteger([||]) |> equal 0I
+    Numerics.BigInteger([| 255uy; 127uy |]) |> equal 32767I
+    Numerics.BigInteger([| 0uy; 128uy; 0uy |]) |> equal 32768I
+    Numerics.BigInteger([| 0uy; 128uy |]) |> equal -32768I
+    Numerics.BigInteger([| 255uy; 127uy; 255uy |]) |> equal -32769I
+
+    Numerics.BigInteger([| 231uy; 216uy; 2uy; 164uy; 86uy; 149uy; 8uy; 199uy; 62uy; 0uy; 92uy |])
+    |> equal 111222333444555666777888999I
+
+    Numerics.BigInteger([| 25uy; 39uy; 253uy; 91uy; 169uy; 106uy; 247uy; 56uy; 193uy; 255uy; 163uy |])
+    |> equal -111222333444555666777888999I
+
+[<Fact>]
+let ``test Big integer byte arrays round-trip sign boundaries`` () =
+    [ -62837I; -256I; -129I; -128I; -1I; 0I; 127I; 128I; 255I; 256I ]
+    |> List.iter (fun value -> Numerics.BigInteger(value.ToByteArray()) |> equal value)
+
+[<Fact>]
+let ``test BigInteger Pow stays exact`` () =
+    bigint.Pow(0I, 0) |> equal 1I
+    bigint.Pow(-3I, 5) |> equal -243I
+    bigint.Pow(2I, 256) |> equal (1I <<< 256)
+    throwsAnyError (fun () -> bigint.Pow(2I, -1) |> ignore)
+
+[<Fact>]
+let ``test BigInteger GreatestCommonDivisor works with negatives`` () =
+    bigint.GreatestCommonDivisor(-4I, 6I) |> equal 2I
+    bigint.GreatestCommonDivisor(4I, -6I) |> equal 2I
+    bigint.GreatestCommonDivisor(-4I, -6I) |> equal 2I
+    bigint.GreatestCommonDivisor(0I, -5I) |> equal 5I
 
 // --- Fixed-width integer semantics ---
 // .NET integers wrap on overflow; Erlang integers are arbitrary precision and never do.
