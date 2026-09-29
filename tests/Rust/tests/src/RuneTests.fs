@@ -159,7 +159,21 @@ let ``Rune.IsWhiteSpace works`` () =
     Rune.IsWhiteSpace(Rune('\n')) |> equal true
 
 [<Fact>]
-let ``Rune.ToLower works`` () =
+let ``Rune Unicode category predicates work`` () =
+    Rune.IsControl(Rune('\u0085')) |> equal true
+    Rune.IsDigit(Rune('\u0661')) |> equal true
+    Rune.IsLetter(Rune('Ж')) |> equal true
+    Rune.IsLetterOrDigit(Rune('\u0661')) |> equal true
+    Rune.IsLower(Rune('я')) |> equal true
+    Rune.IsNumber(Rune('\u2167')) |> equal true
+    Rune.IsPunctuation(Rune('\u201C')) |> equal true
+    Rune.IsSeparator(Rune('\u2028')) |> equal true
+    Rune.IsSymbol(Rune('\u20AC')) |> equal true
+    Rune.IsUpper(Rune('Ж')) |> equal true
+    Rune.IsWhiteSpace(Rune('\u2007')) |> equal true
+
+[<Fact>]
+let ``Rune.ToLower with invariant culture works`` () =
     Rune.ToLower(Rune('A'), CultureInfo.InvariantCulture) |> equal (Rune('a'))
 
 [<Fact>]
@@ -167,7 +181,7 @@ let ``Rune.ToLowerInvariant works`` () =
     Rune.ToLowerInvariant(Rune('A')) |> equal (Rune('a'))
 
 [<Fact>]
-let ``Rune.ToUpper works`` () =
+let ``Rune.ToUpper with invariant culture works`` () =
     Rune.ToUpper(Rune('b'), CultureInfo.InvariantCulture) |> equal (Rune('B'))
 
 [<Fact>]

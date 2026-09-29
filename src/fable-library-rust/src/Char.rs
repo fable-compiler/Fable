@@ -1,94 +1,139 @@
 pub mod Char_ {
-    use crate::Native_::{MutCell, ToString, compare};
-    use crate::NativeArray_::{Array, array_from};
+    use crate::NativeArray_::{array_from, Array};
+    use crate::Native_::{compare, MutCell, ToString};
     use crate::String_::{getCharAt, length, string, toString};
+    #[cfg(feature = "unicode")]
+    use unicode_general_category::{get_general_category, GeneralCategory};
 
-    // https://docs.microsoft.com/en-us/dotnet/api/system.globalization.unicodecategory?view=net-6.0
-    pub mod UnicodeCategory {
-        pub const UppercaseLetter: u8 = 0;
-        pub const LowercaseLetter: u8 = 1;
-        pub const TitlecaseLetter: u8 = 2;
-        pub const ModifierLetter: u8 = 3;
-        pub const OtherLetter: u8 = 4;
-        pub const NonSpacingMark: u8 = 5;
-        pub const SpacingCombiningMark: u8 = 6;
-        pub const EnclosingMark: u8 = 7;
-        pub const DecimalDigitNumber: u8 = 8;
-        pub const LetterNumber: u8 = 9;
-        pub const OtherNumber: u8 = 10;
-        pub const SpaceSeparator: u8 = 11;
-        pub const LineSeparator: u8 = 12;
-        pub const ParagraphSeparator: u8 = 13;
-        pub const Control: u8 = 14;
-        pub const Format: u8 = 15;
-        pub const Surrogate: u8 = 16;
-        pub const PrivateUse: u8 = 17;
-        pub const ConnectorPunctuation: u8 = 18;
-        pub const DashPunctuation: u8 = 19;
-        pub const OpenPunctuation: u8 = 20;
-        pub const ClosePunctuation: u8 = 21;
-        pub const InitialQuotePunctuation: u8 = 22;
-        pub const FinalQuotePunctuation: u8 = 23;
-        pub const OtherPunctuation: u8 = 24;
-        pub const MathSymbol: u8 = 25;
-        pub const CurrencySymbol: u8 = 26;
-        pub const ModifierSymbol: u8 = 27;
-        pub const OtherSymbol: u8 = 28;
-        pub const OtherNotAssigned: u8 = 29;
+    // https://docs.microsoft.com/en-us/dotnet/api/system.globalization.unicodecategory
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    #[repr(u8)]
+    pub enum UnicodeCategory {
+        UppercaseLetter = 0,
+        LowercaseLetter = 1,
+        TitlecaseLetter = 2,
+        ModifierLetter = 3,
+        OtherLetter = 4,
+        NonSpacingMark = 5,
+        SpacingCombiningMark = 6,
+        EnclosingMark = 7,
+        DecimalDigitNumber = 8,
+        LetterNumber = 9,
+        OtherNumber = 10,
+        SpaceSeparator = 11,
+        LineSeparator = 12,
+        ParagraphSeparator = 13,
+        Control = 14,
+        Format = 15,
+        Surrogate = 16,
+        PrivateUse = 17,
+        ConnectorPunctuation = 18,
+        DashPunctuation = 19,
+        OpenPunctuation = 20,
+        ClosePunctuation = 21,
+        InitialQuotePunctuation = 22,
+        FinalQuotePunctuation = 23,
+        OtherPunctuation = 24,
+        MathSymbol = 25,
+        CurrencySymbol = 26,
+        ModifierSymbol = 27,
+        OtherSymbol = 28,
+        OtherNotAssigned = 29,
     }
+
+    impl core::fmt::Display for UnicodeCategory {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            write!(f, "{:?}", self)
+        }
+    }
+
+    // map GeneralCategory to UnicodeCategory
+    const UnicodeCategoryMap: [UnicodeCategory; 30] = [
+        UnicodeCategory::ClosePunctuation,
+        UnicodeCategory::ConnectorPunctuation,
+        UnicodeCategory::Control,
+        UnicodeCategory::CurrencySymbol,
+        UnicodeCategory::DashPunctuation,
+        UnicodeCategory::DecimalDigitNumber,
+        UnicodeCategory::EnclosingMark,
+        UnicodeCategory::FinalQuotePunctuation,
+        UnicodeCategory::Format,
+        UnicodeCategory::InitialQuotePunctuation,
+        UnicodeCategory::LetterNumber,
+        UnicodeCategory::LineSeparator,
+        UnicodeCategory::LowercaseLetter,
+        UnicodeCategory::MathSymbol,
+        UnicodeCategory::ModifierLetter,
+        UnicodeCategory::ModifierSymbol,
+        UnicodeCategory::NonSpacingMark,
+        UnicodeCategory::OpenPunctuation,
+        UnicodeCategory::OtherLetter,
+        UnicodeCategory::OtherNumber,
+        UnicodeCategory::OtherPunctuation,
+        UnicodeCategory::OtherSymbol,
+        UnicodeCategory::ParagraphSeparator,
+        UnicodeCategory::PrivateUse,
+        UnicodeCategory::SpaceSeparator,
+        UnicodeCategory::SpacingCombiningMark,
+        UnicodeCategory::Surrogate,
+        UnicodeCategory::TitlecaseLetter,
+        UnicodeCategory::OtherNotAssigned,
+        UnicodeCategory::UppercaseLetter,
+    ];
 
     // The maximum character value.
     pub const MaxValue: char = '\u{FFFF}';
     // The minimum character value.
     pub const MinValue: char = '\u{0000}';
 
-    // const IsWhiteSpaceFlag: u8 = 0x80;
-    // const IsUpperCaseLetterFlag: u8 = 0x40;
-    // const IsLowerCaseLetterFlag: u8 = 0x20;
+    const IsWhiteSpaceFlag: u8 = 0x80;
+    const IsUpperCaseLetterFlag: u8 = 0x40;
+    const IsLowerCaseLetterFlag: u8 = 0x20;
     const UnicodeCategoryMask: u8 = 0x1F;
 
-    // const isControlMask: u32 = 0 | 1 << UnicodeCategory::Control;
-    // const isDigitMask: u32 = 0 | 1 << UnicodeCategory::DecimalDigitNumber;
-    // const isLetterMask: u32 = 0
-    //     | 1 << UnicodeCategory::UppercaseLetter
-    //     | 1 << UnicodeCategory::LowercaseLetter
-    //     | 1 << UnicodeCategory::TitlecaseLetter
-    //     | 1 << UnicodeCategory::ModifierLetter
-    //     | 1 << UnicodeCategory::OtherLetter;
-    // const isLetterOrDigitMask: u32 = 0 | isLetterMask | isDigitMask;
-    // const isUpperMask: u32 = 0 | 1 << UnicodeCategory::UppercaseLetter;
-    // const isLowerMask: u32 = 0 | 1 << UnicodeCategory::LowercaseLetter;
-    // const isNumberMask: u32 = 0
-    //     | 1 << UnicodeCategory::DecimalDigitNumber
-    //     | 1 << UnicodeCategory::LetterNumber
-    //     | 1 << UnicodeCategory::OtherNumber;
-    // const isPunctuationMask: u32 = 0
-    //     | 1 << UnicodeCategory::ConnectorPunctuation
-    //     | 1 << UnicodeCategory::DashPunctuation
-    //     | 1 << UnicodeCategory::OpenPunctuation
-    //     | 1 << UnicodeCategory::ClosePunctuation
-    //     | 1 << UnicodeCategory::InitialQuotePunctuation
-    //     | 1 << UnicodeCategory::FinalQuotePunctuation
-    //     | 1 << UnicodeCategory::OtherPunctuation;
-    // const isSeparatorMask: u32 = 0
-    //     | 1 << UnicodeCategory::SpaceSeparator
-    //     | 1 << UnicodeCategory::LineSeparator
-    //     | 1 << UnicodeCategory::ParagraphSeparator;
-    // const isSymbolMask: u32 = 0
-    //     | 1 << UnicodeCategory::MathSymbol
-    //     | 1 << UnicodeCategory::CurrencySymbol
-    //     | 1 << UnicodeCategory::ModifierSymbol
-    //     | 1 << UnicodeCategory::OtherSymbol;
-    // const isWhiteSpaceMask: u32 = 0
-    //     | 1 << UnicodeCategory::SpaceSeparator
-    //     | 1 << UnicodeCategory::LineSeparator
-    //     | 1 << UnicodeCategory::ParagraphSeparator;
+    const isControlMask: u32 = 0 | 1 << UnicodeCategory::Control as u8;
+    const isDigitMask: u32 = 0 | 1 << UnicodeCategory::DecimalDigitNumber as u8;
+    const isLetterMask: u32 = 0
+        | 1 << UnicodeCategory::UppercaseLetter as u8
+        | 1 << UnicodeCategory::LowercaseLetter as u8
+        | 1 << UnicodeCategory::TitlecaseLetter as u8
+        | 1 << UnicodeCategory::ModifierLetter as u8
+        | 1 << UnicodeCategory::OtherLetter as u8;
+    const isLetterOrDigitMask: u32 = 0 | isLetterMask | isDigitMask;
+    const isUpperMask: u32 = 0 | 1 << UnicodeCategory::UppercaseLetter as u8;
+    const isLowerMask: u32 = 0 | 1 << UnicodeCategory::LowercaseLetter as u8;
+    const isNumberMask: u32 = 0
+        | 1 << UnicodeCategory::DecimalDigitNumber as u8
+        | 1 << UnicodeCategory::LetterNumber as u8
+        | 1 << UnicodeCategory::OtherNumber as u8;
+    const isPunctuationMask: u32 = 0
+        | 1 << UnicodeCategory::ConnectorPunctuation as u8
+        | 1 << UnicodeCategory::DashPunctuation as u8
+        | 1 << UnicodeCategory::OpenPunctuation as u8
+        | 1 << UnicodeCategory::ClosePunctuation as u8
+        | 1 << UnicodeCategory::InitialQuotePunctuation as u8
+        | 1 << UnicodeCategory::FinalQuotePunctuation as u8
+        | 1 << UnicodeCategory::OtherPunctuation as u8;
+    const isSeparatorMask: u32 = 0
+        | 1 << UnicodeCategory::SpaceSeparator as u8
+        | 1 << UnicodeCategory::LineSeparator as u8
+        | 1 << UnicodeCategory::ParagraphSeparator as u8;
+    const isSymbolMask: u32 = 0
+        | 1 << UnicodeCategory::MathSymbol as u8
+        | 1 << UnicodeCategory::CurrencySymbol as u8
+        | 1 << UnicodeCategory::ModifierSymbol as u8
+        | 1 << UnicodeCategory::OtherSymbol as u8;
+    const isWhiteSpaceMask: u32 = 0
+        | 1 << UnicodeCategory::SpaceSeparator as u8
+        | 1 << UnicodeCategory::LineSeparator as u8
+        | 1 << UnicodeCategory::ParagraphSeparator as u8;
 
     // Contains information about the C0, Basic Latin, C1, and Latin-1 Supplement ranges [ U+0000..U+00FF ], with:
     // - 0x80 bit if set means 'is whitespace'
     // - 0x40 bit if set means 'is uppercase letter'
     // - 0x20 bit if set means 'is lowercase letter'
     // - bottom 5 bits are the of: UnicodeCategory the character
+    #[cfg(not(feature = "unicode"))]
     #[cfg_attr(rustfmt, rustfmt::skip)]
     const Latin1CharInfo: &[u8; 256] = &[
         // 0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F
@@ -116,27 +161,48 @@ pub mod Char_ {
         c as u32 <= 0xFF
     }
 
-    // fn isUnicodeCategory(c: char, uc_mask: u32) -> bool {
-    //     let uc = GetUnicodeCategory(c);
-    //     ((1 << uc) & uc_mask) != 0
-    // }
+    #[inline]
+    fn isUnicodeCategory(c: char, uc_mask: u32) -> bool {
+        ((1u32 << (GetUnicodeCategory(c) as u32)) & uc_mask) != 0
+    }
 
+    #[cfg(feature = "unicode")]
     pub fn GetUnicodeCategory(c: char) -> i32 {
-        let category = if (isLatin1(c)) {
-            (Latin1CharInfo[c as usize] & UnicodeCategoryMask)
+        let category = get_general_category(c);
+        UnicodeCategoryMap[category as usize] as i32
+    }
+
+    #[cfg(not(feature = "unicode"))]
+    pub fn GetUnicodeCategory(c: char) -> i32 {
+        if (isLatin1(c)) {
+            // complete, but only for Latin1 char set
+            let cat = (Latin1CharInfo[c as usize] & UnicodeCategoryMask);
+            // let uc: UnicodeCategory = unsafe { std::mem::transmute(cat) };
+            cat as i32
         } else {
-            match c {
-                // very incomplete, TODO: get real unicode categories
-                c if IsUpper(c) => UnicodeCategory::UppercaseLetter,
-                c if IsLower(c) => UnicodeCategory::LowercaseLetter,
-                c if IsLetter(c) => UnicodeCategory::OtherLetter,
-                c if IsDigit(c) => UnicodeCategory::DecimalDigitNumber,
-                c if IsControl(c) => UnicodeCategory::Control,
+            (match c {
+                // very incomplete, enable the unicode feature to get all unicode categories
+                c if c.is_uppercase() => UnicodeCategory::UppercaseLetter,
+                c if c.is_lowercase() => UnicodeCategory::LowercaseLetter,
+                c if c.is_alphabetic() => match c {
+                    c if c.is_numeric() => UnicodeCategory::LetterNumber,
+                    _ => UnicodeCategory::OtherLetter,
+                },
+                c if c.is_ascii_digit() => UnicodeCategory::DecimalDigitNumber, // incomplete
+                c if c.is_ascii_punctuation() => UnicodeCategory::ConnectorPunctuation, // incomplete
+                c if c.is_numeric() => UnicodeCategory::OtherNumber,
+                c if c.is_control() => UnicodeCategory::Control,
+                c if c.is_whitespace() => match c {
+                    // only whitespace characters that are not control chars
+                    '\u{2028}' => UnicodeCategory::LineSeparator,
+                    '\u{2029}' => UnicodeCategory::ParagraphSeparator,
+                    _ => UnicodeCategory::SpaceSeparator,
+                },
                 c if IsSurrogate(c) => UnicodeCategory::Surrogate,
+                // other categories are incomplete
                 c => UnicodeCategory::OtherNotAssigned,
-            }
-        };
-        category as i32
+            }) as i32
+        }
     }
 
     pub fn GetUnicodeCategory_2(s: string, index: i32) -> i32 {
@@ -171,10 +237,24 @@ pub mod Char_ {
         c as i32
     }
 
+    pub fn ConvertToUtf32(c1: char, c2: char) -> i32 {
+        let first = c1 as u32;
+        let second = c2 as u32;
+        if (0xD800..=0xDBFF).contains(&first) && (0xDC00..=0xDFFF).contains(&second) {
+            (0x10000 + ((first - 0xD800) << 10) + (second - 0xDC00)) as i32
+        } else {
+            panic!("The values do not form a valid UTF-16 surrogate pair")
+        }
+    }
+
     pub fn GetHashCode(c: char) -> i32 {
         // Calculate a hashcode for a 2 byte Unicode character.
         // c as i32 | ((c as i32) << 16)
         c as i32
+    }
+
+    pub fn GetTypeCode(_c: char) -> i32 {
+        4 // TypeCode.Char
     }
 
     pub fn Equals(c: char, v: char) -> bool {
@@ -257,92 +337,120 @@ pub mod Char_ {
         c.is_ascii_hexdigit() && c.is_ascii_uppercase()
     }
 
+    // ----------------------------------------------------
+
+    #[cfg(feature = "unicode")]
     pub fn IsControl(c: char) -> bool {
-        // isUnicodeCategory(c, isControlMask)
+        isUnicodeCategory(c, isControlMask)
+    }
+
+    #[cfg(not(feature = "unicode"))]
+    pub fn IsControl(c: char) -> bool {
         c.is_control()
     }
 
+    #[cfg(feature = "unicode")]
     pub fn IsDigit(c: char) -> bool {
-        // if (IsLatin1(c)) {
-        //     matches!(c, '0'..='9')
-        // } else {
-        //     isUnicodeCategory(c, isDigitMask)
-        // }
-        c.is_ascii_digit()
+        isUnicodeCategory(c, isDigitMask)
     }
 
+    #[cfg(not(feature = "unicode"))]
+    pub fn IsDigit(c: char) -> bool {
+        c.is_ascii_digit() // TODO: very incomplete
+    }
+
+    #[cfg(feature = "unicode")]
     pub fn IsLetter(c: char) -> bool {
-        // if (IsAscii(c)) {
-        //     // For the version of the Unicode standard the type: char is locked to, the
-        //     // ASCII range doesn't include letters in categories other than "upper" and "lower".
-        //     (Latin1CharInfo[c as usize] & (IsUpperCaseLetterFlag | IsLowerCaseLetterFlag)) != 0
-        // } else {
-        //     isUnicodeCategory(c, isLetterMask)
-        // }
-        c.is_alphabetic()
+        isUnicodeCategory(c, isLetterMask)
     }
 
+    #[cfg(not(feature = "unicode"))]
+    pub fn IsLetter(c: char) -> bool {
+        c.is_alphabetic() // TODO: not precise, includes Marks
+    }
+
+    #[cfg(feature = "unicode")]
     pub fn IsLetterOrDigit(c: char) -> bool {
-        // isUnicodeCategory(c, LetterOrDigitMask)
-        c.is_ascii_digit() || c.is_alphabetic()
+        isUnicodeCategory(c, isLetterOrDigitMask)
     }
 
+    #[cfg(not(feature = "unicode"))]
+    pub fn IsLetterOrDigit(c: char) -> bool {
+        IsLetter(c) || IsDigit(c)
+    }
+
+    #[cfg(feature = "unicode")]
     pub fn IsLower(c: char) -> bool {
-        // if (IsLatin1(c)) {
-        //     (Latin1CharInfo[c as usize] & IsLowerCaseLetterFlag) != 0
-        // } else {
-        //     isUnicodeCategory(c, isLowerMask)
-        // }
+        isUnicodeCategory(c, isLowerMask)
+    }
+
+    #[cfg(not(feature = "unicode"))]
+    pub fn IsLower(c: char) -> bool {
         c.is_lowercase()
     }
 
+    #[cfg(feature = "unicode")]
     pub fn IsUpper(c: char) -> bool {
-        // if (IsLatin1(c)) {
-        //     (Latin1CharInfo[c as usize] & IsUpperCaseLetterFlag) != 0
-        // } else {
-        //     isUnicodeCategory(c, isUpperMask)
-        // }
+        isUnicodeCategory(c, isUpperMask)
+    }
+
+    #[cfg(not(feature = "unicode"))]
+    pub fn IsUpper(c: char) -> bool {
         c.is_uppercase()
     }
 
+    #[cfg(feature = "unicode")]
     pub fn IsNumber(c: char) -> bool {
-        // if (IsAscii(c)) {
-        //     matches!(c, '0'..='9')
-        // } else {
-        //     isUnicodeCategory(c, isNumberMask)
-        // }
+        isUnicodeCategory(c, isNumberMask)
+    }
+
+    #[cfg(not(feature = "unicode"))]
+    pub fn IsNumber(c: char) -> bool {
         c.is_numeric()
     }
 
-    pub fn IsPunctuation(c: char) -> bool {
-        if (IsAscii(c)) {
-            c.is_ascii_punctuation()
-        } else {
-            c.is_ascii_punctuation() //TODO: imprecise, fix this
-            // isUnicodeCategory(c, isPunctuationMask)
-        }
-    }
-
+    #[cfg(feature = "unicode")]
     pub fn IsSeparator(c: char) -> bool {
-        if (isLatin1(c)) {
-            c == '\u{0020}' || c == '\u{00a0}'
-        } else {
-            // isUnicodeCategory(c, isSeparatorMask)
-            c.is_whitespace() //TODO: imprecise, fix this
-        }
+        isUnicodeCategory(c, isSeparatorMask)
     }
 
+    #[cfg(not(feature = "unicode"))]
+    pub fn IsSeparator(c: char) -> bool {
+        c.is_whitespace() && !c.is_control()
+    }
+
+    #[cfg(feature = "unicode")]
+    pub fn IsPunctuation(c: char) -> bool {
+        isUnicodeCategory(c, isPunctuationMask)
+    }
+
+    #[cfg(not(feature = "unicode"))]
+    pub fn IsPunctuation(c: char) -> bool {
+        c.is_ascii_punctuation() // TODO: very incomplete
+    }
+
+    #[cfg(feature = "unicode")]
     pub fn IsSymbol(c: char) -> bool {
-        // isUnicodeCategory(c, isSymbolMask)
-        c.is_ascii_punctuation() //TODO: imprecise, fix this
+        isUnicodeCategory(c, isSymbolMask)
     }
 
+    #[cfg(not(feature = "unicode"))]
+    pub fn IsSymbol(c: char) -> bool {
+        c.is_ascii_punctuation() // TODO: very incomplete
+    }
+
+    #[cfg(feature = "unicode")]
     pub fn IsWhiteSpace(c: char) -> bool {
-        // if (IsLatin1(c)) {
+        // if (isLatin1(c)) {
         //     (Latin1CharInfo[c as usize] & IsWhiteSpaceFlag) != 0
         // } else {
         //     isUnicodeCategory(c, isWhiteSpaceMask)
         // }
+        c.is_whitespace()
+    }
+
+    #[cfg(not(feature = "unicode"))]
+    pub fn IsWhiteSpace(c: char) -> bool {
         c.is_whitespace()
     }
 
@@ -420,7 +528,7 @@ pub mod Char_ {
     }
 
     pub fn ToUpperInvariant(c: char) -> char {
-        ToUpper(c) //TODO: use invariant culture
+        ToUpper(c) // TODO: use invariant culture
     }
 
     pub fn ToLower(c: char) -> char {
@@ -438,7 +546,7 @@ pub mod Char_ {
     }
 
     pub fn ToLowerInvariant(c: char) -> char {
-        ToLower(c) //TODO: use invariant culture
+        ToLower(c) // TODO: use invariant culture
     }
 
     // ----------------------------------------------------
