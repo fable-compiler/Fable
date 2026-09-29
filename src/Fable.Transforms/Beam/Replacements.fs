@@ -796,7 +796,7 @@ let private objects
         | _, Array _ -> physicalEquals r arg1 arg2 |> Some
         | _ -> equals com r true arg1 arg2 |> Some
     | "GetHashCode", Some thisObj, [] ->
-        Helper.LibCall(com, "fable_comparison", "hash", t, [ thisObj ], ?loc = r)
+        Helper.LibCall(com, "fable_comparison", "get_hash_code", t, [ thisObj ], ?loc = r)
         |> Some
     | "GetType", Some arg, _ -> makeTypeInfo r arg.Type |> Some
     | "ToString", Some thisObj, [] -> ToString.toStringByType com r t thisObj
