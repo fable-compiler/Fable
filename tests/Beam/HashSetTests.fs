@@ -391,32 +391,34 @@ let ``test HashSet.CopyTo works`` () =
     arr3[3..] |> Array.distinct |> Array.length |> equal 4
     arr3.Length |> equal 7
 
-// [<Fact>]
-// let ``test HashSet IReadOnlyCollection.Count works`` () =
-//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
-//     let coll = (HashSet xs) :> IReadOnlyCollection<_>
-//     coll.Count |> equal 3
+[<Fact>]
+let ``test HashSet IReadOnlyCollection.Count works`` () =
+    let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+    let coll = (HashSet xs) :> IReadOnlyCollection<_>
+    coll.Count |> equal 3
 
-// [<Fact>]
-// let ``test HashSet ICollection.IsReadOnly works`` () =
-//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
-//     let coll = (HashSet xs) :> ICollection<_>
-//     coll.IsReadOnly |> equal false
+[<Fact>]
+let ``test HashSet ICollection.IsReadOnly works`` () =
+    let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+    let coll = (HashSet xs) :> ICollection<_>
+    coll.IsReadOnly |> equal false
 
-// [<Fact>]
-// let ``test HashSet ICollection.Count works`` () =
-//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
-//     let coll = (HashSet xs) :> ICollection<_>
-//     coll.Count |> equal 3
+[<Fact>]
+let ``test HashSet ICollection.Count works`` () =
+    let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+    let coll = (HashSet xs) :> ICollection<_>
+    coll.Count |> equal 3
 
-// [<Fact>]
-// let ``test HashSet ICollection.Contains works`` () =
-//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
-//     let coll = (HashSet xs) :> ICollection<_>
-//     coll.Contains(("B", 3)) |> equal false
-//     coll.Contains(("D", 3)) |> equal false
-//     coll.Contains(("B", 2)) |> equal true
+[<Fact>]
+let ``test HashSet ICollection.Contains works`` () =
+    let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+    let coll = (HashSet xs) :> ICollection<_>
+    coll.Contains(("B", 3)) |> equal false
+    coll.Contains(("D", 3)) |> equal false
+    coll.Contains(("B", 2)) |> equal true
 
+// TODO: Interface-typed collection calls do not retain the concrete HashSet kind,
+// so ICollection.CopyTo cannot select fable_hashset:copy_to yet.
 // [<Fact>]
 // let ``test HashSet ICollection.CopyTo works`` () =
 //     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
@@ -425,13 +427,15 @@ let ``test HashSet.CopyTo works`` () =
 //     coll.CopyTo(ys, 0)
 //     ys = xs |> equal true
 
-// [<Fact>]
-// let ``test HashSet ICollection.Clear works`` () =
-//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
-//     let coll = (HashSet xs) :> ICollection<_>
-//     coll.Clear()
-//     coll.Count |> equal 0
+[<Fact>]
+let ``test HashSet ICollection.Clear works`` () =
+    let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+    let coll = (HashSet xs) :> ICollection<_>
+    coll.Clear()
+    coll.Count |> equal 0
 
+// TODO: Interface-typed collection calls do not retain the concrete HashSet kind,
+// so ICollection.Add cannot select fable_hashset:add yet.
 // [<Fact>]
 // let ``test HashSet ICollection.Add works`` () =
 //     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
@@ -441,11 +445,11 @@ let ``test HashSet.CopyTo works`` () =
 //     coll.Add(("D", 4))
 //     coll.Count |> equal 5
 
-// [<Fact>]
-// let ``test HashSet ICollection.Remove works`` () =
-//     let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
-//     let coll = (HashSet xs) :> ICollection<_>
-//     coll.Remove(("B", 3)) |> equal false
-//     coll.Remove(("D", 3)) |> equal false
-//     coll.Remove(("B", 2)) |> equal true
-//     coll.Count |> equal 2
+[<Fact>]
+let ``test HashSet ICollection.Remove works`` () =
+    let xs = [| ("A", 1); ("B", 2); ("C", 3) |]
+    let coll = (HashSet xs) :> ICollection<_>
+    coll.Remove(("B", 3)) |> equal false
+    coll.Remove(("D", 3)) |> equal false
+    coll.Remove(("B", 2)) |> equal true
+    coll.Count |> equal 2

@@ -475,6 +475,7 @@ suite grows.
 | Classes and structs | Mutable record fields, class reference equality, some self-referencing/base constructors, mutually recursive class hierarchies, and default struct construction remain incomplete. |
 | Module initialization | Module-level mutable values and snapshots exist only in a process that ran the generated module `main/0`; ordinary library calls and other processes can read `undefined`. |
 | Mutable collections | Non-byte arrays and mutable collections are process-local. List/map-backed mutation can be O(N). |
+| Collection comparers | `Dictionary` and `HashSet` constructors ignore custom `IEqualityComparer` instances and use native structural keys. |
 | Function identity | Curry/eta identity support covers compiler-generated adapters of arity 2 through 7 and statically known function types; generic call sites can fall back to native fun identity. |
 | Numeric APIs | Special floating-point values need parity work. |
 | Formatting APIs | `FormattableString`, some custom `TimeSpan` formats, and width-sensitive negative hexadecimal formatting are incomplete. |
