@@ -18,7 +18,8 @@ reflection = []
 regexp = ["dep:regex"]
 static_do_bindings = ["dep:startup"]
 threaded = ["atomic", "dep:futures", "dep:futures-timer"]
-default = ["bigint", "datetime", "decimal", "enum_func", "enum_string", "guid", "random", "regexp"]
+unicode = ["dep:unicode-general-category"]
+default = ["bigint", "datetime", "decimal", "enum_func", "enum_string", "guid", "random", "regexp", "unicode"]
 
 [dependencies]
 chrono = { version = "0.4", optional = true }
@@ -33,6 +34,7 @@ rand = { version = "0.10", features = ["std_rng"], default-features = false, opt
 regex = { version = "1.12", optional = true }
 rust_decimal = { version = "1.42", features = ["maths"], default-features = false, optional = true }
 startup = { version = "0.1", path = "vendored/startup", optional = true }
+unicode-general-category = { version = "1.1", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 uuid = { version = "1.23", features = ["v4", "v7"], default-features = false, optional = true }

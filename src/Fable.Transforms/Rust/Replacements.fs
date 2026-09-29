@@ -1330,8 +1330,12 @@ let chars (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr optio
         makeLibCall com r t i "Char" meth args |> Some
     | "ToString", None, [ ExprType(Char) ] -> toString com ctx r args |> Some
     | "ToString", Some c, [] -> toString com ctx r [ c ] |> Some
+    | "ToString", Some c, [ _ ] -> toString com ctx r [ c ] |> Some
+    | ("ToLower" | "ToUpper") as meth, None, [ c; ExprType(DeclaredType(ent, _)) ] when ent.FullName = Types.cultureInfo ->
+        makeLibCall com r t i "Char" meth [ c ] |> Some
     | ("ConvertFromUtf32" | "ToLower" | "ToLowerInvariant" | "ToUpper" | "ToUpperInvariant") as meth, None, [ c ] ->
         makeLibCall com r t i "Char" meth args |> Some
+    | "GetTypeCode", Some c, [] -> makeLibCall com r t i "Char" "GetTypeCode" [ c ] |> Some
     | ("TryParse" | "Parse") as meth, None, _ -> makeLibCall com r t i "Char" meth args |> Some
     | ("IsSurrogate" | "IsHighSurrogate" | "IsLowSurrogate" | "IsSurrogatePair") as meth, None, _ ->
         $"Rust chars are Unicode scalar values, so surrogate tests will be false."
