@@ -5740,7 +5740,12 @@ let tryCall
     | "Microsoft.FSharp.Core.NumericLiterals.NumericLiteralI" ->
         // Erlang has native arbitrary-precision integers, so BigInt ops map directly
         match info.CompiledName, thisArg, args with
-        | ".ctor", None, [ arg ] -> toBigIntFrom r t arg |> Some // bigint(x) = x in Erlang, bar a float
+        | ".ctor", None, [ arg ] ->
+            match arg.Type with
+            | Array(Number(UInt8, _), _) ->
+                Helper.LibCall(com, "fable_int", "bigint_from_byte_array", t, [ arg ], ?loc = r)
+                |> Some
+            | _ -> toBigIntFrom r t arg |> Some // bigint(x) = x in Erlang, bar a float
         | "op_Addition", None, [ left; right ] -> makeBinOp r t left right BinaryPlus |> Some
         | "op_Subtraction", None, [ left; right ] -> makeBinOp r t left right BinaryMinus |> Some
         | "op_Multiply", None, [ left; right ] -> makeBinOp r t left right BinaryMultiply |> Some
@@ -5773,7 +5778,15 @@ let tryCall
             | Number(BigInt, _) -> toBigIntFrom r t arg |> Some
             | _ -> arg |> wrapToIntType com r t arg.Type |> Some
         | "Parse", None, [ str ] -> emitExpr r t [ str ] "binary_to_integer($0)" |> Some
-        | "Pow", None, [ base_; exp_ ] -> emitExpr r t [ base_; exp_ ] "math:pow($0, $1)" |> Some
+        | "ToByteArray", Some value, [] ->
+            Helper.LibCall(com, "fable_int", "bigint_to_byte_array", t, [ value ], ?loc = r)
+            |> Some
+        | "Pow", None, [ base_; exp_ ] ->
+            Helper.LibCall(com, "fable_int", "bigint_pow", t, [ base_; exp_ ], ?loc = r)
+            |> Some
+        | "GreatestCommonDivisor", None, [ left; right ] ->
+            Helper.LibCall(com, "fable_int", "bigint_gcd", t, [ left; right ], ?loc = r)
+            |> Some
         | "Log", None, [ arg ] -> emitExpr r t [ arg ] "math:log(float($0))" |> Some
         | "Log", None, [ arg; base_ ] -> emitExpr r t [ arg; base_ ] "(math:log(float($0)) / math:log($1))" |> Some
         | "Log10", None, [ arg ] -> emitExpr r t [ arg ] "math:log10(float($0))" |> Some
