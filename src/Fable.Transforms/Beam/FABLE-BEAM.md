@@ -303,8 +303,9 @@ Unsigned values keep their unsigned range, so `UInt64.MaxValue` is represented a
   array `GetHashCode()` hashes the storage handle to preserve identity across mutation.
 - Direct comparison of a statically known union uses
   `fable_comparison:compare_union/3` with case declaration order.
-- Direct union relational operators, `compare`, `min`/`max`, and plain
-  `List.sort`/`Array.sort` use the same declaration-order comparison.
+- Direct union relational operators, `compare`, collection `min`/`max`, and
+  `List`/`Array` sorting operations use the same declaration-order comparison
+  when the union type is statically known.
 - Function physical equality unwraps compiler-generated curry/eta adapters before
   comparing the underlying fun.
 
@@ -467,7 +468,7 @@ suite grows.
 
 | Area | Current behavior |
 | --- | --- |
-| Union ordering | Generic comparison, union-valued `sortBy` keys, collection `min`/`max`, nested union fields, and union keys/elements in `Map`/`Set` can use Erlang atom order instead of declaration order. |
+| Union ordering | Generic comparison, nested union fields, and union keys/elements in `Map`/`Set` can use Erlang atom order instead of declaration order. |
 | Options | Erasure can still conflate `None`, `Some null`/`Some undefined`, and some nested option paths after static type information is lost. |
 | `char` | A generic or `obj`-erased character is an integer at runtime, so `string` and `%A` can print its codepoint. UTF-16 surrogate behavior is not complete. |
 | Structured formatting | `%A` reconstructs values from term shape. Record field order, original names, erased options, sets, chars, refs/arrays, decimals, and date/time values can differ from .NET output. |
@@ -510,7 +511,7 @@ visible rather than silent correctness failures.
 | Priority | Gap | Suggested direction |
 | --- | --- | --- |
 | P0 | Unsupported AST paths can survive compilation | Do not silently emit runtime placeholders for constructs inside the supported surface. Prefer compiler errors with source ranges for statically detectable unsupported constructs. |
-| P0 | Union declaration ordering is incomplete | Thread union-aware comparers through `sortBy`, `min`/`max`, nested comparison, and ordered collections. If type-directed routing cannot cover generic containers, define a versioned DU/collection representation change. |
+| P0 | Union declaration ordering is incomplete | Thread union-aware comparers through nested comparison and ordered collections. If type-directed routing cannot cover generic containers, define a versioned DU/collection representation change. |
 | P0 | Option erasure loses states in generic and null-like paths | Carry the nested-option decision through replacements and collection helpers, or adopt an unambiguous tagged form where erasure is unsafe. |
 | P0 | Module initialization is process-dependent | Define library initialization semantics. Prefer explicit generated initialization invoked by entry points/process owners; use global storage only if cross-process mutation is intentionally supported. |
 | P0 | Object-model gaps affect valid F# | Fix silent wrong-code paths in the claimed object-model surface. Keep unsupported class and struct forms as explicit exclusions until implemented. |

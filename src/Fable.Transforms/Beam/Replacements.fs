@@ -174,6 +174,31 @@ let private compare (com: ICompiler) r (left: Expr) (right: Expr) =
 
         Helper.LibCall(com, modName, "compare", Number(Int32, NumberInfo.Empty), [ left; right ], ?loc = r)
 
+let private makeComparerFunction (com: ICompiler) ctx typArg =
+    let x = makeUniqueIdent com ctx typArg "x"
+    let y = makeUniqueIdent com ctx typArg "y"
+    let body = compare com None (IdentExpr x) (IdentExpr y)
+    Delegate([ x; y ], body, None, Tags.empty)
+
+let private tryUnionComparerFunction (com: ICompiler) ctx typ =
+    // decision: Keep native ordering for ordinary values and inject declaration ordering only
+    // when the collection operation retains a statically known union type.
+    if isFableUnion com typ then
+        makeComparerFunction com ctx typ |> Some
+    else
+        None
+
+let private tryGenericUnionComparerFunction (com: ICompiler) ctx index (info: CallInfo) =
+    info.GenericArgs
+    |> List.tryItem index
+    |> Option.bind (tryUnionComparerFunction com ctx)
+
+let private tryCollectionUnionComparerFunction (com: ICompiler) ctx typ =
+    match typ with
+    | List elemType
+    | Array(elemType, _) -> tryUnionComparerFunction com ctx elemType
+    | _ -> None
+
 /// Relational operator (`<`, `<=`, `>`, `>=`): native Erlang term ordering for most
 /// types, but structural `compare_union` ordering for F# unions and instant ordering
 /// for dates.
@@ -1712,7 +1737,7 @@ let private convert
 /// Lists in Erlang are native linked lists, same as F#.
 let private listModule
     (com: ICompiler)
-    (_ctx: Context)
+    (ctx: Context)
     r
     (t: Type)
     (info: CallInfo)
@@ -1751,7 +1776,10 @@ let private listModule
                 "lists:sort(fun(A, B) -> fable_comparison:compare_union($0, A, B) =< 0 end, $1)"
             |> Some
         | None -> emitExpr r t [ list ] "lists:sort($0)" |> Some
-    | "SortBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; list ]) |> Some
+    | "SortBy", [ fn; list ] ->
+        match tryGenericUnionComparerFunction com ctx 1 info with
+        | Some comparer -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; comparer; list ]) |> Some
+        | None -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; list ]) |> Some
     | "SortDescending", [ list ] ->
         match
             (match list.Type with
@@ -1767,7 +1795,11 @@ let private listModule
             |> Some
         | None -> emitExpr r t [ list ] "lists:reverse(lists:sort($0))" |> Some
     | "SortByDescending", [ fn; list ] ->
-        Helper.LibCall(com, "fable_list", "sort_by_descending", t, [ fn; list ]) |> Some
+        match tryGenericUnionComparerFunction com ctx 1 info with
+        | Some comparer ->
+            Helper.LibCall(com, "fable_list", "sort_by_descending", t, [ fn; comparer; list ])
+            |> Some
+        | None -> Helper.LibCall(com, "fable_list", "sort_by_descending", t, [ fn; list ]) |> Some
     | "SortWith", [ fn; list ] -> Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; list ]) |> Some
     | "Contains", [ item; list ] -> emitExpr r t [ item; list ] "lists:member($0, $1)" |> Some
     | "Exists", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:any($0, $1)" |> Some
@@ -1780,10 +1812,22 @@ let private listModule
     | "Partition", [ fn; list ] -> emitExpr r t [ fn; list ] "lists:partition($0, $1)" |> Some
     | "Zip", [ l1; l2 ] -> Helper.LibCall(com, "fable_list", "zip", t, [ l1; l2 ]) |> Some
     | "Unzip", [ list ] -> emitExpr r t [ list ] "lists:unzip($0)" |> Some
-    | "Min", [ list ] -> emitExpr r t [ list ] "lists:min($0)" |> Some
-    | "Max", [ list ] -> emitExpr r t [ list ] "lists:max($0)" |> Some
-    | "MinBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "min_by", t, [ fn; list ]) |> Some
-    | "MaxBy", [ fn; list ] -> Helper.LibCall(com, "fable_list", "max_by", t, [ fn; list ]) |> Some
+    | "Min", [ list ] ->
+        match tryCollectionUnionComparerFunction com ctx list.Type with
+        | Some comparer -> Helper.LibCall(com, "fable_list", "min_with", t, [ comparer; list ]) |> Some
+        | None -> emitExpr r t [ list ] "lists:min($0)" |> Some
+    | "Max", [ list ] ->
+        match tryCollectionUnionComparerFunction com ctx list.Type with
+        | Some comparer -> Helper.LibCall(com, "fable_list", "max_with", t, [ comparer; list ]) |> Some
+        | None -> emitExpr r t [ list ] "lists:max($0)" |> Some
+    | "MinBy", [ fn; list ] ->
+        match tryGenericUnionComparerFunction com ctx 1 info with
+        | Some comparer -> Helper.LibCall(com, "fable_list", "min_by", t, [ fn; comparer; list ]) |> Some
+        | None -> Helper.LibCall(com, "fable_list", "min_by", t, [ fn; list ]) |> Some
+    | "MaxBy", [ fn; list ] ->
+        match tryGenericUnionComparerFunction com ctx 1 info with
+        | Some comparer -> Helper.LibCall(com, "fable_list", "max_by", t, [ fn; comparer; list ]) |> Some
+        | None -> Helper.LibCall(com, "fable_list", "max_by", t, [ fn; list ]) |> Some
     | "Indexed", [ list ] -> Helper.LibCall(com, "fable_list", "indexed", t, [ list ]) |> Some
     | "ReduceBack", [ fn; list ] -> Helper.LibCall(com, "fable_list", "reduce_back", t, [ fn; list ]) |> Some
     | ("Init" | "Initialize"), [ count; fn ] -> Helper.LibCall(com, "fable_list", "init", t, [ count; fn ]) |> Some
@@ -2090,12 +2134,6 @@ let private stringModule
     | "Filter", [ fn; str ] -> Helper.LibCall(com, "fable_string", "filter", t, [ fn; str ]) |> Some
     | _ -> None
 
-let private makeComparerFunction (com: ICompiler) ctx typArg =
-    let x = makeUniqueIdent com ctx typArg "x"
-    let y = makeUniqueIdent com ctx typArg "y"
-    let body = compare com None (IdentExpr x) (IdentExpr y)
-    Delegate([ x; y ], body, None, Tags.empty)
-
 let private makeComparer (com: ICompiler) ctx typArg =
     objExpr [ "Compare", makeComparerFunction com ctx typArg ]
 
@@ -2358,7 +2396,7 @@ let private arrays
 /// Beam-specific Array module replacements.
 let private arrayModule
     (com: ICompiler)
-    (_ctx: Context)
+    (ctx: Context)
     r
     (t: Type)
     (info: CallInfo)
@@ -2376,8 +2414,22 @@ let private arrayModule
     | "Tail", [ arr ] -> let arr = derefArr r arr in emitExpr r t [ arr ] "erlang:tl($0)" |> wrapArr com r t |> Some
     | "IsEmpty", [ arr ] -> let arr = derefArr r arr in emitExpr r t [ arr ] "($0 =:= [])" |> Some
     | "Sum", [ arr ] -> let arr = derefArr r arr in emitExpr r t [ arr ] "lists:sum($0)" |> Some
-    | "Min", [ arr ] -> let arr = derefArr r arr in emitExpr r t [ arr ] "lists:min($0)" |> Some
-    | "Max", [ arr ] -> let arr = derefArr r arr in emitExpr r t [ arr ] "lists:max($0)" |> Some
+    | "Min", [ arr ] ->
+        let comparer = tryCollectionUnionComparerFunction com ctx arr.Type
+
+        let arr = derefArr r arr
+
+        match comparer with
+        | Some comparer -> Helper.LibCall(com, "fable_list", "min_with", t, [ comparer; arr ]) |> Some
+        | None -> emitExpr r t [ arr ] "lists:min($0)" |> Some
+    | "Max", [ arr ] ->
+        let comparer = tryCollectionUnionComparerFunction com ctx arr.Type
+
+        let arr = derefArr r arr
+
+        match comparer with
+        | Some comparer -> Helper.LibCall(com, "fable_list", "max_with", t, [ comparer; arr ]) |> Some
+        | None -> emitExpr r t [ arr ] "lists:max($0)" |> Some
     | "Contains", [ value; arr ] ->
         let arr = derefArr r arr in emitExpr r t [ value; arr ] "lists:member($0, $1)" |> Some
     | "Exists", [ fn; arr ] -> let arr = derefArr r arr in emitExpr r t [ fn; arr ] "lists:any($0, $1)" |> Some
@@ -2397,10 +2449,16 @@ let private arrayModule
         Helper.LibCall(com, "fable_list", "sum_by", t, [ fn; arr ]) |> Some
     | "MinBy", [ fn; arr ] ->
         let arr = derefArr r arr
-        Helper.LibCall(com, "fable_list", "min_by", t, [ fn; arr ]) |> Some
+
+        match tryGenericUnionComparerFunction com ctx 1 info with
+        | Some comparer -> Helper.LibCall(com, "fable_list", "min_by", t, [ fn; comparer; arr ]) |> Some
+        | None -> Helper.LibCall(com, "fable_list", "min_by", t, [ fn; arr ]) |> Some
     | "MaxBy", [ fn; arr ] ->
         let arr = derefArr r arr
-        Helper.LibCall(com, "fable_list", "max_by", t, [ fn; arr ]) |> Some
+
+        match tryGenericUnionComparerFunction com ctx 1 info with
+        | Some comparer -> Helper.LibCall(com, "fable_list", "max_by", t, [ fn; comparer; arr ]) |> Some
+        | None -> Helper.LibCall(com, "fable_list", "max_by", t, [ fn; arr ]) |> Some
     | "Find", [ fn; arr ] ->
         let arr = derefArr r arr
         Helper.LibCall(com, "fable_list", "find", t, [ fn; arr ]) |> Some
@@ -2623,7 +2681,9 @@ let private arrayModule
     | "SortBy", [ fn; arr ] ->
         let arr = derefArr r arr
 
-        Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; arr ])
+        (match tryGenericUnionComparerFunction com ctx 1 info with
+         | Some comparer -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; comparer; arr ])
+         | None -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; arr ]))
         |> wrapArr com r t
         |> Some
     | "SortWith", [ fn; arr ] ->
@@ -2635,7 +2695,9 @@ let private arrayModule
     | "SortByDescending", [ fn; arr ] ->
         let arr = derefArr r arr
 
-        Helper.LibCall(com, "fable_list", "sort_by_descending", t, [ fn; arr ])
+        (match tryGenericUnionComparerFunction com ctx 1 info with
+         | Some comparer -> Helper.LibCall(com, "fable_list", "sort_by_descending", t, [ fn; comparer; arr ])
+         | None -> Helper.LibCall(com, "fable_list", "sort_by_descending", t, [ fn; arr ]))
         |> wrapArr com r t
         |> Some
     | "Zip", [ arr1; arr2 ] ->
@@ -2964,24 +3026,39 @@ let private arrayModule
     | "ToSeq", [ arr ] -> derefArr r arr |> Some
     // === In-place mutation: deref for computation, put result back ===
     | "SortInPlace", [ arr ] ->
+        let comparer = tryCollectionUnionComparerFunction com ctx arr.Type
+
         captureExprOnce
             com
             "array"
             arr
             (fun arr ->
                 let derefed = derefArr r arr
-                let sorted = emitExpr r t [ derefed ] "lists:sort($0)"
+
+                let sorted =
+                    match comparer with
+                    | Some comparer ->
+                        emitExpr r t [ comparer; derefed ] "lists:sort(fun(A, B) -> $0(A, B) =< 0 end, $1)"
+                    | None -> emitExpr r t [ derefed ] "lists:sort($0)"
+
                 Fable.Set(arr, ValueSet, Type.Unit, sorted, None)
             )
         |> Some
     | "SortInPlaceBy", [ fn; arr ] ->
+        let comparer = tryGenericUnionComparerFunction com ctx 1 info
+
         captureExprs2Once
             com
             ("projection", fn)
             ("array", arr)
             (fun fn arr ->
                 let derefed = derefArr r arr
-                let sorted = Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; derefed ])
+
+                let sorted =
+                    match comparer with
+                    | Some comparer -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; comparer; derefed ])
+                    | None -> Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; derefed ])
+
                 Fable.Set(arr, ValueSet, Type.Unit, sorted, None)
             )
         |> Some

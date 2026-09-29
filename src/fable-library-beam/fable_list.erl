@@ -9,7 +9,9 @@
     reduce_back/2,
     map_indexed/2,
     sort_by/2,
+    sort_by/3,
     sort_by_descending/2,
+    sort_by_descending/3,
     sort_with/2,
     find/2,
     try_find/2,
@@ -23,7 +25,11 @@
     collect/2,
     sum_by/2,
     min_by/2,
+    min_by/3,
     max_by/2,
+    max_by/3,
+    min_with/2,
+    max_with/2,
     indexed/1,
     zip/2,
     zip3/3,
@@ -207,8 +213,14 @@ map_indexed(Fn, List) ->
 sort_by(Fn, List) ->
     lists:sort(fun(A, B) -> Fn(A) =< Fn(B) end, List).
 
+sort_by(Fn, Comparer, List) ->
+    lists:sort(fun(A, B) -> Comparer(Fn(A), Fn(B)) =< 0 end, List).
+
 sort_by_descending(Fn, List) ->
     lists:reverse(lists:sort(fun(A, B) -> Fn(A) =< Fn(B) end, List)).
+
+sort_by_descending(Fn, Comparer, List) ->
+    lists:reverse(lists:sort(fun(A, B) -> Comparer(Fn(A), Fn(B)) =< 0 end, List)).
 
 sort_with(Fn, List) ->
     lists:sort(fun(A, B) -> (Fn(A))(B) =< 0 end, List).
@@ -271,8 +283,56 @@ sum_by(Fn, List) ->
 min_by(Fn, List) ->
     element(2, lists:min(lists:map(fun(E) -> {Fn(E), E} end, List))).
 
+min_by(Fn, Comparer, [Head | Tail]) ->
+    lists:foldl(
+        fun(Item, Best) ->
+            case Comparer(Fn(Item), Fn(Best)) > 0 of
+                true -> Best;
+                false -> Item
+            end
+        end,
+        Head,
+        Tail
+    ).
+
 max_by(Fn, List) ->
     element(2, lists:max(lists:map(fun(E) -> {Fn(E), E} end, List))).
+
+max_by(Fn, Comparer, [Head | Tail]) ->
+    lists:foldl(
+        fun(Item, Best) ->
+            case Comparer(Fn(Item), Fn(Best)) > 0 of
+                true -> Item;
+                false -> Best
+            end
+        end,
+        Head,
+        Tail
+    ).
+
+min_with(Comparer, [Head | Tail]) ->
+    lists:foldl(
+        fun(Item, Best) ->
+            case Comparer(Item, Best) > 0 of
+                true -> Best;
+                false -> Item
+            end
+        end,
+        Head,
+        Tail
+    ).
+
+max_with(Comparer, [Head | Tail]) ->
+    lists:foldl(
+        fun(Item, Best) ->
+            case Comparer(Item, Best) > 0 of
+                true -> Item;
+                false -> Best
+            end
+        end,
+        Head,
+        Tail
+    ).
 
 indexed(List) ->
     lists:zip(lists:seq(0, length(List) - 1), List).

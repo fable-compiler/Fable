@@ -48,6 +48,15 @@ type WrappedUnion =
 
 type T1 = T1
 
+type CollectionOrder =
+    | Zebra
+    | Alpha
+    | Middle
+
+type CollectionOrderItem =
+    { Key: CollectionOrder
+      Value: string }
+
 type DeepRecord = { Value: string }
 
 type DeepWrappedUnion =
@@ -73,6 +82,47 @@ let (|FSharp|_|) (document : string) =
     if document = "fsharp" then Some FSharp else None
 
 let (|A|) n = n
+
+[<Fact>]
+let ``test collection ordering uses union declaration order`` () =
+    let values = [ Middle; Zebra; Alpha ]
+    let expected = [ Zebra; Alpha; Middle ]
+    values |> List.sortBy id |> equal expected
+    values |> List.sortByDescending id |> equal (List.rev expected)
+    values |> List.min |> equal Zebra
+    values |> List.max |> equal Middle
+
+    let items =
+        [ { Key = Middle; Value = "middle" }
+          { Key = Zebra; Value = "zebra" }
+          { Key = Alpha; Value = "alpha" } ]
+
+    items
+    |> List.sortBy (fun item -> item.Key)
+    |> List.map (fun item -> item.Value)
+    |> equal [ "zebra"; "alpha"; "middle" ]
+    items |> List.minBy (fun item -> item.Key) |> equal items.[1]
+    items |> List.maxBy (fun item -> item.Key) |> equal items.[0]
+
+    let arrayValues = values |> List.toArray
+    arrayValues |> Array.sortBy id |> equal (List.toArray expected)
+    arrayValues |> Array.sortByDescending id |> equal (expected |> List.rev |> List.toArray)
+    arrayValues |> Array.min |> equal Zebra
+    arrayValues |> Array.max |> equal Middle
+
+    let arrayItems = items |> List.toArray
+    arrayItems |> Array.minBy (fun item -> item.Key) |> equal arrayItems.[1]
+    arrayItems |> Array.maxBy (fun item -> item.Key) |> equal arrayItems.[0]
+
+    let inPlaceValues = values |> List.toArray
+    Array.sortInPlace inPlaceValues
+    inPlaceValues |> equal (List.toArray expected)
+
+    let inPlaceItems = items |> List.toArray
+    Array.sortInPlaceBy (fun item -> item.Key) inPlaceItems
+    inPlaceItems
+    |> Array.map (fun item -> item.Value)
+    |> equal [| "zebra"; "alpha"; "middle" |]
 
 [<RequireQualifiedAccess>]
 type MyUnion3 =
