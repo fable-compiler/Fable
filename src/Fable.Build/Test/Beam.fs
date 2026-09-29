@@ -126,6 +126,11 @@ let private testUnsupportedDiagnostics () =
         "Record 'Fable.Tests.UnsupportedNumericLiteral.CollidingRecord' has fields 'foo-bar' and 'foo_bar' that both compile to Erlang atom 'foo_bar_'. Rename one of the fields."
         output
 
+    expectContains
+        "colliding anonymous record fields have an actionable diagnostic"
+        "Anonymous record has fields 'foo-bar' and 'foo_bar' that both compile to Erlang atom 'foo_bar_'. Rename one of the fields."
+        output
+
     let generatedFile =
         Path.Combine(programBuildDir, "src", "unsupported_numeric_literal_program.erl")
 
@@ -160,6 +165,11 @@ let private testIdentifierCollisionDiagnostics () =
     expectContains
         "colliding member names have an actionable diagnostic"
         "Declarations 'fooBar' and 'foo_bar' in 'colliding_member_names_program' compile to duplicate Erlang function 'foo_bar/0'. Rename one declaration."
+        output
+
+    expectContains
+        "class-generated and module member collisions have an actionable diagnostic"
+        "Declarations in 'colliding_member_names_program' compile to duplicate Erlang function 'foo_ctor/0'. Rename one declaration or change its arity."
         output
 
 /// Compile a whole program and run it on the BEAM through the generated `main.erl` shim.

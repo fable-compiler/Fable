@@ -33,6 +33,9 @@ let logItem2 = log2 "item2"
 let ``punctuation-name`` () = 1
 let punctuation_name () = 2
 
+let ``abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh`` () =
+    3
+
 type PartialFunctions() =
     member _.logItem1 = log2 "item1"
     member _.logItem2 = log2 "item2"
@@ -153,22 +156,6 @@ type Taster =
     abstract Taste: quality: float * quantity: float -> int
 let taste (com: Taster) qlty qty =
     com.Starter * qlty + qty |> int
-
-type IRenderer =
-    abstract member doWork: unit -> string
-
-type MyComponent(name) as self =
-    let work i = sprintf "%s-%i" name i
-    let create2 () = { new IRenderer with member _.doWork () = work 2 }
-    let create3 = { new IRenderer with member _.doWork () = work 3 }
-    let create4 = { new IRenderer with member _.doWork () = self.Work 4 }
-    let create5() = { new IRenderer with member _.doWork () = self.Work 5 }
-    member _.Work i = work i
-    member _.works1 () = { new IRenderer with member _.doWork () = work 1 }
-    member _.works2 () = create2()
-    member _.works3 () = create3
-    member _.works4 () = create4
-    member _.works5 () = create5()
 
 // Type extension types
 type SomeClass(name: string) =
@@ -451,6 +438,11 @@ let ``test Conversion to Action works`` () =
 let ``test module functions with punctuation remain distinct`` () =
     (``punctuation-name`` (), punctuation_name ()) |> equal (1, 2)
 
+[<Fact>]
+let ``test escaped function names stay within the Erlang atom limit`` () =
+    ``abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh`` ()
+    |> equal 3
+
 // -- Object Expressions --
 
 [<Fact>]
@@ -494,16 +486,6 @@ let ``test Composition with recursive this works`` () =
     let mutable x = 0
     RecursiveType(fun f -> x <- f()) |> ignore
     equal 11 x
-
-// TODO: Re-enable when Beam target disambiguates local let bindings from same-named members
-// (MyComponent has `let work i = ...` and `member _.Work i = work i` which collide after sanitization)
-// [<Fact>]
-// let ``test References to enclosing type from object expression work`` () =
-//     MyComponent("TestA").works1().doWork() |> equal "TestA-1"
-//     MyComponent("TestB").works2().doWork() |> equal "TestB-2"
-//     MyComponent("TestC").works3().doWork() |> equal "TestC-3"
-//     MyComponent("TestD").works4().doWork() |> equal "TestD-4"
-//     MyComponent("TestE").works5().doWork() |> equal "TestE-5"
 
 [<Fact>]
 let ``test Inlined object expression doesn't change argument this context`` () =
