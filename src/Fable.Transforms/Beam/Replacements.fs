@@ -3218,8 +3218,11 @@ let cancels (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         )
         |> Some
     | "Dispose" when i.DeclaringEntityFullName = "System.Threading.CancellationTokenRegistration" ->
-        Helper.LibCall(com, "fable_utils", "safe_dispose", t, [ thisArg.Value ], ?loc = r)
-        |> Some
+        match thisArg with
+        | Some registration ->
+            Helper.LibCall(com, "fable_utils", "safe_dispose", t, [ registration ], ?loc = r)
+            |> Some
+        | None -> None
     | "Dispose" -> Null Type.Unit |> makeValue r |> Some
     | "Register" ->
         let args, argTypes =

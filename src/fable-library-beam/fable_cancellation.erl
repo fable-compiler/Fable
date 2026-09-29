@@ -18,6 +18,7 @@
 -spec register(reference() | undefined, fun(), term()) -> map() | undefined.
 
 -define(SERVER, fable_cancellation_server).
+-define(CALLBACK_KEY, '$fable_cancellation_callback').
 
 %% CancellationToken/CancellationTokenSource runtime.
 %%
@@ -27,8 +28,11 @@
 %% this closes the register-versus-cancel race without leaking one process per token
 %% invariant: the broker never invokes a callback for direct cancellation — Cancel runs callbacks
 %% synchronously in its caller, matching CancellationTokenSource.Cancel semantics
-%% tradeoff: cross-process callbacks cannot capture process-dictionary-backed Fable mutable values
-%% because Cancel runs them in its caller and CancelAfter uses a short-lived worker
+%% invariant: a running registration remains broker-owned until its callback completes — Dispose
+%% can therefore wait for callbacks executing in another process
+%% tradeoff: user callbacks cannot capture process-dictionary-backed Fable mutable values across
+%% processes because Cancel runs them in its caller and CancelAfter uses a short-lived worker;
+%% runtime-owned callbacks must marshal their work back to the registering process
 
 create() -> create(undefined).
 
@@ -49,7 +53,7 @@ cancel(undefined) ->
     ok;
 cancel(Token) ->
     case call({cancel, Token}) of
-        {invoke, Listeners} -> invoke_listeners(Listeners);
+        {invoke, Listeners} -> invoke_listeners(Token, Listeners);
         already_cancelled -> ok
     end.
 
@@ -87,13 +91,24 @@ register(Token, F, State) ->
     end.
 
 unregister(Token, Id) ->
-    call({unregister, Token, Id}),
+    IsCurrentCallback = get(?CALLBACK_KEY) =:= {Token, Id},
+    call({unregister, Token, Id, IsCurrentCallback}),
     ok.
 
 %% Internal helpers
 
-invoke_listeners(Listeners) ->
-    lists:foreach(fun invoke_listener/1, Listeners).
+invoke_listeners(Token, Listeners) ->
+    lists:foreach(fun(Listener) -> invoke_listener(Token, Listener) end, Listeners).
+
+invoke_listener(Token, {Id, F, State}) ->
+    PreviousCallback = put(?CALLBACK_KEY, {Token, Id}),
+    invoke_listener({F, State}),
+    case PreviousCallback of
+        undefined -> erase(?CALLBACK_KEY);
+        _ -> put(?CALLBACK_KEY, PreviousCallback)
+    end,
+    call({callback_complete, Token, Id}),
+    ok.
 
 invoke_listener({F, State}) ->
     try
@@ -145,17 +160,19 @@ server_loop(Entries) ->
                     From ! {Ref, registered},
                     server_loop(Entries#{Token => Entry1})
             end;
-        {call, From, Ref, {unregister, Token, Id}} ->
-            Entries1 = update_entry(Token, fun(Entry) ->
-                Listeners = maps:get(listeners, Entry),
-                Entry#{listeners := maps:remove(Id, Listeners)}
-            end, Entries),
-            From ! {Ref, ok},
+        {call, From, Ref, {unregister, Token, Id, IsCurrentCallback}} ->
+            {Entries1, Reply} = unregister_listener(
+                Token, Id, From, Ref, IsCurrentCallback, Entries
+            ),
+            case Reply of
+                now -> From ! {Ref, ok};
+                after_callback -> ok
+            end,
             server_loop(Entries1);
         {call, From, Ref, {cancel, Token}} ->
             case atomics:compare_exchange(Token, 1, 0, 1) of
                 ok ->
-                    {Listeners, Entries1} = take_entry(Token, Entries),
+                    {Listeners, Entries1} = begin_callbacks(Token, From, Entries),
                     From ! {Ref, {invoke, Listeners}},
                     server_loop(Entries1);
                 1 ->
@@ -171,22 +188,31 @@ server_loop(Entries) ->
                 {ok, #{timer := {_TimerRef, Generation}}} ->
                     case atomics:compare_exchange(Token, 1, 0, 1) of
                         ok ->
-                            {Listeners, Entries1} = take_entry(Token, Entries),
                             %% CancelAfter has no calling process in which callbacks can run.
                             %% A short-lived worker keeps user code out of the state broker.
-                            spawn(fun() -> invoke_listeners(Listeners) end),
+                            Worker = spawn(fun() ->
+                                receive
+                                    {invoke, Listeners} -> invoke_listeners(Token, Listeners)
+                                end
+                            end),
+                            {Listeners, Entries1} = begin_callbacks(Token, Worker, Entries),
+                            Worker ! {invoke, Listeners},
                             server_loop(Entries1);
                         1 ->
-                            {_Listeners, Entries1} = take_entry(Token, Entries),
+                            Entries1 = remove_timer(Token, Entries),
                             server_loop(Entries1)
                     end;
                 _ ->
                     server_loop(Entries)
-            end
+            end;
+        {call, From, Ref, {callback_complete, Token, Id}} ->
+            Entries1 = complete_callback(Token, Id, Entries),
+            From ! {Ref, ok},
+            server_loop(Entries1)
     end.
 
 new_entry() ->
-    #{listeners => #{}, timer => undefined}.
+    #{listeners => #{}, running => #{}, waiters => #{}, timer => undefined}.
 
 schedule_cancel_after(Token, Ms, Entries) ->
     case atomics:get(Token, 1) of
@@ -210,16 +236,66 @@ update_entry(Token, F, Entries) ->
             end
     end.
 
-take_entry(Token, Entries) ->
-    case maps:take(Token, Entries) of
+begin_callbacks(Token, Owner, Entries) ->
+    case maps:find(Token, Entries) of
         error -> {[], Entries};
-        {Entry, Entries1} ->
+        {ok, Entry} ->
             cancel_timer(maps:get(timer, Entry)),
-            {maps:values(maps:get(listeners, Entry)), Entries1}
+            Listeners = maps:get(listeners, Entry),
+            Running = maps:from_list([{Id, Owner} || Id <- maps:keys(Listeners)]),
+            Callbacks = [{Id, F, State} || {Id, {F, State}} <- maps:to_list(Listeners)],
+            Entry1 = Entry#{listeners := #{}, running := Running, timer := undefined},
+            {Callbacks, put_entry(Token, Entry1, Entries)}
     end.
 
-entry_empty(#{listeners := Listeners, timer := Timer}) ->
-    map_size(Listeners) =:= 0 andalso Timer =:= undefined.
+unregister_listener(Token, Id, From, Ref, IsCurrentCallback, Entries) ->
+    case maps:find(Token, Entries) of
+        error -> {Entries, now};
+        {ok, Entry} ->
+            Listeners = maps:get(listeners, Entry),
+            Running = maps:get(running, Entry),
+            case maps:find(Id, Running) of
+                {ok, From} when IsCurrentCallback ->
+                    %% A callback may dispose its own registration; waiting here would deadlock.
+                    {Entries, now};
+                {ok, _Owner} ->
+                    Waiters = maps:get(waiters, Entry),
+                    RegistrationWaiters = maps:get(Id, Waiters, []),
+                    Entry1 = Entry#{waiters := Waiters#{Id => [{From, Ref} | RegistrationWaiters]}},
+                    {Entries#{Token := Entry1}, after_callback};
+                error ->
+                    Entry1 = Entry#{listeners := maps:remove(Id, Listeners)},
+                    {put_entry(Token, Entry1, Entries), now}
+            end
+    end.
+
+complete_callback(Token, Id, Entries) ->
+    case maps:find(Token, Entries) of
+        error -> Entries;
+        {ok, Entry} ->
+            Waiters = maps:get(waiters, Entry),
+            lists:foreach(fun({Pid, Ref}) -> Pid ! {Ref, ok} end, maps:get(Id, Waiters, [])),
+            Entry1 = Entry#{
+                running := maps:remove(Id, maps:get(running, Entry)),
+                waiters := maps:remove(Id, Waiters)
+            },
+            put_entry(Token, Entry1, Entries)
+    end.
+
+remove_timer(Token, Entries) ->
+    update_entry(Token, fun(Entry) -> Entry#{timer := undefined} end, Entries).
+
+put_entry(Token, Entry, Entries) ->
+    case entry_empty(Entry) of
+        true -> maps:remove(Token, Entries);
+        false -> Entries#{Token => Entry}
+    end.
+
+entry_empty(#{listeners := Listeners, running := Running, waiters := Waiters, timer := Timer}) ->
+    map_size(Listeners) =:= 0 andalso
+        map_size(Running) =:= 0 andalso
+        map_size(Waiters) =:= 0 andalso
+        Timer =:= undefined.
 
 cancel_timer(undefined) -> ok;
 cancel_timer({TimerRef, _Generation}) ->

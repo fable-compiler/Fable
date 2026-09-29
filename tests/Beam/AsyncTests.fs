@@ -434,10 +434,19 @@ type private CancellationProbeMessage =
     | CancellationProbeReady of worker: obj
     | CancellationProbeContinue
     | CancellationCallbackInvoked
+    | CancellationCallbackStarted of worker: obj
+    | CancellationDisposeReturned
 
 // Run a thunk in a fresh BEAM process and return its result to the caller.
 [<Fable.Core.Emit("(fun() -> CancellationParent = self(), CancellationFun = $0, spawn(fun() -> CancellationParent ! {cancellation_result, case erlang:fun_info(CancellationFun, arity) of {arity, 0} -> CancellationFun(); _ -> CancellationFun(ok) end} end), receive {cancellation_result, CancellationResult} -> CancellationResult after 1000 -> timeout end end)()")>]
 let private runInCancellationProcess (f: unit -> 'a) : 'a = Fable.Core.Util.nativeOnly
+
+[<Fable.Core.Emit("(fun() -> CancellationFun = $0, spawn(fun() -> case erlang:fun_info(CancellationFun, arity) of {arity, 0} -> CancellationFun(); _ -> CancellationFun(ok) end end) end)()")>]
+let private startCancellationProcess (f: unit -> unit) : obj = Fable.Core.Util.nativeOnly
+
+[<Fable.Core.Emit("fable_async:run_synchronously($0, $1)")>]
+let private runSynchronouslyWithCancellation (_workflow: Async<'a>) (_token: System.Threading.CancellationToken) : 'a =
+    Fable.Core.Util.nativeOnly
 
 let private sendCancellationReady (parent: obj) =
     let worker: obj = emitErlExpr () "erlang:self()"
@@ -555,6 +564,68 @@ let ``test cross-process cancellation registration runs once`` () =
     Async.RunSynchronously comp |> equal true
 
 [<Fact>]
+let ``test CancellationToken registration Dispose waits for a running callback`` () =
+    let cts = new System.Threading.CancellationTokenSource()
+    let parent: obj = emitErlExpr () "erlang:self()"
+    let registration =
+        cts.Token.Register(fun () ->
+            let worker: obj = emitErlExpr () "erlang:self()"
+            emitErlExpr (parent, worker) "$0 ! {cancellation_callback_started, $1}"
+            Erlang.receive<CancellationProbeMessage> 1000 |> ignore
+        )
+
+    startCancellationProcess (fun () -> cts.Cancel()) |> ignore
+
+    match Erlang.receive<CancellationProbeMessage> 1000 with
+    | Some(CancellationCallbackStarted worker) ->
+        startCancellationProcess (fun () ->
+            registration.Dispose()
+            emitErlExpr parent "$0 ! cancellation_dispose_returned"
+        ) |> ignore
+
+        Erlang.receive<CancellationProbeMessage> 0 |> Option.isNone |> equal true
+        emitErlExpr worker "$0 ! cancellation_probe_continue"
+
+        match Erlang.receive<CancellationProbeMessage> 1000 with
+        | Some CancellationDisposeReturned -> ()
+        | _ -> failwith "Dispose did not return after the callback completed"
+    | _ -> failwith "Cancellation callback did not start"
+
+[<Fact>]
+let ``test Async AwaitEvent cancellation runs in the event owner process`` () =
+    let cts = new System.Threading.CancellationTokenSource()
+    let parent: obj = emitErlExpr () "erlang:self()"
+
+    let comp = async {
+        let! child =
+            Async.StartChild(async {
+                let ev = Event<int>()
+                let mutable cancelCalled = false
+                sendCancellationReady parent
+
+                let wasCancelled =
+                    try
+                        runSynchronouslyWithCancellation
+                            (async {
+                                let! _ = Async.AwaitEvent(ev.Publish, fun () -> cancelCalled <- true)
+                                return false
+                            })
+                            cts.Token
+                    with _ -> true
+
+                return wasCancelled && cancelCalled
+            })
+
+        match waitForCancellationReady () with
+        | Some _ ->
+            cts.Cancel()
+            return! child
+        | None -> return false
+    }
+
+    Async.RunSynchronously comp |> equal true
+
+[<Fact>]
 let ``test CancellationTokenSource create and cancel works`` () =
     let tcs = new System.Threading.CancellationTokenSource()
     equal false tcs.Token.IsCancellationRequested
@@ -660,11 +731,18 @@ let ``test Can use custom exceptions in async workflows`` () =
 [<Fact>]
 let ``test Async.AwaitEvent fires continuation when event is triggered`` () =
     let ev = Event<int>()
+    let cts = new System.Threading.CancellationTokenSource()
+    let mutable cancelCalled = false
+    let mutable completed = false
     Async.StartImmediate(async {
-        let! v = Async.AwaitEvent ev.Publish
+        let! v = Async.AwaitEvent(ev.Publish, fun () -> cancelCalled <- true)
         equal 42 v
-    })
+        completed <- true
+    }, cts.Token)
     ev.Trigger(42)
+    cts.Cancel()
+    equal true completed
+    equal false cancelCalled
 
 [<Fact>]
 let ``test Async.AwaitEvent with cancelAction invokes it on cancellation`` () =
