@@ -483,7 +483,6 @@ suite grows.
 | Defaults and null | `Unchecked.defaultof` and null semantics differ for strings, structs, and erased values. |
 | Recursive values | Recursive value bindings that lower through `Lazy` and some inline module-value side effects are incomplete. |
 | Cancellation | Cross-process callbacks cannot safely mutate captured process-local values. Callback exceptions are suppressed, and `CancellationTokenSource.Dispose()` remains a no-op. |
-| Diagnostics | Unhandled Fable value kinds and unsupported assignment shapes can still compile to runtime `erlang:error({unsupported_*})` paths instead of failing compilation. |
 
 For `char` conversion in generic code, making the function `inline` or using a
 concrete `char` annotation keeps the type available at the call site. Other entries

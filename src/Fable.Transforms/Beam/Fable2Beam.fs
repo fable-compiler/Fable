@@ -134,6 +134,12 @@ let private hasMutableRecordFields (com: IBeamCompiler) (typ: Fable.AST.Fable.Ty
 let private atomLit name =
     Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom name))
 
+let private unsupportedExpression (com: IBeamCompiler) range message =
+    com.AddLog(message, Severity.Error, ?range = range, fileName = com.CurrentFile, tag = "FABLE")
+
+    // invariant: Unsupported source constructs log an error before returning a recovery expression.
+    atomLit "undefined"
+
 /// Resolve the atom tag name for a union case.
 /// Returns Some(atomStr, isFieldless) or None if the entity can't be resolved.
 let private getUnionCaseAtomExpr (com: IBeamCompiler) (ref: EntityRef) (tag: int) =
@@ -239,7 +245,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
         Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "undefined"))
 
-    | Value(kind, _range) -> transformValue com ctx kind
+    | Value(kind, range) -> transformValue com ctx range kind
 
     | Call(callee, info, _typ, _range) -> transformCall com ctx callee info
 
@@ -580,7 +586,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
             transformExpr com ctx target
 
-    | Set(expr, ValueSet, _typ, value, _range) ->
+    | Set(expr, ValueSet, _typ, value, range) ->
         match expr with
         | IdentExpr ident when ctx.MutableVars.ContainsKey(ident.Name) ->
             // Mutable variable: update via process dictionary using unique ref key
@@ -601,14 +607,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                 ]
             )
         | IdentExpr ident -> Beam.ErlExpr.Match(Beam.PVar(capitalizeFirst ident.Name), transformExpr com ctx value)
-        | _ ->
-            com.WarnOnlyOnce("Set with non-identifier target is not supported for Beam target")
-
-            Beam.ErlExpr.Call(
-                Some "erlang",
-                "error",
-                [ Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "unsupported_set")) ]
-            )
+        | _ -> unsupportedExpression com range "Set with non-identifier target is not supported for Beam target"
 
     | Set(expr, FieldSet fieldName, _, value, _) ->
         let erlExpr = transformExpr com ctx expr
@@ -1453,7 +1452,13 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                         }
                     ]
 
-and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam.ErlExpr =
+and transformValue
+    (com: IBeamCompiler)
+    (ctx: Context)
+    (range: SourceLocation option)
+    (value: ValueKind)
+    : Beam.ErlExpr
+    =
     match value with
     | StringConstant s -> Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit s)
 
@@ -1619,6 +1624,13 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
 
         Beam.ErlExpr.Literal(Beam.ErlLiteral.BigInt(string<System.Numerics.BigInteger> value))
 
+    | NumberConstant(NumberValue.Float16 _, _) ->
+        unsupportedExpression com range "Numeric literal kind 'Float16' is not supported for Beam target"
+    | NumberConstant(NumberValue.Int128 _, _) ->
+        unsupportedExpression com range "Numeric literal kind 'Int128' is not supported for Beam target"
+    | NumberConstant(NumberValue.UInt128 _, _) ->
+        unsupportedExpression com range "Numeric literal kind 'UInt128' is not supported for Beam target"
+
     | NewRecord(values, ref, _genArgs) ->
         match com.TryGetEntity(ref) with
         | Some entity ->
@@ -1762,21 +1774,6 @@ and transformValue (com: IBeamCompiler) (ctx: Context) (value: ValueKind) : Beam
         else
             let flagsExpr = Beam.ErlExpr.Literal(Beam.ErlLiteral.Integer(int64 flagBits))
             Beam.ErlExpr.Call(Some "fable_regex", "create", [ patternExpr; flagsExpr ])
-
-    | _ ->
-        let kindName = value.GetType().Name
-
-        com.WarnOnlyOnce(
-            $"Unhandled Fable value kind '%s{kindName}' — emitting placeholder atom. This may cause runtime errors."
-        )
-
-        Beam.ErlExpr.Call(
-            Some "erlang",
-            "error",
-            [
-                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom $"unsupported_%s{kindName.ToLowerInvariant()}"))
-            ]
-        )
 
 and transformOperation
     (com: IBeamCompiler)

@@ -1079,6 +1079,35 @@ let ``test Array.sortInPlaceWith works`` () =
     xs.[0] + xs.[1] |> equal 3.
 
 [<Fact>]
+let ``test In-place array functions evaluate computed arrays once`` () =
+    let mutable evaluations = 0
+    let computed xs () =
+        evaluations <- evaluations + 1
+        xs
+
+    let sorted = [| 3; 1; 2 |]
+    Array.sortInPlace (computed sorted ())
+    sorted |> equal [| 1; 2; 3 |]
+
+    let sortedBy = [| 3; 1; 2 |]
+    Array.sortInPlaceBy (fun x -> -x) (computed sortedBy ())
+    sortedBy |> equal [| 3; 2; 1 |]
+
+    let sortedWith = [| 3; 1; 2 |]
+    Array.sortInPlaceWith compare (computed sortedWith ())
+    sortedWith |> equal [| 1; 2; 3 |]
+
+    let filled = [| 1; 2; 3; 4 |]
+    Array.fill (computed filled ()) 1 2 9
+    filled |> equal [| 1; 9; 9; 4 |]
+
+    let source = [| 5; 6; 7 |]
+    let target = [| 0; 0; 0 |]
+    Array.blit (computed source ()) 1 (computed target ()) 0 2
+    target |> equal [| 6; 7; 0 |]
+    evaluations |> equal 6
+
+[<Fact>]
 let ``test Array.sortByDescending works`` () =
     let xs = [|3.; 4.; 1.; 2.|]
     let ys = xs |> Array.sortByDescending (fun x -> -x)
