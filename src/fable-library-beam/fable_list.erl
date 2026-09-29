@@ -284,38 +284,42 @@ min_by(Fn, List) ->
     element(2, lists:min(lists:map(fun(E) -> {Fn(E), E} end, List))).
 
 min_by(Fn, Comparer, [Head | Tail]) ->
-    lists:foldl(
-        fun(Item, Best) ->
-            case Comparer(Fn(Item), Fn(Best)) > 0 of
-                true -> Best;
-                false -> Item
+    {_, Result} = lists:foldl(
+        fun(Item, {BestKey, Best}) ->
+            ItemKey = Fn(Item),
+            case Comparer(ItemKey, BestKey) < 0 of
+                true -> {ItemKey, Item};
+                false -> {BestKey, Best}
             end
         end,
-        Head,
+        {Fn(Head), Head},
         Tail
-    ).
+    ),
+    Result.
 
 max_by(Fn, List) ->
     element(2, lists:max(lists:map(fun(E) -> {Fn(E), E} end, List))).
 
 max_by(Fn, Comparer, [Head | Tail]) ->
-    lists:foldl(
-        fun(Item, Best) ->
-            case Comparer(Fn(Item), Fn(Best)) > 0 of
-                true -> Item;
-                false -> Best
+    {_, Result} = lists:foldl(
+        fun(Item, {BestKey, Best}) ->
+            ItemKey = Fn(Item),
+            case Comparer(ItemKey, BestKey) > 0 of
+                true -> {ItemKey, Item};
+                false -> {BestKey, Best}
             end
         end,
-        Head,
+        {Fn(Head), Head},
         Tail
-    ).
+    ),
+    Result.
 
 min_with(Comparer, [Head | Tail]) ->
     lists:foldl(
         fun(Item, Best) ->
-            case Comparer(Item, Best) > 0 of
-                true -> Best;
-                false -> Item
+            case Comparer(Item, Best) < 0 of
+                true -> Item;
+                false -> Best
             end
         end,
         Head,

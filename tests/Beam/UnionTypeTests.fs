@@ -57,6 +57,8 @@ type CollectionOrderItem =
     { Key: CollectionOrder
       Value: string }
 
+type CollectionArray = CollectionArray of int array
+
 type DeepRecord = { Value: string }
 
 type DeepWrappedUnion =
@@ -123,6 +125,66 @@ let ``test collection ordering uses union declaration order`` () =
     inPlaceItems
     |> Array.map (fun item -> item.Value)
     |> equal [| "zebra"; "alpha"; "middle" |]
+
+[<Fact>]
+let ``test collection extrema preserve first ties and project each item once`` () =
+    let items =
+        [ { Key = Zebra; Value = "first" }
+          { Key = Zebra; Value = "second" }
+          { Key = Alpha; Value = "third" } ]
+
+    let mutable listMinProjections = 0
+
+    let listMin =
+        items
+        |> List.minBy (fun item ->
+            listMinProjections <- listMinProjections + 1
+            item.Key)
+
+    listMin.Value |> equal "first"
+    listMinProjections |> equal items.Length
+
+    let mutable listMaxProjections = 0
+
+    items
+    |> List.maxBy (fun item ->
+        listMaxProjections <- listMaxProjections + 1
+        item.Key)
+    |> ignore
+
+    listMaxProjections |> equal items.Length
+
+    let arrayItems = List.toArray items
+    let mutable arrayMinProjections = 0
+
+    let arrayMin =
+        arrayItems
+        |> Array.minBy (fun item ->
+            arrayMinProjections <- arrayMinProjections + 1
+            item.Key)
+
+    arrayMin.Value |> equal "first"
+    arrayMinProjections |> equal arrayItems.Length
+
+    let mutable arrayMaxProjections = 0
+
+    arrayItems
+    |> Array.maxBy (fun item ->
+        arrayMaxProjections <- arrayMaxProjections + 1
+        item.Key)
+    |> ignore
+
+    arrayMaxProjections |> equal arrayItems.Length
+
+    let first = [| 1 |]
+    let second = [| 1 |]
+    let values = [ CollectionArray first; CollectionArray second ]
+
+    let (CollectionArray listMinValue) = List.min values
+    obj.ReferenceEquals(listMinValue, first) |> equal true
+
+    let (CollectionArray arrayMinValue) = values |> List.toArray |> Array.min
+    obj.ReferenceEquals(arrayMinValue, first) |> equal true
 
 [<RequireQualifiedAccess>]
 type MyUnion3 =
