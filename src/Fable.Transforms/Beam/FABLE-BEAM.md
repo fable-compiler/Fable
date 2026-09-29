@@ -113,8 +113,10 @@ Exceptions:
 - native Erlang modules referenced through interop keep their native names.
 
 Function, field, case, and module names are sanitized to Erlang atoms. Reserved
-words receive a trailing underscore. Reflection metadata stores both the original
-F# name and the emitted atom when both are needed.
+words receive a trailing underscore. Encoded punctuation in F# compiled names uses
+`_xNNNN_` segments so distinct backticked identifiers do not collapse to one atom;
+remaining module-level name/arity collisions fail compilation. Reflection metadata
+stores both the original F# name and the emitted atom when both are needed.
 
 The generated project contains:
 
@@ -472,7 +474,7 @@ suite grows.
 | Options | Erasure can still conflate `None`, `Some null`/`Some undefined`, and some nested option paths after static type information is lost. |
 | `char` | A generic or `obj`-erased character is an integer at runtime, so `string` and `%A` can print its codepoint. UTF-16 surrogate behavior is not complete. |
 | Structured formatting | `%A` reconstructs values from term shape. Record field order, original names, erased options, sets, chars, refs/arrays, decimals, and date/time values can differ from .NET output. |
-| Identifiers | Record fields containing spaces or symbols are not fully supported. Sanitized names also need collision diagnostics where distinct F# names produce the same Erlang atom. |
+| Identifiers | Instance members split across declaration paths can still sanitize to the same Erlang function name and arity. |
 | Type tests | Erlang cannot distinguish integer widths or unrelated F# types with the same runtime shape. Some interface/class downcasts and abstract/base dispatch paths are unsupported. |
 | Classes and structs | Mutable record fields, class reference equality, some self-referencing/base constructors, mutually recursive class hierarchies, and default struct construction remain incomplete. |
 | Module initialization | Module-level mutable values and snapshots exist only in a process that ran the generated module `main/0`; ordinary library calls and other processes can read `undefined`. |
@@ -510,7 +512,6 @@ visible rather than silent correctness failures.
 
 | Priority | Gap | Suggested direction |
 | --- | --- | --- |
-| P0 | Unsupported AST paths can survive compilation | Do not silently emit runtime placeholders for constructs inside the supported surface. Prefer compiler errors with source ranges for statically detectable unsupported constructs. |
 | P0 | Union declaration ordering is incomplete | Thread union-aware comparers through nested comparison and ordered collections. If type-directed routing cannot cover generic containers, define a versioned DU/collection representation change. |
 | P0 | Option erasure loses states in generic and null-like paths | Carry the nested-option decision through replacements and collection helpers, or adopt an unambiguous tagged form where erasure is unsafe. |
 | P0 | Module initialization is process-dependent | Define library initialization semantics. Prefer explicit generated initialization invoked by entry points/process owners; use global storage only if cross-process mutation is intentionally supported. |

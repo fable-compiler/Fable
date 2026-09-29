@@ -30,6 +30,9 @@ let log2 (a: string) (b: string) = String.Format("a = {0}, b = {1}", a, b)
 let logItem1 = log2 "item1"
 let logItem2 = log2 "item2"
 
+let ``punctuation-name`` () = 1
+let punctuation_name () = 2
+
 type PartialFunctions() =
     member _.logItem1 = log2 "item1"
     member _.logItem2 = log2 "item2"
@@ -443,6 +446,10 @@ let ``test Conversion to Action works`` () =
     equal 8 myField
     f3'.Invoke(10)
     equal 40 myField
+
+[<Fact>]
+let ``test module functions with punctuation remain distinct`` () =
+    (``punctuation-name`` (), punctuation_name ()) |> equal (1, 2)
 
 // -- Object Expressions --
 

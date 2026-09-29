@@ -66,11 +66,19 @@ module Naming =
 
         sb.ToString()
 
-    /// Drop the characters an F# name may carry that an unquoted Erlang atom cannot
+    /// Decode F# `$XXXX` compiled-name escapes for source-facing diagnostics.
+    let decodeFSharpCompiledName (name: string) =
+        Regex.Replace(
+            name,
+            @"\$([0-9A-Fa-f]{4})",
+            fun m -> char (System.Convert.ToInt32(m.Groups.[1].Value, 16)) |> string
+        )
+
+    /// Drop or encode the characters an F# name may carry that an unquoted Erlang atom cannot
     /// (`base'`, `op_$0020`, `Foo.Bar`, ...). Every name that ends up as an atom has to go
     /// through this, or the printer emits something like `'base'_'` — invalid Erlang.
     let private stripNonAtomChars (name: string) =
-        // Decode $XXXX hex sequences from F# compiled names (e.g. $0020 -> space -> _)
+        // invariant: Encoded F# punctuation remains distinct from literal underscores — sanitization must not merge declarations.
         Regex.Replace(
             name,
             @"\$([0-9A-Fa-f]{4})",
@@ -80,7 +88,7 @@ module Naming =
                 if System.Char.IsLetterOrDigit(c) then
                     c.ToString()
                 else
-                    "_"
+                    $"_x%s{m.Groups.[1].Value.ToLowerInvariant()}_"
         )
         |> fun s ->
             s.Replace("'", "").Replace("$", "_").Replace("@", "").Replace(".", "_").Replace("`", "_").Replace("-", "_")

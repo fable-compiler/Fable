@@ -121,6 +121,11 @@ let private testUnsupportedDiagnostics () =
         "Program.fs(3,12): (3,31) error FABLE: Numeric literal kind 'Float16' is not supported for Beam target"
         output
 
+    expectContains
+        "colliding record fields have an actionable diagnostic"
+        "Record 'Fable.Tests.UnsupportedNumericLiteral.CollidingRecord' has fields 'foo-bar' and 'foo_bar' that both compile to Erlang atom 'foo_bar_'. Rename one of the fields."
+        output
+
     let generatedFile =
         Path.Combine(programBuildDir, "src", "unsupported_numeric_literal_program.erl")
 
@@ -130,6 +135,32 @@ let private testUnsupportedDiagnostics () =
         "unsupported numeric literal does not emit a runtime error placeholder"
         false
         (generatedCode.Contains("erlang:error(unsupported_"))
+
+let private testIdentifierCollisionDiagnostics () =
+    let programSourceDir = Path.Resolve("tests", "Beam", "CollidingMemberNames")
+    let programBuildDir = Path.Resolve("temp", "tests", "BeamCollidingMemberNames")
+    Directory.clean programBuildDir
+
+    let output, exitCode =
+        runFable
+            programBuildDir
+            [
+                programSourceDir
+                "--outDir"
+                programBuildDir
+                "--lang"
+                "beam"
+                "--exclude"
+                "Fable.Core"
+                "--noCache"
+            ]
+
+    expect "colliding member name compilation fails" 1 exitCode
+
+    expectContains
+        "colliding member names have an actionable diagnostic"
+        "Declarations 'fooBar' and 'foo_bar' in 'colliding_member_names_program' compile to duplicate Erlang function 'foo_bar/0'. Rename one declaration."
+        output
 
 /// Compile a whole program and run it on the BEAM through the generated `main.erl` shim.
 ///
@@ -296,3 +327,4 @@ let handle (args: string list) =
         // Unsupported constructs must stop compilation at their source location rather than leave
         // an erlang:error placeholder that fails only when the generated code runs.
         testUnsupportedDiagnostics ()
+        testIdentifierCollisionDiagnostics ()

@@ -18,8 +18,9 @@ type JSKiller =
 type ErlangKeywordRecord =
     { Receive: string; Case: int; Fun: bool }
 
-// Note: Records with spaces/symbols in field names are not supported in Beam
-// as Erlang atoms can't contain these characters
+type SpecialCharacterRecord =
+    { ``s p a c e``: float
+      ``s*y*m*b*o*l``: float }
 
 type MutatingRecord =
     { uniqueA: int; uniqueB: int }
@@ -129,7 +130,14 @@ let ``test records with Erlang reserved word fields work`` () =
     equal "world" r2.Receive
     equal 42 r2.Case
 
-// test records with special characters - skipped for Beam (Erlang atoms can't have spaces/symbols)
+[<Fact>]
+let ``test records with special characters are mapped correctly`` () =
+    let x =
+        { ``s p a c e`` = 1.0
+          ``s*y*m*b*o*l`` = 2.0 }
+
+    equal 1.0 x.``s p a c e``
+    equal 2.0 x.``s*y*m*b*o*l``
 
 [<Fact>]
 let ``test mutating records work`` () =

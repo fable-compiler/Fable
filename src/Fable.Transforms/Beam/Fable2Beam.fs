@@ -140,6 +140,15 @@ let private unsupportedExpression (com: IBeamCompiler) range message =
     // invariant: Unsupported source constructs log an error before returning a recovery expression.
     atomLit "undefined"
 
+let private reportFunctionNameCollision (com: IBeamCompiler) owner (Beam.Atom name) arity =
+    // invariant: Distinct declarations have distinct Erlang function names and arities — Erlang resolves functions only by that pair.
+    com.AddLog(
+        $"Declarations in '%s{owner}' compile to duplicate Erlang function '%s{name}/%d{arity}'. Rename one declaration or change its arity.",
+        Severity.Error,
+        fileName = com.CurrentFile,
+        tag = "FABLE"
+    )
+
 /// Resolve the atom tag name for a union case.
 /// Returns Some(atomStr, isFieldless) or None if the entity can't be resolved.
 let private getUnionCaseAtomExpr (com: IBeamCompiler) (ref: EntityRef) (tag: int) =
@@ -2693,6 +2702,24 @@ and transformClassDeclaration
     (decl: ClassDecl)
     : Beam.ErlForm list
     =
+    if ent.IsFSharpRecord then
+        ent.FSharpFields
+        |> List.groupBy (fun field -> sanitizeFieldName field.Name)
+        |> List.iter (fun (erlName, fields) ->
+            let fieldNames = fields |> List.map (fun field -> field.Name) |> List.distinct
+
+            if fieldNames.Length > 1 then
+                let names = fieldNames |> List.map (sprintf "'%s'") |> String.concat " and "
+
+                // invariant: Distinct record fields map to distinct Erlang atoms — collisions stop compilation before a map value is lost.
+                com.AddLog(
+                    $"Record '%s{ent.FullName}' has fields %s{names} that both compile to Erlang atom '%s{erlName}'. Rename one of the fields.",
+                    Severity.Error,
+                    fileName = com.CurrentFile,
+                    tag = "FABLE"
+                )
+        )
+
     let constructorForms =
         match decl.Constructor with
         | Some cons ->
@@ -3406,6 +3433,15 @@ and transformClassDeclaration
     // syntax, Erlang uses plain functions so name collisions produce duplicate definitions.
     let allForms = constructorForms @ memberForms @ reflectionForms
 
+    let reflectionKeys =
+        reflectionForms
+        |> List.choose (
+            function
+            | Beam.ErlForm.Function def -> Some(def.Name, def.Arity)
+            | _ -> None
+        )
+        |> Set.ofList
+
     let dedup =
         allForms
         |> List.fold
@@ -3415,6 +3451,9 @@ and transformClassDeclaration
                     let key = (def.Name, def.Arity)
 
                     if Set.contains key seen then
+                        if not (Set.contains key reflectionKeys) then
+                            reportFunctionNameCollision com ent.FullName def.Name def.Arity
+
                         (seen, acc)
                     else
                         (Set.add key seen, form :: acc)
@@ -3809,6 +3848,48 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             member _.AddLog(msg, severity, ?range, ?fileName, ?tag) =
                 com.AddLog(msg, severity, ?range = range, ?fileName = fileName, ?tag = tag)
         }
+
+    let rec collectModuleMemberNames declarations =
+        declarations
+        |> List.collect (
+            function
+            | MemberDeclaration memDecl ->
+                let info =
+                    memDecl.ImplementedSignatureRef
+                    |> Option.map beamCom.GetMember
+                    |> Option.defaultWith (fun () -> beamCom.GetMember(memDecl.MemberRef))
+
+                if info.IsInstance then
+                    []
+                else
+                    let arity = memDecl.Args |> FSharp2Fable.Util.discardUnitArg |> List.length
+                    [ (Beam.Atom(sanitizeErlangName memDecl.Name), arity), memDecl.Name ]
+            | ModuleDeclaration modDecl -> collectModuleMemberNames modDecl.Members
+            | ActionDeclaration _
+            | ClassDeclaration _ -> []
+        )
+
+    collectModuleMemberNames file.Declarations
+    |> List.groupBy fst
+    |> List.iter (fun ((name, arity), declarations) ->
+        let sourceNames =
+            declarations
+            |> List.map snd
+            |> List.distinct
+            |> List.map decodeFSharpCompiledName
+
+        if sourceNames.Length > 1 then
+            let names = sourceNames |> List.map (sprintf "'%s'") |> String.concat " and "
+            let (Beam.Atom erlName) = name
+
+            // invariant: Distinct module declarations map to distinct Erlang function keys — otherwise one body is silently dropped.
+            beamCom.AddLog(
+                $"Declarations %s{names} in '%s{moduleName}' compile to duplicate Erlang function '%s{erlName}/%d{arity}'. Rename one declaration.",
+                Severity.Error,
+                fileName = com.CurrentFile,
+                tag = "FABLE"
+            )
+    )
 
     let forms =
         file.Declarations
