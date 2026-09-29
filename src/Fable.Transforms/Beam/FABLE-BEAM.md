@@ -361,6 +361,18 @@ composition execute in the caller's process so process-local mutable state remai
 visible. `Async.Parallel`, `Async.StartChild`, and parallel array operations spawn
 workers; those workers do not share the caller's process dictionary.
 
+Cancellation tokens use shared `atomics` state and can cross process boundaries.
+Registration, cancellation, and `CancelAfter` are serialized by one runtime broker.
+`Cancel()` invokes callbacks in the cancelling process; `CancelAfter` uses a
+short-lived worker. A cross-process callback must therefore use process-safe state
+such as PIDs and messages rather than captured process-dictionary-backed mutables.
+Dispose a registration when its source may never cancel, because the broker retains
+active callbacks until cancellation or disposal.
+
+`Async.StartChild` and `Async.Parallel` do not implicitly propagate their parent
+cancellation token. Pass or capture a token explicitly when a spawned computation
+must observe it.
+
 `Task` uses the same runtime and is not a separate hot-task abstraction.
 `MailboxProcessor` also uses in-process CPS and a process-local queue. Real OTP
 processes, `gen_server`, supervisors, ETS, and distribution come from external
@@ -469,6 +481,7 @@ suite grows.
 | Defaults and null | `Unchecked.defaultof` and null semantics differ for strings, structs, and erased values. |
 | Hashing | Array hashing currently follows content rather than .NET reference identity. |
 | Recursive values | Recursive value bindings that lower through `Lazy` and some inline module-value side effects are incomplete. |
+| Cancellation | Cross-process callbacks cannot safely mutate captured process-local values. Callback exceptions are suppressed, and `CancellationTokenSource.Dispose()` remains a no-op. |
 | Diagnostics | Unhandled Fable value kinds and unsupported assignment shapes can still compile to runtime `erlang:error({unsupported_*})` paths instead of failing compilation. |
 
 For `char` conversion in generic code, making the function `inline` or using a

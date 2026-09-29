@@ -120,10 +120,9 @@ start_immediate(Computation, CancelToken) ->
 %% it is killed (e.g. on timeout) or the VM stops, so a child whose result is
 %% never awaited leaves an idle process behind.
 %%
-%% Cancellation tokens are intentionally not propagated to the child: tokens are
-%% held in the process dictionary (see fable_cancellation), so they are only
-%% meaningful within a single process and cannot be shared with the child's
-%% separate process. This matches parallel/1.
+%% StartChild does not currently propagate its parent context's token. Tokens are
+%% process-portable, but changing combinator propagation is a separate semantic
+%% change from making an explicitly supplied or captured token safe to share.
 start_child(Computation) -> start_child(Computation, undefined).
 start_child(Computation, Timeout) ->
     fun(Ctx) ->
@@ -243,7 +242,7 @@ sleep(Milliseconds) ->
                         %% Set up a timer to send us a wake-up message
                         Self = self(),
                         TimerRef = make_ref(),
-                        timer:apply_after(Milliseconds, erlang, send, [Self, {sleep_done, TimerRef}]),
+                        SleepTimer = erlang:send_after(Milliseconds, Self, {sleep_done, TimerRef}),
                         %% Register a cancellation listener to wake us up early
                         RegId = fable_cancellation:register(Token, fun(_) ->
                             Self ! {sleep_cancelled, TimerRef}
@@ -253,17 +252,10 @@ sleep(Milliseconds) ->
                             {sleep_done, TimerRef} ->
                                 (maps:get(on_success, Ctx))(ok);
                             {sleep_cancelled, TimerRef} ->
-                                (maps:get(on_cancel, Ctx))(ok);
-                            {cancel_token, Token} ->
-                                %% Timer-based cancel via cancel_after
-                                fable_cancellation:cancel(Token),
                                 (maps:get(on_cancel, Ctx))(ok)
                         end,
-                        %% Clean up registration if we have one
-                        case RegId of
-                            undefined -> ok;
-                            _ -> ok
-                        end
+                        erlang:cancel_timer(SleepTimer),
+                        fable_utils:safe_dispose(RegId)
                 end
         end
     end.
