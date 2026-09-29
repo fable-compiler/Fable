@@ -48,6 +48,17 @@ type WrappedUnion =
 
 type T1 = T1
 
+type CollectionOrder =
+    | Zebra
+    | Alpha
+    | Middle
+
+type CollectionOrderItem =
+    { Key: CollectionOrder
+      Value: string }
+
+type CollectionArray = CollectionArray of int array
+
 type DeepRecord = { Value: string }
 
 type DeepWrappedUnion =
@@ -73,6 +84,107 @@ let (|FSharp|_|) (document : string) =
     if document = "fsharp" then Some FSharp else None
 
 let (|A|) n = n
+
+[<Fact>]
+let ``test collection ordering uses union declaration order`` () =
+    let values = [ Middle; Zebra; Alpha ]
+    let expected = [ Zebra; Alpha; Middle ]
+    values |> List.sortBy id |> equal expected
+    values |> List.sortByDescending id |> equal (List.rev expected)
+    values |> List.min |> equal Zebra
+    values |> List.max |> equal Middle
+
+    let items =
+        [ { Key = Middle; Value = "middle" }
+          { Key = Zebra; Value = "zebra" }
+          { Key = Alpha; Value = "alpha" } ]
+
+    items
+    |> List.sortBy (fun item -> item.Key)
+    |> List.map (fun item -> item.Value)
+    |> equal [ "zebra"; "alpha"; "middle" ]
+    items |> List.minBy (fun item -> item.Key) |> equal items.[1]
+    items |> List.maxBy (fun item -> item.Key) |> equal items.[0]
+
+    let arrayValues = values |> List.toArray
+    arrayValues |> Array.sortBy id |> equal (List.toArray expected)
+    arrayValues |> Array.sortByDescending id |> equal (expected |> List.rev |> List.toArray)
+    arrayValues |> Array.min |> equal Zebra
+    arrayValues |> Array.max |> equal Middle
+
+    let arrayItems = items |> List.toArray
+    arrayItems |> Array.minBy (fun item -> item.Key) |> equal arrayItems.[1]
+    arrayItems |> Array.maxBy (fun item -> item.Key) |> equal arrayItems.[0]
+
+    let inPlaceValues = values |> List.toArray
+    Array.sortInPlace inPlaceValues
+    inPlaceValues |> equal (List.toArray expected)
+
+    let inPlaceItems = items |> List.toArray
+    Array.sortInPlaceBy (fun item -> item.Key) inPlaceItems
+    inPlaceItems
+    |> Array.map (fun item -> item.Value)
+    |> equal [| "zebra"; "alpha"; "middle" |]
+
+[<Fact>]
+let ``test collection extrema preserve first ties and project each item once`` () =
+    let items =
+        [ { Key = Zebra; Value = "first" }
+          { Key = Zebra; Value = "second" }
+          { Key = Alpha; Value = "third" } ]
+
+    let mutable listMinProjections = 0
+
+    let listMin =
+        items
+        |> List.minBy (fun item ->
+            listMinProjections <- listMinProjections + 1
+            item.Key)
+
+    listMin.Value |> equal "first"
+    listMinProjections |> equal items.Length
+
+    let mutable listMaxProjections = 0
+
+    items
+    |> List.maxBy (fun item ->
+        listMaxProjections <- listMaxProjections + 1
+        item.Key)
+    |> ignore
+
+    listMaxProjections |> equal items.Length
+
+    let arrayItems = List.toArray items
+    let mutable arrayMinProjections = 0
+
+    let arrayMin =
+        arrayItems
+        |> Array.minBy (fun item ->
+            arrayMinProjections <- arrayMinProjections + 1
+            item.Key)
+
+    arrayMin.Value |> equal "first"
+    arrayMinProjections |> equal arrayItems.Length
+
+    let mutable arrayMaxProjections = 0
+
+    arrayItems
+    |> Array.maxBy (fun item ->
+        arrayMaxProjections <- arrayMaxProjections + 1
+        item.Key)
+    |> ignore
+
+    arrayMaxProjections |> equal arrayItems.Length
+
+    let first = [| 1 |]
+    let second = [| 1 |]
+    let values = [ CollectionArray first; CollectionArray second ]
+
+    let (CollectionArray listMinValue) = List.min values
+    obj.ReferenceEquals(listMinValue, first) |> equal true
+
+    let (CollectionArray arrayMinValue) = values |> List.toArray |> Array.min
+    obj.ReferenceEquals(arrayMinValue, first) |> equal true
 
 [<RequireQualifiedAccess>]
 type MyUnion3 =
