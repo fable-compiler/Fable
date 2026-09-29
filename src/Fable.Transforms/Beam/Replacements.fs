@@ -206,6 +206,31 @@ let private asArrayRef (com: ICompiler) r (t: Type) (expr: Expr) =
     | Array _ -> wrapArr com r t expr
     | _ -> Helper.LibCall(com, "fable_utils", "new_ref", t, [ expr ], ?loc = r)
 
+let private captureExprOnce (com: ICompiler) name (expr: Expr) build =
+    let ident = makeTypedIdent expr.Type $"%s{name}_%d{com.IncrementCounter()}"
+
+    // invariant: A captured expression is evaluated once before every use of its generated identifier.
+    Let(ident, expr, build (IdentExpr ident))
+
+let private captureExprs2Once com (name1, expr1) (name2, expr2) build =
+    captureExprOnce com name1 expr1 (fun expr1 -> captureExprOnce com name2 expr2 (build expr1))
+
+let private captureExprs4Once com arg1 arg2 arg3 arg4 build =
+    captureExprs2Once com arg1 arg2 (fun expr1 expr2 -> captureExprs2Once com arg3 arg4 (build expr1 expr2))
+
+let private captureExprs5Once com arg1 arg2 arg3 arg4 arg5 build =
+    captureExprs2Once
+        com
+        arg1
+        arg2
+        (fun expr1 expr2 ->
+            captureExprs2Once
+                com
+                arg3
+                arg4
+                (fun expr3 expr4 -> captureExprOnce com (fst arg5) (snd arg5) (build expr1 expr2 expr3 expr4))
+        )
+
 let private getOne (com: ICompiler) (ctx: Context) (t: Type) =
     match t with
     | Boolean -> makeBoolConst true
@@ -2939,38 +2964,78 @@ let private arrayModule
     | "ToSeq", [ arr ] -> derefArr r arr |> Some
     // === In-place mutation: deref for computation, put result back ===
     | "SortInPlace", [ arr ] ->
-        let derefed = derefArr r arr
-        let sorted = emitExpr r t [ derefed ] "lists:sort($0)"
-        Fable.Set(arr, ValueSet, Type.Unit, sorted, None) |> Some
-    | "SortInPlaceBy", [ fn; arr ] ->
-        let derefed = derefArr r arr
-        let sorted = Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; derefed ])
-        Fable.Set(arr, ValueSet, Type.Unit, sorted, None) |> Some
-    | "SortInPlaceWith", [ fn; arr ] ->
-        let derefed = derefArr r arr
-        let sorted = Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; derefed ])
-        Fable.Set(arr, ValueSet, Type.Unit, sorted, None) |> Some
-    | "Fill", [ arr; start; count; value ] ->
-        let derefed = derefArr r arr
-
-        let filled =
-            Helper.LibCall(com, "fable_resize_array", "fill", t, [ derefed; start; count; value ])
-
-        Fable.Set(arr, ValueSet, Type.Unit, filled, None) |> Some
-    | "CopyTo", [ source; sourceIdx; target; targetIdx; count ] ->
-        let derefSource = derefArr r source
-        let derefTarget = derefArr r target
-
-        let blitted =
-            Helper.LibCall(
-                com,
-                "fable_resize_array",
-                "blit",
-                t,
-                [ derefSource; sourceIdx; derefTarget; targetIdx; count ]
+        captureExprOnce
+            com
+            "array"
+            arr
+            (fun arr ->
+                let derefed = derefArr r arr
+                let sorted = emitExpr r t [ derefed ] "lists:sort($0)"
+                Fable.Set(arr, ValueSet, Type.Unit, sorted, None)
             )
+        |> Some
+    | "SortInPlaceBy", [ fn; arr ] ->
+        captureExprs2Once
+            com
+            ("projection", fn)
+            ("array", arr)
+            (fun fn arr ->
+                let derefed = derefArr r arr
+                let sorted = Helper.LibCall(com, "fable_list", "sort_by", t, [ fn; derefed ])
+                Fable.Set(arr, ValueSet, Type.Unit, sorted, None)
+            )
+        |> Some
+    | "SortInPlaceWith", [ fn; arr ] ->
+        captureExprs2Once
+            com
+            ("comparer", fn)
+            ("array", arr)
+            (fun fn arr ->
+                let derefed = derefArr r arr
+                let sorted = Helper.LibCall(com, "fable_list", "sort_with", t, [ fn; derefed ])
+                Fable.Set(arr, ValueSet, Type.Unit, sorted, None)
+            )
+        |> Some
+    | "Fill", [ arr; start; count; value ] ->
+        captureExprs4Once
+            com
+            ("array", arr)
+            ("start", start)
+            ("count", count)
+            ("value", value)
+            (fun arr start count value ->
+                let derefed = derefArr r arr
 
-        Fable.Set(target, ValueSet, Type.Unit, blitted, None) |> Some
+                let filled =
+                    Helper.LibCall(com, "fable_resize_array", "fill", t, [ derefed; start; count; value ])
+
+                Fable.Set(arr, ValueSet, Type.Unit, filled, None)
+            )
+        |> Some
+    | "CopyTo", [ source; sourceIdx; target; targetIdx; count ] ->
+        captureExprs5Once
+            com
+            ("source", source)
+            ("source_index", sourceIdx)
+            ("target", target)
+            ("target_index", targetIdx)
+            ("count", count)
+            (fun source sourceIdx target targetIdx count ->
+                let derefSource = derefArr r source
+                let derefTarget = derefArr r target
+
+                let blitted =
+                    Helper.LibCall(
+                        com,
+                        "fable_resize_array",
+                        "blit",
+                        t,
+                        [ derefSource; sourceIdx; derefTarget; targetIdx; count ]
+                    )
+
+                Fable.Set(target, ValueSet, Type.Unit, blitted, None)
+            )
+        |> Some
     | _ -> None
 
 /// Beam-specific Array.Parallel module replacements — dispatches to fable_parallel.
