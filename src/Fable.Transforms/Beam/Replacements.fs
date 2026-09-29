@@ -766,7 +766,7 @@ let private unchecked
 
         match typ with
         | Boolean -> makeBoolConst false |> Some
-        | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue None |> Some
+        | Number(kind, uom) -> NumberConstant(NumberValue.GetZero kind, uom) |> makeValue r |> Some
         | Char -> CharConstant '\u0000' |> makeValue None |> Some
         | String -> makeStrConst "" |> Some
         | _ -> Value(Null typ, r) |> Some
