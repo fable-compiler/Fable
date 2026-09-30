@@ -157,6 +157,22 @@ type Taster =
 let taste (com: Taster) qlty qty =
     com.Starter * qlty + qty |> int
 
+type IRenderer =
+    abstract member doWork: unit -> string
+
+type MyComponent(name) as self =
+    let work i = sprintf "%s-%i" name i
+    let create2 () = { new IRenderer with member _.doWork () = work 2 }
+    let create3 = { new IRenderer with member _.doWork () = work 3 }
+    let create4 = { new IRenderer with member _.doWork () = self.Work 4 }
+    let create5() = { new IRenderer with member _.doWork () = self.Work 5 }
+    member _.Work i = work i
+    member _.works1 () = { new IRenderer with member _.doWork () = work 1 }
+    member _.works2 () = create2()
+    member _.works3 () = create3
+    member _.works4 () = create4
+    member _.works5 () = create5()
+
 // Type extension types
 type SomeClass(name: string) =
     member x.Name = name
@@ -486,6 +502,14 @@ let ``test Composition with recursive this works`` () =
     let mutable x = 0
     RecursiveType(fun f -> x <- f()) |> ignore
     equal 11 x
+
+[<Fact>]
+let ``test References to enclosing type from object expression work`` () =
+    MyComponent("TestA").works1().doWork() |> equal "TestA-1"
+    MyComponent("TestB").works2().doWork() |> equal "TestB-2"
+    MyComponent("TestC").works3().doWork() |> equal "TestC-3"
+    MyComponent("TestD").works4().doWork() |> equal "TestD-4"
+    MyComponent("TestE").works5().doWork() |> equal "TestE-5"
 
 [<Fact>]
 let ``test Inlined object expression doesn't change argument this context`` () =

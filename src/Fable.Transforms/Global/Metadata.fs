@@ -33,6 +33,7 @@ let coreAssemblies =
         "System.Runtime.Extensions"
         "System.Runtime.InteropServices"
         "System.Runtime.Numerics"
+        "System.Security.Cryptography"
         "System.Text.Encoding"
         "System.Text.Encoding.Extensions"
         "System.Text.RegularExpressions"
