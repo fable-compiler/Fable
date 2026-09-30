@@ -50,6 +50,7 @@ let coreModFor =
     | FSharpReference _ -> "Types"
     | BclHashSet _ -> "MutableSet"
     | BclDictionary _ -> "MutableMap"
+    | BclRune
     | BclKeyValuePair _ -> FableError "Cannot decide core module" |> raise
 
 let makeLongInt com r t signed (x: uint64) =
@@ -4223,6 +4224,7 @@ let tryType typ =
     | List genArg -> Some(Types.list, lists, [ genArg ])
     | Builtin kind ->
         match kind with
+        | BclRune -> None
         | BclGuid -> Some(Types.guid, guids, [])
         | BclDateTime -> Some(Types.datetime, dates, [])
         | BclDateTimeOffset -> Some(Types.datetimeOffset, dates, [])
