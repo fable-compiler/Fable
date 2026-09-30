@@ -53,6 +53,53 @@ module Util =
         | "FSharp.Core.FSharpResult`2" -> true
         | _ -> false
 
+    let getUnionCaseName (uci: Fable.UnionCase) =
+        match uci.CompiledName with
+        | Some cname -> cname
+        | None -> uci.Name
+
+    let getUnionCaseClassName
+        (com: IPythonCompiler)
+        (ent: Fable.Entity)
+        (uci: Fable.UnionCase)
+        (entityName: string option)
+        =
+        let caseName = getUnionCaseName uci
+
+        if usesSimpleCaseNames ent.FullName then
+            caseName
+        else
+            let unionName =
+                match entityName with
+                | Some name -> name
+                | None -> FSharp2Fable.Helpers.getEntityDeclarationName com ent.Ref
+
+            $"%s{unionName}_%s{caseName}"
+
+    let getUnionCaseRef
+        (com: IPythonCompiler)
+        ctx
+        (entRef: Fable.EntityRef)
+        (ent: Fable.Entity)
+        (uci: Fable.UnionCase)
+        =
+        if isLibraryUnionType entRef.FullName then
+            let moduleName =
+                if entRef.FullName = Types.result then
+                    "result"
+                else
+                    "choice"
+
+            libValue com ctx moduleName (getUnionCaseName uci)
+        else
+            let caseClassName = getUnionCaseClassName com ent uci None
+
+            match entRef.SourcePath with
+            | Some path when path <> com.CurrentFile ->
+                let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
+                com.GetImportExpr(ctx, importPath, caseClassName)
+            | _ -> com.GetIdentifierAsExpr(ctx, caseClassName)
+
     /// Ensures a statement list is non-empty by adding Pass if needed.
     /// Python requires at least one statement in function/class/match bodies.
     let ensureNonEmptyBody stmts =
