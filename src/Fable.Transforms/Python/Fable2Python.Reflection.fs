@@ -216,6 +216,7 @@ let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expressi
             | Replacements.Util.BclDateTimeOffset
             | Replacements.Util.BclDateOnly
             | Replacements.Util.BclTimeOnly
+            | Replacements.Util.BclRune
             | Replacements.Util.BclTimer -> genericEntity fullName [], []
             | Replacements.Util.BclHashSet gen
             | Replacements.Util.FSharpSet gen ->
