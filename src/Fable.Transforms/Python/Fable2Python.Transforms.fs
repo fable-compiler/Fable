@@ -111,64 +111,9 @@ let getMemberArgsAndBody (com: IPythonCompiler) ctx kind hasSpread (args: Fable.
 
     args, body, returnType
 
-let getUnionCaseName (uci: Fable.UnionCase) =
-    match uci.CompiledName with
-    | Some cname -> cname
-    | None -> uci.Name
-
 /// Attribute holding the precomputed singleton instance of a zero-field union case (see transformUnion).
 let unionCaseSingletonAttrName = "singleton"
 let unionCaseSingletonAttr = Identifier unionCaseSingletonAttrName
-
-/// Gets the unique case class name by prefixing with the union type name.
-/// This prevents collisions when different union types have cases with the same name.
-/// Library types (Result, Choice) use simple case names without prefix.
-/// The optional entityName parameter should be the compiled entity name (with module scope).
-let getUnionCaseClassName
-    (com: IPythonCompiler)
-    (ent: Fable.Entity)
-    (uci: Fable.UnionCase)
-    (entityName: string option)
-    =
-    let caseName = getUnionCaseName uci
-    // Library types use simple names (Ok, Error, Choice1Of2, etc.) for backwards compatibility
-    if usesSimpleCaseNames ent.FullName then
-        caseName
-    else
-        // Use provided entity name or compute from entity reference
-        let unionName =
-            match entityName with
-            | Some name -> name
-            | None -> FSharp2Fable.Helpers.getEntityDeclarationName com ent.Ref
-
-        $"%s{unionName}_%s{caseName}"
-
-/// Resolves the expression referring to a union case's class (constructor / type),
-/// handling both library types (Result, Choice - simple names from fable_library)
-/// and user-defined unions (full case class name, imported from another module if needed).
-let getUnionCaseRef (com: IPythonCompiler) ctx (entRef: Fable.EntityRef) (ent: Fable.Entity) (uci: Fable.UnionCase) =
-    if isLibraryUnionType entRef.FullName then
-        let caseName = getUnionCaseName uci
-        // Result uses "result" module, Choice uses "choice" module
-        let moduleName =
-            if entRef.FullName = Types.result then
-                "result"
-            else
-                "choice"
-
-        libValue com ctx moduleName caseName
-    else
-        // User-defined union - use full case class name (UnionName_CaseName)
-        let caseClassName = getUnionCaseClassName com ent uci None
-
-        match entRef.SourcePath with
-        | Some path when path <> com.CurrentFile ->
-            // Import from another module
-            let importPath = Path.getRelativeFileOrDirPath false com.CurrentFile false path
-            com.GetImportExpr(ctx, importPath, caseClassName)
-        | _ ->
-            // Local - just get identifier
-            com.GetIdentifierAsExpr(ctx, caseClassName)
 
 let getUnionExprTag (com: IPythonCompiler) ctx r (fableExpr: Fable.Expr) =
     Expression.withStmts {

@@ -63,6 +63,7 @@
     <Compile Include="TestQueue.fs" />
     <Compile Include="TestRecordType.fs" />
     <Compile Include="TestReflection.fs" />
+    <Compile Include="TestReflectionUnionImports.fs" />
     <Compile Include="TestResizeArray.fs" />
     <Compile Include="TestResult.fs" />
     <Compile Include="TestSeq.fs" />
