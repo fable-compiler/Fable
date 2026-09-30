@@ -810,6 +810,13 @@ module Helpers =
         || ctx.UsedNamesInDeclarationScope.Contains name
 
     let getIdentUniqueName (com: Compiler) (ctx: Context) name =
+        // Reserve the emitted Python name so tuple-match temporaries cannot shadow
+        // existing bindings when camelCase is converted to snake_case.
+        let name =
+            match com.Options.Language with
+            | Python -> Fable.Py.Naming.toPythonNaming name
+            | _ -> name
+
         let sanitizeIdent =
             match com.Options.Language with
             | Python -> Fable.Py.Naming.sanitizeIdent
