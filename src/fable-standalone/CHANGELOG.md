@@ -1,5 +1,5 @@
 ---
-last_commit_released: 2369fbd24fafe851544c1ed6eb54f0bfc2b75f36
+last_commit_released: ff71a8c7c87a5333ca0320a083a46c2fb7302029
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
@@ -19,6 +19,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 3.6.0 - 2026-09-30
+
+### 🚀 Features
+
+* *(dart)* Add support for `System.Text.Rune` (#3860) (#4969) ([389edefb](https://github.com/fable-compiler/Fable/commit/389edefb5ed131ed14fea26a9aa04dde4f5c40cf))
+
+### 🐞 Bug Fixes
+
+* *(beam)* Honor custom ToString in %O (#4994) ([58b79e0a](https://github.com/fable-compiler/Fable/commit/58b79e0a7c03c17aa4aa4981e59621d0559a9a0b))
+* *(beam)* Support AggregateException (#4999) ([e2120e10](https://github.com/fable-compiler/Fable/commit/e2120e1084a259d4080a5943d209b1ddfc400f01))
+* *(beam)* Preserve unmatched filtered exceptions (#5001) ([682b235b](https://github.com/fable-compiler/Fable/commit/682b235bbfdb81e1bccfac7a0ac4680d27448e65))
+* *(beam)* Support integer Log2 (#5002) ([dc964762](https://github.com/fable-compiler/Fable/commit/dc964762b81c0f50de23113bf671050f544037df))
+* *(beam)* Support DivRem ref arguments (#5003) ([902870b1](https://github.com/fable-compiler/Fable/commit/902870b15f46a90ecd034fb40d97e16de4a10713))
+* *(beam)* Range-check integer parsing (#5005) ([d5696304](https://github.com/fable-compiler/Fable/commit/d56963043d6f24296d58fae34b4288cc950315ff))
+* *(beam)* Check System.Convert integer conversions (#5006) ([3ebe4802](https://github.com/fable-compiler/Fable/commit/3ebe480256605e244795e9aa088bbee03347689d))
+* *(beam)* Support Decimal bit constructors (#5007) ([dfecebc5](https://github.com/fable-compiler/Fable/commit/dfecebc59f41195ea75dc1f61bffca3c2d2cbfbf))
+* *(beam)* Share cancellation state across processes (#5010) ([01eeded2](https://github.com/fable-compiler/Fable/commit/01eeded22f292e77c7c6c024de5d894d705fa09d))
+* *(beam)* Close BigInteger API gaps (#5011) ([358548d8](https://github.com/fable-compiler/Fable/commit/358548d8c6d55c719b8bb24cccd2c91b27e4b6d4))
+* *(beam)* Preserve array identity hashing (#5014) ([63a6f12a](https://github.com/fable-compiler/Fable/commit/63a6f12aa742e720d3040423c19707d77092e8bd))
+* *(beam)* Eliminate unsupported expression placeholders (#5013) ([7b3d762d](https://github.com/fable-compiler/Fable/commit/7b3d762debe2b5ab4a15e27a83b211474a7ce3af))
+* *(beam)* Preserve union collection ordering (#5016) ([67b63244](https://github.com/fable-compiler/Fable/commit/67b63244d3eb4f6aefb1a4d0684c4bca4dd9379d))
+* *(js/python/dart)* Handle Rune in non-Rust builtin matches (#5024) ([79bed98d](https://github.com/fable-compiler/Fable/commit/79bed98dc175494e8ac19973c7c384303ded5c6d))
+* *(python)* Import union cases for reflection (#5028) ([96325894](https://github.com/fable-compiler/Fable/commit/963258948a36119df1575493c45c9bc613d3a21f))
+* *(python)* Avoid name collisions in nested tuple matches (#5027) ([ff71a8c7](https://github.com/fable-compiler/Fable/commit/ff71a8c7c87a5333ca0320a083a46c2fb7302029))
+* *(rust)* Add support for System.Text.Rune (#4997) ([bc367c0b](https://github.com/fable-compiler/Fable/commit/bc367c0bde0fa0b52db04d5ee9c52b983fd7ffac))
+* *(rust)* Add missing Decimal members Abs, Sign, CopySign, GetTypeCode, FromOACurrency, ToOACurrency and tests (#4998) ([ec8d4c27](https://github.com/fable-compiler/Fable/commit/ec8d4c270683a6150389d77f7de6c22563c0079d))
+* *(rust)* Add proper UnicodeCategory support (#5009) ([426892ec](https://github.com/fable-compiler/Fable/commit/426892ec00cfd847140e598860cb88a19addb8d9))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/2369fbd24fafe851544c1ed6eb54f0bfc2b75f36..ff71a8c7c87a5333ca0320a083a46c2fb7302029)</small></strong>
 
 ## 3.5.0 - 2026-09-25
 
