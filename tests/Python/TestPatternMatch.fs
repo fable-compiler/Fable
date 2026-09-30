@@ -311,6 +311,56 @@ let ``test nested match complex`` () =
     nestedComplex 2 2 |> equal "x=2, y=other"
     nestedComplex 3 1 |> equal "x=other"
 
+// https://github.com/fable-compiler/Fable/issues/5026
+module NestedMatchNames =
+    type Shape =
+        | Circle of radius: int
+        | Square
+
+    let describe (shapes: Shape list) n =
+        match List.head shapes with
+        | Circle radius ->
+            match n + 1, radius with
+            | 2, 1 -> "unit circle"
+            | _ -> "other"
+        | Square -> "square"
+
+    let describeInClosure (shapes: Shape list) =
+        match List.head shapes with
+        | Circle radius ->
+            fun xs ->
+                match List.tryHead xs, radius with
+                | Some 2, 1 -> "unit circle"
+                | _ -> "other"
+        | Square -> fun _ -> "square"
+
+    let describeWithUserBinding (match_value: string) n =
+        match n + 1, n + 2 with
+        | 2, 3 -> match_value
+        | _ -> "other"
+
+[<Fact>]
+let ``test nested tuple match preserves outer union fields`` () =
+    NestedMatchNames.describe [ NestedMatchNames.Circle 1 ] 1 |> equal "unit circle"
+    NestedMatchNames.describe [ NestedMatchNames.Circle 2 ] 1 |> equal "other"
+    NestedMatchNames.describe [ NestedMatchNames.Circle 1 ] 2 |> equal "other"
+    NestedMatchNames.describe [ NestedMatchNames.Square ] 1 |> equal "square"
+
+[<Fact>]
+let ``test tuple match in closure preserves captured union fields`` () =
+    let describe = NestedMatchNames.describeInClosure [ NestedMatchNames.Circle 1 ]
+    describe [ 2 ] |> equal "unit circle"
+    describe [ 3 ] |> equal "other"
+    describe [] |> equal "other"
+    describe [ 2 ] |> equal "unit circle"
+    NestedMatchNames.describeInClosure [ NestedMatchNames.Circle 2 ] [ 2 ] |> equal "other"
+    NestedMatchNames.describeInClosure [ NestedMatchNames.Square ] [ 2 ] |> equal "square"
+
+[<Fact>]
+let ``test tuple match temporaries preserve user bindings`` () =
+    NestedMatchNames.describeWithUserBinding "matched" 1 |> equal "matched"
+    NestedMatchNames.describeWithUserBinding "matched" 2 |> equal "other"
+
 // ----------------------------------------------------------------------------
 // 7. Option Matching
 // ----------------------------------------------------------------------------
