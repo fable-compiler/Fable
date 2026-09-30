@@ -90,6 +90,7 @@ let coreModFor =
     | BclDictionary _ -> "mutable_map"
     | BclDateOnly -> "date_only"
     | BclTimeOnly -> "time_only"
+    | BclRune
     | BclKeyValuePair _ -> FableError "Cannot decide core module" |> raise
 
 let makeDecimal com r t (x: decimal) =
@@ -4380,6 +4381,7 @@ let tryType typ =
     | List genArg -> Some(Types.list, lists, [ genArg ])
     | Builtin kind ->
         match kind with
+        | BclRune -> None
         | BclGuid -> Some(Types.guid, guids, [])
         | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclDateTime -> Some(Types.datetime, dates, [])
