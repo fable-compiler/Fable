@@ -651,7 +651,9 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             let sanitizedFieldName = sanitizeErlangName fieldName
             // Use f$ prefix to avoid collision with interface method keys
             let atomField =
-                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom("field_" + sanitizedFieldName)))
+                Beam.ErlExpr.Literal(
+                    Beam.ErlLiteral.AtomLit(Beam.Atom(limitErlangAtomLength ("field_" + sanitizedFieldName)))
+                )
             // Class instance: update state in process dict
             // put(Ref, maps:put(field, Value, get(Ref)))
             Beam.ErlExpr.Call(
@@ -669,7 +671,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
             // Interface property setter: dispatch through set_ prefixed key
             // (fable_utils:iface_get(set_bar, Obj))(Value)
-            let setterKey = "set_" + sanitizeErlangName fieldName
+            let setterKey = limitErlangAtomLength ("set_" + sanitizeErlangName fieldName)
             let setterAtom = Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom setterKey))
 
             let lookup =
@@ -1672,7 +1674,7 @@ and transformValue
                 |> List.map (fun (name, value) ->
                     let fieldKey =
                         if ctx.ClassFieldPrefix then
-                            atomLit ("field_" + sanitizeErlangName name)
+                            atomLit (limitErlangAtomLength ("field_" + sanitizeErlangName name))
                         else
                             Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeFieldName name)))
 
@@ -2183,7 +2185,9 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
                     // a self-contained map (immutable class) and a process-dict ref (mutable class).
                     // Use field_ prefix to avoid collision with interface method keys.
                     let classFieldAtom =
-                        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom("field_" + fieldName)))
+                        Beam.ErlExpr.Literal(
+                            Beam.ErlLiteral.AtomLit(Beam.Atom(limitErlangAtomLength ("field_" + fieldName)))
+                        )
 
                     Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ classFieldAtom; erlExpr ])
                 | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
@@ -2546,7 +2550,9 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
             // Field-stored function: (fable_utils:field_get(field_<name>, This))(Args)
             let erlThis = transformExpr com ctx thisExpr
             let thisH, cleanThis = extractBlock erlThis
-            let fieldAtom = atomLit ("field_" + sanitizeErlangName ident.Name)
+
+            let fieldAtom =
+                atomLit (limitErlangAtomLength ("field_" + sanitizeErlangName ident.Name))
 
             let lookup =
                 Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ fieldAtom; cleanThis ])
@@ -2696,7 +2702,8 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
 
                     if isCtorFieldInvoke then
                         // Constructor param field invoke: (fable_utils:field_get(field_<name>, This))(Args)
-                        let fieldAtom = atomLit ("field_" + sanitizeErlangName methodName)
+                        let fieldAtom =
+                            atomLit (limitErlangAtomLength ("field_" + sanitizeErlangName methodName))
 
                         let lookup =
                             Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ fieldAtom; cleanCallee ])
@@ -2975,7 +2982,11 @@ and transformClassDeclaration
                                 else
                                     transformExpr com fieldCtx value
 
-                            let entries' = entries @ [ atomLit ("field_" + sanitizeErlangName name), erlValue ]
+                            let entries' =
+                                entries
+                                @ [
+                                    atomLit (limitErlangAtomLength ("field_" + sanitizeErlangName name)), erlValue
+                                ]
 
                             let fieldCtx' =
                                 { fieldCtx with CtorFieldExprs = fieldCtx.CtorFieldExprs.Add(name, erlValue) }
@@ -3295,7 +3306,7 @@ and transformClassDeclaration
                 elif not memb.IsMangled && info.IsGetter then
                     // Property getter: class_name_get_prop(This) -> maps:get(prop, get(This)).
                     let propName = sanitizeErlangName memb.Name
-                    let funcName = $"%s{className}_%s{propName}"
+                    let funcName = limitErlangAtomLength $"%s{className}_%s{propName}"
                     let _thisArg, _nonThisArgs, memberCtx = getThisAndArgs ()
 
                     let bodyExpr = transformExpr com memberCtx memb.Body
@@ -3323,7 +3334,7 @@ and transformClassDeclaration
                 elif not memb.IsMangled && info.IsSetter then
                     // Property setter: class_name_set_prop(This, Value) -> put(This, maps:put(prop, Value, get(This))).
                     let propName = sanitizeErlangName memb.Name
-                    let funcName = $"%s{className}_set_%s{propName}"
+                    let funcName = limitErlangAtomLength $"%s{className}_set_%s{propName}"
                     let _thisArg, nonThisArgs, memberCtx = getThisAndArgs ()
 
                     let argPatterns =
