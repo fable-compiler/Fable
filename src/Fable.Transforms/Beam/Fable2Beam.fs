@@ -3923,8 +3923,14 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
                         && System.Char.IsUpper(otherMemberName[0])
                     )
 
+                // invariant: A captured local has no enclosing entity to be a member of, so no other
+                // file can name it. `functionName` is consulted on the local-call paths only, so
+                // renaming anything reachable from elsewhere emits the old atom at that call site.
+                let isCapturedLocal = info.ApparentEnclosingEntity.IsNone
+
                 if
                     info.IsInstance
+                    && isCapturedLocal
                     && not (System.String.IsNullOrEmpty memberName)
                     && System.Char.IsLower(memberName[0])
                     && hasUpperCasePeer

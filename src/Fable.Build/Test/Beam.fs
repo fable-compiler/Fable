@@ -172,6 +172,11 @@ let private testIdentifierCollisionDiagnostics () =
         "Declarations in 'colliding_member_names_program' compile to duplicate Erlang function 'foo_ctor/0'. Rename one declaration or change its arity."
         output
 
+    expectContains
+        "members differing only in case have an actionable diagnostic"
+        "compile to duplicate Erlang function 'renderer_work/1'. Rename one declaration or change its arity."
+        output
+
 /// Compile a whole program and run it on the BEAM through the generated `main.erl` shim.
 ///
 /// The test suite calls test functions directly and so never executes the shim — which is how the
