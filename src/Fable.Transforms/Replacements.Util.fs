@@ -315,7 +315,7 @@ let (|BuiltinDefinition|_|) =
     | Types.dateOnly -> ValueSome BclDateOnly
     | Types.timeOnly -> ValueSome BclTimeOnly
     | Types.rune -> ValueSome BclRune
-    | "System.Timers.Timer" -> ValueSome BclTimer
+    | Types.timer -> ValueSome BclTimer
     | Types.fsharpSet -> ValueSome(FSharpSet(Any))
     | Types.fsharpMap -> ValueSome(FSharpMap(Any, Any))
     | Types.hashset -> ValueSome(BclHashSet(Any))

@@ -221,7 +221,7 @@ module Util =
 
         match entRef.FullName, genArgs with
         | Types.enum_, _
-        | "System.Text.Rune", _ -> Integer
+        | Types.rune, _ -> Integer
         // F# Quotation types are modelled dynamically by the quotation runtime,
         // so map them to `dynamic` (the runtime returns plain tagged objects).
         | Types.fsharpExpr, _
@@ -243,7 +243,7 @@ module Util =
         | "Fable.Core.Dart.DartNullable`1", [ genArg ] -> Nullable genArg
         | Types.regexGroup, _ -> Nullable String
         | Types.regexMatch, _ -> makeTypeRefFromName "Match" []
-        | "System.Random", _ -> libTypeRef com ctx "Random" "Random" []
+        | Types.random, _ -> libTypeRef com ctx "Random" "Random" []
         // We use `dynamic` for Exception because there is no single type that catches all errors in Dart
         // (except when inherited as base class, then it's getExceptionType, see transformInheritedClass)
         | Types.exception_, _ -> Dynamic // getExceptionType com ctx

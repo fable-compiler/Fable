@@ -6044,7 +6044,7 @@ let tryCall
     | "System.Diagnostics.Stopwatch" -> stopwatch com ctx r t info thisArg args
     | Types.nullable -> nullables com ctx r t info thisArg args
     | Types.guid -> guids com ctx r t info thisArg args
-    | "System.Random" -> randoms com ctx r t info thisArg args
+    | Types.random -> randoms com ctx r t info thisArg args
     | "System.Environment" ->
         match info.CompiledName with
         | "get_NewLine" -> makeStrConst "\n" |> Some

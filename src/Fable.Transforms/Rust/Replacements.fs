@@ -3509,12 +3509,12 @@ let private replacedModules =
             Types.timeOnly, timeOnly
             Types.rune, runes
             Types.timespan, timeSpans
-            "System.Timers.Timer", timers
+            Types.timer, timers
             "System.Environment", systemEnv
             "System.IO.File", files
             "System.IO.Path", paths
             Types.cultureInfo, globalization
-            "System.Random", random
+            Types.random, random
             "System.Threading.CancellationToken", cancels
             "System.Threading.CancellationTokenSource", cancels
             "System.Threading.Monitor", monitor
@@ -3674,7 +3674,7 @@ let tryType typ =
         | BclDateOnly -> Some(Types.dateOnly, dateOnly, [])
         | BclTimeOnly -> Some(Types.timeOnly, timeOnly, [])
         | BclRune -> Some(Types.rune, runes, [])
-        | BclTimer -> Some("System.Timers.Timer", timers, [])
+        | BclTimer -> Some(Types.timer, timers, [])
         | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclHashSet genArg -> Some(Types.hashset, hashSets, [ genArg ])
         | BclDictionary(key, value) -> Some(Types.dictionary, dictionaries, [ key; value ])
