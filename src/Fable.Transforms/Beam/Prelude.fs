@@ -78,23 +78,13 @@ module Naming =
         if name.Length <= 255 then
             name
         else
-            use sha256 = System.Security.Cryptography.SHA256.Create()
-
-            let hash =
-                name
-                |> System.Text.Encoding.UTF8.GetBytes
-                |> sha256.ComputeHash
-                |> System.BitConverter.ToString
-                |> _.Replace("-", "")
-                |> _.ToLowerInvariant()
-
-            let suffix = "_" + hash
+            let suffix = "_" + (uint32 (Fable.Naming.stringHash name)).ToString("x8")
             let mutable prefixLength = 255 - suffix.Length
 
             if System.Char.IsHighSurrogate(name.[prefixLength - 1]) then
                 prefixLength <- prefixLength - 1
 
-            // decision: Overlength atoms retain a readable prefix plus a SHA-256 suffix — escape expansion must not exceed Erlang's 255-character atom limit or merge long names.
+            // decision: Overlength atoms retain a readable prefix plus a hash suffix — escape expansion must not exceed Erlang's 255-character atom limit or merge long names.
             name.Substring(0, prefixLength) + suffix
 
     /// Drop or encode the characters an F# name may carry that an unquoted Erlang atom cannot
