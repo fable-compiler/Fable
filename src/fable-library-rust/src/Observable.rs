@@ -124,7 +124,7 @@ pub mod Observable_ {
                 on_error,
                 on_completed,
             }),
-            Lrc<dyn IObserver_1<T>>,
+            Lrc<dyn IObserver_1<T>>
         )
     }
 
@@ -133,12 +133,12 @@ pub mod Observable_ {
     ) -> LrcPtr<dyn IObservable_1<T>> {
         interface_cast!(
             LrcPtr::new(Observable { subscribe }),
-            Lrc<dyn IObservable_1<T>>,
+            Lrc<dyn IObservable_1<T>>
         )
     }
 
     pub fn mkDisposable(dispose: Func0<()>) -> LrcPtr<dyn IDisposable> {
-        interface_cast!(LrcPtr::new(Disposable { dispose }), Lrc<dyn IDisposable>,)
+        interface_cast!(LrcPtr::new(Disposable { dispose }), Lrc<dyn IDisposable>)
     }
 
     // A no-op error handler (errors are propagated by combinators when present,

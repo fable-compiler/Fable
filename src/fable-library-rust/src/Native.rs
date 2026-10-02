@@ -432,7 +432,7 @@ pub mod Native_ {
     {
         interface_cast!(
             EqualityComparer_1::<T>::get_Default(),
-            Lrc<dyn IEqualityComparer_1<T>>,
+            Lrc<dyn IEqualityComparer_1<T>>
         )
     }
 
@@ -595,7 +595,7 @@ pub mod Native_ {
     #[cfg(not(feature = "lrc_ptr"))]
     #[macro_export]
     macro_rules! interface_cast {
-        ($value:expr, $ifc:ty,) => {
+        ($value:expr, $ifc:ty) => {
             ($value as $ifc)
         };
     }
@@ -603,7 +603,7 @@ pub mod Native_ {
     #[cfg(feature = "lrc_ptr")]
     #[macro_export]
     macro_rules! interface_cast {
-        ($value:expr, $ifc:ty,) => {
+        ($value:expr, $ifc:ty) => {
             LrcPtr::from((*$value).clone() as $ifc)
         };
     }
@@ -637,8 +637,8 @@ pub mod Native_ {
 
     #[macro_export]
     macro_rules! un_op {
-        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $($args:ty),*) => {
-            impl<$($args),*> core::ops::$op_trait for $obj {
+        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty $(,$args:ty)*) => {
+            impl<$($args)*> core::ops::$op_trait for $obj {
                 type Output = Self;
                 #[inline]
                 fn $op_fn(self) -> Self::Output {
@@ -650,8 +650,8 @@ pub mod Native_ {
 
     #[macro_export]
     macro_rules! bin_op {
-        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $rhs:ty, $($args:ty,)*) => {
-            impl<$($args),*> core::ops::$op_trait<$rhs> for $obj {
+        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $rhs:ty $(,$args:ty,)*) => {
+            impl<$($args)*> core::ops::$op_trait<$rhs> for $obj {
                 type Output = Self;
                 #[inline]
                 fn $op_fn(self, rhs: $rhs) -> Self::Output {
@@ -663,8 +663,8 @@ pub mod Native_ {
 
     #[macro_export]
     macro_rules! div_int_op {
-        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $rhs:ty, $($args:ty,)*) => {
-            impl<$($args),*> $crate::Native_::DivideByInt for $obj {
+        ($op_trait:ident, $op_fn:ident, $op:ident, $obj:ty, $rhs:ty $(,$args:ty,)*) => {
+            impl<$($args)*> $crate::Native_::DivideByInt for $obj {
                 #[inline]
                 fn divide_by_int(self, rhs: i32) -> Self {
                     <$obj>::$op(self, rhs)

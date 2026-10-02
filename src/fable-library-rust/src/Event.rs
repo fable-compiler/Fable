@@ -118,7 +118,7 @@ pub mod Event_ {
     ) -> LrcPtr<dyn IObservable_1<T>> {
         interface_cast!(
             LrcPtr::new(EventObservable { source }),
-            Lrc<dyn IObservable_1<T>>,
+            Lrc<dyn IObservable_1<T>>
         )
     }
 
@@ -174,7 +174,7 @@ pub mod Event_ {
         let publish = interface_cast!(LrcPtr::new(AnonymousEvent {
             add_handler,
             remove_handler,
-        }), Lrc<dyn IEvent_2<Handler<T>, T>>,);
+        }), Lrc<dyn IEvent_2<Handler<T>, T>>);
         LrcPtr::new(FSharpEvent_1 {
             handlers,
             Publish: publish,
@@ -239,7 +239,7 @@ pub mod Event_ {
         let publish = interface_cast!(LrcPtr::new(AnonymousEvent {
             add_handler,
             remove_handler,
-        }), Lrc<dyn IEvent_2<Handler<T>, T>>,);
+        }), Lrc<dyn IEvent_2<Handler<T>, T>>);
         LrcPtr::new(FSharpEvent_2 { handlers, Publish: publish })
     }
 
