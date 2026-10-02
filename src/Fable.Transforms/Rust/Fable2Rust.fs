@@ -1032,7 +1032,7 @@ module TypeInfo =
             mkEmitTy value genArgs
         | ent when ent.IsInterface -> transformInterfaceType com ctx entRef genArgs
         | ent when ent.IsAbstractClass -> transformAbstractClassType com ctx entRef genArgs
-        | _ when entRef.FullName = "System.Random" ->
+        | _ when entRef.FullName = Types.random ->
             let entName = getLibraryImportName com ctx "Random" "Random"
             let genArgsOpt = transformGenArgs com ctx genArgs
             makeFullNamePathTy entName genArgsOpt

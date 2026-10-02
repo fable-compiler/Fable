@@ -363,6 +363,7 @@ module Reflection =
                 | Replacements.Util.BclDateTimeOffset
                 | Replacements.Util.BclDateOnly
                 | Replacements.Util.BclTimeOnly
+                | Replacements.Util.BclRune
                 | Replacements.Util.BclTimer -> genericEntity fullName [||]
                 | Replacements.Util.BclHashSet gen
                 | Replacements.Util.FSharpSet gen ->
@@ -774,6 +775,7 @@ module Annotation =
                 makeFableLibImportTypeAnnotation com ctx [] "TimeOnlyTemporal" "PlainTime"
             else
                 NumberTypeAnnotation
+        | Replacements.Util.BclRune -> NumberTypeAnnotation
         | Replacements.Util.BclTimer -> makeFableLibImportTypeAnnotation com ctx [] "Timer" "Timer"
         | Replacements.Util.BclHashSet key -> makeFableLibImportTypeAnnotation com ctx [ key ] "Util" "ISet"
         | Replacements.Util.BclDictionary(key, value) ->

@@ -248,7 +248,7 @@ let toString com (ctx: Context) r (args: Expr list) =
         match head.Type with
         | String -> head
         | Char -> charToString head
-        | DeclaredType({ FullName = "System.Text.Rune" }, _) -> charToString head
+        | DeclaredType({ FullName = Types.rune }, _) -> charToString head
         //        | Builtin BclGuid when tail.IsEmpty -> head
         //        | Builtin (BclGuid|BclTimeSpan|BclTimeOnly|BclDateOnly as bt) ->
         //            Helper.LibCall(com, coreModFor bt, "toString", String, args)
@@ -3966,7 +3966,7 @@ let private replacedModules =
             "System.Runtime.ExceptionServices.ExceptionDispatchInfo", exceptionDispatchInfo
             Types.char, chars
             Types.string, strings
-            "System.Text.Rune", runes
+            Types.rune, runes
             "Microsoft.FSharp.Core.StringModule", stringModule
             "System.FormattableString", formattableString
             "System.Runtime.CompilerServices.FormattableStringFactory", formattableString
@@ -4051,10 +4051,10 @@ let private replacedModules =
             Types.dateOnly, dateOnly
             Types.timeOnly, timeOnly
             Types.timespan, timeSpans
-            "System.Timers.Timer", timers
+            Types.timer, timers
             "System.Environment", systemEnv
             "System.Globalization.CultureInfo", globalization
-            "System.Random", random
+            Types.random, random
             "System.Threading.CancellationToken", cancels
             "System.Threading.CancellationTokenSource", cancels
             "System.Threading.CancellationTokenRegistration", disposables
@@ -4230,7 +4230,7 @@ let tryType typ =
         | BclDateTimeOffset -> Some(Types.datetimeOffset, dates, [])
         | BclDateOnly -> Some(Types.dateOnly, dateOnly, [])
         | BclTimeOnly -> Some(Types.timeOnly, timeOnly, [])
-        | BclTimer -> Some("System.Timers.Timer", timers, [])
+        | BclTimer -> Some(Types.timer, timers, [])
         | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclHashSet genArg -> Some(Types.hashset, hashSets, [ genArg ])
         | BclDictionary(key, value) -> Some(Types.dictionary, dictionaries, [ key; value ])

@@ -4218,14 +4218,14 @@ let private replacedModules =
             Types.dateOnly, dateOnly
             Types.timeOnly, timeOnly
             Types.timespan, timeSpans
-            "System.Timers.Timer", timers
+            Types.timer, timers
             "System.Environment", systemEnv
             "System.Globalization.CultureInfo", globalization
             "System.IO.File", files
             "System.IO.Directory", directories
             "System.IO.Path", paths
             "System.IO.TextWriter", textWriter
-            "System.Random", random
+            Types.random, random
             "System.Threading.CancellationToken", cancels
             "System.Threading.CancellationTokenSource", cancels
             "System.Threading.Monitor", monitor
@@ -4386,7 +4386,7 @@ let tryType typ =
         | BclTimeSpan -> Some(Types.timespan, timeSpans, [])
         | BclDateTime -> Some(Types.datetime, dates, [])
         | BclDateTimeOffset -> Some(Types.datetimeOffset, dates, [])
-        | BclTimer -> Some("System.Timers.Timer", timers, [])
+        | BclTimer -> Some(Types.timer, timers, [])
         | BclHashSet genArg -> Some(Types.hashset, hashSets, [ genArg ])
         | BclDictionary(key, value) -> Some(Types.dictionary, dictionaries, [ key; value ])
         | BclKeyValuePair(key, value) -> Some(Types.keyValuePair, keyValuePairs, [ key; value ])

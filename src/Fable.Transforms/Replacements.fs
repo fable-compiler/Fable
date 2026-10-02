@@ -4784,14 +4784,14 @@ let private replacedModules =
             Types.dateOnly, dateOnly
             Types.timeOnly, timeOnly
             Types.timespan, timeSpans
-            "System.Timers.Timer", timers
+            Types.timer, timers
             "System.IO.File", files
             "System.IO.Directory", directories
             "System.IO.Path", paths
             "System.IO.TextWriter", textWriter
             "System.Environment", systemEnv
             "System.Globalization.CultureInfo", globalization
-            "System.Random", random
+            Types.random, random
             "System.Threading.CancellationToken", cancels
             "System.Threading.CancellationTokenSource", cancels
             "System.Threading.Monitor", monitor
