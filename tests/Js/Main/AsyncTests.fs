@@ -44,6 +44,30 @@ let tests =
         async { return () }
         |> Async.StartImmediate
 
+    testCase "Cancellation callback errors expose the first InnerException" <| fun () ->
+        for count in [1; 2] do
+            use cts = new System.Threading.CancellationTokenSource()
+            let errors = Array.init count (fun i -> exn (string i))
+            let mutable calls = 0
+            errors |> Array.iter (fun error ->
+                cts.Token.Register(fun () ->
+                    calls <- calls + 1
+                    raise error) |> ignore)
+            let caught =
+                try
+                    cts.Cancel()
+                    None
+                with ex -> Some ex
+            match caught with
+            | Some ex ->
+                equal errors[count - 1].Message ex.InnerException.Message
+                equal true (obj.ReferenceEquals(errors[count - 1], ex.InnerException))
+            | None -> failwith "Expected cancellation callback errors"
+            equal count calls
+            equal true cts.IsCancellationRequested
+            cts.Cancel()
+            equal count calls
+
     testCase "Async while binding works correctly" <| fun () ->
         let mutable result = 0
         async {

@@ -15,10 +15,13 @@ export type Continuations<T> = [
 // AggregateError requires ES2021; the runtime also supports ES2020 hosts.
 export class CancellationCallbackError extends Error {
   public readonly errors: unknown[];
+  public readonly innerException: unknown;
   constructor(errors: unknown[]) {
     super("Cancellation callbacks failed");
     this.name = "AggregateException";
     this.errors = errors;
+    // invariant: F# InnerException exposes the first failure without discarding the remaining errors
+    this.innerException = errors[0];
   }
 }
 

@@ -1,7 +1,7 @@
 from threading import Barrier, Condition, Event, Thread
 
 import pytest
-from fable_library.async_builder import CancellationToken
+from fable_library.async_builder import CancellationCallbackError, CancellationToken
 
 
 def test_registration_handle_and_disposal():
@@ -60,6 +60,26 @@ def test_callback_failures_do_not_skip_other_callbacks():
     assert len(errors.value.exceptions) == 1
     assert calls == ["other"]
     assert not token.listeners
+
+
+@pytest.mark.parametrize("count", [1, 2])
+def test_callback_errors_preserve_all_errors_and_first_inner_exception(count: int) -> None:
+    token = CancellationToken()
+    errors = [ValueError(str(i)) for i in range(count)]
+
+    def failing(error: Exception) -> None:
+        raise error
+
+    for error in errors:
+        token.register(failing, error)
+
+    with pytest.raises(CancellationCallbackError) as caught:
+        token.cancel()
+    assert isinstance(caught.value, ExceptionGroup)
+    assert caught.value.exceptions == tuple(reversed(errors))
+    assert caught.value.inner_exception is errors[-1]
+    assert not token.listeners
+    token.cancel()
 
 
 def test_dispose_waits_for_running_callback_and_late_registration_runs_outside_lock():
