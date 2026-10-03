@@ -2,8 +2,8 @@
     "type": "module",
     "name": "@fable-org/fable-standalone",
     "private": false,
-    "version": "3.6.0",
-    "fableVersion": "5.19.0",
+    "version": "3.6.1",
+    "fableVersion": "5.19.1",
     "main": "./dist/bundle.min.js",
     "description": "Fable compiler",
     "keywords": [
