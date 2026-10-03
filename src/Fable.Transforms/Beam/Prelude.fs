@@ -127,7 +127,7 @@ module Naming =
     /// both go through this, or reflection looks up a tag the constructor never emitted.
     let unionCaseTagName (compiledName: string option) (caseName: string) =
         match compiledName with
-        | Some name -> name
+        | Some name -> limitErlangAtomLength name
         | None -> sanitizeErlangName caseName
 
     let moduleNameFromFile (filePath: string) =

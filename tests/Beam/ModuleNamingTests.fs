@@ -57,3 +57,18 @@ let ``test Atoms composed from capped names stay within the limit`` () =
     let record = { Overlongrecordnamerrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrend.Value = 1 }
     record.Value |> equal 1
     Overlongclassnamecccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccend(2).Overlongpropertynameppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppend |> equal 2
+
+// A `[<CompiledName>]` is used as the runtime tag verbatim, so it has to be capped like any
+// other atom. Codegen and the reflection `erl_tag` must agree on the capped form.
+type OverlongTag =
+    | [<CompiledName("Overlongcompiledcasenamezzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz")>] Tagged
+    | Other
+
+[<Fact>]
+let ``test Overlong CompiledName union tags stay valid and distinct`` () =
+    Tagged = Other |> equal false
+    Tagged = Tagged |> equal true
+
+    match Tagged with
+    | Tagged -> ()
+    | Other -> failwith "wrong case"
