@@ -203,15 +203,22 @@ export class AsyncBuilder {
     return protectedCont((ctx: IAsyncContext<T>) => {
       computation({
         onSuccess: (x: T) => {
-          compensation();
+          try { compensation(); } catch (error) {
+            ctx.onError(ensureErrorOrException(error));
+            return;
+          }
           ctx.onSuccess(x);
         },
         onError: (x: any) => {
-          compensation();
+          try { compensation(); } catch (error) {
+            ctx.onError(ensureErrorOrException(error));
+            return;
+          }
           ctx.onError(x);
         },
         onCancel: (x: any) => {
-          compensation();
+          // decision: cancellation remains terminal when compensation throws, matching .NET Async.TryFinally
+          try { compensation(); } catch { /* Cancellation takes precedence. */ }
           ctx.onCancel(x);
         },
         cancelToken: ctx.cancelToken,

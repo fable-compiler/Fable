@@ -586,3 +586,22 @@ let ``test Async.AwaitEvent with cancelAction invokes it on cancellation`` () =
     }, cts.Token)
     cts.Cancel()
     equal true cancelCalled
+
+[<Fact>]
+let ``test cooperative cancellation stops at the next async boundary`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let mutable finalizers = 0
+    let mutable terminal = ""
+    let mutable reached = false
+    let work = async {
+        try
+            source.Cancel()
+            do! async { return () }
+            reached <- true
+        finally
+            finalizers <- finalizers + 1
+    }
+    Async.StartWithContinuations(work, (fun () -> terminal <- "success"), (fun _ -> terminal <- "error"), (fun _ -> terminal <- "cancel"), source.Token)
+    equal false reached
+    equal 1 finalizers
+    equal "cancel" terminal
