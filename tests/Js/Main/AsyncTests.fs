@@ -47,6 +47,27 @@ let asyncMap f a = async {
 
 let tests =
   testList "Async" [
+    testCase "FromContinuations unit and generic values" <| fun () ->
+        let fromValue value = Async.FromContinuations(fun (ok, _, _) -> ok value)
+        let mutable completed = 0
+        let unitWork: Async<unit> = Async.FromContinuations(fun (ok, _, _) -> ok ())
+        Async.StartWithContinuations(unitWork, (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromValue 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
+        equal 3 completed
+
+    testCase "Unit continuations preserve captured callbacks" <| fun () ->
+        let mutable calls = 0
+        let rec genericDeadline callback value remaining =
+            if remaining > 0 then genericDeadline callback value (remaining - 1)
+            else Async.StartWithContinuations(async { return value }, (fun result -> callback result), raise, raise)
+        let rec unitDeadline (callback: unit -> unit) remaining =
+            if remaining > 0 then unitDeadline callback (remaining - 1)
+            else Async.StartWithContinuations(async { return () }, (fun () -> callback ()), raise, raise)
+        genericDeadline (fun () -> calls <- calls + 1) () 2
+        unitDeadline (fun () -> calls <- calls + 1) 2
+        equal 2 calls
+
     testCase "Simple async translates without exception" <| fun () ->
         async { return () }
         |> Async.StartImmediate
