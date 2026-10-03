@@ -56,6 +56,21 @@ let tests =
         Async.StartWithContinuations(fromValue 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
         equal 3 completed
 
+    testCase "Generic unit continuations work through recursive bindings and aliases" <| fun () ->
+        let mutable recurse = true
+        let rec fromValue value =
+            if recurse then
+                recurse <- false
+                fromValue value
+            else Async.FromContinuations(fun (ok, _, _) -> ok value)
+        let alias = fromValue
+        let mutable completed = 0
+        Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
+        recurse <- true
+        Async.StartWithContinuations(alias (), (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(alias 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
+        equal 3 completed
+
     testCase "Unit continuations preserve captured callbacks" <| fun () ->
         let mutable calls = 0
         let rec genericDeadline callback value remaining =

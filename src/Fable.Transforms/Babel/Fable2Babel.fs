@@ -47,6 +47,7 @@ type Context =
         TailCallOpportunity: ITailCallOpportunity option
         OptimizeTailCall: unit -> unit
         ScopedTypeParams: Set<string>
+        BoundTypes: Map<string, Fable.Type>
         ForcedIdents: Set<string>
     }
 
@@ -2451,17 +2452,34 @@ but thanks to the optimisation done below we get
                 | Some(TransformExpr com ctx thisArg) ->
                     callFunction com ctx range callee callInfo.GenericArgs (thisArg :: args)
 
-    let transformCurriedApply com ctx range (TransformExpr com ctx applied) args =
-        (applied, args)
-        ||> List.fold (fun expr arg ->
-            match arg with
-            // TODO: If arg type is unit but it's an expression with potential
-            // side-effects, we need to extract it and execute it before the call
-            | Fable.Value(Fable.UnitConstant, _) -> []
-            | Fable.IdentExpr ident when ident.Type = Fable.Unit -> []
-            | TransformExpr com ctx arg -> [ arg ]
-            |> callFunction com ctx range expr []
+    let transformCurriedApply (com: IBabelCompiler) ctx range (applied: Fable.Expr) args =
+        // decision: declaration types preserve generic unit arguments despite specialized identifier types at call sites
+        let appliedType =
+            match applied with
+            | MaybeCasted(Fable.IdentExpr id) -> Map.tryFind id.Name ctx.BoundTypes |> Option.defaultValue id.Type
+            | _ -> applied.Type
+
+        let applied = com.TransformAsExpr(ctx, applied)
+
+        ((applied, appliedType), args)
+        ||> List.fold (fun (expr, calleeType) arg ->
+            let argType, returnType =
+                match calleeType with
+                | Fable.LambdaType(argType, returnType) -> Some argType, returnType
+                | _ -> None, Fable.Any
+
+            let args =
+                match arg, argType with
+                | _, Some argType when argType <> Fable.Unit -> [ com.TransformAsExpr(ctx, arg) ]
+                // TODO: If arg type is unit but it's an expression with potential
+                // side-effects, we need to extract it and execute it before the call
+                | Fable.Value(Fable.UnitConstant, _), _ -> []
+                | Fable.IdentExpr ident, _ when ident.Type = Fable.Unit -> []
+                | TransformExpr com ctx arg, _ -> [ arg ]
+
+            callFunction com ctx range expr [] args, returnType
         )
+        |> fst
 
     let transformCallAsStatements com ctx range typ returnStrategy callee callInfo =
         let argsLen (i: Fable.CallInfo) =
@@ -3197,6 +3215,7 @@ but thanks to the optimisation done below we get
         | Fable.Let(ident, value, body) ->
             if ctx.HoistVars [ ident ] then
                 let assignment = transformBindingAsExpr com ctx ident value
+                let ctx = { ctx with BoundTypes = Map.add ident.Name ident.Type ctx.BoundTypes }
 
                 Expression.sequenceExpression ([| assignment; com.TransformAsExpr(ctx, body) |])
             else
@@ -3204,6 +3223,13 @@ but thanks to the optimisation done below we get
 
         | Fable.LetRec(bindings, body) ->
             if ctx.HoistVars(List.map fst bindings) then
+                let ctx =
+                    { ctx with
+                        BoundTypes =
+                            (ctx.BoundTypes, bindings)
+                            ||> List.fold (fun types (id, _) -> Map.add id.Name id.Type types)
+                    }
+
                 let values =
                     bindings
                     |> List.mapToArray (fun (id, value) -> transformBindingAsExpr com ctx id value)
@@ -3310,10 +3336,18 @@ but thanks to the optimisation done below we get
 
         | Fable.Let(ident, value, body) ->
             let binding = transformBindingAsStatements com ctx ident value
+            let ctx = { ctx with BoundTypes = Map.add ident.Name ident.Type ctx.BoundTypes }
 
             Array.append binding (transformAsStatements com ctx returnStrategy body)
 
         | Fable.LetRec(bindings, body) ->
+            let ctx =
+                { ctx with
+                    BoundTypes =
+                        (ctx.BoundTypes, bindings)
+                        ||> List.fold (fun types (id, _) -> Map.add id.Name id.Type types)
+                }
+
             let bindings =
                 bindings
                 |> Seq.collect (fun (i, v) -> transformBindingAsStatements com ctx i v)
@@ -3419,6 +3453,9 @@ but thanks to the optimisation done below we get
             { ctx with
                 TailCallOpportunity = tailcallChance
                 OptimizeTailCall = fun () -> isTailCallOptimized <- true
+                BoundTypes =
+                    (ctx.BoundTypes, args)
+                    ||> List.fold (fun types id -> Map.add id.Name id.Type types)
             }
 
         let returnStrategy =
@@ -5052,6 +5089,7 @@ module Compiler =
                 TailCallOpportunity = None
                 OptimizeTailCall = fun () -> ()
                 ScopedTypeParams = Set.empty
+                BoundTypes = Map.empty
                 ForcedIdents = Set.empty
             }
 
