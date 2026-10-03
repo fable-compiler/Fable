@@ -23,6 +23,10 @@ let handle (args: string list) =
 
     Directory.clean buildDir
 
+    // These tests depend on F#-generated runtime modules unavailable in the source-only package.
+    for testFile in Directory.GetFiles(sourceDir, "test_*.py") do
+        File.Copy(testFile, Path.Combine(buildDir, Path.GetFileName(testFile)), overwrite = true)
+
     Command.Run("uv", "sync")
 
     // Install local fable-library as editable package for testing
