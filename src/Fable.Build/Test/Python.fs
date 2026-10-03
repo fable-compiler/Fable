@@ -23,10 +23,6 @@ let handle (args: string list) =
 
     Directory.clean buildDir
 
-    // Native runtime tests use controlled timers and real threads alongside generated F# regressions.
-    for testFile in Directory.GetFiles(sourceDir, "test_*.py") do
-        File.Copy(testFile, Path.Combine(buildDir, Path.GetFileName(testFile)), overwrite = true)
-
     Command.Run("uv", "sync")
 
     // Install local fable-library as editable package for testing

@@ -1589,3 +1589,79 @@ let ``test exception variable captured in deferred single-arg closure`` () =
         with ex ->
             (fun (_: int) -> ex.Message)  // lambda-with-arg captures ex
     sub 42 |> equal "boom"
+
+[<Fact>]
+let ``test lock is reentrant and returns the body value`` () =
+    let key = obj()
+    lock key (fun () -> lock key (fun () -> 42)) |> equal 42
+
+[<Fact>]
+let ``test lock releases after a body exception`` () =
+    let key = obj()
+    let mutable error = ""
+    try
+        lock key (fun () -> failwith "body")
+    with ex ->
+        error <- ex.Message
+    equal "body" error
+    lock key (fun () -> 42) |> equal 42
+
+#if FABLE_COMPILER
+module private LockRuntime =
+    open Fable.Core.PyInterop
+
+    type Threads =
+        abstract trace: string array
+        abstract errors: string array
+        abstract first_entered: bool
+        abstract second_attempted: bool
+        abstract second_blocked: bool
+        abstract threads_finished: bool
+        abstract record: string -> unit
+        abstract wait_release: unit -> bool
+        abstract run: Action * Action -> unit
+
+    type Storage =
+        abstract capacity: int
+        abstract stable: bool
+        abstract count: int
+
+    let makeThreads: Func<Threads> = import "make_threads" "./py/lock_runtime.py"
+    let makeStorage: Func<Storage> = import "make_storage" "./py/lock_runtime.py"
+    let makeKey: Func<obj> = import "make_key" "./py/lock_runtime.py"
+
+[<Fact>]
+let ``test real threads share a lock and release after an exception`` () =
+    let key = LockRuntime.makeKey.Invoke()
+    let threads = LockRuntime.makeThreads.Invoke()
+    let mutable error = ""
+    let first = Action(fun () ->
+        try
+            lock key (fun () ->
+                threads.record "first-enter"
+                threads.wait_release() |> equal true
+                threads.record "first-exit"
+                failwith "body")
+        with ex ->
+            error <- ex.Message)
+    let second = Action(fun () ->
+        lock key (fun () -> threads.record "second-enter")
+        threads.record "second-exit")
+    threads.run(first, second)
+    equal true threads.first_entered
+    equal true threads.second_attempted
+    equal true threads.second_blocked
+    equal true threads.threads_finished
+    equal [||] threads.errors
+    equal [| "first-enter"; "first-exit"; "second-enter"; "second-exit" |] threads.trace
+    equal "body" error
+    lock key (fun () -> 42) |> equal 42
+
+[<Fact>]
+let ``test lock storage stays bounded across new objects`` () =
+    let storage = LockRuntime.makeStorage.Invoke()
+    for _ in 1 .. storage.capacity * 2 do
+        lock (LockRuntime.makeKey.Invoke()) (fun () -> 1) |> equal 1
+    equal true storage.stable
+    equal storage.capacity storage.count
+#endif
