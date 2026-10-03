@@ -12,6 +12,16 @@ export type Continuations<T> = [
   Continuation<OperationCanceledException>
 ];
 
+// AggregateError requires ES2021; the runtime also supports ES2020 hosts.
+export class CancellationCallbackError extends Error {
+  public readonly errors: unknown[];
+  constructor(errors: unknown[]) {
+    super("Cancellation callbacks failed");
+    this.name = "AggregateException";
+    this.errors = errors;
+  }
+}
+
 export class CancellationToken implements IDisposable {
   private _id: number;
   private _cancelled: boolean;
@@ -27,14 +37,23 @@ export class CancellationToken implements IDisposable {
   public cancel() {
     if (!this._cancelled) {
       this._cancelled = true;
-      for (const [, listener] of this._listeners) {
-        listener();
+      // decision: visit newest registrations first, matching .NET; disposal can skip pending callbacks
+      const pending = Array.from(this._listeners.keys()).reverse();
+      const errors: unknown[] = [];
+      for (const id of pending) {
+        const listener = this._listeners.get(id);
+        this._listeners.delete(id);
+        if (listener) {
+          try { listener(); } catch (error) { errors.push(error); }
+        }
       }
+      if (errors.length > 0) { throw new CancellationCallbackError(errors); }
     }
   }
   public addListener(f: () => void) {
     const id = this._id;
-    this._listeners.set(this._id++, f);
+    this._id++;
+    if (this._cancelled) { f(); } else { this._listeners.set(id, f); }
     return id;
   }
   public removeListener(id: number) {

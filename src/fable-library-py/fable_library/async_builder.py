@@ -4,16 +4,15 @@ import asyncio
 from abc import abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from threading import Lock, RLock
+from threading import Condition, Lock, RLock, get_ident
 from typing import (
     Any,
     Literal,
-    Protocol,
     overload,
 )
 
 from .protocols import IEnumerable_1
-from .util import Disposable, IDisposable
+from .util import IDisposable
 
 
 class OperationCanceledError(Exception):
@@ -28,58 +27,98 @@ type Continuations[T] = tuple[
 ]
 
 
-class _Listener(Protocol):
-    def __call__(self, __state: Any | None = None) -> None: ...
+_NO_STATE = object()
 
 
 class CancellationToken:
-    __slots__ = "cancelled", "idx", "listeners", "lock"
+    __slots__ = "_condition", "_running", "cancelled", "idx", "listeners", "lock"
 
-    def __init__(self, cancelled: bool = False):
+    def __init__(self, cancelled: bool = False) -> None:
         self.cancelled = cancelled
         self.listeners: dict[int, Callable[[], None]] = {}
         self.idx = 0
         self.lock = RLock()
+        self._condition = Condition(self.lock)
+        self._running: dict[int, int] = {}
 
     @property
-    def is_cancelled(self):
-        return self.cancelled
+    def is_cancelled(self) -> bool:
+        with self.lock:
+            return self.cancelled
 
     is_cancellation_requested = is_cancelled
 
     def cancel(self) -> None:
-        cancel = False
         with self.lock:
-            if not self.cancelled:
-                cancel = True
-                self.cancelled = True
+            if self.cancelled:
+                return
+            self.cancelled = True
+            # decision: snapshots IDs newest first to match .NET while allowing disposal of pending callbacks
+            pending = list(reversed(self.listeners))
 
-        if cancel:
-            for listener in self.listeners.values():
-                listener()
+        errors: list[Exception] = []
+        for listener_id in pending:
+            try:
+                self._invoke_listener(listener_id)
+            except Exception as error:
+                errors.append(error)
+        if errors:
+            raise ExceptionGroup("Cancellation callbacks failed", errors)
+
+    def _invoke_listener(self, listener_id: int) -> None:
+        with self.lock:
+            listener = self.listeners.pop(listener_id, None)
+            if listener is None:
+                return
+            self._running[listener_id] = get_ident()
+        # invariant: user callbacks execute outside the registry lock
+        try:
+            listener()
+        finally:
+            with self._condition:
+                del self._running[listener_id]
+                self._condition.notify_all()
 
     def add_listener(self, f: Callable[[], None]) -> int:
         with self.lock:
-            id = self.idx
-            self.idx = self.idx + 1
-            self.listeners[id] = f
-
-        return id
+            listener_id = self.idx
+            self.idx += 1
+            if not self.cancelled:
+                self.listeners[listener_id] = f
+                return listener_id
+        # .NET invokes late registrations synchronously and does not retain them.
+        f()
+        return listener_id
 
     def remove_listener(self, id: int) -> None:
-        with self.lock:
-            del self.listeners[id]
+        with self._condition:
+            self.listeners.pop(id, None)
+            # invariant: disposal waits for a running callback except when that callback disposes itself
+            while id in self._running and self._running[id] != get_ident():
+                self._condition.wait()
 
-    def register(self, f: _Listener, state: Any | None = None) -> None:
-        if state:
-            id = self.add_listener(lambda: f(state))
-        else:
-            id = self.add_listener(f)
+    @overload
+    def register(self, f: Callable[[], None]) -> IDisposable: ...
 
-        def dispose():
-            self.remove_listener(id)
+    @overload
+    def register[S](self, f: Callable[[S], None], state: S) -> IDisposable: ...
 
-        Disposable.create(dispose)
+    def register(self, f: Callable[..., None], state: object = _NO_STATE) -> IDisposable:
+        listener_id = self.add_listener(f if state is _NO_STATE else lambda: f(state))
+        return _CancellationRegistration(self, listener_id)
+
+    def Dispose(self) -> None:
+        # Source disposal is currently a no-op, as in the compiler replacement and JS runtime.
+        pass
+
+
+class _CancellationRegistration:
+    def __init__(self, token: CancellationToken, listener_id: int) -> None:
+        self._token = token
+        self._listener_id = listener_id
+
+    def Dispose(self) -> None:
+        self._token.remove_listener(self._listener_id)
 
 
 class IAsyncContext[T]:
