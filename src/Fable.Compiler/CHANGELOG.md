@@ -1,5 +1,5 @@
 ---
-last_commit_released: aaf35f200be5bbc2698abe242f77b8de745e4337
+last_commit_released: dcfaa3d6181f6789d0868e0bf9132ecdcdc76287
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -20,6 +20,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.18.1 - 2026-10-03
+
+### 🐞 Bug Fixes
+
+* *(beam)* Recognize boxed discriminated unions in type tests (#5033) ([dcfaa3d6](https://github.com/fable-compiler/Fable/commit/dcfaa3d6181f6789d0868e0bf9132ecdcdc76287))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/aaf35f200be5bbc2698abe242f77b8de745e4337..dcfaa3d6181f6789d0868e0bf9132ecdcdc76287)</small></strong>
 
 ## 5.18.0 - 2026-10-03
 
