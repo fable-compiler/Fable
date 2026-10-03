@@ -2851,7 +2851,10 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
             Helper.ConstructorCall(e, t, args, ?loc = r) |> Some
     | "get_Message", Some e -> Helper.GlobalCall("str", t, [ thisArg.Value ], ?loc = r) |> Some
     | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
-    | "get_InnerException", Some e -> getFieldWith r t e "inner_exception" |> Some
+    | "get_InnerException", Some e ->
+        // Caught exceptions are typed as Python's built-in Exception, which lacks this attribute.
+        Helper.GlobalCall("getattr", t, [ e; makeStrConst "inner_exception" ], ?loc = r)
+        |> Some
     | _ -> None
 
 let unchecked (com: ICompiler) (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =

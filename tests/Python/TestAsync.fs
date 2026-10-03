@@ -49,8 +49,6 @@ let ``test Cancellation callback errors expose the first InnerException`` () =
             with ex -> Some ex
         match caught with
         | Some ex ->
-            // Pyright sees caught exn values as built-in Exception, which lacks InnerException.
-            // Keep the generated member access here to cover the runtime compatibility contract.
             equal errors[count - 1].Message ex.InnerException.Message
             equal true (obj.ReferenceEquals(errors[count - 1], ex.InnerException))
         | None -> failwith "Expected cancellation callback errors"
