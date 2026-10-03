@@ -160,6 +160,8 @@ let private handleMainTests (isWatch: bool) (noDotnet: bool) =
         // Test the Main tests against JavaScript
         runMainTests JsDate false noDotnet
 
+        Command.Run("node", "tests/Js/Runtime/async-cancellation.mjs")
+
         // Re-run them with the Temporal date/time representation enabled
         runMainTests Temporal false noDotnet
 

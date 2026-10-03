@@ -79,6 +79,7 @@ export function startInstance<Msg>($this: MailboxProcessor<Msg>) {
   startImmediate($this.body($this), $this.cancellationToken);
 }
 
+// Token cancellation does not wake an idle Receive; delivery is driven by posts.
 export function receive<Msg>($this: MailboxProcessor<Msg>) {
   return fromContinuations((conts: Continuations<Msg>) => {
     if ($this.continuation) {

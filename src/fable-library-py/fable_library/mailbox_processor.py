@@ -101,8 +101,8 @@ class MailboxProcessor[Msg]:
         Returns:
             An asynchronous computation which will consume the
             first message in arrival order. No thread is blocked while
-            waiting for further messages. Raises a TimeoutException if
-            the timeout is exceeded.
+            waiting for further messages. Cancellation of the token alone
+            does not wake an idle receive; a post triggers the cancellation check.
         """
 
         def callback(conts: Continuations[Any]):
