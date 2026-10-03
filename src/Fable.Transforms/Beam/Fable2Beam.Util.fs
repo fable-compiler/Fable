@@ -9,6 +9,37 @@ open Fable.Beam
 let toErlangVar (ident: Ident) =
     Naming.capitalizeFirst ident.Name |> Naming.sanitizeErlangVar
 
+/// Test the existing DU representation without inspecting payload types.
+let makeUnionTypeTest (cases: UnionCase list) (expr: Beam.ErlExpr) =
+    // decision: Match emitted case tags and arities because DU values carry no nominal type or generic argument metadata.
+    // invariant: Patterns accept arbitrary terms safely and evaluate the tested expression once.
+    let caseClause (uci: UnionCase) : Beam.ErlCaseClause =
+        let tag =
+            Naming.unionCaseTagName uci.CompiledName uci.Name
+            |> Beam.Atom
+            |> Beam.ErlLiteral.AtomLit
+            |> Beam.PLiteral
+
+        let pattern =
+            match uci.UnionCaseFields with
+            | [] -> tag
+            | fields -> Beam.PTuple(tag :: List.replicate fields.Length Beam.PWildcard)
+
+        {
+            Pattern = pattern
+            Guard = []
+            Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.BoolLit true) ]
+        }
+
+    let fallback: Beam.ErlCaseClause =
+        {
+            Pattern = Beam.PWildcard
+            Guard = []
+            Body = [ Beam.ErlExpr.Literal(Beam.ErlLiteral.BoolLit false) ]
+        }
+
+    Beam.ErlExpr.Case(expr, List.map caseClause cases @ [ fallback ])
+
 let isIntegerType (typ: Fable.AST.Fable.Type) =
     match typ with
     | Fable.AST.Fable.Type.Number(kind, _) ->

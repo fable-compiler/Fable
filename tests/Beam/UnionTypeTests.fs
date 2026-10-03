@@ -48,6 +48,133 @@ type WrappedUnion =
 
 type T1 = T1
 
+type ForwardedValue = ForwardedValue of obj
+
+type GenericForwardedValue<'T> = GenericForwardedValue of 'T
+
+type ForwardedPayload = { Pid: obj; Reason: obj }
+
+type RuntimeTaggedUnion =
+    | [<CompiledName("FORWARDED.Empty")>] RuntimeEmpty
+    | [<CompiledName("FORWARDED.Payload")>] RuntimePayload of obj
+    | [<CompiledName("FORWARDED.Pair")>] RuntimePair of obj * obj
+
+let private unwrapForwardedValue (message: obj) =
+    match message with
+    | :? ForwardedValue as forwarded ->
+        let (ForwardedValue value) = forwarded
+        Some value
+    | _ -> None
+
+let private unwrapGenericForwardedValue<'T> (message: obj) =
+    match message with
+    | :? GenericForwardedValue<'T> as forwarded ->
+        let (GenericForwardedValue value) = forwarded
+        Some value
+    | _ -> None
+
+let private isMyUnion (message: obj) = message :? MyUnion
+let private isEither (message: obj) = message :? Either<int, string>
+let private isGender (message: obj) = message :? Gender
+let private isT1 (message: obj) = message :? T1
+let private isRuntimeTaggedUnion (message: obj) = message :? RuntimeTaggedUnion
+
+[<Fact>]
+let ``test boxed single case union type test unwraps payload`` () =
+    unwrapForwardedValue (box (ForwardedValue (box 42))) |> equal (Some (box 42))
+
+[<Fact>]
+let ``test boxed generic union type test unwraps payload`` () =
+    unwrapGenericForwardedValue<int> (box (GenericForwardedValue 42)) |> equal (Some 42)
+    unwrapGenericForwardedValue<string> (box (GenericForwardedValue "value")) |> equal (Some "value")
+
+[<Fact>]
+let ``test boxed multi case union type tests recognize every case`` () =
+    [ Case0; Case1 "one"; Case2 ("one", "two"); Case3 ("one", "two", "three") ]
+    |> List.iter (fun value -> isMyUnion (box value) |> equal true)
+    [ Left 42; Right "value" ]
+    |> List.iter (fun value -> isEither (box value) |> equal true)
+
+[<Fact>]
+let ``test boxed fieldless union type tests recognize atoms`` () =
+    isGender (box Male) |> equal true
+    isGender (box Female) |> equal true
+    isT1 (box T1) |> equal true
+    isT1 (box Male) |> equal false
+    isGender (box T1) |> equal false
+
+[<Fact>]
+let ``test boxed union type tests honor compiled case names`` () =
+    [ RuntimeEmpty; RuntimePayload (box 42); RuntimePair (box 42, null) ]
+    |> List.iter (fun value -> isRuntimeTaggedUnion (box value) |> equal true)
+
+[<Fact>]
+let ``test boxed union type test evaluates its input once`` () =
+    let mutable calls = 0
+    let next () =
+        calls <- calls + 1
+        box (RuntimePair (box 42, null))
+    (next () :? RuntimeTaggedUnion) |> equal true
+    calls |> equal 1
+
+[<Fact>]
+let ``test boxed union wrappers preserve null and child exit shaped payloads`` () =
+    unwrapForwardedValue (box (ForwardedValue null)) |> equal (Some null)
+    unwrapGenericForwardedValue<obj> (box (GenericForwardedValue null)) |> equal (Some null)
+    let payload = { Pid = box 42; Reason = null }
+    unwrapForwardedValue (box (ForwardedValue (box payload))) |> equal (Some (box payload))
+    unwrapGenericForwardedValue<ForwardedPayload> (box (GenericForwardedValue payload)) |> equal (Some payload)
+    unwrapForwardedValue (box payload) |> equal None
+    unwrapGenericForwardedValue<ForwardedPayload> (box payload) |> equal None
+
+[<Fact>]
+let ``test boxed union type tests reject unrelated values`` () =
+    [ null; box 42; box true; box "value"; box (ref 42); box [| 42 |]
+      box {| Pid = 42; Reason = "normal" |}; box (Map.ofList [ "pid", 42 ])
+      box (42, "value"); box Male; box T1 ]
+    |> List.iter (fun value ->
+        unwrapForwardedValue value |> equal None
+        unwrapGenericForwardedValue<int> value |> equal None
+        isMyUnion value |> equal false
+        isEither value |> equal false
+        isRuntimeTaggedUnion value |> equal false)
+
+#if FABLE_COMPILER_BEAM
+[<Fable.Core.Emit("[#{pid => erlang:self(), reason => normal}, erlang:make_ref(), unrelated, {}, forwarded_value, {forwarded_value}, {forwarded_value, 42, extra}, generic_forwarded_value, {generic_forwarded_value}, {generic_forwarded_value, 42, extra}, {other, 42}, {42, forwarded_value}, {case0}, case1, {case1}, {case1, 42, extra}, {case2, 42}, {case2, 42, 43, extra}, {case3, 42, 43}, {case3, 42, 43, 44, extra}, {left}, {left, 42, extra}, {'FORWARDED.Empty'}, 'FORWARDED.Payload', {'FORWARDED.Payload'}, {'FORWARDED.Payload', 42, extra}, {'FORWARDED.Pair', 42}]")>]
+let private unrelatedNativeUnionTerms () : obj list = Fable.Core.Util.nativeOnly
+
+[<Fable.Core.Emit("['FORWARDED.Empty', {'FORWARDED.Payload', 42}, {'FORWARDED.Pair', 42, undefined}]")>]
+let private compiledNativeUnionTerms () : obj list = Fable.Core.Util.nativeOnly
+
+[<Fable.Core.Emit("#{pid => erlang:self(), reason => normal}")>]
+let private nativeChildExitPayload () : ForwardedPayload = Fable.Core.Util.nativeOnly
+
+[<Fact>]
+let ``test boxed union wrappers preserve native child exit shaped records`` () =
+    let payload = nativeChildExitPayload ()
+    unwrapForwardedValue (box (ForwardedValue (box payload))) |> equal (Some (box payload))
+    unwrapGenericForwardedValue<ForwardedPayload> (box (GenericForwardedValue payload)) |> equal (Some payload)
+    unwrapForwardedValue (box payload) |> equal None
+    unwrapGenericForwardedValue<ForwardedPayload> (box payload) |> equal None
+
+[<Fact>]
+let ``test boxed union type tests reject malformed native terms safely`` () =
+    unrelatedNativeUnionTerms ()
+    |> List.iter (fun value ->
+        unwrapForwardedValue value |> equal None
+        unwrapGenericForwardedValue<int> value |> equal None
+        isMyUnion value |> equal false
+        isEither value |> equal false
+        isGender value |> equal false
+        isT1 value |> equal false
+        isRuntimeTaggedUnion value |> equal false)
+
+[<Fact>]
+let ``test boxed union type tests recognize native compiled tags`` () =
+    compiledNativeUnionTerms ()
+    |> List.iter (fun value -> isRuntimeTaggedUnion value |> equal true)
+#endif
+
 type CollectionOrder =
     | Zebra
     | Alpha
