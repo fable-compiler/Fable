@@ -600,10 +600,11 @@ module MacroArgs =
             |> Seq.mapi (fun i tok ->
                 let ttt = tok |> token.TokenTree.Token
                 let sep = kind |> mkTokenTree
-                // if i < count - 1 then
-                [ (ttt, token.Spacing.Joint); (sep, token.Spacing.Alone) ]
-            // else
-            //     [ (ttt, token.Spacing.Alone) ]
+
+                if i < count - 1 then
+                    [ (ttt, token.Spacing.Joint); (sep, token.Spacing.Alone) ]
+                else
+                    [ (ttt, token.Spacing.Alone) ]
             )
             |> Seq.concat
             |> mkVec
