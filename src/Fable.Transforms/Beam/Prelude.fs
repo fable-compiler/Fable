@@ -66,11 +66,42 @@ module Naming =
 
         sb.ToString()
 
-    /// Drop the characters an F# name may carry that an unquoted Erlang atom cannot
+    /// Decode F# `$XXXX` compiled-name escapes for source-facing diagnostics.
+    let decodeFSharpCompiledName (name: string) =
+        Regex.Replace(
+            name,
+            @"\$([0-9A-Fa-f]{4})",
+            fun m -> char (System.Convert.ToInt32(m.Groups.[1].Value, 16)) |> string<char>
+        )
+
+    let private limitErlangAtomLength (name: string) =
+        if name.Length <= 255 then
+            name
+        else
+            use sha256 = System.Security.Cryptography.SHA256.Create()
+
+            let hash =
+                name
+                |> System.Text.Encoding.UTF8.GetBytes
+                |> sha256.ComputeHash
+                |> System.BitConverter.ToString
+                |> _.Replace("-", "")
+                |> _.ToLowerInvariant()
+
+            let suffix = "_" + hash
+            let mutable prefixLength = 255 - suffix.Length
+
+            if System.Char.IsHighSurrogate(name.[prefixLength - 1]) then
+                prefixLength <- prefixLength - 1
+
+            // decision: Overlength atoms retain a readable prefix plus a SHA-256 suffix — escape expansion must not exceed Erlang's 255-character atom limit or merge long names.
+            name.Substring(0, prefixLength) + suffix
+
+    /// Drop or encode the characters an F# name may carry that an unquoted Erlang atom cannot
     /// (`base'`, `op_$0020`, `Foo.Bar`, ...). Every name that ends up as an atom has to go
     /// through this, or the printer emits something like `'base'_'` — invalid Erlang.
     let private stripNonAtomChars (name: string) =
-        // Decode $XXXX hex sequences from F# compiled names (e.g. $0020 -> space -> _)
+        // invariant: Encoded F# punctuation remains distinct from literal underscores — sanitization must not merge declarations.
         Regex.Replace(
             name,
             @"\$([0-9A-Fa-f]{4})",
@@ -80,7 +111,7 @@ module Naming =
                 if System.Char.IsLetterOrDigit(c) then
                     c.ToString()
                 else
-                    "_"
+                    $"_x%s{m.Groups.[1].Value.ToLowerInvariant()}_"
         )
         |> fun s ->
             s.Replace("'", "").Replace("$", "_").Replace("@", "").Replace(".", "_").Replace("`", "_").Replace("-", "_")
@@ -91,6 +122,7 @@ module Naming =
         |> fun s -> Regex.Replace(s, "_+", "_")
         |> fun s -> s.Trim('_')
         |> checkErlKeywords
+        |> limitErlangAtomLength
 
     /// The atom a union case is tagged with at runtime: `[<CompiledName>]` verbatim when present,
     /// otherwise the snake_cased case name. Codegen and the `erl_tag` in reflection metadata must
@@ -494,7 +526,7 @@ module Naming =
             else
                 snakeName
 
-        checkErlKeywords disambiguated
+        checkErlKeywords disambiguated |> limitErlangAtomLength
 
     /// Quote an Erlang atom if it needs quoting (starts with uppercase, contains special chars, etc.)
     ///

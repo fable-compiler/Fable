@@ -4068,6 +4068,17 @@ let encoding (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr op
         |> Some
     | _ -> None
 
+let cryptography (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
+    match i.CompiledName, thisArg, args with
+    | "Create", None, [] ->
+        Helper.LibCall(com, "Crypto", "SHA256", t, [], isConstructor = true, ?loc = r)
+        |> Some
+    | "ComputeHash", Some callee, [ _ ] ->
+        // decision: SHA-256 stays synchronous and environment-neutral — HashAlgorithm.ComputeHash cannot depend on asynchronous Web Crypto or Node-only APIs.
+        Helper.InstanceCall(callee, "ComputeHash", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
+    | _ -> None
+
 let enumerators (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
     match thisArg with
     | Some callee ->
@@ -4799,6 +4810,8 @@ let private replacedModules =
             "System.Text.Encoding", encoding
             "System.Text.UnicodeEncoding", encoding
             "System.Text.UTF8Encoding", encoding
+            "System.Security.Cryptography.SHA256", cryptography
+            "System.Security.Cryptography.HashAlgorithm", cryptography
             Types.regexCapture, regex
             Types.regexMatch, regex
             Types.regexGroup, regex
