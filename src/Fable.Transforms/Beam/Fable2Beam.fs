@@ -2034,7 +2034,7 @@ and transformTest (com: IBeamCompiler) (ctx: Context) (kind: TestKind) (expr: Ex
         | Fable.AST.Fable.Type.Tuple _ -> Beam.ErlExpr.Call(None, "is_tuple", [ erlExpr ])
         | Fable.AST.Fable.Type.DeclaredType(ref, _) ->
             // For exception types, check the nominal exn_type tag.
-            // For other types, check is_map or is_reference (class instances use refs)
+            // Unions use case tags and arities; other types use maps or references.
             let isMap = Beam.ErlExpr.Call(None, "is_map", [ erlExpr ])
             let isRef = Beam.ErlExpr.Call(None, "is_reference", [ erlExpr ])
 
@@ -2065,6 +2065,7 @@ and transformTest (com: IBeamCompiler) (ctx: Context) (kind: TestKind) (expr: Ex
                     )
 
                 Beam.ErlExpr.BinOp("andalso", isMap, typeCheck)
+            | _, Some entity when entity.IsFSharpUnion -> makeUnionTypeTest entity.UnionCases erlExpr
             | _ -> Beam.ErlExpr.BinOp("orelse", isMap, isRef)
         | _ -> Beam.ErlExpr.Literal(Beam.ErlLiteral.BoolLit true)
 

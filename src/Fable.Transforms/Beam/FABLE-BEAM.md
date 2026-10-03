@@ -405,6 +405,12 @@ Field and case entries retain both source names and emitted Erlang atoms.
 plus construction and field/case access. Erased runtime values still limit dynamic
 type tests and formatting where two F# types have the same Erlang shape.
 
+Runtime `:?` tests for ordinary discriminated unions match the compiled case tags
+and exact tuple arities; fieldless cases match their bare atoms. These tests accept
+arbitrary terms safely and do not inspect payload fields. Generic arguments and
+nominal union identity are erased, so types with identical emitted case tags and
+arities cannot be distinguished by these tests.
+
 ### Interop
 
 | F# | Erlang |
