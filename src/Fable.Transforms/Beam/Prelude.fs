@@ -134,6 +134,7 @@ module Naming =
         Fable.Path.GetFileNameWithoutExtension(filePath)
         |> fun s -> s.Replace(".", "_").Replace("-", "_")
         |> Fable.Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+        |> limitErlangAtomLength
 
     // ----------------------------------------------------------------------------------
     // Qualified module names
@@ -441,6 +442,7 @@ module Naming =
         |> fun s -> Regex.Replace(s, "_+", "_")
         |> fun s -> s.Trim('_')
         |> checkErlKeywords
+        |> limitErlangAtomLength
 
     /// Number of leading segments `a` and `b` have in common.
     let private commonPrefixLength (a: string[]) (b: string[]) =
