@@ -176,6 +176,53 @@ let private reportFieldNameCollisionsBy (com: IBeamCompiler) owner toAtom (field
 let private reportFieldNameCollisions (com: IBeamCompiler) owner (fieldNames: string seq) =
     reportFieldNameCollisionsBy com owner sanitizeFieldName fieldNames
 
+let private reportUnionCaseTagCollisions (com: IBeamCompiler) (ent: Entity) =
+    ent.UnionCases
+    |> List.groupBy (fun case -> unionCaseTagName case.CompiledName case.Name)
+    |> List.iter (fun (erlTag, cases) ->
+        let names = cases |> List.map (fun case -> case.Name) |> List.distinct
+
+        if names.Length > 1 then
+            let names = names |> List.map (sprintf "'%s'") |> String.concat " and "
+
+            // invariant: Distinct union cases carry distinct tags — a shared tag makes `match` pick
+            // the wrong branch and two different values compare equal, with nothing to see at runtime.
+            com.AddLog(
+                $"Union '%s{ent.FullName}' has cases %s{names} that both compile to Erlang atom '%s{erlTag}'. Rename one of the cases.",
+                Severity.Error,
+                fileName = com.CurrentFile,
+                tag = "FABLE"
+            )
+    )
+
+/// The map key an interface member is dispatched through, as `ObjectExpr` and the class
+/// interface-property paths build it: the member's display name, `set_` prefixed for a setter.
+let private interfaceMemberKey (memb: MemberFunctionOrValue) =
+    if memb.IsSetter then
+        "set_" + sanitizeErlangName memb.DisplayName
+    else
+        sanitizeErlangName memb.DisplayName
+
+let private reportInterfaceMemberCollisions (com: IBeamCompiler) (ent: Entity) =
+    ent.MembersFunctionsAndValues
+    |> Seq.groupBy interfaceMemberKey
+    |> Seq.iter (fun (erlName, members) ->
+        let names =
+            members |> Seq.map (fun memb -> memb.DisplayName) |> Seq.distinct |> Seq.toList
+
+        if names.Length > 1 then
+            let names = names |> List.map (sprintf "'%s'") |> String.concat " and "
+
+            // invariant: Interface members are keys in the implementation map, so a shared key makes
+            // one member silently resolve to the other's body.
+            com.AddLog(
+                $"Interface '%s{ent.FullName}' has members %s{names} that both dispatch through Erlang atom '%s{erlName}'. Rename one of the members.",
+                Severity.Error,
+                fileName = com.CurrentFile,
+                tag = "FABLE"
+            )
+    )
+
 /// Resolve the atom tag name for a union case.
 /// Returns Some(atomStr, isFieldless) or None if the entity can't be resolved.
 let private getUnionCaseAtomExpr (com: IBeamCompiler) (ref: EntityRef) (tag: int) =
@@ -2737,6 +2784,10 @@ and transformClassDeclaration
         ent.FSharpFields
         |> List.map (fun field -> field.Name)
         |> reportFieldNameCollisions com $"Record '%s{ent.FullName}'"
+    elif ent.IsFSharpUnion then
+        reportUnionCaseTagCollisions com ent
+    elif ent.IsInterface then
+        reportInterfaceMemberCollisions com ent
     else
         ent.FSharpFields
         |> List.map (fun field -> field.Name)

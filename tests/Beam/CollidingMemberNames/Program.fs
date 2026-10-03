@@ -30,3 +30,17 @@ type ValFields() =
 
     [<DefaultValue>]
     val mutable FooBar: int
+
+// Union tags and interface dispatch keys are atoms too. A shared tag makes `match` pick the wrong
+// branch and two values compare equal; a shared key makes one member resolve to the other's body.
+type CollidingUnion =
+    | FooBar
+    | Foo_Bar
+
+type CompiledNameUnion =
+    | [<CompiledName("foo_bar")>] Tagged
+    | Foo_Bar
+
+type ICollidingMembers =
+    abstract FooBar: unit -> int
+    abstract Foo_Bar: unit -> int
