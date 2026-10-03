@@ -354,13 +354,13 @@ def assert_not_equal[T](actual: T, expected: T, msg: str | None = None) -> None:
 MAX_LOCKS = 1024
 
 
-def lock[T](lock_obj: Any, fn: Callable[[], T]) -> T:
-    @functools.lru_cache(maxsize=MAX_LOCKS)
-    def get_lock(n: int) -> RLock:
-        return RLock()
+# decision: fixed stripes bound synchronization storage without evicting a lock held by another thread
+# tradeoff: unrelated objects can share a stripe and serialize, but object identity always selects the same lock
+_locks = tuple(RLock() for _ in range(MAX_LOCKS))
 
-    lock = get_lock(id(lock_obj))
-    with lock:
+
+def lock[T](lock_obj: Any, fn: Callable[[], T]) -> T:
+    with _locks[(id(lock_obj) >> 4) % MAX_LOCKS]:
         return fn()
 
 
