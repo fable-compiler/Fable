@@ -6,6 +6,18 @@ open Util.Testing
 
 #if FABLE_COMPILER
 open Fable.Core
+
+module private Runtime =
+    open Fable.Core.JsInterop
+
+    type Timer =
+        abstract retired: int
+        abstract invalidHandles: int
+        abstract fire: unit -> unit
+
+    let withTimers (action: Timer -> 'T): 'T = importMember "./js/async-runtime.js"
+    let listenerCount (token: System.Threading.CancellationToken): int = importMember "./js/async-runtime.js"
+    let cancellationErrorCount (error: exn): int = importMember "./js/async-runtime.js"
 #endif
 
 type DisposableAction(f) =
@@ -40,6 +52,114 @@ let asyncMap f a = async {
 
 let tests =
   testList "Async" [
+    testCase "Finalizer failure overrides success once" <| fun () ->
+        let mutable finalizers = 0
+        let terminal = ResizeArray<string>()
+        let work = async {
+            try return! successWork
+            finally
+                finalizers <- finalizers + 1
+                failwith "finalizer"
+        }
+        Async.StartWithContinuations(work, (fun _ -> terminal.Add "success"), (fun error -> terminal.Add error.Message), (fun _ -> terminal.Add "cancel"))
+        equal [| "finalizer" |] (terminal.ToArray())
+        equal 1 finalizers
+
+    testCase "Finalizer failure overrides body failure once" <| fun () ->
+        let mutable finalizers = 0
+        let terminal = ResizeArray<string>()
+        let work = async {
+            try return! errorWork
+            finally
+                finalizers <- finalizers + 1
+                failwith "finalizer"
+        }
+        Async.StartWithContinuations(work, (fun _ -> terminal.Add "success"), (fun error -> terminal.Add error.Message), (fun _ -> terminal.Add "cancel"))
+        equal [| "finalizer" |] (terminal.ToArray())
+        equal 1 finalizers
+
+    testCase "Finalizer failure preserves cancellation once" <| fun () ->
+        let mutable finalizers = 0
+        let terminal = ResizeArray<string>()
+        let work = async {
+            try return! cancelWork
+            finally
+                finalizers <- finalizers + 1
+                failwith "finalizer"
+        }
+        Async.StartWithContinuations(work, (fun _ -> terminal.Add "success"), (fun _ -> terminal.Add "error"), (fun _ -> terminal.Add "cancel"))
+        equal [| "cancel" |] (terminal.ToArray())
+        equal 1 finalizers
+
+#if FABLE_COMPILER
+    testCase "Cancellation registrations dispose pending callbacks and invoke late callbacks" <| fun () ->
+        use source = new System.Threading.CancellationTokenSource()
+        let calls = ResizeArray<int>()
+        let first: IDisposable = source.Token.Register(fun () -> calls.Add 1)
+        let mutable second: IDisposable = null
+        second <- source.Token.Register(fun () ->
+            second.Dispose()
+            first.Dispose()
+            calls.Add 2)
+        source.Cancel()
+        let late: IDisposable = source.Token.Register((fun state -> calls.Add (unbox<int> state)), box 0)
+        late.Dispose()
+        second.Dispose()
+        equal [| 2; 0 |] (calls.ToArray())
+        equal 0 (Runtime.listenerCount source.Token)
+
+    testCase "Cancellation callback failure preserves remaining listeners" <| fun () ->
+        use source = new System.Threading.CancellationTokenSource()
+        let mutable remaining = 0
+        let mutable errors = -1
+        source.Token.Register(fun () -> remaining <- remaining + 1) |> ignore
+        source.Token.Register(fun () -> failwith "callback") |> ignore
+        try source.Cancel()
+        with error -> errors <- Runtime.cancellationErrorCount error
+        equal 1 errors
+        equal 1 remaining
+        equal 0 (Runtime.listenerCount source.Token)
+
+    testCase "Sleep settles once and retires its timer and listener" <| fun () ->
+        for cancelFirst in [ true; false ] do
+            for throws in [ true; false ] do
+                Runtime.withTimers (fun timer ->
+                    use source = new System.Threading.CancellationTokenSource()
+                    let terminal = ResizeArray<string>()
+                    let mutable finalizers = 0
+                    let work = async {
+                        try do! Async.Sleep 100
+                        finally
+                            finalizers <- finalizers + 1
+                            if throws then failwith "finalizer"
+                    }
+                    Async.StartWithContinuations(work, (fun () -> terminal.Add "success"), (fun _ -> terminal.Add "error"), (fun _ -> terminal.Add "cancel"), source.Token)
+                    if cancelFirst then
+                        source.Cancel()
+                        timer.fire()
+                    else
+                        timer.fire()
+                        source.Cancel()
+                    timer.fire()
+                    let expected = if cancelFirst then "cancel" elif throws then "error" else "success"
+                    equal [| expected |] (terminal.ToArray())
+                    equal 1 finalizers
+                    equal 0 (Runtime.listenerCount source.Token)
+                    equal 1 timer.retired
+                    equal 0 timer.invalidHandles)
+
+    testCase "Idle Receive is not woken by cancellation and still delivers a post" <| fun () ->
+        use source = new System.Threading.CancellationTokenSource()
+        let mailbox = new MailboxProcessor<int>((fun _ -> async { return () }), source.Token)
+        let terminal = ResizeArray<string>()
+        Async.StartWithContinuations(mailbox.Receive(), (fun value -> terminal.Add (string value)), raise, (fun _ -> terminal.Add "cancel"), source.Token)
+        source.Cancel()
+        equal [||] (terminal.ToArray())
+        mailbox.Post 42
+        equal [| "42" |] (terminal.ToArray())
+        equal 0 (Runtime.listenerCount source.Token)
+#endif
+
     testCase "Simple async translates without exception" <| fun () ->
         async { return () }
         |> Async.StartImmediate
