@@ -32,6 +32,7 @@ from .choice import (
 )
 from .event import IEvent_2
 from .protocols import IEnumerable_1
+from .system import TimeoutException__ctor
 from .task import TaskCompletionSource
 from .time_span import TimeSpan, to_milliseconds
 from .types import UNIT, Unit
@@ -291,23 +292,36 @@ def start_as_task[T](
     return tcs.get_task()
 
 
+def _start_child_timeout[T](
+    computation: Async[T], ms: int | TimeSpan, timeout_error: Callable[[], Exception]
+) -> Async[Async[T]]:
+    # Race the computation against a timeout: whichever settles first wins.
+    # asyncio.gather (the previous implementation via parallel2) waited for BOTH to settle,
+    # which meant the timeout always fired even when the computation finished first.
+    task = start_as_task(computation)
+
+    async def with_timeout() -> T:
+        try:
+            return await asyncio.wait_for(task, timeout=to_milliseconds(ms) / 1000.0)
+        except TimeoutError:
+            raise timeout_error()
+
+    def cont(ctx: IAsyncContext[Async[T]]) -> None:
+        protected_return(await_task(with_timeout()))(ctx)
+
+    return protected_cont(cont)
+
+
+def start_child_with_timeout[T](computation: Async[T], ms: int | TimeSpan | None = None) -> Async[Async[T]]:
+    # decision: use a new entry point so existing Python callers retain the built-in TimeoutError contract
+    if ms is None:
+        return start_child(computation)
+    return _start_child_timeout(computation, ms, TimeoutException__ctor)
+
+
 def start_child[T](computation: Async[T], ms: int | TimeSpan | None = None) -> Async[Async[T]]:
     if ms is not None:
-        # Race the computation against a timeout: whichever settles first wins.
-        # asyncio.gather (the previous implementation via parallel2) waited for BOTH to settle,
-        # which meant the timeout always fired even when the computation finished first.
-        task = start_as_task(computation)
-
-        async def with_timeout() -> T:
-            try:
-                return await asyncio.wait_for(task, timeout=to_milliseconds(ms) / 1000.0)
-            except TimeoutError:
-                raise TimeoutError()
-
-        def cont(ctx: IAsyncContext[Async[T]]) -> None:
-            protected_return(await_task(with_timeout()))(ctx)
-
-        return protected_cont(cont)
+        return _start_child_timeout(computation, ms, TimeoutError)
 
     task = start_as_task(computation)
 
@@ -401,6 +415,7 @@ __all__ = [
     "start",
     "start_as_task",
     "start_child",
+    "start_child_with_timeout",
     "start_immediate",
     "start_with_continuations",
 ]

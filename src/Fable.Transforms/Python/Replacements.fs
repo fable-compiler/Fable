@@ -3672,6 +3672,9 @@ let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
+    | "StartChild" ->
+        Helper.LibCall(com, "async_", "start_child_with_timeout", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "Start" ->
         Helper.LibCall(com, "async_", "start", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some

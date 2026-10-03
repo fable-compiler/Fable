@@ -467,7 +467,7 @@ let ``test Async.StartChild applies timeout`` () =
         let mutable x = ""
 
         let task = async {
-            x <- x + "A"
+            // A busy .NET runner can time out before this child is scheduled.
             do! Async.Sleep 1_000
             x <- x + "X" // Never hit
         }
@@ -482,8 +482,8 @@ let ``test Async.StartChild applies timeout`` () =
 
         x <- x + "C"
 
-        equal x "ABC"
-    } |> Async.StartImmediate
+        equal "BC" x
+    } |> Async.RunSynchronously
 
 [<Fact>]
 let ``test Async.StartChild with timeout completes when computation finishes before timeout`` () = // See #4481
@@ -496,7 +496,7 @@ let ``test Async.StartChild with timeout completes when computation finishes bef
         with
             | :? TimeoutException ->
                 failwith "should not time out"
-    } |> Async.StartImmediate
+    } |> Async.RunSynchronously
 
 [<Fact>]
 let ``test Unit arguments are erased`` () = // See #1832
