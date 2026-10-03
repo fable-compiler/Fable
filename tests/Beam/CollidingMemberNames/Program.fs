@@ -17,3 +17,16 @@ type Renderer() =
 let render () =
     let r = Renderer()
     r.work (), r.Work()
+
+// Class and `val` fields are keyed by `classFieldAtomName`, which collapses case and runs of
+// underscores. Two fields that differ only there share one map key.
+type CtorFields(fooBar: int, FooBar: int) =
+    member _.Lower = fooBar
+    member _.Upper = FooBar
+
+type ValFields() =
+    [<DefaultValue>]
+    val mutable fooBar: int
+
+    [<DefaultValue>]
+    val mutable FooBar: int

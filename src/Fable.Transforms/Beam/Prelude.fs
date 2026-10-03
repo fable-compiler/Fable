@@ -526,6 +526,11 @@ module Naming =
 
         checkErlKeywords disambiguated |> limitErlangAtomLength
 
+    /// The atom a class or `val` field is stored under in the instance map. Codegen and the
+    /// collision diagnostic must both derive it here, or a collision is emitted unreported.
+    let classFieldAtomName (name: string) =
+        limitErlangAtomLength ("field_" + sanitizeErlangName name)
+
     /// Quote an Erlang atom if it needs quoting (starts with uppercase, contains special chars, etc.)
     ///
     /// Inside the quotes a `\` and a `'` have to be escaped, or what comes back is not the atom that

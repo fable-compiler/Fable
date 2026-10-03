@@ -177,6 +177,12 @@ let private testIdentifierCollisionDiagnostics () =
         "compile to duplicate Erlang function 'renderer_work/1'. Rename one declaration or change its arity."
         output
 
+    for owner in [ "CtorFields"; "ValFields" ] do
+        expectContains
+            $"colliding fields on '%s{owner}' have an actionable diagnostic"
+            $"Type 'Fable.Tests.CollidingMemberNames.%s{owner}' has fields 'fooBar' and 'FooBar' that both compile to Erlang atom 'field_foo_bar'. Rename one of the fields."
+            output
+
 /// Compile a whole program and run it on the BEAM through the generated `main.erl` shim.
 ///
 /// The test suite calls test functions directly and so never executes the shim — which is how the

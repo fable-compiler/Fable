@@ -155,9 +155,9 @@ let private reportFunctionNameCollision (com: IBeamCompiler) owner (Beam.Atom na
         tag = "FABLE"
     )
 
-let private reportFieldNameCollisions (com: IBeamCompiler) owner (fieldNames: string seq) =
+let private reportFieldNameCollisionsBy (com: IBeamCompiler) owner toAtom (fieldNames: string seq) =
     fieldNames
-    |> Seq.groupBy sanitizeFieldName
+    |> Seq.groupBy toAtom
     |> Seq.iter (fun (erlName, fields) ->
         let fields = fields |> Seq.distinct |> Seq.toList
 
@@ -172,6 +172,9 @@ let private reportFieldNameCollisions (com: IBeamCompiler) owner (fieldNames: st
                 tag = "FABLE"
             )
     )
+
+let private reportFieldNameCollisions (com: IBeamCompiler) owner (fieldNames: string seq) =
+    reportFieldNameCollisionsBy com owner sanitizeFieldName fieldNames
 
 /// Resolve the atom tag name for a union case.
 /// Returns Some(atomStr, isFieldless) or None if the entity can't be resolved.
@@ -648,12 +651,9 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
         match expr.Type with
         | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isClassType com entityRef ->
-            let sanitizedFieldName = sanitizeErlangName fieldName
             // Use f$ prefix to avoid collision with interface method keys
             let atomField =
-                Beam.ErlExpr.Literal(
-                    Beam.ErlLiteral.AtomLit(Beam.Atom(limitErlangAtomLength ("field_" + sanitizedFieldName)))
-                )
+                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(classFieldAtomName fieldName)))
             // Class instance: update state in process dict
             // put(Ref, maps:put(field, Value, get(Ref)))
             Beam.ErlExpr.Call(
@@ -1674,7 +1674,7 @@ and transformValue
                 |> List.map (fun (name, value) ->
                     let fieldKey =
                         if ctx.ClassFieldPrefix then
-                            atomLit (limitErlangAtomLength ("field_" + sanitizeErlangName name))
+                            atomLit (classFieldAtomName name)
                         else
                             Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeFieldName name)))
 
@@ -2179,15 +2179,11 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
             | _ ->
                 match expr.Type with
                 | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isClassType com entityRef ->
-                    let fieldName = sanitizeErlangName info.Name
-
                     // Class instance: read via fable_utils:field_get, which supports both
                     // a self-contained map (immutable class) and a process-dict ref (mutable class).
                     // Use field_ prefix to avoid collision with interface method keys.
                     let classFieldAtom =
-                        Beam.ErlExpr.Literal(
-                            Beam.ErlLiteral.AtomLit(Beam.Atom(limitErlangAtomLength ("field_" + fieldName)))
-                        )
+                        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(classFieldAtomName info.Name)))
 
                     Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ classFieldAtom; erlExpr ])
                 | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
@@ -2551,8 +2547,7 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
             let erlThis = transformExpr com ctx thisExpr
             let thisH, cleanThis = extractBlock erlThis
 
-            let fieldAtom =
-                atomLit (limitErlangAtomLength ("field_" + sanitizeErlangName ident.Name))
+            let fieldAtom = atomLit (classFieldAtomName ident.Name)
 
             let lookup =
                 Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ fieldAtom; cleanThis ])
@@ -2702,8 +2697,7 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
 
                     if isCtorFieldInvoke then
                         // Constructor param field invoke: (fable_utils:field_get(field_<name>, This))(Args)
-                        let fieldAtom =
-                            atomLit (limitErlangAtomLength ("field_" + sanitizeErlangName methodName))
+                        let fieldAtom = atomLit (classFieldAtomName methodName)
 
                         let lookup =
                             Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ fieldAtom; cleanCallee ])
@@ -2737,10 +2731,16 @@ and transformClassDeclaration
     (decl: ClassDecl)
     : Beam.ErlForm list
     =
+    // Records key their map by `sanitizeFieldName`; every other type keys it by `classFieldAtomName`,
+    // which collapses more names, so each has to be checked against the atom it actually emits.
     if ent.IsFSharpRecord then
         ent.FSharpFields
         |> List.map (fun field -> field.Name)
         |> reportFieldNameCollisions com $"Record '%s{ent.FullName}'"
+    else
+        ent.FSharpFields
+        |> List.map (fun field -> field.Name)
+        |> reportFieldNameCollisionsBy com $"Type '%s{ent.FullName}'" classFieldAtomName
 
     let constructorForms =
         match decl.Constructor with
@@ -2982,11 +2982,7 @@ and transformClassDeclaration
                                 else
                                     transformExpr com fieldCtx value
 
-                            let entries' =
-                                entries
-                                @ [
-                                    atomLit (limitErlangAtomLength ("field_" + sanitizeErlangName name)), erlValue
-                                ]
+                            let entries' = entries @ [ atomLit (classFieldAtomName name), erlValue ]
 
                             let fieldCtx' =
                                 { fieldCtx with CtorFieldExprs = fieldCtx.CtorFieldExprs.Add(name, erlValue) }
