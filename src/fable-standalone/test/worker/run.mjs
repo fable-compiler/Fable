@@ -142,6 +142,31 @@ if (subsetStats.Fable_transform >= stats.Fable_transform) {
     failures.push(`emitting 1 of ${fixture.length} files took as long as emitting all of them`)
 }
 
+// BEAM names in the web compiler use its existing hash, with no cryptography metadata.
+const longFunction = "long" + "x".repeat(230)
+post(["CompileFiles", [{ Name: "Program.fs", Content: `module Demo\nlet ${longFunction} () = 42` }], [], "beam", []])
+const [, beamModules, , beamErrors] = await answer("CompilationsFinished")
+const beamHard = (beamErrors ?? []).filter((e) => !e.IsWarning)
+if (beamHard.length) failures.push(`BEAM example failed: ${beamHard[0].Message}`)
+const beamCode = beamModules.join("\n")
+if (!/longx+_[0-9a-f]{8}\(/.test(beamCode)) {
+    failures.push("standalone BEAM example did not use the existing 32-bit hash")
+}
+
+// A collision in a state key must be diagnosed even if the unprefixed names remain distinct.
+const mutablePrefix = "a".repeat(220)
+post(["CompileFiles", [{ Name: "Program.fs", Content: [
+    "module Demo",
+    `let mutable ${mutablePrefix}a2 = 1`,
+    `let mutable ${mutablePrefix}cp = 2`,
+    `let read () = ${mutablePrefix}a2, ${mutablePrefix}cp`,
+].join("\n") }], [], "beam", []])
+const [, , , collisionErrors] = await answer("CompilationsFinished")
+if (!(collisionErrors ?? []).some((e) => !e.IsWarning && e.Message.includes("share Erlang state key"))) {
+    failures.push("standalone BEAM did not diagnose colliding mutable state keys")
+}
+console.log("  BEAM example hashing and state-key diagnostics checked")
+
 if (failures.length) {
     console.error("\nFAILED")
     for (const f of failures) console.error(`  - ${f}`)

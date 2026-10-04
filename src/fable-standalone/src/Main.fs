@@ -449,6 +449,8 @@ let transformToTargetAst (com: CompilerImpl) (fableAst: Fable.File) : IFableResu
         upcast RustResult(ast, errors)
     | Beam ->
         let ast = Fable.Transforms.Beam.Compiler.transformFile com fableAst
+        // Naming diagnostics are raised while constructing the target AST, after the earlier snapshot.
+        let errors = com.Logs |> Array.map (mapFableError com)
         upcast BeamResult(ast, errors)
 
 let compileToTargetAst (results: IParseAndCheckResults) fileName fableLibrary typedArrays language : IFableResult =

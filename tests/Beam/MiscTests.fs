@@ -30,6 +30,12 @@ let log2 (a: string) (b: string) = String.Format("a = {0}, b = {1}", a, b)
 let logItem1 = log2 "item1"
 let logItem2 = log2 "item2"
 
+let ``punctuation-name`` () = 1
+let punctuation_name () = 2
+
+let ``abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh`` () =
+    3
+
 type PartialFunctions() =
     member _.logItem1 = log2 "item1"
     member _.logItem2 = log2 "item2"
@@ -444,6 +450,15 @@ let ``test Conversion to Action works`` () =
     f3'.Invoke(10)
     equal 40 myField
 
+[<Fact>]
+let ``test module functions with punctuation remain distinct`` () =
+    (``punctuation-name`` (), punctuation_name ()) |> equal (1, 2)
+
+[<Fact>]
+let ``test escaped function names stay within the Erlang atom limit`` () =
+    ``abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh abcdefgh`` ()
+    |> equal 3
+
 // -- Object Expressions --
 
 [<Fact>]
@@ -488,15 +503,13 @@ let ``test Composition with recursive this works`` () =
     RecursiveType(fun f -> x <- f()) |> ignore
     equal 11 x
 
-// TODO: Re-enable when Beam target disambiguates local let bindings from same-named members
-// (MyComponent has `let work i = ...` and `member _.Work i = work i` which collide after sanitization)
-// [<Fact>]
-// let ``test References to enclosing type from object expression work`` () =
-//     MyComponent("TestA").works1().doWork() |> equal "TestA-1"
-//     MyComponent("TestB").works2().doWork() |> equal "TestB-2"
-//     MyComponent("TestC").works3().doWork() |> equal "TestC-3"
-//     MyComponent("TestD").works4().doWork() |> equal "TestD-4"
-//     MyComponent("TestE").works5().doWork() |> equal "TestE-5"
+[<Fact>]
+let ``test References to enclosing type from object expression work`` () =
+    MyComponent("TestA").works1().doWork() |> equal "TestA-1"
+    MyComponent("TestB").works2().doWork() |> equal "TestB-2"
+    MyComponent("TestC").works3().doWork() |> equal "TestC-3"
+    MyComponent("TestD").works4().doWork() |> equal "TestD-4"
+    MyComponent("TestE").works5().doWork() |> equal "TestE-5"
 
 [<Fact>]
 let ``test Inlined object expression doesn't change argument this context`` () =
