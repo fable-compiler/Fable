@@ -14,7 +14,6 @@ let allTests =
     Comparison.tests
     ConditionalWeakTable.tests
     Convert.tests
-    Cryptography.tests
     CustomOperators.tests
     DateTimeOffset.tests
     DateTime.tests

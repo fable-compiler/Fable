@@ -74,27 +74,25 @@ module Naming =
             fun m -> char (System.Convert.ToInt32(m.Groups.[1].Value, 16)) |> string<char>
         )
 
-    let private limitErlangAtomLength (name: string) =
-        if name.Length <= 255 then
+    /// Erlang caps atoms at 255 characters, but `erlc` builds atoms of its own out of a function's
+    /// name for the closures, comprehensions and try blocks inside it (`-name/1-fun-0-`), and it
+    /// crashes in `list_to_atom` rather than reporting an error when one of those overflows. Leave
+    /// that decoration room.
+    let private maxErlangAtomLength = 223
+
+    /// Cap an atom at the length Erlang accepts, keeping a readable prefix plus a hash of the full
+    /// name. Atoms built by joining already-capped parts have to be capped again.
+    let limitErlangAtomLength (name: string) =
+        if name.Length <= maxErlangAtomLength then
             name
         else
-            use sha256 = System.Security.Cryptography.SHA256.Create()
-
-            let hash =
-                name
-                |> System.Text.Encoding.UTF8.GetBytes
-                |> sha256.ComputeHash
-                |> System.BitConverter.ToString
-                |> _.Replace("-", "")
-                |> _.ToLowerInvariant()
-
-            let suffix = "_" + hash
-            let mutable prefixLength = 255 - suffix.Length
+            let suffix = "_" + (uint32 (Fable.Naming.stringHash name)).ToString("x8")
+            let mutable prefixLength = maxErlangAtomLength - suffix.Length
 
             if System.Char.IsHighSurrogate(name.[prefixLength - 1]) then
                 prefixLength <- prefixLength - 1
 
-            // decision: Overlength atoms retain a readable prefix plus a SHA-256 suffix — escape expansion must not exceed Erlang's 255-character atom limit or merge long names.
+            // decision: Overlength atoms retain a readable prefix plus a hash suffix — escape expansion must not exceed the atom limit or merge long names.
             name.Substring(0, prefixLength) + suffix
 
     /// Drop or encode the characters an F# name may carry that an unquoted Erlang atom cannot
@@ -129,13 +127,14 @@ module Naming =
     /// both go through this, or reflection looks up a tag the constructor never emitted.
     let unionCaseTagName (compiledName: string option) (caseName: string) =
         match compiledName with
-        | Some name -> name
+        | Some name -> limitErlangAtomLength name
         | None -> sanitizeErlangName caseName
 
     let moduleNameFromFile (filePath: string) =
         Fable.Path.GetFileNameWithoutExtension(filePath)
         |> fun s -> s.Replace(".", "_").Replace("-", "_")
         |> Fable.Naming.applyCaseRule Fable.Core.CaseRules.SnakeCase
+        |> limitErlangAtomLength
 
     // ----------------------------------------------------------------------------------
     // Qualified module names
@@ -443,6 +442,7 @@ module Naming =
         |> fun s -> Regex.Replace(s, "_+", "_")
         |> fun s -> s.Trim('_')
         |> checkErlKeywords
+        |> limitErlangAtomLength
 
     /// Number of leading segments `a` and `b` have in common.
     let private commonPrefixLength (a: string[]) (b: string[]) =
@@ -528,6 +528,11 @@ module Naming =
 
         checkErlKeywords disambiguated |> limitErlangAtomLength
 
+    /// The atom a class or `val` field is stored under in the instance map. Codegen and the
+    /// collision diagnostic must both derive it here, or a collision is emitted unreported.
+    let classFieldAtomName (name: string) =
+        limitErlangAtomLength ("field_" + sanitizeErlangName name)
+
     /// Quote an Erlang atom if it needs quoting (starts with uppercase, contains special chars, etc.)
     ///
     /// Inside the quotes a `\` and a `'` have to be escaped, or what comes back is not the atom that
@@ -597,7 +602,7 @@ module ObjectOverrides =
         | _ -> false
 
     let functionName entityName memberName =
-        $"%s{entityName}_%s{Naming.sanitizeErlangName memberName}"
+        Naming.limitErlangAtomLength $"%s{entityName}_%s{Naming.sanitizeErlangName memberName}"
 
     let tryCallZeroArg
         (com: FSharp2Fable.IFableCompiler)

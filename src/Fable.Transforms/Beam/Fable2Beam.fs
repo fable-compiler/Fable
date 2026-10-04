@@ -155,9 +155,9 @@ let private reportFunctionNameCollision (com: IBeamCompiler) owner (Beam.Atom na
         tag = "FABLE"
     )
 
-let private reportFieldNameCollisions (com: IBeamCompiler) owner (fieldNames: string seq) =
+let private reportFieldNameCollisionsBy (com: IBeamCompiler) owner toAtom (fieldNames: string seq) =
     fieldNames
-    |> Seq.groupBy sanitizeFieldName
+    |> Seq.groupBy toAtom
     |> Seq.iter (fun (erlName, fields) ->
         let fields = fields |> Seq.distinct |> Seq.toList
 
@@ -167,6 +167,56 @@ let private reportFieldNameCollisions (com: IBeamCompiler) owner (fieldNames: st
             // invariant: Distinct record fields map to distinct Erlang atoms — collisions stop compilation before a map value is lost.
             com.AddLog(
                 $"%s{owner} has fields %s{names} that both compile to Erlang atom '%s{erlName}'. Rename one of the fields.",
+                Severity.Error,
+                fileName = com.CurrentFile,
+                tag = "FABLE"
+            )
+    )
+
+let private reportFieldNameCollisions (com: IBeamCompiler) owner (fieldNames: string seq) =
+    reportFieldNameCollisionsBy com owner sanitizeFieldName fieldNames
+
+let private reportUnionCaseTagCollisions (com: IBeamCompiler) (ent: Entity) =
+    ent.UnionCases
+    |> List.groupBy (fun case -> unionCaseTagName case.CompiledName case.Name)
+    |> List.iter (fun (erlTag, cases) ->
+        let names = cases |> List.map (fun case -> case.Name) |> List.distinct
+
+        if names.Length > 1 then
+            let names = names |> List.map (sprintf "'%s'") |> String.concat " and "
+
+            // invariant: Distinct union cases carry distinct tags — a shared tag makes `match` pick
+            // the wrong branch and two different values compare equal, with nothing to see at runtime.
+            com.AddLog(
+                $"Union '%s{ent.FullName}' has cases %s{names} that both compile to Erlang atom '%s{erlTag}'. Rename one of the cases.",
+                Severity.Error,
+                fileName = com.CurrentFile,
+                tag = "FABLE"
+            )
+    )
+
+/// The map key an interface member is dispatched through, as `ObjectExpr` and the class
+/// interface-property paths build it: the member's display name, `set_` prefixed for a setter.
+let private interfaceMemberKey (memb: MemberFunctionOrValue) =
+    if memb.IsSetter then
+        "set_" + sanitizeErlangName memb.DisplayName
+    else
+        sanitizeErlangName memb.DisplayName
+
+let private reportInterfaceMemberCollisions (com: IBeamCompiler) (ent: Entity) =
+    ent.MembersFunctionsAndValues
+    |> Seq.groupBy interfaceMemberKey
+    |> Seq.iter (fun (erlName, members) ->
+        let names =
+            members |> Seq.map (fun memb -> memb.DisplayName) |> Seq.distinct |> Seq.toList
+
+        if names.Length > 1 then
+            let names = names |> List.map (sprintf "'%s'") |> String.concat " and "
+
+            // invariant: Interface members are keys in the implementation map, so a shared key makes
+            // one member silently resolve to the other's body.
+            com.AddLog(
+                $"Interface '%s{ent.FullName}' has members %s{names} that both dispatch through Erlang atom '%s{erlName}'. Rename one of the members.",
                 Severity.Error,
                 fileName = com.CurrentFile,
                 tag = "FABLE"
@@ -648,10 +698,9 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
 
         match expr.Type with
         | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isClassType com entityRef ->
-            let sanitizedFieldName = sanitizeErlangName fieldName
             // Use f$ prefix to avoid collision with interface method keys
             let atomField =
-                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom("field_" + sanitizedFieldName)))
+                Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(classFieldAtomName fieldName)))
             // Class instance: update state in process dict
             // put(Ref, maps:put(field, Value, get(Ref)))
             Beam.ErlExpr.Call(
@@ -669,7 +718,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
             // Interface property setter: dispatch through set_ prefixed key
             // (fable_utils:iface_get(set_bar, Obj))(Value)
-            let setterKey = "set_" + sanitizeErlangName fieldName
+            let setterKey = limitErlangAtomLength ("set_" + sanitizeErlangName fieldName)
             let setterAtom = Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom setterKey))
 
             let lookup =
@@ -1672,7 +1721,7 @@ and transformValue
                 |> List.map (fun (name, value) ->
                     let fieldKey =
                         if ctx.ClassFieldPrefix then
-                            atomLit ("field_" + sanitizeErlangName name)
+                            atomLit (classFieldAtomName name)
                         else
                             Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(sanitizeFieldName name)))
 
@@ -2177,13 +2226,11 @@ and transformGet (com: IBeamCompiler) (ctx: Context) (kind: GetKind) (typ: Type)
             | _ ->
                 match expr.Type with
                 | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isClassType com entityRef ->
-                    let fieldName = sanitizeErlangName info.Name
-
                     // Class instance: read via fable_utils:field_get, which supports both
                     // a self-contained map (immutable class) and a process-dict ref (mutable class).
                     // Use field_ prefix to avoid collision with interface method keys.
                     let classFieldAtom =
-                        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom("field_" + fieldName)))
+                        Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom(classFieldAtomName info.Name)))
 
                     Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ classFieldAtom; erlExpr ])
                 | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
@@ -2546,7 +2593,8 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
             // Field-stored function: (fable_utils:field_get(field_<name>, This))(Args)
             let erlThis = transformExpr com ctx thisExpr
             let thisH, cleanThis = extractBlock erlThis
-            let fieldAtom = atomLit ("field_" + sanitizeErlangName ident.Name)
+
+            let fieldAtom = atomLit (classFieldAtomName ident.Name)
 
             let lookup =
                 Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ fieldAtom; cleanThis ])
@@ -2696,7 +2744,7 @@ and transformCall (com: IBeamCompiler) (ctx: Context) (callee: Expr) (info: Call
 
                     if isCtorFieldInvoke then
                         // Constructor param field invoke: (fable_utils:field_get(field_<name>, This))(Args)
-                        let fieldAtom = atomLit ("field_" + sanitizeErlangName methodName)
+                        let fieldAtom = atomLit (classFieldAtomName methodName)
 
                         let lookup =
                             Beam.ErlExpr.Call(Some "fable_utils", "field_get", [ fieldAtom; cleanCallee ])
@@ -2730,10 +2778,20 @@ and transformClassDeclaration
     (decl: ClassDecl)
     : Beam.ErlForm list
     =
+    // Records key their map by `sanitizeFieldName`; every other type keys it by `classFieldAtomName`,
+    // which collapses more names, so each has to be checked against the atom it actually emits.
     if ent.IsFSharpRecord then
         ent.FSharpFields
         |> List.map (fun field -> field.Name)
         |> reportFieldNameCollisions com $"Record '%s{ent.FullName}'"
+    elif ent.IsFSharpUnion then
+        reportUnionCaseTagCollisions com ent
+    elif ent.IsInterface then
+        reportInterfaceMemberCollisions com ent
+    else
+        ent.FSharpFields
+        |> List.map (fun field -> field.Name)
+        |> reportFieldNameCollisionsBy com $"Type '%s{ent.FullName}'" classFieldAtomName
 
     let constructorForms =
         match decl.Constructor with
@@ -2975,7 +3033,7 @@ and transformClassDeclaration
                                 else
                                     transformExpr com fieldCtx value
 
-                            let entries' = entries @ [ atomLit ("field_" + sanitizeErlangName name), erlValue ]
+                            let entries' = entries @ [ atomLit (classFieldAtomName name), erlValue ]
 
                             let fieldCtx' =
                                 { fieldCtx with CtorFieldExprs = fieldCtx.CtorFieldExprs.Add(name, erlValue) }
@@ -3295,7 +3353,7 @@ and transformClassDeclaration
                 elif not memb.IsMangled && info.IsGetter then
                     // Property getter: class_name_get_prop(This) -> maps:get(prop, get(This)).
                     let propName = sanitizeErlangName memb.Name
-                    let funcName = $"%s{className}_%s{propName}"
+                    let funcName = limitErlangAtomLength $"%s{className}_%s{propName}"
                     let _thisArg, _nonThisArgs, memberCtx = getThisAndArgs ()
 
                     let bodyExpr = transformExpr com memberCtx memb.Body
@@ -3323,7 +3381,7 @@ and transformClassDeclaration
                 elif not memb.IsMangled && info.IsSetter then
                     // Property setter: class_name_set_prop(This, Value) -> put(This, maps:put(prop, Value, get(This))).
                     let propName = sanitizeErlangName memb.Name
-                    let funcName = $"%s{className}_set_%s{propName}"
+                    let funcName = limitErlangAtomLength $"%s{className}_set_%s{propName}"
                     let _thisArg, nonThisArgs, memberCtx = getThisAndArgs ()
 
                     let argPatterns =
@@ -3923,8 +3981,14 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
                         && System.Char.IsUpper(otherMemberName[0])
                     )
 
+                // invariant: A captured local has no enclosing entity to be a member of, so no other
+                // file can name it. `functionName` is consulted on the local-call paths only, so
+                // renaming anything reachable from elsewhere emits the old atom at that call site.
+                let isCapturedLocal = info.ApparentEnclosingEntity.IsNone
+
                 if
                     info.IsInstance
+                    && isCapturedLocal
                     && not (System.String.IsNullOrEmpty memberName)
                     && System.Char.IsLower(memberName[0])
                     && hasUpperCasePeer

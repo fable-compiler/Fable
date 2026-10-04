@@ -172,6 +172,32 @@ let private testIdentifierCollisionDiagnostics () =
         "Declarations in 'colliding_member_names_program' compile to duplicate Erlang function 'foo_ctor/0'. Rename one declaration or change its arity."
         output
 
+    expectContains
+        "members differing only in case have an actionable diagnostic"
+        "compile to duplicate Erlang function 'renderer_work/1'. Rename one declaration or change its arity."
+        output
+
+    for owner in [ "CtorFields"; "ValFields" ] do
+        expectContains
+            $"colliding fields on '%s{owner}' have an actionable diagnostic"
+            $"Type 'Fable.Tests.CollidingMemberNames.%s{owner}' has fields 'fooBar' and 'FooBar' that both compile to Erlang atom 'field_foo_bar'. Rename one of the fields."
+            output
+
+    expectContains
+        "colliding union case tags have an actionable diagnostic"
+        "Union 'Fable.Tests.CollidingMemberNames.CollidingUnion' has cases 'FooBar' and 'Foo_Bar' that both compile to Erlang atom 'foo_bar'. Rename one of the cases."
+        output
+
+    expectContains
+        "a CompiledName colliding with a case name has an actionable diagnostic"
+        "Union 'Fable.Tests.CollidingMemberNames.CompiledNameUnion' has cases 'Tagged' and 'Foo_Bar' that both compile to Erlang atom 'foo_bar'. Rename one of the cases."
+        output
+
+    expectContains
+        "colliding interface members have an actionable diagnostic"
+        "Interface 'Fable.Tests.CollidingMemberNames.ICollidingMembers' has members 'FooBar' and 'Foo_Bar' that both dispatch through Erlang atom 'foo_bar'. Rename one of the members."
+        output
+
 /// Compile a whole program and run it on the BEAM through the generated `main.erl` shim.
 ///
 /// The test suite calls test functions directly and so never executes the shim — which is how the
