@@ -1123,6 +1123,89 @@ let ``test Exception InnerException is null when not provided`` () =
     isNull (box ex.InnerException) |> equal true
 
 [<Fact>]
+let ``test TimeoutException preserves message and empty InnerException`` () =
+    let ex = TimeoutException("timeout message")
+    ex.Message |> equal "timeout message"
+    isNull (box ex.InnerException) |> equal true
+    let caught =
+        try
+            raise ex
+            false
+        with
+        | :? TimeoutException as caught -> obj.ReferenceEquals(ex, caught)
+    caught |> equal true
+
+[<Fact>]
+let ``test exceptions sharing a Python base retain distinct dotnet types`` () =
+    let caught =
+        try
+            raise (FormatException("bad format"))
+            "not caught"
+        with
+        | :? ArgumentException -> "argument"
+        | :? FormatException as ex -> ex.Message
+    caught |> equal "bad format"
+
+#if FABLE_COMPILER
+module private PythonExceptionBases =
+    open Fable.Core.PyInterop
+
+    let valueError: obj = import "ValueError" "builtins"
+    let indexError: obj = import "IndexError" "builtins"
+    let runtimeError: obj = import "RuntimeError" "builtins"
+    let zeroDivisionError: obj = import "ZeroDivisionError" "builtins"
+    let overflowError: obj = import "OverflowError" "builtins"
+    let notImplementedError: obj = import "NotImplementedError" "builtins"
+    let memoryError: obj = import "MemoryError" "builtins"
+    let timeoutError: obj = import "TimeoutError" "builtins"
+    let exceptionBase: obj = import "ExceptionBase" "fable_library.types"
+    let timeoutReflection: Func<System.Type> = import "TimeoutException_reflection" "fable_library.system"
+    let argumentNullReflection: Func<System.Type> = import "ArgumentNullException_reflection" "fable_library.system"
+
+    [<Global("TimeoutError")>]
+    type TimeoutError() = inherit Exception()
+
+[<Fact>]
+let ``test dotnet exceptions also match their Python exception bases`` () =
+    let mappings: (exn * obj) list = [
+        ArgumentException("message"), PythonExceptionBases.valueError
+        ArgumentNullException("parameter", "message"), PythonExceptionBases.valueError
+        ArgumentOutOfRangeException("parameter", "message"), PythonExceptionBases.valueError
+        FormatException("message"), PythonExceptionBases.valueError
+        IndexOutOfRangeException("message"), PythonExceptionBases.indexError
+        InvalidOperationException("message"), PythonExceptionBases.runtimeError
+        DivideByZeroException("message"), PythonExceptionBases.zeroDivisionError
+        OverflowException("message"), PythonExceptionBases.overflowError
+        NotImplementedException("message"), PythonExceptionBases.notImplementedError
+        OutOfMemoryException("message"), PythonExceptionBases.memoryError
+        TimeoutException("message"), PythonExceptionBases.timeoutError
+    ]
+    for ex, pythonBase in mappings do
+        Fable.Core.PyInterop.pyInstanceof ex pythonBase |> equal true
+        Fable.Core.PyInterop.pyInstanceof ex PythonExceptionBases.exceptionBase |> equal true
+        ex.Message.Contains("message") |> equal true
+
+[<Fact>]
+let ``test Python TimeoutError handler catches dotnet TimeoutException`` () =
+    let ex = TimeoutException("timeout message")
+    let caught =
+        try
+            raise ex
+            false
+        with
+        | :? PythonExceptionBases.TimeoutError as caught -> obj.ReferenceEquals(ex, caught)
+    caught |> equal true
+
+[<Fact>]
+let ``test Python exception reflection preserves dotnet ancestry`` () =
+    let timeoutType = PythonExceptionBases.timeoutReflection.Invoke()
+    timeoutType.IsSubclassOf(typeof<Exception>) |> equal true
+    let argumentNullType = PythonExceptionBases.argumentNullReflection.Invoke()
+    argumentNullType.IsSubclassOf(typeof<ArgumentException>) |> equal true
+    argumentNullType.IsSubclassOf(typeof<Exception>) |> equal true
+#endif
+
+[<Fact>]
 let ``test use doesn't return on finally clause`` () = // See #211
     let foo() =
         use c = new DisposableFoo()
