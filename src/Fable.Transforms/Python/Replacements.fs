@@ -2847,7 +2847,7 @@ let exceptions (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Expr 
         // | "System.Collections.Generic.KeyNotFoundException"
         | BuiltinSystemException _ -> bclType com ctx r t i thisArg args
         | _ ->
-            let e = makeImportLib com Any "ExceptionBase" "Types"
+            let e = makeImportLib com Any "ExceptionBase" "exception_bases"
             Helper.ConstructorCall(e, t, args, ?loc = r) |> Some
     | "get_Message", Some e -> Helper.GlobalCall("str", t, [ thisArg.Value ], ?loc = r) |> Some
     | "get_StackTrace", Some e -> getFieldWith r t e "stack" |> Some
@@ -3672,9 +3672,6 @@ let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
-    | "StartChild" ->
-        Helper.LibCall(com, "async_", "start_child_with_timeout", t, args, i.SignatureArgTypes, ?loc = r)
-        |> Some
     | "Start" ->
         Helper.LibCall(com, "async_", "start", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
@@ -4332,7 +4329,7 @@ let tryCall (com: ICompiler) (ctx: Context) r t (info: CallInfo) (thisArg: Expr 
 
 let tryBaseConstructor com ctx (ent: EntityRef) (argTypes: Lazy<Type list>) genArgs args =
     match ent.FullName with
-    | Types.exception_ -> Some(makeImportLib com Any "ExceptionBase" "Types", args)
+    | Types.exception_ -> Some(makeImportLib com Any "ExceptionBase" "exception_bases", args)
     | Types.attribute -> Some(makeImportLib com Any "Attribute" "Types", args)
     | Types.dictionary ->
         let args =

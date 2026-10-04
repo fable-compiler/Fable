@@ -498,6 +498,73 @@ let ``test Async.StartChild with timeout completes when computation finishes bef
                 failwith "should not time out"
     } |> Async.RunSynchronously
 
+let private assertChildFailure startChild (error: exn) =
+    async {
+        let failing: Async<int> = async {
+            do! Async.Sleep 10
+            return raise error
+        }
+        let! child = startChild(failing, 60_000)
+        let! result = Async.Catch child
+        match result with
+        | Choice2Of2 caught -> obj.ReferenceEquals(error, caught) |> equal true
+        | _ -> failwith "Expected child failure"
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.StartChild preserves child TimeoutException`` () =
+    assertChildFailure
+        (fun (computation, timeout) -> Async.StartChild(computation, timeout))
+        (TimeoutException("child timeout"))
+
+let private assertChildTimeout startChild assertError =
+    async {
+        let pending: Async<int> = Async.FromContinuations(ignore)
+        let! child = startChild(pending, 0)
+        let! result = Async.Catch child
+        match result with
+        | Choice2Of2 ex -> assertError ex
+        | _ -> failwith "Expected child timeout"
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.StartChild zero timeout raises TimeoutException`` () =
+    assertChildTimeout
+        (fun (computation, timeout) -> Async.StartChild(computation, timeout))
+        (fun ex -> ex :? TimeoutException |> equal true)
+
+#if FABLE_COMPILER
+module private NativeTimeout =
+    open Fable.Core
+    open Fable.Core.PyInterop
+
+    let startChild: Func<Async<int>, int, Async<Async<int>>> = import "start_child" "fable_library.async_"
+    let timeoutError: obj = import "TimeoutError" "builtins"
+
+    [<Emit("TimeoutError($0)")>]
+    let createTimeoutError (message: string) : exn = nativeOnly
+
+[<Fact>]
+let ``test Python start_child deadline matches both timeout types`` () =
+    assertChildTimeout
+        (fun (computation, timeout) -> NativeTimeout.startChild.Invoke(computation, timeout))
+        (fun ex ->
+            ex :? TimeoutException |> equal true
+            Fable.Core.PyInterop.pyInstanceof ex NativeTimeout.timeoutError |> equal true)
+
+[<Fact>]
+let ``test Async.StartChild preserves child Python TimeoutError`` () =
+    assertChildFailure
+        (fun (computation, timeout) -> Async.StartChild(computation, timeout))
+        (NativeTimeout.createTimeoutError "child timeout")
+
+[<Fact>]
+let ``test Python start_child preserves child TimeoutError`` () =
+    assertChildFailure
+        (fun (computation, timeout) -> NativeTimeout.startChild.Invoke(computation, timeout))
+        (NativeTimeout.createTimeoutError "child timeout")
+#endif
+
 [<Fact>]
 let ``test Unit arguments are erased`` () = // See #1832
     let mutable token = 0

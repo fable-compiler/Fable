@@ -292,17 +292,18 @@ def start_as_task[T](
     return tcs.get_task()
 
 
-def _start_child_timeout[T](
-    computation: Async[T], ms: int | TimeSpan, timeout_error: Callable[[], Exception]
-) -> Async[Async[T]]:
-    # Return the child result when ready, or raise the selected timeout error if it takes too long.
-    task = start_as_task(computation)
+def _start_child_timeout[T](computation: Async[T], ms: int | TimeSpan) -> Async[Async[T]]:
+    # Return the child result when ready, or raise TimeoutException when the deadline expires.
+    task = asyncio.ensure_future(start_as_task(computation))
 
     async def with_timeout() -> T:
         try:
             return await asyncio.wait_for(task, timeout=to_milliseconds(ms) / 1000.0)
         except TimeoutError:
-            raise timeout_error()
+            # invariant: a completed child retains its exception; only deadline cancellation is translated
+            if not task.cancelled():
+                raise
+            raise TimeoutException__ctor()
 
     def cont(ctx: IAsyncContext[Async[T]]) -> None:
         protected_return(await_task(with_timeout()))(ctx)
@@ -310,16 +311,10 @@ def _start_child_timeout[T](
     return protected_cont(cont)
 
 
-def start_child_with_timeout[T](computation: Async[T], ms: int | TimeSpan | None = None) -> Async[Async[T]]:
-    # decision: use a new entry point so existing Python callers retain the built-in TimeoutError contract
-    if ms is None:
-        return start_child(computation)
-    return _start_child_timeout(computation, ms, TimeoutException__ctor)
-
-
 def start_child[T](computation: Async[T], ms: int | TimeSpan | None = None) -> Async[Async[T]]:
+    # decision: share TimeoutException across callers; its native base preserves Python TimeoutError handlers
     if ms is not None:
-        return _start_child_timeout(computation, ms, TimeoutError)
+        return _start_child_timeout(computation, ms)
 
     task = start_as_task(computation)
 
@@ -413,7 +408,6 @@ __all__ = [
     "start",
     "start_as_task",
     "start_child",
-    "start_child_with_timeout",
     "start_immediate",
     "start_with_continuations",
 ]

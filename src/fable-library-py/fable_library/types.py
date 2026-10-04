@@ -25,6 +25,7 @@ from .core import (
     uint32,
     uint64,
 )
+from .exception_bases import ExceptionBase as ExceptionBase
 
 
 # Unit type for F# unit-typed parameters. Using None mirrors F#'s
@@ -42,22 +43,6 @@ class Attribute:
     """Base class for F# attributes."""
 
     ...
-
-
-class ExceptionBase(Exception):
-    """Base class for .NET ``System.Exception`` and its subclasses.
-
-    Subclasses the built-in ``Exception`` so ``raise``/``except``/``isinstance``
-    keep working as before. Only the message is forwarded to the built-in
-    initializer, so ``str(exc)`` still returns the message even when an inner
-    exception is supplied (the built-in would otherwise stringify the whole
-    argument tuple). The inner exception is kept on a dedicated attribute so it
-    can be read back through ``System.Exception.InnerException``.
-    """
-
-    def __init__(self, message: str | None = None, inner_exception: Exception | None = None) -> None:
-        super().__init__(message if message is not None else "")
-        self.inner_exception: Exception | None = inner_exception
 
 
 # We don't use type aliases here because we need to do isinstance checks.
