@@ -195,17 +195,9 @@ let private reportUnionCaseTagCollisions (com: IBeamCompiler) (ent: Entity) =
             )
     )
 
-/// The map key an interface member is dispatched through, as `ObjectExpr` and the class
-/// interface-property paths build it: the member's display name, `set_` prefixed for a setter.
-let private interfaceMemberKey (memb: MemberFunctionOrValue) =
-    if memb.IsSetter then
-        "set_" + sanitizeErlangName memb.DisplayName
-    else
-        sanitizeErlangName memb.DisplayName
-
 let private reportInterfaceMemberCollisions (com: IBeamCompiler) (ent: Entity) =
     ent.MembersFunctionsAndValues
-    |> Seq.groupBy interfaceMemberKey
+    |> Seq.groupBy (fun memb -> interfaceMemberKey memb.IsSetter memb.DisplayName)
     |> Seq.iter (fun (erlName, members) ->
         let names =
             members |> Seq.map (fun memb -> memb.DisplayName) |> Seq.distinct |> Seq.toList
@@ -718,7 +710,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
         | Fable.AST.Fable.Type.DeclaredType(entityRef, _) when isInterfaceType com entityRef ->
             // Interface property setter: dispatch through set_ prefixed key
             // (fable_utils:iface_get(set_bar, Obj))(Value)
-            let setterKey = limitErlangAtomLength ("set_" + sanitizeErlangName fieldName)
+            let setterKey = interfaceMemberKey true fieldName
             let setterAtom = Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom setterKey))
 
             let lookup =
@@ -1319,7 +1311,7 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
                             }
                         ]
 
-                atomLit ("set_" + methodName), funExpr
+                atomLit (interfaceMemberKey true memb.Name), funExpr
             else
                 let argPats = nonThisArgs |> List.map (fun a -> Beam.PVar(toErlangVar a))
 
@@ -3135,11 +3127,7 @@ and transformClassDeclaration
                                         ]
 
                                 // Setters use set_ prefix to avoid key collision with getters
-                                let keyName =
-                                    if sigInfo.IsSetter then
-                                        "set_" + memberName
-                                    else
-                                        memberName
+                                let keyName = interfaceMemberKey sigInfo.IsSetter memb.Name
 
                                 Some(atomLit keyName, closure)
                         | Some _
@@ -3944,6 +3932,37 @@ let transformFile (com: Fable.Compiler) (file: File) : Beam.ErlModule =
             | ActionDeclaration _
             | ClassDeclaration _ -> []
         )
+
+    collectMemberDeclarations file.Declarations
+    |> List.choose (fun (memDecl, info, (_, arity)) ->
+        if
+            info.IsValue
+            && not info.IsInstance
+            && arity = 0
+            && (info.IsMutable || readsFreeMutable Set.empty memDecl.Body)
+        then
+            Some(mutableStateKey moduleName memDecl.Name, memDecl.Name)
+        else
+            None
+    )
+    |> List.groupBy fst
+    |> List.iter (fun (stateKey, declarations) ->
+        let names = declarations |> List.map snd |> List.distinct
+
+        if names.Length > 1 then
+            let names =
+                names
+                |> List.map (decodeFSharpCompiledName >> sprintf "'%s'")
+                |> String.concat " and "
+
+            // invariant: Distinct module values cannot share a process-dictionary key, even when their function names remain distinct.
+            beamCom.AddLog(
+                $"Module values %s{names} in '%s{moduleName}' share Erlang state key '%s{stateKey}'. Rename one declaration.",
+                Severity.Error,
+                fileName = com.CurrentFile,
+                tag = "FABLE"
+            )
+    )
 
     let privateClassBindings =
         collectMemberDeclarations file.Declarations

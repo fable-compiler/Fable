@@ -198,6 +198,11 @@ let private testIdentifierCollisionDiagnostics () =
         "Interface 'Fable.Tests.CollidingMemberNames.ICollidingMembers' has members 'FooBar' and 'Foo_Bar' that both dispatch through Erlang atom 'foo_bar'. Rename one of the members."
         output
 
+    expectContains
+        "bounded interface setter keys participate in collision diagnostics"
+        "Interface 'Fable.Tests.CollidingMemberNames.ILongSetterCollision' has members"
+        output
+
 /// Compile a whole program and run it on the BEAM through the generated `main.erl` shim.
 ///
 /// The test suite calls test functions directly and so never executes the shim — which is how the

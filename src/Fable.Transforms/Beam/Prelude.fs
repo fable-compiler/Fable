@@ -80,19 +80,34 @@ module Naming =
     /// that decoration room.
     let private maxErlangAtomLength = 223
 
+    let private atomNameHash (name: string) =
+#if FABLE_COMPILER
+        // tradeoff: Standalone uses the existing portable hash to avoid cryptography dependencies; overlong atoms differ from native output.
+        (uint32 (Fable.Naming.stringHash name)).ToString("x8")
+#else
+        use sha256 = System.Security.Cryptography.SHA256.Create()
+
+        name
+        |> System.Text.Encoding.UTF8.GetBytes
+        |> sha256.ComputeHash
+        |> System.BitConverter.ToString
+        |> _.Replace("-", "")
+        |> _.ToLowerInvariant()
+#endif
+
     /// Cap an atom at the length Erlang accepts, keeping a readable prefix plus a hash of the full
     /// name. Atoms built by joining already-capped parts have to be capped again.
     let limitErlangAtomLength (name: string) =
         if name.Length <= maxErlangAtomLength then
             name
         else
-            let suffix = "_" + (uint32 (Fable.Naming.stringHash name)).ToString("x8")
+            let suffix = "_" + atomNameHash name
             let mutable prefixLength = maxErlangAtomLength - suffix.Length
 
             if System.Char.IsHighSurrogate(name.[prefixLength - 1]) then
                 prefixLength <- prefixLength - 1
 
-            // decision: Overlength atoms retain a readable prefix plus a hash suffix — escape expansion must not exceed the atom limit or merge long names.
+            // decision: Native compilation uses SHA-256 to distinguish overlong names; standalone keeps its portable hash without adding BCL support.
             name.Substring(0, prefixLength) + suffix
 
     /// Drop or encode the characters an F# name may carry that an unquoted Erlang atom cannot
@@ -533,6 +548,15 @@ module Naming =
     let classFieldAtomName (name: string) =
         limitErlangAtomLength ("field_" + sanitizeErlangName name)
 
+    /// Derive the map key shared by interface implementations, dispatch, and collision diagnostics.
+    let interfaceMemberKey isSetter (name: string) =
+        let memberName = sanitizeErlangName name
+
+        if isSetter then
+            limitErlangAtomLength ("set_" + memberName)
+        else
+            memberName
+
     /// Quote an Erlang atom if it needs quoting (starts with uppercase, contains special chars, etc.)
     ///
     /// Inside the quotes a `\` and a `'` have to be escaped, or what comes back is not the atom that
@@ -602,6 +626,7 @@ module ObjectOverrides =
         | _ -> false
 
     let functionName entityName memberName =
+        let entityName = Naming.sanitizeErlangName entityName
         Naming.limitErlangAtomLength $"%s{entityName}_%s{Naming.sanitizeErlangName memberName}"
 
     let tryCallZeroArg

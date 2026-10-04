@@ -44,3 +44,8 @@ type CompiledNameUnion =
 type ICollidingMembers =
     abstract FooBar: unit -> int
     abstract Foo_Bar: unit -> int
+
+// The prefixed setter key is bounded again, so it can collide with an explicitly named method.
+type ILongSetterCollision =
+    abstract pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp: int with get, set
+    abstract set_pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp_eb2801e2b9e2ecf71459fa6e18bf811861522adcea87b798f928b62a2242245c: unit -> int
