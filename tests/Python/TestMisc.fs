@@ -1158,12 +1158,17 @@ module private PythonExceptionBases =
     let notImplementedError: obj = import "NotImplementedError" "builtins"
     let memoryError: obj = import "MemoryError" "builtins"
     let timeoutError: obj = import "TimeoutError" "builtins"
-    let exceptionBase: obj = import "ExceptionBase" "fable_library.types"
+    let exceptionBase: obj = import "ExceptionBase" "fable_library.exception_bases"
+    let legacyExceptionBase: obj = import "ExceptionBase" "fable_library.types"
     let timeoutReflection: Func<System.Type> = import "TimeoutException_reflection" "fable_library.system"
     let argumentNullReflection: Func<System.Type> = import "ArgumentNullException_reflection" "fable_library.system"
 
     [<Global("TimeoutError")>]
     type TimeoutError() = inherit Exception()
+
+[<Fact>]
+let ``test Python ExceptionBase compatibility import preserves class identity`` () =
+    obj.ReferenceEquals(PythonExceptionBases.exceptionBase, PythonExceptionBases.legacyExceptionBase) |> equal true
 
 [<Fact>]
 let ``test dotnet exceptions also match their Python exception bases`` () =
