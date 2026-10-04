@@ -29,6 +29,7 @@ from typing import (
     overload,
 )
 from urllib.parse import quote, unquote
+from weakref import WeakValueDictionary
 
 from .array_ import Array
 from .bases import (
@@ -351,16 +352,21 @@ def assert_not_equal[T](actual: T, expected: T, msg: str | None = None) -> None:
         raise Exception(msg or f"Expected not equal to: {expected} - Actual: {actual}")
 
 
-MAX_LOCKS = 1024
+# decision: weak values give each active object its own lock without retaining idle locks or their objects
+_locks: WeakValueDictionary[int, RLock] = WeakValueDictionary()
+_lock_registry_guard = RLock()
 
 
-def lock[T](lock_obj: Any, fn: Callable[[], T]) -> T:
-    @functools.lru_cache(maxsize=MAX_LOCKS)
-    def get_lock(n: int) -> RLock:
-        return RLock()
+def lock[T](lock_obj: object, fn: Callable[[], T]) -> T:
+    key = id(lock_obj)
+    with _lock_registry_guard:
+        object_lock = _locks.get(key)
+        if object_lock is None:
+            object_lock = RLock()
+            _locks[key] = object_lock
 
-    lock = get_lock(id(lock_obj))
-    with lock:
+    # invariant: each holder and waiter keeps a strong lock reference outside the registry guard
+    with object_lock:
         return fn()
 
 
