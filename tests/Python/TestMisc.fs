@@ -1629,6 +1629,7 @@ module private LockRuntime =
     let makeThreads: Func<Threads> = import "make_threads" "./py/lock_runtime.py"
     let makeStorage: Func<Storage> = import "make_storage" "./py/lock_runtime.py"
     let makeKey: Func<obj> = import "make_key" "./py/lock_runtime.py"
+    let makeCollidingKeys: Func<obj array> = import "make_colliding_keys" "./py/lock_runtime.py"
 
 [<Fact>]
 let ``test real threads share a lock and release after an exception`` () =
@@ -1658,10 +1659,41 @@ let ``test real threads share a lock and release after an exception`` () =
     lock key (fun () -> 42) |> equal 42
 
 [<Fact>]
-let ``test lock storage stays bounded across new objects`` () =
+let ``test independent objects do not share a lock`` () =
+    let keys = LockRuntime.makeCollidingKeys.Invoke()
+    let threads = LockRuntime.makeThreads.Invoke()
+    let first = Action(fun () ->
+        lock keys.[0] (fun () ->
+            threads.record "first-enter"
+            threads.wait_release() |> equal true
+            threads.record "first-exit"))
+    let second = Action(fun () ->
+        lock keys.[1] (fun () -> threads.record "second-enter")
+        threads.record "second-exit")
+    threads.run(first, second)
+    equal true threads.first_entered
+    equal true threads.second_attempted
+    equal false threads.second_blocked
+    equal true threads.threads_finished
+    equal [||] threads.errors
+    equal 4 threads.trace.Length
+
+[<Fact>]
+let ``test lock storage releases idle entries across new objects`` () =
     let storage = LockRuntime.makeStorage.Invoke()
+    let before = storage.count
+    lock (LockRuntime.makeKey.Invoke()) (fun () -> equal (before + 1) storage.count)
     for _ in 1 .. storage.capacity * 2 do
         lock (LockRuntime.makeKey.Invoke()) (fun () -> 1) |> equal 1
     equal true storage.stable
-    equal storage.capacity storage.count
+    equal before storage.count
+
+[<Fact>]
+let ``test lock storage releases idle entries after exceptions`` () =
+    let storage = LockRuntime.makeStorage.Invoke()
+    let before = storage.count
+    try
+        lock (LockRuntime.makeKey.Invoke()) (fun () -> failwith "body")
+    with _ -> ()
+    equal before storage.count
 #endif
