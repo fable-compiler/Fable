@@ -1622,7 +1622,6 @@ module private LockRuntime =
         abstract run: Action * Action -> unit
 
     type Storage =
-        abstract capacity: int
         abstract stable: bool
         abstract count: int
 
@@ -1680,10 +1679,11 @@ let ``test independent objects do not share a lock`` () =
 
 [<Fact>]
 let ``test lock storage releases idle entries across new objects`` () =
+    let iterations = 2048
     let storage = LockRuntime.makeStorage.Invoke()
     let before = storage.count
     lock (LockRuntime.makeKey.Invoke()) (fun () -> equal (before + 1) storage.count)
-    for _ in 1 .. storage.capacity * 2 do
+    for _ in 1 .. iterations do
         lock (LockRuntime.makeKey.Invoke()) (fun () -> 1) |> equal 1
     equal true storage.stable
     equal before storage.count

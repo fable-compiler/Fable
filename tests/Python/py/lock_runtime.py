@@ -11,6 +11,9 @@ from fable_library import util
 from fable_library.array_ import Array
 
 
+LEGACY_STRIPE_COUNT = 1024
+
+
 class Acquisition:
     def __init__(self) -> None:
         self.attempted = Event()
@@ -101,7 +104,6 @@ class Threads:
 class Storage:
     def __init__(self) -> None:
         self.before = getattr(util, "_locks", ())
-        self.capacity = util.MAX_LOCKS
 
     @property
     def stable(self) -> bool:
@@ -121,9 +123,9 @@ def make_key() -> object:
 def make_colliding_keys() -> Array[object]:
     # decision: reproduces the former stripe collision using distinct, unhashable objects
     keys: dict[int, object] = {}
-    for _ in range(util.MAX_LOCKS + 1):
+    for _ in range(LEGACY_STRIPE_COUNT + 1):
         key: object = []
-        stripe = (id(key) >> 4) % util.MAX_LOCKS
+        stripe = (id(key) >> 4) % LEGACY_STRIPE_COUNT
         previous = keys.get(stripe)
         if previous is not None:
             return Array([previous, key])

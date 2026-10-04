@@ -352,9 +352,6 @@ def assert_not_equal[T](actual: T, expected: T, msg: str | None = None) -> None:
         raise Exception(msg or f"Expected not equal to: {expected} - Actual: {actual}")
 
 
-MAX_LOCKS = 1024  # Kept for compatibility; the registry has no fixed capacity.
-
-
 # decision: weak values give each active object its own lock without retaining idle locks or their objects
 _locks: WeakValueDictionary[int, RLock] = WeakValueDictionary()
 _lock_registry_guard = RLock()
