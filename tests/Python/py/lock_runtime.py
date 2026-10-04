@@ -1,12 +1,17 @@
 """Thread and acquisition controls for the generated F# lock tests."""
 
+import gc
 from collections.abc import Callable
 from threading import Event, RLock, Thread
 from types import TracebackType
 from unittest.mock import patch
+from weakref import WeakValueDictionary
 
 from fable_library import util
 from fable_library.array_ import Array
+
+
+LEGACY_STRIPE_COUNT = 1024
 
 
 class Acquisition:
@@ -67,7 +72,6 @@ class Threads:
 
     def run(self, first: Callable[[], None], second: Callable[[], None]) -> None:
         acquisition = Acquisition()
-        stripes = tuple(ObservedLock(acquisition) for _ in range(util.MAX_LOCKS))
 
         def invoke(action: Callable[[], None]) -> None:
             try:
@@ -77,10 +81,9 @@ class Threads:
 
         first_thread = Thread(target=invoke, args=(first,), daemon=True)
         second_thread = Thread(target=invoke, args=(second,), daemon=True)
-        # decision: observes both the original per-call factory and the fixed shared stripes
         with (
             patch.object(util, "RLock", lambda: ObservedLock(acquisition)),
-            patch.object(util, "_locks", stripes, create=True),
+            patch.object(util, "_locks", WeakValueDictionary()),
         ):
             first_thread.start()
             try:
@@ -101,7 +104,6 @@ class Threads:
 class Storage:
     def __init__(self) -> None:
         self.before = getattr(util, "_locks", ())
-        self.capacity = util.MAX_LOCKS
 
     @property
     def stable(self) -> bool:
@@ -109,12 +111,26 @@ class Storage:
 
     @property
     def count(self) -> int:
+        gc.collect()
         return len(getattr(util, "_locks", ()))
 
 
 def make_key() -> object:
     # decision: uses an unhashable, non-weak-referenceable key to cover arbitrary lock objects
     return []
+
+
+def make_colliding_keys() -> Array[object]:
+    # decision: reproduces the former stripe collision using distinct, unhashable objects
+    keys: dict[int, object] = {}
+    for _ in range(LEGACY_STRIPE_COUNT + 1):
+        key: object = []
+        stripe = (id(key) >> 4) % LEGACY_STRIPE_COUNT
+        previous = keys.get(stripe)
+        if previous is not None:
+            return Array([previous, key])
+        keys[stripe] = key
+    raise AssertionError("Expected a collision in the former fixed stripes")
 
 
 def make_threads() -> Threads:

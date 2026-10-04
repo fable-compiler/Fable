@@ -295,9 +295,7 @@ def start_as_task[T](
 def _start_child_timeout[T](
     computation: Async[T], ms: int | TimeSpan, timeout_error: Callable[[], Exception]
 ) -> Async[Async[T]]:
-    # Race the computation against a timeout: whichever settles first wins.
-    # asyncio.gather (the previous implementation via parallel2) waited for BOTH to settle,
-    # which meant the timeout always fired even when the computation finished first.
+    # Return the child result when ready, or raise the selected timeout error if it takes too long.
     task = start_as_task(computation)
 
     async def with_timeout() -> T:
