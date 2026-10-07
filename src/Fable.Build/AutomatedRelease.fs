@@ -52,10 +52,7 @@ let handle (args: string list) =
     // to the new version before that version is on npm.
     Standalone.handle []
     Publish.publishNpm ProjectDir.fable_standalone
-
-    // Give npm some time to make the new fable-standalone version available
-    // before CompilerJs.handle tries to install it.
-    System.Threading.Thread.Sleep(System.TimeSpan.FromSeconds(15.))
+    Publish.waitForNpmAvailability ProjectDir.fable_standalone
 
     CompilerJs.handle [ "--skip-fable-standalone" ]
 
