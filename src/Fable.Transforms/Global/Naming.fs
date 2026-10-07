@@ -449,6 +449,8 @@ module Naming =
 
     let reflectionSuffix = "_$reflection"
 
+    let beamAccessorSuffix = "_accessor"
+
     let private printPart sanitize separator part overloadSuffix =
         (if String.IsNullOrEmpty(part) then
              ""

@@ -548,6 +548,9 @@ module Naming =
     let classFieldAtomName (name: string) =
         limitErlangAtomLength ("field_" + sanitizeErlangName name)
 
+    /// Mark a generated accessor before atom sanitization, including runtime replacement calls.
+    let accessorFunctionName name = name + Fable.Naming.beamAccessorSuffix
+
     /// Derive the map key shared by interface implementations, dispatch, and collision diagnostics.
     let interfaceMemberKey isSetter (name: string) =
         let memberName = sanitizeErlangName name

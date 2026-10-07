@@ -3489,10 +3489,8 @@ and transformClassDeclaration
                 )
         | _ -> ()
 
-    // Deduplicate functions by name+arity. This can happen when a property setter
-    // (e.g., `set StatusCode`) and a method (e.g., `SetStatusCode`) both mangle to
-    // the same Erlang function name. Unlike JS/Python which have native getter/setter
-    // syntax, Erlang uses plain functions so name collisions produce duplicate definitions.
+    // Report remaining name/arity collisions, retaining one recovery form so error output
+    // stays printable. Accessor/method pairs already have distinct upstream names.
     let allForms = constructorForms @ memberForms @ reflectionForms
 
     let reflectionKeys =

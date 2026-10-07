@@ -793,6 +793,11 @@ module Helpers =
                 |> Fable.Py.Naming.toPythonNaming
             | Rust -> Naming.buildNameWithoutSanitation name part
             | Dart -> Naming.sanitizeDartIdent (fun _ -> false) name part
+            | Beam when memb.IsProperty || memb.IsPropertyGetterMethod || memb.IsPropertySetterMethod ->
+                // decision: BEAM accessors carry a kind marker because snake_case merges `set_Foo` with `SetFoo` (and `get_Foo` with `GetFoo`).
+                // invariant: A CLI event's property symbol and its getter method receive the same marker.
+                // invariant: Declarations and local, cross-file, and referenced-library calls derive the accessor marker from the same member metadata.
+                Naming.sanitizeJsIdent (fun _ -> false) name part + Naming.beamAccessorSuffix
             | _ -> Naming.sanitizeJsIdent (fun _ -> false) name part
 
         let hasOverloadSuffix = not (String.IsNullOrEmpty(part.OverloadSuffix))

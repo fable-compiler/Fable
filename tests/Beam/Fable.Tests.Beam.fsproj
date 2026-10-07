@@ -22,6 +22,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
+    <ProjectReference Include="MemberNameCollisionLibrary/MemberNameCollisionLibrary.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Misc/Aether.fs" />
@@ -102,6 +103,7 @@
     <Compile Include="ModuleMutableOneTests.fs" />
     <Compile Include="ModuleMutableTwoTests.fs" />
     <Compile Include="ModuleNamingTests.fs" />
+    <Compile Include="MemberNamingTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 </Project>
