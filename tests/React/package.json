@@ -9,7 +9,7 @@
   "dependencies": {
     "@babel/plugin-transform-modules-commonjs": "^7.29.7",
     "@babel/plugin-transform-react-jsx": "^7.29.7",
-    "@fluentui/react": "^8.125.7",
+    "@fluentui/react": "^8.125.8",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
