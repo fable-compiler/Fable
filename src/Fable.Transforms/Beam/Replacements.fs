@@ -5596,6 +5596,13 @@ let private getMangledNames (i: CallInfo) (thisArg: Expr option) =
     let mangledName =
         Naming.buildNameWithoutSanitationFrom entityName isStatic memberName i.OverloadSuffix
 
+    let mangledName =
+        match i.CompiledName with
+        // decision: Match the runtime property explicitly; get_Chars is an ordinary F# method despite its BCL accessor spelling.
+        // invariant: StringBuilder.Length calls use the same accessor marker as its F# runtime declaration.
+        | "get_Length" -> accessorFunctionName mangledName
+        | _ -> mangledName
+
     moduleName, mangledName
 
 let private bclType (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
