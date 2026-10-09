@@ -1381,22 +1381,6 @@ module Util =
         | Replacements.Util.IsEntity (Types.ienumerable) _ -> ValueSome(Fable.Any)
         | _ -> ValueNone
 
-    let isUnitArg (ident: Fable.Ident) =
-        ident.IsCompilerGenerated
-        && ident.Type = Fable.Unit
-        && (ident.DisplayName.StartsWith("unitVar", StringComparison.Ordinal)
-            || ident.DisplayName.Contains("@"))
-
-    let discardUnitArg (genArgs: Fable.Type list) (args: Fable.Ident list) =
-        match genArgs, args with
-        | [ Fable.Unit ], [ arg ] -> args // don't drop unit arg when generic arg is unit
-        | _ ->
-            match args with
-            | [] -> []
-            | [ arg ] when isUnitArg arg -> []
-            | [ thisArg; arg ] when thisArg.IsThisArgument && isUnitArg arg -> [ thisArg ]
-            | args -> args
-
     /// Fable doesn't currently sanitize attached members/fields so we do a simple sanitation here.
     /// Should this be done in FSharp2Fable step?
     let sanitizeMember (name: string) =
@@ -1427,9 +1411,11 @@ module Util =
         ctx.UsedNames.CurrentDeclarationScope.Add(name) |> ignore
         name
 
-    type NamedTailCallOpportunity(_com: IRustCompiler, ctx, name, args: Fable.Ident list) =
+    type NamedTailCallOpportunity(com: IRustCompiler, ctx, name, args: Fable.Ident list) =
         let args =
-            args |> discardUnitArg [] |> List.filter (fun arg -> not (arg.IsThisArgument))
+            args |> FableTransforms.discardUnitArg [] |> FableTransforms.discardThisArg
+
+        let argTypes = args |> List.map (fun arg -> arg.Type)
 
         let label = Fable.Naming.splitLast name
 
@@ -1439,7 +1425,15 @@ module Util =
 
             member _.IsRecursiveRef(e) =
                 match e with
-                | Fable.IdentExpr ident -> name = ident.Name
+                | Fable.CurriedApply(Fable.IdentExpr id, callArgs, _, _) ->
+                    let callArgTypes = callArgs |> List.map (fun arg -> arg.Type)
+                    name = id.Name && argTypes = callArgTypes
+                | Fable.Call(Fable.IdentExpr id, info, _, _) ->
+                    let callArgTypes = info.Args |> List.map (fun arg -> arg.Type)
+
+                    match Option.bind com.TryGetMember info.MemberRef with
+                    | Some memb -> name = memb.FullName && argTypes = callArgTypes
+                    | None -> name = id.Name && argTypes = callArgTypes
                 | _ -> false
 
     let getDecisionTarget (ctx: Context) targetIndex =
@@ -3037,9 +3031,10 @@ module Util =
                 mkCallExpr callee args
 
         | _ ->
+            let fableExpr = Fable.Call(calleeExpr, callInfo, typ, range)
+
             match ctx.TailCallOpportunity with
-            | Some tc when tc.IsRecursiveRef(calleeExpr) && List.length tc.Args = List.length callInfo.Args ->
-                optimizeTailCall com ctx range tc callInfo.Args
+            | Some tc when tc.IsRecursiveRef(fableExpr) -> optimizeTailCall com ctx range tc callInfo.Args
             | _ ->
                 match callInfo.ThisArg, calleeExpr, membOpt with
                 | Some thisArg, Fable.IdentExpr ident, Some memb when memb.IsExtension ->
@@ -3260,7 +3255,7 @@ module Util =
     let prepareLambdaArgsAndCtx ctx args body =
         let ctx = { ctx with IsLambda = true }
         let genArgs, ctx = getNewGenArgsAndCtx ctx args body
-        let args = args |> discardUnitArg genArgs
+        let args = args |> FableTransforms.discardUnitArg genArgs
         genArgs, ctx, args
 
     let getLetCapturedNames bindings letBody =
@@ -3504,7 +3499,7 @@ module Util =
         mkForLoopExpr None varPat rangeExpr bodyExpr // ?loc=range)
 
     let makeLocalLambda com ctx (args: Fable.Ident list) (body: Fable.Expr) =
-        let args = args |> discardUnitArg []
+        let args = args |> FableTransforms.discardUnitArg []
         let fnDecl = transformFunctionDecl com ctx args [] Fable.Unit
         let fnBody = transformExpr com ctx body
         mkClosureExpr false fnDecl fnBody
@@ -3565,9 +3560,10 @@ module Util =
         | _ -> false
 
     let transformCurriedApply (com: IRustCompiler) ctx r typ calleeExpr args =
+        let fableExpr = Fable.CurriedApply(calleeExpr, args, typ, r)
+
         match ctx.TailCallOpportunity with
-        | Some tc when tc.IsRecursiveRef(calleeExpr) && List.length tc.Args = List.length args ->
-            optimizeTailCall com ctx r tc args
+        | Some tc when tc.IsRecursiveRef(fableExpr) -> optimizeTailCall com ctx r tc args
         | _ ->
             let callee = transformCallee com ctx calleeExpr
 
@@ -4472,9 +4468,9 @@ module Util =
             TailCallOpportunity = tco
         }
 
-    let isTailRecursive (nameOpt: string option) (body: Fable.Expr) =
+    let isTailRecursive com (nameOpt: string option) (args: Fable.Ident list) (body: Fable.Expr) =
         match nameOpt with
-        | Some name -> FableTransforms.isTailRecursive name body
+        | Some name -> FableTransforms.isTailRecursive com name args body
         | None -> false, false
 
     let transformFunctionBody com ctx (args: Fable.Ident list) (body: Fable.Expr) =
@@ -4504,9 +4500,9 @@ module Util =
         | _ -> transformLeaveContext com ctx None body
 
     let transformFunc com ctx parameters returnType (name: string option) (args: Fable.Ident list) (body: Fable.Expr) =
-        let isRecursive, isTailRec = isTailRecursive name body
+        let isRecursive, isTailRec = isTailRecursive com name args body
         let genArgs, ctx = getNewGenArgsAndCtx ctx args body
-        let args = args |> discardUnitArg genArgs
+        let args = args |> FableTransforms.discardUnitArg genArgs
 
         // let returnType =
         //     match body.Type with
@@ -4529,7 +4525,7 @@ module Util =
         (capturedIdentsOpt: Map<string, Fable.Ident> option)
         =
         let genArgs, ctx, args = prepareLambdaArgsAndCtx ctx args body
-        let isRecursive, isTailRec = isTailRecursive name body
+        let isRecursive, isTailRec = isTailRecursive com name args body
         let fnDecl = transformFunctionDecl com ctx args [] Fable.Unit
         let ctx = getFunctionBodyCtx com ctx name args body isTailRec
 
@@ -4974,7 +4970,7 @@ module Util =
         =
         let ctx = { ctx with IsAssocMember = true }
         let name = memb.CompiledName
-        let args = args |> discardUnitArg []
+        let args = args |> FableTransforms.discardUnitArg []
         let parameters = memb.CurriedParameterGroups |> List.concat
         let returnType = memb.ReturnParameter.Type |> FableTransforms.uncurryType
         let fnDecl = transformFunctionDecl com ctx args parameters returnType
@@ -5045,7 +5041,7 @@ module Util =
             let parameters = memb.CurriedParameterGroups |> List.concat
             // let returnType = memb.ReturnParameter.Type |> FableTransforms.uncurryType
             let returnType = body.Type // |> FableTransforms.uncurryType
-            transformFunc com ctx parameters returnType (Some name) args body
+            transformFunc com ctx parameters returnType (Some memb.FullName) args body
 
         let fnBody =
             if isIdentAtTailPos (fun ident -> ident.IsThisArgument) body then

@@ -44,16 +44,56 @@ let getCapturedNames expr =
 let isIdentCaptured identName expr =
     walkCapturedIdents (fun candidate -> candidate = identName) expr
 
-let isTailRecursive identName expr =
+let isUnitArg (ident: Ident) =
+    ident.IsCompilerGenerated
+    && ident.Type = Unit
+    && (ident.DisplayName.StartsWith("unitVar", System.StringComparison.Ordinal)
+        || ident.DisplayName.Contains("@"))
+
+let discardUnitArg (genArgs: Type list) (args: Ident list) =
+    match genArgs, args with
+    | [ Unit ], [ arg ] -> args // don't drop unit arg when generic arg is unit
+    | _ ->
+        match args with
+        | [] -> []
+        | [ arg ] when isUnitArg arg -> []
+        | [ thisArg; arg ] when thisArg.IsThisArgument && isUnitArg arg -> [ thisArg ]
+        | args -> args
+
+let discardThisArg (args: Ident list) =
+    match args with
+    | thisArg :: args when thisArg.IsThisArgument -> args
+    | _ -> args
+
+let isTailRecursive (com: Compiler) name (args: Ident list) body =
     let mutable isTailRec = true
     let mutable isRecursive = false
 
-    let rec loop inTailPos =
-        function
-        | CurriedApply(IdentExpr i, _, _, _)
-        | Call(IdentExpr i, _, _, _) as e when i.Name = identName ->
-            isRecursive <- true
-            isTailRec <- isTailRec && inTailPos
+    let args = args |> discardUnitArg [] |> discardThisArg
+    let argTypes = args |> List.map (fun arg -> arg.Type)
+
+    let rec loop inTailPos e =
+        match e with
+        | CurriedApply(IdentExpr id, callArgs, _, _) ->
+            let callArgTypes = callArgs |> List.map (fun arg -> arg.Type)
+
+            if name = id.Name && argTypes = callArgTypes then
+                isRecursive <- true
+                isTailRec <- isTailRec && inTailPos
+
+            getSubExpressions e |> List.iter (loop false)
+        | Call(IdentExpr id, info, _, _) ->
+            let callArgTypes = info.Args |> List.map (fun arg -> arg.Type)
+
+            let isNameEqual =
+                match Option.bind com.TryGetMember info.MemberRef with
+                | Some memb -> name = memb.FullName
+                | None -> name = id.Name
+
+            if isNameEqual && argTypes = callArgTypes then
+                isRecursive <- true
+                isTailRec <- isTailRec && inTailPos
+
             getSubExpressions e |> List.iter (loop false)
         | Sequential exprs ->
             let lastIndex = (List.length exprs) - 1
@@ -73,7 +113,7 @@ let isTailRecursive identName expr =
             List.map snd targets |> List.iter (loop inTailPos)
         | e -> getSubExpressions e |> List.iter (loop false)
 
-    loop true expr
+    loop true body
     isTailRec <- isTailRec && isRecursive
     isRecursive, isTailRec
 
@@ -768,8 +808,8 @@ module private Transforms =
             Delegate(args, body, name, tags)
 
         // Uncurry getters for Rust
-        | Call(Get(_callee, FieldGet _, _, _), m, _, r) when com.Options.Language = Rust ->
-            match Option.bind com.TryGetMember m.MemberRef with
+        | Call(Get(_callee, FieldGet _, _, _), info, _, r) when com.Options.Language = Rust ->
+            match Option.bind com.TryGetMember info.MemberRef with
             | Some memb when isGetterOrValueWithoutGenerics memb ->
                 match memb.ReturnParameter.Type with
                 // It may happen the arity of the abstract signature is smaller than actual arity
