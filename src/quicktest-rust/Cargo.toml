@@ -3,6 +3,10 @@ name = "fable_quicktest_rust"
 version = "0.1.0"
 edition = "2024"
 
+[[bin]]
+name = "fable_quicktest_rust"
+path = "src/main.rs"
+
 [features]
 lrc_ptr = ["fable_library_rust/lrc_ptr"]
 no_std = ["fable_library_rust/no_std"]
