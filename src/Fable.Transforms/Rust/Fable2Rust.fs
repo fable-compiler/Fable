@@ -1469,6 +1469,14 @@ module Util =
     //         transformIdent com ctx None id
     //     | _ -> com.TransformExpr(ctx, expr)
 
+    let isTempLocal (ident: Fable.Ident) =
+        ident.IsCompilerGenerated
+        && (ident.Name = "copyOfStruct" || ident.Name = "inputRecord")
+
+    // let isMutableOrByRef (ident: Fable.Ident) =
+    //     (ident.IsMutable || isByRefType ident)
+    //     && not (isTempLocal ident)
+
     let transformIdentGet com ctx r (ident: Fable.Ident) =
         let expr = transformIdent com ctx r ident
 
@@ -1487,16 +1495,22 @@ module Util =
         mutableSet expr value
 
     let transformIdentType com ctx isCaptured (ident: Fable.Ident) =
-        let ty = transformType com ctx ident.Type
+        // let typ = Replacements.Util.getIdentValueType com ident ident.Type
+        match ident.Type with
+        | Replacements.Util.IsByRefType com typ when isTempLocal ident ->
+            // transform temporary local byref type to a reference type
+            transformType com ctx typ |> mkRefTy None
+        | _ ->
+            let ty = transformType com ctx ident.Type
 
-        if isByRefType com ident.Type then
-            ty // already wrapped
-        elif ident.IsMutable && isCaptured then
-            ty |> makeMutTy com ctx |> makeLrcPtrTy com ctx
-        elif ident.IsMutable then
-            ty |> makeMutTy com ctx
-        else
-            ty
+            if isByRefType com ident.Type then
+                ty // already wrapped
+            elif ident.IsMutable && isCaptured then
+                ty |> makeMutTy com ctx |> makeLrcPtrTy com ctx
+            elif ident.IsMutable then
+                ty |> makeMutTy com ctx
+            else
+                ty
 
     let getField r (expr: Rust.Expr) (fieldName: string) =
         mkFieldExpr expr (fieldName |> sanitizeMember) // ?loc=r)
