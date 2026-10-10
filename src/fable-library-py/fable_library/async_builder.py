@@ -263,6 +263,7 @@ def protected_cont[T](f: Async[T]) -> Async[T]:
     def _protected_cont(ctx: IAsyncContext[T]):
         if ctx.cancel_token and ctx.cancel_token.is_cancelled:
             ctx.on_cancel(OperationCanceledError())
+            return
 
         def fn():
             try:

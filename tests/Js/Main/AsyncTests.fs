@@ -6,6 +6,12 @@ open Util.Testing
 
 #if FABLE_COMPILER
 open Fable.Core
+
+module private Deferred =
+    open Fable.Core.JsInterop
+
+    let startDeferred (computation: Async<'T>) (token: System.Threading.CancellationToken) (onSuccess: 'T -> unit) (onError: exn -> unit) (onCancel: exn -> unit): unit -> unit = importMember "./js/async-deferred.js"
+    let handlerCount (event: Event<'T>): int = importMember "./js/async-deferred.js"
 #endif
 
 type DisposableAction(f) =
@@ -707,6 +713,21 @@ let tests =
         }, cts.Token)
         cts.Cancel()
         async { equal true cancelCalled }
+
+#if FABLE_COMPILER
+    testCase "Async.AwaitEvent cancelled before its body runs does not subscribe" <| fun () ->
+        let ev = Event<int>()
+        let cts = new System.Threading.CancellationTokenSource()
+        let calls = ResizeArray<string>()
+        let resume =
+            Deferred.startDeferred (Async.AwaitEvent ev.Publish) cts.Token
+                (fun v -> calls.Add $"success {v}") (fun _ -> calls.Add "error") (fun _ -> calls.Add "cancel")
+        cts.Cancel()
+        resume ()
+        ev.Trigger(42)
+        equal [ "cancel" ] (List.ofSeq calls)
+        equal 0 (Deferred.handlerCount ev)
+#endif
 
     testCase "Async try .. with does not run 'with' branch when body succeeds" <| fun () ->
         let work = async {

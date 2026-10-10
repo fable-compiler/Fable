@@ -112,6 +112,8 @@ def await_event[T](event: IEvent_2[Any, T], cancel_action: Callable[[], None] | 
             ctx.on_cancel(OperationCanceledError())
 
         token_id[0] = ctx.cancel_token.add_listener(cancel)
+        if ctx.cancel_token.is_cancelled:
+            return
         event.AddHandler(handler)
 
     return protected_cont(cont)
