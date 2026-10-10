@@ -3675,6 +3675,13 @@ let asyncBuilder (com: ICompiler) (ctx: Context) r t (i: CallInfo) (thisArg: Exp
 
 let asyncs com (ctx: Context) r t (i: CallInfo) (_: Expr option) (args: Expr list) =
     match i.CompiledName with
+    | "FromContinuations" when
+        (match t with
+         | Fable.DeclaredType(_, [ Fable.Unit ]) -> true
+         | _ -> false)
+        ->
+        Helper.LibCall(com, "async_", "from_continuations_unit", t, args, i.SignatureArgTypes, ?loc = r)
+        |> Some
     | "Start" ->
         Helper.LibCall(com, "async_", "start", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some

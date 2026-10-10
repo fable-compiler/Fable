@@ -188,6 +188,21 @@ def from_continuations[T](
     return protected_cont(cont)
 
 
+def from_continuations_unit(
+    f: Callable[
+        [tuple[Callable[[], None], Callable[[Exception], None], Callable[[OperationCanceledError], None]]],
+        None,
+    ],
+) -> Async[None]:
+    def cont(ctx: IAsyncContext[None]) -> None:
+        def success(value: None = None) -> None:
+            ctx.on_success(value)
+
+        f((success, ctx.on_error, ctx.on_cancel))
+
+    return protected_cont(cont)
+
+
 def await_task[T](task: Awaitable[T]) -> Async[T]:
     """Return an asynchronous computation that will wait for the given
     task to complete and return its result.
