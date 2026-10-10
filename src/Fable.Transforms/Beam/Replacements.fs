@@ -6190,12 +6190,7 @@ let tryCall
                 "#{exn_type => exception, message => <<\"Exception of type 'System.Exception' was thrown.\">>}"
             |> Some
         | "get_Message", Some c, _ ->
-            // Handle both map exceptions and reference-based class exceptions
-            emitExpr
-                r
-                t
-                [ c ]
-                "case erlang:is_reference($0) of true -> maps:get(message, erlang:get($0), $0); false -> maps:get(message, $0, $0) end"
+            Helper.LibCall(com, "fable_utils", "exception_message", t, [ c ], ?loc = r)
             |> Some
         | "get_InnerException", Some c, _ ->
             // Handle both map exceptions and reference-based class exceptions
