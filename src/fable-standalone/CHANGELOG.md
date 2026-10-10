@@ -1,5 +1,5 @@
 ---
-last_commit_released: 23bc5c54db51469431e6fdab713dfe1b6a3df019
+last_commit_released: 10fdccc04bb0e421643426d21dfcbd940e3e5a16
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
@@ -19,6 +19,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 3.7.1 - 2026-10-10
+
+### 🐞 Bug Fixes
+
+* *(beam)* Disambiguate property accessors from ordinary methods (#5049) ([b30dc89d](https://github.com/fable-compiler/Fable/commit/b30dc89d0091c2bd1d9fd7a20042b7fbb4e5a3fa))
+* *(beam)* Normalize exception messages and string split separators (#5053) ([f13a9e14](https://github.com/fable-compiler/Fable/commit/f13a9e1494d8bbde8e74bfbf9dfbc8bd051a157e))
+* *(js/ts/python)* Synchronize cancellation registrations (#5036) ([07db576c](https://github.com/fable-compiler/Fable/commit/07db576c4ae16dcef9d1773ac4d6c70b2a223f0a))
+* *(rust)* Fix tailcall elimination for members (#5051) ([4eb21772](https://github.com/fable-compiler/Fable/commit/4eb2177263f544ec354076da07d8a097d56c273e))
+* *(rust)* Fix temporary struct locals type (#5052) ([17b36588](https://github.com/fable-compiler/Fable/commit/17b3658876a3bd776c4a0129ec3a4cddc9d7e05d))
+* *(rust)* Add main function for no_std (#5054) ([10fdccc0](https://github.com/fable-compiler/Fable/commit/10fdccc04bb0e421643426d21dfcbd940e3e5a16))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/23bc5c54db51469431e6fdab713dfe1b6a3df019..10fdccc04bb0e421643426d21dfcbd940e3e5a16)</small></strong>
 
 ## 3.7.0 - 2026-10-07
 
