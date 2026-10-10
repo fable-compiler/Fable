@@ -15,7 +15,7 @@ module private Runtime =
         abstract invalidHandles: int
         abstract fire: unit -> unit
 
-    let withTimers (action: Timer -> 'T): 'T = importMember "./js/async-runtime.js"
+    let withTimers (action: Timer -> unit): unit = importMember "./js/async-runtime.js"
     let listenerCount (token: System.Threading.CancellationToken): int = importMember "./js/async-runtime.js"
     let cancellationErrorCount (error: exn): int = importMember "./js/async-runtime.js"
 
