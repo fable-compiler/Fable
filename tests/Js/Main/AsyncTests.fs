@@ -7,11 +7,12 @@ open Util.Testing
 #if FABLE_COMPILER
 open Fable.Core
 
-module private Deferred =
-    open Fable.Core.JsInterop
+type private Deferred =
+    [<ImportMember("./js/async-deferred.js")>]
+    static member startDeferred(computation: Async<int>, token: System.Threading.CancellationToken, onSuccess: int -> unit, onError: exn -> unit, onCancel: exn -> unit): unit -> unit = jsNative
 
-    let startDeferred (computation: Async<'T>) (token: System.Threading.CancellationToken) (onSuccess: 'T -> unit) (onError: exn -> unit) (onCancel: exn -> unit): unit -> unit = importMember "./js/async-deferred.js"
-    let handlerCount (event: Event<'T>): int = importMember "./js/async-deferred.js"
+    [<ImportMember("./js/async-deferred.js")>]
+    static member handlerCount(event: Event<int>): int = jsNative
 #endif
 
 type DisposableAction(f) =
@@ -720,8 +721,8 @@ let tests =
         let cts = new System.Threading.CancellationTokenSource()
         let calls = ResizeArray<string>()
         let resume =
-            Deferred.startDeferred (Async.AwaitEvent ev.Publish) cts.Token
-                (fun v -> calls.Add $"success {v}") (fun _ -> calls.Add "error") (fun _ -> calls.Add "cancel")
+            Deferred.startDeferred(Async.AwaitEvent ev.Publish, cts.Token,
+                (fun v -> calls.Add $"success {v}"), (fun _ -> calls.Add "error"), (fun _ -> calls.Add "cancel"))
         cts.Cancel()
         resume ()
         ev.Trigger(42)
