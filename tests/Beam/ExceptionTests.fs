@@ -6,6 +6,14 @@ open Util.Testing
 exception MyError of string
 exception MyError2 of code: int * message: string
 exception EmptyError
+exception NumericError of int
+
+type ExitReason =
+    | Stopped
+    | Failed of string
+
+exception ExitError of ExitReason
+exception NamedNumericError of message: int
 
 [<Fact>]
 let ``test custom exception can be raised and caught`` () =
@@ -72,6 +80,46 @@ let ``test custom exception Message contains field value`` () =
             e.Message
     // .NET formats as 'MyError "custom msg"', Beam uses the raw field value
     msg.Contains("custom msg") |> equal true
+
+[<Fact>]
+let ``test numeric exception Message is printable and preserves its payload`` () =
+    let error = NumericError 42
+    let message = error.Message
+    message.Contains("42") |> equal true
+    message.Split([| '\n' |]).Length > 0 |> equal true
+    match error with
+    | NumericError value -> value |> equal 42
+    | _ -> failwith "Expected NumericError"
+
+[<Fact>]
+let ``test union exception Message is printable and preserves its payload`` () =
+    let reason = Failed "worker stopped"
+    let error = ExitError reason
+    let message = error.Message
+    message.Contains("worker stopped") |> equal true
+    message.Split([| '\n' |]).Length > 0 |> equal true
+    match error with
+    | ExitError value -> value |> equal reason
+    | _ -> failwith "Expected ExitError"
+
+[<Fact>]
+let ``test named numeric exception field stays numeric when Message is read`` () =
+    let error = NamedNumericError 17
+    error.Message.Contains("17") |> equal true
+    match error with
+    | NamedNumericError value -> value |> equal 17
+    | _ -> failwith "Expected NamedNumericError"
+
+[<Fact>]
+let ``test aggregate exception formats non-string custom exception messages`` () =
+    let error = ExitError(Failed "inner worker stopped")
+    let aggregate = System.AggregateException("outer failure", [| error |])
+    aggregate.Message.Contains("outer failure") |> equal true
+    aggregate.Message.Contains("inner worker stopped") |> equal true
+    obj.ReferenceEquals(error, aggregate.InnerException) |> equal true
+    match aggregate.InnerException with
+    | ExitError(Failed message) -> message |> equal "inner worker stopped"
+    | _ -> failwith "Expected the original ExitError"
 
 [<Fact>]
 let ``test empty custom exception can be caught`` () =

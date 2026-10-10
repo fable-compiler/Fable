@@ -25,6 +25,7 @@
     to_list/1,
     enumerate_to_list/1,
     aggregate_exception/2,
+    exception_message/1,
     is_exception_type/2,
     new_byte_array/1,
     new_byte_array_zeroed/1,
@@ -66,6 +67,7 @@
 -spec to_list(term()) -> list().
 -spec enumerate_to_list(term()) -> list().
 -spec aggregate_exception(binary(), term()) -> map().
+-spec exception_message(term()) -> binary().
 -spec is_exception_type(term(), atom()) -> boolean().
 -spec new_byte_array(list() | binary() | tuple()) -> tuple().
 -spec new_byte_array_zeroed(non_neg_integer()) -> tuple().
@@ -519,7 +521,9 @@ exception_type_is(Type, Expected)
 exception_type_is(system_exception, Expected) -> exception_type_is(exception, Expected);
 exception_type_is(_, _) -> false.
 
-exception_message(#{message := Message}) -> Message;
+%% decision: formats message metadata at the read boundary so exception payload fields retain their original types
+%% invariant: Message access and aggregate formatting return binaries for arbitrary F# exception payloads
+exception_message(#{message := Message}) -> format_term(Message);
 exception_message(Exception) when is_reference(Exception) -> exception_message(get(Exception));
 exception_message(Exception) -> format_term(Exception).
 

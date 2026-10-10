@@ -385,14 +385,14 @@ string_ctor_chars_range(Chars, Start, Len) ->
 normalize_sep(Sep) when is_integer(Sep) -> <<Sep/utf8>>;
 normalize_sep(Sep) -> Sep.
 
-%% Normalize separator that may be a list of chars to a list of binaries
+%% decision: shares separator normalization across split overloads so char codes never reach binary:split
 normalize_sep_list(Sep) when is_integer(Sep) -> <<Sep/utf8>>;
 normalize_sep_list(Sep) when is_binary(Sep) -> Sep;
 normalize_sep_list(Sep) when is_list(Sep) ->
-    [<<C/utf8>> || C <- Sep].
+    [normalize_sep(C) || C <- Sep].
 
 split(Str, Sep) ->
-    binary:split(Str, normalize_sep(Sep), [global]).
+    binary:split(Str, normalize_sep_list(Sep), [global]).
 
 split(Str, Sep, 0) ->
     split(Str, Sep);
@@ -402,7 +402,7 @@ split(Str, Sep, _Options) ->
     split(Str, Sep).
 
 split_remove_empty(Str, Seps) ->
-    Parts = binary:split(Str, normalize_sep(Seps), [global]),
+    Parts = binary:split(Str, normalize_sep_list(Seps), [global]),
     [P || P <- Parts, P =/= <<>>].
 
 split_with_count(Str, Seps, Count) ->
