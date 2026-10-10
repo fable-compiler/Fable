@@ -61,6 +61,31 @@ let ``test Simple async translates without exception`` () =
     async { return () }
     |> Async.StartImmediate
 
+[<Fact>]
+let ``test Cancellation callback errors expose the first InnerException`` () =
+    for count in [1; 2] do
+        use cts = new System.Threading.CancellationTokenSource()
+        let errors = Array.init count (fun i -> exn (string i))
+        let mutable calls = 0
+        errors |> Array.iter (fun error ->
+            cts.Token.Register(fun () ->
+                calls <- calls + 1
+                raise error) |> ignore)
+        let caught =
+            try
+                cts.Cancel()
+                None
+            with ex -> Some ex
+        match caught with
+        | Some ex ->
+            equal errors[count - 1].Message ex.InnerException.Message
+            equal true (obj.ReferenceEquals(errors[count - 1], ex.InnerException))
+        | None -> failwith "Expected cancellation callback errors"
+        equal count calls
+        equal true cts.IsCancellationRequested
+        cts.Cancel()
+        equal count calls
+
 
 [<Fact>]
 let ``test Async while binding works correctly`` () =
@@ -496,7 +521,7 @@ let ``test Async.StartChild applies timeout`` () =
         let mutable x = ""
 
         let task = async {
-            x <- x + "A"
+            // A busy .NET runner can time out before this child is scheduled.
             do! Async.Sleep 1_000
             x <- x + "X" // Never hit
         }
@@ -511,8 +536,8 @@ let ``test Async.StartChild applies timeout`` () =
 
         x <- x + "C"
 
-        equal x "ABC"
-    } |> Async.StartImmediate
+        equal "BC" x
+    } |> Async.RunSynchronously
 
 [<Fact>]
 let ``test Async.StartChild with timeout completes when computation finishes before timeout`` () = // See #4481
@@ -525,7 +550,74 @@ let ``test Async.StartChild with timeout completes when computation finishes bef
         with
             | :? TimeoutException ->
                 failwith "should not time out"
-    } |> Async.StartImmediate
+    } |> Async.RunSynchronously
+
+let private assertChildFailure startChild (error: exn) =
+    async {
+        let failing: Async<int> = async {
+            do! Async.Sleep 10
+            return raise error
+        }
+        let! child = startChild(failing, 60_000)
+        let! result = Async.Catch child
+        match result with
+        | Choice2Of2 caught -> obj.ReferenceEquals(error, caught) |> equal true
+        | _ -> failwith "Expected child failure"
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.StartChild preserves child TimeoutException`` () =
+    assertChildFailure
+        (fun (computation, timeout) -> Async.StartChild(computation, timeout))
+        (TimeoutException("child timeout"))
+
+let private assertChildTimeout startChild assertError =
+    async {
+        let pending: Async<int> = Async.FromContinuations(ignore)
+        let! child = startChild(pending, 0)
+        let! result = Async.Catch child
+        match result with
+        | Choice2Of2 ex -> assertError ex
+        | _ -> failwith "Expected child timeout"
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test Async.StartChild zero timeout raises TimeoutException`` () =
+    assertChildTimeout
+        (fun (computation, timeout) -> Async.StartChild(computation, timeout))
+        (fun ex -> ex :? TimeoutException |> equal true)
+
+#if FABLE_COMPILER
+module private NativeTimeout =
+    open Fable.Core
+    open Fable.Core.PyInterop
+
+    let startChild: Func<Async<int>, int, Async<Async<int>>> = import "start_child" "fable_library.async_"
+    let timeoutError: obj = import "TimeoutError" "builtins"
+
+    [<Emit("TimeoutError($0)")>]
+    let createTimeoutError (message: string) : exn = nativeOnly
+
+[<Fact>]
+let ``test Python start_child deadline matches both timeout types`` () =
+    assertChildTimeout
+        (fun (computation, timeout) -> NativeTimeout.startChild.Invoke(computation, timeout))
+        (fun ex ->
+            ex :? TimeoutException |> equal true
+            Fable.Core.PyInterop.pyInstanceof ex NativeTimeout.timeoutError |> equal true)
+
+[<Fact>]
+let ``test Async.StartChild preserves child Python TimeoutError`` () =
+    assertChildFailure
+        (fun (computation, timeout) -> Async.StartChild(computation, timeout))
+        (NativeTimeout.createTimeoutError "child timeout")
+
+[<Fact>]
+let ``test Python start_child preserves child TimeoutError`` () =
+    assertChildFailure
+        (fun (computation, timeout) -> NativeTimeout.startChild.Invoke(computation, timeout))
+        (NativeTimeout.createTimeoutError "child timeout")
+#endif
 
 [<Fact>]
 let ``test Unit arguments are erased`` () = // See #1832

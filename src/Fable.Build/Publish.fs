@@ -85,6 +85,24 @@ let publishNpm (projectDir: string) =
     else
         printfn $"Already up-to-date, skipping..."
 
+let waitForNpmAvailability (projectDir: string) =
+    let packageJsonFile = Path.Combine(projectDir, "package.json") |> FileInfo
+
+    let packageSpec =
+        PackageJson.getName packageJsonFile
+        + "@"
+        + PackageJson.getVersion packageJsonFile
+
+    let timeout = TimeSpan.FromMinutes 10.
+    let stopwatch = Diagnostics.Stopwatch.StartNew()
+
+    while PackageJson.needPublishing packageJsonFile do
+        if stopwatch.Elapsed > timeout then
+            failwith $"%s{packageSpec} is still not available on npm after %.0f{timeout.TotalMinutes} minutes"
+
+        printfn $"Waiting for %s{packageSpec} to be available on npm..."
+        Threading.Thread.Sleep(TimeSpan.FromSeconds 10.)
+
 let handle (args: string list) =
     // Build all the fable-libraries
     // Force rebuld of fable-libraries to make sure they are generated with the latest
@@ -136,6 +154,7 @@ let handle (args: string list) =
     // to the new version before that version is on npm.
     Standalone.handle []
     publishNpm ProjectDir.fable_standalone
+    waitForNpmAvailability ProjectDir.fable_standalone
 
     CompilerJs.handle [ "--skip-fable-standalone" ]
 

@@ -4,7 +4,7 @@ export function listenerCount(token) {
 }
 
 export function cancellationErrorCount(error) {
-    if (error.constructor.name !== "CancellationCallbackError" || error.name !== "AggregateException") {
+    if (error.constructor.name !== "CancellationCallbackError" || !Array.isArray(error.errors)) {
         return -1;
     }
     return error.errors.length;

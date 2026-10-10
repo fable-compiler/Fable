@@ -588,4 +588,4 @@ let isolateScope (body: Beam.ErlExpr list) : Beam.ErlExpr =
 /// and the declaration/initializer must all derive their key through this helper or state
 /// silently breaks.
 let mutableStateKey (moduleName: string) (name: string) =
-    moduleName + "_" + Naming.sanitizeErlangName name
+    Naming.limitErlangAtomLength (moduleName + "_" + Naming.sanitizeErlangName name)

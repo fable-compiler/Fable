@@ -449,6 +449,8 @@ module Naming =
 
     let reflectionSuffix = "_$reflection"
 
+    let beamAccessorSuffix = "_accessor"
+
     let private printPart sanitize separator part overloadSuffix =
         (if String.IsNullOrEmpty(part) then
              ""
@@ -534,3 +536,13 @@ module Naming =
                 | c -> sb.Append(c) |> ignore
 
             sb.ToString()
+
+    // F# hash function gives different results in different runs
+    // Taken from fable-library-ts/Util.ts. Possible variant in https://stackoverflow.com/a/1660613
+    let stringHash (s: string) =
+        let mutable h = 5381
+
+        for i = 0 to s.Length - 1 do
+            h <- (h * 33) ^^^ (int s[i])
+
+        h

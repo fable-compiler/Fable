@@ -846,8 +846,11 @@ let private objects
         | _, Array _ -> physicalEquals r arg1 arg2 |> Some
         | _ -> equals com r true arg1 arg2 |> Some
     | "GetHashCode", Some thisObj, [] ->
-        Helper.LibCall(com, "fable_comparison", "get_hash_code", t, [ thisObj ], ?loc = r)
-        |> Some
+        ObjectOverrides.tryCallZeroArg com r t "GetHashCode" thisObj
+        |> Option.orElseWith (fun () ->
+            Helper.LibCall(com, "fable_comparison", "get_hash_code", t, [ thisObj ], ?loc = r)
+            |> Some
+        )
     | "GetType", Some arg, _ -> makeTypeInfo r arg.Type |> Some
     | "ToString", Some thisObj, [] -> ToString.toStringByType com r t thisObj
     | _ -> None
@@ -5593,6 +5596,13 @@ let private getMangledNames (i: CallInfo) (thisArg: Expr option) =
     let mangledName =
         Naming.buildNameWithoutSanitationFrom entityName isStatic memberName i.OverloadSuffix
 
+    let mangledName =
+        match i.CompiledName with
+        // decision: Match the runtime property explicitly; get_Chars is an ordinary F# method despite its BCL accessor spelling.
+        // invariant: StringBuilder.Length calls use the same accessor marker as its F# runtime declaration.
+        | "get_Length" -> accessorFunctionName mangledName
+        | _ -> mangledName
+
     moduleName, mangledName
 
 let private bclType (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (thisArg: Expr option) (args: Expr list) =
@@ -6180,12 +6190,7 @@ let tryCall
                 "#{exn_type => exception, message => <<\"Exception of type 'System.Exception' was thrown.\">>}"
             |> Some
         | "get_Message", Some c, _ ->
-            // Handle both map exceptions and reference-based class exceptions
-            emitExpr
-                r
-                t
-                [ c ]
-                "case erlang:is_reference($0) of true -> maps:get(message, erlang:get($0), $0); false -> maps:get(message, $0, $0) end"
+            Helper.LibCall(com, "fable_utils", "exception_message", t, [ c ], ?loc = r)
             |> Some
         | "get_InnerException", Some c, _ ->
             // Handle both map exceptions and reference-based class exceptions

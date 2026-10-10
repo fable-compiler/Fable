@@ -30,6 +30,13 @@ type Continuations[T] = tuple[
 _NO_STATE = object()
 
 
+class CancellationCallbackError(ExceptionGroup[Exception]):
+    @property
+    def inner_exception(self) -> Exception:
+        # invariant: F# InnerException exposes the first failure without discarding the remaining errors
+        return self.exceptions[0]
+
+
 class CancellationToken:
     __slots__ = "_condition", "_running", "cancelled", "idx", "listeners", "lock"
 
@@ -63,7 +70,7 @@ class CancellationToken:
             except Exception as error:
                 errors.append(error)
         if errors:
-            raise ExceptionGroup("Cancellation callbacks failed", errors)
+            raise CancellationCallbackError("Cancellation callbacks failed", errors)
 
     def _invoke_listener(self, listener_id: int) -> None:
         with self.lock:

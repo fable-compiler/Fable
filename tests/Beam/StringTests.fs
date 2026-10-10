@@ -312,6 +312,21 @@ let ``test String.Split works`` () =
     parts.[2] |> equal "c"
 
 [<Fact>]
+let ``test String.Split with character array separators works`` () =
+    "one,twoéthree".Split([| ','; 'é' |])
+    |> equal [| "one"; "two"; "three" |]
+
+[<Fact>]
+let ``test String.Split with character array removes empty entries`` () =
+    " one  two ".Split([| ' ' |], StringSplitOptions.RemoveEmptyEntries)
+    |> equal [| "one"; "two" |]
+
+[<Fact>]
+let ``test String.Split with string array separators and count works`` () =
+    "one,two.three".Split([| ","; "." |], 2, StringSplitOptions.None)
+    |> equal [| "one"; "two.three" |]
+
+[<Fact>]
 let ``test String.Split with char works`` () =
     "a b c  d".Split(' ')
     |> (=) [|"a";"b";"c";"";"d"|] |> equal true

@@ -291,6 +291,17 @@ let transformTypeInfo (com: IPythonCompiler) ctx r (genMap: Map<string, Expressi
 
                     Expression.call (callee, generics), stmts @ stmts'
 
+let private getReflectionBaseType (com: IPythonCompiler) (ent: Fable.Entity) =
+    ent.BaseType
+    |> Option.bind (fun baseType ->
+        let baseEnt = com.GetEntity(baseType.Entity)
+
+        // decision: native exception bridges add Python ancestry without changing .NET reflection ancestry.
+        match (com :> Compiler), baseEnt.Attributes with
+        | FSharp2Fable.Util.ImportAtt(_, "fable_library.exception_bases") -> baseEnt.BaseType
+        | _ -> Some baseType
+    )
+
 let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
     if ent.IsFSharpRecord then
         transformRecordReflectionInfo com ctx r ent generics
@@ -310,7 +321,7 @@ let transformReflectionInfo com ctx r (ent: Fable.Entity) generics =
                     yield Expression.name (name.Name |> Naming.toPythonNaming), stmts
                 | Some(cons, stmts) -> yield cons, stmts
                 | None -> ()
-                match ent.BaseType with
+                match getReflectionBaseType com ent with
                 | Some d ->
                     let genMap =
                         Seq.zip ent.GenericParameters generics

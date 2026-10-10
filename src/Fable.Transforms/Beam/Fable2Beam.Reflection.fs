@@ -43,7 +43,7 @@ let private makeThunk (elements: Beam.ErlExpr list) =
 /// Name of the per-entity reflection function generated for a record/union
 /// (e.g. entity `Tree` -> `tree_reflection/0`).
 let reflectionFuncName (declarationName: string) =
-    Fable.Beam.Naming.sanitizeErlangName declarationName + "_reflection"
+    Fable.Beam.Naming.limitErlangAtomLength (Fable.Beam.Naming.sanitizeErlangName declarationName + "_reflection")
 
 /// Erlang variable names bound to an entity's resolved generic arguments inside its
 /// reflection function (`gen0`, `gen1`, ...).

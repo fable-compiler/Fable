@@ -1,7 +1,10 @@
+import asyncio
 from threading import Barrier, Condition, Event, Thread
 
 import pytest
-from fable_library.async_builder import CancellationToken
+from fable_library.async_ import await_event, sleep, start_with_continuations
+from fable_library.async_builder import CancellationCallbackError, CancellationToken, IAsyncContext, Trampoline
+from fable_library.event import Event as FableEvent
 
 
 def test_registration_handle_and_disposal():
@@ -60,6 +63,26 @@ def test_callback_failures_do_not_skip_other_callbacks():
     assert len(errors.value.exceptions) == 1
     assert calls == ["other"]
     assert not token.listeners
+
+
+@pytest.mark.parametrize("count", [1, 2])
+def test_callback_errors_preserve_all_errors_and_first_inner_exception(count: int) -> None:
+    token = CancellationToken()
+    errors = [ValueError(str(i)) for i in range(count)]
+
+    def failing(error: Exception) -> None:
+        raise error
+
+    for error in errors:
+        token.register(failing, error)
+
+    with pytest.raises(CancellationCallbackError) as caught:
+        token.cancel()
+    assert isinstance(caught.value, ExceptionGroup)
+    assert caught.value.exceptions == tuple(reversed(errors))
+    assert caught.value.inner_exception is errors[-1]
+    assert not token.listeners
+    token.cancel()
 
 
 def test_dispose_waits_for_running_callback_and_late_registration_runs_outside_lock():
@@ -128,3 +151,43 @@ def test_concurrent_registration_and_cancellation():
     assert all(count in (0, 1) for count in calls)
     assert not token.listeners
     assert not token._running
+
+
+def test_sleep_on_cancelled_token_settles_once():
+    calls: list[str] = []
+    start_with_continuations(
+        sleep(10),
+        lambda _: calls.append("success"),
+        lambda _: calls.append("error"),
+        lambda _: calls.append("cancel"),
+        CancellationToken(True),
+    )
+    assert calls == ["cancel"]
+
+
+class _DeferringTrampoline(Trampoline):
+    def increment_and_check(self) -> bool:
+        return True
+
+
+def test_await_event_cancelled_before_its_body_runs_does_not_subscribe():
+    event: FableEvent[int] = FableEvent()
+    token = CancellationToken()
+    calls: list[str] = []
+
+    async def run() -> None:
+        ctx = IAsyncContext.create(
+            _DeferringTrampoline(),
+            token,
+            lambda value: calls.append(f"success {value}"),
+            lambda _: calls.append("error"),
+            lambda _: calls.append("cancel"),
+        )
+        await_event(event)(ctx)
+        token.cancel()
+        await asyncio.sleep(0)
+
+    asyncio.run(run())
+    event.Trigger(42)
+    assert calls == ["cancel"]
+    assert not event.delegates

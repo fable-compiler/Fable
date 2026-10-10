@@ -1,5 +1,5 @@
 ---
-last_commit_released: aaf35f200be5bbc2698abe242f77b8de745e4337
+last_commit_released: 23bc5c54db51469431e6fdab713dfe1b6a3df019
 include:
   - ../Fable.Transforms/
   - ../fcs-fable/
@@ -19,6 +19,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 3.7.0 - 2026-10-07
+
+### 🚀 Features
+
+* *(python)* Give System exceptions native Python bases (#5040) ([4ee31586](https://github.com/fable-compiler/Fable/commit/4ee31586fd88ed0708e218e7f170432baa33551e))
+
+### 🐞 Bug Fixes
+
+* *(beam)* Recognize boxed discriminated unions in type tests (#5033) ([dcfaa3d6](https://github.com/fable-compiler/Fable/commit/dcfaa3d6181f6789d0868e0bf9132ecdcdc76287))
+* *(beam)* Prevent identifier collisions and atom overflow (#5017) ([b9ce2fdb](https://github.com/fable-compiler/Fable/commit/b9ce2fdb53fc86a615970f4828005ee3a490385f))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/aaf35f200be5bbc2698abe242f77b8de745e4337..23bc5c54db51469431e6fdab713dfe1b6a3df019)</small></strong>
 
 ## 3.6.0 - 2026-10-03
 

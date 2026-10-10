@@ -104,6 +104,7 @@ export function awaitEvent<Del extends Function, T>(event: IEvent$2<Del, T>, can
       if (cancelAction != null) { cancelAction(); }
       ctx.onCancel(new OperationCanceledException());
     });
+    if (ctx.cancelToken.isCancelled) { return; }
     event.AddHandler(handler);
   });
 }
