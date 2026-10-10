@@ -3,6 +3,35 @@ module Fable.Tests.Async
 open System
 open Util.Testing
 
+#if FABLE_COMPILER
+module private Runtime =
+    open Fable.Core.PyInterop
+
+    type Observation =
+        abstract terminal: string array
+        abstract errors: string array
+        abstract before: string array
+        abstract outcome: string array
+        abstract listeners: int
+        abstract scheduled: int
+        abstract cancel_count: int
+        abstract retired: bool
+        abstract owner_loop: bool
+        abstract threads_finished: bool
+        abstract pending_before: bool
+        abstract pending_after: bool
+
+    type ObserveSleep = delegate of Async<unit> * System.Threading.CancellationToken * string -> Observation
+    type ObserveMailbox = delegate of Async<int> * MailboxProcessor<int> * System.Threading.CancellationToken -> Observation
+    type ObserveOwnerLoop = delegate of Async<unit> * System.Threading.CancellationToken -> Observation
+    type ObserveSettlement = delegate of ((unit -> unit) -> Async<unit>) * System.Threading.CancellationToken * string -> Observation
+
+    let observeSleep: ObserveSleep = import "observe_sleep" "./py/async_runtime.py"
+    let observeMailbox: ObserveMailbox = import "observe_mailbox" "./py/async_runtime.py"
+    let observeOwnerLoop: ObserveOwnerLoop = import "observe_owner_loop" "./py/async_runtime.py"
+    let observeSettlement: ObserveSettlement = import "observe_settlement" "./py/async_runtime.py"
+#endif
+
 type DisposableAction(f) =
     interface IDisposable with
         member _.Dispose() = f()
@@ -678,3 +707,182 @@ let ``test Async.AwaitEvent with cancelAction invokes it on cancellation`` () =
     }, cts.Token)
     cts.Cancel()
     equal true cancelCalled
+
+[<Fact>]
+let ``test cooperative cancellation stops at the next async boundary`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let mutable finalizers = 0
+    let mutable terminal = ""
+    let mutable reached = false
+    let work = async {
+        try
+            source.Cancel()
+            do! async { return () }
+            reached <- true
+        finally
+            finalizers <- finalizers + 1
+    }
+    Async.StartWithContinuations(work, (fun () -> terminal <- "success"), (fun _ -> terminal <- "error"), (fun _ -> terminal <- "cancel"), source.Token)
+    equal false reached
+    equal 1 finalizers
+    equal "cancel" terminal
+
+
+[<Fact>]
+let ``test finalizer failure overrides success once`` () =
+    let mutable finalizers = 0
+    let terminal = ResizeArray<string>()
+    let work = async {
+        try return! successWork
+        finally
+            finalizers <- finalizers + 1
+            failwith "finalizer"
+    }
+    Async.StartWithContinuations(work, (fun _ -> terminal.Add "success"), (fun error -> terminal.Add error.Message), (fun _ -> terminal.Add "cancel"))
+    equal [| "finalizer" |] (terminal.ToArray())
+    equal 1 finalizers
+
+[<Fact>]
+let ``test finalizer failure overrides body failure once`` () =
+    let mutable finalizers = 0
+    let terminal = ResizeArray<string>()
+    let work = async {
+        try return! errorWork
+        finally
+            finalizers <- finalizers + 1
+            failwith "finalizer"
+    }
+    Async.StartWithContinuations(work, (fun _ -> terminal.Add "success"), (fun error -> terminal.Add error.Message), (fun _ -> terminal.Add "cancel"))
+    equal [| "finalizer" |] (terminal.ToArray())
+    equal 1 finalizers
+
+[<Fact>]
+let ``test finalizer failure preserves cancellation once`` () =
+    let mutable finalizers = 0
+    let terminal = ResizeArray<string>()
+    let work = async {
+        try return! cancelWork
+        finally
+            finalizers <- finalizers + 1
+            failwith "finalizer"
+    }
+    Async.StartWithContinuations(work, (fun _ -> terminal.Add "success"), (fun _ -> terminal.Add "error"), (fun _ -> terminal.Add "cancel"))
+    equal [| "cancel" |] (terminal.ToArray())
+    equal 1 finalizers
+
+#if FABLE_COMPILER
+let private checkSleep cancelFirst throws =
+    use source = new System.Threading.CancellationTokenSource()
+    let mutable finalizers = 0
+    let work = async {
+        try do! Async.Sleep 100
+        finally
+            finalizers <- finalizers + 1
+            if throws then failwith "finalizer"
+    }
+    let result = Runtime.observeSleep.Invoke(work, source.Token, if cancelFirst then "cancel" else "timeout")
+    let expected = if cancelFirst then "cancel" elif throws then "error" else "success"
+    equal [| expected |] result.terminal
+    equal 1 finalizers
+    equal 0 result.listeners
+    equal 1 result.scheduled
+    equal true result.retired
+    equal 1 result.cancel_count
+    if throws && not cancelFirst then equal [| "finalizer" |] result.errors
+    else equal [||] result.errors
+
+[<Fact>]
+let ``test cancelled Sleep ignores stale timers and cleans up`` () =
+    checkSleep true false
+
+[<Fact>]
+let ``test completed Sleep ignores cancellation and stale timers`` () =
+    checkSleep false false
+
+[<Fact>]
+let ``test cancelled Sleep ignores a throwing finalizer and stale timers`` () =
+    checkSleep true true
+
+[<Fact>]
+let ``test precancelled Sleep does not execute or schedule`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let mutable reached = false
+    let work = async {
+        reached <- true
+        do! Async.Sleep 100
+    }
+    let result = Runtime.observeSleep.Invoke(work, source.Token, "precancel")
+    equal [| "cancel" |] result.terminal
+    equal false reached
+    equal 0 result.scheduled
+    equal 0 result.listeners
+
+[<Fact>]
+let ``test idle Receive observes cancellation only after a post`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let mailbox = new MailboxProcessor<int>((fun _ -> async { return () }), source.Token)
+    let result = Runtime.observeMailbox.Invoke(mailbox.Receive(), mailbox, source.Token)
+    equal [||] result.before
+    equal true result.pending_before
+    equal [| "cancel" |] result.terminal
+    equal false result.pending_after
+    equal 0 result.listeners
+
+[<Fact>]
+let ``test Sleep cancellation from another thread runs on the owner loop`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let result = Runtime.observeOwnerLoop.Invoke(Async.Sleep 100000, source.Token)
+    equal [| "cancel" |] result.terminal
+    equal true result.owner_loop
+    equal true result.threads_finished
+    equal 0 result.listeners
+
+let private checkSettlement winner =
+    use source = new System.Threading.CancellationTokenSource()
+    let mutable finalizers = 0
+    let makeWork timeout = async {
+        try do! Async.Sleep 100
+        finally
+            finalizers <- finalizers + 1
+            timeout ()
+    }
+    let result = Runtime.observeSettlement.Invoke(makeWork, source.Token, winner)
+    equal [| winner |] result.outcome
+    equal [| if winner = "timeout" then "success" else "cancel" |] result.terminal
+    equal 1 finalizers
+    equal true result.threads_finished
+    equal 0 result.listeners
+    equal true result.retired
+    equal 1 result.cancel_count
+
+[<Fact>]
+let ``test reply wins concurrent reply cancellation and timeout settlement`` () =
+    checkSettlement "reply"
+
+[<Fact>]
+let ``test cancellation wins concurrent reply cancellation and timeout settlement`` () =
+    checkSettlement "cancel"
+
+[<Fact>]
+let ``test timeout wins concurrent reply cancellation and timeout settlement`` () =
+    checkSettlement "timeout"
+
+[<Fact>]
+let ``test cancellation during Sleep installation releases resources`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let result = Runtime.observeSleep.Invoke(Async.Sleep 100, source.Token, "install_cancel")
+    equal [| "cancel" |] result.terminal
+    equal 0 result.listeners
+    equal 1 result.scheduled
+    equal true result.retired
+    equal 1 result.cancel_count
+
+[<Fact>]
+let ``test failed Sleep installation releases its registration`` () =
+    use source = new System.Threading.CancellationTokenSource()
+    let result = Runtime.observeSleep.Invoke(Async.Sleep 100, source.Token, "install_error")
+    equal [| "error" |] result.terminal
+    equal [| "scheduler" |] result.errors
+    equal 0 result.listeners
+    equal 0 result.scheduled
+#endif
