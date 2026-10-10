@@ -2456,6 +2456,7 @@ but thanks to the optimisation done below we get
         // decision: declaration types preserve generic unit arguments despite specialized identifier types at call sites
         let appliedType =
             match applied with
+            // invariant: FSharp2Fable makes local names unique within a declaration (getIdentUniqueName)
             | MaybeCasted(Fable.IdentExpr id) -> Map.tryFind id.Name ctx.BoundTypes |> Option.defaultValue id.Type
             | _ -> applied.Type
 

@@ -71,6 +71,31 @@ let tests =
         Async.StartWithContinuations(alias 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
         equal 3 completed
 
+    testCase "Generic unit continuations work through tuple pattern bindings" <| fun () ->
+        let fromValue, fromOther =
+            (fun (value: 'T) -> Async.FromContinuations(fun (ok, _, _) -> ok value)),
+            (fun (value: 'U) -> Async.FromContinuations(fun (ok, _, _) -> ok value))
+        let mutable completed = 0
+        Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromValue 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromOther (), (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromOther "a", (fun value -> equal "a" value; completed <- completed + 1), raise, raise)
+        equal 4 completed
+
+    testCase "Generic unit continuations work inside nested lambdas and object expressions" <| fun () ->
+        let fromValue value = Async.FromContinuations(fun (ok, _, _) -> ok value)
+        let mutable completed = 0
+        let startUnit () = Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
+        let disposable =
+            { new IDisposable with
+                member _.Dispose() =
+                    Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise) }
+        startUnit ()
+        startUnit ()
+        disposable.Dispose()
+        Async.StartWithContinuations(fromValue 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
+        equal 4 completed
+
     testCase "Unit continuations preserve captured callbacks" <| fun () ->
         let mutable calls = 0
         let rec genericDeadline callback value remaining =
