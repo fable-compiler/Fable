@@ -4276,26 +4276,72 @@ module Util =
         match entryPoint with
         | Some path ->
             // add some imports for main function
-            let asArr = getLibraryImportName com ctx "NativeArray" "array_from"
-            let asStr = getLibraryImportName com ctx "String" "fromString"
+            let ofArr = getLibraryImportName com ctx "NativeArray" "array_from"
+            let ofStr = getLibraryImportName com ctx "String" "fromString"
+            let asStr = getLibraryImportName com ctx "String" "string"
 
             // main entrypoint
             let mainName = String.concat "::" path
 
-            let strBody =
-                [
-                    $"let args = std::env::args().skip(1).map(%s{asStr}).collect()"
-                    $"%s{mainName}(%s{asArr}(args))"
-                ]
+            // main function
+            let mainFnItem =
+                let strBody =
+                    [
+                        $"let iter = std::env::args()"
+                        $"let args = iter.skip(1).map(%s{ofStr}).collect()"
+                        $"%s{mainName}(%s{ofArr}(args))"
+                    ]
 
-            let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
+                let fnBody = strBody |> Seq.map mkEmitSemiStmt |> mkBlock |> Some
 
-            let attrs = [ mkAttr "cfg" [ "not(feature = \"no_std\")" ] ]
-            let fnDecl = mkFnDecl [] VOID_RETURN_TY
-            let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
-            let fnItem = mkFnItem attrs "main" fnKind
-            [ fnItem |> mkPublicItem ]
+                let attrs = [ mkAttr "cfg" [ "not(feature = \"no_std\")" ] ]
+                let fnDecl = mkFnDecl [] VOID_RETURN_TY
+                let fnKind = mkFnKind DEFAULT_FN_HEADER fnDecl NO_GENERICS fnBody
+                let fnItem = mkFnItem attrs "main" fnKind
+                fnItem |> mkPublicItem
 
+            // main function (no_std)
+            let mainFnItemNoStd =
+                let strBody =
+                    [
+                        $"let iter = fable_library_rust::Native_::get_args(argc, argv)"
+                        $"let args = iter.skip(1).map(%s{asStr}).collect()"
+                        $"%s{mainName}(%s{ofArr}(args)) as u32"
+                    ]
+
+                let lastStatementIndex = List.length strBody - 1
+
+                let fnBody =
+                    strBody
+                    |> List.mapi (fun index statement ->
+                        if index = lastStatementIndex then
+                            mkEmitExprStmt statement
+                        else
+                            mkEmitSemiStmt statement
+                    )
+                    |> mkBlock
+                    |> Some
+
+                let attrs =
+                    [ mkAttr "cfg" [ "feature = \"no_std\"" ]; mkAttr "r#unsafe" [ "no_mangle" ] ]
+
+                let argcTy = primitiveType "isize"
+                let argvTy = primitiveType "u8" |> mkPtrTy |> mkPtrTy
+                let retTy = primitiveType "u32" |> mkFnRetTy
+
+                let args =
+                    [
+                        mkTypedParam "argc" argcTy false false
+                        mkTypedParam "argv" argvTy false false
+                    ]
+
+                let fnHeader = mkFnHeader false false false (Some "C")
+                let fnDecl = mkFnDecl args retTy
+                let fnKind = mkFnKind fnHeader fnDecl NO_GENERICS fnBody
+                let fnItem = mkFnItem attrs "main" fnKind
+                fnItem |> mkPublicItem
+
+            [ mainFnItem; mainFnItemNoStd ]
         | None -> []
 
     let getEntityPhantomGenParams _com (ent: Fable.Entity) : (string * Fable.Type) list =
@@ -6156,13 +6202,15 @@ module Util =
         | Fable.ClassDeclaration decl -> transformClassDecl com ctx decl
 
     let transformDeclarations (com: IRustCompiler) ctx decls =
+        let useItem = mkGlobUseItem [] [ "super" ]
+
         let items =
             decls |> mergeNamespaceDecls com ctx |> List.collect (transformDecl com ctx)
         // wrap the last file in a module to consistently handle namespaces
         if isLastFileInProject com then
             let modPath = fixFileExtension com com.CurrentFile
             let modName = getImportModuleName com modPath
-            let modItem = mkModItem [] modName items
+            let modItem = mkModItem [] modName (useItem :: items)
             let useItem = mkGlobUseItem [] [ modName ]
 
             [ modItem; useItem |> mkPublicItem ]
@@ -6437,6 +6485,7 @@ module Compiler =
                 if isLastFileInProject com then
                     // adds "no_std" to crate if feature is enabled
                     mkInnerAttr "cfg_attr" [ "feature = \"no_std\""; "no_std" ]
+                    mkInnerAttr "cfg_attr" [ "feature = \"no_std\""; "no_main" ]
 
                     // TODO: make some of those conditional on compiler options
                     mkInnerAttr "allow" [ "dead_code" ]

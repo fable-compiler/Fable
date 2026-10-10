@@ -1123,6 +1123,24 @@ module Types =
 
     let mkParenTy ty : Ty = TyKind.Paren(ty) |> mkTy
 
+    let mkPtrTy ty : Ty =
+        TyKind.Ptr(
+            {
+                ty = ty
+                mutbl = Mutability.Not
+            }
+        )
+        |> mkTy
+
+    let mkMutPtrTy ty : Ty =
+        TyKind.Ptr(
+            {
+                ty = ty
+                mutbl = Mutability.Mut
+            }
+        )
+        |> mkTy
+
     let mkRefTy (lifetimeOpt: Symbol option) ty : Ty =
         let opt_lifetime = lifetimeOpt |> Option.map mkLifetime
 
