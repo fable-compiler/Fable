@@ -1,5 +1,5 @@
 ---
-last_commit_released: 2369fbd24fafe851544c1ed6eb54f0bfc2b75f36
+last_commit_released: 10fdccc04bb0e421643426d21dfcbd940e3e5a16
 ---
 
 # Changelog
@@ -8,6 +8,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.4.0 - 2026-10-10
+
+### 🚀 Features
+
+* *(all)* Add implicit conversion to erased unions U2-U9 ([4e486f20](https://github.com/fable-compiler/Fable/commit/4e486f201fb229964af213d6ce3030ac3c7e26de))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/2369fbd24fafe851544c1ed6eb54f0bfc2b75f36..10fdccc04bb0e421643426d21dfcbd940e3e5a16)</small></strong>
 
 ## 5.3.0 - 2026-09-25
 
