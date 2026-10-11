@@ -32,12 +32,6 @@
     <ProjectReference Include="MemberNameCollisionLibrary/MemberNameCollisionLibrary.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Run xunit serially: some MailboxProcessor/async tests assert from fire-and-forget
-         `Async.StartImmediate` continuations that can outlive their test collection, and
-         xunit.v3 reports such background exceptions as catastrophic (v2 ignored them). -->
-    <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
-  <ItemGroup>
     <Compile Include="Misc/Aether.fs" />
     <Compile Include="Misc/Imports.fs" />
     <Compile Include="Misc/Util2.fs" />

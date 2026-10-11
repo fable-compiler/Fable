@@ -30,9 +30,9 @@
     <ProjectReference Include="../../src/Fable.Core/Fable.Core.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Run xunit serially: some MailboxProcessor/async tests assert from fire-and-forget
-         `Async.StartImmediate` continuations that can outlive their test collection, and
-         xunit.v3 reports such background exceptions as catastrophic (v2 ignored them). -->
+    <!-- Temporary workaround for the Windows failure observed after the xunit.v3 upgrade.
+         Serialization does not await detached Async.StartImmediate workflows.
+         TODO: Remove after .NET async tests await completion and pass with parallel collections on Windows. -->
     <Content Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
