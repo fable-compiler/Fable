@@ -85,6 +85,6 @@
     <Compile Include="tests/src/TypeTests.fs" />
     <Compile Include="tests/src/UnionTests.fs" />
     <Compile Include="tests/src/UriTests.fs" />
-    <Compile Include="tests/src/main.fs" />
+    <Compile Include="tests/src/lib.fs" />
   </ItemGroup>
 </Project>
