@@ -3374,8 +3374,15 @@ let transformFunction
                 args = [ Arg.arg (Identifier("__unit"), annotation = unitType) ],
                 defaults = [ unitDefault ]
             )
-        // No args but has tail-call args: skip __unit, tcArgs are sufficient
-        | [], _, _ -> Arguments.arguments (args = tcArgs, defaults = tcDefaults)
+        // invariant: a runtime unit argument never overwrites a captured TCO default
+        | [], _, _ ->
+            let unitType = com.GetImportExpr(ctx, getLibPath com "util", "Unit")
+            let unitName = getUniqueNameInDeclarationScope ctx "__unit"
+
+            Arguments.arguments (
+                args = Arg.arg (Identifier unitName, annotation = unitType) :: tcArgs,
+                defaults = unitDefault :: tcDefaults
+            )
         // Single generic/unit arg with no tail-call args: keep it with () default
         | [ arg ], true, [] -> Arguments.arguments (args = args, defaults = [ unitDefault ])
         // Single generic/unit arg with tail-call args: keep arg (body may reference it)

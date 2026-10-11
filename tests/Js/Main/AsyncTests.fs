@@ -47,6 +47,67 @@ let asyncMap f a = async {
 
 let tests =
   testList "Async" [
+    testCase "FromContinuations unit and generic values" <| fun () ->
+        let fromValue value = Async.FromContinuations(fun (ok, _, _) -> ok value)
+        let mutable completed = 0
+        let unitWork: Async<unit> = Async.FromContinuations(fun (ok, _, _) -> ok ())
+        Async.StartWithContinuations(unitWork, (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromValue 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
+        equal 3 completed
+
+    testCase "Generic unit continuations work through recursive bindings and aliases" <| fun () ->
+        let mutable recurse = true
+        let rec fromValue value =
+            if recurse then
+                recurse <- false
+                fromValue value
+            else Async.FromContinuations(fun (ok, _, _) -> ok value)
+        let alias = fromValue
+        let mutable completed = 0
+        Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
+        recurse <- true
+        Async.StartWithContinuations(alias (), (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(alias 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
+        equal 3 completed
+
+    testCase "Generic unit continuations work through tuple pattern bindings" <| fun () ->
+        let fromValue, fromOther =
+            (fun (value: 'T) -> Async.FromContinuations(fun (ok, _, _) -> ok value)),
+            (fun (value: 'U) -> Async.FromContinuations(fun (ok, _, _) -> ok value))
+        let mutable completed = 0
+        Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromValue 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromOther (), (fun () -> completed <- completed + 1), raise, raise)
+        Async.StartWithContinuations(fromOther "a", (fun value -> equal "a" value; completed <- completed + 1), raise, raise)
+        equal 4 completed
+
+    testCase "Generic unit continuations work inside nested lambdas and object expressions" <| fun () ->
+        let fromValue value = Async.FromContinuations(fun (ok, _, _) -> ok value)
+        let mutable completed = 0
+        let startUnit () = Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise)
+        let disposable =
+            { new IDisposable with
+                member _.Dispose() =
+                    Async.StartWithContinuations(fromValue (), (fun () -> completed <- completed + 1), raise, raise) }
+        startUnit ()
+        startUnit ()
+        disposable.Dispose()
+        Async.StartWithContinuations(fromValue 42, (fun value -> equal 42 value; completed <- completed + 1), raise, raise)
+        equal 4 completed
+
+    testCase "Unit continuations preserve captured callbacks" <| fun () ->
+        let mutable calls = 0
+        let rec genericDeadline callback value remaining =
+            if remaining > 0 then genericDeadline callback value (remaining - 1)
+            else Async.StartWithContinuations(async { return value }, (fun result -> callback result), raise, raise)
+        let rec unitDeadline (callback: unit -> unit) remaining =
+            if remaining > 0 then unitDeadline callback (remaining - 1)
+            else Async.StartWithContinuations(async { return () }, (fun () -> callback ()), raise, raise)
+        genericDeadline (fun () -> calls <- calls + 1) () 2
+        unitDeadline (fun () -> calls <- calls + 1) 2
+        equal 2 calls
+
     testCase "Simple async translates without exception" <| fun () ->
         async { return () }
         |> Async.StartImmediate
