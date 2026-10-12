@@ -1,5 +1,5 @@
 ---
-last_commit_released: 2369fbd24fafe851544c1ed6eb54f0bfc2b75f36
+last_commit_released: 148f989e1b37b3f6560c3dda615b6a3a8efffcb8
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.8.1 - 2026-10-12
+
+### 🐞 Bug Fixes
+
+* *(js/ts/python)* Synchronize cancellation registrations (#5036) ([07db576c](https://github.com/fable-compiler/Fable/commit/07db576c4ae16dcef9d1773ac4d6c70b2a223f0a))
+* *(js/ts/python)* Settle cancelled delays and finalizers once (#5038) ([a9802484](https://github.com/fable-compiler/Fable/commit/a9802484c8cdeadd5203123d76f42e375c1c3159))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/2369fbd24fafe851544c1ed6eb54f0bfc2b75f36..148f989e1b37b3f6560c3dda615b6a3a8efffcb8)</small></strong>
 
 ## 2.8.0 - 2026-09-25
 
