@@ -230,7 +230,7 @@ run_inline(Computation, UserToken, CancelToken) ->
     Ctx = #{
         on_success => fun(V) -> put(Ref, {ok, V}) end,
         on_error => fun(E) -> put(Ref, {error, E}) end,
-        on_cancel => fun(_) -> put(Ref, {cancelled}) end,
+        on_cancel => fun(E) -> put(Ref, {cancelled, E}) end,
         cancel_token => CancelToken,
         %% invariant: Async.CancellationToken returns the supplied token even when a timeout
         %% needs a linked token internally to cancel waits without cancelling the user's source.
@@ -256,7 +256,14 @@ run_inline(Computation, UserToken, CancelToken) ->
     case Result of
         {ok, Value} -> Value;
         {error, Error} -> reraise(Ref, Parked, Error);
-        {cancelled} -> erlang:error(fable_cancellation:exception());
+        {cancelled, Error} ->
+            %% invariant: RunSynchronously rethrows the cancellation exception supplied by the
+            %% continuation; legacy native callbacks that pass unit still receive a typed exception.
+            Exception = wrap_error(Error),
+            case fable_utils:is_exception_type(Exception, operation_canceled_exception) of
+                true -> erlang:error(Exception);
+                false -> erlang:error(fable_cancellation:exception())
+            end;
         undefined -> erlang:error(async_no_result)
     end.
 

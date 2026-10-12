@@ -4,6 +4,7 @@
 -export([
     test_finalizers_settle_once/0,
     test_nested_cancellation_finalizers/0,
+    test_cancellation_finalizer_preserves_channel_and_exception/0,
     test_using_settles_once/0,
     test_using_binder_failure/0,
     test_run_synchronously_pending_cancellation/0,
@@ -36,10 +37,10 @@ test_finalizers_settle_once() ->
             Result = outcome(Comp),
             1 = erase(cleanups),
             case {Throws, Path, Result} of
-                {true, _, {error, cleanup_defect}} -> ok;
+                {_, cancel, {error, #{exn_type := operation_canceled_exception}}} -> ok;
+                {true, _, {error, cleanup_defect}} when Path =/= cancel -> ok;
                 {false, success, {ok, 42}} -> ok;
-                {false, cancel, {error, #{exn_type := operation_canceled_exception}}} -> ok;
-                {false, _, {error, body_defect}} -> ok;
+                {false, _, {error, body_defect}} when Path =/= cancel -> ok;
                 _ -> erlang:error({wrong_finalizer_result, Path, Throws, Result})
             end
         end, [false, true])
@@ -72,10 +73,27 @@ test_nested_cancellation_finalizers() ->
             put(cleanups, [outer | get(cleanups)]),
             case OuterThrows of true -> erlang:error(outer_defect); false -> ok end
         end),
-        Expected = case OuterThrows of true -> outer_defect; false -> inner_defect end,
-        {error, Expected} = outcome(Outer),
+        {error, #{exn_type := operation_canceled_exception}} = outcome(Outer),
         [outer, inner] = erase(cleanups)
     end, [false, true]).
+
+test_cancellation_finalizer_preserves_channel_and_exception() ->
+    Cancellation = #{exn_type => operation_canceled_exception, message => <<"original cancellation">>},
+    put(cleanups, 0),
+    Comp = fable_async_builder:try_finally(
+        fun(Ctx) -> (maps:get(on_cancel, Ctx))(Cancellation) end,
+        fun(_) -> put(cleanups, get(cleanups) + 1), erlang:error(cleanup_defect) end
+    ),
+    Ref = make_ref(),
+    Comp(#{
+        on_success => fun(_) -> erlang:error(unexpected_success_callback) end,
+        on_error => fun(_) -> erlang:error(unexpected_error_callback) end,
+        on_cancel => fun(Error) -> put(Ref, {cancelled, Error}) end,
+        cancel_token => undefined
+    }),
+    {cancelled, Cancellation} = erase(Ref),
+    1 = erase(cleanups),
+    ok.
 
 test_using_settles_once() ->
     lists:foreach(fun(Path) ->
@@ -91,10 +109,10 @@ test_using_settles_once() ->
                 Result = outcome(fable_async_builder:using(Resource, fun(_) -> body(Path) end)),
                 1 = erase(disposals),
                 case {Throws, Path, Result} of
-                    {true, _, {error, disposal_defect}} -> ok;
+                    {_, cancel, {error, #{exn_type := operation_canceled_exception}}} -> ok;
+                    {true, _, {error, disposal_defect}} when Path =/= cancel -> ok;
                     {false, success, {ok, 42}} -> ok;
-                    {false, cancel, {error, #{exn_type := operation_canceled_exception}}} -> ok;
-                    {false, _, {error, body_defect}} -> ok;
+                    {false, _, {error, body_defect}} when Path =/= cancel -> ok;
                     _ -> erlang:error({wrong_using_result, Path, Arity, Throws, Result})
                 end
             end, [false, true])

@@ -130,19 +130,20 @@ try_with(Computation, Handler) ->
 try_finally(Computation, Compensation) ->
     fun(Ctx) ->
         %% invariant: settlement claims compensation before invoking it, so its exception cannot re-enter it.
-        %% decision: retain compensation failures even on cancellation; cleanup defects must remain observable.
-        %% This deliberately differs from .NET Async's cancellation precedence for throwing compensation.
+        %% decision: cancellation remains terminal when compensation throws, matching .NET Async.TryFinally.
         Settled = atomics:new(1, []),
-        Finish = fun(Continuation, Value) ->
+        Finish = fun(Channel, Value) ->
             case atomics:compare_exchange(Settled, 1, 0, 1) of
                 ok ->
                     Result = try Compensation(ok), ok
-                    catch _:Err:St ->
-                        fable_async:record_stacktrace(Err, St),
-                        {error, Err}
+                    catch
+                        _:_ when Channel =:= on_cancel -> ok;
+                        _:Err:St ->
+                            fable_async:record_stacktrace(Err, St),
+                            {error, Err}
                     end,
                     case Result of
-                        ok -> Continuation(Value);
+                        ok -> (maps:get(Channel, Ctx))(Value);
                         {error, Error} -> (maps:get(on_error, Ctx))(Error)
                     end;
                 1 -> ok
@@ -150,13 +151,13 @@ try_finally(Computation, Compensation) ->
         end,
         Ctx2 = Ctx#{
             on_success => fun(X) ->
-                Finish(maps:get(on_success, Ctx), X)
+                Finish(on_success, X)
             end,
             on_error => fun(E) ->
-                Finish(maps:get(on_error, Ctx), E)
+                Finish(on_error, E)
             end,
             on_cancel => fun(E) ->
-                Finish(maps:get(on_cancel, Ctx), E)
+                Finish(on_cancel, E)
             end
         },
         try
@@ -166,7 +167,7 @@ try_finally(Computation, Compensation) ->
                 case atomics:get(Settled, 1) of
                     0 ->
                         fable_async:record_stacktrace(Err, St),
-                        Finish(maps:get(on_error, Ctx), Err);
+                        Finish(on_error, Err);
                     1 -> erlang:raise(Class, Err, St)
                 end
         end

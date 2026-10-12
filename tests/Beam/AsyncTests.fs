@@ -146,6 +146,66 @@ let ``test Async Using disposes once and retains disposal defects`` () =
     |> Async.RunSynchronously
     |> equal 42
 
+let private cancelledComputation : Async<unit> =
+    Async.FromContinuations(fun (_, _, cancel) ->
+        cancel (OperationCanceledException("original cancellation")))
+
+let private cancellationOutcome (work: Async<unit>) =
+    try
+        Async.RunSynchronously work
+        "success"
+    with
+    | :? OperationCanceledException as error -> error.Message
+    | error -> "failure: " + error.Message
+
+[<Fact>]
+let ``test Async cancellation remains terminal when compensation throws`` () =
+    for throws in [ false; true ] do
+        let mutable count = 0
+        let work = async {
+            try do! cancelledComputation
+            finally
+                count <- count + 1
+                if throws then failwith "cleanup defect"
+        }
+        equal "original cancellation" (cancellationOutcome work)
+        equal 1 count
+
+[<Fact>]
+let ``test nested throwing Async finalizers preserve cancellation`` () =
+    for outerThrows in [ false; true ] do
+        let mutable inner = 0
+        let mutable outer = 0
+        let work = async {
+            try
+                try do! cancelledComputation
+                finally
+                    inner <- inner + 1
+                    failwith "inner cleanup"
+            finally
+                outer <- outer + 1
+                if outerThrows then failwith "outer cleanup"
+        }
+        equal "original cancellation" (cancellationOutcome work)
+        equal 1 inner
+        equal 1 outer
+
+[<Fact>]
+let ``test Async Using preserves cancellation when Dispose throws`` () =
+    for throws in [ false; true ] do
+        let mutable count = 0
+        let resource =
+            { new IDisposable with
+                member _.Dispose() =
+                    count <- count + 1
+                    if throws then failwith "disposal defect" }
+        let work = async {
+            use owned = resource
+            do! cancelledComputation
+        }
+        equal "original cancellation" (cancellationOutcome work)
+        equal 1 count
+
 type MyException(value) =
     inherit Exception()
     member _.Value: int = value
