@@ -245,9 +245,9 @@ class Trampoline:
         self,
         action: Callable[[], None],
         due_time: float = 0.0,
-    ):
+    ) -> asyncio.TimerHandle:
         loop = asyncio.get_running_loop()
-        loop.call_later(due_time, action)
+        return loop.call_later(due_time, action)
 
     def run(self, action: Callable[[], None]):
         loop = asyncio.get_running_loop()
@@ -345,15 +345,27 @@ class AsyncBuilder:
     def TryFinally[T](self, computation: Async[T], compensation: Callable[[], None]) -> Async[T]:
         def cont(ctx: IAsyncContext[T]) -> None:
             def on_success(x: T) -> None:
-                compensation()
+                try:
+                    compensation()
+                except Exception as error:
+                    ctx.on_error(error)
+                    return
                 ctx.on_success(x)
 
             def on_error(x: Exception) -> None:
-                compensation()
+                try:
+                    compensation()
+                except Exception as error:
+                    ctx.on_error(error)
+                    return
                 ctx.on_error(x)
 
             def on_cancel(x: OperationCanceledError) -> None:
-                compensation()
+                # decision: ignores compensation failures during cancellation, matching .NET Async.TryFinally
+                try:
+                    compensation()
+                except Exception:
+                    pass
                 ctx.on_cancel(x)
 
             ctx_ = IAsyncContext.create(ctx.trampoline, ctx.cancel_token, on_success, on_error, on_cancel)

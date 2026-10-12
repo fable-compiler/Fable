@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from queue import SimpleQueue
 from threading import RLock
 from typing import Any
 
-from .async_ import from_continuations, start_immediate
+from .async_ import call_on_owner_loop, from_continuations, start_immediate
 from .async_builder import (
     Async,
     CancellationToken,
     Continuations,
+    IAsyncContext,
     OperationCanceledError,
+    protected_cont,
 )
 
 
@@ -101,34 +104,44 @@ class MailboxProcessor[Msg]:
         Returns:
             An asynchronous computation which will consume the
             first message in arrival order. No thread is blocked while
-            waiting for further messages. Raises a TimeoutException if
-            the timeout is exceeded.
+            waiting for further messages. Cancelling the token of the
+            receiving computation cancels a pending receive.
         """
 
-        def callback(conts: Continuations[Any]):
-            if self.continuation:
-                raise Exception("Receive can only be called once!")
+        def cont(ctx: IAsyncContext[Msg]) -> None:
+            loop = asyncio.get_running_loop()
+            token_id: int | None = None
 
-            self.continuation = conts
+            def on_message(msg: Msg) -> None:
+                if token_id is not None:
+                    ctx.cancel_token.remove_listener(token_id)
+                ctx.on_success(msg)
 
+            continuation: Continuations[Any] = (on_message, ctx.on_error, ctx.on_cancel)
+
+            def on_cancel() -> None:
+                with self.lock:
+                    if self.continuation is not continuation:
+                        return
+                    self.continuation = None
+                call_on_owner_loop(loop, lambda: ctx.on_cancel(OperationCanceledError()))
+
+            with self.lock:
+                if self.continuation:
+                    raise Exception("Receive can only be called once!")
+                self.continuation = continuation
+
+            token_id = ctx.cancel_token.add_listener(on_cancel)
+            with self.lock:
+                if self.continuation is not continuation:
+                    return
             self.__process_events()
 
-        return from_continuations(callback)
+        return protected_cont(cont)
 
     def __process_events(self) -> None:
-        if not self.continuation:
-            return
-
-        # Cancellation of async workflows is more tricky in Python than
-        # with F# so we check the cancellation token for each process.
-        if self.token.is_cancellation_requested:
-            self.continuation, cont = None, self.continuation
-            if cont:
-                cont[2](OperationCanceledError("Mailbox was cancelled"))
-            return
-
         with self.lock:
-            if self.messages.empty():
+            if not self.continuation or self.messages.empty():
                 return
             msg = self.messages.get()
             self.continuation, cont = None, self.continuation
@@ -143,7 +156,7 @@ class MailboxProcessor[Msg]:
         cancellation_token: CancellationToken | None = None,
     ) -> MailboxProcessor[Msg]:
         mbox: MailboxProcessor[Msg] = MailboxProcessor(body, cancellation_token)
-        start_immediate(body(mbox))
+        start_immediate(body(mbox), mbox.token)
         return mbox
 
 
@@ -163,7 +176,7 @@ def post_and_async_reply[Msg, Reply](
 
 def start_instance(mbox: MailboxProcessor[Any]) -> None:
     body = mbox.body(mbox)
-    return start_immediate(body)
+    return start_immediate(body, mbox.token)
 
 
 def start[Msg](
