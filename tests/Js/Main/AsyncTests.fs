@@ -159,7 +159,6 @@ let tests =
         equal [| "cancel" |] (terminal.ToArray())
         equal 1 finalizers
 
-#if FABLE_COMPILER
     testCase "Cancellation registrations dispose pending callbacks and invoke late callbacks" <| fun () ->
         use source = new System.Threading.CancellationTokenSource()
         let calls = ResizeArray<int>()
@@ -174,7 +173,9 @@ let tests =
         late.Dispose()
         second.Dispose()
         equal [| 2; 0 |] (calls.ToArray())
+#if FABLE_COMPILER
         equal 0 (Runtime.listenerCount source.Token)
+#endif
 
     testCase "Cancellation callback failure preserves remaining listeners" <| fun () ->
         use source = new System.Threading.CancellationTokenSource()
@@ -183,11 +184,19 @@ let tests =
         source.Token.Register(fun () -> remaining <- remaining + 1) |> ignore
         source.Token.Register(fun () -> failwith "callback") |> ignore
         try source.Cancel()
-        with error -> errors <- Runtime.cancellationErrorCount error
+        with error ->
+#if FABLE_COMPILER
+            errors <- Runtime.cancellationErrorCount error
+#else
+            errors <- (error :?> AggregateException).InnerExceptions.Count
+#endif
         equal 1 errors
         equal 1 remaining
+#if FABLE_COMPILER
         equal 0 (Runtime.listenerCount source.Token)
+#endif
 
+#if FABLE_COMPILER
     testCase "Sleep settles once and retires its timer and listener" <| fun () ->
         for cancelFirst in [ true; false ] do
             for throws in [ true; false ] do
@@ -216,17 +225,50 @@ let tests =
                     equal 1 timer.retired
                     equal 0 timer.invalidHandles)
 
-    testCase "Idle Receive is not woken by cancellation and still delivers a post" <| fun () ->
+    testCase "Idle Receive is cancelled by its token and keeps later posts queued" <| fun () ->
         use source = new System.Threading.CancellationTokenSource()
         let mailbox = new MailboxProcessor<int>((fun _ -> async { return () }), source.Token)
         let terminal = ResizeArray<string>()
         Async.StartWithContinuations(mailbox.Receive(), (fun value -> terminal.Add (string value)), raise, (fun _ -> terminal.Add "cancel"), source.Token)
         source.Cancel()
-        equal [||] (terminal.ToArray())
-        mailbox.Post 42
-        equal [| "42" |] (terminal.ToArray())
+        equal [| "cancel" |] (terminal.ToArray())
         equal 0 (Runtime.listenerCount source.Token)
+        mailbox.Post 42
+        equal [| "cancel" |] (terminal.ToArray())
+        Async.StartWithContinuations(mailbox.Receive(), (fun value -> terminal.Add $"next {value}"), raise, (fun _ -> terminal.Add "next cancel"))
+        equal [| "cancel"; "next 42" |] (terminal.ToArray())
 #endif
+
+    testCaseAsync "Cancelling a waiting Receive reports cancel and keeps later posts queued" <| fun () -> async {
+        use source = new System.Threading.CancellationTokenSource()
+        let mailbox = new MailboxProcessor<int>((fun _ -> async { return () }), source.Token)
+        let! outcome =
+            Async.FromContinuations(fun (ok, _, _) ->
+                Async.StartWithContinuations(mailbox.Receive(), (fun value -> ok $"value {value}"), (fun _ -> ok "error"), (fun _ -> ok "cancel"), source.Token)
+                source.Cancel())
+        equal "cancel" outcome
+        mailbox.Post 42
+        let! next = mailbox.Receive()
+        equal 42 next
+    }
+
+    testCaseAsync "Cancelling the mailbox token cancels a body waiting in Receive" <| fun () -> async {
+        use source = new System.Threading.CancellationTokenSource()
+        let! outcome =
+            Async.FromContinuations(fun (ok, _, _) ->
+                MailboxProcessor<int>.Start((fun inbox -> async {
+                    let received = ref None
+                    try
+                        source.CancelAfter 50
+                        let! message = inbox.Receive()
+                        received.Value <- Some message
+                    finally
+                        match received.Value with
+                        | Some message -> ok $"received {message}"
+                        | None -> ok "cancelled" }), source.Token)
+                |> ignore)
+        equal "cancelled" outcome
+    }
 
     testCase "Simple async translates without exception" <| fun () ->
         async { return () }

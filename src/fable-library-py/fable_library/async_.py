@@ -80,6 +80,26 @@ def is_cancellation_requested(token: CancellationToken) -> bool:
     return token.is_cancelled
 
 
+def call_on_owner_loop(loop: asyncio.AbstractEventLoop, action: Callable[[], None]) -> None:
+    # decision: foreign-thread cancellation settles on the owning loop while it is running
+    if loop.is_closed() or not loop.is_running():
+        action()
+        return
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        current_loop = None
+    if current_loop is loop:
+        action()
+        return
+    try:
+        loop.call_soon_threadsafe(action)
+    except RuntimeError:
+        if not loop.is_closed():
+            raise
+        action()
+
+
 def sleep(milliseconds_duetime: int | TimeSpan) -> Async[None]:
     def cont(ctx: IAsyncContext[None]) -> None:
         loop = asyncio.get_running_loop()
@@ -107,23 +127,7 @@ def sleep(milliseconds_duetime: int | TimeSpan) -> Async[None]:
                 ctx.on_success(None)
 
         def cancel() -> None:
-            # decision: foreign-thread cancellation settles on the owning loop while it is alive
-            if loop.is_closed():
-                settle(True)
-                return
-            try:
-                current_loop = asyncio.get_running_loop()
-            except RuntimeError:
-                current_loop = None
-            if current_loop is loop:
-                settle(True)
-            else:
-                try:
-                    loop.call_soon_threadsafe(settle, True)
-                except RuntimeError:
-                    if not loop.is_closed():
-                        raise
-                    settle(True)
+            call_on_owner_loop(loop, lambda: settle(True))
 
         # invariant: installation and settlement cannot interleave before both resources are owned
         try:

@@ -132,6 +132,14 @@ def observe_mailbox(work: Async[int], mailbox: MailboxProcessor[int], token: Can
         mailbox.post(42)
         result.pending_after = mailbox.continuation is not None
         result.listeners = len(token.listeners)
+        next_ctx = IAsyncContext.create(
+            Trampoline(),
+            CancellationToken(),
+            lambda value: result._outcome.append(str(value)),
+            lambda _: result._outcome.append("error"),
+            lambda _: result._outcome.append("cancel"),
+        )
+        mailbox.receive()(next_ctx)
         return result
 
     return asyncio.run(run())

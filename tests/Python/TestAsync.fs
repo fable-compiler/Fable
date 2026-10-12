@@ -845,15 +845,16 @@ let ``test precancelled Sleep does not execute or schedule`` () =
     equal 0 result.listeners
 
 [<Fact>]
-let ``test idle Receive observes cancellation only after a post`` () =
+let ``test idle Receive is cancelled by its token and keeps later posts queued`` () =
     use source = new System.Threading.CancellationTokenSource()
     let mailbox = new MailboxProcessor<int>((fun _ -> async { return () }), source.Token)
     let result = Runtime.observeMailbox.Invoke(mailbox.Receive(), mailbox, source.Token)
-    equal [||] result.before
-    equal true result.pending_before
+    equal [| "cancel" |] result.before
+    equal false result.pending_before
     equal [| "cancel" |] result.terminal
     equal false result.pending_after
     equal 0 result.listeners
+    equal [| "42" |] result.outcome
 
 [<Fact>]
 let ``test Sleep cancellation from another thread runs on the owner loop`` () =
@@ -913,3 +914,38 @@ let ``test failed Sleep installation releases its registration`` () =
     equal 0 result.listeners
     equal 0 result.scheduled
 #endif
+
+[<Fact>]
+let ``test cancelling a waiting Receive reports cancel and keeps later posts queued`` () =
+    async {
+        use source = new System.Threading.CancellationTokenSource()
+        let mailbox = new MailboxProcessor<int>((fun _ -> async { return () }), source.Token)
+        let! outcome =
+            Async.FromContinuations(fun (ok, _, _) ->
+                Async.StartWithContinuations(mailbox.Receive(), (fun value -> ok $"value {value}"), (fun _ -> ok "error"), (fun _ -> ok "cancel"), source.Token)
+                source.Cancel())
+        equal "cancel" outcome
+        mailbox.Post 42
+        let! next = mailbox.Receive()
+        equal 42 next
+    } |> Async.RunSynchronously
+
+[<Fact>]
+let ``test cancelling the mailbox token cancels a body waiting in Receive`` () =
+    async {
+        use source = new System.Threading.CancellationTokenSource()
+        let! outcome =
+            Async.FromContinuations(fun (ok, _, _) ->
+                MailboxProcessor<int>.Start((fun inbox -> async {
+                    let received = ref None
+                    try
+                        source.CancelAfter 50
+                        let! message = inbox.Receive()
+                        received.Value <- Some message
+                    finally
+                        match received.Value with
+                        | Some message -> ok $"received {message}"
+                        | None -> ok "cancelled" }), source.Token)
+                |> ignore)
+        equal "cancelled" outcome
+    } |> Async.RunSynchronously

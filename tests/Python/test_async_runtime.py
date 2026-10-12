@@ -191,3 +191,28 @@ def test_await_event_cancelled_before_its_body_runs_does_not_subscribe():
     event.Trigger(42)
     assert calls == ["cancel"]
     assert not event.delegates
+
+
+def test_sleep_cancelled_while_its_loop_is_stopped_settles_once():
+    loop = asyncio.new_event_loop()
+    token = CancellationToken()
+    calls: list[str] = []
+
+    async def start() -> None:
+        start_with_continuations(
+            sleep(100_000),
+            lambda _: calls.append("success"),
+            lambda _: calls.append("error"),
+            lambda _: calls.append("cancel"),
+            token,
+        )
+
+    try:
+        loop.run_until_complete(start())
+        cancel_thread = Thread(target=token.cancel)
+        cancel_thread.start()
+        cancel_thread.join(5)
+        assert calls == ["cancel"]
+        assert not token.listeners
+    finally:
+        loop.close()
