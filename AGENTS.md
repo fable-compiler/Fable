@@ -98,7 +98,7 @@ Be careful when modifying shared files like `FableTransforms.fs`, `Transforms.Ut
 
 `src/fable-library-py/` is distributed on PyPI and must be backward-compatible within minor versions. Do not change the semantics of existing functions — instead, create a new function with a new name and update `Replacements.fs` to call it.
 
-All code in `fable-library-py` must be fully type-annotated using Python 3.12+ syntax (PEP 695). Avoid `Any`, `cast()`, and `# type: ignore` — these require justification. Keep functions small and simple: extract helpers and use early returns. The Rust extension modules (`fable-library-core`) exist to provide correct .NET semantics for numerics, arrays, etc. — not for performance (the FFI crossing is expensive).
+All code in `fable-library-py` must be fully type-annotated using Python 3.13-compatible syntax, including PEP 695 type parameters. Avoid `Any`, `cast()`, and `# type: ignore` — these require justification. Keep functions small and simple: extract helpers and use early returns. The Rust extension modules (`fable-library-core`) exist to provide correct .NET semantics for numerics, arrays, etc. — not for performance (the FFI crossing is expensive).
 
 All transpiled Python code is type-checked with Pyright at standard settings (`./build.sh test python --type-check`). Do not introduce type-checking regressions without justification.
 
@@ -125,7 +125,7 @@ DO NOT update the changelog files. These files are automatically generated based
 
 - .NET SDK 10+
 - Node.js with npm
-- Python 3.12+ with [uv](https://docs.astral.sh/uv/) (3.12+ required for PEP 695 type parameter syntax)
+- Python 3.13+ with [uv](https://docs.astral.sh/uv/) (CI tests 3.13, 3.14, and 3.15; type checking and publish preparation use 3.13)
 - Rust toolchain (for Rust target)
 - Dart SDK (for Dart target)
 - Erlang/OTP with rebar3 (for BEAM target)
