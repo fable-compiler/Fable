@@ -1,5 +1,5 @@
 ---
-last_commit_released: 148f989e1b37b3f6560c3dda615b6a3a8efffcb8
+last_commit_released: a8661874d60694f0faad235adb7f760fed6f72a5
 include:
   - ../fable-library-beam/
   - ../fable-library-dart/
@@ -27,6 +27,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 5.21.0 - 2026-10-12
+
+### 🚀 Features
+
+* *(php)* System.Environment (#4782) ([a8661874](https://github.com/fable-compiler/Fable/commit/a8661874d60694f0faad235adb7f760fed6f72a5))
+
+### 🐞 Bug Fixes
+
+* *(all)* Support implicit conversion to erased unions (#5058) ([5d15141e](https://github.com/fable-compiler/Fable/commit/5d15141e519c2f320ac3457805b2d157cbea086f))
+* *(beam)* Preserve async cancellation and finalize resources once (#5057) ([617f7111](https://github.com/fable-compiler/Fable/commit/617f7111bf02f8536b321b4373bdffa7a0f7d633))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/148f989e1b37b3f6560c3dda615b6a3a8efffcb8..a8661874d60694f0faad235adb7f760fed6f72a5)</small></strong>
 
 ## 5.20.1 - 2026-10-12
 

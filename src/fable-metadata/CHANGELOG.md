@@ -1,5 +1,5 @@
 ---
-last_commit_released: c977d78b39225a51c7bd051a1fe363ed0ccbe201
+last_commit_released: a8661874d60694f0faad235adb7f760fed6f72a5
 updaters:
   - package.json:
       file: package.json
@@ -14,6 +14,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## 2.1.1 - 2026-10-12
+
+### 🐞 Bug Fixes
+
+* *(all)* Support implicit conversion to erased unions (#5058) ([5d15141e](https://github.com/fable-compiler/Fable/commit/5d15141e519c2f320ac3457805b2d157cbea086f))
+
+<strong><small>[View changes on Github](https://github.com/fable-compiler/Fable/compare/c977d78b39225a51c7bd051a1fe363ed0ccbe201..a8661874d60694f0faad235adb7f760fed6f72a5)</small></strong>
 
 ## 2.1.0 - 2026-06-30
 
