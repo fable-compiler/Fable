@@ -7,7 +7,8 @@
 -export([
     test_run_synchronously_keeps_original_stacktrace/0,
     test_handled_stacktrace_is_not_reused/0,
-    test_nested_run_keeps_own_stacktrace/0
+    test_nested_run_keeps_own_stacktrace/0,
+    test_finalizer_failure_keeps_original_stacktrace/0
 ]).
 
 %% The frame every test below looks for: an error raised at a known place in this module.
@@ -72,4 +73,14 @@ test_nested_run_keeps_own_stacktrace() ->
     case has_boom_on_top(Stacktrace) of
         true -> ok;
         false -> erlang:error({expected_original_frame_on_top, Stacktrace})
+    end.
+
+test_finalizer_failure_keeps_original_stacktrace() ->
+    Comp = fable_async_builder:try_finally(
+        fable_async_builder:return(ok), fun(_) -> boom(cleanup_defect) end
+    ),
+    {error, cleanup_defect, Stacktrace} = run_catching(Comp),
+    case has_boom_on_top(Stacktrace) of
+        true -> ok;
+        false -> erlang:error({expected_finalizer_frame_on_top, Stacktrace})
     end.

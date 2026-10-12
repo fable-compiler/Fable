@@ -122,33 +122,52 @@ try_with(Computation, Handler) ->
 %% Compensation is generated as fun(UnitVar) -> ... end (arity 1), so call with ok.
 try_finally(Computation, Compensation) ->
     fun(Ctx) ->
+        %% invariant: settlement claims compensation before invoking it, so its exception cannot re-enter it.
+        %% decision: retain compensation failures even on cancellation; cleanup defects must remain observable.
+        %% This deliberately differs from .NET Async's cancellation precedence for throwing compensation.
+        Settled = atomics:new(1, []),
+        Finish = fun(Continuation, Value) ->
+            case atomics:compare_exchange(Settled, 1, 0, 1) of
+                ok ->
+                    Result = try Compensation(ok), ok
+                    catch _:Err:St ->
+                        fable_async:record_stacktrace(Err, St),
+                        {error, Err}
+                    end,
+                    case Result of
+                        ok -> Continuation(Value);
+                        {error, Error} -> (maps:get(on_error, Ctx))(Error)
+                    end;
+                1 -> ok
+            end
+        end,
         Ctx2 = Ctx#{
             on_success => fun(X) ->
-                Compensation(ok),
-                (maps:get(on_success, Ctx))(X)
+                Finish(maps:get(on_success, Ctx), X)
             end,
             on_error => fun(E) ->
-                Compensation(ok),
-                (maps:get(on_error, Ctx))(E)
+                Finish(maps:get(on_error, Ctx), E)
             end,
             on_cancel => fun(E) ->
-                Compensation(ok),
-                (maps:get(on_cancel, Ctx))(E)
+                Finish(maps:get(on_cancel, Ctx), E)
             end
         },
         try
             Computation(Ctx2)
         catch
-            _:Err:St ->
-                fable_async:record_stacktrace(Err, St),
-                Compensation(ok),
-                (maps:get(on_error, Ctx))(Err)
+            Class:Err:St ->
+                case atomics:get(Settled, 1) of
+                    0 ->
+                        fable_async:record_stacktrace(Err, St),
+                        Finish(maps:get(on_error, Ctx), Err);
+                    1 -> erlang:raise(Class, Err, St)
+                end
         end
     end.
 
-%% Using: TryFinally with IDisposable (Dispose = no-op in Erlang for now)
+%% Using: install disposal before evaluating the binder, including a binder that throws.
 using(Resource, Binder) ->
-    try_finally(Binder(Resource), fun() -> ok end).
+    try_finally(delay(fun(_) -> Binder(Resource) end), fun(_) -> fable_utils:safe_dispose(Resource) end).
 
 %% While: recursive bind while guard is true
 while(Guard, Computation) ->

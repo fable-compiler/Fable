@@ -4,6 +4,72 @@ open System
 open Fable.Tests.Util
 open Util.Testing
 
+[<Fact>]
+let ``test Async finalizers run once and retain throwing compensation`` () =
+    for bodyFails in [ false; true ] do
+        let mutable count = 0
+        let work = async {
+            try
+                if bodyFails then failwith "body defect"
+                return 42
+            finally
+                count <- count + 1
+                failwith "cleanup defect"
+        }
+        let failure =
+            try Async.RunSynchronously work |> ignore; "success"
+            with error -> error.Message
+        equal "cleanup defect" failure
+        equal 1 count
+
+[<Fact>]
+let ``test nested Async finalizers retain outer failure and run once`` () =
+    let mutable inner = 0
+    let mutable outer = 0
+    let work = async {
+        try
+            try return 42
+            finally
+                inner <- inner + 1
+                failwith "inner cleanup"
+        finally
+            outer <- outer + 1
+            failwith "outer cleanup"
+    }
+    let failure =
+        try Async.RunSynchronously work |> ignore; "success"
+        with error -> error.Message
+    equal "outer cleanup" failure
+    equal 1 inner
+    equal 1 outer
+
+[<Fact>]
+let ``test Async Using disposes once and retains disposal defects`` () =
+    for bodyFails in [ false; true ] do
+        for disposalFails in [ false; true ] do
+            let mutable count = 0
+            let resource =
+                { new IDisposable with
+                    member _.Dispose() =
+                        count <- count + 1
+                        if disposalFails then failwith "disposal defect" }
+            let work = async {
+                use owned = resource
+                if bodyFails then failwith "body defect"
+                return 42
+            }
+            let outcome =
+                try Async.RunSynchronously work |> string
+                with error -> error.Message
+            equal (if disposalFails then "disposal defect" elif bodyFails then "body defect" else "42") outcome
+            equal 1 count
+    async {
+        use resource = Unchecked.defaultof<IDisposable>
+        return 42
+    }
+    |> Async.RunSynchronously
+    |> equal 42
+
 type MyException(value) =
     inherit Exception()
     member _.Value: int = value
