@@ -2,7 +2,7 @@
 -export([
     start_immediate/1, start_immediate/2,
     start_child/1, start_child/2,
-    run_synchronously/1, run_synchronously/2,
+    run_synchronously/1, run_synchronously/2, run_synchronously/3,
     start_with_continuations/4, start_with_continuations/5,
     sleep/1,
     await_event/1, await_event/2,
@@ -34,7 +34,8 @@
 -spec start_child(async(term())) -> async(async(term())).
 -spec start_child(async(term()), non_neg_integer() | undefined) -> async(async(term())).
 -spec run_synchronously(async(term())) -> term().
--spec run_synchronously(async(term()), reference() | undefined) -> term().
+-spec run_synchronously(async(term()), integer() | reference() | undefined) -> term().
+-spec run_synchronously(async(term()), integer() | undefined, reference() | undefined) -> term().
 -spec start_with_continuations(async(term()), fun(), fun(), fun()) -> term().
 -spec start_with_continuations(async(term()), fun(), fun(), fun(), reference() | undefined) ->
     term().
@@ -172,9 +173,53 @@ child_result_holder(ResultRef, Result) ->
             child_result_holder(ResultRef, Result)
     end.
 
-%% RunSynchronously: run CPS chain in current process, capture result
-run_synchronously(Computation) -> run_synchronously(Computation, undefined).
+%% RunSynchronously: unlimited waits run inline; finite deadlines use a worker.
+run_synchronously(Computation) -> run_synchronously(Computation, undefined, undefined).
+%% decision: retain native /2 token callers while compiled F# uses the unambiguous /3 ABI.
+run_synchronously(Computation, Timeout) when is_integer(Timeout) ->
+    run_synchronously(Computation, Timeout, undefined);
 run_synchronously(Computation, CancelToken) ->
+    run_synchronously(Computation, undefined, CancelToken).
+
+run_synchronously(Computation, Timeout, CancelToken) when Timeout =:= undefined; Timeout =:= -1 ->
+    run_inline(Computation, CancelToken);
+run_synchronously(Computation, Timeout, CancelToken) when is_integer(Timeout), Timeout >= 0 ->
+    run_with_timeout(Computation, Timeout, CancelToken);
+run_synchronously(_Computation, _Timeout, _CancelToken) ->
+    erlang:error(#{exn_type => argument_exception, message => <<"The timeout must be non-negative or -1.">>}).
+
+%% decision: finite timeouts use a monitored worker so blocking BEAM operations cannot block the deadline.
+%% invariant: timeout requests cooperative cancellation rather than killing work and skipping finalizers.
+%% tradeoff: timed work runs in another process and cannot share process-dictionary-backed mutable values.
+run_with_timeout(Computation, Timeout, CancelToken) ->
+    Token = fable_cancellation:create(),
+    Registration = fable_cancellation:register(CancelToken, fun(_) -> fable_cancellation:cancel(Token) end),
+    {Pid, Monitor} = spawn_monitor(fun() ->
+        Result = try run_inline(Computation, CancelToken, Token) of
+            Value -> {ok, Value}
+        catch Class:Reason:Stacktrace -> {error, Class, Reason, Stacktrace}
+        end,
+        exit({fable_async_result, Result})
+    end),
+    try
+        receive
+            {'DOWN', Monitor, process, Pid, {fable_async_result, {ok, Value}}} -> Value;
+            {'DOWN', Monitor, process, Pid, {fable_async_result, {error, Class, Reason, Stacktrace}}} ->
+                erlang:raise(Class, Reason, Stacktrace);
+            {'DOWN', Monitor, process, Pid, Reason} -> erlang:error(Reason)
+        after Timeout ->
+            fable_cancellation:cancel(Token),
+            erlang:error(#{exn_type => timeout_exception, message => <<"The operation has timed out.">>})
+        end
+    after
+        erlang:demonitor(Monitor, [flush]),
+        fable_utils:safe_dispose(Registration)
+    end.
+
+run_inline(Computation, CancelToken) ->
+    run_inline(Computation, CancelToken, CancelToken).
+
+run_inline(Computation, UserToken, CancelToken) ->
     %% Use a unique ref as key to store result in process dict
     Ref = make_ref(),
     %% Take over stacktrace parking for the duration of this run, handing it back afterwards so a
@@ -187,6 +232,9 @@ run_synchronously(Computation, CancelToken) ->
         on_error => fun(E) -> put(Ref, {error, E}) end,
         on_cancel => fun(_) -> put(Ref, {cancelled}) end,
         cancel_token => CancelToken,
+        %% invariant: Async.CancellationToken returns the supplied token even when a timeout
+        %% needs a linked token internally to cancel waits without cancelling the user's source.
+        user_cancel_token => UserToken,
         %% invariant: runtime-owned callbacks are handled by the process that created their
         %% process-dictionary-backed continuations.
         wait_for_async => true
@@ -208,7 +256,7 @@ run_synchronously(Computation, CancelToken) ->
     case Result of
         {ok, Value} -> Value;
         {error, Error} -> reraise(Ref, Parked, Error);
-        {cancelled} -> erlang:error(operation_cancelled);
+        {cancelled} -> erlang:error(fable_cancellation:exception());
         undefined -> erlang:error(async_no_result)
     end.
 
@@ -243,7 +291,7 @@ sleep(Milliseconds) ->
                 %% Check if already cancelled before sleeping
                 case fable_cancellation:is_cancellation_requested(Token) of
                     true ->
-                        (maps:get(on_cancel, Ctx))(ok);
+                        (maps:get(on_cancel, Ctx))(fable_cancellation:exception());
                     false ->
                         %% Set up a timer to send us a wake-up message
                         Self = self(),
@@ -258,7 +306,7 @@ sleep(Milliseconds) ->
                             {sleep_done, TimerRef} ->
                                 (maps:get(on_success, Ctx))(ok);
                             {sleep_cancelled, TimerRef} ->
-                                (maps:get(on_cancel, Ctx))(ok)
+                                (maps:get(on_cancel, Ctx))(fable_cancellation:exception())
                         end,
                         erlang:cancel_timer(SleepTimer),
                         fable_utils:safe_dispose(RegId)
@@ -357,7 +405,7 @@ invoke_await_event_cancel(CancelAction, OnCancel) ->
         undefined -> ok;
         _ -> CancelAction(ok)
     end,
-    OnCancel(ok).
+    OnCancel(fable_cancellation:exception()).
 
 %% Parallel: spawn one process per computation, collect results in order
 parallel(Computations) when is_reference(Computations) ->
@@ -411,7 +459,7 @@ sequential(Computations) ->
 %% Uses atom tags matching Beam union representation: choice1_of2 = Choice1Of2, choice2_of2 = Choice2Of2
 catch_async(Computation) ->
     fun(Ctx) ->
-        Ctx2 = #{
+        Ctx2 = Ctx#{
             on_success => fun(V) -> (maps:get(on_success, Ctx))({choice1_of2, V}) end,
             on_error => fun(E) -> (maps:get(on_success, Ctx))({choice2_of2, wrap_error(E)}) end,
             on_cancel => maps:get(on_cancel, Ctx),
@@ -443,10 +491,10 @@ start_as_task(Computation) ->
 %% convert — the task *is* the async computation.
 await_task(Task) -> Task.
 
-%% CancellationToken: returns async that extracts cancel_token from context
+%% CancellationToken: expose the supplied token independently of timeout wake-ups.
 cancellation_token() ->
     fun(Ctx) ->
-        Token = maps:get(cancel_token, Ctx),
+        Token = maps:get(user_cancel_token, Ctx, maps:get(cancel_token, Ctx)),
         (maps:get(on_success, Ctx))(Token)
     end.
 
@@ -456,6 +504,8 @@ create_cancellation_token(Arg) -> fable_cancellation:create(Arg).
 
 %% Wrap raw error values as exception maps so .Message accessor works.
 %% Errors from failwith are raw binaries; errors from raise(exn ...) are already maps.
+%% decision: recognize the legacy runtime atom by identity, never by a formatted message or token state.
+wrap_error(operation_cancelled) -> fable_cancellation:exception();
 wrap_error(Err) when is_binary(Err) -> #{message => Err};
 wrap_error(Err) when is_map(Err) -> Err;
 wrap_error(Err) when is_reference(Err) -> Err;

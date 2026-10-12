@@ -3,6 +3,82 @@ module Fable.Tests.AsyncTests
 open System
 open Fable.Tests.Util
 open Util.Testing
+open System.Threading
+
+let private raiseCaughtCancellation (error: exn) : unit = raise error
+
+[<Fact>]
+let ``test RunSynchronously optional timeout and cancellation token`` () =
+    let work = async { return 42 }
+    Async.RunSynchronously work |> equal 42
+    Async.RunSynchronously(work, timeout = -1) |> equal 42
+    Async.RunSynchronously(work, timeout = 10000) |> equal 42
+    let invalidTimeout =
+        try
+            Async.RunSynchronously(work, timeout = -2) |> ignore
+            false
+        with :? ArgumentException -> true
+    equal true invalidTimeout
+    use cts = new CancellationTokenSource()
+    Async.RunSynchronously(work, cancellationToken = cts.Token) |> equal 42
+    Async.RunSynchronously(work, timeout = 10000, cancellationToken = cts.Token) |> equal 42
+    cts.Cancel()
+    let mutable entered = false
+    let cancelled =
+        try
+            Async.RunSynchronously(async { entered <- true }, cancellationToken = cts.Token)
+            false
+        with :? OperationCanceledException -> true
+    equal true cancelled
+    equal false entered
+
+[<Fact>]
+let ``test cancellation identity survives ordinary catch and raise`` () =
+    let token = CancellationToken(true)
+    let mutable caught = false
+    let cancelled =
+        try
+            try token.ThrowIfCancellationRequested()
+            with error ->
+                caught <- true
+                raiseCaughtCancellation error
+            false
+        with :? OperationCanceledException -> true
+    equal true caught
+    equal true cancelled
+    let ordinary =
+        try raise (Exception("operation_cancelled"))
+        with
+        | :? OperationCanceledException -> false
+        | error -> error.Message = "operation_cancelled"
+    equal true ordinary
+
+[<Fact>]
+let ``test Async TryWith catches explicitly thrown cancellation exceptions`` () =
+    async {
+        try
+            CancellationToken(true).ThrowIfCancellationRequested()
+            return false
+        with :? OperationCanceledException -> return true
+    }
+    |> Async.RunSynchronously
+    |> equal true
+
+[<Fact>]
+let ``test a real Async defect racing cancellation remains a failure`` () =
+    use cts = new CancellationTokenSource()
+    let work = async {
+        cts.Cancel()
+        return failwith "real defect"
+    }
+    let outcome =
+        try
+            Async.RunSynchronously(work, cancellationToken = cts.Token) |> ignore
+            "success"
+        with
+        | :? OperationCanceledException -> "cancelled"
+        | error -> error.Message
+    equal "real defect" outcome
 
 [<Fact>]
 let ``test Async finalizers run once and retain throwing compensation`` () =
@@ -510,9 +586,54 @@ let private runInCancellationProcess (f: unit -> 'a) : 'a = Fable.Core.Util.nati
 [<Fable.Core.Emit("(fun() -> CancellationFun = $0, spawn(fun() -> case erlang:fun_info(CancellationFun, arity) of {arity, 0} -> CancellationFun(); _ -> CancellationFun(ok) end end) end)()")>]
 let private startCancellationProcess (f: unit -> unit) : obj = Fable.Core.Util.nativeOnly
 
-[<Fable.Core.Emit("fable_async:run_synchronously($0, $1)")>]
-let private runSynchronouslyWithCancellation (_workflow: Async<'a>) (_token: System.Threading.CancellationToken) : 'a =
-    Fable.Core.Util.nativeOnly
+let private runSynchronouslyWithCancellation (workflow: Async<'a>) (token: System.Threading.CancellationToken) : 'a =
+    Async.RunSynchronously(workflow, cancellationToken = token)
+
+[<Fable.Core.Emit("async_lifecycle_tests:pending($0)")>]
+let private pendingCancellation (_parent: obj) : Async<unit> = Fable.Core.Util.nativeOnly
+
+[<Fact>]
+let ``test legacy runtime cancellation remains typed through normalization and raise`` () =
+    let cancelled =
+        try
+            try emitErlExpr () "erlang:error(operation_cancelled)"
+            with error -> raiseCaughtCancellation error
+            false
+        with :? OperationCanceledException -> true
+    equal true cancelled
+
+[<Fact>]
+let ``test pending RunSynchronously cancellation bypasses Async TryWith and disposes once`` () =
+    use cts = new CancellationTokenSource()
+    let parent: obj = emitErlExpr () "erlang:self()"
+    let work = async {
+        let! child = Async.StartChild(async {
+            let mutable handled = false
+            let mutable finalized = 0
+            let mutable disposed = 0
+            let resource =
+                { new IDisposable with
+                    member _.Dispose() = disposed <- disposed + 1 }
+            let cancelled =
+                try
+                    Async.RunSynchronously(
+                        async {
+                            use owned = resource
+                            try
+                                try do! pendingCancellation parent
+                                with _ -> handled <- true
+                            finally finalized <- finalized + 1
+                        }, cancellationToken = cts.Token)
+                    false
+                with :? OperationCanceledException -> true
+            return cancelled, handled, finalized, disposed
+        })
+        let ready: bool = emitErlExpr () "receive {pending, _} -> true after 5000 -> false end"
+        equal true ready
+        cts.Cancel()
+        return! child
+    }
+    Async.RunSynchronously work |> equal (true, false, 1, 1)
 
 let private sendCancellationReady (parent: obj) =
     let worker: obj = emitErlExpr () "erlang:self()"

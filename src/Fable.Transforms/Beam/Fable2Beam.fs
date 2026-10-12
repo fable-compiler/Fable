@@ -982,75 +982,12 @@ let rec transformExpr (com: IBeamCompiler) (ctx: Context) (expr: Expr) : Beam.Er
             if catchBodyExprs |> List.exists (referencesVariable identVar) then
                 let reasonRef = Beam.ErlExpr.Variable reasonVar
 
-                let formatExpr =
-                    Beam.ErlExpr.Call(
-                        None,
-                        "iolist_to_binary",
-                        [
-                            Beam.ErlExpr.Call(
-                                Some "io_lib",
-                                "format",
-                                [
-                                    Beam.ErlExpr.Call(
-                                        None,
-                                        "binary_to_list",
-                                        [ Beam.ErlExpr.Literal(Beam.ErlLiteral.StringLit "~p") ]
-                                    )
-                                    Beam.ErlExpr.List [ reasonRef ]
-                                ]
-                            )
-                        ]
-                    )
-
-                let messageExpr =
-                    Beam.ErlExpr.Case(
-                        reasonRef,
-                        [
-                            {
-                                Pattern = Beam.PWildcard
-                                Guard = [ Beam.ErlExpr.Call(None, "is_binary", [ reasonRef ]) ]
-                                Body = [ reasonRef ]
-                            }
-                            {
-                                Pattern = Beam.PWildcard
-                                Guard = []
-                                Body = [ formatExpr ]
-                            }
-                        ]
-                    )
-
-                // If reason is already a map (F# exception) or reference (class inheriting exn), use it directly.
-                // Otherwise wrap in #{message => ...} for .Message access.
+                // invariant: Ordinary catches retain nominal cancellation identity and remain allowed to handle it.
+                // Use the same normalization as Async.TryWith; reraise still uses the raw catch variables.
                 let bindIdent =
                     Beam.ErlExpr.Match(
                         Beam.PVar identVar,
-                        Beam.ErlExpr.Case(
-                            reasonRef,
-                            [
-                                {
-                                    Pattern = Beam.PWildcard
-                                    Guard = [ Beam.ErlExpr.Call(None, "is_map", [ reasonRef ]) ]
-                                    Body = [ reasonRef ]
-                                }
-                                {
-                                    Pattern = Beam.PWildcard
-                                    Guard = [ Beam.ErlExpr.Call(None, "is_reference", [ reasonRef ]) ]
-                                    Body = [ reasonRef ]
-                                }
-                                {
-                                    Pattern = Beam.PWildcard
-                                    Guard = []
-                                    Body =
-                                        [
-                                            Beam.ErlExpr.Map
-                                                [
-                                                    Beam.ErlExpr.Literal(Beam.ErlLiteral.AtomLit(Beam.Atom "message")),
-                                                    messageExpr
-                                                ]
-                                        ]
-                                }
-                            ]
-                        )
+                        Beam.ErlExpr.Call(Some "fable_async", "wrap_error", [ reasonRef ])
                     )
 
                 Beam.ErlExpr.TryCatch(

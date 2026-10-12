@@ -58,7 +58,12 @@ zero(_Unit) -> return(ok).
 
 %% Delay: defer generator execution (cold semantics)
 delay(Generator) ->
-    fun(Ctx) -> (Generator(ok))(Ctx) end.
+    fun(Ctx) ->
+        case fable_cancellation:is_cancellation_requested(maps:get(cancel_token, Ctx)) of
+            true -> (maps:get(on_cancel, Ctx))(fable_cancellation:exception());
+            false -> (Generator(ok))(Ctx)
+        end
+    end.
 
 %% Bind: monadic bind — run computation, pass result to binder
 bind(Computation, Binder) ->
@@ -83,6 +88,8 @@ combine(Comp1, Comp2) ->
 
 %% TryWith: catch errors in computation, pass to handler
 %% Wrap raw errors (binaries from failwith) as exception maps so .Message works.
+%% invariant: only on_error enters the handler; on_cancel bypasses it, while a thrown
+%% OperationCanceledException remains catchable just like any explicitly thrown .NET exception.
 try_with(Computation, Handler) ->
     fun(Ctx) ->
         Ctx2 = Ctx#{
