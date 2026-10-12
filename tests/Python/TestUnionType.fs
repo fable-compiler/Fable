@@ -205,6 +205,19 @@ let ``test Erased union type testing works`` () =
     U3.Case1 "HELLO" |> toString |> equal "HELLO"
     U3.Case2 3 |> toString |> equal "6"
     "HELLO" |> Wrapper |> U3.Case3 |> toString |> equal "OLLEH"
+
+[<Fact>]
+let ``test Implicit conversion to erased unions works`` () =
+    let strify (x: U3<int, string, bool>) =
+        match x with
+        | U3.Case1 i -> "i: " + string i
+        | U3.Case2 s -> "s: " + s
+        | U3.Case3 b -> if b then "b: yes" else "b: no"
+    let s: U2<int, string> = "foo"
+    s |> equal (U2.Case2 "foo")
+    strify 42 |> equal "i: 42"
+    strify "foo" |> equal "s: foo"
+    strify true |> equal "b: yes"
 #endif
 
 [<Fact>]

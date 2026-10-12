@@ -5779,6 +5779,7 @@ let tryCall
     match info.DeclaringEntityFullName with
     // Implicit cast for erased unions (U2, U3...) via `!^`; the cast is erased.
     | _ when info.CompiledName = "op_ErasedCast" -> List.tryHead args
+    | Naming.StartsWith "Fable.Core.U" _ when info.CompiledName = "op_Implicit" -> List.tryHead args
     | "Microsoft.FSharp.Core.Operators"
     | "Microsoft.FSharp.Core.Operators.Checked"
     | "Microsoft.FSharp.Core.ExtraTopLevelOperators"
