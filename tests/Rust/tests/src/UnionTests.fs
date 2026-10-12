@@ -476,4 +476,11 @@ let ``Compiler does not complain if the same type appears twice in nested U9`` (
                 U9<T1 more, T2 more, T3 more, int, T5 more, T6 more, T7 more, T8 more, T9 more>> = !^42
     x |> equal (U9.Case4 42)
 
+[<Fact>]
+let ``Implicit conversion to erased unions works`` () =
+    let s: U2<int, string> = "foo"
+    s |> equal (U2.Case2 "foo")
+    let b: U3<int, string, bool> = true
+    b |> equal (U3.Case3 true)
+
 #endif

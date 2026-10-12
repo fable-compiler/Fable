@@ -1298,7 +1298,8 @@ let (|RegexFlags|_|) e =
 [<return: Struct>]
 let (|UniversalFableCoreHelpers|_|) (com: ICompiler) (ctx: Context) r t (i: CallInfo) args error =
     function
-    | "op_ErasedCast" ->
+    | "op_ErasedCast"
+    | "op_Implicit" ->
         match List.tryHead args with
         | Some x -> ValueSome x
         | None -> ValueNone
