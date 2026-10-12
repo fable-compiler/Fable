@@ -6480,12 +6480,16 @@ module Compiler =
                 ModuleDepth = 0
             }
 
+        let entryPointItems = file.Declarations |> getEntryPointItems com ctx
+
         let topAttrs =
             [
                 if isLastFileInProject com then
                     // adds "no_std" to crate if feature is enabled
                     mkInnerAttr "cfg_attr" [ "feature = \"no_std\""; "no_std" ]
-                    mkInnerAttr "cfg_attr" [ "feature = \"no_std\""; "no_main" ]
+                    // Libraries retain Cargo's test-harness entry point.
+                    if not (List.isEmpty entryPointItems) then
+                        mkInnerAttr "cfg_attr" [ "feature = \"no_std\""; "no_main" ]
 
                     // TODO: make some of those conditional on compiler options
                     mkInnerAttr "allow" [ "dead_code" ]
@@ -6507,7 +6511,6 @@ module Compiler =
             // mkInnerAttr "feature" ["destructuring_assignment"]
             ]
 
-        let entryPointItems = file.Declarations |> getEntryPointItems com ctx
         let importItems = com.GetAllImports(ctx) |> transformImports com ctx
         let declItems = file.Declarations |> transformDeclarations com ctx
         let modItems = getModuleItems com ctx // global module imports
