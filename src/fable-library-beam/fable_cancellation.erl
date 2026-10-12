@@ -5,7 +5,8 @@
     cancel_after/2,
     is_cancellation_requested/1,
     throw_if_cancellation_requested/1,
-    register/2, register/3
+    register/2, register/3,
+    exception/0
 ]).
 
 -spec create() -> reference().
@@ -14,6 +15,7 @@
 -spec cancel_after(reference() | undefined, non_neg_integer()) -> ok.
 -spec is_cancellation_requested(reference() | undefined) -> boolean().
 -spec throw_if_cancellation_requested(reference() | undefined) -> ok.
+-spec exception() -> #{exn_type := operation_canceled_exception, message := binary()}.
 -spec register(reference() | undefined, fun()) -> map() | undefined.
 -spec register(reference() | undefined, fun(), term()) -> map() | undefined.
 
@@ -72,9 +74,13 @@ throw_if_cancellation_requested(undefined) ->
     ok;
 throw_if_cancellation_requested(Token) ->
     case is_cancellation_requested(Token) of
-        true -> erlang:error(operation_cancelled);
+        true -> erlang:error(exception());
         false -> ok
     end.
+
+%% invariant: cancellation has a nominal exception tag, never just a matching message.
+exception() ->
+    #{exn_type => operation_canceled_exception, message => <<"The operation was canceled.">>}.
 
 register(Token, F) -> register(Token, F, ok).
 

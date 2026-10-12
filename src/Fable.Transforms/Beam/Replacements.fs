@@ -3332,6 +3332,18 @@ let asyncs (com: ICompiler) (_ctx: Context) r t (i: CallInfo) (_thisArg: Expr op
     | "Catch" ->
         Helper.LibCall(com, "fable_async", "catch_async", t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
+    | "RunSynchronously" ->
+        // decision: Keep timeout and token in separate slots; the legacy /2 runtime also accepts a token.
+        let omitted = Null Any |> makeValue r
+
+        let args =
+            match args with
+            | [ computation ] -> [ computation; omitted; omitted ]
+            | [ computation; timeout ] -> [ computation; timeout; omitted ]
+            | _ -> args
+
+        Helper.LibCall(com, "fable_async", "run_synchronously", t, args, ?loc = r)
+        |> Some
     | meth ->
         Helper.LibCall(com, "fable_async", Naming.lowerFirst meth, t, args, i.SignatureArgTypes, ?loc = r)
         |> Some
