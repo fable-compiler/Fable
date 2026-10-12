@@ -3,6 +3,8 @@
 -module(async_lifecycle_tests).
 -export([
     test_finalizers_settle_once/0,
+    test_finalizers_with_bind_propagate_continuation_exceptions/0,
+    test_bind_evaluation_failure_uses_error_continuation/0,
     test_nested_cancellation_finalizers/0,
     test_cancellation_finalizer_preserves_channel_and_exception/0,
     test_using_settles_once/0,
@@ -60,6 +62,46 @@ test_finalizers_settle_once() ->
         catch error:Reason -> {error, Reason}
         end,
     1 = erase(cleanups),
+    ok.
+
+test_finalizers_with_bind_propagate_continuation_exceptions() ->
+    lists:foreach(fun(Path) ->
+        put(cleanups, 0),
+        put(callbacks, []),
+        Comp = fable_async_builder:try_finally(
+            fable_async_builder:bind(fable_async_builder:return(ok), fun(_) -> body(Path) end),
+            fun(_) -> put(cleanups, get(cleanups) + 1) end
+        ),
+        Callback = fun(Channel) -> fun(_) ->
+            put(callbacks, [Channel | get(callbacks)]),
+            erlang:error(callback_defect)
+        end end,
+        {error, callback_defect} =
+            try Comp(#{
+                on_success => Callback(on_success),
+                on_error => Callback(on_error),
+                on_cancel => Callback(on_cancel),
+                cancel_token => undefined
+            })
+            catch error:Reason -> {error, Reason}
+            end,
+        Expected = case Path of success -> on_success; failure -> on_error; cancel -> on_cancel end,
+        [Expected] = erase(callbacks),
+        1 = erase(cleanups)
+    end, [success, failure, cancel]).
+
+test_bind_evaluation_failure_uses_error_continuation() ->
+    Comp = fable_async_builder:bind(
+        fable_async_builder:return(ok), fun(_) -> erlang:error(binder_defect) end
+    ),
+    Ref = make_ref(),
+    Comp(#{
+        on_success => fun(_) -> erlang:error(unexpected_success_callback) end,
+        on_error => fun(Error) -> put(Ref, {error, Error}) end,
+        on_cancel => fun(_) -> erlang:error(unexpected_cancel_callback) end,
+        cancel_token => undefined
+    }),
+    {error, binder_defect} = erase(Ref),
     ok.
 
 test_nested_cancellation_finalizers() ->

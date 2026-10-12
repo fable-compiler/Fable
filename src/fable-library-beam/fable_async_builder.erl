@@ -70,8 +70,10 @@ bind(Computation, Binder) ->
     fun(Ctx) ->
         Ctx2 = Ctx#{
             on_success => fun(X) ->
-                try
-                    (Binder(X))(Ctx)
+                %% Only binder evaluation is guarded. Exceptions from the returned computation
+                %% may belong to downstream continuations whose handlers have already settled.
+                try Binder(X) of
+                    Bound -> Bound(Ctx)
                 catch
                     _:Err:St ->
                         fable_async:record_stacktrace(Err, St),

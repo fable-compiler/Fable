@@ -99,6 +99,23 @@ let ``test Async finalizers run once and retain throwing compensation`` () =
         equal 1 count
 
 [<Fact>]
+let ``test StartImmediate propagates errors after a finalizer containing a bind`` () =
+    let mutable count = 0
+    let work = async {
+        try
+            let! value = async { return 42 }
+            equal 42 value
+        finally
+            count <- count + 1
+        failwith "downstream defect"
+    }
+    let failure =
+        try Async.StartImmediate work; "success"
+        with error -> error.Message
+    equal "downstream defect" failure
+    equal 1 count
+
+[<Fact>]
 let ``test nested Async finalizers retain outer failure and run once`` () =
     let mutable inner = 0
     let mutable outer = 0

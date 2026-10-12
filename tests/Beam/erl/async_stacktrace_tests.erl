@@ -8,7 +8,8 @@
     test_run_synchronously_keeps_original_stacktrace/0,
     test_handled_stacktrace_is_not_reused/0,
     test_nested_run_keeps_own_stacktrace/0,
-    test_finalizer_failure_keeps_original_stacktrace/0
+    test_finalizer_failure_keeps_original_stacktrace/0,
+    test_start_immediate_downstream_failure_keeps_original_stacktrace/0
 ]).
 
 %% The frame every test below looks for: an error raised at a known place in this module.
@@ -83,4 +84,23 @@ test_finalizer_failure_keeps_original_stacktrace() ->
     case has_boom_on_top(Stacktrace) of
         true -> ok;
         false -> erlang:error({expected_finalizer_frame_on_top, Stacktrace})
+    end.
+
+test_start_immediate_downstream_failure_keeps_original_stacktrace() ->
+    Comp = fable_async_builder:bind(
+        fable_async_builder:try_finally(
+            fable_async_builder:bind(
+                fable_async_builder:return(ok), fun(_) -> fable_async_builder:return(ok) end
+            ),
+            fun(_) -> ok end
+        ),
+        fun(_) -> fun(_) -> boom(downstream_defect) end end
+    ),
+    {error, downstream_defect, Stacktrace} =
+        try fable_async:start_immediate(Comp)
+        catch error:Err:St -> {error, Err, St}
+        end,
+    case has_boom_on_top(Stacktrace) of
+        true -> ok;
+        false -> erlang:error({expected_downstream_frame_on_top, Stacktrace})
     end.
